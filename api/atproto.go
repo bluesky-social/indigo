@@ -1,9 +1,16 @@
 package api
 
-import "context"
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/whyrusleeping/gosky/xrpc"
+)
 
 type ATProto struct {
-	C *XrpcClient
+	C *xrpc.Client
 }
 
 type TID string
@@ -22,7 +29,7 @@ func (atp *ATProto) CreateAccount(ctx context.Context, username, email, password
 	}
 
 	var resp CreateAccountResp
-	if err := atp.C.do(ctx, Procedure, "com.atproto.createAccount", nil, body, &resp); err != nil {
+	if err := atp.C.Do(ctx, xrpc.Procedure, "com.atproto.createAccount", nil, body, &resp); err != nil {
 		return nil, err
 	}
 
@@ -42,7 +49,7 @@ func (atp *ATProto) CreateSession(ctx context.Context, username, password string
 	}
 
 	var resp CreateSessionResp
-	if err := atp.C.do(ctx, Procedure, "com.atproto.createSession", nil, body, &resp); err != nil {
+	if err := atp.C.Do(ctx, xrpc.Procedure, "com.atproto.session.create", nil, body, &resp); err != nil {
 		return nil, err
 	}
 
@@ -65,10 +72,44 @@ func (atp *ATProto) RepoCreateRecord(ctx context.Context, did, collection string
 		Sub: rec,
 	}
 
+	b, _ := json.Marshal(rw)
+	fmt.Println(string(b))
+
 	var out CreateRecordResponse
-	if err := atp.C.do(ctx, Procedure, "com.atproto.repoCreateRecord", params, rw, &out); err != nil {
+	if err := atp.C.Do(ctx, xrpc.Procedure, "com.atproto.repoCreateRecord", params, rw, &out); err != nil {
 		return nil, err
 	}
 
 	return &out, nil
+}
+
+func (atp *ATProto) SyncGetRepo(ctx context.Context, did string, from *string) ([]byte, error) {
+	params := map[string]interface{}{
+		"did": did,
+	}
+	if from != nil {
+		params["from"] = *from
+	}
+
+	out := new(bytes.Buffer)
+	if err := atp.C.Do(ctx, xrpc.Query, "com.atproto.syncGetRepo", params, nil, &out); err != nil {
+		return nil, err
+	}
+
+	return out.Bytes(), nil
+}
+
+func (atp *ATProto) SyncGetRoot(ctx context.Context, did string) (string, error) {
+	params := map[string]interface{}{
+		"did": did,
+	}
+
+	var out struct {
+		Root string `json:"root"`
+	}
+	if err := atp.C.Do(ctx, xrpc.Query, "com.atproto.syncGetRoot", params, nil, &out); err != nil {
+		return "", err
+	}
+
+	return out.Root, nil
 }

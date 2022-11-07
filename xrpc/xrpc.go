@@ -1,4 +1,4 @@
-package api
+package xrpc
 
 import (
 	"bytes"
@@ -11,13 +11,13 @@ import (
 	"strings"
 )
 
-type XrpcClient struct {
+type Client struct {
 	Client *http.Client
 	Auth   *AuthInfo
 	Host   string
 }
 
-func (c *XrpcClient) getClient() *http.Client {
+func (c *Client) getClient() *http.Client {
 	if c.Client == nil {
 		return http.DefaultClient
 	}
@@ -46,7 +46,7 @@ func makeParams(p map[string]interface{}) string {
 	return strings.Join(parts, "&")
 }
 
-func (c *XrpcClient) do(ctx context.Context, kind XRPCRequestType, method string, params map[string]interface{}, bodyobj interface{}, out interface{}) error {
+func (c *Client) Do(ctx context.Context, kind XRPCRequestType, method string, params map[string]interface{}, bodyobj interface{}, out interface{}) error {
 	var body io.Reader
 	if bodyobj != nil {
 		b, err := json.Marshal(bodyobj)
@@ -95,8 +95,12 @@ func (c *XrpcClient) do(ctx context.Context, kind XRPCRequestType, method string
 	}
 
 	if out != nil {
-		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
-			return fmt.Errorf("decoding xrpc response: %w", err)
+		if buf, ok := out.(*bytes.Buffer); ok {
+			io.Copy(buf, resp.Body)
+		} else {
+			if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+				return fmt.Errorf("decoding xrpc response: %w", err)
+			}
 		}
 	}
 

@@ -1,9 +1,13 @@
 package api
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/whyrusleeping/gosky/xrpc"
+)
 
 type BskyApp struct {
-	C *XrpcClient
+	C *xrpc.Client
 }
 
 type PostEntity struct {
@@ -19,8 +23,8 @@ type replyRef struct {
 
 type PostRecord struct {
 	Text      string      `json:"text"`
-	Entities  *PostEntity `json:"entities"`
-	Reply     *replyRef   `json:"reply"`
+	Entities  *PostEntity `json:"entities,omitempty"`
+	Reply     *replyRef   `json:"reply,omitempty"`
 	CreatedAt string      `json:"createdAt"`
 }
 
@@ -42,7 +46,7 @@ func (rw *RecordWrapper) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 
-	inject := "\"$type\":[\"" + rw.Sub.Type() + "\"],"
+	inject := "\"$type\":\"" + rw.Sub.Type() + "\","
 
 	n := append([]byte("{"), []byte(inject)...)
 	n = append(n, b[1:]...)

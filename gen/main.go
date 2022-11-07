@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	if err := cbg.WriteMapEncodersToFile("cbor_gen.go", "mst", mst.NodeData{}, mst.TreeEntry{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("mst/cbor_gen.go", "mst", mst.NodeData{}, mst.TreeEntry{}); err != nil {
 		panic(err)
 	}
 }
