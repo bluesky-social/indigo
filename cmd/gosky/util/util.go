@@ -58,3 +58,22 @@ func loadAuthFromEnv(req bool) (*xrpc.AuthInfo, error) {
 
 	return &auth, nil
 }
+
+func GetBskyClient(cctx *cli.Context, authreq bool) (*api.BskyApp, error) {
+	h := "https://pds.staging.bsky.dev"
+	if envh := os.Getenv("BSKY_PDS_URL"); envh != "" {
+		h = envh
+	}
+
+	auth, err := loadAuthFromEnv(authreq)
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.BskyApp{
+		C: &xrpc.Client{
+			Host: h,
+			Auth: auth,
+		},
+	}, nil
+}

@@ -14,14 +14,15 @@ type ATProto struct {
 type TID string
 
 type CreateSessionResp struct {
-	Jwt      string `json:"jwt"`
-	Username string `json:"name"` // TODO: probably will change to username
-	Did      string `json:"did"`
+	AccessJwt  string `json:"accessJwt"`
+	RefreshJwt string `json:"refreshJwt"`
+	Handle     string `json:"handle"`
+	Did        string `json:"did"`
 }
 
-func (atp *ATProto) CreateSession(ctx context.Context, username, password string) (*CreateSessionResp, error) {
+func (atp *ATProto) CreateSession(ctx context.Context, handle, password string) (*CreateSessionResp, error) {
 	body := map[string]string{
-		"username": username,
+		"handle":   handle,
 		"password": password,
 	}
 

@@ -27,9 +27,10 @@ func (c *Client) getClient() *http.Client {
 type XRPCRequestType int
 
 type AuthInfo struct {
-	Jwt      string `json:"jwt"`
-	Username string `json:"handle"`
-	Did      string `json:"did"`
+	AccessJwt  string `json:"accessJwt"`
+	RefreshJwt string `json:"refreshJwt"`
+	Handle     string `json:"handle"`
+	Did        string `json:"did"`
 }
 
 const (
@@ -82,7 +83,7 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, method string, pa
 	}
 
 	if c.Auth != nil {
-		req.Header.Set("Authorization", "Bearer "+c.Auth.Jwt)
+		req.Header.Set("Authorization", "Bearer "+c.Auth.AccessJwt)
 	}
 
 	resp, err := c.getClient().Do(req.WithContext(ctx))

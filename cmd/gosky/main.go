@@ -22,6 +22,8 @@ func main() {
 		postCmd,
 		didCmd,
 		syncCmd,
+		feedGetCmd,
+		feedGetAuthorCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -188,5 +190,73 @@ var syncGetRootCmd = &cli.Command{
 		fmt.Println(root)
 
 		return nil
+	},
+}
+
+var feedGetCmd = &cli.Command{
+	Name: "getFeed",
+	Action: func(cctx *cli.Context) error {
+		bsky, err := cliutil.GetBskyClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.TODO()
+
+		algo := "reverse-chronological"
+		tl, err := bsky.FeedGetTimeline(ctx, algo, 99, nil)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(tl.Cursor)
+		for _, it := range tl.Feed {
+			b, err := json.MarshalIndent(it, "", "  ")
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(b))
+
+		}
+
+		return nil
+
+	},
+}
+
+var feedGetAuthorCmd = &cli.Command{
+	Name: "getAuthorFeed",
+	Action: func(cctx *cli.Context) error {
+		bsky, err := cliutil.GetBskyClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.TODO()
+
+		author := cctx.Args().First()
+		if author == "" {
+			author = bsky.C.Auth.Did
+		}
+
+		tl, err := bsky.FeedGetAuthorFeed(ctx, author, 99, nil)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(tl.Cursor)
+		for _, it := range tl.Feed {
+			b, err := json.MarshalIndent(it, "", "  ")
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(b))
+
+		}
+
+		return nil
+
 	},
 }
