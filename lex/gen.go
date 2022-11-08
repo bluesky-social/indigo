@@ -47,6 +47,8 @@ type TypeSchema struct {
 	Items      *TypeSchema           `json:"items"`
 	OneOf      []TypeSchema          `json:"oneOf"`
 	Const      *string               `json:"const"`
+	Enum       []string              `json:"enum"`
+	Not        *TypeSchema           `json:"not"`
 }
 
 func (s *Schema) Name() string {
@@ -85,7 +87,7 @@ func (s *Schema) AllTypes(prefix string) []outputType {
 		walk(name, def)
 	}
 
-	tname := nameFromID(s.ID, prefix)
+	tname := s.nameFromID(s.ID, prefix)
 
 	if s.Input != nil {
 		walk(tname+"_Input", s.Input.Schema)
@@ -134,7 +136,7 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 	tps := s.AllTypes(prefix)
 
 	for _, ot := range tps {
-		if err := WriteType(ot.Name, ot.Type, fi); err != nil {
+		if err := s.WriteType(ot.Name, ot.Type, fi); err != nil {
 			return err
 		}
 	}
@@ -144,21 +146,21 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 	}
 	switch s.Type {
 	case "token":
-		n := nameFromID(s.ID, prefix)
+		n := s.nameFromID(s.ID, prefix)
 		fmt.Fprintf(fi, "const %s = %q\n", n, s.ID)
 		return nil
 	case "record":
 		return nil
 	case "query":
-		return WriteRPC(fi, prefix, s)
+		return s.WriteRPC(fi, prefix)
 	case "procedure":
-		return WriteRPC(fi, prefix, s)
+		return s.WriteRPC(fi, prefix)
 	default:
 		return fmt.Errorf("unrecognized lexicon type %q", s.Type)
 	}
 }
 
-func nameFromID(id, prefix string) string {
+func (s *Schema) nameFromID(id, prefix string) string {
 	parts := strings.Split(strings.TrimPrefix(id, prefix), ".")
 	var tname string
 	for _, s := range parts {
@@ -169,8 +171,8 @@ func nameFromID(id, prefix string) string {
 
 }
 
-func WriteRPC(w io.Writer, prefix string, s *Schema) error {
-	fname := nameFromID(s.ID, prefix)
+func (s *Schema) WriteRPC(w io.Writer, prefix string) error {
+	fname := s.nameFromID(s.ID, prefix)
 
 	params := "ctx context.Context, c *xrpc.Client"
 	inpvar := "nil"
@@ -218,12 +220,12 @@ func WriteRPC(w io.Writer, prefix string, s *Schema) error {
 	return nil
 }
 
-func typeNameFromRef(r string) string {
+func (s *Schema) typeNameFromRef(r string) string {
 	p := strings.Split(r, "/")
 	return strings.Title(p[len(p)-1])
 }
 
-func typeNameForField(name, k string, v TypeSchema) (string, error) {
+func (s *Schema) typeNameForField(name, k string, v TypeSchema) (string, error) {
 	switch v.Type {
 	case "string":
 		return "string", nil
@@ -232,14 +234,14 @@ func typeNameForField(name, k string, v TypeSchema) (string, error) {
 	case "boolean":
 		return "bool", nil
 	case "object":
-		return name + "_" + strings.Title(k), nil
+		return "*" + name + "_" + strings.Title(k), nil
 	case "":
 		if v.Ref != "" {
-			return typeNameFromRef(v.Ref), nil
+			return "*" + s.typeNameFromRef(v.Ref), nil
 		}
 
 		if len(v.OneOf) > 0 {
-			return name + "_" + strings.Title(k), nil
+			return "*" + name + "_" + strings.Title(k), nil
 		}
 
 		if v.Const != nil {
@@ -248,7 +250,7 @@ func typeNameForField(name, k string, v TypeSchema) (string, error) {
 
 		return "", fmt.Errorf("field %q in %s does not have discernable type name", k, name)
 	case "array":
-		subt, err := typeNameForField(name+"_"+strings.Title(k), "", *v.Items)
+		subt, err := s.typeNameForField(name+"_"+strings.Title(k), "", *v.Items)
 		if err != nil {
 			return "", err
 		}
@@ -259,20 +261,20 @@ func typeNameForField(name, k string, v TypeSchema) (string, error) {
 	}
 }
 
-func WriteType(name string, t TypeSchema, w io.Writer) error {
+func (s *Schema) WriteType(name string, t TypeSchema, w io.Writer) error {
 	name = strings.Title(name)
-	if err := writeTypeDefinition(name, t, w); err != nil {
+	if err := s.writeTypeDefinition(name, t, w); err != nil {
 		return err
 	}
 
-	if err := writeTypeMethods(name, t, w); err != nil {
+	if err := s.writeTypeMethods(name, t, w); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func writeTypeDefinition(name string, t TypeSchema, w io.Writer) error {
+func (s *Schema) writeTypeDefinition(name string, t TypeSchema, w io.Writer) error {
 	switch t.Type {
 	case "string":
 		// TODO: deal with max length
@@ -292,7 +294,7 @@ func writeTypeDefinition(name string, t TypeSchema, w io.Writer) error {
 		for k, v := range t.Properties {
 			goname := strings.Title(k)
 
-			tname, err := typeNameForField(name, k, v)
+			tname, err := s.typeNameForField(name, k, v)
 			if err != nil {
 				return err
 			}
@@ -302,7 +304,7 @@ func writeTypeDefinition(name string, t TypeSchema, w io.Writer) error {
 		fmt.Fprintf(w, "}\n\n")
 
 	case "array":
-		tname, err := typeNameForField(name, "elem", *t.Items)
+		tname, err := s.typeNameForField(name, "elem", *t.Items)
 		if err != nil {
 			return err
 		}
@@ -317,7 +319,7 @@ func writeTypeDefinition(name string, t TypeSchema, w io.Writer) error {
 				if e.Ref == "" {
 					return fmt.Errorf("Enums must only contain refs")
 				}
-				tname := typeNameFromRef(e.Ref)
+				tname := s.typeNameFromRef(e.Ref)
 				fmt.Fprintf(w, "\t%s *%s\n", tname, tname)
 			}
 
@@ -330,27 +332,27 @@ func writeTypeDefinition(name string, t TypeSchema, w io.Writer) error {
 	return nil
 }
 
-func writeTypeMethods(name string, t TypeSchema, w io.Writer) error {
+func (s *Schema) writeTypeMethods(name string, t TypeSchema, w io.Writer) error {
 	switch t.Type {
 	case "string", "number", "array", "boolean":
 		return nil
 	case "object":
-		if err := writeJsonMarshalerObject(name, t, w); err != nil {
+		if err := s.writeJsonMarshalerObject(name, t, w); err != nil {
 			return err
 		}
 
-		if err := writeJsonUnmarshalerObject(name, t, w); err != nil {
+		if err := s.writeJsonUnmarshalerObject(name, t, w); err != nil {
 			return err
 		}
 
 		return nil
 	case "":
 		if len(t.OneOf) > 0 {
-			if err := writeJsonMarshalerEnum(name, t, w); err != nil {
+			if err := s.writeJsonMarshalerEnum(name, t, w); err != nil {
 				return err
 			}
 
-			if err := writeJsonUnmarshalerEnum(name, t, w); err != nil {
+			if err := s.writeJsonUnmarshalerEnum(name, t, w); err != nil {
 				return err
 			}
 
@@ -381,7 +383,7 @@ func forEachProp(t TypeSchema, cb func(k string, ts TypeSchema) error) error {
 	return nil
 }
 
-func writeJsonMarshalerObject(name string, t TypeSchema, w io.Writer) error {
+func (s *Schema) writeJsonMarshalerObject(name string, t TypeSchema, w io.Writer) error {
 	if len(t.Properties) == 0 {
 		// TODO: this is a hacky special casing of record types...
 		return nil
@@ -413,11 +415,11 @@ func writeJsonMarshalerObject(name string, t TypeSchema, w io.Writer) error {
 	return nil
 }
 
-func writeJsonMarshalerEnum(name string, t TypeSchema, w io.Writer) error {
+func (s *Schema) writeJsonMarshalerEnum(name string, t TypeSchema, w io.Writer) error {
 	fmt.Fprintf(w, "func (t *%s) MarshalJSON() ([]byte, error) {\n", name)
 
 	for _, e := range t.OneOf {
-		tname := typeNameFromRef(e.Ref)
+		tname := s.typeNameFromRef(e.Ref)
 		fmt.Fprintf(w, "\tif t.%s != nil {\n", tname)
 		fmt.Fprintf(w, "\t\treturn json.Marshal(t.%s)\n\t}\n", tname)
 	}
@@ -426,37 +428,78 @@ func writeJsonMarshalerEnum(name string, t TypeSchema, w io.Writer) error {
 	return nil
 }
 
-func writeJsonUnmarshalerObject(name string, t TypeSchema, w io.Writer) error {
+func (s *Schema) writeJsonUnmarshalerObject(name string, t TypeSchema, w io.Writer) error {
 	// TODO: would be nice to add some validation...
 	return nil
 	//fmt.Fprintf(w, "func (t *%s) UnmarshalJSON(b []byte) (error) {\n", name)
 }
 
-func getTypeConstValueForType(t TypeSchema) (string, error) {
-	// TODO: this is WRONG
+func (s *Schema) getTypeConstValueForType(t TypeSchema) (string, []string, error) {
 	parts := strings.Split(t.Ref, "/")
-	return parts[len(parts)-1], nil
+	if len(parts) == 3 && parts[0] == "#" && parts[1] == "defs" {
+		defs, ok := s.Defs[parts[2]]
+		if !ok {
+			return "", nil, fmt.Errorf("bad reference %q", parts[2])
+		}
+
+		typ, ok := defs.Properties["type"]
+		if !ok {
+			return "", nil, fmt.Errorf("referenced enum value %q does not have type property", parts[2])
+		}
+
+		if typ.Const == nil && typ.Not == nil {
+			return "", nil, fmt.Errorf("referenced enum value %q has non-const type property and no not", parts[2])
+		}
+
+		if typ.Const != nil {
+			return *typ.Const, nil, nil
+		}
+
+		if len(typ.Not.Enum) == 0 {
+			return "", nil, fmt.Errorf("final clause 'not' enum must not be empty")
+		}
+
+		return "", typ.Not.Enum, nil
+	}
+
+	return "", nil, fmt.Errorf("type had bad Ref value: %q", t.Ref)
 }
 
-func writeJsonUnmarshalerEnum(name string, t TypeSchema, w io.Writer) error {
+func (s *Schema) writeJsonUnmarshalerEnum(name string, t TypeSchema, w io.Writer) error {
 	fmt.Fprintf(w, "func (t *%s) UnmarshalJSON(b []byte) (error) {\n", name)
 	fmt.Fprintf(w, "\ttyp, err := util.EnumTypeExtract(b)\n")
 	fmt.Fprintf(w, "\tif err != nil {\n\t\treturn err\n\t}\n\n")
 	fmt.Fprintf(w, "\tswitch typ {\n")
-	for _, e := range t.OneOf {
-		tc, err := getTypeConstValueForType(e)
+	for i, e := range t.OneOf {
+		tc, nots, err := s.getTypeConstValueForType(e)
 		if err != nil {
 			return err
 		}
 
-		goname := typeNameFromRef(e.Ref)
+		if len(nots) > 0 {
+			if i == len(t.OneOf)-1 {
+				fmt.Fprintf(w, `
+	default:
+		var out interface{}
+		if err := json.Unmarshal(b, &out); err != nil {
+			return err
+		}
+		t.%s = out
+		return nil
+`, s.typeNameFromRef(e.Ref))
+
+			} else {
+				return fmt.Errorf("enum member with a not clause must be the last in a oneOf")
+			}
+			break
+		}
+
+		goname := s.typeNameFromRef(e.Ref)
 
 		fmt.Fprintf(w, "\t\tcase \"%s\":\n", tc)
 		fmt.Fprintf(w, "\t\t\tt.%s = new(%s)\n", goname, goname)
 		fmt.Fprintf(w, "\t\t\treturn json.Unmarshal(b, t.%s)\n", goname)
 	}
-	fmt.Fprintf(w, "\t\tdefault:\n")
-	fmt.Fprintf(w, "\t\treturn fmt.Errorf(\"%%q not valid enum member type\", typ)\n")
 	fmt.Fprintf(w, "\t}\n")
 	fmt.Fprintf(w, "}\n\n")
 
