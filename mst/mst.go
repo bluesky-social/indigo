@@ -38,6 +38,10 @@ func NewMST(cst cbor.IpldStore, fanout int, ptr cid.Cid, entries []NodeEntry, la
 	return mst
 }
 
+func LoadMST(cst cbor.IpldStore, fanout int, root cid.Cid) *MerkleSearchTree {
+	return NewMST(cst, fanout, root, nil, 0)
+}
+
 func (mst *MerkleSearchTree) newTree(entries []NodeEntry) *MerkleSearchTree {
 	return NewMST(mst.cst, mst.fanout, cid.Undef, entries, mst.layer)
 }
@@ -72,7 +76,7 @@ const (
 
 type NodeEntry struct {
 	Kind int
-	Key  []byte
+	Key  string
 	Val  cid.Cid
 	Tree *MerkleSearchTree
 }
@@ -98,7 +102,7 @@ func (ne NodeEntry) isUndefined() bool {
 
 type TreeEntry struct {
 	P int64    `cborgen:"p"`
-	K []byte   `cborgen:"k"`
+	K string   `cborgen:"k"`
 	V cid.Cid  `cborgen:"v"`
 	T *cid.Cid `cborgen:"t"`
 }
@@ -108,7 +112,7 @@ type NodeData struct {
 	E []TreeEntry `cborgen:"e"`
 }
 
-func (mst *MerkleSearchTree) Add(ctx context.Context, key []byte, val cid.Cid, knownZeros int) (*MerkleSearchTree, error) {
+func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, knownZeros int) (*MerkleSearchTree, error) {
 	keyZeros := knownZeros // is this really just to avoid rerunning the leading zeros hash?
 	if keyZeros < 0 {
 		keyZeros = leadingZerosOnHash(key, mst.fanout)
@@ -137,8 +141,8 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key []byte, val cid.Cid, k
 			return nil, err
 		}
 
-		if found.isLeaf() && bytes.Equal(found.Key, key) {
-			return nil, fmt.Errorf("value already set at key: %x", key)
+		if found.isLeaf() && found.Key == key {
+			return nil, fmt.Errorf("value already set at key: %s", key)
 		}
 
 		prevNode, err := mst.atIndex(index - 1)
@@ -241,6 +245,31 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key []byte, val cid.Cid, k
 	}
 }
 
+var ErrNotFound = fmt.Errorf("mst: not found")
+
+func (mst *MerkleSearchTree) Get(ctx context.Context, k string) (cid.Cid, error) {
+	index, err := mst.findGtOrEqualLeafIndex(ctx, k)
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	found, err := mst.atIndex(index)
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	if !found.isUndefined() && found.isLeaf() && found.Key == k {
+		return found.Val, nil
+	}
+
+	prev, err := mst.atIndex(index - 1)
+	if !prev.isUndefined() && prev.isTree() {
+		return prev.Tree.Get(ctx, k)
+	}
+
+	return cid.Undef, ErrNotFound
+}
+
 func (mst *MerkleSearchTree) createParent(ctx context.Context) (*MerkleSearchTree, error) {
 	layer, err := mst.getLayer(ctx)
 	if err != nil {
@@ -302,7 +331,7 @@ func (mst *MerkleSearchTree) replaceWithSplit(ctx context.Context, ix int, left 
 	return mst.newTree(update), nil
 }
 
-func (mst *MerkleSearchTree) splitAround(ctx context.Context, key []byte) (*MerkleSearchTree, *MerkleSearchTree, error) {
+func (mst *MerkleSearchTree) splitAround(ctx context.Context, key string) (*MerkleSearchTree, *MerkleSearchTree, error) {
 	index, err := mst.findGtOrEqualLeafIndex(ctx, key)
 	if err != nil {
 		return nil, nil, err
@@ -428,14 +457,15 @@ func (mst *MerkleSearchTree) atIndex(ix int) (NodeEntry, error) {
 }
 
 // this smells inefficient
-func (mst *MerkleSearchTree) findGtOrEqualLeafIndex(ctx context.Context, key []byte) (int, error) {
+func (mst *MerkleSearchTree) findGtOrEqualLeafIndex(ctx context.Context, key string) (int, error) {
 	entries, err := mst.getEntries(ctx)
 	if err != nil {
 		return -1, err
 	}
 
 	for i, e := range entries {
-		if e.isLeaf() && bytes.Compare(e.Key, key) > 0 {
+		//if e.isLeaf() && bytes.Compare(e.Key, key) > 0 {
+		if e.isLeaf() && e.Key > key {
 			return i, nil
 		}
 	}
@@ -542,7 +572,7 @@ func serializeNodeData(entries []NodeEntry) (*NodeData, error) {
 		data.L = &ptr
 	}
 
-	var lastKey []byte
+	var lastKey string
 	for i < len(entries) {
 		leaf := entries[i]
 
@@ -577,7 +607,7 @@ func serializeNodeData(entries []NodeEntry) (*NodeData, error) {
 	return &data, nil
 }
 
-func countPrefixLen(a, b []byte) int {
+func countPrefixLen(a, b string) int {
 	// this is probably wrong
 	for i := 0; i < len(a); i++ {
 		if a[i] != b[i] {
@@ -597,7 +627,7 @@ func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, 
 		})
 	}
 
-	var lastKey []byte
+	var lastKey string
 	for _, e := range nd.E {
 		key := make([]byte, int(e.P)+len(e.K))
 		copy(key, lastKey[:e.P])
@@ -605,11 +635,11 @@ func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, 
 
 		entries = append(entries, NodeEntry{
 			Kind: EntryLeaf,
-			Key:  key,
+			Key:  string(key),
 			Val:  e.V,
 		})
 
-		lastKey = key
+		lastKey = string(key)
 		if e.T != nil {
 			entries = append(entries, NodeEntry{
 				Kind: EntryTree,
@@ -652,8 +682,8 @@ func (mst *MerkleSearchTree) getLayer(ctx context.Context) (int, error) {
 	return mst.layer, nil
 }
 
-func leadingZerosOnHash(k []byte, fanout int) int {
-	hv := sha256.Sum256(k)
+func leadingZerosOnHash(k string, fanout int) int {
+	hv := sha256.Sum256([]byte(k))
 
 	var total int
 	for i := 0; i < len(hv); i++ {
@@ -664,4 +694,40 @@ func leadingZerosOnHash(k []byte, fanout int) int {
 		}
 	}
 	return total / fanout
+}
+
+func (mst *MerkleSearchTree) WalkLeavesFrom(ctx context.Context, key string, cb func(n NodeEntry) error) error {
+	index, err := mst.findGtOrEqualLeafIndex(ctx, key)
+	if err != nil {
+		return err
+	}
+
+	entries, err := mst.getEntries(ctx)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(entries)
+
+	if index > 0 {
+		prev := entries[index-1]
+		if !prev.isUndefined() && prev.isTree() {
+			if err := prev.Tree.WalkLeavesFrom(ctx, key, cb); err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, e := range entries[index:] {
+		if e.isLeaf() {
+			if err := cb(e); err != nil {
+				return err
+			}
+		} else {
+			if err := e.Tree.WalkLeavesFrom(ctx, key, cb); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

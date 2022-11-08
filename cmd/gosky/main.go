@@ -10,7 +10,7 @@ import (
 
 	cli "github.com/urfave/cli/v2"
 	api "github.com/whyrusleeping/gosky/api"
-	"github.com/whyrusleeping/gosky/xrpc"
+	cliutil "github.com/whyrusleeping/gosky/cmd/gosky/util"
 )
 
 func main() {
@@ -18,6 +18,7 @@ func main() {
 
 	app.Commands = []*cli.Command{
 		createSessionCmd,
+		newAccountCmd,
 		postCmd,
 		didCmd,
 		syncCmd,
@@ -26,16 +27,43 @@ func main() {
 	app.RunAndExitOnError()
 }
 
+var newAccountCmd = &cli.Command{
+	Name: "newAccount",
+	Action: func(cctx *cli.Context) error {
+		atp, err := cliutil.GetATPClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		email := cctx.Args().Get(0)
+		handle := cctx.Args().Get(1)
+		password := cctx.Args().Get(2)
+
+		acc, err := atp.CreateAccount(context.TODO(), email, handle, password)
+		if err != nil {
+			return err
+		}
+
+		b, err := json.MarshalIndent(acc, "", "  ")
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(string(b))
+		return nil
+	},
+}
 var createSessionCmd = &cli.Command{
 	Name: "createSession",
 	Action: func(cctx *cli.Context) error {
-		atp := &api.ATProto{
-			C: &xrpc.Client{
-				Host: "https://pds.staging.bsky.dev",
-			},
+		atp, err := cliutil.GetATPClient(cctx, false)
+		if err != nil {
+			return err
 		}
+		handle := cctx.Args().Get(0)
+		password := cctx.Args().Get(1)
 
-		ses, err := atp.CreateSession(context.TODO(), cctx.Args().Get(0), cctx.Args().Get(1))
+		ses, err := atp.CreateSession(context.TODO(), handle, password)
 		if err != nil {
 			return err
 		}
@@ -50,42 +78,19 @@ var createSessionCmd = &cli.Command{
 	},
 }
 
-func loadAuthFromEnv(req bool) (*xrpc.AuthInfo, error) {
-	val := os.Getenv("BSKY_AUTH")
-	if val == "" {
-		if req {
-			return nil, fmt.Errorf("no auth env present, BSKY_AUTH not set")
-		}
-
-		return nil, nil
-	}
-
-	var auth xrpc.AuthInfo
-	if err := json.Unmarshal([]byte(val), &auth); err != nil {
-		return nil, err
-	}
-
-	return &auth, nil
-}
-
 var postCmd = &cli.Command{
 	Name: "post",
 	Action: func(cctx *cli.Context) error {
-		auth, err := loadAuthFromEnv(true)
+		atp, err := cliutil.GetATPClient(cctx, true)
 		if err != nil {
 			return err
 		}
 
-		atp := &api.ATProto{
-			C: &xrpc.Client{
-				Host: "https://pds.staging.bsky.dev",
-				Auth: auth,
-			},
-		}
+		auth := atp.C.Auth
 
 		text := strings.Join(cctx.Args().Slice(), " ")
 
-		resp, err := atp.RepoCreateRecord(context.TODO(), auth.Did, "app.bsky.post", true, &api.PostRecord{
+		resp, err := atp.RepoCreateRecord(context.TODO(), auth.Did, "app.bsky.feed.post", true, &api.PostRecord{
 			Text:      text,
 			CreatedAt: time.Now().Format(time.RFC3339),
 		})
@@ -110,9 +115,7 @@ var didCmd = &cli.Command{
 var didGetCmd = &cli.Command{
 	Name: "get",
 	Action: func(cctx *cli.Context) error {
-		s := &api.PLCServer{
-			Host: "https://plc.staging.bsky.dev",
-		}
+		s := cliutil.GetPLCClient(cctx)
 
 		doc, err := s.GetDocument(cctx.Args().First())
 		if err != nil {
@@ -139,11 +142,15 @@ var syncCmd = &cli.Command{
 
 var syncGetRepoCmd = &cli.Command{
 	Name: "getRepo",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name: "raw",
+		},
+	},
 	Action: func(cctx *cli.Context) error {
-		atp := &api.ATProto{
-			C: &xrpc.Client{
-				Host: "https://pds.staging.bsky.dev",
-			},
+		atp, err := cliutil.GetATPClient(cctx, false)
+		if err != nil {
+			return err
 		}
 
 		ctx := context.TODO()
@@ -153,7 +160,11 @@ var syncGetRepoCmd = &cli.Command{
 			return err
 		}
 
-		fmt.Printf("%x", repobytes)
+		if cctx.Bool("raw") {
+			os.Stdout.Write(repobytes)
+		} else {
+			fmt.Printf("%x", repobytes)
+		}
 
 		return nil
 	},
@@ -162,10 +173,9 @@ var syncGetRepoCmd = &cli.Command{
 var syncGetRootCmd = &cli.Command{
 	Name: "getRoot",
 	Action: func(cctx *cli.Context) error {
-		atp := &api.ATProto{
-			C: &xrpc.Client{
-				Host: "https://pds.staging.bsky.dev",
-			},
+		atp, err := cliutil.GetATPClient(cctx, false)
+		if err != nil {
+			return err
 		}
 
 		ctx := context.TODO()

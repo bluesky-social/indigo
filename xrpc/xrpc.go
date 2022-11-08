@@ -28,7 +28,7 @@ type XRPCRequestType int
 
 type AuthInfo struct {
 	Jwt      string `json:"jwt"`
-	Username string `json:"name"`
+	Username string `json:"handle"`
 	Did      string `json:"did"`
 }
 
@@ -76,7 +76,10 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, method string, pa
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/json")
+
+	if bodyobj != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 
 	if c.Auth != nil {
 		req.Header.Set("Authorization", "Bearer "+c.Auth.Jwt)

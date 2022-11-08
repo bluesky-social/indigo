@@ -212,7 +212,7 @@ func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.K ([]uint8) (slice)
+	// t.K (string) (string)
 	if len("k") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"k\" was too long")
 	}
@@ -224,15 +224,14 @@ func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.K) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.K was too long")
+	if len(t.K) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.K was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajByteString, uint64(len(t.K))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.K))); err != nil {
 		return err
 	}
-
-	if _, err := cw.Write(t.K[:]); err != nil {
+	if _, err := io.WriteString(w, string(t.K)); err != nil {
 		return err
 	}
 
@@ -341,27 +340,16 @@ func (t *TreeEntry) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.P = int64(extraI)
 			}
-			// t.K ([]uint8) (slice)
+			// t.K (string) (string)
 		case "k":
 
-			maj, extra, err = cr.ReadHeader()
-			if err != nil {
-				return err
-			}
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
 
-			if extra > cbg.ByteArrayMaxLen {
-				return fmt.Errorf("t.K: byte array too large (%d)", extra)
-			}
-			if maj != cbg.MajByteString {
-				return fmt.Errorf("expected byte array")
-			}
-
-			if extra > 0 {
-				t.K = make([]uint8, extra)
-			}
-
-			if _, err := io.ReadFull(cr, t.K[:]); err != nil {
-				return err
+				t.K = string(sval)
 			}
 			// t.V (cid.Cid) (struct)
 		case "v":

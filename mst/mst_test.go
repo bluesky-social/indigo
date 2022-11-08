@@ -35,7 +35,7 @@ func TestBasicMst(t *testing.T) {
 	}
 
 	for k, v := range vals {
-		nmst, err := mst.Add(ctx, []byte(k), v, -1)
+		nmst, err := mst.Add(ctx, k, v, -1)
 		if err != nil {
 			t.Fatal(err)
 		}

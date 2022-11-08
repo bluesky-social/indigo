@@ -29,7 +29,7 @@ type PostRecord struct {
 }
 
 func (pr PostRecord) Type() string {
-	return "app.bsky.post"
+	return "app.bsky.feed.post"
 }
 
 type JsonLD interface {
