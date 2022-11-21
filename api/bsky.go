@@ -12,29 +12,30 @@ type BskyApp struct {
 }
 
 type PostEntity struct {
-	Index []int  `json:"index"`
-	Type  string `json:"type"`
-	Value string `json:"value"`
+	Index []int64 `json:"index"`
+	Type  string  `json:"type"`
+	Value string  `json:"value"`
 }
 
-type replyRef struct {
+type ReplyRef struct {
 	Root   PostRef `json:"root"`
 	Parent PostRef `json:"parent"`
 }
 
 type PostRecord struct {
-	Text      string      `json:"text"`
-	Entities  *PostEntity `json:"entities,omitempty"`
-	Reply     *replyRef   `json:"reply,omitempty"`
-	CreatedAt string      `json:"createdAt"`
+	Type      string        `json:"$type,omitempty" cborgen:"$type"`
+	Text      string        `json:"text" cborgen:"text"`
+	Entities  []*PostEntity `json:"entities,omitempty" cborgen:"entities"`
+	Reply     *ReplyRef     `json:"reply,omitempty" cborgen:"reply"`
+	CreatedAt string        `json:"createdAt" cborgen:"createdAt"`
 }
 
-func (pr PostRecord) Type() string {
-	return "app.bsky.feed.post"
+func (pr *PostRecord) FixType() {
+	pr.Type = "app.bsky.feed.post"
 }
 
 type JsonLD interface {
-	Type() string
+	FixType()
 }
 
 type RecordWrapper struct {
@@ -42,17 +43,8 @@ type RecordWrapper struct {
 }
 
 func (rw *RecordWrapper) MarshalJSON() ([]byte, error) {
-	b, err := json.Marshal(rw.Sub)
-	if err != nil {
-		return nil, err
-	}
-
-	inject := "\"$type\":\"" + rw.Sub.Type() + "\","
-
-	n := append([]byte("{"), []byte(inject)...)
-	n = append(n, b[1:]...)
-
-	return n, nil
+	rw.Sub.FixType()
+	return json.Marshal(rw.Sub)
 }
 
 type PostRef struct {
@@ -109,6 +101,42 @@ func (b *BskyApp) FeedGetAuthorFeed(ctx context.Context, author string, limit in
 
 	var out GetTimelineResp
 	if err := b.C.Do(ctx, xrpc.Query, "app.bsky.feed.getAuthorFeed", params, nil, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
+
+type GSADeclaration struct {
+	Cid       string `json:"cid"`
+	ActorType string `json:"actorType"`
+}
+
+type GetSuggestionsActor struct {
+	Did         string          `json:"did"`
+	Declaration *GSADeclaration `json:"declaration"`
+	Handle      string          `json:"handle"`
+	DisplayName string          `json:"displayName"`
+	Description string          `json:"description"`
+	IndexedAt   string          `json:"indexedAt"`
+}
+
+type GetSuggestionsResp struct {
+	Cursor string                `json:"cursor"`
+	Actors []GetSuggestionsActor `json:"actors"`
+}
+
+func (b *BskyApp) ActorGetSuggestions(ctx context.Context, limit int, cursor *string) (*GetSuggestionsResp, error) {
+	params := map[string]interface{}{
+		"limit": limit,
+	}
+
+	if cursor != nil {
+		params["cursor"] = *cursor
+	}
+
+	var out GetSuggestionsResp
+	if err := b.C.Do(ctx, xrpc.Query, "app.bsky.actor.getSuggestions", params, nil, &out); err != nil {
 		return nil, err
 	}
 

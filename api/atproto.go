@@ -42,11 +42,15 @@ type CreateAccountResp struct {
 	DeclarationCid string `json:"declarationCid"`
 }
 
-func (atp *ATProto) CreateAccount(ctx context.Context, email, handle, password string) (*CreateAccountResp, error) {
+func (atp *ATProto) CreateAccount(ctx context.Context, email, handle, password string, invite *string) (*CreateAccountResp, error) {
 	body := map[string]string{
 		"email":    email,
 		"handle":   handle,
 		"password": password,
+	}
+
+	if invite != nil {
+		body["inviteCode"] = *invite
 	}
 
 	var resp CreateAccountResp
@@ -111,4 +115,30 @@ func (atp *ATProto) SyncGetRoot(ctx context.Context, did string) (string, error)
 	}
 
 	return out.Root, nil
+}
+
+func (atp *ATProto) HandleResolve(ctx context.Context, handle string) (string, error) {
+	params := map[string]interface{}{
+		"handle": handle,
+	}
+
+	var out struct {
+		Did string `json:"did"`
+	}
+	if err := atp.C.Do(ctx, xrpc.Query, "com.atproto.handle.resolve", params, nil, &out); err != nil {
+		return "", err
+	}
+
+	return out.Did, nil
+
+}
+
+func (atp *ATProto) SessionRefresh(ctx context.Context) (*xrpc.AuthInfo, error) {
+	var out xrpc.AuthInfo
+	if err := atp.C.Do(ctx, xrpc.Procedure, "com.atproto.session.refresh", nil, nil, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+
 }

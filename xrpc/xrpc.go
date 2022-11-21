@@ -50,12 +50,16 @@ func makeParams(p map[string]interface{}) string {
 func (c *Client) Do(ctx context.Context, kind XRPCRequestType, method string, params map[string]interface{}, bodyobj interface{}, out interface{}) error {
 	var body io.Reader
 	if bodyobj != nil {
-		b, err := json.Marshal(bodyobj)
-		if err != nil {
-			return err
-		}
+		if rr, ok := bodyobj.(io.Reader); ok {
+			body = rr
+		} else {
+			b, err := json.Marshal(bodyobj)
+			if err != nil {
+				return err
+			}
 
-		body = bytes.NewReader(b)
+			body = bytes.NewReader(b)
+		}
 	}
 
 	var m string

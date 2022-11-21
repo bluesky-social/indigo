@@ -10,10 +10,20 @@ import (
 
 type PLCServer struct {
 	Host string
+	C    *http.Client
 }
 
 func (s *PLCServer) GetDocument(didstr string) (*did.Document, error) {
-	resp, err := http.Get(s.Host + "/" + didstr)
+	if s.C == nil {
+		s.C = http.DefaultClient
+	}
+
+	req, err := http.NewRequest("GET", s.Host+"/"+didstr, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := s.C.Do(req)
 	if err != nil {
 		return nil, err
 	}

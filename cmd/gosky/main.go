@@ -16,6 +16,15 @@ import (
 func main() {
 	app := cli.NewApp()
 
+	app.Flags = []cli.Flag{
+		&cli.StringFlag{
+			Name:  "pds",
+			Value: "https://pds.staging.bsky.dev",
+		},
+		&cli.StringFlag{
+			Name: "account",
+		},
+	}
 	app.Commands = []*cli.Command{
 		createSessionCmd,
 		newAccountCmd,
@@ -24,6 +33,7 @@ func main() {
 		syncCmd,
 		feedGetCmd,
 		feedGetAuthorCmd,
+		actorGetSuggestionsCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -41,7 +51,12 @@ var newAccountCmd = &cli.Command{
 		handle := cctx.Args().Get(1)
 		password := cctx.Args().Get(2)
 
-		acc, err := atp.CreateAccount(context.TODO(), email, handle, password)
+		var invite *string
+		if inv := cctx.Args().Get(3); inv != "" {
+			invite = &inv
+		}
+
+		acc, err := atp.CreateAccount(context.TODO(), email, handle, password, invite)
 		if err != nil {
 			return err
 		}
@@ -255,6 +270,38 @@ var feedGetAuthorCmd = &cli.Command{
 			fmt.Println(string(b))
 
 		}
+
+		return nil
+
+	},
+}
+
+var actorGetSuggestionsCmd = &cli.Command{
+	Name: "actorGetSuggestions",
+	Action: func(cctx *cli.Context) error {
+		bsky, err := cliutil.GetBskyClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.TODO()
+
+		author := cctx.Args().First()
+		if author == "" {
+			author = bsky.C.Auth.Did
+		}
+
+		resp, err := bsky.ActorGetSuggestions(ctx, 100, nil)
+		if err != nil {
+			return err
+		}
+
+		b, err := json.MarshalIndent(resp.Actors, "", "  ")
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(string(b))
 
 		return nil
 

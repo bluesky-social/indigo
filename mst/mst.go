@@ -46,6 +46,37 @@ func (mst *MerkleSearchTree) newTree(entries []NodeEntry) *MerkleSearchTree {
 	return NewMST(mst.cst, mst.fanout, cid.Undef, entries, mst.layer)
 }
 
+func (mst *MerkleSearchTree) GetPointer(ctx context.Context) (cid.Cid, error) {
+	if mst.validPtr {
+		return mst.pointer, nil
+	}
+
+	entries, err := mst.getEntries(ctx)
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	for _, e := range entries {
+		if e.isTree() {
+			if !e.Tree.validPtr {
+				_, err := e.Tree.GetPointer(ctx)
+				if err != nil {
+					return cid.Undef, err
+				}
+			}
+		}
+	}
+
+	nptr, err := cidForEntries(ctx, entries, mst.cst)
+	if err != nil {
+		return cid.Undef, err
+	}
+	mst.pointer = nptr
+	mst.validPtr = true
+
+	return mst.pointer, nil
+}
+
 func create(ctx context.Context, cst cbor.IpldStore, entries []NodeEntry, layer int, fanout int) (*MerkleSearchTree, error) {
 	ptr, err := cidForEntries(ctx, entries, cst)
 	if err != nil {

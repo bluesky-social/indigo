@@ -85,7 +85,7 @@ func main() {
 		for _, arg := range paths {
 			s, err := lex.ReadSchema(arg)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to read file %q: %w", arg, err)
 			}
 
 			schemas = append(schemas, s)

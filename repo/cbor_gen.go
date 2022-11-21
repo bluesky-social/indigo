@@ -338,8 +338,13 @@ func (t *Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	var emptyFieldCount int
 
-	if _, err := cw.Write([]byte{164}); err != nil {
+	if t.Prev == nil {
+		emptyFieldCount++
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(4-emptyFieldCount))); err != nil {
 		return err
 	}
 
@@ -405,21 +410,30 @@ func (t *Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Prev (cid.Cid) (struct)
-	if len("prev") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"prev\" was too long")
-	}
+	if t.Prev != nil {
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("prev")); err != nil {
-		return err
-	}
+		if len("prev") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"prev\" was too long")
+		}
 
-	if err := cbg.WriteCid(cw, t.Prev); err != nil {
-		return xerrors.Errorf("failed to write cid field t.Prev: %w", err)
-	}
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("prev")); err != nil {
+			return err
+		}
 
+		if t.Prev == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if err := cbg.WriteCid(cw, *t.Prev); err != nil {
+				return xerrors.Errorf("failed to write cid field t.Prev: %w", err)
+			}
+		}
+
+	}
 	return nil
 }
 
@@ -513,12 +527,22 @@ func (t *Commit) UnmarshalCBOR(r io.Reader) (err error) {
 
 			{
 
-				c, err := cbg.ReadCid(cr)
+				b, err := cr.ReadByte()
 				if err != nil {
-					return xerrors.Errorf("failed to read cid field t.Prev: %w", err)
+					return err
 				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
 
-				t.Prev = c
+					c, err := cbg.ReadCid(cr)
+					if err != nil {
+						return xerrors.Errorf("failed to read cid field t.Prev: %w", err)
+					}
+
+					t.Prev = &c
+				}
 
 			}
 

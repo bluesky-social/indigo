@@ -10,12 +10,14 @@ import (
 )
 
 type Schema struct {
+	prefix string
+
 	Lexicon     int                   `json:"lexicon"`
 	ID          string                `json:"id"`
 	Type        string                `json:"type"`
 	Key         string                `json:"key"`
 	Description string                `json:"description"`
-	Parameters  map[string]Param      `json:"parameters"`
+	Parameters  *TypeSchema           `json:"parameters"`
 	Input       *InputType            `json:"input"`
 	Output      *OutputType           `json:"output"`
 	Defs        map[string]TypeSchema `json:"defs"`
@@ -83,11 +85,11 @@ func (s *Schema) AllTypes(prefix string) []outputType {
 		}
 	}
 
-	for name, def := range s.Defs {
-		walk(name, def)
-	}
-
 	tname := s.nameFromID(s.ID, prefix)
+
+	for name, def := range s.Defs {
+		walk(tname+"_"+strings.Title(name), def)
+	}
 
 	if s.Input != nil {
 		walk(tname+"_Input", s.Input.Schema)
@@ -123,6 +125,8 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 		return err
 	}
 	defer fi.Close()
+
+	s.prefix = prefix
 
 	fmt.Fprintf(fi, "package %s\n\n", pkg)
 	fmt.Fprintf(fi, "import (\n")
@@ -172,7 +176,7 @@ func (s *Schema) nameFromID(id, prefix string) string {
 }
 
 func (s *Schema) WriteRPC(w io.Writer, prefix string) error {
-	fname := s.nameFromID(s.ID, prefix)
+	fname := s.nameFromID(s.ID, s.prefix)
 
 	params := "ctx context.Context, c *xrpc.Client"
 	inpvar := "nil"
@@ -221,8 +225,9 @@ func (s *Schema) WriteRPC(w io.Writer, prefix string) error {
 }
 
 func (s *Schema) typeNameFromRef(r string) string {
+	sname := s.nameFromID(s.ID, s.prefix)
 	p := strings.Split(r, "/")
-	return strings.Title(p[len(p)-1])
+	return sname + "_" + strings.Title(p[len(p)-1])
 }
 
 func (s *Schema) typeNameForField(name, k string, v TypeSchema) (string, error) {
@@ -250,7 +255,7 @@ func (s *Schema) typeNameForField(name, k string, v TypeSchema) (string, error) 
 
 		return "", fmt.Errorf("field %q in %s does not have discernable type name", k, name)
 	case "array":
-		subt, err := s.typeNameForField(name+"_"+strings.Title(k), "", *v.Items)
+		subt, err := s.typeNameForField(name+"_"+strings.Title(k), "Elem", *v.Items)
 		if err != nil {
 			return "", err
 		}
@@ -259,6 +264,23 @@ func (s *Schema) typeNameForField(name, k string, v TypeSchema) (string, error) 
 	default:
 		return "", fmt.Errorf("field %q in %s has unsupported type name", k, name)
 	}
+}
+
+func (s *Schema) lookupRef(ref string) (*TypeSchema, error) {
+	parts := strings.Split(ref, "/")
+	if len(parts) < 3 {
+		return nil, fmt.Errorf("invalid ref: %q", ref)
+	}
+
+	if parts[1] != "defs" {
+		return nil, fmt.Errorf("ref lookups outside of defs not supported")
+	}
+	t, ok := s.Defs[parts[2]]
+	if !ok {
+		return nil, fmt.Errorf("no such def: %q", ref)
+	}
+
+	return &t, nil
 }
 
 func (s *Schema) WriteType(name string, t TypeSchema, w io.Writer) error {
@@ -313,17 +335,30 @@ func (s *Schema) writeTypeDefinition(name string, t TypeSchema, w io.Writer) err
 
 	case "":
 		if len(t.OneOf) > 0 {
-			fmt.Fprintf(w, "type %s struct {\n", name)
-			for _, e := range t.OneOf {
-				// TODO: for now, asserting that all enum options are refs
-				if e.Ref == "" {
-					return fmt.Errorf("Enums must only contain refs")
-				}
-				tname := s.typeNameFromRef(e.Ref)
-				fmt.Fprintf(w, "\t%s *%s\n", tname, tname)
+			// check if this is actually just a string enum
+			first, err := s.lookupRef(t.OneOf[0].Ref)
+			if err != nil {
+				return fmt.Errorf("oneOf pre-check failed: %w", err)
 			}
 
-			fmt.Fprintf(w, "}\n\n")
+			if first.Type == "string" {
+				// okay, this is just a string enum, do something different
+				fmt.Fprintf(w, "type %s string\n", name)
+			} else {
+
+				fmt.Fprintf(w, "type %s struct {\n", name)
+				for _, e := range t.OneOf {
+					// TODO: for now, asserting that all enum options are refs
+					if e.Ref == "" {
+						return fmt.Errorf("Enums must only contain refs")
+					}
+
+					tname := s.typeNameFromRef(e.Ref)
+					fmt.Fprintf(w, "\t%s *%s\n", tname, tname)
+				}
+				fmt.Fprintf(w, "}\n\n")
+			}
+
 		}
 	default:
 		return fmt.Errorf("%s has unrecognized type type %s", name, t.Type)
@@ -348,6 +383,15 @@ func (s *Schema) writeTypeMethods(name string, t TypeSchema, w io.Writer) error 
 		return nil
 	case "":
 		if len(t.OneOf) > 0 {
+			reft, err := s.lookupRef(t.OneOf[0].Ref)
+			if err != nil {
+				return err
+			}
+
+			if reft.Type == "string" {
+				return nil
+			}
+
 			if err := s.writeJsonMarshalerEnum(name, t, w); err != nil {
 				return err
 			}
@@ -478,15 +522,16 @@ func (s *Schema) writeJsonUnmarshalerEnum(name string, t TypeSchema, w io.Writer
 
 		if len(nots) > 0 {
 			if i == len(t.OneOf)-1 {
+				tnref := s.typeNameFromRef(e.Ref)
 				fmt.Fprintf(w, `
 	default:
-		var out interface{}
+		var out %s
 		if err := json.Unmarshal(b, &out); err != nil {
 			return err
 		}
-		t.%s = out
+		t.%s = &out
 		return nil
-`, s.typeNameFromRef(e.Ref))
+`, tnref, tnref)
 
 			} else {
 				return fmt.Errorf("enum member with a not clause must be the last in a oneOf")
