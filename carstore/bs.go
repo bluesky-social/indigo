@@ -45,14 +45,14 @@ type CarShard struct {
 
 	Root      string
 	DataStart int64
-	Seq       int
+	Seq       int `gorm:"index"`
 	Path      string
-	User      uint
+	User      uint `gorm:"index"`
 }
 
 type blockRef struct {
 	gorm.Model
-	Cid    string
+	Cid    string `gorm:"index"`
 	Shard  uint
 	Offset int64
 }
@@ -60,6 +60,9 @@ type blockRef struct {
 type userView struct {
 	cs   *CarStore
 	user uint
+
+	cache    map[cid.Cid]blocks.Block
+	prefetch bool
 }
 
 var _ blockstore.Blockstore = (*userView)(nil)
@@ -86,6 +89,13 @@ func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
 }
 
 func (uv *userView) Get(ctx context.Context, k cid.Cid) (blocks.Block, error) {
+	if uv.cache != nil {
+		blk, ok := uv.cache[k]
+		if ok {
+			return blk, nil
+		}
+	}
+
 	// TODO: for now, im using a join to ensure we only query blocks from the
 	// correct user. maybe it makes sense to put the user in the blockRef
 	// directly? tradeoff of time vs space
@@ -106,18 +116,57 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blocks.Block, error) {
 		return nil, err
 	}
 
-	fi, err := os.Open(info.Path)
+	if uv.prefetch {
+		return uv.prefetchRead(ctx, k, info.Path, info.Offset)
+	} else {
+		return uv.singleRead(ctx, k, info.Path, info.Offset)
+	}
+}
+
+func (uv *userView) prefetchRead(ctx context.Context, k cid.Cid, path string, offset int64) (blocks.Block, error) {
+	fi, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 
-	seeked, err := fi.Seek(info.Offset, io.SeekStart)
+	cr, err := car.NewCarReader(fi)
 	if err != nil {
 		return nil, err
 	}
 
-	if seeked != info.Offset {
-		return nil, fmt.Errorf("failed to seek to offset (%d != %d)", seeked, info.Offset)
+	for {
+		blk, err := cr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+
+		uv.cache[blk.Cid()] = blk
+	}
+
+	outblk, ok := uv.cache[k]
+	if !ok {
+		return nil, fmt.Errorf("requested block was not found in car slice")
+	}
+
+	return outblk, nil
+}
+
+func (uv *userView) singleRead(ctx context.Context, k cid.Cid, path string, offset int64) (blocks.Block, error) {
+	fi, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	seeked, err := fi.Seek(offset, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
+	if seeked != offset {
+		return nil, fmt.Errorf("failed to seek to offset (%d != %d)", seeked, offset)
 	}
 
 	bufr := bufio.NewReader(fi)
@@ -172,16 +221,21 @@ func (cs *CarStore) NewDeltaSession(user uint, prev cid.Cid) (*DeltaSession, err
 	// TODO: ensure that we don't write updates on top of the wrong head
 	// this needs to be a compare and swap type operation
 	var lastShard CarShard
-	if err := cs.meta.Model(CarShard{}).Limit(1).Order("seq desc").Find(&lastShard).Error; err != nil {
+	if err := cs.meta.Model(CarShard{}).Limit(1).Order("id desc").Find(&lastShard, "user = ?", user).Error; err != nil {
+		//if err := cs.meta.Model(CarShard{}).Where("user = ?", user).Last(&lastShard).Error; err != nil {
+		//if err != gorm.ErrRecordNotFound {
 		return nil, err
+		//}
 	}
 
 	return &DeltaSession{
 		fresh: blockstore.NewBlockstore(datastore.NewMapDatastore()),
 		blks:  make(map[cid.Cid]blocks.Block),
 		base: &userView{
-			user: user,
-			cs:   cs,
+			user:     user,
+			cs:       cs,
+			prefetch: true,
+			cache:    make(map[cid.Cid]blocks.Block),
 		},
 		user: user,
 		cs:   cs,
@@ -362,21 +416,24 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) error {
 	}
 
 	var offset int64 = hnw
+	brefs := make([]*blockRef, 0, len(ds.blks))
 	for k, blk := range ds.blks {
 		nw, err := LdWrite(fi, k.Bytes(), blk.RawData())
 		if err != nil {
 			return err
 		}
 
-		if err := ds.cs.meta.Create(&blockRef{
+		brefs = append(brefs, &blockRef{
 			Cid:    k.String(),
 			Offset: offset,
 			Shard:  shard.ID,
-		}).Error; err != nil {
-			return err
-		}
+		})
 
 		offset += nw
+	}
+
+	if err := ds.cs.meta.Create(brefs).Error; err != nil {
+		return err
 	}
 
 	return nil

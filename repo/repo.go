@@ -168,7 +168,6 @@ func (r *Repo) Commit(ctx context.Context) (cid.Cid, error) {
 	if err != nil {
 		return cid.Undef, err
 	}
-	fmt.Println("rootcid output: ", nsrootcid)
 
 	r.sr = nsroot
 	r.dirty = false
