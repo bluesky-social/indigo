@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	sqlbs "github.com/ipfs/go-bs-sqlite3"
 	"github.com/ipfs/go-cid"
 	flatfs "github.com/ipfs/go-ds-flatfs"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -31,7 +32,11 @@ func testCarStore() (*CarStore, func(), error) {
 	}
 
 	dbstr := "file::memory:"
-	db, err := gorm.Open(sqlite.Open(dbstr))
+	//dbstr := filepath.Join(tempdir, "foo.db")
+	db, err := gorm.Open(sqlite.Open(dbstr),
+		&gorm.Config{
+			SkipDefaultTransaction: true,
+		})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -52,7 +57,7 @@ func testFlatfsBs() (blockstore.Blockstore, func(), error) {
 		return nil, nil, err
 	}
 
-	ffds, err := flatfs.CreateOrOpen(tempdir, flatfs.IPFS_DEF_SHARD, true)
+	ffds, err := flatfs.CreateOrOpen(tempdir, flatfs.IPFS_DEF_SHARD, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -206,6 +211,43 @@ func BenchmarkRepoWritesFlatfs(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer cleanup()
+
+	ncid, err := setupRepo(ctx, bs)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	head := ncid
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+
+		rr, err := repo.OpenRepo(ctx, bs, head)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		if err := rr.CreateRecord(ctx, "app.bsky.feed.post", &api.PostRecord{
+			Text: fmt.Sprintf("hey look its a tweet %s", time.Now()),
+		}); err != nil {
+			b.Fatal(err)
+		}
+
+		nroot, err := rr.Commit(ctx)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		head = nroot
+	}
+}
+
+func BenchmarkRepoWritesSqlite(b *testing.B) {
+	ctx := context.TODO()
+
+	bs, err := sqlbs.Open("file::memory:", sqlbs.Options{})
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	ncid, err := setupRepo(ctx, bs)
 	if err != nil {

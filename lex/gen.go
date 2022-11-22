@@ -1,10 +1,13 @@
 package lex
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"go/format"
 	"io"
 	"os"
+	"os/exec"
 	"sort"
 	"strings"
 )
@@ -59,47 +62,49 @@ func (s *Schema) Name() string {
 }
 
 type outputType struct {
-	Name string
-	Type TypeSchema
+	Name   string
+	Type   TypeSchema
+	Record bool
 }
 
 func (s *Schema) AllTypes(prefix string) []outputType {
 	var out []outputType
 
-	var walk func(name string, ts TypeSchema)
-	walk = func(name string, ts TypeSchema) {
+	var walk func(name string, ts TypeSchema, record bool)
+	walk = func(name string, ts TypeSchema, record bool) {
 		if ts.Type == "object" ||
 			(ts.Type == "" && len(ts.OneOf) > 0) {
 			out = append(out, outputType{
-				Name: name,
-				Type: ts,
+				Name:   name,
+				Type:   ts,
+				Record: record,
 			})
 		}
 
 		for childname, val := range ts.Properties {
-			walk(name+"_"+strings.Title(childname), val)
+			walk(name+"_"+strings.Title(childname), val, false)
 		}
 
 		if ts.Items != nil {
-			walk(name+"_Elem", *ts.Items)
+			walk(name+"_Elem", *ts.Items, false)
 		}
 	}
 
 	tname := s.nameFromID(s.ID, prefix)
 
 	for name, def := range s.Defs {
-		walk(tname+"_"+strings.Title(name), def)
+		walk(tname+"_"+strings.Title(name), def, false)
 	}
 
 	if s.Input != nil {
-		walk(tname+"_Input", s.Input.Schema)
+		walk(tname+"_Input", s.Input.Schema, false)
 	}
 	if s.Output != nil {
-		walk(tname+"_Output", s.Output.Schema)
+		walk(tname+"_Output", s.Output.Schema, false)
 	}
 
 	if s.Type == "record" {
-		walk(tname, *s.Record)
+		walk(tname, *s.Record, false)
 	}
 
 	return out
@@ -120,45 +125,76 @@ func ReadSchema(f string) (*Schema, error) {
 }
 
 func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *Schema) error {
-	fi, err := os.Create(fname)
-	if err != nil {
-		return err
-	}
-	defer fi.Close()
+	buf := new(bytes.Buffer)
 
 	s.prefix = prefix
 
-	fmt.Fprintf(fi, "package %s\n\n", pkg)
-	fmt.Fprintf(fi, "import (\n")
-	fmt.Fprintf(fi, "\t\"context\"\n")
-	fmt.Fprintf(fi, "\t\"fmt\"\n")
-	fmt.Fprintf(fi, "\t\"encoding/json\"\n")
-	fmt.Fprintf(fi, "\t\"github.com/whyrusleeping/gosky/xrpc\"\n")
-	fmt.Fprintf(fi, "\t\"github.com/whyrusleeping/gosky/lex/util\"\n")
-	fmt.Fprintf(fi, ")\n\n")
+	fmt.Fprintf(buf, "package %s\n\n", pkg)
+	fmt.Fprintf(buf, "import (\n")
+	fmt.Fprintf(buf, "\t\"context\"\n")
+	fmt.Fprintf(buf, "\t\"fmt\"\n")
+	fmt.Fprintf(buf, "\t\"encoding/json\"\n")
+	fmt.Fprintf(buf, "\t\"github.com/whyrusleeping/gosky/xrpc\"\n")
+	fmt.Fprintf(buf, "\t\"github.com/whyrusleeping/gosky/lex/util\"\n")
+	fmt.Fprintf(buf, ")\n\n")
 
 	tps := s.AllTypes(prefix)
 
 	for _, ot := range tps {
-		if err := s.WriteType(ot.Name, ot.Type, fi); err != nil {
+		if err := s.WriteType(ot.Name, ot.Type, buf); err != nil {
 			return err
 		}
 	}
 
-	if !reqcode {
-		return nil
+	if reqcode {
+		if err := writeMethods(prefix, s, buf); err != nil {
+			return err
+		}
 	}
+
+	formatted, err := format.Source(buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("failed to format generated file: %w", err)
+	}
+
+	fixed, err := fixImports(formatted)
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(fname, fixed, 0664); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func fixImports(b []byte) ([]byte, error) {
+	cmd := exec.Command("goimports")
+
+	cmd.Stdin = bytes.NewReader(b)
+	buf := new(bytes.Buffer)
+	cmd.Stdout = buf
+
+	if err := cmd.Run(); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+func writeMethods(prefix string, s *Schema, w io.Writer) error {
 	switch s.Type {
 	case "token":
 		n := s.nameFromID(s.ID, prefix)
-		fmt.Fprintf(fi, "const %s = %q\n", n, s.ID)
+		fmt.Fprintf(w, "const %s = %q\n", n, s.ID)
 		return nil
 	case "record":
 		return nil
 	case "query":
-		return s.WriteRPC(fi, prefix)
+		return s.WriteRPC(w, prefix)
 	case "procedure":
-		return s.WriteRPC(fi, prefix)
+		return s.WriteRPC(w, prefix)
 	default:
 		return fmt.Errorf("unrecognized lexicon type %q", s.Type)
 	}

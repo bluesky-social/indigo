@@ -51,7 +51,7 @@ type CarShard struct {
 }
 
 type blockRef struct {
-	gorm.Model
+	ID     uint   `gorm:"primarykey"`
 	Cid    string `gorm:"index"`
 	Shard  uint
 	Offset int64
@@ -72,9 +72,6 @@ func (uv *userView) HashOnRead(hor bool) {
 }
 
 func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
-	// TODO: for now, im using a join to ensure we only query blocks from the
-	// correct user. maybe it makes sense to put the user in the blockRef
-	// directly? tradeoff of time vs space
 	var count int64
 	if err := uv.cs.meta.
 		Model(blockRef{}).
@@ -226,6 +223,10 @@ func (cs *CarStore) NewDeltaSession(user uint, prev cid.Cid) (*DeltaSession, err
 		//if err != gorm.ErrRecordNotFound {
 		return nil, err
 		//}
+	}
+
+	if lastShard.Root != "" && lastShard.Root != prev.String() {
+		return nil, fmt.Errorf("attempted a delta session on top of the wrong previous head")
 	}
 
 	return &DeltaSession{
@@ -411,28 +412,40 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) error {
 		User:      ds.user,
 	}
 
+	// TODO: there should be a way to create the shard and block_refs that
+	// reference it in the same query, would save a lot of time
 	if err := ds.cs.meta.Create(&shard).Error; err != nil {
 		return err
 	}
 
 	var offset int64 = hnw
-	brefs := make([]*blockRef, 0, len(ds.blks))
+	//brefs := make([]*blockRef, 0, len(ds.blks))
+	brefs := make([]map[string]interface{}, 0, len(ds.blks))
 	for k, blk := range ds.blks {
 		nw, err := LdWrite(fi, k.Bytes(), blk.RawData())
 		if err != nil {
 			return err
 		}
 
-		brefs = append(brefs, &blockRef{
-			Cid:    k.String(),
-			Offset: offset,
-			Shard:  shard.ID,
+		/*
+			brefs = append(brefs, &blockRef{
+				Cid:    k.String(),
+				Offset: offset,
+				Shard:  shard.ID,
+			})
+		*/
+		// adding things to the db by map is the only way to get gorm to not
+		// add the 'returning' clause, which costs a lot of time
+		brefs = append(brefs, map[string]interface{}{
+			"cid":    k.String(),
+			"offset": offset,
+			"shard":  shard.ID,
 		})
 
 		offset += nw
 	}
 
-	if err := ds.cs.meta.Create(brefs).Error; err != nil {
+	if err := ds.cs.meta.Table("block_refs").Create(brefs).Error; err != nil {
 		return err
 	}
 

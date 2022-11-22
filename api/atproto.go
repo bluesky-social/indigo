@@ -62,7 +62,7 @@ func (atp *ATProto) CreateAccount(ctx context.Context, email, handle, password s
 }
 
 type CreateRecordResponse struct {
-	Uri string `json:"url"`
+	Uri string `json:"uri"`
 	Cid string `json:"cid"`
 }
 
@@ -140,5 +140,26 @@ func (atp *ATProto) SessionRefresh(ctx context.Context) (*xrpc.AuthInfo, error) 
 	}
 
 	return &out, nil
+}
 
+type RecordResponse[T JsonLD] struct {
+	Uri string `json:"uri"`
+	Cid string `json:"cid"`
+	Value T `json:"value"`
+
+}
+
+func RepoGetRecord[T JsonLD](atp *ATProto, ctx context.Context, user string, collection string, rkey string) (*RecordResponse[T], error) {
+	params := map[string]interface{}{
+		"user":       user,
+		"collection": collection,
+		"rkey":       rkey,
+	}
+
+	var out RecordResponse[T]
+	if err := atp.C.Do(ctx, xrpc.Query, "com.atproto.repo.getRecord", params, nil, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
 }

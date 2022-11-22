@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/whyrusleeping/gosky/xrpc"
 )
@@ -141,4 +142,20 @@ func (b *BskyApp) ActorGetSuggestions(ctx context.Context, limit int, cursor *st
 	}
 
 	return &out, nil
+}
+
+func (b *BskyApp) FeedSetVote(ctx context.Context, subject *PostRef, direction string) error {
+	body := map[string]interface{}{
+		"subject":   subject,
+		"direction": direction,
+	}
+
+	var out map[string]interface{}
+	if err := b.C.Do(ctx, xrpc.Procedure, "app.bsky.feed.setVote", nil, body, &out); err != nil {
+		return err
+	}
+
+	fmt.Println(out)
+
+	return nil
 }

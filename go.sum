@@ -264,6 +264,10 @@ github.com/ipfs/go-block-format v0.0.3/go.mod h1:4LmD4ZUw0mhO+JSKdpWwrzATiEfM7WW
 github.com/ipfs/go-blockservice v0.1.0/go.mod h1:hzmMScl1kXHg3M2BjTymbVPjv627N7sYcvYaKbop39M=
 github.com/ipfs/go-blockservice v0.3.0 h1:cDgcZ+0P0Ih3sl8+qjFr2sVaMdysg/YZpLj5WJ8kiiw=
 github.com/ipfs/go-blockservice v0.3.0/go.mod h1:P5ppi8IHDC7O+pA0AlGTF09jruB2h+oP3wVVaZl8sfk=
+github.com/ipfs/go-bs-sqlite3 v0.0.0-20220831203040-60c689e583c7 h1:fz87EjHgBPCs3+VIBz05HhRxJE3dmBq9SRZLSfB8QFI=
+github.com/ipfs/go-bs-sqlite3 v0.0.0-20220831203040-60c689e583c7/go.mod h1:teLHjK8IzDTwi0P/01GMsruXAYRediT8hY4ABcsusag=
+github.com/ipfs/go-bs-sqlite3 v0.0.0-20221122195556-bfcee1be620d h1:9V+GGXCuOfDiFpdAHz58q9mKLg447xp0cQKvqQrAwYE=
+github.com/ipfs/go-bs-sqlite3 v0.0.0-20221122195556-bfcee1be620d/go.mod h1:pMbnFyNAGjryYCLCe59YDLRv/ujdN+zGJBT1umlvYRM=
 github.com/ipfs/go-car v0.0.4 h1:zLhxykvk4SFU4oIpgcIoiolVL3jqcK0hjqcQfUSs4dk=
 github.com/ipfs/go-car v0.0.4/go.mod h1:eZX0EppfsvSQN8IsJnx57bheogWMgQjJVWU/fDA7ySQ=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=

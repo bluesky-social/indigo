@@ -22,7 +22,7 @@ func main() {
 			Value: "https://pds.staging.bsky.dev",
 		},
 		&cli.StringFlag{
-			Name: "account",
+			Name: "auth",
 		},
 	}
 	app.Commands = []*cli.Command{
@@ -34,6 +34,7 @@ func main() {
 		feedGetCmd,
 		feedGetAuthorCmd,
 		actorGetSuggestionsCmd,
+		feedSetVoteCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -210,6 +211,12 @@ var syncGetRootCmd = &cli.Command{
 
 var feedGetCmd = &cli.Command{
 	Name: "getFeed",
+	Flags: []cli.Flag{
+		&cli.IntFlag{
+			Name:  "count",
+			Value: 100,
+		},
+	},
 	Action: func(cctx *cli.Context) error {
 		bsky, err := cliutil.GetBskyClient(cctx, true)
 		if err != nil {
@@ -219,12 +226,11 @@ var feedGetCmd = &cli.Command{
 		ctx := context.TODO()
 
 		algo := "reverse-chronological"
-		tl, err := bsky.FeedGetTimeline(ctx, algo, 99, nil)
+		tl, err := bsky.FeedGetTimeline(ctx, algo, cctx.Int("count"), nil)
 		if err != nil {
 			return err
 		}
 
-		fmt.Println(tl.Cursor)
 		for _, it := range tl.Feed {
 			b, err := json.MarshalIndent(it, "", "  ")
 			if err != nil {
@@ -232,7 +238,6 @@ var feedGetCmd = &cli.Command{
 			}
 
 			fmt.Println(string(b))
-
 		}
 
 		return nil
@@ -303,6 +308,41 @@ var actorGetSuggestionsCmd = &cli.Command{
 
 		fmt.Println(string(b))
 
+		return nil
+
+	},
+}
+
+var feedSetVoteCmd = &cli.Command{
+	Name: "feedSetVote",
+	Action: func(cctx *cli.Context) error {
+		atpc, err := cliutil.GetATPClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		bskyc, err := cliutil.GetBskyClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		arg := cctx.Args().First()
+
+		parts := strings.Split(arg, "/")
+		last := parts[len(parts)-1]
+		kind := parts[len(parts)-2]
+		user := parts[2]
+
+		ctx := context.TODO()
+		resp, err := api.RepoGetRecord[*api.PostRecord](atpc, ctx, user, kind, last)
+		if err != nil {
+			return err
+		}
+
+		err = bskyc.FeedSetVote(ctx, &api.PostRef{Uri: resp.Uri, Cid: resp.Cid}, cctx.Args().Get(1))
+		if err != nil {
+			return err
+		}
 		return nil
 
 	},
