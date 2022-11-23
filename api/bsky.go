@@ -159,3 +159,27 @@ func (b *BskyApp) FeedSetVote(ctx context.Context, subject *PostRef, direction s
 
 	return nil
 }
+
+type GetFollowsResp struct {
+	Subject *User  `json:"subject"`
+	Cursor  string `json:"cursor"`
+	Follows []User `json:"follows"`
+}
+
+func (b *BskyApp) GraphGetFollows(ctx context.Context, user string, limit int, before *string) (*GetFollowsResp, error) {
+	params := map[string]interface{}{
+		"user":  user,
+		"limit": limit,
+	}
+
+	if before != nil {
+		params["before"] = *before
+	}
+
+	var out GetFollowsResp
+	if err := b.C.Do(ctx, xrpc.Query, "app.bsky.graph.getFollows", params, nil, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}

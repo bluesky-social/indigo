@@ -67,6 +67,16 @@ func main() {
 		&cli.StringFlag{
 			Name: "prefix",
 		},
+		&cli.BoolFlag{
+			Name: "gen-server",
+		},
+		&cli.StringSliceFlag{
+			Name: "types-import",
+		},
+		&cli.StringFlag{
+			Name:  "package",
+			Value: "schemagen",
+		},
 	}
 	app.Action = func(cctx *cli.Context) error {
 		outdir := cctx.String("outdir")
@@ -91,11 +101,27 @@ func main() {
 			schemas = append(schemas, s)
 		}
 
-		for i, s := range schemas {
-			fname := filepath.Join(outdir, s.Name()+".go")
+		pkgname := cctx.String("package")
 
-			if err := lex.GenCodeForSchema("schemagen", prefix, fname, true, s); err != nil {
-				return fmt.Errorf("failed to process schema %q: %w", paths[i], err)
+		if cctx.Bool("gen-server") {
+			paths := cctx.StringSlice("types-import")
+			importmap := make(map[string]string)
+			for _, p := range paths {
+				parts := strings.Split(p, ":")
+				importmap[parts[0]] = parts[1]
+			}
+
+			if err := lex.CreateHandlerStub(pkgname, importmap, outdir, schemas); err != nil {
+				return err
+			}
+
+		} else {
+			for i, s := range schemas {
+				fname := filepath.Join(outdir, s.Name()+".go")
+
+				if err := lex.GenCodeForSchema(pkgname, prefix, fname, true, s); err != nil {
+					return fmt.Errorf("failed to process schema %q: %w", paths[i], err)
+				}
 			}
 		}
 

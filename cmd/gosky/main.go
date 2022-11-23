@@ -35,6 +35,8 @@ func main() {
 		feedGetAuthorCmd,
 		actorGetSuggestionsCmd,
 		feedSetVoteCmd,
+		graphGetFollowsCmd,
+		refreshAuthTokenCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -345,5 +347,59 @@ var feedSetVoteCmd = &cli.Command{
 		}
 		return nil
 
+	},
+}
+
+var graphGetFollowsCmd = &cli.Command{
+	Name: "graphGetFollows",
+	Action: func(cctx *cli.Context) error {
+		bskyc, err := cliutil.GetBskyClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		user := cctx.Args().First()
+
+		ctx := context.TODO()
+		resp, err := bskyc.GraphGetFollows(ctx, user, 100, nil)
+		if err != nil {
+			return err
+		}
+
+		for _, f := range resp.Follows {
+			fmt.Println(f.Did)
+		}
+
+		return nil
+	},
+}
+
+var refreshAuthTokenCmd = &cli.Command{
+	Name: "refresh",
+	Action: func(cctx *cli.Context) error {
+		atpc, err := cliutil.GetATPClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		a := atpc.C.Auth
+		a.AccessJwt = a.RefreshJwt
+
+		ctx := context.TODO()
+		nauth, err := atpc.SessionRefresh(ctx)
+		if err != nil {
+			return err
+		}
+
+		b, err := json.Marshal(nauth)
+		if err != nil {
+			return err
+		}
+
+		if err := os.WriteFile(cctx.String("auth"), b, 0600); err != nil {
+			return err
+		}
+
+		return nil
 	},
 }

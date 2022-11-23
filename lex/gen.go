@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"go/format"
+	"html/template"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -152,8 +154,17 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 		}
 	}
 
-	formatted, err := format.Source(buf.Bytes())
+	if err := writeCodeFile(buf.Bytes(), fname); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeCodeFile(b []byte, fname string) error {
+	formatted, err := format.Source(b)
 	if err != nil {
+		fmt.Println(string(b))
 		return fmt.Errorf("failed to format generated file: %w", err)
 	}
 
@@ -211,6 +222,22 @@ func (s *Schema) nameFromID(id, prefix string) string {
 
 }
 
+func orderedMapIter[T any](m map[string]T, cb func(string, T) error) error {
+	var keys []string
+	for k := range m {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		if err := cb(k, m[k]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Schema) WriteRPC(w io.Writer, prefix string) error {
 	fname := s.nameFromID(s.ID, s.prefix)
 
@@ -219,6 +246,21 @@ func (s *Schema) WriteRPC(w io.Writer, prefix string) error {
 	if s.Input != nil {
 		params = fmt.Sprintf("%s, input %s_Input", params, fname)
 		inpvar = "input"
+	}
+
+	if s.Parameters != nil {
+		if err := orderedMapIter[TypeSchema](s.Parameters.Properties, func(name string, t TypeSchema) error {
+			tn, err := s.typeNameForField(name, "", t)
+			if err != nil {
+				return err
+			}
+
+			// TODO: deal with optional params
+			params = params + fmt.Sprintf(", %s %s", name, tn)
+			return nil
+		}); err != nil {
+			return err
+		}
 	}
 
 	out := "error"
@@ -239,6 +281,20 @@ func (s *Schema) WriteRPC(w io.Writer, prefix string) error {
 	}
 
 	queryparams := "nil"
+	if s.Parameters != nil {
+		queryparams = "params"
+		fmt.Fprintf(w, `
+	params := map[string]interface{}{
+`)
+		if err := orderedMapIter[TypeSchema](s.Parameters.Properties, func(name string, t TypeSchema) error {
+			fmt.Fprintf(w, `"%s": %s,
+`, name, name)
+			return nil
+		}); err != nil {
+			return err
+		}
+		fmt.Fprintf(w, "}\n")
+	}
 
 	var reqtype string
 	switch s.Type {
@@ -253,9 +309,154 @@ func (s *Schema) WriteRPC(w io.Writer, prefix string) error {
 	fmt.Fprintf(w, "\tif err := c.Do(ctx, %s, \"%s\", %s, %s, %s); err != nil {\n", reqtype, s.ID, queryparams, inpvar, outvar)
 	fmt.Fprintf(w, "\t\treturn %s\n", errRet)
 	fmt.Fprintf(w, "\t}\n\n")
-
 	fmt.Fprintf(w, "\treturn %s\n", outRet)
 	fmt.Fprintf(w, "}\n\n")
+
+	return nil
+}
+
+func doTemplate(w io.Writer, info interface{}, templ string) error {
+	t := template.Must(template.New("").
+		Funcs(template.FuncMap{
+			"TODO": func(thing string) string {
+				return "//TODO: " + thing
+			},
+		}).Parse(templ))
+
+	return t.Execute(w, info)
+}
+
+func CreateHandlerStub(pkg string, impmap map[string]string, dir string, schemas []*Schema) error {
+	buf := new(bytes.Buffer)
+
+	if err := WriteXrpcServer(buf, schemas, pkg, impmap); err != nil {
+		return err
+	}
+
+	fname := filepath.Join(dir, "stubs.go")
+	if err := writeCodeFile(buf.Bytes(), fname); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func importNameForPrefix(prefix string) string {
+	return strings.Join(strings.Split(prefix, "."), "") + "types"
+}
+
+func WriteXrpcServer(w io.Writer, schemas []*Schema, pkg string, impmap map[string]string) error {
+	fmt.Fprintf(w, "package %s\n\n", pkg)
+	fmt.Fprintf(w, "import (\n")
+	fmt.Fprintf(w, "\t\"context\"\n")
+	fmt.Fprintf(w, "\t\"fmt\"\n")
+	fmt.Fprintf(w, "\t\"encoding/json\"\n")
+	fmt.Fprintf(w, "\t\"github.com/whyrusleeping/gosky/xrpc\"\n")
+	fmt.Fprintf(w, "\t\"github.com/labstack/echo/v4\"\n")
+	for k, v := range impmap {
+		fmt.Fprintf(w, "\t%s\"%s\"\n", importNameForPrefix(k), v)
+	}
+	fmt.Fprintf(w, ")\n\n")
+
+	fmt.Fprintf(w, "func (s *Server) RegisterHandlers(e echo.Echo) error {\n")
+	for _, s := range schemas {
+		var verb string
+		switch s.Type {
+		case "query":
+			verb = "GET"
+		case "procedure":
+			verb = "POST"
+		default:
+			continue
+		}
+
+		fmt.Fprintf(w, "e.%s(\"/xrpc/%s\", s.%s)\n", verb, s.ID, idToTitle(s.ID))
+	}
+
+	fmt.Fprintf(w, "return nil\n}\n\n")
+
+	for _, s := range schemas {
+		var prefix string
+		for k := range impmap {
+			if strings.HasPrefix(s.ID, k) {
+				prefix = k
+				break
+			}
+		}
+
+		if s.Type == "procedure" || s.Type == "query" {
+			if err := s.WriteRPCHandler(w, prefix); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func idToTitle(id string) string {
+	var fname string
+	for _, p := range strings.Split(id, ".") {
+		fname += strings.Title(p)
+	}
+	return fname
+}
+
+func (s *Schema) WriteRPCHandler(w io.Writer, prefix string) error {
+	fname := idToTitle(s.ID)
+
+	tname := s.nameFromID(s.ID, prefix)
+
+	fmt.Fprintf(w, "func (s *Server) Handle%s(c echo.Context) error {\n", fname)
+
+	paramtypes := []string{"ctx context.Context"}
+	params := []string{"ctx"}
+	if s.Type == "query" {
+		if s.Parameters != nil {
+			orderedMapIter[TypeSchema](s.Parameters.Properties, func(k string, t TypeSchema) error {
+				switch t.Type {
+				case "string":
+					params = append(params, k)
+					paramtypes = append(paramtypes, k+" string")
+					fmt.Fprintf(w, "%s := c.QueryParam(\"%s\")\n", k, k)
+				case "number":
+					params = append(params, k)
+					paramtypes = append(paramtypes, k+" int")
+					fmt.Fprintf(w, `
+%s, err := strconv.Atoi(c.QueryParam("%s"))
+if err != nil {
+	return err
+}
+`, k, k)
+				default:
+					return fmt.Errorf("unsupported handler parameter type: %s", t.Type)
+				}
+				return nil
+			})
+		}
+	} else if s.Type == "procedure" {
+		fmt.Fprintf(w, `
+var body types.%s
+if err := e.Bind(&out); err != nil {
+	return err
+}
+`, tname+"_Input")
+	} else {
+		return fmt.Errorf("can only generate handlers for queries or procedures")
+	}
+
+	assign := "err"
+	returndef := "error"
+	if s.Output != nil {
+		assign = "out, err"
+		fmt.Fprintf(w, "var out types.%s\n", tname+"_Output")
+		returndef = fmt.Sprintf("(*types.%s_Output, error)", tname)
+	}
+	fmt.Fprintf(w, "var err error\n")
+	fmt.Fprintf(w, "// func (s *Server) handle%s(%s) %s\n", fname, strings.Join(paramtypes, ","), returndef)
+	fmt.Fprintf(w, "%s = s.handle%s(%s)\n", assign, fname, strings.Join(params, ","))
+
+	fmt.Fprintf(w, "return nil // TODO: implement me\n}\n\n")
 
 	return nil
 }
