@@ -18,15 +18,6 @@ type DiffOp struct {
 	NewCid cid.Cid
 }
 
-func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) ([]*DiffOp, error) {
-	cst := cbor.NewCborStore(bs)
-
-	ft := LoadMST(cst, 32, from)
-	tt := LoadMST(cst, 32, to)
-
-	return diffTreesRec(ctx, cst, ft, tt, 1)
-}
-
 func checkDiffSort(diffs []*DiffOp) {
 	if !sort.SliceIsSorted(diffs, func(i, j int) bool {
 		return diffs[i].Tid < diffs[j].Tid
@@ -35,8 +26,13 @@ func checkDiffSort(diffs []*DiffOp) {
 	}
 }
 
-func diffTreesRec(ctx context.Context, cst cbor.IpldStore, ft, tt *MerkleSearchTree, depth int) ([]*DiffOp, error) {
-	// TODO: this code isnt great, should be rewritten on top of the baseline datastructures once functional and correct
+// TODO: this code isnt great, should be rewritten on top of the baseline datastructures once functional and correct
+func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) ([]*DiffOp, error) {
+	cst := cbor.NewCborStore(bs)
+
+	ft := LoadMST(cst, 32, from)
+	tt := LoadMST(cst, 32, to)
+
 	fents, err := ft.getEntries(ctx)
 	if err != nil {
 		return nil, err
@@ -191,15 +187,5 @@ func nodeEntriesEqual(a, b *NodeEntry) bool {
 		return true
 	}
 
-	return false
-}
-
-func sameCidPtr(a, b *cid.Cid) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a != nil && b != nil && *a == *b {
-		return true
-	}
 	return false
 }
