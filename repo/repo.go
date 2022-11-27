@@ -34,6 +34,7 @@ type Meta struct {
 type Repo struct {
 	sr  SignedRoot
 	cst cbor.IpldStore
+	bs  blockstore.Blockstore
 
 	meta Meta
 
@@ -82,6 +83,7 @@ func NewRepo(ctx context.Context, bs blockstore.Blockstore) *Repo {
 
 	return &Repo{
 		cst:   cst,
+		bs:    bs,
 		mst:   t,
 		dirty: true,
 	}
@@ -97,6 +99,7 @@ func OpenRepo(ctx context.Context, bs blockstore.Blockstore, root cid.Cid) (*Rep
 
 	return &Repo{
 		sr:  sr,
+		bs:  bs,
 		cst: cst,
 	}, nil
 }
@@ -205,4 +208,33 @@ func (r *Repo) ForEach(ctx context.Context, prefix string, cb func(k string, v c
 	}
 
 	return nil
+}
+
+func (r *Repo) DiffSince(ctx context.Context, oldrepo cid.Cid) ([]*mst.DiffOp, error) {
+	otherRepo, err := OpenRepo(ctx, r.bs, oldrepo)
+	if err != nil {
+		return nil, err
+	}
+
+	oldmst, err := otherRepo.getMst(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	oldptr, err := oldmst.GetPointer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	curmst, err := r.getMst(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	curptr, err := curmst.GetPointer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return mst.DiffTrees(ctx, r.bs, oldptr, curptr)
 }
