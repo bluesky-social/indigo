@@ -359,6 +359,9 @@ var graphGetFollowsCmd = &cli.Command{
 		}
 
 		user := cctx.Args().First()
+		if user == "" {
+			user = bskyc.C.Auth.Did
+		}
 
 		ctx := context.TODO()
 		resp, err := bskyc.GraphGetFollows(ctx, user, 100, nil)
@@ -367,7 +370,7 @@ var graphGetFollowsCmd = &cli.Command{
 		}
 
 		for _, f := range resp.Follows {
-			fmt.Println(f.Did)
+			fmt.Println(f.Did, f.Handle)
 		}
 
 		return nil

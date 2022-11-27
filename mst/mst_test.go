@@ -2,14 +2,20 @@ package mst
 
 import (
 	"context"
-	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"io"
+	"math/rand"
+	"os"
+	"sort"
 	"testing"
 
 	cid "github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cbor "github.com/ipfs/go-ipld-cbor"
+	"github.com/ipld/go-car/v2"
+	"github.com/multiformats/go-multihash"
 	mh "github.com/multiformats/go-multihash"
 )
 
@@ -26,7 +32,7 @@ func randCid() cid.Cid {
 func TestBasicMst(t *testing.T) {
 	ctx := context.Background()
 	cst := cbor.NewCborStore(blockstore.NewBlockstore(datastore.NewMapDatastore()))
-	mst := NewMST(cst, 16, cid.Undef, []NodeEntry{}, 0)
+	mst := NewMST(cst, 16, cid.Undef, []NodeEntry{}, -1)
 
 	vals := map[string]cid.Cid{
 		"cats":           randCid(),
@@ -48,4 +54,401 @@ func TestBasicMst(t *testing.T) {
 	}
 
 	fmt.Println(ncid)
+}
+
+func TestEdgeCase9(t *testing.T) {
+	m := map[string]string{
+		"97206d5e4a18/19fbf0b79789/1710133f2dd6": "cats",
+	}
+
+	bs := memBs()
+	mst := cidMapToMst(t, 32, bs, mapToCidMap(m))
+	_ = mst
+
+}
+
+func mustCid(t *testing.T, s string) cid.Cid {
+	t.Helper()
+	c, err := cid.Decode(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+
+}
+
+func loadCar(bs blockstore.Blockstore, fname string) error {
+	fi, err := os.Open(fname)
+	if err != nil {
+		return err
+	}
+	br, err := car.NewBlockReader(fi)
+	if err != nil {
+		return err
+	}
+
+	for {
+		blk, err := br.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		if err := bs.Put(context.TODO(), blk); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func TestDiff(t *testing.T) {
+	to := mustCid(t, "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454")
+	from := mustCid(t, "bafyreigv5er7vcxlbikkwedmtd7b3kp7wrcyffep5ogcuxosloxfox5reu")
+
+	bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
+
+	if err := loadCar(bs, "paul.car"); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.TODO()
+	ops, err := DiffTrees(ctx, bs, from, to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = ops
+}
+
+func randStr(s int64) string {
+	buf := make([]byte, 6)
+	r := rand.New(rand.NewSource(s))
+	r.Read(buf)
+	return hex.EncodeToString(buf)
+}
+
+func copyMap(a map[string]string) map[string]string {
+	out := make(map[string]string)
+	for k, v := range a {
+		out[k] = v
+	}
+	return out
+}
+
+func TestDiffInsertionsBasic(t *testing.T) {
+	a := map[string]string{
+		"cats/asdf":     randStr(1),
+		"cats/foosesdf": randStr(2),
+	}
+
+	b := copyMap(a)
+	b["cats/bawda"] = randStr(3)
+	b["cats/crosasd"] = randStr(4)
+
+	testMapDiffs(t, a, b, 32)
+	testMapDiffs(t, b, a, 32)
+}
+
+func randKey(s int64) string {
+	r := rand.New(rand.NewSource(s))
+
+	top := r.Int63n(6)
+	mid := r.Int63n(3)
+
+	end := randStr(r.Int63n(10000000))
+
+	return randStr(125125+top) + "/" + randStr(858392+mid) + "/" + end
+}
+
+func TestDiffInsertionsLarge(t *testing.T) {
+	a := map[string]string{}
+	for i := int64(0); i < 1000; i++ {
+		a[randKey(i)] = randStr(72385739 - i)
+	}
+
+	b := copyMap(a)
+	for i := int64(0); i < 30; i++ {
+		b[randKey(5000+i)] = randStr(2293825 - i)
+	}
+
+	testMapDiffs(t, a, b, 32)
+	testMapDiffs(t, b, a, 32)
+}
+
+func TestDiffNoOverlap(t *testing.T) {
+	a := map[string]string{}
+	for i := int64(0); i < 10; i++ {
+		a[randKey(i)] = randStr(72385739 - i)
+	}
+
+	b := map[string]string{}
+	for i := int64(0); i < 10; i++ {
+		b[randKey(5000+i)] = randStr(2293825 - i)
+	}
+
+	testMapDiffs(t, a, b, 32)
+	testMapDiffs(t, b, a, 32)
+}
+
+func TestDiffSmallOverlap(t *testing.T) {
+	a := map[string]string{}
+	for i := int64(0); i < 10; i++ {
+		a[randKey(i)] = randStr(72385739 - i)
+	}
+
+	b := copyMap(a)
+
+	for i := int64(0); i < 1000; i++ {
+		a[randKey(i)] = randStr(682823 - i)
+	}
+
+	for i := int64(0); i < 1000; i++ {
+		b[randKey(5000+i)] = randStr(2293825 - i)
+	}
+
+	testMapDiffs(t, a, b, 32)
+	//testMapDiffs(t, b, a)
+}
+
+func TestDiffSmallOverlapSmall(t *testing.T) {
+	a := map[string]string{}
+	for i := int64(0); i < 4; i++ {
+		a[randKey(i)] = randStr(72385739 - i)
+	}
+
+	b := copyMap(a)
+
+	for i := int64(0); i < 20; i++ {
+		a[randKey(i)] = randStr(682823 - i)
+	}
+
+	for i := int64(0); i < 20; i++ {
+		b[randKey(5000+i)] = randStr(2293825 - i)
+	}
+
+	testMapDiffs(t, a, b, 4)
+	//testMapDiffs(t, b, a)
+}
+
+func TestDiffMutationsBasic(t *testing.T) {
+	a := map[string]string{
+		"cats/asdf":     randStr(1),
+		"cats/foosesdf": randStr(2),
+	}
+
+	b := copyMap(a)
+	b["cats/asdf"] = randStr(3)
+
+	testMapDiffs(t, a, b, 32)
+}
+
+func diffMaps(a, b map[string]cid.Cid) []*DiffOp {
+	var akeys, bkeys []string
+
+	for k := range a {
+		akeys = append(akeys, k)
+	}
+
+	for k := range b {
+		bkeys = append(bkeys, k)
+	}
+
+	sort.Strings(akeys)
+	sort.Strings(bkeys)
+
+	var out []*DiffOp
+	for _, k := range akeys {
+		av := a[k]
+		bv, ok := b[k]
+		if !ok {
+			out = append(out, &DiffOp{
+				Op:     "del",
+				Tid:    k,
+				OldCid: av,
+			})
+		} else {
+			if av != bv {
+				out = append(out, &DiffOp{
+					Op:     "mut",
+					Tid:    k,
+					OldCid: av,
+					NewCid: bv,
+				})
+			}
+		}
+	}
+
+	for _, k := range bkeys {
+		_, ok := a[k]
+		if !ok {
+			out = append(out, &DiffOp{
+				Op:     "add",
+				Tid:    k,
+				NewCid: b[k],
+			})
+		}
+	}
+
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Tid < out[j].Tid
+	})
+
+	return out
+}
+
+func strToCid(s string) cid.Cid {
+	h, err := multihash.Sum([]byte(s), multihash.ID, -1)
+	if err != nil {
+		panic(err)
+	}
+
+	return cid.NewCidV1(cid.Raw, h)
+
+}
+
+func mapToCidMap(a map[string]string) map[string]cid.Cid {
+	out := make(map[string]cid.Cid)
+	for k, v := range a {
+		out[k] = strToCid(v)
+	}
+
+	return out
+}
+
+func cidMapToMst(t *testing.T, fanout int, bs blockstore.Blockstore, m map[string]cid.Cid) *MerkleSearchTree {
+	cst := cbor.NewCborStore(bs)
+	mt := NewMST(cst, fanout, cid.Undef, []NodeEntry{}, -1)
+
+	for k, v := range m {
+		nmst, err := mt.Add(context.TODO(), k, v, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		mt = nmst
+	}
+
+	return mt
+}
+
+func mustCidTree(t *testing.T, tree *MerkleSearchTree) cid.Cid {
+	c, err := tree.GetPointer(context.TODO())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+func memBs() blockstore.Blockstore {
+	return blockstore.NewBlockstore(datastore.NewMapDatastore())
+}
+
+func testMapDiffs(t *testing.T, a, b map[string]string, fanout int) {
+	amc := mapToCidMap(a)
+	bmc := mapToCidMap(b)
+
+	exp := diffMaps(amc, bmc)
+
+	bs := memBs()
+
+	msta := cidMapToMst(t, fanout, bs, amc)
+	mstb := cidMapToMst(t, fanout, bs, bmc)
+
+	cida := mustCidTree(t, msta)
+	cidb := mustCidTree(t, mstb)
+
+	diffs, err := DiffTrees(context.TODO(), bs, cida, cidb)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !sort.SliceIsSorted(diffs, func(i, j int) bool {
+		return diffs[i].Tid < diffs[j].Tid
+	}) {
+		t.Log("diff algo did not produce properly sorted diff")
+	}
+	if !compareDiffs(diffs, exp) {
+		fmt.Println("Expected Diff:")
+		for _, do := range exp {
+			fmt.Println(do)
+		}
+		fmt.Println("Actual Diff:")
+		for _, do := range diffs {
+			fmt.Println(do)
+		}
+		t.Logf("diff lens: %d %d", len(diffs), len(exp))
+		diffDiff(diffs, exp)
+		t.Fatal("diffs not equal")
+	}
+}
+
+func diffDiff(a, b []*DiffOp) {
+	var i, j int
+
+	for i < len(a) || j < len(b) {
+		if i >= len(a) {
+			fmt.Println("+: ", b[j])
+			j++
+			continue
+		}
+
+		if j >= len(b) {
+			fmt.Println("-: ", a[i])
+			i++
+			continue
+		}
+
+		aa := a[i]
+		bb := b[j]
+
+		if diffOpEq(aa, bb) {
+			fmt.Println("eq: ", i, j, aa.Tid)
+			i++
+			j++
+			continue
+		}
+
+		if aa.Tid == bb.Tid {
+			fmt.Println("~: ", aa, bb)
+			i++
+			j++
+			continue
+		}
+
+		if aa.Tid < bb.Tid {
+			fmt.Println("-: ", aa)
+			i++
+			continue
+		} else {
+			fmt.Println("+: ", bb)
+			j++
+			continue
+		}
+	}
+}
+
+func compareDiffs(a, b []*DiffOp) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := 0; i < len(a); i++ {
+		aa := a[i]
+		bb := b[i]
+
+		if aa.Op != bb.Op || aa.Tid != bb.Tid || aa.NewCid != bb.NewCid || aa.OldCid != bb.OldCid {
+			return false
+		}
+	}
+
+	return true
+}
+
+func diffOpEq(aa, bb *DiffOp) bool {
+	if aa.Op != bb.Op || aa.Tid != bb.Tid || aa.NewCid != bb.NewCid || aa.OldCid != bb.OldCid {
+		return false
+	}
+	return true
 }

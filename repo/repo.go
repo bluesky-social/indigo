@@ -193,7 +193,7 @@ func (r *Repo) getMst(ctx context.Context) (*mst.MerkleSearchTree, error) {
 func (r *Repo) ForEach(ctx context.Context, prefix string, cb func(k string, v cid.Cid) error) error {
 	var com Commit
 	if err := r.cst.Get(ctx, r.sr.Root, &com); err != nil {
-		return err
+		return fmt.Errorf("failed to load commit: %w", err)
 	}
 
 	t := mst.LoadMST(r.cst, 32, com.Data)

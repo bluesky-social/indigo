@@ -39,7 +39,7 @@ func NewMST(cst cbor.IpldStore, fanout int, ptr cid.Cid, entries []NodeEntry, la
 }
 
 func LoadMST(cst cbor.IpldStore, fanout int, root cid.Cid) *MerkleSearchTree {
-	return NewMST(cst, fanout, root, nil, 0)
+	return NewMST(cst, fanout, root, nil, -1)
 }
 
 func (mst *MerkleSearchTree) newTree(entries []NodeEntry) *MerkleSearchTree {
@@ -78,11 +78,7 @@ func (mst *MerkleSearchTree) GetPointer(ctx context.Context) (cid.Cid, error) {
 }
 
 func create(ctx context.Context, cst cbor.IpldStore, entries []NodeEntry, layer int, fanout int) (*MerkleSearchTree, error) {
-	ptr, err := cidForEntries(ctx, entries, cst)
-	if err != nil {
-		return nil, err
-	}
-
+	var ptr cid.Cid
 	return NewMST(cst, fanout, ptr, entries, layer), nil
 }
 
@@ -132,10 +128,10 @@ func (ne NodeEntry) isUndefined() bool {
 }
 
 type TreeEntry struct {
-	P int64    `cborgen:"p"`
-	K string   `cborgen:"k"`
-	V cid.Cid  `cborgen:"v"`
-	T *cid.Cid `cborgen:"t"`
+	P    int64    `cborgen:"p"`
+	K    string   `cborgen:"k"`
+	V    cid.Cid  `cborgen:"v"`
+	Tree *cid.Cid `cborgen:"t"`
 }
 
 type NodeData struct {
@@ -151,7 +147,7 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 
 	layer, err := mst.getLayer(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting layer failed: %w", err)
 	}
 
 	newLeaf := NodeEntry{
@@ -191,7 +187,7 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 		}
 
 		return mst.replaceWithSplit(ctx, index-1, left, newLeaf, right)
-	} else if keyZeros > layer {
+	} else if keyZeros < layer {
 		index, err := mst.findGtOrEqualLeafIndex(ctx, key)
 		if err != nil {
 			return nil, err
@@ -208,10 +204,7 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 				return nil, err
 			}
 
-			return mst.updateEntry(ctx, index-1, NodeEntry{
-				Kind: EntryTree,
-				Tree: newSubtree,
-			})
+			return mst.updateEntry(ctx, index-1, treeEntry(newSubtree))
 		} else {
 			subTree, err := mst.createChild(ctx)
 			if err != nil {
@@ -220,7 +213,7 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 
 			newSubTree, err := subTree.Add(ctx, key, val, keyZeros)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("subtree add: %w", err)
 			}
 
 			return mst.spliceIn(ctx, treeEntry(newSubTree), index)
@@ -233,7 +226,7 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 
 		layer, err := mst.getLayer(ctx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get layer in split case failed: %w", err)
 		}
 
 		extraLayersToAdd := keyZeros - layer
@@ -243,7 +236,7 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 			if left != nil {
 				par, err := left.createParent(ctx)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("create left parent: %w", err)
 				}
 				left = par
 			}
@@ -251,24 +244,34 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 			if right != nil {
 				par, err := right.createParent(ctx)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("create right parent: %w", err)
 				}
 				right = par
 			}
 
 		}
+
 		var updated []NodeEntry
 		if left != nil {
 			updated = append(updated, treeEntry(left))
 		}
+
+		updated = append(updated, NodeEntry{
+			Kind: EntryLeaf,
+			Key:  key,
+			Val:  val,
+		})
+
 		if right != nil {
 			updated = append(updated, treeEntry(right))
 		}
 
+		checkTreeInvariant(updated)
 		newRoot, err := create(ctx, mst.cst, updated, keyZeros, mst.fanout)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("creating new tree after split: %w", err)
 		}
+
 		// why invalidate?
 		newRoot.validPtr = false
 
@@ -316,7 +319,7 @@ func (mst *MerkleSearchTree) createChild(ctx context.Context) (*MerkleSearchTree
 		return nil, err
 	}
 
-	return NewMST(mst.cst, mst.fanout, cid.Undef, nil, layer-1), nil
+	return NewMST(mst.cst, mst.fanout, cid.Undef, []NodeEntry{}, layer-1), nil
 }
 
 func (mst *MerkleSearchTree) updateEntry(ctx context.Context, ix int, entry NodeEntry) (*MerkleSearchTree, error) {
@@ -330,6 +333,8 @@ func (mst *MerkleSearchTree) updateEntry(ctx context.Context, ix int, entry Node
 	nents[ix] = entry
 	copy(nents[ix+1:], entries[ix+1:])
 
+	checkTreeInvariant(nents)
+
 	return mst.newTree(nents), nil
 }
 
@@ -338,6 +343,7 @@ func (mst *MerkleSearchTree) replaceWithSplit(ctx context.Context, ix int, left 
 	if err != nil {
 		return nil, err
 	}
+	checkTreeInvariant(entries)
 	var update []NodeEntry
 	update = append(update, entries[:ix]...)
 
@@ -357,9 +363,18 @@ func (mst *MerkleSearchTree) replaceWithSplit(ctx context.Context, ix int, left 
 		})
 	}
 
-	update = append(update, entries[ix:]...)
+	update = append(update, entries[ix+1:]...)
 
+	checkTreeInvariant(update)
 	return mst.newTree(update), nil
+}
+
+func checkTreeInvariant(ents []NodeEntry) {
+	for i := 0; i < len(ents)-1; i++ {
+		if ents[i].isTree() && ents[i+1].isTree() {
+			panic(fmt.Sprintf("two trees next to eachother! %d %d", i, i+1))
+		}
+	}
 }
 
 func (mst *MerkleSearchTree) splitAround(ctx context.Context, key string) (*MerkleSearchTree, *MerkleSearchTree, error) {
@@ -392,16 +407,19 @@ func (mst *MerkleSearchTree) splitAround(ctx context.Context, key string) (*Merk
 			return nil, nil, err
 		}
 
-		left, err = left.append(ctx, treeEntry(subl))
-		if err != nil {
-			return nil, nil, err
+		if subl != nil {
+			left, err = left.append(ctx, treeEntry(subl))
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 
-		right, err = right.prepend(ctx, treeEntry(subr))
-		if err != nil {
-			return nil, nil, err
+		if subr != nil {
+			right, err = right.prepend(ctx, treeEntry(subr))
+			if err != nil {
+				return nil, nil, err
+			}
 		}
-
 	}
 
 	if left.entryCount() == 0 {
@@ -410,6 +428,7 @@ func (mst *MerkleSearchTree) splitAround(ctx context.Context, key string) (*Merk
 	if right.entryCount() == 0 {
 		right = nil
 	}
+
 	return left, right, nil
 }
 
@@ -432,6 +451,7 @@ func (mst *MerkleSearchTree) append(ctx context.Context, ent NodeEntry) (*Merkle
 	copy(nents, entries)
 	nents[len(nents)-1] = ent
 
+	checkTreeInvariant(nents)
 	return mst.newTree(nents), nil
 }
 
@@ -445,6 +465,7 @@ func (mst *MerkleSearchTree) prepend(ctx context.Context, ent NodeEntry) (*Merkl
 	copy(nents[1:], entries)
 	nents[0] = ent
 
+	checkTreeInvariant(nents)
 	return mst.newTree(nents), nil
 }
 
@@ -457,6 +478,7 @@ func (mst *MerkleSearchTree) removeEntry(ctx context.Context, ix int) (*MerkleSe
 	nents := make([]NodeEntry, len(entries)-1)
 	copy(nents, entries[:ix])
 	copy(nents[ix:], entries[ix+1:])
+	checkTreeInvariant(nents)
 	return mst.newTree(nents), nil
 }
 
@@ -471,6 +493,7 @@ func (mst *MerkleSearchTree) spliceIn(ctx context.Context, entry NodeEntry, ix i
 	nents[ix] = entry
 	copy(nents[ix+1:], entries[ix:])
 
+	checkTreeInvariant(nents)
 	return mst.newTree(nents), nil
 }
 
@@ -515,25 +538,30 @@ func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]NodeEntry, error
 			return nil, err
 		}
 
-		if len(nd.E) == 0 {
-			// maybe this should be an error? idk
-			return nil, nil
-		}
-
-		firstLeaf := nd.E[0]
-
-		layer := leadingZerosOnHash(firstLeaf.K, mst.fanout)
-
-		entries, err := deserializeNodeData(ctx, mst.cst, &nd, layer, mst.fanout)
+		entries, err := entriesFromNodeData(ctx, &nd, mst.cst, mst.fanout)
 		if err != nil {
 			return nil, err
 		}
-
 		mst.entries = entries
 		return entries, nil
 	}
 
 	return nil, fmt.Errorf("no entries or cid provided")
+}
+
+func entriesFromNodeData(ctx context.Context, nd *NodeData, cst cbor.IpldStore, fanout int) ([]NodeEntry, error) {
+	layer := -1
+	if len(nd.E) > 0 {
+		firstLeaf := nd.E[0]
+		layer = leadingZerosOnHash(firstLeaf.K, fanout)
+	}
+
+	entries, err := deserializeNodeData(ctx, cst, nd, layer, fanout)
+	if err != nil {
+		return nil, err
+	}
+
+	return entries, nil
 }
 
 func (mst *MerkleSearchTree) getPointer(ctx context.Context) (cid.Cid, error) {
@@ -582,7 +610,7 @@ func (mst *MerkleSearchTree) getPointer(ctx context.Context) (cid.Cid, error) {
 func cidForEntries(ctx context.Context, entries []NodeEntry, cst cbor.IpldStore) (cid.Cid, error) {
 	nd, err := serializeNodeData(entries)
 	if err != nil {
-		return cid.Undef, err
+		return cid.Undef, fmt.Errorf("serializing new entries: %w", err)
 	}
 
 	return cst.Put(ctx, nd)
@@ -595,11 +623,10 @@ func serializeNodeData(entries []NodeEntry) (*NodeData, error) {
 	if len(entries) > 0 && entries[0].isTree() {
 		i++
 
-		if !entries[0].Tree.validPtr {
-			panic("invalid pointer in entries list tree")
+		ptr, err := entries[0].Tree.GetPointer(context.TODO())
+		if err != nil {
+			return nil, err
 		}
-
-		ptr := entries[0].Tree.pointer
 		data.L = &ptr
 	}
 
@@ -608,7 +635,7 @@ func serializeNodeData(entries []NodeEntry) (*NodeData, error) {
 		leaf := entries[i]
 
 		if !leaf.isLeaf() {
-			return nil, fmt.Errorf("Not a valid node: two subtrees next to eachother")
+			return nil, fmt.Errorf("Not a valid node: two subtrees next to eachother (%d, %d)", i, len(entries))
 		}
 		i++
 
@@ -618,19 +645,24 @@ func serializeNodeData(entries []NodeEntry) (*NodeData, error) {
 			next := entries[i]
 
 			if next.isTree() {
-				subtree = &next.Tree.pointer
+
+				ptr, err := next.Tree.GetPointer(context.TODO())
+				if err != nil {
+					return nil, fmt.Errorf("getting subtree pointer: %w", err)
+				}
+
+				subtree = &ptr
 				i++
 			}
-
-			prefixLen := countPrefixLen(lastKey, leaf.Key)
-			data.E = append(data.E, TreeEntry{
-				P: int64(prefixLen),
-				K: leaf.Key[prefixLen:],
-				V: leaf.Val,
-				T: subtree,
-			})
-
 		}
+
+		prefixLen := countPrefixLen(lastKey, leaf.Key)
+		data.E = append(data.E, TreeEntry{
+			P:    int64(prefixLen),
+			K:    leaf.Key[prefixLen:],
+			V:    leaf.Val,
+			Tree: subtree,
+		})
 
 		lastKey = leaf.Key
 	}
@@ -670,13 +702,14 @@ func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, 
 			Val:  e.V,
 		})
 
-		lastKey = string(key)
-		if e.T != nil {
+		if e.Tree != nil {
 			entries = append(entries, NodeEntry{
 				Kind: EntryTree,
-				Tree: NewMST(cst, fanout, *e.T, nil, layer-1),
+				Tree: NewMST(cst, fanout, *e.Tree, nil, layer-1),
+				Key:  string(key),
 			})
 		}
+		lastKey = string(key)
 	}
 
 	return entries, nil
@@ -700,7 +733,7 @@ func layerForEntries(entries []NodeEntry, fanout int) int {
 }
 
 func (mst *MerkleSearchTree) getLayer(ctx context.Context) (int, error) {
-	if mst.layer != -1 {
+	if mst.layer >= 0 {
 		return mst.layer, nil
 	}
 
@@ -710,7 +743,21 @@ func (mst *MerkleSearchTree) getLayer(ctx context.Context) (int, error) {
 	}
 
 	mst.layer = layerForEntries(entries, mst.fanout)
+	if mst.layer < 0 {
+		// still empty!
+		mst.layer = 0
+	}
+
 	return mst.layer, nil
+}
+
+func log2(v int) int {
+	var out int
+	for v > 1 {
+		out++
+		v = v / 2
+	}
+	return out
 }
 
 func leadingZerosOnHash(k string, fanout int) int {
@@ -724,7 +771,7 @@ func leadingZerosOnHash(k string, fanout int) int {
 			break
 		}
 	}
-	return total / fanout
+	return total / log2(fanout)
 }
 
 func (mst *MerkleSearchTree) WalkLeavesFrom(ctx context.Context, key string, cb func(n NodeEntry) error) error {
@@ -737,8 +784,6 @@ func (mst *MerkleSearchTree) WalkLeavesFrom(ctx context.Context, key string, cb 
 	if err != nil {
 		return err
 	}
-
-	fmt.Println(entries)
 
 	if index > 0 {
 		prev := entries[index-1]

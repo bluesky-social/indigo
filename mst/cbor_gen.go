@@ -263,12 +263,12 @@ func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if t.T == nil {
+	if t.Tree == nil {
 		if _, err := cw.Write(cbg.CborNull); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteCid(cw, *t.T); err != nil {
+		if err := cbg.WriteCid(cw, *t.Tree); err != nil {
 			return xerrors.Errorf("failed to write cid field t.T: %w", err)
 		}
 	}
@@ -383,7 +383,7 @@ func (t *TreeEntry) UnmarshalCBOR(r io.Reader) (err error) {
 						return xerrors.Errorf("failed to read cid field t.T: %w", err)
 					}
 
-					t.T = &c
+					t.Tree = &c
 				}
 
 			}
