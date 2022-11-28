@@ -1,11 +1,13 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	did "github.com/whyrusleeping/go-did"
+	otel "go.opentelemetry.io/otel"
 )
 
 type PLCServer struct {
@@ -13,7 +15,10 @@ type PLCServer struct {
 	C    *http.Client
 }
 
-func (s *PLCServer) GetDocument(didstr string) (*did.Document, error) {
+func (s *PLCServer) GetDocument(ctx context.Context, didstr string) (*did.Document, error) {
+	ctx, span := otel.Tracer("gosky").Start(ctx, "plsResolveDid")
+	defer span.End()
+
 	if s.C == nil {
 		s.C = http.DefaultClient
 	}
@@ -23,7 +28,7 @@ func (s *PLCServer) GetDocument(didstr string) (*did.Document, error) {
 		return nil, err
 	}
 
-	resp, err := s.C.Do(req)
+	resp, err := s.C.Do(req.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}

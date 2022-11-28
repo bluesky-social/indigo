@@ -56,7 +56,7 @@ func TestBasicMst(t *testing.T) {
 	fmt.Println(ncid)
 }
 
-func TestEdgeCase9(t *testing.T) {
+func TestEdgeCase(t *testing.T) {
 	m := map[string]string{
 		"97206d5e4a18/19fbf0b79789/1710133f2dd6": "cats",
 	}

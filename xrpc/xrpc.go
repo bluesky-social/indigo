@@ -47,7 +47,7 @@ func makeParams(p map[string]interface{}) string {
 	return strings.Join(parts, "&")
 }
 
-func (c *Client) Do(ctx context.Context, kind XRPCRequestType, method string, params map[string]interface{}, bodyobj interface{}, out interface{}) error {
+func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, method string, params map[string]interface{}, bodyobj interface{}, out interface{}) error {
 	var body io.Reader
 	if bodyobj != nil {
 		if rr, ok := bodyobj.(io.Reader); ok {
@@ -82,8 +82,8 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, method string, pa
 		return err
 	}
 
-	if bodyobj != nil {
-		req.Header.Set("Content-Type", "application/json")
+	if inpenc != "" {
+		req.Header.Set("Content-Type", inpenc)
 	}
 
 	if c.Auth != nil {

@@ -14,6 +14,11 @@ import (
 	"strings"
 )
 
+const (
+	EncodingCBOR = "application/cbor"
+	EncodingJSON = "application/json"
+)
+
 type Schema struct {
 	prefix string
 
@@ -243,9 +248,18 @@ func (s *Schema) WriteRPC(w io.Writer, prefix string) error {
 
 	params := "ctx context.Context, c *xrpc.Client"
 	inpvar := "nil"
+	inpenc := ""
 	if s.Input != nil {
-		params = fmt.Sprintf("%s, input %s_Input", params, fname)
 		inpvar = "input"
+		inpenc = s.Input.Encoding
+		switch s.Input.Encoding {
+		case EncodingCBOR:
+			params = fmt.Sprintf("%s, input io.Reader", params)
+		case EncodingJSON:
+			params = fmt.Sprintf("%s, input %s_Input", params, fname)
+		default:
+			return fmt.Errorf("unsupported input encoding: %q", s.Input.Encoding)
+		}
 	}
 
 	if s.Parameters != nil {
@@ -265,7 +279,14 @@ func (s *Schema) WriteRPC(w io.Writer, prefix string) error {
 
 	out := "error"
 	if s.Output != nil {
-		out = fmt.Sprintf("(*%s_Output, error)", fname)
+		switch s.Output.Encoding {
+		case EncodingCBOR:
+			out = "([]byte, error)"
+		case EncodingJSON:
+			out = fmt.Sprintf("(*%s_Output, error)", fname)
+		default:
+			return fmt.Errorf("unrecognized encoding scheme: %q", s.Output.Encoding)
+		}
 	}
 
 	fmt.Fprintf(w, "func %s(%s) %s {\n", fname, params, out)
@@ -274,10 +295,21 @@ func (s *Schema) WriteRPC(w io.Writer, prefix string) error {
 	errRet := "err"
 	outRet := "nil"
 	if s.Output != nil {
-		fmt.Fprintf(w, "\tvar out %s_Output\n", fname)
-		outvar = "&out"
-		errRet = "nil, err"
-		outRet = "&out, nil"
+		switch s.Output.Encoding {
+		case EncodingCBOR:
+			fmt.Fprintf(w, "buf := new(bytes.Buffer)\n")
+			outvar = "buf"
+			errRet = "nil, err"
+			outRet = "buf.Bytes(), nil"
+
+		case EncodingJSON:
+			fmt.Fprintf(w, "\tvar out %s_Output\n", fname)
+			outvar = "&out"
+			errRet = "nil, err"
+			outRet = "&out, nil"
+		default:
+			return fmt.Errorf("unrecognized output encoding: %q", s.Output.Encoding)
+		}
 	}
 
 	queryparams := "nil"
@@ -306,7 +338,7 @@ func (s *Schema) WriteRPC(w io.Writer, prefix string) error {
 		return fmt.Errorf("can only generate RPC for Query or Procedure (got %s)", s.Type)
 	}
 
-	fmt.Fprintf(w, "\tif err := c.Do(ctx, %s, \"%s\", %s, %s, %s); err != nil {\n", reqtype, s.ID, queryparams, inpvar, outvar)
+	fmt.Fprintf(w, "\tif err := c.Do(ctx, %s, %q, \"%s\", %s, %s, %s); err != nil {\n", reqtype, inpenc, s.ID, queryparams, inpvar, outvar)
 	fmt.Fprintf(w, "\t\treturn %s\n", errRet)
 	fmt.Fprintf(w, "\t}\n\n")
 	fmt.Fprintf(w, "\treturn %s\n", outRet)
@@ -370,7 +402,7 @@ func WriteXrpcServer(w io.Writer, schemas []*Schema, pkg string, impmap map[stri
 			continue
 		}
 
-		fmt.Fprintf(w, "e.%s(\"/xrpc/%s\", s.%s)\n", verb, s.ID, idToTitle(s.ID))
+		fmt.Fprintf(w, "e.%s(\"/xrpc/%s\", s.Handle%s)\n", verb, s.ID, idToTitle(s.ID))
 	}
 
 	fmt.Fprintf(w, "return nil\n}\n\n")
@@ -409,6 +441,11 @@ func (s *Schema) WriteRPCHandler(w io.Writer, prefix string) error {
 
 	fmt.Fprintf(w, "func (s *Server) Handle%s(c echo.Context) error {\n", fname)
 
+	fmt.Fprintf(w, "ctx, span := otel.Tracer(\"server\").Start(c.Request().Context(), %q)\n", "Handle"+fname)
+	fmt.Fprintf(w, "defer span.End()\n")
+
+	impname := importNameForPrefix(prefix)
+
 	paramtypes := []string{"ctx context.Context"}
 	params := []string{"ctx"}
 	if s.Type == "query" {
@@ -436,25 +473,26 @@ if err != nil {
 		}
 	} else if s.Type == "procedure" {
 		fmt.Fprintf(w, `
-var body types.%s
-if err := e.Bind(&out); err != nil {
+var body %s.%s
+if err := c.Bind(&body); err != nil {
 	return err
 }
-`, tname+"_Input")
+`, impname, tname+"_Input")
 	} else {
 		return fmt.Errorf("can only generate handlers for queries or procedures")
 	}
 
-	assign := "err"
+	assign := "handleErr"
 	returndef := "error"
 	if s.Output != nil {
-		assign = "out, err"
-		fmt.Fprintf(w, "var out types.%s\n", tname+"_Output")
-		returndef = fmt.Sprintf("(*types.%s_Output, error)", tname)
+		assign = "out, handleErr"
+		fmt.Fprintf(w, "var out %s.%s\n", impname, tname+"_Output")
+		returndef = fmt.Sprintf("(*%s.%s_Output, error)", impname, tname)
 	}
-	fmt.Fprintf(w, "var err error\n")
+	fmt.Fprintf(w, "var handleErr error\n")
 	fmt.Fprintf(w, "// func (s *Server) handle%s(%s) %s\n", fname, strings.Join(paramtypes, ","), returndef)
 	fmt.Fprintf(w, "%s = s.handle%s(%s)\n", assign, fname, strings.Join(params, ","))
+	fmt.Fprintf(w, "if handleErr != nil {\nreturn handleErr\n}\n")
 
 	fmt.Fprintf(w, "return nil // TODO: implement me\n}\n\n")
 

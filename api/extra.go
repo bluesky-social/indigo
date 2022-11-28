@@ -6,10 +6,14 @@ import (
 	"net/url"
 
 	did "github.com/whyrusleeping/go-did"
+	otel "go.opentelemetry.io/otel"
 )
 
 func ResolveDidToHandle(ctx context.Context, atp *ATProto, pls *PLCServer, udid string) (string, string, error) {
-	doc, err := pls.GetDocument(udid)
+	ctx, span := otel.Tracer("gosky").Start(ctx, "resolveDidToHandle")
+	defer span.End()
+
+	doc, err := pls.GetDocument(ctx, udid)
 	if err != nil {
 		return "", "", err
 	}
