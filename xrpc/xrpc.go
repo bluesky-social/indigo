@@ -82,7 +82,7 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 		return err
 	}
 
-	if inpenc != "" {
+	if bodyobj != nil && inpenc != "" {
 		req.Header.Set("Content-Type", inpenc)
 	}
 

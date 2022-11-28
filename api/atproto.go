@@ -20,6 +20,10 @@ type CreateSessionResp struct {
 	Did        string `json:"did"`
 }
 
+const (
+	encJson = "application/json"
+)
+
 func (atp *ATProto) CreateSession(ctx context.Context, handle, password string) (*CreateSessionResp, error) {
 	body := map[string]string{
 		"handle":   handle,
@@ -27,7 +31,7 @@ func (atp *ATProto) CreateSession(ctx context.Context, handle, password string) 
 	}
 
 	var resp CreateSessionResp
-	if err := atp.C.Do(ctx, xrpc.Procedure, "com.atproto.session.create", nil, body, &resp); err != nil {
+	if err := atp.C.Do(ctx, xrpc.Procedure, encJson, "com.atproto.session.create", nil, body, &resp); err != nil {
 		return nil, err
 	}
 
@@ -54,7 +58,7 @@ func (atp *ATProto) CreateAccount(ctx context.Context, email, handle, password s
 	}
 
 	var resp CreateAccountResp
-	if err := atp.C.Do(ctx, xrpc.Procedure, "com.atproto.account.create", nil, body, &resp); err != nil {
+	if err := atp.C.Do(ctx, xrpc.Procedure, encJson, "com.atproto.account.create", nil, body, &resp); err != nil {
 		return nil, err
 	}
 
@@ -79,7 +83,7 @@ func (atp *ATProto) RepoCreateRecord(ctx context.Context, did, collection string
 	}
 
 	var out CreateRecordResponse
-	if err := atp.C.Do(ctx, xrpc.Procedure, "com.atproto.repo.createRecord", nil, body, &out); err != nil {
+	if err := atp.C.Do(ctx, xrpc.Procedure, encJson, "com.atproto.repo.createRecord", nil, body, &out); err != nil {
 		return nil, err
 	}
 
@@ -95,7 +99,7 @@ func (atp *ATProto) SyncGetRepo(ctx context.Context, did string, from *string) (
 	}
 
 	out := new(bytes.Buffer)
-	if err := atp.C.Do(ctx, xrpc.Query, "com.atproto.sync.getRepo", params, nil, out); err != nil {
+	if err := atp.C.Do(ctx, xrpc.Query, encJson, "com.atproto.sync.getRepo", params, nil, out); err != nil {
 		return nil, err
 	}
 
@@ -110,7 +114,7 @@ func (atp *ATProto) SyncGetRoot(ctx context.Context, did string) (string, error)
 	var out struct {
 		Root string `json:"root"`
 	}
-	if err := atp.C.Do(ctx, xrpc.Query, "com.atproto.sync.getRoot", params, nil, &out); err != nil {
+	if err := atp.C.Do(ctx, xrpc.Query, encJson, "com.atproto.sync.getRoot", params, nil, &out); err != nil {
 		return "", err
 	}
 
@@ -125,7 +129,7 @@ func (atp *ATProto) HandleResolve(ctx context.Context, handle string) (string, e
 	var out struct {
 		Did string `json:"did"`
 	}
-	if err := atp.C.Do(ctx, xrpc.Query, "com.atproto.handle.resolve", params, nil, &out); err != nil {
+	if err := atp.C.Do(ctx, xrpc.Query, encJson, "com.atproto.handle.resolve", params, nil, &out); err != nil {
 		return "", err
 	}
 
@@ -135,7 +139,7 @@ func (atp *ATProto) HandleResolve(ctx context.Context, handle string) (string, e
 
 func (atp *ATProto) SessionRefresh(ctx context.Context) (*xrpc.AuthInfo, error) {
 	var out xrpc.AuthInfo
-	if err := atp.C.Do(ctx, xrpc.Procedure, "com.atproto.session.refresh", nil, nil, &out); err != nil {
+	if err := atp.C.Do(ctx, xrpc.Procedure, encJson, "com.atproto.session.refresh", nil, nil, &out); err != nil {
 		return nil, err
 	}
 
@@ -143,10 +147,9 @@ func (atp *ATProto) SessionRefresh(ctx context.Context) (*xrpc.AuthInfo, error) 
 }
 
 type RecordResponse[T JsonLD] struct {
-	Uri string `json:"uri"`
-	Cid string `json:"cid"`
-	Value T `json:"value"`
-
+	Uri   string `json:"uri"`
+	Cid   string `json:"cid"`
+	Value T      `json:"value"`
 }
 
 func RepoGetRecord[T JsonLD](atp *ATProto, ctx context.Context, user string, collection string, rkey string) (*RecordResponse[T], error) {
@@ -157,7 +160,7 @@ func RepoGetRecord[T JsonLD](atp *ATProto, ctx context.Context, user string, col
 	}
 
 	var out RecordResponse[T]
-	if err := atp.C.Do(ctx, xrpc.Query, "com.atproto.repo.getRecord", params, nil, &out); err != nil {
+	if err := atp.C.Do(ctx, xrpc.Query, encJson, "com.atproto.repo.getRecord", params, nil, &out); err != nil {
 		return nil, err
 	}
 

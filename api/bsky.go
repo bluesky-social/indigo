@@ -83,7 +83,7 @@ func (b *BskyApp) FeedGetTimeline(ctx context.Context, algo string, limit int, b
 	}
 
 	var out GetTimelineResp
-	if err := b.C.Do(ctx, xrpc.Query, "app.bsky.feed.getTimeline", params, nil, &out); err != nil {
+	if err := b.C.Do(ctx, xrpc.Query, encJson, "app.bsky.feed.getTimeline", params, nil, &out); err != nil {
 		return nil, err
 	}
 
@@ -101,7 +101,7 @@ func (b *BskyApp) FeedGetAuthorFeed(ctx context.Context, author string, limit in
 	}
 
 	var out GetTimelineResp
-	if err := b.C.Do(ctx, xrpc.Query, "app.bsky.feed.getAuthorFeed", params, nil, &out); err != nil {
+	if err := b.C.Do(ctx, xrpc.Query, encJson, "app.bsky.feed.getAuthorFeed", params, nil, &out); err != nil {
 		return nil, err
 	}
 
@@ -137,7 +137,7 @@ func (b *BskyApp) ActorGetSuggestions(ctx context.Context, limit int, cursor *st
 	}
 
 	var out GetSuggestionsResp
-	if err := b.C.Do(ctx, xrpc.Query, "app.bsky.actor.getSuggestions", params, nil, &out); err != nil {
+	if err := b.C.Do(ctx, xrpc.Query, "", "app.bsky.actor.getSuggestions", params, nil, &out); err != nil {
 		return nil, err
 	}
 
@@ -151,7 +151,7 @@ func (b *BskyApp) FeedSetVote(ctx context.Context, subject *PostRef, direction s
 	}
 
 	var out map[string]interface{}
-	if err := b.C.Do(ctx, xrpc.Procedure, "app.bsky.feed.setVote", nil, body, &out); err != nil {
+	if err := b.C.Do(ctx, xrpc.Procedure, encJson, "app.bsky.feed.setVote", nil, body, &out); err != nil {
 		return err
 	}
 
@@ -177,7 +177,7 @@ func (b *BskyApp) GraphGetFollows(ctx context.Context, user string, limit int, b
 	}
 
 	var out GetFollowsResp
-	if err := b.C.Do(ctx, xrpc.Query, "app.bsky.graph.getFollows", params, nil, &out); err != nil {
+	if err := b.C.Do(ctx, xrpc.Query, "", "app.bsky.graph.getFollows", params, nil, &out); err != nil {
 		return nil, err
 	}
 
