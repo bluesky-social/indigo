@@ -13,14 +13,19 @@ type BskyApp struct {
 }
 
 type PostEntity struct {
-	Index []int64 `json:"index"`
-	Type  string  `json:"type"`
-	Value string  `json:"value"`
+	Index *TextSlice `json:"index" cborgen:"index"`
+	Type  string     `json:"type" cborgen:"type"`
+	Value string     `json:"value" cborgen:"value"`
+}
+
+type TextSlice struct {
+	Start int64 `json:"start" cborgen:"start"`
+	End   int64 `json:"end" cborgen:"end"`
 }
 
 type ReplyRef struct {
-	Root   PostRef `json:"root"`
-	Parent PostRef `json:"parent"`
+	Root   PostRef `json:"root" cborgen:"root"`
+	Parent PostRef `json:"parent" cborgen:"parent"`
 }
 
 type PostRecord struct {
@@ -66,10 +71,16 @@ type FeedItem struct {
 	Record     interface{} `json:"record"`
 }
 
+type Declaration struct {
+	Cid       string `json:"cid"`
+	ActorType string `json:"actorType"`
+}
+
 type User struct {
-	Did         string `json:"did"`
-	Handle      string `json:"handle"`
-	DisplayName string `json:"displayName"`
+	Did         string       `json:"did"`
+	Handle      string       `json:"handle"`
+	DisplayName string       `json:"displayName"`
+	Declaration *Declaration `json:"declaration"`
 }
 
 func (b *BskyApp) FeedGetTimeline(ctx context.Context, algo string, limit int, before *string) (*GetTimelineResp, error) {

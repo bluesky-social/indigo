@@ -251,7 +251,7 @@ func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("failed to write cid field t.V: %w", err)
 	}
 
-	// t.T (cid.Cid) (struct)
+	// t.Tree (cid.Cid) (struct)
 	if len("t") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"t\" was too long")
 	}
@@ -269,7 +269,7 @@ func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
 		}
 	} else {
 		if err := cbg.WriteCid(cw, *t.Tree); err != nil {
-			return xerrors.Errorf("failed to write cid field t.T: %w", err)
+			return xerrors.Errorf("failed to write cid field t.Tree: %w", err)
 		}
 	}
 
@@ -364,7 +364,7 @@ func (t *TreeEntry) UnmarshalCBOR(r io.Reader) (err error) {
 				t.V = c
 
 			}
-			// t.T (cid.Cid) (struct)
+			// t.Tree (cid.Cid) (struct)
 		case "t":
 
 			{
@@ -380,7 +380,7 @@ func (t *TreeEntry) UnmarshalCBOR(r io.Reader) (err error) {
 
 					c, err := cbg.ReadCid(cr)
 					if err != nil {
-						return xerrors.Errorf("failed to read cid field t.T: %w", err)
+						return xerrors.Errorf("failed to read cid field t.Tree: %w", err)
 					}
 
 					t.Tree = &c

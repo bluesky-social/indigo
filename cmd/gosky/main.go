@@ -137,7 +137,7 @@ var didGetCmd = &cli.Command{
 	Action: func(cctx *cli.Context) error {
 		s := cliutil.GetPLCClient(cctx)
 
-		doc, err := s.GetDocument(cctx.Args().First())
+		doc, err := s.GetDocument(context.TODO(), cctx.Args().First())
 		if err != nil {
 			return err
 		}

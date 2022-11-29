@@ -65,7 +65,7 @@ type TypeSchema struct {
 
 func (s *Schema) Name() string {
 	p := strings.Split(s.ID, ".")
-	return p[len(p)-1]
+	return p[len(p)-2] + p[len(p)-1]
 }
 
 type outputType struct {
@@ -144,6 +144,7 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 	fmt.Fprintf(buf, "\t\"github.com/whyrusleeping/gosky/xrpc\"\n")
 	fmt.Fprintf(buf, "\t\"github.com/whyrusleeping/gosky/lex/util\"\n")
 	fmt.Fprintf(buf, ")\n\n")
+	fmt.Fprintf(buf, "// schema: %s\n\n", s.ID)
 
 	tps := s.AllTypes(prefix)
 
@@ -486,7 +487,7 @@ if err := c.Bind(&body); err != nil {
 	returndef := "error"
 	if s.Output != nil {
 		assign = "out, handleErr"
-		fmt.Fprintf(w, "var out %s.%s\n", impname, tname+"_Output")
+		fmt.Fprintf(w, "var out *%s.%s\n", impname, tname+"_Output")
 		returndef = fmt.Sprintf("(*%s.%s_Output, error)", impname, tname)
 	}
 	fmt.Fprintf(w, "var handleErr error\n")
@@ -494,7 +495,7 @@ if err := c.Bind(&body); err != nil {
 	fmt.Fprintf(w, "%s = s.handle%s(%s)\n", assign, fname, strings.Join(params, ","))
 	fmt.Fprintf(w, "if handleErr != nil {\nreturn handleErr\n}\n")
 
-	fmt.Fprintf(w, "return nil // TODO: implement me\n}\n\n")
+	fmt.Fprintf(w, "return c.JSON(200, out)\n}\n\n")
 
 	return nil
 }
