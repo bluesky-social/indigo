@@ -193,6 +193,8 @@ func (r *Repo) getMst(ctx context.Context) (*mst.MerkleSearchTree, error) {
 	return t, nil
 }
 
+var ErrDoneIterating = fmt.Errorf("done iterating")
+
 func (r *Repo) ForEach(ctx context.Context, prefix string, cb func(k string, v cid.Cid) error) error {
 	var com Commit
 	if err := r.cst.Get(ctx, r.sr.Root, &com); err != nil {
@@ -204,7 +206,9 @@ func (r *Repo) ForEach(ctx context.Context, prefix string, cb func(k string, v c
 	if err := t.WalkLeavesFrom(ctx, prefix, func(e mst.NodeEntry) error {
 		return cb(e.Key, e.Val)
 	}); err != nil {
-		return err
+		if err != ErrDoneIterating {
+			return err
+		}
 	}
 
 	return nil

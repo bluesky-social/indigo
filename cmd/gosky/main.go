@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,9 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ipfs/go-cid"
 	cli "github.com/urfave/cli/v2"
 	api "github.com/whyrusleeping/gosky/api"
 	cliutil "github.com/whyrusleeping/gosky/cmd/gosky/util"
+	"github.com/whyrusleeping/gosky/repo"
 )
 
 func main() {
@@ -26,17 +29,20 @@ func main() {
 		},
 	}
 	app.Commands = []*cli.Command{
-		createSessionCmd,
-		newAccountCmd,
-		postCmd,
-		didCmd,
-		syncCmd,
-		feedGetCmd,
-		feedGetAuthorCmd,
 		actorGetSuggestionsCmd,
+		createSessionCmd,
+		deletePostCmd,
+		didCmd,
+		feedGetAuthorCmd,
+		feedGetCmd,
 		feedSetVoteCmd,
 		graphGetFollowsCmd,
+		newAccountCmd,
+		postCmd,
 		refreshAuthTokenCmd,
+		syncCmd,
+		listAllPostsCmd,
+		deletePostCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -400,6 +406,63 @@ var refreshAuthTokenCmd = &cli.Command{
 		}
 
 		if err := os.WriteFile(cctx.String("auth"), b, 0600); err != nil {
+			return err
+		}
+
+		return nil
+	},
+}
+
+var deletePostCmd = &cli.Command{
+	Name: "delete",
+	Action: func(cctx *cli.Context) error {
+		atpc, err := cliutil.GetATPClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		rkey := cctx.Args().First()
+
+		if rkey == "" {
+			return fmt.Errorf("must specify rkey of post to delete")
+		}
+
+		return atpc.RepoDeleteRecord(context.TODO(), atpc.C.Auth.Did, "app.bsky.feed.post", rkey)
+	},
+}
+
+var listAllPostsCmd = &cli.Command{
+	Name: "list",
+	Action: func(cctx *cli.Context) error {
+		atpc, err := cliutil.GetATPClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		did := cctx.Args().First()
+		if did == "" {
+			did = atpc.C.Auth.Did
+		}
+
+		ctx := context.TODO()
+		repob, err := atpc.SyncGetRepo(ctx, did, nil)
+		if err != nil {
+			return err
+		}
+
+		rr, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(repob))
+		if err != nil {
+			return err
+		}
+
+		if err := rr.ForEach(ctx, "app.bsky.feed.post", func(k string, v cid.Cid) error {
+			if !strings.HasPrefix(k, "app.bsky.feed.post/") {
+				return repo.ErrDoneIterating
+			}
+
+			fmt.Println(k)
+			return nil
+		}); err != nil {
 			return err
 		}
 

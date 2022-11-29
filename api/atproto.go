@@ -166,3 +166,17 @@ func RepoGetRecord[T JsonLD](atp *ATProto, ctx context.Context, user string, col
 
 	return &out, nil
 }
+
+func (atp *ATProto) RepoDeleteRecord(ctx context.Context, did, collection, rkey string) error {
+	body := map[string]interface{}{
+		"did":        did,
+		"collection": collection,
+		"rkey":       rkey,
+	}
+
+	if err := atp.C.Do(ctx, xrpc.Procedure, encJson, "com.atproto.repo.deleteRecord", nil, body, nil); err != nil {
+		return err
+	}
+
+	return nil
+}
