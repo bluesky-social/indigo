@@ -427,7 +427,14 @@ var deletePostCmd = &cli.Command{
 			return fmt.Errorf("must specify rkey of post to delete")
 		}
 
-		return atpc.RepoDeleteRecord(context.TODO(), atpc.C.Auth.Did, "app.bsky.feed.post", rkey)
+		schema := "app.bsky.feed.post"
+		if strings.Contains(rkey, "/") {
+			parts := strings.Split(rkey, "/")
+			schema = parts[0]
+			rkey = parts[1]
+		}
+
+		return atpc.RepoDeleteRecord(context.TODO(), atpc.C.Auth.Did, schema, rkey)
 	},
 }
 

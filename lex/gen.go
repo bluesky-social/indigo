@@ -131,7 +131,23 @@ func ReadSchema(f string) (*Schema, error) {
 	return &s, nil
 }
 
-func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *Schema) error {
+func BuildExtDefMap(ss []*Schema) map[string]*ExtDef {
+	out := make(map[string]*ExtDef)
+	for _, s := range ss {
+		for k, d := range s.Defs {
+			out[s.ID+"#"+k] = &ExtDef{
+				Type: d,
+			}
+		}
+	}
+	return out
+}
+
+type ExtDef struct {
+	Type TypeSchema
+}
+
+func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *Schema, defmap map[string]*ExtDef) error {
 	buf := new(bytes.Buffer)
 
 	s.prefix = prefix
@@ -457,7 +473,7 @@ func (s *Schema) WriteRPCHandler(w io.Writer, prefix string) error {
 					params = append(params, k)
 					paramtypes = append(paramtypes, k+" string")
 					fmt.Fprintf(w, "%s := c.QueryParam(\"%s\")\n", k, k)
-				case "number":
+				case "integer":
 					params = append(params, k)
 					paramtypes = append(paramtypes, k+" int")
 					fmt.Fprintf(w, `
@@ -466,6 +482,8 @@ if err != nil {
 	return err
 }
 `, k, k)
+				case "number":
+					return fmt.Errorf("non-integer numbers currently unsupported")
 				default:
 					return fmt.Errorf("unsupported handler parameter type: %s", t.Type)
 				}
@@ -511,6 +529,8 @@ func (s *Schema) typeNameForField(name, k string, v TypeSchema) (string, error) 
 	case "string":
 		return "string", nil
 	case "number":
+		return "float64", nil
+	case "integer":
 		return "int64", nil
 	case "boolean":
 		return "bool", nil
@@ -578,6 +598,8 @@ func (s *Schema) writeTypeDefinition(name string, t TypeSchema, w io.Writer) err
 		// TODO: deal with max length
 		fmt.Fprintf(w, "type %s string\n", name)
 	case "number":
+		fmt.Fprintf(w, "type %s float64\n", name)
+	case "integer":
 		fmt.Fprintf(w, "type %s int64\n", name)
 	case "boolean":
 		fmt.Fprintf(w, "type %s bool\n", name)
@@ -645,7 +667,7 @@ func (s *Schema) writeTypeDefinition(name string, t TypeSchema, w io.Writer) err
 
 func (s *Schema) writeTypeMethods(name string, t TypeSchema, w io.Writer) error {
 	switch t.Type {
-	case "string", "number", "array", "boolean":
+	case "string", "number", "array", "boolean", "integer":
 		return nil
 	case "object":
 		if err := s.writeJsonMarshalerObject(name, t, w); err != nil {
@@ -757,12 +779,12 @@ func (s *Schema) writeJsonUnmarshalerObject(name string, t TypeSchema, w io.Writ
 func (s *Schema) getTypeConstValueForType(t TypeSchema) (string, []string, error) {
 	parts := strings.Split(t.Ref, "/")
 	if len(parts) == 3 && parts[0] == "#" && parts[1] == "defs" {
-		defs, ok := s.Defs[parts[2]]
+		def, ok := s.Defs[parts[2]]
 		if !ok {
 			return "", nil, fmt.Errorf("bad reference %q", parts[2])
 		}
 
-		typ, ok := defs.Properties["type"]
+		typ, ok := def.Properties["type"]
 		if !ok {
 			return "", nil, fmt.Errorf("referenced enum value %q does not have type property", parts[2])
 		}
