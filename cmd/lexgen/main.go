@@ -70,6 +70,9 @@ func main() {
 		&cli.BoolFlag{
 			Name: "gen-server",
 		},
+		&cli.BoolFlag{
+			Name: "gen-handlers",
+		},
 		&cli.StringSliceFlag{
 			Name: "types-import",
 		},
@@ -103,6 +106,11 @@ func main() {
 
 		pkgname := cctx.String("package")
 
+		imports := map[string]string{
+			"app.bsky":    "github.com/whyrusleeping/gosky/api/bsky",
+			"com.atproto": "github.com/whyrusleeping/gosky/api/atproto",
+		}
+
 		if cctx.Bool("gen-server") {
 			paths := cctx.StringSlice("types-import")
 			importmap := make(map[string]string)
@@ -111,15 +119,22 @@ func main() {
 				importmap[parts[0]] = parts[1]
 			}
 
-			if err := lex.CreateHandlerStub(pkgname, importmap, outdir, schemas); err != nil {
+			handlers := cctx.Bool("gen-handlers")
+
+			if err := lex.CreateHandlerStub(pkgname, importmap, outdir, schemas, handlers); err != nil {
 				return err
 			}
 
 		} else {
+			defmap := lex.BuildExtDefMap(schemas, []string{"com.atproto", "app.bsky"})
 			for i, s := range schemas {
+				if !strings.HasPrefix(s.ID, prefix) {
+					continue
+				}
+
 				fname := filepath.Join(outdir, s.Name()+".go")
 
-				if err := lex.GenCodeForSchema(pkgname, prefix, fname, true, s); err != nil {
+				if err := lex.GenCodeForSchema(pkgname, prefix, fname, true, s, defmap, imports); err != nil {
 					return fmt.Errorf("failed to process schema %q: %w", paths[i], err)
 				}
 			}

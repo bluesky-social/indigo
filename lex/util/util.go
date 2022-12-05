@@ -1,9 +1,11 @@
 package util
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 type typeExtractor struct {
-	Type string `json:"type"`
+	Type string `json:"$type"`
 }
 
 func EnumTypeExtract(b []byte) (string, error) {
@@ -13,4 +15,9 @@ func EnumTypeExtract(b []byte) (string, error) {
 	}
 
 	return te.Type, nil
+}
+
+type Blob struct {
+	Cid      string `json:"cid"`
+	MimeType string `json:"mimeType"`
 }
