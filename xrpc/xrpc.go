@@ -27,10 +27,11 @@ func (c *Client) getClient() *http.Client {
 type XRPCRequestType int
 
 type AuthInfo struct {
-	AccessJwt  string `json:"accessJwt"`
-	RefreshJwt string `json:"refreshJwt"`
-	Handle     string `json:"handle"`
-	Did        string `json:"did"`
+	AccessJwt      string `json:"accessJwt"`
+	RefreshJwt     string `json:"refreshJwt"`
+	Handle         string `json:"handle"`
+	Did            string `json:"did"`
+	DeclarationCid string `json:"declarationCid"`
 }
 
 const (

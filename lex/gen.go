@@ -455,11 +455,10 @@ func CreateHandlerStub(pkg string, impmap map[string]string, dir string, schemas
 			return err
 		}
 
-	fname := filepath.Join(dir, "handlers.go")
-	if err := writeCodeFile(buf.Bytes(), fname); err != nil {
-		return err
-	}
-
+		fname := filepath.Join(dir, "handlers.go")
+		if err := writeCodeFile(buf.Bytes(), fname); err != nil {
+			return err
+		}
 
 	}
 
@@ -481,7 +480,6 @@ func WriteServerHandlers(w io.Writer, schemas []*Schema, pkg string, impmap map[
 		fmt.Fprintf(w, "\t%s\"%s\"\n", importNameForPrefix(k), v)
 	}
 	fmt.Fprintf(w, ")\n\n")
-
 
 	for _, s := range schemas {
 
@@ -519,13 +517,37 @@ func WriteXrpcServer(w io.Writer, schemas []*Schema, pkg string, impmap map[stri
 	fmt.Fprintf(w, "\t\"encoding/json\"\n")
 	fmt.Fprintf(w, "\t\"github.com/whyrusleeping/gosky/xrpc\"\n")
 	fmt.Fprintf(w, "\t\"github.com/labstack/echo/v4\"\n")
+
+	var prefixes []string
 	for k, v := range impmap {
+		prefixes = append(prefixes, k)
 		fmt.Fprintf(w, "\t%s\"%s\"\n", importNameForPrefix(k), v)
 	}
 	fmt.Fprintf(w, ")\n\n")
 
-	fmt.Fprintf(w, "func (s *Server) RegisterHandlers(e echo.Echo) error {\n")
+
+	ssets := make(map[string][]*Schema)
 	for _, s := range schemas {
+		var pref string
+		for _, p := range prefixes {
+			if strings.HasPrefix(s.ID, p) {
+				pref = p
+				break
+			}
+		}
+		if pref == "" {
+			return fmt.Errorf("no matching prefix for schema %q", s.ID)
+		}
+
+				ssets[pref] = append(ssets[pref], s)
+
+	}
+
+	for _, p := range prefixes {
+		ss := ssets[p]
+
+	fmt.Fprintf(w, "func (s *Server) RegisterHandlers%s(e *echo.Echo) error {\n", idToTitle(p))
+	for _, s := range ss {
 
 		main, ok := s.Defs["main"]
 		if !ok {
@@ -547,7 +569,7 @@ func WriteXrpcServer(w io.Writer, schemas []*Schema, pkg string, impmap map[stri
 
 	fmt.Fprintf(w, "return nil\n}\n\n")
 
-	for _, s := range schemas {
+	for _, s := range ss {
 
 		var prefix string
 		for k := range impmap {
@@ -571,6 +593,7 @@ func WriteXrpcServer(w io.Writer, schemas []*Schema, pkg string, impmap map[stri
 			}
 		}
 	}
+}
 
 	return nil
 }
@@ -601,7 +624,7 @@ func (s *TypeSchema) WriteHandlerStub(w io.Writer, fname, shortname, impname str
 				return nil
 			})
 		}
-	} 
+	}
 
 	returndef := "error"
 	if s.Output != nil {
@@ -609,13 +632,23 @@ func (s *TypeSchema) WriteHandlerStub(w io.Writer, fname, shortname, impname str
 		case "application/json":
 			returndef = fmt.Sprintf("(*%s.%s_Output, error)", impname, shortname)
 		case "application/cbor":
-			returndef = fmt.Sprintf("([]byte, error)" )
+			returndef = fmt.Sprintf("(io.Reader, error)")
 		default:
-			return fmt.Errorf("unsupported encoding: %q", s.Output.Encoding)
+			return fmt.Errorf("unrecognized output encoding: %q", s.Output.Encoding)
 		}
 	}
 
-	fmt.Fprintf(w, "func (s *Server) handle%s(%s) %s\n", fname, strings.Join(paramtypes, ","), returndef)
+	if s.Input != nil {
+		switch s.Input.Encoding {
+		case "application/json":
+			paramtypes = append(paramtypes, fmt.Sprintf("input *%s.%s_Input", impname, shortname))
+		case "application/cbor":
+			paramtypes = append(paramtypes, "r io.Reader")
+		}
+	}
+
+	fmt.Fprintf(w, "func (s *Server) handle%s(%s) %s {\n", fname, strings.Join(paramtypes, ","), returndef)
+	fmt.Fprintf(w, "panic(\"not yet implemented\")\n}\n\n")
 
 	return nil
 }
@@ -656,12 +689,26 @@ if err != nil {
 			})
 		}
 	} else if s.Type == "procedure" {
-		fmt.Fprintf(w, `
-var body %s.%s
+		if s.Input != nil {
+			intname := impname + "." + tname + "_Input"
+			switch s.Input.Encoding {
+			case "application/json":
+				fmt.Fprintf(w, `
+var body %s
 if err := c.Bind(&body); err != nil {
 	return err
 }
-`, impname, tname+"_Input")
+`, intname)
+				paramtypes = append(paramtypes, "body " + intname )
+				params = append(params, "&body")
+			case "application/cbor":
+				fmt.Fprintf(w, "body := c.Request().Body\n")
+				paramtypes = append(paramtypes, "r io.Reader")
+				params = append(params, "body")
+			default:
+				return fmt.Errorf("unrecognized input encoding: %q", s.Input.Encoding)
+			}
+		}
 	} else {
 		return fmt.Errorf("can only generate handlers for queries or procedures")
 	}
@@ -669,9 +716,18 @@ if err := c.Bind(&body); err != nil {
 	assign := "handleErr"
 	returndef := "error"
 	if s.Output != nil {
-		assign = "out, handleErr"
-		fmt.Fprintf(w, "var out *%s.%s\n", impname, tname+"_Output")
-		returndef = fmt.Sprintf("(*%s.%s_Output, error)", impname, tname)
+		switch s.Output.Encoding {
+		case "application/json":
+			assign = "out, handleErr"
+			fmt.Fprintf(w, "var out *%s.%s\n", impname, tname+"_Output")
+			returndef = fmt.Sprintf("(*%s.%s_Output, error)", impname, tname)
+		case "application/cbor":
+			assign = "out, handleErr"
+			fmt.Fprintf(w, "var out io.Reader\n")
+			returndef = "(io.Reader, error)"
+		default:
+			return fmt.Errorf("unrecognized output encoding: %q", s.Output.Encoding)
+		}
 	}
 	fmt.Fprintf(w, "var handleErr error\n")
 	fmt.Fprintf(w, "// func (s *Server) handle%s(%s) %s\n", fname, strings.Join(paramtypes, ","), returndef)
@@ -679,10 +735,10 @@ if err := c.Bind(&body); err != nil {
 	fmt.Fprintf(w, "if handleErr != nil {\nreturn handleErr\n}\n")
 
 	if s.Output != nil {
-	fmt.Fprintf(w, "return c.JSON(200, out)\n}\n\n")
-} else {
-	fmt.Fprintf(w, "return nil\n}\n\n")
-}
+		fmt.Fprintf(w, "return c.JSON(200, out)\n}\n\n")
+	} else {
+		fmt.Fprintf(w, "return nil\n}\n\n")
+	}
 
 	return nil
 }
@@ -986,7 +1042,6 @@ func (ts *TypeSchema) writeJsonUnmarshalerEnum(name string, w io.Writer) error {
 		if strings.HasPrefix(e, "#") {
 			e = ts.id + e
 		}
-
 
 		goname := ts.typeNameFromRef(e)
 
