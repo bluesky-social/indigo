@@ -48,6 +48,7 @@ type TypeSchema struct {
 	id      string
 	defName string
 	defMap  map[string]*ExtDef
+	record  bool
 
 	Type        string      `json:"type"`
 	Key         string      `json:"key"`
@@ -87,8 +88,9 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 	walk = func(name string, ts *TypeSchema, record bool) {
 		if ts == nil {
 			panic(fmt.Sprintf("nil type schema in %q (%s)", name, s.ID))
-
 		}
+
+		ts.record = record
 		ts.prefix = prefix
 		ts.id = s.ID
 		ts.defMap = defMap
@@ -102,11 +104,11 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 		}
 
 		for childname, val := range ts.Properties {
-			walk(name+"_"+strings.Title(childname), val, false)
+			walk(name+"_"+strings.Title(childname), val, record)
 		}
 
 		if ts.Items != nil {
-			walk(name+"_Elem", ts.Items, false)
+			walk(name+"_Elem", ts.Items, record)
 		}
 
 		if ts.Input != nil {
@@ -115,7 +117,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 					panic(fmt.Sprintf("strange input type def in %s", s.ID))
 				}
 			} else {
-				walk(name+"_Input", ts.Input.Schema, false)
+				walk(name+"_Input", ts.Input.Schema, record)
 			}
 		}
 
@@ -125,12 +127,12 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 					panic(fmt.Sprintf("strange output type def in %s", s.ID))
 				}
 			} else {
-				walk(name+"_Output", ts.Output.Schema, false)
+				walk(name+"_Output", ts.Output.Schema, record)
 			}
 		}
 
 		if ts.Type == "record" {
-			walk(name, ts.Record, false)
+			walk(name, ts.Record, true)
 		}
 
 	}
@@ -223,6 +225,7 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 	tps := s.AllTypes(prefix, defmap)
 
 	for _, ot := range tps {
+		fmt.Println("TYPE: ", ot.Name)
 		if err := ot.Type.WriteType(ot.Name, buf); err != nil {
 			return err
 		}
@@ -525,7 +528,6 @@ func WriteXrpcServer(w io.Writer, schemas []*Schema, pkg string, impmap map[stri
 	}
 	fmt.Fprintf(w, ")\n\n")
 
-
 	ssets := make(map[string][]*Schema)
 	for _, s := range schemas {
 		var pref string
@@ -539,61 +541,61 @@ func WriteXrpcServer(w io.Writer, schemas []*Schema, pkg string, impmap map[stri
 			return fmt.Errorf("no matching prefix for schema %q", s.ID)
 		}
 
-				ssets[pref] = append(ssets[pref], s)
+		ssets[pref] = append(ssets[pref], s)
 
 	}
 
 	for _, p := range prefixes {
 		ss := ssets[p]
 
-	fmt.Fprintf(w, "func (s *Server) RegisterHandlers%s(e *echo.Echo) error {\n", idToTitle(p))
-	for _, s := range ss {
+		fmt.Fprintf(w, "func (s *Server) RegisterHandlers%s(e *echo.Echo) error {\n", idToTitle(p))
+		for _, s := range ss {
 
-		main, ok := s.Defs["main"]
-		if !ok {
-			return fmt.Errorf("schema %q has no main", s.ID)
+			main, ok := s.Defs["main"]
+			if !ok {
+				return fmt.Errorf("schema %q has no main", s.ID)
+			}
+
+			var verb string
+			switch main.Type {
+			case "query":
+				verb = "GET"
+			case "procedure":
+				verb = "POST"
+			default:
+				continue
+			}
+
+			fmt.Fprintf(w, "e.%s(\"/xrpc/%s\", s.Handle%s)\n", verb, s.ID, idToTitle(s.ID))
 		}
 
-		var verb string
-		switch main.Type {
-		case "query":
-			verb = "GET"
-		case "procedure":
-			verb = "POST"
-		default:
-			continue
-		}
+		fmt.Fprintf(w, "return nil\n}\n\n")
 
-		fmt.Fprintf(w, "e.%s(\"/xrpc/%s\", s.Handle%s)\n", verb, s.ID, idToTitle(s.ID))
-	}
+		for _, s := range ss {
 
-	fmt.Fprintf(w, "return nil\n}\n\n")
+			var prefix string
+			for k := range impmap {
+				if strings.HasPrefix(s.ID, k) {
+					prefix = k
+					break
+				}
+			}
 
-	for _, s := range ss {
+			main, ok := s.Defs["main"]
+			if !ok {
+				return fmt.Errorf("schema %q doesnt have a main def", s.ID)
+			}
 
-		var prefix string
-		for k := range impmap {
-			if strings.HasPrefix(s.ID, k) {
-				prefix = k
-				break
+			if main.Type == "procedure" || main.Type == "query" {
+				fname := idToTitle(s.ID)
+				tname := nameFromID(s.ID, prefix)
+				impname := importNameForPrefix(prefix)
+				if err := main.WriteRPCHandler(w, fname, tname, impname); err != nil {
+					return err
+				}
 			}
 		}
-
-		main, ok := s.Defs["main"]
-		if !ok {
-			return fmt.Errorf("schema %q doesnt have a main def", s.ID)
-		}
-
-		if main.Type == "procedure" || main.Type == "query" {
-			fname := idToTitle(s.ID)
-			tname := nameFromID(s.ID, prefix)
-			impname := importNameForPrefix(prefix)
-			if err := main.WriteRPCHandler(w, fname, tname, impname); err != nil {
-				return err
-			}
-		}
 	}
-}
 
 	return nil
 }
@@ -699,7 +701,7 @@ if err := c.Bind(&body); err != nil {
 	return err
 }
 `, intname)
-				paramtypes = append(paramtypes, "body " + intname )
+				paramtypes = append(paramtypes, "body "+intname)
 				params = append(params, "&body")
 			case "application/cbor":
 				fmt.Fprintf(w, "body := c.Request().Body\n")
@@ -862,6 +864,10 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 			return nil
 		}
 
+		if ts.record {
+			fmt.Fprintf(w, "// RECORDTYPE: %s\n", name)
+		}
+
 		fmt.Fprintf(w, "type %s struct {\n", name)
 
 		for k, v := range ts.Properties {
@@ -872,7 +878,8 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 				return err
 			}
 
-			fmt.Fprintf(w, "\t%s %s `json:\"%s\"`\n", goname, tname, k)
+			fmt.Fprintf(w, "\t%s %s `json:\"%s\" cborgen:\"%s\"`\n", goname, tname, k, k)
+
 		}
 		fmt.Fprintf(w, "}\n\n")
 

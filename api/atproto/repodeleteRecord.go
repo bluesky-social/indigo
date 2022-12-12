@@ -10,9 +10,9 @@ import (
 // schema: com.atproto.repo.deleteRecord
 
 type RepoDeleteRecord_Input struct {
-	Rkey       string `json:"rkey"`
-	Did        string `json:"did"`
-	Collection string `json:"collection"`
+	Collection string `json:"collection" cborgen:"collection"`
+	Rkey       string `json:"rkey" cborgen:"rkey"`
+	Did        string `json:"did" cborgen:"did"`
 }
 
 func (t *RepoDeleteRecord_Input) MarshalJSON() ([]byte, error) {

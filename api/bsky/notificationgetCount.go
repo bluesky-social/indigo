@@ -10,7 +10,7 @@ import (
 // schema: app.bsky.notification.getCount
 
 type NotificationGetCount_Output struct {
-	Count int64 `json:"count"`
+	Count int64 `json:"count" cborgen:"count"`
 }
 
 func (t *NotificationGetCount_Output) MarshalJSON() ([]byte, error) {

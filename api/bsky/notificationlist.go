@@ -10,8 +10,8 @@ import (
 // schema: app.bsky.notification.list
 
 type NotificationList_Output struct {
-	Cursor        string                           `json:"cursor"`
-	Notifications []*NotificationList_Notification `json:"notifications"`
+	Cursor        string                           `json:"cursor" cborgen:"cursor"`
+	Notifications []*NotificationList_Notification `json:"notifications" cborgen:"notifications"`
 }
 
 func (t *NotificationList_Output) MarshalJSON() ([]byte, error) {
@@ -22,14 +22,14 @@ func (t *NotificationList_Output) MarshalJSON() ([]byte, error) {
 }
 
 type NotificationList_Notification struct {
-	Author        *ActorRef_WithInfo `json:"author"`
-	Reason        string             `json:"reason"`
-	ReasonSubject string             `json:"reasonSubject"`
-	Record        any                `json:"record"`
-	IsRead        bool               `json:"isRead"`
-	IndexedAt     string             `json:"indexedAt"`
-	Uri           string             `json:"uri"`
-	Cid           string             `json:"cid"`
+	IsRead        bool               `json:"isRead" cborgen:"isRead"`
+	IndexedAt     string             `json:"indexedAt" cborgen:"indexedAt"`
+	Uri           string             `json:"uri" cborgen:"uri"`
+	Cid           string             `json:"cid" cborgen:"cid"`
+	Author        *ActorRef_WithInfo `json:"author" cborgen:"author"`
+	Reason        string             `json:"reason" cborgen:"reason"`
+	ReasonSubject string             `json:"reasonSubject" cborgen:"reasonSubject"`
+	Record        any                `json:"record" cborgen:"record"`
 }
 
 func (t *NotificationList_Notification) MarshalJSON() ([]byte, error) {

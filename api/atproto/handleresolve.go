@@ -10,7 +10,7 @@ import (
 // schema: com.atproto.handle.resolve
 
 type HandleResolve_Output struct {
-	Did string `json:"did"`
+	Did string `json:"did" cborgen:"did"`
 }
 
 func (t *HandleResolve_Output) MarshalJSON() ([]byte, error) {

@@ -7,8 +7,8 @@ import (
 // schema: app.bsky.system.declRef
 
 type SystemDeclRef struct {
-	Cid       string `json:"cid"`
-	ActorType string `json:"actorType"`
+	Cid       string `json:"cid" cborgen:"cid"`
+	ActorType string `json:"actorType" cborgen:"actorType"`
 }
 
 func (t *SystemDeclRef) MarshalJSON() ([]byte, error) {

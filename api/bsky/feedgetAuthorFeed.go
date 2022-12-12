@@ -10,8 +10,8 @@ import (
 // schema: app.bsky.feed.getAuthorFeed
 
 type FeedGetAuthorFeed_Output struct {
-	Cursor string                        `json:"cursor"`
-	Feed   []*FeedGetAuthorFeed_FeedItem `json:"feed"`
+	Cursor string                        `json:"cursor" cborgen:"cursor"`
+	Feed   []*FeedGetAuthorFeed_FeedItem `json:"feed" cborgen:"feed"`
 }
 
 func (t *FeedGetAuthorFeed_Output) MarshalJSON() ([]byte, error) {
@@ -22,19 +22,19 @@ func (t *FeedGetAuthorFeed_Output) MarshalJSON() ([]byte, error) {
 }
 
 type FeedGetAuthorFeed_FeedItem struct {
-	IndexedAt     string                     `json:"indexedAt"`
-	Cid           string                     `json:"cid"`
-	TrendedBy     *ActorRef_WithInfo         `json:"trendedBy"`
-	Record        any                        `json:"record"`
-	ReplyCount    int64                      `json:"replyCount"`
-	RepostCount   int64                      `json:"repostCount"`
-	UpvoteCount   int64                      `json:"upvoteCount"`
-	DownvoteCount int64                      `json:"downvoteCount"`
-	MyState       *FeedGetAuthorFeed_MyState `json:"myState"`
-	Uri           string                     `json:"uri"`
-	Author        *ActorRef_WithInfo         `json:"author"`
-	RepostedBy    *ActorRef_WithInfo         `json:"repostedBy"`
-	Embed         *FeedEmbed                 `json:"embed"`
+	Uri           string                     `json:"uri" cborgen:"uri"`
+	RepostedBy    *ActorRef_WithInfo         `json:"repostedBy" cborgen:"repostedBy"`
+	Record        any                        `json:"record" cborgen:"record"`
+	ReplyCount    int64                      `json:"replyCount" cborgen:"replyCount"`
+	RepostCount   int64                      `json:"repostCount" cborgen:"repostCount"`
+	UpvoteCount   int64                      `json:"upvoteCount" cborgen:"upvoteCount"`
+	DownvoteCount int64                      `json:"downvoteCount" cborgen:"downvoteCount"`
+	MyState       *FeedGetAuthorFeed_MyState `json:"myState" cborgen:"myState"`
+	Cid           string                     `json:"cid" cborgen:"cid"`
+	Author        *ActorRef_WithInfo         `json:"author" cborgen:"author"`
+	TrendedBy     *ActorRef_WithInfo         `json:"trendedBy" cborgen:"trendedBy"`
+	Embed         *FeedEmbed                 `json:"embed" cborgen:"embed"`
+	IndexedAt     string                     `json:"indexedAt" cborgen:"indexedAt"`
 }
 
 func (t *FeedGetAuthorFeed_FeedItem) MarshalJSON() ([]byte, error) {
@@ -56,9 +56,9 @@ func (t *FeedGetAuthorFeed_FeedItem) MarshalJSON() ([]byte, error) {
 }
 
 type FeedGetAuthorFeed_MyState struct {
-	Downvote string `json:"downvote"`
-	Repost   string `json:"repost"`
-	Upvote   string `json:"upvote"`
+	Upvote   string `json:"upvote" cborgen:"upvote"`
+	Downvote string `json:"downvote" cborgen:"downvote"`
+	Repost   string `json:"repost" cborgen:"repost"`
 }
 
 func (t *FeedGetAuthorFeed_MyState) MarshalJSON() ([]byte, error) {

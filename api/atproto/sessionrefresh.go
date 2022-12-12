@@ -10,10 +10,10 @@ import (
 // schema: com.atproto.session.refresh
 
 type SessionRefresh_Output struct {
-	AccessJwt  string `json:"accessJwt"`
-	RefreshJwt string `json:"refreshJwt"`
-	Handle     string `json:"handle"`
-	Did        string `json:"did"`
+	Did        string `json:"did" cborgen:"did"`
+	AccessJwt  string `json:"accessJwt" cborgen:"accessJwt"`
+	RefreshJwt string `json:"refreshJwt" cborgen:"refreshJwt"`
+	Handle     string `json:"handle" cborgen:"handle"`
 }
 
 func (t *SessionRefresh_Output) MarshalJSON() ([]byte, error) {

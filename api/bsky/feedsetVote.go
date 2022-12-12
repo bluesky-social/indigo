@@ -11,8 +11,8 @@ import (
 // schema: app.bsky.feed.setVote
 
 type FeedSetVote_Input struct {
-	Subject   *comatprototypes.RepoStrongRef `json:"subject"`
-	Direction string                         `json:"direction"`
+	Subject   *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
+	Direction string                         `json:"direction" cborgen:"direction"`
 }
 
 func (t *FeedSetVote_Input) MarshalJSON() ([]byte, error) {
@@ -23,8 +23,8 @@ func (t *FeedSetVote_Input) MarshalJSON() ([]byte, error) {
 }
 
 type FeedSetVote_Output struct {
-	Downvote string `json:"downvote"`
-	Upvote   string `json:"upvote"`
+	Upvote   string `json:"upvote" cborgen:"upvote"`
+	Downvote string `json:"downvote" cborgen:"downvote"`
 }
 
 func (t *FeedSetVote_Output) MarshalJSON() ([]byte, error) {

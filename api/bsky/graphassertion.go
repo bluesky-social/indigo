@@ -6,10 +6,11 @@ import (
 
 // schema: app.bsky.graph.assertion
 
+// RECORDTYPE: GraphAssertion
 type GraphAssertion struct {
-	Subject   *ActorRef `json:"subject"`
-	CreatedAt string    `json:"createdAt"`
-	Assertion string    `json:"assertion"`
+	Assertion string    `json:"assertion" cborgen:"assertion"`
+	Subject   *ActorRef `json:"subject" cborgen:"subject"`
+	CreatedAt string    `json:"createdAt" cborgen:"createdAt"`
 }
 
 func (t *GraphAssertion) MarshalJSON() ([]byte, error) {

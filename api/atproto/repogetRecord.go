@@ -10,9 +10,9 @@ import (
 // schema: com.atproto.repo.getRecord
 
 type RepoGetRecord_Output struct {
-	Uri   string `json:"uri"`
-	Cid   string `json:"cid"`
-	Value any    `json:"value"`
+	Value any    `json:"value" cborgen:"value"`
+	Uri   string `json:"uri" cborgen:"uri"`
+	Cid   string `json:"cid" cborgen:"cid"`
 }
 
 func (t *RepoGetRecord_Output) MarshalJSON() ([]byte, error) {

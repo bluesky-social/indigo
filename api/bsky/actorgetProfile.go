@@ -10,17 +10,17 @@ import (
 // schema: app.bsky.actor.getProfile
 
 type ActorGetProfile_Output struct {
-	Did            string                   `json:"did"`
-	Declaration    *SystemDeclRef           `json:"declaration"`
-	Handle         string                   `json:"handle"`
-	DisplayName    string                   `json:"displayName"`
-	FollowersCount int64                    `json:"followersCount"`
-	MembersCount   int64                    `json:"membersCount"`
-	PostsCount     int64                    `json:"postsCount"`
-	Creator        string                   `json:"creator"`
-	Description    string                   `json:"description"`
-	FollowsCount   int64                    `json:"followsCount"`
-	MyState        *ActorGetProfile_MyState `json:"myState"`
+	Declaration    *SystemDeclRef           `json:"declaration" cborgen:"declaration"`
+	Creator        string                   `json:"creator" cborgen:"creator"`
+	DisplayName    string                   `json:"displayName" cborgen:"displayName"`
+	FollowersCount int64                    `json:"followersCount" cborgen:"followersCount"`
+	FollowsCount   int64                    `json:"followsCount" cborgen:"followsCount"`
+	MembersCount   int64                    `json:"membersCount" cborgen:"membersCount"`
+	PostsCount     int64                    `json:"postsCount" cborgen:"postsCount"`
+	MyState        *ActorGetProfile_MyState `json:"myState" cborgen:"myState"`
+	Did            string                   `json:"did" cborgen:"did"`
+	Handle         string                   `json:"handle" cborgen:"handle"`
+	Description    string                   `json:"description" cborgen:"description"`
 }
 
 func (t *ActorGetProfile_Output) MarshalJSON() ([]byte, error) {
@@ -40,8 +40,8 @@ func (t *ActorGetProfile_Output) MarshalJSON() ([]byte, error) {
 }
 
 type ActorGetProfile_MyState struct {
-	Follow string `json:"follow"`
-	Member string `json:"member"`
+	Follow string `json:"follow" cborgen:"follow"`
+	Member string `json:"member" cborgen:"member"`
 }
 
 func (t *ActorGetProfile_MyState) MarshalJSON() ([]byte, error) {

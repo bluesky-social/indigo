@@ -10,10 +10,10 @@ import (
 // schema: app.bsky.feed.getVotes
 
 type FeedGetVotes_Output struct {
-	Uri    string               `json:"uri"`
-	Cid    string               `json:"cid"`
-	Cursor string               `json:"cursor"`
-	Votes  []*FeedGetVotes_Vote `json:"votes"`
+	Uri    string               `json:"uri" cborgen:"uri"`
+	Cid    string               `json:"cid" cborgen:"cid"`
+	Cursor string               `json:"cursor" cborgen:"cursor"`
+	Votes  []*FeedGetVotes_Vote `json:"votes" cborgen:"votes"`
 }
 
 func (t *FeedGetVotes_Output) MarshalJSON() ([]byte, error) {
@@ -26,10 +26,10 @@ func (t *FeedGetVotes_Output) MarshalJSON() ([]byte, error) {
 }
 
 type FeedGetVotes_Vote struct {
-	CreatedAt string             `json:"createdAt"`
-	Actor     *ActorRef_WithInfo `json:"actor"`
-	Direction string             `json:"direction"`
-	IndexedAt string             `json:"indexedAt"`
+	Direction string             `json:"direction" cborgen:"direction"`
+	IndexedAt string             `json:"indexedAt" cborgen:"indexedAt"`
+	CreatedAt string             `json:"createdAt" cborgen:"createdAt"`
+	Actor     *ActorRef_WithInfo `json:"actor" cborgen:"actor"`
 }
 
 func (t *FeedGetVotes_Vote) MarshalJSON() ([]byte, error) {

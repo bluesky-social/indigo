@@ -7,8 +7,8 @@ import (
 // schema: app.bsky.actor.ref
 
 type ActorRef struct {
-	Did            string `json:"did"`
-	DeclarationCid string `json:"declarationCid"`
+	Did            string `json:"did" cborgen:"did"`
+	DeclarationCid string `json:"declarationCid" cborgen:"declarationCid"`
 }
 
 func (t *ActorRef) MarshalJSON() ([]byte, error) {
@@ -19,10 +19,10 @@ func (t *ActorRef) MarshalJSON() ([]byte, error) {
 }
 
 type ActorRef_WithInfo struct {
-	Did         string         `json:"did"`
-	Declaration *SystemDeclRef `json:"declaration"`
-	Handle      string         `json:"handle"`
-	DisplayName string         `json:"displayName"`
+	Did         string         `json:"did" cborgen:"did"`
+	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
+	Handle      string         `json:"handle" cborgen:"handle"`
+	DisplayName string         `json:"displayName" cborgen:"displayName"`
 }
 
 func (t *ActorRef_WithInfo) MarshalJSON() ([]byte, error) {

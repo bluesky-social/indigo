@@ -10,10 +10,10 @@ import (
 // schema: com.atproto.repo.createRecord
 
 type RepoCreateRecord_Input struct {
-	Did        string `json:"did"`
-	Collection string `json:"collection"`
-	Validate   bool   `json:"validate"`
-	Record     any    `json:"record"`
+	Did        string `json:"did" cborgen:"did"`
+	Collection string `json:"collection" cborgen:"collection"`
+	Validate   bool   `json:"validate" cborgen:"validate"`
+	Record     any    `json:"record" cborgen:"record"`
 }
 
 func (t *RepoCreateRecord_Input) MarshalJSON() ([]byte, error) {
@@ -26,8 +26,8 @@ func (t *RepoCreateRecord_Input) MarshalJSON() ([]byte, error) {
 }
 
 type RepoCreateRecord_Output struct {
-	Uri string `json:"uri"`
-	Cid string `json:"cid"`
+	Uri string `json:"uri" cborgen:"uri"`
+	Cid string `json:"cid" cborgen:"cid"`
 }
 
 func (t *RepoCreateRecord_Output) MarshalJSON() ([]byte, error) {

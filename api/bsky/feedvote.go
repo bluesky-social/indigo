@@ -8,10 +8,11 @@ import (
 
 // schema: app.bsky.feed.vote
 
+// RECORDTYPE: FeedVote
 type FeedVote struct {
-	CreatedAt string                         `json:"createdAt"`
-	Subject   *comatprototypes.RepoStrongRef `json:"subject"`
-	Direction string                         `json:"direction"`
+	Subject   *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
+	Direction string                         `json:"direction" cborgen:"direction"`
+	CreatedAt string                         `json:"createdAt" cborgen:"createdAt"`
 }
 
 func (t *FeedVote) MarshalJSON() ([]byte, error) {

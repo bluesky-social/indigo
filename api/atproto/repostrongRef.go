@@ -7,8 +7,8 @@ import (
 // schema: com.atproto.repo.strongRef
 
 type RepoStrongRef struct {
-	Uri string `json:"uri"`
-	Cid string `json:"cid"`
+	Uri string `json:"uri" cborgen:"uri"`
+	Cid string `json:"cid" cborgen:"cid"`
 }
 
 func (t *RepoStrongRef) MarshalJSON() ([]byte, error) {

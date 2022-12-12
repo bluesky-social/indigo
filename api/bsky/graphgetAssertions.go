@@ -9,27 +9,15 @@ import (
 
 // schema: app.bsky.graph.getAssertions
 
-type GraphGetAssertions_Output struct {
-	Cursor     string                          `json:"cursor"`
-	Assertions []*GraphGetAssertions_Assertion `json:"assertions"`
-}
-
-func (t *GraphGetAssertions_Output) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["assertions"] = t.Assertions
-	out["cursor"] = t.Cursor
-	return json.Marshal(out)
-}
-
 type GraphGetAssertions_Assertion struct {
-	IndexedAt    string                           `json:"indexedAt"`
-	CreatedAt    string                           `json:"createdAt"`
-	Uri          string                           `json:"uri"`
-	Cid          string                           `json:"cid"`
-	Assertion    string                           `json:"assertion"`
-	Confirmation *GraphGetAssertions_Confirmation `json:"confirmation"`
-	Author       *ActorRef_WithInfo               `json:"author"`
-	Subject      *ActorRef_WithInfo               `json:"subject"`
+	Confirmation *GraphGetAssertions_Confirmation `json:"confirmation" cborgen:"confirmation"`
+	Author       *ActorRef_WithInfo               `json:"author" cborgen:"author"`
+	Subject      *ActorRef_WithInfo               `json:"subject" cborgen:"subject"`
+	IndexedAt    string                           `json:"indexedAt" cborgen:"indexedAt"`
+	CreatedAt    string                           `json:"createdAt" cborgen:"createdAt"`
+	Uri          string                           `json:"uri" cborgen:"uri"`
+	Cid          string                           `json:"cid" cborgen:"cid"`
+	Assertion    string                           `json:"assertion" cborgen:"assertion"`
 }
 
 func (t *GraphGetAssertions_Assertion) MarshalJSON() ([]byte, error) {
@@ -46,10 +34,10 @@ func (t *GraphGetAssertions_Assertion) MarshalJSON() ([]byte, error) {
 }
 
 type GraphGetAssertions_Confirmation struct {
-	Uri       string `json:"uri"`
-	Cid       string `json:"cid"`
-	IndexedAt string `json:"indexedAt"`
-	CreatedAt string `json:"createdAt"`
+	Uri       string `json:"uri" cborgen:"uri"`
+	Cid       string `json:"cid" cborgen:"cid"`
+	IndexedAt string `json:"indexedAt" cborgen:"indexedAt"`
+	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
 }
 
 func (t *GraphGetAssertions_Confirmation) MarshalJSON() ([]byte, error) {
@@ -58,6 +46,18 @@ func (t *GraphGetAssertions_Confirmation) MarshalJSON() ([]byte, error) {
 	out["createdAt"] = t.CreatedAt
 	out["indexedAt"] = t.IndexedAt
 	out["uri"] = t.Uri
+	return json.Marshal(out)
+}
+
+type GraphGetAssertions_Output struct {
+	Cursor     string                          `json:"cursor" cborgen:"cursor"`
+	Assertions []*GraphGetAssertions_Assertion `json:"assertions" cborgen:"assertions"`
+}
+
+func (t *GraphGetAssertions_Output) MarshalJSON() ([]byte, error) {
+	out := make(map[string]interface{})
+	out["assertions"] = t.Assertions
+	out["cursor"] = t.Cursor
 	return json.Marshal(out)
 }
 

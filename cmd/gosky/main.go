@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
+	"github.com/polydawn/refmt/cbor"
+	rejson "github.com/polydawn/refmt/json"
+	"github.com/polydawn/refmt/shared"
 	cli "github.com/urfave/cli/v2"
 	api "github.com/whyrusleeping/gosky/api"
 	cliutil "github.com/whyrusleeping/gosky/cmd/gosky/util"
@@ -118,7 +121,7 @@ var postCmd = &cli.Command{
 
 		resp, err := atp.RepoCreateRecord(context.TODO(), auth.Did, "app.bsky.feed.post", true, &api.PostRecord{
 			Text:      text,
-			CreatedAt: time.Now().Format(time.RFC3339),
+			CreatedAt: time.Now().Format("2006-01-02T15:04:05.000Z"),
 		})
 		if err != nil {
 			return err
@@ -440,21 +443,45 @@ var deletePostCmd = &cli.Command{
 
 var listAllPostsCmd = &cli.Command{
 	Name: "list",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name: "all",
+		},
+		&cli.BoolFlag{
+			Name: "values",
+		},
+		&cli.BoolFlag{
+			Name: "cids",
+		},
+	},
 	Action: func(cctx *cli.Context) error {
-		atpc, err := cliutil.GetATPClient(cctx, true)
-		if err != nil {
-			return err
-		}
 
-		did := cctx.Args().First()
-		if did == "" {
-			did = atpc.C.Auth.Did
-		}
-
+		arg := cctx.Args().First()
 		ctx := context.TODO()
-		repob, err := atpc.SyncGetRepo(ctx, did, nil)
-		if err != nil {
-			return err
+
+		var repob []byte
+		if strings.HasPrefix(arg, "did:") {
+			atpc, err := cliutil.GetATPClient(cctx, true)
+			if err != nil {
+				return err
+			}
+
+			if arg == "" {
+				arg = atpc.C.Auth.Did
+			}
+
+			rrb, err := atpc.SyncGetRepo(ctx, arg, nil)
+			if err != nil {
+				return err
+			}
+			repob = rrb
+		} else {
+			fb, err := os.ReadFile(arg)
+			if err != nil {
+				return err
+			}
+
+			repob = fb
 		}
 
 		rr, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(repob))
@@ -462,12 +489,36 @@ var listAllPostsCmd = &cli.Command{
 			return err
 		}
 
-		if err := rr.ForEach(ctx, "app.bsky.feed.post", func(k string, v cid.Cid) error {
-			if !strings.HasPrefix(k, "app.bsky.feed.post/") {
+		collection := "app.bsky.feed.post"
+		if cctx.Bool("all") {
+			collection = ""
+		}
+		vals := cctx.Bool("values")
+		cids := cctx.Bool("cids")
+
+		if err := rr.ForEach(ctx, collection, func(k string, v cid.Cid) error {
+			if !strings.HasPrefix(k, collection) {
 				return repo.ErrDoneIterating
 			}
 
-			fmt.Println(k)
+			fmt.Print(k)
+			if cids {
+				fmt.Println(" - ", v)
+			} else {
+				fmt.Println()
+			}
+			if vals {
+				b, err := rr.Blockstore().Get(ctx, v)
+				if err != nil {
+					return err
+				}
+
+				convb, err := cborToJson(b.RawData())
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(convb))
+			}
 			return nil
 		}); err != nil {
 			return err
@@ -475,4 +526,22 @@ var listAllPostsCmd = &cli.Command{
 
 		return nil
 	},
+}
+
+func cborToJson(data []byte) ([]byte, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("panic: ", r)
+		}
+	}()
+	buf := new(bytes.Buffer)
+	enc := rejson.NewEncoder(buf, rejson.EncodeOptions{})
+
+	dec := cbor.NewDecoder(cbor.DecodeOptions{}, bytes.NewReader(data))
+	err := shared.TokenPump{dec, enc}.Run()
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }

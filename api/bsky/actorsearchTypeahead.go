@@ -10,7 +10,7 @@ import (
 // schema: app.bsky.actor.searchTypeahead
 
 type ActorSearchTypeahead_Output struct {
-	Users []*ActorSearchTypeahead_User `json:"users"`
+	Users []*ActorSearchTypeahead_User `json:"users" cborgen:"users"`
 }
 
 func (t *ActorSearchTypeahead_Output) MarshalJSON() ([]byte, error) {
@@ -20,10 +20,10 @@ func (t *ActorSearchTypeahead_Output) MarshalJSON() ([]byte, error) {
 }
 
 type ActorSearchTypeahead_User struct {
-	Did         string         `json:"did"`
-	Declaration *SystemDeclRef `json:"declaration"`
-	Handle      string         `json:"handle"`
-	DisplayName string         `json:"displayName"`
+	Did         string         `json:"did" cborgen:"did"`
+	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
+	Handle      string         `json:"handle" cborgen:"handle"`
+	DisplayName string         `json:"displayName" cborgen:"displayName"`
 }
 
 func (t *ActorSearchTypeahead_User) MarshalJSON() ([]byte, error) {

@@ -10,8 +10,8 @@ import (
 // schema: app.bsky.actor.createScene
 
 type ActorCreateScene_Input struct {
-	Handle      string `json:"handle"`
-	RecoveryKey string `json:"recoveryKey"`
+	Handle      string `json:"handle" cborgen:"handle"`
+	RecoveryKey string `json:"recoveryKey" cborgen:"recoveryKey"`
 }
 
 func (t *ActorCreateScene_Input) MarshalJSON() ([]byte, error) {
@@ -22,9 +22,9 @@ func (t *ActorCreateScene_Input) MarshalJSON() ([]byte, error) {
 }
 
 type ActorCreateScene_Output struct {
-	Handle      string         `json:"handle"`
-	Did         string         `json:"did"`
-	Declaration *SystemDeclRef `json:"declaration"`
+	Handle      string         `json:"handle" cborgen:"handle"`
+	Did         string         `json:"did" cborgen:"did"`
+	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
 }
 
 func (t *ActorCreateScene_Output) MarshalJSON() ([]byte, error) {

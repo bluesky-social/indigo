@@ -108,25 +108,29 @@ type CborMarshaler interface {
 	MarshalCBOR(w io.Writer) error
 }
 
-func (r *Repo) CreateRecord(ctx context.Context, nsid string, rec CborMarshaler) error {
+func (r *Repo) Blockstore() blockstore.Blockstore {
+	return r.bs
+}
+
+func (r *Repo) CreateRecord(ctx context.Context, nsid string, rec CborMarshaler) (cid.Cid, error) {
 	r.dirty = true
 	t, err := r.getMst(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get mst: %w", err)
+		return cid.Undef, fmt.Errorf("failed to get mst: %w", err)
 	}
 
 	k, err := r.cst.Put(ctx, rec)
 	if err != nil {
-		return err
+		return cid.Undef, err
 	}
 
 	nmst, err := t.Add(ctx, nsid+"/"+NextTID(), k, -1)
 	if err != nil {
-		return fmt.Errorf("mst.Add failed: %w", err)
+		return cid.Undef, fmt.Errorf("mst.Add failed: %w", err)
 	}
 
 	r.mst = nmst
-	return nil
+	return k, nil
 }
 
 func (r *Repo) Commit(ctx context.Context) (cid.Cid, error) {

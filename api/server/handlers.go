@@ -1,9 +1,13 @@
 package schemagen
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"io"
 
+	"github.com/ipfs/go-cid"
+	cbg "github.com/whyrusleeping/cbor-gen"
 	comatprototypes "github.com/whyrusleeping/gosky/api/atproto"
 	appbskytypes "github.com/whyrusleeping/gosky/api/bsky"
 )
@@ -33,7 +37,42 @@ func (s *Server) handleAppBskyActorUpdateProfile(ctx context.Context, input *app
 }
 
 func (s *Server) handleAppBskyFeedGetAuthorFeed(ctx context.Context, author string, before string, limit int) (*appbskytypes.FeedGetAuthorFeed_Output, error) {
-	panic("not yet implemented")
+	_, err := s.getUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	target, err := s.lookupUser(ctx, author)
+	//target, err := s.lookupUserByHandle(ctx, author)
+	if err != nil {
+		return nil, err
+	}
+
+	feed, err := s.feedgen.GetAuthorFeed(ctx, target.ID, before, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	var out appbskytypes.FeedGetAuthorFeed_Output
+	for _, fi := range feed {
+		out.Feed = append(out.Feed, &appbskytypes.FeedGetAuthorFeed_FeedItem{
+			Uri:           fi.Uri,
+			RepostedBy:    fi.RepostedBy,
+			Record:        fi.Record,
+			ReplyCount:    fi.ReplyCount,
+			RepostCount:   fi.RepostCount,
+			UpvoteCount:   fi.UpvoteCount,
+			DownvoteCount: 0,
+			MyState:       nil, // TODO:
+			Cid:           fi.Cid,
+			Author:        fi.Author,
+			TrendedBy:     fi.TrendedBy,
+			Embed:         nil,
+			IndexedAt:     fi.IndexedAt,
+		})
+	}
+
+	return &out, nil
 }
 
 func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth int, uri string) (*appbskytypes.FeedGetPostThread_Output, error) {
@@ -89,16 +128,32 @@ func (s *Server) handleAppBskyNotificationUpdateSeen(ctx context.Context, input 
 }
 
 func (s *Server) handleComAtprotoAccountCreate(ctx context.Context, input *comatprototypes.AccountCreate_Input) (*comatprototypes.AccountCreate_Output, error) {
-	if err := s.db.Create(&User{
+
+	if err := validateEmail(input.Email); err != nil {
+		return nil, err
+	}
+
+	if err := s.validateHandle(input.Handle); err != nil {
+		return nil, err
+
+	}
+
+	u := User{
 		Handle:      input.Handle,
 		Password:    input.Password,
 		RecoveryKey: input.RecoveryKey,
-	}).Error; err != nil {
+		Email:       input.Email,
+	}
+	if err := s.db.Create(&u).Error; err != nil {
 		return nil, err
 	}
 
 	d, err := s.fakeDid.NewForHandle(input.Handle)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := s.repoman.InitNewActor(ctx, u.ID, u.Handle, u.DID, "", UserActorDeclCid, UserActorDeclType); err != nil {
 		return nil, err
 	}
 
@@ -148,6 +203,31 @@ func (s *Server) handleComAtprotoRepoCreateRecord(ctx context.Context, input *co
 	if err != nil {
 		return nil, err
 	}
+
+	var rec cbg.CBORMarshaler
+	switch input.Collection {
+	case "app.bsky.feed.post":
+		rec = new(appbskytypes.FeedPost)
+	default:
+		return nil, fmt.Errorf("unsupported collection: %q", input.Collection)
+	}
+
+	// TODO: if we had a 'record' type receiver declaration in lexicon i could
+	// codegen in a special handler for things that are supposed to be records
+	// like this
+	if err := convertRecordTo(input.Record, rec); err != nil {
+		return nil, err
+	}
+
+	rkey, recid, err := s.repoman.CreateRecord(ctx, u.ID, input.Collection, rec)
+	if err != nil {
+		return nil, err
+	}
+
+	return &comatprototypes.RepoCreateRecord_Output{
+		Uri: "at://" + u.DID + "/" + rkey,
+		Cid: recid.String(),
+	}, nil
 }
 
 func (s *Server) handleComAtprotoRepoDeleteRecord(ctx context.Context, input *comatprototypes.RepoDeleteRecord_Input) error {
@@ -175,7 +255,26 @@ func (s *Server) handleComAtprotoServerGetAccountsConfig(ctx context.Context) (*
 }
 
 func (s *Server) handleComAtprotoSessionCreate(ctx context.Context, input *comatprototypes.SessionCreate_Input) (*comatprototypes.SessionCreate_Output, error) {
-	panic("not yet implemented")
+	u, err := s.lookupUserByHandle(ctx, input.Handle)
+	if err != nil {
+		return nil, err
+	}
+
+	if input.Password != u.Password {
+		return nil, fmt.Errorf("invalid username or password")
+	}
+
+	tok, err := s.createAuthTokenForUser(ctx, input.Handle, u.DID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &comatprototypes.SessionCreate_Output{
+		Handle:     input.Handle,
+		Did:        u.DID,
+		AccessJwt:  tok.AccessJwt,
+		RefreshJwt: tok.RefreshJwt,
+	}, nil
 }
 
 func (s *Server) handleComAtprotoSessionDelete(ctx context.Context) error {
@@ -191,7 +290,27 @@ func (s *Server) handleComAtprotoSessionRefresh(ctx context.Context) (*comatprot
 }
 
 func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, from string) (io.Reader, error) {
-	panic("not yet implemented")
+	var fromcid cid.Cid
+	if from != "" {
+		cc, err := cid.Decode(from)
+		if err != nil {
+			return nil, err
+		}
+
+		fromcid = cc
+	}
+
+	targetUser, err := s.lookupUser(ctx, did)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := new(bytes.Buffer)
+	if err := s.repoman.ReadRepo(ctx, targetUser.ID, fromcid, buf); err != nil {
+		return nil, err
+	}
+
+	return buf, nil
 }
 
 func (s *Server) handleComAtprotoSyncGetRoot(ctx context.Context, did string) (*comatprototypes.SyncGetRoot_Output, error) {

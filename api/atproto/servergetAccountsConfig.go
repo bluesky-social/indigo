@@ -10,14 +10,28 @@ import (
 // schema: com.atproto.server.getAccountsConfig
 
 type ServerGetAccountsConfig_Output struct {
-	InviteCodeRequired   bool     `json:"inviteCodeRequired"`
-	AvailableUserDomains []string `json:"availableUserDomains"`
+	InviteCodeRequired   bool                           `json:"inviteCodeRequired" cborgen:"inviteCodeRequired"`
+	AvailableUserDomains []string                       `json:"availableUserDomains" cborgen:"availableUserDomains"`
+	Links                *ServerGetAccountsConfig_Links `json:"links" cborgen:"links"`
 }
 
 func (t *ServerGetAccountsConfig_Output) MarshalJSON() ([]byte, error) {
 	out := make(map[string]interface{})
 	out["availableUserDomains"] = t.AvailableUserDomains
 	out["inviteCodeRequired"] = t.InviteCodeRequired
+	out["links"] = t.Links
+	return json.Marshal(out)
+}
+
+type ServerGetAccountsConfig_Links struct {
+	PrivacyPolicy  string `json:"privacyPolicy" cborgen:"privacyPolicy"`
+	TermsOfService string `json:"termsOfService" cborgen:"termsOfService"`
+}
+
+func (t *ServerGetAccountsConfig_Links) MarshalJSON() ([]byte, error) {
+	out := make(map[string]interface{})
+	out["privacyPolicy"] = t.PrivacyPolicy
+	out["termsOfService"] = t.TermsOfService
 	return json.Marshal(out)
 }
 

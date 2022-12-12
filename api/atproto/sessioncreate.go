@@ -10,8 +10,8 @@ import (
 // schema: com.atproto.session.create
 
 type SessionCreate_Input struct {
-	Handle   string `json:"handle"`
-	Password string `json:"password"`
+	Handle   string `json:"handle" cborgen:"handle"`
+	Password string `json:"password" cborgen:"password"`
 }
 
 func (t *SessionCreate_Input) MarshalJSON() ([]byte, error) {
@@ -22,10 +22,10 @@ func (t *SessionCreate_Input) MarshalJSON() ([]byte, error) {
 }
 
 type SessionCreate_Output struct {
-	AccessJwt  string `json:"accessJwt"`
-	RefreshJwt string `json:"refreshJwt"`
-	Handle     string `json:"handle"`
-	Did        string `json:"did"`
+	AccessJwt  string `json:"accessJwt" cborgen:"accessJwt"`
+	RefreshJwt string `json:"refreshJwt" cborgen:"refreshJwt"`
+	Handle     string `json:"handle" cborgen:"handle"`
+	Did        string `json:"did" cborgen:"did"`
 }
 
 func (t *SessionCreate_Output) MarshalJSON() ([]byte, error) {

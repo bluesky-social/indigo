@@ -10,9 +10,9 @@ import (
 // schema: app.bsky.graph.getMembers
 
 type GraphGetMembers_Output struct {
-	Subject *ActorRef_WithInfo        `json:"subject"`
-	Cursor  string                    `json:"cursor"`
-	Members []*GraphGetMembers_Member `json:"members"`
+	Cursor  string                    `json:"cursor" cborgen:"cursor"`
+	Members []*GraphGetMembers_Member `json:"members" cborgen:"members"`
+	Subject *ActorRef_WithInfo        `json:"subject" cborgen:"subject"`
 }
 
 func (t *GraphGetMembers_Output) MarshalJSON() ([]byte, error) {
@@ -24,12 +24,12 @@ func (t *GraphGetMembers_Output) MarshalJSON() ([]byte, error) {
 }
 
 type GraphGetMembers_Member struct {
-	Did         string         `json:"did"`
-	Declaration *SystemDeclRef `json:"declaration"`
-	Handle      string         `json:"handle"`
-	DisplayName string         `json:"displayName"`
-	CreatedAt   string         `json:"createdAt"`
-	IndexedAt   string         `json:"indexedAt"`
+	DisplayName string         `json:"displayName" cborgen:"displayName"`
+	CreatedAt   string         `json:"createdAt" cborgen:"createdAt"`
+	IndexedAt   string         `json:"indexedAt" cborgen:"indexedAt"`
+	Did         string         `json:"did" cborgen:"did"`
+	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
+	Handle      string         `json:"handle" cborgen:"handle"`
 }
 
 func (t *GraphGetMembers_Member) MarshalJSON() ([]byte, error) {

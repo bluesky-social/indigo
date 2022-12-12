@@ -104,7 +104,7 @@ func TestBasicOperation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := rr.CreateRecord(ctx, "app.bsky.feed.post", &api.PostRecord{
+		if _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &api.PostRecord{
 			Text: fmt.Sprintf("hey look its a tweet %s", time.Now()),
 		}); err != nil {
 			t.Fatal(err)
@@ -134,7 +134,7 @@ func TestBasicOperation(t *testing.T) {
 func setupRepo(ctx context.Context, bs blockstore.Blockstore) (cid.Cid, error) {
 	nr := repo.NewRepo(ctx, bs)
 
-	if err := nr.CreateRecord(ctx, "app.bsky.feed.post", &api.PostRecord{
+	if _, err := nr.CreateRecord(ctx, "app.bsky.feed.post", &api.PostRecord{
 		Text: fmt.Sprintf("hey look its a tweet %s", time.Now()),
 	}); err != nil {
 		return cid.Undef, err
@@ -184,7 +184,7 @@ func BenchmarkRepoWritesCarstore(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		if err := rr.CreateRecord(ctx, "app.bsky.feed.post", &api.PostRecord{
+		if _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &api.PostRecord{
 			Text: fmt.Sprintf("hey look its a tweet %s", time.Now()),
 		}); err != nil {
 			b.Fatal(err)
@@ -226,7 +226,7 @@ func BenchmarkRepoWritesFlatfs(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		if err := rr.CreateRecord(ctx, "app.bsky.feed.post", &api.PostRecord{
+		if _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &api.PostRecord{
 			Text: fmt.Sprintf("hey look its a tweet %s", time.Now()),
 		}); err != nil {
 			b.Fatal(err)
@@ -263,7 +263,7 @@ func BenchmarkRepoWritesSqlite(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		if err := rr.CreateRecord(ctx, "app.bsky.feed.post", &api.PostRecord{
+		if _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &api.PostRecord{
 			Text: fmt.Sprintf("hey look its a tweet %s", time.Now()),
 		}); err != nil {
 			b.Fatal(err)

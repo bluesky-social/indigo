@@ -10,7 +10,7 @@ import (
 // schema: com.atproto.account.createInviteCode
 
 type AccountCreateInviteCode_Input struct {
-	UseCount int64 `json:"useCount"`
+	UseCount int64 `json:"useCount" cborgen:"useCount"`
 }
 
 func (t *AccountCreateInviteCode_Input) MarshalJSON() ([]byte, error) {
@@ -20,7 +20,7 @@ func (t *AccountCreateInviteCode_Input) MarshalJSON() ([]byte, error) {
 }
 
 type AccountCreateInviteCode_Output struct {
-	Code string `json:"code"`
+	Code string `json:"code" cborgen:"code"`
 }
 
 func (t *AccountCreateInviteCode_Output) MarshalJSON() ([]byte, error) {

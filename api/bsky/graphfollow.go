@@ -6,9 +6,10 @@ import (
 
 // schema: app.bsky.graph.follow
 
+// RECORDTYPE: GraphFollow
 type GraphFollow struct {
-	Subject   *ActorRef `json:"subject"`
-	CreatedAt string    `json:"createdAt"`
+	Subject   *ActorRef `json:"subject" cborgen:"subject"`
+	CreatedAt string    `json:"createdAt" cborgen:"createdAt"`
 }
 
 func (t *GraphFollow) MarshalJSON() ([]byte, error) {

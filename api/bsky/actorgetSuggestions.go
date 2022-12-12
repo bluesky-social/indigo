@@ -9,9 +9,19 @@ import (
 
 // schema: app.bsky.actor.getSuggestions
 
+type ActorGetSuggestions_MyState struct {
+	Follow string `json:"follow" cborgen:"follow"`
+}
+
+func (t *ActorGetSuggestions_MyState) MarshalJSON() ([]byte, error) {
+	out := make(map[string]interface{})
+	out["follow"] = t.Follow
+	return json.Marshal(out)
+}
+
 type ActorGetSuggestions_Output struct {
-	Cursor string                       `json:"cursor"`
-	Actors []*ActorGetSuggestions_Actor `json:"actors"`
+	Cursor string                       `json:"cursor" cborgen:"cursor"`
+	Actors []*ActorGetSuggestions_Actor `json:"actors" cborgen:"actors"`
 }
 
 func (t *ActorGetSuggestions_Output) MarshalJSON() ([]byte, error) {
@@ -22,13 +32,13 @@ func (t *ActorGetSuggestions_Output) MarshalJSON() ([]byte, error) {
 }
 
 type ActorGetSuggestions_Actor struct {
-	MyState     *ActorGetSuggestions_MyState `json:"myState"`
-	Did         string                       `json:"did"`
-	Declaration *SystemDeclRef               `json:"declaration"`
-	Handle      string                       `json:"handle"`
-	DisplayName string                       `json:"displayName"`
-	Description string                       `json:"description"`
-	IndexedAt   string                       `json:"indexedAt"`
+	Declaration *SystemDeclRef               `json:"declaration" cborgen:"declaration"`
+	Handle      string                       `json:"handle" cborgen:"handle"`
+	DisplayName string                       `json:"displayName" cborgen:"displayName"`
+	Description string                       `json:"description" cborgen:"description"`
+	IndexedAt   string                       `json:"indexedAt" cborgen:"indexedAt"`
+	MyState     *ActorGetSuggestions_MyState `json:"myState" cborgen:"myState"`
+	Did         string                       `json:"did" cborgen:"did"`
 }
 
 func (t *ActorGetSuggestions_Actor) MarshalJSON() ([]byte, error) {
@@ -40,16 +50,6 @@ func (t *ActorGetSuggestions_Actor) MarshalJSON() ([]byte, error) {
 	out["handle"] = t.Handle
 	out["indexedAt"] = t.IndexedAt
 	out["myState"] = t.MyState
-	return json.Marshal(out)
-}
-
-type ActorGetSuggestions_MyState struct {
-	Follow string `json:"follow"`
-}
-
-func (t *ActorGetSuggestions_MyState) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["follow"] = t.Follow
 	return json.Marshal(out)
 }
 

@@ -6,8 +6,9 @@ import (
 
 // schema: app.bsky.system.declaration
 
+// RECORDTYPE: SystemDeclaration
 type SystemDeclaration struct {
-	ActorType string `json:"actorType"`
+	ActorType string `json:"actorType" cborgen:"actorType"`
 }
 
 func (t *SystemDeclaration) MarshalJSON() ([]byte, error) {

@@ -10,8 +10,8 @@ import (
 // schema: com.atproto.account.resetPassword
 
 type AccountResetPassword_Input struct {
-	Password string `json:"password"`
-	Token    string `json:"token"`
+	Token    string `json:"token" cborgen:"token"`
+	Password string `json:"password" cborgen:"password"`
 }
 
 func (t *AccountResetPassword_Input) MarshalJSON() ([]byte, error) {

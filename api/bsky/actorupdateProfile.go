@@ -10,9 +10,9 @@ import (
 // schema: app.bsky.actor.updateProfile
 
 type ActorUpdateProfile_Input struct {
-	Did         string `json:"did"`
-	DisplayName string `json:"displayName"`
-	Description string `json:"description"`
+	Did         string `json:"did" cborgen:"did"`
+	DisplayName string `json:"displayName" cborgen:"displayName"`
+	Description string `json:"description" cborgen:"description"`
 }
 
 func (t *ActorUpdateProfile_Input) MarshalJSON() ([]byte, error) {
@@ -24,9 +24,9 @@ func (t *ActorUpdateProfile_Input) MarshalJSON() ([]byte, error) {
 }
 
 type ActorUpdateProfile_Output struct {
-	Uri    string `json:"uri"`
-	Cid    string `json:"cid"`
-	Record any    `json:"record"`
+	Uri    string `json:"uri" cborgen:"uri"`
+	Cid    string `json:"cid" cborgen:"cid"`
+	Record any    `json:"record" cborgen:"record"`
 }
 
 func (t *ActorUpdateProfile_Output) MarshalJSON() ([]byte, error) {

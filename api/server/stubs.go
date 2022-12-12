@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-func (s *Server) RegisterHandlersAppBsky(e *echo.Group) error {
+func (s *Server) RegisterHandlersAppBsky(e *echo.Echo) error {
 	e.POST("/xrpc/app.bsky.actor.createScene", s.HandleAppBskyActorCreateScene)
 	e.GET("/xrpc/app.bsky.actor.getProfile", s.HandleAppBskyActorGetProfile)
 	e.GET("/xrpc/app.bsky.actor.getSuggestions", s.HandleAppBskyActorGetSuggestions)
@@ -407,7 +407,7 @@ func (s *Server) HandleAppBskyNotificationUpdateSeen(c echo.Context) error {
 	return nil
 }
 
-func (s *Server) RegisterHandlersComAtproto(e *echo.Group) error {
+func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.account.create", s.HandleComAtprotoAccountCreate)
 	e.POST("/xrpc/com.atproto.account.createInviteCode", s.HandleComAtprotoAccountCreateInviteCode)
 	e.POST("/xrpc/com.atproto.account.delete", s.HandleComAtprotoAccountDelete)
@@ -744,7 +744,8 @@ func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.JSON(200, out)
+
+	return c.Stream(200, "application/octet-stream", out)
 }
 
 func (s *Server) HandleComAtprotoSyncGetRoot(c echo.Context) error {

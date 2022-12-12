@@ -6,9 +6,10 @@ import (
 
 // schema: app.bsky.actor.profile
 
+// RECORDTYPE: ActorProfile
 type ActorProfile struct {
-	DisplayName string `json:"displayName"`
-	Description string `json:"description"`
+	DisplayName string `json:"displayName" cborgen:"displayName"`
+	Description string `json:"description" cborgen:"description"`
 }
 
 func (t *ActorProfile) MarshalJSON() ([]byte, error) {

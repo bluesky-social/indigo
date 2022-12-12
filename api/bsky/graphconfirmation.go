@@ -8,10 +8,11 @@ import (
 
 // schema: app.bsky.graph.confirmation
 
+// RECORDTYPE: GraphConfirmation
 type GraphConfirmation struct {
-	Assertion  *comatprototypes.RepoStrongRef `json:"assertion"`
-	CreatedAt  string                         `json:"createdAt"`
-	Originator *ActorRef                      `json:"originator"`
+	Originator *ActorRef                      `json:"originator" cborgen:"originator"`
+	Assertion  *comatprototypes.RepoStrongRef `json:"assertion" cborgen:"assertion"`
+	CreatedAt  string                         `json:"createdAt" cborgen:"createdAt"`
 }
 
 func (t *GraphConfirmation) MarshalJSON() ([]byte, error) {

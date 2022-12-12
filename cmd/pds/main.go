@@ -12,17 +12,17 @@ func main() {
 	app := cli.NewApp()
 
 	app.Action = func(cctx *cli.Context) error {
-		db, err := gorm.Open(sqlite.Open("pds.db"))
+		db, err := gorm.Open(sqlite.Open("pdsdata/pds.db"))
 		if err != nil {
 			return err
 		}
 
-		carstdb, err := gorm.Open(sqlite.Open("carstore.db"))
+		carstdb, err := gorm.Open(sqlite.Open("pdsdata/carstore.db"))
 		if err != nil {
 			return err
 		}
 
-		cs, err := carstore.NewCarStore(carstdb, "carstore")
+		cs, err := carstore.NewCarStore(carstdb, "pdsdata/carstore")
 		if err != nil {
 			return err
 		}

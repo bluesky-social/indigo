@@ -10,8 +10,8 @@ import (
 // schema: app.bsky.feed.getTimeline
 
 type FeedGetTimeline_Output struct {
-	Cursor string                      `json:"cursor"`
-	Feed   []*FeedGetTimeline_FeedItem `json:"feed"`
+	Cursor string                      `json:"cursor" cborgen:"cursor"`
+	Feed   []*FeedGetTimeline_FeedItem `json:"feed" cborgen:"feed"`
 }
 
 func (t *FeedGetTimeline_Output) MarshalJSON() ([]byte, error) {
@@ -22,19 +22,19 @@ func (t *FeedGetTimeline_Output) MarshalJSON() ([]byte, error) {
 }
 
 type FeedGetTimeline_FeedItem struct {
-	Embed         *FeedEmbed               `json:"embed"`
-	ReplyCount    int64                    `json:"replyCount"`
-	DownvoteCount int64                    `json:"downvoteCount"`
-	Author        *ActorRef_WithInfo       `json:"author"`
-	TrendedBy     *ActorRef_WithInfo       `json:"trendedBy"`
-	RepostedBy    *ActorRef_WithInfo       `json:"repostedBy"`
-	RepostCount   int64                    `json:"repostCount"`
-	UpvoteCount   int64                    `json:"upvoteCount"`
-	IndexedAt     string                   `json:"indexedAt"`
-	MyState       *FeedGetTimeline_MyState `json:"myState"`
-	Uri           string                   `json:"uri"`
-	Cid           string                   `json:"cid"`
-	Record        any                      `json:"record"`
+	Cid           string                   `json:"cid" cborgen:"cid"`
+	RepostedBy    *ActorRef_WithInfo       `json:"repostedBy" cborgen:"repostedBy"`
+	Embed         *FeedEmbed               `json:"embed" cborgen:"embed"`
+	RepostCount   int64                    `json:"repostCount" cborgen:"repostCount"`
+	DownvoteCount int64                    `json:"downvoteCount" cborgen:"downvoteCount"`
+	MyState       *FeedGetTimeline_MyState `json:"myState" cborgen:"myState"`
+	Uri           string                   `json:"uri" cborgen:"uri"`
+	Author        *ActorRef_WithInfo       `json:"author" cborgen:"author"`
+	TrendedBy     *ActorRef_WithInfo       `json:"trendedBy" cborgen:"trendedBy"`
+	Record        any                      `json:"record" cborgen:"record"`
+	ReplyCount    int64                    `json:"replyCount" cborgen:"replyCount"`
+	UpvoteCount   int64                    `json:"upvoteCount" cborgen:"upvoteCount"`
+	IndexedAt     string                   `json:"indexedAt" cborgen:"indexedAt"`
 }
 
 func (t *FeedGetTimeline_FeedItem) MarshalJSON() ([]byte, error) {
@@ -56,9 +56,9 @@ func (t *FeedGetTimeline_FeedItem) MarshalJSON() ([]byte, error) {
 }
 
 type FeedGetTimeline_MyState struct {
-	Repost   string `json:"repost"`
-	Upvote   string `json:"upvote"`
-	Downvote string `json:"downvote"`
+	Repost   string `json:"repost" cborgen:"repost"`
+	Upvote   string `json:"upvote" cborgen:"upvote"`
+	Downvote string `json:"downvote" cborgen:"downvote"`
 }
 
 func (t *FeedGetTimeline_MyState) MarshalJSON() ([]byte, error) {

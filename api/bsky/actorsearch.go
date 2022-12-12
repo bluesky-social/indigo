@@ -10,8 +10,8 @@ import (
 // schema: app.bsky.actor.search
 
 type ActorSearch_Output struct {
-	Cursor string              `json:"cursor"`
-	Users  []*ActorSearch_User `json:"users"`
+	Cursor string              `json:"cursor" cborgen:"cursor"`
+	Users  []*ActorSearch_User `json:"users" cborgen:"users"`
 }
 
 func (t *ActorSearch_Output) MarshalJSON() ([]byte, error) {
@@ -22,12 +22,12 @@ func (t *ActorSearch_Output) MarshalJSON() ([]byte, error) {
 }
 
 type ActorSearch_User struct {
-	Did         string         `json:"did"`
-	Declaration *SystemDeclRef `json:"declaration"`
-	Handle      string         `json:"handle"`
-	DisplayName string         `json:"displayName"`
-	Description string         `json:"description"`
-	IndexedAt   string         `json:"indexedAt"`
+	Did         string         `json:"did" cborgen:"did"`
+	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
+	Handle      string         `json:"handle" cborgen:"handle"`
+	DisplayName string         `json:"displayName" cborgen:"displayName"`
+	Description string         `json:"description" cborgen:"description"`
+	IndexedAt   string         `json:"indexedAt" cborgen:"indexedAt"`
 }
 
 func (t *ActorSearch_User) MarshalJSON() ([]byte, error) {

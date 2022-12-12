@@ -10,11 +10,11 @@ import (
 // schema: com.atproto.account.create
 
 type AccountCreate_Input struct {
-	Email       string `json:"email"`
-	Handle      string `json:"handle"`
-	InviteCode  string `json:"inviteCode"`
-	Password    string `json:"password"`
-	RecoveryKey string `json:"recoveryKey"`
+	RecoveryKey string `json:"recoveryKey" cborgen:"recoveryKey"`
+	Email       string `json:"email" cborgen:"email"`
+	Handle      string `json:"handle" cborgen:"handle"`
+	InviteCode  string `json:"inviteCode" cborgen:"inviteCode"`
+	Password    string `json:"password" cborgen:"password"`
 }
 
 func (t *AccountCreate_Input) MarshalJSON() ([]byte, error) {
@@ -28,10 +28,10 @@ func (t *AccountCreate_Input) MarshalJSON() ([]byte, error) {
 }
 
 type AccountCreate_Output struct {
-	Handle     string `json:"handle"`
-	Did        string `json:"did"`
-	AccessJwt  string `json:"accessJwt"`
-	RefreshJwt string `json:"refreshJwt"`
+	AccessJwt  string `json:"accessJwt" cborgen:"accessJwt"`
+	RefreshJwt string `json:"refreshJwt" cborgen:"refreshJwt"`
+	Handle     string `json:"handle" cborgen:"handle"`
+	Did        string `json:"did" cborgen:"did"`
 }
 
 func (t *AccountCreate_Output) MarshalJSON() ([]byte, error) {

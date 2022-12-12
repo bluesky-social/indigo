@@ -10,10 +10,10 @@ import (
 // schema: app.bsky.feed.getRepostedBy
 
 type FeedGetRepostedBy_Output struct {
-	Uri        string                          `json:"uri"`
-	Cid        string                          `json:"cid"`
-	Cursor     string                          `json:"cursor"`
-	RepostedBy []*FeedGetRepostedBy_RepostedBy `json:"repostedBy"`
+	Cid        string                          `json:"cid" cborgen:"cid"`
+	Cursor     string                          `json:"cursor" cborgen:"cursor"`
+	RepostedBy []*FeedGetRepostedBy_RepostedBy `json:"repostedBy" cborgen:"repostedBy"`
+	Uri        string                          `json:"uri" cborgen:"uri"`
 }
 
 func (t *FeedGetRepostedBy_Output) MarshalJSON() ([]byte, error) {
@@ -26,12 +26,12 @@ func (t *FeedGetRepostedBy_Output) MarshalJSON() ([]byte, error) {
 }
 
 type FeedGetRepostedBy_RepostedBy struct {
-	Did         string         `json:"did"`
-	Declaration *SystemDeclRef `json:"declaration"`
-	Handle      string         `json:"handle"`
-	DisplayName string         `json:"displayName"`
-	CreatedAt   string         `json:"createdAt"`
-	IndexedAt   string         `json:"indexedAt"`
+	DisplayName string         `json:"displayName" cborgen:"displayName"`
+	CreatedAt   string         `json:"createdAt" cborgen:"createdAt"`
+	IndexedAt   string         `json:"indexedAt" cborgen:"indexedAt"`
+	Did         string         `json:"did" cborgen:"did"`
+	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
+	Handle      string         `json:"handle" cborgen:"handle"`
 }
 
 func (t *FeedGetRepostedBy_RepostedBy) MarshalJSON() ([]byte, error) {

@@ -10,8 +10,8 @@ import (
 // schema: com.atproto.repo.listRecords
 
 type RepoListRecords_Output struct {
-	Cursor  string                    `json:"cursor"`
-	Records []*RepoListRecords_Record `json:"records"`
+	Cursor  string                    `json:"cursor" cborgen:"cursor"`
+	Records []*RepoListRecords_Record `json:"records" cborgen:"records"`
 }
 
 func (t *RepoListRecords_Output) MarshalJSON() ([]byte, error) {
@@ -22,9 +22,9 @@ func (t *RepoListRecords_Output) MarshalJSON() ([]byte, error) {
 }
 
 type RepoListRecords_Record struct {
-	Uri   string `json:"uri"`
-	Cid   string `json:"cid"`
-	Value any    `json:"value"`
+	Value any    `json:"value" cborgen:"value"`
+	Uri   string `json:"uri" cborgen:"uri"`
+	Cid   string `json:"cid" cborgen:"cid"`
 }
 
 func (t *RepoListRecords_Record) MarshalJSON() ([]byte, error) {

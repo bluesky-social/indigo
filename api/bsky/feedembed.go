@@ -9,8 +9,27 @@ import (
 
 // schema: app.bsky.feed.embed
 
+type FeedEmbed_External struct {
+	Title       string `json:"title" cborgen:"title"`
+	Description string `json:"description" cborgen:"description"`
+	ImageUri    string `json:"imageUri" cborgen:"imageUri"`
+	Type        string `json:"type" cborgen:"type"`
+	Uri         string `json:"uri" cborgen:"uri"`
+}
+
+func (t *FeedEmbed_External) MarshalJSON() ([]byte, error) {
+	t.Type = "external"
+	out := make(map[string]interface{})
+	out["description"] = t.Description
+	out["imageUri"] = t.ImageUri
+	out["title"] = t.Title
+	out["type"] = t.Type
+	out["uri"] = t.Uri
+	return json.Marshal(out)
+}
+
 type FeedEmbed struct {
-	Items []*FeedEmbed_Items_Elem `json:"items"`
+	Items []*FeedEmbed_Items_Elem `json:"items" cborgen:"items"`
 }
 
 func (t *FeedEmbed) MarshalJSON() ([]byte, error) {
@@ -60,9 +79,9 @@ func (t *FeedEmbed_Items_Elem) UnmarshalJSON(b []byte) error {
 }
 
 type FeedEmbed_Media struct {
-	Alt      string     `json:"alt"`
-	Thumb    *util.Blob `json:"thumb"`
-	Original *util.Blob `json:"original"`
+	Alt      string     `json:"alt" cborgen:"alt"`
+	Thumb    *util.Blob `json:"thumb" cborgen:"thumb"`
+	Original *util.Blob `json:"original" cborgen:"original"`
 }
 
 func (t *FeedEmbed_Media) MarshalJSON() ([]byte, error) {
@@ -74,9 +93,9 @@ func (t *FeedEmbed_Media) MarshalJSON() ([]byte, error) {
 }
 
 type FeedEmbed_Record struct {
-	Type   string             `json:"type"`
-	Author *ActorRef_WithInfo `json:"author"`
-	Record any                `json:"record"`
+	Type   string             `json:"type" cborgen:"type"`
+	Author *ActorRef_WithInfo `json:"author" cborgen:"author"`
+	Record any                `json:"record" cborgen:"record"`
 }
 
 func (t *FeedEmbed_Record) MarshalJSON() ([]byte, error) {
@@ -85,24 +104,5 @@ func (t *FeedEmbed_Record) MarshalJSON() ([]byte, error) {
 	out["author"] = t.Author
 	out["record"] = t.Record
 	out["type"] = t.Type
-	return json.Marshal(out)
-}
-
-type FeedEmbed_External struct {
-	Type        string `json:"type"`
-	Uri         string `json:"uri"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	ImageUri    string `json:"imageUri"`
-}
-
-func (t *FeedEmbed_External) MarshalJSON() ([]byte, error) {
-	t.Type = "external"
-	out := make(map[string]interface{})
-	out["description"] = t.Description
-	out["imageUri"] = t.ImageUri
-	out["title"] = t.Title
-	out["type"] = t.Type
-	out["uri"] = t.Uri
 	return json.Marshal(out)
 }

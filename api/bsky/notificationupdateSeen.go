@@ -10,7 +10,7 @@ import (
 // schema: app.bsky.notification.updateSeen
 
 type NotificationUpdateSeen_Input struct {
-	SeenAt string `json:"seenAt"`
+	SeenAt string `json:"seenAt" cborgen:"seenAt"`
 }
 
 func (t *NotificationUpdateSeen_Input) MarshalJSON() ([]byte, error) {

@@ -10,11 +10,11 @@ import (
 // schema: com.atproto.repo.describe
 
 type RepoDescribe_Output struct {
-	Handle          string   `json:"handle"`
-	Did             string   `json:"did"`
-	DidDoc          any      `json:"didDoc"`
-	Collections     []string `json:"collections"`
-	HandleIsCorrect bool     `json:"handleIsCorrect"`
+	Handle          string   `json:"handle" cborgen:"handle"`
+	Did             string   `json:"did" cborgen:"did"`
+	DidDoc          any      `json:"didDoc" cborgen:"didDoc"`
+	Collections     []string `json:"collections" cborgen:"collections"`
+	HandleIsCorrect bool     `json:"handleIsCorrect" cborgen:"handleIsCorrect"`
 }
 
 func (t *RepoDescribe_Output) MarshalJSON() ([]byte, error) {

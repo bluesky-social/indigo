@@ -10,7 +10,7 @@ import (
 // schema: com.atproto.sync.getRoot
 
 type SyncGetRoot_Output struct {
-	Root string `json:"root"`
+	Root string `json:"root" cborgen:"root"`
 }
 
 func (t *SyncGetRoot_Output) MarshalJSON() ([]byte, error) {

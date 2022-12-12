@@ -10,11 +10,11 @@ import (
 // schema: com.atproto.repo.putRecord
 
 type RepoPutRecord_Input struct {
-	Did        string `json:"did"`
-	Collection string `json:"collection"`
-	Rkey       string `json:"rkey"`
-	Validate   bool   `json:"validate"`
-	Record     any    `json:"record"`
+	Rkey       string `json:"rkey" cborgen:"rkey"`
+	Validate   bool   `json:"validate" cborgen:"validate"`
+	Record     any    `json:"record" cborgen:"record"`
+	Did        string `json:"did" cborgen:"did"`
+	Collection string `json:"collection" cborgen:"collection"`
 }
 
 func (t *RepoPutRecord_Input) MarshalJSON() ([]byte, error) {
@@ -28,8 +28,8 @@ func (t *RepoPutRecord_Input) MarshalJSON() ([]byte, error) {
 }
 
 type RepoPutRecord_Output struct {
-	Uri string `json:"uri"`
-	Cid string `json:"cid"`
+	Uri string `json:"uri" cborgen:"uri"`
+	Cid string `json:"cid" cborgen:"cid"`
 }
 
 func (t *RepoPutRecord_Output) MarshalJSON() ([]byte, error) {

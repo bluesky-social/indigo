@@ -10,8 +10,8 @@ import (
 // schema: com.atproto.session.get
 
 type SessionGet_Output struct {
-	Handle string `json:"handle"`
-	Did    string `json:"did"`
+	Handle string `json:"handle" cborgen:"handle"`
+	Did    string `json:"did" cborgen:"did"`
 }
 
 func (t *SessionGet_Output) MarshalJSON() ([]byte, error) {

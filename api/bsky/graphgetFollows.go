@@ -10,9 +10,9 @@ import (
 // schema: app.bsky.graph.getFollows
 
 type GraphGetFollows_Output struct {
-	Follows []*GraphGetFollows_Follow `json:"follows"`
-	Subject *ActorRef_WithInfo        `json:"subject"`
-	Cursor  string                    `json:"cursor"`
+	Cursor  string                    `json:"cursor" cborgen:"cursor"`
+	Follows []*GraphGetFollows_Follow `json:"follows" cborgen:"follows"`
+	Subject *ActorRef_WithInfo        `json:"subject" cborgen:"subject"`
 }
 
 func (t *GraphGetFollows_Output) MarshalJSON() ([]byte, error) {
@@ -24,12 +24,12 @@ func (t *GraphGetFollows_Output) MarshalJSON() ([]byte, error) {
 }
 
 type GraphGetFollows_Follow struct {
-	Declaration *SystemDeclRef `json:"declaration"`
-	Handle      string         `json:"handle"`
-	DisplayName string         `json:"displayName"`
-	CreatedAt   string         `json:"createdAt"`
-	IndexedAt   string         `json:"indexedAt"`
-	Did         string         `json:"did"`
+	Did         string         `json:"did" cborgen:"did"`
+	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
+	Handle      string         `json:"handle" cborgen:"handle"`
+	DisplayName string         `json:"displayName" cborgen:"displayName"`
+	CreatedAt   string         `json:"createdAt" cborgen:"createdAt"`
+	IndexedAt   string         `json:"indexedAt" cborgen:"indexedAt"`
 }
 
 func (t *GraphGetFollows_Follow) MarshalJSON() ([]byte, error) {

@@ -8,9 +8,10 @@ import (
 
 // schema: app.bsky.feed.repost
 
+// RECORDTYPE: FeedRepost
 type FeedRepost struct {
-	Subject   *comatprototypes.RepoStrongRef `json:"subject"`
-	CreatedAt string                         `json:"createdAt"`
+	Subject   *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
+	CreatedAt string                         `json:"createdAt" cborgen:"createdAt"`
 }
 
 func (t *FeedRepost) MarshalJSON() ([]byte, error) {
