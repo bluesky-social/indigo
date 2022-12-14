@@ -338,13 +338,13 @@ func (t *Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	var emptyFieldCount int
+	fieldCount := 4
 
 	if t.Prev == nil {
-		emptyFieldCount++
+		fieldCount--
 	}
 
-	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(4-emptyFieldCount))); err != nil {
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 

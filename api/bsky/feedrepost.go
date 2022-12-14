@@ -1,22 +1,19 @@
 package schemagen
 
 import (
-	"encoding/json"
-
 	comatprototypes "github.com/whyrusleeping/gosky/api/atproto"
+	"github.com/whyrusleeping/gosky/lex/util"
 )
 
 // schema: app.bsky.feed.repost
 
-// RECORDTYPE: FeedRepost
-type FeedRepost struct {
-	Subject   *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
-	CreatedAt string                         `json:"createdAt" cborgen:"createdAt"`
+func init() {
+	util.RegisterType("app.bsky.feed.repost", FeedRepost{})
 }
 
-func (t *FeedRepost) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["createdAt"] = t.CreatedAt
-	out["subject"] = t.Subject
-	return json.Marshal(out)
+// RECORDTYPE: FeedRepost
+type FeedRepost struct {
+	LexiconTypeID string                         `json:"$type" cborgen:"$type,const=app.bsky.feed.repost"`
+	Subject       *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
+	CreatedAt     string                         `json:"createdAt" cborgen:"createdAt"`
 }

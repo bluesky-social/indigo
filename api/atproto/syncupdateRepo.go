@@ -9,6 +9,8 @@ import (
 
 // schema: com.atproto.sync.updateRepo
 
+func init() {
+}
 func SyncUpdateRepo(ctx context.Context, c *xrpc.Client, input io.Reader, did string) error {
 
 	params := map[string]interface{}{

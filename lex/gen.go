@@ -185,7 +185,6 @@ func BuildExtDefMap(ss []*Schema, prefixes []string) map[string]*ExtDef {
 			if k != "main" {
 				n = s.ID + "#" + k
 			}
-			fmt.Println("def map: ", n)
 			out[n] = &ExtDef{
 				Type: d,
 			}
@@ -224,6 +223,10 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 
 	tps := s.AllTypes(prefix, defmap)
 
+	if err := writeDecoderRegister(buf, tps); err != nil {
+		return err
+	}
+
 	for _, ot := range tps {
 		fmt.Println("TYPE: ", ot.Name)
 		if err := ot.Type.WriteType(ot.Name, buf); err != nil {
@@ -241,6 +244,23 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 	if err := writeCodeFile(buf.Bytes(), fname); err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func writeDecoderRegister(w io.Writer, tps []outputType) error {
+	fmt.Fprintln(w, "func init() {")
+	for _, t := range tps {
+
+		if t.Type.record && !strings.Contains(t.Name, "_") {
+			id := t.Type.id
+			if t.Type.defName != ""  {
+			id = id + "#" + t.Type.defName
+		}
+			fmt.Fprintf(w, "util.RegisterType(%q, %s{})\n", id, t.Name)
+		}
+	}
+	fmt.Fprintln(w, "}")
 
 	return nil
 }
@@ -663,6 +683,13 @@ func (s *TypeSchema) WriteRPCHandler(w io.Writer, fname, shortname, impname stri
 	fmt.Fprintf(w, "ctx, span := otel.Tracer(\"server\").Start(c.Request().Context(), %q)\n", "Handle"+fname)
 	fmt.Fprintf(w, "defer span.End()\n")
 
+	var required map[string]bool
+	if s.Required != nil {
+		for _, r := range s.Required {
+			required[r] = true
+		}
+	}
+
 	paramtypes := []string{"ctx context.Context"}
 	params := []string{"ctx"}
 	if s.Type == "query" {
@@ -675,6 +702,20 @@ func (s *TypeSchema) WriteRPCHandler(w io.Writer, fname, shortname, impname stri
 					fmt.Fprintf(w, "%s := c.QueryParam(\"%s\")\n", k, k)
 				case "integer":
 					params = append(params, k)
+
+					if required != nil && !required[k] {
+					paramtypes = append(paramtypes, k+" *int")
+					fmt.Fprintf(w, `
+var %s *int
+if p := c.QueryParam("%s"); p != "" {
+%s_val, err := strconv.Atoi(p)
+if err != nil {
+	return err
+}
+	%s  = &%s_val
+}
+`, k, k, k, k, k)
+					} else {
 					paramtypes = append(paramtypes, k+" int")
 					fmt.Fprintf(w, `
 %s, err := strconv.Atoi(c.QueryParam("%s"))
@@ -682,6 +723,9 @@ if err != nil {
 	return err
 }
 `, k, k)
+					}
+
+
 				case "number":
 					return fmt.Errorf("non-integer numbers currently unsupported")
 				default:
@@ -870,6 +914,18 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 
 		fmt.Fprintf(w, "type %s struct {\n", name)
 
+		if ts.record {
+			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type\" cborgen:\"$type,const=%s\"`\n", ts.id)
+		}
+
+		var required map[string]bool 
+		if ts.Required != nil {
+		required = make(map[string]bool)
+		for _, req := range ts.Required {
+			required[req] = true
+		}
+	}
+
 		for k, v := range ts.Properties {
 			goname := strings.Title(k)
 
@@ -878,7 +934,14 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 				return err
 			}
 
-			fmt.Fprintf(w, "\t%s %s `json:\"%s\" cborgen:\"%s\"`\n", goname, tname, k, k)
+			var ptr string
+			if required != nil && !required[k] {
+				if !strings.HasPrefix(tname, "*") && !strings.HasPrefix(tname, "[]") {
+					ptr = "*"
+				}
+			}
+
+			fmt.Fprintf(w, "\t%s %s%s `json:\"%s\" cborgen:\"%s\"`\n", goname, ptr, tname, k, k)
 
 		}
 		fmt.Fprintf(w, "}\n\n")
@@ -968,6 +1031,8 @@ func forEachProp(t TypeSchema, cb func(k string, ts TypeSchema) error) error {
 }
 
 func (ts *TypeSchema) writeJsonMarshalerObject(name string, w io.Writer) error {
+	return nil // no need for a special json marshaler right now
+
 	if len(ts.Properties) == 0 {
 		// TODO: this is a hacky special casing of record types...
 		return nil
@@ -1042,7 +1107,7 @@ func (ts *TypeSchema) getTypeConstValueForType(ref string) (any, error) {
 
 func (ts *TypeSchema) writeJsonUnmarshalerEnum(name string, w io.Writer) error {
 	fmt.Fprintf(w, "func (t *%s) UnmarshalJSON(b []byte) (error) {\n", name)
-	fmt.Fprintf(w, "\ttyp, err := util.EnumTypeExtract(b)\n")
+	fmt.Fprintf(w, "\ttyp, err := util.TypeExtract(b)\n")
 	fmt.Fprintf(w, "\tif err != nil {\n\t\treturn err\n\t}\n\n")
 	fmt.Fprintf(w, "\tswitch typ {\n")
 	for _, e := range ts.Refs {

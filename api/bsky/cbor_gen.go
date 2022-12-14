@@ -27,7 +27,26 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 
 	cw := cbg.NewCborWriter(w)
 
-	if _, err := cw.Write([]byte{164}); err != nil {
+	if _, err := cw.Write([]byte{165}); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("app.bsky.feed.post")); err != nil {
 		return err
 	}
 
@@ -158,7 +177,18 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Text (string) (string)
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Text (string) (string)
 		case "text":
 
 			{
@@ -247,7 +277,26 @@ func (t *FeedRepost) MarshalCBOR(w io.Writer) error {
 
 	cw := cbg.NewCborWriter(w)
 
-	if _, err := cw.Write([]byte{162}); err != nil {
+	if _, err := cw.Write([]byte{163}); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("app.bsky.feed.repost")); err != nil {
 		return err
 	}
 
@@ -330,7 +379,18 @@ func (t *FeedRepost) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Subject (schemagen.RepoStrongRef) (struct)
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Subject (schemagen.RepoStrongRef) (struct)
 		case "subject":
 
 			{
@@ -378,7 +438,26 @@ func (t *FeedTrend) MarshalCBOR(w io.Writer) error {
 
 	cw := cbg.NewCborWriter(w)
 
-	if _, err := cw.Write([]byte{162}); err != nil {
+	if _, err := cw.Write([]byte{163}); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("app.bsky.feed.trend")); err != nil {
 		return err
 	}
 
@@ -461,7 +540,18 @@ func (t *FeedTrend) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Subject (schemagen.RepoStrongRef) (struct)
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Subject (schemagen.RepoStrongRef) (struct)
 		case "subject":
 
 			{
@@ -509,23 +599,26 @@ func (t *FeedVote) MarshalCBOR(w io.Writer) error {
 
 	cw := cbg.NewCborWriter(w)
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if _, err := cw.Write([]byte{164}); err != nil {
 		return err
 	}
 
-	// t.Subject (schemagen.RepoStrongRef) (struct)
-	if len("subject") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"subject\" was too long")
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("subject"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("subject")); err != nil {
+	if _, err := io.WriteString(w, string("$type")); err != nil {
 		return err
 	}
 
-	if err := t.Subject.MarshalCBOR(cw); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("app.bsky.feed.vote")); err != nil {
 		return err
 	}
 
@@ -574,6 +667,22 @@ func (t *FeedVote) MarshalCBOR(w io.Writer) error {
 	if _, err := io.WriteString(w, string(t.CreatedAt)); err != nil {
 		return err
 	}
+
+	// t.Subject (schemagen.RepoStrongRef) (struct)
+	if len("subject") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"subject\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("subject"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("subject")); err != nil {
+		return err
+	}
+
+	if err := t.Subject.MarshalCBOR(cw); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -615,25 +724,16 @@ func (t *FeedVote) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Subject (schemagen.RepoStrongRef) (struct)
-		case "subject":
+		// t.LexiconTypeID (string) (string)
+		case "$type":
 
 			{
-
-				b, err := cr.ReadByte()
+				sval, err := cbg.ReadString(cr)
 				if err != nil {
 					return err
 				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-					t.Subject = new(schemagen.RepoStrongRef)
-					if err := t.Subject.UnmarshalCBOR(cr); err != nil {
-						return xerrors.Errorf("unmarshaling t.Subject pointer: %w", err)
-					}
-				}
 
+				t.LexiconTypeID = string(sval)
 			}
 			// t.Direction (string) (string)
 		case "direction":
@@ -657,6 +757,26 @@ func (t *FeedVote) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.CreatedAt = string(sval)
 			}
+			// t.Subject (schemagen.RepoStrongRef) (struct)
+		case "subject":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Subject = new(schemagen.RepoStrongRef)
+					if err := t.Subject.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Subject pointer: %w", err)
+					}
+				}
+
+			}
 
 		default:
 			// Field doesn't exist on this type, so ignore it
@@ -675,6 +795,29 @@ func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 	cw := cbg.NewCborWriter(w)
 
 	if _, err := cw.Write([]byte{163}); err != nil {
+		return err
+	}
+
+	// t.Value (string) (string)
+	if len("value") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"value\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("value"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("value")); err != nil {
+		return err
+	}
+
+	if len(t.Value) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Value was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Value))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Value)); err != nil {
 		return err
 	}
 
@@ -714,29 +857,6 @@ func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Type)); err != nil {
-		return err
-	}
-
-	// t.Value (string) (string)
-	if len("value") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"value\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("value"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("value")); err != nil {
-		return err
-	}
-
-	if len(t.Value) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Value was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Value))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Value)); err != nil {
 		return err
 	}
 	return nil
@@ -780,7 +900,18 @@ func (t *FeedPost_Entity) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Index (schemagen.FeedPost_TextSlice) (struct)
+		// t.Value (string) (string)
+		case "value":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Value = string(sval)
+			}
+			// t.Index (schemagen.FeedPost_TextSlice) (struct)
 		case "index":
 
 			{
@@ -811,17 +942,6 @@ func (t *FeedPost_Entity) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Type = string(sval)
 			}
-			// t.Value (string) (string)
-		case "value":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.Value = string(sval)
-			}
 
 		default:
 			// Field doesn't exist on this type, so ignore it
@@ -843,22 +963,6 @@ func (t *FeedPost_ReplyRef) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Parent (schemagen.RepoStrongRef) (struct)
-	if len("parent") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"parent\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("parent"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("parent")); err != nil {
-		return err
-	}
-
-	if err := t.Parent.MarshalCBOR(cw); err != nil {
-		return err
-	}
-
 	// t.Root (schemagen.RepoStrongRef) (struct)
 	if len("root") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"root\" was too long")
@@ -872,6 +976,22 @@ func (t *FeedPost_ReplyRef) MarshalCBOR(w io.Writer) error {
 	}
 
 	if err := t.Root.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.Parent (schemagen.RepoStrongRef) (struct)
+	if len("parent") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"parent\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("parent"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("parent")); err != nil {
+		return err
+	}
+
+	if err := t.Parent.MarshalCBOR(cw); err != nil {
 		return err
 	}
 	return nil
@@ -915,27 +1035,7 @@ func (t *FeedPost_ReplyRef) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Parent (schemagen.RepoStrongRef) (struct)
-		case "parent":
-
-			{
-
-				b, err := cr.ReadByte()
-				if err != nil {
-					return err
-				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-					t.Parent = new(schemagen.RepoStrongRef)
-					if err := t.Parent.UnmarshalCBOR(cr); err != nil {
-						return xerrors.Errorf("unmarshaling t.Parent pointer: %w", err)
-					}
-				}
-
-			}
-			// t.Root (schemagen.RepoStrongRef) (struct)
+		// t.Root (schemagen.RepoStrongRef) (struct)
 		case "root":
 
 			{
@@ -951,6 +1051,26 @@ func (t *FeedPost_ReplyRef) UnmarshalCBOR(r io.Reader) (err error) {
 					t.Root = new(schemagen.RepoStrongRef)
 					if err := t.Root.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.Root pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Parent (schemagen.RepoStrongRef) (struct)
+		case "parent":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Parent = new(schemagen.RepoStrongRef)
+					if err := t.Parent.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Parent pointer: %w", err)
 					}
 				}
 

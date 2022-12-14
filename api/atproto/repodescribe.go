@@ -2,29 +2,21 @@ package schemagen
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/whyrusleeping/gosky/xrpc"
 )
 
 // schema: com.atproto.repo.describe
 
+func init() {
+}
+
 type RepoDescribe_Output struct {
-	Handle          string   `json:"handle" cborgen:"handle"`
-	Did             string   `json:"did" cborgen:"did"`
 	DidDoc          any      `json:"didDoc" cborgen:"didDoc"`
 	Collections     []string `json:"collections" cborgen:"collections"`
 	HandleIsCorrect bool     `json:"handleIsCorrect" cborgen:"handleIsCorrect"`
-}
-
-func (t *RepoDescribe_Output) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["collections"] = t.Collections
-	out["did"] = t.Did
-	out["didDoc"] = t.DidDoc
-	out["handle"] = t.Handle
-	out["handleIsCorrect"] = t.HandleIsCorrect
-	return json.Marshal(out)
+	Handle          string   `json:"handle" cborgen:"handle"`
+	Did             string   `json:"did" cborgen:"did"`
 }
 
 func RepoDescribe(ctx context.Context, c *xrpc.Client, user string) (*RepoDescribe_Output, error) {

@@ -1,24 +1,20 @@
 package schemagen
 
 import (
-	"encoding/json"
-
 	comatprototypes "github.com/whyrusleeping/gosky/api/atproto"
+	"github.com/whyrusleeping/gosky/lex/util"
 )
 
 // schema: app.bsky.graph.confirmation
 
-// RECORDTYPE: GraphConfirmation
-type GraphConfirmation struct {
-	Originator *ActorRef                      `json:"originator" cborgen:"originator"`
-	Assertion  *comatprototypes.RepoStrongRef `json:"assertion" cborgen:"assertion"`
-	CreatedAt  string                         `json:"createdAt" cborgen:"createdAt"`
+func init() {
+	util.RegisterType("app.bsky.graph.confirmation", GraphConfirmation{})
 }
 
-func (t *GraphConfirmation) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["assertion"] = t.Assertion
-	out["createdAt"] = t.CreatedAt
-	out["originator"] = t.Originator
-	return json.Marshal(out)
+// RECORDTYPE: GraphConfirmation
+type GraphConfirmation struct {
+	LexiconTypeID string                         `json:"$type" cborgen:"$type,const=app.bsky.graph.confirmation"`
+	Originator    *ActorRef                      `json:"originator" cborgen:"originator"`
+	Assertion     *comatprototypes.RepoStrongRef `json:"assertion" cborgen:"assertion"`
+	CreatedAt     string                         `json:"createdAt" cborgen:"createdAt"`
 }

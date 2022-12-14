@@ -2,21 +2,17 @@ package schemagen
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/whyrusleeping/gosky/xrpc"
 )
 
 // schema: com.atproto.handle.resolve
 
-type HandleResolve_Output struct {
-	Did string `json:"did" cborgen:"did"`
+func init() {
 }
 
-func (t *HandleResolve_Output) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["did"] = t.Did
-	return json.Marshal(out)
+type HandleResolve_Output struct {
+	Did string `json:"did" cborgen:"did"`
 }
 
 func HandleResolve(ctx context.Context, c *xrpc.Client, handle string) (*HandleResolve_Output, error) {

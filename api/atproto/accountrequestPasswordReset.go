@@ -2,21 +2,17 @@ package schemagen
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/whyrusleeping/gosky/xrpc"
 )
 
 // schema: com.atproto.account.requestPasswordReset
 
-type AccountRequestPasswordReset_Input struct {
-	Email string `json:"email" cborgen:"email"`
+func init() {
 }
 
-func (t *AccountRequestPasswordReset_Input) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["email"] = t.Email
-	return json.Marshal(out)
+type AccountRequestPasswordReset_Input struct {
+	Email string `json:"email" cborgen:"email"`
 }
 
 func AccountRequestPasswordReset(ctx context.Context, c *xrpc.Client, input AccountRequestPasswordReset_Input) error {

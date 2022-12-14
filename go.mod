@@ -19,7 +19,7 @@ require (
 	github.com/lestrrat-go/jwx v1.2.25
 	github.com/multiformats/go-multihash v0.1.0
 	github.com/urfave/cli/v2 v2.23.0
-	github.com/whyrusleeping/cbor-gen v0.0.0-20221120232258-33755d0abe95
+	github.com/whyrusleeping/cbor-gen v0.0.0-20221213005056-dae902347b80
 	github.com/whyrusleeping/go-did v0.0.0-20221105001742-8d9e0ffb0d59
 	go.opentelemetry.io/otel v0.20.0
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1

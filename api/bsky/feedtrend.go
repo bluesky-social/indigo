@@ -1,22 +1,19 @@
 package schemagen
 
 import (
-	"encoding/json"
-
 	comatprototypes "github.com/whyrusleeping/gosky/api/atproto"
+	"github.com/whyrusleeping/gosky/lex/util"
 )
 
 // schema: app.bsky.feed.trend
 
-// RECORDTYPE: FeedTrend
-type FeedTrend struct {
-	Subject   *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
-	CreatedAt string                         `json:"createdAt" cborgen:"createdAt"`
+func init() {
+	util.RegisterType("app.bsky.feed.trend", FeedTrend{})
 }
 
-func (t *FeedTrend) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["createdAt"] = t.CreatedAt
-	out["subject"] = t.Subject
-	return json.Marshal(out)
+// RECORDTYPE: FeedTrend
+type FeedTrend struct {
+	LexiconTypeID string                         `json:"$type" cborgen:"$type,const=app.bsky.feed.trend"`
+	Subject       *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
+	CreatedAt     string                         `json:"createdAt" cborgen:"createdAt"`
 }

@@ -2,25 +2,19 @@ package schemagen
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/whyrusleeping/gosky/xrpc"
 )
 
 // schema: com.atproto.repo.getRecord
 
-type RepoGetRecord_Output struct {
-	Value any    `json:"value" cborgen:"value"`
-	Uri   string `json:"uri" cborgen:"uri"`
-	Cid   string `json:"cid" cborgen:"cid"`
+func init() {
 }
 
-func (t *RepoGetRecord_Output) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["cid"] = t.Cid
-	out["uri"] = t.Uri
-	out["value"] = t.Value
-	return json.Marshal(out)
+type RepoGetRecord_Output struct {
+	Uri   string  `json:"uri" cborgen:"uri"`
+	Cid   *string `json:"cid" cborgen:"cid"`
+	Value any     `json:"value" cborgen:"value"`
 }
 
 func RepoGetRecord(ctx context.Context, c *xrpc.Client, cid string, collection string, rkey string, user string) (*RepoGetRecord_Output, error) {

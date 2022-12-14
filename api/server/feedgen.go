@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/ipfs/go-cid"
@@ -16,8 +17,10 @@ import (
 type FeedGenerator struct {
 	db *gorm.DB
 
-	readRecord func(context.Context, uint, cid.Cid) (any, error)
+	readRecord ReadRecordFunc
 }
+
+type ReadRecordFunc func(context.Context, uint, cid.Cid) (any, error)
 
 type FeedPost struct {
 	gorm.Model
@@ -44,12 +47,27 @@ type ActorInfo struct {
 	Type       string
 }
 
-func NewFeedGenerator(db *gorm.DB) (*FeedGenerator, error) {
+type UpVoteRecord struct {
+	gorm.Model
+	User  uint
+	Likes uint
+}
+
+type FollowRecord struct {
+	gorm.Model
+	User    uint
+	Follows uint
+}
+
+func NewFeedGenerator(db *gorm.DB, readRecord ReadRecordFunc) (*FeedGenerator, error) {
 	db.AutoMigrate(&FeedPost{})
 	db.AutoMigrate(&ActorInfo{})
+	db.AutoMigrate(&FollowRecord{})
+	db.AutoMigrate(&UpVoteRecord{})
 
 	return &FeedGenerator{
-		db: db,
+		db:         db,
+		readRecord: readRecord,
 	}, nil
 }
 
@@ -106,10 +124,13 @@ func (fg *FeedGenerator) getActorRefInfo(ctx context.Context, user uint) (*bsky.
 	}
 
 	out := bsky.ActorRef_WithInfo{
-		Did:         ai.Did,
-		Declaration: nil, //TODO:
+		Did: ai.Did,
+		Declaration: &bsky.SystemDeclRef{
+			Cid:       ai.DeclRefCid,
+			ActorType: ai.Type,
+		},
 		Handle:      ai.Handle,
-		DisplayName: ai.Name,
+		DisplayName: &ai.Name,
 	}
 
 	return &out, nil
@@ -156,12 +177,35 @@ func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *FeedPost) (*Hydr
 		out.RepostedBy = rp
 	}
 
-	rec, err := fg.readRecord(ctx, item.Author, item.RecCid)
+	reccid, err := cid.Decode(item.Cid)
 	if err != nil {
 		return nil, err
 	}
 
+	rec, err := fg.readRecord(ctx, item.Author, reccid)
+	if err != nil {
+		return nil, err
+	}
+
+	out.Record = rec
+
 	return &out, nil
+}
+
+func (fg *FeedGenerator) GetTimeline(ctx context.Context, user uint, algo string, before string, limit int) ([]*HydratedFeedItem, error) {
+	ctx, span := otel.Tracer("feedgen").Start(context.Background(), "GetTimeline")
+	defer span.End()
+
+	// TODO: this query is just a temporary hack...
+	var feed []*FeedPost
+	if err := fg.db.Find(&feed, "author = (?) OR reposted_by = (?)",
+		fg.db.Model(FollowRecord{}).Where("user = ?", user).Select("follows"),
+		fg.db.Model(FollowRecord{}).Where("user = ?", user).Select("follows"),
+	).Error; err != nil {
+		return nil, err
+	}
+
+	return fg.hydrateFeed(ctx, feed)
 }
 
 func (fg *FeedGenerator) GetAuthorFeed(ctx context.Context, user uint, before string, limit int) ([]*HydratedFeedItem, error) {
@@ -217,7 +261,39 @@ func (fg *FeedGenerator) handleInitActor(ctx context.Context, evt *repomgr.RepoE
 		return err
 	}
 
+	if err := fg.db.Create(&FollowRecord{
+		User:    evt.User,
+		Follows: evt.User,
+	}).Error; err != nil {
+		return err
+	}
+
 	return nil
+}
+
+type parsedUri struct {
+	Did  string
+	Rkey string
+}
+
+func parseAtUri(uri string) (*parsedUri, error) {
+	if !strings.HasPrefix(uri, "at://") {
+		return nil, fmt.Errorf("AT uris must be prefixed with 'at://'")
+	}
+
+	trimmed := strings.TrimPrefix(uri, "at://")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("AT uris must have three parts: did, collection, tid")
+	}
+
+	did := parts[0]
+	rkey := parts[1] + "/" + parts[2]
+
+	return &parsedUri{
+		Did:  did,
+		Rkey: rkey,
+	}, nil
 }
 
 func (fg *FeedGenerator) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEvent) error {
@@ -236,12 +312,68 @@ func (fg *FeedGenerator) handleRecordCreate(ctx context.Context, evt *repomgr.Re
 			return err
 		}
 		return nil
+	case *bsky.FeedVote:
+		var val int
+		switch rec.Direction {
+		case "up":
+			val = 1
+		case "down":
+			val = -1
+		default:
+			return fmt.Errorf("invalid vote direction: %q", rec.Direction)
+		}
+
+		puri, err := parseAtUri(rec.Subject.Uri)
+		if err != nil {
+			return err
+		}
+
+		act, err := fg.lookupUserByDid(ctx, puri.Did)
+		if err != nil {
+			return err
+		}
+
+		var post FeedPost
+		if err := fg.db.First(&post, "tid = ? AND author = ?", puri.Rkey, act.User).Error; err != nil {
+			return err
+		}
+
+		if err := fg.db.Create(&UpVoteRecord{
+			User:  evt.User,
+			Likes: post.ID,
+		}).Error; err != nil {
+			return err
+		}
+
+		if err := fg.db.Model(FeedPost{}).Where("id = ?", post.ID).Update("up_count", gorm.Expr("up_count + ?", val)).Error; err != nil {
+			return err
+		}
+
+		return nil
 	default:
 		return fmt.Errorf("unrecognized record type: %T", rec)
 	}
 }
 
+func (fg *FeedGenerator) lookupUserByDid(ctx context.Context, did string) (*ActorInfo, error) {
+	var ai ActorInfo
+	if err := fg.db.First(&ai, "did = ?", did).Error; err != nil {
+		return nil, err
+	}
+
+	return &ai, nil
+}
+
 func (fg *FeedGenerator) addNewPostNotification(ctx context.Context, user uint, postid uint) error {
 	// TODO:
 	return nil
+}
+
+func (fg *FeedGenerator) GetActorProfile(ctx context.Context, actor string) (*ActorInfo, error) {
+	var ai ActorInfo
+	if err := fg.db.First(&ai, "handle = ?", actor).Error; err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }

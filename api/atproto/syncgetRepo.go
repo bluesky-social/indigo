@@ -9,6 +9,8 @@ import (
 
 // schema: com.atproto.sync.getRepo
 
+func init() {
+}
 func SyncGetRepo(ctx context.Context, c *xrpc.Client, did string, from string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 

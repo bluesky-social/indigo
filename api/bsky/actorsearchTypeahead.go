@@ -2,37 +2,24 @@ package schemagen
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/whyrusleeping/gosky/xrpc"
 )
 
 // schema: app.bsky.actor.searchTypeahead
 
-type ActorSearchTypeahead_Output struct {
-	Users []*ActorSearchTypeahead_User `json:"users" cborgen:"users"`
+func init() {
 }
 
-func (t *ActorSearchTypeahead_Output) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["users"] = t.Users
-	return json.Marshal(out)
+type ActorSearchTypeahead_Output struct {
+	Users []*ActorSearchTypeahead_User `json:"users" cborgen:"users"`
 }
 
 type ActorSearchTypeahead_User struct {
 	Did         string         `json:"did" cborgen:"did"`
 	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
 	Handle      string         `json:"handle" cborgen:"handle"`
-	DisplayName string         `json:"displayName" cborgen:"displayName"`
-}
-
-func (t *ActorSearchTypeahead_User) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["declaration"] = t.Declaration
-	out["did"] = t.Did
-	out["displayName"] = t.DisplayName
-	out["handle"] = t.Handle
-	return json.Marshal(out)
+	DisplayName *string        `json:"displayName" cborgen:"displayName"`
 }
 
 func ActorSearchTypeahead(ctx context.Context, c *xrpc.Client, limit int64, term string) (*ActorSearchTypeahead_Output, error) {

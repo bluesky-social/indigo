@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bytes"
 	"encoding/json"
 )
 
@@ -8,7 +9,7 @@ type typeExtractor struct {
 	Type string `json:"$type"`
 }
 
-func EnumTypeExtract(b []byte) (string, error) {
+func TypeExtract(b []byte) (string, error) {
 	var te typeExtractor
 	if err := json.Unmarshal(b, &te); err != nil {
 		return "", err
@@ -20,4 +21,17 @@ func EnumTypeExtract(b []byte) (string, error) {
 type Blob struct {
 	Cid      string `json:"cid"`
 	MimeType string `json:"mimeType"`
+}
+
+type CborChecker struct {
+	Type string `cborgen:"$type"`
+}
+
+func CborTypeExtract(b []byte) (string, error) {
+	var tcheck CborChecker
+	if err := tcheck.UnmarshalCBOR(bytes.NewReader(b)); err != nil {
+		return "", err
+	}
+
+	return tcheck.Type, nil
 }

@@ -206,12 +206,13 @@ func (uv *userView) GetSize(ctx context.Context, k cid.Cid) (int, error) {
 }
 
 type DeltaSession struct {
-	fresh blockstore.Blockstore
-	blks  map[cid.Cid]blocks.Block
-	base  blockstore.Blockstore
-	user  uint
-	seq   int
-	cs    *CarStore
+	fresh    blockstore.Blockstore
+	blks     map[cid.Cid]blocks.Block
+	base     blockstore.Blockstore
+	user     uint
+	seq      int
+	readonly bool
+	cs       *CarStore
 }
 
 func (cs *CarStore) NewDeltaSession(user uint, prev cid.Cid) (*DeltaSession, error) {
@@ -241,6 +242,20 @@ func (cs *CarStore) NewDeltaSession(user uint, prev cid.Cid) (*DeltaSession, err
 		user: user,
 		cs:   cs,
 		seq:  lastShard.Seq + 1,
+	}, nil
+}
+
+func (cs *CarStore) ReadOnlySession(user uint) (*DeltaSession, error) {
+	return &DeltaSession{
+		base: &userView{
+			user:     user,
+			cs:       cs,
+			prefetch: false,
+			cache:    make(map[cid.Cid]blocks.Block),
+		},
+		readonly: true,
+		user:     user,
+		cs:       cs,
 	}, nil
 }
 
@@ -313,11 +328,18 @@ func (cs *CarStore) writeShardBlocks(ctx context.Context, sh *CarShard, w io.Wri
 var _ blockstore.Blockstore = (*DeltaSession)(nil)
 
 func (ds *DeltaSession) Put(ctx context.Context, b blocks.Block) error {
+	if ds.readonly {
+		return fmt.Errorf("cannot write to readonly deltaSession")
+	}
 	ds.blks[b.Cid()] = b
 	return nil
 }
 
 func (ds *DeltaSession) PutMany(ctx context.Context, bs []blocks.Block) error {
+	if ds.readonly {
+		return fmt.Errorf("cannot write to readonly deltaSession")
+	}
+
 	for _, b := range bs {
 		ds.blks[b.Cid()] = b
 	}
@@ -329,6 +351,10 @@ func (ds *DeltaSession) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error)
 }
 
 func (ds *DeltaSession) DeleteBlock(ctx context.Context, c cid.Cid) error {
+	if ds.readonly {
+		return fmt.Errorf("cannot write to readonly deltaSession")
+	}
+
 	if _, ok := ds.blks[c]; !ok {
 		return ipld.ErrNotFound{c}
 	}
@@ -382,6 +408,10 @@ func (cs *CarStore) openNewShardFile(ctx context.Context, user uint, seq int) (*
 // CloseWithRoot writes all new blocks in a car file to the writer with the
 // given cid as the 'root'
 func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) error {
+	if ds.readonly {
+		return fmt.Errorf("cannot write to readonly deltaSession")
+	}
+
 	fi, path, err := ds.cs.openNewShardFile(ctx, ds.user, ds.seq)
 	if err != nil {
 		return err

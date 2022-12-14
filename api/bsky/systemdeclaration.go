@@ -1,18 +1,17 @@
 package schemagen
 
 import (
-	"encoding/json"
+	"github.com/whyrusleeping/gosky/lex/util"
 )
 
 // schema: app.bsky.system.declaration
 
-// RECORDTYPE: SystemDeclaration
-type SystemDeclaration struct {
-	ActorType string `json:"actorType" cborgen:"actorType"`
+func init() {
+	util.RegisterType("app.bsky.system.declaration", SystemDeclaration{})
 }
 
-func (t *SystemDeclaration) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["actorType"] = t.ActorType
-	return json.Marshal(out)
+// RECORDTYPE: SystemDeclaration
+type SystemDeclaration struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=app.bsky.system.declaration"`
+	ActorType     string `json:"actorType" cborgen:"actorType"`
 }

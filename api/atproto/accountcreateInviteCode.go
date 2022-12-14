@@ -2,31 +2,21 @@ package schemagen
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/whyrusleeping/gosky/xrpc"
 )
 
 // schema: com.atproto.account.createInviteCode
 
+func init() {
+}
+
 type AccountCreateInviteCode_Input struct {
 	UseCount int64 `json:"useCount" cborgen:"useCount"`
 }
 
-func (t *AccountCreateInviteCode_Input) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["useCount"] = t.UseCount
-	return json.Marshal(out)
-}
-
 type AccountCreateInviteCode_Output struct {
 	Code string `json:"code" cborgen:"code"`
-}
-
-func (t *AccountCreateInviteCode_Output) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["code"] = t.Code
-	return json.Marshal(out)
 }
 
 func AccountCreateInviteCode(ctx context.Context, c *xrpc.Client, input AccountCreateInviteCode_Input) (*AccountCreateInviteCode_Output, error) {

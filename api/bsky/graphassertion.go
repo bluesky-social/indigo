@@ -1,22 +1,19 @@
 package schemagen
 
 import (
-	"encoding/json"
+	"github.com/whyrusleeping/gosky/lex/util"
 )
 
 // schema: app.bsky.graph.assertion
 
-// RECORDTYPE: GraphAssertion
-type GraphAssertion struct {
-	Assertion string    `json:"assertion" cborgen:"assertion"`
-	Subject   *ActorRef `json:"subject" cborgen:"subject"`
-	CreatedAt string    `json:"createdAt" cborgen:"createdAt"`
+func init() {
+	util.RegisterType("app.bsky.graph.assertion", GraphAssertion{})
 }
 
-func (t *GraphAssertion) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["assertion"] = t.Assertion
-	out["createdAt"] = t.CreatedAt
-	out["subject"] = t.Subject
-	return json.Marshal(out)
+// RECORDTYPE: GraphAssertion
+type GraphAssertion struct {
+	LexiconTypeID string    `json:"$type" cborgen:"$type,const=app.bsky.graph.assertion"`
+	CreatedAt     string    `json:"createdAt" cborgen:"createdAt"`
+	Assertion     string    `json:"assertion" cborgen:"assertion"`
+	Subject       *ActorRef `json:"subject" cborgen:"subject"`
 }

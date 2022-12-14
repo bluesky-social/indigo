@@ -1,20 +1,18 @@
 package schemagen
 
 import (
-	"encoding/json"
+	"github.com/whyrusleeping/gosky/lex/util"
 )
 
 // schema: app.bsky.graph.follow
 
-// RECORDTYPE: GraphFollow
-type GraphFollow struct {
-	Subject   *ActorRef `json:"subject" cborgen:"subject"`
-	CreatedAt string    `json:"createdAt" cborgen:"createdAt"`
+func init() {
+	util.RegisterType("app.bsky.graph.follow", GraphFollow{})
 }
 
-func (t *GraphFollow) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["createdAt"] = t.CreatedAt
-	out["subject"] = t.Subject
-	return json.Marshal(out)
+// RECORDTYPE: GraphFollow
+type GraphFollow struct {
+	LexiconTypeID string    `json:"$type" cborgen:"$type,const=app.bsky.graph.follow"`
+	Subject       *ActorRef `json:"subject" cborgen:"subject"`
+	CreatedAt     string    `json:"createdAt" cborgen:"createdAt"`
 }

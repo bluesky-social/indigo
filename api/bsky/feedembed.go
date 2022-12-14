@@ -9,33 +9,11 @@ import (
 
 // schema: app.bsky.feed.embed
 
-type FeedEmbed_External struct {
-	Title       string `json:"title" cborgen:"title"`
-	Description string `json:"description" cborgen:"description"`
-	ImageUri    string `json:"imageUri" cborgen:"imageUri"`
-	Type        string `json:"type" cborgen:"type"`
-	Uri         string `json:"uri" cborgen:"uri"`
-}
-
-func (t *FeedEmbed_External) MarshalJSON() ([]byte, error) {
-	t.Type = "external"
-	out := make(map[string]interface{})
-	out["description"] = t.Description
-	out["imageUri"] = t.ImageUri
-	out["title"] = t.Title
-	out["type"] = t.Type
-	out["uri"] = t.Uri
-	return json.Marshal(out)
+func init() {
 }
 
 type FeedEmbed struct {
 	Items []*FeedEmbed_Items_Elem `json:"items" cborgen:"items"`
-}
-
-func (t *FeedEmbed) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["items"] = t.Items
-	return json.Marshal(out)
 }
 
 type FeedEmbed_Items_Elem struct {
@@ -57,7 +35,7 @@ func (t *FeedEmbed_Items_Elem) MarshalJSON() ([]byte, error) {
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *FeedEmbed_Items_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.EnumTypeExtract(b)
+	typ, err := util.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -79,17 +57,9 @@ func (t *FeedEmbed_Items_Elem) UnmarshalJSON(b []byte) error {
 }
 
 type FeedEmbed_Media struct {
-	Alt      string     `json:"alt" cborgen:"alt"`
+	Alt      *string    `json:"alt" cborgen:"alt"`
 	Thumb    *util.Blob `json:"thumb" cborgen:"thumb"`
 	Original *util.Blob `json:"original" cborgen:"original"`
-}
-
-func (t *FeedEmbed_Media) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["alt"] = t.Alt
-	out["original"] = t.Original
-	out["thumb"] = t.Thumb
-	return json.Marshal(out)
 }
 
 type FeedEmbed_Record struct {
@@ -98,11 +68,10 @@ type FeedEmbed_Record struct {
 	Record any                `json:"record" cborgen:"record"`
 }
 
-func (t *FeedEmbed_Record) MarshalJSON() ([]byte, error) {
-	t.Type = "record"
-	out := make(map[string]interface{})
-	out["author"] = t.Author
-	out["record"] = t.Record
-	out["type"] = t.Type
-	return json.Marshal(out)
+type FeedEmbed_External struct {
+	Uri         string `json:"uri" cborgen:"uri"`
+	Title       string `json:"title" cborgen:"title"`
+	Description string `json:"description" cborgen:"description"`
+	ImageUri    string `json:"imageUri" cborgen:"imageUri"`
+	Type        string `json:"type" cborgen:"type"`
 }

@@ -1,19 +1,11 @@
 package schemagen
 
-import (
-	"encoding/json"
-)
-
 // schema: com.atproto.repo.strongRef
 
-type RepoStrongRef struct {
-	Uri string `json:"uri" cborgen:"uri"`
-	Cid string `json:"cid" cborgen:"cid"`
+func init() {
 }
 
-func (t *RepoStrongRef) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["cid"] = t.Cid
-	out["uri"] = t.Uri
-	return json.Marshal(out)
+type RepoStrongRef struct {
+	Cid string `json:"cid" cborgen:"cid"`
+	Uri string `json:"uri" cborgen:"uri"`
 }

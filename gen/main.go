@@ -5,6 +5,7 @@ import (
 	"github.com/whyrusleeping/gosky/api"
 	atproto "github.com/whyrusleeping/gosky/api/atproto"
 	bsky "github.com/whyrusleeping/gosky/api/bsky"
+	"github.com/whyrusleeping/gosky/lex/util"
 	mst "github.com/whyrusleeping/gosky/mst"
 	"github.com/whyrusleeping/gosky/repo"
 )
@@ -37,6 +38,10 @@ func main() {
 	}
 
 	if err := cbg.WriteMapEncodersToFile("api/atproto/cbor_gen.go", "schemagen", atproto.RepoStrongRef{}); err != nil {
+		panic(err)
+	}
+
+	if err := cbg.WriteMapEncodersToFile("lex/util/cbor_gen.go", "util", util.CborChecker{}); err != nil {
 		panic(err)
 	}
 }

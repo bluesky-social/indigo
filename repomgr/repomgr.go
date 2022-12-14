@@ -2,6 +2,7 @@ package repomgr
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 
@@ -116,11 +117,10 @@ func (rm *RepoManager) updateUserRepoHead(ctx context.Context, user uint, root c
 
 func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection string, rec cbg.CBORMarshaler) (string, cid.Cid, error) {
 	ntid := repo.NextTID()
+	rkey := collection + "/" + ntid
 
 	unlock := rm.lockUser(user)
 	defer unlock()
-
-	rkey := collection + "/" + ntid
 
 	head, err := rm.getUserRepoHead(ctx, user)
 	if err != nil {
@@ -176,6 +176,14 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 	unlock := rm.lockUser(user)
 	defer unlock()
 
+	if did == "" {
+		return fmt.Errorf("must specify did for new actor")
+	}
+
+	if user == 0 {
+		return fmt.Errorf("must specify unique non-zero id for new actor")
+	}
+
 	ds, err := rm.cs.NewDeltaSession(user, cid.Undef)
 	if err != nil {
 		return err
@@ -229,4 +237,32 @@ func (rm *RepoManager) GetRepoRoot(ctx context.Context, user uint) (cid.Cid, err
 
 func (rm *RepoManager) ReadRepo(ctx context.Context, user uint, fromcid cid.Cid, w io.Writer) error {
 	return rm.cs.ReadUserCar(ctx, user, fromcid, true, w)
+}
+
+func (rm *RepoManager) GetRecord(ctx context.Context, user uint, collection string, rkey string, maybeCid cid.Cid) (cid.Cid, any, error) {
+	bs, err := rm.cs.ReadOnlySession(user)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	head, err := rm.getUserRepoHead(ctx, user)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	r, err := repo.OpenRepo(ctx, bs, head)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	ocid, val, err := r.GetRecord(ctx, collection+"/"+rkey)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	if maybeCid.Defined() && ocid != maybeCid {
+		return cid.Undef, nil, fmt.Errorf("record at specified key had different CID than expected")
+	}
+
+	return ocid, val, nil
 }

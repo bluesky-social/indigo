@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -17,11 +18,38 @@ func (s *Server) handleAppBskyActorCreateScene(ctx context.Context, input *appbs
 }
 
 func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string) (*appbskytypes.ActorGetProfile_Output, error) {
-	panic("not yet implemented")
+	fmt.Println("Get profile:", actor)
+
+	return nil, nil
+
+	/*
+			profile, err := s.feedgen.GetActorProfile(ctx, actor)
+			if err != nil {
+				return nil, err
+			}
+
+			var out appbskytypes.ActorGetProfile_Output
+			out := ActorGetProfile_Output {
+				MyState     : nil, //*ActorGetProfile_MyState `json:"myState" cborgen:"myState"`
+			Did            string                   `json:"did" cborgen:"did"`
+			Declaration    *SystemDeclRef           `json:"declaration" cborgen:"declaration"`
+			Description    string                   `json:"description" cborgen:"description"`
+			PostsCount     int64                    `json:"postsCount" cborgen:"postsCount"`
+			FollowsCount   int64                    `json:"followsCount" cborgen:"followsCount"`
+			MembersCount   int64                    `json:"membersCount" cborgen:"membersCount"`
+			Handle         string                   `json:"handle" cborgen:"handle"`
+			Creator        string                   `json:"creator" cborgen:"creator"`
+			DisplayName    string                   `json:"displayName" cborgen:"displayName"`
+			FollowersCount int64                    `json:"followersCount" cborgen:"followersCount"`
+		}
+	*/
 }
 
 func (s *Server) handleAppBskyActorGetSuggestions(ctx context.Context, cursor string, limit int) (*appbskytypes.ActorGetSuggestions_Output, error) {
-	panic("not yet implemented")
+
+	var out appbskytypes.ActorGetSuggestions_Output
+	out.Actors = []*appbskytypes.ActorGetSuggestions_Actor{}
+	return &out, nil
 }
 
 func (s *Server) handleAppBskyActorSearch(ctx context.Context, before string, limit int, term string) (*appbskytypes.ActorSearch_Output, error) {
@@ -84,7 +112,38 @@ func (s *Server) handleAppBskyFeedGetRepostedBy(ctx context.Context, before stri
 }
 
 func (s *Server) handleAppBskyFeedGetTimeline(ctx context.Context, algorithm string, before string, limit int) (*appbskytypes.FeedGetTimeline_Output, error) {
-	panic("not yet implemented")
+	u, err := s.getUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tl, err := s.feedgen.GetTimeline(ctx, u.ID, algorithm, before, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	var out appbskytypes.FeedGetTimeline_Output
+	out.Feed = []*appbskytypes.FeedGetTimeline_FeedItem{}
+
+	for _, fi := range tl {
+		out.Feed = append(out.Feed, &appbskytypes.FeedGetTimeline_FeedItem{
+			Uri:           fi.Uri,
+			RepostedBy:    fi.RepostedBy,
+			Record:        fi.Record,
+			ReplyCount:    fi.ReplyCount,
+			RepostCount:   fi.RepostCount,
+			UpvoteCount:   fi.UpvoteCount,
+			DownvoteCount: 0,
+			MyState:       nil, // TODO:
+			Cid:           fi.Cid,
+			Author:        fi.Author,
+			TrendedBy:     fi.TrendedBy,
+			Embed:         nil,
+			IndexedAt:     fi.IndexedAt,
+		})
+	}
+
+	return &out, nil
 }
 
 func (s *Server) handleAppBskyFeedGetVotes(ctx context.Context, before string, cid string, direction string, limit int, uri string) (*appbskytypes.FeedGetVotes_Output, error) {
@@ -92,7 +151,29 @@ func (s *Server) handleAppBskyFeedGetVotes(ctx context.Context, before string, c
 }
 
 func (s *Server) handleAppBskyFeedSetVote(ctx context.Context, input *appbskytypes.FeedSetVote_Input) (*appbskytypes.FeedSetVote_Output, error) {
-	panic("not yet implemented")
+	u, err := s.getUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: check subject actually exists maybe?
+	vote := &appbskytypes.FeedVote{
+		Direction: input.Direction,
+		CreatedAt: time.Now().Format(time.RFC3339),
+		Subject:   input.Subject,
+	}
+
+	rkey, cc, err := s.repoman.CreateRecord(ctx, u.ID, "app.bsky.feed.vote", vote)
+	if err != nil {
+		return nil, err
+	}
+
+	_ = rkey
+	_ = cc
+
+	var out appbskytypes.FeedSetVote_Output
+	// TODO: what is this supposed to return?
+	return &out, nil
 }
 
 func (s *Server) handleAppBskyGraphGetAssertions(ctx context.Context, assertion string, author string, before string) (*appbskytypes.GraphGetAssertions_Output, error) {
@@ -116,15 +197,25 @@ func (s *Server) handleAppBskyGraphGetMemberships(ctx context.Context, actor str
 }
 
 func (s *Server) handleAppBskyNotificationGetCount(ctx context.Context) (*appbskytypes.NotificationGetCount_Output, error) {
-	panic("not yet implemented")
+	fmt.Println("Notification Count not yet implemented!")
+
+	return &appbskytypes.NotificationGetCount_Output{}, nil
 }
 
 func (s *Server) handleAppBskyNotificationList(ctx context.Context, before string, limit int) (*appbskytypes.NotificationList_Output, error) {
-	panic("not yet implemented")
+
+	fmt.Println("notifications not yet implemented!")
+	out := appbskytypes.NotificationList_Output{
+		Notifications: []*appbskytypes.NotificationList_Notification{},
+	}
+
+	return &out, nil
 }
 
 func (s *Server) handleAppBskyNotificationUpdateSeen(ctx context.Context, input *appbskytypes.NotificationUpdateSeen_Input) error {
-	panic("not yet implemented")
+	fmt.Println("notifications not yet implemented update seen!")
+
+	return nil
 }
 
 func (s *Server) handleComAtprotoAccountCreate(ctx context.Context, input *comatprototypes.AccountCreate_Input) (*comatprototypes.AccountCreate_Output, error) {
@@ -138,10 +229,15 @@ func (s *Server) handleComAtprotoAccountCreate(ctx context.Context, input *comat
 
 	}
 
+	var recoveryKey string
+	if input.RecoveryKey != nil {
+		recoveryKey = *input.RecoveryKey
+	}
+
 	u := User{
 		Handle:      input.Handle,
 		Password:    input.Password,
-		RecoveryKey: input.RecoveryKey,
+		RecoveryKey: recoveryKey,
 		Email:       input.Email,
 	}
 	if err := s.db.Create(&u).Error; err != nil {
@@ -150,6 +246,11 @@ func (s *Server) handleComAtprotoAccountCreate(ctx context.Context, input *comat
 
 	d, err := s.fakeDid.NewForHandle(input.Handle)
 	if err != nil {
+		return nil, err
+	}
+
+	u.DID = d
+	if err := s.db.Save(&u).Error; err != nil {
 		return nil, err
 	}
 
@@ -191,7 +292,13 @@ func (s *Server) handleComAtprotoAccountResetPassword(ctx context.Context, input
 }
 
 func (s *Server) handleComAtprotoHandleResolve(ctx context.Context, handle string) (*comatprototypes.HandleResolve_Output, error) {
-	panic("not yet implemented")
+
+	u, err := s.lookupUserByHandle(ctx, handle)
+	if err != nil {
+		return nil, err
+	}
+
+	return &comatprototypes.HandleResolve_Output{u.DID}, nil
 }
 
 func (s *Server) handleComAtprotoRepoBatchWrite(ctx context.Context, input *comatprototypes.RepoBatchWrite_Input) error {
@@ -238,8 +345,32 @@ func (s *Server) handleComAtprotoRepoDescribe(ctx context.Context, user string) 
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, cid string, collection string, rkey string, user string) (*comatprototypes.RepoGetRecord_Output, error) {
-	panic("not yet implemented")
+func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, collection string, rkey string, user string) (*comatprototypes.RepoGetRecord_Output, error) {
+	targetUser, err := s.lookupUser(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
+	var maybeCid cid.Cid
+	if c != "" {
+		cc, err := cid.Decode(c)
+		if err != nil {
+			return nil, err
+		}
+		maybeCid = cc
+	}
+
+	reccid, rec, err := s.repoman.GetRecord(ctx, targetUser.ID, collection, rkey, maybeCid)
+	if err != nil {
+		return nil, err
+	}
+
+	ccstr := reccid.String()
+	return &comatprototypes.RepoGetRecord_Output{
+		Cid:   &ccstr,
+		Uri:   "at://" + targetUser.DID + "/" + collection + "/" + rkey,
+		Value: rec,
+	}, nil
 }
 
 func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, after string, before string, collection string, limit int) (*comatprototypes.RepoListRecords_Output, error) {
@@ -251,7 +382,13 @@ func (s *Server) handleComAtprotoRepoPutRecord(ctx context.Context, input *comat
 }
 
 func (s *Server) handleComAtprotoServerGetAccountsConfig(ctx context.Context) (*comatprototypes.ServerGetAccountsConfig_Output, error) {
-	panic("not yet implemented")
+	invcode := false
+	return &comatprototypes.ServerGetAccountsConfig_Output{
+		InviteCodeRequired: &invcode,
+		AvailableUserDomains: []string{
+			s.handleSuffix,
+		},
+	}, nil
 }
 
 func (s *Server) handleComAtprotoSessionCreate(ctx context.Context, input *comatprototypes.SessionCreate_Input) (*comatprototypes.SessionCreate_Output, error) {
@@ -282,7 +419,15 @@ func (s *Server) handleComAtprotoSessionDelete(ctx context.Context) error {
 }
 
 func (s *Server) handleComAtprotoSessionGet(ctx context.Context) (*comatprototypes.SessionGet_Output, error) {
-	panic("not yet implemented")
+	u, err := s.getUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &comatprototypes.SessionGet_Output{
+		Handle: u.Handle,
+		Did:    u.DID,
+	}, nil
 }
 
 func (s *Server) handleComAtprotoSessionRefresh(ctx context.Context) (*comatprototypes.SessionRefresh_Output, error) {
@@ -314,7 +459,19 @@ func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, fr
 }
 
 func (s *Server) handleComAtprotoSyncGetRoot(ctx context.Context, did string) (*comatprototypes.SyncGetRoot_Output, error) {
-	panic("not yet implemented")
+	user, err := s.lookupUserByDid(ctx, did)
+	if err != nil {
+		return nil, err
+	}
+
+	root, err := s.repoman.GetRepoRoot(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &comatprototypes.SyncGetRoot_Output{
+		Root: root.String(),
+	}, nil
 }
 
 func (s *Server) handleComAtprotoSyncUpdateRepo(ctx context.Context, r io.Reader) error {

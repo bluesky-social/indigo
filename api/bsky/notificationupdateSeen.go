@@ -2,21 +2,17 @@ package schemagen
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/whyrusleeping/gosky/xrpc"
 )
 
 // schema: app.bsky.notification.updateSeen
 
-type NotificationUpdateSeen_Input struct {
-	SeenAt string `json:"seenAt" cborgen:"seenAt"`
+func init() {
 }
 
-func (t *NotificationUpdateSeen_Input) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["seenAt"] = t.SeenAt
-	return json.Marshal(out)
+type NotificationUpdateSeen_Input struct {
+	SeenAt string `json:"seenAt" cborgen:"seenAt"`
 }
 
 func NotificationUpdateSeen(ctx context.Context, c *xrpc.Client, input NotificationUpdateSeen_Input) error {

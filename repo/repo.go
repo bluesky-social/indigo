@@ -10,6 +10,7 @@ import (
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/ipld/go-car/v2"
+	"github.com/whyrusleeping/gosky/lex/util"
 	"github.com/whyrusleeping/gosky/mst"
 )
 
@@ -216,6 +217,30 @@ func (r *Repo) ForEach(ctx context.Context, prefix string, cb func(k string, v c
 	}
 
 	return nil
+}
+
+func (r *Repo) GetRecord(ctx context.Context, tid string) (cid.Cid, any, error) {
+	mst, err := r.getMst(ctx)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	cc, err := mst.Get(ctx, tid)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	blk, err := r.bs.Get(ctx, cc)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	rec, err := util.CborDecodeValue(blk.RawData())
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	return cc, rec, nil
 }
 
 func (r *Repo) DiffSince(ctx context.Context, oldrepo cid.Cid) ([]*mst.DiffOp, error) {

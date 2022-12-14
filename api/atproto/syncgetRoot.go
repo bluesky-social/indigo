@@ -2,21 +2,17 @@ package schemagen
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/whyrusleeping/gosky/xrpc"
 )
 
 // schema: com.atproto.sync.getRoot
 
-type SyncGetRoot_Output struct {
-	Root string `json:"root" cborgen:"root"`
+func init() {
 }
 
-func (t *SyncGetRoot_Output) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["root"] = t.Root
-	return json.Marshal(out)
+type SyncGetRoot_Output struct {
+	Root string `json:"root" cborgen:"root"`
 }
 
 func SyncGetRoot(ctx context.Context, c *xrpc.Client, did string) (*SyncGetRoot_Output, error) {

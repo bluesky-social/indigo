@@ -12,10 +12,12 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt"
+	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	jwk "github.com/lestrrat-go/jwx/jwk"
 	"github.com/whyrusleeping/gosky/carstore"
+	"github.com/whyrusleeping/gosky/lex/util"
 	"github.com/whyrusleeping/gosky/repomgr"
 	"gorm.io/gorm"
 )
@@ -43,23 +45,37 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string) (*Server, error
 		return nil, err
 	}
 
-	feedgen, err := NewFeedGenerator(db)
+	s := &Server{
+		signingKey:   serkey,
+		db:           db,
+		cs:           cs,
+		fakeDid:      NewFakeDid(db),
+		handleSuffix: ".pdstest",
+	}
+
+	feedgen, err := NewFeedGenerator(db, s.readRecordFunc)
 	if err != nil {
 		return nil, err
 	}
 
-	repoman := repomgr.NewRepoManager(db, cs, feedgen.HandleRepoEvent)
+	s.feedgen = feedgen
+	s.repoman = repomgr.NewRepoManager(db, cs, feedgen.HandleRepoEvent)
 
-	return &Server{
-		signingKey:   serkey,
-		db:           db,
-		cs:           cs,
-		repoman:      repoman,
-		feedgen:      feedgen,
-		fakeDid:      NewFakeDid(db),
-		handleSuffix: ".pdstest",
-	}, nil
+	return s, nil
+}
 
+func (s *Server) readRecordFunc(ctx context.Context, user uint, c cid.Cid) (any, error) {
+	bs, err := s.cs.ReadOnlySession(user)
+	if err != nil {
+		return nil, err
+	}
+
+	blk, err := bs.Get(ctx, c)
+	if err != nil {
+		return nil, err
+	}
+
+	return util.CborDecodeValue(blk.RawData())
 }
 
 func loadKey(kfile string) ([]byte, error) {
@@ -91,6 +107,8 @@ func (s *Server) RunAPI(listen string) error {
 				return true
 			case "/xrpc/com.atproto.session.create":
 				return true
+			case "/xrpc/com.atproto.server.getAccountsConfig":
+				return true
 			default:
 				return false
 			}
@@ -112,11 +130,11 @@ func (s *Server) RunAPI(listen string) error {
 
 type User struct {
 	gorm.Model
-	Handle      string
+	Handle      string `gorm:"uniqueIndex"`
 	Password    string
 	RecoveryKey string
 	Email       string
-	DID         string
+	DID         string `gorm:"uniqueIndex"`
 }
 
 func toTime(i interface{}) (time.Time, error) {
@@ -185,7 +203,15 @@ func (s *Server) checkTokenValidity(user *jwt.Token) (string, string, error) {
 	return scopestr, didstr, nil
 }
 
-func (s *Server) lookupUser(ctx context.Context, did string) (*User, error) {
+func (s *Server) lookupUser(ctx context.Context, didorhandle string) (*User, error) {
+	if strings.HasPrefix(didorhandle, "did:") {
+		return s.lookupUserByDid(ctx, didorhandle)
+	}
+
+	return s.lookupUserByHandle(ctx, didorhandle)
+}
+
+func (s *Server) lookupUserByDid(ctx context.Context, did string) (*User, error) {
 	var didEntry FakeDidMapping
 	if err := s.db.First(&didEntry, "did = ?", did).Error; err != nil {
 		return nil, err

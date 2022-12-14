@@ -2,43 +2,27 @@ package schemagen
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/whyrusleeping/gosky/xrpc"
 )
 
 // schema: app.bsky.actor.search
 
+func init() {
+}
+
 type ActorSearch_Output struct {
-	Cursor string              `json:"cursor" cborgen:"cursor"`
+	Cursor *string             `json:"cursor" cborgen:"cursor"`
 	Users  []*ActorSearch_User `json:"users" cborgen:"users"`
 }
 
-func (t *ActorSearch_Output) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["cursor"] = t.Cursor
-	out["users"] = t.Users
-	return json.Marshal(out)
-}
-
 type ActorSearch_User struct {
+	DisplayName *string        `json:"displayName" cborgen:"displayName"`
+	Description *string        `json:"description" cborgen:"description"`
+	IndexedAt   *string        `json:"indexedAt" cborgen:"indexedAt"`
 	Did         string         `json:"did" cborgen:"did"`
 	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
 	Handle      string         `json:"handle" cborgen:"handle"`
-	DisplayName string         `json:"displayName" cborgen:"displayName"`
-	Description string         `json:"description" cborgen:"description"`
-	IndexedAt   string         `json:"indexedAt" cborgen:"indexedAt"`
-}
-
-func (t *ActorSearch_User) MarshalJSON() ([]byte, error) {
-	out := make(map[string]interface{})
-	out["declaration"] = t.Declaration
-	out["description"] = t.Description
-	out["did"] = t.Did
-	out["displayName"] = t.DisplayName
-	out["handle"] = t.Handle
-	out["indexedAt"] = t.IndexedAt
-	return json.Marshal(out)
 }
 
 func ActorSearch(ctx context.Context, c *xrpc.Client, before string, limit int64, term string) (*ActorSearch_Output, error) {
