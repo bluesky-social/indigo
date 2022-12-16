@@ -2,6 +2,8 @@ package schemagen
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"time"
 
 	"github.com/lestrrat-go/jwx/jwa"
@@ -25,6 +27,10 @@ func makeToken(subject string, scope string, exp time.Time) jwt.Token {
 func (s *Server) createAuthTokenForUser(ctx context.Context, handle, did string) (*xrpc.AuthInfo, error) {
 	accessTok := makeToken(did, "com.atproto.access", time.Now().Add(24*time.Hour))
 	refreshTok := makeToken(did, "com.atproto.refresh", time.Now().Add(7*24*time.Hour))
+
+	rval := make([]byte, 10)
+	rand.Read(rval)
+	refreshTok.Set("jti", base64.StdEncoding.EncodeToString(rval))
 
 	accSig, err := jwt.Sign(accessTok, jwa.HS256, s.signingKey)
 	if err != nil {

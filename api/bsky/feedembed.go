@@ -12,6 +12,20 @@ import (
 func init() {
 }
 
+type FeedEmbed_Record struct {
+	Record any                `json:"record" cborgen:"record"`
+	Type   string             `json:"type" cborgen:"type"`
+	Author *ActorRef_WithInfo `json:"author" cborgen:"author"`
+}
+
+type FeedEmbed_External struct {
+	ImageUri    string `json:"imageUri" cborgen:"imageUri"`
+	Type        string `json:"type" cborgen:"type"`
+	Uri         string `json:"uri" cborgen:"uri"`
+	Title       string `json:"title" cborgen:"title"`
+	Description string `json:"description" cborgen:"description"`
+}
+
 type FeedEmbed struct {
 	Items []*FeedEmbed_Items_Elem `json:"items" cborgen:"items"`
 }
@@ -60,18 +74,4 @@ type FeedEmbed_Media struct {
 	Alt      *string    `json:"alt" cborgen:"alt"`
 	Thumb    *util.Blob `json:"thumb" cborgen:"thumb"`
 	Original *util.Blob `json:"original" cborgen:"original"`
-}
-
-type FeedEmbed_Record struct {
-	Type   string             `json:"type" cborgen:"type"`
-	Author *ActorRef_WithInfo `json:"author" cborgen:"author"`
-	Record any                `json:"record" cborgen:"record"`
-}
-
-type FeedEmbed_External struct {
-	Uri         string `json:"uri" cborgen:"uri"`
-	Title       string `json:"title" cborgen:"title"`
-	Description string `json:"description" cborgen:"description"`
-	ImageUri    string `json:"imageUri" cborgen:"imageUri"`
-	Type        string `json:"type" cborgen:"type"`
 }

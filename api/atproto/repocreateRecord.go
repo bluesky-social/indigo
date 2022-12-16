@@ -12,15 +12,15 @@ func init() {
 }
 
 type RepoCreateRecord_Input struct {
-	Validate   *bool  `json:"validate" cborgen:"validate"`
-	Record     any    `json:"record" cborgen:"record"`
 	Did        string `json:"did" cborgen:"did"`
 	Collection string `json:"collection" cborgen:"collection"`
+	Validate   *bool  `json:"validate" cborgen:"validate"`
+	Record     any    `json:"record" cborgen:"record"`
 }
 
 type RepoCreateRecord_Output struct {
-	Uri string `json:"uri" cborgen:"uri"`
 	Cid string `json:"cid" cborgen:"cid"`
+	Uri string `json:"uri" cborgen:"uri"`
 }
 
 func RepoCreateRecord(ctx context.Context, c *xrpc.Client, input RepoCreateRecord_Input) (*RepoCreateRecord_Output, error) {

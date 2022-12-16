@@ -17,12 +17,12 @@ type ActorSearch_Output struct {
 }
 
 type ActorSearch_User struct {
-	DisplayName *string        `json:"displayName" cborgen:"displayName"`
-	Description *string        `json:"description" cborgen:"description"`
-	IndexedAt   *string        `json:"indexedAt" cborgen:"indexedAt"`
 	Did         string         `json:"did" cborgen:"did"`
 	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
 	Handle      string         `json:"handle" cborgen:"handle"`
+	DisplayName *string        `json:"displayName" cborgen:"displayName"`
+	Description *string        `json:"description" cborgen:"description"`
+	IndexedAt   *string        `json:"indexedAt" cborgen:"indexedAt"`
 }
 
 func ActorSearch(ctx context.Context, c *xrpc.Client, before string, limit int64, term string) (*ActorSearch_Output, error) {

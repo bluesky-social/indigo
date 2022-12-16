@@ -14,6 +14,17 @@ import (
 func init() {
 }
 
+type FeedGetPostThread_NotFoundPost struct {
+	Uri      string `json:"uri" cborgen:"uri"`
+	NotFound bool   `json:"notFound" cborgen:"notFound"`
+}
+
+type FeedGetPostThread_MyState struct {
+	Repost   *string `json:"repost" cborgen:"repost"`
+	Upvote   *string `json:"upvote" cborgen:"upvote"`
+	Downvote *string `json:"downvote" cborgen:"downvote"`
+}
+
 type FeedGetPostThread_Output struct {
 	Thread *FeedGetPostThread_Output_Thread `json:"thread" cborgen:"thread"`
 }
@@ -52,19 +63,19 @@ func (t *FeedGetPostThread_Output_Thread) UnmarshalJSON(b []byte) error {
 }
 
 type FeedGetPostThread_Post struct {
+	MyState       *FeedGetPostThread_MyState             `json:"myState" cborgen:"myState"`
+	Uri           string                                 `json:"uri" cborgen:"uri"`
+	Parent        *FeedGetPostThread_Post_Parent         `json:"parent" cborgen:"parent"`
+	ReplyCount    int64                                  `json:"replyCount" cborgen:"replyCount"`
+	Replies       []*FeedGetPostThread_Post_Replies_Elem `json:"replies" cborgen:"replies"`
+	UpvoteCount   int64                                  `json:"upvoteCount" cborgen:"upvoteCount"`
 	DownvoteCount int64                                  `json:"downvoteCount" cborgen:"downvoteCount"`
 	IndexedAt     string                                 `json:"indexedAt" cborgen:"indexedAt"`
-	Replies       []*FeedGetPostThread_Post_Replies_Elem `json:"replies" cborgen:"replies"`
-	Uri           string                                 `json:"uri" cborgen:"uri"`
 	Cid           string                                 `json:"cid" cborgen:"cid"`
 	Author        *ActorRef_WithInfo                     `json:"author" cborgen:"author"`
 	Record        any                                    `json:"record" cborgen:"record"`
 	Embed         *FeedEmbed                             `json:"embed" cborgen:"embed"`
-	Parent        *FeedGetPostThread_Post_Parent         `json:"parent" cborgen:"parent"`
-	ReplyCount    int64                                  `json:"replyCount" cborgen:"replyCount"`
 	RepostCount   int64                                  `json:"repostCount" cborgen:"repostCount"`
-	UpvoteCount   int64                                  `json:"upvoteCount" cborgen:"upvoteCount"`
-	MyState       *FeedGetPostThread_MyState             `json:"myState" cborgen:"myState"`
 }
 
 type FeedGetPostThread_Post_Parent struct {
@@ -131,17 +142,6 @@ func (t *FeedGetPostThread_Post_Replies_Elem) UnmarshalJSON(b []byte) error {
 	default:
 		return nil
 	}
-}
-
-type FeedGetPostThread_NotFoundPost struct {
-	Uri      string `json:"uri" cborgen:"uri"`
-	NotFound bool   `json:"notFound" cborgen:"notFound"`
-}
-
-type FeedGetPostThread_MyState struct {
-	Repost   string `json:"repost" cborgen:"repost"`
-	Upvote   string `json:"upvote" cborgen:"upvote"`
-	Downvote string `json:"downvote" cborgen:"downvote"`
 }
 
 func FeedGetPostThread(ctx context.Context, c *xrpc.Client, depth int64, uri string) (*FeedGetPostThread_Output, error) {

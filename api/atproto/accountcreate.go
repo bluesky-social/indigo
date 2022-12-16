@@ -20,10 +20,10 @@ type AccountCreate_Input struct {
 }
 
 type AccountCreate_Output struct {
-	AccessJwt  string `json:"accessJwt" cborgen:"accessJwt"`
-	RefreshJwt string `json:"refreshJwt" cborgen:"refreshJwt"`
 	Handle     string `json:"handle" cborgen:"handle"`
 	Did        string `json:"did" cborgen:"did"`
+	AccessJwt  string `json:"accessJwt" cborgen:"accessJwt"`
+	RefreshJwt string `json:"refreshJwt" cborgen:"refreshJwt"`
 }
 
 func AccountCreate(ctx context.Context, c *xrpc.Client, input AccountCreate_Input) (*AccountCreate_Output, error) {

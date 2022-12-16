@@ -12,10 +12,10 @@ func init() {
 }
 
 type FeedGetRepostedBy_Output struct {
-	Uri        string                          `json:"uri" cborgen:"uri"`
-	Cid        *string                         `json:"cid" cborgen:"cid"`
 	Cursor     *string                         `json:"cursor" cborgen:"cursor"`
 	RepostedBy []*FeedGetRepostedBy_RepostedBy `json:"repostedBy" cborgen:"repostedBy"`
+	Uri        string                          `json:"uri" cborgen:"uri"`
+	Cid        *string                         `json:"cid" cborgen:"cid"`
 }
 
 type FeedGetRepostedBy_RepostedBy struct {

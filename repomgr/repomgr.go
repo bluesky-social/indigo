@@ -116,8 +116,6 @@ func (rm *RepoManager) updateUserRepoHead(ctx context.Context, user uint, root c
 }
 
 func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection string, rec cbg.CBORMarshaler) (string, cid.Cid, error) {
-	ntid := repo.NextTID()
-	rkey := collection + "/" + ntid
 
 	unlock := rm.lockUser(user)
 	defer unlock()
@@ -137,7 +135,7 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 		return "", cid.Undef, err
 	}
 
-	cc, err := r.CreateRecord(ctx, rkey, rec)
+	cc, tid, err := r.CreateRecord(ctx, collection, rec)
 	if err != nil {
 		return "", cid.Undef, err
 	}
@@ -163,13 +161,13 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 			OldRoot:    head,
 			NewRoot:    nroot,
 			Collection: collection,
-			Rkey:       rkey,
+			Rkey:       tid,
 			Record:     rec,
 			RecCid:     cc,
 		})
 	}
 
-	return rkey, cc, nil
+	return collection + "/" + tid, cc, nil
 }
 
 func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did, displayname string, declcid, actortype string) error {

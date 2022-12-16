@@ -11,8 +11,8 @@ type ActorRef struct {
 }
 
 type ActorRef_WithInfo struct {
-	Did         string         `json:"did" cborgen:"did"`
 	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
 	Handle      string         `json:"handle" cborgen:"handle"`
 	DisplayName *string        `json:"displayName" cborgen:"displayName"`
+	Did         string         `json:"did" cborgen:"did"`
 }

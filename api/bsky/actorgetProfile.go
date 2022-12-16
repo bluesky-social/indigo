@@ -12,22 +12,22 @@ func init() {
 }
 
 type ActorGetProfile_Output struct {
+	Handle         string                   `json:"handle" cborgen:"handle"`
+	Creator        string                   `json:"creator" cborgen:"creator"`
+	DisplayName    *string                  `json:"displayName" cborgen:"displayName"`
 	Description    *string                  `json:"description" cborgen:"description"`
 	FollowersCount int64                    `json:"followersCount" cborgen:"followersCount"`
 	MembersCount   int64                    `json:"membersCount" cborgen:"membersCount"`
-	PostsCount     int64                    `json:"postsCount" cborgen:"postsCount"`
 	Did            string                   `json:"did" cborgen:"did"`
 	Declaration    *SystemDeclRef           `json:"declaration" cborgen:"declaration"`
-	Handle         string                   `json:"handle" cborgen:"handle"`
 	MyState        *ActorGetProfile_MyState `json:"myState" cborgen:"myState"`
-	Creator        string                   `json:"creator" cborgen:"creator"`
-	DisplayName    *string                  `json:"displayName" cborgen:"displayName"`
 	FollowsCount   int64                    `json:"followsCount" cborgen:"followsCount"`
+	PostsCount     int64                    `json:"postsCount" cborgen:"postsCount"`
 }
 
 type ActorGetProfile_MyState struct {
-	Follow string `json:"follow" cborgen:"follow"`
-	Member string `json:"member" cborgen:"member"`
+	Follow *string `json:"follow" cborgen:"follow"`
+	Member *string `json:"member" cborgen:"member"`
 }
 
 func ActorGetProfile(ctx context.Context, c *xrpc.Client, actor string) (*ActorGetProfile_Output, error) {

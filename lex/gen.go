@@ -67,6 +67,10 @@ type TypeSchema struct {
 	Const      any                    `json:"const"`
 	Enum       []string               `json:"enum"`
 	Closed     bool                   `json:"closed"`
+
+	Default any `json:"default"`
+	Minimum any `json:"minimum"`
+	Maximum any `json:"maximum"`
 }
 
 func (s *Schema) Name() string {
@@ -254,9 +258,9 @@ func writeDecoderRegister(w io.Writer, tps []outputType) error {
 
 		if t.Type.record && !strings.Contains(t.Name, "_") {
 			id := t.Type.id
-			if t.Type.defName != ""  {
-			id = id + "#" + t.Type.defName
-		}
+			if t.Type.defName != "" {
+				id = id + "#" + t.Type.defName
+			}
 			fmt.Fprintf(w, "util.RegisterType(%q, %s{})\n", id, t.Name)
 		}
 	}
@@ -631,13 +635,25 @@ func idToTitle(id string) string {
 func (s *TypeSchema) WriteHandlerStub(w io.Writer, fname, shortname, impname string) error {
 	paramtypes := []string{"ctx context.Context"}
 	if s.Type == "query" {
+
 		if s.Parameters != nil {
+			var required map[string]bool
+			if s.Parameters.Required != nil {
+				required = make(map[string]bool)
+				for _, r := range s.Required {
+					required[r] = true
+				}
+			}
 			orderedMapIter[TypeSchema](s.Parameters.Properties, func(k string, t TypeSchema) error {
 				switch t.Type {
 				case "string":
 					paramtypes = append(paramtypes, k+" string")
 				case "integer":
-					paramtypes = append(paramtypes, k+" int")
+					if required != nil && !required[k] {
+						paramtypes = append(paramtypes, k+" *int")
+					} else {
+						paramtypes = append(paramtypes, k+" int")
+					}
 				case "number":
 					return fmt.Errorf("non-integer numbers currently unsupported")
 				default:
@@ -683,17 +699,19 @@ func (s *TypeSchema) WriteRPCHandler(w io.Writer, fname, shortname, impname stri
 	fmt.Fprintf(w, "ctx, span := otel.Tracer(\"server\").Start(c.Request().Context(), %q)\n", "Handle"+fname)
 	fmt.Fprintf(w, "defer span.End()\n")
 
-	var required map[string]bool
-	if s.Required != nil {
-		for _, r := range s.Required {
-			required[r] = true
-		}
-	}
-
 	paramtypes := []string{"ctx context.Context"}
 	params := []string{"ctx"}
 	if s.Type == "query" {
 		if s.Parameters != nil {
+			required := make(map[string]bool)
+			for _, r := range s.Parameters.Required {
+					required[r] = true
+			}
+			for k, v := range s.Parameters.Properties {
+				if v.Default != nil {
+					required[k] = true
+				}
+			}
 			orderedMapIter[TypeSchema](s.Parameters.Properties, func(k string, t TypeSchema) error {
 				switch t.Type {
 				case "string":
@@ -703,28 +721,42 @@ func (s *TypeSchema) WriteRPCHandler(w io.Writer, fname, shortname, impname stri
 				case "integer":
 					params = append(params, k)
 
-					if required != nil && !required[k] {
-					paramtypes = append(paramtypes, k+" *int")
-					fmt.Fprintf(w, `
+					if !required[k] {
+						paramtypes = append(paramtypes, k+" *int")
+						fmt.Fprintf(w, `
 var %s *int
 if p := c.QueryParam("%s"); p != "" {
-%s_val, err := strconv.Atoi(p)
-if err != nil {
-	return err
-}
+	%s_val, err := strconv.Atoi(p)
+	if err != nil {
+		return err
+	}
 	%s  = &%s_val
 }
 `, k, k, k, k, k)
+					} else if t.Default != nil {
+						paramtypes = append(paramtypes, k+" int")
+						fmt.Fprintf(w, `
+var %s int
+if p := c.QueryParam("%s"); p != "" {
+var err error
+%s, err = strconv.Atoi(p)
+if err != nil {
+	return err
+}
+} else {
+	%s = %d
+}
+`, k, k,k, k, int(t.Default.(float64)))
 					} else {
-					paramtypes = append(paramtypes, k+" int")
-					fmt.Fprintf(w, `
+
+						paramtypes = append(paramtypes, k+" int")
+						fmt.Fprintf(w, `
 %s, err := strconv.Atoi(c.QueryParam("%s"))
 if err != nil {
 	return err
 }
 `, k, k)
 					}
-
 
 				case "number":
 					return fmt.Errorf("non-integer numbers currently unsupported")
@@ -918,13 +950,10 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type\" cborgen:\"$type,const=%s\"`\n", ts.id)
 		}
 
-		var required map[string]bool 
-		if ts.Required != nil {
-		required = make(map[string]bool)
+		required := make(map[string]bool)
 		for _, req := range ts.Required {
 			required[req] = true
 		}
-	}
 
 		for k, v := range ts.Properties {
 			goname := strings.Title(k)
@@ -935,7 +964,7 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 			}
 
 			var ptr string
-			if required != nil && !required[k] {
+			if !required[k] {
 				if !strings.HasPrefix(tname, "*") && !strings.HasPrefix(tname, "[]") {
 					ptr = "*"
 				}

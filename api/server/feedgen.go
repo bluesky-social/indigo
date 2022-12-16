@@ -24,10 +24,11 @@ type ReadRecordFunc func(context.Context, uint, cid.Cid) (any, error)
 
 type FeedPost struct {
 	gorm.Model
-	Author      uint
-	RepostedBy  uint
-	TrendedBy   uint
-	Tid         string
+	Author     uint
+	RepostedBy uint
+	TrendedBy  uint
+	// TODO: only keeping rkey here, assuming collection is app.bsky.feed.post
+	Rkey        string
 	Cid         string
 	UpCount     int64
 	ReplyCount  int64
@@ -36,21 +37,42 @@ type FeedPost struct {
 
 type ActorInfo struct {
 	gorm.Model
-	User       uint `gorm:"index"`
-	Handle     string
-	Did        string
-	Name       string
-	Following  int
-	Followers  int
-	Posts      int
-	DeclRefCid string
-	Type       string
+	User        uint `gorm:"index"`
+	Handle      string
+	DisplayName string
+	Did         string
+	Name        string
+	Following   int64
+	Followers   int64
+	Posts       int64
+	DeclRefCid  string
+	Type        string
 }
 
-type UpVoteRecord struct {
+type VoteDir int
+
+func (vd VoteDir) String() string {
+	switch vd {
+	case VoteDirUp:
+		return "up"
+	case VoteDirDown:
+		return "down"
+	default:
+		return "<unknown>"
+	}
+}
+
+const (
+	VoteDirUp   = VoteDir(1)
+	VoteDirDown = VoteDir(2)
+)
+
+type VoteRecord struct {
 	gorm.Model
-	User  uint
-	Likes uint
+	Dir     VoteDir
+	User    uint
+	Post    uint
+	Created string
 }
 
 type FollowRecord struct {
@@ -63,7 +85,7 @@ func NewFeedGenerator(db *gorm.DB, readRecord ReadRecordFunc) (*FeedGenerator, e
 	db.AutoMigrate(&FeedPost{})
 	db.AutoMigrate(&ActorInfo{})
 	db.AutoMigrate(&FollowRecord{})
-	db.AutoMigrate(&UpVoteRecord{})
+	db.AutoMigrate(&VoteRecord{})
 
 	return &FeedGenerator{
 		db:         db,
@@ -113,7 +135,7 @@ func (fg *FeedGenerator) didForUser(ctx context.Context, user uint) (string, err
 		return "", err
 	}
 
-	return ai.Handle, nil
+	return ai.Did, nil
 }
 
 func (fg *FeedGenerator) getActorRefInfo(ctx context.Context, user uint) (*bsky.ActorRef_WithInfo, error) {
@@ -143,7 +165,7 @@ func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *FeedPost) (*Hydr
 	}
 
 	out := HydratedFeedItem{
-		Uri:           "at://" + authorDid + "/" + item.Tid,
+		Uri:           "at://" + authorDid + "/app.bsky.feed.post/" + item.Rkey,
 		ReplyCount:    item.ReplyCount,
 		RepostCount:   item.RepostCount,
 		UpvoteCount:   item.UpCount,
@@ -272,8 +294,9 @@ func (fg *FeedGenerator) handleInitActor(ctx context.Context, evt *repomgr.RepoE
 }
 
 type parsedUri struct {
-	Did  string
-	Rkey string
+	Did        string
+	Collection string
+	Rkey       string
 }
 
 func parseAtUri(uri string) (*parsedUri, error) {
@@ -287,12 +310,10 @@ func parseAtUri(uri string) (*parsedUri, error) {
 		return nil, fmt.Errorf("AT uris must have three parts: did, collection, tid")
 	}
 
-	did := parts[0]
-	rkey := parts[1] + "/" + parts[2]
-
 	return &parsedUri{
-		Did:  did,
-		Rkey: rkey,
+		Did:        parts[0],
+		Collection: parts[1],
+		Rkey:       parts[2],
 	}, nil
 }
 
@@ -300,7 +321,7 @@ func (fg *FeedGenerator) handleRecordCreate(ctx context.Context, evt *repomgr.Re
 	switch rec := evt.Record.(type) {
 	case *bsky.FeedPost:
 		fp := FeedPost{
-			Tid:    evt.Rkey,
+			Rkey:   evt.Rkey,
 			Cid:    evt.RecCid.String(),
 			Author: evt.User,
 		}
@@ -314,11 +335,14 @@ func (fg *FeedGenerator) handleRecordCreate(ctx context.Context, evt *repomgr.Re
 		return nil
 	case *bsky.FeedVote:
 		var val int
+		var dbdir VoteDir
 		switch rec.Direction {
 		case "up":
 			val = 1
+			dbdir = VoteDirUp
 		case "down":
 			val = -1
+			dbdir = VoteDirDown
 		default:
 			return fmt.Errorf("invalid vote direction: %q", rec.Direction)
 		}
@@ -334,13 +358,15 @@ func (fg *FeedGenerator) handleRecordCreate(ctx context.Context, evt *repomgr.Re
 		}
 
 		var post FeedPost
-		if err := fg.db.First(&post, "tid = ? AND author = ?", puri.Rkey, act.User).Error; err != nil {
+		if err := fg.db.First(&post, "rkey = ? AND author = ?", puri.Rkey, act.User).Error; err != nil {
 			return err
 		}
 
-		if err := fg.db.Create(&UpVoteRecord{
-			User:  evt.User,
-			Likes: post.ID,
+		if err := fg.db.Create(&VoteRecord{
+			Dir:     dbdir,
+			User:    evt.User,
+			Post:    post.ID,
+			Created: rec.CreatedAt,
 		}).Error; err != nil {
 			return err
 		}
@@ -371,9 +397,134 @@ func (fg *FeedGenerator) addNewPostNotification(ctx context.Context, user uint, 
 
 func (fg *FeedGenerator) GetActorProfile(ctx context.Context, actor string) (*ActorInfo, error) {
 	var ai ActorInfo
-	if err := fg.db.First(&ai, "handle = ?", actor).Error; err != nil {
+	if strings.HasPrefix(actor, "did:") {
+		if err := fg.db.First(&ai, "did = ?", actor).Error; err != nil {
+			return nil, err
+		}
+	} else {
+		if err := fg.db.First(&ai, "handle = ?", actor).Error; err != nil {
+			return nil, err
+		}
+	}
+
+	return &ai, nil
+}
+
+func (fg *FeedGenerator) GetPost(ctx context.Context, uri string) (*FeedPost, error) {
+	puri, err := parseAtUri(uri)
+	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	var post FeedPost
+	if err := fg.db.First(&post, "rkey = ? AND author = (?)", puri.Rkey, fg.db.Model(ActorInfo{}).Where("did = ?", puri.Did).Select("id")).Error; err != nil {
+		return nil, err
+	}
+
+	return &post, nil
+}
+
+type ThreadPost struct {
+	Post *HydratedFeedItem
+
+	ParentUri string
+	Parent    *ThreadPost
+}
+
+func (fg *FeedGenerator) GetPostThread(ctx context.Context, uri string, depth int) (*ThreadPost, error) {
+	post, err := fg.GetPost(ctx, uri)
+	if err != nil {
+		return nil, fmt.Errorf("getting post for thread: %w", err)
+	}
+
+	hi, err := fg.hydrateItem(ctx, post)
+	if err != nil {
+		return nil, err
+	}
+
+	p, ok := hi.Record.(*bsky.FeedPost)
+	if !ok {
+		return nil, fmt.Errorf("getPostThread can only operate on app.bsky.feed.post records")
+	}
+
+	out := &ThreadPost{
+		Post: hi,
+	}
+
+	if p.Reply != nil {
+		out.ParentUri = p.Reply.Parent.Uri
+		if depth > 0 {
+
+			parent, err := fg.GetPostThread(ctx, p.Reply.Parent.Uri, depth-1)
+			if err != nil {
+				// TODO: check for and handle 'not found'
+				return nil, err
+			}
+			out.Parent = parent
+		}
+	}
+
+	return out, nil
+}
+
+type HydratedVote struct {
+	Actor     *bsky.ActorRef_WithInfo
+	Direction string
+	IndexedAt time.Time
+	CreatedAt string
+}
+
+func (fg *FeedGenerator) hydrateVote(ctx context.Context, v *VoteRecord) (*HydratedVote, error) {
+	aref, err := fg.getActorRefInfo(ctx, v.User)
+	if err != nil {
+		return nil, err
+	}
+
+	return &HydratedVote{
+		Actor:     aref,
+		Direction: v.Dir.String(),
+		IndexedAt: v.UpdatedAt,
+		CreatedAt: v.Created,
+	}, nil
+}
+
+func (fg *FeedGenerator) GetVotes(ctx context.Context, uri string, pcid cid.Cid, dir string, limit int, before string) ([]*HydratedVote, error) {
+	if before != "" {
+		log.Println("not respecting 'before' yet")
+	}
+
+	p, err := fg.GetPost(ctx, uri)
+	if err != nil {
+		return nil, err
+	}
+
+	if p.Cid != pcid.String() {
+		return nil, fmt.Errorf("listing likes of old post versions not supported")
+	}
+
+	var dbdir VoteDir
+	switch dir {
+	case "up":
+		dbdir = VoteDirUp
+	case "down":
+		dbdir = VoteDirDown
+	default:
+		return nil, fmt.Errorf("there are only two directions, up or down")
+	}
+
+	var voterecs []VoteRecord
+	if err := fg.db.Limit(limit).Find(&voterecs, "dir = ? AND post = ?", dbdir, p.ID).Error; err != nil {
+		return nil, err
+	}
+
+	var out []*HydratedVote
+	for _, vr := range voterecs {
+		hv, err := fg.hydrateVote(ctx, &vr)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, hv)
+	}
+
+	return out, nil
 }

@@ -17,7 +17,6 @@ type GraphGetAssertions_Output struct {
 }
 
 type GraphGetAssertions_Assertion struct {
-	Cid          string                           `json:"cid" cborgen:"cid"`
 	Assertion    string                           `json:"assertion" cborgen:"assertion"`
 	Confirmation *GraphGetAssertions_Confirmation `json:"confirmation" cborgen:"confirmation"`
 	Author       *ActorRef_WithInfo               `json:"author" cborgen:"author"`
@@ -25,6 +24,7 @@ type GraphGetAssertions_Assertion struct {
 	IndexedAt    string                           `json:"indexedAt" cborgen:"indexedAt"`
 	CreatedAt    string                           `json:"createdAt" cborgen:"createdAt"`
 	Uri          string                           `json:"uri" cborgen:"uri"`
+	Cid          string                           `json:"cid" cborgen:"cid"`
 }
 
 type GraphGetAssertions_Confirmation struct {

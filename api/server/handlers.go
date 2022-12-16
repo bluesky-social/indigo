@@ -18,31 +18,27 @@ func (s *Server) handleAppBskyActorCreateScene(ctx context.Context, input *appbs
 }
 
 func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string) (*appbskytypes.ActorGetProfile_Output, error) {
-	fmt.Println("Get profile:", actor)
+	profile, err := s.feedgen.GetActorProfile(ctx, actor)
+	if err != nil {
+		return nil, err
+	}
 
-	return nil, nil
-
-	/*
-			profile, err := s.feedgen.GetActorProfile(ctx, actor)
-			if err != nil {
-				return nil, err
-			}
-
-			var out appbskytypes.ActorGetProfile_Output
-			out := ActorGetProfile_Output {
-				MyState     : nil, //*ActorGetProfile_MyState `json:"myState" cborgen:"myState"`
-			Did            string                   `json:"did" cborgen:"did"`
-			Declaration    *SystemDeclRef           `json:"declaration" cborgen:"declaration"`
-			Description    string                   `json:"description" cborgen:"description"`
-			PostsCount     int64                    `json:"postsCount" cborgen:"postsCount"`
-			FollowsCount   int64                    `json:"followsCount" cborgen:"followsCount"`
-			MembersCount   int64                    `json:"membersCount" cborgen:"membersCount"`
-			Handle         string                   `json:"handle" cborgen:"handle"`
-			Creator        string                   `json:"creator" cborgen:"creator"`
-			DisplayName    string                   `json:"displayName" cborgen:"displayName"`
-			FollowersCount int64                    `json:"followersCount" cborgen:"followersCount"`
-		}
-	*/
+	return &appbskytypes.ActorGetProfile_Output{
+		MyState: nil, //*ActorGetProfile_MyState `json:"myState" cborgen:"myState"`
+		Did:     profile.Did,
+		Declaration: &appbskytypes.SystemDeclRef{
+			Cid:       profile.DeclRefCid,
+			ActorType: profile.Type,
+		},
+		Description:    nil,
+		PostsCount:     profile.Posts,
+		FollowsCount:   profile.Following,
+		MembersCount:   0, // TODO:
+		Handle:         profile.Handle,
+		Creator:        "", //TODO:
+		DisplayName:    &profile.DisplayName,
+		FollowersCount: profile.Followers,
+	}, nil
 }
 
 func (s *Server) handleAppBskyActorGetSuggestions(ctx context.Context, cursor string, limit int) (*appbskytypes.ActorGetSuggestions_Output, error) {
@@ -103,8 +99,63 @@ func (s *Server) handleAppBskyFeedGetAuthorFeed(ctx context.Context, author stri
 	return &out, nil
 }
 
-func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth int, uri string) (*appbskytypes.FeedGetPostThread_Output, error) {
-	panic("not yet implemented")
+func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth *int, uri string) (*appbskytypes.FeedGetPostThread_Output, error) {
+
+	d := 6
+	if depth != nil {
+		d = *depth
+	}
+
+	pthread, err := s.feedgen.GetPostThread(ctx, uri, d)
+	if err != nil {
+		return nil, err
+	}
+
+	var convertToOutputType func(thr *ThreadPost) *appbskytypes.FeedGetPostThread_Post
+	convertToOutputType = func(thr *ThreadPost) *appbskytypes.FeedGetPostThread_Post {
+		p := thr.Post
+		out := &appbskytypes.FeedGetPostThread_Post{
+			MyState:       nil, // TODO:
+			Uri:           p.Uri,
+			Parent:        nil,
+			ReplyCount:    p.ReplyCount,
+			Replies:       []*appbskytypes.FeedGetPostThread_Post_Replies_Elem{},
+			UpvoteCount:   p.UpvoteCount,
+			DownvoteCount: 0, // TODO:
+			IndexedAt:     p.IndexedAt,
+			Cid:           p.Cid,
+			Author:        p.Author,
+			Record:        p.Record,
+			Embed:         nil, // TODO: embeds
+			RepostCount:   p.RepostCount,
+		}
+
+		if thr.ParentUri != "" {
+			if thr.Parent == nil {
+				out.Parent = &appbskytypes.FeedGetPostThread_Post_Parent{
+					FeedGetPostThread_NotFoundPost: &appbskytypes.FeedGetPostThread_NotFoundPost{
+						Uri:      thr.ParentUri,
+						NotFound: true,
+					},
+				}
+			} else {
+				out.Parent = &appbskytypes.FeedGetPostThread_Post_Parent{
+					FeedGetPostThread_Post: convertToOutputType(thr.Parent),
+				}
+			}
+		}
+
+		return out
+	}
+
+	out := appbskytypes.FeedGetPostThread_Output{
+		Thread: &appbskytypes.FeedGetPostThread_Output_Thread{
+			FeedGetPostThread_Post: convertToOutputType(pthread),
+			//FeedGetPostThread_NotFoundPost: &appbskytypes.FeedGetPostThread_NotFoundPost{},
+		},
+	}
+
+	return &out, nil
 }
 
 func (s *Server) handleAppBskyFeedGetRepostedBy(ctx context.Context, before string, cid string, limit int, uri string) (*appbskytypes.FeedGetRepostedBy_Output, error) {
@@ -146,8 +197,31 @@ func (s *Server) handleAppBskyFeedGetTimeline(ctx context.Context, algorithm str
 	return &out, nil
 }
 
-func (s *Server) handleAppBskyFeedGetVotes(ctx context.Context, before string, cid string, direction string, limit int, uri string) (*appbskytypes.FeedGetVotes_Output, error) {
-	panic("not yet implemented")
+func (s *Server) handleAppBskyFeedGetVotes(ctx context.Context, before string, cc string, direction string, limit int, uri string) (*appbskytypes.FeedGetVotes_Output, error) {
+	pcid, err := cid.Decode(cc)
+	if err != nil {
+		return nil, err
+	}
+
+	votes, err := s.feedgen.GetVotes(ctx, uri, pcid, direction, limit, before)
+	if err != nil {
+		return nil, err
+	}
+
+	var out appbskytypes.FeedGetVotes_Output
+	out.Uri = uri
+	out.Votes = []*appbskytypes.FeedGetVotes_Vote{}
+
+	for _, v := range votes {
+		out.Votes = append(out.Votes, &appbskytypes.FeedGetVotes_Vote{
+			Actor:     v.Actor,
+			Direction: v.Direction,
+			IndexedAt: v.IndexedAt.Format(time.RFC3339),
+			CreatedAt: v.CreatedAt,
+		})
+	}
+
+	return &out, nil
 }
 
 func (s *Server) handleAppBskyFeedSetVote(ctx context.Context, input *appbskytypes.FeedSetVote_Input) (*appbskytypes.FeedSetVote_Output, error) {
@@ -193,7 +267,15 @@ func (s *Server) handleAppBskyGraphGetMembers(ctx context.Context, actor string,
 }
 
 func (s *Server) handleAppBskyGraphGetMemberships(ctx context.Context, actor string, before string, limit int) (*appbskytypes.GraphGetMemberships_Output, error) {
-	panic("not yet implemented")
+	ai, err := s.feedgen.GetActorProfile(ctx, actor)
+	if err != nil {
+		return nil, err
+	}
+
+	return &appbskytypes.GraphGetMemberships_Output{
+		Subject:     infoToActorRef(ai),
+		Memberships: []*appbskytypes.GraphGetMemberships_Membership{},
+	}, nil
 }
 
 func (s *Server) handleAppBskyNotificationGetCount(ctx context.Context) (*appbskytypes.NotificationGetCount_Output, error) {
@@ -226,7 +308,16 @@ func (s *Server) handleComAtprotoAccountCreate(ctx context.Context, input *comat
 
 	if err := s.validateHandle(input.Handle); err != nil {
 		return nil, err
+	}
 
+	_, err := s.lookupUserByHandle(ctx, input.Handle)
+	switch err {
+	default:
+		return nil, err
+	case nil:
+		return nil, fmt.Errorf("handle already registered")
+	case ErrNoSuchUser:
+		// handle is available, lets go
 	}
 
 	var recoveryKey string
@@ -326,13 +417,13 @@ func (s *Server) handleComAtprotoRepoCreateRecord(ctx context.Context, input *co
 		return nil, err
 	}
 
-	rkey, recid, err := s.repoman.CreateRecord(ctx, u.ID, input.Collection, rec)
+	rpath, recid, err := s.repoman.CreateRecord(ctx, u.ID, input.Collection, rec)
 	if err != nil {
 		return nil, err
 	}
 
 	return &comatprototypes.RepoCreateRecord_Output{
-		Uri: "at://" + u.DID + "/" + rkey,
+		Uri: "at://" + u.DID + "/" + rpath,
 		Cid: recid.String(),
 	}, nil
 }

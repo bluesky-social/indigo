@@ -12,9 +12,9 @@ func init() {
 }
 
 type ActorUpdateProfile_Input struct {
-	DisplayName string `json:"displayName" cborgen:"displayName"`
-	Description string `json:"description" cborgen:"description"`
-	Did         string `json:"did" cborgen:"did"`
+	Did         *string `json:"did" cborgen:"did"`
+	DisplayName *string `json:"displayName" cborgen:"displayName"`
+	Description *string `json:"description" cborgen:"description"`
 }
 
 type ActorUpdateProfile_Output struct {

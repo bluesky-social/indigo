@@ -13,6 +13,6 @@ func init() {
 // RECORDTYPE: GraphFollow
 type GraphFollow struct {
 	LexiconTypeID string    `json:"$type" cborgen:"$type,const=app.bsky.graph.follow"`
-	Subject       *ActorRef `json:"subject" cborgen:"subject"`
 	CreatedAt     string    `json:"createdAt" cborgen:"createdAt"`
+	Subject       *ActorRef `json:"subject" cborgen:"subject"`
 }

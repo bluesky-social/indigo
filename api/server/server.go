@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	jwk "github.com/lestrrat-go/jwx/jwk"
+	appbskytypes "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/carstore"
 	"github.com/whyrusleeping/gosky/lex/util"
 	"github.com/whyrusleeping/gosky/repomgr"
@@ -137,6 +138,11 @@ type User struct {
 	DID         string `gorm:"uniqueIndex"`
 }
 
+type RefreshToken struct {
+	gorm.Model
+	Token string
+}
+
 func toTime(i interface{}) (time.Time, error) {
 	ival, ok := i.(float64)
 	if !ok {
@@ -225,16 +231,21 @@ func (s *Server) lookupUserByDid(ctx context.Context, did string) (*User, error)
 	return &u, nil
 }
 
+var ErrNoSuchUser = fmt.Errorf("no such user")
+
 func (s *Server) lookupUserByHandle(ctx context.Context, handle string) (*User, error) {
 	var didEntry FakeDidMapping
 	if err := s.db.First(&didEntry, "handle = ?", handle).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, ErrNoSuchUser
+		}
 		return nil, err
 	}
 
 	var u User
 	if err := s.db.First(&u, "handle = ?", didEntry.Handle).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("no such user with handle: %s", handle)
+			return nil, ErrNoSuchUser
 		}
 		return nil, err
 	}
@@ -327,4 +338,16 @@ func (s *Server) validateHandle(handle string) error {
 	}
 
 	return nil
+}
+
+func infoToActorRef(ai *ActorInfo) *appbskytypes.ActorRef_WithInfo {
+	return &appbskytypes.ActorRef_WithInfo{
+		Declaration: &appbskytypes.SystemDeclRef{
+			Cid:       ai.DeclRefCid,
+			ActorType: ai.Type,
+		},
+		Handle:      ai.Handle,
+		DisplayName: &ai.DisplayName,
+		Did:         ai.Did,
+	}
 }

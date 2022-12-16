@@ -19,10 +19,10 @@ type FeedGetVotes_Output struct {
 }
 
 type FeedGetVotes_Vote struct {
+	Actor     *ActorRef_WithInfo `json:"actor" cborgen:"actor"`
 	Direction string             `json:"direction" cborgen:"direction"`
 	IndexedAt string             `json:"indexedAt" cborgen:"indexedAt"`
 	CreatedAt string             `json:"createdAt" cborgen:"createdAt"`
-	Actor     *ActorRef_WithInfo `json:"actor" cborgen:"actor"`
 }
 
 func FeedGetVotes(ctx context.Context, c *xrpc.Client, before string, cid string, direction string, limit int64, uri string) (*FeedGetVotes_Output, error) {

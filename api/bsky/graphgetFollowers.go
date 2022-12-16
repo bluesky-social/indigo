@@ -12,25 +12,25 @@ func init() {
 }
 
 type GraphGetFollowers_Output struct {
+	Followers []*GraphGetFollowers_Follower `json:"followers" cborgen:"followers"`
 	Subject   *GraphGetFollowers_Subject    `json:"subject" cborgen:"subject"`
 	Cursor    *string                       `json:"cursor" cborgen:"cursor"`
-	Followers []*GraphGetFollowers_Follower `json:"followers" cborgen:"followers"`
 }
 
 type GraphGetFollowers_Subject struct {
-	Did         string         `json:"did" cborgen:"did"`
-	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
 	Handle      string         `json:"handle" cborgen:"handle"`
 	DisplayName *string        `json:"displayName" cborgen:"displayName"`
+	Did         string         `json:"did" cborgen:"did"`
+	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
 }
 
 type GraphGetFollowers_Follower struct {
-	CreatedAt   *string        `json:"createdAt" cborgen:"createdAt"`
-	IndexedAt   string         `json:"indexedAt" cborgen:"indexedAt"`
-	Did         string         `json:"did" cborgen:"did"`
 	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
 	Handle      string         `json:"handle" cborgen:"handle"`
 	DisplayName *string        `json:"displayName" cborgen:"displayName"`
+	CreatedAt   *string        `json:"createdAt" cborgen:"createdAt"`
+	IndexedAt   string         `json:"indexedAt" cborgen:"indexedAt"`
+	Did         string         `json:"did" cborgen:"did"`
 }
 
 func GraphGetFollowers(ctx context.Context, c *xrpc.Client, before string, limit int64, user string) (*GraphGetFollowers_Output, error) {

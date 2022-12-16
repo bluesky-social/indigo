@@ -17,17 +17,17 @@ type ActorGetSuggestions_Output struct {
 }
 
 type ActorGetSuggestions_Actor struct {
-	MyState     *ActorGetSuggestions_MyState `json:"myState" cborgen:"myState"`
 	Did         string                       `json:"did" cborgen:"did"`
 	Declaration *SystemDeclRef               `json:"declaration" cborgen:"declaration"`
 	Handle      string                       `json:"handle" cborgen:"handle"`
 	DisplayName *string                      `json:"displayName" cborgen:"displayName"`
 	Description *string                      `json:"description" cborgen:"description"`
 	IndexedAt   *string                      `json:"indexedAt" cborgen:"indexedAt"`
+	MyState     *ActorGetSuggestions_MyState `json:"myState" cborgen:"myState"`
 }
 
 type ActorGetSuggestions_MyState struct {
-	Follow string `json:"follow" cborgen:"follow"`
+	Follow *string `json:"follow" cborgen:"follow"`
 }
 
 func ActorGetSuggestions(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*ActorGetSuggestions_Output, error) {

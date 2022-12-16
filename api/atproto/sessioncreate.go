@@ -17,10 +17,10 @@ type SessionCreate_Input struct {
 }
 
 type SessionCreate_Output struct {
-	Did        string `json:"did" cborgen:"did"`
 	AccessJwt  string `json:"accessJwt" cborgen:"accessJwt"`
 	RefreshJwt string `json:"refreshJwt" cborgen:"refreshJwt"`
 	Handle     string `json:"handle" cborgen:"handle"`
+	Did        string `json:"did" cborgen:"did"`
 }
 
 func SessionCreate(ctx context.Context, c *xrpc.Client, input SessionCreate_Input) (*SessionCreate_Output, error) {
