@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	gojwt "github.com/golang-jwt/jwt"
 	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -151,9 +152,13 @@ func toTime(i interface{}) (time.Time, error) {
 	return time.Unix(int64(ival), 0), nil
 }
 
-func (s *Server) checkTokenValidity(user jwt.Token) (string, string, error) {
+func (s *Server) checkTokenValidity(user *gojwt.Token) (string, string, error) {
+	claims, ok := user.Claims.(gojwt.MapClaims)
+	if !ok {
+		return "", "", fmt.Errorf("invalid token claims map")
+	}
 
-	iat, ok := user.Get("iat")
+	iat, ok := claims["iat"]
 	if !ok {
 		return "", "", fmt.Errorf("iat not set")
 	}
@@ -167,7 +172,7 @@ func (s *Server) checkTokenValidity(user jwt.Token) (string, string, error) {
 		return "", "", fmt.Errorf("iat cannot be in the future")
 	}
 
-	exp, ok := user.Get("exp")
+	exp, ok := claims["exp"]
 	if !ok {
 		return "", "", fmt.Errorf("exp not set")
 	}
@@ -181,7 +186,7 @@ func (s *Server) checkTokenValidity(user jwt.Token) (string, string, error) {
 		return "", "", fmt.Errorf("token expired")
 	}
 
-	did, ok := user.Get("sub")
+	did, ok := claims["sub"]
 	if !ok {
 		return "", "", fmt.Errorf("expected user did in subject")
 	}
@@ -191,7 +196,7 @@ func (s *Server) checkTokenValidity(user jwt.Token) (string, string, error) {
 		return "", "", fmt.Errorf("expected subject to be a string")
 	}
 
-	scope, ok := user.Get("scope")
+	scope, ok := claims["scope"]
 	if !ok {
 		return "", "", fmt.Errorf("expected scope to be set")
 	}
@@ -230,19 +235,19 @@ var ErrNoSuchUser = fmt.Errorf("no such user")
 
 func (s *Server) lookupUserByHandle(ctx context.Context, handle string) (*User, error) {
 	var didEntry FakeDidMapping
-	if err := s.db.First(&didEntry, "handle = ?", handle).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, ErrNoSuchUser
-		}
+	if err := s.db.Find(&didEntry, "handle = ?", handle).Error; err != nil {
 		return nil, err
+	}
+	if didEntry.ID == 0 {
+		return nil, ErrNoSuchUser
 	}
 
 	var u User
-	if err := s.db.First(&u, "handle = ?", didEntry.Handle).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, ErrNoSuchUser
-		}
+	if err := s.db.Find(&u, "handle = ?", didEntry.Handle).Error; err != nil {
 		return nil, err
+	}
+	if u.ID == 0 {
+		return nil, ErrNoSuchUser
 	}
 
 	u.DID = didEntry.Did
@@ -254,7 +259,7 @@ func (s *Server) userCheckMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 
-		user, ok := c.Get("user").(jwt.Token)
+		user, ok := c.Get("user").(*gojwt.Token)
 		if !ok {
 			return next(c)
 		}

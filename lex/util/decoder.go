@@ -72,7 +72,5 @@ func CborDecodeValue(b []byte) (any, error) {
 		return nil, err
 	}
 
-	fmt.Printf("DECODED VALUE: %#v\n", ival)
-
 	return ival, nil
 }
