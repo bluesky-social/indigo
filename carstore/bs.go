@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-car/util"
@@ -17,12 +18,16 @@ import (
 	cbor "github.com/ipfs/go-ipld-cbor"
 	ipld "github.com/ipfs/go-ipld-format"
 	car "github.com/ipld/go-car"
+	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
 
 type CarStore struct {
 	meta    *gorm.DB
 	rootDir string
+
+	lscLk          sync.Mutex
+	lastShardCache map[uint]*CarShard
 }
 
 func NewCarStore(meta *gorm.DB, root string) (*CarStore, error) {
@@ -30,8 +35,9 @@ func NewCarStore(meta *gorm.DB, root string) (*CarStore, error) {
 		return nil, err
 	}
 	return &CarStore{
-		meta:    meta,
-		rootDir: root,
+		meta:           meta,
+		rootDir:        root,
+		lastShardCache: make(map[uint]*CarShard),
 	}, nil
 }
 
@@ -47,7 +53,7 @@ type CarShard struct {
 	DataStart int64
 	Seq       int `gorm:"index"`
 	Path      string
-	User      uint `gorm:"index"`
+	Usr       uint `gorm:"index"`
 }
 
 type blockRef struct {
@@ -55,6 +61,7 @@ type blockRef struct {
 	Cid    string `gorm:"index"`
 	Shard  uint
 	Offset int64
+	//User   uint `gorm:"index"`
 }
 
 type userView struct {
@@ -75,9 +82,9 @@ func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
 	var count int64
 	if err := uv.cs.meta.
 		Model(blockRef{}).
-		Select("path, offset").
+		Select("path, block_refs.offset").
 		Joins("left join car_shards on block_refs.shard = car_shards.id").
-		Where("user = ? AND cid = ?", uv.user, k.String()).
+		Where("usr = ? AND cid = ?", uv.user, k.String()).
 		Count(&count).Error; err != nil {
 		return false, err
 	}
@@ -102,9 +109,9 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blocks.Block, error) {
 	}
 	if err := uv.cs.meta.
 		Model(blockRef{}).
-		Select("path, offset").
+		Select("path, block_refs.offset").
 		Joins("left join car_shards on block_refs.shard = car_shards.id").
-		Where("user = ? AND cid = ?", uv.user, k.String()).
+		Where("usr = ? AND cid = ?", uv.user, k.String()).
 		First(&info).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, ipld.ErrNotFound{k}
@@ -215,15 +222,52 @@ type DeltaSession struct {
 	cs       *CarStore
 }
 
-func (cs *CarStore) NewDeltaSession(user uint, prev cid.Cid) (*DeltaSession, error) {
-	// TODO: ensure that we don't write updates on top of the wrong head
-	// this needs to be a compare and swap type operation
+func (cs *CarStore) checkLastShardCache(user uint) *CarShard {
+	cs.lscLk.Lock()
+	defer cs.lscLk.Unlock()
+
+	ls, ok := cs.lastShardCache[user]
+	if ok {
+		return ls
+	}
+
+	return nil
+}
+
+func (cs *CarStore) putLastShardCache(user uint, ls *CarShard) {
+	cs.lscLk.Lock()
+	defer cs.lscLk.Unlock()
+
+	cs.lastShardCache[user] = ls
+}
+
+func (cs *CarStore) getLastShard(ctx context.Context, user uint) (*CarShard, error) {
+	maybeLs := cs.checkLastShardCache(user)
+	if maybeLs != nil {
+		return maybeLs, nil
+	}
+
 	var lastShard CarShard
-	if err := cs.meta.Model(CarShard{}).Limit(1).Order("id desc").Find(&lastShard, "user = ?", user).Error; err != nil {
+	if err := cs.meta.WithContext(ctx).Model(CarShard{}).Limit(1).Order("id desc").Find(&lastShard, "usr = ?", user).Error; err != nil {
 		//if err := cs.meta.Model(CarShard{}).Where("user = ?", user).Last(&lastShard).Error; err != nil {
 		//if err != gorm.ErrRecordNotFound {
 		return nil, err
 		//}
+	}
+
+	cs.putLastShardCache(user, &lastShard)
+	return &lastShard, nil
+}
+
+func (cs *CarStore) NewDeltaSession(ctx context.Context, user uint, prev cid.Cid) (*DeltaSession, error) {
+	ctx, span := otel.Tracer("carstore").Start(ctx, "NewSession")
+	defer span.End()
+
+	// TODO: ensure that we don't write updates on top of the wrong head
+	// this needs to be a compare and swap type operation
+	lastShard, err := cs.getLastShard(ctx, user)
+	if err != nil {
+		return nil, err
 	}
 
 	if lastShard.Root != "" && lastShard.Root != prev.String() {
@@ -260,18 +304,21 @@ func (cs *CarStore) ReadOnlySession(user uint) (*DeltaSession, error) {
 }
 
 func (cs *CarStore) ReadUserCar(ctx context.Context, user uint, until cid.Cid, incremental bool, w io.Writer) error {
+	ctx, span := otel.Tracer("carstore").Start(ctx, "ReadUserCar")
+	defer span.End()
+
 	var untilSeq int
 
 	if until.Defined() {
 		var untilShard CarShard
-		if err := cs.meta.First(&untilShard, "root = ? AND user = ?", until.String(), user).Error; err != nil {
+		if err := cs.meta.First(&untilShard, "root = ? AND usr = ?", until.String(), user).Error; err != nil {
 			return err
 		}
 		untilSeq = untilShard.Seq
 	}
 
 	var shards []CarShard
-	if err := cs.meta.Order("seq desc").Find(&shards, "user = ? AND seq >= ?", user, untilSeq).Error; err != nil {
+	if err := cs.meta.Order("seq desc").Find(&shards, "usr = ? AND seq >= ?", user, untilSeq).Error; err != nil {
 		return err
 	}
 
@@ -307,6 +354,9 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user uint, until cid.Cid, i
 }
 
 func (cs *CarStore) writeShardBlocks(ctx context.Context, sh *CarShard, w io.Writer) error {
+	ctx, span := otel.Tracer("carstore").Start(ctx, "writeShardBlocks")
+	defer span.End()
+
 	fi, err := os.Open(sh.Path)
 	if err != nil {
 		return err
@@ -408,6 +458,9 @@ func (cs *CarStore) openNewShardFile(ctx context.Context, user uint, seq int) (*
 // CloseWithRoot writes all new blocks in a car file to the writer with the
 // given cid as the 'root'
 func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) error {
+	ctx, span := otel.Tracer("carstore").Start(ctx, "CloseWithRoot")
+	defer span.End()
+
 	if ds.readonly {
 		return fmt.Errorf("cannot write to readonly deltaSession")
 	}
@@ -439,14 +492,16 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) error {
 		DataStart: hnw,
 		Seq:       ds.seq,
 		Path:      path,
-		User:      ds.user,
+		Usr:       ds.user,
 	}
 
 	// TODO: there should be a way to create the shard and block_refs that
 	// reference it in the same query, would save a lot of time
-	if err := ds.cs.meta.Create(&shard).Error; err != nil {
+	if err := ds.cs.meta.WithContext(ctx).Create(&shard).Error; err != nil {
 		return err
 	}
+
+	ds.cs.putLastShardCache(ds.user, &shard)
 
 	var offset int64 = hnw
 	//brefs := make([]*blockRef, 0, len(ds.blks))
@@ -475,7 +530,7 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) error {
 		offset += nw
 	}
 
-	if err := ds.cs.meta.Table("block_refs").Create(brefs).Error; err != nil {
+	if err := ds.cs.meta.WithContext(ctx).Table("block_refs").Create(brefs).Error; err != nil {
 		return err
 	}
 

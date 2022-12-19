@@ -10,10 +10,11 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"github.com/whyrusleeping/gosky/carstore"
 	"github.com/whyrusleeping/gosky/repo"
+	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
 
-func NewRepoManager(db *gorm.DB, cs *carstore.CarStore, cb func(*RepoEvent)) *RepoManager {
+func NewRepoManager(db *gorm.DB, cs *carstore.CarStore, cb func(context.Context, *RepoEvent)) *RepoManager {
 	db.AutoMigrate(RepoHead{})
 
 	return &RepoManager{
@@ -31,7 +32,7 @@ type RepoManager struct {
 	lklk      sync.Mutex
 	userLocks map[uint]*userLock
 
-	events func(*RepoEvent)
+	events func(context.Context, *RepoEvent)
 }
 
 type ActorInfo struct {
@@ -56,7 +57,7 @@ type RepoEvent struct {
 
 type RepoHead struct {
 	gorm.Model
-	User uint
+	Usr  uint `gorm:"index"`
 	Root string
 }
 
@@ -65,7 +66,10 @@ type userLock struct {
 	count int
 }
 
-func (rm *RepoManager) lockUser(user uint) func() {
+func (rm *RepoManager) lockUser(ctx context.Context, user uint) func() {
+	ctx, span := otel.Tracer("repoman").Start(ctx, "userLock")
+	defer span.End()
+
 	rm.lklk.Lock()
 
 	ulk, ok := rm.userLocks[user]
@@ -94,8 +98,11 @@ func (rm *RepoManager) lockUser(user uint) func() {
 }
 
 func (rm *RepoManager) getUserRepoHead(ctx context.Context, user uint) (cid.Cid, error) {
+	ctx, span := otel.Tracer("repoman").Start(ctx, "getUserRepoHead")
+	defer span.End()
+
 	var headrec RepoHead
-	if err := rm.db.First(&headrec, "user = ?", user).Error; err != nil {
+	if err := rm.db.First(&headrec, "usr = ?", user).Error; err != nil {
 		return cid.Undef, err
 	}
 
@@ -108,7 +115,7 @@ func (rm *RepoManager) getUserRepoHead(ctx context.Context, user uint) (cid.Cid,
 }
 
 func (rm *RepoManager) updateUserRepoHead(ctx context.Context, user uint, root cid.Cid) error {
-	if err := rm.db.Model(RepoHead{}).Where("user = ?", user).Update("root", root.String()).Error; err != nil {
+	if err := rm.db.WithContext(ctx).Model(RepoHead{}).Where("usr = ?", user).Update("root", root.String()).Error; err != nil {
 		return err
 	}
 
@@ -116,8 +123,10 @@ func (rm *RepoManager) updateUserRepoHead(ctx context.Context, user uint, root c
 }
 
 func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection string, rec cbg.CBORMarshaler) (string, cid.Cid, error) {
+	ctx, span := otel.Tracer("repoman").Start(ctx, "CreateRecord")
+	defer span.End()
 
-	unlock := rm.lockUser(user)
+	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
 	head, err := rm.getUserRepoHead(ctx, user)
@@ -125,7 +134,7 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 		return "", cid.Undef, err
 	}
 
-	ds, err := rm.cs.NewDeltaSession(user, head)
+	ds, err := rm.cs.NewDeltaSession(ctx, user, head)
 	if err != nil {
 		return "", cid.Undef, err
 	}
@@ -146,16 +155,16 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 	}
 
 	if err := ds.CloseWithRoot(ctx, nroot); err != nil {
-		return "", cid.Undef, err
+		return "", cid.Undef, fmt.Errorf("close with root: %w", err)
 	}
 
 	// TODO: what happens if this update fails?
 	if err := rm.updateUserRepoHead(ctx, user, nroot); err != nil {
-		return "", cid.Undef, err
+		return "", cid.Undef, fmt.Errorf("updating user head: %w", err)
 	}
 
 	if rm.events != nil {
-		rm.events(&RepoEvent{
+		rm.events(ctx, &RepoEvent{
 			Kind:       "createRecord",
 			User:       user,
 			OldRoot:    head,
@@ -171,7 +180,7 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 }
 
 func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did, displayname string, declcid, actortype string) error {
-	unlock := rm.lockUser(user)
+	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
 	if did == "" {
@@ -182,7 +191,7 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 		return fmt.Errorf("must specify unique non-zero id for new actor")
 	}
 
-	ds, err := rm.cs.NewDeltaSession(user, cid.Undef)
+	ds, err := rm.cs.NewDeltaSession(ctx, user, cid.Undef)
 	if err != nil {
 		return err
 	}
@@ -202,14 +211,14 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 	}
 
 	if err := rm.db.Create(&RepoHead{
-		User: user,
+		Usr:  user,
 		Root: root.String(),
 	}).Error; err != nil {
 		return err
 	}
 
 	if rm.events != nil {
-		rm.events(&RepoEvent{
+		rm.events(ctx, &RepoEvent{
 			Kind:    "initActor",
 			User:    user,
 			NewRoot: root,
@@ -227,7 +236,7 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 }
 
 func (rm *RepoManager) GetRepoRoot(ctx context.Context, user uint) (cid.Cid, error) {
-	unlock := rm.lockUser(user)
+	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
 	return rm.getUserRepoHead(ctx, user)

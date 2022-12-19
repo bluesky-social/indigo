@@ -12,6 +12,7 @@ import (
 	"github.com/ipld/go-car/v2"
 	"github.com/whyrusleeping/gosky/lex/util"
 	"github.com/whyrusleeping/gosky/mst"
+	"go.opentelemetry.io/otel"
 )
 
 type SignedRoot struct {
@@ -45,6 +46,9 @@ type Repo struct {
 }
 
 func IngestRepo(ctx context.Context, bs blockstore.Blockstore, r io.Reader) (cid.Cid, error) {
+	ctx, span := otel.Tracer("repo").Start(ctx, "Ingest")
+	defer span.End()
+
 	br, err := car.NewBlockReader(r)
 	if err != nil {
 		return cid.Undef, err
@@ -114,6 +118,9 @@ func (r *Repo) Blockstore() blockstore.Blockstore {
 }
 
 func (r *Repo) CreateRecord(ctx context.Context, nsid string, rec CborMarshaler) (cid.Cid, string, error) {
+	ctx, span := otel.Tracer("repo").Start(ctx, "CreateRecord")
+	defer span.End()
+
 	r.dirty = true
 	t, err := r.getMst(ctx)
 	if err != nil {
@@ -137,6 +144,9 @@ func (r *Repo) CreateRecord(ctx context.Context, nsid string, rec CborMarshaler)
 }
 
 func (r *Repo) Commit(ctx context.Context) (cid.Cid, error) {
+	ctx, span := otel.Tracer("repo").Start(ctx, "Commit")
+	defer span.End()
+
 	t, err := r.getMst(ctx)
 	if err != nil {
 		return cid.Undef, err
@@ -203,6 +213,9 @@ func (r *Repo) getMst(ctx context.Context) (*mst.MerkleSearchTree, error) {
 var ErrDoneIterating = fmt.Errorf("done iterating")
 
 func (r *Repo) ForEach(ctx context.Context, prefix string, cb func(k string, v cid.Cid) error) error {
+	ctx, span := otel.Tracer("repo").Start(ctx, "ForEach")
+	defer span.End()
+
 	var com Commit
 	if err := r.cst.Get(ctx, r.sr.Root, &com); err != nil {
 		return fmt.Errorf("failed to load commit: %w", err)
@@ -222,6 +235,9 @@ func (r *Repo) ForEach(ctx context.Context, prefix string, cb func(k string, v c
 }
 
 func (r *Repo) GetRecord(ctx context.Context, tid string) (cid.Cid, any, error) {
+	ctx, span := otel.Tracer("repo").Start(ctx, "GetRecord")
+	defer span.End()
+
 	mst, err := r.getMst(ctx)
 	if err != nil {
 		return cid.Undef, nil, err
@@ -246,6 +262,9 @@ func (r *Repo) GetRecord(ctx context.Context, tid string) (cid.Cid, any, error) 
 }
 
 func (r *Repo) DiffSince(ctx context.Context, oldrepo cid.Cid) ([]*mst.DiffOp, error) {
+	ctx, span := otel.Tracer("repo").Start(ctx, "DiffSince")
+	defer span.End()
+
 	otherRepo, err := OpenRepo(ctx, r.bs, oldrepo)
 	if err != nil {
 		return nil, err

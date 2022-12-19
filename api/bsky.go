@@ -68,7 +68,14 @@ type FeedItem struct {
 	Cid        string      `json:"cid"`
 	Author     *User       `json:"author"`
 	RepostedBy *User       `json:"repostedBy"`
+	MyState    *MyState    `json:"myState"`
 	Record     interface{} `json:"record"`
+}
+
+type MyState struct {
+	Repost   string `json:"repost"`
+	Upvote   string `json:"upvote"`
+	Downvote string `json:"downvote"`
 }
 
 type Declaration struct {

@@ -37,7 +37,7 @@ type FeedPost struct {
 
 type ActorInfo struct {
 	gorm.Model
-	User        uint `gorm:"index"`
+	Uid         uint `gorm:"index"`
 	Handle      string
 	DisplayName string
 	Did         string
@@ -70,14 +70,14 @@ const (
 type VoteRecord struct {
 	gorm.Model
 	Dir     VoteDir
-	User    uint
+	Voter   uint
 	Post    uint
 	Created string
 }
 
 type FollowRecord struct {
 	gorm.Model
-	User    uint
+	Subject uint
 	Follows uint
 }
 
@@ -131,7 +131,7 @@ func (fg *FeedGenerator) hydrateFeed(ctx context.Context, items []*FeedPost) ([]
 func (fg *FeedGenerator) didForUser(ctx context.Context, user uint) (string, error) {
 	// TODO: cache the shit out of this
 	var ai ActorInfo
-	if err := fg.db.First(&ai, "user = ?", user).Error; err != nil {
+	if err := fg.db.First(&ai, "uid = ?", user).Error; err != nil {
 		return "", err
 	}
 
@@ -141,7 +141,7 @@ func (fg *FeedGenerator) didForUser(ctx context.Context, user uint) (string, err
 func (fg *FeedGenerator) getActorRefInfo(ctx context.Context, user uint) (*bsky.ActorRef_WithInfo, error) {
 	// TODO: cache the shit out of this too
 	var ai ActorInfo
-	if err := fg.db.First(&ai, "user = ?", user).Error; err != nil {
+	if err := fg.db.First(&ai, "uid = ?", user).Error; err != nil {
 		return nil, err
 	}
 
@@ -221,8 +221,8 @@ func (fg *FeedGenerator) GetTimeline(ctx context.Context, user uint, algo string
 	// TODO: this query is just a temporary hack...
 	var feed []*FeedPost
 	if err := fg.db.Find(&feed, "author = (?) OR reposted_by = (?)",
-		fg.db.Model(FollowRecord{}).Where("user = ?", user).Select("follows"),
-		fg.db.Model(FollowRecord{}).Where("user = ?", user).Select("follows"),
+		fg.db.Model(FollowRecord{}).Where("subject = ?", user).Select("follows"),
+		fg.db.Model(FollowRecord{}).Where("subject = ?", user).Select("follows"),
 	).Error; err != nil {
 		return nil, err
 	}
@@ -245,8 +245,8 @@ func (fg *FeedGenerator) GetAuthorFeed(ctx context.Context, user uint, before st
 	return fg.hydrateFeed(ctx, feed)
 }
 
-func (fg *FeedGenerator) HandleRepoEvent(evt *repomgr.RepoEvent) {
-	ctx, span := otel.Tracer("feedgen").Start(context.Background(), "HandleRepoEvent")
+func (fg *FeedGenerator) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
+	ctx, span := otel.Tracer("feedgen").Start(ctx, "HandleRepoEvent")
 	defer span.End()
 
 	if err := fg.catchup(ctx, evt); err != nil {
@@ -273,7 +273,7 @@ func (fg *FeedGenerator) HandleRepoEvent(evt *repomgr.RepoEvent) {
 func (fg *FeedGenerator) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent) error {
 	ai := evt.ActorInfo
 	if err := fg.db.Create(&ActorInfo{
-		User:       evt.User,
+		Uid:        evt.User,
 		Handle:     ai.Handle,
 		Did:        ai.Did,
 		Name:       ai.DisplayName,
@@ -284,7 +284,7 @@ func (fg *FeedGenerator) handleInitActor(ctx context.Context, evt *repomgr.RepoE
 	}
 
 	if err := fg.db.Create(&FollowRecord{
-		User:    evt.User,
+		Subject: evt.User,
 		Follows: evt.User,
 	}).Error; err != nil {
 		return err
@@ -318,6 +318,7 @@ func parseAtUri(uri string) (*parsedUri, error) {
 }
 
 func (fg *FeedGenerator) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEvent) error {
+
 	switch rec := evt.Record.(type) {
 	case *bsky.FeedPost:
 		fp := FeedPost{
@@ -358,13 +359,13 @@ func (fg *FeedGenerator) handleRecordCreate(ctx context.Context, evt *repomgr.Re
 		}
 
 		var post FeedPost
-		if err := fg.db.First(&post, "rkey = ? AND author = ?", puri.Rkey, act.User).Error; err != nil {
+		if err := fg.db.First(&post, "rkey = ? AND author = ?", puri.Rkey, act.Uid).Error; err != nil {
 			return err
 		}
 
 		if err := fg.db.Create(&VoteRecord{
 			Dir:     dbdir,
-			User:    evt.User,
+			Voter:   evt.User,
 			Post:    post.ID,
 			Created: rec.CreatedAt,
 		}).Error; err != nil {
@@ -475,7 +476,7 @@ type HydratedVote struct {
 }
 
 func (fg *FeedGenerator) hydrateVote(ctx context.Context, v *VoteRecord) (*HydratedVote, error) {
-	aref, err := fg.getActorRefInfo(ctx, v.User)
+	aref, err := fg.getActorRefInfo(ctx, v.Voter)
 	if err != nil {
 		return nil, err
 	}
@@ -527,4 +528,46 @@ func (fg *FeedGenerator) GetVotes(ctx context.Context, uri string, pcid cid.Cid,
 	}
 
 	return out, nil
+}
+
+type FollowInfo struct {
+	Follower  *bsky.ActorRef_WithInfo
+	Subject   *bsky.ActorRef_WithInfo
+	CreatedAt string
+	IndexedAt string
+}
+
+func (fg *FeedGenerator) GetFollows(ctx context.Context, user string, limit int, before string) ([]*FollowInfo, error) {
+	var follows []FollowRecord
+	if err := fg.db.Limit(limit).Find(&follows, "subject = (?)", fg.db.Model(ActorInfo{}).Where("did = ? or handle = ?", user, user).Select("subject")).Error; err != nil {
+		return nil, err
+	}
+
+	profile, err := fg.GetActorProfile(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
+	ai, err := fg.getActorRefInfo(ctx, profile.Uid)
+	if err != nil {
+		return nil, err
+	}
+
+	out := []*FollowInfo{}
+	for _, f := range follows {
+		fai, err := fg.getActorRefInfo(ctx, f.Follows)
+		if err != nil {
+			return nil, err
+		}
+
+		out = append(out, &FollowInfo{
+			Follower:  ai,
+			Subject:   fai,
+			CreatedAt: f.CreatedAt.Format(time.RFC3339),
+			IndexedAt: f.CreatedAt.Format(time.RFC3339),
+		})
+
+	}
+
+	return nil, nil
 }

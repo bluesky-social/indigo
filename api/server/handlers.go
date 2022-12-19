@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
+	jwt "github.com/lestrrat-go/jwx/jwt"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatprototypes "github.com/whyrusleeping/gosky/api/atproto"
 	appbskytypes "github.com/whyrusleeping/gosky/api/bsky"
@@ -237,17 +238,23 @@ func (s *Server) handleAppBskyFeedSetVote(ctx context.Context, input *appbskytyp
 		Subject:   input.Subject,
 	}
 
-	rkey, cc, err := s.repoman.CreateRecord(ctx, u.ID, "app.bsky.feed.vote", vote)
+	rpath, _, err := s.repoman.CreateRecord(ctx, u.ID, "app.bsky.feed.vote", vote)
 	if err != nil {
 		return nil, err
 	}
 
-	_ = rkey
-	_ = cc
-
-	var out appbskytypes.FeedSetVote_Output
-	// TODO: what is this supposed to return?
-	return &out, nil
+	uri := "at://" + u.DID + "/" + rpath
+	if input.Direction == "up" {
+		return &appbskytypes.FeedSetVote_Output{
+			Upvote: &uri,
+		}, nil
+	} else if input.Direction == "down" {
+		return &appbskytypes.FeedSetVote_Output{
+			Downvote: &uri,
+		}, nil
+	} else {
+		return nil, fmt.Errorf("strange place to catch an invalid vote direction")
+	}
 }
 
 func (s *Server) handleAppBskyGraphGetAssertions(ctx context.Context, assertion string, author string, before string) (*appbskytypes.GraphGetAssertions_Output, error) {
@@ -259,7 +266,32 @@ func (s *Server) handleAppBskyGraphGetFollowers(ctx context.Context, before stri
 }
 
 func (s *Server) handleAppBskyGraphGetFollows(ctx context.Context, before string, limit int, user string) (*appbskytypes.GraphGetFollows_Output, error) {
-	panic("not yet implemented")
+	follows, err := s.feedgen.GetFollows(ctx, user, limit, before)
+	if err != nil {
+		return nil, err
+	}
+
+	ai, err := s.feedgen.GetActorProfile(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
+	var out appbskytypes.GraphGetFollows_Output
+	out.Subject = infoToActorRef(ai)
+
+	out.Follows = []*appbskytypes.GraphGetFollows_Follow{}
+	for _, f := range follows {
+		out.Follows = append(out.Follows, &appbskytypes.GraphGetFollows_Follow{
+			Declaration: f.Subject.Declaration,
+			Handle:      f.Subject.Handle,
+			DisplayName: f.Subject.DisplayName,
+			Did:         f.Subject.Did,
+			CreatedAt:   &f.CreatedAt,
+			IndexedAt:   f.IndexedAt,
+		})
+	}
+
+	return &out, nil
 }
 
 func (s *Server) handleAppBskyGraphGetMembers(ctx context.Context, actor string, before string, limit int) (*appbskytypes.GraphGetMembers_Output, error) {
@@ -522,7 +554,41 @@ func (s *Server) handleComAtprotoSessionGet(ctx context.Context) (*comatprototyp
 }
 
 func (s *Server) handleComAtprotoSessionRefresh(ctx context.Context) (*comatprototypes.SessionRefresh_Output, error) {
-	panic("not yet implemented")
+	u, err := s.getUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	scope, ok := ctx.Value("authScope").(string)
+	if !ok {
+		return nil, fmt.Errorf("scope not present in refresh token")
+	}
+
+	if scope != "com.atproto.refresh" {
+		return nil, fmt.Errorf("auth token did not have refresh scope")
+	}
+
+	tok, ok := ctx.Value("token").(*jwt.Token)
+	if !ok {
+		return nil, fmt.Errorf("internal auth error: token not set post auth check")
+	}
+
+	if err := s.invalidateToken(ctx, u, tok); err != nil {
+		return nil, err
+	}
+
+	outTok, err := s.createAuthTokenForUser(ctx, u.Handle, u.DID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &comatprototypes.SessionRefresh_Output{
+		Handle:     u.Handle,
+		Did:        u.DID,
+		AccessJwt:  outTok.AccessJwt,
+		RefreshJwt: outTok.RefreshJwt,
+	}, nil
+
 }
 
 func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, from string) (io.Reader, error) {

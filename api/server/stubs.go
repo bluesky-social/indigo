@@ -826,7 +826,7 @@ func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.JSON(200, out)
+	return c.Stream(200, "application/octet-stream", out)
 }
 
 func (s *Server) HandleComAtprotoSyncGetRoot(c echo.Context) error {

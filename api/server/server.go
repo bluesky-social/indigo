@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt"
 	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	jwk "github.com/lestrrat-go/jwx/jwk"
+	jwt "github.com/lestrrat-go/jwx/jwt"
 	appbskytypes "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/carstore"
 	"github.com/whyrusleeping/gosky/lex/util"
@@ -102,7 +102,6 @@ func (s *Server) RunAPI(listen string) error {
 
 	cfg := middleware.JWTConfig{
 		Skipper: func(c echo.Context) bool {
-			fmt.Println("skipper: ", c.Path())
 			switch c.Path() {
 			case "/xrpc/com.atproto.account.create":
 				return true
@@ -152,13 +151,9 @@ func toTime(i interface{}) (time.Time, error) {
 	return time.Unix(int64(ival), 0), nil
 }
 
-func (s *Server) checkTokenValidity(user *jwt.Token) (string, string, error) {
-	claims, ok := user.Claims.(jwt.MapClaims)
-	if !ok {
-		return "", "", fmt.Errorf("bad claims table")
-	}
+func (s *Server) checkTokenValidity(user jwt.Token) (string, string, error) {
 
-	iat, ok := claims["iat"]
+	iat, ok := user.Get("iat")
 	if !ok {
 		return "", "", fmt.Errorf("iat not set")
 	}
@@ -172,7 +167,7 @@ func (s *Server) checkTokenValidity(user *jwt.Token) (string, string, error) {
 		return "", "", fmt.Errorf("iat cannot be in the future")
 	}
 
-	exp, ok := claims["exp"]
+	exp, ok := user.Get("exp")
 	if !ok {
 		return "", "", fmt.Errorf("exp not set")
 	}
@@ -186,7 +181,7 @@ func (s *Server) checkTokenValidity(user *jwt.Token) (string, string, error) {
 		return "", "", fmt.Errorf("token expired")
 	}
 
-	did, ok := claims["sub"]
+	did, ok := user.Get("sub")
 	if !ok {
 		return "", "", fmt.Errorf("expected user did in subject")
 	}
@@ -196,7 +191,7 @@ func (s *Server) checkTokenValidity(user *jwt.Token) (string, string, error) {
 		return "", "", fmt.Errorf("expected subject to be a string")
 	}
 
-	scope, ok := claims["scope"]
+	scope, ok := user.Get("scope")
 	if !ok {
 		return "", "", fmt.Errorf("expected scope to be set")
 	}
@@ -259,7 +254,7 @@ func (s *Server) userCheckMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 
-		user, ok := c.Get("user").(*jwt.Token)
+		user, ok := c.Get("user").(jwt.Token)
 		if !ok {
 			return next(c)
 		}
@@ -269,15 +264,15 @@ func (s *Server) userCheckMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return fmt.Errorf("invalid token: %w", err)
 		}
 
-		_ = scope
-
 		u, err := s.lookupUser(ctx, did)
 		if err != nil {
 			return err
 		}
 
+		ctx = context.WithValue(ctx, "authScope", scope)
 		ctx = context.WithValue(ctx, "user", u)
 		ctx = context.WithValue(ctx, "did", did)
+		ctx = context.WithValue(ctx, "token", user)
 
 		c.SetRequest(c.Request().WithContext(ctx))
 		return next(c)
@@ -350,4 +345,8 @@ func infoToActorRef(ai *ActorInfo) *appbskytypes.ActorRef_WithInfo {
 		DisplayName: &ai.DisplayName,
 		Did:         ai.Did,
 	}
+}
+
+func (s *Server) invalidateToken(ctx context.Context, u *User, tok *jwt.Token) error {
+	panic("nyi")
 }

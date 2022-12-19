@@ -10,7 +10,7 @@ import (
 type FakeDidMapping struct {
 	gorm.Model
 	Handle string
-	Did    string
+	Did    string `gorm:"index"`
 }
 
 type FakeDid struct {
