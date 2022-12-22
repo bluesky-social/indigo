@@ -2,7 +2,10 @@ package schemagen
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
+	"github.com/whyrusleeping/gosky/lex/util"
 	"github.com/whyrusleeping/gosky/xrpc"
 )
 
@@ -17,25 +20,58 @@ type FeedGetTimeline_Output struct {
 }
 
 type FeedGetTimeline_FeedItem struct {
-	IndexedAt     string                   `json:"indexedAt" cborgen:"indexedAt"`
-	Uri           string                   `json:"uri" cborgen:"uri"`
-	Record        any                      `json:"record" cborgen:"record"`
-	ReplyCount    int64                    `json:"replyCount" cborgen:"replyCount"`
-	RepostedBy    *ActorRef_WithInfo       `json:"repostedBy" cborgen:"repostedBy"`
-	Embed         *FeedEmbed               `json:"embed" cborgen:"embed"`
-	RepostCount   int64                    `json:"repostCount" cborgen:"repostCount"`
-	UpvoteCount   int64                    `json:"upvoteCount" cborgen:"upvoteCount"`
-	DownvoteCount int64                    `json:"downvoteCount" cborgen:"downvoteCount"`
-	Cid           string                   `json:"cid" cborgen:"cid"`
-	Author        *ActorRef_WithInfo       `json:"author" cborgen:"author"`
-	TrendedBy     *ActorRef_WithInfo       `json:"trendedBy" cborgen:"trendedBy"`
-	MyState       *FeedGetTimeline_MyState `json:"myState" cborgen:"myState"`
+	Author        *ActorRef_WithInfo              `json:"author" cborgen:"author"`
+	Cid           string                          `json:"cid" cborgen:"cid"`
+	DownvoteCount int64                           `json:"downvoteCount" cborgen:"downvoteCount"`
+	Embed         *FeedGetTimeline_FeedItem_Embed `json:"embed" cborgen:"embed"`
+	IndexedAt     string                          `json:"indexedAt" cborgen:"indexedAt"`
+	MyState       *FeedGetTimeline_MyState        `json:"myState" cborgen:"myState"`
+	Record        any                             `json:"record" cborgen:"record"`
+	ReplyCount    int64                           `json:"replyCount" cborgen:"replyCount"`
+	RepostCount   int64                           `json:"repostCount" cborgen:"repostCount"`
+	RepostedBy    *ActorRef_WithInfo              `json:"repostedBy" cborgen:"repostedBy"`
+	TrendedBy     *ActorRef_WithInfo              `json:"trendedBy" cborgen:"trendedBy"`
+	UpvoteCount   int64                           `json:"upvoteCount" cborgen:"upvoteCount"`
+	Uri           string                          `json:"uri" cborgen:"uri"`
+}
+
+type FeedGetTimeline_FeedItem_Embed struct {
+	EmbedImages_Presented   *EmbedImages_Presented
+	EmbedExternal_Presented *EmbedExternal_Presented
+}
+
+func (t *FeedGetTimeline_FeedItem_Embed) MarshalJSON() ([]byte, error) {
+	if t.EmbedImages_Presented != nil {
+		return json.Marshal(t.EmbedImages_Presented)
+	}
+	if t.EmbedExternal_Presented != nil {
+		return json.Marshal(t.EmbedExternal_Presented)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *FeedGetTimeline_FeedItem_Embed) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "app.bsky.embed.images#presented":
+		t.EmbedImages_Presented = new(EmbedImages_Presented)
+		return json.Unmarshal(b, t.EmbedImages_Presented)
+	case "app.bsky.embed.external#presented":
+		t.EmbedExternal_Presented = new(EmbedExternal_Presented)
+		return json.Unmarshal(b, t.EmbedExternal_Presented)
+
+	default:
+		return nil
+	}
 }
 
 type FeedGetTimeline_MyState struct {
+	Downvote *string `json:"downvote" cborgen:"downvote"`
 	Repost   *string `json:"repost" cborgen:"repost"`
 	Upvote   *string `json:"upvote" cborgen:"upvote"`
-	Downvote *string `json:"downvote" cborgen:"downvote"`
 }
 
 func FeedGetTimeline(ctx context.Context, c *xrpc.Client, algorithm string, before string, limit int64) (*FeedGetTimeline_Output, error) {

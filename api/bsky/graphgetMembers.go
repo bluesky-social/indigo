@@ -18,12 +18,12 @@ type GraphGetMembers_Output struct {
 }
 
 type GraphGetMembers_Member struct {
-	DisplayName *string        `json:"displayName" cborgen:"displayName"`
 	CreatedAt   *string        `json:"createdAt" cborgen:"createdAt"`
-	IndexedAt   string         `json:"indexedAt" cborgen:"indexedAt"`
-	Did         string         `json:"did" cborgen:"did"`
 	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
+	Did         string         `json:"did" cborgen:"did"`
+	DisplayName *string        `json:"displayName" cborgen:"displayName"`
 	Handle      string         `json:"handle" cborgen:"handle"`
+	IndexedAt   string         `json:"indexedAt" cborgen:"indexedAt"`
 }
 
 func GraphGetMembers(ctx context.Context, c *xrpc.Client, actor string, before string, limit int64) (*GraphGetMembers_Output, error) {

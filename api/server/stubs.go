@@ -490,6 +490,7 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.GET("/xrpc/com.atproto.account.get", s.HandleComAtprotoAccountGet)
 	e.POST("/xrpc/com.atproto.account.requestPasswordReset", s.HandleComAtprotoAccountRequestPasswordReset)
 	e.POST("/xrpc/com.atproto.account.resetPassword", s.HandleComAtprotoAccountResetPassword)
+	e.POST("/xrpc/com.atproto.blob.upload", s.HandleComAtprotoBlobUpload)
 	e.GET("/xrpc/com.atproto.handle.resolve", s.HandleComAtprotoHandleResolve)
 	e.POST("/xrpc/com.atproto.repo.batchWrite", s.HandleComAtprotoRepoBatchWrite)
 	e.POST("/xrpc/com.atproto.repo.createRecord", s.HandleComAtprotoRepoCreateRecord)
@@ -601,6 +602,21 @@ func (s *Server) HandleComAtprotoAccountResetPassword(c echo.Context) error {
 		return handleErr
 	}
 	return nil
+}
+
+func (s *Server) HandleComAtprotoBlobUpload(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoBlobUpload")
+	defer span.End()
+	body := c.Request().Body
+	var out *comatprototypes.BlobUpload_Output
+	var handleErr error
+	contentType := c.Request().Header.Get("Content-Type")
+	// func (s *Server) handleComAtprotoBlobUpload(ctx context.Context,r io.Reader) (*comatprototypes.BlobUpload_Output, error)
+	out, handleErr = s.handleComAtprotoBlobUpload(ctx, body, contentType)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) HandleComAtprotoHandleResolve(c echo.Context) error {

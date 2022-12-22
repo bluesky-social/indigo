@@ -143,6 +143,30 @@ func (r *Repo) CreateRecord(ctx context.Context, nsid string, rec CborMarshaler)
 	return k, tid, nil
 }
 
+func (r *Repo) PutRecord(ctx context.Context, rpath string, rec CborMarshaler) (cid.Cid, error) {
+	ctx, span := otel.Tracer("repo").Start(ctx, "PutRecord")
+	defer span.End()
+
+	r.dirty = true
+	t, err := r.getMst(ctx)
+	if err != nil {
+		return cid.Undef, fmt.Errorf("failed to get mst: %w", err)
+	}
+
+	k, err := r.cst.Put(ctx, rec)
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	nmst, err := t.Add(ctx, rpath, k, -1)
+	if err != nil {
+		return cid.Undef, fmt.Errorf("mst.Add failed: %w", err)
+	}
+
+	r.mst = nmst
+	return k, nil
+}
+
 func (r *Repo) Commit(ctx context.Context) (cid.Cid, error) {
 	ctx, span := otel.Tracer("repo").Start(ctx, "Commit")
 	defer span.End()
@@ -234,18 +258,18 @@ func (r *Repo) ForEach(ctx context.Context, prefix string, cb func(k string, v c
 	return nil
 }
 
-func (r *Repo) GetRecord(ctx context.Context, tid string) (cid.Cid, any, error) {
+func (r *Repo) GetRecord(ctx context.Context, rpath string) (cid.Cid, any, error) {
 	ctx, span := otel.Tracer("repo").Start(ctx, "GetRecord")
 	defer span.End()
 
 	mst, err := r.getMst(ctx)
 	if err != nil {
-		return cid.Undef, nil, err
+		return cid.Undef, nil, fmt.Errorf("getting repo mst: %w", err)
 	}
 
-	cc, err := mst.Get(ctx, tid)
+	cc, err := mst.Get(ctx, rpath)
 	if err != nil {
-		return cid.Undef, nil, err
+		return cid.Undef, nil, fmt.Errorf("resolving rpath within mst: %w", err)
 	}
 
 	blk, err := r.bs.Get(ctx, cc)

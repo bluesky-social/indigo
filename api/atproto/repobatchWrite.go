@@ -14,6 +14,26 @@ import (
 func init() {
 }
 
+type RepoBatchWrite_Create struct {
+	Action     string  `json:"action" cborgen:"action"`
+	Collection string  `json:"collection" cborgen:"collection"`
+	Rkey       *string `json:"rkey" cborgen:"rkey"`
+	Value      any     `json:"value" cborgen:"value"`
+}
+
+type RepoBatchWrite_Update struct {
+	Action     string `json:"action" cborgen:"action"`
+	Collection string `json:"collection" cborgen:"collection"`
+	Rkey       string `json:"rkey" cborgen:"rkey"`
+	Value      any    `json:"value" cborgen:"value"`
+}
+
+type RepoBatchWrite_Delete struct {
+	Action     string `json:"action" cborgen:"action"`
+	Collection string `json:"collection" cborgen:"collection"`
+	Rkey       string `json:"rkey" cborgen:"rkey"`
+}
+
 type RepoBatchWrite_Input struct {
 	Did      string                              `json:"did" cborgen:"did"`
 	Validate *bool                               `json:"validate" cborgen:"validate"`
@@ -58,26 +78,6 @@ func (t *RepoBatchWrite_Input_Writes_Elem) UnmarshalJSON(b []byte) error {
 	default:
 		return fmt.Errorf("closed enums must have a matching value")
 	}
-}
-
-type RepoBatchWrite_Create struct {
-	Action     string  `json:"action" cborgen:"action"`
-	Collection string  `json:"collection" cborgen:"collection"`
-	Rkey       *string `json:"rkey" cborgen:"rkey"`
-	Value      any     `json:"value" cborgen:"value"`
-}
-
-type RepoBatchWrite_Update struct {
-	Value      any    `json:"value" cborgen:"value"`
-	Action     string `json:"action" cborgen:"action"`
-	Collection string `json:"collection" cborgen:"collection"`
-	Rkey       string `json:"rkey" cborgen:"rkey"`
-}
-
-type RepoBatchWrite_Delete struct {
-	Action     string `json:"action" cborgen:"action"`
-	Collection string `json:"collection" cborgen:"collection"`
-	Rkey       string `json:"rkey" cborgen:"rkey"`
 }
 
 func RepoBatchWrite(ctx context.Context, c *xrpc.Client, input RepoBatchWrite_Input) error {

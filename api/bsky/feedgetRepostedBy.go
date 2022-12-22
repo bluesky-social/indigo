@@ -12,18 +12,19 @@ func init() {
 }
 
 type FeedGetRepostedBy_Output struct {
+	Cid        *string                         `json:"cid" cborgen:"cid"`
 	Cursor     *string                         `json:"cursor" cborgen:"cursor"`
 	RepostedBy []*FeedGetRepostedBy_RepostedBy `json:"repostedBy" cborgen:"repostedBy"`
 	Uri        string                          `json:"uri" cborgen:"uri"`
-	Cid        *string                         `json:"cid" cborgen:"cid"`
 }
 
 type FeedGetRepostedBy_RepostedBy struct {
-	Did         string         `json:"did" cborgen:"did"`
-	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
-	Handle      string         `json:"handle" cborgen:"handle"`
-	DisplayName *string        `json:"displayName" cborgen:"displayName"`
+	Avatar      *string        `json:"avatar" cborgen:"avatar"`
 	CreatedAt   *string        `json:"createdAt" cborgen:"createdAt"`
+	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
+	Did         string         `json:"did" cborgen:"did"`
+	DisplayName *string        `json:"displayName" cborgen:"displayName"`
+	Handle      string         `json:"handle" cborgen:"handle"`
 	IndexedAt   string         `json:"indexedAt" cborgen:"indexedAt"`
 }
 

@@ -14,7 +14,7 @@ func init() {
 // RECORDTYPE: FeedVote
 type FeedVote struct {
 	LexiconTypeID string                         `json:"$type" cborgen:"$type,const=app.bsky.feed.vote"`
-	Subject       *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
-	Direction     string                         `json:"direction" cborgen:"direction"`
 	CreatedAt     string                         `json:"createdAt" cborgen:"createdAt"`
+	Direction     string                         `json:"direction" cborgen:"direction"`
+	Subject       *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
 }

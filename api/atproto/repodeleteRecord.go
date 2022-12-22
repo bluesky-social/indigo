@@ -12,8 +12,8 @@ func init() {
 }
 
 type RepoDeleteRecord_Input struct {
-	Did        string `json:"did" cborgen:"did"`
 	Collection string `json:"collection" cborgen:"collection"`
+	Did        string `json:"did" cborgen:"did"`
 	Rkey       string `json:"rkey" cborgen:"rkey"`
 }
 

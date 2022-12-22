@@ -14,6 +14,6 @@ func init() {
 // RECORDTYPE: FeedTrend
 type FeedTrend struct {
 	LexiconTypeID string                         `json:"$type" cborgen:"$type,const=app.bsky.feed.trend"`
-	Subject       *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
 	CreatedAt     string                         `json:"createdAt" cborgen:"createdAt"`
+	Subject       *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
 }

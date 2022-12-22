@@ -12,10 +12,10 @@ func init() {
 }
 
 type RepoDescribe_Output struct {
-	Handle          string   `json:"handle" cborgen:"handle"`
+	Collections     []string `json:"collections" cborgen:"collections"`
 	Did             string   `json:"did" cborgen:"did"`
 	DidDoc          any      `json:"didDoc" cborgen:"didDoc"`
-	Collections     []string `json:"collections" cborgen:"collections"`
+	Handle          string   `json:"handle" cborgen:"handle"`
 	HandleIsCorrect bool     `json:"handleIsCorrect" cborgen:"handleIsCorrect"`
 }
 

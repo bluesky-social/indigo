@@ -11,15 +11,16 @@ import (
 func init() {
 }
 
-type ActorSearchTypeahead_User struct {
-	DisplayName *string        `json:"displayName" cborgen:"displayName"`
-	Did         string         `json:"did" cborgen:"did"`
-	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
-	Handle      string         `json:"handle" cborgen:"handle"`
-}
-
 type ActorSearchTypeahead_Output struct {
 	Users []*ActorSearchTypeahead_User `json:"users" cborgen:"users"`
+}
+
+type ActorSearchTypeahead_User struct {
+	Avatar      *string        `json:"avatar" cborgen:"avatar"`
+	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
+	Did         string         `json:"did" cborgen:"did"`
+	DisplayName *string        `json:"displayName" cborgen:"displayName"`
+	Handle      string         `json:"handle" cborgen:"handle"`
 }
 
 func ActorSearchTypeahead(ctx context.Context, c *xrpc.Client, limit int64, term string) (*ActorSearchTypeahead_Output, error) {

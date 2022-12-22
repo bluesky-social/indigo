@@ -17,6 +17,7 @@ import (
 const (
 	EncodingCBOR = "application/cbor"
 	EncodingJSON = "application/json"
+	EncodingANY  = "*/*"
 )
 
 type Schema struct {
@@ -117,7 +118,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 
 		if ts.Input != nil {
 			if ts.Input.Schema == nil {
-				if ts.Input.Encoding != "application/cbor" {
+				if ts.Input.Encoding != "application/cbor" && ts.Input.Encoding != "*/*" {
 					panic(fmt.Sprintf("strange input type def in %s", s.ID))
 				}
 			} else {
@@ -358,10 +359,11 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 		inpvar = "input"
 		inpenc = s.Input.Encoding
 		switch s.Input.Encoding {
-		case EncodingCBOR:
+		case EncodingCBOR, EncodingANY:
 			params = fmt.Sprintf("%s, input io.Reader", params)
 		case EncodingJSON:
 			params = fmt.Sprintf("%s, input %s_Input", params, fname)
+
 		default:
 			return fmt.Errorf("unsupported input encoding: %q", s.Input.Encoding)
 		}
@@ -705,7 +707,7 @@ func (s *TypeSchema) WriteRPCHandler(w io.Writer, fname, shortname, impname stri
 		if s.Parameters != nil {
 			required := make(map[string]bool)
 			for _, r := range s.Parameters.Required {
-					required[r] = true
+				required[r] = true
 			}
 			for k, v := range s.Parameters.Properties {
 				if v.Default != nil {
@@ -746,7 +748,7 @@ if err != nil {
 } else {
 	%s = %d
 }
-`, k, k,k, k, int(t.Default.(float64)))
+`, k, k, k, k, int(t.Default.(float64)))
 					} else {
 
 						paramtypes = append(paramtypes, k+" int")
@@ -770,7 +772,7 @@ if err != nil {
 		if s.Input != nil {
 			intname := impname + "." + tname + "_Input"
 			switch s.Input.Encoding {
-			case "application/json":
+			case EncodingJSON:
 				fmt.Fprintf(w, `
 var body %s
 if err := c.Bind(&body); err != nil {
@@ -779,7 +781,7 @@ if err := c.Bind(&body); err != nil {
 `, intname)
 				paramtypes = append(paramtypes, "body "+intname)
 				params = append(params, "&body")
-			case "application/cbor":
+			case EncodingCBOR, EncodingANY:
 				fmt.Fprintf(w, "body := c.Request().Body\n")
 				paramtypes = append(paramtypes, "r io.Reader")
 				params = append(params, "body")
@@ -813,7 +815,16 @@ if err := c.Bind(&body); err != nil {
 	fmt.Fprintf(w, "if handleErr != nil {\nreturn handleErr\n}\n")
 
 	if s.Output != nil {
-		fmt.Fprintf(w, "return c.JSON(200, out)\n}\n\n")
+		switch s.Output.Encoding {
+		case EncodingJSON:
+			fmt.Fprintf(w, "return c.JSON(200, out)\n}\n\n")
+		case EncodingANY:
+			fmt.Fprintf(w, "return c.Stream(200, \"application/octet-stream\", out)\n}\n\n")
+		case EncodingCBOR:
+			fmt.Fprintf(w, "return c.Stream(200, \"application/octet-stream\", out)\n}\n\n")
+		default:
+			return fmt.Errorf("unrecognized output encoding: %s", s.Output.Encoding)
+		}
 	} else {
 		fmt.Fprintf(w, "return nil\n}\n\n")
 	}
@@ -955,10 +966,10 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 			required[req] = true
 		}
 
-		for k, v := range ts.Properties {
+		if err := orderedMapIter[TypeSchema](ts.Properties, func(k string, v TypeSchema) error {
 			goname := strings.Title(k)
 
-			tname, err := ts.typeNameForField(name, k, *v)
+			tname, err := ts.typeNameForField(name, k, v)
 			if err != nil {
 				return err
 			}
@@ -971,8 +982,11 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 			}
 
 			fmt.Fprintf(w, "\t%s %s%s `json:\"%s\" cborgen:\"%s\"`\n", goname, ptr, tname, k, k)
-
+			return nil
+		}); err != nil {
+			return err
 		}
+
 		fmt.Fprintf(w, "}\n\n")
 
 	case "array":
@@ -1030,6 +1044,16 @@ func (ts *TypeSchema) writeTypeMethods(name string, w io.Writer) error {
 
 			if err := ts.writeJsonUnmarshalerEnum(name, w); err != nil {
 				return err
+			}
+
+			if ts.record {
+				if err := ts.writeCborMarshalerEnum(name, w); err != nil {
+					return err
+				}
+
+				if err := ts.writeCborUnmarshalerEnum(name, w); err != nil {
+					return err
+				}
 			}
 
 			return nil
@@ -1149,6 +1173,61 @@ func (ts *TypeSchema) writeJsonUnmarshalerEnum(name string, w io.Writer) error {
 		fmt.Fprintf(w, "\t\tcase \"%s\":\n", e)
 		fmt.Fprintf(w, "\t\t\tt.%s = new(%s)\n", goname, goname)
 		fmt.Fprintf(w, "\t\t\treturn json.Unmarshal(b, t.%s)\n", goname)
+	}
+
+	if ts.Closed {
+		fmt.Fprintf(w, `
+			default:
+				return fmt.Errorf("closed enums must have a matching value")
+		`)
+	} else {
+		fmt.Fprintf(w, `
+			default:
+				return nil
+		`)
+
+	}
+
+	fmt.Fprintf(w, "\t}\n")
+	fmt.Fprintf(w, "}\n\n")
+
+	return nil
+}
+
+func (ts *TypeSchema) writeCborMarshalerEnum(name string, w io.Writer) error {
+	fmt.Fprintf(w, "func (t *%s) MarshalCBOR(w io.Writer) error {\n", name)
+	fmt.Fprintf(w, `
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+`)
+
+	for _, e := range ts.Refs {
+		tname := ts.typeNameFromRef(e)
+		fmt.Fprintf(w, "\tif t.%s != nil {\n", tname)
+		fmt.Fprintf(w, "\t\treturn t.%s.MarshalCBOR(w)\n\t}\n", tname)
+	}
+
+	fmt.Fprintf(w, "\treturn fmt.Errorf(\"cannot cbor marshal empty enum\")\n}\n")
+	return nil
+}
+
+func (ts *TypeSchema) writeCborUnmarshalerEnum(name string, w io.Writer) error {
+	fmt.Fprintf(w, "func (t *%s) UnmarshalCBOR(r io.Reader) error {\n", name)
+	fmt.Fprintf(w, "\ttyp, b, err := util.CborTypeExtractReader(r)\n")
+	fmt.Fprintf(w, "\tif err != nil {\n\t\treturn err\n\t}\n\n")
+	fmt.Fprintf(w, "\tswitch typ {\n")
+	for _, e := range ts.Refs {
+		if strings.HasPrefix(e, "#") {
+			e = ts.id + e
+		}
+
+		goname := ts.typeNameFromRef(e)
+
+		fmt.Fprintf(w, "\t\tcase \"%s\":\n", e)
+		fmt.Fprintf(w, "\t\t\tt.%s = new(%s)\n", goname, goname)
+		fmt.Fprintf(w, "\t\t\treturn t.%s.UnmarshalCBOR(bytes.NewReader(b))\n", goname)
 	}
 
 	if ts.Closed {

@@ -12,16 +12,18 @@ func init() {
 }
 
 type ActorGetProfile_Output struct {
-	Handle         string                   `json:"handle" cborgen:"handle"`
+	Avatar         *string                  `json:"avatar" cborgen:"avatar"`
+	Banner         *string                  `json:"banner" cborgen:"banner"`
 	Creator        string                   `json:"creator" cborgen:"creator"`
-	DisplayName    *string                  `json:"displayName" cborgen:"displayName"`
-	Description    *string                  `json:"description" cborgen:"description"`
-	FollowersCount int64                    `json:"followersCount" cborgen:"followersCount"`
-	MembersCount   int64                    `json:"membersCount" cborgen:"membersCount"`
-	Did            string                   `json:"did" cborgen:"did"`
 	Declaration    *SystemDeclRef           `json:"declaration" cborgen:"declaration"`
-	MyState        *ActorGetProfile_MyState `json:"myState" cborgen:"myState"`
+	Description    *string                  `json:"description" cborgen:"description"`
+	Did            string                   `json:"did" cborgen:"did"`
+	DisplayName    *string                  `json:"displayName" cborgen:"displayName"`
+	FollowersCount int64                    `json:"followersCount" cborgen:"followersCount"`
 	FollowsCount   int64                    `json:"followsCount" cborgen:"followsCount"`
+	Handle         string                   `json:"handle" cborgen:"handle"`
+	MembersCount   int64                    `json:"membersCount" cborgen:"membersCount"`
+	MyState        *ActorGetProfile_MyState `json:"myState" cborgen:"myState"`
 	PostsCount     int64                    `json:"postsCount" cborgen:"postsCount"`
 }
 

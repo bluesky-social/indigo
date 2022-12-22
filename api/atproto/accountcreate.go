@@ -20,9 +20,9 @@ type AccountCreate_Input struct {
 }
 
 type AccountCreate_Output struct {
-	Handle     string `json:"handle" cborgen:"handle"`
-	Did        string `json:"did" cborgen:"did"`
 	AccessJwt  string `json:"accessJwt" cborgen:"accessJwt"`
+	Did        string `json:"did" cborgen:"did"`
+	Handle     string `json:"handle" cborgen:"handle"`
 	RefreshJwt string `json:"refreshJwt" cborgen:"refreshJwt"`
 }
 

@@ -8,21 +8,25 @@ import (
 
 	"github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
+	apibsky "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/carstore"
 	"github.com/whyrusleeping/gosky/repo"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
 
-func NewRepoManager(db *gorm.DB, cs *carstore.CarStore, cb func(context.Context, *RepoEvent)) *RepoManager {
+func NewRepoManager(db *gorm.DB, cs *carstore.CarStore) *RepoManager {
 	db.AutoMigrate(RepoHead{})
 
 	return &RepoManager{
 		db:        db,
 		cs:        cs,
-		events:    cb,
 		userLocks: make(map[uint]*userLock),
 	}
+}
+
+func (rm *RepoManager) SetEventHandler(cb func(context.Context, *RepoEvent)) {
+	rm.events = cb
 }
 
 type RepoManager struct {
@@ -179,6 +183,64 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 	return collection + "/" + tid, cc, nil
 }
 
+func (rm *RepoManager) UpdateRecord(ctx context.Context, user uint, collection, rkey string, rec cbg.CBORMarshaler) (cid.Cid, error) {
+	ctx, span := otel.Tracer("repoman").Start(ctx, "CreateRecord")
+	defer span.End()
+
+	unlock := rm.lockUser(ctx, user)
+	defer unlock()
+
+	head, err := rm.getUserRepoHead(ctx, user)
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	ds, err := rm.cs.NewDeltaSession(ctx, user, head)
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	r, err := repo.OpenRepo(ctx, ds, head)
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	rpath := collection + "/" + rkey
+	cc, err := r.PutRecord(ctx, rpath, rec)
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	nroot, err := r.Commit(ctx)
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	if err := ds.CloseWithRoot(ctx, nroot); err != nil {
+		return cid.Undef, fmt.Errorf("close with root: %w", err)
+	}
+
+	// TODO: what happens if this update fails?
+	if err := rm.updateUserRepoHead(ctx, user, nroot); err != nil {
+		return cid.Undef, fmt.Errorf("updating user head: %w", err)
+	}
+
+	if rm.events != nil {
+		rm.events(ctx, &RepoEvent{
+			Kind:       "updateRecord",
+			User:       user,
+			OldRoot:    head,
+			NewRoot:    nroot,
+			Collection: collection,
+			Rkey:       rkey,
+			Record:     rec,
+			RecCid:     cc,
+		})
+	}
+
+	return cc, nil
+}
+
 func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did, displayname string, declcid, actortype string) error {
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
@@ -198,7 +260,27 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 
 	r := repo.NewRepo(ctx, ds)
 
-	// TODO: set displayname?
+	profile := &apibsky.ActorProfile{
+		DisplayName: displayname,
+	}
+
+	_, err = r.PutRecord(ctx, "app.bsky.actor.profile/self", profile)
+	if err != nil {
+		return fmt.Errorf("setting initial actor profile: %w", err)
+	}
+
+	decl := &apibsky.SystemDeclaration{
+		ActorType: actortype,
+	}
+	dc, err := r.PutRecord(ctx, "app.bsky.system.declaration/self", decl)
+	if err != nil {
+		return fmt.Errorf("setting initial actor profile: %w", err)
+	}
+
+	if dc.String() != declcid {
+		fmt.Println("DECL CID MISMATCH: ", dc, declcid)
+	}
+
 	// TODO: set declaration?
 
 	root, err := r.Commit(ctx)
@@ -272,4 +354,33 @@ func (rm *RepoManager) GetRecord(ctx context.Context, user uint, collection stri
 	}
 
 	return ocid, val, nil
+}
+
+func (rm *RepoManager) GetProfile(ctx context.Context, uid uint) (*apibsky.ActorProfile, error) {
+	bs, err := rm.cs.ReadOnlySession(uid)
+	if err != nil {
+		return nil, err
+	}
+
+	head, err := rm.getUserRepoHead(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := repo.OpenRepo(ctx, bs, head)
+	if err != nil {
+		return nil, err
+	}
+
+	_, val, err := r.GetRecord(ctx, "app.bsky.actor.profile/self")
+	if err != nil {
+		return nil, err
+	}
+
+	ap, ok := val.(*apibsky.ActorProfile)
+	if !ok {
+		return nil, fmt.Errorf("found wrong type in actor profile location in tree")
+	}
+
+	return ap, nil
 }

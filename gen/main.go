@@ -33,7 +33,7 @@ func main() {
 	// RECORDTYPE: FeedRepost
 	// RECORDTYPE: FeedPost
 
-	if err := cbg.WriteMapEncodersToFile("api/bsky/cbor_gen.go", "schemagen", bsky.FeedPost{}, bsky.FeedRepost{}, bsky.FeedTrend{}, bsky.FeedVote{}, bsky.FeedPost_Entity{}, bsky.FeedPost_ReplyRef{}, bsky.FeedPost_TextSlice{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("api/bsky/cbor_gen.go", "schemagen", bsky.FeedPost{}, bsky.FeedRepost{}, bsky.FeedTrend{}, bsky.FeedVote{}, bsky.FeedPost_Entity{}, bsky.FeedPost_ReplyRef{}, bsky.FeedPost_TextSlice{}, bsky.EmbedImages{}, bsky.EmbedImages_PresentedImage{}, bsky.EmbedExternal{}, bsky.EmbedExternal_External{}, bsky.EmbedImages_Image{}, bsky.GraphFollow{}, bsky.ActorRef{}, bsky.ActorProfile{}, bsky.SystemDeclaration{}); err != nil {
 		panic(err)
 	}
 
@@ -41,7 +41,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("lex/util/cbor_gen.go", "util", util.CborChecker{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("lex/util/cbor_gen.go", "util", util.CborChecker{}, util.Blob{}); err != nil {
 		panic(err)
 	}
 }

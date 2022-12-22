@@ -14,7 +14,7 @@ func init() {
 // RECORDTYPE: GraphConfirmation
 type GraphConfirmation struct {
 	LexiconTypeID string                         `json:"$type" cborgen:"$type,const=app.bsky.graph.confirmation"`
-	Originator    *ActorRef                      `json:"originator" cborgen:"originator"`
 	Assertion     *comatprototypes.RepoStrongRef `json:"assertion" cborgen:"assertion"`
 	CreatedAt     string                         `json:"createdAt" cborgen:"createdAt"`
+	Originator    *ActorRef                      `json:"originator" cborgen:"originator"`
 }

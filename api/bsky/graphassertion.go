@@ -13,7 +13,7 @@ func init() {
 // RECORDTYPE: GraphAssertion
 type GraphAssertion struct {
 	LexiconTypeID string    `json:"$type" cborgen:"$type,const=app.bsky.graph.assertion"`
-	Subject       *ActorRef `json:"subject" cborgen:"subject"`
-	CreatedAt     string    `json:"createdAt" cborgen:"createdAt"`
 	Assertion     string    `json:"assertion" cborgen:"assertion"`
+	CreatedAt     string    `json:"createdAt" cborgen:"createdAt"`
+	Subject       *ActorRef `json:"subject" cborgen:"subject"`
 }

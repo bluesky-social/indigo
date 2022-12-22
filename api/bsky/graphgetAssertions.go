@@ -11,27 +11,27 @@ import (
 func init() {
 }
 
-type GraphGetAssertions_Output struct {
-	Cursor     *string                         `json:"cursor" cborgen:"cursor"`
-	Assertions []*GraphGetAssertions_Assertion `json:"assertions" cborgen:"assertions"`
-}
-
 type GraphGetAssertions_Assertion struct {
 	Assertion    string                           `json:"assertion" cborgen:"assertion"`
-	Confirmation *GraphGetAssertions_Confirmation `json:"confirmation" cborgen:"confirmation"`
 	Author       *ActorRef_WithInfo               `json:"author" cborgen:"author"`
-	Subject      *ActorRef_WithInfo               `json:"subject" cborgen:"subject"`
-	IndexedAt    string                           `json:"indexedAt" cborgen:"indexedAt"`
-	CreatedAt    string                           `json:"createdAt" cborgen:"createdAt"`
-	Uri          string                           `json:"uri" cborgen:"uri"`
 	Cid          string                           `json:"cid" cborgen:"cid"`
+	Confirmation *GraphGetAssertions_Confirmation `json:"confirmation" cborgen:"confirmation"`
+	CreatedAt    string                           `json:"createdAt" cborgen:"createdAt"`
+	IndexedAt    string                           `json:"indexedAt" cborgen:"indexedAt"`
+	Subject      *ActorRef_WithInfo               `json:"subject" cborgen:"subject"`
+	Uri          string                           `json:"uri" cborgen:"uri"`
 }
 
 type GraphGetAssertions_Confirmation struct {
-	Uri       string `json:"uri" cborgen:"uri"`
 	Cid       string `json:"cid" cborgen:"cid"`
-	IndexedAt string `json:"indexedAt" cborgen:"indexedAt"`
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
+	IndexedAt string `json:"indexedAt" cborgen:"indexedAt"`
+	Uri       string `json:"uri" cborgen:"uri"`
+}
+
+type GraphGetAssertions_Output struct {
+	Assertions []*GraphGetAssertions_Assertion `json:"assertions" cborgen:"assertions"`
+	Cursor     *string                         `json:"cursor" cborgen:"cursor"`
 }
 
 func GraphGetAssertions(ctx context.Context, c *xrpc.Client, assertion string, author string, before string, confirmed bool, limit int64, subject string) (*GraphGetAssertions_Output, error) {

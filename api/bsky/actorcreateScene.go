@@ -17,9 +17,9 @@ type ActorCreateScene_Input struct {
 }
 
 type ActorCreateScene_Output struct {
-	Handle      string         `json:"handle" cborgen:"handle"`
-	Did         string         `json:"did" cborgen:"did"`
 	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
+	Did         string         `json:"did" cborgen:"did"`
+	Handle      string         `json:"handle" cborgen:"handle"`
 }
 
 func ActorCreateScene(ctx context.Context, c *xrpc.Client, input ActorCreateScene_Input) (*ActorCreateScene_Output, error) {

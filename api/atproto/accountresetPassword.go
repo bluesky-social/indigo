@@ -12,8 +12,8 @@ func init() {
 }
 
 type AccountResetPassword_Input struct {
-	Token    string `json:"token" cborgen:"token"`
 	Password string `json:"password" cborgen:"password"`
+	Token    string `json:"token" cborgen:"token"`
 }
 
 func AccountResetPassword(ctx context.Context, c *xrpc.Client, input AccountResetPassword_Input) error {

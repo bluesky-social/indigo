@@ -14,6 +14,6 @@ func init() {
 // RECORDTYPE: FeedRepost
 type FeedRepost struct {
 	LexiconTypeID string                         `json:"$type" cborgen:"$type,const=app.bsky.feed.repost"`
-	Subject       *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
 	CreatedAt     string                         `json:"createdAt" cborgen:"createdAt"`
+	Subject       *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
 }

@@ -12,16 +12,16 @@ func init() {
 }
 
 type RepoPutRecord_Input struct {
-	Did        string `json:"did" cborgen:"did"`
 	Collection string `json:"collection" cborgen:"collection"`
+	Did        string `json:"did" cborgen:"did"`
+	Record     any    `json:"record" cborgen:"record"`
 	Rkey       string `json:"rkey" cborgen:"rkey"`
 	Validate   *bool  `json:"validate" cborgen:"validate"`
-	Record     any    `json:"record" cborgen:"record"`
 }
 
 type RepoPutRecord_Output struct {
-	Uri string `json:"uri" cborgen:"uri"`
 	Cid string `json:"cid" cborgen:"cid"`
+	Uri string `json:"uri" cborgen:"uri"`
 }
 
 func RepoPutRecord(ctx context.Context, c *xrpc.Client, input RepoPutRecord_Input) (*RepoPutRecord_Output, error) {

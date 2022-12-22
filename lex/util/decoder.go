@@ -53,7 +53,7 @@ func JsonDecodeValue(b []byte) (any, error) {
 func CborDecodeValue(b []byte) (any, error) {
 	tstr, err := CborTypeExtract(b)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cbor type extract: %w", err)
 	}
 
 	t, ok := lexTypesMap[tstr]

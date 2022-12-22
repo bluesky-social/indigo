@@ -43,6 +43,9 @@ func LoadMST(cst cbor.IpldStore, fanout int, root cid.Cid) *MerkleSearchTree {
 }
 
 func (mst *MerkleSearchTree) newTree(entries []NodeEntry) *MerkleSearchTree {
+	if entries == nil {
+		panic("nil entries passed to newTree")
+	}
 	return NewMST(mst.cst, mst.fanout, cid.Undef, entries, mst.layer)
 }
 
@@ -297,6 +300,10 @@ func (mst *MerkleSearchTree) Get(ctx context.Context, k string) (cid.Cid, error)
 	}
 
 	prev, err := mst.atIndex(index - 1)
+	if err != nil {
+		return cid.Undef, err
+	}
+
 	if !prev.isUndefined() && prev.isTree() {
 		return prev.Tree.Get(ctx, k)
 	}
@@ -519,7 +526,7 @@ func (mst *MerkleSearchTree) findGtOrEqualLeafIndex(ctx context.Context, key str
 
 	for i, e := range entries {
 		//if e.isLeaf() && bytes.Compare(e.Key, key) > 0 {
-		if e.isLeaf() && e.Key > key {
+		if e.isLeaf() && e.Key >= key {
 			return i, nil
 		}
 	}
@@ -541,6 +548,9 @@ func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]NodeEntry, error
 		entries, err := entriesFromNodeData(ctx, &nd, mst.cst, mst.fanout)
 		if err != nil {
 			return nil, err
+		}
+		if entries == nil {
+			panic("got nil entries from node data decoding")
 		}
 		mst.entries = entries
 		return entries, nil
@@ -682,7 +692,7 @@ func countPrefixLen(a, b string) int {
 }
 
 func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, layer int, fanout int) ([]NodeEntry, error) {
-	var entries []NodeEntry
+	entries := []NodeEntry{}
 	if nd.L != nil {
 		entries = append(entries, NodeEntry{
 			Kind: EntryTree,

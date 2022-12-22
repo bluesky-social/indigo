@@ -58,7 +58,42 @@ func (s *Server) handleAppBskyActorSearchTypeahead(ctx context.Context, limit in
 }
 
 func (s *Server) handleAppBskyActorUpdateProfile(ctx context.Context, input *appbskytypes.ActorUpdateProfile_Input) (*appbskytypes.ActorUpdateProfile_Output, error) {
-	panic("not yet implemented")
+	u, err := s.getUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	profile, err := s.repoman.GetProfile(ctx, u.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if input.DisplayName != nil {
+		profile.DisplayName = *input.DisplayName
+	}
+
+	if input.DisplayName != nil {
+		profile.Description = input.Description
+	}
+
+	if input.Avatar != nil {
+		profile.Avatar = input.Avatar
+	}
+
+	if input.Banner != nil {
+		profile.Banner = input.Banner
+	}
+
+	ncid, err := s.repoman.UpdateRecord(ctx, u.ID, "app.bsky.actor.profile", "self", profile)
+	if err != nil {
+		return nil, err
+	}
+
+	return &appbskytypes.ActorUpdateProfile_Output{
+		Cid:    ncid.String(),
+		Uri:    "at://" + u.DID + "/app.bsky.actor.profile/self",
+		Record: profile,
+	}, nil
 }
 
 func (s *Server) handleAppBskyFeedGetAuthorFeed(ctx context.Context, author string, before string, limit int) (*appbskytypes.FeedGetAuthorFeed_Output, error) {
@@ -161,6 +196,7 @@ func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth *int,
 
 func (s *Server) handleAppBskyFeedGetRepostedBy(ctx context.Context, before string, cid string, limit int, uri string) (*appbskytypes.FeedGetRepostedBy_Output, error) {
 	panic("not yet implemented")
+	//appbskytypes.FeedGetRepostedBy_Output{}
 }
 
 func (s *Server) handleAppBskyFeedGetTimeline(ctx context.Context, algorithm string, before string, limit int) (*appbskytypes.FeedGetTimeline_Output, error) {
@@ -311,19 +347,37 @@ func (s *Server) handleAppBskyGraphGetMemberships(ctx context.Context, actor str
 }
 
 func (s *Server) handleAppBskyNotificationGetCount(ctx context.Context) (*appbskytypes.NotificationGetCount_Output, error) {
-	fmt.Println("Notification Count not yet implemented!")
+	u, err := s.getUser(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	return &appbskytypes.NotificationGetCount_Output{}, nil
+	count, err := s.notifman.GetCount(ctx, u.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("notif count: ", u.Handle, count)
+	return &appbskytypes.NotificationGetCount_Output{
+		Count: count,
+	}, nil
 }
 
 func (s *Server) handleAppBskyNotificationList(ctx context.Context, before string, limit int) (*appbskytypes.NotificationList_Output, error) {
-
-	fmt.Println("notifications not yet implemented!")
-	out := appbskytypes.NotificationList_Output{
-		Notifications: []*appbskytypes.NotificationList_Notification{},
+	u, err := s.getUser(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	return &out, nil
+	notifs, err := s.notifman.GetNotifications(ctx, u.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("notifs: ", u.Handle, len(notifs))
+	return &appbskytypes.NotificationList_Output{
+		Notifications: notifs,
+	}, nil
 }
 
 func (s *Server) handleAppBskyNotificationUpdateSeen(ctx context.Context, input *appbskytypes.NotificationUpdateSeen_Input) error {
@@ -438,6 +492,8 @@ func (s *Server) handleComAtprotoRepoCreateRecord(ctx context.Context, input *co
 	switch input.Collection {
 	case "app.bsky.feed.post":
 		rec = new(appbskytypes.FeedPost)
+	case "app.bsky.graph.follow":
+		rec = new(appbskytypes.GraphFollow)
 	default:
 		return nil, fmt.Errorf("unsupported collection: %q", input.Collection)
 	}
@@ -474,6 +530,8 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 		return nil, err
 	}
 
+	fmt.Println("USER: ", user, targetUser.Handle, targetUser.DID)
+
 	var maybeCid cid.Cid
 	if c != "" {
 		cc, err := cid.Decode(c)
@@ -485,7 +543,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 
 	reccid, rec, err := s.repoman.GetRecord(ctx, targetUser.ID, collection, rkey, maybeCid)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("repoman GetRecord: %w", err)
 	}
 
 	ccstr := reccid.String()
@@ -632,5 +690,9 @@ func (s *Server) handleComAtprotoSyncGetRoot(ctx context.Context, did string) (*
 }
 
 func (s *Server) handleComAtprotoSyncUpdateRepo(ctx context.Context, r io.Reader) error {
+	panic("not yet implemented")
+}
+
+func (s *Server) handleComAtprotoBlobUpload(ctx context.Context, r io.Reader, ctype string) (*comatprototypes.BlobUpload_Output, error) {
 	panic("not yet implemented")
 }

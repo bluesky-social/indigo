@@ -17,11 +17,12 @@ type ActorSearch_Output struct {
 }
 
 type ActorSearch_User struct {
-	Did         string         `json:"did" cborgen:"did"`
+	Avatar      *string        `json:"avatar" cborgen:"avatar"`
 	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
-	Handle      string         `json:"handle" cborgen:"handle"`
-	DisplayName *string        `json:"displayName" cborgen:"displayName"`
 	Description *string        `json:"description" cborgen:"description"`
+	Did         string         `json:"did" cborgen:"did"`
+	DisplayName *string        `json:"displayName" cborgen:"displayName"`
+	Handle      string         `json:"handle" cborgen:"handle"`
 	IndexedAt   *string        `json:"indexedAt" cborgen:"indexedAt"`
 }
 

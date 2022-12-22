@@ -12,10 +12,10 @@ func init() {
 }
 
 type RepoCreateRecord_Input struct {
-	Did        string `json:"did" cborgen:"did"`
 	Collection string `json:"collection" cborgen:"collection"`
-	Validate   *bool  `json:"validate" cborgen:"validate"`
+	Did        string `json:"did" cborgen:"did"`
 	Record     any    `json:"record" cborgen:"record"`
+	Validate   *bool  `json:"validate" cborgen:"validate"`
 }
 
 type RepoCreateRecord_Output struct {

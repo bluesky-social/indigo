@@ -30,29 +30,6 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Uri (string) (string)
-	if len("uri") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"uri\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("uri"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("uri")); err != nil {
-		return err
-	}
-
-	if len(t.Uri) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Uri was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Uri))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Uri)); err != nil {
-		return err
-	}
-
 	// t.Cid (string) (string)
 	if len("cid") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"cid\" was too long")
@@ -73,6 +50,29 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Cid)); err != nil {
+		return err
+	}
+
+	// t.Uri (string) (string)
+	if len("uri") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"uri\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("uri"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("uri")); err != nil {
+		return err
+	}
+
+	if len(t.Uri) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Uri was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Uri))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Uri)); err != nil {
 		return err
 	}
 	return nil
@@ -116,18 +116,7 @@ func (t *RepoStrongRef) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Uri (string) (string)
-		case "uri":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.Uri = string(sval)
-			}
-			// t.Cid (string) (string)
+		// t.Cid (string) (string)
 		case "cid":
 
 			{
@@ -137,6 +126,17 @@ func (t *RepoStrongRef) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Cid = string(sval)
+			}
+			// t.Uri (string) (string)
+		case "uri":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Uri = string(sval)
 			}
 
 		default:

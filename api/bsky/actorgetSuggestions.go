@@ -12,16 +12,17 @@ func init() {
 }
 
 type ActorGetSuggestions_Output struct {
-	Cursor *string                      `json:"cursor" cborgen:"cursor"`
 	Actors []*ActorGetSuggestions_Actor `json:"actors" cborgen:"actors"`
+	Cursor *string                      `json:"cursor" cborgen:"cursor"`
 }
 
 type ActorGetSuggestions_Actor struct {
-	Did         string                       `json:"did" cborgen:"did"`
+	Avatar      *string                      `json:"avatar" cborgen:"avatar"`
 	Declaration *SystemDeclRef               `json:"declaration" cborgen:"declaration"`
-	Handle      string                       `json:"handle" cborgen:"handle"`
-	DisplayName *string                      `json:"displayName" cborgen:"displayName"`
 	Description *string                      `json:"description" cborgen:"description"`
+	Did         string                       `json:"did" cborgen:"did"`
+	DisplayName *string                      `json:"displayName" cborgen:"displayName"`
+	Handle      string                       `json:"handle" cborgen:"handle"`
 	IndexedAt   *string                      `json:"indexedAt" cborgen:"indexedAt"`
 	MyState     *ActorGetSuggestions_MyState `json:"myState" cborgen:"myState"`
 }

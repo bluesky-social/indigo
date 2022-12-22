@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/whyrusleeping/gosky/xrpc"
@@ -34,23 +33,6 @@ type PostRecord struct {
 	Entities  []*PostEntity `json:"entities,omitempty" cborgen:"entities"`
 	Reply     *ReplyRef     `json:"reply,omitempty" cborgen:"reply"`
 	CreatedAt string        `json:"createdAt" cborgen:"createdAt"`
-}
-
-func (pr *PostRecord) FixType() {
-	pr.Type = "app.bsky.feed.post"
-}
-
-type JsonLD interface {
-	FixType()
-}
-
-type RecordWrapper struct {
-	Sub JsonLD
-}
-
-func (rw *RecordWrapper) MarshalJSON() ([]byte, error) {
-	rw.Sub.FixType()
-	return json.Marshal(rw.Sub)
 }
 
 type PostRef struct {

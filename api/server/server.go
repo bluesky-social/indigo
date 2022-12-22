@@ -29,6 +29,7 @@ type Server struct {
 	cs         *carstore.CarStore
 	repoman    *repomgr.RepoManager
 	feedgen    *FeedGenerator
+	notifman   *NotificationManager
 	signingKey []byte
 
 	handleSuffix string
@@ -47,21 +48,27 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string) (*Server, error
 		return nil, err
 	}
 
+	repoman := repomgr.NewRepoManager(db, cs)
+
+	notifman := NewNotificationManager(db, repoman)
+
 	s := &Server{
 		signingKey:   serkey,
 		db:           db,
 		cs:           cs,
+		notifman:     notifman,
 		fakeDid:      NewFakeDid(db),
+		repoman:      repoman,
 		handleSuffix: ".pdstest",
 	}
 
-	feedgen, err := NewFeedGenerator(db, s.readRecordFunc)
+	feedgen, err := NewFeedGenerator(db, notifman, s.readRecordFunc)
 	if err != nil {
 		return nil, err
 	}
 
 	s.feedgen = feedgen
-	s.repoman = repomgr.NewRepoManager(db, cs, feedgen.HandleRepoEvent)
+	s.repoman.SetEventHandler(feedgen.HandleRepoEvent)
 
 	return s, nil
 }

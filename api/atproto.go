@@ -70,16 +70,12 @@ type CreateRecordResponse struct {
 	Cid string `json:"cid"`
 }
 
-func (atp *ATProto) RepoCreateRecord(ctx context.Context, did, collection string, validate bool, rec JsonLD) (*CreateRecordResponse, error) {
-	rw := &RecordWrapper{
-		Sub: rec,
-	}
-
+func (atp *ATProto) RepoCreateRecord(ctx context.Context, did, collection string, validate bool, rec interface{}) (*CreateRecordResponse, error) {
 	body := map[string]interface{}{
 		"did":        did,
 		"collection": collection,
 		"validate":   validate,
-		"record":     rw,
+		"record":     rec,
 	}
 
 	var out CreateRecordResponse
@@ -146,13 +142,13 @@ func (atp *ATProto) SessionRefresh(ctx context.Context) (*xrpc.AuthInfo, error) 
 	return &out, nil
 }
 
-type RecordResponse[T JsonLD] struct {
+type RecordResponse[T any] struct {
 	Uri   string `json:"uri"`
 	Cid   string `json:"cid"`
 	Value T      `json:"value"`
 }
 
-func RepoGetRecord[T JsonLD](atp *ATProto, ctx context.Context, user string, collection string, rkey string) (*RecordResponse[T], error) {
+func RepoGetRecord[T any](atp *ATProto, ctx context.Context, user string, collection string, rkey string) (*RecordResponse[T], error) {
 	params := map[string]interface{}{
 		"user":       user,
 		"collection": collection,

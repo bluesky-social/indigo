@@ -15,6 +15,7 @@ import (
 	"github.com/polydawn/refmt/shared"
 	cli "github.com/urfave/cli/v2"
 	api "github.com/whyrusleeping/gosky/api"
+	apibsky "github.com/whyrusleeping/gosky/api/bsky"
 	cliutil "github.com/whyrusleeping/gosky/cmd/gosky/util"
 	"github.com/whyrusleeping/gosky/repo"
 )
@@ -39,13 +40,14 @@ func main() {
 		feedGetAuthorCmd,
 		feedGetCmd,
 		feedSetVoteCmd,
-		graphGetFollowsCmd,
 		newAccountCmd,
 		postCmd,
 		refreshAuthTokenCmd,
 		syncCmd,
 		listAllPostsCmd,
 		deletePostCmd,
+		getNotificationsCmd,
+		followsCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -120,6 +122,7 @@ var postCmd = &cli.Command{
 		text := strings.Join(cctx.Args().Slice(), " ")
 
 		resp, err := atp.RepoCreateRecord(context.TODO(), auth.Did, "app.bsky.feed.post", true, &api.PostRecord{
+			Type:      "app.bsky.feed.post",
 			Text:      text,
 			CreatedAt: time.Now().Format("2006-01-02T15:04:05.000Z"),
 		})
@@ -221,7 +224,7 @@ var syncGetRootCmd = &cli.Command{
 }
 
 var feedGetCmd = &cli.Command{
-	Name: "getFeed",
+	Name: "feed",
 	Flags: []cli.Flag{
 		&cli.IntFlag{
 			Name:  "count",
@@ -344,10 +347,11 @@ var feedSetVoteCmd = &cli.Command{
 		kind := parts[len(parts)-2]
 		user := parts[2]
 
+		fmt.Println(user, kind, last)
 		ctx := context.TODO()
 		resp, err := api.RepoGetRecord[*api.PostRecord](atpc, ctx, user, kind, last)
 		if err != nil {
-			return err
+			return fmt.Errorf("getting record: %w", err)
 		}
 
 		err = bskyc.FeedSetVote(ctx, &api.PostRef{Uri: resp.Uri, Cid: resp.Cid}, cctx.Args().Get(1))
@@ -356,33 +360,6 @@ var feedSetVoteCmd = &cli.Command{
 		}
 		return nil
 
-	},
-}
-
-var graphGetFollowsCmd = &cli.Command{
-	Name: "graphGetFollows",
-	Action: func(cctx *cli.Context) error {
-		bskyc, err := cliutil.GetBskyClient(cctx, true)
-		if err != nil {
-			return err
-		}
-
-		user := cctx.Args().First()
-		if user == "" {
-			user = bskyc.C.Auth.Did
-		}
-
-		ctx := context.TODO()
-		resp, err := bskyc.GraphGetFollows(ctx, user, 100, nil)
-		if err != nil {
-			return err
-		}
-
-		for _, f := range resp.Follows {
-			fmt.Println(f.Did, f.Handle)
-		}
-
-		return nil
 	},
 }
 
@@ -528,10 +505,108 @@ var listAllPostsCmd = &cli.Command{
 	},
 }
 
+var getNotificationsCmd = &cli.Command{
+	Name:  "notifs",
+	Flags: []cli.Flag{},
+	Action: func(cctx *cli.Context) error {
+		ctx := context.TODO()
+
+		bsky, err := cliutil.GetBskyClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		notifs, err := apibsky.NotificationList(ctx, bsky.C, "", 50)
+		if err != nil {
+			return err
+		}
+
+		for _, n := range notifs.Notifications {
+			b, err := json.Marshal(n)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(b))
+		}
+
+		return nil
+	},
+}
+
+var followsCmd = &cli.Command{
+	Name: "follows",
+	Subcommands: []*cli.Command{
+		followsAddCmd,
+		followsListCmd,
+	},
+}
+
+var followsAddCmd = &cli.Command{
+	Name:  "add",
+	Flags: []cli.Flag{},
+	Action: func(cctx *cli.Context) error {
+		ctx := context.TODO()
+
+		atpc, err := cliutil.GetATPClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		user := cctx.Args().First()
+
+		follow := apibsky.GraphFollow{
+			LexiconTypeID: "app.bsky.graph.follow",
+			CreatedAt:     time.Now().Format(time.RFC3339),
+			Subject: &apibsky.ActorRef{
+				DeclarationCid: "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u",
+				Did:            user,
+			},
+		}
+
+		resp, err := atpc.RepoCreateRecord(ctx, atpc.C.Auth.Did, "app.bsky.graph.follow", true, &follow)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(resp.Uri)
+
+		return nil
+	},
+}
+
+var followsListCmd = &cli.Command{
+	Name: "list",
+	Action: func(cctx *cli.Context) error {
+		bskyc, err := cliutil.GetBskyClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		user := cctx.Args().First()
+		if user == "" {
+			user = bskyc.C.Auth.Did
+		}
+
+		ctx := context.TODO()
+		resp, err := bskyc.GraphGetFollows(ctx, user, 100, nil)
+		if err != nil {
+			return err
+		}
+
+		for _, f := range resp.Follows {
+			fmt.Println(f.Did, f.Handle)
+		}
+
+		return nil
+	},
+}
+
 func cborToJson(data []byte) ([]byte, error) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("panic: ", r)
+			fmt.Printf("bad blob: %x\n", data)
 		}
 	}()
 	buf := new(bytes.Buffer)

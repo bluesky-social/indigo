@@ -17,14 +17,14 @@ type NotificationList_Output struct {
 }
 
 type NotificationList_Notification struct {
+	Author        *ActorRef_WithInfo `json:"author" cborgen:"author"`
+	Cid           string             `json:"cid" cborgen:"cid"`
+	IndexedAt     string             `json:"indexedAt" cborgen:"indexedAt"`
+	IsRead        bool               `json:"isRead" cborgen:"isRead"`
 	Reason        string             `json:"reason" cborgen:"reason"`
 	ReasonSubject *string            `json:"reasonSubject" cborgen:"reasonSubject"`
 	Record        any                `json:"record" cborgen:"record"`
-	IsRead        bool               `json:"isRead" cborgen:"isRead"`
-	IndexedAt     string             `json:"indexedAt" cborgen:"indexedAt"`
 	Uri           string             `json:"uri" cborgen:"uri"`
-	Cid           string             `json:"cid" cborgen:"cid"`
-	Author        *ActorRef_WithInfo `json:"author" cborgen:"author"`
 }
 
 func NotificationList(ctx context.Context, c *xrpc.Client, before string, limit int64) (*NotificationList_Output, error) {

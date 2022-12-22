@@ -19,9 +19,9 @@ require (
 	github.com/lestrrat-go/jwx v1.2.25
 	github.com/lestrrat-go/jwx/v2 v2.0.0
 	github.com/multiformats/go-multihash v0.1.0
-	github.com/polydawn/refmt v0.0.0-20201211092308-30ac6d18308e
+	github.com/polydawn/refmt v0.89.1-0.20221221234430-40501e09de1f
 	github.com/urfave/cli/v2 v2.23.0
-	github.com/whyrusleeping/cbor-gen v0.0.0-20221213005056-dae902347b80
+	github.com/whyrusleeping/cbor-gen v0.0.0-20221220214510-0333c149dec0
 	github.com/whyrusleeping/go-did v0.0.0-20221105001742-8d9e0ffb0d59
 	go.opentelemetry.io/otel v1.11.2
 	go.opentelemetry.io/otel/exporters/jaeger v1.11.2

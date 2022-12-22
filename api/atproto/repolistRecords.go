@@ -17,8 +17,8 @@ type RepoListRecords_Output struct {
 }
 
 type RepoListRecords_Record struct {
-	Uri   string `json:"uri" cborgen:"uri"`
 	Cid   string `json:"cid" cborgen:"cid"`
+	Uri   string `json:"uri" cborgen:"uri"`
 	Value any    `json:"value" cborgen:"value"`
 }
 

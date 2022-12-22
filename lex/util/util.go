@@ -3,6 +3,7 @@ package util
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 )
 
 type typeExtractor struct {
@@ -34,4 +35,16 @@ func CborTypeExtract(b []byte) (string, error) {
 	}
 
 	return tcheck.Type, nil
+}
+
+func CborTypeExtractReader(r io.Reader) (string, []byte, error) {
+	buf := new(bytes.Buffer)
+	tr := io.TeeReader(r, buf)
+	var tcheck CborChecker
+	if err := tcheck.UnmarshalCBOR(tr); err != nil {
+		return "", nil, err
+	}
+
+	return tcheck.Type, buf.Bytes(), nil
+
 }

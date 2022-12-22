@@ -17,7 +17,21 @@ import (
 type FeedGenerator struct {
 	db *gorm.DB
 
+	notifman   *NotificationManager
 	readRecord ReadRecordFunc
+}
+
+func NewFeedGenerator(db *gorm.DB, notifman *NotificationManager, readRecord ReadRecordFunc) (*FeedGenerator, error) {
+	db.AutoMigrate(&FeedPost{})
+	db.AutoMigrate(&ActorInfo{})
+	db.AutoMigrate(&FollowRecord{})
+	db.AutoMigrate(&VoteRecord{})
+
+	return &FeedGenerator{
+		db:         db,
+		notifman:   notifman,
+		readRecord: readRecord,
+	}, nil
 }
 
 type ReadRecordFunc func(context.Context, uint, cid.Cid) (any, error)
@@ -73,24 +87,16 @@ type VoteRecord struct {
 	Voter   uint
 	Post    uint
 	Created string
+	Rkey    string
+	Cid     string
 }
 
 type FollowRecord struct {
 	gorm.Model
-	Subject uint
-	Follows uint
-}
-
-func NewFeedGenerator(db *gorm.DB, readRecord ReadRecordFunc) (*FeedGenerator, error) {
-	db.AutoMigrate(&FeedPost{})
-	db.AutoMigrate(&ActorInfo{})
-	db.AutoMigrate(&FollowRecord{})
-	db.AutoMigrate(&VoteRecord{})
-
-	return &FeedGenerator{
-		db:         db,
-		readRecord: readRecord,
-	}, nil
+	Follower uint
+	Target   uint
+	Rkey     string
+	Cid      string
 }
 
 func (fg *FeedGenerator) catchup(ctx context.Context, evt *repomgr.RepoEvent) error {
@@ -145,7 +151,11 @@ func (fg *FeedGenerator) getActorRefInfo(ctx context.Context, user uint) (*bsky.
 		return nil, err
 	}
 
-	out := bsky.ActorRef_WithInfo{
+	return ai.ActorRef(), nil
+}
+
+func (ai *ActorInfo) ActorRef() *bsky.ActorRef_WithInfo {
+	return &bsky.ActorRef_WithInfo{
 		Did: ai.Did,
 		Declaration: &bsky.SystemDeclRef{
 			Cid:       ai.DeclRefCid,
@@ -154,8 +164,6 @@ func (fg *FeedGenerator) getActorRefInfo(ctx context.Context, user uint) (*bsky.
 		Handle:      ai.Handle,
 		DisplayName: &ai.Name,
 	}
-
-	return &out, nil
 }
 
 func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *FeedPost) (*HydratedFeedItem, error) {
@@ -221,8 +229,8 @@ func (fg *FeedGenerator) GetTimeline(ctx context.Context, user uint, algo string
 	// TODO: this query is just a temporary hack...
 	var feed []*FeedPost
 	if err := fg.db.Find(&feed, "author = (?) OR reposted_by = (?)",
-		fg.db.Model(FollowRecord{}).Where("subject = ?", user).Select("follows"),
-		fg.db.Model(FollowRecord{}).Where("subject = ?", user).Select("follows"),
+		fg.db.Model(FollowRecord{}).Where("follower = ?", user).Select("target"),
+		fg.db.Model(FollowRecord{}).Where("follower = ?", user).Select("target"),
 	).Error; err != nil {
 		return nil, err
 	}
@@ -284,8 +292,8 @@ func (fg *FeedGenerator) handleInitActor(ctx context.Context, evt *repomgr.RepoE
 	}
 
 	if err := fg.db.Create(&FollowRecord{
-		Subject: evt.User,
-		Follows: evt.User,
+		Follower: evt.User,
+		Target:   evt.User,
 	}).Error; err != nil {
 		return err
 	}
@@ -318,7 +326,6 @@ func parseAtUri(uri string) (*parsedUri, error) {
 }
 
 func (fg *FeedGenerator) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEvent) error {
-
 	switch rec := evt.Record.(type) {
 	case *bsky.FeedPost:
 		fp := FeedPost{
@@ -330,11 +337,13 @@ func (fg *FeedGenerator) handleRecordCreate(ctx context.Context, evt *repomgr.Re
 			return err
 		}
 
-		if err := fg.addNewPostNotification(ctx, evt.User, fp.ID); err != nil {
+		if err := fg.addNewPostNotification(ctx, rec, &fp); err != nil {
 			return err
 		}
+
 		return nil
 	case *bsky.FeedVote:
+		fmt.Println("handling feed vote creation", rec.Direction)
 		var val int
 		var dbdir VoteDir
 		switch rec.Direction {
@@ -363,16 +372,46 @@ func (fg *FeedGenerator) handleRecordCreate(ctx context.Context, evt *repomgr.Re
 			return err
 		}
 
-		if err := fg.db.Create(&VoteRecord{
+		vr := VoteRecord{
 			Dir:     dbdir,
 			Voter:   evt.User,
 			Post:    post.ID,
 			Created: rec.CreatedAt,
-		}).Error; err != nil {
+			Rkey:    evt.Rkey,
+			Cid:     evt.RecCid.String(),
+		}
+		if err := fg.db.Create(&vr).Error; err != nil {
 			return err
 		}
 
 		if err := fg.db.Model(FeedPost{}).Where("id = ?", post.ID).Update("up_count", gorm.Expr("up_count + ?", val)).Error; err != nil {
+			return err
+		}
+
+		if rec.Direction == "up" {
+			if err := fg.addNewVoteNotification(ctx, act.ID, &vr); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	case *bsky.GraphFollow:
+		subj, err := fg.lookupUserByDid(ctx, rec.Subject.Did)
+		if err != nil {
+			return err
+		}
+		// 'follower' followed 'target'
+		fr := FollowRecord{
+			Follower: evt.User,
+			Target:   subj.ID,
+			Rkey:     evt.Rkey,
+			Cid:      evt.RecCid.String(),
+		}
+		if err := fg.db.Create(&fr).Error; err != nil {
+			return err
+		}
+
+		if err := fg.notifman.AddFollow(ctx, fr.Follower, fr.Target, fr.ID); err != nil {
 			return err
 		}
 
@@ -391,11 +430,56 @@ func (fg *FeedGenerator) lookupUserByDid(ctx context.Context, did string) (*Acto
 	return &ai, nil
 }
 
-func (fg *FeedGenerator) addNewPostNotification(ctx context.Context, user uint, postid uint) error {
-	// TODO:
+func (fg *FeedGenerator) lookupUserByHandle(ctx context.Context, handle string) (*ActorInfo, error) {
+	var ai ActorInfo
+	if err := fg.db.First(&ai, "handle = ?", handle).Error; err != nil {
+		return nil, err
+	}
+
+	return &ai, nil
+}
+
+func (fg *FeedGenerator) addNewPostNotification(ctx context.Context, post *bsky.FeedPost, fp *FeedPost) error {
+	if post.Reply != nil {
+		replyto, err := fg.GetPost(ctx, post.Reply.Parent.Uri)
+		if err != nil {
+			fmt.Println("probably shouldnt error when processing a reply to a not-found post")
+			return err
+		}
+
+		if err := fg.notifman.AddReplyTo(ctx, fp.Author, fp.ID, replyto); err != nil {
+			return err
+		}
+	}
+
+	for _, e := range post.Entities {
+		switch e.Type {
+		case "mention":
+			mentioned, err := fg.lookupUserByDid(ctx, e.Value)
+			if err != nil {
+				return fmt.Errorf("mentioned user does not exist: %w", err)
+			}
+
+			if err := fg.notifman.AddMention(ctx, fp.Author, fp.ID, mentioned.ID); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
+func (fg *FeedGenerator) addNewVoteNotification(ctx context.Context, postauthor uint, vr *VoteRecord) error {
+	return fg.notifman.AddUpVote(ctx, vr.Voter, vr.Post, vr.ID, postauthor)
+}
+
+func (fg *FeedGenerator) GetActorProfileByID(ctx context.Context, actor uint) (*ActorInfo, error) {
+	var ai ActorInfo
+	if err := fg.db.First(&ai, "id = ?", actor).Error; err != nil {
+		return nil, err
+	}
+
+	return &ai, nil
+}
 func (fg *FeedGenerator) GetActorProfile(ctx context.Context, actor string) (*ActorInfo, error) {
 	var ai ActorInfo
 	if strings.HasPrefix(actor, "did:") {
@@ -539,7 +623,7 @@ type FollowInfo struct {
 
 func (fg *FeedGenerator) GetFollows(ctx context.Context, user string, limit int, before string) ([]*FollowInfo, error) {
 	var follows []FollowRecord
-	if err := fg.db.Limit(limit).Find(&follows, "subject = (?)", fg.db.Model(ActorInfo{}).Where("did = ? or handle = ?", user, user).Select("subject")).Error; err != nil {
+	if err := fg.db.Limit(limit).Find(&follows, "follower = (?)", fg.db.Model(ActorInfo{}).Where("did = ? or handle = ?", user, user).Select("uid")).Error; err != nil {
 		return nil, err
 	}
 
@@ -555,7 +639,7 @@ func (fg *FeedGenerator) GetFollows(ctx context.Context, user string, limit int,
 
 	out := []*FollowInfo{}
 	for _, f := range follows {
-		fai, err := fg.getActorRefInfo(ctx, f.Follows)
+		fai, err := fg.getActorRefInfo(ctx, f.Target)
 		if err != nil {
 			return nil, err
 		}

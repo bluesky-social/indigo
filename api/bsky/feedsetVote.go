@@ -13,13 +13,13 @@ func init() {
 }
 
 type FeedSetVote_Input struct {
-	Subject   *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
 	Direction string                         `json:"direction" cborgen:"direction"`
+	Subject   *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
 }
 
 type FeedSetVote_Output struct {
-	Upvote   *string `json:"upvote" cborgen:"upvote"`
 	Downvote *string `json:"downvote" cborgen:"downvote"`
+	Upvote   *string `json:"upvote" cborgen:"upvote"`
 }
 
 func FeedSetVote(ctx context.Context, c *xrpc.Client, input FeedSetVote_Input) (*FeedSetVote_Output, error) {

@@ -12,8 +12,8 @@ func init() {
 }
 
 type SessionGet_Output struct {
-	Handle string `json:"handle" cborgen:"handle"`
 	Did    string `json:"did" cborgen:"did"`
+	Handle string `json:"handle" cborgen:"handle"`
 }
 
 func SessionGet(ctx context.Context, c *xrpc.Client) (*SessionGet_Output, error) {

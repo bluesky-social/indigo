@@ -12,10 +12,10 @@ func init() {
 }
 
 type SessionRefresh_Output struct {
-	Did        string `json:"did" cborgen:"did"`
 	AccessJwt  string `json:"accessJwt" cborgen:"accessJwt"`
-	RefreshJwt string `json:"refreshJwt" cborgen:"refreshJwt"`
+	Did        string `json:"did" cborgen:"did"`
 	Handle     string `json:"handle" cborgen:"handle"`
+	RefreshJwt string `json:"refreshJwt" cborgen:"refreshJwt"`
 }
 
 func SessionRefresh(ctx context.Context, c *xrpc.Client) (*SessionRefresh_Output, error) {

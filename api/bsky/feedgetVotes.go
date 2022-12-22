@@ -12,17 +12,17 @@ func init() {
 }
 
 type FeedGetVotes_Output struct {
-	Uri    string               `json:"uri" cborgen:"uri"`
 	Cid    *string              `json:"cid" cborgen:"cid"`
 	Cursor *string              `json:"cursor" cborgen:"cursor"`
+	Uri    string               `json:"uri" cborgen:"uri"`
 	Votes  []*FeedGetVotes_Vote `json:"votes" cborgen:"votes"`
 }
 
 type FeedGetVotes_Vote struct {
 	Actor     *ActorRef_WithInfo `json:"actor" cborgen:"actor"`
+	CreatedAt string             `json:"createdAt" cborgen:"createdAt"`
 	Direction string             `json:"direction" cborgen:"direction"`
 	IndexedAt string             `json:"indexedAt" cborgen:"indexedAt"`
-	CreatedAt string             `json:"createdAt" cborgen:"createdAt"`
 }
 
 func FeedGetVotes(ctx context.Context, c *xrpc.Client, before string, cid string, direction string, limit int64, uri string) (*FeedGetVotes_Output, error) {
