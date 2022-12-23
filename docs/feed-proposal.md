@@ -31,3 +31,7 @@ type ItemInfo struct {
 }
 ```
 
+The main idea here is not repeating ourselves, while still providing all the information the client might need.
+With this structure too, the user could easily request *less* data, asking to
+skip the inclusion of records older than X, or saying they are okay with stale
+information in certain places for the sake of efficiency.
