@@ -11,11 +11,6 @@ import (
 func init() {
 }
 
-type NotificationList_Output struct {
-	Cursor        *string                          `json:"cursor" cborgen:"cursor"`
-	Notifications []*NotificationList_Notification `json:"notifications" cborgen:"notifications"`
-}
-
 type NotificationList_Notification struct {
 	Author        *ActorRef_WithInfo `json:"author" cborgen:"author"`
 	Cid           string             `json:"cid" cborgen:"cid"`
@@ -25,6 +20,11 @@ type NotificationList_Notification struct {
 	ReasonSubject *string            `json:"reasonSubject" cborgen:"reasonSubject"`
 	Record        any                `json:"record" cborgen:"record"`
 	Uri           string             `json:"uri" cborgen:"uri"`
+}
+
+type NotificationList_Output struct {
+	Cursor        *string                          `json:"cursor" cborgen:"cursor"`
+	Notifications []*NotificationList_Notification `json:"notifications" cborgen:"notifications"`
 }
 
 func NotificationList(ctx context.Context, c *xrpc.Client, before string, limit int64) (*NotificationList_Output, error) {

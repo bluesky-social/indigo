@@ -26,6 +26,7 @@ func NewFeedGenerator(db *gorm.DB, notifman *NotificationManager, readRecord Rea
 	db.AutoMigrate(&ActorInfo{})
 	db.AutoMigrate(&FollowRecord{})
 	db.AutoMigrate(&VoteRecord{})
+	db.AutoMigrate(&RepostRecord{})
 
 	return &FeedGenerator{
 		db:         db,
@@ -38,15 +39,24 @@ type ReadRecordFunc func(context.Context, uint, cid.Cid) (any, error)
 
 type FeedPost struct {
 	gorm.Model
-	Author     uint
-	RepostedBy uint
-	TrendedBy  uint
-	// TODO: only keeping rkey here, assuming collection is app.bsky.feed.post
+	Author      uint
 	Rkey        string
 	Cid         string
 	UpCount     int64
 	ReplyCount  int64
 	RepostCount int64
+	ReplyTo     uint
+}
+
+type RepostRecord struct {
+	ID         uint `gorm:"primarykey"`
+	CreatedAt  time.Time
+	RecCreated string
+	Post       uint
+	Reposter   uint
+	Author     uint
+	RecCid     string
+	Rkey       string
 }
 
 type ActorInfo struct {
@@ -104,6 +114,7 @@ func (fg *FeedGenerator) catchup(ctx context.Context, evt *repomgr.RepoEvent) er
 	return nil
 }
 
+/*
 type HydratedFeedItem struct {
 	Uri           string
 	RepostedBy    *bsky.ActorRef_WithInfo
@@ -113,15 +124,16 @@ type HydratedFeedItem struct {
 	UpvoteCount   int64
 	DownvoteCount int64
 	MyState       *bsky.FeedGetAuthorFeed_MyState
-	Cid           string
-	Author        *bsky.ActorRef_WithInfo
-	TrendedBy     *bsky.ActorRef_WithInfo
-	Embed         *bsky.FeedEmbed
-	IndexedAt     string
+	Cid       string
+	Author    *bsky.ActorRef_WithInfo
+	TrendedBy *bsky.ActorRef_WithInfo
+	Embed     *bsky.FeedEmbed
+	IndexedAt string
 }
+*/
 
-func (fg *FeedGenerator) hydrateFeed(ctx context.Context, items []*FeedPost) ([]*HydratedFeedItem, error) {
-	out := make([]*HydratedFeedItem, 0, len(items))
+func (fg *FeedGenerator) hydrateFeed(ctx context.Context, items []*FeedPost, reposts []*RepostRecord) ([]*bsky.FeedFeedViewPost, error) {
+	out := make([]*bsky.FeedFeedViewPost, 0, len(items))
 	for _, it := range items {
 		hit, err := fg.hydrateItem(ctx, it)
 		if err != nil {
@@ -129,6 +141,34 @@ func (fg *FeedGenerator) hydrateFeed(ctx context.Context, items []*FeedPost) ([]
 		}
 
 		out = append(out, hit)
+	}
+
+	if len(reposts) > 0 {
+		for _, rp := range reposts {
+			var fp FeedPost
+			if err := fg.db.First(&fp, "id = ?", rp.Post).Error; err != nil {
+				return nil, err
+			}
+
+			fvp, err := fg.hydrateItem(ctx, &fp)
+			if err != nil {
+				return nil, err
+			}
+
+			reposter, err := fg.getActorRefInfo(ctx, rp.Reposter)
+			if err != nil {
+				return nil, err
+			}
+
+			fvp.Reason = &bsky.FeedFeedViewPost_Reason{
+				FeedFeedViewPost_ReasonRepost: &bsky.FeedFeedViewPost_ReasonRepost{
+					By:        reposter,
+					IndexedAt: rp.CreatedAt.Format(time.RFC3339),
+				},
+			}
+
+			out = append(out, fvp)
+		}
 	}
 
 	return out, nil
@@ -166,13 +206,15 @@ func (ai *ActorInfo) ActorRef() *bsky.ActorRef_WithInfo {
 	}
 }
 
-func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *FeedPost) (*HydratedFeedItem, error) {
+func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *FeedPost) (*bsky.FeedFeedViewPost, error) {
 	authorDid, err := fg.didForUser(ctx, item.Author)
 	if err != nil {
 		return nil, err
 	}
 
-	out := HydratedFeedItem{
+	out := &bsky.FeedFeedViewPost{}
+
+	out.Post = &bsky.FeedPost_View{
 		Uri:           "at://" + authorDid + "/app.bsky.feed.post/" + item.Rkey,
 		ReplyCount:    item.ReplyCount,
 		RepostCount:   item.RepostCount,
@@ -187,25 +229,28 @@ func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *FeedPost) (*Hydr
 		return nil, err
 	}
 
-	out.Author = author
+	out.Post.Author = author
 
-	if item.TrendedBy != 0 {
-		tb, err := fg.getActorRefInfo(ctx, item.TrendedBy)
-		if err != nil {
-			return nil, err
+	fmt.Println("need to finish reasons")
+	/*
+		if item.TrendedBy != 0 {
+			tb, err := fg.getActorRefInfo(ctx, item.TrendedBy)
+			if err != nil {
+				return nil, err
+			}
+
+			out.TrendedBy = tb
 		}
 
-		out.TrendedBy = tb
-	}
+		if item.RepostedBy != 0 {
+			rp, err := fg.getActorRefInfo(ctx, item.RepostedBy)
+			if err != nil {
+				return nil, err
+			}
 
-	if item.RepostedBy != 0 {
-		rp, err := fg.getActorRefInfo(ctx, item.RepostedBy)
-		if err != nil {
-			return nil, err
+			out.RepostedBy = rp
 		}
-
-		out.RepostedBy = rp
-	}
+	*/
 
 	reccid, err := cid.Decode(item.Cid)
 	if err != nil {
@@ -217,28 +262,34 @@ func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *FeedPost) (*Hydr
 		return nil, err
 	}
 
-	out.Record = rec
+	out.Post.Record = rec
 
-	return &out, nil
+	return out, nil
 }
 
-func (fg *FeedGenerator) GetTimeline(ctx context.Context, user uint, algo string, before string, limit int) ([]*HydratedFeedItem, error) {
+func (fg *FeedGenerator) GetTimeline(ctx context.Context, user uint, algo string, before string, limit int) ([]*bsky.FeedFeedViewPost, error) {
 	ctx, span := otel.Tracer("feedgen").Start(context.Background(), "GetTimeline")
 	defer span.End()
 
 	// TODO: this query is just a temporary hack...
 	var feed []*FeedPost
-	if err := fg.db.Find(&feed, "author = (?) OR reposted_by = (?)",
-		fg.db.Model(FollowRecord{}).Where("follower = ?", user).Select("target"),
+	if err := fg.db.Find(&feed, "author = (?)",
 		fg.db.Model(FollowRecord{}).Where("follower = ?", user).Select("target"),
 	).Error; err != nil {
 		return nil, err
 	}
 
-	return fg.hydrateFeed(ctx, feed)
+	var rps []*RepostRecord
+	if err := fg.db.Find(&rps, "reposter = (?)",
+		fg.db.Model(FollowRecord{}).Where("follower = ?", user).Select("target"),
+	).Error; err != nil {
+		return nil, err
+	}
+
+	return fg.hydrateFeed(ctx, feed, rps)
 }
 
-func (fg *FeedGenerator) GetAuthorFeed(ctx context.Context, user uint, before string, limit int) ([]*HydratedFeedItem, error) {
+func (fg *FeedGenerator) GetAuthorFeed(ctx context.Context, user uint, before string, limit int) ([]*bsky.FeedFeedViewPost, error) {
 	ctx, span := otel.Tracer("feedgen").Start(context.Background(), "GetAuthorFeed")
 	defer span.End()
 
@@ -246,11 +297,16 @@ func (fg *FeedGenerator) GetAuthorFeed(ctx context.Context, user uint, before st
 	// bsky.FeedGetAuthorFeed_FeedItem
 
 	var feed []*FeedPost
-	if err := fg.db.Find(&feed, "author = ? OR reposted_by = ?", user, user).Error; err != nil {
+	if err := fg.db.Find(&feed, "author = ?", user).Error; err != nil {
 		return nil, err
 	}
 
-	return fg.hydrateFeed(ctx, feed)
+	var reposts []*RepostRecord
+	if err := fg.db.Find(&reposts, "reposter = ?", user).Error; err != nil {
+		return nil, err
+	}
+
+	return fg.hydrateFeed(ctx, feed, reposts)
 }
 
 func (fg *FeedGenerator) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
@@ -328,10 +384,21 @@ func parseAtUri(uri string) (*parsedUri, error) {
 func (fg *FeedGenerator) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEvent) error {
 	switch rec := evt.Record.(type) {
 	case *bsky.FeedPost:
+		var replyid uint
+		if rec.Reply != nil {
+			replyto, err := fg.GetPost(ctx, rec.Reply.Parent.Uri)
+			if err != nil {
+				return err
+			}
+
+			replyid = replyto.ID
+		}
+
 		fp := FeedPost{
-			Rkey:   evt.Rkey,
-			Cid:    evt.RecCid.String(),
-			Author: evt.User,
+			Rkey:    evt.Rkey,
+			Cid:     evt.RecCid.String(),
+			Author:  evt.User,
+			ReplyTo: replyid,
 		}
 		if err := fg.db.Create(&fp).Error; err != nil {
 			return err
@@ -342,8 +409,29 @@ func (fg *FeedGenerator) handleRecordCreate(ctx context.Context, evt *repomgr.Re
 		}
 
 		return nil
+	case *bsky.FeedRepost:
+		fp, err := fg.GetPost(ctx, rec.Subject.Uri)
+		if err != nil {
+			return err
+		}
+
+		rr := RepostRecord{
+			RecCreated: rec.CreatedAt,
+			Post:       fp.ID,
+			Reposter:   evt.User,
+			Author:     fp.Author,
+			RecCid:     evt.RecCid.String(),
+		}
+		if err := fg.db.Create(&rr).Error; err != nil {
+			return err
+		}
+
+		if err := fg.notifman.AddRepost(ctx, fp.Author, rr.ID); err != nil {
+			return err
+		}
+
+		return nil
 	case *bsky.FeedVote:
-		fmt.Println("handling feed vote creation", rec.Direction)
 		var val int
 		var dbdir VoteDir
 		switch rec.Direction {
@@ -510,7 +598,7 @@ func (fg *FeedGenerator) GetPost(ctx context.Context, uri string) (*FeedPost, er
 }
 
 type ThreadPost struct {
-	Post *HydratedFeedItem
+	Post *bsky.FeedFeedViewPost
 
 	ParentUri string
 	Parent    *ThreadPost
@@ -527,7 +615,7 @@ func (fg *FeedGenerator) GetPostThread(ctx context.Context, uri string, depth in
 		return nil, err
 	}
 
-	p, ok := hi.Record.(*bsky.FeedPost)
+	p, ok := hi.Post.Record.(*bsky.FeedPost)
 	if !ok {
 		return nil, fmt.Errorf("getPostThread can only operate on app.bsky.feed.post records")
 	}

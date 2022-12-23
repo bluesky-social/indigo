@@ -113,23 +113,8 @@ func (s *Server) handleAppBskyFeedGetAuthorFeed(ctx context.Context, author stri
 		return nil, err
 	}
 
-	var out appbskytypes.FeedGetAuthorFeed_Output
-	for _, fi := range feed {
-		out.Feed = append(out.Feed, &appbskytypes.FeedGetAuthorFeed_FeedItem{
-			Uri:           fi.Uri,
-			RepostedBy:    fi.RepostedBy,
-			Record:        fi.Record,
-			ReplyCount:    fi.ReplyCount,
-			RepostCount:   fi.RepostCount,
-			UpvoteCount:   fi.UpvoteCount,
-			DownvoteCount: 0,
-			MyState:       nil, // TODO:
-			Cid:           fi.Cid,
-			Author:        fi.Author,
-			TrendedBy:     fi.TrendedBy,
-			Embed:         nil,
-			IndexedAt:     fi.IndexedAt,
-		})
+	out := appbskytypes.FeedGetAuthorFeed_Output{
+		Feed: feed,
 	}
 
 	return &out, nil
@@ -147,36 +132,26 @@ func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth *int,
 		return nil, err
 	}
 
-	var convertToOutputType func(thr *ThreadPost) *appbskytypes.FeedGetPostThread_Post
-	convertToOutputType = func(thr *ThreadPost) *appbskytypes.FeedGetPostThread_Post {
+	fmt.Println("TODO: replies")
+
+	var convertToOutputType func(thr *ThreadPost) *appbskytypes.FeedGetPostThread_ThreadViewPost
+	convertToOutputType = func(thr *ThreadPost) *appbskytypes.FeedGetPostThread_ThreadViewPost {
 		p := thr.Post
-		out := &appbskytypes.FeedGetPostThread_Post{
-			MyState:       nil, // TODO:
-			Uri:           p.Uri,
-			Parent:        nil,
-			ReplyCount:    p.ReplyCount,
-			Replies:       []*appbskytypes.FeedGetPostThread_Post_Replies_Elem{},
-			UpvoteCount:   p.UpvoteCount,
-			DownvoteCount: 0, // TODO:
-			IndexedAt:     p.IndexedAt,
-			Cid:           p.Cid,
-			Author:        p.Author,
-			Record:        p.Record,
-			Embed:         nil, // TODO: embeds
-			RepostCount:   p.RepostCount,
+		out := &appbskytypes.FeedGetPostThread_ThreadViewPost{
+			Post: p.Post,
 		}
 
 		if thr.ParentUri != "" {
 			if thr.Parent == nil {
-				out.Parent = &appbskytypes.FeedGetPostThread_Post_Parent{
+				out.Parent = &appbskytypes.FeedGetPostThread_ThreadViewPost_Parent{
 					FeedGetPostThread_NotFoundPost: &appbskytypes.FeedGetPostThread_NotFoundPost{
 						Uri:      thr.ParentUri,
 						NotFound: true,
 					},
 				}
 			} else {
-				out.Parent = &appbskytypes.FeedGetPostThread_Post_Parent{
-					FeedGetPostThread_Post: convertToOutputType(thr.Parent),
+				out.Parent = &appbskytypes.FeedGetPostThread_ThreadViewPost_Parent{
+					FeedGetPostThread_ThreadViewPost: convertToOutputType(thr.Parent),
 				}
 			}
 		}
@@ -186,7 +161,7 @@ func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth *int,
 
 	out := appbskytypes.FeedGetPostThread_Output{
 		Thread: &appbskytypes.FeedGetPostThread_Output_Thread{
-			FeedGetPostThread_Post: convertToOutputType(pthread),
+			FeedGetPostThread_ThreadViewPost: convertToOutputType(pthread),
 			//FeedGetPostThread_NotFoundPost: &appbskytypes.FeedGetPostThread_NotFoundPost{},
 		},
 	}
@@ -211,25 +186,7 @@ func (s *Server) handleAppBskyFeedGetTimeline(ctx context.Context, algorithm str
 	}
 
 	var out appbskytypes.FeedGetTimeline_Output
-	out.Feed = []*appbskytypes.FeedGetTimeline_FeedItem{}
-
-	for _, fi := range tl {
-		out.Feed = append(out.Feed, &appbskytypes.FeedGetTimeline_FeedItem{
-			Uri:           fi.Uri,
-			RepostedBy:    fi.RepostedBy,
-			Record:        fi.Record,
-			ReplyCount:    fi.ReplyCount,
-			RepostCount:   fi.RepostCount,
-			UpvoteCount:   fi.UpvoteCount,
-			DownvoteCount: 0,
-			MyState:       nil, // TODO:
-			Cid:           fi.Cid,
-			Author:        fi.Author,
-			TrendedBy:     fi.TrendedBy,
-			Embed:         nil,
-			IndexedAt:     fi.IndexedAt,
-		})
-	}
+	out.Feed = tl
 
 	return &out, nil
 }

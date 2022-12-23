@@ -232,6 +232,9 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 		return err
 	}
 
+	sort.Slice(tps, func(i, j int) bool {
+		return tps[i].Name < tps[j].Name
+	})
 	for _, ot := range tps {
 		fmt.Println("TYPE: ", ot.Name)
 		if err := ot.Type.WriteType(ot.Name, buf); err != nil {

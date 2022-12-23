@@ -93,18 +93,71 @@ func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
 	}
 }
 
-type FeedPost_ReplyRef struct {
-	Parent *comatprototypes.RepoStrongRef `json:"parent" cborgen:"parent"`
-	Root   *comatprototypes.RepoStrongRef `json:"root" cborgen:"root"`
-}
-
 type FeedPost_Entity struct {
 	Index *FeedPost_TextSlice `json:"index" cborgen:"index"`
 	Type  string              `json:"type" cborgen:"type"`
 	Value string              `json:"value" cborgen:"value"`
 }
 
+type FeedPost_ReplyRef struct {
+	Parent *comatprototypes.RepoStrongRef `json:"parent" cborgen:"parent"`
+	Root   *comatprototypes.RepoStrongRef `json:"root" cborgen:"root"`
+}
+
 type FeedPost_TextSlice struct {
 	End   int64 `json:"end" cborgen:"end"`
 	Start int64 `json:"start" cborgen:"start"`
+}
+
+type FeedPost_View struct {
+	Author        *ActorRef_WithInfo    `json:"author" cborgen:"author"`
+	Cid           string                `json:"cid" cborgen:"cid"`
+	DownvoteCount int64                 `json:"downvoteCount" cborgen:"downvoteCount"`
+	Embed         *FeedPost_View_Embed  `json:"embed" cborgen:"embed"`
+	IndexedAt     string                `json:"indexedAt" cborgen:"indexedAt"`
+	Record        any                   `json:"record" cborgen:"record"`
+	ReplyCount    int64                 `json:"replyCount" cborgen:"replyCount"`
+	RepostCount   int64                 `json:"repostCount" cborgen:"repostCount"`
+	UpvoteCount   int64                 `json:"upvoteCount" cborgen:"upvoteCount"`
+	Uri           string                `json:"uri" cborgen:"uri"`
+	Viewer        *FeedPost_ViewerState `json:"viewer" cborgen:"viewer"`
+}
+
+type FeedPost_View_Embed struct {
+	EmbedImages_Presented   *EmbedImages_Presented
+	EmbedExternal_Presented *EmbedExternal_Presented
+}
+
+func (t *FeedPost_View_Embed) MarshalJSON() ([]byte, error) {
+	if t.EmbedImages_Presented != nil {
+		return json.Marshal(t.EmbedImages_Presented)
+	}
+	if t.EmbedExternal_Presented != nil {
+		return json.Marshal(t.EmbedExternal_Presented)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *FeedPost_View_Embed) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "app.bsky.embed.images#presented":
+		t.EmbedImages_Presented = new(EmbedImages_Presented)
+		return json.Unmarshal(b, t.EmbedImages_Presented)
+	case "app.bsky.embed.external#presented":
+		t.EmbedExternal_Presented = new(EmbedExternal_Presented)
+		return json.Unmarshal(b, t.EmbedExternal_Presented)
+
+	default:
+		return nil
+	}
+}
+
+type FeedPost_ViewerState struct {
+	Downvote *string `json:"downvote" cborgen:"downvote"`
+	Repost   *string `json:"repost" cborgen:"repost"`
+	Upvote   *string `json:"upvote" cborgen:"upvote"`
 }

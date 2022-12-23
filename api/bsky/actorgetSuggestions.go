@@ -11,11 +11,6 @@ import (
 func init() {
 }
 
-type ActorGetSuggestions_Output struct {
-	Actors []*ActorGetSuggestions_Actor `json:"actors" cborgen:"actors"`
-	Cursor *string                      `json:"cursor" cborgen:"cursor"`
-}
-
 type ActorGetSuggestions_Actor struct {
 	Avatar      *string                      `json:"avatar" cborgen:"avatar"`
 	Declaration *SystemDeclRef               `json:"declaration" cborgen:"declaration"`
@@ -29,6 +24,11 @@ type ActorGetSuggestions_Actor struct {
 
 type ActorGetSuggestions_MyState struct {
 	Follow *string `json:"follow" cborgen:"follow"`
+}
+
+type ActorGetSuggestions_Output struct {
+	Actors []*ActorGetSuggestions_Actor `json:"actors" cborgen:"actors"`
+	Cursor *string                      `json:"cursor" cborgen:"cursor"`
 }
 
 func ActorGetSuggestions(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*ActorGetSuggestions_Output, error) {

@@ -11,12 +11,6 @@ import (
 func init() {
 }
 
-type GraphGetMemberships_Output struct {
-	Cursor      *string                           `json:"cursor" cborgen:"cursor"`
-	Memberships []*GraphGetMemberships_Membership `json:"memberships" cborgen:"memberships"`
-	Subject     *ActorRef_WithInfo                `json:"subject" cborgen:"subject"`
-}
-
 type GraphGetMemberships_Membership struct {
 	CreatedAt   *string        `json:"createdAt" cborgen:"createdAt"`
 	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
@@ -24,6 +18,12 @@ type GraphGetMemberships_Membership struct {
 	DisplayName *string        `json:"displayName" cborgen:"displayName"`
 	Handle      string         `json:"handle" cborgen:"handle"`
 	IndexedAt   string         `json:"indexedAt" cborgen:"indexedAt"`
+}
+
+type GraphGetMemberships_Output struct {
+	Cursor      *string                           `json:"cursor" cborgen:"cursor"`
+	Memberships []*GraphGetMemberships_Membership `json:"memberships" cborgen:"memberships"`
+	Subject     *ActorRef_WithInfo                `json:"subject" cborgen:"subject"`
 }
 
 func GraphGetMemberships(ctx context.Context, c *xrpc.Client, actor string, before string, limit int64) (*GraphGetMemberships_Output, error) {

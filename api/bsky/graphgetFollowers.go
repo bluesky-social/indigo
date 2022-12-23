@@ -11,12 +11,6 @@ import (
 func init() {
 }
 
-type GraphGetFollowers_Output struct {
-	Cursor    *string                       `json:"cursor" cborgen:"cursor"`
-	Followers []*GraphGetFollowers_Follower `json:"followers" cborgen:"followers"`
-	Subject   *ActorRef_WithInfo            `json:"subject" cborgen:"subject"`
-}
-
 type GraphGetFollowers_Follower struct {
 	Avatar      *string        `json:"avatar" cborgen:"avatar"`
 	CreatedAt   *string        `json:"createdAt" cborgen:"createdAt"`
@@ -25,6 +19,12 @@ type GraphGetFollowers_Follower struct {
 	DisplayName *string        `json:"displayName" cborgen:"displayName"`
 	Handle      string         `json:"handle" cborgen:"handle"`
 	IndexedAt   string         `json:"indexedAt" cborgen:"indexedAt"`
+}
+
+type GraphGetFollowers_Output struct {
+	Cursor    *string                       `json:"cursor" cborgen:"cursor"`
+	Followers []*GraphGetFollowers_Follower `json:"followers" cborgen:"followers"`
+	Subject   *ActorRef_WithInfo            `json:"subject" cborgen:"subject"`
 }
 
 func GraphGetFollowers(ctx context.Context, c *xrpc.Client, before string, limit int64, user string) (*GraphGetFollowers_Output, error) {

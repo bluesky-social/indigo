@@ -610,9 +610,8 @@ func (s *Server) HandleComAtprotoBlobUpload(c echo.Context) error {
 	body := c.Request().Body
 	var out *comatprototypes.BlobUpload_Output
 	var handleErr error
-	contentType := c.Request().Header.Get("Content-Type")
 	// func (s *Server) handleComAtprotoBlobUpload(ctx context.Context,r io.Reader) (*comatprototypes.BlobUpload_Output, error)
-	out, handleErr = s.handleComAtprotoBlobUpload(ctx, body, contentType)
+	out, handleErr = s.handleComAtprotoBlobUpload(ctx, body, c.Request().Header.Get("Content-Type"))
 	if handleErr != nil {
 		return handleErr
 	}

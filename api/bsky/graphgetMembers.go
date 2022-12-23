@@ -11,12 +11,6 @@ import (
 func init() {
 }
 
-type GraphGetMembers_Output struct {
-	Cursor  *string                   `json:"cursor" cborgen:"cursor"`
-	Members []*GraphGetMembers_Member `json:"members" cborgen:"members"`
-	Subject *ActorRef_WithInfo        `json:"subject" cborgen:"subject"`
-}
-
 type GraphGetMembers_Member struct {
 	CreatedAt   *string        `json:"createdAt" cborgen:"createdAt"`
 	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
@@ -24,6 +18,12 @@ type GraphGetMembers_Member struct {
 	DisplayName *string        `json:"displayName" cborgen:"displayName"`
 	Handle      string         `json:"handle" cborgen:"handle"`
 	IndexedAt   string         `json:"indexedAt" cborgen:"indexedAt"`
+}
+
+type GraphGetMembers_Output struct {
+	Cursor  *string                   `json:"cursor" cborgen:"cursor"`
+	Members []*GraphGetMembers_Member `json:"members" cborgen:"members"`
+	Subject *ActorRef_WithInfo        `json:"subject" cborgen:"subject"`
 }
 
 func GraphGetMembers(ctx context.Context, c *xrpc.Client, actor string, before string, limit int64) (*GraphGetMembers_Output, error) {

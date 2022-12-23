@@ -21,13 +21,6 @@ type RepoBatchWrite_Create struct {
 	Value      any     `json:"value" cborgen:"value"`
 }
 
-type RepoBatchWrite_Update struct {
-	Action     string `json:"action" cborgen:"action"`
-	Collection string `json:"collection" cborgen:"collection"`
-	Rkey       string `json:"rkey" cborgen:"rkey"`
-	Value      any    `json:"value" cborgen:"value"`
-}
-
 type RepoBatchWrite_Delete struct {
 	Action     string `json:"action" cborgen:"action"`
 	Collection string `json:"collection" cborgen:"collection"`
@@ -78,6 +71,13 @@ func (t *RepoBatchWrite_Input_Writes_Elem) UnmarshalJSON(b []byte) error {
 	default:
 		return fmt.Errorf("closed enums must have a matching value")
 	}
+}
+
+type RepoBatchWrite_Update struct {
+	Action     string `json:"action" cborgen:"action"`
+	Collection string `json:"collection" cborgen:"collection"`
+	Rkey       string `json:"rkey" cborgen:"rkey"`
+	Value      any    `json:"value" cborgen:"value"`
 }
 
 func RepoBatchWrite(ctx context.Context, c *xrpc.Client, input RepoBatchWrite_Input) error {

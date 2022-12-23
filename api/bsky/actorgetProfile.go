@@ -11,6 +11,11 @@ import (
 func init() {
 }
 
+type ActorGetProfile_MyState struct {
+	Follow *string `json:"follow" cborgen:"follow"`
+	Member *string `json:"member" cborgen:"member"`
+}
+
 type ActorGetProfile_Output struct {
 	Avatar         *string                  `json:"avatar" cborgen:"avatar"`
 	Banner         *string                  `json:"banner" cborgen:"banner"`
@@ -25,11 +30,6 @@ type ActorGetProfile_Output struct {
 	MembersCount   int64                    `json:"membersCount" cborgen:"membersCount"`
 	MyState        *ActorGetProfile_MyState `json:"myState" cborgen:"myState"`
 	PostsCount     int64                    `json:"postsCount" cborgen:"postsCount"`
-}
-
-type ActorGetProfile_MyState struct {
-	Follow *string `json:"follow" cborgen:"follow"`
-	Member *string `json:"member" cborgen:"member"`
 }
 
 func ActorGetProfile(ctx context.Context, c *xrpc.Client, actor string) (*ActorGetProfile_Output, error) {
