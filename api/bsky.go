@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	bsky "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/xrpc"
 )
 
@@ -90,7 +91,7 @@ func (b *BskyApp) FeedGetTimeline(ctx context.Context, algo string, limit int, b
 	return &out, nil
 }
 
-func (b *BskyApp) FeedGetAuthorFeed(ctx context.Context, author string, limit int, before *string) (*GetTimelineResp, error) {
+func (b *BskyApp) FeedGetAuthorFeed(ctx context.Context, author string, limit int, before *string) (*bsky.FeedGetAuthorFeed_Output, error) {
 	params := map[string]interface{}{
 		"author": author,
 		"limit":  limit,
@@ -100,7 +101,7 @@ func (b *BskyApp) FeedGetAuthorFeed(ctx context.Context, author string, limit in
 		params["before"] = *before
 	}
 
-	var out GetTimelineResp
+	var out bsky.FeedGetAuthorFeed_Output
 	if err := b.C.Do(ctx, xrpc.Query, encJson, "app.bsky.feed.getAuthorFeed", params, nil, &out); err != nil {
 		return nil, err
 	}

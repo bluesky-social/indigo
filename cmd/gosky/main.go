@@ -37,7 +37,6 @@ func main() {
 		createSessionCmd,
 		deletePostCmd,
 		didCmd,
-		feedGetAuthorCmd,
 		feedGetCmd,
 		feedSetVoteCmd,
 		newAccountCmd,
@@ -230,6 +229,10 @@ var feedGetCmd = &cli.Command{
 			Name:  "count",
 			Value: 100,
 		},
+		&cli.StringFlag{
+			Name:  "author",
+			Usage: "specify handle of user to list their authored feed",
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		bsky, err := cliutil.GetBskyClient(cctx, true)
@@ -239,55 +242,43 @@ var feedGetCmd = &cli.Command{
 
 		ctx := context.TODO()
 
-		algo := "reverse-chronological"
-		tl, err := bsky.FeedGetTimeline(ctx, algo, cctx.Int("count"), nil)
-		if err != nil {
-			return err
-		}
+		author := cctx.String("author")
+		if author != "" {
+			if author == "self" {
+				author = bsky.C.Auth.Did
+			}
 
-		for _, it := range tl.Feed {
-			b, err := json.MarshalIndent(it, "", "  ")
+			tl, err := bsky.FeedGetAuthorFeed(ctx, author, 99, nil)
 			if err != nil {
 				return err
 			}
 
-			fmt.Println(string(b))
-		}
+			fmt.Println(tl.Cursor)
+			for _, it := range tl.Feed {
+				b, err := json.MarshalIndent(it, "", "  ")
+				if err != nil {
+					return err
+				}
 
-		return nil
+				fmt.Println(string(b))
 
-	},
-}
+			}
 
-var feedGetAuthorCmd = &cli.Command{
-	Name: "getAuthorFeed",
-	Action: func(cctx *cli.Context) error {
-		bsky, err := cliutil.GetBskyClient(cctx, true)
-		if err != nil {
-			return err
-		}
-
-		ctx := context.TODO()
-
-		author := cctx.Args().First()
-		if author == "" {
-			author = bsky.C.Auth.Did
-		}
-
-		tl, err := bsky.FeedGetAuthorFeed(ctx, author, 99, nil)
-		if err != nil {
-			return err
-		}
-
-		fmt.Println(tl.Cursor)
-		for _, it := range tl.Feed {
-			b, err := json.MarshalIndent(it, "", "  ")
+		} else {
+			algo := "reverse-chronological"
+			tl, err := bsky.FeedGetTimeline(ctx, algo, cctx.Int("count"), nil)
 			if err != nil {
 				return err
 			}
 
-			fmt.Println(string(b))
+			for _, it := range tl.Feed {
+				b, err := json.MarshalIndent(it, "", "  ")
+				if err != nil {
+					return err
+				}
 
+				fmt.Println(string(b))
+			}
 		}
 
 		return nil
@@ -328,7 +319,8 @@ var actorGetSuggestionsCmd = &cli.Command{
 }
 
 var feedSetVoteCmd = &cli.Command{
-	Name: "feedSetVote",
+	Name:      "vote",
+	ArgsUsage: "<post> [direction]",
 	Action: func(cctx *cli.Context) error {
 		atpc, err := cliutil.GetATPClient(cctx, true)
 		if err != nil {
@@ -347,6 +339,11 @@ var feedSetVoteCmd = &cli.Command{
 		kind := parts[len(parts)-2]
 		user := parts[2]
 
+		dir := cctx.Args().Get(1)
+		if dir == "" {
+			dir = "up"
+		}
+
 		fmt.Println(user, kind, last)
 		ctx := context.TODO()
 		resp, err := api.RepoGetRecord[*api.PostRecord](atpc, ctx, user, kind, last)
@@ -354,7 +351,7 @@ var feedSetVoteCmd = &cli.Command{
 			return fmt.Errorf("getting record: %w", err)
 		}
 
-		err = bskyc.FeedSetVote(ctx, &api.PostRef{Uri: resp.Uri, Cid: resp.Cid}, cctx.Args().Get(1))
+		err = bskyc.FeedSetVote(ctx, &api.PostRef{Uri: resp.Uri, Cid: resp.Cid}, dir)
 		if err != nil {
 			return err
 		}
@@ -364,7 +361,8 @@ var feedSetVoteCmd = &cli.Command{
 }
 
 var refreshAuthTokenCmd = &cli.Command{
-	Name: "refresh",
+	Name:  "refresh",
+	Usage: "refresh your auth token and overwrite it with new auth info",
 	Action: func(cctx *cli.Context) error {
 		atpc, err := cliutil.GetATPClient(cctx, true)
 		if err != nil {
