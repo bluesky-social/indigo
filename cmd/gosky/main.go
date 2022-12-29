@@ -253,7 +253,6 @@ var feedGetCmd = &cli.Command{
 				return err
 			}
 
-			fmt.Println(tl.Cursor)
 			for _, it := range tl.Feed {
 				b, err := json.MarshalIndent(it, "", "  ")
 				if err != nil {
@@ -261,9 +260,7 @@ var feedGetCmd = &cli.Command{
 				}
 
 				fmt.Println(string(b))
-
 			}
-
 		} else {
 			algo := "reverse-chronological"
 			tl, err := bsky.FeedGetTimeline(ctx, algo, cctx.Int("count"), nil)

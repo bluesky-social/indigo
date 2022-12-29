@@ -1,6 +1,14 @@
 package main
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"encoding/json"
+	"fmt"
+	"os"
+
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/urfave/cli/v2"
 	server "github.com/whyrusleeping/gosky/api/server"
 	"github.com/whyrusleeping/gosky/carstore"
@@ -31,6 +39,10 @@ func main() {
 		&cli.BoolFlag{
 			Name: "dbtracing",
 		},
+	}
+
+	app.Commands = []*cli.Command{
+		generateKeyCmd,
 	}
 
 	app.Action = func(cctx *cli.Context) error {
@@ -109,4 +121,40 @@ func main() {
 	}
 
 	app.RunAndExitOnError()
+}
+
+var generateKeyCmd = &cli.Command{
+	Name: "gen-key",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:  "filename",
+			Value: "server.key",
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		raw, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+		if err != nil {
+			return fmt.Errorf("failed to generate new ECDSA private key: %s", err)
+		}
+
+		key, err := jwk.FromRaw(raw)
+		if err != nil {
+			return fmt.Errorf("failed to create ECDSA key: %s", err)
+		}
+
+		if _, ok := key.(jwk.ECDSAPrivateKey); !ok {
+			return fmt.Errorf("expected jwk.ECDSAPrivateKey, got %T", key)
+		}
+
+		key.Set(jwk.KeyIDKey, "mykey")
+
+		buf, err := json.MarshalIndent(key, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal key into JSON: %w", err)
+		}
+
+		fname := cctx.String("filename")
+
+		return os.WriteFile(fname, buf, 0664)
+	},
 }
