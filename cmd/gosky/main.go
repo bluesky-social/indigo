@@ -332,6 +332,9 @@ var feedSetVoteCmd = &cli.Command{
 		arg := cctx.Args().First()
 
 		parts := strings.Split(arg, "/")
+		if len(parts) < 3 {
+			return fmt.Errorf("invalid post uri: %q", arg)
+		}
 		last := parts[len(parts)-1]
 		kind := parts[len(parts)-2]
 		user := parts[2]

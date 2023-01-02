@@ -451,6 +451,8 @@ func (s *Server) handleComAtprotoRepoCreateRecord(ctx context.Context, input *co
 		rec = new(appbskytypes.FeedPost)
 	case "app.bsky.graph.follow":
 		rec = new(appbskytypes.GraphFollow)
+	case "app.bsky.feed.repost":
+		rec = new(appbskytypes.FeedRepost)
 	default:
 		return nil, fmt.Errorf("unsupported collection: %q", input.Collection)
 	}
