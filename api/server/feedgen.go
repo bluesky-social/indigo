@@ -267,29 +267,91 @@ func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *FeedPost) (*bsky
 	return out, nil
 }
 
-func (fg *FeedGenerator) GetTimeline(ctx context.Context, user uint, algo string, before string, limit int) ([]*bsky.FeedFeedViewPost, error) {
+func (fg *FeedGenerator) getPostViewerState(ctx context.Context, item uint, viewer uint, viewerDid string) (*bsky.FeedPost_ViewerState, error) {
+	var out bsky.FeedPost_ViewerState
+
+	var vote VoteRecord
+	if err := fg.db.Find(&vote, "post = ? AND voter = ?", item, viewer).Error; err != nil {
+		return nil, err
+	}
+
+	if vote.ID != 0 {
+		vuri := fmt.Sprintf("at://%s/app.bsky.feed.vote/%s", viewerDid, vote.Rkey)
+		switch vote.Dir {
+		case VoteDirUp:
+			out.Upvote = &vuri
+		case VoteDirDown:
+			out.Downvote = &vuri
+		}
+	}
+
+	var rep RepostRecord
+	if err := fg.db.Find(&rep, "post = ? AND reposter = ?", item, viewer).Error; err != nil {
+		return nil, err
+	}
+
+	if rep.ID != 0 {
+		rpuri := fmt.Sprintf("at://%s/app.bsky.feed.repost/%s", viewerDid, rep.Rkey)
+		out.Repost = &rpuri
+	}
+
+	return &out, nil
+}
+
+func (fg *FeedGenerator) GetTimeline(ctx context.Context, user *User, algo string, before string, limit int) ([]*bsky.FeedFeedViewPost, error) {
 	ctx, span := otel.Tracer("feedgen").Start(context.Background(), "GetTimeline")
 	defer span.End()
 
 	// TODO: this query is just a temporary hack...
 	var feed []*FeedPost
 	if err := fg.db.Find(&feed, "author = (?)",
-		fg.db.Model(FollowRecord{}).Where("follower = ?", user).Select("target"),
+		fg.db.Model(FollowRecord{}).Where("follower = ?", user.ID).Select("target"),
 	).Error; err != nil {
 		return nil, err
 	}
 
 	var rps []*RepostRecord
 	if err := fg.db.Find(&rps, "reposter = (?)",
-		fg.db.Model(FollowRecord{}).Where("follower = ?", user).Select("target"),
+		fg.db.Model(FollowRecord{}).Where("follower = ?", user.ID).Select("target"),
 	).Error; err != nil {
 		return nil, err
 	}
 
-	return fg.hydrateFeed(ctx, feed, rps)
+	fout, err := fg.hydrateFeed(ctx, feed, rps)
+	if err != nil {
+		return nil, fmt.Errorf("hydrating feed: %w", err)
+	}
+
+	return fg.personalizeFeed(ctx, fout, user)
+
 }
 
-func (fg *FeedGenerator) GetAuthorFeed(ctx context.Context, user uint, before string, limit int) ([]*bsky.FeedFeedViewPost, error) {
+func (fg *FeedGenerator) personalizeFeed(ctx context.Context, feed []*bsky.FeedFeedViewPost, viewer *User) ([]*bsky.FeedFeedViewPost, error) {
+	for _, p := range feed {
+
+		// TODO: its inefficient to have to call 'GetPost' again here when we could instead be doing that inside the 'hydrateFeed' call earlier.
+		// However, if we introduce per-user information into hydrateFeed, then
+		// it cannot be effectively cached, so we separate the 'cacheable'
+		// portion of feed generation from the 'per user' portion. An
+		// optimization could be to hide the internal post IDs in the Post
+		// structs for internal use (stripped out before sending to client)
+		item, err := fg.GetPost(ctx, p.Post.Uri)
+		if err != nil {
+			return nil, err
+		}
+
+		vs, err := fg.getPostViewerState(ctx, item.ID, viewer.ID, viewer.DID)
+		if err != nil {
+			return nil, fmt.Errorf("getting viewer state: %w", err)
+		}
+
+		p.Post.Viewer = vs
+	}
+
+	return feed, nil
+}
+
+func (fg *FeedGenerator) GetAuthorFeed(ctx context.Context, user *User, before string, limit int) ([]*bsky.FeedFeedViewPost, error) {
 	ctx, span := otel.Tracer("feedgen").Start(context.Background(), "GetAuthorFeed")
 	defer span.End()
 
@@ -297,16 +359,21 @@ func (fg *FeedGenerator) GetAuthorFeed(ctx context.Context, user uint, before st
 	// bsky.FeedGetAuthorFeed_FeedItem
 
 	var feed []*FeedPost
-	if err := fg.db.Find(&feed, "author = ?", user).Error; err != nil {
+	if err := fg.db.Find(&feed, "author = ?", user.ID).Error; err != nil {
 		return nil, err
 	}
 
 	var reposts []*RepostRecord
-	if err := fg.db.Find(&reposts, "reposter = ?", user).Error; err != nil {
+	if err := fg.db.Find(&reposts, "reposter = ?", user.ID).Error; err != nil {
 		return nil, err
 	}
 
-	return fg.hydrateFeed(ctx, feed, reposts)
+	fout, err := fg.hydrateFeed(ctx, feed, reposts)
+	if err != nil {
+		return nil, fmt.Errorf("hydrating feed: %w", err)
+	}
+
+	return fg.personalizeFeed(ctx, fout, user)
 }
 
 func (fg *FeedGenerator) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
@@ -421,12 +488,13 @@ func (fg *FeedGenerator) handleRecordCreate(ctx context.Context, evt *repomgr.Re
 			Reposter:   evt.User,
 			Author:     fp.Author,
 			RecCid:     evt.RecCid.String(),
+			Rkey:       evt.Rkey,
 		}
 		if err := fg.db.Create(&rr).Error; err != nil {
 			return err
 		}
 
-		if err := fg.notifman.AddRepost(ctx, fp.Author, rr.ID); err != nil {
+		if err := fg.notifman.AddRepost(ctx, fp.Author, rr.ID, evt.User); err != nil {
 			return err
 		}
 
@@ -563,12 +631,13 @@ func (fg *FeedGenerator) addNewVoteNotification(ctx context.Context, postauthor 
 func (fg *FeedGenerator) GetActorProfileByID(ctx context.Context, actor uint) (*ActorInfo, error) {
 	var ai ActorInfo
 	if err := fg.db.First(&ai, "id = ?", actor).Error; err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getActorProfileByID: %w", err)
 	}
 
 	return &ai, nil
 }
 func (fg *FeedGenerator) GetActorProfile(ctx context.Context, actor string) (*ActorInfo, error) {
+	fmt.Println("get actor profile: ", actor)
 	var ai ActorInfo
 	if strings.HasPrefix(actor, "did:") {
 		if err := fg.db.First(&ai, "did = ?", actor).Error; err != nil {
@@ -598,7 +667,8 @@ func (fg *FeedGenerator) GetPost(ctx context.Context, uri string) (*FeedPost, er
 }
 
 type ThreadPost struct {
-	Post *bsky.FeedFeedViewPost
+	Post   *bsky.FeedFeedViewPost
+	PostID uint
 
 	ParentUri string
 	Parent    *ThreadPost
@@ -621,7 +691,8 @@ func (fg *FeedGenerator) GetPostThread(ctx context.Context, uri string, depth in
 	}
 
 	out := &ThreadPost{
-		Post: hi,
+		Post:   hi,
+		PostID: post.ID,
 	}
 
 	if p.Reply != nil {

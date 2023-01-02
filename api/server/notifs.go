@@ -91,6 +91,9 @@ func (nm *NotificationManager) GetNotifications(ctx context.Context, user uint) 
 			return nil, err
 		}
 
+		// TODO: muting
+		hn.Author.Viewer = &appbskytypes.ActorRef_ViewerState{}
+
 		out = append(out, hn)
 	}
 	return out, nil
@@ -182,7 +185,7 @@ func (nm *NotificationManager) hydrateNotificationRepost(ctx context.Context, nr
 
 	_, rec, err := nm.repoman.GetRecord(ctx, reposter.ID, "app.bsky.feed.repost", repost.Rkey, cid.Undef)
 	if err != nil {
-		return nil, fmt.Errorf("getting vote: %w", err)
+		return nil, fmt.Errorf("getting repost: %w", err)
 	}
 
 	postAuthor, err := nm.getActor(ctx, repost.Author)
@@ -326,10 +329,11 @@ func (nm *NotificationManager) AddFollow(ctx context.Context, follower, followed
 	}).Error
 }
 
-func (nm *NotificationManager) AddRepost(ctx context.Context, op uint, repost uint) error {
+func (nm *NotificationManager) AddRepost(ctx context.Context, op uint, repost, reposter uint) error {
 	return nm.db.Create(&NotifRecord{
 		Kind:   NotifKindRepost,
 		For:    op,
 		Record: repost,
+		Who:    reposter,
 	}).Error
 }

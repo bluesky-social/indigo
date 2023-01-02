@@ -28,6 +28,9 @@ func (s *Server) RegisterHandlersAppBsky(e *echo.Echo) error {
 	e.GET("/xrpc/app.bsky.graph.getFollows", s.HandleAppBskyGraphGetFollows)
 	e.GET("/xrpc/app.bsky.graph.getMembers", s.HandleAppBskyGraphGetMembers)
 	e.GET("/xrpc/app.bsky.graph.getMemberships", s.HandleAppBskyGraphGetMemberships)
+	e.GET("/xrpc/app.bsky.graph.getMutes", s.HandleAppBskyGraphGetMutes)
+	e.POST("/xrpc/app.bsky.graph.mute", s.HandleAppBskyGraphMute)
+	e.POST("/xrpc/app.bsky.graph.unmute", s.HandleAppBskyGraphUnmute)
 	e.GET("/xrpc/app.bsky.notification.getCount", s.HandleAppBskyNotificationGetCount)
 	e.GET("/xrpc/app.bsky.notification.list", s.HandleAppBskyNotificationList)
 	e.POST("/xrpc/app.bsky.notification.updateSeen", s.HandleAppBskyNotificationUpdateSeen)
@@ -426,6 +429,65 @@ func (s *Server) HandleAppBskyGraphGetMemberships(c echo.Context) error {
 		return handleErr
 	}
 	return c.JSON(200, out)
+}
+
+func (s *Server) HandleAppBskyGraphGetMutes(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyGraphGetMutes")
+	defer span.End()
+	before := c.QueryParam("before")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	var out *appbskytypes.GraphGetMutes_Output
+	var handleErr error
+	// func (s *Server) handleAppBskyGraphGetMutes(ctx context.Context,before string,limit int) (*appbskytypes.GraphGetMutes_Output, error)
+	out, handleErr = s.handleAppBskyGraphGetMutes(ctx, before, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleAppBskyGraphMute(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyGraphMute")
+	defer span.End()
+
+	var body appbskytypes.GraphMute_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleAppBskyGraphMute(ctx context.Context,body appbskytypes.GraphMute_Input) error
+	handleErr = s.handleAppBskyGraphMute(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
+func (s *Server) HandleAppBskyGraphUnmute(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyGraphUnmute")
+	defer span.End()
+
+	var body appbskytypes.GraphUnmute_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleAppBskyGraphUnmute(ctx context.Context,body appbskytypes.GraphUnmute_Input) error
+	handleErr = s.handleAppBskyGraphUnmute(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
 }
 
 func (s *Server) HandleAppBskyNotificationGetCount(c echo.Context) error {

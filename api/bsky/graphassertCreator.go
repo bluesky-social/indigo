@@ -5,4 +5,4 @@ package schemagen
 func init() {
 }
 
-const GraphAssertCreator = "app.bsky.graph.assertCreator#main"
+const GraphAssertCreator = "app.bsky.graph.assertCreator"

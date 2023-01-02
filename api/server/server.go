@@ -107,6 +107,9 @@ func loadKey(kfile string) ([]byte, error) {
 
 func (s *Server) RunAPI(listen string) error {
 	e := echo.New()
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: "method=${method}, uri=${uri}, status=${status}\n",
+	}))
 
 	cfg := middleware.JWTConfig{
 		Skipper: func(c echo.Context) bool {
@@ -360,5 +363,9 @@ func infoToActorRef(ai *ActorInfo) *appbskytypes.ActorRef_WithInfo {
 }
 
 func (s *Server) invalidateToken(ctx context.Context, u *User, tok *jwt.Token) error {
+	panic("nyi")
+}
+
+func (s *Server) CreateScene(ctx context.Context, u *User, handle string, recovery *string) (interface{}, error) {
 	panic("nyi")
 }

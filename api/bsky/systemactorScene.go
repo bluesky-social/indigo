@@ -5,4 +5,4 @@ package schemagen
 func init() {
 }
 
-const SystemActorScene = "app.bsky.system.actorScene#main"
+const SystemActorScene = "app.bsky.system.actorScene"

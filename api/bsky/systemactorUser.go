@@ -5,4 +5,4 @@ package schemagen
 func init() {
 }
 
-const SystemActorUser = "app.bsky.system.actorUser#main"
+const SystemActorUser = "app.bsky.system.actorUser"

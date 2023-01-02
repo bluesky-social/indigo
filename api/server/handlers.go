@@ -15,7 +15,26 @@ import (
 )
 
 func (s *Server) handleAppBskyActorCreateScene(ctx context.Context, input *appbskytypes.ActorCreateScene_Input) (*appbskytypes.ActorCreateScene_Output, error) {
-	panic("not yet implemented")
+	u, err := s.getUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	scinfo, err := s.CreateScene(ctx, u, input.Handle, input.RecoveryKey)
+	if err != nil {
+		return nil, err
+	}
+
+	_ = scinfo
+	panic("nyi")
+
+	/*
+		return &appbskytypes.ActorCreateScene_Output{
+			Declaration: scinfo.Declaration,
+			Did:         scinfo.Did,
+			Handle:      scinfo.Handle,
+		}, nil
+	*/
 }
 
 func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string) (*appbskytypes.ActorGetProfile_Output, error) {
@@ -108,7 +127,7 @@ func (s *Server) handleAppBskyFeedGetAuthorFeed(ctx context.Context, author stri
 		return nil, err
 	}
 
-	feed, err := s.feedgen.GetAuthorFeed(ctx, target.ID, before, limit)
+	feed, err := s.feedgen.GetAuthorFeed(ctx, target, before, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -121,6 +140,10 @@ func (s *Server) handleAppBskyFeedGetAuthorFeed(ctx context.Context, author stri
 }
 
 func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth *int, uri string) (*appbskytypes.FeedGetPostThread_Output, error) {
+	u, err := s.getUser(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	d := 6
 	if depth != nil {
@@ -134,9 +157,17 @@ func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth *int,
 
 	fmt.Println("TODO: replies")
 
-	var convertToOutputType func(thr *ThreadPost) *appbskytypes.FeedGetPostThread_ThreadViewPost
-	convertToOutputType = func(thr *ThreadPost) *appbskytypes.FeedGetPostThread_ThreadViewPost {
+	var convertToOutputType func(thr *ThreadPost) (*appbskytypes.FeedGetPostThread_ThreadViewPost, error)
+	convertToOutputType = func(thr *ThreadPost) (*appbskytypes.FeedGetPostThread_ThreadViewPost, error) {
 		p := thr.Post
+
+		vs, err := s.feedgen.getPostViewerState(ctx, thr.PostID, u.ID, u.DID)
+		if err != nil {
+			return nil, err
+		}
+
+		p.Post.Viewer = vs
+
 		out := &appbskytypes.FeedGetPostThread_ThreadViewPost{
 			Post: p.Post,
 		}
@@ -150,18 +181,28 @@ func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth *int,
 					},
 				}
 			} else {
+				othr, err := convertToOutputType(thr.Parent)
+				if err != nil {
+					return nil, err
+				}
+
 				out.Parent = &appbskytypes.FeedGetPostThread_ThreadViewPost_Parent{
-					FeedGetPostThread_ThreadViewPost: convertToOutputType(thr.Parent),
+					FeedGetPostThread_ThreadViewPost: othr,
 				}
 			}
 		}
 
-		return out
+		return out, nil
+	}
+
+	othr, err := convertToOutputType(pthread)
+	if err != nil {
+		return nil, err
 	}
 
 	out := appbskytypes.FeedGetPostThread_Output{
 		Thread: &appbskytypes.FeedGetPostThread_Output_Thread{
-			FeedGetPostThread_ThreadViewPost: convertToOutputType(pthread),
+			FeedGetPostThread_ThreadViewPost: othr,
 			//FeedGetPostThread_NotFoundPost: &appbskytypes.FeedGetPostThread_NotFoundPost{},
 		},
 	}
@@ -180,7 +221,7 @@ func (s *Server) handleAppBskyFeedGetTimeline(ctx context.Context, algorithm str
 		return nil, err
 	}
 
-	tl, err := s.feedgen.GetTimeline(ctx, u.ID, algorithm, before, limit)
+	tl, err := s.feedgen.GetTimeline(ctx, u, algorithm, before, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +352,7 @@ func (s *Server) handleAppBskyNotificationGetCount(ctx context.Context) (*appbsk
 
 	count, err := s.notifman.GetCount(ctx, u.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("notification getCount: %w", err)
 	}
 
 	fmt.Println("notif count: ", u.Handle, count)
@@ -653,5 +694,17 @@ func (s *Server) handleComAtprotoSyncUpdateRepo(ctx context.Context, r io.Reader
 }
 
 func (s *Server) handleComAtprotoBlobUpload(ctx context.Context, r io.Reader, ctype string) (*comatprototypes.BlobUpload_Output, error) {
+	panic("not yet implemented")
+}
+
+func (s *Server) handleAppBskyGraphGetMutes(ctx context.Context, before string, limit int) (*appbskytypes.GraphGetMutes_Output, error) {
+	panic("not yet implemented")
+}
+
+func (s *Server) handleAppBskyGraphMute(ctx context.Context, input *appbskytypes.GraphMute_Input) error {
+	panic("not yet implemented")
+}
+
+func (s *Server) handleAppBskyGraphUnmute(ctx context.Context, input *appbskytypes.GraphUnmute_Input) error {
 	panic("not yet implemented")
 }

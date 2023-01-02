@@ -309,7 +309,12 @@ func fixImports(b []byte) ([]byte, error) {
 func writeMethods(typename string, ts *TypeSchema, w io.Writer) error {
 	switch ts.Type {
 	case "token":
-		fmt.Fprintf(w, "const %s = %q\n", typename, ts.id+"#"+ts.defName)
+		n := ts.id 
+		if ts.defName != "main" {
+			n += "#" + ts.defName
+		}
+
+		fmt.Fprintf(w, "const %s = %q\n", typename, n)
 		return nil
 	case "record":
 		return nil

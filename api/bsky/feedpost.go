@@ -158,6 +158,7 @@ func (t *FeedPost_View_Embed) UnmarshalJSON(b []byte) error {
 
 type FeedPost_ViewerState struct {
 	Downvote *string `json:"downvote" cborgen:"downvote"`
+	Muted    *bool   `json:"muted" cborgen:"muted"`
 	Repost   *string `json:"repost" cborgen:"repost"`
 	Upvote   *string `json:"upvote" cborgen:"upvote"`
 }
