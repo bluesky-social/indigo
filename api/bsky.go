@@ -73,7 +73,7 @@ type User struct {
 	Declaration *Declaration `json:"declaration"`
 }
 
-func (b *BskyApp) FeedGetTimeline(ctx context.Context, algo string, limit int, before *string) (*GetTimelineResp, error) {
+func (b *BskyApp) FeedGetTimeline(ctx context.Context, algo string, limit int, before *string) (*bsky.FeedGetTimeline_Output, error) {
 	params := map[string]interface{}{
 		"algorithm": algo,
 		"limit":     limit,
@@ -83,7 +83,7 @@ func (b *BskyApp) FeedGetTimeline(ctx context.Context, algo string, limit int, b
 		params["before"] = *before
 	}
 
-	var out GetTimelineResp
+	var out bsky.FeedGetTimeline_Output
 	if err := b.C.Do(ctx, xrpc.Query, encJson, "app.bsky.feed.getTimeline", params, nil, &out); err != nil {
 		return nil, err
 	}
