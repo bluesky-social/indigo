@@ -12,8 +12,9 @@ func init() {
 }
 
 type FeedGetTimeline_Output struct {
-	Cursor *string             `json:"cursor" cborgen:"cursor"`
-	Feed   []*FeedFeedViewPost `json:"feed" cborgen:"feed"`
+	LexiconTypeID string              `json:"$type,omitempty"`
+	Cursor        *string             `json:"cursor" cborgen:"cursor"`
+	Feed          []*FeedFeedViewPost `json:"feed" cborgen:"feed"`
 }
 
 func FeedGetTimeline(ctx context.Context, c *xrpc.Client, algorithm string, before string, limit int64) (*FeedGetTimeline_Output, error) {

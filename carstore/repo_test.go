@@ -88,7 +88,7 @@ func TestBasicOperation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := ds.CloseWithRoot(ctx, ncid); err != nil {
+	if _, err := ds.CloseWithRoot(ctx, ncid); err != nil {
 		t.Fatal(err)
 	}
 
@@ -115,7 +115,7 @@ func TestBasicOperation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := ds.CloseWithRoot(ctx, nroot); err != nil {
+		if _, err := ds.CloseWithRoot(ctx, nroot); err != nil {
 			t.Fatal(err)
 		}
 
@@ -167,7 +167,7 @@ func BenchmarkRepoWritesCarstore(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	if err := ds.CloseWithRoot(ctx, ncid); err != nil {
+	if _, err := ds.CloseWithRoot(ctx, ncid); err != nil {
 		b.Fatal(err)
 	}
 
@@ -195,7 +195,7 @@ func BenchmarkRepoWritesCarstore(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		if err := ds.CloseWithRoot(ctx, nroot); err != nil {
+		if _, err := ds.CloseWithRoot(ctx, nroot); err != nil {
 			b.Fatal(err)
 		}
 

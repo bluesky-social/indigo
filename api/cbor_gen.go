@@ -30,6 +30,29 @@ func (t *PostRecord) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.Text (string) (string)
+	if len("text") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"text\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("text"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("text")); err != nil {
+		return err
+	}
+
+	if len(t.Text) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Text was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Text))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Text)); err != nil {
+		return err
+	}
+
 	// t.Type (string) (string)
 	if len("$type") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
@@ -53,26 +76,19 @@ func (t *PostRecord) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Text (string) (string)
-	if len("text") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"text\" was too long")
+	// t.Reply (api.ReplyRef) (struct)
+	if len("reply") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"reply\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("text"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("reply"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("text")); err != nil {
+	if _, err := io.WriteString(w, string("reply")); err != nil {
 		return err
 	}
 
-	if len(t.Text) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Text was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Text))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Text)); err != nil {
+	if err := t.Reply.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -99,22 +115,6 @@ func (t *PostRecord) MarshalCBOR(w io.Writer) error {
 		if err := v.MarshalCBOR(cw); err != nil {
 			return err
 		}
-	}
-
-	// t.Reply (api.ReplyRef) (struct)
-	if len("reply") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"reply\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("reply"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("reply")); err != nil {
-		return err
-	}
-
-	if err := t.Reply.MarshalCBOR(cw); err != nil {
-		return err
 	}
 
 	// t.CreatedAt (string) (string)
@@ -180,7 +180,18 @@ func (t *PostRecord) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Type (string) (string)
+		// t.Text (string) (string)
+		case "text":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Text = string(sval)
+			}
+			// t.Type (string) (string)
 		case "$type":
 
 			{
@@ -191,16 +202,25 @@ func (t *PostRecord) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Type = string(sval)
 			}
-			// t.Text (string) (string)
-		case "text":
+			// t.Reply (api.ReplyRef) (struct)
+		case "reply":
 
 			{
-				sval, err := cbg.ReadString(cr)
+
+				b, err := cr.ReadByte()
 				if err != nil {
 					return err
 				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Reply = new(ReplyRef)
+					if err := t.Reply.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Reply pointer: %w", err)
+					}
+				}
 
-				t.Text = string(sval)
 			}
 			// t.Entities ([]*api.PostEntity) (slice)
 		case "entities":
@@ -232,26 +252,6 @@ func (t *PostRecord) UnmarshalCBOR(r io.Reader) (err error) {
 				t.Entities[i] = &v
 			}
 
-			// t.Reply (api.ReplyRef) (struct)
-		case "reply":
-
-			{
-
-				b, err := cr.ReadByte()
-				if err != nil {
-					return err
-				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-					t.Reply = new(ReplyRef)
-					if err := t.Reply.UnmarshalCBOR(cr); err != nil {
-						return xerrors.Errorf("unmarshaling t.Reply pointer: %w", err)
-					}
-				}
-
-			}
 			// t.CreatedAt (string) (string)
 		case "createdAt":
 
@@ -284,22 +284,6 @@ func (t *PostEntity) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Index (api.TextSlice) (struct)
-	if len("index") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"index\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("index"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("index")); err != nil {
-		return err
-	}
-
-	if err := t.Index.MarshalCBOR(cw); err != nil {
-		return err
-	}
-
 	// t.Type (string) (string)
 	if len("type") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"type\" was too long")
@@ -320,6 +304,22 @@ func (t *PostEntity) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Type)); err != nil {
+		return err
+	}
+
+	// t.Index (api.TextSlice) (struct)
+	if len("index") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"index\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("index"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("index")); err != nil {
+		return err
+	}
+
+	if err := t.Index.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -386,7 +386,18 @@ func (t *PostEntity) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Index (api.TextSlice) (struct)
+		// t.Type (string) (string)
+		case "type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Type = string(sval)
+			}
+			// t.Index (api.TextSlice) (struct)
 		case "index":
 
 			{
@@ -405,17 +416,6 @@ func (t *PostEntity) UnmarshalCBOR(r io.Reader) (err error) {
 					}
 				}
 
-			}
-			// t.Type (string) (string)
-		case "type":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.Type = string(sval)
 			}
 			// t.Value (string) (string)
 		case "value":
@@ -449,29 +449,6 @@ func (t *PostRef) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Uri (string) (string)
-	if len("Uri") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"Uri\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("Uri"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("Uri")); err != nil {
-		return err
-	}
-
-	if len(t.Uri) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Uri was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Uri))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Uri)); err != nil {
-		return err
-	}
-
 	// t.Cid (string) (string)
 	if len("Cid") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"Cid\" was too long")
@@ -492,6 +469,29 @@ func (t *PostRef) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Cid)); err != nil {
+		return err
+	}
+
+	// t.Uri (string) (string)
+	if len("Uri") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"Uri\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("Uri"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("Uri")); err != nil {
+		return err
+	}
+
+	if len(t.Uri) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Uri was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Uri))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Uri)); err != nil {
 		return err
 	}
 	return nil
@@ -535,18 +535,7 @@ func (t *PostRef) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Uri (string) (string)
-		case "Uri":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.Uri = string(sval)
-			}
-			// t.Cid (string) (string)
+		// t.Cid (string) (string)
 		case "Cid":
 
 			{
@@ -556,6 +545,17 @@ func (t *PostRef) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Cid = string(sval)
+			}
+			// t.Uri (string) (string)
+		case "Uri":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Uri = string(sval)
 			}
 
 		default:
@@ -691,28 +691,6 @@ func (t *TextSlice) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Start (int64) (int64)
-	if len("start") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"start\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("start"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("start")); err != nil {
-		return err
-	}
-
-	if t.Start >= 0 {
-		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Start)); err != nil {
-			return err
-		}
-	} else {
-		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Start-1)); err != nil {
-			return err
-		}
-	}
-
 	// t.End (int64) (int64)
 	if len("end") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"end\" was too long")
@@ -731,6 +709,28 @@ func (t *TextSlice) MarshalCBOR(w io.Writer) error {
 		}
 	} else {
 		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.End-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.Start (int64) (int64)
+	if len("start") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"start\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("start"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("start")); err != nil {
+		return err
+	}
+
+	if t.Start >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Start)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Start-1)); err != nil {
 			return err
 		}
 	}
@@ -775,7 +775,33 @@ func (t *TextSlice) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Start (int64) (int64)
+		// t.End (int64) (int64)
+		case "end":
+			{
+				maj, extra, err := cr.ReadHeader()
+				var extraI int64
+				if err != nil {
+					return err
+				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative oveflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.End = int64(extraI)
+			}
+			// t.Start (int64) (int64)
 		case "start":
 			{
 				maj, extra, err := cr.ReadHeader()
@@ -801,31 +827,328 @@ func (t *TextSlice) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Start = int64(extraI)
 			}
-			// t.End (int64) (int64)
-		case "end":
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *CreateOp) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+	fieldCount := 7
+
+	if t.Sig == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+		return err
+	}
+
+	// t.Sig (string) (string)
+	if t.Sig != "" {
+
+		if len("sig") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"sig\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("sig"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("sig")); err != nil {
+			return err
+		}
+
+		if len(t.Sig) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.Sig was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Sig))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(t.Sig)); err != nil {
+			return err
+		}
+	}
+
+	// t.Prev (string) (string)
+	if len("prev") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"prev\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("prev")); err != nil {
+		return err
+	}
+
+	if t.Prev == nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if len(*t.Prev) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.Prev was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Prev))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(*t.Prev)); err != nil {
+			return err
+		}
+	}
+
+	// t.Type (string) (string)
+	if len("type") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("type"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("type")); err != nil {
+		return err
+	}
+
+	if len(t.Type) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Type was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Type))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Type)); err != nil {
+		return err
+	}
+
+	// t.Handle (string) (string)
+	if len("handle") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"handle\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("handle"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("handle")); err != nil {
+		return err
+	}
+
+	if len(t.Handle) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Handle was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Handle))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Handle)); err != nil {
+		return err
+	}
+
+	// t.Service (string) (string)
+	if len("service") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"service\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("service"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("service")); err != nil {
+		return err
+	}
+
+	if len(t.Service) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Service was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Service))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Service)); err != nil {
+		return err
+	}
+
+	// t.SigningKey (string) (string)
+	if len("signingKey") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"signingKey\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("signingKey"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("signingKey")); err != nil {
+		return err
+	}
+
+	if len(t.SigningKey) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.SigningKey was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.SigningKey))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.SigningKey)); err != nil {
+		return err
+	}
+
+	// t.RecoveryKey (string) (string)
+	if len("recoveryKey") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"recoveryKey\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("recoveryKey"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("recoveryKey")); err != nil {
+		return err
+	}
+
+	if len(t.RecoveryKey) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.RecoveryKey was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.RecoveryKey))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.RecoveryKey)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *CreateOp) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = CreateOp{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("CreateOp: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.Sig (string) (string)
+		case "sig":
+
 			{
-				maj, extra, err := cr.ReadHeader()
-				var extraI int64
+				sval, err := cbg.ReadString(cr)
 				if err != nil {
 					return err
 				}
-				switch maj {
-				case cbg.MajUnsignedInt:
-					extraI = int64(extra)
-					if extraI < 0 {
-						return fmt.Errorf("int64 positive overflow")
+
+				t.Sig = string(sval)
+			}
+			// t.Prev (string) (string)
+		case "prev":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
 					}
-				case cbg.MajNegativeInt:
-					extraI = int64(extra)
-					if extraI < 0 {
-						return fmt.Errorf("int64 negative oveflow")
+
+					sval, err := cbg.ReadString(cr)
+					if err != nil {
+						return err
 					}
-					extraI = -1 - extraI
-				default:
-					return fmt.Errorf("wrong type for int64 field: %d", maj)
+
+					t.Prev = (*string)(&sval)
+				}
+			}
+			// t.Type (string) (string)
+		case "type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
 				}
 
-				t.End = int64(extraI)
+				t.Type = string(sval)
+			}
+			// t.Handle (string) (string)
+		case "handle":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Handle = string(sval)
+			}
+			// t.Service (string) (string)
+		case "service":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Service = string(sval)
+			}
+			// t.SigningKey (string) (string)
+		case "signingKey":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.SigningKey = string(sval)
+			}
+			// t.RecoveryKey (string) (string)
+		case "recoveryKey":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.RecoveryKey = string(sval)
 			}
 
 		default:

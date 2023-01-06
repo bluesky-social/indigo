@@ -12,7 +12,8 @@ func init() {
 }
 
 type HandleResolve_Output struct {
-	Did string `json:"did" cborgen:"did"`
+	LexiconTypeID string `json:"$type,omitempty"`
+	Did           string `json:"did" cborgen:"did"`
 }
 
 func HandleResolve(ctx context.Context, c *xrpc.Client, handle string) (*HandleResolve_Output, error) {

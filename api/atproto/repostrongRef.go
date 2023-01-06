@@ -6,6 +6,7 @@ func init() {
 }
 
 type RepoStrongRef struct {
-	Cid string `json:"cid" cborgen:"cid"`
-	Uri string `json:"uri" cborgen:"uri"`
+	LexiconTypeID string `json:"$type,omitempty"`
+	Cid           string `json:"cid" cborgen:"cid"`
+	Uri           string `json:"uri" cborgen:"uri"`
 }

@@ -10,20 +10,24 @@ func init() {
 }
 
 type EmbedImages struct {
-	Images []*EmbedImages_Image `json:"images" cborgen:"images"`
+	LexiconTypeID string               `json:"$type,omitempty"`
+	Images        []*EmbedImages_Image `json:"images" cborgen:"images"`
 }
 
 type EmbedImages_Image struct {
-	Alt   string     `json:"alt" cborgen:"alt"`
-	Image *util.Blob `json:"image" cborgen:"image"`
+	LexiconTypeID string     `json:"$type,omitempty"`
+	Alt           string     `json:"alt" cborgen:"alt"`
+	Image         *util.Blob `json:"image" cborgen:"image"`
 }
 
 type EmbedImages_Presented struct {
-	Images []*EmbedImages_PresentedImage `json:"images" cborgen:"images"`
+	LexiconTypeID string                        `json:"$type,omitempty"`
+	Images        []*EmbedImages_PresentedImage `json:"images" cborgen:"images"`
 }
 
 type EmbedImages_PresentedImage struct {
-	Alt      string `json:"alt" cborgen:"alt"`
-	Fullsize string `json:"fullsize" cborgen:"fullsize"`
-	Thumb    string `json:"thumb" cborgen:"thumb"`
+	LexiconTypeID string `json:"$type,omitempty"`
+	Alt           string `json:"alt" cborgen:"alt"`
+	Fullsize      string `json:"fullsize" cborgen:"fullsize"`
+	Thumb         string `json:"thumb" cborgen:"thumb"`
 }

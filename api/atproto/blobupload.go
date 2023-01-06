@@ -13,7 +13,8 @@ func init() {
 }
 
 type BlobUpload_Output struct {
-	Cid string `json:"cid" cborgen:"cid"`
+	LexiconTypeID string `json:"$type,omitempty"`
+	Cid           string `json:"cid" cborgen:"cid"`
 }
 
 func BlobUpload(ctx context.Context, c *xrpc.Client, input io.Reader) (*BlobUpload_Output, error) {

@@ -127,6 +127,8 @@ func main() {
 
 		} else {
 			defmap := lex.BuildExtDefMap(schemas, []string{"com.atproto", "app.bsky"})
+
+			lex.FixRecordReferences(schemas, defmap, prefix)
 			for i, s := range schemas {
 				if !strings.HasPrefix(s.ID, prefix) {
 					continue

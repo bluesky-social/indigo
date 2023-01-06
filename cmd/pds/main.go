@@ -10,8 +10,8 @@ import (
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/urfave/cli/v2"
-	server "github.com/whyrusleeping/gosky/api/server"
 	"github.com/whyrusleeping/gosky/carstore"
+	server "github.com/whyrusleeping/gosky/server"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -112,7 +112,7 @@ func main() {
 			return err
 		}
 
-		srv, err := server.NewServer(db, cs, "server.key")
+		srv, err := server.NewServer(db, cs, "server.key", ".pdstest")
 		if err != nil {
 			return err
 		}
@@ -132,7 +132,7 @@ var generateKeyCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-		raw, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+		raw, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		if err != nil {
 			return fmt.Errorf("failed to generate new ECDSA private key: %s", err)
 		}

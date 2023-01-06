@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,6 +11,8 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
+	"github.com/lestrrat-go/jwx/jwa"
+	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/polydawn/refmt/cbor"
 	rejson "github.com/polydawn/refmt/json"
 	"github.com/polydawn/refmt/shared"
@@ -17,6 +20,7 @@ import (
 	api "github.com/whyrusleeping/gosky/api"
 	apibsky "github.com/whyrusleeping/gosky/api/bsky"
 	cliutil "github.com/whyrusleeping/gosky/cmd/gosky/util"
+	"github.com/whyrusleeping/gosky/key"
 	"github.com/whyrusleeping/gosky/repo"
 )
 
@@ -26,10 +30,11 @@ func main() {
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
 			Name:  "pds",
-			Value: "https://pds.staging.bsky.dev",
+			Value: "",
 		},
 		&cli.StringFlag{
-			Name: "auth",
+			Name:  "auth",
+			Value: "bsky.auth",
 		},
 	}
 	app.Commands = []*cli.Command{
@@ -126,7 +131,7 @@ var postCmd = &cli.Command{
 			CreatedAt: time.Now().Format("2006-01-02T15:04:05.000Z"),
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create post: %w", err)
 		}
 
 		fmt.Println(resp.Cid)
@@ -140,6 +145,7 @@ var didCmd = &cli.Command{
 	Name: "did",
 	Subcommands: []*cli.Command{
 		didGetCmd,
+		didCreateCmd,
 	},
 }
 
@@ -161,6 +167,72 @@ var didGetCmd = &cli.Command{
 		fmt.Println(string(b))
 		return nil
 	},
+}
+
+var didCreateCmd = &cli.Command{
+	Name: "create",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name: "recoverydid",
+		},
+		&cli.StringFlag{
+			Name: "signingkey",
+		},
+		&cli.StringFlag{
+			Name:    "plc",
+			Value:   "https://plc.staging.bsky.dev",
+			EnvVars: []string{"BSKY_PLC_URL"},
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		s := cliutil.GetPLCClient(cctx)
+
+		handle := cctx.Args().Get(0)
+		service := cctx.Args().Get(1)
+
+		recoverydid := cctx.String("recoverydid")
+
+		sigkey, err := loadKey(cctx.String("signingkey"))
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("KEYDID: ", sigkey.DID())
+
+		ndid, err := s.CreateDID(context.TODO(), sigkey, recoverydid, handle, service)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(ndid)
+		return nil
+	},
+}
+
+func loadKey(kfile string) (*key.Key, error) {
+	kb, err := os.ReadFile(kfile)
+	if err != nil {
+		return nil, err
+	}
+
+	sk, err := jwk.ParseKey(kb)
+	if err != nil {
+		return nil, err
+	}
+
+	var spk ecdsa.PrivateKey
+	if err := sk.Raw(&spk); err != nil {
+		return nil, err
+	}
+	curve, ok := sk.Get("crv")
+	if !ok {
+		return nil, fmt.Errorf("need a curve set")
+	}
+
+	return &key.Key{
+		Raw:  &spk,
+		Type: string(curve.(jwa.EllipticCurveAlgorithm)),
+	}, nil
 }
 
 var syncCmd = &cli.Command{
@@ -222,6 +294,22 @@ var syncGetRootCmd = &cli.Command{
 	},
 }
 
+func jsonPrint(i any) {
+	b, err := json.MarshalIndent(i, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(string(b))
+}
+
+func prettyPrintPost(p *apibsky.FeedFeedViewPost) {
+	fmt.Println(strings.Repeat("-", 60))
+	rec := p.Post.Record.(map[string]any)
+	fmt.Printf("%s (%s):\n", p.Post.Author.Handle, rec["createdAt"])
+	fmt.Println(rec["text"])
+}
+
 var feedGetCmd = &cli.Command{
 	Name: "feed",
 	Flags: []cli.Flag{
@@ -233,6 +321,10 @@ var feedGetCmd = &cli.Command{
 			Name:  "author",
 			Usage: "specify handle of user to list their authored feed",
 		},
+		&cli.BoolFlag{
+			Name:  "raw",
+			Usage: "print out feed in raw json",
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		bsky, err := cliutil.GetBskyClient(cctx, true)
@@ -241,6 +333,8 @@ var feedGetCmd = &cli.Command{
 		}
 
 		ctx := context.TODO()
+
+		raw := cctx.Bool("raw")
 
 		author := cctx.String("author")
 		if author != "" {
@@ -253,13 +347,13 @@ var feedGetCmd = &cli.Command{
 				return err
 			}
 
-			for _, it := range tl.Feed {
-				b, err := json.MarshalIndent(it, "", "  ")
-				if err != nil {
-					return err
+			for i := len(tl.Feed) - 1; i >= 0; i-- {
+				it := tl.Feed[i]
+				if raw {
+					jsonPrint(it)
+				} else {
+					prettyPrintPost(it)
 				}
-
-				fmt.Println(string(b))
 			}
 		} else {
 			algo := "reverse-chronological"
@@ -268,13 +362,13 @@ var feedGetCmd = &cli.Command{
 				return err
 			}
 
-			for _, it := range tl.Feed {
-				b, err := json.MarshalIndent(it, "", "  ")
-				if err != nil {
-					return err
+			for i := len(tl.Feed) - 1; i >= 0; i-- {
+				it := tl.Feed[i]
+				if raw {
+					jsonPrint(it)
+				} else {
+					prettyPrintPost(it)
 				}
-
-				fmt.Println(string(b))
 			}
 		}
 

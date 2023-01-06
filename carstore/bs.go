@@ -2,6 +2,7 @@ package carstore
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -455,61 +456,48 @@ func (cs *CarStore) openNewShardFile(ctx context.Context, user uint, seq int) (*
 	return fi, fname, nil
 }
 
+func (cs *CarStore) writeNewShardFile(ctx context.Context, user uint, seq int, data []byte) (string, error) {
+	// TODO: some overwrite protections
+	fname := filepath.Join(cs.rootDir, fmt.Sprintf("sh-%d-%d", user, seq))
+	if err := os.WriteFile(fname, data, 0664); err != nil {
+		return "", err
+	}
+
+	return fname, nil
+}
+
 // CloseWithRoot writes all new blocks in a car file to the writer with the
 // given cid as the 'root'
-func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) error {
+func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) ([]byte, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "CloseWithRoot")
 	defer span.End()
 
 	if ds.readonly {
-		return fmt.Errorf("cannot write to readonly deltaSession")
+		return nil, fmt.Errorf("cannot write to readonly deltaSession")
 	}
 
-	fi, path, err := ds.cs.openNewShardFile(ctx, ds.user, ds.seq)
-	if err != nil {
-		return err
-	}
-	// TODO: if this method fails delete the file
-	defer fi.Close()
-
+	buf := new(bytes.Buffer)
 	h := &car.CarHeader{
 		Roots:   []cid.Cid{root},
 		Version: 1,
 	}
 	hb, err := cbor.DumpObject(h)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	hnw, err := LdWrite(fi, hb)
+	hnw, err := LdWrite(buf, hb)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	// TODO: all this database work needs to be in a single transaction
-	shard := CarShard{
-		Root:      root.String(),
-		DataStart: hnw,
-		Seq:       ds.seq,
-		Path:      path,
-		Usr:       ds.user,
-	}
-
-	// TODO: there should be a way to create the shard and block_refs that
-	// reference it in the same query, would save a lot of time
-	if err := ds.cs.meta.WithContext(ctx).Create(&shard).Error; err != nil {
-		return err
-	}
-
-	ds.cs.putLastShardCache(ds.user, &shard)
 
 	var offset int64 = hnw
 	//brefs := make([]*blockRef, 0, len(ds.blks))
 	brefs := make([]map[string]interface{}, 0, len(ds.blks))
 	for k, blk := range ds.blks {
-		nw, err := LdWrite(fi, k.Bytes(), blk.RawData())
+		nw, err := LdWrite(buf, k.Bytes(), blk.RawData())
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		/*
@@ -524,17 +512,41 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) error {
 		brefs = append(brefs, map[string]interface{}{
 			"cid":    k.String(),
 			"offset": offset,
-			"shard":  shard.ID,
 		})
 
 		offset += nw
 	}
 
-	if err := ds.cs.meta.WithContext(ctx).Table("block_refs").Create(brefs).Error; err != nil {
-		return err
+	path, err := ds.cs.writeNewShardFile(ctx, ds.user, ds.seq, buf.Bytes())
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	// TODO: all this database work needs to be in a single transaction
+	shard := CarShard{
+		Root:      root.String(),
+		DataStart: hnw,
+		Seq:       ds.seq,
+		Path:      path,
+		Usr:       ds.user,
+	}
+
+	// TODO: there should be a way to create the shard and block_refs that
+	// reference it in the same query, would save a lot of time
+	if err := ds.cs.meta.WithContext(ctx).Create(&shard).Error; err != nil {
+		return nil, err
+	}
+	ds.cs.putLastShardCache(ds.user, &shard)
+
+	for _, ref := range brefs {
+		ref["shard"] = shard.ID
+	}
+
+	if err := ds.cs.meta.WithContext(ctx).Table("block_refs").Create(brefs).Error; err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 func LdWrite(w io.Writer, d ...[]byte) (int64, error) {

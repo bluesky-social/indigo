@@ -12,18 +12,20 @@ func init() {
 }
 
 type GraphGetMembers_Member struct {
-	CreatedAt   *string        `json:"createdAt" cborgen:"createdAt"`
-	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
-	Did         string         `json:"did" cborgen:"did"`
-	DisplayName *string        `json:"displayName" cborgen:"displayName"`
-	Handle      string         `json:"handle" cborgen:"handle"`
-	IndexedAt   string         `json:"indexedAt" cborgen:"indexedAt"`
+	LexiconTypeID string         `json:"$type,omitempty"`
+	CreatedAt     *string        `json:"createdAt" cborgen:"createdAt"`
+	Declaration   *SystemDeclRef `json:"declaration" cborgen:"declaration"`
+	Did           string         `json:"did" cborgen:"did"`
+	DisplayName   *string        `json:"displayName" cborgen:"displayName"`
+	Handle        string         `json:"handle" cborgen:"handle"`
+	IndexedAt     string         `json:"indexedAt" cborgen:"indexedAt"`
 }
 
 type GraphGetMembers_Output struct {
-	Cursor  *string                   `json:"cursor" cborgen:"cursor"`
-	Members []*GraphGetMembers_Member `json:"members" cborgen:"members"`
-	Subject *ActorRef_WithInfo        `json:"subject" cborgen:"subject"`
+	LexiconTypeID string                    `json:"$type,omitempty"`
+	Cursor        *string                   `json:"cursor" cborgen:"cursor"`
+	Members       []*GraphGetMembers_Member `json:"members" cborgen:"members"`
+	Subject       *ActorRef_WithInfo        `json:"subject" cborgen:"subject"`
 }
 
 func GraphGetMembers(ctx context.Context, c *xrpc.Client, actor string, before string, limit int64) (*GraphGetMembers_Output, error) {

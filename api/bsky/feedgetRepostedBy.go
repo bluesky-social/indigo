@@ -12,20 +12,22 @@ func init() {
 }
 
 type FeedGetRepostedBy_Output struct {
-	Cid        *string                         `json:"cid" cborgen:"cid"`
-	Cursor     *string                         `json:"cursor" cborgen:"cursor"`
-	RepostedBy []*FeedGetRepostedBy_RepostedBy `json:"repostedBy" cborgen:"repostedBy"`
-	Uri        string                          `json:"uri" cborgen:"uri"`
+	LexiconTypeID string                          `json:"$type,omitempty"`
+	Cid           *string                         `json:"cid" cborgen:"cid"`
+	Cursor        *string                         `json:"cursor" cborgen:"cursor"`
+	RepostedBy    []*FeedGetRepostedBy_RepostedBy `json:"repostedBy" cborgen:"repostedBy"`
+	Uri           string                          `json:"uri" cborgen:"uri"`
 }
 
 type FeedGetRepostedBy_RepostedBy struct {
-	Avatar      *string        `json:"avatar" cborgen:"avatar"`
-	CreatedAt   *string        `json:"createdAt" cborgen:"createdAt"`
-	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
-	Did         string         `json:"did" cborgen:"did"`
-	DisplayName *string        `json:"displayName" cborgen:"displayName"`
-	Handle      string         `json:"handle" cborgen:"handle"`
-	IndexedAt   string         `json:"indexedAt" cborgen:"indexedAt"`
+	LexiconTypeID string         `json:"$type,omitempty"`
+	Avatar        *string        `json:"avatar" cborgen:"avatar"`
+	CreatedAt     *string        `json:"createdAt" cborgen:"createdAt"`
+	Declaration   *SystemDeclRef `json:"declaration" cborgen:"declaration"`
+	Did           string         `json:"did" cborgen:"did"`
+	DisplayName   *string        `json:"displayName" cborgen:"displayName"`
+	Handle        string         `json:"handle" cborgen:"handle"`
+	IndexedAt     string         `json:"indexedAt" cborgen:"indexedAt"`
 }
 
 func FeedGetRepostedBy(ctx context.Context, c *xrpc.Client, before string, cid string, limit int64, uri string) (*FeedGetRepostedBy_Output, error) {

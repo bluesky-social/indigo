@@ -48,7 +48,7 @@ type ActorInfo struct {
 }
 
 type RepoEvent struct {
-	Kind       string
+	Kind       EventKind
 	User       uint
 	OldRoot    cid.Cid
 	NewRoot    cid.Cid
@@ -57,7 +57,16 @@ type RepoEvent struct {
 	RecCid     cid.Cid
 	Record     any
 	ActorInfo  *ActorInfo
+	RepoSlice  []byte
 }
+
+type EventKind string
+
+const (
+	EvtKindCreateRecord = EventKind("createRecord")
+	EvtKindUpdateRecord = EventKind("updateRecord")
+	EvtKindInitActor    = EventKind("initActor")
+)
 
 type RepoHead struct {
 	gorm.Model
@@ -158,7 +167,8 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 		return "", cid.Undef, err
 	}
 
-	if err := ds.CloseWithRoot(ctx, nroot); err != nil {
+	rslice, err := ds.CloseWithRoot(ctx, nroot)
+	if err != nil {
 		return "", cid.Undef, fmt.Errorf("close with root: %w", err)
 	}
 
@@ -169,7 +179,7 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
-			Kind:       "createRecord",
+			Kind:       EvtKindCreateRecord,
 			User:       user,
 			OldRoot:    head,
 			NewRoot:    nroot,
@@ -177,6 +187,7 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 			Rkey:       tid,
 			Record:     rec,
 			RecCid:     cc,
+			RepoSlice:  rslice,
 		})
 	}
 
@@ -184,7 +195,7 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 }
 
 func (rm *RepoManager) UpdateRecord(ctx context.Context, user uint, collection, rkey string, rec cbg.CBORMarshaler) (cid.Cid, error) {
-	ctx, span := otel.Tracer("repoman").Start(ctx, "CreateRecord")
+	ctx, span := otel.Tracer("repoman").Start(ctx, "UpdateRecord")
 	defer span.End()
 
 	unlock := rm.lockUser(ctx, user)
@@ -216,7 +227,8 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user uint, collection, 
 		return cid.Undef, err
 	}
 
-	if err := ds.CloseWithRoot(ctx, nroot); err != nil {
+	rslice, err := ds.CloseWithRoot(ctx, nroot)
+	if err != nil {
 		return cid.Undef, fmt.Errorf("close with root: %w", err)
 	}
 
@@ -227,7 +239,7 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user uint, collection, 
 
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
-			Kind:       "updateRecord",
+			Kind:       EvtKindUpdateRecord,
 			User:       user,
 			OldRoot:    head,
 			NewRoot:    nroot,
@@ -235,6 +247,7 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user uint, collection, 
 			Rkey:       rkey,
 			Record:     rec,
 			RecCid:     cc,
+			RepoSlice:  rslice,
 		})
 	}
 
@@ -288,7 +301,8 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 		return err
 	}
 
-	if err := ds.CloseWithRoot(ctx, root); err != nil {
+	rslice, err := ds.CloseWithRoot(ctx, root)
+	if err != nil {
 		return err
 	}
 
@@ -301,7 +315,7 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
-			Kind:    "initActor",
+			Kind:    EvtKindInitActor,
 			User:    user,
 			NewRoot: root,
 			ActorInfo: &ActorInfo{
@@ -311,6 +325,7 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 				DeclRefCid:  declcid,
 				Type:        actortype,
 			},
+			RepoSlice: rslice,
 		})
 	}
 

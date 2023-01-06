@@ -49,3 +49,19 @@ func (s *Server) createAuthTokenForUser(ctx context.Context, handle, did string)
 		Did:        did,
 	}, nil
 }
+
+func (s *Server) createCrossServerAuthToken(ctx context.Context, otherpds string) (*xrpc.AuthInfo, error) {
+	accessTok := makeToken(otherpds, "com.atproto.federation", time.Now().Add(24*time.Hour))
+
+	rval := make([]byte, 10)
+	rand.Read(rval)
+
+	accSig, err := jwt.Sign(accessTok, jwa.HS256, s.signingKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &xrpc.AuthInfo{
+		AccessJwt: string(accSig),
+	}, nil
+}

@@ -12,7 +12,8 @@ func init() {
 }
 
 type NotificationGetCount_Output struct {
-	Count int64 `json:"count" cborgen:"count"`
+	LexiconTypeID string `json:"$type,omitempty"`
+	Count         int64  `json:"count" cborgen:"count"`
 }
 
 func NotificationGetCount(ctx context.Context, c *xrpc.Client) (*NotificationGetCount_Output, error) {

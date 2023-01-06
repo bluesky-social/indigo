@@ -13,9 +13,10 @@ func init() {
 }
 
 type FeedFeedViewPost struct {
-	Post   *FeedPost_View             `json:"post" cborgen:"post"`
-	Reason *FeedFeedViewPost_Reason   `json:"reason" cborgen:"reason"`
-	Reply  *FeedFeedViewPost_ReplyRef `json:"reply" cborgen:"reply"`
+	LexiconTypeID string                     `json:"$type,omitempty"`
+	Post          *FeedPost_View             `json:"post" cborgen:"post"`
+	Reason        *FeedFeedViewPost_Reason   `json:"reason" cborgen:"reason"`
+	Reply         *FeedFeedViewPost_ReplyRef `json:"reply" cborgen:"reply"`
 }
 
 type FeedFeedViewPost_Reason struct {
@@ -25,9 +26,11 @@ type FeedFeedViewPost_Reason struct {
 
 func (t *FeedFeedViewPost_Reason) MarshalJSON() ([]byte, error) {
 	if t.FeedFeedViewPost_ReasonTrend != nil {
+		t.FeedFeedViewPost_ReasonTrend.LexiconTypeID = "app.bsky.feed.feedViewPost#reasonTrend"
 		return json.Marshal(t.FeedFeedViewPost_ReasonTrend)
 	}
 	if t.FeedFeedViewPost_ReasonRepost != nil {
+		t.FeedFeedViewPost_ReasonRepost.LexiconTypeID = "app.bsky.feed.feedViewPost#reasonRepost"
 		return json.Marshal(t.FeedFeedViewPost_ReasonRepost)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
@@ -52,16 +55,19 @@ func (t *FeedFeedViewPost_Reason) UnmarshalJSON(b []byte) error {
 }
 
 type FeedFeedViewPost_ReasonRepost struct {
-	By        *ActorRef_WithInfo `json:"by" cborgen:"by"`
-	IndexedAt string             `json:"indexedAt" cborgen:"indexedAt"`
+	LexiconTypeID string             `json:"$type,omitempty"`
+	By            *ActorRef_WithInfo `json:"by" cborgen:"by"`
+	IndexedAt     string             `json:"indexedAt" cborgen:"indexedAt"`
 }
 
 type FeedFeedViewPost_ReasonTrend struct {
-	By        *ActorRef_WithInfo `json:"by" cborgen:"by"`
-	IndexedAt string             `json:"indexedAt" cborgen:"indexedAt"`
+	LexiconTypeID string             `json:"$type,omitempty"`
+	By            *ActorRef_WithInfo `json:"by" cborgen:"by"`
+	IndexedAt     string             `json:"indexedAt" cborgen:"indexedAt"`
 }
 
 type FeedFeedViewPost_ReplyRef struct {
-	Parent *FeedPost_View `json:"parent" cborgen:"parent"`
-	Root   *FeedPost_View `json:"root" cborgen:"root"`
+	LexiconTypeID string         `json:"$type,omitempty"`
+	Parent        *FeedPost_View `json:"parent" cborgen:"parent"`
+	Root          *FeedPost_View `json:"root" cborgen:"root"`
 }

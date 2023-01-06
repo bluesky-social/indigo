@@ -12,14 +12,16 @@ func init() {
 }
 
 type RepoListRecords_Output struct {
-	Cursor  *string                   `json:"cursor" cborgen:"cursor"`
-	Records []*RepoListRecords_Record `json:"records" cborgen:"records"`
+	LexiconTypeID string                    `json:"$type,omitempty"`
+	Cursor        *string                   `json:"cursor" cborgen:"cursor"`
+	Records       []*RepoListRecords_Record `json:"records" cborgen:"records"`
 }
 
 type RepoListRecords_Record struct {
-	Cid   string `json:"cid" cborgen:"cid"`
-	Uri   string `json:"uri" cborgen:"uri"`
-	Value any    `json:"value" cborgen:"value"`
+	LexiconTypeID string `json:"$type,omitempty"`
+	Cid           string `json:"cid" cborgen:"cid"`
+	Uri           string `json:"uri" cborgen:"uri"`
+	Value         any    `json:"value" cborgen:"value"`
 }
 
 func RepoListRecords(ctx context.Context, c *xrpc.Client, after string, before string, collection string, limit int64, reverse bool, user string) (*RepoListRecords_Output, error) {

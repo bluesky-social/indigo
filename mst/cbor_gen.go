@@ -30,28 +30,6 @@ func (t *NodeData) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.L (cid.Cid) (struct)
-	if len("l") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"l\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("l"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("l")); err != nil {
-		return err
-	}
-
-	if t.L == nil {
-		if _, err := cw.Write(cbg.CborNull); err != nil {
-			return err
-		}
-	} else {
-		if err := cbg.WriteCid(cw, *t.L); err != nil {
-			return xerrors.Errorf("failed to write cid field t.L: %w", err)
-		}
-	}
-
 	// t.E ([]mst.TreeEntry) (slice)
 	if len("e") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"e\" was too long")
@@ -76,6 +54,29 @@ func (t *NodeData) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	}
+
+	// t.L (cid.Cid) (struct)
+	if len("l") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"l\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("l"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("l")); err != nil {
+		return err
+	}
+
+	if t.L == nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteCid(cw, *t.L); err != nil {
+			return xerrors.Errorf("failed to write cid field t.L: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -117,30 +118,7 @@ func (t *NodeData) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.L (cid.Cid) (struct)
-		case "l":
-
-			{
-
-				b, err := cr.ReadByte()
-				if err != nil {
-					return err
-				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-
-					c, err := cbg.ReadCid(cr)
-					if err != nil {
-						return xerrors.Errorf("failed to read cid field t.L: %w", err)
-					}
-
-					t.L = &c
-				}
-
-			}
-			// t.E ([]mst.TreeEntry) (slice)
+		// t.E ([]mst.TreeEntry) (slice)
 		case "e":
 
 			maj, extra, err = cr.ReadHeader()
@@ -170,6 +148,30 @@ func (t *NodeData) UnmarshalCBOR(r io.Reader) (err error) {
 				t.E[i] = v
 			}
 
+			// t.L (cid.Cid) (struct)
+		case "l":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					c, err := cbg.ReadCid(cr)
+					if err != nil {
+						return xerrors.Errorf("failed to read cid field t.L: %w", err)
+					}
+
+					t.L = &c
+				}
+
+			}
+
 		default:
 			// Field doesn't exist on this type, so ignore it
 			cbg.ScanForLinks(r, func(cid.Cid) {})
@@ -188,28 +190,6 @@ func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
 
 	if _, err := cw.Write([]byte{164}); err != nil {
 		return err
-	}
-
-	// t.P (int64) (int64)
-	if len("p") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"p\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("p"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("p")); err != nil {
-		return err
-	}
-
-	if t.P >= 0 {
-		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.P)); err != nil {
-			return err
-		}
-	} else {
-		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.P-1)); err != nil {
-			return err
-		}
 	}
 
 	// t.K (string) (string)
@@ -235,20 +215,26 @@ func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.V (cid.Cid) (struct)
-	if len("v") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"v\" was too long")
+	// t.P (int64) (int64)
+	if len("p") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"p\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("v"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("p"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("v")); err != nil {
+	if _, err := io.WriteString(w, string("p")); err != nil {
 		return err
 	}
 
-	if err := cbg.WriteCid(cw, t.V); err != nil {
-		return xerrors.Errorf("failed to write cid field t.V: %w", err)
+	if t.P >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.P)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.P-1)); err != nil {
+			return err
+		}
 	}
 
 	// t.Tree (cid.Cid) (struct)
@@ -271,6 +257,22 @@ func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
 		if err := cbg.WriteCid(cw, *t.Tree); err != nil {
 			return xerrors.Errorf("failed to write cid field t.Tree: %w", err)
 		}
+	}
+
+	// t.V (cid.Cid) (struct)
+	if len("v") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"v\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("v"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("v")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteCid(cw, t.V); err != nil {
+		return xerrors.Errorf("failed to write cid field t.V: %w", err)
 	}
 
 	return nil
@@ -314,7 +316,18 @@ func (t *TreeEntry) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.P (int64) (int64)
+		// t.K (string) (string)
+		case "k":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.K = string(sval)
+			}
+			// t.P (int64) (int64)
 		case "p":
 			{
 				maj, extra, err := cr.ReadHeader()
@@ -340,30 +353,6 @@ func (t *TreeEntry) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.P = int64(extraI)
 			}
-			// t.K (string) (string)
-		case "k":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.K = string(sval)
-			}
-			// t.V (cid.Cid) (struct)
-		case "v":
-
-			{
-
-				c, err := cbg.ReadCid(cr)
-				if err != nil {
-					return xerrors.Errorf("failed to read cid field t.V: %w", err)
-				}
-
-				t.V = c
-
-			}
 			// t.Tree (cid.Cid) (struct)
 		case "t":
 
@@ -385,6 +374,19 @@ func (t *TreeEntry) UnmarshalCBOR(r io.Reader) (err error) {
 
 					t.Tree = &c
 				}
+
+			}
+			// t.V (cid.Cid) (struct)
+		case "v":
+
+			{
+
+				c, err := cbg.ReadCid(cr)
+				if err != nil {
+					return xerrors.Errorf("failed to read cid field t.V: %w", err)
+				}
+
+				t.V = c
 
 			}
 

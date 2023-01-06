@@ -12,6 +12,7 @@ func init() {
 }
 
 type RepoDescribe_Output struct {
+	LexiconTypeID   string   `json:"$type,omitempty"`
 	Collections     []string `json:"collections" cborgen:"collections"`
 	Did             string   `json:"did" cborgen:"did"`
 	DidDoc          any      `json:"didDoc" cborgen:"didDoc"`

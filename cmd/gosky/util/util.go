@@ -6,22 +6,18 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/urfave/cli/v2"
 	"github.com/whyrusleeping/gosky/api"
 	"github.com/whyrusleeping/gosky/xrpc"
 )
 
 func GetPLCClient(cctx *cli.Context) *api.PLCServer {
-	h := "https://plc.directory"
-
-	if envh := os.Getenv("BSK_PLC_URL"); envh != "" {
-		h = envh
-	}
-
 	return &api.PLCServer{
-		Host: h,
+		Host: cctx.String("plc"),
 	}
 }
 
@@ -38,15 +34,62 @@ func NewHttpClient() *http.Client {
 	}
 }
 
+type CliConfig struct {
+	filename string
+	PDS      string
+}
+
+func readGoskyConfig() (*CliConfig, error) {
+	d, err := homedir.Dir()
+	if err != nil {
+		return nil, fmt.Errorf("cannot read Home directory")
+	}
+
+	f := filepath.Join(d, ".gosky")
+
+	b, err := os.ReadFile(f)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+
+	var out CliConfig
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil, err
+	}
+
+	out.filename = f
+	return &out, nil
+}
+
+var Config *CliConfig
+
+func TryReadConfig() {
+	cfg, err := readGoskyConfig()
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		Config = cfg
+	}
+}
+
+func WriteConfig(cfg *CliConfig) error {
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(cfg.filename, b, 0664)
+}
+
 func GetATPClient(cctx *cli.Context, authreq bool) (*api.ATProto, error) {
-	h := "https://staging.bsky.dev"
+	h := "https://bsky.social"
 	if pdsurl := cctx.String("pds"); pdsurl != "" {
 		h = pdsurl
 	}
 
 	auth, err := loadAuthFromEnv(cctx, authreq)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("loading auth: %w", err)
 	}
 
 	return &api.ATProto{

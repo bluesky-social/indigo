@@ -12,7 +12,8 @@ func init() {
 }
 
 type SyncGetRoot_Output struct {
-	Root string `json:"root" cborgen:"root"`
+	LexiconTypeID string `json:"$type,omitempty"`
+	Root          string `json:"root" cborgen:"root"`
 }
 
 func SyncGetRoot(ctx context.Context, c *xrpc.Client, did string) (*SyncGetRoot_Output, error) {

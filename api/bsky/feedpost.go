@@ -34,9 +34,11 @@ type FeedPost_Embed struct {
 
 func (t *FeedPost_Embed) MarshalJSON() ([]byte, error) {
 	if t.EmbedImages != nil {
+		t.EmbedImages.LexiconTypeID = "app.bsky.embed.images"
 		return json.Marshal(t.EmbedImages)
 	}
 	if t.EmbedExternal != nil {
+		t.EmbedExternal.LexiconTypeID = "app.bsky.embed.external"
 		return json.Marshal(t.EmbedExternal)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
@@ -94,22 +96,26 @@ func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
 }
 
 type FeedPost_Entity struct {
-	Index *FeedPost_TextSlice `json:"index" cborgen:"index"`
-	Type  string              `json:"type" cborgen:"type"`
-	Value string              `json:"value" cborgen:"value"`
+	LexiconTypeID string              `json:"$type,omitempty"`
+	Index         *FeedPost_TextSlice `json:"index" cborgen:"index"`
+	Type          string              `json:"type" cborgen:"type"`
+	Value         string              `json:"value" cborgen:"value"`
 }
 
 type FeedPost_ReplyRef struct {
-	Parent *comatprototypes.RepoStrongRef `json:"parent" cborgen:"parent"`
-	Root   *comatprototypes.RepoStrongRef `json:"root" cborgen:"root"`
+	LexiconTypeID string                         `json:"$type,omitempty"`
+	Parent        *comatprototypes.RepoStrongRef `json:"parent" cborgen:"parent"`
+	Root          *comatprototypes.RepoStrongRef `json:"root" cborgen:"root"`
 }
 
 type FeedPost_TextSlice struct {
-	End   int64 `json:"end" cborgen:"end"`
-	Start int64 `json:"start" cborgen:"start"`
+	LexiconTypeID string `json:"$type,omitempty"`
+	End           int64  `json:"end" cborgen:"end"`
+	Start         int64  `json:"start" cborgen:"start"`
 }
 
 type FeedPost_View struct {
+	LexiconTypeID string                `json:"$type,omitempty"`
 	Author        *ActorRef_WithInfo    `json:"author" cborgen:"author"`
 	Cid           string                `json:"cid" cborgen:"cid"`
 	DownvoteCount int64                 `json:"downvoteCount" cborgen:"downvoteCount"`
@@ -130,9 +136,11 @@ type FeedPost_View_Embed struct {
 
 func (t *FeedPost_View_Embed) MarshalJSON() ([]byte, error) {
 	if t.EmbedImages_Presented != nil {
+		t.EmbedImages_Presented.LexiconTypeID = "app.bsky.embed.images#presented"
 		return json.Marshal(t.EmbedImages_Presented)
 	}
 	if t.EmbedExternal_Presented != nil {
+		t.EmbedExternal_Presented.LexiconTypeID = "app.bsky.embed.external#presented"
 		return json.Marshal(t.EmbedExternal_Presented)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
@@ -157,7 +165,8 @@ func (t *FeedPost_View_Embed) UnmarshalJSON(b []byte) error {
 }
 
 type FeedPost_ViewerState struct {
-	Downvote *string `json:"downvote" cborgen:"downvote"`
-	Repost   *string `json:"repost" cborgen:"repost"`
-	Upvote   *string `json:"upvote" cborgen:"upvote"`
+	LexiconTypeID string  `json:"$type,omitempty"`
+	Downvote      *string `json:"downvote" cborgen:"downvote"`
+	Repost        *string `json:"repost" cborgen:"repost"`
+	Upvote        *string `json:"upvote" cborgen:"upvote"`
 }

@@ -12,26 +12,29 @@ func init() {
 }
 
 type GraphGetAssertions_Assertion struct {
-	Assertion    string                           `json:"assertion" cborgen:"assertion"`
-	Author       *ActorRef_WithInfo               `json:"author" cborgen:"author"`
-	Cid          string                           `json:"cid" cborgen:"cid"`
-	Confirmation *GraphGetAssertions_Confirmation `json:"confirmation" cborgen:"confirmation"`
-	CreatedAt    string                           `json:"createdAt" cborgen:"createdAt"`
-	IndexedAt    string                           `json:"indexedAt" cborgen:"indexedAt"`
-	Subject      *ActorRef_WithInfo               `json:"subject" cborgen:"subject"`
-	Uri          string                           `json:"uri" cborgen:"uri"`
+	LexiconTypeID string                           `json:"$type,omitempty"`
+	Assertion     string                           `json:"assertion" cborgen:"assertion"`
+	Author        *ActorRef_WithInfo               `json:"author" cborgen:"author"`
+	Cid           string                           `json:"cid" cborgen:"cid"`
+	Confirmation  *GraphGetAssertions_Confirmation `json:"confirmation" cborgen:"confirmation"`
+	CreatedAt     string                           `json:"createdAt" cborgen:"createdAt"`
+	IndexedAt     string                           `json:"indexedAt" cborgen:"indexedAt"`
+	Subject       *ActorRef_WithInfo               `json:"subject" cborgen:"subject"`
+	Uri           string                           `json:"uri" cborgen:"uri"`
 }
 
 type GraphGetAssertions_Confirmation struct {
-	Cid       string `json:"cid" cborgen:"cid"`
-	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
-	IndexedAt string `json:"indexedAt" cborgen:"indexedAt"`
-	Uri       string `json:"uri" cborgen:"uri"`
+	LexiconTypeID string `json:"$type,omitempty"`
+	Cid           string `json:"cid" cborgen:"cid"`
+	CreatedAt     string `json:"createdAt" cborgen:"createdAt"`
+	IndexedAt     string `json:"indexedAt" cborgen:"indexedAt"`
+	Uri           string `json:"uri" cborgen:"uri"`
 }
 
 type GraphGetAssertions_Output struct {
-	Assertions []*GraphGetAssertions_Assertion `json:"assertions" cborgen:"assertions"`
-	Cursor     *string                         `json:"cursor" cborgen:"cursor"`
+	LexiconTypeID string                          `json:"$type,omitempty"`
+	Assertions    []*GraphGetAssertions_Assertion `json:"assertions" cborgen:"assertions"`
+	Cursor        *string                         `json:"cursor" cborgen:"cursor"`
 }
 
 func GraphGetAssertions(ctx context.Context, c *xrpc.Client, assertion string, author string, before string, confirmed bool, limit int64, subject string) (*GraphGetAssertions_Output, error) {

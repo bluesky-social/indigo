@@ -12,12 +12,14 @@ func init() {
 }
 
 type ActorGetProfile_MyState struct {
-	Follow *string `json:"follow" cborgen:"follow"`
-	Member *string `json:"member" cborgen:"member"`
-	Muted  *bool   `json:"muted" cborgen:"muted"`
+	LexiconTypeID string  `json:"$type,omitempty"`
+	Follow        *string `json:"follow" cborgen:"follow"`
+	Member        *string `json:"member" cborgen:"member"`
+	Muted         *bool   `json:"muted" cborgen:"muted"`
 }
 
 type ActorGetProfile_Output struct {
+	LexiconTypeID  string                   `json:"$type,omitempty"`
 	Avatar         *string                  `json:"avatar" cborgen:"avatar"`
 	Banner         *string                  `json:"banner" cborgen:"banner"`
 	Creator        string                   `json:"creator" cborgen:"creator"`

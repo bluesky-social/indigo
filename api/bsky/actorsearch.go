@@ -12,18 +12,20 @@ func init() {
 }
 
 type ActorSearch_Output struct {
-	Cursor *string             `json:"cursor" cborgen:"cursor"`
-	Users  []*ActorSearch_User `json:"users" cborgen:"users"`
+	LexiconTypeID string              `json:"$type,omitempty"`
+	Cursor        *string             `json:"cursor" cborgen:"cursor"`
+	Users         []*ActorSearch_User `json:"users" cborgen:"users"`
 }
 
 type ActorSearch_User struct {
-	Avatar      *string        `json:"avatar" cborgen:"avatar"`
-	Declaration *SystemDeclRef `json:"declaration" cborgen:"declaration"`
-	Description *string        `json:"description" cborgen:"description"`
-	Did         string         `json:"did" cborgen:"did"`
-	DisplayName *string        `json:"displayName" cborgen:"displayName"`
-	Handle      string         `json:"handle" cborgen:"handle"`
-	IndexedAt   *string        `json:"indexedAt" cborgen:"indexedAt"`
+	LexiconTypeID string         `json:"$type,omitempty"`
+	Avatar        *string        `json:"avatar" cborgen:"avatar"`
+	Declaration   *SystemDeclRef `json:"declaration" cborgen:"declaration"`
+	Description   *string        `json:"description" cborgen:"description"`
+	Did           string         `json:"did" cborgen:"did"`
+	DisplayName   *string        `json:"displayName" cborgen:"displayName"`
+	Handle        string         `json:"handle" cborgen:"handle"`
+	IndexedAt     *string        `json:"indexedAt" cborgen:"indexedAt"`
 }
 
 func ActorSearch(ctx context.Context, c *xrpc.Client, before string, limit int64, term string) (*ActorSearch_Output, error) {

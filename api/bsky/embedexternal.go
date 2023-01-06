@@ -10,23 +10,27 @@ func init() {
 }
 
 type EmbedExternal struct {
-	External *EmbedExternal_External `json:"external" cborgen:"external"`
+	LexiconTypeID string                  `json:"$type,omitempty"`
+	External      *EmbedExternal_External `json:"external" cborgen:"external"`
 }
 
 type EmbedExternal_External struct {
-	Description string     `json:"description" cborgen:"description"`
-	Thumb       *util.Blob `json:"thumb" cborgen:"thumb"`
-	Title       string     `json:"title" cborgen:"title"`
-	Uri         string     `json:"uri" cborgen:"uri"`
+	LexiconTypeID string     `json:"$type,omitempty"`
+	Description   string     `json:"description" cborgen:"description"`
+	Thumb         *util.Blob `json:"thumb" cborgen:"thumb"`
+	Title         string     `json:"title" cborgen:"title"`
+	Uri           string     `json:"uri" cborgen:"uri"`
 }
 
 type EmbedExternal_Presented struct {
-	External *EmbedExternal_PresentedExternal `json:"external" cborgen:"external"`
+	LexiconTypeID string                           `json:"$type,omitempty"`
+	External      *EmbedExternal_PresentedExternal `json:"external" cborgen:"external"`
 }
 
 type EmbedExternal_PresentedExternal struct {
-	Description string  `json:"description" cborgen:"description"`
-	Thumb       *string `json:"thumb" cborgen:"thumb"`
-	Title       string  `json:"title" cborgen:"title"`
-	Uri         string  `json:"uri" cborgen:"uri"`
+	LexiconTypeID string  `json:"$type,omitempty"`
+	Description   string  `json:"description" cborgen:"description"`
+	Thumb         *string `json:"thumb" cborgen:"thumb"`
+	Title         string  `json:"title" cborgen:"title"`
+	Uri           string  `json:"uri" cborgen:"uri"`
 }

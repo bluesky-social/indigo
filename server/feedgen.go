@@ -4,115 +4,32 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/ipfs/go-cid"
 	bsky "github.com/whyrusleeping/gosky/api/bsky"
-	"github.com/whyrusleeping/gosky/repomgr"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
 
 type FeedGenerator struct {
 	db *gorm.DB
+	ix *Indexer
 
-	notifman   *NotificationManager
 	readRecord ReadRecordFunc
 }
 
-func NewFeedGenerator(db *gorm.DB, notifman *NotificationManager, readRecord ReadRecordFunc) (*FeedGenerator, error) {
-	db.AutoMigrate(&FeedPost{})
-	db.AutoMigrate(&ActorInfo{})
-	db.AutoMigrate(&FollowRecord{})
-	db.AutoMigrate(&VoteRecord{})
-	db.AutoMigrate(&RepostRecord{})
-
+func NewFeedGenerator(db *gorm.DB, ix *Indexer, readRecord ReadRecordFunc) (*FeedGenerator, error) {
 	return &FeedGenerator{
 		db:         db,
-		notifman:   notifman,
+		ix:         ix,
 		readRecord: readRecord,
 	}, nil
 }
 
 type ReadRecordFunc func(context.Context, uint, cid.Cid) (any, error)
-
-type FeedPost struct {
-	gorm.Model
-	Author      uint
-	Rkey        string
-	Cid         string
-	UpCount     int64
-	ReplyCount  int64
-	RepostCount int64
-	ReplyTo     uint
-}
-
-type RepostRecord struct {
-	ID         uint `gorm:"primarykey"`
-	CreatedAt  time.Time
-	RecCreated string
-	Post       uint
-	Reposter   uint
-	Author     uint
-	RecCid     string
-	Rkey       string
-}
-
-type ActorInfo struct {
-	gorm.Model
-	Uid         uint `gorm:"index"`
-	Handle      string
-	DisplayName string
-	Did         string
-	Name        string
-	Following   int64
-	Followers   int64
-	Posts       int64
-	DeclRefCid  string
-	Type        string
-}
-
-type VoteDir int
-
-func (vd VoteDir) String() string {
-	switch vd {
-	case VoteDirUp:
-		return "up"
-	case VoteDirDown:
-		return "down"
-	default:
-		return "<unknown>"
-	}
-}
-
-const (
-	VoteDirUp   = VoteDir(1)
-	VoteDirDown = VoteDir(2)
-)
-
-type VoteRecord struct {
-	gorm.Model
-	Dir     VoteDir
-	Voter   uint
-	Post    uint
-	Created string
-	Rkey    string
-	Cid     string
-}
-
-type FollowRecord struct {
-	gorm.Model
-	Follower uint
-	Target   uint
-	Rkey     string
-	Cid      string
-}
-
-func (fg *FeedGenerator) catchup(ctx context.Context, evt *repomgr.RepoEvent) error {
-	// TODO: catch up on events that happened since this event (in the event of a crash or downtime)
-	return nil
-}
 
 /*
 type HydratedFeedItem struct {
@@ -322,8 +239,14 @@ func (fg *FeedGenerator) GetTimeline(ctx context.Context, user *User, algo strin
 		return nil, fmt.Errorf("hydrating feed: %w", err)
 	}
 
-	return fg.personalizeFeed(ctx, fout, user)
+	sort.Slice(fout, func(i, j int) bool {
+		ti, _ := time.Parse(time.RFC3339, fout[i].Post.IndexedAt)
+		tj, _ := time.Parse(time.RFC3339, fout[j].Post.IndexedAt)
 
+		return tj.Before(ti)
+	})
+
+	return fg.personalizeFeed(ctx, fout, user)
 }
 
 func (fg *FeedGenerator) personalizeFeed(ctx context.Context, feed []*bsky.FeedFeedViewPost, viewer *User) ([]*bsky.FeedFeedViewPost, error) {
@@ -335,7 +258,7 @@ func (fg *FeedGenerator) personalizeFeed(ctx context.Context, feed []*bsky.FeedF
 		// portion of feed generation from the 'per user' portion. An
 		// optimization could be to hide the internal post IDs in the Post
 		// structs for internal use (stripped out before sending to client)
-		item, err := fg.GetPost(ctx, p.Post.Uri)
+		item, err := fg.ix.GetPost(ctx, p.Post.Uri)
 		if err != nil {
 			return nil, err
 		}
@@ -376,54 +299,6 @@ func (fg *FeedGenerator) GetAuthorFeed(ctx context.Context, user *User, before s
 	return fg.personalizeFeed(ctx, fout, user)
 }
 
-func (fg *FeedGenerator) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
-	ctx, span := otel.Tracer("feedgen").Start(ctx, "HandleRepoEvent")
-	defer span.End()
-
-	if err := fg.catchup(ctx, evt); err != nil {
-		log.Println("failed to catch up on user repo changes, processing events off base: ", err)
-	}
-
-	fmt.Println("Handling Event!", evt.Kind)
-
-	switch evt.Kind {
-	case "createRecord":
-		if err := fg.handleRecordCreate(ctx, evt); err != nil {
-			log.Println("handle recordCreate: ", err)
-		}
-	case "initActor":
-		if err := fg.handleInitActor(ctx, evt); err != nil {
-			log.Println("handle initActor: ", err)
-		}
-	default:
-		log.Println("unrecognized repo event type: ", evt.Kind)
-	}
-
-}
-
-func (fg *FeedGenerator) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent) error {
-	ai := evt.ActorInfo
-	if err := fg.db.Create(&ActorInfo{
-		Uid:        evt.User,
-		Handle:     ai.Handle,
-		Did:        ai.Did,
-		Name:       ai.DisplayName,
-		DeclRefCid: ai.DeclRefCid,
-		Type:       ai.Type,
-	}).Error; err != nil {
-		return err
-	}
-
-	if err := fg.db.Create(&FollowRecord{
-		Follower: evt.User,
-		Target:   evt.User,
-	}).Error; err != nil {
-		return err
-	}
-
-	return nil
-}
-
 type parsedUri struct {
 	Did        string
 	Collection string
@@ -446,186 +321,6 @@ func parseAtUri(uri string) (*parsedUri, error) {
 		Collection: parts[1],
 		Rkey:       parts[2],
 	}, nil
-}
-
-func (fg *FeedGenerator) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEvent) error {
-	switch rec := evt.Record.(type) {
-	case *bsky.FeedPost:
-		var replyid uint
-		if rec.Reply != nil {
-			replyto, err := fg.GetPost(ctx, rec.Reply.Parent.Uri)
-			if err != nil {
-				return err
-			}
-
-			replyid = replyto.ID
-		}
-
-		fp := FeedPost{
-			Rkey:    evt.Rkey,
-			Cid:     evt.RecCid.String(),
-			Author:  evt.User,
-			ReplyTo: replyid,
-		}
-		if err := fg.db.Create(&fp).Error; err != nil {
-			return err
-		}
-
-		if err := fg.addNewPostNotification(ctx, rec, &fp); err != nil {
-			return err
-		}
-
-		return nil
-	case *bsky.FeedRepost:
-		fp, err := fg.GetPost(ctx, rec.Subject.Uri)
-		if err != nil {
-			return err
-		}
-
-		rr := RepostRecord{
-			RecCreated: rec.CreatedAt,
-			Post:       fp.ID,
-			Reposter:   evt.User,
-			Author:     fp.Author,
-			RecCid:     evt.RecCid.String(),
-			Rkey:       evt.Rkey,
-		}
-		if err := fg.db.Create(&rr).Error; err != nil {
-			return err
-		}
-
-		if err := fg.notifman.AddRepost(ctx, fp.Author, rr.ID, evt.User); err != nil {
-			return err
-		}
-
-		return nil
-	case *bsky.FeedVote:
-		var val int
-		var dbdir VoteDir
-		switch rec.Direction {
-		case "up":
-			val = 1
-			dbdir = VoteDirUp
-		case "down":
-			val = -1
-			dbdir = VoteDirDown
-		default:
-			return fmt.Errorf("invalid vote direction: %q", rec.Direction)
-		}
-
-		puri, err := parseAtUri(rec.Subject.Uri)
-		if err != nil {
-			return err
-		}
-
-		act, err := fg.lookupUserByDid(ctx, puri.Did)
-		if err != nil {
-			return err
-		}
-
-		var post FeedPost
-		if err := fg.db.First(&post, "rkey = ? AND author = ?", puri.Rkey, act.Uid).Error; err != nil {
-			return err
-		}
-
-		vr := VoteRecord{
-			Dir:     dbdir,
-			Voter:   evt.User,
-			Post:    post.ID,
-			Created: rec.CreatedAt,
-			Rkey:    evt.Rkey,
-			Cid:     evt.RecCid.String(),
-		}
-		if err := fg.db.Create(&vr).Error; err != nil {
-			return err
-		}
-
-		if err := fg.db.Model(FeedPost{}).Where("id = ?", post.ID).Update("up_count", gorm.Expr("up_count + ?", val)).Error; err != nil {
-			return err
-		}
-
-		if rec.Direction == "up" {
-			if err := fg.addNewVoteNotification(ctx, act.ID, &vr); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	case *bsky.GraphFollow:
-		subj, err := fg.lookupUserByDid(ctx, rec.Subject.Did)
-		if err != nil {
-			return err
-		}
-		// 'follower' followed 'target'
-		fr := FollowRecord{
-			Follower: evt.User,
-			Target:   subj.ID,
-			Rkey:     evt.Rkey,
-			Cid:      evt.RecCid.String(),
-		}
-		if err := fg.db.Create(&fr).Error; err != nil {
-			return err
-		}
-
-		if err := fg.notifman.AddFollow(ctx, fr.Follower, fr.Target, fr.ID); err != nil {
-			return err
-		}
-
-		return nil
-	default:
-		return fmt.Errorf("unrecognized record type: %T", rec)
-	}
-}
-
-func (fg *FeedGenerator) lookupUserByDid(ctx context.Context, did string) (*ActorInfo, error) {
-	var ai ActorInfo
-	if err := fg.db.First(&ai, "did = ?", did).Error; err != nil {
-		return nil, err
-	}
-
-	return &ai, nil
-}
-
-func (fg *FeedGenerator) lookupUserByHandle(ctx context.Context, handle string) (*ActorInfo, error) {
-	var ai ActorInfo
-	if err := fg.db.First(&ai, "handle = ?", handle).Error; err != nil {
-		return nil, err
-	}
-
-	return &ai, nil
-}
-
-func (fg *FeedGenerator) addNewPostNotification(ctx context.Context, post *bsky.FeedPost, fp *FeedPost) error {
-	if post.Reply != nil {
-		replyto, err := fg.GetPost(ctx, post.Reply.Parent.Uri)
-		if err != nil {
-			fmt.Println("probably shouldnt error when processing a reply to a not-found post")
-			return err
-		}
-
-		if err := fg.notifman.AddReplyTo(ctx, fp.Author, fp.ID, replyto); err != nil {
-			return err
-		}
-	}
-
-	for _, e := range post.Entities {
-		switch e.Type {
-		case "mention":
-			mentioned, err := fg.lookupUserByDid(ctx, e.Value)
-			if err != nil {
-				return fmt.Errorf("mentioned user does not exist: %w", err)
-			}
-
-			if err := fg.notifman.AddMention(ctx, fp.Author, fp.ID, mentioned.ID); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (fg *FeedGenerator) addNewVoteNotification(ctx context.Context, postauthor uint, vr *VoteRecord) error {
-	return fg.notifman.AddUpVote(ctx, vr.Voter, vr.Post, vr.ID, postauthor)
 }
 
 func (fg *FeedGenerator) GetActorProfileByID(ctx context.Context, actor uint) (*ActorInfo, error) {
@@ -652,20 +347,6 @@ func (fg *FeedGenerator) GetActorProfile(ctx context.Context, actor string) (*Ac
 	return &ai, nil
 }
 
-func (fg *FeedGenerator) GetPost(ctx context.Context, uri string) (*FeedPost, error) {
-	puri, err := parseAtUri(uri)
-	if err != nil {
-		return nil, err
-	}
-
-	var post FeedPost
-	if err := fg.db.First(&post, "rkey = ? AND author = (?)", puri.Rkey, fg.db.Model(ActorInfo{}).Where("did = ?", puri.Did).Select("id")).Error; err != nil {
-		return nil, err
-	}
-
-	return &post, nil
-}
-
 type ThreadPost struct {
 	Post   *bsky.FeedFeedViewPost
 	PostID uint
@@ -675,7 +356,7 @@ type ThreadPost struct {
 }
 
 func (fg *FeedGenerator) GetPostThread(ctx context.Context, uri string, depth int) (*ThreadPost, error) {
-	post, err := fg.GetPost(ctx, uri)
+	post, err := fg.ix.GetPost(ctx, uri)
 	if err != nil {
 		return nil, fmt.Errorf("getting post for thread: %w", err)
 	}
@@ -737,7 +418,7 @@ func (fg *FeedGenerator) GetVotes(ctx context.Context, uri string, pcid cid.Cid,
 		log.Println("not respecting 'before' yet")
 	}
 
-	p, err := fg.GetPost(ctx, uri)
+	p, err := fg.ix.GetPost(ctx, uri)
 	if err != nil {
 		return nil, err
 	}

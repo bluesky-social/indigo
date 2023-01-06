@@ -15,12 +15,14 @@ func init() {
 }
 
 type FeedGetPostThread_NotFoundPost struct {
-	NotFound bool   `json:"notFound" cborgen:"notFound"`
-	Uri      string `json:"uri" cborgen:"uri"`
+	LexiconTypeID string `json:"$type,omitempty"`
+	NotFound      bool   `json:"notFound" cborgen:"notFound"`
+	Uri           string `json:"uri" cborgen:"uri"`
 }
 
 type FeedGetPostThread_Output struct {
-	Thread *FeedGetPostThread_Output_Thread `json:"thread" cborgen:"thread"`
+	LexiconTypeID string                           `json:"$type,omitempty"`
+	Thread        *FeedGetPostThread_Output_Thread `json:"thread" cborgen:"thread"`
 }
 
 type FeedGetPostThread_Output_Thread struct {
@@ -30,9 +32,11 @@ type FeedGetPostThread_Output_Thread struct {
 
 func (t *FeedGetPostThread_Output_Thread) MarshalJSON() ([]byte, error) {
 	if t.FeedGetPostThread_ThreadViewPost != nil {
+		t.FeedGetPostThread_ThreadViewPost.LexiconTypeID = "app.bsky.feed.getPostThread#threadViewPost"
 		return json.Marshal(t.FeedGetPostThread_ThreadViewPost)
 	}
 	if t.FeedGetPostThread_NotFoundPost != nil {
+		t.FeedGetPostThread_NotFoundPost.LexiconTypeID = "app.bsky.feed.getPostThread#notFoundPost"
 		return json.Marshal(t.FeedGetPostThread_NotFoundPost)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
@@ -57,9 +61,10 @@ func (t *FeedGetPostThread_Output_Thread) UnmarshalJSON(b []byte) error {
 }
 
 type FeedGetPostThread_ThreadViewPost struct {
-	Parent  *FeedGetPostThread_ThreadViewPost_Parent         `json:"parent" cborgen:"parent"`
-	Post    *FeedPost_View                                   `json:"post" cborgen:"post"`
-	Replies []*FeedGetPostThread_ThreadViewPost_Replies_Elem `json:"replies" cborgen:"replies"`
+	LexiconTypeID string                                           `json:"$type,omitempty"`
+	Parent        *FeedGetPostThread_ThreadViewPost_Parent         `json:"parent" cborgen:"parent"`
+	Post          *FeedPost_View                                   `json:"post" cborgen:"post"`
+	Replies       []*FeedGetPostThread_ThreadViewPost_Replies_Elem `json:"replies" cborgen:"replies"`
 }
 
 type FeedGetPostThread_ThreadViewPost_Parent struct {
@@ -69,9 +74,11 @@ type FeedGetPostThread_ThreadViewPost_Parent struct {
 
 func (t *FeedGetPostThread_ThreadViewPost_Parent) MarshalJSON() ([]byte, error) {
 	if t.FeedGetPostThread_ThreadViewPost != nil {
+		t.FeedGetPostThread_ThreadViewPost.LexiconTypeID = "app.bsky.feed.getPostThread#threadViewPost"
 		return json.Marshal(t.FeedGetPostThread_ThreadViewPost)
 	}
 	if t.FeedGetPostThread_NotFoundPost != nil {
+		t.FeedGetPostThread_NotFoundPost.LexiconTypeID = "app.bsky.feed.getPostThread#notFoundPost"
 		return json.Marshal(t.FeedGetPostThread_NotFoundPost)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
@@ -102,9 +109,11 @@ type FeedGetPostThread_ThreadViewPost_Replies_Elem struct {
 
 func (t *FeedGetPostThread_ThreadViewPost_Replies_Elem) MarshalJSON() ([]byte, error) {
 	if t.FeedGetPostThread_ThreadViewPost != nil {
+		t.FeedGetPostThread_ThreadViewPost.LexiconTypeID = "app.bsky.feed.getPostThread#threadViewPost"
 		return json.Marshal(t.FeedGetPostThread_ThreadViewPost)
 	}
 	if t.FeedGetPostThread_NotFoundPost != nil {
+		t.FeedGetPostThread_NotFoundPost.LexiconTypeID = "app.bsky.feed.getPostThread#notFoundPost"
 		return json.Marshal(t.FeedGetPostThread_NotFoundPost)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")

@@ -47,7 +47,7 @@ func (s *Server) HandleAppBskyActorCreateScene(c echo.Context) error {
 	}
 	var out *appbskytypes.ActorCreateScene_Output
 	var handleErr error
-	// func (s *Server) handleAppBskyActorCreateScene(ctx context.Context,body appbskytypes.ActorCreateScene_Input) (*appbskytypes.ActorCreateScene_Output, error)
+	// func (s *Server) handleAppBskyActorCreateScene(ctx context.Context,body *appbskytypes.ActorCreateScene_Input) (*appbskytypes.ActorCreateScene_Output, error)
 	out, handleErr = s.handleAppBskyActorCreateScene(ctx, &body)
 	if handleErr != nil {
 		return handleErr
@@ -155,7 +155,7 @@ func (s *Server) HandleAppBskyActorUpdateProfile(c echo.Context) error {
 	}
 	var out *appbskytypes.ActorUpdateProfile_Output
 	var handleErr error
-	// func (s *Server) handleAppBskyActorUpdateProfile(ctx context.Context,body appbskytypes.ActorUpdateProfile_Input) (*appbskytypes.ActorUpdateProfile_Output, error)
+	// func (s *Server) handleAppBskyActorUpdateProfile(ctx context.Context,body *appbskytypes.ActorUpdateProfile_Input) (*appbskytypes.ActorUpdateProfile_Output, error)
 	out, handleErr = s.handleAppBskyActorUpdateProfile(ctx, &body)
 	if handleErr != nil {
 		return handleErr
@@ -303,7 +303,7 @@ func (s *Server) HandleAppBskyFeedSetVote(c echo.Context) error {
 	}
 	var out *appbskytypes.FeedSetVote_Output
 	var handleErr error
-	// func (s *Server) handleAppBskyFeedSetVote(ctx context.Context,body appbskytypes.FeedSetVote_Input) (*appbskytypes.FeedSetVote_Output, error)
+	// func (s *Server) handleAppBskyFeedSetVote(ctx context.Context,body *appbskytypes.FeedSetVote_Input) (*appbskytypes.FeedSetVote_Output, error)
 	out, handleErr = s.handleAppBskyFeedSetVote(ctx, &body)
 	if handleErr != nil {
 		return handleErr
@@ -465,7 +465,7 @@ func (s *Server) HandleAppBskyGraphMute(c echo.Context) error {
 		return err
 	}
 	var handleErr error
-	// func (s *Server) handleAppBskyGraphMute(ctx context.Context,body appbskytypes.GraphMute_Input) error
+	// func (s *Server) handleAppBskyGraphMute(ctx context.Context,body *appbskytypes.GraphMute_Input) error
 	handleErr = s.handleAppBskyGraphMute(ctx, &body)
 	if handleErr != nil {
 		return handleErr
@@ -482,7 +482,7 @@ func (s *Server) HandleAppBskyGraphUnmute(c echo.Context) error {
 		return err
 	}
 	var handleErr error
-	// func (s *Server) handleAppBskyGraphUnmute(ctx context.Context,body appbskytypes.GraphUnmute_Input) error
+	// func (s *Server) handleAppBskyGraphUnmute(ctx context.Context,body *appbskytypes.GraphUnmute_Input) error
 	handleErr = s.handleAppBskyGraphUnmute(ctx, &body)
 	if handleErr != nil {
 		return handleErr
@@ -537,7 +537,7 @@ func (s *Server) HandleAppBskyNotificationUpdateSeen(c echo.Context) error {
 		return err
 	}
 	var handleErr error
-	// func (s *Server) handleAppBskyNotificationUpdateSeen(ctx context.Context,body appbskytypes.NotificationUpdateSeen_Input) error
+	// func (s *Server) handleAppBskyNotificationUpdateSeen(ctx context.Context,body *appbskytypes.NotificationUpdateSeen_Input) error
 	handleErr = s.handleAppBskyNotificationUpdateSeen(ctx, &body)
 	if handleErr != nil {
 		return handleErr
@@ -554,6 +554,10 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.account.resetPassword", s.HandleComAtprotoAccountResetPassword)
 	e.POST("/xrpc/com.atproto.blob.upload", s.HandleComAtprotoBlobUpload)
 	e.GET("/xrpc/com.atproto.handle.resolve", s.HandleComAtprotoHandleResolve)
+	e.POST("/xrpc/com.atproto.peering.follow", s.HandleComAtprotoPeeringFollow)
+	e.POST("/xrpc/com.atproto.peering.init", s.HandleComAtprotoPeeringInit)
+	e.GET("/xrpc/com.atproto.peering.list", s.HandleComAtprotoPeeringList)
+	e.POST("/xrpc/com.atproto.peering.propose", s.HandleComAtprotoPeeringPropose)
 	e.POST("/xrpc/com.atproto.repo.batchWrite", s.HandleComAtprotoRepoBatchWrite)
 	e.POST("/xrpc/com.atproto.repo.createRecord", s.HandleComAtprotoRepoCreateRecord)
 	e.POST("/xrpc/com.atproto.repo.deleteRecord", s.HandleComAtprotoRepoDeleteRecord)
@@ -582,7 +586,7 @@ func (s *Server) HandleComAtprotoAccountCreate(c echo.Context) error {
 	}
 	var out *comatprototypes.AccountCreate_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoAccountCreate(ctx context.Context,body comatprototypes.AccountCreate_Input) (*comatprototypes.AccountCreate_Output, error)
+	// func (s *Server) handleComAtprotoAccountCreate(ctx context.Context,body *comatprototypes.AccountCreate_Input) (*comatprototypes.AccountCreate_Output, error)
 	out, handleErr = s.handleComAtprotoAccountCreate(ctx, &body)
 	if handleErr != nil {
 		return handleErr
@@ -600,7 +604,7 @@ func (s *Server) HandleComAtprotoAccountCreateInviteCode(c echo.Context) error {
 	}
 	var out *comatprototypes.AccountCreateInviteCode_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoAccountCreateInviteCode(ctx context.Context,body comatprototypes.AccountCreateInviteCode_Input) (*comatprototypes.AccountCreateInviteCode_Output, error)
+	// func (s *Server) handleComAtprotoAccountCreateInviteCode(ctx context.Context,body *comatprototypes.AccountCreateInviteCode_Input) (*comatprototypes.AccountCreateInviteCode_Output, error)
 	out, handleErr = s.handleComAtprotoAccountCreateInviteCode(ctx, &body)
 	if handleErr != nil {
 		return handleErr
@@ -641,7 +645,7 @@ func (s *Server) HandleComAtprotoAccountRequestPasswordReset(c echo.Context) err
 		return err
 	}
 	var handleErr error
-	// func (s *Server) handleComAtprotoAccountRequestPasswordReset(ctx context.Context,body comatprototypes.AccountRequestPasswordReset_Input) error
+	// func (s *Server) handleComAtprotoAccountRequestPasswordReset(ctx context.Context,body *comatprototypes.AccountRequestPasswordReset_Input) error
 	handleErr = s.handleComAtprotoAccountRequestPasswordReset(ctx, &body)
 	if handleErr != nil {
 		return handleErr
@@ -658,7 +662,7 @@ func (s *Server) HandleComAtprotoAccountResetPassword(c echo.Context) error {
 		return err
 	}
 	var handleErr error
-	// func (s *Server) handleComAtprotoAccountResetPassword(ctx context.Context,body comatprototypes.AccountResetPassword_Input) error
+	// func (s *Server) handleComAtprotoAccountResetPassword(ctx context.Context,body *comatprototypes.AccountResetPassword_Input) error
 	handleErr = s.handleComAtprotoAccountResetPassword(ctx, &body)
 	if handleErr != nil {
 		return handleErr
@@ -670,10 +674,11 @@ func (s *Server) HandleComAtprotoBlobUpload(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoBlobUpload")
 	defer span.End()
 	body := c.Request().Body
+	contentType := c.Request().Header.Get("Content-Type")
 	var out *comatprototypes.BlobUpload_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoBlobUpload(ctx context.Context,r io.Reader) (*comatprototypes.BlobUpload_Output, error)
-	out, handleErr = s.handleComAtprotoBlobUpload(ctx, body, c.Request().Header.Get("Content-Type"))
+	// func (s *Server) handleComAtprotoBlobUpload(ctx context.Context,r io.Reader,contentType string) (*comatprototypes.BlobUpload_Output, error)
+	out, handleErr = s.handleComAtprotoBlobUpload(ctx, body, contentType)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -694,6 +699,71 @@ func (s *Server) HandleComAtprotoHandleResolve(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandleComAtprotoPeeringFollow(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoPeeringFollow")
+	defer span.End()
+
+	var body comatprototypes.PeeringFollow_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleComAtprotoPeeringFollow(ctx context.Context,body *comatprototypes.PeeringFollow_Input) error
+	handleErr = s.handleComAtprotoPeeringFollow(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
+func (s *Server) HandleComAtprotoPeeringInit(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoPeeringInit")
+	defer span.End()
+
+	var body comatprototypes.PeeringInit_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleComAtprotoPeeringInit(ctx context.Context,body *comatprototypes.PeeringInit_Input) error
+	handleErr = s.handleComAtprotoPeeringInit(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
+func (s *Server) HandleComAtprotoPeeringList(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoPeeringList")
+	defer span.End()
+	var out *comatprototypes.PeeringList_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoPeeringList(ctx context.Context) (*comatprototypes.PeeringList_Output, error)
+	out, handleErr = s.handleComAtprotoPeeringList(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoPeeringPropose(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoPeeringPropose")
+	defer span.End()
+
+	var body comatprototypes.PeeringPropose_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *comatprototypes.PeeringPropose_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoPeeringPropose(ctx context.Context,body *comatprototypes.PeeringPropose_Input) (*comatprototypes.PeeringPropose_Output, error)
+	out, handleErr = s.handleComAtprotoPeeringPropose(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandleComAtprotoRepoBatchWrite(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoBatchWrite")
 	defer span.End()
@@ -703,7 +773,7 @@ func (s *Server) HandleComAtprotoRepoBatchWrite(c echo.Context) error {
 		return err
 	}
 	var handleErr error
-	// func (s *Server) handleComAtprotoRepoBatchWrite(ctx context.Context,body comatprototypes.RepoBatchWrite_Input) error
+	// func (s *Server) handleComAtprotoRepoBatchWrite(ctx context.Context,body *comatprototypes.RepoBatchWrite_Input) error
 	handleErr = s.handleComAtprotoRepoBatchWrite(ctx, &body)
 	if handleErr != nil {
 		return handleErr
@@ -721,7 +791,7 @@ func (s *Server) HandleComAtprotoRepoCreateRecord(c echo.Context) error {
 	}
 	var out *comatprototypes.RepoCreateRecord_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoRepoCreateRecord(ctx context.Context,body comatprototypes.RepoCreateRecord_Input) (*comatprototypes.RepoCreateRecord_Output, error)
+	// func (s *Server) handleComAtprotoRepoCreateRecord(ctx context.Context,body *comatprototypes.RepoCreateRecord_Input) (*comatprototypes.RepoCreateRecord_Output, error)
 	out, handleErr = s.handleComAtprotoRepoCreateRecord(ctx, &body)
 	if handleErr != nil {
 		return handleErr
@@ -738,7 +808,7 @@ func (s *Server) HandleComAtprotoRepoDeleteRecord(c echo.Context) error {
 		return err
 	}
 	var handleErr error
-	// func (s *Server) handleComAtprotoRepoDeleteRecord(ctx context.Context,body comatprototypes.RepoDeleteRecord_Input) error
+	// func (s *Server) handleComAtprotoRepoDeleteRecord(ctx context.Context,body *comatprototypes.RepoDeleteRecord_Input) error
 	handleErr = s.handleComAtprotoRepoDeleteRecord(ctx, &body)
 	if handleErr != nil {
 		return handleErr
@@ -814,7 +884,7 @@ func (s *Server) HandleComAtprotoRepoPutRecord(c echo.Context) error {
 	}
 	var out *comatprototypes.RepoPutRecord_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoRepoPutRecord(ctx context.Context,body comatprototypes.RepoPutRecord_Input) (*comatprototypes.RepoPutRecord_Output, error)
+	// func (s *Server) handleComAtprotoRepoPutRecord(ctx context.Context,body *comatprototypes.RepoPutRecord_Input) (*comatprototypes.RepoPutRecord_Output, error)
 	out, handleErr = s.handleComAtprotoRepoPutRecord(ctx, &body)
 	if handleErr != nil {
 		return handleErr
@@ -845,7 +915,7 @@ func (s *Server) HandleComAtprotoSessionCreate(c echo.Context) error {
 	}
 	var out *comatprototypes.SessionCreate_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoSessionCreate(ctx context.Context,body comatprototypes.SessionCreate_Input) (*comatprototypes.SessionCreate_Output, error)
+	// func (s *Server) handleComAtprotoSessionCreate(ctx context.Context,body *comatprototypes.SessionCreate_Input) (*comatprototypes.SessionCreate_Output, error)
 	out, handleErr = s.handleComAtprotoSessionCreate(ctx, &body)
 	if handleErr != nil {
 		return handleErr

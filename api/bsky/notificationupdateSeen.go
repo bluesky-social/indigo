@@ -12,10 +12,11 @@ func init() {
 }
 
 type NotificationUpdateSeen_Input struct {
-	SeenAt string `json:"seenAt" cborgen:"seenAt"`
+	LexiconTypeID string `json:"$type,omitempty"`
+	SeenAt        string `json:"seenAt" cborgen:"seenAt"`
 }
 
-func NotificationUpdateSeen(ctx context.Context, c *xrpc.Client, input NotificationUpdateSeen_Input) error {
+func NotificationUpdateSeen(ctx context.Context, c *xrpc.Client, input *NotificationUpdateSeen_Input) error {
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "app.bsky.notification.updateSeen", nil, input, nil); err != nil {
 		return err
 	}

@@ -473,7 +473,7 @@ func (s *Server) handleComAtprotoHandleResolve(ctx context.Context, handle strin
 		return nil, err
 	}
 
-	return &comatprototypes.HandleResolve_Output{u.DID}, nil
+	return &comatprototypes.HandleResolve_Output{Did: u.DID}, nil
 }
 
 func (s *Server) handleComAtprotoRepoBatchWrite(ctx context.Context, input *comatprototypes.RepoBatchWrite_Input) error {
@@ -706,5 +706,21 @@ func (s *Server) handleAppBskyGraphMute(ctx context.Context, input *appbskytypes
 }
 
 func (s *Server) handleAppBskyGraphUnmute(ctx context.Context, input *appbskytypes.GraphUnmute_Input) error {
+	panic("not yet implemented")
+}
+
+func (s *Server) handleComAtprotoPeeringInit(ctx context.Context, body *comatprototypes.PeeringInit_Input) error {
+	panic("not yet implemented")
+}
+
+func (s *Server) handleComAtprotoPeeringPropose(ctx context.Context, body *comatprototypes.PeeringPropose_Input) (*comatprototypes.PeeringPropose_Output, error) {
+	panic("not yet implemented")
+}
+
+func (s *Server) handleComAtprotoPeeringList(ctx context.Context) (*comatprototypes.PeeringList_Output, error) {
+	panic("not yet implemented")
+}
+
+func (s *Server) handleComAtprotoPeeringFollow(ctx context.Context, body *comatprototypes.PeeringFollow_Input) error {
 	panic("not yet implemented")
 }

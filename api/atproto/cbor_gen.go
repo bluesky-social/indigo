@@ -26,7 +26,7 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 
 	cw := cbg.NewCborWriter(w)
 
-	if _, err := cw.Write([]byte{162}); err != nil {
+	if _, err := cw.Write([]byte{163}); err != nil {
 		return err
 	}
 
@@ -73,6 +73,29 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Uri)); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("LexiconTypeID") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
+		return err
+	}
+
+	if len(t.LexiconTypeID) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
 		return err
 	}
 	return nil
@@ -137,6 +160,17 @@ func (t *RepoStrongRef) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Uri = string(sval)
+			}
+			// t.LexiconTypeID (string) (string)
+		case "LexiconTypeID":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
 			}
 
 		default:

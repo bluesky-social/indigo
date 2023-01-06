@@ -12,6 +12,7 @@ func init() {
 }
 
 type NotificationList_Notification struct {
+	LexiconTypeID string             `json:"$type,omitempty"`
 	Author        *ActorRef_WithInfo `json:"author" cborgen:"author"`
 	Cid           string             `json:"cid" cborgen:"cid"`
 	IndexedAt     string             `json:"indexedAt" cborgen:"indexedAt"`
@@ -23,6 +24,7 @@ type NotificationList_Notification struct {
 }
 
 type NotificationList_Output struct {
+	LexiconTypeID string                           `json:"$type,omitempty"`
 	Cursor        *string                          `json:"cursor" cborgen:"cursor"`
 	Notifications []*NotificationList_Notification `json:"notifications" cborgen:"notifications"`
 }

@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
+	github.com/gorilla/websocket v1.4.2
 	github.com/ipfs/go-block-format v0.0.3
 	github.com/ipfs/go-bs-sqlite3 v0.0.0-20221122195556-bfcee1be620d
 	github.com/ipfs/go-car v0.0.4
@@ -18,10 +19,11 @@ require (
 	github.com/labstack/echo/v4 v4.7.2
 	github.com/lestrrat-go/jwx v1.2.25
 	github.com/lestrrat-go/jwx/v2 v2.0.0
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multihash v0.1.0
 	github.com/polydawn/refmt v0.89.1-0.20221221234430-40501e09de1f
 	github.com/urfave/cli/v2 v2.23.0
-	github.com/whyrusleeping/cbor-gen v0.0.0-20221220214510-0333c149dec0
+	github.com/whyrusleeping/cbor-gen v0.0.0-20230106195754-b5f4b36f47e2
 	github.com/whyrusleeping/go-did v0.0.0-20221105001742-8d9e0ffb0d59
 	go.opentelemetry.io/otel v1.11.2
 	go.opentelemetry.io/otel/exporters/jaeger v1.11.2

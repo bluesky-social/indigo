@@ -30,22 +30,6 @@ func (t *SignedRoot) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Root (cid.Cid) (struct)
-	if len("root") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"root\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("root"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("root")); err != nil {
-		return err
-	}
-
-	if err := cbg.WriteCid(cw, t.Root); err != nil {
-		return xerrors.Errorf("failed to write cid field t.Root: %w", err)
-	}
-
 	// t.Sig ([]uint8) (slice)
 	if len("sig") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"sig\" was too long")
@@ -69,6 +53,23 @@ func (t *SignedRoot) MarshalCBOR(w io.Writer) error {
 	if _, err := cw.Write(t.Sig[:]); err != nil {
 		return err
 	}
+
+	// t.Root (cid.Cid) (struct)
+	if len("root") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"root\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("root"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("root")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteCid(cw, t.Root); err != nil {
+		return xerrors.Errorf("failed to write cid field t.Root: %w", err)
+	}
+
 	return nil
 }
 
@@ -110,20 +111,7 @@ func (t *SignedRoot) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Root (cid.Cid) (struct)
-		case "root":
-
-			{
-
-				c, err := cbg.ReadCid(cr)
-				if err != nil {
-					return xerrors.Errorf("failed to read cid field t.Root: %w", err)
-				}
-
-				t.Root = c
-
-			}
-			// t.Sig ([]uint8) (slice)
+		// t.Sig ([]uint8) (slice)
 		case "sig":
 
 			maj, extra, err = cr.ReadHeader()
@@ -145,6 +133,19 @@ func (t *SignedRoot) UnmarshalCBOR(r io.Reader) (err error) {
 			if _, err := io.ReadFull(cr, t.Sig[:]); err != nil {
 				return err
 			}
+			// t.Root (cid.Cid) (struct)
+		case "root":
+
+			{
+
+				c, err := cbg.ReadCid(cr)
+				if err != nil {
+					return xerrors.Errorf("failed to read cid field t.Root: %w", err)
+				}
+
+				t.Root = c
+
+			}
 
 		default:
 			// Field doesn't exist on this type, so ignore it
@@ -163,29 +164,6 @@ func (t *Meta) MarshalCBOR(w io.Writer) error {
 	cw := cbg.NewCborWriter(w)
 
 	if _, err := cw.Write([]byte{163}); err != nil {
-		return err
-	}
-
-	// t.Datastore (string) (string)
-	if len("datastore") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"datastore\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("datastore"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("datastore")); err != nil {
-		return err
-	}
-
-	if len(t.Datastore) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Datastore was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Datastore))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Datastore)); err != nil {
 		return err
 	}
 
@@ -233,6 +211,29 @@ func (t *Meta) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	}
+
+	// t.Datastore (string) (string)
+	if len("datastore") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"datastore\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("datastore"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("datastore")); err != nil {
+		return err
+	}
+
+	if len(t.Datastore) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Datastore was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Datastore))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Datastore)); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -274,18 +275,7 @@ func (t *Meta) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Datastore (string) (string)
-		case "datastore":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.Datastore = string(sval)
-			}
-			// t.Did (string) (string)
+		// t.Did (string) (string)
 		case "did":
 
 			{
@@ -322,6 +312,17 @@ func (t *Meta) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Version = int64(extraI)
 			}
+			// t.Datastore (string) (string)
+		case "datastore":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Datastore = string(sval)
+			}
 
 		default:
 			// Field doesn't exist on this type, so ignore it
@@ -346,35 +347,6 @@ func (t *Commit) MarshalCBOR(w io.Writer) error {
 
 	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
-	}
-
-	// t.AuthToken (string) (string)
-	if len("auth_token") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"auth_token\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("auth_token"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("auth_token")); err != nil {
-		return err
-	}
-
-	if t.AuthToken == nil {
-		if _, err := cw.Write(cbg.CborNull); err != nil {
-			return err
-		}
-	} else {
-		if len(*t.AuthToken) > cbg.MaxLength {
-			return xerrors.Errorf("Value in field t.AuthToken was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.AuthToken))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string(*t.AuthToken)); err != nil {
-			return err
-		}
 	}
 
 	// t.Data (cid.Cid) (struct)
@@ -434,6 +406,35 @@ func (t *Commit) MarshalCBOR(w io.Writer) error {
 		}
 
 	}
+
+	// t.AuthToken (string) (string)
+	if len("auth_token") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"auth_token\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("auth_token"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("auth_token")); err != nil {
+		return err
+	}
+
+	if t.AuthToken == nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if len(*t.AuthToken) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.AuthToken was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.AuthToken))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(*t.AuthToken)); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -475,28 +476,7 @@ func (t *Commit) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.AuthToken (string) (string)
-		case "auth_token":
-
-			{
-				b, err := cr.ReadByte()
-				if err != nil {
-					return err
-				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-
-					sval, err := cbg.ReadString(cr)
-					if err != nil {
-						return err
-					}
-
-					t.AuthToken = (*string)(&sval)
-				}
-			}
-			// t.Data (cid.Cid) (struct)
+		// t.Data (cid.Cid) (struct)
 		case "data":
 
 			{
@@ -544,6 +524,27 @@ func (t *Commit) UnmarshalCBOR(r io.Reader) (err error) {
 					t.Prev = &c
 				}
 
+			}
+			// t.AuthToken (string) (string)
+		case "auth_token":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadString(cr)
+					if err != nil {
+						return err
+					}
+
+					t.AuthToken = (*string)(&sval)
+				}
 			}
 
 		default:

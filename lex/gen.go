@@ -202,6 +202,30 @@ type ExtDef struct {
 	Type *TypeSchema
 }
 
+// TODO: this method is necessary because in lexicon there is no way to know if
+// a type needs to be marshaled with a "$type" field up front, you can only
+// know for sure by seeing where the type is used. 
+func FixRecordReferences(schemas []*Schema, defmap map[string]*ExtDef, prefix string) {
+	for _, s := range schemas {
+				if !strings.HasPrefix(s.ID, prefix) {
+					continue
+				}
+
+		tps := s.AllTypes(prefix, defmap)
+		for _, t := range tps {
+			if t.Type.Type == "union" {
+				for _, r := range t.Type.Refs {
+					if r[0] == '#' {
+						r = s.ID + r
+					}
+
+					defmap[r].Type.record = true
+				}
+			}
+		}
+	}
+}
+
 func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *Schema, defmap map[string]*ExtDef, imports map[string]string) error {
 	buf := new(bytes.Buffer)
 
@@ -216,6 +240,7 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 	fmt.Fprintf(buf, "\t\"context\"\n")
 	fmt.Fprintf(buf, "\t\"fmt\"\n")
 	fmt.Fprintf(buf, "\t\"encoding/json\"\n")
+	fmt.Fprintf(buf, "\tcbg \"github.com/whyrusleeping/cbor-gen\"\n")
 	fmt.Fprintf(buf, "\t\"github.com/whyrusleeping/gosky/xrpc\"\n")
 	fmt.Fprintf(buf, "\t\"github.com/whyrusleeping/gosky/lex/util\"\n")
 	for k, v := range imports {
@@ -370,7 +395,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 		case EncodingCBOR, EncodingANY:
 			params = fmt.Sprintf("%s, input io.Reader", params)
 		case EncodingJSON:
-			params = fmt.Sprintf("%s, input %s_Input", params, fname)
+			params = fmt.Sprintf("%s, input *%s_Input", params, fname)
 
 		default:
 			return fmt.Errorf("unsupported input encoding: %q", s.Input.Encoding)
@@ -787,12 +812,18 @@ if err := c.Bind(&body); err != nil {
 	return err
 }
 `, intname)
-				paramtypes = append(paramtypes, "body "+intname)
+				paramtypes = append(paramtypes, "body *"+intname)
 				params = append(params, "&body")
-			case EncodingCBOR, EncodingANY:
+			case EncodingCBOR:
 				fmt.Fprintf(w, "body := c.Request().Body\n")
 				paramtypes = append(paramtypes, "r io.Reader")
 				params = append(params, "body")
+			case EncodingANY:
+				fmt.Fprintf(w, "body := c.Request().Body\n")
+				fmt.Fprintf(w, "contentType := c.Request().Header.Get(\"Content-Type\")\n")
+				paramtypes = append(paramtypes, "r io.Reader", "contentType string")
+				params = append(params, "body", "contentType")
+
 			default:
 				return fmt.Errorf("unrecognized input encoding: %q", s.Input.Encoding)
 			}
@@ -967,6 +998,8 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 
 		if ts.record {
 			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type\" cborgen:\"$type,const=%s\"`\n", ts.id)
+		} else {
+			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type,omitempty\"`\n" )
 		}
 
 		required := make(map[string]bool)
@@ -1138,7 +1171,12 @@ func (ts *TypeSchema) writeJsonMarshalerEnum(name string, w io.Writer) error {
 
 	for _, e := range ts.Refs {
 		tname := ts.typeNameFromRef(e)
+		if strings.HasPrefix(e, "#") {
+			e = ts.id + e
+		}
+
 		fmt.Fprintf(w, "\tif t.%s != nil {\n", tname)
+		fmt.Fprintf(w, "\tt.%s.LexiconTypeID = %q\n", tname, e)
 		fmt.Fprintf(w, "\t\treturn json.Marshal(t.%s)\n\t}\n", tname)
 	}
 

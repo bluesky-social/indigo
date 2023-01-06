@@ -12,12 +12,13 @@ func init() {
 }
 
 type RepoDeleteRecord_Input struct {
-	Collection string `json:"collection" cborgen:"collection"`
-	Did        string `json:"did" cborgen:"did"`
-	Rkey       string `json:"rkey" cborgen:"rkey"`
+	LexiconTypeID string `json:"$type,omitempty"`
+	Collection    string `json:"collection" cborgen:"collection"`
+	Did           string `json:"did" cborgen:"did"`
+	Rkey          string `json:"rkey" cborgen:"rkey"`
 }
 
-func RepoDeleteRecord(ctx context.Context, c *xrpc.Client, input RepoDeleteRecord_Input) error {
+func RepoDeleteRecord(ctx context.Context, c *xrpc.Client, input *RepoDeleteRecord_Input) error {
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", nil, input, nil); err != nil {
 		return err
 	}

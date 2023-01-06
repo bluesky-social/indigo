@@ -6,6 +6,7 @@ import (
 	"crypto/elliptic"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/mail"
 	"os"
 	"strings"
@@ -17,10 +18,12 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	jwk "github.com/lestrrat-go/jwx/jwk"
 	jwt "github.com/lestrrat-go/jwx/jwt"
+	comatprototypes "github.com/whyrusleeping/gosky/api/atproto"
 	appbskytypes "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/carstore"
 	"github.com/whyrusleeping/gosky/lex/util"
 	"github.com/whyrusleeping/gosky/repomgr"
+	"github.com/whyrusleeping/gosky/xrpc"
 	"gorm.io/gorm"
 )
 
@@ -30,6 +33,8 @@ type Server struct {
 	repoman    *repomgr.RepoManager
 	feedgen    *FeedGenerator
 	notifman   *NotificationManager
+	indexer    *Indexer
+	events     *EventManager
 	signingKey []byte
 
 	handleSuffix string
@@ -40,7 +45,7 @@ type Server struct {
 const UserActorDeclCid = "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u"
 const UserActorDeclType = "app.bsky.system.actorUser"
 
-func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string) (*Server, error) {
+func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix string) (*Server, error) {
 	db.AutoMigrate(&User{})
 
 	serkey, err := loadKey(kfile)
@@ -48,29 +53,80 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string) (*Server, error
 		return nil, err
 	}
 
-	repoman := repomgr.NewRepoManager(db, cs)
+	evtman := NewEventManager()
 
+	repoman := repomgr.NewRepoManager(db, cs)
 	notifman := NewNotificationManager(db, repoman)
+
+	ix, err := NewIndexer(db, notifman, evtman)
+	if err != nil {
+		return nil, err
+	}
 
 	s := &Server{
 		signingKey:   serkey,
 		db:           db,
 		cs:           cs,
 		notifman:     notifman,
+		indexer:      ix,
 		fakeDid:      NewFakeDid(db),
+		events:       evtman,
 		repoman:      repoman,
-		handleSuffix: ".pdstest",
+		handleSuffix: handleSuffix,
 	}
 
-	feedgen, err := NewFeedGenerator(db, notifman, s.readRecordFunc)
+	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
+		ix.HandleRepoEvent(ctx, evt)
+		fe, err := s.repoEventToFedEvent(context.TODO(), evt)
+		if err != nil {
+			log.Println("event conversion error: ", err)
+			return
+		}
+		if fe != nil {
+			if err := evtman.AddEvent(fe); err != nil {
+				log.Println("failed to push event: ", err)
+			}
+		}
+	})
+
+	ix.sendRemoteFollow = s.sendRemoteFollow
+
+	feedgen, err := NewFeedGenerator(db, ix, s.readRecordFunc)
 	if err != nil {
 		return nil, err
 	}
 
 	s.feedgen = feedgen
-	s.repoman.SetEventHandler(feedgen.HandleRepoEvent)
 
 	return s, nil
+}
+
+func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent) (*Event, error) {
+	out := &Event{
+		CarSlice: evt.RepoSlice,
+	}
+
+	switch evt.Kind {
+	case repomgr.EvtKindCreateRecord:
+		out.Kind = EvtKindUpdateRecord
+	case repomgr.EvtKindUpdateRecord:
+		out.Kind = EvtKindUpdateRecord
+	case repomgr.EvtKindInitActor:
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("unrecognized repo event kind: %q", evt.Kind)
+	}
+
+	did, err := s.indexer.didForUser(ctx, evt.User)
+	if err != nil {
+		return nil, err
+	}
+
+	out.User = did
+	out.Collection = evt.Collection
+	out.Rkey = evt.Rkey
+
+	return out, nil
 }
 
 func (s *Server) readRecordFunc(ctx context.Context, user uint, c cid.Cid) (any, error) {
@@ -108,7 +164,7 @@ func loadKey(kfile string) ([]byte, error) {
 func (s *Server) RunAPI(listen string) error {
 	e := echo.New()
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		Format: "method=${method}, uri=${uri}, status=${status}\n",
+		Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
 	}))
 
 	cfg := middleware.JWTConfig{
@@ -368,4 +424,35 @@ func (s *Server) invalidateToken(ctx context.Context, u *User, tok *jwt.Token) e
 
 func (s *Server) CreateScene(ctx context.Context, u *User, handle string, recovery *string) (interface{}, error) {
 	panic("nyi")
+}
+
+type Peering struct {
+	gorm.Model
+	Host     string
+	Approved bool
+}
+
+func (s *Server) sendRemoteFollow(ctx context.Context, followed string, followedPDS uint) error {
+	var peering Peering
+	if err := s.db.First(&peering, "id = ?", followedPDS).Error; err != nil {
+		return fmt.Errorf("failed to find followed users pds: %w", err)
+	}
+
+	auth, err := s.createCrossServerAuthToken(ctx, peering.Host)
+	if err != nil {
+		return err
+	}
+
+	c := &xrpc.Client{
+		Host: peering.Host,
+		Auth: auth,
+	}
+
+	if err := comatprototypes.PeeringFollow(ctx, c, &comatprototypes.PeeringFollow_Input{
+		Users: []string{followed},
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }

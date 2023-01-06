@@ -1,12 +1,20 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/base32"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strings"
 
 	did "github.com/whyrusleeping/go-did"
+	key "github.com/whyrusleeping/gosky/key"
 	otel "go.opentelemetry.io/otel"
 )
 
@@ -43,4 +51,86 @@ func (s *PLCServer) GetDocument(ctx context.Context, didstr string) (*did.Docume
 	}
 
 	return &doc, nil
+}
+
+type CreateOp struct {
+	Type        string  `json:"type" cborgen:"type"`
+	SigningKey  string  `json:"signingKey" cborgen:"signingKey"`
+	RecoveryKey string  `json:"recoveryKey" cborgen:"recoveryKey"`
+	Handle      string  `json:"handle" cborgen:"handle"`
+	Service     string  `json:"service" cborgen:"service"`
+	Prev        *string `json:"prev" cborgen:"prev"`
+	Sig         string  `json:"sig" cborgen:"sig,omitempty"`
+}
+
+func (s *PLCServer) CreateDID(ctx context.Context, sigkey *key.Key, recovery string, handle string, service string) (string, error) {
+	if s.C == nil {
+		s.C = http.DefaultClient
+	}
+
+	op := CreateOp{
+		Type:        "create",
+		SigningKey:  sigkey.DID(),
+		RecoveryKey: recovery,
+		Handle:      handle,
+		Service:     service,
+	}
+
+	buf := new(bytes.Buffer)
+	if err := op.MarshalCBOR(buf); err != nil {
+		return "", err
+	}
+
+	sig, err := sigkey.Sign(buf.Bytes())
+	if err != nil {
+		return "", err
+	}
+
+	op.Sig = base64.RawURLEncoding.EncodeToString(sig)
+
+	opdid, err := didForCreateOp(&op)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Println("Op did: ", opdid)
+
+	body, err := json.Marshal(op)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequest("POST", s.Host+"/"+url.QueryEscape(opdid), bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.C.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode != 200 {
+		b, _ := ioutil.ReadAll(resp.Body)
+		fmt.Println(string(b))
+		return "", fmt.Errorf("bad response from create call: %d %s", resp.StatusCode, resp.Status)
+
+	}
+
+	return opdid, nil
+
+}
+
+func didForCreateOp(op *CreateOp) (string, error) {
+	buf := new(bytes.Buffer)
+	if err := op.MarshalCBOR(buf); err != nil {
+		return "", err
+	}
+
+	h := sha256.Sum256(buf.Bytes())
+	enchash := base32.StdEncoding.EncodeToString(h[:])
+	enchash = strings.ToLower(enchash)
+	return "did:plc:" + enchash[:24], nil
 }
