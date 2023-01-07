@@ -39,6 +39,11 @@ func main() {
 		&cli.BoolFlag{
 			Name: "dbtracing",
 		},
+		&cli.StringFlag{
+			Name:  "pdshost",
+			Usage: "hostname of the pds",
+			Value: "localhost:4989",
+		},
 	}
 
 	app.Commands = []*cli.Command{
@@ -112,7 +117,8 @@ func main() {
 			return err
 		}
 
-		srv, err := server.NewServer(db, cs, "server.key", ".pdstest")
+		pdshost := cctx.String("pdshost")
+		srv, err := server.NewServer(db, cs, "server.key", ".pdstest", pdshost, server.NewFakeDid(db), []byte("jwtsecretplaceholder"))
 		if err != nil {
 			return err
 		}

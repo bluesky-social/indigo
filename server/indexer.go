@@ -28,6 +28,7 @@ func NewIndexer(db *gorm.DB, notifman *NotificationManager, evtman *EventManager
 	db.AutoMigrate(&FollowRecord{})
 	db.AutoMigrate(&VoteRecord{})
 	db.AutoMigrate(&RepostRecord{})
+	db.AutoMigrate(&ExternalFollow{})
 
 	return &Indexer{
 		db:       db,
@@ -109,6 +110,12 @@ type FollowRecord struct {
 	Cid      string
 }
 
+type ExternalFollow struct {
+	gorm.Model
+	PDS  uint
+	User uint
+}
+
 func (ix *Indexer) catchup(ctx context.Context, evt *repomgr.RepoEvent) error {
 	// TODO: catch up on events that happened since this event (in the event of a crash or downtime)
 	return nil
@@ -136,7 +143,10 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 	default:
 		log.Println("unrecognized repo event type: ", evt.Kind)
 	}
+}
 
+func (ix *Indexer) handleFedEvent(ctx context.Context, host string, evt *Event) error {
+	panic("TODO")
 }
 
 func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEvent, local bool) error {

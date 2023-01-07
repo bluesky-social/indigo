@@ -6,6 +6,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/x509"
 	"fmt"
 
 	"github.com/multiformats/go-multibase"
@@ -67,4 +68,20 @@ func (k *Key) DID() string {
 	}
 
 	return "did:key:" + kstr
+}
+
+func (k *Key) RawBytes() ([]byte, error) {
+	switch k.Type {
+	case "ed25519":
+		return k.Raw.([]byte), nil
+	case "P-256":
+		b, err := x509.MarshalECPrivateKey(k.Raw.(*ecdsa.PrivateKey))
+		if err != nil {
+			return nil, err
+		}
+
+		return b, nil
+	default:
+		return nil, fmt.Errorf("unsupported key type: %q", k.Type)
+	}
 }

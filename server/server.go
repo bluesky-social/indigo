@@ -3,7 +3,6 @@ package schemagen
 import (
 	"context"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -16,11 +15,14 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/lestrrat-go/jwx/jwa"
 	jwk "github.com/lestrrat-go/jwx/jwk"
 	jwt "github.com/lestrrat-go/jwx/jwt"
+	"github.com/whyrusleeping/go-did"
 	comatprototypes "github.com/whyrusleeping/gosky/api/atproto"
 	appbskytypes "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/carstore"
+	"github.com/whyrusleeping/gosky/key"
 	"github.com/whyrusleeping/gosky/lex/util"
 	"github.com/whyrusleeping/gosky/repomgr"
 	"github.com/whyrusleeping/gosky/xrpc"
@@ -28,24 +30,33 @@ import (
 )
 
 type Server struct {
-	db         *gorm.DB
-	cs         *carstore.CarStore
-	repoman    *repomgr.RepoManager
-	feedgen    *FeedGenerator
-	notifman   *NotificationManager
-	indexer    *Indexer
-	events     *EventManager
-	signingKey []byte
+	db            *gorm.DB
+	cs            *carstore.CarStore
+	repoman       *repomgr.RepoManager
+	feedgen       *FeedGenerator
+	notifman      *NotificationManager
+	indexer       *Indexer
+	events        *EventManager
+	fedmgr        *FederationManager
+	signingKey    *key.Key
+	echo          *echo.Echo
+	jwtSigningKey []byte
 
 	handleSuffix string
+	serviceUrl   string
 
-	fakeDid *FakeDid
+	plc PLCClient
 }
 
 const UserActorDeclCid = "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u"
 const UserActorDeclType = "app.bsky.system.actorUser"
 
-func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix string) (*Server, error) {
+type PLCClient interface {
+	GetDocument(ctx context.Context, didstr string) (*did.Document, error)
+	CreateDID(ctx context.Context, sigkey *key.Key, recovery string, handle string, service string) (string, error)
+}
+
+func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, serviceUrl string, plc PLCClient, jwtkey []byte) (*Server, error) {
 	db.AutoMigrate(&User{})
 
 	serkey, err := loadKey(kfile)
@@ -64,16 +75,20 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix st
 	}
 
 	s := &Server{
-		signingKey:   serkey,
-		db:           db,
-		cs:           cs,
-		notifman:     notifman,
-		indexer:      ix,
-		fakeDid:      NewFakeDid(db),
-		events:       evtman,
-		repoman:      repoman,
-		handleSuffix: handleSuffix,
+		signingKey:    serkey,
+		db:            db,
+		cs:            cs,
+		notifman:      notifman,
+		indexer:       ix,
+		plc:           NewFakeDid(db),
+		events:        evtman,
+		repoman:       repoman,
+		handleSuffix:  handleSuffix,
+		serviceUrl:    serviceUrl,
+		jwtSigningKey: jwtkey,
 	}
+
+	s.fedmgr = NewFederationManager(s.handleFedEvent)
 
 	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
 		ix.HandleRepoEvent(ctx, evt)
@@ -98,7 +113,18 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix st
 
 	s.feedgen = feedgen
 
+	go evtman.Run()
+
 	return s, nil
+}
+
+func (s *Server) handleFedEvent(ctx context.Context, host string, evt *Event) error {
+	switch evt.Kind {
+	case EvtKindCreateRecord:
+	case EvtKindUpdateRecord:
+
+	}
+	panic("nyi")
 }
 
 func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent) (*Event, error) {
@@ -143,7 +169,7 @@ func (s *Server) readRecordFunc(ctx context.Context, user uint, c cid.Cid) (any,
 	return util.CborDecodeValue(blk.RawData())
 }
 
-func loadKey(kfile string) ([]byte, error) {
+func loadKey(kfile string) (*key.Key, error) {
 	kb, err := os.ReadFile(kfile)
 	if err != nil {
 		return nil, err
@@ -158,11 +184,20 @@ func loadKey(kfile string) ([]byte, error) {
 	if err := sk.Raw(&spk); err != nil {
 		return nil, err
 	}
-	return elliptic.Marshal(spk.Curve, spk.X, spk.Y), nil
+	curve, ok := sk.Get("crv")
+	if !ok {
+		return nil, fmt.Errorf("need a curve set")
+	}
+
+	return &key.Key{
+		Raw:  &spk,
+		Type: string(curve.(jwa.EllipticCurveAlgorithm)),
+	}, nil
 }
 
 func (s *Server) RunAPI(listen string) error {
 	e := echo.New()
+	s.echo = e
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
 	}))
@@ -181,7 +216,7 @@ func (s *Server) RunAPI(listen string) error {
 			}
 		},
 		//KeyFunc:    s.getKey,
-		SigningKey: s.signingKey,
+		SigningKey: s.jwtSigningKey,
 	}
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {

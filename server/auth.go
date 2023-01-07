@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"time"
 
 	"github.com/lestrrat-go/jwx/jwa"
@@ -32,14 +33,14 @@ func (s *Server) createAuthTokenForUser(ctx context.Context, handle, did string)
 	rand.Read(rval)
 	refreshTok.Set("jti", base64.StdEncoding.EncodeToString(rval))
 
-	accSig, err := jwt.Sign(accessTok, jwa.HS256, s.signingKey)
+	accSig, err := jwt.Sign(accessTok, jwa.HS256, s.jwtSigningKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("signing access token: %w", err)
 	}
 
-	refSig, err := jwt.Sign(refreshTok, jwa.HS256, s.signingKey)
+	refSig, err := jwt.Sign(refreshTok, jwa.HS256, s.jwtSigningKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("signing refresh token: %w", err)
 	}
 
 	return &xrpc.AuthInfo{
@@ -56,7 +57,7 @@ func (s *Server) createCrossServerAuthToken(ctx context.Context, otherpds string
 	rval := make([]byte, 10)
 	rand.Read(rval)
 
-	accSig, err := jwt.Sign(accessTok, jwa.HS256, s.signingKey)
+	accSig, err := jwt.Sign(accessTok, jwa.HS256, s.jwtSigningKey)
 	if err != nil {
 		return nil, err
 	}

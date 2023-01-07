@@ -12,7 +12,15 @@ import (
 )
 
 type FederationManager struct {
-	indexCallback func(context.Context, string, *Event) error
+	indexCallback IndexCallback
+}
+
+type IndexCallback func(context.Context, string, *Event) error
+
+func NewFederationManager(cb IndexCallback) *FederationManager {
+	return &FederationManager{
+		indexCallback: cb,
+	}
 }
 
 func (fm *FederationManager) SubscribeToPds(ctx context.Context, host string) error {
@@ -32,7 +40,8 @@ func (fm *FederationManager) subscribeWithRedialer(host string) {
 			time.Sleep(sleepForBackoff(backoff))
 			backoff++
 		}
-		_ = res
+
+		fmt.Println("event subscription response code: ", res.StatusCode)
 
 		if err := fm.handleConnection(host, con); err != nil {
 			log.Printf("connection to %q failed: %s", host, err)

@@ -419,9 +419,9 @@ func (s *Server) handleComAtprotoAccountCreate(ctx context.Context, input *comat
 		return nil, err
 	}
 
-	d, err := s.fakeDid.NewForHandle(input.Handle)
+	d, err := s.plc.CreateDID(ctx, s.signingKey, recoveryKey, input.Handle, s.serviceUrl)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create did: %w", err)
 	}
 
 	u.DID = d

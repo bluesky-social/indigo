@@ -93,8 +93,6 @@ func (s *PLCServer) CreateDID(ctx context.Context, sigkey *key.Key, recovery str
 		return "", err
 	}
 
-	fmt.Println("Op did: ", opdid)
-
 	body, err := json.Marshal(op)
 	if err != nil {
 		return "", err
