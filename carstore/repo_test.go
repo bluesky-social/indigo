@@ -78,7 +78,7 @@ func TestBasicOperation(t *testing.T) {
 	}
 	defer cleanup()
 
-	ds, err := cs.NewDeltaSession(ctx, 1, cid.Undef)
+	ds, err := cs.NewDeltaSession(ctx, 1, &cid.Undef)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestBasicOperation(t *testing.T) {
 
 	head := ncid
 	for i := 0; i < 10; i++ {
-		ds, err := cs.NewDeltaSession(ctx, 1, head)
+		ds, err := cs.NewDeltaSession(ctx, 1, &head)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -105,7 +105,7 @@ func TestBasicOperation(t *testing.T) {
 		}
 
 		if _, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &api.PostRecord{
-			Text: fmt.Sprintf("hey look its a tweet %s", time.Now()),
+			Text: fmt.Sprintf("hey look its a tweet %d", time.Now().UnixNano()),
 		}); err != nil {
 			t.Fatal(err)
 		}
@@ -157,7 +157,7 @@ func BenchmarkRepoWritesCarstore(b *testing.B) {
 	}
 	defer cleanup()
 
-	ds, err := cs.NewDeltaSession(ctx, 1, cid.Undef)
+	ds, err := cs.NewDeltaSession(ctx, 1, &cid.Undef)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -174,7 +174,7 @@ func BenchmarkRepoWritesCarstore(b *testing.B) {
 	head := ncid
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ds, err := cs.NewDeltaSession(ctx, 1, head)
+		ds, err := cs.NewDeltaSession(ctx, 1, &head)
 		if err != nil {
 			b.Fatal(err)
 		}

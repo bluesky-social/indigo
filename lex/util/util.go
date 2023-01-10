@@ -3,6 +3,7 @@ package util
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 )
 
@@ -31,6 +32,7 @@ type CborChecker struct {
 func CborTypeExtract(b []byte) (string, error) {
 	var tcheck CborChecker
 	if err := tcheck.UnmarshalCBOR(bytes.NewReader(b)); err != nil {
+		fmt.Printf("bad bytes: %x\n", b)
 		return "", err
 	}
 

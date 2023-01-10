@@ -13,8 +13,8 @@ func init() {
 
 type ServerGetAccountsConfig_Links struct {
 	LexiconTypeID  string  `json:"$type,omitempty"`
-	PrivacyPolicy  *string `json:"privacyPolicy" cborgen:"privacyPolicy"`
-	TermsOfService *string `json:"termsOfService" cborgen:"termsOfService"`
+	PrivacyPolicy  *string `json:"privacyPolicy,omitempty" cborgen:"privacyPolicy"`
+	TermsOfService *string `json:"termsOfService,omitempty" cborgen:"termsOfService"`
 }
 
 type ServerGetAccountsConfig_Output struct {

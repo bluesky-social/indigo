@@ -2,12 +2,15 @@ package schemagen
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"time"
 
 	bsky "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/repomgr"
+	"github.com/whyrusleeping/gosky/xrpc"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
@@ -17,12 +20,12 @@ type Indexer struct {
 
 	notifman *NotificationManager
 	events   *EventManager
-	fedmgr   *FederationManager
+	didr     PLCClient
 
 	sendRemoteFollow func(context.Context, string, uint) error
 }
 
-func NewIndexer(db *gorm.DB, notifman *NotificationManager, evtman *EventManager) (*Indexer, error) {
+func NewIndexer(db *gorm.DB, notifman *NotificationManager, evtman *EventManager, didr PLCClient) (*Indexer, error) {
 	db.AutoMigrate(&FeedPost{})
 	db.AutoMigrate(&ActorInfo{})
 	db.AutoMigrate(&FollowRecord{})
@@ -34,6 +37,7 @@ func NewIndexer(db *gorm.DB, notifman *NotificationManager, evtman *EventManager
 		db:       db,
 		notifman: notifman,
 		events:   evtman,
+		didr:     didr,
 	}, nil
 }
 
@@ -65,13 +69,13 @@ type ActorInfo struct {
 	Handle      string
 	DisplayName string
 	Did         string
-	Name        string
-	Following   int64
-	Followers   int64
-	Posts       int64
-	DeclRefCid  string
-	Type        string
-	PDS         uint
+	//Name        string
+	Following  int64
+	Followers  int64
+	Posts      int64
+	DeclRefCid string
+	Type       string
+	PDS        uint
 }
 
 type VoteDir int
@@ -112,8 +116,8 @@ type FollowRecord struct {
 
 type ExternalFollow struct {
 	gorm.Model
-	PDS  uint
-	User uint
+	PDS uint
+	Uid uint
 }
 
 func (ix *Indexer) catchup(ctx context.Context, evt *repomgr.RepoEvent) error {
@@ -145,13 +149,11 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 	}
 }
 
-func (ix *Indexer) handleFedEvent(ctx context.Context, host string, evt *Event) error {
-	panic("TODO")
-}
-
 func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEvent, local bool) error {
+	fmt.Println("record create event", evt.Collection)
 	switch rec := evt.Record.(type) {
 	case *bsky.FeedPost:
+		fmt.Println("feed post")
 		var replyid uint
 		if rec.Reply != nil {
 			replyto, err := ix.GetPost(ctx, rec.Reply.Parent.Uri)
@@ -255,7 +257,78 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 	case *bsky.GraphFollow:
 		subj, err := ix.lookupUserByDid(ctx, rec.Subject.Did)
 		if err != nil {
-			return err
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+
+			doc, err := ix.didr.GetDocument(ctx, rec.Subject.Did)
+			if err != nil {
+				return fmt.Errorf("could not locate DID document for followed user: %s", err)
+			}
+
+			if len(doc.Service) == 0 {
+				return fmt.Errorf("external followed user %s had no services in did document", rec.Subject.Did)
+			}
+
+			fmt.Println("AKA: ", doc.AlsoKnownAs)
+
+			svc := doc.Service[0]
+			durl, err := url.Parse(svc.ServiceEndpoint)
+			if err != nil {
+				return err
+			}
+
+			// TODO: the PDS's DID should also be in the service, we could use that to look up?
+			var peering Peering
+			if err := ix.db.First(&peering, "host = ?", durl.Host).Error; err != nil {
+				return err
+			}
+
+			var handle string
+			if len(doc.AlsoKnownAs) > 0 {
+				hurl, err := url.Parse(doc.AlsoKnownAs[0])
+				if err != nil {
+					return err
+				}
+
+				handle = hurl.Host
+			}
+
+			c := &xrpc.Client{Host: svc.ServiceEndpoint}
+			profile, err := bsky.ActorGetProfile(ctx, c, rec.Subject.Did)
+			if err != nil {
+				return err
+			}
+
+			if handle != profile.Handle {
+				return fmt.Errorf("mismatch in handle between did document and pds profile (%s != %s)", handle, profile.Handle)
+			}
+
+			// TODO: request this users info from their server to fill out our data...
+			u := User{
+				Handle: handle,
+				Did:    rec.Subject.Did,
+				PDS:    peering.ID,
+			}
+
+			if err := ix.db.Create(&u).Error; err != nil {
+				return fmt.Errorf("failed to create other pds user: %w", err)
+			}
+
+			// okay cool, its a user on a server we are peered with
+			// lets make a local record of that user for the future
+			subj = &ActorInfo{
+				Uid:         u.ID,
+				Handle:      handle,
+				DisplayName: *profile.DisplayName,
+				Did:         rec.Subject.Did,
+				DeclRefCid:  rec.Subject.DeclarationCid, // TODO: should verify this?
+				Type:        "",
+				PDS:         peering.ID,
+			}
+			if err := ix.db.Create(subj).Error; err != nil {
+				return err
+			}
 		}
 
 		// 'follower' followed 'target'
@@ -349,12 +422,12 @@ func (ix *Indexer) addNewVoteNotification(ctx context.Context, postauthor uint, 
 func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent) error {
 	ai := evt.ActorInfo
 	if err := ix.db.Create(&ActorInfo{
-		Uid:        evt.User,
-		Handle:     ai.Handle,
-		Did:        ai.Did,
-		Name:       ai.DisplayName,
-		DeclRefCid: ai.DeclRefCid,
-		Type:       ai.Type,
+		Uid:         evt.User,
+		Handle:      ai.Handle,
+		Did:         ai.Did,
+		DisplayName: ai.DisplayName,
+		DeclRefCid:  ai.DeclRefCid,
+		Type:        ai.Type,
 	}).Error; err != nil {
 		return err
 	}

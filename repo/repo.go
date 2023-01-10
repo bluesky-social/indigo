@@ -279,6 +279,7 @@ func (r *Repo) GetRecord(ctx context.Context, rpath string) (cid.Cid, any, error
 
 	rec, err := util.CborDecodeValue(blk.RawData())
 	if err != nil {
+		fmt.Println("decoding blk: ", cc)
 		return cid.Undef, nil, err
 	}
 

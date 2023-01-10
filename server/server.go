@@ -37,7 +37,6 @@ type Server struct {
 	notifman      *NotificationManager
 	indexer       *Indexer
 	events        *EventManager
-	fedmgr        *FederationManager
 	signingKey    *key.Key
 	echo          *echo.Echo
 	jwtSigningKey []byte
@@ -56,8 +55,9 @@ type PLCClient interface {
 	CreateDID(ctx context.Context, sigkey *key.Key, recovery string, handle string, service string) (string, error)
 }
 
-func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, serviceUrl string, plc PLCClient, jwtkey []byte) (*Server, error) {
+func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, serviceUrl string, didr PLCClient, jwtkey []byte) (*Server, error) {
 	db.AutoMigrate(&User{})
+	db.AutoMigrate(&Peering{})
 
 	serkey, err := loadKey(kfile)
 	if err != nil {
@@ -69,7 +69,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 	repoman := repomgr.NewRepoManager(db, cs)
 	notifman := NewNotificationManager(db, repoman)
 
-	ix, err := NewIndexer(db, notifman, evtman)
+	ix, err := NewIndexer(db, notifman, evtman, didr)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 		cs:            cs,
 		notifman:      notifman,
 		indexer:       ix,
-		plc:           NewFakeDid(db),
+		plc:           didr,
 		events:        evtman,
 		repoman:       repoman,
 		handleSuffix:  handleSuffix,
@@ -88,10 +88,9 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 		jwtSigningKey: jwtkey,
 	}
 
-	s.fedmgr = NewFederationManager(s.handleFedEvent)
-
 	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
 		ix.HandleRepoEvent(ctx, evt)
+
 		fe, err := s.repoEventToFedEvent(context.TODO(), evt)
 		if err != nil {
 			log.Println("event conversion error: ", err)
@@ -118,13 +117,21 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 	return s, nil
 }
 
-func (s *Server) handleFedEvent(ctx context.Context, host string, evt *Event) error {
+func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *Event) error {
+	fmt.Printf("[%s] got fed event from %q: %s\n", s.serviceUrl, host.Host, evt.Kind)
 	switch evt.Kind {
 	case EvtKindCreateRecord:
-	case EvtKindUpdateRecord:
+		u, err := s.lookupUserByDid(ctx, evt.User)
+		if err != nil {
+			return err
+		}
 
+		return s.repoman.HandleExternalUserEvent(ctx, host.ID, repomgr.EvtKindCreateRecord, u.ID, evt.Collection, evt.Rkey, evt.CarSlice)
+	case EvtKindUpdateRecord:
+	default:
+		return fmt.Errorf("unrecognized fed event kind: %q", evt.Kind)
 	}
-	panic("nyi")
+	return nil
 }
 
 func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent) (*Event, error) {
@@ -134,7 +141,7 @@ func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent
 
 	switch evt.Kind {
 	case repomgr.EvtKindCreateRecord:
-		out.Kind = EvtKindUpdateRecord
+		out.Kind = EvtKindCreateRecord
 	case repomgr.EvtKindUpdateRecord:
 		out.Kind = EvtKindUpdateRecord
 	case repomgr.EvtKindInitActor:
@@ -148,6 +155,7 @@ func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent
 		return nil, err
 	}
 
+	out.uid = evt.User
 	out.User = did
 	out.Collection = evt.Collection
 	out.Rkey = evt.Rkey
@@ -211,11 +219,22 @@ func (s *Server) RunAPI(listen string) error {
 				return true
 			case "/xrpc/com.atproto.server.getAccountsConfig":
 				return true
+			case "/xrpc/app.bsky.actor.getProfile":
+				fmt.Println("TODO: currently not requiring auth on get profile endpoint")
+				return true
+			case "/xrpc/com.atproto.peering.follow", "/events":
+				auth := c.Request().Header.Get("Authorization")
+
+				did := c.Request().Header.Get("DID")
+				ctx := c.Request().Context()
+				ctx = context.WithValue(ctx, "did", did)
+				ctx = context.WithValue(ctx, "auth", auth)
+				c.SetRequest(c.Request().WithContext(ctx))
+				return true
 			default:
 				return false
 			}
 		},
-		//KeyFunc:    s.getKey,
 		SigningKey: s.jwtSigningKey,
 	}
 
@@ -226,6 +245,7 @@ func (s *Server) RunAPI(listen string) error {
 	e.Use(middleware.JWTWithConfig(cfg), s.userCheckMiddleware)
 	s.RegisterHandlersComAtproto(e)
 	s.RegisterHandlersAppBsky(e)
+	e.GET("/events", s.EventsHandler)
 
 	return e.Start(listen)
 }
@@ -236,7 +256,8 @@ type User struct {
 	Password    string
 	RecoveryKey string
 	Email       string
-	DID         string `gorm:"uniqueIndex"`
+	Did         string `gorm:"uniqueIndex"`
+	PDS         uint
 }
 
 type RefreshToken struct {
@@ -319,13 +340,8 @@ func (s *Server) lookupUser(ctx context.Context, didorhandle string) (*User, err
 }
 
 func (s *Server) lookupUserByDid(ctx context.Context, did string) (*User, error) {
-	var didEntry FakeDidMapping
-	if err := s.db.First(&didEntry, "did = ?", did).Error; err != nil {
-		return nil, err
-	}
-
 	var u User
-	if err := s.db.First(&u, "handle = ?", didEntry.Handle).Error; err != nil {
+	if err := s.db.First(&u, "did = ?", did).Error; err != nil {
 		return nil, err
 	}
 
@@ -335,23 +351,14 @@ func (s *Server) lookupUserByDid(ctx context.Context, did string) (*User, error)
 var ErrNoSuchUser = fmt.Errorf("no such user")
 
 func (s *Server) lookupUserByHandle(ctx context.Context, handle string) (*User, error) {
-	var didEntry FakeDidMapping
-	if err := s.db.Find(&didEntry, "handle = ?", handle).Error; err != nil {
-		return nil, err
-	}
-	if didEntry.ID == 0 {
-		return nil, ErrNoSuchUser
-	}
-
 	var u User
-	if err := s.db.Find(&u, "handle = ?", didEntry.Handle).Error; err != nil {
+	if err := s.db.Find(&u, "handle = ?", handle).Error; err != nil {
 		return nil, err
 	}
+	fmt.Println("USER: ", handle)
 	if u.ID == 0 {
 		return nil, ErrNoSuchUser
 	}
-
-	u.DID = didEntry.Did
 
 	return &u, nil
 }
@@ -364,6 +371,7 @@ func (s *Server) userCheckMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		if !ok {
 			return next(c)
 		}
+		ctx = context.WithValue(ctx, "token", user)
 
 		scope, did, err := s.checkTokenValidity(user)
 		if err != nil {
@@ -378,7 +386,6 @@ func (s *Server) userCheckMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		ctx = context.WithValue(ctx, "authScope", scope)
 		ctx = context.WithValue(ctx, "user", u)
 		ctx = context.WithValue(ctx, "did", did)
-		ctx = context.WithValue(ctx, "token", user)
 
 		c.SetRequest(c.Request().WithContext(ctx))
 		return next(c)
@@ -394,19 +401,13 @@ func (s *Server) handleAuth(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func (s *Server) getKey(token *jwt.Token) (interface{}, error) {
-	fmt.Println("token: ", token)
-
-	return nil, nil
-}
-
 func (s *Server) getUser(ctx context.Context) (*User, error) {
 	u, ok := ctx.Value("user").(*User)
 	if !ok {
 		return nil, fmt.Errorf("auth required")
 	}
 
-	u.DID = ctx.Value("did").(string)
+	//u.Did = ctx.Value("did").(string)
 
 	return u, nil
 }
@@ -464,7 +465,27 @@ func (s *Server) CreateScene(ctx context.Context, u *User, handle string, recove
 type Peering struct {
 	gorm.Model
 	Host     string
+	Did      string
 	Approved bool
+}
+
+func (s *Server) HackAddPeering(host string, did string) error {
+	// TODO: this method is just for proof of concept since i'm punting on
+	// figuring out how the peering arrangements get set up.
+
+	if err := s.db.Create(&Peering{
+		Host:     host,
+		Did:      did,
+		Approved: true,
+	}).Error; err != nil {
+		return err
+	}
+
+	if err := s.SubscribeToPds(context.TODO(), host); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Server) sendRemoteFollow(ctx context.Context, followed string, followedPDS uint) error {
@@ -479,7 +500,7 @@ func (s *Server) sendRemoteFollow(ctx context.Context, followed string, followed
 	}
 
 	c := &xrpc.Client{
-		Host: peering.Host,
+		Host: "http://" + peering.Host, // TODO: maybe its correct to just put the protocol prefix in the database
 		Auth: auth,
 	}
 
@@ -490,4 +511,34 @@ func (s *Server) sendRemoteFollow(ctx context.Context, followed string, followed
 	}
 
 	return nil
+}
+
+func (s *Server) AddRemoteFollow(ctx context.Context, opdsdid string, u string) error {
+	var peering Peering
+	if err := s.db.First(&peering, "did = ?", opdsdid).Error; err != nil {
+		return err
+	}
+
+	uu, err := s.lookupUser(ctx, u)
+	if err != nil {
+		return err
+	}
+
+	if err := s.db.Create(&ExternalFollow{
+		PDS: peering.ID,
+		Uid: uu.ID,
+	}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Server) peerHasFollow(ctx context.Context, peer uint, user uint) (bool, error) {
+	var extfollow ExternalFollow
+	if err := s.db.Debug().Find(&extfollow, "pds = ? AND uid = ?", peer, user).Error; err != nil {
+		return false, err
+	}
+
+	return extfollow.ID != 0, nil
 }

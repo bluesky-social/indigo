@@ -22,7 +22,6 @@ func makeToken(subject string, scope string, exp time.Time) jwt.Token {
 	tok.Set("exp", exp.Unix())
 
 	return tok
-
 }
 
 func (s *Server) createAuthTokenForUser(ctx context.Context, handle, did string) (*xrpc.AuthInfo, error) {
@@ -53,6 +52,10 @@ func (s *Server) createAuthTokenForUser(ctx context.Context, handle, did string)
 
 func (s *Server) createCrossServerAuthToken(ctx context.Context, otherpds string) (*xrpc.AuthInfo, error) {
 	accessTok := makeToken(otherpds, "com.atproto.federation", time.Now().Add(24*time.Hour))
+
+	// setting this is a little weird,
+	// since the token isnt signed by this key, we dont have a way to validate...
+	accessTok.Set("pds", s.signingKey.DID())
 
 	rval := make([]byte, 10)
 	rand.Read(rval)

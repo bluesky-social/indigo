@@ -67,7 +67,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.feed.post"))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string("app.bsky.feed.post")); err != nil {
@@ -330,7 +330,7 @@ func (t *FeedRepost) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.feed.repost"))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string("app.bsky.feed.repost")); err != nil {
@@ -491,7 +491,7 @@ func (t *FeedTrend) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.feed.trend"))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string("app.bsky.feed.trend")); err != nil {
@@ -652,7 +652,7 @@ func (t *FeedVote) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.feed.vote"))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string("app.bsky.feed.vote")); err != nil {
@@ -2280,7 +2280,7 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.graph.follow"))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string("app.bsky.graph.follow")); err != nil {
@@ -2604,7 +2604,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.actor.profile"))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string("app.bsky.actor.profile")); err != nil {
@@ -2851,7 +2851,7 @@ func (t *SystemDeclaration) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.system.declaration"))); err != nil {
 		return err
 	}
 	if _, err := io.WriteString(w, string("app.bsky.system.declaration")); err != nil {

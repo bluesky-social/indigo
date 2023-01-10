@@ -119,7 +119,7 @@ func (ai *ActorInfo) ActorRef() *bsky.ActorRef_WithInfo {
 			ActorType: ai.Type,
 		},
 		Handle:      ai.Handle,
-		DisplayName: &ai.Name,
+		DisplayName: &ai.DisplayName,
 	}
 }
 
@@ -147,27 +147,6 @@ func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *FeedPost) (*bsky
 	}
 
 	out.Post.Author = author
-
-	fmt.Println("need to finish reasons")
-	/*
-		if item.TrendedBy != 0 {
-			tb, err := fg.getActorRefInfo(ctx, item.TrendedBy)
-			if err != nil {
-				return nil, err
-			}
-
-			out.TrendedBy = tb
-		}
-
-		if item.RepostedBy != 0 {
-			rp, err := fg.getActorRefInfo(ctx, item.RepostedBy)
-			if err != nil {
-				return nil, err
-			}
-
-			out.RepostedBy = rp
-		}
-	*/
 
 	reccid, err := cid.Decode(item.Cid)
 	if err != nil {
@@ -221,14 +200,14 @@ func (fg *FeedGenerator) GetTimeline(ctx context.Context, user *User, algo strin
 
 	// TODO: this query is just a temporary hack...
 	var feed []*FeedPost
-	if err := fg.db.Find(&feed, "author = (?)",
+	if err := fg.db.Debug().Find(&feed, "author in (?)",
 		fg.db.Model(FollowRecord{}).Where("follower = ?", user.ID).Select("target"),
 	).Error; err != nil {
 		return nil, err
 	}
 
 	var rps []*RepostRecord
-	if err := fg.db.Find(&rps, "reposter = (?)",
+	if err := fg.db.Debug().Find(&rps, "reposter in (?)",
 		fg.db.Model(FollowRecord{}).Where("follower = ?", user.ID).Select("target"),
 	).Error; err != nil {
 		return nil, err
@@ -263,7 +242,7 @@ func (fg *FeedGenerator) personalizeFeed(ctx context.Context, feed []*bsky.FeedF
 			return nil, err
 		}
 
-		vs, err := fg.getPostViewerState(ctx, item.ID, viewer.ID, viewer.DID)
+		vs, err := fg.getPostViewerState(ctx, item.ID, viewer.ID, viewer.Did)
 		if err != nil {
 			return nil, fmt.Errorf("getting viewer state: %w", err)
 		}

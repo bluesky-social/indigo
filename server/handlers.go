@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/ipfs/go-cid"
@@ -110,7 +111,7 @@ func (s *Server) handleAppBskyActorUpdateProfile(ctx context.Context, input *app
 
 	return &appbskytypes.ActorUpdateProfile_Output{
 		Cid:    ncid.String(),
-		Uri:    "at://" + u.DID + "/app.bsky.actor.profile/self",
+		Uri:    "at://" + u.Did + "/app.bsky.actor.profile/self",
 		Record: profile,
 	}, nil
 }
@@ -161,7 +162,7 @@ func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth *int,
 	convertToOutputType = func(thr *ThreadPost) (*appbskytypes.FeedGetPostThread_ThreadViewPost, error) {
 		p := thr.Post
 
-		vs, err := s.feedgen.getPostViewerState(ctx, thr.PostID, u.ID, u.DID)
+		vs, err := s.feedgen.getPostViewerState(ctx, thr.PostID, u.ID, u.Did)
 		if err != nil {
 			return nil, err
 		}
@@ -277,7 +278,7 @@ func (s *Server) handleAppBskyFeedSetVote(ctx context.Context, input *appbskytyp
 		return nil, err
 	}
 
-	uri := "at://" + u.DID + "/" + rpath
+	uri := "at://" + u.Did + "/" + rpath
 	if input.Direction == "up" {
 		return &appbskytypes.FeedSetVote_Output{
 			Upvote: &uri,
@@ -424,12 +425,12 @@ func (s *Server) handleComAtprotoAccountCreate(ctx context.Context, input *comat
 		return nil, fmt.Errorf("create did: %w", err)
 	}
 
-	u.DID = d
+	u.Did = d
 	if err := s.db.Save(&u).Error; err != nil {
 		return nil, err
 	}
 
-	if err := s.repoman.InitNewActor(ctx, u.ID, u.Handle, u.DID, "", UserActorDeclCid, UserActorDeclType); err != nil {
+	if err := s.repoman.InitNewActor(ctx, u.ID, u.Handle, u.Did, "", UserActorDeclCid, UserActorDeclType); err != nil {
 		return nil, err
 	}
 
@@ -473,7 +474,7 @@ func (s *Server) handleComAtprotoHandleResolve(ctx context.Context, handle strin
 		return nil, err
 	}
 
-	return &comatprototypes.HandleResolve_Output{Did: u.DID}, nil
+	return &comatprototypes.HandleResolve_Output{Did: u.Did}, nil
 }
 
 func (s *Server) handleComAtprotoRepoBatchWrite(ctx context.Context, input *comatprototypes.RepoBatchWrite_Input) error {
@@ -511,7 +512,7 @@ func (s *Server) handleComAtprotoRepoCreateRecord(ctx context.Context, input *co
 	}
 
 	return &comatprototypes.RepoCreateRecord_Output{
-		Uri: "at://" + u.DID + "/" + rpath,
+		Uri: "at://" + u.Did + "/" + rpath,
 		Cid: recid.String(),
 	}, nil
 }
@@ -530,7 +531,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 		return nil, err
 	}
 
-	fmt.Println("USER: ", user, targetUser.Handle, targetUser.DID)
+	fmt.Println("USER: ", user, targetUser.Handle, targetUser.Did)
 
 	var maybeCid cid.Cid
 	if c != "" {
@@ -549,7 +550,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 	ccstr := reccid.String()
 	return &comatprototypes.RepoGetRecord_Output{
 		Cid:   &ccstr,
-		Uri:   "at://" + targetUser.DID + "/" + collection + "/" + rkey,
+		Uri:   "at://" + targetUser.Did + "/" + collection + "/" + rkey,
 		Value: rec,
 	}, nil
 }
@@ -569,6 +570,7 @@ func (s *Server) handleComAtprotoServerGetAccountsConfig(ctx context.Context) (*
 		AvailableUserDomains: []string{
 			s.handleSuffix,
 		},
+		Links: &comatprototypes.ServerGetAccountsConfig_Links{},
 	}, nil
 }
 
@@ -582,14 +584,14 @@ func (s *Server) handleComAtprotoSessionCreate(ctx context.Context, input *comat
 		return nil, fmt.Errorf("invalid username or password")
 	}
 
-	tok, err := s.createAuthTokenForUser(ctx, input.Handle, u.DID)
+	tok, err := s.createAuthTokenForUser(ctx, input.Handle, u.Did)
 	if err != nil {
 		return nil, err
 	}
 
 	return &comatprototypes.SessionCreate_Output{
 		Handle:     input.Handle,
-		Did:        u.DID,
+		Did:        u.Did,
 		AccessJwt:  tok.AccessJwt,
 		RefreshJwt: tok.RefreshJwt,
 	}, nil
@@ -607,7 +609,7 @@ func (s *Server) handleComAtprotoSessionGet(ctx context.Context) (*comatprototyp
 
 	return &comatprototypes.SessionGet_Output{
 		Handle: u.Handle,
-		Did:    u.DID,
+		Did:    u.Did,
 	}, nil
 }
 
@@ -635,14 +637,14 @@ func (s *Server) handleComAtprotoSessionRefresh(ctx context.Context) (*comatprot
 		return nil, err
 	}
 
-	outTok, err := s.createAuthTokenForUser(ctx, u.Handle, u.DID)
+	outTok, err := s.createAuthTokenForUser(ctx, u.Handle, u.Did)
 	if err != nil {
 		return nil, err
 	}
 
 	return &comatprototypes.SessionRefresh_Output{
 		Handle:     u.Handle,
-		Did:        u.DID,
+		Did:        u.Did,
 		AccessJwt:  outTok.AccessJwt,
 		RefreshJwt: outTok.RefreshJwt,
 	}, nil
@@ -722,5 +724,31 @@ func (s *Server) handleComAtprotoPeeringList(ctx context.Context) (*comatprototy
 }
 
 func (s *Server) handleComAtprotoPeeringFollow(ctx context.Context, body *comatprototypes.PeeringFollow_Input) error {
-	panic("not yet implemented")
+	// TODO: cross server auth checks
+	auth, ok := ctx.Value("auth").(string)
+	if !ok {
+		return fmt.Errorf("no auth present in peering.follow request header")
+	}
+
+	auth = strings.TrimPrefix(auth, "Bearer ")
+	tok, err := jwt.ParseString(auth)
+	if err != nil {
+		return err
+	}
+
+	v, ok := tok.Get("pds")
+	if !ok {
+		panic("im a bad programmer")
+	}
+
+	opdsdid := v.(string)
+	//
+
+	for _, u := range body.Users {
+		if err := s.AddRemoteFollow(ctx, opdsdid, u); err != nil {
+			return fmt.Errorf("handle add remote follow: %w", err)
+		}
+	}
+
+	return nil
 }

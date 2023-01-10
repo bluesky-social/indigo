@@ -6,45 +6,46 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
-type FederationManager struct {
-	indexCallback IndexCallback
-}
-
 type IndexCallback func(context.Context, string, *Event) error
 
-func NewFederationManager(cb IndexCallback) *FederationManager {
-	return &FederationManager{
-		indexCallback: cb,
+func (s *Server) SubscribeToPds(ctx context.Context, host string) error {
+	var peering Peering
+	if err := s.db.First(&peering, "host = ?", host).Error; err != nil {
+		return err
 	}
-}
 
-func (fm *FederationManager) SubscribeToPds(ctx context.Context, host string) error {
-	go fm.subscribeWithRedialer(host)
+	go s.subscribeWithRedialer(&peering)
 
 	return nil
 }
 
-func (fm *FederationManager) subscribeWithRedialer(host string) {
+func (s *Server) subscribeWithRedialer(host *Peering) {
 	d := websocket.Dialer{}
 
 	var backoff int
 	for {
-		con, res, err := d.Dial(host+"/events", nil)
+		h := http.Header{
+			"DID": []string{s.signingKey.DID()},
+		}
+
+		con, res, err := d.Dial("ws://"+host.Host+"/events", h)
 		if err != nil {
-			fmt.Printf("dialing %q failed: %s", host, err)
+			fmt.Printf("dialing %q failed: %s", host.Host, err)
 			time.Sleep(sleepForBackoff(backoff))
 			backoff++
+			continue
 		}
 
 		fmt.Println("event subscription response code: ", res.StatusCode)
 
-		if err := fm.handleConnection(host, con); err != nil {
-			log.Printf("connection to %q failed: %s", host, err)
+		if err := s.handleConnection(host, con); err != nil {
+			log.Printf("connection to %q failed: %s", host.Host, err)
 		}
 	}
 }
@@ -61,7 +62,7 @@ func sleepForBackoff(b int) time.Duration {
 	return time.Second * 30
 }
 
-func (fm *FederationManager) handleConnection(host string, con *websocket.Conn) error {
+func (s *Server) handleConnection(host *Peering, con *websocket.Conn) error {
 	for {
 		mt, data, err := con.ReadMessage()
 		if err != nil {
@@ -75,8 +76,8 @@ func (fm *FederationManager) handleConnection(host string, con *websocket.Conn) 
 			return fmt.Errorf("failed to unmarshal event: %w", err)
 		}
 
-		if err := fm.indexCallback(context.TODO(), host, &ev); err != nil {
-			log.Printf("failed to index event from %q: %s", host, err)
+		if err := s.handleFedEvent(context.TODO(), host, &ev); err != nil {
+			log.Printf("failed to index event from %q: %s", host.Host, err)
 		}
 	}
 }

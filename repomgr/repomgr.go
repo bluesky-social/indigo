@@ -58,6 +58,7 @@ type RepoEvent struct {
 	Record     any
 	ActorInfo  *ActorInfo
 	RepoSlice  []byte
+	PDS        uint
 }
 
 type EventKind string
@@ -147,7 +148,7 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 		return "", cid.Undef, err
 	}
 
-	ds, err := rm.cs.NewDeltaSession(ctx, user, head)
+	ds, err := rm.cs.NewDeltaSession(ctx, user, &head)
 	if err != nil {
 		return "", cid.Undef, err
 	}
@@ -206,7 +207,7 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user uint, collection, 
 		return cid.Undef, err
 	}
 
-	ds, err := rm.cs.NewDeltaSession(ctx, user, head)
+	ds, err := rm.cs.NewDeltaSession(ctx, user, &head)
 	if err != nil {
 		return cid.Undef, err
 	}
@@ -266,7 +267,7 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 		return fmt.Errorf("must specify unique non-zero id for new actor")
 	}
 
-	ds, err := rm.cs.NewDeltaSession(ctx, user, cid.Undef)
+	ds, err := rm.cs.NewDeltaSession(ctx, user, &cid.Undef)
 	if err != nil {
 		return err
 	}
@@ -398,4 +399,56 @@ func (rm *RepoManager) GetProfile(ctx context.Context, uid uint) (*apibsky.Actor
 	}
 
 	return ap, nil
+}
+
+func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, kind EventKind, uid uint, collection string, rkey string, carslice []byte) error {
+	root, ds, err := rm.cs.ImportSlice(ctx, uid, carslice)
+	if err != nil {
+		return fmt.Errorf("importing external carslice: %w", err)
+	}
+
+	r, err := repo.OpenRepo(ctx, ds, root)
+	if err != nil {
+		return fmt.Errorf("opening external user repo: %w", err)
+	}
+
+	switch kind {
+	case EvtKindCreateRecord:
+		fmt.Println("path: ", collection, rkey)
+		recid, rec, err := r.GetRecord(ctx, collection+"/"+rkey)
+		if err != nil {
+			return fmt.Errorf("reading changed record from car slice: %w", err)
+		}
+
+		rslice, err := ds.CloseWithRoot(ctx, root)
+		if err != nil {
+			return fmt.Errorf("close with root: %w", err)
+		}
+
+		// TODO: what happens if this update fails?
+		if err := rm.updateUserRepoHead(ctx, uid, root); err != nil {
+			return fmt.Errorf("updating user head: %w", err)
+		}
+
+		if rm.events != nil {
+			fmt.Println("sending off external create record event")
+			rm.events(ctx, &RepoEvent{
+				Kind: EvtKindCreateRecord,
+				User: uid,
+				//OldRoot:    head,
+				NewRoot:    root,
+				Collection: collection,
+				Rkey:       rkey,
+				Record:     rec,
+				RecCid:     recid,
+				RepoSlice:  rslice,
+				PDS:        pdsid,
+			})
+		}
+		return nil
+	default:
+		return fmt.Errorf("unrecognized external user event kind: %q", kind)
+	}
+
+	return nil
 }

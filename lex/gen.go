@@ -204,12 +204,12 @@ type ExtDef struct {
 
 // TODO: this method is necessary because in lexicon there is no way to know if
 // a type needs to be marshaled with a "$type" field up front, you can only
-// know for sure by seeing where the type is used. 
+// know for sure by seeing where the type is used.
 func FixRecordReferences(schemas []*Schema, defmap map[string]*ExtDef, prefix string) {
 	for _, s := range schemas {
-				if !strings.HasPrefix(s.ID, prefix) {
-					continue
-				}
+		if !strings.HasPrefix(s.ID, prefix) {
+			continue
+		}
 
 		tps := s.AllTypes(prefix, defmap)
 		for _, t := range tps {
@@ -334,7 +334,7 @@ func fixImports(b []byte) ([]byte, error) {
 func writeMethods(typename string, ts *TypeSchema, w io.Writer) error {
 	switch ts.Type {
 	case "token":
-		n := ts.id 
+		n := ts.id
 		if ts.defName != "main" {
 			n += "#" + ts.defName
 		}
@@ -999,7 +999,7 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 		if ts.record {
 			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type\" cborgen:\"$type,const=%s\"`\n", ts.id)
 		} else {
-			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type,omitempty\"`\n" )
+			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type,omitempty\"`\n")
 		}
 
 		required := make(map[string]bool)
@@ -1016,13 +1016,15 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 			}
 
 			var ptr string
+			var omit string
 			if !required[k] {
 				if !strings.HasPrefix(tname, "*") && !strings.HasPrefix(tname, "[]") {
 					ptr = "*"
+					omit = ",omitempty"
 				}
 			}
 
-			fmt.Fprintf(w, "\t%s %s%s `json:\"%s\" cborgen:\"%s\"`\n", goname, ptr, tname, k, k)
+			fmt.Fprintf(w, "\t%s %s%s `json:\"%s%s\" cborgen:\"%s\"`\n", goname, ptr, tname, k, omit, k)
 			return nil
 		}); err != nil {
 			return err

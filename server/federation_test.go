@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/stretchr/testify/assert"
 	"github.com/whyrusleeping/gosky/api"
 	atproto "github.com/whyrusleeping/gosky/api/atproto"
 	bsky "github.com/whyrusleeping/gosky/api/bsky"
@@ -70,7 +71,7 @@ func (tp *testPDS) Cleanup() {
 	}
 }
 
-func setupPDS(t *testing.T, host, suffix string) *testPDS {
+func setupPDS(t *testing.T, host, suffix string, plc PLCClient) *testPDS {
 	dir, err := ioutil.TempDir("", "fedtest")
 	if err != nil {
 		t.Fatal(err)
@@ -98,10 +99,6 @@ func setupPDS(t *testing.T, host, suffix string) *testPDS {
 
 	kfile := filepath.Join(dir, "server.key")
 	makeKey(t, kfile)
-
-	plc := &api.PLCServer{
-		Host: "http://localhost:2582",
-	}
 
 	srv, err := NewServer(maindb, cs, kfile, suffix, host, plc, []byte(host+suffix))
 	if err != nil {
@@ -138,7 +135,13 @@ type testUser struct {
 }
 
 func (tp *testPDS) PeerWith(t *testing.T, op *testPDS) {
-	panic("no")
+	if err := tp.server.HackAddPeering(op.host, op.server.signingKey.DID()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := op.server.HackAddPeering(tp.host, tp.server.signingKey.DID()); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func (tp *testPDS) NewUser(t *testing.T, handle string) *testUser {
@@ -192,9 +195,61 @@ func (u *testUser) Post(t *testing.T, body string) string {
 	return resp.Uri
 }
 
+func (u *testUser) Follow(t *testing.T, did string) string {
+	t.Helper()
+
+	ctx := context.TODO()
+	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
+		Collection: "app.bsky.graph.follow",
+		Did:        u.did,
+		Record: &bsky.GraphFollow{
+			CreatedAt: time.Now().Format(time.RFC3339),
+			Subject: &bsky.ActorRef{
+				DeclarationCid: "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u",
+				Did:            did,
+			},
+		},
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return resp.Uri
+}
+
+func (u *testUser) GetFeed(t *testing.T) []*bsky.FeedFeedViewPost {
+	t.Helper()
+
+	ctx := context.TODO()
+	resp, err := bsky.FeedGetTimeline(ctx, u.client, "reverse-chronlogical", "", 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return resp.Feed
+}
+
+func testPLC(t *testing.T) *FakeDid {
+	// TODO: just do in memory...
+	tdir, err := ioutil.TempDir("", "plcserv")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	db, err := gorm.Open(sqlite.Open(filepath.Join(tdir, "plc.db")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return NewFakeDid(db)
+
+}
+
 func TestBasicFederation(t *testing.T) {
-	p1 := setupPDS(t, "localhost:8812", ".pdsone")
-	p2 := setupPDS(t, "localhost:8813", ".pdstwo")
+	assert := assert.New(t)
+	plc := testPLC(t)
+	p1 := setupPDS(t, "0.0.0.0:8812", ".pdsone", plc)
+	p2 := setupPDS(t, "0.0.0.0:8813", ".pdstwo", plc)
 
 	defer p1.Cleanup()
 	defer p2.Cleanup()
@@ -205,8 +260,24 @@ func TestBasicFederation(t *testing.T) {
 	bob := p1.NewUser(t, "bob.pdsone")
 	laura := p2.NewUser(t, "laura.pdstwo")
 
-	//p1.PeerWith(p2)
-	bob.Post(t, "hello world")
-	laura.Post(t, "hello bob")
+	p1.PeerWith(t, p2)
+	bob.Follow(t, laura.did)
 
+	bp1 := bob.Post(t, "hello world")
+	lp1 := laura.Post(t, "hello bob")
+	time.Sleep(time.Millisecond * 50)
+
+	f := bob.GetFeed(t)
+	assert.Equal(f[0].Post.Uri, bp1)
+	assert.Equal(f[1].Post.Uri, lp1)
+
+	lp2 := laura.Post(t, "im posting again!")
+	time.Sleep(time.Millisecond * 50)
+
+	f = bob.GetFeed(t)
+	assert.Equal(f[0].Post.Uri, bp1)
+	assert.Equal(f[1].Post.Uri, lp1)
+	assert.Equal(f[2].Post.Uri, lp2)
+
+	select {}
 }

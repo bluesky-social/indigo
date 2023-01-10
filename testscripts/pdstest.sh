@@ -11,7 +11,7 @@ echo "2. Some Content"
 ./gosky --pds="http://localhost:4989" --auth="test.auth" post "paul frazee needs to buy a sweater"
 
 echo "3. View That Content"
-./gosky --pds="http://localhost:4989" --auth="test.auth" feed --author=self
+./gosky --pds="http://localhost:4989" --auth="test.auth" feed --raw --author=self
 
 
 echo "4. Make a second account"
@@ -21,7 +21,7 @@ echo "5. Post on second account"
 ./gosky --pds="http://localhost:4989" --auth="test2.auth" post "Im a big fan of the snow"
 
 echo "6. Upvote content"
-posturi=$(./gosky --pds=http://localhost:4989 --auth=test.auth feed --author=self | jq -r .post.uri | head -n1)
+posturi=$(./gosky --pds=http://localhost:4989 --auth=test.auth feed --raw --author=self | jq -r .post.uri | head -n1)
 ./gosky --pds="http://localhost:4989" --auth="test2.auth" vote $posturi up
 
 echo "7. Check notifications"
@@ -32,3 +32,7 @@ echo "8. Follow"
 
 echo "9. Check notifications"
 ./gosky --pds="http://localhost:4989" --auth="test.auth" notifs
+
+
+
+echo "Success!"
