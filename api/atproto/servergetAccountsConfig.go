@@ -20,8 +20,8 @@ type ServerGetAccountsConfig_Links struct {
 type ServerGetAccountsConfig_Output struct {
 	LexiconTypeID        string                         `json:"$type,omitempty"`
 	AvailableUserDomains []string                       `json:"availableUserDomains" cborgen:"availableUserDomains"`
-	InviteCodeRequired   *bool                          `json:"inviteCodeRequired" cborgen:"inviteCodeRequired"`
-	Links                *ServerGetAccountsConfig_Links `json:"links" cborgen:"links"`
+	InviteCodeRequired   *bool                          `json:"inviteCodeRequired,omitempty" cborgen:"inviteCodeRequired"`
+	Links                *ServerGetAccountsConfig_Links `json:"links,omitempty" cborgen:"links"`
 }
 
 func ServerGetAccountsConfig(ctx context.Context, c *xrpc.Client) (*ServerGetAccountsConfig_Output, error) {

@@ -21,9 +21,9 @@ func init() {
 type FeedPost struct {
 	LexiconTypeID string             `json:"$type" cborgen:"$type,const=app.bsky.feed.post"`
 	CreatedAt     string             `json:"createdAt" cborgen:"createdAt"`
-	Embed         *FeedPost_Embed    `json:"embed" cborgen:"embed"`
-	Entities      []*FeedPost_Entity `json:"entities" cborgen:"entities"`
-	Reply         *FeedPost_ReplyRef `json:"reply" cborgen:"reply"`
+	Embed         *FeedPost_Embed    `json:"embed,omitempty" cborgen:"embed"`
+	Entities      []*FeedPost_Entity `json:"entities,omitempty" cborgen:"entities"`
+	Reply         *FeedPost_ReplyRef `json:"reply,omitempty" cborgen:"reply"`
 	Text          string             `json:"text" cborgen:"text"`
 }
 
@@ -116,7 +116,7 @@ type FeedPost_TextSlice struct {
 
 type FeedPost_View struct {
 	LexiconTypeID string                `json:"$type,omitempty"`
-	Author        *ActorRef_WithInfo    `json:"author,omitempty" cborgen:"author"`
+	Author        *ActorRef_WithInfo    `json:"author" cborgen:"author"`
 	Cid           string                `json:"cid" cborgen:"cid"`
 	DownvoteCount int64                 `json:"downvoteCount" cborgen:"downvoteCount"`
 	Embed         *FeedPost_View_Embed  `json:"embed,omitempty" cborgen:"embed"`
@@ -126,7 +126,7 @@ type FeedPost_View struct {
 	RepostCount   int64                 `json:"repostCount" cborgen:"repostCount"`
 	UpvoteCount   int64                 `json:"upvoteCount" cborgen:"upvoteCount"`
 	Uri           string                `json:"uri" cborgen:"uri"`
-	Viewer        *FeedPost_ViewerState `json:"viewer,omitempty" cborgen:"viewer"`
+	Viewer        *FeedPost_ViewerState `json:"viewer" cborgen:"viewer"`
 }
 
 type FeedPost_View_Embed struct {
@@ -166,7 +166,8 @@ func (t *FeedPost_View_Embed) UnmarshalJSON(b []byte) error {
 
 type FeedPost_ViewerState struct {
 	LexiconTypeID string  `json:"$type,omitempty"`
-	Downvote      *string `json:"downvote" cborgen:"downvote"`
-	Repost        *string `json:"repost" cborgen:"repost"`
-	Upvote        *string `json:"upvote" cborgen:"upvote"`
+	Downvote      *string `json:"downvote,omitempty" cborgen:"downvote"`
+	Muted         *bool   `json:"muted,omitempty" cborgen:"muted"`
+	Repost        *string `json:"repost,omitempty" cborgen:"repost"`
+	Upvote        *string `json:"upvote,omitempty" cborgen:"upvote"`
 }

@@ -14,11 +14,11 @@ func init() {
 
 type ActorUpdateProfile_Input struct {
 	LexiconTypeID string     `json:"$type,omitempty"`
-	Avatar        *util.Blob `json:"avatar" cborgen:"avatar"`
-	Banner        *util.Blob `json:"banner" cborgen:"banner"`
-	Description   *string    `json:"description" cborgen:"description"`
-	Did           *string    `json:"did" cborgen:"did"`
-	DisplayName   *string    `json:"displayName" cborgen:"displayName"`
+	Avatar        *util.Blob `json:"avatar,omitempty" cborgen:"avatar"`
+	Banner        *util.Blob `json:"banner,omitempty" cborgen:"banner"`
+	Description   *string    `json:"description,omitempty" cborgen:"description"`
+	Did           *string    `json:"did,omitempty" cborgen:"did"`
+	DisplayName   *string    `json:"displayName,omitempty" cborgen:"displayName"`
 }
 
 type ActorUpdateProfile_Output struct {

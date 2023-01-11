@@ -18,7 +18,7 @@ type RepoBatchWrite_Create struct {
 	LexiconTypeID string  `json:"$type,omitempty"`
 	Action        string  `json:"action" cborgen:"action"`
 	Collection    string  `json:"collection" cborgen:"collection"`
-	Rkey          *string `json:"rkey" cborgen:"rkey"`
+	Rkey          *string `json:"rkey,omitempty" cborgen:"rkey"`
 	Value         any     `json:"value" cborgen:"value"`
 }
 
@@ -32,7 +32,7 @@ type RepoBatchWrite_Delete struct {
 type RepoBatchWrite_Input struct {
 	LexiconTypeID string                              `json:"$type,omitempty"`
 	Did           string                              `json:"did" cborgen:"did"`
-	Validate      *bool                               `json:"validate" cborgen:"validate"`
+	Validate      *bool                               `json:"validate,omitempty" cborgen:"validate"`
 	Writes        []*RepoBatchWrite_Input_Writes_Elem `json:"writes" cborgen:"writes"`
 }
 

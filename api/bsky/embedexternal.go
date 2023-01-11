@@ -17,7 +17,7 @@ type EmbedExternal struct {
 type EmbedExternal_External struct {
 	LexiconTypeID string     `json:"$type,omitempty"`
 	Description   string     `json:"description" cborgen:"description"`
-	Thumb         *util.Blob `json:"thumb" cborgen:"thumb"`
+	Thumb         *util.Blob `json:"thumb,omitempty" cborgen:"thumb"`
 	Title         string     `json:"title" cborgen:"title"`
 	Uri           string     `json:"uri" cborgen:"uri"`
 }
@@ -30,7 +30,7 @@ type EmbedExternal_Presented struct {
 type EmbedExternal_PresentedExternal struct {
 	LexiconTypeID string  `json:"$type,omitempty"`
 	Description   string  `json:"description" cborgen:"description"`
-	Thumb         *string `json:"thumb" cborgen:"thumb"`
+	Thumb         *string `json:"thumb,omitempty" cborgen:"thumb"`
 	Title         string  `json:"title" cborgen:"title"`
 	Uri           string  `json:"uri" cborgen:"uri"`
 }

@@ -1018,9 +1018,9 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 			var ptr string
 			var omit string
 			if !required[k] {
+				omit = ",omitempty"
 				if !strings.HasPrefix(tname, "*") && !strings.HasPrefix(tname, "[]") {
 					ptr = "*"
-					omit = ",omitempty"
 				}
 			}
 

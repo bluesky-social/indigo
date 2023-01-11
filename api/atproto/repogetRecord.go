@@ -13,7 +13,7 @@ func init() {
 
 type RepoGetRecord_Output struct {
 	LexiconTypeID string  `json:"$type,omitempty"`
-	Cid           *string `json:"cid" cborgen:"cid"`
+	Cid           *string `json:"cid,omitempty" cborgen:"cid"`
 	Uri           string  `json:"uri" cborgen:"uri"`
 	Value         any     `json:"value" cborgen:"value"`
 }

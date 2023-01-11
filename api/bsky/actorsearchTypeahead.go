@@ -18,10 +18,10 @@ type ActorSearchTypeahead_Output struct {
 
 type ActorSearchTypeahead_User struct {
 	LexiconTypeID string         `json:"$type,omitempty"`
-	Avatar        *string        `json:"avatar" cborgen:"avatar"`
+	Avatar        *string        `json:"avatar,omitempty" cborgen:"avatar"`
 	Declaration   *SystemDeclRef `json:"declaration" cborgen:"declaration"`
 	Did           string         `json:"did" cborgen:"did"`
-	DisplayName   *string        `json:"displayName" cborgen:"displayName"`
+	DisplayName   *string        `json:"displayName,omitempty" cborgen:"displayName"`
 	Handle        string         `json:"handle" cborgen:"handle"`
 }
 

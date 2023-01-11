@@ -13,6 +13,7 @@ import (
 	"github.com/whyrusleeping/gosky/repo"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func NewRepoManager(db *gorm.DB, cs *carstore.CarStore) *RepoManager {
@@ -71,7 +72,7 @@ const (
 
 type RepoHead struct {
 	gorm.Model
-	Usr  uint `gorm:"index"`
+	Usr  uint `gorm:"uniqueIndex"`
 	Root string
 }
 
@@ -129,7 +130,13 @@ func (rm *RepoManager) getUserRepoHead(ctx context.Context, user uint) (cid.Cid,
 }
 
 func (rm *RepoManager) updateUserRepoHead(ctx context.Context, user uint, root cid.Cid) error {
-	if err := rm.db.WithContext(ctx).Model(RepoHead{}).Where("usr = ?", user).Update("root", root.String()).Error; err != nil {
+	if err := rm.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "usr"}},
+		DoUpdates: clause.AssignmentColumns([]string{"root"}),
+	}).Create(&RepoHead{
+		Usr:  user,
+		Root: root.String(),
+	}).Error; err != nil {
 		return err
 	}
 

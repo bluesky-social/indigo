@@ -20,8 +20,8 @@ type FeedSetVote_Input struct {
 
 type FeedSetVote_Output struct {
 	LexiconTypeID string  `json:"$type,omitempty"`
-	Downvote      *string `json:"downvote" cborgen:"downvote"`
-	Upvote        *string `json:"upvote" cborgen:"upvote"`
+	Downvote      *string `json:"downvote,omitempty" cborgen:"downvote"`
+	Upvote        *string `json:"upvote,omitempty" cborgen:"upvote"`
 }
 
 func FeedSetVote(ctx context.Context, c *xrpc.Client, input *FeedSetVote_Input) (*FeedSetVote_Output, error) {

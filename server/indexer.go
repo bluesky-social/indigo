@@ -69,13 +69,12 @@ type ActorInfo struct {
 	Handle      string
 	DisplayName string
 	Did         string
-	//Name        string
-	Following  int64
-	Followers  int64
-	Posts      int64
-	DeclRefCid string
-	Type       string
-	PDS        uint
+	Following   int64
+	Followers   int64
+	Posts       int64
+	DeclRefCid  string
+	Type        string
+	PDS         uint
 }
 
 type VoteDir int
@@ -151,9 +150,9 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 
 func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEvent, local bool) error {
 	fmt.Println("record create event", evt.Collection)
+	var relevantPds []uint
 	switch rec := evt.Record.(type) {
 	case *bsky.FeedPost:
-		fmt.Println("feed post")
 		var replyid uint
 		if rec.Reply != nil {
 			replyto, err := ix.GetPost(ctx, rec.Reply.Parent.Uri)
@@ -178,12 +177,18 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			return err
 		}
 
-		return nil
 	case *bsky.FeedRepost:
 		fp, err := ix.GetPost(ctx, rec.Subject.Uri)
 		if err != nil {
 			return err
 		}
+
+		author, err := ix.lookupUser(ctx, fp.Author)
+		if err != nil {
+			return err
+		}
+
+		relevantPds = append(relevantPds, author.PDS)
 
 		rr := RepostRecord{
 			RecCreated: rec.CreatedAt,
@@ -201,7 +206,6 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			return err
 		}
 
-		return nil
 	case *bsky.FeedVote:
 		var val int
 		var dbdir VoteDir
@@ -225,6 +229,8 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 		if err != nil {
 			return err
 		}
+
+		relevantPds = append(relevantPds, act.PDS)
 
 		var post FeedPost
 		if err := ix.db.First(&post, "rkey = ? AND author = ?", puri.Rkey, act.Uid).Error; err != nil {
@@ -253,7 +259,6 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			}
 		}
 
-		return nil
 	case *bsky.GraphFollow:
 		subj, err := ix.lookupUserByDid(ctx, rec.Subject.Did)
 		if err != nil {
@@ -269,8 +274,6 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			if len(doc.Service) == 0 {
 				return fmt.Errorf("external followed user %s had no services in did document", rec.Subject.Did)
 			}
-
-			fmt.Println("AKA: ", doc.AlsoKnownAs)
 
 			svc := doc.Service[0]
 			durl, err := url.Parse(svc.ServiceEndpoint)
@@ -331,6 +334,10 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			}
 		}
 
+		if subj.PDS != 0 {
+			relevantPds = append(relevantPds, subj.PDS)
+		}
+
 		// 'follower' followed 'target'
 		fr := FollowRecord{
 			Follower: evt.User,
@@ -347,16 +354,34 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 		}
 
 		if local && subj.PDS != 0 {
-			// technically don't need to send the same 'follow' multiple times
 			if err := ix.sendRemoteFollow(ctx, subj.Did, subj.PDS); err != nil {
 				log.Println("failed to issue remote follow directive: ", err)
 			}
 		}
 
-		return nil
 	default:
 		return fmt.Errorf("unrecognized record type: %T", rec)
 	}
+
+	did, err := ix.didForUser(ctx, evt.User)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Sending event: ", evt.Collection, relevantPds)
+	if err := ix.events.AddEvent(&Event{
+		CarSlice:    evt.RepoSlice,
+		Kind:        EvtKindCreateRecord,
+		uid:         evt.User,
+		User:        did,
+		Collection:  evt.Collection,
+		Rkey:        evt.Rkey,
+		relevantPds: relevantPds,
+	}); err != nil {
+		log.Println("failed to push event: ", err)
+	}
+
+	return nil
 }
 
 func (ix *Indexer) didForUser(ctx context.Context, uid uint) (string, error) {
@@ -366,6 +391,15 @@ func (ix *Indexer) didForUser(ctx context.Context, uid uint) (string, error) {
 	}
 
 	return ai.Did, nil
+}
+
+func (ix *Indexer) lookupUser(ctx context.Context, id uint) (*ActorInfo, error) {
+	var ai ActorInfo
+	if err := ix.db.First(&ai, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+
+	return &ai, nil
 }
 
 func (ix *Indexer) lookupUserByDid(ctx context.Context, did string) (*ActorInfo, error) {

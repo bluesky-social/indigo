@@ -13,25 +13,25 @@ func init() {
 
 type ActorGetProfile_MyState struct {
 	LexiconTypeID string  `json:"$type,omitempty"`
-	Follow        *string `json:"follow" cborgen:"follow"`
-	Member        *string `json:"member" cborgen:"member"`
-	Muted         *bool   `json:"muted" cborgen:"muted"`
+	Follow        *string `json:"follow,omitempty" cborgen:"follow"`
+	Member        *string `json:"member,omitempty" cborgen:"member"`
+	Muted         *bool   `json:"muted,omitempty" cborgen:"muted"`
 }
 
 type ActorGetProfile_Output struct {
 	LexiconTypeID  string                   `json:"$type,omitempty"`
-	Avatar         *string                  `json:"avatar" cborgen:"avatar"`
-	Banner         *string                  `json:"banner" cborgen:"banner"`
+	Avatar         *string                  `json:"avatar,omitempty" cborgen:"avatar"`
+	Banner         *string                  `json:"banner,omitempty" cborgen:"banner"`
 	Creator        string                   `json:"creator" cborgen:"creator"`
 	Declaration    *SystemDeclRef           `json:"declaration" cborgen:"declaration"`
-	Description    *string                  `json:"description" cborgen:"description"`
+	Description    *string                  `json:"description,omitempty" cborgen:"description"`
 	Did            string                   `json:"did" cborgen:"did"`
-	DisplayName    *string                  `json:"displayName" cborgen:"displayName"`
+	DisplayName    *string                  `json:"displayName,omitempty" cborgen:"displayName"`
 	FollowersCount int64                    `json:"followersCount" cborgen:"followersCount"`
 	FollowsCount   int64                    `json:"followsCount" cborgen:"followsCount"`
 	Handle         string                   `json:"handle" cborgen:"handle"`
 	MembersCount   int64                    `json:"membersCount" cborgen:"membersCount"`
-	MyState        *ActorGetProfile_MyState `json:"myState" cborgen:"myState"`
+	MyState        *ActorGetProfile_MyState `json:"myState,omitempty" cborgen:"myState"`
 	PostsCount     int64                    `json:"postsCount" cborgen:"postsCount"`
 }
 

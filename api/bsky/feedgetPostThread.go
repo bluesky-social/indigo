@@ -62,9 +62,9 @@ func (t *FeedGetPostThread_Output_Thread) UnmarshalJSON(b []byte) error {
 
 type FeedGetPostThread_ThreadViewPost struct {
 	LexiconTypeID string                                           `json:"$type,omitempty"`
-	Parent        *FeedGetPostThread_ThreadViewPost_Parent         `json:"parent" cborgen:"parent"`
+	Parent        *FeedGetPostThread_ThreadViewPost_Parent         `json:"parent,omitempty" cborgen:"parent"`
 	Post          *FeedPost_View                                   `json:"post" cborgen:"post"`
-	Replies       []*FeedGetPostThread_ThreadViewPost_Replies_Elem `json:"replies" cborgen:"replies"`
+	Replies       []*FeedGetPostThread_ThreadViewPost_Replies_Elem `json:"replies,omitempty" cborgen:"replies"`
 }
 
 type FeedGetPostThread_ThreadViewPost_Parent struct {

@@ -14,7 +14,7 @@ func init() {
 type ActorCreateScene_Input struct {
 	LexiconTypeID string  `json:"$type,omitempty"`
 	Handle        string  `json:"handle" cborgen:"handle"`
-	RecoveryKey   *string `json:"recoveryKey" cborgen:"recoveryKey"`
+	RecoveryKey   *string `json:"recoveryKey,omitempty" cborgen:"recoveryKey"`
 }
 
 type ActorCreateScene_Output struct {

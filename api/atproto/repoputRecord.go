@@ -17,7 +17,7 @@ type RepoPutRecord_Input struct {
 	Did           string `json:"did" cborgen:"did"`
 	Record        any    `json:"record" cborgen:"record"`
 	Rkey          string `json:"rkey" cborgen:"rkey"`
-	Validate      *bool  `json:"validate" cborgen:"validate"`
+	Validate      *bool  `json:"validate,omitempty" cborgen:"validate"`
 }
 
 type RepoPutRecord_Output struct {

@@ -13,15 +13,15 @@ type ActorRef struct {
 
 type ActorRef_ViewerState struct {
 	LexiconTypeID string `json:"$type,omitempty"`
-	Muted         *bool  `json:"muted" cborgen:"muted"`
+	Muted         *bool  `json:"muted,omitempty" cborgen:"muted"`
 }
 
 type ActorRef_WithInfo struct {
 	LexiconTypeID string                `json:"$type,omitempty"`
-	Avatar        *string               `json:"avatar" cborgen:"avatar"`
+	Avatar        *string               `json:"avatar,omitempty" cborgen:"avatar"`
 	Declaration   *SystemDeclRef        `json:"declaration" cborgen:"declaration"`
 	Did           string                `json:"did" cborgen:"did"`
-	DisplayName   *string               `json:"displayName" cborgen:"displayName"`
+	DisplayName   *string               `json:"displayName,omitempty" cborgen:"displayName"`
 	Handle        string                `json:"handle" cborgen:"handle"`
-	Viewer        *ActorRef_ViewerState `json:"viewer" cborgen:"viewer"`
+	Viewer        *ActorRef_ViewerState `json:"viewer,omitempty" cborgen:"viewer"`
 }

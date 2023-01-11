@@ -15,9 +15,9 @@ type AccountCreate_Input struct {
 	LexiconTypeID string  `json:"$type,omitempty"`
 	Email         string  `json:"email" cborgen:"email"`
 	Handle        string  `json:"handle" cborgen:"handle"`
-	InviteCode    *string `json:"inviteCode" cborgen:"inviteCode"`
+	InviteCode    *string `json:"inviteCode,omitempty" cborgen:"inviteCode"`
 	Password      string  `json:"password" cborgen:"password"`
-	RecoveryKey   *string `json:"recoveryKey" cborgen:"recoveryKey"`
+	RecoveryKey   *string `json:"recoveryKey,omitempty" cborgen:"recoveryKey"`
 }
 
 type AccountCreate_Output struct {

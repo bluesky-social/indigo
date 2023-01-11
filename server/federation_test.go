@@ -175,7 +175,32 @@ func (tp *testPDS) NewUser(t *testing.T, handle string) *testUser {
 	}
 }
 
-func (u *testUser) Post(t *testing.T, body string) string {
+func (u *testUser) Reply(t *testing.T, post, pcid, body string) string {
+	t.Helper()
+
+	ctx := context.TODO()
+	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
+		Collection: "app.bsky.feed.post",
+		Did:        u.did,
+		Record: &bsky.FeedPost{
+			CreatedAt: time.Now().Format(time.RFC3339),
+			Text:      body,
+			Reply: &bsky.FeedPost_ReplyRef{
+				Parent: &atproto.RepoStrongRef{
+					Cid: pcid,
+					Uri: post,
+				},
+			},
+		},
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return resp.Uri
+}
+func (u *testUser) Post(t *testing.T, body string) *atproto.RepoStrongRef {
 	t.Helper()
 
 	ctx := context.TODO()
@@ -192,7 +217,10 @@ func (u *testUser) Post(t *testing.T, body string) string {
 		t.Fatal(err)
 	}
 
-	return resp.Uri
+	return &atproto.RepoStrongRef{
+		Cid: resp.Cid,
+		Uri: resp.Uri,
+	}
 }
 
 func (u *testUser) Follow(t *testing.T, did string) string {
@@ -228,6 +256,18 @@ func (u *testUser) GetFeed(t *testing.T) []*bsky.FeedFeedViewPost {
 	}
 
 	return resp.Feed
+}
+
+func (u *testUser) GetNotifs(t *testing.T) []*bsky.NotificationList_Notification {
+	t.Helper()
+
+	ctx := context.TODO()
+	resp, err := bsky.NotificationList(ctx, u.client, "", 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return resp.Notifications
 }
 
 func testPLC(t *testing.T) *FakeDid {
@@ -268,16 +308,22 @@ func TestBasicFederation(t *testing.T) {
 	time.Sleep(time.Millisecond * 50)
 
 	f := bob.GetFeed(t)
-	assert.Equal(f[0].Post.Uri, bp1)
-	assert.Equal(f[1].Post.Uri, lp1)
+	assert.Equal(f[0].Post.Uri, bp1.Uri)
+	assert.Equal(f[1].Post.Uri, lp1.Uri)
 
 	lp2 := laura.Post(t, "im posting again!")
 	time.Sleep(time.Millisecond * 50)
 
 	f = bob.GetFeed(t)
-	assert.Equal(f[0].Post.Uri, bp1)
-	assert.Equal(f[1].Post.Uri, lp1)
-	assert.Equal(f[2].Post.Uri, lp2)
+	assert.Equal(f[0].Post.Uri, bp1.Uri)
+	assert.Equal(f[1].Post.Uri, lp1.Uri)
+	assert.Equal(f[2].Post.Uri, lp2.Uri)
+
+	fmt.Println("laura notifications:")
+	lnot := laura.GetNotifs(t)
+	for _, n := range lnot {
+		fmt.Println(n)
+	}
 
 	select {}
 }

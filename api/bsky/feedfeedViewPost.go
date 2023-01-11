@@ -14,7 +14,7 @@ func init() {
 
 type FeedFeedViewPost struct {
 	LexiconTypeID string                     `json:"$type,omitempty"`
-	Post          *FeedPost_View             `json:"post,omitempty" cborgen:"post"`
+	Post          *FeedPost_View             `json:"post" cborgen:"post"`
 	Reason        *FeedFeedViewPost_Reason   `json:"reason,omitempty" cborgen:"reason"`
 	Reply         *FeedFeedViewPost_ReplyRef `json:"reply,omitempty" cborgen:"reply"`
 }

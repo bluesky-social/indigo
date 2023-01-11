@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/mail"
 	"os"
 	"strings"
@@ -91,16 +90,18 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
 		ix.HandleRepoEvent(ctx, evt)
 
-		fe, err := s.repoEventToFedEvent(context.TODO(), evt)
-		if err != nil {
-			log.Println("event conversion error: ", err)
-			return
-		}
-		if fe != nil {
-			if err := evtman.AddEvent(fe); err != nil {
-				log.Println("failed to push event: ", err)
+		/*
+			fe, err := s.repoEventToFedEvent(context.TODO(), evt)
+			if err != nil {
+				log.Println("event conversion error: ", err)
+				return
 			}
-		}
+			if fe != nil {
+				if err := evtman.AddEvent(fe); err != nil {
+					log.Println("failed to push event: ", err)
+				}
+			}
+		*/
 	})
 
 	ix.sendRemoteFollow = s.sendRemoteFollow

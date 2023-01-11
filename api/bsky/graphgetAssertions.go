@@ -16,7 +16,7 @@ type GraphGetAssertions_Assertion struct {
 	Assertion     string                           `json:"assertion" cborgen:"assertion"`
 	Author        *ActorRef_WithInfo               `json:"author" cborgen:"author"`
 	Cid           string                           `json:"cid" cborgen:"cid"`
-	Confirmation  *GraphGetAssertions_Confirmation `json:"confirmation" cborgen:"confirmation"`
+	Confirmation  *GraphGetAssertions_Confirmation `json:"confirmation,omitempty" cborgen:"confirmation"`
 	CreatedAt     string                           `json:"createdAt" cborgen:"createdAt"`
 	IndexedAt     string                           `json:"indexedAt" cborgen:"indexedAt"`
 	Subject       *ActorRef_WithInfo               `json:"subject" cborgen:"subject"`
@@ -34,7 +34,7 @@ type GraphGetAssertions_Confirmation struct {
 type GraphGetAssertions_Output struct {
 	LexiconTypeID string                          `json:"$type,omitempty"`
 	Assertions    []*GraphGetAssertions_Assertion `json:"assertions" cborgen:"assertions"`
-	Cursor        *string                         `json:"cursor" cborgen:"cursor"`
+	Cursor        *string                         `json:"cursor,omitempty" cborgen:"cursor"`
 }
 
 func GraphGetAssertions(ctx context.Context, c *xrpc.Client, assertion string, author string, before string, confirmed bool, limit int64, subject string) (*GraphGetAssertions_Output, error) {

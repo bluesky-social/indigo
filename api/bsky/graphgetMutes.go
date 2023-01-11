@@ -16,13 +16,13 @@ type GraphGetMutes_Mute struct {
 	CreatedAt     string         `json:"createdAt" cborgen:"createdAt"`
 	Declaration   *SystemDeclRef `json:"declaration" cborgen:"declaration"`
 	Did           string         `json:"did" cborgen:"did"`
-	DisplayName   *string        `json:"displayName" cborgen:"displayName"`
+	DisplayName   *string        `json:"displayName,omitempty" cborgen:"displayName"`
 	Handle        string         `json:"handle" cborgen:"handle"`
 }
 
 type GraphGetMutes_Output struct {
 	LexiconTypeID string                `json:"$type,omitempty"`
-	Cursor        *string               `json:"cursor" cborgen:"cursor"`
+	Cursor        *string               `json:"cursor,omitempty" cborgen:"cursor"`
 	Mutes         []*GraphGetMutes_Mute `json:"mutes" cborgen:"mutes"`
 }
 

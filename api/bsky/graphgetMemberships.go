@@ -13,17 +13,17 @@ func init() {
 
 type GraphGetMemberships_Membership struct {
 	LexiconTypeID string         `json:"$type,omitempty"`
-	CreatedAt     *string        `json:"createdAt" cborgen:"createdAt"`
+	CreatedAt     *string        `json:"createdAt,omitempty" cborgen:"createdAt"`
 	Declaration   *SystemDeclRef `json:"declaration" cborgen:"declaration"`
 	Did           string         `json:"did" cborgen:"did"`
-	DisplayName   *string        `json:"displayName" cborgen:"displayName"`
+	DisplayName   *string        `json:"displayName,omitempty" cborgen:"displayName"`
 	Handle        string         `json:"handle" cborgen:"handle"`
 	IndexedAt     string         `json:"indexedAt" cborgen:"indexedAt"`
 }
 
 type GraphGetMemberships_Output struct {
 	LexiconTypeID string                            `json:"$type,omitempty"`
-	Cursor        *string                           `json:"cursor" cborgen:"cursor"`
+	Cursor        *string                           `json:"cursor,omitempty" cborgen:"cursor"`
 	Memberships   []*GraphGetMemberships_Membership `json:"memberships" cborgen:"memberships"`
 	Subject       *ActorRef_WithInfo                `json:"subject" cborgen:"subject"`
 }

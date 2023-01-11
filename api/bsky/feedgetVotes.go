@@ -13,8 +13,8 @@ func init() {
 
 type FeedGetVotes_Output struct {
 	LexiconTypeID string               `json:"$type,omitempty"`
-	Cid           *string              `json:"cid" cborgen:"cid"`
-	Cursor        *string              `json:"cursor" cborgen:"cursor"`
+	Cid           *string              `json:"cid,omitempty" cborgen:"cid"`
+	Cursor        *string              `json:"cursor,omitempty" cborgen:"cursor"`
 	Uri           string               `json:"uri" cborgen:"uri"`
 	Votes         []*FeedGetVotes_Vote `json:"votes" cborgen:"votes"`
 }

@@ -13,25 +13,25 @@ func init() {
 
 type ActorGetSuggestions_Actor struct {
 	LexiconTypeID string                       `json:"$type,omitempty"`
-	Avatar        *string                      `json:"avatar" cborgen:"avatar"`
+	Avatar        *string                      `json:"avatar,omitempty" cborgen:"avatar"`
 	Declaration   *SystemDeclRef               `json:"declaration" cborgen:"declaration"`
-	Description   *string                      `json:"description" cborgen:"description"`
+	Description   *string                      `json:"description,omitempty" cborgen:"description"`
 	Did           string                       `json:"did" cborgen:"did"`
-	DisplayName   *string                      `json:"displayName" cborgen:"displayName"`
+	DisplayName   *string                      `json:"displayName,omitempty" cborgen:"displayName"`
 	Handle        string                       `json:"handle" cborgen:"handle"`
-	IndexedAt     *string                      `json:"indexedAt" cborgen:"indexedAt"`
-	MyState       *ActorGetSuggestions_MyState `json:"myState" cborgen:"myState"`
+	IndexedAt     *string                      `json:"indexedAt,omitempty" cborgen:"indexedAt"`
+	MyState       *ActorGetSuggestions_MyState `json:"myState,omitempty" cborgen:"myState"`
 }
 
 type ActorGetSuggestions_MyState struct {
 	LexiconTypeID string  `json:"$type,omitempty"`
-	Follow        *string `json:"follow" cborgen:"follow"`
+	Follow        *string `json:"follow,omitempty" cborgen:"follow"`
 }
 
 type ActorGetSuggestions_Output struct {
 	LexiconTypeID string                       `json:"$type,omitempty"`
 	Actors        []*ActorGetSuggestions_Actor `json:"actors" cborgen:"actors"`
-	Cursor        *string                      `json:"cursor" cborgen:"cursor"`
+	Cursor        *string                      `json:"cursor,omitempty" cborgen:"cursor"`
 }
 
 func ActorGetSuggestions(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*ActorGetSuggestions_Output, error) {

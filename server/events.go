@@ -90,8 +90,9 @@ type Event struct {
 	CarSlice   []byte
 
 	// some private fields for processing metadata
-	uid   uint
-	pdsid uint
+	uid         uint
+	pdsid       uint
+	relevantPds []uint
 }
 
 func (em *EventManager) AddEvent(ev *Event) error {
@@ -120,13 +121,18 @@ func (s *Server) EventsHandler(c echo.Context) error {
 	}
 
 	evts, cancel, err := s.events.Subscribe(func(evt *Event) bool {
+		for _, pid := range evt.relevantPds {
+			if pid == peering.ID {
+				return true
+			}
+		}
+
 		has, err := s.peerHasFollow(ctx, peering.ID, evt.uid)
 		if err != nil {
 			log.Println("error checking peer follow relationship: ", err)
 			return false
 		}
 
-		fmt.Println("follow: ", has)
 		return has
 	})
 	if err != nil {

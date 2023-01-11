@@ -18,14 +18,14 @@ type NotificationList_Notification struct {
 	IndexedAt     string             `json:"indexedAt" cborgen:"indexedAt"`
 	IsRead        bool               `json:"isRead" cborgen:"isRead"`
 	Reason        string             `json:"reason" cborgen:"reason"`
-	ReasonSubject *string            `json:"reasonSubject" cborgen:"reasonSubject"`
+	ReasonSubject *string            `json:"reasonSubject,omitempty" cborgen:"reasonSubject"`
 	Record        any                `json:"record" cborgen:"record"`
 	Uri           string             `json:"uri" cborgen:"uri"`
 }
 
 type NotificationList_Output struct {
 	LexiconTypeID string                           `json:"$type,omitempty"`
-	Cursor        *string                          `json:"cursor" cborgen:"cursor"`
+	Cursor        *string                          `json:"cursor,omitempty" cborgen:"cursor"`
 	Notifications []*NotificationList_Notification `json:"notifications" cborgen:"notifications"`
 }
 

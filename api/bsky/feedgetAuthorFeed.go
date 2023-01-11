@@ -13,7 +13,7 @@ func init() {
 
 type FeedGetAuthorFeed_Output struct {
 	LexiconTypeID string              `json:"$type,omitempty"`
-	Cursor        *string             `json:"cursor" cborgen:"cursor"`
+	Cursor        *string             `json:"cursor,omitempty" cborgen:"cursor"`
 	Feed          []*FeedFeedViewPost `json:"feed" cborgen:"feed"`
 }
 

@@ -16,7 +16,7 @@ type RepoCreateRecord_Input struct {
 	Collection    string `json:"collection" cborgen:"collection"`
 	Did           string `json:"did" cborgen:"did"`
 	Record        any    `json:"record" cborgen:"record"`
-	Validate      *bool  `json:"validate" cborgen:"validate"`
+	Validate      *bool  `json:"validate,omitempty" cborgen:"validate"`
 }
 
 type RepoCreateRecord_Output struct {
