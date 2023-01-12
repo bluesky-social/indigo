@@ -365,7 +365,7 @@ func nameFromID(id, prefix string) string {
 
 }
 
-func orderedMapIter[T any](m map[string]*T, cb func(string, T) error) error {
+func orderedMapIter[T any](m map[string]T, cb func(string, T) error) error {
 	var keys []string
 	for k := range m {
 		keys = append(keys, k)
@@ -374,7 +374,7 @@ func orderedMapIter[T any](m map[string]*T, cb func(string, T) error) error {
 	sort.Strings(keys)
 
 	for _, k := range keys {
-		if err := cb(k, *m[k]); err != nil {
+		if err := cb(k, m[k]); err != nil {
 			return err
 		}
 	}
@@ -403,8 +403,8 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 	}
 
 	if s.Parameters != nil {
-		if err := orderedMapIter[TypeSchema](s.Parameters.Properties, func(name string, t TypeSchema) error {
-			tn, err := s.typeNameForField(name, "", t)
+		if err := orderedMapIter[*TypeSchema](s.Parameters.Properties, func(name string, t *TypeSchema) error {
+			tn, err := s.typeNameForField(name, "", *t)
 			if err != nil {
 				return err
 			}
@@ -458,7 +458,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 		fmt.Fprintf(w, `
 	params := map[string]interface{}{
 `)
-		if err := orderedMapIter[TypeSchema](s.Parameters.Properties, func(name string, t TypeSchema) error {
+		if err := orderedMapIter[*TypeSchema](s.Parameters.Properties, func(name string, t *TypeSchema) error {
 			fmt.Fprintf(w, `"%s": %s,
 `, name, name)
 			return nil
@@ -581,10 +581,11 @@ func WriteXrpcServer(w io.Writer, schemas []*Schema, pkg string, impmap map[stri
 	fmt.Fprintf(w, "\t\"github.com/labstack/echo/v4\"\n")
 
 	var prefixes []string
-	for k, v := range impmap {
+	orderedMapIter[string](impmap, func(k, v string) error {
 		prefixes = append(prefixes, k)
 		fmt.Fprintf(w, "\t%s\"%s\"\n", importNameForPrefix(k), v)
-	}
+		return nil
+	})
 	fmt.Fprintf(w, ")\n\n")
 
 	ssets := make(map[string][]*Schema)
@@ -601,7 +602,6 @@ func WriteXrpcServer(w io.Writer, schemas []*Schema, pkg string, impmap map[stri
 		}
 
 		ssets[pref] = append(ssets[pref], s)
-
 	}
 
 	for _, p := range prefixes {
@@ -679,7 +679,7 @@ func (s *TypeSchema) WriteHandlerStub(w io.Writer, fname, shortname, impname str
 					required[r] = true
 				}
 			}
-			orderedMapIter[TypeSchema](s.Parameters.Properties, func(k string, t TypeSchema) error {
+			orderedMapIter[*TypeSchema](s.Parameters.Properties, func(k string, t *TypeSchema) error {
 				switch t.Type {
 				case "string":
 					paramtypes = append(paramtypes, k+" string")
@@ -747,7 +747,7 @@ func (s *TypeSchema) WriteRPCHandler(w io.Writer, fname, shortname, impname stri
 					required[k] = true
 				}
 			}
-			orderedMapIter[TypeSchema](s.Parameters.Properties, func(k string, t TypeSchema) error {
+			orderedMapIter[*TypeSchema](s.Parameters.Properties, func(k string, t *TypeSchema) error {
 				switch t.Type {
 				case "string":
 					params = append(params, k)
@@ -1007,10 +1007,10 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 			required[req] = true
 		}
 
-		if err := orderedMapIter[TypeSchema](ts.Properties, func(k string, v TypeSchema) error {
+		if err := orderedMapIter[*TypeSchema](ts.Properties, func(k string, v *TypeSchema) error {
 			goname := strings.Title(k)
 
-			tname, err := ts.typeNameForField(name, k, v)
+			tname, err := ts.typeNameForField(name, k, *v)
 			if err != nil {
 				return err
 			}
