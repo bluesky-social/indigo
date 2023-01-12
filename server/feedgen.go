@@ -10,18 +10,20 @@ import (
 
 	"github.com/ipfs/go-cid"
 	bsky "github.com/whyrusleeping/gosky/api/bsky"
+	"github.com/whyrusleeping/gosky/indexer"
+	"github.com/whyrusleeping/gosky/types"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
 
 type FeedGenerator struct {
 	db *gorm.DB
-	ix *Indexer
+	ix *indexer.Indexer
 
 	readRecord ReadRecordFunc
 }
 
-func NewFeedGenerator(db *gorm.DB, ix *Indexer, readRecord ReadRecordFunc) (*FeedGenerator, error) {
+func NewFeedGenerator(db *gorm.DB, ix *indexer.Indexer, readRecord ReadRecordFunc) (*FeedGenerator, error) {
 	return &FeedGenerator{
 		db:         db,
 		ix:         ix,
@@ -49,7 +51,7 @@ type HydratedFeedItem struct {
 }
 */
 
-func (fg *FeedGenerator) hydrateFeed(ctx context.Context, items []*FeedPost, reposts []*RepostRecord) ([]*bsky.FeedFeedViewPost, error) {
+func (fg *FeedGenerator) hydrateFeed(ctx context.Context, items []*types.FeedPost, reposts []*types.RepostRecord) ([]*bsky.FeedFeedViewPost, error) {
 	out := make([]*bsky.FeedFeedViewPost, 0, len(items))
 	for _, it := range items {
 		hit, err := fg.hydrateItem(ctx, it)
@@ -62,7 +64,7 @@ func (fg *FeedGenerator) hydrateFeed(ctx context.Context, items []*FeedPost, rep
 
 	if len(reposts) > 0 {
 		for _, rp := range reposts {
-			var fp FeedPost
+			var fp types.FeedPost
 			if err := fg.db.First(&fp, "id = ?", rp.Post).Error; err != nil {
 				return nil, err
 			}
@@ -93,7 +95,7 @@ func (fg *FeedGenerator) hydrateFeed(ctx context.Context, items []*FeedPost, rep
 
 func (fg *FeedGenerator) didForUser(ctx context.Context, user uint) (string, error) {
 	// TODO: cache the shit out of this
-	var ai ActorInfo
+	var ai types.ActorInfo
 	if err := fg.db.First(&ai, "uid = ?", user).Error; err != nil {
 		return "", err
 	}
@@ -103,7 +105,7 @@ func (fg *FeedGenerator) didForUser(ctx context.Context, user uint) (string, err
 
 func (fg *FeedGenerator) getActorRefInfo(ctx context.Context, user uint) (*bsky.ActorRef_WithInfo, error) {
 	// TODO: cache the shit out of this too
-	var ai ActorInfo
+	var ai types.ActorInfo
 	if err := fg.db.First(&ai, "uid = ?", user).Error; err != nil {
 		return nil, err
 	}
@@ -111,19 +113,7 @@ func (fg *FeedGenerator) getActorRefInfo(ctx context.Context, user uint) (*bsky.
 	return ai.ActorRef(), nil
 }
 
-func (ai *ActorInfo) ActorRef() *bsky.ActorRef_WithInfo {
-	return &bsky.ActorRef_WithInfo{
-		Did: ai.Did,
-		Declaration: &bsky.SystemDeclRef{
-			Cid:       ai.DeclRefCid,
-			ActorType: ai.Type,
-		},
-		Handle:      ai.Handle,
-		DisplayName: &ai.DisplayName,
-	}
-}
-
-func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *FeedPost) (*bsky.FeedFeedViewPost, error) {
+func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *types.FeedPost) (*bsky.FeedFeedViewPost, error) {
 	authorDid, err := fg.didForUser(ctx, item.Author)
 	if err != nil {
 		return nil, err
@@ -166,7 +156,7 @@ func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *FeedPost) (*bsky
 func (fg *FeedGenerator) getPostViewerState(ctx context.Context, item uint, viewer uint, viewerDid string) (*bsky.FeedPost_ViewerState, error) {
 	var out bsky.FeedPost_ViewerState
 
-	var vote VoteRecord
+	var vote types.VoteRecord
 	if err := fg.db.Find(&vote, "post = ? AND voter = ?", item, viewer).Error; err != nil {
 		return nil, err
 	}
@@ -174,14 +164,14 @@ func (fg *FeedGenerator) getPostViewerState(ctx context.Context, item uint, view
 	if vote.ID != 0 {
 		vuri := fmt.Sprintf("at://%s/app.bsky.feed.vote/%s", viewerDid, vote.Rkey)
 		switch vote.Dir {
-		case VoteDirUp:
+		case types.VoteDirUp:
 			out.Upvote = &vuri
-		case VoteDirDown:
+		case types.VoteDirDown:
 			out.Downvote = &vuri
 		}
 	}
 
-	var rep RepostRecord
+	var rep types.RepostRecord
 	if err := fg.db.Find(&rep, "post = ? AND reposter = ?", item, viewer).Error; err != nil {
 		return nil, err
 	}
@@ -199,16 +189,16 @@ func (fg *FeedGenerator) GetTimeline(ctx context.Context, user *User, algo strin
 	defer span.End()
 
 	// TODO: this query is just a temporary hack...
-	var feed []*FeedPost
+	var feed []*types.FeedPost
 	if err := fg.db.Debug().Find(&feed, "author in (?)",
-		fg.db.Model(FollowRecord{}).Where("follower = ?", user.ID).Select("target"),
+		fg.db.Model(types.FollowRecord{}).Where("follower = ?", user.ID).Select("target"),
 	).Error; err != nil {
 		return nil, err
 	}
 
-	var rps []*RepostRecord
+	var rps []*types.RepostRecord
 	if err := fg.db.Debug().Find(&rps, "reposter in (?)",
-		fg.db.Model(FollowRecord{}).Where("follower = ?", user.ID).Select("target"),
+		fg.db.Model(types.FollowRecord{}).Where("follower = ?", user.ID).Select("target"),
 	).Error; err != nil {
 		return nil, err
 	}
@@ -260,12 +250,12 @@ func (fg *FeedGenerator) GetAuthorFeed(ctx context.Context, user *User, before s
 	// for memory efficiency, should probably return the actual type that goes out to the user...
 	// bsky.FeedGetAuthorFeed_FeedItem
 
-	var feed []*FeedPost
+	var feed []*types.FeedPost
 	if err := fg.db.Find(&feed, "author = ?", user.ID).Error; err != nil {
 		return nil, err
 	}
 
-	var reposts []*RepostRecord
+	var reposts []*types.RepostRecord
 	if err := fg.db.Find(&reposts, "reposter = ?", user.ID).Error; err != nil {
 		return nil, err
 	}
@@ -278,41 +268,17 @@ func (fg *FeedGenerator) GetAuthorFeed(ctx context.Context, user *User, before s
 	return fg.personalizeFeed(ctx, fout, user)
 }
 
-type parsedUri struct {
-	Did        string
-	Collection string
-	Rkey       string
-}
-
-func parseAtUri(uri string) (*parsedUri, error) {
-	if !strings.HasPrefix(uri, "at://") {
-		return nil, fmt.Errorf("AT uris must be prefixed with 'at://'")
-	}
-
-	trimmed := strings.TrimPrefix(uri, "at://")
-	parts := strings.Split(trimmed, "/")
-	if len(parts) != 3 {
-		return nil, fmt.Errorf("AT uris must have three parts: did, collection, tid")
-	}
-
-	return &parsedUri{
-		Did:        parts[0],
-		Collection: parts[1],
-		Rkey:       parts[2],
-	}, nil
-}
-
-func (fg *FeedGenerator) GetActorProfileByID(ctx context.Context, actor uint) (*ActorInfo, error) {
-	var ai ActorInfo
+func (fg *FeedGenerator) GetActorProfileByID(ctx context.Context, actor uint) (*types.ActorInfo, error) {
+	var ai types.ActorInfo
 	if err := fg.db.First(&ai, "id = ?", actor).Error; err != nil {
 		return nil, fmt.Errorf("getActorProfileByID: %w", err)
 	}
 
 	return &ai, nil
 }
-func (fg *FeedGenerator) GetActorProfile(ctx context.Context, actor string) (*ActorInfo, error) {
+func (fg *FeedGenerator) GetActorProfile(ctx context.Context, actor string) (*types.ActorInfo, error) {
 	fmt.Println("get actor profile: ", actor)
-	var ai ActorInfo
+	var ai types.ActorInfo
 	if strings.HasPrefix(actor, "did:") {
 		if err := fg.db.First(&ai, "did = ?", actor).Error; err != nil {
 			return nil, err
@@ -378,7 +344,7 @@ type HydratedVote struct {
 	CreatedAt string
 }
 
-func (fg *FeedGenerator) hydrateVote(ctx context.Context, v *VoteRecord) (*HydratedVote, error) {
+func (fg *FeedGenerator) hydrateVote(ctx context.Context, v *types.VoteRecord) (*HydratedVote, error) {
 	aref, err := fg.getActorRefInfo(ctx, v.Voter)
 	if err != nil {
 		return nil, err
@@ -406,17 +372,17 @@ func (fg *FeedGenerator) GetVotes(ctx context.Context, uri string, pcid cid.Cid,
 		return nil, fmt.Errorf("listing likes of old post versions not supported")
 	}
 
-	var dbdir VoteDir
+	var dbdir types.VoteDir
 	switch dir {
 	case "up":
-		dbdir = VoteDirUp
+		dbdir = types.VoteDirUp
 	case "down":
-		dbdir = VoteDirDown
+		dbdir = types.VoteDirDown
 	default:
 		return nil, fmt.Errorf("there are only two directions, up or down")
 	}
 
-	var voterecs []VoteRecord
+	var voterecs []types.VoteRecord
 	if err := fg.db.Limit(limit).Find(&voterecs, "dir = ? AND post = ?", dbdir, p.ID).Error; err != nil {
 		return nil, err
 	}
@@ -441,8 +407,8 @@ type FollowInfo struct {
 }
 
 func (fg *FeedGenerator) GetFollows(ctx context.Context, user string, limit int, before string) ([]*FollowInfo, error) {
-	var follows []FollowRecord
-	if err := fg.db.Limit(limit).Find(&follows, "follower = (?)", fg.db.Model(ActorInfo{}).Where("did = ? or handle = ?", user, user).Select("uid")).Error; err != nil {
+	var follows []types.FollowRecord
+	if err := fg.db.Limit(limit).Find(&follows, "follower = (?)", fg.db.Model(types.ActorInfo{}).Where("did = ? or handle = ?", user, user).Select("uid")).Error; err != nil {
 		return nil, err
 	}
 

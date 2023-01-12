@@ -21,12 +21,7 @@ func (s *Server) handleAppBskyActorCreateScene(ctx context.Context, input *appbs
 		return nil, err
 	}
 
-	scinfo, err := s.CreateScene(ctx, u, input.Handle, input.RecoveryKey)
-	if err != nil {
-		return nil, err
-	}
-
-	_ = scinfo
+	_ = u
 	panic("nyi")
 
 	/*
@@ -312,7 +307,7 @@ func (s *Server) handleAppBskyGraphGetFollows(ctx context.Context, before string
 	}
 
 	var out appbskytypes.GraphGetFollows_Output
-	out.Subject = infoToActorRef(ai)
+	out.Subject = ai.ActorRef()
 
 	out.Follows = []*appbskytypes.GraphGetFollows_Follow{}
 	for _, f := range follows {
@@ -340,7 +335,7 @@ func (s *Server) handleAppBskyGraphGetMemberships(ctx context.Context, actor str
 	}
 
 	return &appbskytypes.GraphGetMemberships_Output{
-		Subject:     infoToActorRef(ai),
+		Subject:     ai.ActorRef(),
 		Memberships: []*appbskytypes.GraphGetMemberships_Membership{},
 	}, nil
 }

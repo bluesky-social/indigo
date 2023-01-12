@@ -1,4 +1,4 @@
-package schemagen
+package notifs
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/ipfs/go-cid"
 	appbskytypes "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/repomgr"
+	"github.com/whyrusleeping/gosky/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -119,8 +120,8 @@ func (nm *NotificationManager) hydrateNotification(ctx context.Context, nrec *No
 		return nil, fmt.Errorf("attempted to hydrate unknown notif kind: %d", nrec.Kind)
 	}
 }
-func (nm *NotificationManager) getActor(ctx context.Context, act uint) (*ActorInfo, error) {
-	var ai ActorInfo
+func (nm *NotificationManager) getActor(ctx context.Context, act uint) (*types.ActorInfo, error) {
+	var ai types.ActorInfo
 	if err := nm.db.First(&ai, "id = ?", act).Error; err != nil {
 		return nil, err
 	}
@@ -129,7 +130,7 @@ func (nm *NotificationManager) getActor(ctx context.Context, act uint) (*ActorIn
 }
 
 func (nm *NotificationManager) hydrateNotificationUpVote(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
-	var votedOn FeedPost
+	var votedOn types.FeedPost
 	if err := nm.db.First(&votedOn, "id = ?", nrec.Record).Error; err != nil {
 		return nil, err
 	}
@@ -139,7 +140,7 @@ func (nm *NotificationManager) hydrateNotificationUpVote(ctx context.Context, nr
 		return nil, err
 	}
 
-	var vote VoteRecord
+	var vote types.VoteRecord
 	if err := nm.db.First(&vote, "id = ?", nrec.Record).Error; err != nil {
 		return nil, err
 	}
@@ -169,7 +170,7 @@ func (nm *NotificationManager) hydrateNotificationUpVote(ctx context.Context, nr
 }
 
 func (nm *NotificationManager) hydrateNotificationRepost(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
-	var reposted FeedPost
+	var reposted types.FeedPost
 	if err := nm.db.First(&reposted, "id = ?", nrec.Record).Error; err != nil {
 		return nil, err
 	}
@@ -179,7 +180,7 @@ func (nm *NotificationManager) hydrateNotificationRepost(ctx context.Context, nr
 		return nil, err
 	}
 
-	var repost RepostRecord
+	var repost types.RepostRecord
 	if err := nm.db.First(&repost, "id = ?", nrec.Record).Error; err != nil {
 		return nil, err
 	}
@@ -209,22 +210,22 @@ func (nm *NotificationManager) hydrateNotificationRepost(ctx context.Context, nr
 }
 
 func (nm *NotificationManager) hydrateNotificationReply(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
-	var fp FeedPost
+	var fp types.FeedPost
 	if err := nm.db.First(&fp, "id = ?", nrec.Record).Error; err != nil {
 		return nil, err
 	}
 
-	var replyTo FeedPost
+	var replyTo types.FeedPost
 	if err := nm.db.First(&replyTo, "id = ?", nrec.ReplyTo).Error; err != nil {
 		return nil, err
 	}
 
-	var author ActorInfo
+	var author types.ActorInfo
 	if err := nm.db.First(&author, "id = ?", fp.Author).Error; err != nil {
 		return nil, err
 	}
 
-	var opAuthor ActorInfo
+	var opAuthor types.ActorInfo
 	if err := nm.db.First(&opAuthor, "id = ?", replyTo.Author).Error; err != nil {
 		return nil, err
 	}
@@ -249,12 +250,12 @@ func (nm *NotificationManager) hydrateNotificationReply(ctx context.Context, nre
 }
 
 func (nm *NotificationManager) hydrateNotificationFollow(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
-	var frec FollowRecord
+	var frec types.FollowRecord
 	if err := nm.db.First(&frec, "id = ?", nrec.Record).Error; err != nil {
 		return nil, err
 	}
 
-	var follower ActorInfo
+	var follower types.ActorInfo
 	if err := nm.db.First(&follower, "id = ?", nrec.Who).Error; err != nil {
 		return nil, err
 	}
@@ -306,7 +307,7 @@ func (nm *NotificationManager) UpdateSeen(ctx context.Context, usr uint, seen ti
 	return nil
 }
 
-func (nm *NotificationManager) AddReplyTo(ctx context.Context, user uint, replyid uint, replyto *FeedPost) error {
+func (nm *NotificationManager) AddReplyTo(ctx context.Context, user uint, replyid uint, replyto *types.FeedPost) error {
 	return nm.db.Create(&NotifRecord{
 		Kind:    NotifKindReply,
 		For:     replyto.Author,

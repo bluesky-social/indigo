@@ -1,16 +1,18 @@
-package schemagen
+package indexer
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"log"
-	"net/url"
-	"time"
+	"strings"
 
 	bsky "github.com/whyrusleeping/gosky/api/bsky"
+	"github.com/whyrusleeping/gosky/events"
+	"github.com/whyrusleeping/gosky/notifs"
+	"github.com/whyrusleeping/gosky/plc"
 	"github.com/whyrusleeping/gosky/repomgr"
-	"github.com/whyrusleeping/gosky/xrpc"
+	"github.com/whyrusleeping/gosky/types"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
@@ -18,19 +20,20 @@ import (
 type Indexer struct {
 	db *gorm.DB
 
-	notifman *NotificationManager
-	events   *EventManager
-	didr     PLCClient
+	notifman *notifs.NotificationManager
+	events   *events.EventManager
+	didr     plc.PLCClient
 
-	sendRemoteFollow func(context.Context, string, uint) error
+	SendRemoteFollow   func(context.Context, string, uint) error
+	CreateExternalUser func(context.Context, string) (*types.ActorInfo, error)
 }
 
-func NewIndexer(db *gorm.DB, notifman *NotificationManager, evtman *EventManager, didr PLCClient) (*Indexer, error) {
-	db.AutoMigrate(&FeedPost{})
-	db.AutoMigrate(&ActorInfo{})
-	db.AutoMigrate(&FollowRecord{})
-	db.AutoMigrate(&VoteRecord{})
-	db.AutoMigrate(&RepostRecord{})
+func NewIndexer(db *gorm.DB, notifman *notifs.NotificationManager, evtman *events.EventManager, didr plc.PLCClient) (*Indexer, error) {
+	db.AutoMigrate(&types.FeedPost{})
+	db.AutoMigrate(&types.ActorInfo{})
+	db.AutoMigrate(&types.FollowRecord{})
+	db.AutoMigrate(&types.VoteRecord{})
+	db.AutoMigrate(&types.RepostRecord{})
 
 	return &Indexer{
 		db:       db,
@@ -38,78 +41,6 @@ func NewIndexer(db *gorm.DB, notifman *NotificationManager, evtman *EventManager
 		events:   evtman,
 		didr:     didr,
 	}, nil
-}
-
-type FeedPost struct {
-	gorm.Model
-	Author      uint
-	Rkey        string
-	Cid         string
-	UpCount     int64
-	ReplyCount  int64
-	RepostCount int64
-	ReplyTo     uint
-}
-
-type RepostRecord struct {
-	ID         uint `gorm:"primarykey"`
-	CreatedAt  time.Time
-	RecCreated string
-	Post       uint
-	Reposter   uint
-	Author     uint
-	RecCid     string
-	Rkey       string
-}
-
-type ActorInfo struct {
-	gorm.Model
-	Uid         uint `gorm:"index"`
-	Handle      string
-	DisplayName string
-	Did         string
-	Following   int64
-	Followers   int64
-	Posts       int64
-	DeclRefCid  string
-	Type        string
-	PDS         uint
-}
-
-type VoteDir int
-
-func (vd VoteDir) String() string {
-	switch vd {
-	case VoteDirUp:
-		return "up"
-	case VoteDirDown:
-		return "down"
-	default:
-		return "<unknown>"
-	}
-}
-
-const (
-	VoteDirUp   = VoteDir(1)
-	VoteDirDown = VoteDir(2)
-)
-
-type VoteRecord struct {
-	gorm.Model
-	Dir     VoteDir
-	Voter   uint
-	Post    uint
-	Created string
-	Rkey    string
-	Cid     string
-}
-
-type FollowRecord struct {
-	gorm.Model
-	Follower uint
-	Target   uint
-	Rkey     string
-	Cid      string
 }
 
 func (ix *Indexer) catchup(ctx context.Context, evt *repomgr.RepoEvent) error {
@@ -156,7 +87,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			replyid = replyto.ID
 		}
 
-		fp := FeedPost{
+		fp := types.FeedPost{
 			Rkey:    evt.Rkey,
 			Cid:     evt.RecCid.String(),
 			Author:  evt.User,
@@ -183,7 +114,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 
 		relevantPds = append(relevantPds, author.PDS)
 
-		rr := RepostRecord{
+		rr := types.RepostRecord{
 			RecCreated: rec.CreatedAt,
 			Post:       fp.ID,
 			Reposter:   evt.User,
@@ -201,14 +132,14 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 
 	case *bsky.FeedVote:
 		var val int
-		var dbdir VoteDir
+		var dbdir types.VoteDir
 		switch rec.Direction {
 		case "up":
 			val = 1
-			dbdir = VoteDirUp
+			dbdir = types.VoteDirUp
 		case "down":
 			val = -1
-			dbdir = VoteDirDown
+			dbdir = types.VoteDirDown
 		default:
 			return fmt.Errorf("invalid vote direction: %q", rec.Direction)
 		}
@@ -225,12 +156,12 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 
 		relevantPds = append(relevantPds, act.PDS)
 
-		var post FeedPost
+		var post types.FeedPost
 		if err := ix.db.First(&post, "rkey = ? AND author = ?", puri.Rkey, act.Uid).Error; err != nil {
 			return err
 		}
 
-		vr := VoteRecord{
+		vr := types.VoteRecord{
 			Dir:     dbdir,
 			Voter:   evt.User,
 			Post:    post.ID,
@@ -242,7 +173,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			return err
 		}
 
-		if err := ix.db.Model(FeedPost{}).Where("id = ?", post.ID).Update("up_count", gorm.Expr("up_count + ?", val)).Error; err != nil {
+		if err := ix.db.Model(types.FeedPost{}).Where("id = ?", post.ID).Update("up_count", gorm.Expr("up_count + ?", val)).Error; err != nil {
 			return err
 		}
 
@@ -258,7 +189,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return err
 			}
-			nu, err := ix.createExternalUser(ctx, rec.Subject.Did)
+			nu, err := ix.CreateExternalUser(ctx, rec.Subject.Did)
 			if err != nil {
 				return err
 			}
@@ -271,7 +202,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 		}
 
 		// 'follower' followed 'target'
-		fr := FollowRecord{
+		fr := types.FollowRecord{
 			Follower: evt.User,
 			Target:   subj.ID,
 			Rkey:     evt.Rkey,
@@ -286,7 +217,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 		}
 
 		if local && subj.PDS != 0 {
-			if err := ix.sendRemoteFollow(ctx, subj.Did, subj.PDS); err != nil {
+			if err := ix.SendRemoteFollow(ctx, subj.Did, subj.PDS); err != nil {
 				log.Println("failed to issue remote follow directive: ", err)
 			}
 		}
@@ -295,99 +226,29 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 		return fmt.Errorf("unrecognized record type: %T", rec)
 	}
 
-	did, err := ix.didForUser(ctx, evt.User)
+	did, err := ix.DidForUser(ctx, evt.User)
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("Sending event: ", evt.Collection, relevantPds)
-	if err := ix.events.AddEvent(&Event{
-		CarSlice:    evt.RepoSlice,
-		Kind:        EvtKindCreateRecord,
-		uid:         evt.User,
-		User:        did,
-		Collection:  evt.Collection,
-		Rkey:        evt.Rkey,
-		relevantPds: relevantPds,
+	if err := ix.events.AddEvent(&events.Event{
+		CarSlice:        evt.RepoSlice,
+		Kind:            events.EvtKindCreateRecord,
+		PrivUid:         evt.User,
+		User:            did,
+		Collection:      evt.Collection,
+		Rkey:            evt.Rkey,
+		PrivRelevantPds: relevantPds,
 	}); err != nil {
 		log.Println("failed to push event: ", err)
 	}
 
 	return nil
 }
-func (ix *Indexer) createExternalUser(ctx context.Context, did string) (*ActorInfo, error) {
-	doc, err := ix.didr.GetDocument(ctx, did)
-	if err != nil {
-		return nil, fmt.Errorf("could not locate DID document for followed user: %s", err)
-	}
 
-	if len(doc.Service) == 0 {
-		return nil, fmt.Errorf("external followed user %s had no services in did document", did)
-	}
-
-	svc := doc.Service[0]
-	durl, err := url.Parse(svc.ServiceEndpoint)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: the PDS's DID should also be in the service, we could use that to look up?
-	var peering Peering
-	if err := ix.db.First(&peering, "host = ?", durl.Host).Error; err != nil {
-		return nil, err
-	}
-
-	var handle string
-	if len(doc.AlsoKnownAs) > 0 {
-		hurl, err := url.Parse(doc.AlsoKnownAs[0])
-		if err != nil {
-			return nil, err
-		}
-
-		handle = hurl.Host
-	}
-
-	c := &xrpc.Client{Host: svc.ServiceEndpoint}
-	profile, err := bsky.ActorGetProfile(ctx, c, did)
-	if err != nil {
-		return nil, err
-	}
-
-	if handle != profile.Handle {
-		return nil, fmt.Errorf("mismatch in handle between did document and pds profile (%s != %s)", handle, profile.Handle)
-	}
-
-	// TODO: request this users info from their server to fill out our data...
-	u := User{
-		Handle: handle,
-		Did:    did,
-		PDS:    peering.ID,
-	}
-
-	if err := ix.db.Create(&u).Error; err != nil {
-		return nil, fmt.Errorf("failed to create other pds user: %w", err)
-	}
-
-	// okay cool, its a user on a server we are peered with
-	// lets make a local record of that user for the future
-	subj := &ActorInfo{
-		Uid:         u.ID,
-		Handle:      handle,
-		DisplayName: *profile.DisplayName,
-		Did:         did,
-		DeclRefCid:  profile.Declaration.Cid,
-		Type:        "",
-		PDS:         peering.ID,
-	}
-	if err := ix.db.Create(subj).Error; err != nil {
-		return nil, err
-	}
-
-	return subj, nil
-}
-
-func (ix *Indexer) didForUser(ctx context.Context, uid uint) (string, error) {
-	var ai ActorInfo
+func (ix *Indexer) DidForUser(ctx context.Context, uid uint) (string, error) {
+	var ai types.ActorInfo
 	if err := ix.db.First(&ai, "id = ?", uid).Error; err != nil {
 		return "", err
 	}
@@ -395,8 +256,8 @@ func (ix *Indexer) didForUser(ctx context.Context, uid uint) (string, error) {
 	return ai.Did, nil
 }
 
-func (ix *Indexer) lookupUser(ctx context.Context, id uint) (*ActorInfo, error) {
-	var ai ActorInfo
+func (ix *Indexer) lookupUser(ctx context.Context, id uint) (*types.ActorInfo, error) {
+	var ai types.ActorInfo
 	if err := ix.db.First(&ai, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
@@ -404,8 +265,8 @@ func (ix *Indexer) lookupUser(ctx context.Context, id uint) (*ActorInfo, error) 
 	return &ai, nil
 }
 
-func (ix *Indexer) lookupUserByDid(ctx context.Context, did string) (*ActorInfo, error) {
-	var ai ActorInfo
+func (ix *Indexer) lookupUserByDid(ctx context.Context, did string) (*types.ActorInfo, error) {
+	var ai types.ActorInfo
 	if err := ix.db.First(&ai, "did = ?", did).Error; err != nil {
 		return nil, err
 	}
@@ -413,8 +274,8 @@ func (ix *Indexer) lookupUserByDid(ctx context.Context, did string) (*ActorInfo,
 	return &ai, nil
 }
 
-func (ix *Indexer) lookupUserByHandle(ctx context.Context, handle string) (*ActorInfo, error) {
-	var ai ActorInfo
+func (ix *Indexer) lookupUserByHandle(ctx context.Context, handle string) (*types.ActorInfo, error) {
+	var ai types.ActorInfo
 	if err := ix.db.First(&ai, "handle = ?", handle).Error; err != nil {
 		return nil, err
 	}
@@ -422,7 +283,7 @@ func (ix *Indexer) lookupUserByHandle(ctx context.Context, handle string) (*Acto
 	return &ai, nil
 }
 
-func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPost, fp *FeedPost) error {
+func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPost, fp *types.FeedPost) error {
 	if post.Reply != nil {
 		replyto, err := ix.GetPost(ctx, post.Reply.Parent.Uri)
 		if err != nil {
@@ -451,13 +312,13 @@ func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPo
 	return nil
 }
 
-func (ix *Indexer) addNewVoteNotification(ctx context.Context, postauthor uint, vr *VoteRecord) error {
+func (ix *Indexer) addNewVoteNotification(ctx context.Context, postauthor uint, vr *types.VoteRecord) error {
 	return ix.notifman.AddUpVote(ctx, vr.Voter, vr.Post, vr.ID, postauthor)
 }
 
 func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent) error {
 	ai := evt.ActorInfo
-	if err := ix.db.Create(&ActorInfo{
+	if err := ix.db.Create(&types.ActorInfo{
 		Uid:         evt.User,
 		Handle:      ai.Handle,
 		Did:         ai.Did,
@@ -468,7 +329,7 @@ func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent) 
 		return err
 	}
 
-	if err := ix.db.Create(&FollowRecord{
+	if err := ix.db.Create(&types.FollowRecord{
 		Follower: evt.User,
 		Target:   evt.User,
 	}).Error; err != nil {
@@ -478,16 +339,40 @@ func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent) 
 	return nil
 }
 
-func (ix *Indexer) GetPost(ctx context.Context, uri string) (*FeedPost, error) {
+func (ix *Indexer) GetPost(ctx context.Context, uri string) (*types.FeedPost, error) {
 	puri, err := parseAtUri(uri)
 	if err != nil {
 		return nil, err
 	}
 
-	var post FeedPost
-	if err := ix.db.First(&post, "rkey = ? AND author = (?)", puri.Rkey, ix.db.Model(ActorInfo{}).Where("did = ?", puri.Did).Select("id")).Error; err != nil {
+	var post types.FeedPost
+	if err := ix.db.First(&post, "rkey = ? AND author = (?)", puri.Rkey, ix.db.Model(types.ActorInfo{}).Where("did = ?", puri.Did).Select("id")).Error; err != nil {
 		return nil, err
 	}
 
 	return &post, nil
+}
+
+type parsedUri struct {
+	Did        string
+	Collection string
+	Rkey       string
+}
+
+func parseAtUri(uri string) (*parsedUri, error) {
+	if !strings.HasPrefix(uri, "at://") {
+		return nil, fmt.Errorf("AT uris must be prefixed with 'at://'")
+	}
+
+	trimmed := strings.TrimPrefix(uri, "at://")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("AT uris must have three parts: did, collection, tid")
+	}
+
+	return &parsedUri{
+		Did:        parts[0],
+		Collection: parts[1],
+		Rkey:       parts[2],
+	}, nil
 }

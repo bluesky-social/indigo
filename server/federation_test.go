@@ -19,6 +19,7 @@ import (
 	atproto "github.com/whyrusleeping/gosky/api/atproto"
 	bsky "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/carstore"
+	"github.com/whyrusleeping/gosky/plc"
 	"github.com/whyrusleeping/gosky/xrpc"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -71,7 +72,7 @@ func (tp *testPDS) Cleanup() {
 	}
 }
 
-func setupPDS(t *testing.T, host, suffix string, plc PLCClient) *testPDS {
+func setupPDS(t *testing.T, host, suffix string, plc plc.PLCClient) *testPDS {
 	dir, err := ioutil.TempDir("", "fedtest")
 	if err != nil {
 		t.Fatal(err)
@@ -270,7 +271,7 @@ func (u *testUser) GetNotifs(t *testing.T) []*bsky.NotificationList_Notification
 	return resp.Notifications
 }
 
-func testPLC(t *testing.T) *FakeDid {
+func testPLC(t *testing.T) *plc.FakeDid {
 	// TODO: just do in memory...
 	tdir, err := ioutil.TempDir("", "plcserv")
 	if err != nil {
@@ -281,8 +282,7 @@ func testPLC(t *testing.T) *FakeDid {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewFakeDid(db)
-
+	return plc.NewFakeDid(db)
 }
 
 func TestBasicFederation(t *testing.T) {
@@ -321,9 +321,7 @@ func TestBasicFederation(t *testing.T) {
 
 	fmt.Println("laura notifications:")
 	lnot := laura.GetNotifs(t)
-	for _, n := range lnot {
-		fmt.Println(n)
+	if len(lnot) != 1 {
+		t.Fatal("wrong number of notifications")
 	}
-
-	select {}
 }

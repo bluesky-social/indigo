@@ -11,6 +11,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/urfave/cli/v2"
 	"github.com/whyrusleeping/gosky/carstore"
+	"github.com/whyrusleeping/gosky/plc"
 	server "github.com/whyrusleeping/gosky/server"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -118,7 +119,7 @@ func main() {
 		}
 
 		pdshost := cctx.String("pdshost")
-		srv, err := server.NewServer(db, cs, "server.key", ".pdstest", pdshost, server.NewFakeDid(db), []byte("jwtsecretplaceholder"))
+		srv, err := server.NewServer(db, cs, "server.key", ".pdstest", pdshost, plc.NewFakeDid(db), []byte("jwtsecretplaceholder"))
 		if err != nil {
 			return err
 		}

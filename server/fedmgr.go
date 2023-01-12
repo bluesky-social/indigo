@@ -10,9 +10,10 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/whyrusleeping/gosky/events"
 )
 
-type IndexCallback func(context.Context, string, *Event) error
+type IndexCallback func(context.Context, string, *events.Event) error
 
 func (s *Server) SubscribeToPds(ctx context.Context, host string) error {
 	var peering Peering
@@ -71,7 +72,7 @@ func (s *Server) handleConnection(host *Peering, con *websocket.Conn) error {
 
 		_ = mt
 
-		var ev Event
+		var ev events.Event
 		if err := json.Unmarshal(data, &ev); err != nil {
 			return fmt.Errorf("failed to unmarshal event: %w", err)
 		}

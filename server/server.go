@@ -6,25 +6,32 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/mail"
+	"net/url"
 	"os"
 	"strings"
 	"time"
 
 	gojwt "github.com/golang-jwt/jwt"
+	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lestrrat-go/jwx/jwa"
 	jwk "github.com/lestrrat-go/jwx/jwk"
 	jwt "github.com/lestrrat-go/jwx/jwt"
-	"github.com/whyrusleeping/go-did"
 	comatprototypes "github.com/whyrusleeping/gosky/api/atproto"
-	appbskytypes "github.com/whyrusleeping/gosky/api/bsky"
+	bsky "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/carstore"
+	"github.com/whyrusleeping/gosky/events"
+	"github.com/whyrusleeping/gosky/indexer"
 	"github.com/whyrusleeping/gosky/key"
 	"github.com/whyrusleeping/gosky/lex/util"
+	"github.com/whyrusleeping/gosky/notifs"
+	"github.com/whyrusleeping/gosky/plc"
 	"github.com/whyrusleeping/gosky/repomgr"
+	"github.com/whyrusleeping/gosky/types"
 	"github.com/whyrusleeping/gosky/xrpc"
 	"gorm.io/gorm"
 )
@@ -34,9 +41,9 @@ type Server struct {
 	cs            *carstore.CarStore
 	repoman       *repomgr.RepoManager
 	feedgen       *FeedGenerator
-	notifman      *NotificationManager
-	indexer       *Indexer
-	events        *EventManager
+	notifman      *notifs.NotificationManager
+	indexer       *indexer.Indexer
+	events        *events.EventManager
 	signingKey    *key.Key
 	echo          *echo.Echo
 	jwtSigningKey []byte
@@ -44,18 +51,13 @@ type Server struct {
 	handleSuffix string
 	serviceUrl   string
 
-	plc PLCClient
+	plc plc.PLCClient
 }
 
 const UserActorDeclCid = "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u"
 const UserActorDeclType = "app.bsky.system.actorUser"
 
-type PLCClient interface {
-	GetDocument(ctx context.Context, didstr string) (*did.Document, error)
-	CreateDID(ctx context.Context, sigkey *key.Key, recovery string, handle string, service string) (string, error)
-}
-
-func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, serviceUrl string, didr PLCClient, jwtkey []byte) (*Server, error) {
+func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, serviceUrl string, didr plc.PLCClient, jwtkey []byte) (*Server, error) {
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&Peering{})
 	db.AutoMigrate(&ExternalFollow{})
@@ -65,12 +67,12 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 		return nil, err
 	}
 
-	evtman := NewEventManager()
+	evtman := events.NewEventManager()
 
 	repoman := repomgr.NewRepoManager(db, cs)
-	notifman := NewNotificationManager(db, repoman)
+	notifman := notifs.NewNotificationManager(db, repoman)
 
-	ix, err := NewIndexer(db, notifman, evtman, didr)
+	ix, err := indexer.NewIndexer(db, notifman, evtman, didr)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +108,8 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 		*/
 	})
 
-	ix.sendRemoteFollow = s.sendRemoteFollow
+	ix.SendRemoteFollow = s.sendRemoteFollow
+	ix.CreateExternalUser = s.createExternalUser
 
 	feedgen, err := NewFeedGenerator(db, ix, s.readRecordFunc)
 	if err != nil {
@@ -120,17 +123,17 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 	return s, nil
 }
 
-func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *Event) error {
+func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *events.Event) error {
 	fmt.Printf("[%s] got fed event from %q: %s\n", s.serviceUrl, host.Host, evt.Kind)
 	switch evt.Kind {
-	case EvtKindCreateRecord:
+	case events.EvtKindCreateRecord:
 		u, err := s.lookupUserByDid(ctx, evt.User)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return fmt.Errorf("looking up event user: %w", err)
 			}
 
-			subj, err := s.indexer.createExternalUser(ctx, evt.User)
+			subj, err := s.createExternalUser(ctx, evt.User)
 			if err != nil {
 				return err
 			}
@@ -140,35 +143,106 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *Event) 
 		}
 
 		return s.repoman.HandleExternalUserEvent(ctx, host.ID, repomgr.EvtKindCreateRecord, u.ID, evt.Collection, evt.Rkey, evt.CarSlice)
-	case EvtKindUpdateRecord:
+	case events.EvtKindUpdateRecord:
 	default:
 		return fmt.Errorf("unrecognized fed event kind: %q", evt.Kind)
 	}
 	return nil
 }
 
-func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent) (*Event, error) {
-	out := &Event{
+func (s *Server) createExternalUser(ctx context.Context, did string) (*types.ActorInfo, error) {
+	doc, err := s.plc.GetDocument(ctx, did)
+	if err != nil {
+		return nil, fmt.Errorf("could not locate DID document for followed user: %s", err)
+	}
+
+	if len(doc.Service) == 0 {
+		return nil, fmt.Errorf("external followed user %s had no services in did document", did)
+	}
+
+	svc := doc.Service[0]
+	durl, err := url.Parse(svc.ServiceEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: the PDS's DID should also be in the service, we could use that to look up?
+	var peering Peering
+	if err := s.db.First(&peering, "host = ?", durl.Host).Error; err != nil {
+		return nil, err
+	}
+
+	var handle string
+	if len(doc.AlsoKnownAs) > 0 {
+		hurl, err := url.Parse(doc.AlsoKnownAs[0])
+		if err != nil {
+			return nil, err
+		}
+
+		handle = hurl.Host
+	}
+
+	c := &xrpc.Client{Host: svc.ServiceEndpoint}
+	profile, err := bsky.ActorGetProfile(ctx, c, did)
+	if err != nil {
+		return nil, err
+	}
+
+	if handle != profile.Handle {
+		return nil, fmt.Errorf("mismatch in handle between did document and pds profile (%s != %s)", handle, profile.Handle)
+	}
+
+	// TODO: request this users info from their server to fill out our data...
+	u := User{
+		Handle: handle,
+		Did:    did,
+		PDS:    peering.ID,
+	}
+
+	if err := s.db.Create(&u).Error; err != nil {
+		return nil, fmt.Errorf("failed to create other pds user: %w", err)
+	}
+
+	// okay cool, its a user on a server we are peered with
+	// lets make a local record of that user for the future
+	subj := &types.ActorInfo{
+		Uid:         u.ID,
+		Handle:      handle,
+		DisplayName: *profile.DisplayName,
+		Did:         did,
+		DeclRefCid:  profile.Declaration.Cid,
+		Type:        "",
+		PDS:         peering.ID,
+	}
+	if err := s.db.Create(subj).Error; err != nil {
+		return nil, err
+	}
+
+	return subj, nil
+}
+
+func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent) (*events.Event, error) {
+	out := &events.Event{
 		CarSlice: evt.RepoSlice,
 	}
 
 	switch evt.Kind {
 	case repomgr.EvtKindCreateRecord:
-		out.Kind = EvtKindCreateRecord
+		out.Kind = events.EvtKindCreateRecord
 	case repomgr.EvtKindUpdateRecord:
-		out.Kind = EvtKindUpdateRecord
+		out.Kind = events.EvtKindUpdateRecord
 	case repomgr.EvtKindInitActor:
 		return nil, nil
 	default:
 		return nil, fmt.Errorf("unrecognized repo event kind: %q", evt.Kind)
 	}
 
-	did, err := s.indexer.didForUser(ctx, evt.User)
+	did, err := s.indexer.DidForUser(ctx, evt.User)
 	if err != nil {
 		return nil, err
 	}
 
-	out.uid = evt.User
+	out.PrivUid = evt.User
 	out.User = did
 	out.Collection = evt.Collection
 	out.Rkey = evt.Rkey
@@ -455,23 +529,7 @@ func (s *Server) validateHandle(handle string) error {
 	return nil
 }
 
-func infoToActorRef(ai *ActorInfo) *appbskytypes.ActorRef_WithInfo {
-	return &appbskytypes.ActorRef_WithInfo{
-		Declaration: &appbskytypes.SystemDeclRef{
-			Cid:       ai.DeclRefCid,
-			ActorType: ai.Type,
-		},
-		Handle:      ai.Handle,
-		DisplayName: &ai.DisplayName,
-		Did:         ai.Did,
-	}
-}
-
 func (s *Server) invalidateToken(ctx context.Context, u *User, tok *jwt.Token) error {
-	panic("nyi")
-}
-
-func (s *Server) CreateScene(ctx context.Context, u *User, handle string, recovery *string) (interface{}, error) {
 	panic("nyi")
 }
 
@@ -560,4 +618,46 @@ func (s *Server) peerHasFollow(ctx context.Context, peer uint, user uint) (bool,
 	}
 
 	return extfollow.ID != 0, nil
+}
+
+func (s *Server) EventsHandler(c echo.Context) error {
+	did := c.Request().Header.Get("DID")
+	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
+	if err != nil {
+		return err
+	}
+	ctx := c.Request().Context()
+
+	var peering Peering
+	if err := s.db.First(&peering, "did = ?", did).Error; err != nil {
+		return err
+	}
+
+	evts, cancel, err := s.events.Subscribe(func(evt *events.Event) bool {
+		for _, pid := range evt.PrivRelevantPds {
+			if pid == peering.ID {
+				return true
+			}
+		}
+
+		has, err := s.peerHasFollow(ctx, peering.ID, evt.PrivUid)
+		if err != nil {
+			log.Println("error checking peer follow relationship: ", err)
+			return false
+		}
+
+		return has
+	})
+	if err != nil {
+		return err
+	}
+	defer cancel()
+
+	for evt := range evts {
+		if err := conn.WriteJSON(evt); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
