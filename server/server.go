@@ -58,6 +58,7 @@ type PLCClient interface {
 func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, serviceUrl string, didr PLCClient, jwtkey []byte) (*Server, error) {
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&Peering{})
+	db.AutoMigrate(&ExternalFollow{})
 
 	serkey, err := loadKey(kfile)
 	if err != nil {
@@ -523,6 +524,12 @@ func (s *Server) sendRemoteFollow(ctx context.Context, followed string, followed
 	}
 
 	return nil
+}
+
+type ExternalFollow struct {
+	gorm.Model
+	PDS uint
+	Uid uint
 }
 
 func (s *Server) AddRemoteFollow(ctx context.Context, opdsdid string, u string) error {

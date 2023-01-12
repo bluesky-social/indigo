@@ -67,6 +67,7 @@ type EventKind string
 const (
 	EvtKindCreateRecord = EventKind("createRecord")
 	EvtKindUpdateRecord = EventKind("updateRecord")
+	EvtKindDeleteRecord = EventKind("deleteRecord")
 	EvtKindInitActor    = EventKind("initActor")
 )
 
@@ -285,8 +286,7 @@ func (rm *RepoManager) DeleteRecord(ctx context.Context, user uint, collection, 
 	}
 
 	rpath := collection + "/" + rkey
-	cc, err := r.DeleteRecord(ctx, rpath)
-	if err != nil {
+	if err := r.DeleteRecord(ctx, rpath); err != nil {
 		return err
 	}
 

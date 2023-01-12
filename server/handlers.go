@@ -292,7 +292,7 @@ func (s *Server) handleAppBskyFeedSetVote(ctx context.Context, input *appbskytyp
 	}
 }
 
-func (s *Server) handleAppBskyGraphGetAssertions(ctx context.Context, assertion string, author string, before string) (*appbskytypes.GraphGetAssertions_Output, error) {
+func (s *Server) handleAppBskyGraphGetAssertions(ctx context.Context, assertion string, author string, before string, confirmed *bool, limit int, subject string) (*appbskytypes.GraphGetAssertions_Output, error) {
 	panic("not yet implemented")
 }
 
@@ -460,6 +460,8 @@ func (s *Server) handleComAtprotoAccountCreateInviteCode(ctx context.Context, in
 		return nil, err
 	}
 
+	_ = u
+
 	return nil, fmt.Errorf("invite codes not currently supported")
 }
 
@@ -576,7 +578,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 	}, nil
 }
 
-func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, after string, before string, collection string, limit int) (*comatprototypes.RepoListRecords_Output, error) {
+func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, after string, before string, collection string, limit int, reverse *bool, user string) (*comatprototypes.RepoListRecords_Output, error) {
 	panic("not yet implemented")
 }
 

@@ -31,7 +31,6 @@ func NewIndexer(db *gorm.DB, notifman *NotificationManager, evtman *EventManager
 	db.AutoMigrate(&FollowRecord{})
 	db.AutoMigrate(&VoteRecord{})
 	db.AutoMigrate(&RepostRecord{})
-	db.AutoMigrate(&ExternalFollow{})
 
 	return &Indexer{
 		db:       db,
@@ -111,12 +110,6 @@ type FollowRecord struct {
 	Target   uint
 	Rkey     string
 	Cid      string
-}
-
-type ExternalFollow struct {
-	gorm.Model
-	PDS uint
-	Uid uint
 }
 
 func (ix *Indexer) catchup(ctx context.Context, evt *repomgr.RepoEvent) error {

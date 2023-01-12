@@ -747,7 +747,7 @@ func (s *TypeSchema) WriteRPCHandler(w io.Writer, fname, shortname, impname stri
 					required[k] = true
 				}
 			}
-			orderedMapIter[*TypeSchema](s.Parameters.Properties, func(k string, t *TypeSchema) error {
+			if err := orderedMapIter[*TypeSchema](s.Parameters.Properties, func(k string, t *TypeSchema) error {
 				switch t.Type {
 				case "string":
 					params = append(params, k)
@@ -795,11 +795,52 @@ if err != nil {
 
 				case "number":
 					return fmt.Errorf("non-integer numbers currently unsupported")
+				case "boolean":
+					params = append(params, k)
+					if !required[k] {
+						paramtypes = append(paramtypes, k+" *bool")
+						fmt.Fprintf(w, `
+var %s *bool
+if p := c.QueryParam("%s"); p != "" {
+	%s_val, err := strconv.ParseBool(p)
+	if err != nil {
+		return err
+	}
+	%s  = &%s_val
+}
+`, k, k, k, k, k)
+					} else if t.Default != nil {
+						paramtypes = append(paramtypes, k+" bool")
+						fmt.Fprintf(w, `
+var %s bool
+if p := c.QueryParam("%s"); p != "" {
+var err error
+%s, err = strconv.ParseBool(p)
+if err != nil {
+	return err
+}
+} else {
+	%s = %T
+}
+`, k, k, k, k, t.Default.(bool))
+					} else {
+
+						paramtypes = append(paramtypes, k+" bool")
+						fmt.Fprintf(w, `
+%s, err := strconv.ParseBool(c.QueryParam("%s"))
+if err != nil {
+	return err
+}
+`, k, k)
+					}
+
 				default:
 					return fmt.Errorf("unsupported handler parameter type: %s", t.Type)
 				}
 				return nil
-			})
+			}); err != nil {
+				return err
+			}
 		}
 	} else if s.Type == "procedure" {
 		if s.Input != nil {

@@ -34,6 +34,11 @@ func (s *Server) RegisterHandlersAppBsky(e *echo.Echo) error {
 	e.GET("/xrpc/app.bsky.notification.getCount", s.HandleAppBskyNotificationGetCount)
 	e.GET("/xrpc/app.bsky.notification.list", s.HandleAppBskyNotificationList)
 	e.POST("/xrpc/app.bsky.notification.updateSeen", s.HandleAppBskyNotificationUpdateSeen)
+
+	e.POST("/xrpc/com.atproto.peering.follow", s.HandleComAtprotoPeeringFollow)
+	e.POST("/xrpc/com.atproto.peering.init", s.HandleComAtprotoPeeringInit)
+	e.GET("/xrpc/com.atproto.peering.list", s.HandleComAtprotoPeeringList)
+	e.POST("/xrpc/com.atproto.peering.propose", s.HandleComAtprotoPeeringPropose)
 	return nil
 }
 
@@ -317,10 +322,31 @@ func (s *Server) HandleAppBskyGraphGetAssertions(c echo.Context) error {
 	assertion := c.QueryParam("assertion")
 	author := c.QueryParam("author")
 	before := c.QueryParam("before")
+
+	var confirmed *bool
+	if p := c.QueryParam("confirmed"); p != "" {
+		confirmed_val, err := strconv.ParseBool(p)
+		if err != nil {
+			return err
+		}
+		confirmed = &confirmed_val
+	}
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	subject := c.QueryParam("subject")
 	var out *appbskytypes.GraphGetAssertions_Output
 	var handleErr error
-	// func (s *Server) handleAppBskyGraphGetAssertions(ctx context.Context,assertion string,author string,before string) (*appbskytypes.GraphGetAssertions_Output, error)
-	out, handleErr = s.handleAppBskyGraphGetAssertions(ctx, assertion, author, before)
+	// func (s *Server) handleAppBskyGraphGetAssertions(ctx context.Context,assertion string,author string,before string,confirmed *bool,limit int,subject string) (*appbskytypes.GraphGetAssertions_Output, error)
+	out, handleErr = s.handleAppBskyGraphGetAssertions(ctx, assertion, author, before, confirmed, limit, subject)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -554,10 +580,6 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.account.resetPassword", s.HandleComAtprotoAccountResetPassword)
 	e.POST("/xrpc/com.atproto.blob.upload", s.HandleComAtprotoBlobUpload)
 	e.GET("/xrpc/com.atproto.handle.resolve", s.HandleComAtprotoHandleResolve)
-	e.POST("/xrpc/com.atproto.peering.follow", s.HandleComAtprotoPeeringFollow)
-	e.POST("/xrpc/com.atproto.peering.init", s.HandleComAtprotoPeeringInit)
-	e.GET("/xrpc/com.atproto.peering.list", s.HandleComAtprotoPeeringList)
-	e.POST("/xrpc/com.atproto.peering.propose", s.HandleComAtprotoPeeringPropose)
 	e.POST("/xrpc/com.atproto.repo.batchWrite", s.HandleComAtprotoRepoBatchWrite)
 	e.POST("/xrpc/com.atproto.repo.createRecord", s.HandleComAtprotoRepoCreateRecord)
 	e.POST("/xrpc/com.atproto.repo.deleteRecord", s.HandleComAtprotoRepoDeleteRecord)
@@ -699,71 +721,6 @@ func (s *Server) HandleComAtprotoHandleResolve(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *Server) HandleComAtprotoPeeringFollow(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoPeeringFollow")
-	defer span.End()
-
-	var body comatprototypes.PeeringFollow_Input
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoPeeringFollow(ctx context.Context,body *comatprototypes.PeeringFollow_Input) error
-	handleErr = s.handleComAtprotoPeeringFollow(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
-}
-
-func (s *Server) HandleComAtprotoPeeringInit(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoPeeringInit")
-	defer span.End()
-
-	var body comatprototypes.PeeringInit_Input
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoPeeringInit(ctx context.Context,body *comatprototypes.PeeringInit_Input) error
-	handleErr = s.handleComAtprotoPeeringInit(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
-}
-
-func (s *Server) HandleComAtprotoPeeringList(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoPeeringList")
-	defer span.End()
-	var out *comatprototypes.PeeringList_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoPeeringList(ctx context.Context) (*comatprototypes.PeeringList_Output, error)
-	out, handleErr = s.handleComAtprotoPeeringList(ctx)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoPeeringPropose(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoPeeringPropose")
-	defer span.End()
-
-	var body comatprototypes.PeeringPropose_Input
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-	var out *comatprototypes.PeeringPropose_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoPeeringPropose(ctx context.Context,body *comatprototypes.PeeringPropose_Input) (*comatprototypes.PeeringPropose_Output, error)
-	out, handleErr = s.handleComAtprotoPeeringPropose(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
 func (s *Server) HandleComAtprotoRepoBatchWrite(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoBatchWrite")
 	defer span.End()
@@ -864,10 +821,20 @@ func (s *Server) HandleComAtprotoRepoListRecords(c echo.Context) error {
 	} else {
 		limit = 50
 	}
+
+	var reverse *bool
+	if p := c.QueryParam("reverse"); p != "" {
+		reverse_val, err := strconv.ParseBool(p)
+		if err != nil {
+			return err
+		}
+		reverse = &reverse_val
+	}
+	user := c.QueryParam("user")
 	var out *comatprototypes.RepoListRecords_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context,after string,before string,collection string,limit int) (*comatprototypes.RepoListRecords_Output, error)
-	out, handleErr = s.handleComAtprotoRepoListRecords(ctx, after, before, collection, limit)
+	// func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context,after string,before string,collection string,limit int,reverse *bool,user string) (*comatprototypes.RepoListRecords_Output, error)
+	out, handleErr = s.handleComAtprotoRepoListRecords(ctx, after, before, collection, limit, reverse, user)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1001,4 +968,69 @@ func (s *Server) HandleComAtprotoSyncUpdateRepo(c echo.Context) error {
 		return handleErr
 	}
 	return nil
+}
+
+func (s *Server) HandleComAtprotoPeeringFollow(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoPeeringFollow")
+	defer span.End()
+
+	var body comatprototypes.PeeringFollow_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleComAtprotoPeeringFollow(ctx context.Context,body *comatprototypes.PeeringFollow_Input) error
+	handleErr = s.handleComAtprotoPeeringFollow(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
+func (s *Server) HandleComAtprotoPeeringInit(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoPeeringInit")
+	defer span.End()
+
+	var body comatprototypes.PeeringInit_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleComAtprotoPeeringInit(ctx context.Context,body *comatprototypes.PeeringInit_Input) error
+	handleErr = s.handleComAtprotoPeeringInit(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
+func (s *Server) HandleComAtprotoPeeringList(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoPeeringList")
+	defer span.End()
+	var out *comatprototypes.PeeringList_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoPeeringList(ctx context.Context) (*comatprototypes.PeeringList_Output, error)
+	out, handleErr = s.handleComAtprotoPeeringList(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoPeeringPropose(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoPeeringPropose")
+	defer span.End()
+
+	var body comatprototypes.PeeringPropose_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *comatprototypes.PeeringPropose_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoPeeringPropose(ctx context.Context,body *comatprototypes.PeeringPropose_Input) (*comatpototypes.PeeringPropose_Output, error)
+	out, handleErr = s.handleComAtprotoPeeringPropose(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
