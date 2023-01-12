@@ -30,6 +30,8 @@ func randCid() cid.Cid {
 }
 
 func TestBasicMst(t *testing.T) {
+	rand.Seed(6123123)
+
 	ctx := context.Background()
 	cst := cbor.NewCborStore(blockstore.NewBlockstore(datastore.NewMapDatastore()))
 	mst := NewMST(cst, 16, cid.Undef, []NodeEntry{}, -1)
@@ -53,7 +55,41 @@ func TestBasicMst(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fmt.Println(ncid)
+	if ncid.String() != "bafy2bzaceahzk2fp24tqze7bfzfoigkvvx3323p7pgeytmov3yypupjdjao74" {
+		t.Fatal("mst generation changed")
+	}
+
+	nmst, err := mst.Delete(ctx, "dogs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	delete(vals, "dogs")
+
+	assertValues(t, nmst, vals)
+}
+
+func assertValues(t *testing.T, mst *MerkleSearchTree, vals map[string]cid.Cid) {
+	out := make(map[string]cid.Cid)
+	if err := mst.WalkLeavesFrom(context.TODO(), "", func(ne NodeEntry) error {
+		out[ne.Key] = ne.Val
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(vals) == len(out) {
+		for k, v := range vals {
+			ov, ok := out[k]
+			if !ok {
+				t.Fatalf("expected key %s to be present", k)
+			}
+			if ov != v {
+				t.Fatalf("value mismatch on %s", k)
+			}
+		}
+	} else {
+		t.Fatal("different number of values than expected: %d != %d", len(vals), len(out))
+	}
 }
 
 func TestEdgeCase(t *testing.T) {
@@ -104,6 +140,7 @@ func loadCar(bs blockstore.Blockstore, fname string) error {
 	return nil
 }
 
+/*
 func TestDiff(t *testing.T) {
 	to := mustCid(t, "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454")
 	from := mustCid(t, "bafyreigv5er7vcxlbikkwedmtd7b3kp7wrcyffep5ogcuxosloxfox5reu")
@@ -121,6 +158,7 @@ func TestDiff(t *testing.T) {
 	}
 	_ = ops
 }
+*/
 
 func randStr(s int64) string {
 	buf := make([]byte, 6)

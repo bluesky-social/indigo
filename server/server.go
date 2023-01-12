@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/mail"
 	"os"
@@ -124,7 +125,17 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *Event) 
 	case EvtKindCreateRecord:
 		u, err := s.lookupUserByDid(ctx, evt.User)
 		if err != nil {
-			return err
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return fmt.Errorf("looking up event user: %w", err)
+			}
+
+			subj, err := s.indexer.createExternalUser(ctx, evt.User)
+			if err != nil {
+				return err
+			}
+
+			u = new(User)
+			u.ID = subj.Uid
 		}
 
 		return s.repoman.HandleExternalUserEvent(ctx, host.ID, repomgr.EvtKindCreateRecord, u.ID, evt.Collection, evt.Rkey, evt.CarSlice)

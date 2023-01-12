@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/ecdsa"
@@ -18,6 +19,7 @@ import (
 	"github.com/polydawn/refmt/shared"
 	cli "github.com/urfave/cli/v2"
 	api "github.com/whyrusleeping/gosky/api"
+	atproto "github.com/whyrusleeping/gosky/api/atproto"
 	apibsky "github.com/whyrusleeping/gosky/api/bsky"
 	cliutil "github.com/whyrusleeping/gosky/cmd/gosky/util"
 	"github.com/whyrusleeping/gosky/key"
@@ -52,6 +54,7 @@ func main() {
 		deletePostCmd,
 		getNotificationsCmd,
 		followsCmd,
+		resetPasswordCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -711,4 +714,43 @@ func cborToJson(data []byte) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+var resetPasswordCmd = &cli.Command{
+	Name: "resetPassword",
+	Action: func(cctx *cli.Context) error {
+		ctx := context.TODO()
+
+		atp, err := cliutil.GetATPClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		email := cctx.Args().Get(0)
+
+		err = atproto.AccountRequestPasswordReset(ctx, atp.C, &atproto.AccountRequestPasswordReset_Input{
+			Email: email,
+		})
+		if err != nil {
+			return err
+		}
+
+		inp := bufio.NewScanner(os.Stdin)
+		fmt.Println("Enter recovery code from email:")
+		inp.Scan()
+		code := inp.Text()
+
+		fmt.Println("Enter new password:")
+		inp.Scan()
+		npass := inp.Text()
+
+		if err := atproto.AccountResetPassword(ctx, atp.C, &atproto.AccountResetPassword_Input{
+			Password: npass,
+			Token:    code,
+		}); err != nil {
+			return err
+		}
+
+		return nil
+	},
 }

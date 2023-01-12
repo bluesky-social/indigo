@@ -373,16 +373,23 @@ func (s *Server) handleAppBskyNotificationList(ctx context.Context, before strin
 		return nil, err
 	}
 
-	fmt.Println("notifs: ", u.Handle, len(notifs))
 	return &appbskytypes.NotificationList_Output{
 		Notifications: notifs,
 	}, nil
 }
 
 func (s *Server) handleAppBskyNotificationUpdateSeen(ctx context.Context, input *appbskytypes.NotificationUpdateSeen_Input) error {
-	fmt.Println("notifications not yet implemented update seen!")
+	u, err := s.getUser(ctx)
+	if err != nil {
+		return err
+	}
 
-	return nil
+	seen, err := time.Parse(time.RFC3339, input.SeenAt)
+	if err != nil {
+		return fmt.Errorf("invalid time format for 'seenAt': %w", err)
+	}
+
+	return s.notifman.UpdateSeen(ctx, u.ID, seen)
 }
 
 func (s *Server) handleComAtprotoAccountCreate(ctx context.Context, input *comatprototypes.AccountCreate_Input) (*comatprototypes.AccountCreate_Output, error) {
@@ -448,7 +455,12 @@ func (s *Server) handleComAtprotoAccountCreate(ctx context.Context, input *comat
 }
 
 func (s *Server) handleComAtprotoAccountCreateInviteCode(ctx context.Context, input *comatprototypes.AccountCreateInviteCode_Input) (*comatprototypes.AccountCreateInviteCode_Output, error) {
-	panic("not yet implemented")
+	u, err := s.getUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, fmt.Errorf("invite codes not currently supported")
 }
 
 func (s *Server) handleComAtprotoAccountDelete(ctx context.Context) error {
@@ -456,7 +468,7 @@ func (s *Server) handleComAtprotoAccountDelete(ctx context.Context) error {
 }
 
 func (s *Server) handleComAtprotoAccountGet(ctx context.Context) error {
-	panic("not yet implemented")
+	return nil
 }
 
 func (s *Server) handleComAtprotoAccountRequestPasswordReset(ctx context.Context, input *comatprototypes.AccountRequestPasswordReset_Input) error {
@@ -518,7 +530,16 @@ func (s *Server) handleComAtprotoRepoCreateRecord(ctx context.Context, input *co
 }
 
 func (s *Server) handleComAtprotoRepoDeleteRecord(ctx context.Context, input *comatprototypes.RepoDeleteRecord_Input) error {
-	panic("not yet implemented")
+	u, err := s.getUser(ctx)
+	if err != nil {
+		return err
+	}
+
+	if u.Did != input.Did {
+		return fmt.Errorf("specified DID did not match authed user")
+	}
+
+	return s.repoman.DeleteRecord(ctx, u.ID, input.Collection, input.Rkey)
 }
 
 func (s *Server) handleComAtprotoRepoDescribe(ctx context.Context, user string) (*comatprototypes.RepoDescribe_Output, error) {

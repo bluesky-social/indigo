@@ -52,7 +52,6 @@ func (em *EventManager) Run() {
 		case opSend:
 			for _, s := range em.subs {
 				if s.filter(op.evt) {
-					fmt.Println("outgoing event: ", op.evt)
 					select {
 					case s.outgoing <- op.evt:
 					default:

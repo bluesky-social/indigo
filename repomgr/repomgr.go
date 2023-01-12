@@ -262,6 +262,65 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user uint, collection, 
 	return cc, nil
 }
 
+func (rm *RepoManager) DeleteRecord(ctx context.Context, user uint, collection, rkey string) error {
+	ctx, span := otel.Tracer("repoman").Start(ctx, "DeleteRecord")
+	defer span.End()
+
+	unlock := rm.lockUser(ctx, user)
+	defer unlock()
+
+	head, err := rm.getUserRepoHead(ctx, user)
+	if err != nil {
+		return err
+	}
+
+	ds, err := rm.cs.NewDeltaSession(ctx, user, &head)
+	if err != nil {
+		return err
+	}
+
+	r, err := repo.OpenRepo(ctx, ds, head)
+	if err != nil {
+		return err
+	}
+
+	rpath := collection + "/" + rkey
+	cc, err := r.DeleteRecord(ctx, rpath)
+	if err != nil {
+		return err
+	}
+
+	nroot, err := r.Commit(ctx)
+	if err != nil {
+		return err
+	}
+
+	rslice, err := ds.CloseWithRoot(ctx, nroot)
+	if err != nil {
+		return fmt.Errorf("close with root: %w", err)
+	}
+
+	// TODO: what happens if this update fails?
+	if err := rm.updateUserRepoHead(ctx, user, nroot); err != nil {
+		return fmt.Errorf("updating user head: %w", err)
+	}
+
+	if rm.events != nil {
+		rm.events(ctx, &RepoEvent{
+			Kind:       EvtKindDeleteRecord,
+			User:       user,
+			OldRoot:    head,
+			NewRoot:    nroot,
+			Collection: collection,
+			Rkey:       rkey,
+			RepoSlice:  rslice,
+		})
+	}
+
+	return nil
+
+}
+
 func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did, displayname string, declcid, actortype string) error {
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
@@ -421,7 +480,6 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 
 	switch kind {
 	case EvtKindCreateRecord:
-		fmt.Println("path: ", collection, rkey)
 		recid, rec, err := r.GetRecord(ctx, collection+"/"+rkey)
 		if err != nil {
 			return fmt.Errorf("reading changed record from car slice: %w", err)
@@ -438,7 +496,6 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		}
 
 		if rm.events != nil {
-			fmt.Println("sending off external create record event")
 			rm.events(ctx, &RepoEvent{
 				Kind: EvtKindCreateRecord,
 				User: uid,

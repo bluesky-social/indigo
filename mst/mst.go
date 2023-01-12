@@ -282,6 +282,110 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 	}
 }
 
+func (mst *MerkleSearchTree) Delete(ctx context.Context, k string) (*MerkleSearchTree, error) {
+	ix, err := mst.findGtOrEqualLeafIndex(ctx, k)
+	if err != nil {
+		return nil, err
+	}
+
+	ne, err := mst.atIndex(ix)
+	if err != nil {
+		return nil, err
+	}
+
+	entries, err := mst.getEntries(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if ne.isLeaf() && ne.Key == k {
+		prev, err := mst.atIndex(ix - 1)
+		if err != nil {
+			return nil, err
+		}
+
+		next, err := mst.atIndex(ix + 1)
+		if err != nil {
+			return nil, err
+		}
+
+		if prev.isTree() && next.isTree() {
+			merged, err := prev.Tree.appendMerge(ctx, next.Tree)
+			if err != nil {
+				return nil, err
+			}
+			return mst.newTree(append(append(entries[:ix-1], treeEntry(merged)), entries[ix+1:]...)), nil
+		} else {
+			return mst.removeEntry(ctx, ix)
+		}
+	}
+
+	prev, err := mst.atIndex(ix - 1)
+	if err != nil {
+		return nil, err
+	}
+
+	if prev.isTree() {
+		subtree, err := prev.Tree.Delete(ctx, k)
+		if err != nil {
+			return nil, err
+		}
+
+		subtreeEntries, err := subtree.getEntries(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(subtreeEntries) == 0 {
+			return mst.removeEntry(ctx, ix-1)
+		} else {
+			return mst.updateEntry(ctx, ix-1, treeEntry(subtree))
+		}
+	} else {
+		return nil, fmt.Errorf("could not find record with key: %s", k)
+	}
+}
+
+func (mst *MerkleSearchTree) appendMerge(ctx context.Context, omst *MerkleSearchTree) (*MerkleSearchTree, error) {
+	mylayer, err := mst.getLayer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	olayer, err := omst.getLayer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if mylayer != olayer {
+		return nil, fmt.Errorf("trying to merge two nodes from different layers")
+	}
+
+	entries, err := mst.getEntries(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tomergeEnts, err := omst.getEntries(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	lastInLeft := entries[len(entries)-1]
+	firstInRight := entries[0]
+
+	if lastInLeft.isTree() && firstInRight.isTree() {
+		merged, err := lastInLeft.Tree.appendMerge(ctx, firstInRight.Tree)
+		if err != nil {
+			return nil, err
+		}
+
+		return mst.newTree(append(append(entries[:len(entries)-1], treeEntry(merged)), tomergeEnts[1:]...)), nil
+	} else {
+		return mst.newTree(append(entries, tomergeEnts...)), nil
+	}
+}
+
 var ErrNotFound = fmt.Errorf("mst: not found")
 
 func (mst *MerkleSearchTree) Get(ctx context.Context, k string) (cid.Cid, error) {

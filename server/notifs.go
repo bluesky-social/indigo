@@ -9,6 +9,7 @@ import (
 	appbskytypes "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/repomgr"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type NotificationManager struct {
@@ -46,7 +47,7 @@ type NotifRecord struct {
 
 type NotifSeen struct {
 	ID       uint `gorm:"primarykey"`
-	Usr      uint
+	Usr      uint `gorm:"uniqueIndex"`
 	LastSeen time.Time
 }
 
@@ -289,6 +290,20 @@ func (nm *NotificationManager) GetCount(ctx context.Context, user uint) (int64, 
 	}
 
 	return c, nil
+}
+
+func (nm *NotificationManager) UpdateSeen(ctx context.Context, usr uint, seen time.Time) error {
+	if err := nm.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "usr"}},
+		DoUpdates: clause.AssignmentColumns([]string{"last_seen"}),
+	}).Create(NotifSeen{
+		Usr:      usr,
+		LastSeen: seen,
+	}).Error; err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (nm *NotificationManager) AddReplyTo(ctx context.Context, user uint, replyid uint, replyto *FeedPost) error {

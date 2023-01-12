@@ -265,73 +265,12 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return err
 			}
-
-			doc, err := ix.didr.GetDocument(ctx, rec.Subject.Did)
-			if err != nil {
-				return fmt.Errorf("could not locate DID document for followed user: %s", err)
-			}
-
-			if len(doc.Service) == 0 {
-				return fmt.Errorf("external followed user %s had no services in did document", rec.Subject.Did)
-			}
-
-			svc := doc.Service[0]
-			durl, err := url.Parse(svc.ServiceEndpoint)
+			nu, err := ix.createExternalUser(ctx, rec.Subject.Did)
 			if err != nil {
 				return err
 			}
 
-			// TODO: the PDS's DID should also be in the service, we could use that to look up?
-			var peering Peering
-			if err := ix.db.First(&peering, "host = ?", durl.Host).Error; err != nil {
-				return err
-			}
-
-			var handle string
-			if len(doc.AlsoKnownAs) > 0 {
-				hurl, err := url.Parse(doc.AlsoKnownAs[0])
-				if err != nil {
-					return err
-				}
-
-				handle = hurl.Host
-			}
-
-			c := &xrpc.Client{Host: svc.ServiceEndpoint}
-			profile, err := bsky.ActorGetProfile(ctx, c, rec.Subject.Did)
-			if err != nil {
-				return err
-			}
-
-			if handle != profile.Handle {
-				return fmt.Errorf("mismatch in handle between did document and pds profile (%s != %s)", handle, profile.Handle)
-			}
-
-			// TODO: request this users info from their server to fill out our data...
-			u := User{
-				Handle: handle,
-				Did:    rec.Subject.Did,
-				PDS:    peering.ID,
-			}
-
-			if err := ix.db.Create(&u).Error; err != nil {
-				return fmt.Errorf("failed to create other pds user: %w", err)
-			}
-
-			// okay cool, its a user on a server we are peered with
-			// lets make a local record of that user for the future
-			subj = &ActorInfo{
-				Uid:         u.ID,
-				Handle:      handle,
-				DisplayName: *profile.DisplayName,
-				Did:         rec.Subject.Did,
-				DeclRefCid:  rec.Subject.DeclarationCid, // TODO: should verify this?
-				Type:        "",
-				PDS:         peering.ID,
-			}
-			if err := ix.db.Create(subj).Error; err != nil {
-				return err
-			}
+			subj = nu
 		}
 
 		if subj.PDS != 0 {
@@ -382,6 +321,76 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 	}
 
 	return nil
+}
+func (ix *Indexer) createExternalUser(ctx context.Context, did string) (*ActorInfo, error) {
+	doc, err := ix.didr.GetDocument(ctx, did)
+	if err != nil {
+		return nil, fmt.Errorf("could not locate DID document for followed user: %s", err)
+	}
+
+	if len(doc.Service) == 0 {
+		return nil, fmt.Errorf("external followed user %s had no services in did document", did)
+	}
+
+	svc := doc.Service[0]
+	durl, err := url.Parse(svc.ServiceEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: the PDS's DID should also be in the service, we could use that to look up?
+	var peering Peering
+	if err := ix.db.First(&peering, "host = ?", durl.Host).Error; err != nil {
+		return nil, err
+	}
+
+	var handle string
+	if len(doc.AlsoKnownAs) > 0 {
+		hurl, err := url.Parse(doc.AlsoKnownAs[0])
+		if err != nil {
+			return nil, err
+		}
+
+		handle = hurl.Host
+	}
+
+	c := &xrpc.Client{Host: svc.ServiceEndpoint}
+	profile, err := bsky.ActorGetProfile(ctx, c, did)
+	if err != nil {
+		return nil, err
+	}
+
+	if handle != profile.Handle {
+		return nil, fmt.Errorf("mismatch in handle between did document and pds profile (%s != %s)", handle, profile.Handle)
+	}
+
+	// TODO: request this users info from their server to fill out our data...
+	u := User{
+		Handle: handle,
+		Did:    did,
+		PDS:    peering.ID,
+	}
+
+	if err := ix.db.Create(&u).Error; err != nil {
+		return nil, fmt.Errorf("failed to create other pds user: %w", err)
+	}
+
+	// okay cool, its a user on a server we are peered with
+	// lets make a local record of that user for the future
+	subj := &ActorInfo{
+		Uid:         u.ID,
+		Handle:      handle,
+		DisplayName: *profile.DisplayName,
+		Did:         did,
+		DeclRefCid:  profile.Declaration.Cid,
+		Type:        "",
+		PDS:         peering.ID,
+	}
+	if err := ix.db.Create(subj).Error; err != nil {
+		return nil, err
+	}
+
+	return subj, nil
 }
 
 func (ix *Indexer) didForUser(ctx context.Context, uid uint) (string, error) {
