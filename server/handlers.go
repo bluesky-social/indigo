@@ -487,7 +487,16 @@ func (s *Server) handleComAtprotoHandleResolve(ctx context.Context, handle strin
 }
 
 func (s *Server) handleComAtprotoRepoBatchWrite(ctx context.Context, input *comatprototypes.RepoBatchWrite_Input) error {
-	panic("not yet implemented")
+	u, err := s.getUser(ctx)
+	if err != nil {
+		return err
+	}
+
+	if u.Did != input.Did {
+		return fmt.Errorf("writes for non-user actors not supported (DID mismatch)")
+	}
+
+	return s.repoman.BatchWrite(ctx, u.ID, input.Writes)
 }
 
 func (s *Server) handleComAtprotoRepoCreateRecord(ctx context.Context, input *comatprototypes.RepoCreateRecord_Input) (*comatprototypes.RepoCreateRecord_Output, error) {

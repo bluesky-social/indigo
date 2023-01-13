@@ -967,7 +967,7 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 		// TODO: maybe do a native type?
 		return "string", nil
 	case "unknown":
-		return "any", nil
+		return "util.LexconTypeDecoder", nil
 	case "union":
 		return "*" + name + "_" + strings.Title(k), nil
 	case "image":

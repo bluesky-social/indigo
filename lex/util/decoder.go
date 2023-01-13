@@ -29,6 +29,15 @@ func RegisterType(id string, val any) {
 	lexTypesMap[id] = t
 }
 
+func NewFromType(typ string) (interface{}, error) {
+	t, ok := lexTypesMap[typ]
+	if !ok {
+		return nil, fmt.Errorf("unknown type: %q", typ)
+	}
+	v := reflect.New(t)
+	return v.Interface(), nil
+}
+
 func JsonDecodeValue(b []byte) (any, error) {
 	tstr, err := TypeExtract(b)
 	if err != nil {
@@ -73,4 +82,19 @@ func CborDecodeValue(b []byte) (any, error) {
 	}
 
 	return ival, nil
+}
+
+type LexconTypeDecoder struct {
+	Val any
+}
+
+func (ltd *LexconTypeDecoder) UnmarshalJSON(b []byte) error {
+	val, err := JsonDecodeValue(b)
+	if err != nil {
+		return err
+	}
+
+	ltd.Val = val
+
+	return nil
 }

@@ -48,5 +48,4 @@ func CborTypeExtractReader(r io.Reader) (string, []byte, error) {
 	}
 
 	return tcheck.Type, buf.Bytes(), nil
-
 }

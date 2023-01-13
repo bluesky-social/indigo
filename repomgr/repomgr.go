@@ -8,6 +8,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
+	atproto "github.com/whyrusleeping/gosky/api/atproto"
 	apibsky "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/carstore"
 	"github.com/whyrusleeping/gosky/repo"
@@ -512,6 +513,113 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		return nil
 	default:
 		return fmt.Errorf("unrecognized external user event kind: %q", kind)
+	}
+
+	return nil
+}
+
+func nsidForCollection(collection string) string {
+	return collection + "/" + repo.NextTID()
+}
+
+func anyRecordParse(rec any) (cbg.CBORMarshaler, error) {
+	// TODO: really should just have a fancy type that auto-things upon json unmarshal
+	rmap, ok := rec.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("record should have been an object")
+	}
+
+	t, ok := rmap["$type"].(string)
+	if !ok {
+		return nil, fmt.Errorf("records must have string $type field")
+	}
+}
+
+func (rm *RepoManager) BatchWrite(ctx context.Context, user uint, writes []*atproto.RepoBatchWrite_Input_Writes_Elem) error {
+	ctx, span := otel.Tracer("repoman").Start(ctx, "BatchWrite")
+	defer span.End()
+
+	unlock := rm.lockUser(ctx, user)
+	defer unlock()
+
+	head, err := rm.getUserRepoHead(ctx, user)
+	if err != nil {
+		return err
+	}
+
+	ds, err := rm.cs.NewDeltaSession(ctx, user, &head)
+	if err != nil {
+		return err
+	}
+
+	r, err := repo.OpenRepo(ctx, ds, head)
+	if err != nil {
+		return err
+	}
+
+	for _, w := range writes {
+		switch {
+		case w.RepoBatchWrite_Create != nil:
+			c := w.RepoBatchWrite_Create
+			var nsid string
+			if c.Rkey != nil {
+				nsid = c.Collection + "/" + *c.Rkey
+			} else {
+				nsid = nsidForCollection(c.Collection)
+			}
+
+			cc, rpath, err := r.CreateRecord(ctx, nsid, c.Value)
+			if err != nil {
+				return err
+			}
+
+			_ = rpath
+			_ = cc // do we do something about this?
+		case w.RepoBatchWrite_Update != nil:
+			u := w.RepoBatchWrite_Update
+
+			cc, err := r.PutRecord(ctx, u.Collection+"/"+u.Rkey, u.Value)
+			if err != nil {
+				return err
+			}
+
+			_ = cc
+		case w.RepoBatchWrite_Delete != nil:
+			d := w.RepoBatchWrite_Delete
+
+			if err := r.DeleteRecord(ctx, d.Collection+"/"+d.Rkey); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("no operation set in write enum")
+		}
+	}
+
+	nroot, err := r.Commit(ctx)
+	if err != nil {
+		return err
+	}
+
+	rslice, err := ds.CloseWithRoot(ctx, nroot)
+	if err != nil {
+		return fmt.Errorf("close with root: %w", err)
+	}
+
+	// TODO: what happens if this update fails?
+	if err := rm.updateUserRepoHead(ctx, user, nroot); err != nil {
+		return fmt.Errorf("updating user head: %w", err)
+	}
+
+	if rm.events != nil {
+		rm.events(ctx, &RepoEvent{
+			Kind:       EvtKindDeleteRecord,
+			User:       user,
+			OldRoot:    head,
+			NewRoot:    nroot,
+			Collection: collection,
+			Rkey:       rkey,
+			RepoSlice:  rslice,
+		})
 	}
 
 	return nil
