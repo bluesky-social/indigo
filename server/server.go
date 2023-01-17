@@ -126,7 +126,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *events.Event) error {
 	fmt.Printf("[%s] got fed event from %q: %s\n", s.serviceUrl, host.Host, evt.Kind)
 	switch evt.Kind {
-	case events.EvtKindCreateRecord:
+	case events.EvtKindRepoChange:
 		u, err := s.lookupUserByDid(ctx, evt.User)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -142,8 +142,7 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *events.
 			u.ID = subj.Uid
 		}
 
-		return s.repoman.HandleExternalUserEvent(ctx, host.ID, repomgr.EvtKindCreateRecord, u.ID, evt.Collection, evt.Rkey, evt.CarSlice)
-	case events.EvtKindUpdateRecord:
+		return s.repoman.HandleExternalUserEvent(ctx, host.ID, repomgr.EvtKindCreateRecord, u.ID, evt.RepoOps, evt.CarSlice)
 	default:
 		return fmt.Errorf("unrecognized fed event kind: %q", evt.Kind)
 	}
@@ -222,35 +221,43 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*types.Act
 }
 
 func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent) (*events.Event, error) {
-	out := &events.Event{
-		CarSlice: evt.RepoSlice,
-	}
-
-	switch evt.Kind {
-	case repomgr.EvtKindCreateRecord:
-		out.Kind = events.EvtKindCreateRecord
-	case repomgr.EvtKindUpdateRecord:
-		out.Kind = events.EvtKindUpdateRecord
-	case repomgr.EvtKindInitActor:
-		return nil, nil
-	default:
-		return nil, fmt.Errorf("unrecognized repo event kind: %q", evt.Kind)
-	}
-
 	did, err := s.indexer.DidForUser(ctx, evt.User)
 	if err != nil {
 		return nil, err
 	}
 
-	out.PrivUid = evt.User
-	out.User = did
-	out.Collection = evt.Collection
-	out.Rkey = evt.Rkey
+	out := &events.Event{
+		Kind:     events.EvtKindRepoChange,
+		CarSlice: evt.RepoSlice,
+		PrivUid:  evt.User,
+		User:     did,
+	}
+
+	for _, op := range evt.Ops {
+		switch op.Kind {
+		case repomgr.EvtKindCreateRecord:
+			out.RepoOps = append(out.RepoOps, &events.RepoOp{
+				Kind:       events.EvtKindRepoChange,
+				Collection: op.Collection,
+				Rkey:       op.Rkey,
+			})
+		case repomgr.EvtKindUpdateRecord:
+			out.RepoOps = append(out.RepoOps, &events.RepoOp{
+				Kind:       events.EvtKindRepoChange,
+				Collection: op.Collection,
+				Rkey:       op.Rkey,
+			})
+		case repomgr.EvtKindInitActor:
+			return nil, nil
+		default:
+			return nil, fmt.Errorf("unrecognized repo event kind: %q", op.Kind)
+		}
+	}
 
 	return out, nil
 }
 
-func (s *Server) readRecordFunc(ctx context.Context, user uint, c cid.Cid) (any, error) {
+func (s *Server) readRecordFunc(ctx context.Context, user uint, c cid.Cid) (util.CBOR, error) {
 	bs, err := s.cs.ReadOnlySession(user)
 	if err != nil {
 		return nil, err
@@ -326,7 +333,8 @@ func (s *Server) RunAPI(listen string) error {
 	}
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
-		fmt.Println("HANDLER ERROR: ", err)
+		fmt.Printf("HANDLER ERROR: (%s) %s\n", ctx.Path(), err)
+		ctx.Response().WriteHeader(500)
 	}
 
 	e.Use(middleware.JWTWithConfig(cfg), s.userCheckMiddleware)

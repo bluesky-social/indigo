@@ -7,7 +7,7 @@ import (
 // schema: app.bsky.actor.profile
 
 func init() {
-	util.RegisterType("app.bsky.actor.profile", ActorProfile{})
+	util.RegisterType("app.bsky.actor.profile", &ActorProfile{})
 }
 
 // RECORDTYPE: ActorProfile

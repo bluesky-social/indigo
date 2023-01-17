@@ -8,7 +8,7 @@ import (
 // schema: app.bsky.graph.confirmation
 
 func init() {
-	util.RegisterType("app.bsky.graph.confirmation", GraphConfirmation{})
+	util.RegisterType("app.bsky.graph.confirmation", &GraphConfirmation{})
 }
 
 // RECORDTYPE: GraphConfirmation

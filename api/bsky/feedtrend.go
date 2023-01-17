@@ -8,7 +8,7 @@ import (
 // schema: app.bsky.feed.trend
 
 func init() {
-	util.RegisterType("app.bsky.feed.trend", FeedTrend{})
+	util.RegisterType("app.bsky.feed.trend", &FeedTrend{})
 }
 
 // RECORDTYPE: FeedTrend

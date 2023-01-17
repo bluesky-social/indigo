@@ -2952,3 +2952,395 @@ func (t *SystemDeclaration) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
+func (t *GraphAssertion) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{164}); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.graph.assertion"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("app.bsky.graph.assertion")); err != nil {
+		return err
+	}
+
+	// t.Subject (schemagen.ActorRef) (struct)
+	if len("subject") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"subject\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("subject"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("subject")); err != nil {
+		return err
+	}
+
+	if err := t.Subject.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.Assertion (string) (string)
+	if len("assertion") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"assertion\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("assertion"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("assertion")); err != nil {
+		return err
+	}
+
+	if len(t.Assertion) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Assertion was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Assertion))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Assertion)); err != nil {
+		return err
+	}
+
+	// t.CreatedAt (string) (string)
+	if len("createdAt") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"createdAt\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("createdAt")); err != nil {
+		return err
+	}
+
+	if len(t.CreatedAt) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.CreatedAt was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.CreatedAt)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *GraphAssertion) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = GraphAssertion{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("GraphAssertion: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Subject (schemagen.ActorRef) (struct)
+		case "subject":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Subject = new(ActorRef)
+					if err := t.Subject.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Subject pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Assertion (string) (string)
+		case "assertion":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Assertion = string(sval)
+			}
+			// t.CreatedAt (string) (string)
+		case "createdAt":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.CreatedAt = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *GraphConfirmation) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{164}); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.graph.confirmation"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("app.bsky.graph.confirmation")); err != nil {
+		return err
+	}
+
+	// t.Assertion (schemagen.RepoStrongRef) (struct)
+	if len("assertion") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"assertion\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("assertion"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("assertion")); err != nil {
+		return err
+	}
+
+	if err := t.Assertion.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.CreatedAt (string) (string)
+	if len("createdAt") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"createdAt\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("createdAt")); err != nil {
+		return err
+	}
+
+	if len(t.CreatedAt) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.CreatedAt was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.CreatedAt)); err != nil {
+		return err
+	}
+
+	// t.Originator (schemagen.ActorRef) (struct)
+	if len("originator") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"originator\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("originator"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("originator")); err != nil {
+		return err
+	}
+
+	if err := t.Originator.MarshalCBOR(cw); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *GraphConfirmation) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = GraphConfirmation{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("GraphConfirmation: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Assertion (schemagen.RepoStrongRef) (struct)
+		case "assertion":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Assertion = new(schemagen.RepoStrongRef)
+					if err := t.Assertion.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Assertion pointer: %w", err)
+					}
+				}
+
+			}
+			// t.CreatedAt (string) (string)
+		case "createdAt":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.CreatedAt = string(sval)
+			}
+			// t.Originator (schemagen.ActorRef) (struct)
+		case "originator":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Originator = new(ActorRef)
+					if err := t.Originator.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Originator pointer: %w", err)
+					}
+				}
+
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}

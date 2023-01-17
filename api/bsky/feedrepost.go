@@ -8,7 +8,7 @@ import (
 // schema: app.bsky.feed.repost
 
 func init() {
-	util.RegisterType("app.bsky.feed.repost", FeedRepost{})
+	util.RegisterType("app.bsky.feed.repost", &FeedRepost{})
 }
 
 // RECORDTYPE: FeedRepost

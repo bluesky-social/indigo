@@ -10,6 +10,7 @@ import (
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/ipld/go-car/v2"
+	cbg "github.com/whyrusleeping/cbor-gen"
 	"github.com/whyrusleeping/gosky/lex/util"
 	"github.com/whyrusleeping/gosky/mst"
 	"go.opentelemetry.io/otel"
@@ -277,7 +278,7 @@ func (r *Repo) ForEach(ctx context.Context, prefix string, cb func(k string, v c
 	return nil
 }
 
-func (r *Repo) GetRecord(ctx context.Context, rpath string) (cid.Cid, any, error) {
+func (r *Repo) GetRecord(ctx context.Context, rpath string) (cid.Cid, cbg.CBORMarshaler, error) {
 	ctx, span := otel.Tracer("repo").Start(ctx, "GetRecord")
 	defer span.End()
 

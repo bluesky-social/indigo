@@ -14,7 +14,7 @@ import (
 // schema: app.bsky.feed.post
 
 func init() {
-	util.RegisterType("app.bsky.feed.post", FeedPost{})
+	util.RegisterType("app.bsky.feed.post", &FeedPost{})
 }
 
 // RECORDTYPE: FeedPost
@@ -115,18 +115,18 @@ type FeedPost_TextSlice struct {
 }
 
 type FeedPost_View struct {
-	LexiconTypeID string                `json:"$type,omitempty"`
-	Author        *ActorRef_WithInfo    `json:"author" cborgen:"author"`
-	Cid           string                `json:"cid" cborgen:"cid"`
-	DownvoteCount int64                 `json:"downvoteCount" cborgen:"downvoteCount"`
-	Embed         *FeedPost_View_Embed  `json:"embed,omitempty" cborgen:"embed"`
-	IndexedAt     string                `json:"indexedAt" cborgen:"indexedAt"`
-	Record        any                   `json:"record" cborgen:"record"`
-	ReplyCount    int64                 `json:"replyCount" cborgen:"replyCount"`
-	RepostCount   int64                 `json:"repostCount" cborgen:"repostCount"`
-	UpvoteCount   int64                 `json:"upvoteCount" cborgen:"upvoteCount"`
-	Uri           string                `json:"uri" cborgen:"uri"`
-	Viewer        *FeedPost_ViewerState `json:"viewer" cborgen:"viewer"`
+	LexiconTypeID string                  `json:"$type,omitempty"`
+	Author        *ActorRef_WithInfo      `json:"author" cborgen:"author"`
+	Cid           string                  `json:"cid" cborgen:"cid"`
+	DownvoteCount int64                   `json:"downvoteCount" cborgen:"downvoteCount"`
+	Embed         *FeedPost_View_Embed    `json:"embed,omitempty" cborgen:"embed"`
+	IndexedAt     string                  `json:"indexedAt" cborgen:"indexedAt"`
+	Record        util.LexiconTypeDecoder `json:"record" cborgen:"record"`
+	ReplyCount    int64                   `json:"replyCount" cborgen:"replyCount"`
+	RepostCount   int64                   `json:"repostCount" cborgen:"repostCount"`
+	UpvoteCount   int64                   `json:"upvoteCount" cborgen:"upvoteCount"`
+	Uri           string                  `json:"uri" cborgen:"uri"`
+	Viewer        *FeedPost_ViewerState   `json:"viewer" cborgen:"viewer"`
 }
 
 type FeedPost_View_Embed struct {

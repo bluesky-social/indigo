@@ -7,7 +7,7 @@ import (
 // schema: app.bsky.system.declaration
 
 func init() {
-	util.RegisterType("app.bsky.system.declaration", SystemDeclaration{})
+	util.RegisterType("app.bsky.system.declaration", &SystemDeclaration{})
 }
 
 // RECORDTYPE: SystemDeclaration

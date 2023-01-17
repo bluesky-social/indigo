@@ -22,10 +22,10 @@ type ActorUpdateProfile_Input struct {
 }
 
 type ActorUpdateProfile_Output struct {
-	LexiconTypeID string `json:"$type,omitempty"`
-	Cid           string `json:"cid" cborgen:"cid"`
-	Record        any    `json:"record" cborgen:"record"`
-	Uri           string `json:"uri" cborgen:"uri"`
+	LexiconTypeID string                  `json:"$type,omitempty"`
+	Cid           string                  `json:"cid" cborgen:"cid"`
+	Record        util.LexiconTypeDecoder `json:"record" cborgen:"record"`
+	Uri           string                  `json:"uri" cborgen:"uri"`
 }
 
 func ActorUpdateProfile(ctx context.Context, c *xrpc.Client, input *ActorUpdateProfile_Input) (*ActorUpdateProfile_Output, error) {

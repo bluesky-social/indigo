@@ -8,7 +8,7 @@ import (
 // schema: app.bsky.feed.vote
 
 func init() {
-	util.RegisterType("app.bsky.feed.vote", FeedVote{})
+	util.RegisterType("app.bsky.feed.vote", &FeedVote{})
 }
 
 // RECORDTYPE: FeedVote

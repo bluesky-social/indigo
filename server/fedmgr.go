@@ -77,7 +77,7 @@ func (s *Server) handleConnection(host *Peering, con *websocket.Conn) error {
 			return fmt.Errorf("failed to unmarshal event: %w", err)
 		}
 
-		fmt.Println("got event: ", host.Host, ev.Kind, ev.Collection)
+		fmt.Println("got event: ", host.Host, ev.Kind)
 		if err := s.handleFedEvent(context.TODO(), host, &ev); err != nil {
 			log.Printf("failed to index event from %q: %s", host.Host, err)
 		}

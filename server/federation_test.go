@@ -19,6 +19,7 @@ import (
 	atproto "github.com/whyrusleeping/gosky/api/atproto"
 	bsky "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/carstore"
+	"github.com/whyrusleeping/gosky/lex/util"
 	"github.com/whyrusleeping/gosky/plc"
 	"github.com/whyrusleeping/gosky/xrpc"
 	"gorm.io/driver/sqlite"
@@ -183,7 +184,7 @@ func (u *testUser) Reply(t *testing.T, post, pcid, body string) string {
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.post",
 		Did:        u.did,
-		Record: &bsky.FeedPost{
+		Record: util.LexiconTypeDecoder{&bsky.FeedPost{
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Text:      body,
 			Reply: &bsky.FeedPost_ReplyRef{
@@ -191,7 +192,7 @@ func (u *testUser) Reply(t *testing.T, post, pcid, body string) string {
 					Cid: pcid,
 					Uri: post,
 				},
-			},
+			}},
 		},
 	})
 
@@ -208,10 +209,10 @@ func (u *testUser) Post(t *testing.T, body string) *atproto.RepoStrongRef {
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.post",
 		Did:        u.did,
-		Record: &bsky.FeedPost{
+		Record: util.LexiconTypeDecoder{&bsky.FeedPost{
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Text:      body,
-		},
+		}},
 	})
 
 	if err != nil {
@@ -231,13 +232,13 @@ func (u *testUser) Follow(t *testing.T, did string) string {
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.graph.follow",
 		Did:        u.did,
-		Record: &bsky.GraphFollow{
+		Record: util.LexiconTypeDecoder{&bsky.GraphFollow{
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Subject: &bsky.ActorRef{
 				DeclarationCid: "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u",
 				Did:            did,
 			},
-		},
+		}},
 	})
 
 	if err != nil {
@@ -307,6 +308,7 @@ func TestBasicFederation(t *testing.T) {
 	lp1 := laura.Post(t, "hello bob")
 	time.Sleep(time.Millisecond * 50)
 
+	select {}
 	f := bob.GetFeed(t)
 	assert.Equal(f[0].Post.Uri, bp1.Uri)
 	assert.Equal(f[1].Post.Uri, lp1.Uri)
@@ -324,4 +326,5 @@ func TestBasicFederation(t *testing.T) {
 	if len(lnot) != 1 {
 		t.Fatal("wrong number of notifications")
 	}
+
 }

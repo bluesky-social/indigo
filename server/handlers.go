@@ -10,9 +10,9 @@ import (
 
 	"github.com/ipfs/go-cid"
 	jwt "github.com/lestrrat-go/jwx/jwt"
-	cbg "github.com/whyrusleeping/cbor-gen"
 	comatprototypes "github.com/whyrusleeping/gosky/api/atproto"
 	appbskytypes "github.com/whyrusleeping/gosky/api/bsky"
+	"github.com/whyrusleeping/gosky/lex/util"
 )
 
 func (s *Server) handleAppBskyActorCreateScene(ctx context.Context, input *appbskytypes.ActorCreateScene_Input) (*appbskytypes.ActorCreateScene_Output, error) {
@@ -107,7 +107,7 @@ func (s *Server) handleAppBskyActorUpdateProfile(ctx context.Context, input *app
 	return &appbskytypes.ActorUpdateProfile_Output{
 		Cid:    ncid.String(),
 		Uri:    "at://" + u.Did + "/app.bsky.actor.profile/self",
-		Record: profile,
+		Record: util.LexiconTypeDecoder{profile},
 	}, nil
 }
 
@@ -502,31 +502,12 @@ func (s *Server) handleComAtprotoRepoBatchWrite(ctx context.Context, input *coma
 func (s *Server) handleComAtprotoRepoCreateRecord(ctx context.Context, input *comatprototypes.RepoCreateRecord_Input) (*comatprototypes.RepoCreateRecord_Output, error) {
 	u, err := s.getUser(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get user: %w", err)
 	}
 
-	var rec cbg.CBORMarshaler
-	switch input.Collection {
-	case "app.bsky.feed.post":
-		rec = new(appbskytypes.FeedPost)
-	case "app.bsky.graph.follow":
-		rec = new(appbskytypes.GraphFollow)
-	case "app.bsky.feed.repost":
-		rec = new(appbskytypes.FeedRepost)
-	default:
-		return nil, fmt.Errorf("unsupported collection: %q", input.Collection)
-	}
-
-	// TODO: if we had a 'record' type receiver declaration in lexicon i could
-	// codegen in a special handler for things that are supposed to be records
-	// like this
-	if err := convertRecordTo(input.Record, rec); err != nil {
-		return nil, err
-	}
-
-	rpath, recid, err := s.repoman.CreateRecord(ctx, u.ID, input.Collection, rec)
+	rpath, recid, err := s.repoman.CreateRecord(ctx, u.ID, input.Collection, input.Record.Val)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("record create: %w", err)
 	}
 
 	return &comatprototypes.RepoCreateRecord_Output{
@@ -558,8 +539,6 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 		return nil, err
 	}
 
-	fmt.Println("USER: ", user, targetUser.Handle, targetUser.Did)
-
 	var maybeCid cid.Cid
 	if c != "" {
 		cc, err := cid.Decode(c)
@@ -578,7 +557,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 	return &comatprototypes.RepoGetRecord_Output{
 		Cid:   &ccstr,
 		Uri:   "at://" + targetUser.Did + "/" + collection + "/" + rkey,
-		Value: rec,
+		Value: util.LexiconTypeDecoder{rec},
 	}, nil
 }
 

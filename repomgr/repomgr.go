@@ -11,6 +11,7 @@ import (
 	atproto "github.com/whyrusleeping/gosky/api/atproto"
 	apibsky "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/carstore"
+	"github.com/whyrusleeping/gosky/events"
 	"github.com/whyrusleeping/gosky/repo"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
@@ -50,17 +51,21 @@ type ActorInfo struct {
 }
 
 type RepoEvent struct {
+	User      uint
+	OldRoot   cid.Cid
+	NewRoot   cid.Cid
+	RepoSlice []byte
+	PDS       uint
+	Ops       []RepoOp
+}
+
+type RepoOp struct {
 	Kind       EventKind
-	User       uint
-	OldRoot    cid.Cid
-	NewRoot    cid.Cid
 	Collection string
 	Rkey       string
 	RecCid     cid.Cid
 	Record     any
 	ActorInfo  *ActorInfo
-	RepoSlice  []byte
-	PDS        uint
 }
 
 type EventKind string
@@ -189,15 +194,17 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
-			Kind:       EvtKindCreateRecord,
-			User:       user,
-			OldRoot:    head,
-			NewRoot:    nroot,
-			Collection: collection,
-			Rkey:       tid,
-			Record:     rec,
-			RecCid:     cc,
-			RepoSlice:  rslice,
+			User:    user,
+			OldRoot: head,
+			NewRoot: nroot,
+			Ops: []RepoOp{{
+				Kind:       EvtKindCreateRecord,
+				Collection: collection,
+				Rkey:       tid,
+				Record:     rec,
+				RecCid:     cc,
+			}},
+			RepoSlice: rslice,
 		})
 	}
 
@@ -249,15 +256,17 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user uint, collection, 
 
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
-			Kind:       EvtKindUpdateRecord,
-			User:       user,
-			OldRoot:    head,
-			NewRoot:    nroot,
-			Collection: collection,
-			Rkey:       rkey,
-			Record:     rec,
-			RecCid:     cc,
-			RepoSlice:  rslice,
+			User:    user,
+			OldRoot: head,
+			NewRoot: nroot,
+			Ops: []RepoOp{{
+				Kind:       EvtKindUpdateRecord,
+				Collection: collection,
+				Rkey:       rkey,
+				Record:     rec,
+				RecCid:     cc,
+			}},
+			RepoSlice: rslice,
 		})
 	}
 
@@ -308,13 +317,15 @@ func (rm *RepoManager) DeleteRecord(ctx context.Context, user uint, collection, 
 
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
-			Kind:       EvtKindDeleteRecord,
-			User:       user,
-			OldRoot:    head,
-			NewRoot:    nroot,
-			Collection: collection,
-			Rkey:       rkey,
-			RepoSlice:  rslice,
+			User:    user,
+			OldRoot: head,
+			NewRoot: nroot,
+			Ops: []RepoOp{{
+				Kind:       EvtKindDeleteRecord,
+				Collection: collection,
+				Rkey:       rkey,
+			}},
+			RepoSlice: rslice,
 		})
 	}
 
@@ -383,16 +394,18 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
-			Kind:    EvtKindInitActor,
 			User:    user,
 			NewRoot: root,
-			ActorInfo: &ActorInfo{
-				Did:         did,
-				Handle:      handle,
-				DisplayName: displayname,
-				DeclRefCid:  declcid,
-				Type:        actortype,
-			},
+			Ops: []RepoOp{{
+				Kind: EvtKindInitActor,
+				ActorInfo: &ActorInfo{
+					Did:         did,
+					Handle:      handle,
+					DisplayName: displayname,
+					DeclRefCid:  declcid,
+					Type:        actortype,
+				},
+			}},
 			RepoSlice: rslice,
 		})
 	}
@@ -411,7 +424,7 @@ func (rm *RepoManager) ReadRepo(ctx context.Context, user uint, fromcid cid.Cid,
 	return rm.cs.ReadUserCar(ctx, user, fromcid, true, w)
 }
 
-func (rm *RepoManager) GetRecord(ctx context.Context, user uint, collection string, rkey string, maybeCid cid.Cid) (cid.Cid, any, error) {
+func (rm *RepoManager) GetRecord(ctx context.Context, user uint, collection string, rkey string, maybeCid cid.Cid) (cid.Cid, cbg.CBORMarshaler, error) {
 	bs, err := rm.cs.ReadOnlySession(user)
 	if err != nil {
 		return cid.Undef, nil, err
@@ -468,7 +481,7 @@ func (rm *RepoManager) GetProfile(ctx context.Context, uid uint) (*apibsky.Actor
 	return ap, nil
 }
 
-func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, kind EventKind, uid uint, collection string, rkey string, carslice []byte) error {
+func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, kind EventKind, uid uint, ops []*events.RepoOp, carslice []byte) error {
 	root, ds, err := rm.cs.ImportSlice(ctx, uid, carslice)
 	if err != nil {
 		return fmt.Errorf("importing external carslice: %w", err)
@@ -479,49 +492,57 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		return fmt.Errorf("opening external user repo: %w", err)
 	}
 
-	switch kind {
-	case EvtKindCreateRecord:
-		recid, rec, err := r.GetRecord(ctx, collection+"/"+rkey)
-		if err != nil {
-			return fmt.Errorf("reading changed record from car slice: %w", err)
-		}
+	var evtops []RepoOp
+	for _, op := range ops {
+		switch op.Kind {
+		case string(EvtKindCreateRecord):
+			recid, rec, err := r.GetRecord(ctx, op.Collection+"/"+op.Rkey)
+			if err != nil {
+				return fmt.Errorf("reading changed record from car slice: %w", err)
+			}
 
-		rslice, err := ds.CloseWithRoot(ctx, root)
-		if err != nil {
-			return fmt.Errorf("close with root: %w", err)
-		}
-
-		// TODO: what happens if this update fails?
-		if err := rm.updateUserRepoHead(ctx, uid, root); err != nil {
-			return fmt.Errorf("updating user head: %w", err)
-		}
-
-		if rm.events != nil {
-			rm.events(ctx, &RepoEvent{
-				Kind: EvtKindCreateRecord,
-				User: uid,
-				//OldRoot:    head,
-				NewRoot:    root,
-				Collection: collection,
-				Rkey:       rkey,
+			evtops = append(evtops, RepoOp{
+				Kind:       EvtKindCreateRecord,
+				Collection: op.Collection,
+				Rkey:       op.Rkey,
 				Record:     rec,
 				RecCid:     recid,
-				RepoSlice:  rslice,
-				PDS:        pdsid,
 			})
+			return nil
+		default:
+			return fmt.Errorf("unrecognized external user event kind: %q", kind)
 		}
-		return nil
-	default:
-		return fmt.Errorf("unrecognized external user event kind: %q", kind)
+	}
+
+	rslice, err := ds.CloseWithRoot(ctx, root)
+	if err != nil {
+		return fmt.Errorf("close with root: %w", err)
+	}
+
+	// TODO: what happens if this update fails?
+	if err := rm.updateUserRepoHead(ctx, uid, root); err != nil {
+		return fmt.Errorf("updating user head: %w", err)
+	}
+
+	if rm.events != nil {
+		rm.events(ctx, &RepoEvent{
+			User: uid,
+			//OldRoot:    head,
+			NewRoot:   root,
+			Ops:       evtops,
+			RepoSlice: rslice,
+			PDS:       pdsid,
+		})
 	}
 
 	return nil
 }
 
-func nsidForCollection(collection string) string {
-	return collection + "/" + repo.NextTID()
+func rkeyForCollection(collection string) string {
+	return repo.NextTID()
 }
 
+/*
 func anyRecordParse(rec any) (cbg.CBORMarshaler, error) {
 	// TODO: really should just have a fancy type that auto-things upon json unmarshal
 	rmap, ok := rec.(map[string]any)
@@ -534,6 +555,7 @@ func anyRecordParse(rec any) (cbg.CBORMarshaler, error) {
 		return nil, fmt.Errorf("records must have string $type field")
 	}
 }
+*/
 
 func (rm *RepoManager) BatchWrite(ctx context.Context, user uint, writes []*atproto.RepoBatchWrite_Input_Writes_Elem) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "BatchWrite")
@@ -557,39 +579,58 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user uint, writes []*atpr
 		return err
 	}
 
+	var ops []RepoOp
 	for _, w := range writes {
 		switch {
 		case w.RepoBatchWrite_Create != nil:
 			c := w.RepoBatchWrite_Create
-			var nsid string
+			var rkey string
 			if c.Rkey != nil {
-				nsid = c.Collection + "/" + *c.Rkey
+				rkey = *c.Rkey
 			} else {
-				nsid = nsidForCollection(c.Collection)
+				rkey = rkeyForCollection(c.Collection)
 			}
 
-			cc, rpath, err := r.CreateRecord(ctx, nsid, c.Value)
+			nsid := c.Collection + "/" + rkey
+			cc, err := r.PutRecord(ctx, nsid, c.Value.Val)
 			if err != nil {
 				return err
 			}
 
-			_ = rpath
-			_ = cc // do we do something about this?
+			ops = append(ops, RepoOp{
+				Kind:       EvtKindCreateRecord,
+				Collection: c.Collection,
+				Rkey:       rkey,
+				RecCid:     cc,
+				Record:     c.Value.Val,
+			})
 		case w.RepoBatchWrite_Update != nil:
 			u := w.RepoBatchWrite_Update
 
-			cc, err := r.PutRecord(ctx, u.Collection+"/"+u.Rkey, u.Value)
+			cc, err := r.PutRecord(ctx, u.Collection+"/"+u.Rkey, u.Value.Val)
 			if err != nil {
 				return err
 			}
 
-			_ = cc
+			ops = append(ops, RepoOp{
+				Kind:       EvtKindUpdateRecord,
+				Collection: u.Collection,
+				Rkey:       u.Rkey,
+				RecCid:     cc,
+				Record:     u.Value.Val,
+			})
 		case w.RepoBatchWrite_Delete != nil:
 			d := w.RepoBatchWrite_Delete
 
 			if err := r.DeleteRecord(ctx, d.Collection+"/"+d.Rkey); err != nil {
 				return err
 			}
+
+			ops = append(ops, RepoOp{
+				Kind:       EvtKindDeleteRecord,
+				Collection: d.Collection,
+				Rkey:       d.Rkey,
+			})
 		default:
 			return fmt.Errorf("no operation set in write enum")
 		}
@@ -612,13 +653,11 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user uint, writes []*atpr
 
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
-			Kind:       EvtKindDeleteRecord,
-			User:       user,
-			OldRoot:    head,
-			NewRoot:    nroot,
-			Collection: collection,
-			Rkey:       rkey,
-			RepoSlice:  rslice,
+			User:      user,
+			OldRoot:   head,
+			NewRoot:   nroot,
+			RepoSlice: rslice,
+			Ops:       ops,
 		})
 	}
 

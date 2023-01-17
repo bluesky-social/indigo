@@ -68,25 +68,31 @@ type Subscriber struct {
 }
 
 const (
-	EvtKindCreateRecord = "createRecord"
-	EvtKindUpdateRecord = "updateRecord"
-	EvtKindDeleteRecord = "deleteRecord"
+	EvtKindRepoChange = "repoChange"
 )
 
 type Event struct {
-	Kind string
 
 	// User is the DID of the user this event is about
 	User string
 
-	Collection string
-	Rkey       string
-	DID        string
-	CarSlice   []byte
+	Kind string
 
-	// some private fields for processing metadata
+	RepoOps   []*RepoOp
+	RepoReset bool
+	CarSlice  []byte
+
+	// some private fields for internal routing perf
 	PrivUid         uint   `json:"-"`
 	PrivPdsId       uint   `json:"-"`
+	PrivRelevantPds []uint `json:"-"`
+}
+
+type RepoOp struct {
+	Kind       string
+	Collection string
+	Rkey       string
+
 	PrivRelevantPds []uint `json:"-"`
 }
 

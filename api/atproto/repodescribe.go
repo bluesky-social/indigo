@@ -3,6 +3,7 @@ package schemagen
 import (
 	"context"
 
+	"github.com/whyrusleeping/gosky/lex/util"
 	"github.com/whyrusleeping/gosky/xrpc"
 )
 
@@ -12,12 +13,12 @@ func init() {
 }
 
 type RepoDescribe_Output struct {
-	LexiconTypeID   string   `json:"$type,omitempty"`
-	Collections     []string `json:"collections" cborgen:"collections"`
-	Did             string   `json:"did" cborgen:"did"`
-	DidDoc          any      `json:"didDoc" cborgen:"didDoc"`
-	Handle          string   `json:"handle" cborgen:"handle"`
-	HandleIsCorrect bool     `json:"handleIsCorrect" cborgen:"handleIsCorrect"`
+	LexiconTypeID   string                  `json:"$type,omitempty"`
+	Collections     []string                `json:"collections" cborgen:"collections"`
+	Did             string                  `json:"did" cborgen:"did"`
+	DidDoc          util.LexiconTypeDecoder `json:"didDoc" cborgen:"didDoc"`
+	Handle          string                  `json:"handle" cborgen:"handle"`
+	HandleIsCorrect bool                    `json:"handleIsCorrect" cborgen:"handleIsCorrect"`
 }
 
 func RepoDescribe(ctx context.Context, c *xrpc.Client, user string) (*RepoDescribe_Output, error) {

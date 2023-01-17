@@ -3,6 +3,7 @@ package schemagen
 import (
 	"context"
 
+	"github.com/whyrusleeping/gosky/lex/util"
 	"github.com/whyrusleeping/gosky/xrpc"
 )
 
@@ -12,15 +13,15 @@ func init() {
 }
 
 type NotificationList_Notification struct {
-	LexiconTypeID string             `json:"$type,omitempty"`
-	Author        *ActorRef_WithInfo `json:"author" cborgen:"author"`
-	Cid           string             `json:"cid" cborgen:"cid"`
-	IndexedAt     string             `json:"indexedAt" cborgen:"indexedAt"`
-	IsRead        bool               `json:"isRead" cborgen:"isRead"`
-	Reason        string             `json:"reason" cborgen:"reason"`
-	ReasonSubject *string            `json:"reasonSubject,omitempty" cborgen:"reasonSubject"`
-	Record        any                `json:"record" cborgen:"record"`
-	Uri           string             `json:"uri" cborgen:"uri"`
+	LexiconTypeID string                  `json:"$type,omitempty"`
+	Author        *ActorRef_WithInfo      `json:"author" cborgen:"author"`
+	Cid           string                  `json:"cid" cborgen:"cid"`
+	IndexedAt     string                  `json:"indexedAt" cborgen:"indexedAt"`
+	IsRead        bool                    `json:"isRead" cborgen:"isRead"`
+	Reason        string                  `json:"reason" cborgen:"reason"`
+	ReasonSubject *string                 `json:"reasonSubject,omitempty" cborgen:"reasonSubject"`
+	Record        util.LexiconTypeDecoder `json:"record" cborgen:"record"`
+	Uri           string                  `json:"uri" cborgen:"uri"`
 }
 
 type NotificationList_Output struct {

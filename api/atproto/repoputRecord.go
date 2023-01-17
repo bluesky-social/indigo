@@ -3,6 +3,7 @@ package schemagen
 import (
 	"context"
 
+	"github.com/whyrusleeping/gosky/lex/util"
 	"github.com/whyrusleeping/gosky/xrpc"
 )
 
@@ -12,12 +13,12 @@ func init() {
 }
 
 type RepoPutRecord_Input struct {
-	LexiconTypeID string `json:"$type,omitempty"`
-	Collection    string `json:"collection" cborgen:"collection"`
-	Did           string `json:"did" cborgen:"did"`
-	Record        any    `json:"record" cborgen:"record"`
-	Rkey          string `json:"rkey" cborgen:"rkey"`
-	Validate      *bool  `json:"validate,omitempty" cborgen:"validate"`
+	LexiconTypeID string                  `json:"$type,omitempty"`
+	Collection    string                  `json:"collection" cborgen:"collection"`
+	Did           string                  `json:"did" cborgen:"did"`
+	Record        util.LexiconTypeDecoder `json:"record" cborgen:"record"`
+	Rkey          string                  `json:"rkey" cborgen:"rkey"`
+	Validate      *bool                   `json:"validate,omitempty" cborgen:"validate"`
 }
 
 type RepoPutRecord_Output struct {

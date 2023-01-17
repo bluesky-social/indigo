@@ -3,6 +3,7 @@ package schemagen
 import (
 	"context"
 
+	"github.com/whyrusleeping/gosky/lex/util"
 	"github.com/whyrusleeping/gosky/xrpc"
 )
 
@@ -18,10 +19,10 @@ type RepoListRecords_Output struct {
 }
 
 type RepoListRecords_Record struct {
-	LexiconTypeID string `json:"$type,omitempty"`
-	Cid           string `json:"cid" cborgen:"cid"`
-	Uri           string `json:"uri" cborgen:"uri"`
-	Value         any    `json:"value" cborgen:"value"`
+	LexiconTypeID string                  `json:"$type,omitempty"`
+	Cid           string                  `json:"cid" cborgen:"cid"`
+	Uri           string                  `json:"uri" cborgen:"uri"`
+	Value         util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
 func RepoListRecords(ctx context.Context, c *xrpc.Client, after string, before string, collection string, limit int64, reverse bool, user string) (*RepoListRecords_Output, error) {

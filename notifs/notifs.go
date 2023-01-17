@@ -7,6 +7,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	appbskytypes "github.com/whyrusleeping/gosky/api/bsky"
+	"github.com/whyrusleeping/gosky/lex/util"
 	"github.com/whyrusleeping/gosky/repomgr"
 	"github.com/whyrusleeping/gosky/types"
 	"gorm.io/gorm"
@@ -158,7 +159,7 @@ func (nm *NotificationManager) hydrateNotificationUpVote(ctx context.Context, nr
 	rsub := "at://" + postAuthor.Did + "/app.bsky.feed.post/" + votedOn.Rkey
 
 	return &appbskytypes.NotificationList_Notification{
-		Record:        rec,
+		Record:        util.LexiconTypeDecoder{Val: rec},
 		IsRead:        nrec.CreatedAt.Before(lastSeen),
 		IndexedAt:     nrec.CreatedAt.Format(time.RFC3339),
 		Uri:           "at://" + voter.Did + "/app.bsky.feed.vote/" + vote.Rkey,
@@ -198,7 +199,7 @@ func (nm *NotificationManager) hydrateNotificationRepost(ctx context.Context, nr
 	rsub := "at://" + postAuthor.Did + "/app.bsky.feed.post/" + reposted.Rkey
 
 	return &appbskytypes.NotificationList_Notification{
-		Record:        rec,
+		Record:        util.LexiconTypeDecoder{rec},
 		IsRead:        nrec.CreatedAt.Before(lastSeen),
 		IndexedAt:     nrec.CreatedAt.Format(time.RFC3339),
 		Uri:           "at://" + reposter.Did + "/app.bsky.feed.repost/" + repost.Rkey,
@@ -238,7 +239,7 @@ func (nm *NotificationManager) hydrateNotificationReply(ctx context.Context, nre
 	rsub := "at://" + opAuthor.Did + "/app.bsky.feed.post/" + replyTo.Rkey
 
 	return &appbskytypes.NotificationList_Notification{
-		Record:        rec,
+		Record:        util.LexiconTypeDecoder{rec},
 		IsRead:        nrec.CreatedAt.Before(lastSeen),
 		IndexedAt:     nrec.CreatedAt.Format(time.RFC3339),
 		Uri:           "at://" + author.Did + "/app.bsky.feed.post/" + fp.Rkey,
@@ -266,7 +267,7 @@ func (nm *NotificationManager) hydrateNotificationFollow(ctx context.Context, nr
 	}
 
 	return &appbskytypes.NotificationList_Notification{
-		Record:    rec,
+		Record:    util.LexiconTypeDecoder{rec},
 		IsRead:    nrec.CreatedAt.Before(lastSeen),
 		IndexedAt: nrec.CreatedAt.Format(time.RFC3339),
 		Uri:       "at://" + follower.Did + "/app.bsky.graph.follow/" + frec.Rkey,

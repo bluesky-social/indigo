@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
@@ -15,7 +16,7 @@ func init() {
 	lexTypesMap = make(map[string]reflect.Type)
 }
 
-func RegisterType(id string, val any) {
+func RegisterType(id string, val cbg.CBORMarshaler) {
 	t := reflect.TypeOf(val)
 
 	if t.Kind() == reflect.Pointer {
@@ -59,7 +60,12 @@ func JsonDecodeValue(b []byte) (any, error) {
 	return ival, nil
 }
 
-func CborDecodeValue(b []byte) (any, error) {
+type CBOR interface {
+	cbg.CBORUnmarshaler
+	cbg.CBORMarshaler
+}
+
+func CborDecodeValue(b []byte) (CBOR, error) {
 	tstr, err := CborTypeExtract(b)
 	if err != nil {
 		return nil, fmt.Errorf("cbor type extract: %w", err)
@@ -72,7 +78,7 @@ func CborDecodeValue(b []byte) (any, error) {
 
 	val := reflect.New(t)
 
-	ival, ok := val.Interface().(cbg.CBORUnmarshaler)
+	ival, ok := val.Interface().(CBOR)
 	if !ok {
 		return nil, fmt.Errorf("registered type did not have proper cbor hooks")
 	}
@@ -84,17 +90,48 @@ func CborDecodeValue(b []byte) (any, error) {
 	return ival, nil
 }
 
-type LexconTypeDecoder struct {
-	Val any
+type LexiconTypeDecoder struct {
+	Val cbg.CBORMarshaler
 }
 
-func (ltd *LexconTypeDecoder) UnmarshalJSON(b []byte) error {
+func (ltd *LexiconTypeDecoder) UnmarshalJSON(b []byte) error {
 	val, err := JsonDecodeValue(b)
 	if err != nil {
 		return err
 	}
 
-	ltd.Val = val
+	ltd.Val = val.(cbg.CBORMarshaler)
 
 	return nil
+}
+
+func (ltd *LexiconTypeDecoder) MarshalJSON() ([]byte, error) {
+	v := reflect.ValueOf(ltd.Val)
+	t := v.Type()
+	sf, ok := t.Elem().FieldByName("LexiconTypeID")
+	if !ok {
+		return nil, fmt.Errorf("lexicon type decoder can only handle record fields")
+	}
+
+	tag, ok := sf.Tag.Lookup("cborgen")
+	if !ok {
+		return nil, fmt.Errorf("lexicon type decoder can only handle record fields with const $type")
+	}
+
+	parts := strings.Split(tag, ",")
+
+	var cval string
+	for _, p := range parts {
+		if strings.HasPrefix(p, "const=") {
+			cval = strings.TrimPrefix(p, "const=")
+			break
+		}
+	}
+	if cval == "" {
+		return nil, fmt.Errorf("must have const $type field")
+	}
+
+	v.Elem().FieldByName("LexiconTypeID").SetString(cval)
+
+	return json.Marshal(ltd.Val)
 }

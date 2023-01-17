@@ -15,11 +15,11 @@ func init() {
 }
 
 type RepoBatchWrite_Create struct {
-	LexiconTypeID string  `json:"$type,omitempty"`
-	Action        string  `json:"action" cborgen:"action"`
-	Collection    string  `json:"collection" cborgen:"collection"`
-	Rkey          *string `json:"rkey,omitempty" cborgen:"rkey"`
-	Value         any     `json:"value" cborgen:"value"`
+	LexiconTypeID string                  `json:"$type,omitempty"`
+	Action        string                  `json:"action" cborgen:"action"`
+	Collection    string                  `json:"collection" cborgen:"collection"`
+	Rkey          *string                 `json:"rkey,omitempty" cborgen:"rkey"`
+	Value         util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
 type RepoBatchWrite_Delete struct {
@@ -80,11 +80,11 @@ func (t *RepoBatchWrite_Input_Writes_Elem) UnmarshalJSON(b []byte) error {
 }
 
 type RepoBatchWrite_Update struct {
-	LexiconTypeID string `json:"$type,omitempty"`
-	Action        string `json:"action" cborgen:"action"`
-	Collection    string `json:"collection" cborgen:"collection"`
-	Rkey          string `json:"rkey" cborgen:"rkey"`
-	Value         any    `json:"value" cborgen:"value"`
+	LexiconTypeID string                  `json:"$type,omitempty"`
+	Action        string                  `json:"action" cborgen:"action"`
+	Collection    string                  `json:"collection" cborgen:"collection"`
+	Rkey          string                  `json:"rkey" cborgen:"rkey"`
+	Value         util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
 func RepoBatchWrite(ctx context.Context, c *xrpc.Client, input *RepoBatchWrite_Input) error {

@@ -11,6 +11,7 @@ import (
 	"github.com/ipfs/go-cid"
 	bsky "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/indexer"
+	"github.com/whyrusleeping/gosky/lex/util"
 	"github.com/whyrusleeping/gosky/types"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
@@ -31,7 +32,7 @@ func NewFeedGenerator(db *gorm.DB, ix *indexer.Indexer, readRecord ReadRecordFun
 	}, nil
 }
 
-type ReadRecordFunc func(context.Context, uint, cid.Cid) (any, error)
+type ReadRecordFunc func(context.Context, uint, cid.Cid) (util.CBOR, error)
 
 /*
 type HydratedFeedItem struct {
@@ -148,7 +149,7 @@ func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *types.FeedPost) 
 		return nil, err
 	}
 
-	out.Post.Record = rec
+	out.Post.Record = util.LexiconTypeDecoder{rec}
 
 	return out, nil
 }
@@ -311,7 +312,7 @@ func (fg *FeedGenerator) GetPostThread(ctx context.Context, uri string, depth in
 		return nil, err
 	}
 
-	p, ok := hi.Post.Record.(*bsky.FeedPost)
+	p, ok := hi.Post.Record.Val.(*bsky.FeedPost)
 	if !ok {
 		return nil, fmt.Errorf("getPostThread can only operate on app.bsky.feed.post records")
 	}

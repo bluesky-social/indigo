@@ -7,7 +7,7 @@ import (
 // schema: app.bsky.graph.assertion
 
 func init() {
-	util.RegisterType("app.bsky.graph.assertion", GraphAssertion{})
+	util.RegisterType("app.bsky.graph.assertion", &GraphAssertion{})
 }
 
 // RECORDTYPE: GraphAssertion

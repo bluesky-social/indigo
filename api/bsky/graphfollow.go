@@ -7,7 +7,7 @@ import (
 // schema: app.bsky.graph.follow
 
 func init() {
-	util.RegisterType("app.bsky.graph.follow", GraphFollow{})
+	util.RegisterType("app.bsky.graph.follow", &GraphFollow{})
 }
 
 // RECORDTYPE: GraphFollow

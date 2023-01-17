@@ -48,86 +48,118 @@ func (ix *Indexer) catchup(ctx context.Context, evt *repomgr.RepoEvent) error {
 	return nil
 }
 
-func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
+func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) error {
 	ctx, span := otel.Tracer("indexer").Start(ctx, "HandleRepoEvent")
 	defer span.End()
 
 	if err := ix.catchup(ctx, evt); err != nil {
-		log.Println("failed to catch up on user repo changes, processing events off base: ", err)
+		return fmt.Errorf("failed to catch up on user repo changes, processing events off base: %w", err)
 	}
 
-	fmt.Println("Handling Event!", evt.Kind)
+	fmt.Println("Handling Event!")
+	var relpds []uint
+	var repoOps []*events.RepoOp
+	for _, op := range evt.Ops {
+		switch op.Kind {
+		case repomgr.EvtKindCreateRecord:
+			rop, err := ix.handleRecordCreate(ctx, evt, &op, true)
+			if err != nil {
+				return fmt.Errorf("handle recordCreate: %w", err)
+			}
+			repoOps = append(repoOps, rop)
+			relpds = append(relpds, rop.PrivRelevantPds...)
+		case repomgr.EvtKindInitActor:
+			rop, err := ix.handleInitActor(ctx, evt, &op)
+			if err != nil {
+				log.Println("handle initActor: ", err)
+			}
 
-	switch evt.Kind {
-	case repomgr.EvtKindCreateRecord:
-		if err := ix.handleRecordCreate(ctx, evt, true); err != nil {
-			log.Println("handle recordCreate: ", err)
+			repoOps = append(repoOps, rop)
+		default:
+			return fmt.Errorf("unrecognized repo event type: %q", op.Kind)
 		}
-	case repomgr.EvtKindInitActor:
-		if err := ix.handleInitActor(ctx, evt); err != nil {
-			log.Println("handle initActor: ", err)
-		}
-	default:
-		log.Println("unrecognized repo event type: ", evt.Kind)
 	}
+
+	did, err := ix.DidForUser(ctx, evt.User)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Sending event: ", relpds)
+	if err := ix.events.AddEvent(&events.Event{
+		Kind:            events.EvtKindRepoChange,
+		CarSlice:        evt.RepoSlice,
+		PrivUid:         evt.User,
+		RepoOps:         repoOps,
+		User:            did,
+		PrivRelevantPds: relpds,
+	}); err != nil {
+		return fmt.Errorf("failed to push event: %s", err)
+	}
+
+	return nil
 }
 
-func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEvent, local bool) error {
-	fmt.Println("record create event", evt.Collection)
-	var relevantPds []uint
-	switch rec := evt.Record.(type) {
+func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp, local bool) (*events.RepoOp, error) {
+	fmt.Println("record create event", op.Collection)
+	out := &events.RepoOp{
+		Kind:       string(repomgr.EvtKindCreateRecord),
+		Collection: op.Collection,
+		Rkey:       op.Rkey,
+	}
+	switch rec := op.Record.(type) {
 	case *bsky.FeedPost:
 		var replyid uint
 		if rec.Reply != nil {
 			replyto, err := ix.GetPost(ctx, rec.Reply.Parent.Uri)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			replyid = replyto.ID
 		}
 
 		fp := types.FeedPost{
-			Rkey:    evt.Rkey,
-			Cid:     evt.RecCid.String(),
+			Rkey:    op.Rkey,
+			Cid:     op.RecCid.String(),
 			Author:  evt.User,
 			ReplyTo: replyid,
 		}
 		if err := ix.db.Create(&fp).Error; err != nil {
-			return err
+			return nil, err
 		}
 
 		if err := ix.addNewPostNotification(ctx, rec, &fp); err != nil {
-			return err
+			return nil, err
 		}
 
 	case *bsky.FeedRepost:
 		fp, err := ix.GetPost(ctx, rec.Subject.Uri)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		author, err := ix.lookupUser(ctx, fp.Author)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		relevantPds = append(relevantPds, author.PDS)
+		out.PrivRelevantPds = append(out.PrivRelevantPds, author.PDS)
 
 		rr := types.RepostRecord{
 			RecCreated: rec.CreatedAt,
 			Post:       fp.ID,
 			Reposter:   evt.User,
 			Author:     fp.Author,
-			RecCid:     evt.RecCid.String(),
-			Rkey:       evt.Rkey,
+			RecCid:     op.RecCid.String(),
+			Rkey:       op.Rkey,
 		}
 		if err := ix.db.Create(&rr).Error; err != nil {
-			return err
+			return nil, err
 		}
 
 		if err := ix.notifman.AddRepost(ctx, fp.Author, rr.ID, evt.User); err != nil {
-			return err
+			return nil, err
 		}
 
 	case *bsky.FeedVote:
@@ -141,24 +173,24 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			val = -1
 			dbdir = types.VoteDirDown
 		default:
-			return fmt.Errorf("invalid vote direction: %q", rec.Direction)
+			return nil, fmt.Errorf("invalid vote direction: %q", rec.Direction)
 		}
 
 		puri, err := parseAtUri(rec.Subject.Uri)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		act, err := ix.lookupUserByDid(ctx, puri.Did)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		relevantPds = append(relevantPds, act.PDS)
+		out.PrivRelevantPds = append(out.PrivRelevantPds, act.PDS)
 
 		var post types.FeedPost
 		if err := ix.db.First(&post, "rkey = ? AND author = ?", puri.Rkey, act.Uid).Error; err != nil {
-			return err
+			return nil, err
 		}
 
 		vr := types.VoteRecord{
@@ -166,20 +198,20 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			Voter:   evt.User,
 			Post:    post.ID,
 			Created: rec.CreatedAt,
-			Rkey:    evt.Rkey,
-			Cid:     evt.RecCid.String(),
+			Rkey:    op.Rkey,
+			Cid:     op.RecCid.String(),
 		}
 		if err := ix.db.Create(&vr).Error; err != nil {
-			return err
+			return nil, err
 		}
 
 		if err := ix.db.Model(types.FeedPost{}).Where("id = ?", post.ID).Update("up_count", gorm.Expr("up_count + ?", val)).Error; err != nil {
-			return err
+			return nil, err
 		}
 
 		if rec.Direction == "up" {
 			if err := ix.addNewVoteNotification(ctx, act.ID, &vr); err != nil {
-				return err
+				return nil, err
 			}
 		}
 
@@ -187,33 +219,33 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 		subj, err := ix.lookupUserByDid(ctx, rec.Subject.Did)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
-				return err
+				return nil, fmt.Errorf("failed to lookup user: %w", err)
 			}
 			nu, err := ix.CreateExternalUser(ctx, rec.Subject.Did)
 			if err != nil {
-				return err
+				return nil, fmt.Errorf("create external user: %w", err)
 			}
 
 			subj = nu
 		}
 
 		if subj.PDS != 0 {
-			relevantPds = append(relevantPds, subj.PDS)
+			out.PrivRelevantPds = append(out.PrivRelevantPds, subj.PDS)
 		}
 
 		// 'follower' followed 'target'
 		fr := types.FollowRecord{
 			Follower: evt.User,
 			Target:   subj.ID,
-			Rkey:     evt.Rkey,
-			Cid:      evt.RecCid.String(),
+			Rkey:     op.Rkey,
+			Cid:      op.RecCid.String(),
 		}
 		if err := ix.db.Create(&fr).Error; err != nil {
-			return err
+			return nil, err
 		}
 
 		if err := ix.notifman.AddFollow(ctx, fr.Follower, fr.Target, fr.ID); err != nil {
-			return err
+			return nil, err
 		}
 
 		if local && subj.PDS != 0 {
@@ -223,28 +255,10 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 		}
 
 	default:
-		return fmt.Errorf("unrecognized record type: %T", rec)
+		return nil, fmt.Errorf("unrecognized record type: %T", rec)
 	}
 
-	did, err := ix.DidForUser(ctx, evt.User)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Sending event: ", evt.Collection, relevantPds)
-	if err := ix.events.AddEvent(&events.Event{
-		CarSlice:        evt.RepoSlice,
-		Kind:            events.EvtKindCreateRecord,
-		PrivUid:         evt.User,
-		User:            did,
-		Collection:      evt.Collection,
-		Rkey:            evt.Rkey,
-		PrivRelevantPds: relevantPds,
-	}); err != nil {
-		log.Println("failed to push event: ", err)
-	}
-
-	return nil
+	return out, nil
 }
 
 func (ix *Indexer) DidForUser(ctx context.Context, uid uint) (string, error) {
@@ -316,8 +330,8 @@ func (ix *Indexer) addNewVoteNotification(ctx context.Context, postauthor uint, 
 	return ix.notifman.AddUpVote(ctx, vr.Voter, vr.Post, vr.ID, postauthor)
 }
 
-func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent) error {
-	ai := evt.ActorInfo
+func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) (*events.RepoOp, error) {
+	ai := op.ActorInfo
 	if err := ix.db.Create(&types.ActorInfo{
 		Uid:         evt.User,
 		Handle:      ai.Handle,
@@ -326,17 +340,19 @@ func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent) 
 		DeclRefCid:  ai.DeclRefCid,
 		Type:        ai.Type,
 	}).Error; err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := ix.db.Create(&types.FollowRecord{
 		Follower: evt.User,
 		Target:   evt.User,
 	}).Error; err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &events.RepoOp{
+		Kind: string(repomgr.EvtKindInitActor),
+	}, nil
 }
 
 func (ix *Indexer) GetPost(ctx context.Context, uri string) (*types.FeedPost, error) {
