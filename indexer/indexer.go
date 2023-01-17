@@ -56,7 +56,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		return fmt.Errorf("failed to catch up on user repo changes, processing events off base: %w", err)
 	}
 
-	fmt.Println("Handling Event!")
+	fmt.Println("Handling Repo Event!")
 	var relpds []uint
 	var repoOps []*events.RepoOp
 	for _, op := range evt.Ops {
@@ -85,7 +85,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		return err
 	}
 
-	fmt.Println("Sending event: ", relpds)
+	fmt.Println("Sending event: ", relpds, len(repoOps))
 	if err := ix.events.AddEvent(&events.Event{
 		Kind:            events.EvtKindRepoChange,
 		CarSlice:        evt.RepoSlice,

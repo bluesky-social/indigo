@@ -305,10 +305,11 @@ func TestBasicFederation(t *testing.T) {
 	bob.Follow(t, laura.did)
 
 	bp1 := bob.Post(t, "hello world")
+
+	fmt.Println("LAURA POST!!!!")
 	lp1 := laura.Post(t, "hello bob")
 	time.Sleep(time.Millisecond * 50)
 
-	select {}
 	f := bob.GetFeed(t)
 	assert.Equal(f[0].Post.Uri, bp1.Uri)
 	assert.Equal(f[1].Post.Uri, lp1.Uri)

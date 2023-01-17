@@ -492,6 +492,8 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		return fmt.Errorf("opening external user repo: %w", err)
 	}
 
+	fmt.Println("external event: ", ops)
+
 	var evtops []RepoOp
 	for _, op := range ops {
 		switch op.Kind {
@@ -508,7 +510,6 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 				Record:     rec,
 				RecCid:     recid,
 			})
-			return nil
 		default:
 			return fmt.Errorf("unrecognized external user event kind: %q", kind)
 		}
@@ -525,6 +526,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 	}
 
 	if rm.events != nil {
+		fmt.Println("calling out to events handler...")
 		rm.events(ctx, &RepoEvent{
 			User: uid,
 			//OldRoot:    head,
