@@ -90,6 +90,9 @@ func main() {
 			return err
 		}
 
+		db.AutoMigrate(User{})
+		db.AutoMigrate(PDS{})
+
 		if cctx.Bool("dbtracing") {
 			if err := db.Use(tracing.NewPlugin()); err != nil {
 				return err
@@ -111,6 +114,8 @@ func main() {
 
 		evtman := events.NewEventManager()
 
+		// not necessary to generate notifications, should probably make the
+		// indexer just take optional callbacks for notification stuff
 		notifman := notifs.NewNotificationManager(db, repoman.GetRecord)
 
 		didr := &api.PLCServer{Host: cctx.String("plc")}

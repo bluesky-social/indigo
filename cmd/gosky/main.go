@@ -308,9 +308,9 @@ func jsonPrint(i any) {
 
 func prettyPrintPost(p *apibsky.FeedFeedViewPost) {
 	fmt.Println(strings.Repeat("-", 60))
-	rec := p.Post.Record.(map[string]any)
-	fmt.Printf("%s (%s):\n", p.Post.Author.Handle, rec["createdAt"])
-	fmt.Println(rec["text"])
+	rec := p.Post.Record.Val.(*apibsky.FeedPost)
+	fmt.Printf("%s (%s):\n", p.Post.Author.Handle, rec.CreatedAt)
+	fmt.Println(rec.Text)
 }
 
 var feedGetCmd = &cli.Command{

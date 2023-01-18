@@ -644,11 +644,17 @@ func (s *Server) EventsHandler(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	var peering Peering
-	if err := s.db.First(&peering, "did = ?", did).Error; err != nil {
-		return err
+	if did != "" {
+		if err := s.db.First(&peering, "did = ?", did).Error; err != nil {
+			return err
+		}
 	}
 
 	evts, cancel, err := s.events.Subscribe(func(evt *events.Event) bool {
+		if peering.ID == 0 {
+			return true
+		}
+
 		for _, pid := range evt.PrivRelevantPds {
 			if pid == peering.ID {
 				return true
