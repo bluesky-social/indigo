@@ -44,6 +44,7 @@ type Server struct {
 	notifman      *notifs.NotificationManager
 	indexer       *indexer.Indexer
 	events        *events.EventManager
+	slurper       *Slurper
 	signingKey    *key.Key
 	echo          *echo.Echo
 	jwtSigningKey []byte
@@ -70,7 +71,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 	evtman := events.NewEventManager()
 
 	repoman := repomgr.NewRepoManager(db, cs)
-	notifman := notifs.NewNotificationManager(db, repoman)
+	notifman := notifs.NewNotificationManager(db, repoman.GetRecord)
 
 	ix, err := indexer.NewIndexer(db, notifman, evtman, didr)
 	if err != nil {
@@ -89,6 +90,12 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 		handleSuffix:  handleSuffix,
 		serviceUrl:    serviceUrl,
 		jwtSigningKey: jwtkey,
+	}
+
+	s.slurper = &Slurper{
+		cb:         s.handleFedEvent,
+		db:         db,
+		signingKey: serkey,
 	}
 
 	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
@@ -560,7 +567,7 @@ func (s *Server) HackAddPeering(host string, did string) error {
 		return err
 	}
 
-	if err := s.SubscribeToPds(context.TODO(), host); err != nil {
+	if err := s.slurper.SubscribeToPds(context.TODO(), host); err != nil {
 		return err
 	}
 

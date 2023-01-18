@@ -11,11 +11,21 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/whyrusleeping/gosky/events"
+	"github.com/whyrusleeping/gosky/key"
+	"gorm.io/gorm"
 )
 
-type IndexCallback func(context.Context, string, *events.Event) error
+type IndexCallback func(context.Context, *Peering, *events.Event) error
 
-func (s *Server) SubscribeToPds(ctx context.Context, host string) error {
+// TODO: rename me
+type Slurper struct {
+	cb IndexCallback
+
+	db         *gorm.DB
+	signingKey *key.Key
+}
+
+func (s *Slurper) SubscribeToPds(ctx context.Context, host string) error {
 	var peering Peering
 	if err := s.db.First(&peering, "host = ?", host).Error; err != nil {
 		return err
@@ -26,7 +36,7 @@ func (s *Server) SubscribeToPds(ctx context.Context, host string) error {
 	return nil
 }
 
-func (s *Server) subscribeWithRedialer(host *Peering) {
+func (s *Slurper) subscribeWithRedialer(host *Peering) {
 	d := websocket.Dialer{}
 
 	var backoff int
@@ -63,7 +73,7 @@ func sleepForBackoff(b int) time.Duration {
 	return time.Second * 30
 }
 
-func (s *Server) handleConnection(host *Peering, con *websocket.Conn) error {
+func (s *Slurper) handleConnection(host *Peering, con *websocket.Conn) error {
 	for {
 		mt, data, err := con.ReadMessage()
 		if err != nil {
@@ -78,7 +88,7 @@ func (s *Server) handleConnection(host *Peering, con *websocket.Conn) error {
 		}
 
 		fmt.Println("got event: ", host.Host, ev.Kind)
-		if err := s.handleFedEvent(context.TODO(), host, &ev); err != nil {
+		if err := s.cb(context.TODO(), host, &ev); err != nil {
 			log.Printf("failed to index event from %q: %s", host.Host, err)
 		}
 	}

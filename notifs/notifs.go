@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
+	cbg "github.com/whyrusleeping/cbor-gen"
 	appbskytypes "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/lex/util"
-	"github.com/whyrusleeping/gosky/repomgr"
 	"github.com/whyrusleeping/gosky/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -17,16 +17,17 @@ import (
 type NotificationManager struct {
 	db *gorm.DB
 
-	repoman *repomgr.RepoManager
+	getRecord GetRecord
 }
+type GetRecord func(ctx context.Context, user uint, collection string, rkey string, maybeCid cid.Cid) (cid.Cid, cbg.CBORMarshaler, error)
 
-func NewNotificationManager(db *gorm.DB, rmgr *repomgr.RepoManager) *NotificationManager {
+func NewNotificationManager(db *gorm.DB, getrec GetRecord) *NotificationManager {
 	db.AutoMigrate(&NotifRecord{})
 	db.AutoMigrate(&NotifSeen{})
 
 	return &NotificationManager{
-		db:      db,
-		repoman: rmgr,
+		db:        db,
+		getRecord: getrec,
 	}
 }
 
@@ -146,7 +147,7 @@ func (nm *NotificationManager) hydrateNotificationUpVote(ctx context.Context, nr
 		return nil, err
 	}
 
-	_, rec, err := nm.repoman.GetRecord(ctx, voter.ID, "app.bsky.feed.vote", vote.Rkey, cid.Undef)
+	_, rec, err := nm.getRecord(ctx, voter.ID, "app.bsky.feed.vote", vote.Rkey, cid.Undef)
 	if err != nil {
 		return nil, fmt.Errorf("getting vote: %w", err)
 	}
@@ -186,7 +187,7 @@ func (nm *NotificationManager) hydrateNotificationRepost(ctx context.Context, nr
 		return nil, err
 	}
 
-	_, rec, err := nm.repoman.GetRecord(ctx, reposter.ID, "app.bsky.feed.repost", repost.Rkey, cid.Undef)
+	_, rec, err := nm.getRecord(ctx, reposter.ID, "app.bsky.feed.repost", repost.Rkey, cid.Undef)
 	if err != nil {
 		return nil, fmt.Errorf("getting repost: %w", err)
 	}
@@ -231,7 +232,7 @@ func (nm *NotificationManager) hydrateNotificationReply(ctx context.Context, nre
 		return nil, err
 	}
 
-	_, rec, err := nm.repoman.GetRecord(ctx, author.ID, "app.bsky.feed.post", fp.Rkey, cid.Undef)
+	_, rec, err := nm.getRecord(ctx, author.ID, "app.bsky.feed.post", fp.Rkey, cid.Undef)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +262,7 @@ func (nm *NotificationManager) hydrateNotificationFollow(ctx context.Context, nr
 		return nil, err
 	}
 
-	_, rec, err := nm.repoman.GetRecord(ctx, follower.ID, "app.bsky.graph.follow", frec.Rkey, cid.Undef)
+	_, rec, err := nm.getRecord(ctx, follower.ID, "app.bsky.graph.follow", frec.Rkey, cid.Undef)
 	if err != nil {
 		return nil, err
 	}

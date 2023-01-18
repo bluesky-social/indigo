@@ -181,7 +181,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			return nil, err
 		}
 
-		act, err := ix.lookupUserByDid(ctx, puri.Did)
+		act, err := ix.LookupUserByDid(ctx, puri.Did)
 		if err != nil {
 			return nil, err
 		}
@@ -216,7 +216,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 		}
 
 	case *bsky.GraphFollow:
-		subj, err := ix.lookupUserByDid(ctx, rec.Subject.Did)
+		subj, err := ix.LookupUserByDid(ctx, rec.Subject.Did)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil, fmt.Errorf("failed to lookup user: %w", err)
@@ -279,7 +279,7 @@ func (ix *Indexer) lookupUser(ctx context.Context, id uint) (*types.ActorInfo, e
 	return &ai, nil
 }
 
-func (ix *Indexer) lookupUserByDid(ctx context.Context, did string) (*types.ActorInfo, error) {
+func (ix *Indexer) LookupUserByDid(ctx context.Context, did string) (*types.ActorInfo, error) {
 	var ai types.ActorInfo
 	if err := ix.db.First(&ai, "did = ?", did).Error; err != nil {
 		return nil, err
@@ -313,7 +313,7 @@ func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPo
 	for _, e := range post.Entities {
 		switch e.Type {
 		case "mention":
-			mentioned, err := ix.lookupUserByDid(ctx, e.Value)
+			mentioned, err := ix.LookupUserByDid(ctx, e.Value)
 			if err != nil {
 				return fmt.Errorf("mentioned user does not exist: %w", err)
 			}
