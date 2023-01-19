@@ -1,4 +1,4 @@
-package main
+package bgs
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/labstack/gommon/log"
 	"github.com/whyrusleeping/gosky/events"
 	"gorm.io/gorm"
 )
