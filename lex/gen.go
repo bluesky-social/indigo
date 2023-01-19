@@ -555,7 +555,7 @@ func WriteServerHandlers(w io.Writer, schemas []*Schema, pkg string, impmap map[
 
 		main, ok := s.Defs["main"]
 		if !ok {
-			return fmt.Errorf("schema %q doesnt have a main def", s.ID)
+			return fmt.Errorf("schema %q doesn't have a main def", s.ID)
 		}
 
 		if main.Type == "procedure" || main.Type == "query" {
@@ -642,7 +642,7 @@ func WriteXrpcServer(w io.Writer, schemas []*Schema, pkg string, impmap map[stri
 
 			main, ok := s.Defs["main"]
 			if !ok {
-				return fmt.Errorf("schema %q doesnt have a main def", s.ID)
+				return fmt.Errorf("schema %q doesn't have a main def", s.ID)
 			}
 
 			if main.Type == "procedure" || main.Type == "query" {

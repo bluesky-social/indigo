@@ -307,7 +307,7 @@ func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPo
 	if post.Reply != nil {
 		replyto, err := ix.GetPost(ctx, post.Reply.Parent.Uri)
 		if err != nil {
-			log.Error("probably shouldnt error when processing a reply to a not-found post")
+			log.Error("probably shouldn't error when processing a reply to a not-found post")
 			return err
 		}
 

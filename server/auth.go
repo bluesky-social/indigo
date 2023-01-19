@@ -54,7 +54,7 @@ func (s *Server) createCrossServerAuthToken(ctx context.Context, otherpds string
 	accessTok := makeToken(otherpds, "com.atproto.federation", time.Now().Add(24*time.Hour))
 
 	// setting this is a little weird,
-	// since the token isnt signed by this key, we dont have a way to validate...
+	// since the token isn't signed by this key, we dont have a way to validate...
 	accessTok.Set("pds", s.signingKey.DID())
 
 	rval := make([]byte, 10)
