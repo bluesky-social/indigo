@@ -422,6 +422,10 @@ func (s *Server) handleComAtprotoAccountCreate(ctx context.Context, input *comat
 		return nil, err
 	}
 
+	if recoveryKey == "" {
+		recoveryKey = s.signingKey.DID()
+	}
+
 	d, err := s.plc.CreateDID(ctx, s.signingKey, recoveryKey, input.Handle, s.serviceUrl)
 	if err != nil {
 		return nil, fmt.Errorf("create did: %w", err)

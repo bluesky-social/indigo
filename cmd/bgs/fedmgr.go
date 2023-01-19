@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"net"
 	"sync"
@@ -95,10 +94,10 @@ func (s *Slurper) subscribeWithRedialer(host *PDS) {
 
 		if err := s.handleConnection(host, con); err != nil {
 			if errors.Is(err, ErrTimeoutShutdown) {
-				log.Printf("shutting down pds subscription to %s, no activity after %s", host.Host, EventsTimeout)
+				log.Infof("shutting down pds subscription to %s, no activity after %s", host.Host, EventsTimeout)
 				return
 			}
-			log.Printf("connection to %q failed: %s", host.Host, err)
+			log.Warnf("connection to %q failed: %s", host.Host, err)
 		}
 	}
 }
@@ -143,7 +142,7 @@ func (s *Slurper) handleConnection(host *PDS, con *websocket.Conn) error {
 
 		fmt.Println("got event: ", host.Host, ev.Kind)
 		if err := s.cb(context.TODO(), host, &ev); err != nil {
-			log.Printf("failed to index event from %q: %s", host.Host, err)
+			log.Errorf("failed to index event from %q: %s", host.Host, err)
 		}
 	}
 }

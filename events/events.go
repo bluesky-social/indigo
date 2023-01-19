@@ -73,14 +73,14 @@ const (
 
 type Event struct {
 
-	// User is the DID of the user this event is about
-	User string
+	// Repo is the DID of the repo this event is about
+	Repo string
 
 	Kind string
 
-	RepoOps   []*RepoOp
-	RepoReset bool
-	CarSlice  []byte
+	RepoOps    []*RepoOp
+	RepoRebase bool
+	CarSlice   []byte
 
 	// some private fields for internal routing perf
 	PrivUid         uint   `json:"-"`

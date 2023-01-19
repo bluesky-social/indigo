@@ -32,6 +32,15 @@ type CarStore struct {
 }
 
 func NewCarStore(meta *gorm.DB, root string) (*CarStore, error) {
+	if _, err := os.Stat(root); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+
+		if err := os.Mkdir(root, 0775); err != nil {
+			return nil, err
+		}
+	}
 	if err := meta.AutoMigrate(&CarShard{}, &blockRef{}); err != nil {
 		return nil, err
 	}

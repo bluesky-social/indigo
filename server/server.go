@@ -134,13 +134,13 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *events.
 	fmt.Printf("[%s] got fed event from %q: %s\n", s.serviceUrl, host.Host, evt.Kind)
 	switch evt.Kind {
 	case events.EvtKindRepoChange:
-		u, err := s.lookupUserByDid(ctx, evt.User)
+		u, err := s.lookupUserByDid(ctx, evt.Repo)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return fmt.Errorf("looking up event user: %w", err)
 			}
 
-			subj, err := s.createExternalUser(ctx, evt.User)
+			subj, err := s.createExternalUser(ctx, evt.Repo)
 			if err != nil {
 				return err
 			}
@@ -149,7 +149,7 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *events.
 			u.ID = subj.Uid
 		}
 
-		return s.repoman.HandleExternalUserEvent(ctx, host.ID, repomgr.EvtKindCreateRecord, u.ID, evt.RepoOps, evt.CarSlice)
+		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, evt.RepoOps, evt.CarSlice)
 	default:
 		return fmt.Errorf("unrecognized fed event kind: %q", evt.Kind)
 	}
@@ -237,7 +237,7 @@ func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent
 		Kind:     events.EvtKindRepoChange,
 		CarSlice: evt.RepoSlice,
 		PrivUid:  evt.User,
-		User:     did,
+		Repo:     did,
 	}
 
 	for _, op := range evt.Ops {

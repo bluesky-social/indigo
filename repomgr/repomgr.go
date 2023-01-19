@@ -13,6 +13,7 @@ import (
 	"github.com/whyrusleeping/gosky/carstore"
 	"github.com/whyrusleeping/gosky/events"
 	"github.com/whyrusleeping/gosky/repo"
+	"github.com/whyrusleeping/gosky/types"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -481,7 +482,7 @@ func (rm *RepoManager) GetProfile(ctx context.Context, uid uint) (*apibsky.Actor
 	return ap, nil
 }
 
-func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, kind EventKind, uid uint, ops []*events.RepoOp, carslice []byte) error {
+func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid uint, ops []*events.RepoOp, carslice []byte) error {
 	root, ds, err := rm.cs.ImportSlice(ctx, uid, carslice)
 	if err != nil {
 		return fmt.Errorf("importing external carslice: %w", err)
@@ -496,8 +497,8 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 
 	var evtops []RepoOp
 	for _, op := range ops {
-		switch op.Kind {
-		case string(EvtKindCreateRecord):
+		switch EventKind(op.Kind) {
+		case EvtKindCreateRecord:
 			recid, rec, err := r.GetRecord(ctx, op.Collection+"/"+op.Rkey)
 			if err != nil {
 				return fmt.Errorf("reading changed record from car slice: %w", err)
@@ -510,8 +511,37 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 				Record:     rec,
 				RecCid:     recid,
 			})
+		case EvtKindInitActor:
+			var ai types.ActorInfo
+			if err := rm.db.First(&ai, "id = ?", uid).Error; err != nil {
+				return fmt.Errorf("expected initialized user: %w", err)
+			}
+
+			evtops = append(evtops, RepoOp{
+				Kind: EvtKindInitActor,
+				ActorInfo: &ActorInfo{
+					Did:         ai.Did,
+					Handle:      ai.Handle,
+					DisplayName: ai.DisplayName,
+					DeclRefCid:  ai.DeclRefCid,
+					Type:        ai.Type,
+				},
+			})
+		case EvtKindUpdateRecord:
+			recid, rec, err := r.GetRecord(ctx, op.Collection+"/"+op.Rkey)
+			if err != nil {
+				return fmt.Errorf("reading changed record from car slice: %w", err)
+			}
+
+			evtops = append(evtops, RepoOp{
+				Kind:       EvtKindUpdateRecord,
+				Collection: op.Collection,
+				Rkey:       op.Rkey,
+				Record:     rec,
+				RecCid:     recid,
+			})
 		default:
-			return fmt.Errorf("unrecognized external user event kind: %q", kind)
+			return fmt.Errorf("unrecognized external user event kind: %q", op.Kind)
 		}
 	}
 

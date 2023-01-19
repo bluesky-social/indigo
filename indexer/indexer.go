@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 
+	logging "github.com/ipfs/go-log"
 	bsky "github.com/whyrusleeping/gosky/api/bsky"
 	"github.com/whyrusleeping/gosky/events"
 	"github.com/whyrusleeping/gosky/notifs"
@@ -16,6 +16,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
+
+var log = logging.Logger("indexer")
 
 type Indexer struct {
 	db *gorm.DB
@@ -40,6 +42,9 @@ func NewIndexer(db *gorm.DB, notifman *notifs.NotificationManager, evtman *event
 		notifman: notifman,
 		events:   evtman,
 		didr:     didr,
+		SendRemoteFollow: func(context.Context, string, uint) error {
+			return nil
+		},
 	}, nil
 }
 
@@ -56,12 +61,13 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		return fmt.Errorf("failed to catch up on user repo changes, processing events off base: %w", err)
 	}
 
-	fmt.Println("Handling Repo Event!")
+	log.Infof("Handling Repo Event!")
 	var relpds []uint
 	var repoOps []*events.RepoOp
 	for _, op := range evt.Ops {
 		switch op.Kind {
 		case repomgr.EvtKindCreateRecord:
+			log.Infof("create record: ", evt.User, op.Collection, op.Rkey)
 			rop, err := ix.handleRecordCreate(ctx, evt, &op, true)
 			if err != nil {
 				return fmt.Errorf("handle recordCreate: %w", err)
@@ -71,7 +77,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		case repomgr.EvtKindInitActor:
 			rop, err := ix.handleInitActor(ctx, evt, &op)
 			if err != nil {
-				log.Println("handle initActor: ", err)
+				log.Errorf("handle initActor: %s", err)
 			}
 
 			repoOps = append(repoOps, rop)
@@ -85,13 +91,13 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		return err
 	}
 
-	fmt.Println("Sending event: ", relpds, len(repoOps))
+	log.Infof("Sending event: ", relpds, len(repoOps))
 	if err := ix.events.AddEvent(&events.Event{
 		Kind:            events.EvtKindRepoChange,
 		CarSlice:        evt.RepoSlice,
 		PrivUid:         evt.User,
 		RepoOps:         repoOps,
-		User:            did,
+		Repo:            did,
 		PrivRelevantPds: relpds,
 	}); err != nil {
 		return fmt.Errorf("failed to push event: %s", err)
@@ -101,7 +107,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 }
 
 func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp, local bool) (*events.RepoOp, error) {
-	fmt.Println("record create event", op.Collection)
+	log.Infow("record create event", "collection", op.Collection)
 	out := &events.RepoOp{
 		Kind:       string(repomgr.EvtKindCreateRecord),
 		Collection: op.Collection,
@@ -250,7 +256,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 
 		if local && subj.PDS != 0 {
 			if err := ix.SendRemoteFollow(ctx, subj.Did, subj.PDS); err != nil {
-				log.Println("failed to issue remote follow directive: ", err)
+				log.Error("failed to issue remote follow directive: ", err)
 			}
 		}
 
@@ -301,7 +307,7 @@ func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPo
 	if post.Reply != nil {
 		replyto, err := ix.GetPost(ctx, post.Reply.Parent.Uri)
 		if err != nil {
-			fmt.Println("probably shouldnt error when processing a reply to a not-found post")
+			log.Error("probably shouldnt error when processing a reply to a not-found post")
 			return err
 		}
 
@@ -332,6 +338,7 @@ func (ix *Indexer) addNewVoteNotification(ctx context.Context, postauthor uint, 
 
 func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) (*events.RepoOp, error) {
 	ai := op.ActorInfo
+
 	if err := ix.db.Create(&types.ActorInfo{
 		Uid:         evt.User,
 		Handle:      ai.Handle,

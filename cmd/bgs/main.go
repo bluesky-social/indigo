@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/url"
+	"strings"
 
 	"github.com/gorilla/websocket"
+	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/urfave/cli/v2"
 	"github.com/whyrusleeping/gosky/api"
 	bsky "github.com/whyrusleeping/gosky/api/bsky"
@@ -30,6 +32,12 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/plugin/opentelemetry/tracing"
 )
+
+var log = logging.Logger("bgs")
+
+func init() {
+	logging.SetAllLoggers(logging.LevelDebug)
+}
 
 func main() {
 	app := cli.NewApp()
@@ -114,6 +122,8 @@ func main() {
 
 		evtman := events.NewEventManager()
 
+		go evtman.Run()
+
 		// not necessary to generate notifications, should probably make the
 		// indexer just take optional callbacks for notification stuff
 		notifman := notifs.NewNotificationManager(db, repoman.GetRecord)
@@ -124,6 +134,12 @@ func main() {
 		if err != nil {
 			return err
 		}
+
+		repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
+			if err := ix.HandleRepoEvent(ctx, evt); err != nil {
+				log.Errorw("failed to handle repo event", "err", err)
+			}
+		})
 
 		bgs := &BGS{
 			index: ix,
@@ -153,6 +169,15 @@ type BGS struct {
 
 func (bgs *BGS) Start(listen string) error {
 	e := echo.New()
+
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
+	}))
+
+	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
+		fmt.Printf("HANDLER ERROR: (%s) %s\n", ctx.Path(), err)
+		ctx.Response().WriteHeader(500)
+	}
 
 	// TODO: this API is temporary until we formalize what we want here
 	e.POST("/add-target", bgs.handleAddTarget)
@@ -190,14 +215,9 @@ func (bgs *BGS) handleAddTarget(c echo.Context) error {
 }
 
 func (bgs *BGS) EventsHandler(c echo.Context) error {
-	did := c.Request().Header.Get("DID")
+	// TODO: authhhh
 	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
 	if err != nil {
-		return err
-	}
-
-	var peering PDS
-	if err := bgs.db.First(&peering, "did = ?", did).Error; err != nil {
 		return err
 	}
 
@@ -218,24 +238,28 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 
 func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) {
 	var u User
-	if err := bgs.db.First(&u, "did = ?", did).Error; err != nil {
+	if err := bgs.db.Find(&u, "did = ?", did).Error; err != nil {
 		return nil, err
+	}
+
+	if u.ID == 0 {
+		return nil, gorm.ErrRecordNotFound
 	}
 
 	return &u, nil
 }
 
 func (bgs *BGS) handleFedEvent(ctx context.Context, host *PDS, evt *events.Event) error {
-	log.Printf("got fed event from %q: %s\n", host.Host, evt.Kind)
+	log.Infof("got fed event from %q: %s\n", host.Host, evt.Kind)
 	switch evt.Kind {
 	case events.EvtKindRepoChange:
-		u, err := bgs.lookupUserByDid(ctx, evt.User)
+		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return fmt.Errorf("looking up event user: %w", err)
 			}
 
-			subj, err := bgs.createExternalUser(ctx, evt.User)
+			subj, err := bgs.createExternalUser(ctx, evt.Repo)
 			if err != nil {
 				return err
 			}
@@ -244,7 +268,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *PDS, evt *events.Event
 			u.ID = subj.Uid
 		}
 
-		return bgs.repoman.HandleExternalUserEvent(ctx, host.ID, repomgr.EvtKindCreateRecord, u.ID, evt.RepoOps, evt.CarSlice)
+		return bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, evt.RepoOps, evt.CarSlice)
 	default:
 		return fmt.Errorf("unrecognized fed event kind: %q", evt.Kind)
 	}
@@ -267,6 +291,10 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*types.ActorI
 		return nil, err
 	}
 
+	if strings.HasPrefix(durl.Host, "localhost:") {
+		durl.Scheme = "http"
+	}
+
 	// TODO: the PDS's DID should also be in the service, we could use that to look up?
 	var peering PDS
 	if err := s.db.First(&peering, "host = ?", durl.Host).Error; err != nil {
@@ -283,7 +311,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*types.ActorI
 		handle = hurl.Host
 	}
 
-	c := &xrpc.Client{Host: svc.ServiceEndpoint}
+	c := &xrpc.Client{Host: durl.String()}
 	profile, err := bsky.ActorGetProfile(ctx, c, did)
 	if err != nil {
 		return nil, err

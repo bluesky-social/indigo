@@ -10,6 +10,7 @@ import (
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/urfave/cli/v2"
+	"github.com/whyrusleeping/gosky/api"
 	"github.com/whyrusleeping/gosky/carstore"
 	"github.com/whyrusleeping/gosky/plc"
 	server "github.com/whyrusleeping/gosky/server"
@@ -44,6 +45,10 @@ func main() {
 			Name:  "pdshost",
 			Usage: "hostname of the pds",
 			Value: "localhost:4989",
+		},
+		&cli.StringFlag{
+			Name:  "plc",
+			Usage: "hostname of the plc",
 		},
 	}
 
@@ -118,8 +123,15 @@ func main() {
 			return err
 		}
 
+		var didr plc.PLCClient
+		if plchost := cctx.String("plc"); plchost != "" {
+			didr = &api.PLCServer{Host: plchost}
+		} else {
+			didr = plc.NewFakeDid(db)
+		}
+
 		pdshost := cctx.String("pdshost")
-		srv, err := server.NewServer(db, cs, "server.key", ".pdstest", pdshost, plc.NewFakeDid(db), []byte("jwtsecretplaceholder"))
+		srv, err := server.NewServer(db, cs, "server.key", ".pdstest", pdshost, didr, []byte("jwtsecretplaceholder"))
 		if err != nil {
 			return err
 		}
