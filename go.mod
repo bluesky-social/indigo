@@ -1,4 +1,4 @@
-module github.com/whyrusleeping/gosky
+module github.com/bluesky-social/indigo
 
 go 1.18
 

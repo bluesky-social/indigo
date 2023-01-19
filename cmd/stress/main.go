@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bluesky-social/indigo/api"
+	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	"github.com/bluesky-social/indigo/xrpc"
 	cli "github.com/urfave/cli/v2"
-	"github.com/whyrusleeping/gosky/api"
-	cliutil "github.com/whyrusleeping/gosky/cmd/gosky/util"
-	"github.com/whyrusleeping/gosky/xrpc"
 )
 
 func main() {

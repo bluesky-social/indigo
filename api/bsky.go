@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	bsky "github.com/whyrusleeping/gosky/api/bsky"
-	"github.com/whyrusleeping/gosky/xrpc"
+	bsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/xrpc"
 )
 
 type BskyApp struct {

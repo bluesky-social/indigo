@@ -241,8 +241,8 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 	fmt.Fprintf(buf, "\t\"fmt\"\n")
 	fmt.Fprintf(buf, "\t\"encoding/json\"\n")
 	fmt.Fprintf(buf, "\tcbg \"github.com/whyrusleeping/cbor-gen\"\n")
-	fmt.Fprintf(buf, "\t\"github.com/whyrusleeping/gosky/xrpc\"\n")
-	fmt.Fprintf(buf, "\t\"github.com/whyrusleeping/gosky/lex/util\"\n")
+	fmt.Fprintf(buf, "\t\"github.com/bluesky-social/indigo/xrpc\"\n")
+	fmt.Fprintf(buf, "\t\"github.com/bluesky-social/indigo/lex/util\"\n")
 	for k, v := range imports {
 		if k != prefix {
 			fmt.Fprintf(buf, "\t%s %q\n", importNameForPrefix(k), v)
@@ -537,7 +537,7 @@ func WriteServerHandlers(w io.Writer, schemas []*Schema, pkg string, impmap map[
 	fmt.Fprintf(w, "\t\"context\"\n")
 	fmt.Fprintf(w, "\t\"fmt\"\n")
 	fmt.Fprintf(w, "\t\"encoding/json\"\n")
-	fmt.Fprintf(w, "\t\"github.com/whyrusleeping/gosky/xrpc\"\n")
+	fmt.Fprintf(w, "\t\"github.com/bluesky-social/indigo/xrpc\"\n")
 	for k, v := range impmap {
 		fmt.Fprintf(w, "\t%s\"%s\"\n", importNameForPrefix(k), v)
 	}
@@ -577,7 +577,7 @@ func WriteXrpcServer(w io.Writer, schemas []*Schema, pkg string, impmap map[stri
 	fmt.Fprintf(w, "\t\"context\"\n")
 	fmt.Fprintf(w, "\t\"fmt\"\n")
 	fmt.Fprintf(w, "\t\"encoding/json\"\n")
-	fmt.Fprintf(w, "\t\"github.com/whyrusleeping/gosky/xrpc\"\n")
+	fmt.Fprintf(w, "\t\"github.com/bluesky-social/indigo/xrpc\"\n")
 	fmt.Fprintf(w, "\t\"github.com/labstack/echo/v4\"\n")
 
 	var prefixes []string

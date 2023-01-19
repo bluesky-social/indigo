@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/whyrusleeping/gosky/xrpc"
+	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // schema: com.atproto.sync.getRepo

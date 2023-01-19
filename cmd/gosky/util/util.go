@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluesky-social/indigo/api"
+	"github.com/bluesky-social/indigo/xrpc"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/urfave/cli/v2"
-	"github.com/whyrusleeping/gosky/api"
-	"github.com/whyrusleeping/gosky/xrpc"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

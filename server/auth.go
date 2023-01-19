@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/lestrrat-go/jwx/jwa"
 	jwt "github.com/lestrrat-go/jwx/jwt"
-	"github.com/whyrusleeping/gosky/xrpc"
 )
 
 const actorUserDeclarationCid = "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u"

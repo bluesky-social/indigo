@@ -13,8 +13,8 @@ import (
 	"net/url"
 	"strings"
 
+	key "github.com/bluesky-social/indigo/key"
 	did "github.com/whyrusleeping/go-did"
-	key "github.com/whyrusleeping/gosky/key"
 	otel "go.opentelemetry.io/otel"
 )
 

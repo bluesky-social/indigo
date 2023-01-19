@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"testing"
 
+	key "github.com/bluesky-social/indigo/key"
 	"github.com/lestrrat-go/jwx/jwk"
-	key "github.com/whyrusleeping/gosky/key"
 )
 
 type testVector struct {
