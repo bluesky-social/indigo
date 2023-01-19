@@ -1,0 +1,23 @@
+*.o
+*.a
+*.pyc
+#*#
+*~
+*.swp
+.*
+*.tmp
+*.old
+*.profile
+*.bkp
+*.bak
+[Tt]humbs.db
+*.DS_Store
+build/
+_build/
+src/build/
+*.log
+*.db
+
+# Don't ignore this file itself, or other specific dotfiles
+!.gitignore
+!.github/
