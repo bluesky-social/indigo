@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluesky-social/indigo/api"
+	"github.com/bluesky-social/indigo/repo"
 	sqlbs "github.com/ipfs/go-bs-sqlite3"
 	"github.com/ipfs/go-cid"
 	flatfs "github.com/ipfs/go-ds-flatfs"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	"github.com/whyrusleeping/gosky/api"
-	"github.com/whyrusleeping/gosky/repo"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )

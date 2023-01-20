@@ -4,9 +4,9 @@ import (
 	"io"
 	"strconv"
 
+	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/labstack/echo/v4"
-	comatprototypes "github.com/whyrusleeping/gosky/api/atproto"
-	appbskytypes "github.com/whyrusleeping/gosky/api/bsky"
 	"go.opentelemetry.io/otel"
 )
 

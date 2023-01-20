@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io"
 
+	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/lex/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
-	comatprototypes "github.com/whyrusleeping/gosky/api/atproto"
-	"github.com/whyrusleeping/gosky/lex/util"
 )
 
 // schema: app.bsky.feed.post

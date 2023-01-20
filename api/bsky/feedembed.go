@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/whyrusleeping/gosky/lex/util"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // schema: app.bsky.feed.embed

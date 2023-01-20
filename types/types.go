@@ -5,7 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
-	bsky "github.com/whyrusleeping/gosky/api/bsky"
+	bsky "github.com/bluesky-social/indigo/api/bsky"
 )
 
 type FeedPost struct {

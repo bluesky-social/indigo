@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
+	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/ipfs/go-cid"
 	jwt "github.com/lestrrat-go/jwx/jwt"
-	comatprototypes "github.com/whyrusleeping/gosky/api/atproto"
-	appbskytypes "github.com/whyrusleeping/gosky/api/bsky"
-	"github.com/whyrusleeping/gosky/lex/util"
 )
 
 func (s *Server) handleAppBskyActorCreateScene(ctx context.Context, input *appbskytypes.ActorCreateScene_Input) (*appbskytypes.ActorCreateScene_Output, error) {

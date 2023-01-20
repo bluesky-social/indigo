@@ -3,8 +3,8 @@ package schemagen
 import (
 	"context"
 
-	comatprototypes "github.com/whyrusleeping/gosky/api/atproto"
-	"github.com/whyrusleeping/gosky/xrpc"
+	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // schema: app.bsky.feed.setVote

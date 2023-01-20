@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/key"
 	"github.com/gorilla/websocket"
-	"github.com/whyrusleeping/gosky/events"
-	"github.com/whyrusleeping/gosky/key"
 	"gorm.io/gorm"
 )
 

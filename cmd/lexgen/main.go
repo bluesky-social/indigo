@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	lex "github.com/bluesky-social/indigo/lex"
 	cli "github.com/urfave/cli/v2"
-	lex "github.com/whyrusleeping/gosky/lex"
 )
 
 func findSchemas(dir string) ([]string, error) {
@@ -107,8 +107,8 @@ func main() {
 		pkgname := cctx.String("package")
 
 		imports := map[string]string{
-			"app.bsky":    "github.com/whyrusleeping/gosky/api/bsky",
-			"com.atproto": "github.com/whyrusleeping/gosky/api/atproto",
+			"app.bsky":    "github.com/bluesky-social/indigo/api/bsky",
+			"com.atproto": "github.com/bluesky-social/indigo/api/atproto",
 		}
 
 		if cctx.Bool("gen-server") {

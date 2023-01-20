@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/lestrrat-go/jwx/jwa"
 	jwt "github.com/lestrrat-go/jwx/jwt"
-	"github.com/whyrusleeping/gosky/xrpc"
 )
 
 const actorUserDeclarationCid = "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u"
@@ -54,7 +54,7 @@ func (s *Server) createCrossServerAuthToken(ctx context.Context, otherpds string
 	accessTok := makeToken(otherpds, "com.atproto.federation", time.Now().Add(24*time.Hour))
 
 	// setting this is a little weird,
-	// since the token isnt signed by this key, we dont have a way to validate...
+	// since the token isn't signed by this key, we dont have a way to validate...
 	accessTok.Set("pds", s.signingKey.DID())
 
 	rval := make([]byte, 10)

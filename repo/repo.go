@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/mst"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/ipld/go-car/v2"
 	cbg "github.com/whyrusleeping/cbor-gen"
-	"github.com/whyrusleeping/gosky/lex/util"
-	"github.com/whyrusleeping/gosky/mst"
 	"go.opentelemetry.io/otel"
 )
 

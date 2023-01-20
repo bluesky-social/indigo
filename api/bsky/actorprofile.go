@@ -1,7 +1,7 @@
 package schemagen
 
 import (
-	"github.com/whyrusleeping/gosky/lex/util"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // schema: app.bsky.actor.profile

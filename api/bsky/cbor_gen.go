@@ -8,10 +8,10 @@ import (
 	"math"
 	"sort"
 
+	schemagen "github.com/bluesky-social/indigo/api/atproto"
+	util "github.com/bluesky-social/indigo/lex/util"
 	cid "github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
-	schemagen "github.com/whyrusleeping/gosky/api/atproto"
-	util "github.com/whyrusleeping/gosky/lex/util"
 	xerrors "golang.org/x/xerrors"
 )
 

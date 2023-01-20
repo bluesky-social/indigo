@@ -88,7 +88,7 @@ func assertValues(t *testing.T, mst *MerkleSearchTree, vals map[string]cid.Cid) 
 			}
 		}
 	} else {
-		t.Fatal("different number of values than expected: %d != %d", len(vals), len(out))
+		t.Fatalf("different number of values than expected: %d != %d", len(vals), len(out))
 	}
 }
 

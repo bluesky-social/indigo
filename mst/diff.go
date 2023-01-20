@@ -26,7 +26,7 @@ func checkDiffSort(diffs []*DiffOp) {
 	}
 }
 
-// TODO: this code isnt great, should be rewritten on top of the baseline datastructures once functional and correct
+// TODO: this code isn't great, should be rewritten on top of the baseline datastructures once functional and correct
 func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) ([]*DiffOp, error) {
 	cst := cbor.NewCborStore(bs)
 

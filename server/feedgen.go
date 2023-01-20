@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
+	bsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/indexer"
+	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/types"
 	"github.com/ipfs/go-cid"
-	bsky "github.com/whyrusleeping/gosky/api/bsky"
-	"github.com/whyrusleeping/gosky/indexer"
-	"github.com/whyrusleeping/gosky/lex/util"
-	"github.com/whyrusleeping/gosky/types"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )

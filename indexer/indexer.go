@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"strings"
 
+	bsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/notifs"
+	"github.com/bluesky-social/indigo/plc"
+	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/types"
 	logging "github.com/ipfs/go-log"
-	bsky "github.com/whyrusleeping/gosky/api/bsky"
-	"github.com/whyrusleeping/gosky/events"
-	"github.com/whyrusleeping/gosky/notifs"
-	"github.com/whyrusleeping/gosky/plc"
-	"github.com/whyrusleeping/gosky/repomgr"
-	"github.com/whyrusleeping/gosky/types"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
@@ -307,7 +307,7 @@ func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPo
 	if post.Reply != nil {
 		replyto, err := ix.GetPost(ctx, post.Reply.Parent.Uri)
 		if err != nil {
-			log.Error("probably shouldnt error when processing a reply to a not-found post")
+			log.Error("probably shouldn't error when processing a reply to a not-found post")
 			return err
 		}
 

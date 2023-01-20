@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/whyrusleeping/gosky/lex/util"
-	"github.com/whyrusleeping/gosky/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // schema: com.atproto.repo.batchWrite

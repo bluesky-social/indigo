@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bluesky-social/indigo/api"
+	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	"github.com/bluesky-social/indigo/xrpc"
 	cli "github.com/urfave/cli/v2"
-	"github.com/whyrusleeping/gosky/api"
-	cliutil "github.com/whyrusleeping/gosky/cmd/gosky/util"
-	"github.com/whyrusleeping/gosky/xrpc"
 )
 
 func main() {
@@ -51,7 +51,8 @@ var postingCmd = &cli.Command{
 		rand.Read(buf)
 		id := hex.EncodeToString(buf)
 
-		acc, err := atp.CreateAccount(ctx, fmt.Sprintf("user-%s@test.com", id), "user-"+id+".test", "password")
+		var invite *string
+		acc, err := atp.CreateAccount(ctx, fmt.Sprintf("user-%s@test.com", id), "user-"+id+".test", "password", invite)
 		if err != nil {
 			return err
 		}
@@ -59,9 +60,9 @@ var postingCmd = &cli.Command{
 		quiet := cctx.Bool("quiet")
 
 		atp.C.Auth = &xrpc.AuthInfo{
-			Did:      acc.Did,
-			Jwt:      acc.AccessJwt,
-			Username: acc.Handle,
+			Did:       acc.Did,
+			AccessJwt: acc.AccessJwt,
+			Handle:    acc.Handle,
 		}
 
 		count := cctx.Int("count")
