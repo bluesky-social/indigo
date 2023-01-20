@@ -13,11 +13,14 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/types"
 	"github.com/ipfs/go-cid"
+	logging "github.com/ipfs/go-log/v2"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+var log = logging.Logger("repomgr")
 
 func NewRepoManager(db *gorm.DB, cs *carstore.CarStore) *RepoManager {
 	db.AutoMigrate(RepoHead{})
@@ -493,7 +496,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		return fmt.Errorf("opening external user repo: %w", err)
 	}
 
-	fmt.Println("external event: ", ops)
+	log.Infow("external event", "uid", uid, "ops", ops)
 
 	var evtops []RepoOp
 	for _, op := range ops {

@@ -15,11 +15,13 @@ import (
 	"github.com/bluesky-social/indigo/types"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/gorilla/websocket"
+	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/labstack/gommon/log"
 	"gorm.io/gorm"
 )
+
+var log = logging.Logger("bgs")
 
 type BGS struct {
 	index   *indexer.Indexer
@@ -81,7 +83,7 @@ type User struct {
 }
 
 type addTargetBody struct {
-	Host string
+	Host string `json:"host"`
 }
 
 // the ding-dong api
@@ -89,6 +91,10 @@ func (bgs *BGS) handleAddTarget(c echo.Context) error {
 	var body addTargetBody
 	if err := c.Bind(&body); err != nil {
 		return err
+	}
+
+	if body.Host == "" {
+		return fmt.Errorf("no host specified")
 	}
 
 	return bgs.slurper.SubscribeToPds(c.Request().Context(), body.Host)
@@ -108,6 +114,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 	defer cancel()
 
 	for evt := range evts {
+		fmt.Println("outgoing event repo: ", evt.Repo)
 		if err := conn.WriteJSON(evt); err != nil {
 			return err
 		}
@@ -130,7 +137,7 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 }
 
 func (bgs *BGS) handleFedEvent(ctx context.Context, host *PDS, evt *events.Event) error {
-	log.Infof("got fed event from %q: %s\n", host.Host, evt.Kind)
+	log.Infof("bgs got fed event from %q: %s %s\n", host.Host, evt.Kind, evt.Repo)
 	switch evt.Kind {
 	case events.EvtKindRepoChange:
 		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
@@ -156,6 +163,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *PDS, evt *events.Event
 }
 
 func (s *BGS) createExternalUser(ctx context.Context, did string) (*types.ActorInfo, error) {
+	log.Infof("create external user: %s", did)
 	doc, err := s.didr.GetDocument(ctx, did)
 	if err != nil {
 		return nil, fmt.Errorf("could not locate DID document for followed user: %s", err)
@@ -178,6 +186,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*types.ActorI
 	// TODO: the PDS's DID should also be in the service, we could use that to look up?
 	var peering PDS
 	if err := s.db.First(&peering, "host = ?", durl.Host).Error; err != nil {
+		fmt.Println("failed to find pds", durl.Host)
 		return nil, err
 	}
 

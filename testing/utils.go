@@ -1,6 +1,7 @@
-package schemagen
+package testing
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -8,20 +9,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/bluesky-social/indigo/api"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/bgs"
 	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
+	"github.com/bluesky-social/indigo/repomgr"
+	server "github.com/bluesky-social/indigo/server"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/stretchr/testify/assert"
+
+	"github.com/gorilla/websocket"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -55,7 +65,7 @@ func makeKey(t *testing.T, fname string) {
 
 type testPDS struct {
 	dir    string
-	server *Server
+	server *server.Server
 	plc    *api.PLCServer
 
 	host string
@@ -74,7 +84,7 @@ func (tp *testPDS) Cleanup() {
 }
 
 func setupPDS(t *testing.T, host, suffix string, plc plc.PLCClient) *testPDS {
-	dir, err := ioutil.TempDir("", "fedtest")
+	dir, err := ioutil.TempDir("", "integtest")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +112,7 @@ func setupPDS(t *testing.T, host, suffix string, plc plc.PLCClient) *testPDS {
 	kfile := filepath.Join(dir, "server.key")
 	makeKey(t, kfile)
 
-	srv, err := NewServer(maindb, cs, kfile, suffix, host, plc, []byte(host+suffix))
+	srv, err := server.NewServer(maindb, cs, kfile, suffix, host, plc, []byte(host+suffix))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +134,24 @@ func (tp *testPDS) Run(t *testing.T) {
 	time.Sleep(time.Millisecond * 10)
 
 	tp.shutdown = func() {
-		tp.server.echo.Shutdown(context.TODO())
+		tp.server.Shutdown(context.TODO())
+	}
+}
+
+func (tp *testPDS) RequestScraping(t *testing.T, b *testBGS) {
+	t.Helper()
+	bb, err := json.Marshal(map[string]string{"host": tp.host})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := http.Post("http://"+b.host+"/add-target", "application/json", bytes.NewReader(bb))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != 200 {
+		t.Fatal("invalid response from bgs", resp.StatusCode)
 	}
 }
 
@@ -136,6 +163,7 @@ type testUser struct {
 	client *xrpc.Client
 }
 
+/*
 func (tp *testPDS) PeerWith(t *testing.T, op *testPDS) {
 	if err := tp.server.HackAddPeering(op.host, op.server.signingKey.DID()); err != nil {
 		t.Fatal(err)
@@ -145,6 +173,7 @@ func (tp *testPDS) PeerWith(t *testing.T, op *testPDS) {
 		t.Fatal(err)
 	}
 }
+*/
 
 func (tp *testPDS) NewUser(t *testing.T, handle string) *testUser {
 	ctx := context.TODO()
@@ -153,6 +182,7 @@ func (tp *testPDS) NewUser(t *testing.T, handle string) *testUser {
 		Host: "http://" + tp.host,
 	}
 
+	fmt.Println("HOST: ", c.Host)
 	out, err := atproto.AccountCreate(ctx, c, &atproto.AccountCreate_Input{
 		Email:    handle + "@fake.com",
 		Handle:   handle,
@@ -202,6 +232,11 @@ func (u *testUser) Reply(t *testing.T, post, pcid, body string) string {
 
 	return resp.Uri
 }
+
+func (u *testUser) DID() string {
+	return u.did
+}
+
 func (u *testUser) Post(t *testing.T, body string) *atproto.RepoStrongRef {
 	t.Helper()
 
@@ -286,6 +321,145 @@ func testPLC(t *testing.T) *plc.FakeDid {
 	return plc.NewFakeDid(db)
 }
 
+type testBGS struct {
+	bgs  *bgs.BGS
+	host string
+}
+
+func setupBGS(t *testing.T, host string, didr plc.PLCClient) *testBGS {
+	dir, err := ioutil.TempDir("", "integtest")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.db")))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.db")))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cspath := filepath.Join(dir, "carstore")
+	if err := os.Mkdir(cspath, 0775); err != nil {
+		t.Fatal(err)
+	}
+
+	cs, err := carstore.NewCarStore(cardb, cspath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	repoman := repomgr.NewRepoManager(maindb, cs)
+
+	notifman := notifs.NewNotificationManager(maindb, repoman.GetRecord)
+
+	evtman := events.NewEventManager()
+
+	go evtman.Run()
+
+	ix, err := indexer.NewIndexer(maindb, notifman, evtman, didr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
+		if err := ix.HandleRepoEvent(ctx, evt); err != nil {
+			fmt.Println("test bgs failed to handle repo event", err)
+		}
+	})
+
+	b := bgs.NewBGS(maindb, ix, repoman, evtman, didr)
+
+	return &testBGS{
+		bgs:  b,
+		host: host,
+	}
+}
+
+func (b *testBGS) Run(t *testing.T) {
+	go func() {
+		if err := b.bgs.Start(b.host); err != nil {
+			fmt.Println(err)
+		}
+	}()
+	time.Sleep(time.Millisecond * 10)
+}
+
+type eventStream struct {
+	lk     sync.Mutex
+	events []*events.Event
+	cancel func()
+
+	cur int
+}
+
+func (b *testBGS) Events(t *testing.T) *eventStream {
+	d := websocket.Dialer{}
+	con, resp, err := d.Dial("ws://"+b.host+"/events", http.Header{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != 101 {
+		t.Fatal("expected http 101 response, got: ", resp.StatusCode)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	es := &eventStream{
+		cancel: cancel,
+	}
+
+	go func() {
+		<-ctx.Done()
+		con.Close()
+	}()
+
+	go func() {
+		for {
+			var ev events.Event
+			if err := con.ReadJSON(&ev); err != nil {
+				fmt.Println("failed to read: ", err)
+				return
+			}
+
+			es.lk.Lock()
+			es.events = append(es.events, &ev)
+			es.lk.Unlock()
+		}
+	}()
+
+	return es
+}
+
+func (es *eventStream) Next() *events.Event {
+	defer es.lk.Unlock()
+	for {
+		es.lk.Lock()
+		if len(es.events) > es.cur {
+			es.cur++
+			return es.events[es.cur-1]
+		}
+		es.lk.Unlock()
+		time.Sleep(time.Millisecond * 10)
+	}
+}
+
+func (es *eventStream) All() []*events.Event {
+	es.lk.Lock()
+	defer es.lk.Unlock()
+	out := make([]*events.Event, len(es.events))
+	for i, e := range es.events {
+		out[i] = e
+	}
+
+	return out
+}
+
+/*
 func TestBasicFederation(t *testing.T) {
 	assert := assert.New(t)
 	plc := testPLC(t)
@@ -329,3 +503,4 @@ func TestBasicFederation(t *testing.T) {
 	}
 
 }
+*/
