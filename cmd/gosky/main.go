@@ -11,6 +11,12 @@ import (
 	"strings"
 	"time"
 
+	api "github.com/bluesky-social/indigo/api"
+	atproto "github.com/bluesky-social/indigo/api/atproto"
+	apibsky "github.com/bluesky-social/indigo/api/bsky"
+	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	"github.com/bluesky-social/indigo/key"
+	"github.com/bluesky-social/indigo/repo"
 	"github.com/ipfs/go-cid"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwk"
@@ -18,12 +24,6 @@ import (
 	rejson "github.com/polydawn/refmt/json"
 	"github.com/polydawn/refmt/shared"
 	cli "github.com/urfave/cli/v2"
-	api "github.com/whyrusleeping/gosky/api"
-	atproto "github.com/whyrusleeping/gosky/api/atproto"
-	apibsky "github.com/whyrusleeping/gosky/api/bsky"
-	cliutil "github.com/whyrusleeping/gosky/cmd/gosky/util"
-	"github.com/whyrusleeping/gosky/key"
-	"github.com/whyrusleeping/gosky/repo"
 )
 
 func main() {

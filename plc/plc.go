@@ -3,8 +3,8 @@ package plc
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/key"
 	"github.com/whyrusleeping/go-did"
-	"github.com/whyrusleeping/gosky/key"
 )
 
 type PLCClient interface {

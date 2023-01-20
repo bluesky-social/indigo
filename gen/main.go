@@ -1,13 +1,13 @@
 package main
 
 import (
+	"github.com/bluesky-social/indigo/api"
+	atproto "github.com/bluesky-social/indigo/api/atproto"
+	bsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/lex/util"
+	mst "github.com/bluesky-social/indigo/mst"
+	"github.com/bluesky-social/indigo/repo"
 	cbg "github.com/whyrusleeping/cbor-gen"
-	"github.com/whyrusleeping/gosky/api"
-	atproto "github.com/whyrusleeping/gosky/api/atproto"
-	bsky "github.com/whyrusleeping/gosky/api/bsky"
-	"github.com/whyrusleeping/gosky/lex/util"
-	mst "github.com/whyrusleeping/gosky/mst"
-	"github.com/whyrusleeping/gosky/repo"
 )
 
 func main() {

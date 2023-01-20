@@ -483,7 +483,7 @@ func (mst *MerkleSearchTree) replaceWithSplit(ctx context.Context, ix int, left 
 func checkTreeInvariant(ents []NodeEntry) {
 	for i := 0; i < len(ents)-1; i++ {
 		if ents[i].isTree() && ents[i+1].isTree() {
-			panic(fmt.Sprintf("two trees next to eachother! %d %d", i, i+1))
+			panic(fmt.Sprintf("two trees next to each other! %d %d", i, i+1))
 		}
 	}
 }

@@ -1,8 +1,8 @@
 package schemagen
 
 import (
-	comatprototypes "github.com/whyrusleeping/gosky/api/atproto"
-	"github.com/whyrusleeping/gosky/lex/util"
+	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // schema: app.bsky.feed.repost

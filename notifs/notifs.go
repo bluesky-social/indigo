@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/types"
 	"github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
-	appbskytypes "github.com/whyrusleeping/gosky/api/bsky"
-	"github.com/whyrusleeping/gosky/lex/util"
-	"github.com/whyrusleeping/gosky/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

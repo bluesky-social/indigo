@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bluesky-social/indigo/events"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/gommon/log"
-	"github.com/whyrusleeping/gosky/events"
 	"gorm.io/gorm"
 )
 
