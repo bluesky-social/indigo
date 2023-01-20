@@ -100,19 +100,6 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 
 	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
 		ix.HandleRepoEvent(ctx, evt)
-
-		/*
-			fe, err := s.repoEventToFedEvent(context.TODO(), evt)
-			if err != nil {
-				log.Println("event conversion error: ", err)
-				return
-			}
-			if fe != nil {
-				if err := evtman.AddEvent(fe); err != nil {
-					log.Println("failed to push event: ", err)
-				}
-			}
-		*/
 	})
 
 	ix.SendRemoteFollow = s.sendRemoteFollow
@@ -128,6 +115,10 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 	go evtman.Run()
 
 	return s, nil
+}
+
+func (s *Server) Shutdown(ctx context.Context) error {
+	return s.echo.Shutdown(ctx)
 }
 
 func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *events.Event) error {

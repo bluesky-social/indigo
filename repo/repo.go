@@ -114,6 +114,16 @@ type CborMarshaler interface {
 	MarshalCBOR(w io.Writer) error
 }
 
+func (r *Repo) PrevCommit(ctx context.Context) (*cid.Cid, error) {
+
+	var c Commit
+	if err := r.cst.Get(ctx, r.sr.Root, &c); err != nil {
+		return nil, err
+	}
+
+	return c.Prev, nil
+}
+
 func (r *Repo) Blockstore() blockstore.Blockstore {
 	return r.bs
 }

@@ -22,7 +22,7 @@ import (
 	"gorm.io/plugin/opentelemetry/tracing"
 )
 
-var log = logging.Logger("bgs")
+var log = logging.Logger("bigsky")
 
 func init() {
 	logging.SetAllLoggers(logging.LevelDebug)

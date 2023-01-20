@@ -26,6 +26,8 @@ type Indexer struct {
 	events   *events.EventManager
 	didr     plc.PLCClient
 
+	crawl bool
+
 	SendRemoteFollow   func(context.Context, string, uint) error
 	CreateExternalUser func(context.Context, string) (*types.ActorInfo, error)
 }
@@ -61,13 +63,13 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		return fmt.Errorf("failed to catch up on user repo changes, processing events off base: %w", err)
 	}
 
-	log.Infof("Handling Repo Event!")
+	log.Infow("Handling Repo Event!", "uid", evt.User)
 	var relpds []uint
 	var repoOps []*events.RepoOp
 	for _, op := range evt.Ops {
 		switch op.Kind {
 		case repomgr.EvtKindCreateRecord:
-			log.Infof("create record: ", evt.User, op.Collection, op.Rkey)
+			log.Infof("create record: %d %s %s", evt.User, op.Collection, op.Rkey)
 			rop, err := ix.handleRecordCreate(ctx, evt, &op, true)
 			if err != nil {
 				return fmt.Errorf("handle recordCreate: %w", err)
@@ -91,7 +93,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		return err
 	}
 
-	log.Infof("Sending event: ", relpds, len(repoOps))
+	log.Infow("Sending event: ", "opcnt", len(repoOps), "did", did)
 	if err := ix.events.AddEvent(&events.Event{
 		Kind:            events.EvtKindRepoChange,
 		CarSlice:        evt.RepoSlice,
@@ -269,7 +271,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 
 func (ix *Indexer) DidForUser(ctx context.Context, uid uint) (string, error) {
 	var ai types.ActorInfo
-	if err := ix.db.First(&ai, "id = ?", uid).Error; err != nil {
+	if err := ix.db.First(&ai, "uid = ?", uid).Error; err != nil {
 		return "", err
 	}
 

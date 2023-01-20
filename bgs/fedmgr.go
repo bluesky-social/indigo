@@ -12,7 +12,6 @@ import (
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/gorilla/websocket"
-	"github.com/labstack/gommon/log"
 	"gorm.io/gorm"
 )
 
@@ -47,15 +46,16 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string) error {
 	}
 
 	var peering PDS
-	if err := s.db.First(&peering, "host = ?", host).Error; err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
+	if err := s.db.Find(&peering, "host = ?", host).Error; err != nil {
+		return err
+	}
 
+	if peering.ID == 0 {
 		// New PDS!
 		npds := PDS{
 			Host: host,
 		}
+		fmt.Println("CREATING NEW PDS", host)
 		if err := s.db.Create(&npds).Error; err != nil {
 			return err
 		}
@@ -141,7 +141,7 @@ func (s *Slurper) handleConnection(host *PDS, con *websocket.Conn) error {
 			return fmt.Errorf("failed to unmarshal event: %w", err)
 		}
 
-		fmt.Println("got event: ", host.Host, ev.Kind)
+		log.Infow("got remote event", "host", host.Host, "kind", ev.Kind)
 		if err := s.cb(context.TODO(), host, &ev); err != nil {
 			log.Errorf("failed to index event from %q: %s", host.Host, err)
 		}

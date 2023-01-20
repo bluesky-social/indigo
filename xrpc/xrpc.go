@@ -93,7 +93,7 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 
 	resp, err := c.getClient().Do(req.WithContext(ctx))
 	if err != nil {
-		return err
+		return fmt.Errorf("request failed: %w", err)
 	}
 
 	if resp.StatusCode != 200 {
