@@ -26,7 +26,7 @@ func TestBGSBasic(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 50)
 
-	evts := b1.Events(t)
+	evts := b1.Events(t, -1)
 	defer evts.cancel()
 
 	bob := p1.NewUser(t, "bob.tpds")
@@ -45,10 +45,22 @@ func TestBGSBasic(t *testing.T) {
 	assert.Equal(e1.Repo, bob.DID())
 
 	e2 := evts.Next()
-	e3 := evts.Next()
-	e4 := evts.Next()
+	assert.Equal(e2.Kind, "repoChange")
+	assert.Equal(e2.Repo, alice.DID())
 
-	_ = e2
-	_ = e3
-	_ = e4
+	e3 := evts.Next()
+	assert.Equal(e3.Repo, bob.DID())
+	assert.Equal(e3.RepoOps[0].Kind, "createRecord")
+
+	e4 := evts.Next()
+	assert.Equal(e4.Repo, alice.DID())
+	assert.Equal(e4.RepoOps[0].Kind, "createRecord")
+
+	// playback
+	pbevts := b1.Events(t, 2)
+	defer pbevts.cancel()
+
+	pbe1 := pbevts.Next()
+	assert.Equal(*e3, *pbe1)
+
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	bsky "github.com/bluesky-social/indigo/api/bsky"
@@ -107,7 +108,16 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		return err
 	}
 
-	evts, cancel, err := bgs.events.Subscribe(func(evt *events.Event) bool { return true })
+	var since *int64
+	if sinceHeader := c.Request().Header.Get("since"); sinceHeader != "" {
+		sval, err := strconv.ParseInt(sinceHeader, 10, 64)
+		if err != nil {
+			return err
+		}
+		since = &sval
+	}
+
+	evts, cancel, err := bgs.events.Subscribe(func(evt *events.Event) bool { return true }, since)
 	if err != nil {
 		return err
 	}

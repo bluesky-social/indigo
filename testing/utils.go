@@ -396,9 +396,15 @@ type eventStream struct {
 	cur int
 }
 
-func (b *testBGS) Events(t *testing.T) *eventStream {
+func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 	d := websocket.Dialer{}
-	con, resp, err := d.Dial("ws://"+b.host+"/events", http.Header{})
+	h := http.Header{}
+
+	if since >= 0 {
+		h.Set("since", fmt.Sprint(since))
+	}
+
+	con, resp, err := d.Dial("ws://"+b.host+"/events", h)
 	if err != nil {
 		t.Fatal(err)
 	}
