@@ -659,7 +659,7 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		}
 
 		return has
-	})
+	}, nil)
 	if err != nil {
 		return err
 	}
