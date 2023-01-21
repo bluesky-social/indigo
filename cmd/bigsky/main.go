@@ -11,6 +11,10 @@ import (
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/repomgr"
+
+	"net/http"
+	_ "net/http/pprof"
+
 	logging "github.com/ipfs/go-log"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
@@ -128,6 +132,13 @@ func main() {
 		})
 
 		bgs := bgs.NewBGS(db, ix, repoman, evtman, didr)
+
+		// set up pprof endpoint
+		go func() {
+			if err := http.ListenAndServe("localhost:2471", nil); err != nil {
+				panic(err)
+			}
+		}()
 
 		return bgs.Start(":2470")
 	}
