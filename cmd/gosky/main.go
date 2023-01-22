@@ -32,7 +32,7 @@ func main() {
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
 			Name:  "pds",
-			Value: "",
+			Value: "https://bsky.social",
 		},
 		&cli.StringFlag{
 			Name:  "auth",
@@ -306,10 +306,15 @@ func jsonPrint(i any) {
 	fmt.Println(string(b))
 }
 
-func prettyPrintPost(p *apibsky.FeedFeedViewPost) {
+func prettyPrintPost(p *apibsky.FeedFeedViewPost, uris bool) {
 	fmt.Println(strings.Repeat("-", 60))
 	rec := p.Post.Record.Val.(*apibsky.FeedPost)
-	fmt.Printf("%s (%s):\n", p.Post.Author.Handle, rec.CreatedAt)
+	fmt.Printf("%s (%s)", p.Post.Author.Handle, rec.CreatedAt)
+	if uris {
+		fmt.Println(" -- ", p.Post.Uri)
+	} else {
+		fmt.Println(":")
+	}
 	fmt.Println(rec.Text)
 }
 
@@ -328,6 +333,10 @@ var feedGetCmd = &cli.Command{
 			Name:  "raw",
 			Usage: "print out feed in raw json",
 		},
+		&cli.BoolFlag{
+			Name:  "uris",
+			Usage: "include URIs in pretty print output",
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		bsky, err := cliutil.GetBskyClient(cctx, true)
@@ -338,6 +347,8 @@ var feedGetCmd = &cli.Command{
 		ctx := context.TODO()
 
 		raw := cctx.Bool("raw")
+
+		uris := cctx.Bool("uris")
 
 		author := cctx.String("author")
 		if author != "" {
@@ -355,7 +366,7 @@ var feedGetCmd = &cli.Command{
 				if raw {
 					jsonPrint(it)
 				} else {
-					prettyPrintPost(it)
+					prettyPrintPost(it, uris)
 				}
 			}
 		} else {
@@ -370,7 +381,7 @@ var feedGetCmd = &cli.Command{
 				if raw {
 					jsonPrint(it)
 				} else {
-					prettyPrintPost(it)
+					prettyPrintPost(it, uris)
 				}
 			}
 		}
