@@ -15,6 +15,7 @@ import (
 	logging "github.com/ipfs/go-log"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var log = logging.Logger("indexer")
@@ -117,32 +118,11 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 	}
 	switch rec := op.Record.(type) {
 	case *bsky.FeedPost:
-		var replyid uint
-		if rec.Reply != nil {
-			replyto, err := ix.GetPost(ctx, rec.Reply.Parent.Uri)
-			if err != nil {
-				return nil, err
-			}
-
-			replyid = replyto.ID
-		}
-
-		fp := types.FeedPost{
-			Rkey:    op.Rkey,
-			Cid:     op.RecCid.String(),
-			Author:  evt.User,
-			ReplyTo: replyid,
-		}
-		if err := ix.db.Create(&fp).Error; err != nil {
+		if err := ix.handleRecordCreateFeedPost(ctx, evt, op, rec); err != nil {
 			return nil, err
 		}
-
-		if err := ix.addNewPostNotification(ctx, rec, &fp); err != nil {
-			return nil, err
-		}
-
 	case *bsky.FeedRepost:
-		fp, err := ix.GetPost(ctx, rec.Subject.Uri)
+		fp, err := ix.GetPostOrMissing(ctx, rec.Subject.Uri)
 		if err != nil {
 			return nil, err
 		}
@@ -184,22 +164,17 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			return nil, fmt.Errorf("invalid vote direction: %q", rec.Direction)
 		}
 
-		puri, err := parseAtUri(rec.Subject.Uri)
+		post, err := ix.GetPostOrMissing(ctx, rec.Subject.Uri)
 		if err != nil {
 			return nil, err
 		}
 
-		act, err := ix.LookupUserByDid(ctx, puri.Did)
+		act, err := ix.lookupUser(ctx, post.Author)
 		if err != nil {
 			return nil, err
 		}
 
 		out.PrivRelevantPds = append(out.PrivRelevantPds, act.PDS)
-
-		var post types.FeedPost
-		if err := ix.db.First(&post, "rkey = ? AND author = ?", puri.Rkey, act.Uid).Error; err != nil {
-			return nil, err
-		}
 
 		vr := types.VoteRecord{
 			Dir:     dbdir,
@@ -267,6 +242,123 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 	}
 
 	return out, nil
+}
+
+func (ix *Indexer) GetPostOrMissing(ctx context.Context, uri string) (*types.FeedPost, error) {
+	p, err := ix.GetPost(ctx, uri)
+	if err != nil {
+		if !isNotFound(err) {
+			return nil, err
+		}
+
+		// reply to a post we don't know about, create a record for it anyway
+		return ix.createMissingPostRecord(ctx, uri)
+	}
+
+	return p, nil
+}
+
+func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp, rec *bsky.FeedPost) error {
+	var replyid uint
+	if rec.Reply != nil {
+		replyto, err := ix.GetPostOrMissing(ctx, rec.Reply.Parent.Uri)
+		if err != nil {
+			return err
+		}
+
+		replyid = replyto.ID
+	}
+
+	var maybe types.FeedPost
+	if err := ix.db.Find(&maybe, "rkey = ? AND author = ?", op.Rkey, evt.User).Error; err != nil {
+		return err
+	}
+
+	fp := types.FeedPost{
+		Rkey:    op.Rkey,
+		Cid:     op.RecCid.String(),
+		Author:  evt.User,
+		ReplyTo: replyid,
+	}
+
+	if maybe.ID != 0 {
+		// we're likely filling in a missing reference
+		if !maybe.Missing {
+			// TODO: we've already processed this record creation
+			log.Warnw("potentially erroneous event, duplicate create", "rkey", op.Rkey, "user", evt.User)
+		}
+
+		if err := ix.db.Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).Create(&fp).Error; err != nil {
+			return err
+		}
+
+	} else {
+		if err := ix.db.Create(&fp).Error; err != nil {
+			return err
+		}
+	}
+
+	if err := ix.addNewPostNotification(ctx, rec, &fp); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ix *Indexer) createMissingPostRecord(ctx context.Context, uri string) (*types.FeedPost, error) {
+	puri, err := parseAtUri(uri)
+	if err != nil {
+		return nil, err
+	}
+
+	ai, err := ix.LookupUserByDid(ctx, puri.Did)
+	if err != nil {
+		if !isNotFound(err) {
+			return nil, err
+		}
+
+		// unknown user... create it and send it off to the crawler
+		nai, err := ix.createMissingUserRecord(ctx, puri.Did)
+		if err != nil {
+			return nil, fmt.Errorf("creating missing user record: %w", err)
+		}
+
+		ai = nai
+	}
+
+	var fp types.FeedPost
+	if err := ix.db.FirstOrCreate(&fp, types.FeedPost{
+		Author:  ai.Uid,
+		Rkey:    puri.Rkey,
+		Missing: true,
+	}).Error; err != nil {
+		return nil, err
+	}
+
+	return &fp, nil
+}
+
+func (ix *Indexer) createMissingUserRecord(ctx context.Context, did string) (*types.ActorInfo, error) {
+	ai, err := ix.CreateExternalUser(ctx, did)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := ix.addUserToCrawler(ctx, ai); err != nil {
+		return nil, fmt.Errorf("failed to add unknown user to crawler: %w", err)
+	}
+
+	return ai, nil
+}
+
+func (ix *Indexer) addUserToCrawler(ctx context.Context, ai *types.ActorInfo) error {
+	if !ix.crawl {
+		return nil
+	}
+
+	panic("crawler not implemented")
 }
 
 func (ix *Indexer) DidForUser(ctx context.Context, uid uint) (string, error) {
@@ -362,6 +454,14 @@ func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, 
 	return &events.RepoOp{
 		Kind: string(repomgr.EvtKindInitActor),
 	}, nil
+}
+
+func isNotFound(err error) bool {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return true
+	}
+
+	return false
 }
 
 func (ix *Indexer) GetPost(ctx context.Context, uri string) (*types.FeedPost, error) {

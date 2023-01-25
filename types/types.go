@@ -10,13 +10,14 @@ import (
 
 type FeedPost struct {
 	gorm.Model
-	Author      uint
-	Rkey        string
+	Author      uint   `gorm:"index:idx_feedpost_rkey,unique"`
+	Rkey        string `gorm:"index:idx_feedpost_rkey,unique"`
 	Cid         string
 	UpCount     int64
 	ReplyCount  int64
 	RepostCount int64
 	ReplyTo     uint
+	Missing     bool
 }
 
 type RepostRecord struct {
@@ -32,10 +33,10 @@ type RepostRecord struct {
 
 type ActorInfo struct {
 	gorm.Model
-	Uid         uint `gorm:"index"`
+	Uid         uint `gorm:"uniqueindex"`
 	Handle      string
 	DisplayName string
-	Did         string
+	Did         string `gorm:"uniqueindex"`
 	Following   int64
 	Followers   int64
 	Posts       int64
