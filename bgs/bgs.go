@@ -182,7 +182,6 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *PDS, evt *events.RepoE
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
-	return nil
 }
 
 func (s *BGS) createExternalUser(ctx context.Context, did string) (*types.ActorInfo, error) {
