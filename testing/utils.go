@@ -390,7 +390,7 @@ func (b *testBGS) Run(t *testing.T) {
 
 type eventStream struct {
 	lk     sync.Mutex
-	events []*events.Event
+	events []*events.RepoEvent
 	cancel func()
 
 	cur int
@@ -426,22 +426,44 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 
 	go func() {
 		for {
-			var ev events.Event
-			if err := con.ReadJSON(&ev); err != nil {
-				fmt.Println("failed to read: ", err)
-				return
+			mt, r, err := con.NextReader()
+			if err != nil {
+				panic(err)
 			}
 
-			es.lk.Lock()
-			es.events = append(es.events, &ev)
-			es.lk.Unlock()
+			switch mt {
+			default:
+				panic("We are reallly not prepared for this")
+			case websocket.BinaryMessage:
+				// ok
+			}
+
+			var header events.EventHeader
+			if err := header.UnmarshalCBOR(r); err != nil {
+				panic(err)
+			}
+
+			switch header.Type {
+			case "data":
+				var evt events.RepoEvent
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					panic(err)
+				}
+
+				es.lk.Lock()
+				es.events = append(es.events, &evt)
+				es.lk.Unlock()
+			default:
+				panic(fmt.Sprintf("unrecognized event stream type: %q", header.Type))
+			}
+
 		}
 	}()
 
 	return es
 }
 
-func (es *eventStream) Next() *events.Event {
+func (es *eventStream) Next() *events.RepoEvent {
 	defer es.lk.Unlock()
 	for {
 		es.lk.Lock()
@@ -454,10 +476,10 @@ func (es *eventStream) Next() *events.Event {
 	}
 }
 
-func (es *eventStream) All() []*events.Event {
+func (es *eventStream) All() []*events.RepoEvent {
 	es.lk.Lock()
 	defer es.lk.Unlock()
-	out := make([]*events.Event, len(es.events))
+	out := make([]*events.RepoEvent, len(es.events))
 	for i, e := range es.events {
 		out[i] = e
 	}

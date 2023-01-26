@@ -374,7 +374,7 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 	}
 
 	if dc.String() != declcid {
-		fmt.Println("DECL CID MISMATCH: ", dc, declcid)
+		log.Warn("DECL CID MISMATCH: ", dc, declcid)
 	}
 
 	// TODO: set declaration?
@@ -559,7 +559,6 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 	}
 
 	if rm.events != nil {
-		fmt.Println("calling out to events handler...")
 		rm.events(ctx, &RepoEvent{
 			User: uid,
 			//OldRoot:    head,
@@ -576,21 +575,6 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 func rkeyForCollection(collection string) string {
 	return repo.NextTID()
 }
-
-/*
-func anyRecordParse(rec any) (cbg.CBORMarshaler, error) {
-	// TODO: really should just have a fancy type that auto-things upon json unmarshal
-	rmap, ok := rec.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("record should have been an object")
-	}
-
-	t, ok := rmap["$type"].(string)
-	if !ok {
-		return nil, fmt.Errorf("records must have string $type field")
-	}
-}
-*/
 
 func (rm *RepoManager) BatchWrite(ctx context.Context, user uint, writes []*atproto.RepoBatchWrite_Input_Writes_Elem) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "BatchWrite")

@@ -2,6 +2,7 @@ package repo
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 )
 
@@ -17,10 +18,24 @@ func s32encode(i uint64) string {
 	return s
 }
 
+func init() {
+	clockId = uint64(rand.Int() & 0x1f)
+}
+
+var lastTime uint64
+var clockId uint64
+var ltLock sync.Mutex
+
 func NextTID() string {
-	t := time.Now()
+	t := uint64(time.Now().UnixMicro())
 
-	clockid := uint64(rand.Uint32() & 0x1f)
+	ltLock.Lock()
+	if lastTime == t {
+		t++
+	}
 
-	return s32encode(uint64(t.UnixMilli())) + s32encode(clockid)
+	lastTime = t
+	ltLock.Unlock()
+
+	return s32encode(uint64(t)) + s32encode(clockId)
 }
