@@ -46,13 +46,13 @@ func (s *Slurper) subscribeWithRedialer(host *Peering) {
 
 		con, res, err := d.Dial("ws://"+host.Host+"/events", h)
 		if err != nil {
-			fmt.Printf("dialing %q failed: %s", host.Host, err)
+			log.Errorf("dialing %q failed: %s", host.Host, err)
 			time.Sleep(sleepForBackoff(backoff))
 			backoff++
 			continue
 		}
 
-		fmt.Println("event subscription response code: ", res.StatusCode)
+		log.Infof("event subscription response code: %d", res.StatusCode)
 
 		if err := s.handleConnection(host, con); err != nil {
 			log.Warnf("connection to %q failed: %s", host.Host, err)

@@ -61,12 +61,12 @@ func (em *EventManager) Run() {
 					select {
 					case s.outgoing <- op.evt:
 					default:
-						fmt.Println("event overflow")
+						log.Error("event overflow")
 					}
 				}
 			}
 		default:
-			fmt.Printf("unrecognized eventmgr operation: %d\n", op.op)
+			log.Errorf("unrecognized eventmgr operation: %d", op.op)
 		}
 	}
 }
@@ -116,6 +116,13 @@ type RepoOp struct {
 }
 
 func (em *EventManager) AddEvent(ev *RepoEvent) error {
+	if ev.RepoAppend != nil {
+		for _, op := range ev.RepoAppend.Ops {
+			if op == nil {
+				panic("no nil things pls")
+			}
+		}
+	}
 	select {
 	case em.ops <- &Operation{
 		op:  opSend,

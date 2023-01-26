@@ -41,20 +41,20 @@ func TestBGSBasic(t *testing.T) {
 	fmt.Println("alice:", alice.DID())
 
 	e1 := evts.Next()
-	assert.Equal(e1.Kind, "repoChange")
+	assert.NotNil(e1.RepoAppend)
 	assert.Equal(e1.Repo, bob.DID())
 
 	e2 := evts.Next()
-	assert.Equal(e2.Kind, "repoChange")
+	assert.NotNil(e2.RepoAppend)
 	assert.Equal(e2.Repo, alice.DID())
 
 	e3 := evts.Next()
 	assert.Equal(e3.Repo, bob.DID())
-	assert.Equal(e3.RepoOps[0].Kind, "createRecord")
+	assert.Equal(e3.RepoAppend.Ops[0].Kind, "createRecord")
 
 	e4 := evts.Next()
 	assert.Equal(e4.Repo, alice.DID())
-	assert.Equal(e4.RepoOps[0].Kind, "createRecord")
+	assert.Equal(e4.RepoAppend.Ops[0].Kind, "createRecord")
 
 	// playback
 	pbevts := b1.Events(t, 2)

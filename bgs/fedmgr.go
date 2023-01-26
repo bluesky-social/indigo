@@ -1,8 +1,8 @@
 package bgs
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/gorilla/websocket"
+	cbg "github.com/whyrusleeping/cbor-gen"
 	"gorm.io/gorm"
 )
 
@@ -120,12 +121,14 @@ var ErrTimeoutShutdown = fmt.Errorf("timed out waiting for new events")
 var EventsTimeout = time.Minute
 
 func (s *Slurper) handleConnection(host *PDS, con *websocket.Conn) error {
+	cr := cbg.NewCborReader(bytes.NewReader(nil))
+
 	for {
 		if err := con.SetReadDeadline(time.Now().Add(EventsTimeout)); err != nil {
 			return fmt.Errorf("failed to set read deadline: %w", err)
 		}
 
-		mt, data, err := con.ReadMessage()
+		mt, r, err := con.NextReader()
 		if err != nil {
 			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
 				return ErrTimeoutShutdown
@@ -134,16 +137,34 @@ func (s *Slurper) handleConnection(host *PDS, con *websocket.Conn) error {
 			return err
 		}
 
-		_ = mt
-
-		var ev events.RepoEvent
-		if err := json.Unmarshal(data, &ev); err != nil {
-			return fmt.Errorf("failed to unmarshal event: %w", err)
+		switch mt {
+		default:
+			return fmt.Errorf("We are reallly not prepared for this")
+		case websocket.BinaryMessage:
+			// ok
 		}
 
-		log.Infow("got remote event", "host", host.Host, "repo", ev.Repo)
-		if err := s.cb(context.TODO(), host, &ev); err != nil {
-			log.Errorf("failed to index event from %q: %s", host.Host, err)
+		cr.SetReader(r)
+
+		var header events.EventHeader
+		if err := header.UnmarshalCBOR(cr); err != nil {
+			return err
 		}
+
+		switch header.Type {
+		case "data":
+			var evt events.RepoEvent
+			if err := evt.UnmarshalCBOR(cr); err != nil {
+				return err
+			}
+
+			log.Infow("got remote repo event", "host", host.Host, "repo", evt.Repo)
+			if err := s.cb(context.TODO(), host, &evt); err != nil {
+				log.Errorf("failed to index event from %q: %s", host.Host, err)
+			}
+		default:
+			return fmt.Errorf("unrecognized event stream type: %q", header.Type)
+		}
+
 	}
 }

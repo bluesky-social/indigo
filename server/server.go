@@ -668,9 +668,23 @@ func (s *Server) EventsHandler(c echo.Context) error {
 	}
 	defer cancel()
 
+	header := events.EventHeader{Type: "data"}
 	for evt := range evts {
-		if err := conn.WriteJSON(evt); err != nil {
+		wc, err := conn.NextWriter(websocket.BinaryMessage)
+		if err != nil {
 			return err
+		}
+
+		if err := header.MarshalCBOR(wc); err != nil {
+			return fmt.Errorf("failed to write header: %w", err)
+		}
+
+		if err := evt.MarshalCBOR(wc); err != nil {
+			return fmt.Errorf("failed to write event: %w", err)
+		}
+
+		if err := wc.Close(); err != nil {
+			return fmt.Errorf("failed to flush-close our event write: %w", err)
 		}
 	}
 

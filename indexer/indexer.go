@@ -80,7 +80,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		case repomgr.EvtKindInitActor:
 			rop, err := ix.handleInitActor(ctx, evt, &op)
 			if err != nil {
-				log.Errorf("handle initActor: %s", err)
+				return fmt.Errorf("handle initActor: %w", err)
 			}
 
 			repoOps = append(repoOps, rop)
@@ -438,7 +438,10 @@ func (ix *Indexer) addNewVoteNotification(ctx context.Context, postauthor uint, 
 func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) (*events.RepoOp, error) {
 	ai := op.ActorInfo
 
-	if err := ix.db.Create(&types.ActorInfo{
+	if err := ix.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "uid"}},
+		UpdateAll: true,
+	}).Create(&types.ActorInfo{
 		Uid:         evt.User,
 		Handle:      ai.Handle,
 		Did:         ai.Did,
@@ -446,7 +449,7 @@ func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, 
 		DeclRefCid:  ai.DeclRefCid,
 		Type:        ai.Type,
 	}).Error; err != nil {
-		return nil, err
+		return nil, fmt.Errorf("initializing new actor info: %w", err)
 	}
 
 	if err := ix.db.Create(&types.FollowRecord{

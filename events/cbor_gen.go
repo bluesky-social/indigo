@@ -251,7 +251,7 @@ func (t *RepoEvent) UnmarshalCBOR(r io.Reader) (err error) {
 				case cbg.MajNegativeInt:
 					extraI = int64(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 negative oveflow")
+						return fmt.Errorf("int64 negative overflow")
 					}
 					extraI = -1 - extraI
 				default:
@@ -395,7 +395,7 @@ func (t *RepoAppend) UnmarshalCBOR(r io.Reader) (err error) {
 	}()
 
 	if maj != cbg.MajMap {
-		return fmt.Errorf("cbor input should be of type map")
+		return fmt.Errorf("cbor input should be of type map (it was %d)", maj)
 	}
 
 	if extra > cbg.MaxLength {
@@ -463,7 +463,7 @@ func (t *RepoAppend) UnmarshalCBOR(r io.Reader) (err error) {
 
 				var v RepoOp
 				if err := v.UnmarshalCBOR(cr); err != nil {
-					return err
+					return fmt.Errorf("reading ops: %w", err)
 				}
 
 				t.Ops[i] = &v

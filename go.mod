@@ -15,10 +15,10 @@ require (
 	github.com/ipfs/go-ipld-cbor v0.0.6
 	github.com/ipfs/go-ipld-format v0.4.0
 	github.com/ipfs/go-log v1.0.5
+	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/ipld/go-car v0.5.0
 	github.com/ipld/go-car/v2 v2.5.1
 	github.com/labstack/echo/v4 v4.10.0
-	github.com/labstack/gommon v0.4.0
 	github.com/lestrrat-go/jwx v1.2.25
 	github.com/lestrrat-go/jwx/v2 v2.0.8
 	github.com/mitchellh/go-homedir v1.1.0
@@ -28,7 +28,7 @@ require (
 	github.com/polydawn/refmt v0.89.1-0.20221221234430-40501e09de1f
 	github.com/stretchr/testify v1.8.1
 	github.com/urfave/cli/v2 v2.23.7
-	github.com/whyrusleeping/cbor-gen v0.0.0-20230109192608-0173f1e641ac
+	github.com/whyrusleeping/cbor-gen v0.0.0-20230126041949-52956bd4c9aa
 	github.com/whyrusleeping/go-did v0.0.0-20221105001742-8d9e0ffb0d59
 	go.opentelemetry.io/otel v1.11.2
 	go.opentelemetry.io/otel/exporters/jaeger v1.11.2
@@ -57,7 +57,6 @@ require (
 	github.com/ipfs/go-ipfs-exchange-interface v0.2.0 // indirect
 	github.com/ipfs/go-ipfs-util v0.0.2 // indirect
 	github.com/ipfs/go-ipld-legacy v0.1.1 // indirect
-	github.com/ipfs/go-log/v2 v2.5.1 // indirect
 	github.com/ipfs/go-merkledag v0.9.0 // indirect
 	github.com/ipfs/go-metrics-interface v0.0.1 // indirect
 	github.com/ipfs/go-verifcid v0.0.2 // indirect
@@ -70,6 +69,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.3 // indirect
+	github.com/labstack/gommon v0.4.0 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.1 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect

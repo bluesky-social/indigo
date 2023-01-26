@@ -58,7 +58,7 @@ func (bgs *BGS) Start(listen string) error {
 	}))
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
-		fmt.Printf("HANDLER ERROR: (%s) %s\n", ctx.Path(), err)
+		log.Errorf("HANDLER ERROR: (%s) %s", ctx.Path(), err)
 		ctx.Response().WriteHeader(500)
 	}
 
@@ -123,10 +123,23 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 	}
 	defer cancel()
 
+	header := events.EventHeader{Type: "data"}
 	for evt := range evts {
-		fmt.Println("outgoing event repo: ", evt.Repo)
-		if err := conn.WriteJSON(evt); err != nil {
+		wc, err := conn.NextWriter(websocket.BinaryMessage)
+		if err != nil {
 			return err
+		}
+
+		if err := header.MarshalCBOR(wc); err != nil {
+			return fmt.Errorf("failed to write header: %w", err)
+		}
+
+		if err := evt.MarshalCBOR(wc); err != nil {
+			return fmt.Errorf("failed to write event: %w", err)
+		}
+
+		if err := wc.Close(); err != nil {
+			return fmt.Errorf("failed to flush-close our event write: %w", err)
 		}
 	}
 
@@ -196,7 +209,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*types.ActorI
 	// TODO: the PDS's DID should also be in the service, we could use that to look up?
 	var peering PDS
 	if err := s.db.First(&peering, "host = ?", durl.Host).Error; err != nil {
-		fmt.Println("failed to find pds", durl.Host)
+		log.Error("failed to find pds", durl.Host)
 		return nil, err
 	}
 
