@@ -104,4 +104,5 @@ func TestBasicIndexing(t *testing.T) {
 	}
 
 	_ = post
+
 }
