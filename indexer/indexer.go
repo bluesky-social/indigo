@@ -95,13 +95,16 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 	}
 
 	log.Infow("Sending event: ", "opcnt", len(repoOps), "did", did)
-	if err := ix.events.AddEvent(&events.Event{
-		Kind:            events.EvtKindRepoChange,
-		CarSlice:        evt.RepoSlice,
-		PrivUid:         evt.User,
-		RepoOps:         repoOps,
-		Repo:            did,
+	if err := ix.events.AddEvent(&events.RepoEvent{
+		Repo: did,
+
+		RepoAppend: &events.RepoAppend{
+			Car: evt.RepoSlice,
+			Ops: repoOps,
+		},
+
 		PrivRelevantPds: relpds,
+		PrivUid:         evt.User,
 	}); err != nil {
 		return fmt.Errorf("failed to push event: %s", err)
 	}
@@ -112,9 +115,9 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp, local bool) (*events.RepoOp, error) {
 	log.Infow("record create event", "collection", op.Collection)
 	out := &events.RepoOp{
-		Kind:       string(repomgr.EvtKindCreateRecord),
-		Collection: op.Collection,
-		Rkey:       op.Rkey,
+		Kind: string(repomgr.EvtKindCreateRecord),
+		Col:  op.Collection,
+		Rkey: op.Rkey,
 	}
 	switch rec := op.Record.(type) {
 	case *bsky.FeedPost:
@@ -267,6 +270,8 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, evt *repomgr.
 		}
 
 		replyid = replyto.ID
+
+		// TODO: handle root references
 	}
 
 	var maybe types.FeedPost

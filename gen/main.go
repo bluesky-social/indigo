@@ -4,6 +4,7 @@ import (
 	"github.com/bluesky-social/indigo/api"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/lex/util"
 	mst "github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/repo"
@@ -42,6 +43,10 @@ func main() {
 	}
 
 	if err := cbg.WriteMapEncodersToFile("lex/util/cbor_gen.go", "util", util.CborChecker{}, util.Blob{}); err != nil {
+		panic(err)
+	}
+
+	if err := cbg.WriteMapEncodersToFile("events/cbor_gen.go", "events", events.EventHeader{}, events.RepoEvent{}, events.RepoAppend{}, events.RepoOp{}); err != nil {
 		panic(err)
 	}
 }

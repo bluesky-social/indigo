@@ -3,14 +3,14 @@ package events
 import "sync"
 
 type EventPersistence interface {
-	Persist(e *Event)
-	Playback(since int64, cb func(*Event) error) error
+	Persist(e *RepoEvent)
+	Playback(since int64, cb func(*RepoEvent) error) error
 }
 
 // MemPersister is the most naive implementation of event persistence
 // ill do better later
 type MemPersister struct {
-	buf []*Event
+	buf []*RepoEvent
 	lk  sync.Mutex
 	seq int64
 }
@@ -19,7 +19,7 @@ func NewMemPersister() *MemPersister {
 	return &MemPersister{}
 }
 
-func (mp *MemPersister) Persist(e *Event) {
+func (mp *MemPersister) Persist(e *RepoEvent) {
 	mp.lk.Lock()
 	defer mp.lk.Unlock()
 	mp.seq++
@@ -27,7 +27,7 @@ func (mp *MemPersister) Persist(e *Event) {
 	mp.buf = append(mp.buf, e)
 }
 
-func (mp *MemPersister) Playback(since int64, cb func(*Event) error) error {
+func (mp *MemPersister) Playback(since int64, cb func(*RepoEvent) error) error {
 	mp.lk.Lock()
 	l := len(mp.buf)
 	mp.lk.Unlock()

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/mail"
 	"net/url"
 	"os"
@@ -28,6 +27,7 @@ import (
 	gojwt "github.com/golang-jwt/jwt"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
+	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lestrrat-go/jwx/jwa"
@@ -35,6 +35,8 @@ import (
 	jwt "github.com/lestrrat-go/jwx/jwt"
 	"gorm.io/gorm"
 )
+
+var log = logging.Logger("pds")
 
 type Server struct {
 	db            *gorm.DB
@@ -121,10 +123,10 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.echo.Shutdown(ctx)
 }
 
-func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *events.Event) error {
-	fmt.Printf("[%s] got fed event from %q: %s\n", s.serviceUrl, host.Host, evt.Kind)
-	switch evt.Kind {
-	case events.EvtKindRepoChange:
+func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *events.RepoEvent) error {
+	fmt.Printf("[%s] got fed event from %q\n", s.serviceUrl, host.Host)
+	switch {
+	case evt.RepoAppend != nil:
 		u, err := s.lookupUserByDid(ctx, evt.Repo)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -140,9 +142,9 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *events.
 			u.ID = subj.Uid
 		}
 
-		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, evt.RepoOps, evt.CarSlice)
+		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, evt.RepoAppend.Ops, evt.RepoAppend.Car)
 	default:
-		return fmt.Errorf("unrecognized fed event kind: %q", evt.Kind)
+		return fmt.Errorf("invalid fed event")
 	}
 	return nil
 }
@@ -218,32 +220,33 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*types.Act
 	return subj, nil
 }
 
-func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent) (*events.Event, error) {
+func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent) (*events.RepoEvent, error) {
 	did, err := s.indexer.DidForUser(ctx, evt.User)
 	if err != nil {
 		return nil, err
 	}
 
-	out := &events.Event{
-		Kind:     events.EvtKindRepoChange,
-		CarSlice: evt.RepoSlice,
-		PrivUid:  evt.User,
-		Repo:     did,
+	out := &events.RepoEvent{
+		RepoAppend: &events.RepoAppend{
+			Car: evt.RepoSlice,
+		},
+		Repo:    did,
+		PrivUid: evt.User,
 	}
 
 	for _, op := range evt.Ops {
 		switch op.Kind {
 		case repomgr.EvtKindCreateRecord:
-			out.RepoOps = append(out.RepoOps, &events.RepoOp{
-				Kind:       events.EvtKindRepoChange,
-				Collection: op.Collection,
-				Rkey:       op.Rkey,
+			out.RepoAppend.Ops = append(out.RepoAppend.Ops, &events.RepoOp{
+				Kind: events.EvtKindRepoChange,
+				Col:  op.Collection,
+				Rkey: op.Rkey,
 			})
 		case repomgr.EvtKindUpdateRecord:
-			out.RepoOps = append(out.RepoOps, &events.RepoOp{
-				Kind:       events.EvtKindRepoChange,
-				Collection: op.Collection,
-				Rkey:       op.Rkey,
+			out.RepoAppend.Ops = append(out.RepoAppend.Ops, &events.RepoOp{
+				Kind: events.EvtKindRepoChange,
+				Col:  op.Collection,
+				Rkey: op.Rkey,
 			})
 		case repomgr.EvtKindInitActor:
 			return nil, nil
@@ -641,7 +644,7 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		}
 	}
 
-	evts, cancel, err := s.events.Subscribe(func(evt *events.Event) bool {
+	evts, cancel, err := s.events.Subscribe(func(evt *events.RepoEvent) bool {
 		if peering.ID == 0 {
 			return true
 		}
@@ -654,7 +657,7 @@ func (s *Server) EventsHandler(c echo.Context) error {
 
 		has, err := s.peerHasFollow(ctx, peering.ID, evt.PrivUid)
 		if err != nil {
-			log.Println("error checking peer follow relationship: ", err)
+			log.Errorf("error checking peer follow relationship: %s", err)
 			return false
 		}
 

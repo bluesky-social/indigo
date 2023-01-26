@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/rand"
 	"net/http"
 	"time"
@@ -15,7 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type IndexCallback func(context.Context, *Peering, *events.Event) error
+type IndexCallback func(context.Context, *Peering, *events.RepoEvent) error
 
 // TODO: rename me
 type Slurper struct {
@@ -56,7 +55,7 @@ func (s *Slurper) subscribeWithRedialer(host *Peering) {
 		fmt.Println("event subscription response code: ", res.StatusCode)
 
 		if err := s.handleConnection(host, con); err != nil {
-			log.Printf("connection to %q failed: %s", host.Host, err)
+			log.Warnf("connection to %q failed: %s", host.Host, err)
 		}
 	}
 }
@@ -82,14 +81,14 @@ func (s *Slurper) handleConnection(host *Peering, con *websocket.Conn) error {
 
 		_ = mt
 
-		var ev events.Event
+		var ev events.RepoEvent
 		if err := json.Unmarshal(data, &ev); err != nil {
 			return fmt.Errorf("failed to unmarshal event: %w", err)
 		}
 
-		fmt.Println("got event: ", host.Host, ev.Kind)
+		log.Infow("got event", "from", host.Host)
 		if err := s.cb(context.TODO(), host, &ev); err != nil {
-			log.Printf("failed to index event from %q: %s", host.Host, err)
+			log.Errorf("failed to index event from %q: %s", host.Host, err)
 		}
 	}
 }

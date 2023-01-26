@@ -502,14 +502,14 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 	for _, op := range ops {
 		switch EventKind(op.Kind) {
 		case EvtKindCreateRecord:
-			recid, rec, err := r.GetRecord(ctx, op.Collection+"/"+op.Rkey)
+			recid, rec, err := r.GetRecord(ctx, op.Col+"/"+op.Rkey)
 			if err != nil {
 				return fmt.Errorf("reading changed record from car slice: %w", err)
 			}
 
 			evtops = append(evtops, RepoOp{
 				Kind:       EvtKindCreateRecord,
-				Collection: op.Collection,
+				Collection: op.Col,
 				Rkey:       op.Rkey,
 				Record:     rec,
 				RecCid:     recid,
@@ -531,14 +531,14 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 				},
 			})
 		case EvtKindUpdateRecord:
-			recid, rec, err := r.GetRecord(ctx, op.Collection+"/"+op.Rkey)
+			recid, rec, err := r.GetRecord(ctx, op.Col+"/"+op.Rkey)
 			if err != nil {
 				return fmt.Errorf("reading changed record from car slice: %w", err)
 			}
 
 			evtops = append(evtops, RepoOp{
 				Kind:       EvtKindUpdateRecord,
-				Collection: op.Collection,
+				Collection: op.Col,
 				Rkey:       op.Rkey,
 				Record:     rec,
 				RecCid:     recid,

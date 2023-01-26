@@ -303,7 +303,7 @@ func (t *Meta) UnmarshalCBOR(r io.Reader) (err error) {
 				case cbg.MajNegativeInt:
 					extraI = int64(extra)
 					if extraI < 0 {
-						return fmt.Errorf("int64 negative overflow")
+						return fmt.Errorf("int64 negative oveflow")
 					}
 					extraI = -1 - extraI
 				default:
