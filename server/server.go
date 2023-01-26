@@ -146,7 +146,6 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *events.
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
-	return nil
 }
 
 func (s *Server) createExternalUser(ctx context.Context, did string) (*types.ActorInfo, error) {
