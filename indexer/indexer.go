@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/types"
+	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
@@ -71,19 +72,25 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		switch op.Kind {
 		case repomgr.EvtKindCreateRecord:
 			log.Infof("create record: %d %s %s", evt.User, op.Collection, op.Rkey)
-			rop, err := ix.handleRecordCreate(ctx, evt, &op, true)
+			rel, err := ix.handleRecordCreate(ctx, evt, &op, true)
 			if err != nil {
 				return fmt.Errorf("handle recordCreate: %w", err)
 			}
-			repoOps = append(repoOps, rop)
-			relpds = append(relpds, rop.PrivRelevantPds...)
+			repoOps = append(repoOps, &events.RepoOp{
+				Kind: string(repomgr.EvtKindCreateRecord),
+				Col:  op.Collection,
+				Rkey: op.Rkey,
+			})
+
+			relpds = append(relpds, rel...)
 		case repomgr.EvtKindInitActor:
-			rop, err := ix.handleInitActor(ctx, evt, &op)
-			if err != nil {
+			if err := ix.handleInitActor(ctx, evt, &op); err != nil {
 				return fmt.Errorf("handle initActor: %w", err)
 			}
 
-			repoOps = append(repoOps, rop)
+			repoOps = append(repoOps, &events.RepoOp{
+				Kind: string(repomgr.EvtKindInitActor),
+			})
 		default:
 			return fmt.Errorf("unrecognized repo event type: %q", op.Kind)
 		}
@@ -112,16 +119,13 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 	return nil
 }
 
-func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp, local bool) (*events.RepoOp, error) {
+func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp, local bool) ([]uint, error) {
 	log.Infow("record create event", "collection", op.Collection)
-	out := &events.RepoOp{
-		Kind: string(repomgr.EvtKindCreateRecord),
-		Col:  op.Collection,
-		Rkey: op.Rkey,
-	}
+
+	var out []uint
 	switch rec := op.Record.(type) {
 	case *bsky.FeedPost:
-		if err := ix.handleRecordCreateFeedPost(ctx, evt, op, rec); err != nil {
+		if err := ix.handleRecordCreateFeedPost(ctx, evt.User, op.Rkey, op.RecCid, rec); err != nil {
 			return nil, err
 		}
 	case *bsky.FeedRepost:
@@ -135,7 +139,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			return nil, err
 		}
 
-		out.PrivRelevantPds = append(out.PrivRelevantPds, author.PDS)
+		out = append(out, author.PDS)
 
 		rr := types.RepostRecord{
 			RecCreated: rec.CreatedAt,
@@ -177,7 +181,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			return nil, err
 		}
 
-		out.PrivRelevantPds = append(out.PrivRelevantPds, act.PDS)
+		out = append(out, act.PDS)
 
 		vr := types.VoteRecord{
 			Dir:     dbdir,
@@ -216,7 +220,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 		}
 
 		if subj.PDS != 0 {
-			out.PrivRelevantPds = append(out.PrivRelevantPds, subj.PDS)
+			out = append(out, subj.PDS)
 		}
 
 		// 'follower' followed 'target'
@@ -261,7 +265,7 @@ func (ix *Indexer) GetPostOrMissing(ctx context.Context, uri string) (*types.Fee
 	return p, nil
 }
 
-func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp, rec *bsky.FeedPost) error {
+func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user uint, rkey string, rcid cid.Cid, rec *bsky.FeedPost) error {
 	var replyid uint
 	if rec.Reply != nil {
 		replyto, err := ix.GetPostOrMissing(ctx, rec.Reply.Parent.Uri)
@@ -275,14 +279,14 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, evt *repomgr.
 	}
 
 	var maybe types.FeedPost
-	if err := ix.db.Find(&maybe, "rkey = ? AND author = ?", op.Rkey, evt.User).Error; err != nil {
+	if err := ix.db.Find(&maybe, "rkey = ? AND author = ?", rkey, user).Error; err != nil {
 		return err
 	}
 
 	fp := types.FeedPost{
-		Rkey:    op.Rkey,
-		Cid:     op.RecCid.String(),
-		Author:  evt.User,
+		Rkey:    rkey,
+		Cid:     rcid.String(),
+		Author:  user,
 		ReplyTo: replyid,
 	}
 
@@ -290,7 +294,7 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, evt *repomgr.
 		// we're likely filling in a missing reference
 		if !maybe.Missing {
 			// TODO: we've already processed this record creation
-			log.Warnw("potentially erroneous event, duplicate create", "rkey", op.Rkey, "user", evt.User)
+			log.Warnw("potentially erroneous event, duplicate create", "rkey", rkey, "user", user)
 		}
 
 		if err := ix.db.Clauses(clause.OnConflict{
@@ -435,7 +439,7 @@ func (ix *Indexer) addNewVoteNotification(ctx context.Context, postauthor uint, 
 	return ix.notifman.AddUpVote(ctx, vr.Voter, vr.Post, vr.ID, postauthor)
 }
 
-func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) (*events.RepoOp, error) {
+func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
 	ai := op.ActorInfo
 
 	if err := ix.db.Clauses(clause.OnConflict{
@@ -449,19 +453,17 @@ func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, 
 		DeclRefCid:  ai.DeclRefCid,
 		Type:        ai.Type,
 	}).Error; err != nil {
-		return nil, fmt.Errorf("initializing new actor info: %w", err)
+		return fmt.Errorf("initializing new actor info: %w", err)
 	}
 
 	if err := ix.db.Create(&types.FollowRecord{
 		Follower: evt.User,
 		Target:   evt.User,
 	}).Error; err != nil {
-		return nil, err
+		return err
 	}
 
-	return &events.RepoOp{
-		Kind: string(repomgr.EvtKindInitActor),
-	}, nil
+	return nil
 }
 
 func isNotFound(err error) bool {

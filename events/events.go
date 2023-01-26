@@ -111,8 +111,6 @@ type RepoOp struct {
 	Kind string `cborgen:"kind"`
 	Col  string `cborgen:"col"`
 	Rkey string `cborgen:"rkey"`
-
-	PrivRelevantPds []uint `json:"-" cborgen:"-"`
 }
 
 func (em *EventManager) AddEvent(ev *RepoEvent) error {
