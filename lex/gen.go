@@ -1169,44 +1169,6 @@ func forEachProp(t TypeSchema, cb func(k string, ts TypeSchema) error) error {
 
 func (ts *TypeSchema) writeJsonMarshalerObject(name string, w io.Writer) error {
 	return nil // no need for a special json marshaler right now
-
-	if len(ts.Properties) == 0 {
-		// TODO: this is a hacky special casing of record types...
-		return nil
-	}
-
-	fmt.Fprintf(w, "func (t *%s) MarshalJSON() ([]byte, error) {\n", name)
-
-	if err := forEachProp(*ts, func(k string, ts TypeSchema) error {
-		if ts.Const != nil {
-			// TODO: maybe check for mutations before overwriting? mutations would mean bad code
-			switch ts.Const.(type) {
-			case string:
-				fmt.Fprintf(w, "\tt.%s = %q\n", strings.Title(k), ts.Const)
-			case bool:
-				fmt.Fprintf(w, "\tt.%s = %v\n", strings.Title(k), ts.Const)
-			default:
-				return fmt.Errorf("unsupported const type: %T", ts.Const)
-
-			}
-		}
-
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	// TODO: this is ugly since i can't just pass things through to json.Marshal without causing an infinite recursion...
-	fmt.Fprintf(w, "\tout := make(map[string]interface{})\n")
-	if err := forEachProp(*ts, func(k string, ts TypeSchema) error {
-		fmt.Fprintf(w, "\tout[%q] = t.%s\n", k, strings.Title(k))
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	fmt.Fprintf(w, "\treturn json.Marshal(out)\n}\n\n")
-	return nil
 }
 
 func (ts *TypeSchema) writeJsonMarshalerEnum(name string, w io.Writer) error {
