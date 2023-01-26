@@ -3,7 +3,6 @@ package schemagen
 import (
 	"context"
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 	"time"
@@ -361,7 +360,7 @@ func (fg *FeedGenerator) hydrateVote(ctx context.Context, v *types.VoteRecord) (
 
 func (fg *FeedGenerator) GetVotes(ctx context.Context, uri string, pcid cid.Cid, dir string, limit int, before string) ([]*HydratedVote, error) {
 	if before != "" {
-		log.Println("not respecting 'before' yet")
+		log.Warn("not respecting 'before' yet")
 	}
 
 	p, err := fg.ix.GetPost(ctx, uri)

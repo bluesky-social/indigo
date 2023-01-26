@@ -117,7 +117,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		since = &sval
 	}
 
-	evts, cancel, err := bgs.events.Subscribe(func(evt *events.Event) bool { return true }, since)
+	evts, cancel, err := bgs.events.Subscribe(func(evt *events.RepoEvent) bool { return true }, since)
 	if err != nil {
 		return err
 	}
@@ -146,10 +146,10 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 	return &u, nil
 }
 
-func (bgs *BGS) handleFedEvent(ctx context.Context, host *PDS, evt *events.Event) error {
-	log.Infof("bgs got fed event from %q: %s %s\n", host.Host, evt.Kind, evt.Repo)
-	switch evt.Kind {
-	case events.EvtKindRepoChange:
+func (bgs *BGS) handleFedEvent(ctx context.Context, host *PDS, evt *events.RepoEvent) error {
+	log.Infof("bgs got fed event from %q: %s\n", host.Host, evt.Repo)
+	switch {
+	case evt.RepoAppend != nil:
 		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -165,9 +165,9 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *PDS, evt *events.Event
 			u.ID = subj.Uid
 		}
 
-		return bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, evt.RepoOps, evt.CarSlice)
+		return bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, evt.RepoAppend.Ops, evt.RepoAppend.Car)
 	default:
-		return fmt.Errorf("unrecognized fed event kind: %q", evt.Kind)
+		return fmt.Errorf("invalid fed event")
 	}
 	return nil
 }

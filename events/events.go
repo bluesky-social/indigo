@@ -36,7 +36,7 @@ const (
 type Operation struct {
 	op  int
 	sub *Subscriber
-	evt *Event
+	evt *RepoEvent
 }
 
 func (em *EventManager) Run() {
@@ -44,7 +44,7 @@ func (em *EventManager) Run() {
 		switch op.op {
 		case opSubscribe:
 			em.subs = append(em.subs, op.sub)
-			op.sub.outgoing <- &Event{}
+			op.sub.outgoing <- &RepoEvent{}
 		case opUnsubscribe:
 			for i, s := range em.subs {
 				if s == op.sub {
@@ -72,9 +72,9 @@ func (em *EventManager) Run() {
 }
 
 type Subscriber struct {
-	outgoing chan *Event
+	outgoing chan *RepoEvent
 
-	filter func(*Event) bool
+	filter func(*RepoEvent) bool
 
 	done chan struct{}
 }
@@ -83,33 +83,39 @@ const (
 	EvtKindRepoChange = "repoChange"
 )
 
-type Event struct {
+type EventHeader struct {
+	Type string `cborgen:"t"`
+}
+
+type RepoEvent struct {
+	Seq int64 `cborgen:"seq"`
 
 	// Repo is the DID of the repo this event is about
-	Repo string
+	Repo string `cborgen:"repo"`
 
-	Seq  int64
-	Kind string
-
-	RepoOps    []*RepoOp
-	RepoRebase bool
-	CarSlice   []byte
+	RepoAppend *RepoAppend `cborgen:"repoAppend,omitempty"`
 
 	// some private fields for internal routing perf
-	PrivUid         uint   `json:"-"`
-	PrivPdsId       uint   `json:"-"`
-	PrivRelevantPds []uint `json:"-"`
+	PrivUid         uint   `json:"-" cborgen:"-"`
+	PrivPdsId       uint   `json:"-" cborgen:"-"`
+	PrivRelevantPds []uint `json:"-" cborgen:"-"`
+}
+
+type RepoAppend struct {
+	Ops    []*RepoOp `cborgen:"ops"`
+	Rebase bool      `cborgen:"rebase"`
+	Car    []byte    `cborgen:"car"`
 }
 
 type RepoOp struct {
-	Kind       string
-	Collection string
-	Rkey       string
+	Kind string `cborgen:"kind"`
+	Col  string `cborgen:"col"`
+	Rkey string `cborgen:"rkey"`
 
-	PrivRelevantPds []uint `json:"-"`
+	PrivRelevantPds []uint `json:"-" cborgen:"-"`
 }
 
-func (em *EventManager) AddEvent(ev *Event) error {
+func (em *EventManager) AddEvent(ev *RepoEvent) error {
 	select {
 	case em.ops <- &Operation{
 		op:  opSend,
@@ -121,14 +127,14 @@ func (em *EventManager) AddEvent(ev *Event) error {
 	}
 }
 
-func (em *EventManager) Subscribe(filter func(*Event) bool, since *int64) (<-chan *Event, func(), error) {
+func (em *EventManager) Subscribe(filter func(*RepoEvent) bool, since *int64) (<-chan *RepoEvent, func(), error) {
 	if filter == nil {
-		filter = func(*Event) bool { return true }
+		filter = func(*RepoEvent) bool { return true }
 	}
 
 	done := make(chan struct{})
 	sub := &Subscriber{
-		outgoing: make(chan *Event, em.bufferSize),
+		outgoing: make(chan *RepoEvent, em.bufferSize),
 		filter:   filter,
 		done:     done,
 	}
@@ -147,7 +153,7 @@ func (em *EventManager) Subscribe(filter func(*Event) bool, since *int64) (<-cha
 
 	if since != nil {
 		go func() {
-			if err := em.persister.Playback(*since, func(e *Event) error {
+			if err := em.persister.Playback(*since, func(e *RepoEvent) error {
 				select {
 				case <-done:
 					return fmt.Errorf("shutting down")

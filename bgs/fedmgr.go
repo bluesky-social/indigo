@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type IndexCallback func(context.Context, *PDS, *events.Event) error
+type IndexCallback func(context.Context, *PDS, *events.RepoEvent) error
 
 // TODO: rename me
 type Slurper struct {
@@ -136,12 +136,12 @@ func (s *Slurper) handleConnection(host *PDS, con *websocket.Conn) error {
 
 		_ = mt
 
-		var ev events.Event
+		var ev events.RepoEvent
 		if err := json.Unmarshal(data, &ev); err != nil {
 			return fmt.Errorf("failed to unmarshal event: %w", err)
 		}
 
-		log.Infow("got remote event", "host", host.Host, "kind", ev.Kind)
+		log.Infow("got remote event", "host", host.Host, "repo", ev.Repo)
 		if err := s.cb(context.TODO(), host, &ev); err != nil {
 			log.Errorf("failed to index event from %q: %s", host.Host, err)
 		}
