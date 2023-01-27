@@ -15,9 +15,8 @@ test: build ## Run all tests
 
 .PHONY: lint
 lint: ## Run style checks and verify syntax
-	go vet -a ./...
+	go vet -asmdecl -assign -atomic -bools -buildtag -cgocall -copylocks -httpresponse -loopclosure -lostcancel -nilfunc -printf -shift -stdmethods -structtag -tests -unmarshal -unreachable -unsafeptr -unusedresult ./...
 	test -z $(gofmt -l ./...)
-	# TODO: golangci-lint
 
 .PHONY: fmt
 fmt: ## Run syntax re-formatting
