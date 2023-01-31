@@ -1,19 +1,27 @@
 package repomgr
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	apibsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/types"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
+	"github.com/ipld/go-car"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
@@ -486,6 +494,12 @@ func (rm *RepoManager) GetProfile(ctx context.Context, uid uint) (*apibsky.Actor
 }
 
 func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid uint, ops []*events.RepoOp, carslice []byte) error {
+	ctx, span := otel.Tracer("repoman").Start(ctx, "HandleExternalUserEvent")
+	defer span.End()
+
+	unlock := rm.lockUser(ctx, uid)
+	defer unlock()
+
 	root, ds, err := rm.cs.ImportSlice(ctx, uid, carslice)
 	if err != nil {
 		return fmt.Errorf("importing external carslice: %w", err)
@@ -681,4 +695,225 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user uint, writes []*atpr
 	}
 
 	return nil
+}
+
+func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, r io.Reader) error {
+	ctx, span := otel.Tracer("repoman").Start(ctx, "ImportNewRepo")
+	defer span.End()
+
+	unlock := rm.lockUser(ctx, user)
+	defer unlock()
+
+	_, err := rm.getUserRepoHead(ctx, user)
+	if err == nil {
+		// i predict this will get awkward
+		return fmt.Errorf("cannot import new repo for user we already know about")
+	}
+
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	err = rm.processNewRepo(ctx, user, r, func(ctx context.Context, old, nu cid.Cid, slice []byte, bs blockstore.Blockstore) error {
+
+		diffops, err := mst.DiffTrees(ctx, bs, old, nu)
+		if err != nil {
+			return err
+		}
+
+		var ops []RepoOp
+		for _, op := range diffops {
+			parts := strings.SplitN(op.Rpath, "/", 2)
+			if len(parts) != 2 {
+				return fmt.Errorf("repo mst had invalid rpath: %q", op.Rpath)
+			}
+
+			switch op.Op {
+			case "add", "mut":
+				blk, err := bs.Get(ctx, op.NewCid)
+				if err != nil {
+					return err
+				}
+
+				rec, err := lexutil.CborDecodeValue(blk.RawData())
+				if err != nil {
+					return err
+				}
+
+				kind := EvtKindCreateRecord
+				if op.Op == "mut" {
+					kind = EvtKindUpdateRecord
+				}
+
+				ops = append(ops, RepoOp{
+					Kind:       kind,
+					Collection: parts[0],
+					Rkey:       parts[1],
+					RecCid:     op.NewCid,
+					Record:     rec,
+				})
+			case "del":
+				ops = append(ops, RepoOp{
+					Kind:       EvtKindDeleteRecord,
+					Collection: parts[0],
+					Rkey:       parts[1],
+					RecCid:     op.NewCid,
+				})
+
+			default:
+				return fmt.Errorf("diff returned invalid op type: %q", op.Op)
+			}
+		}
+
+		if rm.events != nil {
+			rm.events(ctx, &RepoEvent{
+				User:      user,
+				OldRoot:   old,
+				NewRoot:   nu,
+				RepoSlice: slice,
+				Ops:       ops,
+			})
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reader, cb func(ctx context.Context, old, nu cid.Cid, slice []byte, bs blockstore.Blockstore) error) error {
+	ctx, span := otel.Tracer("repoman").Start(ctx, "ImportNewRepo")
+	defer span.End()
+
+	carr, err := car.NewCarReader(r)
+	if err != nil {
+		return err
+	}
+
+	if len(carr.Header.Roots) != 1 {
+		return fmt.Errorf("invalid car file, header must have a single root (has %d)", len(carr.Header.Roots))
+	}
+
+	membs := blockstore.NewBlockstore(datastore.NewMapDatastore())
+
+	for {
+		blk, err := carr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		if err := membs.Put(ctx, blk); err != nil {
+			return err
+		}
+	}
+
+	var commits []cid.Cid
+	head := carr.Header.Roots[0]
+	for {
+		commits = append(commits, head)
+		rep, err := repo.OpenRepo(ctx, membs, carr.Header.Roots[0])
+		if err != nil {
+			return err
+		}
+
+		prev, err := rep.PrevCommit(ctx)
+		if err != nil {
+			return err
+		}
+
+		if prev == nil {
+			break
+		}
+
+		head = *prev
+
+	}
+
+	// now we need to generate repo slices for each commit
+
+	seen := make(map[cid.Cid]bool)
+
+	var prev cid.Cid
+	for _, root := range commits {
+		cids, err := walkTree(ctx, seen, root, membs)
+		if err != nil {
+			return err
+		}
+
+		ds, err := rm.cs.NewDeltaSession(ctx, user, &prev)
+		if err != nil {
+			return err
+		}
+
+		for _, c := range cids {
+			blk, err := membs.Get(ctx, c)
+			if err != nil {
+				return err
+			}
+
+			if err := ds.Put(ctx, blk); err != nil {
+				return err
+			}
+		}
+
+		carslice, err := ds.CloseWithRoot(ctx, root)
+		if err != nil {
+			return err
+		}
+
+		if err := cb(ctx, prev, root, carslice, membs); err != nil {
+			return err
+		}
+
+		prev = root
+	}
+
+	return nil
+}
+
+func walkTree(ctx context.Context, skip map[cid.Cid]bool, root cid.Cid, bs blockstore.Blockstore) ([]cid.Cid, error) {
+
+	// TODO: what if someone puts non-cbor links in their repo?
+	if root.Prefix().Codec != cid.DagCBOR {
+		return nil, fmt.Errorf("can only handle dag-cbor objects in repos (%s is %d)", root, root.Prefix().Codec)
+	}
+
+	blk, err := bs.Get(ctx, root)
+	if err != nil {
+		return nil, err
+	}
+
+	out := []cid.Cid{root}
+	skip[root] = true
+
+	if err := cbg.ScanForLinks(bytes.NewReader(blk.RawData()), func(c cid.Cid) {
+		if skip[c] {
+			return
+		}
+
+		out = append(out, c)
+		skip[c] = true
+
+		return
+	}); err != nil {
+		return nil, err
+	}
+
+	// TODO: should do this non-recursive since i expect these may get deep
+	for _, c := range out[1:] {
+		sub, err := walkTree(ctx, skip, c, bs)
+		if err != nil {
+			return nil, err
+		}
+
+		out = append(out, sub...)
+	}
+
+	return out, nil
 }

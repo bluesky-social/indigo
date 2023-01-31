@@ -10,10 +10,10 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/bluesky-social/indigo/util"
 	cid "github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/ipld/go-car/v2"
 	"github.com/multiformats/go-multihash"
 	mh "github.com/multiformats/go-multihash"
@@ -33,7 +33,7 @@ func TestBasicMst(t *testing.T) {
 	rand.Seed(6123123)
 
 	ctx := context.Background()
-	cst := cbor.NewCborStore(blockstore.NewBlockstore(datastore.NewMapDatastore()))
+	cst := util.CborStore(blockstore.NewBlockstore(datastore.NewMapDatastore()))
 	mst := NewMST(cst, 16, cid.Undef, []NodeEntry{}, -1)
 
 	vals := map[string]cid.Cid{
@@ -55,8 +55,8 @@ func TestBasicMst(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if ncid.String() != "bafy2bzaceahzk2fp24tqze7bfzfoigkvvx3323p7pgeytmov3yypupjdjao74" {
-		t.Fatal("mst generation changed")
+	if ncid.String() != "bafyreihi5ejimenqxag4pr2f2fw3yz2iwlgz4fx24wwprd72ln4ynnswpm" {
+		t.Fatal("mst generation changed", ncid.String())
 	}
 
 	nmst, err := mst.Delete(ctx, "dogs")
@@ -303,14 +303,14 @@ func diffMaps(a, b map[string]cid.Cid) []*DiffOp {
 		if !ok {
 			out = append(out, &DiffOp{
 				Op:     "del",
-				Tid:    k,
+				Rpath:  k,
 				OldCid: av,
 			})
 		} else {
 			if av != bv {
 				out = append(out, &DiffOp{
 					Op:     "mut",
-					Tid:    k,
+					Rpath:  k,
 					OldCid: av,
 					NewCid: bv,
 				})
@@ -323,14 +323,14 @@ func diffMaps(a, b map[string]cid.Cid) []*DiffOp {
 		if !ok {
 			out = append(out, &DiffOp{
 				Op:     "add",
-				Tid:    k,
+				Rpath:  k,
 				NewCid: b[k],
 			})
 		}
 	}
 
 	sort.Slice(out, func(i, j int) bool {
-		return out[i].Tid < out[j].Tid
+		return out[i].Rpath < out[j].Rpath
 	})
 
 	return out
@@ -356,7 +356,7 @@ func mapToCidMap(a map[string]string) map[string]cid.Cid {
 }
 
 func cidMapToMst(t *testing.T, fanout int, bs blockstore.Blockstore, m map[string]cid.Cid) *MerkleSearchTree {
-	cst := cbor.NewCborStore(bs)
+	cst := util.CborStore(bs)
 	mt := NewMST(cst, fanout, cid.Undef, []NodeEntry{}, -1)
 
 	for k, v := range m {
@@ -403,7 +403,7 @@ func testMapDiffs(t *testing.T, a, b map[string]string, fanout int) {
 	}
 
 	if !sort.SliceIsSorted(diffs, func(i, j int) bool {
-		return diffs[i].Tid < diffs[j].Tid
+		return diffs[i].Rpath < diffs[j].Rpath
 	}) {
 		t.Log("diff algo did not produce properly sorted diff")
 	}
@@ -442,20 +442,20 @@ func diffDiff(a, b []*DiffOp) {
 		bb := b[j]
 
 		if diffOpEq(aa, bb) {
-			fmt.Println("eq: ", i, j, aa.Tid)
+			fmt.Println("eq: ", i, j, aa.Rpath)
 			i++
 			j++
 			continue
 		}
 
-		if aa.Tid == bb.Tid {
+		if aa.Rpath == bb.Rpath {
 			fmt.Println("~: ", aa, bb)
 			i++
 			j++
 			continue
 		}
 
-		if aa.Tid < bb.Tid {
+		if aa.Rpath < bb.Rpath {
 			fmt.Println("-: ", aa)
 			i++
 			continue
@@ -476,7 +476,7 @@ func compareDiffs(a, b []*DiffOp) bool {
 		aa := a[i]
 		bb := b[i]
 
-		if aa.Op != bb.Op || aa.Tid != bb.Tid || aa.NewCid != bb.NewCid || aa.OldCid != bb.OldCid {
+		if aa.Op != bb.Op || aa.Rpath != bb.Rpath || aa.NewCid != bb.NewCid || aa.OldCid != bb.OldCid {
 			return false
 		}
 	}
@@ -485,7 +485,7 @@ func compareDiffs(a, b []*DiffOp) bool {
 }
 
 func diffOpEq(aa, bb *DiffOp) bool {
-	if aa.Op != bb.Op || aa.Tid != bb.Tid || aa.NewCid != bb.NewCid || aa.OldCid != bb.OldCid {
+	if aa.Op != bb.Op || aa.Rpath != bb.Rpath || aa.NewCid != bb.NewCid || aa.OldCid != bb.OldCid {
 		return false
 	}
 	return true

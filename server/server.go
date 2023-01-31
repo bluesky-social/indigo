@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
@@ -63,7 +63,6 @@ const UserActorDeclType = "app.bsky.system.actorUser"
 func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, serviceUrl string, didr plc.PLCClient, jwtkey []byte) (*Server, error) {
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&Peering{})
-	db.AutoMigrate(&ExternalFollow{})
 
 	serkey, err := loadKey(kfile)
 	if err != nil {
@@ -75,7 +74,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 	repoman := repomgr.NewRepoManager(db, cs)
 	notifman := notifs.NewNotificationManager(db, repoman.GetRecord)
 
-	ix, err := indexer.NewIndexer(db, notifman, evtman, didr)
+	ix, err := indexer.NewIndexer(db, notifman, evtman, didr, false)
 	if err != nil {
 		return nil, err
 	}
@@ -101,10 +100,12 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 	}
 
 	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
-		ix.HandleRepoEvent(ctx, evt)
+		if err := ix.HandleRepoEvent(ctx, evt); err != nil {
+			log.Errorw("handle repo event failed", "user", evt.User, "err", err)
+		}
 	})
 
-	ix.SendRemoteFollow = s.sendRemoteFollow
+	//ix.SendRemoteFollow = s.sendRemoteFollow
 	ix.CreateExternalUser = s.createExternalUser
 
 	feedgen, err := NewFeedGenerator(db, ix, s.readRecordFunc)
@@ -166,8 +167,26 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*types.Act
 
 	// TODO: the PDS's DID should also be in the service, we could use that to look up?
 	var peering Peering
-	if err := s.db.First(&peering, "host = ?", durl.Host).Error; err != nil {
+	if err := s.db.Find(&peering, "host = ?", durl.Host).Error; err != nil {
 		return nil, err
+	}
+
+	c := &xrpc.Client{Host: svc.ServiceEndpoint}
+
+	if peering.ID == 0 {
+		pdsdid, err := atproto.HandleResolve(ctx, c, "")
+		if err != nil {
+			// TODO: failing this shouldnt halt our indexing
+			return nil, fmt.Errorf("failed to get accounts config for unrecognized pds: %w", err)
+		}
+
+		// TODO: could check other things, a valid response is good enough for now
+		peering.Host = svc.ServiceEndpoint
+		peering.Did = pdsdid.Did
+
+		if err := s.db.Create(&peering).Error; err != nil {
+			return nil, err
+		}
 	}
 
 	var handle string
@@ -180,7 +199,6 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*types.Act
 		handle = hurl.Host
 	}
 
-	c := &xrpc.Client{Host: svc.ServiceEndpoint}
 	profile, err := bsky.ActorGetProfile(ctx, c, did)
 	if err != nil {
 		return nil, err
@@ -308,6 +326,8 @@ func (s *Server) RunAPI(listen string) error {
 		Skipper: func(c echo.Context) bool {
 			switch c.Path() {
 			case "/xrpc/com.atproto.account.create":
+				return true
+			case "/xrpc/com.atproto.handle.resolve":
 				return true
 			case "/xrpc/com.atproto.session.create":
 				return true
@@ -548,93 +568,12 @@ type Peering struct {
 	Approved bool
 }
 
-func (s *Server) HackAddPeering(host string, did string) error {
-	// TODO: this method is just for proof of concept since i'm punting on
-	// figuring out how the peering arrangements get set up.
-
-	if err := s.db.Create(&Peering{
-		Host:     host,
-		Did:      did,
-		Approved: true,
-	}).Error; err != nil {
-		return err
-	}
-
-	if err := s.slurper.SubscribeToPds(context.TODO(), host); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *Server) sendRemoteFollow(ctx context.Context, followed string, followedPDS uint) error {
-	var peering Peering
-	if err := s.db.First(&peering, "id = ?", followedPDS).Error; err != nil {
-		return fmt.Errorf("failed to find followed users pds: %w", err)
-	}
-
-	auth, err := s.createCrossServerAuthToken(ctx, peering.Host)
-	if err != nil {
-		return err
-	}
-
-	c := &xrpc.Client{
-		Host: "http://" + peering.Host, // TODO: maybe its correct to just put the protocol prefix in the database
-		Auth: auth,
-	}
-
-	if err := comatprototypes.PeeringFollow(ctx, c, &comatprototypes.PeeringFollow_Input{
-		Users: []string{followed},
-	}); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-type ExternalFollow struct {
-	gorm.Model
-	PDS uint
-	Uid uint
-}
-
-func (s *Server) AddRemoteFollow(ctx context.Context, opdsdid string, u string) error {
-	var peering Peering
-	if err := s.db.First(&peering, "did = ?", opdsdid).Error; err != nil {
-		return err
-	}
-
-	uu, err := s.lookupUser(ctx, u)
-	if err != nil {
-		return err
-	}
-
-	if err := s.db.Create(&ExternalFollow{
-		PDS: peering.ID,
-		Uid: uu.ID,
-	}).Error; err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *Server) peerHasFollow(ctx context.Context, peer uint, user uint) (bool, error) {
-	var extfollow ExternalFollow
-	if err := s.db.Debug().Find(&extfollow, "pds = ? AND uid = ?", peer, user).Error; err != nil {
-		return false, err
-	}
-
-	return extfollow.ID != 0, nil
-}
-
 func (s *Server) EventsHandler(c echo.Context) error {
 	did := c.Request().Header.Get("DID")
 	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
 	if err != nil {
 		return err
 	}
-	ctx := c.Request().Context()
 
 	var peering Peering
 	if did != "" {
@@ -654,13 +593,7 @@ func (s *Server) EventsHandler(c echo.Context) error {
 			}
 		}
 
-		has, err := s.peerHasFollow(ctx, peering.ID, evt.PrivUid)
-		if err != nil {
-			log.Errorf("error checking peer follow relationship: %s", err)
-			return false
-		}
-
-		return has
+		return false
 	}, nil)
 	if err != nil {
 		return err

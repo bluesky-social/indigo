@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -22,6 +23,7 @@ type testIx struct {
 	dir string
 
 	ix *Indexer
+	rm *repomgr.RepoManager
 
 	didr plc.PLCClient
 }
@@ -68,6 +70,7 @@ func testIndexer(t *testing.T) *testIx {
 	return &testIx{
 		dir: dir,
 		ix:  ix,
+		rm:  repoman,
 
 		didr: didr,
 	}
@@ -98,11 +101,30 @@ func TestBasicIndexing(t *testing.T) {
 	tt := testIndexer(t)
 	defer tt.Cleanup()
 
-	post := bsky.FeedPost{
+	post := &bsky.FeedPost{
 		CreatedAt: time.Now().Format(util.ISO8601),
 		Text:      "im the OP, the best",
 	}
 
-	_ = post
+	ctx := context.Background()
 
+	if err := tt.rm.InitNewActor(ctx, 1, "bob", "did:plc:asdasda", "bob", "FAKE", "userboy"); err != nil {
+		t.Fatal(err)
+	}
+
+	uri, cc, err := tt.rm.CreateRecord(ctx, 1, "app.bsky.feed.post", post)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_ = uri
+	_ = cc
+
+	// TODO: test some things at this level specifically.
+	// we have higher level integration tests, but at some point I want to stress this mechanism directly.
+	// we will want a decent set of utilities to make it easy on ourselves
+	// things to test:
+	// - crawling missing data
+	// - references to missing posts work
+	// - mentions?
 }
