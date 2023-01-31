@@ -12,7 +12,7 @@ require (
 	github.com/ipfs/go-datastore v0.6.0
 	github.com/ipfs/go-ds-flatfs v0.5.1
 	github.com/ipfs/go-ipfs-blockstore v1.2.1-0.20220823165003-9904c18f1d0a
-	github.com/ipfs/go-ipld-cbor v0.0.6
+	github.com/ipfs/go-ipld-cbor v0.0.7-0.20230126201833-a73d038d90bc
 	github.com/ipfs/go-ipld-format v0.4.0
 	github.com/ipfs/go-log v1.0.5
 	github.com/ipfs/go-log/v2 v2.5.1

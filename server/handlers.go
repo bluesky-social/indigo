@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
@@ -481,7 +480,9 @@ func (s *Server) handleComAtprotoAccountResetPassword(ctx context.Context, input
 }
 
 func (s *Server) handleComAtprotoHandleResolve(ctx context.Context, handle string) (*comatprototypes.HandleResolve_Output, error) {
-
+	if handle == "" {
+		return &comatprototypes.HandleResolve_Output{Did: s.signingKey.DID()}, nil
+	}
 	u, err := s.lookupUserByHandle(ctx, handle)
 	if err != nil {
 		return nil, err
@@ -719,46 +720,4 @@ func (s *Server) handleAppBskyGraphMute(ctx context.Context, input *appbskytypes
 
 func (s *Server) handleAppBskyGraphUnmute(ctx context.Context, input *appbskytypes.GraphUnmute_Input) error {
 	panic("not yet implemented")
-}
-
-func (s *Server) handleComAtprotoPeeringInit(ctx context.Context, body *comatprototypes.PeeringInit_Input) error {
-	panic("not yet implemented")
-}
-
-func (s *Server) handleComAtprotoPeeringPropose(ctx context.Context, body *comatprototypes.PeeringPropose_Input) (*comatprototypes.PeeringPropose_Output, error) {
-	panic("not yet implemented")
-}
-
-func (s *Server) handleComAtprotoPeeringList(ctx context.Context) (*comatprototypes.PeeringList_Output, error) {
-	panic("not yet implemented")
-}
-
-func (s *Server) handleComAtprotoPeeringFollow(ctx context.Context, body *comatprototypes.PeeringFollow_Input) error {
-	// TODO: cross server auth checks
-	auth, ok := ctx.Value("auth").(string)
-	if !ok {
-		return fmt.Errorf("no auth present in peering.follow request header")
-	}
-
-	auth = strings.TrimPrefix(auth, "Bearer ")
-	tok, err := jwt.ParseString(auth)
-	if err != nil {
-		return err
-	}
-
-	v, ok := tok.Get("pds")
-	if !ok {
-		panic("im a bad programmer")
-	}
-
-	opdsdid := v.(string)
-	//
-
-	for _, u := range body.Users {
-		if err := s.AddRemoteFollow(ctx, opdsdid, u); err != nil {
-			return fmt.Errorf("handle add remote follow: %w", err)
-		}
-	}
-
-	return nil
 }

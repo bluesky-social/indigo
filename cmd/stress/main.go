@@ -5,12 +5,25 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	mathrand "math/rand"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/api"
+	atproto "github.com/bluesky-social/indigo/api/atproto"
+	bsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/carstore"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/testing"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	cbor "github.com/ipfs/go-ipld-cbor"
+	"github.com/ipld/go-car"
 	cli "github.com/urfave/cli/v2"
 )
 
@@ -19,6 +32,7 @@ func main() {
 
 	app.Commands = []*cli.Command{
 		postingCmd,
+		genRepoCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -94,6 +108,142 @@ var postingCmd = &cli.Command{
 		}
 
 		wg.Wait()
+
+		return nil
+	},
+}
+
+func randAction() string {
+	v := mathrand.Intn(100)
+	if v < 40 {
+		return "post"
+	} else if v < 60 {
+		return "repost"
+	} else if v < 80 {
+		return "reply"
+	} else {
+		return "like"
+	}
+}
+
+var genRepoCmd = &cli.Command{
+	Name: "gen-repo",
+	Flags: []cli.Flag{
+		&cli.IntFlag{
+			Name:  "len",
+			Value: 50,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		fname := cctx.Args().First()
+
+		l := cctx.Int("len")
+
+		membs := blockstore.NewBlockstore(datastore.NewMapDatastore())
+
+		ctx := context.Background()
+
+		r := repo.NewRepo(ctx, membs)
+
+		words, err := testing.ReadWords()
+		if err != nil {
+			return err
+		}
+
+		var root cid.Cid
+		for i := 0; i < l; i++ {
+			switch randAction() {
+			case "post":
+				_, _, err := r.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
+					CreatedAt: time.Now().Format(util.ISO8601),
+					Text:      testing.RandSentence(words, 200),
+				})
+				if err != nil {
+					return err
+				}
+			case "repost":
+				_, _, err := r.CreateRecord(ctx, "app.bsky.feed.repost", &bsky.FeedRepost{
+					CreatedAt: time.Now().Format(util.ISO8601),
+					Subject: &atproto.RepoStrongRef{
+						Uri: testing.RandFakeAtUri("app.bsky.feed.post", ""),
+						Cid: testing.RandFakeCid().String(),
+					},
+				})
+				if err != nil {
+					return err
+				}
+			case "reply":
+				_, _, err := r.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
+					CreatedAt: time.Now().Format(util.ISO8601),
+					Text:      testing.RandSentence(words, 200),
+					Reply: &bsky.FeedPost_ReplyRef{
+						Root: &atproto.RepoStrongRef{
+							Uri: testing.RandFakeAtUri("app.bsky.feed.post", ""),
+							Cid: testing.RandFakeCid().String(),
+						},
+						Parent: &atproto.RepoStrongRef{
+							Uri: testing.RandFakeAtUri("app.bsky.feed.post", ""),
+							Cid: testing.RandFakeCid().String(),
+						},
+					},
+				})
+				if err != nil {
+					return err
+				}
+			case "like":
+				_, _, err := r.CreateRecord(ctx, "app.bsky.feed.vote", &bsky.FeedVote{
+					CreatedAt: time.Now().Format(util.ISO8601),
+					Direction: "up",
+					Subject: &atproto.RepoStrongRef{
+						Uri: testing.RandFakeAtUri("app.bsky.feed.post", ""),
+						Cid: testing.RandFakeCid().String(),
+					},
+				})
+				if err != nil {
+					return err
+				}
+			}
+
+			nroot, err := r.Commit(ctx)
+			if err != nil {
+				return err
+			}
+
+			root = nroot
+		}
+
+		fi, err := os.Create(fname)
+		if err != nil {
+			return err
+		}
+		defer fi.Close()
+
+		h := &car.CarHeader{
+			Roots:   []cid.Cid{root},
+			Version: 1,
+		}
+		hb, err := cbor.DumpObject(h)
+		if err != nil {
+			return err
+		}
+
+		_, err = carstore.LdWrite(fi, hb)
+		if err != nil {
+			return err
+		}
+
+		kc, _ := membs.AllKeysChan(ctx)
+		for k := range kc {
+			blk, err := membs.Get(ctx, k)
+			if err != nil {
+				return err
+			}
+
+			_, err = carstore.LdWrite(fi, k.Bytes(), blk.RawData())
+			if err != nil {
+				return err
+			}
+		}
 
 		return nil
 	},

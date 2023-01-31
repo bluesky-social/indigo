@@ -2,9 +2,11 @@ package testing
 
 import (
 	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
+	atproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/ipfs/go-log/v2"
 	"github.com/stretchr/testify/assert"
 )
@@ -16,10 +18,10 @@ func init() {
 func TestBGSBasic(t *testing.T) {
 	assert := assert.New(t)
 	didr := testPLC(t)
-	p1 := setupPDS(t, "localhost:5155", ".tpds", didr)
+	p1 := mustSetupPDS(t, "localhost:5155", ".tpds", didr)
 	p1.Run(t)
 
-	b1 := setupBGS(t, "localhost:8231", didr)
+	b1 := mustSetupBGS(t, "localhost:8231", didr)
 	b1.Run(t)
 
 	p1.RequestScraping(t, b1)
@@ -29,8 +31,8 @@ func TestBGSBasic(t *testing.T) {
 	evts := b1.Events(t, -1)
 	defer evts.cancel()
 
-	bob := p1.NewUser(t, "bob.tpds")
-	alice := p1.NewUser(t, "alice.tpds")
+	bob := p1.MustNewUser(t, "bob.tpds")
+	alice := p1.MustNewUser(t, "alice.tpds")
 
 	bp1 := bob.Post(t, "cats for cats")
 	ap1 := alice.Post(t, "no i like dogs")
@@ -62,5 +64,84 @@ func TestBGSBasic(t *testing.T) {
 
 	pbe1 := pbevts.Next()
 	assert.Equal(*e3, *pbe1)
+}
+
+func randomFollows(t *testing.T, users []*testUser) {
+	for n := 0; n < 3; n++ {
+		for i, u := range users {
+			oi := rand.Intn(len(users))
+			if i == oi {
+				continue
+			}
+
+			u.Follow(t, users[oi].DID())
+		}
+	}
+}
+
+func socialSim(t *testing.T, users []*testUser) []*atproto.RepoStrongRef {
+	var posts []*atproto.RepoStrongRef
+	for i := 0; i < 10; i++ {
+		for _, u := range users {
+			posts = append(posts, u.Post(t, makeRandomPost()))
+		}
+	}
+
+	for i := 0; i < 5; i++ {
+		for _, u := range users {
+			u.Like(t, posts[rand.Intn(len(posts))])
+		}
+	}
+
+	return posts
+}
+
+func TestBGSMultiPDS(t *testing.T) {
+	assert := assert.New(t)
+	_ = assert
+	didr := testPLC(t)
+	p1 := mustSetupPDS(t, "localhost:5155", ".pdsuno", didr)
+	p1.Run(t)
+
+	p2 := mustSetupPDS(t, "localhost:5156", ".pdsdos", didr)
+	p2.Run(t)
+
+	b1 := mustSetupBGS(t, "localhost:8231", didr)
+	b1.Run(t)
+
+	p1.RequestScraping(t, b1)
+	time.Sleep(time.Millisecond * 50)
+
+	var users []*testUser
+	for i := 0; i < 5; i++ {
+		users = append(users, p1.MustNewUser(t, usernames[i]+".pdsuno"))
+	}
+
+	randomFollows(t, users)
+	socialSim(t, users)
+
+	var users2 []*testUser
+	for i := 0; i < 5; i++ {
+		users2 = append(users2, p2.MustNewUser(t, usernames[i+5]+".pdsdos"))
+	}
+
+	randomFollows(t, users2)
+	p2posts := socialSim(t, users2)
+
+	randomFollows(t, append(users, users2...))
+
+	time.Sleep(time.Second)
+	fmt.Println("Doing the thing now...")
+	users[0].Reply(t, p2posts[0], p2posts[0], "what a wonderful life")
+
+	time.Sleep(time.Second)
+	/*
+
+		p2.RequestScraping(t, b2)
+		time.Sleep(time.Millisecond * 50)
+
+		evts := b1.Events(t, -1)
+		defer evts.cancel()
+	*/
 
 }

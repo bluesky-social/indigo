@@ -35,10 +35,6 @@ func (s *Server) RegisterHandlersAppBsky(e *echo.Echo) error {
 	e.GET("/xrpc/app.bsky.notification.list", s.HandleAppBskyNotificationList)
 	e.POST("/xrpc/app.bsky.notification.updateSeen", s.HandleAppBskyNotificationUpdateSeen)
 
-	e.POST("/xrpc/com.atproto.peering.follow", s.HandleComAtprotoPeeringFollow)
-	e.POST("/xrpc/com.atproto.peering.init", s.HandleComAtprotoPeeringInit)
-	e.GET("/xrpc/com.atproto.peering.list", s.HandleComAtprotoPeeringList)
-	e.POST("/xrpc/com.atproto.peering.propose", s.HandleComAtprotoPeeringPropose)
 	return nil
 }
 
@@ -968,69 +964,4 @@ func (s *Server) HandleComAtprotoSyncUpdateRepo(c echo.Context) error {
 		return handleErr
 	}
 	return nil
-}
-
-func (s *Server) HandleComAtprotoPeeringFollow(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoPeeringFollow")
-	defer span.End()
-
-	var body comatprototypes.PeeringFollow_Input
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoPeeringFollow(ctx context.Context,body *comatprototypes.PeeringFollow_Input) error
-	handleErr = s.handleComAtprotoPeeringFollow(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
-}
-
-func (s *Server) HandleComAtprotoPeeringInit(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoPeeringInit")
-	defer span.End()
-
-	var body comatprototypes.PeeringInit_Input
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoPeeringInit(ctx context.Context,body *comatprototypes.PeeringInit_Input) error
-	handleErr = s.handleComAtprotoPeeringInit(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
-}
-
-func (s *Server) HandleComAtprotoPeeringList(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoPeeringList")
-	defer span.End()
-	var out *comatprototypes.PeeringList_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoPeeringList(ctx context.Context) (*comatprototypes.PeeringList_Output, error)
-	out, handleErr = s.handleComAtprotoPeeringList(ctx)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoPeeringPropose(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoPeeringPropose")
-	defer span.End()
-
-	var body comatprototypes.PeeringPropose_Input
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-	var out *comatprototypes.PeeringPropose_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoPeeringPropose(ctx context.Context,body *comatprototypes.PeeringPropose_Input) (*comatpototypes.PeeringPropose_Output, error)
-	out, handleErr = s.handleComAtprotoPeeringPropose(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
 }
