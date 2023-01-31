@@ -502,6 +502,9 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) ([]byte
 		return nil, err
 	}
 
+	// TODO: writing these blocks in map traversal order is bad, I believe the
+	// optimal ordering will be something like reverse-write-order, but random
+	// is definitely not it
 	var offset int64 = hnw
 	//brefs := make([]*blockRef, 0, len(ds.blks))
 	brefs := make([]map[string]interface{}, 0, len(ds.blks))

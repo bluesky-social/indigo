@@ -92,3 +92,10 @@ type FollowRecord struct {
 	Rkey     string
 	Cid      string
 }
+
+type PDS struct {
+	gorm.Model
+
+	Host string
+	Did  string
+}

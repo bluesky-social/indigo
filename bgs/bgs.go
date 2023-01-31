@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
@@ -36,7 +37,7 @@ type BGS struct {
 
 func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.PLCClient) *BGS {
 	db.AutoMigrate(User{})
-	db.AutoMigrate(PDS{})
+	db.AutoMigrate(types.PDS{})
 
 	bgs := &BGS{
 		index: ix,
@@ -46,6 +47,8 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		events:  evtman,
 		didr:    didr,
 	}
+
+	ix.CreateExternalUser = bgs.createExternalUser
 	bgs.slurper = NewSlurper(db, bgs.handleFedEvent)
 	return bgs
 }
@@ -68,12 +71,6 @@ func (bgs *BGS) Start(listen string) error {
 	e.GET("/events", bgs.EventsHandler)
 
 	return e.Start(listen)
-}
-
-type PDS struct {
-	gorm.Model
-
-	Host string
 }
 
 type User struct {
@@ -159,7 +156,7 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 	return &u, nil
 }
 
-func (bgs *BGS) handleFedEvent(ctx context.Context, host *PDS, evt *events.RepoEvent) error {
+func (bgs *BGS) handleFedEvent(ctx context.Context, host *types.PDS, evt *events.RepoEvent) error {
 	log.Infof("bgs got fed event from %q: %s\n", host.Host, evt.Repo)
 	switch {
 	case evt.RepoAppend != nil:
@@ -171,7 +168,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *PDS, evt *events.RepoE
 
 			subj, err := bgs.createExternalUser(ctx, evt.Repo)
 			if err != nil {
-				return err
+				return fmt.Errorf("fed event create external user: %w", err)
 			}
 
 			u = new(User)
@@ -207,10 +204,28 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*types.ActorI
 	}
 
 	// TODO: the PDS's DID should also be in the service, we could use that to look up?
-	var peering PDS
-	if err := s.db.First(&peering, "host = ?", durl.Host).Error; err != nil {
+	var peering types.PDS
+	if err := s.db.Find(&peering, "host = ?", durl.Host).Error; err != nil {
 		log.Error("failed to find pds", durl.Host)
 		return nil, err
+	}
+
+	c := &xrpc.Client{Host: durl.String()}
+
+	if peering.ID == 0 {
+		pdsdid, err := atproto.HandleResolve(ctx, c, "")
+		if err != nil {
+			// TODO: failing this shouldnt halt our indexing
+			return nil, fmt.Errorf("failed to get accounts config for unrecognized pds: %w", err)
+		}
+
+		// TODO: could check other things, a valid response is good enough for now
+		peering.Host = svc.ServiceEndpoint
+		peering.Did = pdsdid.Did
+
+		if err := s.db.Create(&peering).Error; err != nil {
+			return nil, err
+		}
 	}
 
 	var handle string
@@ -223,7 +238,6 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*types.ActorI
 		handle = hurl.Host
 	}
 
-	c := &xrpc.Client{Host: durl.String()}
 	profile, err := bsky.ActorGetProfile(ctx, c, did)
 	if err != nil {
 		return nil, err

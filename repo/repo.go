@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/mst"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -83,7 +84,7 @@ func ReadRepoFromCar(ctx context.Context, r io.Reader) (*Repo, error) {
 }
 
 func NewRepo(ctx context.Context, bs blockstore.Blockstore) *Repo {
-	cst := cbor.NewCborStore(bs)
+	cst := util.CborStore(bs)
 
 	t := mst.NewMST(cst, 32, cid.Undef, []mst.NodeEntry{}, 0)
 
@@ -96,7 +97,7 @@ func NewRepo(ctx context.Context, bs blockstore.Blockstore) *Repo {
 }
 
 func OpenRepo(ctx context.Context, bs blockstore.Blockstore, root cid.Cid) (*Repo, error) {
-	cst := cbor.NewCborStore(bs)
+	cst := util.CborStore(bs)
 
 	var sr SignedRoot
 	if err := cst.Get(ctx, root, &sr); err != nil {
@@ -307,7 +308,7 @@ func (r *Repo) GetRecord(ctx context.Context, rpath string) (cid.Cid, cbg.CBORMa
 		return cid.Undef, nil, err
 	}
 
-	rec, err := util.CborDecodeValue(blk.RawData())
+	rec, err := lexutil.CborDecodeValue(blk.RawData())
 	if err != nil {
 		fmt.Println("decoding blk: ", cc)
 		return cid.Undef, nil, err
