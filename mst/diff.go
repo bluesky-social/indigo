@@ -5,22 +5,22 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/bluesky-social/indigo/util"
 	cid "github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	cbor "github.com/ipfs/go-ipld-cbor"
 )
 
 type DiffOp struct {
 	Depth  int
 	Op     string
-	Tid    string
+	Rpath  string
 	OldCid cid.Cid
 	NewCid cid.Cid
 }
 
 func checkDiffSort(diffs []*DiffOp) {
 	if !sort.SliceIsSorted(diffs, func(i, j int) bool {
-		return diffs[i].Tid < diffs[j].Tid
+		return diffs[i].Rpath < diffs[j].Rpath
 	}) {
 		panic(fmt.Sprintf("diff results not properly sorted! %d", len(diffs)))
 	}
@@ -28,7 +28,7 @@ func checkDiffSort(diffs []*DiffOp) {
 
 // TODO: this code isn't great, should be rewritten on top of the baseline datastructures once functional and correct
 func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) ([]*DiffOp, error) {
-	cst := cbor.NewCborStore(bs)
+	cst := util.CborStore(bs)
 
 	ft := LoadMST(cst, 32, from)
 	tt := LoadMST(cst, 32, to)
@@ -63,7 +63,7 @@ func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) 
 
 				out = append(out, &DiffOp{
 					Op:     "mut",
-					Tid:    ef.Key,
+					Rpath:  ef.Key,
 					OldCid: ef.Val,
 					NewCid: et.Val,
 				})
@@ -79,7 +79,7 @@ func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) 
 			if ef.Key > et.Key {
 				out = append(out, &DiffOp{
 					Op:     "add",
-					Tid:    et.Key,
+					Rpath:  et.Key,
 					NewCid: et.Val,
 				})
 				// only walk forward the pointer that was 'behind'
@@ -87,7 +87,7 @@ func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) 
 			} else {
 				out = append(out, &DiffOp{
 					Op:     "del",
-					Tid:    ef.Key,
+					Rpath:  ef.Key,
 					OldCid: ef.Val,
 				})
 				// only walk forward the pointer that was 'behind'
@@ -128,7 +128,7 @@ func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) 
 		if e.isLeaf() {
 			out = append(out, &DiffOp{
 				Op:     "del",
-				Tid:    e.Key,
+				Rpath:  e.Key,
 				OldCid: e.Val,
 			})
 
@@ -136,7 +136,7 @@ func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) 
 			if err := e.Tree.WalkLeavesFrom(ctx, "", func(n NodeEntry) error {
 				out = append(out, &DiffOp{
 					Op:     "del",
-					Tid:    n.Key,
+					Rpath:  n.Key,
 					OldCid: n.Val,
 				})
 				return nil
@@ -153,7 +153,7 @@ func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) 
 		if e.isLeaf() {
 			out = append(out, &DiffOp{
 				Op:     "add",
-				Tid:    e.Key,
+				Rpath:  e.Key,
 				NewCid: e.Val,
 			})
 
@@ -161,7 +161,7 @@ func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) 
 			if err := e.Tree.WalkLeavesFrom(ctx, "", func(n NodeEntry) error {
 				out = append(out, &DiffOp{
 					Op:     "add",
-					Tid:    n.Key,
+					Rpath:  n.Key,
 					NewCid: n.Val,
 				})
 				return nil

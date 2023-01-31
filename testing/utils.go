@@ -6,12 +6,15 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/base32"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	mathrand "math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -29,38 +32,42 @@ import (
 	"github.com/bluesky-social/indigo/repomgr"
 	server "github.com/bluesky-social/indigo/server"
 	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/ipfs/go-cid"
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/multiformats/go-multihash"
 
 	"github.com/gorilla/websocket"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-func makeKey(t *testing.T, fname string) {
+func makeKey(fname string) error {
 	raw, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		t.Fatal(fmt.Errorf("failed to generate new ECDSA private key: %s", err))
+		return fmt.Errorf("failed to generate new ECDSA private key: %s", err)
 	}
 
 	key, err := jwk.FromRaw(raw)
 	if err != nil {
-		t.Fatal(fmt.Errorf("failed to create ECDSA key: %s", err))
+		return fmt.Errorf("failed to create ECDSA key: %s", err)
 	}
 
 	if _, ok := key.(jwk.ECDSAPrivateKey); !ok {
-		t.Fatal(fmt.Errorf("expected jwk.ECDSAPrivateKey, got %T", key))
+		return fmt.Errorf("expected jwk.ECDSAPrivateKey, got %T", key)
 	}
 
 	key.Set(jwk.KeyIDKey, "mykey")
 
 	buf, err := json.MarshalIndent(key, "", "  ")
 	if err != nil {
-		t.Fatal(fmt.Errorf("failed to marshal key into JSON: %w", err))
+		return fmt.Errorf("failed to marshal key into JSON: %w", err)
 	}
 
 	if err := os.WriteFile(fname, buf, 0664); err != nil {
-		t.Fatal(err)
+		return err
 	}
+
+	return nil
 }
 
 type testPDS struct {
@@ -83,45 +90,58 @@ func (tp *testPDS) Cleanup() {
 	}
 }
 
-func setupPDS(t *testing.T, host, suffix string, plc plc.PLCClient) *testPDS {
-	dir, err := ioutil.TempDir("", "integtest")
+func mustSetupPDS(t *testing.T, host, suffix string, plc plc.PLCClient) *testPDS {
+	t.Helper()
+
+	tpds, err := SetupPDS(host, suffix, plc)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	return tpds
+}
+
+func SetupPDS(host, suffix string, plc plc.PLCClient) (*testPDS, error) {
+	dir, err := ioutil.TempDir("", "integtest")
+	if err != nil {
+		return nil, err
 	}
 
 	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.db")))
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
 	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.db")))
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
 	cspath := filepath.Join(dir, "carstore")
 	if err := os.Mkdir(cspath, 0775); err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
 	cs, err := carstore.NewCarStore(cardb, cspath)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
 	kfile := filepath.Join(dir, "server.key")
-	makeKey(t, kfile)
+	if err := makeKey(kfile); err != nil {
+		return nil, err
+	}
 
 	srv, err := server.NewServer(maindb, cs, kfile, suffix, host, plc, []byte(host+suffix))
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
 	return &testPDS{
 		dir:    dir,
 		server: srv,
 		host:   host,
-	}
+	}, nil
 }
 
 func (tp *testPDS) Run(t *testing.T) {
@@ -163,19 +183,18 @@ type testUser struct {
 	client *xrpc.Client
 }
 
-/*
-func (tp *testPDS) PeerWith(t *testing.T, op *testPDS) {
-	if err := tp.server.HackAddPeering(op.host, op.server.signingKey.DID()); err != nil {
+func (tp *testPDS) MustNewUser(t *testing.T, handle string) *testUser {
+	t.Helper()
+
+	u, err := tp.NewUser(handle)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := op.server.HackAddPeering(tp.host, tp.server.signingKey.DID()); err != nil {
-		t.Fatal(err)
-	}
+	return u
 }
-*/
 
-func (tp *testPDS) NewUser(t *testing.T, handle string) *testUser {
+func (tp *testPDS) NewUser(handle string) (*testUser, error) {
 	ctx := context.TODO()
 
 	c := &xrpc.Client{
@@ -189,7 +208,7 @@ func (tp *testPDS) NewUser(t *testing.T, handle string) *testUser {
 		Password: "password",
 	})
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
 	c.Auth = &xrpc.AuthInfo{
@@ -204,10 +223,10 @@ func (tp *testPDS) NewUser(t *testing.T, handle string) *testUser {
 		handle: out.Handle,
 		client: c,
 		did:    out.Did,
-	}
+	}, nil
 }
 
-func (u *testUser) Reply(t *testing.T, post, pcid, body string) string {
+func (u *testUser) Reply(t *testing.T, replyto, root *atproto.RepoStrongRef, body string) string {
 	t.Helper()
 
 	ctx := context.TODO()
@@ -218,14 +237,11 @@ func (u *testUser) Reply(t *testing.T, post, pcid, body string) string {
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Text:      body,
 			Reply: &bsky.FeedPost_ReplyRef{
-				Parent: &atproto.RepoStrongRef{
-					Cid: pcid,
-					Uri: post,
-				},
+				Parent: replyto,
+				Root:   root,
 			}},
 		},
 	})
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,6 +274,26 @@ func (u *testUser) Post(t *testing.T, body string) *atproto.RepoStrongRef {
 		Cid: resp.Cid,
 		Uri: resp.Uri,
 	}
+}
+
+func (u *testUser) Like(t *testing.T, post *atproto.RepoStrongRef) {
+	t.Helper()
+
+	ctx := context.TODO()
+	_, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
+		Collection: "app.bsky.feed.vote",
+		Did:        u.did,
+		Record: util.LexiconTypeDecoder{&bsky.FeedVote{
+			LexiconTypeID: "app.bsky.feed.vote",
+			CreatedAt:     time.Now().Format(time.RFC3339),
+			Direction:     "up",
+			Subject:       post,
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 }
 
 func (u *testUser) Follow(t *testing.T, did string) string {
@@ -326,30 +362,39 @@ type testBGS struct {
 	host string
 }
 
-func setupBGS(t *testing.T, host string, didr plc.PLCClient) *testBGS {
-	dir, err := ioutil.TempDir("", "integtest")
+func mustSetupBGS(t *testing.T, host string, didr plc.PLCClient) *testBGS {
+	tbgs, err := SetupBGS(host, didr)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	return tbgs
+}
+
+func SetupBGS(host string, didr plc.PLCClient) (*testBGS, error) {
+	dir, err := ioutil.TempDir("", "integtest")
+	if err != nil {
+		return nil, err
 	}
 
 	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.db")))
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
 	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.db")))
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
 	cspath := filepath.Join(dir, "carstore")
 	if err := os.Mkdir(cspath, 0775); err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
 	cs, err := carstore.NewCarStore(cardb, cspath)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
 	repoman := repomgr.NewRepoManager(maindb, cs)
@@ -360,9 +405,9 @@ func setupBGS(t *testing.T, host string, didr plc.PLCClient) *testBGS {
 
 	go evtman.Run()
 
-	ix, err := indexer.NewIndexer(maindb, notifman, evtman, didr)
+	ix, err := indexer.NewIndexer(maindb, notifman, evtman, didr, false)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 
 	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
@@ -376,7 +421,7 @@ func setupBGS(t *testing.T, host string, didr plc.PLCClient) *testBGS {
 	return &testBGS{
 		bgs:  b,
 		host: host,
-	}
+	}, nil
 }
 
 func (b *testBGS) Run(t *testing.T) {
@@ -428,7 +473,8 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 		for {
 			mt, r, err := con.NextReader()
 			if err != nil {
-				panic(err)
+				fmt.Println(err)
+				return
 			}
 
 			switch mt {
@@ -532,3 +578,108 @@ func TestBasicFederation(t *testing.T) {
 
 }
 */
+
+var words = []string{
+	"cat",
+	"is",
+	"cash",
+	"dog",
+	"bad",
+	"system",
+	"random",
+	"skoot",
+	"reply",
+	"fish",
+	"sunshine",
+	"bluesky",
+	"make",
+	"equal",
+	"stars",
+	"water",
+	"parrot",
+}
+
+func makeRandomPost() string {
+	var out []string
+	for i := 0; i < 20; i++ {
+		out = append(out, words[mathrand.Intn(len(words))])
+	}
+
+	return strings.Join(out, " ")
+}
+
+var usernames = []string{
+	"alice",
+	"bob",
+	"carol",
+	"darin",
+	"eve",
+	"francis",
+	"gerald",
+	"hank",
+	"ian",
+	"jeremy",
+	"karl",
+	"louise",
+	"marion",
+	"nancy",
+	"oscar",
+	"paul",
+	"quentin",
+	"raul",
+	"serena",
+	"trevor",
+	"ursula",
+	"valerie",
+	"walter",
+	"xico",
+	"yousef",
+	"zane",
+}
+
+func RandSentence(words []string, maxl int) string {
+	var out string
+	for {
+		w := words[mathrand.Intn(len(words))]
+		if len(out)+len(w) >= maxl {
+			return out
+		}
+
+		out = out + " " + w
+	}
+}
+
+func ReadWords() ([]string, error) {
+	b, err := ioutil.ReadFile("/usr/share/dict/words")
+	if err != nil {
+		return nil, err
+	}
+
+	return strings.Split(string(b), "\n"), nil
+}
+
+func RandFakeCid() cid.Cid {
+	buf := make([]byte, 32)
+	rand.Read(buf)
+
+	pref := cid.NewPrefixV1(cid.DagCBOR, multihash.SHA2_256)
+	c, err := pref.Sum(buf)
+	if err != nil {
+		panic(err)
+	}
+
+	return c
+}
+
+func RandFakeAtUri(collection, rkey string) string {
+	buf := make([]byte, 10)
+	rand.Read(buf)
+	did := base32.StdEncoding.EncodeToString(buf)
+
+	if rkey == "" {
+		rand.Read(buf)
+		rkey = base32.StdEncoding.EncodeToString(buf[:6])
+	}
+
+	return fmt.Sprintf("at://did:plc:%s/%s/%s", did, collection, rkey)
+}

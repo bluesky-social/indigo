@@ -1,17 +1,20 @@
 package indexer
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"strings"
 
+	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/types"
+	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 	"go.opentelemetry.io/otel"
@@ -28,20 +31,23 @@ type Indexer struct {
 	events   *events.EventManager
 	didr     plc.PLCClient
 
-	crawl bool
+	// TODO: i feel like the repomgr doesnt belong here
+	repomgr *repomgr.RepoManager
+
+	crawler *CrawlDispatcher
 
 	SendRemoteFollow   func(context.Context, string, uint) error
 	CreateExternalUser func(context.Context, string) (*types.ActorInfo, error)
 }
 
-func NewIndexer(db *gorm.DB, notifman *notifs.NotificationManager, evtman *events.EventManager, didr plc.PLCClient) (*Indexer, error) {
+func NewIndexer(db *gorm.DB, notifman *notifs.NotificationManager, evtman *events.EventManager, didr plc.PLCClient, crawl bool) (*Indexer, error) {
 	db.AutoMigrate(&types.FeedPost{})
 	db.AutoMigrate(&types.ActorInfo{})
 	db.AutoMigrate(&types.FollowRecord{})
 	db.AutoMigrate(&types.VoteRecord{})
 	db.AutoMigrate(&types.RepostRecord{})
 
-	return &Indexer{
+	ix := &Indexer{
 		db:       db,
 		notifman: notifman,
 		events:   evtman,
@@ -49,7 +55,15 @@ func NewIndexer(db *gorm.DB, notifman *notifs.NotificationManager, evtman *event
 		SendRemoteFollow: func(context.Context, string, uint) error {
 			return nil
 		},
-	}, nil
+	}
+
+	if crawl {
+		ix.crawler = NewCrawlDispatcher(ix.FetchAndIndexRepo)
+
+		ix.crawler.Run()
+	}
+
+	return ix, nil
 }
 
 func (ix *Indexer) catchup(ctx context.Context, evt *repomgr.RepoEvent) error {
@@ -252,17 +266,22 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 }
 
 func (ix *Indexer) GetPostOrMissing(ctx context.Context, uri string) (*types.FeedPost, error) {
-	p, err := ix.GetPost(ctx, uri)
+	puri, err := parseAtUri(uri)
 	if err != nil {
-		if !isNotFound(err) {
-			return nil, err
-		}
-
-		// reply to a post we don't know about, create a record for it anyway
-		return ix.createMissingPostRecord(ctx, uri)
+		return nil, err
 	}
 
-	return p, nil
+	var post types.FeedPost
+	if err := ix.db.Find(&post, "rkey = ? AND author = (?)", puri.Rkey, ix.db.Model(types.ActorInfo{}).Where("did = ?", puri.Did).Select("id")).Error; err != nil {
+		return nil, err
+	}
+
+	if post.ID == 0 {
+		// reply to a post we don't know about, create a record for it anyway
+		return ix.createMissingPostRecord(ctx, puri)
+	}
+
+	return &post, nil
 }
 
 func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user uint, rkey string, rcid cid.Cid, rec *bsky.FeedPost) error {
@@ -316,12 +335,7 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user uint, rk
 	return nil
 }
 
-func (ix *Indexer) createMissingPostRecord(ctx context.Context, uri string) (*types.FeedPost, error) {
-	puri, err := parseAtUri(uri)
-	if err != nil {
-		return nil, err
-	}
-
+func (ix *Indexer) createMissingPostRecord(ctx context.Context, puri *parsedUri) (*types.FeedPost, error) {
 	ai, err := ix.LookupUserByDid(ctx, puri.Did)
 	if err != nil {
 		if !isNotFound(err) {
@@ -363,11 +377,12 @@ func (ix *Indexer) createMissingUserRecord(ctx context.Context, did string) (*ty
 }
 
 func (ix *Indexer) addUserToCrawler(ctx context.Context, ai *types.ActorInfo) error {
-	if !ix.crawl {
+	log.Warnw("Sending user to crawler: ", "did", ai.Did)
+	if ix.crawler == nil {
 		return nil
 	}
 
-	panic("crawler not implemented")
+	return ix.crawler.Crawl(ctx, ai)
 }
 
 func (ix *Indexer) DidForUser(ctx context.Context, uid uint) (string, error) {
@@ -390,8 +405,12 @@ func (ix *Indexer) lookupUser(ctx context.Context, id uint) (*types.ActorInfo, e
 
 func (ix *Indexer) LookupUserByDid(ctx context.Context, did string) (*types.ActorInfo, error) {
 	var ai types.ActorInfo
-	if err := ix.db.First(&ai, "did = ?", did).Error; err != nil {
+	if err := ix.db.Find(&ai, "did = ?", did).Error; err != nil {
 		return nil, err
+	}
+
+	if ai.ID == 0 {
+		return nil, gorm.ErrRecordNotFound
 	}
 
 	return &ai, nil
@@ -510,4 +529,33 @@ func parseAtUri(uri string) (*parsedUri, error) {
 		Collection: parts[1],
 		Rkey:       parts[2],
 	}, nil
+}
+
+// TODO: since this function is the only place we depend on the repomanager, i wonder if this should be wired some other way?
+func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, ai *types.ActorInfo) error {
+	ctx, span := otel.Tracer("indexer").Start(ctx, "FetchAndIndexRepo")
+	defer span.End()
+
+	var pds types.PDS
+	if err := ix.db.First(&pds, "id = ?", ai.PDS).Error; err != nil {
+		return fmt.Errorf("expected to find pds record in db for crawling one of their users: %w", err)
+	}
+
+	c := &xrpc.Client{
+		Host: pds.Host,
+	}
+
+	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
+	repo, err := atproto.SyncGetRepo(ctx, c, ai.Did, "")
+	if err != nil {
+		return fmt.Errorf("failed to fetch repo: %w", err)
+	}
+
+	// this process will send individual indexing events back to the indexer, doing a 'fast forward' of the users entire history
+	// we probably want alternative ways of doing this for 'very large' or 'very old' repos, but this works for now
+	if err := ix.repomgr.ImportNewRepo(ctx, ai.Uid, bytes.NewReader(repo)); err != nil {
+		return err
+	}
+
+	return nil
 }
