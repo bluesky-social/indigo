@@ -5,19 +5,15 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	mathrand "math/rand"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/api"
-	atproto "github.com/bluesky-social/indigo/api/atproto"
-	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/testing"
-	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -113,19 +109,6 @@ var postingCmd = &cli.Command{
 	},
 }
 
-func randAction() string {
-	v := mathrand.Intn(100)
-	if v < 40 {
-		return "post"
-	} else if v < 60 {
-		return "repost"
-	} else if v < 80 {
-		return "reply"
-	} else {
-		return "like"
-	}
-}
-
 var genRepoCmd = &cli.Command{
 	Name: "gen-repo",
 	Flags: []cli.Flag{
@@ -145,71 +128,9 @@ var genRepoCmd = &cli.Command{
 
 		r := repo.NewRepo(ctx, membs)
 
-		words, err := testing.ReadWords()
+		root, err := testing.GenerateFakeRepo(r, l)
 		if err != nil {
 			return err
-		}
-
-		var root cid.Cid
-		for i := 0; i < l; i++ {
-			switch randAction() {
-			case "post":
-				_, _, err := r.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
-					CreatedAt: time.Now().Format(util.ISO8601),
-					Text:      testing.RandSentence(words, 200),
-				})
-				if err != nil {
-					return err
-				}
-			case "repost":
-				_, _, err := r.CreateRecord(ctx, "app.bsky.feed.repost", &bsky.FeedRepost{
-					CreatedAt: time.Now().Format(util.ISO8601),
-					Subject: &atproto.RepoStrongRef{
-						Uri: testing.RandFakeAtUri("app.bsky.feed.post", ""),
-						Cid: testing.RandFakeCid().String(),
-					},
-				})
-				if err != nil {
-					return err
-				}
-			case "reply":
-				_, _, err := r.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
-					CreatedAt: time.Now().Format(util.ISO8601),
-					Text:      testing.RandSentence(words, 200),
-					Reply: &bsky.FeedPost_ReplyRef{
-						Root: &atproto.RepoStrongRef{
-							Uri: testing.RandFakeAtUri("app.bsky.feed.post", ""),
-							Cid: testing.RandFakeCid().String(),
-						},
-						Parent: &atproto.RepoStrongRef{
-							Uri: testing.RandFakeAtUri("app.bsky.feed.post", ""),
-							Cid: testing.RandFakeCid().String(),
-						},
-					},
-				})
-				if err != nil {
-					return err
-				}
-			case "like":
-				_, _, err := r.CreateRecord(ctx, "app.bsky.feed.vote", &bsky.FeedVote{
-					CreatedAt: time.Now().Format(util.ISO8601),
-					Direction: "up",
-					Subject: &atproto.RepoStrongRef{
-						Uri: testing.RandFakeAtUri("app.bsky.feed.post", ""),
-						Cid: testing.RandFakeCid().String(),
-					},
-				})
-				if err != nil {
-					return err
-				}
-			}
-
-			nroot, err := r.Commit(ctx)
-			if err != nil {
-				return err
-			}
-
-			root = nroot
 		}
 
 		fi, err := os.Create(fname)

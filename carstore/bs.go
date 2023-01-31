@@ -547,16 +547,22 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) ([]byte
 
 	// TODO: there should be a way to create the shard and block_refs that
 	// reference it in the same query, would save a lot of time
-	if err := ds.cs.meta.WithContext(ctx).Create(&shard).Error; err != nil {
-		return nil, err
-	}
-	ds.cs.putLastShardCache(ds.user, &shard)
+	if err := ds.cs.meta.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&shard).Error; err != nil {
+			return err
+		}
+		ds.cs.putLastShardCache(ds.user, &shard)
 
-	for _, ref := range brefs {
-		ref["shard"] = shard.ID
-	}
+		for _, ref := range brefs {
+			ref["shard"] = shard.ID
+		}
 
-	if err := ds.cs.meta.WithContext(ctx).Table("block_refs").Create(brefs).Error; err != nil {
+		if err := tx.Table("block_refs").Create(brefs).Error; err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 

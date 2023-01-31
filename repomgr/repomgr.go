@@ -17,6 +17,7 @@ import (
 	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/types"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -718,7 +719,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, r io.Reader
 
 		diffops, err := mst.DiffTrees(ctx, bs, old, nu)
 		if err != nil {
-			return err
+			return fmt.Errorf("diff trees: %w", err)
 		}
 
 		var ops []RepoOp
@@ -813,26 +814,27 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reade
 		}
 	}
 
-	var commits []cid.Cid
-	head := carr.Header.Roots[0]
-	for {
-		commits = append(commits, head)
-		rep, err := repo.OpenRepo(ctx, membs, carr.Header.Roots[0])
-		if err != nil {
+	rep, err := repo.OpenRepo(ctx, membs, carr.Header.Roots[0])
+	if err != nil {
+		return err
+	}
+
+	cst := util.CborStore(membs)
+	commits := []cid.Cid{rep.CommitRoot()}
+	head, err := rep.PrevCommit(ctx)
+	if err != nil {
+		return err
+	}
+
+	for head != nil {
+		commits = append(commits, *head)
+
+		var commit repo.Commit
+		if cst.Get(ctx, *head, &commit); err != nil {
 			return err
 		}
 
-		prev, err := rep.PrevCommit(ctx)
-		if err != nil {
-			return err
-		}
-
-		if prev == nil {
-			break
-		}
-
-		head = *prev
-
+		head = commit.Prev
 	}
 
 	// now we need to generate repo slices for each commit
@@ -840,15 +842,16 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reade
 	seen := make(map[cid.Cid]bool)
 
 	var prev cid.Cid
-	for _, root := range commits {
+	for i := len(commits) - 1; i >= 0; i-- {
+		root := commits[i]
 		cids, err := walkTree(ctx, seen, root, membs)
 		if err != nil {
-			return err
+			return fmt.Errorf("walkTree: %w", err)
 		}
 
 		ds, err := rm.cs.NewDeltaSession(ctx, user, &prev)
 		if err != nil {
-			return err
+			return fmt.Errorf("opening delta session: %w", err)
 		}
 
 		for _, c := range cids {
