@@ -63,5 +63,4 @@ func TestLoadNewRepo(t *testing.T) {
 	if err := repoman.ImportNewRepo(ctx, 2, fi); err != nil {
 		t.Fatal(err)
 	}
-
 }

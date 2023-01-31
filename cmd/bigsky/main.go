@@ -120,7 +120,7 @@ func main() {
 
 		didr := &api.PLCServer{Host: cctx.String("plc")}
 
-		ix, err := indexer.NewIndexer(db, notifman, evtman, didr)
+		ix, err := indexer.NewIndexer(db, notifman, evtman, didr, true)
 		if err != nil {
 			return err
 		}
