@@ -29,8 +29,10 @@ import (
 	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
+	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
 	server "github.com/bluesky-social/indigo/server"
+	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
 	"github.com/lestrrat-go/jwx/v2/jwk"
@@ -682,4 +684,90 @@ func RandFakeAtUri(collection, rkey string) string {
 	}
 
 	return fmt.Sprintf("at://did:plc:%s/%s/%s", did, collection, rkey)
+}
+
+func randAction() string {
+	v := mathrand.Intn(100)
+	if v < 40 {
+		return "post"
+	} else if v < 60 {
+		return "repost"
+	} else if v < 80 {
+		return "reply"
+	} else {
+		return "like"
+	}
+}
+
+func GenerateFakeRepo(r *repo.Repo, size int) (cid.Cid, error) {
+	words, err := ReadWords()
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	ctx := context.TODO()
+
+	var root cid.Cid
+	for i := 0; i < size; i++ {
+		switch randAction() {
+		case "post":
+			_, _, err := r.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
+				CreatedAt: time.Now().Format(bsutil.ISO8601),
+				Text:      RandSentence(words, 200),
+			})
+			if err != nil {
+				return cid.Undef, err
+			}
+		case "repost":
+			_, _, err := r.CreateRecord(ctx, "app.bsky.feed.repost", &bsky.FeedRepost{
+				CreatedAt: time.Now().Format(bsutil.ISO8601),
+				Subject: &atproto.RepoStrongRef{
+					Uri: RandFakeAtUri("app.bsky.feed.post", ""),
+					Cid: RandFakeCid().String(),
+				},
+			})
+			if err != nil {
+				return cid.Undef, err
+			}
+		case "reply":
+			_, _, err := r.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
+				CreatedAt: time.Now().Format(bsutil.ISO8601),
+				Text:      RandSentence(words, 200),
+				Reply: &bsky.FeedPost_ReplyRef{
+					Root: &atproto.RepoStrongRef{
+						Uri: RandFakeAtUri("app.bsky.feed.post", ""),
+						Cid: RandFakeCid().String(),
+					},
+					Parent: &atproto.RepoStrongRef{
+						Uri: RandFakeAtUri("app.bsky.feed.post", ""),
+						Cid: RandFakeCid().String(),
+					},
+				},
+			})
+			if err != nil {
+				return cid.Undef, err
+			}
+		case "like":
+			_, _, err := r.CreateRecord(ctx, "app.bsky.feed.vote", &bsky.FeedVote{
+				CreatedAt: time.Now().Format(bsutil.ISO8601),
+				Direction: "up",
+				Subject: &atproto.RepoStrongRef{
+					Uri: RandFakeAtUri("app.bsky.feed.post", ""),
+					Cid: RandFakeCid().String(),
+				},
+			})
+			if err != nil {
+				return cid.Undef, err
+			}
+		}
+
+		nroot, err := r.Commit(ctx)
+		if err != nil {
+			return cid.Undef, err
+		}
+
+		root = nroot
+	}
+
+	return root, nil
 }

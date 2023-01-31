@@ -30,6 +30,10 @@ func checkDiffSort(diffs []*DiffOp) {
 func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) ([]*DiffOp, error) {
 	cst := util.CborStore(bs)
 
+	if from == cid.Undef {
+		return identityDiff(ctx, bs, to)
+	}
+
 	ft := LoadMST(cst, 32, from)
 	tt := LoadMST(cst, 32, to)
 
@@ -188,4 +192,22 @@ func nodeEntriesEqual(a, b *NodeEntry) bool {
 	}
 
 	return false
+}
+
+func identityDiff(ctx context.Context, bs blockstore.Blockstore, root cid.Cid) ([]*DiffOp, error) {
+	cst := util.CborStore(bs)
+	tt := LoadMST(cst, 32, root)
+
+	var ops []*DiffOp
+	if err := tt.WalkLeavesFrom(ctx, "", func(ne NodeEntry) error {
+		ops = append(ops, &DiffOp{
+			Op:     "add",
+			Rpath:  ne.Key,
+			NewCid: ne.Val,
+		})
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return ops, nil
 }

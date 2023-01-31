@@ -119,10 +119,14 @@ func (r *Repo) PrevCommit(ctx context.Context) (*cid.Cid, error) {
 
 	var c Commit
 	if err := r.cst.Get(ctx, r.sr.Root, &c); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("loading previous commit: %w", err)
 	}
 
 	return c.Prev, nil
+}
+
+func (r *Repo) CommitRoot() cid.Cid {
+	return r.sr.Root
 }
 
 func (r *Repo) Blockstore() blockstore.Blockstore {
