@@ -18,7 +18,7 @@ var _ = cid.Undef
 var _ = math.E
 var _ = sort.Sort
 
-func (t *SignedRoot) MarshalCBOR(w io.Writer) error {
+func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -73,8 +73,8 @@ func (t *SignedRoot) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *SignedRoot) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = SignedRoot{}
+func (t *SignedCommit) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = SignedCommit{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -93,7 +93,7 @@ func (t *SignedRoot) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("SignedRoot: map struct too large (%d)", extra)
+		return fmt.Errorf("SignedCommit: map struct too large (%d)", extra)
 	}
 
 	var name string
@@ -332,7 +332,7 @@ func (t *Meta) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *Commit) MarshalCBOR(w io.Writer) error {
+func (t *Root) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -438,8 +438,8 @@ func (t *Commit) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *Commit) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = Commit{}
+func (t *Root) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = Root{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -458,7 +458,7 @@ func (t *Commit) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("Commit: map struct too large (%d)", extra)
+		return fmt.Errorf("Root: map struct too large (%d)", extra)
 	}
 
 	var name string

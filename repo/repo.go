@@ -17,12 +17,12 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-type SignedRoot struct {
+type SignedCommit struct {
 	Root cid.Cid `cborgen:"root"`
 	Sig  []byte  `cborgen:"sig"`
 }
 
-type Commit struct {
+type Root struct {
 	AuthToken *string  `cborgen:"auth_token"`
 	Data      cid.Cid  `cborgen:"data"`
 	Meta      cid.Cid  `cborgen:"meta"`
@@ -36,9 +36,11 @@ type Meta struct {
 }
 
 type Repo struct {
-	sr  SignedRoot
+	sr  SignedCommit
 	cst cbor.IpldStore
 	bs  blockstore.Blockstore
+
+	repoCid cid.Cid
 
 	meta Meta
 
@@ -99,15 +101,16 @@ func NewRepo(ctx context.Context, bs blockstore.Blockstore) *Repo {
 func OpenRepo(ctx context.Context, bs blockstore.Blockstore, root cid.Cid) (*Repo, error) {
 	cst := util.CborStore(bs)
 
-	var sr SignedRoot
+	var sr SignedCommit
 	if err := cst.Get(ctx, root, &sr); err != nil {
 		return nil, fmt.Errorf("loading root from blockstore: %w", err)
 	}
 
 	return &Repo{
-		sr:  sr,
-		bs:  bs,
-		cst: cst,
+		sr:      sr,
+		bs:      bs,
+		cst:     cst,
+		repoCid: root,
 	}, nil
 }
 
@@ -117,7 +120,7 @@ type CborMarshaler interface {
 
 func (r *Repo) PrevCommit(ctx context.Context) (*cid.Cid, error) {
 
-	var c Commit
+	var c Root
 	if err := r.cst.Get(ctx, r.sr.Root, &c); err != nil {
 		return nil, fmt.Errorf("loading previous commit: %w", err)
 	}
@@ -216,30 +219,31 @@ func (r *Repo) Commit(ctx context.Context) (cid.Cid, error) {
 		return cid.Undef, err
 	}
 
-	ncom := Commit{
+	nroot := Root{
 		Data: rcid,
 	}
-	if r.sr.Root.Defined() {
-		var com Commit
-		if err := r.cst.Get(ctx, r.sr.Root, &com); err != nil {
+
+	if r.repoCid.Defined() {
+		var rt Root
+		if err := r.cst.Get(ctx, r.sr.Root, &rt); err != nil {
 			return cid.Undef, err
 		}
-		ncom.Prev = &r.sr.Root
-		ncom.Meta = com.Meta
+		nroot.Prev = &r.repoCid
+		nroot.Meta = rt.Meta
 	} else {
 		mcid, err := r.cst.Put(ctx, &r.meta)
 		if err != nil {
 			return cid.Undef, err
 		}
-		ncom.Meta = mcid
+		nroot.Meta = mcid
 	}
 
-	ncomcid, err := r.cst.Put(ctx, &ncom)
+	ncomcid, err := r.cst.Put(ctx, &nroot)
 	if err != nil {
 		return cid.Undef, err
 	}
 
-	nsroot := SignedRoot{
+	nsroot := SignedCommit{
 		Root: ncomcid,
 	}
 
@@ -259,12 +263,12 @@ func (r *Repo) getMst(ctx context.Context) (*mst.MerkleSearchTree, error) {
 		return r.mst, nil
 	}
 
-	var com Commit
-	if err := r.cst.Get(ctx, r.sr.Root, &com); err != nil {
+	var rt Root
+	if err := r.cst.Get(ctx, r.sr.Root, &rt); err != nil {
 		return nil, err
 	}
 
-	t := mst.LoadMST(r.cst, 32, com.Data)
+	t := mst.LoadMST(r.cst, 32, rt.Data)
 	r.mst = t
 	return t, nil
 }
@@ -275,12 +279,12 @@ func (r *Repo) ForEach(ctx context.Context, prefix string, cb func(k string, v c
 	ctx, span := otel.Tracer("repo").Start(ctx, "ForEach")
 	defer span.End()
 
-	var com Commit
-	if err := r.cst.Get(ctx, r.sr.Root, &com); err != nil {
+	var rt Root
+	if err := r.cst.Get(ctx, r.sr.Root, &rt); err != nil {
 		return fmt.Errorf("failed to load commit: %w", err)
 	}
 
-	t := mst.LoadMST(r.cst, 32, com.Data)
+	t := mst.LoadMST(r.cst, 32, rt.Data)
 
 	if err := t.WalkLeavesFrom(ctx, prefix, func(e mst.NodeEntry) error {
 		return cb(e.Key, e.Val)
