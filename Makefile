@@ -10,7 +10,7 @@ build: ## Build all executables
 	go build ./...
 
 .PHONY: test
-test: build ## Run all tests
+test: ## Run all tests
 	go test ./...
 
 .PHONY: lint
