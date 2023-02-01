@@ -318,6 +318,7 @@ func loadKey(kfile string) (*key.Key, error) {
 func (s *Server) RunAPI(listen string) error {
 	e := echo.New()
 	s.echo = e
+	e.HideBanner = true
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
 	}))

@@ -56,6 +56,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 
 func (bgs *BGS) Start(listen string) error {
 	e := echo.New()
+	e.HideBanner = true
 
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
