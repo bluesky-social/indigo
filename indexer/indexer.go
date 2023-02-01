@@ -40,7 +40,7 @@ type Indexer struct {
 	CreateExternalUser func(context.Context, string) (*types.ActorInfo, error)
 }
 
-func NewIndexer(db *gorm.DB, notifman *notifs.NotificationManager, evtman *events.EventManager, didr plc.PLCClient, crawl bool) (*Indexer, error) {
+func NewIndexer(db *gorm.DB, notifman *notifs.NotificationManager, evtman *events.EventManager, didr plc.PLCClient, repoman *repomgr.RepoManager, crawl bool) (*Indexer, error) {
 	db.AutoMigrate(&types.FeedPost{})
 	db.AutoMigrate(&types.ActorInfo{})
 	db.AutoMigrate(&types.FollowRecord{})
@@ -51,6 +51,7 @@ func NewIndexer(db *gorm.DB, notifman *notifs.NotificationManager, evtman *event
 		db:       db,
 		notifman: notifman,
 		events:   evtman,
+		repomgr:  repoman,
 		didr:     didr,
 		SendRemoteFollow: func(context.Context, string, uint) error {
 			return nil
@@ -225,7 +226,8 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil, fmt.Errorf("failed to lookup user: %w", err)
 			}
-			nu, err := ix.CreateExternalUser(ctx, rec.Subject.Did)
+
+			nu, err := ix.createMissingUserRecord(ctx, rec.Subject.Did)
 			if err != nil {
 				return nil, fmt.Errorf("create external user: %w", err)
 			}
@@ -294,7 +296,34 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user uint, rk
 
 		replyid = replyto.ID
 
-		// TODO: handle root references
+		rootref, err := ix.GetPostOrMissing(ctx, rec.Reply.Root.Uri)
+		if err != nil {
+			return err
+		}
+
+		// TODO: use this for indexing?
+		_ = rootref
+	}
+
+	var mentions []*types.ActorInfo
+	for _, e := range rec.Entities {
+		if e.Type == "mention" {
+			ai, err := ix.LookupUserByDid(ctx, e.Value)
+			if err != nil {
+				if !isNotFound(err) {
+					return err
+				}
+
+				// unknown user... create it and send it off to the crawler
+				nai, err := ix.createMissingUserRecord(ctx, e.Value)
+				if err != nil {
+					return fmt.Errorf("creating missing user record: %w", err)
+				}
+
+				ai = nai
+			}
+			mentions = append(mentions, ai)
+		}
 	}
 
 	var maybe types.FeedPost
@@ -328,7 +357,7 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user uint, rk
 		}
 	}
 
-	if err := ix.addNewPostNotification(ctx, rec, &fp); err != nil {
+	if err := ix.addNewPostNotification(ctx, rec, &fp, mentions); err != nil {
 		return err
 	}
 
@@ -336,6 +365,7 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user uint, rk
 }
 
 func (ix *Indexer) createMissingPostRecord(ctx context.Context, puri *parsedUri) (*types.FeedPost, error) {
+	log.Warn("creating missing post record")
 	ai, err := ix.LookupUserByDid(ctx, puri.Did)
 	if err != nil {
 		if !isNotFound(err) {
@@ -425,7 +455,7 @@ func (ix *Indexer) lookupUserByHandle(ctx context.Context, handle string) (*type
 	return &ai, nil
 }
 
-func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPost, fp *types.FeedPost) error {
+func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPost, fp *types.FeedPost, mentions []*types.ActorInfo) error {
 	if post.Reply != nil {
 		replyto, err := ix.GetPost(ctx, post.Reply.Parent.Uri)
 		if err != nil {
@@ -438,19 +468,12 @@ func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPo
 		}
 	}
 
-	for _, e := range post.Entities {
-		switch e.Type {
-		case "mention":
-			mentioned, err := ix.LookupUserByDid(ctx, e.Value)
-			if err != nil {
-				return fmt.Errorf("mentioned user does not exist: %w", err)
-			}
-
-			if err := ix.notifman.AddMention(ctx, fp.Author, fp.ID, mentioned.ID); err != nil {
-				return err
-			}
+	for _, mentioned := range mentions {
+		if err := ix.notifman.AddMention(ctx, fp.Author, fp.ID, mentioned.ID); err != nil {
+			return err
 		}
 	}
+
 	return nil
 }
 

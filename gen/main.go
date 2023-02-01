@@ -16,7 +16,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("repo/cbor_gen.go", "repo", repo.SignedRoot{}, repo.Meta{}, repo.Commit{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("repo/cbor_gen.go", "repo", repo.SignedCommit{}, repo.Meta{}, repo.Root{}); err != nil {
 		panic(err)
 	}
 

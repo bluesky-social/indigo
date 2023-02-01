@@ -136,8 +136,12 @@ func (rm *RepoManager) getUserRepoHead(ctx context.Context, user uint) (cid.Cid,
 	defer span.End()
 
 	var headrec RepoHead
-	if err := rm.db.First(&headrec, "usr = ?", user).Error; err != nil {
+	if err := rm.db.Find(&headrec, "usr = ?", user).Error; err != nil {
 		return cid.Undef, err
+	}
+
+	if headrec.ID == 0 {
+		return cid.Undef, gorm.ErrRecordNotFound
 	}
 
 	cc, err := cid.Decode(headrec.Root)
@@ -493,14 +497,14 @@ func (rm *RepoManager) GetProfile(ctx context.Context, uid uint) (*apibsky.Actor
 	return ap, nil
 }
 
-func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid uint, ops []*events.RepoOp, carslice []byte) error {
+func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid uint, prev *cid.Cid, ops []*events.RepoOp, carslice []byte) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "HandleExternalUserEvent")
 	defer span.End()
 
 	unlock := rm.lockUser(ctx, uid)
 	defer unlock()
 
-	root, ds, err := rm.cs.ImportSlice(ctx, uid, carslice)
+	root, ds, err := rm.cs.ImportSlice(ctx, uid, prev, carslice)
 	if err != nil {
 		return fmt.Errorf("importing external carslice: %w", err)
 	}

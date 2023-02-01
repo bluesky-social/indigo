@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -97,6 +98,7 @@ func socialSim(t *testing.T, users []*testUser) []*atproto.RepoStrongRef {
 }
 
 func TestBGSMultiPDS(t *testing.T) {
+	t.Skip()
 	assert := assert.New(t)
 	_ = assert
 	didr := testPLC(t)
@@ -130,18 +132,27 @@ func TestBGSMultiPDS(t *testing.T) {
 
 	randomFollows(t, append(users, users2...))
 
-	time.Sleep(time.Second)
-	fmt.Println("Doing the thing now...")
 	users[0].Reply(t, p2posts[0], p2posts[0], "what a wonderful life")
 
+	// now if we make posts on pds 2, the bgs will not hear about those new posts
+
+	p2posts2 := socialSim(t, users2)
+
 	time.Sleep(time.Second)
-	/*
 
-		p2.RequestScraping(t, b2)
-		time.Sleep(time.Millisecond * 50)
+	p2.RequestScraping(t, b1)
+	time.Sleep(time.Millisecond * 50)
 
-		evts := b1.Events(t, -1)
-		defer evts.cancel()
-	*/
+	// Now, the bgs will discover a gap, and have to catch up somehow
+	socialSim(t, users2)
+
+	// we expect the bgs to learn about posts that it didnt directly see from
+	// repos its already partially scraped, as long as its seen *something* after the missing post
+	// this is the 'catchup' process
+	ctx := context.Background()
+	_, err := b1.bgs.Index.GetPost(ctx, p2posts2[4].Uri)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 }

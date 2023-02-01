@@ -1,8 +1,11 @@
 package events
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/bluesky-social/indigo/types"
+	cid "github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 )
 
@@ -102,6 +105,7 @@ type RepoEvent struct {
 }
 
 type RepoAppend struct {
+	Prev   *cid.Cid  `cborgen:"prev"`
 	Ops    []*RepoOp `cborgen:"ops"`
 	Rebase bool      `cborgen:"rebase"`
 	Car    []byte    `cborgen:"car"`
@@ -183,4 +187,8 @@ func (em *EventManager) Subscribe(filter func(*RepoEvent) bool, since *int64) (<
 	}
 
 	return sub.outgoing, cleanup, nil
+}
+
+func (em *EventManager) AddToCatchupQueue(ctx context.Context, host *types.PDS, u uint, evt *RepoEvent) error {
+	return nil
 }
