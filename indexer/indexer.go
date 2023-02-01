@@ -34,7 +34,7 @@ type Indexer struct {
 	// TODO: i feel like the repomgr doesnt belong here
 	repomgr *repomgr.RepoManager
 
-	crawler *CrawlDispatcher
+	Crawler *CrawlDispatcher
 
 	SendRemoteFollow   func(context.Context, string, uint) error
 	CreateExternalUser func(context.Context, string) (*types.ActorInfo, error)
@@ -59,9 +59,9 @@ func NewIndexer(db *gorm.DB, notifman *notifs.NotificationManager, evtman *event
 	}
 
 	if crawl {
-		ix.crawler = NewCrawlDispatcher(ix.FetchAndIndexRepo)
+		ix.Crawler = NewCrawlDispatcher(ix.FetchAndIndexRepo)
 
-		ix.crawler.Run()
+		ix.Crawler.Run()
 	}
 
 	return ix, nil
@@ -408,11 +408,11 @@ func (ix *Indexer) createMissingUserRecord(ctx context.Context, did string) (*ty
 
 func (ix *Indexer) addUserToCrawler(ctx context.Context, ai *types.ActorInfo) error {
 	log.Warnw("Sending user to crawler: ", "did", ai.Did)
-	if ix.crawler == nil {
+	if ix.Crawler == nil {
 		return nil
 	}
 
-	return ix.crawler.Crawl(ctx, ai)
+	return ix.Crawler.Crawl(ctx, ai)
 }
 
 func (ix *Indexer) DidForUser(ctx context.Context, uid uint) (string, error) {
