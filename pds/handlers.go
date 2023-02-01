@@ -1,4 +1,4 @@
-package schemagen
+package pds
 
 import (
 	"bytes"
