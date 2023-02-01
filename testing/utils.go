@@ -407,7 +407,7 @@ func SetupBGS(host string, didr plc.PLCClient) (*testBGS, error) {
 
 	go evtman.Run()
 
-	ix, err := indexer.NewIndexer(maindb, notifman, evtman, didr, false)
+	ix, err := indexer.NewIndexer(maindb, notifman, evtman, didr, repoman, true)
 	if err != nil {
 		return nil, err
 	}

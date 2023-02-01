@@ -74,7 +74,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 	repoman := repomgr.NewRepoManager(db, cs)
 	notifman := notifs.NewNotificationManager(db, repoman.GetRecord)
 
-	ix, err := indexer.NewIndexer(db, notifman, evtman, didr, false)
+	ix, err := indexer.NewIndexer(db, notifman, evtman, didr, repoman, false)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *events.
 			u.ID = subj.Uid
 		}
 
-		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, evt.RepoAppend.Ops, evt.RepoAppend.Car)
+		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, evt.RepoAppend.Prev, evt.RepoAppend.Ops, evt.RepoAppend.Car)
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
@@ -335,6 +335,9 @@ func (s *Server) RunAPI(listen string) error {
 				return true
 			case "/xrpc/app.bsky.actor.getProfile":
 				fmt.Println("TODO: currently not requiring auth on get profile endpoint")
+				return true
+			case "/xrpc/com.atproto.sync.getRepo":
+				fmt.Println("TODO: currently not requiring auth on get repo endpoint")
 				return true
 			case "/xrpc/com.atproto.peering.follow", "/events":
 				auth := c.Request().Header.Get("Authorization")

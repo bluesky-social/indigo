@@ -62,7 +62,7 @@ func testIndexer(t *testing.T) *testIx {
 
 	didr := testPLC(t)
 
-	ix, err := NewIndexer(maindb, notifman, evtman, didr)
+	ix, err := NewIndexer(maindb, notifman, evtman, didr, repoman, false)
 	if err != nil {
 		t.Fatal(err)
 	}

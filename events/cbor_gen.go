@@ -308,7 +308,7 @@ func (t *RepoAppend) MarshalCBOR(w io.Writer) error {
 
 	cw := cbg.NewCborWriter(w)
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if _, err := cw.Write([]byte{164}); err != nil {
 		return err
 	}
 
@@ -361,6 +361,28 @@ func (t *RepoAppend) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
+	// t.Prev (cid.Cid) (struct)
+	if len("prev") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"prev\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("prev")); err != nil {
+		return err
+	}
+
+	if t.Prev == nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteCid(cw, *t.Prev); err != nil {
+			return xerrors.Errorf("failed to write cid field t.Prev: %w", err)
+		}
+	}
+
 	// t.Rebase (bool) (bool)
 	if len("rebase") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"rebase\" was too long")
@@ -395,7 +417,7 @@ func (t *RepoAppend) UnmarshalCBOR(r io.Reader) (err error) {
 	}()
 
 	if maj != cbg.MajMap {
-		return fmt.Errorf("cbor input should be of type map (it was %d)", maj)
+		return fmt.Errorf("cbor input should be of type map")
 	}
 
 	if extra > cbg.MaxLength {
@@ -463,12 +485,35 @@ func (t *RepoAppend) UnmarshalCBOR(r io.Reader) (err error) {
 
 				var v RepoOp
 				if err := v.UnmarshalCBOR(cr); err != nil {
-					return fmt.Errorf("reading ops: %w", err)
+					return err
 				}
 
 				t.Ops[i] = &v
 			}
 
+			// t.Prev (cid.Cid) (struct)
+		case "prev":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					c, err := cbg.ReadCid(cr)
+					if err != nil {
+						return xerrors.Errorf("failed to read cid field t.Prev: %w", err)
+					}
+
+					t.Prev = &c
+				}
+
+			}
 			// t.Rebase (bool) (bool)
 		case "rebase":
 

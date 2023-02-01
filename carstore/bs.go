@@ -269,6 +269,8 @@ func (cs *CarStore) getLastShard(ctx context.Context, user uint) (*CarShard, err
 	return &lastShard, nil
 }
 
+var ErrRepoBaseMismatch = fmt.Errorf("attempted a delta session on top of the wrong previous head")
+
 func (cs *CarStore) NewDeltaSession(ctx context.Context, user uint, prev *cid.Cid) (*DeltaSession, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "NewSession")
 	defer span.End()
@@ -282,7 +284,7 @@ func (cs *CarStore) NewDeltaSession(ctx context.Context, user uint, prev *cid.Ci
 
 	if prev != nil {
 		if lastShard.Root != "" && lastShard.Root != prev.String() {
-			return nil, fmt.Errorf("attempted a delta session on top of the wrong previous head")
+			return nil, ErrRepoBaseMismatch
 		}
 	}
 
@@ -593,7 +595,7 @@ func LdWrite(w io.Writer, d ...[]byte) (int64, error) {
 	return int64(nw), nil
 }
 
-func (cs *CarStore) ImportSlice(ctx context.Context, uid uint, carslice []byte) (cid.Cid, *DeltaSession, error) {
+func (cs *CarStore) ImportSlice(ctx context.Context, uid uint, prev *cid.Cid, carslice []byte) (cid.Cid, *DeltaSession, error) {
 	carr, err := car.NewCarReader(bytes.NewReader(carslice))
 	if err != nil {
 		return cid.Undef, nil, err
@@ -603,7 +605,7 @@ func (cs *CarStore) ImportSlice(ctx context.Context, uid uint, carslice []byte) 
 		return cid.Undef, nil, fmt.Errorf("invalid car file, header must have a single root (has %d)", len(carr.Header.Roots))
 	}
 
-	ds, err := cs.NewDeltaSession(ctx, uid, nil)
+	ds, err := cs.NewDeltaSession(ctx, uid, prev)
 	if err != nil {
 		return cid.Undef, nil, err
 	}

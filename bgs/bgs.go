@@ -10,6 +10,7 @@ import (
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/plc"
@@ -26,7 +27,7 @@ import (
 var log = logging.Logger("bgs")
 
 type BGS struct {
-	index   *indexer.Indexer
+	Index   *indexer.Indexer
 	db      *gorm.DB
 	slurper *Slurper
 	events  *events.EventManager
@@ -40,7 +41,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	db.AutoMigrate(types.PDS{})
 
 	bgs := &BGS{
-		index: ix,
+		Index: ix,
 		db:    db,
 
 		repoman: repoman,
@@ -175,7 +176,17 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *types.PDS, evt *events
 			u.ID = subj.Uid
 		}
 
-		return bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, evt.RepoAppend.Ops, evt.RepoAppend.Car)
+		// TODO: if the user is already in the 'slow' path, we shouldnt even bother trying to fast path this event
+
+		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, evt.RepoAppend.Prev, evt.RepoAppend.Ops, evt.RepoAppend.Car); err != nil {
+			if !errors.Is(err, carstore.ErrRepoBaseMismatch) {
+				return err
+			}
+
+			return bgs.events.AddToCatchupQueue(ctx, host, u.ID, evt)
+		}
+
+		return nil
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
