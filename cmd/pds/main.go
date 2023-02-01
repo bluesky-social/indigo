@@ -10,8 +10,8 @@ import (
 
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/plc"
-	server "github.com/bluesky-social/indigo/server"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/urfave/cli/v2"
 	"gorm.io/driver/postgres"
@@ -131,7 +131,7 @@ func main() {
 		}
 
 		pdshost := cctx.String("pdshost")
-		srv, err := server.NewServer(db, cs, "server.key", ".pdstest", pdshost, didr, []byte("jwtsecretplaceholder"))
+		srv, err := pds.NewServer(db, cs, "server.key", ".pdstest", pdshost, didr, []byte("jwtsecretplaceholder"))
 		if err != nil {
 			return err
 		}
