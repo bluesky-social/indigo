@@ -17,6 +17,7 @@ _build/
 src/build/
 *.log
 *.db
+data/
 
 # Don't ignore this file itself, or other specific dotfiles
 !.gitignore
