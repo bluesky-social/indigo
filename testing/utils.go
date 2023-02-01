@@ -28,10 +28,10 @@ import (
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/notifs"
+	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
-	server "github.com/bluesky-social/indigo/server"
 	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
@@ -74,7 +74,7 @@ func makeKey(fname string) error {
 
 type testPDS struct {
 	dir    string
-	server *server.Server
+	server *pds.Server
 	plc    *api.PLCServer
 
 	host string
@@ -134,7 +134,7 @@ func SetupPDS(host, suffix string, plc plc.PLCClient) (*testPDS, error) {
 		return nil, err
 	}
 
-	srv, err := server.NewServer(maindb, cs, kfile, suffix, host, plc, []byte(host+suffix))
+	srv, err := pds.NewServer(maindb, cs, kfile, suffix, host, plc, []byte(host+suffix))
 	if err != nil {
 		return nil, err
 	}
