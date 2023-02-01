@@ -91,7 +91,7 @@ func main() {
 			dsn := "host=localhost user=postgres password=password dbname=pdsdb port=5432 sslmode=disable"
 			pdsdial = postgres.Open(dsn)
 		} else {
-			pdsdial = sqlite.Open("data/pds/pds.db")
+			pdsdial = sqlite.Open("data/pds/pds.sqlite")
 		}
 		db, err := gorm.Open(pdsdial, &gorm.Config{})
 		if err != nil {
@@ -109,7 +109,7 @@ func main() {
 			dsn2 := "host=localhost user=postgres password=password dbname=cardb port=5432 sslmode=disable"
 			cardial = postgres.Open(dsn2)
 		} else {
-			cardial = sqlite.Open("data/pds/carstore.db")
+			cardial = sqlite.Open("data/pds/carstore.sqlite")
 		}
 		carstdb, err := gorm.Open(cardial, &gorm.Config{})
 		if err != nil {
