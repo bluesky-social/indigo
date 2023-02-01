@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/carstore"
@@ -82,12 +83,15 @@ func main() {
 		pgdb := cctx.Bool("postgres")
 		dbtracing := cctx.Bool("dbtracing")
 
+		// ensure data directory exists; won't error if it does
+		os.MkdirAll("data/pds/", os.ModePerm)
+
 		var pdsdial gorm.Dialector
 		if pgdb {
 			dsn := "host=localhost user=postgres password=password dbname=pdsdb port=5432 sslmode=disable"
 			pdsdial = postgres.Open(dsn)
 		} else {
-			pdsdial = sqlite.Open("pdsdata/pds.db")
+			pdsdial = sqlite.Open("data/pds/pds.db")
 		}
 		db, err := gorm.Open(pdsdial, &gorm.Config{})
 		if err != nil {
@@ -105,7 +109,7 @@ func main() {
 			dsn2 := "host=localhost user=postgres password=password dbname=cardb port=5432 sslmode=disable"
 			cardial = postgres.Open(dsn2)
 		} else {
-			cardial = sqlite.Open("pdsdata/carstore.db")
+			cardial = sqlite.Open("data/pds/carstore.db")
 		}
 		carstdb, err := gorm.Open(cardial, &gorm.Config{})
 		if err != nil {
@@ -118,7 +122,7 @@ func main() {
 			}
 		}
 
-		cs, err := carstore.NewCarStore(carstdb, "pdsdata/carstore")
+		cs, err := carstore.NewCarStore(carstdb, "data/pds/carstore")
 		if err != nil {
 			return err
 		}
@@ -131,7 +135,7 @@ func main() {
 		}
 
 		pdshost := cctx.String("pdshost")
-		srv, err := pds.NewServer(db, cs, "server.key", ".pdstest", pdshost, didr, []byte("jwtsecretplaceholder"))
+		srv, err := pds.NewServer(db, cs, "data/pds/server.key", ".pdstest", pdshost, didr, []byte("jwtsecretplaceholder"))
 		if err != nil {
 			return err
 		}
@@ -147,7 +151,7 @@ var generateKeyCmd = &cli.Command{
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "filename",
-			Value: "server.key",
+			Value: "data/pds/server.key",
 		},
 	},
 	Action: func(cctx *cli.Context) error {
@@ -173,6 +177,8 @@ var generateKeyCmd = &cli.Command{
 		}
 
 		fname := cctx.String("filename")
+		// ensure data directory exists; won't error if it does
+		os.MkdirAll(filepath.Dir(fname), os.ModePerm)
 
 		return os.WriteFile(fname, buf, 0664)
 	},
