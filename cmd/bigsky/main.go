@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/bgs"
@@ -41,15 +43,15 @@ func main() {
 		},
 		&cli.StringFlag{
 			Name:  "db",
-			Value: "sqlite=bgs.db",
+			Value: "sqlite=data/bigsky/bgs.db",
 		},
 		&cli.StringFlag{
 			Name:  "carstoredb",
-			Value: "sqlite=carstore.db",
+			Value: "sqlite=data/bigsky/carstore.db",
 		},
 		&cli.StringFlag{
 			Name:  "carstore",
-			Value: "bgscarstore",
+			Value: "data/bigsky/carstore",
 		},
 		&cli.BoolFlag{
 			Name: "dbtracing",
@@ -84,8 +86,10 @@ func main() {
 			otel.SetTracerProvider(tp)
 		}
 
-		dbstr := cctx.String("db")
+		// ensure data directory exists; won't error if it does
+		os.MkdirAll("data/bigsky/", os.ModePerm)
 
+		dbstr := cctx.String("db")
 		db, err := cliutil.SetupDatabase(dbstr)
 		if err != nil {
 			return err
@@ -97,12 +101,14 @@ func main() {
 			}
 		}
 
-		cardb, err := cliutil.SetupDatabase(cctx.String("carstoredb"))
+		carstoredbstr := cctx.String("carstoredb")
+		cardb, err := cliutil.SetupDatabase(carstoredbstr)
 		if err != nil {
 			return err
 		}
 
 		csdir := cctx.String("carstore")
+		os.MkdirAll(filepath.Dir(csdir), os.ModePerm)
 		cstore, err := carstore.NewCarStore(cardb, csdir)
 		if err != nil {
 			return err

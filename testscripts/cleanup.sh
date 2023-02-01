@@ -1,3 +1,3 @@
 #!/bin/bash
-rm -rf pdsdata
-mkdir -p pdsdata/carstore
+rm -rf data/pds/
+mkdir -p data/pds/carstore
