@@ -36,12 +36,12 @@ func testIndexer(t *testing.T) *testIx {
 		t.Fatal(err)
 	}
 
-	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.db")))
+	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.sqlite")))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.db")))
+	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.sqlite")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func testPLC(t *testing.T) *plc.FakeDid {
 		t.Fatal(err)
 	}
 
-	db, err := gorm.Open(sqlite.Open(filepath.Join(tdir, "plc.db")))
+	db, err := gorm.Open(sqlite.Open(filepath.Join(tdir, "plc.sqlite")))
 	if err != nil {
 		t.Fatal(err)
 	}

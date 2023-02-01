@@ -43,11 +43,11 @@ func main() {
 		},
 		&cli.StringFlag{
 			Name:  "db",
-			Value: "sqlite=data/bigsky/bgs.db",
+			Value: "sqlite=data/bigsky/bgs.sqlite",
 		},
 		&cli.StringFlag{
 			Name:  "carstoredb",
-			Value: "sqlite=data/bigsky/carstore.db",
+			Value: "sqlite=data/bigsky/carstore.sqlite",
 		},
 		&cli.StringFlag{
 			Name:  "carstore",

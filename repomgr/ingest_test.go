@@ -32,12 +32,12 @@ func TestLoadNewRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.db")))
+	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.sqlite")))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.db")))
+	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.sqlite")))
 	if err != nil {
 		t.Fatal(err)
 	}

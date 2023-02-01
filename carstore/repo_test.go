@@ -32,7 +32,7 @@ func testCarStore() (*CarStore, func(), error) {
 	}
 
 	dbstr := "file::memory:"
-	//dbstr := filepath.Join(tempdir, "foo.db")
+	//dbstr := filepath.Join(tempdir, "foo.sqlite")
 	db, err := gorm.Open(sqlite.Open(dbstr),
 		&gorm.Config{
 			SkipDefaultTransaction: true,

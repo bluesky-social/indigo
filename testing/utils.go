@@ -109,12 +109,12 @@ func SetupPDS(host, suffix string, plc plc.PLCClient) (*testPDS, error) {
 		return nil, err
 	}
 
-	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.db")))
+	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.sqlite")))
 	if err != nil {
 		return nil, err
 	}
 
-	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.db")))
+	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.sqlite")))
 	if err != nil {
 		return nil, err
 	}
@@ -352,7 +352,7 @@ func testPLC(t *testing.T) *plc.FakeDid {
 		t.Fatal(err)
 	}
 
-	db, err := gorm.Open(sqlite.Open(filepath.Join(tdir, "plc.db")))
+	db, err := gorm.Open(sqlite.Open(filepath.Join(tdir, "plc.sqlite")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -379,12 +379,12 @@ func SetupBGS(host string, didr plc.PLCClient) (*testBGS, error) {
 		return nil, err
 	}
 
-	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.db")))
+	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.sqlite")))
 	if err != nil {
 		return nil, err
 	}
 
-	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.db")))
+	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.sqlite")))
 	if err != nil {
 		return nil, err
 	}
