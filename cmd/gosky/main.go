@@ -13,7 +13,7 @@ import (
 
 	api "github.com/bluesky-social/indigo/api"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
-	apibsky "github.com/bluesky-social/indigo/api/bsky"
+	bsky "github.com/bluesky-social/indigo/api/bsky"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	"github.com/bluesky-social/indigo/key"
 	"github.com/bluesky-social/indigo/repo"
@@ -306,9 +306,9 @@ func jsonPrint(i any) {
 	fmt.Println(string(b))
 }
 
-func prettyPrintPost(p *apibsky.FeedFeedViewPost, uris bool) {
+func prettyPrintPost(p *bsky.FeedFeedViewPost, uris bool) {
 	fmt.Println(strings.Repeat("-", 60))
-	rec := p.Post.Record.Val.(*apibsky.FeedPost)
+	rec := p.Post.Record.Val.(*bsky.FeedPost)
 	fmt.Printf("%s (%s)", p.Post.Author.Handle, rec.CreatedAt)
 	if uris {
 		fmt.Println(" -- ", p.Post.Uri)
@@ -617,12 +617,12 @@ var getNotificationsCmd = &cli.Command{
 	Action: func(cctx *cli.Context) error {
 		ctx := context.TODO()
 
-		bsky, err := cliutil.GetBskyClient(cctx, true)
+		client, err := cliutil.GetBskyClient(cctx, true)
 		if err != nil {
 			return err
 		}
 
-		notifs, err := apibsky.NotificationList(ctx, bsky.C, "", 50)
+		notifs, err := bsky.NotificationList(ctx, client.C, "", 50)
 		if err != nil {
 			return err
 		}
@@ -661,10 +661,10 @@ var followsAddCmd = &cli.Command{
 
 		user := cctx.Args().First()
 
-		follow := apibsky.GraphFollow{
+		follow := bsky.GraphFollow{
 			LexiconTypeID: "app.bsky.graph.follow",
 			CreatedAt:     time.Now().Format(time.RFC3339),
-			Subject: &apibsky.ActorRef{
+			Subject: &bsky.ActorRef{
 				DeclarationCid: "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u",
 				Did:            user,
 			},

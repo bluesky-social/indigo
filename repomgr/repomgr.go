@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
-	apibsky "github.com/bluesky-social/indigo/api/bsky"
+	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
@@ -368,7 +368,7 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 
 	r := repo.NewRepo(ctx, ds)
 
-	profile := &apibsky.ActorProfile{
+	profile := &bsky.ActorProfile{
 		DisplayName: displayname,
 	}
 
@@ -377,7 +377,7 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 		return fmt.Errorf("setting initial actor profile: %w", err)
 	}
 
-	decl := &apibsky.SystemDeclaration{
+	decl := &bsky.SystemDeclaration{
 		ActorType: actortype,
 	}
 	dc, err := r.PutRecord(ctx, "app.bsky.system.declaration/self", decl)
@@ -468,7 +468,7 @@ func (rm *RepoManager) GetRecord(ctx context.Context, user uint, collection stri
 	return ocid, val, nil
 }
 
-func (rm *RepoManager) GetProfile(ctx context.Context, uid uint) (*apibsky.ActorProfile, error) {
+func (rm *RepoManager) GetProfile(ctx context.Context, uid uint) (*bsky.ActorProfile, error) {
 	bs, err := rm.cs.ReadOnlySession(uid)
 	if err != nil {
 		return nil, err
@@ -489,7 +489,7 @@ func (rm *RepoManager) GetProfile(ctx context.Context, uid uint) (*apibsky.Actor
 		return nil, err
 	}
 
-	ap, ok := val.(*apibsky.ActorProfile)
+	ap, ok := val.(*bsky.ActorProfile)
 	if !ok {
 		return nil, fmt.Errorf("found wrong type in actor profile location in tree")
 	}
