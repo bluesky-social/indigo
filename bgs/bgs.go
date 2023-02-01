@@ -183,7 +183,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *types.PDS, evt *events
 				return err
 			}
 
-			return bgs.events.AddToCatchupQueue(ctx, host, u.ID, evt)
+			return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, u.ID, evt)
 		}
 
 		return nil

@@ -1,10 +1,8 @@
 package events
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/types"
 	cid "github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 )
@@ -187,8 +185,4 @@ func (em *EventManager) Subscribe(filter func(*RepoEvent) bool, since *int64) (<
 	}
 
 	return sub.outgoing, cleanup, nil
-}
-
-func (em *EventManager) AddToCatchupQueue(ctx context.Context, host *types.PDS, u uint, evt *RepoEvent) error {
-	return nil
 }

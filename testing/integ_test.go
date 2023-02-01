@@ -102,13 +102,13 @@ func TestBGSMultiPDS(t *testing.T) {
 	assert := assert.New(t)
 	_ = assert
 	didr := testPLC(t)
-	p1 := mustSetupPDS(t, "localhost:5155", ".pdsuno", didr)
+	p1 := mustSetupPDS(t, "localhost:5185", ".pdsuno", didr)
 	p1.Run(t)
 
-	p2 := mustSetupPDS(t, "localhost:5156", ".pdsdos", didr)
+	p2 := mustSetupPDS(t, "localhost:5186", ".pdsdos", didr)
 	p2.Run(t)
 
-	b1 := mustSetupBGS(t, "localhost:8231", didr)
+	b1 := mustSetupBGS(t, "localhost:8281", didr)
 	b1.Run(t)
 
 	p1.RequestScraping(t, b1)
