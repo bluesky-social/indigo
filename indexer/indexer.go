@@ -10,10 +10,10 @@ import (
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/types"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
@@ -37,15 +37,15 @@ type Indexer struct {
 	Crawler *CrawlDispatcher
 
 	SendRemoteFollow   func(context.Context, string, uint) error
-	CreateExternalUser func(context.Context, string) (*types.ActorInfo, error)
+	CreateExternalUser func(context.Context, string) (*models.ActorInfo, error)
 }
 
 func NewIndexer(db *gorm.DB, notifman *notifs.NotificationManager, evtman *events.EventManager, didr plc.PLCClient, repoman *repomgr.RepoManager, crawl bool) (*Indexer, error) {
-	db.AutoMigrate(&types.FeedPost{})
-	db.AutoMigrate(&types.ActorInfo{})
-	db.AutoMigrate(&types.FollowRecord{})
-	db.AutoMigrate(&types.VoteRecord{})
-	db.AutoMigrate(&types.RepostRecord{})
+	db.AutoMigrate(&models.FeedPost{})
+	db.AutoMigrate(&models.ActorInfo{})
+	db.AutoMigrate(&models.FollowRecord{})
+	db.AutoMigrate(&models.VoteRecord{})
+	db.AutoMigrate(&models.RepostRecord{})
 
 	ix := &Indexer{
 		db:       db,
@@ -156,7 +156,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 
 		out = append(out, author.PDS)
 
-		rr := types.RepostRecord{
+		rr := models.RepostRecord{
 			RecCreated: rec.CreatedAt,
 			Post:       fp.ID,
 			Reposter:   evt.User,
@@ -174,14 +174,14 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 
 	case *bsky.FeedVote:
 		var val int
-		var dbdir types.VoteDir
+		var dbdir models.VoteDir
 		switch rec.Direction {
 		case "up":
 			val = 1
-			dbdir = types.VoteDirUp
+			dbdir = models.VoteDirUp
 		case "down":
 			val = -1
-			dbdir = types.VoteDirDown
+			dbdir = models.VoteDirDown
 		default:
 			return nil, fmt.Errorf("invalid vote direction: %q", rec.Direction)
 		}
@@ -198,7 +198,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 
 		out = append(out, act.PDS)
 
-		vr := types.VoteRecord{
+		vr := models.VoteRecord{
 			Dir:     dbdir,
 			Voter:   evt.User,
 			Post:    post.ID,
@@ -210,7 +210,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			return nil, err
 		}
 
-		if err := ix.db.Model(types.FeedPost{}).Where("id = ?", post.ID).Update("up_count", gorm.Expr("up_count + ?", val)).Error; err != nil {
+		if err := ix.db.Model(models.FeedPost{}).Where("id = ?", post.ID).Update("up_count", gorm.Expr("up_count + ?", val)).Error; err != nil {
 			return nil, err
 		}
 
@@ -240,7 +240,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 		}
 
 		// 'follower' followed 'target'
-		fr := types.FollowRecord{
+		fr := models.FollowRecord{
 			Follower: evt.User,
 			Target:   subj.ID,
 			Rkey:     op.Rkey,
@@ -267,14 +267,14 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 	return out, nil
 }
 
-func (ix *Indexer) GetPostOrMissing(ctx context.Context, uri string) (*types.FeedPost, error) {
+func (ix *Indexer) GetPostOrMissing(ctx context.Context, uri string) (*models.FeedPost, error) {
 	puri, err := parseAtUri(uri)
 	if err != nil {
 		return nil, err
 	}
 
-	var post types.FeedPost
-	if err := ix.db.Find(&post, "rkey = ? AND author = (?)", puri.Rkey, ix.db.Model(types.ActorInfo{}).Where("did = ?", puri.Did).Select("id")).Error; err != nil {
+	var post models.FeedPost
+	if err := ix.db.Find(&post, "rkey = ? AND author = (?)", puri.Rkey, ix.db.Model(models.ActorInfo{}).Where("did = ?", puri.Did).Select("id")).Error; err != nil {
 		return nil, err
 	}
 
@@ -305,7 +305,7 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user uint, rk
 		_ = rootref
 	}
 
-	var mentions []*types.ActorInfo
+	var mentions []*models.ActorInfo
 	for _, e := range rec.Entities {
 		if e.Type == "mention" {
 			ai, err := ix.LookupUserByDid(ctx, e.Value)
@@ -326,12 +326,12 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user uint, rk
 		}
 	}
 
-	var maybe types.FeedPost
+	var maybe models.FeedPost
 	if err := ix.db.Find(&maybe, "rkey = ? AND author = ?", rkey, user).Error; err != nil {
 		return err
 	}
 
-	fp := types.FeedPost{
+	fp := models.FeedPost{
 		Rkey:    rkey,
 		Cid:     rcid.String(),
 		Author:  user,
@@ -364,7 +364,7 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user uint, rk
 	return nil
 }
 
-func (ix *Indexer) createMissingPostRecord(ctx context.Context, puri *parsedUri) (*types.FeedPost, error) {
+func (ix *Indexer) createMissingPostRecord(ctx context.Context, puri *parsedUri) (*models.FeedPost, error) {
 	log.Warn("creating missing post record")
 	ai, err := ix.LookupUserByDid(ctx, puri.Did)
 	if err != nil {
@@ -381,8 +381,8 @@ func (ix *Indexer) createMissingPostRecord(ctx context.Context, puri *parsedUri)
 		ai = nai
 	}
 
-	var fp types.FeedPost
-	if err := ix.db.FirstOrCreate(&fp, types.FeedPost{
+	var fp models.FeedPost
+	if err := ix.db.FirstOrCreate(&fp, models.FeedPost{
 		Author:  ai.Uid,
 		Rkey:    puri.Rkey,
 		Missing: true,
@@ -393,7 +393,7 @@ func (ix *Indexer) createMissingPostRecord(ctx context.Context, puri *parsedUri)
 	return &fp, nil
 }
 
-func (ix *Indexer) createMissingUserRecord(ctx context.Context, did string) (*types.ActorInfo, error) {
+func (ix *Indexer) createMissingUserRecord(ctx context.Context, did string) (*models.ActorInfo, error) {
 	ai, err := ix.CreateExternalUser(ctx, did)
 	if err != nil {
 		return nil, err
@@ -406,7 +406,7 @@ func (ix *Indexer) createMissingUserRecord(ctx context.Context, did string) (*ty
 	return ai, nil
 }
 
-func (ix *Indexer) addUserToCrawler(ctx context.Context, ai *types.ActorInfo) error {
+func (ix *Indexer) addUserToCrawler(ctx context.Context, ai *models.ActorInfo) error {
 	log.Warnw("Sending user to crawler: ", "did", ai.Did)
 	if ix.Crawler == nil {
 		return nil
@@ -416,7 +416,7 @@ func (ix *Indexer) addUserToCrawler(ctx context.Context, ai *types.ActorInfo) er
 }
 
 func (ix *Indexer) DidForUser(ctx context.Context, uid uint) (string, error) {
-	var ai types.ActorInfo
+	var ai models.ActorInfo
 	if err := ix.db.First(&ai, "uid = ?", uid).Error; err != nil {
 		return "", err
 	}
@@ -424,8 +424,8 @@ func (ix *Indexer) DidForUser(ctx context.Context, uid uint) (string, error) {
 	return ai.Did, nil
 }
 
-func (ix *Indexer) lookupUser(ctx context.Context, id uint) (*types.ActorInfo, error) {
-	var ai types.ActorInfo
+func (ix *Indexer) lookupUser(ctx context.Context, id uint) (*models.ActorInfo, error) {
+	var ai models.ActorInfo
 	if err := ix.db.First(&ai, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
@@ -433,8 +433,8 @@ func (ix *Indexer) lookupUser(ctx context.Context, id uint) (*types.ActorInfo, e
 	return &ai, nil
 }
 
-func (ix *Indexer) LookupUserByDid(ctx context.Context, did string) (*types.ActorInfo, error) {
-	var ai types.ActorInfo
+func (ix *Indexer) LookupUserByDid(ctx context.Context, did string) (*models.ActorInfo, error) {
+	var ai models.ActorInfo
 	if err := ix.db.Find(&ai, "did = ?", did).Error; err != nil {
 		return nil, err
 	}
@@ -446,8 +446,8 @@ func (ix *Indexer) LookupUserByDid(ctx context.Context, did string) (*types.Acto
 	return &ai, nil
 }
 
-func (ix *Indexer) lookupUserByHandle(ctx context.Context, handle string) (*types.ActorInfo, error) {
-	var ai types.ActorInfo
+func (ix *Indexer) lookupUserByHandle(ctx context.Context, handle string) (*models.ActorInfo, error) {
+	var ai models.ActorInfo
 	if err := ix.db.First(&ai, "handle = ?", handle).Error; err != nil {
 		return nil, err
 	}
@@ -455,7 +455,7 @@ func (ix *Indexer) lookupUserByHandle(ctx context.Context, handle string) (*type
 	return &ai, nil
 }
 
-func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPost, fp *types.FeedPost, mentions []*types.ActorInfo) error {
+func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPost, fp *models.FeedPost, mentions []*models.ActorInfo) error {
 	if post.Reply != nil {
 		replyto, err := ix.GetPost(ctx, post.Reply.Parent.Uri)
 		if err != nil {
@@ -477,7 +477,7 @@ func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPo
 	return nil
 }
 
-func (ix *Indexer) addNewVoteNotification(ctx context.Context, postauthor uint, vr *types.VoteRecord) error {
+func (ix *Indexer) addNewVoteNotification(ctx context.Context, postauthor uint, vr *models.VoteRecord) error {
 	return ix.notifman.AddUpVote(ctx, vr.Voter, vr.Post, vr.ID, postauthor)
 }
 
@@ -487,7 +487,7 @@ func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, 
 	if err := ix.db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "uid"}},
 		UpdateAll: true,
-	}).Create(&types.ActorInfo{
+	}).Create(&models.ActorInfo{
 		Uid:         evt.User,
 		Handle:      ai.Handle,
 		Did:         ai.Did,
@@ -498,7 +498,7 @@ func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, 
 		return fmt.Errorf("initializing new actor info: %w", err)
 	}
 
-	if err := ix.db.Create(&types.FollowRecord{
+	if err := ix.db.Create(&models.FollowRecord{
 		Follower: evt.User,
 		Target:   evt.User,
 	}).Error; err != nil {
@@ -516,14 +516,14 @@ func isNotFound(err error) bool {
 	return false
 }
 
-func (ix *Indexer) GetPost(ctx context.Context, uri string) (*types.FeedPost, error) {
+func (ix *Indexer) GetPost(ctx context.Context, uri string) (*models.FeedPost, error) {
 	puri, err := parseAtUri(uri)
 	if err != nil {
 		return nil, err
 	}
 
-	var post types.FeedPost
-	if err := ix.db.First(&post, "rkey = ? AND author = (?)", puri.Rkey, ix.db.Model(types.ActorInfo{}).Where("did = ?", puri.Did).Select("id")).Error; err != nil {
+	var post models.FeedPost
+	if err := ix.db.First(&post, "rkey = ? AND author = (?)", puri.Rkey, ix.db.Model(models.ActorInfo{}).Where("did = ?", puri.Did).Select("id")).Error; err != nil {
 		return nil, err
 	}
 
@@ -555,11 +555,11 @@ func parseAtUri(uri string) (*parsedUri, error) {
 }
 
 // TODO: since this function is the only place we depend on the repomanager, i wonder if this should be wired some other way?
-func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, ai *types.ActorInfo) error {
+func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, ai *models.ActorInfo) error {
 	ctx, span := otel.Tracer("indexer").Start(ctx, "FetchAndIndexRepo")
 	defer span.End()
 
-	var pds types.PDS
+	var pds models.PDS
 	if err := ix.db.First(&pds, "id = ?", ai.PDS).Error; err != nil {
 		return fmt.Errorf("expected to find pds record in db for crawling one of their users: %w", err)
 	}

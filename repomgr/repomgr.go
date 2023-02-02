@@ -14,9 +14,9 @@ import (
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/types"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -533,7 +533,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 				RecCid:     recid,
 			})
 		case EvtKindInitActor:
-			var ai types.ActorInfo
+			var ai models.ActorInfo
 			if err := rm.db.First(&ai, "id = ?", uid).Error; err != nil {
 				return fmt.Errorf("expected initialized user: %w", err)
 			}
