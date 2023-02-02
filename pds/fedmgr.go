@@ -1,18 +1,24 @@
 package pds
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/key"
+
 	"github.com/gorilla/websocket"
+	cbg "github.com/whyrusleeping/cbor-gen"
 	"gorm.io/gorm"
 )
+
+var ErrTimeoutShutdown = fmt.Errorf("timed out waiting for new events")
+var EventsTimeout = time.Minute
 
 type IndexCallback func(context.Context, *Peering, *events.RepoEvent) error
 
@@ -22,6 +28,14 @@ type Slurper struct {
 
 	db         *gorm.DB
 	signingKey *key.Key
+}
+
+func NewSlurper(cb IndexCallback, db *gorm.DB, signingKey *key.Key) Slurper {
+	return Slurper{
+		cb:         cb,
+		db:         db,
+		signingKey: signingKey,
+	}
 }
 
 func (s *Slurper) SubscribeToPds(ctx context.Context, host string) error {
@@ -73,22 +87,49 @@ func sleepForBackoff(b int) time.Duration {
 }
 
 func (s *Slurper) handleConnection(host *Peering, con *websocket.Conn) error {
+	cr := cbg.NewCborReader(bytes.NewReader(nil))
 	for {
-		mt, data, err := con.ReadMessage()
+		if err := con.SetReadDeadline(time.Now().Add(EventsTimeout)); err != nil {
+			return fmt.Errorf("failed to set read deadline: %w", err)
+		}
+
+		mt, r, err := con.NextReader()
 		if err != nil {
+			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+				return ErrTimeoutShutdown
+			}
+
 			return err
 		}
 
-		_ = mt
-
-		var ev events.RepoEvent
-		if err := json.Unmarshal(data, &ev); err != nil {
-			return fmt.Errorf("failed to unmarshal event: %w", err)
+		switch mt {
+		default:
+			return fmt.Errorf("We are reallly not prepared for this")
+		case websocket.BinaryMessage:
+			// ok
 		}
 
-		log.Infow("got event", "from", host.Host)
-		if err := s.cb(context.TODO(), host, &ev); err != nil {
-			log.Errorf("failed to index event from %q: %s", host.Host, err)
+		cr.SetReader(r)
+
+		var header events.EventHeader
+		if err := header.UnmarshalCBOR(cr); err != nil {
+			return err
 		}
+
+		switch header.Type {
+		case "data":
+			var evt events.RepoEvent
+			if err := evt.UnmarshalCBOR(cr); err != nil {
+				return err
+			}
+
+			log.Infow("got event", "from", host.Host, "repo", evt.Repo)
+			if err := s.cb(context.TODO(), host, &evt); err != nil {
+				log.Errorf("failed to index event from %q: %s", host.Host, err)
+			}
+		default:
+			return fmt.Errorf("unrecognized event stream type: %q", header.Type)
+		}
+
 	}
 }
