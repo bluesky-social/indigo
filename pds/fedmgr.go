@@ -50,7 +50,7 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string) error {
 }
 
 func (s *Slurper) subscribeWithRedialer(host *Peering) {
-	d := websocket.Dialer{}
+	d := websocket.Dialer{HandshakeTimeout: 3 * time.Second}
 
 	var backoff int
 	for {
