@@ -86,7 +86,7 @@ func WriteConfig(cfg *CliConfig) error {
 }
 
 func GetATPClient(cctx *cli.Context, authreq bool) (*api.ATProto, error) {
-	h := "https://bsky.social"
+	h := "http://localhost:4989"
 	if pdsurl := cctx.String("pds"); pdsurl != "" {
 		h = pdsurl
 	}

@@ -48,6 +48,10 @@ var postingCmd = &cli.Command{
 			Name:  "concurrent",
 			Value: 1,
 		},
+		&cli.StringFlag{
+			Name:  "pds",
+			Value: "http://localhost:4989",
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		atp, err := cliutil.GetATPClient(cctx, false)
@@ -115,6 +119,10 @@ var genRepoCmd = &cli.Command{
 		&cli.IntFlag{
 			Name:  "len",
 			Value: 50,
+		},
+		&cli.StringFlag{
+			Name:  "pds",
+			Value: "http://localhost:4989",
 		},
 	},
 	Action: func(cctx *cli.Context) error {
