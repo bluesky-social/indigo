@@ -135,7 +135,7 @@ func main() {
 		}
 
 		pdshost := cctx.String("pdshost")
-		srv, err := pds.NewServer(db, cs, "data/pds/server.key", ".pdstest", pdshost, didr, []byte("jwtsecretplaceholder"))
+		srv, err := pds.NewServer(db, cs, "data/pds/server.key", ".test", pdshost, didr, []byte("jwtsecretplaceholder"))
 		if err != nil {
 			return err
 		}
