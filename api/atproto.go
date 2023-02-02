@@ -72,6 +72,7 @@ type CreateRecordResponse struct {
 
 func (atp *ATProto) RepoCreateRecord(ctx context.Context, did, collection string, validate bool, rec interface{}) (*CreateRecordResponse, error) {
 	body := map[string]interface{}{
+		"$type":      collection,
 		"did":        did,
 		"collection": collection,
 		"validate":   validate,
