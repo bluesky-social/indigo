@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/types"
+	"github.com/bluesky-social/indigo/models"
 	"github.com/gorilla/websocket"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"gorm.io/gorm"
 )
 
-type IndexCallback func(context.Context, *types.PDS, *events.RepoEvent) error
+type IndexCallback func(context.Context, *models.PDS, *events.RepoEvent) error
 
 // TODO: rename me
 type Slurper struct {
@@ -26,14 +26,14 @@ type Slurper struct {
 	db *gorm.DB
 
 	lk     sync.Mutex
-	active map[string]*types.PDS
+	active map[string]*models.PDS
 }
 
 func NewSlurper(db *gorm.DB, cb IndexCallback) *Slurper {
 	return &Slurper{
 		cb:     cb,
 		db:     db,
-		active: make(map[string]*types.PDS),
+		active: make(map[string]*models.PDS),
 	}
 }
 
@@ -47,14 +47,14 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string) error {
 		return nil
 	}
 
-	var peering types.PDS
+	var peering models.PDS
 	if err := s.db.Find(&peering, "host = ?", host).Error; err != nil {
 		return err
 	}
 
 	if peering.ID == 0 {
 		// New PDS!
-		npds := types.PDS{
+		npds := models.PDS{
 			Host: host,
 		}
 		fmt.Println("CREATING NEW PDS", host)
@@ -72,7 +72,7 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string) error {
 	return nil
 }
 
-func (s *Slurper) subscribeWithRedialer(host *types.PDS) {
+func (s *Slurper) subscribeWithRedialer(host *models.PDS) {
 	defer func() {
 		s.lk.Lock()
 		defer s.lk.Unlock()
@@ -121,7 +121,7 @@ var ErrTimeoutShutdown = fmt.Errorf("timed out waiting for new events")
 
 var EventsTimeout = time.Minute
 
-func (s *Slurper) handleConnection(host *types.PDS, con *websocket.Conn) error {
+func (s *Slurper) handleConnection(host *models.PDS, con *websocket.Conn) error {
 	cr := cbg.NewCborReader(bytes.NewReader(nil))
 
 	for {

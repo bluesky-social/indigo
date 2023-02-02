@@ -4,21 +4,21 @@ import (
 	"context"
 
 	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/types"
+	"github.com/bluesky-social/indigo/models"
 )
 
 type CrawlDispatcher struct {
-	ingest chan *types.ActorInfo
+	ingest chan *models.ActorInfo
 
-	repoSync chan *types.ActorInfo
+	repoSync chan *models.ActorInfo
 
-	doRepoCrawl func(context.Context, *types.ActorInfo) error
+	doRepoCrawl func(context.Context, *models.ActorInfo) error
 }
 
-func NewCrawlDispatcher(repoFn func(context.Context, *types.ActorInfo) error) *CrawlDispatcher {
+func NewCrawlDispatcher(repoFn func(context.Context, *models.ActorInfo) error) *CrawlDispatcher {
 	return &CrawlDispatcher{
-		ingest:      make(chan *types.ActorInfo),
-		repoSync:    make(chan *types.ActorInfo),
+		ingest:      make(chan *models.ActorInfo),
+		repoSync:    make(chan *models.ActorInfo),
 		doRepoCrawl: repoFn,
 	}
 }
@@ -32,13 +32,13 @@ func (c *CrawlDispatcher) Run() {
 }
 
 func (c *CrawlDispatcher) mainLoop() {
-	var next *types.ActorInfo
-	var buffer []*types.ActorInfo
+	var next *models.ActorInfo
+	var buffer []*models.ActorInfo
 
-	set := make(map[uint]*types.ActorInfo)
-	//progress := make(map[uint]*types.ActorInfo)
+	set := make(map[uint]*models.ActorInfo)
+	//progress := make(map[uint]*models.ActorInfo)
 
-	var rs chan *types.ActorInfo
+	var rs chan *models.ActorInfo
 	for {
 		select {
 		case act := <-c.ingest:
@@ -81,7 +81,7 @@ func (c *CrawlDispatcher) fetchWorker() {
 	}
 }
 
-func (c *CrawlDispatcher) Crawl(ctx context.Context, ai *types.ActorInfo) error {
+func (c *CrawlDispatcher) Crawl(ctx context.Context, ai *models.ActorInfo) error {
 	select {
 	case c.ingest <- ai:
 		return nil
@@ -90,6 +90,6 @@ func (c *CrawlDispatcher) Crawl(ctx context.Context, ai *types.ActorInfo) error 
 	}
 }
 
-func (c *CrawlDispatcher) AddToCatchupQueue(ctx context.Context, host *types.PDS, u uint, evt *events.RepoEvent) error {
+func (c *CrawlDispatcher) AddToCatchupQueue(ctx context.Context, host *models.PDS, u uint, evt *events.RepoEvent) error {
 	return nil
 }

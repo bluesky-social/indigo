@@ -13,9 +13,9 @@ import (
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
+	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/types"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/gorilla/websocket"
 	logging "github.com/ipfs/go-log"
@@ -38,7 +38,7 @@ type BGS struct {
 
 func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.PLCClient) *BGS {
 	db.AutoMigrate(User{})
-	db.AutoMigrate(types.PDS{})
+	db.AutoMigrate(models.PDS{})
 
 	bgs := &BGS{
 		Index: ix,
@@ -158,7 +158,7 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 	return &u, nil
 }
 
-func (bgs *BGS) handleFedEvent(ctx context.Context, host *types.PDS, evt *events.RepoEvent) error {
+func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, evt *events.RepoEvent) error {
 	log.Infof("bgs got fed event from %q: %s\n", host.Host, evt.Repo)
 	switch {
 	case evt.RepoAppend != nil:
@@ -193,7 +193,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *types.PDS, evt *events
 	}
 }
 
-func (s *BGS) createExternalUser(ctx context.Context, did string) (*types.ActorInfo, error) {
+func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.ActorInfo, error) {
 	log.Infof("create external user: %s", did)
 	doc, err := s.didr.GetDocument(ctx, did)
 	if err != nil {
@@ -215,7 +215,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*types.ActorI
 	}
 
 	// TODO: the PDS's DID should also be in the service, we could use that to look up?
-	var peering types.PDS
+	var peering models.PDS
 	if err := s.db.Find(&peering, "host = ?", durl.Host).Error; err != nil {
 		log.Error("failed to find pds", durl.Host)
 		return nil, err
@@ -271,7 +271,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*types.ActorI
 
 	// okay cool, its a user on a server we are peered with
 	// lets make a local record of that user for the future
-	subj := &types.ActorInfo{
+	subj := &models.ActorInfo{
 		Uid:         u.ID,
 		Handle:      handle,
 		DisplayName: *profile.DisplayName,

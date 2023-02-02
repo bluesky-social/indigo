@@ -19,10 +19,10 @@ import (
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/key"
 	"github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/types"
 	"github.com/bluesky-social/indigo/xrpc"
 	gojwt "github.com/golang-jwt/jwt"
 	"github.com/gorilla/websocket"
@@ -149,7 +149,7 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *events.
 	}
 }
 
-func (s *Server) createExternalUser(ctx context.Context, did string) (*types.ActorInfo, error) {
+func (s *Server) createExternalUser(ctx context.Context, did string) (*models.ActorInfo, error) {
 	doc, err := s.plc.GetDocument(ctx, did)
 	if err != nil {
 		return nil, fmt.Errorf("could not locate DID document for followed user: %s", err)
@@ -221,7 +221,7 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*types.Act
 
 	// okay cool, its a user on a server we are peered with
 	// lets make a local record of that user for the future
-	subj := &types.ActorInfo{
+	subj := &models.ActorInfo{
 		Uid:         u.ID,
 		Handle:      handle,
 		DisplayName: *profile.DisplayName,
