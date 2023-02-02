@@ -92,6 +92,7 @@ var postingCmd = &cli.Command{
 					rand.Read(buf)
 
 					res, err := atp.RepoCreateRecord(ctx, acc.Did, "app.bsky.feed.post", true, &api.PostRecord{
+						Type:      "app.bsky.feed.post",
 						Text:      hex.EncodeToString(buf),
 						CreatedAt: time.Now().Format(time.RFC3339),
 					})
