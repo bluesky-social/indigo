@@ -5,20 +5,19 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/bluesky-social/indigo/api"
-	bskyapi "github.com/bluesky-social/indigo/api/bsky"
+	bsky "github.com/bluesky-social/indigo/api/bsky"
 )
 
 func TestKeywordFilter(t *testing.T) {
 	var kl = KeywordLabeler{value: "rude", keywords: []string{"🍆", "sex"}}
 
 	postCases := []struct {
-		record   api.PostRecord
+		record   bsky.FeedPost
 		expected []string
 	}{
-		{api.PostRecord{Text: "boring inoffensive tweet"}, []string{}},
-		{api.PostRecord{Text: "I love Aubergine 🍆"}, []string{"rude"}},
-		{api.PostRecord{Text: "SeXyTiMe"}, []string{"rude"}},
+		{bsky.FeedPost{Text: "boring inoffensive tweet"}, []string{}},
+		{bsky.FeedPost{Text: "I love Aubergine 🍆"}, []string{"rude"}},
+		{bsky.FeedPost{Text: "SeXyTiMe"}, []string{"rude"}},
 	}
 
 	for _, c := range postCases {
@@ -32,13 +31,13 @@ func TestKeywordFilter(t *testing.T) {
 	var desc = "yadda yadda"
 	var descRude = "yadda yadda 🍆"
 	profileCases := []struct {
-		record   bskyapi.ActorProfile
+		record   bsky.ActorProfile
 		expected []string
 	}{
-		{bskyapi.ActorProfile{DisplayName: "Robyn Hood"}, []string{}},
-		{bskyapi.ActorProfile{DisplayName: "Robyn Hood", Description: &desc}, []string{}},
-		{bskyapi.ActorProfile{DisplayName: "Robyn Hood", Description: &descRude}, []string{"rude"}},
-		{bskyapi.ActorProfile{DisplayName: "Sexy Robyn Hood"}, []string{"rude"}},
+		{bsky.ActorProfile{DisplayName: "Robyn Hood"}, []string{}},
+		{bsky.ActorProfile{DisplayName: "Robyn Hood", Description: &desc}, []string{}},
+		{bsky.ActorProfile{DisplayName: "Robyn Hood", Description: &descRude}, []string{"rude"}},
+		{bsky.ActorProfile{DisplayName: "Sexy Robyn Hood"}, []string{"rude"}},
 	}
 
 	for _, c := range profileCases {
