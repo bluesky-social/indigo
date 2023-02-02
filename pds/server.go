@@ -39,17 +39,18 @@ import (
 var log = logging.Logger("pds")
 
 type Server struct {
-	db            *gorm.DB
-	cs            *carstore.CarStore
-	repoman       *repomgr.RepoManager
-	feedgen       *FeedGenerator
-	notifman      *notifs.NotificationManager
-	indexer       *indexer.Indexer
-	events        *events.EventManager
-	slurper       *Slurper
-	signingKey    *key.Key
-	echo          *echo.Echo
-	jwtSigningKey []byte
+	db             *gorm.DB
+	cs             *carstore.CarStore
+	repoman        *repomgr.RepoManager
+	feedgen        *FeedGenerator
+	notifman       *notifs.NotificationManager
+	indexer        *indexer.Indexer
+	events         *events.EventManager
+	slurper        *Slurper
+	signingKey     *key.Key
+	echo           *echo.Echo
+	jwtSigningKey  []byte
+	enforcePeering bool
 
 	handleSuffix string
 	serviceUrl   string
@@ -80,17 +81,18 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 	}
 
 	s := &Server{
-		signingKey:    serkey,
-		db:            db,
-		cs:            cs,
-		notifman:      notifman,
-		indexer:       ix,
-		plc:           didr,
-		events:        evtman,
-		repoman:       repoman,
-		handleSuffix:  handleSuffix,
-		serviceUrl:    serviceUrl,
-		jwtSigningKey: jwtkey,
+		signingKey:     serkey,
+		db:             db,
+		cs:             cs,
+		notifman:       notifman,
+		indexer:        ix,
+		plc:            didr,
+		events:         evtman,
+		repoman:        repoman,
+		handleSuffix:   handleSuffix,
+		serviceUrl:     serviceUrl,
+		jwtSigningKey:  jwtkey,
+		enforcePeering: false,
 	}
 
 	s.slurper = &Slurper{
@@ -573,20 +575,25 @@ type Peering struct {
 }
 
 func (s *Server) EventsHandler(c echo.Context) error {
-	did := c.Request().Header.Get("DID")
 	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
 	if err != nil {
 		return err
 	}
 
-	var peering Peering
-	if did != "" {
-		if err := s.db.First(&peering, "did = ?", did).Error; err != nil {
-			return err
+	var peering *Peering
+	if s.enforcePeering {
+		did := c.Request().Header.Get("DID")
+		if did != "" {
+			if err := s.db.First(peering, "did = ?", did).Error; err != nil {
+				return err
+			}
 		}
 	}
 
 	evts, cancel, err := s.events.Subscribe(func(evt *events.RepoEvent) bool {
+		if !s.enforcePeering {
+			return true
+		}
 		if peering.ID == 0 {
 			return true
 		}
