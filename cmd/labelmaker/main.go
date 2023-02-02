@@ -3,10 +3,8 @@ package main
 import (
 	"os"
 
-	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/pds"
-	"github.com/bluesky-social/indigo/plc"
+	"github.com/bluesky-social/indigo/labeling"
 	"github.com/urfave/cli/v2"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -35,15 +33,13 @@ func main() {
 		&cli.BoolFlag{
 			Name: "dbtracing",
 		},
+		/* XXX unused?
 		&cli.StringFlag{
 			Name:  "labelmakerhost",
 			Usage: "hostname of the labelmaker",
 			Value: "localhost:2210",
 		},
-		&cli.StringFlag{
-			Name:  "plc",
-			Usage: "hostname of the plc",
-		},
+		*/
 	}
 
 	app.Action = func(cctx *cli.Context) error {
@@ -75,14 +71,14 @@ func main() {
 		// ensure data directory exists; won't error if it does
 		os.MkdirAll("data/labelmaker/", os.ModePerm)
 
-		var pdsdial gorm.Dialector
+		var labalmakerdial gorm.Dialector
 		if pgdb {
-			dsn := "host=localhost user=postgres password=password dbname=pdsdb port=5432 sslmode=disable"
-			pdsdial = postgres.Open(dsn)
+			dsn := "host=localhost user=postgres password=password dbname=labelmakerdb port=5432 sslmode=disable"
+			labalmakerdial = postgres.Open(dsn)
 		} else {
-			pdsdial = sqlite.Open("data/labelmaker/pds.sqlite")
+			labalmakerdial = sqlite.Open("data/labelmaker/labelmaker.sqlite")
 		}
-		db, err := gorm.Open(pdsdial, &gorm.Config{})
+		db, err := gorm.Open(labalmakerdial, &gorm.Config{})
 		if err != nil {
 			return err
 		}
@@ -116,15 +112,13 @@ func main() {
 			return err
 		}
 
-		var didr plc.PLCClient
-		if plchost := cctx.String("plc"); plchost != "" {
-			didr = &api.PLCServer{Host: plchost}
-		} else {
-			didr = plc.NewFakeDid(db)
-		}
-
-		labelmakerhost := cctx.String("labelmakerhost")
-		srv, err := pds.NewServer(db, cs, "data/labelmaker/labelmaker.key", ".labelmakertest", labelmakerhost, didr, []byte("jwtsecretplaceholder"))
+		//labelmakerhost := cctx.String("labelmakerhost")
+		repoDid := "did:plc:FAKE"
+		repoHandle := "labelmaker.test"
+		//bgsUrl := "ws://localhost:2470/events"
+		//bgsUrl := "ws://[::1]:4989/events"
+		bgsUrl := "localhost:4989"
+		srv, err := labeling.NewServer(db, cs, "data/labelmaker/labelmaker.key", repoDid, repoHandle, bgsUrl)
 		if err != nil {
 			return err
 		}

@@ -3,16 +3,15 @@ package labeling
 import (
 	"strings"
 
-	"github.com/bluesky-social/indigo/api"
-	bskyapi "github.com/bluesky-social/indigo/api/bsky"
+	bsky "github.com/bluesky-social/indigo/api/bsky"
 )
 
 // simple record labeling (without pre-fetched blobs)
 type SimplePostLabeler interface {
-	labelPost(p api.PostRecord) []string
+	labelPost(p bsky.FeedPost) []string
 }
 type SimpleActorProfileLabeler interface {
-	labelActorProfile(ap bskyapi.ActorProfile) []string
+	labelActorProfile(ap bsky.ActorProfile) []string
 }
 
 type KeywordLabeler struct {
@@ -30,11 +29,11 @@ func (kl KeywordLabeler) labelText(txt string) []string {
 	return []string{}
 }
 
-func (kl KeywordLabeler) labelPost(p api.PostRecord) []string {
+func (kl KeywordLabeler) labelPost(p bsky.FeedPost) []string {
 	return kl.labelText(p.Text)
 }
 
-func (kl KeywordLabeler) labelActorProfile(ap bskyapi.ActorProfile) []string {
+func (kl KeywordLabeler) labelActorProfile(ap bsky.ActorProfile) []string {
 	txt := ap.DisplayName
 	if ap.Description != nil {
 		txt += *ap.Description
