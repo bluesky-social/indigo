@@ -4,7 +4,7 @@ set -x
 
 
 echo "1. Creating Account"
-./gosky --pds="http://localhost:4989" newAccount test@foo.com testman.pdstest password > test.auth
+./gosky --pds="http://localhost:4989" newAccount test@foo.com testman.test password > test.auth
 
 echo "2. Some Content"
 ./gosky --pds="http://localhost:4989" --auth="test.auth" post "cats are really cool and the best"
@@ -15,7 +15,7 @@ echo "3. View That Content"
 
 
 echo "4. Make a second account"
-./gosky --pds="http://localhost:4989" newAccount test2@foo.com friendbot.pdstest password > test2.auth
+./gosky --pds="http://localhost:4989" newAccount test2@foo.com friendbot.test password > test2.auth
 
 echo "5. Post on second account"
 ./gosky --pds="http://localhost:4989" --auth="test2.auth" post "Im a big fan of the snow"
