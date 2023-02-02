@@ -82,6 +82,7 @@ type Subscriber struct {
 
 const (
 	EvtKindRepoChange = "repoChange"
+	EvtKindLabels     = "labels"
 )
 
 type EventHeader struct {
