@@ -1,4 +1,4 @@
-package schemagen
+package bsky
 
 import (
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"

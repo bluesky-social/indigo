@@ -1,4 +1,4 @@
-package schemagen
+package bsky
 
 // schema: app.bsky.actor.ref
 
