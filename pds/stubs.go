@@ -11,7 +11,6 @@ import (
 )
 
 func (s *Server) RegisterHandlersAppBsky(e *echo.Echo) error {
-	e.POST("/xrpc/app.bsky.actor.createScene", s.HandleAppBskyActorCreateScene)
 	e.GET("/xrpc/app.bsky.actor.getProfile", s.HandleAppBskyActorGetProfile)
 	e.GET("/xrpc/app.bsky.actor.getSuggestions", s.HandleAppBskyActorGetSuggestions)
 	e.GET("/xrpc/app.bsky.actor.search", s.HandleAppBskyActorSearch)
@@ -23,11 +22,8 @@ func (s *Server) RegisterHandlersAppBsky(e *echo.Echo) error {
 	e.GET("/xrpc/app.bsky.feed.getTimeline", s.HandleAppBskyFeedGetTimeline)
 	e.GET("/xrpc/app.bsky.feed.getVotes", s.HandleAppBskyFeedGetVotes)
 	e.POST("/xrpc/app.bsky.feed.setVote", s.HandleAppBskyFeedSetVote)
-	e.GET("/xrpc/app.bsky.graph.getAssertions", s.HandleAppBskyGraphGetAssertions)
 	e.GET("/xrpc/app.bsky.graph.getFollowers", s.HandleAppBskyGraphGetFollowers)
 	e.GET("/xrpc/app.bsky.graph.getFollows", s.HandleAppBskyGraphGetFollows)
-	e.GET("/xrpc/app.bsky.graph.getMembers", s.HandleAppBskyGraphGetMembers)
-	e.GET("/xrpc/app.bsky.graph.getMemberships", s.HandleAppBskyGraphGetMemberships)
 	e.GET("/xrpc/app.bsky.graph.getMutes", s.HandleAppBskyGraphGetMutes)
 	e.POST("/xrpc/app.bsky.graph.mute", s.HandleAppBskyGraphMute)
 	e.POST("/xrpc/app.bsky.graph.unmute", s.HandleAppBskyGraphUnmute)
@@ -36,24 +32,6 @@ func (s *Server) RegisterHandlersAppBsky(e *echo.Echo) error {
 	e.POST("/xrpc/app.bsky.notification.updateSeen", s.HandleAppBskyNotificationUpdateSeen)
 
 	return nil
-}
-
-func (s *Server) HandleAppBskyActorCreateScene(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyActorCreateScene")
-	defer span.End()
-
-	var body appbskytypes.ActorCreateScene_Input
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-	var out *appbskytypes.ActorCreateScene_Output
-	var handleErr error
-	// func (s *Server) handleAppBskyActorCreateScene(ctx context.Context,body *appbskytypes.ActorCreateScene_Input) (*appbskytypes.ActorCreateScene_Output, error)
-	out, handleErr = s.handleAppBskyActorCreateScene(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
 }
 
 func (s *Server) HandleAppBskyActorGetProfile(c echo.Context) error {
@@ -312,43 +290,6 @@ func (s *Server) HandleAppBskyFeedSetVote(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *Server) HandleAppBskyGraphGetAssertions(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyGraphGetAssertions")
-	defer span.End()
-	assertion := c.QueryParam("assertion")
-	author := c.QueryParam("author")
-	before := c.QueryParam("before")
-
-	var confirmed *bool
-	if p := c.QueryParam("confirmed"); p != "" {
-		confirmed_val, err := strconv.ParseBool(p)
-		if err != nil {
-			return err
-		}
-		confirmed = &confirmed_val
-	}
-
-	var limit int
-	if p := c.QueryParam("limit"); p != "" {
-		var err error
-		limit, err = strconv.Atoi(p)
-		if err != nil {
-			return err
-		}
-	} else {
-		limit = 50
-	}
-	subject := c.QueryParam("subject")
-	var out *appbskytypes.GraphGetAssertions_Output
-	var handleErr error
-	// func (s *Server) handleAppBskyGraphGetAssertions(ctx context.Context,assertion string,author string,before string,confirmed *bool,limit int,subject string) (*appbskytypes.GraphGetAssertions_Output, error)
-	out, handleErr = s.handleAppBskyGraphGetAssertions(ctx, assertion, author, before, confirmed, limit, subject)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
 func (s *Server) HandleAppBskyGraphGetFollowers(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyGraphGetFollowers")
 	defer span.End()
@@ -395,58 +336,6 @@ func (s *Server) HandleAppBskyGraphGetFollows(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleAppBskyGraphGetFollows(ctx context.Context,before string,limit int,user string) (*appbskytypes.GraphGetFollows_Output, error)
 	out, handleErr = s.handleAppBskyGraphGetFollows(ctx, before, limit, user)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleAppBskyGraphGetMembers(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyGraphGetMembers")
-	defer span.End()
-	actor := c.QueryParam("actor")
-	before := c.QueryParam("before")
-
-	var limit int
-	if p := c.QueryParam("limit"); p != "" {
-		var err error
-		limit, err = strconv.Atoi(p)
-		if err != nil {
-			return err
-		}
-	} else {
-		limit = 50
-	}
-	var out *appbskytypes.GraphGetMembers_Output
-	var handleErr error
-	// func (s *Server) handleAppBskyGraphGetMembers(ctx context.Context,actor string,before string,limit int) (*appbskytypes.GraphGetMembers_Output, error)
-	out, handleErr = s.handleAppBskyGraphGetMembers(ctx, actor, before, limit)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleAppBskyGraphGetMemberships(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyGraphGetMemberships")
-	defer span.End()
-	actor := c.QueryParam("actor")
-	before := c.QueryParam("before")
-
-	var limit int
-	if p := c.QueryParam("limit"); p != "" {
-		var err error
-		limit, err = strconv.Atoi(p)
-		if err != nil {
-			return err
-		}
-	} else {
-		limit = 50
-	}
-	var out *appbskytypes.GraphGetMemberships_Output
-	var handleErr error
-	// func (s *Server) handleAppBskyGraphGetMemberships(ctx context.Context,actor string,before string,limit int) (*appbskytypes.GraphGetMemberships_Output, error)
-	out, handleErr = s.handleAppBskyGraphGetMemberships(ctx, actor, before, limit)
 	if handleErr != nil {
 		return handleErr
 	}
