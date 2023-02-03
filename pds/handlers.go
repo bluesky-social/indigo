@@ -45,10 +45,10 @@ func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string)
 			Cid:       profile.DeclRefCid,
 			ActorType: profile.Type,
 		},
-		Description:    nil,
-		PostsCount:     profile.Posts,
-		FollowsCount:   profile.Following,
-		MembersCount:   0, // TODO:
+		Description:  nil,
+		PostsCount:   profile.Posts,
+		FollowsCount: profile.Following,
+		//MembersCount:   0, // TODO:
 		Handle:         profile.Handle,
 		Creator:        "", //TODO:
 		DisplayName:    &profile.DisplayName,
@@ -586,7 +586,7 @@ func (s *Server) handleComAtprotoServerGetAccountsConfig(ctx context.Context) (*
 }
 
 func (s *Server) handleComAtprotoSessionCreate(ctx context.Context, input *comatprototypes.SessionCreate_Input) (*comatprototypes.SessionCreate_Output, error) {
-	u, err := s.lookupUserByHandle(ctx, input.Handle)
+	u, err := s.lookupUserByHandle(ctx, *input.Identifier)
 	if err != nil {
 		return nil, err
 	}
@@ -595,13 +595,13 @@ func (s *Server) handleComAtprotoSessionCreate(ctx context.Context, input *comat
 		return nil, fmt.Errorf("invalid username or password")
 	}
 
-	tok, err := s.createAuthTokenForUser(ctx, input.Handle, u.Did)
+	tok, err := s.createAuthTokenForUser(ctx, *input.Identifier, u.Did)
 	if err != nil {
 		return nil, err
 	}
 
 	return &comatprototypes.SessionCreate_Output{
-		Handle:     input.Handle,
+		Handle:     *input.Identifier,
 		Did:        u.Did,
 		AccessJwt:  tok.AccessJwt,
 		RefreshJwt: tok.RefreshJwt,
