@@ -186,9 +186,8 @@ func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth *int,
 	return &out, nil
 }
 
-func (s *Server) handleAppBskyFeedGetRepostedBy(ctx context.Context, before string, cid string, limit int, uri string) (*appbskytypes.FeedGetRepostedBy_Output, error) {
+func (s *Server) handleAppBskyFeedGetRepostedBy(ctx context.Context, before string, cc string, limit int, uri string) (*appbskytypes.FeedGetRepostedBy_Output, error) {
 	panic("not yet implemented")
-	//appbskytypes.FeedGetRepostedBy_Output{}
 }
 
 func (s *Server) handleAppBskyFeedGetTimeline(ctx context.Context, algorithm string, before string, limit int) (*appbskytypes.FeedGetTimeline_Output, error) {
@@ -298,6 +297,18 @@ func (s *Server) handleAppBskyGraphGetFollows(ctx context.Context, before string
 	}
 
 	return &out, nil
+}
+
+func (s *Server) handleAppBskyGraphGetMutes(ctx context.Context, before string, limit int) (*appbskytypes.GraphGetMutes_Output, error) {
+	panic("not yet implemented")
+}
+
+func (s *Server) handleAppBskyGraphMute(ctx context.Context, input *appbskytypes.GraphMute_Input) error {
+	panic("not yet implemented")
+}
+
+func (s *Server) handleAppBskyGraphUnmute(ctx context.Context, input *appbskytypes.GraphUnmute_Input) error {
+	panic("not yet implemented")
 }
 
 func (s *Server) handleAppBskyNotificationGetCount(ctx context.Context) (*appbskytypes.NotificationGetCount_Output, error) {
@@ -424,7 +435,7 @@ func (s *Server) handleComAtprotoAccountCreateInviteCode(ctx context.Context, in
 	return nil, fmt.Errorf("invite codes not currently supported")
 }
 
-func (s *Server) handleComAtprotoAccountDelete(ctx context.Context) error {
+func (s *Server) handleComAtprotoAccountDelete(ctx context.Context, input *comatprototypes.AccountDelete_Input) error {
 	panic("not yet implemented")
 }
 
@@ -432,11 +443,19 @@ func (s *Server) handleComAtprotoAccountGet(ctx context.Context) error {
 	return nil
 }
 
+func (s *Server) handleComAtprotoAccountRequestDelete(ctx context.Context) error {
+	panic("not yet implemented")
+}
+
 func (s *Server) handleComAtprotoAccountRequestPasswordReset(ctx context.Context, input *comatprototypes.AccountRequestPasswordReset_Input) error {
 	panic("not yet implemented")
 }
 
 func (s *Server) handleComAtprotoAccountResetPassword(ctx context.Context, input *comatprototypes.AccountResetPassword_Input) error {
+	panic("not yet implemented")
+}
+
+func (s *Server) handleComAtprotoBlobUpload(ctx context.Context, r io.Reader, ctype string) (*comatprototypes.BlobUpload_Output, error) {
 	panic("not yet implemented")
 }
 
@@ -623,6 +642,38 @@ func (s *Server) handleComAtprotoSessionRefresh(ctx context.Context) (*comatprot
 
 }
 
+func (s *Server) handleComAtprotoSyncUpdateRepo(ctx context.Context, r io.Reader) error {
+	panic("not yet implemented")
+}
+
+func (s *Server) handleComAtprotoSyncGetCheckout(ctx context.Context, commit string, did string) (io.Reader, error) {
+	panic("not yet implemented")
+}
+
+func (s *Server) handleComAtprotoSyncGetCommitPath(ctx context.Context, did string, earliest string, latest string) (*comatprototypes.SyncGetCommitPath_Output, error) {
+	panic("not yet implemented")
+}
+
+func (s *Server) handleComAtprotoSyncGetHead(ctx context.Context, did string) (*comatprototypes.SyncGetHead_Output, error) {
+	user, err := s.lookupUserByDid(ctx, did)
+	if err != nil {
+		return nil, err
+	}
+
+	root, err := s.repoman.GetRepoRoot(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &comatprototypes.SyncGetHead_Output{
+		Root: root.String(),
+	}, nil
+}
+
+func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context, collection string, commit string, did string, rkey string) (io.Reader, error) {
+	panic("not yet implemented")
+}
+
 func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, from string) (io.Reader, error) {
 	var fromcid cid.Cid
 	if from != "" {
@@ -645,40 +696,4 @@ func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, fr
 	}
 
 	return buf, nil
-}
-
-func (s *Server) handleComAtprotoSyncGetRoot(ctx context.Context, did string) (*comatprototypes.SyncGetRoot_Output, error) {
-	user, err := s.lookupUserByDid(ctx, did)
-	if err != nil {
-		return nil, err
-	}
-
-	root, err := s.repoman.GetRepoRoot(ctx, user.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &comatprototypes.SyncGetRoot_Output{
-		Root: root.String(),
-	}, nil
-}
-
-func (s *Server) handleComAtprotoSyncUpdateRepo(ctx context.Context, r io.Reader) error {
-	panic("not yet implemented")
-}
-
-func (s *Server) handleComAtprotoBlobUpload(ctx context.Context, r io.Reader, ctype string) (*comatprototypes.BlobUpload_Output, error) {
-	panic("not yet implemented")
-}
-
-func (s *Server) handleAppBskyGraphGetMutes(ctx context.Context, before string, limit int) (*appbskytypes.GraphGetMutes_Output, error) {
-	panic("not yet implemented")
-}
-
-func (s *Server) handleAppBskyGraphMute(ctx context.Context, input *appbskytypes.GraphMute_Input) error {
-	panic("not yet implemented")
-}
-
-func (s *Server) handleAppBskyGraphUnmute(ctx context.Context, input *appbskytypes.GraphUnmute_Input) error {
-	panic("not yet implemented")
 }
