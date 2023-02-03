@@ -1,4 +1,4 @@
-package schemagen
+package atproto
 
 import (
 	"context"
@@ -12,9 +12,9 @@ func init() {
 }
 
 type SessionCreate_Input struct {
-	LexiconTypeID string `json:"$type,omitempty"`
-	Handle        string `json:"handle" cborgen:"handle"`
-	Password      string `json:"password" cborgen:"password"`
+	LexiconTypeID string  `json:"$type,omitempty"`
+	Identifier    *string `json:"identifier,omitempty" cborgen:"identifier"`
+	Password      string  `json:"password" cborgen:"password"`
 }
 
 type SessionCreate_Output struct {

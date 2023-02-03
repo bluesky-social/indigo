@@ -1,4 +1,4 @@
-package schemagen
+package bsky
 
 import (
 	"context"
@@ -13,6 +13,7 @@ func init() {
 
 type GraphGetFollows_Follow struct {
 	LexiconTypeID string         `json:"$type,omitempty"`
+	Avatar        *string        `json:"avatar,omitempty" cborgen:"avatar"`
 	CreatedAt     *string        `json:"createdAt,omitempty" cborgen:"createdAt"`
 	Declaration   *SystemDeclRef `json:"declaration" cborgen:"declaration"`
 	Did           string         `json:"did" cborgen:"did"`

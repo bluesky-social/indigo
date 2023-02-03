@@ -1,4 +1,4 @@
-package schemagen
+package atproto
 
 // schema: com.atproto.repo.strongRef
 

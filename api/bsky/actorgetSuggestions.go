@@ -1,4 +1,4 @@
-package schemagen
+package bsky
 
 import (
 	"context"
@@ -12,20 +12,14 @@ func init() {
 }
 
 type ActorGetSuggestions_Actor struct {
-	LexiconTypeID string                       `json:"$type,omitempty"`
-	Avatar        *string                      `json:"avatar,omitempty" cborgen:"avatar"`
-	Declaration   *SystemDeclRef               `json:"declaration" cborgen:"declaration"`
-	Description   *string                      `json:"description,omitempty" cborgen:"description"`
-	Did           string                       `json:"did" cborgen:"did"`
-	DisplayName   *string                      `json:"displayName,omitempty" cborgen:"displayName"`
-	Handle        string                       `json:"handle" cborgen:"handle"`
-	IndexedAt     *string                      `json:"indexedAt,omitempty" cborgen:"indexedAt"`
-	MyState       *ActorGetSuggestions_MyState `json:"myState,omitempty" cborgen:"myState"`
-}
-
-type ActorGetSuggestions_MyState struct {
-	LexiconTypeID string  `json:"$type,omitempty"`
-	Follow        *string `json:"follow,omitempty" cborgen:"follow"`
+	LexiconTypeID string         `json:"$type,omitempty"`
+	Avatar        *string        `json:"avatar,omitempty" cborgen:"avatar"`
+	Declaration   *SystemDeclRef `json:"declaration" cborgen:"declaration"`
+	Description   *string        `json:"description,omitempty" cborgen:"description"`
+	Did           string         `json:"did" cborgen:"did"`
+	DisplayName   *string        `json:"displayName,omitempty" cborgen:"displayName"`
+	Handle        string         `json:"handle" cborgen:"handle"`
+	IndexedAt     *string        `json:"indexedAt,omitempty" cborgen:"indexedAt"`
 }
 
 type ActorGetSuggestions_Output struct {

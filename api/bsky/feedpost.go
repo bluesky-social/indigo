@@ -1,4 +1,4 @@
-package schemagen
+package bsky
 
 import (
 	"bytes"
@@ -167,7 +167,6 @@ func (t *FeedPost_View_Embed) UnmarshalJSON(b []byte) error {
 type FeedPost_ViewerState struct {
 	LexiconTypeID string  `json:"$type,omitempty"`
 	Downvote      *string `json:"downvote,omitempty" cborgen:"downvote"`
-	Muted         *bool   `json:"muted,omitempty" cborgen:"muted"`
 	Repost        *string `json:"repost,omitempty" cborgen:"repost"`
 	Upvote        *string `json:"upvote,omitempty" cborgen:"upvote"`
 }
