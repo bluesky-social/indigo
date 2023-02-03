@@ -1,4 +1,4 @@
-package schemagen
+package bsky
 
 import (
 	"context"
@@ -17,7 +17,6 @@ type ActorUpdateProfile_Input struct {
 	Avatar        *util.Blob `json:"avatar,omitempty" cborgen:"avatar"`
 	Banner        *util.Blob `json:"banner,omitempty" cborgen:"banner"`
 	Description   *string    `json:"description,omitempty" cborgen:"description"`
-	Did           *string    `json:"did,omitempty" cborgen:"did"`
 	DisplayName   *string    `json:"displayName,omitempty" cborgen:"displayName"`
 }
 

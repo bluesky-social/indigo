@@ -1,4 +1,4 @@
-package schemagen
+package bsky
 
 import (
 	"context"
@@ -14,7 +14,6 @@ func init() {
 type ActorGetProfile_MyState struct {
 	LexiconTypeID string  `json:"$type,omitempty"`
 	Follow        *string `json:"follow,omitempty" cborgen:"follow"`
-	Member        *string `json:"member,omitempty" cborgen:"member"`
 	Muted         *bool   `json:"muted,omitempty" cborgen:"muted"`
 }
 
@@ -30,7 +29,6 @@ type ActorGetProfile_Output struct {
 	FollowersCount int64                    `json:"followersCount" cborgen:"followersCount"`
 	FollowsCount   int64                    `json:"followsCount" cborgen:"followsCount"`
 	Handle         string                   `json:"handle" cborgen:"handle"`
-	MembersCount   int64                    `json:"membersCount" cborgen:"membersCount"`
 	MyState        *ActorGetProfile_MyState `json:"myState,omitempty" cborgen:"myState"`
 	PostsCount     int64                    `json:"postsCount" cborgen:"postsCount"`
 }

@@ -1,4 +1,4 @@
-package schemagen
+package bsky
 
 import (
 	"github.com/bluesky-social/indigo/lex/util"

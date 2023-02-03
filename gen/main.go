@@ -24,21 +24,11 @@ func main() {
 		panic(err)
 	}
 
-	// RECORDTYPE: GraphFollow
-	// RECORDTYPE: GraphAssertion
-	// RECORDTYPE: GraphConfirmation
-	// RECORDTYPE: SystemDeclaration
-	// RECORDTYPE: ActorProfile
-	// RECORDTYPE: FeedVote
-	// RECORDTYPE: FeedTrend
-	// RECORDTYPE: FeedRepost
-	// RECORDTYPE: FeedPost
-
-	if err := cbg.WriteMapEncodersToFile("api/bsky/cbor_gen.go", "schemagen", bsky.FeedPost{}, bsky.FeedRepost{}, bsky.FeedTrend{}, bsky.FeedVote{}, bsky.FeedPost_Entity{}, bsky.FeedPost_ReplyRef{}, bsky.FeedPost_TextSlice{}, bsky.EmbedImages{}, bsky.EmbedImages_PresentedImage{}, bsky.EmbedExternal{}, bsky.EmbedExternal_External{}, bsky.EmbedImages_Image{}, bsky.GraphFollow{}, bsky.ActorRef{}, bsky.ActorProfile{}, bsky.SystemDeclaration{}, bsky.GraphAssertion{}, bsky.GraphConfirmation{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("api/bsky/cbor_gen.go", "bsky", bsky.FeedPost{}, bsky.FeedRepost{}, bsky.FeedVote{}, bsky.FeedPost_Entity{}, bsky.FeedPost_ReplyRef{}, bsky.FeedPost_TextSlice{}, bsky.EmbedImages{}, bsky.EmbedImages_PresentedImage{}, bsky.EmbedExternal{}, bsky.EmbedExternal_External{}, bsky.EmbedImages_Image{}, bsky.GraphFollow{}, bsky.ActorRef{}, bsky.ActorProfile{}, bsky.SystemDeclaration{}, bsky.GraphAssertion{}, bsky.GraphConfirmation{}); err != nil {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("api/atproto/cbor_gen.go", "schemagen", atproto.RepoStrongRef{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("api/atproto/cbor_gen.go", "atproto", atproto.RepoStrongRef{}); err != nil {
 		panic(err)
 	}
 
