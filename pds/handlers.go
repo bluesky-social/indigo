@@ -14,24 +14,6 @@ import (
 	jwt "github.com/lestrrat-go/jwx/jwt"
 )
 
-func (s *Server) handleAppBskyActorCreateScene(ctx context.Context, input *appbskytypes.ActorCreateScene_Input) (*appbskytypes.ActorCreateScene_Output, error) {
-	u, err := s.getUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	_ = u
-	panic("nyi")
-
-	/*
-		return &appbskytypes.ActorCreateScene_Output{
-			Declaration: scinfo.Declaration,
-			Did:         scinfo.Did,
-			Handle:      scinfo.Handle,
-		}, nil
-	*/
-}
-
 func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string) (*appbskytypes.ActorGetProfile_Output, error) {
 	profile, err := s.feedgen.GetActorProfile(ctx, actor)
 	if err != nil {
@@ -45,10 +27,9 @@ func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string)
 			Cid:       profile.DeclRefCid,
 			ActorType: profile.Type,
 		},
-		Description:  nil,
-		PostsCount:   profile.Posts,
-		FollowsCount: profile.Following,
-		//MembersCount:   0, // TODO:
+		Description:    nil,
+		PostsCount:     profile.Posts,
+		FollowsCount:   profile.Following,
 		Handle:         profile.Handle,
 		Creator:        "", //TODO:
 		DisplayName:    &profile.DisplayName,
@@ -286,10 +267,6 @@ func (s *Server) handleAppBskyFeedSetVote(ctx context.Context, input *appbskytyp
 	}
 }
 
-func (s *Server) handleAppBskyGraphGetAssertions(ctx context.Context, assertion string, author string, before string, confirmed *bool, limit int, subject string) (*appbskytypes.GraphGetAssertions_Output, error) {
-	panic("not yet implemented")
-}
-
 func (s *Server) handleAppBskyGraphGetFollowers(ctx context.Context, before string, limit int, user string) (*appbskytypes.GraphGetFollowers_Output, error) {
 	panic("not yet implemented")
 }
@@ -321,22 +298,6 @@ func (s *Server) handleAppBskyGraphGetFollows(ctx context.Context, before string
 	}
 
 	return &out, nil
-}
-
-func (s *Server) handleAppBskyGraphGetMembers(ctx context.Context, actor string, before string, limit int) (*appbskytypes.GraphGetMembers_Output, error) {
-	panic("not yet implemented")
-}
-
-func (s *Server) handleAppBskyGraphGetMemberships(ctx context.Context, actor string, before string, limit int) (*appbskytypes.GraphGetMemberships_Output, error) {
-	ai, err := s.feedgen.GetActorProfile(ctx, actor)
-	if err != nil {
-		return nil, err
-	}
-
-	return &appbskytypes.GraphGetMemberships_Output{
-		Subject:     ai.ActorRef(),
-		Memberships: []*appbskytypes.GraphGetMemberships_Membership{},
-	}, nil
 }
 
 func (s *Server) handleAppBskyNotificationGetCount(ctx context.Context) (*appbskytypes.NotificationGetCount_Output, error) {
