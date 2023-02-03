@@ -17,6 +17,7 @@ import (
 const (
 	EncodingCBOR = "application/cbor"
 	EncodingJSON = "application/json"
+	EncodingCAR  = "application/vnd.ipld.car"
 	EncodingANY  = "*/*"
 )
 
@@ -128,7 +129,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 
 		if ts.Output != nil {
 			if ts.Output.Schema == nil {
-				if ts.Output.Encoding != "application/cbor" {
+				if ts.Output.Encoding != "application/cbor" && ts.Output.Encoding != "application/vnd.ipld.car" {
 					panic(fmt.Sprintf("strange output type def in %s", s.ID))
 				}
 			} else {
@@ -219,6 +220,9 @@ func FixRecordReferences(schemas []*Schema, defmap map[string]*ExtDef, prefix st
 						r = s.ID + r
 					}
 
+					if _, known := defmap[r]; known != true {
+						panic(fmt.Sprintf("reference to unknown record type: %s", r))
+					}
 					defmap[r].Type.record = true
 				}
 			}
@@ -269,6 +273,9 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 
 	if reqcode {
 		name := nameFromID(s.ID, prefix)
+		if _, ok := s.Defs["main"]; !ok {
+			return fmt.Errorf("schema %q doesn't have a main def", s.ID)
+		}
 		if err := writeMethods(name, s.Defs["main"], buf); err != nil {
 			return err
 		}
@@ -347,7 +354,7 @@ func writeMethods(typename string, ts *TypeSchema, w io.Writer) error {
 		return ts.WriteRPC(w, typename)
 	case "procedure":
 		return ts.WriteRPC(w, typename)
-	case "object":
+	case "object", "string":
 		return nil
 	default:
 		return fmt.Errorf("unrecognized lexicon type %q", ts.Type)
@@ -420,7 +427,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 	out := "error"
 	if s.Output != nil {
 		switch s.Output.Encoding {
-		case EncodingCBOR:
+		case EncodingCBOR, EncodingCAR:
 			out = "([]byte, error)"
 		case EncodingJSON:
 			out = fmt.Sprintf("(*%s_Output, error)", fname)
@@ -436,12 +443,11 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 	outRet := "nil"
 	if s.Output != nil {
 		switch s.Output.Encoding {
-		case EncodingCBOR:
+		case EncodingCBOR, EncodingCAR:
 			fmt.Fprintf(w, "buf := new(bytes.Buffer)\n")
 			outvar = "buf"
 			errRet = "nil, err"
 			outRet = "buf.Bytes(), nil"
-
 		case EncodingJSON:
 			fmt.Fprintf(w, "\tvar out %s_Output\n", fname)
 			outvar = "&out"
@@ -598,7 +604,7 @@ func WriteXrpcServer(w io.Writer, schemas []*Schema, pkg string, impmap map[stri
 			}
 		}
 		if pref == "" {
-			return fmt.Errorf("no matching prefix for schema %q", s.ID)
+			return fmt.Errorf("no matching prefix for schema %q (tried %s)", s.ID, prefixes)
 		}
 
 		ssets[pref] = append(ssets[pref], s)
@@ -704,7 +710,7 @@ func (s *TypeSchema) WriteHandlerStub(w io.Writer, fname, shortname, impname str
 		switch s.Output.Encoding {
 		case "application/json":
 			returndef = fmt.Sprintf("(*%s.%s_Output, error)", impname, shortname)
-		case "application/cbor":
+		case "application/cbor", "application/vnd.ipld.car":
 			returndef = fmt.Sprintf("(io.Reader, error)")
 		default:
 			return fmt.Errorf("unrecognized output encoding: %q", s.Output.Encoding)
@@ -881,7 +887,7 @@ if err := c.Bind(&body); err != nil {
 			assign = "out, handleErr"
 			fmt.Fprintf(w, "var out *%s.%s\n", impname, tname+"_Output")
 			returndef = fmt.Sprintf("(*%s.%s_Output, error)", impname, tname)
-		case "application/cbor":
+		case "application/cbor", "application/vnd.ipld.car":
 			assign = "out, handleErr"
 			fmt.Fprintf(w, "var out io.Reader\n")
 			returndef = "(io.Reader, error)"
@@ -902,6 +908,8 @@ if err := c.Bind(&body); err != nil {
 			fmt.Fprintf(w, "return c.Stream(200, \"application/octet-stream\", out)\n}\n\n")
 		case EncodingCBOR:
 			fmt.Fprintf(w, "return c.Stream(200, \"application/octet-stream\", out)\n}\n\n")
+		case EncodingCAR:
+			fmt.Fprintf(w, "return c.Stream(200, \"application/vnd.ipld.car\", out)\n}\n\n")
 		default:
 			return fmt.Errorf("unrecognized output encoding: %s", s.Output.Encoding)
 		}
