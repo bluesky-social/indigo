@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/bluesky-social/indigo/carstore"
+	"github.com/ipfs/go-cid"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -60,7 +61,7 @@ func TestLoadNewRepo(t *testing.T) {
 	}
 
 	ctx := context.TODO()
-	if err := repoman.ImportNewRepo(ctx, 2, fi); err != nil {
+	if err := repoman.ImportNewRepo(ctx, 2, fi, cid.Undef); err != nil {
 		t.Fatal(err)
 	}
 }

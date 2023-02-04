@@ -596,6 +596,7 @@ func LdWrite(w io.Writer, d ...[]byte) (int64, error) {
 }
 
 func (cs *CarStore) ImportSlice(ctx context.Context, uid uint, prev *cid.Cid, carslice []byte) (cid.Cid, *DeltaSession, error) {
+
 	carr, err := car.NewCarReader(bytes.NewReader(carslice))
 	if err != nil {
 		return cid.Undef, nil, err

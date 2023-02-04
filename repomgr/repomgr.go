@@ -15,11 +15,11 @@ import (
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	ipld "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-car"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -64,7 +64,7 @@ type ActorInfo struct {
 
 type RepoEvent struct {
 	User      uint
-	OldRoot   cid.Cid
+	OldRoot   *cid.Cid
 	NewRoot   cid.Cid
 	RepoSlice []byte
 	PDS       uint
@@ -211,7 +211,7 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
 			User:    user,
-			OldRoot: head,
+			OldRoot: &head,
 			NewRoot: nroot,
 			Ops: []RepoOp{{
 				Kind:       EvtKindCreateRecord,
@@ -273,7 +273,7 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user uint, collection, 
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
 			User:    user,
-			OldRoot: head,
+			OldRoot: &head,
 			NewRoot: nroot,
 			Ops: []RepoOp{{
 				Kind:       EvtKindUpdateRecord,
@@ -334,7 +334,7 @@ func (rm *RepoManager) DeleteRecord(ctx context.Context, user uint, collection, 
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
 			User:    user,
-			OldRoot: head,
+			OldRoot: &head,
 			NewRoot: nroot,
 			Ops: []RepoOp{{
 				Kind:       EvtKindDeleteRecord,
@@ -501,6 +501,8 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 	ctx, span := otel.Tracer("repoman").Start(ctx, "HandleExternalUserEvent")
 	defer span.End()
 
+	log.Infof("HandleExternalUserEvent: %d %d %s", pdsid, uid, prev)
+
 	unlock := rm.lockUser(ctx, uid)
 	defer unlock()
 
@@ -578,8 +580,8 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
-			User: uid,
-			//OldRoot:    head,
+			User:      uid,
+			OldRoot:   prev,
 			NewRoot:   root,
 			Ops:       evtops,
 			RepoSlice: rslice,
@@ -691,7 +693,7 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user uint, writes []*atpr
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
 			User:      user,
-			OldRoot:   head,
+			OldRoot:   &head,
 			NewRoot:   nroot,
 			RepoSlice: rslice,
 			Ops:       ops,
@@ -701,26 +703,30 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user uint, writes []*atpr
 	return nil
 }
 
-func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, r io.Reader) error {
+func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, r io.Reader, oldest cid.Cid) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "ImportNewRepo")
 	defer span.End()
 
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	_, err := rm.getUserRepoHead(ctx, user)
-	if err == nil {
-		// i predict this will get awkward
-		return fmt.Errorf("cannot import new repo for user we already know about")
-	}
-
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
+	head, err := rm.getUserRepoHead(ctx, user)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
-	err = rm.processNewRepo(ctx, user, r, func(ctx context.Context, old, nu cid.Cid, slice []byte, bs blockstore.Blockstore) error {
+	if head != oldest {
+		// TODO: we could probably just deal with this
+		return fmt.Errorf("ImportNewRepo called with incorrect base")
+	}
 
-		diffops, err := mst.DiffTrees(ctx, bs, old, nu)
+	err = rm.processNewRepo(ctx, user, r, head, func(ctx context.Context, old, nu cid.Cid, slice []byte, bs blockstore.Blockstore) error {
+		r, err := repo.OpenRepo(ctx, bs, nu)
+		if err != nil {
+			return fmt.Errorf("opening new repo: %w", err)
+		}
+
+		diffops, err := r.DiffSince(ctx, old)
 		if err != nil {
 			return fmt.Errorf("diff trees: %w", err)
 		}
@@ -769,10 +775,14 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, r io.Reader
 			}
 		}
 
+		if err := rm.updateUserRepoHead(ctx, user, nu); err != nil {
+			return err
+		}
+
 		if rm.events != nil {
 			rm.events(ctx, &RepoEvent{
 				User:      user,
-				OldRoot:   old,
+				OldRoot:   &old,
 				NewRoot:   nu,
 				RepoSlice: slice,
 				Ops:       ops,
@@ -782,13 +792,13 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, r io.Reader
 		return nil
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("process new repo: %w:", err)
 	}
 
 	return nil
 }
 
-func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reader, cb func(ctx context.Context, old, nu cid.Cid, slice []byte, bs blockstore.Blockstore) error) error {
+func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reader, until cid.Cid, cb func(ctx context.Context, old, nu cid.Cid, slice []byte, bs blockstore.Blockstore) error) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "ImportNewRepo")
 	defer span.End()
 
@@ -820,17 +830,17 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reade
 	head := &carr.Header.Roots[0]
 
 	var commits []cid.Cid
-	for head != nil {
+	for head != nil && *head != until {
 
 		commits = append(commits, *head)
 		rep, err := repo.OpenRepo(ctx, membs, *head)
 		if err != nil {
-			return err
+			return fmt.Errorf("opening repo for backwalk: %w", err)
 		}
 
 		prev, err := rep.PrevCommit(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("prevCommit: %w", err)
 		}
 
 		head = prev
@@ -840,23 +850,27 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reade
 
 	seen := make(map[cid.Cid]bool)
 
-	var prev cid.Cid
+	if until.Defined() {
+		seen[until] = true
+	}
+
+	prev := until
 	for i := len(commits) - 1; i >= 0; i-- {
 		root := commits[i]
-		cids, err := walkTree(ctx, seen, root, membs)
+		cids, err := walkTree(ctx, seen, root, membs, true)
 		if err != nil {
 			return fmt.Errorf("walkTree: %w", err)
 		}
 
 		ds, err := rm.cs.NewDeltaSession(ctx, user, &prev)
 		if err != nil {
-			return fmt.Errorf("opening delta session: %w", err)
+			return fmt.Errorf("opening delta session (%d / %d): %w", i, len(commits)-1, err)
 		}
 
 		for _, c := range cids {
 			blk, err := membs.Get(ctx, c)
 			if err != nil {
-				return err
+				return fmt.Errorf("copying walked cids to carstore: %w", err)
 			}
 
 			if err := ds.Put(ctx, blk); err != nil {
@@ -870,7 +884,7 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reade
 		}
 
 		if err := cb(ctx, prev, root, carslice, membs); err != nil {
-			return err
+			return fmt.Errorf("cb errored: %w", err)
 		}
 
 		prev = root
@@ -879,8 +893,9 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reade
 	return nil
 }
 
-func walkTree(ctx context.Context, skip map[cid.Cid]bool, root cid.Cid, bs blockstore.Blockstore) ([]cid.Cid, error) {
-
+// walkTree returns all cids linked recursively by the root, skipping any cids
+// in the 'skip' map, and not erroring on 'not found' if prevMissing is set
+func walkTree(ctx context.Context, skip map[cid.Cid]bool, root cid.Cid, bs blockstore.Blockstore, prevMissing bool) ([]cid.Cid, error) {
 	// TODO: what if someone puts non-cbor links in their repo?
 	if root.Prefix().Codec != cid.DagCBOR {
 		return nil, fmt.Errorf("can only handle dag-cbor objects in repos (%s is %d)", root, root.Prefix().Codec)
@@ -891,15 +906,13 @@ func walkTree(ctx context.Context, skip map[cid.Cid]bool, root cid.Cid, bs block
 		return nil, err
 	}
 
-	out := []cid.Cid{root}
-	skip[root] = true
-
+	var links []cid.Cid
 	if err := cbg.ScanForLinks(bytes.NewReader(blk.RawData()), func(c cid.Cid) {
 		if skip[c] {
 			return
 		}
 
-		out = append(out, c)
+		links = append(links, c)
 		skip[c] = true
 
 		return
@@ -907,11 +920,16 @@ func walkTree(ctx context.Context, skip map[cid.Cid]bool, root cid.Cid, bs block
 		return nil, err
 	}
 
+	out := []cid.Cid{root}
+	skip[root] = true
+
 	// TODO: should do this non-recursive since i expect these may get deep
-	for _, c := range out[1:] {
-		sub, err := walkTree(ctx, skip, c, bs)
+	for _, c := range links {
+		sub, err := walkTree(ctx, skip, c, bs, prevMissing)
 		if err != nil {
-			return nil, err
+			if prevMissing && !ipld.IsNotFound(err) {
+				return nil, err
+			}
 		}
 
 		out = append(out, sub...)

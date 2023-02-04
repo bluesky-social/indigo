@@ -247,7 +247,8 @@ func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent
 
 	out := &events.RepoEvent{
 		RepoAppend: &events.RepoAppend{
-			Car: evt.RepoSlice,
+			Prev: evt.OldRoot,
+			Car:  evt.RepoSlice,
 		},
 		Repo:    did,
 		PrivUid: evt.User,
