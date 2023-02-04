@@ -80,15 +80,15 @@ func randomFollows(t *testing.T, users []*testUser) {
 	}
 }
 
-func socialSim(t *testing.T, users []*testUser) []*atproto.RepoStrongRef {
+func socialSim(t *testing.T, users []*testUser, postiter, likeiter int) []*atproto.RepoStrongRef {
 	var posts []*atproto.RepoStrongRef
-	for i := 0; i < 10; i++ {
+	for i := 0; i < postiter; i++ {
 		for _, u := range users {
 			posts = append(posts, u.Post(t, makeRandomPost()))
 		}
 	}
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < likeiter; i++ {
 		for _, u := range users {
 			u.Like(t, posts[rand.Intn(len(posts))])
 		}
@@ -98,7 +98,6 @@ func socialSim(t *testing.T, users []*testUser) []*atproto.RepoStrongRef {
 }
 
 func TestBGSMultiPDS(t *testing.T) {
-	t.Skip()
 	assert := assert.New(t)
 	_ = assert
 	didr := testPLC(t)
@@ -120,7 +119,7 @@ func TestBGSMultiPDS(t *testing.T) {
 	}
 
 	randomFollows(t, users)
-	socialSim(t, users)
+	socialSim(t, users, 10, 10)
 
 	var users2 []*testUser
 	for i := 0; i < 5; i++ {
@@ -128,7 +127,7 @@ func TestBGSMultiPDS(t *testing.T) {
 	}
 
 	randomFollows(t, users2)
-	p2posts := socialSim(t, users2)
+	p2posts := socialSim(t, users2, 10, 10)
 
 	randomFollows(t, append(users, users2...))
 
@@ -136,7 +135,7 @@ func TestBGSMultiPDS(t *testing.T) {
 
 	// now if we make posts on pds 2, the bgs will not hear about those new posts
 
-	p2posts2 := socialSim(t, users2)
+	p2posts2 := socialSim(t, users2, 10, 10)
 
 	time.Sleep(time.Second)
 
@@ -144,7 +143,9 @@ func TestBGSMultiPDS(t *testing.T) {
 	time.Sleep(time.Millisecond * 50)
 
 	// Now, the bgs will discover a gap, and have to catch up somehow
-	socialSim(t, users2)
+	socialSim(t, users2, 1, 0)
+
+	time.Sleep(time.Second)
 
 	// we expect the bgs to learn about posts that it didnt directly see from
 	// repos its already partially scraped, as long as its seen *something* after the missing post
@@ -154,5 +155,60 @@ func TestBGSMultiPDS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
 
+func TestBGSMultiGap(t *testing.T) {
+	assert := assert.New(t)
+	_ = assert
+	didr := testPLC(t)
+	p1 := mustSetupPDS(t, "localhost:5195", ".pdsuno", didr)
+	p1.Run(t)
+
+	p2 := mustSetupPDS(t, "localhost:5196", ".pdsdos", didr)
+	p2.Run(t)
+
+	b1 := mustSetupBGS(t, "localhost:8291", didr)
+	b1.Run(t)
+
+	p1.RequestScraping(t, b1)
+	time.Sleep(time.Millisecond * 50)
+
+	users := []*testUser{p1.MustNewUser(t, usernames[0]+".pdsuno")}
+
+	socialSim(t, users, 10, 0)
+
+	users2 := []*testUser{p2.MustNewUser(t, usernames[1]+".pdsdos")}
+
+	p2posts := socialSim(t, users2, 10, 0)
+
+	users[0].Reply(t, p2posts[0], p2posts[0], "what a wonderful life")
+	time.Sleep(time.Millisecond * 50)
+
+	ctx := context.Background()
+	_, err := b1.bgs.Index.GetPost(ctx, p2posts[3].Uri)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// now if we make posts on pds 2, the bgs will not hear about those new posts
+
+	p2posts2 := socialSim(t, users2, 10, 0)
+
+	time.Sleep(time.Second)
+
+	p2.RequestScraping(t, b1)
+	time.Sleep(time.Millisecond * 50)
+
+	// Now, the bgs will discover a gap, and have to catch up somehow
+	socialSim(t, users2, 1, 0)
+
+	time.Sleep(time.Second)
+
+	// we expect the bgs to learn about posts that it didnt directly see from
+	// repos its already partially scraped, as long as its seen *something* after the missing post
+	// this is the 'catchup' process
+	_, err = b1.bgs.Index.GetPost(ctx, p2posts2[4].Uri)
+	if err != nil {
+		t.Fatal(err)
+	}
 }

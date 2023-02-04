@@ -57,7 +57,6 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string) error {
 		npds := models.PDS{
 			Host: host,
 		}
-		fmt.Println("CREATING NEW PDS", host)
 		if err := s.db.Create(&npds).Error; err != nil {
 			return err
 		}
@@ -87,13 +86,13 @@ func (s *Slurper) subscribeWithRedialer(host *models.PDS) {
 
 		con, res, err := d.Dial("ws://"+host.Host+"/events", nil)
 		if err != nil {
-			fmt.Printf("dialing %q failed: %s", host.Host, err)
+			log.Warnf("dialing %q failed: %s", host.Host, err)
 			time.Sleep(sleepForBackoff(backoff))
 			backoff++
 			continue
 		}
 
-		fmt.Println("event subscription response code: ", res.StatusCode)
+		log.Info("event subscription response code: ", res.StatusCode)
 
 		if err := s.handleConnection(host, con); err != nil {
 			if errors.Is(err, ErrTimeoutShutdown) {

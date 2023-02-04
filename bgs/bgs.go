@@ -159,7 +159,7 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 }
 
 func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, evt *events.RepoEvent) error {
-	log.Infof("bgs got fed event from %q: %s\n", host.Host, evt.Repo)
+	log.Infof("bgs got fed event %d from %q: %s\n", evt.Seq, host.Host, evt.Repo)
 	switch {
 	case evt.RepoAppend != nil:
 		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
@@ -184,7 +184,12 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, evt *event
 				return err
 			}
 
-			return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, u.ID, evt)
+			ai, err := bgs.Index.LookupUser(ctx, u.ID)
+			if err != nil {
+				return err
+			}
+
+			return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
 		}
 
 		return nil

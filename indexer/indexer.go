@@ -121,8 +121,9 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		Repo: did,
 
 		RepoAppend: &events.RepoAppend{
-			Car: evt.RepoSlice,
-			Ops: repoOps,
+			Prev: evt.OldRoot,
+			Car:  evt.RepoSlice,
+			Ops:  repoOps,
 		},
 
 		PrivRelevantPds: relpds,
@@ -149,7 +150,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			return nil, err
 		}
 
-		author, err := ix.lookupUser(ctx, fp.Author)
+		author, err := ix.LookupUser(ctx, fp.Author)
 		if err != nil {
 			return nil, err
 		}
@@ -191,7 +192,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			return nil, err
 		}
 
-		act, err := ix.lookupUser(ctx, post.Author)
+		act, err := ix.LookupUser(ctx, post.Author)
 		if err != nil {
 			return nil, err
 		}
@@ -346,6 +347,7 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user uint, rk
 		}
 
 		if err := ix.db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{clause.Column{Name: "rkey"}, clause.Column{Name: "author"}},
 			UpdateAll: true,
 		}).Create(&fp).Error; err != nil {
 			return err
@@ -424,7 +426,7 @@ func (ix *Indexer) DidForUser(ctx context.Context, uid uint) (string, error) {
 	return ai.Did, nil
 }
 
-func (ix *Indexer) lookupUser(ctx context.Context, id uint) (*models.ActorInfo, error) {
+func (ix *Indexer) LookupUser(ctx context.Context, id uint) (*models.ActorInfo, error) {
 	var ai models.ActorInfo
 	if err := ix.db.First(&ai, "id = ?", id).Error; err != nil {
 		return nil, err
@@ -555,30 +557,49 @@ func parseAtUri(uri string) (*parsedUri, error) {
 }
 
 // TODO: since this function is the only place we depend on the repomanager, i wonder if this should be wired some other way?
-func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, ai *models.ActorInfo) error {
+func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error {
 	ctx, span := otel.Tracer("indexer").Start(ctx, "FetchAndIndexRepo")
 	defer span.End()
+
+	fmt.Println("FETCH AND INDEX REPO")
+
+	ai := job.act
 
 	var pds models.PDS
 	if err := ix.db.First(&pds, "id = ?", ai.PDS).Error; err != nil {
 		return fmt.Errorf("expected to find pds record in db for crawling one of their users: %w", err)
 	}
 
+	curHead, err := ix.repomgr.GetRepoRoot(ctx, ai.Uid)
+	if err != nil && !isNotFound(err) {
+		return err
+	}
+
+	fmt.Println("CUR HEAD: ", curHead)
+
 	c := &xrpc.Client{
 		Host: pds.Host,
 	}
 
+	var from string
+	if curHead.Defined() {
+		from = curHead.String()
+	}
+
 	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
-	repo, err := atproto.SyncGetRepo(ctx, c, ai.Did, "")
+	repo, err := atproto.SyncGetRepo(ctx, c, ai.Did, from)
 	if err != nil {
 		return fmt.Errorf("failed to fetch repo: %w", err)
 	}
 
 	// this process will send individual indexing events back to the indexer, doing a 'fast forward' of the users entire history
 	// we probably want alternative ways of doing this for 'very large' or 'very old' repos, but this works for now
-	if err := ix.repomgr.ImportNewRepo(ctx, ai.Uid, bytes.NewReader(repo)); err != nil {
-		return err
+	if err := ix.repomgr.ImportNewRepo(ctx, ai.Uid, bytes.NewReader(repo), curHead); err != nil {
+		return fmt.Errorf("importing fetched repo: %w", err)
 	}
+
+	// TODO: this is currently doing too much work, allowing us to ignore the catchup events we've gotten
+	// need to do 'just enough' work...
 
 	return nil
 }

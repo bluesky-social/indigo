@@ -10,15 +10,21 @@ import (
 type CrawlDispatcher struct {
 	ingest chan *models.ActorInfo
 
-	repoSync chan *models.ActorInfo
+	repoSync chan *crawlWork
 
-	doRepoCrawl func(context.Context, *models.ActorInfo) error
+	catchup chan *catchupJob
+
+	complete chan uint
+
+	doRepoCrawl func(context.Context, *crawlWork) error
 }
 
-func NewCrawlDispatcher(repoFn func(context.Context, *models.ActorInfo) error) *CrawlDispatcher {
+func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error) *CrawlDispatcher {
 	return &CrawlDispatcher{
 		ingest:      make(chan *models.ActorInfo),
-		repoSync:    make(chan *models.ActorInfo),
+		repoSync:    make(chan *crawlWork),
+		complete:    make(chan uint),
+		catchup:     make(chan *catchupJob),
 		doRepoCrawl: repoFn,
 	}
 }
@@ -31,33 +37,60 @@ func (c *CrawlDispatcher) Run() {
 	}
 }
 
+type catchupJob struct {
+	evt  *events.RepoEvent
+	host *models.PDS
+	user *models.ActorInfo
+}
+
+type crawlWork struct {
+	act        *models.ActorInfo
+	initScrape bool
+
+	catchup []*catchupJob
+
+	// for events that come in while this actor is being processed
+	next []*catchupJob
+}
+
 func (c *CrawlDispatcher) mainLoop() {
-	var next *models.ActorInfo
-	var buffer []*models.ActorInfo
+	var next *crawlWork
+	var buffer []*crawlWork
 
-	set := make(map[uint]*models.ActorInfo)
-	//progress := make(map[uint]*models.ActorInfo)
+	todo := make(map[uint]*crawlWork)
+	inProgress := make(map[uint]*crawlWork)
 
-	var rs chan *models.ActorInfo
+	var rs chan *crawlWork
 	for {
 		select {
 		case act := <-c.ingest:
 			// TODO: max buffer size
 
-			_, has := set[act.Uid]
+			_, ok := inProgress[act.Uid]
+			if ok {
+				break
+			}
+
+			_, has := todo[act.Uid]
 			if has {
 				break
 			}
-			set[act.Uid] = act
+
+			cw := &crawlWork{
+				act:        act,
+				initScrape: true,
+			}
+			todo[act.Uid] = cw
 
 			if next == nil {
-				next = act
+				next = cw
 				rs = c.repoSync
 			} else {
-				buffer = append(buffer, act)
+				buffer = append(buffer, cw)
 			}
 		case rs <- next:
-			delete(set, next.Uid)
+			delete(todo, next.act.Uid)
+			inProgress[next.act.Uid] = next
 
 			if len(buffer) > 0 {
 				next = buffer[0]
@@ -66,6 +99,52 @@ func (c *CrawlDispatcher) mainLoop() {
 				next = nil
 				rs = nil
 			}
+		case catchup := <-c.catchup:
+			job, ok := todo[catchup.user.Uid]
+			if ok {
+				job.catchup = append(job.catchup, catchup)
+				break
+			}
+
+			job, ok = inProgress[catchup.user.Uid]
+			if ok {
+				job.next = append(job.next, catchup)
+				break
+			}
+
+			cw := &crawlWork{
+				act:     catchup.user,
+				catchup: []*catchupJob{catchup},
+			}
+			todo[catchup.user.Uid] = cw
+
+			if next == nil {
+				next = cw
+				rs = c.repoSync
+			} else {
+				buffer = append(buffer, cw)
+			}
+
+		case uid := <-c.complete:
+			job, ok := inProgress[uid]
+			if !ok {
+				panic("should not be possible to not have a job in progress we receive a completion signal for")
+			}
+			delete(inProgress, uid)
+
+			if len(job.next) > 0 {
+				todo[uid] = job
+				job.initScrape = false
+				job.catchup = job.next
+				job.next = nil
+				if next == nil {
+					next = job
+					rs = c.repoSync
+				} else {
+					buffer = append(buffer, job)
+				}
+			}
+
 		}
 	}
 }
@@ -75,8 +154,11 @@ func (c *CrawlDispatcher) fetchWorker() {
 		select {
 		case job := <-c.repoSync:
 			if err := c.doRepoCrawl(context.TODO(), job); err != nil {
-				log.Errorf("failed to perform repo crawl of %q: %s", job, err)
+				log.Errorf("failed to perform repo crawl of %q: %s", job.act.Did, err)
 			}
+
+			// TODO: do we still just do this if it errors?
+			c.complete <- job.act.Uid
 		}
 	}
 }
@@ -90,6 +172,15 @@ func (c *CrawlDispatcher) Crawl(ctx context.Context, ai *models.ActorInfo) error
 	}
 }
 
-func (c *CrawlDispatcher) AddToCatchupQueue(ctx context.Context, host *models.PDS, u uint, evt *events.RepoEvent) error {
-	return nil
+func (c *CrawlDispatcher) AddToCatchupQueue(ctx context.Context, host *models.PDS, u *models.ActorInfo, evt *events.RepoEvent) error {
+	select {
+	case c.catchup <- &catchupJob{
+		evt:  evt,
+		host: host,
+		user: u,
+	}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }

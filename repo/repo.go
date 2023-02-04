@@ -329,19 +329,23 @@ func (r *Repo) DiffSince(ctx context.Context, oldrepo cid.Cid) ([]*mst.DiffOp, e
 	ctx, span := otel.Tracer("repo").Start(ctx, "DiffSince")
 	defer span.End()
 
-	otherRepo, err := OpenRepo(ctx, r.bs, oldrepo)
-	if err != nil {
-		return nil, err
-	}
+	var oldTree cid.Cid
+	if oldrepo.Defined() {
+		otherRepo, err := OpenRepo(ctx, r.bs, oldrepo)
+		if err != nil {
+			return nil, err
+		}
 
-	oldmst, err := otherRepo.getMst(ctx)
-	if err != nil {
-		return nil, err
-	}
+		oldmst, err := otherRepo.getMst(ctx)
+		if err != nil {
+			return nil, err
+		}
 
-	oldptr, err := oldmst.GetPointer(ctx)
-	if err != nil {
-		return nil, err
+		oldptr, err := oldmst.GetPointer(ctx)
+		if err != nil {
+			return nil, err
+		}
+		oldTree = oldptr
 	}
 
 	curmst, err := r.getMst(ctx)
@@ -354,5 +358,5 @@ func (r *Repo) DiffSince(ctx context.Context, oldrepo cid.Cid) ([]*mst.DiffOp, e
 		return nil, err
 	}
 
-	return mst.DiffTrees(ctx, r.bs, oldptr, curptr)
+	return mst.DiffTrees(ctx, r.bs, oldTree, curptr)
 }
