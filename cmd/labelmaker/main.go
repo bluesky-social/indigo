@@ -33,13 +33,6 @@ func main() {
 		&cli.BoolFlag{
 			Name: "dbtracing",
 		},
-		/* XXX unused?
-		&cli.StringFlag{
-			Name:  "labelmakerhost",
-			Usage: "hostname of the labelmaker",
-			Value: "localhost:2210",
-		},
-		*/
 	}
 
 	app.Action = func(cctx *cli.Context) error {

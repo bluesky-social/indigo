@@ -82,7 +82,7 @@ type Label struct {
 	SubjectCid    *string `json:"cid,omitempty" cborgen:"cid"`
 	Value         string  `json:"val" cborgen:"val"`
 	Timestamp     string  `json:"ts" cborgen:"ts"` // TODO: actual timestamp?
-	LabelUri      *string `json:"labeluri,omitempty" cborgen:"labeluri"`
+	LabelUri      *string `json:"labeluri,omitempty" cborgen:"labelUri"`
 }
 
 func (em *LabelEventManager) AddEvent(ev *LabelEvent) error {
