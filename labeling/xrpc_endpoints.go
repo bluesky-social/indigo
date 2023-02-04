@@ -1,30 +1,133 @@
 package labeling
 
 import (
-	"bytes"
-	"context"
-	"fmt"
 	"io"
+	"strconv"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 
-	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
 )
 
 func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
-	// TODO: which PDS methods need to implemented? some examples below
-	//e.GET("/xrpc/com.atproto.account.get", s.HandleComAtprotoAccountGet)
-	//e.GET("/xrpc/com.atproto.handle.resolve", s.HandleComAtprotoHandleResolve)
-	//e.GET("/xrpc/com.atproto.repo.describe", s.HandleComAtprotoRepoDescribe)
+	e.GET("/xrpc/com.atproto.account.get", s.HandleComAtprotoAccountGet)
+	e.GET("/xrpc/com.atproto.handle.resolve", s.HandleComAtprotoHandleResolve)
+	e.GET("/xrpc/com.atproto.repo.describe", s.HandleComAtprotoRepoDescribe)
 	e.GET("/xrpc/com.atproto.repo.getRecord", s.HandleComAtprotoRepoGetRecord)
-	//e.GET("/xrpc/com.atproto.repo.listRecords", s.HandleComAtprotoRepoListRecords)
-	//e.GET("/xrpc/com.atproto.server.getAccountsConfig", s.HandleComAtprotoServerGetAccountsConfig)
+	e.GET("/xrpc/com.atproto.repo.listRecords", s.HandleComAtprotoRepoListRecords)
+	e.GET("/xrpc/com.atproto.server.getAccountsConfig", s.HandleComAtprotoServerGetAccountsConfig)
 	e.GET("/xrpc/com.atproto.sync.getRepo", s.HandleComAtprotoSyncGetRepo)
-	//e.GET("/xrpc/com.atproto.sync.getRoot", s.HandleComAtprotoSyncGetRoot)
+	// TODO(bnewbold): after lexicons updated
+	//e.GET("/xrpc/com.atproto.sync.getHead", s.HandleComAtprotoSyncGetRoot)
 	return nil
+}
+
+func (s *Server) HandleComAtprotoAccountGet(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAccountGet")
+	defer span.End()
+	var handleErr error
+	// func (s *Server) handleComAtprotoAccountGet(ctx context.Context) error
+	handleErr = s.handleComAtprotoAccountGet(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
+func (s *Server) HandleComAtprotoHandleResolve(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoHandleResolve")
+	defer span.End()
+	handle := c.QueryParam("handle")
+	var out *atproto.HandleResolve_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoHandleResolve(ctx context.Context,handle string) (*atproto.HandleResolve_Output, error)
+	out, handleErr = s.handleComAtprotoHandleResolve(ctx, handle)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoRepoDescribe(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoDescribe")
+	defer span.End()
+	user := c.QueryParam("user")
+	var out *atproto.RepoDescribe_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoRepoDescribe(ctx context.Context,user string) (*atproto.RepoDescribe_Output, error)
+	out, handleErr = s.handleComAtprotoRepoDescribe(ctx, user)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoRepoGetRecord(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoGetRecord")
+	defer span.End()
+	cid := c.QueryParam("cid")
+	collection := c.QueryParam("collection")
+	rkey := c.QueryParam("rkey")
+	user := c.QueryParam("user")
+	var out *atproto.RepoGetRecord_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context,cid string,collection string,rkey string,user string) (*atproto.RepoGetRecord_Output, error)
+	out, handleErr = s.handleComAtprotoRepoGetRecord(ctx, cid, collection, rkey, user)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoRepoListRecords(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoListRecords")
+	defer span.End()
+	after := c.QueryParam("after")
+	before := c.QueryParam("before")
+	collection := c.QueryParam("collection")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+
+	var reverse *bool
+	if p := c.QueryParam("reverse"); p != "" {
+		reverse_val, err := strconv.ParseBool(p)
+		if err != nil {
+			return err
+		}
+		reverse = &reverse_val
+	}
+	user := c.QueryParam("user")
+	var out *atproto.RepoListRecords_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context,after string,before string,collection string,limit int,reverse *bool,user string) (*atproto.RepoListRecords_Output, error)
+	out, handleErr = s.handleComAtprotoRepoListRecords(ctx, after, before, collection, limit, reverse, user)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoServerGetAccountsConfig(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerGetAccountsConfig")
+	defer span.End()
+	var out *atproto.ServerGetAccountsConfig_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoServerGetAccountsConfig(ctx context.Context) (*atproto.ServerGetAccountsConfig_Output, error)
+	out, handleErr = s.handleComAtprotoServerGetAccountsConfig(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
@@ -40,69 +143,4 @@ func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 		return handleErr
 	}
 	return c.Stream(200, "application/octet-stream", out)
-}
-
-func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, from string) (io.Reader, error) {
-	// TODO: verify the DID/handle
-	var userId uint = 1
-	var fromcid cid.Cid
-	if from != "" {
-		cc, err := cid.Decode(from)
-		if err != nil {
-			return nil, err
-		}
-
-		fromcid = cc
-	}
-
-	buf := new(bytes.Buffer)
-	if err := s.repoman.ReadRepo(ctx, userId, fromcid, buf); err != nil {
-		return nil, err
-	}
-
-	return buf, nil
-}
-
-func (s *Server) HandleComAtprotoRepoGetRecord(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoGetRecord")
-	defer span.End()
-	cid := c.QueryParam("cid")
-	collection := c.QueryParam("collection")
-	rkey := c.QueryParam("rkey")
-	user := c.QueryParam("user")
-	var out *atproto.RepoGetRecord_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context,cid string,collection string,rkey string,user string) (*comatprototypes.RepoGetRecord_Output, error)
-	out, handleErr = s.handleComAtprotoRepoGetRecord(ctx, cid, collection, rkey, user)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, collection string, rkey string, user string) (*atproto.RepoGetRecord_Output, error) {
-	if user != s.user.did {
-		return nil, fmt.Errorf("unknown user: %s", user)
-	}
-
-	var maybeCid cid.Cid
-	if c != "" {
-		cc, err := cid.Decode(c)
-		if err != nil {
-			return nil, err
-		}
-		maybeCid = cc
-	}
-
-	reccid, rec, err := s.repoman.GetRecord(ctx, s.user.userId, collection, rkey, maybeCid)
-	if err != nil {
-		return nil, fmt.Errorf("repoman GetRecord: %w", err)
-	}
-
-	ccstr := reccid.String()
-	return &atproto.RepoGetRecord_Output{
-		Cid:   &ccstr,
-		Uri:   "at://" + s.user.did + "/" + collection + "/" + rkey,
-		Value: lexutil.LexiconTypeDecoder{rec},
-	}, nil
 }
