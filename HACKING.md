@@ -64,7 +64,7 @@ checout) the JSON lexicon files `$SOMEWHERE`. Also, install the `goimports`
 tool. Then, in *this* repository (indigo), run commands like:
 
     go run ./cmd/lexgen/ --package bsky --prefix app.bsky --outdir api/bsky $SOMEWHERE/lexicons/app/bsky/
-    go run ./cmd/lexgen/ --package atproto --prefix com.atproto --outdir api/bsky $SOMEWHERE/lexicons/com/atproto/
+    go run ./cmd/lexgen/ --package atproto --prefix com.atproto --outdir api/atproto $SOMEWHERE/lexicons/com/atproto/
 
 You may want to delete all the codegen files before re-generating, to detect deleted files.
 
