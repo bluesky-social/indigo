@@ -18,7 +18,7 @@ func (s *Server) handleComAtprotoAccountGet(ctx context.Context) error {
 }
 
 func (s *Server) handleComAtprotoHandleResolve(ctx context.Context, handle string) (*atproto.HandleResolve_Output, error) {
-	// TODO: only the one handle
+	// only the one handle, for labelmaker
 	if handle == "" {
 		return &atproto.HandleResolve_Output{Did: s.user.signingKey.DID()}, nil
 	} else if handle == s.user.handle {

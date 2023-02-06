@@ -112,11 +112,10 @@ func main() {
 			return err
 		}
 
-		//labelmakerhost := cctx.String("labelmakerhost")
 		repoDid := "did:plc:FAKE"
 		repoHandle := "labelmaker.test"
-		//bgsUrl := "ws://localhost:2470/events"
-		//bgsUrl := "ws://[::1]:4989/events"
+		// NOTE: connecting to PDS for now, not actual BGS
+		//bgsUrl := "localhost:2470"
 		bgsUrl := "localhost:4989"
 		srv, err := labeling.NewServer(db, cs, "data/labelmaker/labelmaker.key", repoDid, repoHandle, bgsUrl)
 		if err != nil {
