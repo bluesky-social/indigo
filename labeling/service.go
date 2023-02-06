@@ -70,7 +70,6 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, keyFile, repoDid, repoHandle,
 
 	var kl = KeywordLabeler{value: "rude", keywords: []string{"🍆", "sex", "ab"}}
 
-	// TODO: also do outgoing repo events?
 	s := &Server{
 		db:      db,
 		repoman: repoman,
@@ -93,25 +92,13 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, keyFile, repoDid, repoHandle,
 		log.Infof("found labelmaker repo: %s", head)
 	}
 
-	// ensure that we can "peer" with upstream BGS
-	// TODO: rip out this peering stuff (?)
-	bgsPeering := pds.Peering{
-		Host: bgsUrl,
-		// TODO: remote did?
-		Did:      repoDid,
-		Approved: true,
-	}
-	if err := s.db.Create(&bgsPeering).Error; err != nil {
-		return nil, err
-	}
-
 	slurp := pds.NewSlurper(s.handleBgsRepoEvent, db, s.user.signingKey)
 	s.bgsSlurper = &slurp
 
 	// subscribe our RepoEvent slurper to the BGS, to receive incoming records for labeler
 	s.bgsSlurper.SubscribeToPds(ctx, bgsUrl)
 
-	// TODO: this is where.... outgoing RepoEvents could be generated?
+	// NOTE: this is where outgoing RepoEvents could be generated
 	// should skip indexing (we are not a PDS) and just ship out repo event stream
 	/*
 		repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
@@ -141,9 +128,8 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, host *pds.Peering, evt 
 			log.Warn("TODO: rebase events not yet labeled/handled in any special way")
 		}
 		// this is where we take incoming RepoEvents and label them
-		// TODO: extract new/updated records and paths
-		// TODO: use an in-memory blockstore with repo wrapper to parse CAR?
-		// TODO: refactor to parse opes first, so we don't bother parsing the CAR if there are no posts/profiles to handle
+		// use an in-memory blockstore with repo wrapper to parse CAR
+		// NOTE: could refactor to parse ops first, so we don't bother parsing the CAR if there are no posts/profiles to process (a common case, for likes/follows/reposts/etc)
 		sliceRepo, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.RepoAppend.Car))
 		if err != nil {
 			log.Warnw("failed to parse CAR slice", "repoErr", err)
@@ -152,22 +138,20 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, host *pds.Peering, evt 
 		var labels []events.Label = []events.Label{}
 		for _, op := range evt.RepoAppend.Ops {
 			uri := "at://" + evt.Repo + "/" + op.Col + "/" + op.Rkey
-			// TODO: how do I switch on a tuple here in golang, instead of nested switch?
 			// filter to creation/update of ony post/profile records
+			// TODO(bnewbold): how do I 'switch' on a tuple here in golang, instead of nested switch?
 			switch op.Kind {
 			case "createRecord", "updateRecord":
 				switch op.Col {
 				case "app.bsky.feed.post":
 					cid, rec, err := sliceRepo.GetRecord(ctx, op.Col+"/"+op.Rkey)
 					if err != nil {
-						return fmt.Errorf("post record not in CAR slice: %s", uri)
+						return fmt.Errorf("record not in CAR slice: %s", uri)
 					}
 					cidStr := cid.String()
-					//post, suc := rec.(*api.PostRecord)
 					post, suc := rec.(*bsky.FeedPost)
 					if !suc {
-						return fmt.Errorf("post record failed to deserialize from CBOR: %s", rec)
-						//return fmt.Errorf("post record failed to deserialize from CBOR: %w", suc)
+						return fmt.Errorf("record failed to deserialize from CBOR: %s", rec)
 					}
 					// run through all the keyword labelers on posts, saving any resulting labels
 					for _, labeler := range s.kwl {
@@ -207,7 +191,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, host *pds.Peering, evt 
 		log.Infof("%s", labels)
 		if len(labels) > 0 {
 			lev := events.LabelEvent{
-				// TODO: what should sequence number be? do I need to record that?
+				// XXX(bnewbold): what should sequence number be? do I need to maintain that?
 				Seq:    0,
 				Labels: labels,
 			}
@@ -216,7 +200,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, host *pds.Peering, evt 
 				return fmt.Errorf("failed to publish LabelEvent: %w", err)
 			}
 		}
-		// TODO: update state that we successfully processed the repo event (aka, persist "last" seq)
+		// TODO: update state that we successfully processed the repo event (aka, persist "last" seq in database, or something like that)
 		return nil
 	default:
 		return fmt.Errorf("invalid fed event")
