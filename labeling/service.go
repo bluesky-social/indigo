@@ -166,8 +166,28 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, host *pds.Peering, evt 
 						}
 					}
 				case "app.bsky.actor.profile":
-					// TODO: handle profile
-					continue
+					// NOTE: copypasta from post above, could refactor to not duplicate
+					cid, rec, err := sliceRepo.GetRecord(ctx, op.Col+"/"+op.Rkey)
+					if err != nil {
+						return fmt.Errorf("record not in CAR slice: %s", uri)
+					}
+					cidStr := cid.String()
+					profile, suc := rec.(*bsky.ActorProfile)
+					if !suc {
+						return fmt.Errorf("record failed to deserialize from CBOR: %s", rec)
+					}
+					// run through all the keyword labelers on profiles, saving any resulting labels
+					for _, labeler := range s.kwl {
+						for _, val := range labeler.labelActorProfile(*profile) {
+							labels = append(labels, events.Label{
+								SourceDid:  s.user.did,
+								SubjectUri: uri,
+								SubjectCid: &cidStr,
+								Value:      val,
+								Timestamp:  now,
+							})
+						}
+					}
 				default:
 					continue
 				}
