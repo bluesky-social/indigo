@@ -8,6 +8,7 @@ Commands (run with, eg, `go run ./cmd/bigsky`):
 - `cmd/lexgen`: codegen tool for lexicons (Lexicon JSON to golang package)
 - `cmd/pds`: PDS daemon
 - `cmd/stress`: connects to local/default PDS and creates a ton of random posts
+- `cmd/beemo`: slack bot for moderation reporting (Bluesky Moderation Observer)
 - `gen`: dev tool to run CBOR type codegen
 
 Packages:
@@ -97,3 +98,32 @@ Send the BGS a ding-dong:
 Set the log level to be more verbose, using an env variable:
 
     GOLOG_LOG_LEVEL=info go run ./cmd/pds
+
+
+## gosky basic usage
+
+Running against local typescript PDS in `dev-env` mode:
+
+	# as "alice" user
+	go run ./cmd/gosky/ --pds http://localhost:2583 createSession alice.test hunter2 > bsky.auth
+
+The `bsky.auth` file is the default place that `gosky` and other client
+commands will look for auth info.
+
+
+## slack report bot basic usage
+
+You need an admin token, slack webhook URL, and auth file (see gosky above).
+The auth file isn't actually used, only the admin token.
+
+    # configure a slack webhook
+    export SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T028K87/B04NBDB/oWbsHasdf23r2d
+
+    # example pulling admin token out of `pass` password manager
+    export BSKY_ADMIN_AUTH=`pass bsky/pds-admin-staging | head -n1`
+
+    # example just setting admin token directly
+    export BSKY_ADMIN_AUTH="someinsecurething123"
+
+    # run the bot
+    GOLOG_LOG_LEVEL=debug go run ./cmd/beemo/ --pds https://pds.staging.example.com --auth bsky.auth notify-reports
