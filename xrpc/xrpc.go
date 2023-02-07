@@ -3,6 +3,7 @@ package xrpc
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,9 +13,10 @@ import (
 )
 
 type Client struct {
-	Client *http.Client
-	Auth   *AuthInfo
-	Host   string
+	Client     *http.Client
+	Auth       *AuthInfo
+	AdminToken *string
+	Host       string
 }
 
 func (c *Client) getClient() *http.Client {
@@ -87,7 +89,10 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 		req.Header.Set("Content-Type", inpenc)
 	}
 
-	if c.Auth != nil {
+	// use admin auth if we have it configured and are doing a request that requires it
+	if c.AdminToken != nil && (strings.HasPrefix(method, "com.atproto.admin.") || method == "com.atproto.account.createInviteCode") {
+		req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("admin:"+*c.AdminToken)))
+	} else if c.Auth != nil {
 		req.Header.Set("Authorization", "Bearer "+c.Auth.AccessJwt)
 	}
 
