@@ -146,6 +146,13 @@ var postCmd = &cli.Command{
 
 var didCmd = &cli.Command{
 	Name: "did",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "plc",
+			Value:   "https://plc.directory",
+			EnvVars: []string{"BSKY_PLC_URL"},
+		},
+	},
 	Subcommands: []*cli.Command{
 		didGetCmd,
 		didCreateCmd,
@@ -180,11 +187,6 @@ var didCreateCmd = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name: "signingkey",
-		},
-		&cli.StringFlag{
-			Name:    "plc",
-			Value:   "https://plc.staging.bsky.dev",
-			EnvVars: []string{"BSKY_PLC_URL"},
 		},
 	},
 	Action: func(cctx *cli.Context) error {
