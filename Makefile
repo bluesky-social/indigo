@@ -1,4 +1,7 @@
 
+SHELL = /bin/bash
+.SHELLFLAGS = -o pipefail -c
+
 .PHONY: help
 help: ## Print info about all commands
 	@echo "Commands:"
