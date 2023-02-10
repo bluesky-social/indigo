@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/key"
 
 	"github.com/gorilla/websocket"
 	cbg "github.com/whyrusleeping/cbor-gen"
+	"github.com/whyrusleeping/go-did"
 	"gorm.io/gorm"
 )
 
@@ -27,10 +27,10 @@ type Slurper struct {
 	cb IndexCallback
 
 	db         *gorm.DB
-	signingKey *key.Key
+	signingKey *did.PrivKey
 }
 
-func NewSlurper(cb IndexCallback, db *gorm.DB, signingKey *key.Key) Slurper {
+func NewSlurper(cb IndexCallback, db *gorm.DB, signingKey *did.PrivKey) Slurper {
 	return Slurper{
 		cb:         cb,
 		db:         db,
@@ -55,7 +55,7 @@ func (s *Slurper) subscribeWithRedialer(host *Peering) {
 	var backoff int
 	for {
 		h := http.Header{
-			"DID": []string{s.signingKey.DID()},
+			"DID": []string{s.signingKey.Public().DID()},
 		}
 
 		con, res, err := d.Dial("ws://"+host.Host+"/events", h)

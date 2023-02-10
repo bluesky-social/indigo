@@ -114,7 +114,10 @@ func main() {
 			return err
 		}
 
-		repoman := repomgr.NewRepoManager(db, cstore)
+		didr := &api.PLCServer{Host: cctx.String("plc")}
+		kmgr := indexer.NewKeyManager(didr, nil)
+
+		repoman := repomgr.NewRepoManager(db, cstore, kmgr)
 
 		evtman := events.NewEventManager()
 
@@ -123,8 +126,6 @@ func main() {
 		// not necessary to generate notifications, should probably make the
 		// indexer just take optional callbacks for notification stuff
 		notifman := notifs.NewNotificationManager(db, repoman.GetRecord)
-
-		didr := &api.PLCServer{Host: cctx.String("plc")}
 
 		ix, err := indexer.NewIndexer(db, notifman, evtman, didr, repoman, true)
 		if err != nil {

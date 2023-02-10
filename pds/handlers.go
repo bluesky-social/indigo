@@ -394,7 +394,7 @@ func (s *Server) handleComAtprotoAccountCreate(ctx context.Context, input *comat
 	}
 
 	if recoveryKey == "" {
-		recoveryKey = s.signingKey.DID()
+		recoveryKey = s.signingKey.Public().DID()
 	}
 
 	d, err := s.plc.CreateDID(ctx, s.signingKey, recoveryKey, input.Handle, s.serviceUrl)
@@ -461,7 +461,7 @@ func (s *Server) handleComAtprotoBlobUpload(ctx context.Context, r io.Reader, ct
 
 func (s *Server) handleComAtprotoHandleResolve(ctx context.Context, handle string) (*comatprototypes.HandleResolve_Output, error) {
 	if handle == "" {
-		return &comatprototypes.HandleResolve_Output{Did: s.signingKey.DID()}, nil
+		return &comatprototypes.HandleResolve_Output{Did: s.signingKey.Public().DID()}, nil
 	}
 	u, err := s.lookupUserByHandle(ctx, handle)
 	if err != nil {

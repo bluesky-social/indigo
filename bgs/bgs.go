@@ -175,13 +175,14 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, evt *event
 
 			u = new(User)
 			u.ID = subj.Uid
+			u.Did = evt.Repo
 		}
 
 		// TODO: if the user is already in the 'slow' path, we shouldnt even bother trying to fast path this event
 
-		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, evt.RepoAppend.Prev, evt.RepoAppend.Ops, evt.RepoAppend.Car); err != nil {
+		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.RepoAppend.Prev, evt.RepoAppend.Ops, evt.RepoAppend.Car); err != nil {
 			if !errors.Is(err, carstore.ErrRepoBaseMismatch) {
-				return err
+				return fmt.Errorf("handle user event failed: %w", err)
 			}
 
 			ai, err := bgs.Index.LookupUser(ctx, u.ID)

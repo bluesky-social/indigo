@@ -135,7 +135,7 @@ var genRepoCmd = &cli.Command{
 
 		ctx := context.Background()
 
-		r := repo.NewRepo(ctx, membs)
+		r := repo.NewRepo(ctx, "did:plc:foobar", membs)
 
 		root, err := testing.GenerateFakeRepo(r, l)
 		if err != nil {

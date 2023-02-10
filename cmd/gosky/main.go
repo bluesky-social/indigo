@@ -15,7 +15,6 @@ import (
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
-	"github.com/bluesky-social/indigo/key"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/ipfs/go-cid"
 	"github.com/lestrrat-go/jwx/jwa"
@@ -24,6 +23,7 @@ import (
 	rejson "github.com/polydawn/refmt/json"
 	"github.com/polydawn/refmt/shared"
 	cli "github.com/urfave/cli/v2"
+	"github.com/whyrusleeping/go-did"
 )
 
 func main() {
@@ -202,7 +202,7 @@ var didCreateCmd = &cli.Command{
 			return err
 		}
 
-		fmt.Println("KEYDID: ", sigkey.DID())
+		fmt.Println("KEYDID: ", sigkey.Public().DID())
 
 		ndid, err := s.CreateDID(context.TODO(), sigkey, recoverydid, handle, service)
 		if err != nil {
@@ -214,7 +214,7 @@ var didCreateCmd = &cli.Command{
 	},
 }
 
-func loadKey(kfile string) (*key.Key, error) {
+func loadKey(kfile string) (*did.PrivKey, error) {
 	kb, err := os.ReadFile(kfile)
 	if err != nil {
 		return nil, err
@@ -234,9 +234,18 @@ func loadKey(kfile string) (*key.Key, error) {
 		return nil, fmt.Errorf("need a curve set")
 	}
 
-	return &key.Key{
+	var out string
+	kts := string(curve.(jwa.EllipticCurveAlgorithm))
+	switch kts {
+	case "P-256":
+		out = did.KeyTypeP256
+	default:
+		return nil, fmt.Errorf("unrecognized key type: %s", kts)
+	}
+
+	return &did.PrivKey{
 		Raw:  &spk,
-		Type: string(curve.(jwa.EllipticCurveAlgorithm)),
+		Type: out,
 	}, nil
 }
 

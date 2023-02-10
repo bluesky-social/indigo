@@ -17,7 +17,6 @@ import (
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
-	"github.com/bluesky-social/indigo/key"
 	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/notifs"
@@ -33,6 +32,7 @@ import (
 	"github.com/lestrrat-go/jwx/jwa"
 	jwk "github.com/lestrrat-go/jwx/jwk"
 	jwt "github.com/lestrrat-go/jwx/jwt"
+	"github.com/whyrusleeping/go-did"
 	"gorm.io/gorm"
 )
 
@@ -47,7 +47,7 @@ type Server struct {
 	indexer        *indexer.Indexer
 	events         *events.EventManager
 	slurper        *Slurper
-	signingKey     *key.Key
+	signingKey     *did.PrivKey
 	echo           *echo.Echo
 	jwtSigningKey  []byte
 	enforcePeering bool
@@ -72,7 +72,9 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 
 	evtman := events.NewEventManager()
 
-	repoman := repomgr.NewRepoManager(db, cs)
+	kmgr := indexer.NewKeyManager(didr, serkey)
+
+	repoman := repomgr.NewRepoManager(db, cs, kmgr)
 	notifman := notifs.NewNotificationManager(db, repoman.GetRecord)
 
 	ix, err := indexer.NewIndexer(db, notifman, evtman, didr, repoman, false)
@@ -145,7 +147,7 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *events.
 			u.ID = subj.Uid
 		}
 
-		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, evt.RepoAppend.Prev, evt.RepoAppend.Ops, evt.RepoAppend.Car)
+		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.RepoAppend.Prev, evt.RepoAppend.Ops, evt.RepoAppend.Car)
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
@@ -292,7 +294,7 @@ func (s *Server) readRecordFunc(ctx context.Context, user uint, c cid.Cid) (util
 	return util.CborDecodeValue(blk.RawData())
 }
 
-func loadKey(kfile string) (*key.Key, error) {
+func loadKey(kfile string) (*did.PrivKey, error) {
 	kb, err := os.ReadFile(kfile)
 	if err != nil {
 		return nil, err
@@ -312,9 +314,18 @@ func loadKey(kfile string) (*key.Key, error) {
 		return nil, fmt.Errorf("need a curve set")
 	}
 
-	return &key.Key{
+	var out string
+	kts := string(curve.(jwa.EllipticCurveAlgorithm))
+	switch kts {
+	case "P-256":
+		out = did.KeyTypeP256
+	default:
+		return nil, fmt.Errorf("unrecognized key type: %s", kts)
+	}
+
+	return &did.PrivKey{
 		Raw:  &spk,
-		Type: string(curve.(jwa.EllipticCurveAlgorithm)),
+		Type: out,
 	}, nil
 }
 
