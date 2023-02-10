@@ -587,7 +587,7 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 	}
 
 	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
-	repo, err := atproto.SyncGetRepo(ctx, c, ai.Did, from)
+	repo, err := atproto.SyncGetRepo(ctx, c, ai.Did, from, "")
 	if err != nil {
 		return fmt.Errorf("failed to fetch repo: %w", err)
 	}

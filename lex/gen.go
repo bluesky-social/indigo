@@ -273,11 +273,11 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 
 	if reqcode {
 		name := nameFromID(s.ID, prefix)
-		if _, ok := s.Defs["main"]; !ok {
-			return fmt.Errorf("schema %q doesn't have a main def", s.ID)
-		}
-		if err := writeMethods(name, s.Defs["main"], buf); err != nil {
-			return err
+		main, ok := s.Defs["main"]
+		if ok {
+			if err := writeMethods(name, main, buf); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -356,6 +356,9 @@ func writeMethods(typename string, ts *TypeSchema, w io.Writer) error {
 		return ts.WriteRPC(w, typename)
 	case "object", "string":
 		return nil
+	case "subscription":
+		// TODO: should probably have some methods generated for this
+		return nil
 	default:
 		return fmt.Errorf("unrecognized lexicon type %q", ts.Type)
 	}
@@ -430,7 +433,12 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 		case EncodingCBOR, EncodingCAR:
 			out = "([]byte, error)"
 		case EncodingJSON:
-			out = fmt.Sprintf("(*%s_Output, error)", fname)
+			outname := fname + "_Output"
+			if s.Output.Schema.Type == "ref" {
+				outname = s.typeNameFromRef(s.Output.Schema.Ref)
+			}
+
+			out = fmt.Sprintf("(*%s, error)", outname)
 		default:
 			return fmt.Errorf("unrecognized encoding scheme: %q", s.Output.Encoding)
 		}
@@ -449,7 +457,11 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 			errRet = "nil, err"
 			outRet = "buf.Bytes(), nil"
 		case EncodingJSON:
-			fmt.Fprintf(w, "\tvar out %s_Output\n", fname)
+			outname := fname + "_Output"
+			if s.Output.Schema.Type == "ref" {
+				outname = s.typeNameFromRef(s.Output.Schema.Ref)
+			}
+			fmt.Fprintf(w, "\tvar out %s\n", outname)
 			outvar = "&out"
 			errRet = "nil, err"
 			outRet = "&out, nil"
@@ -561,7 +573,7 @@ func WriteServerHandlers(w io.Writer, schemas []*Schema, pkg string, impmap map[
 
 		main, ok := s.Defs["main"]
 		if !ok {
-			return fmt.Errorf("schema %q doesn't have a main def", s.ID)
+			return fmt.Errorf("2 schema %q doesn't have a main def", s.ID)
 		}
 
 		if main.Type == "procedure" || main.Type == "query" {
@@ -618,7 +630,7 @@ func WriteXrpcServer(w io.Writer, schemas []*Schema, pkg string, impmap map[stri
 
 			main, ok := s.Defs["main"]
 			if !ok {
-				return fmt.Errorf("schema %q has no main", s.ID)
+				continue
 			}
 
 			var verb string
@@ -648,7 +660,7 @@ func WriteXrpcServer(w io.Writer, schemas []*Schema, pkg string, impmap map[stri
 
 			main, ok := s.Defs["main"]
 			if !ok {
-				return fmt.Errorf("schema %q doesn't have a main def", s.ID)
+				continue
 			}
 
 			if main.Type == "procedure" || main.Type == "query" {
@@ -656,7 +668,7 @@ func WriteXrpcServer(w io.Writer, schemas []*Schema, pkg string, impmap map[stri
 				tname := nameFromID(s.ID, prefix)
 				impname := importNameForPrefix(prefix)
 				if err := main.WriteRPCHandler(w, fname, tname, impname); err != nil {
-					return err
+					return fmt.Errorf("writing handler for %s: %w", s.ID, err)
 				}
 			}
 		}
@@ -697,6 +709,8 @@ func (s *TypeSchema) WriteHandlerStub(w io.Writer, fname, shortname, impname str
 					}
 				case "number":
 					return fmt.Errorf("non-integer numbers currently unsupported")
+				case "array":
+					paramtypes = append(paramtypes, k+"[]"+t.Items.Type)
 				default:
 					return fmt.Errorf("unsupported handler parameter type: %s", t.Type)
 				}
@@ -709,7 +723,11 @@ func (s *TypeSchema) WriteHandlerStub(w io.Writer, fname, shortname, impname str
 	if s.Output != nil {
 		switch s.Output.Encoding {
 		case "application/json":
-			returndef = fmt.Sprintf("(*%s.%s_Output, error)", impname, shortname)
+			outname := shortname + "_Output"
+			if s.Output.Schema.Type == "ref" {
+				outname = s.typeNameFromRef(s.Output.Schema.Ref)
+			}
+			returndef = fmt.Sprintf("(*%s.%s, error)", impname, outname)
 		case "application/cbor", "application/vnd.ipld.car":
 			returndef = fmt.Sprintf("(io.Reader, error)")
 		default:
@@ -840,6 +858,16 @@ if err != nil {
 `, k, k)
 					}
 
+				case "array":
+					if t.Items.Type != "string" {
+						return fmt.Errorf("currently only string arrays are supported in query params")
+					}
+					paramtypes = append(paramtypes, k+" []string")
+					params = append(params, k)
+					fmt.Fprintf(w, `
+%s := c.QueryParams()["%s"]
+`, k, k)
+
 				default:
 					return fmt.Errorf("unsupported handler parameter type: %s", t.Type)
 				}
@@ -885,8 +913,12 @@ if err := c.Bind(&body); err != nil {
 		switch s.Output.Encoding {
 		case "application/json":
 			assign = "out, handleErr"
-			fmt.Fprintf(w, "var out *%s.%s\n", impname, tname+"_Output")
-			returndef = fmt.Sprintf("(*%s.%s_Output, error)", impname, tname)
+			outname := tname + "_Output"
+			if s.Output.Schema.Type == "ref" {
+				outname = s.typeNameFromRef(s.Output.Schema.Ref)
+			}
+			fmt.Fprintf(w, "var out *%s.%s\n", impname, outname)
+			returndef = fmt.Sprintf("(*%s.%s, error)", impname, outname)
 		case "application/cbor", "application/vnd.ipld.car":
 			assign = "out, handleErr"
 			fmt.Fprintf(w, "var out io.Reader\n")
@@ -932,6 +964,12 @@ func (s *TypeSchema) typeNameFromRef(r string) string {
 
 	if s.prefix == "" {
 		panic(fmt.Sprintf("no prefix for referencing type: %q %q", s.id, s.defName))
+	}
+
+	// TODO: probably not technically correct, but i'm kinda over how lexicon
+	// tries to enforce application logic in a schema language
+	if ts.Type == "string" {
+		return "string"
 	}
 
 	var pkg string
