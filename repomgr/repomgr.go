@@ -443,8 +443,8 @@ func (rm *RepoManager) GetRepoRoot(ctx context.Context, user uint) (cid.Cid, err
 	return rm.getUserRepoHead(ctx, user)
 }
 
-func (rm *RepoManager) ReadRepo(ctx context.Context, user uint, fromcid cid.Cid, w io.Writer) error {
-	return rm.cs.ReadUserCar(ctx, user, fromcid, true, w)
+func (rm *RepoManager) ReadRepo(ctx context.Context, user uint, earlyCid, lateCid cid.Cid, w io.Writer) error {
+	return rm.cs.ReadUserCar(ctx, user, earlyCid, lateCid, true, w)
 }
 
 func (rm *RepoManager) GetRecord(ctx context.Context, user uint, collection string, rkey string, maybeCid cid.Cid) (cid.Cid, cbg.CBORMarshaler, error) {

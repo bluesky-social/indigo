@@ -100,7 +100,7 @@ func pollNewReports(cctx *cli.Context) error {
 		// AdminGetModerationReports(ctx context.Context, c *xrpc.Client, subject *string, resolved *bool, before *string, limit *int64)
 		resolved := false
 		var limit int64 = 50
-		mrr, err := comatproto.AdminGetModerationReports(context.TODO(), atpc.C, nil, &resolved, nil, &limit)
+		mrr, err := comatproto.AdminGetModerationReports(context.TODO(), atpc.C, "", limit, resolved, "")
 		if err != nil {
 			return err
 		}
@@ -120,7 +120,7 @@ func pollNewReports(cctx *cli.Context) error {
 				msg += fmt.Sprintf("report id: `%d`\t", report.Id)
 				msg += fmt.Sprintf("recent unresolved: `%d`\n", len(mrr.Reports))
 				msg += fmt.Sprintf("createdAt: `%s`\n", report.CreatedAt)
-				msg += fmt.Sprintf("reasonType: `%s`\n", report.ReasonType)
+				msg += fmt.Sprintf("reasonType: `%s`\n", *report.ReasonType)
 				if report.Subject.RepoRepoRef != nil {
 					msg += fmt.Sprintf("subject: `%s`\n", report.Subject.RepoRepoRef.Did)
 				} else {

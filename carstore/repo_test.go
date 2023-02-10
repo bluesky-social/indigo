@@ -125,7 +125,7 @@ func TestBasicOperation(t *testing.T) {
 	}
 
 	buf := new(bytes.Buffer)
-	if err := cs.ReadUserCar(ctx, 1, cid.Undef, true, buf); err != nil {
+	if err := cs.ReadUserCar(ctx, 1, cid.Undef, cid.Undef, true, buf); err != nil {
 		t.Fatal(err)
 	}
 

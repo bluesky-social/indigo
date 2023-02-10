@@ -112,6 +112,9 @@ func main() {
 		}
 
 		if cctx.Bool("gen-server") {
+			defmap := lex.BuildExtDefMap(schemas, []string{"com.atproto", "app.bsky"})
+			_ = defmap
+
 			paths := cctx.StringSlice("types-import")
 			importmap := make(map[string]string)
 			for _, p := range paths {

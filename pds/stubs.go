@@ -12,6 +12,7 @@ import (
 
 func (s *Server) RegisterHandlersAppBsky(e *echo.Echo) error {
 	e.GET("/xrpc/app.bsky.actor.getProfile", s.HandleAppBskyActorGetProfile)
+	e.GET("/xrpc/app.bsky.actor.getProfiles", s.HandleAppBskyActorGetProfiles)
 	e.GET("/xrpc/app.bsky.actor.getSuggestions", s.HandleAppBskyActorGetSuggestions)
 	e.GET("/xrpc/app.bsky.actor.search", s.HandleAppBskyActorSearch)
 	e.GET("/xrpc/app.bsky.actor.searchTypeahead", s.HandleAppBskyActorSearchTypeahead)
@@ -41,6 +42,21 @@ func (s *Server) HandleAppBskyActorGetProfile(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleAppBskyActorGetProfile(ctx context.Context,actor string) (*appbskytypes.ActorGetProfile_Output, error)
 	out, handleErr = s.handleAppBskyActorGetProfile(ctx, actor)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleAppBskyActorGetProfiles(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyActorGetProfiles")
+	defer span.End()
+
+	actors := c.QueryParams()["actors"]
+	var out *appbskytypes.ActorGetProfiles_Output
+	var handleErr error
+	// func (s *Server) handleAppBskyActorGetProfiles(ctx context.Context,actors []string) (*appbskytypes.ActorGetProfiles_Output, error)
+	out, handleErr = s.handleAppBskyActorGetProfiles(ctx, actors)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -463,6 +479,16 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.account.requestDelete", s.HandleComAtprotoAccountRequestDelete)
 	e.POST("/xrpc/com.atproto.account.requestPasswordReset", s.HandleComAtprotoAccountRequestPasswordReset)
 	e.POST("/xrpc/com.atproto.account.resetPassword", s.HandleComAtprotoAccountResetPassword)
+	e.GET("/xrpc/com.atproto.admin.getModerationAction", s.HandleComAtprotoAdminGetModerationAction)
+	e.GET("/xrpc/com.atproto.admin.getModerationActions", s.HandleComAtprotoAdminGetModerationActions)
+	e.GET("/xrpc/com.atproto.admin.getModerationReport", s.HandleComAtprotoAdminGetModerationReport)
+	e.GET("/xrpc/com.atproto.admin.getModerationReports", s.HandleComAtprotoAdminGetModerationReports)
+	e.GET("/xrpc/com.atproto.admin.getRecord", s.HandleComAtprotoAdminGetRecord)
+	e.GET("/xrpc/com.atproto.admin.getRepo", s.HandleComAtprotoAdminGetRepo)
+	e.POST("/xrpc/com.atproto.admin.resolveModerationReports", s.HandleComAtprotoAdminResolveModerationReports)
+	e.POST("/xrpc/com.atproto.admin.reverseModerationAction", s.HandleComAtprotoAdminReverseModerationAction)
+	e.GET("/xrpc/com.atproto.admin.searchRepos", s.HandleComAtprotoAdminSearchRepos)
+	e.POST("/xrpc/com.atproto.admin.takeModerationAction", s.HandleComAtprotoAdminTakeModerationAction)
 	e.POST("/xrpc/com.atproto.blob.upload", s.HandleComAtprotoBlobUpload)
 	e.GET("/xrpc/com.atproto.handle.resolve", s.HandleComAtprotoHandleResolve)
 	e.POST("/xrpc/com.atproto.repo.batchWrite", s.HandleComAtprotoRepoBatchWrite)
@@ -472,6 +498,7 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.GET("/xrpc/com.atproto.repo.getRecord", s.HandleComAtprotoRepoGetRecord)
 	e.GET("/xrpc/com.atproto.repo.listRecords", s.HandleComAtprotoRepoListRecords)
 	e.POST("/xrpc/com.atproto.repo.putRecord", s.HandleComAtprotoRepoPutRecord)
+	e.POST("/xrpc/com.atproto.report.create", s.HandleComAtprotoReportCreate)
 	e.GET("/xrpc/com.atproto.server.getAccountsConfig", s.HandleComAtprotoServerGetAccountsConfig)
 	e.POST("/xrpc/com.atproto.session.create", s.HandleComAtprotoSessionCreate)
 	e.POST("/xrpc/com.atproto.session.delete", s.HandleComAtprotoSessionDelete)
@@ -594,6 +621,212 @@ func (s *Server) HandleComAtprotoAccountResetPassword(c echo.Context) error {
 		return handleErr
 	}
 	return nil
+}
+
+func (s *Server) HandleComAtprotoAdminGetModerationAction(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetModerationAction")
+	defer span.End()
+
+	id, err := strconv.Atoi(c.QueryParam("id"))
+	if err != nil {
+		return err
+	}
+	var out *comatprototypes.AdminModerationAction_ViewDetail
+	var handleErr error
+	// func (s *Server) handleComAtprotoAdminGetModerationAction(ctx context.Context,id int) (*comatprototypes.AdminModerationAction_ViewDetail, error)
+	out, handleErr = s.handleComAtprotoAdminGetModerationAction(ctx, id)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoAdminGetModerationActions(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetModerationActions")
+	defer span.End()
+	before := c.QueryParam("before")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	subject := c.QueryParam("subject")
+	var out *comatprototypes.AdminGetModerationActions_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoAdminGetModerationActions(ctx context.Context,before string,limit int,subject string) (*comatprototypes.AdminGetModerationActions_Output, error)
+	out, handleErr = s.handleComAtprotoAdminGetModerationActions(ctx, before, limit, subject)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoAdminGetModerationReport(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetModerationReport")
+	defer span.End()
+
+	id, err := strconv.Atoi(c.QueryParam("id"))
+	if err != nil {
+		return err
+	}
+	var out *comatprototypes.AdminModerationReport_ViewDetail
+	var handleErr error
+	// func (s *Server) handleComAtprotoAdminGetModerationReport(ctx context.Context,id int) (*comatprototypes.AdminModerationReport_ViewDetail, error)
+	out, handleErr = s.handleComAtprotoAdminGetModerationReport(ctx, id)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoAdminGetModerationReports(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetModerationReports")
+	defer span.End()
+	before := c.QueryParam("before")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+
+	var resolved *bool
+	if p := c.QueryParam("resolved"); p != "" {
+		resolved_val, err := strconv.ParseBool(p)
+		if err != nil {
+			return err
+		}
+		resolved = &resolved_val
+	}
+	subject := c.QueryParam("subject")
+	var out *comatprototypes.AdminGetModerationReports_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context,before string,limit int,resolved *bool,subject string) (*comatprototypes.AdminGetModerationReports_Output, error)
+	out, handleErr = s.handleComAtprotoAdminGetModerationReports(ctx, before, limit, resolved, subject)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoAdminGetRecord(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetRecord")
+	defer span.End()
+	cid := c.QueryParam("cid")
+	uri := c.QueryParam("uri")
+	var out *comatprototypes.AdminRecord_ViewDetail
+	var handleErr error
+	// func (s *Server) handleComAtprotoAdminGetRecord(ctx context.Context,cid string,uri string) (*comatprototypes.AdminRecord_ViewDetail, error)
+	out, handleErr = s.handleComAtprotoAdminGetRecord(ctx, cid, uri)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoAdminGetRepo(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetRepo")
+	defer span.End()
+	did := c.QueryParam("did")
+	var out *comatprototypes.AdminRepo_ViewDetail
+	var handleErr error
+	// func (s *Server) handleComAtprotoAdminGetRepo(ctx context.Context,did string) (*comatprototypes.AdminRepo_ViewDetail, error)
+	out, handleErr = s.handleComAtprotoAdminGetRepo(ctx, did)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoAdminResolveModerationReports(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminResolveModerationReports")
+	defer span.End()
+
+	var body comatprototypes.AdminResolveModerationReports_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *comatprototypes.AdminModerationAction_View
+	var handleErr error
+	// func (s *Server) handleComAtprotoAdminResolveModerationReports(ctx context.Context,body *comatprototypes.AdminResolveModerationReports_Input) (*comatprototypes.AdminModerationAction_View, error)
+	out, handleErr = s.handleComAtprotoAdminResolveModerationReports(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoAdminReverseModerationAction(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminReverseModerationAction")
+	defer span.End()
+
+	var body comatprototypes.AdminReverseModerationAction_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *comatprototypes.AdminModerationAction_View
+	var handleErr error
+	// func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Context,body *comatprototypes.AdminReverseModerationAction_Input) (*comatprototypes.AdminModerationAction_View, error)
+	out, handleErr = s.handleComAtprotoAdminReverseModerationAction(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoAdminSearchRepos(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminSearchRepos")
+	defer span.End()
+	before := c.QueryParam("before")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	term := c.QueryParam("term")
+	var out *comatprototypes.AdminSearchRepos_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoAdminSearchRepos(ctx context.Context,before string,limit int,term string) (*comatprototypes.AdminSearchRepos_Output, error)
+	out, handleErr = s.handleComAtprotoAdminSearchRepos(ctx, before, limit, term)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoAdminTakeModerationAction(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminTakeModerationAction")
+	defer span.End()
+
+	var body comatprototypes.AdminTakeModerationAction_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *comatprototypes.AdminModerationAction_View
+	var handleErr error
+	// func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context,body *comatprototypes.AdminTakeModerationAction_Input) (*comatprototypes.AdminModerationAction_View, error)
+	out, handleErr = s.handleComAtprotoAdminTakeModerationAction(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) HandleComAtprotoBlobUpload(c echo.Context) error {
@@ -763,6 +996,24 @@ func (s *Server) HandleComAtprotoRepoPutRecord(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandleComAtprotoReportCreate(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoReportCreate")
+	defer span.End()
+
+	var body comatprototypes.ReportCreate_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *comatprototypes.ReportCreate_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoReportCreate(ctx context.Context,body *comatprototypes.ReportCreate_Input) (*comatprototypes.ReportCreate_Output, error)
+	out, handleErr = s.handleComAtprotoReportCreate(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandleComAtprotoServerGetAccountsConfig(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerGetAccountsConfig")
 	defer span.End()
@@ -898,11 +1149,12 @@ func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetRepo")
 	defer span.End()
 	did := c.QueryParam("did")
-	from := c.QueryParam("from")
+	earliest := c.QueryParam("earliest")
+	latest := c.QueryParam("latest")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context,did string,from string) (io.Reader, error)
-	out, handleErr = s.handleComAtprotoSyncGetRepo(ctx, did, from)
+	// func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context,did string,earliest string,latest string) (io.Reader, error)
+	out, handleErr = s.handleComAtprotoSyncGetRepo(ctx, did, earliest, latest)
 	if handleErr != nil {
 		return handleErr
 	}

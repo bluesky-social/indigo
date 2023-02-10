@@ -317,26 +317,38 @@ func (cs *CarStore) ReadOnlySession(user uint) (*DeltaSession, error) {
 	}, nil
 }
 
-func (cs *CarStore) ReadUserCar(ctx context.Context, user uint, until cid.Cid, incremental bool, w io.Writer) error {
+func (cs *CarStore) ReadUserCar(ctx context.Context, user uint, earlyCid, lateCid cid.Cid, incremental bool, w io.Writer) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ReadUserCar")
 	defer span.End()
 
-	var untilSeq int
+	var lateSeq, earlySeq int
 
-	if until.Defined() {
+	if earlyCid.Defined() {
 		var untilShard CarShard
-		if err := cs.meta.First(&untilShard, "root = ? AND usr = ?", until.String(), user).Error; err != nil {
+		if err := cs.meta.First(&untilShard, "root = ? AND usr = ?", earlyCid.String(), user).Error; err != nil {
 			return err
 		}
-		untilSeq = untilShard.Seq
+		earlySeq = untilShard.Seq
 	}
 
+	if lateCid.Defined() {
+		var fromShard CarShard
+		if err := cs.meta.First(&fromShard, "root = ? AND usr = ?", lateCid.String(), user).Error; err != nil {
+			return err
+		}
+		lateSeq = fromShard.Seq
+	}
+
+	q := cs.meta.Order("seq desc").Where("usr = ? AND seq >= ?", user, earlySeq)
+	if lateCid.Defined() {
+		q = q.Where("seq <= ?", lateSeq)
+	}
 	var shards []CarShard
-	if err := cs.meta.Order("seq desc").Find(&shards, "usr = ? AND seq >= ?", user, untilSeq).Error; err != nil {
+	if err := q.Find(&shards).Error; err != nil {
 		return err
 	}
 
-	if !incremental && until.Defined() {
+	if !incremental && earlyCid.Defined() {
 		// have to do it the ugly way
 		return fmt.Errorf("nyi")
 	}

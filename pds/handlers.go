@@ -674,15 +674,25 @@ func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context, collection s
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, from string) (io.Reader, error) {
-	var fromcid cid.Cid
-	if from != "" {
-		cc, err := cid.Decode(from)
+func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, earliest, latest string) (io.Reader, error) {
+	var earlyCid cid.Cid
+	if earliest != "" {
+		cc, err := cid.Decode(earliest)
 		if err != nil {
 			return nil, err
 		}
 
-		fromcid = cc
+		earlyCid = cc
+	}
+
+	var lateCid cid.Cid
+	if latest != "" {
+		cc, err := cid.Decode(latest)
+		if err != nil {
+			return nil, err
+		}
+
+		lateCid = cc
 	}
 
 	targetUser, err := s.lookupUser(ctx, did)
@@ -691,9 +701,49 @@ func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, fr
 	}
 
 	buf := new(bytes.Buffer)
-	if err := s.repoman.ReadRepo(ctx, targetUser.ID, fromcid, buf); err != nil {
+	if err := s.repoman.ReadRepo(ctx, targetUser.ID, earlyCid, lateCid, buf); err != nil {
 		return nil, err
 	}
 
 	return buf, nil
+}
+
+func (s *Server) handleAppBskyActorGetProfiles(ctx context.Context, actors []string) (*appbskytypes.ActorGetProfiles_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoAdminGetModerationAction(ctx context.Context, id int) (*comatprototypes.AdminModerationAction_ViewDetail, error) {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoAdminGetModerationActions(ctx context.Context, before string, limit int, subject string) (*comatprototypes.AdminGetModerationActions_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoAdminGetModerationReport(ctx context.Context, id int) (*comatprototypes.AdminModerationReport_ViewDetail, error) {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context, before string, limit int, resolved *bool, subject string) (*comatprototypes.AdminGetModerationReports_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoAdminGetRecord(ctx context.Context, cid string, uri string) (*comatprototypes.AdminRecord_ViewDetail, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoAdminGetRepo(ctx context.Context, did string) (*comatprototypes.AdminRepo_ViewDetail, error) {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoAdminResolveModerationReports(ctx context.Context, body *comatprototypes.AdminResolveModerationReports_Input) (*comatprototypes.AdminModerationAction_View, error) {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Context, body *comatprototypes.AdminReverseModerationAction_Input) (*comatprototypes.AdminModerationAction_View, error) {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoAdminSearchRepos(ctx context.Context, before string, limit int, term string) (*comatprototypes.AdminSearchRepos_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, body *comatprototypes.AdminTakeModerationAction_Input) (*comatprototypes.AdminModerationAction_View, error) {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *comatprototypes.ReportCreate_Input) (*comatprototypes.ReportCreate_Output, error) {
+	panic("nyi")
 }
