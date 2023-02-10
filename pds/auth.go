@@ -55,7 +55,7 @@ func (s *Server) createCrossServerAuthToken(ctx context.Context, otherpds string
 
 	// setting this is a little weird,
 	// since the token isn't signed by this key, we dont have a way to validate...
-	accessTok.Set("pds", s.signingKey.DID())
+	accessTok.Set("pds", s.signingKey.Public().DID())
 
 	rval := make([]byte, 10)
 	rand.Read(rval)

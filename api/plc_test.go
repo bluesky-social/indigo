@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"testing"
 
-	key "github.com/bluesky-social/indigo/key"
 	"github.com/lestrrat-go/jwx/jwk"
+	did "github.com/whyrusleeping/go-did"
 )
 
 type testVector struct {
@@ -88,12 +88,12 @@ func TestPLCCreateVector(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mk := key.Key{
+	mk := did.PrivKey{
 		Raw:  &spk,
-		Type: "P-256",
+		Type: did.KeyTypeP256,
 	}
 
-	if mk.DID() != tv.Did {
+	if mk.Public().DID() != tv.Did {
 		t.Fatal("keys generated different DIDs")
 	}
 

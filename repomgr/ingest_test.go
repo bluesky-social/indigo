@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -53,7 +54,7 @@ func TestLoadNewRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	repoman := NewRepoManager(maindb, cs)
+	repoman := NewRepoManager(maindb, cs, &util.FakeKeyManager{})
 
 	fi, err := os.Open("testrepo.car")
 	if err != nil {

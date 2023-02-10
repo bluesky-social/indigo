@@ -18,6 +18,7 @@ require (
 	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/ipld/go-car v0.5.0
 	github.com/ipld/go-car/v2 v2.5.1
+	github.com/ipsn/go-secp256k1 v0.0.0-20180726113642-9d62b9f0bc52
 	github.com/labstack/echo/v4 v4.10.0
 	github.com/lestrrat-go/jwx v1.2.25
 	github.com/lestrrat-go/jwx/v2 v2.0.8
@@ -29,7 +30,7 @@ require (
 	github.com/stretchr/testify v1.8.1
 	github.com/urfave/cli/v2 v2.23.7
 	github.com/whyrusleeping/cbor-gen v0.0.0-20230126041949-52956bd4c9aa
-	github.com/whyrusleeping/go-did v0.0.0-20221105001742-8d9e0ffb0d59
+	github.com/whyrusleeping/go-did v0.0.0-20230210051655-85c9ba6709ab
 	go.opentelemetry.io/otel v1.11.2
 	go.opentelemetry.io/otel/exporters/jaeger v1.11.2
 	go.opentelemetry.io/otel/sdk v1.11.2

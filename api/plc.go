@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"strings"
 
-	key "github.com/bluesky-social/indigo/key"
 	did "github.com/whyrusleeping/go-did"
 	otel "go.opentelemetry.io/otel"
 )
@@ -63,14 +62,14 @@ type CreateOp struct {
 	Sig         string  `json:"sig" cborgen:"sig,omitempty"`
 }
 
-func (s *PLCServer) CreateDID(ctx context.Context, sigkey *key.Key, recovery string, handle string, service string) (string, error) {
+func (s *PLCServer) CreateDID(ctx context.Context, sigkey *did.PrivKey, recovery string, handle string, service string) (string, error) {
 	if s.C == nil {
 		s.C = http.DefaultClient
 	}
 
 	op := CreateOp{
 		Type:        "create",
-		SigningKey:  sigkey.DID(),
+		SigningKey:  sigkey.Public().DID(),
 		RecoveryKey: recovery,
 		Handle:      handle,
 		Service:     service,

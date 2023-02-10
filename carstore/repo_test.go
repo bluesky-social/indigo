@@ -12,6 +12,7 @@ import (
 
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/util"
 	sqlbs "github.com/ipfs/go-bs-sqlite3"
 	"github.com/ipfs/go-cid"
 	flatfs "github.com/ipfs/go-ds-flatfs"
@@ -110,7 +111,8 @@ func TestBasicOperation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		nroot, err := rr.Commit(ctx)
+		kmgr := &util.FakeKeyManager{}
+		nroot, err := rr.Commit(ctx, kmgr.SignForUser)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -132,7 +134,7 @@ func TestBasicOperation(t *testing.T) {
 }
 
 func setupRepo(ctx context.Context, bs blockstore.Blockstore) (cid.Cid, error) {
-	nr := repo.NewRepo(ctx, bs)
+	nr := repo.NewRepo(ctx, "did:foo", bs)
 
 	if _, _, err := nr.CreateRecord(ctx, "app.bsky.feed.post", &api.PostRecord{
 		Text: fmt.Sprintf("hey look its a tweet %s", time.Now()),
@@ -140,7 +142,8 @@ func setupRepo(ctx context.Context, bs blockstore.Blockstore) (cid.Cid, error) {
 		return cid.Undef, err
 	}
 
-	ncid, err := nr.Commit(ctx)
+	kmgr := &util.FakeKeyManager{}
+	ncid, err := nr.Commit(ctx, kmgr.SignForUser)
 	if err != nil {
 		return cid.Undef, err
 	}
@@ -190,7 +193,8 @@ func BenchmarkRepoWritesCarstore(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		nroot, err := rr.Commit(ctx)
+		kmgr := &util.FakeKeyManager{}
+		nroot, err := rr.Commit(ctx, kmgr.SignForUser)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -232,7 +236,8 @@ func BenchmarkRepoWritesFlatfs(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		nroot, err := rr.Commit(ctx)
+		kmgr := &util.FakeKeyManager{}
+		nroot, err := rr.Commit(ctx, kmgr.SignForUser)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -269,7 +274,8 @@ func BenchmarkRepoWritesSqlite(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		nroot, err := rr.Commit(ctx)
+		kmgr := &util.FakeKeyManager{}
+		nroot, err := rr.Commit(ctx, kmgr.SignForUser)
 		if err != nil {
 			b.Fatal(err)
 		}

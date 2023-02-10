@@ -85,12 +85,19 @@ func ReadRepoFromCar(ctx context.Context, r io.Reader) (*Repo, error) {
 	return OpenRepo(ctx, bs, root)
 }
 
-func NewRepo(ctx context.Context, bs blockstore.Blockstore) *Repo {
+func NewRepo(ctx context.Context, did string, bs blockstore.Blockstore) *Repo {
 	cst := util.CborStore(bs)
 
 	t := mst.NewMST(cst, 32, cid.Undef, []mst.NodeEntry{}, 0)
 
+	meta := Meta{
+		Datastore: "TODO",
+		Did:       did,
+		Version:   1,
+	}
+
 	return &Repo{
+		meta:  meta,
 		cst:   cst,
 		bs:    bs,
 		mst:   t,
@@ -106,11 +113,22 @@ func OpenRepo(ctx context.Context, bs blockstore.Blockstore, root cid.Cid) (*Rep
 		return nil, fmt.Errorf("loading root from blockstore: %w", err)
 	}
 
+	var rt Root
+	if err := cst.Get(ctx, sr.Root, &rt); err != nil {
+		return nil, fmt.Errorf("loading root: %w", err)
+	}
+
+	var meta Meta
+	if err := cst.Get(ctx, rt.Meta, &meta); err != nil {
+		return nil, fmt.Errorf("loading meta: %w", err)
+	}
+
 	return &Repo{
 		sr:      sr,
 		bs:      bs,
 		cst:     cst,
 		repoCid: root,
+		meta:    meta,
 	}, nil
 }
 
@@ -118,8 +136,24 @@ type CborMarshaler interface {
 	MarshalCBOR(w io.Writer) error
 }
 
-func (r *Repo) PrevCommit(ctx context.Context) (*cid.Cid, error) {
+func (r *Repo) MetaCid(ctx context.Context) (cid.Cid, error) {
+	var root Root
+	if err := r.cst.Get(ctx, r.sr.Root, &root); err != nil {
+		return cid.Undef, err
+	}
 
+	return root.Meta, nil
+}
+
+func (r *Repo) RepoDid() string {
+	if r.meta.Did == "" {
+		panic("repo has unset did")
+	}
+
+	return r.meta.Did
+}
+
+func (r *Repo) PrevCommit(ctx context.Context) (*cid.Cid, error) {
 	var c Root
 	if err := r.cst.Get(ctx, r.sr.Root, &c); err != nil {
 		return nil, fmt.Errorf("loading previous commit: %w", err)
@@ -130,6 +164,10 @@ func (r *Repo) PrevCommit(ctx context.Context) (*cid.Cid, error) {
 
 func (r *Repo) CommitRoot() cid.Cid {
 	return r.sr.Root
+}
+
+func (r *Repo) SignedCommit() SignedCommit {
+	return r.sr
 }
 
 func (r *Repo) Blockstore() blockstore.Blockstore {
@@ -205,7 +243,7 @@ func (r *Repo) DeleteRecord(ctx context.Context, rpath string) error {
 	return nil
 }
 
-func (r *Repo) Commit(ctx context.Context) (cid.Cid, error) {
+func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, []byte) ([]byte, error)) (cid.Cid, error) {
 	ctx, span := otel.Tracer("repo").Start(ctx, "Commit")
 	defer span.End()
 
@@ -235,6 +273,7 @@ func (r *Repo) Commit(ctx context.Context) (cid.Cid, error) {
 		if err != nil {
 			return cid.Undef, err
 		}
+		fmt.Println("PUT NEW META: ", mcid)
 		nroot.Meta = mcid
 	}
 
@@ -243,8 +282,16 @@ func (r *Repo) Commit(ctx context.Context) (cid.Cid, error) {
 		return cid.Undef, err
 	}
 
+	did := r.RepoDid()
+
+	sig, err := signer(ctx, did, ncomcid.Bytes())
+	if err != nil {
+		return cid.Undef, fmt.Errorf("failed to sign root: %w", err)
+	}
+
 	nsroot := SignedCommit{
 		Root: ncomcid,
+		Sig:  sig,
 	}
 
 	nsrootcid, err := r.cst.Put(ctx, &nsroot)

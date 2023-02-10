@@ -30,14 +30,20 @@ import (
 
 var log = logging.Logger("repomgr")
 
-func NewRepoManager(db *gorm.DB, cs *carstore.CarStore) *RepoManager {
+func NewRepoManager(db *gorm.DB, cs *carstore.CarStore, kmgr KeyManager) *RepoManager {
 	db.AutoMigrate(RepoHead{})
 
 	return &RepoManager{
 		db:        db,
 		cs:        cs,
 		userLocks: make(map[uint]*userLock),
+		kmgr:      kmgr,
 	}
+}
+
+type KeyManager interface {
+	VerifyUserSignature(context.Context, string, []byte, []byte) error
+	SignForUser(context.Context, string, []byte) ([]byte, error)
 }
 
 func (rm *RepoManager) SetEventHandler(cb func(context.Context, *RepoEvent)) {
@@ -45,8 +51,9 @@ func (rm *RepoManager) SetEventHandler(cb func(context.Context, *RepoEvent)) {
 }
 
 type RepoManager struct {
-	cs *carstore.CarStore
-	db *gorm.DB
+	cs   *carstore.CarStore
+	db   *gorm.DB
+	kmgr KeyManager
 
 	lklk      sync.Mutex
 	userLocks map[uint]*userLock
@@ -193,7 +200,7 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 		return "", cid.Undef, err
 	}
 
-	nroot, err := r.Commit(ctx)
+	nroot, err := r.Commit(ctx, rm.kmgr.SignForUser)
 	if err != nil {
 		return "", cid.Undef, err
 	}
@@ -255,7 +262,7 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user uint, collection, 
 		return cid.Undef, err
 	}
 
-	nroot, err := r.Commit(ctx)
+	nroot, err := r.Commit(ctx, rm.kmgr.SignForUser)
 	if err != nil {
 		return cid.Undef, err
 	}
@@ -316,7 +323,7 @@ func (rm *RepoManager) DeleteRecord(ctx context.Context, user uint, collection, 
 		return err
 	}
 
-	nroot, err := r.Commit(ctx)
+	nroot, err := r.Commit(ctx, rm.kmgr.SignForUser)
 	if err != nil {
 		return err
 	}
@@ -366,7 +373,7 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 		return err
 	}
 
-	r := repo.NewRepo(ctx, ds)
+	r := repo.NewRepo(ctx, did, ds)
 
 	profile := &bsky.ActorProfile{
 		DisplayName: displayname,
@@ -391,9 +398,9 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 
 	// TODO: set declaration?
 
-	root, err := r.Commit(ctx)
+	root, err := r.Commit(ctx, rm.kmgr.SignForUser)
 	if err != nil {
-		return err
+		return fmt.Errorf("committing repo for actor init: %w", err)
 	}
 
 	rslice, err := ds.CloseWithRoot(ctx, root)
@@ -497,7 +504,7 @@ func (rm *RepoManager) GetProfile(ctx context.Context, uid uint) (*bsky.ActorPro
 	return ap, nil
 }
 
-func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid uint, prev *cid.Cid, ops []*events.RepoOp, carslice []byte) error {
+func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid uint, did string, prev *cid.Cid, ops []*events.RepoOp, carslice []byte) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "HandleExternalUserEvent")
 	defer span.End()
 
@@ -514,6 +521,18 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 	r, err := repo.OpenRepo(ctx, ds, root)
 	if err != nil {
 		return fmt.Errorf("opening external user repo: %w", err)
+	}
+
+	repoDid := r.RepoDid()
+
+	if did != repoDid {
+		return fmt.Errorf("DID in repo did not match (%q != %q)", did, repoDid)
+	}
+
+	scom := r.SignedCommit()
+
+	if err := rm.kmgr.VerifyUserSignature(ctx, repoDid, scom.Sig, scom.Root.Bytes()); err != nil {
+		return fmt.Errorf("signature check failed: %w", err)
 	}
 
 	log.Infow("external event", "uid", uid, "ops", ops)
@@ -675,7 +694,7 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user uint, writes []*atpr
 		}
 	}
 
-	nroot, err := r.Commit(ctx)
+	nroot, err := r.Commit(ctx, rm.kmgr.SignForUser)
 	if err != nil {
 		return err
 	}
@@ -812,6 +831,33 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reade
 	}
 
 	membs := blockstore.NewBlockstore(datastore.NewMapDatastore())
+
+	// mild hack: without access to the 'meta' object, we cant properly verify each new repo slice has the right DID in the case of a gap fill procedure
+	if until.Defined() {
+		robs, err := rm.cs.ReadOnlySession(user)
+		if err != nil {
+			return err
+		}
+
+		old, err := repo.OpenRepo(ctx, robs, until)
+		if err != nil {
+			return err
+		}
+
+		mcid, err := old.MetaCid(ctx)
+		if err != nil {
+			return err
+		}
+
+		blk, err := robs.Get(ctx, mcid)
+		if err != nil {
+			return err
+		}
+
+		if err := membs.Put(ctx, blk); err != nil {
+			return err
+		}
+	}
 
 	for {
 		blk, err := carr.Next()

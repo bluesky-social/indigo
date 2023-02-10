@@ -399,7 +399,9 @@ func SetupBGS(host string, didr plc.PLCClient) (*testBGS, error) {
 		return nil, err
 	}
 
-	repoman := repomgr.NewRepoManager(maindb, cs)
+	kmgr := indexer.NewKeyManager(didr, nil)
+
+	repoman := repomgr.NewRepoManager(maindb, cs, kmgr)
 
 	notifman := notifs.NewNotificationManager(maindb, repoman.GetRecord)
 
@@ -761,7 +763,9 @@ func GenerateFakeRepo(r *repo.Repo, size int) (cid.Cid, error) {
 			}
 		}
 
-		nroot, err := r.Commit(ctx)
+		kmgr := &bsutil.FakeKeyManager{}
+
+		nroot, err := r.Commit(ctx, kmgr.SignForUser)
 		if err != nil {
 			return cid.Undef, err
 		}

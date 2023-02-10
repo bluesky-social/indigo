@@ -5,16 +5,17 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 
-	"github.com/bluesky-social/indigo/key"
 	"github.com/whyrusleeping/go-did"
 	"gorm.io/gorm"
 )
 
 type FakeDidMapping struct {
 	gorm.Model
-	Handle  string
-	Did     string `gorm:"index"`
-	Service string
+	Handle      string
+	Did         string `gorm:"index"`
+	Service     string
+	KeyType     string
+	PubKeyMbase string
 }
 
 type FakeDid struct {
@@ -46,7 +47,14 @@ func (fd *FakeDid) GetDocument(ctx context.Context, udid string) (*did.Document,
 
 		//Authentication []interface{} `json:"authentication"`
 
-		//VerificationMethod []VerificationMethod `json:"verificationMethod"`
+		VerificationMethod: []did.VerificationMethod{
+			did.VerificationMethod{
+				ID:                 "#signingKey",
+				Type:               rec.KeyType,
+				PublicKeyMultibase: &rec.PubKeyMbase,
+				Controller:         rec.Did,
+			},
+		},
 
 		Service: []did.Service{
 			did.Service{
@@ -58,15 +66,17 @@ func (fd *FakeDid) GetDocument(ctx context.Context, udid string) (*did.Document,
 	}, nil
 }
 
-func (fd *FakeDid) CreateDID(ctx context.Context, sigkey *key.Key, recovery string, handle string, service string) (string, error) {
+func (fd *FakeDid) CreateDID(ctx context.Context, sigkey *did.PrivKey, recovery string, handle string, service string) (string, error) {
 	buf := make([]byte, 8)
 	rand.Read(buf)
 	d := "did:plc:" + hex.EncodeToString(buf)
 
 	if err := fd.db.Create(&FakeDidMapping{
-		Handle:  handle,
-		Did:     d,
-		Service: service,
+		Handle:      handle,
+		Did:         d,
+		Service:     service,
+		PubKeyMbase: sigkey.Public().MultibaseString(),
+		KeyType:     sigkey.KeyType(),
 	}).Error; err != nil {
 		return "", err
 	}
