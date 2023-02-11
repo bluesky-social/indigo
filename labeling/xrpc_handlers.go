@@ -20,7 +20,7 @@ func (s *Server) handleComAtprotoAccountGet(ctx context.Context) error {
 func (s *Server) handleComAtprotoHandleResolve(ctx context.Context, handle string) (*atproto.HandleResolve_Output, error) {
 	// only the one handle, for labelmaker
 	if handle == "" {
-		return &atproto.HandleResolve_Output{Did: s.user.signingKey.DID()}, nil
+		return &atproto.HandleResolve_Output{Did: s.user.signingKey.Public().DID()}, nil
 	} else if handle == s.user.handle {
 		return &atproto.HandleResolve_Output{Did: s.user.did}, nil
 	} else {
@@ -45,21 +45,31 @@ func (s *Server) handleComAtprotoServerGetAccountsConfig(ctx context.Context) (*
 	}, nil
 }
 
-func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, from string) (io.Reader, error) {
+func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, earliest, latest string) (io.Reader, error) {
 	// TODO: verify the DID/handle
 	var userId uint = 1
-	var fromcid cid.Cid
-	if from != "" {
-		cc, err := cid.Decode(from)
+	var earlyCid cid.Cid
+	if earliest != "" {
+		cc, err := cid.Decode(earliest)
 		if err != nil {
 			return nil, err
 		}
 
-		fromcid = cc
+		earlyCid = cc
+	}
+
+	var lateCid cid.Cid
+	if latest != "" {
+		cc, err := cid.Decode(latest)
+		if err != nil {
+			return nil, err
+		}
+
+		lateCid = cc
 	}
 
 	buf := new(bytes.Buffer)
-	if err := s.repoman.ReadRepo(ctx, userId, fromcid, buf); err != nil {
+	if err := s.repoman.ReadRepo(ctx, userId, earlyCid, lateCid, buf); err != nil {
 		return nil, err
 	}
 

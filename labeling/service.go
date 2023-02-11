@@ -8,11 +8,11 @@ import (
 	"os"
 	"time"
 
-	//"github.com/bluesky-social/indigo/api"
+	"github.com/bluesky-social/indigo/api"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/key"
+	"github.com/bluesky-social/indigo/indexer"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/repo"
@@ -25,6 +25,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lestrrat-go/jwx/jwa"
 	jwk "github.com/lestrrat-go/jwx/jwk"
+	"github.com/whyrusleeping/go-did"
 	"gorm.io/gorm"
 )
 
@@ -44,11 +45,11 @@ type Server struct {
 type LabelmakerRepoConfig struct {
 	handle     string
 	did        string
-	signingKey *key.Key
+	signingKey *did.PrivKey
 	userId     uint
 }
 
-func NewServer(db *gorm.DB, cs *carstore.CarStore, keyFile, repoDid, repoHandle, bgsUrl string) (*Server, error) {
+func NewServer(db *gorm.DB, cs *carstore.CarStore, keyFile, repoDid, repoHandle, bgsUrl, plcUrl string) (*Server, error) {
 
 	serkey, err := loadKey(keyFile)
 	if err != nil {
@@ -58,8 +59,10 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, keyFile, repoDid, repoHandle,
 	db.AutoMigrate(&pds.User{})
 	db.AutoMigrate(&pds.Peering{})
 
+	didr := &api.PLCServer{Host: plcUrl}
+	kmgr := indexer.NewKeyManager(didr, nil)
 	levtman := events.NewLabelEventManager()
-	repoman := repomgr.NewRepoManager(db, cs)
+	repoman := repomgr.NewRepoManager(db, cs, kmgr)
 
 	user := &LabelmakerRepoConfig{
 		handle:     repoHandle,
@@ -241,7 +244,7 @@ func (s *Server) readRecordFunc(ctx context.Context, user uint, c cid.Cid) (lexu
 	return lexutil.CborDecodeValue(blk.RawData())
 }
 
-func loadKey(kfile string) (*key.Key, error) {
+func loadKey(kfile string) (*did.PrivKey, error) {
 	kb, err := os.ReadFile(kfile)
 	if err != nil {
 		return nil, err
@@ -261,9 +264,18 @@ func loadKey(kfile string) (*key.Key, error) {
 		return nil, fmt.Errorf("need a curve set")
 	}
 
-	return &key.Key{
+	var out string
+	kts := string(curve.(jwa.EllipticCurveAlgorithm))
+	switch kts {
+	case "P-256":
+		out = did.KeyTypeP256
+	default:
+		return nil, fmt.Errorf("unrecognized key type: %s", kts)
+	}
+
+	return &did.PrivKey{
 		Raw:  &spk,
-		Type: string(curve.(jwa.EllipticCurveAlgorithm)),
+		Type: out,
 	}, nil
 }
 
