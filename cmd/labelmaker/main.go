@@ -117,7 +117,9 @@ func main() {
 		// NOTE: connecting to PDS for now, not actual BGS
 		//bgsUrl := "localhost:2470"
 		bgsUrl := "localhost:4989"
-		srv, err := labeling.NewServer(db, cs, "data/labelmaker/labelmaker.key", repoDid, repoHandle, bgsUrl)
+		//plcUrl := "https://plc.directory"
+		plcUrl := "http://localhost:2582"
+		srv, err := labeling.NewServer(db, cs, "data/labelmaker/labelmaker.key", repoDid, repoHandle, bgsUrl, plcUrl)
 		if err != nil {
 			return err
 		}
