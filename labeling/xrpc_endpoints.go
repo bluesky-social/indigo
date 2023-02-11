@@ -134,13 +134,14 @@ func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetRepo")
 	defer span.End()
 	did := c.QueryParam("did")
-	from := c.QueryParam("from")
+	earliest := c.QueryParam("earliest")
+	latest := c.QueryParam("latest")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context,did string,from string) (io.Reader, error)
-	out, handleErr = s.handleComAtprotoSyncGetRepo(ctx, did, from)
+	// func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context,did string,earliest string,latest string) (io.Reader, error)
+	out, handleErr = s.handleComAtprotoSyncGetRepo(ctx, did, earliest, latest)
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "application/vnd.ipld.car", out)
 }
