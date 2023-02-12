@@ -85,7 +85,7 @@ func WriteConfig(cfg *CliConfig) error {
 	return os.WriteFile(cfg.filename, b, 0664)
 }
 
-func GetATPClient(cctx *cli.Context, authreq bool) (*api.ATProto, error) {
+func GetXrpcClient(cctx *cli.Context, authreq bool) (*xrpc.Client, error) {
 	h := "http://localhost:4989"
 	if pdsurl := cctx.String("pds"); pdsurl != "" {
 		h = pdsurl
@@ -96,13 +96,19 @@ func GetATPClient(cctx *cli.Context, authreq bool) (*api.ATProto, error) {
 		return nil, fmt.Errorf("loading auth: %w", err)
 	}
 
-	return &api.ATProto{
-		C: &xrpc.Client{
-			Client: NewHttpClient(),
-			Host:   h,
-			Auth:   auth,
-		},
+	return &xrpc.Client{
+		Client: NewHttpClient(),
+		Host:   h,
+		Auth:   auth,
 	}, nil
+}
+
+func GetATPClient(cctx *cli.Context, authreq bool) (*api.ATProto, error) {
+	xrpcClient, err := GetXrpcClient(cctx, authreq)
+	if err != nil {
+		return nil, err
+	}
+	return &api.ATProto{C: xrpcClient}, nil
 }
 
 func loadAuthFromEnv(cctx *cli.Context, req bool) (*xrpc.AuthInfo, error) {
@@ -129,25 +135,6 @@ func loadAuthFromEnv(cctx *cli.Context, req bool) (*xrpc.AuthInfo, error) {
 	}
 
 	return &auth, nil
-}
-
-func GetBskyClient(cctx *cli.Context, authreq bool) (*api.BskyApp, error) {
-	h := "https://pds.staging.bsky.dev"
-	if pdsurl := cctx.String("pds"); pdsurl != "" {
-		h = pdsurl
-	}
-
-	auth, err := loadAuthFromEnv(cctx, authreq)
-	if err != nil {
-		return nil, err
-	}
-
-	return &api.BskyApp{
-		C: &xrpc.Client{
-			Host: h,
-			Auth: auth,
-		},
-	}, nil
 }
 
 func ReadAuth(fname string) (*xrpc.AuthInfo, error) {
