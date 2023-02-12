@@ -9,9 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/api"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/testing"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -91,10 +93,13 @@ var postingCmd = &cli.Command{
 					buf := make([]byte, 100)
 					rand.Read(buf)
 
-					res, err := atp.RepoCreateRecord(ctx, acc.Did, "app.bsky.feed.post", true, &api.PostRecord{
-						Type:      "app.bsky.feed.post",
-						Text:      hex.EncodeToString(buf),
-						CreatedAt: time.Now().Format(time.RFC3339),
+					res, err := comatproto.RepoCreateRecord(context.TODO(), atp.C, &comatproto.RepoCreateRecord_Input{
+						Collection: "app.bsky.feed.post",
+						Did:        acc.Did,
+						Record: lexutil.LexiconTypeDecoder{&appbsky.FeedPost{
+							Text:      hex.EncodeToString(buf),
+							CreatedAt: time.Now().Format(time.RFC3339),
+						}},
 					})
 					if err != nil {
 						fmt.Printf("errored on worker %d loop %d: %s\n", worker, i, err)
