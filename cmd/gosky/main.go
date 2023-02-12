@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	api "github.com/bluesky-social/indigo/api"
-	atproto "github.com/bluesky-social/indigo/api/atproto"
-	bsky "github.com/bluesky-social/indigo/api/bsky"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/ipfs/go-cid"
 	"github.com/lestrrat-go/jwx/jwa"
@@ -63,7 +63,7 @@ func main() {
 var newAccountCmd = &cli.Command{
 	Name: "newAccount",
 	Action: func(cctx *cli.Context) error {
-		atp, err := cliutil.GetATPClient(cctx, false)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
 			return err
 		}
@@ -77,7 +77,12 @@ var newAccountCmd = &cli.Command{
 			invite = &inv
 		}
 
-		acc, err := atp.CreateAccount(context.TODO(), email, handle, password, invite)
+		acc, err := comatproto.AccountCreate(context.TODO(), xrpcc, &comatproto.AccountCreate_Input{
+			Email:      email,
+			Handle:     handle,
+			InviteCode: invite,
+			Password:   password,
+		})
 		if err != nil {
 			return err
 		}
@@ -94,14 +99,17 @@ var newAccountCmd = &cli.Command{
 var createSessionCmd = &cli.Command{
 	Name: "createSession",
 	Action: func(cctx *cli.Context) error {
-		atp, err := cliutil.GetATPClient(cctx, false)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
 			return err
 		}
 		handle := cctx.Args().Get(0)
 		password := cctx.Args().Get(1)
 
-		ses, err := atp.CreateSession(context.TODO(), handle, password)
+		ses, err := comatproto.SessionCreate(context.TODO(), xrpcc, &comatproto.SessionCreate_Input{
+			Identifier: &handle,
+			Password:   password,
+		})
 		if err != nil {
 			return err
 		}
@@ -119,19 +127,22 @@ var createSessionCmd = &cli.Command{
 var postCmd = &cli.Command{
 	Name: "post",
 	Action: func(cctx *cli.Context) error {
-		atp, err := cliutil.GetATPClient(cctx, true)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
 			return err
 		}
 
-		auth := atp.C.Auth
+		auth := xrpcc.Auth
 
 		text := strings.Join(cctx.Args().Slice(), " ")
 
-		resp, err := atp.RepoCreateRecord(context.TODO(), auth.Did, "app.bsky.feed.post", true, &api.PostRecord{
-			Type:      "app.bsky.feed.post",
-			Text:      text,
-			CreatedAt: time.Now().Format("2006-01-02T15:04:05.000Z"),
+		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
+			Collection: "app.bsky.feed.post",
+			Did:        auth.Did,
+			Record: lexutil.LexiconTypeDecoder{&appbsky.FeedPost{
+				Text:      text,
+				CreatedAt: time.Now().Format("2006-01-02T15:04:05.000Z"),
+			}},
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create post: %w", err)
@@ -265,14 +276,14 @@ var syncGetRepoCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-		atp, err := cliutil.GetATPClient(cctx, false)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
 			return err
 		}
 
 		ctx := context.TODO()
 
-		repobytes, err := atp.SyncGetRepo(ctx, cctx.Args().First(), nil)
+		repobytes, err := comatproto.SyncGetRepo(ctx, xrpcc, cctx.Args().First(), "", "")
 		if err != nil {
 			return err
 		}
@@ -290,19 +301,19 @@ var syncGetRepoCmd = &cli.Command{
 var syncGetRootCmd = &cli.Command{
 	Name: "getRoot",
 	Action: func(cctx *cli.Context) error {
-		atp, err := cliutil.GetATPClient(cctx, false)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
 			return err
 		}
 
 		ctx := context.TODO()
 
-		root, err := atp.SyncGetRoot(ctx, cctx.Args().First())
+		root, err := comatproto.SyncGetHead(ctx, xrpcc, cctx.Args().First())
 		if err != nil {
 			return err
 		}
 
-		fmt.Println(root)
+		fmt.Println(root.Root)
 
 		return nil
 	},
@@ -317,9 +328,9 @@ func jsonPrint(i any) {
 	fmt.Println(string(b))
 }
 
-func prettyPrintPost(p *bsky.FeedFeedViewPost, uris bool) {
+func prettyPrintPost(p *appbsky.FeedFeedViewPost, uris bool) {
 	fmt.Println(strings.Repeat("-", 60))
-	rec := p.Post.Record.Val.(*bsky.FeedPost)
+	rec := p.Post.Record.Val.(*appbsky.FeedPost)
 	fmt.Printf("%s (%s)", p.Post.Author.Handle, rec.CreatedAt)
 	if uris {
 		fmt.Println(" -- ", p.Post.Uri)
@@ -350,7 +361,7 @@ var feedGetCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-		bsky, err := cliutil.GetBskyClient(cctx, true)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
 			return err
 		}
@@ -364,10 +375,10 @@ var feedGetCmd = &cli.Command{
 		author := cctx.String("author")
 		if author != "" {
 			if author == "self" {
-				author = bsky.C.Auth.Did
+				author = xrpcc.Auth.Did
 			}
 
-			tl, err := bsky.FeedGetAuthorFeed(ctx, author, 99, nil)
+			tl, err := appbsky.FeedGetAuthorFeed(ctx, xrpcc, author, "", 99)
 			if err != nil {
 				return err
 			}
@@ -382,7 +393,7 @@ var feedGetCmd = &cli.Command{
 			}
 		} else {
 			algo := "reverse-chronological"
-			tl, err := bsky.FeedGetTimeline(ctx, algo, cctx.Int("count"), nil)
+			tl, err := appbsky.FeedGetTimeline(ctx, xrpcc, algo, "", int64(cctx.Int("count")))
 			if err != nil {
 				return err
 			}
@@ -405,7 +416,7 @@ var feedGetCmd = &cli.Command{
 var actorGetSuggestionsCmd = &cli.Command{
 	Name: "actorGetSuggestions",
 	Action: func(cctx *cli.Context) error {
-		bsky, err := cliutil.GetBskyClient(cctx, true)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
 			return err
 		}
@@ -414,10 +425,10 @@ var actorGetSuggestionsCmd = &cli.Command{
 
 		author := cctx.Args().First()
 		if author == "" {
-			author = bsky.C.Auth.Did
+			author = xrpcc.Auth.Did
 		}
 
-		resp, err := bsky.ActorGetSuggestions(ctx, 100, nil)
+		resp, err := appbsky.ActorGetSuggestions(ctx, xrpcc, "", 100)
 		if err != nil {
 			return err
 		}
@@ -438,12 +449,7 @@ var feedSetVoteCmd = &cli.Command{
 	Name:      "vote",
 	ArgsUsage: "<post> [direction]",
 	Action: func(cctx *cli.Context) error {
-		atpc, err := cliutil.GetATPClient(cctx, true)
-		if err != nil {
-			return err
-		}
-
-		bskyc, err := cliutil.GetBskyClient(cctx, true)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
 			return err
 		}
@@ -454,23 +460,26 @@ var feedSetVoteCmd = &cli.Command{
 		if len(parts) < 3 {
 			return fmt.Errorf("invalid post uri: %q", arg)
 		}
-		last := parts[len(parts)-1]
-		kind := parts[len(parts)-2]
-		user := parts[2]
+		rkey := parts[len(parts)-1]
+		collection := parts[len(parts)-2]
+		did := parts[2]
 
 		dir := cctx.Args().Get(1)
 		if dir == "" {
 			dir = "up"
 		}
 
-		fmt.Println(user, kind, last)
+		fmt.Println(did, collection, rkey)
 		ctx := context.TODO()
-		resp, err := api.RepoGetRecord[*api.PostRecord](atpc, ctx, user, kind, last)
+		resp, err := comatproto.RepoGetRecord(ctx, xrpcc, "", collection, rkey, did)
 		if err != nil {
 			return fmt.Errorf("getting record: %w", err)
 		}
 
-		err = bskyc.FeedSetVote(ctx, &api.PostRef{Uri: resp.Uri, Cid: resp.Cid}, dir)
+		_, err = appbsky.FeedSetVote(ctx, xrpcc, &appbsky.FeedSetVote_Input{
+			Subject:   &comatproto.RepoStrongRef{Uri: resp.Uri, Cid: *resp.Cid},
+			Direction: dir,
+		})
 		if err != nil {
 			return err
 		}
@@ -483,16 +492,16 @@ var refreshAuthTokenCmd = &cli.Command{
 	Name:  "refresh",
 	Usage: "refresh your auth token and overwrite it with new auth info",
 	Action: func(cctx *cli.Context) error {
-		atpc, err := cliutil.GetATPClient(cctx, true)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
 			return err
 		}
 
-		a := atpc.C.Auth
+		a := xrpcc.Auth
 		a.AccessJwt = a.RefreshJwt
 
 		ctx := context.TODO()
-		nauth, err := atpc.SessionRefresh(ctx)
+		nauth, err := comatproto.SessionRefresh(ctx, xrpcc)
 		if err != nil {
 			return err
 		}
@@ -513,7 +522,7 @@ var refreshAuthTokenCmd = &cli.Command{
 var deletePostCmd = &cli.Command{
 	Name: "delete",
 	Action: func(cctx *cli.Context) error {
-		atpc, err := cliutil.GetATPClient(cctx, true)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
 			return err
 		}
@@ -531,7 +540,11 @@ var deletePostCmd = &cli.Command{
 			rkey = parts[1]
 		}
 
-		return atpc.RepoDeleteRecord(context.TODO(), atpc.C.Auth.Did, schema, rkey)
+		return comatproto.RepoDeleteRecord(context.TODO(), xrpcc, &comatproto.RepoDeleteRecord_Input{
+			Did:        xrpcc.Auth.Did,
+			Collection: schema,
+			Rkey:       rkey,
+		})
 	},
 }
 
@@ -555,16 +568,16 @@ var listAllPostsCmd = &cli.Command{
 
 		var repob []byte
 		if strings.HasPrefix(arg, "did:") {
-			atpc, err := cliutil.GetATPClient(cctx, true)
+			xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 			if err != nil {
 				return err
 			}
 
 			if arg == "" {
-				arg = atpc.C.Auth.Did
+				arg = xrpcc.Auth.Did
 			}
 
-			rrb, err := atpc.SyncGetRepo(ctx, arg, nil)
+			rrb, err := comatproto.SyncGetRepo(ctx, xrpcc, arg, "", "")
 			if err != nil {
 				return err
 			}
@@ -628,12 +641,12 @@ var getNotificationsCmd = &cli.Command{
 	Action: func(cctx *cli.Context) error {
 		ctx := context.TODO()
 
-		client, err := cliutil.GetBskyClient(cctx, true)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
 			return err
 		}
 
-		notifs, err := bsky.NotificationList(ctx, client.C, "", 50)
+		notifs, err := appbsky.NotificationList(ctx, xrpcc, "", 50)
 		if err != nil {
 			return err
 		}
@@ -663,25 +676,27 @@ var followsAddCmd = &cli.Command{
 	Name:  "add",
 	Flags: []cli.Flag{},
 	Action: func(cctx *cli.Context) error {
-		ctx := context.TODO()
-
-		atpc, err := cliutil.GetATPClient(cctx, true)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
 			return err
 		}
 
 		user := cctx.Args().First()
 
-		follow := bsky.GraphFollow{
+		follow := appbsky.GraphFollow{
 			LexiconTypeID: "app.bsky.graph.follow",
 			CreatedAt:     time.Now().Format(time.RFC3339),
-			Subject: &bsky.ActorRef{
+			Subject: &appbsky.ActorRef{
 				DeclarationCid: "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u",
 				Did:            user,
 			},
 		}
 
-		resp, err := atpc.RepoCreateRecord(ctx, atpc.C.Auth.Did, "app.bsky.graph.follow", true, &follow)
+		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
+			Collection: "app.bsky.graph.follow",
+			Did:        xrpcc.Auth.Did,
+			Record:     lexutil.LexiconTypeDecoder{&follow},
+		})
 		if err != nil {
 			return err
 		}
@@ -695,18 +710,18 @@ var followsAddCmd = &cli.Command{
 var followsListCmd = &cli.Command{
 	Name: "list",
 	Action: func(cctx *cli.Context) error {
-		bskyc, err := cliutil.GetBskyClient(cctx, true)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
 			return err
 		}
 
 		user := cctx.Args().First()
 		if user == "" {
-			user = bskyc.C.Auth.Did
+			user = xrpcc.Auth.Did
 		}
 
 		ctx := context.TODO()
-		resp, err := bskyc.GraphGetFollows(ctx, user, 100, nil)
+		resp, err := appbsky.GraphGetFollows(ctx, xrpcc, "", 100, user)
 		if err != nil {
 			return err
 		}
@@ -743,14 +758,14 @@ var resetPasswordCmd = &cli.Command{
 	Action: func(cctx *cli.Context) error {
 		ctx := context.TODO()
 
-		atp, err := cliutil.GetATPClient(cctx, false)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
 			return err
 		}
 
 		email := cctx.Args().Get(0)
 
-		err = atproto.AccountRequestPasswordReset(ctx, atp.C, &atproto.AccountRequestPasswordReset_Input{
+		err = comatproto.AccountRequestPasswordReset(ctx, xrpcc, &comatproto.AccountRequestPasswordReset_Input{
 			Email: email,
 		})
 		if err != nil {
@@ -766,7 +781,7 @@ var resetPasswordCmd = &cli.Command{
 		inp.Scan()
 		npass := inp.Text()
 
-		if err := atproto.AccountResetPassword(ctx, atp.C, &atproto.AccountResetPassword_Input{
+		if err := comatproto.AccountResetPassword(ctx, xrpcc, &comatproto.AccountResetPassword_Input{
 			Password: npass,
 			Token:    code,
 		}); err != nil {
