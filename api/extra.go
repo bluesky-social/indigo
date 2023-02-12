@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net/url"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/xrpc"
 	did "github.com/whyrusleeping/go-did"
 	otel "go.opentelemetry.io/otel"
 )
 
-func ResolveDidToHandle(ctx context.Context, atp *ATProto, pls *PLCServer, udid string) (string, string, error) {
+func ResolveDidToHandle(ctx context.Context, xrpcc *xrpc.Client, pls *PLCServer, udid string) (string, string, error) {
 	ctx, span := otel.Tracer("gosky").Start(ctx, "resolveDidToHandle")
 	defer span.End()
 
@@ -43,16 +45,16 @@ func ResolveDidToHandle(ctx context.Context, atp *ATProto, pls *PLCServer, udid 
 		return "", "", fmt.Errorf("users did document has no pds service set")
 	}
 
-	if svc.ServiceEndpoint != atp.C.Host {
-		return "", "", fmt.Errorf("our atp client is authed for a different pds (%s != %s)", svc.ServiceEndpoint, atp.C.Host)
+	if svc.ServiceEndpoint != xrpcc.Host {
+		return "", "", fmt.Errorf("our XRPC client is authed for a different pds (%s != %s)", svc.ServiceEndpoint, xrpcc.Host)
 	}
 
-	verdid, err := atp.HandleResolve(ctx, handle)
+	verdid, err := comatproto.HandleResolve(ctx, xrpcc, handle)
 	if err != nil {
 		return "", "", err
 	}
 
-	if verdid != udid {
+	if verdid.Did != udid {
 		return "", "", fmt.Errorf("pds server reported different did for claimed handle")
 	}
 
