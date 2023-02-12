@@ -1,17 +1,5 @@
 package api
 
-import (
-	"context"
-	"fmt"
-
-	bsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/xrpc"
-)
-
-type BskyApp struct {
-	C *xrpc.Client
-}
-
 type PostEntity struct {
 	Index *TextSlice `json:"index" cborgen:"index"`
 	Type  string     `json:"type" cborgen:"type"`
@@ -73,42 +61,6 @@ type User struct {
 	Declaration *Declaration `json:"declaration"`
 }
 
-func (b *BskyApp) FeedGetTimeline(ctx context.Context, algo string, limit int, before *string) (*bsky.FeedGetTimeline_Output, error) {
-	params := map[string]interface{}{
-		"algorithm": algo,
-		"limit":     limit,
-	}
-
-	if before != nil {
-		params["before"] = *before
-	}
-
-	var out bsky.FeedGetTimeline_Output
-	if err := b.C.Do(ctx, xrpc.Query, encJson, "app.bsky.feed.getTimeline", params, nil, &out); err != nil {
-		return nil, err
-	}
-
-	return &out, nil
-}
-
-func (b *BskyApp) FeedGetAuthorFeed(ctx context.Context, author string, limit int, before *string) (*bsky.FeedGetAuthorFeed_Output, error) {
-	params := map[string]interface{}{
-		"author": author,
-		"limit":  limit,
-	}
-
-	if before != nil {
-		params["before"] = *before
-	}
-
-	var out bsky.FeedGetAuthorFeed_Output
-	if err := b.C.Do(ctx, xrpc.Query, encJson, "app.bsky.feed.getAuthorFeed", params, nil, &out); err != nil {
-		return nil, err
-	}
-
-	return &out, nil
-}
-
 type GSADeclaration struct {
 	Cid       string `json:"cid"`
 	ActorType string `json:"actorType"`
@@ -128,59 +80,8 @@ type GetSuggestionsResp struct {
 	Actors []GetSuggestionsActor `json:"actors"`
 }
 
-func (b *BskyApp) ActorGetSuggestions(ctx context.Context, limit int, cursor *string) (*GetSuggestionsResp, error) {
-	params := map[string]interface{}{
-		"limit": limit,
-	}
-
-	if cursor != nil {
-		params["cursor"] = *cursor
-	}
-
-	var out GetSuggestionsResp
-	if err := b.C.Do(ctx, xrpc.Query, "", "app.bsky.actor.getSuggestions", params, nil, &out); err != nil {
-		return nil, err
-	}
-
-	return &out, nil
-}
-
-func (b *BskyApp) FeedSetVote(ctx context.Context, subject *PostRef, direction string) error {
-	body := map[string]interface{}{
-		"subject":   subject,
-		"direction": direction,
-	}
-
-	var out map[string]interface{}
-	if err := b.C.Do(ctx, xrpc.Procedure, encJson, "app.bsky.feed.setVote", nil, body, &out); err != nil {
-		return err
-	}
-
-	fmt.Println(out)
-
-	return nil
-}
-
 type GetFollowsResp struct {
 	Subject *User  `json:"subject"`
 	Cursor  string `json:"cursor"`
 	Follows []User `json:"follows"`
-}
-
-func (b *BskyApp) GraphGetFollows(ctx context.Context, user string, limit int, before *string) (*GetFollowsResp, error) {
-	params := map[string]interface{}{
-		"user":  user,
-		"limit": limit,
-	}
-
-	if before != nil {
-		params["before"] = *before
-	}
-
-	var out GetFollowsResp
-	if err := b.C.Do(ctx, xrpc.Query, "", "app.bsky.graph.getFollows", params, nil, &out); err != nil {
-		return nil, err
-	}
-
-	return &out, nil
 }
