@@ -9,7 +9,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"os"
+	"runtime"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -22,6 +24,7 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/joho/godotenv"
 	"github.com/urfave/cli/v2"
+	"golang.org/x/sync/errgroup"
 )
 
 var log = logging.Logger("fakermaker")
@@ -54,6 +57,12 @@ func main() {
 			Required: true,
 			EnvVars:  []string{"BSKY_ADMIN_AUTH"},
 		},
+		&cli.IntFlag{
+			Name:    "jobs",
+			Aliases: []string{"j"},
+			Usage:   "number of parallel threads to use",
+			Value:   runtime.NumCPU(),
+		},
 	}
 	app.Commands = []*cli.Command{
 		&cli.Command{
@@ -62,13 +71,14 @@ func main() {
 			Action: genAccounts,
 			Flags: []cli.Flag{
 				&cli.IntFlag{
-					Name:  "count-regulars",
-					Usage: "number of regular accounts to create",
-					Value: 100,
+					Name:    "count",
+					Aliases: []string{"n"},
+					Usage:   "total number of accounts to create",
+					Value:   100,
 				},
 				&cli.IntFlag{
 					Name:  "count-celebrities",
-					Usage: "number of 'celebrity' accountss to create",
+					Usage: "number of accounts as 'celebrities' (many followers)",
 					Value: 10,
 				},
 			},
@@ -81,7 +91,7 @@ func main() {
 				&cli.StringFlag{
 					Name:  "catalog",
 					Usage: "file path of account catalog JSON file",
-					Value: "fakermaker-accounts.json",
+					Value: "data/fakermaker/accounts.json",
 				},
 				&cli.IntFlag{
 					Name:  "max-posts",
@@ -118,7 +128,7 @@ func main() {
 				&cli.StringFlag{
 					Name:  "catalog",
 					Usage: "file path of account catalog JSON file",
-					Value: "fakermaker-accounts.json",
+					Value: "data/fakermaker/accounts.json",
 				},
 				&cli.IntFlag{
 					Name:  "max-posts",
@@ -145,7 +155,7 @@ func main() {
 				&cli.StringFlag{
 					Name:  "catalog",
 					Usage: "file path of account catalog JSON file",
-					Value: "fakermaker-accounts.json",
+					Value: "data/fakermaker/accounts.json",
 				},
 				&cli.Float64Flag{
 					Name:  "frac-like",
@@ -172,7 +182,7 @@ func main() {
 				&cli.StringFlag{
 					Name:  "catalog",
 					Usage: "file path of account catalog JSON file",
-					Value: "fakermaker-accounts.json",
+					Value: "data/fakermaker/accounts.json",
 				},
 			},
 		},
@@ -193,18 +203,19 @@ type AccountContext struct {
 
 func accountXrpcClient(cctx *cli.Context, ac *AccountContext) (*xrpc.Client, error) {
 	pdsHost := cctx.String("pds")
-	httpClient := cliutil.NewHttpClient()
+	//httpClient := cliutil.NewHttpClient()
+	httpClient := &http.Client{Timeout: 5 * time.Second}
 	ua := "IndigoFakerMaker"
 	xrpcc := &xrpc.Client{
-		Client: httpClient,
-		Host:   pdsHost,
-		Auth:   &ac.Auth,
+		Client:    httpClient,
+		Host:      pdsHost,
+		Auth:      &ac.Auth,
 		UserAgent: &ua,
 	}
 	// use XRPC client to re-auth using user/pass
 	auth, err := comatproto.SessionCreate(context.TODO(), xrpcc, &comatproto.SessionCreate_Input{
 		Identifier: &ac.Auth.Handle,
-		Password: ac.Password,
+		Password:   ac.Password,
 	})
 	if err != nil {
 		return nil, err
@@ -233,10 +244,16 @@ func genAccounts(cctx *cli.Context) error {
 		xrpcc.AdminToken = &adminToken
 	}
 
+	countTotal := cctx.Int("count")
+	countCelebrities := cctx.Int("count-celebrities")
+	if countCelebrities > countTotal {
+		return fmt.Errorf("more celebrities than total accounts!")
+	}
+	countRegulars := countTotal - countCelebrities
+
 	// call helper to do actual creation
 	var usr *AccountContext
 	var line []byte
-	countCelebrities := cctx.Int("count-celebrities")
 	t1 := measureIterations("register celebrity accounts")
 	for i := 0; i < countCelebrities; i++ {
 		if usr, err = pdsGenAccount(xrpcc, i, "celebrity"); err != nil {
@@ -249,7 +266,7 @@ func genAccounts(cctx *cli.Context) error {
 		fmt.Println(string(line))
 	}
 	t1(countCelebrities)
-	countRegulars := cctx.Int("count-regulars")
+
 	t2 := measureIterations("register regular accounts")
 	for i := 0; i < countRegulars; i++ {
 		if usr, err = pdsGenAccount(xrpcc, i, "regular"); err != nil {
@@ -356,18 +373,31 @@ func genGraph(cctx *cli.Context) error {
 
 	maxFollows := cctx.Int("max-follows")
 	maxMutes := cctx.Int("max-mutes")
+	jobs := cctx.Int("jobs")
+
+	accChan := make(chan AccountContext, len(catalog.Celebs)+len(catalog.Regulars))
+	eg := new(errgroup.Group)
+	for i := 0; i < jobs; i++ {
+		eg.Go(func() error {
+			for acc := range accChan {
+				xrpcc, err := accountXrpcClient(cctx, &acc)
+				if err != nil {
+					return err
+				}
+				if err = pdsGenFollowsAndMutes(xrpcc, catalog, &acc, maxFollows, maxMutes); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
 
 	// TODO: profile: avatar, display name, description
 	for _, acc := range append(catalog.Celebs, catalog.Regulars...) {
-		xrpcc, err := accountXrpcClient(cctx, &acc)
-		if err != nil {
-			return err
-		}
-		if err = pdsGenFollowsAndMutes(xrpcc, catalog, &acc, maxFollows, maxMutes); err != nil {
-			return err
-		}
+		accChan <- acc
 	}
-	return nil
+	close(accChan)
+	return eg.Wait()
 }
 
 func pdsGenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContext, maxPosts int, fracImage float64, fracMention float64) error {
@@ -500,14 +530,18 @@ func pdsCreateReply(xrpcc *xrpc.Client, viewPost *appbsky.FeedFeedViewPost) erro
 			Cid: viewPost.Reply.Root.Cid,
 		}
 	}
-	reply := &appbsky.FeedPost_ReplyRef{
-		Parent: parent,
-		Root:   root,
+	replyPost := &appbsky.FeedPost{
+		CreatedAt: time.Now().Format(time.RFC3339),
+		Text:      text,
+		Reply: &appbsky.FeedPost_ReplyRef{
+			Parent: parent,
+			Root:   root,
+		},
 	}
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.post",
 		Did:        xrpcc.Auth.Did,
-		Record:     lexutil.LexiconTypeDecoder{reply},
+		Record:     lexutil.LexiconTypeDecoder{replyPost},
 	})
 	return err
 }
@@ -579,19 +613,30 @@ func genPosts(cctx *cli.Context) error {
 	maxPosts := cctx.Int("max-posts")
 	fracImage := cctx.Float64("frac-image")
 	fracMention := cctx.Float64("frac-mention")
+	jobs := cctx.Int("jobs")
+
+	accChan := make(chan AccountContext, len(catalog.Celebs)+len(catalog.Regulars))
+	eg := new(errgroup.Group)
+	for i := 0; i < jobs; i++ {
+		eg.Go(func() error {
+			for acc := range accChan {
+				xrpcc, err := accountXrpcClient(cctx, &acc)
+				if err != nil {
+					return err
+				}
+				if err = pdsGenPosts(xrpcc, catalog, &acc, maxPosts, fracImage, fracMention); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
 
 	for _, acc := range append(catalog.Celebs, catalog.Regulars...) {
-		xrpcc, err := accountXrpcClient(cctx, &acc)
-		if err != nil {
-			return err
-		}
-
-		// generate some more posts, similar to before (but fewer)
-		if err = pdsGenPosts(xrpcc, catalog, &acc, maxPosts, fracImage, fracMention); err != nil {
-			return err
-		}
+		accChan <- acc
 	}
-	return nil
+	close(accChan)
+	return eg.Wait()
 }
 
 func genInteractions(cctx *cli.Context) error {
@@ -603,46 +648,138 @@ func genInteractions(cctx *cli.Context) error {
 	fracLike := cctx.Float64("frac-like")
 	fracRepost := cctx.Float64("frac-repost")
 	fracReply := cctx.Float64("frac-reply")
+	jobs := cctx.Int("jobs")
 
-	// TODO: profile: avatar, display name, description
-	for _, acc := range append(catalog.Celebs, catalog.Regulars...) {
-		xrpcc, err := accountXrpcClient(cctx, &acc)
-		if err != nil {
-			return err
-		}
-
-		t1 := measureIterations("all interactions")
-		// fetch timeline (up to 100), and iterate over posts
-		resp, err := appbsky.FeedGetTimeline(context.TODO(), xrpcc, "", "", 100)
-		if err != nil {
-			return err
-		}
-		for _, post := range resp.Feed {
-			// skip account's own posts
-			if post.Post.Author.Did == acc.Auth.Did {
-				continue
-			}
-
-			// generate
-			if fracLike > 0.0 && rand.Float64() < fracLike {
-				if err := pdsCreateLike(xrpcc, post); err != nil {
+	accChan := make(chan AccountContext, len(catalog.Celebs)+len(catalog.Regulars))
+	eg := new(errgroup.Group)
+	for i := 0; i < jobs; i++ {
+		eg.Go(func() error {
+			for acc := range accChan {
+				xrpcc, err := accountXrpcClient(cctx, &acc)
+				if err != nil {
 					return err
 				}
-			}
-			if fracRepost > 0.0 && rand.Float64() < fracRepost {
-				if err := pdsCreateRepost(xrpcc, post); err != nil {
+				t1 := measureIterations("all interactions")
+				// fetch timeline (up to 100), and iterate over posts
+				maxTimeline := 100
+				resp, err := appbsky.FeedGetTimeline(context.TODO(), xrpcc, "", "", int64(maxTimeline))
+				if err != nil {
 					return err
 				}
-			}
-			if fracReply > 0.0 && rand.Float64() < fracReply {
-				if err := pdsCreateReply(xrpcc, post); err != nil {
-					return err
+				if len(resp.Feed) > maxTimeline {
+					return fmt.Errorf("got too long timeline len=%d", len(resp.Feed))
 				}
+				for _, post := range resp.Feed {
+					// skip account's own posts
+					if post.Post.Author.Did == acc.Auth.Did {
+						continue
+					}
+
+					// generate
+					if fracLike > 0.0 && rand.Float64() < fracLike {
+						if err := pdsCreateLike(xrpcc, post); err != nil {
+							return err
+						}
+					}
+					if fracRepost > 0.0 && rand.Float64() < fracRepost {
+						if err := pdsCreateRepost(xrpcc, post); err != nil {
+							return err
+						}
+					}
+					if fracReply > 0.0 && rand.Float64() < fracReply {
+						if err := pdsCreateReply(xrpcc, post); err != nil {
+							return err
+						}
+					}
+				}
+				t1(1)
 			}
-		}
-		t1(1)
+			return nil
+		})
 	}
-	return nil
+
+	for _, acc := range append(catalog.Celebs, catalog.Regulars...) {
+		accChan <- acc
+	}
+	close(accChan)
+	return eg.Wait()
+}
+
+func browseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
+	// fetch notifications
+	maxNotif := 50
+	resp, err := appbsky.NotificationList(context.TODO(), xrpcc, "", int64(maxNotif))
+	if err != nil {
+		return err
+	}
+	if len(resp.Notifications) > maxNotif {
+		return fmt.Errorf("got too many notifications len=%d", len(resp.Notifications))
+	}
+	t1 := measureIterations("notification interactions")
+	for _, notif := range resp.Notifications {
+		switch notif.Reason {
+		case "vote":
+			fallthrough
+		case "repost":
+			fallthrough
+		case "follow":
+			_, err := appbsky.ActorGetProfile(context.TODO(), xrpcc, notif.Author.Did)
+			if err != nil {
+				return err
+			}
+			_, err = appbsky.FeedGetAuthorFeed(context.TODO(), xrpcc, notif.Author.Did, "", 50)
+			if err != nil {
+				return err
+			}
+		case "mention":
+			fallthrough
+		case "reply":
+			_, err := appbsky.FeedGetPostThread(context.TODO(), xrpcc, 4, notif.Uri)
+			if err != nil {
+				return err
+			}
+		default:
+		}
+	}
+	t1(len(resp.Notifications))
+
+	// fetch timeline (up to 100), and iterate over posts
+	timelineLen := 100
+	timelineResp, err := appbsky.FeedGetTimeline(context.TODO(), xrpcc, "", "", int64(timelineLen))
+	if err != nil {
+		return err
+	}
+	if len(timelineResp.Feed) > timelineLen {
+		return fmt.Errorf("longer than expected timeline len=%d", len(timelineResp.Feed))
+	}
+	t2 := measureIterations("timeline interactions")
+	for _, post := range timelineResp.Feed {
+		// skip account's own posts
+		if post.Post.Author.Did == acc.Auth.Did {
+			continue
+		}
+		// TODO: should we do something different here?
+		if rand.Float64() < 0.25 {
+			_, err = appbsky.FeedGetPostThread(context.TODO(), xrpcc, 4, post.Post.Uri)
+			if err != nil {
+				return err
+			}
+		} else if rand.Float64() < 0.25 {
+			_, err = appbsky.ActorGetProfile(context.TODO(), xrpcc, post.Post.Author.Did)
+			if err != nil {
+				return err
+			}
+			_, err = appbsky.FeedGetAuthorFeed(context.TODO(), xrpcc, post.Post.Author.Did, "", 50)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	t2(len(timelineResp.Feed))
+
+	// notification count for good measure
+	_, err = appbsky.NotificationGetCount(context.TODO(), xrpcc)
+	return err
 }
 
 func runBrowsing(cctx *cli.Context) error {
@@ -651,77 +788,28 @@ func runBrowsing(cctx *cli.Context) error {
 		return err
 	}
 
-	for _, acc := range append(catalog.Celebs, catalog.Regulars...) {
-		xrpcc, err := accountXrpcClient(cctx, &acc)
-		if err != nil {
-			return err
-		}
+	jobs := cctx.Int("jobs")
 
-		// fetch notifications
-		resp, err := appbsky.NotificationList(context.TODO(), xrpcc, "", 50)
-		if err != nil {
-			return err
-		}
-		t1 := measureIterations("notification interactions")
-		for _, notif := range resp.Notifications {
-			switch notif.Reason {
-			case "vote":
-				fallthrough
-			case "repost":
-				fallthrough
-			case "follow":
-				_, err := appbsky.ActorGetProfile(context.TODO(), xrpcc, notif.Author.Did)
+	accChan := make(chan AccountContext, len(catalog.Celebs)+len(catalog.Regulars))
+	eg := new(errgroup.Group)
+	for i := 0; i < jobs; i++ {
+		eg.Go(func() error {
+			for acc := range accChan {
+				xrpcc, err := accountXrpcClient(cctx, &acc)
 				if err != nil {
 					return err
 				}
-				_, err = appbsky.FeedGetAuthorFeed(context.TODO(), xrpcc, notif.Author.Did, "", 50)
-				if err != nil {
-					return err
-				}
-			case "mention":
-				fallthrough
-			case "reply":
-				_, err := appbsky.FeedGetPostThread(context.TODO(), xrpcc, 4, notif.Uri)
-				if err != nil {
-					return err
-				}
-			default:
-			}
-		}
-		t1(len(resp.Notifications))
-
-		// fetch timeline (up to 100), and iterate over posts
-		timelineResp, err := appbsky.FeedGetTimeline(context.TODO(), xrpcc, "", "", 100)
-		if err != nil {
-			return err
-		}
-		t2 := measureIterations("timeline interactions")
-		for _, post := range timelineResp.Feed {
-			// skip account's own posts
-			if post.Post.Author.Did == acc.Auth.Did {
-				continue
-			}
-			// TODO: should we do something different here?
-			if rand.Float64() < 0.25 {
-				_, err = appbsky.FeedGetPostThread(context.TODO(), xrpcc, 4, post.Post.Uri)
-				if err != nil {
-					return err
-				}
-			} else if rand.Float64() < 0.25 {
-				_, err = appbsky.ActorGetProfile(context.TODO(), xrpcc, post.Post.Author.Did)
-				if err != nil {
-					return err
-				}
-				_, err = appbsky.FeedGetAuthorFeed(context.TODO(), xrpcc, post.Post.Author.Did, "", 50)
-				if err != nil {
+				if err := browseAccount(xrpcc, &acc); err != nil {
 					return err
 				}
 			}
-		}
-		t2(len(timelineResp.Feed))
-
-		// notification count for good measure
-		_, err = appbsky.NotificationGetCount(context.TODO(), xrpcc)
+			return nil
+		})
 	}
-	return nil
+
+	for _, acc := range append(catalog.Celebs, catalog.Regulars...) {
+		accChan <- acc
+	}
+	close(accChan)
+	return eg.Wait()
 }

@@ -3,6 +3,7 @@ module github.com/bluesky-social/indigo
 go 1.18
 
 require (
+	github.com/brianvoe/gofakeit/v6 v6.20.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/websocket v1.5.0
 	github.com/ipfs/go-block-format v0.0.3
@@ -18,6 +19,7 @@ require (
 	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/ipld/go-car v0.5.0
 	github.com/ipld/go-car/v2 v2.5.1
+	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.10.0
 	github.com/lestrrat-go/jwx v1.2.25
 	github.com/lestrrat-go/jwx/v2 v2.0.8
@@ -31,6 +33,7 @@ require (
 	go.opentelemetry.io/otel v1.11.2
 	go.opentelemetry.io/otel/exporters/jaeger v1.11.2
 	go.opentelemetry.io/otel/sdk v1.11.2
+	golang.org/x/sync v0.0.0-20220923202941-7f9b1623fab7
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2
 	gorm.io/driver/postgres v1.4.6
 	gorm.io/driver/sqlite v1.4.4
@@ -40,7 +43,6 @@ require (
 
 require (
 	github.com/alexbrainman/goissue34681 v0.0.0-20191006012335-3fc7a47baff5 // indirect
-	github.com/brianvoe/gofakeit/v6 v6.20.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
@@ -68,7 +70,6 @@ require (
 	github.com/jbenet/goprocess v0.1.4 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.3 // indirect
 	github.com/labstack/gommon v0.4.0 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
