@@ -191,6 +191,29 @@ type AccountContext struct {
 	Auth        xrpc.AuthInfo `json:"auth"`
 }
 
+func accountXrpcClient(cctx *cli.Context, ac *AccountContext) (*xrpc.Client, error) {
+	pdsHost := cctx.String("pds")
+	httpClient := cliutil.NewHttpClient()
+	ua := "IndigoFakerMaker"
+	xrpcc := &xrpc.Client{
+		Client: httpClient,
+		Host:   pdsHost,
+		Auth:   &ac.Auth,
+		UserAgent: &ua,
+	}
+	// use XRPC client to re-auth using user/pass
+	auth, err := comatproto.SessionCreate(context.TODO(), xrpcc, &comatproto.SessionCreate_Input{
+		Identifier: &ac.Auth.Handle,
+		Password: ac.Password,
+	})
+	if err != nil {
+		return nil, err
+	}
+	xrpcc.Auth.AccessJwt = auth.AccessJwt
+	xrpcc.Auth.RefreshJwt = auth.RefreshJwt
+	return xrpcc, nil
+}
+
 type AccountCatalog struct {
 	Celebs   []AccountContext
 	Regulars []AccountContext
@@ -331,25 +354,14 @@ func genGraph(cctx *cli.Context) error {
 		return err
 	}
 
-	pdsHost := cctx.String("pds")
 	maxFollows := cctx.Int("max-follows")
 	maxMutes := cctx.Int("max-mutes")
-	httpClient := cliutil.NewHttpClient()
-
-	if maxFollows > len(catalog.Regulars) {
-		return fmt.Errorf("not enought regulars to pick maxFollowers from")
-	}
-	if maxMutes > len(catalog.Regulars) {
-		return fmt.Errorf("not enought regulars to pick maxMutes from")
-	}
 
 	// TODO: profile: avatar, display name, description
 	for _, acc := range append(catalog.Celebs, catalog.Regulars...) {
-		// create an ATP client for this specific user
-		xrpcc := &xrpc.Client{
-			Client: httpClient,
-			Host:   pdsHost,
-			Auth:   &acc.Auth,
+		xrpcc, err := accountXrpcClient(cctx, &acc)
+		if err != nil {
+			return err
 		}
 		if err = pdsGenFollowsAndMutes(xrpcc, catalog, &acc, maxFollows, maxMutes); err != nil {
 			return err
@@ -366,6 +378,9 @@ func pdsGenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContex
 	var text string
 	ctx := context.TODO()
 
+	if maxPosts < 1 {
+		return nil
+	}
 	count := rand.Intn(maxPosts)
 
 	// celebrities make 2x the posts
@@ -502,8 +517,19 @@ func pdsGenFollowsAndMutes(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *Acc
 	// TODO: have a "shape" to likelihood of doing a follow
 	var tgt *AccountContext
 
-	regCount := rand.Intn(maxFollows)
-	celebCount := rand.Intn(len(catalog.Celebs))
+	if maxFollows > len(catalog.Regulars) {
+		return fmt.Errorf("not enought regulars to pick maxFollowers from")
+	}
+	if maxMutes > len(catalog.Regulars) {
+		return fmt.Errorf("not enought regulars to pick maxMutes from")
+	}
+
+	regCount := 0
+	celebCount := 0
+	if maxFollows >= 1 {
+		regCount = rand.Intn(maxFollows)
+		celebCount = rand.Intn(len(catalog.Celebs))
+	}
 	t1 := measureIterations("generate follows")
 	for idx := range rand.Perm(len(catalog.Celebs))[:celebCount] {
 		tgt = &catalog.Celebs[idx]
@@ -526,7 +552,10 @@ func pdsGenFollowsAndMutes(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *Acc
 	t1(regCount + celebCount)
 
 	// only muting other users, not celebs
-	muteCount := rand.Intn(maxMutes)
+	muteCount := 0
+	if maxFollows >= 1 {
+		muteCount = rand.Intn(maxMutes)
+	}
 	t2 := measureIterations("generate mutes")
 	for idx := range rand.Perm(len(catalog.Regulars))[:muteCount] {
 		tgt = &catalog.Regulars[idx]
@@ -547,18 +576,14 @@ func genPosts(cctx *cli.Context) error {
 		return err
 	}
 
-	pdsHost := cctx.String("pds")
 	maxPosts := cctx.Int("max-posts")
 	fracImage := cctx.Float64("frac-image")
 	fracMention := cctx.Float64("frac-mention")
-	httpClient := cliutil.NewHttpClient()
 
 	for _, acc := range append(catalog.Celebs, catalog.Regulars...) {
-		// create an ATP client for this specific user
-		xrpcc := &xrpc.Client{
-			Client: httpClient,
-			Host:   pdsHost,
-			Auth:   &acc.Auth,
+		xrpcc, err := accountXrpcClient(cctx, &acc)
+		if err != nil {
+			return err
 		}
 
 		// generate some more posts, similar to before (but fewer)
@@ -575,19 +600,15 @@ func genInteractions(cctx *cli.Context) error {
 		return err
 	}
 
-	pdsHost := cctx.String("pds")
 	fracLike := cctx.Float64("frac-like")
 	fracRepost := cctx.Float64("frac-repost")
 	fracReply := cctx.Float64("frac-reply")
-	httpClient := cliutil.NewHttpClient()
 
 	// TODO: profile: avatar, display name, description
 	for _, acc := range append(catalog.Celebs, catalog.Regulars...) {
-		// create an ATP client for this specific user
-		xrpcc := &xrpc.Client{
-			Client: httpClient,
-			Host:   pdsHost,
-			Auth:   &acc.Auth,
+		xrpcc, err := accountXrpcClient(cctx, &acc)
+		if err != nil {
+			return err
 		}
 
 		t1 := measureIterations("all interactions")
@@ -630,15 +651,10 @@ func runBrowsing(cctx *cli.Context) error {
 		return err
 	}
 
-	pdsHost := cctx.String("pds")
-	httpClient := cliutil.NewHttpClient()
-
 	for _, acc := range append(catalog.Celebs, catalog.Regulars...) {
-		// create an ATP client for this specific user
-		xrpcc := &xrpc.Client{
-			Client: httpClient,
-			Host:   pdsHost,
-			Auth:   &acc.Auth,
+		xrpcc, err := accountXrpcClient(cctx, &acc)
+		if err != nil {
+			return err
 		}
 
 		// fetch notifications
