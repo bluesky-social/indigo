@@ -17,6 +17,7 @@ type Client struct {
 	Auth       *AuthInfo
 	AdminToken *string
 	Host       string
+	UserAgent  *string
 }
 
 func (c *Client) getClient() *http.Client {
@@ -87,6 +88,11 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 
 	if bodyobj != nil && inpenc != "" {
 		req.Header.Set("Content-Type", inpenc)
+	}
+	if c.UserAgent != nil {
+		req.Header.Set("User-Agent", *c.UserAgent)
+	} else {
+		req.Header.Set("User-Agent", "indigo/0.0")
 	}
 
 	// use admin auth if we have it configured and are doing a request that requires it
