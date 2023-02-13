@@ -177,9 +177,9 @@ func main() {
 			},
 		},
 	}
-	all := measureIterations("entire command", 1)
+	all := measureIterations("entire command")
 	app.RunAndExitOnError()
-	all()
+	all(1)
 }
 
 type AccountContext struct {
@@ -214,7 +214,7 @@ func genAccounts(cctx *cli.Context) error {
 	var usr *AccountContext
 	var line []byte
 	countCelebrities := cctx.Int("count-celebrities")
-	t1 := measureIterations("register celebrity accounts", countCelebrities)
+	t1 := measureIterations("register celebrity accounts")
 	for i := 0; i < countCelebrities; i++ {
 		if usr, err = pdsGenAccount(xrpcc, i, "celebrity"); err != nil {
 			return err
@@ -225,9 +225,9 @@ func genAccounts(cctx *cli.Context) error {
 		}
 		fmt.Println(string(line))
 	}
-	t1()
+	t1(countCelebrities)
 	countRegulars := cctx.Int("count-regulars")
-	t2 := measureIterations("register regular accounts", countRegulars)
+	t2 := measureIterations("register regular accounts")
 	for i := 0; i < countRegulars; i++ {
 		if usr, err = pdsGenAccount(xrpcc, i, "regular"); err != nil {
 			return err
@@ -238,16 +238,16 @@ func genAccounts(cctx *cli.Context) error {
 		}
 		fmt.Println(string(line))
 	}
-	t2()
+	t2(countRegulars)
 	return nil
 }
 
-func measureIterations(name string, count int) func() {
-	if count == 0 {
-		return func() {}
-	}
+func measureIterations(name string) func(int) {
 	start := time.Now()
-	return func() {
+	return func(count int) {
+		if count == 0 {
+			return
+		}
 		total := time.Since(start)
 		log.Infof("%s wall runtime: count=%d total=%s mean=%s", name, count, total, total/time.Duration(count))
 	}
@@ -372,7 +372,7 @@ func pdsGenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContex
 	if acc.AccountType == "celebrity" {
 		count = count * 2
 	}
-	t1 := measureIterations("generate posts", count)
+	t1 := measureIterations("generate posts")
 	for i := 0; i < count; i++ {
 		text = gofakeit.Sentence(10)
 		if len(text) > 200 {
@@ -419,7 +419,7 @@ func pdsGenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContex
 			return err
 		}
 	}
-	t1()
+	t1(count)
 	return nil
 }
 
@@ -504,7 +504,7 @@ func pdsGenFollowsAndMutes(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *Acc
 
 	regCount := rand.Intn(maxFollows)
 	celebCount := rand.Intn(len(catalog.Celebs))
-	t1 := measureIterations("generate follows", regCount+celebCount)
+	t1 := measureIterations("generate follows")
 	for idx := range rand.Perm(len(catalog.Celebs))[:celebCount] {
 		tgt = &catalog.Celebs[idx]
 		if tgt.Auth.Did == acc.Auth.Did {
@@ -523,11 +523,11 @@ func pdsGenFollowsAndMutes(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *Acc
 			return err
 		}
 	}
-	t1()
+	t1(regCount + celebCount)
 
 	// only muting other users, not celebs
 	muteCount := rand.Intn(maxMutes)
-	t2 := measureIterations("generate mutes", muteCount)
+	t2 := measureIterations("generate mutes")
 	for idx := range rand.Perm(len(catalog.Regulars))[:muteCount] {
 		tgt = &catalog.Regulars[idx]
 		if tgt.Auth.Did == acc.Auth.Did {
@@ -537,7 +537,7 @@ func pdsGenFollowsAndMutes(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *Acc
 			return err
 		}
 	}
-	t2()
+	t2(muteCount)
 	return nil
 }
 
@@ -619,7 +619,7 @@ func genInteractions(cctx *cli.Context) error {
 				}
 			}
 		}
-		t1()
+		t1(1)
 	}
 	return nil
 }
@@ -646,7 +646,7 @@ func runBrowsing(cctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		t1 := measureIterations("notification interactions", len(resp.Notifications))
+		t1 := measureIterations("notification interactions")
 		for _, notif := range resp.Notifications {
 			switch notif.Reason {
 			case "vote":
@@ -672,14 +672,14 @@ func runBrowsing(cctx *cli.Context) error {
 			default:
 			}
 		}
-		t1()
+		t1(len(resp.Notifications))
 
 		// fetch timeline (up to 100), and iterate over posts
 		timelineResp, err := appbsky.FeedGetTimeline(context.TODO(), xrpcc, "", "", 100)
 		if err != nil {
 			return err
 		}
-		t2 := measureIterations("timeline interactions", len(timelineResp.Feed))
+		t2 := measureIterations("timeline interactions")
 		for _, post := range timelineResp.Feed {
 			// skip account's own posts
 			if post.Post.Author.Did == acc.Auth.Did {
@@ -702,7 +702,7 @@ func runBrowsing(cctx *cli.Context) error {
 				}
 			}
 		}
-		t2()
+		t2(len(timelineResp.Feed))
 
 		// notification count for good measure
 		_, err = appbsky.NotificationGetCount(context.TODO(), xrpcc)
