@@ -18,7 +18,7 @@ src/build/
 *.log
 *.db
 data/
-fakegen-accounts.json
+fakermaker-accounts.json
 
 # Don't ignore this file itself, or other specific dotfiles
 !.gitignore
