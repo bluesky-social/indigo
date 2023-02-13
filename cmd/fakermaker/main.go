@@ -24,7 +24,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var log = logging.Logger("fakegen")
+var log = logging.Logger("fakermaker")
 
 func main() {
 
@@ -37,7 +37,7 @@ func main() {
 	}
 
 	app := &cli.App{
-		Name:  "fakegen",
+		Name:  "fakermaker",
 		Usage: "bluesky fake account/content generator",
 	}
 
@@ -81,7 +81,7 @@ func main() {
 				&cli.StringFlag{
 					Name:  "catalog",
 					Usage: "file path of account catalog JSON file",
-					Value: "fakegen-accounts.json",
+					Value: "fakermaker-accounts.json",
 				},
 				&cli.IntFlag{
 					Name:  "max-posts",
@@ -118,7 +118,7 @@ func main() {
 				&cli.StringFlag{
 					Name:  "catalog",
 					Usage: "file path of account catalog JSON file",
-					Value: "fakegen-accounts.json",
+					Value: "fakermaker-accounts.json",
 				},
 				&cli.IntFlag{
 					Name:  "max-posts",
@@ -160,7 +160,7 @@ func main() {
 				&cli.StringFlag{
 					Name:  "catalog",
 					Usage: "file path of account catalog JSON file",
-					Value: "fakegen-accounts.json",
+					Value: "fakermaker-accounts.json",
 				},
 			},
 		},
