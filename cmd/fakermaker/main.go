@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -84,6 +85,28 @@ func main() {
 			},
 		},
 		&cli.Command{
+			Name:   "gen-profiles",
+			Usage:  "creates profile records for accounts",
+			Action: genProfiles,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "catalog",
+					Usage: "file path of account catalog JSON file",
+					Value: "data/fakermaker/accounts.json",
+				},
+				&cli.BoolFlag{
+					Name:  "no-avatars",
+					Usage: "disable avatar image generation",
+					Value: false,
+				},
+				&cli.BoolFlag{
+					Name:  "no-banners",
+					Usage: "disable profile banner image generation",
+					Value: false,
+				},
+			},
+		},
+		&cli.Command{
 			Name:   "gen-graph",
 			Usage:  "creates social graph (follows and mutes)",
 			Action: genGraph,
@@ -94,11 +117,6 @@ func main() {
 					Value: "data/fakermaker/accounts.json",
 				},
 				&cli.IntFlag{
-					Name:  "max-posts",
-					Usage: "create up to this many posts for each account; celebs do 2x",
-					Value: 100,
-				},
-				&cli.IntFlag{
 					Name:  "max-follows",
 					Usage: "create up to this many follows for each account",
 					Value: 100,
@@ -107,16 +125,6 @@ func main() {
 					Name:  "max-mutes",
 					Usage: "create up to this many mutes (blocks) for each account",
 					Value: 25,
-				},
-				&cli.Float64Flag{
-					Name:  "frac-image",
-					Usage: "portion of posts to include images in",
-					Value: 0.25,
-				},
-				&cli.Float64Flag{
-					Name:  "frac-mention",
-					Usage: "of posts created, fraction to include mentions in",
-					Value: 0.25,
 				},
 			},
 		},
@@ -365,6 +373,88 @@ func readAccountCatalog(path string) (*AccountCatalog, error) {
 	return catalog, nil
 }
 
+func genProfiles(cctx *cli.Context) error {
+	catalog, err := readAccountCatalog(cctx.String("catalog"))
+	if err != nil {
+		return err
+	}
+
+	genAvatar := !cctx.Bool("no-avatars")
+	genBanner := !cctx.Bool("no-banners")
+	jobs := cctx.Int("jobs")
+
+	accChan := make(chan AccountContext, len(catalog.Celebs)+len(catalog.Regulars))
+	eg := new(errgroup.Group)
+	for i := 0; i < jobs; i++ {
+		eg.Go(func() error {
+			for acc := range accChan {
+				xrpcc, err := accountXrpcClient(cctx, &acc)
+				if err != nil {
+					return err
+				}
+				if err = pdsGenProfile(xrpcc, &acc, genAvatar, genBanner); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	for _, acc := range append(catalog.Celebs, catalog.Regulars...) {
+		accChan <- acc
+	}
+	close(accChan)
+	return eg.Wait()
+}
+
+func pdsGenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner bool) error {
+
+	desc := gofakeit.HipsterSentence(12)
+	var name string
+	if acc.AccountType == "celebrity" {
+		name = gofakeit.CelebrityActor()
+	} else {
+		name = gofakeit.Name()
+	}
+
+	var avatar *lexutil.Blob
+	if genAvatar {
+		// TODO: PNG uploads currently broken with PDS
+		//img := gofakeit.ImagePng(200, 200)
+		img := gofakeit.ImageJpeg(200, 200)
+		resp, err := comatproto.BlobUpload(context.TODO(), xrpcc, bytes.NewReader(img))
+		if err != nil {
+			return err
+		}
+		avatar = &lexutil.Blob{
+			Cid: resp.Cid,
+			// TODO: see above
+			//MimeType: "image/png",
+			MimeType: "image/jpeg",
+		}
+	}
+	var banner *lexutil.Blob
+	if genBanner {
+		img := gofakeit.ImageJpeg(800, 200)
+		resp, err := comatproto.BlobUpload(context.TODO(), xrpcc, bytes.NewReader(img))
+		if err != nil {
+			return err
+		}
+		avatar = &lexutil.Blob{
+			Cid:      resp.Cid,
+			MimeType: "image/jpeg",
+		}
+	}
+
+	_, err := appbsky.ActorUpdateProfile(context.TODO(), xrpcc, &appbsky.ActorUpdateProfile_Input{
+		Description: &desc,
+		DisplayName: &name,
+		Avatar:      avatar,
+		Banner:      banner,
+	})
+	return err
+}
+
 func genGraph(cctx *cli.Context) error {
 	catalog, err := readAccountCatalog(cctx.String("catalog"))
 	if err != nil {
@@ -392,7 +482,6 @@ func genGraph(cctx *cli.Context) error {
 		})
 	}
 
-	// TODO: profile: avatar, display name, description
 	for _, acc := range append(catalog.Celebs, catalog.Regulars...) {
 		accChan <- acc
 	}
@@ -404,7 +493,6 @@ func pdsGenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContex
 
 	var mention *appbsky.FeedPost_Entity
 	var tgt *AccountContext
-	var embed *appbsky.FeedPost_Embed
 	var text string
 	ctx := context.TODO()
 
@@ -444,17 +532,34 @@ func pdsGenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContex
 			}
 		}
 
-		embed = nil
+		var images []*appbsky.EmbedImages_Image
 		if fracImage > 0.0 && rand.Float64() < fracImage {
-			// XXX: add some images
+			img := gofakeit.ImageJpeg(800, 800)
+			resp, err := comatproto.BlobUpload(context.TODO(), xrpcc, bytes.NewReader(img))
+			if err != nil {
+				return err
+			}
+			images = append(images, &appbsky.EmbedImages_Image{
+				Alt: gofakeit.Lunch(),
+				Image: &lexutil.Blob{
+					Cid:      resp.Cid,
+					MimeType: "image/jpeg",
+				},
+			})
 		}
 		post := appbsky.FeedPost{
 			Text:      text,
-			Embed:     embed,
 			CreatedAt: time.Now().Format(time.RFC3339),
 		}
 		if mention != nil {
 			post.Entities = []*appbsky.FeedPost_Entity{mention}
+		}
+		if len(images) > 0 {
+			post.Embed = &appbsky.FeedPost_Embed{
+				EmbedImages: &appbsky.EmbedImages{
+					Images: images,
+				},
+			}
 		}
 		if _, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.feed.post",
