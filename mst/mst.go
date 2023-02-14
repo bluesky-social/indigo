@@ -782,15 +782,22 @@ func serializeNodeData(entries []NodeEntry) (*NodeData, error) {
 	return &data, nil
 }
 
+func min(a, b int) int {
+    if a < b {
+        return a
+    }
+    return b
+}
+
+// how many leading chars are identical between the two strings?
 func countPrefixLen(a, b string) int {
-	// this is probably wrong
-	for i := 0; i < len(a); i++ {
+	count := min(len(a), len(b))
+	for i := 0; i < count; i++ {
 		if a[i] != b[i] {
 			return i
 		}
 	}
-
-	return len(a)
+	return count
 }
 
 func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, layer int, fanout int) ([]NodeEntry, error) {
@@ -872,6 +879,10 @@ func log2(v int) int {
 	return out
 }
 
+// Used to determine the "depth" of keys in an MST.
+// `fanout` parameter is the number of childen at each node. For
+// atproto, as of later 2022 this is always 16, which corresponds to
+// measuring 4 bits groups for "zeroness".
 func leadingZerosOnHash(k string, fanout int) int {
 	hv := sha256.Sum256([]byte(k))
 
