@@ -21,8 +21,6 @@ type MerkleSearchTree struct {
 	layer    int
 	pointer  cid.Cid
 	validPtr bool
-
-	cachedCid cid.Cid
 }
 
 func NewMST(cst cbor.IpldStore, fanout int, ptr cid.Cid, entries []NodeEntry, layer int) *MerkleSearchTree {
