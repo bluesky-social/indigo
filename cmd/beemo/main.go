@@ -9,18 +9,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	"github.com/bluesky-social/indigo/xrpc"
 
 	logging "github.com/ipfs/go-log"
+	"github.com/joho/godotenv"
 	"github.com/urfave/cli/v2"
 )
 
 var log = logging.Logger("beemo")
 
 func main() {
+
+	// only try dotenv if it exists
+	if _, err := os.Stat(".env"); err == nil {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatal("Error loading .env file")
+		}
+	}
 
 	app := &cli.App{
 		Name:  "beemo",
@@ -29,26 +40,28 @@ func main() {
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			// TODO: Name:    "pds-host",
 			Name:    "pds",
 			Usage:   "hostname and port of PDS instance",
 			Value:   "http://localhost:4849",
 			EnvVars: []string{"ATP_PDS_HOST"},
 		},
 		&cli.StringFlag{
-			// TODO: Name:     "auth-token",
-			Name:     "auth",
-			Usage:    "authentication token for PDS",
+			Name:     "handle",
+			Usage:    "for PDS login",
 			Required: true,
-			// TODO: EnvVars:  []string{"ATP_AUTH_TOKEN"},
-			EnvVars: []string{"BSKY_AUTH"},
+			EnvVars:  []string{"ATP_AUTH_HANDLE"},
+		},
+		&cli.StringFlag{
+			Name:     "password",
+			Usage:    "for PDS login",
+			Required: true,
+			EnvVars:  []string{"ATP_AUTH_PASSWORD"},
 		},
 		&cli.StringFlag{
 			Name:     "admin-token",
 			Usage:    "admin authentication token for PDS",
 			Required: true,
-			// TODO: EnvVars:  []string{"ATP_ADMIN_TOKEN"},
-			EnvVars: []string{"BSKY_ADMIN_AUTH"},
+			EnvVars:  []string{"ATP_ADMIN_TOKEN"},
 		},
 		&cli.StringFlag{
 			Name: "slack-webhook-url",
@@ -80,13 +93,29 @@ func pollNewReports(cctx *cli.Context) error {
 	// NOTE: uncomment this for testing
 	//since = time.Now().Add(time.Duration(-12) * time.Hour)
 	period := time.Duration(cctx.Int("poll-period")) * time.Second
-	atpc, err := cliutil.GetATPClient(cctx, false)
+
+	// create a new session
+	xrpcc := &xrpc.Client{
+		Client: cliutil.NewHttpClient(),
+		Host:   cctx.String("pds"),
+		Auth:   &xrpc.AuthInfo{Handle: cctx.String("handle")},
+	}
+
+	auth, err := comatproto.SessionCreate(context.TODO(), xrpcc, &comatproto.SessionCreate_Input{
+		Identifier: &xrpcc.Auth.Handle,
+		Password:   cctx.String("password"),
+	})
 	if err != nil {
 		return err
 	}
+	xrpcc.Auth.AccessJwt = auth.AccessJwt
+	xrpcc.Auth.RefreshJwt = auth.RefreshJwt
+	xrpcc.Auth.Did = auth.Did
+	xrpcc.Auth.Handle = auth.Handle
+
 	adminToken := cctx.String("admin-token")
 	if len(adminToken) > 0 {
-		atpc.C.AdminToken = &adminToken
+		xrpcc.AdminToken = &adminToken
 	}
 	log.Infof("report polling bot starting up...")
 	// can flip this bool to false to prevent spamming slack channel on startup
@@ -100,7 +129,7 @@ func pollNewReports(cctx *cli.Context) error {
 		// AdminGetModerationReports(ctx context.Context, c *xrpc.Client, subject *string, resolved *bool, before *string, limit *int64)
 		resolved := false
 		var limit int64 = 50
-		mrr, err := comatproto.AdminGetModerationReports(context.TODO(), atpc.C, "", limit, resolved, "")
+		mrr, err := comatproto.AdminGetModerationReports(context.TODO(), xrpcc, "", limit, resolved, "")
 		if err != nil {
 			return err
 		}
