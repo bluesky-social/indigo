@@ -9,25 +9,27 @@ Commands (run with, eg, `go run ./cmd/bigsky`):
 - `cmd/pds`: PDS daemon
 - `cmd/stress`: connects to local/default PDS and creates a ton of random posts
 - `cmd/beemo`: slack bot for moderation reporting (Bluesky Moderation Observer)
+- `cmd/fakermaker`: helper to generate fake accounts and content for testing
 - `gen`: dev tool to run CBOR type codegen
 
 Packages:
 
 - `api`: mostly output of lexgen (codegen) for lexicons: structs, CBOR marshaling. some higher-level code, and a PLC client (may rename)
+    - `api/atprot`: generated types for `com.atproto` lexicon
+    - `api/bsky`: generated types for `app.bsky` lexicon
 - `bgs`: server implementation for crawling, etc
 - `carstore`: library for storing repo data in CAR files on disk, plus a metadata SQL db
 - `events`: types, codegen CBOR helpers, and persistence for event feeds
 - `indexer`: aggregator, handling like counts etc in SQL database
-- `key`: did:key crypto helpers (serialization, signing) (may rename or spin out)
 - `lex`: implements codegen for Lexicons (!)
+- `models`: database types/models/schemas; shared in several places
 - `mst`: merkle search tree implementation
 - `notifs`: helpers for notification objects (hydration, etc)
+- `pds`: PDS server implementation
 - `plc`: implementation of a *fake* PLC server (not persisted), and a PLC client
 - `repo`: implements atproto repo on top of a blockstore. CBOR types
 - `repomgr`: wraps many repos with a single carstore backend. handles events, locking
-- `pds`: PDS server implementation
 - `testing`: integration tests; testing helpers
-- `models`: database types/models/schemas; shared in several places
 - `util`: a few common definitions (may rename)
 - `xrpc`: XRPC client (not server) helpers
 
