@@ -126,6 +126,15 @@ func pollNewReports(cctx *cli.Context) error {
 		}
 	}
 	for {
+		// refresh session
+		xrpcc.Auth.AccessJwt = xrpcc.Auth.RefreshJwt
+		refresh, err := comatproto.SessionRefresh(context.TODO(), xrpcc)
+		if err != nil {
+			return err
+		}
+		xrpcc.Auth.AccessJwt = refresh.AccessJwt
+		xrpcc.Auth.RefreshJwt = refresh.RefreshJwt
+
 		// AdminGetModerationReports(ctx context.Context, c *xrpc.Client, subject *string, resolved *bool, before *string, limit *int64)
 		resolved := false
 		var limit int64 = 50
