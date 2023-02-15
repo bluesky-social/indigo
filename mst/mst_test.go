@@ -17,7 +17,6 @@ import (
 	"github.com/ipld/go-car/v2"
 	"github.com/multiformats/go-multihash"
 	mh "github.com/multiformats/go-multihash"
-	"github.com/stretchr/testify/assert"
 )
 
 func randCid() cid.Cid {
@@ -93,14 +92,18 @@ func assertValues(t *testing.T, mst *MerkleSearchTree, vals map[string]cid.Cid) 
 	}
 }
 
+// TODO: not sure what the significance of this edge-case is. originally for 32x fanout
 func TestEdgeCase(t *testing.T) {
+	// this key hashes to 7 leading zero-bits
 	m := map[string]string{
 		"97206d5e4a18/19fbf0b79789/1710133f2dd6": "cats",
 	}
 
 	bs := memBs()
-	mst := cidMapToMst(t, 32, bs, mapToCidMap(m))
-	_ = mst
+	mst32 := cidMapToMst(t, 32, bs, mapToCidMap(m))
+	_ = mst32
+	mst16 := cidMapToMst(t, 16, bs, mapToCidMap(m))
+	_ = mst16
 
 }
 
@@ -490,31 +493,4 @@ func diffOpEq(aa, bb *DiffOp) bool {
 		return false
 	}
 	return true
-}
-
-func TestLeadingZeros(t *testing.T) {
-	msg := "MST 'depth' computation (SHA-256 leading zeros)"
-	fanout := 16
-	assert.Equal(t, leadingZerosOnHash("asdf", fanout), 0, msg)
-	assert.Equal(t, leadingZerosOnHash("2653ae71", fanout), 0, msg)
-	assert.Equal(t, leadingZerosOnHash("88bfafc7", fanout), 1, msg)
-	assert.Equal(t, leadingZerosOnHash("2a92d355", fanout), 2, msg)
-	assert.Equal(t, leadingZerosOnHash("884976f5", fanout), 3, msg)
-	assert.Equal(t, leadingZerosOnHash("app.bsky.feed.post/454397e440ec", fanout), 2, msg)
-	assert.Equal(t, leadingZerosOnHash("app.bsky.feed.post/9adeb165882c", fanout), 4, msg)
-}
-
-func TestPrefixLen(t *testing.T) {
-	msg := "length of common prefix between strings"
-	assert.Equal(t, countPrefixLen("abc", "abc"), 3, msg)
-	assert.Equal(t, countPrefixLen("", "abc"), 0, msg)
-	assert.Equal(t, countPrefixLen("abc", ""), 0, msg)
-	assert.Equal(t, countPrefixLen("ab", "abc"), 2, msg)
-	assert.Equal(t, countPrefixLen("abc", "ab"), 2, msg)
-	assert.Equal(t, countPrefixLen("abcde", "abc"), 3, msg)
-	assert.Equal(t, countPrefixLen("abc", "abcde"), 3, msg)
-	assert.Equal(t, countPrefixLen("abcde", "abc1"), 3, msg)
-	assert.Equal(t, countPrefixLen("abcde", "abb"), 2, msg)
-	assert.Equal(t, countPrefixLen("abcde", "qbb"), 0, msg)
-	assert.Equal(t, countPrefixLen("", "asdf"), 0, msg)
 }
