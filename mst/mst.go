@@ -133,15 +133,15 @@ func (ne NodeEntry) isUndefined() bool {
 }
 
 type TreeEntry struct {
-	P    int64    `cborgen:"p"`
-	K    string   `cborgen:"k"`
-	V    cid.Cid  `cborgen:"v"`
-	Tree *cid.Cid `cborgen:"t"`
+	PrefixLen int64    `cborgen:"p"` // count of characters shared with previous path/key in tree
+	KeySuffix string   `cborgen:"k"` // remaining part of path/key (appended to "previous key")
+	Val       cid.Cid  `cborgen:"v"` // CID pointer at this path/key
+	Tree      *cid.Cid `cborgen:"t"` // [optional] pointer to lower-level subtree to the "right" of this path/key entry
 }
 
 type NodeData struct {
-	L *cid.Cid    `cborgen:"l"`
-	E []TreeEntry `cborgen:"e"`
+	Left    *cid.Cid    `cborgen:"l"` // [optional] pointer to lower-level subtree to the "left" of this path/key
+	Entries []TreeEntry `cborgen:"e"` // ordered list of entries at this node
 }
 
 func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, knownZeros int) (*MerkleSearchTree, error) {
@@ -667,9 +667,9 @@ func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]NodeEntry, error
 
 func entriesFromNodeData(ctx context.Context, nd *NodeData, cst cbor.IpldStore) ([]NodeEntry, error) {
 	layer := -1
-	if len(nd.E) > 0 {
-		firstLeaf := nd.E[0]
-		layer = leadingZerosOnHash(firstLeaf.K)
+	if len(nd.Entries) > 0 {
+		firstLeaf := nd.Entries[0]
+		layer = leadingZerosOnHash(firstLeaf.KeySuffix)
 	}
 
 	entries, err := deserializeNodeData(ctx, cst, nd, layer)
@@ -685,6 +685,7 @@ func (mst *MerkleSearchTree) getPointer(ctx context.Context) (cid.Cid, error) {
 		return mst.pointer, nil
 	}
 
+	// XXX(bnewbold): refactor to be more idiomatic golang
 	entries, err := mst.getEntries(ctx)
 	if err != nil {
 		return cid.Undef, err
@@ -743,7 +744,7 @@ func serializeNodeData(entries []NodeEntry) (*NodeData, error) {
 		if err != nil {
 			return nil, err
 		}
-		data.L = &ptr
+		data.Left = &ptr
 	}
 
 	var lastKey string
@@ -773,11 +774,11 @@ func serializeNodeData(entries []NodeEntry) (*NodeData, error) {
 		}
 
 		prefixLen := countPrefixLen(lastKey, leaf.Key)
-		data.E = append(data.E, TreeEntry{
-			P:    int64(prefixLen),
-			K:    leaf.Key[prefixLen:],
-			V:    leaf.Val,
-			Tree: subtree,
+		data.Entries = append(data.Entries, TreeEntry{
+			PrefixLen: int64(prefixLen),
+			KeySuffix: leaf.Key[prefixLen:],
+			Val:       leaf.Val,
+			Tree:      subtree,
 		})
 
 		lastKey = leaf.Key
@@ -806,23 +807,23 @@ func countPrefixLen(a, b string) int {
 
 func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, layer int) ([]NodeEntry, error) {
 	entries := []NodeEntry{}
-	if nd.L != nil {
+	if nd.Left != nil {
 		entries = append(entries, NodeEntry{
 			Kind: EntryTree,
-			Tree: NewMST(cst, *nd.L, nil, layer-1),
+			Tree: NewMST(cst, *nd.Left, nil, layer-1),
 		})
 	}
 
 	var lastKey string
-	for _, e := range nd.E {
-		key := make([]byte, int(e.P)+len(e.K))
-		copy(key, lastKey[:e.P])
-		copy(key[e.P:], e.K)
+	for _, e := range nd.Entries {
+		key := make([]byte, int(e.PrefixLen)+len(e.KeySuffix))
+		copy(key, lastKey[:e.PrefixLen])
+		copy(key[e.PrefixLen:], e.KeySuffix)
 
 		entries = append(entries, NodeEntry{
 			Kind: EntryLeaf,
 			Key:  string(key),
-			Val:  e.V,
+			Val:  e.Val,
 		})
 
 		if e.Tree != nil {
