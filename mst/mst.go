@@ -179,6 +179,8 @@ func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]NodeEntry, error
 		if err := mst.cst.Get(ctx, mst.pointer, &nd); err != nil {
 			return nil, err
 		}
+		// NOTE(bnewbold): Typescript version computes layer in-place here, but
+		// the entriesFromNodeData() helper does that for us in golang
 		entries, err := entriesFromNodeData(ctx, &nd, mst.cst)
 		if err != nil {
 			return nil, err
@@ -186,7 +188,6 @@ func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]NodeEntry, error
 		if entries == nil {
 			panic("got nil entries from node data decoding")
 		}
-		// XXX(bnewbold): compute and set layer here
 		mst.entries = entries
 		return entries, nil
 	}
@@ -217,24 +218,26 @@ func (mst *MerkleSearchTree) GetPointer(ctx context.Context) (cid.Cid, error) {
 		return mst.pointer, nil
 	}
 
-	// XXX: do this more idiomatically: update entries in-place as needed
-	entries, err := mst.getEntries(ctx)
+	// NOTE(bnewbold): this is a bit different from how Typescript version works
+	// update in-place; first ensure that mst.entries is hydrated
+	_, err := mst.getEntries(ctx)
 	if err != nil {
 		return cid.Undef, err
 	}
 
-	for _, e := range entries {
+	for i, e := range mst.entries {
 		if e.isTree() {
 			if !e.Tree.validPtr {
 				_, err := e.Tree.GetPointer(ctx)
 				if err != nil {
 					return cid.Undef, err
 				}
+				mst.entries[i] = e
 			}
 		}
 	}
 
-	nptr, err := cidForEntries(ctx, entries, mst.cst)
+	nptr, err := cidForEntries(ctx, mst.entries, mst.cst)
 	if err != nil {
 		return cid.Undef, err
 	}
@@ -357,11 +360,11 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 		}
 
 		// "else we try to split the subtree around the key"
-		// XXX(bnewbold): this part is different; no "mst.replaceWithSplit"
 		left, right, err := prevNode.Tree.splitAround(ctx, key)
 		if err != nil {
 			return nil, err
 		}
+		// NOTE(bnewbold): added this replaceWithSplit() call
 		return mst.replaceWithSplit(ctx, index-1, left, newLeaf, right)
 
 	} else if keyZeros < layer {
@@ -683,7 +686,7 @@ func (mst *MerkleSearchTree) atIndex(ix int) (NodeEntry, error) {
 		return NodeEntry{}, err
 	}
 
-	// TODO: same as Typescript, but shouldn't it error instead of returning null?
+	// TODO(bnewbold): same as Typescript, but shouldn't this error instead of returning null?
 	if ix < 0 || ix >= len(entries) {
 		return NodeEntry{}, nil
 	}
@@ -691,7 +694,7 @@ func (mst *MerkleSearchTree) atIndex(ix int) (NodeEntry, error) {
 	return entries[ix], nil
 }
 
-// XXX(bnewbold): slice( start?: number | undefined, end?: number | undefined,): Promise<NodeEntry[]>
+// NOTE(bnewbold): unlike Typescript, golang does not really need the slice(start?, end?) helper
 
 // "inserts entry at index"
 func (mst *MerkleSearchTree) spliceIn(ctx context.Context, entry NodeEntry, ix int) (*MerkleSearchTree, error) {
