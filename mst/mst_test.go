@@ -34,7 +34,7 @@ func TestBasicMst(t *testing.T) {
 
 	ctx := context.Background()
 	cst := util.CborStore(blockstore.NewBlockstore(datastore.NewMapDatastore()))
-	mst := NewMST(cst, 16, cid.Undef, []NodeEntry{}, -1)
+	mst := NewMST(cst, cid.Undef, []NodeEntry{}, -1)
 
 	vals := map[string]cid.Cid{
 		"cats":           randCid(),
@@ -100,10 +100,8 @@ func TestEdgeCase(t *testing.T) {
 	}
 
 	bs := memBs()
-	mst32 := cidMapToMst(t, 32, bs, mapToCidMap(m))
-	_ = mst32
-	mst16 := cidMapToMst(t, 16, bs, mapToCidMap(m))
-	_ = mst16
+	mst := cidMapToMst(t, bs, mapToCidMap(m))
+	_ = mst
 
 }
 
@@ -189,8 +187,8 @@ func TestDiffInsertionsBasic(t *testing.T) {
 	b["cats/bawda"] = randStr(3)
 	b["cats/crosasd"] = randStr(4)
 
-	testMapDiffs(t, a, b, 32)
-	testMapDiffs(t, b, a, 32)
+	testMapDiffs(t, a, b)
+	testMapDiffs(t, b, a)
 }
 
 func randKey(s int64) string {
@@ -215,8 +213,8 @@ func TestDiffInsertionsLarge(t *testing.T) {
 		b[randKey(5000+i)] = randStr(2293825 - i)
 	}
 
-	testMapDiffs(t, a, b, 32)
-	testMapDiffs(t, b, a, 32)
+	testMapDiffs(t, a, b)
+	testMapDiffs(t, b, a)
 }
 
 func TestDiffNoOverlap(t *testing.T) {
@@ -230,8 +228,8 @@ func TestDiffNoOverlap(t *testing.T) {
 		b[randKey(5000+i)] = randStr(2293825 - i)
 	}
 
-	testMapDiffs(t, a, b, 32)
-	testMapDiffs(t, b, a, 32)
+	testMapDiffs(t, a, b)
+	testMapDiffs(t, b, a)
 }
 
 func TestDiffSmallOverlap(t *testing.T) {
@@ -250,7 +248,7 @@ func TestDiffSmallOverlap(t *testing.T) {
 		b[randKey(5000+i)] = randStr(2293825 - i)
 	}
 
-	testMapDiffs(t, a, b, 32)
+	testMapDiffs(t, a, b)
 	//testMapDiffs(t, b, a)
 }
 
@@ -270,7 +268,7 @@ func TestDiffSmallOverlapSmall(t *testing.T) {
 		b[randKey(5000+i)] = randStr(2293825 - i)
 	}
 
-	testMapDiffs(t, a, b, 4)
+	testMapDiffs(t, a, b)
 	//testMapDiffs(t, b, a)
 }
 
@@ -283,7 +281,7 @@ func TestDiffMutationsBasic(t *testing.T) {
 	b := copyMap(a)
 	b["cats/asdf"] = randStr(3)
 
-	testMapDiffs(t, a, b, 32)
+	testMapDiffs(t, a, b)
 }
 
 func diffMaps(a, b map[string]cid.Cid) []*DiffOp {
@@ -359,9 +357,9 @@ func mapToCidMap(a map[string]string) map[string]cid.Cid {
 	return out
 }
 
-func cidMapToMst(t *testing.T, fanout int, bs blockstore.Blockstore, m map[string]cid.Cid) *MerkleSearchTree {
+func cidMapToMst(t *testing.T, bs blockstore.Blockstore, m map[string]cid.Cid) *MerkleSearchTree {
 	cst := util.CborStore(bs)
-	mt := NewMST(cst, fanout, cid.Undef, []NodeEntry{}, -1)
+	mt := NewMST(cst, cid.Undef, []NodeEntry{}, -1)
 
 	for k, v := range m {
 		nmst, err := mt.Add(context.TODO(), k, v, -1)
@@ -387,7 +385,7 @@ func memBs() blockstore.Blockstore {
 	return blockstore.NewBlockstore(datastore.NewMapDatastore())
 }
 
-func testMapDiffs(t *testing.T, a, b map[string]string, fanout int) {
+func testMapDiffs(t *testing.T, a, b map[string]string) {
 	amc := mapToCidMap(a)
 	bmc := mapToCidMap(b)
 
@@ -395,8 +393,8 @@ func testMapDiffs(t *testing.T, a, b map[string]string, fanout int) {
 
 	bs := memBs()
 
-	msta := cidMapToMst(t, fanout, bs, amc)
-	mstb := cidMapToMst(t, fanout, bs, bmc)
+	msta := cidMapToMst(t, bs, amc)
+	mstb := cidMapToMst(t, bs, bmc)
 
 	cida := mustCidTree(t, msta)
 	cidb := mustCidTree(t, mstb)
