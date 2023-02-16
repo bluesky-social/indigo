@@ -122,12 +122,11 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blocks.Block, error) {
 		Select("path, block_refs.offset").
 		Joins("left join car_shards on block_refs.shard = car_shards.id").
 		Where("usr = ? AND cid = ?", uv.user, k.String()).
-		First(&info).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, ipld.ErrNotFound{k}
-
-		}
+		Find(&info).Error; err != nil {
 		return nil, err
+	}
+	if info.Path == "" {
+		return nil, ipld.ErrNotFound{k}
 	}
 
 	if uv.prefetch {
@@ -283,7 +282,7 @@ func (cs *CarStore) NewDeltaSession(ctx context.Context, user uint, prev *cid.Ci
 	}
 
 	if prev != nil {
-		if lastShard.Root != "" && lastShard.Root != prev.String() {
+		if lastShard.Root != prev.String() {
 			return nil, ErrRepoBaseMismatch
 		}
 	}
@@ -638,4 +637,21 @@ func (cs *CarStore) ImportSlice(ctx context.Context, uid uint, prev *cid.Cid, ca
 	}
 
 	return carr.Header.Roots[0], ds, nil
+}
+
+func (cs *CarStore) GetUserRepoHead(ctx context.Context, user uint) (cid.Cid, error) {
+	lastShard, err := cs.getLastShard(ctx, user)
+	if err != nil {
+		return cid.Undef, err
+	}
+	if lastShard.ID == 0 {
+		return cid.Undef, nil
+	}
+
+	c, err := cid.Decode(lastShard.Root)
+	if err != nil {
+		return cid.Undef, fmt.Errorf("invalid cid in shard: %w", err)
+	}
+
+	return c, nil
 }

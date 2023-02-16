@@ -3,7 +3,6 @@ package events
 import (
 	"fmt"
 
-	cid "github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 )
 
@@ -37,7 +36,7 @@ const (
 type Operation struct {
 	op  int
 	sub *Subscriber
-	evt *RepoEvent
+	evt *RepoStreamEvent
 }
 
 func (em *EventManager) Run() {
@@ -45,7 +44,7 @@ func (em *EventManager) Run() {
 		switch op.op {
 		case opSubscribe:
 			em.subs = append(em.subs, op.sub)
-			op.sub.outgoing <- &RepoEvent{}
+			op.sub.outgoing <- &RepoStreamEvent{}
 		case opUnsubscribe:
 			for i, s := range em.subs {
 				if s == op.sub {
@@ -73,28 +72,24 @@ func (em *EventManager) Run() {
 }
 
 type Subscriber struct {
-	outgoing chan *RepoEvent
+	outgoing chan *RepoStreamEvent
 
-	filter func(*RepoEvent) bool
+	filter func(*RepoStreamEvent) bool
 
 	done chan struct{}
 }
 
 const (
-	EvtKindRepoChange = "repoChange"
+	EvtKindRepoAppend = 0
+	EvtKindRepoRebase = 1
 )
 
 type EventHeader struct {
-	Type string `cborgen:"t"`
+	Type int64 `cborgen:"t"`
 }
 
-type RepoEvent struct {
-	Seq int64 `cborgen:"seq"`
-
-	// Repo is the DID of the repo this event is about
-	Repo string `cborgen:"repo"`
-
-	RepoAppend *RepoAppend `cborgen:"repoAppend,omitempty"`
+type RepoStreamEvent struct {
+	Append *RepoAppend
 
 	// some private fields for internal routing perf
 	PrivUid         uint   `json:"-" cborgen:"-"`
@@ -103,26 +98,20 @@ type RepoEvent struct {
 }
 
 type RepoAppend struct {
-	Prev   *cid.Cid  `cborgen:"prev"`
-	Ops    []*RepoOp `cborgen:"ops"`
-	Rebase bool      `cborgen:"rebase"`
-	Car    []byte    `cborgen:"car"`
+	Seq int64 `cborgen:"seq"`
+
+	// Repo is the DID of the repo this event is about
+	Repo string `cborgen:"repo"`
+
+	Commit string `cborgen:"commit"`
+	Prev   string `cborgen:"prev"`
+	//Commit cid.Cid  `cborgen:"commit"`
+	//Prev   *cid.Cid `cborgen:"prev"`
+
+	Blocks []byte `cborgen:"blocks"`
 }
 
-type RepoOp struct {
-	Kind string `cborgen:"kind"`
-	Col  string `cborgen:"col"`
-	Rkey string `cborgen:"rkey"`
-}
-
-func (em *EventManager) AddEvent(ev *RepoEvent) error {
-	if ev.RepoAppend != nil {
-		for _, op := range ev.RepoAppend.Ops {
-			if op == nil {
-				panic("no nil things pls")
-			}
-		}
-	}
+func (em *EventManager) AddEvent(ev *RepoStreamEvent) error {
 	select {
 	case em.ops <- &Operation{
 		op:  opSend,
@@ -134,14 +123,14 @@ func (em *EventManager) AddEvent(ev *RepoEvent) error {
 	}
 }
 
-func (em *EventManager) Subscribe(filter func(*RepoEvent) bool, since *int64) (<-chan *RepoEvent, func(), error) {
+func (em *EventManager) Subscribe(filter func(*RepoStreamEvent) bool, since *int64) (<-chan *RepoStreamEvent, func(), error) {
 	if filter == nil {
-		filter = func(*RepoEvent) bool { return true }
+		filter = func(*RepoStreamEvent) bool { return true }
 	}
 
 	done := make(chan struct{})
 	sub := &Subscriber{
-		outgoing: make(chan *RepoEvent, em.bufferSize),
+		outgoing: make(chan *RepoStreamEvent, em.bufferSize),
 		filter:   filter,
 		done:     done,
 	}
@@ -160,7 +149,7 @@ func (em *EventManager) Subscribe(filter func(*RepoEvent) bool, since *int64) (<
 
 	if since != nil {
 		go func() {
-			if err := em.persister.Playback(*since, func(e *RepoEvent) error {
+			if err := em.persister.Playback(*since, func(e *RepoStreamEvent) error {
 				select {
 				case <-done:
 					return fmt.Errorf("shutting down")

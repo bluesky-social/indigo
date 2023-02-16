@@ -38,7 +38,7 @@ func (c *CrawlDispatcher) Run() {
 }
 
 type catchupJob struct {
-	evt  *events.RepoEvent
+	evt  *events.RepoAppend
 	host *models.PDS
 	user *models.ActorInfo
 }
@@ -172,7 +172,7 @@ func (c *CrawlDispatcher) Crawl(ctx context.Context, ai *models.ActorInfo) error
 	}
 }
 
-func (c *CrawlDispatcher) AddToCatchupQueue(ctx context.Context, host *models.PDS, u *models.ActorInfo, evt *events.RepoEvent) error {
+func (c *CrawlDispatcher) AddToCatchupQueue(ctx context.Context, host *models.PDS, u *models.ActorInfo, evt *events.RepoAppend) error {
 	select {
 	case c.catchup <- &catchupJob{
 		evt:  evt,

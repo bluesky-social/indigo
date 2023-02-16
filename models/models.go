@@ -18,6 +18,7 @@ type FeedPost struct {
 	RepostCount int64
 	ReplyTo     uint
 	Missing     bool
+	Deleted     bool
 }
 
 type RepostRecord struct {
@@ -98,4 +99,5 @@ type PDS struct {
 
 	Host string
 	Did  string
+	SSL  bool
 }

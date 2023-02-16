@@ -20,7 +20,7 @@ import (
 var ErrTimeoutShutdown = fmt.Errorf("timed out waiting for new events")
 var EventsTimeout = time.Minute
 
-type IndexCallback func(context.Context, *Peering, *events.RepoEvent) error
+type IndexCallback func(context.Context, *Peering, *events.RepoStreamEvent) error
 
 // TODO: rename me
 type Slurper struct {
@@ -117,14 +117,14 @@ func (s *Slurper) handleConnection(host *Peering, con *websocket.Conn) error {
 		}
 
 		switch header.Type {
-		case "data":
-			var evt events.RepoEvent
+		case events.EvtKindRepoAppend:
+			var evt events.RepoAppend
 			if err := evt.UnmarshalCBOR(cr); err != nil {
 				return err
 			}
 
 			log.Infow("got event", "from", host.Host, "repo", evt.Repo)
-			if err := s.cb(context.TODO(), host, &evt); err != nil {
+			if err := s.cb(context.TODO(), host, &events.RepoStreamEvent{Append: &evt}); err != nil {
 				log.Errorf("failed to index event from %q: %s", host.Host, err)
 			}
 		default:

@@ -273,7 +273,6 @@ func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, 
 		if err != nil {
 			return cid.Undef, err
 		}
-		fmt.Println("PUT NEW META: ", mcid)
 		nroot.Meta = mcid
 	}
 
@@ -365,7 +364,6 @@ func (r *Repo) GetRecord(ctx context.Context, rpath string) (cid.Cid, cbg.CBORMa
 
 	rec, err := lexutil.CborDecodeValue(blk.RawData())
 	if err != nil {
-		fmt.Println("decoding blk: ", cc)
 		return cid.Undef, nil, err
 	}
 

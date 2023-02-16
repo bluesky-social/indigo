@@ -9,15 +9,16 @@ import (
 	"strings"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
-	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/gorilla/websocket"
+	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -36,7 +37,7 @@ type BGS struct {
 	repoman *repomgr.RepoManager
 }
 
-func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.PLCClient) *BGS {
+func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.PLCClient, ssl bool) *BGS {
 	db.AutoMigrate(User{})
 	db.AutoMigrate(models.PDS{})
 
@@ -50,7 +51,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	}
 
 	ix.CreateExternalUser = bgs.createExternalUser
-	bgs.slurper = NewSlurper(db, bgs.handleFedEvent)
+	bgs.slurper = NewSlurper(db, bgs.handleFedEvent, ssl)
 	return bgs
 }
 
@@ -70,7 +71,7 @@ func (bgs *BGS) Start(listen string) error {
 	// TODO: this API is temporary until we formalize what we want here
 	e.POST("/add-target", bgs.handleAddTarget)
 
-	e.GET("/events", bgs.EventsHandler)
+	e.GET("/xrpc/com.atproto.sync.subscribeAllRepos", bgs.EventsHandler)
 
 	return e.Start(listen)
 }
@@ -116,24 +117,34 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		since = &sval
 	}
 
-	evts, cancel, err := bgs.events.Subscribe(func(evt *events.RepoEvent) bool { return true }, since)
+	evts, cancel, err := bgs.events.Subscribe(func(evt *events.RepoStreamEvent) bool { return true }, since)
 	if err != nil {
 		return err
 	}
 	defer cancel()
 
-	header := events.EventHeader{Type: "data"}
+	header := events.EventHeader{Type: events.EvtKindRepoAppend}
 	for evt := range evts {
 		wc, err := conn.NextWriter(websocket.BinaryMessage)
 		if err != nil {
 			return err
 		}
 
+		var obj util.CBOR
+
+		switch {
+		case evt.Append != nil:
+			header.Type = events.EvtKindRepoAppend
+			obj = evt.Append
+		default:
+			return fmt.Errorf("unrecognized event kind")
+		}
+
 		if err := header.MarshalCBOR(wc); err != nil {
 			return fmt.Errorf("failed to write header: %w", err)
 		}
 
-		if err := evt.MarshalCBOR(wc); err != nil {
+		if err := obj.MarshalCBOR(wc); err != nil {
 			return fmt.Errorf("failed to write event: %w", err)
 		}
 
@@ -158,10 +169,11 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 	return &u, nil
 }
 
-func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, evt *events.RepoEvent) error {
-	log.Infof("bgs got fed event %d from %q: %s\n", evt.Seq, host.Host, evt.Repo)
+func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *events.RepoStreamEvent) error {
 	switch {
-	case evt.RepoAppend != nil:
+	case env.Append != nil:
+		evt := env.Append
+		log.Infof("bgs got repo append event %d from %q: %s\n", evt.Seq, host.Host, evt.Repo)
 		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -178,9 +190,18 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, evt *event
 			u.Did = evt.Repo
 		}
 
+		var prevcid *cid.Cid
+		if evt.Prev != "" {
+			c, err := cid.Decode(evt.Prev)
+			if err != nil {
+				return fmt.Errorf("invalid value for prev cid in event: %w", err)
+			}
+			prevcid = &c
+		}
+
 		// TODO: if the user is already in the 'slow' path, we shouldnt even bother trying to fast path this event
 
-		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.RepoAppend.Prev, evt.RepoAppend.Ops, evt.RepoAppend.Car); err != nil {
+		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, prevcid, evt.Blocks); err != nil {
 			if !errors.Is(err, carstore.ErrRepoBaseMismatch) {
 				return fmt.Errorf("handle user event failed: %w", err)
 			}
@@ -203,7 +224,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	log.Infof("create external user: %s", did)
 	doc, err := s.didr.GetDocument(ctx, did)
 	if err != nil {
-		return nil, fmt.Errorf("could not locate DID document for followed user: %s", err)
+		return nil, fmt.Errorf("could not locate DID document for followed user (%s): %w", did, err)
 	}
 
 	if len(doc.Service) == 0 {
@@ -237,31 +258,45 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		}
 
 		// TODO: could check other things, a valid response is good enough for now
-		peering.Host = svc.ServiceEndpoint
+		peering.Host = durl.Host
 		peering.Did = pdsdid.Did
+		peering.SSL = (durl.Scheme == "https")
 
 		if err := s.db.Create(&peering).Error; err != nil {
 			return nil, err
 		}
 	}
 
-	var handle string
-	if len(doc.AlsoKnownAs) > 0 {
-		hurl, err := url.Parse(doc.AlsoKnownAs[0])
-		if err != nil {
-			return nil, err
-		}
-
-		handle = hurl.Host
+	if len(doc.AlsoKnownAs) == 0 {
+		return nil, fmt.Errorf("user has no 'known as' field in their DID document")
 	}
 
-	profile, err := bsky.ActorGetProfile(ctx, c, did)
+	hurl, err := url.Parse(doc.AlsoKnownAs[0])
 	if err != nil {
 		return nil, err
 	}
 
-	if handle != profile.Handle {
-		return nil, fmt.Errorf("mismatch in handle between did document and pds profile (%s != %s)", handle, profile.Handle)
+	handle := hurl.Host
+
+	log.Errorf("temporarily skipping handle check")
+	/*
+		profile, err := bsky.ActorGetProfile(ctx, c, did)
+		if err != nil {
+			return nil, fmt.Errorf("account get profile: %w", err)
+		}
+
+		if handle != profile.Handle {
+			return nil, fmt.Errorf("mismatch in handle between did document and pds profile (%s != %s)", handle, profile.Handle)
+		}
+	*/
+
+	res, err := atproto.HandleResolve(ctx, c, handle)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve users claimed handle on pds: %w", err)
+	}
+
+	if res.Did != did {
+		return nil, fmt.Errorf("claimed handle did not match servers response (%s != %s)", res.Did, did)
 	}
 
 	// TODO: request this users info from their server to fill out our data...
@@ -280,9 +315,9 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	subj := &models.ActorInfo{
 		Uid:         u.ID,
 		Handle:      handle,
-		DisplayName: *profile.DisplayName,
+		DisplayName: "", //*profile.DisplayName,
 		Did:         did,
-		DeclRefCid:  profile.Declaration.Cid,
+		DeclRefCid:  "", // profile.Declaration.Cid,
 		Type:        "",
 		PDS:         peering.ID,
 	}

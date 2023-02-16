@@ -27,7 +27,7 @@ var log = logging.Logger("indexer")
 type Indexer struct {
 	db *gorm.DB
 
-	notifman *notifs.NotificationManager
+	notifman notifs.NotificationManager
 	events   *events.EventManager
 	didr     plc.PLCClient
 
@@ -40,7 +40,7 @@ type Indexer struct {
 	CreateExternalUser func(context.Context, string) (*models.ActorInfo, error)
 }
 
-func NewIndexer(db *gorm.DB, notifman *notifs.NotificationManager, evtman *events.EventManager, didr plc.PLCClient, repoman *repomgr.RepoManager, crawl bool) (*Indexer, error) {
+func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events.EventManager, didr plc.PLCClient, repoman *repomgr.RepoManager, crawl bool) (*Indexer, error) {
 	db.AutoMigrate(&models.FeedPost{})
 	db.AutoMigrate(&models.ActorInfo{})
 	db.AutoMigrate(&models.FollowRecord{})
@@ -82,20 +82,14 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 
 	log.Infow("Handling Repo Event!", "uid", evt.User)
 	var relpds []uint
-	var repoOps []*events.RepoOp
 	for _, op := range evt.Ops {
 		switch op.Kind {
 		case repomgr.EvtKindCreateRecord:
-			log.Infof("create record: %d %s %s", evt.User, op.Collection, op.Rkey)
+			log.Debugf("create record: %d %s %s %s", evt.User, op.Collection, op.Rkey, evt.User)
 			rel, err := ix.handleRecordCreate(ctx, evt, &op, true)
 			if err != nil {
 				return fmt.Errorf("handle recordCreate: %w", err)
 			}
-			repoOps = append(repoOps, &events.RepoOp{
-				Kind: string(repomgr.EvtKindCreateRecord),
-				Col:  op.Collection,
-				Rkey: op.Rkey,
-			})
 
 			relpds = append(relpds, rel...)
 		case repomgr.EvtKindInitActor:
@@ -103,9 +97,14 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 				return fmt.Errorf("handle initActor: %w", err)
 			}
 
-			repoOps = append(repoOps, &events.RepoOp{
-				Kind: string(repomgr.EvtKindInitActor),
-			})
+		case repomgr.EvtKindDeleteRecord:
+			if err := ix.handleRecordDelete(ctx, evt, &op, true); err != nil {
+				return fmt.Errorf("handle recordDelete: %w", err)
+			}
+		case repomgr.EvtKindUpdateRecord:
+			if err := ix.handleRecordUpdate(ctx, evt, &op, true); err != nil {
+				return fmt.Errorf("handle recordCreate: %w", err)
+			}
 		default:
 			return fmt.Errorf("unrecognized repo event type: %q", op.Kind)
 		}
@@ -116,20 +115,113 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		return err
 	}
 
-	log.Infow("Sending event: ", "opcnt", len(repoOps), "did", did)
-	if err := ix.events.AddEvent(&events.RepoEvent{
-		Repo: did,
+	// TODO: these should be cids on the wire
+	var prevstr string
+	if evt.OldRoot != nil {
+		prevstr = evt.OldRoot.String()
+	}
 
-		RepoAppend: &events.RepoAppend{
-			Prev: evt.OldRoot,
-			Car:  evt.RepoSlice,
-			Ops:  repoOps,
+	log.Infow("Sending event", "did", did)
+	if err := ix.events.AddEvent(&events.RepoStreamEvent{
+		Append: &events.RepoAppend{
+			Repo:   did,
+			Prev:   prevstr,
+			Blocks: evt.RepoSlice,
+			Commit: evt.NewRoot.String(),
 		},
-
 		PrivRelevantPds: relpds,
 		PrivUid:         evt.User,
 	}); err != nil {
 		return fmt.Errorf("failed to push event: %s", err)
+	}
+
+	return nil
+}
+
+func (ix *Indexer) handleRecordDelete(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp, local bool) error {
+	log.Infow("record delete event", "collection", op.Collection)
+
+	switch op.Collection {
+	case "app.bsky.feed.post":
+		u, err := ix.LookupUser(ctx, evt.User)
+		if err != nil {
+			return err
+		}
+
+		uri := "at://" + u.Did + "/app.bsky.feed.post/" + op.Rkey
+
+		// NB: currently not using the 'or missing' variant here. If we delete
+		// something that we've never seen before, maybe just dont bother?
+		fp, err := ix.GetPost(ctx, uri)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				log.Warnw("deleting post weve never seen before. Weird.", "user", evt.User, "rkey", op.Rkey)
+				return nil
+			}
+			return err
+		}
+
+		if err := ix.db.Model(models.FeedPost{}).Where("id = ?", fp.ID).UpdateColumn("deleted", true).Error; err != nil {
+			return err
+		}
+	case "app.bsky.feed.repost":
+		if err := ix.db.Where("reposter = ? AND rkey = ?", evt.User, op.Rkey).Delete(&models.RepostRecord{}).Error; err != nil {
+			return err
+		}
+
+		log.Warn("TODO: remove notifications on delete")
+		/*
+			if err := ix.notifman.RemoveRepost(ctx, fp.Author, rr.ID, evt.User); err != nil {
+				return nil, err
+			}
+		*/
+
+	case "app.bsky.feed.vote":
+		return ix.handleRecordDeleteFeedVote(ctx, evt, op)
+	case "app.bsky.graph.follow":
+		return ix.handleRecordDeleteGraphFollow(ctx, evt, op)
+	case "app.bsky.graph.confirmation":
+		return nil
+	default:
+		return fmt.Errorf("unrecognized record type (delete): %q", op.Collection)
+	}
+
+	return nil
+}
+func (ix *Indexer) handleRecordDeleteFeedVote(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
+	var vr models.VoteRecord
+	if err := ix.db.Find(&vr, "voter = ? AND rkey = ?", evt.User, op.Rkey).Error; err != nil {
+		return err
+	}
+
+	if err := ix.db.Transaction(func(tx *gorm.DB) error {
+		tx.Statement.RaiseErrorOnNotFound = true
+		if err := tx.Model(models.VoteRecord{}).Where("id = ?", vr.ID).Delete(&vr).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Model(models.FeedPost{}).Where("id = ?", vr.Post).Update("up_count", gorm.Expr("up_count - 1")).Error; err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	log.Warnf("need to delete vote notification")
+	return nil
+}
+
+func (ix *Indexer) handleRecordDeleteGraphFollow(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
+	q := ix.db.Where("follower = ? AND rkey = ?", evt.User, op.Rkey).Delete(&models.FollowRecord{})
+	if err := q.Error; err != nil {
+		return err
+	}
+
+	if q.RowsAffected == 0 {
+		log.Warnw("attempted to delete follow we didnt have a record for", "user", evt.User, "rkey", op.Rkey)
+		return nil
 	}
 
 	return nil
@@ -174,98 +266,209 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 		}
 
 	case *bsky.FeedVote:
-		var val int
-		var dbdir models.VoteDir
-		switch rec.Direction {
-		case "up":
-			val = 1
-			dbdir = models.VoteDirUp
-		case "down":
-			val = -1
-			dbdir = models.VoteDirDown
-		default:
-			return nil, fmt.Errorf("invalid vote direction: %q", rec.Direction)
-		}
-
-		post, err := ix.GetPostOrMissing(ctx, rec.Subject.Uri)
-		if err != nil {
-			return nil, err
-		}
-
-		act, err := ix.LookupUser(ctx, post.Author)
-		if err != nil {
-			return nil, err
-		}
-
-		out = append(out, act.PDS)
-
-		vr := models.VoteRecord{
-			Dir:     dbdir,
-			Voter:   evt.User,
-			Post:    post.ID,
-			Created: rec.CreatedAt,
-			Rkey:    op.Rkey,
-			Cid:     op.RecCid.String(),
-		}
-		if err := ix.db.Create(&vr).Error; err != nil {
-			return nil, err
-		}
-
-		if err := ix.db.Model(models.FeedPost{}).Where("id = ?", post.ID).Update("up_count", gorm.Expr("up_count + ?", val)).Error; err != nil {
-			return nil, err
-		}
-
-		if rec.Direction == "up" {
-			if err := ix.addNewVoteNotification(ctx, act.ID, &vr); err != nil {
-				return nil, err
-			}
-		}
-
+		return nil, ix.handleRecordCreateFeedVote(ctx, rec, evt, op)
 	case *bsky.GraphFollow:
-		subj, err := ix.LookupUserByDid(ctx, rec.Subject.Did)
-		if err != nil {
-			if !errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, fmt.Errorf("failed to lookup user: %w", err)
-			}
-
-			nu, err := ix.createMissingUserRecord(ctx, rec.Subject.Did)
-			if err != nil {
-				return nil, fmt.Errorf("create external user: %w", err)
-			}
-
-			subj = nu
-		}
-
-		if subj.PDS != 0 {
-			out = append(out, subj.PDS)
-		}
-
-		// 'follower' followed 'target'
-		fr := models.FollowRecord{
-			Follower: evt.User,
-			Target:   subj.ID,
-			Rkey:     op.Rkey,
-			Cid:      op.RecCid.String(),
-		}
-		if err := ix.db.Create(&fr).Error; err != nil {
-			return nil, err
-		}
-
-		if err := ix.notifman.AddFollow(ctx, fr.Follower, fr.Target, fr.ID); err != nil {
-			return nil, err
-		}
-
-		if local && subj.PDS != 0 {
-			if err := ix.SendRemoteFollow(ctx, subj.Did, subj.PDS); err != nil {
-				log.Error("failed to issue remote follow directive: ", err)
-			}
-		}
-
+		return out, ix.handleRecordCreateGraphFollow(ctx, rec, evt, op)
+	case *bsky.ActorProfile:
+		log.Infof("TODO: got actor profile record creation, need to do something with this")
+	case *bsky.SystemDeclaration:
+		log.Infof("TODO: got system declaration record creation, need to do something with this")
+	case *bsky.GraphAssertion:
+		log.Infof("TODO: got graph assertion record creation, need to do something with this")
+	case *bsky.GraphConfirmation:
+		log.Infof("TODO: got graph confirmation record creation, need to do something with this")
 	default:
 		return nil, fmt.Errorf("unrecognized record type: %T", rec)
 	}
 
 	return out, nil
+}
+
+func (ix *Indexer) handleRecordCreateFeedVote(ctx context.Context, rec *bsky.FeedVote, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
+	var dbdir models.VoteDir
+	switch rec.Direction {
+	case "up":
+		dbdir = models.VoteDirUp
+	case "down":
+		return nil
+		dbdir = models.VoteDirDown
+	default:
+		return fmt.Errorf("invalid vote direction: %q", rec.Direction)
+	}
+
+	post, err := ix.GetPostOrMissing(ctx, rec.Subject.Uri)
+	if err != nil {
+		return err
+	}
+
+	act, err := ix.LookupUser(ctx, post.Author)
+	if err != nil {
+		return err
+	}
+
+	vr := models.VoteRecord{
+		Dir:     dbdir,
+		Voter:   evt.User,
+		Post:    post.ID,
+		Created: rec.CreatedAt,
+		Rkey:    op.Rkey,
+		Cid:     op.RecCid.String(),
+	}
+	if err := ix.db.Create(&vr).Error; err != nil {
+		return err
+	}
+
+	if rec.Direction == "up" {
+		if err := ix.db.Model(models.FeedPost{}).Where("id = ?", post.ID).Update("up_count", gorm.Expr("up_count + 1")).Error; err != nil {
+			return err
+		}
+		if err := ix.addNewVoteNotification(ctx, act.ID, &vr); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (ix *Indexer) handleRecordCreateGraphFollow(ctx context.Context, rec *bsky.GraphFollow, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
+	subj, err := ix.LookupUserByDid(ctx, rec.Subject.Did)
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("failed to lookup user: %w", err)
+		}
+
+		nu, err := ix.createMissingUserRecord(ctx, rec.Subject.Did)
+		if err != nil {
+			return fmt.Errorf("create external user: %w", err)
+		}
+
+		subj = nu
+	}
+
+	// 'follower' followed 'target'
+	fr := models.FollowRecord{
+		Follower: evt.User,
+		Target:   subj.ID,
+		Rkey:     op.Rkey,
+		Cid:      op.RecCid.String(),
+	}
+	if err := ix.db.Create(&fr).Error; err != nil {
+		return err
+	}
+
+	if err := ix.notifman.AddFollow(ctx, fr.Follower, fr.Target, fr.ID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ix *Indexer) handleRecordUpdate(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp, local bool) error {
+	log.Infow("record update event", "collection", op.Collection)
+
+	switch rec := op.Record.(type) {
+	case *bsky.FeedPost:
+		u, err := ix.LookupUser(ctx, evt.User)
+		if err != nil {
+			return err
+		}
+
+		uri := "at://" + u.Did + "/app.bsky.feed.post/" + op.Rkey
+		fp, err := ix.GetPostOrMissing(ctx, uri)
+		if err != nil {
+			return err
+		}
+
+		oldReply := fp.ReplyTo != 0
+		newReply := rec.Reply != nil
+
+		if oldReply != newReply {
+			// the 'replyness' of the post was changed... thats weird
+			log.Errorf("need to properly handle case where reply-ness of posts is changed")
+			return nil
+		}
+
+		if newReply {
+			replyto, err := ix.GetPostOrMissing(ctx, rec.Reply.Parent.Uri)
+			if err != nil {
+				return err
+			}
+
+			if replyto.ID != fp.ReplyTo {
+				log.Errorf("post was changed to be a reply to a different post")
+				return nil
+			}
+		}
+
+		if err := ix.db.Model(models.FeedPost{}).Where("id = ?", fp.ID).UpdateColumn("cid", op.RecCid.String()).Error; err != nil {
+			return err
+		}
+
+		return nil
+	case *bsky.FeedRepost:
+		var rr models.RepostRecord
+		if err := ix.db.First(&rr, "reposter = ? AND rkey = ?", evt.User, op.Rkey).Error; err != nil {
+			return err
+		}
+
+		// TODO: check if the post changed and do something about that
+
+		rr.RecCreated = rec.CreatedAt
+		rr.RecCid = op.RecCid.String()
+
+		if err := ix.db.Save(&rr).Error; err != nil {
+			return err
+		}
+
+	case *bsky.FeedVote:
+		var vr models.VoteRecord
+		if err := ix.db.Find(&vr, "voted = ? AND rkey = ?", evt.User, op.Rkey).Error; err != nil {
+			return err
+		}
+
+		fp, err := ix.GetPostOrMissing(ctx, rec.Subject.Uri)
+		if err != nil {
+			return err
+		}
+
+		if vr.Post != fp.ID {
+			// vote is on a completely different post, delete old one, create new one
+			if err := ix.handleRecordDeleteFeedVote(ctx, evt, op); err != nil {
+				return err
+			}
+
+			return ix.handleRecordCreateFeedVote(ctx, rec, evt, op)
+		}
+
+		if vr.Dir.String() == rec.Direction {
+			// do nothing?
+			return nil
+		}
+
+		if rec.Direction != "up" {
+			return ix.handleRecordDeleteFeedVote(ctx, evt, op)
+		}
+
+		return ix.handleRecordCreateFeedVote(ctx, rec, evt, op)
+	case *bsky.GraphFollow:
+		if err := ix.handleRecordDeleteGraphFollow(ctx, evt, op); err != nil {
+			return err
+		}
+
+		return ix.handleRecordCreateGraphFollow(ctx, rec, evt, op)
+	case *bsky.ActorProfile:
+		log.Infof("TODO: got actor profile record update, need to do something with this")
+	case *bsky.SystemDeclaration:
+		log.Infof("TODO: got system declaration record update, need to do something with this")
+	case *bsky.GraphAssertion:
+		log.Infof("TODO: got graph assertion record update, need to do something with this")
+	case *bsky.GraphConfirmation:
+		log.Infof("TODO: got graph confirmation record update, need to do something with this")
+	default:
+		return fmt.Errorf("unrecognized record type: %T", rec)
+	}
+
+	return nil
 }
 
 func (ix *Indexer) GetPostOrMissing(ctx context.Context, uri string) (*models.FeedPost, error) {
@@ -318,7 +521,7 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user uint, rk
 				// unknown user... create it and send it off to the crawler
 				nai, err := ix.createMissingUserRecord(ctx, e.Value)
 				if err != nil {
-					return fmt.Errorf("creating missing user record: %w", err)
+					return fmt.Errorf("creating missing user record for %q: %w", e.Value, err)
 				}
 
 				ai = nai
@@ -561,8 +764,6 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 	ctx, span := otel.Tracer("indexer").Start(ctx, "FetchAndIndexRepo")
 	defer span.End()
 
-	fmt.Println("FETCH AND INDEX REPO")
-
 	ai := job.act
 
 	var pds models.PDS
@@ -575,10 +776,14 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 		return err
 	}
 
-	fmt.Println("CUR HEAD: ", curHead)
-
+	var host string
+	if pds.SSL {
+		host = "https://" + pds.Host
+	} else {
+		host = "http://" + pds.Host
+	}
 	c := &xrpc.Client{
-		Host: pds.Host,
+		Host: host,
 	}
 
 	var from string
