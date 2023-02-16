@@ -2,103 +2,53 @@
 // This implementation is a port of the Typescript implementation in the
 // `atproto` git repo.
 //
-// The hash function is SHA-256, and "fanout=16", which corresponds to counting
-// "leading zeros" for tree level in 4-bit chunks.
+// ## Notes copied from TS repo
+//
+// This is an implementation of a Merkle Search Tree (MST)
+// The data structure is described here: https://hal.inria.fr/hal-02303490/document
+// The MST is an ordered, insert-order-independent, deterministic tree.
+// Keys are laid out in alphabetic order.
+// The key insight of an MST is that each key is hashed and starting 0s are counted
+// to determine which layer it falls on (5 zeros for ~32 fanout).
+// This is a merkle tree, so each subtree is referred to by it's hash (CID).
+// When a leaf is changed, ever tree on the path to that leaf is changed as well,
+// thereby updating the root hash.
+//
+// For atproto, we use SHA-256 as the key hashing algorithm, and ~16 fanout
+// (4-bits of zero per layer).
+//
+// NOTE: currently keys are strings, not bytes. Because UTF-8 strings can't be
+// safely split at arbitrary byte boundaries (the results are not necessarily
+// valid UTF-8 strings), this means that "wide" characters not really supported
+// in keys, particularly across programming language implementations. We
+// recommend sticking with simple alphanumeric (ASCII) strings.
+//
+// A couple notes on CBOR encoding:
+//
+// There are never two neighboring subtrees.
+// Therefore, we can represent a node as an array of
+// leaves & pointers to their right neighbor (possibly null),
+// along with a pointer to the left-most subtree (also possibly null).
+//
+// Most keys in a subtree will have overlap.
+// We do compression on prefixes by describing keys as:
+// - the length of the prefix that it shares in common with the preceding key
+// - the rest of the string
+//
+// For example:
+// If the first leaf in a tree is `bsky/posts/abcdefg` and the second is `bsky/posts/abcdehi`
+// Then the first will be described as `prefix: 0, key: 'bsky/posts/abcdefg'`,
+// and the second will be described as `prefix: 16, key: 'hi'.`
 
 package mst
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
 	"fmt"
 
 	"github.com/ipfs/go-cid"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cbor "github.com/ipfs/go-ipld-cbor"
-	cbg "github.com/whyrusleeping/cbor-gen"
 )
-
-type MerkleSearchTree struct {
-	cst cbor.IpldStore
-
-	entries  []NodeEntry
-	layer    int
-	pointer  cid.Cid
-	validPtr bool
-}
-
-func NewMST(cst cbor.IpldStore, ptr cid.Cid, entries []NodeEntry, layer int) *MerkleSearchTree {
-	mst := &MerkleSearchTree{
-		cst:      cst,
-		pointer:  ptr,
-		layer:    layer,
-		entries:  entries,
-		validPtr: ptr.Defined(),
-	}
-
-	return mst
-}
-
-func LoadMST(cst cbor.IpldStore, root cid.Cid) *MerkleSearchTree {
-	return NewMST(cst, root, nil, -1)
-}
-
-func (mst *MerkleSearchTree) newTree(entries []NodeEntry) *MerkleSearchTree {
-	if entries == nil {
-		panic("nil entries passed to newTree")
-	}
-	return NewMST(mst.cst, cid.Undef, entries, mst.layer)
-}
-
-func (mst *MerkleSearchTree) GetPointer(ctx context.Context) (cid.Cid, error) {
-	if mst.validPtr {
-		return mst.pointer, nil
-	}
-
-	entries, err := mst.getEntries(ctx)
-	if err != nil {
-		return cid.Undef, err
-	}
-
-	for _, e := range entries {
-		if e.isTree() {
-			if !e.Tree.validPtr {
-				_, err := e.Tree.GetPointer(ctx)
-				if err != nil {
-					return cid.Undef, err
-				}
-			}
-		}
-	}
-
-	nptr, err := cidForEntries(ctx, entries, mst.cst)
-	if err != nil {
-		return cid.Undef, err
-	}
-	mst.pointer = nptr
-	mst.validPtr = true
-
-	return mst.pointer, nil
-}
-
-func create(ctx context.Context, cst cbor.IpldStore, entries []NodeEntry, layer int) (*MerkleSearchTree, error) {
-	var ptr cid.Cid
-	return NewMST(cst, ptr, entries, layer), nil
-}
-
-func cborGet(ctx context.Context, bs blockstore.Blockstore, c cid.Cid, out cbg.CBORUnmarshaler) error {
-	blk, err := bs.Get(ctx, c)
-	if err != nil {
-		return err
-	}
-
-	if err := out.UnmarshalCBOR(bytes.NewReader(blk.RawData())); err != nil {
-		return err
-	}
-
-	return nil
-}
 
 const (
 	EntryUndefined = 0
@@ -106,6 +56,10 @@ const (
 	EntryTree      = 2
 )
 
+// Following the Typescript implementation, this is basically a flexible
+// "TreeEntry" (aka "leaf") which might also be the "Left" pointer on a
+// NodeData (aka "tree"). This type flexibility is not idiomatic in golang, but
+// we are keeping this a very direct port.
 type NodeEntry struct {
 	Kind int
 	Key  string
@@ -132,6 +86,23 @@ func (ne NodeEntry) isUndefined() bool {
 	return ne.Kind == EntryUndefined
 }
 
+// golang-specific helper to sanity check NodeEntry semantics
+func checkTreeInvariant(ents []NodeEntry) {
+	for i := 0; i < len(ents)-1; i++ {
+		if ents[i].isTree() && ents[i+1].isTree() {
+			panic(fmt.Sprintf("two trees next to each other! %d %d", i, i+1))
+		}
+	}
+}
+
+// MST tree node as gets serialized to CBOR. Note that the CBOR fields are all
+// single-character.
+type NodeData struct {
+	Left    *cid.Cid    `cborgen:"l"` // [optional] pointer to lower-level subtree to the "left" of this path/key
+	Entries []TreeEntry `cborgen:"e"` // ordered list of entries at this node
+}
+
+// Elements of NodeData's Entries
 type TreeEntry struct {
 	PrefixLen int64    `cborgen:"p"` // count of characters shared with previous path/key in tree
 	KeySuffix string   `cborgen:"k"` // remaining part of path/key (appended to "previous key")
@@ -139,13 +110,211 @@ type TreeEntry struct {
 	Tree      *cid.Cid `cborgen:"t"` // [optional] pointer to lower-level subtree to the "right" of this path/key entry
 }
 
-type NodeData struct {
-	Left    *cid.Cid    `cborgen:"l"` // [optional] pointer to lower-level subtree to the "left" of this path/key
-	Entries []TreeEntry `cborgen:"e"` // ordered list of entries at this node
+// This abstractly represents an MST tree node (NodeData type). It can be in
+// several levels of hydration: fully hydrated (entries and "pointer" (CID)
+// computed); dirty (entries correct, but pointer (CID) not valid); virtual
+// (pointer is defined, no entries have been pulled from blockstore)
+type MerkleSearchTree struct {
+	cst      cbor.IpldStore
+	entries  []NodeEntry
+	layer    int
+	pointer  cid.Cid
+	validPtr bool
 }
 
+// TODO(bnewbold): so similar to NewMST; redundant?
+// Typescript: MST.create(storage, entries, layer, fanout) -> MST
+func create(ctx context.Context, cst cbor.IpldStore, entries []NodeEntry, layer int) (*MerkleSearchTree, error) {
+	if entries == nil {
+		panic("nil entries passed to create()")
+	}
+	return NewMST(cst, cid.Undef, entries, layer), nil
+}
+
+func NewMST(cst cbor.IpldStore, ptr cid.Cid, entries []NodeEntry, layer int) *MerkleSearchTree {
+	mst := &MerkleSearchTree{
+		cst:      cst,
+		pointer:  ptr,
+		layer:    layer,
+		entries:  entries,
+		validPtr: ptr.Defined(),
+	}
+
+	return mst
+}
+
+// TODO: Typescript: MST.fromData(storage, data, layer=null, fanout)
+
+// This is poorly named in both implementations, because it is lazy
+// Typescript: MST.load(storage, cid, layer=null, fanout) -> MST
+func LoadMST(cst cbor.IpldStore, root cid.Cid) *MerkleSearchTree {
+	return NewMST(cst, root, nil, -1)
+}
+
+// === "Immuatbility" ===
+
+// "We never mutate an MST, we just return a new MST with updated values"
+// Typescript: MST.newTree(entries) -> MST
+func (mst *MerkleSearchTree) newTree(entries []NodeEntry) *MerkleSearchTree {
+	if entries == nil {
+		panic("nil entries passed to newTree")
+	}
+	return NewMST(mst.cst, cid.Undef, entries, mst.layer)
+}
+
+// === "Getters (lazy load)" ===
+
+// "We don't want to load entries of every subtree, just the ones we need"
+// Typescript: MST.getEntries() -> NodeEntry[]
+func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]NodeEntry, error) {
+	// if we are "hydrated", entries are available
+	if mst.entries != nil {
+		return mst.entries, nil
+	}
+
+	// otherwise this is a virtual/pointer struct and we need to hydrate from
+	// blockstore before returning entries
+	if mst.pointer != cid.Undef {
+		var nd NodeData
+		if err := mst.cst.Get(ctx, mst.pointer, &nd); err != nil {
+			return nil, err
+		}
+		entries, err := entriesFromNodeData(ctx, &nd, mst.cst)
+		if err != nil {
+			return nil, err
+		}
+		if entries == nil {
+			panic("got nil entries from node data decoding")
+		}
+		// XXX(bnewbold): compute and set layer here
+		mst.entries = entries
+		return entries, nil
+	}
+
+	return nil, fmt.Errorf("no entries or self-pointer (CID) on MerkleSearchTree")
+}
+
+// golang-specific helper that calls in to deserializeNodeData
+func entriesFromNodeData(ctx context.Context, nd *NodeData, cst cbor.IpldStore) ([]NodeEntry, error) {
+	layer := -1
+	if len(nd.Entries) > 0 {
+		firstLeaf := nd.Entries[0]
+		layer = leadingZerosOnHash(firstLeaf.KeySuffix)
+	}
+
+	entries, err := deserializeNodeData(ctx, cst, nd, layer)
+	if err != nil {
+		return nil, err
+	}
+
+	return entries, nil
+}
+
+// "We don't hash the node on every mutation for performance reasons. Instead we keep track of whether the pointer is outdated and only (recursively) calculate when needed"
+// Typescript: MST.getPointer() -> CID
+func (mst *MerkleSearchTree) GetPointer(ctx context.Context) (cid.Cid, error) {
+	if mst.validPtr {
+		return mst.pointer, nil
+	}
+
+	// XXX: do this more idiomatically: update entries in-place as needed
+	entries, err := mst.getEntries(ctx)
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	for _, e := range entries {
+		if e.isTree() {
+			if !e.Tree.validPtr {
+				_, err := e.Tree.GetPointer(ctx)
+				if err != nil {
+					return cid.Undef, err
+				}
+			}
+		}
+	}
+
+	nptr, err := cidForEntries(ctx, entries, mst.cst)
+	if err != nil {
+		return cid.Undef, err
+	}
+	mst.pointer = nptr
+	mst.validPtr = true
+
+	return mst.pointer, nil
+}
+
+// TODO(bnewbold): seems to be a dupe of above, but is called elsewhere. Refactor away.
+func (mst *MerkleSearchTree) getPointer(ctx context.Context) (cid.Cid, error) {
+	return mst.GetPointer(ctx)
+}
+
+// "In most cases, we get the layer of a node from a hint on creation"
+// "In the case of the topmost node in the tree, we look for a key in the node & determine the layer"
+// "In the case where we don't find one, we recurse down until we do."
+// "If we still can't find one, then we have an empty tree and the node is layer 0"
+// Typescript: MST.getLayer() -> number
+func (mst *MerkleSearchTree) getLayer(ctx context.Context) (int, error) {
+	layer, err := mst.attemptGetLayer(ctx)
+	if err != nil {
+		return -1, err
+	}
+	if layer < 0 {
+		mst.layer = 0
+	} else {
+		mst.layer = layer
+	}
+	return mst.layer, nil
+}
+
+// Typescript: MST.attemptGetLayer() -> number
+func (mst *MerkleSearchTree) attemptGetLayer(ctx context.Context) (int, error) {
+	if mst.layer >= 0 {
+		return mst.layer, nil
+	}
+
+	entries, err := mst.getEntries(ctx)
+	if err != nil {
+		return -1, err
+	}
+
+	layer := layerForEntries(entries)
+	if layer < 0 {
+		// NOTE(bnewbold): updated this from typescript
+		for _, e := range entries {
+			if e.isTree() {
+				childLayer, err := e.Tree.attemptGetLayer(ctx)
+				if err != nil {
+					return -1, err
+				}
+				if childLayer >= 0 {
+					layer = childLayer + 1
+					break
+				}
+			}
+		}
+	}
+
+	if layer >= 0 {
+		mst.layer = layer
+	}
+	return mst.layer, nil
+}
+
+// === "Core functionality" ===
+
+// NOTE: MST.getUnstoredBlocks() not needed; we are always working out of
+// blockstore in this implementation
+
+// "Adds a new leaf for the given key/value pair. Throws if a leaf with that key already exists"
+// Typescript: MST.add(key, value, knownZeros?) -> MST
 func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, knownZeros int) (*MerkleSearchTree, error) {
-	keyZeros := knownZeros // is this really just to avoid rerunning the leading zeros hash?
+
+	if val == cid.Undef {
+		return nil, fmt.Errorf("tried to insert an undef CID")
+	}
+
+	keyZeros := knownZeros
 	if keyZeros < 0 {
 		keyZeros = leadingZerosOnHash(key)
 	}
@@ -162,7 +331,7 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 	}
 
 	if keyZeros == layer {
-		// it belongs to me
+		// it belongs in this layer
 		index, err := mst.findGtOrEqualLeafIndex(ctx, key)
 		if err != nil {
 			return nil, err
@@ -183,16 +352,20 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 		}
 
 		if prevNode.isUndefined() || prevNode.isLeaf() {
+			// "if entry before is a leaf, (or we're on far left) we can just splice in"
 			return mst.spliceIn(ctx, newLeaf, index)
 		}
 
+		// "else we try to split the subtree around the key"
+		// XXX(bnewbold): this part is different; no "mst.replaceWithSplit"
 		left, right, err := prevNode.Tree.splitAround(ctx, key)
 		if err != nil {
 			return nil, err
 		}
-
 		return mst.replaceWithSplit(ctx, index-1, left, newLeaf, right)
+
 	} else if keyZeros < layer {
+		// "it belongs on a lower layer"
 		index, err := mst.findGtOrEqualLeafIndex(ctx, key)
 		if err != nil {
 			return nil, err
@@ -204,6 +377,7 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 		}
 
 		if !prevNode.isUndefined() && prevNode.isTree() {
+			// "if entry before is a tree, we add it to that tree"
 			newSubtree, err := prevNode.Tree.Add(ctx, key, val, keyZeros)
 			if err != nil {
 				return nil, err
@@ -223,12 +397,15 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 
 			return mst.spliceIn(ctx, treeEntry(newSubTree), index)
 		}
+
 	} else {
+		// "it belongs on a higher layer & we must push the rest of the tree down"
 		left, right, err := mst.splitAround(ctx, key)
 		if err != nil {
 			return nil, err
 		}
 
+		// "if the newly added key has >=2 more leading zeros than the current highest layer then we need to add in structural nodes in between as well"
 		layer, err := mst.getLayer(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("get layer in split case failed: %w", err)
@@ -236,6 +413,7 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 
 		extraLayersToAdd := keyZeros - layer
 
+		// "intentionally starting at 1, since first layer is taken care of by split"
 		for i := 1; i < extraLayersToAdd; i++ {
 			// seems bad if both left and right are non nil
 			if left != nil {
@@ -253,7 +431,6 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 				}
 				right = par
 			}
-
 		}
 
 		var updated []NodeEntry
@@ -277,119 +454,17 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 			return nil, fmt.Errorf("creating new tree after split: %w", err)
 		}
 
-		// why invalidate?
+		// we have mutated this node without recomputing CID, so invalidate it
 		newRoot.validPtr = false
 
 		return newRoot, nil
 	}
 }
 
-func (mst *MerkleSearchTree) Delete(ctx context.Context, k string) (*MerkleSearchTree, error) {
-	ix, err := mst.findGtOrEqualLeafIndex(ctx, k)
-	if err != nil {
-		return nil, err
-	}
-
-	ne, err := mst.atIndex(ix)
-	if err != nil {
-		return nil, err
-	}
-
-	entries, err := mst.getEntries(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if ne.isLeaf() && ne.Key == k {
-		prev, err := mst.atIndex(ix - 1)
-		if err != nil {
-			return nil, err
-		}
-
-		next, err := mst.atIndex(ix + 1)
-		if err != nil {
-			return nil, err
-		}
-
-		if prev.isTree() && next.isTree() {
-			merged, err := prev.Tree.appendMerge(ctx, next.Tree)
-			if err != nil {
-				return nil, err
-			}
-			return mst.newTree(append(append(entries[:ix-1], treeEntry(merged)), entries[ix+1:]...)), nil
-		} else {
-			return mst.removeEntry(ctx, ix)
-		}
-	}
-
-	prev, err := mst.atIndex(ix - 1)
-	if err != nil {
-		return nil, err
-	}
-
-	if prev.isTree() {
-		subtree, err := prev.Tree.Delete(ctx, k)
-		if err != nil {
-			return nil, err
-		}
-
-		subtreeEntries, err := subtree.getEntries(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(subtreeEntries) == 0 {
-			return mst.removeEntry(ctx, ix-1)
-		} else {
-			return mst.updateEntry(ctx, ix-1, treeEntry(subtree))
-		}
-	} else {
-		return nil, fmt.Errorf("could not find record with key: %s", k)
-	}
-}
-
-func (mst *MerkleSearchTree) appendMerge(ctx context.Context, omst *MerkleSearchTree) (*MerkleSearchTree, error) {
-	mylayer, err := mst.getLayer(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	olayer, err := omst.getLayer(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if mylayer != olayer {
-		return nil, fmt.Errorf("trying to merge two nodes from different layers")
-	}
-
-	entries, err := mst.getEntries(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	tomergeEnts, err := omst.getEntries(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	lastInLeft := entries[len(entries)-1]
-	firstInRight := entries[0]
-
-	if lastInLeft.isTree() && firstInRight.isTree() {
-		merged, err := lastInLeft.Tree.appendMerge(ctx, firstInRight.Tree)
-		if err != nil {
-			return nil, err
-		}
-
-		return mst.newTree(append(append(entries[:len(entries)-1], treeEntry(merged)), tomergeEnts[1:]...)), nil
-	} else {
-		return mst.newTree(append(entries, tomergeEnts...)), nil
-	}
-}
-
 var ErrNotFound = fmt.Errorf("mst: not found")
 
+// "Gets the value at the given key"
+// Typescript: MST.get(key) -> (CID|null)
 func (mst *MerkleSearchTree) Get(ctx context.Context, k string) (cid.Cid, error) {
 	index, err := mst.findGtOrEqualLeafIndex(ctx, k)
 	if err != nil {
@@ -417,24 +492,129 @@ func (mst *MerkleSearchTree) Get(ctx context.Context, k string) (cid.Cid, error)
 	return cid.Undef, ErrNotFound
 }
 
-func (mst *MerkleSearchTree) createParent(ctx context.Context) (*MerkleSearchTree, error) {
-	layer, err := mst.getLayer(ctx)
+// "Edits the value at the given key. Throws if the given key does not exist"
+// Typescript: MST.update(key, value) -> MST
+func (mst *MerkleSearchTree) Update(ctx context.Context, k string, val cid.Cid) (*MerkleSearchTree, error) {
+
+	if val == cid.Undef {
+		return nil, fmt.Errorf("tried to insert an undef CID")
+	}
+
+	index, err := mst.findGtOrEqualLeafIndex(ctx, k)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewMST(mst.cst, cid.Undef, []NodeEntry{treeEntry(mst)}, layer+1), nil
-}
-
-func (mst *MerkleSearchTree) createChild(ctx context.Context) (*MerkleSearchTree, error) {
-	layer, err := mst.getLayer(ctx)
+	found, err := mst.atIndex(index)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewMST(mst.cst, cid.Undef, []NodeEntry{}, layer-1), nil
+	if !found.isUndefined() && found.isLeaf() && found.Key == k {
+		// NOTE(bnewbold): updated here
+		return mst.updateEntry(ctx, index, NodeEntry{
+			Kind: EntryLeaf,
+			Key:  string(k),
+			Val:  val,
+		})
+	}
+
+	prev, err := mst.atIndex(index - 1)
+	if err != nil {
+		return nil, err
+	}
+
+	if !prev.isUndefined() && prev.isTree() {
+		updatedTree, err := prev.Tree.Update(ctx, k, val)
+		if err != nil {
+			return nil, err
+		}
+		return mst.updateEntry(ctx, index-1, treeEntry(updatedTree))
+	}
+
+	return nil, ErrNotFound
 }
 
+// "Deletes the value at the given key"
+// Typescript: MST.delete(key) -> MST
+func (mst *MerkleSearchTree) Delete(ctx context.Context, k string) (*MerkleSearchTree, error) {
+	altered, err := mst.deleteRecurse(ctx, k)
+	if err != nil {
+		return nil, err
+	}
+	return altered.trimTop(ctx)
+}
+
+// Typescript: MST.deleteRecurse(key) -> MST
+func (mst *MerkleSearchTree) deleteRecurse(ctx context.Context, k string) (*MerkleSearchTree, error) {
+	ix, err := mst.findGtOrEqualLeafIndex(ctx, k)
+	if err != nil {
+		return nil, err
+	}
+
+	found, err := mst.atIndex(ix)
+	if err != nil {
+		return nil, err
+	}
+
+	// "if found, remove it on this level"
+	if found.isLeaf() && found.Key == k {
+		prev, err := mst.atIndex(ix - 1)
+		if err != nil {
+			return nil, err
+		}
+
+		next, err := mst.atIndex(ix + 1)
+		if err != nil {
+			return nil, err
+		}
+
+		if prev.isTree() && next.isTree() {
+			merged, err := prev.Tree.appendMerge(ctx, next.Tree)
+			if err != nil {
+				return nil, err
+			}
+			entries, err := mst.getEntries(ctx)
+			if err != nil {
+				return nil, err
+			}
+			return mst.newTree(append(append(entries[:ix-1], treeEntry(merged)), entries[ix+2:]...)), nil
+		} else {
+			return mst.removeEntry(ctx, ix)
+		}
+	}
+
+	// "else recurse down to find it"
+	prev, err := mst.atIndex(ix - 1)
+	if err != nil {
+		return nil, err
+	}
+
+	if prev.isTree() {
+		subtree, err := prev.Tree.deleteRecurse(ctx, k)
+		if err != nil {
+			return nil, err
+		}
+
+		subtreeEntries, err := subtree.getEntries(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(subtreeEntries) == 0 {
+			return mst.removeEntry(ctx, ix-1)
+		} else {
+			return mst.updateEntry(ctx, ix-1, treeEntry(subtree))
+		}
+	} else {
+		return nil, fmt.Errorf("could not find record with key: %s", k)
+	}
+}
+
+// === "Simple Operations" ===
+
+// "update entry in place"
+// Typescript: MST.updateEntry(index, entry) -> MST
 func (mst *MerkleSearchTree) updateEntry(ctx context.Context, ix int, entry NodeEntry) (*MerkleSearchTree, error) {
 	entries, err := mst.getEntries(ctx)
 	if err != nil {
@@ -447,10 +627,89 @@ func (mst *MerkleSearchTree) updateEntry(ctx context.Context, ix int, entry Node
 	copy(nents[ix+1:], entries[ix+1:])
 
 	checkTreeInvariant(nents)
-
 	return mst.newTree(nents), nil
 }
 
+// "remove entry at index"
+func (mst *MerkleSearchTree) removeEntry(ctx context.Context, ix int) (*MerkleSearchTree, error) {
+	entries, err := mst.getEntries(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	nents := make([]NodeEntry, len(entries)-1)
+	copy(nents, entries[:ix])
+	copy(nents[ix:], entries[ix+1:])
+
+	checkTreeInvariant(nents)
+	return mst.newTree(nents), nil
+}
+
+// "append entry to end of the node"
+func (mst *MerkleSearchTree) append(ctx context.Context, ent NodeEntry) (*MerkleSearchTree, error) {
+	entries, err := mst.getEntries(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	nents := make([]NodeEntry, len(entries)+1)
+	copy(nents, entries)
+	nents[len(nents)-1] = ent
+
+	checkTreeInvariant(nents)
+	return mst.newTree(nents), nil
+}
+
+// "prepend entry to start of the node"
+func (mst *MerkleSearchTree) prepend(ctx context.Context, ent NodeEntry) (*MerkleSearchTree, error) {
+	entries, err := mst.getEntries(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	nents := make([]NodeEntry, len(entries)+1)
+	copy(nents[1:], entries)
+	nents[0] = ent
+
+	checkTreeInvariant(nents)
+	return mst.newTree(nents), nil
+}
+
+// "returns entry at index"
+// Apparently returns null if nothing at index, which seems brittle
+func (mst *MerkleSearchTree) atIndex(ix int) (NodeEntry, error) {
+	entries, err := mst.getEntries(context.TODO())
+	if err != nil {
+		return NodeEntry{}, err
+	}
+
+	// TODO: same as Typescript, but shouldn't it error instead of returning null?
+	if ix < 0 || ix >= len(entries) {
+		return NodeEntry{}, nil
+	}
+
+	return entries[ix], nil
+}
+
+// XXX(bnewbold): slice( start?: number | undefined, end?: number | undefined,): Promise<NodeEntry[]>
+
+// "inserts entry at index"
+func (mst *MerkleSearchTree) spliceIn(ctx context.Context, entry NodeEntry, ix int) (*MerkleSearchTree, error) {
+	entries, err := mst.getEntries(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	nents := make([]NodeEntry, len(entries)+1)
+	copy(nents, entries[:ix])
+	nents[ix] = entry
+	copy(nents[ix+1:], entries[ix:])
+
+	checkTreeInvariant(nents)
+	return mst.newTree(nents), nil
+}
+
+// "replaces an entry with [ Maybe(tree), Leaf, Maybe(tree) ]"
 func (mst *MerkleSearchTree) replaceWithSplit(ctx context.Context, ix int, left *MerkleSearchTree, nl NodeEntry, right *MerkleSearchTree) (*MerkleSearchTree, error) {
 	entries, err := mst.getEntries(ctx)
 	if err != nil {
@@ -482,14 +741,22 @@ func (mst *MerkleSearchTree) replaceWithSplit(ctx context.Context, ix int, left 
 	return mst.newTree(update), nil
 }
 
-func checkTreeInvariant(ents []NodeEntry) {
-	for i := 0; i < len(ents)-1; i++ {
-		if ents[i].isTree() && ents[i+1].isTree() {
-			panic(fmt.Sprintf("two trees next to each other! %d %d", i, i+1))
-		}
+// "if the topmost node in the tree only points to another tree, trim the top and return the subtree"
+func (mst *MerkleSearchTree) trimTop(ctx context.Context) (*MerkleSearchTree, error) {
+	entries, err := mst.getEntries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(entries) == 1 && entries[0].isTree() {
+		return entries[0].Tree.trimTop(ctx)
+	} else {
+		return mst, nil
 	}
 }
 
+// === "Subtree & Splits" ===
+
+// "Recursively splits a sub tree around a given key"
 func (mst *MerkleSearchTree) splitAround(ctx context.Context, key string) (*MerkleSearchTree, *MerkleSearchTree, error) {
 	index, err := mst.findGtOrEqualLeafIndex(ctx, key)
 	if err != nil {
@@ -506,6 +773,7 @@ func (mst *MerkleSearchTree) splitAround(ctx context.Context, key string) (*Merk
 	left := mst.newTree(leftData)
 	right := mst.newTree(rightData)
 
+	// "if the far right of the left side is a subtree, we need to split it on the key as well"
 	if len(leftData) > 0 && leftData[len(leftData)-1].isTree() {
 		lastInLeft := leftData[len(leftData)-1]
 
@@ -554,76 +822,71 @@ func (mst *MerkleSearchTree) entryCount() int {
 	return len(entries)
 }
 
-func (mst *MerkleSearchTree) append(ctx context.Context, ent NodeEntry) (*MerkleSearchTree, error) {
+// "The simple merge case where every key in the right tree is greater than every key in the left tree (used primarily for deletes)"
+func (mst *MerkleSearchTree) appendMerge(ctx context.Context, omst *MerkleSearchTree) (*MerkleSearchTree, error) {
+	mylayer, err := mst.getLayer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	olayer, err := omst.getLayer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if mylayer != olayer {
+		return nil, fmt.Errorf("trying to merge two nodes from different layers")
+	}
+
 	entries, err := mst.getEntries(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	nents := make([]NodeEntry, len(entries)+1)
-	copy(nents, entries)
-	nents[len(nents)-1] = ent
-
-	checkTreeInvariant(nents)
-	return mst.newTree(nents), nil
-}
-
-func (mst *MerkleSearchTree) prepend(ctx context.Context, ent NodeEntry) (*MerkleSearchTree, error) {
-	entries, err := mst.getEntries(ctx)
+	tomergeEnts, err := omst.getEntries(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	nents := make([]NodeEntry, len(entries)+1)
-	copy(nents[1:], entries)
-	nents[0] = ent
+	lastInLeft := entries[len(entries)-1]
+	firstInRight := tomergeEnts[0] // NOTE(bnewbold): bug fixed here, I think
 
-	checkTreeInvariant(nents)
-	return mst.newTree(nents), nil
+	if lastInLeft.isTree() && firstInRight.isTree() {
+		merged, err := lastInLeft.Tree.appendMerge(ctx, firstInRight.Tree)
+		if err != nil {
+			return nil, err
+		}
+
+		return mst.newTree(append(append(entries[:len(entries)-1], treeEntry(merged)), tomergeEnts[1:]...)), nil
+	} else {
+		return mst.newTree(append(entries, tomergeEnts...)), nil
+	}
 }
 
-func (mst *MerkleSearchTree) removeEntry(ctx context.Context, ix int) (*MerkleSearchTree, error) {
-	entries, err := mst.getEntries(ctx)
+// === "Create relatives" ===
+
+func (mst *MerkleSearchTree) createChild(ctx context.Context) (*MerkleSearchTree, error) {
+	layer, err := mst.getLayer(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	nents := make([]NodeEntry, len(entries)-1)
-	copy(nents, entries[:ix])
-	copy(nents[ix:], entries[ix+1:])
-	checkTreeInvariant(nents)
-	return mst.newTree(nents), nil
+	return NewMST(mst.cst, cid.Undef, []NodeEntry{}, layer-1), nil
 }
 
-func (mst *MerkleSearchTree) spliceIn(ctx context.Context, entry NodeEntry, ix int) (*MerkleSearchTree, error) {
-	entries, err := mst.getEntries(ctx)
+func (mst *MerkleSearchTree) createParent(ctx context.Context) (*MerkleSearchTree, error) {
+	layer, err := mst.getLayer(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	nents := make([]NodeEntry, len(entries)+1)
-	copy(nents, entries[:ix])
-	nents[ix] = entry
-	copy(nents[ix+1:], entries[ix:])
-
-	checkTreeInvariant(nents)
-	return mst.newTree(nents), nil
+	return NewMST(mst.cst, cid.Undef, []NodeEntry{treeEntry(mst)}, layer+1), nil
 }
 
-func (mst *MerkleSearchTree) atIndex(ix int) (NodeEntry, error) {
-	entries, err := mst.getEntries(context.TODO())
-	if err != nil {
-		return NodeEntry{}, err
-	}
+// === "Finding insertion points" ===
 
-	if ix < 0 || ix >= len(entries) {
-		return NodeEntry{}, nil
-	}
-
-	return entries[ix], nil
-}
-
-// this smells inefficient
+// NOTE(@why): this smells inefficient
+// "finds index of first leaf node that is greater than or equal to the value"
 func (mst *MerkleSearchTree) findGtOrEqualLeafIndex(ctx context.Context, key string) (int, error) {
 	entries, err := mst.getEntries(ctx)
 	if err != nil {
@@ -637,272 +900,13 @@ func (mst *MerkleSearchTree) findGtOrEqualLeafIndex(ctx context.Context, key str
 		}
 	}
 
+	// "if we can't find, we're on the end"
 	return len(entries), nil
 }
 
-func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]NodeEntry, error) {
-	if mst.entries != nil {
-		return mst.entries, nil
-	}
+// === "List operations (partial tree traversal)" ===
 
-	if mst.pointer != cid.Undef {
-		var nd NodeData
-		if err := mst.cst.Get(ctx, mst.pointer, &nd); err != nil {
-			return nil, err
-		}
-
-		entries, err := entriesFromNodeData(ctx, &nd, mst.cst)
-		if err != nil {
-			return nil, err
-		}
-		if entries == nil {
-			panic("got nil entries from node data decoding")
-		}
-		mst.entries = entries
-		return entries, nil
-	}
-
-	return nil, fmt.Errorf("no entries or cid provided")
-}
-
-func entriesFromNodeData(ctx context.Context, nd *NodeData, cst cbor.IpldStore) ([]NodeEntry, error) {
-	layer := -1
-	if len(nd.Entries) > 0 {
-		firstLeaf := nd.Entries[0]
-		layer = leadingZerosOnHash(firstLeaf.KeySuffix)
-	}
-
-	entries, err := deserializeNodeData(ctx, cst, nd, layer)
-	if err != nil {
-		return nil, err
-	}
-
-	return entries, nil
-}
-
-func (mst *MerkleSearchTree) getPointer(ctx context.Context) (cid.Cid, error) {
-	if mst.validPtr {
-		return mst.pointer, nil
-	}
-
-	// XXX(bnewbold): refactor to be more idiomatic golang
-	entries, err := mst.getEntries(ctx)
-	if err != nil {
-		return cid.Undef, err
-	}
-
-	var outdated []*MerkleSearchTree
-	for _, e := range entries {
-		if e.Kind == EntryTree && !e.Tree.validPtr {
-			outdated = append(outdated, e.Tree)
-		}
-	}
-
-	if len(outdated) > 0 {
-		// this block feels... off
-		for _, o := range outdated {
-			_, err := o.getPointer(ctx)
-			if err != nil {
-				return cid.Undef, err
-			}
-		}
-		ne, err := mst.getEntries(ctx)
-		if err != nil {
-			return cid.Undef, err
-		}
-		entries = ne
-	}
-
-	ptr, err := cidForEntries(ctx, entries, mst.cst)
-	if err != nil {
-		return cid.Undef, err
-	}
-
-	mst.pointer = ptr
-	mst.validPtr = true
-
-	return mst.pointer, nil
-}
-
-func cidForEntries(ctx context.Context, entries []NodeEntry, cst cbor.IpldStore) (cid.Cid, error) {
-	nd, err := serializeNodeData(entries)
-	if err != nil {
-		return cid.Undef, fmt.Errorf("serializing new entries: %w", err)
-	}
-
-	return cst.Put(ctx, nd)
-}
-
-func serializeNodeData(entries []NodeEntry) (*NodeData, error) {
-	var data NodeData
-
-	i := 0
-	if len(entries) > 0 && entries[0].isTree() {
-		i++
-
-		ptr, err := entries[0].Tree.GetPointer(context.TODO())
-		if err != nil {
-			return nil, err
-		}
-		data.Left = &ptr
-	}
-
-	var lastKey string
-	for i < len(entries) {
-		leaf := entries[i]
-
-		if !leaf.isLeaf() {
-			return nil, fmt.Errorf("Not a valid node: two subtrees next to eachother (%d, %d)", i, len(entries))
-		}
-		i++
-
-		var subtree *cid.Cid
-
-		if i < len(entries) {
-			next := entries[i]
-
-			if next.isTree() {
-
-				ptr, err := next.Tree.GetPointer(context.TODO())
-				if err != nil {
-					return nil, fmt.Errorf("getting subtree pointer: %w", err)
-				}
-
-				subtree = &ptr
-				i++
-			}
-		}
-
-		prefixLen := countPrefixLen(lastKey, leaf.Key)
-		data.Entries = append(data.Entries, TreeEntry{
-			PrefixLen: int64(prefixLen),
-			KeySuffix: leaf.Key[prefixLen:],
-			Val:       leaf.Val,
-			Tree:      subtree,
-		})
-
-		lastKey = leaf.Key
-	}
-
-	return &data, nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// how many leading chars are identical between the two strings?
-func countPrefixLen(a, b string) int {
-	count := min(len(a), len(b))
-	for i := 0; i < count; i++ {
-		if a[i] != b[i] {
-			return i
-		}
-	}
-	return count
-}
-
-func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, layer int) ([]NodeEntry, error) {
-	entries := []NodeEntry{}
-	if nd.Left != nil {
-		entries = append(entries, NodeEntry{
-			Kind: EntryTree,
-			Tree: NewMST(cst, *nd.Left, nil, layer-1),
-		})
-	}
-
-	var lastKey string
-	for _, e := range nd.Entries {
-		key := make([]byte, int(e.PrefixLen)+len(e.KeySuffix))
-		copy(key, lastKey[:e.PrefixLen])
-		copy(key[e.PrefixLen:], e.KeySuffix)
-
-		entries = append(entries, NodeEntry{
-			Kind: EntryLeaf,
-			Key:  string(key),
-			Val:  e.Val,
-		})
-
-		if e.Tree != nil {
-			entries = append(entries, NodeEntry{
-				Kind: EntryTree,
-				Tree: NewMST(cst, *e.Tree, nil, layer-1),
-				Key:  string(key),
-			})
-		}
-		lastKey = string(key)
-	}
-
-	return entries, nil
-}
-
-func layerForEntries(entries []NodeEntry) int {
-	var firstLeaf NodeEntry
-	for _, e := range entries {
-		if e.isLeaf() {
-			firstLeaf = e
-			break
-		}
-	}
-
-	if firstLeaf.Kind == EntryUndefined {
-		return -1
-	}
-
-	return leadingZerosOnHash(firstLeaf.Key)
-
-}
-
-func (mst *MerkleSearchTree) getLayer(ctx context.Context) (int, error) {
-	if mst.layer >= 0 {
-		return mst.layer, nil
-	}
-
-	entries, err := mst.getEntries(ctx)
-	if err != nil {
-		return -1, err
-	}
-
-	mst.layer = layerForEntries(entries)
-	if mst.layer < 0 {
-		// still empty!
-		mst.layer = 0
-	}
-
-	return mst.layer, nil
-}
-
-func log2(v int) int {
-	var out int
-	for v > 1 {
-		out++
-		v = v / 2
-	}
-	return out
-}
-
-// Used to determine the "depth" of keys in an MST.
-// For atproto, the "fanout" is always 16, so we count "zeros" in chunks of
-// 4-bits. Eg, a leading 0x00 byte is 2 "zeros".
-func leadingZerosOnHash(k string) int {
-	hv := sha256.Sum256([]byte(k))
-
-	total := 0
-	for i := 0; i < len(hv); i++ {
-		if hv[i] == 0x00 {
-			total += 2
-			continue
-		} else if hv[i]&0xF0 == 0x00 {
-			total += 1
-		}
-		break
-	}
-	return total
-}
-
+// "Walk tree starting at key"
 func (mst *MerkleSearchTree) WalkLeavesFrom(ctx context.Context, key string, cb func(n NodeEntry) error) error {
 	index, err := mst.findGtOrEqualLeafIndex(ctx, key)
 	if err != nil {
@@ -936,3 +940,20 @@ func (mst *MerkleSearchTree) WalkLeavesFrom(ctx context.Context, key string, cb 
 	}
 	return nil
 }
+
+// TODO: Typescript: MST.list(count?, after?, before?) -> Leaf[]
+// TODO: Typescript: MST.listWithPrefix(prefix, count?) -> Leaf[]
+
+// "Walk full tree & emit nodes, consumer can bail at any point by returning false"
+// TODO: Typescript: MST.walk() -> NodeEntry (iterator)
+// TODO: Typescript: MST.paths() -> NodeEntry[][]
+// TODO: Typescript: MST.allNodes() -> NodeEntry[]
+// TODO: Typescript: MST.allCids() -> CidSet
+// TODO: Typescript: MST.leaves() -> Leaf[]
+// TODO: Typescript: MST.leafCount() -> number
+
+// TODO: Typescript: MST.walkReachable() -> NodeEntry (iterator)
+// TODO: Typescript: MST.reachableLeaves() -> Leaf[]
+
+// TODO: Typescript: MST.writeToCarStream(car) -> ()
+// TODO: Typescript: MST.cidsForPath(car) -> CID[]
