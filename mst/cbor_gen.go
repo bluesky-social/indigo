@@ -30,7 +30,7 @@ func (t *NodeData) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.E ([]mst.TreeEntry) (slice)
+	// t.Entries ([]mst.TreeEntry) (slice)
 	if len("e") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"e\" was too long")
 	}
@@ -42,20 +42,20 @@ func (t *NodeData) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.E) > cbg.MaxLength {
-		return xerrors.Errorf("Slice value in field t.E was too long")
+	if len(t.Entries) > cbg.MaxLength {
+		return xerrors.Errorf("Slice value in field t.Entries was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.E))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Entries))); err != nil {
 		return err
 	}
-	for _, v := range t.E {
+	for _, v := range t.Entries {
 		if err := v.MarshalCBOR(cw); err != nil {
 			return err
 		}
 	}
 
-	// t.L (cid.Cid) (struct)
+	// t.Left (cid.Cid) (struct)
 	if len("l") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"l\" was too long")
 	}
@@ -67,13 +67,13 @@ func (t *NodeData) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if t.L == nil {
+	if t.Left == nil {
 		if _, err := cw.Write(cbg.CborNull); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteCid(cw, *t.L); err != nil {
-			return xerrors.Errorf("failed to write cid field t.L: %w", err)
+		if err := cbg.WriteCid(cw, *t.Left); err != nil {
+			return xerrors.Errorf("failed to write cid field t.Left: %w", err)
 		}
 	}
 
@@ -118,7 +118,7 @@ func (t *NodeData) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.E ([]mst.TreeEntry) (slice)
+		// t.Entries ([]mst.TreeEntry) (slice)
 		case "e":
 
 			maj, extra, err = cr.ReadHeader()
@@ -127,7 +127,7 @@ func (t *NodeData) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			if extra > cbg.MaxLength {
-				return fmt.Errorf("t.E: array too large (%d)", extra)
+				return fmt.Errorf("t.Entries: array too large (%d)", extra)
 			}
 
 			if maj != cbg.MajArray {
@@ -135,7 +135,7 @@ func (t *NodeData) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			if extra > 0 {
-				t.E = make([]TreeEntry, extra)
+				t.Entries = make([]TreeEntry, extra)
 			}
 
 			for i := 0; i < int(extra); i++ {
@@ -145,10 +145,10 @@ func (t *NodeData) UnmarshalCBOR(r io.Reader) (err error) {
 					return err
 				}
 
-				t.E[i] = v
+				t.Entries[i] = v
 			}
 
-			// t.L (cid.Cid) (struct)
+			// t.Left (cid.Cid) (struct)
 		case "l":
 
 			{
@@ -164,10 +164,10 @@ func (t *NodeData) UnmarshalCBOR(r io.Reader) (err error) {
 
 					c, err := cbg.ReadCid(cr)
 					if err != nil {
-						return xerrors.Errorf("failed to read cid field t.L: %w", err)
+						return xerrors.Errorf("failed to read cid field t.Left: %w", err)
 					}
 
-					t.L = &c
+					t.Left = &c
 				}
 
 			}
@@ -192,7 +192,7 @@ func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.K (string) (string)
+	// t.KeySuffix (string) (string)
 	if len("k") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"k\" was too long")
 	}
@@ -204,18 +204,18 @@ func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.K) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.K was too long")
+	if len(t.KeySuffix) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.KeySuffix was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.K))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.KeySuffix))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.K)); err != nil {
+	if _, err := io.WriteString(w, string(t.KeySuffix)); err != nil {
 		return err
 	}
 
-	// t.P (int64) (int64)
+	// t.PrefixLen (int64) (int64)
 	if len("p") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"p\" was too long")
 	}
@@ -227,12 +227,12 @@ func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if t.P >= 0 {
-		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.P)); err != nil {
+	if t.PrefixLen >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.PrefixLen)); err != nil {
 			return err
 		}
 	} else {
-		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.P-1)); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.PrefixLen-1)); err != nil {
 			return err
 		}
 	}
@@ -259,7 +259,7 @@ func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.V (cid.Cid) (struct)
+	// t.Val (cid.Cid) (struct)
 	if len("v") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"v\" was too long")
 	}
@@ -271,8 +271,8 @@ func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cbg.WriteCid(cw, t.V); err != nil {
-		return xerrors.Errorf("failed to write cid field t.V: %w", err)
+	if err := cbg.WriteCid(cw, t.Val); err != nil {
+		return xerrors.Errorf("failed to write cid field t.Val: %w", err)
 	}
 
 	return nil
@@ -316,7 +316,7 @@ func (t *TreeEntry) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.K (string) (string)
+		// t.KeySuffix (string) (string)
 		case "k":
 
 			{
@@ -325,9 +325,9 @@ func (t *TreeEntry) UnmarshalCBOR(r io.Reader) (err error) {
 					return err
 				}
 
-				t.K = string(sval)
+				t.KeySuffix = string(sval)
 			}
-			// t.P (int64) (int64)
+			// t.PrefixLen (int64) (int64)
 		case "p":
 			{
 				maj, extra, err := cr.ReadHeader()
@@ -351,7 +351,7 @@ func (t *TreeEntry) UnmarshalCBOR(r io.Reader) (err error) {
 					return fmt.Errorf("wrong type for int64 field: %d", maj)
 				}
 
-				t.P = int64(extraI)
+				t.PrefixLen = int64(extraI)
 			}
 			// t.Tree (cid.Cid) (struct)
 		case "t":
@@ -376,17 +376,17 @@ func (t *TreeEntry) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 			}
-			// t.V (cid.Cid) (struct)
+			// t.Val (cid.Cid) (struct)
 		case "v":
 
 			{
 
 				c, err := cbg.ReadCid(cr)
 				if err != nil {
-					return xerrors.Errorf("failed to read cid field t.V: %w", err)
+					return xerrors.Errorf("failed to read cid field t.Val: %w", err)
 				}
 
-				t.V = c
+				t.Val = c
 
 			}
 
