@@ -338,6 +338,9 @@ func diffMaps(a, b map[string]cid.Cid) []*DiffOp {
 	return out
 }
 
+// NOTE(bnewbold): this does *not* just call cid.Decode(), which is the simple
+// "parse a CID in string form into a cid.Cid object". This method (strToCid())
+// can sometimes result in "identity" CIDs
 func strToCid(s string) cid.Cid {
 	h, err := multihash.Sum([]byte(s), multihash.ID, -1)
 	if err != nil {
