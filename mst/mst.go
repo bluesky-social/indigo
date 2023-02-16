@@ -122,15 +122,7 @@ type MerkleSearchTree struct {
 	validPtr bool
 }
 
-// TODO(bnewbold): so similar to NewMST; redundant?
 // Typescript: MST.create(storage, entries, layer, fanout) -> MST
-func create(ctx context.Context, cst cbor.IpldStore, entries []NodeEntry, layer int) (*MerkleSearchTree, error) {
-	if entries == nil {
-		panic("nil entries passed to create()")
-	}
-	return NewMST(cst, cid.Undef, entries, layer), nil
-}
-
 func NewMST(cst cbor.IpldStore, ptr cid.Cid, entries []NodeEntry, layer int) *MerkleSearchTree {
 	mst := &MerkleSearchTree{
 		cst:      cst,
@@ -245,11 +237,6 @@ func (mst *MerkleSearchTree) GetPointer(ctx context.Context) (cid.Cid, error) {
 	mst.validPtr = true
 
 	return mst.pointer, nil
-}
-
-// TODO(bnewbold): seems to be a dupe of above, but is called elsewhere. Refactor away.
-func (mst *MerkleSearchTree) getPointer(ctx context.Context) (cid.Cid, error) {
-	return mst.GetPointer(ctx)
 }
 
 // "In most cases, we get the layer of a node from a hint on creation"
@@ -452,10 +439,7 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 		}
 
 		checkTreeInvariant(updated)
-		newRoot, err := create(ctx, mst.cst, updated, keyZeros)
-		if err != nil {
-			return nil, fmt.Errorf("creating new tree after split: %w", err)
-		}
+		newRoot := NewMST(mst.cst, cid.Undef, updated, keyZeros)
 
 		// we have mutated this node without recomputing CID, so invalidate it
 		newRoot.validPtr = false
