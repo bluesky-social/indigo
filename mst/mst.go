@@ -1,3 +1,10 @@
+// Merkle Search Tree (MST) implementation for atproto.
+// This implementation is a port of the Typescript implementation in the
+// `atproto` git repo.
+//
+// The hash function is SHA-256, and "fanout=16", which corresponds to counting
+// "leading zeros" for tree level in 4-bit chunks.
+
 package mst
 
 import (
@@ -5,7 +12,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"math/bits"
 
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -14,8 +20,7 @@ import (
 )
 
 type MerkleSearchTree struct {
-	fanout int
-	cst    cbor.IpldStore
+	cst cbor.IpldStore
 
 	entries  []NodeEntry
 	layer    int
@@ -23,10 +28,9 @@ type MerkleSearchTree struct {
 	validPtr bool
 }
 
-func NewMST(cst cbor.IpldStore, fanout int, ptr cid.Cid, entries []NodeEntry, layer int) *MerkleSearchTree {
+func NewMST(cst cbor.IpldStore, ptr cid.Cid, entries []NodeEntry, layer int) *MerkleSearchTree {
 	mst := &MerkleSearchTree{
 		cst:      cst,
-		fanout:   fanout,
 		pointer:  ptr,
 		layer:    layer,
 		entries:  entries,
@@ -36,15 +40,15 @@ func NewMST(cst cbor.IpldStore, fanout int, ptr cid.Cid, entries []NodeEntry, la
 	return mst
 }
 
-func LoadMST(cst cbor.IpldStore, fanout int, root cid.Cid) *MerkleSearchTree {
-	return NewMST(cst, fanout, root, nil, -1)
+func LoadMST(cst cbor.IpldStore, root cid.Cid) *MerkleSearchTree {
+	return NewMST(cst, root, nil, -1)
 }
 
 func (mst *MerkleSearchTree) newTree(entries []NodeEntry) *MerkleSearchTree {
 	if entries == nil {
 		panic("nil entries passed to newTree")
 	}
-	return NewMST(mst.cst, mst.fanout, cid.Undef, entries, mst.layer)
+	return NewMST(mst.cst, cid.Undef, entries, mst.layer)
 }
 
 func (mst *MerkleSearchTree) GetPointer(ctx context.Context) (cid.Cid, error) {
@@ -78,9 +82,9 @@ func (mst *MerkleSearchTree) GetPointer(ctx context.Context) (cid.Cid, error) {
 	return mst.pointer, nil
 }
 
-func create(ctx context.Context, cst cbor.IpldStore, entries []NodeEntry, layer int, fanout int) (*MerkleSearchTree, error) {
+func create(ctx context.Context, cst cbor.IpldStore, entries []NodeEntry, layer int) (*MerkleSearchTree, error) {
 	var ptr cid.Cid
-	return NewMST(cst, fanout, ptr, entries, layer), nil
+	return NewMST(cst, ptr, entries, layer), nil
 }
 
 func cborGet(ctx context.Context, bs blockstore.Blockstore, c cid.Cid, out cbg.CBORUnmarshaler) error {
@@ -143,7 +147,7 @@ type NodeData struct {
 func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, knownZeros int) (*MerkleSearchTree, error) {
 	keyZeros := knownZeros // is this really just to avoid rerunning the leading zeros hash?
 	if keyZeros < 0 {
-		keyZeros = leadingZerosOnHash(key, mst.fanout)
+		keyZeros = leadingZerosOnHash(key)
 	}
 
 	layer, err := mst.getLayer(ctx)
@@ -268,7 +272,7 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 		}
 
 		checkTreeInvariant(updated)
-		newRoot, err := create(ctx, mst.cst, updated, keyZeros, mst.fanout)
+		newRoot, err := create(ctx, mst.cst, updated, keyZeros)
 		if err != nil {
 			return nil, fmt.Errorf("creating new tree after split: %w", err)
 		}
@@ -419,7 +423,7 @@ func (mst *MerkleSearchTree) createParent(ctx context.Context) (*MerkleSearchTre
 		return nil, err
 	}
 
-	return NewMST(mst.cst, mst.fanout, cid.Undef, []NodeEntry{treeEntry(mst)}, layer+1), nil
+	return NewMST(mst.cst, cid.Undef, []NodeEntry{treeEntry(mst)}, layer+1), nil
 }
 
 func (mst *MerkleSearchTree) createChild(ctx context.Context) (*MerkleSearchTree, error) {
@@ -428,7 +432,7 @@ func (mst *MerkleSearchTree) createChild(ctx context.Context) (*MerkleSearchTree
 		return nil, err
 	}
 
-	return NewMST(mst.cst, mst.fanout, cid.Undef, []NodeEntry{}, layer-1), nil
+	return NewMST(mst.cst, cid.Undef, []NodeEntry{}, layer-1), nil
 }
 
 func (mst *MerkleSearchTree) updateEntry(ctx context.Context, ix int, entry NodeEntry) (*MerkleSearchTree, error) {
@@ -647,7 +651,7 @@ func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]NodeEntry, error
 			return nil, err
 		}
 
-		entries, err := entriesFromNodeData(ctx, &nd, mst.cst, mst.fanout)
+		entries, err := entriesFromNodeData(ctx, &nd, mst.cst)
 		if err != nil {
 			return nil, err
 		}
@@ -661,14 +665,14 @@ func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]NodeEntry, error
 	return nil, fmt.Errorf("no entries or cid provided")
 }
 
-func entriesFromNodeData(ctx context.Context, nd *NodeData, cst cbor.IpldStore, fanout int) ([]NodeEntry, error) {
+func entriesFromNodeData(ctx context.Context, nd *NodeData, cst cbor.IpldStore) ([]NodeEntry, error) {
 	layer := -1
 	if len(nd.E) > 0 {
 		firstLeaf := nd.E[0]
-		layer = leadingZerosOnHash(firstLeaf.K, fanout)
+		layer = leadingZerosOnHash(firstLeaf.K)
 	}
 
-	entries, err := deserializeNodeData(ctx, cst, nd, layer, fanout)
+	entries, err := deserializeNodeData(ctx, cst, nd, layer)
 	if err != nil {
 		return nil, err
 	}
@@ -800,12 +804,12 @@ func countPrefixLen(a, b string) int {
 	return count
 }
 
-func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, layer int, fanout int) ([]NodeEntry, error) {
+func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, layer int) ([]NodeEntry, error) {
 	entries := []NodeEntry{}
 	if nd.L != nil {
 		entries = append(entries, NodeEntry{
 			Kind: EntryTree,
-			Tree: NewMST(cst, fanout, *nd.L, nil, layer-1),
+			Tree: NewMST(cst, *nd.L, nil, layer-1),
 		})
 	}
 
@@ -824,7 +828,7 @@ func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, 
 		if e.Tree != nil {
 			entries = append(entries, NodeEntry{
 				Kind: EntryTree,
-				Tree: NewMST(cst, fanout, *e.Tree, nil, layer-1),
+				Tree: NewMST(cst, *e.Tree, nil, layer-1),
 				Key:  string(key),
 			})
 		}
@@ -834,7 +838,7 @@ func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, 
 	return entries, nil
 }
 
-func layerForEntries(entries []NodeEntry, fanout int) int {
+func layerForEntries(entries []NodeEntry) int {
 	var firstLeaf NodeEntry
 	for _, e := range entries {
 		if e.isLeaf() {
@@ -847,7 +851,7 @@ func layerForEntries(entries []NodeEntry, fanout int) int {
 		return -1
 	}
 
-	return leadingZerosOnHash(firstLeaf.Key, fanout)
+	return leadingZerosOnHash(firstLeaf.Key)
 
 }
 
@@ -861,7 +865,7 @@ func (mst *MerkleSearchTree) getLayer(ctx context.Context) (int, error) {
 		return -1, err
 	}
 
-	mst.layer = layerForEntries(entries, mst.fanout)
+	mst.layer = layerForEntries(entries)
 	if mst.layer < 0 {
 		// still empty!
 		mst.layer = 0
@@ -880,21 +884,22 @@ func log2(v int) int {
 }
 
 // Used to determine the "depth" of keys in an MST.
-// `fanout` parameter is the number of childen at each node. For
-// atproto, as of later 2022 this is always 16, which corresponds to
-// measuring 4 bits groups for "zeroness".
-func leadingZerosOnHash(k string, fanout int) int {
+// For atproto, the "fanout" is always 16, so we count "zeros" in chunks of
+// 4-bits. Eg, a leading 0x00 byte is 2 "zeros".
+func leadingZerosOnHash(k string) int {
 	hv := sha256.Sum256([]byte(k))
 
-	var total int
+	total := 0
 	for i := 0; i < len(hv); i++ {
-		n := bits.LeadingZeros8(hv[i])
-		total += n
-		if n != 8 {
-			break
+		if hv[i] == 0x00 {
+			total += 2
+			continue
+		} else if hv[i]&0xF0 == 0x00 {
+			total += 1
 		}
+		break
 	}
-	return total / log2(fanout)
+	return total
 }
 
 func (mst *MerkleSearchTree) WalkLeavesFrom(ctx context.Context, key string, cb func(n NodeEntry) error) error {

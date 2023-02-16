@@ -88,7 +88,7 @@ func ReadRepoFromCar(ctx context.Context, r io.Reader) (*Repo, error) {
 func NewRepo(ctx context.Context, did string, bs blockstore.Blockstore) *Repo {
 	cst := util.CborStore(bs)
 
-	t := mst.NewMST(cst, 32, cid.Undef, []mst.NodeEntry{}, 0)
+	t := mst.NewMST(cst, cid.Undef, []mst.NodeEntry{}, 0)
 
 	meta := Meta{
 		Datastore: "TODO",
@@ -314,7 +314,7 @@ func (r *Repo) getMst(ctx context.Context) (*mst.MerkleSearchTree, error) {
 		return nil, err
 	}
 
-	t := mst.LoadMST(r.cst, 32, rt.Data)
+	t := mst.LoadMST(r.cst, rt.Data)
 	r.mst = t
 	return t, nil
 }
@@ -330,7 +330,7 @@ func (r *Repo) ForEach(ctx context.Context, prefix string, cb func(k string, v c
 		return fmt.Errorf("failed to load commit: %w", err)
 	}
 
-	t := mst.LoadMST(r.cst, 32, rt.Data)
+	t := mst.LoadMST(r.cst, rt.Data)
 
 	if err := t.WalkLeavesFrom(ctx, prefix, func(e mst.NodeEntry) error {
 		return cb(e.Key, e.Val)

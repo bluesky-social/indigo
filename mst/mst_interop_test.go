@@ -12,15 +12,14 @@ import (
 
 func TestLeadingZeros(t *testing.T) {
 	msg := "MST 'depth' computation (SHA-256 leading zeros)"
-	fanout := 16
-	assert.Equal(t, leadingZerosOnHash("", fanout), 0, msg)
-	assert.Equal(t, leadingZerosOnHash("asdf", fanout), 0, msg)
-	assert.Equal(t, leadingZerosOnHash("2653ae71", fanout), 0, msg)
-	assert.Equal(t, leadingZerosOnHash("88bfafc7", fanout), 1, msg)
-	assert.Equal(t, leadingZerosOnHash("2a92d355", fanout), 2, msg)
-	assert.Equal(t, leadingZerosOnHash("884976f5", fanout), 3, msg)
-	assert.Equal(t, leadingZerosOnHash("app.bsky.feed.post/454397e440ec", fanout), 2, msg)
-	assert.Equal(t, leadingZerosOnHash("app.bsky.feed.post/9adeb165882c", fanout), 4, msg)
+	assert.Equal(t, leadingZerosOnHash(""), 0, msg)
+	assert.Equal(t, leadingZerosOnHash("asdf"), 0, msg)
+	assert.Equal(t, leadingZerosOnHash("2653ae71"), 0, msg)
+	assert.Equal(t, leadingZerosOnHash("88bfafc7"), 1, msg)
+	assert.Equal(t, leadingZerosOnHash("2a92d355"), 2, msg)
+	assert.Equal(t, leadingZerosOnHash("884976f5"), 3, msg)
+	assert.Equal(t, leadingZerosOnHash("app.bsky.feed.post/454397e440ec"), 2, msg)
+	assert.Equal(t, leadingZerosOnHash("app.bsky.feed.post/9adeb165882c"), 4, msg)
 }
 
 func TestPrefixLen(t *testing.T) {
@@ -43,8 +42,8 @@ func TestPrefixLenWide(t *testing.T) {
 	// NOTE: these are not cross-language consistent!
 	msg := "length of common prefix between strings (wide chars)"
 	assert.Equal(t, len("jalapeño"), 9, msg) // 8 in javascript
-	assert.Equal(t, len("💩"), 4, msg) // 2 in javascript
-	assert.Equal(t, len("👩‍👧‍👧"), 18, msg) // 8 in javascript
+	assert.Equal(t, len("💩"), 4, msg)        // 2 in javascript
+	assert.Equal(t, len("👩‍👧‍👧"), 18, msg)   // 8 in javascript
 
 	// many of the below are different in JS
 	assert.Equal(t, countPrefixLen("jalapeño", "jalapeno"), 6, msg)
@@ -58,8 +57,8 @@ func TestPrefixLenWide(t *testing.T) {
 func mapToMstRootCidString(t *testing.T, m map[string]string) string {
 	bs := memBs()
 	ctx := context.Background()
-	mst16 := cidMapToMst(t, 16, bs, mapToCidMap(m))
-	ncid, err := mst16.getPointer(ctx)
+	mst := cidMapToMst(t, bs, mapToCidMap(m))
+	ncid, err := mst.getPointer(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,6 +98,7 @@ func TestInteropKnownMaps(t *testing.T) {
 }
 
 func TestInteropKnownMapsTricky(t *testing.T) {
+	t.Skip("TODO: behavior of these wide-char keys is undefined behavior in string MST")
 
 	cid1 := "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454"
 
@@ -110,7 +110,6 @@ func TestInteropKnownMapsTricky(t *testing.T) {
 		"coüperative": cid1,
 		"abc\x00":     cid1,
 	}
-	t.Skip("TODO: golang implementation is broken here")
 	assert.Equal(t, mapToMstRootCidString(t, trickyMap), "bafyreiecb33zh7r2sc3k2wthm6exwzfktof63kmajeildktqc25xj6qzx4")
 }
 
@@ -131,7 +130,7 @@ func TestInteropEdgeCasesTrim(t *testing.T) {
 		"com.example.record/cbe72d33d12a": cid1, // level 0
 		"com.example.record/a15e33ba0f6c": cid1, // level 1
 	}
-	trimMst := cidMapToMst(t, 16, bs, mapToCidMap(trimMap))
+	trimMst := cidMapToMst(t, bs, mapToCidMap(trimMap))
 	trimBefore, err := trimMst.getPointer(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -171,7 +170,7 @@ func TestInteropEdgeCasesInsertion(t *testing.T) {
 		"com.example.record/e99bf3ced34b": cid1, // K; level 0
 		"com.example.record/f728ba61e4b6": cid1, // L; level 0
 	}
-	insertionMst := cidMapToMst(t, 16, bs, mapToCidMap(insertionMap))
+	insertionMst := cidMapToMst(t, bs, mapToCidMap(insertionMap))
 	insertionBefore, err := insertionMst.getPointer(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -213,7 +212,7 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 		"com.example.record/403e2aeebfdb": cid1, // A; level 0
 		"com.example.record/cbe72d33d12a": cid1, // C; level 0
 	}
-	higherMst := cidMapToMst(t, 16, bs, mapToCidMap(higherMap))
+	higherMst := cidMapToMst(t, bs, mapToCidMap(higherMap))
 	higherBefore, err := higherMst.getPointer(ctx)
 	if err != nil {
 		t.Fatal(err)
