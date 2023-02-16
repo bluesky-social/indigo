@@ -50,7 +50,7 @@ func TestBasicMst(t *testing.T) {
 		mst = nmst
 	}
 
-	ncid, err := mst.getPointer(ctx)
+	ncid, err := mst.GetPointer(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
