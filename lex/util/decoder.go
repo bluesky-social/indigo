@@ -65,6 +65,8 @@ type CBOR interface {
 	cbg.CBORMarshaler
 }
 
+var ErrUnrecognizedType = fmt.Errorf("unrecognized type")
+
 func CborDecodeValue(b []byte) (CBOR, error) {
 	tstr, err := CborTypeExtract(b)
 	if err != nil {
@@ -73,7 +75,7 @@ func CborDecodeValue(b []byte) (CBOR, error) {
 
 	t, ok := lexTypesMap[tstr]
 	if !ok {
-		return nil, fmt.Errorf("unrecognized type: %q", tstr)
+		return nil, fmt.Errorf("handling %q: %w", tstr, ErrUnrecognizedType)
 	}
 
 	val := reflect.New(t)

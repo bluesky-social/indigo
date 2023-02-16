@@ -79,7 +79,7 @@ func TestBasicOperation(t *testing.T) {
 	}
 	defer cleanup()
 
-	ds, err := cs.NewDeltaSession(ctx, 1, &cid.Undef)
+	ds, err := cs.NewDeltaSession(ctx, 1, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

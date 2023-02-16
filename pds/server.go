@@ -128,10 +128,11 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.echo.Shutdown(ctx)
 }
 
-func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *events.RepoEvent) error {
+func (s *Server) handleFedEvent(ctx context.Context, host *Peering, env *events.RepoStreamEvent) error {
 	fmt.Printf("[%s] got fed event from %q\n", s.serviceUrl, host.Host)
 	switch {
-	case evt.RepoAppend != nil:
+	case env.Append != nil:
+		evt := env.Append
 		u, err := s.lookupUserByDid(ctx, evt.Repo)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -147,7 +148,17 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, evt *events.
 			u.ID = subj.Uid
 		}
 
-		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.RepoAppend.Prev, evt.RepoAppend.Ops, evt.RepoAppend.Car)
+		var pcid *cid.Cid
+		if evt.Prev != "" {
+			prev, err := cid.Decode(evt.Prev)
+			if err != nil {
+				return err
+			}
+
+			pcid = &prev
+		}
+
+		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, pcid, evt.Blocks)
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
@@ -241,40 +252,22 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 	return subj, nil
 }
 
-func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent) (*events.RepoEvent, error) {
+func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent) (*events.RepoAppend, error) {
 	did, err := s.indexer.DidForUser(ctx, evt.User)
 	if err != nil {
 		return nil, err
 	}
 
-	out := &events.RepoEvent{
-		RepoAppend: &events.RepoAppend{
-			Prev: evt.OldRoot,
-			Car:  evt.RepoSlice,
-		},
-		Repo:    did,
-		PrivUid: evt.User,
+	var prevcid string
+	if evt.OldRoot != nil {
+		prevcid = evt.OldRoot.String()
 	}
 
-	for _, op := range evt.Ops {
-		switch op.Kind {
-		case repomgr.EvtKindCreateRecord:
-			out.RepoAppend.Ops = append(out.RepoAppend.Ops, &events.RepoOp{
-				Kind: events.EvtKindRepoChange,
-				Col:  op.Collection,
-				Rkey: op.Rkey,
-			})
-		case repomgr.EvtKindUpdateRecord:
-			out.RepoAppend.Ops = append(out.RepoAppend.Ops, &events.RepoOp{
-				Kind: events.EvtKindRepoChange,
-				Col:  op.Collection,
-				Rkey: op.Rkey,
-			})
-		case repomgr.EvtKindInitActor:
-			return nil, nil
-		default:
-			return nil, fmt.Errorf("unrecognized repo event kind: %q", op.Kind)
-		}
+	out := &events.RepoAppend{
+		Prev:   prevcid,
+		Blocks: evt.RepoSlice,
+		Repo:   did,
+		//PrivUid: evt.User,
 	}
 
 	return out, nil
@@ -340,6 +333,8 @@ func (s *Server) RunAPI(listen string) error {
 	cfg := middleware.JWTConfig{
 		Skipper: func(c echo.Context) bool {
 			switch c.Path() {
+			case "/xrpc/com.atproto.sync.subscribeAllRepos":
+				return true
 			case "/xrpc/com.atproto.account.create":
 				return true
 			case "/xrpc/com.atproto.handle.resolve":
@@ -378,7 +373,7 @@ func (s *Server) RunAPI(listen string) error {
 	e.Use(middleware.JWTWithConfig(cfg), s.userCheckMiddleware)
 	s.RegisterHandlersComAtproto(e)
 	s.RegisterHandlersAppBsky(e)
-	e.GET("/events", s.EventsHandler)
+	e.GET("/xrpc/com.atproto.sync.subscribeAllRepos", s.EventsHandler)
 
 	return e.Start(listen)
 }
@@ -602,7 +597,7 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		}
 	}
 
-	evts, cancel, err := s.events.Subscribe(func(evt *events.RepoEvent) bool {
+	evts, cancel, err := s.events.Subscribe(func(evt *events.RepoStreamEvent) bool {
 		if !s.enforcePeering {
 			return true
 		}
@@ -623,18 +618,28 @@ func (s *Server) EventsHandler(c echo.Context) error {
 	}
 	defer cancel()
 
-	header := events.EventHeader{Type: "data"}
+	header := events.EventHeader{Type: events.EvtKindRepoAppend}
 	for evt := range evts {
 		wc, err := conn.NextWriter(websocket.BinaryMessage)
 		if err != nil {
 			return err
 		}
 
+		var obj util.CBOR
+
+		switch {
+		case evt.Append != nil:
+			header.Type = events.EvtKindRepoAppend
+			obj = evt.Append
+		default:
+			return fmt.Errorf("unrecognized event kind")
+		}
+
 		if err := header.MarshalCBOR(wc); err != nil {
 			return fmt.Errorf("failed to write header: %w", err)
 		}
 
-		if err := evt.MarshalCBOR(wc); err != nil {
+		if err := obj.MarshalCBOR(wc); err != nil {
 			return fmt.Errorf("failed to write event: %w", err)
 		}
 

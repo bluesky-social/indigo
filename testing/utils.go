@@ -420,7 +420,7 @@ func SetupBGS(host string, didr plc.PLCClient) (*testBGS, error) {
 		}
 	})
 
-	b := bgs.NewBGS(maindb, ix, repoman, evtman, didr)
+	b := bgs.NewBGS(maindb, ix, repoman, evtman, didr, false)
 
 	return &testBGS{
 		bgs:  b,
@@ -439,7 +439,7 @@ func (b *testBGS) Run(t *testing.T) {
 
 type eventStream struct {
 	lk     sync.Mutex
-	events []*events.RepoEvent
+	events []*events.RepoStreamEvent
 	cancel func()
 
 	cur int
@@ -453,7 +453,7 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 		h.Set("since", fmt.Sprint(since))
 	}
 
-	con, resp, err := d.Dial("ws://"+b.host+"/events", h)
+	con, resp, err := d.Dial("ws://"+b.host+"/xrpc/com.atproto.sync.subscribeAllRepos", h)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -494,14 +494,15 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 			}
 
 			switch header.Type {
-			case "data":
-				var evt events.RepoEvent
+			case events.EvtKindRepoAppend:
+				var evt events.RepoAppend
 				if err := evt.UnmarshalCBOR(r); err != nil {
 					panic(err)
 				}
 
+				fmt.Println("received event: ", evt.Seq, evt.Repo)
 				es.lk.Lock()
-				es.events = append(es.events, &evt)
+				es.events = append(es.events, &events.RepoStreamEvent{Append: &evt})
 				es.lk.Unlock()
 			default:
 				panic(fmt.Sprintf("unrecognized event stream type: %q", header.Type))
@@ -513,7 +514,7 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 	return es
 }
 
-func (es *eventStream) Next() *events.RepoEvent {
+func (es *eventStream) Next() *events.RepoStreamEvent {
 	defer es.lk.Unlock()
 	for {
 		es.lk.Lock()
@@ -526,10 +527,10 @@ func (es *eventStream) Next() *events.RepoEvent {
 	}
 }
 
-func (es *eventStream) All() []*events.RepoEvent {
+func (es *eventStream) All() []*events.RepoStreamEvent {
 	es.lk.Lock()
 	defer es.lk.Unlock()
-	out := make([]*events.RepoEvent, len(es.events))
+	out := make([]*events.RepoStreamEvent, len(es.events))
 	for i, e := range es.events {
 		out[i] = e
 	}

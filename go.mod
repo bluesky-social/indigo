@@ -6,7 +6,7 @@ require (
 	github.com/brianvoe/gofakeit/v6 v6.20.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/websocket v1.5.0
-	github.com/ipfs/go-block-format v0.0.3
+	github.com/ipfs/go-block-format v0.1.1
 	github.com/ipfs/go-bs-sqlite3 v0.0.0-20221122195556-bfcee1be620d
 	github.com/ipfs/go-car v0.0.4
 	github.com/ipfs/go-cid v0.3.2
@@ -15,6 +15,7 @@ require (
 	github.com/ipfs/go-ipfs-blockstore v1.2.1-0.20220823165003-9904c18f1d0a
 	github.com/ipfs/go-ipld-cbor v0.0.7-0.20230126201833-a73d038d90bc
 	github.com/ipfs/go-ipld-format v0.4.0
+	github.com/ipfs/go-libipfs v0.5.0
 	github.com/ipfs/go-log v1.0.5
 	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/ipld/go-car v0.5.0
@@ -33,7 +34,7 @@ require (
 	go.opentelemetry.io/otel v1.11.2
 	go.opentelemetry.io/otel/exporters/jaeger v1.11.2
 	go.opentelemetry.io/otel/sdk v1.11.2
-	golang.org/x/sync v0.0.0-20220923202941-7f9b1623fab7
+	golang.org/x/sync v0.1.0
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2
 	gorm.io/driver/postgres v1.4.6
 	gorm.io/driver/sqlite v1.4.4
@@ -111,3 +112,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.1.7 // indirect
 )
+
+replace github.com/whyrusleeping/go-did => ../go-did

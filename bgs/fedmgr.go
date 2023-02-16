@@ -17,7 +17,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type IndexCallback func(context.Context, *models.PDS, *events.RepoEvent) error
+type IndexCallback func(context.Context, *models.PDS, *events.RepoStreamEvent) error
 
 // TODO: rename me
 type Slurper struct {
@@ -27,13 +27,16 @@ type Slurper struct {
 
 	lk     sync.Mutex
 	active map[string]*models.PDS
+
+	ssl bool
 }
 
-func NewSlurper(db *gorm.DB, cb IndexCallback) *Slurper {
+func NewSlurper(db *gorm.DB, cb IndexCallback, ssl bool) *Slurper {
 	return &Slurper{
 		cb:     cb,
 		db:     db,
 		active: make(map[string]*models.PDS),
+		ssl:    ssl,
 	}
 }
 
@@ -56,6 +59,7 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string) error {
 		// New PDS!
 		npds := models.PDS{
 			Host: host,
+			SSL:  s.ssl,
 		}
 		if err := s.db.Create(&npds).Error; err != nil {
 			return err
@@ -81,10 +85,15 @@ func (s *Slurper) subscribeWithRedialer(host *models.PDS) {
 
 	d := websocket.Dialer{}
 
+	protocol := "ws"
+	if s.ssl {
+		protocol = "wss"
+	}
+
 	var backoff int
 	for {
 
-		con, res, err := d.Dial("ws://"+host.Host+"/events", nil)
+		con, res, err := d.Dial(protocol+"://"+host.Host+"/xrpc/com.atproto.sync.subscribeAllRepos", nil)
 		if err != nil {
 			log.Warnf("dialing %q failed: %s", host.Host, err)
 			time.Sleep(sleepForBackoff(backoff))
@@ -148,20 +157,24 @@ func (s *Slurper) handleConnection(host *models.PDS, con *websocket.Conn) error 
 
 		var header events.EventHeader
 		if err := header.UnmarshalCBOR(cr); err != nil {
-			return err
+			return fmt.Errorf("reading header: %w", err)
 		}
 
 		switch header.Type {
-		case "data":
-			var evt events.RepoEvent
+		case events.EvtKindRepoAppend:
+			var evt events.RepoAppend
 			if err := evt.UnmarshalCBOR(cr); err != nil {
-				return err
+				return fmt.Errorf("reading repoAppend event: %w", err)
 			}
 
 			log.Infow("got remote repo event", "host", host.Host, "repo", evt.Repo)
-			if err := s.cb(context.TODO(), host, &evt); err != nil {
+			if err := s.cb(context.TODO(), host, &events.RepoStreamEvent{
+				Append: &evt,
+			}); err != nil {
 				log.Errorf("failed to index event from %q: %s", host.Host, err)
 			}
+		case events.EvtKindRepoRebase:
+			return fmt.Errorf("not yet handling rebase events")
 		default:
 			return fmt.Errorf("unrecognized event stream type: %q", header.Type)
 		}

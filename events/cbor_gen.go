@@ -30,7 +30,7 @@ func (t *EventHeader) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Type (string) (string)
+	// t.Type (int64) (int64)
 	if len("t") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"t\" was too long")
 	}
@@ -42,15 +42,14 @@ func (t *EventHeader) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Type) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Type was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Type))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Type)); err != nil {
-		return err
+	if t.Type >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Type)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Type-1)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -93,16 +92,31 @@ func (t *EventHeader) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Type (string) (string)
+		// t.Type (int64) (int64)
 		case "t":
-
 			{
-				sval, err := cbg.ReadString(cr)
+				maj, extra, err := cr.ReadHeader()
+				var extraI int64
 				if err != nil {
 					return err
 				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
 
-				t.Type = string(sval)
+				t.Type = int64(extraI)
 			}
 
 		default:
@@ -113,20 +127,15 @@ func (t *EventHeader) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *RepoEvent) MarshalCBOR(w io.Writer) error {
+func (t *RepoAppend) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 3
 
-	if t.RepoAppend == nil {
-		fieldCount--
-	}
-
-	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+	if _, err := cw.Write([]byte{165}); err != nil {
 		return err
 	}
 
@@ -152,6 +161,29 @@ func (t *RepoEvent) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
+	// t.Prev (string) (string)
+	if len("prev") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"prev\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("prev")); err != nil {
+		return err
+	}
+
+	if len(t.Prev) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Prev was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Prev))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Prev)); err != nil {
+		return err
+	}
+
 	// t.Repo (string) (string)
 	if len("repo") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"repo\" was too long")
@@ -175,227 +207,50 @@ func (t *RepoEvent) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.RepoAppend (events.RepoAppend) (struct)
-	if t.RepoAppend != nil {
-
-		if len("repoAppend") > cbg.MaxLength {
-			return xerrors.Errorf("Value in field \"repoAppend\" was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("repoAppend"))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string("repoAppend")); err != nil {
-			return err
-		}
-
-		if err := t.RepoAppend.MarshalCBOR(cw); err != nil {
-			return err
-		}
+	// t.Blocks ([]uint8) (slice)
+	if len("blocks") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"blocks\" was too long")
 	}
-	return nil
-}
 
-func (t *RepoEvent) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = RepoEvent{}
-
-	cr := cbg.NewCborReader(r)
-
-	maj, extra, err := cr.ReadHeader()
-	if err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("blocks"))); err != nil {
 		return err
 	}
-	defer func() {
-		if err == io.EOF {
-			err = io.ErrUnexpectedEOF
-		}
-	}()
-
-	if maj != cbg.MajMap {
-		return fmt.Errorf("cbor input should be of type map")
-	}
-
-	if extra > cbg.MaxLength {
-		return fmt.Errorf("RepoEvent: map struct too large (%d)", extra)
-	}
-
-	var name string
-	n := extra
-
-	for i := uint64(0); i < n; i++ {
-
-		{
-			sval, err := cbg.ReadString(cr)
-			if err != nil {
-				return err
-			}
-
-			name = string(sval)
-		}
-
-		switch name {
-		// t.Seq (int64) (int64)
-		case "seq":
-			{
-				maj, extra, err := cr.ReadHeader()
-				var extraI int64
-				if err != nil {
-					return err
-				}
-				switch maj {
-				case cbg.MajUnsignedInt:
-					extraI = int64(extra)
-					if extraI < 0 {
-						return fmt.Errorf("int64 positive overflow")
-					}
-				case cbg.MajNegativeInt:
-					extraI = int64(extra)
-					if extraI < 0 {
-						return fmt.Errorf("int64 negative overflow")
-					}
-					extraI = -1 - extraI
-				default:
-					return fmt.Errorf("wrong type for int64 field: %d", maj)
-				}
-
-				t.Seq = int64(extraI)
-			}
-			// t.Repo (string) (string)
-		case "repo":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.Repo = string(sval)
-			}
-			// t.RepoAppend (events.RepoAppend) (struct)
-		case "repoAppend":
-
-			{
-
-				b, err := cr.ReadByte()
-				if err != nil {
-					return err
-				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-					t.RepoAppend = new(RepoAppend)
-					if err := t.RepoAppend.UnmarshalCBOR(cr); err != nil {
-						return xerrors.Errorf("unmarshaling t.RepoAppend pointer: %w", err)
-					}
-				}
-
-			}
-
-		default:
-			// Field doesn't exist on this type, so ignore it
-			cbg.ScanForLinks(r, func(cid.Cid) {})
-		}
-	}
-
-	return nil
-}
-func (t *RepoAppend) MarshalCBOR(w io.Writer) error {
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
+	if _, err := io.WriteString(w, string("blocks")); err != nil {
 		return err
 	}
 
-	cw := cbg.NewCborWriter(w)
+	if len(t.Blocks) > cbg.ByteArrayMaxLen {
+		return xerrors.Errorf("Byte array in field t.Blocks was too long")
+	}
 
-	if _, err := cw.Write([]byte{164}); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajByteString, uint64(len(t.Blocks))); err != nil {
 		return err
 	}
 
-	// t.Car ([]uint8) (slice)
-	if len("car") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"car\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("car"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("car")); err != nil {
+	if _, err := cw.Write(t.Blocks[:]); err != nil {
 		return err
 	}
 
-	if len(t.Car) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.Car was too long")
+	// t.Commit (string) (string)
+	if len("commit") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"commit\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajByteString, uint64(len(t.Car))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("commit"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("commit")); err != nil {
 		return err
 	}
 
-	if _, err := cw.Write(t.Car[:]); err != nil {
+	if len(t.Commit) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Commit was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Commit))); err != nil {
 		return err
 	}
-
-	// t.Ops ([]*events.RepoOp) (slice)
-	if len("ops") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"ops\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("ops"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("ops")); err != nil {
-		return err
-	}
-
-	if len(t.Ops) > cbg.MaxLength {
-		return xerrors.Errorf("Slice value in field t.Ops was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Ops))); err != nil {
-		return err
-	}
-	for _, v := range t.Ops {
-		if err := v.MarshalCBOR(cw); err != nil {
-			return err
-		}
-	}
-
-	// t.Prev (cid.Cid) (struct)
-	if len("prev") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"prev\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("prev")); err != nil {
-		return err
-	}
-
-	if t.Prev == nil {
-		if _, err := cw.Write(cbg.CborNull); err != nil {
-			return err
-		}
-	} else {
-		if err := cbg.WriteCid(cw, *t.Prev); err != nil {
-			return xerrors.Errorf("failed to write cid field t.Prev: %w", err)
-		}
-	}
-
-	// t.Rebase (bool) (bool)
-	if len("rebase") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"rebase\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("rebase"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("rebase")); err != nil {
-		return err
-	}
-
-	if err := cbg.WriteBool(w, t.Rebase); err != nil {
+	if _, err := io.WriteString(w, string(t.Commit)); err != nil {
 		return err
 	}
 	return nil
@@ -439,8 +294,56 @@ func (t *RepoAppend) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Car ([]uint8) (slice)
-		case "car":
+		// t.Seq (int64) (int64)
+		case "seq":
+			{
+				maj, extra, err := cr.ReadHeader()
+				var extraI int64
+				if err != nil {
+					return err
+				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.Seq = int64(extraI)
+			}
+			// t.Prev (string) (string)
+		case "prev":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Prev = string(sval)
+			}
+			// t.Repo (string) (string)
+		case "repo":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Repo = string(sval)
+			}
+			// t.Blocks ([]uint8) (slice)
+		case "blocks":
 
 			maj, extra, err = cr.ReadHeader()
 			if err != nil {
@@ -448,222 +351,21 @@ func (t *RepoAppend) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			if extra > cbg.ByteArrayMaxLen {
-				return fmt.Errorf("t.Car: byte array too large (%d)", extra)
+				return fmt.Errorf("t.Blocks: byte array too large (%d)", extra)
 			}
 			if maj != cbg.MajByteString {
 				return fmt.Errorf("expected byte array")
 			}
 
 			if extra > 0 {
-				t.Car = make([]uint8, extra)
+				t.Blocks = make([]uint8, extra)
 			}
 
-			if _, err := io.ReadFull(cr, t.Car[:]); err != nil {
+			if _, err := io.ReadFull(cr, t.Blocks[:]); err != nil {
 				return err
 			}
-			// t.Ops ([]*events.RepoOp) (slice)
-		case "ops":
-
-			maj, extra, err = cr.ReadHeader()
-			if err != nil {
-				return err
-			}
-
-			if extra > cbg.MaxLength {
-				return fmt.Errorf("t.Ops: array too large (%d)", extra)
-			}
-
-			if maj != cbg.MajArray {
-				return fmt.Errorf("expected cbor array")
-			}
-
-			if extra > 0 {
-				t.Ops = make([]*RepoOp, extra)
-			}
-
-			for i := 0; i < int(extra); i++ {
-
-				var v RepoOp
-				if err := v.UnmarshalCBOR(cr); err != nil {
-					return err
-				}
-
-				t.Ops[i] = &v
-			}
-
-			// t.Prev (cid.Cid) (struct)
-		case "prev":
-
-			{
-
-				b, err := cr.ReadByte()
-				if err != nil {
-					return err
-				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-
-					c, err := cbg.ReadCid(cr)
-					if err != nil {
-						return xerrors.Errorf("failed to read cid field t.Prev: %w", err)
-					}
-
-					t.Prev = &c
-				}
-
-			}
-			// t.Rebase (bool) (bool)
-		case "rebase":
-
-			maj, extra, err = cr.ReadHeader()
-			if err != nil {
-				return err
-			}
-			if maj != cbg.MajOther {
-				return fmt.Errorf("booleans must be major type 7")
-			}
-			switch extra {
-			case 20:
-				t.Rebase = false
-			case 21:
-				t.Rebase = true
-			default:
-				return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
-			}
-
-		default:
-			// Field doesn't exist on this type, so ignore it
-			cbg.ScanForLinks(r, func(cid.Cid) {})
-		}
-	}
-
-	return nil
-}
-func (t *RepoOp) MarshalCBOR(w io.Writer) error {
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
-
-	cw := cbg.NewCborWriter(w)
-
-	if _, err := cw.Write([]byte{163}); err != nil {
-		return err
-	}
-
-	// t.Col (string) (string)
-	if len("col") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"col\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("col"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("col")); err != nil {
-		return err
-	}
-
-	if len(t.Col) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Col was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Col))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Col)); err != nil {
-		return err
-	}
-
-	// t.Kind (string) (string)
-	if len("kind") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"kind\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("kind"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("kind")); err != nil {
-		return err
-	}
-
-	if len(t.Kind) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Kind was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Kind))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Kind)); err != nil {
-		return err
-	}
-
-	// t.Rkey (string) (string)
-	if len("rkey") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"rkey\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("rkey"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("rkey")); err != nil {
-		return err
-	}
-
-	if len(t.Rkey) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Rkey was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Rkey))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Rkey)); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (t *RepoOp) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = RepoOp{}
-
-	cr := cbg.NewCborReader(r)
-
-	maj, extra, err := cr.ReadHeader()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err == io.EOF {
-			err = io.ErrUnexpectedEOF
-		}
-	}()
-
-	if maj != cbg.MajMap {
-		return fmt.Errorf("cbor input should be of type map")
-	}
-
-	if extra > cbg.MaxLength {
-		return fmt.Errorf("RepoOp: map struct too large (%d)", extra)
-	}
-
-	var name string
-	n := extra
-
-	for i := uint64(0); i < n; i++ {
-
-		{
-			sval, err := cbg.ReadString(cr)
-			if err != nil {
-				return err
-			}
-
-			name = string(sval)
-		}
-
-		switch name {
-		// t.Col (string) (string)
-		case "col":
+			// t.Commit (string) (string)
+		case "commit":
 
 			{
 				sval, err := cbg.ReadString(cr)
@@ -671,29 +373,7 @@ func (t *RepoOp) UnmarshalCBOR(r io.Reader) (err error) {
 					return err
 				}
 
-				t.Col = string(sval)
-			}
-			// t.Kind (string) (string)
-		case "kind":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.Kind = string(sval)
-			}
-			// t.Rkey (string) (string)
-		case "rkey":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.Rkey = string(sval)
+				t.Commit = string(sval)
 			}
 
 		default:

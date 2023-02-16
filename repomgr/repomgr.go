@@ -12,10 +12,10 @@ import (
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -368,7 +368,7 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 		return fmt.Errorf("must specify unique non-zero id for new actor")
 	}
 
-	ds, err := rm.cs.NewDeltaSession(ctx, user, &cid.Undef)
+	ds, err := rm.cs.NewDeltaSession(ctx, user, nil)
 	if err != nil {
 		return err
 	}
@@ -504,7 +504,7 @@ func (rm *RepoManager) GetProfile(ctx context.Context, uid uint) (*bsky.ActorPro
 	return ap, nil
 }
 
-func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid uint, did string, prev *cid.Cid, ops []*events.RepoOp, carslice []byte) error {
+func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid uint, did string, prev *cid.Cid, carslice []byte) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "HandleExternalUserEvent")
 	defer span.End()
 
@@ -535,55 +535,97 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		return fmt.Errorf("signature check failed: %w", err)
 	}
 
-	log.Infow("external event", "uid", uid, "ops", ops)
+	log.Infow("external event", "uid", uid)
 
+	var pcid cid.Cid
+	if prev != nil {
+		pcid = *prev
+	}
+
+	ops, err := r.DiffSince(ctx, pcid)
+	if err != nil {
+		return fmt.Errorf("calculating operations in event: %w", err)
+	}
 	var evtops []RepoOp
+
+	if prev == nil {
+		// send an implicit init actor event
+		var ai models.ActorInfo
+		if err := rm.db.First(&ai, "id = ?", uid).Error; err != nil {
+			return fmt.Errorf("expected initialized user: %w", err)
+		}
+
+		evtops = append(evtops, RepoOp{
+			Kind: EvtKindInitActor,
+			ActorInfo: &ActorInfo{
+				Did:         ai.Did,
+				Handle:      ai.Handle,
+				DisplayName: ai.DisplayName,
+				DeclRefCid:  ai.DeclRefCid,
+				Type:        ai.Type,
+			},
+		})
+	}
+
 	for _, op := range ops {
-		switch EventKind(op.Kind) {
-		case EvtKindCreateRecord:
-			recid, rec, err := r.GetRecord(ctx, op.Col+"/"+op.Rkey)
+		parts := strings.SplitN(op.Rpath, "/", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid rpath in mst diff, must have collection and rkey")
+		}
+
+		switch op.Op {
+		case "add":
+			recid, rec, err := r.GetRecord(ctx, op.Rpath)
 			if err != nil {
 				return fmt.Errorf("reading changed record from car slice: %w", err)
 			}
 
 			evtops = append(evtops, RepoOp{
 				Kind:       EvtKindCreateRecord,
-				Collection: op.Col,
-				Rkey:       op.Rkey,
+				Collection: parts[0],
+				Rkey:       parts[1],
 				Record:     rec,
 				RecCid:     recid,
 			})
-		case EvtKindInitActor:
-			var ai models.ActorInfo
-			if err := rm.db.First(&ai, "id = ?", uid).Error; err != nil {
-				return fmt.Errorf("expected initialized user: %w", err)
-			}
+			/*
+				case EvtKindInitActor:
+					var ai models.ActorInfo
+					if err := rm.db.First(&ai, "id = ?", uid).Error; err != nil {
+						return fmt.Errorf("expected initialized user: %w", err)
+					}
 
-			evtops = append(evtops, RepoOp{
-				Kind: EvtKindInitActor,
-				ActorInfo: &ActorInfo{
-					Did:         ai.Did,
-					Handle:      ai.Handle,
-					DisplayName: ai.DisplayName,
-					DeclRefCid:  ai.DeclRefCid,
-					Type:        ai.Type,
-				},
-			})
-		case EvtKindUpdateRecord:
-			recid, rec, err := r.GetRecord(ctx, op.Col+"/"+op.Rkey)
+					evtops = append(evtops, RepoOp{
+						Kind: EvtKindInitActor,
+						ActorInfo: &ActorInfo{
+							Did:         ai.Did,
+							Handle:      ai.Handle,
+							DisplayName: ai.DisplayName,
+							DeclRefCid:  ai.DeclRefCid,
+							Type:        ai.Type,
+						},
+					})
+			*/
+		case "mut":
+			recid, rec, err := r.GetRecord(ctx, op.Rpath)
 			if err != nil {
 				return fmt.Errorf("reading changed record from car slice: %w", err)
 			}
 
 			evtops = append(evtops, RepoOp{
 				Kind:       EvtKindUpdateRecord,
-				Collection: op.Col,
-				Rkey:       op.Rkey,
+				Collection: parts[0],
+				Rkey:       parts[1],
 				Record:     rec,
 				RecCid:     recid,
 			})
+		case "del":
+			evtops = append(evtops, RepoOp{
+				Kind:       EvtKindDeleteRecord,
+				Collection: parts[0],
+				Rkey:       parts[1],
+			})
 		default:
-			return fmt.Errorf("unrecognized external user event kind: %q", op.Kind)
+			return fmt.Errorf("unrecognized external user event kind: %q", op.Op)
 		}
 	}
 
@@ -734,12 +776,21 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, r io.Reader
 		return err
 	}
 
+	cshead, err := rm.cs.GetUserRepoHead(ctx, user)
+	if err != nil {
+		return err
+	}
+
+	if head != cshead {
+		return fmt.Errorf("mismatch between carstore head tracking and repomgr: %s != %s", head, cshead)
+	}
+
 	if head != oldest {
 		// TODO: we could probably just deal with this
 		return fmt.Errorf("ImportNewRepo called with incorrect base")
 	}
 
-	err = rm.processNewRepo(ctx, user, r, head, func(ctx context.Context, old, nu cid.Cid, slice []byte, bs blockstore.Blockstore) error {
+	err = rm.processNewRepo(ctx, user, r, head, func(ctx context.Context, old, nu cid.Cid, finish func(context.Context) ([]byte, error), bs blockstore.Blockstore) error {
 		r, err := repo.OpenRepo(ctx, bs, nu)
 		if err != nil {
 			return fmt.Errorf("opening new repo: %w", err)
@@ -766,6 +817,11 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, r io.Reader
 
 				rec, err := lexutil.CborDecodeValue(blk.RawData())
 				if err != nil {
+					if errors.Is(err, lexutil.ErrUnrecognizedType) {
+						log.Warnf("failed processing repo diff: %s", err)
+						continue
+					}
+
 					return err
 				}
 
@@ -794,8 +850,14 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, r io.Reader
 			}
 		}
 
-		if err := rm.updateUserRepoHead(ctx, user, nu); err != nil {
+		slice, err := finish(ctx)
+		if err != nil {
 			return err
+		}
+
+		if err := rm.updateUserRepoHead(ctx, user, nu); err != nil {
+			// TODO: this will lead to things being in an inconsistent state
+			return fmt.Errorf("failed to update repo head: %w", err)
 		}
 
 		if rm.events != nil {
@@ -817,7 +879,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, r io.Reader
 	return nil
 }
 
-func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reader, until cid.Cid, cb func(ctx context.Context, old, nu cid.Cid, slice []byte, bs blockstore.Blockstore) error) error {
+func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reader, until cid.Cid, cb func(ctx context.Context, old, nu cid.Cid, finish func(context.Context) ([]byte, error), bs blockstore.Blockstore) error) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "ImportNewRepo")
 	defer span.End()
 
@@ -838,6 +900,8 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reade
 		if err != nil {
 			return err
 		}
+
+		membs = util.NewReadThroughBstore(robs, membs)
 
 		old, err := repo.OpenRepo(ctx, robs, until)
 		if err != nil {
@@ -908,7 +972,11 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reade
 			return fmt.Errorf("walkTree: %w", err)
 		}
 
-		ds, err := rm.cs.NewDeltaSession(ctx, user, &prev)
+		var prevptr *cid.Cid
+		if prev.Defined() {
+			prevptr = &prev
+		}
+		ds, err := rm.cs.NewDeltaSession(ctx, user, prevptr)
 		if err != nil {
 			return fmt.Errorf("opening delta session (%d / %d): %w", i, len(commits)-1, err)
 		}
@@ -924,13 +992,12 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reade
 			}
 		}
 
-		carslice, err := ds.CloseWithRoot(ctx, root)
-		if err != nil {
-			return err
+		finish := func(ctx context.Context) ([]byte, error) {
+			return ds.CloseWithRoot(ctx, root)
 		}
 
-		if err := cb(ctx, prev, root, carslice, membs); err != nil {
-			return fmt.Errorf("cb errored: %w", err)
+		if err := cb(ctx, prev, root, finish, membs); err != nil {
+			return fmt.Errorf("cb errored (%d/%d): %w", i, len(commits)-1, err)
 		}
 
 		prev = root

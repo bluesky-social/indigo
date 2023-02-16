@@ -31,7 +31,8 @@ import (
 var log = logging.Logger("bigsky")
 
 func init() {
-	logging.SetAllLoggers(logging.LevelDebug)
+	//logging.SetAllLoggers(logging.LevelDebug)
+	logging.SetAllLoggers(logging.LevelWarn)
 }
 
 func main() {
@@ -60,6 +61,9 @@ func main() {
 			Name:  "plc",
 			Usage: "hostname of the plc server",
 			Value: "https://plc.directory",
+		},
+		&cli.BoolFlag{
+			Name: "ssl-events",
 		},
 	}
 
@@ -138,7 +142,7 @@ func main() {
 			}
 		})
 
-		bgs := bgs.NewBGS(db, ix, repoman, evtman, didr)
+		bgs := bgs.NewBGS(db, ix, repoman, evtman, didr, cctx.Bool("ssl-events"))
 
 		// set up pprof endpoint
 		go func() {

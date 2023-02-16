@@ -14,18 +14,29 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-type NotificationManager struct {
+type NotificationManager interface {
+	GetNotifications(ctx context.Context, user uint) ([]*appbskytypes.NotificationList_Notification, error)
+	GetCount(ctx context.Context, user uint) (int64, error)
+	UpdateSeen(ctx context.Context, usr uint, seen time.Time) error
+	AddReplyTo(ctx context.Context, user uint, replyid uint, replyto *models.FeedPost) error
+	AddMention(ctx context.Context, user uint, postid uint, mentioned uint) error
+	AddUpVote(ctx context.Context, voter uint, postid uint, voteid uint, postauthor uint) error
+	AddFollow(ctx context.Context, follower, followed, recid uint) error
+	AddRepost(ctx context.Context, op uint, repost, reposter uint) error
+}
+
+type DBNotifMan struct {
 	db *gorm.DB
 
 	getRecord GetRecord
 }
 type GetRecord func(ctx context.Context, user uint, collection string, rkey string, maybeCid cid.Cid) (cid.Cid, cbg.CBORMarshaler, error)
 
-func NewNotificationManager(db *gorm.DB, getrec GetRecord) *NotificationManager {
+func NewNotificationManager(db *gorm.DB, getrec GetRecord) *DBNotifMan {
 	db.AutoMigrate(&NotifRecord{})
 	db.AutoMigrate(&NotifSeen{})
 
-	return &NotificationManager{
+	return &DBNotifMan{
 		db:        db,
 		getRecord: getrec,
 	}
@@ -65,7 +76,7 @@ type HydratedNotification struct {
 	ReasonSubject *string
 }
 
-func (nm *NotificationManager) GetNotifications(ctx context.Context, user uint) ([]*appbskytypes.NotificationList_Notification, error) {
+func (nm *DBNotifMan) GetNotifications(ctx context.Context, user uint) ([]*appbskytypes.NotificationList_Notification, error) {
 	var lastSeen time.Time
 	if err := nm.db.Model(NotifSeen{}).Where("usr = ?", user).Select("last_seen").Scan(&lastSeen).Error; err != nil {
 		return nil, err
@@ -103,7 +114,7 @@ func (nm *NotificationManager) GetNotifications(ctx context.Context, user uint) 
 	return out, nil
 }
 
-func (nm *NotificationManager) hydrateNotification(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
+func (nm *DBNotifMan) hydrateNotification(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
 
 	switch nrec.Kind {
 	case NotifKindReply:
@@ -122,7 +133,7 @@ func (nm *NotificationManager) hydrateNotification(ctx context.Context, nrec *No
 		return nil, fmt.Errorf("attempted to hydrate unknown notif kind: %d", nrec.Kind)
 	}
 }
-func (nm *NotificationManager) getActor(ctx context.Context, act uint) (*models.ActorInfo, error) {
+func (nm *DBNotifMan) getActor(ctx context.Context, act uint) (*models.ActorInfo, error) {
 	var ai models.ActorInfo
 	if err := nm.db.First(&ai, "id = ?", act).Error; err != nil {
 		return nil, err
@@ -131,7 +142,7 @@ func (nm *NotificationManager) getActor(ctx context.Context, act uint) (*models.
 	return &ai, nil
 }
 
-func (nm *NotificationManager) hydrateNotificationUpVote(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
+func (nm *DBNotifMan) hydrateNotificationUpVote(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
 	var votedOn models.FeedPost
 	if err := nm.db.First(&votedOn, "id = ?", nrec.Record).Error; err != nil {
 		return nil, err
@@ -171,7 +182,7 @@ func (nm *NotificationManager) hydrateNotificationUpVote(ctx context.Context, nr
 	}, nil
 }
 
-func (nm *NotificationManager) hydrateNotificationRepost(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
+func (nm *DBNotifMan) hydrateNotificationRepost(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
 	var reposted models.FeedPost
 	if err := nm.db.First(&reposted, "id = ?", nrec.Record).Error; err != nil {
 		return nil, err
@@ -211,7 +222,7 @@ func (nm *NotificationManager) hydrateNotificationRepost(ctx context.Context, nr
 	}, nil
 }
 
-func (nm *NotificationManager) hydrateNotificationReply(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
+func (nm *DBNotifMan) hydrateNotificationReply(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
 	var fp models.FeedPost
 	if err := nm.db.First(&fp, "id = ?", nrec.Record).Error; err != nil {
 		return nil, err
@@ -251,7 +262,7 @@ func (nm *NotificationManager) hydrateNotificationReply(ctx context.Context, nre
 	}, nil
 }
 
-func (nm *NotificationManager) hydrateNotificationFollow(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
+func (nm *DBNotifMan) hydrateNotificationFollow(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
 	var frec models.FollowRecord
 	if err := nm.db.First(&frec, "id = ?", nrec.Record).Error; err != nil {
 		return nil, err
@@ -279,7 +290,7 @@ func (nm *NotificationManager) hydrateNotificationFollow(ctx context.Context, nr
 
 }
 
-func (nm *NotificationManager) GetCount(ctx context.Context, user uint) (int64, error) {
+func (nm *DBNotifMan) GetCount(ctx context.Context, user uint) (int64, error) {
 	// TODO: sql count is inefficient
 	var lseen time.Time
 	if err := nm.db.Model(NotifSeen{}).Where("usr = ?", user).Select("last_seen").Scan(&lseen).Error; err != nil {
@@ -295,7 +306,7 @@ func (nm *NotificationManager) GetCount(ctx context.Context, user uint) (int64, 
 	return c, nil
 }
 
-func (nm *NotificationManager) UpdateSeen(ctx context.Context, usr uint, seen time.Time) error {
+func (nm *DBNotifMan) UpdateSeen(ctx context.Context, usr uint, seen time.Time) error {
 	if err := nm.db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "usr"}},
 		DoUpdates: clause.AssignmentColumns([]string{"last_seen"}),
@@ -309,7 +320,7 @@ func (nm *NotificationManager) UpdateSeen(ctx context.Context, usr uint, seen ti
 	return nil
 }
 
-func (nm *NotificationManager) AddReplyTo(ctx context.Context, user uint, replyid uint, replyto *models.FeedPost) error {
+func (nm *DBNotifMan) AddReplyTo(ctx context.Context, user uint, replyid uint, replyto *models.FeedPost) error {
 	return nm.db.Create(&NotifRecord{
 		Kind:    NotifKindReply,
 		For:     replyto.Author,
@@ -319,7 +330,7 @@ func (nm *NotificationManager) AddReplyTo(ctx context.Context, user uint, replyi
 	}).Error
 }
 
-func (nm *NotificationManager) AddMention(ctx context.Context, user uint, postid uint, mentioned uint) error {
+func (nm *DBNotifMan) AddMention(ctx context.Context, user uint, postid uint, mentioned uint) error {
 	return nm.db.Create(&NotifRecord{
 		For:    mentioned,
 		Kind:   NotifKindMention,
@@ -328,7 +339,7 @@ func (nm *NotificationManager) AddMention(ctx context.Context, user uint, postid
 	}).Error
 }
 
-func (nm *NotificationManager) AddUpVote(ctx context.Context, voter uint, postid uint, voteid uint, postauthor uint) error {
+func (nm *DBNotifMan) AddUpVote(ctx context.Context, voter uint, postid uint, voteid uint, postauthor uint) error {
 	return nm.db.Create(&NotifRecord{
 		For:     postauthor,
 		Kind:    NotifKindUpVote,
@@ -338,7 +349,7 @@ func (nm *NotificationManager) AddUpVote(ctx context.Context, voter uint, postid
 	}).Error
 }
 
-func (nm *NotificationManager) AddFollow(ctx context.Context, follower, followed, recid uint) error {
+func (nm *DBNotifMan) AddFollow(ctx context.Context, follower, followed, recid uint) error {
 	return nm.db.Create(&NotifRecord{
 		Kind:   NotifKindFollow,
 		For:    followed,
@@ -347,7 +358,7 @@ func (nm *NotificationManager) AddFollow(ctx context.Context, follower, followed
 	}).Error
 }
 
-func (nm *NotificationManager) AddRepost(ctx context.Context, op uint, repost, reposter uint) error {
+func (nm *DBNotifMan) AddRepost(ctx context.Context, op uint, repost, reposter uint) error {
 	return nm.db.Create(&NotifRecord{
 		Kind:   NotifKindRepost,
 		For:    op,
