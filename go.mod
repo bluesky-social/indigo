@@ -30,7 +30,7 @@ require (
 	github.com/stretchr/testify v1.8.1
 	github.com/urfave/cli/v2 v2.23.7
 	github.com/whyrusleeping/cbor-gen v0.0.0-20230126041949-52956bd4c9aa
-	github.com/whyrusleeping/go-did v0.0.0-20230210051655-85c9ba6709ab
+	github.com/whyrusleeping/go-did v0.0.0-20230217165439-d09707c62f1c
 	go.opentelemetry.io/otel v1.11.2
 	go.opentelemetry.io/otel/exporters/jaeger v1.11.2
 	go.opentelemetry.io/otel/sdk v1.11.2
@@ -112,5 +112,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.1.7 // indirect
 )
-
-replace github.com/whyrusleeping/go-did => ../go-did
