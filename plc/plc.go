@@ -7,6 +7,10 @@ import (
 )
 
 type PLCClient interface {
-	GetDocument(ctx context.Context, didstr string) (*did.Document, error)
+	DidResolver
 	CreateDID(ctx context.Context, sigkey *did.PrivKey, recovery string, handle string, service string) (string, error)
+}
+
+type DidResolver interface {
+	GetDocument(ctx context.Context, didstr string) (*did.Document, error)
 }

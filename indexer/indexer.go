@@ -36,11 +36,13 @@ type Indexer struct {
 
 	Crawler *CrawlDispatcher
 
+	doAggregations bool
+
 	SendRemoteFollow   func(context.Context, string, uint) error
 	CreateExternalUser func(context.Context, string) (*models.ActorInfo, error)
 }
 
-func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events.EventManager, didr plc.PLCClient, repoman *repomgr.RepoManager, crawl bool) (*Indexer, error) {
+func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events.EventManager, didr plc.PLCClient, repoman *repomgr.RepoManager, crawl, aggregate bool) (*Indexer, error) {
 	db.AutoMigrate(&models.FeedPost{})
 	db.AutoMigrate(&models.ActorInfo{})
 	db.AutoMigrate(&models.FollowRecord{})
@@ -48,11 +50,12 @@ func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events
 	db.AutoMigrate(&models.RepostRecord{})
 
 	ix := &Indexer{
-		db:       db,
-		notifman: notifman,
-		events:   evtman,
-		repomgr:  repoman,
-		didr:     didr,
+		db:             db,
+		notifman:       notifman,
+		events:         evtman,
+		repomgr:        repoman,
+		didr:           didr,
+		doAggregations: aggregate,
 		SendRemoteFollow: func(context.Context, string, uint) error {
 			return nil
 		},
@@ -67,43 +70,40 @@ func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events
 	return ix, nil
 }
 
-func (ix *Indexer) catchup(ctx context.Context, evt *repomgr.RepoEvent) error {
-	// TODO: catch up on events that happened since this event (in the event of a crash or downtime)
-	return nil
-}
-
 func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) error {
 	ctx, span := otel.Tracer("indexer").Start(ctx, "HandleRepoEvent")
 	defer span.End()
 
-	if err := ix.catchup(ctx, evt); err != nil {
-		return fmt.Errorf("failed to catch up on user repo changes, processing events off base: %w", err)
-	}
-
 	log.Infow("Handling Repo Event!", "uid", evt.User)
-	var relpds []uint
+
 	for _, op := range evt.Ops {
 		switch op.Kind {
 		case repomgr.EvtKindCreateRecord:
-			log.Debugf("create record: %d %s %s %s", evt.User, op.Collection, op.Rkey, evt.User)
-			rel, err := ix.handleRecordCreate(ctx, evt, &op, true)
-			if err != nil {
-				return fmt.Errorf("handle recordCreate: %w", err)
+			if err := ix.crawlRecordReferences(ctx, &op); err != nil {
+				return err
 			}
 
-			relpds = append(relpds, rel...)
+			if ix.doAggregations {
+				_, err := ix.handleRecordCreate(ctx, evt, &op, true)
+				if err != nil {
+					return fmt.Errorf("handle recordCreate: %w", err)
+				}
+			}
 		case repomgr.EvtKindInitActor:
 			if err := ix.handleInitActor(ctx, evt, &op); err != nil {
 				return fmt.Errorf("handle initActor: %w", err)
 			}
-
 		case repomgr.EvtKindDeleteRecord:
-			if err := ix.handleRecordDelete(ctx, evt, &op, true); err != nil {
-				return fmt.Errorf("handle recordDelete: %w", err)
+			if ix.doAggregations {
+				if err := ix.handleRecordDelete(ctx, evt, &op, true); err != nil {
+					return fmt.Errorf("handle recordDelete: %w", err)
+				}
 			}
 		case repomgr.EvtKindUpdateRecord:
-			if err := ix.handleRecordUpdate(ctx, evt, &op, true); err != nil {
-				return fmt.Errorf("handle recordCreate: %w", err)
+			if ix.doAggregations {
+				if err := ix.handleRecordUpdate(ctx, evt, &op, true); err != nil {
+					return fmt.Errorf("handle recordCreate: %w", err)
+				}
 			}
 		default:
 			return fmt.Errorf("unrecognized repo event type: %q", op.Kind)
@@ -129,8 +129,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 			Blocks: evt.RepoSlice,
 			Commit: evt.NewRoot.String(),
 		},
-		PrivRelevantPds: relpds,
-		PrivUid:         evt.User,
+		PrivUid: evt.User,
 	}); err != nil {
 		return fmt.Errorf("failed to push event: %s", err)
 	}
@@ -282,6 +281,81 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 	}
 
 	return out, nil
+}
+
+func (ix *Indexer) crawlAtUriRef(ctx context.Context, uri string) error {
+	puri, err := parseAtUri(uri)
+	if err != nil {
+		return err
+	} else {
+		_, err := ix.GetUserOrMissing(ctx, puri.Did)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp) error {
+	switch rec := op.Record.(type) {
+	case *bsky.FeedPost:
+		for _, e := range rec.Entities {
+			if e.Type == "mention" {
+				_, err := ix.GetUserOrMissing(ctx, e.Value)
+				if err != nil {
+					log.Warnw("failed to parse user mention", "ref", e.Value, "err", err)
+				}
+			}
+		}
+
+		if rec.Reply != nil {
+			if rec.Reply.Parent != nil {
+				if err := ix.crawlAtUriRef(ctx, rec.Reply.Parent.Uri); err != nil {
+					log.Warnw("failed to crawl reply parent", "cid", op.RecCid, "replyuri", rec.Reply.Parent.Uri, "err", err)
+				}
+			}
+
+			if rec.Reply.Root != nil {
+				if err := ix.crawlAtUriRef(ctx, rec.Reply.Root.Uri); err != nil {
+					log.Warnw("failed to crawl reply root", "cid", op.RecCid, "rooturi", rec.Reply.Root.Uri, "err", err)
+				}
+			}
+		}
+
+		return nil
+	case *bsky.FeedRepost:
+		if rec.Subject != nil {
+			if err := ix.crawlAtUriRef(ctx, rec.Subject.Uri); err != nil {
+				log.Warnw("failed to crawl repost subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
+			}
+		}
+		return nil
+	case *bsky.FeedVote:
+		if rec.Subject != nil {
+			if err := ix.crawlAtUriRef(ctx, rec.Subject.Uri); err != nil {
+				log.Warnw("failed to crawl vote subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
+			}
+		}
+		return nil
+	case *bsky.GraphFollow:
+		if rec.Subject != nil {
+			_, err := ix.GetUserOrMissing(ctx, rec.Subject.Did)
+			if err != nil {
+				log.Warnw("failed to crawl follow subject", "cid", op.RecCid, "subjectdid", rec.Subject.Did, "err", err)
+			}
+		}
+		return nil
+	case *bsky.ActorProfile:
+		return nil
+	case *bsky.SystemDeclaration:
+		return nil
+	case *bsky.GraphAssertion:
+		return nil
+	case *bsky.GraphConfirmation:
+		return nil
+	default:
+		log.Warnf("unrecognized record type: %T", rec)
+		return nil
+	}
 }
 
 func (ix *Indexer) handleRecordCreateFeedVote(ctx context.Context, rec *bsky.FeedVote, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
@@ -512,20 +586,11 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user uint, rk
 	var mentions []*models.ActorInfo
 	for _, e := range rec.Entities {
 		if e.Type == "mention" {
-			ai, err := ix.LookupUserByDid(ctx, e.Value)
+			ai, err := ix.GetUserOrMissing(ctx, e.Value)
 			if err != nil {
-				if !isNotFound(err) {
-					return err
-				}
-
-				// unknown user... create it and send it off to the crawler
-				nai, err := ix.createMissingUserRecord(ctx, e.Value)
-				if err != nil {
-					return fmt.Errorf("creating missing user record for %q: %w", e.Value, err)
-				}
-
-				ai = nai
+				return err
 			}
+
 			mentions = append(mentions, ai)
 		}
 	}
@@ -569,21 +634,25 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user uint, rk
 	return nil
 }
 
+func (ix *Indexer) GetUserOrMissing(ctx context.Context, did string) (*models.ActorInfo, error) {
+	ai, err := ix.LookupUserByDid(ctx, did)
+	if err == nil {
+		return ai, nil
+	}
+
+	if !isNotFound(err) {
+		return nil, err
+	}
+
+	// unknown user... create it and send it off to the crawler
+	return ix.createMissingUserRecord(ctx, did)
+}
+
 func (ix *Indexer) createMissingPostRecord(ctx context.Context, puri *parsedUri) (*models.FeedPost, error) {
 	log.Warn("creating missing post record")
-	ai, err := ix.LookupUserByDid(ctx, puri.Did)
+	ai, err := ix.GetUserOrMissing(ctx, puri.Did)
 	if err != nil {
-		if !isNotFound(err) {
-			return nil, err
-		}
-
-		// unknown user... create it and send it off to the crawler
-		nai, err := ix.createMissingUserRecord(ctx, puri.Did)
-		if err != nil {
-			return nil, fmt.Errorf("creating missing user record: %w", err)
-		}
-
-		ai = nai
+		return nil, err
 	}
 
 	var fp models.FeedPost
@@ -799,7 +868,7 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 
 	// this process will send individual indexing events back to the indexer, doing a 'fast forward' of the users entire history
 	// we probably want alternative ways of doing this for 'very large' or 'very old' repos, but this works for now
-	if err := ix.repomgr.ImportNewRepo(ctx, ai.Uid, bytes.NewReader(repo), curHead); err != nil {
+	if err := ix.repomgr.ImportNewRepo(ctx, ai.Uid, ai.Did, bytes.NewReader(repo), curHead); err != nil {
 		return fmt.Errorf("importing fetched repo: %w", err)
 	}
 

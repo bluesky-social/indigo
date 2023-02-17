@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/carstore"
@@ -33,6 +34,12 @@ type BGS struct {
 	slurper *Slurper
 	events  *events.EventManager
 	didr    plc.PLCClient
+
+	crawlOnly bool
+
+	// TODO: at some point we will want to lock specific DIDs, this lock as is
+	// is overly broad, but i dont expect it to be a bottleneck for now
+	extUserLk sync.Mutex
 
 	repoman *repomgr.RepoManager
 }
@@ -102,19 +109,21 @@ func (bgs *BGS) handleAddTarget(c echo.Context) error {
 }
 
 func (bgs *BGS) EventsHandler(c echo.Context) error {
-	// TODO: authhhh
-	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
-	if err != nil {
-		return err
-	}
+	fmt.Println("events handler")
 
 	var since *int64
-	if sinceHeader := c.Request().Header.Get("since"); sinceHeader != "" {
-		sval, err := strconv.ParseInt(sinceHeader, 10, 64)
+	if sinceVal := c.QueryParam("since"); sinceVal != "" {
+		sval, err := strconv.ParseInt(sinceVal, 10, 64)
 		if err != nil {
 			return err
 		}
 		since = &sval
+	}
+
+	// TODO: authhhh
+	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
+	if err != nil {
+		return err
 	}
 
 	evts, cancel, err := bgs.events.Subscribe(func(evt *events.RepoStreamEvent) bool { return true }, since)
@@ -278,25 +287,26 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	handle := hurl.Host
 
-	log.Errorf("temporarily skipping handle check")
-	/*
-		profile, err := bsky.ActorGetProfile(ctx, c, did)
-		if err != nil {
-			return nil, fmt.Errorf("account get profile: %w", err)
-		}
-
-		if handle != profile.Handle {
-			return nil, fmt.Errorf("mismatch in handle between did document and pds profile (%s != %s)", handle, profile.Handle)
-		}
-	*/
-
 	res, err := atproto.HandleResolve(ctx, c, handle)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve users claimed handle on pds: %w", err)
+		return nil, fmt.Errorf("failed to resolve users claimed handle (%q) on pds: %w", handle, err)
 	}
 
 	if res.Did != did {
 		return nil, fmt.Errorf("claimed handle did not match servers response (%s != %s)", res.Did, did)
+	}
+
+	s.extUserLk.Lock()
+	defer s.extUserLk.Unlock()
+
+	exu, err := s.Index.LookupUserByDid(ctx, did)
+	if err == nil {
+		log.Warnf("lost the race to create a new user: %d", did)
+		return exu, nil
+	}
+
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
 	}
 
 	// TODO: request this users info from their server to fill out our data...
@@ -307,6 +317,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	}
 
 	if err := s.db.Create(&u).Error; err != nil {
+		// some debugging...
 		return nil, fmt.Errorf("failed to create other pds user: %w", err)
 	}
 

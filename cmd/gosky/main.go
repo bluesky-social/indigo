@@ -791,3 +791,10 @@ var resetPasswordCmd = &cli.Command{
 		return nil
 	},
 }
+
+var readRepoStreamCmd = &cli.Command{
+	Name: "readStream",
+	Action: func(cctx *cli.Context) error {
+		return nil
+	},
+}

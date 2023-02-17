@@ -11,19 +11,10 @@ import (
 func init() {
 }
 
-type GraphGetMutes_Mute struct {
-	LexiconTypeID string         `json:"$type,omitempty"`
-	CreatedAt     string         `json:"createdAt" cborgen:"createdAt"`
-	Declaration   *SystemDeclRef `json:"declaration" cborgen:"declaration"`
-	Did           string         `json:"did" cborgen:"did"`
-	DisplayName   *string        `json:"displayName,omitempty" cborgen:"displayName"`
-	Handle        string         `json:"handle" cborgen:"handle"`
-}
-
 type GraphGetMutes_Output struct {
-	LexiconTypeID string                `json:"$type,omitempty"`
-	Cursor        *string               `json:"cursor,omitempty" cborgen:"cursor"`
-	Mutes         []*GraphGetMutes_Mute `json:"mutes" cborgen:"mutes"`
+	LexiconTypeID string               `json:"$type,omitempty"`
+	Cursor        *string              `json:"cursor,omitempty" cborgen:"cursor"`
+	Mutes         []*ActorRef_WithInfo `json:"mutes" cborgen:"mutes"`
 }
 
 func GraphGetMutes(ctx context.Context, c *xrpc.Client, before string, limit int64) (*GraphGetMutes_Output, error) {

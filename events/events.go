@@ -44,7 +44,6 @@ func (em *EventManager) Run() {
 		switch op.op {
 		case opSubscribe:
 			em.subs = append(em.subs, op.sub)
-			op.sub.outgoing <- &RepoStreamEvent{}
 		case opUnsubscribe:
 			for i, s := range em.subs {
 				if s == op.sub {
@@ -135,20 +134,8 @@ func (em *EventManager) Subscribe(filter func(*RepoStreamEvent) bool, since *int
 		done:     done,
 	}
 
-	select {
-	case em.ops <- &Operation{
-		op:  opSubscribe,
-		sub: sub,
-	}:
-	case <-em.closed:
-		return nil, nil, fmt.Errorf("event manager shut down")
-	}
-
-	// receive the 'ack' that ensures our sub was received
-	<-sub.outgoing
-
-	if since != nil {
-		go func() {
+	go func() {
+		if since != nil {
 			if err := em.persister.Playback(*since, func(e *RepoStreamEvent) error {
 				select {
 				case <-done:
@@ -159,8 +146,17 @@ func (em *EventManager) Subscribe(filter func(*RepoStreamEvent) bool, since *int
 			}); err != nil {
 				log.Errorf("events playback: %s", err)
 			}
-		}()
-	}
+		}
+
+		select {
+		case em.ops <- &Operation{
+			op:  opSubscribe,
+			sub: sub,
+		}:
+		case <-em.closed:
+			log.Errorf("failed to subscribe, event manager shut down")
+		}
+	}()
 
 	cleanup := func() {
 		close(done)

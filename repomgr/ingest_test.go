@@ -62,7 +62,7 @@ func TestLoadNewRepo(t *testing.T) {
 	}
 
 	ctx := context.TODO()
-	if err := repoman.ImportNewRepo(ctx, 2, fi, cid.Undef); err != nil {
+	if err := repoman.ImportNewRepo(ctx, 2, "", fi, cid.Undef); err != nil {
 		t.Fatal(err)
 	}
 }
