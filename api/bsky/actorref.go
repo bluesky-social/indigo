@@ -12,8 +12,10 @@ type ActorRef struct {
 }
 
 type ActorRef_ViewerState struct {
-	LexiconTypeID string `json:"$type,omitempty"`
-	Muted         *bool  `json:"muted,omitempty" cborgen:"muted"`
+	LexiconTypeID string  `json:"$type,omitempty"`
+	FollowedBy    *string `json:"followedBy,omitempty" cborgen:"followedBy"`
+	Following     *string `json:"following,omitempty" cborgen:"following"`
+	Muted         *bool   `json:"muted,omitempty" cborgen:"muted"`
 }
 
 type ActorRef_WithInfo struct {

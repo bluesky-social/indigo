@@ -38,9 +38,9 @@ func (s *Server) HandleAppBskyActorGetProfile(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyActorGetProfile")
 	defer span.End()
 	actor := c.QueryParam("actor")
-	var out *appbskytypes.ActorGetProfile_Output
+	var out *appbskytypes.ActorProfile_View
 	var handleErr error
-	// func (s *Server) handleAppBskyActorGetProfile(ctx context.Context,actor string) (*appbskytypes.ActorGetProfile_Output, error)
+	// func (s *Server) handleAppBskyActorGetProfile(ctx context.Context,actor string) (*appbskytypes.ActorProfile_View, error)
 	out, handleErr = s.handleAppBskyActorGetProfile(ctx, actor)
 	if handleErr != nil {
 		return handleErr
@@ -491,6 +491,7 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.admin.takeModerationAction", s.HandleComAtprotoAdminTakeModerationAction)
 	e.POST("/xrpc/com.atproto.blob.upload", s.HandleComAtprotoBlobUpload)
 	e.GET("/xrpc/com.atproto.handle.resolve", s.HandleComAtprotoHandleResolve)
+	e.POST("/xrpc/com.atproto.handle.update", s.HandleComAtprotoHandleUpdate)
 	e.POST("/xrpc/com.atproto.repo.batchWrite", s.HandleComAtprotoRepoBatchWrite)
 	e.POST("/xrpc/com.atproto.repo.createRecord", s.HandleComAtprotoRepoCreateRecord)
 	e.POST("/xrpc/com.atproto.repo.deleteRecord", s.HandleComAtprotoRepoDeleteRecord)
@@ -856,6 +857,23 @@ func (s *Server) HandleComAtprotoHandleResolve(c echo.Context) error {
 		return handleErr
 	}
 	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoHandleUpdate(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoHandleUpdate")
+	defer span.End()
+
+	var body comatprototypes.HandleUpdate_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleComAtprotoHandleUpdate(ctx context.Context,body *comatprototypes.HandleUpdate_Input) error
+	handleErr = s.handleComAtprotoHandleUpdate(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
 }
 
 func (s *Server) HandleComAtprotoRepoBatchWrite(c echo.Context) error {

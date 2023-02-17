@@ -65,6 +65,10 @@ func main() {
 		&cli.BoolFlag{
 			Name: "ssl-events",
 		},
+		&cli.BoolFlag{
+			Name:  "aggregation",
+			Value: true,
+		},
 	}
 
 	app.Action = func(cctx *cli.Context) error {
@@ -127,11 +131,9 @@ func main() {
 
 		go evtman.Run()
 
-		// not necessary to generate notifications, should probably make the
-		// indexer just take optional callbacks for notification stuff
-		notifman := notifs.NewNotificationManager(db, repoman.GetRecord)
+		notifman := &notifs.NullNotifs{}
 
-		ix, err := indexer.NewIndexer(db, notifman, evtman, didr, repoman, true)
+		ix, err := indexer.NewIndexer(db, notifman, evtman, didr, repoman, true, cctx.Bool("aggregation"))
 		if err != nil {
 			return err
 		}

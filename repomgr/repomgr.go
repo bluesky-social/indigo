@@ -764,7 +764,7 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user uint, writes []*atpr
 	return nil
 }
 
-func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, r io.Reader, oldest cid.Cid) error {
+func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, repoDid string, r io.Reader, oldest cid.Cid) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "ImportNewRepo")
 	defer span.End()
 
@@ -794,6 +794,12 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, r io.Reader
 		r, err := repo.OpenRepo(ctx, bs, nu)
 		if err != nil {
 			return fmt.Errorf("opening new repo: %w", err)
+		}
+
+		scom := r.SignedCommit()
+
+		if err := rm.kmgr.VerifyUserSignature(ctx, repoDid, scom.Sig, scom.Root.Bytes()); err != nil {
+			return fmt.Errorf("signature check failed: %w", err)
 		}
 
 		diffops, err := r.DiffSince(ctx, old)
@@ -894,14 +900,26 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reade
 
 	membs := blockstore.NewBlockstore(datastore.NewMapDatastore())
 
+	for {
+		blk, err := carr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		if err := membs.Put(ctx, blk); err != nil {
+			return err
+		}
+	}
+
 	// mild hack: without access to the 'meta' object, we cant properly verify each new repo slice has the right DID in the case of a gap fill procedure
 	if until.Defined() {
 		robs, err := rm.cs.ReadOnlySession(user)
 		if err != nil {
 			return err
 		}
-
-		membs = util.NewReadThroughBstore(robs, membs)
 
 		old, err := repo.OpenRepo(ctx, robs, until)
 		if err != nil {
@@ -921,20 +939,8 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reade
 		if err := membs.Put(ctx, blk); err != nil {
 			return err
 		}
-	}
 
-	for {
-		blk, err := carr.Next()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-
-		if err := membs.Put(ctx, blk); err != nil {
-			return err
-		}
+		membs = util.NewReadThroughBstore(robs, membs)
 	}
 
 	head := &carr.Header.Roots[0]
