@@ -43,7 +43,7 @@ type Server struct {
 	cs             *carstore.CarStore
 	repoman        *repomgr.RepoManager
 	feedgen        *FeedGenerator
-	notifman       *notifs.NotificationManager
+	notifman       notifs.NotificationManager
 	indexer        *indexer.Indexer
 	events         *events.EventManager
 	slurper        *Slurper
@@ -77,7 +77,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 	repoman := repomgr.NewRepoManager(db, cs, kmgr)
 	notifman := notifs.NewNotificationManager(db, repoman.GetRecord)
 
-	ix, err := indexer.NewIndexer(db, notifman, evtman, didr, repoman, false)
+	ix, err := indexer.NewIndexer(db, notifman, evtman, didr, repoman, false, true)
 	if err != nil {
 		return nil, err
 	}
