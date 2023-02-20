@@ -119,7 +119,7 @@ func (bgs *BGS) handleAddTarget(c echo.Context) error {
 
 func (bgs *BGS) EventsHandler(c echo.Context) error {
 	var since *int64
-	if sinceVal := c.QueryParam("since"); sinceVal != "" {
+	if sinceVal := c.QueryParam("cursor"); sinceVal != "" {
 		sval, err := strconv.ParseInt(sinceVal, 10, 64)
 		if err != nil {
 			return err
