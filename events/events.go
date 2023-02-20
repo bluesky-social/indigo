@@ -90,6 +90,8 @@ type EventHeader struct {
 
 type RepoStreamEvent struct {
 	Append *RepoAppend
+	Info   *InfoFrame
+	Error  *ErrorFrame
 
 	// some private fields for internal routing perf
 	PrivUid         uint   `json:"-" cborgen:"-"`

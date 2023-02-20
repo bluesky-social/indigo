@@ -475,40 +475,16 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 	}()
 
 	go func() {
-		for {
-			mt, r, err := con.NextReader()
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-
-			switch mt {
-			default:
-				panic("We are reallly not prepared for this")
-			case websocket.BinaryMessage:
-				// ok
-			}
-
-			var header events.EventHeader
-			if err := header.UnmarshalCBOR(r); err != nil {
-				panic(err)
-			}
-
-			switch header.Type {
-			case events.EvtKindRepoAppend:
-				var evt events.RepoAppend
-				if err := evt.UnmarshalCBOR(r); err != nil {
-					panic(err)
-				}
-
+		if err := events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
+			Append: func(evt *events.RepoAppend) error {
 				fmt.Println("received event: ", evt.Seq, evt.Repo)
 				es.lk.Lock()
-				es.events = append(es.events, &events.RepoStreamEvent{Append: &evt})
+				es.events = append(es.events, &events.RepoStreamEvent{Append: evt})
 				es.lk.Unlock()
-			default:
-				panic(fmt.Sprintf("unrecognized event stream type: %q", header.Type))
-			}
-
+				return nil
+			},
+		}); err != nil {
+			panic(err)
 		}
 	}()
 
