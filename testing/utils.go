@@ -450,11 +450,12 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 	d := websocket.Dialer{}
 	h := http.Header{}
 
+	q := ""
 	if since >= 0 {
-		h.Set("since", fmt.Sprint(since))
+		q = fmt.Sprintf("?cursor=%d", since)
 	}
 
-	con, resp, err := d.Dial("ws://"+b.host+"/xrpc/com.atproto.sync.subscribeAllRepos", h)
+	con, resp, err := d.Dial("ws://"+b.host+"/xrpc/com.atproto.sync.subscribeAllRepos"+q, h)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -484,7 +485,7 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 				return nil
 			},
 		}); err != nil {
-			panic(err)
+			fmt.Println(err)
 		}
 	}()
 
