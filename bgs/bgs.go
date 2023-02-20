@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 
+	"contrib.go.opencensus.io/exporter/prometheus"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
@@ -23,6 +25,7 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	promclient "github.com/prometheus/client_golang/prometheus"
 	"gorm.io/gorm"
 )
 
@@ -33,7 +36,7 @@ type BGS struct {
 	db      *gorm.DB
 	slurper *Slurper
 	events  *events.EventManager
-	didr    plc.PLCClient
+	didr    plc.DidResolver
 
 	crawlOnly bool
 
@@ -44,7 +47,7 @@ type BGS struct {
 	repoman *repomgr.RepoManager
 }
 
-func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.PLCClient, ssl bool) *BGS {
+func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.DidResolver, ssl bool) *BGS {
 	db.AutoMigrate(User{})
 	db.AutoMigrate(models.PDS{})
 
@@ -80,6 +83,12 @@ func (bgs *BGS) Start(listen string) error {
 
 	e.GET("/xrpc/com.atproto.sync.subscribeAllRepos", bgs.EventsHandler)
 
+	e.GET("/xrpc/com.atproto.sync.getCheckout", bgs.HandleComAtprotoSyncGetCheckout)
+	e.GET("/xrpc/com.atproto.sync.getCommitPath", bgs.HandleComAtprotoSyncGetCommitPath)
+	e.GET("/xrpc/com.atproto.sync.getHead", bgs.HandleComAtprotoSyncGetHead)
+	e.GET("/xrpc/com.atproto.sync.getRecord", bgs.HandleComAtprotoSyncGetRecord)
+	e.GET("/xrpc/com.atproto.sync.getRepo", bgs.HandleComAtprotoSyncGetRepo)
+
 	return e.Start(listen)
 }
 
@@ -109,8 +118,6 @@ func (bgs *BGS) handleAddTarget(c echo.Context) error {
 }
 
 func (bgs *BGS) EventsHandler(c echo.Context) error {
-	fmt.Println("events handler")
-
 	var since *int64
 	if sinceVal := c.QueryParam("since"); sinceVal != "" {
 		sval, err := strconv.ParseInt(sinceVal, 10, 64)
@@ -132,7 +139,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 	}
 	defer cancel()
 
-	header := events.EventHeader{Type: events.EvtKindRepoAppend}
+	header := events.EventHeader{Op: events.EvtKindRepoAppend}
 	for evt := range evts {
 		wc, err := conn.NextWriter(websocket.BinaryMessage)
 		if err != nil {
@@ -143,7 +150,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 
 		switch {
 		case evt.Append != nil:
-			header.Type = events.EvtKindRepoAppend
+			header.Op = events.EvtKindRepoAppend
 			obj = evt.Append
 		default:
 			return fmt.Errorf("unrecognized event kind")
@@ -163,6 +170,26 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 	}
 
 	return nil
+}
+
+func prometheusHandler() http.Handler {
+	// Prometheus globals are exposed as interfaces, but the prometheus
+	// OpenCensus exporter expects a concrete *Registry. The concrete type of
+	// the globals are actually *Registry, so we downcast them, staying
+	// defensive in case things change under the hood.
+	registry, ok := promclient.DefaultRegisterer.(*promclient.Registry)
+	if !ok {
+		log.Warnf("failed to export default prometheus registry; some metrics will be unavailable; unexpected type: %T", promclient.DefaultRegisterer)
+	}
+	exporter, err := prometheus.NewExporter(prometheus.Options{
+		Registry:  registry,
+		Namespace: "bigsky",
+	})
+	if err != nil {
+		log.Errorf("could not create the prometheus stats exporter: %v", err)
+	}
+
+	return exporter
 }
 
 func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) {

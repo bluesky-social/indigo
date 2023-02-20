@@ -29,7 +29,7 @@ type Indexer struct {
 
 	notifman notifs.NotificationManager
 	events   *events.EventManager
-	didr     plc.PLCClient
+	didr     plc.DidResolver
 
 	// TODO: i feel like the repomgr doesnt belong here
 	repomgr *repomgr.RepoManager
@@ -42,7 +42,7 @@ type Indexer struct {
 	CreateExternalUser func(context.Context, string) (*models.ActorInfo, error)
 }
 
-func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events.EventManager, didr plc.PLCClient, repoman *repomgr.RepoManager, crawl, aggregate bool) (*Indexer, error) {
+func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events.EventManager, didr plc.DidResolver, repoman *repomgr.RepoManager, crawl, aggregate bool) (*Indexer, error) {
 	db.AutoMigrate(&models.FeedPost{})
 	db.AutoMigrate(&models.ActorInfo{})
 	db.AutoMigrate(&models.FollowRecord{})
@@ -296,6 +296,9 @@ func (ix *Indexer) crawlAtUriRef(ctx context.Context, uri string) error {
 	return nil
 }
 func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp) error {
+	ctx, span := otel.Tracer("indexer").Start(ctx, "crawlRecordReferences")
+	defer span.End()
+
 	switch rec := op.Record.(type) {
 	case *bsky.FeedPost:
 		for _, e := range rec.Entities {
@@ -634,6 +637,9 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user uint, rk
 }
 
 func (ix *Indexer) GetUserOrMissing(ctx context.Context, did string) (*models.ActorInfo, error) {
+	ctx, span := otel.Tracer("indexer").Start(ctx, "getUserOrMissing")
+	defer span.End()
+
 	ai, err := ix.LookupUserByDid(ctx, did)
 	if err == nil {
 		return ai, nil
@@ -667,6 +673,9 @@ func (ix *Indexer) createMissingPostRecord(ctx context.Context, puri *parsedUri)
 }
 
 func (ix *Indexer) createMissingUserRecord(ctx context.Context, did string) (*models.ActorInfo, error) {
+	ctx, span := otel.Tracer("indexer").Start(ctx, "createMissingUserRecord")
+	defer span.End()
+
 	ai, err := ix.CreateExternalUser(ctx, did)
 	if err != nil {
 		return nil, err

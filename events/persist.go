@@ -1,12 +1,11 @@
 package events
 
 import (
-	"fmt"
 	"sync"
 )
 
 type EventPersistence interface {
-	Persist(e *RepoStreamEvent)
+	Persist(e *RepoStreamEvent) error
 	Playback(since int64, cb func(*RepoStreamEvent) error) error
 }
 
@@ -22,7 +21,7 @@ func NewMemPersister() *MemPersister {
 	return &MemPersister{}
 }
 
-func (mp *MemPersister) Persist(e *RepoStreamEvent) {
+func (mp *MemPersister) Persist(e *RepoStreamEvent) error {
 	mp.lk.Lock()
 	defer mp.lk.Unlock()
 	mp.seq++
@@ -33,7 +32,8 @@ func (mp *MemPersister) Persist(e *RepoStreamEvent) {
 		panic("no event in persist call")
 	}
 	mp.buf = append(mp.buf, e)
-	fmt.Println("events buf length: ", len(mp.buf))
+
+	return nil
 }
 
 func (mp *MemPersister) Playback(since int64, cb func(*RepoStreamEvent) error) error {

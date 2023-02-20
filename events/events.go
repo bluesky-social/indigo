@@ -79,12 +79,13 @@ type Subscriber struct {
 }
 
 const (
-	EvtKindRepoAppend = 0
-	EvtKindRepoRebase = 1
+	EvtKindErrorFrame = -1
+	EvtKindRepoAppend = 1
+	EvtKindInfoFrame  = 2
 )
 
 type EventHeader struct {
-	Type int64 `cborgen:"t"`
+	Op int64 `cborgen:"op"`
 }
 
 type RepoStreamEvent struct {
@@ -99,6 +100,8 @@ type RepoStreamEvent struct {
 type RepoAppend struct {
 	Seq int64 `cborgen:"seq"`
 
+	Event string `cborgen:"event"`
+
 	// Repo is the DID of the repo this event is about
 	Repo string `cborgen:"repo"`
 
@@ -108,6 +111,20 @@ type RepoAppend struct {
 	//Prev   *cid.Cid `cborgen:"prev"`
 
 	Blocks []byte `cborgen:"blocks"`
+
+	Blobs []string `cborgen:"blobs"`
+
+	Time string `cborgen:"time"`
+}
+
+type InfoFrame struct {
+	Info    string `cborgen:"info"`
+	Message string `cborgen:"message"`
+}
+
+type ErrorFrame struct {
+	Error   string `cborgen:"error"`
+	Message string `cborgen:"message"`
 }
 
 func (em *EventManager) AddEvent(ev *RepoStreamEvent) error {

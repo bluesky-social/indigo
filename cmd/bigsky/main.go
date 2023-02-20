@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/bgs"
@@ -12,6 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/notifs"
+	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 
 	"net/http"
@@ -123,7 +125,9 @@ func main() {
 		}
 
 		didr := &api.PLCServer{Host: cctx.String("plc")}
-		kmgr := indexer.NewKeyManager(didr, nil)
+		cachedidr := plc.NewCachingDidResolver(didr, time.Minute*5, 1000)
+
+		kmgr := indexer.NewKeyManager(cachedidr, nil)
 
 		repoman := repomgr.NewRepoManager(db, cstore, kmgr)
 
@@ -133,7 +137,7 @@ func main() {
 
 		notifman := &notifs.NullNotifs{}
 
-		ix, err := indexer.NewIndexer(db, notifman, evtman, didr, repoman, true, cctx.Bool("aggregation"))
+		ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, repoman, true, cctx.Bool("aggregation"))
 		if err != nil {
 			return err
 		}
@@ -144,7 +148,7 @@ func main() {
 			}
 		})
 
-		bgs := bgs.NewBGS(db, ix, repoman, evtman, didr, cctx.Bool("ssl-events"))
+		bgs := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, cctx.Bool("ssl-events"))
 
 		// set up pprof endpoint
 		go func() {
