@@ -46,7 +46,6 @@ type Server struct {
 	notifman       notifs.NotificationManager
 	indexer        *indexer.Indexer
 	events         *events.EventManager
-	slurper        *Slurper
 	signingKey     *did.PrivKey
 	echo           *echo.Echo
 	jwtSigningKey  []byte
@@ -95,12 +94,6 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 		serviceUrl:     serviceUrl,
 		jwtSigningKey:  jwtkey,
 		enforcePeering: false,
-	}
-
-	s.slurper = &Slurper{
-		cb:         s.handleFedEvent,
-		db:         db,
-		signingKey: serkey,
 	}
 
 	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
@@ -618,7 +611,7 @@ func (s *Server) EventsHandler(c echo.Context) error {
 	}
 	defer cancel()
 
-	header := events.EventHeader{Type: events.EvtKindRepoAppend}
+	header := events.EventHeader{Op: events.EvtKindRepoAppend}
 	for evt := range evts {
 		wc, err := conn.NextWriter(websocket.BinaryMessage)
 		if err != nil {
@@ -629,8 +622,14 @@ func (s *Server) EventsHandler(c echo.Context) error {
 
 		switch {
 		case evt.Append != nil:
-			header.Type = events.EvtKindRepoAppend
+			header.Op = events.EvtKindRepoAppend
 			obj = evt.Append
+		case evt.Info != nil:
+			header.Op = events.EvtKindInfoFrame
+			obj = evt.Info
+		case evt.Error != nil:
+			header.Op = events.EvtKindErrorFrame
+			obj = evt.Error
 		default:
 			return fmt.Errorf("unrecognized event kind")
 		}

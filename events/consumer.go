@@ -92,5 +92,4 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 		}
 
 	}
-	return nil
 }
