@@ -7,6 +7,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -14,8 +15,10 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
+	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwk"
@@ -55,6 +58,7 @@ func main() {
 		getNotificationsCmd,
 		followsCmd,
 		resetPasswordCmd,
+		readRepoStreamCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -794,7 +798,66 @@ var resetPasswordCmd = &cli.Command{
 
 var readRepoStreamCmd = &cli.Command{
 	Name: "readStream",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name: "json",
+		},
+	},
 	Action: func(cctx *cli.Context) error {
-		return nil
+		d := websocket.DefaultDialer
+		con, _, err := d.Dial(cctx.Args().First(), http.Header{})
+		if err != nil {
+			return fmt.Errorf("dial failure: %w", err)
+		}
+
+		jsonfmt := cctx.Bool("json")
+
+		fmt.Println("Stream Started", time.Now().Format(time.RFC3339))
+		defer func() {
+			fmt.Println("Stream Exited", time.Now().Format(time.RFC3339))
+		}()
+
+		return events.HandleRepoStream(context.TODO(), con, &events.RepoStreamCallbacks{
+			Append: func(evt *events.RepoAppend) error {
+				if jsonfmt {
+					b, err := json.Marshal(evt)
+					if err != nil {
+						return err
+					}
+					var out map[string]any
+					if err := json.Unmarshal(b, &out); err != nil {
+						return err
+					}
+					out["Blocks"] = fmt.Sprintf("[%d bytes]", len(evt.Blocks))
+
+					b, err = json.Marshal(out)
+					if err != nil {
+						return err
+					}
+					fmt.Println(string(b))
+
+				} else {
+					fmt.Printf("(%d) RepoAppend: %s (%s -> %s)\n", evt.Seq, evt.Repo, evt.Prev, evt.Commit)
+				}
+
+				return nil
+			},
+			Info: func(info *events.InfoFrame) error {
+				if jsonfmt {
+					b, err := json.Marshal(info)
+					if err != nil {
+						return err
+					}
+					fmt.Println(string(b))
+				} else {
+					fmt.Printf("INFO: %s: %s\n", info.Info, info.Message)
+				}
+
+				return nil
+			},
+			Error: func(errf *events.ErrorFrame) error {
+				return fmt.Errorf("error frame: %s: %s", errf.Error, errf.Message)
+			},
+		})
 	},
 }

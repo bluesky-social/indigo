@@ -6,6 +6,8 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/whyrusleeping/go-did"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type CachingDidResolver struct {
@@ -54,10 +56,15 @@ func (r *CachingDidResolver) putCache(did string, doc *did.Document) {
 }
 
 func (r *CachingDidResolver) GetDocument(ctx context.Context, didstr string) (*did.Document, error) {
+	ctx, span := otel.Tracer("cacheResolver").Start(ctx, "getDocument")
+	defer span.End()
+
 	doc, ok := r.tryCache(didstr)
 	if ok {
+		span.SetAttributes(attribute.Bool("cache", true))
 		return doc, nil
 	}
+	span.SetAttributes(attribute.Bool("cache", false))
 
 	doc, err := r.res.GetDocument(ctx, didstr)
 	if err != nil {

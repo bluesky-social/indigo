@@ -951,7 +951,7 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reade
 		commits = append(commits, *head)
 		rep, err := repo.OpenRepo(ctx, membs, *head)
 		if err != nil {
-			return fmt.Errorf("opening repo for backwalk: %w", err)
+			return fmt.Errorf("opening repo for backwalk (%d commits, until: %s, head: %s): %w", len(commits), until, *head, err)
 		}
 
 		prev, err := rep.PrevCommit(ctx)

@@ -1,19 +1,16 @@
 package bgs
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"math/rand"
-	"net"
 	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/gorilla/websocket"
-	cbg "github.com/whyrusleeping/cbor-gen"
 	"gorm.io/gorm"
 )
 
@@ -90,10 +87,12 @@ func (s *Slurper) subscribeWithRedialer(host *models.PDS) {
 		protocol = "wss"
 	}
 
+	cursor := host.Cursor
+
 	var backoff int
 	for {
-
-		con, res, err := d.Dial(protocol+"://"+host.Host+"/xrpc/com.atproto.sync.subscribeAllRepos", nil)
+		url := fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeAllRepos?cursor=%d", protocol, host.Host, cursor)
+		con, res, err := d.Dial(url, nil)
 		if err != nil {
 			log.Warnf("dialing %q failed: %s", host.Host, err)
 			time.Sleep(sleepForBackoff(backoff))
@@ -103,7 +102,7 @@ func (s *Slurper) subscribeWithRedialer(host *models.PDS) {
 
 		log.Info("event subscription response code: ", res.StatusCode)
 
-		if err := s.handleConnection(host, con); err != nil {
+		if err = s.handleConnection(host, con, &cursor); err != nil {
 			if errors.Is(err, ErrTimeoutShutdown) {
 				log.Infof("shutting down pds subscription to %s, no activity after %s", host.Host, EventsTimeout)
 				return
@@ -129,55 +128,37 @@ var ErrTimeoutShutdown = fmt.Errorf("timed out waiting for new events")
 
 var EventsTimeout = time.Minute
 
-func (s *Slurper) handleConnection(host *models.PDS, con *websocket.Conn) error {
-	cr := cbg.NewCborReader(bytes.NewReader(nil))
+func (s *Slurper) handleConnection(host *models.PDS, con *websocket.Conn, lastCursor *int64) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	for {
-		if err := con.SetReadDeadline(time.Now().Add(EventsTimeout)); err != nil {
-			return fmt.Errorf("failed to set read deadline: %w", err)
-		}
-
-		mt, r, err := con.NextReader()
-		if err != nil {
-			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-				return ErrTimeoutShutdown
-			}
-
-			return err
-		}
-
-		switch mt {
-		default:
-			return fmt.Errorf("We are reallly not prepared for this")
-		case websocket.BinaryMessage:
-			// ok
-		}
-
-		cr.SetReader(r)
-
-		var header events.EventHeader
-		if err := header.UnmarshalCBOR(cr); err != nil {
-			return fmt.Errorf("reading header: %w", err)
-		}
-
-		switch header.Type {
-		case events.EvtKindRepoAppend:
-			var evt events.RepoAppend
-			if err := evt.UnmarshalCBOR(cr); err != nil {
-				return fmt.Errorf("reading repoAppend event: %w", err)
-			}
+	return events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
+		Append: func(evt *events.RepoAppend) error {
 
 			log.Infow("got remote repo event", "host", host.Host, "repo", evt.Repo)
 			if err := s.cb(context.TODO(), host, &events.RepoStreamEvent{
-				Append: &evt,
+				Append: evt,
 			}); err != nil {
 				log.Errorf("failed to index event from %q: %s", host.Host, err)
 			}
-		case events.EvtKindRepoRebase:
-			return fmt.Errorf("not yet handling rebase events")
-		default:
-			return fmt.Errorf("unrecognized event stream type: %q", header.Type)
-		}
+			*lastCursor = evt.Seq
 
-	}
+			if err := s.updateCursor(host, *lastCursor); err != nil {
+				return err
+			}
+
+			return nil
+		},
+		Info: func(info *events.InfoFrame) error {
+			log.Infow("info event", "info", info.Info, "message", info.Message, "host", host.Host)
+			return nil
+		},
+		Error: func(errf *events.ErrorFrame) error {
+			return fmt.Errorf("error frame: %s: %s", errf.Error, errf.Message)
+		},
+	})
+}
+
+func (s *Slurper) updateCursor(host *models.PDS, curs int64) error {
+	return s.db.Model(models.PDS{}).Where("id = ?", host.ID).UpdateColumn("cursor", curs).Error
 }

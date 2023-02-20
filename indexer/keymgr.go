@@ -2,11 +2,8 @@ package indexer
 
 import (
 	"context"
-	"crypto"
 	"fmt"
-	"time"
 
-	"github.com/bluesky-social/indigo/plc"
 	did "github.com/whyrusleeping/go-did"
 	"go.opentelemetry.io/otel"
 )
@@ -21,16 +18,11 @@ type DidResolver interface {
 	GetDocument(ctx context.Context, didstr string) (*did.Document, error)
 }
 
-func NewKeyManager(didr plc.PLCClient, k *did.PrivKey) *KeyManager {
+func NewKeyManager(didr DidResolver, k *did.PrivKey) *KeyManager {
 	return &KeyManager{
 		didr:       didr,
 		signingKey: k,
 	}
-}
-
-type cachedKey struct {
-	cachedAt time.Time
-	pub      crypto.PublicKey
 }
 
 func (km *KeyManager) VerifyUserSignature(ctx context.Context, did string, sig []byte, msg []byte) error {
@@ -51,7 +43,6 @@ func (km *KeyManager) getKey(ctx context.Context, did string) (*did.PubKey, erro
 
 	// TODO: caching should be done at the DID document level, that way we can
 	// have a thing that subscribes to plc updates for cache busting
-	fmt.Println("GET KEY: ", did)
 	doc, err := km.didr.GetDocument(ctx, did)
 	if err != nil {
 		return nil, err
