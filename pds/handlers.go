@@ -14,13 +14,13 @@ import (
 	jwt "github.com/lestrrat-go/jwx/jwt"
 )
 
-func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string) (*appbskytypes.ActorGetProfile_Output, error) {
+func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string) (*appbskytypes.ActorProfile_View, error) {
 	profile, err := s.feedgen.GetActorProfile(ctx, actor)
 	if err != nil {
 		return nil, err
 	}
 
-	return &appbskytypes.ActorGetProfile_Output{
+	return &appbskytypes.ActorProfile_View{
 		MyState: nil, //*ActorGetProfile_MyState `json:"myState" cborgen:"myState"`
 		Did:     profile.Did,
 		Declaration: &appbskytypes.SystemDeclRef{
@@ -40,7 +40,7 @@ func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string)
 func (s *Server) handleAppBskyActorGetSuggestions(ctx context.Context, cursor string, limit int) (*appbskytypes.ActorGetSuggestions_Output, error) {
 
 	var out appbskytypes.ActorGetSuggestions_Output
-	out.Actors = []*appbskytypes.ActorGetSuggestions_Actor{}
+	out.Actors = []*appbskytypes.ActorProfile_ViewBasic{}
 	return &out, nil
 }
 
@@ -284,15 +284,13 @@ func (s *Server) handleAppBskyGraphGetFollows(ctx context.Context, before string
 	var out appbskytypes.GraphGetFollows_Output
 	out.Subject = ai.ActorRef()
 
-	out.Follows = []*appbskytypes.GraphGetFollows_Follow{}
+	out.Follows = []*appbskytypes.ActorRef_WithInfo{}
 	for _, f := range follows {
-		out.Follows = append(out.Follows, &appbskytypes.GraphGetFollows_Follow{
+		out.Follows = append(out.Follows, &appbskytypes.ActorRef_WithInfo{
 			Declaration: f.Subject.Declaration,
 			Handle:      f.Subject.Handle,
 			DisplayName: f.Subject.DisplayName,
 			Did:         f.Subject.Did,
-			CreatedAt:   &f.CreatedAt,
-			IndexedAt:   f.IndexedAt,
 		})
 	}
 
@@ -745,5 +743,9 @@ func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, 
 	panic("nyi")
 }
 func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *comatprototypes.ReportCreate_Input) (*comatprototypes.ReportCreate_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoHandleUpdate(ctx context.Context, body *comatprototypes.HandleUpdate_Input) error {
 	panic("nyi")
 }

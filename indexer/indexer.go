@@ -365,7 +365,6 @@ func (ix *Indexer) handleRecordCreateFeedVote(ctx context.Context, rec *bsky.Fee
 		dbdir = models.VoteDirUp
 	case "down":
 		return nil
-		dbdir = models.VoteDirDown
 	default:
 		return fmt.Errorf("invalid vote direction: %q", rec.Direction)
 	}

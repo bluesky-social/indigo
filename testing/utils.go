@@ -399,7 +399,8 @@ func SetupBGS(host string, didr plc.PLCClient) (*testBGS, error) {
 		return nil, err
 	}
 
-	kmgr := indexer.NewKeyManager(didr, nil)
+	//kmgr := indexer.NewKeyManager(didr, nil)
+	kmgr := &bsutil.FakeKeyManager{}
 
 	repoman := repomgr.NewRepoManager(maindb, cs, kmgr)
 
@@ -409,7 +410,7 @@ func SetupBGS(host string, didr plc.PLCClient) (*testBGS, error) {
 
 	go evtman.Run()
 
-	ix, err := indexer.NewIndexer(maindb, notifman, evtman, didr, repoman, true)
+	ix, err := indexer.NewIndexer(maindb, notifman, evtman, didr, repoman, true, true)
 	if err != nil {
 		return nil, err
 	}
