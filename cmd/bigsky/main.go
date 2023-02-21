@@ -64,12 +64,12 @@ func run(args []string) {
 		},
 		&cli.StringFlag{
 			Name:    "db",
-			Value:   "sqlite=data/bigsky/bgs.sqlite",
+			Value:   "sqlite://./data/bigsky/bgs.sqlite",
 			EnvVars: []string{"DATABASE_URL"},
 		},
 		&cli.StringFlag{
 			Name:    "carstoredb",
-			Value:   "sqlite=data/bigsky/carstore.sqlite",
+			Value:   "sqlite://./data/bigsky/carstore.sqlite",
 			EnvVars: []string{"CARSTORE_DATABASE_URL"},
 		},
 		&cli.StringFlag{
