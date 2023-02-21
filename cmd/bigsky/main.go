@@ -63,26 +63,29 @@ func run(args []string) {
 			Name: "jaeger",
 		},
 		&cli.StringFlag{
-			Name:    "db",
+			Name:    "db-url",
+			Usage:   "database connection string for BGS database",
 			Value:   "sqlite://./data/bigsky/bgs.sqlite",
 			EnvVars: []string{"DATABASE_URL"},
 		},
 		&cli.StringFlag{
-			Name:    "carstoredb",
+			Name:    "carstore-db-url",
+			Usage:   "database connection string for carstore database",
 			Value:   "sqlite://./data/bigsky/carstore.sqlite",
 			EnvVars: []string{"CARSTORE_DATABASE_URL"},
 		},
-		&cli.StringFlag{
-			Name:    "carstore",
-			Value:   "data/bigsky/carstore",
-			EnvVars: []string{"CARSTORE_DIRECTORY"},
-		},
 		&cli.BoolFlag{
-			Name: "dbtracing",
+			Name: "db-tracing",
 		},
 		&cli.StringFlag{
-			Name:    "plc",
-			Usage:   "hostname of the plc server (including https:// prefix)",
+			Name:    "data-dir",
+			Usage:   "path of directory for CAR files and other data",
+			Value:   "data/bigsky",
+			EnvVars: []string{"DATA_DIR"},
+		},
+		&cli.StringFlag{
+			Name:    "plc-host",
+			Usage:   "method, hostname, and port of PLC registry",
 			Value:   "https://plc.directory",
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
@@ -119,34 +122,38 @@ func run(args []string) {
 		}
 
 		// ensure data directory exists; won't error if it does
-		os.MkdirAll("data/bigsky/", os.ModePerm)
+		datadir := cctx.String("data-dir")
+		csdir := filepath.Join(datadir, "carstore")
+		os.MkdirAll(datadir, os.ModePerm)
 
-		dbstr := cctx.String("db")
-		db, err := cliutil.SetupDatabase(dbstr)
+		dburl := cctx.String("db-url")
+		db, err := cliutil.SetupDatabase(dburl)
 		if err != nil {
 			return err
 		}
 
-		if cctx.Bool("dbtracing") {
+		csdburl := cctx.String("carstore-db-url")
+		csdb, err := cliutil.SetupDatabase(csdburl)
+		if err != nil {
+			return err
+		}
+
+		if cctx.Bool("db-tracing") {
 			if err := db.Use(tracing.NewPlugin()); err != nil {
+				return err
+			}
+			if err := csdb.Use(tracing.NewPlugin()); err != nil {
 				return err
 			}
 		}
 
-		carstoredbstr := cctx.String("carstoredb")
-		cardb, err := cliutil.SetupDatabase(carstoredbstr)
-		if err != nil {
-			return err
-		}
-
-		csdir := cctx.String("carstore")
 		os.MkdirAll(filepath.Dir(csdir), os.ModePerm)
-		cstore, err := carstore.NewCarStore(cardb, csdir)
+		cstore, err := carstore.NewCarStore(csdb, csdir)
 		if err != nil {
 			return err
 		}
 
-		didr := &api.PLCServer{Host: cctx.String("plc")}
+		didr := &api.PLCServer{Host: cctx.String("plc-host")}
 		cachedidr := plc.NewCachingDidResolver(didr, time.Minute*5, 1000)
 
 		kmgr := indexer.NewKeyManager(cachedidr, nil)

@@ -87,7 +87,7 @@ func WriteConfig(cfg *CliConfig) error {
 
 func GetXrpcClient(cctx *cli.Context, authreq bool) (*xrpc.Client, error) {
 	h := "http://localhost:4989"
-	if pdsurl := cctx.String("pds"); pdsurl != "" {
+	if pdsurl := cctx.String("pds-host"); pdsurl != "" {
 		h = pdsurl
 	}
 
@@ -112,7 +112,7 @@ func GetATPClient(cctx *cli.Context, authreq bool) (*api.ATProto, error) {
 }
 
 func loadAuthFromEnv(cctx *cli.Context, req bool) (*xrpc.AuthInfo, error) {
-	if a := cctx.String("auth"); a != "" {
+	if a := cctx.String("auth-file"); a != "" {
 		if ai, err := ReadAuth(a); err != nil && req {
 			return nil, err
 		} else {
@@ -150,16 +150,24 @@ func ReadAuth(fname string) (*xrpc.AuthInfo, error) {
 	return &auth, nil
 }
 
-func SetupDatabase(dbval string) (*gorm.DB, error) {
+func SetupDatabase(dburl string) (*gorm.DB, error) {
 	var dial gorm.Dialector
-	if strings.HasPrefix(dbval, "sqlite://") {
-		dial = sqlite.Open(dbval[len("sqlite://"):])
-	} else if strings.HasPrefix(dbval, "postgresql://") {
-		// can pass entire URL, with prefix
-		dial = postgres.Open(dbval)
+	// NOTE(bnewbold): might also handle file:// as sqlite, but let's keep it
+	// explicit for now
+	if strings.HasPrefix(dburl, "sqlite://") {
+		sqliteSuffix := dburl[len("sqlite://"):]
+		// if this isn't ":memory:", ensure that directory exists (eg, if db
+		// file is being initialized)
+		if !strings.Contains(sqliteSuffix, ":?") {
+			os.MkdirAll(filepath.Dir(sqliteSuffix), os.ModePerm)
+		}
+		dial = sqlite.Open(sqliteSuffix)
+	} else if strings.HasPrefix(dburl, "postgresql://") {
+		// can pass entire URL, with prefix, to gorm driver
+		dial = postgres.Open(dburl)
 	} else {
-		// TODO: this might print password
-		return nil, fmt.Errorf("unsupported or unrecognized DATABASE_URL value: %s", dbval)
+		// TODO(bnewbold): this might print password?
+		return nil, fmt.Errorf("unsupported or unrecognized DATABASE_URL value: %s", dburl)
 	}
 
 	db, err := gorm.Open(dial, &gorm.Config{

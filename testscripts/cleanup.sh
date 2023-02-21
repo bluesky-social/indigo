@@ -1,3 +1,3 @@
 #!/bin/bash
-rm -rf data/pds/
-mkdir -p data/pds/carstore
+rm -rf data/laputa/
+mkdir -p data/laputa/carstore

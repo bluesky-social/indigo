@@ -21,12 +21,33 @@ import (
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cbor "github.com/ipfs/go-ipld-cbor"
+	logging "github.com/ipfs/go-log"
 	"github.com/ipld/go-car"
+	"github.com/joho/godotenv"
 	cli "github.com/urfave/cli/v2"
 )
 
+var log = logging.Logger("stress")
+
 func main() {
-	app := cli.NewApp()
+
+	// only try dotenv if it exists
+	if _, err := os.Stat(".env"); err == nil {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatal("Error loading .env file")
+		}
+	}
+
+	run(os.Args)
+}
+
+func run(args []string) {
+
+	app := cli.App{
+		Name:  "stress",
+		Usage: "load generation tool for PDS instances",
+	}
 
 	app.Commands = []*cli.Command{
 		postingCmd,
@@ -51,8 +72,10 @@ var postingCmd = &cli.Command{
 			Value: 1,
 		},
 		&cli.StringFlag{
-			Name:  "pds",
-			Value: "http://localhost:4989",
+			Name:    "pds-host",
+			Usage:   "method, hostname, and port of PDS instance",
+			Value:   "http://localhost:4849",
+			EnvVars: []string{"ATP_PDS_HOST"},
 		},
 	},
 	Action: func(cctx *cli.Context) error {
@@ -127,8 +150,10 @@ var genRepoCmd = &cli.Command{
 			Value: 50,
 		},
 		&cli.StringFlag{
-			Name:  "pds",
-			Value: "http://localhost:4989",
+			Name:    "pds-host",
+			Usage:   "method, hostname, and port of PDS instance",
+			Value:   "http://localhost:4849",
+			EnvVars: []string{"ATP_PDS_HOST"},
 		},
 	},
 	Action: func(cctx *cli.Context) error {

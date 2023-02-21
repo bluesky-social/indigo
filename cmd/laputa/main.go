@@ -11,14 +11,14 @@ import (
 
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/carstore"
+	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/plc"
+
+	logging "github.com/ipfs/go-log"
+	"github.com/joho/godotenv"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/urfave/cli/v2"
-	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
@@ -28,28 +28,73 @@ import (
 	"gorm.io/plugin/opentelemetry/tracing"
 )
 
+var log = logging.Logger("laputa")
+
 func main() {
-	app := cli.NewApp()
+
+	// only try dotenv if it exists
+	if _, err := os.Stat(".env"); err == nil {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatal("Error loading .env file")
+		}
+	}
+
+	run(os.Args)
+}
+
+func run(args []string) {
+
+	app := cli.App{
+		Name:  "laputa",
+		Usage: "bluesky PDS in golang",
+	}
 
 	app.Flags = []cli.Flag{
 		&cli.BoolFlag{
 			Name: "jaeger",
 		},
-		&cli.BoolFlag{
-			// Temp flag for testing, eventually will just pass db connection strings here
-			Name: "postgres",
-		},
-		&cli.BoolFlag{
-			Name: "dbtracing",
+		&cli.StringFlag{
+			Name:    "db-url",
+			Value:   "sqlite://./data/laputa/pds.sqlite",
+			EnvVars: []string{"DATABASE_URL"},
 		},
 		&cli.StringFlag{
-			Name:  "pdshost",
-			Usage: "hostname of the pds",
+			Name:    "carstore-db-url",
+			Value:   "sqlite://./data/laputa/carstore.sqlite",
+			EnvVars: []string{"CARSTORE_DATABASE_URL"},
+		},
+		&cli.BoolFlag{
+			Name: "db-tracing",
+		},
+		&cli.StringFlag{
+			Name:  "name",
+			Usage: "hostname of this PDS instance",
 			Value: "localhost:4989",
 		},
 		&cli.StringFlag{
-			Name:  "plc",
-			Usage: "hostname of the plc",
+			Name:    "plc-host",
+			Usage:   "method, hostname, and port of PLC registry",
+			Value:   "https://plc.directory",
+			EnvVars: []string{"ATP_PLC_HOST"},
+		},
+		&cli.StringFlag{
+			Name:    "data-dir",
+			Usage:   "path of directory for CAR files and other data",
+			Value:   "data/laputa",
+			EnvVars: []string{"DATA_DIR"},
+		},
+		&cli.StringFlag{
+			Name:    "jwt-secret",
+			Usage:   "secret used for authenticating JWT tokens",
+			Value:   "jwtsecretplaceholder",
+			EnvVars: []string{"ATP_JWT_SECRET"},
+		},
+		&cli.StringFlag{
+			Name:    "handle-domains",
+			Usage:   "comma-separated list of domain suffixes for handle registration",
+			Value:   ".test",
+			EnvVars: []string{"ATP_PDS_HANDLE_DOMAINS"},
 		},
 	}
 
@@ -80,20 +125,27 @@ func main() {
 			otel.SetTracerProvider(tp)
 		}
 
-		pgdb := cctx.Bool("postgres")
-		dbtracing := cctx.Bool("dbtracing")
+		dbtracing := cctx.Bool("db-tracing")
+		datadir := cctx.String("data-dir")
+		csdir := filepath.Join(datadir, "carstore")
+		keypath := filepath.Join(datadir, "server.key")
+		jwtsecret := []byte(cctx.String("jwt-secret"))
 
-		// ensure data directory exists; won't error if it does
-		os.MkdirAll("data/pds/", os.ModePerm)
+		// TODO(bnewbold): split this on comma, and have PDS support multiple
+		// domain suffixes that can be registered
+		pdsdomain := cctx.String("handle-domains")
 
-		var pdsdial gorm.Dialector
-		if pgdb {
-			dsn := "host=localhost user=postgres password=password dbname=pdsdb port=5432 sslmode=disable"
-			pdsdial = postgres.Open(dsn)
-		} else {
-			pdsdial = sqlite.Open("data/pds/pds.sqlite")
+		// ensure data directories exist; won't error if it does
+		os.MkdirAll(csdir, os.ModePerm)
+
+		// default postgres setup: postgresql://postgres:password@localhost:5432/pdsdb?sslmode=disable
+		db, err := cliutil.SetupDatabase(cctx.String("db-url"))
+		if err != nil {
+			return err
 		}
-		db, err := gorm.Open(pdsdial, &gorm.Config{})
+
+		// default postgres setup: postgresql://postgres:password@localhost:5432/cardb?sslmode=disable
+		csdb, err := cliutil.SetupDatabase(cctx.String("carstore-db-url"))
 		if err != nil {
 			return err
 		}
@@ -102,40 +154,25 @@ func main() {
 			if err := db.Use(tracing.NewPlugin()); err != nil {
 				return err
 			}
-		}
-
-		var cardial gorm.Dialector
-		if pgdb {
-			dsn2 := "host=localhost user=postgres password=password dbname=cardb port=5432 sslmode=disable"
-			cardial = postgres.Open(dsn2)
-		} else {
-			cardial = sqlite.Open("data/pds/carstore.sqlite")
-		}
-		carstdb, err := gorm.Open(cardial, &gorm.Config{})
-		if err != nil {
-			return err
-		}
-
-		if dbtracing {
-			if err := carstdb.Use(tracing.NewPlugin()); err != nil {
+			if err := csdb.Use(tracing.NewPlugin()); err != nil {
 				return err
 			}
 		}
 
-		cs, err := carstore.NewCarStore(carstdb, "data/pds/carstore")
+		cstore, err := carstore.NewCarStore(csdb, csdir)
 		if err != nil {
 			return err
 		}
 
 		var didr plc.PLCClient
-		if plchost := cctx.String("plc"); plchost != "" {
+		if plchost := cctx.String("plc-host"); plchost != "" {
 			didr = &api.PLCServer{Host: plchost}
 		} else {
 			didr = plc.NewFakeDid(db)
 		}
 
-		pdshost := cctx.String("pdshost")
-		srv, err := pds.NewServer(db, cs, "data/pds/server.key", ".test", pdshost, didr, []byte("jwtsecretplaceholder"))
+		pdshost := cctx.String("name")
+		srv, err := pds.NewServer(db, cstore, keypath, pdsdomain, pdshost, didr, jwtsecret)
 		if err != nil {
 			return err
 		}
@@ -150,8 +187,9 @@ var generateKeyCmd = &cli.Command{
 	Name: "gen-key",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:  "filename",
-			Value: "data/pds/server.key",
+			Name:    "output",
+			Aliases: []string{"o"},
+			Value:   "data/laputa/server.key",
 		},
 	},
 	Action: func(cctx *cli.Context) error {
@@ -176,7 +214,7 @@ var generateKeyCmd = &cli.Command{
 			return fmt.Errorf("failed to marshal key into JSON: %w", err)
 		}
 
-		fname := cctx.String("filename")
+		fname := cctx.String("output")
 		// ensure data directory exists; won't error if it does
 		os.MkdirAll(filepath.Dir(fname), os.ModePerm)
 
