@@ -423,18 +423,14 @@ func pdsGenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner
 
 	var avatar *lexutil.Blob
 	if genAvatar {
-		// TODO: PNG uploads currently broken with PDS
-		//img := gofakeit.ImagePng(200, 200)
-		img := gofakeit.ImageJpeg(200, 200)
+		img := gofakeit.ImagePng(200, 200)
 		resp, err := comatproto.BlobUpload(context.TODO(), xrpcc, bytes.NewReader(img))
 		if err != nil {
 			return err
 		}
 		avatar = &lexutil.Blob{
-			Cid: resp.Cid,
-			// TODO: see above
-			//MimeType: "image/png",
-			MimeType: "image/jpeg",
+			Cid:      resp.Cid,
+			MimeType: "image/png",
 		}
 	}
 	var banner *lexutil.Blob
