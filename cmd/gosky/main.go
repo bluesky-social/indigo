@@ -22,6 +22,8 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
+	logging "github.com/ipfs/go-log"
+	"github.com/joho/godotenv"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/polydawn/refmt/cbor"
@@ -31,17 +33,40 @@ import (
 	"github.com/whyrusleeping/go-did"
 )
 
+var log = logging.Logger("gosky")
+
 func main() {
-	app := cli.NewApp()
+
+	// only try dotenv if it exists
+	if _, err := os.Stat(".env"); err == nil {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatal("Error loading .env file")
+		}
+	}
+
+	run(os.Args)
+}
+
+func run(args []string) {
+
+	app := cli.App{
+		Name:  "gosky",
+		Usage: "client CLI for atproto and bluesky",
+	}
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:  "pds",
-			Value: "https://bsky.social",
+			Name:    "pds-host",
+			Usage:   "method, hostname, and port of PDS instance",
+			Value:   "http://localhost:4849",
+			EnvVars: []string{"ATP_PDS_HOST"},
 		},
 		&cli.StringFlag{
-			Name:  "auth",
-			Value: "bsky.auth",
+			Name:    "auth-file",
+			Usage:   "path to JSON file with ATP auth info",
+			Value:   "bsky.auth",
+			EnvVars: []string{"ATP_AUTH_FILE"},
 		},
 	}
 	app.Commands = []*cli.Command{
@@ -517,7 +542,7 @@ var refreshAuthTokenCmd = &cli.Command{
 			return err
 		}
 
-		if err := os.WriteFile(cctx.String("auth"), b, 0600); err != nil {
+		if err := os.WriteFile(cctx.String("auth-file"), b, 0600); err != nil {
 			return err
 		}
 

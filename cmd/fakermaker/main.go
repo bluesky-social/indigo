@@ -40,21 +40,26 @@ func main() {
 		}
 	}
 
-	app := &cli.App{
+	run(os.Args)
+}
+
+func run(args []string) {
+
+	app := cli.App{
 		Name:  "fakermaker",
 		Usage: "bluesky fake account/content generator",
 	}
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:    "pds",
-			Usage:   "hostname and port of PDS instance",
+			Name:    "pds-host",
+			Usage:   "method, hostname, and port of PDS instance",
 			Value:   "http://localhost:4849",
 			EnvVars: []string{"ATP_PDS_HOST"},
 		},
 		&cli.StringFlag{
-			Name:     "admin-token",
-			Usage:    "admin authentication token for PDS",
+			Name:     "admin-password",
+			Usage:    "admin authentication password for PDS",
 			Required: true,
 			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
 		},
@@ -210,7 +215,7 @@ type AccountContext struct {
 }
 
 func accountXrpcClient(cctx *cli.Context, ac *AccountContext) (*xrpc.Client, error) {
-	pdsHost := cctx.String("pds")
+	pdsHost := cctx.String("pds-host")
 	//httpClient := cliutil.NewHttpClient()
 	httpClient := &http.Client{Timeout: 5 * time.Second}
 	ua := "IndigoFakerMaker"
@@ -247,7 +252,7 @@ func genAccounts(cctx *cli.Context) error {
 		return err
 	}
 	xrpcc := atpc.C
-	adminToken := cctx.String("admin-token")
+	adminToken := cctx.String("admin-password")
 	if len(adminToken) > 0 {
 		xrpcc.AdminToken = &adminToken
 	}

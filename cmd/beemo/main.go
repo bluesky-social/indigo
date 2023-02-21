@@ -33,15 +33,20 @@ func main() {
 		}
 	}
 
-	app := &cli.App{
+	run(os.Args)
+}
+
+func run(args []string) {
+
+	app := cli.App{
 		Name:  "beemo",
 		Usage: "bluesky moderation reporting bot",
 	}
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:    "pds",
-			Usage:   "hostname and port of PDS instance",
+			Name:    "pds-host",
+			Usage:   "method, hostname, and port of PDS instance",
 			Value:   "http://localhost:4849",
 			EnvVars: []string{"ATP_PDS_HOST"},
 		},
@@ -58,10 +63,10 @@ func main() {
 			EnvVars:  []string{"ATP_AUTH_PASSWORD"},
 		},
 		&cli.StringFlag{
-			Name:     "admin-token",
-			Usage:    "admin authentication token for PDS",
+			Name:     "admin-password",
+			Usage:    "admin authentication password for PDS",
 			Required: true,
-			EnvVars:  []string{"ATP_ADMIN_TOKEN"},
+			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
 		},
 		&cli.StringFlag{
 			Name: "slack-webhook-url",
@@ -97,7 +102,7 @@ func pollNewReports(cctx *cli.Context) error {
 	// create a new session
 	xrpcc := &xrpc.Client{
 		Client: cliutil.NewHttpClient(),
-		Host:   cctx.String("pds"),
+		Host:   cctx.String("pds-host"),
 		Auth:   &xrpc.AuthInfo{Handle: cctx.String("handle")},
 	}
 
@@ -113,7 +118,7 @@ func pollNewReports(cctx *cli.Context) error {
 	xrpcc.Auth.Did = auth.Did
 	xrpcc.Auth.Handle = auth.Handle
 
-	adminToken := cctx.String("admin-token")
+	adminToken := cctx.String("admin-password")
 	if len(adminToken) > 0 {
 		xrpcc.AdminToken = &adminToken
 	}
@@ -154,7 +159,7 @@ func pollNewReports(cctx *cli.Context) error {
 			if createdAt.After(since) {
 				// ok, we found a "new" report, need to notify
 				msg := fmt.Sprintf("===== New moderation report received =====\n")
-				msg += fmt.Sprintf("PDS: `%s`\t", cctx.String("pds"))
+				msg += fmt.Sprintf("PDS: `%s`\t", cctx.String("pds-host"))
 				msg += fmt.Sprintf("report id: `%d`\t", report.Id)
 				msg += fmt.Sprintf("recent unresolved: `%d`\n", len(mrr.Reports))
 				msg += fmt.Sprintf("createdAt: `%s`\n", report.CreatedAt)
