@@ -441,7 +441,11 @@ func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, k
 		checkTreeInvariant(updated)
 		newRoot := NewMST(mst.cst, cid.Undef, updated, keyZeros)
 
-		// we have mutated this node without recomputing CID, so invalidate it
+		// NOTE(bnewbold): We do want to invalid the CID (because this node has
+		// changed, and we are "lazy" about recomputing). Setting this flag
+		// is redundant with passing cid.Undef to NewMST just above, but
+		// keeping because it is explicit and matches the explicit invalidation
+		// that happens in the Typescript code
 		newRoot.validPtr = false
 
 		return newRoot, nil
