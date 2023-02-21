@@ -6,7 +6,7 @@ Commands (run with, eg, `go run ./cmd/bigsky`):
 - `cmd/bigsky`: BGS+indexer daemon
 - `cmd/gosky`: client CLI for talking to a PDS
 - `cmd/lexgen`: codegen tool for lexicons (Lexicon JSON to golang package)
-- `cmd/pds`: PDS daemon
+- `cmd/laputa`: PDS daemon
 - `cmd/stress`: connects to local/default PDS and creates a ton of random posts
 - `cmd/beemo`: slack bot for moderation reporting (Bluesky Moderation Observer)
 - `cmd/fakermaker`: helper to generate fake accounts and content for testing
