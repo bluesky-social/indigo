@@ -120,10 +120,10 @@ func loadAuthFromEnv(cctx *cli.Context, req bool) (*xrpc.AuthInfo, error) {
 		}
 	}
 
-	val := os.Getenv("BSKY_AUTH")
+	val := os.Getenv("ATP_AUTH_FILE")
 	if val == "" {
 		if req {
-			return nil, fmt.Errorf("no auth env present, BSKY_AUTH not set")
+			return nil, fmt.Errorf("no auth env present, ATP_AUTH_FILE not set")
 		}
 
 		return nil, nil
