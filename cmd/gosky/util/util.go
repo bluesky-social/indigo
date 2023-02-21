@@ -151,19 +151,15 @@ func ReadAuth(fname string) (*xrpc.AuthInfo, error) {
 }
 
 func SetupDatabase(dbval string) (*gorm.DB, error) {
-	parts := strings.SplitN(dbval, "=", 2)
-	if len(parts) == 1 {
-		return nil, fmt.Errorf("format for database string is 'DBTYPE=PARAMS'")
-	}
-
 	var dial gorm.Dialector
-	switch parts[0] {
-	case "sqlite":
-		dial = sqlite.Open(parts[1])
-	case "postgres":
-		dial = postgres.Open(parts[1])
-	default:
-		return nil, fmt.Errorf("unsupported or unrecognized db type: %s", parts[0])
+	if strings.HasPrefix(dbval, "sqlite://") {
+		dial = sqlite.Open(dbval[len("sqlite://"):])
+	} else if strings.HasPrefix(dbval, "postgresql://") {
+		// can pass entire URL, with prefix
+		dial = postgres.Open(dbval)
+	} else {
+		// TODO: this might print password
+		return nil, fmt.Errorf("unsupported or unrecognized DATABASE_URL value: %s", dbval)
 	}
 
 	db, err := gorm.Open(dial, &gorm.Config{
