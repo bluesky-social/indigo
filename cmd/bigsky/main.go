@@ -20,6 +20,7 @@ import (
 	_ "net/http/pprof"
 
 	logging "github.com/ipfs/go-log"
+	"github.com/joho/godotenv"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -38,31 +39,52 @@ func init() {
 }
 
 func main() {
-	app := cli.NewApp()
+
+	// only try dotenv if it exists
+	if _, err := os.Stat(".env"); err == nil {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatal("Error loading .env file")
+		}
+	}
+
+	run(os.Args)
+}
+
+func run(args []string) {
+
+	app := cli.App{
+		Name:  "bigsky",
+		Usage: "atproto BGS/firehose daemon",
+	}
 
 	app.Flags = []cli.Flag{
 		&cli.BoolFlag{
 			Name: "jaeger",
 		},
 		&cli.StringFlag{
-			Name:  "db",
-			Value: "sqlite=data/bigsky/bgs.sqlite",
+			Name:    "db",
+			Value:   "sqlite=data/bigsky/bgs.sqlite",
+			EnvVars: []string{"DATABASE_URL"},
 		},
 		&cli.StringFlag{
-			Name:  "carstoredb",
-			Value: "sqlite=data/bigsky/carstore.sqlite",
+			Name:    "carstoredb",
+			Value:   "sqlite=data/bigsky/carstore.sqlite",
+			EnvVars: []string{"CARSTORE_DATABASE_URL"},
 		},
 		&cli.StringFlag{
-			Name:  "carstore",
-			Value: "data/bigsky/carstore",
+			Name:    "carstore",
+			Value:   "data/bigsky/carstore",
+			EnvVars: []string{"CARSTORE_DIRECTORY"},
 		},
 		&cli.BoolFlag{
 			Name: "dbtracing",
 		},
 		&cli.StringFlag{
-			Name:  "plc",
-			Usage: "hostname of the plc server",
-			Value: "https://plc.directory",
+			Name:    "plc",
+			Usage:   "hostname of the plc server (including https:// prefix)",
+			Value:   "https://plc.directory",
+			EnvVars: []string{"ATP_PLC_HOST"},
 		},
 		&cli.BoolFlag{
 			Name: "ssl-events",
