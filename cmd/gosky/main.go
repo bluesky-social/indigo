@@ -167,7 +167,7 @@ var didCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:    "plc",
 			Value:   "https://plc.directory",
-			EnvVars: []string{"BSKY_PLC_URL"},
+			EnvVars: []string{"ATP_PLC_HOST"},
 		},
 	},
 	Subcommands: []*cli.Command{

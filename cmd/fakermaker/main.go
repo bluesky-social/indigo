@@ -56,7 +56,7 @@ func main() {
 			Name:     "admin-token",
 			Usage:    "admin authentication token for PDS",
 			Required: true,
-			EnvVars:  []string{"BSKY_ADMIN_AUTH"},
+			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
 		},
 		&cli.IntFlag{
 			Name:    "jobs",
