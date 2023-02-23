@@ -89,6 +89,8 @@ func (bgs *BGS) Start(listen string) error {
 	// TODO: this API is temporary until we formalize what we want here
 	e.POST("/add-target", bgs.handleAddTarget)
 
+	e.GET("/health", func(c echo.Context) error { return c.String(http.StatusOK, "healthy\n") })
+
 	e.GET("/xrpc/com.atproto.sync.subscribeAllRepos", bgs.EventsHandler)
 
 	e.GET("/xrpc/com.atproto.sync.getCheckout", bgs.HandleComAtprotoSyncGetCheckout)
