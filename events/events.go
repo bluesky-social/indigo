@@ -1,6 +1,7 @@
 package events
 
 import (
+	"context"
 	"fmt"
 
 	logging "github.com/ipfs/go-log"
@@ -18,12 +19,12 @@ type EventManager struct {
 	persister EventPersistence
 }
 
-func NewEventManager() *EventManager {
+func NewEventManager(persister EventPersistence) *EventManager {
 	return &EventManager{
 		ops:        make(chan *Operation),
 		closed:     make(chan struct{}),
 		bufferSize: 1024,
-		persister:  NewMemPersister(),
+		persister:  persister,
 	}
 }
 
@@ -53,7 +54,9 @@ func (em *EventManager) Run() {
 				}
 			}
 		case opSend:
-			em.persister.Persist(op.evt)
+			if err := em.persister.Persist(context.TODO(), op.evt); err != nil {
+				log.Errorf("failed to persist outbound event: %s", err)
+			}
 
 			for _, s := range em.subs {
 				if s.filter(op.evt) {
@@ -107,8 +110,8 @@ type RepoAppend struct {
 	// Repo is the DID of the repo this event is about
 	Repo string `cborgen:"repo"`
 
-	Commit string `cborgen:"commit"`
-	Prev   string `cborgen:"prev"`
+	Commit string  `cborgen:"commit"`
+	Prev   *string `cborgen:"prev"`
 	//Commit cid.Cid  `cborgen:"commit"`
 	//Prev   *cid.Cid `cborgen:"prev"`
 
@@ -155,7 +158,7 @@ func (em *EventManager) Subscribe(filter func(*RepoStreamEvent) bool, since *int
 
 	go func() {
 		if since != nil {
-			if err := em.persister.Playback(*since, func(e *RepoStreamEvent) error {
+			if err := em.persister.Playback(context.TODO(), *since, func(e *RepoStreamEvent) error {
 				select {
 				case <-done:
 					return fmt.Errorf("shutting down")

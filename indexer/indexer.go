@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
@@ -14,6 +15,7 @@ import (
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
@@ -116,9 +118,10 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 	}
 
 	// TODO: these should be cids on the wire
-	var prevstr string
+	var prevstr *string
 	if evt.OldRoot != nil {
-		prevstr = evt.OldRoot.String()
+		s := evt.OldRoot.String()
+		prevstr = &s
 	}
 
 	log.Infow("Sending event", "did", did)
@@ -128,6 +131,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 			Prev:   prevstr,
 			Blocks: evt.RepoSlice,
 			Commit: evt.NewRoot.String(),
+			Time:   time.Now().Format(util.ISO8601),
 		},
 		PrivUid: evt.User,
 	}); err != nil {

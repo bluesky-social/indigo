@@ -173,15 +173,21 @@ func (t *RepoAppend) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Prev) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Prev was too long")
-	}
+	if t.Prev == nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if len(*t.Prev) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.Prev was too long")
+		}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Prev))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Prev)); err != nil {
-		return err
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Prev))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(*t.Prev)); err != nil {
+			return err
+		}
 	}
 
 	// t.Repo (string) (string)
@@ -402,12 +408,22 @@ func (t *RepoAppend) UnmarshalCBOR(r io.Reader) (err error) {
 		case "prev":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				b, err := cr.ReadByte()
 				if err != nil {
 					return err
 				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
 
-				t.Prev = string(sval)
+					sval, err := cbg.ReadString(cr)
+					if err != nil {
+						return err
+					}
+
+					t.Prev = (*string)(&sval)
+				}
 			}
 			// t.Repo (string) (string)
 		case "repo":

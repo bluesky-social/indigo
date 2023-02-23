@@ -58,7 +58,7 @@ func testIndexer(t *testing.T) *testIx {
 
 	repoman := repomgr.NewRepoManager(maindb, cs, &util.FakeKeyManager{})
 	notifman := notifs.NewNotificationManager(maindb, repoman.GetRecord)
-	evtman := events.NewEventManager()
+	evtman := events.NewEventManager(events.NewMemPersister())
 
 	didr := testPLC(t)
 

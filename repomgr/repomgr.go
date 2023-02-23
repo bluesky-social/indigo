@@ -215,10 +215,15 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 		return "", cid.Undef, fmt.Errorf("updating user head: %w", err)
 	}
 
+	var oldroot *cid.Cid
+	if head.Defined() {
+		oldroot = &head
+	}
+
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
 			User:    user,
-			OldRoot: &head,
+			OldRoot: oldroot,
 			NewRoot: nroot,
 			Ops: []RepoOp{{
 				Kind:       EvtKindCreateRecord,
@@ -277,10 +282,15 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user uint, collection, 
 		return cid.Undef, fmt.Errorf("updating user head: %w", err)
 	}
 
+	var oldroot *cid.Cid
+	if head.Defined() {
+		oldroot = &head
+	}
+
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
 			User:    user,
-			OldRoot: &head,
+			OldRoot: oldroot,
 			NewRoot: nroot,
 			Ops: []RepoOp{{
 				Kind:       EvtKindUpdateRecord,
@@ -337,11 +347,15 @@ func (rm *RepoManager) DeleteRecord(ctx context.Context, user uint, collection, 
 	if err := rm.updateUserRepoHead(ctx, user, nroot); err != nil {
 		return fmt.Errorf("updating user head: %w", err)
 	}
+	var oldroot *cid.Cid
+	if head.Defined() {
+		oldroot = &head
+	}
 
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
 			User:    user,
-			OldRoot: &head,
+			OldRoot: oldroot,
 			NewRoot: nroot,
 			Ops: []RepoOp{{
 				Kind:       EvtKindDeleteRecord,
@@ -751,10 +765,15 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user uint, writes []*atpr
 		return fmt.Errorf("updating user head: %w", err)
 	}
 
+	var oldroot *cid.Cid
+	if head.Defined() {
+		oldroot = &head
+	}
+
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
 			User:      user,
-			OldRoot:   &head,
+			OldRoot:   oldroot,
 			NewRoot:   nroot,
 			RepoSlice: rslice,
 			Ops:       ops,
@@ -865,11 +884,15 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, repoDid str
 			// TODO: this will lead to things being in an inconsistent state
 			return fmt.Errorf("failed to update repo head: %w", err)
 		}
+		var oldroot *cid.Cid
+		if old.Defined() {
+			oldroot = &old
+		}
 
 		if rm.events != nil {
 			rm.events(ctx, &RepoEvent{
 				User:      user,
-				OldRoot:   &old,
+				OldRoot:   oldroot,
 				NewRoot:   nu,
 				RepoSlice: slice,
 				Ops:       ops,

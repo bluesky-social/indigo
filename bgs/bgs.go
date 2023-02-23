@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
 	"net/url"
 	"strconv"
 	"strings"
@@ -26,6 +27,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	promclient "github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
 
@@ -63,6 +65,12 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	ix.CreateExternalUser = bgs.createExternalUser
 	bgs.slurper = NewSlurper(db, bgs.handleFedEvent, ssl)
 	return bgs
+}
+
+func (bgs *BGS) StartDebug(listen string) error {
+	http.Handle("/prometheus", prometheusHandler())
+
+	return http.ListenAndServe(listen, nil)
 }
 
 func (bgs *BGS) Start(listen string) error {
@@ -152,6 +160,12 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		case evt.Append != nil:
 			header.Op = events.EvtKindRepoAppend
 			obj = evt.Append
+		case evt.Error != nil:
+			header.Op = events.EvtKindErrorFrame
+			obj = evt.Error
+		case evt.Info != nil:
+			header.Op = events.EvtKindInfoFrame
+			obj = evt.Info
 		default:
 			return fmt.Errorf("unrecognized event kind")
 		}
@@ -227,8 +241,8 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		var prevcid *cid.Cid
-		if evt.Prev != "" {
-			c, err := cid.Decode(evt.Prev)
+		if evt.Prev != nil {
+			c, err := cid.Decode(*evt.Prev)
 			if err != nil {
 				return fmt.Errorf("invalid value for prev cid in event: %w", err)
 			}
@@ -257,6 +271,9 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 }
 
 func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.ActorInfo, error) {
+	ctx, span := otel.Tracer("bgs").Start(ctx, "createExternalUser")
+	defer span.End()
+
 	log.Infof("create external user: %s", did)
 	doc, err := s.didr.GetDocument(ctx, did)
 	if err != nil {
@@ -328,7 +345,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	exu, err := s.Index.LookupUserByDid(ctx, did)
 	if err == nil {
-		log.Warnf("lost the race to create a new user: %d", did)
+		log.Warnf("lost the race to create a new user: %s", did)
 		return exu, nil
 	}
 
