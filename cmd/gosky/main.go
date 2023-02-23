@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -804,6 +806,16 @@ var readRepoStreamCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
+		ctx, cancel := context.WithCancel(context.Background())
+
+		ch := make(chan os.Signal)
+		signal.Notify(ch, syscall.SIGINT)
+
+		go func() {
+			<-ch
+			cancel()
+		}()
+
 		d := websocket.DefaultDialer
 		con, _, err := d.Dial(cctx.Args().First(), http.Header{})
 		if err != nil {
@@ -817,7 +829,11 @@ var readRepoStreamCmd = &cli.Command{
 			fmt.Println("Stream Exited", time.Now().Format(time.RFC3339))
 		}()
 
-		return events.HandleRepoStream(context.TODO(), con, &events.RepoStreamCallbacks{
+		defer func() {
+			_ = con.Close()
+		}()
+
+		return events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
 			Append: func(evt *events.RepoAppend) error {
 				if jsonfmt {
 					b, err := json.Marshal(evt)
@@ -837,7 +853,11 @@ var readRepoStreamCmd = &cli.Command{
 					fmt.Println(string(b))
 
 				} else {
-					fmt.Printf("(%d) RepoAppend: %s (%s -> %s)\n", evt.Seq, evt.Repo, evt.Prev, evt.Commit)
+					pstr := "<nil>"
+					if evt.Prev != nil {
+						pstr = *evt.Prev
+					}
+					fmt.Printf("(%d) RepoAppend: %s (%s -> %s)\n", evt.Seq, evt.Repo, pstr, evt.Commit)
 				}
 
 				return nil

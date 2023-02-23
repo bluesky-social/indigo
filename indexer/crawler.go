@@ -5,6 +5,7 @@ import (
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/models"
+	"go.opentelemetry.io/otel"
 )
 
 type CrawlDispatcher struct {
@@ -164,6 +165,9 @@ func (c *CrawlDispatcher) fetchWorker() {
 }
 
 func (c *CrawlDispatcher) Crawl(ctx context.Context, ai *models.ActorInfo) error {
+	ctx, span := otel.Tracer("crawler").Start(ctx, "addToCrawler")
+	defer span.End()
+
 	select {
 	case c.ingest <- ai:
 		return nil

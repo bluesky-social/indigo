@@ -406,7 +406,7 @@ func SetupBGS(host string, didr plc.PLCClient) (*testBGS, error) {
 
 	notifman := notifs.NewNotificationManager(maindb, repoman.GetRecord)
 
-	evtman := events.NewEventManager()
+	evtman := events.NewEventManager(events.NewMemPersister())
 
 	go evtman.Run()
 

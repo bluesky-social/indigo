@@ -22,6 +22,7 @@ import (
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
+	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	gojwt "github.com/golang-jwt/jwt"
 	"github.com/gorilla/websocket"
@@ -69,7 +70,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, s
 		return nil, err
 	}
 
-	evtman := events.NewEventManager()
+	evtman := events.NewEventManager(events.NewMemPersister())
 
 	kmgr := indexer.NewKeyManager(didr, serkey)
 
@@ -142,8 +143,8 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, env *events.
 		}
 
 		var pcid *cid.Cid
-		if evt.Prev != "" {
-			prev, err := cid.Decode(evt.Prev)
+		if evt.Prev != nil {
+			prev, err := cid.Decode(*evt.Prev)
 			if err != nil {
 				return err
 			}
@@ -251,15 +252,17 @@ func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent
 		return nil, err
 	}
 
-	var prevcid string
+	var prevcid *string
 	if evt.OldRoot != nil {
-		prevcid = evt.OldRoot.String()
+		s := evt.OldRoot.String()
+		prevcid = &s
 	}
 
 	out := &events.RepoAppend{
 		Prev:   prevcid,
 		Blocks: evt.RepoSlice,
 		Repo:   did,
+		Time:   time.Now().Format(bsutil.ISO8601),
 		//PrivUid: evt.User,
 	}
 

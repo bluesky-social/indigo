@@ -1,12 +1,13 @@
 package events
 
 import (
+	"context"
 	"sync"
 )
 
 type EventPersistence interface {
-	Persist(e *RepoStreamEvent) error
-	Playback(since int64, cb func(*RepoStreamEvent) error) error
+	Persist(ctx context.Context, e *RepoStreamEvent) error
+	Playback(ctx context.Context, since int64, cb func(*RepoStreamEvent) error) error
 }
 
 // MemPersister is the most naive implementation of event persistence
@@ -21,7 +22,7 @@ func NewMemPersister() *MemPersister {
 	return &MemPersister{}
 }
 
-func (mp *MemPersister) Persist(e *RepoStreamEvent) error {
+func (mp *MemPersister) Persist(ctx context.Context, e *RepoStreamEvent) error {
 	mp.lk.Lock()
 	defer mp.lk.Unlock()
 	mp.seq++
@@ -36,7 +37,7 @@ func (mp *MemPersister) Persist(e *RepoStreamEvent) error {
 	return nil
 }
 
-func (mp *MemPersister) Playback(since int64, cb func(*RepoStreamEvent) error) error {
+func (mp *MemPersister) Playback(ctx context.Context, since int64, cb func(*RepoStreamEvent) error) error {
 	mp.lk.Lock()
 	l := len(mp.buf)
 	mp.lk.Unlock()

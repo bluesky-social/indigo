@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -16,7 +17,6 @@ import (
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 
-	"net/http"
 	_ "net/http/pprof"
 
 	logging "github.com/ipfs/go-log"
@@ -131,7 +131,12 @@ func main() {
 
 		repoman := repomgr.NewRepoManager(db, cstore, kmgr)
 
-		evtman := events.NewEventManager()
+		dbp, err := events.NewDbPersistence(db, cstore)
+		if err != nil {
+			return fmt.Errorf("setting up db event persistence: %w", err)
+		}
+
+		evtman := events.NewEventManager(dbp)
 
 		go evtman.Run()
 
@@ -152,7 +157,7 @@ func main() {
 
 		// set up pprof endpoint
 		go func() {
-			if err := http.ListenAndServe("localhost:2471", nil); err != nil {
+			if err := bgs.StartDebug("localhost:2471"); err != nil {
 				panic(err)
 			}
 		}()
