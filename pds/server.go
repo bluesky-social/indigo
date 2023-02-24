@@ -329,6 +329,8 @@ func (s *Server) RunAPI(listen string) error {
 	cfg := middleware.JWTConfig{
 		Skipper: func(c echo.Context) bool {
 			switch c.Path() {
+			case "/xrpc/_health":
+				return true
 			case "/xrpc/com.atproto.sync.subscribeAllRepos":
 				return true
 			case "/xrpc/com.atproto.account.create":
@@ -370,8 +372,23 @@ func (s *Server) RunAPI(listen string) error {
 	s.RegisterHandlersComAtproto(e)
 	s.RegisterHandlersAppBsky(e)
 	e.GET("/xrpc/com.atproto.sync.subscribeAllRepos", s.EventsHandler)
+	e.GET("/xrpc/_health", s.HandleHealthCheck)
 
 	return e.Start(listen)
+}
+
+type HealthStatus struct {
+	Status  string `json:"status"`
+	Message string `json:"msg,omitempty"`
+}
+
+func (s *Server) HandleHealthCheck(c echo.Context) error {
+	if err := s.db.Exec("SELECT 1").Error; err != nil {
+		log.Errorf("healthcheck can't connect to database: %v", err)
+		return c.JSON(500, HealthStatus{Status: "error", Message: "can't connect to database"})
+	} else {
+		return c.JSON(200, HealthStatus{Status: "ok"})
+	}
 }
 
 type User struct {

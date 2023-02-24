@@ -96,8 +96,23 @@ func (bgs *BGS) Start(listen string) error {
 	e.GET("/xrpc/com.atproto.sync.getHead", bgs.HandleComAtprotoSyncGetHead)
 	e.GET("/xrpc/com.atproto.sync.getRecord", bgs.HandleComAtprotoSyncGetRecord)
 	e.GET("/xrpc/com.atproto.sync.getRepo", bgs.HandleComAtprotoSyncGetRepo)
+	e.GET("/xrpc/_health", bgs.HandleHealthCheck)
 
 	return e.Start(listen)
+}
+
+type HealthStatus struct {
+	Status  string `json:"status"`
+	Message string `json:"msg,omitempty"`
+}
+
+func (bgs *BGS) HandleHealthCheck(c echo.Context) error {
+	if err := bgs.db.Exec("SELECT 1").Error; err != nil {
+		log.Errorf("healthcheck can't connect to database: %v", err)
+		return c.JSON(500, HealthStatus{Status: "error", Message: "can't connect to database"})
+	} else {
+		return c.JSON(200, HealthStatus{Status: "ok"})
+	}
 }
 
 type User struct {
