@@ -14,7 +14,8 @@ RUN apk add --no-cache build-base make go
 ADD . /dockerbuild
 WORKDIR /dockerbuild
 
-RUN go build -o /bigsky ./cmd/bigsky
+# timezone data for alpine builds
+RUN go build -tags timetzdata -o /bigsky ./cmd/bigsky
 
 ### Run stage
 FROM alpine:3.17
@@ -25,6 +26,10 @@ ENTRYPOINT ["dumb-init", "--"]
 WORKDIR /
 RUN mkdir -p data/bigsky
 COPY --from=build-env /bigsky /
+
+# small things to make golang binaries work well under alpine
+ENV GODEBUG=netdns=go
+ENV TZ=Etc/UTC
 
 EXPOSE 2470
 
