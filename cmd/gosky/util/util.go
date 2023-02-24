@@ -150,6 +150,13 @@ func ReadAuth(fname string) (*xrpc.AuthInfo, error) {
 	return &auth, nil
 }
 
+// Supports both previous "dbtype=" prefixed DSNs, and URI-style database config strings, for both sqlite and postgresql.
+//
+// Examples:
+// - "sqlite=dir/file.sqlite"
+// - "sqlite://file.sqlite"
+// - "postgres=host=localhost user=postgres password=password dbname=pdsdb port=5432 sslmode=disable"
+// - "postgresql://postgres:password@localhost:5432/pdsdb?sslmode=disable"
 func SetupDatabase(dburl string) (*gorm.DB, error) {
 	var dial gorm.Dialector
 	// NOTE(bnewbold): might also handle file:// as sqlite, but let's keep it
@@ -162,9 +169,20 @@ func SetupDatabase(dburl string) (*gorm.DB, error) {
 			os.MkdirAll(filepath.Dir(sqliteSuffix), os.ModePerm)
 		}
 		dial = sqlite.Open(sqliteSuffix)
-	} else if strings.HasPrefix(dburl, "postgresql://") {
+	} else if strings.HasPrefix(dburl, "sqlite=") {
+		sqliteSuffix := dburl[len("sqlite="):]
+		// if this isn't ":memory:", ensure that directory exists (eg, if db
+		// file is being initialized)
+		if !strings.Contains(sqliteSuffix, ":?") {
+			os.MkdirAll(filepath.Dir(sqliteSuffix), os.ModePerm)
+		}
+		dial = sqlite.Open(sqliteSuffix)
+	} else if strings.HasPrefix(dburl, "postgresql://") || strings.HasPrefix(dburl, "postgres://") {
 		// can pass entire URL, with prefix, to gorm driver
 		dial = postgres.Open(dburl)
+	} else if strings.HasPrefix(dburl, "postgres=") {
+		dsn := dburl[len("postgres="):]
+		dial = postgres.Open(dsn)
 	} else {
 		// TODO(bnewbold): this might print password?
 		return nil, fmt.Errorf("unsupported or unrecognized DATABASE_URL value: %s", dburl)
