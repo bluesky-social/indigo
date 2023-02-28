@@ -247,11 +247,10 @@ type AccountCatalog struct {
 func genAccounts(cctx *cli.Context) error {
 
 	// establish atproto client, with admin token for auth
-	atpc, err := cliutil.GetATPClient(cctx, false)
+	xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 	if err != nil {
 		return err
 	}
-	xrpcc := atpc.C
 	adminToken := cctx.String("admin-password")
 	if len(adminToken) > 0 {
 		xrpcc.AdminToken = &adminToken

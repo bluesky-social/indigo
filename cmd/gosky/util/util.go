@@ -103,14 +103,6 @@ func GetXrpcClient(cctx *cli.Context, authreq bool) (*xrpc.Client, error) {
 	}, nil
 }
 
-func GetATPClient(cctx *cli.Context, authreq bool) (*api.ATProto, error) {
-	xrpcClient, err := GetXrpcClient(cctx, authreq)
-	if err != nil {
-		return nil, err
-	}
-	return &api.ATProto{C: xrpcClient}, nil
-}
-
 func loadAuthFromEnv(cctx *cli.Context, req bool) (*xrpc.AuthInfo, error) {
 	if a := cctx.String("auth-file"); a != "" {
 		if ai, err := ReadAuth(a); err != nil && req {
