@@ -20,7 +20,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("api/cbor_gen.go", "api", api.PostRecord{}, api.PostEntity{}, api.PostRef{}, api.ReplyRef{}, api.TextSlice{}, api.CreateOp{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("api/cbor_gen.go", "api", api.CreateOp{}); err != nil {
 		panic(err)
 	}
 
