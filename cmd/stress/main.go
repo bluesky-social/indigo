@@ -79,11 +79,14 @@ var postingCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-		atp, err := cliutil.GetATPClient(cctx, false)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
 			return err
 		}
 
+		count := cctx.Int("count")
+		concurrent := cctx.Int("concurrent")
+		quiet := cctx.Bool("quiet")
 		ctx := context.TODO()
 
 		buf := make([]byte, 6)
@@ -91,21 +94,22 @@ var postingCmd = &cli.Command{
 		id := hex.EncodeToString(buf)
 
 		var invite *string
-		acc, err := atp.CreateAccount(ctx, fmt.Sprintf("user-%s@test.com", id), "user-"+id+".test", "password", invite)
+		resp, err := comatproto.AccountCreate(ctx, xrpcc, &comatproto.AccountCreate_Input{
+			Email:      fmt.Sprintf("user-%s@test.com", id),
+			Handle:     "user-" + id + ".test",
+			Password:   "password",
+			InviteCode: invite,
+		})
 		if err != nil {
 			return err
 		}
 
-		quiet := cctx.Bool("quiet")
-
-		atp.C.Auth = &xrpc.AuthInfo{
-			Did:       acc.Did,
-			AccessJwt: acc.AccessJwt,
-			Handle:    acc.Handle,
+		xrpcc.Auth = &xrpc.AuthInfo{
+			AccessJwt:  resp.AccessJwt,
+			RefreshJwt: resp.RefreshJwt,
+			Handle:     resp.Handle,
+			Did:        resp.Did,
 		}
-
-		count := cctx.Int("count")
-		concurrent := cctx.Int("concurrent")
 
 		var wg sync.WaitGroup
 		for con := 0; con < concurrent; con++ {
@@ -116,9 +120,9 @@ var postingCmd = &cli.Command{
 					buf := make([]byte, 100)
 					rand.Read(buf)
 
-					res, err := comatproto.RepoCreateRecord(context.TODO(), atp.C, &comatproto.RepoCreateRecord_Input{
+					res, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 						Collection: "app.bsky.feed.post",
-						Did:        acc.Did,
+						Did:        xrpcc.Auth.Did,
 						Record: lexutil.LexiconTypeDecoder{&appbsky.FeedPost{
 							Text:      hex.EncodeToString(buf),
 							CreatedAt: time.Now().Format(time.RFC3339),
