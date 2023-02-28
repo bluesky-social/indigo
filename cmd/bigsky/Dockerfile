@@ -20,7 +20,7 @@ RUN go build -tags timetzdata -o /bigsky ./cmd/bigsky
 ### Run stage
 FROM alpine:3.17
 
-RUN apk add --no-cache --update dumb-init
+RUN apk add --no-cache --update dumb-init ca-certificates
 ENTRYPOINT ["dumb-init", "--"]
 
 WORKDIR /
