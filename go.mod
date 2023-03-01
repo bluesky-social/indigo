@@ -33,7 +33,7 @@ require (
 	github.com/stretchr/testify v1.8.1
 	github.com/urfave/cli/v2 v2.23.7
 	github.com/whyrusleeping/cbor-gen v0.0.0-20230126041949-52956bd4c9aa
-	github.com/whyrusleeping/go-did v0.0.0-20230217165439-d09707c62f1c
+	github.com/whyrusleeping/go-did v0.0.0-20230301192113-6594b853455d
 	go.opentelemetry.io/otel v1.11.2
 	go.opentelemetry.io/otel/exporters/jaeger v1.11.2
 	go.opentelemetry.io/otel/sdk v1.11.2
