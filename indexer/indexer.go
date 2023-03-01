@@ -78,7 +78,14 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 
 	log.Infow("Handling Repo Event!", "uid", evt.User)
 
+	var outops []*events.RepoOp
 	for _, op := range evt.Ops {
+		outops = append(outops, &events.RepoOp{
+			Path: op.Collection + "/" + op.Rkey,
+			Kind: string(op.Kind),
+			Rec:  op.RecCid,
+		})
+
 		switch op.Kind {
 		case repomgr.EvtKindCreateRecord:
 			if err := ix.crawlRecordReferences(ctx, &op); err != nil {
@@ -132,6 +139,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 			Blocks: evt.RepoSlice,
 			Commit: evt.NewRoot.String(),
 			Time:   time.Now().Format(util.ISO8601),
+			Ops:    outops,
 		},
 		PrivUid: evt.User,
 	}); err != nil {
@@ -236,7 +244,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 	var out []uint
 	switch rec := op.Record.(type) {
 	case *bsky.FeedPost:
-		if err := ix.handleRecordCreateFeedPost(ctx, evt.User, op.Rkey, op.RecCid, rec); err != nil {
+		if err := ix.handleRecordCreateFeedPost(ctx, evt.User, op.Rkey, *op.RecCid, rec); err != nil {
 			return nil, err
 		}
 	case *bsky.FeedRepost:

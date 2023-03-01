@@ -153,7 +153,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 	// TODO: authhhh
 	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
 	if err != nil {
-		return err
+		return fmt.Errorf("upgrading websocket: %w", err)
 	}
 
 	evts, cancel, err := bgs.events.Subscribe(func(evt *events.RepoStreamEvent) bool { return true }, since)
