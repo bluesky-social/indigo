@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	cid "github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 )
 
@@ -115,11 +116,18 @@ type RepoAppend struct {
 	//Commit cid.Cid  `cborgen:"commit"`
 	//Prev   *cid.Cid `cborgen:"prev"`
 
-	Blocks []byte `cborgen:"blocks"`
+	Ops    []*RepoOp `cborgen:"ops"`
+	Blocks []byte    `cborgen:"blocks"`
 
 	Blobs []string `cborgen:"blobs"`
 
 	Time string `cborgen:"time"`
+}
+
+type RepoOp struct {
+	Path string   `cborgen:"path"`
+	Kind string   `cborgen:"kind"`
+	Rec  *cid.Cid `cborgen:"rec"`
 }
 
 type InfoFrame struct {

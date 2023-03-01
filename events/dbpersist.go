@@ -29,10 +29,24 @@ type RepoEventRecord struct {
 	Blobs []byte
 	Repo  uint
 	Event string
+
+	Ops []RepoOpRecord
+}
+
+type RepoOpRecord struct {
+	ID                uint `gorm:"primarykey"`
+	RepoEventRecordID uint
+	Path              string
+	Action            string
+	Rec               *util.DbCID
 }
 
 func NewDbPersistence(db *gorm.DB, cs *carstore.CarStore) (*DbPersistence, error) {
 	if err := db.AutoMigrate(&RepoEventRecord{}); err != nil {
+		return nil, err
+	}
+
+	if err := db.AutoMigrate(&RepoOpRecord{}); err != nil {
 		return nil, err
 	}
 
@@ -91,6 +105,18 @@ func (p *DbPersistence) Persist(ctx context.Context, e *RepoStreamEvent) error {
 		Blobs:  blobs,
 		Time:   t,
 	}
+
+	for _, op := range evt.Ops {
+		var rec *util.DbCID
+		if op.Rec != nil {
+			rec = &util.DbCID{*op.Rec}
+		}
+		rer.Ops = append(rer.Ops, RepoOpRecord{
+			Path:   op.Path,
+			Action: op.Kind,
+			Rec:    rec,
+		})
+	}
 	if err := p.db.Create(&rer).Error; err != nil {
 		return err
 	}
@@ -111,6 +137,13 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*Repo
 		if err := p.db.ScanRows(rows, &evt); err != nil {
 			return err
 		}
+
+		var ops []RepoOpRecord
+		if err := p.db.Debug().Find(&ops, "repo_event_record_id = ?", evt.Seq).Error; err != nil {
+			return err
+		}
+
+		evt.Ops = ops
 
 		ra, err := p.hydrate(ctx, &evt)
 		if err != nil {
@@ -170,6 +203,19 @@ func (p *DbPersistence) hydrate(ctx context.Context, rer *RepoEventRecord) (*Rep
 		Time:   rer.Time.Format(util.ISO8601),
 		Blobs:  blobs,
 		Event:  rer.Event,
+	}
+
+	for _, op := range rer.Ops {
+		var rec *cid.Cid
+		if op.Rec != nil {
+			rec = &op.Rec.CID
+		}
+
+		out.Ops = append(out.Ops, &RepoOp{
+			Path: op.Path,
+			Kind: op.Action,
+			Rec:  rec,
+		})
 	}
 
 	cs, err := p.readCarSlice(ctx, rer)

@@ -82,7 +82,7 @@ type RepoOp struct {
 	Kind       EventKind
 	Collection string
 	Rkey       string
-	RecCid     cid.Cid
+	RecCid     *cid.Cid
 	Record     any
 	ActorInfo  *ActorInfo
 }
@@ -230,7 +230,7 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 				Collection: collection,
 				Rkey:       tid,
 				Record:     rec,
-				RecCid:     cc,
+				RecCid:     &cc,
 			}},
 			RepoSlice: rslice,
 		})
@@ -297,7 +297,7 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user uint, collection, 
 				Collection: collection,
 				Rkey:       rkey,
 				Record:     rec,
-				RecCid:     cc,
+				RecCid:     &cc,
 			}},
 			RepoSlice: rslice,
 		})
@@ -599,7 +599,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 				Collection: parts[0],
 				Rkey:       parts[1],
 				Record:     rec,
-				RecCid:     recid,
+				RecCid:     &recid,
 			})
 			/*
 				case EvtKindInitActor:
@@ -630,7 +630,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 				Collection: parts[0],
 				Rkey:       parts[1],
 				Record:     rec,
-				RecCid:     recid,
+				RecCid:     &recid,
 			})
 		case "del":
 			evtops = append(evtops, RepoOp{
@@ -715,7 +715,7 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user uint, writes []*atpr
 				Kind:       EvtKindCreateRecord,
 				Collection: c.Collection,
 				Rkey:       rkey,
-				RecCid:     cc,
+				RecCid:     &cc,
 				Record:     c.Value.Val,
 			})
 		case w.RepoBatchWrite_Update != nil:
@@ -730,7 +730,7 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user uint, writes []*atpr
 				Kind:       EvtKindUpdateRecord,
 				Collection: u.Collection,
 				Rkey:       u.Rkey,
-				RecCid:     cc,
+				RecCid:     &cc,
 				Record:     u.Value.Val,
 			})
 		case w.RepoBatchWrite_Delete != nil:
@@ -859,7 +859,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, repoDid str
 					Kind:       kind,
 					Collection: parts[0],
 					Rkey:       parts[1],
-					RecCid:     op.NewCid,
+					RecCid:     &op.NewCid,
 					Record:     rec,
 				})
 			case "del":
@@ -867,7 +867,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, repoDid str
 					Kind:       EvtKindDeleteRecord,
 					Collection: parts[0],
 					Rkey:       parts[1],
-					RecCid:     op.NewCid,
+					RecCid:     &op.NewCid,
 				})
 
 			default:

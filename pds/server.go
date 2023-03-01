@@ -266,6 +266,14 @@ func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent
 		//PrivUid: evt.User,
 	}
 
+	for _, op := range evt.Ops {
+		out.Ops = append(out.Ops, &events.RepoOp{
+			Path: op.Collection + "/" + op.Rkey,
+			Kind: string(op.Kind),
+			Rec:  op.RecCid,
+		})
+	}
+
 	return out, nil
 }
 
