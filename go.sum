@@ -640,6 +640,8 @@ github.com/whyrusleeping/go-did v0.0.0-20230217165439-d09707c62f1c h1:BA9D0ELokk
 github.com/whyrusleeping/go-did v0.0.0-20230217165439-d09707c62f1c/go.mod h1:qPtRyexGM5XMHFIfjH+EiA/A/1n2JakWEdMPC53pJAE=
 github.com/whyrusleeping/go-did v0.0.0-20230301192113-6594b853455d h1:3JYVTm7jNsS5LRx0qW8pWwFxOJSM/6W2pSKBVT6AmBY=
 github.com/whyrusleeping/go-did v0.0.0-20230301192113-6594b853455d/go.mod h1:qPtRyexGM5XMHFIfjH+EiA/A/1n2JakWEdMPC53pJAE=
+github.com/whyrusleeping/go-did v0.0.0-20230301193428-2146016fc220 h1:EO/9z3yDvx1van1/0esdcqhalZZQGRj3I1BPTWr5k3A=
+github.com/whyrusleeping/go-did v0.0.0-20230301193428-2146016fc220/go.mod h1:qPtRyexGM5XMHFIfjH+EiA/A/1n2JakWEdMPC53pJAE=
 github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1/go.mod h1:8UvriyWtv5Q5EOgjHaSseUEdkQfvwFv1I/In/O2M9gc=
 github.com/whyrusleeping/go-logging v0.0.0-20170515211332-0457bb6b88fc/go.mod h1:bopw91TMyo8J3tvftk8xmU2kPmlrt4nScJQZU2hE5EM=
 github.com/whyrusleeping/go-notifier v0.0.0-20170827234753-097c5d47330f/go.mod h1:cZNvX9cFybI01GriPRMXDtczuvUhgbcYr9iCGaNlRv8=
