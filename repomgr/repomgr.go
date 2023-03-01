@@ -14,6 +14,7 @@ import (
 	"github.com/bluesky-social/indigo/carstore"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
+	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
@@ -27,8 +28,6 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
-
-const MaxSliceLength = 2 << 20
 
 var log = logging.Logger("repomgr")
 
@@ -830,50 +829,14 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user util.Uid, repoDid
 
 		var ops []RepoOp
 		for _, op := range diffops {
-			parts := strings.SplitN(op.Rpath, "/", 2)
-			if len(parts) != 2 {
-				return fmt.Errorf("repo mst had invalid rpath: %q", op.Rpath)
+
+			out, err := processOp(ctx, bs, op)
+			if err != nil {
+				log.Errorw("failed to process repo op", "err", err, "path", op.Rpath)
 			}
 
-			switch op.Op {
-			case "add", "mut":
-				blk, err := bs.Get(ctx, op.NewCid)
-				if err != nil {
-					return err
-				}
-
-				rec, err := lexutil.CborDecodeValue(blk.RawData())
-				if err != nil {
-					if errors.Is(err, lexutil.ErrUnrecognizedType) {
-						log.Warnf("failed processing repo diff: %s", err)
-						continue
-					}
-
-					return err
-				}
-
-				kind := EvtKindCreateRecord
-				if op.Op == "mut" {
-					kind = EvtKindUpdateRecord
-				}
-
-				ops = append(ops, RepoOp{
-					Kind:       kind,
-					Collection: parts[0],
-					Rkey:       parts[1],
-					RecCid:     &op.NewCid,
-					Record:     rec,
-				})
-			case "del":
-				ops = append(ops, RepoOp{
-					Kind:       EvtKindDeleteRecord,
-					Collection: parts[0],
-					Rkey:       parts[1],
-					RecCid:     nil,
-				})
-
-			default:
-				return fmt.Errorf("diff returned invalid op type: %q", op.Op)
+			if out != nil {
+				ops = append(ops, *out)
 			}
 		}
 
@@ -881,9 +844,11 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user util.Uid, repoDid
 		if err != nil {
 			return err
 		}
-		if len(slice) > MaxSliceLength {
-			return fmt.Errorf("resultant slice was too large, len=%d user=%d old=%s new=%s", len(slice), user, old, nu)
-
+		if len(slice) > carstore.MaxSliceLength {
+			// TODO: this should never happen because the same check exists
+			// inside the carstore, possibly remove this error later (assuming
+			// we never see it again)
+			return fmt.Errorf("(CRITICAL) resultant slice was too large, len=%d user=%d old=%s new=%s", len(slice), user, old, nu)
 		}
 
 		if err := rm.updateUserRepoHead(ctx, user, nu); err != nil {
@@ -912,6 +877,54 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user util.Uid, repoDid
 	}
 
 	return nil
+}
+
+func processOp(ctx context.Context, bs blockstore.Blockstore, op *mst.DiffOp) (*RepoOp, error) {
+	parts := strings.SplitN(op.Rpath, "/", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("repo mst had invalid rpath: %q", op.Rpath)
+	}
+
+	switch op.Op {
+	case "add", "mut":
+		blk, err := bs.Get(ctx, op.NewCid)
+		if err != nil {
+			return nil, err
+		}
+
+		rec, err := lexutil.CborDecodeValue(blk.RawData())
+		if err != nil {
+			if errors.Is(err, lexutil.ErrUnrecognizedType) {
+				log.Warnf("failed processing repo diff: %s", err)
+				return nil, nil
+			}
+
+			return nil, err
+		}
+
+		kind := EvtKindCreateRecord
+		if op.Op == "mut" {
+			kind = EvtKindUpdateRecord
+		}
+
+		return &RepoOp{
+			Kind:       kind,
+			Collection: parts[0],
+			Rkey:       parts[1],
+			RecCid:     &op.NewCid,
+			Record:     rec,
+		}, nil
+	case "del":
+		return &RepoOp{
+			Kind:       EvtKindDeleteRecord,
+			Collection: parts[0],
+			Rkey:       parts[1],
+			RecCid:     nil,
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("diff returned invalid op type: %q", op.Op)
+	}
 }
 
 func (rm *RepoManager) processNewRepo(ctx context.Context, user util.Uid, r io.Reader, until cid.Cid, cb func(ctx context.Context, old, nu cid.Cid, finish func(context.Context) ([]byte, error), bs blockstore.Blockstore) error) error {

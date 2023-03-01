@@ -98,8 +98,9 @@ type FollowRecord struct {
 type PDS struct {
 	gorm.Model
 
-	Host   string
-	Did    string
-	SSL    bool
-	Cursor int64
+	Host       string
+	Did        string
+	SSL        bool
+	Cursor     int64
+	Registered bool
 }

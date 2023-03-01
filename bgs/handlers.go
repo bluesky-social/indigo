@@ -76,9 +76,11 @@ func (s *BGS) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []string, 
 }
 
 func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, host string) error {
-	panic("NYI")
+	log.Warnf("TODO: host validation for crawl requests")
+	return s.slurper.SubscribeToPds(ctx, host, true)
 }
 
 func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context) error {
 	panic("NYI")
+	//return s.slurper.SubscribeToPds(ctx, host, false)
 }

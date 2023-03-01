@@ -136,6 +136,7 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*Repo
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		var evt RepoEventRecord
@@ -211,16 +212,16 @@ func (p *DbPersistence) hydrate(ctx context.Context, rer *RepoEventRecord) (*Rep
 	}
 
 	for _, op := range rer.Ops {
-		var rec *cid.Cid
+		var rec *string
 		if op.Rec != nil {
-			rec = &op.Rec.CID
+			s := op.Rec.CID.String()
+			rec = &s
 		}
 
-		rc := rec.String()
 		out.Ops = append(out.Ops, &RepoOp{
 			Path:   op.Path,
 			Action: op.Action,
-			Cid:    &rc,
+			Cid:    rec,
 		})
 	}
 
