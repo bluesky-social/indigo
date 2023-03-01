@@ -95,7 +95,6 @@ func (bgs *BGS) Start(listen string) error {
 	}
 
 	// TODO: this API is temporary until we formalize what we want here
-	e.POST("/add-target", bgs.handleAddTarget)
 
 	e.GET("/xrpc/com.atproto.sync.subscribeAllRepos", bgs.EventsHandler)
 
@@ -104,6 +103,9 @@ func (bgs *BGS) Start(listen string) error {
 	e.GET("/xrpc/com.atproto.sync.getHead", bgs.HandleComAtprotoSyncGetHead)
 	e.GET("/xrpc/com.atproto.sync.getRecord", bgs.HandleComAtprotoSyncGetRecord)
 	e.GET("/xrpc/com.atproto.sync.getRepo", bgs.HandleComAtprotoSyncGetRepo)
+	e.GET("/xrpc/com.atproto.sync.getBlocks", bgs.HandleComAtprotoSyncGetBlocks)
+	e.GET("/xrpc/com.atproto.sync.requestCrawl", bgs.HandleComAtprotoSyncRequestCrawl)
+	e.GET("/xrpc/com.atproto.sync.notifyOfUpdate", bgs.HandleComAtprotoSyncNotifyOfUpdate)
 	e.GET("/xrpc/_health", bgs.HandleHealthCheck)
 
 	return e.Start(listen)
@@ -135,20 +137,6 @@ type User struct {
 
 type addTargetBody struct {
 	Host string `json:"host"`
-}
-
-// the ding-dong api
-func (bgs *BGS) handleAddTarget(c echo.Context) error {
-	var body addTargetBody
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-
-	if body.Host == "" {
-		return fmt.Errorf("no host specified")
-	}
-
-	return bgs.slurper.SubscribeToPds(c.Request().Context(), body.Host)
 }
 
 func (bgs *BGS) EventsHandler(c echo.Context) error {
@@ -286,7 +274,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		// TODO: if the user is already in the 'slow' path, we shouldnt even bother trying to fast path this event
 
 		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, prevcid, evt.Blocks); err != nil {
-
+			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq)
 			if !errors.Is(err, carstore.ErrRepoBaseMismatch) {
 				return fmt.Errorf("handle user event failed: %w", err)
 			}
