@@ -6,14 +6,17 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/api"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/bgs"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
@@ -35,7 +38,7 @@ type Server struct {
 	db         *gorm.DB
 	cs         *carstore.CarStore
 	repoman    *repomgr.RepoManager
-	bgsSlurper *pds.Slurper
+	bgsSlurper *bgs.Slurper
 	levents    *events.LabelEventManager
 	echo       *echo.Echo
 	user       *LabelmakerRepoConfig
@@ -46,7 +49,7 @@ type LabelmakerRepoConfig struct {
 	handle     string
 	did        string
 	signingKey *did.PrivKey
-	userId     uint
+	userId     util.Uid
 }
 
 func NewServer(db *gorm.DB, cs *carstore.CarStore, keyFile, repoDid, repoHandle, bgsUrl, plcUrl string) (*Server, error) {
@@ -95,11 +98,13 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, keyFile, repoDid, repoHandle,
 		log.Infof("found labelmaker repo: %s", head)
 	}
 
-	slurp := pds.NewSlurper(s.handleBgsRepoEvent, db, s.user.signingKey)
-	s.bgsSlurper = &slurp
+	// TODO(bnewbold): enforce ssl (last boolean argument here)
+	slurp := bgs.NewSlurper(db, s.handleBgsRepoEvent, false)
+	s.bgsSlurper = slurp
 
 	// subscribe our RepoEvent slurper to the BGS, to receive incoming records for labeler
-	s.bgsSlurper.SubscribeToPds(ctx, bgsUrl)
+	useWebsocketSSL := false
+	s.bgsSlurper.SubscribeToPds(ctx, bgsUrl, useWebsocketSSL)
 
 	// NOTE: this is where outgoing RepoEvents could be generated
 	// should skip indexing (we are not a PDS) and just ship out repo event stream
@@ -121,33 +126,30 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 // incoming repo events
-func (s *Server) handleBgsRepoEvent(ctx context.Context, host *pds.Peering, evt *events.RepoEvent) error {
+func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *events.RepoStreamEvent) error {
 	log.Info("got RepoEvent from BGS")
 	now := time.Now().Format(util.ISO8601)
 	switch {
-	case evt.RepoAppend != nil:
-		if evt.RepoAppend.Rebase {
-			// TODO: guess we could label the whole repo here, or something?
-			log.Warn("TODO: rebase events not yet labeled/handled in any special way")
-		}
+	case evt.Append != nil:
 		// this is where we take incoming RepoEvents and label them
 		// use an in-memory blockstore with repo wrapper to parse CAR
 		// NOTE: could refactor to parse ops first, so we don't bother parsing the CAR if there are no posts/profiles to process (a common case, for likes/follows/reposts/etc)
-		sliceRepo, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.RepoAppend.Car))
+		sliceRepo, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Append.Blocks))
 		if err != nil {
 			log.Warnw("failed to parse CAR slice", "repoErr", err)
 			return err
 		}
 		var labels []events.Label = []events.Label{}
-		for _, op := range evt.RepoAppend.Ops {
-			uri := "at://" + evt.Repo + "/" + op.Col + "/" + op.Rkey
+		for _, op := range evt.Append.Ops {
+			uri := "at://" + evt.Append.Repo + "/" + op.Path
+			nsid := strings.SplitN(op.Path, "/", 2)[0]
 			// filter to creation/update of ony post/profile records
 			// TODO(bnewbold): how do I 'switch' on a tuple here in golang, instead of nested switch?
-			switch op.Kind {
+			switch op.Action {
 			case "createRecord", "updateRecord":
-				switch op.Col {
+				switch nsid {
 				case "app.bsky.feed.post":
-					cid, rec, err := sliceRepo.GetRecord(ctx, op.Col+"/"+op.Rkey)
+					cid, rec, err := sliceRepo.GetRecord(ctx, op.Path)
 					if err != nil {
 						return fmt.Errorf("record not in CAR slice: %s", uri)
 					}
@@ -170,7 +172,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, host *pds.Peering, evt 
 					}
 				case "app.bsky.actor.profile":
 					// NOTE: copypasta from post above, could refactor to not duplicate
-					cid, rec, err := sliceRepo.GetRecord(ctx, op.Col+"/"+op.Rkey)
+					cid, rec, err := sliceRepo.GetRecord(ctx, op.Path)
 					if err != nil {
 						return fmt.Errorf("record not in CAR slice: %s", uri)
 					}
@@ -230,7 +232,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, host *pds.Peering, evt 
 	}
 }
 
-func (s *Server) readRecordFunc(ctx context.Context, user uint, c cid.Cid) (lexutil.CBOR, error) {
+func (s *Server) readRecordFunc(ctx context.Context, user util.Uid, c cid.Cid) (lexutil.CBOR, error) {
 	bs, err := s.cs.ReadOnlySession(user)
 	if err != nil {
 		return nil, err
