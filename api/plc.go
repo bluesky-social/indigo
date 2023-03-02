@@ -8,7 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -110,7 +110,7 @@ func (s *PLCServer) CreateDID(ctx context.Context, sigkey *did.PrivKey, recovery
 	}
 
 	if resp.StatusCode != 200 {
-		b, _ := ioutil.ReadAll(resp.Body)
+		b, _ := io.ReadAll(resp.Body)
 		fmt.Println(string(b))
 		return "", fmt.Errorf("bad response from create call: %d %s", resp.StatusCode, resp.Status)
 
