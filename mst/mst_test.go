@@ -120,6 +120,7 @@ func loadCar(bs blockstore.Blockstore, fname string) error {
 	if err != nil {
 		return err
 	}
+	defer fi.Close()
 	br, err := car.NewBlockReader(fi)
 	if err != nil {
 		return err
