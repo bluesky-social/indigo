@@ -153,7 +153,7 @@ func (em *EventManager) AddEvent(ev *RepoStreamEvent) error {
 	}
 }
 
-func (em *EventManager) Subscribe(filter func(*RepoStreamEvent) bool, since *int64) (<-chan *RepoStreamEvent, func(), error) {
+func (em *EventManager) Subscribe(ctx context.Context, filter func(*RepoStreamEvent) bool, since *int64) (<-chan *RepoStreamEvent, func(), error) {
 	if filter == nil {
 		filter = func(*RepoStreamEvent) bool { return true }
 	}
@@ -167,7 +167,7 @@ func (em *EventManager) Subscribe(filter func(*RepoStreamEvent) bool, since *int
 
 	go func() {
 		if since != nil {
-			if err := em.persister.Playback(context.TODO(), *since, func(e *RepoStreamEvent) error {
+			if err := em.persister.Playback(ctx, *since, func(e *RepoStreamEvent) error {
 				select {
 				case <-done:
 					return fmt.Errorf("shutting down")
