@@ -2,7 +2,6 @@ package repomgr
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -29,7 +28,7 @@ func skipIfNoFile(t *testing.T, f string) {
 func TestLoadNewRepo(t *testing.T) {
 	skipIfNoFile(t, "testrepo.car")
 
-	dir, err := ioutil.TempDir("", "integtest")
+	dir, err := os.MkdirTemp("", "integtest")
 	if err != nil {
 		t.Fatal(err)
 	}
