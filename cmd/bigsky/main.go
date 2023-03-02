@@ -90,7 +90,8 @@ func run(args []string) {
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
 		&cli.BoolFlag{
-			Name: "ssl-events",
+			Name:  "crawl-insecure-ws",
+			Usage: "when connecting to PDS instances, use ws:// instead of wss://",
 		},
 		&cli.BoolFlag{
 			Name:  "aggregation",
@@ -182,7 +183,7 @@ func run(args []string) {
 			}
 		})
 
-		bgs := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, cctx.Bool("ssl-events"))
+		bgs := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, !cctx.Bool("crawl-insecure-ws"))
 
 		// set up pprof endpoint
 		go func() {
