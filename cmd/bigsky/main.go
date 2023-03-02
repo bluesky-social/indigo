@@ -183,7 +183,10 @@ func run(args []string) {
 			}
 		})
 
-		bgs := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, !cctx.Bool("crawl-insecure-ws"))
+		bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, !cctx.Bool("crawl-insecure-ws"))
+		if err != nil {
+			return err
+		}
 
 		// set up pprof endpoint
 		go func() {

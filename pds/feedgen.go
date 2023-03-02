@@ -11,6 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
+	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
@@ -31,7 +32,7 @@ func NewFeedGenerator(db *gorm.DB, ix *indexer.Indexer, readRecord ReadRecordFun
 	}, nil
 }
 
-type ReadRecordFunc func(context.Context, uint, cid.Cid) (util.CBOR, error)
+type ReadRecordFunc func(context.Context, bsutil.Uid, cid.Cid) (util.CBOR, error)
 
 /*
 type HydratedFeedItem struct {
@@ -93,7 +94,7 @@ func (fg *FeedGenerator) hydrateFeed(ctx context.Context, items []*models.FeedPo
 	return out, nil
 }
 
-func (fg *FeedGenerator) didForUser(ctx context.Context, user uint) (string, error) {
+func (fg *FeedGenerator) didForUser(ctx context.Context, user bsutil.Uid) (string, error) {
 	// TODO: cache the shit out of this
 	var ai models.ActorInfo
 	if err := fg.db.First(&ai, "uid = ?", user).Error; err != nil {
@@ -103,7 +104,7 @@ func (fg *FeedGenerator) didForUser(ctx context.Context, user uint) (string, err
 	return ai.Did, nil
 }
 
-func (fg *FeedGenerator) getActorRefInfo(ctx context.Context, user uint) (*bsky.ActorRef_WithInfo, error) {
+func (fg *FeedGenerator) getActorRefInfo(ctx context.Context, user bsutil.Uid) (*bsky.ActorRef_WithInfo, error) {
 	// TODO: cache the shit out of this too
 	var ai models.ActorInfo
 	if err := fg.db.First(&ai, "uid = ?", user).Error; err != nil {
@@ -153,7 +154,7 @@ func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *models.FeedPost)
 	return out, nil
 }
 
-func (fg *FeedGenerator) getPostViewerState(ctx context.Context, item uint, viewer uint, viewerDid string) (*bsky.FeedPost_ViewerState, error) {
+func (fg *FeedGenerator) getPostViewerState(ctx context.Context, item uint, viewer bsutil.Uid, viewerDid string) (*bsky.FeedPost_ViewerState, error) {
 	var out bsky.FeedPost_ViewerState
 
 	var vote models.VoteRecord

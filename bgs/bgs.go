@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"contrib.go.opencensus.io/exporter/prometheus"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
@@ -20,6 +21,7 @@ import (
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
+	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
@@ -49,7 +51,7 @@ type BGS struct {
 	repoman *repomgr.RepoManager
 }
 
-func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.DidResolver, ssl bool) *BGS {
+func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.DidResolver, ssl bool) (*BGS, error) {
 	db.AutoMigrate(User{})
 	db.AutoMigrate(models.PDS{})
 
@@ -64,7 +66,12 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 
 	ix.CreateExternalUser = bgs.createExternalUser
 	bgs.slurper = NewSlurper(db, bgs.handleFedEvent, ssl)
-	return bgs
+
+	if err := bgs.slurper.RestartAll(); err != nil {
+		return nil, err
+	}
+
+	return bgs, nil
 }
 
 func (bgs *BGS) StartDebug(listen string) error {
@@ -116,10 +123,13 @@ func (bgs *BGS) HandleHealthCheck(c echo.Context) error {
 }
 
 type User struct {
-	gorm.Model
-	Handle string `gorm:"uniqueIndex"`
-	Did    string `gorm:"uniqueIndex"`
-	PDS    uint
+	ID        bsutil.Uid `gorm:"primarykey"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+	Handle    string         `gorm:"uniqueIndex"`
+	Did       string         `gorm:"uniqueIndex"`
+	PDS       uint
 }
 
 type addTargetBody struct {
@@ -279,10 +289,22 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
 		}
 
+		// sync blobs
+		if len(evt.Blobs) > 0 {
+			if err := bgs.syncUserBlobs(ctx, host.ID, u.ID, evt.Blobs); err != nil {
+				return err
+			}
+		}
+
 		return nil
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
+}
+
+func (s *BGS) syncUserBlobs(ctx context.Context, pds uint, user bsutil.Uid, blobs []string) error {
+	log.Warnf("not handling blob syncing yet")
+	return nil
 }
 
 func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.ActorInfo, error) {
@@ -335,6 +357,10 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		}
 	}
 
+	if peering.ID == 0 {
+		panic("somehow failed to create a pds entry?")
+	}
+
 	if len(doc.AlsoKnownAs) == 0 {
 		return nil, fmt.Errorf("user has no 'known as' field in their DID document")
 	}
@@ -360,7 +386,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	exu, err := s.Index.LookupUserByDid(ctx, did)
 	if err == nil {
-		log.Warnf("lost the race to create a new user: %s", did)
+		log.Infof("lost the race to create a new user: %s", did)
 		return exu, nil
 	}
 

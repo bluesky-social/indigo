@@ -27,7 +27,7 @@ type RepoEventRecord struct {
 
 	Time  time.Time
 	Blobs []byte
-	Repo  uint
+	Repo  util.Uid
 	Event string
 
 	Ops []RepoOpRecord
@@ -139,7 +139,7 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*Repo
 		}
 
 		var ops []RepoOpRecord
-		if err := p.db.Debug().Find(&ops, "repo_event_record_id = ?", evt.Seq).Error; err != nil {
+		if err := p.db.Find(&ops, "repo_event_record_id = ?", evt.Seq).Error; err != nil {
 			return err
 		}
 
@@ -158,7 +158,7 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*Repo
 	return nil
 }
 
-func (p *DbPersistence) uidForDid(ctx context.Context, did string) (uint, error) {
+func (p *DbPersistence) uidForDid(ctx context.Context, did string) (util.Uid, error) {
 	var u models.ActorInfo
 	if err := p.db.First(&u, "did = ?", did).Error; err != nil {
 		return 0, err
@@ -167,7 +167,7 @@ func (p *DbPersistence) uidForDid(ctx context.Context, did string) (uint, error)
 	return u.Uid, nil
 }
 
-func (p *DbPersistence) didForUid(ctx context.Context, uid uint) (string, error) {
+func (p *DbPersistence) didForUid(ctx context.Context, uid util.Uid) (string, error) {
 	var u models.ActorInfo
 	if err := p.db.First(&u, "uid = ?", uid).Error; err != nil {
 		return "", err
