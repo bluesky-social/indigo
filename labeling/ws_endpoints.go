@@ -32,7 +32,8 @@ func (s *Server) EventsLabelsWebsocket(c echo.Context) error {
 	}
 	defer cancel()
 
-	header := events.EventHeader{Type: "data"}
+	// TODO: Op: events.EvtKindLabel
+	header := events.EventHeader{Op: events.EvtKindRepoAppend}
 	for evt := range evts {
 		wc, err := conn.NextWriter(websocket.BinaryMessage)
 		if err != nil {
