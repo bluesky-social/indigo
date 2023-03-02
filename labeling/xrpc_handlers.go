@@ -8,6 +8,7 @@ import (
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	util "github.com/bluesky-social/indigo/util"
 
 	"github.com/ipfs/go-cid"
 )
@@ -47,7 +48,7 @@ func (s *Server) handleComAtprotoServerGetAccountsConfig(ctx context.Context) (*
 
 func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, earliest, latest string) (io.Reader, error) {
 	// TODO: verify the DID/handle
-	var userId uint = 1
+	var userId util.Uid = 1
 	var earlyCid cid.Cid
 	if earliest != "" {
 		cc, err := cid.Decode(earliest)
