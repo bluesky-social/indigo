@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/bluesky-social/indigo/util"
 	cid "github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 )
@@ -98,9 +99,9 @@ type RepoStreamEvent struct {
 	Error  *ErrorFrame
 
 	// some private fields for internal routing perf
-	PrivUid         uint   `json:"-" cborgen:"-"`
-	PrivPdsId       uint   `json:"-" cborgen:"-"`
-	PrivRelevantPds []uint `json:"-" cborgen:"-"`
+	PrivUid         util.Uid `json:"-" cborgen:"-"`
+	PrivPdsId       uint     `json:"-" cborgen:"-"`
+	PrivRelevantPds []uint   `json:"-" cborgen:"-"`
 }
 
 type RepoAppend struct {

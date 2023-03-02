@@ -72,6 +72,22 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string) error {
 	return nil
 }
 
+func (s *Slurper) RestartAll() error {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+
+	var all []models.PDS
+	if err := s.db.Find(&all).Error; err != nil {
+		return err
+	}
+
+	for _, pds := range all {
+		go s.subscribeWithRedialer(&pds)
+	}
+
+	return nil
+}
+
 func (s *Slurper) subscribeWithRedialer(host *models.PDS) {
 	defer func() {
 		s.lk.Lock()
@@ -144,7 +160,7 @@ func (s *Slurper) handleConnection(host *models.PDS, con *websocket.Conn, lastCu
 			*lastCursor = evt.Seq
 
 			if err := s.updateCursor(host, *lastCursor); err != nil {
-				return err
+				return fmt.Errorf("updating cursor: %w", err)
 			}
 
 			return nil

@@ -277,7 +277,7 @@ func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent
 	return out, nil
 }
 
-func (s *Server) readRecordFunc(ctx context.Context, user uint, c cid.Cid) (util.CBOR, error) {
+func (s *Server) readRecordFunc(ctx context.Context, user bsutil.Uid, c cid.Cid) (util.CBOR, error) {
 	bs, err := s.cs.ReadOnlySession(user)
 	if err != nil {
 		return nil, err
@@ -400,8 +400,11 @@ func (s *Server) HandleHealthCheck(c echo.Context) error {
 }
 
 type User struct {
-	gorm.Model
-	Handle      string `gorm:"uniqueIndex"`
+	ID          bsutil.Uid `gorm:"primarykey"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	DeletedAt   gorm.DeletedAt `gorm:"index"`
+	Handle      string         `gorm:"uniqueIndex"`
 	Password    string
 	RecoveryKey string
 	Email       string
