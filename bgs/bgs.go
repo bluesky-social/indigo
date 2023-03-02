@@ -160,51 +160,58 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		since = &sval
 	}
 
+	ctx := c.Request().Context()
+
 	// TODO: authhhh
 	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
 	if err != nil {
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
 
-	evts, cancel, err := bgs.events.Subscribe(func(evt *events.RepoStreamEvent) bool { return true }, since)
+	evts, cancel, err := bgs.events.Subscribe(ctx, func(evt *events.RepoStreamEvent) bool { return true }, since)
 	if err != nil {
 		return err
 	}
 	defer cancel()
 
 	header := events.EventHeader{Op: events.EvtKindRepoAppend}
-	for evt := range evts {
-		wc, err := conn.NextWriter(websocket.BinaryMessage)
-		if err != nil {
-			return err
-		}
+	for {
+		select {
+		case evt := <-evts:
+			wc, err := conn.NextWriter(websocket.BinaryMessage)
+			if err != nil {
+				return err
+			}
 
-		var obj util.CBOR
+			var obj util.CBOR
 
-		switch {
-		case evt.Append != nil:
-			header.Op = events.EvtKindRepoAppend
-			obj = evt.Append
-		case evt.Error != nil:
-			header.Op = events.EvtKindErrorFrame
-			obj = evt.Error
-		case evt.Info != nil:
-			header.Op = events.EvtKindInfoFrame
-			obj = evt.Info
-		default:
-			return fmt.Errorf("unrecognized event kind")
-		}
+			switch {
+			case evt.Append != nil:
+				header.Op = events.EvtKindRepoAppend
+				obj = evt.Append
+			case evt.Error != nil:
+				header.Op = events.EvtKindErrorFrame
+				obj = evt.Error
+			case evt.Info != nil:
+				header.Op = events.EvtKindInfoFrame
+				obj = evt.Info
+			default:
+				return fmt.Errorf("unrecognized event kind")
+			}
 
-		if err := header.MarshalCBOR(wc); err != nil {
-			return fmt.Errorf("failed to write header: %w", err)
-		}
+			if err := header.MarshalCBOR(wc); err != nil {
+				return fmt.Errorf("failed to write header: %w", err)
+			}
 
-		if err := obj.MarshalCBOR(wc); err != nil {
-			return fmt.Errorf("failed to write event: %w", err)
-		}
+			if err := obj.MarshalCBOR(wc); err != nil {
+				return fmt.Errorf("failed to write event: %w", err)
+			}
 
-		if err := wc.Close(); err != nil {
-			return fmt.Errorf("failed to flush-close our event write: %w", err)
+			if err := wc.Close(); err != nil {
+				return fmt.Errorf("failed to flush-close our event write: %w", err)
+			}
+		case <-ctx.Done():
+			return nil
 		}
 	}
 
