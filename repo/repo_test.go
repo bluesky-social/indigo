@@ -15,6 +15,7 @@ func TestRepo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer fi.Close()
 
 	ctx := context.TODO()
 	r, err := ReadRepoFromCar(ctx, fi)

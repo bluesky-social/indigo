@@ -161,6 +161,7 @@ func ReadSchema(f string) (*Schema, error) {
 	if err != nil {
 		return nil, err
 	}
+    defer fi.Close()
 
 	var s Schema
 	if err := json.NewDecoder(fi).Decode(&s); err != nil {

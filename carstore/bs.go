@@ -141,6 +141,7 @@ func (uv *userView) prefetchRead(ctx context.Context, k cid.Cid, path string, of
 	if err != nil {
 		return nil, err
 	}
+	defer fi.Close()
 
 	cr, err := car.NewCarReader(fi)
 	if err != nil {
@@ -172,6 +173,7 @@ func (uv *userView) singleRead(ctx context.Context, k cid.Cid, path string, offs
 	if err != nil {
 		return nil, err
 	}
+	defer fi.Close()
 
 	seeked, err := fi.Seek(offset, io.SeekStart)
 	if err != nil {
@@ -386,6 +388,7 @@ func (cs *CarStore) writeShardBlocks(ctx context.Context, sh *CarShard, w io.Wri
 	if err != nil {
 		return err
 	}
+	defer fi.Close()
 
 	_, err = fi.Seek(sh.DataStart, io.SeekStart)
 	if err != nil {
