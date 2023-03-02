@@ -60,6 +60,7 @@ func TestLoadNewRepo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer fi.Close()
 
 	ctx := context.TODO()
 	if err := repoman.ImportNewRepo(ctx, 2, "", fi, cid.Undef); err != nil {
