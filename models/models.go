@@ -6,12 +6,13 @@ import (
 	"gorm.io/gorm"
 
 	bsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/util"
 )
 
 type FeedPost struct {
 	gorm.Model
-	Author      uint   `gorm:"index:idx_feedpost_rkey,unique"`
-	Rkey        string `gorm:"index:idx_feedpost_rkey,unique"`
+	Author      util.Uid `gorm:"index:idx_feedpost_rkey,unique"`
+	Rkey        string   `gorm:"index:idx_feedpost_rkey,unique"`
 	Cid         string
 	UpCount     int64
 	ReplyCount  int64
@@ -26,15 +27,15 @@ type RepostRecord struct {
 	CreatedAt  time.Time
 	RecCreated string
 	Post       uint
-	Reposter   uint
-	Author     uint
+	Reposter   util.Uid
+	Author     util.Uid
 	RecCid     string
 	Rkey       string
 }
 
 type ActorInfo struct {
 	gorm.Model
-	Uid         uint `gorm:"uniqueindex"`
+	Uid         util.Uid `gorm:"uniqueindex"`
 	Handle      string
 	DisplayName string
 	Did         string `gorm:"uniqueindex"`
@@ -79,7 +80,7 @@ const (
 type VoteRecord struct {
 	gorm.Model
 	Dir     VoteDir
-	Voter   uint
+	Voter   util.Uid
 	Post    uint
 	Created string
 	Rkey    string
@@ -88,8 +89,8 @@ type VoteRecord struct {
 
 type FollowRecord struct {
 	gorm.Model
-	Follower uint
-	Target   uint
+	Follower util.Uid
+	Target   util.Uid
 	Rkey     string
 	Cid      string
 }

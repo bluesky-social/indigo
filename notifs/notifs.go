@@ -8,6 +8,7 @@ import (
 	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
+	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"gorm.io/gorm"
@@ -15,22 +16,24 @@ import (
 )
 
 type NotificationManager interface {
-	GetNotifications(ctx context.Context, user uint) ([]*appbskytypes.NotificationList_Notification, error)
-	GetCount(ctx context.Context, user uint) (int64, error)
-	UpdateSeen(ctx context.Context, usr uint, seen time.Time) error
-	AddReplyTo(ctx context.Context, user uint, replyid uint, replyto *models.FeedPost) error
-	AddMention(ctx context.Context, user uint, postid uint, mentioned uint) error
-	AddUpVote(ctx context.Context, voter uint, postid uint, voteid uint, postauthor uint) error
-	AddFollow(ctx context.Context, follower, followed, recid uint) error
-	AddRepost(ctx context.Context, op uint, repost, reposter uint) error
+	GetNotifications(ctx context.Context, user bsutil.Uid) ([]*appbskytypes.NotificationList_Notification, error)
+	GetCount(ctx context.Context, user bsutil.Uid) (int64, error)
+	UpdateSeen(ctx context.Context, usr bsutil.Uid, seen time.Time) error
+	AddReplyTo(ctx context.Context, user bsutil.Uid, replyid uint, replyto *models.FeedPost) error
+	AddMention(ctx context.Context, user bsutil.Uid, postid uint, mentioned bsutil.Uid) error
+	AddUpVote(ctx context.Context, voter bsutil.Uid, postid uint, voteid uint, postauthor bsutil.Uid) error
+	AddFollow(ctx context.Context, follower, followed bsutil.Uid, recid uint) error
+	AddRepost(ctx context.Context, op bsutil.Uid, repost uint, reposter bsutil.Uid) error
 }
+
+var _ NotificationManager = (*DBNotifMan)(nil)
 
 type DBNotifMan struct {
 	db *gorm.DB
 
 	getRecord GetRecord
 }
-type GetRecord func(ctx context.Context, user uint, collection string, rkey string, maybeCid cid.Cid) (cid.Cid, cbg.CBORMarshaler, error)
+type GetRecord func(ctx context.Context, user bsutil.Uid, collection string, rkey string, maybeCid cid.Cid) (cid.Cid, cbg.CBORMarshaler, error)
 
 func NewNotificationManager(db *gorm.DB, getrec GetRecord) *DBNotifMan {
 	db.AutoMigrate(&NotifRecord{})
@@ -52,16 +55,16 @@ const (
 
 type NotifRecord struct {
 	gorm.Model
-	For     uint
+	For     bsutil.Uid
 	Kind    int64
 	Record  uint
-	Who     uint
+	Who     bsutil.Uid
 	ReplyTo uint
 }
 
 type NotifSeen struct {
-	ID       uint `gorm:"primarykey"`
-	Usr      uint `gorm:"uniqueIndex"`
+	ID       uint       `gorm:"primarykey"`
+	Usr      bsutil.Uid `gorm:"uniqueIndex"`
 	LastSeen time.Time
 }
 
@@ -76,7 +79,7 @@ type HydratedNotification struct {
 	ReasonSubject *string
 }
 
-func (nm *DBNotifMan) GetNotifications(ctx context.Context, user uint) ([]*appbskytypes.NotificationList_Notification, error) {
+func (nm *DBNotifMan) GetNotifications(ctx context.Context, user bsutil.Uid) ([]*appbskytypes.NotificationList_Notification, error) {
 	var lastSeen time.Time
 	if err := nm.db.Model(NotifSeen{}).Where("usr = ?", user).Select("last_seen").Scan(&lastSeen).Error; err != nil {
 		return nil, err
@@ -133,9 +136,9 @@ func (nm *DBNotifMan) hydrateNotification(ctx context.Context, nrec *NotifRecord
 		return nil, fmt.Errorf("attempted to hydrate unknown notif kind: %d", nrec.Kind)
 	}
 }
-func (nm *DBNotifMan) getActor(ctx context.Context, act uint) (*models.ActorInfo, error) {
+func (nm *DBNotifMan) getActor(ctx context.Context, act bsutil.Uid) (*models.ActorInfo, error) {
 	var ai models.ActorInfo
-	if err := nm.db.First(&ai, "id = ?", act).Error; err != nil {
+	if err := nm.db.First(&ai, "uid = ?", act).Error; err != nil {
 		return nil, err
 	}
 
@@ -158,7 +161,7 @@ func (nm *DBNotifMan) hydrateNotificationUpVote(ctx context.Context, nrec *Notif
 		return nil, err
 	}
 
-	_, rec, err := nm.getRecord(ctx, voter.ID, "app.bsky.feed.vote", vote.Rkey, cid.Undef)
+	_, rec, err := nm.getRecord(ctx, voter.Uid, "app.bsky.feed.vote", vote.Rkey, cid.Undef)
 	if err != nil {
 		return nil, fmt.Errorf("getting vote: %w", err)
 	}
@@ -198,7 +201,7 @@ func (nm *DBNotifMan) hydrateNotificationRepost(ctx context.Context, nrec *Notif
 		return nil, err
 	}
 
-	_, rec, err := nm.getRecord(ctx, reposter.ID, "app.bsky.feed.repost", repost.Rkey, cid.Undef)
+	_, rec, err := nm.getRecord(ctx, reposter.Uid, "app.bsky.feed.repost", repost.Rkey, cid.Undef)
 	if err != nil {
 		return nil, fmt.Errorf("getting repost: %w", err)
 	}
@@ -243,7 +246,7 @@ func (nm *DBNotifMan) hydrateNotificationReply(ctx context.Context, nrec *NotifR
 		return nil, err
 	}
 
-	_, rec, err := nm.getRecord(ctx, author.ID, "app.bsky.feed.post", fp.Rkey, cid.Undef)
+	_, rec, err := nm.getRecord(ctx, author.Uid, "app.bsky.feed.post", fp.Rkey, cid.Undef)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +276,7 @@ func (nm *DBNotifMan) hydrateNotificationFollow(ctx context.Context, nrec *Notif
 		return nil, err
 	}
 
-	_, rec, err := nm.getRecord(ctx, follower.ID, "app.bsky.graph.follow", frec.Rkey, cid.Undef)
+	_, rec, err := nm.getRecord(ctx, follower.Uid, "app.bsky.graph.follow", frec.Rkey, cid.Undef)
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +293,7 @@ func (nm *DBNotifMan) hydrateNotificationFollow(ctx context.Context, nrec *Notif
 
 }
 
-func (nm *DBNotifMan) GetCount(ctx context.Context, user uint) (int64, error) {
+func (nm *DBNotifMan) GetCount(ctx context.Context, user bsutil.Uid) (int64, error) {
 	// TODO: sql count is inefficient
 	var lseen time.Time
 	if err := nm.db.Model(NotifSeen{}).Where("usr = ?", user).Select("last_seen").Scan(&lseen).Error; err != nil {
@@ -306,7 +309,7 @@ func (nm *DBNotifMan) GetCount(ctx context.Context, user uint) (int64, error) {
 	return c, nil
 }
 
-func (nm *DBNotifMan) UpdateSeen(ctx context.Context, usr uint, seen time.Time) error {
+func (nm *DBNotifMan) UpdateSeen(ctx context.Context, usr bsutil.Uid, seen time.Time) error {
 	if err := nm.db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "usr"}},
 		DoUpdates: clause.AssignmentColumns([]string{"last_seen"}),
@@ -320,7 +323,7 @@ func (nm *DBNotifMan) UpdateSeen(ctx context.Context, usr uint, seen time.Time) 
 	return nil
 }
 
-func (nm *DBNotifMan) AddReplyTo(ctx context.Context, user uint, replyid uint, replyto *models.FeedPost) error {
+func (nm *DBNotifMan) AddReplyTo(ctx context.Context, user bsutil.Uid, replyid uint, replyto *models.FeedPost) error {
 	return nm.db.Create(&NotifRecord{
 		Kind:    NotifKindReply,
 		For:     replyto.Author,
@@ -330,7 +333,7 @@ func (nm *DBNotifMan) AddReplyTo(ctx context.Context, user uint, replyid uint, r
 	}).Error
 }
 
-func (nm *DBNotifMan) AddMention(ctx context.Context, user uint, postid uint, mentioned uint) error {
+func (nm *DBNotifMan) AddMention(ctx context.Context, user bsutil.Uid, postid uint, mentioned bsutil.Uid) error {
 	return nm.db.Create(&NotifRecord{
 		For:    mentioned,
 		Kind:   NotifKindMention,
@@ -339,7 +342,7 @@ func (nm *DBNotifMan) AddMention(ctx context.Context, user uint, postid uint, me
 	}).Error
 }
 
-func (nm *DBNotifMan) AddUpVote(ctx context.Context, voter uint, postid uint, voteid uint, postauthor uint) error {
+func (nm *DBNotifMan) AddUpVote(ctx context.Context, voter bsutil.Uid, postid uint, voteid uint, postauthor bsutil.Uid) error {
 	return nm.db.Create(&NotifRecord{
 		For:     postauthor,
 		Kind:    NotifKindUpVote,
@@ -349,7 +352,7 @@ func (nm *DBNotifMan) AddUpVote(ctx context.Context, voter uint, postid uint, vo
 	}).Error
 }
 
-func (nm *DBNotifMan) AddFollow(ctx context.Context, follower, followed, recid uint) error {
+func (nm *DBNotifMan) AddFollow(ctx context.Context, follower, followed bsutil.Uid, recid uint) error {
 	return nm.db.Create(&NotifRecord{
 		Kind:   NotifKindFollow,
 		For:    followed,
@@ -358,7 +361,7 @@ func (nm *DBNotifMan) AddFollow(ctx context.Context, follower, followed, recid u
 	}).Error
 }
 
-func (nm *DBNotifMan) AddRepost(ctx context.Context, op uint, repost, reposter uint) error {
+func (nm *DBNotifMan) AddRepost(ctx context.Context, op bsutil.Uid, repost uint, reposter bsutil.Uid) error {
 	return nm.db.Create(&NotifRecord{
 		Kind:   NotifKindRepost,
 		For:    op,

@@ -831,7 +831,6 @@ var readRepoStreamCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT)
 		defer stop()
 

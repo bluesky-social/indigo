@@ -422,7 +422,10 @@ func SetupBGS(host string, didr plc.PLCClient) (*testBGS, error) {
 		}
 	})
 
-	b := bgs.NewBGS(maindb, ix, repoman, evtman, didr, false)
+	b, err := bgs.NewBGS(maindb, ix, repoman, evtman, didr, false)
+	if err != nil {
+		return nil, err
+	}
 
 	return &testBGS{
 		bgs:  b,

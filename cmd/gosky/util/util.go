@@ -152,6 +152,8 @@ func SetupDatabase(dburl string) (*gorm.DB, error) {
 	var dial gorm.Dialector
 	// NOTE(bnewbold): might also handle file:// as sqlite, but let's keep it
 	// explicit for now
+
+	openConns := 99
 	if strings.HasPrefix(dburl, "sqlite://") {
 		sqliteSuffix := dburl[len("sqlite://"):]
 		// if this isn't ":memory:", ensure that directory exists (eg, if db
@@ -160,6 +162,7 @@ func SetupDatabase(dburl string) (*gorm.DB, error) {
 			os.MkdirAll(filepath.Dir(sqliteSuffix), os.ModePerm)
 		}
 		dial = sqlite.Open(sqliteSuffix)
+		openConns = 1
 	} else if strings.HasPrefix(dburl, "sqlite=") {
 		sqliteSuffix := dburl[len("sqlite="):]
 		// if this isn't ":memory:", ensure that directory exists (eg, if db
@@ -168,6 +171,7 @@ func SetupDatabase(dburl string) (*gorm.DB, error) {
 			os.MkdirAll(filepath.Dir(sqliteSuffix), os.ModePerm)
 		}
 		dial = sqlite.Open(sqliteSuffix)
+		openConns = 1
 	} else if strings.HasPrefix(dburl, "postgresql://") || strings.HasPrefix(dburl, "postgres://") {
 		// can pass entire URL, with prefix, to gorm driver
 		dial = postgres.Open(dburl)
@@ -192,7 +196,7 @@ func SetupDatabase(dburl string) (*gorm.DB, error) {
 	}
 
 	sqldb.SetMaxIdleConns(80)
-	sqldb.SetMaxOpenConns(99)
+	sqldb.SetMaxOpenConns(openConns)
 	sqldb.SetConnMaxIdleTime(time.Hour)
 
 	return db, nil

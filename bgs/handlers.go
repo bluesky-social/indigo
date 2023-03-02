@@ -23,7 +23,7 @@ func (s *BGS) handleComAtprotoSyncGetHead(ctx context.Context, did string) (*com
 		return nil, err
 	}
 
-	root, err := s.repoman.GetRepoRoot(ctx, u.ID)
+	root, err := s.repoman.GetRepoRoot(ctx, u.Uid)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, earli
 
 	// TODO: stream the response
 	buf := new(bytes.Buffer)
-	if err := s.repoman.ReadRepo(ctx, u.ID, earlyCid, lateCid, buf); err != nil {
+	if err := s.repoman.ReadRepo(ctx, u.Uid, earlyCid, lateCid, buf); err != nil {
 		return nil, err
 	}
 

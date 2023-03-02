@@ -5,6 +5,7 @@ import (
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/models"
+	"github.com/bluesky-social/indigo/util"
 	"go.opentelemetry.io/otel"
 )
 
@@ -15,7 +16,7 @@ type CrawlDispatcher struct {
 
 	catchup chan *catchupJob
 
-	complete chan uint
+	complete chan util.Uid
 
 	doRepoCrawl func(context.Context, *crawlWork) error
 }
@@ -24,7 +25,7 @@ func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error) *CrawlDi
 	return &CrawlDispatcher{
 		ingest:      make(chan *models.ActorInfo),
 		repoSync:    make(chan *crawlWork),
-		complete:    make(chan uint),
+		complete:    make(chan util.Uid),
 		catchup:     make(chan *catchupJob),
 		doRepoCrawl: repoFn,
 	}
@@ -58,8 +59,8 @@ func (c *CrawlDispatcher) mainLoop() {
 	var next *crawlWork
 	var buffer []*crawlWork
 
-	todo := make(map[uint]*crawlWork)
-	inProgress := make(map[uint]*crawlWork)
+	todo := make(map[util.Uid]*crawlWork)
+	inProgress := make(map[util.Uid]*crawlWork)
 
 	var rs chan *crawlWork
 	for {
@@ -165,6 +166,10 @@ func (c *CrawlDispatcher) fetchWorker() {
 }
 
 func (c *CrawlDispatcher) Crawl(ctx context.Context, ai *models.ActorInfo) error {
+	if ai.PDS == 0 {
+		panic("not today!")
+	}
+
 	ctx, span := otel.Tracer("crawler").Start(ctx, "addToCrawler")
 	defer span.End()
 
@@ -177,6 +182,10 @@ func (c *CrawlDispatcher) Crawl(ctx context.Context, ai *models.ActorInfo) error
 }
 
 func (c *CrawlDispatcher) AddToCatchupQueue(ctx context.Context, host *models.PDS, u *models.ActorInfo, evt *events.RepoAppend) error {
+	if u.PDS == 0 {
+		panic("not okay")
+	}
+
 	select {
 	case c.catchup <- &catchupJob{
 		evt:  evt,

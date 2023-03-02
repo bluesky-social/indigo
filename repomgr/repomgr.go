@@ -36,7 +36,7 @@ func NewRepoManager(db *gorm.DB, cs *carstore.CarStore, kmgr KeyManager) *RepoMa
 	return &RepoManager{
 		db:        db,
 		cs:        cs,
-		userLocks: make(map[uint]*userLock),
+		userLocks: make(map[util.Uid]*userLock),
 		kmgr:      kmgr,
 	}
 }
@@ -56,7 +56,7 @@ type RepoManager struct {
 	kmgr KeyManager
 
 	lklk      sync.Mutex
-	userLocks map[uint]*userLock
+	userLocks map[util.Uid]*userLock
 
 	events func(context.Context, *RepoEvent)
 }
@@ -70,7 +70,7 @@ type ActorInfo struct {
 }
 
 type RepoEvent struct {
-	User      uint
+	User      util.Uid
 	OldRoot   *cid.Cid
 	NewRoot   cid.Cid
 	RepoSlice []byte
@@ -98,7 +98,7 @@ const (
 
 type RepoHead struct {
 	gorm.Model
-	Usr  uint `gorm:"uniqueIndex"`
+	Usr  util.Uid `gorm:"uniqueIndex"`
 	Root string
 }
 
@@ -107,7 +107,7 @@ type userLock struct {
 	count int
 }
 
-func (rm *RepoManager) lockUser(ctx context.Context, user uint) func() {
+func (rm *RepoManager) lockUser(ctx context.Context, user util.Uid) func() {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "userLock")
 	defer span.End()
 
@@ -138,7 +138,7 @@ func (rm *RepoManager) lockUser(ctx context.Context, user uint) func() {
 	}
 }
 
-func (rm *RepoManager) getUserRepoHead(ctx context.Context, user uint) (cid.Cid, error) {
+func (rm *RepoManager) getUserRepoHead(ctx context.Context, user util.Uid) (cid.Cid, error) {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "getUserRepoHead")
 	defer span.End()
 
@@ -159,7 +159,7 @@ func (rm *RepoManager) getUserRepoHead(ctx context.Context, user uint) (cid.Cid,
 	return cc, nil
 }
 
-func (rm *RepoManager) updateUserRepoHead(ctx context.Context, user uint, root cid.Cid) error {
+func (rm *RepoManager) updateUserRepoHead(ctx context.Context, user util.Uid, root cid.Cid) error {
 	if err := rm.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "usr"}},
 		DoUpdates: clause.AssignmentColumns([]string{"root"}),
@@ -173,7 +173,7 @@ func (rm *RepoManager) updateUserRepoHead(ctx context.Context, user uint, root c
 	return nil
 }
 
-func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection string, rec cbg.CBORMarshaler) (string, cid.Cid, error) {
+func (rm *RepoManager) CreateRecord(ctx context.Context, user util.Uid, collection string, rec cbg.CBORMarshaler) (string, cid.Cid, error) {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "CreateRecord")
 	defer span.End()
 
@@ -239,7 +239,7 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user uint, collection s
 	return collection + "/" + tid, cc, nil
 }
 
-func (rm *RepoManager) UpdateRecord(ctx context.Context, user uint, collection, rkey string, rec cbg.CBORMarshaler) (cid.Cid, error) {
+func (rm *RepoManager) UpdateRecord(ctx context.Context, user util.Uid, collection, rkey string, rec cbg.CBORMarshaler) (cid.Cid, error) {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "UpdateRecord")
 	defer span.End()
 
@@ -306,7 +306,7 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user uint, collection, 
 	return cc, nil
 }
 
-func (rm *RepoManager) DeleteRecord(ctx context.Context, user uint, collection, rkey string) error {
+func (rm *RepoManager) DeleteRecord(ctx context.Context, user util.Uid, collection, rkey string) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "DeleteRecord")
 	defer span.End()
 
@@ -370,7 +370,7 @@ func (rm *RepoManager) DeleteRecord(ctx context.Context, user uint, collection, 
 
 }
 
-func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did, displayname string, declcid, actortype string) error {
+func (rm *RepoManager) InitNewActor(ctx context.Context, user util.Uid, handle, did, displayname string, declcid, actortype string) error {
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
@@ -450,18 +450,18 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user uint, handle, did,
 	return nil
 }
 
-func (rm *RepoManager) GetRepoRoot(ctx context.Context, user uint) (cid.Cid, error) {
+func (rm *RepoManager) GetRepoRoot(ctx context.Context, user util.Uid) (cid.Cid, error) {
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
 	return rm.getUserRepoHead(ctx, user)
 }
 
-func (rm *RepoManager) ReadRepo(ctx context.Context, user uint, earlyCid, lateCid cid.Cid, w io.Writer) error {
+func (rm *RepoManager) ReadRepo(ctx context.Context, user util.Uid, earlyCid, lateCid cid.Cid, w io.Writer) error {
 	return rm.cs.ReadUserCar(ctx, user, earlyCid, lateCid, true, w)
 }
 
-func (rm *RepoManager) GetRecord(ctx context.Context, user uint, collection string, rkey string, maybeCid cid.Cid) (cid.Cid, cbg.CBORMarshaler, error) {
+func (rm *RepoManager) GetRecord(ctx context.Context, user util.Uid, collection string, rkey string, maybeCid cid.Cid) (cid.Cid, cbg.CBORMarshaler, error) {
 	bs, err := rm.cs.ReadOnlySession(user)
 	if err != nil {
 		return cid.Undef, nil, err
@@ -489,7 +489,7 @@ func (rm *RepoManager) GetRecord(ctx context.Context, user uint, collection stri
 	return ocid, val, nil
 }
 
-func (rm *RepoManager) GetProfile(ctx context.Context, uid uint) (*bsky.ActorProfile, error) {
+func (rm *RepoManager) GetProfile(ctx context.Context, uid util.Uid) (*bsky.ActorProfile, error) {
 	bs, err := rm.cs.ReadOnlySession(uid)
 	if err != nil {
 		return nil, err
@@ -518,7 +518,7 @@ func (rm *RepoManager) GetProfile(ctx context.Context, uid uint) (*bsky.ActorPro
 	return ap, nil
 }
 
-func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid uint, did string, prev *cid.Cid, carslice []byte) error {
+func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid util.Uid, did string, prev *cid.Cid, carslice []byte) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "HandleExternalUserEvent")
 	defer span.End()
 
@@ -565,7 +565,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 	if prev == nil {
 		// send an implicit init actor event
 		var ai models.ActorInfo
-		if err := rm.db.First(&ai, "id = ?", uid).Error; err != nil {
+		if err := rm.db.First(&ai, "uid = ?", uid).Error; err != nil {
 			return fmt.Errorf("expected initialized user: %w", err)
 		}
 
@@ -671,7 +671,7 @@ func rkeyForCollection(collection string) string {
 	return repo.NextTID()
 }
 
-func (rm *RepoManager) BatchWrite(ctx context.Context, user uint, writes []*atproto.RepoBatchWrite_Input_Writes_Elem) error {
+func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*atproto.RepoBatchWrite_Input_Writes_Elem) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "BatchWrite")
 	defer span.End()
 
@@ -783,7 +783,7 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user uint, writes []*atpr
 	return nil
 }
 
-func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, repoDid string, r io.Reader, oldest cid.Cid) error {
+func (rm *RepoManager) ImportNewRepo(ctx context.Context, user util.Uid, repoDid string, r io.Reader, oldest cid.Cid) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "ImportNewRepo")
 	defer span.End()
 
@@ -867,7 +867,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, repoDid str
 					Kind:       EvtKindDeleteRecord,
 					Collection: parts[0],
 					Rkey:       parts[1],
-					RecCid:     &op.NewCid,
+					RecCid:     nil,
 				})
 
 			default:
@@ -908,7 +908,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user uint, repoDid str
 	return nil
 }
 
-func (rm *RepoManager) processNewRepo(ctx context.Context, user uint, r io.Reader, until cid.Cid, cb func(ctx context.Context, old, nu cid.Cid, finish func(context.Context) ([]byte, error), bs blockstore.Blockstore) error) error {
+func (rm *RepoManager) processNewRepo(ctx context.Context, user util.Uid, r io.Reader, until cid.Cid, cb func(ctx context.Context, old, nu cid.Cid, finish func(context.Context) ([]byte, error), bs blockstore.Blockstore) error) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "ImportNewRepo")
 	defer span.End()
 

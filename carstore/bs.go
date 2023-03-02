@@ -11,8 +11,10 @@ import (
 	"path/filepath"
 	"sync"
 
+	util "github.com/bluesky-social/indigo/util"
+
 	blocks "github.com/ipfs/go-block-format"
-	"github.com/ipfs/go-car/util"
+	carutil "github.com/ipfs/go-car/util"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -28,7 +30,7 @@ type CarStore struct {
 	rootDir string
 
 	lscLk          sync.Mutex
-	lastShardCache map[uint]*CarShard
+	lastShardCache map[util.Uid]*CarShard
 }
 
 func NewCarStore(meta *gorm.DB, root string) (*CarStore, error) {
@@ -47,7 +49,7 @@ func NewCarStore(meta *gorm.DB, root string) (*CarStore, error) {
 	return &CarStore{
 		meta:           meta,
 		rootDir:        root,
-		lastShardCache: make(map[uint]*CarShard),
+		lastShardCache: make(map[util.Uid]*CarShard),
 	}, nil
 }
 
@@ -63,7 +65,7 @@ type CarShard struct {
 	DataStart int64
 	Seq       int `gorm:"index"`
 	Path      string
-	Usr       uint `gorm:"index"`
+	Usr       util.Uid `gorm:"index"`
 }
 
 type blockRef struct {
@@ -76,7 +78,7 @@ type blockRef struct {
 
 type userView struct {
 	cs   *CarStore
-	user uint
+	user util.Uid
 
 	cache    map[cid.Cid]blocks.Block
 	prefetch bool
@@ -185,7 +187,7 @@ func (uv *userView) singleRead(ctx context.Context, k cid.Cid, path string, offs
 	}
 
 	bufr := bufio.NewReader(fi)
-	rcid, data, err := util.ReadNode(bufr)
+	rcid, data, err := carutil.ReadNode(bufr)
 	if err != nil {
 		return nil, err
 	}
@@ -227,13 +229,13 @@ type DeltaSession struct {
 	fresh    blockstore.Blockstore
 	blks     map[cid.Cid]blocks.Block
 	base     blockstore.Blockstore
-	user     uint
+	user     util.Uid
 	seq      int
 	readonly bool
 	cs       *CarStore
 }
 
-func (cs *CarStore) checkLastShardCache(user uint) *CarShard {
+func (cs *CarStore) checkLastShardCache(user util.Uid) *CarShard {
 	cs.lscLk.Lock()
 	defer cs.lscLk.Unlock()
 
@@ -245,14 +247,14 @@ func (cs *CarStore) checkLastShardCache(user uint) *CarShard {
 	return nil
 }
 
-func (cs *CarStore) putLastShardCache(user uint, ls *CarShard) {
+func (cs *CarStore) putLastShardCache(user util.Uid, ls *CarShard) {
 	cs.lscLk.Lock()
 	defer cs.lscLk.Unlock()
 
 	cs.lastShardCache[user] = ls
 }
 
-func (cs *CarStore) getLastShard(ctx context.Context, user uint) (*CarShard, error) {
+func (cs *CarStore) getLastShard(ctx context.Context, user util.Uid) (*CarShard, error) {
 	maybeLs := cs.checkLastShardCache(user)
 	if maybeLs != nil {
 		return maybeLs, nil
@@ -272,7 +274,7 @@ func (cs *CarStore) getLastShard(ctx context.Context, user uint) (*CarShard, err
 
 var ErrRepoBaseMismatch = fmt.Errorf("attempted a delta session on top of the wrong previous head")
 
-func (cs *CarStore) NewDeltaSession(ctx context.Context, user uint, prev *cid.Cid) (*DeltaSession, error) {
+func (cs *CarStore) NewDeltaSession(ctx context.Context, user util.Uid, prev *cid.Cid) (*DeltaSession, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "NewSession")
 	defer span.End()
 
@@ -304,7 +306,7 @@ func (cs *CarStore) NewDeltaSession(ctx context.Context, user uint, prev *cid.Ci
 	}, nil
 }
 
-func (cs *CarStore) ReadOnlySession(user uint) (*DeltaSession, error) {
+func (cs *CarStore) ReadOnlySession(user util.Uid) (*DeltaSession, error) {
 	return &DeltaSession{
 		base: &userView{
 			user:     user,
@@ -318,7 +320,7 @@ func (cs *CarStore) ReadOnlySession(user uint) (*DeltaSession, error) {
 	}, nil
 }
 
-func (cs *CarStore) ReadUserCar(ctx context.Context, user uint, earlyCid, lateCid cid.Cid, incremental bool, w io.Writer) error {
+func (cs *CarStore) ReadUserCar(ctx context.Context, user util.Uid, earlyCid, lateCid cid.Cid, incremental bool, w io.Writer) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ReadUserCar")
 	defer span.End()
 
@@ -472,7 +474,7 @@ func (ds *DeltaSession) GetSize(ctx context.Context, c cid.Cid) (int, error) {
 	return ds.base.GetSize(ctx, c)
 }
 
-func (cs *CarStore) openNewShardFile(ctx context.Context, user uint, seq int) (*os.File, string, error) {
+func (cs *CarStore) openNewShardFile(ctx context.Context, user util.Uid, seq int) (*os.File, string, error) {
 	// TODO: some overwrite protections
 	fname := filepath.Join(cs.rootDir, fmt.Sprintf("sh-%d-%d", user, seq))
 	fi, err := os.Create(fname)
@@ -483,7 +485,7 @@ func (cs *CarStore) openNewShardFile(ctx context.Context, user uint, seq int) (*
 	return fi, fname, nil
 }
 
-func (cs *CarStore) writeNewShardFile(ctx context.Context, user uint, seq int, data []byte) (string, error) {
+func (cs *CarStore) writeNewShardFile(ctx context.Context, user util.Uid, seq int, data []byte) (string, error) {
 	// TODO: some overwrite protections
 	fname := filepath.Join(cs.rootDir, fmt.Sprintf("sh-%d-%d", user, seq))
 	if err := os.WriteFile(fname, data, 0664); err != nil {
@@ -609,7 +611,7 @@ func LdWrite(w io.Writer, d ...[]byte) (int64, error) {
 	return int64(nw), nil
 }
 
-func (cs *CarStore) ImportSlice(ctx context.Context, uid uint, prev *cid.Cid, carslice []byte) (cid.Cid, *DeltaSession, error) {
+func (cs *CarStore) ImportSlice(ctx context.Context, uid util.Uid, prev *cid.Cid, carslice []byte) (cid.Cid, *DeltaSession, error) {
 
 	carr, err := car.NewCarReader(bytes.NewReader(carslice))
 	if err != nil {
@@ -642,7 +644,7 @@ func (cs *CarStore) ImportSlice(ctx context.Context, uid uint, prev *cid.Cid, ca
 	return carr.Header.Roots[0], ds, nil
 }
 
-func (cs *CarStore) GetUserRepoHead(ctx context.Context, user uint) (cid.Cid, error) {
+func (cs *CarStore) GetUserRepoHead(ctx context.Context, user util.Uid) (cid.Cid, error) {
 	lastShard, err := cs.getLastShard(ctx, user)
 	if err != nil {
 		return cid.Undef, err
