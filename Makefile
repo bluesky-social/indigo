@@ -9,7 +9,10 @@ help: ## Print info about all commands
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "    \033[01;32m%-20s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: all
-all: 
+all: build
+
+.PHONY: build
+build: ## Build all executables
 	go build ./cmd/gosky
 	go build ./cmd/laputa
 	go build ./cmd/bigsky
@@ -17,10 +20,6 @@ all:
 	go build ./cmd/lexgen
 	go build ./cmd/stress
 	go build ./cmd/fakermaker
-
-.PHONY: build
-build: ## Build all executables
-	go build ./...
 
 .PHONY: test
 test: ## Run all tests
