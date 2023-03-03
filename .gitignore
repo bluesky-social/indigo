@@ -19,6 +19,15 @@ src/build/
 *.db
 data/
 
+# executables
+beemo
+bigsky
+fakermaker
+gosky
+laputa
+lexgen
+stress
+
 # Don't ignore this file itself, or other specific dotfiles
 !.gitignore
 !.github/
