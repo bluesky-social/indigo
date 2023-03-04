@@ -40,6 +40,8 @@ func (s *PLCServer) GetDocument(ctx context.Context, didstr string) (*did.Docume
 		return nil, err
 	}
 
+	defer resp.Body.Close()
+
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("get did request failed (code %d): %s", resp.StatusCode, resp.Status)
 	}
@@ -108,6 +110,8 @@ func (s *PLCServer) CreateDID(ctx context.Context, sigkey *did.PrivKey, recovery
 	if err != nil {
 		return "", err
 	}
+
+	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		b, _ := ioutil.ReadAll(resp.Body)
