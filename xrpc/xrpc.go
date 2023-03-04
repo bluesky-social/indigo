@@ -110,7 +110,6 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 	if resp.StatusCode != 200 {
 		var i interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&i)
-		fmt.Println("debug body response: ", i)
 		return fmt.Errorf("XRPC ERROR %d: %s", resp.StatusCode, resp.Status)
 	}
 
