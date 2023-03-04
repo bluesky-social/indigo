@@ -831,15 +831,9 @@ var readRepoStreamCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-		ctx, cancel := context.WithCancel(context.Background())
 
-		ch := make(chan os.Signal)
-		signal.Notify(ch, syscall.SIGINT)
-
-		go func() {
-			<-ch
-			cancel()
-		}()
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT)
+		defer stop()
 
 		d := websocket.DefaultDialer
 		con, _, err := d.Dial(cctx.Args().First(), http.Header{})
