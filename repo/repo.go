@@ -42,7 +42,7 @@ type Repo struct {
 
 	repoCid cid.Cid
 
-	meta Meta
+	meta *Meta
 
 	mst *mst.MerkleSearchTree
 
@@ -82,7 +82,7 @@ func ReadRepoFromCar(ctx context.Context, r io.Reader) (*Repo, error) {
 		return nil, err
 	}
 
-	return OpenRepo(ctx, bs, root)
+	return OpenRepo(ctx, bs, root, false)
 }
 
 func NewRepo(ctx context.Context, did string, bs blockstore.Blockstore) *Repo {
@@ -90,7 +90,7 @@ func NewRepo(ctx context.Context, did string, bs blockstore.Blockstore) *Repo {
 
 	t := mst.NewMST(cst, cid.Undef, []mst.NodeEntry{}, 0)
 
-	meta := Meta{
+	meta := &Meta{
 		Datastore: "TODO",
 		Did:       did,
 		Version:   1,
@@ -105,7 +105,7 @@ func NewRepo(ctx context.Context, did string, bs blockstore.Blockstore) *Repo {
 	}
 }
 
-func OpenRepo(ctx context.Context, bs blockstore.Blockstore, root cid.Cid) (*Repo, error) {
+func OpenRepo(ctx context.Context, bs blockstore.Blockstore, root cid.Cid, fullRepo bool) (*Repo, error) {
 	cst := util.CborStore(bs)
 
 	var sr SignedCommit
@@ -118,9 +118,13 @@ func OpenRepo(ctx context.Context, bs blockstore.Blockstore, root cid.Cid) (*Rep
 		return nil, fmt.Errorf("loading root: %w", err)
 	}
 
-	var meta Meta
-	if err := cst.Get(ctx, rt.Meta, &meta); err != nil {
-		return nil, fmt.Errorf("loading meta: %w", err)
+	var meta *Meta
+	if fullRepo {
+		var m Meta
+		if err := cst.Get(ctx, rt.Meta, &m); err != nil {
+			return nil, fmt.Errorf("loading meta: %w", err)
+		}
+		meta = &m
 	}
 
 	return &Repo{
@@ -247,6 +251,10 @@ func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, 
 	ctx, span := otel.Tracer("repo").Start(ctx, "Commit")
 	defer span.End()
 
+	if r.meta == nil {
+		return cid.Undef, fmt.Errorf("cannot commit a repo with no meta set")
+	}
+
 	t, err := r.getMst(ctx)
 	if err != nil {
 		return cid.Undef, err
@@ -269,7 +277,7 @@ func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, 
 		nroot.Prev = &r.repoCid
 		nroot.Meta = rt.Meta
 	} else {
-		mcid, err := r.cst.Put(ctx, &r.meta)
+		mcid, err := r.cst.Put(ctx, r.meta)
 		if err != nil {
 			return cid.Undef, err
 		}
@@ -376,7 +384,7 @@ func (r *Repo) DiffSince(ctx context.Context, oldrepo cid.Cid) ([]*mst.DiffOp, e
 
 	var oldTree cid.Cid
 	if oldrepo.Defined() {
-		otherRepo, err := OpenRepo(ctx, r.bs, oldrepo)
+		otherRepo, err := OpenRepo(ctx, r.bs, oldrepo, true)
 		if err != nil {
 			return nil, err
 		}

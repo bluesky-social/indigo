@@ -20,6 +20,7 @@ import (
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -854,6 +855,8 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 	ctx, span := otel.Tracer("indexer").Start(ctx, "FetchAndIndexRepo")
 	defer span.End()
 
+	span.SetAttributes(attribute.Int("catchup", len(job.catchup)))
+
 	ai := job.act
 
 	var pds models.PDS
@@ -879,6 +882,9 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 	var from string
 	if curHead.Defined() {
 		from = curHead.String()
+	} else {
+		span.SetAttributes(attribute.Bool("full", true))
+
 	}
 
 	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us

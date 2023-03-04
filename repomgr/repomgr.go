@@ -28,6 +28,8 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+const MaxSliceLength = 2 << 20
+
 var log = logging.Logger("repomgr")
 
 func NewRepoManager(db *gorm.DB, cs *carstore.CarStore, kmgr KeyManager) *RepoManager {
@@ -190,7 +192,7 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user util.Uid, collecti
 		return "", cid.Undef, err
 	}
 
-	r, err := repo.OpenRepo(ctx, ds, head)
+	r, err := repo.OpenRepo(ctx, ds, head, true)
 	if err != nil {
 		return "", cid.Undef, err
 	}
@@ -256,7 +258,7 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user util.Uid, collecti
 		return cid.Undef, err
 	}
 
-	r, err := repo.OpenRepo(ctx, ds, head)
+	r, err := repo.OpenRepo(ctx, ds, head, true)
 	if err != nil {
 		return cid.Undef, err
 	}
@@ -323,7 +325,7 @@ func (rm *RepoManager) DeleteRecord(ctx context.Context, user util.Uid, collecti
 		return err
 	}
 
-	r, err := repo.OpenRepo(ctx, ds, head)
+	r, err := repo.OpenRepo(ctx, ds, head, true)
 	if err != nil {
 		return err
 	}
@@ -472,7 +474,7 @@ func (rm *RepoManager) GetRecord(ctx context.Context, user util.Uid, collection 
 		return cid.Undef, nil, err
 	}
 
-	r, err := repo.OpenRepo(ctx, bs, head)
+	r, err := repo.OpenRepo(ctx, bs, head, true)
 	if err != nil {
 		return cid.Undef, nil, err
 	}
@@ -500,7 +502,7 @@ func (rm *RepoManager) GetProfile(ctx context.Context, uid util.Uid) (*bsky.Acto
 		return nil, err
 	}
 
-	r, err := repo.OpenRepo(ctx, bs, head)
+	r, err := repo.OpenRepo(ctx, bs, head, true)
 	if err != nil {
 		return nil, err
 	}
@@ -532,9 +534,9 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		return fmt.Errorf("importing external carslice: %w", err)
 	}
 
-	r, err := repo.OpenRepo(ctx, ds, root)
+	r, err := repo.OpenRepo(ctx, ds, root, true)
 	if err != nil {
-		return fmt.Errorf("opening external user repo: %w", err)
+		return fmt.Errorf("opening external user repo (%d): %w", uid, err)
 	}
 
 	repoDid := r.RepoDid()
@@ -688,7 +690,7 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*
 		return err
 	}
 
-	r, err := repo.OpenRepo(ctx, ds, head)
+	r, err := repo.OpenRepo(ctx, ds, head, true)
 	if err != nil {
 		return err
 	}
@@ -810,7 +812,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user util.Uid, repoDid
 	}
 
 	err = rm.processNewRepo(ctx, user, r, head, func(ctx context.Context, old, nu cid.Cid, finish func(context.Context) ([]byte, error), bs blockstore.Blockstore) error {
-		r, err := repo.OpenRepo(ctx, bs, nu)
+		r, err := repo.OpenRepo(ctx, bs, nu, true)
 		if err != nil {
 			return fmt.Errorf("opening new repo: %w", err)
 		}
@@ -879,6 +881,10 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user util.Uid, repoDid
 		if err != nil {
 			return err
 		}
+		if len(slice) > MaxSliceLength {
+			return fmt.Errorf("resultant slice was too large, len=%d user=%d old=%s new=%s", len(slice), user, old, nu)
+
+		}
 
 		if err := rm.updateUserRepoHead(ctx, user, nu); err != nil {
 			// TODO: this will lead to things being in an inconsistent state
@@ -944,7 +950,7 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user util.Uid, r io.R
 			return err
 		}
 
-		old, err := repo.OpenRepo(ctx, robs, until)
+		old, err := repo.OpenRepo(ctx, robs, until, true)
 		if err != nil {
 			return err
 		}
@@ -972,7 +978,7 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user util.Uid, r io.R
 	for head != nil && *head != until {
 
 		commits = append(commits, *head)
-		rep, err := repo.OpenRepo(ctx, membs, *head)
+		rep, err := repo.OpenRepo(ctx, membs, *head, true)
 		if err != nil {
 			return fmt.Errorf("opening repo for backwalk (%d commits, until: %s, head: %s): %w", len(commits), until, *head, err)
 		}

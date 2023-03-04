@@ -575,7 +575,7 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) ([]byte
 			ref["shard"] = shard.ID
 		}
 
-		if err := tx.Table("block_refs").Create(brefs).Error; err != nil {
+		if err := tx.Table("block_refs").CreateInBatches(brefs, 100).Error; err != nil {
 			return err
 		}
 

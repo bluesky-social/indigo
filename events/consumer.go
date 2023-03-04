@@ -34,6 +34,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 		}
 	}()
 
+	lastSeq := int64(-1)
 	for {
 		mt, r, err := con.NextReader()
 		if err != nil {
@@ -59,10 +60,18 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 				return fmt.Errorf("reading repoAppend event: %w", err)
 			}
 
+			if evt.Seq < lastSeq {
+				log.Errorf("Got events out of order from stream (seq = %d, prev = %d)", evt.Seq, lastSeq)
+			}
+
+			lastSeq = evt.Seq
+
 			if cbs.Append != nil {
 				if err := cbs.Append(&evt); err != nil {
 					return err
 				}
+			} else {
+				log.Warnf("received repo append event with nil append object (seq %d)", evt.Seq)
 			}
 		case EvtKindInfoFrame:
 			var info InfoFrame
