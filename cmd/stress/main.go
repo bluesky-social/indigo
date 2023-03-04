@@ -43,7 +43,6 @@ func main() {
 }
 
 func run(args []string) {
-
 	app := cli.App{
 		Name:  "stress",
 		Usage: "load generation tool for PDS instances",

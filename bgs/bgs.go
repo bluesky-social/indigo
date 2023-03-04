@@ -30,6 +30,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	promclient "github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
 )
 
@@ -252,6 +253,9 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 }
 
 func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *events.RepoStreamEvent) error {
+	ctx, span := otel.Tracer("bgs").Start(ctx, "handleFedEvent")
+	defer span.End()
+
 	switch {
 	case env.Append != nil:
 		evt := env.Append
@@ -284,6 +288,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		// TODO: if the user is already in the 'slow' path, we shouldnt even bother trying to fast path this event
 
 		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, prevcid, evt.Blocks); err != nil {
+
 			if !errors.Is(err, carstore.ErrRepoBaseMismatch) {
 				return fmt.Errorf("handle user event failed: %w", err)
 			}
@@ -292,6 +297,8 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			if err != nil {
 				return err
 			}
+
+			span.SetAttributes(attribute.Bool("catchup_queue", true))
 
 			return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
 		}
