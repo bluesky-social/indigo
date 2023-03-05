@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -49,6 +50,12 @@ func run(args []string) {
 			Usage:   "method, hostname, and port of PDS instance",
 			Value:   "http://localhost:4849",
 			EnvVars: []string{"ATP_PDS_HOST"},
+		},
+		&cli.StringFlag{
+			Name:    "redsky-host",
+			Usage:   "method, hostname, and port of redsky, for direct links",
+			Value:   "http://localhost:3000",
+			EnvVars: []string{"ATP_REDSKY_HOST"},
 		},
 		&cli.StringFlag{
 			Name:     "handle",
@@ -157,18 +164,17 @@ func pollNewReports(cctx *cli.Context) error {
 				return fmt.Errorf("invalid time format for 'createdAt': %w", err)
 			}
 			if createdAt.After(since) {
-				// ok, we found a "new" report, need to notify
-				msg := fmt.Sprintf("===== New moderation report received =====\n")
-				msg += fmt.Sprintf("PDS: `%s`\t", cctx.String("pds-host"))
-				msg += fmt.Sprintf("report id: `%d`\t", report.Id)
-				msg += fmt.Sprintf("recent unresolved: `%d`\n", len(mrr.Reports))
-				msg += fmt.Sprintf("createdAt: `%s`\n", report.CreatedAt)
-				msg += fmt.Sprintf("reasonType: `%s`\n", *report.ReasonType)
-				if report.Subject.RepoRepoRef != nil {
-					msg += fmt.Sprintf("subject: `%s`\n", report.Subject.RepoRepoRef.Did)
-				} else {
-					msg += fmt.Sprintf("subject: `%s`\n", report.Subject.RepoStrongRef.Uri)
+				shortType := ""
+				if report.ReasonType != nil && strings.Contains(*report.ReasonType, "#") {
+					shortType = strings.SplitN(*report.ReasonType, "#", 2)[1]
 				}
+				// ok, we found a "new" report, need to notify
+				msg := fmt.Sprintf("⚠️ New report at `%s` ⚠️\n", report.CreatedAt)
+				msg += fmt.Sprintf("report id: `%d`\t", report.Id)
+				msg += fmt.Sprintf("recent unresolved: `%d`\t", len(mrr.Reports))
+				msg += fmt.Sprintf("instance: `%s`\n", cctx.String("pds-host"))
+				msg += fmt.Sprintf("reasonType: `%s`\t", shortType)
+				msg += fmt.Sprintf("Redsky: %s/reports/%d\n", cctx.String("redsky-host"), report.Id)
 				//msg += fmt.Sprintf("reportedByDid: `%s`\n", report.ReportedByDid)
 				log.Infof("found new report, notifying slack: %s", report)
 				err := sendSlackMsg(cctx, msg)
