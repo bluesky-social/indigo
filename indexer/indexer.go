@@ -82,9 +82,9 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 	var outops []*events.RepoOp
 	for _, op := range evt.Ops {
 		outops = append(outops, &events.RepoOp{
-			Path: op.Collection + "/" + op.Rkey,
-			Kind: string(op.Kind),
-			Rec:  op.RecCid,
+			Path:   op.Collection + "/" + op.Rkey,
+			Action: string(op.Kind),
+			Cid:    op.RecCid,
 		})
 
 		switch op.Kind {
