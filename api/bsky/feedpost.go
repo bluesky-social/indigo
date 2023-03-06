@@ -30,6 +30,7 @@ type FeedPost struct {
 type FeedPost_Embed struct {
 	EmbedImages   *EmbedImages
 	EmbedExternal *EmbedExternal
+	EmbedRecord   *EmbedRecord
 }
 
 func (t *FeedPost_Embed) MarshalJSON() ([]byte, error) {
@@ -40,6 +41,10 @@ func (t *FeedPost_Embed) MarshalJSON() ([]byte, error) {
 	if t.EmbedExternal != nil {
 		t.EmbedExternal.LexiconTypeID = "app.bsky.embed.external"
 		return json.Marshal(t.EmbedExternal)
+	}
+	if t.EmbedRecord != nil {
+		t.EmbedRecord.LexiconTypeID = "app.bsky.embed.record"
+		return json.Marshal(t.EmbedRecord)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -56,6 +61,9 @@ func (t *FeedPost_Embed) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.external":
 		t.EmbedExternal = new(EmbedExternal)
 		return json.Unmarshal(b, t.EmbedExternal)
+	case "app.bsky.embed.record":
+		t.EmbedRecord = new(EmbedRecord)
+		return json.Unmarshal(b, t.EmbedRecord)
 
 	default:
 		return nil
@@ -74,8 +82,12 @@ func (t *FeedPost_Embed) MarshalCBOR(w io.Writer) error {
 	if t.EmbedExternal != nil {
 		return t.EmbedExternal.MarshalCBOR(w)
 	}
+	if t.EmbedRecord != nil {
+		return t.EmbedRecord.MarshalCBOR(w)
+	}
 	return fmt.Errorf("cannot cbor marshal empty enum")
 }
+
 func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
 	typ, b, err := util.CborTypeExtractReader(r)
 	if err != nil {
@@ -89,7 +101,9 @@ func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.embed.external":
 		t.EmbedExternal = new(EmbedExternal)
 		return t.EmbedExternal.UnmarshalCBOR(bytes.NewReader(b))
-
+	case "app.bsky.embed.record":
+		t.EmbedRecord = new(EmbedRecord)
+		return t.EmbedRecord.UnmarshalCBOR(bytes.NewReader(b))
 	default:
 		return nil
 	}
@@ -132,6 +146,7 @@ type FeedPost_View struct {
 type FeedPost_View_Embed struct {
 	EmbedImages_Presented   *EmbedImages_Presented
 	EmbedExternal_Presented *EmbedExternal_Presented
+	EmbedRecord_Presented   *EmbedRecord_Presented
 }
 
 func (t *FeedPost_View_Embed) MarshalJSON() ([]byte, error) {
@@ -142,6 +157,10 @@ func (t *FeedPost_View_Embed) MarshalJSON() ([]byte, error) {
 	if t.EmbedExternal_Presented != nil {
 		t.EmbedExternal_Presented.LexiconTypeID = "app.bsky.embed.external#presented"
 		return json.Marshal(t.EmbedExternal_Presented)
+	}
+	if t.EmbedRecord_Presented != nil {
+		t.EmbedRecord_Presented.LexiconTypeID = "app.bsky.embed.record#presented"
+		return json.Marshal(t.EmbedRecord_Presented)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -158,6 +177,9 @@ func (t *FeedPost_View_Embed) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.external#presented":
 		t.EmbedExternal_Presented = new(EmbedExternal_Presented)
 		return json.Unmarshal(b, t.EmbedExternal_Presented)
+	case "app.bsky.embed.record#presented":
+		t.EmbedRecord_Presented = new(EmbedRecord_Presented)
+		return json.Unmarshal(b, t.EmbedRecord_Presented)
 
 	default:
 		return nil

@@ -70,3 +70,15 @@ func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, earli
 
 	return buf, nil
 }
+
+func (s *BGS) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []string, did string) (io.Reader, error) {
+	panic("NYI")
+}
+
+func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, host string) error {
+	panic("NYI")
+}
+
+func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context) error {
+	panic("NYI")
+}
