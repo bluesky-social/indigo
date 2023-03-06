@@ -505,11 +505,14 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.session.delete", s.HandleComAtprotoSessionDelete)
 	e.GET("/xrpc/com.atproto.session.get", s.HandleComAtprotoSessionGet)
 	e.POST("/xrpc/com.atproto.session.refresh", s.HandleComAtprotoSessionRefresh)
+	e.GET("/xrpc/com.atproto.sync.getBlocks", s.HandleComAtprotoSyncGetBlocks)
 	e.GET("/xrpc/com.atproto.sync.getCheckout", s.HandleComAtprotoSyncGetCheckout)
 	e.GET("/xrpc/com.atproto.sync.getCommitPath", s.HandleComAtprotoSyncGetCommitPath)
 	e.GET("/xrpc/com.atproto.sync.getHead", s.HandleComAtprotoSyncGetHead)
 	e.GET("/xrpc/com.atproto.sync.getRecord", s.HandleComAtprotoSyncGetRecord)
 	e.GET("/xrpc/com.atproto.sync.getRepo", s.HandleComAtprotoSyncGetRepo)
+	e.GET("/xrpc/com.atproto.sync.notifyOfUpdate", s.HandleComAtprotoSyncNotifyOfUpdate)
+	e.GET("/xrpc/com.atproto.sync.requestCrawl", s.HandleComAtprotoSyncRequestCrawl)
 	return nil
 }
 
@@ -1101,6 +1104,22 @@ func (s *Server) HandleComAtprotoSessionRefresh(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandleComAtprotoSyncGetBlocks(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetBlocks")
+	defer span.End()
+
+	cids := c.QueryParams()["cids"]
+	did := c.QueryParam("did")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handleComAtprotoSyncGetBlocks(ctx context.Context,cids []string,did string) (io.Reader, error)
+	out, handleErr = s.handleComAtprotoSyncGetBlocks(ctx, cids, did)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "application/vnd.ipld.car", out)
+}
+
 func (s *Server) HandleComAtprotoSyncGetCheckout(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetCheckout")
 	defer span.End()
@@ -1177,4 +1196,29 @@ func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 		return handleErr
 	}
 	return c.Stream(200, "application/vnd.ipld.car", out)
+}
+
+func (s *Server) HandleComAtprotoSyncNotifyOfUpdate(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncNotifyOfUpdate")
+	defer span.End()
+	var handleErr error
+	// func (s *Server) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context) error
+	handleErr = s.handleComAtprotoSyncNotifyOfUpdate(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
+func (s *Server) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncRequestCrawl")
+	defer span.End()
+	host := c.QueryParam("host")
+	var handleErr error
+	// func (s *Server) handleComAtprotoSyncRequestCrawl(ctx context.Context,host string) error
+	handleErr = s.handleComAtprotoSyncRequestCrawl(ctx, host)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
 }

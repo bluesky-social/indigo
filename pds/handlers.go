@@ -749,3 +749,15 @@ func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *comatpr
 func (s *Server) handleComAtprotoHandleUpdate(ctx context.Context, body *comatprototypes.HandleUpdate_Input) error {
 	panic("nyi")
 }
+
+func (s *Server) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []string, did string) (io.Reader, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context) error {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoSyncRequestCrawl(ctx context.Context, host string) error {
+	panic("nyi")
+}
