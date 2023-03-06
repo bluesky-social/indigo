@@ -107,6 +107,8 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 		return fmt.Errorf("request failed: %w", err)
 	}
 
+	defer resp.Body.Close()
+
 	if resp.StatusCode != 200 {
 		var i interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&i)

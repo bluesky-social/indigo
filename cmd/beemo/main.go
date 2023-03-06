@@ -207,6 +207,9 @@ func sendSlackMsg(cctx *cli.Context, msg string) error {
 	if err != nil {
 		return err
 	}
+
+	defer resp.Body.Close()
+
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(resp.Body)
 	if resp.StatusCode != 200 || buf.String() != "ok" {
