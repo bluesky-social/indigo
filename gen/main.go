@@ -24,7 +24,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("api/bsky/cbor_gen.go", "bsky", bsky.FeedPost{}, bsky.FeedRepost{}, bsky.FeedVote{}, bsky.FeedPost_Entity{}, bsky.FeedPost_ReplyRef{}, bsky.FeedPost_TextSlice{}, bsky.EmbedImages{}, bsky.EmbedImages_PresentedImage{}, bsky.EmbedExternal{}, bsky.EmbedExternal_External{}, bsky.EmbedImages_Image{}, bsky.GraphFollow{}, bsky.ActorRef{}, bsky.ActorProfile{}, bsky.SystemDeclaration{}, bsky.GraphAssertion{}, bsky.GraphConfirmation{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("api/bsky/cbor_gen.go", "bsky", bsky.FeedPost{}, bsky.FeedRepost{}, bsky.FeedVote{}, bsky.FeedPost_Entity{}, bsky.FeedPost_ReplyRef{}, bsky.FeedPost_TextSlice{}, bsky.EmbedImages{}, bsky.EmbedImages_PresentedImage{}, bsky.EmbedExternal{}, bsky.EmbedExternal_External{}, bsky.EmbedImages_Image{}, bsky.GraphFollow{}, bsky.ActorRef{}, bsky.ActorProfile{}, bsky.SystemDeclaration{}, bsky.GraphAssertion{}, bsky.GraphConfirmation{}, bsky.EmbedRecord{}); err != nil {
 		panic(err)
 	}
 

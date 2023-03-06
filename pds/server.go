@@ -621,7 +621,9 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		}
 	}
 
-	evts, cancel, err := s.events.Subscribe(func(evt *events.RepoStreamEvent) bool {
+	ctx := c.Request().Context()
+
+	evts, cancel, err := s.events.Subscribe(ctx, func(evt *events.RepoStreamEvent) bool {
 		if !s.enforcePeering {
 			return true
 		}

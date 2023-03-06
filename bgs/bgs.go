@@ -215,8 +215,6 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			return nil
 		}
 	}
-
-	return nil
 }
 
 func prometheusHandler() http.Handler {
