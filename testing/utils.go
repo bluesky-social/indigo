@@ -172,6 +172,8 @@ func (tp *testPDS) RequestScraping(t *testing.T, b *testBGS) {
 		t.Fatal(err)
 	}
 
+	defer resp.Body.Close()
+
 	if resp.StatusCode != 200 {
 		t.Fatal("invalid response from bgs", resp.StatusCode)
 	}
