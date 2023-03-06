@@ -3,7 +3,6 @@ package cliutil
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -130,7 +129,7 @@ func loadAuthFromEnv(cctx *cli.Context, req bool) (*xrpc.AuthInfo, error) {
 }
 
 func ReadAuth(fname string) (*xrpc.AuthInfo, error) {
-	b, err := ioutil.ReadFile(fname)
+	b, err := io.ReadFile(fname)
 	if err != nil {
 		return nil, err
 	}

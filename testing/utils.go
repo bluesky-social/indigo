@@ -9,7 +9,6 @@ import (
 	"encoding/base32"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	mathrand "math/rand"
 	"net/http"
 	"os"
@@ -104,7 +103,7 @@ func mustSetupPDS(t *testing.T, host, suffix string, plc plc.PLCClient) *testPDS
 }
 
 func SetupPDS(host, suffix string, plc plc.PLCClient) (*testPDS, error) {
-	dir, err := ioutil.TempDir("", "integtest")
+	dir, err := os.MkdirTemp("", "integtest")
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +348,7 @@ func (u *testUser) GetNotifs(t *testing.T) []*bsky.NotificationList_Notification
 
 func testPLC(t *testing.T) *plc.FakeDid {
 	// TODO: just do in memory...
-	tdir, err := ioutil.TempDir("", "plcserv")
+	tdir, err := os.MkdirTemp("", "plcserv")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -376,7 +375,7 @@ func mustSetupBGS(t *testing.T, host string, didr plc.PLCClient) *testBGS {
 }
 
 func SetupBGS(host string, didr plc.PLCClient) (*testBGS, error) {
-	dir, err := ioutil.TempDir("", "integtest")
+	dir, err := os.MkdirTemp("", "integtest")
 	if err != nil {
 		return nil, err
 	}
@@ -635,7 +634,7 @@ func RandSentence(words []string, maxl int) string {
 }
 
 func ReadWords() ([]string, error) {
-	b, err := ioutil.ReadFile("/usr/share/dict/words")
+	b, err := os.ReadFile("/usr/share/dict/words")
 	if err != nil {
 		return nil, err
 	}

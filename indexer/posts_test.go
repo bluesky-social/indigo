@@ -2,7 +2,6 @@ package indexer
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,7 +30,7 @@ type testIx struct {
 func testIndexer(t *testing.T) *testIx {
 	t.Helper()
 
-	dir, err := ioutil.TempDir("", "ixtest")
+	dir, err := os.MkdirTemp("", "ixtest")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +84,7 @@ func (ix *testIx) Cleanup() {
 // TODO: dedupe this out into some testing utility package
 func testPLC(t *testing.T) *plc.FakeDid {
 	// TODO: just do in memory...
-	tdir, err := ioutil.TempDir("", "plcserv")
+	tdir, err := os.MkdirTemp("", "plcserv")
 	if err != nil {
 		t.Fatal(err)
 	}
