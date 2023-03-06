@@ -22,21 +22,21 @@ func ConsumeRepoStreamLite(ctx context.Context, con *websocket.Conn, cb LiteStre
 			}
 
 			for _, op := range evt.Ops {
-				ek := repomgr.EventKind(op.Kind)
+				ek := repomgr.EventKind(op.Action)
 				switch ek {
 				case repomgr.EvtKindCreateRecord, repomgr.EvtKindUpdateRecord:
 					rc, rec, err := r.GetRecord(ctx, op.Path)
 					if err != nil {
-						e := fmt.Errorf("getting record %s (%s) within seq %d for %s: %w", op.Path, *op.Rec, evt.Seq, evt.Repo, err)
+						e := fmt.Errorf("getting record %s (%s) within seq %d for %s: %w", op.Path, *op.Cid, evt.Seq, evt.Repo, err)
 						log.Error(e)
 						return nil
 					}
 
-					if rc != *op.Rec {
-						return fmt.Errorf("mismatch in record and op cid: %s != %s", rc, *op.Rec)
+					if rc != *op.Cid {
+						return fmt.Errorf("mismatch in record and op cid: %s != %s", rc, *op.Cid)
 					}
 
-					if err := cb(ek, op.Path, evt.Repo, op.Rec, rec); err != nil {
+					if err := cb(ek, op.Path, evt.Repo, op.Cid, rec); err != nil {
 						return err
 					}
 
