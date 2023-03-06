@@ -92,10 +92,10 @@ type RepoOp struct {
 type EventKind string
 
 const (
-	EvtKindCreateRecord = EventKind("createRecord")
-	EvtKindUpdateRecord = EventKind("updateRecord")
-	EvtKindDeleteRecord = EventKind("deleteRecord")
-	EvtKindInitActor    = EventKind("initActor")
+	EvtKindCreateRecord = EventKind("create")
+	EvtKindUpdateRecord = EventKind("update")
+	EvtKindDeleteRecord = EventKind("delete")
+	EvtKindInitActor    = EventKind("init")
 )
 
 type RepoHead struct {

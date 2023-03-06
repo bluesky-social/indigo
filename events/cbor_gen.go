@@ -599,49 +599,26 @@ func (t *RepoOp) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Rec (cid.Cid) (struct)
-	if len("rec") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"rec\" was too long")
+	// t.Cid (cid.Cid) (struct)
+	if len("cid") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"cid\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("rec"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("cid"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("rec")); err != nil {
+	if _, err := io.WriteString(w, string("cid")); err != nil {
 		return err
 	}
 
-	if t.Rec == nil {
+	if t.Cid == nil {
 		if _, err := cw.Write(cbg.CborNull); err != nil {
 			return err
 		}
 	} else {
-		if err := cbg.WriteCid(cw, *t.Rec); err != nil {
-			return xerrors.Errorf("failed to write cid field t.Rec: %w", err)
+		if err := cbg.WriteCid(cw, *t.Cid); err != nil {
+			return xerrors.Errorf("failed to write cid field t.Cid: %w", err)
 		}
-	}
-
-	// t.Kind (string) (string)
-	if len("kind") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"kind\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("kind"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("kind")); err != nil {
-		return err
-	}
-
-	if len(t.Kind) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Kind was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Kind))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Kind)); err != nil {
-		return err
 	}
 
 	// t.Path (string) (string)
@@ -664,6 +641,29 @@ func (t *RepoOp) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Path)); err != nil {
+		return err
+	}
+
+	// t.Action (string) (string)
+	if len("action") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"action\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("action"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("action")); err != nil {
+		return err
+	}
+
+	if len(t.Action) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Action was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Action))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Action)); err != nil {
 		return err
 	}
 	return nil
@@ -707,8 +707,8 @@ func (t *RepoOp) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Rec (cid.Cid) (struct)
-		case "rec":
+		// t.Cid (cid.Cid) (struct)
+		case "cid":
 
 			{
 
@@ -723,23 +723,12 @@ func (t *RepoOp) UnmarshalCBOR(r io.Reader) (err error) {
 
 					c, err := cbg.ReadCid(cr)
 					if err != nil {
-						return xerrors.Errorf("failed to read cid field t.Rec: %w", err)
+						return xerrors.Errorf("failed to read cid field t.Cid: %w", err)
 					}
 
-					t.Rec = &c
+					t.Cid = &c
 				}
 
-			}
-			// t.Kind (string) (string)
-		case "kind":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.Kind = string(sval)
 			}
 			// t.Path (string) (string)
 		case "path":
@@ -751,6 +740,17 @@ func (t *RepoOp) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Path = string(sval)
+			}
+			// t.Action (string) (string)
+		case "action":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Action = string(sval)
 			}
 
 		default:

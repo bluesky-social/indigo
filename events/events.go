@@ -126,9 +126,9 @@ type RepoAppend struct {
 }
 
 type RepoOp struct {
-	Path string   `cborgen:"path"`
-	Kind string   `cborgen:"kind"`
-	Rec  *cid.Cid `cborgen:"rec"`
+	Path   string   `cborgen:"path"`
+	Action string   `cborgen:"action"`
+	Cid    *cid.Cid `cborgen:"cid"`
 }
 
 type InfoFrame struct {
