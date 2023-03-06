@@ -103,7 +103,7 @@ func GetXrpcClient(cctx *cli.Context, authreq bool) (*xrpc.Client, error) {
 }
 
 func loadAuthFromEnv(cctx *cli.Context, req bool) (*xrpc.AuthInfo, error) {
-	if a := cctx.String("auth-file"); a != "" {
+	if a := cctx.String("auth"); a != "" {
 		if ai, err := ReadAuth(a); err != nil && req {
 			return nil, err
 		} else {
