@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -22,7 +21,7 @@ import (
 )
 
 func testCarStore() (*CarStore, func(), error) {
-	tempdir, err := ioutil.TempDir("", "msttest-")
+	tempdir, err := os.MkdirTemp("", "msttest-")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -53,7 +52,7 @@ func testCarStore() (*CarStore, func(), error) {
 }
 
 func testFlatfsBs() (blockstore.Blockstore, func(), error) {
-	tempdir, err := ioutil.TempDir("", "msttest-")
+	tempdir, err := os.MkdirTemp("", "msttest-")
 	if err != nil {
 		return nil, nil, err
 	}
