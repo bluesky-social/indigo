@@ -63,7 +63,7 @@ func run(args []string) {
 			EnvVars: []string{"ATP_PDS_HOST"},
 		},
 		&cli.StringFlag{
-			Name:    "auth-file",
+			Name:    "auth",
 			Usage:   "path to JSON file with ATP auth info",
 			Value:   "bsky.auth",
 			EnvVars: []string{"ATP_AUTH_FILE"},
@@ -86,6 +86,7 @@ func run(args []string) {
 		followsCmd,
 		resetPasswordCmd,
 		readRepoStreamCmd,
+		updateHandleCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -542,7 +543,7 @@ var refreshAuthTokenCmd = &cli.Command{
 			return err
 		}
 
-		if err := os.WriteFile(cctx.String("auth-file"), b, 0600); err != nil {
+		if err := os.WriteFile(cctx.String("auth"), b, 0600); err != nil {
 			return err
 		}
 
@@ -816,6 +817,29 @@ var resetPasswordCmd = &cli.Command{
 			Password: npass,
 			Token:    code,
 		}); err != nil {
+			return err
+		}
+
+		return nil
+	},
+}
+
+var updateHandleCmd = &cli.Command{
+	Name: "updateHandle",
+	Action: func(cctx *cli.Context) error {
+		ctx := context.TODO()
+
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		handle := cctx.Args().Get(0)
+
+		err = comatproto.HandleUpdate(ctx, xrpcc, &comatproto.HandleUpdate_Input{
+			Handle: handle,
+		})
+		if err != nil {
 			return err
 		}
 
