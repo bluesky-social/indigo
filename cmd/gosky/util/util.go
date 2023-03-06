@@ -129,7 +129,7 @@ func loadAuthFromEnv(cctx *cli.Context, req bool) (*xrpc.AuthInfo, error) {
 }
 
 func ReadAuth(fname string) (*xrpc.AuthInfo, error) {
-	b, err := io.ReadFile(fname)
+	b, err := os.ReadFile(fname)
 	if err != nil {
 		return nil, err
 	}
