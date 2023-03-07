@@ -109,7 +109,12 @@ func (p *DbPersistence) Persist(ctx context.Context, e *RepoStreamEvent) error {
 	for _, op := range evt.Ops {
 		var rec *util.DbCID
 		if op.Cid != nil {
-			rec = &util.DbCID{*op.Cid}
+			c, err := cid.Decode(*op.Cid)
+			if err != nil {
+				return err
+			}
+
+			rec = &util.DbCID{c}
 		}
 		rer.Ops = append(rer.Ops, RepoOpRecord{
 			Path:   op.Path,
@@ -211,10 +216,11 @@ func (p *DbPersistence) hydrate(ctx context.Context, rer *RepoEventRecord) (*Rep
 			rec = &op.Rec.CID
 		}
 
+		rc := rec.String()
 		out.Ops = append(out.Ops, &RepoOp{
 			Path:   op.Path,
 			Action: op.Action,
-			Cid:    rec,
+			Cid:    &rc,
 		})
 	}
 

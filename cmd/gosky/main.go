@@ -871,7 +871,8 @@ var readRepoStreamCmd = &cli.Command{
 			fmt.Println("Stream Exited", time.Now().Format(time.RFC3339))
 		}()
 
-		defer func() {
+		go func() {
+			<-ctx.Done()
 			_ = con.Close()
 		}()
 

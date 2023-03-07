@@ -32,11 +32,11 @@ func ConsumeRepoStreamLite(ctx context.Context, con *websocket.Conn, cb LiteStre
 						return nil
 					}
 
-					if rc != *op.Cid {
+					if rc.String() != *op.Cid {
 						return fmt.Errorf("mismatch in record and op cid: %s != %s", rc, *op.Cid)
 					}
 
-					if err := cb(ek, op.Path, evt.Repo, op.Cid, rec); err != nil {
+					if err := cb(ek, op.Path, evt.Repo, &rc, rec); err != nil {
 						return err
 					}
 
