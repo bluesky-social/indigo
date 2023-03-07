@@ -48,7 +48,7 @@ func (km *KeyManager) getKey(ctx context.Context, did string) (*did.PubKey, erro
 		return nil, err
 	}
 
-	pubk, err := doc.GetPublicKey("#signingKey")
+	pubk, err := doc.GetPublicKey("#atproto")
 	if err != nil {
 		return nil, err
 	}
