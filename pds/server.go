@@ -267,10 +267,16 @@ func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent
 	}
 
 	for _, op := range evt.Ops {
+		var s *string
+		if op.RecCid != nil {
+			cs := op.RecCid.String()
+			s = &cs
+		}
+
 		out.Ops = append(out.Ops, &events.RepoOp{
 			Path:   op.Collection + "/" + op.Rkey,
 			Action: string(op.Kind),
-			Cid:    op.RecCid,
+			Cid:    s,
 		})
 	}
 
