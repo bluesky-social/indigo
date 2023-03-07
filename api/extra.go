@@ -35,7 +35,7 @@ func ResolveDidToHandle(ctx context.Context, xrpcc *xrpc.Client, pls *PLCServer,
 
 	var svc *did.Service
 	for _, s := range doc.Service {
-		if s.Type == "AtpPersonalDataServer" {
+		if s.ID.String() == "#atproto_pds" && s.Type == "AtprotoPersonalDataServer" {
 			svc = &s
 			break
 		}
