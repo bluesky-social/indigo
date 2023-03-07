@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/util"
-	cid "github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 )
 
@@ -126,9 +125,9 @@ type RepoAppend struct {
 }
 
 type RepoOp struct {
-	Path   string   `cborgen:"path"`
-	Action string   `cborgen:"action"`
-	Cid    *cid.Cid `cborgen:"cid"`
+	Path   string  `cborgen:"path"`
+	Action string  `cborgen:"action"`
+	Cid    *string `cborgen:"cid"`
 }
 
 type InfoFrame struct {
