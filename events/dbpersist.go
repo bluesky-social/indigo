@@ -136,6 +136,7 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*Repo
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		var evt RepoEventRecord
