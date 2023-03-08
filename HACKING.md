@@ -84,7 +84,7 @@ first, then merge changes in to the actual PDS code:
 
 ## tips and tricks
 
-When debugging websocat streams, the `websocat` tool (rust) can be helpful. CBOR binary is sort of mangled in to text by default. Eg:
+When debugging websocket streams, the `websocat` tool (rust) can be helpful. CBOR binary is sort of mangled in to text by default. Eg:
 
     # consume repo events from PDS
     websocat ws://localhost:4989/events
