@@ -1,7 +1,6 @@
 package testing
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -161,20 +160,10 @@ func (tp *testPDS) Run(t *testing.T) {
 
 func (tp *testPDS) RequestScraping(t *testing.T, b *testBGS) {
 	t.Helper()
-	bb, err := json.Marshal(map[string]string{"host": tp.host})
-	if err != nil {
+
+	c := &xrpc.Client{Host: "http://" + b.host}
+	if err := atproto.SyncRequestCrawl(context.TODO(), c, tp.host); err != nil {
 		t.Fatal(err)
-	}
-
-	resp, err := http.Post("http://"+b.host+"/add-target", "application/json", bytes.NewReader(bb))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		t.Fatal("invalid response from bgs", resp.StatusCode)
 	}
 }
 

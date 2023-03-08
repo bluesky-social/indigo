@@ -25,6 +25,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const MaxSliceLength = 2 << 20
+
 type CarStore struct {
 	meta    *gorm.DB
 	rootDir string
@@ -287,7 +289,7 @@ func (cs *CarStore) NewDeltaSession(ctx context.Context, user util.Uid, prev *ci
 
 	if prev != nil {
 		if lastShard.Root != prev.String() {
-			return nil, ErrRepoBaseMismatch
+			return nil, fmt.Errorf("mismatch: %s != %s: %w", lastShard.Root, prev.String(), ErrRepoBaseMismatch)
 		}
 	}
 
@@ -532,6 +534,9 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) ([]byte
 			return nil, err
 		}
 
+		if buf.Len() > MaxSliceLength {
+			return nil, fmt.Errorf("cannot close carstore session, too much data written (%d)", buf.Len())
+		}
 		/*
 			brefs = append(brefs, &blockRef{
 				Cid:    k.String(),

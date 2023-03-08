@@ -37,7 +37,7 @@ func NewSlurper(db *gorm.DB, cb IndexCallback, ssl bool) *Slurper {
 	}
 }
 
-func (s *Slurper) SubscribeToPds(ctx context.Context, host string) error {
+func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) error {
 	// TODO: for performance, lock on the hostname instead of global
 	s.lk.Lock()
 	defer s.lk.Unlock()
@@ -55,14 +55,22 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string) error {
 	if peering.ID == 0 {
 		// New PDS!
 		npds := models.PDS{
-			Host: host,
-			SSL:  s.ssl,
+			Host:       host,
+			SSL:        s.ssl,
+			Registered: reg,
 		}
 		if err := s.db.Create(&npds).Error; err != nil {
 			return err
 		}
 
 		peering = npds
+	}
+
+	if !peering.Registered && reg {
+		peering.Registered = true
+		if err := s.db.Model(models.PDS{}).Where("id = ?").Update("registered", true).Error; err != nil {
+			return err
+		}
 	}
 
 	s.active[host] = &peering
@@ -155,7 +163,7 @@ func (s *Slurper) handleConnection(host *models.PDS, con *websocket.Conn, lastCu
 			if err := s.cb(context.TODO(), host, &events.RepoStreamEvent{
 				Append: evt,
 			}); err != nil {
-				log.Errorf("failed to index event from %q: %s", host.Host, err)
+				log.Errorf("failed to index event from %q (%d): %s", host.Host, evt.Seq, err)
 			}
 			*lastCursor = evt.Seq
 
