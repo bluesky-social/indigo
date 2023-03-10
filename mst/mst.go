@@ -191,8 +191,8 @@ func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]NodeEntry, error
 func entriesFromNodeData(ctx context.Context, nd *NodeData, cst cbor.IpldStore) ([]NodeEntry, error) {
 	layer := -1
 	if len(nd.Entries) > 0 {
+		// NOTE(bnewbold): can compute the layer on the first KeySuffix, because for the first entry that field is a complete key
 		firstLeaf := nd.Entries[0]
-		// XXX: this is is wrong, should compute *after* the full key is available
 		layer = leadingZerosOnHash(string(firstLeaf.KeySuffix))
 	}
 
