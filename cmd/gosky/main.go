@@ -72,6 +72,7 @@ func run(args []string) {
 	app.Commands = []*cli.Command{
 		actorGetSuggestionsCmd,
 		createSessionCmd,
+		debugCmd,
 		deletePostCmd,
 		didCmd,
 		feedGetCmd,
