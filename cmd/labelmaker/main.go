@@ -2,124 +2,122 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/bluesky-social/indigo/carstore"
+	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	"github.com/bluesky-social/indigo/labeling"
 	"github.com/urfave/cli/v2"
-	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/jaeger"
-	"go.opentelemetry.io/otel/sdk/resource"
-	tracesdk "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	logging "github.com/ipfs/go-log"
+	"github.com/joho/godotenv"
 	"gorm.io/plugin/opentelemetry/tracing"
 )
 
+var log = logging.Logger("labelmaker")
+
 func main() {
-	app := cli.NewApp()
+
+	// only try dotenv if it exists
+	if _, err := os.Stat(".env"); err == nil {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatal("Error loading .env file")
+		}
+	}
+
+	run(os.Args)
+}
+
+func run(args []string) {
+
+	app := cli.App{
+		Name:  "labelmaker",
+		Usage: "atproto content labeling daemon",
+	}
 
 	app.Flags = []cli.Flag{
-		&cli.BoolFlag{
-			Name: "jaeger",
-		},
-		&cli.BoolFlag{
-			// Temp flag for testing, eventually will just pass db connection strings here
-			Name: "postgres",
-		},
-		&cli.BoolFlag{
-			Name: "dbtracing",
-		},
-		/* XXX unused?
 		&cli.StringFlag{
-			Name:  "labelmakerhost",
-			Usage: "hostname of the labelmaker",
-			Value: "localhost:2210",
+			Name:    "db-url",
+			Usage:   "database connection string for labelmaker database",
+			Value:   "sqlite://./data/labelmaker/labelmaker.sqlite",
+			EnvVars: []string{"DATABASE_URL"},
 		},
-		*/
+		&cli.StringFlag{
+			Name:    "carstore-db-url",
+			Usage:   "database connection string for carstore database",
+			Value:   "sqlite://./data/labelmaker/carstore.sqlite",
+			EnvVars: []string{"CARSTORE_DATABASE_URL"},
+		},
+		&cli.BoolFlag{
+			Name: "db-tracing",
+		},
+		&cli.StringFlag{
+			Name:    "data-dir",
+			Usage:   "path of directory for CAR files and other data",
+			Value:   "data/labelmaker",
+			EnvVars: []string{"DATA_DIR"},
+		},
+		&cli.StringFlag{
+			Name:    "bgs-host",
+			Usage:   "hostname and port of BGS to subscribe to",
+			Value:   "localhost:2470",
+			EnvVars: []string{"ATP_BGS_HOST"},
+		},
+		&cli.StringFlag{
+			Name:    "plc-host",
+			Usage:   "method, hostname, and port of PLC registry",
+			Value:   "https://plc.directory",
+			EnvVars: []string{"ATP_PLC_HOST"},
+		},
+		&cli.BoolFlag{
+			Name:  "subscribe-insecure-ws",
+			Usage: "when connecting to BGS instance, use ws:// instead of wss://",
+		},
 	}
 
 	app.Action = func(cctx *cli.Context) error {
 
-		if cctx.Bool("jaeger") {
-			url := "http://localhost:14268/api/traces"
-			exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(url)))
-			if err != nil {
-				return err
-			}
-			tp := tracesdk.NewTracerProvider(
-				// Always be sure to batch in production.
-				tracesdk.WithBatcher(exp),
-				// Record information about this application in a Resource.
-				tracesdk.WithResource(resource.NewWithAttributes(
-					semconv.SchemaURL,
-					semconv.ServiceNameKey.String("labelmaker"),
-					attribute.String("environment", "test"),
-					attribute.Int64("ID", 1),
-				)),
-			)
-
-			otel.SetTracerProvider(tp)
-		}
-
-		pgdb := cctx.Bool("postgres")
-		dbtracing := cctx.Bool("dbtracing")
-
 		// ensure data directory exists; won't error if it does
-		os.MkdirAll("data/labelmaker/", os.ModePerm)
+		datadir := cctx.String("data-dir")
+		csdir := filepath.Join(datadir, "carstore")
+		os.MkdirAll(datadir, os.ModePerm)
 
-		var labalmakerdial gorm.Dialector
-		if pgdb {
-			dsn := "host=localhost user=postgres password=password dbname=labelmakerdb port=5432 sslmode=disable"
-			labalmakerdial = postgres.Open(dsn)
-		} else {
-			labalmakerdial = sqlite.Open("data/labelmaker/labelmaker.sqlite")
-		}
-		db, err := gorm.Open(labalmakerdial, &gorm.Config{})
+		dburl := cctx.String("db-url")
+		db, err := cliutil.SetupDatabase(dburl)
 		if err != nil {
 			return err
 		}
 
-		if dbtracing {
+		csdburl := cctx.String("carstore-db-url")
+		csdb, err := cliutil.SetupDatabase(csdburl)
+		if err != nil {
+			return err
+		}
+
+		if cctx.Bool("db-tracing") {
 			if err := db.Use(tracing.NewPlugin()); err != nil {
 				return err
 			}
-		}
-
-		var cardial gorm.Dialector
-		if pgdb {
-			dsn2 := "host=localhost user=postgres password=password dbname=cardb port=5432 sslmode=disable"
-			cardial = postgres.Open(dsn2)
-		} else {
-			cardial = sqlite.Open("data/labelmaker/carstore.sqlite")
-		}
-		carstdb, err := gorm.Open(cardial, &gorm.Config{})
-		if err != nil {
-			return err
-		}
-
-		if dbtracing {
-			if err := carstdb.Use(tracing.NewPlugin()); err != nil {
+			if err := csdb.Use(tracing.NewPlugin()); err != nil {
 				return err
 			}
 		}
 
-		cs, err := carstore.NewCarStore(carstdb, "data/labelmaker/carstore")
+		os.MkdirAll(filepath.Dir(csdir), os.ModePerm)
+		cstore, err := carstore.NewCarStore(csdb, csdir)
 		if err != nil {
 			return err
 		}
 
+		// TODO: additional config work to be done
 		repoDid := "did:plc:FAKE"
 		repoHandle := "labelmaker.test"
-		// NOTE: connecting to PDS for now, not actual BGS
-		//bgsUrl := "localhost:2470"
-		bgsUrl := "localhost:4989"
-		//plcUrl := "https://plc.directory"
-		plcUrl := "http://localhost:2582"
-		srv, err := labeling.NewServer(db, cs, "data/labelmaker/labelmaker.key", repoDid, repoHandle, bgsUrl, plcUrl)
+		repoKeyPath := "data/labelmaker/labelmaker.key"
+		bgsUrl := cctx.String("bgs-host")
+		plcUrl := cctx.String("plc-host")
+
+		srv, err := labeling.NewServer(db, cstore, repoKeyPath, repoDid, repoHandle, bgsUrl, plcUrl)
 		if err != nil {
 			return err
 		}
