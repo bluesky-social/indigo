@@ -1,16 +1,19 @@
 package events
 
-import "sync"
+import (
+	"context"
+	"sync"
+)
 
 type LabelEventPersistence interface {
-	Persist(e *LabelEvent)
-	Playback(since int64, cb func(*LabelEvent) error) error
+	Persist(ctx context.Context, e *LabelStreamEvent) error
+	Playback(ctx context.Context, since int64, cb func(*LabelStreamEvent) error) error
 }
 
 // MemLabelPersister is the most naive implementation of event persistence
 // ill do better later
 type MemLabelPersister struct {
-	buf []*LabelEvent
+	buf []*LabelStreamEvent
 	lk  sync.Mutex
 	seq int64
 }
@@ -19,15 +22,22 @@ func NewMemLabelPersister() *MemLabelPersister {
 	return &MemLabelPersister{}
 }
 
-func (mp *MemLabelPersister) Persist(e *LabelEvent) {
+func (mp *MemLabelPersister) Persist(ctx context.Context, e *LabelStreamEvent) error {
 	mp.lk.Lock()
 	defer mp.lk.Unlock()
 	mp.seq++
-	e.Seq = mp.seq
+	switch {
+	case e.Batch != nil:
+		e.Batch.Seq = mp.seq
+	default:
+		panic("no event in persist call")
+	}
 	mp.buf = append(mp.buf, e)
+
+	return nil
 }
 
-func (mp *MemLabelPersister) Playback(since int64, cb func(*LabelEvent) error) error {
+func (mp *MemLabelPersister) Playback(ctx context.Context, since int64, cb func(*LabelStreamEvent) error) error {
 	mp.lk.Lock()
 	l := len(mp.buf)
 	mp.lk.Unlock()
