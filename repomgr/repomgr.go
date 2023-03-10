@@ -966,9 +966,6 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user util.Uid, r io.R
 		}
 	}
 
-	// mild hack: without access to the 'meta' object, we cant properly verify each new repo slice has the right DID in the case of a gap fill procedure
-	// TODO(bnewbold): @Why should review the code that was removed here
-
 	head := &carr.Header.Roots[0]
 
 	var commits []cid.Cid
