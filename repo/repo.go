@@ -3,7 +3,6 @@ package repo
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"io"
 
@@ -59,15 +58,15 @@ func (sc *SignedCommit) Unsigned() UnsignedCommit {
 	}
 }
 
-// returns SHA-256 (as direct bytes, not hex-encoded string bytes) of the
-// DAG-CBOR representation of object. This is what gets signed.
+// returns bytes of the DAG-CBOR representation of object. This is what gets
+// signed; the `go-did` library will take the SHA-256 of the bytes and sign
+// that.
 func (uc *UnsignedCommit) BytesForSigning() ([]byte, error) {
 	buf := new(bytes.Buffer)
 	if err := uc.MarshalCBOR(buf); err != nil {
 		return []byte{}, err
 	}
-	h := sha256.Sum256(buf.Bytes())
-	return h[:], nil
+	return buf.Bytes(), nil
 }
 
 func IngestRepo(ctx context.Context, bs blockstore.Blockstore, r io.Reader) (cid.Cid, error) {
