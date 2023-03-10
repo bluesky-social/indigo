@@ -55,7 +55,7 @@ func TestBasicMst(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if ncid.String() != "bafyreihi5ejimenqxag4pr2f2fw3yz2iwlgz4fx24wwprd72ln4ynnswpm" {
+	if ncid.String() != "bafyreiaq5g3fw4jf5wz2d2akubw32g2f6eo756nqdib2cmsryfsb6lcaee" {
 		t.Fatal("mst generation changed", ncid.String())
 	}
 
