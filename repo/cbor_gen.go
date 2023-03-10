@@ -25,13 +25,8 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 5
 
-	if t.Prev == nil {
-		fieldCount--
-	}
-
-	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+	if _, err := cw.Write([]byte{165}); err != nil {
 		return err
 	}
 
@@ -99,29 +94,25 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Prev (cid.Cid) (struct)
-	if t.Prev != nil {
+	if len("prev") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"prev\" was too long")
+	}
 
-		if len("prev") > cbg.MaxLength {
-			return xerrors.Errorf("Value in field \"prev\" was too long")
-		}
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("prev")); err != nil {
+		return err
+	}
 
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
+	if t.Prev == nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("prev")); err != nil {
-			return err
+	} else {
+		if err := cbg.WriteCid(cw, *t.Prev); err != nil {
+			return xerrors.Errorf("failed to write cid field t.Prev: %w", err)
 		}
-
-		if t.Prev == nil {
-			if _, err := cw.Write(cbg.CborNull); err != nil {
-				return err
-			}
-		} else {
-			if err := cbg.WriteCid(cw, *t.Prev); err != nil {
-				return xerrors.Errorf("failed to write cid field t.Prev: %w", err)
-			}
-		}
-
 	}
 
 	// t.Version (int64) (int64)
@@ -297,13 +288,8 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 4
 
-	if t.Prev == nil {
-		fieldCount--
-	}
-
-	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+	if _, err := cw.Write([]byte{164}); err != nil {
 		return err
 	}
 
@@ -347,29 +333,25 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Prev (cid.Cid) (struct)
-	if t.Prev != nil {
+	if len("prev") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"prev\" was too long")
+	}
 
-		if len("prev") > cbg.MaxLength {
-			return xerrors.Errorf("Value in field \"prev\" was too long")
-		}
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("prev")); err != nil {
+		return err
+	}
 
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
+	if t.Prev == nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("prev")); err != nil {
-			return err
+	} else {
+		if err := cbg.WriteCid(cw, *t.Prev); err != nil {
+			return xerrors.Errorf("failed to write cid field t.Prev: %w", err)
 		}
-
-		if t.Prev == nil {
-			if _, err := cw.Write(cbg.CborNull); err != nil {
-				return err
-			}
-		} else {
-			if err := cbg.WriteCid(cw, *t.Prev); err != nil {
-				return xerrors.Errorf("failed to write cid field t.Prev: %w", err)
-			}
-		}
-
 	}
 
 	// t.Version (int64) (int64)

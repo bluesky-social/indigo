@@ -24,7 +24,7 @@ const ATP_REPO_VERSION int64 = 2
 type SignedCommit struct {
 	Did     string   `cborgen:"did"`
 	Version int64    `cborgen:"version"`
-	Prev    *cid.Cid `cborgen:"prev,omitempty"`
+	Prev    *cid.Cid `cborgen:"prev"`
 	Data    cid.Cid  `cborgen:"data"`
 	Sig     []byte   `cborgen:"sig"`
 }
@@ -32,7 +32,7 @@ type SignedCommit struct {
 type UnsignedCommit struct {
 	Did     string   `cborgen:"did"`
 	Version int64    `cborgen:"version"`
-	Prev    *cid.Cid `cborgen:"prev,omitempty"`
+	Prev    *cid.Cid `cborgen:"prev"`
 	Data    cid.Cid  `cborgen:"data"`
 }
 
@@ -49,8 +49,8 @@ type Repo struct {
 }
 
 // Returns a copy of commit without the Sig field. Helpful when verifying signature.
-func (sc *SignedCommit) Unsigned() UnsignedCommit {
-	return UnsignedCommit{
+func (sc *SignedCommit) Unsigned() *UnsignedCommit {
+	return &UnsignedCommit{
 		Did:     sc.Did,
 		Version: sc.Version,
 		Prev:    sc.Prev,
