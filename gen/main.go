@@ -36,7 +36,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("events/cbor_gen.go", "events", events.EventHeader{}, events.RepoAppend{}, events.RepoOp{}, events.InfoFrame{}, events.ErrorFrame{}, events.Label{}, events.LabelEvent{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("events/cbor_gen.go", "events", events.EventHeader{}, events.RepoAppend{}, events.RepoOp{}, events.InfoFrame{}, events.ErrorFrame{}, events.Label{}, events.LabelBatch{}); err != nil {
 		panic(err)
 	}
 }

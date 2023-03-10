@@ -1351,7 +1351,7 @@ func (t *Label) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *LabelEvent) MarshalCBOR(w io.Writer) error {
+func (t *LabelBatch) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -1412,8 +1412,8 @@ func (t *LabelEvent) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *LabelEvent) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = LabelEvent{}
+func (t *LabelBatch) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = LabelBatch{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -1432,7 +1432,7 @@ func (t *LabelEvent) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("LabelEvent: map struct too large (%d)", extra)
+		return fmt.Errorf("LabelBatch: map struct too large (%d)", extra)
 	}
 
 	var name string
