@@ -138,7 +138,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 	}
 
 	log.Infow("Sending event", "did", did)
-	if err := ix.events.AddEvent(&events.XRPCStreamEvent{
+	if err := ix.events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoAppend: &events.RepoAppend{
 			Repo:   did,
 			Prev:   prevstr,

@@ -6,6 +6,7 @@ import (
 
 	"github.com/bluesky-social/indigo/util"
 	logging "github.com/ipfs/go-log"
+	"go.opentelemetry.io/otel"
 )
 
 var log = logging.Logger("events")
@@ -147,7 +148,10 @@ type ErrorFrame struct {
 	Message string `cborgen:"message"`
 }
 
-func (em *EventManager) AddEvent(ev *XRPCStreamEvent) error {
+func (em *EventManager) AddEvent(ctx context.Context, ev *XRPCStreamEvent) error {
+	ctx, span := otel.Tracer("events").Start(ctx, "AddEvent")
+	defer span.End()
+
 	select {
 	case em.ops <- &Operation{
 		op:  opSend,
