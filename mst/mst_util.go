@@ -6,6 +6,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
@@ -70,6 +72,11 @@ func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, 
 		copy(key, lastKey[:e.PrefixLen])
 		copy(key[e.PrefixLen:], e.KeySuffix)
 
+		err := ensureValidMstKey(string(key))
+		if err != nil {
+			return nil, err
+		}
+
 		entries = append(entries, NodeEntry{
 			Kind: EntryLeaf,
 			Key:  string(key),
@@ -130,6 +137,11 @@ func serializeNodeData(entries []NodeEntry) (*NodeData, error) {
 			}
 		}
 
+		err := ensureValidMstKey(leaf.Key)
+		if err != nil {
+			return nil, err
+		}
+
 		prefixLen := countPrefixLen(lastKey, leaf.Key)
 		data.Entries = append(data.Entries, TreeEntry{
 			PrefixLen: int64(prefixLen),
@@ -175,4 +187,25 @@ func cidForEntries(ctx context.Context, entries []NodeEntry, cst cbor.IpldStore)
 	}
 
 	return cst.Put(ctx, nd)
+}
+
+var reMstKeyChars = regexp.MustCompile("^[a-zA-Z0-9_:.-]+$")
+
+// Typescript: isValidMstKey(str)
+func isValidMstKey(s string) bool {
+	split := strings.Split(s, "/")
+	return (len(s) <= 256 &&
+		len(split) == 2 &&
+		len(split[0]) > 0 &&
+		len(split[1]) > 1 &&
+		reMstKeyChars.MatchString(split[0]) &&
+		reMstKeyChars.MatchString(split[1]))
+}
+
+// Typescript: ensureValidMstKey(str)
+func ensureValidMstKey(s string) error {
+	if !isValidMstKey(s) {
+		return fmt.Errorf("Not a valid MST key: %s", s)
+	}
+	return nil
 }

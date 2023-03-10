@@ -37,9 +37,9 @@ func TestBasicMst(t *testing.T) {
 	mst := NewMST(cst, cid.Undef, []NodeEntry{}, -1)
 
 	vals := map[string]cid.Cid{
-		"cats":           randCid(),
-		"dogs":           randCid(),
-		"cats and bears": randCid(),
+		"cats/cats":  randCid(),
+		"dogs/dogs":  randCid(),
+		"cats/bears": randCid(),
 	}
 
 	for k, v := range vals {
@@ -55,15 +55,15 @@ func TestBasicMst(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if ncid.String() != "bafyreiaq5g3fw4jf5wz2d2akubw32g2f6eo756nqdib2cmsryfsb6lcaee" {
+	if ncid.String() != "bafyreidap7hdugsxisef7esd2eh26423j23r65mvlvpsdv7vbbsl5qfgxq" {
 		t.Fatal("mst generation changed", ncid.String())
 	}
 
-	nmst, err := mst.Delete(ctx, "dogs")
+	nmst, err := mst.Delete(ctx, "dogs/dogs")
 	if err != nil {
 		t.Fatal(err)
 	}
-	delete(vals, "dogs")
+	delete(vals, "dogs/dogs")
 
 	assertValues(t, nmst, vals)
 }
@@ -90,19 +90,6 @@ func assertValues(t *testing.T, mst *MerkleSearchTree, vals map[string]cid.Cid) 
 	} else {
 		t.Fatalf("different number of values than expected: %d != %d", len(vals), len(out))
 	}
-}
-
-// TODO: not sure what the significance of this edge-case is. originally for 32x fanout
-func TestEdgeCase(t *testing.T) {
-	// this key hashes to 7 leading zero-bits
-	m := map[string]string{
-		"97206d5e4a18/19fbf0b79789/1710133f2dd6": "cats",
-	}
-
-	bs := memBs()
-	mst := cidMapToMst(t, bs, mapToCidMap(m))
-	_ = mst
-
 }
 
 func mustCid(t *testing.T, s string) cid.Cid {
@@ -200,7 +187,7 @@ func randKey(s int64) string {
 
 	end := randStr(r.Int63n(10000000))
 
-	return randStr(125125+top) + "/" + randStr(858392+mid) + "/" + end
+	return randStr(125125+top) + "." + randStr(858392+mid) + "/" + end
 }
 
 func TestDiffInsertionsLarge(t *testing.T) {

@@ -301,6 +301,12 @@ func (mst *MerkleSearchTree) attemptGetLayer(ctx context.Context) (int, error) {
 // Typescript: MST.add(key, value, knownZeros?) -> MST
 func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, knownZeros int) (*MerkleSearchTree, error) {
 
+	// NOTE(bnewbold): this is inefficient (recurses), but matches TS implementation
+	err := ensureValidMstKey(key)
+	if err != nil {
+		return nil, err
+	}
+
 	if val == cid.Undef {
 		return nil, fmt.Errorf("tried to insert an undef CID")
 	}
@@ -487,6 +493,12 @@ func (mst *MerkleSearchTree) Get(ctx context.Context, k string) (cid.Cid, error)
 // "Edits the value at the given key. Throws if the given key does not exist"
 // Typescript: MST.update(key, value) -> MST
 func (mst *MerkleSearchTree) Update(ctx context.Context, k string, val cid.Cid) (*MerkleSearchTree, error) {
+
+	// NOTE(bnewbold): this is inefficient (recurses), but matches TS implementation
+	err := ensureValidMstKey(k)
+	if err != nil {
+		return nil, err
+	}
 
 	if val == cid.Undef {
 		return nil, fmt.Errorf("tried to insert an undef CID")

@@ -43,8 +43,6 @@ func TestPrefixLen(t *testing.T) {
 	assert.Equal(t, countPrefixLen("abc\x00", "abc"), 3, msg)
 }
 
-// TODO: allowable keys
-
 func TestPrefixLenWide(t *testing.T) {
 	// NOTE: these are not cross-language consistent!
 	msg := "length of common prefix between strings (wide chars)"
@@ -82,6 +80,81 @@ func mapToMstRootCidString(t *testing.T, m map[string]string) string {
 		t.Fatal(err)
 	}
 	return ncid.String()
+}
+
+func TestAllowedKeys(t *testing.T) {
+
+	bs := memBs()
+	ctx := context.Background()
+	cid1str := "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454"
+	cid1, err := cid.Decode(cid1str)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	empty := map[string]string{}
+	mst := cidMapToMst(t, bs, mapToCidMapDecode(t, empty))
+
+	// rejects empty key
+	_, err = mst.Add(ctx, "", cid1, -1)
+	assert.NotNil(t, err)
+
+	// rejects a key with no collection
+	_, err = mst.Add(ctx, "asdf", cid1, -1)
+	assert.NotNil(t, err)
+
+	// rejects a key with a nested collection
+	_, err = mst.Add(ctx, "nested/collection/asdf", cid1, -1)
+	assert.NotNil(t, err)
+
+	// rejects on empty coll or rkey
+	_, err = mst.Add(ctx, "coll/", cid1, -1)
+	assert.NotNil(t, err)
+	_, err = mst.Add(ctx, "/rkey", cid1, -1)
+	assert.NotNil(t, err)
+
+	// rejects non-ascii chars
+	_, err = mst.Add(ctx, "coll/jalapeñoA", cid1, -1)
+	assert.NotNil(t, err)
+	_, err = mst.Add(ctx, "coll/coöperative", cid1, -1)
+	assert.NotNil(t, err)
+	_, err = mst.Add(ctx, "coll/abc💩", cid1, -1)
+	assert.NotNil(t, err)
+
+	// rejects ascii that we dont support
+	_, err = mst.Add(ctx, "coll/key$", cid1, -1)
+	assert.NotNil(t, err)
+	_, err = mst.Add(ctx, "coll/key%", cid1, -1)
+	assert.NotNil(t, err)
+	_, err = mst.Add(ctx, "coll/key(", cid1, -1)
+	assert.NotNil(t, err)
+	_, err = mst.Add(ctx, "coll/key)", cid1, -1)
+	assert.NotNil(t, err)
+	_, err = mst.Add(ctx, "coll/key+", cid1, -1)
+	assert.NotNil(t, err)
+	_, err = mst.Add(ctx, "coll/key=", cid1, -1)
+	assert.NotNil(t, err)
+
+	// rejects keys over 256 chars
+	_, err = mst.Add(ctx, "coll/asdofiupoiwqeurfpaosidfuapsodirupasoirupasoeiruaspeoriuaspeoriu2p3o4iu1pqw3oiuaspdfoiuaspdfoiuasdfpoiasdufpwoieruapsdofiuaspdfoiuasdpfoiausdfpoasidfupasodifuaspdofiuasdpfoiasudfpoasidfuapsodfiuasdpfoiausdfpoasidufpasodifuapsdofiuasdpofiuasdfpoaisdufpao", cid1, -1)
+	assert.NotNil(t, err)
+
+	// allows long key under 256 chars
+	_, err = mst.Add(ctx, "coll/asdofiupoiwqeurfpaosidfuapsodirupasoirupasoeiruaspeoriuaspeoriu2p3o4iu1pqw3oiuaspdfoiuaspdfoiuasdfpoiasdufpwoieruapsdofiuaspdfoiuasdpfoiausdfpoasidfupasodifuaspdofiuasdpfoiasudfpoasidfuapsodfiuasdpfoiausdfpoasidufpasodifuapsdofiuasdpofiuasdfpoaisduf", cid1, -1)
+	assert.Nil(t, err)
+
+	// allows URL-safe chars
+	_, err = mst.Add(ctx, "coll/key0", cid1, -1)
+	assert.Nil(t, err)
+	_, err = mst.Add(ctx, "coll/key_", cid1, -1)
+	assert.Nil(t, err)
+	_, err = mst.Add(ctx, "coll/key:", cid1, -1)
+	assert.Nil(t, err)
+	_, err = mst.Add(ctx, "coll/key.", cid1, -1)
+	assert.Nil(t, err)
+	_, err = mst.Add(ctx, "coll/key-", cid1, -1)
+	assert.Nil(t, err)
+
 }
 
 func TestManualNode(t *testing.T) {
