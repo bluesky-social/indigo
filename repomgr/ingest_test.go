@@ -55,7 +55,7 @@ func TestLoadNewRepo(t *testing.T) {
 
 	repoman := NewRepoManager(maindb, cs, &util.FakeKeyManager{})
 
-	fi, err := os.Open("testrepo.car")
+	fi, err := os.Open("../testing/divy.repo")
 	if err != nil {
 		t.Fatal(err)
 	}
