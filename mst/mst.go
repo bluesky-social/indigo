@@ -105,7 +105,7 @@ type NodeData struct {
 // Elements of NodeData's Entries
 type TreeEntry struct {
 	PrefixLen int64    `cborgen:"p"` // count of characters shared with previous path/key in tree
-	KeySuffix string   `cborgen:"k"` // remaining part of path/key (appended to "previous key")
+	KeySuffix []byte   `cborgen:"k"` // remaining part of path/key (appended to "previous key")
 	Val       cid.Cid  `cborgen:"v"` // CID pointer at this path/key
 	Tree      *cid.Cid `cborgen:"t"` // [optional] pointer to lower-level subtree to the "right" of this path/key entry
 }
@@ -192,7 +192,8 @@ func entriesFromNodeData(ctx context.Context, nd *NodeData, cst cbor.IpldStore) 
 	layer := -1
 	if len(nd.Entries) > 0 {
 		firstLeaf := nd.Entries[0]
-		layer = leadingZerosOnHash(firstLeaf.KeySuffix)
+		// XXX: this is is wrong, should compute *after* the full key is available
+		layer = leadingZerosOnHash(string(firstLeaf.KeySuffix))
 	}
 
 	entries, err := deserializeNodeData(ctx, cst, nd, layer)

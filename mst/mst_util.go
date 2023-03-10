@@ -12,18 +12,23 @@ import (
 )
 
 // Used to determine the "depth" of keys in an MST.
-// For atproto, the "fanout" is always 16, so we count "zeros" in chunks of
-// 4-bits. Eg, a leading 0x00 byte is 2 "zeros".
+// For atproto, repo v2, the "fanout" is always 4, so we count "zeros" in
+// chunks of 2-bits. Eg, a leading 0x00 byte is 4 "zeros".
 // Typescript: leadingZerosOnHash(key, fanout) -> number
-func leadingZerosOnHash(k string) int {
-	hv := sha256.Sum256([]byte(k))
+func leadingZerosOnHash(key string) int {
+	k := []byte(key)
+	hv := sha256.Sum256(k)
 
 	total := 0
 	for i := 0; i < len(hv); i++ {
 		if hv[i] == 0x00 {
-			total += 2
+			total += 4
 			continue
+		} else if hv[i]&0xFC == 0x00 {
+			total += 3
 		} else if hv[i]&0xF0 == 0x00 {
+			total += 2
+		} else if hv[i]&0xC0 == 0x00 {
 			total += 1
 		}
 		break
@@ -128,7 +133,7 @@ func serializeNodeData(entries []NodeEntry) (*NodeData, error) {
 		prefixLen := countPrefixLen(lastKey, leaf.Key)
 		data.Entries = append(data.Entries, TreeEntry{
 			PrefixLen: int64(prefixLen),
-			KeySuffix: leaf.Key[prefixLen:],
+			KeySuffix: []byte(leaf.Key)[prefixLen:],
 			Val:       leaf.Val,
 			Tree:      subtree,
 		})
@@ -149,9 +154,11 @@ func min(a, b int) int {
 // how many leading chars are identical between the two strings?
 // Typescript: countPrefixLen(a: string, b: string) -> number
 func countPrefixLen(a, b string) int {
-	count := min(len(a), len(b))
+	aa := []byte(a)
+	bb := []byte(b)
+	count := min(len(aa), len(bb))
 	for i := 0; i < count; i++ {
-		if a[i] != b[i] {
+		if aa[i] != bb[i] {
 			return i
 		}
 	}
