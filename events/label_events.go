@@ -1,6 +1,7 @@
 package events
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -14,19 +15,19 @@ type LabelEventManager struct {
 	persister LabelEventPersistence
 }
 
-func NewLabelEventManager() *LabelEventManager {
+func NewLabelEventManager(persister LabelEventPersistence) *LabelEventManager {
 	return &LabelEventManager{
 		ops:        make(chan *LabelOperation),
 		closed:     make(chan struct{}),
 		bufferSize: 1024,
-		persister:  NewMemLabelPersister(),
+		persister:  persister,
 	}
 }
 
 type LabelOperation struct {
 	op  int
 	sub *LabelSubscriber
-	evt *LabelEvent
+	evt *LabelStreamEvent
 }
 
 func (em *LabelEventManager) Run() {
@@ -34,7 +35,6 @@ func (em *LabelEventManager) Run() {
 		switch op.op {
 		case opSubscribe:
 			em.subs = append(em.subs, op.sub)
-			op.sub.outgoing <- &LabelEvent{}
 		case opUnsubscribe:
 			for i, s := range em.subs {
 				if s == op.sub {
@@ -44,7 +44,9 @@ func (em *LabelEventManager) Run() {
 				}
 			}
 		case opSend:
-			em.persister.Persist(op.evt)
+			if err := em.persister.Persist(context.TODO(), op.evt); err != nil {
+				log.Errorf("failed to persist outbound event: %s", err)
+			}
 
 			for _, s := range em.subs {
 				if s.filter(op.evt) {
@@ -62,16 +64,31 @@ func (em *LabelEventManager) Run() {
 }
 
 type LabelSubscriber struct {
-	outgoing chan *LabelEvent
+	outgoing chan *LabelStreamEvent
 
-	filter func(*LabelEvent) bool
+	filter func(*LabelStreamEvent) bool
 
 	done chan struct{}
 }
 
-type LabelEvent struct {
+const (
+	LEvtKindErrorFrame = -1
+	LEvtKindLabelBatch = 1
+	LEvtKindInfoFrame  = 2
+)
+
+// EventHeader shared with repo events
+
+type LabelStreamEvent struct {
+	Batch *LabelBatch
+	Info  *InfoFrame
+	Error *ErrorFrame
+}
+
+type LabelBatch struct {
 	Seq    int64   `cborgen:"seq"`
 	Labels []Label `cborgen:"labels"`
+	// TODO: time?
 }
 
 // this is here, instead of under 'labeling' package, to avoid an import loop
@@ -85,7 +102,7 @@ type Label struct {
 	LabelUri      *string `json:"labeluri,omitempty" cborgen:"labeluri"`
 }
 
-func (em *LabelEventManager) AddEvent(ev *LabelEvent) error {
+func (em *LabelEventManager) AddEvent(ev *LabelStreamEvent) error {
 	select {
 	case em.ops <- &LabelOperation{
 		op:  opSend,
@@ -97,33 +114,21 @@ func (em *LabelEventManager) AddEvent(ev *LabelEvent) error {
 	}
 }
 
-func (em *LabelEventManager) Subscribe(filter func(*LabelEvent) bool, since *int64) (<-chan *LabelEvent, func(), error) {
+func (em *LabelEventManager) Subscribe(ctx context.Context, filter func(*LabelStreamEvent) bool, since *int64) (<-chan *LabelStreamEvent, func(), error) {
 	if filter == nil {
-		filter = func(*LabelEvent) bool { return true }
+		filter = func(*LabelStreamEvent) bool { return true }
 	}
 
 	done := make(chan struct{})
 	sub := &LabelSubscriber{
-		outgoing: make(chan *LabelEvent, em.bufferSize),
+		outgoing: make(chan *LabelStreamEvent, em.bufferSize),
 		filter:   filter,
 		done:     done,
 	}
 
-	select {
-	case em.ops <- &LabelOperation{
-		op:  opSubscribe,
-		sub: sub,
-	}:
-	case <-em.closed:
-		return nil, nil, fmt.Errorf("event manager shut down")
-	}
-
-	// receive the 'ack' that ensures our sub was received
-	<-sub.outgoing
-
-	if since != nil {
-		go func() {
-			if err := em.persister.Playback(*since, func(e *LabelEvent) error {
+	go func() {
+		if since != nil {
+			if err := em.persister.Playback(ctx, *since, func(e *LabelStreamEvent) error {
 				select {
 				case <-done:
 					return fmt.Errorf("shutting down")
@@ -133,8 +138,17 @@ func (em *LabelEventManager) Subscribe(filter func(*LabelEvent) bool, since *int
 			}); err != nil {
 				log.Errorf("events playback: %s", err)
 			}
-		}()
-	}
+		}
+
+		select {
+		case em.ops <- &LabelOperation{
+			op:  opSubscribe,
+			sub: sub,
+		}:
+		case <-em.closed:
+			log.Errorf("failed to subscribe, event manager shut down")
+		}
+	}()
 
 	cleanup := func() {
 		close(done)

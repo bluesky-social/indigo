@@ -59,12 +59,11 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, keyFile, repoDid, repoHandle,
 		return nil, err
 	}
 
-	db.AutoMigrate(&pds.User{})
-	db.AutoMigrate(&pds.Peering{})
+	db.AutoMigrate(models.PDS{})
 
 	didr := &api.PLCServer{Host: plcUrl}
-	kmgr := indexer.NewKeyManager(didr, nil)
-	levtman := events.NewLabelEventManager()
+	kmgr := indexer.NewKeyManager(didr, serkey)
+	levtman := events.NewLabelEventManager(events.NewMemLabelPersister())
 	repoman := repomgr.NewRepoManager(db, cs, kmgr)
 
 	user := &LabelmakerRepoConfig{
@@ -74,7 +73,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, keyFile, repoDid, repoHandle,
 		userId:     1,
 	}
 
-	var kl = KeywordLabeler{value: "rude", keywords: []string{"🍆", "sex", "ab"}}
+	var kl = KeywordLabeler{value: "rude", keywords: []string{"🍆", "sex", "ab", "before", "yours", "the"}}
 
 	s := &Server{
 		db:      db,
@@ -104,6 +103,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, keyFile, repoDid, repoHandle,
 
 	// subscribe our RepoEvent slurper to the BGS, to receive incoming records for labeler
 	useWebsocketSSL := false
+	log.Infof("subscribing to BGS: %s (SSL=%v)", bgsUrl, useWebsocketSSL)
 	s.bgsSlurper.SubscribeToPds(ctx, bgsUrl, useWebsocketSSL)
 
 	// NOTE: this is where outgoing RepoEvents could be generated
@@ -127,7 +127,6 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 // incoming repo events
 func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *events.RepoStreamEvent) error {
-	log.Info("got RepoEvent from BGS")
 	now := time.Now().Format(util.ISO8601)
 	switch {
 	case evt.Append != nil:
@@ -146,7 +145,8 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 			// filter to creation/update of ony post/profile records
 			// TODO(bnewbold): how do I 'switch' on a tuple here in golang, instead of nested switch?
 			switch op.Action {
-			case "createRecord", "updateRecord":
+			case "create", "update":
+				log.Infof("labeling record: %v", uri)
 				switch nsid {
 				case "app.bsky.feed.post":
 					cid, rec, err := sliceRepo.GetRecord(ctx, op.Path)
@@ -212,17 +212,19 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 			log.Infof("persisted label: %s", labeluri)
 		}
 
-		// ... then re-publish as LabelEvent
+		// ... then re-publish as LabelStreamEvent
 		log.Infof("%s", labels)
 		if len(labels) > 0 {
-			lev := events.LabelEvent{
+			lev := events.LabelStreamEvent{
 				// XXX(bnewbold): what should sequence number be? do I need to maintain that?
-				Seq:    0,
-				Labels: labels,
+				Batch: &events.LabelBatch{
+					Seq:    0,
+					Labels: labels,
+				},
 			}
 			err = s.levents.AddEvent(&lev)
 			if err != nil {
-				return fmt.Errorf("failed to publish LabelEvent: %w", err)
+				return fmt.Errorf("failed to publish LabelStreamEvent: %w", err)
 			}
 		}
 		// TODO: update state that we successfully processed the repo event (aka, persist "last" seq in database, or something like that)
