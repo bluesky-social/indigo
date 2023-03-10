@@ -6,24 +6,31 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
 )
 
 // Used to determine the "depth" of keys in an MST.
-// For atproto, the "fanout" is always 16, so we count "zeros" in chunks of
-// 4-bits. Eg, a leading 0x00 byte is 2 "zeros".
+// For atproto, repo v2, the "fanout" is always 4, so we count "zeros" in
+// chunks of 2-bits. Eg, a leading 0x00 byte is 4 "zeros".
 // Typescript: leadingZerosOnHash(key, fanout) -> number
-func leadingZerosOnHash(k string) int {
-	hv := sha256.Sum256([]byte(k))
+func leadingZerosOnHash(key string) int {
+	k := []byte(key)
+	hv := sha256.Sum256(k)
 
 	total := 0
 	for i := 0; i < len(hv); i++ {
 		if hv[i] == 0x00 {
-			total += 2
+			total += 4
 			continue
+		} else if hv[i]&0xFC == 0x00 {
+			total += 3
 		} else if hv[i]&0xF0 == 0x00 {
+			total += 2
+		} else if hv[i]&0xC0 == 0x00 {
 			total += 1
 		}
 		break
@@ -64,6 +71,11 @@ func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, 
 		key := make([]byte, int(e.PrefixLen)+len(e.KeySuffix))
 		copy(key, lastKey[:e.PrefixLen])
 		copy(key[e.PrefixLen:], e.KeySuffix)
+
+		err := ensureValidMstKey(string(key))
+		if err != nil {
+			return nil, err
+		}
 
 		entries = append(entries, NodeEntry{
 			Kind: EntryLeaf,
@@ -125,10 +137,15 @@ func serializeNodeData(entries []NodeEntry) (*NodeData, error) {
 			}
 		}
 
+		err := ensureValidMstKey(leaf.Key)
+		if err != nil {
+			return nil, err
+		}
+
 		prefixLen := countPrefixLen(lastKey, leaf.Key)
 		data.Entries = append(data.Entries, TreeEntry{
 			PrefixLen: int64(prefixLen),
-			KeySuffix: leaf.Key[prefixLen:],
+			KeySuffix: []byte(leaf.Key)[prefixLen:],
 			Val:       leaf.Val,
 			Tree:      subtree,
 		})
@@ -149,9 +166,11 @@ func min(a, b int) int {
 // how many leading chars are identical between the two strings?
 // Typescript: countPrefixLen(a: string, b: string) -> number
 func countPrefixLen(a, b string) int {
-	count := min(len(a), len(b))
+	aa := []byte(a)
+	bb := []byte(b)
+	count := min(len(aa), len(bb))
 	for i := 0; i < count; i++ {
-		if a[i] != b[i] {
+		if aa[i] != bb[i] {
 			return i
 		}
 	}
@@ -168,4 +187,25 @@ func cidForEntries(ctx context.Context, entries []NodeEntry, cst cbor.IpldStore)
 	}
 
 	return cst.Put(ctx, nd)
+}
+
+var reMstKeyChars = regexp.MustCompile("^[a-zA-Z0-9_:.-]+$")
+
+// Typescript: isValidMstKey(str)
+func isValidMstKey(s string) bool {
+	split := strings.Split(s, "/")
+	return (len(s) <= 256 &&
+		len(split) == 2 &&
+		len(split[0]) > 0 &&
+		len(split[1]) > 1 &&
+		reMstKeyChars.MatchString(split[0]) &&
+		reMstKeyChars.MatchString(split[1]))
+}
+
+// Typescript: ensureValidMstKey(str)
+func ensureValidMstKey(s string) error {
+	if !isValidMstKey(s) {
+		return fmt.Errorf("Not a valid MST key: %s", s)
+	}
+	return nil
 }

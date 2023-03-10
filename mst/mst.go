@@ -105,7 +105,7 @@ type NodeData struct {
 // Elements of NodeData's Entries
 type TreeEntry struct {
 	PrefixLen int64    `cborgen:"p"` // count of characters shared with previous path/key in tree
-	KeySuffix string   `cborgen:"k"` // remaining part of path/key (appended to "previous key")
+	KeySuffix []byte   `cborgen:"k"` // remaining part of path/key (appended to "previous key")
 	Val       cid.Cid  `cborgen:"v"` // CID pointer at this path/key
 	Tree      *cid.Cid `cborgen:"t"` // [optional] pointer to lower-level subtree to the "right" of this path/key entry
 }
@@ -191,8 +191,9 @@ func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]NodeEntry, error
 func entriesFromNodeData(ctx context.Context, nd *NodeData, cst cbor.IpldStore) ([]NodeEntry, error) {
 	layer := -1
 	if len(nd.Entries) > 0 {
+		// NOTE(bnewbold): can compute the layer on the first KeySuffix, because for the first entry that field is a complete key
 		firstLeaf := nd.Entries[0]
-		layer = leadingZerosOnHash(firstLeaf.KeySuffix)
+		layer = leadingZerosOnHash(string(firstLeaf.KeySuffix))
 	}
 
 	entries, err := deserializeNodeData(ctx, cst, nd, layer)
@@ -299,6 +300,12 @@ func (mst *MerkleSearchTree) attemptGetLayer(ctx context.Context) (int, error) {
 // "Adds a new leaf for the given key/value pair. Throws if a leaf with that key already exists"
 // Typescript: MST.add(key, value, knownZeros?) -> MST
 func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, knownZeros int) (*MerkleSearchTree, error) {
+
+	// NOTE(bnewbold): this is inefficient (recurses), but matches TS implementation
+	err := ensureValidMstKey(key)
+	if err != nil {
+		return nil, err
+	}
 
 	if val == cid.Undef {
 		return nil, fmt.Errorf("tried to insert an undef CID")
@@ -486,6 +493,12 @@ func (mst *MerkleSearchTree) Get(ctx context.Context, k string) (cid.Cid, error)
 // "Edits the value at the given key. Throws if the given key does not exist"
 // Typescript: MST.update(key, value) -> MST
 func (mst *MerkleSearchTree) Update(ctx context.Context, k string, val cid.Cid) (*MerkleSearchTree, error) {
+
+	// NOTE(bnewbold): this is inefficient (recurses), but matches TS implementation
+	err := ensureValidMstKey(k)
+	if err != nil {
+		return nil, err
+	}
 
 	if val == cid.Undef {
 		return nil, fmt.Errorf("tried to insert an undef CID")

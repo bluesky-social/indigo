@@ -192,7 +192,7 @@ func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.KeySuffix (string) (string)
+	// t.KeySuffix ([]uint8) (slice)
 	if len("k") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"k\" was too long")
 	}
@@ -204,14 +204,15 @@ func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.KeySuffix) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.KeySuffix was too long")
+	if len(t.KeySuffix) > cbg.ByteArrayMaxLen {
+		return xerrors.Errorf("Byte array in field t.KeySuffix was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.KeySuffix))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajByteString, uint64(len(t.KeySuffix))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.KeySuffix)); err != nil {
+
+	if _, err := cw.Write(t.KeySuffix[:]); err != nil {
 		return err
 	}
 
@@ -316,16 +317,27 @@ func (t *TreeEntry) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.KeySuffix (string) (string)
+		// t.KeySuffix ([]uint8) (slice)
 		case "k":
 
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
 
-				t.KeySuffix = string(sval)
+			if extra > cbg.ByteArrayMaxLen {
+				return fmt.Errorf("t.KeySuffix: byte array too large (%d)", extra)
+			}
+			if maj != cbg.MajByteString {
+				return fmt.Errorf("expected byte array")
+			}
+
+			if extra > 0 {
+				t.KeySuffix = make([]uint8, extra)
+			}
+
+			if _, err := io.ReadFull(cr, t.KeySuffix[:]); err != nil {
+				return err
 			}
 			// t.PrefixLen (int64) (int64)
 		case "p":

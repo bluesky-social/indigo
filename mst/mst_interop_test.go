@@ -18,12 +18,13 @@ func TestLeadingZeros(t *testing.T) {
 	msg := "MST 'depth' computation (SHA-256 leading zeros)"
 	assert.Equal(t, leadingZerosOnHash(""), 0, msg)
 	assert.Equal(t, leadingZerosOnHash("asdf"), 0, msg)
+	assert.Equal(t, leadingZerosOnHash("blue"), 1, msg)
 	assert.Equal(t, leadingZerosOnHash("2653ae71"), 0, msg)
-	assert.Equal(t, leadingZerosOnHash("88bfafc7"), 1, msg)
-	assert.Equal(t, leadingZerosOnHash("2a92d355"), 2, msg)
-	assert.Equal(t, leadingZerosOnHash("884976f5"), 3, msg)
-	assert.Equal(t, leadingZerosOnHash("app.bsky.feed.post/454397e440ec"), 2, msg)
-	assert.Equal(t, leadingZerosOnHash("app.bsky.feed.post/9adeb165882c"), 4, msg)
+	assert.Equal(t, leadingZerosOnHash("88bfafc7"), 2, msg)
+	assert.Equal(t, leadingZerosOnHash("2a92d355"), 4, msg)
+	assert.Equal(t, leadingZerosOnHash("884976f5"), 6, msg)
+	assert.Equal(t, leadingZerosOnHash("app.bsky.feed.post/454397e440ec"), 4, msg)
+	assert.Equal(t, leadingZerosOnHash("app.bsky.feed.post/9adeb165882c"), 8, msg)
 }
 
 func TestPrefixLen(t *testing.T) {
@@ -81,6 +82,81 @@ func mapToMstRootCidString(t *testing.T, m map[string]string) string {
 	return ncid.String()
 }
 
+func TestAllowedKeys(t *testing.T) {
+
+	bs := memBs()
+	ctx := context.Background()
+	cid1str := "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454"
+	cid1, err := cid.Decode(cid1str)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	empty := map[string]string{}
+	mst := cidMapToMst(t, bs, mapToCidMapDecode(t, empty))
+
+	// rejects empty key
+	_, err = mst.Add(ctx, "", cid1, -1)
+	assert.NotNil(t, err)
+
+	// rejects a key with no collection
+	_, err = mst.Add(ctx, "asdf", cid1, -1)
+	assert.NotNil(t, err)
+
+	// rejects a key with a nested collection
+	_, err = mst.Add(ctx, "nested/collection/asdf", cid1, -1)
+	assert.NotNil(t, err)
+
+	// rejects on empty coll or rkey
+	_, err = mst.Add(ctx, "coll/", cid1, -1)
+	assert.NotNil(t, err)
+	_, err = mst.Add(ctx, "/rkey", cid1, -1)
+	assert.NotNil(t, err)
+
+	// rejects non-ascii chars
+	_, err = mst.Add(ctx, "coll/jalapeñoA", cid1, -1)
+	assert.NotNil(t, err)
+	_, err = mst.Add(ctx, "coll/coöperative", cid1, -1)
+	assert.NotNil(t, err)
+	_, err = mst.Add(ctx, "coll/abc💩", cid1, -1)
+	assert.NotNil(t, err)
+
+	// rejects ascii that we dont support
+	_, err = mst.Add(ctx, "coll/key$", cid1, -1)
+	assert.NotNil(t, err)
+	_, err = mst.Add(ctx, "coll/key%", cid1, -1)
+	assert.NotNil(t, err)
+	_, err = mst.Add(ctx, "coll/key(", cid1, -1)
+	assert.NotNil(t, err)
+	_, err = mst.Add(ctx, "coll/key)", cid1, -1)
+	assert.NotNil(t, err)
+	_, err = mst.Add(ctx, "coll/key+", cid1, -1)
+	assert.NotNil(t, err)
+	_, err = mst.Add(ctx, "coll/key=", cid1, -1)
+	assert.NotNil(t, err)
+
+	// rejects keys over 256 chars
+	_, err = mst.Add(ctx, "coll/asdofiupoiwqeurfpaosidfuapsodirupasoirupasoeiruaspeoriuaspeoriu2p3o4iu1pqw3oiuaspdfoiuaspdfoiuasdfpoiasdufpwoieruapsdofiuaspdfoiuasdpfoiausdfpoasidfupasodifuaspdofiuasdpfoiasudfpoasidfuapsodfiuasdpfoiausdfpoasidufpasodifuapsdofiuasdpofiuasdfpoaisdufpao", cid1, -1)
+	assert.NotNil(t, err)
+
+	// allows long key under 256 chars
+	_, err = mst.Add(ctx, "coll/asdofiupoiwqeurfpaosidfuapsodirupasoirupasoeiruaspeoriuaspeoriu2p3o4iu1pqw3oiuaspdfoiuaspdfoiuasdfpoiasdufpwoieruapsdofiuaspdfoiuasdpfoiausdfpoasidfupasodifuaspdofiuasdpfoiasudfpoasidfuapsodfiuasdpfoiausdfpoasidufpasodifuapsdofiuasdpofiuasdfpoaisduf", cid1, -1)
+	assert.Nil(t, err)
+
+	// allows URL-safe chars
+	_, err = mst.Add(ctx, "coll/key0", cid1, -1)
+	assert.Nil(t, err)
+	_, err = mst.Add(ctx, "coll/key_", cid1, -1)
+	assert.Nil(t, err)
+	_, err = mst.Add(ctx, "coll/key:", cid1, -1)
+	assert.Nil(t, err)
+	_, err = mst.Add(ctx, "coll/key.", cid1, -1)
+	assert.Nil(t, err)
+	_, err = mst.Add(ctx, "coll/key-", cid1, -1)
+	assert.Nil(t, err)
+
+}
+
 func TestManualNode(t *testing.T) {
 
 	bs := memBs()
@@ -95,7 +171,7 @@ func TestManualNode(t *testing.T) {
 		Entries: []TreeEntry{
 			TreeEntry{
 				PrefixLen: 0,
-				KeySuffix: "asdf",
+				KeySuffix: []byte("com.example.record/3jqfcqzm3fo2j"),
 				Val:       cid1,
 				Tree:      nil,
 			},
@@ -112,7 +188,7 @@ func TestManualNode(t *testing.T) {
 	if false {
 		fmt.Printf("%#v\n", block)
 	}
-	assert.Equal(t, mcid.String(), "bafyreidaftbr35xhh4lzmv5jcoeufqjh75ohzmz6u56v7n2ippbtxdgqqe")
+	assert.Equal(t, mcid.String(), "bafyreibj4lsc3aqnrvphp5xmrnfoorvru4wynt6lwidqbm2623a6tatzdu")
 
 }
 
@@ -126,29 +202,29 @@ func TestInteropKnownMaps(t *testing.T) {
 
 	// no depth, single entry
 	trivialMap := map[string]string{
-		"asdf": cid1str,
+		"com.example.record/3jqfcqzm3fo2j": cid1str,
 	}
-	assert.Equal(t, mapToMstRootCidString(t, trivialMap), "bafyreidaftbr35xhh4lzmv5jcoeufqjh75ohzmz6u56v7n2ippbtxdgqqe")
+	assert.Equal(t, mapToMstRootCidString(t, trivialMap), "bafyreibj4lsc3aqnrvphp5xmrnfoorvru4wynt6lwidqbm2623a6tatzdu")
 
 	// single layer=2 entry
 	singlelayer2Map := map[string]string{
-		"com.example.record/9ba1c7247ede": cid1str,
+		"com.example.record/3jqfcqzm3fx2j": cid1str,
 	}
-	assert.Equal(t, mapToMstRootCidString(t, singlelayer2Map), "bafyreid4g5smj6ukhrjasebt6myj7wmtm2eijouteoyueoqgoh6vm5jkae")
+	assert.Equal(t, mapToMstRootCidString(t, singlelayer2Map), "bafyreih7wfei65pxzhauoibu3ls7jgmkju4bspy4t2ha2qdjnzqvoy33ai")
 
 	// pretty simple, but with some depth
 	simpleMap := map[string]string{
-		"asdf":                            cid1str,
-		"88bfafc7":                        cid1str,
-		"2a92d355":                        cid1str,
-		"app.bsky.feed.post/454397e440ec": cid1str,
-		"app.bsky.feed.post/9adeb165882c": cid1str,
+		"com.example.record/3jqfcqzm3fp2j": cid1str,
+		"com.example.record/3jqfcqzm3fr2j": cid1str,
+		"com.example.record/3jqfcqzm3fs2j": cid1str,
+		"com.example.record/3jqfcqzm3ft2j": cid1str,
+		"com.example.record/3jqfcqzm4fc2j": cid1str,
 	}
-	assert.Equal(t, mapToMstRootCidString(t, simpleMap), "bafyreiecb33zh7r2sc3k2wthm6exwzfktof63kmajeildktqc25xj6qzx4")
+	assert.Equal(t, mapToMstRootCidString(t, simpleMap), "bafyreicmahysq4n6wfuxo522m6dpiy7z7qzym3dzs756t5n7nfdgccwq7m")
 }
 
 func TestInteropKnownMapsTricky(t *testing.T) {
-	t.Skip("TODO: behavior of these wide-char keys is undefined behavior in string MST")
+	t.Skip("TODO: these are currently disallowed in typescript implementation")
 
 	cid1str := "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454"
 
@@ -164,21 +240,21 @@ func TestInteropKnownMapsTricky(t *testing.T) {
 }
 
 // "trims top of tree on delete"
-func TestInteropEdgeCasesTrim(t *testing.T) {
+func TestInteropEdgeCasesTrimTop(t *testing.T) {
 
 	bs := memBs()
 	ctx := context.Background()
 	cid1str := "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454"
-	l1root := "bafyreihuyj2vzb2vjw3yhxg6dy25achg5fmre6gg5m6fjtxn64bqju4dee"
-	l0root := "bafyreibmijjc63mekkjzl3v2pegngwke5u6cu66g75z6uw27v64bc6ahqi"
+	l1root := "bafyreifnqrwbk6ffmyaz5qtujqrzf5qmxf7cbxvgzktl4e3gabuxbtatv4"
+	l0root := "bafyreie4kjuxbwkhzg2i5dljaswcroeih4dgiqq6pazcmunwt2byd725vi"
 
 	trimMap := map[string]string{
-		"com.example.record/40c73105b48f": cid1str, // level 0
-		"com.example.record/e99bf3ced34b": cid1str, // level 0
-		"com.example.record/893e6c08b450": cid1str, // level 0
-		"com.example.record/9cd8b6c0cc02": cid1str, // level 0
-		"com.example.record/cbe72d33d12a": cid1str, // level 0
-		"com.example.record/a15e33ba0f6c": cid1str, // level 1
+		"com.example.record/3jqfcqzm3fn2j": cid1str, // level 0
+		"com.example.record/3jqfcqzm3fo2j": cid1str, // level 0
+		"com.example.record/3jqfcqzm3fp2j": cid1str, // level 0
+		"com.example.record/3jqfcqzm3fs2j": cid1str, // level 0
+		"com.example.record/3jqfcqzm3ft2j": cid1str, // level 0
+		"com.example.record/3jqfcqzm3fu2j": cid1str, // level 1
 	}
 	trimMst := cidMapToMst(t, bs, mapToCidMapDecode(t, trimMap))
 	trimBefore, err := trimMst.GetPointer(ctx)
@@ -188,7 +264,7 @@ func TestInteropEdgeCasesTrim(t *testing.T) {
 	assert.Equal(t, trimMst.layer, 1)
 	assert.Equal(t, trimBefore.String(), l1root)
 
-	trimMst, err = trimMst.Delete(ctx, "com.example.record/a15e33ba0f6c") // level 1
+	trimMst, err = trimMst.Delete(ctx, "com.example.record/3jqfcqzm3fs2j") // level 1
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,20 +288,20 @@ func TestInteropEdgeCasesInsertion(t *testing.T) {
 	}
 
 	// "handles insertion that splits two layers down"
-	l1root := "bafyreiagt55jzvkenoa4yik77dhomagq2uj26ix4cijj7kd2py2u3s43ve"
-	l2root := "bafyreiddrz7qbvfattp5dzzh4ldohsaobatsg7f5l6awxnmuydewq66qoa"
+	l1root := "bafyreiettyludka6fpgp33stwxfuwhkzlur6chs4d2v4nkmq2j3ogpdjem"
+	l2root := "bafyreid2x5eqs4w4qxvc5jiwda4cien3gw2q6cshofxwnvv7iucrmfohpm"
 	insertionMap := map[string]string{
-		"com.example.record/403e2aeebfdb": cid1str, // A; level 0
-		"com.example.record/40c73105b48f": cid1str, // B; level 0
-		"com.example.record/645787eb4316": cid1str, // C; level 0
-		"com.example.record/7ca4e61d6fbc": cid1str, // D; level 1
-		"com.example.record/893e6c08b450": cid1str, // E; level 0
-		"com.example.record/9cd8b6c0cc02": cid1str, // G; level 0
-		"com.example.record/cbe72d33d12a": cid1str, // H; level 0
-		"com.example.record/dbea731be795": cid1str, // I; level 1
-		"com.example.record/e2ef555433f2": cid1str, // J; level 0
-		"com.example.record/e99bf3ced34b": cid1str, // K; level 0
-		"com.example.record/f728ba61e4b6": cid1str, // L; level 0
+		"com.example.record/3jqfcqzm3fo2j": cid1str, // A; level 0
+		"com.example.record/3jqfcqzm3fp2j": cid1str, // B; level 0
+		"com.example.record/3jqfcqzm3fr2j": cid1str, // C; level 0
+		"com.example.record/3jqfcqzm3fs2j": cid1str, // D; level 1
+		"com.example.record/3jqfcqzm3ft2j": cid1str, // E; level 0
+		"com.example.record/3jqfcqzm3fz2j": cid1str, // G; level 0
+		"com.example.record/3jqfcqzm4fc2j": cid1str, // H; level 0
+		"com.example.record/3jqfcqzm4fd2j": cid1str, // I; level 1
+		"com.example.record/3jqfcqzm4ff2j": cid1str, // J; level 0
+		"com.example.record/3jqfcqzm4fg2j": cid1str, // K; level 0
+		"com.example.record/3jqfcqzm4fh2j": cid1str, // L; level 0
 	}
 	insertionMst := cidMapToMst(t, bs, mapToCidMapDecode(t, insertionMap))
 	insertionBefore, err := insertionMst.GetPointer(ctx)
@@ -236,7 +312,7 @@ func TestInteropEdgeCasesInsertion(t *testing.T) {
 	assert.Equal(t, insertionBefore.String(), l1root)
 
 	// insert F, which will push E out of the node with G+H to a new node under D
-	insertionMst, err = insertionMst.Add(ctx, "com.example.record/9ba1c7247ede", cid1, -1) // F; level 2
+	insertionMst, err = insertionMst.Add(ctx, "com.example.record/3jqfcqzm3fx2j", cid1, -1) // F; level 2
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -248,7 +324,7 @@ func TestInteropEdgeCasesInsertion(t *testing.T) {
 	assert.Equal(t, insertionAfter.String(), l2root)
 
 	// remove F, which should push E back over with G+H
-	insertionMst, err = insertionMst.Delete(ctx, "com.example.record/9ba1c7247ede") // F; level 2
+	insertionMst, err = insertionMst.Delete(ctx, "com.example.record/3jqfcqzm3fx2j") // F; level 2
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,12 +347,12 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	l0root := "bafyreicivoa3p3ttcebdn2zfkdzenkd2uk3gxxlaz43qvueeip6yysvq2m"
-	l2root := "bafyreidwoqm6xlewxzhrx6ytbyhsazctlv72txtmnd4au6t53z2vpzn7wa"
-	l2root2 := "bafyreiapru27ce4wdlylk5revtr3hewmxhmt3ek5f2ypioiivmdbv5igrm"
+	l0root := "bafyreidfcktqnfmykz2ps3dbul35pepleq7kvv526g47xahuz3rqtptmky"
+	l2root := "bafyreiavxaxdz7o7rbvr3zg2liox2yww46t7g6hkehx4i4h3lwudly7dhy"
+	l2root2 := "bafyreig4jv3vuajbsybhyvb7gggvpwh2zszwfyttjrj6qwvcsp24h6popu"
 	higherMap := map[string]string{
-		"com.example.record/403e2aeebfdb": cid1str, // A; level 0
-		"com.example.record/cbe72d33d12a": cid1str, // C; level 0
+		"com.example.record/3jqfcqzm3ft2j": cid1str, // A; level 0
+		"com.example.record/3jqfcqzm3fz2j": cid1str, // C; level 0
 	}
 	higherMst := cidMapToMst(t, bs, mapToCidMapDecode(t, higherMap))
 	higherBefore, err := higherMst.GetPointer(ctx)
@@ -287,7 +363,7 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 	assert.Equal(t, higherBefore.String(), l0root)
 
 	// insert B, which is two levels above
-	higherMst, err = higherMst.Add(ctx, "com.example.record/9ba1c7247ede", cid1, -1) // B; level 2
+	higherMst, err = higherMst.Add(ctx, "com.example.record/3jqfcqzm3fx2j", cid1, -1) // B; level 2
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +374,7 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 	assert.Equal(t, higherAfter.String(), l2root)
 
 	// remove B
-	higherMst, err = higherMst.Delete(ctx, "com.example.record/9ba1c7247ede") // B; level 2
+	higherMst, err = higherMst.Delete(ctx, "com.example.record/3jqfcqzm3fx2j") // B; level 2
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,11 +386,11 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 	assert.Equal(t, higherAgain.String(), l0root)
 
 	// insert B (level=2) and D (level=1)
-	higherMst, err = higherMst.Add(ctx, "com.example.record/9ba1c7247ede", cid1, -1) // B; level 2
+	higherMst, err = higherMst.Add(ctx, "com.example.record/3jqfcqzm3fx2j", cid1, -1) // B; level 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherMst, err = higherMst.Add(ctx, "com.example.record/fae7a851fbeb", cid1, -1) // D; level 1
+	higherMst, err = higherMst.Add(ctx, "com.example.record/3jqfcqzm4fd2j", cid1, -1) // D; level 1
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +402,7 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 	assert.Equal(t, higherYetAgain.String(), l2root2)
 
 	// remove D
-	higherMst, err = higherMst.Delete(ctx, "com.example.record/fae7a851fbeb") // D; level 1
+	higherMst, err = higherMst.Delete(ctx, "com.example.record/3jqfcqzm4fd2j") // D; level 1
 	if err != nil {
 		t.Fatal(err)
 	}

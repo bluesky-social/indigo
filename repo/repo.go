@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -17,36 +18,55 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
+// current version of repo currently implemented
+const ATP_REPO_VERSION int64 = 2
+
 type SignedCommit struct {
-	Root cid.Cid `cborgen:"root"`
-	Sig  []byte  `cborgen:"sig"`
+	Did     string   `cborgen:"did"`
+	Version int64    `cborgen:"version"`
+	Prev    *cid.Cid `cborgen:"prev"`
+	Data    cid.Cid  `cborgen:"data"`
+	Sig     []byte   `cborgen:"sig"`
 }
 
-type Root struct {
-	AuthToken *string  `cborgen:"auth_token"`
-	Data      cid.Cid  `cborgen:"data"`
-	Meta      cid.Cid  `cborgen:"meta"`
-	Prev      *cid.Cid `cborgen:"prev,omitempty"`
-}
-
-type Meta struct {
-	Datastore string `cborgen:"datastore"`
-	Did       string `cborgen:"did"`
-	Version   int64  `cborgen:"version"`
+type UnsignedCommit struct {
+	Did     string   `cborgen:"did"`
+	Version int64    `cborgen:"version"`
+	Prev    *cid.Cid `cborgen:"prev"`
+	Data    cid.Cid  `cborgen:"data"`
 }
 
 type Repo struct {
-	sr  SignedCommit
+	sc  SignedCommit
 	cst cbor.IpldStore
 	bs  blockstore.Blockstore
 
 	repoCid cid.Cid
 
-	meta *Meta
-
 	mst *mst.MerkleSearchTree
 
 	dirty bool
+}
+
+// Returns a copy of commit without the Sig field. Helpful when verifying signature.
+func (sc *SignedCommit) Unsigned() *UnsignedCommit {
+	return &UnsignedCommit{
+		Did:     sc.Did,
+		Version: sc.Version,
+		Prev:    sc.Prev,
+		Data:    sc.Data,
+	}
+}
+
+// returns bytes of the DAG-CBOR representation of object. This is what gets
+// signed; the `go-did` library will take the SHA-256 of the bytes and sign
+// that.
+func (uc *UnsignedCommit) BytesForSigning() ([]byte, error) {
+	buf := new(bytes.Buffer)
+	if err := uc.MarshalCBOR(buf); err != nil {
+		return []byte{}, err
+	}
+	return buf.Bytes(), nil
 }
 
 func IngestRepo(ctx context.Context, bs blockstore.Blockstore, r io.Reader) (cid.Cid, error) {
@@ -89,18 +109,16 @@ func NewRepo(ctx context.Context, did string, bs blockstore.Blockstore) *Repo {
 	cst := util.CborStore(bs)
 
 	t := mst.NewMST(cst, cid.Undef, []mst.NodeEntry{}, 0)
-
-	meta := &Meta{
-		Datastore: "TODO",
-		Did:       did,
-		Version:   1,
+	sc := SignedCommit{
+		Did:     did,
+		Version: 2,
 	}
 
 	return &Repo{
-		meta:  meta,
 		cst:   cst,
 		bs:    bs,
 		mst:   t,
+		sc:    sc,
 		dirty: true,
 	}
 }
@@ -108,31 +126,20 @@ func NewRepo(ctx context.Context, did string, bs blockstore.Blockstore) *Repo {
 func OpenRepo(ctx context.Context, bs blockstore.Blockstore, root cid.Cid, fullRepo bool) (*Repo, error) {
 	cst := util.CborStore(bs)
 
-	var sr SignedCommit
-	if err := cst.Get(ctx, root, &sr); err != nil {
+	var sc SignedCommit
+	if err := cst.Get(ctx, root, &sc); err != nil {
 		return nil, fmt.Errorf("loading root from blockstore: %w", err)
 	}
 
-	var rt Root
-	if err := cst.Get(ctx, sr.Root, &rt); err != nil {
-		return nil, fmt.Errorf("loading root: %w", err)
-	}
-
-	var meta *Meta
-	if fullRepo {
-		var m Meta
-		if err := cst.Get(ctx, rt.Meta, &m); err != nil {
-			return nil, fmt.Errorf("loading meta: %w", err)
-		}
-		meta = &m
+	if sc.Version != ATP_REPO_VERSION {
+		return nil, fmt.Errorf("unsupported repo version: %d", sc.Version)
 	}
 
 	return &Repo{
-		sr:      sr,
+		sc:      sc,
 		bs:      bs,
 		cst:     cst,
 		repoCid: root,
-		meta:    meta,
 	}, nil
 }
 
@@ -140,38 +147,21 @@ type CborMarshaler interface {
 	MarshalCBOR(w io.Writer) error
 }
 
-func (r *Repo) MetaCid(ctx context.Context) (cid.Cid, error) {
-	var root Root
-	if err := r.cst.Get(ctx, r.sr.Root, &root); err != nil {
-		return cid.Undef, err
-	}
-
-	return root.Meta, nil
-}
-
 func (r *Repo) RepoDid() string {
-	if r.meta.Did == "" {
+	if r.sc.Did == "" {
 		panic("repo has unset did")
 	}
 
-	return r.meta.Did
+	return r.sc.Did
 }
 
+// TODO(bnewbold): this could return just *cid.Cid
 func (r *Repo) PrevCommit(ctx context.Context) (*cid.Cid, error) {
-	var c Root
-	if err := r.cst.Get(ctx, r.sr.Root, &c); err != nil {
-		return nil, fmt.Errorf("loading previous commit: %w", err)
-	}
-
-	return c.Prev, nil
-}
-
-func (r *Repo) CommitRoot() cid.Cid {
-	return r.sr.Root
+	return r.sc.Prev, nil
 }
 
 func (r *Repo) SignedCommit() SignedCommit {
-	return r.sr
+	return r.sc
 }
 
 func (r *Repo) Blockstore() blockstore.Blockstore {
@@ -247,13 +237,10 @@ func (r *Repo) DeleteRecord(ctx context.Context, rpath string) error {
 	return nil
 }
 
+// creates and writes a new SignedCommit for this repo, with `prev` pointing to old value
 func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, []byte) ([]byte, error)) (cid.Cid, error) {
 	ctx, span := otel.Tracer("repo").Start(ctx, "Commit")
 	defer span.End()
-
-	if r.meta == nil {
-		return cid.Undef, fmt.Errorf("cannot commit a repo with no meta set")
-	}
 
 	t, err := r.getMst(ctx)
 	if err != nil {
@@ -265,51 +252,44 @@ func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, 
 		return cid.Undef, err
 	}
 
-	nroot := Root{
-		Data: rcid,
-	}
-
+	var nprev *cid.Cid
 	if r.repoCid.Defined() {
-		var rt Root
-		if err := r.cst.Get(ctx, r.sr.Root, &rt); err != nil {
-			return cid.Undef, err
-		}
-		nroot.Prev = &r.repoCid
-		nroot.Meta = rt.Meta
-	} else {
-		mcid, err := r.cst.Put(ctx, r.meta)
-		if err != nil {
-			return cid.Undef, err
-		}
-		nroot.Meta = mcid
+		nprev = &r.repoCid
 	}
 
-	ncomcid, err := r.cst.Put(ctx, &nroot)
+	ncom := UnsignedCommit{
+		Did:     r.RepoDid(),
+		Version: ATP_REPO_VERSION,
+		Prev:    nprev,
+		Data:    rcid,
+	}
+
+	sb, err := ncom.BytesForSigning()
 	if err != nil {
-		return cid.Undef, err
+		return cid.Undef, fmt.Errorf("failed to serialize commit: %w", err)
 	}
-
-	did := r.RepoDid()
-
-	sig, err := signer(ctx, did, ncomcid.Bytes())
+	sig, err := signer(ctx, ncom.Did, sb)
 	if err != nil {
 		return cid.Undef, fmt.Errorf("failed to sign root: %w", err)
 	}
 
-	nsroot := SignedCommit{
-		Root: ncomcid,
-		Sig:  sig,
+	nsc := SignedCommit{
+		Sig:     sig,
+		Did:     ncom.Did,
+		Version: ncom.Version,
+		Prev:    ncom.Prev,
+		Data:    ncom.Data,
 	}
 
-	nsrootcid, err := r.cst.Put(ctx, &nsroot)
+	nsccid, err := r.cst.Put(ctx, &nsc)
 	if err != nil {
 		return cid.Undef, err
 	}
 
-	r.sr = nsroot
+	r.sc = nsc
 	r.dirty = false
 
-	return nsrootcid, nil
+	return nsccid, nil
 }
 
 func (r *Repo) getMst(ctx context.Context) (*mst.MerkleSearchTree, error) {
@@ -317,12 +297,7 @@ func (r *Repo) getMst(ctx context.Context) (*mst.MerkleSearchTree, error) {
 		return r.mst, nil
 	}
 
-	var rt Root
-	if err := r.cst.Get(ctx, r.sr.Root, &rt); err != nil {
-		return nil, err
-	}
-
-	t := mst.LoadMST(r.cst, rt.Data)
+	t := mst.LoadMST(r.cst, r.sc.Data)
 	r.mst = t
 	return t, nil
 }
@@ -333,12 +308,7 @@ func (r *Repo) ForEach(ctx context.Context, prefix string, cb func(k string, v c
 	ctx, span := otel.Tracer("repo").Start(ctx, "ForEach")
 	defer span.End()
 
-	var rt Root
-	if err := r.cst.Get(ctx, r.sr.Root, &rt); err != nil {
-		return fmt.Errorf("failed to load commit: %w", err)
-	}
-
-	t := mst.LoadMST(r.cst, rt.Data)
+	t := mst.LoadMST(r.cst, r.sc.Data)
 
 	if err := t.WalkLeavesFrom(ctx, prefix, func(e mst.NodeEntry) error {
 		return cb(e.Key, e.Val)

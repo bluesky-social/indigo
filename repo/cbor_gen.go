@@ -26,7 +26,30 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 
 	cw := cbg.NewCborWriter(w)
 
-	if _, err := cw.Write([]byte{162}); err != nil {
+	if _, err := cw.Write([]byte{165}); err != nil {
+		return err
+	}
+
+	// t.Did (string) (string)
+	if len("did") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"did\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("did"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("did")); err != nil {
+		return err
+	}
+
+	if len(t.Did) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Did was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Did))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Did)); err != nil {
 		return err
 	}
 
@@ -54,22 +77,65 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Root (cid.Cid) (struct)
-	if len("root") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"root\" was too long")
+	// t.Data (cid.Cid) (struct)
+	if len("data") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"data\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("root"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("data"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("root")); err != nil {
+	if _, err := io.WriteString(w, string("data")); err != nil {
 		return err
 	}
 
-	if err := cbg.WriteCid(cw, t.Root); err != nil {
-		return xerrors.Errorf("failed to write cid field t.Root: %w", err)
+	if err := cbg.WriteCid(cw, t.Data); err != nil {
+		return xerrors.Errorf("failed to write cid field t.Data: %w", err)
 	}
 
+	// t.Prev (cid.Cid) (struct)
+	if len("prev") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"prev\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("prev")); err != nil {
+		return err
+	}
+
+	if t.Prev == nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteCid(cw, *t.Prev); err != nil {
+			return xerrors.Errorf("failed to write cid field t.Prev: %w", err)
+		}
+	}
+
+	// t.Version (int64) (int64)
+	if len("version") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"version\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("version"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("version")); err != nil {
+		return err
+	}
+
+	if t.Version >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Version)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Version-1)); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -111,7 +177,18 @@ func (t *SignedCommit) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Sig ([]uint8) (slice)
+		// t.Did (string) (string)
+		case "did":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Did = string(sval)
+			}
+			// t.Sig ([]uint8) (slice)
 		case "sig":
 
 			maj, extra, err = cr.ReadHeader()
@@ -133,18 +210,67 @@ func (t *SignedCommit) UnmarshalCBOR(r io.Reader) (err error) {
 			if _, err := io.ReadFull(cr, t.Sig[:]); err != nil {
 				return err
 			}
-			// t.Root (cid.Cid) (struct)
-		case "root":
+			// t.Data (cid.Cid) (struct)
+		case "data":
 
 			{
 
 				c, err := cbg.ReadCid(cr)
 				if err != nil {
-					return xerrors.Errorf("failed to read cid field t.Root: %w", err)
+					return xerrors.Errorf("failed to read cid field t.Data: %w", err)
 				}
 
-				t.Root = c
+				t.Data = c
 
+			}
+			// t.Prev (cid.Cid) (struct)
+		case "prev":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					c, err := cbg.ReadCid(cr)
+					if err != nil {
+						return xerrors.Errorf("failed to read cid field t.Prev: %w", err)
+					}
+
+					t.Prev = &c
+				}
+
+			}
+			// t.Version (int64) (int64)
+		case "version":
+			{
+				maj, extra, err := cr.ReadHeader()
+				var extraI int64
+				if err != nil {
+					return err
+				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.Version = int64(extraI)
 			}
 
 		default:
@@ -155,7 +281,7 @@ func (t *SignedCommit) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *Meta) MarshalCBOR(w io.Writer) error {
+func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -163,7 +289,7 @@ func (t *Meta) MarshalCBOR(w io.Writer) error {
 
 	cw := cbg.NewCborWriter(w)
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if _, err := cw.Write([]byte{164}); err != nil {
 		return err
 	}
 
@@ -190,6 +316,44 @@ func (t *Meta) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.Data (cid.Cid) (struct)
+	if len("data") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"data\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("data"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("data")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteCid(cw, t.Data); err != nil {
+		return xerrors.Errorf("failed to write cid field t.Data: %w", err)
+	}
+
+	// t.Prev (cid.Cid) (struct)
+	if len("prev") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"prev\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("prev")); err != nil {
+		return err
+	}
+
+	if t.Prev == nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if err := cbg.WriteCid(cw, *t.Prev); err != nil {
+			return xerrors.Errorf("failed to write cid field t.Prev: %w", err)
+		}
+	}
+
 	// t.Version (int64) (int64)
 	if len("version") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"version\" was too long")
@@ -211,34 +375,11 @@ func (t *Meta) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	}
-
-	// t.Datastore (string) (string)
-	if len("datastore") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"datastore\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("datastore"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("datastore")); err != nil {
-		return err
-	}
-
-	if len(t.Datastore) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Datastore was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Datastore))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Datastore)); err != nil {
-		return err
-	}
 	return nil
 }
 
-func (t *Meta) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = Meta{}
+func (t *UnsignedCommit) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = UnsignedCommit{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -257,7 +398,7 @@ func (t *Meta) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("Meta: map struct too large (%d)", extra)
+		return fmt.Errorf("UnsignedCommit: map struct too large (%d)", extra)
 	}
 
 	var name string
@@ -286,197 +427,7 @@ func (t *Meta) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Did = string(sval)
 			}
-			// t.Version (int64) (int64)
-		case "version":
-			{
-				maj, extra, err := cr.ReadHeader()
-				var extraI int64
-				if err != nil {
-					return err
-				}
-				switch maj {
-				case cbg.MajUnsignedInt:
-					extraI = int64(extra)
-					if extraI < 0 {
-						return fmt.Errorf("int64 positive overflow")
-					}
-				case cbg.MajNegativeInt:
-					extraI = int64(extra)
-					if extraI < 0 {
-						return fmt.Errorf("int64 negative overflow")
-					}
-					extraI = -1 - extraI
-				default:
-					return fmt.Errorf("wrong type for int64 field: %d", maj)
-				}
-
-				t.Version = int64(extraI)
-			}
-			// t.Datastore (string) (string)
-		case "datastore":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.Datastore = string(sval)
-			}
-
-		default:
-			// Field doesn't exist on this type, so ignore it
-			cbg.ScanForLinks(r, func(cid.Cid) {})
-		}
-	}
-
-	return nil
-}
-func (t *Root) MarshalCBOR(w io.Writer) error {
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
-
-	cw := cbg.NewCborWriter(w)
-	fieldCount := 4
-
-	if t.Prev == nil {
-		fieldCount--
-	}
-
-	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
-		return err
-	}
-
-	// t.Data (cid.Cid) (struct)
-	if len("data") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"data\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("data"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("data")); err != nil {
-		return err
-	}
-
-	if err := cbg.WriteCid(cw, t.Data); err != nil {
-		return xerrors.Errorf("failed to write cid field t.Data: %w", err)
-	}
-
-	// t.Meta (cid.Cid) (struct)
-	if len("meta") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"meta\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("meta"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("meta")); err != nil {
-		return err
-	}
-
-	if err := cbg.WriteCid(cw, t.Meta); err != nil {
-		return xerrors.Errorf("failed to write cid field t.Meta: %w", err)
-	}
-
-	// t.Prev (cid.Cid) (struct)
-	if t.Prev != nil {
-
-		if len("prev") > cbg.MaxLength {
-			return xerrors.Errorf("Value in field \"prev\" was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string("prev")); err != nil {
-			return err
-		}
-
-		if t.Prev == nil {
-			if _, err := cw.Write(cbg.CborNull); err != nil {
-				return err
-			}
-		} else {
-			if err := cbg.WriteCid(cw, *t.Prev); err != nil {
-				return xerrors.Errorf("failed to write cid field t.Prev: %w", err)
-			}
-		}
-
-	}
-
-	// t.AuthToken (string) (string)
-	if len("auth_token") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"auth_token\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("auth_token"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("auth_token")); err != nil {
-		return err
-	}
-
-	if t.AuthToken == nil {
-		if _, err := cw.Write(cbg.CborNull); err != nil {
-			return err
-		}
-	} else {
-		if len(*t.AuthToken) > cbg.MaxLength {
-			return xerrors.Errorf("Value in field t.AuthToken was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.AuthToken))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string(*t.AuthToken)); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (t *Root) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = Root{}
-
-	cr := cbg.NewCborReader(r)
-
-	maj, extra, err := cr.ReadHeader()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err == io.EOF {
-			err = io.ErrUnexpectedEOF
-		}
-	}()
-
-	if maj != cbg.MajMap {
-		return fmt.Errorf("cbor input should be of type map")
-	}
-
-	if extra > cbg.MaxLength {
-		return fmt.Errorf("Root: map struct too large (%d)", extra)
-	}
-
-	var name string
-	n := extra
-
-	for i := uint64(0); i < n; i++ {
-
-		{
-			sval, err := cbg.ReadString(cr)
-			if err != nil {
-				return err
-			}
-
-			name = string(sval)
-		}
-
-		switch name {
-		// t.Data (cid.Cid) (struct)
+			// t.Data (cid.Cid) (struct)
 		case "data":
 
 			{
@@ -487,19 +438,6 @@ func (t *Root) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Data = c
-
-			}
-			// t.Meta (cid.Cid) (struct)
-		case "meta":
-
-			{
-
-				c, err := cbg.ReadCid(cr)
-				if err != nil {
-					return xerrors.Errorf("failed to read cid field t.Meta: %w", err)
-				}
-
-				t.Meta = c
 
 			}
 			// t.Prev (cid.Cid) (struct)
@@ -525,26 +463,31 @@ func (t *Root) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 			}
-			// t.AuthToken (string) (string)
-		case "auth_token":
-
+			// t.Version (int64) (int64)
+		case "version":
 			{
-				b, err := cr.ReadByte()
+				maj, extra, err := cr.ReadHeader()
+				var extraI int64
 				if err != nil {
 					return err
 				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
 					}
-
-					sval, err := cbg.ReadString(cr)
-					if err != nil {
-						return err
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
 					}
-
-					t.AuthToken = (*string)(&sval)
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
 				}
+
+				t.Version = int64(extraI)
 			}
 
 		default:
