@@ -546,7 +546,12 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 
 	scom := r.SignedCommit()
 
-	if err := rm.kmgr.VerifyUserSignature(ctx, repoDid, scom.Sig, scom.Root.Bytes()); err != nil {
+	usc := scom.Unsigned()
+	sb, err := usc.BytesForSigning()
+	if err != nil {
+		return fmt.Errorf("commit serialization failed: %w", err)
+	}
+	if err := rm.kmgr.VerifyUserSignature(ctx, repoDid, scom.Sig, sb); err != nil {
 		return fmt.Errorf("signature check failed: %w", err)
 	}
 
@@ -818,7 +823,12 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user util.Uid, repoDid
 
 		scom := r.SignedCommit()
 
-		if err := rm.kmgr.VerifyUserSignature(ctx, repoDid, scom.Sig, scom.Root.Bytes()); err != nil {
+		usc := scom.Unsigned()
+		sb, err := usc.BytesForSigning()
+		if err != nil {
+			return fmt.Errorf("commit serialization failed: %w", err)
+		}
+		if err := rm.kmgr.VerifyUserSignature(ctx, repoDid, scom.Sig, sb); err != nil {
 			return fmt.Errorf("signature check failed: %w", err)
 		}
 
@@ -954,35 +964,6 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user util.Uid, r io.R
 		if err := membs.Put(ctx, blk); err != nil {
 			return err
 		}
-	}
-
-	// mild hack: without access to the 'meta' object, we cant properly verify each new repo slice has the right DID in the case of a gap fill procedure
-	if until.Defined() {
-		robs, err := rm.cs.ReadOnlySession(user)
-		if err != nil {
-			return err
-		}
-
-		old, err := repo.OpenRepo(ctx, robs, until, true)
-		if err != nil {
-			return err
-		}
-
-		mcid, err := old.MetaCid(ctx)
-		if err != nil {
-			return err
-		}
-
-		blk, err := robs.Get(ctx, mcid)
-		if err != nil {
-			return err
-		}
-
-		if err := membs.Put(ctx, blk); err != nil {
-			return err
-		}
-
-		membs = util.NewReadThroughBstore(robs, membs)
 	}
 
 	head := &carr.Header.Roots[0]
