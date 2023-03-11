@@ -17,9 +17,7 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.GET("/xrpc/com.atproto.repo.getRecord", s.HandleComAtprotoRepoGetRecord)
 	e.GET("/xrpc/com.atproto.repo.listRecords", s.HandleComAtprotoRepoListRecords)
 	e.GET("/xrpc/com.atproto.server.getAccountsConfig", s.HandleComAtprotoServerGetAccountsConfig)
-	e.GET("/xrpc/com.atproto.sync.getRepo", s.HandleComAtprotoSyncGetRepo)
-	// TODO(bnewbold): after lexicons updated
-	//e.GET("/xrpc/com.atproto.sync.getHead", s.HandleComAtprotoSyncGetRoot)
+	e.GET("/xrpc/com.atproto.sync.getHead", s.HandleComAtprotoSyncGetHead)
 	return nil
 }
 
@@ -144,4 +142,18 @@ func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 		return handleErr
 	}
 	return c.Stream(200, "application/vnd.ipld.car", out)
+}
+
+func (s *Server) HandleComAtprotoSyncGetHead(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetHead")
+	defer span.End()
+	did := c.QueryParam("did")
+	var out *atproto.SyncGetHead_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoSyncGetHead(ctx context.Context,did string) (*comatprototypes.SyncGetHead_Output, error)
+	out, handleErr = s.handleComAtprotoSyncGetHead(ctx, did)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
