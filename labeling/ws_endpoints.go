@@ -23,7 +23,6 @@ func (s *Server) EventsLabelsWebsocket(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	// TODO: authhhh
 	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
 	if err != nil {
 		return fmt.Errorf("upgrading websocket: %w", err)

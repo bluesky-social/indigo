@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -74,6 +75,16 @@ func run(args []string) {
 			Name:  "subscribe-insecure-ws",
 			Usage: "when connecting to BGS instance, use ws:// instead of wss://",
 		},
+		&cli.StringFlag{
+			Name:  "repo-did",
+			Usage: "DID for labelmaker repo",
+			Value: "did:plc:FAKE",
+		},
+		&cli.StringFlag{
+			Name:  "repo-handle",
+			Usage: "handle for labelmaker repo",
+			Value: "labelmaker.test",
+		},
 	}
 
 	app.Action = func(cctx *cli.Context) error {
@@ -82,6 +93,7 @@ func run(args []string) {
 		datadir := cctx.String("data-dir")
 		csdir := filepath.Join(datadir, "carstore")
 		os.MkdirAll(datadir, os.ModePerm)
+		repoKeyPath := filepath.Join(datadir, "labelmaker.key")
 
 		dburl := cctx.String("db-url")
 		db, err := cliutil.SetupDatabase(dburl)
@@ -110,18 +122,18 @@ func run(args []string) {
 			return err
 		}
 
-		// TODO: additional config work to be done
-		repoDid := "did:plc:FAKE"
-		repoHandle := "labelmaker.test"
-		repoKeyPath := "data/labelmaker/labelmaker.key"
 		bgsUrl := cctx.String("bgs-host")
 		plcUrl := cctx.String("plc-host")
+		useWss := !cctx.Bool("subscribe-insecure-ws")
+		repoDid := cctx.String("repo-did")
+		repoHandle := cctx.String("repo-handle")
 
-		srv, err := labeling.NewServer(db, cstore, repoKeyPath, repoDid, repoHandle, bgsUrl, plcUrl)
+		srv, err := labeling.NewServer(db, cstore, repoKeyPath, repoDid, repoHandle, plcUrl, useWss)
 		if err != nil {
 			return err
 		}
 
+		srv.SubscribeBGS(context.TODO(), bgsUrl, useWss)
 		return srv.RunAPI(":2210")
 	}
 
