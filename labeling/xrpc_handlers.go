@@ -103,3 +103,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 		Value: lexutil.LexiconTypeDecoder{rec},
 	}, nil
 }
+
+func (s *Server) handleComAtprotoSyncGetHead(ctx context.Context, did string) (*atproto.SyncGetHead_Output, error) {
+	panic("not yet implemented")
+}
