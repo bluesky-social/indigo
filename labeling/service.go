@@ -37,58 +37,44 @@ type Server struct {
 	bgsSlurper *bgs.Slurper
 	levents    *events.LabelEventManager
 	echo       *echo.Echo
-	user       *LabelmakerRepoConfig
+	user       *RepoConfig
 	kwl        []KeywordLabeler
 }
 
-type LabelmakerRepoConfig struct {
-	handle     string
-	did        string
-	signingKey *did.PrivKey
-	userId     util.Uid
+type RepoConfig struct {
+	Handle     string
+	Did        string
+	SigningKey *did.PrivKey
+	UserId     util.Uid
 }
 
 // In addition to configuring the service, will connect to upstream BGS and start processing events. Won't handle HTTP or WebSocket endpoints until RunAPI() is called.
 // 'useWss' is a flag to use SSL for outbound WebSocket connections
-func NewServer(db *gorm.DB, cs *carstore.CarStore, keyFile, repoDid, repoHandle, plcUrl string, useWss bool) (*Server, error) {
-
-	serkey, err := loadKey(keyFile)
-	if err != nil {
-		return nil, err
-	}
+func NewServer(db *gorm.DB, cs *carstore.CarStore, kwl []KeywordLabeler, repoUser RepoConfig, plcUrl string, useWss bool) (*Server, error) {
 
 	db.AutoMigrate(models.PDS{})
 
 	didr := &api.PLCServer{Host: plcUrl}
-	kmgr := indexer.NewKeyManager(didr, serkey)
+	kmgr := indexer.NewKeyManager(didr, repoUser.SigningKey)
 	levtman := events.NewLabelEventManager(events.NewMemLabelPersister())
 	repoman := repomgr.NewRepoManager(db, cs, kmgr)
-
-	user := &LabelmakerRepoConfig{
-		handle:     repoHandle,
-		did:        repoDid,
-		signingKey: serkey,
-		userId:     1,
-	}
-
-	var kl = KeywordLabeler{value: "meta", keywords: []string{"the", "bluesky", "atproto"}}
 
 	s := &Server{
 		db:      db,
 		repoman: repoman,
 		levents: levtman,
-		user:    user,
-		kwl:     []KeywordLabeler{kl},
+		user:    &repoUser,
+		kwl:     kwl,
 		// sluper configured below
 	}
 
 	// ensure that local labelmaker repo exists
 	// NOTE: doesn't need to have app.bsky profile and actor config, this is just expediant (reusing an existing helper function)
 	ctx := context.Background()
-	head, _ := s.repoman.GetRepoRoot(ctx, s.user.userId)
+	head, _ := s.repoman.GetRepoRoot(ctx, s.user.UserId)
 	if head == cid.Undef {
 		log.Info("initializing labelmaker repo")
-		if err := s.repoman.InitNewActor(ctx, s.user.userId, s.user.handle, s.user.did, "Label Maker", pds.UserActorDeclCid, pds.UserActorDeclType); err != nil {
+		if err := s.repoman.InitNewActor(ctx, s.user.UserId, s.user.Handle, s.user.Did, "Label Maker", pds.UserActorDeclCid, pds.UserActorDeclType); err != nil {
 			return nil, fmt.Errorf("creating labelmaker repo: %w", err)
 		}
 	} else {
@@ -197,13 +183,13 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 			return fmt.Errorf("record not in CAR slice: %s", uri)
 		}
 		cidStr := cid.String()
-		labelVals, err := s.labelRecord(ctx, s.user.did, nsid, uri, cidStr, rec)
+		labelVals, err := s.labelRecord(ctx, s.user.Did, nsid, uri, cidStr, rec)
 		if err != nil {
 			return err
 		}
 		for _, val := range labelVals {
 			labels = append(labels, events.Label{
-				SourceDid:  s.user.did,
+				SourceDid:  s.user.Did,
 				SubjectUri: uri,
 				SubjectCid: &cidStr,
 				Value:      val,
@@ -214,11 +200,11 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 
 	// if any labels generated, persist them to repo...
 	for i, l := range labels {
-		path, _, err := s.repoman.CreateRecord(ctx, s.user.userId, "com.atproto.label.label", &l)
+		path, _, err := s.repoman.CreateRecord(ctx, s.user.UserId, "com.atproto.label.label", &l)
 		if err != nil {
 			return fmt.Errorf("failed to persist label in local repo: %w", err)
 		}
-		labeluri := "at://" + s.user.did + "/" + path
+		labeluri := "at://" + s.user.Did + "/" + path
 		labels[i].LabelUri = &labeluri
 		log.Infof("persisted label: %s", labeluri)
 	}
