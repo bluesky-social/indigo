@@ -9,7 +9,7 @@ import (
 
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/indexer"
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
@@ -32,7 +32,7 @@ func NewFeedGenerator(db *gorm.DB, ix *indexer.Indexer, readRecord ReadRecordFun
 	}, nil
 }
 
-type ReadRecordFunc func(context.Context, bsutil.Uid, cid.Cid) (util.CBOR, error)
+type ReadRecordFunc func(context.Context, bsutil.Uid, cid.Cid) (lexutil.CBOR, error)
 
 /*
 type HydratedFeedItem struct {
@@ -149,7 +149,7 @@ func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *models.FeedPost)
 		return nil, err
 	}
 
-	out.Post.Record = util.LexiconTypeDecoder{rec}
+	out.Post.Record = lexutil.LexiconTypeDecoder{rec}
 
 	return out, nil
 }
