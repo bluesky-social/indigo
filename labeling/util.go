@@ -11,7 +11,7 @@ import (
 )
 
 // TODO:(bnewbold): duplicates elsewhere; should refactor into cliutil
-func loadKey(kfile string) (*did.PrivKey, error) {
+func LoadKeyFromFile(kfile string) (*did.PrivKey, error) {
 	kb, err := os.ReadFile(kfile)
 	if err != nil {
 		return nil, err
