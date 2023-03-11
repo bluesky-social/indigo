@@ -17,7 +17,7 @@ import (
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
@@ -172,7 +172,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 				return err
 			}
 
-			var obj util.CBOR
+			var obj lexutil.CBOR
 
 			switch {
 			case evt.Append != nil:

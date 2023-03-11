@@ -17,7 +17,7 @@ import (
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
@@ -283,7 +283,7 @@ func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent
 	return out, nil
 }
 
-func (s *Server) readRecordFunc(ctx context.Context, user bsutil.Uid, c cid.Cid) (util.CBOR, error) {
+func (s *Server) readRecordFunc(ctx context.Context, user bsutil.Uid, c cid.Cid) (lexutil.CBOR, error) {
 	bs, err := s.cs.ReadOnlySession(user)
 	if err != nil {
 		return nil, err
@@ -294,7 +294,7 @@ func (s *Server) readRecordFunc(ctx context.Context, user bsutil.Uid, c cid.Cid)
 		return nil, err
 	}
 
-	return util.CborDecodeValue(blk.RawData())
+	return lexutil.CborDecodeValue(blk.RawData())
 }
 
 func loadKey(kfile string) (*did.PrivKey, error) {
@@ -657,7 +657,7 @@ func (s *Server) EventsHandler(c echo.Context) error {
 			return err
 		}
 
-		var obj util.CBOR
+		var obj lexutil.CBOR
 
 		switch {
 		case evt.Append != nil:

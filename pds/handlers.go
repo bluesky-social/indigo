@@ -9,7 +9,7 @@ import (
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/ipfs/go-cid"
 	jwt "github.com/lestrrat-go/jwx/jwt"
 )
@@ -87,7 +87,7 @@ func (s *Server) handleAppBskyActorUpdateProfile(ctx context.Context, input *app
 	return &appbskytypes.ActorUpdateProfile_Output{
 		Cid:    ncid.String(),
 		Uri:    "at://" + u.Did + "/app.bsky.actor.profile/self",
-		Record: util.LexiconTypeDecoder{profile},
+		Record: lexutil.LexiconTypeDecoder{profile},
 	}, nil
 }
 
@@ -540,7 +540,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 	return &comatprototypes.RepoGetRecord_Output{
 		Cid:   &ccstr,
 		Uri:   "at://" + targetUser.Did + "/" + collection + "/" + rkey,
-		Value: util.LexiconTypeDecoder{rec},
+		Value: lexutil.LexiconTypeDecoder{rec},
 	}, nil
 }
 
