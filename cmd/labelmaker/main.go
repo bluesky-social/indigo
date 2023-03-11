@@ -76,14 +76,27 @@ func run(args []string) {
 			Usage: "when connecting to BGS instance, use ws:// instead of wss://",
 		},
 		&cli.StringFlag{
-			Name:  "repo-did",
-			Usage: "DID for labelmaker repo",
-			Value: "did:plc:FAKE",
+			Name:    "repo-did",
+			Usage:   "DID for labelmaker repo",
+			Value:   "did:plc:FAKE",
+			EnvVars: []string{"LABELMAKER_REPO_DID"},
 		},
 		&cli.StringFlag{
-			Name:  "repo-handle",
-			Usage: "handle for labelmaker repo",
-			Value: "labelmaker.test",
+			Name:    "repo-handle",
+			Usage:   "handle for labelmaker repo",
+			Value:   "labelmaker.test",
+			EnvVars: []string{"LABELMAKER_REPO_HANDLE"},
+		},
+		&cli.StringFlag{
+			Name:    "bind",
+			Usage:   "IP or address, and port, to listen on for HTTP and WebSocket APIs",
+			Value:   ":2210",
+			EnvVars: []string{"LABELMAKER_BIND"},
+		},
+		&cli.StringFlag{
+			Name:    "keyword-file",
+			Usage:   "keyword filter config, as JSON file",
+			EnvVars: []string{"LABELMAKER_KEYWORD_FILE"},
 		},
 	}
 
@@ -122,19 +135,46 @@ func run(args []string) {
 			return err
 		}
 
+		kwlFile := cctx.String("keyword-file")
+		var kwl []labeling.KeywordLabeler
+		if kwlFile != "" {
+			kwl, err = labeling.LoadKeywordFile(kwlFile)
+			if err != nil {
+				return err
+			}
+		} else {
+			// trivial examples
+			kwl = append(kwl, labeling.KeywordLabeler{Value: "meta", Keywords: []string{"bluesky", "atproto"}})
+			kwl = append(kwl, labeling.KeywordLabeler{Value: "wordle", Keywords: []string{"wordle"}})
+			kwl = append(kwl, labeling.KeywordLabeler{Value: "definite-article", Keywords: []string{"the"}})
+		}
+
 		bgsUrl := cctx.String("bgs-host")
 		plcUrl := cctx.String("plc-host")
 		useWss := !cctx.Bool("subscribe-insecure-ws")
 		repoDid := cctx.String("repo-did")
 		repoHandle := cctx.String("repo-handle")
+		bind := cctx.String("bind")
 
-		srv, err := labeling.NewServer(db, cstore, repoKeyPath, repoDid, repoHandle, plcUrl, useWss)
+		serkey, err := labeling.LoadKeyFromFile(repoKeyPath)
+		if err != nil {
+			return err
+		}
+
+		repoUser := labeling.RepoConfig{
+			Handle:     repoHandle,
+			Did:        repoDid,
+			SigningKey: serkey,
+			UserId:     1,
+		}
+
+		srv, err := labeling.NewServer(db, cstore, kwl, repoUser, plcUrl, useWss)
 		if err != nil {
 			return err
 		}
 
 		srv.SubscribeBGS(context.TODO(), bgsUrl, useWss)
-		return srv.RunAPI(":2210")
+		return srv.RunAPI(bind)
 	}
 
 	app.RunAndExitOnError()

@@ -9,7 +9,7 @@ import (
 )
 
 func TestKeywordFilter(t *testing.T) {
-	var kl = KeywordLabeler{value: "rude", keywords: []string{"🍆", "sex"}}
+	var kl = KeywordLabeler{Value: "rude", Keywords: []string{"🍆", "sex"}}
 
 	postCases := []struct {
 		record   bsky.FeedPost

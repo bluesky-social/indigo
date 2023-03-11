@@ -21,9 +21,9 @@ func (s *Server) handleComAtprotoAccountGet(ctx context.Context) error {
 func (s *Server) handleComAtprotoHandleResolve(ctx context.Context, handle string) (*atproto.HandleResolve_Output, error) {
 	// only the one handle, for labelmaker
 	if handle == "" {
-		return &atproto.HandleResolve_Output{Did: s.user.signingKey.Public().DID()}, nil
-	} else if handle == s.user.handle {
-		return &atproto.HandleResolve_Output{Did: s.user.did}, nil
+		return &atproto.HandleResolve_Output{Did: s.user.SigningKey.Public().DID()}, nil
+	} else if handle == s.user.Handle {
+		return &atproto.HandleResolve_Output{Did: s.user.Did}, nil
 	} else {
 		return nil, fmt.Errorf("handle not found: %s", handle)
 	}
@@ -78,7 +78,7 @@ func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, ea
 }
 
 func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, collection string, rkey string, user string) (*atproto.RepoGetRecord_Output, error) {
-	if user != s.user.did {
+	if user != s.user.Did {
 		return nil, fmt.Errorf("unknown user: %s", user)
 	}
 
@@ -91,7 +91,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 		maybeCid = cc
 	}
 
-	reccid, rec, err := s.repoman.GetRecord(ctx, s.user.userId, collection, rkey, maybeCid)
+	reccid, rec, err := s.repoman.GetRecord(ctx, s.user.UserId, collection, rkey, maybeCid)
 	if err != nil {
 		return nil, fmt.Errorf("repoman GetRecord: %w", err)
 	}
@@ -99,7 +99,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 	ccstr := reccid.String()
 	return &atproto.RepoGetRecord_Output{
 		Cid:   &ccstr,
-		Uri:   "at://" + s.user.did + "/" + collection + "/" + rkey,
+		Uri:   "at://" + s.user.Did + "/" + collection + "/" + rkey,
 		Value: lexutil.LexiconTypeDecoder{rec},
 	}, nil
 }
