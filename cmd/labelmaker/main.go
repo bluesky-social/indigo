@@ -71,6 +71,13 @@ func run(args []string) {
 			Value:   "https://plc.directory",
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
+		// TODO(bnewbold): this is a temporary hack to fetch our own blobs
+		&cli.StringFlag{
+			Name:    "pds-host",
+			Usage:   "method, hostname, and port of PDS instance",
+			Value:   "http://localhost:4849",
+			EnvVars: []string{"ATP_PDS_HOST"},
+		},
 		&cli.BoolFlag{
 			Name:  "subscribe-insecure-ws",
 			Usage: "when connecting to BGS instance, use ws:// instead of wss://",
@@ -97,6 +104,16 @@ func run(args []string) {
 			Name:    "keyword-file",
 			Usage:   "keyword filter config, as JSON file",
 			EnvVars: []string{"LABELMAKER_KEYWORD_FILE"},
+		},
+		&cli.StringFlag{
+			Name:    "micro-nsfw-img-url",
+			Usage:   "'micro-nsfw-img' classifier endpoint (full URL)",
+			EnvVars: []string{"LABELMAKER_MICRO_NSFW_IMG_URL"},
+		},
+		&cli.StringFlag{
+			Name:    "sqrl-url",
+			Usage:   "SQRL API endpoint (full URL)",
+			EnvVars: []string{"LABELMAKER_SQRL_URL"},
 		},
 	}
 
@@ -151,10 +168,13 @@ func run(args []string) {
 
 		bgsUrl := cctx.String("bgs-host")
 		plcUrl := cctx.String("plc-host")
+		blobPdsUrl := cctx.String("pds-host")
 		useWss := !cctx.Bool("subscribe-insecure-ws")
 		repoDid := cctx.String("repo-did")
 		repoHandle := cctx.String("repo-handle")
 		bind := cctx.String("bind")
+		microNsfwImgUrl := cctx.String("micro-nsfw-img-url")
+		sqrlUrl := cctx.String("sqrl-url")
 
 		serkey, err := labeling.LoadKeyFromFile(repoKeyPath)
 		if err != nil {
@@ -168,7 +188,7 @@ func run(args []string) {
 			UserId:     1,
 		}
 
-		srv, err := labeling.NewServer(db, cstore, kwl, repoUser, plcUrl, useWss)
+		srv, err := labeling.NewServer(db, cstore, kwl, repoUser, plcUrl, blobPdsUrl, microNsfwImgUrl, sqrlUrl, useWss)
 		if err != nil {
 			return err
 		}
