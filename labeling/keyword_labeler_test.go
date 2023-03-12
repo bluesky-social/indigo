@@ -21,7 +21,7 @@ func TestKeywordFilter(t *testing.T) {
 	}
 
 	for _, c := range postCases {
-		vals := kl.labelPost(c.record)
+		vals := kl.LabelPost(c.record)
 		if !reflect.DeepEqual(vals, c.expected) {
 			t.Log(fmt.Sprintf("labels expected:%s got:%s", c.expected, vals))
 			t.Fail()
@@ -41,7 +41,7 @@ func TestKeywordFilter(t *testing.T) {
 	}
 
 	for _, c := range profileCases {
-		vals := kl.labelActorProfile(c.record)
+		vals := kl.LabelActorProfile(c.record)
 		if !reflect.DeepEqual(vals, c.expected) {
 			t.Log(fmt.Sprintf("labels expected:%s got:%s", c.expected, vals))
 			t.Fail()

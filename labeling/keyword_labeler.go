@@ -8,10 +8,10 @@ import (
 
 // simple record labeling (without pre-fetched blobs)
 type SimplePostLabeler interface {
-	labelPost(p bsky.FeedPost) []string
+	LabelPost(p bsky.FeedPost) []string
 }
 type SimpleActorProfileLabeler interface {
-	labelActorProfile(ap bsky.ActorProfile) []string
+	LabelActorProfile(ap bsky.ActorProfile) []string
 }
 
 type KeywordLabeler struct {
@@ -19,7 +19,7 @@ type KeywordLabeler struct {
 	value    string
 }
 
-func (kl KeywordLabeler) labelText(txt string) []string {
+func (kl KeywordLabeler) LabelText(txt string) []string {
 	txt = strings.ToLower(txt)
 	for _, word := range kl.keywords {
 		if strings.Contains(txt, word) {
@@ -29,14 +29,14 @@ func (kl KeywordLabeler) labelText(txt string) []string {
 	return []string{}
 }
 
-func (kl KeywordLabeler) labelPost(p bsky.FeedPost) []string {
-	return kl.labelText(p.Text)
+func (kl KeywordLabeler) LabelPost(p bsky.FeedPost) []string {
+	return kl.LabelText(p.Text)
 }
 
-func (kl KeywordLabeler) labelActorProfile(ap bsky.ActorProfile) []string {
+func (kl KeywordLabeler) LabelActorProfile(ap bsky.ActorProfile) []string {
 	txt := ap.DisplayName
 	if ap.Description != nil {
 		txt += *ap.Description
 	}
-	return kl.labelText(txt)
+	return kl.LabelText(txt)
 }
