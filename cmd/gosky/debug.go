@@ -32,6 +32,9 @@ var inspectEventCmd = &cli.Command{
 			Name:     "host",
 			Required: true,
 		},
+		&cli.BoolFlag{
+			Name: "dump-raw-blocks",
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		n, err := strconv.Atoi(cctx.Args().First())
@@ -101,6 +104,9 @@ var inspectEventCmd = &cli.Command{
 			}
 
 			fmt.Println(blk.Cid())
+			if cctx.Bool("dump-raw-blocks") {
+				fmt.Printf("%x\n", blk.RawData())
+			}
 		}
 
 		r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(match.Blocks))
