@@ -1,14 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/repo"
 	"github.com/gorilla/websocket"
+	"github.com/ipfs/go-cid"
+	"github.com/ipld/go-car/v2"
 	cli "github.com/urfave/cli/v2"
 )
 
@@ -61,6 +66,12 @@ var inspectEventCmd = &cli.Command{
 
 				return nil
 			},
+			Info: func(evt *events.InfoFrame) error {
+				return nil
+			},
+			Error: func(evt *events.ErrorFrame) error {
+				return fmt.Errorf("%s: %s", evt.Error, evt.Message)
+			},
 		})
 
 		if err != errFoundIt {
@@ -72,6 +83,49 @@ var inspectEventCmd = &cli.Command{
 			return err
 		}
 		fmt.Println(string(b))
+
+		br, err := car.NewBlockReader(bytes.NewReader(match.Blocks))
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("\nSlice Dump:")
+		fmt.Println("Root: ", br.Roots[0])
+		for {
+			blk, err := br.Next()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+
+			fmt.Println(blk.Cid())
+		}
+
+		r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(match.Blocks))
+		if err != nil {
+			return fmt.Errorf("opening repo from slice: %w", err)
+		}
+
+		var prev cid.Cid
+		if match.Prev != nil {
+			c, err := cid.Decode(*match.Prev)
+			if err != nil {
+				return err
+			}
+			prev = c
+		}
+
+		fmt.Println("\nDiff ops: ")
+		diff, err := r.DiffSince(ctx, prev)
+		if err != nil {
+			return err
+		}
+
+		for _, d := range diff {
+			fmt.Printf("%s (%s): %s -> %s\n", d.Op, d.Rpath, d.OldCid, d.NewCid)
+		}
 
 		return nil
 	},
