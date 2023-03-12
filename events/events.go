@@ -121,6 +121,7 @@ type RepoAppend struct {
 
 	Ops    []*RepoOp `cborgen:"ops"`
 	Blocks []byte    `cborgen:"blocks"`
+	TooBig bool      `cborgen:"tooBig"`
 
 	Blobs []string `cborgen:"blobs"`
 
