@@ -140,7 +140,7 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 		}
 		// run through all the keyword labelers on posts, saving any resulting labels
 		for _, labeler := range s.kwl {
-			for _, val := range labeler.labelPost(*post) {
+			for _, val := range labeler.LabelPost(*post) {
 				labelVals = append(labelVals, val)
 			}
 		}
@@ -151,7 +151,7 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 		}
 		// run through all the keyword labelers on posts, saving any resulting labels
 		for _, labeler := range s.kwl {
-			for _, val := range labeler.labelActorProfile(*profile) {
+			for _, val := range labeler.LabelActorProfile(*profile) {
 				labelVals = append(labelVals, val)
 			}
 		}
