@@ -3,7 +3,10 @@ package labeling
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"time"
 
@@ -13,6 +16,7 @@ import (
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/repo"
@@ -31,14 +35,17 @@ import (
 var log = logging.Logger("labelmaker")
 
 type Server struct {
-	db         *gorm.DB
-	cs         *carstore.CarStore
-	repoman    *repomgr.RepoManager
-	bgsSlurper *bgs.Slurper
-	evtmgr     *events.EventManager
-	echo       *echo.Echo
-	user       *RepoConfig
-	kwl        []KeywordLabeler
+	db              *gorm.DB
+	cs              *carstore.CarStore
+	repoman         *repomgr.RepoManager
+	bgsSlurper      *bgs.Slurper
+	evtmgr          *events.LabelEventManager
+	echo            *echo.Echo
+	user            *RepoConfig
+	kwl             []KeywordLabeler
+	blobPdsUrl      string
+	microNsfwImgUrl string
+	sqrlUrl         string
 }
 
 type RepoConfig struct {
@@ -50,7 +57,7 @@ type RepoConfig struct {
 
 // In addition to configuring the service, will connect to upstream BGS and start processing events. Won't handle HTTP or WebSocket endpoints until RunAPI() is called.
 // 'useWss' is a flag to use SSL for outbound WebSocket connections
-func NewServer(db *gorm.DB, cs *carstore.CarStore, kwl []KeywordLabeler, repoUser RepoConfig, plcUrl string, useWss bool) (*Server, error) {
+func NewServer(db *gorm.DB, cs *carstore.CarStore, kwl []KeywordLabeler, repoUser RepoConfig, plcUrl, blobPdsUrl, microNsfwImgUrl, sqrlUrl string, useWss bool) (*Server, error) {
 
 	db.AutoMigrate(models.PDS{})
 
@@ -60,11 +67,14 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kwl []KeywordLabeler, repoUse
 	repoman := repomgr.NewRepoManager(db, cs, kmgr)
 
 	s := &Server{
-		db:      db,
-		repoman: repoman,
-		evtmgr:  evtmgr,
-		user:    &repoUser,
-		kwl:     kwl,
+		db:              db,
+		repoman:         repoman,
+		evtmgr:          evtmgr,
+		user:            &repoUser,
+		kwl:             kwl,
+		blobPdsUrl:      blobPdsUrl,
+		microNsfwImgUrl: microNsfwImgUrl,
+		sqrlUrl:         sqrlUrl,
 		// sluper configured below
 	}
 
@@ -115,19 +125,47 @@ func (s *Server) wantAnyRecords(ctx context.Context, ra *events.RepoAppend) bool
 	return false
 }
 
+// should we bother to fetch blob for processing?
+func (s *Server) wantBlob(ctx context.Context, blob *lexutil.Blob) bool {
+	log.Debugf("wantBlob blob=%v url=%s", blob, s.microNsfwImgUrl)
+	// images
+	if blob.MimeType == "image/png" || blob.MimeType == "image/jpeg" {
+		// only an NSFW API is configured
+		if s.microNsfwImgUrl != "" {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, rec cbg.CBORMarshaler) ([]string, error) {
 	log.Infof("labeling record: %v", uri)
 	var labelVals []string
+	var blobs []lexutil.Blob
 	switch nsid {
 	case "app.bsky.feed.post":
 		post, suc := rec.(*appbsky.FeedPost)
 		if !suc {
 			return []string{}, fmt.Errorf("record failed to deserialize from CBOR: %s", rec)
 		}
+		/* XXX(bnewbold): debugging broken post record
+		postJson, _ := json.Marshal(post)
+		log.Infof("labeling post: %v", string(postJson))
+		buf := new(bytes.Buffer)
+		post.MarshalCBOR(buf)
+		log.Infof("post CBOR: %v", buf.Bytes())
+		*/
+
 		// run through all the keyword labelers on posts, saving any resulting labels
 		for _, labeler := range s.kwl {
 			for _, val := range labeler.LabelPost(*post) {
 				labelVals = append(labelVals, val)
+			}
+		}
+		// record any image blobs for processing
+		if post.Embed != nil && post.Embed.EmbedImages != nil {
+			for _, eii := range post.Embed.EmbedImages.Images {
+				blobs = append(blobs, *eii.Image)
 			}
 		}
 	case "app.bsky.actor.profile":
@@ -135,13 +173,117 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 		if !suc {
 			return []string{}, fmt.Errorf("record failed to deserialize from CBOR: %s", rec)
 		}
+		// XXX(bnewbold): debugging broken profile record
+		profileJson, _ := json.Marshal(profile)
+		log.Infof("labeling profile: %v", string(profileJson))
+		buf := new(bytes.Buffer)
+		profile.MarshalCBOR(buf)
+		log.Infof("profile CBOR: %v", buf.Bytes())
+
 		// run through all the keyword labelers on posts, saving any resulting labels
 		for _, labeler := range s.kwl {
 			for _, val := range labeler.LabelActorProfile(*profile) {
 				labelVals = append(labelVals, val)
 			}
 		}
+		// record avatar and/or banner blobs for processing
+		if profile.Avatar != nil {
+			blobs = append(blobs, *profile.Avatar)
+		}
+		if profile.Banner != nil {
+			blobs = append(blobs, *profile.Banner)
+		}
 	}
+
+	log.Infof("will process %d blobs", len(blobs))
+	for _, blob := range blobs {
+		if blob.Cid == "" {
+			return []string{}, fmt.Errorf("received stub blob (CID undefined)")
+		}
+
+		if !s.wantBlob(ctx, &blob) {
+			log.Infof("skipping blob: cid=%s", blob.Cid)
+			continue
+		}
+		// download image for process
+		blobBytes, err := s.downloadRepoBlob(ctx, did, &blob)
+		// TODO(bnewbold): instead of erroring, just log any download problems
+		if err != nil {
+			return []string{}, err
+		}
+
+		blobLabels, err := s.labelBlob(ctx, did, blob, blobBytes)
+		// TODO(bnewbold): again, instead of erroring, just log any download problems
+		if err != nil {
+			return []string{}, err
+		}
+		for _, val := range blobLabels {
+			labelVals = append(labelVals, val)
+		}
+	}
+	return labelVals, nil
+}
+
+func (s *Server) downloadRepoBlob(ctx context.Context, did string, blob *lexutil.Blob) ([]byte, error) {
+	var blobBytes []byte
+
+	if blob.Cid == "" {
+		return []byte{}, fmt.Errorf("invalid blob to download (CID undefined)")
+	}
+
+	log.Infof("downloading blob pds=%s did=%s cid=%s", s.blobPdsUrl, did, blob.Cid)
+
+	// TODO(bnewbold): more robust blob fetch code, by constructing query param
+	// properly; looking up DID doc; using xrpc.Client (with persistend HTTP
+	// client); etc.
+	// blocked on getBlob atproto branch landing, with new Lexicon.
+	// for now, just fetching from configured PDS (aka our single PDS)
+	xrpcUrl := fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob?did=%s&cid=%s", s.blobPdsUrl, did, blob.Cid)
+
+	resp, err := http.Get(xrpcUrl)
+	if err != nil {
+		return []byte{}, nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return []byte{}, fmt.Errorf("failed to fetch blob from PDS. did=%s cid=%s statusCode=%d", did, blob.Cid, resp.StatusCode)
+	}
+
+	blobBytes, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return blobBytes, nil
+	}
+
+	return blobBytes, nil
+}
+
+func (s *Server) labelBlob(ctx context.Context, did string, blob lexutil.Blob, blobBytes []byte) ([]string, error) {
+
+	var labelVals []string
+
+	if blob.Cid == "" {
+		return []string{}, fmt.Errorf("invalid blob to label (CID undefined)")
+	}
+
+	if s.microNsfwImgUrl != "" {
+
+		nsfwScore, err := PostMicroNsfwImg(s.microNsfwImgUrl, blob, blobBytes)
+		if err != nil {
+			return nil, err
+		}
+		// TODO(bnewbold): these score cutoffs are kind of arbitrary
+		if nsfwScore.Porn > 0.85 {
+			labelVals = append(labelVals, "porn")
+		}
+		if nsfwScore.Hentai > 0.85 {
+			labelVals = append(labelVals, "hentai")
+		}
+		if nsfwScore.Sexy > 0.8 {
+			labelVals = append(labelVals, "sexy")
+		}
+	}
+
 	return labelVals, nil
 }
 
@@ -183,13 +325,13 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 			return fmt.Errorf("record not in CAR slice: %s", uri)
 		}
 		cidStr := cid.String()
-		labelVals, err := s.labelRecord(ctx, s.user.did, nsid, uri, cidStr, rec)
+		labelVals, err := s.labelRecord(ctx, s.user.Did, nsid, uri, cidStr, rec)
 		if err != nil {
 			return err
 		}
 		for _, val := range labelVals {
 			labels = append(labels, events.Label{
-				SourceDid:  s.user.did,
+				SourceDid:  s.user.Did,
 				SubjectUri: uri,
 				SubjectCid: &cidStr,
 				Value:      val,
@@ -200,17 +342,17 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 
 	// if any labels generated, persist them to repo...
 	for i, l := range labels {
-		path, _, err := s.repoman.CreateRecord(ctx, s.user.userId, "com.atproto.label.label", &l)
+		path, _, err := s.repoman.CreateRecord(ctx, s.user.UserId, "com.atproto.label.label", &l)
 		if err != nil {
 			return fmt.Errorf("failed to persist label in local repo: %w", err)
 		}
-		labeluri := "at://" + s.user.did + "/" + path
+		labeluri := "at://" + s.user.Did + "/" + path
 		labels[i].LabelUri = &labeluri
 		log.Infof("persisted label: %s", labeluri)
 	}
 
 	// ... then re-publish as XRPCStreamEvent
-	log.Infof("%s", labels)
+	log.Infof("broadcasting labels: %s", labels)
 	if len(labels) > 0 {
 		lev := events.XRPCStreamEvent{
 			LabelBatch: &events.LabelBatch{
