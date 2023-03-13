@@ -45,6 +45,7 @@ type Server struct {
 	blobPdsURL       string
 	kwLabelers       []KeywordLabeler
 	muNSFWImgLabeler *MicroNSFWImgLabeler
+	hiveAILabeler    *HiveAILabeler
 	sqrlLabeler      *SQRLLabeler
 }
 
@@ -105,6 +106,11 @@ func (s *Server) AddMicroNSFWImgLabeler(url string) {
 	s.muNSFWImgLabeler = &mnil
 }
 
+func (s *Server) AddHiveAILabeler(apiToken string) {
+	hal := NewHiveAILabeler(apiToken)
+	s.hiveAILabeler = &hal
+}
+
 func (s *Server) AddSQRLLabeler(url string) {
 	sl := NewSQRLLabeler(url)
 	s.sqrlLabeler = &sl
@@ -142,8 +148,8 @@ func (s *Server) wantBlob(ctx context.Context, blob *lexutil.Blob) bool {
 	log.Debugf("wantBlob blob=%v", blob)
 	// images
 	if blob.MimeType == "image/png" || blob.MimeType == "image/jpeg" {
-		// only an NSFW API is configured
-		if s.muNSFWImgLabeler != nil {
+		// only an image API is configured
+		if s.muNSFWImgLabeler != nil || s.hiveAILabeler != nil {
 			return true
 		}
 	}
@@ -285,6 +291,17 @@ func (s *Server) labelBlob(ctx context.Context, did string, blob lexutil.Blob, b
 			return nil, err
 		}
 		for _, l := range nsfwLabels {
+			labelVals = append(labelVals, l)
+		}
+	}
+
+	if s.hiveAILabeler != nil {
+
+		hiveLabels, err := s.hiveAILabeler.LabelBlob(blob, blobBytes)
+		if err != nil {
+			return nil, err
+		}
+		for _, l := range hiveLabels {
 			labelVals = append(labelVals, l)
 		}
 	}
