@@ -92,26 +92,30 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, 
 	slurp := bgs.NewSlurper(db, s.handleBgsRepoEvent, useWss)
 	s.bgsSlurper = slurp
 
-	go levtman.Run()
+	go evtmgr.Run()
 
 	return s, nil
 }
 
 func (s *Server) AddKeywordLabeler(kwl KeywordLabeler) {
+	log.Infof("configuring keyword labeler")
 	s.kwLabelers = append(s.kwLabelers, kwl)
 }
 
 func (s *Server) AddMicroNSFWImgLabeler(url string) {
+	log.Infof("configuring micro-NSFW-img labeler url=%s", url)
 	mnil := NewMicroNSFWImgLabeler(url)
 	s.muNSFWImgLabeler = &mnil
 }
 
 func (s *Server) AddHiveAILabeler(apiToken string) {
+	log.Infof("configuring Hive AI labeler")
 	hal := NewHiveAILabeler(apiToken)
 	s.hiveAILabeler = &hal
 }
 
 func (s *Server) AddSQRLLabeler(url string) {
+	log.Infof("configuring SQRL labeler url=%s", url)
 	sl := NewSQRLLabeler(url)
 	s.sqrlLabeler = &sl
 }
@@ -123,7 +127,7 @@ func (s *Server) SubscribeBGS(ctx context.Context, bgsURL string, useWss bool) {
 	s.bgsSlurper.SubscribeToPds(ctx, bgsURL, useWss)
 }
 
-// efficiency predicate to quickly discard events we know won't want to even parse
+// efficiency predicate to quickly discard events we know that we shouldn't even bother parsing
 func (s *Server) wantAnyRecords(ctx context.Context, ra *events.RepoAppend) bool {
 
 	for _, op := range ra.Ops {
@@ -180,6 +184,15 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 				labelVals = append(labelVals, val)
 			}
 		}
+
+		if s.sqrlLabeler != nil {
+			sqrlVals, err := s.sqrlLabeler.LabelPost(ctx, *post)
+			if err != nil {
+				return []string{}, fmt.Errorf("failed to label post with SQRL: %v", err)
+			}
+			labelVals = append(labelVals, sqrlVals...)
+		}
+
 		// record any image blobs for processing
 		if post.Embed != nil && post.Embed.EmbedImages != nil {
 			for _, eii := range post.Embed.EmbedImages.Images {
@@ -204,6 +217,15 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 				labelVals = append(labelVals, val)
 			}
 		}
+
+		if s.sqrlLabeler != nil {
+			sqrlVals, err := s.sqrlLabeler.LabelProfile(ctx, *profile)
+			if err != nil {
+				return []string{}, fmt.Errorf("failed to label profile with SQRL: %v", err)
+			}
+			labelVals = append(labelVals, sqrlVals...)
+		}
+
 		// record avatar and/or banner blobs for processing
 		if profile.Avatar != nil {
 			blobs = append(blobs, *profile.Avatar)
@@ -235,9 +257,7 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 		if err != nil {
 			return []string{}, err
 		}
-		for _, val := range blobLabels {
-			labelVals = append(labelVals, val)
-		}
+		labelVals = append(labelVals, blobLabels...)
 	}
 	return labelVals, nil
 }
@@ -286,24 +306,20 @@ func (s *Server) labelBlob(ctx context.Context, did string, blob lexutil.Blob, b
 
 	if s.muNSFWImgLabeler != nil {
 
-		nsfwLabels, err := s.muNSFWImgLabeler.LabelBlob(blob, blobBytes)
+		nsfwLabels, err := s.muNSFWImgLabeler.LabelBlob(ctx, blob, blobBytes)
 		if err != nil {
 			return nil, err
 		}
-		for _, l := range nsfwLabels {
-			labelVals = append(labelVals, l)
-		}
+		labelVals = append(labelVals, nsfwLabels...)
 	}
 
 	if s.hiveAILabeler != nil {
 
-		hiveLabels, err := s.hiveAILabeler.LabelBlob(blob, blobBytes)
+		hiveLabels, err := s.hiveAILabeler.LabelBlob(ctx, blob, blobBytes)
 		if err != nil {
 			return nil, err
 		}
-		for _, l := range hiveLabels {
-			labelVals = append(labelVals, l)
-		}
+		labelVals = append(labelVals, hiveLabels...)
 	}
 
 	return labelVals, nil
@@ -352,13 +368,24 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 			return err
 		}
 		for _, val := range labelVals {
-			labels = append(labels, events.Label{
-				SourceDid:  s.user.Did,
-				SubjectUri: uri,
-				SubjectCid: &cidStr,
-				Value:      val,
-				Timestamp:  now,
-			})
+			// apply labels with this pattern to the whole repo, not the record
+			if strings.HasPrefix(val, "repo:") {
+				val = strings.SplitN(val, ":", 2)[1]
+				labels = append(labels, events.Label{
+					SourceDid:  s.user.Did,
+					SubjectUri: "at://" + s.user.Did,
+					Value:      val,
+					Timestamp:  now,
+				})
+			} else {
+				labels = append(labels, events.Label{
+					SourceDid:  s.user.Did,
+					SubjectUri: uri,
+					SubjectCid: &cidStr,
+					Value:      val,
+					Timestamp:  now,
+				})
+			}
 		}
 	}
 
@@ -410,7 +437,7 @@ func (s *Server) RunAPI(listen string) error {
 	// TODO(bnewbold): this is a speculative endpoint name
 	e.GET("/xrpc/com.atproto.label.subscribeAllLabels", s.EventsLabelsWebsocket)
 
-	log.Info("starting labelmaker XRPC and WebSocket daemon at: %s", listen)
+	log.Infof("starting labelmaker XRPC and WebSocket daemon at: %s", listen)
 	return e.Start(listen)
 }
 

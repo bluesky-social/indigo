@@ -2,6 +2,7 @@ package labeling
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -57,7 +58,7 @@ func (mnil *MicroNSFWImgLabeler) summarizeResp(resp MicroNSFWImgResp) []string {
 	return labels
 }
 
-func (mnil *MicroNSFWImgLabeler) LabelBlob(blob lexutil.Blob, blobBytes []byte) ([]string, error) {
+func (mnil *MicroNSFWImgLabeler) LabelBlob(ctx context.Context, blob lexutil.Blob, blobBytes []byte) ([]string, error) {
 
 	log.Infof("sending blob to micro-NSFW-img cid=%s mimetype=%s size=%d", blob.Cid, blob.MimeType, len(blobBytes))
 
@@ -89,14 +90,17 @@ func (mnil *MicroNSFWImgLabeler) LabelBlob(blob lexutil.Blob, blobBytes []byte) 
 		return nil, fmt.Errorf("micro-NSFW-img request failed: %v", err)
 	}
 	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("micro-NSFW-img request failed  statusCode=%d", res.StatusCode)
+	}
 
-	resp, err := io.ReadAll(res.Body)
+	respBytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read micro-NSFW-img resp body: %v", err)
 	}
 
 	var nsfwScore MicroNSFWImgResp
-	if err = json.Unmarshal(resp, &nsfwScore); err != nil {
+	if err = json.Unmarshal(respBytes, &nsfwScore); err != nil {
 		return nil, fmt.Errorf("failed to parse micro-NSFW-img resp JSON: %v", err)
 	}
 	scoreJson, _ := json.Marshal(nsfwScore)
