@@ -129,3 +129,61 @@ The auth file isn't actually used, only the admin token.
 
     # run the bot
     GOLOG_LOG_LEVEL=debug go run ./cmd/beemo/ --pds https://pds.staging.example.com --auth bsky.auth notify-reports
+
+## integrated development
+
+Sometimes it is helpful to run a PLC, PDS, BGS, labelmaker, and other
+components, all locally on your laptop, across languages. This section
+describes one setup for this.
+
+First, you need PostgreSQL running locally. This could be via docker, or the
+following commands assume some kind of debian/ubuntu setup with a postgres
+server package installed and running.
+
+Create a user and databases for PLC+PDS:
+
+    # use 'yksb' as weak default password for local-only dev
+    sudo -u postgres createuser -P -s bsky
+
+    sudo -u postgres createdb plc_dev -O bsky
+    sudo -u postgres createdb pds_dev -O bsky
+
+If you end up needing to wipe the databases:
+
+    sudo -u postgres dropdb plc_dev
+    sudo -u postgres dropdb pds_dev
+
+Checkout the `did-method-plc` repo in on terminal and run:
+
+    make run-dev-plc
+
+Checkout the `atproto` repo in another terminal and run:
+
+    make run-pds
+
+In this repo (indigo), start a BGS and labelmaker, in two separate terminals:
+
+    make run-dev-bgs
+    make run-dev-labelmaker
+
+In a final terminal, run fakermaker to inject data into the system:
+
+    # setup and create initial accounts; 100 by default
+    mkdir data/fakermaker/
+    export GOLOG_LOG_LEVEL=info
+    go run ./cmd/fakermaker/ gen-accounts > data/fakermaker/accounts.json
+
+    # create or update profiles for all the accounts
+    go run ./cmd/fakermaker/ gen-profiles
+
+    # create follow graph between accounts
+    go run ./cmd/fakermaker/ gen-graph
+
+    # create posts, including mentions and image uploads
+    go run ./cmd/fakermaker/ gen-posts
+
+    # create more interations, such as likes, between accounts
+    go run ./cmd/fakermaker/ gen-interactions
+
+    # lastly, read-only queries, including timelines, notifications, and post threads
+    go run ./cmd/fakermaker/ run-browsing
