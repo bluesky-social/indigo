@@ -1,0 +1,3 @@
+
+# EventData, EventType, UserDid already defined
+LET Text := jsonValue(EventData, "$.profile.description");
