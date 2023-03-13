@@ -111,6 +111,11 @@ func run(args []string) {
 			EnvVars: []string{"LABELMAKER_MICRO_NSFW_IMG_URL"},
 		},
 		&cli.StringFlag{
+			Name:    "hiveai-api-token",
+			Usage:   "thehive.ai API token",
+			EnvVars: []string{"LABELMAKER_HIVEAI_API_TOKEN"},
+		},
+		&cli.StringFlag{
 			Name:    "sqrl-url",
 			Usage:   "SQRL API endpoint (full URL)",
 			EnvVars: []string{"LABELMAKER_SQRL_URL"},
@@ -174,6 +179,7 @@ func run(args []string) {
 		repoHandle := cctx.String("repo-handle")
 		bind := cctx.String("bind")
 		microNSFWImgURL := cctx.String("micro-nsfw-img-url")
+		hiveAIToken := cctx.String("hiveai-api-token")
 		sqrlURL := cctx.String("sqrl-url")
 
 		serkey, err := labeling.LoadKeyFromFile(repoKeyPath)
@@ -199,6 +205,10 @@ func run(args []string) {
 
 		if microNSFWImgURL != "" {
 			srv.AddMicroNSFWImgLabeler(microNSFWImgURL)
+		}
+
+		if hiveAIToken != "" {
+			srv.AddHiveAILabeler(hiveAIToken)
 		}
 
 		if sqrlURL != "" {
