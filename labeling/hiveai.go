@@ -2,6 +2,7 @@ package labeling
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -86,7 +87,7 @@ func (hal *HiveAILabeler) summarizeResp(resp HiveAIResp) []string {
 	return labels
 }
 
-func (hal *HiveAILabeler) LabelBlob(blob lexutil.Blob, blobBytes []byte) ([]string, error) {
+func (hal *HiveAILabeler) LabelBlob(ctx context.Context, blob lexutil.Blob, blobBytes []byte) ([]string, error) {
 
 	log.Infof("sending blob to thehive.ai cid=%s mimetype=%s size=%d", blob.Cid, blob.MimeType, len(blobBytes))
 
@@ -121,14 +122,17 @@ func (hal *HiveAILabeler) LabelBlob(blob lexutil.Blob, blobBytes []byte) ([]stri
 		return nil, fmt.Errorf("HiveAI request failed: %v", err)
 	}
 	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("HiveAI request failed  statusCode=%d", res.StatusCode)
+	}
 
-	resp, err := io.ReadAll(res.Body)
+	respBytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read HiveAI resp body: %v", err)
 	}
 
 	var respObj HiveAIResp
-	if err = json.Unmarshal(resp, &respObj); err != nil {
+	if err = json.Unmarshal(respBytes, &respObj); err != nil {
 		return nil, fmt.Errorf("failed to parse HiveAI resp JSON: %v", err)
 	}
 	respJson, _ := json.Marshal(respObj)
