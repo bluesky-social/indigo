@@ -45,3 +45,16 @@ func LoadKeyFromFile(kfile string) (*did.PrivKey, error) {
 		Type: out,
 	}, nil
 }
+
+// NOTE(bnewbold): I don't know of a more idiomatic way to do this in golang
+func dedupeStrings(in []string) []string {
+	var out []string
+	seen := make(map[string]bool)
+	for _, v := range in {
+		if !seen[v] {
+			out = append(out, v)
+			seen[v] = true
+		}
+	}
+	return out
+}
