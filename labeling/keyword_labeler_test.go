@@ -41,7 +41,7 @@ func TestKeywordFilter(t *testing.T) {
 	}
 
 	for _, c := range profileCases {
-		vals := kl.LabelActorProfile(c.record)
+		vals := kl.LabelProfile(c.record)
 		if !reflect.DeepEqual(vals, c.expected) {
 			t.Log(fmt.Sprintf("labels expected:%s got:%s", c.expected, vals))
 			t.Fail()
