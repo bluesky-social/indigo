@@ -7,16 +7,8 @@ import (
 	"os"
 	"strings"
 
-	bsky "github.com/bluesky-social/indigo/api/bsky"
+	appbsky "github.com/bluesky-social/indigo/api/bsky"
 )
-
-// simple record labeling (without pre-fetched blobs)
-type SimplePostLabeler interface {
-	LabelPost(p bsky.FeedPost) []string
-}
-type SimpleActorProfileLabeler interface {
-	LabelActorProfile(ap bsky.ActorProfile) []string
-}
 
 type KeywordLabeler struct {
 	Keywords []string `json:"keywords"`
@@ -33,11 +25,11 @@ func (kl KeywordLabeler) LabelText(txt string) []string {
 	return []string{}
 }
 
-func (kl KeywordLabeler) LabelPost(p bsky.FeedPost) []string {
+func (kl KeywordLabeler) LabelPost(p appbsky.FeedPost) []string {
 	return kl.LabelText(p.Text)
 }
 
-func (kl KeywordLabeler) LabelActorProfile(ap bsky.ActorProfile) []string {
+func (kl KeywordLabeler) LabelProfile(ap appbsky.ActorProfile) []string {
 	txt := ap.DisplayName
 	if ap.Description != nil {
 		txt += *ap.Description

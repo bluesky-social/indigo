@@ -166,15 +166,15 @@ func run(args []string) {
 			kwl = append(kwl, labeling.KeywordLabeler{Value: "definite-article", Keywords: []string{"the"}})
 		}
 
-		bgsUrl := cctx.String("bgs-host")
-		plcUrl := cctx.String("plc-host")
-		blobPdsUrl := cctx.String("pds-host")
+		bgsURL := cctx.String("bgs-host")
+		plcURL := cctx.String("plc-host")
+		blobPdsURL := cctx.String("pds-host")
 		useWss := !cctx.Bool("subscribe-insecure-ws")
 		repoDid := cctx.String("repo-did")
 		repoHandle := cctx.String("repo-handle")
 		bind := cctx.String("bind")
-		microNsfwImgUrl := cctx.String("micro-nsfw-img-url")
-		sqrlUrl := cctx.String("sqrl-url")
+		microNSFWImgURL := cctx.String("micro-nsfw-img-url")
+		sqrlURL := cctx.String("sqrl-url")
 
 		serkey, err := labeling.LoadKeyFromFile(repoKeyPath)
 		if err != nil {
@@ -188,12 +188,24 @@ func run(args []string) {
 			UserId:     1,
 		}
 
-		srv, err := labeling.NewServer(db, cstore, kwl, repoUser, plcUrl, blobPdsUrl, microNsfwImgUrl, sqrlUrl, useWss)
+		srv, err := labeling.NewServer(db, cstore, repoUser, plcURL, blobPdsURL, useWss)
 		if err != nil {
 			return err
 		}
 
-		srv.SubscribeBGS(context.TODO(), bgsUrl, useWss)
+		for _, l := range kwl {
+			srv.AddKeywordLabeler(l)
+		}
+
+		if microNSFWImgURL != "" {
+			srv.AddMicroNSFWImgLabeler(microNSFWImgURL)
+		}
+
+		if sqrlURL != "" {
+			srv.AddSQRLLabeler(sqrlURL)
+		}
+
+		srv.SubscribeBGS(context.TODO(), bgsURL, useWss)
 		return srv.RunAPI(bind)
 	}
 
