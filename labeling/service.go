@@ -259,7 +259,7 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 		}
 		labelVals = append(labelVals, blobLabels...)
 	}
-	return labelVals, nil
+	return dedupeStrings(labelVals), nil
 }
 
 func (s *Server) downloadRepoBlob(ctx context.Context, did string, blob *lexutil.Blob) ([]byte, error) {
