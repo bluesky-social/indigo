@@ -1,0 +1,77 @@
+
+labelmaker
+===========
+
+## Database Setup
+
+PostgreSQL and Sqlite are both supported. When using Sqlite, separate database
+for the BGS database itself and the CarStore are used. With PostgreSQL a single
+database server, user, and database, can all be reused.
+
+Database configuration is passed via the `DATABASE_URL` and
+`CARSTORE_DATABASE_URL` environment variables, or the corresponding CLI args.
+
+For PostgreSQL, the user and database must already be configured. Some example
+SQL commands are:
+
+    CREATE DATABASE bgs;
+    CREATE DATABASE carstore;
+
+    CREATE USER ${username} WITH PASSWORD '${password}';
+    GRANT ALL PRIVILEGES ON DATABASE bgs TO ${username};
+    GRANT ALL PRIVILEGES ON DATABASE carstore TO ${username};
+
+This service currently uses `gorm` to automatically run database migrations as
+the regular user. There is no concept of running a separate set of migrations
+under more privileged database user.
+
+## Keyword Labeler
+
+A trivial keyword filter labeler is included. To configure it, create a JSON
+with the same structure as the `example_keywords.json` file in this directory,
+and provide the path to the `--keyword-file` CLI arg (or the corresponding env
+var).
+
+The structure is a list of label values ("value"), each with a list of
+lower-case keyword tokens. If a token is found in post or profile text, the
+corresponding label is generated.
+
+
+## micro-NSFW-img Integration
+
+`micro_nsfw_img` is a simple image classification tool, useful for integration
+testing and local development. You can HTTP POST and image to it and get a set
+of floating point scores back about whether it is hentai, porn, etc. See more
+at <https://gitlab.com/bnewbold/micro-nsfw-img>.
+
+To get it working with labelmaker, download the huge (3+ GByte) dockerfile and
+run it locally:
+
+    docker pull bnewbold/micro-nsfw-img:latest
+    docker run --network host bnewbold/micro-nsfw-img
+
+Then configure labelmaker with:
+
+    # or the '--micro-nsfw-img-url' CLI flag
+    LABELMAKER_MICRO_NSFW_IMG_URL="http://localhost:5000/classify-image"
+
+
+## SQRL Integration
+
+SQRL is a moderation system built around a declarative rule language,
+application events, and cached counter values. It is the open source release of
+Smyt, a moderation system aquired and used by Twitter many years ago. See the
+SQRL docs for more: <https://sqrl-lang.github.io/sqrl/index.html>
+
+A local SQRL moderation server can be queried by providing `--sqrl-url` (or the
+corresponding env var). Post and Profile records will be passed, wrapped in a
+top-level JSON field `EventData`.
+
+An example SQRL ruleset for posts and profiles is provided in `sqrl_example`.
+To use this, checkout the SQRL codebase and get it running, then copy the
+`bsky` folder to the top directory and run:
+
+    ./sqrl serve bsky/main.sqrl
+
+Counter state will not persist across restarts unless Redis is configured as
+well.
