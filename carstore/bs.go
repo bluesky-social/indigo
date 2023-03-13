@@ -63,7 +63,7 @@ type UserInfo struct {
 type CarShard struct {
 	gorm.Model
 
-	Root      string
+	Root      util.DbCID
 	DataStart int64
 	Seq       int `gorm:"index"`
 	Path      string
@@ -71,8 +71,8 @@ type CarShard struct {
 }
 
 type blockRef struct {
-	ID     uint   `gorm:"primarykey"`
-	Cid    string `gorm:"index"`
+	ID     uint       `gorm:"primarykey"`
+	Cid    util.DbCID `gorm:"index"`
 	Shard  uint
 	Offset int64
 	//User   uint `gorm:"index"`
@@ -98,7 +98,7 @@ func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
 		Model(blockRef{}).
 		Select("path, block_refs.offset").
 		Joins("left join car_shards on block_refs.shard = car_shards.id").
-		Where("usr = ? AND cid = ?", uv.user, k.String()).
+		Where("usr = ? AND cid = ?", uv.user, util.DbCID{k}).
 		Count(&count).Error; err != nil {
 		return false, err
 	}
@@ -125,7 +125,7 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blocks.Block, error) {
 		Model(blockRef{}).
 		Select("path, block_refs.offset").
 		Joins("left join car_shards on block_refs.shard = car_shards.id").
-		Where("usr = ? AND cid = ?", uv.user, k.String()).
+		Where("usr = ? AND cid = ?", uv.user, util.DbCID{k}).
 		Find(&info).Error; err != nil {
 		return nil, err
 	}
@@ -288,7 +288,7 @@ func (cs *CarStore) NewDeltaSession(ctx context.Context, user util.Uid, prev *ci
 	}
 
 	if prev != nil {
-		if lastShard.Root != prev.String() {
+		if lastShard.Root.CID != *prev {
 			return nil, fmt.Errorf("mismatch: %s != %s: %w", lastShard.Root, prev.String(), ErrRepoBaseMismatch)
 		}
 	}
@@ -363,13 +363,8 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user util.Uid, earlyCid, la
 	}
 
 	// fast path!
-	rootcid, err := cid.Decode(shards[0].Root)
-	if err != nil {
-		return err
-	}
-
 	if err := car.WriteHeader(&car.CarHeader{
-		Roots:   []cid.Cid{rootcid},
+		Roots:   []cid.Cid{shards[0].Root.CID},
 		Version: 1,
 	}, w); err != nil {
 		return err
@@ -547,7 +542,7 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) ([]byte
 		// adding things to the db by map is the only way to get gorm to not
 		// add the 'returning' clause, which costs a lot of time
 		brefs = append(brefs, map[string]interface{}{
-			"cid":    k.String(),
+			"cid":    util.DbCID{k},
 			"offset": offset,
 		})
 
@@ -561,7 +556,7 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) ([]byte
 
 	// TODO: all this database work needs to be in a single transaction
 	shard := CarShard{
-		Root:      root.String(),
+		Root:      util.DbCID{root},
 		DataStart: hnw,
 		Seq:       ds.seq,
 		Path:      path,
@@ -658,10 +653,5 @@ func (cs *CarStore) GetUserRepoHead(ctx context.Context, user util.Uid) (cid.Cid
 		return cid.Undef, nil
 	}
 
-	c, err := cid.Decode(lastShard.Root)
-	if err != nil {
-		return cid.Undef, fmt.Errorf("invalid cid in shard: %w", err)
-	}
-
-	return c, nil
+	return lastShard.Root.CID, nil
 }
