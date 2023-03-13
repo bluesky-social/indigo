@@ -35,17 +35,17 @@ import (
 var log = logging.Logger("labelmaker")
 
 type Server struct {
-	db              *gorm.DB
-	cs              *carstore.CarStore
-	repoman         *repomgr.RepoManager
-	bgsSlurper      *bgs.Slurper
-	evtmgr          *events.LabelEventManager
-	echo            *echo.Echo
-	user            *RepoConfig
-	kwl             []KeywordLabeler
-	blobPdsUrl      string
-	microNsfwImgUrl string
-	sqrlUrl         string
+	db               *gorm.DB
+	cs               *carstore.CarStore
+	repoman          *repomgr.RepoManager
+	bgsSlurper       *bgs.Slurper
+	evtmgr           *events.EventManager
+	echo             *echo.Echo
+	user             *RepoConfig
+	blobPdsURL       string
+	kwLabelers       []KeywordLabeler
+	muNSFWImgLabeler *MicroNSFWImgLabeler
+	sqrlLabeler      *SQRLLabeler
 }
 
 type RepoConfig struct {
@@ -57,24 +57,21 @@ type RepoConfig struct {
 
 // In addition to configuring the service, will connect to upstream BGS and start processing events. Won't handle HTTP or WebSocket endpoints until RunAPI() is called.
 // 'useWss' is a flag to use SSL for outbound WebSocket connections
-func NewServer(db *gorm.DB, cs *carstore.CarStore, kwl []KeywordLabeler, repoUser RepoConfig, plcUrl, blobPdsUrl, microNsfwImgUrl, sqrlUrl string, useWss bool) (*Server, error) {
+func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, blobPdsURL string, useWss bool) (*Server, error) {
 
 	db.AutoMigrate(models.PDS{})
 
-	didr := &api.PLCServer{Host: plcUrl}
+	didr := &api.PLCServer{Host: plcURL}
 	kmgr := indexer.NewKeyManager(didr, repoUser.SigningKey)
 	evtmgr := events.NewEventManager(events.NewMemPersister())
 	repoman := repomgr.NewRepoManager(db, cs, kmgr)
 
 	s := &Server{
-		db:              db,
-		repoman:         repoman,
+		db:         db,
+		repoman:    repoman,
 		evtmgr:          evtmgr,
-		user:            &repoUser,
-		kwl:             kwl,
-		blobPdsUrl:      blobPdsUrl,
-		microNsfwImgUrl: microNsfwImgUrl,
-		sqrlUrl:         sqrlUrl,
+		user:       &repoUser,
+		blobPdsURL: blobPdsURL,
 		// sluper configured below
 	}
 
@@ -94,15 +91,30 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, kwl []KeywordLabeler, repoUse
 	slurp := bgs.NewSlurper(db, s.handleBgsRepoEvent, useWss)
 	s.bgsSlurper = slurp
 
-	go evtmgr.Run()
+	go levtman.Run()
 
 	return s, nil
 }
 
-func (s *Server) SubscribeBGS(ctx context.Context, bgsUrl string, useWss bool) {
+func (s *Server) AddKeywordLabeler(kwl KeywordLabeler) {
+	s.kwLabelers = append(s.kwLabelers, kwl)
+}
+
+func (s *Server) AddMicroNSFWImgLabeler(url string) {
+	mnil := NewMicroNSFWImgLabeler(url)
+	s.muNSFWImgLabeler = &mnil
+}
+
+func (s *Server) AddSQRLLabeler(url string) {
+	sl := NewSQRLLabeler(url)
+	s.sqrlLabeler = &sl
+}
+
+// call this *after* all the labelers are configured
+func (s *Server) SubscribeBGS(ctx context.Context, bgsURL string, useWss bool) {
 	// subscribe our RepoEvent slurper to the BGS, to receive incoming records for labeler
-	log.Infof("subscribing to BGS: %s (SSL=%v)", bgsUrl, useWss)
-	s.bgsSlurper.SubscribeToPds(ctx, bgsUrl, useWss)
+	log.Infof("subscribing to BGS: %s (SSL=%v)", bgsURL, useWss)
+	s.bgsSlurper.SubscribeToPds(ctx, bgsURL, useWss)
 }
 
 // efficiency predicate to quickly discard events we know won't want to even parse
@@ -127,11 +139,11 @@ func (s *Server) wantAnyRecords(ctx context.Context, ra *events.RepoAppend) bool
 
 // should we bother to fetch blob for processing?
 func (s *Server) wantBlob(ctx context.Context, blob *lexutil.Blob) bool {
-	log.Debugf("wantBlob blob=%v url=%s", blob, s.microNsfwImgUrl)
+	log.Debugf("wantBlob blob=%v", blob)
 	// images
 	if blob.MimeType == "image/png" || blob.MimeType == "image/jpeg" {
 		// only an NSFW API is configured
-		if s.microNsfwImgUrl != "" {
+		if s.muNSFWImgLabeler != nil {
 			return true
 		}
 	}
@@ -157,7 +169,7 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 		*/
 
 		// run through all the keyword labelers on posts, saving any resulting labels
-		for _, labeler := range s.kwl {
+		for _, labeler := range s.kwLabelers {
 			for _, val := range labeler.LabelPost(*post) {
 				labelVals = append(labelVals, val)
 			}
@@ -181,8 +193,8 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 		log.Infof("profile CBOR: %v", buf.Bytes())
 
 		// run through all the keyword labelers on posts, saving any resulting labels
-		for _, labeler := range s.kwl {
-			for _, val := range labeler.LabelActorProfile(*profile) {
+		for _, labeler := range s.kwLabelers {
+			for _, val := range labeler.LabelProfile(*profile) {
 				labelVals = append(labelVals, val)
 			}
 		}
@@ -231,16 +243,16 @@ func (s *Server) downloadRepoBlob(ctx context.Context, did string, blob *lexutil
 		return []byte{}, fmt.Errorf("invalid blob to download (CID undefined)")
 	}
 
-	log.Infof("downloading blob pds=%s did=%s cid=%s", s.blobPdsUrl, did, blob.Cid)
+	log.Infof("downloading blob pds=%s did=%s cid=%s", s.blobPdsURL, did, blob.Cid)
 
 	// TODO(bnewbold): more robust blob fetch code, by constructing query param
 	// properly; looking up DID doc; using xrpc.Client (with persistend HTTP
 	// client); etc.
 	// blocked on getBlob atproto branch landing, with new Lexicon.
 	// for now, just fetching from configured PDS (aka our single PDS)
-	xrpcUrl := fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob?did=%s&cid=%s", s.blobPdsUrl, did, blob.Cid)
+	xrpcURL := fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob?did=%s&cid=%s", s.blobPdsURL, did, blob.Cid)
 
-	resp, err := http.Get(xrpcUrl)
+	resp, err := http.Get(xrpcURL)
 	if err != nil {
 		return []byte{}, nil
 	}
@@ -266,21 +278,14 @@ func (s *Server) labelBlob(ctx context.Context, did string, blob lexutil.Blob, b
 		return []string{}, fmt.Errorf("invalid blob to label (CID undefined)")
 	}
 
-	if s.microNsfwImgUrl != "" {
+	if s.muNSFWImgLabeler != nil {
 
-		nsfwScore, err := PostMicroNsfwImg(s.microNsfwImgUrl, blob, blobBytes)
+		nsfwLabels, err := s.muNSFWImgLabeler.LabelBlob(blob, blobBytes)
 		if err != nil {
 			return nil, err
 		}
-		// TODO(bnewbold): these score cutoffs are kind of arbitrary
-		if nsfwScore.Porn > 0.85 {
-			labelVals = append(labelVals, "porn")
-		}
-		if nsfwScore.Hentai > 0.85 {
-			labelVals = append(labelVals, "hentai")
-		}
-		if nsfwScore.Sexy > 0.8 {
-			labelVals = append(labelVals, "sexy")
+		for _, l := range nsfwLabels {
+			labelVals = append(labelVals, l)
 		}
 	}
 
@@ -388,6 +393,7 @@ func (s *Server) RunAPI(listen string) error {
 	// TODO(bnewbold): this is a speculative endpoint name
 	e.GET("/xrpc/com.atproto.label.subscribeAllLabels", s.EventsLabelsWebsocket)
 
+	log.Info("starting labelmaker XRPC and WebSocket daemon at: %s", listen)
 	return e.Start(listen)
 }
 
