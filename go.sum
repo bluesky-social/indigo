@@ -636,10 +636,6 @@ github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11 h1:5HZfQkwe0mIf
 github.com/whyrusleeping/cbor-gen v0.0.0-20230126041949-52956bd4c9aa h1:EyA027ZAkuaCLoxVX4r1TZMPy1d31fM6hbfQ4OU4I5o=
 github.com/whyrusleeping/cbor-gen v0.0.0-20230126041949-52956bd4c9aa/go.mod h1:fgkXqYy7bV2cFeIEOkVTZS/WjXARfBqSH6Q2qHL33hQ=
 github.com/whyrusleeping/chunker v0.0.0-20181014151217-fe64bd25879f h1:jQa4QT2UP9WYv2nzyawpKMOCl+Z/jW7djv2/J50lj9E=
-github.com/whyrusleeping/go-did v0.0.0-20230217165439-d09707c62f1c h1:BA9D0ELokkaTqWDW44jMVrnggCllH+HulydBp3rZvs4=
-github.com/whyrusleeping/go-did v0.0.0-20230217165439-d09707c62f1c/go.mod h1:qPtRyexGM5XMHFIfjH+EiA/A/1n2JakWEdMPC53pJAE=
-github.com/whyrusleeping/go-did v0.0.0-20230301192113-6594b853455d h1:3JYVTm7jNsS5LRx0qW8pWwFxOJSM/6W2pSKBVT6AmBY=
-github.com/whyrusleeping/go-did v0.0.0-20230301192113-6594b853455d/go.mod h1:qPtRyexGM5XMHFIfjH+EiA/A/1n2JakWEdMPC53pJAE=
 github.com/whyrusleeping/go-did v0.0.0-20230301193428-2146016fc220 h1:EO/9z3yDvx1van1/0esdcqhalZZQGRj3I1BPTWr5k3A=
 github.com/whyrusleeping/go-did v0.0.0-20230301193428-2146016fc220/go.mod h1:qPtRyexGM5XMHFIfjH+EiA/A/1n2JakWEdMPC53pJAE=
 github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1/go.mod h1:8UvriyWtv5Q5EOgjHaSseUEdkQfvwFv1I/In/O2M9gc=
