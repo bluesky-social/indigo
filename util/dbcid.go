@@ -34,6 +34,9 @@ func (dbc *DbCID) Scan(v interface{}) error {
 }
 
 func (dbc DbCID) Value() (driver.Value, error) {
+	if !dbc.CID.Defined() {
+		return nil, fmt.Errorf("cannot serialize undefined cid to database")
+	}
 	return dbc.CID.Bytes(), nil
 }
 

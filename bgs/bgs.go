@@ -152,7 +152,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	// TODO: authhhh
-	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
+	conn, err := websocket.Upgrade(c.Response(), c.Request(), c.Response().Header(), 1<<10, 1<<10)
 	if err != nil {
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
@@ -274,8 +274,8 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		// TODO: if the user is already in the 'slow' path, we shouldnt even bother trying to fast path this event
 
 		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, prevcid, evt.Blocks); err != nil {
-			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq)
 			if !errors.Is(err, carstore.ErrRepoBaseMismatch) {
+				log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq)
 				return fmt.Errorf("handle user event failed: %w", err)
 			}
 
@@ -291,7 +291,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		// sync blobs
 		if len(evt.Blobs) > 0 {
-			if err := bgs.syncUserBlobs(ctx, host.ID, u.ID, evt.Blobs); err != nil {
+			if err := bgs.syncUserBlobs(ctx, host, u.ID, evt.Blobs); err != nil {
 				return err
 			}
 		}
@@ -302,7 +302,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	}
 }
 
-func (s *BGS) syncUserBlobs(ctx context.Context, pds uint, user bsutil.Uid, blobs []string) error {
+func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user bsutil.Uid, blobs []string) error {
 	log.Warnf("not handling blob syncing yet")
 	return nil
 }
@@ -341,15 +341,18 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	c := &xrpc.Client{Host: durl.String()}
 
 	if peering.ID == 0 {
-		pdsdid, err := atproto.HandleResolve(ctx, c, "")
+
+		cfg, err := atproto.ServerGetAccountsConfig(ctx, c)
 		if err != nil {
 			// TODO: failing this shouldnt halt our indexing
-			return nil, fmt.Errorf("failed to get accounts config for unrecognized pds: %w", err)
+			return nil, fmt.Errorf("failed to check unrecognized pds: %w", err)
 		}
+
+		// since handles can be anything, checking against this list doesnt matter...
+		_ = cfg
 
 		// TODO: could check other things, a valid response is good enough for now
 		peering.Host = durl.Host
-		peering.Did = pdsdid.Did
 		peering.SSL = (durl.Scheme == "https")
 
 		if err := s.db.Create(&peering).Error; err != nil {

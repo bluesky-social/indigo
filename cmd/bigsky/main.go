@@ -35,7 +35,7 @@ var log = logging.Logger("bigsky")
 
 func init() {
 	//logging.SetAllLoggers(logging.LevelDebug)
-	logging.SetAllLoggers(logging.LevelWarn)
+	logging.SetAllLoggers(logging.LevelInfo)
 }
 
 func main() {
@@ -97,6 +97,14 @@ func run(args []string) {
 			Name:  "aggregation",
 			Value: true,
 		},
+		&cli.StringFlag{
+			Name:  "api-listen",
+			Value: ":2470",
+		},
+		&cli.StringFlag{
+			Name:  "debug-listen",
+			Value: "localhost:2471",
+		},
 	}
 
 	app.Action = func(cctx *cli.Context) error {
@@ -125,7 +133,9 @@ func run(args []string) {
 		// ensure data directory exists; won't error if it does
 		datadir := cctx.String("data-dir")
 		csdir := filepath.Join(datadir, "carstore")
-		os.MkdirAll(datadir, os.ModePerm)
+		if err := os.MkdirAll(datadir, os.ModePerm); err != nil {
+			return err
+		}
 
 		dburl := cctx.String("db-url")
 		db, err := cliutil.SetupDatabase(dburl)
@@ -190,12 +200,12 @@ func run(args []string) {
 
 		// set up pprof endpoint
 		go func() {
-			if err := bgs.StartDebug("localhost:2471"); err != nil {
+			if err := bgs.StartDebug(cctx.String("debug-listen")); err != nil {
 				panic(err)
 			}
 		}()
 
-		return bgs.Start(":2470")
+		return bgs.Start(cctx.String("api-listen"))
 	}
 
 	app.RunAndExitOnError()
