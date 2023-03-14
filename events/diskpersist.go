@@ -10,10 +10,10 @@ func NewDiskPersistence(dir string) (*DiskPersistence, error) {
 	}, nil
 }
 
-func (p *DiskPersistence) Persist(e *RepoStreamEvent) error {
+func (p *DiskPersistence) Persist(e *XRPCStreamEvent) error {
 	panic("nyi")
 }
 
-func (p *DiskPersistence) Playback(since int64, cb func(*RepoStreamEvent) error) error {
+func (p *DiskPersistence) Playback(since int64, cb func(*XRPCStreamEvent) error) error {
 	panic("nyi")
 }

@@ -56,12 +56,12 @@ func NewDbPersistence(db *gorm.DB, cs *carstore.CarStore) (*DbPersistence, error
 	}, nil
 }
 
-func (p *DbPersistence) Persist(ctx context.Context, e *RepoStreamEvent) error {
-	if e.Append == nil {
+func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
+	if e.RepoAppend == nil {
 		return nil
 	}
 
-	evt := e.Append
+	evt := e.RepoAppend
 
 	uid, err := p.uidForDid(ctx, evt.Repo)
 	if err != nil {
@@ -126,12 +126,12 @@ func (p *DbPersistence) Persist(ctx context.Context, e *RepoStreamEvent) error {
 		return err
 	}
 
-	e.Append.Seq = int64(rer.Seq)
+	e.RepoAppend.Seq = int64(rer.Seq)
 
 	return nil
 }
 
-func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*RepoStreamEvent) error) error {
+func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
 	rows, err := p.db.Model(RepoEventRecord{}).Where("seq > ?", since).Order("seq asc").Rows()
 	if err != nil {
 		return err
@@ -151,12 +151,12 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*Repo
 
 		evt.Ops = ops
 
-		ra, err := p.hydrate(ctx, &evt)
+		ra, err := p.hydrateRepoEvent(ctx, &evt)
 		if err != nil {
 			return err
 		}
 
-		if err := cb(&RepoStreamEvent{Append: ra}); err != nil {
+		if err := cb(&XRPCStreamEvent{RepoAppend: ra}); err != nil {
 			return err
 		}
 	}
@@ -182,7 +182,7 @@ func (p *DbPersistence) didForUid(ctx context.Context, uid util.Uid) (string, er
 	return u.Did, nil
 }
 
-func (p *DbPersistence) hydrate(ctx context.Context, rer *RepoEventRecord) (*RepoAppend, error) {
+func (p *DbPersistence) hydrateRepoEvent(ctx context.Context, rer *RepoEventRecord) (*RepoAppend, error) {
 	var blobs []string
 	if len(rer.Blobs) > 0 {
 		if err := json.Unmarshal(rer.Blobs, &blobs); err != nil {

@@ -5,15 +5,17 @@ import (
 	"sync"
 )
 
+// Note that this interface looks generic, but some persisters might only work with RepoAppend or LabelBatch
 type EventPersistence interface {
-	Persist(ctx context.Context, e *RepoStreamEvent) error
-	Playback(ctx context.Context, since int64, cb func(*RepoStreamEvent) error) error
+	Persist(ctx context.Context, e *XRPCStreamEvent) error
+	Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error
 }
 
 // MemPersister is the most naive implementation of event persistence
+// This EventPersistence option works fine with all event types
 // ill do better later
 type MemPersister struct {
-	buf []*RepoStreamEvent
+	buf []*XRPCStreamEvent
 	lk  sync.Mutex
 	seq int64
 }
@@ -22,13 +24,15 @@ func NewMemPersister() *MemPersister {
 	return &MemPersister{}
 }
 
-func (mp *MemPersister) Persist(ctx context.Context, e *RepoStreamEvent) error {
+func (mp *MemPersister) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	mp.lk.Lock()
 	defer mp.lk.Unlock()
 	mp.seq++
 	switch {
-	case e.Append != nil:
-		e.Append.Seq = mp.seq
+	case e.RepoAppend != nil:
+		e.RepoAppend.Seq = mp.seq
+	case e.LabelBatch != nil:
+		e.LabelBatch.Seq = mp.seq
 	default:
 		panic("no event in persist call")
 	}
@@ -37,7 +41,7 @@ func (mp *MemPersister) Persist(ctx context.Context, e *RepoStreamEvent) error {
 	return nil
 }
 
-func (mp *MemPersister) Playback(ctx context.Context, since int64, cb func(*RepoStreamEvent) error) error {
+func (mp *MemPersister) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
 	mp.lk.Lock()
 	l := len(mp.buf)
 	mp.lk.Unlock()

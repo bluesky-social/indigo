@@ -157,7 +157,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
 
-	evts, cancel, err := bgs.events.Subscribe(ctx, func(evt *events.RepoStreamEvent) bool { return true }, since)
+	evts, cancel, err := bgs.events.Subscribe(ctx, func(evt *events.XRPCStreamEvent) bool { return true }, since)
 	if err != nil {
 		return err
 	}
@@ -175,9 +175,9 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			var obj util.CBOR
 
 			switch {
-			case evt.Append != nil:
+			case evt.RepoAppend != nil:
 				header.Op = events.EvtKindRepoAppend
-				obj = evt.Append
+				obj = evt.RepoAppend
 			case evt.Error != nil:
 				header.Op = events.EvtKindErrorFrame
 				obj = evt.Error
@@ -238,13 +238,13 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 	return &u, nil
 }
 
-func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *events.RepoStreamEvent) error {
+func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *events.XRPCStreamEvent) error {
 	ctx, span := otel.Tracer("bgs").Start(ctx, "handleFedEvent")
 	defer span.End()
 
 	switch {
-	case env.Append != nil:
-		evt := env.Append
+	case env.RepoAppend != nil:
+		evt := env.RepoAppend
 		log.Infof("bgs got repo append event %d from %q: %s\n", evt.Seq, host.Host, evt.Repo)
 		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
 		if err != nil {

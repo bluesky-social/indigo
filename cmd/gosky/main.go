@@ -877,7 +877,7 @@ var readRepoStreamCmd = &cli.Command{
 		}()
 
 		return events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
-			Append: func(evt *events.RepoAppend) error {
+			RepoAppend: func(evt *events.RepoAppend) error {
 				if jsonfmt {
 					b, err := json.Marshal(evt)
 					if err != nil {

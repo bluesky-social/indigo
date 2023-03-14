@@ -15,7 +15,7 @@ type LiteStreamHandleFunc func(op repomgr.EventKind, path string, did string, rc
 
 func ConsumeRepoStreamLite(ctx context.Context, con *websocket.Conn, cb LiteStreamHandleFunc) error {
 	return HandleRepoStream(ctx, con, &RepoStreamCallbacks{
-		Append: func(evt *RepoAppend) error {
+		RepoAppend: func(evt *RepoAppend) error {
 			r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
 			if err != nil {
 				return err
