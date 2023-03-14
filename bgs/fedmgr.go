@@ -116,7 +116,6 @@ func (s *Slurper) subscribeWithRedialer(host *models.PDS) {
 	var backoff int
 	for {
 		url := fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeAllRepos?cursor=%d", protocol, host.Host, cursor)
-		fmt.Println("dialing: ", url)
 		con, res, err := d.Dial(url, nil)
 		if err != nil {
 			log.Warnf("dialing %q failed: %s", host.Host, err)

@@ -57,7 +57,7 @@ var inspectEventCmd = &cli.Command{
 
 		ctx := context.TODO()
 		err = events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
-			Append: func(evt *events.RepoAppend) error {
+			RepoAppend: func(evt *events.RepoAppend) error {
 				n := int64(n)
 				if evt.Seq == n {
 					match = evt
