@@ -38,7 +38,7 @@ const (
 type Operation struct {
 	op  int
 	sub *Subscriber
-	evt *RepoStreamEvent
+	evt *XRPCStreamEvent
 }
 
 func (em *EventManager) Run() {
@@ -75,9 +75,9 @@ func (em *EventManager) Run() {
 }
 
 type Subscriber struct {
-	outgoing chan *RepoStreamEvent
+	outgoing chan *XRPCStreamEvent
 
-	filter func(*RepoStreamEvent) bool
+	filter func(*XRPCStreamEvent) bool
 
 	done chan struct{}
 }
@@ -86,16 +86,18 @@ const (
 	EvtKindErrorFrame = -1
 	EvtKindRepoAppend = 1
 	EvtKindInfoFrame  = 2
+	EvtKindLabelBatch = 3
 )
 
 type EventHeader struct {
 	Op int64 `cborgen:"op"`
 }
 
-type RepoStreamEvent struct {
-	Append *RepoAppend
-	Info   *InfoFrame
-	Error  *ErrorFrame
+type XRPCStreamEvent struct {
+	RepoAppend *RepoAppend
+	Info       *InfoFrame
+	Error      *ErrorFrame
+	LabelBatch *LabelBatch
 
 	// some private fields for internal routing perf
 	PrivUid         util.Uid `json:"-" cborgen:"-"`
@@ -130,6 +132,11 @@ type RepoOp struct {
 	Cid    *string `cborgen:"cid"`
 }
 
+type LabelBatch struct {
+	Seq    int64   `cborgen:"seq"`
+	Labels []Label `cborgen:"labels"`
+}
+
 type InfoFrame struct {
 	Info    string `cborgen:"info"`
 	Message string `cborgen:"message"`
@@ -140,7 +147,7 @@ type ErrorFrame struct {
 	Message string `cborgen:"message"`
 }
 
-func (em *EventManager) AddEvent(ev *RepoStreamEvent) error {
+func (em *EventManager) AddEvent(ev *XRPCStreamEvent) error {
 	select {
 	case em.ops <- &Operation{
 		op:  opSend,
@@ -152,21 +159,33 @@ func (em *EventManager) AddEvent(ev *RepoStreamEvent) error {
 	}
 }
 
-func (em *EventManager) Subscribe(ctx context.Context, filter func(*RepoStreamEvent) bool, since *int64) (<-chan *RepoStreamEvent, func(), error) {
+func (em *EventManager) AddLabelEvent(ev *XRPCStreamEvent) error {
+	select {
+	case em.ops <- &Operation{
+		op:  opSend,
+		evt: ev,
+	}:
+		return nil
+	case <-em.closed:
+		return fmt.Errorf("event manager shut down")
+	}
+}
+
+func (em *EventManager) Subscribe(ctx context.Context, filter func(*XRPCStreamEvent) bool, since *int64) (<-chan *XRPCStreamEvent, func(), error) {
 	if filter == nil {
-		filter = func(*RepoStreamEvent) bool { return true }
+		filter = func(*XRPCStreamEvent) bool { return true }
 	}
 
 	done := make(chan struct{})
 	sub := &Subscriber{
-		outgoing: make(chan *RepoStreamEvent, em.bufferSize),
+		outgoing: make(chan *XRPCStreamEvent, em.bufferSize),
 		filter:   filter,
 		done:     done,
 	}
 
 	go func() {
 		if since != nil {
-			if err := em.persister.Playback(ctx, *since, func(e *RepoStreamEvent) error {
+			if err := em.persister.Playback(ctx, *since, func(e *XRPCStreamEvent) error {
 				select {
 				case <-done:
 					return fmt.Errorf("shutting down")
