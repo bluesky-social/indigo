@@ -9,9 +9,10 @@ import (
 )
 
 type RepoStreamCallbacks struct {
-	Append func(evt *RepoAppend) error
-	Info   func(evt *InfoFrame) error
-	Error  func(evt *ErrorFrame) error
+	RepoAppend func(evt *RepoAppend) error
+	LabelBatch func(evt *LabelBatch) error
+	Info       func(evt *InfoFrame) error
+	Error      func(evt *ErrorFrame) error
 }
 
 func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamCallbacks) error {
@@ -66,12 +67,31 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 
 			lastSeq = evt.Seq
 
-			if cbs.Append != nil {
-				if err := cbs.Append(&evt); err != nil {
+			if cbs.RepoAppend != nil {
+				if err := cbs.RepoAppend(&evt); err != nil {
 					return err
 				}
 			} else {
 				log.Warnf("received repo append event with nil append object (seq %d)", evt.Seq)
+			}
+		case EvtKindLabelBatch:
+			var evt LabelBatch
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return fmt.Errorf("reading LabelBatch event: %w", err)
+			}
+
+			if evt.Seq < lastSeq {
+				log.Errorf("Got events out of order from stream (seq = %d, prev = %d)", evt.Seq, lastSeq)
+			}
+
+			lastSeq = evt.Seq
+
+			if cbs.RepoAppend != nil {
+				if err := cbs.LabelBatch(&evt); err != nil {
+					return err
+				}
+			} else {
+				log.Warnf("received label event with nil append object (seq %d)", evt.Seq)
 			}
 		case EvtKindInfoFrame:
 			var info InfoFrame
