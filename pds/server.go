@@ -122,11 +122,11 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.echo.Shutdown(ctx)
 }
 
-func (s *Server) handleFedEvent(ctx context.Context, host *Peering, env *events.RepoStreamEvent) error {
+func (s *Server) handleFedEvent(ctx context.Context, host *Peering, env *events.XRPCStreamEvent) error {
 	fmt.Printf("[%s] got fed event from %q\n", s.serviceUrl, host.Host)
 	switch {
-	case env.Append != nil:
-		evt := env.Append
+	case env.RepoAppend != nil:
+		evt := env.RepoAppend
 		u, err := s.lookupUserByDid(ctx, evt.Repo)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -629,7 +629,7 @@ func (s *Server) EventsHandler(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	evts, cancel, err := s.events.Subscribe(ctx, func(evt *events.RepoStreamEvent) bool {
+	evts, cancel, err := s.events.Subscribe(ctx, func(evt *events.XRPCStreamEvent) bool {
 		if !s.enforcePeering {
 			return true
 		}
@@ -660,9 +660,9 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		var obj util.CBOR
 
 		switch {
-		case evt.Append != nil:
+		case evt.RepoAppend != nil:
 			header.Op = events.EvtKindRepoAppend
-			obj = evt.Append
+			obj = evt.RepoAppend
 		case evt.Info != nil:
 			header.Op = events.EvtKindInfoFrame
 			obj = evt.Info
