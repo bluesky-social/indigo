@@ -10,6 +10,25 @@ import (
 )
 
 func (s *BGS) handleComAtprotoSyncGetCheckout(ctx context.Context, commit string, did string) (io.Reader, error) {
+	/*
+		u, err := s.Index.LookupUserByDid(ctx, did)
+		if err != nil {
+			return nil, err
+		}
+
+		c, err := cid.Decode(commit)
+		if err != nil {
+			return nil, err
+		}
+
+		// TODO: need to enable a 'write to' interface for codegenned things...
+		buf := new(bytes.Buffer)
+		if err := s.repoman.GetCheckout(ctx, u.Uid, c, buf); err != nil {
+			return nil, err
+		}
+
+		return buf, nil
+	*/
 	panic("nyi")
 }
 
