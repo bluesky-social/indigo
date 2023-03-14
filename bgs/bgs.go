@@ -341,7 +341,6 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	c := &xrpc.Client{Host: durl.String()}
 
 	if peering.ID == 0 {
-		//pdsdid, err := atproto.HandleResolve(ctx, c, "")
 
 		cfg, err := atproto.ServerGetAccountsConfig(ctx, c)
 		if err != nil {
@@ -354,7 +353,6 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 		// TODO: could check other things, a valid response is good enough for now
 		peering.Host = durl.Host
-		//peering.Did = pdsdid.Did
 		peering.SSL = (durl.Scheme == "https")
 
 		if err := s.db.Create(&peering).Error; err != nil {

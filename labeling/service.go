@@ -232,7 +232,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 				Labels: labels,
 			},
 		}
-		err = s.evtmgr.AddEvent(&lev)
+		err = s.evtmgr.AddEvent(ctx, &lev)
 		if err != nil {
 			return fmt.Errorf("failed to publish XRPCStreamEvent: %w", err)
 		}
