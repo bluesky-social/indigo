@@ -35,7 +35,7 @@ type Server struct {
 	cs         *carstore.CarStore
 	repoman    *repomgr.RepoManager
 	bgsSlurper *bgs.Slurper
-	levents    *events.LabelEventManager
+	evtmgr     *events.EventManager
 	echo       *echo.Echo
 	user       *LabelmakerRepoConfig
 	kwl        []KeywordLabeler
@@ -61,7 +61,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, keyFile, repoDid, repoHandle,
 
 	didr := &api.PLCServer{Host: plcUrl}
 	kmgr := indexer.NewKeyManager(didr, serkey)
-	levtman := events.NewLabelEventManager(events.NewMemLabelPersister())
+	evtmgr := events.NewEventManager(events.NewMemPersister())
 	repoman := repomgr.NewRepoManager(db, cs, kmgr)
 
 	user := &LabelmakerRepoConfig{
@@ -76,7 +76,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, keyFile, repoDid, repoHandle,
 	s := &Server{
 		db:      db,
 		repoman: repoman,
-		levents: levtman,
+		evtmgr:  evtmgr,
 		user:    user,
 		kwl:     []KeywordLabeler{kl},
 		// sluper configured below
@@ -98,7 +98,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, keyFile, repoDid, repoHandle,
 	slurp := bgs.NewSlurper(db, s.handleBgsRepoEvent, useWss)
 	s.bgsSlurper = slurp
 
-	go levtman.Run()
+	go evtmgr.Run()
 
 	return s, nil
 }
@@ -162,20 +162,20 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 // Process incoming repo events coming from BGS, which includes new and updated
 // records from any PDS. This function extracts records, handes them to the
 // labeling routine, and then persists and broadcasts any resulting labels
-func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *events.RepoStreamEvent) error {
+func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *events.XRPCStreamEvent) error {
 
-	if evt.Append == nil {
+	if evt.RepoAppend == nil {
 		// TODO(bnewbold): is this really invalid? do we need to handle Info and Error events here?
 		return fmt.Errorf("invalid repo append event")
 	}
 
 	// quick check if we can skip processing the CAR slice entirely
-	if !s.wantAnyRecords(ctx, evt.Append) {
+	if !s.wantAnyRecords(ctx, evt.RepoAppend) {
 		return nil
 	}
 
 	// use an in-memory blockstore with repo wrapper to parse CAR slice
-	sliceRepo, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Append.Blocks))
+	sliceRepo, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.RepoAppend.Blocks))
 	if err != nil {
 		log.Warnw("failed to parse CAR slice", "repoErr", err)
 		return err
@@ -184,8 +184,8 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 	now := time.Now().Format(util.ISO8601)
 	labels := []events.Label{}
 
-	for _, op := range evt.Append.Ops {
-		uri := "at://" + evt.Append.Repo + "/" + op.Path
+	for _, op := range evt.RepoAppend.Ops {
+		uri := "at://" + evt.RepoAppend.Repo + "/" + op.Path
 		nsid := strings.SplitN(op.Path, "/", 2)[0]
 
 		if !(op.Action == "create" || op.Action == "update") {
@@ -223,18 +223,18 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 		log.Infof("persisted label: %s", labeluri)
 	}
 
-	// ... then re-publish as LabelStreamEvent
+	// ... then re-publish as XRPCStreamEvent
 	log.Infof("%s", labels)
 	if len(labels) > 0 {
-		lev := events.LabelStreamEvent{
-			Batch: &events.LabelBatch{
+		lev := events.XRPCStreamEvent{
+			LabelBatch: &events.LabelBatch{
 				// NOTE(bnewbold): seems like other code handles Seq field automatically
 				Labels: labels,
 			},
 		}
-		err = s.levents.AddEvent(&lev)
+		err = s.evtmgr.AddEvent(&lev)
 		if err != nil {
-			return fmt.Errorf("failed to publish LabelStreamEvent: %w", err)
+			return fmt.Errorf("failed to publish XRPCStreamEvent: %w", err)
 		}
 	}
 	// TODO(bnewbold): persist state that we successfully processed the repo event (aka,
