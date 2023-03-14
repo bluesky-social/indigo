@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type IndexCallback func(context.Context, *models.PDS, *events.RepoStreamEvent) error
+type IndexCallback func(context.Context, *models.PDS, *events.XRPCStreamEvent) error
 
 // TODO: rename me
 type Slurper struct {
@@ -157,13 +157,13 @@ func (s *Slurper) handleConnection(host *models.PDS, con *websocket.Conn, lastCu
 	defer cancel()
 
 	return events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
-		Append: func(evt *events.RepoAppend) error {
+		RepoAppend: func(evt *events.RepoAppend) error {
 
 			log.Infow("got remote repo event", "host", host.Host, "repo", evt.Repo)
-			if err := s.cb(context.TODO(), host, &events.RepoStreamEvent{
-				Append: evt,
+			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+				RepoAppend: evt,
 			}); err != nil {
-				log.Errorf("failed to index event from %q (%d): %s", host.Host, evt.Seq, err)
+				log.Errorf("failed handling event from %q (%d): %s", host.Host, evt.Seq, err)
 			}
 			*lastCursor = evt.Seq
 

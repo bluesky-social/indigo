@@ -433,7 +433,7 @@ func (b *testBGS) Run(t *testing.T) {
 
 type eventStream struct {
 	lk     sync.Mutex
-	events []*events.RepoStreamEvent
+	events []*events.XRPCStreamEvent
 	cancel func()
 
 	cur int
@@ -470,10 +470,10 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 
 	go func() {
 		if err := events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
-			Append: func(evt *events.RepoAppend) error {
+			RepoAppend: func(evt *events.RepoAppend) error {
 				fmt.Println("received event: ", evt.Seq, evt.Repo)
 				es.lk.Lock()
-				es.events = append(es.events, &events.RepoStreamEvent{Append: evt})
+				es.events = append(es.events, &events.XRPCStreamEvent{RepoAppend: evt})
 				es.lk.Unlock()
 				return nil
 			},
@@ -485,7 +485,7 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 	return es
 }
 
-func (es *eventStream) Next() *events.RepoStreamEvent {
+func (es *eventStream) Next() *events.XRPCStreamEvent {
 	defer es.lk.Unlock()
 	for {
 		es.lk.Lock()
@@ -498,10 +498,10 @@ func (es *eventStream) Next() *events.RepoStreamEvent {
 	}
 }
 
-func (es *eventStream) All() []*events.RepoStreamEvent {
+func (es *eventStream) All() []*events.XRPCStreamEvent {
 	es.lk.Lock()
 	defer es.lk.Unlock()
-	out := make([]*events.RepoStreamEvent, len(es.events))
+	out := make([]*events.XRPCStreamEvent, len(es.events))
 	for i, e := range es.events {
 		out[i] = e
 	}

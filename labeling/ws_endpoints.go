@@ -28,7 +28,7 @@ func (s *Server) EventsLabelsWebsocket(c echo.Context) error {
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
 
-	evts, cancel, err := s.levents.Subscribe(ctx, func(evt *events.LabelStreamEvent) bool {
+	evts, cancel, err := s.evtmgr.Subscribe(ctx, func(evt *events.XRPCStreamEvent) bool {
 		return true
 	}, since)
 	if err != nil {
@@ -36,7 +36,7 @@ func (s *Server) EventsLabelsWebsocket(c echo.Context) error {
 	}
 	defer cancel()
 
-	header := events.EventHeader{Op: events.LEvtKindLabelBatch}
+	header := events.EventHeader{Op: events.EvtKindLabelBatch}
 	for {
 		select {
 		case evt := <-evts:
@@ -48,14 +48,14 @@ func (s *Server) EventsLabelsWebsocket(c echo.Context) error {
 			var obj lexutil.CBOR
 
 			switch {
-			case evt.Batch != nil:
-				header.Op = events.LEvtKindLabelBatch
-				obj = evt.Batch
+			case evt.LabelBatch != nil:
+				header.Op = events.EvtKindLabelBatch
+				obj = evt.LabelBatch
 			case evt.Error != nil:
-				header.Op = events.LEvtKindErrorFrame
+				header.Op = events.EvtKindErrorFrame
 				obj = evt.Error
 			case evt.Info != nil:
-				header.Op = events.LEvtKindInfoFrame
+				header.Op = events.EvtKindInfoFrame
 				obj = evt.Info
 			default:
 				return fmt.Errorf("unrecognized event kind")
