@@ -24,7 +24,7 @@ import (
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/plc"
@@ -225,7 +225,7 @@ func (u *testUser) Reply(t *testing.T, replyto, root *atproto.RepoStrongRef, bod
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.post",
 		Did:        u.did,
-		Record: util.LexiconTypeDecoder{&bsky.FeedPost{
+		Record: lexutil.LexiconTypeDecoder{&bsky.FeedPost{
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Text:      body,
 			Reply: &bsky.FeedPost_ReplyRef{
@@ -252,7 +252,7 @@ func (u *testUser) Post(t *testing.T, body string) *atproto.RepoStrongRef {
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.post",
 		Did:        u.did,
-		Record: util.LexiconTypeDecoder{&bsky.FeedPost{
+		Record: lexutil.LexiconTypeDecoder{&bsky.FeedPost{
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Text:      body,
 		}},
@@ -275,7 +275,7 @@ func (u *testUser) Like(t *testing.T, post *atproto.RepoStrongRef) {
 	_, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.vote",
 		Did:        u.did,
-		Record: util.LexiconTypeDecoder{&bsky.FeedVote{
+		Record: lexutil.LexiconTypeDecoder{&bsky.FeedVote{
 			LexiconTypeID: "app.bsky.feed.vote",
 			CreatedAt:     time.Now().Format(time.RFC3339),
 			Direction:     "up",
@@ -295,7 +295,7 @@ func (u *testUser) Follow(t *testing.T, did string) string {
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.graph.follow",
 		Did:        u.did,
-		Record: util.LexiconTypeDecoder{&bsky.GraphFollow{
+		Record: lexutil.LexiconTypeDecoder{&bsky.GraphFollow{
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Subject: &bsky.ActorRef{
 				DeclarationCid: "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u",
