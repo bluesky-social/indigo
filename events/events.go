@@ -79,7 +79,7 @@ func (em *EventManager) Run() {
 							}
 						}(s)
 					default:
-						log.Error("event overflow")
+						log.Warnf("event overflow (%d)", len(s.outgoing))
 					}
 				}
 			}
