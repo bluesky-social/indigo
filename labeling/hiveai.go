@@ -20,6 +20,14 @@ type HiveAILabeler struct {
 
 // schema: https://docs.thehive.ai/reference/classification
 type HiveAIResp struct {
+	Status []HiveAIResp_Status `json:"status"`
+}
+
+type HiveAIResp_Status struct {
+	Response HiveAIResp_Response `json:"response"`
+}
+
+type HiveAIResp_Response struct {
 	Output []HiveAIResp_Out `json:"output"`
 }
 
@@ -49,37 +57,39 @@ func NewHiveAILabeler(token string) HiveAILabeler {
 	}
 }
 
-func (hal *HiveAILabeler) summarizeResp(resp HiveAIResp) []string {
+func (resp *HiveAIResp) SummarizeLabels() []string {
 	var labels []string
 
-	for _, out := range resp.Output {
-		for _, cls := range out.Classes {
-			// TODO(bnewbold): lots more upstream tags could be included here.
-			// for example, "sexy" for not nude but still explicit/suggestive,
-			// or lolicon (animated, not nude, "sugggestive"
+	for _, status := range resp.Status {
+		for _, out := range status.Response.Output {
+			for _, cls := range out.Classes {
+				// TODO(bnewbold): lots more upstream tags could be included here.
+				// for example, "sexy" for not nude but still explicit/suggestive,
+				// or lolicon (animated, not nude, "sugggestive"
 
-			// sexual: https://docs.thehive.ai/docs/sexual-content
-			// note: won't apply "nude" if "porn" already applied
-			if cls.Class == "yes_sexual_activity" && cls.Score >= 0.90 {
-				// NOTE: will include "hentai"
-				labels = append(labels, "porn")
-			} else if cls.Class == "animal_genitalia_and_human" && cls.Score >= 0.90 {
-				labels = append(labels, "porn")
-			} else if cls.Class == "yes_male_nudity" && cls.Score >= 0.90 {
-				labels = append(labels, "nude")
-			} else if cls.Class == "yes_female_nudity" && cls.Score >= 0.90 {
-				labels = append(labels, "nude")
-			}
+				// sexual: https://docs.thehive.ai/docs/sexual-content
+				// note: won't apply "nude" if "porn" already applied
+				if cls.Class == "yes_sexual_activity" && cls.Score >= 0.90 {
+					// NOTE: will include "hentai"
+					labels = append(labels, "porn")
+				} else if cls.Class == "animal_genitalia_and_human" && cls.Score >= 0.90 {
+					labels = append(labels, "porn")
+				} else if cls.Class == "yes_male_nudity" && cls.Score >= 0.90 {
+					labels = append(labels, "nude")
+				} else if cls.Class == "yes_female_nudity" && cls.Score >= 0.90 {
+					labels = append(labels, "nude")
+				}
 
-			// gore and violence: https://docs.thehive.ai/docs/class-descriptions-violence-gore
-			if cls.Class == "very_bloody" && cls.Score >= 0.90 {
-				labels = append(labels, "gore")
-			}
-			if cls.Class == "human_corpse" && cls.Score >= 0.90 {
-				labels = append(labels, "corpse")
-			}
-			if cls.Class == "yes_self_harm" && cls.Score >= 0.90 {
-				labels = append(labels, "self-harm")
+				// gore and violence: https://docs.thehive.ai/docs/class-descriptions-violence-gore
+				if cls.Class == "very_bloody" && cls.Score >= 0.90 {
+					labels = append(labels, "gore")
+				}
+				if cls.Class == "human_corpse" && cls.Score >= 0.90 {
+					labels = append(labels, "corpse")
+				}
+				if cls.Class == "yes_self_harm" && cls.Score >= 0.90 {
+					labels = append(labels, "self-harm")
+				}
 			}
 		}
 	}
@@ -131,11 +141,13 @@ func (hal *HiveAILabeler) LabelBlob(ctx context.Context, blob lexutil.Blob, blob
 		return nil, fmt.Errorf("failed to read HiveAI resp body: %v", err)
 	}
 
+	log.Debugf("HiveAI raw result cid=%s body=%v", blob.Cid, string(respBytes))
+
 	var respObj HiveAIResp
 	if err = json.Unmarshal(respBytes, &respObj); err != nil {
 		return nil, fmt.Errorf("failed to parse HiveAI resp JSON: %v", err)
 	}
-	respJson, _ := json.Marshal(respObj)
+	respJson, _ := json.Marshal(respObj.Status[0].Response.Output[0])
 	log.Infof("HiveAI result cid=%s json=%v", blob.Cid, string(respJson))
-	return hal.summarizeResp(respObj), nil
+	return respObj.SummarizeLabels(), nil
 }

@@ -70,7 +70,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, 
 	s := &Server{
 		db:         db,
 		repoman:    repoman,
-		evtmgr:          evtmgr,
+		evtmgr:     evtmgr,
 		user:       &repoUser,
 		blobPdsURL: blobPdsURL,
 		// sluper configured below
@@ -363,7 +363,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 			return fmt.Errorf("record not in CAR slice: %s", uri)
 		}
 		cidStr := cid.String()
-		labelVals, err := s.labelRecord(ctx, s.user.Did, nsid, uri, cidStr, rec)
+		labelVals, err := s.labelRecord(ctx, evt.RepoAppend.Repo, nsid, uri, cidStr, rec)
 		if err != nil {
 			return err
 		}
@@ -373,7 +373,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 				val = strings.SplitN(val, ":", 2)[1]
 				labels = append(labels, events.Label{
 					SourceDid:  s.user.Did,
-					SubjectUri: "at://" + s.user.Did,
+					SubjectUri: "at://" + evt.RepoAppend.Repo,
 					Value:      val,
 					Timestamp:  now,
 				})
