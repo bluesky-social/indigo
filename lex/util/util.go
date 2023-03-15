@@ -8,7 +8,7 @@ import (
 )
 
 type typeExtractor struct {
-	Type string `json:"$type"`
+	Type string `json:"$type" cborgen:"$type"`
 }
 
 func TypeExtract(b []byte) (string, error) {
@@ -21,12 +21,12 @@ func TypeExtract(b []byte) (string, error) {
 }
 
 type Blob struct {
-	Cid      string `json:"cid"`
-	MimeType string `json:"mimeType"`
+	Cid      string `json:"cid" cborgen:"cid"`
+	MimeType string `json:"mimeType" cborgen:"mimeType"`
 }
 
 type CborChecker struct {
-	Type string `cborgen:"$type"`
+	Type string `json:"$type" cborgen:"$type"`
 }
 
 func CborTypeExtract(b []byte) (string, error) {
