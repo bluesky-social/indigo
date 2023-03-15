@@ -230,7 +230,11 @@ func (p *DbPersistence) hydrateRepoEvent(ctx context.Context, rer *RepoEventReco
 		return nil, fmt.Errorf("read car slice: %w", err)
 	}
 
-	out.Blocks = cs
+	if len(cs) > carstore.MaxSliceLength {
+		out.TooBig = true
+	} else {
+		out.Blocks = cs
+	}
 
 	return out, nil
 }

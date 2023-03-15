@@ -35,7 +35,8 @@ var log = logging.Logger("bigsky")
 
 func init() {
 	//logging.SetAllLoggers(logging.LevelDebug)
-	logging.SetAllLoggers(logging.LevelInfo)
+	//logging.SetAllLoggers(logging.LevelInfo)
+	logging.SetAllLoggers(logging.LevelWarn)
 }
 
 func main() {

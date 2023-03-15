@@ -58,3 +58,7 @@ func (dbc *DbCID) UnmarshalJSON(b []byte) error {
 	dbc.CID = c
 	return nil
 }
+
+func (dbc *DbCID) GormDataType() string {
+	return "bytes"
+}

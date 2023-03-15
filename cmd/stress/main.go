@@ -76,6 +76,9 @@ var postingCmd = &cli.Command{
 			Value:   "http://localhost:4849",
 			EnvVars: []string{"ATP_PDS_HOST"},
 		},
+		&cli.StringFlag{
+			Name: "invite",
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
@@ -93,9 +96,21 @@ var postingCmd = &cli.Command{
 		id := hex.EncodeToString(buf)
 
 		var invite *string
+		if inv := cctx.String("invite"); inv != "" {
+			invite = &inv
+		}
+
+		cfg, err := comatproto.ServerGetAccountsConfig(ctx, xrpcc)
+		if err != nil {
+			return err
+		}
+
+		domain := cfg.AvailableUserDomains[0]
+		fmt.Println("domain: ", domain)
+
 		resp, err := comatproto.AccountCreate(ctx, xrpcc, &comatproto.AccountCreate_Input{
 			Email:      fmt.Sprintf("user-%s@test.com", id),
-			Handle:     "user-" + id + ".test",
+			Handle:     "user-" + id + domain,
 			Password:   "password",
 			InviteCode: invite,
 		})

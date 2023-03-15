@@ -90,7 +90,7 @@ func (bgs *BGS) Start(listen string) error {
 	}))
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
-		log.Errorf("HANDLER ERROR: (%s) %s", ctx.Path(), err)
+		log.Warnf("HANDLER ERROR: (%s) %s", ctx.Path(), err)
 		ctx.Response().WriteHeader(500)
 	}
 

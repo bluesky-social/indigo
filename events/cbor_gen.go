@@ -135,7 +135,7 @@ func (t *RepoAppend) MarshalCBOR(w io.Writer) error {
 
 	cw := cbg.NewCborWriter(w)
 
-	if _, err := cw.Write([]byte{169}); err != nil {
+	if _, err := cw.Write([]byte{170}); err != nil {
 		return err
 	}
 
@@ -362,6 +362,22 @@ func (t *RepoAppend) MarshalCBOR(w io.Writer) error {
 	if _, err := io.WriteString(w, string(t.Commit)); err != nil {
 		return err
 	}
+
+	// t.TooBig (bool) (bool)
+	if len("tooBig") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"tooBig\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("tooBig"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("tooBig")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteBool(w, t.TooBig); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -577,6 +593,24 @@ func (t *RepoAppend) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Commit = string(sval)
+			}
+			// t.TooBig (bool) (bool)
+		case "tooBig":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+			if maj != cbg.MajOther {
+				return fmt.Errorf("booleans must be major type 7")
+			}
+			switch extra {
+			case 20:
+				t.TooBig = false
+			case 21:
+				t.TooBig = true
+			default:
+				return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
 			}
 
 		default:
