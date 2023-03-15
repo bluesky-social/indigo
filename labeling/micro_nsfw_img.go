@@ -42,7 +42,7 @@ func NewMicroNSFWImgLabeler(url string) MicroNSFWImgLabeler {
 	}
 }
 
-func (mnil *MicroNSFWImgLabeler) summarizeResp(resp MicroNSFWImgResp) []string {
+func (resp *MicroNSFWImgResp) SummarizeLabels() []string {
 	var labels []string
 
 	// TODO(bnewbold): these score cutoffs are kind of arbitrary
@@ -105,5 +105,5 @@ func (mnil *MicroNSFWImgLabeler) LabelBlob(ctx context.Context, blob lexutil.Blo
 	}
 	scoreJson, _ := json.Marshal(nsfwScore)
 	log.Infof("micro-NSFW-img result cid=%s scores=%v", blob.Cid, string(scoreJson))
-	return mnil.summarizeResp(nsfwScore), nil
+	return nsfwScore.SummarizeLabels(), nil
 }
