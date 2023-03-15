@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/bluesky-social/indigo/util"
@@ -176,6 +177,8 @@ func (em *EventManager) AddLabelEvent(ev *XRPCStreamEvent) error {
 	}
 }
 
+var ErrPlaybackShutdown = fmt.Errorf("playback shutting down")
+
 func (em *EventManager) Subscribe(ctx context.Context, filter func(*XRPCStreamEvent) bool, since *int64) (<-chan *XRPCStreamEvent, func(), error) {
 	if filter == nil {
 		filter = func(*XRPCStreamEvent) bool { return true }
@@ -193,12 +196,16 @@ func (em *EventManager) Subscribe(ctx context.Context, filter func(*XRPCStreamEv
 			if err := em.persister.Playback(ctx, *since, func(e *XRPCStreamEvent) error {
 				select {
 				case <-done:
-					return fmt.Errorf("shutting down")
+					return ErrPlaybackShutdown
 				case sub.outgoing <- e:
 					return nil
 				}
 			}); err != nil {
-				log.Errorf("events playback: %s", err)
+				if errors.Is(err, ErrPlaybackShutdown) {
+					log.Warnf("events playback: %s", err)
+				} else {
+					log.Errorf("events playback: %s", err)
+				}
 			}
 		}
 
