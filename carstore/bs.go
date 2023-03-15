@@ -330,7 +330,7 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user util.Uid, earlyCid, la
 
 	if earlyCid.Defined() {
 		var untilShard CarShard
-		if err := cs.meta.First(&untilShard, "root = ? AND usr = ?", earlyCid.String(), user).Error; err != nil {
+		if err := cs.meta.First(&untilShard, "root = ? AND usr = ?", util.DbCID{earlyCid}, user).Error; err != nil {
 			return err
 		}
 		earlySeq = untilShard.Seq
@@ -338,7 +338,7 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user util.Uid, earlyCid, la
 
 	if lateCid.Defined() {
 		var fromShard CarShard
-		if err := cs.meta.First(&fromShard, "root = ? AND usr = ?", lateCid.String(), user).Error; err != nil {
+		if err := cs.meta.First(&fromShard, "root = ? AND usr = ?", util.DbCID{lateCid}, user).Error; err != nil {
 			return err
 		}
 		lateSeq = fromShard.Seq
@@ -529,9 +529,6 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) ([]byte
 			return nil, err
 		}
 
-		if buf.Len() > MaxSliceLength {
-			return nil, fmt.Errorf("cannot close carstore session, too much data written (%d)", buf.Len())
-		}
 		/*
 			brefs = append(brefs, &blockRef{
 				Cid:    k.String(),
