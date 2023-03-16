@@ -87,7 +87,6 @@ func (t *FeedPost_Embed) MarshalCBOR(w io.Writer) error {
 	}
 	return fmt.Errorf("cannot cbor marshal empty enum")
 }
-
 func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
 	typ, b, err := util.CborTypeExtractReader(r)
 	if err != nil {
@@ -104,6 +103,7 @@ func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.embed.record":
 		t.EmbedRecord = new(EmbedRecord)
 		return t.EmbedRecord.UnmarshalCBOR(bytes.NewReader(b))
+
 	default:
 		return nil
 	}
