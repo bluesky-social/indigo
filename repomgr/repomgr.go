@@ -854,11 +854,9 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user util.Uid, repoDid
 		if err != nil {
 			return err
 		}
+
 		if len(slice) > carstore.MaxSliceLength {
-			// TODO: this should never happen because the same check exists
-			// inside the carstore, possibly remove this error later (assuming
-			// we never see it again)
-			return fmt.Errorf("(CRITICAL) resultant slice was too large, len=%d user=%d old=%s new=%s", len(slice), user, old, nu)
+			log.Warnw("output slice too large", "len", len(slice), "user", user, "old", old, "new", nu)
 		}
 
 		if err := rm.updateUserRepoHead(ctx, user, nu); err != nil {
