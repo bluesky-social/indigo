@@ -535,7 +535,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 
 	r, err := repo.OpenRepo(ctx, ds, root, true)
 	if err != nil {
-		return fmt.Errorf("opening external user repo (%d): %w", uid, err)
+		return fmt.Errorf("opening external user repo (%d, root=%s): %w", uid, root, err)
 	}
 
 	repoDid := r.RepoDid()

@@ -99,7 +99,15 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, host string)
 	return s.slurper.SubscribeToPds(ctx, host, true)
 }
 
-func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context) error {
+func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, hostname string) error {
 	panic("NYI")
 	//return s.slurper.SubscribeToPds(ctx, host, false)
+}
+
+func (s *BGS) handleComAtprotoSyncGetBlob(ctx context.Context, cid string, did string) (io.Reader, error) {
+	panic("NYI")
+}
+
+func (s *BGS) handleComAtprotoSyncListBlobs(ctx context.Context, did string, earliest string, latest string) (*comatprototypes.SyncListBlobs_Output, error) {
+	panic("NYI")
 }

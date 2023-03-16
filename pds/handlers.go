@@ -754,10 +754,18 @@ func (s *Server) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []strin
 	panic("nyi")
 }
 
-func (s *Server) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context) error {
+func (s *Server) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, hostname string) error {
 	panic("nyi")
 }
 
 func (s *Server) handleComAtprotoSyncRequestCrawl(ctx context.Context, host string) error {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoSyncGetBlob(ctx context.Context, cid string, did string) (io.Reader, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoSyncListBlobs(ctx context.Context, did string, earliest string, latest string) (*comatprototypes.SyncListBlobs_Output, error) {
 	panic("nyi")
 }
