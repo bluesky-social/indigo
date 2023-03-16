@@ -10,6 +10,7 @@ import (
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/notifs"
@@ -137,15 +138,24 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		prevstr = &s
 	}
 
+	toobig := false
+	slice := evt.RepoSlice
+	if len(slice) > carstore.MaxSliceLength {
+		slice = nil
+		toobig = true
+
+	}
+
 	log.Infow("Sending event", "did", did)
 	if err := ix.events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoAppend: &events.RepoAppend{
 			Repo:   did,
 			Prev:   prevstr,
-			Blocks: evt.RepoSlice,
+			Blocks: slice,
 			Commit: evt.NewRoot.String(),
 			Time:   time.Now().Format(util.ISO8601),
 			Ops:    outops,
+			TooBig: toobig,
 		},
 		PrivUid: evt.User,
 	}); err != nil {
@@ -323,7 +333,7 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 			if e.Type == "mention" {
 				_, err := ix.GetUserOrMissing(ctx, e.Value)
 				if err != nil {
-					log.Warnw("failed to parse user mention", "ref", e.Value, "err", err)
+					log.Infow("failed to parse user mention", "ref", e.Value, "err", err)
 				}
 			}
 		}
@@ -331,13 +341,13 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 		if rec.Reply != nil {
 			if rec.Reply.Parent != nil {
 				if err := ix.crawlAtUriRef(ctx, rec.Reply.Parent.Uri); err != nil {
-					log.Warnw("failed to crawl reply parent", "cid", op.RecCid, "replyuri", rec.Reply.Parent.Uri, "err", err)
+					log.Infow("failed to crawl reply parent", "cid", op.RecCid, "replyuri", rec.Reply.Parent.Uri, "err", err)
 				}
 			}
 
 			if rec.Reply.Root != nil {
 				if err := ix.crawlAtUriRef(ctx, rec.Reply.Root.Uri); err != nil {
-					log.Warnw("failed to crawl reply root", "cid", op.RecCid, "rooturi", rec.Reply.Root.Uri, "err", err)
+					log.Infow("failed to crawl reply root", "cid", op.RecCid, "rooturi", rec.Reply.Root.Uri, "err", err)
 				}
 			}
 		}
@@ -346,14 +356,14 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 	case *bsky.FeedRepost:
 		if rec.Subject != nil {
 			if err := ix.crawlAtUriRef(ctx, rec.Subject.Uri); err != nil {
-				log.Warnw("failed to crawl repost subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
+				log.Infow("failed to crawl repost subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
 			}
 		}
 		return nil
 	case *bsky.FeedVote:
 		if rec.Subject != nil {
 			if err := ix.crawlAtUriRef(ctx, rec.Subject.Uri); err != nil {
-				log.Warnw("failed to crawl vote subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
+				log.Infow("failed to crawl vote subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
 			}
 		}
 		return nil
@@ -361,7 +371,7 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 		if rec.Subject != nil {
 			_, err := ix.GetUserOrMissing(ctx, rec.Subject.Did)
 			if err != nil {
-				log.Warnw("failed to crawl follow subject", "cid", op.RecCid, "subjectdid", rec.Subject.Did, "err", err)
+				log.Infow("failed to crawl follow subject", "cid", op.RecCid, "subjectdid", rec.Subject.Did, "err", err)
 			}
 		}
 		return nil
