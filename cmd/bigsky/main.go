@@ -106,6 +106,9 @@ func run(args []string) {
 			Name:  "debug-listen",
 			Value: "localhost:2471",
 		},
+		&cli.StringFlag{
+			Name: "disk-blob-store",
+		},
 	}
 
 	app.Action = func(cctx *cli.Context) error {
@@ -194,7 +197,10 @@ func run(args []string) {
 			}
 		})
 
-		blobs := &bgs.DiskBlobStore{filepath.Join(datadir, "blobs")}
+		var blobs bgs.BlobStore
+		if bsdir := cctx.String("disk-blob-store"); bsdir != "" {
+			blobs = &bgs.DiskBlobStore{bsdir}
+		}
 
 		bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobs, !cctx.Bool("crawl-insecure-ws"))
 		if err != nil {
