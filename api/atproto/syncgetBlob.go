@@ -11,6 +11,7 @@ import (
 
 func init() {
 }
+
 func SyncGetBlob(ctx context.Context, c *xrpc.Client, cid string, did string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 

@@ -7,6 +7,7 @@ import (
 
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/xrpc"
 )
 
 type FeedPost struct {
@@ -103,4 +104,16 @@ type PDS struct {
 	SSL        bool
 	Cursor     int64
 	Registered bool
+}
+
+func ClientForPds(pds *PDS) *xrpc.Client {
+	if pds.SSL {
+		return &xrpc.Client{
+			Host: "https://" + pds.Host,
+		}
+	}
+
+	return &xrpc.Client{
+		Host: "http://" + pds.Host,
+	}
 }

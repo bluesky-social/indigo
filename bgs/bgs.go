@@ -43,6 +43,8 @@ type BGS struct {
 	events  *events.EventManager
 	didr    plc.DidResolver
 
+	blobs BlobStore
+
 	crawlOnly bool
 
 	// TODO: at some point we will want to lock specific DIDs, this lock as is
@@ -52,7 +54,7 @@ type BGS struct {
 	repoman *repomgr.RepoManager
 }
 
-func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.DidResolver, ssl bool) (*BGS, error) {
+func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.DidResolver, blobs BlobStore, ssl bool) (*BGS, error) {
 	db.AutoMigrate(User{})
 	db.AutoMigrate(models.PDS{})
 
@@ -63,6 +65,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		repoman: repoman,
 		events:  evtman,
 		didr:    didr,
+		blobs:   blobs,
 	}
 
 	ix.CreateExternalUser = bgs.createExternalUser
@@ -303,7 +306,24 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 }
 
 func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user bsutil.Uid, blobs []string) error {
-	log.Warnf("not handling blob syncing yet")
+
+	did, err := s.Index.DidForUser(ctx, user)
+	if err != nil {
+		return err
+	}
+
+	for _, b := range blobs {
+		c := models.ClientForPds(pds)
+		blob, err := atproto.SyncGetBlob(ctx, c, b, did)
+		if err != nil {
+			return fmt.Errorf("fetching blob (%s, %s): %w", did, b, err)
+		}
+
+		if err := s.blobs.PutBlob(ctx, b, did, blob); err != nil {
+			return fmt.Errorf("storing blob (%s, %s): %w", did, b, err)
+		}
+	}
+
 	return nil
 }
 

@@ -105,7 +105,12 @@ func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, hostname s
 }
 
 func (s *BGS) handleComAtprotoSyncGetBlob(ctx context.Context, cid string, did string) (io.Reader, error) {
-	panic("NYI")
+	b, err := s.blobs.GetBlob(ctx, cid, did)
+	if err != nil {
+		return nil, err
+	}
+
+	return bytes.NewReader(b), nil
 }
 
 func (s *BGS) handleComAtprotoSyncListBlobs(ctx context.Context, did string, earliest string, latest string) (*comatprototypes.SyncListBlobs_Output, error) {
