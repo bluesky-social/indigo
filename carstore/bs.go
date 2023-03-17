@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	util "github.com/bluesky-social/indigo/util"
 
@@ -289,7 +290,7 @@ func (cs *CarStore) NewDeltaSession(ctx context.Context, user util.Uid, prev *ci
 
 	if prev != nil {
 		if lastShard.Root.CID != *prev {
-			return nil, fmt.Errorf("mismatch: %s != %s: %w", lastShard.Root, prev.String(), ErrRepoBaseMismatch)
+			return nil, fmt.Errorf("mismatch: %s != %s: %w", lastShard.Root.CID, prev.String(), ErrRepoBaseMismatch)
 		}
 	}
 
@@ -651,4 +652,28 @@ func (cs *CarStore) GetUserRepoHead(ctx context.Context, user util.Uid) (cid.Cid
 	}
 
 	return lastShard.Root.CID, nil
+}
+
+type UserStat struct {
+	Seq     int
+	Root    string
+	Created time.Time
+}
+
+func (cs *CarStore) Stat(ctx context.Context, usr util.Uid) ([]UserStat, error) {
+	var shards []CarShard
+	if err := cs.meta.Order("seq asc").Find(&shards, "usr = ?", usr).Error; err != nil {
+		return nil, err
+	}
+
+	var out []UserStat
+	for _, s := range shards {
+		out = append(out, UserStat{
+			Seq:     s.Seq,
+			Root:    s.Root.CID.String(),
+			Created: s.CreatedAt,
+		})
+	}
+
+	return out, nil
 }

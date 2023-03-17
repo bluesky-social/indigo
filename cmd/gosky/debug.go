@@ -11,8 +11,8 @@ import (
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/gorilla/websocket"
-	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car/v2"
 	cli "github.com/urfave/cli/v2"
 )
@@ -114,23 +114,19 @@ var inspectEventCmd = &cli.Command{
 			return fmt.Errorf("opening repo from slice: %w", err)
 		}
 
-		var prev cid.Cid
-		if match.Prev != nil {
-			c, err := cid.Decode(*match.Prev)
-			if err != nil {
-				return err
+		fmt.Println("\nOps: ")
+		for _, op := range match.Ops {
+			switch repomgr.EventKind(op.Action) {
+			case repomgr.EvtKindCreateRecord, repomgr.EvtKindUpdateRecord:
+				rcid, _, err := r.GetRecord(ctx, op.Path)
+				if err != nil {
+					return fmt.Errorf("loading %q: %w", op.Path, err)
+				}
+				if rcid.String() != *op.Cid {
+					return fmt.Errorf("mismatch in record cid %s != %s", rcid, *op.Cid)
+				}
+				fmt.Printf("%s (%s): %s\n", op.Action, op.Path, *op.Cid)
 			}
-			prev = c
-		}
-
-		fmt.Println("\nDiff ops: ")
-		diff, err := r.DiffSince(ctx, prev)
-		if err != nil {
-			return err
-		}
-
-		for _, d := range diff {
-			fmt.Printf("%s (%s): %s -> %s\n", d.Op, d.Rpath, d.OldCid, d.NewCid)
 		}
 
 		return nil

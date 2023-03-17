@@ -59,7 +59,7 @@ func run(args []string) {
 		&cli.StringFlag{
 			Name:    "pds-host",
 			Usage:   "method, hostname, and port of PDS instance",
-			Value:   "http://localhost:4849",
+			Value:   "https://bsky.social",
 			EnvVars: []string{"ATP_PDS_HOST"},
 		},
 		&cli.StringFlag{
