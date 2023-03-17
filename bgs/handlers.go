@@ -3,6 +3,7 @@ package bgs
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
@@ -95,6 +96,10 @@ func (s *BGS) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []string, 
 }
 
 func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, host string) error {
+	if host == "" {
+		return fmt.Errorf("must pass valid hostname")
+	}
+
 	log.Warnf("TODO: host validation for crawl requests")
 	return s.slurper.SubscribeToPds(ctx, host, true)
 }
