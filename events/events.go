@@ -66,15 +66,15 @@ func (em *EventManager) Run() {
 					select {
 					case s.outgoing <- op.evt:
 					case <-s.done:
-						go func() {
+						go func(torem *Subscriber) {
 							select {
 							case em.ops <- &Operation{
 								op:  opUnsubscribe,
-								sub: s,
+								sub: torem,
 							}:
 							case <-em.closed:
 							}
-						}()
+						}(s)
 					default:
 						log.Error("event overflow")
 					}

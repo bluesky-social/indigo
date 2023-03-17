@@ -9,6 +9,7 @@ import (
 
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/bgs"
+	"github.com/bluesky-social/indigo/blobs"
 	"github.com/bluesky-social/indigo/carstore"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	"github.com/bluesky-social/indigo/events"
@@ -197,12 +198,12 @@ func run(args []string) {
 			}
 		})
 
-		var blobs bgs.BlobStore
+		var blobstore blobs.BlobStore
 		if bsdir := cctx.String("disk-blob-store"); bsdir != "" {
-			blobs = &bgs.DiskBlobStore{bsdir}
+			blobstore = &blobs.DiskBlobStore{bsdir}
 		}
 
-		bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobs, !cctx.Bool("crawl-insecure-ws"))
+		bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, !cctx.Bool("crawl-insecure-ws"))
 		if err != nil {
 			return err
 		}

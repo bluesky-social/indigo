@@ -174,6 +174,10 @@ func (rm *RepoManager) updateUserRepoHead(ctx context.Context, user util.Uid, ro
 	return nil
 }
 
+func (rm *RepoManager) CarStore() *carstore.CarStore {
+	return rm.cs
+}
+
 func (rm *RepoManager) CreateRecord(ctx context.Context, user util.Uid, collection string, rec cbg.CBORMarshaler) (string, cid.Cid, error) {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "CreateRecord")
 	defer span.End()
@@ -967,11 +971,10 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user util.Uid, r io.R
 
 	var commits []cid.Cid
 	for head != nil && *head != until {
-
 		commits = append(commits, *head)
 		rep, err := repo.OpenRepo(ctx, membs, *head, true)
 		if err != nil {
-			return fmt.Errorf("opening repo for backwalk (%d commits, until: %s, head: %s): %w", len(commits), until, *head, err)
+			return fmt.Errorf("opening repo for backwalk (%d commits, until: %s, head: %s, carRoot: %s): %w", len(commits), until, *head, carr.Header.Roots[0], err)
 		}
 
 		prev, err := rep.PrevCommit(ctx)
@@ -982,6 +985,18 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user util.Uid, r io.R
 		head = prev
 	}
 
+	if until.Defined() && (head == nil || *head != until) {
+		// TODO: this shouldnt be happening, but i've seen some log messages
+		// suggest that it might. Leaving this here to discover any cases where
+		// it does.
+		log.Errorw("reached end of walkback without finding our 'until' commit",
+			"until", until,
+			"root", carr.Header.Roots[0],
+			"commits", len(commits),
+			"head", head,
+		)
+	}
+
 	// now we need to generate repo slices for each commit
 
 	seen := make(map[cid.Cid]bool)
@@ -990,19 +1005,24 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user util.Uid, r io.R
 		seen[until] = true
 	}
 
-	var baseBs blockstore.Blockstore
+	cbs := membs
 	if until.Defined() {
 		bs, err := rm.cs.ReadOnlySession(user)
 		if err != nil {
 			return err
 		}
 
-		baseBs = bs
+		// TODO: we technically only need this for the 'next' commit to diff against our current head.
+		cbs = util.NewReadThroughBstore(bs, membs)
 	}
 
 	prev := until
 	for i := len(commits) - 1; i >= 0; i-- {
 		root := commits[i]
+		// TODO: if there are blocks that get convergently recreated throughout
+		// the repos lifecycle, this will end up erroneously not including
+		// them. We should compute the set of blocks needed to read any repo
+		// ops that happened in the commit and use that for our 'output' blocks
 		cids, err := walkTree(ctx, seen, root, membs, true)
 		if err != nil {
 			return fmt.Errorf("walkTree: %w", err)
@@ -1030,11 +1050,6 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user util.Uid, r io.R
 
 		finish := func(ctx context.Context) ([]byte, error) {
 			return ds.CloseWithRoot(ctx, root)
-		}
-
-		cbs := membs
-		if i == len(commits)-1 {
-			cbs = util.NewReadThroughBstore(baseBs, membs)
 		}
 
 		if err := cb(ctx, prev, root, finish, cbs); err != nil {
