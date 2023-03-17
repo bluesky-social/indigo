@@ -911,7 +911,8 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 	// this process will send individual indexing events back to the indexer, doing a 'fast forward' of the users entire history
 	// we probably want alternative ways of doing this for 'very large' or 'very old' repos, but this works for now
 	if err := ix.repomgr.ImportNewRepo(ctx, ai.Uid, ai.Did, bytes.NewReader(repo), curHead); err != nil {
-		return fmt.Errorf("importing fetched repo: %w", err)
+		span.RecordError(err)
+		return fmt.Errorf("importing fetched repo (curHead: %s): %w", from, err)
 	}
 
 	// TODO: this is currently doing too much work, allowing us to ignore the catchup events we've gotten
