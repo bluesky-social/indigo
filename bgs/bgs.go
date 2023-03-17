@@ -306,6 +306,10 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 }
 
 func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user bsutil.Uid, blobs []string) error {
+	if s.blobs == nil {
+		log.Infof("blob syncing disabled")
+		return nil
+	}
 
 	did, err := s.Index.DidForUser(ctx, user)
 	if err != nil {
