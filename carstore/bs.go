@@ -344,7 +344,7 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user util.Uid, earlyCid, la
 		lateSeq = fromShard.Seq
 	}
 
-	q := cs.meta.Order("seq desc").Where("usr = ? AND seq >= ?", user, earlySeq)
+	q := cs.meta.Order("seq desc").Where("usr = ? AND seq > ?", user, earlySeq)
 	if lateCid.Defined() {
 		q = q.Where("seq <= ?", lateSeq)
 	}

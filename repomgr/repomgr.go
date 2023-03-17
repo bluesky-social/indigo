@@ -839,7 +839,6 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user util.Uid, repoDid
 
 		var ops []RepoOp
 		for _, op := range diffops {
-
 			out, err := processOp(ctx, bs, op)
 			if err != nil {
 				log.Errorw("failed to process repo op", "err", err, "path", op.Rpath)
@@ -881,7 +880,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user util.Uid, repoDid
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("process new repo: %w:", err)
+		return fmt.Errorf("process new repo (current head: %s): %w:", head, err)
 	}
 
 	return nil
@@ -991,6 +990,16 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user util.Uid, r io.R
 		seen[until] = true
 	}
 
+	var baseBs blockstore.Blockstore
+	if until.Defined() {
+		bs, err := rm.cs.ReadOnlySession(user)
+		if err != nil {
+			return err
+		}
+
+		baseBs = bs
+	}
+
 	prev := until
 	for i := len(commits) - 1; i >= 0; i-- {
 		root := commits[i]
@@ -1023,8 +1032,13 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user util.Uid, r io.R
 			return ds.CloseWithRoot(ctx, root)
 		}
 
-		if err := cb(ctx, prev, root, finish, membs); err != nil {
-			return fmt.Errorf("cb errored (%d/%d): %w", i, len(commits)-1, err)
+		cbs := membs
+		if i == len(commits)-1 {
+			cbs = util.NewReadThroughBstore(baseBs, membs)
+		}
+
+		if err := cb(ctx, prev, root, finish, cbs); err != nil {
+			return fmt.Errorf("cb errored (%d/%d) root: %s, prev: %s: %w", i, len(commits)-1, root, prev, err)
 		}
 
 		prev = root
