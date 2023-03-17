@@ -65,6 +65,16 @@ func (em *EventManager) Run() {
 				if s.filter(op.evt) {
 					select {
 					case s.outgoing <- op.evt:
+					case <-s.done:
+						go func() {
+							select {
+							case em.ops <- &Operation{
+								op:  opUnsubscribe,
+								sub: s,
+							}:
+							case <-em.closed:
+							}
+						}()
 					default:
 						log.Error("event overflow")
 					}
@@ -207,6 +217,13 @@ func (em *EventManager) Subscribe(ctx context.Context, filter func(*XRPCStreamEv
 					log.Errorf("events playback: %s", err)
 				}
 			}
+		}
+
+		// if cancel happens before playback completes
+		select {
+		case <-done:
+			return
+		default:
 		}
 
 		select {

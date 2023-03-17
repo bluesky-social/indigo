@@ -16,9 +16,13 @@ type LiteStreamHandleFunc func(op repomgr.EventKind, seq int64, path string, did
 func ConsumeRepoStreamLite(ctx context.Context, con *websocket.Conn, cb LiteStreamHandleFunc) error {
 	return HandleRepoStream(ctx, con, &RepoStreamCallbacks{
 		RepoAppend: func(evt *RepoAppend) error {
+			if evt.TooBig {
+				log.Errorf("skipping too big events for now: %d", evt.Seq)
+				return nil
+			}
 			r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
 			if err != nil {
-				return err
+				return fmt.Errorf("reading repo from car (seq: %d, len: %d): %w", evt.Seq, len(evt.Blocks), err)
 			}
 
 			for _, op := range evt.Ops {
