@@ -100,7 +100,7 @@ func (mnil *MicroNSFWImgLabeler) LabelBlob(ctx context.Context, blob lexutil.Blo
 	}
 
 	var nsfwScore MicroNSFWImgResp
-	if err = json.Unmarshal(respBytes, &nsfwScore); err != nil {
+	if err := json.Unmarshal(respBytes, &nsfwScore); err != nil {
 		return nil, fmt.Errorf("failed to parse micro-NSFW-img resp JSON: %v", err)
 	}
 	scoreJson, _ := json.Marshal(nsfwScore)

@@ -20,7 +20,7 @@ func TestHiveParse(t *testing.T) {
 	}
 
 	var respObj HiveAIResp
-	if err = json.Unmarshal(respBytes, &respObj); err != nil {
+	if err := json.Unmarshal(respBytes, &respObj); err != nil {
 		t.Fatal(err)
 	}
 
