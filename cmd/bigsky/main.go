@@ -194,7 +194,9 @@ func run(args []string) {
 			}
 		})
 
-		bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, !cctx.Bool("crawl-insecure-ws"))
+		blobs := &bgs.DiskBlobStore{filepath.Join(datadir, "blobs")}
+
+		bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobs, !cctx.Bool("crawl-insecure-ws"))
 		if err != nil {
 			return err
 		}
