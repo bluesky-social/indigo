@@ -144,7 +144,7 @@ func (hal *HiveAILabeler) LabelBlob(ctx context.Context, blob lexutil.Blob, blob
 	log.Debugf("HiveAI raw result cid=%s body=%v", blob.Cid, string(respBytes))
 
 	var respObj HiveAIResp
-	if err = json.Unmarshal(respBytes, &respObj); err != nil {
+	if err := json.Unmarshal(respBytes, &respObj); err != nil {
 		return nil, fmt.Errorf("failed to parse HiveAI resp JSON: %v", err)
 	}
 	respJson, _ := json.Marshal(respObj.Status[0].Response.Output[0])

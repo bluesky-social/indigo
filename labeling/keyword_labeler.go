@@ -52,7 +52,7 @@ func LoadKeywordFile(fpath string) ([]KeywordLabeler, error) {
 		return kwl, fmt.Errorf("failed to load JSON file: %v", err)
 	}
 
-	if err = json.Unmarshal(raw, &kwl); err != nil {
+	if err := json.Unmarshal(raw, &kwl); err != nil {
 		return kwl, fmt.Errorf("failed to parse Keyword file: %v", err)
 	}
 
