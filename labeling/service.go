@@ -3,7 +3,6 @@ package labeling
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -168,15 +167,8 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 	case "app.bsky.feed.post":
 		post, suc := rec.(*appbsky.FeedPost)
 		if !suc {
-			return []string{}, fmt.Errorf("record failed to deserialize from CBOR: %s", rec)
+			return nil, fmt.Errorf("record failed to deserialize from CBOR: %s", rec)
 		}
-		/* XXX(bnewbold): debugging broken post record
-		postJson, _ := json.Marshal(post)
-		log.Infof("labeling post: %v", string(postJson))
-		buf := new(bytes.Buffer)
-		post.MarshalCBOR(buf)
-		log.Infof("post CBOR: %v", buf.Bytes())
-		*/
 
 		// run through all the keyword labelers on posts, saving any resulting labels
 		for _, labeler := range s.kwLabelers {
@@ -188,7 +180,7 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 		if s.sqrlLabeler != nil {
 			sqrlVals, err := s.sqrlLabeler.LabelPost(ctx, *post)
 			if err != nil {
-				return []string{}, fmt.Errorf("failed to label post with SQRL: %v", err)
+				return nil, fmt.Errorf("failed to label post with SQRL: %v", err)
 			}
 			labelVals = append(labelVals, sqrlVals...)
 		}
@@ -202,14 +194,8 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 	case "app.bsky.actor.profile":
 		profile, suc := rec.(*appbsky.ActorProfile)
 		if !suc {
-			return []string{}, fmt.Errorf("record failed to deserialize from CBOR: %s", rec)
+			return nil, fmt.Errorf("record failed to deserialize from CBOR: %s", rec)
 		}
-		// XXX(bnewbold): debugging broken profile record
-		profileJson, _ := json.Marshal(profile)
-		log.Infof("labeling profile: %v", string(profileJson))
-		buf := new(bytes.Buffer)
-		profile.MarshalCBOR(buf)
-		log.Infof("profile CBOR: %v", buf.Bytes())
 
 		// run through all the keyword labelers on posts, saving any resulting labels
 		for _, labeler := range s.kwLabelers {
@@ -221,7 +207,7 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 		if s.sqrlLabeler != nil {
 			sqrlVals, err := s.sqrlLabeler.LabelProfile(ctx, *profile)
 			if err != nil {
-				return []string{}, fmt.Errorf("failed to label profile with SQRL: %v", err)
+				return nil, fmt.Errorf("failed to label profile with SQRL: %v", err)
 			}
 			labelVals = append(labelVals, sqrlVals...)
 		}
@@ -238,7 +224,7 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 	log.Infof("will process %d blobs", len(blobs))
 	for _, blob := range blobs {
 		if blob.Cid == "" {
-			return []string{}, fmt.Errorf("received stub blob (CID undefined)")
+			return nil, fmt.Errorf("received stub blob (CID undefined)")
 		}
 
 		if !s.wantBlob(ctx, &blob) {
@@ -249,13 +235,13 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 		blobBytes, err := s.downloadRepoBlob(ctx, did, &blob)
 		// TODO(bnewbold): instead of erroring, just log any download problems
 		if err != nil {
-			return []string{}, err
+			return nil, err
 		}
 
 		blobLabels, err := s.labelBlob(ctx, did, blob, blobBytes)
 		// TODO(bnewbold): again, instead of erroring, just log any download problems
 		if err != nil {
-			return []string{}, err
+			return nil, err
 		}
 		labelVals = append(labelVals, blobLabels...)
 	}
@@ -266,7 +252,7 @@ func (s *Server) downloadRepoBlob(ctx context.Context, did string, blob *lexutil
 	var blobBytes []byte
 
 	if blob.Cid == "" {
-		return []byte{}, fmt.Errorf("invalid blob to download (CID undefined)")
+		return nil, fmt.Errorf("invalid blob to download (CID undefined)")
 	}
 
 	log.Infof("downloading blob pds=%s did=%s cid=%s", s.blobPdsURL, did, blob.Cid)
@@ -280,17 +266,17 @@ func (s *Server) downloadRepoBlob(ctx context.Context, did string, blob *lexutil
 
 	resp, err := http.Get(xrpcURL)
 	if err != nil {
-		return []byte{}, nil
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return []byte{}, fmt.Errorf("failed to fetch blob from PDS. did=%s cid=%s statusCode=%d", did, blob.Cid, resp.StatusCode)
+		return nil, fmt.Errorf("failed to fetch blob from PDS. did=%s cid=%s statusCode=%d", did, blob.Cid, resp.StatusCode)
 	}
 
 	blobBytes, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return blobBytes, nil
+		return nil, err
 	}
 
 	return blobBytes, nil
@@ -301,7 +287,7 @@ func (s *Server) labelBlob(ctx context.Context, did string, blob lexutil.Blob, b
 	var labelVals []string
 
 	if blob.Cid == "" {
-		return []string{}, fmt.Errorf("invalid blob to label (CID undefined)")
+		return nil, fmt.Errorf("invalid blob to label (CID undefined)")
 	}
 
 	if s.muNSFWImgLabeler != nil {

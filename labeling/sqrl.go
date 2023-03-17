@@ -91,7 +91,7 @@ func (sl *SQRLLabeler) submitEvent(sqlrReq SQRLRequest) (*SQRLResponse, error) {
 	}
 
 	var respObj SQRLResponse
-	if err = json.Unmarshal(respBytes, &respObj); err != nil {
+	if err := json.Unmarshal(respBytes, &respObj); err != nil {
 		return nil, fmt.Errorf("failed to parse SQRL resp JSON: %v", err)
 	}
 	respJson, _ := json.Marshal(respObj)
@@ -107,7 +107,7 @@ func (sl *SQRLLabeler) LabelPost(ctx context.Context, post appbsky.FeedPost) ([]
 	}
 	resp, err := sl.submitEvent(req)
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 	for name, _ := range resp.Rules {
 		if name == "TooMuchCrypto" {
@@ -125,7 +125,7 @@ func (sl *SQRLLabeler) LabelProfile(ctx context.Context, profile appbsky.ActorPr
 	}
 	resp, err := sl.submitEvent(req)
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 	for name, _ := range resp.Rules {
 		if name == "TooMuchCrypto" {
