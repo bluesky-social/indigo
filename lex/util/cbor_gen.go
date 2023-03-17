@@ -126,14 +126,14 @@ func (t *Blob) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Cid (string) (string)
-	if len("Cid") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"Cid\" was too long")
+	if len("cid") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"cid\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("Cid"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("cid"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("Cid")); err != nil {
+	if _, err := io.WriteString(w, string("cid")); err != nil {
 		return err
 	}
 
@@ -149,14 +149,14 @@ func (t *Blob) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.MimeType (string) (string)
-	if len("MimeType") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"MimeType\" was too long")
+	if len("mimeType") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"mimeType\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("MimeType"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("mimeType"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("MimeType")); err != nil {
+	if _, err := io.WriteString(w, string("mimeType")); err != nil {
 		return err
 	}
 
@@ -212,7 +212,7 @@ func (t *Blob) UnmarshalCBOR(r io.Reader) (err error) {
 
 		switch name {
 		// t.Cid (string) (string)
-		case "Cid":
+		case "cid":
 
 			{
 				sval, err := cbg.ReadString(cr)
@@ -223,7 +223,7 @@ func (t *Blob) UnmarshalCBOR(r io.Reader) (err error) {
 				t.Cid = string(sval)
 			}
 			// t.MimeType (string) (string)
-		case "MimeType":
+		case "mimeType":
 
 			{
 				sval, err := cbg.ReadString(cr)
