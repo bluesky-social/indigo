@@ -63,6 +63,12 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 
 	evt := e.RepoAppend
 
+	// TODO: hack hack hack
+	if len(evt.Ops) > 8192 {
+		log.Errorf("(VERY BAD) truncating ops field in outgoing event (len = %d)", len(evt.Ops))
+		evt.Ops = evt.Ops[:8192]
+	}
+
 	uid, err := p.uidForDid(ctx, evt.Repo)
 	if err != nil {
 		return err
