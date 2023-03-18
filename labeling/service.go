@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/api"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	label "github.com/bluesky-social/indigo/api/label"
 	"github.com/bluesky-social/indigo/bgs"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
@@ -334,7 +335,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 	}
 
 	now := time.Now().Format(util.ISO8601)
-	labels := []events.Label{}
+	labels := []label.Label{}
 
 	for _, op := range evt.RepoCommit.Ops {
 		uri := "at://" + evt.RepoCommit.Repo + "/" + op.Path
@@ -357,32 +358,31 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 			// apply labels with this pattern to the whole repo, not the record
 			if strings.HasPrefix(val, "repo:") {
 				val = strings.SplitN(val, ":", 2)[1]
-				labels = append(labels, events.Label{
-					SourceDid:  s.user.Did,
-					SubjectUri: "at://" + evt.RepoCommit.Repo,
-					Value:      val,
-					Timestamp:  now,
+				labels = append(labels, label.Label{
+					Src: s.user.Did,
+					Uri: "at://" + evt.RepoCommit.Repo,
+					Val: val,
+					Cts: now,
 				})
 			} else {
-				labels = append(labels, events.Label{
-					SourceDid:  s.user.Did,
-					SubjectUri: uri,
-					SubjectCid: &cidStr,
-					Value:      val,
-					Timestamp:  now,
+				labels = append(labels, label.Label{
+					Src: s.user.Did,
+					Uri: uri,
+					Cid: &cidStr,
+					Val: val,
+					Cts: now,
 				})
 			}
 		}
 	}
 
 	// if any labels generated, persist them to repo...
-	for i, l := range labels {
+	for _, l := range labels {
 		path, _, err := s.repoman.CreateRecord(ctx, s.user.UserId, "com.atproto.label.label", &l)
 		if err != nil {
 			return fmt.Errorf("failed to persist label in local repo: %w", err)
 		}
 		labeluri := "at://" + s.user.Did + "/" + path
-		labels[i].LabelUri = &labeluri
 		log.Infof("persisted label: %s", labeluri)
 	}
 

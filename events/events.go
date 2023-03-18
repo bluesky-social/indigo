@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	label "github.com/bluesky-social/indigo/api/label"
 
 	"github.com/bluesky-social/indigo/util"
 	logging "github.com/ipfs/go-log"
@@ -122,8 +123,8 @@ type XRPCStreamEvent struct {
 }
 
 type LabelBatch struct {
-	Seq    int64   `cborgen:"seq"`
-	Labels []Label `cborgen:"labels"`
+	Seq    int64         `cborgen:"seq"`
+	Labels []label.Label `cborgen:"labels"`
 }
 
 type ErrorFrame struct {
