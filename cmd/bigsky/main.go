@@ -9,6 +9,7 @@ import (
 
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/bgs"
+	"github.com/bluesky-social/indigo/blobs"
 	"github.com/bluesky-social/indigo/carstore"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	"github.com/bluesky-social/indigo/events"
@@ -106,6 +107,9 @@ func run(args []string) {
 			Name:  "debug-listen",
 			Value: "localhost:2471",
 		},
+		&cli.StringFlag{
+			Name: "disk-blob-store",
+		},
 	}
 
 	app.Action = func(cctx *cli.Context) error {
@@ -194,7 +198,12 @@ func run(args []string) {
 			}
 		})
 
-		bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, !cctx.Bool("crawl-insecure-ws"))
+		var blobstore blobs.BlobStore
+		if bsdir := cctx.String("disk-blob-store"); bsdir != "" {
+			blobstore = &blobs.DiskBlobStore{bsdir}
+		}
+
+		bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, !cctx.Bool("crawl-insecure-ws"))
 		if err != nil {
 			return err
 		}

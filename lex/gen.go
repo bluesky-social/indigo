@@ -129,7 +129,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 
 		if ts.Output != nil {
 			if ts.Output.Schema == nil {
-				if ts.Output.Encoding != "application/cbor" && ts.Output.Encoding != "application/vnd.ipld.car" {
+				if ts.Output.Encoding != "application/cbor" && ts.Output.Encoding != "application/vnd.ipld.car" && ts.Output.Encoding != "*/*" {
 					panic(fmt.Sprintf("strange output type def in %s", s.ID))
 				}
 			} else {
@@ -431,7 +431,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 	out := "error"
 	if s.Output != nil {
 		switch s.Output.Encoding {
-		case EncodingCBOR, EncodingCAR:
+		case EncodingCBOR, EncodingCAR, EncodingANY:
 			out = "([]byte, error)"
 		case EncodingJSON:
 			outname := fname + "_Output"
@@ -452,7 +452,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 	outRet := "nil"
 	if s.Output != nil {
 		switch s.Output.Encoding {
-		case EncodingCBOR, EncodingCAR:
+		case EncodingCBOR, EncodingCAR, EncodingANY:
 			fmt.Fprintf(w, "buf := new(bytes.Buffer)\n")
 			outvar = "buf"
 			errRet = "nil, err"
@@ -912,7 +912,7 @@ if err := c.Bind(&body); err != nil {
 	returndef := "error"
 	if s.Output != nil {
 		switch s.Output.Encoding {
-		case "application/json":
+		case EncodingJSON:
 			assign = "out, handleErr"
 			outname := tname + "_Output"
 			if s.Output.Schema.Type == "ref" {
@@ -920,12 +920,12 @@ if err := c.Bind(&body); err != nil {
 			}
 			fmt.Fprintf(w, "var out *%s.%s\n", impname, outname)
 			returndef = fmt.Sprintf("(*%s.%s, error)", impname, outname)
-		case "application/cbor", "application/vnd.ipld.car":
+		case EncodingCBOR, EncodingCAR, EncodingANY:
 			assign = "out, handleErr"
 			fmt.Fprintf(w, "var out io.Reader\n")
 			returndef = "(io.Reader, error)"
 		default:
-			return fmt.Errorf("unrecognized output encoding: %q", s.Output.Encoding)
+			return fmt.Errorf("unrecognized output encoding (1): %q", s.Output.Encoding)
 		}
 	}
 	fmt.Fprintf(w, "var handleErr error\n")
@@ -944,7 +944,7 @@ if err := c.Bind(&body); err != nil {
 		case EncodingCAR:
 			fmt.Fprintf(w, "return c.Stream(200, \"application/vnd.ipld.car\", out)\n}\n\n")
 		default:
-			return fmt.Errorf("unrecognized output encoding: %s", s.Output.Encoding)
+			return fmt.Errorf("unrecognized output encoding (2): %q", s.Output.Encoding)
 		}
 	} else {
 		fmt.Fprintf(w, "return nil\n}\n\n")

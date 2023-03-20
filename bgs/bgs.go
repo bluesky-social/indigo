@@ -2,6 +2,7 @@ package bgs
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 
 	"contrib.go.opencensus.io/exporter/prometheus"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/blobs"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
@@ -43,6 +45,8 @@ type BGS struct {
 	events  *events.EventManager
 	didr    plc.DidResolver
 
+	blobs blobs.BlobStore
+
 	crawlOnly bool
 
 	// TODO: at some point we will want to lock specific DIDs, this lock as is
@@ -52,7 +56,7 @@ type BGS struct {
 	repoman *repomgr.RepoManager
 }
 
-func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.DidResolver, ssl bool) (*BGS, error) {
+func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.DidResolver, blobs blobs.BlobStore, ssl bool) (*BGS, error) {
 	db.AutoMigrate(User{})
 	db.AutoMigrate(models.PDS{})
 
@@ -63,6 +67,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		repoman: repoman,
 		events:  evtman,
 		didr:    didr,
+		blobs:   blobs,
 	}
 
 	ix.CreateExternalUser = bgs.createExternalUser
@@ -76,6 +81,73 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 }
 
 func (bgs *BGS) StartDebug(listen string) error {
+	http.HandleFunc("/repodbg/user", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		did := r.FormValue("did")
+
+		u, err := bgs.Index.LookupUserByDid(ctx, did)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		root, err := bgs.repoman.GetRepoRoot(ctx, u.Uid)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		out := map[string]any{
+			"root":      root.String(),
+			"actorInfo": u,
+		}
+
+		if r.FormValue("carstore") != "" {
+			stat, err := bgs.repoman.CarStore().Stat(ctx, u.Uid)
+			if err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+			out["carstore"] = stat
+		}
+
+		json.NewEncoder(w).Encode(out)
+	})
+	http.HandleFunc("/repodbg/blocks", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		did := r.FormValue("did")
+		c := r.FormValue("cid")
+
+		bcid, err := cid.Decode(c)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		cs := bgs.repoman.CarStore()
+
+		u, err := bgs.Index.LookupUserByDid(ctx, did)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		bs, err := cs.ReadOnlySession(u.Uid)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		blk, err := bs.Get(ctx, bcid)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		w.WriteHeader(200)
+		w.Write(blk.RawData())
+
+	})
 	http.Handle("/prometheus", prometheusHandler())
 
 	return http.ListenAndServe(listen, nil)
@@ -274,8 +346,8 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		// TODO: if the user is already in the 'slow' path, we shouldnt even bother trying to fast path this event
 
 		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, prevcid, evt.Blocks); err != nil {
+			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq)
 			if !errors.Is(err, carstore.ErrRepoBaseMismatch) {
-				log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq)
 				return fmt.Errorf("handle user event failed: %w", err)
 			}
 
@@ -303,7 +375,28 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 }
 
 func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user bsutil.Uid, blobs []string) error {
-	log.Warnf("not handling blob syncing yet")
+	if s.blobs == nil {
+		log.Infof("blob syncing disabled")
+		return nil
+	}
+
+	did, err := s.Index.DidForUser(ctx, user)
+	if err != nil {
+		return err
+	}
+
+	for _, b := range blobs {
+		c := models.ClientForPds(pds)
+		blob, err := atproto.SyncGetBlob(ctx, c, b, did)
+		if err != nil {
+			return fmt.Errorf("fetching blob (%s, %s): %w", did, b, err)
+		}
+
+		if err := s.blobs.PutBlob(ctx, b, did, blob); err != nil {
+			return fmt.Errorf("storing blob (%s, %s): %w", did, b, err)
+		}
+	}
+
 	return nil
 }
 
