@@ -17,9 +17,11 @@ import (
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
+	"go.opencensus.io/trace"
 
 	_ "net/http/pprof"
 
+	datadog "github.com/DataDog/opencensus-go-exporter-datadog"
 	logging "github.com/ipfs/go-log"
 	"github.com/joho/godotenv"
 	"github.com/urfave/cli/v2"
@@ -120,6 +122,7 @@ func run(args []string) {
 			if err != nil {
 				return err
 			}
+
 			tp := tracesdk.NewTracerProvider(
 				// Always be sure to batch in production.
 				tracesdk.WithBatcher(exp),
@@ -133,6 +136,21 @@ func run(args []string) {
 			)
 
 			otel.SetTracerProvider(tp)
+		}
+
+		if cctx.Bool("datadog") {
+			exporter, err := datadog.NewExporter(datadog.Options{Service: "bigsky"})
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer exporter.Stop()
+
+			trace.RegisterExporter(exporter)
+
+			// For demoing purposes, always sample.
+			trace.ApplyConfig(trace.Config{
+				DefaultSampler: trace.AlwaysSample(),
+			})
 		}
 
 		// ensure data directory exists; won't error if it does
