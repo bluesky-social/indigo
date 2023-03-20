@@ -11,14 +11,18 @@ import (
 	cid "github.com/ipfs/go-cid"
 )
 
-type LiteStreamHandleFunc func(op repomgr.EventKind, path string, did string, rcid *cid.Cid, rec any) error
+type LiteStreamHandleFunc func(op repomgr.EventKind, seq int64, path string, did string, rcid *cid.Cid, rec any) error
 
 func ConsumeRepoStreamLite(ctx context.Context, con *websocket.Conn, cb LiteStreamHandleFunc) error {
 	return HandleRepoStream(ctx, con, &RepoStreamCallbacks{
 		RepoAppend: func(evt *RepoAppend) error {
+			if evt.TooBig {
+				log.Errorf("skipping too big events for now: %d", evt.Seq)
+				return nil
+			}
 			r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
 			if err != nil {
-				return err
+				return fmt.Errorf("reading repo from car (seq: %d, len: %d): %w", evt.Seq, len(evt.Blocks), err)
 			}
 
 			for _, op := range evt.Ops {
@@ -36,12 +40,12 @@ func ConsumeRepoStreamLite(ctx context.Context, con *websocket.Conn, cb LiteStre
 						return fmt.Errorf("mismatch in record and op cid: %s != %s", rc, *op.Cid)
 					}
 
-					if err := cb(ek, op.Path, evt.Repo, &rc, rec); err != nil {
+					if err := cb(ek, evt.Seq, op.Path, evt.Repo, &rc, rec); err != nil {
 						return err
 					}
 
 				case repomgr.EvtKindDeleteRecord:
-					if err := cb(ek, op.Path, evt.Repo, nil, nil); err != nil {
+					if err := cb(ek, evt.Seq, op.Path, evt.Repo, nil, nil); err != nil {
 						return err
 					}
 				}

@@ -505,12 +505,14 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.session.delete", s.HandleComAtprotoSessionDelete)
 	e.GET("/xrpc/com.atproto.session.get", s.HandleComAtprotoSessionGet)
 	e.POST("/xrpc/com.atproto.session.refresh", s.HandleComAtprotoSessionRefresh)
+	e.GET("/xrpc/com.atproto.sync.getBlob", s.HandleComAtprotoSyncGetBlob)
 	e.GET("/xrpc/com.atproto.sync.getBlocks", s.HandleComAtprotoSyncGetBlocks)
 	e.GET("/xrpc/com.atproto.sync.getCheckout", s.HandleComAtprotoSyncGetCheckout)
 	e.GET("/xrpc/com.atproto.sync.getCommitPath", s.HandleComAtprotoSyncGetCommitPath)
 	e.GET("/xrpc/com.atproto.sync.getHead", s.HandleComAtprotoSyncGetHead)
 	e.GET("/xrpc/com.atproto.sync.getRecord", s.HandleComAtprotoSyncGetRecord)
 	e.GET("/xrpc/com.atproto.sync.getRepo", s.HandleComAtprotoSyncGetRepo)
+	e.GET("/xrpc/com.atproto.sync.listBlobs", s.HandleComAtprotoSyncListBlobs)
 	e.GET("/xrpc/com.atproto.sync.notifyOfUpdate", s.HandleComAtprotoSyncNotifyOfUpdate)
 	e.GET("/xrpc/com.atproto.sync.requestCrawl", s.HandleComAtprotoSyncRequestCrawl)
 	return nil
@@ -1104,6 +1106,21 @@ func (s *Server) HandleComAtprotoSessionRefresh(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandleComAtprotoSyncGetBlob(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetBlob")
+	defer span.End()
+	cid := c.QueryParam("cid")
+	did := c.QueryParam("did")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handleComAtprotoSyncGetBlob(ctx context.Context,cid string,did string) (io.Reader, error)
+	out, handleErr = s.handleComAtprotoSyncGetBlob(ctx, cid, did)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "application/octet-stream", out)
+}
+
 func (s *Server) HandleComAtprotoSyncGetBlocks(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetBlocks")
 	defer span.End()
@@ -1198,12 +1215,29 @@ func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	return c.Stream(200, "application/vnd.ipld.car", out)
 }
 
+func (s *Server) HandleComAtprotoSyncListBlobs(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncListBlobs")
+	defer span.End()
+	did := c.QueryParam("did")
+	earliest := c.QueryParam("earliest")
+	latest := c.QueryParam("latest")
+	var out *comatprototypes.SyncListBlobs_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoSyncListBlobs(ctx context.Context,did string,earliest string,latest string) (*comatprototypes.SyncListBlobs_Output, error)
+	out, handleErr = s.handleComAtprotoSyncListBlobs(ctx, did, earliest, latest)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandleComAtprotoSyncNotifyOfUpdate(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncNotifyOfUpdate")
 	defer span.End()
+	hostname := c.QueryParam("hostname")
 	var handleErr error
-	// func (s *Server) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context) error
-	handleErr = s.handleComAtprotoSyncNotifyOfUpdate(ctx)
+	// func (s *Server) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context,hostname string) error
+	handleErr = s.handleComAtprotoSyncNotifyOfUpdate(ctx, hostname)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1213,10 +1247,10 @@ func (s *Server) HandleComAtprotoSyncNotifyOfUpdate(c echo.Context) error {
 func (s *Server) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncRequestCrawl")
 	defer span.End()
-	host := c.QueryParam("host")
+	hostname := c.QueryParam("hostname")
 	var handleErr error
-	// func (s *Server) handleComAtprotoSyncRequestCrawl(ctx context.Context,host string) error
-	handleErr = s.handleComAtprotoSyncRequestCrawl(ctx, host)
+	// func (s *Server) handleComAtprotoSyncRequestCrawl(ctx context.Context,hostname string) error
+	handleErr = s.handleComAtprotoSyncRequestCrawl(ctx, hostname)
 	if handleErr != nil {
 		return handleErr
 	}

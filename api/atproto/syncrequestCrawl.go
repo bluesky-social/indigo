@@ -10,10 +10,10 @@ import (
 
 func init() {
 }
-func SyncRequestCrawl(ctx context.Context, c *xrpc.Client, host string) error {
+func SyncRequestCrawl(ctx context.Context, c *xrpc.Client, hostname string) error {
 
 	params := map[string]interface{}{
-		"host": host,
+		"hostname": hostname,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.requestCrawl", params, nil, nil); err != nil {
 		return err

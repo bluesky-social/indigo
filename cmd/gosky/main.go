@@ -59,7 +59,7 @@ func run(args []string) {
 		&cli.StringFlag{
 			Name:    "pds-host",
 			Usage:   "method, hostname, and port of PDS instance",
-			Value:   "http://localhost:4849",
+			Value:   "https://bsky.social",
 			EnvVars: []string{"ATP_PDS_HOST"},
 		},
 		&cli.StringFlag{
@@ -859,8 +859,17 @@ var readRepoStreamCmd = &cli.Command{
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT)
 		defer stop()
 
+		arg := cctx.Args().First()
+		if !strings.Contains(arg, "subscribeAllRepos") {
+			arg = arg + "/xrpc/com.atproto.sync.subscribeAllRepos"
+		}
+		if len(cctx.Args().Slice()) == 2 {
+			arg = fmt.Sprintf("%s?cursor=%s", arg, cctx.Args().Get(1))
+		}
+
+		fmt.Println("dialing: ", arg)
 		d := websocket.DefaultDialer
-		con, _, err := d.Dial(cctx.Args().First(), http.Header{})
+		con, _, err := d.Dial(arg, http.Header{})
 		if err != nil {
 			return fmt.Errorf("dial failure: %w", err)
 		}
