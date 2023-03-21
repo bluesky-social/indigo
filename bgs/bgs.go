@@ -34,9 +34,15 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
+
+	"go.opentelemetry.io/otel/metric/global"
+	"go.opentelemetry.io/otel/metric/instrument"
+	"go.opentelemetry.io/otel/metric/instrument/asyncint64"
 )
 
 var log = logging.Logger("bgs")
+
+var meter = global.Meter("bgs")
 
 type BGS struct {
 	Index   *indexer.Indexer
@@ -54,9 +60,17 @@ type BGS struct {
 	extUserLk sync.Mutex
 
 	repoman *repomgr.RepoManager
+
+	meters meters
+}
+
+type meters struct {
+	EventCounts        asyncint64.Counter
+	EventFastPathFails asyncint64.Counter
 }
 
 func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.DidResolver, blobs blobs.BlobStore, ssl bool) (*BGS, error) {
+
 	db.AutoMigrate(User{})
 	db.AutoMigrate(models.PDS{})
 
@@ -68,6 +82,29 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		events:  evtman,
 		didr:    didr,
 		blobs:   blobs,
+	}
+
+	evtCtr, err := meter.AsyncInt64().Counter(
+		"events",
+		instrument.WithUnit("1"),
+		instrument.WithDescription("counts the number of incoming events"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	fpevtCtr, err := meter.AsyncInt64().Counter(
+		"eventsFastPathFails",
+		instrument.WithUnit("1"),
+		instrument.WithDescription("counts the number of times events get ejected from the fast path"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	bgs.meters = meters{
+		EventCounts:        evtCtr,
+		EventFastPathFails: fpevtCtr,
 	}
 
 	ix.CreateExternalUser = bgs.createExternalUser
@@ -314,6 +351,8 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	ctx, span := otel.Tracer("bgs").Start(ctx, "handleFedEvent")
 	defer span.End()
 
+	bgs.meters.EventCounts.Observe(ctx, 1, attribute.String("host", host.Host))
+
 	switch {
 	case env.RepoAppend != nil:
 		evt := env.RepoAppend
@@ -346,6 +385,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		// TODO: if the user is already in the 'slow' path, we shouldnt even bother trying to fast path this event
 
 		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, prevcid, evt.Blocks); err != nil {
+			bgs.meters.EventFastPathFails.Observe(ctx, 1, attribute.String("host", host.Host))
 			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq)
 			if !errors.Is(err, carstore.ErrRepoBaseMismatch) {
 				return fmt.Errorf("handle user event failed: %w", err)

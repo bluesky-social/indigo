@@ -26,6 +26,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
@@ -63,6 +65,9 @@ func run(args []string) {
 	app.Flags = []cli.Flag{
 		&cli.BoolFlag{
 			Name: "jaeger",
+		},
+		&cli.BoolFlag{
+			Name: "otlp-export",
 		},
 		&cli.StringFlag{
 			Name:    "db-url",
@@ -110,9 +115,15 @@ func run(args []string) {
 		&cli.StringFlag{
 			Name: "disk-blob-store",
 		},
+		&cli.StringFlag{
+			Name:    "env-type",
+			Value:   "test",
+			EnvVars: []string{"BGS_ENVIRONMENT"},
+		},
 	}
 
 	app.Action = func(cctx *cli.Context) error {
+		envt := cctx.String("env-type")
 
 		if cctx.Bool("jaeger") {
 			url := "http://localhost:14268/api/traces"
@@ -127,12 +138,34 @@ func run(args []string) {
 				tracesdk.WithResource(resource.NewWithAttributes(
 					semconv.SchemaURL,
 					semconv.ServiceNameKey.String("bgs"),
-					attribute.String("environment", "test"),
+					attribute.String("environment", envt),
 					attribute.Int64("ID", 1),
 				)),
 			)
 
 			otel.SetTracerProvider(tp)
+		}
+
+		if cctx.Bool("otlp-export") {
+			client := otlptracehttp.NewClient()
+
+			ctx := context.TODO()
+			exporter, err := otlptrace.New(ctx, client)
+			if err != nil {
+				return fmt.Errorf("failed to create OLTP trace exporter: %w", err)
+			}
+
+			tracerProvider := tracesdk.NewTracerProvider(
+				tracesdk.WithBatcher(exporter),
+				tracesdk.WithResource(resource.NewWithAttributes(
+					semconv.SchemaURL,
+					semconv.ServiceNameKey.String("bgs"),
+					attribute.String("environment", envt),
+					attribute.Int64("ID", 1),
+				)),
+			)
+
+			otel.SetTracerProvider(tracerProvider)
 		}
 
 		// ensure data directory exists; won't error if it does
