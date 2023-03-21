@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/xrpc"
-	"github.com/lestrrat-go/jwx/jwa"
-	jwt "github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
 const actorUserDeclarationCid = "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u"
@@ -32,12 +32,12 @@ func (s *Server) createAuthTokenForUser(ctx context.Context, handle, did string)
 	rand.Read(rval)
 	refreshTok.Set("jti", base64.StdEncoding.EncodeToString(rval))
 
-	accSig, err := jwt.Sign(accessTok, jwa.HS256, s.jwtSigningKey)
+	accSig, err := jwt.Sign(accessTok, jwt.WithKey(jwa.HS256, s.jwtSigningKey))
 	if err != nil {
 		return nil, fmt.Errorf("signing access token: %w", err)
 	}
 
-	refSig, err := jwt.Sign(refreshTok, jwa.HS256, s.jwtSigningKey)
+	refSig, err := jwt.Sign(refreshTok, jwt.WithKey(jwa.HS256, s.jwtSigningKey))
 	if err != nil {
 		return nil, fmt.Errorf("signing refresh token: %w", err)
 	}
@@ -60,7 +60,7 @@ func (s *Server) createCrossServerAuthToken(ctx context.Context, otherpds string
 	rval := make([]byte, 10)
 	rand.Read(rval)
 
-	accSig, err := jwt.Sign(accessTok, jwa.HS256, s.jwtSigningKey)
+	accSig, err := jwt.Sign(accessTok, jwt.WithKey(jwa.HS256, s.jwtSigningKey))
 	if err != nil {
 		return nil, err
 	}

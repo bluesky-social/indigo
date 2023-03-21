@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/lestrrat-go/jwx/jwk"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	did "github.com/whyrusleeping/go-did"
 )
 
