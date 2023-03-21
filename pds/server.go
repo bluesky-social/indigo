@@ -30,9 +30,9 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/lestrrat-go/jwx/jwa"
-	jwk "github.com/lestrrat-go/jwx/jwk"
-	jwt "github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/whyrusleeping/go-did"
 	"gorm.io/gorm"
 )
