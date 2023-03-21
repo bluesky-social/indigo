@@ -14,6 +14,7 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 
 	logging "github.com/ipfs/go-log"
+	"github.com/whyrusleeping/go-did"
 	"gorm.io/plugin/opentelemetry/tracing"
 )
 
@@ -87,6 +88,11 @@ func run(args []string) {
 			Usage:   "handle for labelmaker repo",
 			Value:   "labelmaker.test",
 			EnvVars: []string{"LABELMAKER_REPO_HANDLE"},
+		},
+		&cli.StringFlag{
+			Name:    "signing-secret-key-jwk",
+			Usage:   "signing key for labelmaker repo, in JWK serialization",
+			EnvVars: []string{"LABELMAKER_SIGNING_SECRET_KEY_JWK"},
 		},
 		&cli.StringFlag{
 			Name:    "bind",
@@ -171,14 +177,23 @@ func run(args []string) {
 		useWss := !cctx.Bool("subscribe-insecure-ws")
 		repoDid := cctx.String("repo-did")
 		repoHandle := cctx.String("repo-handle")
+		signingSecretKeyJwk := cctx.String("signing-secret-key-jwk")
 		bind := cctx.String("bind")
 		microNSFWImgURL := cctx.String("micro-nsfw-img-url")
 		hiveAIToken := cctx.String("hiveai-api-token")
 		sqrlURL := cctx.String("sqrl-url")
 
-		serkey, err := cliutil.LoadKeyFromFile(repoKeyPath)
-		if err != nil {
-			return err
+		var serkey *did.PrivKey
+		if signingSecretKeyJwk != "" {
+			serkey, err = labeling.ParseSecretKey(signingSecretKeyJwk)
+			if err != nil {
+				return err
+			}
+		} else {
+			serkey, err = labeling.LoadOrCreateKeyFile(repoKeyPath, "auto-labelmaker")
+			if err != nil {
+				return err
+			}
 		}
 
 		repoUser := labeling.RepoConfig{
