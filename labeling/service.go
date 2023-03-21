@@ -421,7 +421,7 @@ func (s *Server) RunAPI(listen string) error {
 
 	s.RegisterHandlersComAtproto(e)
 	// TODO(bnewbold): this is a speculative endpoint name
-	e.GET("/xrpc/com.atproto.label.subscribeAllLabels", s.EventsLabelsWebsocket)
+	e.GET("/xrpc/com.atproto.label.subscribeLabels", s.EventsLabelsWebsocket)
 
 	log.Infof("starting labelmaker XRPC and WebSocket daemon at: %s", listen)
 	return e.Start(listen)
