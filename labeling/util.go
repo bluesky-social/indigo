@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/lestrrat-go/jwx/jwa"
-	jwk "github.com/lestrrat-go/jwx/jwk"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/whyrusleeping/go-did"
 )
 

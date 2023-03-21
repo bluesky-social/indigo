@@ -3,12 +3,12 @@ package testing
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"fmt"
+	"os"
 	"testing"
 
-	"github.com/bluesky-social/indigo/repo"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/repo"
 )
 
 // ipfs dag import testing/repo_slice.car
