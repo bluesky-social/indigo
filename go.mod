@@ -24,7 +24,6 @@ require (
 	github.com/ipld/go-car/v2 v2.5.1
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.10.0
-	github.com/lestrrat-go/jwx v1.2.25
 	github.com/lestrrat-go/jwx/v2 v2.0.8
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multihash v0.2.1
@@ -81,7 +80,6 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.3 // indirect
 	github.com/labstack/gommon v0.4.0 // indirect
-	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.1 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/httprc v1.0.4 // indirect
@@ -99,7 +97,6 @@ require (
 	github.com/multiformats/go-multicodec v0.7.0 // indirect
 	github.com/multiformats/go-varint v0.0.7 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
