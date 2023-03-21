@@ -43,17 +43,17 @@ func LoadKeywordFile(fpath string) ([]KeywordLabeler, error) {
 
 	jsonFile, err := os.Open(fpath)
 	if err != nil {
-		return kwl, fmt.Errorf("failed to load JSON file: %v", err)
+		return nil, fmt.Errorf("failed to load JSON file: %v", err)
 	}
 	defer jsonFile.Close()
 
 	raw, err := io.ReadAll(jsonFile)
 	if err != nil {
-		return kwl, fmt.Errorf("failed to load JSON file: %v", err)
+		return nil, fmt.Errorf("failed to load JSON file: %v", err)
 	}
 
 	if err := json.Unmarshal(raw, &kwl); err != nil {
-		return kwl, fmt.Errorf("failed to parse Keyword file: %v", err)
+		return nil, fmt.Errorf("failed to parse Keyword file: %v", err)
 	}
 
 	return kwl, nil
