@@ -28,6 +28,7 @@ test-coverage.out
 /laputa
 /lexgen
 /stress
+/labelmaker
 
 # Don't ignore this file itself, or other specific dotfiles
 !.gitignore
