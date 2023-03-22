@@ -68,6 +68,7 @@ func run(args []string) {
 		},
 		&cli.BoolFlag{
 			Name: "otlp-export",
+			EnvVars: []string{"OTLP_EXPORT"},
 		},
 		&cli.StringFlag{
 			Name:    "db-url",
