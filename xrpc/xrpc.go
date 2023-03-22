@@ -117,9 +117,16 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 
 	if out != nil {
 		if buf, ok := out.(*bytes.Buffer); ok {
-			_, err := io.CopyN(buf, resp.Body, resp.ContentLength)
-			if err != nil {
-				return fmt.Errorf("reading response body: %w", err)
+			if resp.ContentLength < 0 {
+				_, err := io.Copy(buf, resp.Body)
+				if err != nil {
+					return fmt.Errorf("reading response body: %w", err)
+				}
+			} else {
+				_, err := io.CopyN(buf, resp.Body, resp.ContentLength)
+				if err != nil {
+					return fmt.Errorf("reading length delimited response body: %w", err)
+				}
 			}
 		} else {
 			if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
