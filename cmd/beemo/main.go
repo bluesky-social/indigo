@@ -14,7 +14,7 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/version"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -102,7 +102,7 @@ func pollNewReports(cctx *cli.Context) error {
 
 	// create a new session
 	xrpcc := &xrpc.Client{
-		Client: cliutil.NewHttpClient(),
+		Client: util.RobustHTTPClient(),
 		Host:   cctx.String("pds-host"),
 		Auth:   &xrpc.AuthInfo{Handle: cctx.String("handle")},
 	}
@@ -202,7 +202,7 @@ func sendSlackMsg(cctx *cli.Context, msg string) error {
 		return err
 	}
 	req.Header.Add("Content-Type", "application/json")
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := util.RobustHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
