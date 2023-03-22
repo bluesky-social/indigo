@@ -21,10 +21,12 @@ import (
 var log = logging.Logger("labelmaker")
 
 func main() {
-	run(os.Args)
+	if err := run(os.Args); err != nil {
+		log.Fatal(err)
+	}
 }
 
-func run(args []string) {
+func run(args []string) error {
 
 	app := cli.App{
 		Name:    "labelmaker",
@@ -228,5 +230,5 @@ func run(args []string) {
 		return srv.RunAPI(bind)
 	}
 
-	app.RunAndExitOnError()
+	return app.Run(args)
 }
