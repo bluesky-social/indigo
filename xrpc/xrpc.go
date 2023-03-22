@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/version"
 )
 
@@ -24,7 +25,7 @@ type Client struct {
 
 func (c *Client) getClient() *http.Client {
 	if c.Client == nil {
-		return http.DefaultClient
+		return util.RobustHTTPClient()
 	}
 	return c.Client
 }
