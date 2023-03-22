@@ -118,6 +118,7 @@ func run(args []string) {
 		},
 		&cli.StringFlag{
 			Name:    "env-type",
+			Usage: "environment type (test, staging, production)",
 			Value:   "test",
 			EnvVars: []string{"BGS_ENVIRONMENT"},
 		},
