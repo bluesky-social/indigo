@@ -8,9 +8,9 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"time"
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	util "github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/version"
 )
 
@@ -28,17 +28,8 @@ type MicroNSFWImgResp struct {
 }
 
 func NewMicroNSFWImgLabeler(url string) MicroNSFWImgLabeler {
-	client := http.Client{
-		Transport: &http.Transport{
-			Proxy:                 http.ProxyFromEnvironment,
-			MaxIdleConns:          20,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		},
-	}
 	return MicroNSFWImgLabeler{
-		Client:   client,
+		Client:   *util.RobustHTTPClient(),
 		Endpoint: url,
 	}
 }
