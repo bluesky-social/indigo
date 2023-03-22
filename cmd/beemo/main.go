@@ -27,10 +27,12 @@ import (
 var log = logging.Logger("beemo")
 
 func main() {
-	run(os.Args)
+	if err := run(os.Args); err != nil {
+		log.Fatal(err)
+	}
 }
 
-func run(args []string) {
+func run(args []string) error {
 
 	app := cli.App{
 		Name:    "beemo",
@@ -90,7 +92,7 @@ func run(args []string) {
 			Action: pollNewReports,
 		},
 	}
-	app.RunAndExitOnError()
+	return app.Run(args)
 }
 
 func pollNewReports(cctx *cli.Context) error {
