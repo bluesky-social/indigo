@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"net/http"
 	"os"
 	"runtime"
 	"time"
@@ -19,6 +18,7 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/version"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -209,8 +209,7 @@ type AccountContext struct {
 
 func accountXrpcClient(cctx *cli.Context, ac *AccountContext) (*xrpc.Client, error) {
 	pdsHost := cctx.String("pds-host")
-	//httpClient := cliutil.NewHttpClient()
-	httpClient := &http.Client{Timeout: 5 * time.Second}
+	httpClient := util.RobustHTTPClient()
 	ua := "IndigoFakerMaker/" + version.Version
 	xrpcc := &xrpc.Client{
 		Client:    httpClient,
