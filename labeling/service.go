@@ -30,6 +30,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/whyrusleeping/go-did"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var log = logging.Logger("labelmaker")
@@ -61,6 +62,7 @@ type RepoConfig struct {
 func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, blobPdsURL string, useWss bool) (*Server, error) {
 
 	db.AutoMigrate(models.PDS{})
+	db.AutoMigrate(models.Label{})
 
 	didr := &api.PLCServer{Host: plcURL}
 	kmgr := indexer.NewKeyManager(didr, repoUser.SigningKey)
@@ -334,7 +336,8 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 		return err
 	}
 
-	now := time.Now().Format(util.ISO8601)
+	now := time.Now()
+	nowStr := now.Format(util.ISO8601)
 	labels := []label.Label{}
 
 	for _, op := range evt.RepoCommit.Ops {
@@ -362,7 +365,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 					Src: s.user.Did,
 					Uri: "at://" + evt.RepoCommit.Repo,
 					Val: val,
-					Cts: now,
+					Cts: nowStr,
 				})
 			} else {
 				labels = append(labels, label.Label{
@@ -370,7 +373,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 					Uri: uri,
 					Cid: &cidStr,
 					Val: val,
-					Cts: now,
+					Cts: nowStr,
 				})
 			}
 		}
@@ -384,6 +387,23 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 		}
 		labeluri := "at://" + s.user.Did + "/" + path
 		log.Infof("persisted label: %s", labeluri)
+	}
+
+	// ... and database ...
+	var labelRows []models.Label
+	for _, l := range labels {
+		lr := models.Label{
+			Uri:       l.Uri,
+			SourceDid: l.Src,
+			Cid:       l.Cid,
+			Val:       l.Val,
+			CreatedAt: now,
+		}
+		labelRows = append(labelRows, lr)
+	}
+	if len(labelRows) > 0 {
+		// TODO(bnewbold): don't clobber action labels (aka, human interventions)
+		s.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&labelRows)
 	}
 
 	// ... then re-publish as XRPCStreamEvent

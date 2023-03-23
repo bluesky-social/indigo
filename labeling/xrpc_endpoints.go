@@ -4,18 +4,28 @@ import (
 	"strconv"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
+	label "github.com/bluesky-social/indigo/api/label"
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
 )
 
 func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
+	// handle/account hosting
 	e.GET("/xrpc/com.atproto.identity.resolveHandle", s.HandleComAtprotoIdentityResolveHandle)
-	e.GET("/xrpc/com.atproto.repo.describeRepo", s.HandleComAtprotoRepoDescribeRepo)
-	e.GET("/xrpc/com.atproto.repo.getRecord", s.HandleComAtprotoRepoGetRecord)
-	e.GET("/xrpc/com.atproto.repo.listRecords", s.HandleComAtprotoRepoListRecords)
 	e.GET("/xrpc/com.atproto.server.describeServer", s.HandleComAtprotoServerDescribeServer)
-	e.GET("/xrpc/com.atproto.sync.getHead", s.HandleComAtprotoSyncGetHead)
+	// TODO: session create/refresh/delete?
+	//e.GET("/xrpc/com.atproto.account.get", s.HandleComAtprotoAccountGet)
+
+	// label-specific
+	e.GET("/xrpc/com.atproto.label.query", s.HandleComAtprotoLabelQuery)
+
+	// minimal moderation reporting/actioning
+	// TODO: com.atproto.admin.takeModerationAction,reverseModerationAction,getModerationAction(s)
+	// TODO: com.atproto.report.create, com.atproto.admin.getModerationReport(s)
+	// TODO: com.atproto.admin.resolveModerationReports
+	// TODO: proxy all the rest to BGS?
+
 	return nil
 }
 
@@ -114,14 +124,29 @@ func (s *Server) HandleComAtprotoServerDescribeServer(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *Server) HandleComAtprotoSyncGetHead(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetHead")
+func (s *Server) HandleComAtprotoLabelQuery(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoLabelQuery")
 	defer span.End()
-	did := c.QueryParam("did")
-	var out *atproto.SyncGetHead_Output
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 20
+	}
+
+	sources := c.QueryParams()["sources"]
+
+	uriPatterns := c.QueryParams()["uriPatterns"]
+	var out *label.Query_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoSyncGetHead(ctx context.Context,did string) (*atproto.SyncGetHead_Output, error)
-	out, handleErr = s.handleComAtprotoSyncGetHead(ctx, did)
+	// func (s *Server) handleComAtprotoLabelQuery(ctx context.Context,cursor string,limit int,sources []string,uriPatterns []string) (*comatprototypes.LabelQuery_Output, error)
+	out, handleErr = s.handleComAtprotoLabelQuery(ctx, cursor, limit, sources, uriPatterns)
 	if handleErr != nil {
 		return handleErr
 	}
