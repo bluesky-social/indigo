@@ -22,6 +22,7 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/version"
+
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
 

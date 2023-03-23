@@ -22,10 +22,9 @@ import (
 	"github.com/bluesky-social/indigo/version"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	"github.com/brianvoe/gofakeit/v6"
-
 	_ "github.com/joho/godotenv/autoload"
 
+	"github.com/brianvoe/gofakeit/v6"
 	logging "github.com/ipfs/go-log"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
