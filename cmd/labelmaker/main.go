@@ -10,23 +10,15 @@ import (
 	"github.com/bluesky-social/indigo/labeling"
 	"github.com/urfave/cli/v2"
 
+	_ "github.com/joho/godotenv/autoload"
+
 	logging "github.com/ipfs/go-log"
-	"github.com/joho/godotenv"
 	"gorm.io/plugin/opentelemetry/tracing"
 )
 
 var log = logging.Logger("labelmaker")
 
 func main() {
-
-	// only try dotenv if it exists
-	if _, err := os.Stat(".env"); err == nil {
-		err := godotenv.Load()
-		if err != nil {
-			log.Fatal("Error loading .env file")
-		}
-	}
-
 	run(os.Args)
 }
 

@@ -22,8 +22,10 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/brianvoe/gofakeit/v6"
+
+	_ "github.com/joho/godotenv/autoload"
+
 	logging "github.com/ipfs/go-log"
-	"github.com/joho/godotenv"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 )
@@ -31,15 +33,6 @@ import (
 var log = logging.Logger("fakermaker")
 
 func main() {
-
-	// only try dotenv if it exists
-	if _, err := os.Stat(".env"); err == nil {
-		err := godotenv.Load()
-		if err != nil {
-			log.Fatal("Error loading .env file")
-		}
-	}
-
 	run(os.Args)
 }
 
