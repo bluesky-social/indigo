@@ -87,7 +87,7 @@ func run(args []string) {
 		followsCmd,
 		resetPasswordCmd,
 		readRepoStreamCmd,
-		updateHandleCmd,
+		handleCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -825,8 +825,16 @@ var resetPasswordCmd = &cli.Command{
 	},
 }
 
+var handleCmd = &cli.Command{
+	Name: "handle",
+	Subcommands: []*cli.Command{
+		updateHandleCmd,
+		resolveHandleCmd,
+	},
+}
+
 var updateHandleCmd = &cli.Command{
-	Name: "updateHandle",
+	Name: "update",
 	Action: func(cctx *cli.Context) error {
 		ctx := context.TODO()
 
@@ -843,6 +851,29 @@ var updateHandleCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
+
+		return nil
+	},
+}
+
+var resolveHandleCmd = &cli.Command{
+	Name: "resolve",
+	Action: func(cctx *cli.Context) error {
+		ctx := context.TODO()
+
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		handle := cctx.Args().Get(0)
+
+		resp, err := comatproto.HandleResolve(ctx, xrpcc, handle)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(resp.Did)
 
 		return nil
 	},

@@ -31,6 +31,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	promclient "github.com/prometheus/client_golang/prometheus"
+	"github.com/whyrusleeping/go-did"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
@@ -400,6 +401,18 @@ func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user bsutil.Ui
 	return nil
 }
 
+func handleFromDidDoc(doc *did.Document) (string, error) {
+	if len(doc.AlsoKnownAs) == 0 {
+		return "", fmt.Errorf("user has no 'known as' field in their DID document")
+	}
+
+	hurl, err := url.Parse(doc.AlsoKnownAs[0])
+	if err != nil {
+		return "", err
+	}
+
+	return hurl.Host, nil
+}
 func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.ActorInfo, error) {
 	ctx, span := otel.Tracer("bgs").Start(ctx, "createExternalUser")
 	defer span.End()
@@ -457,16 +470,10 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		panic("somehow failed to create a pds entry?")
 	}
 
-	if len(doc.AlsoKnownAs) == 0 {
-		return nil, fmt.Errorf("user has no 'known as' field in their DID document")
-	}
-
-	hurl, err := url.Parse(doc.AlsoKnownAs[0])
+	handle, err := handleFromDidDoc(doc)
 	if err != nil {
 		return nil, err
 	}
-
-	handle := hurl.Host
 
 	res, err := atproto.HandleResolve(ctx, c, handle)
 	if err != nil {
@@ -477,6 +484,59 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		return nil, fmt.Errorf("claimed handle did not match servers response (%s != %s)", res.Did, did)
 	}
 
+	actinfo, err := s.lockedCreateUser(ctx, handle, did, peering.ID)
+	if err != nil {
+		if err == ErrRevalidateUserHandle {
+			var ou User
+			if err := s.db.First(&ou, "handle = ?", handle).Error; err != nil {
+				return nil, fmt.Errorf("failed to find pre-existing user with given handle after user creation failure: %w", err)
+			}
+
+			if ou.Did == did {
+				// What? How?
+				return nil, fmt.Errorf("failed to create user, but they already existed (very weird): did=%s, handle=%s", did, handle)
+			} else {
+				// a different user with the same handle?
+				doc, err := s.didr.GetDocument(ctx, ou.Did)
+				if err != nil {
+					return nil, err
+				}
+
+				ohandle, err := handleFromDidDoc(doc)
+				if err != nil {
+					return nil, err
+				}
+
+				if ohandle != ou.Handle {
+					// Aha! A handle change we didn't get a notice about
+					if err := s.db.Model(User{}).Where("id = ?", ou.ID).Update("handle", ohandle).Error; err != nil {
+						return nil, err
+					}
+
+					// TODO: it is a bit weird that we keep the handle in multiple locations...
+					if err := s.db.Model(models.ActorInfo{}).Where("uid = ?", ou.ID).Update("handle", ohandle).Error; err != nil {
+						return nil, err
+					}
+
+					// Now that thats resolved, try creating the user again?
+					return s.lockedCreateUser(ctx, handle, did, peering.ID)
+				}
+
+				// some debugging...
+				return nil, fmt.Errorf("failed to create other pds user: %w", err)
+			}
+
+		} else {
+			return nil, err
+		}
+	}
+
+	return actinfo, nil
+}
+
+var ErrRevalidateUserHandle = fmt.Errorf("mismatch in handles, must recheck")
+
+func (s *BGS) lockedCreateUser(ctx context.Context, handle, did string, pdsid uint) (*models.ActorInfo, error) {
 	s.extUserLk.Lock()
 	defer s.extUserLk.Unlock()
 
@@ -494,12 +554,12 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	u := User{
 		Handle: handle,
 		Did:    did,
-		PDS:    peering.ID,
+		PDS:    pdsid,
 	}
 
 	if err := s.db.Create(&u).Error; err != nil {
-		// some debugging...
-		return nil, fmt.Errorf("failed to create other pds user: %w", err)
+		log.Warnf("failed to create new user record: %s", err)
+		return nil, ErrRevalidateUserHandle
 	}
 
 	// okay cool, its a user on a server we are peered with
@@ -511,7 +571,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		Did:         did,
 		DeclRefCid:  "", // profile.Declaration.Cid,
 		Type:        "",
-		PDS:         peering.ID,
+		PDS:         pdsid,
 	}
 	if err := s.db.Create(subj).Error; err != nil {
 		return nil, err
