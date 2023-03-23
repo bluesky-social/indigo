@@ -21,24 +21,17 @@ import (
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cbor "github.com/ipfs/go-ipld-cbor"
+
+	_ "github.com/joho/godotenv/autoload"
+
 	logging "github.com/ipfs/go-log"
 	"github.com/ipld/go-car"
-	"github.com/joho/godotenv"
 	cli "github.com/urfave/cli/v2"
 )
 
 var log = logging.Logger("stress")
 
 func main() {
-
-	// only try dotenv if it exists
-	if _, err := os.Stat(".env"); err == nil {
-		err := godotenv.Load()
-		if err != nil {
-			log.Fatal("Error loading .env file")
-		}
-	}
-
 	run(os.Args)
 }
 

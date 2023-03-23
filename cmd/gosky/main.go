@@ -22,8 +22,10 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
+
+	_ "github.com/joho/godotenv/autoload"
+
 	logging "github.com/ipfs/go-log"
-	"github.com/joho/godotenv"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/polydawn/refmt/cbor"
@@ -36,15 +38,6 @@ import (
 var log = logging.Logger("gosky")
 
 func main() {
-
-	// only try dotenv if it exists
-	if _, err := os.Stat(".env"); err == nil {
-		err := godotenv.Load()
-		if err != nil {
-			log.Fatal("Error loading .env file")
-		}
-	}
-
 	run(os.Args)
 }
 

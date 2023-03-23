@@ -15,8 +15,9 @@ import (
 	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/plc"
 
+	_ "github.com/joho/godotenv/autoload"
+
 	logging "github.com/ipfs/go-log"
-	"github.com/joho/godotenv"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
@@ -31,15 +32,6 @@ import (
 var log = logging.Logger("laputa")
 
 func main() {
-
-	// only try dotenv if it exists
-	if _, err := os.Stat(".env"); err == nil {
-		err := godotenv.Load()
-		if err != nil {
-			log.Fatal("Error loading .env file")
-		}
-	}
-
 	run(os.Args)
 }
 
