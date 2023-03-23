@@ -25,6 +25,9 @@ This service currently uses `gorm` to automatically run database migrations as
 the regular user. There is no concept of running a separate set of migrations
 under more privileged database user.
 
+For database performance with many labels, it is important that `LC_COLLATE=C`.
+That is, the string sort behavior must be by byte order.
+
 ## Keyword Labeler
 
 A trivial keyword filter labeler is included. To configure it, create a JSON

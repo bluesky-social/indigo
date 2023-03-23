@@ -121,3 +121,17 @@ func ClientForPds(pds *PDS) *xrpc.Client {
 		Host: "http://" + pds.Host,
 	}
 }
+
+// The CreatedAt column corresponds to the 'cat' timestamp on label records. The UpdatedAt column is database-specific.
+//
+// NOTE: to get fast string-prefix queries on Uri via the idx_uri_src_val_cid index, it is important that the PostgreSQL LC_COLLATE="C"
+type Label struct {
+	ID        uint64  `gorm:"primaryKey"`
+	Uri       string  `gorm:"uniqueIndex:idx_uri_src_val_cid;not null"`
+	SourceDid string  `gorm:"uniqueIndex:idx_uri_src_val_cid;uniqueIndex:idx_src_rkey;not null"`
+	Val       string  `gorm:"uniqueIndex:idx_uri_src_val_cid;not null"`
+	Cid       *string `gorm:"uniqueIndex:idx_uri_src_val_cid"`
+	RepoRKey  *string `gorm:"uniqueIndex:idx_src_rkey"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
