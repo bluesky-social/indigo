@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bluesky-social/indigo/internal/engine"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
@@ -125,7 +126,7 @@ func (hal *HiveAILabeler) LabelBlob(ctx context.Context, blob lexutil.Blob, blob
 	req.Header.Set("Authorization", fmt.Sprintf("Token %s", hal.ApiToken))
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "labelmaker/0.0")
+	req.Header.Set("User-Agent", "labelmaker/"+engine.Version)
 
 	res, err := hal.Client.Do(req)
 	if err != nil {

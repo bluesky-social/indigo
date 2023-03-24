@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/carstore"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	"github.com/bluesky-social/indigo/internal/engine"
 	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/plc"
 
@@ -38,8 +39,9 @@ func main() {
 func run(args []string) {
 
 	app := cli.App{
-		Name:  "laputa",
-		Usage: "bluesky PDS in golang",
+		Name:    "laputa",
+		Usage:   "bluesky PDS in golang",
+		Version: engine.Version,
 	}
 
 	app.Flags = []cli.Flag{

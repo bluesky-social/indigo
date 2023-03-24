@@ -14,6 +14,7 @@ import (
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
+	"github.com/bluesky-social/indigo/internal/engine"
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
@@ -48,8 +49,9 @@ func main() {
 func run(args []string) {
 
 	app := cli.App{
-		Name:  "bigsky",
-		Usage: "atproto BGS/firehose daemon",
+		Name:    "bigsky",
+		Usage:   "atproto BGS/firehose daemon",
+		Version: engine.Version,
 	}
 
 	app.Flags = []cli.Flag{
