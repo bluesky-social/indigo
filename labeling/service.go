@@ -63,6 +63,9 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, 
 
 	db.AutoMigrate(models.PDS{})
 	db.AutoMigrate(models.Label{})
+	db.AutoMigrate(models.ModerationAction{})
+	db.AutoMigrate(models.ModerationReport{})
+	db.AutoMigrate(models.ModerationReportResolution{})
 
 	didr := &api.PLCServer{Host: plcURL}
 	kmgr := indexer.NewKeyManager(didr, repoUser.SigningKey)

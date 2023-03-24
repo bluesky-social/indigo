@@ -7,6 +7,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
@@ -177,6 +178,112 @@ func (s *Server) handleComAtprotoLabelQuery(ctx context.Context, cursor string, 
 	}
 	if nextCursor != "" {
 		out.Cursor = &nextCursor
+	}
+	return &out, nil
+}
+
+func (s *Server) handleComAtprotoAdminGetModerationAction(ctx context.Context, id int) (*atproto.AdminModerationAction_ViewDetail, error) {
+
+	var row models.ModerationAction
+	result := s.db.First(&row, id)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	full, err := s.hydrateModerationActions(ctx, []models.ModerationAction{row})
+	if err != nil {
+		return nil, err
+	}
+	return full[0], nil
+}
+
+func (s *Server) handleComAtprotoAdminGetModerationActions(ctx context.Context, before string, limit int, subject string) (*atproto.AdminGetModerationActions_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoAdminGetModerationReport(ctx context.Context, id int) (*atproto.AdminModerationReport_ViewDetail, error) {
+
+	var row models.ModerationReport
+	result := s.db.First(&row, id)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	full, err := s.hydrateModerationReports(ctx, []models.ModerationReport{row})
+	if err != nil {
+		return nil, err
+	}
+	return full[0], nil
+}
+
+func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context, before string, limit int, resolved *bool, subject string) (*atproto.AdminGetModerationReports_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoAdminResolveModerationReports(ctx context.Context, body *atproto.AdminResolveModerationReports_Input) (*atproto.AdminModerationAction_View, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Context, body *atproto.AdminReverseModerationAction_Input) (*atproto.AdminModerationAction_View, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, body *atproto.AdminTakeModerationAction_Input) (*atproto.AdminModerationAction_View, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *atproto.ReportCreate_Input) (*atproto.ReportCreate_Output, error) {
+
+	// TODO: shouldn't lexgen and the endpoint handlers help with these already? both are required fields
+	if body.ReasonType == nil {
+		return nil, fmt.Errorf("ReasonType is required")
+	}
+	if body.Subject == nil {
+		return nil, fmt.Errorf("Subject is required")
+	}
+
+	row := models.ModerationReport{
+		ReasonType: *body.ReasonType,
+		Reason:     body.Reason,
+		// TODO(bnewbold): from auth, via context? as a new lexicon field?
+		ReportedByDid: "did:plc:FAKE",
+	}
+	var outSubj atproto.ReportCreate_Output_Subject
+	if body.Subject.RepoRepoRef != nil {
+		row.SubjectType = "com.atproto.repo.repoRef"
+		row.SubjectDid = body.Subject.RepoRepoRef.Did
+		outSubj.RepoRepoRef = &atproto.RepoRepoRef{
+			LexiconTypeID: "com.atproto.repo.repoRef",
+			Did:           row.SubjectDid,
+		}
+	} else if body.Subject.RepoRecordRef != nil {
+		if row.SubjectCid == nil {
+			return nil, fmt.Errorf("this implementation requires a strong record ref (aka, with CID) in reports")
+		}
+		row.SubjectType = "com.atproto.repo.recordRef"
+		// TODO: row.SubjectDid from URI?
+		row.SubjectUri = &body.Subject.RepoRecordRef.Uri
+		row.SubjectCid = body.Subject.RepoRecordRef.Cid
+		outSubj.RepoStrongRef = &atproto.RepoStrongRef{
+			LexiconTypeID: "com.atproto.repo.strongRef",
+			Uri:           *row.SubjectUri,
+			Cid:           *row.SubjectCid,
+		}
+	} else {
+		return nil, fmt.Errorf("report subject must be a repoRef or a recordRef")
+	}
+
+	result := s.db.Create(&row)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	out := atproto.ReportCreate_Output{
+		Id:         int64(row.ID),
+		CreatedAt:  row.CreatedAt.Format(time.RFC3339),
+		Reason:     row.Reason,
+		ReasonType: &row.ReasonType,
+		Subject:    &outSubj,
 	}
 	return &out, nil
 }
