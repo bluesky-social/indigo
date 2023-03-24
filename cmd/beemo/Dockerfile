@@ -4,13 +4,14 @@
 
 ### Compile stage
 FROM alpine:3.17 AS build-env
-RUN apk add --no-cache build-base make go
+RUN apk add --no-cache build-base make go git
 
 ADD . /dockerbuild
 WORKDIR /dockerbuild
 
 # timezone data for alpine builds
-RUN go build -tags timetzdata -o /beemo ./cmd/beemo
+RUN GIT_VERSION=$(git describe --tags --long --always) && \
+    go build -tags timetzdata -ldflags="-X github.com/bluesky-social/indigo/internal/engine.Version=$GIT_VERSION" -o /beemo ./cmd/beemo
 
 ### Run stage
 FROM alpine:3.17
