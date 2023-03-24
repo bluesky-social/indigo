@@ -7,6 +7,7 @@ import (
 
 	"github.com/bluesky-social/indigo/carstore"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	"github.com/bluesky-social/indigo/internal/engine"
 	"github.com/bluesky-social/indigo/labeling"
 	"github.com/urfave/cli/v2"
 
@@ -25,8 +26,9 @@ func main() {
 func run(args []string) {
 
 	app := cli.App{
-		Name:  "labelmaker",
-		Usage: "atproto content labeling daemon",
+		Name:    "labelmaker",
+		Usage:   "atproto content labeling daemon",
+		Version: engine.Version,
 	}
 
 	app.Flags = []cli.Flag{

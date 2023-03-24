@@ -9,13 +9,14 @@
 # https://megamorf.gitlab.io/2019/09/08/alpine-go-builds-with-cgo-enabled/
 # TODO: lock to a specific version of go toolchain
 FROM alpine:3.17 AS build-env
-RUN apk add --no-cache build-base make go
+RUN apk add --no-cache build-base make go git
 
 ADD . /dockerbuild
 WORKDIR /dockerbuild
 
 # timezone data for alpine builds
-RUN go build -tags timetzdata -o /bigsky ./cmd/bigsky
+RUN GIT_VERSION=$(git describe --tags --long --always) && \
+    go build -tags timetzdata -ldflags="-X github.com/bluesky-social/indigo/internal/engine.Version=$GIT_VERSION"  -o /bigsky ./cmd/bigsky
 
 ### Run stage
 FROM alpine:3.17
