@@ -406,12 +406,19 @@ func handleFromDidDoc(doc *did.Document) (string, error) {
 		return "", fmt.Errorf("user has no 'known as' field in their DID document")
 	}
 
-	hurl, err := url.Parse(doc.AlsoKnownAs[0])
-	if err != nil {
-		return "", err
+	for _, aka := range doc.AlsoKnownAs {
+		if strings.HasPrefix(aka, "at://") {
+			hurl, err := url.Parse(doc.AlsoKnownAs[0])
+			if err != nil {
+				return "", err
+			}
+
+			return hurl.Host, nil
+		}
 	}
 
-	return hurl.Host, nil
+	return "", fmt.Errorf("did doc had no atproto aka")
+
 }
 func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.ActorInfo, error) {
 	ctx, span := otel.Tracer("bgs").Start(ctx, "createExternalUser")
@@ -518,6 +525,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 						return nil, err
 					}
 
+					log.Infow("processed handle update", "repo", ou.Did, "oldhandle", ou.Handle, "newhandle", ohandle, "nrepo", did)
 					// Now that thats resolved, try creating the user again?
 					return s.lockedCreateUser(ctx, handle, did, peering.ID)
 				}
