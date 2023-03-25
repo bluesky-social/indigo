@@ -18,6 +18,7 @@ src/build/
 *.log
 *.db
 data/
+test-coverage.out
 
 # executables
 /beemo
