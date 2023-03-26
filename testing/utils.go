@@ -6,7 +6,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/base32"
-	"encoding/json"
 	"fmt"
 	mathrand "math/rand"
 	"net/http"
@@ -33,42 +32,13 @@ import (
 	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
-	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/multiformats/go-multihash"
+	"github.com/whyrusleeping/go-did"
 
 	"github.com/gorilla/websocket"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
-
-func makeKey(fname string) error {
-	raw, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return fmt.Errorf("failed to generate new ECDSA private key: %s", err)
-	}
-
-	key, err := jwk.FromRaw(raw)
-	if err != nil {
-		return fmt.Errorf("failed to create ECDSA key: %s", err)
-	}
-
-	if _, ok := key.(jwk.ECDSAPrivateKey); !ok {
-		return fmt.Errorf("expected jwk.ECDSAPrivateKey, got %T", key)
-	}
-
-	key.Set(jwk.KeyIDKey, "mykey")
-
-	buf, err := json.MarshalIndent(key, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal key into JSON: %w", err)
-	}
-
-	if err := os.WriteFile(fname, buf, 0664); err != nil {
-		return err
-	}
-
-	return nil
-}
 
 type testPDS struct {
 	dir    string
@@ -127,12 +97,16 @@ func SetupPDS(host, suffix string, plc plc.PLCClient) (*testPDS, error) {
 		return nil, err
 	}
 
-	kfile := filepath.Join(dir, "server.key")
-	if err := makeKey(kfile); err != nil {
-		return nil, err
+	raw, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate new ECDSA private key: %s", err)
+	}
+	serkey := &did.PrivKey{
+		Raw:  raw,
+		Type: did.KeyTypeP256,
 	}
 
-	srv, err := pds.NewServer(maindb, cs, kfile, suffix, host, plc, []byte(host+suffix))
+	srv, err := pds.NewServer(maindb, cs, serkey, suffix, host, plc, []byte(host+suffix))
 	if err != nil {
 		return nil, err
 	}

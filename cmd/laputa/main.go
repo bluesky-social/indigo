@@ -1,11 +1,6 @@
 package main
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -19,7 +14,6 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 
 	logging "github.com/ipfs/go-log"
-	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -166,7 +160,13 @@ func run(args []string) {
 		}
 
 		pdshost := cctx.String("name")
-		srv, err := pds.NewServer(db, cstore, keypath, pdsdomain, pdshost, didr, jwtsecret)
+
+		key, err := cliutil.LoadKeyFromFile(keypath)
+		if err != nil {
+			return err
+		}
+
+		srv, err := pds.NewServer(db, cstore, key, pdsdomain, pdshost, didr, jwtsecret)
 		if err != nil {
 			return err
 		}
@@ -187,31 +187,7 @@ var generateKeyCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-		raw, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		if err != nil {
-			return fmt.Errorf("failed to generate new ECDSA private key: %s", err)
-		}
-
-		key, err := jwk.FromRaw(raw)
-		if err != nil {
-			return fmt.Errorf("failed to create ECDSA key: %s", err)
-		}
-
-		if _, ok := key.(jwk.ECDSAPrivateKey); !ok {
-			return fmt.Errorf("expected jwk.ECDSAPrivateKey, got %T", key)
-		}
-
-		key.Set(jwk.KeyIDKey, "mykey")
-
-		buf, err := json.MarshalIndent(key, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal key into JSON: %w", err)
-		}
-
 		fname := cctx.String("output")
-		// ensure data directory exists; won't error if it does
-		os.MkdirAll(filepath.Dir(fname), os.ModePerm)
-
-		return os.WriteFile(fname, buf, 0664)
+		return cliutil.GenerateKeyToFile(fname)
 	},
 }

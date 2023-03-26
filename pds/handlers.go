@@ -470,6 +470,8 @@ func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*com
 	}, nil
 }
 
+var ErrInvalidUsernameOrPassword = fmt.Errorf("invalid username or password")
+
 func (s *Server) handleComAtprotoServerCreateSession(ctx context.Context, body *comatprototypes.ServerCreateSession_Input) (*comatprototypes.ServerCreateSession_Output, error) {
 	u, err := s.lookupUserByHandle(ctx, *body.Identifier)
 	if err != nil {
@@ -477,7 +479,7 @@ func (s *Server) handleComAtprotoServerCreateSession(ctx context.Context, body *
 	}
 
 	if body.Password != u.Password {
-		return nil, fmt.Errorf("invalid username or password")
+		return nil, ErrInvalidUsernameOrPassword
 	}
 
 	tok, err := s.createAuthTokenForUser(ctx, *body.Identifier, u.Did)

@@ -2,13 +2,11 @@ package pds
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/mail"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -30,8 +28,6 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/whyrusleeping/go-did"
 	"gorm.io/gorm"
@@ -61,14 +57,9 @@ type Server struct {
 const UserActorDeclCid = "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u"
 const UserActorDeclType = "app.bsky.system.actorUser"
 
-func NewServer(db *gorm.DB, cs *carstore.CarStore, kfile string, handleSuffix, serviceUrl string, didr plc.PLCClient, jwtkey []byte) (*Server, error) {
+func NewServer(db *gorm.DB, cs *carstore.CarStore, serkey *did.PrivKey, handleSuffix, serviceUrl string, didr plc.PLCClient, jwtkey []byte) (*Server, error) {
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&Peering{})
-
-	serkey, err := loadKey(kfile)
-	if err != nil {
-		return nil, err
-	}
 
 	evtman := events.NewEventManager(events.NewMemPersister())
 
@@ -274,41 +265,6 @@ func (s *Server) readRecordFunc(ctx context.Context, user bsutil.Uid, c cid.Cid)
 	return lexutil.CborDecodeValue(blk.RawData())
 }
 
-func loadKey(kfile string) (*did.PrivKey, error) {
-	kb, err := os.ReadFile(kfile)
-	if err != nil {
-		return nil, err
-	}
-
-	sk, err := jwk.ParseKey(kb)
-	if err != nil {
-		return nil, err
-	}
-
-	var spk ecdsa.PrivateKey
-	if err := sk.Raw(&spk); err != nil {
-		return nil, err
-	}
-	curve, ok := sk.Get("crv")
-	if !ok {
-		return nil, fmt.Errorf("need a curve set")
-	}
-
-	var out string
-	kts := string(curve.(jwa.EllipticCurveAlgorithm))
-	switch kts {
-	case "P-256":
-		out = did.KeyTypeP256
-	default:
-		return nil, fmt.Errorf("unrecognized key type: %s", kts)
-	}
-
-	return &did.PrivKey{
-		Raw:  &spk,
-		Type: out,
-	}, nil
-}
-
 func (s *Server) RunAPI(listen string) error {
 	e := echo.New()
 	s.echo = e
@@ -490,7 +446,6 @@ func (s *Server) lookupUserByHandle(ctx context.Context, handle string) (*User, 
 	if err := s.db.Find(&u, "handle = ?", handle).Error; err != nil {
 		return nil, err
 	}
-	fmt.Println("USER: ", handle)
 	if u.ID == 0 {
 		return nil, ErrNoSuchUser
 	}
