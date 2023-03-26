@@ -176,7 +176,7 @@ func run(args []string) {
 		hiveAIToken := cctx.String("hiveai-api-token")
 		sqrlURL := cctx.String("sqrl-url")
 
-		serkey, err := labeling.LoadKeyFromFile(repoKeyPath)
+		serkey, err := cliutil.LoadKeyFromFile(repoKeyPath)
 		if err != nil {
 			return err
 		}
