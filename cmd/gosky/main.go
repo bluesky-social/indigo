@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -29,13 +28,10 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 
 	logging "github.com/ipfs/go-log"
-	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/polydawn/refmt/cbor"
 	rejson "github.com/polydawn/refmt/json"
 	"github.com/polydawn/refmt/shared"
 	cli "github.com/urfave/cli/v2"
-	"github.com/whyrusleeping/go-did"
 )
 
 var log = logging.Logger("gosky")
@@ -238,7 +234,7 @@ var didCreateCmd = &cli.Command{
 
 		recoverydid := cctx.String("recoverydid")
 
-		sigkey, err := loadKey(cctx.String("signingkey"))
+		sigkey, err := cliutil.LoadKeyFromFile(cctx.String("signingkey"))
 		if err != nil {
 			return err
 		}
@@ -253,41 +249,6 @@ var didCreateCmd = &cli.Command{
 		fmt.Println(ndid)
 		return nil
 	},
-}
-
-func loadKey(kfile string) (*did.PrivKey, error) {
-	kb, err := os.ReadFile(kfile)
-	if err != nil {
-		return nil, err
-	}
-
-	sk, err := jwk.ParseKey(kb)
-	if err != nil {
-		return nil, err
-	}
-
-	var spk ecdsa.PrivateKey
-	if err := sk.Raw(&spk); err != nil {
-		return nil, err
-	}
-	curve, ok := sk.Get("crv")
-	if !ok {
-		return nil, fmt.Errorf("need a curve set")
-	}
-
-	var out string
-	kts := string(curve.(jwa.EllipticCurveAlgorithm))
-	switch kts {
-	case "P-256":
-		out = did.KeyTypeP256
-	default:
-		return nil, fmt.Errorf("unrecognized key type: %s", kts)
-	}
-
-	return &did.PrivKey{
-		Raw:  &spk,
-		Type: out,
-	}, nil
 }
 
 var syncCmd = &cli.Command{
