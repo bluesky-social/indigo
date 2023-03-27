@@ -2,6 +2,7 @@ package labeling
 
 import (
 	"io"
+	"net/http/httputil"
 	"strconv"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
@@ -30,10 +31,24 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.admin.reverseModerationAction", s.HandleComAtprotoAdminReverseModerationAction)
 	e.POST("/xrpc/com.atproto.admin.takeModerationAction", s.HandleComAtprotoAdminTakeModerationAction)
 	e.POST("/xrpc/com.atproto.report.create", s.HandleComAtprotoReportCreate)
-	// TODO: proxy the rest to BGS?
-	//e.GET("/xrpc/com.atproto.admin.getRecord", s.HandleComAtprotoAdminGetRecord)
-	//e.GET("/xrpc/com.atproto.admin.getRepo", s.HandleComAtprotoAdminGetRepo)
-	//e.GET("/xrpc/com.atproto.admin.searchRepos", s.HandleComAtprotoAdminSearchRepos)
+
+	return nil
+}
+
+func (s *Server) rewriteProxyRequestAdmin(r *httputil.ProxyRequest) {
+	r.SetXForwarded()
+	r.SetURL(s.xrpcProxyURL)
+	r.Out.Header.Set("Authorization", s.xrpcProxyAuthHeader)
+}
+
+func (s *Server) RegisterProxyHandlers(e *echo.Echo) error {
+
+	rp := &httputil.ReverseProxy{Rewrite: s.rewriteProxyRequestAdmin}
+
+	// Proxy some admin requests
+	e.GET("/xrpc/com.atproto.admin.getRecord", echo.WrapHandler(rp))
+	e.GET("/xrpc/com.atproto.admin.getRepo", echo.WrapHandler(rp))
+	e.GET("/xrpc/com.atproto.admin.searchRepos", echo.WrapHandler(rp))
 
 	return nil
 }

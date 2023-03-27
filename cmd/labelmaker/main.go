@@ -103,6 +103,18 @@ func run(args []string) error {
 			EnvVars: []string{"LABELMAKER_BIND"},
 		},
 		&cli.StringFlag{
+			Name:    "xrpc-proxy-url",
+			Usage:   "backend URL to proxy (some) XRPC requests to",
+			Value:   "http://localhost:2583",
+			EnvVars: []string{"ATP_XRPC_PROXY_URL"},
+		},
+		&cli.StringFlag{
+			Name:    "xrpc-proxy-admin-password",
+			Usage:   "admin auth password for XRPC proxy requests",
+			Value:   "admin",
+			EnvVars: []string{"ATP_XRPC_PROXY_ADMIN_PASSWORD"},
+		},
+		&cli.StringFlag{
 			Name:    "keyword-file",
 			Usage:   "keyword filter config, as JSON file",
 			EnvVars: []string{"LABELMAKER_KEYWORD_FILE"},
@@ -181,6 +193,8 @@ func run(args []string) error {
 		repoHandle := cctx.String("repo-handle")
 		signingSecretKeyJwk := cctx.String("signing-secret-key-jwk")
 		bind := cctx.String("bind")
+		xrpcProxyURL := cctx.String("xrpc-proxy-url")
+		xrpcProxyAdminPassword := cctx.String("xrpc-proxy-admin-password")
 		microNSFWImgURL := cctx.String("micro-nsfw-img-url")
 		hiveAIToken := cctx.String("hiveai-api-token")
 		sqrlURL := cctx.String("sqrl-url")
@@ -205,7 +219,7 @@ func run(args []string) error {
 			UserId:     1,
 		}
 
-		srv, err := labeling.NewServer(db, cstore, repoUser, plcURL, blobPdsURL, useWss)
+		srv, err := labeling.NewServer(db, cstore, repoUser, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword, useWss)
 		if err != nil {
 			return err
 		}
