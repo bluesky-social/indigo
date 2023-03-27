@@ -13,10 +13,10 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
-	"github.com/bluesky-social/indigo/internal/engine"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/testing"
+	"github.com/bluesky-social/indigo/version"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -40,7 +40,7 @@ func run(args []string) {
 	app := cli.App{
 		Name:    "stress",
 		Usage:   "load generation tool for PDS instances",
-		Version: engine.Version,
+		Version: version.Version,
 	}
 
 	app.Commands = []*cli.Command{

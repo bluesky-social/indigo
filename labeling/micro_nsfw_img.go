@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bluesky-social/indigo/internal/engine"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/version"
 )
 
 type MicroNSFWImgLabeler struct {
@@ -84,7 +84,7 @@ func (mnil *MicroNSFWImgLabeler) LabelBlob(ctx context.Context, blob lexutil.Blo
 		return nil, err
 	}
 	req.Header.Add("Content-Type", writer.FormDataContentType())
-	req.Header.Set("User-Agent", "labelmaker/"+engine.Version)
+	req.Header.Set("User-Agent", "labelmaker/"+version.Version)
 
 	res, err := mnil.Client.Do(req)
 	if err != nil {
