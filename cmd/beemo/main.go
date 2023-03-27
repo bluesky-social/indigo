@@ -15,7 +15,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
-	"github.com/bluesky-social/indigo/internal/engine"
+	"github.com/bluesky-social/indigo/version"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -35,7 +35,7 @@ func run(args []string) {
 	app := cli.App{
 		Name:    "beemo",
 		Usage:   "bluesky moderation reporting bot",
-		Version: engine.Version,
+		Version: version.Version,
 	}
 
 	app.Flags = []cli.Flag{

@@ -1,4 +1,4 @@
-package engine
+package version
 
 import (
 	"runtime/debug"
