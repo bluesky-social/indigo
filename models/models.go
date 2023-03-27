@@ -133,5 +133,6 @@ type Label struct {
 	Cid       *string `gorm:"uniqueIndex:idx_uri_src_val_cid"`
 	RepoRKey  *string `gorm:"uniqueIndex:idx_src_rkey"`
 	CreatedAt time.Time
+	NegatedAt time.Time
 	UpdatedAt time.Time
 }
