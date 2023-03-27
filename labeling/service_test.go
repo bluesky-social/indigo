@@ -39,6 +39,8 @@ func testLabelMaker(t *testing.T) *Server {
 
 	plcURL := "http://did-plc-test.dummy"
 	blobPdsURL := "http://pds-test.dummy"
+	xrpcProxyURL := "http://pds-test.dummy"
+	xrpcProxyAdminPassword := "dummy-password"
 	repoUser := RepoConfig{
 		Handle:     "test.handle.dummy",
 		Did:        "did:plc:testdummy",
@@ -46,7 +48,7 @@ func testLabelMaker(t *testing.T) *Server {
 		UserId:     1,
 	}
 
-	lm, err := NewServer(db, cs, repoUser, plcURL, blobPdsURL, false)
+	lm, err := NewServer(db, cs, repoUser, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword, false)
 	if err != nil {
 		t.Fatal(err)
 	}

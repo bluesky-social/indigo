@@ -3,9 +3,11 @@ package labeling
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -37,18 +39,20 @@ import (
 var log = logging.Logger("labelmaker")
 
 type Server struct {
-	db               *gorm.DB
-	cs               *carstore.CarStore
-	repoman          *repomgr.RepoManager
-	bgsSlurper       *bgs.Slurper
-	evtmgr           *events.EventManager
-	echo             *echo.Echo
-	user             *RepoConfig
-	blobPdsURL       string
-	kwLabelers       []KeywordLabeler
-	muNSFWImgLabeler *MicroNSFWImgLabeler
-	hiveAILabeler    *HiveAILabeler
-	sqrlLabeler      *SQRLLabeler
+	db                  *gorm.DB
+	cs                  *carstore.CarStore
+	repoman             *repomgr.RepoManager
+	bgsSlurper          *bgs.Slurper
+	evtmgr              *events.EventManager
+	echo                *echo.Echo
+	user                *RepoConfig
+	blobPdsURL          string
+	xrpcProxyURL        *url.URL
+	xrpcProxyAuthHeader string
+	kwLabelers          []KeywordLabeler
+	muNSFWImgLabeler    *MicroNSFWImgLabeler
+	hiveAILabeler       *HiveAILabeler
+	sqrlLabeler         *SQRLLabeler
 }
 
 type RepoConfig struct {
@@ -60,7 +64,7 @@ type RepoConfig struct {
 
 // In addition to configuring the service, will connect to upstream BGS and start processing events. Won't handle HTTP or WebSocket endpoints until RunAPI() is called.
 // 'useWss' is a flag to use SSL for outbound WebSocket connections
-func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, blobPdsURL string, useWss bool) (*Server, error) {
+func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword string, useWss bool) (*Server, error) {
 
 	db.AutoMigrate(models.PDS{})
 	db.AutoMigrate(models.Label{})
@@ -73,12 +77,20 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, 
 	evtmgr := events.NewEventManager(events.NewMemPersister())
 	repoman := repomgr.NewRepoManager(db, cs, kmgr)
 
+	proxyURL, err := url.ParseRequestURI(xrpcProxyURL)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse XRPC proxy URL (%v): %v", xrpcProxyURL, err)
+	}
+	xrpcProxyAuthHeader := "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:"+xrpcProxyAdminPassword))
+
 	s := &Server{
-		db:         db,
-		repoman:    repoman,
-		evtmgr:     evtmgr,
-		user:       &repoUser,
-		blobPdsURL: blobPdsURL,
+		db:                  db,
+		repoman:             repoman,
+		evtmgr:              evtmgr,
+		user:                &repoUser,
+		blobPdsURL:          blobPdsURL,
+		xrpcProxyURL:        proxyURL,
+		xrpcProxyAuthHeader: xrpcProxyAuthHeader,
 		// sluper configured below
 	}
 
@@ -404,8 +416,13 @@ func (s *Server) RunAPI(listen string) error {
 		ctx.Response().WriteHeader(500)
 	}
 
-	s.RegisterHandlersComAtproto(e)
-	// TODO(bnewbold): this is a speculative endpoint name
+	if err := s.RegisterHandlersComAtproto(e); err != nil {
+		return err
+	}
+	if err := s.RegisterProxyHandlers(e); err != nil {
+		return err
+	}
+	// single websocket endpoint
 	e.GET("/xrpc/com.atproto.label.subscribeLabels", s.EventsLabelsWebsocket)
 
 	log.Infof("starting labelmaker XRPC and WebSocket daemon at: %s", listen)
