@@ -12,17 +12,17 @@ func init() {
 }
 
 type FeedGetTimeline_Output struct {
-	LexiconTypeID string              `json:"$type,omitempty"`
-	Cursor        *string             `json:"cursor,omitempty" cborgen:"cursor"`
-	Feed          []*FeedFeedViewPost `json:"feed" cborgen:"feed"`
+	LexiconTypeID string                   `json:"$type,omitempty"`
+	Cursor        *string                  `json:"cursor,omitempty" cborgen:"cursor"`
+	Feed          []*FeedDefs_FeedViewPost `json:"feed" cborgen:"feed"`
 }
 
-func FeedGetTimeline(ctx context.Context, c *xrpc.Client, algorithm string, before string, limit int64) (*FeedGetTimeline_Output, error) {
+func FeedGetTimeline(ctx context.Context, c *xrpc.Client, algorithm string, cursor string, limit int64) (*FeedGetTimeline_Output, error) {
 	var out FeedGetTimeline_Output
 
 	params := map[string]interface{}{
 		"algorithm": algorithm,
-		"before":    before,
+		"cursor":    cursor,
 		"limit":     limit,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getTimeline", params, nil, &out); err != nil {

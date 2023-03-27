@@ -12,16 +12,16 @@ func init() {
 }
 
 type AdminGetModerationActions_Output struct {
-	LexiconTypeID string                        `json:"$type,omitempty"`
-	Actions       []*AdminModerationAction_View `json:"actions" cborgen:"actions"`
-	Cursor        *string                       `json:"cursor,omitempty" cborgen:"cursor"`
+	LexiconTypeID string                  `json:"$type,omitempty"`
+	Actions       []*AdminDefs_ActionView `json:"actions" cborgen:"actions"`
+	Cursor        *string                 `json:"cursor,omitempty" cborgen:"cursor"`
 }
 
-func AdminGetModerationActions(ctx context.Context, c *xrpc.Client, before string, limit int64, subject string) (*AdminGetModerationActions_Output, error) {
+func AdminGetModerationActions(ctx context.Context, c *xrpc.Client, cursor string, limit int64, subject string) (*AdminGetModerationActions_Output, error) {
 	var out AdminGetModerationActions_Output
 
 	params := map[string]interface{}{
-		"before":  before,
+		"cursor":  cursor,
 		"limit":   limit,
 		"subject": subject,
 	}

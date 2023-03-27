@@ -10,8 +10,8 @@ import (
 
 func init() {
 }
-func AdminGetModerationReport(ctx context.Context, c *xrpc.Client, id int64) (*AdminModerationReport_ViewDetail, error) {
-	var out AdminModerationReport_ViewDetail
+func AdminGetModerationReport(ctx context.Context, c *xrpc.Client, id int64) (*AdminDefs_ReportViewDetail, error) {
+	var out AdminDefs_ReportViewDetail
 
 	params := map[string]interface{}{
 		"id": id,

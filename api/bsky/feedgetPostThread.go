@@ -14,30 +14,24 @@ import (
 func init() {
 }
 
-type FeedGetPostThread_NotFoundPost struct {
-	LexiconTypeID string `json:"$type,omitempty"`
-	NotFound      bool   `json:"notFound" cborgen:"notFound"`
-	Uri           string `json:"uri" cborgen:"uri"`
-}
-
 type FeedGetPostThread_Output struct {
 	LexiconTypeID string                           `json:"$type,omitempty"`
 	Thread        *FeedGetPostThread_Output_Thread `json:"thread" cborgen:"thread"`
 }
 
 type FeedGetPostThread_Output_Thread struct {
-	FeedGetPostThread_ThreadViewPost *FeedGetPostThread_ThreadViewPost
-	FeedGetPostThread_NotFoundPost   *FeedGetPostThread_NotFoundPost
+	FeedDefs_ThreadViewPost *FeedDefs_ThreadViewPost
+	FeedDefs_NotFoundPost   *FeedDefs_NotFoundPost
 }
 
 func (t *FeedGetPostThread_Output_Thread) MarshalJSON() ([]byte, error) {
-	if t.FeedGetPostThread_ThreadViewPost != nil {
-		t.FeedGetPostThread_ThreadViewPost.LexiconTypeID = "app.bsky.feed.getPostThread#threadViewPost"
-		return json.Marshal(t.FeedGetPostThread_ThreadViewPost)
+	if t.FeedDefs_ThreadViewPost != nil {
+		t.FeedDefs_ThreadViewPost.LexiconTypeID = "app.bsky.feed.defs#threadViewPost"
+		return json.Marshal(t.FeedDefs_ThreadViewPost)
 	}
-	if t.FeedGetPostThread_NotFoundPost != nil {
-		t.FeedGetPostThread_NotFoundPost.LexiconTypeID = "app.bsky.feed.getPostThread#notFoundPost"
-		return json.Marshal(t.FeedGetPostThread_NotFoundPost)
+	if t.FeedDefs_NotFoundPost != nil {
+		t.FeedDefs_NotFoundPost.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
+		return json.Marshal(t.FeedDefs_NotFoundPost)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -48,89 +42,12 @@ func (t *FeedGetPostThread_Output_Thread) UnmarshalJSON(b []byte) error {
 	}
 
 	switch typ {
-	case "app.bsky.feed.getPostThread#threadViewPost":
-		t.FeedGetPostThread_ThreadViewPost = new(FeedGetPostThread_ThreadViewPost)
-		return json.Unmarshal(b, t.FeedGetPostThread_ThreadViewPost)
-	case "app.bsky.feed.getPostThread#notFoundPost":
-		t.FeedGetPostThread_NotFoundPost = new(FeedGetPostThread_NotFoundPost)
-		return json.Unmarshal(b, t.FeedGetPostThread_NotFoundPost)
-
-	default:
-		return nil
-	}
-}
-
-type FeedGetPostThread_ThreadViewPost struct {
-	LexiconTypeID string                                           `json:"$type,omitempty"`
-	Parent        *FeedGetPostThread_ThreadViewPost_Parent         `json:"parent,omitempty" cborgen:"parent"`
-	Post          *FeedPost_View                                   `json:"post" cborgen:"post"`
-	Replies       []*FeedGetPostThread_ThreadViewPost_Replies_Elem `json:"replies,omitempty" cborgen:"replies"`
-}
-
-type FeedGetPostThread_ThreadViewPost_Parent struct {
-	FeedGetPostThread_ThreadViewPost *FeedGetPostThread_ThreadViewPost
-	FeedGetPostThread_NotFoundPost   *FeedGetPostThread_NotFoundPost
-}
-
-func (t *FeedGetPostThread_ThreadViewPost_Parent) MarshalJSON() ([]byte, error) {
-	if t.FeedGetPostThread_ThreadViewPost != nil {
-		t.FeedGetPostThread_ThreadViewPost.LexiconTypeID = "app.bsky.feed.getPostThread#threadViewPost"
-		return json.Marshal(t.FeedGetPostThread_ThreadViewPost)
-	}
-	if t.FeedGetPostThread_NotFoundPost != nil {
-		t.FeedGetPostThread_NotFoundPost.LexiconTypeID = "app.bsky.feed.getPostThread#notFoundPost"
-		return json.Marshal(t.FeedGetPostThread_NotFoundPost)
-	}
-	return nil, fmt.Errorf("cannot marshal empty enum")
-}
-func (t *FeedGetPostThread_ThreadViewPost_Parent) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
-	if err != nil {
-		return err
-	}
-
-	switch typ {
-	case "app.bsky.feed.getPostThread#threadViewPost":
-		t.FeedGetPostThread_ThreadViewPost = new(FeedGetPostThread_ThreadViewPost)
-		return json.Unmarshal(b, t.FeedGetPostThread_ThreadViewPost)
-	case "app.bsky.feed.getPostThread#notFoundPost":
-		t.FeedGetPostThread_NotFoundPost = new(FeedGetPostThread_NotFoundPost)
-		return json.Unmarshal(b, t.FeedGetPostThread_NotFoundPost)
-
-	default:
-		return nil
-	}
-}
-
-type FeedGetPostThread_ThreadViewPost_Replies_Elem struct {
-	FeedGetPostThread_ThreadViewPost *FeedGetPostThread_ThreadViewPost
-	FeedGetPostThread_NotFoundPost   *FeedGetPostThread_NotFoundPost
-}
-
-func (t *FeedGetPostThread_ThreadViewPost_Replies_Elem) MarshalJSON() ([]byte, error) {
-	if t.FeedGetPostThread_ThreadViewPost != nil {
-		t.FeedGetPostThread_ThreadViewPost.LexiconTypeID = "app.bsky.feed.getPostThread#threadViewPost"
-		return json.Marshal(t.FeedGetPostThread_ThreadViewPost)
-	}
-	if t.FeedGetPostThread_NotFoundPost != nil {
-		t.FeedGetPostThread_NotFoundPost.LexiconTypeID = "app.bsky.feed.getPostThread#notFoundPost"
-		return json.Marshal(t.FeedGetPostThread_NotFoundPost)
-	}
-	return nil, fmt.Errorf("cannot marshal empty enum")
-}
-func (t *FeedGetPostThread_ThreadViewPost_Replies_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
-	if err != nil {
-		return err
-	}
-
-	switch typ {
-	case "app.bsky.feed.getPostThread#threadViewPost":
-		t.FeedGetPostThread_ThreadViewPost = new(FeedGetPostThread_ThreadViewPost)
-		return json.Unmarshal(b, t.FeedGetPostThread_ThreadViewPost)
-	case "app.bsky.feed.getPostThread#notFoundPost":
-		t.FeedGetPostThread_NotFoundPost = new(FeedGetPostThread_NotFoundPost)
-		return json.Unmarshal(b, t.FeedGetPostThread_NotFoundPost)
+	case "app.bsky.feed.defs#threadViewPost":
+		t.FeedDefs_ThreadViewPost = new(FeedDefs_ThreadViewPost)
+		return json.Unmarshal(b, t.FeedDefs_ThreadViewPost)
+	case "app.bsky.feed.defs#notFoundPost":
+		t.FeedDefs_NotFoundPost = new(FeedDefs_NotFoundPost)
+		return json.Unmarshal(b, t.FeedDefs_NotFoundPost)
 
 	default:
 		return nil

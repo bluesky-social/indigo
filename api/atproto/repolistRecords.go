@@ -25,16 +25,16 @@ type RepoListRecords_Record struct {
 	Value         util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
-func RepoListRecords(ctx context.Context, c *xrpc.Client, after string, before string, collection string, limit int64, reverse bool, user string) (*RepoListRecords_Output, error) {
+func RepoListRecords(ctx context.Context, c *xrpc.Client, collection string, limit int64, repo string, reverse bool, rkeyEnd string, rkeyStart string) (*RepoListRecords_Output, error) {
 	var out RepoListRecords_Output
 
 	params := map[string]interface{}{
-		"after":      after,
-		"before":     before,
 		"collection": collection,
 		"limit":      limit,
+		"repo":       repo,
 		"reverse":    reverse,
-		"user":       user,
+		"rkeyEnd":    rkeyEnd,
+		"rkeyStart":  rkeyStart,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.repo.listRecords", params, nil, &out); err != nil {
 		return nil, err

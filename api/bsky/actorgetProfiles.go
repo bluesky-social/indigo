@@ -12,8 +12,8 @@ func init() {
 }
 
 type ActorGetProfiles_Output struct {
-	LexiconTypeID string               `json:"$type,omitempty"`
-	Profiles      []*ActorProfile_View `json:"profiles" cborgen:"profiles"`
+	LexiconTypeID string                   `json:"$type,omitempty"`
+	Profiles      []*ActorDefs_ProfileView `json:"profiles" cborgen:"profiles"`
 }
 
 func ActorGetProfiles(ctx context.Context, c *xrpc.Client, actors []string) (*ActorGetProfiles_Output, error) {

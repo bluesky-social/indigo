@@ -15,7 +15,7 @@ type NullNotifs struct {
 
 var _ NotificationManager = (*NullNotifs)(nil)
 
-func (nn *NullNotifs) GetNotifications(ctx context.Context, user util.Uid) ([]*appbskytypes.NotificationList_Notification, error) {
+func (nn *NullNotifs) GetNotifications(ctx context.Context, user util.Uid) ([]*appbskytypes.NotificationListNotifications_Notification, error) {
 	return nil, fmt.Errorf("no notifications engine loaded")
 }
 

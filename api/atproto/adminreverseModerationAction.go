@@ -18,8 +18,8 @@ type AdminReverseModerationAction_Input struct {
 	Reason        string `json:"reason" cborgen:"reason"`
 }
 
-func AdminReverseModerationAction(ctx context.Context, c *xrpc.Client, input *AdminReverseModerationAction_Input) (*AdminModerationAction_View, error) {
-	var out AdminModerationAction_View
+func AdminReverseModerationAction(ctx context.Context, c *xrpc.Client, input *AdminReverseModerationAction_Input) (*AdminDefs_ActionView, error) {
+	var out AdminDefs_ActionView
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.admin.reverseModerationAction", nil, input, &out); err != nil {
 		return nil, err
 	}

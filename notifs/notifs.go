@@ -16,7 +16,7 @@ import (
 )
 
 type NotificationManager interface {
-	GetNotifications(ctx context.Context, user bsutil.Uid) ([]*appbskytypes.NotificationList_Notification, error)
+	GetNotifications(ctx context.Context, user bsutil.Uid) ([]*appbskytypes.NotificationListNotifications_Notification, error)
 	GetCount(ctx context.Context, user bsutil.Uid) (int64, error)
 	UpdateSeen(ctx context.Context, usr bsutil.Uid, seen time.Time) error
 	AddReplyTo(ctx context.Context, user bsutil.Uid, replyid uint, replyto *models.FeedPost) error
@@ -36,6 +36,7 @@ type DBNotifMan struct {
 type GetRecord func(ctx context.Context, user bsutil.Uid, collection string, rkey string, maybeCid cid.Cid) (cid.Cid, cbg.CBORMarshaler, error)
 
 func NewNotificationManager(db *gorm.DB, getrec GetRecord) *DBNotifMan {
+
 	db.AutoMigrate(&NotifRecord{})
 	db.AutoMigrate(&NotifSeen{})
 
@@ -74,12 +75,12 @@ type HydratedNotification struct {
 	IndexedAt     time.Time
 	Uri           string
 	Cid           string
-	Author        *appbskytypes.ActorRef_WithInfo
+	Author        *appbskytypes.ActorDefs_WithInfo
 	Reason        string
 	ReasonSubject *string
 }
 
-func (nm *DBNotifMan) GetNotifications(ctx context.Context, user bsutil.Uid) ([]*appbskytypes.NotificationList_Notification, error) {
+func (nm *DBNotifMan) GetNotifications(ctx context.Context, user bsutil.Uid) ([]*appbskytypes.NotificationListNotifications_Notification, error) {
 	var lastSeen time.Time
 	if err := nm.db.Model(NotifSeen{}).Where("usr = ?", user).Select("last_seen").Scan(&lastSeen).Error; err != nil {
 		return nil, err
@@ -101,7 +102,7 @@ func (nm *DBNotifMan) GetNotifications(ctx context.Context, user bsutil.Uid) ([]
 		ReasonSubject *string            `json:"reasonSubject" cborgen:"reasonSubject"`
 	*/
 
-	out := []*appbskytypes.NotificationList_Notification{}
+	out := []*appbskytypes.NotificationListNotifications_Notification{}
 
 	for _, n := range notifs {
 		hn, err := nm.hydrateNotification(ctx, &n, lastSeen)
@@ -110,14 +111,14 @@ func (nm *DBNotifMan) GetNotifications(ctx context.Context, user bsutil.Uid) ([]
 		}
 
 		// TODO: muting
-		hn.Author.Viewer = &appbskytypes.ActorRef_ViewerState{}
+		hn.Author.Viewer = &appbskytypes.ActorDefs_ViewerState{}
 
 		out = append(out, hn)
 	}
 	return out, nil
 }
 
-func (nm *DBNotifMan) hydrateNotification(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
+func (nm *DBNotifMan) hydrateNotification(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationListNotifications_Notification, error) {
 
 	switch nrec.Kind {
 	case NotifKindReply:
@@ -145,7 +146,7 @@ func (nm *DBNotifMan) getActor(ctx context.Context, act bsutil.Uid) (*models.Act
 	return &ai, nil
 }
 
-func (nm *DBNotifMan) hydrateNotificationUpVote(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
+func (nm *DBNotifMan) hydrateNotificationUpVote(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationListNotifications_Notification, error) {
 	var votedOn models.FeedPost
 	if err := nm.db.First(&votedOn, "id = ?", nrec.Record).Error; err != nil {
 		return nil, err
@@ -173,7 +174,7 @@ func (nm *DBNotifMan) hydrateNotificationUpVote(ctx context.Context, nrec *Notif
 
 	rsub := "at://" + postAuthor.Did + "/app.bsky.feed.post/" + votedOn.Rkey
 
-	return &appbskytypes.NotificationList_Notification{
+	return &appbskytypes.NotificationListNotifications_Notification{
 		Record:        lexutil.LexiconTypeDecoder{Val: rec},
 		IsRead:        nrec.CreatedAt.Before(lastSeen),
 		IndexedAt:     nrec.CreatedAt.Format(time.RFC3339),
@@ -185,7 +186,7 @@ func (nm *DBNotifMan) hydrateNotificationUpVote(ctx context.Context, nrec *Notif
 	}, nil
 }
 
-func (nm *DBNotifMan) hydrateNotificationRepost(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
+func (nm *DBNotifMan) hydrateNotificationRepost(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationListNotifications_Notification, error) {
 	var reposted models.FeedPost
 	if err := nm.db.First(&reposted, "id = ?", nrec.Record).Error; err != nil {
 		return nil, err
@@ -213,7 +214,7 @@ func (nm *DBNotifMan) hydrateNotificationRepost(ctx context.Context, nrec *Notif
 
 	rsub := "at://" + postAuthor.Did + "/app.bsky.feed.post/" + reposted.Rkey
 
-	return &appbskytypes.NotificationList_Notification{
+	return &appbskytypes.NotificationListNotifications_Notification{
 		Record:        lexutil.LexiconTypeDecoder{rec},
 		IsRead:        nrec.CreatedAt.Before(lastSeen),
 		IndexedAt:     nrec.CreatedAt.Format(time.RFC3339),
@@ -225,7 +226,7 @@ func (nm *DBNotifMan) hydrateNotificationRepost(ctx context.Context, nrec *Notif
 	}, nil
 }
 
-func (nm *DBNotifMan) hydrateNotificationReply(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
+func (nm *DBNotifMan) hydrateNotificationReply(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationListNotifications_Notification, error) {
 	var fp models.FeedPost
 	if err := nm.db.First(&fp, "id = ?", nrec.Record).Error; err != nil {
 		return nil, err
@@ -253,7 +254,7 @@ func (nm *DBNotifMan) hydrateNotificationReply(ctx context.Context, nrec *NotifR
 
 	rsub := "at://" + opAuthor.Did + "/app.bsky.feed.post/" + replyTo.Rkey
 
-	return &appbskytypes.NotificationList_Notification{
+	return &appbskytypes.NotificationListNotifications_Notification{
 		Record:        lexutil.LexiconTypeDecoder{rec},
 		IsRead:        nrec.CreatedAt.Before(lastSeen),
 		IndexedAt:     nrec.CreatedAt.Format(time.RFC3339),
@@ -265,7 +266,7 @@ func (nm *DBNotifMan) hydrateNotificationReply(ctx context.Context, nrec *NotifR
 	}, nil
 }
 
-func (nm *DBNotifMan) hydrateNotificationFollow(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationList_Notification, error) {
+func (nm *DBNotifMan) hydrateNotificationFollow(ctx context.Context, nrec *NotifRecord, lastSeen time.Time) (*appbskytypes.NotificationListNotifications_Notification, error) {
 	var frec models.FollowRecord
 	if err := nm.db.First(&frec, "id = ?", nrec.Record).Error; err != nil {
 		return nil, err
@@ -281,7 +282,7 @@ func (nm *DBNotifMan) hydrateNotificationFollow(ctx context.Context, nrec *Notif
 		return nil, err
 	}
 
-	return &appbskytypes.NotificationList_Notification{
+	return &appbskytypes.NotificationListNotifications_Notification{
 		Record:    lexutil.LexiconTypeDecoder{rec},
 		IsRead:    nrec.CreatedAt.Before(lastSeen),
 		IndexedAt: nrec.CreatedAt.Format(time.RFC3339),

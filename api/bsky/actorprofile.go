@@ -16,48 +16,5 @@ type ActorProfile struct {
 	Avatar        *util.Blob `json:"avatar,omitempty" cborgen:"avatar"`
 	Banner        *util.Blob `json:"banner,omitempty" cborgen:"banner"`
 	Description   *string    `json:"description,omitempty" cborgen:"description"`
-	DisplayName   string     `json:"displayName" cborgen:"displayName"`
-}
-
-type ActorProfile_MyState struct {
-	LexiconTypeID string  `json:"$type,omitempty"`
-	Follow        *string `json:"follow,omitempty" cborgen:"follow"`
-	Muted         *bool   `json:"muted,omitempty" cborgen:"muted"`
-}
-
-type ActorProfile_View struct {
-	LexiconTypeID  string                    `json:"$type,omitempty"`
-	Avatar         *string                   `json:"avatar,omitempty" cborgen:"avatar"`
-	Banner         *string                   `json:"banner,omitempty" cborgen:"banner"`
-	Creator        string                    `json:"creator" cborgen:"creator"`
-	Declaration    *SystemDeclRef            `json:"declaration" cborgen:"declaration"`
-	Description    *string                   `json:"description,omitempty" cborgen:"description"`
-	Did            string                    `json:"did" cborgen:"did"`
-	DisplayName    *string                   `json:"displayName,omitempty" cborgen:"displayName"`
-	FollowersCount int64                     `json:"followersCount" cborgen:"followersCount"`
-	FollowsCount   int64                     `json:"followsCount" cborgen:"followsCount"`
-	Handle         string                    `json:"handle" cborgen:"handle"`
-	IndexedAt      *string                   `json:"indexedAt,omitempty" cborgen:"indexedAt"`
-	MyState        *ActorProfile_MyState     `json:"myState,omitempty" cborgen:"myState"`
-	PostsCount     int64                     `json:"postsCount" cborgen:"postsCount"`
-	Viewer         *ActorProfile_ViewerState `json:"viewer,omitempty" cborgen:"viewer"`
-}
-
-type ActorProfile_ViewBasic struct {
-	LexiconTypeID string                    `json:"$type,omitempty"`
-	Avatar        *string                   `json:"avatar,omitempty" cborgen:"avatar"`
-	Declaration   *SystemDeclRef            `json:"declaration" cborgen:"declaration"`
-	Description   *string                   `json:"description,omitempty" cborgen:"description"`
-	Did           string                    `json:"did" cborgen:"did"`
-	DisplayName   *string                   `json:"displayName,omitempty" cborgen:"displayName"`
-	Handle        string                    `json:"handle" cborgen:"handle"`
-	IndexedAt     *string                   `json:"indexedAt,omitempty" cborgen:"indexedAt"`
-	Viewer        *ActorProfile_ViewerState `json:"viewer,omitempty" cborgen:"viewer"`
-}
-
-type ActorProfile_ViewerState struct {
-	LexiconTypeID string  `json:"$type,omitempty"`
-	FollowedBy    *string `json:"followedBy,omitempty" cborgen:"followedBy"`
-	Following     *string `json:"following,omitempty" cborgen:"following"`
-	Muted         *bool   `json:"muted,omitempty" cborgen:"muted"`
+	DisplayName   *string    `json:"displayName,omitempty" cborgen:"displayName"`
 }

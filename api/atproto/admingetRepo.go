@@ -10,8 +10,8 @@ import (
 
 func init() {
 }
-func AdminGetRepo(ctx context.Context, c *xrpc.Client, did string) (*AdminRepo_ViewDetail, error) {
-	var out AdminRepo_ViewDetail
+func AdminGetRepo(ctx context.Context, c *xrpc.Client, did string) (*AdminDefs_RepoViewDetail, error) {
+	var out AdminDefs_RepoViewDetail
 
 	params := map[string]interface{}{
 		"did": did,
