@@ -25,6 +25,7 @@ import (
 	util "github.com/bluesky-social/indigo/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
 
+	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -339,10 +340,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 		return err
 	}
 
-	now := time.Now()
-	nowStr := now.Format(util.ISO8601)
 	labels := []label.Label{}
-
 	for _, op := range evt.RepoCommit.Ops {
 		uri := "at://" + evt.RepoCommit.Repo + "/" + op.Path
 		nsid := strings.SplitN(op.Path, "/", 2)[0]
@@ -368,7 +366,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 					Src: s.user.Did,
 					Uri: "at://" + evt.RepoCommit.Repo,
 					Val: val,
-					Cts: nowStr,
+					//Cts
 				})
 			} else {
 				labels = append(labels, label.Label{
@@ -376,53 +374,17 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 					Uri: uri,
 					Cid: &cidStr,
 					Val: val,
-					Cts: nowStr,
+					//Cts
 				})
 			}
 		}
 	}
 
-	// if any labels generated, persist them to repo...
-	for _, l := range labels {
-		path, _, err := s.repoman.CreateRecord(ctx, s.user.UserId, "com.atproto.label.label", &l)
-		if err != nil {
-			return fmt.Errorf("failed to persist label in local repo: %w", err)
-		}
-		labeluri := "at://" + s.user.Did + "/" + path
-		log.Infof("persisted label: %s", labeluri)
+	// persist and emit events, as needed
+	if err := s.CommitLabels(ctx, labels, false); err != nil {
+		return err
 	}
 
-	// ... and database ...
-	var labelRows []models.Label
-	for _, l := range labels {
-		lr := models.Label{
-			Uri:       l.Uri,
-			SourceDid: l.Src,
-			Cid:       l.Cid,
-			Val:       l.Val,
-			CreatedAt: now,
-		}
-		labelRows = append(labelRows, lr)
-	}
-	if len(labelRows) > 0 {
-		// TODO(bnewbold): don't clobber action labels (aka, human interventions)
-		s.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&labelRows)
-	}
-
-	// ... then re-publish as XRPCStreamEvent
-	log.Infof("broadcasting labels: %s", labels)
-	if len(labels) > 0 {
-		lev := events.XRPCStreamEvent{
-			LabelBatch: &events.LabelBatch{
-				// NOTE(bnewbold): seems like other code handles Seq field automatically
-				Labels: labels,
-			},
-		}
-		err = s.evtmgr.AddEvent(ctx, &lev)
-		if err != nil {
-			return fmt.Errorf("failed to publish XRPCStreamEvent: %w", err)
-		}
-	}
 	// TODO(bnewbold): persist state that we successfully processed the repo event (aka,
 	// persist "last" seq in database, or something like that). also above, at
 	// the short-circuit
