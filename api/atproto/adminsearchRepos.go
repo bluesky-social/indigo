@@ -12,16 +12,16 @@ func init() {
 }
 
 type AdminSearchRepos_Output struct {
-	LexiconTypeID string            `json:"$type,omitempty"`
-	Cursor        *string           `json:"cursor,omitempty" cborgen:"cursor"`
-	Repos         []*AdminRepo_View `json:"repos" cborgen:"repos"`
+	LexiconTypeID string                `json:"$type,omitempty"`
+	Cursor        *string               `json:"cursor,omitempty" cborgen:"cursor"`
+	Repos         []*AdminDefs_RepoView `json:"repos" cborgen:"repos"`
 }
 
-func AdminSearchRepos(ctx context.Context, c *xrpc.Client, before string, limit int64, term string) (*AdminSearchRepos_Output, error) {
+func AdminSearchRepos(ctx context.Context, c *xrpc.Client, cursor string, limit int64, term string) (*AdminSearchRepos_Output, error) {
 	var out AdminSearchRepos_Output
 
 	params := map[string]interface{}{
-		"before": before,
+		"cursor": cursor,
 		"limit":  limit,
 		"term":   term,
 	}

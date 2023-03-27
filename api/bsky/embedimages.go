@@ -20,12 +20,12 @@ type EmbedImages_Image struct {
 	Image         *util.Blob `json:"image" cborgen:"image"`
 }
 
-type EmbedImages_Presented struct {
-	LexiconTypeID string                        `json:"$type,omitempty"`
-	Images        []*EmbedImages_PresentedImage `json:"images" cborgen:"images"`
+type EmbedImages_View struct {
+	LexiconTypeID string                   `json:"$type,omitempty"`
+	Value         []*EmbedImages_ViewImage `json:"value" cborgen:"value"`
 }
 
-type EmbedImages_PresentedImage struct {
+type EmbedImages_ViewImage struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Alt           string `json:"alt" cborgen:"alt"`
 	Fullsize      string `json:"fullsize" cborgen:"fullsize"`

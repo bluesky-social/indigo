@@ -235,7 +235,6 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 		Handle:      handle,
 		DisplayName: *profile.DisplayName,
 		Did:         did,
-		DeclRefCid:  profile.Declaration.Cid,
 		Type:        "",
 		PDS:         peering.ID,
 	}

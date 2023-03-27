@@ -37,7 +37,7 @@ type ReadRecordFunc func(context.Context, bsutil.Uid, cid.Cid) (lexutil.CBOR, er
 /*
 type HydratedFeedItem struct {
 	Uri           string
-	RepostedBy    *bsky.ActorRef_WithInfo
+	RepostedBy    *bsky.ActorDefs_WithInfo
 	Record        any
 	ReplyCount    int64
 	RepostCount   int64
@@ -45,15 +45,15 @@ type HydratedFeedItem struct {
 	DownvoteCount int64
 	MyState       *bsky.FeedGetAuthorFeed_MyState
 	Cid       string
-	Author    *bsky.ActorRef_WithInfo
-	TrendedBy *bsky.ActorRef_WithInfo
+	Author    *bsky.ActorDefs_WithInfo
+	TrendedBy *bsky.ActorDefs_WithInfo
 	Embed     *bsky.FeedEmbed
 	IndexedAt string
 }
 */
 
-func (fg *FeedGenerator) hydrateFeed(ctx context.Context, items []*models.FeedPost, reposts []*models.RepostRecord) ([]*bsky.FeedFeedViewPost, error) {
-	out := make([]*bsky.FeedFeedViewPost, 0, len(items))
+func (fg *FeedGenerator) hydrateFeed(ctx context.Context, items []*models.FeedPost, reposts []*models.RepostRecord) ([]*bsky.FeedDefs_FeedViewPost, error) {
+	out := make([]*bsky.FeedDefs_FeedViewPost, 0, len(items))
 	for _, it := range items {
 		hit, err := fg.hydrateItem(ctx, it)
 		if err != nil {
@@ -80,8 +80,8 @@ func (fg *FeedGenerator) hydrateFeed(ctx context.Context, items []*models.FeedPo
 				return nil, err
 			}
 
-			fvp.Reason = &bsky.FeedFeedViewPost_Reason{
-				FeedFeedViewPost_ReasonRepost: &bsky.FeedFeedViewPost_ReasonRepost{
+			fvp.Reason = &bsky.FeedDefs_FeedViewPost_Reason{
+				FeedDefs_ReasonRepost: &bsky.FeedDefs_ReasonRepost{
 					By:        reposter,
 					IndexedAt: rp.CreatedAt.Format(time.RFC3339),
 				},
@@ -104,7 +104,7 @@ func (fg *FeedGenerator) didForUser(ctx context.Context, user bsutil.Uid) (strin
 	return ai.Did, nil
 }
 
-func (fg *FeedGenerator) getActorRefInfo(ctx context.Context, user bsutil.Uid) (*bsky.ActorRef_WithInfo, error) {
+func (fg *FeedGenerator) getActorRefInfo(ctx context.Context, user bsutil.Uid) (*bsky.ActorDefs_WithInfo, error) {
 	// TODO: cache the shit out of this too
 	var ai models.ActorInfo
 	if err := fg.db.First(&ai, "uid = ?", user).Error; err != nil {
@@ -114,22 +114,21 @@ func (fg *FeedGenerator) getActorRefInfo(ctx context.Context, user bsutil.Uid) (
 	return ai.ActorRef(), nil
 }
 
-func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *models.FeedPost) (*bsky.FeedFeedViewPost, error) {
+func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *models.FeedPost) (*bsky.FeedDefs_FeedViewPost, error) {
 	authorDid, err := fg.didForUser(ctx, item.Author)
 	if err != nil {
 		return nil, err
 	}
 
-	out := &bsky.FeedFeedViewPost{}
+	out := &bsky.FeedDefs_FeedViewPost{}
 
-	out.Post = &bsky.FeedPost_View{
-		Uri:           "at://" + authorDid + "/app.bsky.feed.post/" + item.Rkey,
-		ReplyCount:    item.ReplyCount,
-		RepostCount:   item.RepostCount,
-		UpvoteCount:   item.UpCount,
-		DownvoteCount: 0,
-		Cid:           item.Cid,
-		IndexedAt:     item.UpdatedAt.Format(time.RFC3339),
+	out.Post = &bsky.FeedDefs_PostView{
+		Uri:         "at://" + authorDid + "/app.bsky.feed.post/" + item.Rkey,
+		ReplyCount:  &item.ReplyCount,
+		RepostCount: &item.RepostCount,
+		LikeCount:   &item.UpCount,
+		Cid:         item.Cid,
+		IndexedAt:   item.UpdatedAt.Format(time.RFC3339),
 	}
 
 	author, err := fg.getActorRefInfo(ctx, item.Author)
@@ -154,8 +153,8 @@ func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *models.FeedPost)
 	return out, nil
 }
 
-func (fg *FeedGenerator) getPostViewerState(ctx context.Context, item uint, viewer bsutil.Uid, viewerDid string) (*bsky.FeedPost_ViewerState, error) {
-	var out bsky.FeedPost_ViewerState
+func (fg *FeedGenerator) getPostViewerState(ctx context.Context, item uint, viewer bsutil.Uid, viewerDid string) (*bsky.FeedDefs_ViewerState, error) {
+	var out bsky.FeedDefs_ViewerState
 
 	var vote models.VoteRecord
 	if err := fg.db.Find(&vote, "post = ? AND voter = ?", item, viewer).Error; err != nil {
@@ -164,12 +163,7 @@ func (fg *FeedGenerator) getPostViewerState(ctx context.Context, item uint, view
 
 	if vote.ID != 0 {
 		vuri := fmt.Sprintf("at://%s/app.bsky.feed.vote/%s", viewerDid, vote.Rkey)
-		switch vote.Dir {
-		case models.VoteDirUp:
-			out.Upvote = &vuri
-		case models.VoteDirDown:
-			out.Downvote = &vuri
-		}
+		out.Like = &vuri
 	}
 
 	var rep models.RepostRecord
@@ -185,7 +179,7 @@ func (fg *FeedGenerator) getPostViewerState(ctx context.Context, item uint, view
 	return &out, nil
 }
 
-func (fg *FeedGenerator) GetTimeline(ctx context.Context, user *User, algo string, before string, limit int) ([]*bsky.FeedFeedViewPost, error) {
+func (fg *FeedGenerator) GetTimeline(ctx context.Context, user *User, algo string, before string, limit int) ([]*bsky.FeedDefs_FeedViewPost, error) {
 	ctx, span := otel.Tracer("feedgen").Start(context.Background(), "GetTimeline")
 	defer span.End()
 
@@ -219,7 +213,7 @@ func (fg *FeedGenerator) GetTimeline(ctx context.Context, user *User, algo strin
 	return fg.personalizeFeed(ctx, fout, user)
 }
 
-func (fg *FeedGenerator) personalizeFeed(ctx context.Context, feed []*bsky.FeedFeedViewPost, viewer *User) ([]*bsky.FeedFeedViewPost, error) {
+func (fg *FeedGenerator) personalizeFeed(ctx context.Context, feed []*bsky.FeedDefs_FeedViewPost, viewer *User) ([]*bsky.FeedDefs_FeedViewPost, error) {
 	for _, p := range feed {
 
 		// TODO: its inefficient to have to call 'GetPost' again here when we could instead be doing that inside the 'hydrateFeed' call earlier.
@@ -244,7 +238,7 @@ func (fg *FeedGenerator) personalizeFeed(ctx context.Context, feed []*bsky.FeedF
 	return feed, nil
 }
 
-func (fg *FeedGenerator) GetAuthorFeed(ctx context.Context, user *User, before string, limit int) ([]*bsky.FeedFeedViewPost, error) {
+func (fg *FeedGenerator) GetAuthorFeed(ctx context.Context, user *User, before string, limit int) ([]*bsky.FeedDefs_FeedViewPost, error) {
 	ctx, span := otel.Tracer("feedgen").Start(context.Background(), "GetAuthorFeed")
 	defer span.End()
 
@@ -294,7 +288,7 @@ func (fg *FeedGenerator) GetActorProfile(ctx context.Context, actor string) (*mo
 }
 
 type ThreadPost struct {
-	Post   *bsky.FeedFeedViewPost
+	Post   *bsky.FeedDefs_FeedViewPost
 	PostID uint
 
 	ParentUri string
@@ -339,7 +333,7 @@ func (fg *FeedGenerator) GetPostThread(ctx context.Context, uri string, depth in
 }
 
 type HydratedVote struct {
-	Actor     *bsky.ActorRef_WithInfo
+	Actor     *bsky.ActorDefs_WithInfo
 	Direction string
 	IndexedAt time.Time
 	CreatedAt string
@@ -359,7 +353,7 @@ func (fg *FeedGenerator) hydrateVote(ctx context.Context, v *models.VoteRecord) 
 	}, nil
 }
 
-func (fg *FeedGenerator) GetVotes(ctx context.Context, uri string, pcid cid.Cid, dir string, limit int, before string) ([]*HydratedVote, error) {
+func (fg *FeedGenerator) GetVotes(ctx context.Context, uri string, pcid cid.Cid, limit int, before string) ([]*HydratedVote, error) {
 	if before != "" {
 		log.Warn("not respecting 'before' yet")
 	}
@@ -373,18 +367,8 @@ func (fg *FeedGenerator) GetVotes(ctx context.Context, uri string, pcid cid.Cid,
 		return nil, fmt.Errorf("listing likes of old post versions not supported")
 	}
 
-	var dbdir models.VoteDir
-	switch dir {
-	case "up":
-		dbdir = models.VoteDirUp
-	case "down":
-		dbdir = models.VoteDirDown
-	default:
-		return nil, fmt.Errorf("there are only two directions, up or down")
-	}
-
 	var voterecs []models.VoteRecord
-	if err := fg.db.Limit(limit).Find(&voterecs, "dir = ? AND post = ?", dbdir, p.ID).Error; err != nil {
+	if err := fg.db.Limit(limit).Find(&voterecs, "post = ?", p.ID).Error; err != nil {
 		return nil, err
 	}
 
@@ -401,8 +385,8 @@ func (fg *FeedGenerator) GetVotes(ctx context.Context, uri string, pcid cid.Cid,
 }
 
 type FollowInfo struct {
-	Follower  *bsky.ActorRef_WithInfo
-	Subject   *bsky.ActorRef_WithInfo
+	Follower  *bsky.ActorDefs_WithInfo
+	Subject   *bsky.ActorDefs_WithInfo
 	CreatedAt string
 	IndexedAt string
 }

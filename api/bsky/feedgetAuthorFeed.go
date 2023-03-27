@@ -12,17 +12,17 @@ func init() {
 }
 
 type FeedGetAuthorFeed_Output struct {
-	LexiconTypeID string              `json:"$type,omitempty"`
-	Cursor        *string             `json:"cursor,omitempty" cborgen:"cursor"`
-	Feed          []*FeedFeedViewPost `json:"feed" cborgen:"feed"`
+	LexiconTypeID string                   `json:"$type,omitempty"`
+	Cursor        *string                  `json:"cursor,omitempty" cborgen:"cursor"`
+	Feed          []*FeedDefs_FeedViewPost `json:"feed" cborgen:"feed"`
 }
 
-func FeedGetAuthorFeed(ctx context.Context, c *xrpc.Client, author string, before string, limit int64) (*FeedGetAuthorFeed_Output, error) {
+func FeedGetAuthorFeed(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*FeedGetAuthorFeed_Output, error) {
 	var out FeedGetAuthorFeed_Output
 
 	params := map[string]interface{}{
-		"author": author,
-		"before": before,
+		"actor":  actor,
+		"cursor": cursor,
 		"limit":  limit,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getAuthorFeed", params, nil, &out); err != nil {

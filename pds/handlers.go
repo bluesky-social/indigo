@@ -14,81 +14,29 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
-func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string) (*appbskytypes.ActorProfile_View, error) {
+func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string) (*appbskytypes.ActorDefs_ProfileView, error) {
 	profile, err := s.feedgen.GetActorProfile(ctx, actor)
 	if err != nil {
 		return nil, err
 	}
 
-	return &appbskytypes.ActorProfile_View{
-		MyState: nil, //*ActorGetProfile_MyState `json:"myState" cborgen:"myState"`
-		Did:     profile.Did,
-		Declaration: &appbskytypes.SystemDeclRef{
-			Cid:       profile.DeclRefCid,
-			ActorType: profile.Type,
-		},
+	return &appbskytypes.ActorDefs_ProfileView{
+		Viewer:         nil, //*ActorGetProfile_MyState `json:"myState" cborgen:"myState"`
+		Did:            profile.Did,
 		Description:    nil,
-		PostsCount:     profile.Posts,
-		FollowsCount:   profile.Following,
+		PostsCount:     &profile.Posts,
+		FollowsCount:   &profile.Following,
 		Handle:         profile.Handle,
-		Creator:        "", //TODO:
 		DisplayName:    &profile.DisplayName,
-		FollowersCount: profile.Followers,
+		FollowersCount: &profile.Followers,
 	}, nil
 }
 
 func (s *Server) handleAppBskyActorGetSuggestions(ctx context.Context, cursor string, limit int) (*appbskytypes.ActorGetSuggestions_Output, error) {
 
 	var out appbskytypes.ActorGetSuggestions_Output
-	out.Actors = []*appbskytypes.ActorProfile_ViewBasic{}
+	out.Actors = []*appbskytypes.ActorDefs_ProfileViewBasic{}
 	return &out, nil
-}
-
-func (s *Server) handleAppBskyActorSearch(ctx context.Context, before string, limit int, term string) (*appbskytypes.ActorSearch_Output, error) {
-	panic("not yet implemented")
-}
-
-func (s *Server) handleAppBskyActorSearchTypeahead(ctx context.Context, limit int, term string) (*appbskytypes.ActorSearchTypeahead_Output, error) {
-	panic("not yet implemented")
-}
-
-func (s *Server) handleAppBskyActorUpdateProfile(ctx context.Context, input *appbskytypes.ActorUpdateProfile_Input) (*appbskytypes.ActorUpdateProfile_Output, error) {
-	u, err := s.getUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	profile, err := s.repoman.GetProfile(ctx, u.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	if input.DisplayName != nil {
-		profile.DisplayName = *input.DisplayName
-	}
-
-	if input.DisplayName != nil {
-		profile.Description = input.Description
-	}
-
-	if input.Avatar != nil {
-		profile.Avatar = input.Avatar
-	}
-
-	if input.Banner != nil {
-		profile.Banner = input.Banner
-	}
-
-	ncid, err := s.repoman.UpdateRecord(ctx, u.ID, "app.bsky.actor.profile", "self", profile)
-	if err != nil {
-		return nil, err
-	}
-
-	return &appbskytypes.ActorUpdateProfile_Output{
-		Cid:    ncid.String(),
-		Uri:    "at://" + u.Did + "/app.bsky.actor.profile/self",
-		Record: lexutil.LexiconTypeDecoder{profile},
-	}, nil
 }
 
 func (s *Server) handleAppBskyFeedGetAuthorFeed(ctx context.Context, author string, before string, limit int) (*appbskytypes.FeedGetAuthorFeed_Output, error) {
@@ -133,8 +81,8 @@ func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth *int,
 
 	fmt.Println("TODO: replies")
 
-	var convertToOutputType func(thr *ThreadPost) (*appbskytypes.FeedGetPostThread_ThreadViewPost, error)
-	convertToOutputType = func(thr *ThreadPost) (*appbskytypes.FeedGetPostThread_ThreadViewPost, error) {
+	var convertToOutputType func(thr *ThreadPost) (*appbskytypes.FeedDefs_ThreadViewPost, error)
+	convertToOutputType = func(thr *ThreadPost) (*appbskytypes.FeedDefs_ThreadViewPost, error) {
 		p := thr.Post
 
 		vs, err := s.feedgen.getPostViewerState(ctx, thr.PostID, u.ID, u.Did)
@@ -144,14 +92,14 @@ func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth *int,
 
 		p.Post.Viewer = vs
 
-		out := &appbskytypes.FeedGetPostThread_ThreadViewPost{
+		out := &appbskytypes.FeedDefs_ThreadViewPost{
 			Post: p.Post,
 		}
 
 		if thr.ParentUri != "" {
 			if thr.Parent == nil {
-				out.Parent = &appbskytypes.FeedGetPostThread_ThreadViewPost_Parent{
-					FeedGetPostThread_NotFoundPost: &appbskytypes.FeedGetPostThread_NotFoundPost{
+				out.Parent = &appbskytypes.FeedDefs_ThreadViewPost_Parent{
+					FeedDefs_NotFoundPost: &appbskytypes.FeedDefs_NotFoundPost{
 						Uri:      thr.ParentUri,
 						NotFound: true,
 					},
@@ -162,8 +110,8 @@ func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth *int,
 					return nil, err
 				}
 
-				out.Parent = &appbskytypes.FeedGetPostThread_ThreadViewPost_Parent{
-					FeedGetPostThread_ThreadViewPost: othr,
+				out.Parent = &appbskytypes.FeedDefs_ThreadViewPost_Parent{
+					FeedDefs_ThreadViewPost: othr,
 				}
 			}
 		}
@@ -178,7 +126,7 @@ func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth *int,
 
 	out := appbskytypes.FeedGetPostThread_Output{
 		Thread: &appbskytypes.FeedGetPostThread_Output_Thread{
-			FeedGetPostThread_ThreadViewPost: othr,
+			FeedDefs_ThreadViewPost: othr,
 			//FeedGetPostThread_NotFoundPost: &appbskytypes.FeedGetPostThread_NotFoundPost{},
 		},
 	}
@@ -207,25 +155,25 @@ func (s *Server) handleAppBskyFeedGetTimeline(ctx context.Context, algorithm str
 	return &out, nil
 }
 
-func (s *Server) handleAppBskyFeedGetVotes(ctx context.Context, before string, cc string, direction string, limit int, uri string) (*appbskytypes.FeedGetVotes_Output, error) {
+func (s *Server) handleAppBskyFeedGetLikes(ctx context.Context, cc string, cursor string, limit int, uri string) (*appbskytypes.FeedGetLikes_Output, error) {
+	// func (s *Server) handleAppBskyFeedGetLikes(ctx context.Context,cid string,cursor string,limit int,uri string) (*appbskytypes.FeedGetLikes_Output, error)
 	pcid, err := cid.Decode(cc)
 	if err != nil {
 		return nil, err
 	}
 
-	votes, err := s.feedgen.GetVotes(ctx, uri, pcid, direction, limit, before)
+	votes, err := s.feedgen.GetVotes(ctx, uri, pcid, limit, cursor)
 	if err != nil {
 		return nil, err
 	}
 
-	var out appbskytypes.FeedGetVotes_Output
+	var out appbskytypes.FeedGetLikes_Output
 	out.Uri = uri
-	out.Votes = []*appbskytypes.FeedGetVotes_Vote{}
+	out.Likes = []*appbskytypes.FeedGetLikes_Like{}
 
 	for _, v := range votes {
-		out.Votes = append(out.Votes, &appbskytypes.FeedGetVotes_Vote{
+		out.Likes = append(out.Likes, &appbskytypes.FeedGetLikes_Like{
 			Actor:     v.Actor,
-			Direction: v.Direction,
 			IndexedAt: v.IndexedAt.Format(time.RFC3339),
 			CreatedAt: v.CreatedAt,
 		})
@@ -234,49 +182,17 @@ func (s *Server) handleAppBskyFeedGetVotes(ctx context.Context, before string, c
 	return &out, nil
 }
 
-func (s *Server) handleAppBskyFeedSetVote(ctx context.Context, input *appbskytypes.FeedSetVote_Input) (*appbskytypes.FeedSetVote_Output, error) {
-	u, err := s.getUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: check subject actually exists maybe?
-	vote := &appbskytypes.FeedVote{
-		Direction: input.Direction,
-		CreatedAt: time.Now().Format(time.RFC3339),
-		Subject:   input.Subject,
-	}
-
-	rpath, _, err := s.repoman.CreateRecord(ctx, u.ID, "app.bsky.feed.vote", vote)
-	if err != nil {
-		return nil, err
-	}
-
-	uri := "at://" + u.Did + "/" + rpath
-	if input.Direction == "up" {
-		return &appbskytypes.FeedSetVote_Output{
-			Upvote: &uri,
-		}, nil
-	} else if input.Direction == "down" {
-		return &appbskytypes.FeedSetVote_Output{
-			Downvote: &uri,
-		}, nil
-	} else {
-		return nil, fmt.Errorf("strange place to catch an invalid vote direction")
-	}
-}
-
-func (s *Server) handleAppBskyGraphGetFollowers(ctx context.Context, before string, limit int, user string) (*appbskytypes.GraphGetFollowers_Output, error) {
+func (s *Server) handleAppBskyGraphGetFollowers(ctx context.Context, actor string, cursor string, limit int) (*appbskytypes.GraphGetFollowers_Output, error) {
 	panic("not yet implemented")
 }
 
-func (s *Server) handleAppBskyGraphGetFollows(ctx context.Context, before string, limit int, user string) (*appbskytypes.GraphGetFollows_Output, error) {
-	follows, err := s.feedgen.GetFollows(ctx, user, limit, before)
+func (s *Server) handleAppBskyGraphGetFollows(ctx context.Context, actor string, cursor string, limit int) (*appbskytypes.GraphGetFollows_Output, error) {
+	follows, err := s.feedgen.GetFollows(ctx, actor, limit, cursor)
 	if err != nil {
 		return nil, err
 	}
 
-	ai, err := s.feedgen.GetActorProfile(ctx, user)
+	ai, err := s.feedgen.GetActorProfile(ctx, actor)
 	if err != nil {
 		return nil, err
 	}
@@ -284,10 +200,9 @@ func (s *Server) handleAppBskyGraphGetFollows(ctx context.Context, before string
 	var out appbskytypes.GraphGetFollows_Output
 	out.Subject = ai.ActorRef()
 
-	out.Follows = []*appbskytypes.ActorRef_WithInfo{}
+	out.Follows = []*appbskytypes.ActorDefs_WithInfo{}
 	for _, f := range follows {
-		out.Follows = append(out.Follows, &appbskytypes.ActorRef_WithInfo{
-			Declaration: f.Subject.Declaration,
+		out.Follows = append(out.Follows, &appbskytypes.ActorDefs_WithInfo{
 			Handle:      f.Subject.Handle,
 			DisplayName: f.Subject.DisplayName,
 			Did:         f.Subject.Did,
@@ -301,15 +216,15 @@ func (s *Server) handleAppBskyGraphGetMutes(ctx context.Context, before string, 
 	panic("not yet implemented")
 }
 
-func (s *Server) handleAppBskyGraphMute(ctx context.Context, input *appbskytypes.GraphMute_Input) error {
+func (s *Server) handleAppBskyGraphMuteActor(ctx context.Context, input *appbskytypes.GraphMuteActor_Input) error {
 	panic("not yet implemented")
 }
 
-func (s *Server) handleAppBskyGraphUnmute(ctx context.Context, input *appbskytypes.GraphUnmute_Input) error {
+func (s *Server) handleAppBskyGraphUnmuteActor(ctx context.Context, input *appbskytypes.GraphUnmuteActor_Input) error {
 	panic("not yet implemented")
 }
 
-func (s *Server) handleAppBskyNotificationGetCount(ctx context.Context) (*appbskytypes.NotificationGetCount_Output, error) {
+func (s *Server) handleAppBskyNotificationGetUnreadCount(ctx context.Context) (*appbskytypes.NotificationGetUnreadCount_Output, error) {
 	u, err := s.getUser(ctx)
 	if err != nil {
 		return nil, err
@@ -321,12 +236,12 @@ func (s *Server) handleAppBskyNotificationGetCount(ctx context.Context) (*appbsk
 	}
 
 	fmt.Println("notif count: ", u.Handle, count)
-	return &appbskytypes.NotificationGetCount_Output{
+	return &appbskytypes.NotificationGetUnreadCount_Output{
 		Count: count,
 	}, nil
 }
 
-func (s *Server) handleAppBskyNotificationList(ctx context.Context, before string, limit int) (*appbskytypes.NotificationList_Output, error) {
+func (s *Server) handleAppBskyNotificationListNotifications(ctx context.Context, cursor string, limit int) (*appbskytypes.NotificationListNotifications_Output, error) {
 	u, err := s.getUser(ctx)
 	if err != nil {
 		return nil, err
@@ -337,7 +252,7 @@ func (s *Server) handleAppBskyNotificationList(ctx context.Context, before strin
 		return nil, err
 	}
 
-	return &appbskytypes.NotificationList_Output{
+	return &appbskytypes.NotificationListNotifications_Output{
 		Notifications: notifs,
 	}, nil
 }
@@ -356,17 +271,17 @@ func (s *Server) handleAppBskyNotificationUpdateSeen(ctx context.Context, input 
 	return s.notifman.UpdateSeen(ctx, u.ID, seen)
 }
 
-func (s *Server) handleComAtprotoAccountCreate(ctx context.Context, input *comatprototypes.AccountCreate_Input) (*comatprototypes.AccountCreate_Output, error) {
+func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *comatprototypes.ServerCreateAccount_Input) (*comatprototypes.ServerCreateAccount_Output, error) {
 
-	if err := validateEmail(input.Email); err != nil {
+	if err := validateEmail(body.Email); err != nil {
 		return nil, err
 	}
 
-	if err := s.validateHandle(input.Handle); err != nil {
+	if err := s.validateHandle(body.Handle); err != nil {
 		return nil, err
 	}
 
-	_, err := s.lookupUserByHandle(ctx, input.Handle)
+	_, err := s.lookupUserByHandle(ctx, body.Handle)
 	switch err {
 	default:
 		return nil, err
@@ -377,15 +292,15 @@ func (s *Server) handleComAtprotoAccountCreate(ctx context.Context, input *comat
 	}
 
 	var recoveryKey string
-	if input.RecoveryKey != nil {
-		recoveryKey = *input.RecoveryKey
+	if body.RecoveryKey != nil {
+		recoveryKey = *body.RecoveryKey
 	}
 
 	u := User{
-		Handle:      input.Handle,
-		Password:    input.Password,
+		Handle:      body.Handle,
+		Password:    body.Password,
 		RecoveryKey: recoveryKey,
-		Email:       input.Email,
+		Email:       body.Email,
 	}
 	if err := s.db.Create(&u).Error; err != nil {
 		return nil, err
@@ -395,7 +310,7 @@ func (s *Server) handleComAtprotoAccountCreate(ctx context.Context, input *comat
 		recoveryKey = s.signingKey.Public().DID()
 	}
 
-	d, err := s.plc.CreateDID(ctx, s.signingKey, recoveryKey, input.Handle, s.serviceUrl)
+	d, err := s.plc.CreateDID(ctx, s.signingKey, recoveryKey, body.Handle, s.serviceUrl)
 	if err != nil {
 		return nil, fmt.Errorf("create did: %w", err)
 	}
@@ -409,20 +324,20 @@ func (s *Server) handleComAtprotoAccountCreate(ctx context.Context, input *comat
 		return nil, err
 	}
 
-	tok, err := s.createAuthTokenForUser(ctx, input.Handle, d)
+	tok, err := s.createAuthTokenForUser(ctx, body.Handle, d)
 	if err != nil {
 		return nil, err
 	}
 
-	return &comatprototypes.AccountCreate_Output{
-		Handle:     input.Handle,
+	return &comatprototypes.ServerCreateAccount_Output{
+		Handle:     body.Handle,
 		Did:        d,
 		AccessJwt:  tok.AccessJwt,
 		RefreshJwt: tok.RefreshJwt,
 	}, nil
 }
 
-func (s *Server) handleComAtprotoAccountCreateInviteCode(ctx context.Context, input *comatprototypes.AccountCreateInviteCode_Input) (*comatprototypes.AccountCreateInviteCode_Output, error) {
+func (s *Server) handleComAtprotoServerCreateInviteCode(ctx context.Context, body *comatprototypes.ServerCreateInviteCode_Input) (*comatprototypes.ServerCreateInviteCode_Output, error) {
 	u, err := s.getUser(ctx)
 	if err != nil {
 		return nil, err
@@ -433,7 +348,11 @@ func (s *Server) handleComAtprotoAccountCreateInviteCode(ctx context.Context, in
 	return nil, fmt.Errorf("invite codes not currently supported")
 }
 
-func (s *Server) handleComAtprotoAccountDelete(ctx context.Context, input *comatprototypes.AccountDelete_Input) error {
+func (s *Server) handleComAtprotoServerRequestAccountDelete(ctx context.Context) error {
+	panic("not yet implemented")
+}
+
+func (s *Server) handleComAtprotoServerDeleteAccount(ctx context.Context, body *comatprototypes.ServerDeleteAccount_Input) error {
 	panic("not yet implemented")
 }
 
@@ -445,15 +364,15 @@ func (s *Server) handleComAtprotoAccountRequestDelete(ctx context.Context) error
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoAccountRequestPasswordReset(ctx context.Context, input *comatprototypes.AccountRequestPasswordReset_Input) error {
+func (s *Server) handleComAtprotoServerRequestPasswordReset(ctx context.Context, body *comatprototypes.ServerRequestPasswordReset_Input) error {
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoAccountResetPassword(ctx context.Context, input *comatprototypes.AccountResetPassword_Input) error {
+func (s *Server) handleComAtprotoServerResetPassword(ctx context.Context, body *comatprototypes.ServerResetPassword_Input) error {
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoBlobUpload(ctx context.Context, r io.Reader, ctype string) (*comatprototypes.BlobUpload_Output, error) {
+func (s *Server) handleComAtprotoRepoUploadBlob(ctx context.Context, r io.Reader, contentType string) (*comatprototypes.RepoUploadBlob_Output, error) {
 	panic("not yet implemented")
 }
 
@@ -512,10 +431,6 @@ func (s *Server) handleComAtprotoRepoDeleteRecord(ctx context.Context, input *co
 	return s.repoman.DeleteRecord(ctx, u.ID, input.Collection, input.Rkey)
 }
 
-func (s *Server) handleComAtprotoRepoDescribe(ctx context.Context, user string) (*comatprototypes.RepoDescribe_Output, error) {
-	panic("not yet implemented")
-}
-
 func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, collection string, rkey string, user string) (*comatprototypes.RepoGetRecord_Output, error) {
 	targetUser, err := s.lookupUser(ctx, user)
 	if err != nil {
@@ -544,7 +459,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 	}, nil
 }
 
-func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, after string, before string, collection string, limit int, reverse *bool, user string) (*comatprototypes.RepoListRecords_Output, error) {
+func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection string, limit int, repo string, reverse *bool, rkeyEnd string, rkeyStart string) (*comatprototypes.RepoListRecords_Output, error) {
 	panic("not yet implemented")
 }
 
@@ -563,46 +478,46 @@ func (s *Server) handleComAtprotoServerGetAccountsConfig(ctx context.Context) (*
 	}, nil
 }
 
-func (s *Server) handleComAtprotoSessionCreate(ctx context.Context, input *comatprototypes.SessionCreate_Input) (*comatprototypes.SessionCreate_Output, error) {
-	u, err := s.lookupUserByHandle(ctx, *input.Identifier)
+func (s *Server) handleComAtprotoServerCreateSession(ctx context.Context, body *comatprototypes.ServerCreateSession_Input) (*comatprototypes.ServerCreateSession_Output, error) {
+	u, err := s.lookupUserByHandle(ctx, *body.Identifier)
 	if err != nil {
 		return nil, err
 	}
 
-	if input.Password != u.Password {
+	if body.Password != u.Password {
 		return nil, fmt.Errorf("invalid username or password")
 	}
 
-	tok, err := s.createAuthTokenForUser(ctx, *input.Identifier, u.Did)
+	tok, err := s.createAuthTokenForUser(ctx, *body.Identifier, u.Did)
 	if err != nil {
 		return nil, err
 	}
 
-	return &comatprototypes.SessionCreate_Output{
-		Handle:     *input.Identifier,
+	return &comatprototypes.ServerCreateSession_Output{
+		Handle:     *body.Identifier,
 		Did:        u.Did,
 		AccessJwt:  tok.AccessJwt,
 		RefreshJwt: tok.RefreshJwt,
 	}, nil
 }
 
-func (s *Server) handleComAtprotoSessionDelete(ctx context.Context) error {
+func (s *Server) handleComAtprotoServerDeleteSession(ctx context.Context) error {
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoSessionGet(ctx context.Context) (*comatprototypes.SessionGet_Output, error) {
+func (s *Server) handleComAtprotoServerGetSession(ctx context.Context) (*comatprototypes.ServerGetSession_Output, error) {
 	u, err := s.getUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return &comatprototypes.SessionGet_Output{
+	return &comatprototypes.ServerGetSession_Output{
 		Handle: u.Handle,
 		Did:    u.Did,
 	}, nil
 }
 
-func (s *Server) handleComAtprotoSessionRefresh(ctx context.Context) (*comatprototypes.SessionRefresh_Output, error) {
+func (s *Server) handleComAtprotoServerRefreshSession(ctx context.Context) (*comatprototypes.ServerRefreshSession_Output, error) {
 	u, err := s.getUser(ctx)
 	if err != nil {
 		return nil, err
@@ -631,7 +546,7 @@ func (s *Server) handleComAtprotoSessionRefresh(ctx context.Context) (*comatprot
 		return nil, err
 	}
 
-	return &comatprototypes.SessionRefresh_Output{
+	return &comatprototypes.ServerRefreshSession_Output{
 		Handle:     u.Handle,
 		Did:        u.Did,
 		AccessJwt:  outTok.AccessJwt,
@@ -710,36 +625,36 @@ func (s *Server) handleAppBskyActorGetProfiles(ctx context.Context, actors []str
 	panic("nyi")
 }
 
-func (s *Server) handleComAtprotoAdminGetModerationAction(ctx context.Context, id int) (*comatprototypes.AdminModerationAction_ViewDetail, error) {
+func (s *Server) handleComAtprotoAdminGetModerationAction(ctx context.Context, id int) (*comatprototypes.AdminDefs_ActionViewDetail, error) {
 	panic("nyi")
 }
 func (s *Server) handleComAtprotoAdminGetModerationActions(ctx context.Context, before string, limit int, subject string) (*comatprototypes.AdminGetModerationActions_Output, error) {
 	panic("nyi")
 }
-func (s *Server) handleComAtprotoAdminGetModerationReport(ctx context.Context, id int) (*comatprototypes.AdminModerationReport_ViewDetail, error) {
+func (s *Server) handleComAtprotoAdminGetModerationReport(ctx context.Context, id int) (*comatprototypes.AdminDefs_ReportViewDetail, error) {
 	panic("nyi")
 }
 func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context, before string, limit int, resolved *bool, subject string) (*comatprototypes.AdminGetModerationReports_Output, error) {
 	panic("nyi")
 }
 
-func (s *Server) handleComAtprotoAdminGetRecord(ctx context.Context, cid string, uri string) (*comatprototypes.AdminRecord_ViewDetail, error) {
+func (s *Server) handleComAtprotoAdminGetRecord(ctx context.Context, cid string, uri string) (*comatprototypes.AdminDefs_RecordViewDetail, error) {
 	panic("nyi")
 }
 
-func (s *Server) handleComAtprotoAdminGetRepo(ctx context.Context, did string) (*comatprototypes.AdminRepo_ViewDetail, error) {
+func (s *Server) handleComAtprotoAdminGetRepo(ctx context.Context, did string) (*comatprototypes.AdminDefs_RepoViewDetail, error) {
 	panic("nyi")
 }
-func (s *Server) handleComAtprotoAdminResolveModerationReports(ctx context.Context, body *comatprototypes.AdminResolveModerationReports_Input) (*comatprototypes.AdminModerationAction_View, error) {
+func (s *Server) handleComAtprotoAdminResolveModerationReports(ctx context.Context, body *comatprototypes.AdminResolveModerationReports_Input) (*comatprototypes.AdminDefs_ActionView, error) {
 	panic("nyi")
 }
-func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Context, body *comatprototypes.AdminReverseModerationAction_Input) (*comatprototypes.AdminModerationAction_View, error) {
+func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Context, body *comatprototypes.AdminReverseModerationAction_Input) (*comatprototypes.AdminDefs_ActionView, error) {
 	panic("nyi")
 }
 func (s *Server) handleComAtprotoAdminSearchRepos(ctx context.Context, before string, limit int, term string) (*comatprototypes.AdminSearchRepos_Output, error) {
 	panic("nyi")
 }
-func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, body *comatprototypes.AdminTakeModerationAction_Input) (*comatprototypes.AdminModerationAction_View, error) {
+func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, body *comatprototypes.AdminTakeModerationAction_Input) (*comatprototypes.AdminDefs_ActionView, error) {
 	panic("nyi")
 }
 func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *comatprototypes.ReportCreate_Input) (*comatprototypes.ReportCreate_Output, error) {
@@ -767,5 +682,40 @@ func (s *Server) handleComAtprotoSyncGetBlob(ctx context.Context, cid string, di
 }
 
 func (s *Server) handleComAtprotoSyncListBlobs(ctx context.Context, did string, earliest string, latest string) (*comatprototypes.SyncListBlobs_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleAppBskyActorSearchActors(ctx context.Context, cursor string, limit int, term string) (*appbskytypes.ActorSearchActors_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleAppBskyActorSearchActorsTypeahead(ctx context.Context, limit int, term string) (*appbskytypes.ActorSearchActorsTypeahead_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleAppBskyUnspeccedGetPopular(ctx context.Context, cursor string, limit int) (*appbskytypes.UnspeccedGetPopular_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context, handle string) (*comatprototypes.IdentityResolveHandle_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoIdentityUpdateHandle(ctx context.Context, body *comatprototypes.IdentityUpdateHandle_Input) error {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, body *comatprototypes.ModerationCreateReport_Input) (*comatprototypes.ModerationCreateReport_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoRepoApplyWrites(ctx context.Context, body *comatprototypes.RepoApplyWrites_Input) error {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo string) (*comatprototypes.RepoDescribeRepo_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*comatprototypes.ServerDescribeServer_Output, error) {
 	panic("nyi")
 }

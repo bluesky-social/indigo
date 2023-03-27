@@ -10,8 +10,8 @@ import (
 
 func init() {
 }
-func ActorGetProfile(ctx context.Context, c *xrpc.Client, actor string) (*ActorProfile_View, error) {
-	var out ActorProfile_View
+func ActorGetProfile(ctx context.Context, c *xrpc.Client, actor string) (*ActorDefs_ProfileView, error) {
+	var out ActorDefs_ProfileView
 
 	params := map[string]interface{}{
 		"actor": actor,

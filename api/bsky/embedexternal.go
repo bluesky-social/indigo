@@ -22,12 +22,12 @@ type EmbedExternal_External struct {
 	Uri           string     `json:"uri" cborgen:"uri"`
 }
 
-type EmbedExternal_Presented struct {
-	LexiconTypeID string                           `json:"$type,omitempty"`
-	External      *EmbedExternal_PresentedExternal `json:"external" cborgen:"external"`
+type EmbedExternal_View struct {
+	LexiconTypeID string                      `json:"$type,omitempty"`
+	Value         *EmbedExternal_ViewExternal `json:"value,omitempty" cborgen:"value"`
 }
 
-type EmbedExternal_PresentedExternal struct {
+type EmbedExternal_ViewExternal struct {
 	LexiconTypeID string  `json:"$type,omitempty"`
 	Description   string  `json:"description" cborgen:"description"`
 	Thumb         *string `json:"thumb,omitempty" cborgen:"thumb"`

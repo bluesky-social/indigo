@@ -1028,8 +1028,10 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 		}
 
 		return "[]" + subt, nil
+	case "cid-link":
+		return "cid.Cid", nil
 	default:
-		return "", fmt.Errorf("field %q in %s has unsupported type name", k, name)
+		return "", fmt.Errorf("field %q in %s has unsupported type name (%s)", k, name, v.Type)
 	}
 }
 

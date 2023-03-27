@@ -1,0 +1,43 @@
+package bsky
+
+import (
+	"context"
+
+	"github.com/bluesky-social/indigo/xrpc"
+)
+
+// schema: app.bsky.feed.getLikes
+
+func init() {
+}
+
+type FeedGetLikes_Like struct {
+	LexiconTypeID string              `json:"$type,omitempty"`
+	Actor         *ActorDefs_WithInfo `json:"actor" cborgen:"actor"`
+	CreatedAt     string              `json:"createdAt" cborgen:"createdAt"`
+	IndexedAt     string              `json:"indexedAt" cborgen:"indexedAt"`
+}
+
+type FeedGetLikes_Output struct {
+	LexiconTypeID string               `json:"$type,omitempty"`
+	Cid           *string              `json:"cid,omitempty" cborgen:"cid"`
+	Cursor        *string              `json:"cursor,omitempty" cborgen:"cursor"`
+	Likes         []*FeedGetLikes_Like `json:"likes" cborgen:"likes"`
+	Uri           string               `json:"uri" cborgen:"uri"`
+}
+
+func FeedGetLikes(ctx context.Context, c *xrpc.Client, cid string, cursor string, limit int64, uri string) (*FeedGetLikes_Output, error) {
+	var out FeedGetLikes_Output
+
+	params := map[string]interface{}{
+		"cid":    cid,
+		"cursor": cursor,
+		"limit":  limit,
+		"uri":    uri,
+	}
+	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getLikes", params, nil, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}

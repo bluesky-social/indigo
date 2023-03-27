@@ -48,13 +48,9 @@ type ActorInfo struct {
 	PDS         uint
 }
 
-func (ai *ActorInfo) ActorRef() *bsky.ActorRef_WithInfo {
-	return &bsky.ActorRef_WithInfo{
-		Did: ai.Did,
-		Declaration: &bsky.SystemDeclRef{
-			Cid:       ai.DeclRefCid,
-			ActorType: ai.Type,
-		},
+func (ai *ActorInfo) ActorRef() *bsky.ActorDefs_WithInfo {
+	return &bsky.ActorDefs_WithInfo{
+		Did:         ai.Did,
 		Handle:      ai.Handle,
 		DisplayName: &ai.DisplayName,
 	}

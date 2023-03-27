@@ -10,8 +10,8 @@ import (
 
 func init() {
 }
-func AdminGetRecord(ctx context.Context, c *xrpc.Client, cid string, uri string) (*AdminRecord_ViewDetail, error) {
-	var out AdminRecord_ViewDetail
+func AdminGetRecord(ctx context.Context, c *xrpc.Client, cid string, uri string) (*AdminDefs_RecordViewDetail, error) {
+	var out AdminDefs_RecordViewDetail
 
 	params := map[string]interface{}{
 		"cid": cid,

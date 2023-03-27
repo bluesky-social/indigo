@@ -395,27 +395,13 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user util.Uid, handle, 
 	r := repo.NewRepo(ctx, did, ds)
 
 	profile := &bsky.ActorProfile{
-		DisplayName: displayname,
+		DisplayName: &displayname,
 	}
 
 	_, err = r.PutRecord(ctx, "app.bsky.actor.profile/self", profile)
 	if err != nil {
 		return fmt.Errorf("setting initial actor profile: %w", err)
 	}
-
-	decl := &bsky.SystemDeclaration{
-		ActorType: actortype,
-	}
-	dc, err := r.PutRecord(ctx, "app.bsky.system.declaration/self", decl)
-	if err != nil {
-		return fmt.Errorf("setting initial actor profile: %w", err)
-	}
-
-	if dc.String() != declcid {
-		log.Warn("DECL CID MISMATCH: ", dc, declcid)
-	}
-
-	// TODO: set declaration?
 
 	root, err := r.Commit(ctx, rm.kmgr.SignForUser)
 	if err != nil {

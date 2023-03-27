@@ -12,10 +12,12 @@ func init() {
 }
 
 type RepoDeleteRecord_Input struct {
-	LexiconTypeID string `json:"$type,omitempty"`
-	Collection    string `json:"collection" cborgen:"collection"`
-	Did           string `json:"did" cborgen:"did"`
-	Rkey          string `json:"rkey" cborgen:"rkey"`
+	LexiconTypeID string  `json:"$type,omitempty"`
+	Collection    string  `json:"collection" cborgen:"collection"`
+	Did           string  `json:"did" cborgen:"did"`
+	Rkey          string  `json:"rkey" cborgen:"rkey"`
+	SwapCommit    *string `json:"swapCommit,omitempty" cborgen:"swapCommit"`
+	SwapRecord    *string `json:"swapRecord,omitempty" cborgen:"swapRecord"`
 }
 
 func RepoDeleteRecord(ctx context.Context, c *xrpc.Client, input *RepoDeleteRecord_Input) error {

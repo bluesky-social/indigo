@@ -12,9 +12,9 @@ func init() {
 }
 
 type ActorGetSuggestions_Output struct {
-	LexiconTypeID string                    `json:"$type,omitempty"`
-	Actors        []*ActorProfile_ViewBasic `json:"actors" cborgen:"actors"`
-	Cursor        *string                   `json:"cursor,omitempty" cborgen:"cursor"`
+	LexiconTypeID string                        `json:"$type,omitempty"`
+	Actors        []*ActorDefs_ProfileViewBasic `json:"actors" cborgen:"actors"`
+	Cursor        *string                       `json:"cursor,omitempty" cborgen:"cursor"`
 }
 
 func ActorGetSuggestions(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*ActorGetSuggestions_Output, error) {
