@@ -10,7 +10,7 @@ import (
 	"time"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/internal/engine"
+	"github.com/bluesky-social/indigo/version"
 )
 
 type SQRLLabeler struct {
@@ -75,7 +75,7 @@ func (sl *SQRLLabeler) submitEvent(sqlrReq SQRLRequest) (*SQRLResponse, error) {
 
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "labelmaker/"+engine.Version)
+	req.Header.Set("User-Agent", "labelmaker/"+version.Version)
 
 	res, err := sl.Client.Do(req)
 	if err != nil {

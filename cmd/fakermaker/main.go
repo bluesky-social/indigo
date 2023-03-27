@@ -18,8 +18,8 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
-	"github.com/bluesky-social/indigo/internal/engine"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/version"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/brianvoe/gofakeit/v6"
@@ -212,7 +212,7 @@ func accountXrpcClient(cctx *cli.Context, ac *AccountContext) (*xrpc.Client, err
 	pdsHost := cctx.String("pds-host")
 	//httpClient := cliutil.NewHttpClient()
 	httpClient := &http.Client{Timeout: 5 * time.Second}
-	ua := "IndigoFakerMaker/" + engine.Version
+	ua := "IndigoFakerMaker/" + version.Version
 	xrpcc := &xrpc.Client{
 		Client:    httpClient,
 		Host:      pdsHost,

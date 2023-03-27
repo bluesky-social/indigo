@@ -11,7 +11,7 @@ WORKDIR /dockerbuild
 
 # timezone data for alpine builds
 RUN GIT_VERSION=$(git describe --tags --long --always) && \
-    go build -tags timetzdata -ldflags="-X github.com/bluesky-social/indigo/internal/engine.Version=$GIT_VERSION" -o /beemo ./cmd/beemo
+    go build -tags timetzdata -ldflags="-X github.com/bluesky-social/indigo/version.Version=$GIT_VERSION" -o /beemo ./cmd/beemo
 
 ### Run stage
 FROM alpine:3.17

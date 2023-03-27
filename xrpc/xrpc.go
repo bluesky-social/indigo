@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/bluesky-social/indigo/internal/engine"
+	"github.com/bluesky-social/indigo/version"
 )
 
 type Client struct {
@@ -94,7 +94,7 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 	if c.UserAgent != nil {
 		req.Header.Set("User-Agent", *c.UserAgent)
 	} else {
-		req.Header.Set("User-Agent", "indigo/"+engine.Version)
+		req.Header.Set("User-Agent", "indigo/"+version.Version)
 	}
 
 	// use admin auth if we have it configured and are doing a request that requires it

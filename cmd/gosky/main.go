@@ -18,9 +18,9 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/internal/engine"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/version"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
 
@@ -47,7 +47,7 @@ func run(args []string) {
 	app := cli.App{
 		Name:    "gosky",
 		Usage:   "client CLI for atproto and bluesky",
-		Version: engine.Version,
+		Version: version.Version,
 	}
 
 	app.Flags = []cli.Flag{
