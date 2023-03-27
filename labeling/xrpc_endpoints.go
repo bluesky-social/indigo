@@ -1,7 +1,6 @@
 package labeling
 
 import (
-	"io"
 	"net/http/httputil"
 	"strconv"
 
@@ -17,10 +16,7 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.GET("/xrpc/com.atproto.identity.resolveHandle", s.HandleComAtprotoIdentityResolveHandle)
 	e.GET("/xrpc/com.atproto.server.describeServer", s.HandleComAtprotoServerDescribeServer)
 	// TODO: session create/refresh/delete?
-	//e.GET("/xrpc/com.atproto.account.get", s.HandleComAtprotoAccountGet)
 
-	// label-specific
-	e.GET("/xrpc/com.atproto.label.query", s.HandleComAtprotoLabelQuery)
 
 	// minimal moderation reporting/actioning
 	e.GET("/xrpc/com.atproto.admin.getModerationAction", s.HandleComAtprotoAdminGetModerationAction)
@@ -31,6 +27,9 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.admin.reverseModerationAction", s.HandleComAtprotoAdminReverseModerationAction)
 	e.POST("/xrpc/com.atproto.admin.takeModerationAction", s.HandleComAtprotoAdminTakeModerationAction)
 	e.POST("/xrpc/com.atproto.report.create", s.HandleComAtprotoReportCreate)
+
+	// label-specific
+	e.GET("/xrpc/com.atproto.label.query", s.HandleComAtprotoLabelQuery)
 
 	return nil
 }
@@ -98,50 +97,13 @@ func (s *Server) HandleComAtprotoRepoGetRecord(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *Server) HandleComAtprotoRepoListRecords(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoListRecords")
-	defer span.End()
-	collection := c.QueryParam("collection")
-
-	var limit int
-	if p := c.QueryParam("limit"); p != "" {
-		var err error
-		limit, err = strconv.Atoi(p)
-		if err != nil {
-			return err
-		}
-	} else {
-		limit = 50
-	}
-	repo := c.QueryParam("repo")
-
-	var reverse *bool
-	if p := c.QueryParam("reverse"); p != "" {
-		reverse_val, err := strconv.ParseBool(p)
-		if err != nil {
-			return err
-		}
-		reverse = &reverse_val
-	}
-	rkeyEnd := c.QueryParam("rkeyEnd")
-	rkeyStart := c.QueryParam("rkeyStart")
-	var out *atproto.RepoListRecords_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context,collection string,limit int,repo string,reverse *bool,rkeyEnd string,rkeyStart string) (*comatprototypes.RepoListRecords_Output, error)
-	out, handleErr = s.handleComAtprotoRepoListRecords(ctx, collection, limit, repo, reverse, rkeyEnd, rkeyStart)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
 func (s *Server) HandleComAtprotoServerDescribeServer(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerDescribeServer")
 	defer span.End()
 	var out *atproto.ServerDescribeServer_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*atproto.ServerDescribeServer_Output, error)
-	out, handleErr = s.handleComAtprotoServerDescribeServer(ctx)
+	// func (s *Server) handleComAtprotoServerGetAccountsConfig(ctx context.Context) (*atproto.ServerGetAccountsConfig_Output, error)
+	out, handleErr = s.handleComAtprotoServerGetAccountsConfig(ctx)
 	if handleErr != nil {
 		return handleErr
 	}
