@@ -14,7 +14,7 @@ func init() {
 
 type NotificationListNotifications_Notification struct {
 	LexiconTypeID string                  `json:"$type,omitempty"`
-	Author        *ActorDefs_WithInfo     `json:"author" cborgen:"author"`
+	Author        *ActorDefs_ProfileView  `json:"author" cborgen:"author"`
 	Cid           string                  `json:"cid" cborgen:"cid"`
 	IndexedAt     string                  `json:"indexedAt" cborgen:"indexedAt"`
 	IsRead        bool                    `json:"isRead" cborgen:"isRead"`

@@ -53,23 +53,24 @@ type FeedDefs_NotFoundPost struct {
 }
 
 type FeedDefs_PostView struct {
-	LexiconTypeID string                   `json:"$type,omitempty"`
-	Author        *ActorDefs_WithInfo      `json:"author" cborgen:"author"`
-	Cid           string                   `json:"cid" cborgen:"cid"`
-	Embed         *FeedDefs_PostView_Embed `json:"embed,omitempty" cborgen:"embed"`
-	IndexedAt     string                   `json:"indexedAt" cborgen:"indexedAt"`
-	LikeCount     *int64                   `json:"likeCount,omitempty" cborgen:"likeCount"`
-	Record        util.LexiconTypeDecoder  `json:"record" cborgen:"record"`
-	ReplyCount    *int64                   `json:"replyCount,omitempty" cborgen:"replyCount"`
-	RepostCount   *int64                   `json:"repostCount,omitempty" cborgen:"repostCount"`
-	Uri           string                   `json:"uri" cborgen:"uri"`
-	Viewer        *FeedDefs_ViewerState    `json:"viewer,omitempty" cborgen:"viewer"`
+	LexiconTypeID string                      `json:"$type,omitempty"`
+	Author        *ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
+	Cid           string                      `json:"cid" cborgen:"cid"`
+	Embed         *FeedDefs_PostView_Embed    `json:"embed,omitempty" cborgen:"embed"`
+	IndexedAt     string                      `json:"indexedAt" cborgen:"indexedAt"`
+	LikeCount     *int64                      `json:"likeCount,omitempty" cborgen:"likeCount"`
+	Record        util.LexiconTypeDecoder     `json:"record" cborgen:"record"`
+	ReplyCount    *int64                      `json:"replyCount,omitempty" cborgen:"replyCount"`
+	RepostCount   *int64                      `json:"repostCount,omitempty" cborgen:"repostCount"`
+	Uri           string                      `json:"uri" cborgen:"uri"`
+	Viewer        *FeedDefs_ViewerState       `json:"viewer,omitempty" cborgen:"viewer"`
 }
 
 type FeedDefs_PostView_Embed struct {
-	EmbedImages_View   *EmbedImages_View
-	EmbedExternal_View *EmbedExternal_View
-	EmbedRecord_View   *EmbedRecord_View
+	EmbedImages_View          *EmbedImages_View
+	EmbedExternal_View        *EmbedExternal_View
+	EmbedRecord_View          *EmbedRecord_View
+	EmbedRecordWithMedia_View *EmbedRecordWithMedia_View
 }
 
 func (t *FeedDefs_PostView_Embed) MarshalJSON() ([]byte, error) {
@@ -84,6 +85,10 @@ func (t *FeedDefs_PostView_Embed) MarshalJSON() ([]byte, error) {
 	if t.EmbedRecord_View != nil {
 		t.EmbedRecord_View.LexiconTypeID = "app.bsky.embed.record#view"
 		return json.Marshal(t.EmbedRecord_View)
+	}
+	if t.EmbedRecordWithMedia_View != nil {
+		t.EmbedRecordWithMedia_View.LexiconTypeID = "app.bsky.embed.recordWithMedia#view"
+		return json.Marshal(t.EmbedRecordWithMedia_View)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -103,6 +108,9 @@ func (t *FeedDefs_PostView_Embed) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.record#view":
 		t.EmbedRecord_View = new(EmbedRecord_View)
 		return json.Unmarshal(b, t.EmbedRecord_View)
+	case "app.bsky.embed.recordWithMedia#view":
+		t.EmbedRecordWithMedia_View = new(EmbedRecordWithMedia_View)
+		return json.Unmarshal(b, t.EmbedRecordWithMedia_View)
 
 	default:
 		return nil
@@ -110,9 +118,9 @@ func (t *FeedDefs_PostView_Embed) UnmarshalJSON(b []byte) error {
 }
 
 type FeedDefs_ReasonRepost struct {
-	LexiconTypeID string              `json:"$type,omitempty"`
-	By            *ActorDefs_WithInfo `json:"by" cborgen:"by"`
-	IndexedAt     string              `json:"indexedAt" cborgen:"indexedAt"`
+	LexiconTypeID string                      `json:"$type,omitempty"`
+	By            *ActorDefs_ProfileViewBasic `json:"by" cborgen:"by"`
+	IndexedAt     string                      `json:"indexedAt" cborgen:"indexedAt"`
 }
 
 type FeedDefs_ReplyRef struct {

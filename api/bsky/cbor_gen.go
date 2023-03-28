@@ -3221,3 +3221,303 @@ func (t *RichtextFacet_Mention) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
+func (t *EmbedRecordWithMedia) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{163}); err != nil {
+		return err
+	}
+
+	// t.Media (bsky.EmbedRecordWithMedia_Media) (struct)
+	if len("media") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"media\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("media"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("media")); err != nil {
+		return err
+	}
+
+	if err := t.Media.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.Record (bsky.EmbedRecord) (struct)
+	if len("record") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"record\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("record"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("record")); err != nil {
+		return err
+	}
+
+	if err := t.Record.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("LexiconTypeID") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
+		return err
+	}
+
+	if len(t.LexiconTypeID) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *EmbedRecordWithMedia) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = EmbedRecordWithMedia{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("EmbedRecordWithMedia: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.Media (bsky.EmbedRecordWithMedia_Media) (struct)
+		case "media":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Media = new(EmbedRecordWithMedia_Media)
+					if err := t.Media.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Media pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Record (bsky.EmbedRecord) (struct)
+		case "record":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Record = new(EmbedRecord)
+					if err := t.Record.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Record pointer: %w", err)
+					}
+				}
+
+			}
+			// t.LexiconTypeID (string) (string)
+		case "LexiconTypeID":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *EmbedRecordWithMedia_Media) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{162}); err != nil {
+		return err
+	}
+
+	// t.EmbedImages (bsky.EmbedImages) (struct)
+	if len("EmbedImages") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"EmbedImages\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("EmbedImages"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("EmbedImages")); err != nil {
+		return err
+	}
+
+	if err := t.EmbedImages.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.EmbedExternal (bsky.EmbedExternal) (struct)
+	if len("EmbedExternal") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"EmbedExternal\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("EmbedExternal"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("EmbedExternal")); err != nil {
+		return err
+	}
+
+	if err := t.EmbedExternal.MarshalCBOR(cw); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *EmbedRecordWithMedia_Media) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = EmbedRecordWithMedia_Media{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("EmbedRecordWithMedia_Media: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.EmbedImages (bsky.EmbedImages) (struct)
+		case "EmbedImages":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.EmbedImages = new(EmbedImages)
+					if err := t.EmbedImages.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.EmbedImages pointer: %w", err)
+					}
+				}
+
+			}
+			// t.EmbedExternal (bsky.EmbedExternal) (struct)
+		case "EmbedExternal":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.EmbedExternal = new(EmbedExternal)
+					if err := t.EmbedExternal.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.EmbedExternal pointer: %w", err)
+					}
+				}
+
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}

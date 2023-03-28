@@ -24,7 +24,7 @@ type EmbedExternal_External struct {
 
 type EmbedExternal_View struct {
 	LexiconTypeID string                      `json:"$type,omitempty"`
-	Value         *EmbedExternal_ViewExternal `json:"value,omitempty" cborgen:"value"`
+	External      *EmbedExternal_ViewExternal `json:"external" cborgen:"external"`
 }
 
 type EmbedExternal_ViewExternal struct {
