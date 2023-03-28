@@ -6,6 +6,8 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 )
 
@@ -31,7 +33,8 @@ func (s *Server) hydrateRecordView(ctx context.Context, did string, uri, cid *st
 		IndexedAt:  indexedAt,
 		Moderation: nil,
 		Repo:       repoView,
-		// TODO: Value
+		// XXX: replace with actual record
+		Value: lexutil.LexiconTypeDecoder{&appbsky.FeedPost{}},
 	}
 	if uri != nil {
 		recordView.Uri = *uri
