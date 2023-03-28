@@ -220,7 +220,7 @@ func accountXrpcClient(cctx *cli.Context, ac *AccountContext) (*xrpc.Client, err
 		UserAgent: &ua,
 	}
 	// use XRPC client to re-auth using user/pass
-	auth, err := comatproto.SessionCreate(context.TODO(), xrpcc, &comatproto.SessionCreate_Input{
+	auth, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
 		Identifier: &ac.Auth.Handle,
 		Password:   ac.Password,
 	})
