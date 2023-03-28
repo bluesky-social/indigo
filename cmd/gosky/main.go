@@ -135,7 +135,7 @@ var createSessionCmd = &cli.Command{
 		handle := cctx.Args().Get(0)
 		password := cctx.Args().Get(1)
 
-		ses, err := comatproto.SessionCreate(context.TODO(), xrpcc, &comatproto.SessionCreate_Input{
+		ses, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
 			Identifier: &handle,
 			Password:   password,
 		})
@@ -538,7 +538,7 @@ var refreshAuthTokenCmd = &cli.Command{
 		a.AccessJwt = a.RefreshJwt
 
 		ctx := context.TODO()
-		nauth, err := comatproto.SessionRefresh(ctx, xrpcc)
+		nauth, err := comatproto.ServerRefreshSession(ctx, xrpcc)
 		if err != nil {
 			return err
 		}
