@@ -440,11 +440,16 @@ func pdsGenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner
 		}
 	}
 
-	_, err := appbsky.ActorUpdateProfile(context.TODO(), xrpcc, &appbsky.ActorUpdateProfile_Input{
-		Description: &desc,
-		DisplayName: &name,
-		Avatar:      avatar,
-		Banner:      banner,
+	_, err := comatproto.RepoPutRecord(context.TODO(), xrpcc, &comatproto.RepoPutRecord_Input{
+		Did:        acc.Auth.Did,
+		Collection: "app.bsky.actor.profile",
+		Rkey:       "self",
+		Record: lexutil.LexiconTypeDecoder{&appbsky.ActorProfile{
+			Description: &desc,
+			DisplayName: &name,
+			Avatar:      avatar,
+			Banner:      banner,
+		}},
 	})
 	return err
 }
@@ -570,11 +575,7 @@ func pdsGenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContex
 func pdsCreateFollow(xrpcc *xrpc.Client, tgt *AccountContext) error {
 	follow := &appbsky.GraphFollow{
 		CreatedAt: time.Now().Format(time.RFC3339),
-		Subject: &appbsky.ActorRef{
-			Did: tgt.Auth.Did,
-			// TODO: this should be a public exported const, not hardcoded here
-			DeclarationCid: "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u",
-		},
+		Subject:   tgt.Auth.Did,
 	}
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.graph.follow",
@@ -584,20 +585,24 @@ func pdsCreateFollow(xrpcc *xrpc.Client, tgt *AccountContext) error {
 	return err
 }
 
-func pdsCreateLike(xrpcc *xrpc.Client, viewPost *appbsky.FeedFeedViewPost) error {
-	vote := &appbsky.FeedSetVote_Input{
-		Direction: "up",
+func pdsCreateLike(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) error {
+	ctx := context.TODO()
+	like := appbsky.FeedLike{
 		Subject: &comatproto.RepoStrongRef{
 			Uri: viewPost.Post.Uri,
 			Cid: viewPost.Post.Cid,
 		},
 	}
-	// TODO: may have already voted? in that case should ignore error
-	_, err := appbsky.FeedSetVote(context.TODO(), xrpcc, vote)
+	// TODO: may have already like? in that case should ignore error
+	_, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
+		Collection: "app.bsky.feed.like",
+		Did:        xrpcc.Auth.Did,
+		Record:     lexutil.LexiconTypeDecoder{&like},
+	})
 	return err
 }
 
-func pdsCreateRepost(xrpcc *xrpc.Client, viewPost *appbsky.FeedFeedViewPost) error {
+func pdsCreateRepost(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) error {
 	repost := &appbsky.FeedRepost{
 		CreatedAt: time.Now().Format(time.RFC3339),
 		Subject: &comatproto.RepoStrongRef{
@@ -613,7 +618,7 @@ func pdsCreateRepost(xrpcc *xrpc.Client, viewPost *appbsky.FeedFeedViewPost) err
 	return err
 }
 
-func pdsCreateReply(xrpcc *xrpc.Client, viewPost *appbsky.FeedFeedViewPost) error {
+func pdsCreateReply(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) error {
 	text := gofakeit.Sentence(10)
 	if len(text) > 200 {
 		text = text[0:200]
@@ -695,7 +700,7 @@ func pdsGenFollowsAndMutes(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *Acc
 		if tgt.Auth.Did == acc.Auth.Did {
 			continue
 		}
-		if err := appbsky.GraphMute(context.TODO(), xrpcc, &appbsky.GraphMute_Input{User: tgt.Auth.Did}); err != nil {
+		if err := appbsky.GraphMuteActor(context.TODO(), xrpcc, &appbsky.GraphMuteActor_Input{Actor: tgt.Auth.Did}); err != nil {
 			return err
 		}
 	}
@@ -807,7 +812,7 @@ func genInteractions(cctx *cli.Context) error {
 func browseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
 	// fetch notifications
 	maxNotif := 50
-	resp, err := appbsky.NotificationList(context.TODO(), xrpcc, "", int64(maxNotif))
+	resp, err := appbsky.NotificationListNotifications(context.TODO(), xrpcc, "", int64(maxNotif))
 	if err != nil {
 		return err
 	}
@@ -877,7 +882,7 @@ func browseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
 	t2(len(timelineResp.Feed))
 
 	// notification count for good measure
-	_, err = appbsky.NotificationGetCount(context.TODO(), xrpcc)
+	_, err = appbsky.NotificationGetUnreadCount(context.TODO(), xrpcc)
 	return err
 }
 
