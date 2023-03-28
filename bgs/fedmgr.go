@@ -68,7 +68,7 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) err
 
 	if !peering.Registered && reg {
 		peering.Registered = true
-		if err := s.db.Model(models.PDS{}).Where("id = ?").Update("registered", true).Error; err != nil {
+		if err := s.db.Model(models.PDS{}).Where("id = ?", peering.ID).Update("registered", true).Error; err != nil {
 			return err
 		}
 	}
