@@ -30,7 +30,10 @@ func (kl KeywordLabeler) LabelPost(p appbsky.FeedPost) []string {
 }
 
 func (kl KeywordLabeler) LabelProfile(ap appbsky.ActorProfile) []string {
-	txt := ap.DisplayName
+	var txt string
+	if ap.DisplayName != nil {
+		txt += *ap.DisplayName
+	}
 	if ap.Description != nil {
 		txt += *ap.Description
 	}
