@@ -22,7 +22,7 @@ type EmbedImages_Image struct {
 
 type EmbedImages_View struct {
 	LexiconTypeID string                   `json:"$type,omitempty"`
-	Value         []*EmbedImages_ViewImage `json:"value" cborgen:"value"`
+	Images        []*EmbedImages_ViewImage `json:"images" cborgen:"images"`
 }
 
 type EmbedImages_ViewImage struct {

@@ -12,11 +12,11 @@ func init() {
 }
 
 type FeedGetRepostedBy_Output struct {
-	LexiconTypeID string                `json:"$type,omitempty"`
-	Cid           *string               `json:"cid,omitempty" cborgen:"cid"`
-	Cursor        *string               `json:"cursor,omitempty" cborgen:"cursor"`
-	RepostedBy    []*ActorDefs_WithInfo `json:"repostedBy" cborgen:"repostedBy"`
-	Uri           string                `json:"uri" cborgen:"uri"`
+	LexiconTypeID string                   `json:"$type,omitempty"`
+	Cid           *string                  `json:"cid,omitempty" cborgen:"cid"`
+	Cursor        *string                  `json:"cursor,omitempty" cborgen:"cursor"`
+	RepostedBy    []*ActorDefs_ProfileView `json:"repostedBy" cborgen:"repostedBy"`
+	Uri           string                   `json:"uri" cborgen:"uri"`
 }
 
 func FeedGetRepostedBy(ctx context.Context, c *xrpc.Client, cid string, cursor string, limit int64, uri string) (*FeedGetRepostedBy_Output, error) {

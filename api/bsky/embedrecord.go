@@ -19,8 +19,8 @@ type EmbedRecord struct {
 }
 
 type EmbedRecord_View struct {
-	LexiconTypeID string                  `json:"$type,omitempty"`
-	Value         *EmbedRecord_View_Value `json:"value,omitempty" cborgen:"value"`
+	LexiconTypeID string                   `json:"$type,omitempty"`
+	Record        *EmbedRecord_View_Record `json:"record" cborgen:"record"`
 }
 
 type EmbedRecord_ViewNotFound struct {
@@ -30,18 +30,19 @@ type EmbedRecord_ViewNotFound struct {
 
 type EmbedRecord_ViewRecord struct {
 	LexiconTypeID string                                `json:"$type,omitempty"`
-	Author        *ActorDefs_WithInfo                   `json:"author" cborgen:"author"`
+	Author        *ActorDefs_ProfileViewBasic           `json:"author" cborgen:"author"`
 	Cid           string                                `json:"cid" cborgen:"cid"`
 	Embeds        []*EmbedRecord_ViewRecord_Embeds_Elem `json:"embeds,omitempty" cborgen:"embeds"`
 	IndexedAt     string                                `json:"indexedAt" cborgen:"indexedAt"`
-	Record        util.LexiconTypeDecoder               `json:"record" cborgen:"record"`
 	Uri           string                                `json:"uri" cborgen:"uri"`
+	Value         util.LexiconTypeDecoder               `json:"value" cborgen:"value"`
 }
 
 type EmbedRecord_ViewRecord_Embeds_Elem struct {
-	EmbedImages_View   *EmbedImages_View
-	EmbedExternal_View *EmbedExternal_View
-	EmbedRecord_View   *EmbedRecord_View
+	EmbedImages_View          *EmbedImages_View
+	EmbedExternal_View        *EmbedExternal_View
+	EmbedRecord_View          *EmbedRecord_View
+	EmbedRecordWithMedia_View *EmbedRecordWithMedia_View
 }
 
 func (t *EmbedRecord_ViewRecord_Embeds_Elem) MarshalJSON() ([]byte, error) {
@@ -56,6 +57,10 @@ func (t *EmbedRecord_ViewRecord_Embeds_Elem) MarshalJSON() ([]byte, error) {
 	if t.EmbedRecord_View != nil {
 		t.EmbedRecord_View.LexiconTypeID = "app.bsky.embed.record#view"
 		return json.Marshal(t.EmbedRecord_View)
+	}
+	if t.EmbedRecordWithMedia_View != nil {
+		t.EmbedRecordWithMedia_View.LexiconTypeID = "app.bsky.embed.recordWithMedia#view"
+		return json.Marshal(t.EmbedRecordWithMedia_View)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -75,18 +80,21 @@ func (t *EmbedRecord_ViewRecord_Embeds_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.record#view":
 		t.EmbedRecord_View = new(EmbedRecord_View)
 		return json.Unmarshal(b, t.EmbedRecord_View)
+	case "app.bsky.embed.recordWithMedia#view":
+		t.EmbedRecordWithMedia_View = new(EmbedRecordWithMedia_View)
+		return json.Unmarshal(b, t.EmbedRecordWithMedia_View)
 
 	default:
 		return nil
 	}
 }
 
-type EmbedRecord_View_Value struct {
+type EmbedRecord_View_Record struct {
 	EmbedRecord_ViewRecord   *EmbedRecord_ViewRecord
 	EmbedRecord_ViewNotFound *EmbedRecord_ViewNotFound
 }
 
-func (t *EmbedRecord_View_Value) MarshalJSON() ([]byte, error) {
+func (t *EmbedRecord_View_Record) MarshalJSON() ([]byte, error) {
 	if t.EmbedRecord_ViewRecord != nil {
 		t.EmbedRecord_ViewRecord.LexiconTypeID = "app.bsky.embed.record#viewRecord"
 		return json.Marshal(t.EmbedRecord_ViewRecord)
@@ -97,7 +105,7 @@ func (t *EmbedRecord_View_Value) MarshalJSON() ([]byte, error) {
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
-func (t *EmbedRecord_View_Value) UnmarshalJSON(b []byte) error {
+func (t *EmbedRecord_View_Record) UnmarshalJSON(b []byte) error {
 	typ, err := util.TypeExtract(b)
 	if err != nil {
 		return err

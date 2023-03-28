@@ -29,9 +29,10 @@ type FeedPost struct {
 }
 
 type FeedPost_Embed struct {
-	EmbedImages   *EmbedImages
-	EmbedExternal *EmbedExternal
-	EmbedRecord   *EmbedRecord
+	EmbedImages          *EmbedImages
+	EmbedExternal        *EmbedExternal
+	EmbedRecord          *EmbedRecord
+	EmbedRecordWithMedia *EmbedRecordWithMedia
 }
 
 func (t *FeedPost_Embed) MarshalJSON() ([]byte, error) {
@@ -46,6 +47,10 @@ func (t *FeedPost_Embed) MarshalJSON() ([]byte, error) {
 	if t.EmbedRecord != nil {
 		t.EmbedRecord.LexiconTypeID = "app.bsky.embed.record"
 		return json.Marshal(t.EmbedRecord)
+	}
+	if t.EmbedRecordWithMedia != nil {
+		t.EmbedRecordWithMedia.LexiconTypeID = "app.bsky.embed.recordWithMedia"
+		return json.Marshal(t.EmbedRecordWithMedia)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -65,6 +70,9 @@ func (t *FeedPost_Embed) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.record":
 		t.EmbedRecord = new(EmbedRecord)
 		return json.Unmarshal(b, t.EmbedRecord)
+	case "app.bsky.embed.recordWithMedia":
+		t.EmbedRecordWithMedia = new(EmbedRecordWithMedia)
+		return json.Unmarshal(b, t.EmbedRecordWithMedia)
 
 	default:
 		return nil
@@ -86,6 +94,9 @@ func (t *FeedPost_Embed) MarshalCBOR(w io.Writer) error {
 	if t.EmbedRecord != nil {
 		return t.EmbedRecord.MarshalCBOR(w)
 	}
+	if t.EmbedRecordWithMedia != nil {
+		return t.EmbedRecordWithMedia.MarshalCBOR(w)
+	}
 	return fmt.Errorf("cannot cbor marshal empty enum")
 }
 func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
@@ -104,6 +115,9 @@ func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.embed.record":
 		t.EmbedRecord = new(EmbedRecord)
 		return t.EmbedRecord.UnmarshalCBOR(bytes.NewReader(b))
+	case "app.bsky.embed.recordWithMedia":
+		t.EmbedRecordWithMedia = new(EmbedRecordWithMedia)
+		return t.EmbedRecordWithMedia.UnmarshalCBOR(bytes.NewReader(b))
 
 	default:
 		return nil

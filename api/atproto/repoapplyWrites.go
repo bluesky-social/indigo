@@ -29,7 +29,7 @@ type RepoApplyWrites_Delete struct {
 
 type RepoApplyWrites_Input struct {
 	LexiconTypeID string                               `json:"$type,omitempty"`
-	Did           string                               `json:"did" cborgen:"did"`
+	Repo          string                               `json:"repo" cborgen:"repo"`
 	SwapCommit    *string                              `json:"swapCommit,omitempty" cborgen:"swapCommit"`
 	Validate      *bool                                `json:"validate,omitempty" cborgen:"validate"`
 	Writes        []*RepoApplyWrites_Input_Writes_Elem `json:"writes" cborgen:"writes"`

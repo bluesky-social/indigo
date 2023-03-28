@@ -12,10 +12,10 @@ func init() {
 }
 
 type FeedGetLikes_Like struct {
-	LexiconTypeID string              `json:"$type,omitempty"`
-	Actor         *ActorDefs_WithInfo `json:"actor" cborgen:"actor"`
-	CreatedAt     string              `json:"createdAt" cborgen:"createdAt"`
-	IndexedAt     string              `json:"indexedAt" cborgen:"indexedAt"`
+	LexiconTypeID string                 `json:"$type,omitempty"`
+	Actor         *ActorDefs_ProfileView `json:"actor" cborgen:"actor"`
+	CreatedAt     string                 `json:"createdAt" cborgen:"createdAt"`
+	IndexedAt     string                 `json:"indexedAt" cborgen:"indexedAt"`
 }
 
 type FeedGetLikes_Output struct {
