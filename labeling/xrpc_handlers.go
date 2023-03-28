@@ -18,12 +18,12 @@ func (s *Server) handleComAtprotoAccountGet(ctx context.Context) error {
 	return nil
 }
 
-func (s *Server) handleComAtprotoHandleResolve(ctx context.Context, handle string) (*atproto.HandleResolve_Output, error) {
+func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context, handle string) (*atproto.IdentityResolveHandle_Output, error) {
 	// only the one handle, for labelmaker
 	if handle == "" {
-		return &atproto.HandleResolve_Output{Did: s.user.SigningKey.Public().DID()}, nil
+		return &atproto.IdentityResolveHandle_Output{Did: s.user.SigningKey.Public().DID()}, nil
 	} else if handle == s.user.Handle {
-		return &atproto.HandleResolve_Output{Did: s.user.Did}, nil
+		return &atproto.IdentityResolveHandle_Output{Did: s.user.Did}, nil
 	} else {
 		return nil, fmt.Errorf("handle not found: %s", handle)
 	}

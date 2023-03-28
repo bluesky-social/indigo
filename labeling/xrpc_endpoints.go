@@ -12,7 +12,7 @@ import (
 
 func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.GET("/xrpc/com.atproto.account.get", s.HandleComAtprotoAccountGet)
-	e.GET("/xrpc/com.atproto.handle.resolve", s.HandleComAtprotoHandleResolve)
+	e.GET("/xrpc/com.atproto.handle.resolve", s.HandleComAtprotoIdentityResolveHandle)
 	e.GET("/xrpc/com.atproto.repo.describe", s.HandleComAtprotoRepoDescribe)
 	e.GET("/xrpc/com.atproto.repo.getRecord", s.HandleComAtprotoRepoGetRecord)
 	e.GET("/xrpc/com.atproto.repo.listRecords", s.HandleComAtprotoRepoListRecords)
@@ -33,14 +33,14 @@ func (s *Server) HandleComAtprotoAccountGet(c echo.Context) error {
 	return nil
 }
 
-func (s *Server) HandleComAtprotoHandleResolve(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoHandleResolve")
+func (s *Server) HandleComAtprotoIdentityResolveHandle(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoIdentityResolveHandle")
 	defer span.End()
 	handle := c.QueryParam("handle")
-	var out *atproto.HandleResolve_Output
+	var out *atproto.IdentityResolveHandle_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoHandleResolve(ctx context.Context,handle string) (*atproto.HandleResolve_Output, error)
-	out, handleErr = s.handleComAtprotoHandleResolve(ctx, handle)
+	// func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context,handle string) (*atproto.IdentityResolveHandle_Output, error)
+	out, handleErr = s.handleComAtprotoIdentityResolveHandle(ctx, handle)
 	if handleErr != nil {
 		return handleErr
 	}
