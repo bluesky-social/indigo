@@ -166,7 +166,7 @@ func TestBGSMultiPDS(t *testing.T) {
 }
 
 func TestBGSMultiGap(t *testing.T) {
-	t.Skip("test too sleepy to run in CI for now")
+	//t.Skip("test too sleepy to run in CI for now")
 	assert := assert.New(t)
 	_ = assert
 	didr := testPLC(t)
