@@ -376,16 +376,16 @@ func (s *Server) handleComAtprotoRepoUploadBlob(ctx context.Context, r io.Reader
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoHandleResolve(ctx context.Context, handle string) (*comatprototypes.HandleResolve_Output, error) {
+func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context, handle string) (*comatprototypes.IdentityResolveHandle_Output, error) {
 	if handle == "" {
-		return &comatprototypes.HandleResolve_Output{Did: s.signingKey.Public().DID()}, nil
+		return &comatprototypes.IdentityResolveHandle_Output{Did: s.signingKey.Public().DID()}, nil
 	}
 	u, err := s.lookupUserByHandle(ctx, handle)
 	if err != nil {
 		return nil, err
 	}
 
-	return &comatprototypes.HandleResolve_Output{Did: u.Did}, nil
+	return &comatprototypes.IdentityResolveHandle_Output{Did: u.Did}, nil
 }
 
 func (s *Server) handleComAtprotoRepoBatchWrite(ctx context.Context, input *comatprototypes.RepoBatchWrite_Input) error {
@@ -694,10 +694,6 @@ func (s *Server) handleAppBskyActorSearchActorsTypeahead(ctx context.Context, li
 }
 
 func (s *Server) handleAppBskyUnspeccedGetPopular(ctx context.Context, cursor string, limit int) (*appbskytypes.UnspeccedGetPopular_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context, handle string) (*comatprototypes.IdentityResolveHandle_Output, error) {
 	panic("nyi")
 }
 

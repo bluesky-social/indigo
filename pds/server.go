@@ -183,7 +183,7 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 	c := &xrpc.Client{Host: svc.ServiceEndpoint}
 
 	if peering.ID == 0 {
-		pdsdid, err := atproto.HandleResolve(ctx, c, "")
+		pdsdid, err := atproto.IdentityResolveHandle(ctx, c, "")
 		if err != nil {
 			// TODO: failing this shouldnt halt our indexing
 			return nil, fmt.Errorf("failed to get accounts config for unrecognized pds: %w", err)
@@ -348,9 +348,9 @@ func (s *Server) RunAPI(listen string) error {
 				return true
 			case "/xrpc/com.atproto.account.create":
 				return true
-			case "/xrpc/com.atproto.handle.resolve":
+			case "/xrpc/com.atproto.identity.resolveHandle":
 				return true
-			case "/xrpc/com.atproto.session.create":
+			case "/xrpc/com.atproto.server.createAccount":
 				return true
 			case "/xrpc/com.atproto.server.getAccountsConfig":
 				return true

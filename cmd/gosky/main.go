@@ -20,6 +20,7 @@ import (
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/version"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
@@ -356,7 +357,7 @@ func jsonPrint(i any) {
 	fmt.Println(string(b))
 }
 
-func prettyPrintPost(p *appbsky.FeedFeedViewPost, uris bool) {
+func prettyPrintPost(p *appbsky.FeedDefs_FeedViewPost, uris bool) {
 	fmt.Println(strings.Repeat("-", 60))
 	rec := p.Post.Record.Val.(*appbsky.FeedPost)
 	fmt.Printf("%s (%s)", p.Post.Author.Handle, rec.CreatedAt)
@@ -504,13 +505,21 @@ var feedSetVoteCmd = &cli.Command{
 			return fmt.Errorf("getting record: %w", err)
 		}
 
-		_, err = appbsky.FeedSetVote(ctx, xrpcc, &appbsky.FeedSetVote_Input{
-			Subject:   &comatproto.RepoStrongRef{Uri: resp.Uri, Cid: *resp.Cid},
-			Direction: dir,
+		out, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
+			LexiconTypeID: "com.atproto.feed.like",
+			Collection:    "com.atproto.feed.like",
+			Did:           did,
+			Record: lexutil.LexiconTypeDecoder{
+				Val: &appbsky.FeedLike{
+					CreatedAt: time.Now().Format(util.ISO8601),
+					Subject:   &comatproto.RepoStrongRef{Uri: resp.Uri, Cid: *resp.Cid},
+				},
+			},
 		})
 		if err != nil {
 			return err
 		}
+		_ = out
 		return nil
 
 	},
@@ -674,7 +683,7 @@ var getNotificationsCmd = &cli.Command{
 			return err
 		}
 
-		notifs, err := appbsky.NotificationList(ctx, xrpcc, "", 50)
+		notifs, err := appbsky.NotificationListNotifications(ctx, xrpcc, "", 50)
 		if err != nil {
 			return err
 		}
@@ -714,10 +723,7 @@ var followsAddCmd = &cli.Command{
 		follow := appbsky.GraphFollow{
 			LexiconTypeID: "app.bsky.graph.follow",
 			CreatedAt:     time.Now().Format(time.RFC3339),
-			Subject: &appbsky.ActorRef{
-				DeclarationCid: "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u",
-				Did:            user,
-			},
+			Subject:       user,
 		}
 
 		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
@@ -749,7 +755,7 @@ var followsListCmd = &cli.Command{
 		}
 
 		ctx := context.TODO()
-		resp, err := appbsky.GraphGetFollows(ctx, xrpcc, "", 100, user)
+		resp, err := appbsky.GraphGetFollows(ctx, xrpcc, user, "", 100)
 		if err != nil {
 			return err
 		}
