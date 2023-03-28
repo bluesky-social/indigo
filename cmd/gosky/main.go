@@ -106,7 +106,7 @@ var newAccountCmd = &cli.Command{
 			invite = &inv
 		}
 
-		acc, err := comatproto.AccountCreate(context.TODO(), xrpcc, &comatproto.AccountCreate_Input{
+		acc, err := comatproto.ServerCreateAccount(context.TODO(), xrpcc, &comatproto.ServerCreateAccount_Input{
 			Email:      email,
 			Handle:     handle,
 			InviteCode: invite,
@@ -799,7 +799,7 @@ var resetPasswordCmd = &cli.Command{
 
 		email := cctx.Args().Get(0)
 
-		err = comatproto.AccountRequestPasswordReset(ctx, xrpcc, &comatproto.AccountRequestPasswordReset_Input{
+		err = comatproto.ServerRequestPasswordReset(ctx, xrpcc, &comatproto.ServerRequestPasswordReset_Input{
 			Email: email,
 		})
 		if err != nil {
@@ -815,7 +815,7 @@ var resetPasswordCmd = &cli.Command{
 		inp.Scan()
 		npass := inp.Text()
 
-		if err := comatproto.AccountResetPassword(ctx, xrpcc, &comatproto.AccountResetPassword_Input{
+		if err := comatproto.ServerResetPassword(ctx, xrpcc, &comatproto.ServerResetPassword_Input{
 			Password: npass,
 			Token:    code,
 		}); err != nil {
