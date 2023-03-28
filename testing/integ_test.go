@@ -191,7 +191,7 @@ func TestBGSMultiGap(t *testing.T) {
 	p2posts := socialSim(t, users2, 10, 0)
 
 	users[0].Reply(t, p2posts[0], p2posts[0], "what a wonderful life")
-	time.Sleep(time.Millisecond * 50)
+	time.Sleep(time.Millisecond * 100)
 
 	ctx := context.Background()
 	_, err := b1.bgs.Index.GetPost(ctx, p2posts[3].Uri)
