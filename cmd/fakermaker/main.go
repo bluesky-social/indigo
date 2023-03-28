@@ -313,7 +313,7 @@ func pdsGenAccount(xrpcc *xrpc.Client, index int, accountType string) (*AccountC
 	email := gofakeit.Email()
 	password := gofakeit.Password(true, true, true, true, true, 24)
 	ctx := context.TODO()
-	resp, err := comatproto.AccountCreate(ctx, xrpcc, &comatproto.AccountCreate_Input{
+	resp, err := comatproto.ServerCreateAccount(ctx, xrpcc, &comatproto.ServerCreateAccount_Input{
 		Email:    email,
 		Handle:   handle,
 		Password: password,
@@ -418,24 +418,24 @@ func pdsGenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner
 	var avatar *lexutil.Blob
 	if genAvatar {
 		img := gofakeit.ImagePng(200, 200)
-		resp, err := comatproto.BlobUpload(context.TODO(), xrpcc, bytes.NewReader(img))
+		resp, err := comatproto.RepoUploadBlob(context.TODO(), xrpcc, bytes.NewReader(img))
 		if err != nil {
 			return err
 		}
 		avatar = &lexutil.Blob{
-			Cid:      resp.Cid,
+			Cid:      resp.Blob.Cid,
 			MimeType: "image/png",
 		}
 	}
 	var banner *lexutil.Blob
 	if genBanner {
 		img := gofakeit.ImageJpeg(800, 200)
-		resp, err := comatproto.BlobUpload(context.TODO(), xrpcc, bytes.NewReader(img))
+		resp, err := comatproto.RepoUploadBlob(context.TODO(), xrpcc, bytes.NewReader(img))
 		if err != nil {
 			return err
 		}
 		avatar = &lexutil.Blob{
-			Cid:      resp.Cid,
+			Cid:      resp.Blob.Cid,
 			MimeType: "image/jpeg",
 		}
 	}
@@ -534,14 +534,14 @@ func pdsGenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContex
 		var images []*appbsky.EmbedImages_Image
 		if fracImage > 0.0 && rand.Float64() < fracImage {
 			img := gofakeit.ImageJpeg(800, 800)
-			resp, err := comatproto.BlobUpload(context.TODO(), xrpcc, bytes.NewReader(img))
+			resp, err := comatproto.RepoUploadBlob(context.TODO(), xrpcc, bytes.NewReader(img))
 			if err != nil {
 				return err
 			}
 			images = append(images, &appbsky.EmbedImages_Image{
 				Alt: gofakeit.Lunch(),
 				Image: &lexutil.Blob{
-					Cid:      resp.Cid,
+					Cid:      resp.Blob.Cid,
 					MimeType: "image/jpeg",
 				},
 			})
