@@ -167,7 +167,7 @@ var postCmd = &cli.Command{
 
 		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.feed.post",
-			Did:        auth.Did,
+			Repo:       auth.Did,
 			Record: lexutil.LexiconTypeDecoder{&appbsky.FeedPost{
 				Text:      text,
 				CreatedAt: time.Now().Format("2006-01-02T15:04:05.000Z"),
@@ -508,7 +508,7 @@ var feedSetVoteCmd = &cli.Command{
 		out, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
 			LexiconTypeID: "com.atproto.feed.like",
 			Collection:    "com.atproto.feed.like",
-			Did:           did,
+			Repo:          did,
 			Record: lexutil.LexiconTypeDecoder{
 				Val: &appbsky.FeedLike{
 					CreatedAt: time.Now().Format(util.ISO8601),
@@ -728,7 +728,7 @@ var followsAddCmd = &cli.Command{
 
 		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.graph.follow",
-			Did:        xrpcc.Auth.Did,
+			Repo:       xrpcc.Auth.Did,
 			Record:     lexutil.LexiconTypeDecoder{&follow},
 		})
 		if err != nil {
