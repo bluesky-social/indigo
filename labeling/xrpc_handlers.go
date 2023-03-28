@@ -89,7 +89,7 @@ func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, ea
 
 func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, collection string, rkey string, user string) (*atproto.RepoGetRecord_Output, error) {
 	if user != s.user.Did {
-		return nil, fmt.Errorf("unknown user: %s", user)
+		return nil, echo.NewHTTPError(404, "unknown user: %s", user)
 	}
 
 	var maybeCid cid.Cid
@@ -103,6 +103,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 
 	reccid, rec, err := s.repoman.GetRecord(ctx, s.user.UserId, collection, rkey, maybeCid)
 	if err != nil {
+		// XXX: handle 404
 		return nil, fmt.Errorf("repoman GetRecord: %w", err)
 	}
 
@@ -133,7 +134,6 @@ func (s *Server) handleComAtprotoLabelQuery(ctx context.Context, cursor string, 
 	}
 
 	srcQuery := s.db
-	fmt.Printf("%v\n", sources)
 	for _, src := range sources {
 		if src == "*" {
 			continue
@@ -217,8 +217,7 @@ func (s *Server) handleComAtprotoAdminGetModerationActions(ctx context.Context, 
 	if cursor != "" {
 		cursorID, err := strconv.Atoi(cursor)
 		if err != nil {
-			// XXX: HTTP 400 error
-			return nil, err
+			return nil, echo.NewHTTPError(400, "invalid cursor param: %v", cursor)
 		}
 		q = q.Where("id < ?", cursorID)
 	}
@@ -280,8 +279,7 @@ func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context, 
 	if cursor != "" {
 		cursorID, err := strconv.Atoi(cursor)
 		if err != nil {
-			// XXX: HTTP 400 error
-			return nil, err
+			return nil, echo.NewHTTPError(400, "invalid cursor param: %v", cursor)
 		}
 		q = q.Where("id < ?", cursorID)
 	}
@@ -332,7 +330,12 @@ func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context, 
 
 func (s *Server) handleComAtprotoAdminResolveModerationReports(ctx context.Context, body *atproto.AdminResolveModerationReports_Input) (*atproto.AdminModerationAction_View, error) {
 
-	// XXX: check that body fields are not nil/empty: CreatedBy, ReportIds
+	if body.CreatedBy == "" {
+		return nil, echo.NewHTTPError(400, "createdBy param must be non-empty")
+	}
+	if len(body.ReportIds) == 0 {
+		return nil, echo.NewHTTPError(400, "at least one reportId required")
+	}
 
 	var rows []models.ModerationReportResolution
 	for _, reportId := range body.ReportIds {
@@ -367,18 +370,25 @@ func (s *Server) fetchSingleModerationAction(ctx context.Context, actionId int64
 
 func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Context, body *atproto.AdminReverseModerationAction_Input) (*atproto.AdminModerationAction_View, error) {
 
-	// XXX: validate body CreatedBy, Reason
+	if body.CreatedBy == "" {
+		return nil, echo.NewHTTPError(400, "createBy param must be non-empty")
+	}
+	/* XXX:
+	if body.Reason == "" {
+		return nil, echo.NewHTTPError(400, "reason param was provided, but empty string")
+	}
+	*/
 
 	row := models.ModerationAction{ID: uint64(body.Id)}
 	result := s.db.First(&row)
 	if result.Error != nil {
 		// XXX: if not found, 404
+		//return nil, echo.NewHTTPError(404, "moderation action not found: %d", body.Id)
 		return nil, result.Error
 	}
 
 	if row.ReversedAt != nil {
-		// XXX: http 400 (already reversed)
-		return nil, fmt.Errorf("action has already been reversed actionId=%d", body.Id)
+		return nil, echo.NewHTTPError(400, "action has already been reversed actionId=%d", body.Id)
 	}
 
 	now := time.Now()
@@ -414,8 +424,8 @@ func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, 
 			Did:           row.SubjectDid,
 		}
 	} else if body.Subject.RepoRecordRef != nil {
-		if row.SubjectCid == nil {
-			return nil, fmt.Errorf("this implementation requires a strong record ref (aka, with CID) in reports")
+		if body.Subject.RepoRecordRef.Cid == nil {
+			return nil, echo.NewHTTPError(400, "this implementation requires a strong record ref (aka, with CID) in reports")
 		}
 		row.SubjectType = "com.atproto.repo.recordRef"
 		// TODO: row.SubjectDid from URI?
@@ -427,8 +437,7 @@ func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, 
 			Cid:           *row.SubjectCid,
 		}
 	} else {
-		// XXX: 400 error (and similar instances)
-		return nil, fmt.Errorf("report subject must be a repoRef or a recordRef")
+		return nil, echo.NewHTTPError(400, "report subject must be a repoRef or a recordRef")
 	}
 
 	result := s.db.Create(&row)
@@ -450,14 +459,11 @@ func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, 
 
 func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *atproto.ReportCreate_Input) (*atproto.ReportCreate_Output, error) {
 
-	// TODO: shouldn't lexgen and the endpoint handlers help with these already? both are required fields
-	if body.ReasonType == nil {
-		// XXX: 400 error
-		return nil, fmt.Errorf("ReasonType is required")
+	if body.ReasonType == nil || *body.ReasonType == "" {
+		return nil, echo.NewHTTPError(400, "reasonType is required")
 	}
 	if body.Subject == nil {
-		// XXX: 400 error
-		return nil, fmt.Errorf("Subject is required")
+		return nil, echo.NewHTTPError(400, "Subject is required")
 	}
 
 	row := models.ModerationReport{
@@ -468,6 +474,9 @@ func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *atproto
 	}
 	var outSubj atproto.ReportCreate_Output_Subject
 	if body.Subject.RepoRepoRef != nil {
+		if body.Subject.RepoRepoRef.Did == "" {
+			return nil, echo.NewHTTPError(400, "DID is required for repo reports")
+		}
 		row.SubjectType = "com.atproto.repo.repoRef"
 		row.SubjectDid = body.Subject.RepoRepoRef.Did
 		outSubj.RepoRepoRef = &atproto.RepoRepoRef{
@@ -475,8 +484,11 @@ func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *atproto
 			Did:           row.SubjectDid,
 		}
 	} else if body.Subject.RepoRecordRef != nil {
-		if row.SubjectCid == nil {
-			return nil, fmt.Errorf("this implementation requires a strong record ref (aka, with CID) in reports")
+		if body.Subject.RepoRecordRef.Uri == "" {
+			return nil, echo.NewHTTPError(400, "URI required for record reports")
+		}
+		if body.Subject.RepoRecordRef.Cid == nil || *body.Subject.RepoRecordRef.Cid == "" {
+			return nil, echo.NewHTTPError(400, "this implementation requires a strong record ref (aka, with CID) in reports")
 		}
 		row.SubjectType = "com.atproto.repo.recordRef"
 		// TODO: row.SubjectDid from URI?
@@ -488,7 +500,7 @@ func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *atproto
 			Cid:           *row.SubjectCid,
 		}
 	} else {
-		return nil, fmt.Errorf("report subject must be a repoRef or a recordRef")
+		return nil, echo.NewHTTPError(400, "report subject must be a repoRef or a recordRef")
 	}
 
 	result := s.db.Create(&row)
