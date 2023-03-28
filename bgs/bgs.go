@@ -468,7 +468,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	handle := hurl.Host
 
-	res, err := atproto.HandleResolve(ctx, c, handle)
+	res, err := atproto.IdentityResolveHandle(ctx, c, handle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve users claimed handle (%q) on pds: %w", handle, err)
 	}

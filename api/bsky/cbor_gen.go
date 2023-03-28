@@ -28,7 +28,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 
 	cw := cbg.NewCborWriter(w)
 
-	if _, err := cw.Write([]byte{166}); err != nil {
+	if _, err := cw.Write([]byte{167}); err != nil {
 		return err
 	}
 
@@ -104,6 +104,31 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 
 	if err := t.Reply.MarshalCBOR(cw); err != nil {
 		return err
+	}
+
+	// t.Facets ([]*bsky.RichtextFacet) (slice)
+	if len("facets") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"facets\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("facets"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("facets")); err != nil {
+		return err
+	}
+
+	if len(t.Facets) > cbg.MaxLength {
+		return xerrors.Errorf("Slice value in field t.Facets was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Facets))); err != nil {
+		return err
+	}
+	for _, v := range t.Facets {
+		if err := v.MarshalCBOR(cw); err != nil {
+			return err
+		}
 	}
 
 	// t.Entities ([]*bsky.FeedPost_Entity) (slice)
@@ -256,6 +281,36 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 			}
+			// t.Facets ([]*bsky.RichtextFacet) (slice)
+		case "facets":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > cbg.MaxLength {
+				return fmt.Errorf("t.Facets: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Facets = make([]*RichtextFacet, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+
+				var v RichtextFacet
+				if err := v.UnmarshalCBOR(cr); err != nil {
+					return err
+				}
+
+				t.Facets[i] = &v
+			}
+
 			// t.Entities ([]*bsky.FeedPost_Entity) (slice)
 		case "entities":
 
@@ -467,7 +522,6 @@ func (t *FeedRepost) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-
 func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
@@ -1175,7 +1229,6 @@ func (t *EmbedImages) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-
 func (t *EmbedExternal) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
@@ -1736,7 +1789,7 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Subject (bsky.ActorRef) (struct)
+	// t.Subject (string) (string)
 	if len("subject") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"subject\" was too long")
 	}
@@ -1745,6 +1798,17 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string("subject")); err != nil {
+		return err
+	}
+
+	if len(t.Subject) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Subject was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Subject))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Subject)); err != nil {
 		return err
 	}
 
@@ -1822,21 +1886,16 @@ func (t *GraphFollow) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.LexiconTypeID = string(sval)
 			}
-			// t.Subject (bsky.ActorRef) (struct)
+			// t.Subject (string) (string)
 		case "subject":
 
 			{
-
-				b, err := cr.ReadByte()
+				sval, err := cbg.ReadString(cr)
 				if err != nil {
 					return err
 				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-				}
 
+				t.Subject = string(sval)
 			}
 			// t.CreatedAt (string) (string)
 		case "createdAt":
@@ -1858,7 +1917,6 @@ func (t *GraphFollow) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-
 func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
@@ -1963,6 +2021,22 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	if t.DisplayName == nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if len(*t.DisplayName) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.DisplayName was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.DisplayName))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(*t.DisplayName)); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -2080,7 +2154,22 @@ func (t *ActorProfile) UnmarshalCBOR(r io.Reader) (err error) {
 		case "displayName":
 
 			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
 
+					sval, err := cbg.ReadString(cr)
+					if err != nil {
+						return err
+					}
+
+					t.DisplayName = (*string)(&sval)
+				}
 			}
 
 		default:
@@ -2091,7 +2180,6 @@ func (t *ActorProfile) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-
 func (t *EmbedRecord) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
@@ -2202,6 +2290,916 @@ func (t *EmbedRecord) UnmarshalCBOR(r io.Reader) (err error) {
 					}
 				}
 
+			}
+			// t.LexiconTypeID (string) (string)
+		case "LexiconTypeID":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *FeedLike) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{163}); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.feed.like"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("app.bsky.feed.like")); err != nil {
+		return err
+	}
+
+	// t.Subject (atproto.RepoStrongRef) (struct)
+	if len("subject") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"subject\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("subject"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("subject")); err != nil {
+		return err
+	}
+
+	if err := t.Subject.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.CreatedAt (string) (string)
+	if len("createdAt") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"createdAt\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("createdAt")); err != nil {
+		return err
+	}
+
+	if len(t.CreatedAt) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.CreatedAt was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.CreatedAt)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *FeedLike) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = FeedLike{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("FeedLike: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Subject (atproto.RepoStrongRef) (struct)
+		case "subject":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Subject = new(atproto.RepoStrongRef)
+					if err := t.Subject.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Subject pointer: %w", err)
+					}
+				}
+
+			}
+			// t.CreatedAt (string) (string)
+		case "createdAt":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.CreatedAt = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{163}); err != nil {
+		return err
+	}
+
+	// t.Index (bsky.RichtextFacet_TextSlice) (struct)
+	if len("index") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"index\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("index"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("index")); err != nil {
+		return err
+	}
+
+	if err := t.Index.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.Value (bsky.RichtextFacet_Value) (struct)
+	if len("value") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"value\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("value"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("value")); err != nil {
+		return err
+	}
+
+	if err := t.Value.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("LexiconTypeID") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
+		return err
+	}
+
+	if len(t.LexiconTypeID) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *RichtextFacet) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = RichtextFacet{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("RichtextFacet: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.Index (bsky.RichtextFacet_TextSlice) (struct)
+		case "index":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Index = new(RichtextFacet_TextSlice)
+					if err := t.Index.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Index pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Value (bsky.RichtextFacet_Value) (struct)
+		case "value":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Value = new(RichtextFacet_Value)
+					if err := t.Value.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Value pointer: %w", err)
+					}
+				}
+
+			}
+			// t.LexiconTypeID (string) (string)
+		case "LexiconTypeID":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *RichtextFacet_TextSlice) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{163}); err != nil {
+		return err
+	}
+
+	// t.End (int64) (int64)
+	if len("end") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"end\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("end"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("end")); err != nil {
+		return err
+	}
+
+	if t.End >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.End)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.End-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.Start (int64) (int64)
+	if len("start") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"start\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("start"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("start")); err != nil {
+		return err
+	}
+
+	if t.Start >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Start)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Start-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("LexiconTypeID") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
+		return err
+	}
+
+	if len(t.LexiconTypeID) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *RichtextFacet_TextSlice) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = RichtextFacet_TextSlice{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("RichtextFacet_TextSlice: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.End (int64) (int64)
+		case "end":
+			{
+				maj, extra, err := cr.ReadHeader()
+				var extraI int64
+				if err != nil {
+					return err
+				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.End = int64(extraI)
+			}
+			// t.Start (int64) (int64)
+		case "start":
+			{
+				maj, extra, err := cr.ReadHeader()
+				var extraI int64
+				if err != nil {
+					return err
+				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.Start = int64(extraI)
+			}
+			// t.LexiconTypeID (string) (string)
+		case "LexiconTypeID":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *RichtextFacet_Value) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{162}); err != nil {
+		return err
+	}
+
+	// t.RichtextFacet_Link (bsky.RichtextFacet_Link) (struct)
+	if len("RichtextFacet_Link") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"RichtextFacet_Link\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("RichtextFacet_Link"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("RichtextFacet_Link")); err != nil {
+		return err
+	}
+
+	if err := t.RichtextFacet_Link.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.RichtextFacet_Mention (bsky.RichtextFacet_Mention) (struct)
+	if len("RichtextFacet_Mention") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"RichtextFacet_Mention\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("RichtextFacet_Mention"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("RichtextFacet_Mention")); err != nil {
+		return err
+	}
+
+	if err := t.RichtextFacet_Mention.MarshalCBOR(cw); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *RichtextFacet_Value) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = RichtextFacet_Value{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("RichtextFacet_Value: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.RichtextFacet_Link (bsky.RichtextFacet_Link) (struct)
+		case "RichtextFacet_Link":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.RichtextFacet_Link = new(RichtextFacet_Link)
+					if err := t.RichtextFacet_Link.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.RichtextFacet_Link pointer: %w", err)
+					}
+				}
+
+			}
+			// t.RichtextFacet_Mention (bsky.RichtextFacet_Mention) (struct)
+		case "RichtextFacet_Mention":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.RichtextFacet_Mention = new(RichtextFacet_Mention)
+					if err := t.RichtextFacet_Mention.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.RichtextFacet_Mention pointer: %w", err)
+					}
+				}
+
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *RichtextFacet_Link) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{162}); err != nil {
+		return err
+	}
+
+	// t.Uri (string) (string)
+	if len("uri") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"uri\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("uri"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("uri")); err != nil {
+		return err
+	}
+
+	if len(t.Uri) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Uri was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Uri))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Uri)); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("LexiconTypeID") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
+		return err
+	}
+
+	if len(t.LexiconTypeID) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *RichtextFacet_Link) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = RichtextFacet_Link{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("RichtextFacet_Link: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.Uri (string) (string)
+		case "uri":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Uri = string(sval)
+			}
+			// t.LexiconTypeID (string) (string)
+		case "LexiconTypeID":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *RichtextFacet_Mention) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{162}); err != nil {
+		return err
+	}
+
+	// t.Did (string) (string)
+	if len("did") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"did\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("did"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("did")); err != nil {
+		return err
+	}
+
+	if len(t.Did) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Did was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Did))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Did)); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("LexiconTypeID") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
+		return err
+	}
+
+	if len(t.LexiconTypeID) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *RichtextFacet_Mention) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = RichtextFacet_Mention{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("RichtextFacet_Mention: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.Did (string) (string)
+		case "did":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Did = string(sval)
 			}
 			// t.LexiconTypeID (string) (string)
 		case "LexiconTypeID":
