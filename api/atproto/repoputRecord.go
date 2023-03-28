@@ -15,7 +15,7 @@ func init() {
 type RepoPutRecord_Input struct {
 	LexiconTypeID string                  `json:"$type,omitempty"`
 	Collection    string                  `json:"collection" cborgen:"collection"`
-	Did           string                  `json:"did" cborgen:"did"`
+	Repo          string                  `json:"repo" cborgen:"repo"`
 	Record        util.LexiconTypeDecoder `json:"record" cborgen:"record"`
 	Rkey          string                  `json:"rkey" cborgen:"rkey"`
 	SwapCommit    *string                 `json:"swapCommit,omitempty" cborgen:"swapCommit"`

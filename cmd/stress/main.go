@@ -131,7 +131,7 @@ var postingCmd = &cli.Command{
 
 					res, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 						Collection: "app.bsky.feed.post",
-						Did:        xrpcc.Auth.Did,
+						Repo:       xrpcc.Auth.Did,
 						Record: lexutil.LexiconTypeDecoder{&appbsky.FeedPost{
 							Text:      hex.EncodeToString(buf),
 							CreatedAt: time.Now().Format(time.RFC3339),

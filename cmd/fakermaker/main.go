@@ -441,7 +441,7 @@ func pdsGenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner
 	}
 
 	_, err := comatproto.RepoPutRecord(context.TODO(), xrpcc, &comatproto.RepoPutRecord_Input{
-		Did:        acc.Auth.Did,
+		Repo:       acc.Auth.Did,
 		Collection: "app.bsky.actor.profile",
 		Rkey:       "self",
 		Record: lexutil.LexiconTypeDecoder{&appbsky.ActorProfile{
@@ -562,7 +562,7 @@ func pdsGenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContex
 		}
 		if _, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.feed.post",
-			Did:        acc.Auth.Did,
+			Repo:       acc.Auth.Did,
 			Record:     lexutil.LexiconTypeDecoder{&post},
 		}); err != nil {
 			return err
@@ -579,7 +579,7 @@ func pdsCreateFollow(xrpcc *xrpc.Client, tgt *AccountContext) error {
 	}
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.graph.follow",
-		Did:        xrpcc.Auth.Did,
+		Repo:       xrpcc.Auth.Did,
 		Record:     lexutil.LexiconTypeDecoder{follow},
 	})
 	return err
@@ -596,7 +596,7 @@ func pdsCreateLike(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) 
 	// TODO: may have already like? in that case should ignore error
 	_, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.like",
-		Did:        xrpcc.Auth.Did,
+		Repo:       xrpcc.Auth.Did,
 		Record:     lexutil.LexiconTypeDecoder{&like},
 	})
 	return err
@@ -612,7 +612,7 @@ func pdsCreateRepost(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost
 	}
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.repost",
-		Did:        xrpcc.Auth.Did,
+		Repo:       xrpcc.Auth.Did,
 		Record:     lexutil.LexiconTypeDecoder{repost},
 	})
 	return err
@@ -644,7 +644,7 @@ func pdsCreateReply(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost)
 	}
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.post",
-		Did:        xrpcc.Auth.Did,
+		Repo:       xrpcc.Auth.Did,
 		Record:     lexutil.LexiconTypeDecoder{replyPost},
 	})
 	return err
