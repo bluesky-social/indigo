@@ -344,7 +344,7 @@ func (s *Server) RunAPI(listen string) error {
 			switch c.Path() {
 			case "/xrpc/_health":
 				return true
-			case "/xrpc/com.atproto.sync.subscribeAllRepos":
+			case "/xrpc/com.atproto.sync.subscribeRepos":
 				return true
 			case "/xrpc/com.atproto.account.create":
 				return true
@@ -384,7 +384,7 @@ func (s *Server) RunAPI(listen string) error {
 	e.Use(middleware.JWTWithConfig(cfg), s.userCheckMiddleware)
 	s.RegisterHandlersComAtproto(e)
 	s.RegisterHandlersAppBsky(e)
-	e.GET("/xrpc/com.atproto.sync.subscribeAllRepos", s.EventsHandler)
+	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
 	e.GET("/xrpc/_health", s.HandleHealthCheck)
 
 	return e.Start(listen)

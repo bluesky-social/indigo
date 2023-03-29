@@ -168,7 +168,7 @@ func (bgs *BGS) Start(listen string) error {
 
 	// TODO: this API is temporary until we formalize what we want here
 
-	e.GET("/xrpc/com.atproto.sync.subscribeAllRepos", bgs.EventsHandler)
+	e.GET("/xrpc/com.atproto.sync.subscribeRepos", bgs.EventsHandler)
 
 	e.GET("/xrpc/com.atproto.sync.getCheckout", bgs.HandleComAtprotoSyncGetCheckout)
 	e.GET("/xrpc/com.atproto.sync.getCommitPath", bgs.HandleComAtprotoSyncGetCommitPath)
