@@ -15,9 +15,9 @@ type EmbedImages struct {
 }
 
 type EmbedImages_Image struct {
-	LexiconTypeID string     `json:"$type,omitempty"`
-	Alt           string     `json:"alt" cborgen:"alt"`
-	Image         *util.Blob `json:"image" cborgen:"image"`
+	LexiconTypeID string        `json:"$type,omitempty"`
+	Alt           string        `json:"alt" cborgen:"alt"`
+	Image         *util.LexBlob `json:"image" cborgen:"image"`
 }
 
 type EmbedImages_View struct {
