@@ -118,7 +118,7 @@ func run(args []string) {
 				&cli.IntFlag{
 					Name:  "max-follows",
 					Usage: "create up to this many follows for each account",
-					Value: 100,
+					Value: 90,
 				},
 				&cli.IntFlag{
 					Name:  "max-mutes",
