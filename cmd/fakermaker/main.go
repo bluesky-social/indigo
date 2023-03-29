@@ -415,26 +415,26 @@ func pdsGenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner
 		name = gofakeit.Name()
 	}
 
-	var avatar *lexutil.Blob
+	var avatar *lexutil.LexBlob
 	if genAvatar {
 		img := gofakeit.ImagePng(200, 200)
 		resp, err := comatproto.RepoUploadBlob(context.TODO(), xrpcc, bytes.NewReader(img))
 		if err != nil {
 			return err
 		}
-		avatar = &lexutil.Blob{
+		avatar = &lexutil.LexBlob{
 			Ref:      resp.Blob.Ref,
 			MimeType: "image/png",
 		}
 	}
-	var banner *lexutil.Blob
+	var banner *lexutil.LexBlob
 	if genBanner {
 		img := gofakeit.ImageJpeg(800, 200)
 		resp, err := comatproto.RepoUploadBlob(context.TODO(), xrpcc, bytes.NewReader(img))
 		if err != nil {
 			return err
 		}
-		avatar = &lexutil.Blob{
+		avatar = &lexutil.LexBlob{
 			Ref:      resp.Blob.Ref,
 			MimeType: "image/jpeg",
 		}
@@ -540,7 +540,7 @@ func pdsGenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContex
 			}
 			images = append(images, &appbsky.EmbedImages_Image{
 				Alt: gofakeit.Lunch(),
-				Image: &lexutil.Blob{
+				Image: &lexutil.LexBlob{
 					Ref:      resp.Blob.Ref,
 					MimeType: "image/jpeg",
 				},
