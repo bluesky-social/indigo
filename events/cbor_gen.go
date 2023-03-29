@@ -186,7 +186,7 @@ func (t *RepoAppend) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.Prev (string) (string)
+	// t.Prev (cid.Cid) (struct)
 	if len("prev") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"prev\" was too long")
 	}
@@ -203,15 +203,8 @@ func (t *RepoAppend) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	} else {
-		if len(*t.Prev) > cbg.MaxLength {
-			return xerrors.Errorf("Value in field t.Prev was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Prev))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string(*t.Prev)); err != nil {
-			return err
+		if err := cbg.WriteCid(cw, *t.Prev); err != nil {
+			return xerrors.Errorf("failed to write cid field t.Prev: %w", err)
 		}
 	}
 
@@ -261,7 +254,7 @@ func (t *RepoAppend) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Blobs ([]string) (slice)
+	// t.Blobs ([]cid.Cid) (slice)
 	if len("blobs") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"blobs\" was too long")
 	}
@@ -281,15 +274,8 @@ func (t *RepoAppend) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	for _, v := range t.Blobs {
-		if len(v) > cbg.MaxLength {
-			return xerrors.Errorf("Value in field v was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(v))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string(v)); err != nil {
-			return err
+		if err := cbg.WriteCid(w, v); err != nil {
+			return xerrors.Errorf("failed writing cid field t.Blobs: %w", err)
 		}
 	}
 
@@ -340,7 +326,7 @@ func (t *RepoAppend) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Commit (string) (string)
+	// t.Commit (cid.Cid) (struct)
 	if len("commit") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"commit\" was too long")
 	}
@@ -352,15 +338,8 @@ func (t *RepoAppend) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Commit) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Commit was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Commit))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Commit)); err != nil {
-		return err
+	if err := cbg.WriteCid(cw, t.Commit); err != nil {
+		return xerrors.Errorf("failed to write cid field t.Commit: %w", err)
 	}
 
 	// t.TooBig (bool) (bool)
@@ -475,10 +454,11 @@ func (t *RepoAppend) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Seq = int64(extraI)
 			}
-			// t.Prev (string) (string)
+			// t.Prev (cid.Cid) (struct)
 		case "prev":
 
 			{
+
 				b, err := cr.ReadByte()
 				if err != nil {
 					return err
@@ -488,13 +468,14 @@ func (t *RepoAppend) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadString(cr)
+					c, err := cbg.ReadCid(cr)
 					if err != nil {
-						return err
+						return xerrors.Errorf("failed to read cid field t.Prev: %w", err)
 					}
 
-					t.Prev = (*string)(&sval)
+					t.Prev = &c
 				}
+
 			}
 			// t.Repo (string) (string)
 		case "repo":
@@ -518,7 +499,7 @@ func (t *RepoAppend) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Time = string(sval)
 			}
-			// t.Blobs ([]string) (slice)
+			// t.Blobs ([]cid.Cid) (slice)
 		case "blobs":
 
 			maj, extra, err = cr.ReadHeader()
@@ -535,19 +516,16 @@ func (t *RepoAppend) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			if extra > 0 {
-				t.Blobs = make([]string, extra)
+				t.Blobs = make([]cid.Cid, extra)
 			}
 
 			for i := 0; i < int(extra); i++ {
 
-				{
-					sval, err := cbg.ReadString(cr)
-					if err != nil {
-						return err
-					}
-
-					t.Blobs[i] = string(sval)
+				c, err := cbg.ReadCid(cr)
+				if err != nil {
+					return xerrors.Errorf("reading cid field t.Blobs failed: %w", err)
 				}
+				t.Blobs[i] = c
 			}
 
 			// t.Event (string) (string)
@@ -583,16 +561,18 @@ func (t *RepoAppend) UnmarshalCBOR(r io.Reader) (err error) {
 			if _, err := io.ReadFull(cr, t.Blocks[:]); err != nil {
 				return err
 			}
-			// t.Commit (string) (string)
+			// t.Commit (cid.Cid) (struct)
 		case "commit":
 
 			{
-				sval, err := cbg.ReadString(cr)
+
+				c, err := cbg.ReadCid(cr)
 				if err != nil {
-					return err
+					return xerrors.Errorf("failed to read cid field t.Commit: %w", err)
 				}
 
-				t.Commit = string(sval)
+				t.Commit = c
+
 			}
 			// t.TooBig (bool) (bool)
 		case "tooBig":
@@ -633,7 +613,7 @@ func (t *RepoOp) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Cid (string) (string)
+	// t.Cid (cid.Cid) (struct)
 	if len("cid") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"cid\" was too long")
 	}
@@ -650,15 +630,8 @@ func (t *RepoOp) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	} else {
-		if len(*t.Cid) > cbg.MaxLength {
-			return xerrors.Errorf("Value in field t.Cid was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Cid))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string(*t.Cid)); err != nil {
-			return err
+		if err := cbg.WriteCid(cw, *t.Cid); err != nil {
+			return xerrors.Errorf("failed to write cid field t.Cid: %w", err)
 		}
 	}
 
@@ -748,10 +721,11 @@ func (t *RepoOp) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Cid (string) (string)
+		// t.Cid (cid.Cid) (struct)
 		case "cid":
 
 			{
+
 				b, err := cr.ReadByte()
 				if err != nil {
 					return err
@@ -761,13 +735,14 @@ func (t *RepoOp) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadString(cr)
+					c, err := cbg.ReadCid(cr)
 					if err != nil {
-						return err
+						return xerrors.Errorf("failed to read cid field t.Cid: %w", err)
 					}
 
-					t.Cid = (*string)(&sval)
+					t.Cid = &c
 				}
+
 			}
 			// t.Path (string) (string)
 		case "path":
