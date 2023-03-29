@@ -16,7 +16,6 @@ import (
 // ipfs dag get bafyreiapesxwibnujg44xphqq23ekkozgcmnenj2onnx4gkgy4uipziyc4 --output-codec=dag-cbor > testing/repo_record.cbor
 
 func TestRepoSliceParse(t *testing.T) {
-	t.Skip("legacy blob handling is still WIP after lex refactor")
 	ctx := context.TODO()
 	fi, err := os.Open("repo_slice.car")
 	if err != nil {
