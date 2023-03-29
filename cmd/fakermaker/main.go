@@ -592,6 +592,7 @@ func pdsCreateLike(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) 
 			Uri: viewPost.Post.Uri,
 			Cid: viewPost.Post.Cid,
 		},
+		CreatedAt: time.Now().Format(time.RFC3339),
 	}
 	// TODO: may have already like? in that case should ignore error
 	_, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
