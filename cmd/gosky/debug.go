@@ -44,7 +44,7 @@ var inspectEventCmd = &cli.Command{
 
 		h := cctx.String("host")
 
-		url := fmt.Sprintf("%s/xrpc/com.atproto.sync.subscribeAllRepos?cursor=%d", h, n-1)
+		url := fmt.Sprintf("%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", h, n-1)
 		d := websocket.DefaultDialer
 		con, _, err := d.Dial(url, http.Header{})
 		if err != nil {

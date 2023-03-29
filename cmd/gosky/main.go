@@ -861,8 +861,8 @@ var readRepoStreamCmd = &cli.Command{
 		defer stop()
 
 		arg := cctx.Args().First()
-		if !strings.Contains(arg, "subscribeAllRepos") {
-			arg = arg + "/xrpc/com.atproto.sync.subscribeAllRepos"
+		if !strings.Contains(arg, "subscribeRepos") {
+			arg = arg + "/xrpc/com.atproto.sync.subscribeRepos"
 		}
 		if len(cctx.Args().Slice()) == 2 {
 			arg = fmt.Sprintf("%s?cursor=%s", arg, cctx.Args().Get(1))

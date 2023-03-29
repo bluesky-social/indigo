@@ -444,7 +444,7 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 		q = fmt.Sprintf("?cursor=%d", since)
 	}
 
-	con, resp, err := d.Dial("ws://"+b.host+"/xrpc/com.atproto.sync.subscribeAllRepos"+q, h)
+	con, resp, err := d.Dial("ws://"+b.host+"/xrpc/com.atproto.sync.subscribeRepos"+q, h)
 	if err != nil {
 		t.Fatal(err)
 	}
