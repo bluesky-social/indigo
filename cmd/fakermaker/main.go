@@ -425,6 +425,7 @@ func pdsGenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner
 		avatar = &lexutil.LexBlob{
 			Ref:      resp.Blob.Ref,
 			MimeType: "image/png",
+			Size:     resp.Blob.Size,
 		}
 	}
 	var banner *lexutil.LexBlob
@@ -437,6 +438,7 @@ func pdsGenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner
 		avatar = &lexutil.LexBlob{
 			Ref:      resp.Blob.Ref,
 			MimeType: "image/jpeg",
+			Size:     resp.Blob.Size,
 		}
 	}
 
@@ -543,6 +545,7 @@ func pdsGenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContex
 				Image: &lexutil.LexBlob{
 					Ref:      resp.Blob.Ref,
 					MimeType: "image/jpeg",
+					Size:     resp.Blob.Size,
 				},
 			})
 		}
