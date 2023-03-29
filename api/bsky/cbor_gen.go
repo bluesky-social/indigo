@@ -2484,7 +2484,7 @@ func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Index (bsky.RichtextFacet_TextSlice) (struct)
+	// t.Index (bsky.RichtextFacet_ByteSlice) (struct)
 	if len("index") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"index\" was too long")
 	}
@@ -2500,20 +2500,29 @@ func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Value (bsky.RichtextFacet_Value) (struct)
-	if len("value") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"value\" was too long")
+	// t.Features ([]*bsky.RichtextFacet_Features_Elem) (slice)
+	if len("features") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"features\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("value"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("features"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("value")); err != nil {
+	if _, err := io.WriteString(w, string("features")); err != nil {
 		return err
 	}
 
-	if err := t.Value.MarshalCBOR(cw); err != nil {
+	if len(t.Features) > cbg.MaxLength {
+		return xerrors.Errorf("Slice value in field t.Features was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Features))); err != nil {
 		return err
+	}
+	for _, v := range t.Features {
+		if err := v.MarshalCBOR(cw); err != nil {
+			return err
+		}
 	}
 
 	// t.LexiconTypeID (string) (string)
@@ -2579,7 +2588,7 @@ func (t *RichtextFacet) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Index (bsky.RichtextFacet_TextSlice) (struct)
+		// t.Index (bsky.RichtextFacet_ByteSlice) (struct)
 		case "index":
 
 			{
@@ -2592,33 +2601,43 @@ func (t *RichtextFacet) UnmarshalCBOR(r io.Reader) (err error) {
 					if err := cr.UnreadByte(); err != nil {
 						return err
 					}
-					t.Index = new(RichtextFacet_TextSlice)
+					t.Index = new(RichtextFacet_ByteSlice)
 					if err := t.Index.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.Index pointer: %w", err)
 					}
 				}
 
 			}
-			// t.Value (bsky.RichtextFacet_Value) (struct)
-		case "value":
+			// t.Features ([]*bsky.RichtextFacet_Features_Elem) (slice)
+		case "features":
 
-			{
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
 
-				b, err := cr.ReadByte()
-				if err != nil {
+			if extra > cbg.MaxLength {
+				return fmt.Errorf("t.Features: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Features = make([]*RichtextFacet_Features_Elem, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+
+				var v RichtextFacet_Features_Elem
+				if err := v.UnmarshalCBOR(cr); err != nil {
 					return err
 				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-					t.Value = new(RichtextFacet_Value)
-					if err := t.Value.UnmarshalCBOR(cr); err != nil {
-						return xerrors.Errorf("unmarshaling t.Value pointer: %w", err)
-					}
-				}
 
+				t.Features[i] = &v
 			}
+
 			// t.LexiconTypeID (string) (string)
 		case "LexiconTypeID":
 
@@ -2639,7 +2658,7 @@ func (t *RichtextFacet) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *RichtextFacet_TextSlice) MarshalCBOR(w io.Writer) error {
+func (t *RichtextFacet_ByteSlice) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -2651,46 +2670,46 @@ func (t *RichtextFacet_TextSlice) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.End (int64) (int64)
-	if len("end") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"end\" was too long")
+	// t.ByteEnd (int64) (int64)
+	if len("byteEnd") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"byteEnd\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("end"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("byteEnd"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("end")); err != nil {
+	if _, err := io.WriteString(w, string("byteEnd")); err != nil {
 		return err
 	}
 
-	if t.End >= 0 {
-		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.End)); err != nil {
+	if t.ByteEnd >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.ByteEnd)); err != nil {
 			return err
 		}
 	} else {
-		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.End-1)); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.ByteEnd-1)); err != nil {
 			return err
 		}
 	}
 
-	// t.Start (int64) (int64)
-	if len("start") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"start\" was too long")
+	// t.ByteStart (int64) (int64)
+	if len("byteStart") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"byteStart\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("start"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("byteStart"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("start")); err != nil {
+	if _, err := io.WriteString(w, string("byteStart")); err != nil {
 		return err
 	}
 
-	if t.Start >= 0 {
-		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Start)); err != nil {
+	if t.ByteStart >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.ByteStart)); err != nil {
 			return err
 		}
 	} else {
-		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Start-1)); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.ByteStart-1)); err != nil {
 			return err
 		}
 	}
@@ -2720,8 +2739,8 @@ func (t *RichtextFacet_TextSlice) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *RichtextFacet_TextSlice) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = RichtextFacet_TextSlice{}
+func (t *RichtextFacet_ByteSlice) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = RichtextFacet_ByteSlice{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -2740,7 +2759,7 @@ func (t *RichtextFacet_TextSlice) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("RichtextFacet_TextSlice: map struct too large (%d)", extra)
+		return fmt.Errorf("RichtextFacet_ByteSlice: map struct too large (%d)", extra)
 	}
 
 	var name string
@@ -2758,8 +2777,8 @@ func (t *RichtextFacet_TextSlice) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.End (int64) (int64)
-		case "end":
+		// t.ByteEnd (int64) (int64)
+		case "byteEnd":
 			{
 				maj, extra, err := cr.ReadHeader()
 				var extraI int64
@@ -2782,10 +2801,10 @@ func (t *RichtextFacet_TextSlice) UnmarshalCBOR(r io.Reader) (err error) {
 					return fmt.Errorf("wrong type for int64 field: %d", maj)
 				}
 
-				t.End = int64(extraI)
+				t.ByteEnd = int64(extraI)
 			}
-			// t.Start (int64) (int64)
-		case "start":
+			// t.ByteStart (int64) (int64)
+		case "byteStart":
 			{
 				maj, extra, err := cr.ReadHeader()
 				var extraI int64
@@ -2808,7 +2827,7 @@ func (t *RichtextFacet_TextSlice) UnmarshalCBOR(r io.Reader) (err error) {
 					return fmt.Errorf("wrong type for int64 field: %d", maj)
 				}
 
-				t.Start = int64(extraI)
+				t.ByteStart = int64(extraI)
 			}
 			// t.LexiconTypeID (string) (string)
 		case "LexiconTypeID":
@@ -2830,7 +2849,7 @@ func (t *RichtextFacet_TextSlice) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *RichtextFacet_Value) MarshalCBOR(w io.Writer) error {
+func (t *RichtextFacet_Features_Elem) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -2876,8 +2895,8 @@ func (t *RichtextFacet_Value) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *RichtextFacet_Value) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = RichtextFacet_Value{}
+func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = RichtextFacet_Features_Elem{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -2896,7 +2915,7 @@ func (t *RichtextFacet_Value) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("RichtextFacet_Value: map struct too large (%d)", extra)
+		return fmt.Errorf("RichtextFacet_Features_Elem: map struct too large (%d)", extra)
 	}
 
 	var name string
