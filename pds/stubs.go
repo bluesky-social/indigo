@@ -37,9 +37,9 @@ func (s *Server) HandleAppBskyActorGetProfile(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyActorGetProfile")
 	defer span.End()
 	actor := c.QueryParam("actor")
-	var out *appbskytypes.ActorDefs_ProfileView
+	var out *appbskytypes.ActorDefs_ProfileViewDetailed
 	var handleErr error
-	// func (s *Server) handleAppBskyActorGetProfile(ctx context.Context,actor string) (*appbskytypes.ActorDefs_ProfileView, error)
+	// func (s *Server) handleAppBskyActorGetProfile(ctx context.Context,actor string) (*appbskytypes.ActorDefs_ProfileViewDetailed, error)
 	out, handleErr = s.handleAppBskyActorGetProfile(ctx, actor)
 	if handleErr != nil {
 		return handleErr
@@ -487,7 +487,6 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.server.deleteSession", s.HandleComAtprotoServerDeleteSession)
 	e.GET("/xrpc/com.atproto.server.describeServer", s.HandleComAtprotoServerDescribeServer)
 	e.GET("/xrpc/com.atproto.server.getSession", s.HandleComAtprotoServerGetSession)
-	e.GET("/xrpc/com.atproto.server.getAccountsConfig", s.HandleComAtprotoServerGetAccountsConfig)
 	e.POST("/xrpc/com.atproto.server.refreshSession", s.HandleComAtprotoServerRefreshSession)
 	e.POST("/xrpc/com.atproto.server.requestAccountDelete", s.HandleComAtprotoServerRequestAccountDelete)
 	e.POST("/xrpc/com.atproto.server.requestPasswordReset", s.HandleComAtprotoServerRequestPasswordReset)
@@ -931,13 +930,13 @@ func (s *Server) HandleComAtprotoServerCreateAccount(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *Server) HandleComAtprotoServerGetAccountsConfig(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerGetAccountsConfig")
+func (s *Server) HandleComAtprotoServerDescribeServer(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerDescribeServer")
 	defer span.End()
-	var out *comatprototypes.ServerGetAccountsConfig_Output
+	var out *comatprototypes.ServerDescribeServer_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoServerGetAccountsConfig(ctx context.Context) (*comatprototypes.ServerGetAccountsConfig_Output, error)
-	out, handleErr = s.handleComAtprotoServerGetAccountsConfig(ctx)
+	// func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*comatprototypes.ServerDescribeServer_Output, error)
+	out, handleErr = s.handleComAtprotoServerDescribeServer(ctx)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1007,19 +1006,6 @@ func (s *Server) HandleComAtprotoServerDeleteSession(c echo.Context) error {
 		return handleErr
 	}
 	return nil
-}
-
-func (s *Server) HandleComAtprotoServerDescribeServer(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerDescribeServer")
-	defer span.End()
-	var out *comatprototypes.ServerDescribeServer_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*comatprototypes.ServerDescribeServer_Output, error)
-	out, handleErr = s.handleComAtprotoServerDescribeServer(ctx)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
 }
 
 func (s *Server) HandleComAtprotoServerGetSession(c echo.Context) error {

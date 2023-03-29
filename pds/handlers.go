@@ -14,13 +14,13 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
-func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string) (*appbskytypes.ActorDefs_ProfileView, error) {
+func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string) (*appbskytypes.ActorDefs_ProfileViewDetailed, error) {
 	profile, err := s.feedgen.GetActorProfile(ctx, actor)
 	if err != nil {
 		return nil, err
 	}
 
-	return &appbskytypes.ActorDefs_ProfileView{
+	return &appbskytypes.ActorDefs_ProfileViewDetailed{
 		Viewer:         nil, //*ActorGetProfile_MyState `json:"myState" cborgen:"myState"`
 		Did:            profile.Did,
 		Description:    nil,
@@ -35,7 +35,7 @@ func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string)
 func (s *Server) handleAppBskyActorGetSuggestions(ctx context.Context, cursor string, limit int) (*appbskytypes.ActorGetSuggestions_Output, error) {
 
 	var out appbskytypes.ActorGetSuggestions_Output
-	out.Actors = []*appbskytypes.ActorDefs_ProfileViewBasic{}
+	out.Actors = []*appbskytypes.ActorDefs_ProfileView{}
 	return &out, nil
 }
 
@@ -173,7 +173,7 @@ func (s *Server) handleAppBskyFeedGetLikes(ctx context.Context, cc string, curso
 
 	for _, v := range votes {
 		out.Likes = append(out.Likes, &appbskytypes.FeedGetLikes_Like{
-			Actor:     v.Actor,
+			Actor:     s.actorBasicToView(ctx, v.Actor),
 			IndexedAt: v.IndexedAt.Format(time.RFC3339),
 			CreatedAt: v.CreatedAt,
 		})
@@ -198,11 +198,11 @@ func (s *Server) handleAppBskyGraphGetFollows(ctx context.Context, actor string,
 	}
 
 	var out appbskytypes.GraphGetFollows_Output
-	out.Subject = ai.ActorRef()
+	out.Subject = s.actorBasicToView(ctx, ai.ActorRef())
 
-	out.Follows = []*appbskytypes.ActorDefs_WithInfo{}
+	out.Follows = []*appbskytypes.ActorDefs_ProfileView{}
 	for _, f := range follows {
-		out.Follows = append(out.Follows, &appbskytypes.ActorDefs_WithInfo{
+		out.Follows = append(out.Follows, &appbskytypes.ActorDefs_ProfileView{
 			Handle:      f.Subject.Handle,
 			DisplayName: f.Subject.DisplayName,
 			Did:         f.Subject.Did,
@@ -356,14 +356,6 @@ func (s *Server) handleComAtprotoServerDeleteAccount(ctx context.Context, body *
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoAccountGet(ctx context.Context) error {
-	return nil
-}
-
-func (s *Server) handleComAtprotoAccountRequestDelete(ctx context.Context) error {
-	panic("not yet implemented")
-}
-
 func (s *Server) handleComAtprotoServerRequestPasswordReset(ctx context.Context, body *comatprototypes.ServerRequestPasswordReset_Input) error {
 	panic("not yet implemented")
 }
@@ -388,17 +380,17 @@ func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context, hand
 	return &comatprototypes.IdentityResolveHandle_Output{Did: u.Did}, nil
 }
 
-func (s *Server) handleComAtprotoRepoBatchWrite(ctx context.Context, input *comatprototypes.RepoBatchWrite_Input) error {
+func (s *Server) handleComAtprotoRepoApplyWrites(ctx context.Context, body *comatprototypes.RepoApplyWrites_Input) error {
 	u, err := s.getUser(ctx)
 	if err != nil {
 		return err
 	}
 
-	if u.Did != input.Did {
+	if u.Did != body.Repo {
 		return fmt.Errorf("writes for non-user actors not supported (DID mismatch)")
 	}
 
-	return s.repoman.BatchWrite(ctx, u.ID, input.Writes)
+	return s.repoman.BatchWrite(ctx, u.ID, body.Writes)
 }
 
 func (s *Server) handleComAtprotoRepoCreateRecord(ctx context.Context, input *comatprototypes.RepoCreateRecord_Input) (*comatprototypes.RepoCreateRecord_Output, error) {
@@ -424,15 +416,15 @@ func (s *Server) handleComAtprotoRepoDeleteRecord(ctx context.Context, input *co
 		return err
 	}
 
-	if u.Did != input.Did {
+	if u.Did != input.Repo {
 		return fmt.Errorf("specified DID did not match authed user")
 	}
 
 	return s.repoman.DeleteRecord(ctx, u.ID, input.Collection, input.Rkey)
 }
 
-func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, collection string, rkey string, user string) (*comatprototypes.RepoGetRecord_Output, error) {
-	targetUser, err := s.lookupUser(ctx, user)
+func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, collection string, repo string, rkey string) (*comatprototypes.RepoGetRecord_Output, error) {
+	targetUser, err := s.lookupUser(ctx, repo)
 	if err != nil {
 		return nil, err
 	}
@@ -467,14 +459,14 @@ func (s *Server) handleComAtprotoRepoPutRecord(ctx context.Context, input *comat
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoServerGetAccountsConfig(ctx context.Context) (*comatprototypes.ServerGetAccountsConfig_Output, error) {
+func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*comatprototypes.ServerDescribeServer_Output, error) {
 	invcode := false
-	return &comatprototypes.ServerGetAccountsConfig_Output{
+	return &comatprototypes.ServerDescribeServer_Output{
 		InviteCodeRequired: &invcode,
 		AvailableUserDomains: []string{
 			s.handleSuffix,
 		},
-		Links: &comatprototypes.ServerGetAccountsConfig_Links{},
+		Links: &comatprototypes.ServerDescribeServer_Links{},
 	}, nil
 }
 
@@ -657,13 +649,6 @@ func (s *Server) handleComAtprotoAdminSearchRepos(ctx context.Context, before st
 func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, body *comatprototypes.AdminTakeModerationAction_Input) (*comatprototypes.AdminDefs_ActionView, error) {
 	panic("nyi")
 }
-func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *comatprototypes.ReportCreate_Input) (*comatprototypes.ReportCreate_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleComAtprotoHandleUpdate(ctx context.Context, body *comatprototypes.HandleUpdate_Input) error {
-	panic("nyi")
-}
 
 func (s *Server) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []string, did string) (io.Reader, error) {
 	panic("nyi")
@@ -704,14 +689,7 @@ func (s *Server) handleComAtprotoIdentityUpdateHandle(ctx context.Context, body 
 func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, body *comatprototypes.ModerationCreateReport_Input) (*comatprototypes.ModerationCreateReport_Output, error) {
 	panic("nyi")
 }
-func (s *Server) handleComAtprotoRepoApplyWrites(ctx context.Context, body *comatprototypes.RepoApplyWrites_Input) error {
-	panic("nyi")
-}
 
 func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo string) (*comatprototypes.RepoDescribeRepo_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*comatprototypes.ServerDescribeServer_Output, error) {
 	panic("nyi")
 }
