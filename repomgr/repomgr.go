@@ -66,7 +66,6 @@ type ActorInfo struct {
 	Did         string
 	Handle      string
 	DisplayName string
-	DeclRefCid  string
 	Type        string
 }
 
@@ -430,7 +429,6 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user util.Uid, handle, 
 					Did:         did,
 					Handle:      handle,
 					DisplayName: displayname,
-					DeclRefCid:  declcid,
 					Type:        actortype,
 				},
 			}},
@@ -571,7 +569,6 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 				Did:         ai.Did,
 				Handle:      ai.Handle,
 				DisplayName: ai.DisplayName,
-				DeclRefCid:  ai.DeclRefCid,
 				Type:        ai.Type,
 			},
 		})
@@ -610,7 +607,6 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 							Did:         ai.Did,
 							Handle:      ai.Handle,
 							DisplayName: ai.DisplayName,
-							DeclRefCid:  ai.DeclRefCid,
 							Type:        ai.Type,
 						},
 					})

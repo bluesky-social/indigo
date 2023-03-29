@@ -509,7 +509,6 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		Handle:      handle,
 		DisplayName: "", //*profile.DisplayName,
 		Did:         did,
-		DeclRefCid:  "", // profile.Declaration.Cid,
 		Type:        "",
 		PDS:         peering.ID,
 	}

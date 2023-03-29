@@ -760,7 +760,6 @@ func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, 
 		Handle:      ai.Handle,
 		Did:         ai.Did,
 		DisplayName: ai.DisplayName,
-		DeclRefCid:  ai.DeclRefCid,
 		Type:        ai.Type,
 		PDS:         evt.PDS,
 	}).Error; err != nil {
