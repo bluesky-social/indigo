@@ -409,7 +409,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 			params = fmt.Sprintf("%s, input *%s_Input", params, fname)
 
 		default:
-			return fmt.Errorf("unsupported input encoding: %q", s.Input.Encoding)
+			return fmt.Errorf("unsupported input encoding (RPC input): %q", s.Input.Encoding)
 		}
 	}
 
@@ -441,7 +441,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 
 			out = fmt.Sprintf("(*%s, error)", outname)
 		default:
-			return fmt.Errorf("unrecognized encoding scheme: %q", s.Output.Encoding)
+			return fmt.Errorf("unrecognized encoding scheme (RPC output): %q", s.Output.Encoding)
 		}
 	}
 
@@ -467,7 +467,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 			errRet = "nil, err"
 			outRet = "&out, nil"
 		default:
-			return fmt.Errorf("unrecognized output encoding: %q", s.Output.Encoding)
+			return fmt.Errorf("unrecognized output encoding (func signature): %q", s.Output.Encoding)
 		}
 	}
 
@@ -574,7 +574,8 @@ func WriteServerHandlers(w io.Writer, schemas []*Schema, pkg string, impmap map[
 
 		main, ok := s.Defs["main"]
 		if !ok {
-			return fmt.Errorf("2 schema %q doesn't have a main def", s.ID)
+			fmt.Printf("WARNING: schema %q doesn't have a main def\n", s.ID)
+			continue
 		}
 
 		if main.Type == "procedure" || main.Type == "query" {
@@ -729,10 +730,10 @@ func (s *TypeSchema) WriteHandlerStub(w io.Writer, fname, shortname, impname str
 				outname = s.typeNameFromRef(s.Output.Schema.Ref)
 			}
 			returndef = fmt.Sprintf("(*%s.%s, error)", impname, outname)
-		case "application/cbor", "application/vnd.ipld.car":
+		case "application/cbor", "application/vnd.ipld.car", "*/*":
 			returndef = fmt.Sprintf("(io.Reader, error)")
 		default:
-			return fmt.Errorf("unrecognized output encoding: %q", s.Output.Encoding)
+			return fmt.Errorf("unrecognized output encoding (handler stub): %q", s.Output.Encoding)
 		}
 	}
 
@@ -925,7 +926,7 @@ if err := c.Bind(&body); err != nil {
 			fmt.Fprintf(w, "var out io.Reader\n")
 			returndef = "(io.Reader, error)"
 		default:
-			return fmt.Errorf("unrecognized output encoding (1): %q", s.Output.Encoding)
+			return fmt.Errorf("unrecognized output encoding (RPC output handler): %q", s.Output.Encoding)
 		}
 	}
 	fmt.Fprintf(w, "var handleErr error\n")
@@ -944,7 +945,7 @@ if err := c.Bind(&body); err != nil {
 		case EncodingCAR:
 			fmt.Fprintf(w, "return c.Stream(200, \"application/vnd.ipld.car\", out)\n}\n\n")
 		default:
-			return fmt.Errorf("unrecognized output encoding (2): %q", s.Output.Encoding)
+			return fmt.Errorf("unrecognized output encoding (RPC output handler return): %q", s.Output.Encoding)
 		}
 	} else {
 		fmt.Fprintf(w, "return nil\n}\n\n")
