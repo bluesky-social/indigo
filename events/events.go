@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/util"
+	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 	"go.opentelemetry.io/otel"
 )
@@ -125,24 +126,21 @@ type RepoAppend struct {
 	// Repo is the DID of the repo this event is about
 	Repo string `cborgen:"repo"`
 
-	Commit string  `cborgen:"commit"`
-	Prev   *string `cborgen:"prev"`
-	//Commit cid.Cid  `cborgen:"commit"`
-	//Prev   *cid.Cid `cborgen:"prev"`
-
-	Ops    []*RepoOp `cborgen:"ops"`
+	Commit cid.Cid   `cborgen:"commit"`
+	Prev   *cid.Cid  `cborgen:"prev"`
 	Blocks []byte    `cborgen:"blocks"`
-	TooBig bool      `cborgen:"tooBig"`
+	Ops    []*RepoOp `cborgen:"ops"`
+	Blobs  []cid.Cid `cborgen:"blobs"`
+	Time   string    `cborgen:"time"`
 
-	Blobs []string `cborgen:"blobs"`
-
-	Time string `cborgen:"time"`
+	TooBig bool `cborgen:"tooBig"`
 }
 
 type RepoOp struct {
-	Path   string  `cborgen:"path"`
-	Action string  `cborgen:"action"`
-	Cid    *string `cborgen:"cid"`
+	Path   string `cborgen:"path"`
+	Action string `cborgen:"action"`
+	// TODO: 'cid' field is required, but nullable
+	Cid *cid.Cid `cborgen:"cid"`
 }
 
 type LabelBatch struct {
