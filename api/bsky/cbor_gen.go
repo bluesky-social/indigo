@@ -1395,7 +1395,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Thumb (util.Blob) (struct)
+	// t.Thumb (util.LexBlob) (struct)
 	if len("thumb") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"thumb\" was too long")
 	}
@@ -1531,7 +1531,7 @@ func (t *EmbedExternal_External) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Uri = string(sval)
 			}
-			// t.Thumb (util.Blob) (struct)
+			// t.Thumb (util.LexBlob) (struct)
 		case "thumb":
 
 			{
@@ -1544,7 +1544,7 @@ func (t *EmbedExternal_External) UnmarshalCBOR(r io.Reader) (err error) {
 					if err := cr.UnreadByte(); err != nil {
 						return err
 					}
-					t.Thumb = new(util.Blob)
+					t.Thumb = new(util.LexBlob)
 					if err := t.Thumb.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.Thumb pointer: %w", err)
 					}
@@ -1628,7 +1628,7 @@ func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Image (util.Blob) (struct)
+	// t.Image (util.LexBlob) (struct)
 	if len("image") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"image\" was too long")
 	}
@@ -1718,7 +1718,7 @@ func (t *EmbedImages_Image) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Alt = string(sval)
 			}
-			// t.Image (util.Blob) (struct)
+			// t.Image (util.LexBlob) (struct)
 		case "image":
 
 			{
@@ -1731,7 +1731,7 @@ func (t *EmbedImages_Image) UnmarshalCBOR(r io.Reader) (err error) {
 					if err := cr.UnreadByte(); err != nil {
 						return err
 					}
-					t.Image = new(util.Blob)
+					t.Image = new(util.LexBlob)
 					if err := t.Image.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.Image pointer: %w", err)
 					}
@@ -1948,7 +1948,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Avatar (util.Blob) (struct)
+	// t.Avatar (util.LexBlob) (struct)
 	if len("avatar") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"avatar\" was too long")
 	}
@@ -1964,7 +1964,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Banner (util.Blob) (struct)
+	// t.Banner (util.LexBlob) (struct)
 	if len("banner") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"banner\" was too long")
 	}
@@ -2089,7 +2089,7 @@ func (t *ActorProfile) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.LexiconTypeID = string(sval)
 			}
-			// t.Avatar (util.Blob) (struct)
+			// t.Avatar (util.LexBlob) (struct)
 		case "avatar":
 
 			{
@@ -2102,14 +2102,14 @@ func (t *ActorProfile) UnmarshalCBOR(r io.Reader) (err error) {
 					if err := cr.UnreadByte(); err != nil {
 						return err
 					}
-					t.Avatar = new(util.Blob)
+					t.Avatar = new(util.LexBlob)
 					if err := t.Avatar.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.Avatar pointer: %w", err)
 					}
 				}
 
 			}
-			// t.Banner (util.Blob) (struct)
+			// t.Banner (util.LexBlob) (struct)
 		case "banner":
 
 			{
@@ -2122,7 +2122,7 @@ func (t *ActorProfile) UnmarshalCBOR(r io.Reader) (err error) {
 					if err := cr.UnreadByte(); err != nil {
 						return err
 					}
-					t.Banner = new(util.Blob)
+					t.Banner = new(util.LexBlob)
 					if err := t.Banner.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.Banner pointer: %w", err)
 					}
