@@ -32,7 +32,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("lex/util/cbor_gen.go", "util", lexutil.CborChecker{}, lexutil.Blob{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("lex/util/cbor_gen.go", "util", lexutil.CborChecker{}, lexutil.LegacyBlob{}, lexutil.BlobSchema{}); err != nil {
 		panic(err)
 	}
 
