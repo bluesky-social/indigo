@@ -13,11 +13,6 @@ import (
 	"github.com/ipfs/go-cid"
 )
 
-func (s *Server) handleComAtprotoAccountGet(ctx context.Context) error {
-	// TODO: implementation
-	return nil
-}
-
 func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context, handle string) (*atproto.IdentityResolveHandle_Output, error) {
 	// only the one handle, for labelmaker
 	if handle == "" {
@@ -29,20 +24,20 @@ func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context, hand
 	}
 }
 
-func (s *Server) handleComAtprotoRepoDescribe(ctx context.Context, user string) (*atproto.RepoDescribe_Output, error) {
+func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo string) (*atproto.RepoDescribeRepo_Output, error) {
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, after string, before string, collection string, limit int, reverse *bool, user string) (*atproto.RepoListRecords_Output, error) {
+func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection string, limit int, repo string, reverse *bool, rkeyEnd string, rkeyStart string) (*atproto.RepoListRecords_Output, error) {
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoServerGetAccountsConfig(ctx context.Context) (*atproto.ServerGetAccountsConfig_Output, error) {
+func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*atproto.ServerDescribeServer_Output, error) {
 	invcode := true
-	return &atproto.ServerGetAccountsConfig_Output{
+	return &atproto.ServerDescribeServer_Output{
 		InviteCodeRequired:   &invcode,
 		AvailableUserDomains: []string{},
-		Links:                &atproto.ServerGetAccountsConfig_Links{},
+		Links:                &atproto.ServerDescribeServer_Links{},
 	}, nil
 }
 

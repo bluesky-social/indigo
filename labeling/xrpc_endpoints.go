@@ -1,7 +1,6 @@
 package labeling
 
 import (
-	"io"
 	"strconv"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
@@ -11,25 +10,12 @@ import (
 )
 
 func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
-	e.GET("/xrpc/com.atproto.account.get", s.HandleComAtprotoAccountGet)
-	e.GET("/xrpc/com.atproto.handle.resolve", s.HandleComAtprotoIdentityResolveHandle)
-	e.GET("/xrpc/com.atproto.repo.describe", s.HandleComAtprotoRepoDescribe)
+	e.GET("/xrpc/com.atproto.identity.resolveHandle", s.HandleComAtprotoIdentityResolveHandle)
+	e.GET("/xrpc/com.atproto.repo.describeRepo", s.HandleComAtprotoRepoDescribeRepo)
 	e.GET("/xrpc/com.atproto.repo.getRecord", s.HandleComAtprotoRepoGetRecord)
 	e.GET("/xrpc/com.atproto.repo.listRecords", s.HandleComAtprotoRepoListRecords)
-	e.GET("/xrpc/com.atproto.server.getAccountsConfig", s.HandleComAtprotoServerGetAccountsConfig)
+	e.GET("/xrpc/com.atproto.server.describeServer", s.HandleComAtprotoServerDescribeServer)
 	e.GET("/xrpc/com.atproto.sync.getHead", s.HandleComAtprotoSyncGetHead)
-	return nil
-}
-
-func (s *Server) HandleComAtprotoAccountGet(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAccountGet")
-	defer span.End()
-	var handleErr error
-	// func (s *Server) handleComAtprotoAccountGet(ctx context.Context) error
-	handleErr = s.handleComAtprotoAccountGet(ctx)
-	if handleErr != nil {
-		return handleErr
-	}
 	return nil
 }
 
@@ -47,14 +33,14 @@ func (s *Server) HandleComAtprotoIdentityResolveHandle(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *Server) HandleComAtprotoRepoDescribe(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoDescribe")
+func (s *Server) HandleComAtprotoRepoDescribeRepo(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoDescribeRepo")
 	defer span.End()
-	user := c.QueryParam("user")
-	var out *atproto.RepoDescribe_Output
+	repo := c.QueryParam("repo")
+	var out *atproto.RepoDescribeRepo_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoRepoDescribe(ctx context.Context,user string) (*atproto.RepoDescribe_Output, error)
-	out, handleErr = s.handleComAtprotoRepoDescribe(ctx, user)
+	// func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context,repo string) (*atproto.RepoDescribeRepo_Output, error)
+	out, handleErr = s.handleComAtprotoRepoDescribeRepo(ctx, repo)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -66,12 +52,12 @@ func (s *Server) HandleComAtprotoRepoGetRecord(c echo.Context) error {
 	defer span.End()
 	cid := c.QueryParam("cid")
 	collection := c.QueryParam("collection")
+	repo := c.QueryParam("repo")
 	rkey := c.QueryParam("rkey")
-	user := c.QueryParam("user")
 	var out *atproto.RepoGetRecord_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context,cid string,collection string,rkey string,user string) (*atproto.RepoGetRecord_Output, error)
-	out, handleErr = s.handleComAtprotoRepoGetRecord(ctx, cid, collection, rkey, user)
+	// func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context,cid string,collection string,repo string,rkey string) (*atproto.RepoGetRecord_Output, error)
+	out, handleErr = s.handleComAtprotoRepoGetRecord(ctx, cid, collection, repo, rkey)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -81,8 +67,6 @@ func (s *Server) HandleComAtprotoRepoGetRecord(c echo.Context) error {
 func (s *Server) HandleComAtprotoRepoListRecords(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoListRecords")
 	defer span.End()
-	after := c.QueryParam("after")
-	before := c.QueryParam("before")
 	collection := c.QueryParam("collection")
 
 	var limit int
@@ -95,6 +79,7 @@ func (s *Server) HandleComAtprotoRepoListRecords(c echo.Context) error {
 	} else {
 		limit = 50
 	}
+	repo := c.QueryParam("repo")
 
 	var reverse *bool
 	if p := c.QueryParam("reverse"); p != "" {
@@ -104,44 +89,29 @@ func (s *Server) HandleComAtprotoRepoListRecords(c echo.Context) error {
 		}
 		reverse = &reverse_val
 	}
-	user := c.QueryParam("user")
+	rkeyEnd := c.QueryParam("rkeyEnd")
+	rkeyStart := c.QueryParam("rkeyStart")
 	var out *atproto.RepoListRecords_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context,after string,before string,collection string,limit int,reverse *bool,user string) (*atproto.RepoListRecords_Output, error)
-	out, handleErr = s.handleComAtprotoRepoListRecords(ctx, after, before, collection, limit, reverse, user)
+	// func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context,collection string,limit int,repo string,reverse *bool,rkeyEnd string,rkeyStart string) (*comatprototypes.RepoListRecords_Output, error)
+	out, handleErr = s.handleComAtprotoRepoListRecords(ctx, collection, limit, repo, reverse, rkeyEnd, rkeyStart)
 	if handleErr != nil {
 		return handleErr
 	}
 	return c.JSON(200, out)
 }
 
-func (s *Server) HandleComAtprotoServerGetAccountsConfig(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerGetAccountsConfig")
+func (s *Server) HandleComAtprotoServerDescribeServer(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerDescribeServer")
 	defer span.End()
-	var out *atproto.ServerGetAccountsConfig_Output
+	var out *atproto.ServerDescribeServer_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoServerGetAccountsConfig(ctx context.Context) (*atproto.ServerGetAccountsConfig_Output, error)
-	out, handleErr = s.handleComAtprotoServerGetAccountsConfig(ctx)
+	// func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*atproto.ServerDescribeServer_Output, error)
+	out, handleErr = s.handleComAtprotoServerDescribeServer(ctx)
 	if handleErr != nil {
 		return handleErr
 	}
 	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetRepo")
-	defer span.End()
-	did := c.QueryParam("did")
-	earliest := c.QueryParam("earliest")
-	latest := c.QueryParam("latest")
-	var out io.Reader
-	var handleErr error
-	// func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context,did string,earliest string,latest string) (io.Reader, error)
-	out, handleErr = s.handleComAtprotoSyncGetRepo(ctx, did, earliest, latest)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.Stream(200, "application/vnd.ipld.car", out)
 }
 
 func (s *Server) HandleComAtprotoSyncGetHead(c echo.Context) error {
@@ -150,7 +120,7 @@ func (s *Server) HandleComAtprotoSyncGetHead(c echo.Context) error {
 	did := c.QueryParam("did")
 	var out *atproto.SyncGetHead_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoSyncGetHead(ctx context.Context,did string) (*comatprototypes.SyncGetHead_Output, error)
+	// func (s *Server) handleComAtprotoSyncGetHead(ctx context.Context,did string) (*atproto.SyncGetHead_Output, error)
 	out, handleErr = s.handleComAtprotoSyncGetHead(ctx, did)
 	if handleErr != nil {
 		return handleErr
