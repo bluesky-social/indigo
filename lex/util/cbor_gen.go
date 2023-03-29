@@ -121,31 +121,46 @@ func (t *Blob) MarshalCBOR(w io.Writer) error {
 
 	cw := cbg.NewCborWriter(w)
 
-	if _, err := cw.Write([]byte{162}); err != nil {
+	if _, err := cw.Write([]byte{163}); err != nil {
 		return err
 	}
 
-	// t.Cid (string) (string)
-	if len("cid") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"cid\" was too long")
+	// t.Ref (cid.Cid) (struct)
+	if len("ref") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"ref\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("cid"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("ref"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("cid")); err != nil {
+	if _, err := io.WriteString(w, string("ref")); err != nil {
 		return err
 	}
 
-	if len(t.Cid) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Cid was too long")
+	if err := cbg.WriteCid(cw, t.Ref); err != nil {
+		return xerrors.Errorf("failed to write cid field t.Ref: %w", err)
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Cid))); err != nil {
+	// t.Size (int64) (int64)
+	if len("size") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"size\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("size"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Cid)); err != nil {
+	if _, err := io.WriteString(w, string("size")); err != nil {
 		return err
+	}
+
+	if t.Size >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Size)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Size-1)); err != nil {
+			return err
+		}
 	}
 
 	// t.MimeType (string) (string)
@@ -211,16 +226,44 @@ func (t *Blob) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Cid (string) (string)
-		case "cid":
+		// t.Ref (cid.Cid) (struct)
+		case "ref":
 
 			{
-				sval, err := cbg.ReadString(cr)
+
+				c, err := cbg.ReadCid(cr)
+				if err != nil {
+					return xerrors.Errorf("failed to read cid field t.Ref: %w", err)
+				}
+
+				t.Ref = c
+
+			}
+			// t.Size (int64) (int64)
+		case "size":
+			{
+				maj, extra, err := cr.ReadHeader()
+				var extraI int64
 				if err != nil {
 					return err
 				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
 
-				t.Cid = string(sval)
+				t.Size = int64(extraI)
 			}
 			// t.MimeType (string) (string)
 		case "mimeType":
