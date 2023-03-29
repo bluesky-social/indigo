@@ -59,7 +59,7 @@ func (resp *MicroNSFWImgResp) SummarizeLabels() []string {
 	return labels
 }
 
-func (mnil *MicroNSFWImgLabeler) LabelBlob(ctx context.Context, blob lexutil.Blob, blobBytes []byte) ([]string, error) {
+func (mnil *MicroNSFWImgLabeler) LabelBlob(ctx context.Context, blob lexutil.LexBlob, blobBytes []byte) ([]string, error) {
 
 	log.Infof("sending blob to micro-NSFW-img cid=%s mimetype=%s size=%d", blob.Ref, blob.MimeType, len(blobBytes))
 

@@ -23,7 +23,6 @@ import (
 	util "github.com/bluesky-social/indigo/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
 
-	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -79,7 +78,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, 
 	// NOTE: doesn't need to have app.bsky profile and actor config, this is just expediant (reusing an existing helper function)
 	ctx := context.Background()
 	head, _ := s.repoman.GetRepoRoot(ctx, s.user.UserId)
-	if head == cid.Undef {
+	if !head.Defined() {
 		log.Info("initializing labelmaker repo")
 		if err := s.repoman.InitNewActor(ctx, s.user.UserId, s.user.Handle, s.user.Did, "Label Maker", pds.UserActorDeclCid, pds.UserActorDeclType); err != nil {
 			return nil, fmt.Errorf("creating labelmaker repo: %w", err)
@@ -147,7 +146,7 @@ func (s *Server) wantAnyRecords(ctx context.Context, ra *events.RepoAppend) bool
 }
 
 // should we bother to fetch blob for processing?
-func (s *Server) wantBlob(ctx context.Context, blob *lexutil.Blob) bool {
+func (s *Server) wantBlob(ctx context.Context, blob *lexutil.LexBlob) bool {
 	log.Debugf("wantBlob blob=%v", blob)
 	// images
 	if blob.MimeType == "image/png" || blob.MimeType == "image/jpeg" {
@@ -162,7 +161,7 @@ func (s *Server) wantBlob(ctx context.Context, blob *lexutil.Blob) bool {
 func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cidStr string, rec cbg.CBORMarshaler) ([]string, error) {
 	log.Infof("labeling record: %v", uri)
 	var labelVals []string
-	var blobs []lexutil.Blob
+	var blobs []lexutil.LexBlob
 	switch nsid {
 	case "app.bsky.feed.post":
 		post, suc := rec.(*appbsky.FeedPost)
@@ -223,7 +222,7 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cidStr string,
 
 	log.Infof("will process %d blobs", len(blobs))
 	for _, blob := range blobs {
-		if blob.Ref == cid.Undef {
+		if !blob.Ref.Defined() {
 			return nil, fmt.Errorf("received stub blob (CID undefined)")
 		}
 
@@ -248,10 +247,10 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cidStr string,
 	return dedupeStrings(labelVals), nil
 }
 
-func (s *Server) downloadRepoBlob(ctx context.Context, did string, blob *lexutil.Blob) ([]byte, error) {
+func (s *Server) downloadRepoBlob(ctx context.Context, did string, blob *lexutil.LexBlob) ([]byte, error) {
 	var blobBytes []byte
 
-	if blob.Ref == cid.Undef {
+	if !blob.Ref.Defined() {
 		return nil, fmt.Errorf("invalid blob to download (CID undefined)")
 	}
 
@@ -282,11 +281,11 @@ func (s *Server) downloadRepoBlob(ctx context.Context, did string, blob *lexutil
 	return blobBytes, nil
 }
 
-func (s *Server) labelBlob(ctx context.Context, did string, blob lexutil.Blob, blobBytes []byte) ([]string, error) {
+func (s *Server) labelBlob(ctx context.Context, did string, blob lexutil.LexBlob, blobBytes []byte) ([]string, error) {
 
 	var labelVals []string
 
-	if blob.Ref == cid.Undef {
+	if !blob.Ref.Defined() {
 		return nil, fmt.Errorf("invalid blob to label (CID undefined)")
 	}
 

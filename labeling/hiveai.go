@@ -98,7 +98,7 @@ func (resp *HiveAIResp) SummarizeLabels() []string {
 	return labels
 }
 
-func (hal *HiveAILabeler) LabelBlob(ctx context.Context, blob lexutil.Blob, blobBytes []byte) ([]string, error) {
+func (hal *HiveAILabeler) LabelBlob(ctx context.Context, blob lexutil.LexBlob, blobBytes []byte) ([]string, error) {
 
 	log.Infof("sending blob to thehive.ai cid=%s mimetype=%s size=%d", blob.Ref, blob.MimeType, len(blobBytes))
 

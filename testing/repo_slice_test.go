@@ -9,7 +9,6 @@ import (
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/repo"
-	"github.com/ipfs/go-cid"
 )
 
 // ipfs dag import testing/repo_slice.car
@@ -49,7 +48,7 @@ func TestRepoSliceParse(t *testing.T) {
 		t.Fatal("didn't get expected Alt text")
 	}
 
-	if img.Image.Ref == cid.Undef {
+	if !img.Image.Ref.Defined() {
 		t.Fatal("got nil CID on image")
 	}
 	if img.Image.Ref.String() != "bafkreiblkobl6arfg3j7eft3akdhn2hmr2qmzfkefcgu4agnswvssg4a6a" {
