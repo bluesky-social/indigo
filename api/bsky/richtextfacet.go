@@ -13,33 +13,23 @@ func init() {
 }
 
 type RichtextFacet struct {
-	LexiconTypeID string                   `json:"$type,omitempty"`
-	Index         *RichtextFacet_TextSlice `json:"index" cborgen:"index"`
-	Value         *RichtextFacet_Value     `json:"value" cborgen:"value"`
+	LexiconTypeID string                         `json:"$type,omitempty"`
+	Features      []*RichtextFacet_Features_Elem `json:"features" cborgen:"features"`
+	Index         *RichtextFacet_ByteSlice       `json:"index" cborgen:"index"`
 }
 
-type RichtextFacet_Link struct {
+type RichtextFacet_ByteSlice struct {
 	LexiconTypeID string `json:"$type,omitempty"`
-	Uri           string `json:"uri" cborgen:"uri"`
+	ByteEnd       int64  `json:"byteEnd" cborgen:"byteEnd"`
+	ByteStart     int64  `json:"byteStart" cborgen:"byteStart"`
 }
 
-type RichtextFacet_Mention struct {
-	LexiconTypeID string `json:"$type,omitempty"`
-	Did           string `json:"did" cborgen:"did"`
-}
-
-type RichtextFacet_TextSlice struct {
-	LexiconTypeID string `json:"$type,omitempty"`
-	End           int64  `json:"end" cborgen:"end"`
-	Start         int64  `json:"start" cborgen:"start"`
-}
-
-type RichtextFacet_Value struct {
+type RichtextFacet_Features_Elem struct {
 	RichtextFacet_Mention *RichtextFacet_Mention
 	RichtextFacet_Link    *RichtextFacet_Link
 }
 
-func (t *RichtextFacet_Value) MarshalJSON() ([]byte, error) {
+func (t *RichtextFacet_Features_Elem) MarshalJSON() ([]byte, error) {
 	if t.RichtextFacet_Mention != nil {
 		t.RichtextFacet_Mention.LexiconTypeID = "app.bsky.richtext.facet#mention"
 		return json.Marshal(t.RichtextFacet_Mention)
@@ -50,7 +40,7 @@ func (t *RichtextFacet_Value) MarshalJSON() ([]byte, error) {
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
-func (t *RichtextFacet_Value) UnmarshalJSON(b []byte) error {
+func (t *RichtextFacet_Features_Elem) UnmarshalJSON(b []byte) error {
 	typ, err := util.TypeExtract(b)
 	if err != nil {
 		return err
@@ -67,4 +57,14 @@ func (t *RichtextFacet_Value) UnmarshalJSON(b []byte) error {
 	default:
 		return nil
 	}
+}
+
+type RichtextFacet_Link struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	Uri           string `json:"uri" cborgen:"uri"`
+}
+
+type RichtextFacet_Mention struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	Did           string `json:"did" cborgen:"did"`
 }
