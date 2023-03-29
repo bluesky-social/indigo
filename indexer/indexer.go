@@ -82,15 +82,10 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 
 	var outops []*events.RepoOp
 	for _, op := range evt.Ops {
-		var cc *string
-		if op.RecCid != nil {
-			s := op.RecCid.String()
-			cc = &s
-		}
 		outops = append(outops, &events.RepoOp{
 			Path:   op.Collection + "/" + op.Rkey,
 			Action: string(op.Kind),
-			Cid:    cc,
+			Cid:    op.RecCid,
 		})
 
 		switch op.Kind {
@@ -131,13 +126,6 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		return err
 	}
 
-	// TODO: these should be cids on the wire
-	var prevstr *string
-	if evt.OldRoot != nil {
-		s := evt.OldRoot.String()
-		prevstr = &s
-	}
-
 	toobig := false
 	slice := evt.RepoSlice
 	if len(slice) > carstore.MaxSliceLength {
@@ -150,9 +138,9 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 	if err := ix.events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoAppend: &events.RepoAppend{
 			Repo:   did,
-			Prev:   prevstr,
+			Prev:   evt.OldRoot,
 			Blocks: slice,
-			Commit: evt.NewRoot.String(),
+			Commit: evt.NewRoot,
 			Time:   time.Now().Format(util.ISO8601),
 			Ops:    outops,
 			TooBig: toobig,

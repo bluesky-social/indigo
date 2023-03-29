@@ -75,18 +75,8 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	}
 
 	var prev *util.DbCID
-	if evt.Prev != nil {
-		c, err := cid.Decode(*evt.Prev)
-		if err != nil {
-			return fmt.Errorf("decoding prev cid (%q): %w", *evt.Prev, err)
-		}
-
-		prev = &util.DbCID{c}
-	}
-
-	com, err := cid.Decode(evt.Commit)
-	if err != nil {
-		return err
+	if evt.Prev != nil && *evt.Prev != cid.Undef {
+		prev = &util.DbCID{*evt.Prev}
 	}
 
 	var blobs []byte
@@ -104,7 +94,7 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	}
 
 	rer := RepoEventRecord{
-		Commit: util.DbCID{com},
+		Commit: util.DbCID{evt.Commit},
 		Prev:   prev,
 		Repo:   uid,
 		Event:  evt.Event,
@@ -114,13 +104,8 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 
 	for _, op := range evt.Ops {
 		var rec *util.DbCID
-		if op.Cid != nil {
-			c, err := cid.Decode(*op.Cid)
-			if err != nil {
-				return err
-			}
-
-			rec = &util.DbCID{c}
+		if op.Cid != nil && *op.Cid != cid.Undef {
+			rec = &util.DbCID{*op.Cid}
 		}
 		rer.Ops = append(rer.Ops, RepoOpRecord{
 			Path:   op.Path,
@@ -195,39 +180,45 @@ func (p *DbPersistence) hydrateRepoEvent(ctx context.Context, rer *RepoEventReco
 			return nil, err
 		}
 	}
+	var blobCIDs []cid.Cid
+	for _, b := range blobs {
+		c, err := cid.Decode(b)
+		if err != nil {
+			return nil, err
+		}
+		blobCIDs = append(blobCIDs, c)
+	}
 
 	did, err := p.didForUid(ctx, rer.Repo)
 	if err != nil {
 		return nil, err
 	}
 
-	var prev *string
-	if rer.Prev != nil {
-		s := rer.Prev.CID.String()
-		prev = &s
+	var prevCID *cid.Cid
+	if rer != nil && rer.Prev != nil && rer.Prev.CID != cid.Undef {
+		prevCID = &rer.Prev.CID
 	}
 
 	out := &RepoAppend{
 		Seq:    int64(rer.Seq),
 		Repo:   did,
-		Commit: rer.Commit.CID.String(),
-		Prev:   prev,
+		Commit: rer.Commit.CID,
+		Prev:   prevCID,
 		Time:   rer.Time.Format(util.ISO8601),
-		Blobs:  blobs,
+		Blobs:  blobCIDs,
 		Event:  rer.Event,
 	}
 
 	for _, op := range rer.Ops {
-		var rec *string
+		var recCID *cid.Cid
 		if op.Rec != nil {
-			s := op.Rec.CID.String()
-			rec = &s
+			recCID = &op.Rec.CID
 		}
 
 		out.Ops = append(out.Ops, &RepoOp{
 			Path:   op.Path,
 			Action: op.Action,
-			Cid:    rec,
+			Cid:    recCID,
 		})
 	}
 
