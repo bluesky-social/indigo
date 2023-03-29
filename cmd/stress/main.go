@@ -95,7 +95,7 @@ var postingCmd = &cli.Command{
 			invite = &inv
 		}
 
-		cfg, err := comatproto.ServerGetAccountsConfig(ctx, xrpcc)
+		cfg, err := comatproto.ServerDescribeServer(ctx, xrpcc)
 		if err != nil {
 			return err
 		}

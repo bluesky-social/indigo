@@ -352,7 +352,7 @@ func (s *Server) RunAPI(listen string) error {
 				return true
 			case "/xrpc/com.atproto.server.createAccount":
 				return true
-			case "/xrpc/com.atproto.server.getAccountsConfig":
+			case "/xrpc/com.atproto.server.describeServer":
 				return true
 			case "/xrpc/app.bsky.actor.getProfile":
 				fmt.Println("TODO: currently not requiring auth on get profile endpoint")
