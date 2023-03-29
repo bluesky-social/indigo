@@ -334,18 +334,9 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			u.Did = evt.Repo
 		}
 
-		var prevcid *cid.Cid
-		if evt.Prev != nil {
-			c, err := cid.Decode(*evt.Prev)
-			if err != nil {
-				return fmt.Errorf("invalid value for prev cid in event: %w", err)
-			}
-			prevcid = &c
-		}
-
 		// TODO: if the user is already in the 'slow' path, we shouldnt even bother trying to fast path this event
 
-		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, prevcid, evt.Blocks); err != nil {
+		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.Prev, evt.Blocks); err != nil {
 			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq)
 			if !errors.Is(err, carstore.ErrRepoBaseMismatch) {
 				return fmt.Errorf("handle user event failed: %w", err)
@@ -363,7 +354,11 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		// sync blobs
 		if len(evt.Blobs) > 0 {
-			if err := bgs.syncUserBlobs(ctx, host, u.ID, evt.Blobs); err != nil {
+			var blobStrs []string
+			for _, b := range evt.Blobs {
+				blobStrs = append(blobStrs, b.String())
+			}
+			if err := bgs.syncUserBlobs(ctx, host, u.ID, blobStrs); err != nil {
 				return err
 			}
 		}

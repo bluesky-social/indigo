@@ -142,17 +142,7 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, env *events.
 			u.ID = subj.Uid
 		}
 
-		var pcid *cid.Cid
-		if evt.Prev != nil {
-			prev, err := cid.Decode(*evt.Prev)
-			if err != nil {
-				return err
-			}
-
-			pcid = &prev
-		}
-
-		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, pcid, evt.Blocks)
+		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.Prev, evt.Blocks)
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
@@ -251,14 +241,8 @@ func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent
 		return nil, err
 	}
 
-	var prevcid *string
-	if evt.OldRoot != nil {
-		s := evt.OldRoot.String()
-		prevcid = &s
-	}
-
 	out := &events.RepoAppend{
-		Prev:   prevcid,
+		Prev:   evt.OldRoot,
 		Blocks: evt.RepoSlice,
 		Repo:   did,
 		Time:   time.Now().Format(bsutil.ISO8601),
@@ -266,16 +250,10 @@ func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent
 	}
 
 	for _, op := range evt.Ops {
-		var s *string
-		if op.RecCid != nil {
-			cs := op.RecCid.String()
-			s = &cs
-		}
-
 		out.Ops = append(out.Ops, &events.RepoOp{
 			Path:   op.Collection + "/" + op.Rkey,
 			Action: string(op.Kind),
-			Cid:    s,
+			Cid:    op.RecCid,
 		})
 	}
 

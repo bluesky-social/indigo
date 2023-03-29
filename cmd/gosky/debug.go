@@ -122,7 +122,7 @@ var inspectEventCmd = &cli.Command{
 				if err != nil {
 					return fmt.Errorf("loading %q: %w", op.Path, err)
 				}
-				if rcid.String() != *op.Cid {
+				if rcid != *op.Cid {
 					return fmt.Errorf("mismatch in record cid %s != %s", rcid, *op.Cid)
 				}
 				fmt.Printf("%s (%s): %s\n", op.Action, op.Path, *op.Cid)

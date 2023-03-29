@@ -908,8 +908,8 @@ var readRepoStreamCmd = &cli.Command{
 
 				} else {
 					pstr := "<nil>"
-					if evt.Prev != nil {
-						pstr = *evt.Prev
+					if evt.Prev != nil && *evt.Prev != cid.Undef {
+						pstr = evt.Prev.String()
 					}
 					fmt.Printf("(%d) RepoAppend: %s (%s -> %s)\n", evt.Seq, evt.Repo, pstr, evt.Commit)
 				}
