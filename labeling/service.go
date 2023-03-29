@@ -159,7 +159,7 @@ func (s *Server) wantBlob(ctx context.Context, blob *lexutil.Blob) bool {
 	return false
 }
 
-func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, rec cbg.CBORMarshaler) ([]string, error) {
+func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cidStr string, rec cbg.CBORMarshaler) ([]string, error) {
 	log.Infof("labeling record: %v", uri)
 	var labelVals []string
 	var blobs []lexutil.Blob
@@ -223,12 +223,12 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 
 	log.Infof("will process %d blobs", len(blobs))
 	for _, blob := range blobs {
-		if blob.Cid == "" {
+		if blob.Ref == cid.Undef {
 			return nil, fmt.Errorf("received stub blob (CID undefined)")
 		}
 
 		if !s.wantBlob(ctx, &blob) {
-			log.Infof("skipping blob: cid=%s", blob.Cid)
+			log.Infof("skipping blob: cid=%s", blob.Ref.String())
 			continue
 		}
 		// download image for process
@@ -251,18 +251,18 @@ func (s *Server) labelRecord(ctx context.Context, did, nsid, uri, cid string, re
 func (s *Server) downloadRepoBlob(ctx context.Context, did string, blob *lexutil.Blob) ([]byte, error) {
 	var blobBytes []byte
 
-	if blob.Cid == "" {
+	if blob.Ref == cid.Undef {
 		return nil, fmt.Errorf("invalid blob to download (CID undefined)")
 	}
 
-	log.Infof("downloading blob pds=%s did=%s cid=%s", s.blobPdsURL, did, blob.Cid)
+	log.Infof("downloading blob pds=%s did=%s cid=%s", s.blobPdsURL, did, blob.Ref.String())
 
 	// TODO(bnewbold): more robust blob fetch code, by constructing query param
 	// properly; looking up DID doc; using xrpc.Client (with persistend HTTP
 	// client); etc.
 	// blocked on getBlob atproto branch landing, with new Lexicon.
 	// for now, just fetching from configured PDS (aka our single PDS)
-	xrpcURL := fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob?did=%s&cid=%s", s.blobPdsURL, did, blob.Cid)
+	xrpcURL := fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob?did=%s&cid=%s", s.blobPdsURL, did, blob.Ref.String())
 
 	resp, err := http.Get(xrpcURL)
 	if err != nil {
@@ -271,7 +271,7 @@ func (s *Server) downloadRepoBlob(ctx context.Context, did string, blob *lexutil
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("failed to fetch blob from PDS. did=%s cid=%s statusCode=%d", did, blob.Cid, resp.StatusCode)
+		return nil, fmt.Errorf("failed to fetch blob from PDS. did=%s cid=%s statusCode=%d", did, blob.Ref.String(), resp.StatusCode)
 	}
 
 	blobBytes, err = io.ReadAll(resp.Body)
@@ -286,7 +286,7 @@ func (s *Server) labelBlob(ctx context.Context, did string, blob lexutil.Blob, b
 
 	var labelVals []string
 
-	if blob.Cid == "" {
+	if blob.Ref == cid.Undef {
 		return nil, fmt.Errorf("invalid blob to label (CID undefined)")
 	}
 

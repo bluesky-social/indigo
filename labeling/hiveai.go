@@ -100,12 +100,12 @@ func (resp *HiveAIResp) SummarizeLabels() []string {
 
 func (hal *HiveAILabeler) LabelBlob(ctx context.Context, blob lexutil.Blob, blobBytes []byte) ([]string, error) {
 
-	log.Infof("sending blob to thehive.ai cid=%s mimetype=%s size=%d", blob.Cid, blob.MimeType, len(blobBytes))
+	log.Infof("sending blob to thehive.ai cid=%s mimetype=%s size=%d", blob.Ref, blob.MimeType, len(blobBytes))
 
 	// generic HTTP form file upload, then parse the response JSON
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("media", blob.Cid)
+	part, err := writer.CreateFormFile("media", blob.Ref.String())
 	if err != nil {
 		return nil, err
 	}
@@ -142,13 +142,13 @@ func (hal *HiveAILabeler) LabelBlob(ctx context.Context, blob lexutil.Blob, blob
 		return nil, fmt.Errorf("failed to read HiveAI resp body: %v", err)
 	}
 
-	log.Debugf("HiveAI raw result cid=%s body=%v", blob.Cid, string(respBytes))
+	log.Debugf("HiveAI raw result cid=%s body=%v", blob.Ref, string(respBytes))
 
 	var respObj HiveAIResp
 	if err := json.Unmarshal(respBytes, &respObj); err != nil {
 		return nil, fmt.Errorf("failed to parse HiveAI resp JSON: %v", err)
 	}
 	respJson, _ := json.Marshal(respObj.Status[0].Response.Output[0])
-	log.Infof("HiveAI result cid=%s json=%v", blob.Cid, string(respJson))
+	log.Infof("HiveAI result cid=%s json=%v", blob.Ref, string(respJson))
 	return respObj.SummarizeLabels(), nil
 }

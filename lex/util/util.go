@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+
+	"github.com/ipfs/go-cid"
 )
 
 type typeExtractor struct {
@@ -21,8 +23,9 @@ func TypeExtract(b []byte) (string, error) {
 }
 
 type Blob struct {
-	Cid      string `json:"cid" cborgen:"cid"`
-	MimeType string `json:"mimeType" cborgen:"mimeType"`
+	Ref      cid.Cid `json:"ref" cborgen:"ref"`
+	MimeType string  `json:"mimeType" cborgen:"mimeType"`
+	Size     int64   `json:"size" cborgen:"size"`
 }
 
 type CborChecker struct {

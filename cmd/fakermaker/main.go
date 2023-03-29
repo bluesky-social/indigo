@@ -423,7 +423,7 @@ func pdsGenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner
 			return err
 		}
 		avatar = &lexutil.Blob{
-			Cid:      resp.Blob.Cid,
+			Ref:      resp.Blob.Ref,
 			MimeType: "image/png",
 		}
 	}
@@ -435,7 +435,7 @@ func pdsGenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner
 			return err
 		}
 		avatar = &lexutil.Blob{
-			Cid:      resp.Blob.Cid,
+			Ref:      resp.Blob.Ref,
 			MimeType: "image/jpeg",
 		}
 	}
@@ -541,7 +541,7 @@ func pdsGenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContex
 			images = append(images, &appbsky.EmbedImages_Image{
 				Alt: gofakeit.Lunch(),
 				Image: &lexutil.Blob{
-					Cid:      resp.Blob.Cid,
+					Ref:      resp.Blob.Ref,
 					MimeType: "image/jpeg",
 				},
 			})
