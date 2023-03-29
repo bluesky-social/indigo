@@ -75,7 +75,7 @@ type HydratedNotification struct {
 	IndexedAt     time.Time
 	Uri           string
 	Cid           string
-	Author        *appbskytypes.ActorDefs_WithInfo
+	Author        *appbskytypes.ActorDefs_ProfileViewBasic
 	Reason        string
 	ReasonSubject *string
 }
@@ -180,7 +180,7 @@ func (nm *DBNotifMan) hydrateNotificationUpVote(ctx context.Context, nrec *Notif
 		IndexedAt:     nrec.CreatedAt.Format(time.RFC3339),
 		Uri:           "at://" + voter.Did + "/app.bsky.feed.vote/" + vote.Rkey,
 		Cid:           vote.Cid,
-		Author:        voter.ActorRef(),
+		Author:        voter.ActorView(),
 		Reason:        "vote",
 		ReasonSubject: &rsub,
 	}, nil
@@ -220,7 +220,7 @@ func (nm *DBNotifMan) hydrateNotificationRepost(ctx context.Context, nrec *Notif
 		IndexedAt:     nrec.CreatedAt.Format(time.RFC3339),
 		Uri:           "at://" + reposter.Did + "/app.bsky.feed.repost/" + repost.Rkey,
 		Cid:           repost.RecCid,
-		Author:        reposter.ActorRef(),
+		Author:        reposter.ActorView(),
 		Reason:        "repost",
 		ReasonSubject: &rsub,
 	}, nil
@@ -260,7 +260,7 @@ func (nm *DBNotifMan) hydrateNotificationReply(ctx context.Context, nrec *NotifR
 		IndexedAt:     nrec.CreatedAt.Format(time.RFC3339),
 		Uri:           "at://" + author.Did + "/app.bsky.feed.post/" + fp.Rkey,
 		Cid:           fp.Cid,
-		Author:        author.ActorRef(),
+		Author:        author.ActorView(),
 		Reason:        "reply",
 		ReasonSubject: &rsub,
 	}, nil
@@ -288,7 +288,7 @@ func (nm *DBNotifMan) hydrateNotificationFollow(ctx context.Context, nrec *Notif
 		IndexedAt: nrec.CreatedAt.Format(time.RFC3339),
 		Uri:       "at://" + follower.Did + "/app.bsky.graph.follow/" + frec.Rkey,
 		Cid:       frec.Cid,
-		Author:    follower.ActorRef(),
+		Author:    follower.ActorView(),
 		Reason:    "follow",
 	}, nil
 

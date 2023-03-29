@@ -48,8 +48,17 @@ type ActorInfo struct {
 	PDS         uint
 }
 
-func (ai *ActorInfo) ActorRef() *bsky.ActorDefs_WithInfo {
-	return &bsky.ActorDefs_WithInfo{
+func (ai *ActorInfo) ActorRef() *bsky.ActorDefs_ProfileViewBasic {
+	return &bsky.ActorDefs_ProfileViewBasic{
+		Did:         ai.Did,
+		Handle:      ai.Handle,
+		DisplayName: &ai.DisplayName,
+	}
+}
+
+// TODO: this is just s stub; needs to populate more info
+func (ai *ActorInfo) ActorView() *bsky.ActorDefs_ProfileView {
+	return &bsky.ActorDefs_ProfileView{
 		Did:         ai.Did,
 		Handle:      ai.Handle,
 		DisplayName: &ai.DisplayName,

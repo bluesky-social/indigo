@@ -667,7 +667,7 @@ func rkeyForCollection(collection string) string {
 	return repo.NextTID()
 }
 
-func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*atproto.RepoBatchWrite_Input_Writes_Elem) error {
+func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*atproto.RepoApplyWrites_Input_Writes_Elem) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "BatchWrite")
 	defer span.End()
 
@@ -692,8 +692,8 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*
 	var ops []RepoOp
 	for _, w := range writes {
 		switch {
-		case w.RepoBatchWrite_Create != nil:
-			c := w.RepoBatchWrite_Create
+		case w.RepoApplyWrites_Create != nil:
+			c := w.RepoApplyWrites_Create
 			var rkey string
 			if c.Rkey != nil {
 				rkey = *c.Rkey
@@ -714,8 +714,8 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*
 				RecCid:     &cc,
 				Record:     c.Value.Val,
 			})
-		case w.RepoBatchWrite_Update != nil:
-			u := w.RepoBatchWrite_Update
+		case w.RepoApplyWrites_Update != nil:
+			u := w.RepoApplyWrites_Update
 
 			cc, err := r.PutRecord(ctx, u.Collection+"/"+u.Rkey, u.Value.Val)
 			if err != nil {
@@ -729,8 +729,8 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*
 				RecCid:     &cc,
 				Record:     u.Value.Val,
 			})
-		case w.RepoBatchWrite_Delete != nil:
-			d := w.RepoBatchWrite_Delete
+		case w.RepoApplyWrites_Delete != nil:
+			d := w.RepoApplyWrites_Delete
 
 			if err := r.DeleteRecord(ctx, d.Collection+"/"+d.Rkey); err != nil {
 				return err

@@ -37,7 +37,7 @@ type ReadRecordFunc func(context.Context, bsutil.Uid, cid.Cid) (lexutil.CBOR, er
 /*
 type HydratedFeedItem struct {
 	Uri           string
-	RepostedBy    *bsky.ActorDefs_WithInfo
+	RepostedBy    *bsky.ActorDefs_ProfileViewBasic
 	Record        any
 	ReplyCount    int64
 	RepostCount   int64
@@ -45,8 +45,8 @@ type HydratedFeedItem struct {
 	DownvoteCount int64
 	MyState       *bsky.FeedGetAuthorFeed_MyState
 	Cid       string
-	Author    *bsky.ActorDefs_WithInfo
-	TrendedBy *bsky.ActorDefs_WithInfo
+	Author    *bsky.ActorDefs_ProfileViewBasic
+	TrendedBy *bsky.ActorDefs_ProfileViewBasic
 	Embed     *bsky.FeedEmbed
 	IndexedAt string
 }
@@ -104,7 +104,7 @@ func (fg *FeedGenerator) didForUser(ctx context.Context, user bsutil.Uid) (strin
 	return ai.Did, nil
 }
 
-func (fg *FeedGenerator) getActorRefInfo(ctx context.Context, user bsutil.Uid) (*bsky.ActorDefs_WithInfo, error) {
+func (fg *FeedGenerator) getActorRefInfo(ctx context.Context, user bsutil.Uid) (*bsky.ActorDefs_ProfileViewBasic, error) {
 	// TODO: cache the shit out of this too
 	var ai models.ActorInfo
 	if err := fg.db.First(&ai, "uid = ?", user).Error; err != nil {
@@ -333,7 +333,7 @@ func (fg *FeedGenerator) GetPostThread(ctx context.Context, uri string, depth in
 }
 
 type HydratedVote struct {
-	Actor     *bsky.ActorDefs_WithInfo
+	Actor     *bsky.ActorDefs_ProfileViewBasic
 	Direction string
 	IndexedAt time.Time
 	CreatedAt string
@@ -385,8 +385,8 @@ func (fg *FeedGenerator) GetVotes(ctx context.Context, uri string, pcid cid.Cid,
 }
 
 type FollowInfo struct {
-	Follower  *bsky.ActorDefs_WithInfo
-	Subject   *bsky.ActorDefs_WithInfo
+	Follower  *bsky.ActorDefs_ProfileViewBasic
+	Subject   *bsky.ActorDefs_ProfileViewBasic
 	CreatedAt string
 	IndexedAt string
 }

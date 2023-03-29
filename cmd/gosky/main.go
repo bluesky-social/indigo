@@ -578,7 +578,7 @@ var deletePostCmd = &cli.Command{
 		}
 
 		return comatproto.RepoDeleteRecord(context.TODO(), xrpcc, &comatproto.RepoDeleteRecord_Input{
-			Did:        xrpcc.Auth.Did,
+			Repo:       xrpcc.Auth.Did,
 			Collection: schema,
 			Rkey:       rkey,
 		})
@@ -838,7 +838,7 @@ var updateHandleCmd = &cli.Command{
 
 		handle := cctx.Args().Get(0)
 
-		err = comatproto.HandleUpdate(ctx, xrpcc, &comatproto.HandleUpdate_Input{
+		err = comatproto.IdentityUpdateHandle(ctx, xrpcc, &comatproto.IdentityUpdateHandle_Input{
 			Handle: handle,
 		})
 		if err != nil {

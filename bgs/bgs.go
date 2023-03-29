@@ -435,7 +435,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	if peering.ID == 0 {
 
-		cfg, err := atproto.ServerGetAccountsConfig(ctx, c)
+		cfg, err := atproto.ServerDescribeServer(ctx, c)
 		if err != nil {
 			// TODO: failing this shouldnt halt our indexing
 			return nil, fmt.Errorf("failed to check unrecognized pds: %w", err)
