@@ -435,7 +435,7 @@ func pdsGenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner
 		if err != nil {
 			return err
 		}
-		avatar = &lexutil.LexBlob{
+		banner = &lexutil.LexBlob{
 			Ref:      resp.Blob.Ref,
 			MimeType: "image/jpeg",
 			Size:     resp.Blob.Size,
