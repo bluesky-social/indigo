@@ -43,7 +43,6 @@ type ActorInfo struct {
 	Following   int64
 	Followers   int64
 	Posts       int64
-	DeclRefCid  string
 	Type        string
 	PDS         uint
 }

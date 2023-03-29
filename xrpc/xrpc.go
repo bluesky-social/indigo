@@ -36,7 +36,6 @@ type AuthInfo struct {
 	RefreshJwt     string `json:"refreshJwt"`
 	Handle         string `json:"handle"`
 	Did            string `json:"did"`
-	DeclarationCid string `json:"declarationCid"`
 }
 
 const (
