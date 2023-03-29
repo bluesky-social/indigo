@@ -1018,10 +1018,8 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 		return "util.LexiconTypeDecoder", nil
 	case "union":
 		return "*" + name + "_" + strings.Title(k), nil
-	case "image":
-		return "*util.Blob", nil
 	case "blob":
-		return "*util.Blob", nil
+		return "*util.LexBlob", nil
 	case "array":
 		subt, err := s.typeNameForField(name+"_"+strings.Title(k), "Elem", *v.Items)
 		if err != nil {
@@ -1030,7 +1028,9 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 
 		return "[]" + subt, nil
 	case "cid-link":
-		return "cid.Cid", nil
+		return "util.LexLink", nil
+	case "bytes":
+		return "util.LexBytes", nil
 	default:
 		return "", fmt.Errorf("field %q in %s has unsupported type name (%s)", k, name, v.Type)
 	}
