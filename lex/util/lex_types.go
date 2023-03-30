@@ -58,12 +58,16 @@ func (ll *LexLink) UnmarshalJSON(raw []byte) error {
 	return nil
 }
 
-func (ll LexLink) MarshalCBOR(w io.Writer) error {
+func (ll *LexLink) MarshalCBOR(w io.Writer) error {
+	if ll == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
 	if !ll.Defined() {
 		return xerrors.Errorf("tried to marshal nil or undefined cid-link")
 	}
 	cw := cbg.NewCborWriter(w)
-	if err := cbg.WriteCid(cw, cid.Cid(ll)); err != nil {
+	if err := cbg.WriteCid(cw, cid.Cid(*ll)); err != nil {
 		return xerrors.Errorf("failed to write cid-link as CBOR: %w", err)
 	}
 	return nil
@@ -109,12 +113,13 @@ func (lb *LexBytes) UnmarshalJSON(raw []byte) error {
 	return nil
 }
 
-func (lb LexBytes) MarshalCBOR(w io.Writer) error {
+func (lb *LexBytes) MarshalCBOR(w io.Writer) error {
 	if lb == nil {
-		return xerrors.Errorf("tried to marshal nil or undefined $bytes")
+		_, err := w.Write(cbg.CborNull)
+		return err
 	}
 	cw := cbg.NewCborWriter(w)
-	if err := cbg.WriteByteArray(cw, ([]byte)(lb)); err != nil {
+	if err := cbg.WriteByteArray(cw, ([]byte)(*lb)); err != nil {
 		return xerrors.Errorf("failed to write $bytes as CBOR: %w", err)
 	}
 	return nil
@@ -206,7 +211,8 @@ func (b *LexBlob) UnmarshalJSON(raw []byte) error {
 
 func (b *LexBlob) MarshalCBOR(w io.Writer) error {
 	if b == nil {
-		return nil
+		_, err := w.Write(cbg.CborNull)
+		return err
 	}
 	if b.Size < 0 {
 		lb := LegacyBlob{
