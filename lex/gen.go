@@ -1094,7 +1094,7 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 		if ts.record {
 			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type\" cborgen:\"$type,const=%s\"`\n", ts.id)
 		} else {
-			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type,omitempty\"`\n")
+			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type,omitempty\" cborgen:\"$type,omitempty\"`\n")
 		}
 
 		required := make(map[string]bool)
