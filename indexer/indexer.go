@@ -8,16 +8,18 @@ import (
 	"strings"
 	"time"
 
-	atproto "github.com/bluesky-social/indigo/api/atproto"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
+
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 	"go.opentelemetry.io/otel"
@@ -80,12 +82,13 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 
 	log.Infow("Handling Repo Event!", "uid", evt.User)
 
-	var outops []*events.RepoOp
+	var outops []*comatproto.SyncSubscribeRepos_RepoOp
 	for _, op := range evt.Ops {
-		outops = append(outops, &events.RepoOp{
+		link := (*lexutil.LexLink)(op.RecCid)
+		outops = append(outops, &comatproto.SyncSubscribeRepos_RepoOp{
 			Path:   op.Collection + "/" + op.Rkey,
 			Action: string(op.Kind),
-			Cid:    op.RecCid,
+			Cid:    link,
 		})
 
 		switch op.Kind {
@@ -136,11 +139,11 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 
 	log.Infow("Sending event", "did", did)
 	if err := ix.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoAppend: &events.RepoAppend{
+		RepoCommit: &comatproto.SyncSubscribeRepos_Commit{
 			Repo:   did,
-			Prev:   evt.OldRoot,
+			Prev:   (*lexutil.LexLink)(evt.OldRoot),
 			Blocks: slice,
-			Commit: evt.NewRoot,
+			Commit: lexutil.LexLink(evt.NewRoot),
 			Time:   time.Now().Format(util.ISO8601),
 			Ops:    outops,
 			TooBig: toobig,
@@ -848,7 +851,7 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 	}
 
 	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
-	repo, err := atproto.SyncGetRepo(ctx, c, ai.Did, from, "")
+	repo, err := comatproto.SyncGetRepo(ctx, c, ai.Did, from, "")
 	if err != nil {
 		return fmt.Errorf("failed to fetch repo: %w", err)
 	}

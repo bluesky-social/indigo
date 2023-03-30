@@ -466,10 +466,10 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 
 	go func() {
 		if err := events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
-			RepoAppend: func(evt *events.RepoAppend) error {
+			RepoCommit: func(evt *atproto.SyncSubscribeRepos_Commit) error {
 				fmt.Println("received event: ", evt.Seq, evt.Repo)
 				es.lk.Lock()
-				es.events = append(es.events, &events.XRPCStreamEvent{RepoAppend: evt})
+				es.events = append(es.events, &events.XRPCStreamEvent{RepoCommit: evt})
 				es.lk.Unlock()
 				return nil
 			},

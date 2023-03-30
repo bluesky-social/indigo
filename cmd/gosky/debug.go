@@ -9,10 +9,13 @@ import (
 	"net/http"
 	"strconv"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
+
 	"github.com/gorilla/websocket"
+	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car/v2"
 	cli "github.com/urfave/cli/v2"
 )
@@ -53,11 +56,11 @@ var inspectEventCmd = &cli.Command{
 
 		var errFoundIt = fmt.Errorf("gotem")
 
-		var match *events.RepoAppend
+		var match *comatproto.SyncSubscribeRepos_Commit
 
 		ctx := context.TODO()
 		err = events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
-			RepoAppend: func(evt *events.RepoAppend) error {
+			RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 				n := int64(n)
 				if evt.Seq == n {
 					match = evt
@@ -69,9 +72,10 @@ var inspectEventCmd = &cli.Command{
 
 				return nil
 			},
-			Info: func(evt *events.InfoFrame) error {
+			RepoInfo: func(evt *comatproto.SyncSubscribeRepos_Info) error {
 				return nil
 			},
+			// TODO: all the other Repo* event types
 			Error: func(evt *events.ErrorFrame) error {
 				return fmt.Errorf("%s: %s", evt.Error, evt.Message)
 			},
@@ -122,7 +126,7 @@ var inspectEventCmd = &cli.Command{
 				if err != nil {
 					return fmt.Errorf("loading %q: %w", op.Path, err)
 				}
-				if rcid != *op.Cid {
+				if rcid != cid.Cid(*op.Cid) {
 					return fmt.Errorf("mismatch in record cid %s != %s", rcid, *op.Cid)
 				}
 				fmt.Printf("%s (%s): %s\n", op.Action, op.Path, *op.Cid)

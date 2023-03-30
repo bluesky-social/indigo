@@ -888,7 +888,7 @@ var readRepoStreamCmd = &cli.Command{
 		}()
 
 		return events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
-			RepoAppend: func(evt *events.RepoAppend) error {
+			RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 				if jsonfmt {
 					b, err := json.Marshal(evt)
 					if err != nil {
@@ -908,7 +908,7 @@ var readRepoStreamCmd = &cli.Command{
 
 				} else {
 					pstr := "<nil>"
-					if evt.Prev != nil && *evt.Prev != cid.Undef {
+					if evt.Prev != nil && evt.Prev.Defined() {
 						pstr = evt.Prev.String()
 					}
 					fmt.Printf("(%d) RepoAppend: %s (%s -> %s)\n", evt.Seq, evt.Repo, pstr, evt.Commit)
@@ -916,7 +916,7 @@ var readRepoStreamCmd = &cli.Command{
 
 				return nil
 			},
-			Info: func(info *events.InfoFrame) error {
+			RepoInfo: func(info *comatproto.SyncSubscribeRepos_Info) error {
 				if jsonfmt {
 					b, err := json.Marshal(info)
 					if err != nil {
@@ -924,11 +924,12 @@ var readRepoStreamCmd = &cli.Command{
 					}
 					fmt.Println(string(b))
 				} else {
-					fmt.Printf("INFO: %s: %s\n", info.Info, info.Message)
+					fmt.Printf("INFO: %s: %v\n", info.Name, info.Message)
 				}
 
 				return nil
 			},
+			// TODO: all the other event types
 			Error: func(errf *events.ErrorFrame) error {
 				return fmt.Errorf("error frame: %s: %s", errf.Error, errf.Message)
 			},

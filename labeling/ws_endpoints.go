@@ -36,7 +36,7 @@ func (s *Server) EventsLabelsWebsocket(c echo.Context) error {
 	}
 	defer cancel()
 
-	header := events.EventHeader{Op: events.EvtKindLabelBatch}
+	header := events.EventHeader{Op: events.EvtKindMessage}
 	for {
 		select {
 		case evt := <-evts:
@@ -48,15 +48,15 @@ func (s *Server) EventsLabelsWebsocket(c echo.Context) error {
 			var obj lexutil.CBOR
 
 			switch {
-			case evt.LabelBatch != nil:
-				header.Op = events.EvtKindLabelBatch
-				obj = evt.LabelBatch
 			case evt.Error != nil:
 				header.Op = events.EvtKindErrorFrame
 				obj = evt.Error
-			case evt.Info != nil:
-				header.Op = events.EvtKindInfoFrame
-				obj = evt.Info
+			case evt.RepoInfo != nil:
+				header.MsgType = "#info"
+				obj = evt.RepoInfo
+			case evt.LabelBatch != nil:
+				header.MsgType = "#labelbatch"
+				obj = evt.LabelBatch
 			default:
 				return fmt.Errorf("unrecognized event kind")
 			}

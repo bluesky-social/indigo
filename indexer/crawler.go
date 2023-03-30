@@ -3,9 +3,10 @@ package indexer
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/events"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/util"
+
 	"go.opentelemetry.io/otel"
 )
 
@@ -40,7 +41,7 @@ func (c *CrawlDispatcher) Run() {
 }
 
 type catchupJob struct {
-	evt  *events.RepoAppend
+	evt  *comatproto.SyncSubscribeRepos_Commit
 	host *models.PDS
 	user *models.ActorInfo
 }
@@ -181,7 +182,7 @@ func (c *CrawlDispatcher) Crawl(ctx context.Context, ai *models.ActorInfo) error
 	}
 }
 
-func (c *CrawlDispatcher) AddToCatchupQueue(ctx context.Context, host *models.PDS, u *models.ActorInfo, evt *events.RepoAppend) error {
+func (c *CrawlDispatcher) AddToCatchupQueue(ctx context.Context, host *models.PDS, u *models.ActorInfo, evt *comatproto.SyncSubscribeRepos_Commit) error {
 	if u.PDS == 0 {
 		panic("not okay")
 	}
