@@ -709,7 +709,7 @@ func (s *TypeSchema) WriteHandlerStub(w io.Writer, fname, shortname, impname str
 					} else {
 						paramtypes = append(paramtypes, k+" int")
 					}
-				case "number":
+				case "float":
 					return fmt.Errorf("non-integer numbers currently unsupported")
 				case "array":
 					paramtypes = append(paramtypes, k+"[]"+t.Items.Type)
@@ -819,7 +819,7 @@ if err != nil {
 `, k, k)
 					}
 
-				case "number":
+				case "float":
 					return fmt.Errorf("non-integer numbers currently unsupported")
 				case "boolean":
 					params = append(params, k)
@@ -1001,7 +1001,7 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 	switch v.Type {
 	case "string":
 		return "string", nil
-	case "number":
+	case "float":
 		return "float64", nil
 	case "integer":
 		return "int64", nil
@@ -1069,7 +1069,7 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 	case "string":
 		// TODO: deal with max length
 		fmt.Fprintf(w, "type %s string\n", name)
-	case "number":
+	case "float":
 		fmt.Fprintf(w, "type %s float64\n", name)
 	case "integer":
 		fmt.Fprintf(w, "type %s int64\n", name)
@@ -1149,7 +1149,7 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 
 func (ts *TypeSchema) writeTypeMethods(name string, w io.Writer) error {
 	switch ts.Type {
-	case "string", "number", "array", "boolean", "integer":
+	case "string", "float", "array", "boolean", "integer":
 		return nil
 	case "object":
 		if err := ts.writeJsonMarshalerObject(name, w); err != nil {
