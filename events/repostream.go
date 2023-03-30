@@ -5,8 +5,11 @@ import (
 	"context"
 	"fmt"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
+
 	"github.com/gorilla/websocket"
 	cid "github.com/ipfs/go-cid"
 )
@@ -15,7 +18,7 @@ type LiteStreamHandleFunc func(op repomgr.EventKind, seq int64, path string, did
 
 func ConsumeRepoStreamLite(ctx context.Context, con *websocket.Conn, cb LiteStreamHandleFunc) error {
 	return HandleRepoStream(ctx, con, &RepoStreamCallbacks{
-		RepoAppend: func(evt *RepoAppend) error {
+		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 			if evt.TooBig {
 				log.Errorf("skipping too big events for now: %d", evt.Seq)
 				return nil
@@ -36,7 +39,7 @@ func ConsumeRepoStreamLite(ctx context.Context, con *websocket.Conn, cb LiteStre
 						return nil
 					}
 
-					if rc != *op.Cid {
+					if lexutil.LexLink(rc) != *op.Cid {
 						return fmt.Errorf("mismatch in record and op cid: %s != %s", rc, *op.Cid)
 					}
 

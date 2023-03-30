@@ -28,7 +28,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("api/atproto/cbor_gen.go", "atproto", atproto.RepoStrongRef{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("api/atproto/cbor_gen.go", "atproto", atproto.RepoStrongRef{}, atproto.SyncSubscribeRepos_Commit{}, atproto.SyncSubscribeRepos_Handle{}, atproto.SyncSubscribeRepos_Info{}, atproto.SyncSubscribeRepos_Migrate{}, atproto.SyncSubscribeRepos_RepoOp{}, atproto.SyncSubscribeRepos_Tombstone{}); err != nil {
 		panic(err)
 	}
 
@@ -36,7 +36,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("events/cbor_gen.go", "events", events.EventHeader{}, events.RepoAppend{}, events.RepoOp{}, events.InfoFrame{}, events.ErrorFrame{}, events.Label{}, events.LabelBatch{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("events/cbor_gen.go", "events", events.EventHeader{}, events.ErrorFrame{}, events.Label{}, events.LabelBatch{}); err != nil {
 		panic(err)
 	}
 }

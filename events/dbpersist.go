@@ -7,9 +7,12 @@ import (
 	"fmt"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/carstore"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/util"
+
 	cid "github.com/ipfs/go-cid"
 	"gorm.io/gorm"
 )
@@ -57,11 +60,11 @@ func NewDbPersistence(db *gorm.DB, cs *carstore.CarStore) (*DbPersistence, error
 }
 
 func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
-	if e.RepoAppend == nil {
+	if e.RepoCommit == nil {
 		return nil
 	}
 
-	evt := e.RepoAppend
+	evt := e.RepoCommit
 
 	// TODO: hack hack hack
 	if len(evt.Ops) > 8192 {
@@ -75,8 +78,8 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	}
 
 	var prev *util.DbCID
-	if evt.Prev != nil && *evt.Prev != cid.Undef {
-		prev = &util.DbCID{*evt.Prev}
+	if evt.Prev != nil && evt.Prev.Defined() {
+		prev = &util.DbCID{cid.Cid(*evt.Prev)}
 	}
 
 	var blobs []byte
@@ -94,18 +97,18 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	}
 
 	rer := RepoEventRecord{
-		Commit: util.DbCID{evt.Commit},
+		Commit: util.DbCID{cid.Cid(evt.Commit)},
 		Prev:   prev,
 		Repo:   uid,
-		Event:  evt.Event,
+		Event:  "repo_append", // TODO: refactor to "#commit"? can "rebase" come through this path?
 		Blobs:  blobs,
 		Time:   t,
 	}
 
 	for _, op := range evt.Ops {
 		var rec *util.DbCID
-		if op.Cid != nil && *op.Cid != cid.Undef {
-			rec = &util.DbCID{*op.Cid}
+		if op.Cid != nil && op.Cid.Defined() {
+			rec = &util.DbCID{cid.Cid(*op.Cid)}
 		}
 		rer.Ops = append(rer.Ops, RepoOpRecord{
 			Path:   op.Path,
@@ -117,7 +120,7 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 		return err
 	}
 
-	e.RepoAppend.Seq = int64(rer.Seq)
+	e.RepoCommit.Seq = int64(rer.Seq)
 
 	return nil
 }
@@ -147,7 +150,7 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPC
 			return err
 		}
 
-		if err := cb(&XRPCStreamEvent{RepoAppend: ra}); err != nil {
+		if err := cb(&XRPCStreamEvent{RepoCommit: ra}); err != nil {
 			return err
 		}
 	}
@@ -173,20 +176,20 @@ func (p *DbPersistence) didForUid(ctx context.Context, uid util.Uid) (string, er
 	return u.Did, nil
 }
 
-func (p *DbPersistence) hydrateRepoEvent(ctx context.Context, rer *RepoEventRecord) (*RepoAppend, error) {
+func (p *DbPersistence) hydrateRepoEvent(ctx context.Context, rer *RepoEventRecord) (*comatproto.SyncSubscribeRepos_Commit, error) {
 	var blobs []string
 	if len(rer.Blobs) > 0 {
 		if err := json.Unmarshal(rer.Blobs, &blobs); err != nil {
 			return nil, err
 		}
 	}
-	var blobCIDs []cid.Cid
+	var blobCIDs []lexutil.LexLink
 	for _, b := range blobs {
 		c, err := cid.Decode(b)
 		if err != nil {
 			return nil, err
 		}
-		blobCIDs = append(blobCIDs, c)
+		blobCIDs = append(blobCIDs, lexutil.LexLink(c))
 	}
 
 	did, err := p.didForUid(ctx, rer.Repo)
@@ -194,28 +197,30 @@ func (p *DbPersistence) hydrateRepoEvent(ctx context.Context, rer *RepoEventReco
 		return nil, err
 	}
 
-	var prevCID *cid.Cid
-	if rer != nil && rer.Prev != nil && rer.Prev.CID != cid.Undef {
-		prevCID = &rer.Prev.CID
+	var prevCID *lexutil.LexLink
+	if rer != nil && rer.Prev != nil && rer.Prev.CID.Defined() {
+		tmp := lexutil.LexLink(rer.Prev.CID)
+		prevCID = &tmp
 	}
 
-	out := &RepoAppend{
+	out := &comatproto.SyncSubscribeRepos_Commit{
 		Seq:    int64(rer.Seq),
 		Repo:   did,
-		Commit: rer.Commit.CID,
+		Commit: lexutil.LexLink(rer.Commit.CID),
 		Prev:   prevCID,
 		Time:   rer.Time.Format(util.ISO8601),
 		Blobs:  blobCIDs,
-		Event:  rer.Event,
+		// TODO: there was previously an Event field here. are these all Commit, or are some other events?
 	}
 
 	for _, op := range rer.Ops {
-		var recCID *cid.Cid
+		var recCID *lexutil.LexLink
 		if op.Rec != nil {
-			recCID = &op.Rec.CID
+			tmp := lexutil.LexLink(op.Rec.CID)
+			recCID = &tmp
 		}
 
-		out.Ops = append(out.Ops, &RepoOp{
+		out.Ops = append(out.Ops, &comatproto.SyncSubscribeRepos_RepoOp{
 			Path:   op.Path,
 			Action: op.Action,
 			Cid:    recCID,

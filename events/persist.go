@@ -29,8 +29,14 @@ func (mp *MemPersister) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	defer mp.lk.Unlock()
 	mp.seq++
 	switch {
-	case e.RepoAppend != nil:
-		e.RepoAppend.Seq = mp.seq
+	case e.RepoCommit != nil:
+		e.RepoCommit.Seq = mp.seq
+	case e.RepoHandle != nil:
+		e.RepoHandle.Seq = mp.seq
+	case e.RepoMigrate != nil:
+		e.RepoMigrate.Seq = mp.seq
+	case e.RepoTombstone != nil:
+		e.RepoTombstone.Seq = mp.seq
 	case e.LabelBatch != nil:
 		e.LabelBatch.Seq = mp.seq
 	default:
