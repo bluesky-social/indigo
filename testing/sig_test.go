@@ -85,6 +85,27 @@ func TestVerificationK256(t *testing.T) {
 	assert.NoError(key.Verify(msgBytes, sigBytes))
 }
 
+func TestVerificationK256Another(t *testing.T) {
+	t.Skip("XXX: this test is failing!")
+
+	// 2023-03-30T14:45:38.564-0700	WARN	indexer	indexer/keymgr.go:39	signature failed to verify	{"err": "invalid signature", "did": "did:plc:5wy3mk2y6hr5hfjd27t25mwq", "pubKey": {"Raw":"BG43klS5n0pGwV4pbSDZus9gEpAv9y9ixMw5g+BTXejAefzTvGuS0wXUtd+4gNynDKnJI8Ql5HZgd31wUOcuEnI=","Type":"EcdsaSecp256k1VerificationKey2019"}, "sigBytes": "/RqP+2UeQxEotDobElhPIqMUfLuP6NAqWH1DFYz4uBIzG9m2rq+AOv+7ByTs1Iz3W2Pb/ArU6h4u9b32TcOA8w==", "msgBytes": "pGNkaWR4IGRpZDpwbGM6NXd5M21rMnk2aHI1aGZqZDI3dDI1bXdxZGRhdGHYKlglAAFxEiAmLxtdfzvOecsKYGpQcJoKe/sez3Azipj+ruH8+Oeb2mRwcmV22CpYJQABcRIgaaoi6eUxIHB/n6QucX3fjxP/43pLhAd2NEo8wIpc1I1ndmVyc2lvbgI="}
+
+	assert := assert.New(t)
+	keyBytes, err := base64.StdEncoding.DecodeString("BG43klS5n0pGwV4pbSDZus9gEpAv9y9ixMw5g+BTXejAefzTvGuS0wXUtd+4gNynDKnJI8Ql5HZgd31wUOcuEnI=")
+	assert.NoError(err)
+	msgBytes, err := base64.StdEncoding.DecodeString("pGNkaWR4IGRpZDpwbGM6NXd5M21rMnk2aHI1aGZqZDI3dDI1bXdxZGRhdGHYKlglAAFxEiAmLxtdfzvOecsKYGpQcJoKe/sez3Azipj+ruH8+Oeb2mRwcmV22CpYJQABcRIgaaoi6eUxIHB/n6QucX3fjxP/43pLhAd2NEo8wIpc1I1ndmVyc2lvbgI=")
+	assert.NoError(err)
+	sigBytes, err := base64.StdEncoding.DecodeString("/RqP+2UeQxEotDobElhPIqMUfLuP6NAqWH1DFYz4uBIzG9m2rq+AOv+7ByTs1Iz3W2Pb/ArU6h4u9b32TcOA8w==")
+	assert.NoError(err)
+
+	key := did.PubKey{
+		Type: "EcdsaSecp256k1VerificationKey2019", // k1 -> K256
+		Raw:  keyBytes,
+	}
+
+	assert.NoError(key.Verify(msgBytes, sigBytes))
+}
+
 func TestVerificationP256(t *testing.T) {
 	t.Skip("XXX: this test is failing!")
 
