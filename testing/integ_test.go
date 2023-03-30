@@ -17,7 +17,9 @@ func init() {
 }
 
 func TestBGSBasic(t *testing.T) {
-	t.Skip("test is currently hanging")
+	if testing.Short() {
+		t.Skip("skipping BGS test in 'short' test mode")
+	}
 	assert := assert.New(t)
 	didr := testPLC(t)
 	p1 := mustSetupPDS(t, "localhost:5155", ".tpds", didr)
@@ -105,7 +107,10 @@ func socialSim(t *testing.T, users []*testUser, postiter, likeiter int) []*atpro
 }
 
 func TestBGSMultiPDS(t *testing.T) {
-	t.Skip("test too sleepy to run in CI for now")
+	if testing.Short() {
+		t.Skip("skipping BGS test in 'short' test mode")
+	}
+	//t.Skip("test too sleepy to run in CI for now")
 
 	assert := assert.New(t)
 	_ = assert
@@ -120,7 +125,7 @@ func TestBGSMultiPDS(t *testing.T) {
 	b1.Run(t)
 
 	p1.RequestScraping(t, b1)
-	time.Sleep(time.Millisecond * 50)
+	time.Sleep(time.Millisecond * 100)
 
 	var users []*testUser
 	for i := 0; i < 5; i++ {
@@ -167,6 +172,9 @@ func TestBGSMultiPDS(t *testing.T) {
 }
 
 func TestBGSMultiGap(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping BGS test in 'short' test mode")
+	}
 	//t.Skip("test too sleepy to run in CI for now")
 	assert := assert.New(t)
 	_ = assert
