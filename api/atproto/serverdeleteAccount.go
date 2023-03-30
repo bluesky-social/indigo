@@ -12,7 +12,7 @@ func init() {
 }
 
 type ServerDeleteAccount_Input struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Did           string `json:"did" cborgen:"did"`
 	Password      string `json:"password" cborgen:"password"`
 	Token         string `json:"token" cborgen:"token"`

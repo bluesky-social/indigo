@@ -12,7 +12,7 @@ func init() {
 }
 
 type ServerCreateAccount_Input struct {
-	LexiconTypeID string  `json:"$type,omitempty"`
+	LexiconTypeID string  `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Email         string  `json:"email" cborgen:"email"`
 	Handle        string  `json:"handle" cborgen:"handle"`
 	InviteCode    *string `json:"inviteCode,omitempty" cborgen:"inviteCode"`
@@ -21,7 +21,7 @@ type ServerCreateAccount_Input struct {
 }
 
 type ServerCreateAccount_Output struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	AccessJwt     string `json:"accessJwt" cborgen:"accessJwt"`
 	Did           string `json:"did" cborgen:"did"`
 	Handle        string `json:"handle" cborgen:"handle"`

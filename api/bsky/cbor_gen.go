@@ -529,8 +529,13 @@ func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 4
 
-	if _, err := cw.Write([]byte{164}); err != nil {
+	if t.LexiconTypeID == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -555,6 +560,32 @@ func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := io.WriteString(w, string(t.Type)); err != nil {
 		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if t.LexiconTypeID != "" {
+
+		if len("$type") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"$type\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("$type")); err != nil {
+			return err
+		}
+
+		if len(t.LexiconTypeID) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+			return err
+		}
 	}
 
 	// t.Index (bsky.FeedPost_TextSlice) (struct)
@@ -593,29 +624,6 @@ func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Value)); err != nil {
-		return err
-	}
-
-	// t.LexiconTypeID (string) (string)
-	if len("LexiconTypeID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
-		return err
-	}
-
-	if len(t.LexiconTypeID) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
 		return err
 	}
 	return nil
@@ -670,6 +678,17 @@ func (t *FeedPost_Entity) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Type = string(sval)
 			}
+			// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
 			// t.Index (bsky.FeedPost_TextSlice) (struct)
 		case "index":
 
@@ -701,17 +720,6 @@ func (t *FeedPost_Entity) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Value = string(sval)
 			}
-			// t.LexiconTypeID (string) (string)
-		case "LexiconTypeID":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
-			}
 
 		default:
 			// Field doesn't exist on this type, so ignore it
@@ -728,8 +736,13 @@ func (t *FeedPost_ReplyRef) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 3
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if t.LexiconTypeID == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -749,6 +762,32 @@ func (t *FeedPost_ReplyRef) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.LexiconTypeID (string) (string)
+	if t.LexiconTypeID != "" {
+
+		if len("$type") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"$type\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("$type")); err != nil {
+			return err
+		}
+
+		if len(t.LexiconTypeID) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+			return err
+		}
+	}
+
 	// t.Parent (atproto.RepoStrongRef) (struct)
 	if len("parent") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"parent\" was too long")
@@ -762,29 +801,6 @@ func (t *FeedPost_ReplyRef) MarshalCBOR(w io.Writer) error {
 	}
 
 	if err := t.Parent.MarshalCBOR(cw); err != nil {
-		return err
-	}
-
-	// t.LexiconTypeID (string) (string)
-	if len("LexiconTypeID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
-		return err
-	}
-
-	if len(t.LexiconTypeID) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
 		return err
 	}
 	return nil
@@ -848,6 +864,17 @@ func (t *FeedPost_ReplyRef) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 			}
+			// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
 			// t.Parent (atproto.RepoStrongRef) (struct)
 		case "parent":
 
@@ -868,17 +895,6 @@ func (t *FeedPost_ReplyRef) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 			}
-			// t.LexiconTypeID (string) (string)
-		case "LexiconTypeID":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
-			}
 
 		default:
 			// Field doesn't exist on this type, so ignore it
@@ -895,8 +911,13 @@ func (t *FeedPost_TextSlice) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 3
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if t.LexiconTypeID == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -922,6 +943,32 @@ func (t *FeedPost_TextSlice) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
+	// t.LexiconTypeID (string) (string)
+	if t.LexiconTypeID != "" {
+
+		if len("$type") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"$type\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("$type")); err != nil {
+			return err
+		}
+
+		if len(t.LexiconTypeID) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+			return err
+		}
+	}
+
 	// t.Start (int64) (int64)
 	if len("start") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"start\" was too long")
@@ -942,29 +989,6 @@ func (t *FeedPost_TextSlice) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Start-1)); err != nil {
 			return err
 		}
-	}
-
-	// t.LexiconTypeID (string) (string)
-	if len("LexiconTypeID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
-		return err
-	}
-
-	if len(t.LexiconTypeID) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
-		return err
 	}
 	return nil
 }
@@ -1033,6 +1057,17 @@ func (t *FeedPost_TextSlice) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.End = int64(extraI)
 			}
+			// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
 			// t.Start (int64) (int64)
 		case "start":
 			{
@@ -1059,17 +1094,6 @@ func (t *FeedPost_TextSlice) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Start = int64(extraI)
 			}
-			// t.LexiconTypeID (string) (string)
-		case "LexiconTypeID":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
-			}
 
 		default:
 			// Field doesn't exist on this type, so ignore it
@@ -1086,9 +1110,40 @@ func (t *EmbedImages) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 2
 
-	if _, err := cw.Write([]byte{162}); err != nil {
+	if t.LexiconTypeID == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if t.LexiconTypeID != "" {
+
+		if len("$type") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"$type\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("$type")); err != nil {
+			return err
+		}
+
+		if len(t.LexiconTypeID) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+			return err
+		}
 	}
 
 	// t.Images ([]*bsky.EmbedImages_Image) (slice)
@@ -1114,29 +1169,6 @@ func (t *EmbedImages) MarshalCBOR(w io.Writer) error {
 		if err := v.MarshalCBOR(cw); err != nil {
 			return err
 		}
-	}
-
-	// t.LexiconTypeID (string) (string)
-	if len("LexiconTypeID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
-		return err
-	}
-
-	if len(t.LexiconTypeID) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
-		return err
 	}
 	return nil
 }
@@ -1179,7 +1211,18 @@ func (t *EmbedImages) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Images ([]*bsky.EmbedImages_Image) (slice)
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Images ([]*bsky.EmbedImages_Image) (slice)
 		case "images":
 
 			maj, extra, err = cr.ReadHeader()
@@ -1209,18 +1252,6 @@ func (t *EmbedImages) UnmarshalCBOR(r io.Reader) (err error) {
 				t.Images[i] = &v
 			}
 
-			// t.LexiconTypeID (string) (string)
-		case "LexiconTypeID":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
-			}
-
 		default:
 			// Field doesn't exist on this type, so ignore it
 			cbg.ScanForLinks(r, func(cid.Cid) {})
@@ -1236,9 +1267,40 @@ func (t *EmbedExternal) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 2
 
-	if _, err := cw.Write([]byte{162}); err != nil {
+	if t.LexiconTypeID == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if t.LexiconTypeID != "" {
+
+		if len("$type") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"$type\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("$type")); err != nil {
+			return err
+		}
+
+		if len(t.LexiconTypeID) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+			return err
+		}
 	}
 
 	// t.External (bsky.EmbedExternal_External) (struct)
@@ -1254,29 +1316,6 @@ func (t *EmbedExternal) MarshalCBOR(w io.Writer) error {
 	}
 
 	if err := t.External.MarshalCBOR(cw); err != nil {
-		return err
-	}
-
-	// t.LexiconTypeID (string) (string)
-	if len("LexiconTypeID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
-		return err
-	}
-
-	if len(t.LexiconTypeID) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
 		return err
 	}
 	return nil
@@ -1320,7 +1359,18 @@ func (t *EmbedExternal) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.External (bsky.EmbedExternal_External) (struct)
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.External (bsky.EmbedExternal_External) (struct)
 		case "external":
 
 			{
@@ -1340,17 +1390,6 @@ func (t *EmbedExternal) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 			}
-			// t.LexiconTypeID (string) (string)
-		case "LexiconTypeID":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
-			}
 
 		default:
 			// Field doesn't exist on this type, so ignore it
@@ -1367,8 +1406,13 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 5
 
-	if _, err := cw.Write([]byte{165}); err != nil {
+	if t.LexiconTypeID == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -1393,6 +1437,32 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := io.WriteString(w, string(t.Uri)); err != nil {
 		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if t.LexiconTypeID != "" {
+
+		if len("$type") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"$type\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("$type")); err != nil {
+			return err
+		}
+
+		if len(t.LexiconTypeID) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+			return err
+		}
 	}
 
 	// t.Thumb (util.LexBlob) (struct)
@@ -1456,29 +1526,6 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 	if _, err := io.WriteString(w, string(t.Description)); err != nil {
 		return err
 	}
-
-	// t.LexiconTypeID (string) (string)
-	if len("LexiconTypeID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
-		return err
-	}
-
-	if len(t.LexiconTypeID) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -1531,6 +1578,17 @@ func (t *EmbedExternal_External) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Uri = string(sval)
 			}
+			// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
 			// t.Thumb (util.LexBlob) (struct)
 		case "thumb":
 
@@ -1573,17 +1631,6 @@ func (t *EmbedExternal_External) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Description = string(sval)
 			}
-			// t.LexiconTypeID (string) (string)
-		case "LexiconTypeID":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
-			}
 
 		default:
 			// Field doesn't exist on this type, so ignore it
@@ -1600,8 +1647,13 @@ func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 3
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if t.LexiconTypeID == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -1628,6 +1680,32 @@ func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.LexiconTypeID (string) (string)
+	if t.LexiconTypeID != "" {
+
+		if len("$type") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"$type\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("$type")); err != nil {
+			return err
+		}
+
+		if len(t.LexiconTypeID) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+			return err
+		}
+	}
+
 	// t.Image (util.LexBlob) (struct)
 	if len("image") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"image\" was too long")
@@ -1641,29 +1719,6 @@ func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {
 	}
 
 	if err := t.Image.MarshalCBOR(cw); err != nil {
-		return err
-	}
-
-	// t.LexiconTypeID (string) (string)
-	if len("LexiconTypeID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
-		return err
-	}
-
-	if len(t.LexiconTypeID) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
 		return err
 	}
 	return nil
@@ -1718,6 +1773,17 @@ func (t *EmbedImages_Image) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Alt = string(sval)
 			}
+			// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
 			// t.Image (util.LexBlob) (struct)
 		case "image":
 
@@ -1737,17 +1803,6 @@ func (t *EmbedImages_Image) UnmarshalCBOR(r io.Reader) (err error) {
 					}
 				}
 
-			}
-			// t.LexiconTypeID (string) (string)
-		case "LexiconTypeID":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
 			}
 
 		default:
@@ -2187,9 +2242,40 @@ func (t *EmbedRecord) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 2
 
-	if _, err := cw.Write([]byte{162}); err != nil {
+	if t.LexiconTypeID == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if t.LexiconTypeID != "" {
+
+		if len("$type") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"$type\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("$type")); err != nil {
+			return err
+		}
+
+		if len(t.LexiconTypeID) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+			return err
+		}
 	}
 
 	// t.Record (atproto.RepoStrongRef) (struct)
@@ -2205,29 +2291,6 @@ func (t *EmbedRecord) MarshalCBOR(w io.Writer) error {
 	}
 
 	if err := t.Record.MarshalCBOR(cw); err != nil {
-		return err
-	}
-
-	// t.LexiconTypeID (string) (string)
-	if len("LexiconTypeID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
-		return err
-	}
-
-	if len(t.LexiconTypeID) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
 		return err
 	}
 	return nil
@@ -2271,7 +2334,18 @@ func (t *EmbedRecord) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Record (atproto.RepoStrongRef) (struct)
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Record (atproto.RepoStrongRef) (struct)
 		case "record":
 
 			{
@@ -2290,17 +2364,6 @@ func (t *EmbedRecord) UnmarshalCBOR(r io.Reader) (err error) {
 					}
 				}
 
-			}
-			// t.LexiconTypeID (string) (string)
-		case "LexiconTypeID":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
 			}
 
 		default:
@@ -2479,9 +2542,40 @@ func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 3
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if t.LexiconTypeID == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if t.LexiconTypeID != "" {
+
+		if len("$type") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"$type\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("$type")); err != nil {
+			return err
+		}
+
+		if len(t.LexiconTypeID) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+			return err
+		}
 	}
 
 	// t.Index (bsky.RichtextFacet_ByteSlice) (struct)
@@ -2524,29 +2618,6 @@ func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	}
-
-	// t.LexiconTypeID (string) (string)
-	if len("LexiconTypeID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
-		return err
-	}
-
-	if len(t.LexiconTypeID) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -2588,7 +2659,18 @@ func (t *RichtextFacet) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Index (bsky.RichtextFacet_ByteSlice) (struct)
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Index (bsky.RichtextFacet_ByteSlice) (struct)
 		case "index":
 
 			{
@@ -2638,18 +2720,6 @@ func (t *RichtextFacet) UnmarshalCBOR(r io.Reader) (err error) {
 				t.Features[i] = &v
 			}
 
-			// t.LexiconTypeID (string) (string)
-		case "LexiconTypeID":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
-			}
-
 		default:
 			// Field doesn't exist on this type, so ignore it
 			cbg.ScanForLinks(r, func(cid.Cid) {})
@@ -2665,9 +2735,40 @@ func (t *RichtextFacet_ByteSlice) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 3
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if t.LexiconTypeID == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if t.LexiconTypeID != "" {
+
+		if len("$type") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"$type\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("$type")); err != nil {
+			return err
+		}
+
+		if len(t.LexiconTypeID) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+			return err
+		}
 	}
 
 	// t.ByteEnd (int64) (int64)
@@ -2713,29 +2814,6 @@ func (t *RichtextFacet_ByteSlice) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	}
-
-	// t.LexiconTypeID (string) (string)
-	if len("LexiconTypeID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
-		return err
-	}
-
-	if len(t.LexiconTypeID) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -2777,7 +2855,18 @@ func (t *RichtextFacet_ByteSlice) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.ByteEnd (int64) (int64)
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.ByteEnd (int64) (int64)
 		case "byteEnd":
 			{
 				maj, extra, err := cr.ReadHeader()
@@ -2828,17 +2917,6 @@ func (t *RichtextFacet_ByteSlice) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.ByteStart = int64(extraI)
-			}
-			// t.LexiconTypeID (string) (string)
-		case "LexiconTypeID":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
 			}
 
 		default:
@@ -2989,8 +3067,13 @@ func (t *RichtextFacet_Link) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 2
 
-	if _, err := cw.Write([]byte{162}); err != nil {
+	if t.LexiconTypeID == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -3018,26 +3101,29 @@ func (t *RichtextFacet_Link) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("LexiconTypeID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
-	}
+	if t.LexiconTypeID != "" {
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
-		return err
-	}
+		if len("$type") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"$type\" was too long")
+		}
 
-	if len(t.LexiconTypeID) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-	}
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("$type")); err != nil {
+			return err
+		}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
-		return err
+		if len(t.LexiconTypeID) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -3092,7 +3178,7 @@ func (t *RichtextFacet_Link) UnmarshalCBOR(r io.Reader) (err error) {
 				t.Uri = string(sval)
 			}
 			// t.LexiconTypeID (string) (string)
-		case "LexiconTypeID":
+		case "$type":
 
 			{
 				sval, err := cbg.ReadString(cr)
@@ -3118,8 +3204,13 @@ func (t *RichtextFacet_Mention) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 2
 
-	if _, err := cw.Write([]byte{162}); err != nil {
+	if t.LexiconTypeID == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -3147,26 +3238,29 @@ func (t *RichtextFacet_Mention) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("LexiconTypeID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
-	}
+	if t.LexiconTypeID != "" {
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
-		return err
-	}
+		if len("$type") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"$type\" was too long")
+		}
 
-	if len(t.LexiconTypeID) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-	}
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("$type")); err != nil {
+			return err
+		}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
-		return err
+		if len(t.LexiconTypeID) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -3221,7 +3315,7 @@ func (t *RichtextFacet_Mention) UnmarshalCBOR(r io.Reader) (err error) {
 				t.Did = string(sval)
 			}
 			// t.LexiconTypeID (string) (string)
-		case "LexiconTypeID":
+		case "$type":
 
 			{
 				sval, err := cbg.ReadString(cr)
@@ -3247,9 +3341,40 @@ func (t *EmbedRecordWithMedia) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 3
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if t.LexiconTypeID == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if t.LexiconTypeID != "" {
+
+		if len("$type") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"$type\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("$type")); err != nil {
+			return err
+		}
+
+		if len(t.LexiconTypeID) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+			return err
+		}
 	}
 
 	// t.Media (bsky.EmbedRecordWithMedia_Media) (struct)
@@ -3281,29 +3406,6 @@ func (t *EmbedRecordWithMedia) MarshalCBOR(w io.Writer) error {
 	}
 
 	if err := t.Record.MarshalCBOR(cw); err != nil {
-		return err
-	}
-
-	// t.LexiconTypeID (string) (string)
-	if len("LexiconTypeID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
-		return err
-	}
-
-	if len(t.LexiconTypeID) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
 		return err
 	}
 	return nil
@@ -3347,7 +3449,18 @@ func (t *EmbedRecordWithMedia) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Media (bsky.EmbedRecordWithMedia_Media) (struct)
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Media (bsky.EmbedRecordWithMedia_Media) (struct)
 		case "media":
 
 			{
@@ -3386,17 +3499,6 @@ func (t *EmbedRecordWithMedia) UnmarshalCBOR(r io.Reader) (err error) {
 					}
 				}
 
-			}
-			// t.LexiconTypeID (string) (string)
-		case "LexiconTypeID":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
 			}
 
 		default:

@@ -12,7 +12,7 @@ func init() {
 }
 
 type ServerGetSession_Output struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Did           string `json:"did" cborgen:"did"`
 	Handle        string `json:"handle" cborgen:"handle"`
 }

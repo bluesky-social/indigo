@@ -14,22 +14,22 @@ func init() {
 }
 
 type EmbedRecord struct {
-	LexiconTypeID string                         `json:"$type,omitempty"`
+	LexiconTypeID string                         `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Record        *comatprototypes.RepoStrongRef `json:"record" cborgen:"record"`
 }
 
 type EmbedRecord_View struct {
-	LexiconTypeID string                   `json:"$type,omitempty"`
+	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Record        *EmbedRecord_View_Record `json:"record" cborgen:"record"`
 }
 
 type EmbedRecord_ViewNotFound struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Uri           string `json:"uri" cborgen:"uri"`
 }
 
 type EmbedRecord_ViewRecord struct {
-	LexiconTypeID string                                `json:"$type,omitempty"`
+	LexiconTypeID string                                `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Author        *ActorDefs_ProfileViewBasic           `json:"author" cborgen:"author"`
 	Cid           string                                `json:"cid" cborgen:"cid"`
 	Embeds        []*EmbedRecord_ViewRecord_Embeds_Elem `json:"embeds,omitempty" cborgen:"embeds"`

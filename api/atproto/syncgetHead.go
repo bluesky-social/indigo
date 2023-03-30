@@ -12,7 +12,7 @@ func init() {
 }
 
 type SyncGetHead_Output struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Root          string `json:"root" cborgen:"root"`
 }
 

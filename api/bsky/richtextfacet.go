@@ -13,13 +13,13 @@ func init() {
 }
 
 type RichtextFacet struct {
-	LexiconTypeID string                         `json:"$type,omitempty"`
+	LexiconTypeID string                         `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Features      []*RichtextFacet_Features_Elem `json:"features" cborgen:"features"`
 	Index         *RichtextFacet_ByteSlice       `json:"index" cborgen:"index"`
 }
 
 type RichtextFacet_ByteSlice struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	ByteEnd       int64  `json:"byteEnd" cborgen:"byteEnd"`
 	ByteStart     int64  `json:"byteStart" cborgen:"byteStart"`
 }
@@ -60,11 +60,11 @@ func (t *RichtextFacet_Features_Elem) UnmarshalJSON(b []byte) error {
 }
 
 type RichtextFacet_Link struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Uri           string `json:"uri" cborgen:"uri"`
 }
 
 type RichtextFacet_Mention struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Did           string `json:"did" cborgen:"did"`
 }

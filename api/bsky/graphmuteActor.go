@@ -12,7 +12,7 @@ func init() {
 }
 
 type GraphMuteActor_Input struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Actor         string `json:"actor" cborgen:"actor"`
 }
 

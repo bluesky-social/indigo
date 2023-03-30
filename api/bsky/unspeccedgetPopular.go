@@ -12,7 +12,7 @@ func init() {
 }
 
 type UnspeccedGetPopular_Output struct {
-	LexiconTypeID string                   `json:"$type,omitempty"`
+	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Cursor        *string                  `json:"cursor,omitempty" cborgen:"cursor"`
 	Feed          []*FeedDefs_FeedViewPost `json:"feed" cborgen:"feed"`
 }

@@ -13,7 +13,7 @@ func init() {
 }
 
 type EmbedRecordWithMedia struct {
-	LexiconTypeID string                      `json:"$type,omitempty"`
+	LexiconTypeID string                      `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Media         *EmbedRecordWithMedia_Media `json:"media" cborgen:"media"`
 	Record        *EmbedRecord                `json:"record" cborgen:"record"`
 }
@@ -54,7 +54,7 @@ func (t *EmbedRecordWithMedia_Media) UnmarshalJSON(b []byte) error {
 }
 
 type EmbedRecordWithMedia_View struct {
-	LexiconTypeID string                           `json:"$type,omitempty"`
+	LexiconTypeID string                           `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Media         *EmbedRecordWithMedia_View_Media `json:"media" cborgen:"media"`
 	Record        *EmbedRecord_View                `json:"record" cborgen:"record"`
 }

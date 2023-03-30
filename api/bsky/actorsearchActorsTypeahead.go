@@ -12,7 +12,7 @@ func init() {
 }
 
 type ActorSearchActorsTypeahead_Output struct {
-	LexiconTypeID string                        `json:"$type,omitempty"`
+	LexiconTypeID string                        `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Actors        []*ActorDefs_ProfileViewBasic `json:"actors" cborgen:"actors"`
 }
 

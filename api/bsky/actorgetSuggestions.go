@@ -12,7 +12,7 @@ func init() {
 }
 
 type ActorGetSuggestions_Output struct {
-	LexiconTypeID string                   `json:"$type,omitempty"`
+	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Actors        []*ActorDefs_ProfileView `json:"actors" cborgen:"actors"`
 	Cursor        *string                  `json:"cursor,omitempty" cborgen:"cursor"`
 }

@@ -14,7 +14,7 @@ func init() {
 }
 
 type RepoUploadBlob_Output struct {
-	LexiconTypeID string        `json:"$type,omitempty"`
+	LexiconTypeID string        `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Blob          *util.LexBlob `json:"blob" cborgen:"blob"`
 }
 

@@ -15,20 +15,20 @@ func init() {
 }
 
 type RepoApplyWrites_Create struct {
-	LexiconTypeID string                  `json:"$type,omitempty"`
+	LexiconTypeID string                  `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Collection    string                  `json:"collection" cborgen:"collection"`
 	Rkey          *string                 `json:"rkey,omitempty" cborgen:"rkey"`
 	Value         util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
 type RepoApplyWrites_Delete struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Collection    string `json:"collection" cborgen:"collection"`
 	Rkey          string `json:"rkey" cborgen:"rkey"`
 }
 
 type RepoApplyWrites_Input struct {
-	LexiconTypeID string                               `json:"$type,omitempty"`
+	LexiconTypeID string                               `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Repo          string                               `json:"repo" cborgen:"repo"`
 	SwapCommit    *string                              `json:"swapCommit,omitempty" cborgen:"swapCommit"`
 	Validate      *bool                                `json:"validate,omitempty" cborgen:"validate"`
@@ -79,7 +79,7 @@ func (t *RepoApplyWrites_Input_Writes_Elem) UnmarshalJSON(b []byte) error {
 }
 
 type RepoApplyWrites_Update struct {
-	LexiconTypeID string                  `json:"$type,omitempty"`
+	LexiconTypeID string                  `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Collection    string                  `json:"collection" cborgen:"collection"`
 	Rkey          string                  `json:"rkey" cborgen:"rkey"`
 	Value         util.LexiconTypeDecoder `json:"value" cborgen:"value"`
