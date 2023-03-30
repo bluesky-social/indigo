@@ -815,7 +815,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user util.Uid, repoDid
 			return fmt.Errorf("commit serialization failed: %w", err)
 		}
 		if err := rm.kmgr.VerifyUserSignature(ctx, repoDid, scom.Sig, sb); err != nil {
-			return fmt.Errorf("signature check failed: %w", err)
+			return fmt.Errorf("new user signature check failed: %w", err)
 		}
 
 		diffops, err := r.DiffSince(ctx, old)
