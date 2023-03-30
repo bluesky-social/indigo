@@ -34,7 +34,11 @@ func (km *KeyManager) VerifyUserSignature(ctx context.Context, did string, sig [
 		return err
 	}
 
-	return k.Verify(msg, sig)
+	err = k.Verify(msg, sig)
+	if err != nil {
+		log.Warnw("signature failed to verify", "err", err, "did", did, "pubKey", k, "sigBytes", sig, "msgBytes", msg)
+	}
+	return err
 }
 
 func (km *KeyManager) getKey(ctx context.Context, did string) (*did.PubKey, error) {
