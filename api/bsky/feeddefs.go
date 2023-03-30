@@ -13,7 +13,7 @@ func init() {
 }
 
 type FeedDefs_FeedViewPost struct {
-	LexiconTypeID string                        `json:"$type,omitempty"`
+	LexiconTypeID string                        `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Post          *FeedDefs_PostView            `json:"post" cborgen:"post"`
 	Reason        *FeedDefs_FeedViewPost_Reason `json:"reason,omitempty" cborgen:"reason"`
 	Reply         *FeedDefs_ReplyRef            `json:"reply,omitempty" cborgen:"reply"`
@@ -47,13 +47,13 @@ func (t *FeedDefs_FeedViewPost_Reason) UnmarshalJSON(b []byte) error {
 }
 
 type FeedDefs_NotFoundPost struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	NotFound      bool   `json:"notFound" cborgen:"notFound"`
 	Uri           string `json:"uri" cborgen:"uri"`
 }
 
 type FeedDefs_PostView struct {
-	LexiconTypeID string                      `json:"$type,omitempty"`
+	LexiconTypeID string                      `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Author        *ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
 	Cid           string                      `json:"cid" cborgen:"cid"`
 	Embed         *FeedDefs_PostView_Embed    `json:"embed,omitempty" cborgen:"embed"`
@@ -118,19 +118,19 @@ func (t *FeedDefs_PostView_Embed) UnmarshalJSON(b []byte) error {
 }
 
 type FeedDefs_ReasonRepost struct {
-	LexiconTypeID string                      `json:"$type,omitempty"`
+	LexiconTypeID string                      `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	By            *ActorDefs_ProfileViewBasic `json:"by" cborgen:"by"`
 	IndexedAt     string                      `json:"indexedAt" cborgen:"indexedAt"`
 }
 
 type FeedDefs_ReplyRef struct {
-	LexiconTypeID string             `json:"$type,omitempty"`
+	LexiconTypeID string             `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Parent        *FeedDefs_PostView `json:"parent" cborgen:"parent"`
 	Root          *FeedDefs_PostView `json:"root" cborgen:"root"`
 }
 
 type FeedDefs_ThreadViewPost struct {
-	LexiconTypeID string                                  `json:"$type,omitempty"`
+	LexiconTypeID string                                  `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Parent        *FeedDefs_ThreadViewPost_Parent         `json:"parent,omitempty" cborgen:"parent"`
 	Post          *FeedDefs_PostView                      `json:"post" cborgen:"post"`
 	Replies       []*FeedDefs_ThreadViewPost_Replies_Elem `json:"replies,omitempty" cborgen:"replies"`
@@ -207,7 +207,7 @@ func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalJSON(b []byte) error {
 }
 
 type FeedDefs_ViewerState struct {
-	LexiconTypeID string  `json:"$type,omitempty"`
+	LexiconTypeID string  `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Like          *string `json:"like,omitempty" cborgen:"like"`
 	Repost        *string `json:"repost,omitempty" cborgen:"repost"`
 }

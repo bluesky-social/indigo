@@ -15,7 +15,7 @@ func init() {
 }
 
 type ModerationCreateReport_Input struct {
-	LexiconTypeID string                                `json:"$type,omitempty"`
+	LexiconTypeID string                                `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Reason        *string                               `json:"reason,omitempty" cborgen:"reason"`
 	ReasonType    *string                               `json:"reasonType" cborgen:"reasonType"`
 	Subject       *ModerationCreateReport_Input_Subject `json:"subject" cborgen:"subject"`
@@ -57,7 +57,7 @@ func (t *ModerationCreateReport_Input_Subject) UnmarshalJSON(b []byte) error {
 }
 
 type ModerationCreateReport_Output struct {
-	LexiconTypeID string                                 `json:"$type,omitempty"`
+	LexiconTypeID string                                 `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	CreatedAt     string                                 `json:"createdAt" cborgen:"createdAt"`
 	Id            int64                                  `json:"id" cborgen:"id"`
 	Reason        *string                                `json:"reason,omitempty" cborgen:"reason"`

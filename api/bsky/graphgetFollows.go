@@ -12,7 +12,7 @@ func init() {
 }
 
 type GraphGetFollows_Output struct {
-	LexiconTypeID string                   `json:"$type,omitempty"`
+	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Cursor        *string                  `json:"cursor,omitempty" cborgen:"cursor"`
 	Follows       []*ActorDefs_ProfileView `json:"follows" cborgen:"follows"`
 	Subject       *ActorDefs_ProfileView   `json:"subject" cborgen:"subject"`

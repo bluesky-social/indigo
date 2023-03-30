@@ -12,7 +12,7 @@ func init() {
 }
 
 type ServerRefreshSession_Output struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	AccessJwt     string `json:"accessJwt" cborgen:"accessJwt"`
 	Did           string `json:"did" cborgen:"did"`
 	Handle        string `json:"handle" cborgen:"handle"`

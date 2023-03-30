@@ -12,7 +12,7 @@ func init() {
 }
 
 type NotificationGetUnreadCount_Output struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Count         int64  `json:"count" cborgen:"count"`
 }
 

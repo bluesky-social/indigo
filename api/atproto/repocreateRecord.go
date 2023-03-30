@@ -13,7 +13,7 @@ func init() {
 }
 
 type RepoCreateRecord_Input struct {
-	LexiconTypeID string                  `json:"$type,omitempty"`
+	LexiconTypeID string                  `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Collection    string                  `json:"collection" cborgen:"collection"`
 	Record        util.LexiconTypeDecoder `json:"record" cborgen:"record"`
 	Repo          string                  `json:"repo" cborgen:"repo"`
@@ -23,7 +23,7 @@ type RepoCreateRecord_Input struct {
 }
 
 type RepoCreateRecord_Output struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Cid           string `json:"cid" cborgen:"cid"`
 	Uri           string `json:"uri" cborgen:"uri"`
 }

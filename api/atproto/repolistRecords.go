@@ -13,13 +13,13 @@ func init() {
 }
 
 type RepoListRecords_Output struct {
-	LexiconTypeID string                    `json:"$type,omitempty"`
+	LexiconTypeID string                    `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Cursor        *string                   `json:"cursor,omitempty" cborgen:"cursor"`
 	Records       []*RepoListRecords_Record `json:"records" cborgen:"records"`
 }
 
 type RepoListRecords_Record struct {
-	LexiconTypeID string                  `json:"$type,omitempty"`
+	LexiconTypeID string                  `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Cid           string                  `json:"cid" cborgen:"cid"`
 	Uri           string                  `json:"uri" cborgen:"uri"`
 	Value         util.LexiconTypeDecoder `json:"value" cborgen:"value"`

@@ -12,7 +12,7 @@ func init() {
 }
 
 type AdminResolveModerationReports_Input struct {
-	LexiconTypeID string  `json:"$type,omitempty"`
+	LexiconTypeID string  `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	ActionId      int64   `json:"actionId" cborgen:"actionId"`
 	CreatedBy     string  `json:"createdBy" cborgen:"createdBy"`
 	ReportIds     []int64 `json:"reportIds" cborgen:"reportIds"`

@@ -12,7 +12,7 @@ func init() {
 }
 
 type IdentityUpdateHandle_Input struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Handle        string `json:"handle" cborgen:"handle"`
 }
 

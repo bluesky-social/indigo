@@ -15,7 +15,7 @@ func init() {
 }
 
 type FeedGetPostThread_Output struct {
-	LexiconTypeID string                           `json:"$type,omitempty"`
+	LexiconTypeID string                           `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Thread        *FeedGetPostThread_Output_Thread `json:"thread" cborgen:"thread"`
 }
 

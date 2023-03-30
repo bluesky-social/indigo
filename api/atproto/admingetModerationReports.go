@@ -12,7 +12,7 @@ func init() {
 }
 
 type AdminGetModerationReports_Output struct {
-	LexiconTypeID string                  `json:"$type,omitempty"`
+	LexiconTypeID string                  `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Cursor        *string                 `json:"cursor,omitempty" cborgen:"cursor"`
 	Reports       []*AdminDefs_ReportView `json:"reports" cborgen:"reports"`
 }

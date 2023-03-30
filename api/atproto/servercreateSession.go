@@ -12,13 +12,13 @@ func init() {
 }
 
 type ServerCreateSession_Input struct {
-	LexiconTypeID string  `json:"$type,omitempty"`
+	LexiconTypeID string  `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Identifier    *string `json:"identifier,omitempty" cborgen:"identifier"`
 	Password      string  `json:"password" cborgen:"password"`
 }
 
 type ServerCreateSession_Output struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	AccessJwt     string `json:"accessJwt" cborgen:"accessJwt"`
 	Did           string `json:"did" cborgen:"did"`
 	Handle        string `json:"handle" cborgen:"handle"`

@@ -12,7 +12,7 @@ func init() {
 }
 
 type AdminGetModerationActions_Output struct {
-	LexiconTypeID string                  `json:"$type,omitempty"`
+	LexiconTypeID string                  `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Actions       []*AdminDefs_ActionView `json:"actions" cborgen:"actions"`
 	Cursor        *string                 `json:"cursor,omitempty" cborgen:"cursor"`
 }

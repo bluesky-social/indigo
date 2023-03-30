@@ -12,7 +12,7 @@ func init() {
 }
 
 type FeedGetRepostedBy_Output struct {
-	LexiconTypeID string                   `json:"$type,omitempty"`
+	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Cid           *string                  `json:"cid,omitempty" cborgen:"cid"`
 	Cursor        *string                  `json:"cursor,omitempty" cborgen:"cursor"`
 	RepostedBy    []*ActorDefs_ProfileView `json:"repostedBy" cborgen:"repostedBy"`

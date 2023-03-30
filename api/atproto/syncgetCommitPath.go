@@ -12,7 +12,7 @@ func init() {
 }
 
 type SyncGetCommitPath_Output struct {
-	LexiconTypeID string   `json:"$type,omitempty"`
+	LexiconTypeID string   `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Commits       []string `json:"commits" cborgen:"commits"`
 }
 

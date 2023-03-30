@@ -12,7 +12,7 @@ func init() {
 }
 
 type ServerResetPassword_Input struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Password      string `json:"password" cborgen:"password"`
 	Token         string `json:"token" cborgen:"token"`
 }
