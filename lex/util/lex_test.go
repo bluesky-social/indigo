@@ -47,11 +47,6 @@ type ipldNestedSchemaInnerInner struct {
 }
 
 func TestCborGen(t *testing.T) {
-	/* XXX:
-	if err := cbg.WriteMapEncodersToFile("cbor_gen_test.go", "util", basicSchema{}, basicSchemaInner{}, ipldSchema{}, ipldNestedSchema{}, ipldNestedSchemaInner{}, ipldNestedSchemaInnerInner{}); err != nil {
-		t.Fatal(err)
-	}
-	*/
 	if err := cbg.WriteMapEncodersToFile("cbor_gen_test.go", "util", basicSchema{}, basicSchemaInner{}, ipldSchema{}); err != nil {
 		t.Fatal(err)
 	}
@@ -263,24 +258,9 @@ func TestInteropIpldNestedSchema(t *testing.T) {
 	// basic parsing
 	jsonObj := ipldNestedSchema{}
 	assert.NoError(json.Unmarshal([]byte(jsonStr), &jsonObj))
-	//cborObj := ipldNestedSchema{}
-	//assert.NoError(cborObj.UnmarshalCBOR(bytes.NewReader(cborBytes)))
 
 	// compare parsed against known object
 	assert.Equal(goObj, jsonObj)
-	//assert.Equal(goObj, cborObj)
-
-	// reproduce CBOR serialization
-	/* XXX
-	goCborBytes := new(bytes.Buffer)
-	assert.NoError(goObj.MarshalCBOR(goCborBytes))
-	assert.Equal(cborBytes, goCborBytes.Bytes())
-	// 0x71 = dag-cbor, 0x12 = sha2-256, 0 = default length
-	cidBuilder := cid.V1Builder{ 0x71, 0x12, 0 }
-	goCborCid, err := cidBuilder.Sum(goCborBytes.Bytes())
-	assert.NoError(err)
-	assert.Equal(cidStr, goCborCid.String())
-	*/
 
 	// reproduce JSON serialization
 	var jsonAll interface{}
@@ -290,4 +270,19 @@ func TestInteropIpldNestedSchema(t *testing.T) {
 	var goJsonAll interface{}
 	assert.NoError(json.Unmarshal(goJsonBytes, &goJsonAll))
 	assert.Equal(jsonAll, goJsonAll)
+
+	// TODO: CBOR codegen and validation with array-of-byte-arrays
+	/*
+		cborObj := ipldNestedSchema{}
+		assert.NoError(cborObj.UnmarshalCBOR(bytes.NewReader(cborBytes)))
+		assert.Equal(goObj, cborObj)
+		goCborBytes := new(bytes.Buffer)
+		assert.NoError(goObj.MarshalCBOR(goCborBytes))
+		assert.Equal(cborBytes, goCborBytes.Bytes())
+		// 0x71 = dag-cbor, 0x12 = sha2-256, 0 = default length
+		cidBuilder := cid.V1Builder{ 0x71, 0x12, 0 }
+		goCborCid, err := cidBuilder.Sum(goCborBytes.Bytes())
+		assert.NoError(err)
+		assert.Equal(cidStr, goCborCid.String())
+	*/
 }
