@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	atproto "github.com/bluesky-social/indigo/api/atproto"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
@@ -125,8 +125,8 @@ func (s *Server) Shutdown(ctx context.Context) error {
 func (s *Server) handleFedEvent(ctx context.Context, host *Peering, env *events.XRPCStreamEvent) error {
 	fmt.Printf("[%s] got fed event from %q\n", s.serviceUrl, host.Host)
 	switch {
-	case env.RepoAppend != nil:
-		evt := env.RepoAppend
+	case env.RepoCommit != nil:
+		evt := env.RepoCommit
 		u, err := s.lookupUserByDid(ctx, evt.Repo)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -142,7 +142,7 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, env *events.
 			u.ID = subj.Uid
 		}
 
-		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.Prev, evt.Blocks)
+		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, (*cid.Cid)(evt.Prev), evt.Blocks)
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
@@ -173,7 +173,7 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 	c := &xrpc.Client{Host: svc.ServiceEndpoint}
 
 	if peering.ID == 0 {
-		pdsdid, err := atproto.IdentityResolveHandle(ctx, c, "")
+		pdsdid, err := comatproto.IdentityResolveHandle(ctx, c, "")
 		if err != nil {
 			// TODO: failing this shouldnt halt our indexing
 			return nil, fmt.Errorf("failed to get accounts config for unrecognized pds: %w", err)
@@ -235,14 +235,14 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 	return subj, nil
 }
 
-func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent) (*events.RepoAppend, error) {
+func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent) (*comatproto.SyncSubscribeRepos_Commit, error) {
 	did, err := s.indexer.DidForUser(ctx, evt.User)
 	if err != nil {
 		return nil, err
 	}
 
-	out := &events.RepoAppend{
-		Prev:   evt.OldRoot,
+	out := &comatproto.SyncSubscribeRepos_Commit{
+		Prev:   (*lexutil.LexLink)(evt.OldRoot),
 		Blocks: evt.RepoSlice,
 		Repo:   did,
 		Time:   time.Now().Format(bsutil.ISO8601),
@@ -250,10 +250,10 @@ func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent
 	}
 
 	for _, op := range evt.Ops {
-		out.Ops = append(out.Ops, &events.RepoOp{
+		out.Ops = append(out.Ops, &comatproto.SyncSubscribeRepos_RepoOp{
 			Path:   op.Collection + "/" + op.Rkey,
 			Action: string(op.Kind),
-			Cid:    op.RecCid,
+			Cid:    (*lexutil.LexLink)(op.RecCid),
 		})
 	}
 
@@ -627,7 +627,7 @@ func (s *Server) EventsHandler(c echo.Context) error {
 	}
 	defer cancel()
 
-	header := events.EventHeader{Op: events.EvtKindRepoAppend}
+	header := events.EventHeader{Op: events.EvtKindMessage}
 	for evt := range evts {
 		wc, err := conn.NextWriter(websocket.BinaryMessage)
 		if err != nil {
@@ -637,15 +637,24 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		var obj lexutil.CBOR
 
 		switch {
-		case evt.RepoAppend != nil:
-			header.Op = events.EvtKindRepoAppend
-			obj = evt.RepoAppend
-		case evt.Info != nil:
-			header.Op = events.EvtKindInfoFrame
-			obj = evt.Info
 		case evt.Error != nil:
 			header.Op = events.EvtKindErrorFrame
 			obj = evt.Error
+		case evt.RepoCommit != nil:
+			header.MsgType = "#commit"
+			obj = evt.RepoCommit
+		case evt.RepoHandle != nil:
+			header.MsgType = "#handle"
+			obj = evt.RepoHandle
+		case evt.RepoInfo != nil:
+			header.MsgType = "#info"
+			obj = evt.RepoInfo
+		case evt.RepoMigrate != nil:
+			header.MsgType = "#migrate"
+			obj = evt.RepoMigrate
+		case evt.RepoTombstone != nil:
+			header.MsgType = "#tombstone"
+			obj = evt.RepoTombstone
 		default:
 			return fmt.Errorf("unrecognized event kind")
 		}

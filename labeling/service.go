@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/api"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/bgs"
 	"github.com/bluesky-social/indigo/carstore"
@@ -126,7 +127,7 @@ func (s *Server) SubscribeBGS(ctx context.Context, bgsURL string, useWss bool) {
 }
 
 // efficiency predicate to quickly discard events we know that we shouldn't even bother parsing
-func (s *Server) wantAnyRecords(ctx context.Context, ra *events.RepoAppend) bool {
+func (s *Server) wantAnyRecords(ctx context.Context, ra *comatproto.SyncSubscribeRepos_Commit) bool {
 
 	for _, op := range ra.Ops {
 		if op.Action != "create" && op.Action != "update" {
@@ -315,18 +316,18 @@ func (s *Server) labelBlob(ctx context.Context, did string, blob lexutil.LexBlob
 // labeling routine, and then persists and broadcasts any resulting labels
 func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *events.XRPCStreamEvent) error {
 
-	if evt.RepoAppend == nil {
+	if evt.RepoCommit == nil {
 		// TODO(bnewbold): is this really invalid? do we need to handle Info and Error events here?
-		return fmt.Errorf("invalid repo append event")
+		return fmt.Errorf("invalid repo commit event")
 	}
 
 	// quick check if we can skip processing the CAR slice entirely
-	if !s.wantAnyRecords(ctx, evt.RepoAppend) {
+	if !s.wantAnyRecords(ctx, evt.RepoCommit) {
 		return nil
 	}
 
 	// use an in-memory blockstore with repo wrapper to parse CAR slice
-	sliceRepo, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.RepoAppend.Blocks))
+	sliceRepo, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.RepoCommit.Blocks))
 	if err != nil {
 		log.Warnw("failed to parse CAR slice", "repoErr", err)
 		return err
@@ -335,8 +336,8 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 	now := time.Now().Format(util.ISO8601)
 	labels := []events.Label{}
 
-	for _, op := range evt.RepoAppend.Ops {
-		uri := "at://" + evt.RepoAppend.Repo + "/" + op.Path
+	for _, op := range evt.RepoCommit.Ops {
+		uri := "at://" + evt.RepoCommit.Repo + "/" + op.Path
 		nsid := strings.SplitN(op.Path, "/", 2)[0]
 
 		if !(op.Action == "create" || op.Action == "update") {
@@ -348,7 +349,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 			return fmt.Errorf("record not in CAR slice: %s", uri)
 		}
 		cidStr := cid.String()
-		labelVals, err := s.labelRecord(ctx, evt.RepoAppend.Repo, nsid, uri, cidStr, rec)
+		labelVals, err := s.labelRecord(ctx, evt.RepoCommit.Repo, nsid, uri, cidStr, rec)
 		if err != nil {
 			return err
 		}
@@ -358,7 +359,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 				val = strings.SplitN(val, ":", 2)[1]
 				labels = append(labels, events.Label{
 					SourceDid:  s.user.Did,
-					SubjectUri: "at://" + evt.RepoAppend.Repo,
+					SubjectUri: "at://" + evt.RepoCommit.Repo,
 					Value:      val,
 					Timestamp:  now,
 				})
