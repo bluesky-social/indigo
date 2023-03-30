@@ -1059,6 +1059,10 @@ func walkTree(ctx context.Context, skip map[cid.Cid]bool, root cid.Cid, bs block
 
 	var links []cid.Cid
 	if err := cbg.ScanForLinks(bytes.NewReader(blk.RawData()), func(c cid.Cid) {
+		if c.Prefix().Codec == cid.Raw {
+			log.Debugw("skipping 'raw' CID in record", "recordCid", root, "rawCid", c)
+			return
+		}
 		if skip[c] {
 			return
 		}
