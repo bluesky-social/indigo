@@ -19,7 +19,7 @@ type RepoPutRecord_Input struct {
 	Repo          string                  `json:"repo" cborgen:"repo"`
 	Rkey          string                  `json:"rkey" cborgen:"rkey"`
 	SwapCommit    *string                 `json:"swapCommit,omitempty" cborgen:"swapCommit"`
-	SwapRecord    *string                 `json:"swapRecord,omitempty" cborgen:"swapRecord"`
+	SwapRecord    *string                 `json:"swapRecord" cborgen:"swapRecord"`
 	Validate      *bool                   `json:"validate,omitempty" cborgen:"validate"`
 }
 
