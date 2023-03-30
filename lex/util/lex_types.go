@@ -21,7 +21,7 @@ const (
 type LexLink cid.Cid
 
 type jsonLink struct {
-	Link string `json:"$type"`
+	Link string `json:"$link"`
 }
 
 // convenience helper
@@ -34,12 +34,12 @@ func (ll LexLink) Defined() bool {
 	return cid.Cid(ll).Defined()
 }
 
-func (ll *LexLink) MarshalJSON() ([]byte, error) {
-	if ll == nil || !ll.Defined() {
+func (ll LexLink) MarshalJSON() ([]byte, error) {
+	if !ll.Defined() {
 		return nil, xerrors.Errorf("tried to marshal nil or undefined cid-link")
 	}
 	jl := jsonLink{
-		Link: (*cid.Cid)(ll).String(),
+		Link: ll.String(),
 	}
 	return json.Marshal(jl)
 }
@@ -58,12 +58,12 @@ func (ll *LexLink) UnmarshalJSON(raw []byte) error {
 	return nil
 }
 
-func (ll *LexLink) MarshalCBOR(w io.Writer) error {
-	if ll == nil || !ll.Defined() {
+func (ll LexLink) MarshalCBOR(w io.Writer) error {
+	if !ll.Defined() {
 		return xerrors.Errorf("tried to marshal nil or undefined cid-link")
 	}
 	cw := cbg.NewCborWriter(w)
-	if err := cbg.WriteCid(cw, cid.Cid(*ll)); err != nil {
+	if err := cbg.WriteCid(cw, cid.Cid(ll)); err != nil {
 		return xerrors.Errorf("failed to write cid-link as CBOR: %w", err)
 	}
 	return nil
@@ -81,27 +81,27 @@ func (ll *LexLink) UnmarshalCBOR(r io.Reader) error {
 
 type LexBytes []byte
 
-type jsonBytes struct {
+type JsonBytes struct {
 	Bytes string `json:"$bytes"`
 }
 
-func (lb *LexBytes) MarshalJSON() ([]byte, error) {
+func (lb LexBytes) MarshalJSON() ([]byte, error) {
 	if lb == nil {
 		return nil, xerrors.Errorf("tried to marshal nil $bytes")
 	}
-	jb := jsonBytes{
-		Bytes: base64.StdEncoding.EncodeToString([]byte(*lb)),
+	jb := JsonBytes{
+		Bytes: base64.RawStdEncoding.EncodeToString([]byte(lb)),
 	}
 	return json.Marshal(jb)
 }
 
 func (lb *LexBytes) UnmarshalJSON(raw []byte) error {
-	var jb jsonBytes
+	var jb JsonBytes
 	err := json.Unmarshal(raw, &jb)
 	if err != nil {
 		return xerrors.Errorf("parsing $bytes JSON: %v", err)
 	}
-	out, err := base64.StdEncoding.DecodeString(jb.Bytes)
+	out, err := base64.RawStdEncoding.DecodeString(jb.Bytes)
 	if err != nil {
 		return xerrors.Errorf("parsing $bytes base64: %v", err)
 	}
@@ -109,12 +109,12 @@ func (lb *LexBytes) UnmarshalJSON(raw []byte) error {
 	return nil
 }
 
-func (lb *LexBytes) MarshalCBOR(w io.Writer) error {
+func (lb LexBytes) MarshalCBOR(w io.Writer) error {
 	if lb == nil {
 		return xerrors.Errorf("tried to marshal nil or undefined $bytes")
 	}
 	cw := cbg.NewCborWriter(w)
-	if err := cbg.WriteByteArray(cw, ([]byte)(*lb)); err != nil {
+	if err := cbg.WriteByteArray(cw, ([]byte)(lb)); err != nil {
 		return xerrors.Errorf("failed to write $bytes as CBOR: %w", err)
 	}
 	return nil
@@ -172,7 +172,7 @@ func (b *LexBlob) MarshalJSON() ([]byte, error) {
 func (b *LexBlob) UnmarshalJSON(raw []byte) error {
 	typ, err := TypeExtract(raw)
 	if err != nil {
-		return xerrors.Errorf("parsing blob: %v", err)
+		return xerrors.Errorf("parsing blob type: %v", err)
 	}
 
 	if typ == "blob" {
