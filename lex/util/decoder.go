@@ -14,6 +14,7 @@ var lexTypesMap map[string]reflect.Type
 
 func init() {
 	lexTypesMap = make(map[string]reflect.Type)
+	RegisterType("blob", &LexBlob{})
 }
 
 func RegisterType(id string, val cbg.CBORMarshaler) {
