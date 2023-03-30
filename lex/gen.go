@@ -29,6 +29,7 @@ type Schema struct {
 	Defs    map[string]*TypeSchema `json:"defs"`
 }
 
+// TODO(bnewbold): suspect this param needs updating for lex refactors
 type Param struct {
 	Type     string `json:"type"`
 	Maximum  int    `json:"maximum"`
@@ -63,6 +64,7 @@ type TypeSchema struct {
 	Ref        string                 `json:"ref"`
 	Refs       []string               `json:"refs"`
 	Required   []string               `json:"required"`
+	Nullable   []string               `json:"nullable"`
 	Properties map[string]*TypeSchema `json:"properties"`
 	MaxLength  int                    `json:"maxLength"`
 	Items      *TypeSchema            `json:"items"`
@@ -704,6 +706,7 @@ func (s *TypeSchema) WriteHandlerStub(w io.Writer, fname, shortname, impname str
 				case "string":
 					paramtypes = append(paramtypes, k+" string")
 				case "integer":
+					// TODO(bnewbold) could be handling "nullable" here
 					if required != nil && !required[k] {
 						paramtypes = append(paramtypes, k+" *int")
 					} else {
@@ -764,6 +767,7 @@ func (s *TypeSchema) WriteRPCHandler(w io.Writer, fname, shortname, impname stri
 	params := []string{"ctx"}
 	if s.Type == "query" {
 		if s.Parameters != nil {
+			// TODO(bnewbold): could be handling 'nullable' here
 			required := make(map[string]bool)
 			for _, r := range s.Parameters.Required {
 				required[r] = true
@@ -1098,6 +1102,11 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 			required[req] = true
 		}
 
+		nullable := make(map[string]bool)
+		for _, req := range ts.Nullable {
+			nullable[req] = true
+		}
+
 		if err := orderedMapIter[*TypeSchema](ts.Properties, func(k string, v *TypeSchema) error {
 			goname := strings.Title(k)
 
@@ -1110,6 +1119,12 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 			var omit string
 			if !required[k] {
 				omit = ",omitempty"
+				if !strings.HasPrefix(tname, "*") && !strings.HasPrefix(tname, "[]") {
+					ptr = "*"
+				}
+			}
+			if nullable[k] {
+				omit = ""
 				if !strings.HasPrefix(tname, "*") && !strings.HasPrefix(tname, "[]") {
 					ptr = "*"
 				}
