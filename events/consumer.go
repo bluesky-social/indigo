@@ -5,14 +5,19 @@ import (
 	"fmt"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+
 	"github.com/gorilla/websocket"
 )
 
 type RepoStreamCallbacks struct {
-	RepoAppend func(evt *RepoAppend) error
-	LabelBatch func(evt *LabelBatch) error
-	Info       func(evt *InfoFrame) error
-	Error      func(evt *ErrorFrame) error
+	RepoCommit    func(evt *comatproto.SyncSubscribeRepos_Commit) error
+	RepoHandle    func(evt *comatproto.SyncSubscribeRepos_Handle) error
+	RepoInfo      func(evt *comatproto.SyncSubscribeRepos_Info) error
+	RepoMigrate   func(evt *comatproto.SyncSubscribeRepos_Migrate) error
+	RepoTombstone func(evt *comatproto.SyncSubscribeRepos_Tombstone) error
+	LabelBatch    func(evt *LabelBatch) error
+	Error         func(evt *ErrorFrame) error
 }
 
 func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamCallbacks) error {
@@ -55,53 +60,78 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 		}
 
 		switch header.Op {
-		case EvtKindRepoAppend:
-			var evt RepoAppend
-			if err := evt.UnmarshalCBOR(r); err != nil {
-				return fmt.Errorf("reading repoAppend event: %w", err)
-			}
+		case EvtKindMessage:
+			switch header.MsgType {
+			case "#commit":
+				var evt comatproto.SyncSubscribeRepos_Commit
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return fmt.Errorf("reading repoCommit event: %w", err)
+				}
 
-			if evt.Seq < lastSeq {
-				log.Errorf("Got events out of order from stream (seq = %d, prev = %d)", evt.Seq, lastSeq)
-			}
+				if evt.Seq < lastSeq {
+					log.Errorf("Got events out of order from stream (seq = %d, prev = %d)", evt.Seq, lastSeq)
+				}
 
-			lastSeq = evt.Seq
+				lastSeq = evt.Seq
 
-			if cbs.RepoAppend != nil {
-				if err := cbs.RepoAppend(&evt); err != nil {
+				if cbs.RepoCommit != nil {
+					if err := cbs.RepoCommit(&evt); err != nil {
+						return err
+					}
+				} else {
+					log.Warnf("received repo commit event with nil commit object (seq %d)", evt.Seq)
+				}
+			case "#info":
+				var evt comatproto.SyncSubscribeRepos_Info
+				if err := evt.UnmarshalCBOR(r); err != nil {
 					return err
 				}
-			} else {
-				log.Warnf("received repo append event with nil append object (seq %d)", evt.Seq)
-			}
-		case EvtKindLabelBatch:
-			var evt LabelBatch
-			if err := evt.UnmarshalCBOR(r); err != nil {
-				return fmt.Errorf("reading LabelBatch event: %w", err)
-			}
 
-			if evt.Seq < lastSeq {
-				log.Errorf("Got events out of order from stream (seq = %d, prev = %d)", evt.Seq, lastSeq)
-			}
-
-			lastSeq = evt.Seq
-
-			if cbs.RepoAppend != nil {
-				if err := cbs.LabelBatch(&evt); err != nil {
+				if cbs.RepoInfo != nil {
+					if err := cbs.RepoInfo(&evt); err != nil {
+						return err
+					}
+				}
+			case "#migrate":
+				var evt comatproto.SyncSubscribeRepos_Migrate
+				if err := evt.UnmarshalCBOR(r); err != nil {
 					return err
 				}
-			} else {
-				log.Warnf("received label event with nil append object (seq %d)", evt.Seq)
-			}
-		case EvtKindInfoFrame:
-			var info InfoFrame
-			if err := info.UnmarshalCBOR(r); err != nil {
-				return err
-			}
 
-			if cbs.Info != nil {
-				if err := cbs.Info(&info); err != nil {
+				if cbs.RepoMigrate != nil {
+					if err := cbs.RepoMigrate(&evt); err != nil {
+						return err
+					}
+				}
+			case "#tombstone":
+				var evt comatproto.SyncSubscribeRepos_Tombstone
+				if err := evt.UnmarshalCBOR(r); err != nil {
 					return err
+				}
+
+				if cbs.RepoMigrate != nil {
+					if err := cbs.RepoTombstone(&evt); err != nil {
+						return err
+					}
+				}
+			case "#labebatch":
+				var evt LabelBatch
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return fmt.Errorf("reading LabelBatch event: %w", err)
+				}
+
+				if evt.Seq < lastSeq {
+					log.Errorf("Got events out of order from stream (seq = %d, prev = %d)", evt.Seq, lastSeq)
+				}
+
+				lastSeq = evt.Seq
+
+				if cbs.LabelBatch != nil {
+					if err := cbs.LabelBatch(&evt); err != nil {
+						return err
+					}
+				} else {
+					log.Warnf("received label event with nil append object (seq %d)", evt.Seq)
 				}
 			}
 

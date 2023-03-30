@@ -235,7 +235,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 	}
 	defer cancel()
 
-	header := events.EventHeader{Op: events.EvtKindRepoAppend}
+	header := events.EventHeader{Op: events.EvtKindMessage}
 	for {
 		select {
 		case evt := <-evts:
@@ -247,15 +247,24 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			var obj lexutil.CBOR
 
 			switch {
-			case evt.RepoAppend != nil:
-				header.Op = events.EvtKindRepoAppend
-				obj = evt.RepoAppend
 			case evt.Error != nil:
 				header.Op = events.EvtKindErrorFrame
 				obj = evt.Error
-			case evt.Info != nil:
-				header.Op = events.EvtKindInfoFrame
-				obj = evt.Info
+			case evt.RepoCommit != nil:
+				header.MsgType = "#commit"
+				obj = evt.RepoCommit
+			case evt.RepoHandle != nil:
+				header.MsgType = "#handle"
+				obj = evt.RepoHandle
+			case evt.RepoInfo != nil:
+				header.MsgType = "#info"
+				obj = evt.RepoInfo
+			case evt.RepoMigrate != nil:
+				header.MsgType = "#migrate"
+				obj = evt.RepoMigrate
+			case evt.RepoTombstone != nil:
+				header.MsgType = "#tombstone"
+				obj = evt.RepoTombstone
 			default:
 				return fmt.Errorf("unrecognized event kind")
 			}
@@ -315,8 +324,8 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	defer span.End()
 
 	switch {
-	case env.RepoAppend != nil:
-		evt := env.RepoAppend
+	case env.RepoCommit != nil:
+		evt := env.RepoCommit
 		log.Infof("bgs got repo append event %d from %q: %s\n", evt.Seq, host.Host, evt.Repo)
 		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
 		if err != nil {
