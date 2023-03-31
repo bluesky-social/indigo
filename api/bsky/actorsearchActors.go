@@ -14,7 +14,7 @@ func init() {
 type ActorSearchActors_Output struct {
 	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Actors        []*ActorDefs_ProfileView `json:"actors" cborgen:"actors"`
-	Cursor        *string                  `json:"cursor,omitempty" cborgen:"cursor"`
+	Cursor        *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 }
 
 func ActorSearchActors(ctx context.Context, c *xrpc.Client, cursor string, limit int64, term string) (*ActorSearchActors_Output, error) {

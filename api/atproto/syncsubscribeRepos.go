@@ -33,7 +33,7 @@ type SyncSubscribeRepos_Handle struct {
 
 type SyncSubscribeRepos_Info struct {
 	LexiconTypeID string  `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Message       *string `json:"message,omitempty" cborgen:"message"`
+	Message       *string `json:"message,omitempty" cborgen:"message,omitempty"`
 	Name          string  `json:"name" cborgen:"name"`
 }
 

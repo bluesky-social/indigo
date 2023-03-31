@@ -16,8 +16,8 @@ type RepoDeleteRecord_Input struct {
 	Collection    string  `json:"collection" cborgen:"collection"`
 	Repo          string  `json:"repo" cborgen:"repo"`
 	Rkey          string  `json:"rkey" cborgen:"rkey"`
-	SwapCommit    *string `json:"swapCommit,omitempty" cborgen:"swapCommit"`
-	SwapRecord    *string `json:"swapRecord,omitempty" cborgen:"swapRecord"`
+	SwapCommit    *string `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
+	SwapRecord    *string `json:"swapRecord,omitempty" cborgen:"swapRecord,omitempty"`
 }
 
 func RepoDeleteRecord(ctx context.Context, c *xrpc.Client, input *RepoDeleteRecord_Input) error {

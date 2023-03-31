@@ -34,7 +34,7 @@ type EmbedRecord_ViewRecord struct {
 	LexiconTypeID string                                `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Author        *ActorDefs_ProfileViewBasic           `json:"author" cborgen:"author"`
 	Cid           string                                `json:"cid" cborgen:"cid"`
-	Embeds        []*EmbedRecord_ViewRecord_Embeds_Elem `json:"embeds,omitempty" cborgen:"embeds"`
+	Embeds        []*EmbedRecord_ViewRecord_Embeds_Elem `json:"embeds,omitempty" cborgen:"embeds,omitempty"`
 	IndexedAt     string                                `json:"indexedAt" cborgen:"indexedAt"`
 	Uri           string                                `json:"uri" cborgen:"uri"`
 	Value         *util.LexiconTypeDecoder              `json:"value" cborgen:"value"`

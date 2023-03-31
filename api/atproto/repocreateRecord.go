@@ -17,9 +17,9 @@ type RepoCreateRecord_Input struct {
 	Collection    string                   `json:"collection" cborgen:"collection"`
 	Record        *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
 	Repo          string                   `json:"repo" cborgen:"repo"`
-	Rkey          *string                  `json:"rkey,omitempty" cborgen:"rkey"`
-	SwapCommit    *string                  `json:"swapCommit,omitempty" cborgen:"swapCommit"`
-	Validate      *bool                    `json:"validate,omitempty" cborgen:"validate"`
+	Rkey          *string                  `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
+	SwapCommit    *string                  `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
+	Validate      *bool                    `json:"validate,omitempty" cborgen:"validate,omitempty"`
 }
 
 type RepoCreateRecord_Output struct {

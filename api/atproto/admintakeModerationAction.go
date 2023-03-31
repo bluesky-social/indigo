@@ -20,7 +20,7 @@ type AdminTakeModerationAction_Input struct {
 	CreatedBy       string                                   `json:"createdBy" cborgen:"createdBy"`
 	Reason          string                                   `json:"reason" cborgen:"reason"`
 	Subject         *AdminTakeModerationAction_Input_Subject `json:"subject" cborgen:"subject"`
-	SubjectBlobCids []string                                 `json:"subjectBlobCids,omitempty" cborgen:"subjectBlobCids"`
+	SubjectBlobCids []string                                 `json:"subjectBlobCids,omitempty" cborgen:"subjectBlobCids,omitempty"`
 }
 
 type AdminTakeModerationAction_Input_Subject struct {

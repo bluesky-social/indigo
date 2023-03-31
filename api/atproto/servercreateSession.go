@@ -13,7 +13,7 @@ func init() {
 
 type ServerCreateSession_Input struct {
 	LexiconTypeID string  `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Identifier    *string `json:"identifier,omitempty" cborgen:"identifier"`
+	Identifier    *string `json:"identifier,omitempty" cborgen:"identifier,omitempty"`
 	Password      string  `json:"password" cborgen:"password"`
 }
 
