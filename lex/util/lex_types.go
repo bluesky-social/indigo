@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"github.com/ipfs/go-cid"
@@ -45,11 +46,12 @@ func (ll LexLink) MarshalJSON() ([]byte, error) {
 }
 
 func (ll *LexLink) UnmarshalJSON(raw []byte) error {
+	fmt.Println("PARSING LEX LINK: ", raw)
 	var jl jsonLink
-	err := json.Unmarshal(raw, &jl)
-	if err != nil {
+	if err := json.Unmarshal(raw, &jl); err != nil {
 		return xerrors.Errorf("parsing cid-link JSON: %v", err)
 	}
+
 	c, err := cid.Decode(jl.Link)
 	if err != nil {
 		return xerrors.Errorf("parsing cid-link CID: %v", err)
@@ -150,7 +152,7 @@ type LegacyBlob struct {
 }
 
 type BlobSchema struct {
-	LexiconTypeID string  `json:"$type,omitempty"`
+	LexiconTypeID string  `json:"$type,omitempty" cborgen:"$type"`
 	Ref           LexLink `json:"ref" cborgen:"ref"`
 	MimeType      string  `json:"mimeType" cborgen:"mimeType"`
 	Size          int64   `json:"size" cborgen:"size"`
@@ -221,6 +223,7 @@ func (b *LexBlob) MarshalCBOR(w io.Writer) error {
 		}
 		return lb.MarshalCBOR(w)
 	} else {
+		fmt.Println("MARSHAL BLOB: ", b.Ref, b.MimeType, b.Size)
 		bs := BlobSchema{
 			LexiconTypeID: "blob",
 			Ref:           b.Ref,
@@ -236,6 +239,8 @@ func (lb *LexBlob) UnmarshalCBOR(r io.Reader) error {
 	if err != nil {
 		return xerrors.Errorf("parsing $blob CBOR type: %w", err)
 	}
+
+	fmt.Println("LEX BLOB TYPE: ", typ)
 	*lb = LexBlob{}
 	if typ == "blob" {
 		var bs BlobSchema
@@ -243,6 +248,7 @@ func (lb *LexBlob) UnmarshalCBOR(r io.Reader) error {
 		if err != nil {
 			return xerrors.Errorf("parsing $blob CBOR: %v", err)
 		}
+		fmt.Println("BLOB SCHEMA: ", bs.Ref)
 		lb.Ref = bs.Ref
 		lb.MimeType = bs.MimeType
 		lb.Size = bs.Size

@@ -26,8 +26,13 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 3
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if t.LexiconTypeID == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -78,22 +83,25 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"$type\" was too long")
-	}
+	if t.LexiconTypeID != "" {
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
-		return err
-	}
+		if len("$type") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"$type\" was too long")
+		}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("com.atproto.repo.strongRef"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("com.atproto.repo.strongRef")); err != nil {
-		return err
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("$type")); err != nil {
+			return err
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("com.atproto.repo.strongRef"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("com.atproto.repo.strongRef")); err != nil {
+			return err
+		}
 	}
 	return nil
 }

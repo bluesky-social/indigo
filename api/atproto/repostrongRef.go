@@ -12,7 +12,7 @@ func init() {
 
 // RECORDTYPE: RepoStrongRef
 type RepoStrongRef struct {
-	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.repo.strongRef"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=com.atproto.repo.strongRef,omitempty"`
 	Cid           string `json:"cid" cborgen:"cid"`
 	Uri           string `json:"uri" cborgen:"uri"`
 }

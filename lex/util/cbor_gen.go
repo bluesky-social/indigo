@@ -292,6 +292,29 @@ func (t *BlobSchema) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("$type")); err != nil {
+		return err
+	}
+
+	if len(t.LexiconTypeID) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+		return err
+	}
+
 	// t.MimeType (string) (string)
 	if len("mimeType") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"mimeType\" was too long")
@@ -312,29 +335,6 @@ func (t *BlobSchema) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.MimeType)); err != nil {
-		return err
-	}
-
-	// t.LexiconTypeID (string) (string)
-	if len("LexiconTypeID") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"LexiconTypeID\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("LexiconTypeID"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("LexiconTypeID")); err != nil {
-		return err
-	}
-
-	if len(t.LexiconTypeID) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
 		return err
 	}
 	return nil
@@ -414,6 +414,17 @@ func (t *BlobSchema) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Size = int64(extraI)
 			}
+			// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
 			// t.MimeType (string) (string)
 		case "mimeType":
 
@@ -424,17 +435,6 @@ func (t *BlobSchema) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.MimeType = string(sval)
-			}
-			// t.LexiconTypeID (string) (string)
-		case "LexiconTypeID":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
 			}
 
 		default:
