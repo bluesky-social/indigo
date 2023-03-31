@@ -16,7 +16,7 @@ func init() {
 
 // RECORDTYPE: EmbedRecord
 type EmbedRecord struct {
-	LexiconTypeID string                         `json:"$type" cborgen:"$type,const=app.bsky.embed.record"`
+	LexiconTypeID string                         `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
 	Record        *comatprototypes.RepoStrongRef `json:"record" cborgen:"record"`
 }
 
