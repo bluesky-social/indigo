@@ -21,10 +21,10 @@ func init() {
 type FeedPost struct {
 	LexiconTypeID string             `json:"$type" cborgen:"$type,const=app.bsky.feed.post"`
 	CreatedAt     string             `json:"createdAt" cborgen:"createdAt"`
-	Embed         *FeedPost_Embed    `json:"embed,omitempty" cborgen:"embed"`
-	Entities      []*FeedPost_Entity `json:"entities,omitempty" cborgen:"entities"`
-	Facets        []*RichtextFacet   `json:"facets,omitempty" cborgen:"facets"`
-	Reply         *FeedPost_ReplyRef `json:"reply,omitempty" cborgen:"reply"`
+	Embed         *FeedPost_Embed    `json:"embed,omitempty" cborgen:"embed,omitempty"`
+	Entities      []*FeedPost_Entity `json:"entities,omitempty" cborgen:"entities,omitempty"`
+	Facets        []*RichtextFacet   `json:"facets,omitempty" cborgen:"facets,omitempty"`
+	Reply         *FeedPost_ReplyRef `json:"reply,omitempty" cborgen:"reply,omitempty"`
 	Text          string             `json:"text" cborgen:"text"`
 }
 

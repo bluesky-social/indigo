@@ -27,8 +27,25 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 7
 
-	if _, err := cw.Write([]byte{167}); err != nil {
+	if t.Embed == nil {
+		fieldCount--
+	}
+
+	if t.Entities == nil {
+		fieldCount--
+	}
+
+	if t.Facets == nil {
+		fieldCount--
+	}
+
+	if t.Reply == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -75,84 +92,96 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Embed (bsky.FeedPost_Embed) (struct)
-	if len("embed") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"embed\" was too long")
-	}
+	if t.Embed != nil {
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("embed"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("embed")); err != nil {
-		return err
-	}
+		if len("embed") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"embed\" was too long")
+		}
 
-	if err := t.Embed.MarshalCBOR(cw); err != nil {
-		return err
-	}
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("embed"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("embed")); err != nil {
+			return err
+		}
 
-	// t.Reply (bsky.FeedPost_ReplyRef) (struct)
-	if len("reply") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"reply\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("reply"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("reply")); err != nil {
-		return err
-	}
-
-	if err := t.Reply.MarshalCBOR(cw); err != nil {
-		return err
-	}
-
-	// t.Facets ([]*bsky.RichtextFacet) (slice)
-	if len("facets") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"facets\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("facets"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("facets")); err != nil {
-		return err
-	}
-
-	if len(t.Facets) > cbg.MaxLength {
-		return xerrors.Errorf("Slice value in field t.Facets was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Facets))); err != nil {
-		return err
-	}
-	for _, v := range t.Facets {
-		if err := v.MarshalCBOR(cw); err != nil {
+		if err := t.Embed.MarshalCBOR(cw); err != nil {
 			return err
 		}
 	}
 
-	// t.Entities ([]*bsky.FeedPost_Entity) (slice)
-	if len("entities") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"entities\" was too long")
-	}
+	// t.Reply (bsky.FeedPost_ReplyRef) (struct)
+	if t.Reply != nil {
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("entities"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("entities")); err != nil {
-		return err
-	}
+		if len("reply") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"reply\" was too long")
+		}
 
-	if len(t.Entities) > cbg.MaxLength {
-		return xerrors.Errorf("Slice value in field t.Entities was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Entities))); err != nil {
-		return err
-	}
-	for _, v := range t.Entities {
-		if err := v.MarshalCBOR(cw); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("reply"))); err != nil {
 			return err
+		}
+		if _, err := io.WriteString(w, string("reply")); err != nil {
+			return err
+		}
+
+		if err := t.Reply.MarshalCBOR(cw); err != nil {
+			return err
+		}
+	}
+
+	// t.Facets ([]*bsky.RichtextFacet) (slice)
+	if t.Facets != nil {
+
+		if len("facets") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"facets\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("facets"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("facets")); err != nil {
+			return err
+		}
+
+		if len(t.Facets) > cbg.MaxLength {
+			return xerrors.Errorf("Slice value in field t.Facets was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Facets))); err != nil {
+			return err
+		}
+		for _, v := range t.Facets {
+			if err := v.MarshalCBOR(cw); err != nil {
+				return err
+			}
+		}
+	}
+
+	// t.Entities ([]*bsky.FeedPost_Entity) (slice)
+	if t.Entities != nil {
+
+		if len("entities") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"entities\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("entities"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("entities")); err != nil {
+			return err
+		}
+
+		if len(t.Entities) > cbg.MaxLength {
+			return xerrors.Errorf("Slice value in field t.Entities was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Entities))); err != nil {
+			return err
+		}
+		for _, v := range t.Entities {
+			if err := v.MarshalCBOR(cw); err != nil {
+				return err
+			}
 		}
 	}
 

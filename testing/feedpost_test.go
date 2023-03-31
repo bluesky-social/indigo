@@ -3,6 +3,7 @@ package testing
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/ipfs/go-cid"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -42,6 +44,11 @@ func TestFeedPostParse(t *testing.T) {
 	assert.NotNil(fp.Embed.EmbedRecordWithMedia)
 	assert.Equal("app.bsky.embed.recordWithMedia", fp.Embed.EmbedRecordWithMedia.LexiconTypeID)
 
+	cc, err := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlumdylagaqa")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	assert.Equal(
 		&appbsky.EmbedRecordWithMedia{
 			LexiconTypeID: "app.bsky.embed.recordWithMedia",
@@ -52,7 +59,7 @@ func TestFeedPostParse(t *testing.T) {
 						&appbsky.EmbedImages_Image{
 							Image: &lexutil.LexBlob{
 								//LexiconTypeID: "blob",
-								//Ref: lexutil.LexLink(cid.Undef), // 000155122090873DBDFF810882487CCF6127D8D62F241D6F4F919A73151DABA3078580C080
+								Ref:      lexutil.LexLink(cc), // 000155122090873DBDFF810882487CCF6127D8D62F241D6F4F919A73151DABA3078580C080
 								Size:     751473,
 								MimeType: "image/jpeg",
 							},
@@ -75,6 +82,8 @@ func TestFeedPostParse(t *testing.T) {
 	outCborBytes := new(bytes.Buffer)
 	assert.NoError(fp.MarshalCBOR(outCborBytes))
 	assert.Equal(cborBytes, outCborBytes.Bytes())
+
+	fmt.Printf("OUTPUT: %x\n", outCborBytes.Bytes())
 
 	// marshal as JSON
 	outJsonBytes, err := json.Marshal(fp)
