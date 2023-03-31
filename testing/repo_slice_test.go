@@ -17,7 +17,7 @@ import (
 
 func TestRepoSliceParse(t *testing.T) {
 	ctx := context.TODO()
-	fi, err := os.Open("repo_slice.car")
+	fi, err := os.Open("test_files/repo_slice.car")
 	if err != nil {
 		t.Fatal(err)
 	}
