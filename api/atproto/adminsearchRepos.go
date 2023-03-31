@@ -13,7 +13,7 @@ func init() {
 
 type AdminSearchRepos_Output struct {
 	LexiconTypeID string                `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Cursor        *string               `json:"cursor,omitempty" cborgen:"cursor"`
+	Cursor        *string               `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Repos         []*AdminDefs_RepoView `json:"repos" cborgen:"repos"`
 }
 

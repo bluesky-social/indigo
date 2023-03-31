@@ -20,8 +20,8 @@ type FeedGetLikes_Like struct {
 
 type FeedGetLikes_Output struct {
 	LexiconTypeID string               `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Cid           *string              `json:"cid,omitempty" cborgen:"cid"`
-	Cursor        *string              `json:"cursor,omitempty" cborgen:"cursor"`
+	Cid           *string              `json:"cid,omitempty" cborgen:"cid,omitempty"`
+	Cursor        *string              `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Likes         []*FeedGetLikes_Like `json:"likes" cborgen:"likes"`
 	Uri           string               `json:"uri" cborgen:"uri"`
 }

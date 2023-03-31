@@ -14,7 +14,7 @@ func init() {
 
 type RepoListRecords_Output struct {
 	LexiconTypeID string                    `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Cursor        *string                   `json:"cursor,omitempty" cborgen:"cursor"`
+	Cursor        *string                   `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Records       []*RepoListRecords_Record `json:"records" cborgen:"records"`
 }
 

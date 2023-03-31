@@ -13,7 +13,7 @@ func init() {
 
 type GraphGetMutes_Output struct {
 	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Cursor        *string                  `json:"cursor,omitempty" cborgen:"cursor"`
+	Cursor        *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Mutes         []*ActorDefs_ProfileView `json:"mutes" cborgen:"mutes"`
 }
 

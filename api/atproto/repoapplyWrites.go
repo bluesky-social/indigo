@@ -18,7 +18,7 @@ func init() {
 type RepoApplyWrites_Create struct {
 	LexiconTypeID string                   `json:"$type" cborgen:"$type,const=com.atproto.repo.applyWrites"`
 	Collection    string                   `json:"collection" cborgen:"collection"`
-	Rkey          *string                  `json:"rkey,omitempty" cborgen:"rkey"`
+	Rkey          *string                  `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
 	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
@@ -32,8 +32,8 @@ type RepoApplyWrites_Delete struct {
 type RepoApplyWrites_Input struct {
 	LexiconTypeID string                               `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Repo          string                               `json:"repo" cborgen:"repo"`
-	SwapCommit    *string                              `json:"swapCommit,omitempty" cborgen:"swapCommit"`
-	Validate      *bool                                `json:"validate,omitempty" cborgen:"validate"`
+	SwapCommit    *string                              `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
+	Validate      *bool                                `json:"validate,omitempty" cborgen:"validate,omitempty"`
 	Writes        []*RepoApplyWrites_Input_Writes_Elem `json:"writes" cborgen:"writes"`
 }
 
