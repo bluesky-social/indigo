@@ -1417,6 +1417,10 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 		fieldCount--
 	}
 
+	if t.Thumb == nil {
+		fieldCount--
+	}
+
 	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
@@ -1471,19 +1475,22 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Thumb (util.LexBlob) (struct)
-	if len("thumb") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"thumb\" was too long")
-	}
+	if t.Thumb != nil {
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("thumb"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("thumb")); err != nil {
-		return err
-	}
+		if len("thumb") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"thumb\" was too long")
+		}
 
-	if err := t.Thumb.MarshalCBOR(cw); err != nil {
-		return err
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("thumb"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("thumb")); err != nil {
+			return err
+		}
+
+		if err := t.Thumb.MarshalCBOR(cw); err != nil {
+			return err
+		}
 	}
 
 	// t.Title (string) (string)
@@ -1984,8 +1991,25 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 5
 
-	if _, err := cw.Write([]byte{165}); err != nil {
+	if t.Avatar == nil {
+		fieldCount--
+	}
+
+	if t.Banner == nil {
+		fieldCount--
+	}
+
+	if t.Description == nil {
+		fieldCount--
+	}
+
+	if t.DisplayName == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -2009,92 +2033,104 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Avatar (util.LexBlob) (struct)
-	if len("avatar") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"avatar\" was too long")
-	}
+	if t.Avatar != nil {
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("avatar"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("avatar")); err != nil {
-		return err
-	}
+		if len("avatar") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"avatar\" was too long")
+		}
 
-	if err := t.Avatar.MarshalCBOR(cw); err != nil {
-		return err
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("avatar"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("avatar")); err != nil {
+			return err
+		}
+
+		if err := t.Avatar.MarshalCBOR(cw); err != nil {
+			return err
+		}
 	}
 
 	// t.Banner (util.LexBlob) (struct)
-	if len("banner") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"banner\" was too long")
-	}
+	if t.Banner != nil {
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("banner"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("banner")); err != nil {
-		return err
-	}
+		if len("banner") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"banner\" was too long")
+		}
 
-	if err := t.Banner.MarshalCBOR(cw); err != nil {
-		return err
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("banner"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("banner")); err != nil {
+			return err
+		}
+
+		if err := t.Banner.MarshalCBOR(cw); err != nil {
+			return err
+		}
 	}
 
 	// t.Description (string) (string)
-	if len("description") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"description\" was too long")
-	}
+	if t.Description != nil {
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("description"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("description")); err != nil {
-		return err
-	}
-
-	if t.Description == nil {
-		if _, err := cw.Write(cbg.CborNull); err != nil {
-			return err
-		}
-	} else {
-		if len(*t.Description) > cbg.MaxLength {
-			return xerrors.Errorf("Value in field t.Description was too long")
+		if len("description") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"description\" was too long")
 		}
 
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Description))); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("description"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string(*t.Description)); err != nil {
+		if _, err := io.WriteString(w, string("description")); err != nil {
 			return err
+		}
+
+		if t.Description == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.Description) > cbg.MaxLength {
+				return xerrors.Errorf("Value in field t.Description was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Description))); err != nil {
+				return err
+			}
+			if _, err := io.WriteString(w, string(*t.Description)); err != nil {
+				return err
+			}
 		}
 	}
 
 	// t.DisplayName (string) (string)
-	if len("displayName") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"displayName\" was too long")
-	}
+	if t.DisplayName != nil {
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("displayName"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("displayName")); err != nil {
-		return err
-	}
-
-	if t.DisplayName == nil {
-		if _, err := cw.Write(cbg.CborNull); err != nil {
-			return err
-		}
-	} else {
-		if len(*t.DisplayName) > cbg.MaxLength {
-			return xerrors.Errorf("Value in field t.DisplayName was too long")
+		if len("displayName") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"displayName\" was too long")
 		}
 
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.DisplayName))); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("displayName"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string(*t.DisplayName)); err != nil {
+		if _, err := io.WriteString(w, string("displayName")); err != nil {
 			return err
+		}
+
+		if t.DisplayName == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.DisplayName) > cbg.MaxLength {
+				return xerrors.Errorf("Value in field t.DisplayName was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.DisplayName))); err != nil {
+				return err
+			}
+			if _, err := io.WriteString(w, string(*t.DisplayName)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

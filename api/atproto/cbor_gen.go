@@ -96,10 +96,14 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("com.atproto.repo.strongRef"))); err != nil {
+		if len(t.LexiconTypeID) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("com.atproto.repo.strongRef")); err != nil {
+		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
 			return err
 		}
 	}
@@ -957,6 +961,10 @@ func (t *SyncSubscribeRepos_Info) MarshalCBOR(w io.Writer) error {
 		fieldCount--
 	}
 
+	if t.Message == nil {
+		fieldCount--
+	}
+
 	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
@@ -1011,31 +1019,34 @@ func (t *SyncSubscribeRepos_Info) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Message (string) (string)
-	if len("message") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"message\" was too long")
-	}
+	if t.Message != nil {
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("message"))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string("message")); err != nil {
-		return err
-	}
-
-	if t.Message == nil {
-		if _, err := cw.Write(cbg.CborNull); err != nil {
-			return err
-		}
-	} else {
-		if len(*t.Message) > cbg.MaxLength {
-			return xerrors.Errorf("Value in field t.Message was too long")
+		if len("message") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"message\" was too long")
 		}
 
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Message))); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("message"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string(*t.Message)); err != nil {
+		if _, err := io.WriteString(w, string("message")); err != nil {
 			return err
+		}
+
+		if t.Message == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.Message) > cbg.MaxLength {
+				return xerrors.Errorf("Value in field t.Message was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Message))); err != nil {
+				return err
+			}
+			if _, err := io.WriteString(w, string(*t.Message)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
