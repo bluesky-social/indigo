@@ -81,11 +81,45 @@ func TestFeedPostParse(t *testing.T) {
 
 	fmt.Printf("OUTPUT: %x\n", outCborBytes.Bytes())
 
-	// marshal as JSON
+	// marshal as JSON, compare against expected
+	expectedJson := `{
+		"$type": "app.bsky.feed.post",
+		"createdAt": "2023-03-29T20:59:19.417Z",
+		"embed": {
+			"$type": "app.bsky.embed.recordWithMedia",
+			"media": {
+				"$type": "app.bsky.embed.images",
+				"images": [
+					{
+						"alt": "",
+						"image": {
+							"$type": "blob",
+							"ref": {
+								"$link": "bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlumdylagaqa"
+							},
+							"mimeType": "image/jpeg",
+							"size": 751473
+						}
+					}
+				]
+			},
+			"record": {
+				"$type": "app.bsky.embed.record",
+				"record": {
+					"cid": "bafyreiaku7udekkiijxcuue3sn6esz7qijqj637rigz4xqdw57fk5houji",
+					"uri": "at://did:plc:rbtury4cp2sdk4tvnedaqu54/app.bsky.feed.post/3jilislho4s2k"
+				}
+			}
+		},
+		"text": "Who the hell do you think you are"
+	}`
+
 	outJsonBytes, err := json.Marshal(fp)
 	assert.NoError(err)
-	var outJson map[string]interface{}
-	assert.NoError(json.Unmarshal(outJsonBytes, &outJson))
-	assert.Equal("app.bsky.feed.post", outJson["$type"])
-	// TODO: more
+	fmt.Println(string(outJsonBytes))
+	var outJsonObj map[string]interface{}
+	assert.NoError(json.Unmarshal(outJsonBytes, &outJsonObj))
+	var expectedJsonObj map[string]interface{}
+	assert.NoError(json.Unmarshal([]byte(expectedJson), &expectedJsonObj))
+	assert.Equal(expectedJsonObj, outJsonObj)
 }
