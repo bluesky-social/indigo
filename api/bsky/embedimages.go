@@ -12,7 +12,7 @@ func init() {
 
 // RECORDTYPE: EmbedImages
 type EmbedImages struct {
-	LexiconTypeID string               `json:"$type" cborgen:"$type,const=app.bsky.embed.images"`
+	LexiconTypeID string               `json:"$type,const=app.bsky.embed.images" cborgen:"$type,const=app.bsky.embed.images"`
 	Images        []*EmbedImages_Image `json:"images" cborgen:"images"`
 }
 

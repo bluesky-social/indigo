@@ -19,7 +19,7 @@ func init() {
 
 // RECORDTYPE: FeedPost
 type FeedPost struct {
-	LexiconTypeID string             `json:"$type" cborgen:"$type,const=app.bsky.feed.post"`
+	LexiconTypeID string             `json:"$type,const=app.bsky.feed.post" cborgen:"$type,const=app.bsky.feed.post"`
 	CreatedAt     string             `json:"createdAt" cborgen:"createdAt"`
 	Embed         *FeedPost_Embed    `json:"embed,omitempty" cborgen:"embed,omitempty"`
 	Entities      []*FeedPost_Entity `json:"entities,omitempty" cborgen:"entities,omitempty"`

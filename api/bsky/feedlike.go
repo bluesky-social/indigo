@@ -13,7 +13,7 @@ func init() {
 
 // RECORDTYPE: FeedLike
 type FeedLike struct {
-	LexiconTypeID string                         `json:"$type" cborgen:"$type,const=app.bsky.feed.like"`
+	LexiconTypeID string                         `json:"$type,const=app.bsky.feed.like" cborgen:"$type,const=app.bsky.feed.like"`
 	CreatedAt     string                         `json:"createdAt" cborgen:"createdAt"`
 	Subject       *comatprototypes.RepoStrongRef `json:"subject" cborgen:"subject"`
 }

@@ -12,7 +12,7 @@ func init() {
 
 // RECORDTYPE: EmbedExternal
 type EmbedExternal struct {
-	LexiconTypeID string                  `json:"$type" cborgen:"$type,const=app.bsky.embed.external"`
+	LexiconTypeID string                  `json:"$type,const=app.bsky.embed.external" cborgen:"$type,const=app.bsky.embed.external"`
 	External      *EmbedExternal_External `json:"external" cborgen:"external"`
 }
 

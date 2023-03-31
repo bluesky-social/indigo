@@ -12,7 +12,7 @@ func init() {
 
 // RECORDTYPE: ActorProfile
 type ActorProfile struct {
-	LexiconTypeID string        `json:"$type" cborgen:"$type,const=app.bsky.actor.profile"`
+	LexiconTypeID string        `json:"$type,const=app.bsky.actor.profile" cborgen:"$type,const=app.bsky.actor.profile"`
 	Avatar        *util.LexBlob `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	Banner        *util.LexBlob `json:"banner,omitempty" cborgen:"banner,omitempty"`
 	Description   *string       `json:"description,omitempty" cborgen:"description,omitempty"`

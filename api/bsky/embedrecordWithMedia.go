@@ -18,7 +18,7 @@ func init() {
 
 // RECORDTYPE: EmbedRecordWithMedia
 type EmbedRecordWithMedia struct {
-	LexiconTypeID string                      `json:"$type" cborgen:"$type,const=app.bsky.embed.recordWithMedia"`
+	LexiconTypeID string                      `json:"$type,const=app.bsky.embed.recordWithMedia" cborgen:"$type,const=app.bsky.embed.recordWithMedia"`
 	Media         *EmbedRecordWithMedia_Media `json:"media" cborgen:"media"`
 	Record        *EmbedRecord                `json:"record" cborgen:"record"`
 }
