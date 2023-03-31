@@ -98,7 +98,14 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 			panic(fmt.Sprintf("nil type schema in %q (%s)", name, s.ID))
 		}
 
-		ts.record = record
+		if record {
+			fmt.Println("Setting to record: ", name)
+			if name == "EmbedImages_View" {
+				panic("not ok")
+			}
+			ts.record = true
+		}
+
 		ts.prefix = prefix
 		ts.id = s.ID
 		ts.defMap = defMap
@@ -107,16 +114,16 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 			out = append(out, outputType{
 				Name:   name,
 				Type:   ts,
-				Record: record,
+				Record: ts.record,
 			})
 		}
 
 		for childname, val := range ts.Properties {
-			walk(name+"_"+strings.Title(childname), val, record)
+			walk(name+"_"+strings.Title(childname), val, ts.record)
 		}
 
 		if ts.Items != nil {
-			walk(name+"_Elem", ts.Items, record)
+			walk(name+"_Elem", ts.Items, ts.record)
 		}
 
 		if ts.Input != nil {
@@ -125,7 +132,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 					panic(fmt.Sprintf("strange input type def in %s", s.ID))
 				}
 			} else {
-				walk(name+"_Input", ts.Input.Schema, record)
+				walk(name+"_Input", ts.Input.Schema, ts.record)
 			}
 		}
 
@@ -135,7 +142,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 					panic(fmt.Sprintf("strange output type def in %s", s.ID))
 				}
 			} else {
-				walk(name+"_Output", ts.Output.Schema, record)
+				walk(name+"_Output", ts.Output.Schema, ts.record)
 			}
 		}
 
@@ -226,7 +233,10 @@ func FixRecordReferences(schemas []*Schema, defmap map[string]*ExtDef, prefix st
 					if _, known := defmap[r]; known != true {
 						panic(fmt.Sprintf("reference to unknown record type: %s", r))
 					}
-					defmap[r].Type.record = true
+
+					if t.Record {
+						defmap[r].Type.record = true
+					}
 				}
 			}
 		}
@@ -238,7 +248,6 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 
 	s.prefix = prefix
 	for _, d := range s.Defs {
-		fmt.Println("def id: ", d.id)
 		d.prefix = prefix
 	}
 
@@ -268,7 +277,7 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 		return tps[i].Name < tps[j].Name
 	})
 	for _, ot := range tps {
-		fmt.Println("TYPE: ", ot.Name)
+		fmt.Println("TYPE: ", ot.Name, ot.Record)
 		if err := ot.Type.WriteType(ot.Name, buf); err != nil {
 			return err
 		}
@@ -1019,7 +1028,7 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 		// TODO: maybe do a native type?
 		return "string", nil
 	case "unknown":
-		return "util.LexiconTypeDecoder", nil
+		return "*util.LexiconTypeDecoder", nil
 	case "union":
 		return "*" + name + "_" + strings.Title(k), nil
 	case "blob":

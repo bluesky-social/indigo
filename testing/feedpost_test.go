@@ -15,7 +15,7 @@ import (
 )
 
 func TestFeedPostParse(t *testing.T) {
-	t.Skip("XXX: currently failing")
+	//t.Skip("XXX: currently failing")
 	assert := assert.New(t)
 
 	// CBOR file hex (for https://geraintluff.github.io/cbor-debug/):

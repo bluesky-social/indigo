@@ -7,10 +7,12 @@ import (
 // schema: app.bsky.embed.external
 
 func init() {
+	util.RegisterType("app.bsky.embed.external#main", &EmbedExternal{})
 }
 
+// RECORDTYPE: EmbedExternal
 type EmbedExternal struct {
-	LexiconTypeID string                  `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string                  `json:"$type" cborgen:"$type,const=app.bsky.embed.external"`
 	External      *EmbedExternal_External `json:"external" cborgen:"external"`
 }
 

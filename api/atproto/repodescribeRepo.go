@@ -13,12 +13,12 @@ func init() {
 }
 
 type RepoDescribeRepo_Output struct {
-	LexiconTypeID   string                  `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Collections     []string                `json:"collections" cborgen:"collections"`
-	Did             string                  `json:"did" cborgen:"did"`
-	DidDoc          util.LexiconTypeDecoder `json:"didDoc" cborgen:"didDoc"`
-	Handle          string                  `json:"handle" cborgen:"handle"`
-	HandleIsCorrect bool                    `json:"handleIsCorrect" cborgen:"handleIsCorrect"`
+	LexiconTypeID   string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	Collections     []string                 `json:"collections" cborgen:"collections"`
+	Did             string                   `json:"did" cborgen:"did"`
+	DidDoc          *util.LexiconTypeDecoder `json:"didDoc" cborgen:"didDoc"`
+	Handle          string                   `json:"handle" cborgen:"handle"`
+	HandleIsCorrect bool                     `json:"handleIsCorrect" cborgen:"handleIsCorrect"`
 }
 
 func RepoDescribeRepo(ctx context.Context, c *xrpc.Client, repo string) (*RepoDescribeRepo_Output, error) {

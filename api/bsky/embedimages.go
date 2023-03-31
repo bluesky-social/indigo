@@ -7,10 +7,12 @@ import (
 // schema: app.bsky.embed.images
 
 func init() {
+	util.RegisterType("app.bsky.embed.images#main", &EmbedImages{})
 }
 
+// RECORDTYPE: EmbedImages
 type EmbedImages struct {
-	LexiconTypeID string               `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string               `json:"$type" cborgen:"$type,const=app.bsky.embed.images"`
 	Images        []*EmbedImages_Image `json:"images" cborgen:"images"`
 }
 

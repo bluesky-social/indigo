@@ -930,19 +930,6 @@ func (s *Server) HandleComAtprotoServerCreateAccount(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *Server) HandleComAtprotoServerDescribeServer(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerDescribeServer")
-	defer span.End()
-	var out *comatprototypes.ServerDescribeServer_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*comatprototypes.ServerDescribeServer_Output, error)
-	out, handleErr = s.handleComAtprotoServerDescribeServer(ctx)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
 func (s *Server) HandleComAtprotoServerCreateInviteCode(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerCreateInviteCode")
 	defer span.End()
@@ -1006,6 +993,19 @@ func (s *Server) HandleComAtprotoServerDeleteSession(c echo.Context) error {
 		return handleErr
 	}
 	return nil
+}
+
+func (s *Server) HandleComAtprotoServerDescribeServer(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerDescribeServer")
+	defer span.End()
+	var out *comatprototypes.ServerDescribeServer_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*comatprototypes.ServerDescribeServer_Output, error)
+	out, handleErr = s.handleComAtprotoServerDescribeServer(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) HandleComAtprotoServerGetSession(c echo.Context) error {

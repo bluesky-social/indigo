@@ -59,7 +59,7 @@ type FeedDefs_PostView struct {
 	Embed         *FeedDefs_PostView_Embed    `json:"embed,omitempty" cborgen:"embed"`
 	IndexedAt     string                      `json:"indexedAt" cborgen:"indexedAt"`
 	LikeCount     *int64                      `json:"likeCount,omitempty" cborgen:"likeCount"`
-	Record        util.LexiconTypeDecoder     `json:"record" cborgen:"record"`
+	Record        *util.LexiconTypeDecoder    `json:"record" cborgen:"record"`
 	ReplyCount    *int64                      `json:"replyCount,omitempty" cborgen:"replyCount"`
 	RepostCount   *int64                      `json:"repostCount,omitempty" cborgen:"repostCount"`
 	Uri           string                      `json:"uri" cborgen:"uri"`
