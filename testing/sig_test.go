@@ -22,7 +22,7 @@ import (
 func TestVerification(t *testing.T) {
 	assert := assert.New(t)
 
-	fi, err := os.Open("divy.repo")
+	fi, err := os.Open("test_files/divy.repo")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,6 +44,61 @@ func TestVerification(t *testing.T) {
       "type": "EcdsaSecp256k1VerificationKey2019",
       "controller": "did:plc:wj5jny4sq4sohwoaxjkjgug6",
       "publicKeyMultibase": "zQYEBzXeuTM9UR3rfvNag6L3RNAs5pQZyYPsomTsgQhsxLdEgCrPTLgFna8yqCnxPpNT7DBk6Ym3dgPKNu86vt9GR"
+    }`
+	var vm did.VerificationMethod
+
+	if err := json.Unmarshal([]byte(vmstr), &vm); err != nil {
+		t.Fatal(err)
+	}
+
+	pk, err := did.KeyFromMultibase(vm)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(pk.Type, "EcdsaSecp256k1VerificationKey2019")
+
+	scom := r.SignedCommit()
+
+	msg, err := scom.Unsigned().BytesForSigning()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := pk.Verify(msg, scom.Sig); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestVerificationTwo(t *testing.T) {
+	t.Skip("XXX: this test is failing!")
+	assert := assert.New(t)
+
+	// http get http://localhost:2583/xrpc/com.atproto.sync.getCheckout did==did:plc:z5vnbioquyhivxirw3bbljmu commit==bafyreieovfuizojpw3zresz7sx3nk4trm2by23pt5rxbey3jme4uo5ogiu > bafyreieovfuizojpw3zresz7sx3nk4trm2by23pt5rxbey3jme4uo5ogiu.car
+	// http get http://localhost:2582/did:plc:z5vnbioquyhivxirw3bbljmu > code/indigo/testing/test_files/did_plc_z5vnbioquyhivxirw3bbljmu.didDoc.json
+
+	fi, err := os.Open("test_files/bafyreieovfuizojpw3zresz7sx3nk4trm2by23pt5rxbey3jme4uo5ogiu.car")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
+	ctx := context.TODO()
+	c, err := repo.IngestRepo(ctx, bs, fi)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := repo.OpenRepo(ctx, bs, c, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vmstr := `{
+        "controller": "did:plc:z5vnbioquyhivxirw3bbljmu",
+        "id": "#atproto",
+        "publicKeyMultibase": "zPgFC4hKo2MFLkBRQuHewXRDp94MSrd3yuiJ1En87qTeF68T92DPWvWSjxjMuMiB4qz8UzE8wWTNvZq7mgr7BsjW9",
+        "type": "EcdsaSecp256k1VerificationKey2019"
     }`
 	var vm did.VerificationMethod
 
