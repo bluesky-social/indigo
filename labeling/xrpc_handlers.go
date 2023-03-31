@@ -95,7 +95,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 	return &atproto.RepoGetRecord_Output{
 		Cid:   &ccstr,
 		Uri:   "at://" + s.user.Did + "/" + collection + "/" + rkey,
-		Value: lexutil.LexiconTypeDecoder{rec},
+		Value: &lexutil.LexiconTypeDecoder{rec},
 	}, nil
 }
 
