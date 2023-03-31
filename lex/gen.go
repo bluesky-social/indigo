@@ -1101,7 +1101,7 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 		fmt.Fprintf(w, "type %s struct {\n", name)
 
 		if ts.record {
-			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type\" cborgen:\"$type,const=%s\"`\n", ts.id)
+			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type,const=%s\" cborgen:\"$type,const=%s\"`\n", ts.id, ts.id)
 		} else {
 			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type,omitempty\" cborgen:\"$type,omitempty\"`\n")
 		}
@@ -1139,7 +1139,7 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 				}
 			}
 
-			fmt.Fprintf(w, "\t%s %s%s `json:\"%s%s\" cborgen:\"%s\"`\n", goname, ptr, tname, k, omit, k)
+			fmt.Fprintf(w, "\t%s %s%s `json:\"%s%s\" cborgen:\"%s%s\"`\n", goname, ptr, tname, k, omit, k, omit)
 			return nil
 		}); err != nil {
 			return err
