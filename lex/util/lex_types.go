@@ -46,7 +46,6 @@ func (ll LexLink) MarshalJSON() ([]byte, error) {
 }
 
 func (ll *LexLink) UnmarshalJSON(raw []byte) error {
-	fmt.Println("PARSING LEX LINK: ", raw)
 	var jl jsonLink
 	if err := json.Unmarshal(raw, &jl); err != nil {
 		return xerrors.Errorf("parsing cid-link JSON: %v", err)
