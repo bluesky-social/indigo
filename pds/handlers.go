@@ -447,7 +447,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 	return &comatprototypes.RepoGetRecord_Output{
 		Cid:   &ccstr,
 		Uri:   "at://" + targetUser.Did + "/" + collection + "/" + rkey,
-		Value: lexutil.LexiconTypeDecoder{rec},
+		Value: &lexutil.LexiconTypeDecoder{rec},
 	}, nil
 }
 

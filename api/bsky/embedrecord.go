@@ -11,10 +11,12 @@ import (
 // schema: app.bsky.embed.record
 
 func init() {
+	util.RegisterType("app.bsky.embed.record#main", &EmbedRecord{})
 }
 
+// RECORDTYPE: EmbedRecord
 type EmbedRecord struct {
-	LexiconTypeID string                         `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string                         `json:"$type" cborgen:"$type,const=app.bsky.embed.record"`
 	Record        *comatprototypes.RepoStrongRef `json:"record" cborgen:"record"`
 }
 
@@ -35,7 +37,7 @@ type EmbedRecord_ViewRecord struct {
 	Embeds        []*EmbedRecord_ViewRecord_Embeds_Elem `json:"embeds,omitempty" cborgen:"embeds"`
 	IndexedAt     string                                `json:"indexedAt" cborgen:"indexedAt"`
 	Uri           string                                `json:"uri" cborgen:"uri"`
-	Value         util.LexiconTypeDecoder               `json:"value" cborgen:"value"`
+	Value         *util.LexiconTypeDecoder              `json:"value" cborgen:"value"`
 }
 
 type EmbedRecord_ViewRecord_Embeds_Elem struct {

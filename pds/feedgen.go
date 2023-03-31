@@ -148,7 +148,7 @@ func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *models.FeedPost)
 		return nil, err
 	}
 
-	out.Post.Record = lexutil.LexiconTypeDecoder{rec}
+	out.Post.Record = &lexutil.LexiconTypeDecoder{rec}
 
 	return out, nil
 }

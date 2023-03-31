@@ -19,10 +19,10 @@ type RepoListRecords_Output struct {
 }
 
 type RepoListRecords_Record struct {
-	LexiconTypeID string                  `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Cid           string                  `json:"cid" cborgen:"cid"`
-	Uri           string                  `json:"uri" cborgen:"uri"`
-	Value         util.LexiconTypeDecoder `json:"value" cborgen:"value"`
+	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	Cid           string                   `json:"cid" cborgen:"cid"`
+	Uri           string                   `json:"uri" cborgen:"uri"`
+	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
 func RepoListRecords(ctx context.Context, c *xrpc.Client, collection string, limit int64, repo string, reverse bool, rkeyEnd string, rkeyStart string) (*RepoListRecords_Output, error) {

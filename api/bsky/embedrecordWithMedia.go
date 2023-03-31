@@ -1,19 +1,24 @@
 package bsky
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/bluesky-social/indigo/lex/util"
+	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 // schema: app.bsky.embed.recordWithMedia
 
 func init() {
+	util.RegisterType("app.bsky.embed.recordWithMedia#main", &EmbedRecordWithMedia{})
 }
 
+// RECORDTYPE: EmbedRecordWithMedia
 type EmbedRecordWithMedia struct {
-	LexiconTypeID string                      `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string                      `json:"$type" cborgen:"$type,const=app.bsky.embed.recordWithMedia"`
 	Media         *EmbedRecordWithMedia_Media `json:"media" cborgen:"media"`
 	Record        *EmbedRecord                `json:"record" cborgen:"record"`
 }
@@ -47,6 +52,39 @@ func (t *EmbedRecordWithMedia_Media) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.external":
 		t.EmbedExternal = new(EmbedExternal)
 		return json.Unmarshal(b, t.EmbedExternal)
+
+	default:
+		return nil
+	}
+}
+
+func (t *EmbedRecordWithMedia_Media) MarshalCBOR(w io.Writer) error {
+
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if t.EmbedImages != nil {
+		return t.EmbedImages.MarshalCBOR(w)
+	}
+	if t.EmbedExternal != nil {
+		return t.EmbedExternal.MarshalCBOR(w)
+	}
+	return fmt.Errorf("cannot cbor marshal empty enum")
+}
+func (t *EmbedRecordWithMedia_Media) UnmarshalCBOR(r io.Reader) error {
+	typ, b, err := util.CborTypeExtractReader(r)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "app.bsky.embed.images":
+		t.EmbedImages = new(EmbedImages)
+		return t.EmbedImages.UnmarshalCBOR(bytes.NewReader(b))
+	case "app.bsky.embed.external":
+		t.EmbedExternal = new(EmbedExternal)
+		return t.EmbedExternal.UnmarshalCBOR(bytes.NewReader(b))
 
 	default:
 		return nil

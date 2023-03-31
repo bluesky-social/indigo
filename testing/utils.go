@@ -225,7 +225,7 @@ func (u *testUser) Reply(t *testing.T, replyto, root *atproto.RepoStrongRef, bod
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.post",
 		Repo:       u.did,
-		Record: lexutil.LexiconTypeDecoder{&bsky.FeedPost{
+		Record: &lexutil.LexiconTypeDecoder{&bsky.FeedPost{
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Text:      body,
 			Reply: &bsky.FeedPost_ReplyRef{
@@ -252,7 +252,7 @@ func (u *testUser) Post(t *testing.T, body string) *atproto.RepoStrongRef {
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.post",
 		Repo:       u.did,
-		Record: lexutil.LexiconTypeDecoder{&bsky.FeedPost{
+		Record: &lexutil.LexiconTypeDecoder{&bsky.FeedPost{
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Text:      body,
 		}},
@@ -275,7 +275,7 @@ func (u *testUser) Like(t *testing.T, post *atproto.RepoStrongRef) {
 	_, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.vote",
 		Repo:       u.did,
-		Record: lexutil.LexiconTypeDecoder{&bsky.FeedLike{
+		Record: &lexutil.LexiconTypeDecoder{&bsky.FeedLike{
 			LexiconTypeID: "app.bsky.feed.vote",
 			CreatedAt:     time.Now().Format(time.RFC3339),
 			Subject:       post,
@@ -294,7 +294,7 @@ func (u *testUser) Follow(t *testing.T, did string) string {
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.graph.follow",
 		Repo:       u.did,
-		Record: lexutil.LexiconTypeDecoder{&bsky.GraphFollow{
+		Record: &lexutil.LexiconTypeDecoder{&bsky.GraphFollow{
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Subject:   did,
 		}},

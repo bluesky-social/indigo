@@ -13,14 +13,14 @@ func init() {
 }
 
 type RepoPutRecord_Input struct {
-	LexiconTypeID string                  `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Collection    string                  `json:"collection" cborgen:"collection"`
-	Record        util.LexiconTypeDecoder `json:"record" cborgen:"record"`
-	Repo          string                  `json:"repo" cborgen:"repo"`
-	Rkey          string                  `json:"rkey" cborgen:"rkey"`
-	SwapCommit    *string                 `json:"swapCommit,omitempty" cborgen:"swapCommit"`
-	SwapRecord    *string                 `json:"swapRecord" cborgen:"swapRecord"`
-	Validate      *bool                   `json:"validate,omitempty" cborgen:"validate"`
+	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	Collection    string                   `json:"collection" cborgen:"collection"`
+	Record        *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
+	Repo          string                   `json:"repo" cborgen:"repo"`
+	Rkey          string                   `json:"rkey" cborgen:"rkey"`
+	SwapCommit    *string                  `json:"swapCommit,omitempty" cborgen:"swapCommit"`
+	SwapRecord    *string                  `json:"swapRecord" cborgen:"swapRecord"`
+	Validate      *bool                    `json:"validate,omitempty" cborgen:"validate"`
 }
 
 type RepoPutRecord_Output struct {

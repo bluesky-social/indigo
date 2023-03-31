@@ -24,7 +24,24 @@ func main() {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("api/bsky/cbor_gen.go", "bsky", bsky.FeedPost{}, bsky.FeedRepost{}, bsky.FeedPost_Entity{}, bsky.FeedPost_ReplyRef{}, bsky.FeedPost_TextSlice{}, bsky.EmbedImages{}, bsky.EmbedExternal{}, bsky.EmbedExternal_External{}, bsky.EmbedImages_Image{}, bsky.GraphFollow{}, bsky.ActorProfile{}, bsky.EmbedRecord{}, bsky.FeedLike{}, bsky.RichtextFacet{}, bsky.RichtextFacet_ByteSlice{}, bsky.RichtextFacet_Features_Elem{}, bsky.RichtextFacet_Link{}, bsky.RichtextFacet_Mention{}, bsky.EmbedRecordWithMedia{}, bsky.EmbedRecordWithMedia_Media{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("api/bsky/cbor_gen.go", "bsky",
+		bsky.FeedPost{}, bsky.FeedRepost{}, bsky.FeedPost_Entity{},
+		bsky.FeedPost_ReplyRef{}, bsky.FeedPost_TextSlice{}, bsky.EmbedImages{},
+		bsky.EmbedExternal{}, bsky.EmbedExternal_External{},
+		bsky.EmbedImages_Image{}, bsky.GraphFollow{}, bsky.ActorProfile{},
+		bsky.EmbedRecord{}, bsky.FeedLike{}, bsky.RichtextFacet{},
+		bsky.RichtextFacet_ByteSlice{}, bsky.RichtextFacet_Features_Elem{},
+		bsky.RichtextFacet_Link{}, bsky.RichtextFacet_Mention{},
+		bsky.EmbedRecordWithMedia{},
+		bsky.FeedDefs_NotFoundPost{},
+		/*bsky.EmbedImages_View{},
+		bsky.EmbedRecord_View{}, bsky.EmbedRecordWithMedia_View{},
+		bsky.EmbedExternal_View{}, bsky.EmbedImages_ViewImage{},
+		bsky.EmbedExternal_ViewExternal{}, bsky.EmbedRecord_ViewNotFound{},
+		bsky.FeedDefs_ThreadViewPost{}, bsky.EmbedRecord_ViewRecord{},
+		bsky.FeedDefs_PostView{}, bsky.ActorDefs_ProfileViewBasic{},
+		*/
+	); err != nil {
 		panic(err)
 	}
 
