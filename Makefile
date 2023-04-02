@@ -26,8 +26,16 @@ build: ## Build all executables
 all: build
 
 .PHONY: test
-test: ## Run all tests
+test: ## Run tests
 	go test ./...
+
+.PHONY: test-short
+test-short: ## Run tests, skipping slower integration tests
+	go test -test.short ./...
+
+.PHONY: test-interop
+test-interop: ## Run tests, including local interop (requires services running)
+	go test -tags=localinterop ./...
 
 .PHONY: coverage-html
 coverage-html: ## Generate test coverage report and open in browser
