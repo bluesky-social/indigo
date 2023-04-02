@@ -11,25 +11,27 @@ import (
 )
 
 type basicSchema struct {
-	A string           `json:"a" cborgen:"a"`
-	B int64            `json:"b" cborgen:"b"`
-	C bool             `json:"c" cborgen:"c"`
-	D *string          `json:"d,omitempty" cborgen:"d,omitempty"`
-	E *string          `json:"e" cborgen:"e"`
-	F []string         `json:"f" cborgen:"f"`
-	G basicSchemaInner `json:"g" cborgen:"g"`
+	String  string           `json:"string" cborgen:"string"`
+	Unicode string           `json:"unicode" cborgen:"unicode"`
+	Integer int64            `json:"integer" cborgen:"integer"`
+	Bool    bool             `json:"bool" cborgen:"bool"`
+	Null    *string          `json:"null" cborgen:"null"`
+	Absent  *string          `json:"absent,omitempty" cborgen:"absent,omitempty"`
+	Array   []string         `json:"array" cborgen:"array"`
+	Object  basicSchemaInner `json:"object" cborgen:"object"`
 }
 
 type basicSchemaInner struct {
-	H string   `json:"h" cborgen:"h"`
-	I int64    `json:"i" cborgen:"i"`
-	J bool     `json:"j" cborgen:"j"`
-	K []string `json:"k" cborgen:"k"`
+	String string   `json:"string" cborgen:"string"`
+	Number int64    `json:"number" cborgen:"number"`
+	Bool   bool     `json:"bool" cborgen:"bool"`
+	Arr    []string `json:"arr" cborgen:"arr"`
 }
 
 type ipldSchema struct {
 	A LexLink  `json:"a" cborgen:"a"`
 	B LexBytes `json:"b" cborgen:"b"`
+	C LexBlob  `json:"c" cborgen:"c"`
 }
 
 type ipldNestedSchema struct {
@@ -47,7 +49,7 @@ type ipldNestedSchemaInnerInner struct {
 }
 
 func TestCborGen(t *testing.T) {
-	if err := cbg.WriteMapEncodersToFile("cbor_gen_test.go", "util", basicSchema{}, basicSchemaInner{}, ipldSchema{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("cbor_gen_test.go", "util", basicSchema{}, basicSchemaInner{}, ipldSchema{}, basicOldSchema{}, basicOldSchemaInner{}, ipldOldSchema{}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -55,37 +57,48 @@ func TestCborGen(t *testing.T) {
 func TestInteropBasicSchema(t *testing.T) {
 	assert := assert.New(t)
 	jsonStr := `{
-      "a": "abc",
-      "b": 123,
-      "c": true,
-      "e": null,
-      "f": ["abc", "def", "ghi"],
-      "g": {
-        "h": "abc",
-        "i": 123,
-        "j": true,
-        "k": ["abc", "def", "ghi"]
+      "string": "abc",
+      "unicode": "a~öñ©⽘☎𓋓😀👨‍👩‍👧‍👧",
+      "integer": 123,
+      "bool": true,
+      "null": null,
+      "array": ["abc", "def", "ghi"],
+      "object": {
+        "string": "abc",
+        "number": 123,
+        "bool": true,
+        "arr": ["abc", "def", "ghi"]
       }
     }`
 	goObj := basicSchema{
-		A: "abc",
-		B: 123,
-		C: true,
-		D: nil,
-		E: nil,
-		F: []string{"abc", "def", "ghi"},
-		G: basicSchemaInner{
-			H: "abc",
-			I: 123,
-			J: true,
-			K: []string{"abc", "def", "ghi"},
+		String:  "abc",
+		Unicode: "a~öñ©⽘☎𓋓😀👨‍👩‍👧‍👧",
+		Integer: 123,
+		Bool:    true,
+		Null:    nil,
+		Absent:  nil,
+		Array:   []string{"abc", "def", "ghi"},
+		Object: basicSchemaInner{
+			String: "abc",
+			Number: 123,
+			Bool:   true,
+			Arr:    []string{"abc", "def", "ghi"},
 		},
 	}
-	cborBytes := []byte{166, 97, 97, 99, 97, 98, 99, 97, 98, 24, 123, 97, 99, 245, 97, 101, 246,
-		97, 102, 131, 99, 97, 98, 99, 99, 100, 101, 102, 99, 103, 104, 105, 97,
-		103, 164, 97, 104, 99, 97, 98, 99, 97, 105, 24, 123, 97, 106, 245, 97,
-		107, 131, 99, 97, 98, 99, 99, 100, 101, 102, 99, 103, 104, 105}
-	cidStr := "bafyreiaioukcatdbdltzqznmyqmwgpgmoex62tkwqtdmganxgv3v5bn2o4"
+	cborBytes := []byte{
+		167, 100, 98, 111, 111, 108, 245, 100, 110, 117, 108, 108, 246, 101, 97,
+		114, 114, 97, 121, 131, 99, 97, 98, 99, 99, 100, 101, 102, 99, 103, 104,
+		105, 102, 111, 98, 106, 101, 99, 116, 164, 99, 97, 114, 114, 131, 99, 97,
+		98, 99, 99, 100, 101, 102, 99, 103, 104, 105, 100, 98, 111, 111, 108, 245,
+		102, 110, 117, 109, 98, 101, 114, 24, 123, 102, 115, 116, 114, 105, 110,
+		103, 99, 97, 98, 99, 102, 115, 116, 114, 105, 110, 103, 99, 97, 98, 99,
+		103, 105, 110, 116, 101, 103, 101, 114, 24, 123, 103, 117, 110, 105, 99,
+		111, 100, 101, 120, 47, 97, 126, 195, 182, 195, 177, 194, 169, 226, 189,
+		152, 226, 152, 142, 240, 147, 139, 147, 240, 159, 152, 128, 240, 159, 145,
+		168, 226, 128, 141, 240, 159, 145, 169, 226, 128, 141, 240, 159, 145, 167,
+		226, 128, 141, 240, 159, 145, 167,
+	}
+	cidStr := "bafyreiclp443lavogvhj3d2ob2cxbfuscni2k5jk7bebjzg7khl3esabwq"
 
 	// easier commenting out of code during development
 	_ = assert
@@ -133,9 +146,19 @@ func TestInteropIpldSchema(t *testing.T) {
       },
       "b": {
         "$bytes": "nFERjvLLiw9qm45JrqH9QTzyC2Lu1Xb4ne6+sBrCzI0"
+      },
+      "c": {
+        "$type": "blob",
+        "ref": {
+        	"$link": "bafkreiccldh766hwcnuxnf2wh6jgzepf2nlu2lvcllt63eww5p6chi4ity"
+        },
+        "mimeType": "image/jpeg",
+        "size": 10000
       }
     }`
 	cidOne, err := cid.Decode("bafyreidfayvfuwqa7qlnopdjiqrxzs6blmoeu4rujcjtnci5beludirz2a")
+	assert.NoError(err)
+	cidTwo, err := cid.Decode("bafkreiccldh766hwcnuxnf2wh6jgzepf2nlu2lvcllt63eww5p6chi4ity")
 	assert.NoError(err)
 	goObj := ipldSchema{
 		A: LexLink(cidOne),
@@ -144,13 +167,24 @@ func TestInteropIpldSchema(t *testing.T) {
 			65, 60, 242, 11, 98, 238, 213, 118, 248, 157, 238, 190, 176, 26, 194,
 			204, 141,
 		}),
+		C: LexBlob{
+			Ref:      LexLink(cidTwo),
+			MimeType: "image/jpeg",
+			Size:     10000,
+		},
 	}
-	cborBytes := []byte{162, 97, 97, 216, 42, 88, 37, 0, 1, 113, 18, 32, 101, 6, 42, 90, 90, 0,
+	cborBytes := []byte{163, 97, 97, 216, 42, 88, 37, 0, 1, 113, 18, 32, 101, 6, 42, 90, 90, 0,
 		252, 22, 215, 60, 105, 68, 35, 124, 203, 193, 91, 28, 74, 114, 52, 72,
 		147, 54, 137, 29, 9, 23, 65, 162, 57, 208, 97, 98, 88, 32, 156, 81, 17,
 		142, 242, 203, 139, 15, 106, 155, 142, 73, 174, 161, 253, 65, 60, 242, 11,
-		98, 238, 213, 118, 248, 157, 238, 190, 176, 26, 194, 204, 141}
-	cidStr := "bafyreif37nlcsyb4ckm2i7y3w2ctnebzkib7ekzmv3tvl3mo5og2gxot5y"
+		98, 238, 213, 118, 248, 157, 238, 190, 176, 26, 194, 204, 141, 97, 99,
+		164, 99, 114, 101, 102, 216, 42, 88, 37, 0, 1, 85, 18, 32, 66, 88, 207,
+		255, 120, 246, 19, 105, 118, 151, 86, 63, 146, 108, 145, 229, 211, 87, 77,
+		46, 162, 90, 231, 237, 146, 214, 235, 252, 35, 163, 136, 158, 100, 115,
+		105, 122, 101, 25, 39, 16, 101, 36, 116, 121, 112, 101, 100, 98, 108, 111,
+		98, 104, 109, 105, 109, 101, 84, 121, 112, 101, 106, 105, 109, 97, 103,
+		101, 47, 106, 112, 101, 103}
+	cidStr := "bafyreihldkhcwijkde7gx4rpkkuw7pl6lbyu5gieunyc7ihactn5bkd2nm"
 
 	// easier commenting out of code during development
 	_ = assert
@@ -285,75 +319,4 @@ func TestInteropIpldNestedSchema(t *testing.T) {
 		assert.NoError(err)
 		assert.Equal(cidStr, goCborCid.String())
 	*/
-}
-
-type blobSchema struct {
-	A string  `json:"a" cborgen:"a"`
-	B LexBlob `json:"b" cborgen:"b"`
-}
-
-func TestBlobParse(t *testing.T) {
-	assert := assert.New(t)
-	jsonStr := `{
-		"a": "abc",
-		"b": {
-			"$type": "blob",
-			"ref": {
-				"$link": "bafyreidfayvfuwqa7qlnopdjiqrxzs6blmoeu4rujcjtnci5beludirz2a"
-		},
-		"mimeType": "image/png",
-		"size": 12345
-		}
-	}`
-	cidOne, err := cid.Decode("bafyreidfayvfuwqa7qlnopdjiqrxzs6blmoeu4rujcjtnci5beludirz2a")
-	goObj := blobSchema{
-		A: "abc",
-		B: LexBlob{
-			Ref:      LexLink(cidOne),
-			MimeType: "image/png",
-			Size:     12345,
-		},
-	}
-	jsonStrLegacy := `{
-		"a": "abc",
-		"b": {
-			"cid": "bafyreidfayvfuwqa7qlnopdjiqrxzs6blmoeu4rujcjtnci5beludirz2a",
-			"mimeType": "image/png"
-		}
-    }`
-	goObjLegacy := blobSchema{
-		A: "abc",
-		B: LexBlob{
-			Ref:      LexLink(cidOne),
-			MimeType: "image/png",
-			Size:     -1,
-		},
-	}
-
-	// basic parsing
-	jsonObj := blobSchema{}
-	assert.NoError(json.Unmarshal([]byte(jsonStr), &jsonObj))
-	jsonObjLegacy := blobSchema{}
-	assert.NoError(json.Unmarshal([]byte(jsonStrLegacy), &jsonObjLegacy))
-
-	// compare parsed against known object
-	assert.Equal(goObj, jsonObj)
-	assert.Equal(goObjLegacy, jsonObjLegacy)
-
-	// reproduce JSON serialization
-	var jsonAll interface{}
-	assert.NoError(json.Unmarshal([]byte(jsonStr), &jsonAll))
-	goJsonBytes, err := json.Marshal(goObj)
-	assert.NoError(err)
-	var goJsonAll interface{}
-	assert.NoError(json.Unmarshal(goJsonBytes, &goJsonAll))
-	assert.Equal(jsonAll, goJsonAll)
-
-	var jsonAllLegacy interface{}
-	assert.NoError(json.Unmarshal([]byte(jsonStrLegacy), &jsonAllLegacy))
-	goJsonBytesLegacy, err := json.Marshal(goObjLegacy)
-	assert.NoError(err)
-	var goJsonAllLegacy interface{}
-	assert.NoError(json.Unmarshal(goJsonBytesLegacy, &goJsonAllLegacy))
-	assert.Equal(jsonAllLegacy, goJsonAllLegacy)
 }
