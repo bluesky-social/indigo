@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/bluesky-social/indigo/api"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -27,13 +26,11 @@ import (
 	util "github.com/bluesky-social/indigo/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
 
-	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/whyrusleeping/go-did"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 var log = logging.Logger("labelmaker")
