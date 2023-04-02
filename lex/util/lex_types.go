@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 
 	"github.com/ipfs/go-cid"
@@ -222,7 +221,6 @@ func (b *LexBlob) MarshalCBOR(w io.Writer) error {
 		}
 		return lb.MarshalCBOR(w)
 	} else {
-		fmt.Println("MARSHAL BLOB: ", b.Ref, b.MimeType, b.Size)
 		bs := BlobSchema{
 			LexiconTypeID: "blob",
 			Ref:           b.Ref,
@@ -239,7 +237,6 @@ func (lb *LexBlob) UnmarshalCBOR(r io.Reader) error {
 		return xerrors.Errorf("parsing $blob CBOR type: %w", err)
 	}
 
-	fmt.Println("LEX BLOB TYPE: ", typ)
 	*lb = LexBlob{}
 	if typ == "blob" {
 		var bs BlobSchema
@@ -247,7 +244,6 @@ func (lb *LexBlob) UnmarshalCBOR(r io.Reader) error {
 		if err != nil {
 			return xerrors.Errorf("parsing $blob CBOR: %v", err)
 		}
-		fmt.Println("BLOB SCHEMA: ", bs.Ref)
 		lb.Ref = bs.Ref
 		lb.MimeType = bs.MimeType
 		lb.Size = bs.Size
