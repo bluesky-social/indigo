@@ -14,6 +14,7 @@ import (
 
 	util "github.com/bluesky-social/indigo/util"
 
+	blockformat "github.com/ipfs/go-block-format"
 	carutil "github.com/ipfs/go-car/util"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -83,7 +84,7 @@ type userView struct {
 	cs   *CarStore
 	user util.Uid
 
-	cache    map[cid.Cid]blocks.Block
+	cache    map[cid.Cid]blockformat.Block
 	prefetch bool
 }
 
@@ -107,7 +108,7 @@ func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
 	return count > 0, nil
 }
 
-func (uv *userView) Get(ctx context.Context, k cid.Cid) (blocks.Block, error) {
+func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, error) {
 	if uv.cache != nil {
 		blk, ok := uv.cache[k]
 		if ok {
@@ -141,7 +142,7 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blocks.Block, error) {
 	}
 }
 
-func (uv *userView) prefetchRead(ctx context.Context, k cid.Cid, path string, offset int64) (blocks.Block, error) {
+func (uv *userView) prefetchRead(ctx context.Context, k cid.Cid, path string, offset int64) (blockformat.Block, error) {
 	fi, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -173,7 +174,7 @@ func (uv *userView) prefetchRead(ctx context.Context, k cid.Cid, path string, of
 	return outblk, nil
 }
 
-func (uv *userView) singleRead(ctx context.Context, k cid.Cid, path string, offset int64) (blocks.Block, error) {
+func (uv *userView) singleRead(ctx context.Context, k cid.Cid, path string, offset int64) (blockformat.Block, error) {
 	fi, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -206,11 +207,11 @@ func (uv *userView) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (uv *userView) Put(ctx context.Context, blk blocks.Block) error {
+func (uv *userView) Put(ctx context.Context, blk blockformat.Block) error {
 	return fmt.Errorf("puts not supported to car view blockstores")
 }
 
-func (uv *userView) PutMany(ctx context.Context, blks []blocks.Block) error {
+func (uv *userView) PutMany(ctx context.Context, blks []blockformat.Block) error {
 	return fmt.Errorf("puts not supported to car view blockstores")
 }
 
@@ -230,7 +231,7 @@ func (uv *userView) GetSize(ctx context.Context, k cid.Cid) (int, error) {
 
 type DeltaSession struct {
 	fresh    blockstore.Blockstore
-	blks     map[cid.Cid]blocks.Block
+	blks     map[cid.Cid]blockformat.Block
 	base     blockstore.Blockstore
 	user     util.Uid
 	seq      int
@@ -296,12 +297,12 @@ func (cs *CarStore) NewDeltaSession(ctx context.Context, user util.Uid, prev *ci
 
 	return &DeltaSession{
 		fresh: blockstore.NewBlockstore(datastore.NewMapDatastore()),
-		blks:  make(map[cid.Cid]blocks.Block),
+		blks:  make(map[cid.Cid]blockformat.Block),
 		base: &userView{
 			user:     user,
 			cs:       cs,
 			prefetch: true,
-			cache:    make(map[cid.Cid]blocks.Block),
+			cache:    make(map[cid.Cid]blockformat.Block),
 		},
 		user: user,
 		cs:   cs,
@@ -315,7 +316,7 @@ func (cs *CarStore) ReadOnlySession(user util.Uid) (*DeltaSession, error) {
 			user:     user,
 			cs:       cs,
 			prefetch: false,
-			cache:    make(map[cid.Cid]blocks.Block),
+			cache:    make(map[cid.Cid]blockformat.Block),
 		},
 		readonly: true,
 		user:     user,
@@ -405,7 +406,7 @@ func (cs *CarStore) writeShardBlocks(ctx context.Context, sh *CarShard, w io.Wri
 
 var _ blockstore.Blockstore = (*DeltaSession)(nil)
 
-func (ds *DeltaSession) Put(ctx context.Context, b blocks.Block) error {
+func (ds *DeltaSession) Put(ctx context.Context, b blockformat.Block) error {
 	if ds.readonly {
 		return fmt.Errorf("cannot write to readonly deltaSession")
 	}
@@ -413,7 +414,7 @@ func (ds *DeltaSession) Put(ctx context.Context, b blocks.Block) error {
 	return nil
 }
 
-func (ds *DeltaSession) PutMany(ctx context.Context, bs []blocks.Block) error {
+func (ds *DeltaSession) PutMany(ctx context.Context, bs []blockformat.Block) error {
 	if ds.readonly {
 		return fmt.Errorf("cannot write to readonly deltaSession")
 	}
@@ -441,7 +442,7 @@ func (ds *DeltaSession) DeleteBlock(ctx context.Context, c cid.Cid) error {
 	return nil
 }
 
-func (ds *DeltaSession) Get(ctx context.Context, c cid.Cid) (blocks.Block, error) {
+func (ds *DeltaSession) Get(ctx context.Context, c cid.Cid) (blockformat.Block, error) {
 	b, ok := ds.blks[c]
 	if ok {
 		return b, nil
