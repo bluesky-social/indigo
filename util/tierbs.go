@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	blockformat "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	ipld "github.com/ipfs/go-ipld-format"
-	"github.com/ipfs/go-libipfs/blocks"
 )
 
 type ReadThroughBstore struct {
@@ -42,7 +42,7 @@ func (bs *ReadThroughBstore) Has(ctx context.Context, c cid.Cid) (bool, error) {
 	return bs.base.Has(ctx, c)
 }
 
-func (bs *ReadThroughBstore) Get(ctx context.Context, c cid.Cid) (blocks.Block, error) {
+func (bs *ReadThroughBstore) Get(ctx context.Context, c cid.Cid) (blockformat.Block, error) {
 	blk, err := bs.fresh.Get(ctx, c)
 	if err == nil {
 		return blk, nil
@@ -68,11 +68,11 @@ func (bs *ReadThroughBstore) GetSize(ctx context.Context, c cid.Cid) (int, error
 	return bs.base.GetSize(ctx, c)
 }
 
-func (bs *ReadThroughBstore) Put(context.Context, blocks.Block) error {
+func (bs *ReadThroughBstore) Put(context.Context, blockformat.Block) error {
 	return fmt.Errorf("writes not allows on readthrough blockstore")
 }
 
-func (bs *ReadThroughBstore) PutMany(context.Context, []blocks.Block) error {
+func (bs *ReadThroughBstore) PutMany(context.Context, []blockformat.Block) error {
 	return fmt.Errorf("writes not allows on readthrough blockstore")
 }
 
