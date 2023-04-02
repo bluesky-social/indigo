@@ -140,9 +140,9 @@ func (lb *LexBytes) UnmarshalCBOR(r io.Reader) error {
 // refactor) blob. size=-1 indicates that this is (and should be serialized as)
 // a legacy blob (string CID, no size, etc).
 type LexBlob struct {
-	Ref      LexLink `json:"ref" cborgen:"ref"`
-	MimeType string  `json:"mimeType" cborgen:"mimeType"`
-	Size     int64   `json:"size" cborgen:"size"`
+	Ref      LexLink
+	MimeType string
+	Size     int64
 }
 
 type LegacyBlob struct {
@@ -151,13 +151,13 @@ type LegacyBlob struct {
 }
 
 type BlobSchema struct {
-	LexiconTypeID string  `json:"$type,omitempty" cborgen:"$type"`
+	LexiconTypeID string  `json:"$type,const=blob" cborgen:"$type,const=blob"`
 	Ref           LexLink `json:"ref" cborgen:"ref"`
 	MimeType      string  `json:"mimeType" cborgen:"mimeType"`
 	Size          int64   `json:"size" cborgen:"size"`
 }
 
-func (b *LexBlob) MarshalJSON() ([]byte, error) {
+func (b LexBlob) MarshalJSON() ([]byte, error) {
 	if b.Size < 0 {
 		lb := LegacyBlob{
 			Cid:      b.Ref.String(),
@@ -194,8 +194,8 @@ func (b *LexBlob) UnmarshalJSON(raw []byte) error {
 			return xerrors.Errorf("parsing blob: negative size: %d", bs.Size)
 		}
 	} else {
-		var legacy *LegacyBlob
-		err := json.Unmarshal(raw, legacy)
+		var legacy LegacyBlob
+		err := json.Unmarshal(raw, &legacy)
 		if err != nil {
 			return xerrors.Errorf("parsing legacy blob: %v", err)
 		}
