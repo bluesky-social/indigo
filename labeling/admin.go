@@ -12,11 +12,11 @@ import (
 )
 
 // This is probably only a temporary method
-func (s *Server) hydrateRepoView(ctx context.Context, did, indexedAt string) *comatproto.AdminRepo_View {
-	return &comatproto.AdminRepo_View{
+func (s *Server) hydrateRepoView(ctx context.Context, did, indexedAt string) *comatproto.AdminDefs_RepoView {
+	return &comatproto.AdminDefs_RepoView{
 		// TODO(bnewbold): populate more, or more correctly, from some backend?
-		Account:        nil,
 		Did:            did,
+		Email:          nil,
 		Handle:         "TODO",
 		IndexedAt:      indexedAt,
 		Moderation:     nil,
@@ -25,16 +25,16 @@ func (s *Server) hydrateRepoView(ctx context.Context, did, indexedAt string) *co
 }
 
 // This is probably only a temporary method
-func (s *Server) hydrateRecordView(ctx context.Context, did string, uri, cid *string, indexedAt string) *comatproto.AdminRecord_View {
+func (s *Server) hydrateRecordView(ctx context.Context, did string, uri, cid *string, indexedAt string) *comatproto.AdminDefs_RecordView {
 	repoView := s.hydrateRepoView(ctx, did, indexedAt)
 	// TODO(bnewbold): populate more, or more correctly, from some backend?
-	recordView := comatproto.AdminRecord_View{
+	recordView := comatproto.AdminDefs_RecordView{
 		BlobCids:   []string{},
 		IndexedAt:  indexedAt,
 		Moderation: nil,
 		Repo:       repoView,
 		// XXX: replace with actual record
-		Value: lexutil.LexiconTypeDecoder{&appbsky.FeedPost{}},
+		Value: &lexutil.LexiconTypeDecoder{&appbsky.FeedPost{}},
 	}
 	if uri != nil {
 		recordView.Uri = *uri
@@ -45,34 +45,34 @@ func (s *Server) hydrateRecordView(ctx context.Context, did string, uri, cid *st
 	return &recordView
 }
 
-func (s *Server) hydrateModerationActions(ctx context.Context, rows []models.ModerationAction) ([]*comatproto.AdminModerationAction_View, error) {
+func (s *Server) hydrateModerationActions(ctx context.Context, rows []models.ModerationAction) ([]*comatproto.AdminDefs_ActionView, error) {
 
-	var out []*comatproto.AdminModerationAction_View
+	var out []*comatproto.AdminDefs_ActionView
 
 	for _, row := range rows {
 		// TODO(bnewbold): resolve these
 		resolvedReportIds := []int64{}
 		subjectBlobCIDs := []string{}
 
-		var reversal *comatproto.AdminModerationAction_Reversal
+		var reversal *comatproto.AdminDefs_ActionReversal
 		if row.ReversedAt != nil {
-			reversal = &comatproto.AdminModerationAction_Reversal{
+			reversal = &comatproto.AdminDefs_ActionReversal{
 				CreatedAt: row.ReversedAt.Format(time.RFC3339),
 				CreatedBy: *row.ReversedByDid,
 				Reason:    *row.ReversedReason,
 			}
 		}
-		var subj *comatproto.AdminModerationAction_View_Subject
+		var subj *comatproto.AdminDefs_ActionView_Subject
 		switch row.SubjectType {
 		case "com.atproto.repo.repoRef":
-			subj = &comatproto.AdminModerationAction_View_Subject{
-				RepoRepoRef: &comatproto.RepoRepoRef{
+			subj = &comatproto.AdminDefs_ActionView_Subject{
+				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
 					LexiconTypeID: "com.atproto.repo.repoRef",
 					Did:           row.SubjectDid,
 				},
 			}
 		case "com.atproto.repo.recordRef":
-			subj = &comatproto.AdminModerationAction_View_Subject{
+			subj = &comatproto.AdminDefs_ActionView_Subject{
 				RepoStrongRef: &comatproto.RepoStrongRef{
 					LexiconTypeID: "com.atproto.repo.strongRef",
 					Uri:           *row.SubjectUri,
@@ -83,7 +83,7 @@ func (s *Server) hydrateModerationActions(ctx context.Context, rows []models.Mod
 			return nil, fmt.Errorf("unsupported moderation SubjectType: %v", row.SubjectType)
 		}
 
-		view := &comatproto.AdminModerationAction_View{
+		view := &comatproto.AdminDefs_ActionView{
 			Action:            &row.Action,
 			CreatedAt:         row.CreatedAt.Format(time.RFC3339),
 			CreatedBy:         row.CreatedByDid,
@@ -99,38 +99,38 @@ func (s *Server) hydrateModerationActions(ctx context.Context, rows []models.Mod
 	return out, nil
 }
 
-func (s *Server) hydrateModerationActionDetails(ctx context.Context, rows []models.ModerationAction) ([]*comatproto.AdminModerationAction_ViewDetail, error) {
+func (s *Server) hydrateModerationActionDetails(ctx context.Context, rows []models.ModerationAction) ([]*comatproto.AdminDefs_ActionViewDetail, error) {
 
-	var out []*comatproto.AdminModerationAction_ViewDetail
+	var out []*comatproto.AdminDefs_ActionViewDetail
 	for _, row := range rows {
 
 		// TODO(bnewbold): resolve these
-		resolvedReports := []*comatproto.AdminModerationReport_View{}
-		subjectBlobs := []*comatproto.AdminBlob_View{}
+		resolvedReports := []*comatproto.AdminDefs_ReportView{}
+		subjectBlobs := []*comatproto.AdminDefs_BlobView{}
 
-		var reversal *comatproto.AdminModerationAction_Reversal
+		var reversal *comatproto.AdminDefs_ActionReversal
 		if row.ReversedAt != nil {
-			reversal = &comatproto.AdminModerationAction_Reversal{
+			reversal = &comatproto.AdminDefs_ActionReversal{
 				CreatedAt: row.ReversedAt.Format(time.RFC3339),
 				CreatedBy: *row.ReversedByDid,
 				Reason:    *row.ReversedReason,
 			}
 		}
-		var subj *comatproto.AdminModerationAction_ViewDetail_Subject
+		var subj *comatproto.AdminDefs_ActionViewDetail_Subject
 		switch row.SubjectType {
 		case "com.atproto.repo.repoRef":
-			subj = &comatproto.AdminModerationAction_ViewDetail_Subject{
-				AdminRepo_View: s.hydrateRepoView(ctx, row.SubjectDid, row.CreatedAt.Format(time.RFC3339)),
+			subj = &comatproto.AdminDefs_ActionViewDetail_Subject{
+				AdminDefs_RepoView: s.hydrateRepoView(ctx, row.SubjectDid, row.CreatedAt.Format(time.RFC3339)),
 			}
 		case "com.atproto.repo.recordRef":
-			subj = &comatproto.AdminModerationAction_ViewDetail_Subject{
-				AdminRecord_View: s.hydrateRecordView(ctx, row.SubjectDid, row.SubjectUri, row.SubjectCid, row.CreatedAt.Format(time.RFC3339)),
+			subj = &comatproto.AdminDefs_ActionViewDetail_Subject{
+				AdminDefs_RecordView: s.hydrateRecordView(ctx, row.SubjectDid, row.SubjectUri, row.SubjectCid, row.CreatedAt.Format(time.RFC3339)),
 			}
 		default:
 			return nil, fmt.Errorf("unsupported moderation SubjectType: %v", row.SubjectType)
 		}
 
-		viewDetail := &comatproto.AdminModerationAction_ViewDetail{
+		viewDetail := &comatproto.AdminDefs_ActionViewDetail{
 			Action:          &row.Action,
 			CreatedAt:       row.CreatedAt.Format(time.RFC3339),
 			CreatedBy:       row.CreatedByDid,
@@ -146,24 +146,24 @@ func (s *Server) hydrateModerationActionDetails(ctx context.Context, rows []mode
 	return out, nil
 }
 
-func (s *Server) hydrateModerationReports(ctx context.Context, rows []models.ModerationReport) ([]*comatproto.AdminModerationReport_View, error) {
+func (s *Server) hydrateModerationReports(ctx context.Context, rows []models.ModerationReport) ([]*comatproto.AdminDefs_ReportView, error) {
 
-	var out []*comatproto.AdminModerationReport_View
+	var out []*comatproto.AdminDefs_ReportView
 	for _, row := range rows {
 		// TODO(bnewbold): fetch these IDs
 		var resolvedByActionIds []int64
 
-		var subj *comatproto.AdminModerationReport_View_Subject
+		var subj *comatproto.AdminDefs_ReportView_Subject
 		switch row.SubjectType {
 		case "com.atproto.repo.repoRef":
-			subj = &comatproto.AdminModerationReport_View_Subject{
-				RepoRepoRef: &comatproto.RepoRepoRef{
+			subj = &comatproto.AdminDefs_ReportView_Subject{
+				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
 					LexiconTypeID: "com.atproto.repo.repoRef",
 					Did:           row.SubjectDid,
 				},
 			}
 		case "com.atproto.repo.recordRef":
-			subj = &comatproto.AdminModerationReport_View_Subject{
+			subj = &comatproto.AdminDefs_ReportView_Subject{
 				RepoStrongRef: &comatproto.RepoStrongRef{
 					LexiconTypeID: "com.atproto.repo.strongRef",
 					Uri:           *row.SubjectUri,
@@ -174,11 +174,11 @@ func (s *Server) hydrateModerationReports(ctx context.Context, rows []models.Mod
 			return nil, fmt.Errorf("unsupported moderation SubjectType: %v", row.SubjectType)
 		}
 
-		view := &comatproto.AdminModerationReport_View{
+		view := &comatproto.AdminDefs_ReportView{
 			Id:                  int64(row.ID),
 			ReasonType:          &row.ReasonType,
 			Subject:             subj,
-			ReportedByDid:       row.ReportedByDid,
+			ReportedBy:          row.ReportedByDid,
 			CreatedAt:           row.CreatedAt.Format(time.RFC3339),
 			ResolvedByActionIds: resolvedByActionIds,
 		}
@@ -187,32 +187,32 @@ func (s *Server) hydrateModerationReports(ctx context.Context, rows []models.Mod
 	return out, nil
 }
 
-func (s *Server) hydrateModerationReportDetails(ctx context.Context, rows []models.ModerationReport) ([]*comatproto.AdminModerationReport_ViewDetail, error) {
+func (s *Server) hydrateModerationReportDetails(ctx context.Context, rows []models.ModerationReport) ([]*comatproto.AdminDefs_ReportViewDetail, error) {
 
-	var out []*comatproto.AdminModerationReport_ViewDetail
+	var out []*comatproto.AdminDefs_ReportViewDetail
 	for _, row := range rows {
 		// TODO(bnewbold): fetch these objects
-		var resolvedByActions []*comatproto.AdminModerationAction_View
+		var resolvedByActions []*comatproto.AdminDefs_ActionView
 
-		var subj *comatproto.AdminModerationReport_ViewDetail_Subject
+		var subj *comatproto.AdminDefs_ReportViewDetail_Subject
 		switch row.SubjectType {
 		case "com.atproto.repo.repoRef":
-			subj = &comatproto.AdminModerationReport_ViewDetail_Subject{
-				AdminRepo_View: s.hydrateRepoView(ctx, row.SubjectDid, row.CreatedAt.Format(time.RFC3339)),
+			subj = &comatproto.AdminDefs_ReportViewDetail_Subject{
+				AdminDefs_RepoView: s.hydrateRepoView(ctx, row.SubjectDid, row.CreatedAt.Format(time.RFC3339)),
 			}
 		case "com.atproto.repo.recordRef":
-			subj = &comatproto.AdminModerationReport_ViewDetail_Subject{
-				AdminRecord_View: s.hydrateRecordView(ctx, row.SubjectDid, row.SubjectUri, row.SubjectCid, row.CreatedAt.Format(time.RFC3339)),
+			subj = &comatproto.AdminDefs_ReportViewDetail_Subject{
+				AdminDefs_RecordView: s.hydrateRecordView(ctx, row.SubjectDid, row.SubjectUri, row.SubjectCid, row.CreatedAt.Format(time.RFC3339)),
 			}
 		default:
 			return nil, fmt.Errorf("unsupported moderation SubjectType: %v", row.SubjectType)
 		}
 
-		viewDetail := &comatproto.AdminModerationReport_ViewDetail{
+		viewDetail := &comatproto.AdminDefs_ReportViewDetail{
 			Id:                int64(row.ID),
 			ReasonType:        &row.ReasonType,
 			Subject:           subj,
-			ReportedByDid:     row.ReportedByDid,
+			ReportedBy:        row.ReportedByDid,
 			CreatedAt:         row.CreatedAt.Format(time.RFC3339),
 			ResolvedByActions: resolvedByActions,
 		}

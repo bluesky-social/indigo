@@ -22,11 +22,11 @@ func TestLabelMakerXRPCReportRepo(t *testing.T) {
 	// create and read back a basic repo report
 	rt := "spam"
 	reportedDid := "did:plc:123"
-	report := comatproto.ReportCreate_Input{
+	report := comatproto.ModerationCreateReport_Input{
 		//Reason
 		ReasonType: &rt,
-		Subject: &comatproto.ReportCreate_Input_Subject{
-			RepoRepoRef: &comatproto.RepoRepoRef{
+		Subject: &comatproto.ModerationCreateReport_Input_Subject{
+			AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
 				Did: reportedDid,
 			},
 		},
@@ -44,12 +44,12 @@ func TestLabelMakerXRPCReportRepo(t *testing.T) {
 	// TODO: "Created" / 201
 	assert.Equal(t, 200, recorder.Code)
 
-	var out comatproto.ReportCreate_Output
+	var out comatproto.ModerationCreateReport_Output
 	if err := json.Unmarshal([]byte(recorder.Body.String()), &out); err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, report.ReasonType, out.ReasonType)
-	assert.Equal(t, report.Subject.RepoRepoRef, out.Subject.RepoRepoRef)
+	assert.Equal(t, report.Subject.AdminDefs_RepoRef, out.Subject.AdminDefs_RepoRef)
 	reportId := out.Id
 
 	// read it back
@@ -60,16 +60,16 @@ func TestLabelMakerXRPCReportRepo(t *testing.T) {
 	c = e.NewContext(req, recorder)
 	assert.NoError(t, lm.HandleComAtprotoAdminGetModerationReport(c))
 	assert.Equal(t, 200, recorder.Code)
-	var vd comatproto.AdminModerationReport_ViewDetail
+	var vd comatproto.AdminDefs_ReportViewDetail
 	if err := json.Unmarshal([]byte(recorder.Body.String()), &vd); err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, vd.Id, reportId, vd.Id)
 	assert.Equal(t, vd.ReasonType, report.ReasonType)
 	assert.Nil(t, vd.Reason)
-	assert.Equal(t, vd.Subject.AdminRepo_View.Did, reportedDid)
-	assert.Nil(t, vd.Subject.AdminRecord_View)
-	// TODO: additional AdminRecord_View fields
+	assert.Equal(t, vd.Subject.AdminDefs_RepoView.Did, reportedDid)
+	assert.Nil(t, vd.Subject.AdminDefs_RecordView)
+	// TODO: additional AdminDefs_RecordView fields
 
 	// read back via get multi
 	req = httptest.NewRequest(http.MethodGet, "/xrpc/com.atproto.admin.getModerationReports", nil)
@@ -102,11 +102,11 @@ func TestLabelMakerXRPCReportRepoBad(t *testing.T) {
 
 	for _, row := range table {
 
-		report := comatproto.ReportCreate_Input{
+		report := comatproto.ModerationCreateReport_Input{
 			//Reason
 			ReasonType: &row.rType,
-			Subject: &comatproto.ReportCreate_Input_Subject{
-				RepoRepoRef: &comatproto.RepoRepoRef{
+			Subject: &comatproto.ModerationCreateReport_Input_Subject{
+				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
 					Did: row.rDid,
 				},
 			},
@@ -137,14 +137,14 @@ func TestLabelMakerXRPCReportRecord(t *testing.T) {
 	reason := "I just don't like it!"
 	uri := "at://did:plc:123/com.example.record/bcd234"
 	cid := "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454"
-	report := comatproto.ReportCreate_Input{
+	report := comatproto.ModerationCreateReport_Input{
 		Reason:     &reason,
 		ReasonType: &rt,
-		Subject: &comatproto.ReportCreate_Input_Subject{
-			RepoRecordRef: &comatproto.RepoRecordRef{
-				//com.atproto.repo.recordRef
+		Subject: &comatproto.ModerationCreateReport_Input_Subject{
+			RepoStrongRef: &comatproto.RepoStrongRef{
+				//com.atproto.repo.strongRef
 				Uri: uri,
-				Cid: &cid,
+				Cid: cid,
 			},
 		},
 	}
@@ -161,12 +161,12 @@ func TestLabelMakerXRPCReportRecord(t *testing.T) {
 	// TODO: "Created" / 201
 	assert.Equal(t, 200, recorder.Code)
 
-	var out comatproto.ReportCreate_Output
+	var out comatproto.ModerationCreateReport_Output
 	if err := json.Unmarshal([]byte(recorder.Body.String()), &out); err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, report.ReasonType, out.ReasonType)
-	assert.Equal(t, report.Subject.RepoRepoRef, out.Subject.RepoRepoRef)
+	assert.Equal(t, report.Subject.AdminDefs_RepoRef, out.Subject.AdminDefs_RepoRef)
 	reportId := out.Id
 
 	// read it back
@@ -177,7 +177,7 @@ func TestLabelMakerXRPCReportRecord(t *testing.T) {
 	c = e.NewContext(req, recorder)
 	assert.NoError(t, lm.HandleComAtprotoAdminGetModerationReport(c))
 	assert.Equal(t, 200, recorder.Code)
-	var vd comatproto.AdminModerationReport_ViewDetail
+	var vd comatproto.AdminDefs_ReportViewDetail
 	if err := json.Unmarshal([]byte(recorder.Body.String()), &vd); err != nil {
 		t.Fatal(err)
 	}
@@ -196,23 +196,22 @@ func TestLabelMakerXRPCReportRecordBad(t *testing.T) {
 	table := []struct {
 		rType      string
 		rUri       string
-		rCid       *string
+		rCid       string
 		statusCode int
 	}{
-		{"spam", uriStr, &cidStr, 200},
-		{"spam", uriStr, nil, 400},
-		{"", uriStr, &cidStr, 400},
-		{"spam", "", &cidStr, 400},
-		{"spam", uriStr, &emptyStr, 400},
+		{"spam", uriStr, cidStr, 200},
+		{"", uriStr, cidStr, 400},
+		{"spam", "", cidStr, 400},
+		{"spam", uriStr, emptyStr, 400},
 	}
 
 	for _, row := range table {
 
-		report := comatproto.ReportCreate_Input{
+		report := comatproto.ModerationCreateReport_Input{
 			ReasonType: &row.rType,
-			Subject: &comatproto.ReportCreate_Input_Subject{
-				RepoRecordRef: &comatproto.RepoRecordRef{
-					//com.atproto.repo.recordRef
+			Subject: &comatproto.ModerationCreateReport_Input_Subject{
+				RepoStrongRef: &comatproto.RepoStrongRef{
+					//com.atproto.repo.strongRef
 					Uri: row.rUri,
 					Cid: row.rCid,
 				},
