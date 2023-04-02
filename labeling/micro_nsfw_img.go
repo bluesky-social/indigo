@@ -8,9 +8,9 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"time"
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	util "github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/version"
 )
 
@@ -28,17 +28,8 @@ type MicroNSFWImgResp struct {
 }
 
 func NewMicroNSFWImgLabeler(url string) MicroNSFWImgLabeler {
-	client := http.Client{
-		Transport: &http.Transport{
-			Proxy:                 http.ProxyFromEnvironment,
-			MaxIdleConns:          20,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		},
-	}
 	return MicroNSFWImgLabeler{
-		Client:   client,
+		Client:   *util.RobustHTTPClient(),
 		Endpoint: url,
 	}
 }
@@ -59,14 +50,14 @@ func (resp *MicroNSFWImgResp) SummarizeLabels() []string {
 	return labels
 }
 
-func (mnil *MicroNSFWImgLabeler) LabelBlob(ctx context.Context, blob lexutil.Blob, blobBytes []byte) ([]string, error) {
+func (mnil *MicroNSFWImgLabeler) LabelBlob(ctx context.Context, blob lexutil.LexBlob, blobBytes []byte) ([]string, error) {
 
-	log.Infof("sending blob to micro-NSFW-img cid=%s mimetype=%s size=%d", blob.Cid, blob.MimeType, len(blobBytes))
+	log.Infof("sending blob to micro-NSFW-img cid=%s mimetype=%s size=%d", blob.Ref, blob.MimeType, len(blobBytes))
 
 	// generic HTTP form file upload, then parse the response JSON
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", blob.Cid)
+	part, err := writer.CreateFormFile("file", blob.Ref.String())
 	if err != nil {
 		return nil, err
 	}
@@ -105,6 +96,6 @@ func (mnil *MicroNSFWImgLabeler) LabelBlob(ctx context.Context, blob lexutil.Blo
 		return nil, fmt.Errorf("failed to parse micro-NSFW-img resp JSON: %v", err)
 	}
 	scoreJson, _ := json.Marshal(nsfwScore)
-	log.Infof("micro-NSFW-img result cid=%s scores=%v", blob.Cid, string(scoreJson))
+	log.Infof("micro-NSFW-img result cid=%s scores=%v", blob.Ref, string(scoreJson))
 	return nsfwScore.SummarizeLabels(), nil
 }

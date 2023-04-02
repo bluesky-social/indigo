@@ -24,19 +24,36 @@ func main() {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("api/bsky/cbor_gen.go", "bsky", bsky.FeedPost{}, bsky.FeedRepost{}, bsky.FeedVote{}, bsky.FeedPost_Entity{}, bsky.FeedPost_ReplyRef{}, bsky.FeedPost_TextSlice{}, bsky.EmbedImages{}, bsky.EmbedImages_PresentedImage{}, bsky.EmbedExternal{}, bsky.EmbedExternal_External{}, bsky.EmbedImages_Image{}, bsky.GraphFollow{}, bsky.ActorRef{}, bsky.ActorProfile{}, bsky.SystemDeclaration{}, bsky.GraphAssertion{}, bsky.GraphConfirmation{}, bsky.EmbedRecord{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("api/bsky/cbor_gen.go", "bsky",
+		bsky.FeedPost{}, bsky.FeedRepost{}, bsky.FeedPost_Entity{},
+		bsky.FeedPost_ReplyRef{}, bsky.FeedPost_TextSlice{}, bsky.EmbedImages{},
+		bsky.EmbedExternal{}, bsky.EmbedExternal_External{},
+		bsky.EmbedImages_Image{}, bsky.GraphFollow{}, bsky.ActorProfile{},
+		bsky.EmbedRecord{}, bsky.FeedLike{}, bsky.RichtextFacet{},
+		bsky.RichtextFacet_ByteSlice{}, bsky.RichtextFacet_Features_Elem{},
+		bsky.RichtextFacet_Link{}, bsky.RichtextFacet_Mention{},
+		bsky.EmbedRecordWithMedia{},
+		bsky.FeedDefs_NotFoundPost{},
+		/*bsky.EmbedImages_View{},
+		bsky.EmbedRecord_View{}, bsky.EmbedRecordWithMedia_View{},
+		bsky.EmbedExternal_View{}, bsky.EmbedImages_ViewImage{},
+		bsky.EmbedExternal_ViewExternal{}, bsky.EmbedRecord_ViewNotFound{},
+		bsky.FeedDefs_ThreadViewPost{}, bsky.EmbedRecord_ViewRecord{},
+		bsky.FeedDefs_PostView{}, bsky.ActorDefs_ProfileViewBasic{},
+		*/
+	); err != nil {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("api/atproto/cbor_gen.go", "atproto", atproto.RepoStrongRef{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("api/atproto/cbor_gen.go", "atproto", atproto.RepoStrongRef{}, atproto.SyncSubscribeRepos_Commit{}, atproto.SyncSubscribeRepos_Handle{}, atproto.SyncSubscribeRepos_Info{}, atproto.SyncSubscribeRepos_Migrate{}, atproto.SyncSubscribeRepos_RepoOp{}, atproto.SyncSubscribeRepos_Tombstone{}); err != nil {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("lex/util/cbor_gen.go", "util", lexutil.CborChecker{}, lexutil.Blob{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("lex/util/cbor_gen.go", "util", lexutil.CborChecker{}, lexutil.LegacyBlob{}, lexutil.BlobSchema{}); err != nil {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("events/cbor_gen.go", "events", events.EventHeader{}, events.RepoAppend{}, events.RepoOp{}, events.InfoFrame{}, events.ErrorFrame{}, events.Label{}, events.LabelBatch{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("events/cbor_gen.go", "events", events.EventHeader{}, events.ErrorFrame{}, events.Label{}, events.LabelBatch{}); err != nil {
 		panic(err)
 	}
 }

@@ -63,11 +63,11 @@ Other:
     go run ./gen
 
 To run codegen for new or updated Lexicons, using lexgen, first place (or git
-checout) the JSON lexicon files `$SOMEWHERE`. Also, install the `goimports`
+checout) the JSON lexicon files at `../atproto/`. Also, install the `goimports`
 tool. Then, in *this* repository (indigo), run commands like:
 
-    go run ./cmd/lexgen/ --package bsky --prefix app.bsky --outdir api/bsky $SOMEWHERE/lexicons/app/bsky/
-    go run ./cmd/lexgen/ --package atproto --prefix com.atproto --outdir api/atproto $SOMEWHERE/lexicons/com/atproto/
+    go run ./cmd/lexgen/ --package bsky --prefix app.bsky --outdir api/bsky ../atproto/lexicons/app/bsky/
+    go run ./cmd/lexgen/ --package atproto --prefix com.atproto --outdir api/atproto ../atproto/lexicons/com/atproto/
 
 You may want to delete all the codegen files before re-generating, to detect deleted files.
 
@@ -76,10 +76,8 @@ It can require some manual munging between the lexgen step and a later `go run .
 To generate server stubs and handlers, push them in a temporary directory
 first, then merge changes in to the actual PDS code:
 
-    go run ./cmd/lexgen/ --package pds --gen-server --types-import com.atproto:github.com/bluesky-social/indigo/api/atproto --types-import app.bsky:github.com/bluesky-social/indigo/api/bsky --outdir pds $SOMEWHERE/lexicons
-
     mkdir tmppds
-    go run ./cmd/lexgen/ --package pds --gen-server --types-import com.atproto:github.com/bluesky-social/indigo/api/atproto --types-import app.bsky:github.com/bluesky-social/indigo/api/bsky --outdir tmppds --gen-handlers $SOMEWHERE/lexicons
+    go run ./cmd/lexgen/ --package pds --gen-server --types-import com.atproto:github.com/bluesky-social/indigo/api/atproto --types-import app.bsky:github.com/bluesky-social/indigo/api/bsky --outdir tmppds --gen-handlers ../atproto/lexicons
 
 
 ## tips and tricks

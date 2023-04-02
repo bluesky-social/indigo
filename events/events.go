@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+
 	"github.com/bluesky-social/indigo/util"
 	logging "github.com/ipfs/go-log"
 	"go.opentelemetry.io/otel"
@@ -96,20 +98,22 @@ type Subscriber struct {
 
 const (
 	EvtKindErrorFrame = -1
-	EvtKindRepoAppend = 1
-	EvtKindInfoFrame  = 2
-	EvtKindLabelBatch = 3
+	EvtKindMessage    = 1
 )
 
 type EventHeader struct {
-	Op int64 `cborgen:"op"`
+	Op      int64  `cborgen:"op"`
+	MsgType string `cborgen:"t"`
 }
 
 type XRPCStreamEvent struct {
-	RepoAppend *RepoAppend
-	Info       *InfoFrame
-	Error      *ErrorFrame
-	LabelBatch *LabelBatch
+	Error         *ErrorFrame
+	RepoCommit    *comatproto.SyncSubscribeRepos_Commit
+	RepoHandle    *comatproto.SyncSubscribeRepos_Handle
+	RepoInfo      *comatproto.SyncSubscribeRepos_Info
+	RepoMigrate   *comatproto.SyncSubscribeRepos_Migrate
+	RepoTombstone *comatproto.SyncSubscribeRepos_Tombstone
+	LabelBatch    *LabelBatch
 
 	// some private fields for internal routing perf
 	PrivUid         util.Uid `json:"-" cborgen:"-"`
@@ -117,42 +121,9 @@ type XRPCStreamEvent struct {
 	PrivRelevantPds []uint   `json:"-" cborgen:"-"`
 }
 
-type RepoAppend struct {
-	Seq int64 `cborgen:"seq"`
-
-	Event string `cborgen:"event"`
-
-	// Repo is the DID of the repo this event is about
-	Repo string `cborgen:"repo"`
-
-	Commit string  `cborgen:"commit"`
-	Prev   *string `cborgen:"prev"`
-	//Commit cid.Cid  `cborgen:"commit"`
-	//Prev   *cid.Cid `cborgen:"prev"`
-
-	Ops    []*RepoOp `cborgen:"ops"`
-	Blocks []byte    `cborgen:"blocks"`
-	TooBig bool      `cborgen:"tooBig"`
-
-	Blobs []string `cborgen:"blobs"`
-
-	Time string `cborgen:"time"`
-}
-
-type RepoOp struct {
-	Path   string  `cborgen:"path"`
-	Action string  `cborgen:"action"`
-	Cid    *string `cborgen:"cid"`
-}
-
 type LabelBatch struct {
 	Seq    int64   `cborgen:"seq"`
 	Labels []Label `cborgen:"labels"`
-}
-
-type InfoFrame struct {
-	Info    string `cborgen:"info"`
-	Message string `cborgen:"message"`
 }
 
 type ErrorFrame struct {

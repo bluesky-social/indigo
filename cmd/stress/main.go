@@ -18,6 +18,7 @@ import (
 	"github.com/bluesky-social/indigo/testing"
 	"github.com/bluesky-social/indigo/version"
 	"github.com/bluesky-social/indigo/xrpc"
+
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -95,7 +96,7 @@ var postingCmd = &cli.Command{
 			invite = &inv
 		}
 
-		cfg, err := comatproto.ServerGetAccountsConfig(ctx, xrpcc)
+		cfg, err := comatproto.ServerDescribeServer(ctx, xrpcc)
 		if err != nil {
 			return err
 		}
@@ -103,7 +104,7 @@ var postingCmd = &cli.Command{
 		domain := cfg.AvailableUserDomains[0]
 		fmt.Println("domain: ", domain)
 
-		resp, err := comatproto.AccountCreate(ctx, xrpcc, &comatproto.AccountCreate_Input{
+		resp, err := comatproto.ServerCreateAccount(ctx, xrpcc, &comatproto.ServerCreateAccount_Input{
 			Email:      fmt.Sprintf("user-%s@test.com", id),
 			Handle:     "user-" + id + domain,
 			Password:   "password",
@@ -131,8 +132,8 @@ var postingCmd = &cli.Command{
 
 					res, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 						Collection: "app.bsky.feed.post",
-						Did:        xrpcc.Auth.Did,
-						Record: lexutil.LexiconTypeDecoder{&appbsky.FeedPost{
+						Repo:       xrpcc.Auth.Did,
+						Record: &lexutil.LexiconTypeDecoder{&appbsky.FeedPost{
 							Text:      hex.EncodeToString(buf),
 							CreatedAt: time.Now().Format(time.RFC3339),
 						}},

@@ -12,19 +12,19 @@ func init() {
 }
 
 type FeedGetRepostedBy_Output struct {
-	LexiconTypeID string               `json:"$type,omitempty"`
-	Cid           *string              `json:"cid,omitempty" cborgen:"cid"`
-	Cursor        *string              `json:"cursor,omitempty" cborgen:"cursor"`
-	RepostedBy    []*ActorRef_WithInfo `json:"repostedBy" cborgen:"repostedBy"`
-	Uri           string               `json:"uri" cborgen:"uri"`
+	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	Cid           *string                  `json:"cid,omitempty" cborgen:"cid,omitempty"`
+	Cursor        *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
+	RepostedBy    []*ActorDefs_ProfileView `json:"repostedBy" cborgen:"repostedBy"`
+	Uri           string                   `json:"uri" cborgen:"uri"`
 }
 
-func FeedGetRepostedBy(ctx context.Context, c *xrpc.Client, before string, cid string, limit int64, uri string) (*FeedGetRepostedBy_Output, error) {
+func FeedGetRepostedBy(ctx context.Context, c *xrpc.Client, cid string, cursor string, limit int64, uri string) (*FeedGetRepostedBy_Output, error) {
 	var out FeedGetRepostedBy_Output
 
 	params := map[string]interface{}{
-		"before": before,
 		"cid":    cid,
+		"cursor": cursor,
 		"limit":  limit,
 		"uri":    uri,
 	}

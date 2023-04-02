@@ -12,8 +12,6 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
-const actorUserDeclarationCid = "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u"
-
 func makeToken(subject string, scope string, exp time.Time) jwt.Token {
 	tok := jwt.New()
 	tok.Set("scope", scope)

@@ -1,12 +1,13 @@
 module github.com/bluesky-social/indigo
 
-go 1.18
+go 1.20
 
 require (
 	contrib.go.opencensus.io/exporter/prometheus v0.4.2
 	github.com/brianvoe/gofakeit/v6 v6.20.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/websocket v1.5.0
+	github.com/hashicorp/go-retryablehttp v0.7.2
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/ipfs/go-block-format v0.1.2
 	github.com/ipfs/go-bs-sqlite3 v0.0.0-20221122195556-bfcee1be620d
@@ -26,12 +27,13 @@ require (
 	github.com/labstack/echo/v4 v4.10.2
 	github.com/lestrrat-go/jwx/v2 v2.0.9
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/multiformats/go-multibase v0.2.0
 	github.com/multiformats/go-multihash v0.2.1
 	github.com/polydawn/refmt v0.89.1-0.20221221234430-40501e09de1f
 	github.com/prometheus/client_golang v1.14.0
 	github.com/stretchr/testify v1.8.2
 	github.com/urfave/cli/v2 v2.25.1
-	github.com/whyrusleeping/cbor-gen v0.0.0-20230126041949-52956bd4c9aa
+	github.com/whyrusleeping/cbor-gen v0.0.0-20230331140348-1f892b517e70
 	github.com/whyrusleeping/go-did v0.0.0-20230301193428-2146016fc220
 	go.opentelemetry.io/otel v1.14.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.14.0
@@ -60,6 +62,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/ipfs/bbloom v0.0.4 // indirect
 	github.com/ipfs/go-blockservice v0.5.0 // indirect
 	github.com/ipfs/go-ipfs-ds-help v1.1.0 // indirect
@@ -93,7 +96,6 @@ require (
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/multiformats/go-base32 v0.1.0 // indirect
 	github.com/multiformats/go-base36 v0.2.0 // indirect
-	github.com/multiformats/go-multibase v0.2.0 // indirect
 	github.com/multiformats/go-multicodec v0.8.1 // indirect
 	github.com/multiformats/go-varint v0.0.7 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect

@@ -20,7 +20,9 @@ import (
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/version"
+
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
 
@@ -105,7 +107,7 @@ var newAccountCmd = &cli.Command{
 			invite = &inv
 		}
 
-		acc, err := comatproto.AccountCreate(context.TODO(), xrpcc, &comatproto.AccountCreate_Input{
+		acc, err := comatproto.ServerCreateAccount(context.TODO(), xrpcc, &comatproto.ServerCreateAccount_Input{
 			Email:      email,
 			Handle:     handle,
 			InviteCode: invite,
@@ -134,7 +136,7 @@ var createSessionCmd = &cli.Command{
 		handle := cctx.Args().Get(0)
 		password := cctx.Args().Get(1)
 
-		ses, err := comatproto.SessionCreate(context.TODO(), xrpcc, &comatproto.SessionCreate_Input{
+		ses, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
 			Identifier: &handle,
 			Password:   password,
 		})
@@ -166,8 +168,8 @@ var postCmd = &cli.Command{
 
 		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.feed.post",
-			Did:        auth.Did,
-			Record: lexutil.LexiconTypeDecoder{&appbsky.FeedPost{
+			Repo:       auth.Did,
+			Record: &lexutil.LexiconTypeDecoder{&appbsky.FeedPost{
 				Text:      text,
 				CreatedAt: time.Now().Format("2006-01-02T15:04:05.000Z"),
 			}},
@@ -356,7 +358,7 @@ func jsonPrint(i any) {
 	fmt.Println(string(b))
 }
 
-func prettyPrintPost(p *appbsky.FeedFeedViewPost, uris bool) {
+func prettyPrintPost(p *appbsky.FeedDefs_FeedViewPost, uris bool) {
 	fmt.Println(strings.Repeat("-", 60))
 	rec := p.Post.Record.Val.(*appbsky.FeedPost)
 	fmt.Printf("%s (%s)", p.Post.Author.Handle, rec.CreatedAt)
@@ -504,13 +506,21 @@ var feedSetVoteCmd = &cli.Command{
 			return fmt.Errorf("getting record: %w", err)
 		}
 
-		_, err = appbsky.FeedSetVote(ctx, xrpcc, &appbsky.FeedSetVote_Input{
-			Subject:   &comatproto.RepoStrongRef{Uri: resp.Uri, Cid: *resp.Cid},
-			Direction: dir,
+		out, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
+			LexiconTypeID: "com.atproto.feed.like",
+			Collection:    "com.atproto.feed.like",
+			Repo:          did,
+			Record: &lexutil.LexiconTypeDecoder{
+				Val: &appbsky.FeedLike{
+					CreatedAt: time.Now().Format(util.ISO8601),
+					Subject:   &comatproto.RepoStrongRef{Uri: resp.Uri, Cid: *resp.Cid},
+				},
+			},
 		})
 		if err != nil {
 			return err
 		}
+		_ = out
 		return nil
 
 	},
@@ -529,7 +539,7 @@ var refreshAuthTokenCmd = &cli.Command{
 		a.AccessJwt = a.RefreshJwt
 
 		ctx := context.TODO()
-		nauth, err := comatproto.SessionRefresh(ctx, xrpcc)
+		nauth, err := comatproto.ServerRefreshSession(ctx, xrpcc)
 		if err != nil {
 			return err
 		}
@@ -569,7 +579,7 @@ var deletePostCmd = &cli.Command{
 		}
 
 		return comatproto.RepoDeleteRecord(context.TODO(), xrpcc, &comatproto.RepoDeleteRecord_Input{
-			Did:        xrpcc.Auth.Did,
+			Repo:       xrpcc.Auth.Did,
 			Collection: schema,
 			Rkey:       rkey,
 		})
@@ -674,7 +684,7 @@ var getNotificationsCmd = &cli.Command{
 			return err
 		}
 
-		notifs, err := appbsky.NotificationList(ctx, xrpcc, "", 50)
+		notifs, err := appbsky.NotificationListNotifications(ctx, xrpcc, "", 50)
 		if err != nil {
 			return err
 		}
@@ -714,16 +724,13 @@ var followsAddCmd = &cli.Command{
 		follow := appbsky.GraphFollow{
 			LexiconTypeID: "app.bsky.graph.follow",
 			CreatedAt:     time.Now().Format(time.RFC3339),
-			Subject: &appbsky.ActorRef{
-				DeclarationCid: "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u",
-				Did:            user,
-			},
+			Subject:       user,
 		}
 
 		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.graph.follow",
-			Did:        xrpcc.Auth.Did,
-			Record:     lexutil.LexiconTypeDecoder{&follow},
+			Repo:       xrpcc.Auth.Did,
+			Record:     &lexutil.LexiconTypeDecoder{&follow},
 		})
 		if err != nil {
 			return err
@@ -749,7 +756,7 @@ var followsListCmd = &cli.Command{
 		}
 
 		ctx := context.TODO()
-		resp, err := appbsky.GraphGetFollows(ctx, xrpcc, "", 100, user)
+		resp, err := appbsky.GraphGetFollows(ctx, xrpcc, user, "", 100)
 		if err != nil {
 			return err
 		}
@@ -793,7 +800,7 @@ var resetPasswordCmd = &cli.Command{
 
 		email := cctx.Args().Get(0)
 
-		err = comatproto.AccountRequestPasswordReset(ctx, xrpcc, &comatproto.AccountRequestPasswordReset_Input{
+		err = comatproto.ServerRequestPasswordReset(ctx, xrpcc, &comatproto.ServerRequestPasswordReset_Input{
 			Email: email,
 		})
 		if err != nil {
@@ -809,7 +816,7 @@ var resetPasswordCmd = &cli.Command{
 		inp.Scan()
 		npass := inp.Text()
 
-		if err := comatproto.AccountResetPassword(ctx, xrpcc, &comatproto.AccountResetPassword_Input{
+		if err := comatproto.ServerResetPassword(ctx, xrpcc, &comatproto.ServerResetPassword_Input{
 			Password: npass,
 			Token:    code,
 		}); err != nil {
@@ -832,7 +839,7 @@ var updateHandleCmd = &cli.Command{
 
 		handle := cctx.Args().Get(0)
 
-		err = comatproto.HandleUpdate(ctx, xrpcc, &comatproto.HandleUpdate_Input{
+		err = comatproto.IdentityUpdateHandle(ctx, xrpcc, &comatproto.IdentityUpdateHandle_Input{
 			Handle: handle,
 		})
 		if err != nil {
@@ -855,8 +862,8 @@ var readRepoStreamCmd = &cli.Command{
 		defer stop()
 
 		arg := cctx.Args().First()
-		if !strings.Contains(arg, "subscribeAllRepos") {
-			arg = arg + "/xrpc/com.atproto.sync.subscribeAllRepos"
+		if !strings.Contains(arg, "subscribeRepos") {
+			arg = arg + "/xrpc/com.atproto.sync.subscribeRepos"
 		}
 		if len(cctx.Args().Slice()) == 2 {
 			arg = fmt.Sprintf("%s?cursor=%s", arg, cctx.Args().Get(1))
@@ -882,7 +889,7 @@ var readRepoStreamCmd = &cli.Command{
 		}()
 
 		return events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
-			RepoAppend: func(evt *events.RepoAppend) error {
+			RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 				if jsonfmt {
 					b, err := json.Marshal(evt)
 					if err != nil {
@@ -902,15 +909,15 @@ var readRepoStreamCmd = &cli.Command{
 
 				} else {
 					pstr := "<nil>"
-					if evt.Prev != nil {
-						pstr = *evt.Prev
+					if evt.Prev != nil && evt.Prev.Defined() {
+						pstr = evt.Prev.String()
 					}
 					fmt.Printf("(%d) RepoAppend: %s (%s -> %s)\n", evt.Seq, evt.Repo, pstr, evt.Commit)
 				}
 
 				return nil
 			},
-			Info: func(info *events.InfoFrame) error {
+			RepoInfo: func(info *comatproto.SyncSubscribeRepos_Info) error {
 				if jsonfmt {
 					b, err := json.Marshal(info)
 					if err != nil {
@@ -918,11 +925,12 @@ var readRepoStreamCmd = &cli.Command{
 					}
 					fmt.Println(string(b))
 				} else {
-					fmt.Printf("INFO: %s: %s\n", info.Info, info.Message)
+					fmt.Printf("INFO: %s: %v\n", info.Name, info.Message)
 				}
 
 				return nil
 			},
+			// TODO: all the other event types
 			Error: func(errf *events.ErrorFrame) error {
 				return fmt.Errorf("error frame: %s: %s", errf.Error, errf.Message)
 			},

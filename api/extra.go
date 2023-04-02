@@ -49,7 +49,7 @@ func ResolveDidToHandle(ctx context.Context, xrpcc *xrpc.Client, pls *PLCServer,
 		return "", "", fmt.Errorf("our XRPC client is authed for a different pds (%s != %s)", svc.ServiceEndpoint, xrpcc.Host)
 	}
 
-	verdid, err := comatproto.HandleResolve(ctx, xrpcc, handle)
+	verdid, err := comatproto.IdentityResolveHandle(ctx, xrpcc, handle)
 	if err != nil {
 		return "", "", err
 	}

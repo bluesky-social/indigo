@@ -168,7 +168,7 @@ func (bgs *BGS) Start(listen string) error {
 
 	// TODO: this API is temporary until we formalize what we want here
 
-	e.GET("/xrpc/com.atproto.sync.subscribeAllRepos", bgs.EventsHandler)
+	e.GET("/xrpc/com.atproto.sync.subscribeRepos", bgs.EventsHandler)
 
 	e.GET("/xrpc/com.atproto.sync.getCheckout", bgs.HandleComAtprotoSyncGetCheckout)
 	e.GET("/xrpc/com.atproto.sync.getCommitPath", bgs.HandleComAtprotoSyncGetCommitPath)
@@ -235,7 +235,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 	}
 	defer cancel()
 
-	header := events.EventHeader{Op: events.EvtKindRepoAppend}
+	header := events.EventHeader{Op: events.EvtKindMessage}
 	for {
 		select {
 		case evt := <-evts:
@@ -247,15 +247,24 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			var obj lexutil.CBOR
 
 			switch {
-			case evt.RepoAppend != nil:
-				header.Op = events.EvtKindRepoAppend
-				obj = evt.RepoAppend
 			case evt.Error != nil:
 				header.Op = events.EvtKindErrorFrame
 				obj = evt.Error
-			case evt.Info != nil:
-				header.Op = events.EvtKindInfoFrame
-				obj = evt.Info
+			case evt.RepoCommit != nil:
+				header.MsgType = "#commit"
+				obj = evt.RepoCommit
+			case evt.RepoHandle != nil:
+				header.MsgType = "#handle"
+				obj = evt.RepoHandle
+			case evt.RepoInfo != nil:
+				header.MsgType = "#info"
+				obj = evt.RepoInfo
+			case evt.RepoMigrate != nil:
+				header.MsgType = "#migrate"
+				obj = evt.RepoMigrate
+			case evt.RepoTombstone != nil:
+				header.MsgType = "#tombstone"
+				obj = evt.RepoTombstone
 			default:
 				return fmt.Errorf("unrecognized event kind")
 			}
@@ -315,8 +324,8 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	defer span.End()
 
 	switch {
-	case env.RepoAppend != nil:
-		evt := env.RepoAppend
+	case env.RepoCommit != nil:
+		evt := env.RepoCommit
 		log.Infof("bgs got repo append event %d from %q: %s\n", evt.Seq, host.Host, evt.Repo)
 		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
 		if err != nil {
@@ -334,18 +343,9 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			u.Did = evt.Repo
 		}
 
-		var prevcid *cid.Cid
-		if evt.Prev != nil {
-			c, err := cid.Decode(*evt.Prev)
-			if err != nil {
-				return fmt.Errorf("invalid value for prev cid in event: %w", err)
-			}
-			prevcid = &c
-		}
-
 		// TODO: if the user is already in the 'slow' path, we shouldnt even bother trying to fast path this event
 
-		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, prevcid, evt.Blocks); err != nil {
+		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, (*cid.Cid)(evt.Prev), evt.Blocks); err != nil {
 			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq)
 			if !errors.Is(err, carstore.ErrRepoBaseMismatch) {
 				return fmt.Errorf("handle user event failed: %w", err)
@@ -363,7 +363,11 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		// sync blobs
 		if len(evt.Blobs) > 0 {
-			if err := bgs.syncUserBlobs(ctx, host, u.ID, evt.Blobs); err != nil {
+			var blobStrs []string
+			for _, b := range evt.Blobs {
+				blobStrs = append(blobStrs, b.String())
+			}
+			if err := bgs.syncUserBlobs(ctx, host, u.ID, blobStrs); err != nil {
 				return err
 			}
 		}
@@ -435,7 +439,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	if peering.ID == 0 {
 
-		cfg, err := atproto.ServerGetAccountsConfig(ctx, c)
+		cfg, err := atproto.ServerDescribeServer(ctx, c)
 		if err != nil {
 			// TODO: failing this shouldnt halt our indexing
 			return nil, fmt.Errorf("failed to check unrecognized pds: %w", err)
@@ -468,7 +472,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	handle := hurl.Host
 
-	res, err := atproto.HandleResolve(ctx, c, handle)
+	res, err := atproto.IdentityResolveHandle(ctx, c, handle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve users claimed handle (%q) on pds: %w", handle, err)
 	}
@@ -509,7 +513,6 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		Handle:      handle,
 		DisplayName: "", //*profile.DisplayName,
 		Did:         did,
-		DeclRefCid:  "", // profile.Declaration.Cid,
 		Type:        "",
 		PDS:         peering.ID,
 	}

@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/version"
 )
 
@@ -24,7 +25,7 @@ type Client struct {
 
 func (c *Client) getClient() *http.Client {
 	if c.Client == nil {
-		return http.DefaultClient
+		return util.RobustHTTPClient()
 	}
 	return c.Client
 }
@@ -32,11 +33,10 @@ func (c *Client) getClient() *http.Client {
 type XRPCRequestType int
 
 type AuthInfo struct {
-	AccessJwt      string `json:"accessJwt"`
-	RefreshJwt     string `json:"refreshJwt"`
-	Handle         string `json:"handle"`
-	Did            string `json:"did"`
-	DeclarationCid string `json:"declarationCid"`
+	AccessJwt  string `json:"accessJwt"`
+	RefreshJwt string `json:"refreshJwt"`
+	Handle     string `json:"handle"`
+	Did        string `json:"did"`
 }
 
 const (

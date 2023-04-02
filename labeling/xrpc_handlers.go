@@ -13,36 +13,31 @@ import (
 	"github.com/ipfs/go-cid"
 )
 
-func (s *Server) handleComAtprotoAccountGet(ctx context.Context) error {
-	// TODO: implementation
-	return nil
-}
-
-func (s *Server) handleComAtprotoHandleResolve(ctx context.Context, handle string) (*atproto.HandleResolve_Output, error) {
+func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context, handle string) (*atproto.IdentityResolveHandle_Output, error) {
 	// only the one handle, for labelmaker
 	if handle == "" {
-		return &atproto.HandleResolve_Output{Did: s.user.SigningKey.Public().DID()}, nil
+		return &atproto.IdentityResolveHandle_Output{Did: s.user.SigningKey.Public().DID()}, nil
 	} else if handle == s.user.Handle {
-		return &atproto.HandleResolve_Output{Did: s.user.Did}, nil
+		return &atproto.IdentityResolveHandle_Output{Did: s.user.Did}, nil
 	} else {
 		return nil, fmt.Errorf("handle not found: %s", handle)
 	}
 }
 
-func (s *Server) handleComAtprotoRepoDescribe(ctx context.Context, user string) (*atproto.RepoDescribe_Output, error) {
+func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo string) (*atproto.RepoDescribeRepo_Output, error) {
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, after string, before string, collection string, limit int, reverse *bool, user string) (*atproto.RepoListRecords_Output, error) {
+func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection string, limit int, repo string, reverse *bool, rkeyEnd string, rkeyStart string) (*atproto.RepoListRecords_Output, error) {
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoServerGetAccountsConfig(ctx context.Context) (*atproto.ServerGetAccountsConfig_Output, error) {
+func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*atproto.ServerDescribeServer_Output, error) {
 	invcode := true
-	return &atproto.ServerGetAccountsConfig_Output{
+	return &atproto.ServerDescribeServer_Output{
 		InviteCodeRequired:   &invcode,
 		AvailableUserDomains: []string{},
-		Links:                &atproto.ServerGetAccountsConfig_Links{},
+		Links:                &atproto.ServerDescribeServer_Links{},
 	}, nil
 }
 
@@ -100,7 +95,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 	return &atproto.RepoGetRecord_Output{
 		Cid:   &ccstr,
 		Uri:   "at://" + s.user.Did + "/" + collection + "/" + rkey,
-		Value: lexutil.LexiconTypeDecoder{rec},
+		Value: &lexutil.LexiconTypeDecoder{rec},
 	}, nil
 }
 

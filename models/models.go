@@ -43,18 +43,22 @@ type ActorInfo struct {
 	Following   int64
 	Followers   int64
 	Posts       int64
-	DeclRefCid  string
 	Type        string
 	PDS         uint
 }
 
-func (ai *ActorInfo) ActorRef() *bsky.ActorRef_WithInfo {
-	return &bsky.ActorRef_WithInfo{
-		Did: ai.Did,
-		Declaration: &bsky.SystemDeclRef{
-			Cid:       ai.DeclRefCid,
-			ActorType: ai.Type,
-		},
+func (ai *ActorInfo) ActorRef() *bsky.ActorDefs_ProfileViewBasic {
+	return &bsky.ActorDefs_ProfileViewBasic{
+		Did:         ai.Did,
+		Handle:      ai.Handle,
+		DisplayName: &ai.DisplayName,
+	}
+}
+
+// TODO: this is just s stub; needs to populate more info
+func (ai *ActorInfo) ActorView() *bsky.ActorDefs_ProfileView {
+	return &bsky.ActorDefs_ProfileView{
+		Did:         ai.Did,
 		Handle:      ai.Handle,
 		DisplayName: &ai.DisplayName,
 	}

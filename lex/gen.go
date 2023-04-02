@@ -29,6 +29,7 @@ type Schema struct {
 	Defs    map[string]*TypeSchema `json:"defs"`
 }
 
+// TODO(bnewbold): suspect this param needs updating for lex refactors
 type Param struct {
 	Type     string `json:"type"`
 	Maximum  int    `json:"maximum"`
@@ -63,6 +64,7 @@ type TypeSchema struct {
 	Ref        string                 `json:"ref"`
 	Refs       []string               `json:"refs"`
 	Required   []string               `json:"required"`
+	Nullable   []string               `json:"nullable"`
 	Properties map[string]*TypeSchema `json:"properties"`
 	MaxLength  int                    `json:"maxLength"`
 	Items      *TypeSchema            `json:"items"`
@@ -96,7 +98,14 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 			panic(fmt.Sprintf("nil type schema in %q (%s)", name, s.ID))
 		}
 
-		ts.record = record
+		if record {
+			fmt.Println("Setting to record: ", name)
+			if name == "EmbedImages_View" {
+				panic("not ok")
+			}
+			ts.record = true
+		}
+
 		ts.prefix = prefix
 		ts.id = s.ID
 		ts.defMap = defMap
@@ -105,16 +114,16 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 			out = append(out, outputType{
 				Name:   name,
 				Type:   ts,
-				Record: record,
+				Record: ts.record,
 			})
 		}
 
 		for childname, val := range ts.Properties {
-			walk(name+"_"+strings.Title(childname), val, record)
+			walk(name+"_"+strings.Title(childname), val, ts.record)
 		}
 
 		if ts.Items != nil {
-			walk(name+"_Elem", ts.Items, record)
+			walk(name+"_Elem", ts.Items, ts.record)
 		}
 
 		if ts.Input != nil {
@@ -123,7 +132,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 					panic(fmt.Sprintf("strange input type def in %s", s.ID))
 				}
 			} else {
-				walk(name+"_Input", ts.Input.Schema, record)
+				walk(name+"_Input", ts.Input.Schema, ts.record)
 			}
 		}
 
@@ -133,7 +142,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 					panic(fmt.Sprintf("strange output type def in %s", s.ID))
 				}
 			} else {
-				walk(name+"_Output", ts.Output.Schema, record)
+				walk(name+"_Output", ts.Output.Schema, ts.record)
 			}
 		}
 
@@ -224,7 +233,10 @@ func FixRecordReferences(schemas []*Schema, defmap map[string]*ExtDef, prefix st
 					if _, known := defmap[r]; known != true {
 						panic(fmt.Sprintf("reference to unknown record type: %s", r))
 					}
-					defmap[r].Type.record = true
+
+					if t.Record {
+						defmap[r].Type.record = true
+					}
 				}
 			}
 		}
@@ -236,7 +248,6 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 
 	s.prefix = prefix
 	for _, d := range s.Defs {
-		fmt.Println("def id: ", d.id)
 		d.prefix = prefix
 	}
 
@@ -266,7 +277,7 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 		return tps[i].Name < tps[j].Name
 	})
 	for _, ot := range tps {
-		fmt.Println("TYPE: ", ot.Name)
+		fmt.Println("TYPE: ", ot.Name, ot.Record)
 		if err := ot.Type.WriteType(ot.Name, buf); err != nil {
 			return err
 		}
@@ -409,7 +420,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 			params = fmt.Sprintf("%s, input *%s_Input", params, fname)
 
 		default:
-			return fmt.Errorf("unsupported input encoding: %q", s.Input.Encoding)
+			return fmt.Errorf("unsupported input encoding (RPC input): %q", s.Input.Encoding)
 		}
 	}
 
@@ -441,7 +452,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 
 			out = fmt.Sprintf("(*%s, error)", outname)
 		default:
-			return fmt.Errorf("unrecognized encoding scheme: %q", s.Output.Encoding)
+			return fmt.Errorf("unrecognized encoding scheme (RPC output): %q", s.Output.Encoding)
 		}
 	}
 
@@ -467,7 +478,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 			errRet = "nil, err"
 			outRet = "&out, nil"
 		default:
-			return fmt.Errorf("unrecognized output encoding: %q", s.Output.Encoding)
+			return fmt.Errorf("unrecognized output encoding (func signature): %q", s.Output.Encoding)
 		}
 	}
 
@@ -574,7 +585,8 @@ func WriteServerHandlers(w io.Writer, schemas []*Schema, pkg string, impmap map[
 
 		main, ok := s.Defs["main"]
 		if !ok {
-			return fmt.Errorf("2 schema %q doesn't have a main def", s.ID)
+			fmt.Printf("WARNING: schema %q doesn't have a main def\n", s.ID)
+			continue
 		}
 
 		if main.Type == "procedure" || main.Type == "query" {
@@ -703,12 +715,13 @@ func (s *TypeSchema) WriteHandlerStub(w io.Writer, fname, shortname, impname str
 				case "string":
 					paramtypes = append(paramtypes, k+" string")
 				case "integer":
+					// TODO(bnewbold) could be handling "nullable" here
 					if required != nil && !required[k] {
 						paramtypes = append(paramtypes, k+" *int")
 					} else {
 						paramtypes = append(paramtypes, k+" int")
 					}
-				case "number":
+				case "float":
 					return fmt.Errorf("non-integer numbers currently unsupported")
 				case "array":
 					paramtypes = append(paramtypes, k+"[]"+t.Items.Type)
@@ -729,10 +742,10 @@ func (s *TypeSchema) WriteHandlerStub(w io.Writer, fname, shortname, impname str
 				outname = s.typeNameFromRef(s.Output.Schema.Ref)
 			}
 			returndef = fmt.Sprintf("(*%s.%s, error)", impname, outname)
-		case "application/cbor", "application/vnd.ipld.car":
+		case "application/cbor", "application/vnd.ipld.car", "*/*":
 			returndef = fmt.Sprintf("(io.Reader, error)")
 		default:
-			return fmt.Errorf("unrecognized output encoding: %q", s.Output.Encoding)
+			return fmt.Errorf("unrecognized output encoding (handler stub): %q", s.Output.Encoding)
 		}
 	}
 
@@ -763,6 +776,7 @@ func (s *TypeSchema) WriteRPCHandler(w io.Writer, fname, shortname, impname stri
 	params := []string{"ctx"}
 	if s.Type == "query" {
 		if s.Parameters != nil {
+			// TODO(bnewbold): could be handling 'nullable' here
 			required := make(map[string]bool)
 			for _, r := range s.Parameters.Required {
 				required[r] = true
@@ -818,7 +832,7 @@ if err != nil {
 `, k, k)
 					}
 
-				case "number":
+				case "float":
 					return fmt.Errorf("non-integer numbers currently unsupported")
 				case "boolean":
 					params = append(params, k)
@@ -925,7 +939,7 @@ if err := c.Bind(&body); err != nil {
 			fmt.Fprintf(w, "var out io.Reader\n")
 			returndef = "(io.Reader, error)"
 		default:
-			return fmt.Errorf("unrecognized output encoding (1): %q", s.Output.Encoding)
+			return fmt.Errorf("unrecognized output encoding (RPC output handler): %q", s.Output.Encoding)
 		}
 	}
 	fmt.Fprintf(w, "var handleErr error\n")
@@ -944,7 +958,7 @@ if err := c.Bind(&body); err != nil {
 		case EncodingCAR:
 			fmt.Fprintf(w, "return c.Stream(200, \"application/vnd.ipld.car\", out)\n}\n\n")
 		default:
-			return fmt.Errorf("unrecognized output encoding (2): %q", s.Output.Encoding)
+			return fmt.Errorf("unrecognized output encoding (RPC output handler return): %q", s.Output.Encoding)
 		}
 	} else {
 		fmt.Fprintf(w, "return nil\n}\n\n")
@@ -1000,7 +1014,7 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 	switch v.Type {
 	case "string":
 		return "string", nil
-	case "number":
+	case "float":
 		return "float64", nil
 	case "integer":
 		return "int64", nil
@@ -1014,13 +1028,11 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 		// TODO: maybe do a native type?
 		return "string", nil
 	case "unknown":
-		return "util.LexiconTypeDecoder", nil
+		return "*util.LexiconTypeDecoder", nil
 	case "union":
 		return "*" + name + "_" + strings.Title(k), nil
-	case "image":
-		return "*util.Blob", nil
 	case "blob":
-		return "*util.Blob", nil
+		return "*util.LexBlob", nil
 	case "array":
 		subt, err := s.typeNameForField(name+"_"+strings.Title(k), "Elem", *v.Items)
 		if err != nil {
@@ -1028,8 +1040,12 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 		}
 
 		return "[]" + subt, nil
+	case "cid-link":
+		return "util.LexLink", nil
+	case "bytes":
+		return "util.LexBytes", nil
 	default:
-		return "", fmt.Errorf("field %q in %s has unsupported type name", k, name)
+		return "", fmt.Errorf("field %q in %s has unsupported type name (%s)", k, name, v.Type)
 	}
 }
 
@@ -1066,7 +1082,7 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 	case "string":
 		// TODO: deal with max length
 		fmt.Fprintf(w, "type %s string\n", name)
-	case "number":
+	case "float":
 		fmt.Fprintf(w, "type %s float64\n", name)
 	case "integer":
 		fmt.Fprintf(w, "type %s int64\n", name)
@@ -1085,14 +1101,19 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 		fmt.Fprintf(w, "type %s struct {\n", name)
 
 		if ts.record {
-			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type\" cborgen:\"$type,const=%s\"`\n", ts.id)
+			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type,const=%s\" cborgen:\"$type,const=%s\"`\n", ts.id, ts.id)
 		} else {
-			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type,omitempty\"`\n")
+			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type,omitempty\" cborgen:\"$type,omitempty\"`\n")
 		}
 
 		required := make(map[string]bool)
 		for _, req := range ts.Required {
 			required[req] = true
+		}
+
+		nullable := make(map[string]bool)
+		for _, req := range ts.Nullable {
+			nullable[req] = true
 		}
 
 		if err := orderedMapIter[*TypeSchema](ts.Properties, func(k string, v *TypeSchema) error {
@@ -1111,8 +1132,14 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 					ptr = "*"
 				}
 			}
+			if nullable[k] {
+				omit = ""
+				if !strings.HasPrefix(tname, "*") && !strings.HasPrefix(tname, "[]") {
+					ptr = "*"
+				}
+			}
 
-			fmt.Fprintf(w, "\t%s %s%s `json:\"%s%s\" cborgen:\"%s\"`\n", goname, ptr, tname, k, omit, k)
+			fmt.Fprintf(w, "\t%s %s%s `json:\"%s%s\" cborgen:\"%s%s\"`\n", goname, ptr, tname, k, omit, k, omit)
 			return nil
 		}); err != nil {
 			return err
@@ -1146,7 +1173,7 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 
 func (ts *TypeSchema) writeTypeMethods(name string, w io.Writer) error {
 	switch ts.Type {
-	case "string", "number", "array", "boolean", "integer":
+	case "string", "float", "array", "boolean", "integer":
 		return nil
 	case "object":
 		if err := ts.writeJsonMarshalerObject(name, w); err != nil {

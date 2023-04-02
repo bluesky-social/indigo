@@ -194,7 +194,7 @@ func (tp *testPDS) NewUser(handle string) (*testUser, error) {
 	}
 
 	fmt.Println("HOST: ", c.Host)
-	out, err := atproto.AccountCreate(ctx, c, &atproto.AccountCreate_Input{
+	out, err := atproto.ServerCreateAccount(ctx, c, &atproto.ServerCreateAccount_Input{
 		Email:    handle + "@fake.com",
 		Handle:   handle,
 		Password: "password",
@@ -224,8 +224,8 @@ func (u *testUser) Reply(t *testing.T, replyto, root *atproto.RepoStrongRef, bod
 	ctx := context.TODO()
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.post",
-		Did:        u.did,
-		Record: lexutil.LexiconTypeDecoder{&bsky.FeedPost{
+		Repo:       u.did,
+		Record: &lexutil.LexiconTypeDecoder{&bsky.FeedPost{
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Text:      body,
 			Reply: &bsky.FeedPost_ReplyRef{
@@ -251,8 +251,8 @@ func (u *testUser) Post(t *testing.T, body string) *atproto.RepoStrongRef {
 	ctx := context.TODO()
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.post",
-		Did:        u.did,
-		Record: lexutil.LexiconTypeDecoder{&bsky.FeedPost{
+		Repo:       u.did,
+		Record: &lexutil.LexiconTypeDecoder{&bsky.FeedPost{
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Text:      body,
 		}},
@@ -274,11 +274,10 @@ func (u *testUser) Like(t *testing.T, post *atproto.RepoStrongRef) {
 	ctx := context.TODO()
 	_, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.vote",
-		Did:        u.did,
-		Record: lexutil.LexiconTypeDecoder{&bsky.FeedVote{
+		Repo:       u.did,
+		Record: &lexutil.LexiconTypeDecoder{&bsky.FeedLike{
 			LexiconTypeID: "app.bsky.feed.vote",
 			CreatedAt:     time.Now().Format(time.RFC3339),
-			Direction:     "up",
 			Subject:       post,
 		}},
 	})
@@ -294,13 +293,10 @@ func (u *testUser) Follow(t *testing.T, did string) string {
 	ctx := context.TODO()
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.graph.follow",
-		Did:        u.did,
-		Record: lexutil.LexiconTypeDecoder{&bsky.GraphFollow{
+		Repo:       u.did,
+		Record: &lexutil.LexiconTypeDecoder{&bsky.GraphFollow{
 			CreatedAt: time.Now().Format(time.RFC3339),
-			Subject: &bsky.ActorRef{
-				DeclarationCid: "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u",
-				Did:            did,
-			},
+			Subject:   did,
 		}},
 	})
 
@@ -311,7 +307,7 @@ func (u *testUser) Follow(t *testing.T, did string) string {
 	return resp.Uri
 }
 
-func (u *testUser) GetFeed(t *testing.T) []*bsky.FeedFeedViewPost {
+func (u *testUser) GetFeed(t *testing.T) []*bsky.FeedDefs_FeedViewPost {
 	t.Helper()
 
 	ctx := context.TODO()
@@ -323,11 +319,11 @@ func (u *testUser) GetFeed(t *testing.T) []*bsky.FeedFeedViewPost {
 	return resp.Feed
 }
 
-func (u *testUser) GetNotifs(t *testing.T) []*bsky.NotificationList_Notification {
+func (u *testUser) GetNotifs(t *testing.T) []*bsky.NotificationListNotifications_Notification {
 	t.Helper()
 
 	ctx := context.TODO()
-	resp, err := bsky.NotificationList(ctx, u.client, "", 100)
+	resp, err := bsky.NotificationListNotifications(ctx, u.client, "", 100)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -448,7 +444,7 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 		q = fmt.Sprintf("?cursor=%d", since)
 	}
 
-	con, resp, err := d.Dial("ws://"+b.host+"/xrpc/com.atproto.sync.subscribeAllRepos"+q, h)
+	con, resp, err := d.Dial("ws://"+b.host+"/xrpc/com.atproto.sync.subscribeRepos"+q, h)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -470,10 +466,10 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 
 	go func() {
 		if err := events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
-			RepoAppend: func(evt *events.RepoAppend) error {
+			RepoCommit: func(evt *atproto.SyncSubscribeRepos_Commit) error {
 				fmt.Println("received event: ", evt.Seq, evt.Repo)
 				es.lk.Lock()
-				es.events = append(es.events, &events.XRPCStreamEvent{RepoAppend: evt})
+				es.events = append(es.events, &events.XRPCStreamEvent{RepoCommit: evt})
 				es.lk.Unlock()
 				return nil
 			},
@@ -722,9 +718,8 @@ func GenerateFakeRepo(r *repo.Repo, size int) (cid.Cid, error) {
 				return cid.Undef, err
 			}
 		case "like":
-			_, _, err := r.CreateRecord(ctx, "app.bsky.feed.vote", &bsky.FeedVote{
+			_, _, err := r.CreateRecord(ctx, "app.bsky.feed.vote", &bsky.FeedLike{
 				CreatedAt: time.Now().Format(bsutil.ISO8601),
-				Direction: "up",
 				Subject: &atproto.RepoStrongRef{
 					Uri: RandFakeAtUri("app.bsky.feed.post", ""),
 					Cid: RandFakeCid().String(),

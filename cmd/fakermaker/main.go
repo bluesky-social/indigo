@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"net/http"
 	"os"
 	"runtime"
 	"time"
@@ -19,13 +18,13 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/version"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	"github.com/brianvoe/gofakeit/v6"
-
 	_ "github.com/joho/godotenv/autoload"
 
+	"github.com/brianvoe/gofakeit/v6"
 	logging "github.com/ipfs/go-log"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
@@ -118,7 +117,7 @@ func run(args []string) {
 				&cli.IntFlag{
 					Name:  "max-follows",
 					Usage: "create up to this many follows for each account",
-					Value: 100,
+					Value: 90,
 				},
 				&cli.IntFlag{
 					Name:  "max-mutes",
@@ -210,8 +209,7 @@ type AccountContext struct {
 
 func accountXrpcClient(cctx *cli.Context, ac *AccountContext) (*xrpc.Client, error) {
 	pdsHost := cctx.String("pds-host")
-	//httpClient := cliutil.NewHttpClient()
-	httpClient := &http.Client{Timeout: 5 * time.Second}
+	httpClient := util.RobustHTTPClient()
 	ua := "IndigoFakerMaker/" + version.Version
 	xrpcc := &xrpc.Client{
 		Client:    httpClient,
@@ -220,7 +218,7 @@ func accountXrpcClient(cctx *cli.Context, ac *AccountContext) (*xrpc.Client, err
 		UserAgent: &ua,
 	}
 	// use XRPC client to re-auth using user/pass
-	auth, err := comatproto.SessionCreate(context.TODO(), xrpcc, &comatproto.SessionCreate_Input{
+	auth, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
 		Identifier: &ac.Auth.Handle,
 		Password:   ac.Password,
 	})
@@ -313,7 +311,7 @@ func pdsGenAccount(xrpcc *xrpc.Client, index int, accountType string) (*AccountC
 	email := gofakeit.Email()
 	password := gofakeit.Password(true, true, true, true, true, 24)
 	ctx := context.TODO()
-	resp, err := comatproto.AccountCreate(ctx, xrpcc, &comatproto.AccountCreate_Input{
+	resp, err := comatproto.ServerCreateAccount(ctx, xrpcc, &comatproto.ServerCreateAccount_Input{
 		Email:    email,
 		Handle:   handle,
 		Password: password,
@@ -415,36 +413,43 @@ func pdsGenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner
 		name = gofakeit.Name()
 	}
 
-	var avatar *lexutil.Blob
+	var avatar *lexutil.LexBlob
 	if genAvatar {
 		img := gofakeit.ImagePng(200, 200)
-		resp, err := comatproto.BlobUpload(context.TODO(), xrpcc, bytes.NewReader(img))
+		resp, err := comatproto.RepoUploadBlob(context.TODO(), xrpcc, bytes.NewReader(img))
 		if err != nil {
 			return err
 		}
-		avatar = &lexutil.Blob{
-			Cid:      resp.Cid,
+		avatar = &lexutil.LexBlob{
+			Ref:      resp.Blob.Ref,
 			MimeType: "image/png",
+			Size:     resp.Blob.Size,
 		}
 	}
-	var banner *lexutil.Blob
+	var banner *lexutil.LexBlob
 	if genBanner {
 		img := gofakeit.ImageJpeg(800, 200)
-		resp, err := comatproto.BlobUpload(context.TODO(), xrpcc, bytes.NewReader(img))
+		resp, err := comatproto.RepoUploadBlob(context.TODO(), xrpcc, bytes.NewReader(img))
 		if err != nil {
 			return err
 		}
-		avatar = &lexutil.Blob{
-			Cid:      resp.Cid,
+		banner = &lexutil.LexBlob{
+			Ref:      resp.Blob.Ref,
 			MimeType: "image/jpeg",
+			Size:     resp.Blob.Size,
 		}
 	}
 
-	_, err := appbsky.ActorUpdateProfile(context.TODO(), xrpcc, &appbsky.ActorUpdateProfile_Input{
-		Description: &desc,
-		DisplayName: &name,
-		Avatar:      avatar,
-		Banner:      banner,
+	_, err := comatproto.RepoPutRecord(context.TODO(), xrpcc, &comatproto.RepoPutRecord_Input{
+		Repo:       acc.Auth.Did,
+		Collection: "app.bsky.actor.profile",
+		Rkey:       "self",
+		Record: &lexutil.LexiconTypeDecoder{&appbsky.ActorProfile{
+			Description: &desc,
+			DisplayName: &name,
+			Avatar:      avatar,
+			Banner:      banner,
+		}},
 	})
 	return err
 }
@@ -529,15 +534,16 @@ func pdsGenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContex
 		var images []*appbsky.EmbedImages_Image
 		if fracImage > 0.0 && rand.Float64() < fracImage {
 			img := gofakeit.ImageJpeg(800, 800)
-			resp, err := comatproto.BlobUpload(context.TODO(), xrpcc, bytes.NewReader(img))
+			resp, err := comatproto.RepoUploadBlob(context.TODO(), xrpcc, bytes.NewReader(img))
 			if err != nil {
 				return err
 			}
 			images = append(images, &appbsky.EmbedImages_Image{
 				Alt: gofakeit.Lunch(),
-				Image: &lexutil.Blob{
-					Cid:      resp.Cid,
+				Image: &lexutil.LexBlob{
+					Ref:      resp.Blob.Ref,
 					MimeType: "image/jpeg",
+					Size:     resp.Blob.Size,
 				},
 			})
 		}
@@ -557,8 +563,8 @@ func pdsGenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContex
 		}
 		if _, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.feed.post",
-			Did:        acc.Auth.Did,
-			Record:     lexutil.LexiconTypeDecoder{&post},
+			Repo:       acc.Auth.Did,
+			Record:     &lexutil.LexiconTypeDecoder{&post},
 		}); err != nil {
 			return err
 		}
@@ -570,34 +576,35 @@ func pdsGenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContex
 func pdsCreateFollow(xrpcc *xrpc.Client, tgt *AccountContext) error {
 	follow := &appbsky.GraphFollow{
 		CreatedAt: time.Now().Format(time.RFC3339),
-		Subject: &appbsky.ActorRef{
-			Did: tgt.Auth.Did,
-			// TODO: this should be a public exported const, not hardcoded here
-			DeclarationCid: "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u",
-		},
+		Subject:   tgt.Auth.Did,
 	}
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.graph.follow",
-		Did:        xrpcc.Auth.Did,
-		Record:     lexutil.LexiconTypeDecoder{follow},
+		Repo:       xrpcc.Auth.Did,
+		Record:     &lexutil.LexiconTypeDecoder{follow},
 	})
 	return err
 }
 
-func pdsCreateLike(xrpcc *xrpc.Client, viewPost *appbsky.FeedFeedViewPost) error {
-	vote := &appbsky.FeedSetVote_Input{
-		Direction: "up",
+func pdsCreateLike(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) error {
+	ctx := context.TODO()
+	like := appbsky.FeedLike{
 		Subject: &comatproto.RepoStrongRef{
 			Uri: viewPost.Post.Uri,
 			Cid: viewPost.Post.Cid,
 		},
+		CreatedAt: time.Now().Format(time.RFC3339),
 	}
-	// TODO: may have already voted? in that case should ignore error
-	_, err := appbsky.FeedSetVote(context.TODO(), xrpcc, vote)
+	// TODO: may have already like? in that case should ignore error
+	_, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
+		Collection: "app.bsky.feed.like",
+		Repo:       xrpcc.Auth.Did,
+		Record:     &lexutil.LexiconTypeDecoder{&like},
+	})
 	return err
 }
 
-func pdsCreateRepost(xrpcc *xrpc.Client, viewPost *appbsky.FeedFeedViewPost) error {
+func pdsCreateRepost(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) error {
 	repost := &appbsky.FeedRepost{
 		CreatedAt: time.Now().Format(time.RFC3339),
 		Subject: &comatproto.RepoStrongRef{
@@ -607,13 +614,13 @@ func pdsCreateRepost(xrpcc *xrpc.Client, viewPost *appbsky.FeedFeedViewPost) err
 	}
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.repost",
-		Did:        xrpcc.Auth.Did,
-		Record:     lexutil.LexiconTypeDecoder{repost},
+		Repo:       xrpcc.Auth.Did,
+		Record:     &lexutil.LexiconTypeDecoder{repost},
 	})
 	return err
 }
 
-func pdsCreateReply(xrpcc *xrpc.Client, viewPost *appbsky.FeedFeedViewPost) error {
+func pdsCreateReply(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) error {
 	text := gofakeit.Sentence(10)
 	if len(text) > 200 {
 		text = text[0:200]
@@ -639,8 +646,8 @@ func pdsCreateReply(xrpcc *xrpc.Client, viewPost *appbsky.FeedFeedViewPost) erro
 	}
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.post",
-		Did:        xrpcc.Auth.Did,
-		Record:     lexutil.LexiconTypeDecoder{replyPost},
+		Repo:       xrpcc.Auth.Did,
+		Record:     &lexutil.LexiconTypeDecoder{replyPost},
 	})
 	return err
 }
@@ -695,7 +702,7 @@ func pdsGenFollowsAndMutes(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *Acc
 		if tgt.Auth.Did == acc.Auth.Did {
 			continue
 		}
-		if err := appbsky.GraphMute(context.TODO(), xrpcc, &appbsky.GraphMute_Input{User: tgt.Auth.Did}); err != nil {
+		if err := appbsky.GraphMuteActor(context.TODO(), xrpcc, &appbsky.GraphMuteActor_Input{Actor: tgt.Auth.Did}); err != nil {
 			return err
 		}
 	}
@@ -807,7 +814,7 @@ func genInteractions(cctx *cli.Context) error {
 func browseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
 	// fetch notifications
 	maxNotif := 50
-	resp, err := appbsky.NotificationList(context.TODO(), xrpcc, "", int64(maxNotif))
+	resp, err := appbsky.NotificationListNotifications(context.TODO(), xrpcc, "", int64(maxNotif))
 	if err != nil {
 		return err
 	}
@@ -877,7 +884,7 @@ func browseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
 	t2(len(timelineResp.Feed))
 
 	// notification count for good measure
-	_, err = appbsky.NotificationGetCount(context.TODO(), xrpcc)
+	_, err = appbsky.NotificationGetUnreadCount(context.TODO(), xrpcc)
 	return err
 }
 

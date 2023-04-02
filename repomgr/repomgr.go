@@ -66,7 +66,6 @@ type ActorInfo struct {
 	Did         string
 	Handle      string
 	DisplayName string
-	DeclRefCid  string
 	Type        string
 }
 
@@ -395,27 +394,13 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user util.Uid, handle, 
 	r := repo.NewRepo(ctx, did, ds)
 
 	profile := &bsky.ActorProfile{
-		DisplayName: displayname,
+		DisplayName: &displayname,
 	}
 
 	_, err = r.PutRecord(ctx, "app.bsky.actor.profile/self", profile)
 	if err != nil {
 		return fmt.Errorf("setting initial actor profile: %w", err)
 	}
-
-	decl := &bsky.SystemDeclaration{
-		ActorType: actortype,
-	}
-	dc, err := r.PutRecord(ctx, "app.bsky.system.declaration/self", decl)
-	if err != nil {
-		return fmt.Errorf("setting initial actor profile: %w", err)
-	}
-
-	if dc.String() != declcid {
-		log.Warn("DECL CID MISMATCH: ", dc, declcid)
-	}
-
-	// TODO: set declaration?
 
 	root, err := r.Commit(ctx, rm.kmgr.SignForUser)
 	if err != nil {
@@ -444,7 +429,6 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user util.Uid, handle, 
 					Did:         did,
 					Handle:      handle,
 					DisplayName: displayname,
-					DeclRefCid:  declcid,
 					Type:        actortype,
 				},
 			}},
@@ -585,7 +569,6 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 				Did:         ai.Did,
 				Handle:      ai.Handle,
 				DisplayName: ai.DisplayName,
-				DeclRefCid:  ai.DeclRefCid,
 				Type:        ai.Type,
 			},
 		})
@@ -624,7 +607,6 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 							Did:         ai.Did,
 							Handle:      ai.Handle,
 							DisplayName: ai.DisplayName,
-							DeclRefCid:  ai.DeclRefCid,
 							Type:        ai.Type,
 						},
 					})
@@ -681,7 +663,7 @@ func rkeyForCollection(collection string) string {
 	return repo.NextTID()
 }
 
-func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*atproto.RepoBatchWrite_Input_Writes_Elem) error {
+func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*atproto.RepoApplyWrites_Input_Writes_Elem) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "BatchWrite")
 	defer span.End()
 
@@ -706,8 +688,8 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*
 	var ops []RepoOp
 	for _, w := range writes {
 		switch {
-		case w.RepoBatchWrite_Create != nil:
-			c := w.RepoBatchWrite_Create
+		case w.RepoApplyWrites_Create != nil:
+			c := w.RepoApplyWrites_Create
 			var rkey string
 			if c.Rkey != nil {
 				rkey = *c.Rkey
@@ -728,8 +710,8 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*
 				RecCid:     &cc,
 				Record:     c.Value.Val,
 			})
-		case w.RepoBatchWrite_Update != nil:
-			u := w.RepoBatchWrite_Update
+		case w.RepoApplyWrites_Update != nil:
+			u := w.RepoApplyWrites_Update
 
 			cc, err := r.PutRecord(ctx, u.Collection+"/"+u.Rkey, u.Value.Val)
 			if err != nil {
@@ -743,8 +725,8 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*
 				RecCid:     &cc,
 				Record:     u.Value.Val,
 			})
-		case w.RepoBatchWrite_Delete != nil:
-			d := w.RepoBatchWrite_Delete
+		case w.RepoApplyWrites_Delete != nil:
+			d := w.RepoApplyWrites_Delete
 
 			if err := r.DeleteRecord(ctx, d.Collection+"/"+d.Rkey); err != nil {
 				return err
@@ -833,7 +815,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user util.Uid, repoDid
 			return fmt.Errorf("commit serialization failed: %w", err)
 		}
 		if err := rm.kmgr.VerifyUserSignature(ctx, repoDid, scom.Sig, sb); err != nil {
-			return fmt.Errorf("signature check failed: %w", err)
+			return fmt.Errorf("new user signature check failed: %w", err)
 		}
 
 		diffops, err := r.DiffSince(ctx, old)
@@ -1077,6 +1059,10 @@ func walkTree(ctx context.Context, skip map[cid.Cid]bool, root cid.Cid, bs block
 
 	var links []cid.Cid
 	if err := cbg.ScanForLinks(bytes.NewReader(blk.RawData()), func(c cid.Cid) {
+		if c.Prefix().Codec == cid.Raw {
+			log.Debugw("skipping 'raw' CID in record", "recordCid", root, "rawCid", c)
+			return
+		}
 		if skip[c] {
 			return
 		}

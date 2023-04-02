@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/version"
 )
 
@@ -45,17 +45,8 @@ type SQRLResponse_Rule struct {
 }
 
 func NewSQRLLabeler(url string) SQRLLabeler {
-	client := http.Client{
-		Transport: &http.Transport{
-			Proxy:                 http.ProxyFromEnvironment,
-			MaxIdleConns:          20,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		},
-	}
 	return SQRLLabeler{
-		Client:   client,
+		Client:   *util.RobustHTTPClient(),
 		Endpoint: url,
 	}
 }

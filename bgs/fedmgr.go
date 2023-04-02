@@ -8,8 +8,10 @@ import (
 	"sync"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/models"
+
 	"github.com/gorilla/websocket"
 	"gorm.io/gorm"
 )
@@ -68,7 +70,7 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) err
 
 	if !peering.Registered && reg {
 		peering.Registered = true
-		if err := s.db.Model(models.PDS{}).Where("id = ?").Update("registered", true).Error; err != nil {
+		if err := s.db.Model(models.PDS{}).Where("id = ?", peering.ID).Update("registered", true).Error; err != nil {
 			return err
 		}
 	}
@@ -115,7 +117,7 @@ func (s *Slurper) subscribeWithRedialer(host *models.PDS) {
 
 	var backoff int
 	for {
-		url := fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeAllRepos?cursor=%d", protocol, host.Host, cursor)
+		url := fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", protocol, host.Host, cursor)
 		con, res, err := d.Dial(url, nil)
 		if err != nil {
 			log.Warnf("dialing %q failed: %s", host.Host, err)
@@ -157,11 +159,11 @@ func (s *Slurper) handleConnection(host *models.PDS, con *websocket.Conn, lastCu
 	defer cancel()
 
 	return events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
-		RepoAppend: func(evt *events.RepoAppend) error {
+		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 
 			log.Infow("got remote repo event", "host", host.Host, "repo", evt.Repo)
 			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
-				RepoAppend: evt,
+				RepoCommit: evt,
 			}); err != nil {
 				log.Errorf("failed handling event from %q (%d): %s", host.Host, evt.Seq, err)
 			}
@@ -173,10 +175,11 @@ func (s *Slurper) handleConnection(host *models.PDS, con *websocket.Conn, lastCu
 
 			return nil
 		},
-		Info: func(info *events.InfoFrame) error {
-			log.Infow("info event", "info", info.Info, "message", info.Message, "host", host.Host)
+		RepoInfo: func(info *comatproto.SyncSubscribeRepos_Info) error {
+			log.Infow("info event", "name", info.Name, "message", info.Message, "host", host.Host)
 			return nil
 		},
+		// TODO: all the other event types (handle change, migration, etc)
 		Error: func(errf *events.ErrorFrame) error {
 			return fmt.Errorf("error frame: %s: %s", errf.Error, errf.Message)
 		},

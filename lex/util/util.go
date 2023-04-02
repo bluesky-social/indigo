@@ -20,11 +20,6 @@ func TypeExtract(b []byte) (string, error) {
 	return te.Type, nil
 }
 
-type Blob struct {
-	Cid      string `json:"cid" cborgen:"cid"`
-	MimeType string `json:"mimeType" cborgen:"mimeType"`
-}
-
 type CborChecker struct {
 	Type string `json:"$type" cborgen:"$type"`
 }

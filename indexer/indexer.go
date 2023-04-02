@@ -8,16 +8,18 @@ import (
 	"strings"
 	"time"
 
-	atproto "github.com/bluesky-social/indigo/api/atproto"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
+
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 	"go.opentelemetry.io/otel"
@@ -80,17 +82,13 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 
 	log.Infow("Handling Repo Event!", "uid", evt.User)
 
-	var outops []*events.RepoOp
+	var outops []*comatproto.SyncSubscribeRepos_RepoOp
 	for _, op := range evt.Ops {
-		var cc *string
-		if op.RecCid != nil {
-			s := op.RecCid.String()
-			cc = &s
-		}
-		outops = append(outops, &events.RepoOp{
+		link := (*lexutil.LexLink)(op.RecCid)
+		outops = append(outops, &comatproto.SyncSubscribeRepos_RepoOp{
 			Path:   op.Collection + "/" + op.Rkey,
 			Action: string(op.Kind),
-			Cid:    cc,
+			Cid:    link,
 		})
 
 		switch op.Kind {
@@ -131,13 +129,6 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		return err
 	}
 
-	// TODO: these should be cids on the wire
-	var prevstr *string
-	if evt.OldRoot != nil {
-		s := evt.OldRoot.String()
-		prevstr = &s
-	}
-
 	toobig := false
 	slice := evt.RepoSlice
 	if len(slice) > carstore.MaxSliceLength {
@@ -148,11 +139,11 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 
 	log.Infow("Sending event", "did", did)
 	if err := ix.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoAppend: &events.RepoAppend{
+		RepoCommit: &comatproto.SyncSubscribeRepos_Commit{
 			Repo:   did,
-			Prev:   prevstr,
+			Prev:   (*lexutil.LexLink)(evt.OldRoot),
 			Blocks: slice,
-			Commit: evt.NewRoot.String(),
+			Commit: lexutil.LexLink(evt.NewRoot),
 			Time:   time.Now().Format(util.ISO8601),
 			Ops:    outops,
 			TooBig: toobig,
@@ -204,7 +195,7 @@ func (ix *Indexer) handleRecordDelete(ctx context.Context, evt *repomgr.RepoEven
 		*/
 
 	case "app.bsky.feed.vote":
-		return ix.handleRecordDeleteFeedVote(ctx, evt, op)
+		return ix.handleRecordDeleteFeedLike(ctx, evt, op)
 	case "app.bsky.graph.follow":
 		return ix.handleRecordDeleteGraphFollow(ctx, evt, op)
 	case "app.bsky.graph.confirmation":
@@ -215,7 +206,7 @@ func (ix *Indexer) handleRecordDelete(ctx context.Context, evt *repomgr.RepoEven
 
 	return nil
 }
-func (ix *Indexer) handleRecordDeleteFeedVote(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
+func (ix *Indexer) handleRecordDeleteFeedLike(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
 	var vr models.VoteRecord
 	if err := ix.db.Find(&vr, "voter = ? AND rkey = ?", evt.User, op.Rkey).Error; err != nil {
 		return err
@@ -292,18 +283,12 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			return nil, err
 		}
 
-	case *bsky.FeedVote:
-		return nil, ix.handleRecordCreateFeedVote(ctx, rec, evt, op)
+	case *bsky.FeedLike:
+		return nil, ix.handleRecordCreateFeedLike(ctx, rec, evt, op)
 	case *bsky.GraphFollow:
 		return out, ix.handleRecordCreateGraphFollow(ctx, rec, evt, op)
 	case *bsky.ActorProfile:
 		log.Infof("TODO: got actor profile record creation, need to do something with this")
-	case *bsky.SystemDeclaration:
-		log.Infof("TODO: got system declaration record creation, need to do something with this")
-	case *bsky.GraphAssertion:
-		log.Infof("TODO: got graph assertion record creation, need to do something with this")
-	case *bsky.GraphConfirmation:
-		log.Infof("TODO: got graph confirmation record creation, need to do something with this")
 	default:
 		return nil, fmt.Errorf("unrecognized record type: %T", rec)
 	}
@@ -360,7 +345,7 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 			}
 		}
 		return nil
-	case *bsky.FeedVote:
+	case *bsky.FeedLike:
 		if rec.Subject != nil {
 			if err := ix.crawlAtUriRef(ctx, rec.Subject.Uri); err != nil {
 				log.Infow("failed to crawl vote subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
@@ -368,20 +353,12 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 		}
 		return nil
 	case *bsky.GraphFollow:
-		if rec.Subject != nil {
-			_, err := ix.GetUserOrMissing(ctx, rec.Subject.Did)
-			if err != nil {
-				log.Infow("failed to crawl follow subject", "cid", op.RecCid, "subjectdid", rec.Subject.Did, "err", err)
-			}
+		_, err := ix.GetUserOrMissing(ctx, rec.Subject)
+		if err != nil {
+			log.Infow("failed to crawl follow subject", "cid", op.RecCid, "subjectdid", rec.Subject, "err", err)
 		}
 		return nil
 	case *bsky.ActorProfile:
-		return nil
-	case *bsky.SystemDeclaration:
-		return nil
-	case *bsky.GraphAssertion:
-		return nil
-	case *bsky.GraphConfirmation:
 		return nil
 	default:
 		log.Warnf("unrecognized record type: %T", rec)
@@ -389,17 +366,7 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 	}
 }
 
-func (ix *Indexer) handleRecordCreateFeedVote(ctx context.Context, rec *bsky.FeedVote, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
-	var dbdir models.VoteDir
-	switch rec.Direction {
-	case "up":
-		dbdir = models.VoteDirUp
-	case "down":
-		return nil
-	default:
-		return fmt.Errorf("invalid vote direction: %q", rec.Direction)
-	}
-
+func (ix *Indexer) handleRecordCreateFeedLike(ctx context.Context, rec *bsky.FeedLike, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
 	post, err := ix.GetPostOrMissing(ctx, rec.Subject.Uri)
 	if err != nil {
 		return err
@@ -411,7 +378,6 @@ func (ix *Indexer) handleRecordCreateFeedVote(ctx context.Context, rec *bsky.Fee
 	}
 
 	vr := models.VoteRecord{
-		Dir:     dbdir,
 		Voter:   evt.User,
 		Post:    post.ID,
 		Created: rec.CreatedAt,
@@ -422,26 +388,24 @@ func (ix *Indexer) handleRecordCreateFeedVote(ctx context.Context, rec *bsky.Fee
 		return err
 	}
 
-	if rec.Direction == "up" {
-		if err := ix.db.Model(models.FeedPost{}).Where("id = ?", post.ID).Update("up_count", gorm.Expr("up_count + 1")).Error; err != nil {
-			return err
-		}
-		if err := ix.addNewVoteNotification(ctx, act.Uid, &vr); err != nil {
-			return err
-		}
+	if err := ix.db.Model(models.FeedPost{}).Where("id = ?", post.ID).Update("up_count", gorm.Expr("up_count + 1")).Error; err != nil {
+		return err
+	}
+	if err := ix.addNewVoteNotification(ctx, act.Uid, &vr); err != nil {
+		return err
 	}
 
 	return nil
 }
 
 func (ix *Indexer) handleRecordCreateGraphFollow(ctx context.Context, rec *bsky.GraphFollow, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
-	subj, err := ix.LookupUserByDid(ctx, rec.Subject.Did)
+	subj, err := ix.LookupUserByDid(ctx, rec.Subject)
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("failed to lookup user: %w", err)
 		}
 
-		nu, err := ix.createMissingUserRecord(ctx, rec.Subject.Did)
+		nu, err := ix.createMissingUserRecord(ctx, rec.Subject)
 		if err != nil {
 			return fmt.Errorf("create external user: %w", err)
 		}
@@ -524,7 +488,7 @@ func (ix *Indexer) handleRecordUpdate(ctx context.Context, evt *repomgr.RepoEven
 			return err
 		}
 
-	case *bsky.FeedVote:
+	case *bsky.FeedLike:
 		var vr models.VoteRecord
 		if err := ix.db.Find(&vr, "voted = ? AND rkey = ?", evt.User, op.Rkey).Error; err != nil {
 			return err
@@ -537,23 +501,14 @@ func (ix *Indexer) handleRecordUpdate(ctx context.Context, evt *repomgr.RepoEven
 
 		if vr.Post != fp.ID {
 			// vote is on a completely different post, delete old one, create new one
-			if err := ix.handleRecordDeleteFeedVote(ctx, evt, op); err != nil {
+			if err := ix.handleRecordDeleteFeedLike(ctx, evt, op); err != nil {
 				return err
 			}
 
-			return ix.handleRecordCreateFeedVote(ctx, rec, evt, op)
+			return ix.handleRecordCreateFeedLike(ctx, rec, evt, op)
 		}
 
-		if vr.Dir.String() == rec.Direction {
-			// do nothing?
-			return nil
-		}
-
-		if rec.Direction != "up" {
-			return ix.handleRecordDeleteFeedVote(ctx, evt, op)
-		}
-
-		return ix.handleRecordCreateFeedVote(ctx, rec, evt, op)
+		return ix.handleRecordCreateFeedLike(ctx, rec, evt, op)
 	case *bsky.GraphFollow:
 		if err := ix.handleRecordDeleteGraphFollow(ctx, evt, op); err != nil {
 			return err
@@ -562,12 +517,6 @@ func (ix *Indexer) handleRecordUpdate(ctx context.Context, evt *repomgr.RepoEven
 		return ix.handleRecordCreateGraphFollow(ctx, rec, evt, op)
 	case *bsky.ActorProfile:
 		log.Infof("TODO: got actor profile record update, need to do something with this")
-	case *bsky.SystemDeclaration:
-		log.Infof("TODO: got system declaration record update, need to do something with this")
-	case *bsky.GraphAssertion:
-		log.Infof("TODO: got graph assertion record update, need to do something with this")
-	case *bsky.GraphConfirmation:
-		log.Infof("TODO: got graph confirmation record update, need to do something with this")
 	default:
 		return fmt.Errorf("unrecognized record type: %T", rec)
 	}
@@ -802,7 +751,6 @@ func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, 
 		Handle:      ai.Handle,
 		Did:         ai.Did,
 		DisplayName: ai.DisplayName,
-		DeclRefCid:  ai.DeclRefCid,
 		Type:        ai.Type,
 		PDS:         evt.PDS,
 	}).Error; err != nil {
@@ -903,7 +851,7 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 	}
 
 	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
-	repo, err := atproto.SyncGetRepo(ctx, c, ai.Did, from, "")
+	repo, err := comatproto.SyncGetRepo(ctx, c, ai.Did, from, "")
 	if err != nil {
 		return fmt.Errorf("failed to fetch repo: %w", err)
 	}

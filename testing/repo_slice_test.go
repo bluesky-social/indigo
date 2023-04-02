@@ -17,7 +17,7 @@ import (
 
 func TestRepoSliceParse(t *testing.T) {
 	ctx := context.TODO()
-	fi, err := os.Open("repo_slice.car")
+	fi, err := os.Open("test_files/repo_slice.car")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,11 +47,11 @@ func TestRepoSliceParse(t *testing.T) {
 		t.Fatal("didn't get expected Alt text")
 	}
 
-	if img.Image.Cid == "" {
-		t.Fatal("got nil Cid on image")
+	if !img.Image.Ref.Defined() {
+		t.Fatal("got nil CID on image")
 	}
-	if img.Image.Cid != "bafkreiblkobl6arfg3j7eft3akdhn2hmr2qmzfkefcgu4agnswvssg4a6a" {
-		t.Fatal("didn't get expected image blob Cid")
+	if img.Image.Ref.String() != "bafkreiblkobl6arfg3j7eft3akdhn2hmr2qmzfkefcgu4agnswvssg4a6a" {
+		t.Fatal("didn't get expected image blob CID")
 	}
 	if img.Image.MimeType != "image/jpeg" {
 		t.Fatal("didn't get expected image blob mimetype")

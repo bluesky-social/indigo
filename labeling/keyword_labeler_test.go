@@ -28,16 +28,19 @@ func TestKeywordFilter(t *testing.T) {
 		}
 	}
 
-	var desc = "yadda yadda"
-	var descRude = "yadda yadda 🍆"
+	desc := "yadda yadda"
+	descRude := "yadda yadda 🍆"
+	name := "Robyn Hood"
+	nameSexy := "Sexy Robyn Hood"
 	profileCases := []struct {
 		record   bsky.ActorProfile
 		expected []string
 	}{
-		{bsky.ActorProfile{DisplayName: "Robyn Hood"}, []string{}},
-		{bsky.ActorProfile{DisplayName: "Robyn Hood", Description: &desc}, []string{}},
-		{bsky.ActorProfile{DisplayName: "Robyn Hood", Description: &descRude}, []string{"rude"}},
-		{bsky.ActorProfile{DisplayName: "Sexy Robyn Hood"}, []string{"rude"}},
+		{bsky.ActorProfile{DisplayName: &name}, []string{}},
+		{bsky.ActorProfile{DisplayName: &name, Description: &desc}, []string{}},
+		{bsky.ActorProfile{DisplayName: &name, Description: &descRude}, []string{"rude"}},
+		{bsky.ActorProfile{DisplayName: &nameSexy}, []string{"rude"}},
+		{bsky.ActorProfile{DisplayName: &nameSexy, Description: &descRude}, []string{"rude"}},
 	}
 
 	for _, c := range profileCases {

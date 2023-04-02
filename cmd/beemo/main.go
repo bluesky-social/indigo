@@ -14,7 +14,7 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/version"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -27,10 +27,12 @@ import (
 var log = logging.Logger("beemo")
 
 func main() {
-	run(os.Args)
+	if err := run(os.Args); err != nil {
+		log.Fatal(err)
+	}
 }
 
-func run(args []string) {
+func run(args []string) error {
 
 	app := cli.App{
 		Name:    "beemo",
@@ -90,7 +92,7 @@ func run(args []string) {
 			Action: pollNewReports,
 		},
 	}
-	app.RunAndExitOnError()
+	return app.Run(args)
 }
 
 func pollNewReports(cctx *cli.Context) error {
@@ -102,12 +104,12 @@ func pollNewReports(cctx *cli.Context) error {
 
 	// create a new session
 	xrpcc := &xrpc.Client{
-		Client: cliutil.NewHttpClient(),
+		Client: util.RobustHTTPClient(),
 		Host:   cctx.String("pds-host"),
 		Auth:   &xrpc.AuthInfo{Handle: cctx.String("handle")},
 	}
 
-	auth, err := comatproto.SessionCreate(context.TODO(), xrpcc, &comatproto.SessionCreate_Input{
+	auth, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
 		Identifier: &xrpcc.Auth.Handle,
 		Password:   cctx.String("password"),
 	})
@@ -134,7 +136,7 @@ func pollNewReports(cctx *cli.Context) error {
 	for {
 		// refresh session
 		xrpcc.Auth.AccessJwt = xrpcc.Auth.RefreshJwt
-		refresh, err := comatproto.SessionRefresh(context.TODO(), xrpcc)
+		refresh, err := comatproto.ServerRefreshSession(context.TODO(), xrpcc)
 		if err != nil {
 			return err
 		}
@@ -202,7 +204,7 @@ func sendSlackMsg(cctx *cli.Context, msg string) error {
 		return err
 	}
 	req.Header.Add("Content-Type", "application/json")
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := util.RobustHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return err

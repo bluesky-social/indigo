@@ -14,6 +14,7 @@ var lexTypesMap map[string]reflect.Type
 
 func init() {
 	lexTypesMap = make(map[string]reflect.Type)
+	RegisterType("blob", &LexBlob{})
 }
 
 func RegisterType(id string, val cbg.CBORMarshaler) {
@@ -108,6 +109,9 @@ func (ltd *LexiconTypeDecoder) UnmarshalJSON(b []byte) error {
 }
 
 func (ltd *LexiconTypeDecoder) MarshalJSON() ([]byte, error) {
+	if ltd == nil || ltd.Val == nil {
+		return nil, fmt.Errorf("LexiconTypeDecoder MarshalJSON called on a nil")
+	}
 	v := reflect.ValueOf(ltd.Val)
 	t := v.Type()
 	sf, ok := t.Elem().FieldByName("LexiconTypeID")

@@ -31,7 +31,7 @@ test: ## Run all tests
 
 .PHONY: coverage-html
 coverage-html: ## Generate test coverage report and open in browser
-	go test ./... -coverprofile=test-coverage.out
+	go test ./... -coverpkg=./... -coverprofile=test-coverage.out
 	go tool cover -html=test-coverage.out
 
 .PHONY: lint

@@ -17,6 +17,9 @@ func init() {
 }
 
 func TestBGSBasic(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping BGS test in 'short' test mode")
+	}
 	assert := assert.New(t)
 	didr := testPLC(t)
 	p1 := mustSetupPDS(t, "localhost:5155", ".tpds", didr)
@@ -46,23 +49,23 @@ func TestBGSBasic(t *testing.T) {
 
 	fmt.Println("event 1")
 	e1 := evts.Next()
-	assert.NotNil(e1.RepoAppend)
-	assert.Equal(e1.RepoAppend.Repo, bob.DID())
+	assert.NotNil(e1.RepoCommit)
+	assert.Equal(e1.RepoCommit.Repo, bob.DID())
 
 	fmt.Println("event 2")
 	e2 := evts.Next()
-	assert.NotNil(e2.RepoAppend)
-	assert.Equal(e2.RepoAppend.Repo, alice.DID())
+	assert.NotNil(e2.RepoCommit)
+	assert.Equal(e2.RepoCommit.Repo, alice.DID())
 
 	fmt.Println("event 3")
 	e3 := evts.Next()
-	assert.Equal(e3.RepoAppend.Repo, bob.DID())
-	//assert.Equal(e3.RepoAppend.Ops[0].Kind, "createRecord")
+	assert.Equal(e3.RepoCommit.Repo, bob.DID())
+	//assert.Equal(e3.RepoCommit.Ops[0].Kind, "createRecord")
 
 	fmt.Println("event 4")
 	e4 := evts.Next()
-	assert.Equal(e4.RepoAppend.Repo, alice.DID())
-	//assert.Equal(e4.RepoAppend.Ops[0].Kind, "createRecord")
+	assert.Equal(e4.RepoCommit.Repo, alice.DID())
+	//assert.Equal(e4.RepoCommit.Ops[0].Kind, "createRecord")
 
 	// playback
 	pbevts := b1.Events(t, 2)
@@ -104,7 +107,10 @@ func socialSim(t *testing.T, users []*testUser, postiter, likeiter int) []*atpro
 }
 
 func TestBGSMultiPDS(t *testing.T) {
-	t.Skip("test too sleepy to run in CI for now")
+	if testing.Short() {
+		t.Skip("skipping BGS test in 'short' test mode")
+	}
+	//t.Skip("test too sleepy to run in CI for now")
 
 	assert := assert.New(t)
 	_ = assert
@@ -119,7 +125,7 @@ func TestBGSMultiPDS(t *testing.T) {
 	b1.Run(t)
 
 	p1.RequestScraping(t, b1)
-	time.Sleep(time.Millisecond * 50)
+	time.Sleep(time.Millisecond * 100)
 
 	var users []*testUser
 	for i := 0; i < 5; i++ {
@@ -166,7 +172,10 @@ func TestBGSMultiPDS(t *testing.T) {
 }
 
 func TestBGSMultiGap(t *testing.T) {
-	t.Skip("test too sleepy to run in CI for now")
+	if testing.Short() {
+		t.Skip("skipping BGS test in 'short' test mode")
+	}
+	//t.Skip("test too sleepy to run in CI for now")
 	assert := assert.New(t)
 	_ = assert
 	didr := testPLC(t)
@@ -191,7 +200,7 @@ func TestBGSMultiGap(t *testing.T) {
 	p2posts := socialSim(t, users2, 10, 0)
 
 	users[0].Reply(t, p2posts[0], p2posts[0], "what a wonderful life")
-	time.Sleep(time.Millisecond * 50)
+	time.Sleep(time.Millisecond * 100)
 
 	ctx := context.Background()
 	_, err := b1.bgs.Index.GetPost(ctx, p2posts[3].Uri)

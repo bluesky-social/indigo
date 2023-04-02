@@ -7,26 +7,28 @@ import (
 // schema: app.bsky.embed.images
 
 func init() {
+	util.RegisterType("app.bsky.embed.images#main", &EmbedImages{})
 }
 
+// RECORDTYPE: EmbedImages
 type EmbedImages struct {
-	LexiconTypeID string               `json:"$type,omitempty"`
+	LexiconTypeID string               `json:"$type,const=app.bsky.embed.images" cborgen:"$type,const=app.bsky.embed.images"`
 	Images        []*EmbedImages_Image `json:"images" cborgen:"images"`
 }
 
 type EmbedImages_Image struct {
-	LexiconTypeID string     `json:"$type,omitempty"`
-	Alt           string     `json:"alt" cborgen:"alt"`
-	Image         *util.Blob `json:"image" cborgen:"image"`
+	LexiconTypeID string        `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	Alt           string        `json:"alt" cborgen:"alt"`
+	Image         *util.LexBlob `json:"image" cborgen:"image"`
 }
 
-type EmbedImages_Presented struct {
-	LexiconTypeID string                        `json:"$type,omitempty"`
-	Images        []*EmbedImages_PresentedImage `json:"images" cborgen:"images"`
+type EmbedImages_View struct {
+	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	Images        []*EmbedImages_ViewImage `json:"images" cborgen:"images"`
 }
 
-type EmbedImages_PresentedImage struct {
-	LexiconTypeID string `json:"$type,omitempty"`
+type EmbedImages_ViewImage struct {
+	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Alt           string `json:"alt" cborgen:"alt"`
 	Fullsize      string `json:"fullsize" cborgen:"fullsize"`
 	Thumb         string `json:"thumb" cborgen:"thumb"`
