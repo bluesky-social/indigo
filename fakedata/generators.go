@@ -326,7 +326,7 @@ func GenFollowsAndMutes(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *Accoun
 
 	// only muting other users, not celebs
 	muteCount := 0
-	if maxFollows >= 1 {
+	if maxFollows >= 1 && maxMutes > 0 {
 		muteCount = rand.Intn(maxMutes)
 	}
 	t2 := MeasureIterations("generate mutes")
