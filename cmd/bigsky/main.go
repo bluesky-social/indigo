@@ -19,8 +19,9 @@ import (
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/version"
 
-	_ "github.com/joho/godotenv/autoload"
 	_ "net/http/pprof"
+
+	_ "github.com/joho/godotenv/autoload"
 
 	logging "github.com/ipfs/go-log"
 	"github.com/urfave/cli/v2"

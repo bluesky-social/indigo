@@ -373,6 +373,19 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		return nil
+	case env.RepoHandle != nil:
+		// TODO: ignoring the data in the message and just going out to the DID doc
+		if _, err := bgs.createExternalUser(ctx, env.RepoHandle.Did); err != nil {
+			return err
+		}
+
+		return nil
+	case env.RepoMigrate != nil:
+		if _, err := bgs.createExternalUser(ctx, env.RepoMigrate.Did); err != nil {
+			return err
+		}
+
+		return nil
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
@@ -404,6 +417,7 @@ func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user bsutil.Ui
 	return nil
 }
 
+// TODO: rename? This also updates users, and 'external' is an old phrasing
 func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.ActorInfo, error) {
 	ctx, span := otel.Tracer("bgs").Start(ctx, "createExternalUser")
 	defer span.End()
@@ -438,7 +452,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	c := &xrpc.Client{Host: durl.String()}
 
 	if peering.ID == 0 {
-
+		// TODO: the case of handling a new user on a new PDS probably requires more thought
 		cfg, err := atproto.ServerDescribeServer(ctx, c)
 		if err != nil {
 			// TODO: failing this shouldnt halt our indexing
@@ -487,6 +501,19 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	exu, err := s.Index.LookupUserByDid(ctx, did)
 	if err == nil {
 		log.Infof("lost the race to create a new user: %s", did)
+		if exu.PDS != peering.ID {
+			// User is now on a different PDS, update
+			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("pds", peering.ID).Error; err != nil {
+				return nil, fmt.Errorf("failed to update users pds: %w", err)
+			}
+		}
+
+		if exu.Handle != handle {
+			// Users handle has changed, update
+			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("handle", peering.ID).Error; err != nil {
+				return nil, fmt.Errorf("failed to update users handle: %w", err)
+			}
+		}
 		return exu, nil
 	}
 
