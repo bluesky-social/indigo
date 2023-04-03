@@ -55,3 +55,11 @@ func RobustHTTPClient() *http.Client {
 	client.Timeout = 20 * time.Second
 	return client
 }
+
+// For use in local integration tests. Short timeouts, no retries, etc
+func TestingHTTPClient() *http.Client {
+
+	client := http.DefaultClient
+	client.Timeout = 200 * time.Millisecond
+	return client
+}
