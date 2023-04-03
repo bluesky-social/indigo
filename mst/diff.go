@@ -3,7 +3,6 @@ package mst
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	"github.com/bluesky-social/indigo/util"
 	cid "github.com/ipfs/go-cid"
@@ -16,14 +15,6 @@ type DiffOp struct {
 	Rpath  string
 	OldCid cid.Cid
 	NewCid cid.Cid
-}
-
-func checkDiffSort(diffs []*DiffOp) {
-	if !sort.SliceIsSorted(diffs, func(i, j int) bool {
-		return diffs[i].Rpath < diffs[j].Rpath
-	}) {
-		panic(fmt.Sprintf("diff results not properly sorted! %d", len(diffs)))
-	}
 }
 
 // TODO: this code isn't great, should be rewritten on top of the baseline datastructures once functional and correct
