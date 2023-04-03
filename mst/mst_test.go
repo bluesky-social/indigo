@@ -59,13 +59,32 @@ func TestBasicMst(t *testing.T) {
 		t.Fatal("mst generation changed", ncid.String())
 	}
 
+	// delete a key
 	nmst, err := mst.Delete(ctx, "dogs/dogs")
 	if err != nil {
 		t.Fatal(err)
 	}
 	delete(vals, "dogs/dogs")
-
 	assertValues(t, nmst, vals)
+
+	// update a key
+	newCid := randCid()
+	vals["cats/cats"] = newCid
+	nmst, err = nmst.Update(ctx, "cats/cats", newCid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertValues(t, nmst, vals)
+
+	// update deleted key should fail
+	_, err = nmst.Delete(ctx, "dogs/dogs")
+	if err == nil {
+		t.Fatal("can't delete a removed key")
+	}
+	_, err = nmst.Update(ctx, "dogs/dogs", newCid)
+	if err == nil {
+		t.Fatal("can't update a removed key")
+	}
 }
 
 func assertValues(t *testing.T, mst *MerkleSearchTree, vals map[string]cid.Cid) {
