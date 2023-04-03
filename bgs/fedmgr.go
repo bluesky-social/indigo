@@ -175,6 +175,51 @@ func (s *Slurper) handleConnection(host *models.PDS, con *websocket.Conn, lastCu
 
 			return nil
 		},
+		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
+			log.Infow("got remote handle update event", "host", host.Host, "did", evt.Did, "handle", evt.Handle)
+			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+				RepoHandle: evt,
+			}); err != nil {
+				log.Errorf("failed handling event from %q (%d): %s", host.Host, evt.Seq, err)
+			}
+			*lastCursor = evt.Seq
+
+			if err := s.updateCursor(host, *lastCursor); err != nil {
+				return fmt.Errorf("updating cursor: %w", err)
+			}
+
+			return nil
+		},
+		RepoMigrate: func(evt *comatproto.SyncSubscribeRepos_Migrate) error {
+			log.Infow("got remote repo migrate event", "host", host.Host, "did", evt.Did, "migrateTo", evt.MigrateTo)
+			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+				RepoMigrate: evt,
+			}); err != nil {
+				log.Errorf("failed handling event from %q (%d): %s", host.Host, evt.Seq, err)
+			}
+			*lastCursor = evt.Seq
+
+			if err := s.updateCursor(host, *lastCursor); err != nil {
+				return fmt.Errorf("updating cursor: %w", err)
+			}
+
+			return nil
+		},
+		RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
+			log.Infow("got remote repo tombstone event", "host", host.Host, "did", evt.Did)
+			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+				RepoTombstone: evt,
+			}); err != nil {
+				log.Errorf("failed handling event from %q (%d): %s", host.Host, evt.Seq, err)
+			}
+			*lastCursor = evt.Seq
+
+			if err := s.updateCursor(host, *lastCursor); err != nil {
+				return fmt.Errorf("updating cursor: %w", err)
+			}
+
+			return nil
+		},
 		RepoInfo: func(info *comatproto.SyncSubscribeRepos_Info) error {
 			log.Infow("info event", "name", info.Name, "message", info.Message, "host", host.Host)
 			return nil
