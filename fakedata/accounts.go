@@ -51,10 +51,13 @@ func ReadAccountCatalog(path string) (*AccountCatalog, error) {
 		if err := decoder.Decode(&usr); err != nil {
 			return nil, fmt.Errorf("parse AccountContext: %w", err)
 		}
-		if usr.AccountType == "celebrity" {
+		switch usr.AccountType {
+		case "celebrity":
 			catalog.Celebs = append(catalog.Celebs, usr)
-		} else {
+		case "regular":
 			catalog.Regulars = append(catalog.Regulars, usr)
+		default:
+			return nil, fmt.Errorf("unhandled account type: %v", usr.AccountType)
 		}
 	}
 	// validate index numbers
