@@ -20,3 +20,20 @@ func TestLTDMarshal(t *testing.T) {
 		t.Fatal("expected an error marshalling a nil (but not a panic)")
 	}
 }
+
+func TestNewFromType(t *testing.T) {
+
+	raw, err := NewFromType("blob")
+	if err != nil {
+		t.Fatal(err)
+	}
+	blob := raw.(*LexBlob)
+	if blob.Size != 0 {
+		t.Fatal("expect default/nil LexBlob")
+	}
+
+	_, err = NewFromType("bogus.type")
+	if err == nil {
+		t.Fatal("expect bogus generation to fail")
+	}
+}
