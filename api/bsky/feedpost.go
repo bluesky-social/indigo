@@ -124,21 +124,24 @@ func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
 	}
 }
 
+// RECORDTYPE: FeedPost_Entity
 type FeedPost_Entity struct {
-	LexiconTypeID string              `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string              `json:"$type,const=app.bsky.feed.post" cborgen:"$type,const=app.bsky.feed.post"`
 	Index         *FeedPost_TextSlice `json:"index" cborgen:"index"`
 	Type          string              `json:"type" cborgen:"type"`
 	Value         string              `json:"value" cborgen:"value"`
 }
 
+// RECORDTYPE: FeedPost_ReplyRef
 type FeedPost_ReplyRef struct {
-	LexiconTypeID string                         `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string                         `json:"$type,const=app.bsky.feed.post" cborgen:"$type,const=app.bsky.feed.post"`
 	Parent        *comatprototypes.RepoStrongRef `json:"parent" cborgen:"parent"`
 	Root          *comatprototypes.RepoStrongRef `json:"root" cborgen:"root"`
 }
 
+// RECORDTYPE: FeedPost_TextSlice
 type FeedPost_TextSlice struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,const=app.bsky.feed.post" cborgen:"$type,const=app.bsky.feed.post"`
 	End           int64  `json:"end" cborgen:"end"`
 	Start         int64  `json:"start" cborgen:"start"`
 }

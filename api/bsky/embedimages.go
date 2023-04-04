@@ -16,8 +16,9 @@ type EmbedImages struct {
 	Images        []*EmbedImages_Image `json:"images" cborgen:"images"`
 }
 
+// RECORDTYPE: EmbedImages_Image
 type EmbedImages_Image struct {
-	LexiconTypeID string        `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string        `json:"$type,const=app.bsky.embed.images" cborgen:"$type,const=app.bsky.embed.images"`
 	Alt           string        `json:"alt" cborgen:"alt"`
 	Image         *util.LexBlob `json:"image" cborgen:"image"`
 }
