@@ -28,7 +28,7 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.report.create", s.HandleComAtprotoReportCreate)
 
 	// label-specific
-	e.GET("/xrpc/com.atproto.label.query", s.HandleComAtprotoLabelQuery)
+	e.GET("/xrpc/com.atproto.label.queryLabels", s.HandleComAtprotoLabelQueryLabels)
 
 	return nil
 }
@@ -78,8 +78,8 @@ func (s *Server) HandleComAtprotoServerDescribeServer(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *Server) HandleComAtprotoLabelQuery(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoLabelQuery")
+func (s *Server) HandleComAtprotoLabelQueryLabels(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoLabelQueryLabels")
 	defer span.End()
 	cursor := c.QueryParam("cursor")
 
@@ -97,10 +97,10 @@ func (s *Server) HandleComAtprotoLabelQuery(c echo.Context) error {
 	sources := c.QueryParams()["sources"]
 
 	uriPatterns := c.QueryParams()["uriPatterns"]
-	var out *label.Query_Output
+	var out *label.QueryLabels_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoLabelQuery(ctx context.Context,cursor string,limit int,sources []string,uriPatterns []string) (*comatprototypes.LabelQuery_Output, error)
-	out, handleErr = s.handleComAtprotoLabelQuery(ctx, cursor, limit, sources, uriPatterns)
+	// func (s *Server) handleComAtprotoLabelQueryLabels(ctx context.Context,cursor string,limit int,sources []string,uriPatterns []string) (*comatprototypes.LabelQueryLabels_Output, error)
+	out, handleErr = s.handleComAtprotoLabelQueryLabels(ctx, cursor, limit, sources, uriPatterns)
 	if handleErr != nil {
 		return handleErr
 	}

@@ -15,7 +15,7 @@ import (
 )
 
 // Persist to database (and repo), and emit events.
-func (s *Server) CommitLabels(ctx context.Context, labels []label.Label, negate bool) error {
+func (s *Server) CommitLabels(ctx context.Context, labels []*label.Label, negate bool) error {
 
 	now := time.Now()
 	nowStr := now.Format(util.ISO8601)
@@ -24,7 +24,7 @@ func (s *Server) CommitLabels(ctx context.Context, labels []label.Label, negate 
 	for _, l := range labels {
 		l.Cts = nowStr
 
-		path, _, err := s.repoman.CreateRecord(ctx, s.user.UserId, "com.atproto.label.label", &l)
+		path, _, err := s.repoman.CreateRecord(ctx, s.user.UserId, "com.atproto.label.label", l)
 		if err != nil {
 			return fmt.Errorf("failed to persist label in local repo: %w", err)
 		}
@@ -59,7 +59,7 @@ func (s *Server) CommitLabels(ctx context.Context, labels []label.Label, negate 
 	if len(labels) > 0 {
 		log.Infof("broadcasting labels: %s", labels)
 		lev := events.XRPCStreamEvent{
-			LabelBatch: &events.LabelBatch{
+			LabelLabels: &label.SubscribeLabels_Labels{
 				// NOTE(bnewbold): generic event handler code handles Seq field for us
 				Labels: labels,
 			},

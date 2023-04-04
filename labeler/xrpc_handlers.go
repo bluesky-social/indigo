@@ -36,7 +36,7 @@ func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*atp
 	}, nil
 }
 
-func (s *Server) handleComAtprotoLabelQuery(ctx context.Context, cursor string, limit int, sources, uriPatterns []string) (*label.Query_Output, error) {
+func (s *Server) handleComAtprotoLabelQueryLabels(ctx context.Context, cursor string, limit int, sources, uriPatterns []string) (*label.QueryLabels_Output, error) {
 
 	if limit <= 0 {
 		limit = 20
@@ -100,7 +100,7 @@ func (s *Server) handleComAtprotoLabelQuery(ctx context.Context, cursor string, 
 			Cts: row.CreatedAt.Format(util.ISO8601),
 		})
 	}
-	out := label.Query_Output{
+	out := label.QueryLabels_Output{
 		Labels: labelObjs,
 	}
 	if nextCursor != "" {

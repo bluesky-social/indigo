@@ -51,12 +51,12 @@ func (s *Server) EventsLabelsWebsocket(c echo.Context) error {
 			case evt.Error != nil:
 				header.Op = events.EvtKindErrorFrame
 				obj = evt.Error
-			case evt.RepoInfo != nil:
+			case evt.LabelInfo != nil:
 				header.MsgType = "#info"
-				obj = evt.RepoInfo
-			case evt.LabelBatch != nil:
-				header.MsgType = "#labelbatch"
-				obj = evt.LabelBatch
+				obj = evt.LabelInfo
+			case evt.LabelLabels != nil:
+				header.MsgType = "#labels"
+				obj = evt.LabelLabels
 			default:
 				return fmt.Errorf("unrecognized event kind")
 			}
