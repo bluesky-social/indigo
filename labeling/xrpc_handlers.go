@@ -1,21 +1,16 @@
 package labeling
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"time"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/util"
 
-	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -30,88 +25,12 @@ func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context, hand
 	}
 }
 
-func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo string) (*atproto.RepoDescribeRepo_Output, error) {
-	if repo == s.user.Did || repo == s.user.Handle {
-		return &atproto.RepoDescribeRepo_Output{
-			Collections: []string{},
-			Did:         s.user.Did,
-			//DidDoc
-			Handle:          s.user.Handle,
-			HandleIsCorrect: true,
-		}, nil
-	}
-	if repo == "" {
-		return nil, echo.NewHTTPError(400, "empty repo parameter")
-	} else {
-		return nil, echo.NewHTTPError(404, "repo not found")
-	}
-}
-
 func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*atproto.ServerDescribeServer_Output, error) {
 	invcode := true
 	return &atproto.ServerDescribeServer_Output{
 		InviteCodeRequired:   &invcode,
 		AvailableUserDomains: []string{},
 		Links:                &atproto.ServerDescribeServer_Links{},
-	}, nil
-}
-
-func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, earliest, latest string) (io.Reader, error) {
-	// TODO: verify the DID/handle
-	var userId util.Uid = 1
-	var earlyCid cid.Cid
-	if earliest != "" {
-		cc, err := cid.Decode(earliest)
-		if err != nil {
-			return nil, err
-		}
-
-		earlyCid = cc
-	}
-
-	var lateCid cid.Cid
-	if latest != "" {
-		cc, err := cid.Decode(latest)
-		if err != nil {
-			return nil, err
-		}
-
-		lateCid = cc
-	}
-
-	buf := new(bytes.Buffer)
-	if err := s.repoman.ReadRepo(ctx, userId, earlyCid, lateCid, buf); err != nil {
-		return nil, err
-	}
-
-	return buf, nil
-}
-
-func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, collection string, rkey string, user string) (*atproto.RepoGetRecord_Output, error) {
-	if user != s.user.Did {
-		return nil, echo.NewHTTPError(404, "unknown user: %s", user)
-	}
-
-	var maybeCid cid.Cid
-	if c != "" {
-		cc, err := cid.Decode(c)
-		if err != nil {
-			return nil, err
-		}
-		maybeCid = cc
-	}
-
-	reccid, rec, err := s.repoman.GetRecord(ctx, s.user.UserId, collection, rkey, maybeCid)
-	if err != nil {
-		// XXX: handle 404
-		return nil, fmt.Errorf("repoman GetRecord: %w", err)
-	}
-
-	ccstr := reccid.String()
-	return &atproto.RepoGetRecord_Output{
-		Cid:   &ccstr,
-		Uri:   "at://" + s.user.Did + "/" + collection + "/" + rkey,
-		Value: &lexutil.LexiconTypeDecoder{rec},
 	}, nil
 }
 
