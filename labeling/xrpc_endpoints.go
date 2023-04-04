@@ -65,37 +65,6 @@ func (s *Server) HandleComAtprotoIdentityResolveHandle(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *Server) HandleComAtprotoRepoDescribeRepo(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoDescribeRepo")
-	defer span.End()
-	repo := c.QueryParam("repo")
-	var out *atproto.RepoDescribeRepo_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context,repo string) (*atproto.RepoDescribeRepo_Output, error)
-	out, handleErr = s.handleComAtprotoRepoDescribeRepo(ctx, repo)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoRepoGetRecord(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoGetRecord")
-	defer span.End()
-	cid := c.QueryParam("cid")
-	collection := c.QueryParam("collection")
-	repo := c.QueryParam("repo")
-	rkey := c.QueryParam("rkey")
-	var out *atproto.RepoGetRecord_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context,cid string,collection string,repo string,rkey string) (*atproto.RepoGetRecord_Output, error)
-	out, handleErr = s.handleComAtprotoRepoGetRecord(ctx, cid, collection, repo, rkey)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
 func (s *Server) HandleComAtprotoServerDescribeServer(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerDescribeServer")
 	defer span.End()
