@@ -7,7 +7,7 @@ import (
 
 	"github.com/bluesky-social/indigo/carstore"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
-	"github.com/bluesky-social/indigo/labeling"
+	"github.com/bluesky-social/indigo/labeler"
 	"github.com/bluesky-social/indigo/version"
 	"github.com/urfave/cli/v2"
 
@@ -172,17 +172,17 @@ func run(args []string) error {
 		}
 
 		kwlFile := cctx.String("keyword-file")
-		var kwl []labeling.KeywordLabeler
+		var kwl []labeler.KeywordLabeler
 		if kwlFile != "" {
-			kwl, err = labeling.LoadKeywordFile(kwlFile)
+			kwl, err = labeler.LoadKeywordFile(kwlFile)
 			if err != nil {
 				return err
 			}
 		} else {
 			// trivial examples
-			kwl = append(kwl, labeling.KeywordLabeler{Value: "meta", Keywords: []string{"bluesky", "atproto"}})
-			kwl = append(kwl, labeling.KeywordLabeler{Value: "wordle", Keywords: []string{"wordle"}})
-			kwl = append(kwl, labeling.KeywordLabeler{Value: "definite-article", Keywords: []string{"the"}})
+			kwl = append(kwl, labeler.KeywordLabeler{Value: "meta", Keywords: []string{"bluesky", "atproto"}})
+			kwl = append(kwl, labeler.KeywordLabeler{Value: "wordle", Keywords: []string{"wordle"}})
+			kwl = append(kwl, labeler.KeywordLabeler{Value: "definite-article", Keywords: []string{"the"}})
 		}
 
 		bgsURL := cctx.String("bgs-host")
@@ -201,25 +201,25 @@ func run(args []string) error {
 
 		var serkey *did.PrivKey
 		if signingSecretKeyJwk != "" {
-			serkey, err = labeling.ParseSecretKey(signingSecretKeyJwk)
+			serkey, err = labeler.ParseSecretKey(signingSecretKeyJwk)
 			if err != nil {
 				return err
 			}
 		} else {
-			serkey, err = labeling.LoadOrCreateKeyFile(repoKeyPath, "auto-labelmaker")
+			serkey, err = labeler.LoadOrCreateKeyFile(repoKeyPath, "auto-labelmaker")
 			if err != nil {
 				return err
 			}
 		}
 
-		repoUser := labeling.RepoConfig{
+		repoUser := labeler.RepoConfig{
 			Handle:     repoHandle,
 			Did:        repoDid,
 			SigningKey: serkey,
 			UserId:     1,
 		}
 
-		srv, err := labeling.NewServer(db, cstore, repoUser, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword, useWss)
+		srv, err := labeler.NewServer(db, cstore, repoUser, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword, useWss)
 		if err != nil {
 			return err
 		}
