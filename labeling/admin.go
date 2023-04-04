@@ -176,6 +176,7 @@ func (s *Server) hydrateModerationReports(ctx context.Context, rows []models.Mod
 
 		view := &comatproto.AdminDefs_ReportView{
 			Id:                  int64(row.ID),
+			Reason:              row.Reason,
 			ReasonType:          &row.ReasonType,
 			Subject:             subj,
 			ReportedBy:          row.ReportedByDid,
@@ -210,6 +211,7 @@ func (s *Server) hydrateModerationReportDetails(ctx context.Context, rows []mode
 
 		viewDetail := &comatproto.AdminDefs_ReportViewDetail{
 			Id:                int64(row.ID),
+			Reason:            row.Reason,
 			ReasonType:        &row.ReasonType,
 			Subject:           subj,
 			ReportedBy:        row.ReportedByDid,
