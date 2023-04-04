@@ -350,7 +350,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 		return err
 	}
 
-	labels := []label.Label{}
+	labels := []*label.Label{}
 	for _, op := range evt.RepoCommit.Ops {
 		uri := "at://" + evt.RepoCommit.Repo + "/" + op.Path
 		nsid := strings.SplitN(op.Path, "/", 2)[0]
@@ -372,14 +372,14 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 			// apply labels with this pattern to the whole repo, not the record
 			if strings.HasPrefix(val, "repo:") {
 				val = strings.SplitN(val, ":", 2)[1]
-				labels = append(labels, label.Label{
+				labels = append(labels, &label.Label{
 					Src: s.user.Did,
 					Uri: "at://" + evt.RepoCommit.Repo,
 					Val: val,
 					//Cts
 				})
 			} else {
-				labels = append(labels, label.Label{
+				labels = append(labels, &label.Label{
 					Src: s.user.Did,
 					Uri: uri,
 					Cid: &cidStr,

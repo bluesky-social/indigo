@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// Note that this interface looks generic, but some persisters might only work with RepoAppend or LabelBatch
+// Note that this interface looks generic, but some persisters might only work with RepoAppend or LabelLabels
 type EventPersistence interface {
 	Persist(ctx context.Context, e *XRPCStreamEvent) error
 	Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error
@@ -37,8 +37,8 @@ func (mp *MemPersister) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 		e.RepoMigrate.Seq = mp.seq
 	case e.RepoTombstone != nil:
 		e.RepoTombstone.Seq = mp.seq
-	case e.LabelBatch != nil:
-		e.LabelBatch.Seq = mp.seq
+	case e.LabelLabels != nil:
+		e.LabelLabels.Seq = mp.seq
 	default:
 		panic("no event in persist call")
 	}

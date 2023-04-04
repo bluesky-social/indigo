@@ -6,6 +6,7 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	label "github.com/bluesky-social/indigo/api/label"
 
 	"github.com/gorilla/websocket"
 )
@@ -16,7 +17,8 @@ type RepoStreamCallbacks struct {
 	RepoInfo      func(evt *comatproto.SyncSubscribeRepos_Info) error
 	RepoMigrate   func(evt *comatproto.SyncSubscribeRepos_Migrate) error
 	RepoTombstone func(evt *comatproto.SyncSubscribeRepos_Tombstone) error
-	LabelBatch    func(evt *LabelBatch) error
+	LabelLabels   func(evt *label.SubscribeLabels_Labels) error
+	LabelInfo     func(evt *label.SubscribeLabels_Info) error
 	Error         func(evt *ErrorFrame) error
 }
 
@@ -82,6 +84,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 					log.Warnf("received repo commit event with nil commit object (seq %d)", evt.Seq)
 				}
 			case "#info":
+				// TODO: this might also be a LabelInfo (as opposed to RepoInfo)
 				var evt comatproto.SyncSubscribeRepos_Info
 				if err := evt.UnmarshalCBOR(r); err != nil {
 					return err
@@ -115,9 +118,9 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 					}
 				}
 			case "#labebatch":
-				var evt LabelBatch
+				var evt label.SubscribeLabels_Labels
 				if err := evt.UnmarshalCBOR(r); err != nil {
-					return fmt.Errorf("reading LabelBatch event: %w", err)
+					return fmt.Errorf("reading Labels event: %w", err)
 				}
 
 				if evt.Seq < lastSeq {
@@ -126,8 +129,8 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 
 				lastSeq = evt.Seq
 
-				if cbs.LabelBatch != nil {
-					if err := cbs.LabelBatch(&evt); err != nil {
+				if cbs.LabelLabels != nil {
+					if err := cbs.LabelLabels(&evt); err != nil {
 						return err
 					}
 				} else {
