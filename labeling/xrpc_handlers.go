@@ -2,10 +2,10 @@ package labeling
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
-	"errors"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
@@ -158,7 +158,7 @@ func (s *Server) handleComAtprotoAdminGetModerationActions(ctx context.Context, 
 		nextCursor = strconv.FormatUint(actionRows[len(actionRows)-1].ID, 10)
 	}
 
-	actionObjs, err := s.hydrateModerationActions(ctx, actionRows)
+	actionObjs, err := s.hydrateModerationActionViews(ctx, actionRows)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +220,7 @@ func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context, 
 		nextCursor = strconv.FormatUint(reportRows[len(reportRows)-1].ID, 10)
 	}
 
-	reportObjs, err := s.hydrateModerationReports(ctx, reportRows)
+	reportObjs, err := s.hydrateModerationReportViews(ctx, reportRows)
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +282,7 @@ func (s *Server) fetchSingleModerationAction(ctx context.Context, actionId int64
 		return nil, result.Error
 	}
 
-	actionObjs, err := s.hydrateModerationActions(ctx, []models.ModerationAction{actionRow})
+	actionObjs, err := s.hydrateModerationActionViews(ctx, []models.ModerationAction{actionRow})
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +337,6 @@ func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, 
 		return nil, echo.NewHTTPError(400, "reason param was provided, but empty string")
 	}
 
-	// XXX: SubjectBlobCids (how does atproto do it? array in postgresql?)
 	row := models.ModerationAction{
 		Action:       body.Action,
 		Reason:       body.Reason,
@@ -357,7 +356,7 @@ func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, 
 			return nil, echo.NewHTTPError(400, "this implementation requires a strong record ref (aka, with CID) in reports")
 		}
 		row.SubjectType = "com.atproto.repo.recordRef"
-		// TODO: row.SubjectDid from URI?
+		// XXX: row.SubjectDid from URI?
 		row.SubjectUri = &body.Subject.RepoStrongRef.Uri
 		row.SubjectCid = &body.Subject.RepoStrongRef.Cid
 		outSubj.RepoStrongRef = &atproto.RepoStrongRef{
@@ -374,14 +373,29 @@ func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, 
 		return nil, result.Error
 	}
 
+	var cidRows []models.ModerationActionSubjectBlobCid
+	for _, sbc := range body.SubjectBlobCids {
+		cidRows = append(cidRows, models.ModerationActionSubjectBlobCid{
+			ActionId: row.ID,
+			Cid:      sbc,
+		})
+	}
+
+	if len(cidRows) > 0 {
+		result = s.db.Create(&cidRows)
+		if result.Error != nil {
+			return nil, result.Error
+		}
+	}
+
 	out := atproto.AdminDefs_ActionView{
-		Id:        int64(row.ID),
-		Action:    &row.Action,
-		Reason:    row.Reason,
-		CreatedBy: row.CreatedByDid,
-		CreatedAt: row.CreatedAt.Format(time.RFC3339),
-		Subject:   &outSubj,
-		// XXX: SubjectBlobCids
+		Id:              int64(row.ID),
+		Action:          &row.Action,
+		Reason:          row.Reason,
+		CreatedBy:       row.CreatedByDid,
+		CreatedAt:       row.CreatedAt.Format(time.RFC3339),
+		Subject:         &outSubj,
+		SubjectBlobCids: body.SubjectBlobCids,
 	}
 	return &out, nil
 }
@@ -398,7 +412,7 @@ func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *atproto
 	row := models.ModerationReport{
 		ReasonType: *body.ReasonType,
 		Reason:     body.Reason,
-		// TODO(bnewbold): from auth, via context? as a new lexicon field?
+		// XXX(bnewbold): from auth, via context? as a new lexicon field?
 		ReportedByDid: "did:plc:FAKE",
 	}
 	var outSubj atproto.ModerationCreateReport_Output_Subject
@@ -420,7 +434,7 @@ func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *atproto
 			return nil, echo.NewHTTPError(400, "this implementation requires a strong record ref (aka, with CID) in reports")
 		}
 		row.SubjectType = "com.atproto.repo.recordRef"
-		// TODO: row.SubjectDid from URI?
+		// XXX: row.SubjectDid from URI?
 		row.SubjectUri = &body.Subject.RepoStrongRef.Uri
 		row.SubjectCid = &body.Subject.RepoStrongRef.Cid
 		outSubj.RepoStrongRef = &atproto.RepoStrongRef{
@@ -442,6 +456,7 @@ func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *atproto
 		CreatedAt:  row.CreatedAt.Format(time.RFC3339),
 		Reason:     row.Reason,
 		ReasonType: &row.ReasonType,
+		ReportedBy: row.ReportedByDid,
 		Subject:    &outSubj,
 	}
 	return &out, nil
