@@ -50,7 +50,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("api/label/cbor_gen.go", "label", label.Label{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("api/label/cbor_gen.go", "label", label.Label{}, label.SubscribeLabels_Info{}, label.SubscribeLabels_Labels{}); err != nil {
 		panic(err)
 	}
 
