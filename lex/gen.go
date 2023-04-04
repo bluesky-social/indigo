@@ -116,6 +116,40 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 				Type:   ts,
 				Record: ts.record,
 			})
+
+			for _, r := range ts.Refs {
+				refname := r
+				if strings.HasPrefix(refname, "#") {
+					refname = s.ID + r
+				}
+
+				ed, ok := defMap[refname]
+				if !ok {
+					panic(fmt.Sprintf("cannot find: %q", refname))
+				}
+
+				fmt.Println("UNION REF", refname, name, record)
+
+				if record {
+					ed.Type.record = true
+				}
+			}
+		}
+
+		if ts.Type == "ref" {
+			refname := ts.Ref
+			if strings.HasPrefix(refname, "#") {
+				refname = s.ID + ts.Ref
+			}
+
+			sub, ok := defMap[refname]
+			if !ok {
+				panic(fmt.Sprintf("missing ref: %q", refname))
+			}
+
+			if record {
+				sub.Type.record = true
+			}
 		}
 
 		for childname, val := range ts.Properties {
@@ -159,7 +193,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 		if name == "main" {
 			n = tname
 		}
-		walk(n, def, false)
+		walk(n, def, def.record)
 	}
 
 	return out

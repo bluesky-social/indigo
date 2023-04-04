@@ -16,8 +16,9 @@ type EmbedExternal struct {
 	External      *EmbedExternal_External `json:"external" cborgen:"external"`
 }
 
+// RECORDTYPE: EmbedExternal_External
 type EmbedExternal_External struct {
-	LexiconTypeID string        `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string        `json:"$type,const=app.bsky.embed.external" cborgen:"$type,const=app.bsky.embed.external"`
 	Description   string        `json:"description" cborgen:"description"`
 	Thumb         *util.LexBlob `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
 	Title         string        `json:"title" cborgen:"title"`

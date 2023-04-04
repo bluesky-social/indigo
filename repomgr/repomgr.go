@@ -827,7 +827,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user util.Uid, repoDid
 		for _, op := range diffops {
 			out, err := processOp(ctx, bs, op)
 			if err != nil {
-				log.Errorw("failed to process repo op", "err", err, "path", op.Rpath)
+				log.Errorw("failed to process repo op", "err", err, "path", op.Rpath, "repo", repoDid)
 			}
 
 			if out != nil {
