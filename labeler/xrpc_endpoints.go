@@ -1,4 +1,4 @@
-package labeling
+package labeler
 
 import (
 	"net/http/httputil"
