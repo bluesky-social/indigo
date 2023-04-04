@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"errors"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
@@ -12,6 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/util"
 
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 )
 
 func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context, handle string) (*atproto.IdentityResolveHandle_Output, error) {
@@ -292,18 +294,18 @@ func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Contex
 	if body.CreatedBy == "" {
 		return nil, echo.NewHTTPError(400, "createBy param must be non-empty")
 	}
-	/* XXX:
 	if body.Reason == "" {
 		return nil, echo.NewHTTPError(400, "reason param was provided, but empty string")
 	}
-	*/
 
 	row := models.ModerationAction{ID: uint64(body.Id)}
 	result := s.db.First(&row)
 	if result.Error != nil {
-		// XXX: if not found, 404
-		//return nil, echo.NewHTTPError(404, "moderation action not found: %d", body.Id)
-		return nil, result.Error
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, echo.NewHTTPError(404, "moderation action not found: %d", body.Id)
+		} else {
+			return nil, result.Error
+		}
 	}
 
 	if row.ReversedAt != nil {
@@ -325,7 +327,15 @@ func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Contex
 
 func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, body *atproto.AdminTakeModerationAction_Input) (*atproto.AdminDefs_ActionView, error) {
 
-	// XXX: check that Action, CreatedBy, and Reason are all non-empty
+	if body.Action == "" {
+		return nil, echo.NewHTTPError(400, "action param must be non-empty")
+	}
+	if body.CreatedBy == "" {
+		return nil, echo.NewHTTPError(400, "createBy param must be non-empty")
+	}
+	if body.Reason == "" {
+		return nil, echo.NewHTTPError(400, "reason param was provided, but empty string")
+	}
 
 	// XXX: SubjectBlobCids (how does atproto do it? array in postgresql?)
 	row := models.ModerationAction{
