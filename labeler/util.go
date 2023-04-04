@@ -1,4 +1,4 @@
-package labeling
+package labeler
 
 import (
 	"crypto/ecdsa"
