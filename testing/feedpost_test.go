@@ -91,6 +91,7 @@ func TestFeedPostParse(t *testing.T) {
 				"$type": "app.bsky.embed.images",
 				"images": [
 					{
+						"$type": "",
 						"alt": "",
 						"image": {
 							"$type": "blob",
