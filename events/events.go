@@ -114,17 +114,13 @@ type XRPCStreamEvent struct {
 	RepoInfo      *comatproto.SyncSubscribeRepos_Info
 	RepoMigrate   *comatproto.SyncSubscribeRepos_Migrate
 	RepoTombstone *comatproto.SyncSubscribeRepos_Tombstone
-	LabelBatch    *LabelBatch
+	LabelLabels   *label.SubscribeLabels_Labels
+	LabelInfo     *label.SubscribeLabels_Info
 
 	// some private fields for internal routing perf
 	PrivUid         util.Uid `json:"-" cborgen:"-"`
 	PrivPdsId       uint     `json:"-" cborgen:"-"`
 	PrivRelevantPds []uint   `json:"-" cborgen:"-"`
-}
-
-type LabelBatch struct {
-	Seq    int64         `cborgen:"seq"`
-	Labels []label.Label `cborgen:"labels"`
 }
 
 type ErrorFrame struct {
