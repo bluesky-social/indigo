@@ -8,7 +8,7 @@ import (
 	"math"
 	"sort"
 
-	atproto_label "github.com/bluesky-social/indigo/api/label"
+	label "github.com/bluesky-social/indigo/api/label"
 	cid "github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
@@ -325,7 +325,7 @@ func (t *LabelBatch) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.Labels ([]atproto_label.Label) (slice)
+	// t.Labels ([]label.Label) (slice)
 	if len("labels") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"labels\" was too long")
 	}
@@ -416,7 +416,7 @@ func (t *LabelBatch) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Seq = int64(extraI)
 			}
-			// t.Labels ([]atproto_label.Label) (slice)
+			// t.Labels ([]label.Label) (slice)
 		case "labels":
 
 			maj, extra, err = cr.ReadHeader()
@@ -433,12 +433,12 @@ func (t *LabelBatch) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			if extra > 0 {
-				t.Labels = make([]atproto_label.Label, extra)
+				t.Labels = make([]label.Label, extra)
 			}
 
 			for i := 0; i < int(extra); i++ {
 
-				var v atproto_label.Label
+				var v label.Label
 				if err := v.UnmarshalCBOR(cr); err != nil {
 					return err
 				}
