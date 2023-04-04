@@ -14,10 +14,10 @@ import (
 // This is probably only a temporary method
 func (s *Server) hydrateRepoView(ctx context.Context, did, indexedAt string) *comatproto.AdminDefs_RepoView {
 	return &comatproto.AdminDefs_RepoView{
-		// TODO(bnewbold): populate more, or more correctly, from some backend?
+		// XXX(bnewbold): populate more, or more correctly, from some backend?
 		Did:            did,
 		Email:          nil,
-		Handle:         "TODO",
+		Handle:         "XXX",
 		IndexedAt:      indexedAt,
 		Moderation:     nil,
 		RelatedRecords: nil,
@@ -27,7 +27,7 @@ func (s *Server) hydrateRepoView(ctx context.Context, did, indexedAt string) *co
 // This is probably only a temporary method
 func (s *Server) hydrateRecordView(ctx context.Context, did string, uri, cid *string, indexedAt string) *comatproto.AdminDefs_RecordView {
 	repoView := s.hydrateRepoView(ctx, did, indexedAt)
-	// TODO(bnewbold): populate more, or more correctly, from some backend?
+	// XXX(bnewbold): populate more, or more correctly, from some backend?
 	recordView := comatproto.AdminDefs_RecordView{
 		BlobCids:   []string{},
 		IndexedAt:  indexedAt,
@@ -45,14 +45,31 @@ func (s *Server) hydrateRecordView(ctx context.Context, did string, uri, cid *st
 	return &recordView
 }
 
-func (s *Server) hydrateModerationActions(ctx context.Context, rows []models.ModerationAction) ([]*comatproto.AdminDefs_ActionView, error) {
+func (s *Server) hydrateModerationActionViews(ctx context.Context, rows []models.ModerationAction) ([]*comatproto.AdminDefs_ActionView, error) {
 
 	var out []*comatproto.AdminDefs_ActionView
 
 	for _, row := range rows {
-		// TODO(bnewbold): resolve these
+
 		resolvedReportIds := []int64{}
+		var resolutionRows []models.ModerationReportResolution
+		result := s.db.Where("action_id = ?", row.ID).Find(&resolutionRows)
+		if result.Error != nil {
+			return nil, result.Error
+		}
+		for _, row := range resolutionRows {
+			resolvedReportIds = append(resolvedReportIds, int64(row.ReportId))
+		}
+
 		subjectBlobCIDs := []string{}
+		var cidRows []models.ModerationActionSubjectBlobCid
+		result = s.db.Where("action_id = ?", row.ID).Find(&cidRows)
+		if result.Error != nil {
+			return nil, result.Error
+		}
+		for _, row := range cidRows {
+			subjectBlobCIDs = append(subjectBlobCIDs, row.Cid)
+		}
 
 		var reversal *comatproto.AdminDefs_ActionReversal
 		if row.ReversedAt != nil {
@@ -104,9 +121,34 @@ func (s *Server) hydrateModerationActionDetails(ctx context.Context, rows []mode
 	var out []*comatproto.AdminDefs_ActionViewDetail
 	for _, row := range rows {
 
-		// TODO(bnewbold): resolve these
-		resolvedReports := []*comatproto.AdminDefs_ReportView{}
-		subjectBlobs := []*comatproto.AdminDefs_BlobView{}
+		var reportRows []models.ModerationReport
+		result := s.db.Joins("left join moderation_report_resolutions on moderation_report_resolutions.report_id = moderation_reports.id").Where("moderation_report_resolutions.action_id = ?", row.ID).Find(&reportRows)
+		if result.Error != nil {
+			return nil, result.Error
+		}
+		resolvedReports, err := s.hydrateModerationReportViews(ctx, reportRows)
+		if err != nil {
+			return nil, err
+		}
+
+		subjectBlobViews := []*comatproto.AdminDefs_BlobView{}
+		var cidRows []models.ModerationActionSubjectBlobCid
+		result = s.db.Where("action_id = ?", row.ID).Find(&cidRows)
+		if result.Error != nil {
+			return nil, result.Error
+		}
+		for _, row := range cidRows {
+			subjectBlobViews = append(subjectBlobViews, &comatproto.AdminDefs_BlobView{
+				Cid: row.Cid,
+				/* XXX: all these other fields
+								CreatedAt     string
+				    			Details       *AdminDefs_BlobView_Details
+				    			MimeType      string
+				    			Moderation    *AdminDefs_Moderation
+				    			Size          int64
+				*/
+			})
+		}
 
 		var reversal *comatproto.AdminDefs_ActionReversal
 		if row.ReversedAt != nil {
@@ -139,19 +181,26 @@ func (s *Server) hydrateModerationActionDetails(ctx context.Context, rows []mode
 			ResolvedReports: resolvedReports,
 			Reversal:        reversal,
 			Subject:         subj,
-			SubjectBlobs:    subjectBlobs,
+			SubjectBlobs:    subjectBlobViews,
 		}
 		out = append(out, viewDetail)
 	}
 	return out, nil
 }
 
-func (s *Server) hydrateModerationReports(ctx context.Context, rows []models.ModerationReport) ([]*comatproto.AdminDefs_ReportView, error) {
+func (s *Server) hydrateModerationReportViews(ctx context.Context, rows []models.ModerationReport) ([]*comatproto.AdminDefs_ReportView, error) {
 
 	var out []*comatproto.AdminDefs_ReportView
 	for _, row := range rows {
-		// TODO(bnewbold): fetch these IDs
 		var resolvedByActionIds []int64
+		var actionRows []models.ModerationAction
+		result := s.db.Joins("left join moderation_report_resolutions on moderation_report_resolutions.action_id = moderation_actions.id").Where("moderation_report_resolutions.report_id = ?", row.ID).Where("moderation_actions.reversed_at IS NULL").Find(&actionRows)
+		if result.Error != nil {
+			return nil, result.Error
+		}
+		for _, actionRow := range actionRows {
+			resolvedByActionIds = append(resolvedByActionIds, int64(actionRow.ID))
+		}
 
 		var subj *comatproto.AdminDefs_ReportView_Subject
 		switch row.SubjectType {
@@ -192,8 +241,15 @@ func (s *Server) hydrateModerationReportDetails(ctx context.Context, rows []mode
 
 	var out []*comatproto.AdminDefs_ReportViewDetail
 	for _, row := range rows {
-		// TODO(bnewbold): fetch these objects
-		var resolvedByActions []*comatproto.AdminDefs_ActionView
+		var actionRows []models.ModerationAction
+		result := s.db.Joins("left join moderation_report_resolutions on moderation_report_resolutions.action_id = moderation_actions.id").Where("moderation_report_resolutions.report_id = ?", row.ID).Where("moderation_actions.reversed_at IS NULL").Find(&actionRows)
+		if result.Error != nil {
+			return nil, result.Error
+		}
+		resolvedByActionViews, err := s.hydrateModerationActionViews(ctx, actionRows)
+		if err != nil {
+			return nil, err
+		}
 
 		var subj *comatproto.AdminDefs_ReportViewDetail_Subject
 		switch row.SubjectType {
@@ -216,7 +272,7 @@ func (s *Server) hydrateModerationReportDetails(ctx context.Context, rows []mode
 			Subject:           subj,
 			ReportedBy:        row.ReportedByDid,
 			CreatedAt:         row.CreatedAt.Format(time.RFC3339),
-			ResolvedByActions: resolvedByActions,
+			ResolvedByActions: resolvedByActionViews,
 		}
 		out = append(out, viewDetail)
 	}

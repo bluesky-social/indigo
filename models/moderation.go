@@ -19,6 +19,12 @@ type ModerationAction struct {
 	ReversedReason *string
 }
 
+type ModerationActionSubjectBlobCid struct {
+	// TODO: foreign key
+	ActionId uint64 `gorm:"primaryKey"`
+	Cid      string `gorm:"primaryKey"`
+}
+
 type ModerationReport struct {
 	ID            uint64 `gorm:"primaryKey"`
 	SubjectType   string `gorm:"not null"`
@@ -32,7 +38,9 @@ type ModerationReport struct {
 }
 
 type ModerationReportResolution struct {
-	ReportId     uint64    `gorm:"primaryKey"`
+	// TODO: foreign key
+	ReportId uint64 `gorm:"primaryKey"`
+	// TODO: foreign key
 	ActionId     uint64    `gorm:"primaryKey;index:"`
 	CreatedAt    time.Time `gorm:"not null"`
 	CreatedByDid string    `gorm:"not null"`
