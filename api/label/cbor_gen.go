@@ -25,9 +25,13 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 6
+	fieldCount := 7
 
 	if t.Cid == nil {
+		fieldCount--
+	}
+
+	if t.Neg == nil {
 		fieldCount--
 	}
 
@@ -88,6 +92,25 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := io.WriteString(w, string(t.Cts)); err != nil {
 		return err
+	}
+
+	// t.Neg (bool) (bool)
+	if t.Neg != nil {
+
+		if len("neg") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"neg\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("neg"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("neg")); err != nil {
+			return err
+		}
+
+		if err := cbg.WriteBool(w, t.Neg); err != nil {
+			return err
+		}
 	}
 
 	// t.Src (string) (string)
@@ -249,6 +272,24 @@ func (t *Label) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Cts = string(sval)
+			}
+			// t.Neg (bool) (bool)
+		case "neg":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+			if maj != cbg.MajOther {
+				return fmt.Errorf("booleans must be major type 7")
+			}
+			switch extra {
+			case 20:
+				t.Neg = false
+			case 21:
+				t.Neg = true
+			default:
+				return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
 			}
 			// t.Src (string) (string)
 		case "src":
