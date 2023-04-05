@@ -92,11 +92,16 @@ func (s *Server) handleComAtprotoLabelQueryLabels(ctx context.Context, cursor st
 
 	labelObjs := []*label.Label{}
 	for _, row := range labelRows {
+		neg := false
+		if row.Neg != nil && *row.Neg == true {
+			neg = true
+		}
 		labelObjs = append(labelObjs, &label.Label{
 			Src: row.SourceDid,
 			Uri: row.Uri,
 			Cid: row.Cid,
 			Val: row.Val,
+			Neg: neg,
 			Cts: row.CreatedAt.Format(util.ISO8601),
 		})
 	}
