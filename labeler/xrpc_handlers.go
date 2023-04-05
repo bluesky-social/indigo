@@ -330,6 +330,17 @@ func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Contex
 	return s.fetchSingleModerationAction(ctx, body.Id)
 }
 
+func didFromURI(uri string) string {
+	parts := strings.SplitN(uri, "/", 4)
+	if len(parts) < 3 {
+		return ""
+	}
+	if strings.HasPrefix(parts[2], "did:") {
+		return parts[2]
+	}
+	return ""
+}
+
 func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, body *atproto.AdminTakeModerationAction_Input) (*atproto.AdminDefs_ActionView, error) {
 
 	if body.Action == "" {
@@ -361,8 +372,11 @@ func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, 
 			return nil, echo.NewHTTPError(400, "this implementation requires a strong record ref (aka, with CID) in reports")
 		}
 		row.SubjectType = "com.atproto.repo.recordRef"
-		// XXX: row.SubjectDid from URI?
 		row.SubjectUri = &body.Subject.RepoStrongRef.Uri
+		row.SubjectDid = didFromURI(body.Subject.RepoStrongRef.Uri)
+		if row.SubjectDid == "" {
+			return nil, echo.NewHTTPError(400, "expected URI with a DID: ", row.SubjectUri)
+		}
 		row.SubjectCid = &body.Subject.RepoStrongRef.Cid
 		outSubj.RepoStrongRef = &atproto.RepoStrongRef{
 			LexiconTypeID: "com.atproto.repo.strongRef",
@@ -417,8 +431,8 @@ func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *atproto
 	row := models.ModerationReport{
 		ReasonType: *body.ReasonType,
 		Reason:     body.Reason,
-		// XXX(bnewbold): from auth, via context? as a new lexicon field?
-		ReportedByDid: "did:plc:FAKE",
+		// TODO(bnewbold): temporarily, all reports from labelmaker user
+		ReportedByDid: s.user.Did,
 	}
 	var outSubj atproto.ModerationCreateReport_Output_Subject
 	if body.Subject.AdminDefs_RepoRef != nil {
@@ -439,8 +453,11 @@ func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *atproto
 			return nil, echo.NewHTTPError(400, "this implementation requires a strong record ref (aka, with CID) in reports")
 		}
 		row.SubjectType = "com.atproto.repo.recordRef"
-		// XXX: row.SubjectDid from URI?
 		row.SubjectUri = &body.Subject.RepoStrongRef.Uri
+		row.SubjectDid = didFromURI(body.Subject.RepoStrongRef.Uri)
+		if row.SubjectDid == "" {
+			return nil, echo.NewHTTPError(400, "expected URI with a DID: ", row.SubjectUri)
+		}
 		row.SubjectCid = &body.Subject.RepoStrongRef.Cid
 		outSubj.RepoStrongRef = &atproto.RepoStrongRef{
 			LexiconTypeID: "com.atproto.repo.strongRef",
