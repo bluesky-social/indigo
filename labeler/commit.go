@@ -37,11 +37,13 @@ func (s *Server) CommitLabels(ctx context.Context, labels []*label.Label, negate
 			SourceDid: l.Src,
 			Cid:       l.Cid,
 			Val:       l.Val,
+			Neg:       nil,
 			RepoRKey:  &rkey,
 			CreatedAt: now,
 		}
 		if negate {
-			lr.NegatedAt = now
+			t := true
+			lr.Neg = &t
 		}
 		labelRows = append(labelRows, lr)
 	}
