@@ -12,8 +12,7 @@ func init() {
 }
 
 type SyncGetCommitPath_Output struct {
-	LexiconTypeID string   `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Commits       []string `json:"commits" cborgen:"commits"`
+	Commits []string `json:"commits" cborgen:"commits"`
 }
 
 func SyncGetCommitPath(ctx context.Context, c *xrpc.Client, did string, earliest string, latest string) (*SyncGetCommitPath_Output, error) {

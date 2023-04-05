@@ -12,9 +12,8 @@ func init() {
 }
 
 type AdminSearchRepos_Output struct {
-	LexiconTypeID string                `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Cursor        *string               `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
-	Repos         []*AdminDefs_RepoView `json:"repos" cborgen:"repos"`
+	Cursor *string               `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
+	Repos  []*AdminDefs_RepoView `json:"repos" cborgen:"repos"`
 }
 
 func AdminSearchRepos(ctx context.Context, c *xrpc.Client, cursor string, limit int64, term string) (*AdminSearchRepos_Output, error) {

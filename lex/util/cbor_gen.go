@@ -304,14 +304,10 @@ func (t *BlobSchema) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.LexiconTypeID) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("blob"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+	if _, err := io.WriteString(w, string("blob")); err != nil {
 		return err
 	}
 

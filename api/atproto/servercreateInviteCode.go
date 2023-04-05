@@ -12,13 +12,11 @@ func init() {
 }
 
 type ServerCreateInviteCode_Input struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	UseCount      int64  `json:"useCount" cborgen:"useCount"`
+	UseCount int64 `json:"useCount" cborgen:"useCount"`
 }
 
 type ServerCreateInviteCode_Output struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Code          string `json:"code" cborgen:"code"`
+	Code string `json:"code" cborgen:"code"`
 }
 
 func ServerCreateInviteCode(ctx context.Context, c *xrpc.Client, input *ServerCreateInviteCode_Input) (*ServerCreateInviteCode_Output, error) {

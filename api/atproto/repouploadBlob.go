@@ -14,8 +14,7 @@ func init() {
 }
 
 type RepoUploadBlob_Output struct {
-	LexiconTypeID string        `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Blob          *util.LexBlob `json:"blob" cborgen:"blob"`
+	Blob *util.LexBlob `json:"blob" cborgen:"blob"`
 }
 
 func RepoUploadBlob(ctx context.Context, c *xrpc.Client, input io.Reader) (*RepoUploadBlob_Output, error) {

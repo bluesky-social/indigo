@@ -12,8 +12,7 @@ func init() {
 }
 
 type ActorSearchActorsTypeahead_Output struct {
-	LexiconTypeID string                        `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Actors        []*ActorDefs_ProfileViewBasic `json:"actors" cborgen:"actors"`
+	Actors []*ActorDefs_ProfileViewBasic `json:"actors" cborgen:"actors"`
 }
 
 func ActorSearchActorsTypeahead(ctx context.Context, c *xrpc.Client, limit int64, term string) (*ActorSearchActorsTypeahead_Output, error) {

@@ -12,8 +12,7 @@ func init() {
 }
 
 type GraphUnmuteActor_Input struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Actor         string `json:"actor" cborgen:"actor"`
+	Actor string `json:"actor" cborgen:"actor"`
 }
 
 func GraphUnmuteActor(ctx context.Context, c *xrpc.Client, input *GraphUnmuteActor_Input) error {

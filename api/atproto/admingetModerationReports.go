@@ -12,9 +12,8 @@ func init() {
 }
 
 type AdminGetModerationReports_Output struct {
-	LexiconTypeID string                  `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Cursor        *string                 `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
-	Reports       []*AdminDefs_ReportView `json:"reports" cborgen:"reports"`
+	Cursor  *string                 `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
+	Reports []*AdminDefs_ReportView `json:"reports" cborgen:"reports"`
 }
 
 func AdminGetModerationReports(ctx context.Context, c *xrpc.Client, cursor string, limit int64, resolved bool, subject string) (*AdminGetModerationReports_Output, error) {

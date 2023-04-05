@@ -13,21 +13,16 @@ import (
 // schema: app.bsky.richtext.facet
 
 func init() {
-	util.RegisterType("app.bsky.richtext.facet#main", &RichtextFacet{})
 }
 
-// RECORDTYPE: RichtextFacet
 type RichtextFacet struct {
-	LexiconTypeID string                         `json:"$type,const=app.bsky.richtext.facet" cborgen:"$type,const=app.bsky.richtext.facet"`
-	Features      []*RichtextFacet_Features_Elem `json:"features" cborgen:"features"`
-	Index         *RichtextFacet_ByteSlice       `json:"index" cborgen:"index"`
+	Features []*RichtextFacet_Features_Elem `json:"features" cborgen:"features"`
+	Index    *RichtextFacet_ByteSlice       `json:"index" cborgen:"index"`
 }
 
-// RECORDTYPE: RichtextFacet_ByteSlice
 type RichtextFacet_ByteSlice struct {
-	LexiconTypeID string `json:"$type,const=app.bsky.richtext.facet" cborgen:"$type,const=app.bsky.richtext.facet"`
-	ByteEnd       int64  `json:"byteEnd" cborgen:"byteEnd"`
-	ByteStart     int64  `json:"byteStart" cborgen:"byteStart"`
+	ByteEnd   int64 `json:"byteEnd" cborgen:"byteEnd"`
+	ByteStart int64 `json:"byteStart" cborgen:"byteStart"`
 }
 
 type RichtextFacet_Features_Elem struct {
