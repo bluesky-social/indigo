@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	label "github.com/bluesky-social/indigo/api/label"
 )
 
 // fetches report, both getModerationReport and getModerationReports, verifies match
@@ -236,4 +237,21 @@ func testCreateAction(t *testing.T, e *echo.Echo, lm *Server, input *comatproto.
 	assert.Nil(actionViewDetail.Reversal)
 
 	return out
+}
+
+func testQueryLabels(t *testing.T, e *echo.Echo, lm *Server, params *url.Values) (*label.QueryLabels_Output, error) {
+
+	req := httptest.NewRequest(http.MethodGet, "/xrpc/com.atproto.label.queryLabels?"+params.Encode(), nil)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	recorder := httptest.NewRecorder()
+	c := e.NewContext(req, recorder)
+	err := lm.HandleComAtprotoLabelQueryLabels(c)
+	if err != nil {
+		return nil, err
+	}
+	var out label.QueryLabels_Output
+	if err := json.Unmarshal([]byte(recorder.Body.String()), &out); err != nil {
+		t.Fatal(err)
+	}
+	return &out, nil
 }
