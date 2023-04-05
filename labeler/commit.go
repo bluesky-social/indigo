@@ -31,7 +31,7 @@ func (s *Server) CommitLabels(ctx context.Context, labels []*label.Label, negate
 		labelUri := "at://" + s.user.Did + "/" + path
 		log.Infof("persisted label in repo: %s", labelUri)
 
-		rkey := strings.SplitN(path, ":", 2)[1]
+		rkey := strings.SplitN(path, "/", 2)[1]
 		lr := models.Label{
 			Uri:       l.Uri,
 			SourceDid: l.Src,
