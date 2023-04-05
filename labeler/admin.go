@@ -14,10 +14,10 @@ import (
 // This is probably only a temporary method
 func (s *Server) hydrateRepoView(ctx context.Context, did, indexedAt string) *comatproto.AdminDefs_RepoView {
 	return &comatproto.AdminDefs_RepoView{
-		// XXX(bnewbold): populate more, or more correctly, from some backend?
+		// TODO(bnewbold): populate more, or more correctly, from some backend?
 		Did:            did,
 		Email:          nil,
-		Handle:         "XXX",
+		Handle:         "TODO",
 		IndexedAt:      indexedAt,
 		Moderation:     nil,
 		RelatedRecords: nil,
@@ -27,13 +27,13 @@ func (s *Server) hydrateRepoView(ctx context.Context, did, indexedAt string) *co
 // This is probably only a temporary method
 func (s *Server) hydrateRecordView(ctx context.Context, did string, uri, cid *string, indexedAt string) *comatproto.AdminDefs_RecordView {
 	repoView := s.hydrateRepoView(ctx, did, indexedAt)
-	// XXX(bnewbold): populate more, or more correctly, from some backend?
+	// TODO(bnewbold): populate more, or more correctly, from some backend?
 	recordView := comatproto.AdminDefs_RecordView{
 		BlobCids:   []string{},
 		IndexedAt:  indexedAt,
 		Moderation: nil,
 		Repo:       repoView,
-		// XXX: replace with actual record
+		// TODO: replace with actual record (from proxied backend)
 		Value: &lexutil.LexiconTypeDecoder{&appbsky.FeedPost{}},
 	}
 	if uri != nil {
@@ -140,12 +140,12 @@ func (s *Server) hydrateModerationActionDetails(ctx context.Context, rows []mode
 		for _, row := range cidRows {
 			subjectBlobViews = append(subjectBlobViews, &comatproto.AdminDefs_BlobView{
 				Cid: row.Cid,
-				/* XXX: all these other fields
-								CreatedAt     string
-				    			Details       *AdminDefs_BlobView_Details
-				    			MimeType      string
-				    			Moderation    *AdminDefs_Moderation
-				    			Size          int64
+				/* TODO(bnewbold): all these other blob fields (from another backed)
+				CreatedAt     string
+				Details       *AdminDefs_BlobView_Details
+				MimeType      string
+				Moderation    *AdminDefs_Moderation
+				Size          int64
 				*/
 			})
 		}

@@ -202,13 +202,10 @@ func TestLabelMakerXRPCReportAction(t *testing.T) {
 				Cid: cid,
 			},
 		},
-		// XXX: cid support
-		/*
-			SubjectBlobCids: []string{
-				"abc",
-				"onetwothree",
-			},
-		*/
+		SubjectBlobCids: []string{
+			"abc",
+			"onetwothree",
+		},
 	}
 	actionOut := testCreateAction(t, e, lm, &action)
 	actionId := actionOut.Id
