@@ -6,6 +6,7 @@ import (
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
+	"github.com/bluesky-social/indigo/version"
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
@@ -274,4 +275,19 @@ func (s *Server) HandleComAtprotoReportCreate(c echo.Context) error {
 		return handleErr
 	}
 	return c.JSON(200, out)
+}
+
+type HealthStatus struct {
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	Message string `json:"msg,omitempty"`
+}
+
+func (s *Server) HandleHealthCheck(c echo.Context) error {
+	if err := s.db.Exec("SELECT 1").Error; err != nil {
+		log.Errorf("healthcheck can't connect to database: %v", err)
+		return c.JSON(500, HealthStatus{Status: "error", Version: version.Version, Message: "can't connect to database"})
+	} else {
+		return c.JSON(200, HealthStatus{Status: "ok", Version: version.Version})
+	}
 }
