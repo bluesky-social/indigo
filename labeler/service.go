@@ -461,6 +461,7 @@ func (s *Server) RunAPI(listen string) error {
 		ctx.Response().WriteHeader(code)
 	}
 
+	e.GET("/xrpc/_health", s.HandleHealthCheck)
 	if err := s.RegisterHandlersComAtproto(e); err != nil {
 		return err
 	}
