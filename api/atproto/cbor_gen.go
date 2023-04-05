@@ -96,14 +96,10 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 
-		if len(t.LexiconTypeID) > cbg.MaxLength {
-			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("com.atproto.repo.strongRef"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+		if _, err := io.WriteString(w, string("com.atproto.repo.strongRef")); err != nil {
 			return err
 		}
 	}
@@ -197,13 +193,8 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 11
 
-	if t.LexiconTypeID == "" {
-		fieldCount--
-	}
-
-	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+	if _, err := cw.Write([]byte{170}); err != nil {
 		return err
 	}
 
@@ -314,32 +305,6 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := io.WriteString(w, string(t.Time)); err != nil {
 		return err
-	}
-
-	// t.LexiconTypeID (string) (string)
-	if t.LexiconTypeID != "" {
-
-		if len("$type") > cbg.MaxLength {
-			return xerrors.Errorf("Value in field \"$type\" was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string("$type")); err != nil {
-			return err
-		}
-
-		if len(t.LexiconTypeID) > cbg.MaxLength {
-			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
-			return err
-		}
 	}
 
 	// t.Blobs ([]util.LexLink) (slice)
@@ -577,17 +542,6 @@ func (t *SyncSubscribeRepos_Commit) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Time = string(sval)
 			}
-			// t.LexiconTypeID (string) (string)
-		case "$type":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
-			}
 			// t.Blobs ([]util.LexLink) (slice)
 		case "blobs":
 
@@ -702,13 +656,8 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 5
 
-	if t.LexiconTypeID == "" {
-		fieldCount--
-	}
-
-	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+	if _, err := cw.Write([]byte{164}); err != nil {
 		return err
 	}
 
@@ -778,32 +727,6 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := io.WriteString(w, string(t.Time)); err != nil {
 		return err
-	}
-
-	// t.LexiconTypeID (string) (string)
-	if t.LexiconTypeID != "" {
-
-		if len("$type") > cbg.MaxLength {
-			return xerrors.Errorf("Value in field \"$type\" was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string("$type")); err != nil {
-			return err
-		}
-
-		if len(t.LexiconTypeID) > cbg.MaxLength {
-			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
-			return err
-		}
 	}
 
 	// t.Handle (string) (string)
@@ -917,17 +840,6 @@ func (t *SyncSubscribeRepos_Handle) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Time = string(sval)
 			}
-			// t.LexiconTypeID (string) (string)
-		case "$type":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
-			}
 			// t.Handle (string) (string)
 		case "handle":
 
@@ -955,11 +867,7 @@ func (t *SyncSubscribeRepos_Info) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 3
-
-	if t.LexiconTypeID == "" {
-		fieldCount--
-	}
+	fieldCount := 2
 
 	if t.Message == nil {
 		fieldCount--
@@ -990,32 +898,6 @@ func (t *SyncSubscribeRepos_Info) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := io.WriteString(w, string(t.Name)); err != nil {
 		return err
-	}
-
-	// t.LexiconTypeID (string) (string)
-	if t.LexiconTypeID != "" {
-
-		if len("$type") > cbg.MaxLength {
-			return xerrors.Errorf("Value in field \"$type\" was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string("$type")); err != nil {
-			return err
-		}
-
-		if len(t.LexiconTypeID) > cbg.MaxLength {
-			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
-			return err
-		}
 	}
 
 	// t.Message (string) (string)
@@ -1101,17 +983,6 @@ func (t *SyncSubscribeRepos_Info) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Name = string(sval)
 			}
-			// t.LexiconTypeID (string) (string)
-		case "$type":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
-			}
 			// t.Message (string) (string)
 		case "message":
 
@@ -1149,13 +1020,8 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 5
 
-	if t.LexiconTypeID == "" {
-		fieldCount--
-	}
-
-	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+	if _, err := cw.Write([]byte{164}); err != nil {
 		return err
 	}
 
@@ -1225,32 +1091,6 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := io.WriteString(w, string(t.Time)); err != nil {
 		return err
-	}
-
-	// t.LexiconTypeID (string) (string)
-	if t.LexiconTypeID != "" {
-
-		if len("$type") > cbg.MaxLength {
-			return xerrors.Errorf("Value in field \"$type\" was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string("$type")); err != nil {
-			return err
-		}
-
-		if len(t.LexiconTypeID) > cbg.MaxLength {
-			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
-			return err
-		}
 	}
 
 	// t.MigrateTo (string) (string)
@@ -1370,17 +1210,6 @@ func (t *SyncSubscribeRepos_Migrate) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Time = string(sval)
 			}
-			// t.LexiconTypeID (string) (string)
-		case "$type":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
-			}
 			// t.MigrateTo (string) (string)
 		case "migrateTo":
 
@@ -1418,13 +1247,8 @@ func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 4
 
-	if t.LexiconTypeID == "" {
-		fieldCount--
-	}
-
-	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+	if _, err := cw.Write([]byte{163}); err != nil {
 		return err
 	}
 
@@ -1465,32 +1289,6 @@ func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := io.WriteString(w, string(t.Path)); err != nil {
 		return err
-	}
-
-	// t.LexiconTypeID (string) (string)
-	if t.LexiconTypeID != "" {
-
-		if len("$type") > cbg.MaxLength {
-			return xerrors.Errorf("Value in field \"$type\" was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string("$type")); err != nil {
-			return err
-		}
-
-		if len(t.LexiconTypeID) > cbg.MaxLength {
-			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
-			return err
-		}
 	}
 
 	// t.Action (string) (string)
@@ -1587,17 +1385,6 @@ func (t *SyncSubscribeRepos_RepoOp) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Path = string(sval)
 			}
-			// t.LexiconTypeID (string) (string)
-		case "$type":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
-			}
 			// t.Action (string) (string)
 		case "action":
 
@@ -1625,13 +1412,8 @@ func (t *SyncSubscribeRepos_Tombstone) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 4
 
-	if t.LexiconTypeID == "" {
-		fieldCount--
-	}
-
-	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+	if _, err := cw.Write([]byte{163}); err != nil {
 		return err
 	}
 
@@ -1701,32 +1483,6 @@ func (t *SyncSubscribeRepos_Tombstone) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := io.WriteString(w, string(t.Time)); err != nil {
 		return err
-	}
-
-	// t.LexiconTypeID (string) (string)
-	if t.LexiconTypeID != "" {
-
-		if len("$type") > cbg.MaxLength {
-			return xerrors.Errorf("Value in field \"$type\" was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string("$type")); err != nil {
-			return err
-		}
-
-		if len(t.LexiconTypeID) > cbg.MaxLength {
-			return xerrors.Errorf("Value in field t.LexiconTypeID was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -1816,17 +1572,6 @@ func (t *SyncSubscribeRepos_Tombstone) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Time = string(sval)
-			}
-			// t.LexiconTypeID (string) (string)
-		case "$type":
-
-			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
-				}
-
-				t.LexiconTypeID = string(sval)
 			}
 
 		default:

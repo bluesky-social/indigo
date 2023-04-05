@@ -91,8 +91,9 @@ func (t *EmbedRecordWithMedia_Media) UnmarshalCBOR(r io.Reader) error {
 	}
 }
 
+// RECORDTYPE: EmbedRecordWithMedia_View
 type EmbedRecordWithMedia_View struct {
-	LexiconTypeID string                           `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string                           `json:"$type,const=app.bsky.embed.recordWithMedia" cborgen:"$type,const=app.bsky.embed.recordWithMedia"`
 	Media         *EmbedRecordWithMedia_View_Media `json:"media" cborgen:"media"`
 	Record        *EmbedRecord_View                `json:"record" cborgen:"record"`
 }

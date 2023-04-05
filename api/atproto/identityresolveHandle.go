@@ -12,8 +12,7 @@ func init() {
 }
 
 type IdentityResolveHandle_Output struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Did           string `json:"did" cborgen:"did"`
+	Did string `json:"did" cborgen:"did"`
 }
 
 func IdentityResolveHandle(ctx context.Context, c *xrpc.Client, handle string) (*IdentityResolveHandle_Output, error) {

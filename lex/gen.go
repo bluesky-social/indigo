@@ -47,11 +47,12 @@ type InputType struct {
 }
 
 type TypeSchema struct {
-	prefix  string
-	id      string
-	defName string
-	defMap  map[string]*ExtDef
-	record  bool
+	prefix    string
+	id        string
+	defName   string
+	defMap    map[string]*ExtDef
+	needsCbor bool
+	needsType bool
 
 	Type        string      `json:"type"`
 	Key         string      `json:"key"`
@@ -83,27 +84,28 @@ func (s *Schema) Name() string {
 }
 
 type outputType struct {
-	Name    string
-	DefName string
-	Type    *TypeSchema
-	Record  bool
+	Name      string
+	DefName   string
+	Type      *TypeSchema
+	NeedsCbor bool
+	NeedsType bool
 }
 
 func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType {
 	var out []outputType
 
-	var walk func(name string, ts *TypeSchema, record bool)
-	walk = func(name string, ts *TypeSchema, record bool) {
+	var walk func(name string, ts *TypeSchema, needsCbor bool)
+	walk = func(name string, ts *TypeSchema, needsCbor bool) {
 		if ts == nil {
 			panic(fmt.Sprintf("nil type schema in %q (%s)", name, s.ID))
 		}
 
-		if record {
+		if needsCbor {
 			fmt.Println("Setting to record: ", name)
 			if name == "EmbedImages_View" {
 				panic("not ok")
 			}
-			ts.record = true
+			ts.needsCbor = true
 		}
 
 		ts.prefix = prefix
@@ -112,9 +114,9 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 		if ts.Type == "object" ||
 			(ts.Type == "union" && len(ts.Refs) > 0) {
 			out = append(out, outputType{
-				Name:   name,
-				Type:   ts,
-				Record: ts.record,
+				Name:      name,
+				Type:      ts,
+				NeedsCbor: ts.needsCbor,
 			})
 
 			for _, r := range ts.Refs {
@@ -128,11 +130,13 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 					panic(fmt.Sprintf("cannot find: %q", refname))
 				}
 
-				fmt.Println("UNION REF", refname, name, record)
+				fmt.Println("UNION REF", refname, name, needsCbor)
 
-				if record {
-					ed.Type.record = true
+				if needsCbor {
+					ed.Type.needsCbor = true
 				}
+
+				ed.Type.needsType = true
 			}
 		}
 
@@ -147,17 +151,17 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 				panic(fmt.Sprintf("missing ref: %q", refname))
 			}
 
-			if record {
-				sub.Type.record = true
+			if needsCbor {
+				sub.Type.needsCbor = true
 			}
 		}
 
 		for childname, val := range ts.Properties {
-			walk(name+"_"+strings.Title(childname), val, ts.record)
+			walk(name+"_"+strings.Title(childname), val, ts.needsCbor)
 		}
 
 		if ts.Items != nil {
-			walk(name+"_Elem", ts.Items, ts.record)
+			walk(name+"_Elem", ts.Items, ts.needsCbor)
 		}
 
 		if ts.Input != nil {
@@ -166,7 +170,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 					panic(fmt.Sprintf("strange input type def in %s", s.ID))
 				}
 			} else {
-				walk(name+"_Input", ts.Input.Schema, ts.record)
+				walk(name+"_Input", ts.Input.Schema, ts.needsCbor)
 			}
 		}
 
@@ -176,11 +180,12 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 					panic(fmt.Sprintf("strange output type def in %s", s.ID))
 				}
 			} else {
-				walk(name+"_Output", ts.Output.Schema, ts.record)
+				walk(name+"_Output", ts.Output.Schema, ts.needsCbor)
 			}
 		}
 
 		if ts.Type == "record" {
+			ts.Record.needsType = true
 			walk(name, ts.Record, true)
 		}
 
@@ -193,7 +198,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 		if name == "main" {
 			n = tname
 		}
-		walk(n, def, def.record)
+		walk(n, def, def.needsCbor)
 	}
 
 	return out
@@ -258,6 +263,11 @@ func FixRecordReferences(schemas []*Schema, defmap map[string]*ExtDef, prefix st
 
 		tps := s.AllTypes(prefix, defmap)
 		for _, t := range tps {
+			if t.Type.Type == "record" {
+				t.NeedsType = true
+				t.Type.needsType = true
+			}
+
 			if t.Type.Type == "union" {
 				for _, r := range t.Type.Refs {
 					if r[0] == '#' {
@@ -268,8 +278,8 @@ func FixRecordReferences(schemas []*Schema, defmap map[string]*ExtDef, prefix st
 						panic(fmt.Sprintf("reference to unknown record type: %s", r))
 					}
 
-					if t.Record {
-						defmap[r].Type.record = true
+					if t.NeedsCbor {
+						defmap[r].Type.needsCbor = true
 					}
 				}
 			}
@@ -311,7 +321,7 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 		return tps[i].Name < tps[j].Name
 	})
 	for _, ot := range tps {
-		fmt.Println("TYPE: ", ot.Name, ot.Record)
+		fmt.Println("TYPE: ", ot.Name, ot.NeedsCbor, ot.NeedsType)
 		if err := ot.Type.WriteType(ot.Name, buf); err != nil {
 			return err
 		}
@@ -338,7 +348,7 @@ func writeDecoderRegister(w io.Writer, tps []outputType) error {
 	fmt.Fprintln(w, "func init() {")
 	for _, t := range tps {
 
-		if t.Type.record && !strings.Contains(t.Name, "_") {
+		if t.Type.needsType && !strings.Contains(t.Name, "_") {
 			id := t.Type.id
 			if t.Type.defName != "" {
 				id = id + "#" + t.Type.defName
@@ -1128,16 +1138,16 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 			return nil
 		}
 
-		if ts.record {
+		if ts.needsType {
 			fmt.Fprintf(w, "// RECORDTYPE: %s\n", name)
 		}
 
 		fmt.Fprintf(w, "type %s struct {\n", name)
 
-		if ts.record {
+		if ts.needsType {
 			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type,const=%s\" cborgen:\"$type,const=%s\"`\n", ts.id, ts.id)
 		} else {
-			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type,omitempty\" cborgen:\"$type,omitempty\"`\n")
+			//fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type,omitempty\" cborgen:\"$type,omitempty\"`\n")
 		}
 
 		required := make(map[string]bool)
@@ -1238,7 +1248,7 @@ func (ts *TypeSchema) writeTypeMethods(name string, w io.Writer) error {
 				return err
 			}
 
-			if ts.record {
+			if ts.needsCbor {
 				if err := ts.writeCborMarshalerEnum(name, w); err != nil {
 					return err
 				}

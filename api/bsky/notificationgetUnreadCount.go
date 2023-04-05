@@ -12,8 +12,7 @@ func init() {
 }
 
 type NotificationGetUnreadCount_Output struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Count         int64  `json:"count" cborgen:"count"`
+	Count int64 `json:"count" cborgen:"count"`
 }
 
 func NotificationGetUnreadCount(ctx context.Context, c *xrpc.Client) (*NotificationGetUnreadCount_Output, error) {

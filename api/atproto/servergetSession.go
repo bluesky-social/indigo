@@ -12,9 +12,8 @@ func init() {
 }
 
 type ServerGetSession_Output struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Did           string `json:"did" cborgen:"did"`
-	Handle        string `json:"handle" cborgen:"handle"`
+	Did    string `json:"did" cborgen:"did"`
+	Handle string `json:"handle" cborgen:"handle"`
 }
 
 func ServerGetSession(ctx context.Context, c *xrpc.Client) (*ServerGetSession_Output, error) {

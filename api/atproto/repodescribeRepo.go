@@ -13,7 +13,6 @@ func init() {
 }
 
 type RepoDescribeRepo_Output struct {
-	LexiconTypeID   string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Collections     []string                 `json:"collections" cborgen:"collections"`
 	Did             string                   `json:"did" cborgen:"did"`
 	DidDoc          *util.LexiconTypeDecoder `json:"didDoc" cborgen:"didDoc"`

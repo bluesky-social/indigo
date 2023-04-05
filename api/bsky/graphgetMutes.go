@@ -12,9 +12,8 @@ func init() {
 }
 
 type GraphGetMutes_Output struct {
-	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Cursor        *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
-	Mutes         []*ActorDefs_ProfileView `json:"mutes" cborgen:"mutes"`
+	Cursor *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
+	Mutes  []*ActorDefs_ProfileView `json:"mutes" cborgen:"mutes"`
 }
 
 func GraphGetMutes(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*GraphGetMutes_Output, error) {

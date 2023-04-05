@@ -12,8 +12,7 @@ func init() {
 }
 
 type NotificationUpdateSeen_Input struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	SeenAt        string `json:"seenAt" cborgen:"seenAt"`
+	SeenAt string `json:"seenAt" cborgen:"seenAt"`
 }
 
 func NotificationUpdateSeen(ctx context.Context, c *xrpc.Client, input *NotificationUpdateSeen_Input) error {

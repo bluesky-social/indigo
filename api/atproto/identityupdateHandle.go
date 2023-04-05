@@ -12,8 +12,7 @@ func init() {
 }
 
 type IdentityUpdateHandle_Input struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Handle        string `json:"handle" cborgen:"handle"`
+	Handle string `json:"handle" cborgen:"handle"`
 }
 
 func IdentityUpdateHandle(ctx context.Context, c *xrpc.Client, input *IdentityUpdateHandle_Input) error {

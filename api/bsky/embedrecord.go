@@ -20,18 +20,21 @@ type EmbedRecord struct {
 	Record        *comatprototypes.RepoStrongRef `json:"record" cborgen:"record"`
 }
 
+// RECORDTYPE: EmbedRecord_View
 type EmbedRecord_View struct {
-	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string                   `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
 	Record        *EmbedRecord_View_Record `json:"record" cborgen:"record"`
 }
 
+// RECORDTYPE: EmbedRecord_ViewNotFound
 type EmbedRecord_ViewNotFound struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
 	Uri           string `json:"uri" cborgen:"uri"`
 }
 
+// RECORDTYPE: EmbedRecord_ViewRecord
 type EmbedRecord_ViewRecord struct {
-	LexiconTypeID string                                `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string                                `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
 	Author        *ActorDefs_ProfileViewBasic           `json:"author" cborgen:"author"`
 	Cid           string                                `json:"cid" cborgen:"cid"`
 	Embeds        []*EmbedRecord_ViewRecord_Embeds_Elem `json:"embeds,omitempty" cborgen:"embeds,omitempty"`

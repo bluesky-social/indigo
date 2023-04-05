@@ -469,9 +469,8 @@ var feedSetVoteCmd = &cli.Command{
 		}
 
 		out, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
-			LexiconTypeID: "com.atproto.feed.like",
-			Collection:    "com.atproto.feed.like",
-			Repo:          did,
+			Collection: "com.atproto.feed.like",
+			Repo:       did,
 			Record: &lexutil.LexiconTypeDecoder{
 				Val: &appbsky.FeedLike{
 					CreatedAt: time.Now().Format(util.ISO8601),

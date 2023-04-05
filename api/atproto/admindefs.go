@@ -13,14 +13,12 @@ func init() {
 }
 
 type AdminDefs_ActionReversal struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	CreatedAt     string `json:"createdAt" cborgen:"createdAt"`
-	CreatedBy     string `json:"createdBy" cborgen:"createdBy"`
-	Reason        string `json:"reason" cborgen:"reason"`
+	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
+	CreatedBy string `json:"createdBy" cborgen:"createdBy"`
+	Reason    string `json:"reason" cborgen:"reason"`
 }
 
 type AdminDefs_ActionView struct {
-	LexiconTypeID     string                        `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Action            *string                       `json:"action" cborgen:"action"`
 	CreatedAt         string                        `json:"createdAt" cborgen:"createdAt"`
 	CreatedBy         string                        `json:"createdBy" cborgen:"createdBy"`
@@ -33,13 +31,11 @@ type AdminDefs_ActionView struct {
 }
 
 type AdminDefs_ActionViewCurrent struct {
-	LexiconTypeID string  `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Action        *string `json:"action" cborgen:"action"`
-	Id            int64   `json:"id" cborgen:"id"`
+	Action *string `json:"action" cborgen:"action"`
+	Id     int64   `json:"id" cborgen:"id"`
 }
 
 type AdminDefs_ActionViewDetail struct {
-	LexiconTypeID   string                              `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Action          *string                             `json:"action" cborgen:"action"`
 	CreatedAt       string                              `json:"createdAt" cborgen:"createdAt"`
 	CreatedBy       string                              `json:"createdBy" cborgen:"createdBy"`
@@ -122,13 +118,12 @@ func (t *AdminDefs_ActionView_Subject) UnmarshalJSON(b []byte) error {
 }
 
 type AdminDefs_BlobView struct {
-	LexiconTypeID string                      `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Cid           string                      `json:"cid" cborgen:"cid"`
-	CreatedAt     string                      `json:"createdAt" cborgen:"createdAt"`
-	Details       *AdminDefs_BlobView_Details `json:"details,omitempty" cborgen:"details,omitempty"`
-	MimeType      string                      `json:"mimeType" cborgen:"mimeType"`
-	Moderation    *AdminDefs_Moderation       `json:"moderation,omitempty" cborgen:"moderation,omitempty"`
-	Size          int64                       `json:"size" cborgen:"size"`
+	Cid        string                      `json:"cid" cborgen:"cid"`
+	CreatedAt  string                      `json:"createdAt" cborgen:"createdAt"`
+	Details    *AdminDefs_BlobView_Details `json:"details,omitempty" cborgen:"details,omitempty"`
+	MimeType   string                      `json:"mimeType" cborgen:"mimeType"`
+	Moderation *AdminDefs_Moderation       `json:"moderation,omitempty" cborgen:"moderation,omitempty"`
+	Size       int64                       `json:"size" cborgen:"size"`
 }
 
 type AdminDefs_BlobView_Details struct {
@@ -166,26 +161,26 @@ func (t *AdminDefs_BlobView_Details) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// RECORDTYPE: AdminDefs_ImageDetails
 type AdminDefs_ImageDetails struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
 	Height        int64  `json:"height" cborgen:"height"`
 	Width         int64  `json:"width" cborgen:"width"`
 }
 
 type AdminDefs_Moderation struct {
-	LexiconTypeID string                       `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	CurrentAction *AdminDefs_ActionViewCurrent `json:"currentAction,omitempty" cborgen:"currentAction,omitempty"`
 }
 
 type AdminDefs_ModerationDetail struct {
-	LexiconTypeID string                       `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Actions       []*AdminDefs_ActionView      `json:"actions" cborgen:"actions"`
 	CurrentAction *AdminDefs_ActionViewCurrent `json:"currentAction,omitempty" cborgen:"currentAction,omitempty"`
 	Reports       []*AdminDefs_ReportView      `json:"reports" cborgen:"reports"`
 }
 
+// RECORDTYPE: AdminDefs_RecordView
 type AdminDefs_RecordView struct {
-	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string                   `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
 	BlobCids      []string                 `json:"blobCids" cborgen:"blobCids"`
 	Cid           string                   `json:"cid" cborgen:"cid"`
 	IndexedAt     string                   `json:"indexedAt" cborgen:"indexedAt"`
@@ -196,23 +191,24 @@ type AdminDefs_RecordView struct {
 }
 
 type AdminDefs_RecordViewDetail struct {
-	LexiconTypeID string                      `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Blobs         []*AdminDefs_BlobView       `json:"blobs" cborgen:"blobs"`
-	Cid           string                      `json:"cid" cborgen:"cid"`
-	IndexedAt     string                      `json:"indexedAt" cborgen:"indexedAt"`
-	Moderation    *AdminDefs_ModerationDetail `json:"moderation" cborgen:"moderation"`
-	Repo          *AdminDefs_RepoView         `json:"repo" cborgen:"repo"`
-	Uri           string                      `json:"uri" cborgen:"uri"`
-	Value         *util.LexiconTypeDecoder    `json:"value" cborgen:"value"`
+	Blobs      []*AdminDefs_BlobView       `json:"blobs" cborgen:"blobs"`
+	Cid        string                      `json:"cid" cborgen:"cid"`
+	IndexedAt  string                      `json:"indexedAt" cborgen:"indexedAt"`
+	Moderation *AdminDefs_ModerationDetail `json:"moderation" cborgen:"moderation"`
+	Repo       *AdminDefs_RepoView         `json:"repo" cborgen:"repo"`
+	Uri        string                      `json:"uri" cborgen:"uri"`
+	Value      *util.LexiconTypeDecoder    `json:"value" cborgen:"value"`
 }
 
+// RECORDTYPE: AdminDefs_RepoRef
 type AdminDefs_RepoRef struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
 	Did           string `json:"did" cborgen:"did"`
 }
 
+// RECORDTYPE: AdminDefs_RepoView
 type AdminDefs_RepoView struct {
-	LexiconTypeID  string                     `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID  string                     `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
 	Did            string                     `json:"did" cborgen:"did"`
 	Email          *string                    `json:"email,omitempty" cborgen:"email,omitempty"`
 	Handle         string                     `json:"handle" cborgen:"handle"`
@@ -222,7 +218,6 @@ type AdminDefs_RepoView struct {
 }
 
 type AdminDefs_RepoViewDetail struct {
-	LexiconTypeID  string                      `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Did            string                      `json:"did" cborgen:"did"`
 	Email          *string                     `json:"email,omitempty" cborgen:"email,omitempty"`
 	Handle         string                      `json:"handle" cborgen:"handle"`
@@ -232,7 +227,6 @@ type AdminDefs_RepoViewDetail struct {
 }
 
 type AdminDefs_ReportView struct {
-	LexiconTypeID       string                        `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	CreatedAt           string                        `json:"createdAt" cborgen:"createdAt"`
 	Id                  int64                         `json:"id" cborgen:"id"`
 	Reason              *string                       `json:"reason,omitempty" cborgen:"reason,omitempty"`
@@ -243,7 +237,6 @@ type AdminDefs_ReportView struct {
 }
 
 type AdminDefs_ReportViewDetail struct {
-	LexiconTypeID     string                              `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	CreatedAt         string                              `json:"createdAt" cborgen:"createdAt"`
 	Id                int64                               `json:"id" cborgen:"id"`
 	Reason            *string                             `json:"reason,omitempty" cborgen:"reason,omitempty"`
@@ -323,8 +316,9 @@ func (t *AdminDefs_ReportView_Subject) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// RECORDTYPE: AdminDefs_VideoDetails
 type AdminDefs_VideoDetails struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
 	Height        int64  `json:"height" cborgen:"height"`
 	Length        int64  `json:"length" cborgen:"length"`
 	Width         int64  `json:"width" cborgen:"width"`
