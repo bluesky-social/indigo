@@ -1,17 +1,20 @@
 package labeler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	label "github.com/bluesky-social/indigo/api/label"
+
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
-
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 )
 
 func TestLabelMakerXRPCReportRepo(t *testing.T) {
@@ -284,4 +287,32 @@ func TestLabelMakerXRPCReportAction(t *testing.T) {
 	assert.Equal(1, len(actionOutDetail.ResolvedReports))
 	assert.Equal(reportId, actionOutDetail.ResolvedReports[0].Id)
 	assert.Equal(reversalOut.Reversal, actionOutDetail.Reversal)
+}
+
+func TestLabelMakerXRPCLabelQuery(t *testing.T) {
+	assert := assert.New(t)
+	e := echo.New()
+	lm := testLabelMaker(t)
+	ctx := context.TODO()
+
+	// simple query, no labels
+	p1 := make(url.Values)
+	p1.Set("uriPatterns", "*")
+	out1, err := testQueryLabels(t, e, lm, &p1)
+	assert.NoError(err)
+	assert.Equal(0, len(out1.Labels))
+
+	// create a label, then query
+	l3 := label.Label{
+		Uri: "at://did:plc:fake/com.example/abc234",
+		Val: "example",
+		Cts: "2023-03-15T22:16:18.408Z",
+	}
+	lm.CommitLabels(ctx, []*label.Label{&l3}, false)
+	p3 := make(url.Values)
+	p3.Set("uriPatterns", l3.Uri)
+	out3, err := testQueryLabels(t, e, lm, &p3)
+	assert.NoError(err)
+	assert.Equal(1, len(out3.Labels))
+	assert.Equal(&l3, out3.Labels[0])
 }
