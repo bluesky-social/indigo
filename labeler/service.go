@@ -382,6 +382,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 					Src: s.user.Did,
 					Uri: "at://" + evt.RepoCommit.Repo,
 					Val: val,
+					//Neg
 					//Cts
 				})
 			} else {
@@ -390,6 +391,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 					Uri: uri,
 					Cid: &cidStr,
 					Val: val,
+					//Neg
 					//Cts
 				})
 			}
