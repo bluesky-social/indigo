@@ -31,10 +31,6 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 		fieldCount--
 	}
 
-	if t.Neg == nil {
-		fieldCount--
-	}
-
 	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
@@ -95,22 +91,19 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Neg (bool) (bool)
-	if t.Neg != nil {
+	if len("neg") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"neg\" was too long")
+	}
 
-		if len("neg") > cbg.MaxLength {
-			return xerrors.Errorf("Value in field \"neg\" was too long")
-		}
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("neg"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("neg")); err != nil {
+		return err
+	}
 
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("neg"))); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(w, string("neg")); err != nil {
-			return err
-		}
-
-		if err := cbg.WriteBool(w, t.Neg); err != nil {
-			return err
-		}
+	if err := cbg.WriteBool(w, t.Neg); err != nil {
+		return err
 	}
 
 	// t.Src (string) (string)
