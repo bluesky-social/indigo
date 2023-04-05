@@ -9,10 +9,13 @@ import (
 	"testing"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/labeler"
+	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -52,6 +55,7 @@ func testLabelMaker(t *testing.T) *labeler.Server {
 	repoUser := labeler.RepoConfig{
 		Handle:     "test.handle.dummy",
 		Did:        "did:plc:testdummy",
+		Password:   "test-admin-pass",
 		SigningKey: serkey,
 		UserId:     1,
 	}
@@ -144,15 +148,33 @@ func TestLabelmakerBasic(t *testing.T) {
 
 	bob := p1.MustNewUser(t, "bob.tpds")
 	alice := p1.MustNewUser(t, "alice.tpds")
-
-	bp1 := bob.Post(t, "cats for cats")
-	ap1 := alice.Post(t, "no i like dogs")
-
-	_ = bp1
-	_ = ap1
-
 	fmt.Println("bob:", bob.DID())
 	fmt.Println("alice:", alice.DID())
 
-	// XXX:
+	bp1 := bob.Post(t, "cats for cats")
+	ap1 := alice.Post(t, "no i like dogs")
+	_ = bp1
+	_ = ap1
+
+	xrpcc := xrpc.Client{
+		Host:   "http://localhost:7711",
+		Client: util.TestingHTTPClient(),
+	}
+
+	// no auth required
+	queryOut, err := label.QueryLabels(ctx, &xrpcc, "", 20, []string{}, []string{"*"})
+	assert.NoError(err)
+	assert.Equal(0, len(queryOut.Labels))
+	assert.Nil(queryOut.Cursor)
+
+	// auth is required
+	_, err = comatproto.AdminGetModerationReports(ctx, &xrpcc, "", 20, false, "")
+	assert.Error(err)
+
+	adminPassword := "test-admin-pass"
+	xrpcc.AdminToken = &adminPassword
+	_, err = comatproto.AdminGetModerationReports(ctx, &xrpcc, "", 20, false, "")
+	assert.NoError(err)
+
+	// TODO: many more tests
 }

@@ -40,10 +40,11 @@ func testLabelMaker(t *testing.T) *Server {
 	plcURL := "http://did-plc-test.dummy"
 	blobPdsURL := "http://pds-test.dummy"
 	xrpcProxyURL := "http://pds-test.dummy"
-	xrpcProxyAdminPassword := "dummy-password"
+	xrpcProxyAdminPassword := "xrpc-test-password"
 	repoUser := RepoConfig{
 		Handle:     "test.handle.dummy",
 		Did:        "did:plc:testdummy",
+		Password:   "admin-test-password",
 		SigningKey: serkey,
 		UserId:     1,
 	}
