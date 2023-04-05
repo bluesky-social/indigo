@@ -313,3 +313,21 @@ func TestLabelMakerXRPCLabelQuery(t *testing.T) {
 	assert.Equal(1, len(out3.Labels))
 	assert.Equal(&l3, out3.Labels[0])
 }
+
+func TestDidFromURI(t *testing.T) {
+	assert := assert.New(t)
+	cases := []struct {
+		input    string
+		expected string
+	}{
+		{input: "", expected: ""},
+		{input: "at://did:plc:fake/com.example/abc234", expected: "did:plc:fake"},
+		{input: "at://example.com/com.example/abc234", expected: ""},
+		{input: "at://did:plc:fake", expected: "did:plc:fake"},
+	}
+
+	for _, tc := range cases {
+		out := didFromURI(tc.input)
+		assert.Equal(tc.expected, out)
+	}
+}
