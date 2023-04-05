@@ -3,6 +3,7 @@ package labeler
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -55,6 +56,7 @@ type Server struct {
 type RepoConfig struct {
 	Handle     string
 	Did        string
+	Password   string
 	SigningKey *did.PrivKey
 	UserId     util.Uid
 }
@@ -74,6 +76,10 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, 
 	kmgr := indexer.NewKeyManager(didr, repoUser.SigningKey)
 	evtmgr := events.NewEventManager(events.NewMemPersister())
 	repoman := repomgr.NewRepoManager(db, cs, kmgr)
+
+	if repoUser.Password == "" || repoUser.Did == "" || repoUser.Handle == "" {
+		return nil, fmt.Errorf("bad labeler repo config (empty string)")
+	}
 
 	proxyURL, err := url.ParseRequestURI(xrpcProxyURL)
 	if err != nil {
@@ -401,6 +407,40 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 	return nil
 }
 
+// crude auth middleware to require "admin token" authentication on a subset of
+// routes. Does not implement the usual atproto JWT-based auth. "admin token"
+// auth is just HTTP Basic auth with username "admin" and a static password.
+// TODO: either transition to some other auth scheme, or review this more carefully
+func (s *Server) adminAuthMiddleware() echo.MiddlewareFunc {
+	config := middleware.BasicAuthConfig{
+		Skipper: func(c echo.Context) bool {
+			path := c.Request().URL.Path
+			// all admin paths require auth
+			if strings.HasPrefix(path, "/xrpc/com.atproto.admin.") {
+				return false
+			}
+			// TODO: will need more complex auth on this endpoint eventually
+			if strings.HasPrefix(path, "/xrpc/com.atproto.report.create") {
+				return false
+			}
+			// everything else defaults open
+			return true
+		},
+		Validator: func(username, password string, c echo.Context) (bool, error) {
+			// this is the default HTTP Basic validator from echo docs
+			// "Be careful to use constant time comparison to prevent timing attacks"
+			if subtle.ConstantTimeCompare([]byte(username), []byte("admin")) == 1 &&
+				subtle.ConstantTimeCompare([]byte(password), []byte(s.user.Password)) == 1 {
+				return true, nil
+			}
+			log.Warnw("auth failed", "username", string(username))
+			return false, nil
+		},
+		Realm: "AtprotoLabeler",
+	}
+	return middleware.BasicAuthWithConfig(config)
+}
+
 func (s *Server) RunAPI(listen string) error {
 	e := echo.New()
 	s.echo = e
@@ -408,10 +448,15 @@ func (s *Server) RunAPI(listen string) error {
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: "method=${method} uri=${uri} status=${status} latency=${latency_human}\n",
 	}))
+	e.Use(s.adminAuthMiddleware())
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
-		fmt.Printf("Error at path=%s: %v\n", ctx.Path(), err)
-		ctx.Response().WriteHeader(500)
+		code := 500
+		if he, ok := err.(*echo.HTTPError); ok {
+			code = he.Code
+		}
+		log.Warnw("HTTP request error", "statusCode", code, "path", ctx.Path(), "err", err)
+		ctx.Response().WriteHeader(code)
 	}
 
 	if err := s.RegisterHandlersComAtproto(e); err != nil {

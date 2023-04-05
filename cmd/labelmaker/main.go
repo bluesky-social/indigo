@@ -92,6 +92,12 @@ func run(args []string) error {
 			EnvVars: []string{"LABELMAKER_REPO_HANDLE"},
 		},
 		&cli.StringFlag{
+			Name:    "repo-password",
+			Usage:   "labelmaker repo password, used as admin password",
+			Value:   "admin",
+			EnvVars: []string{"LABELMAKER_REPO_PASSWORD"},
+		},
+		&cli.StringFlag{
 			Name:    "signing-secret-key-jwk",
 			Usage:   "signing key for labelmaker repo, in JWK serialization",
 			EnvVars: []string{"LABELMAKER_SIGNING_SECRET_KEY_JWK"},
@@ -191,6 +197,7 @@ func run(args []string) error {
 		useWss := !cctx.Bool("subscribe-insecure-ws")
 		repoDid := cctx.String("repo-did")
 		repoHandle := cctx.String("repo-handle")
+		repoPassword := cctx.String("repo-password")
 		signingSecretKeyJwk := cctx.String("signing-secret-key-jwk")
 		bind := cctx.String("bind")
 		xrpcProxyURL := cctx.String("xrpc-proxy-url")
@@ -198,6 +205,10 @@ func run(args []string) error {
 		microNSFWImgURL := cctx.String("micro-nsfw-img-url")
 		hiveAIToken := cctx.String("hiveai-api-token")
 		sqrlURL := cctx.String("sqrl-url")
+
+		if repoPassword == "admin" {
+			log.Warn("using insecure default admin password (ok for dev, not for deployment)")
+		}
 
 		var serkey *did.PrivKey
 		if signingSecretKeyJwk != "" {
@@ -215,6 +226,7 @@ func run(args []string) error {
 		repoUser := labeler.RepoConfig{
 			Handle:     repoHandle,
 			Did:        repoDid,
+			Password:   repoPassword,
 			SigningKey: serkey,
 			UserId:     1,
 		}
