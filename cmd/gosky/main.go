@@ -194,6 +194,7 @@ var didCmd = &cli.Command{
 	Subcommands: []*cli.Command{
 		didGetCmd,
 		didCreateCmd,
+		didKeyCmd,
 	},
 }
 
@@ -248,6 +249,23 @@ var didCreateCmd = &cli.Command{
 		}
 
 		fmt.Println(ndid)
+		return nil
+	},
+}
+
+var didKeyCmd = &cli.Command{
+	Name: "didKey",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name: "keypath",
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		sigkey, err := cliutil.LoadKeyFromFile(cctx.String("keypath"))
+		if err != nil {
+			return err
+		}
+		fmt.Println(sigkey.Public().DID())
 		return nil
 	},
 }
