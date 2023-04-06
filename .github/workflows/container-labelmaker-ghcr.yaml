@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+      - bnewbold/labelmaker-more
 env:
   REGISTRY: ghcr.io
   # github.repository as <account>/<repo>
