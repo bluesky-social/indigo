@@ -131,6 +131,8 @@ func main() {
 		} else {
 			defmap := lex.BuildExtDefMap(schemas, []string{"com.atproto", "app.bsky"})
 
+			// Run this twice as a hack to deal with indirect references referencing indirect references.
+			// This part of the codegen needs to be redone
 			lex.FixRecordReferences(schemas, defmap, prefix)
 			lex.FixRecordReferences(schemas, defmap, prefix)
 			for i, s := range schemas {
