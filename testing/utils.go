@@ -305,6 +305,17 @@ func (u *testUser) GetNotifs(t *testing.T) []*bsky.NotificationListNotifications
 	return resp.Notifications
 }
 
+func (u *testUser) ChangeHandle(t *testing.T, nhandle string) {
+	t.Helper()
+
+	ctx := context.TODO()
+	if err := atproto.IdentityUpdateHandle(ctx, u.client, &atproto.IdentityUpdateHandle_Input{
+		Handle: nhandle,
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func testPLC(t *testing.T) *plc.FakeDid {
 	// TODO: just do in memory...
 	tdir, err := os.MkdirTemp("", "plcserv")
@@ -444,6 +455,13 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 				fmt.Println("received event: ", evt.Seq, evt.Repo)
 				es.lk.Lock()
 				es.events = append(es.events, &events.XRPCStreamEvent{RepoCommit: evt})
+				es.lk.Unlock()
+				return nil
+			},
+			RepoHandle: func(evt *atproto.SyncSubscribeRepos_Handle) error {
+				fmt.Println("received handle event: ", evt.Seq, evt.Did)
+				es.lk.Lock()
+				es.events = append(es.events, &events.XRPCStreamEvent{RepoHandle: evt})
 				es.lk.Unlock()
 				return nil
 			},
