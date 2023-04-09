@@ -230,3 +230,33 @@ func TestBGSMultiGap(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestHandleChange(t *testing.T) {
+	//t.Skip("test too sleepy to run in CI for now")
+	assert := assert.New(t)
+	_ = assert
+	didr := testPLC(t)
+	p1 := mustSetupPDS(t, "localhost:5195", ".pdsuno", didr)
+	p1.Run(t)
+
+	b1 := mustSetupBGS(t, "localhost:8291", didr)
+	b1.Run(t)
+
+	p1.RequestScraping(t, b1)
+	time.Sleep(time.Millisecond * 50)
+
+	evts := b1.Events(t, -1)
+
+	u := p1.MustNewUser(t, usernames[0]+".pdsuno")
+
+	//socialSim(t, []*testUser{u}, 10, 0)
+
+	u.ChangeHandle(t, "catbear.pdsuno")
+
+	time.Sleep(time.Millisecond * 100)
+
+	initevt := evts.Next()
+	fmt.Println(initevt.RepoCommit)
+	hcevt := evts.Next()
+	fmt.Println(hcevt.RepoHandle)
+}

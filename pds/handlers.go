@@ -685,7 +685,16 @@ func (s *Server) handleAppBskyUnspeccedGetPopular(ctx context.Context, cursor st
 }
 
 func (s *Server) handleComAtprotoIdentityUpdateHandle(ctx context.Context, body *comatprototypes.IdentityUpdateHandle_Input) error {
-	panic("nyi")
+	if err := s.validateHandle(body.Handle); err != nil {
+		return err
+	}
+
+	u, err := s.getUser(ctx)
+	if err != nil {
+		return err
+	}
+
+	return s.UpdateUserHandle(ctx, u, body.Handle)
 }
 
 func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, body *comatprototypes.ModerationCreateReport_Input) (*comatprototypes.ModerationCreateReport_Output, error) {

@@ -15,6 +15,7 @@ import (
 
 	"contrib.go.opencensus.io/exporter/prometheus"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/blobs"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
@@ -23,6 +24,7 @@ import (
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/util"
 	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/gorilla/websocket"
@@ -320,6 +322,7 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 }
 
 func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *events.XRPCStreamEvent) error {
+	fmt.Println("HANDLE BGS FED EVENT", env.RepoHandle != nil, env.RepoCommit != nil)
 	ctx, span := otel.Tracer("bgs").Start(ctx, "handleFedEvent")
 	defer span.End()
 
@@ -374,6 +377,8 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		return nil
 	case env.RepoHandle != nil:
+		fmt.Println("handling handle update in bgs!!!!!")
+
 		// TODO: ignoring the data in the message and just going out to the DID doc
 		if _, err := bgs.createExternalUser(ctx, env.RepoHandle.Did); err != nil {
 			return err
@@ -500,18 +505,31 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	exu, err := s.Index.LookupUserByDid(ctx, did)
 	if err == nil {
-		log.Infof("lost the race to create a new user: %s", did)
+		log.Infow("lost the race to create a new user", "did", did, "handle", handle)
 		if exu.PDS != peering.ID {
 			// User is now on a different PDS, update
 			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("pds", peering.ID).Error; err != nil {
 				return nil, fmt.Errorf("failed to update users pds: %w", err)
 			}
+
 		}
 
 		if exu.Handle != handle {
 			// Users handle has changed, update
 			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("handle", peering.ID).Error; err != nil {
 				return nil, fmt.Errorf("failed to update users handle: %w", err)
+			}
+
+			fmt.Println("HANDLE UPDATE DETECTED")
+			if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
+				RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
+					Did:    exu.Did,
+					Handle: handle,
+					Time:   time.Now().Format(util.ISO8601),
+				},
+			}); err != nil {
+				// TODO: should we really error here? I'm leaning towards no
+				return nil, fmt.Errorf("failed to push handle update event: %s", err)
 			}
 		}
 		return exu, nil

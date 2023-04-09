@@ -206,6 +206,7 @@ func (ix *Indexer) handleRecordDelete(ctx context.Context, evt *repomgr.RepoEven
 
 	return nil
 }
+
 func (ix *Indexer) handleRecordDeleteFeedLike(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
 	var vr models.VoteRecord
 	if err := ix.db.Find(&vr, "voter = ? AND rkey = ?", evt.User, op.Rkey).Error; err != nil {
@@ -705,10 +706,14 @@ func (ix *Indexer) LookupUserByDid(ctx context.Context, did string) (*models.Act
 	return &ai, nil
 }
 
-func (ix *Indexer) lookupUserByHandle(ctx context.Context, handle string) (*models.ActorInfo, error) {
+func (ix *Indexer) LookupUserByHandle(ctx context.Context, handle string) (*models.ActorInfo, error) {
 	var ai models.ActorInfo
-	if err := ix.db.First(&ai, "handle = ?", handle).Error; err != nil {
+	if err := ix.db.Find(&ai, "handle = ?", handle).Error; err != nil {
 		return nil, err
+	}
+
+	if ai.ID == 0 {
+		return nil, gorm.ErrRecordNotFound
 	}
 
 	return &ai, nil
