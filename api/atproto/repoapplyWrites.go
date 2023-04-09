@@ -14,25 +14,26 @@ import (
 func init() {
 }
 
+// RECORDTYPE: RepoApplyWrites_Create
 type RepoApplyWrites_Create struct {
-	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string                   `json:"$type,const=com.atproto.repo.applyWrites" cborgen:"$type,const=com.atproto.repo.applyWrites"`
 	Collection    string                   `json:"collection" cborgen:"collection"`
 	Rkey          *string                  `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
 	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
+// RECORDTYPE: RepoApplyWrites_Delete
 type RepoApplyWrites_Delete struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,const=com.atproto.repo.applyWrites" cborgen:"$type,const=com.atproto.repo.applyWrites"`
 	Collection    string `json:"collection" cborgen:"collection"`
 	Rkey          string `json:"rkey" cborgen:"rkey"`
 }
 
 type RepoApplyWrites_Input struct {
-	LexiconTypeID string                               `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Repo          string                               `json:"repo" cborgen:"repo"`
-	SwapCommit    *string                              `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
-	Validate      *bool                                `json:"validate,omitempty" cborgen:"validate,omitempty"`
-	Writes        []*RepoApplyWrites_Input_Writes_Elem `json:"writes" cborgen:"writes"`
+	Repo       string                               `json:"repo" cborgen:"repo"`
+	SwapCommit *string                              `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
+	Validate   *bool                                `json:"validate,omitempty" cborgen:"validate,omitempty"`
+	Writes     []*RepoApplyWrites_Input_Writes_Elem `json:"writes" cborgen:"writes"`
 }
 
 type RepoApplyWrites_Input_Writes_Elem struct {
@@ -78,8 +79,9 @@ func (t *RepoApplyWrites_Input_Writes_Elem) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// RECORDTYPE: RepoApplyWrites_Update
 type RepoApplyWrites_Update struct {
-	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string                   `json:"$type,const=com.atproto.repo.applyWrites" cborgen:"$type,const=com.atproto.repo.applyWrites"`
 	Collection    string                   `json:"collection" cborgen:"collection"`
 	Rkey          string                   `json:"rkey" cborgen:"rkey"`
 	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`

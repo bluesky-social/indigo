@@ -12,11 +12,10 @@ func init() {
 }
 
 type ServerRefreshSession_Output struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	AccessJwt     string `json:"accessJwt" cborgen:"accessJwt"`
-	Did           string `json:"did" cborgen:"did"`
-	Handle        string `json:"handle" cborgen:"handle"`
-	RefreshJwt    string `json:"refreshJwt" cborgen:"refreshJwt"`
+	AccessJwt  string `json:"accessJwt" cborgen:"accessJwt"`
+	Did        string `json:"did" cborgen:"did"`
+	Handle     string `json:"handle" cborgen:"handle"`
+	RefreshJwt string `json:"refreshJwt" cborgen:"refreshJwt"`
 }
 
 func ServerRefreshSession(ctx context.Context, c *xrpc.Client) (*ServerRefreshSession_Output, error) {

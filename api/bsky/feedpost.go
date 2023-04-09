@@ -125,20 +125,17 @@ func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
 }
 
 type FeedPost_Entity struct {
-	LexiconTypeID string              `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Index         *FeedPost_TextSlice `json:"index" cborgen:"index"`
-	Type          string              `json:"type" cborgen:"type"`
-	Value         string              `json:"value" cborgen:"value"`
+	Index *FeedPost_TextSlice `json:"index" cborgen:"index"`
+	Type  string              `json:"type" cborgen:"type"`
+	Value string              `json:"value" cborgen:"value"`
 }
 
 type FeedPost_ReplyRef struct {
-	LexiconTypeID string                         `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Parent        *comatprototypes.RepoStrongRef `json:"parent" cborgen:"parent"`
-	Root          *comatprototypes.RepoStrongRef `json:"root" cborgen:"root"`
+	Parent *comatprototypes.RepoStrongRef `json:"parent" cborgen:"parent"`
+	Root   *comatprototypes.RepoStrongRef `json:"root" cborgen:"root"`
 }
 
 type FeedPost_TextSlice struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	End           int64  `json:"end" cborgen:"end"`
-	Start         int64  `json:"start" cborgen:"start"`
+	End   int64 `json:"end" cborgen:"end"`
+	Start int64 `json:"start" cborgen:"start"`
 }

@@ -17,19 +17,18 @@ type EmbedImages struct {
 }
 
 type EmbedImages_Image struct {
-	LexiconTypeID string        `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Alt           string        `json:"alt" cborgen:"alt"`
-	Image         *util.LexBlob `json:"image" cborgen:"image"`
+	Alt   string        `json:"alt" cborgen:"alt"`
+	Image *util.LexBlob `json:"image" cborgen:"image"`
 }
 
+// RECORDTYPE: EmbedImages_View
 type EmbedImages_View struct {
-	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
+	LexiconTypeID string                   `json:"$type,const=app.bsky.embed.images" cborgen:"$type,const=app.bsky.embed.images"`
 	Images        []*EmbedImages_ViewImage `json:"images" cborgen:"images"`
 }
 
 type EmbedImages_ViewImage struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Alt           string `json:"alt" cborgen:"alt"`
-	Fullsize      string `json:"fullsize" cborgen:"fullsize"`
-	Thumb         string `json:"thumb" cborgen:"thumb"`
+	Alt      string `json:"alt" cborgen:"alt"`
+	Fullsize string `json:"fullsize" cborgen:"fullsize"`
+	Thumb    string `json:"thumb" cborgen:"thumb"`
 }

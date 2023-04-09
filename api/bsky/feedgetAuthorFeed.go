@@ -12,9 +12,8 @@ func init() {
 }
 
 type FeedGetAuthorFeed_Output struct {
-	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Cursor        *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
-	Feed          []*FeedDefs_FeedViewPost `json:"feed" cborgen:"feed"`
+	Cursor *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
+	Feed   []*FeedDefs_FeedViewPost `json:"feed" cborgen:"feed"`
 }
 
 func FeedGetAuthorFeed(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*FeedGetAuthorFeed_Output, error) {

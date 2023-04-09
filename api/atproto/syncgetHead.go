@@ -12,8 +12,7 @@ func init() {
 }
 
 type SyncGetHead_Output struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Root          string `json:"root" cborgen:"root"`
+	Root string `json:"root" cborgen:"root"`
 }
 
 func SyncGetHead(ctx context.Context, c *xrpc.Client, did string) (*SyncGetHead_Output, error) {

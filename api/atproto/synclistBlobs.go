@@ -12,8 +12,7 @@ func init() {
 }
 
 type SyncListBlobs_Output struct {
-	LexiconTypeID string   `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Cids          []string `json:"cids" cborgen:"cids"`
+	Cids []string `json:"cids" cborgen:"cids"`
 }
 
 func SyncListBlobs(ctx context.Context, c *xrpc.Client, did string, earliest string, latest string) (*SyncListBlobs_Output, error) {

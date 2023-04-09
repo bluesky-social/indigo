@@ -30,7 +30,7 @@ func main() {
 		bsky.EmbedExternal{}, bsky.EmbedExternal_External{},
 		bsky.EmbedImages_Image{}, bsky.GraphFollow{}, bsky.ActorProfile{},
 		bsky.EmbedRecord{}, bsky.FeedLike{}, bsky.RichtextFacet{},
-		bsky.RichtextFacet_ByteSlice{}, bsky.RichtextFacet_Features_Elem{},
+		bsky.RichtextFacet_ByteSlice{},
 		bsky.RichtextFacet_Link{}, bsky.RichtextFacet_Mention{},
 		bsky.EmbedRecordWithMedia{},
 		bsky.FeedDefs_NotFoundPost{},

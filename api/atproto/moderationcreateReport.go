@@ -15,10 +15,9 @@ func init() {
 }
 
 type ModerationCreateReport_Input struct {
-	LexiconTypeID string                                `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Reason        *string                               `json:"reason,omitempty" cborgen:"reason,omitempty"`
-	ReasonType    *string                               `json:"reasonType" cborgen:"reasonType"`
-	Subject       *ModerationCreateReport_Input_Subject `json:"subject" cborgen:"subject"`
+	Reason     *string                               `json:"reason,omitempty" cborgen:"reason,omitempty"`
+	ReasonType *string                               `json:"reasonType" cborgen:"reasonType"`
+	Subject    *ModerationCreateReport_Input_Subject `json:"subject" cborgen:"subject"`
 }
 
 type ModerationCreateReport_Input_Subject struct {
@@ -57,13 +56,12 @@ func (t *ModerationCreateReport_Input_Subject) UnmarshalJSON(b []byte) error {
 }
 
 type ModerationCreateReport_Output struct {
-	LexiconTypeID string                                 `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	CreatedAt     string                                 `json:"createdAt" cborgen:"createdAt"`
-	Id            int64                                  `json:"id" cborgen:"id"`
-	Reason        *string                                `json:"reason,omitempty" cborgen:"reason,omitempty"`
-	ReasonType    *string                                `json:"reasonType" cborgen:"reasonType"`
-	ReportedBy    string                                 `json:"reportedBy" cborgen:"reportedBy"`
-	Subject       *ModerationCreateReport_Output_Subject `json:"subject" cborgen:"subject"`
+	CreatedAt  string                                 `json:"createdAt" cborgen:"createdAt"`
+	Id         int64                                  `json:"id" cborgen:"id"`
+	Reason     *string                                `json:"reason,omitempty" cborgen:"reason,omitempty"`
+	ReasonType *string                                `json:"reasonType" cborgen:"reasonType"`
+	ReportedBy string                                 `json:"reportedBy" cborgen:"reportedBy"`
+	Subject    *ModerationCreateReport_Output_Subject `json:"subject" cborgen:"subject"`
 }
 
 type ModerationCreateReport_Output_Subject struct {

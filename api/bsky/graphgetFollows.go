@@ -12,10 +12,9 @@ func init() {
 }
 
 type GraphGetFollows_Output struct {
-	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Cursor        *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
-	Follows       []*ActorDefs_ProfileView `json:"follows" cborgen:"follows"`
-	Subject       *ActorDefs_ProfileView   `json:"subject" cborgen:"subject"`
+	Cursor  *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
+	Follows []*ActorDefs_ProfileView `json:"follows" cborgen:"follows"`
+	Subject *ActorDefs_ProfileView   `json:"subject" cborgen:"subject"`
 }
 
 func GraphGetFollows(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*GraphGetFollows_Output, error) {

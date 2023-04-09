@@ -12,8 +12,7 @@ func init() {
 }
 
 type ServerRequestPasswordReset_Input struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Email         string `json:"email" cborgen:"email"`
+	Email string `json:"email" cborgen:"email"`
 }
 
 func ServerRequestPasswordReset(ctx context.Context, c *xrpc.Client, input *ServerRequestPasswordReset_Input) error {
