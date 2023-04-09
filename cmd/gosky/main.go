@@ -456,11 +456,6 @@ var feedSetVoteCmd = &cli.Command{
 		collection := parts[len(parts)-2]
 		did := parts[2]
 
-		dir := cctx.Args().Get(1)
-		if dir == "" {
-			dir = "up"
-		}
-
 		fmt.Println(did, collection, rkey)
 		ctx := context.TODO()
 		resp, err := comatproto.RepoGetRecord(ctx, xrpcc, "", collection, rkey, did)
