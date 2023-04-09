@@ -15,7 +15,6 @@ func init() {
 }
 
 type AdminTakeModerationAction_Input struct {
-	LexiconTypeID   string                                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	Action          string                                   `json:"action" cborgen:"action"`
 	CreatedBy       string                                   `json:"createdBy" cborgen:"createdBy"`
 	Reason          string                                   `json:"reason" cborgen:"reason"`

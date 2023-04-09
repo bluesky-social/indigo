@@ -13,20 +13,18 @@ func init() {
 }
 
 type RepoPutRecord_Input struct {
-	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Collection    string                   `json:"collection" cborgen:"collection"`
-	Record        *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
-	Repo          string                   `json:"repo" cborgen:"repo"`
-	Rkey          string                   `json:"rkey" cborgen:"rkey"`
-	SwapCommit    *string                  `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
-	SwapRecord    *string                  `json:"swapRecord" cborgen:"swapRecord"`
-	Validate      *bool                    `json:"validate,omitempty" cborgen:"validate,omitempty"`
+	Collection string                   `json:"collection" cborgen:"collection"`
+	Record     *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
+	Repo       string                   `json:"repo" cborgen:"repo"`
+	Rkey       string                   `json:"rkey" cborgen:"rkey"`
+	SwapCommit *string                  `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
+	SwapRecord *string                  `json:"swapRecord" cborgen:"swapRecord"`
+	Validate   *bool                    `json:"validate,omitempty" cborgen:"validate,omitempty"`
 }
 
 type RepoPutRecord_Output struct {
-	LexiconTypeID string `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Cid           string `json:"cid" cborgen:"cid"`
-	Uri           string `json:"uri" cborgen:"uri"`
+	Cid string `json:"cid" cborgen:"cid"`
+	Uri string `json:"uri" cborgen:"uri"`
 }
 
 func RepoPutRecord(ctx context.Context, c *xrpc.Client, input *RepoPutRecord_Input) (*RepoPutRecord_Output, error) {

@@ -13,16 +13,14 @@ func init() {
 }
 
 type RepoListRecords_Output struct {
-	LexiconTypeID string                    `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Cursor        *string                   `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
-	Records       []*RepoListRecords_Record `json:"records" cborgen:"records"`
+	Cursor  *string                   `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
+	Records []*RepoListRecords_Record `json:"records" cborgen:"records"`
 }
 
 type RepoListRecords_Record struct {
-	LexiconTypeID string                   `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Cid           string                   `json:"cid" cborgen:"cid"`
-	Uri           string                   `json:"uri" cborgen:"uri"`
-	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
+	Cid   string                   `json:"cid" cborgen:"cid"`
+	Uri   string                   `json:"uri" cborgen:"uri"`
+	Value *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
 func RepoListRecords(ctx context.Context, c *xrpc.Client, collection string, limit int64, repo string, reverse bool, rkeyEnd string, rkeyStart string) (*RepoListRecords_Output, error) {

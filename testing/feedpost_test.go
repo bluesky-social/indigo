@@ -2,6 +2,7 @@ package testing
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	bsky "github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/ipfs/go-cid"
 
@@ -122,4 +124,25 @@ func TestFeedPostParse(t *testing.T) {
 	var expectedJsonObj map[string]interface{}
 	assert.NoError(json.Unmarshal([]byte(expectedJson), &expectedJsonObj))
 	assert.Equal(expectedJsonObj, outJsonObj)
+}
+
+func TestPostToJson(t *testing.T) {
+	raw := "a464746578747834e38282e38186e38193e381a3e381a1e3818ce69cace5aeb654776974746572e381a7e38184e38184e381aee381a7e381afefbc9f652474797065726170702e62736b792e666565642e706f737465656d626564a2652474797065756170702e62736b792e656d6265642e696d6167657366696d6167657381a263616c746065696d616765a463726566d82a5825000155122071e37fa09ed1814412a06d4dcd4f9462500b2992c267b9dea11884c52f6bacce6473697a6519ef2e65247479706564626c6f62686d696d65547970656a696d6167652f6a706567696372656174656441747818323032332d30342d30335432323a34363a31392e3438375a"
+
+	b, err := hex.DecodeString(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var fp bsky.FeedPost
+	if err := fp.UnmarshalCBOR(bytes.NewReader(b)); err != nil {
+		t.Fatal(err)
+	}
+
+	outb, err := json.Marshal(&fp)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println(string(outb))
 }

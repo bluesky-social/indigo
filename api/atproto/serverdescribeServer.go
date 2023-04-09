@@ -12,13 +12,11 @@ func init() {
 }
 
 type ServerDescribeServer_Links struct {
-	LexiconTypeID  string  `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	PrivacyPolicy  *string `json:"privacyPolicy,omitempty" cborgen:"privacyPolicy,omitempty"`
 	TermsOfService *string `json:"termsOfService,omitempty" cborgen:"termsOfService,omitempty"`
 }
 
 type ServerDescribeServer_Output struct {
-	LexiconTypeID        string                      `json:"$type,omitempty" cborgen:"$type,omitempty"`
 	AvailableUserDomains []string                    `json:"availableUserDomains" cborgen:"availableUserDomains"`
 	InviteCodeRequired   *bool                       `json:"inviteCodeRequired,omitempty" cborgen:"inviteCodeRequired,omitempty"`
 	Links                *ServerDescribeServer_Links `json:"links,omitempty" cborgen:"links,omitempty"`

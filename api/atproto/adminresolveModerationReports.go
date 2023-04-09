@@ -12,10 +12,9 @@ func init() {
 }
 
 type AdminResolveModerationReports_Input struct {
-	LexiconTypeID string  `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	ActionId      int64   `json:"actionId" cborgen:"actionId"`
-	CreatedBy     string  `json:"createdBy" cborgen:"createdBy"`
-	ReportIds     []int64 `json:"reportIds" cborgen:"reportIds"`
+	ActionId  int64   `json:"actionId" cborgen:"actionId"`
+	CreatedBy string  `json:"createdBy" cborgen:"createdBy"`
+	ReportIds []int64 `json:"reportIds" cborgen:"reportIds"`
 }
 
 func AdminResolveModerationReports(ctx context.Context, c *xrpc.Client, input *AdminResolveModerationReports_Input) (*AdminDefs_ActionView, error) {

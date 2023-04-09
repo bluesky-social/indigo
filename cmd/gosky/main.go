@@ -81,6 +81,7 @@ func run(args []string) {
 		resetPasswordCmd,
 		readRepoStreamCmd,
 		updateHandleCmd,
+		getRecordCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -468,9 +469,8 @@ var feedSetVoteCmd = &cli.Command{
 		}
 
 		out, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
-			LexiconTypeID: "com.atproto.feed.like",
-			Collection:    "com.atproto.feed.like",
-			Repo:          did,
+			Collection: "com.atproto.feed.like",
+			Repo:       did,
 			Record: &lexutil.LexiconTypeDecoder{
 				Val: &appbsky.FeedLike{
 					CreatedAt: time.Now().Format(util.ISO8601),
@@ -860,7 +860,7 @@ var readRepoStreamCmd = &cli.Command{
 					if err := json.Unmarshal(b, &out); err != nil {
 						return err
 					}
-					out["Blocks"] = fmt.Sprintf("[%d bytes]", len(evt.Blocks))
+					out["blocks"] = fmt.Sprintf("[%d bytes]", len(evt.Blocks))
 
 					b, err = json.Marshal(out)
 					if err != nil {
@@ -896,5 +896,71 @@ var readRepoStreamCmd = &cli.Command{
 				return fmt.Errorf("error frame: %s: %s", errf.Error, errf.Message)
 			},
 		})
+	},
+}
+
+var getRecordCmd = &cli.Command{
+	Name: "getRecord",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name: "repo",
+		},
+		&cli.BoolFlag{
+			Name: "raw",
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		ctx := context.Background()
+		rfi := cctx.String("repo")
+
+		var repob []byte
+		if strings.HasPrefix(rfi, "did:") {
+			xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+			if err != nil {
+				return err
+			}
+
+			rrb, err := comatproto.SyncGetRepo(ctx, xrpcc, rfi, "", "")
+			if err != nil {
+				return err
+			}
+			repob = rrb
+		} else {
+			fb, err := os.ReadFile(rfi)
+			if err != nil {
+				return err
+			}
+
+			repob = fb
+		}
+
+		rr, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(repob))
+		if err != nil {
+			return err
+		}
+
+		rc, rec, err := rr.GetRecord(ctx, cctx.Args().First())
+		if err != nil {
+			return err
+		}
+
+		if cctx.Bool("raw") {
+			blk, err := rr.Blockstore().Get(ctx, rc)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("%x\n", blk.RawData())
+			return nil
+		}
+
+		b, err := json.Marshal(rec)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(string(b))
+
+		return nil
 	},
 }

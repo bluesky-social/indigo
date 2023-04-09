@@ -12,9 +12,8 @@ func init() {
 }
 
 type AdminGetModerationActions_Output struct {
-	LexiconTypeID string                  `json:"$type,omitempty" cborgen:"$type,omitempty"`
-	Actions       []*AdminDefs_ActionView `json:"actions" cborgen:"actions"`
-	Cursor        *string                 `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
+	Actions []*AdminDefs_ActionView `json:"actions" cborgen:"actions"`
+	Cursor  *string                 `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 }
 
 func AdminGetModerationActions(ctx context.Context, c *xrpc.Client, cursor string, limit int64, subject string) (*AdminGetModerationActions_Output, error) {
