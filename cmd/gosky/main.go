@@ -80,7 +80,7 @@ func run(args []string) {
 		followsCmd,
 		resetPasswordCmd,
 		readRepoStreamCmd,
-		updateHandleCmd,
+		handleCmd,
 		getRecordCmd,
 	}
 
@@ -457,7 +457,7 @@ var actorGetSuggestionsCmd = &cli.Command{
 
 var feedSetVoteCmd = &cli.Command{
 	Name:      "vote",
-	ArgsUsage: "<post> [direction]",
+	ArgsUsage: "<post>",
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
@@ -474,21 +474,16 @@ var feedSetVoteCmd = &cli.Command{
 		collection := parts[len(parts)-2]
 		did := parts[2]
 
-		dir := cctx.Args().Get(1)
-		if dir == "" {
-			dir = "up"
-		}
-
 		fmt.Println(did, collection, rkey)
 		ctx := context.TODO()
-		resp, err := comatproto.RepoGetRecord(ctx, xrpcc, "", collection, rkey, did)
+		resp, err := comatproto.RepoGetRecord(ctx, xrpcc, "", collection, did, rkey)
 		if err != nil {
 			return fmt.Errorf("getting record: %w", err)
 		}
 
 		out, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
-			Collection: "com.atproto.feed.like",
-			Repo:       did,
+			Collection: "app.bsky.feed.like",
+			Repo:       xrpcc.Auth.Did,
 			Record: &lexutil.LexiconTypeDecoder{
 				Val: &appbsky.FeedLike{
 					CreatedAt: time.Now().Format(util.ISO8601),
@@ -497,7 +492,7 @@ var feedSetVoteCmd = &cli.Command{
 			},
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("creating vote failed: %w", err)
 		}
 		_ = out
 		return nil
@@ -806,8 +801,39 @@ var resetPasswordCmd = &cli.Command{
 	},
 }
 
+var handleCmd = &cli.Command{
+	Name: "handle",
+	Subcommands: []*cli.Command{
+		resolveHandleCmd,
+		updateHandleCmd,
+	},
+}
+
+var resolveHandleCmd = &cli.Command{
+	Name: "resolve",
+	Action: func(cctx *cli.Context) error {
+		ctx := context.TODO()
+
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		handle := cctx.Args().Get(0)
+
+		out, err := comatproto.IdentityResolveHandle(ctx, xrpcc, handle)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(out.Did)
+
+		return nil
+	},
+}
+
 var updateHandleCmd = &cli.Command{
-	Name: "updateHandle",
+	Name: "update",
 	Action: func(cctx *cli.Context) error {
 		ctx := context.TODO()
 
