@@ -82,6 +82,7 @@ func run(args []string) {
 		readRepoStreamCmd,
 		handleCmd,
 		getRecordCmd,
+		createInviteCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -1004,6 +1005,85 @@ var getRecordCmd = &cli.Command{
 		}
 
 		fmt.Println(string(b))
+
+		return nil
+	},
+}
+
+var createInviteCmd = &cli.Command{
+	Name: "createInvite",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "admin-key",
+			EnvVars:  []string{"BSKY_ADMIN_KEY"},
+			Required: true,
+		},
+		&cli.IntFlag{
+			Name:  "useCount",
+			Value: 1,
+		},
+		&cli.IntFlag{
+			Name:  "num",
+			Value: 1,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		count := cctx.Int("useCount")
+		num := cctx.Int("num")
+
+		body := map[string]any{
+			"useCount": count,
+		}
+
+		forUser := cctx.Args().Get(0)
+		if forUser != "" {
+			resp, err := comatproto.IdentityResolveHandle(context.TODO(), xrpcc, forUser)
+			if err != nil {
+				return err
+			}
+
+			body["forAccount"] = resp.Did
+		}
+
+		b, err := json.Marshal(body)
+		if err != nil {
+			return err
+		}
+
+		for i := 0; i < num; i++ {
+			req, err := http.NewRequest("POST", xrpcc.Host+"/xrpc/com.atproto.server.createInviteCode", bytes.NewReader(b))
+			if err != nil {
+				return err
+			}
+
+			adminKey := cctx.String("admin-key")
+
+			req.Header.Set("Authorization", "Basic "+adminKey)
+			req.Header.Set("Content-Type", "application/json")
+
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				return err
+			}
+
+			defer resp.Body.Close()
+
+			var out map[string]any
+			if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+				return err
+			}
+
+			if resp.StatusCode == 200 {
+				fmt.Println(out["code"])
+			} else {
+				return fmt.Errorf("request failed (%d): %s", resp.StatusCode, out["error"])
+			}
+		}
 
 		return nil
 	},
