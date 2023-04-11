@@ -61,7 +61,6 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 			return fmt.Errorf("reading header: %w", err)
 		}
 
-		fmt.Println("CONSUMER GOT EVENT: ", header.MsgType)
 		switch header.Op {
 		case EvtKindMessage:
 			switch header.MsgType {

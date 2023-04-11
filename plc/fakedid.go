@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 
 	"github.com/whyrusleeping/go-did"
 	"gorm.io/gorm"
@@ -86,7 +85,6 @@ func (fd *FakeDid) CreateDID(ctx context.Context, sigkey *did.PrivKey, recovery 
 }
 
 func (fd *FakeDid) UpdateUserHandle(ctx context.Context, did string, nhandle string) error {
-	fmt.Println("UPDATING USER HANDLE: ", did, nhandle)
 	if err := fd.db.Model(FakeDidMapping{}).Where("did = ?", did).UpdateColumn("handle", nhandle).Error; err != nil {
 		return err
 	}
