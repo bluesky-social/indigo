@@ -60,7 +60,6 @@ func (em *EventManager) Run() {
 				}
 			}
 		case opSend:
-			fmt.Println("GOT EVENT TO SEND", op.evt.RepoCommit, op.evt.RepoHandle)
 			if err := em.persister.Persist(context.TODO(), op.evt); err != nil {
 				log.Errorf("failed to persist outbound event: %s", err)
 			}
@@ -69,7 +68,6 @@ func (em *EventManager) Run() {
 				if s.filter(op.evt) {
 					select {
 					case s.outgoing <- op.evt:
-						fmt.Println("send event out...")
 					case <-s.done:
 						go func(torem *Subscriber) {
 							select {

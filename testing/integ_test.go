@@ -236,10 +236,10 @@ func TestHandleChange(t *testing.T) {
 	assert := assert.New(t)
 	_ = assert
 	didr := testPLC(t)
-	p1 := mustSetupPDS(t, "localhost:5195", ".pdsuno", didr)
+	p1 := mustSetupPDS(t, "localhost:5385", ".pdsuno", didr)
 	p1.Run(t)
 
-	b1 := mustSetupBGS(t, "localhost:8291", didr)
+	b1 := mustSetupBGS(t, "localhost:8391", didr)
 	b1.Run(t)
 
 	p1.RequestScraping(t, b1)

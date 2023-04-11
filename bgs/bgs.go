@@ -322,7 +322,6 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 }
 
 func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *events.XRPCStreamEvent) error {
-	fmt.Println("HANDLE BGS FED EVENT", env.RepoHandle != nil, env.RepoCommit != nil)
 	ctx, span := otel.Tracer("bgs").Start(ctx, "handleFedEvent")
 	defer span.End()
 
@@ -377,7 +376,6 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		return nil
 	case env.RepoHandle != nil:
-		fmt.Println("handling handle update in bgs!!!!!")
 
 		// TODO: ignoring the data in the message and just going out to the DID doc
 		if _, err := bgs.createExternalUser(ctx, env.RepoHandle.Did); err != nil {
@@ -520,7 +518,6 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 				return nil, fmt.Errorf("failed to update users handle: %w", err)
 			}
 
-			fmt.Println("HANDLE UPDATE DETECTED")
 			if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
 				RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
 					Did:    exu.Did,
