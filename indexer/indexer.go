@@ -91,36 +91,8 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 			Cid:    link,
 		})
 
-		switch op.Kind {
-		case repomgr.EvtKindCreateRecord:
-			if err := ix.crawlRecordReferences(ctx, &op); err != nil {
-				return err
-			}
-
-			if ix.doAggregations {
-				_, err := ix.handleRecordCreate(ctx, evt, &op, true)
-				if err != nil {
-					return fmt.Errorf("handle recordCreate: %w", err)
-				}
-			}
-		case repomgr.EvtKindInitActor:
-			if err := ix.handleInitActor(ctx, evt, &op); err != nil {
-				return fmt.Errorf("handle initActor: %w", err)
-			}
-		case repomgr.EvtKindDeleteRecord:
-			if ix.doAggregations {
-				if err := ix.handleRecordDelete(ctx, evt, &op, true); err != nil {
-					return fmt.Errorf("handle recordDelete: %w", err)
-				}
-			}
-		case repomgr.EvtKindUpdateRecord:
-			if ix.doAggregations {
-				if err := ix.handleRecordUpdate(ctx, evt, &op, true); err != nil {
-					return fmt.Errorf("handle recordCreate: %w", err)
-				}
-			}
-		default:
-			return fmt.Errorf("unrecognized repo event type: %q", op.Kind)
+		if err := ix.handleRepoOp(ctx, evt, &op); err != nil {
+			return err
 		}
 	}
 
@@ -151,6 +123,42 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		PrivUid: evt.User,
 	}); err != nil {
 		return fmt.Errorf("failed to push event: %s", err)
+	}
+
+	return nil
+}
+
+func (ix *Indexer) handleRepoOp(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
+	switch op.Kind {
+	case repomgr.EvtKindCreateRecord:
+		if err := ix.crawlRecordReferences(ctx, op); err != nil {
+			return err
+		}
+
+		if ix.doAggregations {
+			_, err := ix.handleRecordCreate(ctx, evt, op, true)
+			if err != nil {
+				return fmt.Errorf("handle recordCreate: %w", err)
+			}
+		}
+	case repomgr.EvtKindInitActor:
+		if err := ix.handleInitActor(ctx, evt, op); err != nil {
+			return fmt.Errorf("handle initActor: %w", err)
+		}
+	case repomgr.EvtKindDeleteRecord:
+		if ix.doAggregations {
+			if err := ix.handleRecordDelete(ctx, evt, op, true); err != nil {
+				return fmt.Errorf("handle recordDelete: %w", err)
+			}
+		}
+	case repomgr.EvtKindUpdateRecord:
+		if ix.doAggregations {
+			if err := ix.handleRecordUpdate(ctx, evt, op, true); err != nil {
+				return fmt.Errorf("handle recordCreate: %w", err)
+			}
+		}
+	default:
+		return fmt.Errorf("unrecognized repo event type: %q", op.Kind)
 	}
 
 	return nil
