@@ -885,28 +885,30 @@ func processOp(ctx context.Context, bs blockstore.Blockstore, op *mst.DiffOp) (*
 			return nil, err
 		}
 
-		rec, err := lexutil.CborDecodeValue(blk.RawData())
-		if err != nil {
-			if errors.Is(err, lexutil.ErrUnrecognizedType) {
-				log.Warnf("failed processing repo diff: %s", err)
-				return nil, nil
-			}
-
-			return nil, err
-		}
-
 		kind := EvtKindCreateRecord
 		if op.Op == "mut" {
 			kind = EvtKindUpdateRecord
 		}
 
-		return &RepoOp{
+		outop := &RepoOp{
 			Kind:       kind,
 			Collection: parts[0],
 			Rkey:       parts[1],
 			RecCid:     &op.NewCid,
-			Record:     rec,
-		}, nil
+		}
+
+		rec, err := lexutil.CborDecodeValue(blk.RawData())
+		if err != nil {
+			if !errors.Is(err, lexutil.ErrUnrecognizedType) {
+				return nil, err
+			}
+
+			log.Warnf("failed processing repo diff: %s", err)
+		} else {
+			outop.Record = rec
+		}
+
+		return outop, nil
 	case "del":
 		return &RepoOp{
 			Kind:       EvtKindDeleteRecord,
