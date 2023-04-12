@@ -12,7 +12,8 @@ func init() {
 }
 
 type ServerCreateInviteCode_Input struct {
-	UseCount int64 `json:"useCount" cborgen:"useCount"`
+	ForAccount *string `json:"forAccount,omitempty" cborgen:"forAccount,omitempty"`
+	UseCount   int64   `json:"useCount" cborgen:"useCount"`
 }
 
 type ServerCreateInviteCode_Output struct {

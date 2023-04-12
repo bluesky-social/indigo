@@ -12,8 +12,9 @@ func init() {
 }
 
 type ServerGetSession_Output struct {
-	Did    string `json:"did" cborgen:"did"`
-	Handle string `json:"handle" cborgen:"handle"`
+	Did    string  `json:"did" cborgen:"did"`
+	Email  *string `json:"email,omitempty" cborgen:"email,omitempty"`
+	Handle string  `json:"handle" cborgen:"handle"`
 }
 
 func ServerGetSession(ctx context.Context, c *xrpc.Client) (*ServerGetSession_Output, error) {

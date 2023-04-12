@@ -20,9 +20,11 @@ type AdminDefs_ActionReversal struct {
 
 type AdminDefs_ActionView struct {
 	Action            *string                       `json:"action" cborgen:"action"`
+	CreateLabelVals   []string                      `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
 	CreatedAt         string                        `json:"createdAt" cborgen:"createdAt"`
 	CreatedBy         string                        `json:"createdBy" cborgen:"createdBy"`
 	Id                int64                         `json:"id" cborgen:"id"`
+	NegateLabelVals   []string                      `json:"negateLabelVals,omitempty" cborgen:"negateLabelVals,omitempty"`
 	Reason            string                        `json:"reason" cborgen:"reason"`
 	ResolvedReportIds []int64                       `json:"resolvedReportIds" cborgen:"resolvedReportIds"`
 	Reversal          *AdminDefs_ActionReversal     `json:"reversal,omitempty" cborgen:"reversal,omitempty"`
@@ -37,9 +39,11 @@ type AdminDefs_ActionViewCurrent struct {
 
 type AdminDefs_ActionViewDetail struct {
 	Action          *string                             `json:"action" cborgen:"action"`
+	CreateLabelVals []string                            `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
 	CreatedAt       string                              `json:"createdAt" cborgen:"createdAt"`
 	CreatedBy       string                              `json:"createdBy" cborgen:"createdBy"`
 	Id              int64                               `json:"id" cborgen:"id"`
+	NegateLabelVals []string                            `json:"negateLabelVals,omitempty" cborgen:"negateLabelVals,omitempty"`
 	Reason          string                              `json:"reason" cborgen:"reason"`
 	ResolvedReports []*AdminDefs_ReportView             `json:"resolvedReports" cborgen:"resolvedReports"`
 	Reversal        *AdminDefs_ActionReversal           `json:"reversal,omitempty" cborgen:"reversal,omitempty"`
@@ -213,6 +217,7 @@ type AdminDefs_RepoView struct {
 	Email          *string                    `json:"email,omitempty" cborgen:"email,omitempty"`
 	Handle         string                     `json:"handle" cborgen:"handle"`
 	IndexedAt      string                     `json:"indexedAt" cborgen:"indexedAt"`
+	InvitedBy      *ServerDefs_InviteCode     `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
 	Moderation     *AdminDefs_Moderation      `json:"moderation" cborgen:"moderation"`
 	RelatedRecords []*util.LexiconTypeDecoder `json:"relatedRecords" cborgen:"relatedRecords"`
 }
@@ -222,6 +227,8 @@ type AdminDefs_RepoViewDetail struct {
 	Email          *string                     `json:"email,omitempty" cborgen:"email,omitempty"`
 	Handle         string                      `json:"handle" cborgen:"handle"`
 	IndexedAt      string                      `json:"indexedAt" cborgen:"indexedAt"`
+	InvitedBy      *ServerDefs_InviteCode      `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
+	Invites        []*ServerDefs_InviteCode    `json:"invites,omitempty" cborgen:"invites,omitempty"`
 	Moderation     *AdminDefs_ModerationDetail `json:"moderation" cborgen:"moderation"`
 	RelatedRecords []*util.LexiconTypeDecoder  `json:"relatedRecords" cborgen:"relatedRecords"`
 }
