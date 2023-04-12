@@ -16,13 +16,14 @@ type AdminSearchRepos_Output struct {
 	Repos  []*AdminDefs_RepoView `json:"repos" cborgen:"repos"`
 }
 
-func AdminSearchRepos(ctx context.Context, c *xrpc.Client, cursor string, limit int64, term string) (*AdminSearchRepos_Output, error) {
+func AdminSearchRepos(ctx context.Context, c *xrpc.Client, cursor string, invitedBy string, limit int64, term string) (*AdminSearchRepos_Output, error) {
 	var out AdminSearchRepos_Output
 
 	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
-		"term":   term,
+		"cursor":    cursor,
+		"invitedBy": invitedBy,
+		"limit":     limit,
+		"term":      term,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.searchRepos", params, nil, &out); err != nil {
 		return nil, err

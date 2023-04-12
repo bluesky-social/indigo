@@ -60,7 +60,7 @@ func TestLoadNewRepo(t *testing.T) {
 
 	repoman := NewRepoManager(maindb, cs, &util.FakeKeyManager{})
 
-	fi, err := os.Open("../testing/divy.repo")
+	fi, err := os.Open("../testing/test_files/divy.repo")
 	if err != nil {
 		t.Fatal(err)
 	}

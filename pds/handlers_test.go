@@ -106,7 +106,7 @@ func TestHandleComAtprotoSessionCreate(t *testing.T) {
 		t.Fatal(err)
 	}
 	so, err := s.handleComAtprotoServerCreateSession(context.Background(), &atproto.ServerCreateSession_Input{
-		Identifier: &o.Handle,
+		Identifier: o.Handle,
 		Password:   "password",
 	})
 	if err != nil {
@@ -117,7 +117,7 @@ func TestHandleComAtprotoSessionCreate(t *testing.T) {
 	}
 
 	_, err = s.handleComAtprotoServerCreateSession(context.Background(), &atproto.ServerCreateSession_Input{
-		Identifier: &o.Handle,
+		Identifier: o.Handle,
 		Password:   "invalid",
 	})
 	if err != ErrInvalidUsernameOrPassword {

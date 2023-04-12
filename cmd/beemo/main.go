@@ -110,7 +110,7 @@ func pollNewReports(cctx *cli.Context) error {
 	}
 
 	auth, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
-		Identifier: &xrpcc.Auth.Handle,
+		Identifier: xrpcc.Auth.Handle,
 		Password:   cctx.String("password"),
 	})
 	if err != nil {

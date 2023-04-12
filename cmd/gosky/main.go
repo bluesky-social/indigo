@@ -82,6 +82,7 @@ func run(args []string) {
 		readRepoStreamCmd,
 		handleCmd,
 		getRecordCmd,
+		createInviteCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -134,7 +135,7 @@ var createSessionCmd = &cli.Command{
 		password := cctx.Args().Get(1)
 
 		ses, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
-			Identifier: &handle,
+			Identifier: handle,
 			Password:   password,
 		})
 		if err != nil {
@@ -1004,6 +1005,61 @@ var getRecordCmd = &cli.Command{
 		}
 
 		fmt.Println(string(b))
+
+		return nil
+	},
+}
+
+var createInviteCmd = &cli.Command{
+	Name: "createInvite",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "admin-password",
+			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
+			Required: true,
+		},
+		&cli.IntFlag{
+			Name:  "useCount",
+			Value: 1,
+		},
+		&cli.IntFlag{
+			Name:  "num",
+			Value: 1,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		count := cctx.Int("useCount")
+		num := cctx.Int("num")
+
+		var usrdid *string
+		if forUser := cctx.Args().Get(0); forUser != "" {
+			resp, err := comatproto.IdentityResolveHandle(context.TODO(), xrpcc, forUser)
+			if err != nil {
+				return err
+			}
+
+			usrdid = &resp.Did
+		}
+
+		adminKey := cctx.String("admin-password")
+		xrpcc.AdminToken = &adminKey
+
+		for i := 0; i < num; i++ {
+			resp, err := comatproto.ServerCreateInviteCode(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCode_Input{
+				UseCount:   int64(count),
+				ForAccount: usrdid,
+			})
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(resp.Code)
+		}
 
 		return nil
 	},

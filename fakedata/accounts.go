@@ -86,7 +86,7 @@ func AccountXrpcClient(pdsHost string, ac *AccountContext) (*xrpc.Client, error)
 	}
 	// use XRPC client to re-auth using user/pass
 	auth, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
-		Identifier: &ac.Auth.Handle,
+		Identifier: ac.Auth.Handle,
 		Password:   ac.Password,
 	})
 	if err != nil {
