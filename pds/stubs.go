@@ -1118,7 +1118,7 @@ func (s *Server) HandleComAtprotoServerGetAccountInviteCodes(c echo.Context) err
 			return err
 		}
 	} else {
-		createAvailable = bool
+		createAvailable = true
 	}
 
 	var includeUsed bool
@@ -1129,7 +1129,7 @@ func (s *Server) HandleComAtprotoServerGetAccountInviteCodes(c echo.Context) err
 			return err
 		}
 	} else {
-		includeUsed = bool
+		includeUsed = true
 	}
 	var out *comatprototypes.ServerGetAccountInviteCodes_Output
 	var handleErr error

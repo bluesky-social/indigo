@@ -903,7 +903,7 @@ if err != nil {
 	return err
 }
 } else {
-	%s = %T
+	%s = %v
 }
 `, k, k, k, k, t.Default.(bool))
 					} else {

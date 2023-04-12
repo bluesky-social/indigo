@@ -451,7 +451,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 	}, nil
 }
 
-func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection string, limit int, repo string, reverse *bool, rkeyEnd string, rkeyStart string) (*comatprototypes.RepoListRecords_Output, error) {
+func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection string, cursor string, limit int, repo string, reverse *bool, rkeyEnd string, rkeyStart string) (*comatprototypes.RepoListRecords_Output, error) {
 	panic("not yet implemented")
 }
 
@@ -473,7 +473,7 @@ func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*com
 var ErrInvalidUsernameOrPassword = fmt.Errorf("invalid username or password")
 
 func (s *Server) handleComAtprotoServerCreateSession(ctx context.Context, body *comatprototypes.ServerCreateSession_Input) (*comatprototypes.ServerCreateSession_Output, error) {
-	u, err := s.lookupUserByHandle(ctx, *body.Identifier)
+	u, err := s.lookupUserByHandle(ctx, body.Identifier)
 	if err != nil {
 		return nil, err
 	}
@@ -482,13 +482,13 @@ func (s *Server) handleComAtprotoServerCreateSession(ctx context.Context, body *
 		return nil, ErrInvalidUsernameOrPassword
 	}
 
-	tok, err := s.createAuthTokenForUser(ctx, *body.Identifier, u.Did)
+	tok, err := s.createAuthTokenForUser(ctx, body.Identifier, u.Did)
 	if err != nil {
 		return nil, err
 	}
 
 	return &comatprototypes.ServerCreateSession_Output{
-		Handle:     *body.Identifier,
+		Handle:     body.Identifier,
 		Did:        u.Did,
 		AccessJwt:  tok.AccessJwt,
 		RefreshJwt: tok.RefreshJwt,
@@ -645,7 +645,7 @@ func (s *Server) handleComAtprotoAdminResolveModerationReports(ctx context.Conte
 func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Context, body *comatprototypes.AdminReverseModerationAction_Input) (*comatprototypes.AdminDefs_ActionView, error) {
 	panic("nyi")
 }
-func (s *Server) handleComAtprotoAdminSearchRepos(ctx context.Context, before string, limit int, term string) (*comatprototypes.AdminSearchRepos_Output, error) {
+func (s *Server) handleComAtprotoAdminSearchRepos(ctx context.Context, cursor string, invitedBy string, limit int, term string) (*comatprototypes.AdminSearchRepos_Output, error) {
 	panic("nyi")
 }
 func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, body *comatprototypes.AdminTakeModerationAction_Input) (*comatprototypes.AdminDefs_ActionView, error) {
@@ -693,5 +693,29 @@ func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, bod
 }
 
 func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo string) (*comatprototypes.RepoDescribeRepo_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoAdminDisableInviteCodes(ctx context.Context, body *comatprototypes.AdminDisableInviteCodes_Input) error {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoAdminGetInviteCodes(ctx context.Context, cursor string, limit int, sort string) (*comatprototypes.AdminGetInviteCodes_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoLabelQueryLabels(ctx context.Context, cursor string, limit int, sources []string, uriPatterns []string) (*comatprototypes.LabelQueryLabels_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoServerCreateInviteCodes(ctx context.Context, body *comatprototypes.ServerCreateInviteCodes_Input) (*comatprototypes.ServerCreateInviteCodes_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoServerGetAccountInviteCodes(ctx context.Context, createAvailable bool, includeUsed bool) (*comatprototypes.ServerGetAccountInviteCodes_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, limit int) (*comatprototypes.SyncListRepos_Output, error) {
 	panic("nyi")
 }
