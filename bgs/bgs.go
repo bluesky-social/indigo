@@ -15,6 +15,7 @@ import (
 
 	"contrib.go.opencensus.io/exporter/prometheus"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/blobs"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
@@ -23,6 +24,7 @@ import (
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/util"
 	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/gorilla/websocket"
@@ -373,6 +375,25 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		return nil
+	case env.RepoHandle != nil:
+
+		// TODO: ignoring the data in the message and just going out to the DID doc
+		act, err := bgs.createExternalUser(ctx, env.RepoHandle.Did)
+		if err != nil {
+			return err
+		}
+
+		if act.Handle != env.RepoHandle.Handle {
+			log.Warnw("handle update did not update handle to asserted value", "did", env.RepoHandle.Did, "expected", env.RepoHandle.Handle, "actual", act.Handle)
+		}
+
+		return nil
+	case env.RepoMigrate != nil:
+		if _, err := bgs.createExternalUser(ctx, env.RepoMigrate.Did); err != nil {
+			return err
+		}
+
+		return nil
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
@@ -404,6 +425,7 @@ func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user bsutil.Ui
 	return nil
 }
 
+// TODO: rename? This also updates users, and 'external' is an old phrasing
 func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.ActorInfo, error) {
 	ctx, span := otel.Tracer("bgs").Start(ctx, "createExternalUser")
 	defer span.End()
@@ -438,7 +460,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	c := &xrpc.Client{Host: durl.String()}
 
 	if peering.ID == 0 {
-
+		// TODO: the case of handling a new user on a new PDS probably requires more thought
 		cfg, err := atproto.ServerDescribeServer(ctx, c)
 		if err != nil {
 			// TODO: failing this shouldnt halt our indexing
@@ -486,7 +508,32 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	exu, err := s.Index.LookupUserByDid(ctx, did)
 	if err == nil {
-		log.Infof("lost the race to create a new user: %s", did)
+		log.Infow("lost the race to create a new user", "did", did, "handle", handle)
+		if exu.PDS != peering.ID {
+			// User is now on a different PDS, update
+			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("pds", peering.ID).Error; err != nil {
+				return nil, fmt.Errorf("failed to update users pds: %w", err)
+			}
+
+		}
+
+		if exu.Handle != handle {
+			// Users handle has changed, update
+			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("handle", peering.ID).Error; err != nil {
+				return nil, fmt.Errorf("failed to update users handle: %w", err)
+			}
+
+			if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
+				RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
+					Did:    exu.Did,
+					Handle: handle,
+					Time:   time.Now().Format(util.ISO8601),
+				},
+			}); err != nil {
+				// TODO: should we really error here? I'm leaning towards no
+				return nil, fmt.Errorf("failed to push handle update event: %s", err)
+			}
+		}
 		return exu, nil
 	}
 

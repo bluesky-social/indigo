@@ -83,3 +83,11 @@ func (fd *FakeDid) CreateDID(ctx context.Context, sigkey *did.PrivKey, recovery 
 
 	return d, nil
 }
+
+func (fd *FakeDid) UpdateUserHandle(ctx context.Context, did string, nhandle string) error {
+	if err := fd.db.Model(FakeDidMapping{}).Where("did = ?", did).UpdateColumn("handle", nhandle).Error; err != nil {
+		return err
+	}
+
+	return nil
+}

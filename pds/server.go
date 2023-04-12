@@ -20,6 +20,7 @@ import (
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/util"
 	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	gojwt "github.com/golang-jwt/jwt"
@@ -30,6 +31,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/whyrusleeping/go-did"
+	"golang.org/x/xerrors"
 	"gorm.io/gorm"
 )
 
@@ -312,6 +314,15 @@ func (s *Server) RunAPI(listen string) error {
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
 		fmt.Printf("HANDLER ERROR: (%s) %s\n", ctx.Path(), err)
+
+		// TODO: need to properly figure out where http error codes for error
+		// types get decided. This spot is reasonable, but maybe a bit weird.
+		// reviewers, please advise
+		if xerrors.Is(err, ErrNoSuchUser) {
+			ctx.Response().WriteHeader(404)
+			return
+		}
+
 		ctx.Response().WriteHeader(500)
 	}
 
@@ -625,6 +636,43 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		if err := wc.Close(); err != nil {
 			return fmt.Errorf("failed to flush-close our event write: %w", err)
 		}
+	}
+
+	return nil
+}
+
+func (s *Server) UpdateUserHandle(ctx context.Context, u *User, handle string) error {
+	if u.Handle == handle {
+		// no change? move on
+		log.Warnw("attempted to change handle to current handle", "did", u.Did, "handle", handle)
+		return nil
+	}
+
+	_, err := s.indexer.LookupUserByHandle(ctx, handle)
+	if err == nil {
+		return fmt.Errorf("handle %q is already in use", handle)
+	}
+
+	if err := s.plc.UpdateUserHandle(ctx, u.Did, handle); err != nil {
+		return fmt.Errorf("failed to update users handle on plc: %w", err)
+	}
+
+	if err := s.db.Model(models.ActorInfo{}).Where("uid = ?", u.ID).UpdateColumn("handle", handle).Error; err != nil {
+		return fmt.Errorf("failed to update handle: %w", err)
+	}
+
+	if err := s.db.Model(User{}).Where("id = ?", u.ID).UpdateColumn("handle", handle).Error; err != nil {
+		return fmt.Errorf("failed to update handle: %w", err)
+	}
+
+	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
+		RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
+			Did:    u.Did,
+			Handle: handle,
+			Time:   time.Now().Format(util.ISO8601),
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to push event: %s", err)
 	}
 
 	return nil
