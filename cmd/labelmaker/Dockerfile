@@ -27,7 +27,7 @@ COPY --from=build-env /labelmaker /
 ENV GODEBUG=netdns=go
 ENV TZ=Etc/UTC
 
-EXPOSE 2470
+EXPOSE 2210
 
 CMD ["/labelmaker"]
 
