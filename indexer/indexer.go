@@ -92,7 +92,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		})
 
 		if err := ix.handleRepoOp(ctx, evt, &op); err != nil {
-			return err
+			log.Errorw("failed to handle repo op", "err", err)
 		}
 	}
 
