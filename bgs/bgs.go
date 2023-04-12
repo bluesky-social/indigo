@@ -378,8 +378,13 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	case env.RepoHandle != nil:
 
 		// TODO: ignoring the data in the message and just going out to the DID doc
-		if _, err := bgs.createExternalUser(ctx, env.RepoHandle.Did); err != nil {
+		act, err := bgs.createExternalUser(ctx, env.RepoHandle.Did)
+		if err != nil {
 			return err
+		}
+
+		if act.Handle != env.RepoHandle.Handle {
+			log.Warnw("handle update did not update handle to asserted value", "did", env.RepoHandle.Did, "expected", env.RepoHandle.Handle, "actual", act.Handle)
 		}
 
 		return nil
