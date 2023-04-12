@@ -2,6 +2,7 @@ package bgs
 
 import (
 	"io"
+	"strconv"
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/labstack/echo/v4"
@@ -21,6 +22,7 @@ func (s *BGS) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.GET("/xrpc/com.atproto.sync.getRecord", s.HandleComAtprotoSyncGetRecord)
 	e.GET("/xrpc/com.atproto.sync.getRepo", s.HandleComAtprotoSyncGetRepo)
 	e.GET("/xrpc/com.atproto.sync.listBlobs", s.HandleComAtprotoSyncListBlobs)
+	e.GET("/xrpc/com.atproto.sync.listRepos", s.HandleComAtprotoSyncListRepos)
 	e.GET("/xrpc/com.atproto.sync.notifyOfUpdate", s.HandleComAtprotoSyncNotifyOfUpdate)
 	e.GET("/xrpc/com.atproto.sync.requestCrawl", s.HandleComAtprotoSyncRequestCrawl)
 	return nil
@@ -145,6 +147,31 @@ func (s *BGS) HandleComAtprotoSyncListBlobs(c echo.Context) error {
 	var handleErr error
 	// func (s *BGS) handleComAtprotoSyncListBlobs(ctx context.Context,did string,earliest string,latest string) (*comatprototypes.SyncListBlobs_Output, error)
 	out, handleErr = s.handleComAtprotoSyncListBlobs(ctx, did, earliest, latest)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *BGS) HandleComAtprotoSyncListRepos(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncListRepos")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 500
+	}
+	var out *comatprototypes.SyncListRepos_Output
+	var handleErr error
+	// func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context,cursor string,limit int) (*comatprototypes.SyncListRepos_Output, error)
+	out, handleErr = s.handleComAtprotoSyncListRepos(ctx, cursor, limit)
 	if handleErr != nil {
 		return handleErr
 	}

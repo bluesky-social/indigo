@@ -23,11 +23,12 @@ type RepoListRecords_Record struct {
 	Value *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
-func RepoListRecords(ctx context.Context, c *xrpc.Client, collection string, limit int64, repo string, reverse bool, rkeyEnd string, rkeyStart string) (*RepoListRecords_Output, error) {
+func RepoListRecords(ctx context.Context, c *xrpc.Client, collection string, cursor string, limit int64, repo string, reverse bool, rkeyEnd string, rkeyStart string) (*RepoListRecords_Output, error) {
 	var out RepoListRecords_Output
 
 	params := map[string]interface{}{
 		"collection": collection,
+		"cursor":     cursor,
 		"limit":      limit,
 		"repo":       repo,
 		"reverse":    reverse,
