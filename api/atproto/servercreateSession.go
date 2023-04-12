@@ -12,15 +12,16 @@ func init() {
 }
 
 type ServerCreateSession_Input struct {
-	Identifier *string `json:"identifier,omitempty" cborgen:"identifier,omitempty"`
-	Password   string  `json:"password" cborgen:"password"`
+	Identifier string `json:"identifier" cborgen:"identifier"`
+	Password   string `json:"password" cborgen:"password"`
 }
 
 type ServerCreateSession_Output struct {
-	AccessJwt  string `json:"accessJwt" cborgen:"accessJwt"`
-	Did        string `json:"did" cborgen:"did"`
-	Handle     string `json:"handle" cborgen:"handle"`
-	RefreshJwt string `json:"refreshJwt" cborgen:"refreshJwt"`
+	AccessJwt  string  `json:"accessJwt" cborgen:"accessJwt"`
+	Did        string  `json:"did" cborgen:"did"`
+	Email      *string `json:"email,omitempty" cborgen:"email,omitempty"`
+	Handle     string  `json:"handle" cborgen:"handle"`
+	RefreshJwt string  `json:"refreshJwt" cborgen:"refreshJwt"`
 }
 
 func ServerCreateSession(ctx context.Context, c *xrpc.Client, input *ServerCreateSession_Input) (*ServerCreateSession_Output, error) {

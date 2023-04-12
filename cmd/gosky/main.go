@@ -135,7 +135,7 @@ var createSessionCmd = &cli.Command{
 		password := cctx.Args().Get(1)
 
 		ses, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
-			Identifier: &handle,
+			Identifier: handle,
 			Password:   password,
 		})
 		if err != nil {
@@ -1014,8 +1014,8 @@ var createInviteCmd = &cli.Command{
 	Name: "createInvite",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:     "admin-key",
-			EnvVars:  []string{"BSKY_ADMIN_KEY"},
+			Name:     "admin-password",
+			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
 			Required: true,
 		},
 		&cli.IntFlag{
@@ -1036,53 +1036,29 @@ var createInviteCmd = &cli.Command{
 		count := cctx.Int("useCount")
 		num := cctx.Int("num")
 
-		body := map[string]any{
-			"useCount": count,
-		}
-
-		forUser := cctx.Args().Get(0)
-		if forUser != "" {
+		var usrdid *string
+		if forUser := cctx.Args().Get(0); forUser != "" {
 			resp, err := comatproto.IdentityResolveHandle(context.TODO(), xrpcc, forUser)
 			if err != nil {
 				return err
 			}
 
-			body["forAccount"] = resp.Did
+			usrdid = &resp.Did
 		}
 
-		b, err := json.Marshal(body)
-		if err != nil {
-			return err
-		}
+		adminKey := cctx.String("admin-password")
+		xrpcc.AdminToken = &adminKey
 
 		for i := 0; i < num; i++ {
-			req, err := http.NewRequest("POST", xrpcc.Host+"/xrpc/com.atproto.server.createInviteCode", bytes.NewReader(b))
+			resp, err := comatproto.ServerCreateInviteCode(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCode_Input{
+				UseCount:   int64(count),
+				ForAccount: usrdid,
+			})
 			if err != nil {
 				return err
 			}
 
-			adminKey := cctx.String("admin-key")
-
-			req.Header.Set("Authorization", "Basic "+adminKey)
-			req.Header.Set("Content-Type", "application/json")
-
-			resp, err := http.DefaultClient.Do(req)
-			if err != nil {
-				return err
-			}
-
-			defer resp.Body.Close()
-
-			var out map[string]any
-			if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-				return err
-			}
-
-			if resp.StatusCode == 200 {
-				fmt.Println(out["code"])
-			} else {
-				return fmt.Errorf("request failed (%d): %s", resp.StatusCode, out["error"])
-			}
+			fmt.Println(resp.Code)
 		}
 
 		return nil

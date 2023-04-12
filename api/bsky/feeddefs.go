@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/lex/util"
 )
 
@@ -53,16 +54,17 @@ type FeedDefs_NotFoundPost struct {
 }
 
 type FeedDefs_PostView struct {
-	Author      *ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
-	Cid         string                      `json:"cid" cborgen:"cid"`
-	Embed       *FeedDefs_PostView_Embed    `json:"embed,omitempty" cborgen:"embed,omitempty"`
-	IndexedAt   string                      `json:"indexedAt" cborgen:"indexedAt"`
-	LikeCount   *int64                      `json:"likeCount,omitempty" cborgen:"likeCount,omitempty"`
-	Record      *util.LexiconTypeDecoder    `json:"record" cborgen:"record"`
-	ReplyCount  *int64                      `json:"replyCount,omitempty" cborgen:"replyCount,omitempty"`
-	RepostCount *int64                      `json:"repostCount,omitempty" cborgen:"repostCount,omitempty"`
-	Uri         string                      `json:"uri" cborgen:"uri"`
-	Viewer      *FeedDefs_ViewerState       `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	Author      *ActorDefs_ProfileViewBasic        `json:"author" cborgen:"author"`
+	Cid         string                             `json:"cid" cborgen:"cid"`
+	Embed       *FeedDefs_PostView_Embed           `json:"embed,omitempty" cborgen:"embed,omitempty"`
+	IndexedAt   string                             `json:"indexedAt" cborgen:"indexedAt"`
+	Labels      []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	LikeCount   *int64                             `json:"likeCount,omitempty" cborgen:"likeCount,omitempty"`
+	Record      *util.LexiconTypeDecoder           `json:"record" cborgen:"record"`
+	ReplyCount  *int64                             `json:"replyCount,omitempty" cborgen:"replyCount,omitempty"`
+	RepostCount *int64                             `json:"repostCount,omitempty" cborgen:"repostCount,omitempty"`
+	Uri         string                             `json:"uri" cborgen:"uri"`
+	Viewer      *FeedDefs_ViewerState              `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 type FeedDefs_PostView_Embed struct {

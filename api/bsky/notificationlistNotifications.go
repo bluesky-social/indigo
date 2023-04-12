@@ -3,6 +3,7 @@ package bsky
 import (
 	"context"
 
+	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
@@ -13,14 +14,15 @@ func init() {
 }
 
 type NotificationListNotifications_Notification struct {
-	Author        *ActorDefs_ProfileView   `json:"author" cborgen:"author"`
-	Cid           string                   `json:"cid" cborgen:"cid"`
-	IndexedAt     string                   `json:"indexedAt" cborgen:"indexedAt"`
-	IsRead        bool                     `json:"isRead" cborgen:"isRead"`
-	Reason        string                   `json:"reason" cborgen:"reason"`
-	ReasonSubject *string                  `json:"reasonSubject,omitempty" cborgen:"reasonSubject,omitempty"`
-	Record        *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
-	Uri           string                   `json:"uri" cborgen:"uri"`
+	Author        *ActorDefs_ProfileView             `json:"author" cborgen:"author"`
+	Cid           string                             `json:"cid" cborgen:"cid"`
+	IndexedAt     string                             `json:"indexedAt" cborgen:"indexedAt"`
+	IsRead        bool                               `json:"isRead" cborgen:"isRead"`
+	Labels        []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Reason        string                             `json:"reason" cborgen:"reason"`
+	ReasonSubject *string                            `json:"reasonSubject,omitempty" cborgen:"reasonSubject,omitempty"`
+	Record        *util.LexiconTypeDecoder           `json:"record" cborgen:"record"`
+	Uri           string                             `json:"uri" cborgen:"uri"`
 }
 
 type NotificationListNotifications_Output struct {

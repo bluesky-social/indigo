@@ -125,3 +125,7 @@ func (s *BGS) handleComAtprotoSyncGetBlob(ctx context.Context, cid string, did s
 func (s *BGS) handleComAtprotoSyncListBlobs(ctx context.Context, did string, earliest string, latest string) (*comatprototypes.SyncListBlobs_Output, error) {
 	panic("NYI")
 }
+
+func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, limit int) (*comatprototypes.SyncListRepos_Output, error) {
+	panic("NYI")
+}
