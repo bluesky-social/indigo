@@ -83,6 +83,17 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 				} else {
 					log.Warnf("received repo commit event with nil commit object (seq %d)", evt.Seq)
 				}
+			case "#handle":
+				var evt comatproto.SyncSubscribeRepos_Handle
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return err
+				}
+
+				if cbs.RepoHandle != nil {
+					if err := cbs.RepoHandle(&evt); err != nil {
+						return err
+					}
+				}
 			case "#info":
 				// TODO: this might also be a LabelInfo (as opposed to RepoInfo)
 				var evt comatproto.SyncSubscribeRepos_Info

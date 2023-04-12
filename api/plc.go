@@ -121,7 +121,10 @@ func (s *PLCServer) CreateDID(ctx context.Context, sigkey *did.PrivKey, recovery
 	}
 
 	return opdid, nil
+}
 
+func (s *PLCServer) UpdateUserHandle(ctx context.Context, did string, handle string) error {
+	return fmt.Errorf("handle updates not yet implemented")
 }
 
 func didForCreateOp(op *CreateOp) (string, error) {
