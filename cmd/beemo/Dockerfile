@@ -27,8 +27,6 @@ COPY --from=build-env /beemo /
 ENV GODEBUG=netdns=go
 ENV TZ=Etc/UTC
 
-EXPOSE 2470
-
 CMD ["/beemo"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
