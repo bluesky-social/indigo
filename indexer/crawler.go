@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"fmt"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/models"
@@ -20,22 +21,29 @@ type CrawlDispatcher struct {
 	complete chan util.Uid
 
 	doRepoCrawl func(context.Context, *crawlWork) error
+
+	concurrency int
 }
 
-func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error) *CrawlDispatcher {
+func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurrency int) (*CrawlDispatcher, error) {
+	if concurrency < 1 {
+		return nil, fmt.Errorf("must specify a non-zero positive integer for crawl dispatcher concurrency")
+	}
+
 	return &CrawlDispatcher{
 		ingest:      make(chan *models.ActorInfo),
 		repoSync:    make(chan *crawlWork),
 		complete:    make(chan util.Uid),
 		catchup:     make(chan *catchupJob),
 		doRepoCrawl: repoFn,
-	}
+		concurrency: concurrency,
+	}, nil
 }
 
 func (c *CrawlDispatcher) Run() {
 	go c.mainLoop()
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < c.concurrency; i++ {
 		go c.fetchWorker()
 	}
 }
