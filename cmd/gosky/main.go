@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -276,6 +277,7 @@ var syncCmd = &cli.Command{
 	Subcommands: []*cli.Command{
 		syncGetRepoCmd,
 		syncGetRootCmd,
+		syncListReposCmd,
 	},
 }
 
@@ -1011,7 +1013,7 @@ var getRecordCmd = &cli.Command{
 }
 
 var createInviteCmd = &cli.Command{
-	Name: "createInvite",
+	Name: "createInvites",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "admin-password",
@@ -1026,6 +1028,9 @@ var createInviteCmd = &cli.Command{
 			Name:  "num",
 			Value: 1,
 		},
+		&cli.StringFlag{
+			Name: "bulk-dids",
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
@@ -1033,32 +1038,122 @@ var createInviteCmd = &cli.Command{
 			return err
 		}
 
+		adminKey := cctx.String("admin-password")
+
 		count := cctx.Int("useCount")
 		num := cctx.Int("num")
+
+		if bulkfi := cctx.String("bulk-dids"); bulkfi != "" {
+			xrpcc.AdminToken = &adminKey
+			dids, err := readDids(bulkfi)
+			if err != nil {
+				return err
+			}
+
+			feeder := make(chan string)
+			var wg sync.WaitGroup
+			for i := 0; i < 20; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for d := range feeder {
+						did := d
+						resp, err := comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
+							UseCount:   int64(count),
+							ForAccount: &did,
+							CodeCount:  int64(num),
+						})
+						if err != nil {
+							log.Error(err)
+						}
+						_ = resp
+					}
+				}()
+			}
+
+			for _, d := range dids {
+				feeder <- d
+			}
+
+			close(feeder)
+
+			wg.Wait()
+			return nil
+		}
 
 		var usrdid *string
 		if forUser := cctx.Args().Get(0); forUser != "" {
 			resp, err := comatproto.IdentityResolveHandle(context.TODO(), xrpcc, forUser)
 			if err != nil {
-				return err
+				return fmt.Errorf("resolving handle: %w", err)
 			}
 
 			usrdid = &resp.Did
 		}
 
-		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
+		resp, err := comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
+			UseCount:   int64(count),
+			ForAccount: usrdid,
+			CodeCount:  int64(num),
+		})
+		if err != nil {
+			return fmt.Errorf("creating codes: %w", err)
+		}
 
-		for i := 0; i < num; i++ {
-			resp, err := comatproto.ServerCreateInviteCode(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCode_Input{
-				UseCount:   int64(count),
-				ForAccount: usrdid,
-			})
+		for _, c := range resp.Codes {
+			fmt.Println(c)
+		}
+
+		return nil
+	},
+}
+
+func readDids(f string) ([]string, error) {
+	fi, err := os.Open(f)
+	if err != nil {
+		return nil, err
+	}
+
+	defer fi.Close()
+
+	scan := bufio.NewScanner(fi)
+	var out []string
+	for scan.Scan() {
+		out = append(out, scan.Text())
+	}
+
+	return out, nil
+}
+
+var syncListReposCmd = &cli.Command{
+	Name: "listRepos",
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		var curs string
+		for {
+			out, err := comatproto.SyncListRepos(context.TODO(), xrpcc, curs, 1000)
 			if err != nil {
 				return err
 			}
 
-			fmt.Println(resp.Code)
+			if len(out.Repos) == 0 {
+				break
+			}
+
+			for _, r := range out.Repos {
+				fmt.Println(r.Did)
+			}
+
+			if out.Cursor == nil {
+				break
+			}
+
+			curs = *out.Cursor
 		}
 
 		return nil
