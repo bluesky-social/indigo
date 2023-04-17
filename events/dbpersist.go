@@ -38,7 +38,7 @@ type RepoEventRecord struct {
 
 type RepoOpRecord struct {
 	ID                uint `gorm:"primarykey"`
-	RepoEventRecordID uint
+	RepoEventRecordID uint `gorm:"index"`
 	Path              string
 	Action            string
 	Rec               *util.DbCID
