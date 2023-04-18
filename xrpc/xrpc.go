@@ -125,9 +125,9 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 					return fmt.Errorf("reading response body: %w", err)
 				}
 			} else {
-				_, err := io.CopyN(buf, resp.Body, resp.ContentLength)
+				n, err := io.CopyN(buf, resp.Body, resp.ContentLength)
 				if err != nil {
-					return fmt.Errorf("reading length delimited response body: %w", err)
+					return fmt.Errorf("reading length delimited response body (%d < %d): %w", n, resp.ContentLength, err)
 				}
 			}
 		} else {
