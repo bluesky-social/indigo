@@ -348,7 +348,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		// TODO: if the user is already in the 'slow' path, we shouldnt even bother trying to fast path this event
 
 		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, (*cid.Cid)(evt.Prev), evt.Blocks); err != nil {
-			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq)
+			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", evt.Prev.String(), "commit", evt.Commit.String())
 			if !errors.Is(err, carstore.ErrRepoBaseMismatch) {
 				return fmt.Errorf("handle user event failed: %w", err)
 			}
