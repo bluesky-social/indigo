@@ -918,7 +918,7 @@ var readRepoStreamCmd = &cli.Command{
 					if evt.Prev != nil && evt.Prev.Defined() {
 						pstr = evt.Prev.String()
 					}
-					fmt.Printf("(%d) RepoAppend: %s (%s -> %s)\n", evt.Seq, evt.Repo, pstr, evt.Commit)
+					fmt.Printf("(%d) RepoAppend: %s (%s -> %s)\n", evt.Seq, evt.Repo, pstr, evt.Commit.String())
 				}
 
 				return nil

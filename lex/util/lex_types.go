@@ -25,8 +25,11 @@ type jsonLink struct {
 }
 
 // convenience helper
-func (ll LexLink) String() string {
-	return cid.Cid(ll).String()
+func (ll *LexLink) String() string {
+	if ll == nil {
+		return "<nil>"
+	}
+	return cid.Cid(*ll).String()
 }
 
 // convenience helper

@@ -511,7 +511,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 	ctx, span := otel.Tracer("repoman").Start(ctx, "HandleExternalUserEvent")
 	defer span.End()
 
-	log.Infof("HandleExternalUserEvent: %d %d %s", pdsid, uid, prev)
+	log.Infow("HandleExternalUserEvent", "pds", pdsid, "uid", uid, "prev", prev)
 
 	unlock := rm.lockUser(ctx, uid)
 	defer unlock()
@@ -542,8 +542,6 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 	if err := rm.kmgr.VerifyUserSignature(ctx, repoDid, scom.Sig, sb); err != nil {
 		return fmt.Errorf("signature check failed: %w", err)
 	}
-
-	log.Infow("external event", "uid", uid)
 
 	var pcid cid.Cid
 	if prev != nil {

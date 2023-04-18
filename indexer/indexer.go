@@ -864,7 +864,6 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 		from = curHead.String()
 	} else {
 		span.SetAttributes(attribute.Bool("full", true))
-
 	}
 
 	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
