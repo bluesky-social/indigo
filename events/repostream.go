@@ -36,20 +36,23 @@ func ConsumeRepoStreamLite(ctx context.Context, con *websocket.Conn, cb LiteStre
 					if err != nil {
 						e := fmt.Errorf("getting record %s (%s) within seq %d for %s: %w", op.Path, *op.Cid, evt.Seq, evt.Repo, err)
 						log.Error(e)
-						return nil
+						continue
 					}
 
 					if lexutil.LexLink(rc) != *op.Cid {
+						// TODO: do we even error here?
 						return fmt.Errorf("mismatch in record and op cid: %s != %s", rc, *op.Cid)
 					}
 
 					if err := cb(ek, evt.Seq, op.Path, evt.Repo, &rc, rec); err != nil {
-						return err
+						log.Errorf("event consumer callback (%s): %s", ek, err)
+						continue
 					}
 
 				case repomgr.EvtKindDeleteRecord:
 					if err := cb(ek, evt.Seq, op.Path, evt.Repo, nil, nil); err != nil {
-						return err
+						log.Errorf("event consumer callback (%s): %s", ek, err)
+						continue
 					}
 				}
 			}

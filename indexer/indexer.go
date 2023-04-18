@@ -68,8 +68,12 @@ func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events
 	}
 
 	if crawl {
-		ix.Crawler = NewCrawlDispatcher(ix.FetchAndIndexRepo)
+		c, err := NewCrawlDispatcher(ix.FetchAndIndexRepo, 10)
+		if err != nil {
+			return nil, err
+		}
 
+		ix.Crawler = c
 		ix.Crawler.Run()
 	}
 
@@ -91,36 +95,8 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 			Cid:    link,
 		})
 
-		switch op.Kind {
-		case repomgr.EvtKindCreateRecord:
-			if err := ix.crawlRecordReferences(ctx, &op); err != nil {
-				return err
-			}
-
-			if ix.doAggregations {
-				_, err := ix.handleRecordCreate(ctx, evt, &op, true)
-				if err != nil {
-					return fmt.Errorf("handle recordCreate: %w", err)
-				}
-			}
-		case repomgr.EvtKindInitActor:
-			if err := ix.handleInitActor(ctx, evt, &op); err != nil {
-				return fmt.Errorf("handle initActor: %w", err)
-			}
-		case repomgr.EvtKindDeleteRecord:
-			if ix.doAggregations {
-				if err := ix.handleRecordDelete(ctx, evt, &op, true); err != nil {
-					return fmt.Errorf("handle recordDelete: %w", err)
-				}
-			}
-		case repomgr.EvtKindUpdateRecord:
-			if ix.doAggregations {
-				if err := ix.handleRecordUpdate(ctx, evt, &op, true); err != nil {
-					return fmt.Errorf("handle recordCreate: %w", err)
-				}
-			}
-		default:
-			return fmt.Errorf("unrecognized repo event type: %q", op.Kind)
+		if err := ix.handleRepoOp(ctx, evt, &op); err != nil {
+			log.Errorw("failed to handle repo op", "err", err)
 		}
 	}
 
@@ -151,6 +127,42 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		PrivUid: evt.User,
 	}); err != nil {
 		return fmt.Errorf("failed to push event: %s", err)
+	}
+
+	return nil
+}
+
+func (ix *Indexer) handleRepoOp(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
+	switch op.Kind {
+	case repomgr.EvtKindCreateRecord:
+		if err := ix.crawlRecordReferences(ctx, op); err != nil {
+			return err
+		}
+
+		if ix.doAggregations {
+			_, err := ix.handleRecordCreate(ctx, evt, op, true)
+			if err != nil {
+				return fmt.Errorf("handle recordCreate: %w", err)
+			}
+		}
+	case repomgr.EvtKindInitActor:
+		if err := ix.handleInitActor(ctx, evt, op); err != nil {
+			return fmt.Errorf("handle initActor: %w", err)
+		}
+	case repomgr.EvtKindDeleteRecord:
+		if ix.doAggregations {
+			if err := ix.handleRecordDelete(ctx, evt, op, true); err != nil {
+				return fmt.Errorf("handle recordDelete: %w", err)
+			}
+		}
+	case repomgr.EvtKindUpdateRecord:
+		if ix.doAggregations {
+			if err := ix.handleRecordUpdate(ctx, evt, op, true); err != nil {
+				return fmt.Errorf("handle recordCreate: %w", err)
+			}
+		}
+	default:
+		return fmt.Errorf("unrecognized repo event type: %q", op.Kind)
 	}
 
 	return nil
@@ -852,7 +864,6 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 		from = curHead.String()
 	} else {
 		span.SetAttributes(attribute.Bool("full", true))
-
 	}
 
 	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
