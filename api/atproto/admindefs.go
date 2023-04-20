@@ -198,6 +198,7 @@ type AdminDefs_RecordViewDetail struct {
 	Blobs      []*AdminDefs_BlobView       `json:"blobs" cborgen:"blobs"`
 	Cid        string                      `json:"cid" cborgen:"cid"`
 	IndexedAt  string                      `json:"indexedAt" cborgen:"indexedAt"`
+	Labels     []*LabelDefs_Label          `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	Moderation *AdminDefs_ModerationDetail `json:"moderation" cborgen:"moderation"`
 	Repo       *AdminDefs_RepoView         `json:"repo" cborgen:"repo"`
 	Uri        string                      `json:"uri" cborgen:"uri"`
@@ -229,6 +230,7 @@ type AdminDefs_RepoViewDetail struct {
 	IndexedAt      string                      `json:"indexedAt" cborgen:"indexedAt"`
 	InvitedBy      *ServerDefs_InviteCode      `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
 	Invites        []*ServerDefs_InviteCode    `json:"invites,omitempty" cborgen:"invites,omitempty"`
+	Labels         []*LabelDefs_Label          `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	Moderation     *AdminDefs_ModerationDetail `json:"moderation" cborgen:"moderation"`
 	RelatedRecords []*util.LexiconTypeDecoder  `json:"relatedRecords" cborgen:"relatedRecords"`
 }

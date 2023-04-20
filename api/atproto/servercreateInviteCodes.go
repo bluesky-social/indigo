@@ -11,14 +11,19 @@ import (
 func init() {
 }
 
+type ServerCreateInviteCodes_AccountCodes struct {
+	Account string   `json:"account" cborgen:"account"`
+	Codes   []string `json:"codes" cborgen:"codes"`
+}
+
 type ServerCreateInviteCodes_Input struct {
-	CodeCount  int64   `json:"codeCount" cborgen:"codeCount"`
-	ForAccount *string `json:"forAccount,omitempty" cborgen:"forAccount,omitempty"`
-	UseCount   int64   `json:"useCount" cborgen:"useCount"`
+	CodeCount   int64    `json:"codeCount" cborgen:"codeCount"`
+	ForAccounts []string `json:"forAccounts,omitempty" cborgen:"forAccounts,omitempty"`
+	UseCount    int64    `json:"useCount" cborgen:"useCount"`
 }
 
 type ServerCreateInviteCodes_Output struct {
-	Codes []string `json:"codes" cborgen:"codes"`
+	Codes []*ServerCreateInviteCodes_AccountCodes `json:"codes" cborgen:"codes"`
 }
 
 func ServerCreateInviteCodes(ctx context.Context, c *xrpc.Client, input *ServerCreateInviteCodes_Input) (*ServerCreateInviteCodes_Output, error) {

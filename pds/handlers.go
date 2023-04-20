@@ -224,11 +224,13 @@ func (s *Server) handleAppBskyGraphUnmuteActor(ctx context.Context, input *appbs
 	panic("not yet implemented")
 }
 
-func (s *Server) handleAppBskyNotificationGetUnreadCount(ctx context.Context) (*appbskytypes.NotificationGetUnreadCount_Output, error) {
+func (s *Server) handleAppBskyNotificationGetUnreadCount(ctx context.Context, seenAt string) (*appbskytypes.NotificationGetUnreadCount_Output, error) {
 	u, err := s.getUser(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: use seenAt
 
 	count, err := s.notifman.GetCount(ctx, u.ID)
 	if err != nil {
@@ -241,11 +243,14 @@ func (s *Server) handleAppBskyNotificationGetUnreadCount(ctx context.Context) (*
 	}, nil
 }
 
-func (s *Server) handleAppBskyNotificationListNotifications(ctx context.Context, cursor string, limit int) (*appbskytypes.NotificationListNotifications_Output, error) {
+func (s *Server) handleAppBskyNotificationListNotifications(ctx context.Context, cursor string, limit int, seenAt string) (*appbskytypes.NotificationListNotifications_Output, error) {
 	u, err := s.getUser(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: use seenAt
+	_ = seenAt
 
 	notifs, err := s.notifman.GetNotifications(ctx, u.ID)
 	if err != nil {
@@ -726,5 +731,25 @@ func (s *Server) handleComAtprotoServerGetAccountInviteCodes(ctx context.Context
 }
 
 func (s *Server) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, limit int) (*comatprototypes.SyncListRepos_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoAdminUpdateAccountEmail(ctx context.Context, body *comatprototypes.AdminUpdateAccountEmail_Input) error {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoAdminUpdateAccountHandle(ctx context.Context, body *comatprototypes.AdminUpdateAccountHandle_Input) error {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoServerCreateAppPassword(ctx context.Context, body *comatprototypes.ServerCreateAppPassword_Input) (*comatprototypes.ServerCreateAppPassword_AppPassword, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoServerListAppPasswords(ctx context.Context) (*comatprototypes.ServerListAppPasswords_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoServerRevokeAppPassword(ctx context.Context, body *comatprototypes.ServerRevokeAppPassword_Input) error {
 	panic("nyi")
 }

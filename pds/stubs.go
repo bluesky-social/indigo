@@ -381,10 +381,11 @@ func (s *Server) HandleAppBskyGraphUnmuteActor(c echo.Context) error {
 func (s *Server) HandleAppBskyNotificationGetUnreadCount(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyNotificationGetUnreadCount")
 	defer span.End()
+	seenAt := c.QueryParam("seenAt")
 	var out *appbskytypes.NotificationGetUnreadCount_Output
 	var handleErr error
-	// func (s *Server) handleAppBskyNotificationGetUnreadCount(ctx context.Context) (*appbskytypes.NotificationGetUnreadCount_Output, error)
-	out, handleErr = s.handleAppBskyNotificationGetUnreadCount(ctx)
+	// func (s *Server) handleAppBskyNotificationGetUnreadCount(ctx context.Context,seenAt string) (*appbskytypes.NotificationGetUnreadCount_Output, error)
+	out, handleErr = s.handleAppBskyNotificationGetUnreadCount(ctx, seenAt)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -406,10 +407,11 @@ func (s *Server) HandleAppBskyNotificationListNotifications(c echo.Context) erro
 	} else {
 		limit = 50
 	}
+	seenAt := c.QueryParam("seenAt")
 	var out *appbskytypes.NotificationListNotifications_Output
 	var handleErr error
-	// func (s *Server) handleAppBskyNotificationListNotifications(ctx context.Context,cursor string,limit int) (*appbskytypes.NotificationListNotifications_Output, error)
-	out, handleErr = s.handleAppBskyNotificationListNotifications(ctx, cursor, limit)
+	// func (s *Server) handleAppBskyNotificationListNotifications(ctx context.Context,cursor string,limit int,seenAt string) (*appbskytypes.NotificationListNotifications_Output, error)
+	out, handleErr = s.handleAppBskyNotificationListNotifications(ctx, cursor, limit, seenAt)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -471,6 +473,8 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.admin.reverseModerationAction", s.HandleComAtprotoAdminReverseModerationAction)
 	e.GET("/xrpc/com.atproto.admin.searchRepos", s.HandleComAtprotoAdminSearchRepos)
 	e.POST("/xrpc/com.atproto.admin.takeModerationAction", s.HandleComAtprotoAdminTakeModerationAction)
+	e.POST("/xrpc/com.atproto.admin.updateAccountEmail", s.HandleComAtprotoAdminUpdateAccountEmail)
+	e.POST("/xrpc/com.atproto.admin.updateAccountHandle", s.HandleComAtprotoAdminUpdateAccountHandle)
 	e.GET("/xrpc/com.atproto.identity.resolveHandle", s.HandleComAtprotoIdentityResolveHandle)
 	e.POST("/xrpc/com.atproto.identity.updateHandle", s.HandleComAtprotoIdentityUpdateHandle)
 	e.GET("/xrpc/com.atproto.label.queryLabels", s.HandleComAtprotoLabelQueryLabels)
@@ -484,6 +488,7 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.repo.putRecord", s.HandleComAtprotoRepoPutRecord)
 	e.POST("/xrpc/com.atproto.repo.uploadBlob", s.HandleComAtprotoRepoUploadBlob)
 	e.POST("/xrpc/com.atproto.server.createAccount", s.HandleComAtprotoServerCreateAccount)
+	e.POST("/xrpc/com.atproto.server.createAppPassword", s.HandleComAtprotoServerCreateAppPassword)
 	e.POST("/xrpc/com.atproto.server.createInviteCode", s.HandleComAtprotoServerCreateInviteCode)
 	e.POST("/xrpc/com.atproto.server.createInviteCodes", s.HandleComAtprotoServerCreateInviteCodes)
 	e.POST("/xrpc/com.atproto.server.createSession", s.HandleComAtprotoServerCreateSession)
@@ -492,10 +497,12 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.GET("/xrpc/com.atproto.server.describeServer", s.HandleComAtprotoServerDescribeServer)
 	e.GET("/xrpc/com.atproto.server.getAccountInviteCodes", s.HandleComAtprotoServerGetAccountInviteCodes)
 	e.GET("/xrpc/com.atproto.server.getSession", s.HandleComAtprotoServerGetSession)
+	e.GET("/xrpc/com.atproto.server.listAppPasswords", s.HandleComAtprotoServerListAppPasswords)
 	e.POST("/xrpc/com.atproto.server.refreshSession", s.HandleComAtprotoServerRefreshSession)
 	e.POST("/xrpc/com.atproto.server.requestAccountDelete", s.HandleComAtprotoServerRequestAccountDelete)
 	e.POST("/xrpc/com.atproto.server.requestPasswordReset", s.HandleComAtprotoServerRequestPasswordReset)
 	e.POST("/xrpc/com.atproto.server.resetPassword", s.HandleComAtprotoServerResetPassword)
+	e.POST("/xrpc/com.atproto.server.revokeAppPassword", s.HandleComAtprotoServerRevokeAppPassword)
 	e.GET("/xrpc/com.atproto.sync.getBlob", s.HandleComAtprotoSyncGetBlob)
 	e.GET("/xrpc/com.atproto.sync.getBlocks", s.HandleComAtprotoSyncGetBlocks)
 	e.GET("/xrpc/com.atproto.sync.getCheckout", s.HandleComAtprotoSyncGetCheckout)
@@ -760,6 +767,40 @@ func (s *Server) HandleComAtprotoAdminTakeModerationAction(c echo.Context) error
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandleComAtprotoAdminUpdateAccountEmail(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminUpdateAccountEmail")
+	defer span.End()
+
+	var body comatprototypes.AdminUpdateAccountEmail_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleComAtprotoAdminUpdateAccountEmail(ctx context.Context,body *comatprototypes.AdminUpdateAccountEmail_Input) error
+	handleErr = s.handleComAtprotoAdminUpdateAccountEmail(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
+func (s *Server) HandleComAtprotoAdminUpdateAccountHandle(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminUpdateAccountHandle")
+	defer span.End()
+
+	var body comatprototypes.AdminUpdateAccountHandle_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleComAtprotoAdminUpdateAccountHandle(ctx context.Context,body *comatprototypes.AdminUpdateAccountHandle_Input) error
+	handleErr = s.handleComAtprotoAdminUpdateAccountHandle(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
 func (s *Server) HandleComAtprotoIdentityResolveHandle(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoIdentityResolveHandle")
 	defer span.End()
@@ -1010,6 +1051,24 @@ func (s *Server) HandleComAtprotoServerCreateAccount(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandleComAtprotoServerCreateAppPassword(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerCreateAppPassword")
+	defer span.End()
+
+	var body comatprototypes.ServerCreateAppPassword_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *comatprototypes.ServerCreateAppPassword_AppPassword
+	var handleErr error
+	// func (s *Server) handleComAtprotoServerCreateAppPassword(ctx context.Context,body *comatprototypes.ServerCreateAppPassword_Input) (*comatprototypes.ServerCreateAppPassword_AppPassword, error)
+	out, handleErr = s.handleComAtprotoServerCreateAppPassword(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandleComAtprotoServerCreateInviteCode(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerCreateInviteCode")
 	defer span.End()
@@ -1154,6 +1213,19 @@ func (s *Server) HandleComAtprotoServerGetSession(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandleComAtprotoServerListAppPasswords(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerListAppPasswords")
+	defer span.End()
+	var out *comatprototypes.ServerListAppPasswords_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoServerListAppPasswords(ctx context.Context) (*comatprototypes.ServerListAppPasswords_Output, error)
+	out, handleErr = s.handleComAtprotoServerListAppPasswords(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandleComAtprotoServerRefreshSession(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerRefreshSession")
 	defer span.End()
@@ -1207,6 +1279,23 @@ func (s *Server) HandleComAtprotoServerResetPassword(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleComAtprotoServerResetPassword(ctx context.Context,body *comatprototypes.ServerResetPassword_Input) error
 	handleErr = s.handleComAtprotoServerResetPassword(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
+func (s *Server) HandleComAtprotoServerRevokeAppPassword(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerRevokeAppPassword")
+	defer span.End()
+
+	var body comatprototypes.ServerRevokeAppPassword_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleComAtprotoServerRevokeAppPassword(ctx context.Context,body *comatprototypes.ServerRevokeAppPassword_Input) error
+	handleErr = s.handleComAtprotoServerRevokeAppPassword(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

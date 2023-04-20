@@ -297,7 +297,7 @@ func (u *testUser) GetNotifs(t *testing.T) []*bsky.NotificationListNotifications
 	t.Helper()
 
 	ctx := context.TODO()
-	resp, err := bsky.NotificationListNotifications(ctx, u.client, "", 100)
+	resp, err := bsky.NotificationListNotifications(ctx, u.client, "", 100, "")
 	if err != nil {
 		t.Fatal(err)
 	}
