@@ -661,7 +661,7 @@ var getNotificationsCmd = &cli.Command{
 			return err
 		}
 
-		notifs, err := appbsky.NotificationListNotifications(ctx, xrpcc, "", 50)
+		notifs, err := appbsky.NotificationListNotifications(ctx, xrpcc, "", 50, "")
 		if err != nil {
 			return err
 		}
@@ -1059,9 +1059,9 @@ var createInviteCmd = &cli.Command{
 					for d := range feeder {
 						did := d
 						resp, err := comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
-							UseCount:   int64(count),
-							ForAccount: &did,
-							CodeCount:  int64(num),
+							UseCount:    int64(count),
+							ForAccounts: []string{did},
+							CodeCount:   int64(num),
 						})
 						if err != nil {
 							log.Error(err)
@@ -1093,16 +1093,18 @@ var createInviteCmd = &cli.Command{
 
 		xrpcc.AdminToken = &adminKey
 		resp, err := comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
-			UseCount:   int64(count),
-			ForAccount: usrdid,
-			CodeCount:  int64(num),
+			UseCount:    int64(count),
+			ForAccounts: []string{*usrdid},
+			CodeCount:   int64(num),
 		})
 		if err != nil {
 			return fmt.Errorf("creating codes: %w", err)
 		}
 
 		for _, c := range resp.Codes {
-			fmt.Println(c)
+			for _, cc := range c.Codes {
+				fmt.Println(cc)
+			}
 		}
 
 		return nil
