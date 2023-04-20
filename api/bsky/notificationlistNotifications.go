@@ -30,12 +30,13 @@ type NotificationListNotifications_Output struct {
 	Notifications []*NotificationListNotifications_Notification `json:"notifications" cborgen:"notifications"`
 }
 
-func NotificationListNotifications(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*NotificationListNotifications_Output, error) {
+func NotificationListNotifications(ctx context.Context, c *xrpc.Client, cursor string, limit int64, seenAt string) (*NotificationListNotifications_Output, error) {
 	var out NotificationListNotifications_Output
 
 	params := map[string]interface{}{
 		"cursor": cursor,
 		"limit":  limit,
+		"seenAt": seenAt,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.notification.listNotifications", params, nil, &out); err != nil {
 		return nil, err
