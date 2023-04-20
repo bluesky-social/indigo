@@ -11,7 +11,7 @@ func init() {
 
 type SyncSubscribeRepos_Commit struct {
 	Blobs  []util.LexLink               `json:"blobs" cborgen:"blobs"`
-	Blocks util.LexBytes                `json:"blocks" cborgen:"blocks"`
+	Blocks util.LexBytes                `json:"blocks,omitempty" cborgen:"blocks"`
 	Commit util.LexLink                 `json:"commit" cborgen:"commit"`
 	Ops    []*SyncSubscribeRepos_RepoOp `json:"ops" cborgen:"ops"`
 	Prev   *util.LexLink                `json:"prev" cborgen:"prev"`
