@@ -278,6 +278,8 @@ func (cs *CarStore) getLastShard(ctx context.Context, user util.Uid) (*CarShard,
 
 var ErrRepoBaseMismatch = fmt.Errorf("attempted a delta session on top of the wrong previous head")
 
+var ErrRepoFork = fmt.Errorf("repo fork detected")
+
 func (cs *CarStore) NewDeltaSession(ctx context.Context, user util.Uid, prev *cid.Cid) (*DeltaSession, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "NewSession")
 	defer span.End()
@@ -291,6 +293,15 @@ func (cs *CarStore) NewDeltaSession(ctx context.Context, user util.Uid, prev *ci
 
 	if prev != nil {
 		if lastShard.Root.CID != *prev {
+			fork, err := cs.checkFork(ctx, user, *prev)
+			if err != nil {
+				return nil, fmt.Errorf("failed to check carstore base mismatch for fork condition: %w", err)
+			}
+
+			if fork {
+				return nil, fmt.Errorf("fork at %s: %w", prev.String(), ErrRepoFork)
+			}
+
 			return nil, fmt.Errorf("mismatch: %s != %s: %w", lastShard.Root.CID, prev.String(), ErrRepoBaseMismatch)
 		}
 	}
@@ -677,4 +688,27 @@ func (cs *CarStore) Stat(ctx context.Context, usr util.Uid) ([]UserStat, error) 
 	}
 
 	return out, nil
+}
+
+func (cs *CarStore) checkFork(ctx context.Context, user util.Uid, prev cid.Cid) (bool, error) {
+	lastShard, err := cs.getLastShard(ctx, user)
+	if err != nil {
+		return false, err
+	}
+
+	var maybeShard CarShard
+	if err := cs.meta.WithContext(ctx).Model(CarShard{}).Find(&maybeShard, "usr = ? AND root = ?", user, &util.DbCID{prev}).Error; err != nil {
+		return false, err
+	}
+
+	if maybeShard.ID == lastShard.ID {
+		// somehow we are checking if a valid 'append' is a fork, seems buggy, throw an error
+		return false, fmt.Errorf("invariant broken: checked for forkiness of a valid append")
+	}
+
+	if maybeShard.ID == 0 {
+		return false, nil
+	}
+
+	return true, nil
 }

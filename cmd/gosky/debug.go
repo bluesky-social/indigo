@@ -310,8 +310,6 @@ var streamCompareCmd = &cli.Command{
 		}()
 
 		select {}
-
-		return nil
 	},
 }
 
