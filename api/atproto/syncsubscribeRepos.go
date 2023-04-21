@@ -10,7 +10,8 @@ func init() {
 }
 
 type SyncSubscribeRepos_Commit struct {
-	Blobs  []util.LexLink               `json:"blobs" cborgen:"blobs"`
+	Blobs []util.LexLink `json:"blobs" cborgen:"blobs"`
+	// TODO: need to fix lexgen to make LexBytes 'omitempty'. This is currently being manually edited
 	Blocks util.LexBytes                `json:"blocks,omitempty" cborgen:"blocks"`
 	Commit util.LexLink                 `json:"commit" cborgen:"commit"`
 	Ops    []*SyncSubscribeRepos_RepoOp `json:"ops" cborgen:"ops"`
