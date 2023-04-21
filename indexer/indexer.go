@@ -84,7 +84,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 	ctx, span := otel.Tracer("indexer").Start(ctx, "HandleRepoEvent")
 	defer span.End()
 
-	log.Infow("Handling Repo Event!", "uid", evt.User)
+	log.Debugw("Handling Repo Event!", "uid", evt.User)
 
 	var outops []*comatproto.SyncSubscribeRepos_RepoOp
 	for _, op := range evt.Ops {
@@ -113,7 +113,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 
 	}
 
-	log.Infow("Sending event", "did", did)
+	log.Debugw("Sending event", "did", did)
 	if err := ix.events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoCommit: &comatproto.SyncSubscribeRepos_Commit{
 			Repo:   did,
@@ -867,6 +867,7 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 	}
 
 	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
+	log.Infow("SyncGetRepo", "did", ai.Did, "user", ai.Handle, "from", from)
 	repo, err := comatproto.SyncGetRepo(ctx, c, ai.Did, from, "")
 	if err != nil {
 		return fmt.Errorf("failed to fetch repo: %w", err)

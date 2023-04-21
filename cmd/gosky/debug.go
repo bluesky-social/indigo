@@ -11,6 +11,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
 
@@ -143,6 +144,14 @@ type eventInfo struct {
 	LastSeq int64
 }
 
+func cidStr(c *util.LexLink) string {
+	if c == nil {
+		return "<nil>"
+	}
+
+	return c.String()
+}
+
 var debugStreamCmd = &cli.Command{
 	Name: "debug-stream",
 	Flags: []cli.Flag{
@@ -177,35 +186,37 @@ var debugStreamCmd = &cli.Command{
 
 				fmt.Printf("\rChecking seq: %d      ", evt.Seq)
 
-				r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
-				if err != nil {
-					fmt.Printf("\nEvent at sequence %d had an invalid repo slice: %s\n", evt.Seq, err)
-					return nil
-				} else {
-					prev, err := r.PrevCommit(ctx)
+				if !evt.TooBig {
+					r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
 					if err != nil {
-						return err
-					}
+						fmt.Printf("\nEvent at sequence %d had an invalid repo slice: %s\n", evt.Seq, err)
+						return nil
+					} else {
+						prev, err := r.PrevCommit(ctx)
+						if err != nil {
+							return err
+						}
 
-					var cs, es string
-					if prev != nil {
-						cs = prev.String()
-					}
+						var cs, es string
+						if prev != nil {
+							cs = prev.String()
+						}
 
-					if evt.Prev != nil {
-						es = evt.Prev.String()
-					}
+						if evt.Prev != nil {
+							es = evt.Prev.String()
+						}
 
-					if cs != es {
-						fmt.Printf("\nEvent at sequence %d has mismatch between slice prev and struct prev: %s != %s\n", evt.Seq, prev, evt.Prev)
+						if cs != es {
+							fmt.Printf("\nEvent at sequence %d has mismatch between slice prev and struct prev: %s != %s\n", evt.Seq, prev, evt.Prev)
+						}
 					}
 				}
 
 				cur, ok := infos[evt.Repo]
 				if ok {
-					if cur.LastCid.String() != evt.Prev.String() {
+					if cur.LastCid.String() != cidStr(evt.Prev) {
 						fmt.Println()
-						fmt.Printf("Event at sequence %d, repo=%s had prev=%s head=%s, but last commit we saw was %s (seq=%d)\n", evt.Seq, evt.Repo, evt.Prev.String(), evt.Commit.String(), evt.Commit.String(), cur.LastSeq)
+						fmt.Printf("Event at sequence %d, repo=%s had prev=%s head=%s, but last commit we saw was %s (seq=%d)\n", evt.Seq, evt.Repo, cidStr(evt.Prev), evt.Commit.String(), cur.LastCid, cur.LastSeq)
 					}
 				}
 
