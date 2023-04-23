@@ -1,15 +1,14 @@
-name: container-bigsky-ghcr
+name: container-bigsky-aws
 on: [push]
 env:
-  REGISTRY: ghcr.io
-  USERNAME: ${{ github.actor }}
-  PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-
+  REGISTRY: ${{ secrets.AWS_ECR_REGISTRY_USEAST2_PACKAGES_REGISTRY }}
+  USERNAME: ${{ secrets.AWS_ECR_REGISTRY_USEAST2_PACKAGES_USERNAME }}
+  PASSWORD: ${{ secrets.AWS_ECR_REGISTRY_USEAST2_PACKAGES_PASSWORD }}
   # github.repository as <account>/<repo>
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: bigsky
 
 jobs:
-  container-bigsky-ghcr:
+  container-bigsky-aws:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -29,6 +28,7 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ env.USERNAME }}
           password: ${{ env.PASSWORD }}
+          ecr: false
 
       - name: Extract Docker metadata
         id: meta
@@ -37,7 +37,7 @@ jobs:
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=sha,enable=true,priority=100,prefix=bigsky:,suffix=,format=long
+            type=sha,enable=true,priority=100,prefix=,suffix=,format=long
 
       - name: Build and push Docker image
         id: build-and-push
