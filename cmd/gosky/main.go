@@ -1081,20 +1081,20 @@ var createInviteCmd = &cli.Command{
 			return nil
 		}
 
-		var usrdid *string
+		var usrdid []string
 		if forUser := cctx.Args().Get(0); forUser != "" {
 			resp, err := comatproto.IdentityResolveHandle(context.TODO(), xrpcc, forUser)
 			if err != nil {
 				return fmt.Errorf("resolving handle: %w", err)
 			}
 
-			usrdid = &resp.Did
+			usrdid = []string{resp.Did}
 		}
 
 		xrpcc.AdminToken = &adminKey
 		resp, err := comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
 			UseCount:    int64(count),
-			ForAccounts: []string{*usrdid},
+			ForAccounts: usrdid,
 			CodeCount:   int64(num),
 		})
 		if err != nil {
