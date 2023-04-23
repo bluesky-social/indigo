@@ -152,7 +152,7 @@ func (bgs *BGS) StartDebug(listen string) error {
 	})
 	http.Handle("/prometheus", prometheusHandler())
 
-	http.HandleFunc("/feddbg/conns", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/debug/upstream-conns", func(w http.ResponseWriter, r *http.Request) {
 		b, err := json.Marshal(bgs.slurper.GetActiveList())
 		if err != nil {
 			http.Error(w, err.Error(), 500)
