@@ -92,6 +92,8 @@ func (s *Slurper) RestartAll() error {
 	}
 
 	for _, pds := range all {
+		pds := pds
+		s.active[pds.Host] = &pds
 		go s.subscribeWithRedialer(&pds)
 	}
 
@@ -160,8 +162,7 @@ func (s *Slurper) handleConnection(host *models.PDS, con *websocket.Conn, lastCu
 
 	return events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
-
-			log.Infow("got remote repo event", "host", host.Host, "repo", evt.Repo)
+			log.Infow("got remote repo event", "host", host.Host, "repo", evt.Repo, "seq", evt.Seq)
 			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
 				RepoCommit: evt,
 			}); err != nil {
@@ -233,4 +234,15 @@ func (s *Slurper) handleConnection(host *models.PDS, con *websocket.Conn, lastCu
 
 func (s *Slurper) updateCursor(host *models.PDS, curs int64) error {
 	return s.db.Model(models.PDS{}).Where("id = ?", host.ID).UpdateColumn("cursor", curs).Error
+}
+
+func (s *Slurper) GetActiveList() []string {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+	var out []string
+	for k := range s.active {
+		out = append(out, k)
+	}
+
+	return out
 }
