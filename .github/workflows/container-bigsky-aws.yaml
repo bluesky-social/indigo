@@ -28,7 +28,6 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ env.USERNAME }}
           password: ${{ env.PASSWORD }}
-          ecr: false
 
       - name: Extract Docker metadata
         id: meta
