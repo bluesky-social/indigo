@@ -35,7 +35,7 @@ test-short: ## Run tests, skipping slower integration tests
 
 .PHONY: test-interop
 test-interop: ## Run tests, including local interop (requires services running)
-	go test -tags=localinterop ./...
+	go clean -testcache && go test -tags=localinterop ./...
 
 .PHONY: coverage-html
 coverage-html: ## Generate test coverage report and open in browser
