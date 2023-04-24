@@ -60,6 +60,6 @@ func RobustHTTPClient() *http.Client {
 func TestingHTTPClient() *http.Client {
 
 	client := http.DefaultClient
-	client.Timeout = 200 * time.Millisecond
+	client.Timeout = 1 * time.Second
 	return client
 }
