@@ -84,6 +84,7 @@ func run(args []string) {
 		handleCmd,
 		getRecordCmd,
 		createInviteCmd,
+		adminCmd,
 	}
 
 	app.RunAndExitOnError()
