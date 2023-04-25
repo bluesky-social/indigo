@@ -85,10 +85,6 @@ func run(args []string) {
 			EnvVars: []string{"ATP_PLC_URL", "ATP_PLC_HOST"},
 		},
 		&cli.BoolFlag{
-			Name:  "crawl-insecure-ws",
-			Usage: "when connecting to PDS instances, use ws:// instead of wss://",
-		},
-		&cli.BoolFlag{
 			Name:  "aggregation",
 			Value: true,
 		},
@@ -196,7 +192,7 @@ func run(args []string) {
 			blobstore = &blobs.DiskBlobStore{bsdir}
 		}
 
-		bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, !cctx.Bool("crawl-insecure-ws"))
+		bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore)
 		if err != nil {
 			return err
 		}

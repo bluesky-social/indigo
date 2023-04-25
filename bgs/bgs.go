@@ -58,7 +58,7 @@ type BGS struct {
 	repoman *repomgr.RepoManager
 }
 
-func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.DidResolver, blobs blobs.BlobStore, ssl bool) (*BGS, error) {
+func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.DidResolver, blobs blobs.BlobStore) (*BGS, error) {
 	db.AutoMigrate(User{})
 	db.AutoMigrate(models.PDS{})
 
@@ -73,7 +73,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	}
 
 	ix.CreateExternalUser = bgs.createExternalUser
-	bgs.slurper = NewSlurper(db, bgs.handleFedEvent, ssl)
+	bgs.slurper = NewSlurper(db, bgs.handleFedEvent)
 
 	if err := bgs.slurper.RestartAll(); err != nil {
 		return nil, err

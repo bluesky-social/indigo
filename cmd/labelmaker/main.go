@@ -57,10 +57,10 @@ func run(args []string) error {
 			EnvVars: []string{"DATA_DIR"},
 		},
 		&cli.StringFlag{
-			Name:    "bgs-host",
-			Usage:   "hostname and port of BGS to subscribe to",
-			Value:   "localhost:2470",
-			EnvVars: []string{"ATP_BGS_HOST"},
+			Name:    "bgs-url",
+			Usage:   "method, hostname, and port of BGS to subscribe to",
+			Value:   "http://localhost:2470",
+			EnvVars: []string{"ATP_BGS_URL", "ATP_BGS_HOST"},
 		},
 		&cli.StringFlag{
 			Name:    "plc-url",
@@ -74,10 +74,6 @@ func run(args []string) error {
 			Usage:   "method, hostname, and port of PDS instance",
 			Value:   "http://localhost:4849",
 			EnvVars: []string{"ATP_PLC_URL", "ATP_PDS_HOST"},
-		},
-		&cli.BoolFlag{
-			Name:  "subscribe-insecure-ws",
-			Usage: "when connecting to BGS instance, use ws:// instead of wss://",
 		},
 		&cli.StringFlag{
 			Name:    "repo-did",
@@ -194,7 +190,6 @@ func run(args []string) error {
 		bgsURL := cctx.String("bgs-url")
 		plcURL := cctx.String("plc-url")
 		blobPdsURL := cctx.String("pds-url")
-		useWss := !cctx.Bool("subscribe-insecure-ws")
 		repoDid := cctx.String("repo-did")
 		repoHandle := cctx.String("repo-handle")
 		repoPassword := cctx.String("repo-password")
@@ -231,7 +226,7 @@ func run(args []string) error {
 			UserId:     1,
 		}
 
-		srv, err := labeler.NewServer(db, cstore, repoUser, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword, useWss)
+		srv, err := labeler.NewServer(db, cstore, repoUser, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword)
 		if err != nil {
 			return err
 		}
@@ -252,7 +247,7 @@ func run(args []string) error {
 			srv.AddSQRLLabeler(sqrlURL)
 		}
 
-		srv.SubscribeBGS(context.TODO(), bgsURL, useWss)
+		srv.SubscribeBGS(context.TODO(), bgsURL)
 		return srv.RunAPI(bind)
 	}
 

@@ -62,7 +62,7 @@ func testLabelMaker(t *testing.T) *labeler.Server {
 	xrpcProxyURL := "http://proxy-test.dummy"
 	xrpcProxyAdminPassword := "test-dummy-password"
 
-	lm, err := labeler.NewServer(db, cs, repoUser, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword, false)
+	lm, err := labeler.NewServer(db, cs, repoUser, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword)
 	if err != nil {
 		t.Fatal(err)
 	}

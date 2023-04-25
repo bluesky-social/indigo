@@ -11,6 +11,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/models"
+	"github.com/bluesky-social/indigo/util"
 
 	"github.com/gorilla/websocket"
 	"gorm.io/gorm"
@@ -26,16 +27,13 @@ type Slurper struct {
 
 	lk     sync.Mutex
 	active map[string]*models.PDS
-
-	ssl bool
 }
 
-func NewSlurper(db *gorm.DB, cb IndexCallback, ssl bool) *Slurper {
+func NewSlurper(db *gorm.DB, cb IndexCallback) *Slurper {
 	return &Slurper{
 		cb:     cb,
 		db:     db,
 		active: make(map[string]*models.PDS),
-		ssl:    ssl,
 	}
 }
 
@@ -109,20 +107,15 @@ func (s *Slurper) subscribeWithRedialer(host *models.PDS) {
 	}()
 
 	d := websocket.Dialer{}
-
-	protocol := "ws"
-	if s.ssl {
-		protocol = "wss"
-	}
-
+	baseUrl := util.WebsocketUrlForHost(host.Host)
 	cursor := host.Cursor
 
 	var backoff int
 	for {
-		url := fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", protocol, host.Host, cursor)
+		url := fmt.Sprintf("%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", baseUrl, cursor)
 		con, res, err := d.Dial(url, nil)
 		if err != nil {
-			log.Warnf("dialing %q failed: %s", host.Host, err)
+			log.Warnf("dialing %q failed: %s", baseUrl, err)
 			time.Sleep(sleepForBackoff(backoff))
 			backoff++
 			continue
@@ -132,10 +125,10 @@ func (s *Slurper) subscribeWithRedialer(host *models.PDS) {
 
 		if err = s.handleConnection(host, con, &cursor); err != nil {
 			if errors.Is(err, ErrTimeoutShutdown) {
-				log.Infof("shutting down pds subscription to %s, no activity after %s", host.Host, EventsTimeout)
+				log.Infof("shutting down pds subscription to %s, no activity after %s", baseUrl, EventsTimeout)
 				return
 			}
-			log.Warnf("connection to %q failed: %s", host.Host, err)
+			log.Warnf("connection to %q failed: %s", baseUrl, err)
 		}
 	}
 }

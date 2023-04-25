@@ -49,7 +49,7 @@ func testLabelMaker(t *testing.T) *Server {
 		UserId:     1,
 	}
 
-	lm, err := NewServer(db, cs, repoUser, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword, false)
+	lm, err := NewServer(db, cs, repoUser, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword)
 	if err != nil {
 		t.Fatal(err)
 	}

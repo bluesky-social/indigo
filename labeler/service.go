@@ -62,8 +62,7 @@ type RepoConfig struct {
 }
 
 // In addition to configuring the service, will connect to upstream BGS and start processing events. Won't handle HTTP or WebSocket endpoints until RunAPI() is called.
-// 'useWss' is a flag to use SSL for outbound WebSocket connections
-func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword string, useWss bool) (*Server, error) {
+func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword string) (*Server, error) {
 
 	db.AutoMigrate(models.PDS{})
 	db.AutoMigrate(models.Label{})
@@ -111,7 +110,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, 
 		log.Infof("found labelmaker repo: %s", head)
 	}
 
-	slurp := bgs.NewSlurper(db, s.handleBgsRepoEvent, useWss)
+	slurp := bgs.NewSlurper(db, s.handleBgsRepoEvent)
 	s.bgsSlurper = slurp
 
 	go evtmgr.Run()
@@ -143,10 +142,10 @@ func (s *Server) AddSQRLLabeler(url string) {
 }
 
 // call this *after* all the labelers are configured
-func (s *Server) SubscribeBGS(ctx context.Context, bgsURL string, useWss bool) {
+func (s *Server) SubscribeBGS(ctx context.Context, bgsURL string) {
 	// subscribe our RepoEvent slurper to the BGS, to receive incoming records for labeler
-	log.Infof("subscribing to BGS: %s (SSL=%v)", bgsURL, useWss)
-	s.bgsSlurper.SubscribeToPds(ctx, bgsURL, useWss)
+	log.Infof("subscribing to BGS: %s", bgsURL)
+	s.bgsSlurper.SubscribeToPds(ctx, bgsURL, true)
 }
 
 // efficiency predicate to quickly discard events we know that we shouldn't even bother parsing
