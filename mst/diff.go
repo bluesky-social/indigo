@@ -27,11 +27,7 @@ func DiffTreesVisitor(ctx context.Context, bs blockstore.Blockstore, from, to ci
 	var cst cbor.IpldStore = util.CborStore(bs)
 
 	if from == cid.Undef {
-		cst = &util.CallbackWrapCborStore{
-			Cst:    cst,
-			ReadCb: visit,
-		}
-		return identityDiff(ctx, cst, to)
+		return identityDiff(ctx, cst, to, visit)
 	}
 
 	if from != to {
@@ -209,12 +205,17 @@ func nodeEntriesEqual(a, b *NodeEntry) bool {
 	return false
 }
 
-func identityDiff(ctx context.Context, cst cbor.IpldStore, root cid.Cid) ([]*DiffOp, error) {
-	fmt.Println("IDENTITY DIFF")
+func identityDiff(ctx context.Context, cst cbor.IpldStore, root cid.Cid, visit func(cid.Cid)) ([]*DiffOp, error) {
+	cst = &util.CallbackWrapCborStore{
+		Cst:    cst,
+		ReadCb: visit,
+	}
+
 	tt := LoadMST(cst, root)
 
 	var ops []*DiffOp
 	if err := tt.WalkLeavesFrom(ctx, "", func(ne NodeEntry) error {
+		visit(ne.Val)
 		ops = append(ops, &DiffOp{
 			Op:     "add",
 			Rpath:  ne.Key,

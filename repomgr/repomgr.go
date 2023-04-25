@@ -1045,7 +1045,7 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user util.Uid, r io.R
 		}
 
 		for _, c := range cids {
-			blk, err := membs.Get(ctx, c)
+			blk, err := cbs.Get(ctx, c)
 			if err != nil {
 				return fmt.Errorf("copying walked cids to carstore: %w", err)
 			}
