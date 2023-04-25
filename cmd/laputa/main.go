@@ -61,10 +61,10 @@ func run(args []string) {
 			Value: "localhost:4989",
 		},
 		&cli.StringFlag{
-			Name:    "plc-host",
+			Name:    "plc-url",
 			Usage:   "method, hostname, and port of PLC registry",
 			Value:   "https://plc.directory",
-			EnvVars: []string{"ATP_PLC_HOST"},
+			EnvVars: []string{"ATP_PLC_URL", "ATP_PLC_HOST"},
 		},
 		&cli.StringFlag{
 			Name:    "data-dir",
@@ -153,7 +153,7 @@ func run(args []string) {
 		}
 
 		var didr plc.PLCClient
-		if plchost := cctx.String("plc-host"); plchost != "" {
+		if plchost := cctx.String("plc-url"); plchost != "" {
 			didr = &api.PLCServer{Host: plchost}
 		} else {
 			didr = plc.NewFakeDid(db)

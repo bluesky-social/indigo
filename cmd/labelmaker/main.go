@@ -63,17 +63,17 @@ func run(args []string) error {
 			EnvVars: []string{"ATP_BGS_HOST"},
 		},
 		&cli.StringFlag{
-			Name:    "plc-host",
+			Name:    "plc-url",
 			Usage:   "method, hostname, and port of PLC registry",
 			Value:   "https://plc.directory",
-			EnvVars: []string{"ATP_PLC_HOST"},
+			EnvVars: []string{"ATP_PLC_URL", "ATP_PLC_HOST"},
 		},
 		// TODO(bnewbold): this is a temporary hack to fetch our own blobs
 		&cli.StringFlag{
-			Name:    "pds-host",
+			Name:    "pds-url",
 			Usage:   "method, hostname, and port of PDS instance",
 			Value:   "http://localhost:4849",
-			EnvVars: []string{"ATP_PDS_HOST"},
+			EnvVars: []string{"ATP_PLC_URL", "ATP_PDS_HOST"},
 		},
 		&cli.BoolFlag{
 			Name:  "subscribe-insecure-ws",
@@ -191,9 +191,9 @@ func run(args []string) error {
 			kwl = append(kwl, labeler.KeywordLabeler{Value: "definite-article", Keywords: []string{"the"}})
 		}
 
-		bgsURL := cctx.String("bgs-host")
-		plcURL := cctx.String("plc-host")
-		blobPdsURL := cctx.String("pds-host")
+		bgsURL := cctx.String("bgs-url")
+		plcURL := cctx.String("plc-url")
+		blobPdsURL := cctx.String("pds-url")
 		useWss := !cctx.Bool("subscribe-insecure-ws")
 		repoDid := cctx.String("repo-did")
 		repoHandle := cctx.String("repo-handle")

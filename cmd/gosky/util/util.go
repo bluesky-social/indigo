@@ -86,7 +86,9 @@ func WriteConfig(cfg *CliConfig) error {
 
 func GetXrpcClient(cctx *cli.Context, authreq bool) (*xrpc.Client, error) {
 	h := "http://localhost:4989"
-	if pdsurl := cctx.String("pds-host"); pdsurl != "" {
+	if pdsurl := cctx.String("pds-url"); pdsurl != "" {
+		h = pdsurl
+	} else if pdsurl := cctx.String("pds-host"); pdsurl != "" {
 		h = pdsurl
 	}
 

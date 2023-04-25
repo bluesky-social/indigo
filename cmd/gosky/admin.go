@@ -35,7 +35,7 @@ var checkUserCmd = &cli.Command{
 			Name:    "plc",
 			Usage:   "method, hostname, and port of PLC registry",
 			Value:   "https://plc.directory",
-			EnvVars: []string{"ATP_PLC_HOST"},
+			EnvVars: []string{"ATP_PDS_URL", "ATP_PLC_HOST"},
 		},
 		&cli.BoolFlag{
 			Name: "raw",

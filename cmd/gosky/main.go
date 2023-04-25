@@ -54,7 +54,7 @@ func run(args []string) {
 			Name:    "pds-host",
 			Usage:   "method, hostname, and port of PDS instance",
 			Value:   "https://bsky.social",
-			EnvVars: []string{"ATP_PDS_HOST"},
+			EnvVars: []string{"ATP_PDS_URL", "ATP_PDS_HOST"},
 		},
 		&cli.StringFlag{
 			Name:    "auth",
@@ -191,7 +191,7 @@ var didCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:    "plc",
 			Value:   "https://plc.directory",
-			EnvVars: []string{"ATP_PLC_HOST"},
+			EnvVars: []string{"ATP_PDS_URL", "ATP_PLC_HOST"},
 		},
 	},
 	Subcommands: []*cli.Command{

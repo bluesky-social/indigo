@@ -70,7 +70,7 @@ var postingCmd = &cli.Command{
 			Name:    "pds-host",
 			Usage:   "method, hostname, and port of PDS instance",
 			Value:   "http://localhost:4849",
-			EnvVars: []string{"ATP_PDS_HOST"},
+			EnvVars: []string{"ATP_PDS_URL", "ATP_PDS_HOST"},
 		},
 		&cli.StringFlag{
 			Name: "invite",
@@ -167,7 +167,7 @@ var genRepoCmd = &cli.Command{
 			Name:    "pds-host",
 			Usage:   "method, hostname, and port of PDS instance",
 			Value:   "http://localhost:4849",
-			EnvVars: []string{"ATP_PDS_HOST"},
+			EnvVars: []string{"ATP_PDS_URL", "ATP_PDS_HOST"},
 		},
 	},
 	Action: func(cctx *cli.Context) error {

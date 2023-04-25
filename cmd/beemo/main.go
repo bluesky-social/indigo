@@ -42,16 +42,16 @@ func run(args []string) error {
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:    "pds-host",
+			Name:    "pds-url",
 			Usage:   "method, hostname, and port of PDS instance",
 			Value:   "http://localhost:4849",
-			EnvVars: []string{"ATP_PDS_HOST"},
+			EnvVars: []string{"ATP_PDS_URL", "ATP_PDS_HOST"},
 		},
 		&cli.StringFlag{
-			Name:    "redsky-host",
+			Name:    "redsky-url",
 			Usage:   "method, hostname, and port of redsky, for direct links",
 			Value:   "http://localhost:3000",
-			EnvVars: []string{"ATP_REDSKY_HOST"},
+			EnvVars: []string{"ATP_REDSKY_URL", "ATP_REDSKY_HOST"},
 		},
 		&cli.StringFlag{
 			Name:     "handle",
@@ -105,7 +105,7 @@ func pollNewReports(cctx *cli.Context) error {
 	// create a new session
 	xrpcc := &xrpc.Client{
 		Client: util.RobustHTTPClient(),
-		Host:   cctx.String("pds-host"),
+		Host:   cctx.String("pds-url"),
 		Auth:   &xrpc.AuthInfo{Handle: cctx.String("handle")},
 	}
 
@@ -168,9 +168,9 @@ func pollNewReports(cctx *cli.Context) error {
 				msg := fmt.Sprintf("⚠️ New report at `%s` ⚠️\n", report.CreatedAt)
 				msg += fmt.Sprintf("report id: `%d`\t", report.Id)
 				msg += fmt.Sprintf("recent unresolved: `%d`\t", len(mrr.Reports))
-				msg += fmt.Sprintf("instance: `%s`\n", cctx.String("pds-host"))
+				msg += fmt.Sprintf("instance: `%s`\n", cctx.String("pds-url"))
 				msg += fmt.Sprintf("reasonType: `%s`\t", shortType)
-				msg += fmt.Sprintf("Redsky: %s/reports/%d\n", cctx.String("redsky-host"), report.Id)
+				msg += fmt.Sprintf("Redsky: %s/reports/%d\n", cctx.String("redsky-url"), report.Id)
 				//msg += fmt.Sprintf("reportedByDid: `%s`\n", report.ReportedByDid)
 				log.Infof("found new report, notifying slack: %s", report)
 				err := sendSlackMsg(cctx, msg)

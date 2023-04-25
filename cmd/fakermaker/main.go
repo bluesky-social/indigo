@@ -34,10 +34,10 @@ func run(args []string) {
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:    "pds-host",
+			Name:    "pds-url",
 			Usage:   "method, hostname, and port of PDS instance",
 			Value:   "http://localhost:4849",
-			EnvVars: []string{"ATP_PDS_HOST"},
+			EnvVars: []string{"ATP_PDS_URL", "ATP_PDS_HOST"},
 		},
 		&cli.StringFlag{
 			Name:     "admin-password",
@@ -244,7 +244,7 @@ func genProfiles(cctx *cli.Context) error {
 		return err
 	}
 
-	pdsHost := cctx.String("pds-host")
+	pdsHost := cctx.String("pds-url")
 	genAvatar := !cctx.Bool("no-avatars")
 	genBanner := !cctx.Bool("no-banners")
 	jobs := cctx.Int("jobs")
@@ -279,7 +279,7 @@ func genGraph(cctx *cli.Context) error {
 		return err
 	}
 
-	pdsHost := cctx.String("pds-host")
+	pdsHost := cctx.String("pds-url")
 	maxFollows := cctx.Int("max-follows")
 	maxMutes := cctx.Int("max-mutes")
 	jobs := cctx.Int("jobs")
@@ -314,7 +314,7 @@ func genPosts(cctx *cli.Context) error {
 		return err
 	}
 
-	pdsHost := cctx.String("pds-host")
+	pdsHost := cctx.String("pds-url")
 	maxPosts := cctx.Int("max-posts")
 	fracImage := cctx.Float64("frac-image")
 	fracMention := cctx.Float64("frac-mention")
@@ -350,7 +350,7 @@ func genInteractions(cctx *cli.Context) error {
 		return err
 	}
 
-	pdsHost := cctx.String("pds-host")
+	pdsHost := cctx.String("pds-url")
 	fracLike := cctx.Float64("frac-like")
 	fracRepost := cctx.Float64("frac-repost")
 	fracReply := cctx.Float64("frac-reply")
@@ -388,7 +388,7 @@ func runBrowsing(cctx *cli.Context) error {
 		return err
 	}
 
-	pdsHost := cctx.String("pds-host")
+	pdsHost := cctx.String("pds-url")
 	jobs := cctx.Int("jobs")
 
 	accChan := make(chan fakedata.AccountContext, len(catalog.Celebs)+len(catalog.Regulars))

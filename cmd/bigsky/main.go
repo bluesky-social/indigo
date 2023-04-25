@@ -79,10 +79,10 @@ func run(args []string) {
 			EnvVars: []string{"DATA_DIR"},
 		},
 		&cli.StringFlag{
-			Name:    "plc-host",
+			Name:    "plc-url",
 			Usage:   "method, hostname, and port of PLC registry",
 			Value:   "https://plc.directory",
-			EnvVars: []string{"ATP_PLC_HOST"},
+			EnvVars: []string{"ATP_PLC_URL", "ATP_PLC_HOST"},
 		},
 		&cli.BoolFlag{
 			Name:  "crawl-insecure-ws",
@@ -162,7 +162,7 @@ func run(args []string) {
 			return err
 		}
 
-		didr := &api.PLCServer{Host: cctx.String("plc-host")}
+		didr := &api.PLCServer{Host: cctx.String("plc-url")}
 		cachedidr := plc.NewCachingDidResolver(didr, time.Minute*5, 1000)
 
 		kmgr := indexer.NewKeyManager(cachedidr, nil)
