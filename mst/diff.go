@@ -7,6 +7,7 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	cid "github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	cbor "github.com/ipfs/go-ipld-cbor"
 )
 
 type DiffOp struct {
@@ -19,10 +20,22 @@ type DiffOp struct {
 
 // TODO: this code isn't great, should be rewritten on top of the baseline datastructures once functional and correct
 func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) ([]*DiffOp, error) {
-	cst := util.CborStore(bs)
+	return DiffTreesVisitor(ctx, bs, from, to, func(cid.Cid) {})
+}
+
+func DiffTreesVisitor(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid, visit func(cid.Cid)) ([]*DiffOp, error) {
+	var cst cbor.IpldStore = util.CborStore(bs)
 
 	if from == cid.Undef {
-		return identityDiff(ctx, bs, to)
+		cst = &util.CallbackWrapCborStore{
+			Cst:    cst,
+			ReadCb: visit,
+		}
+		return identityDiff(ctx, cst, to)
+	}
+
+	if from != to {
+		visit(to)
 	}
 
 	ft := LoadMST(cst, from)
@@ -30,12 +43,12 @@ func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) 
 
 	fents, err := ft.getEntries(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get 'from' entries: %w", err)
 	}
 
 	tents, err := tt.getEntries(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get 'to' entries: %w", err)
 	}
 
 	var ixf, ixt int
@@ -56,6 +69,8 @@ func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) 
 					return nil, fmt.Errorf("hang on, why are these leaves equal?")
 				}
 
+				visit(et.Val)
+
 				out = append(out, &DiffOp{
 					Op:     "mut",
 					Rpath:  ef.Key,
@@ -72,6 +87,7 @@ func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) 
 			// otherwise call it a deletion?
 
 			if ef.Key > et.Key {
+				visit(et.Val)
 				out = append(out, &DiffOp{
 					Op:     "add",
 					Rpath:  et.Key,
@@ -105,6 +121,7 @@ func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) 
 		}
 
 		if et.isTree() {
+			visit(et.Tree.pointer)
 			sub, err := et.Tree.getEntries(ctx)
 			if err != nil {
 				return nil, err
@@ -146,6 +163,7 @@ func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) 
 
 		e := tents[ixt]
 		if e.isLeaf() {
+			visit(e.Val)
 			out = append(out, &DiffOp{
 				Op:     "add",
 				Rpath:  e.Key,
@@ -153,7 +171,13 @@ func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) 
 			})
 
 		} else if e.isTree() {
+			visit(e.Tree.pointer)
+			e.Tree.cst = &util.CallbackWrapCborStore{
+				Cst:    cst,
+				ReadCb: visit,
+			}
 			if err := e.Tree.WalkLeavesFrom(ctx, "", func(n NodeEntry) error {
+				visit(n.Val)
 				out = append(out, &DiffOp{
 					Op:     "add",
 					Rpath:  n.Key,
@@ -185,8 +209,8 @@ func nodeEntriesEqual(a, b *NodeEntry) bool {
 	return false
 }
 
-func identityDiff(ctx context.Context, bs blockstore.Blockstore, root cid.Cid) ([]*DiffOp, error) {
-	cst := util.CborStore(bs)
+func identityDiff(ctx context.Context, cst cbor.IpldStore, root cid.Cid) ([]*DiffOp, error) {
+	fmt.Println("IDENTITY DIFF")
 	tt := LoadMST(cst, root)
 
 	var ops []*DiffOp

@@ -274,10 +274,10 @@ func TestRecordRecreate(t *testing.T) {
 	}
 	assert := assert.New(t)
 	didr := testPLC(t)
-	p1 := mustSetupPDS(t, "localhost:5155", ".tpds", didr)
+	p1 := mustSetupPDS(t, "localhost:5132", ".tpds", didr)
 	p1.Run(t)
 
-	b1 := mustSetupBGS(t, "localhost:8231", didr)
+	b1 := mustSetupBGS(t, "localhost:8291", didr)
 	b1.Run(t)
 
 	p1.RequestScraping(t, b1)
@@ -323,16 +323,20 @@ func TestRecordRecreate(t *testing.T) {
 
 	assert.Equal(resp.Cid, resp2.Cid)
 
+	time.Sleep(time.Millisecond * 50)
+
 	evs := evts.All()
 
-	for _, e := range evs {
+	fmt.Println("EVENTS: ", evs)
+	for i, e := range evs {
 		com := e.RepoCommit
 		r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(com.Blocks))
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		for _, op := range com.Ops {
+		for j, op := range com.Ops {
+			fmt.Println(i, j, op.Action)
 			if op.Action == string(repomgr.EvtKindCreateRecord) {
 				rcid, _, err := r.GetRecord(ctx, op.Path)
 				if err != nil {
