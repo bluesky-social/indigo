@@ -1,0 +1,192 @@
+package testing
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+	"testing"
+
+	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/util"
+
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	"github.com/stretchr/testify/assert"
+	cbg "github.com/whyrusleeping/cbor-gen"
+	"github.com/whyrusleeping/go-did"
+)
+
+// deep verificatoin of repo: signature (against DID doc), MST structure,
+// record encoding (JSON and CBOR), etc
+func deepReproduceRepo(t *testing.T, carPath, docPath string) {
+	ctx := context.TODO()
+	assert := assert.New(t)
+
+	// NOTE bgs/bgs.go:537 if we need to parse handle from did doc
+	didDoc := mustReadDidDoc(t, docPath)
+	pubkey, err := didDoc.GetPublicKey("#atproto")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fi, err := os.Open(carPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	origRepo, err := repo.ReadRepoFromCar(ctx, fi)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// verify signature against pubkey
+	scommit := origRepo.SignedCommit()
+	msg, err := scommit.Unsigned().BytesForSigning()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := pubkey.Verify(msg, scommit.Sig); err != nil {
+		fmt.Printf("didDoc: %v\n", didDoc)
+		fmt.Printf("key: %v\n", pubkey)
+		fmt.Printf("sig: %v\n", scommit.Sig)
+		assert.NoError(err)
+	}
+
+	// enumerate all keys
+	repoMap := make(map[string]cid.Cid)
+	err = origRepo.ForEach(ctx, "", func(k string, v cid.Cid) error {
+		repoMap[k] = v
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
+	secondRepo := repo.NewRepo(ctx, didDoc.ID.String(), bs)
+	for p, c := range repoMap {
+		_, rec, err := origRepo.GetRecord(ctx, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		reproduceRecord(t, p, c, rec)
+		secondRepo.PutRecord(ctx, p, rec)
+	}
+
+	// verify MST tree reproduced
+	kmgr := &util.FakeKeyManager{}
+	_, err = secondRepo.Commit(ctx, kmgr.SignForUser)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondCommit := secondRepo.SignedCommit()
+	assert.Equal(scommit.Data.String(), secondCommit.Data.String())
+}
+
+// from JSON file on disk
+func mustReadDidDoc(t *testing.T, docPath string) did.Document {
+	var didDoc did.Document
+	docFile, err := os.Open(docPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.NewDecoder(docFile).Decode(&didDoc); err != nil {
+		t.Fatal(err)
+	}
+	return didDoc
+}
+
+// deserializes and re-serializes in a couple different ways and verifies CID
+func reproduceRecord(t *testing.T, path string, c cid.Cid, rec cbg.CBORMarshaler) {
+	assert := assert.New(t)
+	// 0x71 = dag-cbor, 0x12 = sha2-256, 0 = default length
+	cidBuilder := cid.V1Builder{0x71, 0x12, 0}
+	recordCBOR := new(bytes.Buffer)
+	nsid := strings.SplitN(path, "/", 2)[0]
+	// TODO: refactor this to be short+generic
+	switch nsid {
+	case "app.bsky.feed.post":
+		var recordRepro appbsky.FeedPost
+		recordOrig, suc := rec.(*appbsky.FeedPost)
+
+		assert.Equal(true, suc)
+		recordJSON, err := json.Marshal(recordOrig)
+		assert.NoError(err)
+		assert.NoError(json.Unmarshal(recordJSON, &recordRepro))
+		assert.Equal(*recordOrig, recordRepro)
+		assert.NoError(recordRepro.MarshalCBOR(recordCBOR))
+		reproCID, err := cidBuilder.Sum(recordCBOR.Bytes())
+		assert.NoError(err)
+		assert.Equal(c.String(), reproCID.String())
+	case "app.bsky.actor.profile":
+		var recordRepro appbsky.ActorProfile
+		recordOrig, suc := rec.(*appbsky.ActorProfile)
+
+		assert.Equal(true, suc)
+		recordJSON, err := json.Marshal(recordOrig)
+		assert.NoError(err)
+		assert.NoError(json.Unmarshal(recordJSON, &recordRepro))
+		assert.Equal(*recordOrig, recordRepro)
+		assert.NoError(recordRepro.MarshalCBOR(recordCBOR))
+		reproCID, err := cidBuilder.Sum(recordCBOR.Bytes())
+		assert.NoError(err)
+		assert.Equal(c.String(), reproCID.String())
+	case "app.bsky.graph.follow":
+		var recordRepro appbsky.GraphFollow
+		recordOrig, suc := rec.(*appbsky.GraphFollow)
+
+		assert.Equal(true, suc)
+		recordJSON, err := json.Marshal(recordOrig)
+		assert.NoError(err)
+		assert.NoError(json.Unmarshal(recordJSON, &recordRepro))
+		assert.Equal(*recordOrig, recordRepro)
+		assert.NoError(recordRepro.MarshalCBOR(recordCBOR))
+		reproCID, err := cidBuilder.Sum(recordCBOR.Bytes())
+		assert.NoError(err)
+		assert.Equal(c.String(), reproCID.String())
+	case "app.bsky.feed.repost":
+		var recordRepro appbsky.FeedRepost
+		recordOrig, suc := rec.(*appbsky.FeedRepost)
+
+		assert.Equal(true, suc)
+		recordJSON, err := json.Marshal(recordOrig)
+		assert.NoError(err)
+		assert.NoError(json.Unmarshal(recordJSON, &recordRepro))
+		assert.Equal(*recordOrig, recordRepro)
+		assert.NoError(recordRepro.MarshalCBOR(recordCBOR))
+		reproCID, err := cidBuilder.Sum(recordCBOR.Bytes())
+		assert.NoError(err)
+		assert.Equal(c.String(), reproCID.String())
+	case "app.bsky.feed.like":
+		var recordRepro appbsky.FeedLike
+		recordOrig, suc := rec.(*appbsky.FeedLike)
+
+		assert.Equal(true, suc)
+		recordJSON, err := json.Marshal(recordOrig)
+		assert.NoError(err)
+		assert.NoError(json.Unmarshal(recordJSON, &recordRepro))
+		assert.Equal(*recordOrig, recordRepro)
+		assert.NoError(recordRepro.MarshalCBOR(recordCBOR))
+		reproCID, err := cidBuilder.Sum(recordCBOR.Bytes())
+		assert.NoError(err)
+		assert.Equal(c.String(), reproCID.String())
+	default:
+		t.Fatal(fmt.Errorf("unsupported record type: %s", nsid))
+	}
+}
+
+func TestReproduceRepo(t *testing.T) {
+
+	// to get from prod, first resolve handle then save DID doc and repo CAR file like:
+	// 	http get https://bsky.social/xrpc/com.atproto.identity.resolveHandle handle==greenground.bsky.social
+	//  http get https://plc.directory/did:plc:wqgdnqlv2mwiio6pfchwtrff > greenground.didDoc.json
+	//  http get https://bsky.social/xrpc/com.atproto.sync.getRepo did==did:plc:wqgdnqlv2mwiio6pfchwtrff > greenground.repo.car
+
+	//deepReproduceRepo(t, "test_files/bafyreieovfuizojpw3zresz7sx3nk4trm2by23pt5rxbey3jme4uo5ogiu.car", "test_files/did_plc_z5vnbioquyhivxirw3bbljmu.didDoc.json")
+	deepReproduceRepo(t, "test_files/greenground.repo.car", "test_files/greenground.didDoc.json")
+}
