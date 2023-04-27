@@ -22,7 +22,7 @@ func TestFeedPostParse(t *testing.T) {
 	assert := assert.New(t)
 
 	// this is a post-lex-refactor app.bsky.feed.post record
-	inFile, err := os.Open("test_files/feedpost_record.cbor")
+	inFile, err := os.Open("testdata/feedpost_record.cbor")
 	assert.NoError(err)
 	cborBytes, err := io.ReadAll(inFile)
 	assert.NoError(err)
