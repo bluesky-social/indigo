@@ -2,14 +2,15 @@
 
 package bsky
 
+// schema: app.bsky.feed.getRepostedBy
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: app.bsky.feed.getRepostedBy
-
+// FeedGetRepostedBy_Output is the output of a app.bsky.feed.getRepostedBy call.
 type FeedGetRepostedBy_Output struct {
 	Cid        *string                  `json:"cid,omitempty" cborgen:"cid,omitempty"`
 	Cursor     *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
@@ -17,6 +18,7 @@ type FeedGetRepostedBy_Output struct {
 	Uri        string                   `json:"uri" cborgen:"uri"`
 }
 
+// FeedGetRepostedBy calls the XRPC method "app.bsky.feed.getRepostedBy".
 func FeedGetRepostedBy(ctx context.Context, c *xrpc.Client, cid string, cursor string, limit int64, uri string) (*FeedGetRepostedBy_Output, error) {
 	var out FeedGetRepostedBy_Output
 

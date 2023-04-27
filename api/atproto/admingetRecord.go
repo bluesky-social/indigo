@@ -2,14 +2,15 @@
 
 package atproto
 
+// schema: com.atproto.admin.getRecord
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.admin.getRecord
-
+// AdminGetRecord calls the XRPC method "com.atproto.admin.getRecord".
 func AdminGetRecord(ctx context.Context, c *xrpc.Client, cid string, uri string) (*AdminDefs_RecordViewDetail, error) {
 	var out AdminDefs_RecordViewDetail
 

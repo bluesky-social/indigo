@@ -4,6 +4,7 @@ package atproto
 
 // schema: com.atproto.server.defs
 
+// ServerDefs_InviteCode is a "inviteCode" in the com.atproto.server.defs schema.
 type ServerDefs_InviteCode struct {
 	Available  int64                       `json:"available" cborgen:"available"`
 	Code       string                      `json:"code" cborgen:"code"`
@@ -14,6 +15,7 @@ type ServerDefs_InviteCode struct {
 	Uses       []*ServerDefs_InviteCodeUse `json:"uses" cborgen:"uses"`
 }
 
+// ServerDefs_InviteCodeUse is a "inviteCodeUse" in the com.atproto.server.defs schema.
 type ServerDefs_InviteCodeUse struct {
 	UsedAt string `json:"usedAt" cborgen:"usedAt"`
 	UsedBy string `json:"usedBy" cborgen:"usedBy"`

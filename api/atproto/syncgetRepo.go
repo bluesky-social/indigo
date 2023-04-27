@@ -2,6 +2,8 @@
 
 package atproto
 
+// schema: com.atproto.sync.getRepo
+
 import (
 	"bytes"
 	"context"
@@ -9,8 +11,11 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.sync.getRepo
-
+// SyncGetRepo calls the XRPC method "com.atproto.sync.getRepo".
+//
+// did: The DID of the repo.
+// earliest: The earliest commit in the commit range (not inclusive)
+// latest: The latest commit in the commit range (inclusive)
 func SyncGetRepo(ctx context.Context, c *xrpc.Client, did string, earliest string, latest string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 

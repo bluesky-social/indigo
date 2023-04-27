@@ -2,6 +2,8 @@
 
 package atproto
 
+// schema: com.atproto.moderation.createReport
+
 import (
 	"context"
 	"encoding/json"
@@ -11,8 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.moderation.createReport
-
+// ModerationCreateReport_Input is the input argument to a com.atproto.moderation.createReport call.
 type ModerationCreateReport_Input struct {
 	Reason     *string                               `json:"reason,omitempty" cborgen:"reason,omitempty"`
 	ReasonType *string                               `json:"reasonType" cborgen:"reasonType"`
@@ -54,6 +55,7 @@ func (t *ModerationCreateReport_Input_Subject) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// ModerationCreateReport_Output is the output of a com.atproto.moderation.createReport call.
 type ModerationCreateReport_Output struct {
 	CreatedAt  string                                 `json:"createdAt" cborgen:"createdAt"`
 	Id         int64                                  `json:"id" cborgen:"id"`
@@ -98,6 +100,7 @@ func (t *ModerationCreateReport_Output_Subject) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// ModerationCreateReport calls the XRPC method "com.atproto.moderation.createReport".
 func ModerationCreateReport(ctx context.Context, c *xrpc.Client, input *ModerationCreateReport_Input) (*ModerationCreateReport_Output, error) {
 	var out ModerationCreateReport_Output
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.moderation.createReport", nil, input, &out); err != nil {

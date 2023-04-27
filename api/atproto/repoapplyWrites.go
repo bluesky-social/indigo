@@ -2,6 +2,8 @@
 
 package atproto
 
+// schema: com.atproto.repo.applyWrites
+
 import (
 	"context"
 	"encoding/json"
@@ -11,8 +13,10 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.repo.applyWrites
-
+// RepoApplyWrites_Create is a "create" in the com.atproto.repo.applyWrites schema.
+//
+// Create a new record.
+//
 // RECORDTYPE: RepoApplyWrites_Create
 type RepoApplyWrites_Create struct {
 	LexiconTypeID string                   `json:"$type,const=com.atproto.repo.applyWrites" cborgen:"$type,const=com.atproto.repo.applyWrites"`
@@ -21,6 +25,10 @@ type RepoApplyWrites_Create struct {
 	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
+// RepoApplyWrites_Delete is a "delete" in the com.atproto.repo.applyWrites schema.
+//
+// Delete an existing record.
+//
 // RECORDTYPE: RepoApplyWrites_Delete
 type RepoApplyWrites_Delete struct {
 	LexiconTypeID string `json:"$type,const=com.atproto.repo.applyWrites" cborgen:"$type,const=com.atproto.repo.applyWrites"`
@@ -28,11 +36,14 @@ type RepoApplyWrites_Delete struct {
 	Rkey          string `json:"rkey" cborgen:"rkey"`
 }
 
+// RepoApplyWrites_Input is the input argument to a com.atproto.repo.applyWrites call.
 type RepoApplyWrites_Input struct {
-	Repo       string                               `json:"repo" cborgen:"repo"`
-	SwapCommit *string                              `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
-	Validate   *bool                                `json:"validate,omitempty" cborgen:"validate,omitempty"`
-	Writes     []*RepoApplyWrites_Input_Writes_Elem `json:"writes" cborgen:"writes"`
+	// repo: The handle or DID of the repo.
+	Repo       string  `json:"repo" cborgen:"repo"`
+	SwapCommit *string `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
+	// validate: Validate the records?
+	Validate *bool                                `json:"validate,omitempty" cborgen:"validate,omitempty"`
+	Writes   []*RepoApplyWrites_Input_Writes_Elem `json:"writes" cborgen:"writes"`
 }
 
 type RepoApplyWrites_Input_Writes_Elem struct {
@@ -78,6 +89,10 @@ func (t *RepoApplyWrites_Input_Writes_Elem) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// RepoApplyWrites_Update is a "update" in the com.atproto.repo.applyWrites schema.
+//
+// Update an existing record.
+//
 // RECORDTYPE: RepoApplyWrites_Update
 type RepoApplyWrites_Update struct {
 	LexiconTypeID string                   `json:"$type,const=com.atproto.repo.applyWrites" cborgen:"$type,const=com.atproto.repo.applyWrites"`
@@ -86,6 +101,7 @@ type RepoApplyWrites_Update struct {
 	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
+// RepoApplyWrites calls the XRPC method "com.atproto.repo.applyWrites".
 func RepoApplyWrites(ctx context.Context, c *xrpc.Client, input *RepoApplyWrites_Input) error {
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.applyWrites", nil, input, nil); err != nil {
 		return err

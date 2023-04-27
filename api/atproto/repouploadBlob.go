@@ -2,6 +2,8 @@
 
 package atproto
 
+// schema: com.atproto.repo.uploadBlob
+
 import (
 	"context"
 	"io"
@@ -10,12 +12,12 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.repo.uploadBlob
-
+// RepoUploadBlob_Output is the output of a com.atproto.repo.uploadBlob call.
 type RepoUploadBlob_Output struct {
 	Blob *util.LexBlob `json:"blob" cborgen:"blob"`
 }
 
+// RepoUploadBlob calls the XRPC method "com.atproto.repo.uploadBlob".
 func RepoUploadBlob(ctx context.Context, c *xrpc.Client, input io.Reader) (*RepoUploadBlob_Output, error) {
 	var out RepoUploadBlob_Output
 	if err := c.Do(ctx, xrpc.Procedure, "*/*", "com.atproto.repo.uploadBlob", nil, input, &out); err != nil {

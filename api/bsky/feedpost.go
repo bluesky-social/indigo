@@ -2,6 +2,8 @@
 
 package bsky
 
+// schema: app.bsky.feed.post
+
 import (
 	"bytes"
 	"encoding/json"
@@ -13,19 +15,19 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
-// schema: app.bsky.feed.post
-
 func init() {
 	util.RegisterType("app.bsky.feed.post", &FeedPost{})
-} // RECORDTYPE: FeedPost
+} //
+// RECORDTYPE: FeedPost
 type FeedPost struct {
-	LexiconTypeID string             `json:"$type,const=app.bsky.feed.post" cborgen:"$type,const=app.bsky.feed.post"`
-	CreatedAt     string             `json:"createdAt" cborgen:"createdAt"`
-	Embed         *FeedPost_Embed    `json:"embed,omitempty" cborgen:"embed,omitempty"`
-	Entities      []*FeedPost_Entity `json:"entities,omitempty" cborgen:"entities,omitempty"`
-	Facets        []*RichtextFacet   `json:"facets,omitempty" cborgen:"facets,omitempty"`
-	Reply         *FeedPost_ReplyRef `json:"reply,omitempty" cborgen:"reply,omitempty"`
-	Text          string             `json:"text" cborgen:"text"`
+	LexiconTypeID string          `json:"$type,const=app.bsky.feed.post" cborgen:"$type,const=app.bsky.feed.post"`
+	CreatedAt     string          `json:"createdAt" cborgen:"createdAt"`
+	Embed         *FeedPost_Embed `json:"embed,omitempty" cborgen:"embed,omitempty"`
+	// entities: Deprecated: replaced by app.bsky.richtext.facet.
+	Entities []*FeedPost_Entity `json:"entities,omitempty" cborgen:"entities,omitempty"`
+	Facets   []*RichtextFacet   `json:"facets,omitempty" cborgen:"facets,omitempty"`
+	Reply    *FeedPost_ReplyRef `json:"reply,omitempty" cborgen:"reply,omitempty"`
+	Text     string             `json:"text" cborgen:"text"`
 }
 
 type FeedPost_Embed struct {
@@ -124,17 +126,25 @@ func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
 	}
 }
 
+// FeedPost_Entity is a "entity" in the app.bsky.feed.post schema.
+//
+// Deprecated: use facets instead.
 type FeedPost_Entity struct {
 	Index *FeedPost_TextSlice `json:"index" cborgen:"index"`
-	Type  string              `json:"type" cborgen:"type"`
-	Value string              `json:"value" cborgen:"value"`
+	// type: Expected values are 'mention' and 'link'.
+	Type  string `json:"type" cborgen:"type"`
+	Value string `json:"value" cborgen:"value"`
 }
 
+// FeedPost_ReplyRef is a "replyRef" in the app.bsky.feed.post schema.
 type FeedPost_ReplyRef struct {
 	Parent *comatprototypes.RepoStrongRef `json:"parent" cborgen:"parent"`
 	Root   *comatprototypes.RepoStrongRef `json:"root" cborgen:"root"`
 }
 
+// FeedPost_TextSlice is a "textSlice" in the app.bsky.feed.post schema.
+//
+// Deprecated. Use app.bsky.richtext instead -- A text segment. Start is inclusive, end is exclusive. Indices are for utf16-encoded strings.
 type FeedPost_TextSlice struct {
 	End   int64 `json:"end" cborgen:"end"`
 	Start int64 `json:"start" cborgen:"start"`

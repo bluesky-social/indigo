@@ -2,14 +2,17 @@
 
 package atproto
 
+// schema: com.atproto.sync.notifyOfUpdate
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.sync.notifyOfUpdate
-
+// SyncNotifyOfUpdate calls the XRPC method "com.atproto.sync.notifyOfUpdate".
+//
+// hostname: Hostname of the service that is notifying of update.
 func SyncNotifyOfUpdate(ctx context.Context, c *xrpc.Client, hostname string) error {
 
 	params := map[string]interface{}{

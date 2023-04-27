@@ -2,18 +2,22 @@
 
 package atproto
 
+// schema: com.atproto.identity.resolveHandle
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.identity.resolveHandle
-
+// IdentityResolveHandle_Output is the output of a com.atproto.identity.resolveHandle call.
 type IdentityResolveHandle_Output struct {
 	Did string `json:"did" cborgen:"did"`
 }
 
+// IdentityResolveHandle calls the XRPC method "com.atproto.identity.resolveHandle".
+//
+// handle: The handle to resolve. If not supplied, will resolve the host's own handle.
 func IdentityResolveHandle(ctx context.Context, c *xrpc.Client, handle string) (*IdentityResolveHandle_Output, error) {
 	var out IdentityResolveHandle_Output
 

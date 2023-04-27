@@ -2,19 +2,21 @@
 
 package atproto
 
+// schema: com.atproto.server.resetPassword
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.server.resetPassword
-
+// ServerResetPassword_Input is the input argument to a com.atproto.server.resetPassword call.
 type ServerResetPassword_Input struct {
 	Password string `json:"password" cborgen:"password"`
 	Token    string `json:"token" cborgen:"token"`
 }
 
+// ServerResetPassword calls the XRPC method "com.atproto.server.resetPassword".
 func ServerResetPassword(ctx context.Context, c *xrpc.Client, input *ServerResetPassword_Input) error {
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.server.resetPassword", nil, input, nil); err != nil {
 		return err

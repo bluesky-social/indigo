@@ -2,6 +2,8 @@
 
 package bsky
 
+// schema: app.bsky.richtext.facet
+
 import (
 	"bytes"
 	"encoding/json"
@@ -12,13 +14,15 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
-// schema: app.bsky.richtext.facet
-
+// RichtextFacet is a "main" in the app.bsky.richtext.facet schema.
 type RichtextFacet struct {
 	Features []*RichtextFacet_Features_Elem `json:"features" cborgen:"features"`
 	Index    *RichtextFacet_ByteSlice       `json:"index" cborgen:"index"`
 }
 
+// RichtextFacet_ByteSlice is a "byteSlice" in the app.bsky.richtext.facet schema.
+//
+// A text segment. Start is inclusive, end is exclusive. Indices are for utf8-encoded strings.
 type RichtextFacet_ByteSlice struct {
 	ByteEnd   int64 `json:"byteEnd" cborgen:"byteEnd"`
 	ByteStart int64 `json:"byteStart" cborgen:"byteStart"`
@@ -92,12 +96,20 @@ func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
 	}
 }
 
+// RichtextFacet_Link is a "link" in the app.bsky.richtext.facet schema.
+//
+// A facet feature for links.
+//
 // RECORDTYPE: RichtextFacet_Link
 type RichtextFacet_Link struct {
 	LexiconTypeID string `json:"$type,const=app.bsky.richtext.facet" cborgen:"$type,const=app.bsky.richtext.facet"`
 	Uri           string `json:"uri" cborgen:"uri"`
 }
 
+// RichtextFacet_Mention is a "mention" in the app.bsky.richtext.facet schema.
+//
+// A facet feature for actor mentions.
+//
 // RECORDTYPE: RichtextFacet_Mention
 type RichtextFacet_Mention struct {
 	LexiconTypeID string `json:"$type,const=app.bsky.richtext.facet" cborgen:"$type,const=app.bsky.richtext.facet"`

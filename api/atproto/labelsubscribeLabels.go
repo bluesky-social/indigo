@@ -4,11 +4,13 @@ package atproto
 
 // schema: com.atproto.label.subscribeLabels
 
+// LabelSubscribeLabels_Info is a "info" in the com.atproto.label.subscribeLabels schema.
 type LabelSubscribeLabels_Info struct {
 	Message *string `json:"message,omitempty" cborgen:"message,omitempty"`
 	Name    string  `json:"name" cborgen:"name"`
 }
 
+// LabelSubscribeLabels_Labels is a "labels" in the com.atproto.label.subscribeLabels schema.
 type LabelSubscribeLabels_Labels struct {
 	Labels []*LabelDefs_Label `json:"labels" cborgen:"labels"`
 	Seq    int64              `json:"seq" cborgen:"seq"`

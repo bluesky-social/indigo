@@ -2,18 +2,20 @@
 
 package bsky
 
+// schema: app.bsky.actor.searchActorsTypeahead
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: app.bsky.actor.searchActorsTypeahead
-
+// ActorSearchActorsTypeahead_Output is the output of a app.bsky.actor.searchActorsTypeahead call.
 type ActorSearchActorsTypeahead_Output struct {
 	Actors []*ActorDefs_ProfileViewBasic `json:"actors" cborgen:"actors"`
 }
 
+// ActorSearchActorsTypeahead calls the XRPC method "app.bsky.actor.searchActorsTypeahead".
 func ActorSearchActorsTypeahead(ctx context.Context, c *xrpc.Client, limit int64, term string) (*ActorSearchActorsTypeahead_Output, error) {
 	var out ActorSearchActorsTypeahead_Output
 

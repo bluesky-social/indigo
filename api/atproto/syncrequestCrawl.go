@@ -2,14 +2,17 @@
 
 package atproto
 
+// schema: com.atproto.sync.requestCrawl
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.sync.requestCrawl
-
+// SyncRequestCrawl calls the XRPC method "com.atproto.sync.requestCrawl".
+//
+// hostname: Hostname of the service that is requesting to be crawled.
 func SyncRequestCrawl(ctx context.Context, c *xrpc.Client, hostname string) error {
 
 	params := map[string]interface{}{

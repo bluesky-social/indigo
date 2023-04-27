@@ -2,19 +2,21 @@
 
 package atproto
 
+// schema: com.atproto.admin.getModerationReports
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.admin.getModerationReports
-
+// AdminGetModerationReports_Output is the output of a com.atproto.admin.getModerationReports call.
 type AdminGetModerationReports_Output struct {
 	Cursor  *string                 `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Reports []*AdminDefs_ReportView `json:"reports" cborgen:"reports"`
 }
 
+// AdminGetModerationReports calls the XRPC method "com.atproto.admin.getModerationReports".
 func AdminGetModerationReports(ctx context.Context, c *xrpc.Client, cursor string, limit int64, resolved bool, subject string) (*AdminGetModerationReports_Output, error) {
 	var out AdminGetModerationReports_Output
 

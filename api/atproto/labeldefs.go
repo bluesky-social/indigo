@@ -4,11 +4,20 @@ package atproto
 
 // schema: com.atproto.label.defs
 
+// LabelDefs_Label is a "label" in the com.atproto.label.defs schema.
+//
+// Metadata tag on an atproto resource (eg, repo or record)
 type LabelDefs_Label struct {
+	// cid: optionally, CID specifying the specific version of 'uri' resource this label applies to
 	Cid *string `json:"cid,omitempty" cborgen:"cid,omitempty"`
-	Cts string  `json:"cts" cborgen:"cts"`
-	Neg *bool   `json:"neg,omitempty" cborgen:"neg,omitempty"`
-	Src string  `json:"src" cborgen:"src"`
-	Uri string  `json:"uri" cborgen:"uri"`
-	Val string  `json:"val" cborgen:"val"`
+	// cts: timestamp when this label was created
+	Cts string `json:"cts" cborgen:"cts"`
+	// neg: if true, this is a negation label, overwriting a previous label
+	Neg *bool `json:"neg,omitempty" cborgen:"neg,omitempty"`
+	// src: DID of the actor who created this label
+	Src string `json:"src" cborgen:"src"`
+	// uri: AT URI of the record, repository (account), or other resource which this label applies to
+	Uri string `json:"uri" cborgen:"uri"`
+	// val: the short string name of the value or type of this label
+	Val string `json:"val" cborgen:"val"`
 }

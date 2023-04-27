@@ -2,6 +2,8 @@
 
 package atproto
 
+// schema: com.atproto.sync.getBlob
+
 import (
 	"bytes"
 	"context"
@@ -9,8 +11,10 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.sync.getBlob
-
+// SyncGetBlob calls the XRPC method "com.atproto.sync.getBlob".
+//
+// cid: The CID of the blob to fetch
+// did: The DID of the repo.
 func SyncGetBlob(ctx context.Context, c *xrpc.Client, cid string, did string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
