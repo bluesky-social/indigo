@@ -2,24 +2,27 @@
 
 package atproto
 
+// schema: com.atproto.server.createAppPassword
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.server.createAppPassword
-
+// ServerCreateAppPassword_AppPassword is a "appPassword" in the com.atproto.server.createAppPassword schema.
 type ServerCreateAppPassword_AppPassword struct {
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
 	Name      string `json:"name" cborgen:"name"`
 	Password  string `json:"password" cborgen:"password"`
 }
 
+// ServerCreateAppPassword_Input is the input argument to a com.atproto.server.createAppPassword call.
 type ServerCreateAppPassword_Input struct {
 	Name string `json:"name" cborgen:"name"`
 }
 
+// ServerCreateAppPassword calls the XRPC method "com.atproto.server.createAppPassword".
 func ServerCreateAppPassword(ctx context.Context, c *xrpc.Client, input *ServerCreateAppPassword_Input) (*ServerCreateAppPassword_AppPassword, error) {
 	var out ServerCreateAppPassword_AppPassword
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.server.createAppPassword", nil, input, &out); err != nil {

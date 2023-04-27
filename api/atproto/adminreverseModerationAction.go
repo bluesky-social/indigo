@@ -2,20 +2,22 @@
 
 package atproto
 
+// schema: com.atproto.admin.reverseModerationAction
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.admin.reverseModerationAction
-
+// AdminReverseModerationAction_Input is the input argument to a com.atproto.admin.reverseModerationAction call.
 type AdminReverseModerationAction_Input struct {
 	CreatedBy string `json:"createdBy" cborgen:"createdBy"`
 	Id        int64  `json:"id" cborgen:"id"`
 	Reason    string `json:"reason" cborgen:"reason"`
 }
 
+// AdminReverseModerationAction calls the XRPC method "com.atproto.admin.reverseModerationAction".
 func AdminReverseModerationAction(ctx context.Context, c *xrpc.Client, input *AdminReverseModerationAction_Input) (*AdminDefs_ActionView, error) {
 	var out AdminDefs_ActionView
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.admin.reverseModerationAction", nil, input, &out); err != nil {

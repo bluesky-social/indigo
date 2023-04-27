@@ -2,6 +2,8 @@
 
 package atproto
 
+// schema: com.atproto.repo.putRecord
+
 import (
 	"context"
 
@@ -9,23 +11,31 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.repo.putRecord
-
+// RepoPutRecord_Input is the input argument to a com.atproto.repo.putRecord call.
 type RepoPutRecord_Input struct {
-	Collection string                   `json:"collection" cborgen:"collection"`
-	Record     *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
-	Repo       string                   `json:"repo" cborgen:"repo"`
-	Rkey       string                   `json:"rkey" cborgen:"rkey"`
-	SwapCommit *string                  `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
-	SwapRecord *string                  `json:"swapRecord" cborgen:"swapRecord"`
-	Validate   *bool                    `json:"validate,omitempty" cborgen:"validate,omitempty"`
+	// collection: The NSID of the record collection.
+	Collection string `json:"collection" cborgen:"collection"`
+	// record: The record to write.
+	Record *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
+	// repo: The handle or DID of the repo.
+	Repo string `json:"repo" cborgen:"repo"`
+	// rkey: The key of the record.
+	Rkey string `json:"rkey" cborgen:"rkey"`
+	// swapCommit: Compare and swap with the previous commit by cid.
+	SwapCommit *string `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
+	// swapRecord: Compare and swap with the previous record by cid.
+	SwapRecord *string `json:"swapRecord" cborgen:"swapRecord"`
+	// validate: Validate the record?
+	Validate *bool `json:"validate,omitempty" cborgen:"validate,omitempty"`
 }
 
+// RepoPutRecord_Output is the output of a com.atproto.repo.putRecord call.
 type RepoPutRecord_Output struct {
 	Cid string `json:"cid" cborgen:"cid"`
 	Uri string `json:"uri" cborgen:"uri"`
 }
 
+// RepoPutRecord calls the XRPC method "com.atproto.repo.putRecord".
 func RepoPutRecord(ctx context.Context, c *xrpc.Client, input *RepoPutRecord_Input) (*RepoPutRecord_Output, error) {
 	var out RepoPutRecord_Output
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", nil, input, &out); err != nil {

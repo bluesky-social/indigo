@@ -2,6 +2,8 @@
 
 package atproto
 
+// schema: com.atproto.sync.getRecord
+
 import (
 	"bytes"
 	"context"
@@ -9,8 +11,10 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.sync.getRecord
-
+// SyncGetRecord calls the XRPC method "com.atproto.sync.getRecord".
+//
+// commit: An optional past commit CID.
+// did: The DID of the repo.
 func SyncGetRecord(ctx context.Context, c *xrpc.Client, collection string, commit string, did string, rkey string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 

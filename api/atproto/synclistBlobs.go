@@ -2,18 +2,24 @@
 
 package atproto
 
+// schema: com.atproto.sync.listBlobs
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.sync.listBlobs
-
+// SyncListBlobs_Output is the output of a com.atproto.sync.listBlobs call.
 type SyncListBlobs_Output struct {
 	Cids []string `json:"cids" cborgen:"cids"`
 }
 
+// SyncListBlobs calls the XRPC method "com.atproto.sync.listBlobs".
+//
+// did: The DID of the repo.
+// earliest: The earliest commit to start from
+// latest: The most recent commit
 func SyncListBlobs(ctx context.Context, c *xrpc.Client, did string, earliest string, latest string) (*SyncListBlobs_Output, error) {
 	var out SyncListBlobs_Output
 

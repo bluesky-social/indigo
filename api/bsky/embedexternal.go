@@ -2,20 +2,22 @@
 
 package bsky
 
+// schema: app.bsky.embed.external
+
 import (
 	"github.com/bluesky-social/indigo/lex/util"
 )
 
-// schema: app.bsky.embed.external
-
 func init() {
 	util.RegisterType("app.bsky.embed.external#main", &EmbedExternal{})
-} // RECORDTYPE: EmbedExternal
+} // EmbedExternal is a "main" in the app.bsky.embed.external schema.
+// RECORDTYPE: EmbedExternal
 type EmbedExternal struct {
 	LexiconTypeID string                  `json:"$type,const=app.bsky.embed.external" cborgen:"$type,const=app.bsky.embed.external"`
 	External      *EmbedExternal_External `json:"external" cborgen:"external"`
 }
 
+// EmbedExternal_External is a "external" in the app.bsky.embed.external schema.
 type EmbedExternal_External struct {
 	Description string        `json:"description" cborgen:"description"`
 	Thumb       *util.LexBlob `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
@@ -23,12 +25,15 @@ type EmbedExternal_External struct {
 	Uri         string        `json:"uri" cborgen:"uri"`
 }
 
+// EmbedExternal_View is a "view" in the app.bsky.embed.external schema.
+//
 // RECORDTYPE: EmbedExternal_View
 type EmbedExternal_View struct {
 	LexiconTypeID string                      `json:"$type,const=app.bsky.embed.external" cborgen:"$type,const=app.bsky.embed.external"`
 	External      *EmbedExternal_ViewExternal `json:"external" cborgen:"external"`
 }
 
+// EmbedExternal_ViewExternal is a "viewExternal" in the app.bsky.embed.external schema.
 type EmbedExternal_ViewExternal struct {
 	Description string  `json:"description" cborgen:"description"`
 	Thumb       *string `json:"thumb,omitempty" cborgen:"thumb,omitempty"`

@@ -2,18 +2,24 @@
 
 package atproto
 
+// schema: com.atproto.sync.getCommitPath
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.sync.getCommitPath
-
+// SyncGetCommitPath_Output is the output of a com.atproto.sync.getCommitPath call.
 type SyncGetCommitPath_Output struct {
 	Commits []string `json:"commits" cborgen:"commits"`
 }
 
+// SyncGetCommitPath calls the XRPC method "com.atproto.sync.getCommitPath".
+//
+// did: The DID of the repo.
+// earliest: The earliest commit to start from
+// latest: The most recent commit
 func SyncGetCommitPath(ctx context.Context, c *xrpc.Client, did string, earliest string, latest string) (*SyncGetCommitPath_Output, error) {
 	var out SyncGetCommitPath_Output
 

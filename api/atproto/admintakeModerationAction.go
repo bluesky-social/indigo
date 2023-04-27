@@ -2,6 +2,8 @@
 
 package atproto
 
+// schema: com.atproto.admin.takeModerationAction
+
 import (
 	"context"
 	"encoding/json"
@@ -11,8 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.admin.takeModerationAction
-
+// AdminTakeModerationAction_Input is the input argument to a com.atproto.admin.takeModerationAction call.
 type AdminTakeModerationAction_Input struct {
 	Action          string                                   `json:"action" cborgen:"action"`
 	CreateLabelVals []string                                 `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
@@ -58,6 +59,7 @@ func (t *AdminTakeModerationAction_Input_Subject) UnmarshalJSON(b []byte) error 
 	}
 }
 
+// AdminTakeModerationAction calls the XRPC method "com.atproto.admin.takeModerationAction".
 func AdminTakeModerationAction(ctx context.Context, c *xrpc.Client, input *AdminTakeModerationAction_Input) (*AdminDefs_ActionView, error) {
 	var out AdminDefs_ActionView
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.admin.takeModerationAction", nil, input, &out); err != nil {

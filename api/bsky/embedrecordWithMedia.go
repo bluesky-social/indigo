@@ -2,6 +2,8 @@
 
 package bsky
 
+// schema: app.bsky.embed.recordWithMedia
+
 import (
 	"bytes"
 	"encoding/json"
@@ -12,11 +14,10 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
-// schema: app.bsky.embed.recordWithMedia
-
 func init() {
 	util.RegisterType("app.bsky.embed.recordWithMedia#main", &EmbedRecordWithMedia{})
-} // RECORDTYPE: EmbedRecordWithMedia
+} // EmbedRecordWithMedia is a "main" in the app.bsky.embed.recordWithMedia schema.
+// RECORDTYPE: EmbedRecordWithMedia
 type EmbedRecordWithMedia struct {
 	LexiconTypeID string                      `json:"$type,const=app.bsky.embed.recordWithMedia" cborgen:"$type,const=app.bsky.embed.recordWithMedia"`
 	Media         *EmbedRecordWithMedia_Media `json:"media" cborgen:"media"`
@@ -91,6 +92,8 @@ func (t *EmbedRecordWithMedia_Media) UnmarshalCBOR(r io.Reader) error {
 	}
 }
 
+// EmbedRecordWithMedia_View is a "view" in the app.bsky.embed.recordWithMedia schema.
+//
 // RECORDTYPE: EmbedRecordWithMedia_View
 type EmbedRecordWithMedia_View struct {
 	LexiconTypeID string                           `json:"$type,const=app.bsky.embed.recordWithMedia" cborgen:"$type,const=app.bsky.embed.recordWithMedia"`

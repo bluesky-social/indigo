@@ -2,22 +2,29 @@
 
 package atproto
 
+// schema: com.atproto.repo.deleteRecord
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.repo.deleteRecord
-
+// RepoDeleteRecord_Input is the input argument to a com.atproto.repo.deleteRecord call.
 type RepoDeleteRecord_Input struct {
-	Collection string  `json:"collection" cborgen:"collection"`
-	Repo       string  `json:"repo" cborgen:"repo"`
-	Rkey       string  `json:"rkey" cborgen:"rkey"`
+	// collection: The NSID of the record collection.
+	Collection string `json:"collection" cborgen:"collection"`
+	// repo: The handle or DID of the repo.
+	Repo string `json:"repo" cborgen:"repo"`
+	// rkey: The key of the record.
+	Rkey string `json:"rkey" cborgen:"rkey"`
+	// swapCommit: Compare and swap with the previous commit by cid.
 	SwapCommit *string `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
+	// swapRecord: Compare and swap with the previous record by cid.
 	SwapRecord *string `json:"swapRecord,omitempty" cborgen:"swapRecord,omitempty"`
 }
 
+// RepoDeleteRecord calls the XRPC method "com.atproto.repo.deleteRecord".
 func RepoDeleteRecord(ctx context.Context, c *xrpc.Client, input *RepoDeleteRecord_Input) error {
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", nil, input, nil); err != nil {
 		return err

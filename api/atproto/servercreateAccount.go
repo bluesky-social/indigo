@@ -2,14 +2,15 @@
 
 package atproto
 
+// schema: com.atproto.server.createAccount
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.server.createAccount
-
+// ServerCreateAccount_Input is the input argument to a com.atproto.server.createAccount call.
 type ServerCreateAccount_Input struct {
 	Email       string  `json:"email" cborgen:"email"`
 	Handle      string  `json:"handle" cborgen:"handle"`
@@ -18,6 +19,7 @@ type ServerCreateAccount_Input struct {
 	RecoveryKey *string `json:"recoveryKey,omitempty" cborgen:"recoveryKey,omitempty"`
 }
 
+// ServerCreateAccount_Output is the output of a com.atproto.server.createAccount call.
 type ServerCreateAccount_Output struct {
 	AccessJwt  string `json:"accessJwt" cborgen:"accessJwt"`
 	Did        string `json:"did" cborgen:"did"`
@@ -25,6 +27,7 @@ type ServerCreateAccount_Output struct {
 	RefreshJwt string `json:"refreshJwt" cborgen:"refreshJwt"`
 }
 
+// ServerCreateAccount calls the XRPC method "com.atproto.server.createAccount".
 func ServerCreateAccount(ctx context.Context, c *xrpc.Client, input *ServerCreateAccount_Input) (*ServerCreateAccount_Output, error) {
 	var out ServerCreateAccount_Output
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.server.createAccount", nil, input, &out); err != nil {

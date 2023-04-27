@@ -2,20 +2,22 @@
 
 package atproto
 
+// schema: com.atproto.server.deleteAccount
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.server.deleteAccount
-
+// ServerDeleteAccount_Input is the input argument to a com.atproto.server.deleteAccount call.
 type ServerDeleteAccount_Input struct {
 	Did      string `json:"did" cborgen:"did"`
 	Password string `json:"password" cborgen:"password"`
 	Token    string `json:"token" cborgen:"token"`
 }
 
+// ServerDeleteAccount calls the XRPC method "com.atproto.server.deleteAccount".
 func ServerDeleteAccount(ctx context.Context, c *xrpc.Client, input *ServerDeleteAccount_Input) error {
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.server.deleteAccount", nil, input, nil); err != nil {
 		return err

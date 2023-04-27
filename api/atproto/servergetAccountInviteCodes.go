@@ -2,18 +2,20 @@
 
 package atproto
 
+// schema: com.atproto.server.getAccountInviteCodes
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.server.getAccountInviteCodes
-
+// ServerGetAccountInviteCodes_Output is the output of a com.atproto.server.getAccountInviteCodes call.
 type ServerGetAccountInviteCodes_Output struct {
 	Codes []*ServerDefs_InviteCode `json:"codes" cborgen:"codes"`
 }
 
+// ServerGetAccountInviteCodes calls the XRPC method "com.atproto.server.getAccountInviteCodes".
 func ServerGetAccountInviteCodes(ctx context.Context, c *xrpc.Client, createAvailable bool, includeUsed bool) (*ServerGetAccountInviteCodes_Output, error) {
 	var out ServerGetAccountInviteCodes_Output
 

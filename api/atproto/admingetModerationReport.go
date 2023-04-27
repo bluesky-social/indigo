@@ -2,14 +2,15 @@
 
 package atproto
 
+// schema: com.atproto.admin.getModerationReport
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.admin.getModerationReport
-
+// AdminGetModerationReport calls the XRPC method "com.atproto.admin.getModerationReport".
 func AdminGetModerationReport(ctx context.Context, c *xrpc.Client, id int64) (*AdminDefs_ReportViewDetail, error) {
 	var out AdminDefs_ReportViewDetail
 

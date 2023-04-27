@@ -2,12 +2,13 @@
 
 package bsky
 
+// schema: app.bsky.actor.defs
+
 import (
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 )
 
-// schema: app.bsky.actor.defs
-
+// ActorDefs_ProfileView is a "profileView" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileView struct {
 	Avatar      *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	Description *string                            `json:"description,omitempty" cborgen:"description,omitempty"`
@@ -19,6 +20,7 @@ type ActorDefs_ProfileView struct {
 	Viewer      *ActorDefs_ViewerState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
+// ActorDefs_ProfileViewBasic is a "profileViewBasic" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileViewBasic struct {
 	Avatar      *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	Did         string                             `json:"did" cborgen:"did"`
@@ -28,6 +30,7 @@ type ActorDefs_ProfileViewBasic struct {
 	Viewer      *ActorDefs_ViewerState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
+// ActorDefs_ProfileViewDetailed is a "profileViewDetailed" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileViewDetailed struct {
 	Avatar         *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	Banner         *string                            `json:"banner,omitempty" cborgen:"banner,omitempty"`
@@ -43,6 +46,7 @@ type ActorDefs_ProfileViewDetailed struct {
 	Viewer         *ActorDefs_ViewerState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
+// ActorDefs_ViewerState is a "viewerState" in the app.bsky.actor.defs schema.
 type ActorDefs_ViewerState struct {
 	FollowedBy *string `json:"followedBy,omitempty" cborgen:"followedBy,omitempty"`
 	Following  *string `json:"following,omitempty" cborgen:"following,omitempty"`

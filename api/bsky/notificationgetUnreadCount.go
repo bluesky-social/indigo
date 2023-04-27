@@ -2,18 +2,20 @@
 
 package bsky
 
+// schema: app.bsky.notification.getUnreadCount
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: app.bsky.notification.getUnreadCount
-
+// NotificationGetUnreadCount_Output is the output of a app.bsky.notification.getUnreadCount call.
 type NotificationGetUnreadCount_Output struct {
 	Count int64 `json:"count" cborgen:"count"`
 }
 
+// NotificationGetUnreadCount calls the XRPC method "app.bsky.notification.getUnreadCount".
 func NotificationGetUnreadCount(ctx context.Context, c *xrpc.Client, seenAt string) (*NotificationGetUnreadCount_Output, error) {
 	var out NotificationGetUnreadCount_Output
 

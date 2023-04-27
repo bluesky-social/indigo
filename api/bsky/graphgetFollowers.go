@@ -2,20 +2,22 @@
 
 package bsky
 
+// schema: app.bsky.graph.getFollowers
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: app.bsky.graph.getFollowers
-
+// GraphGetFollowers_Output is the output of a app.bsky.graph.getFollowers call.
 type GraphGetFollowers_Output struct {
 	Cursor    *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Followers []*ActorDefs_ProfileView `json:"followers" cborgen:"followers"`
 	Subject   *ActorDefs_ProfileView   `json:"subject" cborgen:"subject"`
 }
 
+// GraphGetFollowers calls the XRPC method "app.bsky.graph.getFollowers".
 func GraphGetFollowers(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*GraphGetFollowers_Output, error) {
 	var out GraphGetFollowers_Output
 

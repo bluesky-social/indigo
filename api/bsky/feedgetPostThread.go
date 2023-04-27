@@ -2,6 +2,8 @@
 
 package bsky
 
+// schema: app.bsky.feed.getPostThread
+
 import (
 	"context"
 	"encoding/json"
@@ -11,8 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: app.bsky.feed.getPostThread
-
+// FeedGetPostThread_Output is the output of a app.bsky.feed.getPostThread call.
 type FeedGetPostThread_Output struct {
 	Thread *FeedGetPostThread_Output_Thread `json:"thread" cborgen:"thread"`
 }
@@ -52,6 +53,7 @@ func (t *FeedGetPostThread_Output_Thread) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// FeedGetPostThread calls the XRPC method "app.bsky.feed.getPostThread".
 func FeedGetPostThread(ctx context.Context, c *xrpc.Client, depth int64, uri string) (*FeedGetPostThread_Output, error) {
 	var out FeedGetPostThread_Output
 

@@ -2,29 +2,33 @@
 
 package atproto
 
+// schema: com.atproto.server.createInviteCodes
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.server.createInviteCodes
-
+// ServerCreateInviteCodes_AccountCodes is a "accountCodes" in the com.atproto.server.createInviteCodes schema.
 type ServerCreateInviteCodes_AccountCodes struct {
 	Account string   `json:"account" cborgen:"account"`
 	Codes   []string `json:"codes" cborgen:"codes"`
 }
 
+// ServerCreateInviteCodes_Input is the input argument to a com.atproto.server.createInviteCodes call.
 type ServerCreateInviteCodes_Input struct {
 	CodeCount   int64    `json:"codeCount" cborgen:"codeCount"`
 	ForAccounts []string `json:"forAccounts,omitempty" cborgen:"forAccounts,omitempty"`
 	UseCount    int64    `json:"useCount" cborgen:"useCount"`
 }
 
+// ServerCreateInviteCodes_Output is the output of a com.atproto.server.createInviteCodes call.
 type ServerCreateInviteCodes_Output struct {
 	Codes []*ServerCreateInviteCodes_AccountCodes `json:"codes" cborgen:"codes"`
 }
 
+// ServerCreateInviteCodes calls the XRPC method "com.atproto.server.createInviteCodes".
 func ServerCreateInviteCodes(ctx context.Context, c *xrpc.Client, input *ServerCreateInviteCodes_Input) (*ServerCreateInviteCodes_Output, error) {
 	var out ServerCreateInviteCodes_Output
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.server.createInviteCodes", nil, input, &out); err != nil {

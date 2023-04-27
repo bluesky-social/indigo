@@ -2,20 +2,22 @@
 
 package bsky
 
+// schema: app.bsky.feed.getLikes
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: app.bsky.feed.getLikes
-
+// FeedGetLikes_Like is a "like" in the app.bsky.feed.getLikes schema.
 type FeedGetLikes_Like struct {
 	Actor     *ActorDefs_ProfileView `json:"actor" cborgen:"actor"`
 	CreatedAt string                 `json:"createdAt" cborgen:"createdAt"`
 	IndexedAt string                 `json:"indexedAt" cborgen:"indexedAt"`
 }
 
+// FeedGetLikes_Output is the output of a app.bsky.feed.getLikes call.
 type FeedGetLikes_Output struct {
 	Cid    *string              `json:"cid,omitempty" cborgen:"cid,omitempty"`
 	Cursor *string              `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
@@ -23,6 +25,7 @@ type FeedGetLikes_Output struct {
 	Uri    string               `json:"uri" cborgen:"uri"`
 }
 
+// FeedGetLikes calls the XRPC method "app.bsky.feed.getLikes".
 func FeedGetLikes(ctx context.Context, c *xrpc.Client, cid string, cursor string, limit int64, uri string) (*FeedGetLikes_Output, error) {
 	var out FeedGetLikes_Output
 

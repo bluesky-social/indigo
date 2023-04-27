@@ -2,14 +2,16 @@
 
 package atproto
 
+// schema: com.atproto.sync.subscribeRepos
+
 import (
 	"github.com/bluesky-social/indigo/lex/util"
 )
 
-// schema: com.atproto.sync.subscribeRepos
-
+// SyncSubscribeRepos_Commit is a "commit" in the com.atproto.sync.subscribeRepos schema.
 type SyncSubscribeRepos_Commit struct {
-	Blobs  []util.LexLink               `json:"blobs" cborgen:"blobs"`
+	Blobs []util.LexLink `json:"blobs" cborgen:"blobs"`
+	// blocks: CAR file containing relevant blocks
 	Blocks util.LexBytes                `json:"blocks,omitempty" cborgen:"blocks"`
 	Commit util.LexLink                 `json:"commit" cborgen:"commit"`
 	Ops    []*SyncSubscribeRepos_RepoOp `json:"ops" cborgen:"ops"`
@@ -21,6 +23,7 @@ type SyncSubscribeRepos_Commit struct {
 	TooBig bool                         `json:"tooBig" cborgen:"tooBig"`
 }
 
+// SyncSubscribeRepos_Handle is a "handle" in the com.atproto.sync.subscribeRepos schema.
 type SyncSubscribeRepos_Handle struct {
 	Did    string `json:"did" cborgen:"did"`
 	Handle string `json:"handle" cborgen:"handle"`
@@ -28,11 +31,13 @@ type SyncSubscribeRepos_Handle struct {
 	Time   string `json:"time" cborgen:"time"`
 }
 
+// SyncSubscribeRepos_Info is a "info" in the com.atproto.sync.subscribeRepos schema.
 type SyncSubscribeRepos_Info struct {
 	Message *string `json:"message,omitempty" cborgen:"message,omitempty"`
 	Name    string  `json:"name" cborgen:"name"`
 }
 
+// SyncSubscribeRepos_Migrate is a "migrate" in the com.atproto.sync.subscribeRepos schema.
 type SyncSubscribeRepos_Migrate struct {
 	Did       string  `json:"did" cborgen:"did"`
 	MigrateTo *string `json:"migrateTo" cborgen:"migrateTo"`
@@ -40,12 +45,14 @@ type SyncSubscribeRepos_Migrate struct {
 	Time      string  `json:"time" cborgen:"time"`
 }
 
+// SyncSubscribeRepos_RepoOp is a "repoOp" in the com.atproto.sync.subscribeRepos schema.
 type SyncSubscribeRepos_RepoOp struct {
 	Action string        `json:"action" cborgen:"action"`
 	Cid    *util.LexLink `json:"cid" cborgen:"cid"`
 	Path   string        `json:"path" cborgen:"path"`
 }
 
+// SyncSubscribeRepos_Tombstone is a "tombstone" in the com.atproto.sync.subscribeRepos schema.
 type SyncSubscribeRepos_Tombstone struct {
 	Did  string `json:"did" cborgen:"did"`
 	Seq  int64  `json:"seq" cborgen:"seq"`

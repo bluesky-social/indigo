@@ -2,6 +2,8 @@
 
 package bsky
 
+// schema: app.bsky.feed.defs
+
 import (
 	"encoding/json"
 	"fmt"
@@ -10,8 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/lex/util"
 )
 
-// schema: app.bsky.feed.defs
-
+// FeedDefs_FeedViewPost is a "feedViewPost" in the app.bsky.feed.defs schema.
 type FeedDefs_FeedViewPost struct {
 	Post   *FeedDefs_PostView            `json:"post" cborgen:"post"`
 	Reason *FeedDefs_FeedViewPost_Reason `json:"reason,omitempty" cborgen:"reason,omitempty"`
@@ -45,6 +46,8 @@ func (t *FeedDefs_FeedViewPost_Reason) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// FeedDefs_NotFoundPost is a "notFoundPost" in the app.bsky.feed.defs schema.
+//
 // RECORDTYPE: FeedDefs_NotFoundPost
 type FeedDefs_NotFoundPost struct {
 	LexiconTypeID string `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
@@ -52,6 +55,7 @@ type FeedDefs_NotFoundPost struct {
 	Uri           string `json:"uri" cborgen:"uri"`
 }
 
+// FeedDefs_PostView is a "postView" in the app.bsky.feed.defs schema.
 type FeedDefs_PostView struct {
 	Author      *ActorDefs_ProfileViewBasic        `json:"author" cborgen:"author"`
 	Cid         string                             `json:"cid" cborgen:"cid"`
@@ -117,6 +121,8 @@ func (t *FeedDefs_PostView_Embed) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// FeedDefs_ReasonRepost is a "reasonRepost" in the app.bsky.feed.defs schema.
+//
 // RECORDTYPE: FeedDefs_ReasonRepost
 type FeedDefs_ReasonRepost struct {
 	LexiconTypeID string                      `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
@@ -124,11 +130,14 @@ type FeedDefs_ReasonRepost struct {
 	IndexedAt     string                      `json:"indexedAt" cborgen:"indexedAt"`
 }
 
+// FeedDefs_ReplyRef is a "replyRef" in the app.bsky.feed.defs schema.
 type FeedDefs_ReplyRef struct {
 	Parent *FeedDefs_PostView `json:"parent" cborgen:"parent"`
 	Root   *FeedDefs_PostView `json:"root" cborgen:"root"`
 }
 
+// FeedDefs_ThreadViewPost is a "threadViewPost" in the app.bsky.feed.defs schema.
+//
 // RECORDTYPE: FeedDefs_ThreadViewPost
 type FeedDefs_ThreadViewPost struct {
 	LexiconTypeID string                                  `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
@@ -207,6 +216,7 @@ func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// FeedDefs_ViewerState is a "viewerState" in the app.bsky.feed.defs schema.
 type FeedDefs_ViewerState struct {
 	Like   *string `json:"like,omitempty" cborgen:"like,omitempty"`
 	Repost *string `json:"repost,omitempty" cborgen:"repost,omitempty"`

@@ -2,19 +2,21 @@
 
 package bsky
 
+// schema: app.bsky.feed.getTimeline
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: app.bsky.feed.getTimeline
-
+// FeedGetTimeline_Output is the output of a app.bsky.feed.getTimeline call.
 type FeedGetTimeline_Output struct {
 	Cursor *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Feed   []*FeedDefs_FeedViewPost `json:"feed" cborgen:"feed"`
 }
 
+// FeedGetTimeline calls the XRPC method "app.bsky.feed.getTimeline".
 func FeedGetTimeline(ctx context.Context, c *xrpc.Client, algorithm string, cursor string, limit int64) (*FeedGetTimeline_Output, error) {
 	var out FeedGetTimeline_Output
 

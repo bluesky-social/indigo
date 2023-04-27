@@ -2,19 +2,21 @@
 
 package bsky
 
+// schema: app.bsky.graph.getMutes
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: app.bsky.graph.getMutes
-
+// GraphGetMutes_Output is the output of a app.bsky.graph.getMutes call.
 type GraphGetMutes_Output struct {
 	Cursor *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Mutes  []*ActorDefs_ProfileView `json:"mutes" cborgen:"mutes"`
 }
 
+// GraphGetMutes calls the XRPC method "app.bsky.graph.getMutes".
 func GraphGetMutes(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*GraphGetMutes_Output, error) {
 	var out GraphGetMutes_Output
 

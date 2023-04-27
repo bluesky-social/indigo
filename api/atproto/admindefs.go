@@ -2,6 +2,8 @@
 
 package atproto
 
+// schema: com.atproto.admin.defs
+
 import (
 	"encoding/json"
 	"fmt"
@@ -9,14 +11,14 @@ import (
 	"github.com/bluesky-social/indigo/lex/util"
 )
 
-// schema: com.atproto.admin.defs
-
+// AdminDefs_ActionReversal is a "actionReversal" in the com.atproto.admin.defs schema.
 type AdminDefs_ActionReversal struct {
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
 	CreatedBy string `json:"createdBy" cborgen:"createdBy"`
 	Reason    string `json:"reason" cborgen:"reason"`
 }
 
+// AdminDefs_ActionView is a "actionView" in the com.atproto.admin.defs schema.
 type AdminDefs_ActionView struct {
 	Action            *string                       `json:"action" cborgen:"action"`
 	CreateLabelVals   []string                      `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
@@ -31,11 +33,13 @@ type AdminDefs_ActionView struct {
 	SubjectBlobCids   []string                      `json:"subjectBlobCids" cborgen:"subjectBlobCids"`
 }
 
+// AdminDefs_ActionViewCurrent is a "actionViewCurrent" in the com.atproto.admin.defs schema.
 type AdminDefs_ActionViewCurrent struct {
 	Action *string `json:"action" cborgen:"action"`
 	Id     int64   `json:"id" cborgen:"id"`
 }
 
+// AdminDefs_ActionViewDetail is a "actionViewDetail" in the com.atproto.admin.defs schema.
 type AdminDefs_ActionViewDetail struct {
 	Action          *string                             `json:"action" cborgen:"action"`
 	CreateLabelVals []string                            `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
@@ -120,6 +124,7 @@ func (t *AdminDefs_ActionView_Subject) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// AdminDefs_BlobView is a "blobView" in the com.atproto.admin.defs schema.
 type AdminDefs_BlobView struct {
 	Cid        string                      `json:"cid" cborgen:"cid"`
 	CreatedAt  string                      `json:"createdAt" cborgen:"createdAt"`
@@ -164,6 +169,8 @@ func (t *AdminDefs_BlobView_Details) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// AdminDefs_ImageDetails is a "imageDetails" in the com.atproto.admin.defs schema.
+//
 // RECORDTYPE: AdminDefs_ImageDetails
 type AdminDefs_ImageDetails struct {
 	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
@@ -171,16 +178,20 @@ type AdminDefs_ImageDetails struct {
 	Width         int64  `json:"width" cborgen:"width"`
 }
 
+// AdminDefs_Moderation is a "moderation" in the com.atproto.admin.defs schema.
 type AdminDefs_Moderation struct {
 	CurrentAction *AdminDefs_ActionViewCurrent `json:"currentAction,omitempty" cborgen:"currentAction,omitempty"`
 }
 
+// AdminDefs_ModerationDetail is a "moderationDetail" in the com.atproto.admin.defs schema.
 type AdminDefs_ModerationDetail struct {
 	Actions       []*AdminDefs_ActionView      `json:"actions" cborgen:"actions"`
 	CurrentAction *AdminDefs_ActionViewCurrent `json:"currentAction,omitempty" cborgen:"currentAction,omitempty"`
 	Reports       []*AdminDefs_ReportView      `json:"reports" cborgen:"reports"`
 }
 
+// AdminDefs_RecordView is a "recordView" in the com.atproto.admin.defs schema.
+//
 // RECORDTYPE: AdminDefs_RecordView
 type AdminDefs_RecordView struct {
 	LexiconTypeID string                   `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
@@ -193,6 +204,7 @@ type AdminDefs_RecordView struct {
 	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
+// AdminDefs_RecordViewDetail is a "recordViewDetail" in the com.atproto.admin.defs schema.
 type AdminDefs_RecordViewDetail struct {
 	Blobs      []*AdminDefs_BlobView       `json:"blobs" cborgen:"blobs"`
 	Cid        string                      `json:"cid" cborgen:"cid"`
@@ -204,12 +216,16 @@ type AdminDefs_RecordViewDetail struct {
 	Value      *util.LexiconTypeDecoder    `json:"value" cborgen:"value"`
 }
 
+// AdminDefs_RepoRef is a "repoRef" in the com.atproto.admin.defs schema.
+//
 // RECORDTYPE: AdminDefs_RepoRef
 type AdminDefs_RepoRef struct {
 	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
 	Did           string `json:"did" cborgen:"did"`
 }
 
+// AdminDefs_RepoView is a "repoView" in the com.atproto.admin.defs schema.
+//
 // RECORDTYPE: AdminDefs_RepoView
 type AdminDefs_RepoView struct {
 	LexiconTypeID  string                     `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
@@ -222,6 +238,7 @@ type AdminDefs_RepoView struct {
 	RelatedRecords []*util.LexiconTypeDecoder `json:"relatedRecords" cborgen:"relatedRecords"`
 }
 
+// AdminDefs_RepoViewDetail is a "repoViewDetail" in the com.atproto.admin.defs schema.
 type AdminDefs_RepoViewDetail struct {
 	Did            string                      `json:"did" cborgen:"did"`
 	Email          *string                     `json:"email,omitempty" cborgen:"email,omitempty"`
@@ -234,6 +251,7 @@ type AdminDefs_RepoViewDetail struct {
 	RelatedRecords []*util.LexiconTypeDecoder  `json:"relatedRecords" cborgen:"relatedRecords"`
 }
 
+// AdminDefs_ReportView is a "reportView" in the com.atproto.admin.defs schema.
 type AdminDefs_ReportView struct {
 	CreatedAt           string                        `json:"createdAt" cborgen:"createdAt"`
 	Id                  int64                         `json:"id" cborgen:"id"`
@@ -244,6 +262,7 @@ type AdminDefs_ReportView struct {
 	Subject             *AdminDefs_ReportView_Subject `json:"subject" cborgen:"subject"`
 }
 
+// AdminDefs_ReportViewDetail is a "reportViewDetail" in the com.atproto.admin.defs schema.
 type AdminDefs_ReportViewDetail struct {
 	CreatedAt         string                              `json:"createdAt" cborgen:"createdAt"`
 	Id                int64                               `json:"id" cborgen:"id"`
@@ -324,6 +343,8 @@ func (t *AdminDefs_ReportView_Subject) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// AdminDefs_VideoDetails is a "videoDetails" in the com.atproto.admin.defs schema.
+//
 // RECORDTYPE: AdminDefs_VideoDetails
 type AdminDefs_VideoDetails struct {
 	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`

@@ -2,6 +2,8 @@
 
 package atproto
 
+// schema: com.atproto.repo.describeRepo
+
 import (
 	"context"
 
@@ -9,8 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.repo.describeRepo
-
+// RepoDescribeRepo_Output is the output of a com.atproto.repo.describeRepo call.
 type RepoDescribeRepo_Output struct {
 	Collections     []string                 `json:"collections" cborgen:"collections"`
 	Did             string                   `json:"did" cborgen:"did"`
@@ -19,6 +20,9 @@ type RepoDescribeRepo_Output struct {
 	HandleIsCorrect bool                     `json:"handleIsCorrect" cborgen:"handleIsCorrect"`
 }
 
+// RepoDescribeRepo calls the XRPC method "com.atproto.repo.describeRepo".
+//
+// repo: The handle or DID of the repo.
 func RepoDescribeRepo(ctx context.Context, c *xrpc.Client, repo string) (*RepoDescribeRepo_Output, error) {
 	var out RepoDescribeRepo_Output
 

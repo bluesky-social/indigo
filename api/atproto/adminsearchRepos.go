@@ -2,19 +2,21 @@
 
 package atproto
 
+// schema: com.atproto.admin.searchRepos
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.admin.searchRepos
-
+// AdminSearchRepos_Output is the output of a com.atproto.admin.searchRepos call.
 type AdminSearchRepos_Output struct {
 	Cursor *string               `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Repos  []*AdminDefs_RepoView `json:"repos" cborgen:"repos"`
 }
 
+// AdminSearchRepos calls the XRPC method "com.atproto.admin.searchRepos".
 func AdminSearchRepos(ctx context.Context, c *xrpc.Client, cursor string, invitedBy string, limit int64, term string) (*AdminSearchRepos_Output, error) {
 	var out AdminSearchRepos_Output
 

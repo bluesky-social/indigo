@@ -2,16 +2,17 @@
 
 package bsky
 
+// schema: app.bsky.feed.repost
+
 import (
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/lex/util"
 )
 
-// schema: app.bsky.feed.repost
-
 func init() {
 	util.RegisterType("app.bsky.feed.repost", &FeedRepost{})
-} // RECORDTYPE: FeedRepost
+} //
+// RECORDTYPE: FeedRepost
 type FeedRepost struct {
 	LexiconTypeID string                         `json:"$type,const=app.bsky.feed.repost" cborgen:"$type,const=app.bsky.feed.repost"`
 	CreatedAt     string                         `json:"createdAt" cborgen:"createdAt"`
