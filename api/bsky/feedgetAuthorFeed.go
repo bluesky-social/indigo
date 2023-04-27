@@ -2,19 +2,21 @@
 
 package bsky
 
+// schema: app.bsky.feed.getAuthorFeed
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: app.bsky.feed.getAuthorFeed
-
+// FeedGetAuthorFeed_Output is the output of a app.bsky.feed.getAuthorFeed call.
 type FeedGetAuthorFeed_Output struct {
 	Cursor *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Feed   []*FeedDefs_FeedViewPost `json:"feed" cborgen:"feed"`
 }
 
+// FeedGetAuthorFeed calls the XRPC method "app.bsky.feed.getAuthorFeed".
 func FeedGetAuthorFeed(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*FeedGetAuthorFeed_Output, error) {
 	var out FeedGetAuthorFeed_Output
 

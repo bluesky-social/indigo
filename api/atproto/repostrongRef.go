@@ -2,15 +2,16 @@
 
 package atproto
 
+// schema: com.atproto.repo.strongRef
+
 import (
 	"github.com/bluesky-social/indigo/lex/util"
 )
 
-// schema: com.atproto.repo.strongRef
-
 func init() {
 	util.RegisterType("com.atproto.repo.strongRef#main", &RepoStrongRef{})
-} // RECORDTYPE: RepoStrongRef
+} // RepoStrongRef is a "main" in the com.atproto.repo.strongRef schema.
+// RECORDTYPE: RepoStrongRef
 type RepoStrongRef struct {
 	LexiconTypeID string `json:"$type,const=com.atproto.repo.strongRef,omitempty" cborgen:"$type,const=com.atproto.repo.strongRef,omitempty"`
 	Cid           string `json:"cid" cborgen:"cid"`

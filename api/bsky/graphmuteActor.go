@@ -2,18 +2,20 @@
 
 package bsky
 
+// schema: app.bsky.graph.muteActor
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: app.bsky.graph.muteActor
-
+// GraphMuteActor_Input is the input argument to a app.bsky.graph.muteActor call.
 type GraphMuteActor_Input struct {
 	Actor string `json:"actor" cborgen:"actor"`
 }
 
+// GraphMuteActor calls the XRPC method "app.bsky.graph.muteActor".
 func GraphMuteActor(ctx context.Context, c *xrpc.Client, input *GraphMuteActor_Input) error {
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "app.bsky.graph.muteActor", nil, input, nil); err != nil {
 		return err

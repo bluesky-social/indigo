@@ -2,19 +2,21 @@
 
 package bsky
 
+// schema: app.bsky.actor.getSuggestions
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: app.bsky.actor.getSuggestions
-
+// ActorGetSuggestions_Output is the output of a app.bsky.actor.getSuggestions call.
 type ActorGetSuggestions_Output struct {
 	Actors []*ActorDefs_ProfileView `json:"actors" cborgen:"actors"`
 	Cursor *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 }
 
+// ActorGetSuggestions calls the XRPC method "app.bsky.actor.getSuggestions".
 func ActorGetSuggestions(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*ActorGetSuggestions_Output, error) {
 	var out ActorGetSuggestions_Output
 

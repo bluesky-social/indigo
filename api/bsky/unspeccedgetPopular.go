@@ -2,19 +2,21 @@
 
 package bsky
 
+// schema: app.bsky.unspecced.getPopular
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: app.bsky.unspecced.getPopular
-
+// UnspeccedGetPopular_Output is the output of a app.bsky.unspecced.getPopular call.
 type UnspeccedGetPopular_Output struct {
 	Cursor *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Feed   []*FeedDefs_FeedViewPost `json:"feed" cborgen:"feed"`
 }
 
+// UnspeccedGetPopular calls the XRPC method "app.bsky.unspecced.getPopular".
 func UnspeccedGetPopular(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*UnspeccedGetPopular_Output, error) {
 	var out UnspeccedGetPopular_Output
 

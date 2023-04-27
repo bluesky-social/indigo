@@ -2,18 +2,20 @@
 
 package bsky
 
+// schema: app.bsky.feed.getPosts
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: app.bsky.feed.getPosts
-
+// FeedGetPosts_Output is the output of a app.bsky.feed.getPosts call.
 type FeedGetPosts_Output struct {
 	Posts []*FeedDefs_PostView `json:"posts" cborgen:"posts"`
 }
 
+// FeedGetPosts calls the XRPC method "app.bsky.feed.getPosts".
 func FeedGetPosts(ctx context.Context, c *xrpc.Client, uris []string) (*FeedGetPosts_Output, error) {
 	var out FeedGetPosts_Output
 

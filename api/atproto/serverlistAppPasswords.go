@@ -2,23 +2,26 @@
 
 package atproto
 
+// schema: com.atproto.server.listAppPasswords
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.server.listAppPasswords
-
+// ServerListAppPasswords_AppPassword is a "appPassword" in the com.atproto.server.listAppPasswords schema.
 type ServerListAppPasswords_AppPassword struct {
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
 	Name      string `json:"name" cborgen:"name"`
 }
 
+// ServerListAppPasswords_Output is the output of a com.atproto.server.listAppPasswords call.
 type ServerListAppPasswords_Output struct {
 	Passwords []*ServerListAppPasswords_AppPassword `json:"passwords" cborgen:"passwords"`
 }
 
+// ServerListAppPasswords calls the XRPC method "com.atproto.server.listAppPasswords".
 func ServerListAppPasswords(ctx context.Context, c *xrpc.Client) (*ServerListAppPasswords_Output, error) {
 	var out ServerListAppPasswords_Output
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.server.listAppPasswords", nil, nil, &out); err != nil {

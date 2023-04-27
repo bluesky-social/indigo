@@ -2,14 +2,15 @@
 
 package bsky
 
+// schema: app.bsky.actor.getProfile
+
 import (
 	"context"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: app.bsky.actor.getProfile
-
+// ActorGetProfile calls the XRPC method "app.bsky.actor.getProfile".
 func ActorGetProfile(ctx context.Context, c *xrpc.Client, actor string) (*ActorDefs_ProfileViewDetailed, error) {
 	var out ActorDefs_ProfileViewDetailed
 

@@ -2,6 +2,8 @@
 
 package atproto
 
+// schema: com.atproto.sync.getCheckout
+
 import (
 	"bytes"
 	"context"
@@ -9,8 +11,10 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// schema: com.atproto.sync.getCheckout
-
+// SyncGetCheckout calls the XRPC method "com.atproto.sync.getCheckout".
+//
+// commit: The commit to get the checkout from. Defaults to current HEAD.
+// did: The DID of the repo.
 func SyncGetCheckout(ctx context.Context, c *xrpc.Client, commit string, did string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 

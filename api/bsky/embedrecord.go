@@ -2,6 +2,8 @@
 
 package bsky
 
+// schema: app.bsky.embed.record
+
 import (
 	"encoding/json"
 	"fmt"
@@ -10,28 +12,33 @@ import (
 	"github.com/bluesky-social/indigo/lex/util"
 )
 
-// schema: app.bsky.embed.record
-
 func init() {
 	util.RegisterType("app.bsky.embed.record#main", &EmbedRecord{})
-} // RECORDTYPE: EmbedRecord
+} // EmbedRecord is a "main" in the app.bsky.embed.record schema.
+// RECORDTYPE: EmbedRecord
 type EmbedRecord struct {
 	LexiconTypeID string                         `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
 	Record        *comatprototypes.RepoStrongRef `json:"record" cborgen:"record"`
 }
 
+// EmbedRecord_View is a "view" in the app.bsky.embed.record schema.
+//
 // RECORDTYPE: EmbedRecord_View
 type EmbedRecord_View struct {
 	LexiconTypeID string                   `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
 	Record        *EmbedRecord_View_Record `json:"record" cborgen:"record"`
 }
 
+// EmbedRecord_ViewNotFound is a "viewNotFound" in the app.bsky.embed.record schema.
+//
 // RECORDTYPE: EmbedRecord_ViewNotFound
 type EmbedRecord_ViewNotFound struct {
 	LexiconTypeID string `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
 	Uri           string `json:"uri" cborgen:"uri"`
 }
 
+// EmbedRecord_ViewRecord is a "viewRecord" in the app.bsky.embed.record schema.
+//
 // RECORDTYPE: EmbedRecord_ViewRecord
 type EmbedRecord_ViewRecord struct {
 	LexiconTypeID string                                `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
