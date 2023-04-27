@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -310,7 +309,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 }
 
 func (ix *Indexer) crawlAtUriRef(ctx context.Context, uri string) error {
-	puri, err := parseAtUri(uri)
+	puri, err := util.ParseAtUri(uri)
 	if err != nil {
 		return err
 	} else {
@@ -538,7 +537,7 @@ func (ix *Indexer) handleRecordUpdate(ctx context.Context, evt *repomgr.RepoEven
 }
 
 func (ix *Indexer) GetPostOrMissing(ctx context.Context, uri string) (*models.FeedPost, error) {
-	puri, err := parseAtUri(uri)
+	puri, err := util.ParseAtUri(uri)
 	if err != nil {
 		return nil, err
 	}
@@ -643,7 +642,7 @@ func (ix *Indexer) GetUserOrMissing(ctx context.Context, did string) (*models.Ac
 	return ix.createMissingUserRecord(ctx, did)
 }
 
-func (ix *Indexer) createMissingPostRecord(ctx context.Context, puri *parsedUri) (*models.FeedPost, error) {
+func (ix *Indexer) createMissingPostRecord(ctx context.Context, puri *util.ParsedUri) (*models.FeedPost, error) {
 	log.Warn("creating missing post record")
 	ai, err := ix.GetUserOrMissing(ctx, puri.Did)
 	if err != nil {
@@ -793,7 +792,7 @@ func isNotFound(err error) bool {
 }
 
 func (ix *Indexer) GetPost(ctx context.Context, uri string) (*models.FeedPost, error) {
-	puri, err := parseAtUri(uri)
+	puri, err := util.ParseAtUri(uri)
 	if err != nil {
 		return nil, err
 	}
@@ -804,30 +803,6 @@ func (ix *Indexer) GetPost(ctx context.Context, uri string) (*models.FeedPost, e
 	}
 
 	return &post, nil
-}
-
-type parsedUri struct {
-	Did        string
-	Collection string
-	Rkey       string
-}
-
-func parseAtUri(uri string) (*parsedUri, error) {
-	if !strings.HasPrefix(uri, "at://") {
-		return nil, fmt.Errorf("AT uris must be prefixed with 'at://'")
-	}
-
-	trimmed := strings.TrimPrefix(uri, "at://")
-	parts := strings.Split(trimmed, "/")
-	if len(parts) != 3 {
-		return nil, fmt.Errorf("AT uris must have three parts: did, collection, tid")
-	}
-
-	return &parsedUri{
-		Did:        parts[0],
-		Collection: parts[1],
-		Rkey:       parts[2],
-	}, nil
 }
 
 // TODO: since this function is the only place we depend on the repomanager, i wonder if this should be wired some other way?
