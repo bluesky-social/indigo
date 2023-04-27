@@ -1145,7 +1145,11 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 		fmt.Fprintf(w, "type %s struct {\n", name)
 
 		if ts.needsType {
-			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type,const=%s\" cborgen:\"$type,const=%s\"`\n", ts.id, ts.id)
+			var omit string
+			if ts.id == "com.atproto.repo.strongRef" { // TODO: hack
+				omit = ",omitempty"
+			}
+			fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type,const=%s%s\" cborgen:\"$type,const=%s%s\"`\n", ts.id, omit, ts.id, omit)
 		} else {
 			//fmt.Fprintf(w, "\tLexiconTypeID string `json:\"$type,omitempty\" cborgen:\"$type,omitempty\"`\n")
 		}
@@ -1183,7 +1187,15 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 				}
 			}
 
-			fmt.Fprintf(w, "\t%s %s%s `json:\"%s%s\" cborgen:\"%s%s\"`\n", goname, ptr, tname, k, omit, k, omit)
+			jsonOmit, cborOmit := omit, omit
+
+			// TODO: hard-coded hacks for now, making this type (with underlying type []byte)
+			// be omitempty.
+			if ptr == "" && tname == "util.LexBytes" {
+				jsonOmit = ",omitempty"
+			}
+
+			fmt.Fprintf(w, "\t%s %s%s `json:\"%s%s\" cborgen:\"%s%s\"`\n", goname, ptr, tname, k, jsonOmit, k, cborOmit)
 			return nil
 		}); err != nil {
 			return err
