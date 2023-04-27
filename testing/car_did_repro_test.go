@@ -3,6 +3,7 @@ package testing
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -108,12 +109,12 @@ func reproduceRecord(t *testing.T, path string, c cid.Cid, rec cbg.CBORMarshaler
 	cidBuilder := cid.V1Builder{0x71, 0x12, 0}
 	recordCBOR := new(bytes.Buffer)
 	nsid := strings.SplitN(path, "/", 2)[0]
+
 	// TODO: refactor this to be short+generic
 	switch nsid {
 	case "app.bsky.feed.post":
 		var recordRepro appbsky.FeedPost
 		recordOrig, suc := rec.(*appbsky.FeedPost)
-
 		assert.Equal(true, suc)
 		recordJSON, err := json.Marshal(recordOrig)
 		assert.NoError(err)
@@ -122,6 +123,13 @@ func reproduceRecord(t *testing.T, path string, c cid.Cid, rec cbg.CBORMarshaler
 		assert.NoError(recordRepro.MarshalCBOR(recordCBOR))
 		reproCID, err := cidBuilder.Sum(recordCBOR.Bytes())
 		assert.NoError(err)
+		if c.String() != reproCID.String() {
+			fmt.Println(string(recordJSON))
+			fmt.Println(hex.EncodeToString(recordCBOR.Bytes()))
+			recordBytes := new(bytes.Buffer)
+			assert.NoError(rec.MarshalCBOR(recordBytes))
+			fmt.Println(hex.EncodeToString(recordBytes.Bytes()))
+		}
 		assert.Equal(c.String(), reproCID.String())
 	case "app.bsky.actor.profile":
 		var recordRepro appbsky.ActorProfile
@@ -187,6 +195,13 @@ func TestReproduceRepo(t *testing.T) {
 	//  http get https://plc.directory/did:plc:wqgdnqlv2mwiio6pfchwtrff > greenground.didDoc.json
 	//  http get https://bsky.social/xrpc/com.atproto.sync.getRepo did==did:plc:wqgdnqlv2mwiio6pfchwtrff > greenground.repo.car
 
-	//deepReproduceRepo(t, "test_files/bafyreieovfuizojpw3zresz7sx3nk4trm2by23pt5rxbey3jme4uo5ogiu.car", "test_files/did_plc_z5vnbioquyhivxirw3bbljmu.didDoc.json")
+	// to fetch from local dev:
+	//  http get localhost:2582/did:plc:dpg45vsnuir2vqqqadsn6afg > fakermaker.didDoc.json
+	//  http get localhost:2583/xrpc/com.atproto.sync.getRepo did==did:plc:dpg45vsnuir2vqqqadsn6afg > fakermaker.repo.car
+
 	deepReproduceRepo(t, "test_files/greenground.repo.car", "test_files/greenground.didDoc.json")
+	deepReproduceRepo(t, "test_files/fakermaker.repo.car", "test_files/fakermaker.didDoc.json")
+
+	// XXX: currently failing
+	//deepReproduceRepo(t, "test_files/paul_staging.repo.car", "test_files/paul_staging.didDoc.json")
 }
