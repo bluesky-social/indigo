@@ -74,7 +74,12 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	}
 
 	ix.CreateExternalUser = bgs.createExternalUser
-	bgs.slurper = NewSlurper(db, bgs.handleFedEvent, ssl)
+	s, err := NewSlurper(db, bgs.handleFedEvent, ssl)
+	if err != nil {
+		return nil, err
+	}
+
+	bgs.slurper = s
 
 	if err := bgs.slurper.RestartAll(); err != nil {
 		return nil, err
