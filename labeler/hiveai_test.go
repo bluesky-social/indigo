@@ -9,7 +9,7 @@ import (
 )
 
 func TestHiveParse(t *testing.T) {
-	file, err := os.Open("test_files/hiveai_resp_example.json")
+	file, err := os.Open("testdata/hiveai_resp_example.json")
 	if err != nil {
 		t.Fatal(err)
 	}

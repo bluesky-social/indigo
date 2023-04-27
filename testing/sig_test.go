@@ -22,7 +22,7 @@ import (
 func TestVerification(t *testing.T) {
 	assert := assert.New(t)
 
-	fi, err := os.Open("test_files/divy.repo")
+	fi, err := os.Open("testdata/divy.repo")
 	if err != nil {
 		t.Fatal(err)
 	}
