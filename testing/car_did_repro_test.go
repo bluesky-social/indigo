@@ -199,9 +199,9 @@ func TestReproduceRepo(t *testing.T) {
 	//  http get localhost:2582/did:plc:dpg45vsnuir2vqqqadsn6afg > fakermaker.didDoc.json
 	//  http get localhost:2583/xrpc/com.atproto.sync.getRepo did==did:plc:dpg45vsnuir2vqqqadsn6afg > fakermaker.repo.car
 
-	deepReproduceRepo(t, "test_files/greenground.repo.car", "test_files/greenground.didDoc.json")
-	deepReproduceRepo(t, "test_files/fakermaker.repo.car", "test_files/fakermaker.didDoc.json")
+	deepReproduceRepo(t, "testdata/greenground.repo.car", "testdata/greenground.didDoc.json")
+	deepReproduceRepo(t, "testdata/fakermaker.repo.car", "testdata/fakermaker.didDoc.json")
 
 	// XXX: currently failing
-	//deepReproduceRepo(t, "test_files/paul_staging.repo.car", "test_files/paul_staging.didDoc.json")
+	//deepReproduceRepo(t, "testdata/paul_staging.repo.car", "testdata/paul_staging.didDoc.json")
 }
