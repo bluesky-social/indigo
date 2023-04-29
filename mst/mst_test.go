@@ -502,3 +502,12 @@ func diffOpEq(aa, bb *DiffOp) bool {
 	}
 	return true
 }
+
+func BenchmarkIsValidMstKey(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if !isValidMstKey("foo/foo.bar123") {
+			b.Fatal()
+		}
+	}
+}
