@@ -52,13 +52,8 @@ func TestMakeParams(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := makeParams(tc.input)
 			if result != tc.expected {
-				t.Errorf("Expected '%s', got '%s'", tc.expected, result)
+				t.Errorf("got '%q', want '%q'", result, tc.expected)
 			}
 		})
 	}
-}
-
-func TestXRPC(t *testing.T) {
-	// Run the tests
-	TestMakeParams(t)
 }
