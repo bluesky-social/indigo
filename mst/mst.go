@@ -1,4 +1,5 @@
-// Merkle Search Tree (MST) implementation for atproto.
+// Package mst contains a Merkle Search Tree (MST) implementation for atproto.
+//
 // This implementation is a port of the Typescript implementation in the
 // `atproto` git repo.
 //
@@ -39,7 +40,6 @@
 // If the first leaf in a tree is `bsky/posts/abcdefg` and the second is `bsky/posts/abcdehi`
 // Then the first will be described as `prefix: 0, key: 'bsky/posts/abcdefg'`,
 // and the second will be described as `prefix: 16, key: 'hi'.`
-
 package mst
 
 import (
@@ -50,18 +50,23 @@ import (
 	cbor "github.com/ipfs/go-ipld-cbor"
 )
 
+// NodeKind is the type of node in the MST.
+type NodeKind uint8
+
 const (
-	EntryUndefined = 0
-	EntryLeaf      = 1
-	EntryTree      = 2
+	EntryUndefined NodeKind = 0
+	EntryLeaf      NodeKind = 1
+	EntryTree      NodeKind = 2
 )
 
+// NodeEntry is a node in the MST.
+//
 // Following the Typescript implementation, this is basically a flexible
 // "TreeEntry" (aka "leaf") which might also be the "Left" pointer on a
-// NodeData (aka "tree"). This type flexibility is not idiomatic in golang, but
+// NodeData (aka "tree"). This type flexibility is not idiomatic in Go, but
 // we are keeping this a very direct port.
 type NodeEntry struct {
-	Kind int
+	Kind NodeKind
 	Key  string
 	Val  cid.Cid
 	Tree *MerkleSearchTree
