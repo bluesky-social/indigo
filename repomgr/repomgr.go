@@ -23,6 +23,7 @@ import (
 	ipld "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-car"
+	"github.com/urfave/cli/v2"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
@@ -379,11 +380,11 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user util.Uid, handle, 
 	defer unlock()
 
 	if did == "" {
-		return fmt.Errorf("must specify did for new actor")
+		return cli.Exit("must specify did for new actor", 127)
 	}
 
 	if user == 0 {
-		return fmt.Errorf("must specify unique non-zero id for new actor")
+		return cli.Exit("must specify unique non-zero id for new actor", 127)
 	}
 
 	ds, err := rm.cs.NewDeltaSession(ctx, user, nil)

@@ -41,6 +41,7 @@ var inspectEventCmd = &cli.Command{
 			Name: "dump-raw-blocks",
 		},
 	},
+	ArgsUsage: `<cursor>`,
 	Action: func(cctx *cli.Context) error {
 		n, err := strconv.Atoi(cctx.Args().First())
 		if err != nil {
@@ -163,6 +164,7 @@ var debugStreamCmd = &cli.Command{
 			Name: "dump-raw-blocks",
 		},
 	},
+	ArgsUsage: `<cursor>`,
 	Action: func(cctx *cli.Context) error {
 		n, err := strconv.Atoi(cctx.Args().First())
 		if err != nil {
