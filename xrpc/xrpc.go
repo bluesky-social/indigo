@@ -47,7 +47,11 @@ const (
 func makeParams(p map[string]interface{}) string {
 	var parts []string
 	for k, v := range p {
-		parts = append(parts, fmt.Sprintf("%s=%s", k, url.QueryEscape(fmt.Sprint(v))))
+		if s, ok := v.([]string); ok {
+			parts = append(parts, fmt.Sprintf("%s=%s", k, url.QueryEscape(strings.Join(s, ","))))
+		} else {
+			parts = append(parts, fmt.Sprintf("%s=%s", k, url.QueryEscape(fmt.Sprint(v))))
+		}
 	}
 
 	return strings.Join(parts, "&")
