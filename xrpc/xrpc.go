@@ -45,16 +45,16 @@ const (
 )
 
 func makeParams(p map[string]interface{}) string {
-	var parts []string
+	params := url.Values{}
 	for k, v := range p {
 		if s, ok := v.([]string); ok {
-			parts = append(parts, fmt.Sprintf("%s=%s", k, url.QueryEscape(strings.Join(s, ","))))
+			params.Add(k, strings.Join(s, ","))
 		} else {
-			parts = append(parts, fmt.Sprintf("%s=%s", k, url.QueryEscape(fmt.Sprint(v))))
+			params.Add(k, fmt.Sprint(v))
 		}
 	}
 
-	return strings.Join(parts, "&")
+	return params.Encode()
 }
 
 func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, method string, params map[string]interface{}, bodyobj interface{}, out interface{}) error {
