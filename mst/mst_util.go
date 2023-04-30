@@ -193,13 +193,14 @@ var reMstKeyChars = regexp.MustCompile("^[a-zA-Z0-9_:.-]+$")
 
 // Typescript: isValidMstKey(str)
 func isValidMstKey(s string) bool {
-	split := strings.Split(s, "/")
-	return (len(s) <= 256 &&
-		len(split) == 2 &&
-		len(split[0]) > 0 &&
-		len(split[1]) > 1 &&
-		reMstKeyChars.MatchString(split[0]) &&
-		reMstKeyChars.MatchString(split[1]))
+	if len(s) > 256 || strings.Count(s, "/") != 1 {
+		return false
+	}
+	a, b, _ := strings.Cut(s, "/")
+	return len(a) > 0 &&
+		len(b) > 1 &&
+		reMstKeyChars.MatchString(a) &&
+		reMstKeyChars.MatchString(b)
 }
 
 // Typescript: ensureValidMstKey(str)
