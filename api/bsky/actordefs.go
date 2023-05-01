@@ -48,6 +48,8 @@ type ActorDefs_ProfileViewDetailed struct {
 
 // ActorDefs_ViewerState is a "viewerState" in the app.bsky.actor.defs schema.
 type ActorDefs_ViewerState struct {
+	BlockedBy  *bool   `json:"blockedBy,omitempty" cborgen:"blockedBy,omitempty"`
+	Blocking   *string `json:"blocking,omitempty" cborgen:"blocking,omitempty"`
 	FollowedBy *string `json:"followedBy,omitempty" cborgen:"followedBy,omitempty"`
 	Following  *string `json:"following,omitempty" cborgen:"following,omitempty"`
 	Muted      *bool   `json:"muted,omitempty" cborgen:"muted,omitempty"`

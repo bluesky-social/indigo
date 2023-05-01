@@ -35,6 +35,7 @@ func main() {
 		bsky.RichtextFacet_Link{}, bsky.RichtextFacet_Mention{},
 		bsky.EmbedRecordWithMedia{},
 		bsky.FeedDefs_NotFoundPost{},
+		bsky.GraphBlock{},
 		/*bsky.EmbedImages_View{},
 		bsky.EmbedRecord_View{}, bsky.EmbedRecordWithMedia_View{},
 		bsky.EmbedExternal_View{}, bsky.EmbedImages_ViewImage{},
