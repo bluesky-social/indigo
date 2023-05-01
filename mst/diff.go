@@ -128,11 +128,11 @@ func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) 
 			})
 
 		} else if e.isTree() {
-			if err := e.Tree.WalkLeavesFrom(ctx, "", func(n NodeEntry) error {
+			if err := e.Tree.WalkLeavesFrom(ctx, "", func(key string, val cid.Cid) error {
 				out = append(out, &DiffOp{
 					Op:     "del",
-					Rpath:  n.Key,
-					OldCid: n.Val,
+					Rpath:  key,
+					OldCid: val,
 				})
 				return nil
 			}); err != nil {
@@ -153,11 +153,11 @@ func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) 
 			})
 
 		} else if e.isTree() {
-			if err := e.Tree.WalkLeavesFrom(ctx, "", func(n NodeEntry) error {
+			if err := e.Tree.WalkLeavesFrom(ctx, "", func(key string, val cid.Cid) error {
 				out = append(out, &DiffOp{
 					Op:     "add",
-					Rpath:  n.Key,
-					NewCid: n.Val,
+					Rpath:  key,
+					NewCid: val,
 				})
 				return nil
 			}); err != nil {
@@ -169,7 +169,7 @@ func DiffTrees(ctx context.Context, bs blockstore.Blockstore, from, to cid.Cid) 
 	return out, nil
 }
 
-func nodeEntriesEqual(a, b *NodeEntry) bool {
+func nodeEntriesEqual(a, b *nodeEntry) bool {
 	if !(a.Key == b.Key && a.Val == b.Val) {
 		return false
 	}
@@ -190,11 +190,11 @@ func identityDiff(ctx context.Context, bs blockstore.Blockstore, root cid.Cid) (
 	tt := LoadMST(cst, root)
 
 	var ops []*DiffOp
-	if err := tt.WalkLeavesFrom(ctx, "", func(ne NodeEntry) error {
+	if err := tt.WalkLeavesFrom(ctx, "", func(key string, val cid.Cid) error {
 		ops = append(ops, &DiffOp{
 			Op:     "add",
-			Rpath:  ne.Key,
-			NewCid: ne.Val,
+			Rpath:  key,
+			NewCid: val,
 		})
 		return nil
 	}); err != nil {

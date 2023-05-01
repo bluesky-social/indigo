@@ -166,10 +166,10 @@ func TestManualNode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	simple_nd := NodeData{
+	simple_nd := nodeData{
 		Left: nil,
-		Entries: []TreeEntry{
-			TreeEntry{
+		Entries: []treeEntry{
+			{
 				PrefixLen: 0,
 				KeySuffix: []byte("com.example.record/3jqfcqzm3fo2j"),
 				Val:       cid1,

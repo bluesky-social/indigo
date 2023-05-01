@@ -108,7 +108,7 @@ func ReadRepoFromCar(ctx context.Context, r io.Reader) (*Repo, error) {
 func NewRepo(ctx context.Context, did string, bs blockstore.Blockstore) *Repo {
 	cst := util.CborStore(bs)
 
-	t := mst.NewMST(cst, cid.Undef, []mst.NodeEntry{}, 0)
+	t := mst.NewEmptyMST(cst)
 	sc := SignedCommit{
 		Did:     did,
 		Version: 2,
@@ -310,9 +310,7 @@ func (r *Repo) ForEach(ctx context.Context, prefix string, cb func(k string, v c
 
 	t := mst.LoadMST(r.cst, r.sc.Data)
 
-	if err := t.WalkLeavesFrom(ctx, prefix, func(e mst.NodeEntry) error {
-		return cb(e.Key, e.Val)
-	}); err != nil {
+	if err := t.WalkLeavesFrom(ctx, prefix, cb); err != nil {
 		if err != ErrDoneIterating {
 			return err
 		}
