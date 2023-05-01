@@ -18,7 +18,7 @@ var _ = cid.Undef
 var _ = math.E
 var _ = sort.Sort
 
-func (t *NodeData) MarshalCBOR(w io.Writer) error {
+func (t *nodeData) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -30,7 +30,7 @@ func (t *NodeData) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Entries ([]mst.TreeEntry) (slice)
+	// t.Entries ([]mst.treeEntry) (slice)
 	if len("e") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"e\" was too long")
 	}
@@ -80,8 +80,8 @@ func (t *NodeData) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *NodeData) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = NodeData{}
+func (t *nodeData) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = nodeData{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -100,7 +100,7 @@ func (t *NodeData) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("NodeData: map struct too large (%d)", extra)
+		return fmt.Errorf("nodeData: map struct too large (%d)", extra)
 	}
 
 	var name string
@@ -118,7 +118,7 @@ func (t *NodeData) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Entries ([]mst.TreeEntry) (slice)
+		// t.Entries ([]mst.treeEntry) (slice)
 		case "e":
 
 			maj, extra, err = cr.ReadHeader()
@@ -135,12 +135,12 @@ func (t *NodeData) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			if extra > 0 {
-				t.Entries = make([]TreeEntry, extra)
+				t.Entries = make([]treeEntry, extra)
 			}
 
 			for i := 0; i < int(extra); i++ {
 
-				var v TreeEntry
+				var v treeEntry
 				if err := v.UnmarshalCBOR(cr); err != nil {
 					return err
 				}
@@ -180,7 +180,7 @@ func (t *NodeData) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
+func (t *treeEntry) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -279,8 +279,8 @@ func (t *TreeEntry) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *TreeEntry) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = TreeEntry{}
+func (t *treeEntry) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = treeEntry{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -299,7 +299,7 @@ func (t *TreeEntry) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("TreeEntry: map struct too large (%d)", extra)
+		return fmt.Errorf("treeEntry: map struct too large (%d)", extra)
 	}
 
 	var name string
