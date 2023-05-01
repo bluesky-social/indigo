@@ -20,6 +20,7 @@ var adminCmd = &cli.Command{
 	Subcommands: []*cli.Command{
 		buildInviteTreeCmd,
 		checkUserCmd,
+		reportsCmd,
 	},
 }
 
@@ -96,9 +97,13 @@ var checkUserCmd = &cli.Command{
 			var lk sync.Mutex
 			var wg sync.WaitGroup
 			var used int
+			var revoked int
 			for _, inv := range rep.Invites {
 				used += len(inv.Uses)
 
+				if inv.Disabled {
+					revoked++
+				}
 				for _, u := range inv.Uses {
 					wg.Add(1)
 					go func(did string) {
@@ -118,7 +123,7 @@ var checkUserCmd = &cli.Command{
 
 			wg.Wait()
 
-			fmt.Printf("Invites, used %d of %d\n", used, len(rep.Invites))
+			fmt.Printf("Invites, used %d of %d (%d disabled)\n", used, len(rep.Invites), revoked)
 			for _, inv := range invited {
 
 				var invited, total int
@@ -297,6 +302,7 @@ var buildInviteTreeCmd = &cli.Command{
 
 			return json.NewEncoder(outfi).Encode(users)
 		*/
+
 		return nil
 	},
 }
@@ -316,4 +322,73 @@ type basicInvInfo struct {
 	Did          string
 	Invited      []string
 	TotalInvites int
+}
+
+var reportsCmd = &cli.Command{
+	Name: "reports",
+	Subcommands: []*cli.Command{
+		listReportsCmd,
+	},
+}
+
+var listReportsCmd = &cli.Command{
+	Name: "list",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "admin-password",
+			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:    "plc",
+			Usage:   "method, hostname, and port of PLC registry",
+			Value:   "https://plc.directory",
+			EnvVars: []string{"ATP_PLC_HOST"},
+		},
+		&cli.BoolFlag{
+			Name: "raw",
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.Background()
+
+		adminKey := cctx.String("admin-password")
+		xrpcc.AdminToken = &adminKey
+
+		resp, err := comatproto.AdminGetModerationReports(ctx, xrpcc, "", 100, true, "")
+		if err != nil {
+			return err
+		}
+
+		tojson := func(i any) string {
+			b, err := json.MarshalIndent(i, "", "  ")
+			if err != nil {
+				panic(err)
+			}
+
+			return string(b)
+		}
+
+		for _, rep := range resp.Reports {
+			b, err := json.MarshalIndent(rep, "", "  ")
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(b))
+			for _, act := range rep.ResolvedByActionIds {
+				action, err := comatproto.AdminGetModerationAction(ctx, xrpcc, act)
+				if err != nil {
+					return err
+				}
+
+				fmt.Println(tojson(action))
+			}
+		}
+		return nil
+	},
 }
