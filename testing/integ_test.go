@@ -1,13 +1,19 @@
 package testing
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
+	"strings"
 	"testing"
 	"time"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
+	bsky "github.com/bluesky-social/indigo/api/bsky"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/ipfs/go-log/v2"
 	"github.com/stretchr/testify/assert"
 )
@@ -259,4 +265,86 @@ func TestHandleChange(t *testing.T) {
 	fmt.Println(initevt.RepoCommit)
 	hcevt := evts.Next()
 	fmt.Println(hcevt.RepoHandle)
+}
+
+// test creating a record, deleting it, and then recreating the exact same record again
+func TestRecordRecreate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping BGS test in 'short' test mode")
+	}
+	assert := assert.New(t)
+	didr := testPLC(t)
+	p1 := mustSetupPDS(t, "localhost:5132", ".tpds", didr)
+	p1.Run(t)
+
+	b1 := mustSetupBGS(t, "localhost:8291", didr)
+	b1.Run(t)
+
+	p1.RequestScraping(t, b1)
+
+	time.Sleep(time.Millisecond * 50)
+
+	evts := b1.Events(t, -1)
+	defer evts.cancel()
+
+	bob := p1.MustNewUser(t, "bob.tpds")
+	ctx := context.TODO()
+
+	rec := &atproto.RepoCreateRecord_Input{
+		Collection: "app.bsky.feed.post",
+		Repo:       bob.did,
+		Record: &lexutil.LexiconTypeDecoder{&bsky.FeedPost{
+			CreatedAt: time.Now().Format(time.RFC3339),
+			Text:      "i am a cool poster",
+		}},
+	}
+
+	resp, err := atproto.RepoCreateRecord(ctx, bob.client, rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	parts := strings.Split(resp.Uri, "/")
+	rkey := parts[len(parts)-1]
+
+	if err := atproto.RepoDeleteRecord(ctx, bob.client, &atproto.RepoDeleteRecord_Input{
+		Collection: "app.bsky.feed.post",
+		Repo:       bob.did,
+		Rkey:       rkey,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// now create the same exact record.
+	resp2, err := atproto.RepoCreateRecord(ctx, bob.client, rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(resp.Cid, resp2.Cid)
+
+	time.Sleep(time.Millisecond * 50)
+
+	evs := evts.All()
+
+	fmt.Println("EVENTS: ", evs)
+	for i, e := range evs {
+		com := e.RepoCommit
+		r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(com.Blocks))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for j, op := range com.Ops {
+			fmt.Println(i, j, op.Action)
+			if op.Action == string(repomgr.EvtKindCreateRecord) {
+				rcid, _, err := r.GetRecord(ctx, op.Path)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				assert.Equal(rcid.String(), op.Cid.String())
+			}
+		}
+	}
 }

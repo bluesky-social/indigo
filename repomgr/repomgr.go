@@ -1001,14 +1001,39 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user util.Uid, r io.R
 	prev := until
 	for i := len(commits) - 1; i >= 0; i-- {
 		root := commits[i]
-		// TODO: if there are blocks that get convergently recreated throughout
-		// the repos lifecycle, this will end up erroneously not including
-		// them. We should compute the set of blocks needed to read any repo
-		// ops that happened in the commit and use that for our 'output' blocks
-		cids, err := walkTree(ctx, seen, root, membs, true)
+
+		// TODO: need to refactor this a bit to take advantage of the diff we are calculating here
+		// and use it in the callback. we are currently calling diff twice per commit.
+		cidset := make(map[cid.Cid]struct{})
+		_, err := mst.DiffTreesVisitor(ctx, cbs, prev, root, func(c cid.Cid) {
+			cidset[c] = struct{}{}
+		})
 		if err != nil {
-			return fmt.Errorf("walkTree: %w", err)
+			return fmt.Errorf("computing mst diff: %w", err)
 		}
+
+		oldcids, err := walkTree(ctx, seen, root, membs, true)
+		if err != nil {
+			return fmt.Errorf("debug walk tree failed: %w", err)
+		}
+
+		// TEMP DIFFING
+		for _, oc := range oldcids {
+			if _, ok := cidset[oc]; !ok {
+				fmt.Println("MISSING CID FROM DIFF: ", oc)
+				blk, err := cbs.Get(ctx, oc)
+				if err != nil {
+					panic(err)
+				}
+				fmt.Printf("MISSING BLOCK DATA: %x\n", blk.RawData())
+			}
+		}
+		if len(cidset) > len(oldcids) {
+			fmt.Println("extra cids in diff trees output")
+		}
+		//
+
+		cids := cidMapToList(cidset)
 
 		var prevptr *cid.Cid
 		if prev.Defined() {
@@ -1020,7 +1045,7 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user util.Uid, r io.R
 		}
 
 		for _, c := range cids {
-			blk, err := membs.Get(ctx, c)
+			blk, err := cbs.Get(ctx, c)
 			if err != nil {
 				return fmt.Errorf("copying walked cids to carstore: %w", err)
 			}
@@ -1042,6 +1067,14 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user util.Uid, r io.R
 	}
 
 	return nil
+}
+
+func cidMapToList(m map[cid.Cid]struct{}) []cid.Cid {
+	out := make([]cid.Cid, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
 }
 
 // walkTree returns all cids linked recursively by the root, skipping any cids
