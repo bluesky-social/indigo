@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -1030,7 +1029,7 @@ var createInviteCmd = &cli.Command{
 			Value: 1,
 		},
 		&cli.StringFlag{
-			Name: "bulk-dids",
+			Name: "bulk",
 		},
 	},
 	Action: func(cctx *cli.Context) error {
@@ -1044,41 +1043,33 @@ var createInviteCmd = &cli.Command{
 		count := cctx.Int("useCount")
 		num := cctx.Int("num")
 
-		if bulkfi := cctx.String("bulk-dids"); bulkfi != "" {
+		if bulkfi := cctx.String("bulk"); bulkfi != "" {
 			xrpcc.AdminToken = &adminKey
 			dids, err := readDids(bulkfi)
 			if err != nil {
 				return err
 			}
 
-			feeder := make(chan string)
-			var wg sync.WaitGroup
-			for i := 0; i < 20; i++ {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					for d := range feeder {
-						did := d
-						resp, err := comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
-							UseCount:    int64(count),
-							ForAccounts: []string{did},
-							CodeCount:   int64(num),
-						})
-						if err != nil {
-							log.Error(err)
-						}
-						_ = resp
+			for i, d := range dids {
+				if !strings.HasPrefix(d, "did:plc:") {
+					out, err := comatproto.IdentityResolveHandle(context.TODO(), xrpcc, d)
+					if err != nil {
+						return fmt.Errorf("failed to resolve %q: %w", d, err)
 					}
-				}()
+
+					dids[i] = out.Did
+				}
 			}
 
-			for _, d := range dids {
-				feeder <- d
+			_, err = comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
+				UseCount:    int64(count),
+				ForAccounts: dids,
+				CodeCount:   int64(num),
+			})
+			if err != nil {
+				return err
 			}
 
-			close(feeder)
-
-			wg.Wait()
 			return nil
 		}
 
