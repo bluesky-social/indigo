@@ -722,7 +722,7 @@ var followsAddCmd = &cli.Command{
 var followsListCmd = &cli.Command{
 	Name: "list",
 	Action: func(cctx *cli.Context) error {
-		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
 			return err
 		}
@@ -1114,7 +1114,7 @@ func readDids(f string) ([]string, error) {
 	scan := bufio.NewScanner(fi)
 	var out []string
 	for scan.Scan() {
-		out = append(out, scan.Text())
+		out = append(out, strings.Split(scan.Text(), " ")[0])
 	}
 
 	return out, nil
