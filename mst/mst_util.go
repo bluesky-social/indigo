@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unsafe"
 
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
@@ -18,19 +19,29 @@ import (
 // chunks of 2-bits. Eg, a leading 0x00 byte is 4 "zeros".
 // Typescript: leadingZerosOnHash(key, fanout) -> number
 func leadingZerosOnHash(key string) int {
-	k := []byte(key)
-	hv := sha256.Sum256(k)
+	var b []byte
+	if len(key) > 0 {
+		b = unsafe.Slice(unsafe.StringData(key), len(key))
+	}
+	return leadingZerosOnHashBytes(b)
+}
 
-	total := 0
-	for i := 0; i < len(hv); i++ {
-		if hv[i] == 0x00 {
+func leadingZerosOnHashBytes(key []byte) (total int) {
+	hv := sha256.Sum256(key)
+	for _, b := range hv {
+		if b&0xC0 != 0 {
+			// Common case. No leading pair of zero bits.
+			break
+		}
+		if b == 0x00 {
 			total += 4
 			continue
-		} else if hv[i]&0xFC == 0x00 {
+		}
+		if b&0xFC == 0x00 {
 			total += 3
-		} else if hv[i]&0xF0 == 0x00 {
+		} else if b&0xF0 == 0x00 {
 			total += 2
-		} else if hv[i]&0xC0 == 0x00 {
+		} else {
 			total += 1
 		}
 		break
