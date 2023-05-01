@@ -511,3 +511,27 @@ func BenchmarkIsValidMstKey(b *testing.B) {
 		}
 	}
 }
+
+func TestLeadingZerosOnHashAllocs(t *testing.T) {
+	var sink int
+	const in = "some.key.prefix/key.bar123456789012334556"
+	var inb = []byte(in)
+	if n := int(testing.AllocsPerRun(1000, func() {
+		sink = leadingZerosOnHash(in)
+	})); n != 0 {
+		t.Errorf("allocs (string) = %d; want 0", n)
+	}
+	if n := int(testing.AllocsPerRun(1000, func() {
+		sink = leadingZerosOnHashBytes(inb)
+	})); n != 0 {
+		t.Errorf("allocs (bytes) = %d; want 0", n)
+	}
+	_ = sink
+}
+
+func BenchmarkLeadingZerosOnHash(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		_ = leadingZerosOnHash("some.key.prefix/key.bar123456789012334556")
+	}
+}
