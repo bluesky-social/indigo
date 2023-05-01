@@ -198,7 +198,7 @@ func entriesFromNodeData(ctx context.Context, nd *NodeData, cst cbor.IpldStore) 
 	if len(nd.Entries) > 0 {
 		// NOTE(bnewbold): can compute the layer on the first KeySuffix, because for the first entry that field is a complete key
 		firstLeaf := nd.Entries[0]
-		layer = leadingZerosOnHash(string(firstLeaf.KeySuffix))
+		layer = leadingZerosOnHashBytes(firstLeaf.KeySuffix)
 	}
 
 	entries, err := deserializeNodeData(ctx, cst, nd, layer)
