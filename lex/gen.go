@@ -219,8 +219,6 @@ func ReadSchema(f string) (*Schema, error) {
 		return nil, err
 	}
 
-	json.NewEncoder(os.Stdout).Encode(&s)
-
 	return &s, nil
 }
 
