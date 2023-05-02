@@ -484,9 +484,12 @@ func (ds *DeltaSession) GetSize(ctx context.Context, c cid.Cid) (int, error) {
 	return ds.base.GetSize(ctx, c)
 }
 
+func fnameForShard(user util.Uid, seq int) string {
+	return fmt.Sprintf("sh-%d-%d", user, seq)
+}
 func (cs *CarStore) openNewShardFile(ctx context.Context, user util.Uid, seq int) (*os.File, string, error) {
 	// TODO: some overwrite protections
-	fname := filepath.Join(cs.rootDir, fmt.Sprintf("sh-%d-%d", user, seq))
+	fname := filepath.Join(cs.rootDir, fnameForShard(user, seq))
 	fi, err := os.Create(fname)
 	if err != nil {
 		return nil, "", err
@@ -497,12 +500,16 @@ func (cs *CarStore) openNewShardFile(ctx context.Context, user util.Uid, seq int
 
 func (cs *CarStore) writeNewShardFile(ctx context.Context, user util.Uid, seq int, data []byte) (string, error) {
 	// TODO: some overwrite protections
-	fname := filepath.Join(cs.rootDir, fmt.Sprintf("sh-%d-%d", user, seq))
+	fname := filepath.Join(cs.rootDir, fnameForShard(user, seq))
 	if err := os.WriteFile(fname, data, 0664); err != nil {
 		return "", err
 	}
 
 	return fname, nil
+}
+
+func (cs *CarStore) deleteShardFile(ctx context.Context, sh *CarShard) error {
+	return os.Remove(fnameForShard(sh.Usr, sh.Seq))
 }
 
 // CloseWithRoot writes all new blocks in a car file to the writer with the
@@ -711,4 +718,25 @@ func (cs *CarStore) checkFork(ctx context.Context, user util.Uid, prev cid.Cid) 
 	}
 
 	return true, nil
+}
+
+func (cs *CarStore) TakedownRepo(ctx context.Context, user util.Uid) error {
+	var shards []CarShard
+	if err := cs.meta.Find(&shards, "usr = ?", user).Error; err != nil {
+		return err
+	}
+
+	for _, sh := range shards {
+		if err := cs.deleteShardFile(ctx, &sh); err != nil {
+			if !os.IsNotExist(err) {
+				return err
+			}
+		}
+	}
+
+	if err := cs.meta.Delete(&CarShard{}, "usr = ?", user).Error; err != nil {
+		return err
+	}
+
+	return nil
 }

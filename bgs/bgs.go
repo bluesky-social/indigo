@@ -198,7 +198,7 @@ func (bgs *BGS) Start(listen string) error {
 	e.GET("/xrpc/_health", bgs.HandleHealthCheck)
 
 	admin := e.Group("/admin", bgs.checkAdminAuth)
-	admin.POST("/deleteRecord", bgs.handleAdminDeleteRecord)
+	admin.POST("/subs/setEnabled", bgs.handleAdminSetSubsEnabled)
 
 	return e.Start(listen)
 }
@@ -281,6 +281,7 @@ type User struct {
 	Handle    string         `gorm:"uniqueIndex"`
 	Did       string         `gorm:"uniqueIndex"`
 	PDS       uint
+	Takedown  bool
 }
 
 type addTargetBody struct {
@@ -660,4 +661,25 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	}
 
 	return subj, nil
+}
+
+func (bgs *BGS) TakedownRepo(ctx context.Context, did string) error {
+	u, err := bgs.lookupUserByDid(ctx, did)
+	if err != nil {
+		return err
+	}
+
+	if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("takedown", true).Error; err != nil {
+		return err
+	}
+
+	if err := bgs.repoman.TakedownRepo(ctx, u.ID); err != nil {
+		return err
+	}
+
+	if err := bgs.events.TakedownRepo(ctx, u.ID); err != nil {
+		return err
+	}
+
+	return nil
 }
