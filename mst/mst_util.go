@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"regexp"
 	"strings"
 	"unsafe"
 
@@ -78,19 +77,23 @@ func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *nodeData, 
 	}
 
 	var lastKey string
+	var keyb []byte // re-used between entries
 	for _, e := range nd.Entries {
-		key := make([]byte, int(e.PrefixLen)+len(e.KeySuffix))
-		copy(key, lastKey[:e.PrefixLen])
-		copy(key[e.PrefixLen:], e.KeySuffix)
+		if keyb == nil {
+			keyb = make([]byte, 0, int(e.PrefixLen)+len(e.KeySuffix))
+		}
+		keyb = append(keyb[:0], lastKey[:e.PrefixLen]...)
+		keyb = append(keyb, e.KeySuffix...)
 
-		err := ensureValidMstKey(string(key))
+		keyStr := string(keyb)
+		err := ensureValidMstKey(keyStr)
 		if err != nil {
 			return nil, err
 		}
 
 		entries = append(entries, nodeEntry{
 			Kind: entryLeaf,
-			Key:  string(key),
+			Key:  keyStr,
 			Val:  e.Val,
 		})
 
@@ -98,10 +101,10 @@ func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *nodeData, 
 			entries = append(entries, nodeEntry{
 				Kind: entryTree,
 				Tree: createMST(cst, *e.Tree, nil, layer-1),
-				Key:  string(key),
+				Key:  keyStr,
 			})
 		}
-		lastKey = string(key)
+		lastKey = keyStr
 	}
 
 	return entries, nil
@@ -200,7 +203,29 @@ func cidForEntries(ctx context.Context, entries []nodeEntry, cst cbor.IpldStore)
 	return cst.Put(ctx, nd)
 }
 
-var reMstKeyChars = regexp.MustCompile("^[a-zA-Z0-9_:.-]+$")
+// keyHasAllValidChars reports whether s matches
+// the regexp /^[a-zA-Z0-9_:.-]+$/ without using regexp,
+// which is slower.
+func keyHasAllValidChars(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		b := s[i]
+		if 'a' <= b && b <= 'z' ||
+			'A' <= b && b <= 'Z' ||
+			'0' <= b && b <= '9' {
+			continue
+		}
+		switch b {
+		case '_', ':', '.', '-':
+			continue
+		default:
+			return false
+		}
+	}
+	return true
+}
 
 // Typescript: isValidMstKey(str)
 func isValidMstKey(s string) bool {
@@ -208,10 +233,9 @@ func isValidMstKey(s string) bool {
 		return false
 	}
 	a, b, _ := strings.Cut(s, "/")
-	return len(a) > 0 &&
-		len(b) > 1 &&
-		reMstKeyChars.MatchString(a) &&
-		reMstKeyChars.MatchString(b)
+	return len(b) > 1 &&
+		keyHasAllValidChars(a) &&
+		keyHasAllValidChars(b)
 }
 
 // Typescript: ensureValidMstKey(str)
