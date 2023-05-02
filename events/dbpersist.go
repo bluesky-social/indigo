@@ -255,3 +255,21 @@ func (p *DbPersistence) readCarSlice(ctx context.Context, rer *RepoEventRecord) 
 
 	return buf.Bytes(), nil
 }
+
+func (p *DbPersistence) TakedownRepo(ctx context.Context, usr util.Uid) error {
+	return p.db.Transaction(func(tx *gorm.DB) error {
+		var event RepoEventRecord
+		if err := p.db.Where("repo = ?", usr).Find(&event).Error; err != nil {
+			return fmt.Errorf("failed to find repo event record: %w", err)
+		}
+
+		if err := p.db.Where("repo_event_record_id = ?", event.Seq).Delete(&RepoOpRecord{}).Error; err != nil {
+			return fmt.Errorf("failed to delete repo op records: %w", err)
+		}
+
+		if err := p.db.Delete(&RepoEventRecord{}, "seq = ?", event.Seq).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+}

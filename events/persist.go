@@ -2,13 +2,17 @@ package events
 
 import (
 	"context"
+	"fmt"
 	"sync"
+
+	"github.com/bluesky-social/indigo/util"
 )
 
 // Note that this interface looks generic, but some persisters might only work with RepoAppend or LabelLabels
 type EventPersistence interface {
 	Persist(ctx context.Context, e *XRPCStreamEvent) error
 	Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error
+	TakedownRepo(ctx context.Context, usr util.Uid) error
 }
 
 // MemPersister is the most naive implementation of event persistence
@@ -64,4 +68,8 @@ func (mp *MemPersister) Playback(ctx context.Context, since int64, cb func(*XRPC
 	}
 
 	return nil
+}
+
+func (mp *MemPersister) TakedownRepo(ctx context.Context, uid util.Uid) error {
+	return fmt.Errorf("repo takedowns not currently supported by memory persister, test usage only")
 }
