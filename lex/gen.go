@@ -74,6 +74,7 @@ type TypeSchema struct {
 	Items      *TypeSchema            `json:"items"`
 	Const      any                    `json:"const"`
 	Enum       []string               `json:"enum"`
+	Format     string                 `json:"format"`
 	Closed     bool                   `json:"closed"`
 
 	Default any `json:"default"`
@@ -217,6 +218,8 @@ func ReadSchema(f string) (*Schema, error) {
 	if err := json.NewDecoder(fi).Decode(&s); err != nil {
 		return nil, err
 	}
+
+	json.NewEncoder(os.Stdout).Encode(&s)
 
 	return &s, nil
 }
@@ -1076,7 +1079,24 @@ func (s *TypeSchema) TypeName() string {
 func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, error) {
 	switch v.Type {
 	case "string":
-		return "string", nil
+		switch v.Format {
+		case "handle":
+			return "util.FormatHandle", nil
+		case "nsid":
+			return "util.FormatNSID", nil
+		case "at-identifier":
+			return "util.FormatAtIdentifier", nil
+		case "uri":
+			return "util.FormatURI", nil
+		case "at-uri":
+			return "util.FormatAtURI", nil
+		case "did":
+			return "util.FormatDID", nil
+		case "cid":
+			return "util.FormatCID", nil
+		default:
+			return "string", nil
+		}
 	case "float":
 		return "float64", nil
 	case "integer":
@@ -1088,8 +1108,7 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 	case "ref":
 		return "*" + s.typeNameFromRef(v.Ref), nil
 	case "datetime":
-		// TODO: maybe do a native type?
-		return "string", nil
+		return "util.FormatDateTime", nil
 	case "unknown":
 		return "*util.LexiconTypeDecoder", nil
 	case "union":
