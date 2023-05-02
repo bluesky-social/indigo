@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -15,7 +16,7 @@ import (
 //
 // commit: An optional past commit CID.
 // did: The DID of the repo.
-func SyncGetRecord(ctx context.Context, c *xrpc.Client, collection string, commit string, did string, rkey string) ([]byte, error) {
+func SyncGetRecord(ctx context.Context, c *xrpc.Client, collection util.FormatNSID, commit util.FormatCID, did util.FormatDID, rkey string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{

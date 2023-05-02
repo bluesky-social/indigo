@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 
 	bsky "github.com/bluesky-social/indigo/api/bsky"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
@@ -48,9 +49,11 @@ type ActorInfo struct {
 }
 
 func (ai *ActorInfo) ActorRef() *bsky.ActorDefs_ProfileViewBasic {
+	// Models from the database are expected to satisfy the valid DID / handle format, so we skip validation here.
+
 	return &bsky.ActorDefs_ProfileViewBasic{
-		Did:         ai.Did,
-		Handle:      ai.Handle,
+		Did:         lexutil.NewFormatDID(ai.Did),
+		Handle:      lexutil.NewFormatHandle(ai.Handle),
 		DisplayName: &ai.DisplayName,
 	}
 }
@@ -58,8 +61,8 @@ func (ai *ActorInfo) ActorRef() *bsky.ActorDefs_ProfileViewBasic {
 // TODO: this is just s stub; needs to populate more info
 func (ai *ActorInfo) ActorView() *bsky.ActorDefs_ProfileView {
 	return &bsky.ActorDefs_ProfileView{
-		Did:         ai.Did,
-		Handle:      ai.Handle,
+		Did:         lexutil.NewFormatDID(ai.Did),
+		Handle:      lexutil.NewFormatHandle(ai.Handle),
 		DisplayName: &ai.DisplayName,
 	}
 }

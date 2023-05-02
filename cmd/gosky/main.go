@@ -99,7 +99,7 @@ var newAccountCmd = &cli.Command{
 		}
 
 		email := cctx.Args().Get(0)
-		handle := cctx.Args().Get(1)
+		handle := lexutil.NewFormatHandle(cctx.Args().Get(1))
 		password := cctx.Args().Get(2)
 
 		var invite *string
@@ -167,8 +167,8 @@ var postCmd = &cli.Command{
 		text := strings.Join(cctx.Args().Slice(), " ")
 
 		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
-			Collection: "app.bsky.feed.post",
-			Repo:       auth.Did,
+			Collection: lexutil.NewFormatNSID("app.bsky.feed.post"),
+			Repo:       lexutil.NewFormatAtIdentifier(auth.Did),
 			Record: &lexutil.LexiconTypeDecoder{&appbsky.FeedPost{
 				Text:      text,
 				CreatedAt: time.Now().Format("2006-01-02T15:04:05.000Z"),
@@ -297,7 +297,7 @@ var syncGetRepoCmd = &cli.Command{
 
 		ctx := context.TODO()
 
-		repobytes, err := comatproto.SyncGetRepo(ctx, xrpcc, cctx.Args().First(), "", "")
+		repobytes, err := comatproto.SyncGetRepo(ctx, xrpcc, lexutil.NewFormatDID(cctx.Args().First()), lexutil.NewFormatCID(""), lexutil.NewFormatCID(""))
 		if err != nil {
 			return err
 		}
@@ -322,7 +322,7 @@ var syncGetRootCmd = &cli.Command{
 
 		ctx := context.TODO()
 
-		root, err := comatproto.SyncGetHead(ctx, xrpcc, cctx.Args().First())
+		root, err := comatproto.SyncGetHead(ctx, xrpcc, lexutil.NewFormatDID(cctx.Args().First()))
 		if err != nil {
 			return err
 		}
@@ -392,7 +392,7 @@ var feedGetCmd = &cli.Command{
 				author = xrpcc.Auth.Did
 			}
 
-			tl, err := appbsky.FeedGetAuthorFeed(ctx, xrpcc, author, "", 99)
+			tl, err := appbsky.FeedGetAuthorFeed(ctx, xrpcc, lexutil.NewFormatAtIdentifier(author), "", 99)
 			if err != nil {
 				return err
 			}
@@ -480,14 +480,14 @@ var feedSetVoteCmd = &cli.Command{
 
 		fmt.Println(did, collection, rkey)
 		ctx := context.TODO()
-		resp, err := comatproto.RepoGetRecord(ctx, xrpcc, "", collection, did, rkey)
+		resp, err := comatproto.RepoGetRecord(ctx, xrpcc, lexutil.NewFormatCID(""), lexutil.NewFormatNSID(collection), lexutil.NewFormatAtIdentifier(did), rkey)
 		if err != nil {
 			return fmt.Errorf("getting record: %w", err)
 		}
 
 		out, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
-			Collection: "app.bsky.feed.like",
-			Repo:       xrpcc.Auth.Did,
+			Collection: lexutil.NewFormatNSID("app.bsky.feed.like"),
+			Repo:       lexutil.NewFormatAtIdentifier(xrpcc.Auth.Did),
 			Record: &lexutil.LexiconTypeDecoder{
 				Val: &appbsky.FeedLike{
 					CreatedAt: time.Now().Format(util.ISO8601),
@@ -557,8 +557,8 @@ var deletePostCmd = &cli.Command{
 		}
 
 		return comatproto.RepoDeleteRecord(context.TODO(), xrpcc, &comatproto.RepoDeleteRecord_Input{
-			Repo:       xrpcc.Auth.Did,
-			Collection: schema,
+			Repo:       lexutil.NewFormatAtIdentifier(xrpcc.Auth.Did),
+			Collection: lexutil.NewFormatNSID(schema),
 			Rkey:       rkey,
 		})
 	},
@@ -593,7 +593,7 @@ var listAllPostsCmd = &cli.Command{
 				arg = xrpcc.Auth.Did
 			}
 
-			rrb, err := comatproto.SyncGetRepo(ctx, xrpcc, arg, "", "")
+			rrb, err := comatproto.SyncGetRepo(ctx, xrpcc, lexutil.NewFormatDID(arg), lexutil.NewFormatCID(""), lexutil.NewFormatCID(""))
 			if err != nil {
 				return err
 			}
@@ -702,12 +702,12 @@ var followsAddCmd = &cli.Command{
 		follow := appbsky.GraphFollow{
 			LexiconTypeID: "app.bsky.graph.follow",
 			CreatedAt:     time.Now().Format(time.RFC3339),
-			Subject:       user,
+			Subject:       lexutil.NewFormatDID(user),
 		}
 
 		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
-			Collection: "app.bsky.graph.follow",
-			Repo:       xrpcc.Auth.Did,
+			Collection: lexutil.NewFormatNSID("app.bsky.graph.follow"),
+			Repo:       lexutil.NewFormatAtIdentifier(xrpcc.Auth.Did),
 			Record:     &lexutil.LexiconTypeDecoder{&follow},
 		})
 		if err != nil {
@@ -734,7 +734,7 @@ var followsListCmd = &cli.Command{
 		}
 
 		ctx := context.TODO()
-		resp, err := appbsky.GraphGetFollows(ctx, xrpcc, user, "", 100)
+		resp, err := appbsky.GraphGetFollows(ctx, xrpcc, lexutil.NewFormatAtIdentifier(user), "", 100)
 		if err != nil {
 			return err
 		}
@@ -825,7 +825,7 @@ var resolveHandleCmd = &cli.Command{
 
 		handle := cctx.Args().Get(0)
 
-		out, err := comatproto.IdentityResolveHandle(ctx, xrpcc, handle)
+		out, err := comatproto.IdentityResolveHandle(ctx, xrpcc, lexutil.NewFormatHandle(handle))
 		if err != nil {
 			return err
 		}
@@ -849,7 +849,7 @@ var updateHandleCmd = &cli.Command{
 		handle := cctx.Args().Get(0)
 
 		err = comatproto.IdentityUpdateHandle(ctx, xrpcc, &comatproto.IdentityUpdateHandle_Input{
-			Handle: handle,
+			Handle: lexutil.NewFormatHandle(handle),
 		})
 		if err != nil {
 			return err
@@ -968,7 +968,7 @@ var getRecordCmd = &cli.Command{
 				return err
 			}
 
-			rrb, err := comatproto.SyncGetRepo(ctx, xrpcc, rfi, "", "")
+			rrb, err := comatproto.SyncGetRepo(ctx, xrpcc, lexutil.NewFormatDID(rfi), lexutil.NewFormatCID(""), lexutil.NewFormatCID(""))
 			if err != nil {
 				return err
 			}
@@ -1061,7 +1061,7 @@ var createInviteCmd = &cli.Command{
 						did := d
 						resp, err := comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
 							UseCount:    int64(count),
-							ForAccounts: []string{did},
+							ForAccounts: []lexutil.FormatDID{lexutil.NewFormatDID(did)},
 							CodeCount:   int64(num),
 						})
 						if err != nil {
@@ -1082,14 +1082,14 @@ var createInviteCmd = &cli.Command{
 			return nil
 		}
 
-		var usrdid []string
+		var usrdid []lexutil.FormatDID
 		if forUser := cctx.Args().Get(0); forUser != "" {
-			resp, err := comatproto.IdentityResolveHandle(context.TODO(), xrpcc, forUser)
+			resp, err := comatproto.IdentityResolveHandle(context.TODO(), xrpcc, lexutil.NewFormatHandle(forUser))
 			if err != nil {
 				return fmt.Errorf("resolving handle: %w", err)
 			}
 
-			usrdid = []string{resp.Did}
+			usrdid = []lexutil.FormatDID{resp.Did}
 		}
 
 		xrpcc.AdminToken = &adminKey

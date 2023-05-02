@@ -7,14 +7,15 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // AdminResolveModerationReports_Input is the input argument to a com.atproto.admin.resolveModerationReports call.
 type AdminResolveModerationReports_Input struct {
-	ActionId  int64   `json:"actionId" cborgen:"actionId"`
-	CreatedBy string  `json:"createdBy" cborgen:"createdBy"`
-	ReportIds []int64 `json:"reportIds" cborgen:"reportIds"`
+	ActionId  int64          `json:"actionId" cborgen:"actionId"`
+	CreatedBy util.FormatDID `json:"createdBy" cborgen:"createdBy"`
+	ReportIds []int64        `json:"reportIds" cborgen:"reportIds"`
 }
 
 // AdminResolveModerationReports calls the XRPC method "com.atproto.admin.resolveModerationReports".

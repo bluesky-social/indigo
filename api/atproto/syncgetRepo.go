@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -16,7 +17,7 @@ import (
 // did: The DID of the repo.
 // earliest: The earliest commit in the commit range (not inclusive)
 // latest: The latest commit in the commit range (inclusive)
-func SyncGetRepo(ctx context.Context, c *xrpc.Client, did string, earliest string, latest string) ([]byte, error) {
+func SyncGetRepo(ctx context.Context, c *xrpc.Client, did util.FormatDID, earliest util.FormatCID, latest util.FormatCID) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{

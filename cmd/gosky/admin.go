@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/api"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	cli "github.com/urfave/cli/v2"
 )
 
@@ -49,7 +50,7 @@ var checkUserCmd = &cli.Command{
 
 		ctx := context.Background()
 
-		resp, err := comatproto.IdentityResolveHandle(ctx, xrpcc, cctx.Args().First())
+		resp, err := comatproto.IdentityResolveHandle(ctx, xrpcc, lexutil.NewFormatHandle(cctx.Args().First()))
 		if err != nil {
 			return fmt.Errorf("resolve handle %q: %w", cctx.Args().First(), err)
 		}
@@ -103,7 +104,7 @@ var checkUserCmd = &cli.Command{
 					wg.Add(1)
 					go func(did string) {
 						defer wg.Done()
-						repo, err := comatproto.AdminGetRepo(ctx, xrpcc, did)
+						repo, err := comatproto.AdminGetRepo(ctx, xrpcc, lexutil.NewFormatDID(did))
 						if err != nil {
 							fmt.Println("ERROR: ", err)
 							return
@@ -112,7 +113,7 @@ var checkUserCmd = &cli.Command{
 						lk.Lock()
 						invited = append(invited, repo)
 						lk.Unlock()
-					}(u.UsedBy)
+					}(u.UsedBy.String())
 				}
 			}
 
@@ -214,7 +215,7 @@ var buildInviteTreeCmd = &cli.Command{
 				return u, nil
 			}
 
-			repo, err := comatproto.AdminGetRepo(ctx, xrpcc, did)
+			repo, err := comatproto.AdminGetRepo(ctx, xrpcc, lexutil.NewFormatDID(did))
 			if err != nil {
 				return nil, err
 			}
@@ -228,19 +229,19 @@ var buildInviteTreeCmd = &cli.Command{
 					if ok {
 						invby = invu.Handle
 					} else {
-						invrepo, err := comatproto.AdminGetRepo(ctx, xrpcc, fa)
+						invrepo, err := comatproto.AdminGetRepo(ctx, xrpcc, lexutil.NewFormatDID(fa))
 						if err != nil {
 							return nil, fmt.Errorf("resolving inviter (%q): %w", fa, err)
 						}
 
-						invby = invrepo.Handle
+						invby = invrepo.Handle.String()
 					}
 				}
 			}
 
 			u = &userInviteInfo{
 				Did:             did,
-				Handle:          repo.Handle,
+				Handle:          repo.Handle.String(),
 				InvitedBy:       repo.InvitedBy.ForAccount,
 				InvitedByHandle: invby,
 				TotalInvites:    len(repo.Invites),
@@ -269,7 +270,7 @@ var buildInviteTreeCmd = &cli.Command{
 
 			acc.TotalInvites += int(inv.Available) + len(inv.Uses)
 			for _, u := range inv.Uses {
-				acc.Invited = append(acc.Invited, u.UsedBy)
+				acc.Invited = append(acc.Invited, u.UsedBy.String())
 			}
 		}
 

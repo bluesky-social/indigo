@@ -7,19 +7,20 @@ package bsky
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // FeedGetRepostedBy_Output is the output of a app.bsky.feed.getRepostedBy call.
 type FeedGetRepostedBy_Output struct {
-	Cid        *string                  `json:"cid,omitempty" cborgen:"cid,omitempty"`
+	Cid        *util.FormatCID          `json:"cid,omitempty" cborgen:"cid,omitempty"`
 	Cursor     *string                  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	RepostedBy []*ActorDefs_ProfileView `json:"repostedBy" cborgen:"repostedBy"`
-	Uri        string                   `json:"uri" cborgen:"uri"`
+	Uri        util.FormatAtURI         `json:"uri" cborgen:"uri"`
 }
 
 // FeedGetRepostedBy calls the XRPC method "app.bsky.feed.getRepostedBy".
-func FeedGetRepostedBy(ctx context.Context, c *xrpc.Client, cid string, cursor string, limit int64, uri string) (*FeedGetRepostedBy_Output, error) {
+func FeedGetRepostedBy(ctx context.Context, c *xrpc.Client, cid util.FormatCID, cursor string, limit int64, uri util.FormatAtURI) (*FeedGetRepostedBy_Output, error) {
 	var out FeedGetRepostedBy_Output
 
 	params := map[string]interface{}{

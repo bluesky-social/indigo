@@ -7,13 +7,14 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // AdminUpdateAccountHandle_Input is the input argument to a com.atproto.admin.updateAccountHandle call.
 type AdminUpdateAccountHandle_Input struct {
-	Did    string `json:"did" cborgen:"did"`
-	Handle string `json:"handle" cborgen:"handle"`
+	Did    util.FormatDID    `json:"did" cborgen:"did"`
+	Handle util.FormatHandle `json:"handle" cborgen:"handle"`
 }
 
 // AdminUpdateAccountHandle calls the XRPC method "com.atproto.admin.updateAccountHandle".

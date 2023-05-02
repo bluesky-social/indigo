@@ -15,15 +15,15 @@ import (
 // NotificationListNotifications_Notification is a "notification" in the app.bsky.notification.listNotifications schema.
 type NotificationListNotifications_Notification struct {
 	Author    *ActorDefs_ProfileView             `json:"author" cborgen:"author"`
-	Cid       string                             `json:"cid" cborgen:"cid"`
+	Cid       util.FormatCID                     `json:"cid" cborgen:"cid"`
 	IndexedAt string                             `json:"indexedAt" cborgen:"indexedAt"`
 	IsRead    bool                               `json:"isRead" cborgen:"isRead"`
 	Labels    []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	// reason: Expected values are 'like', 'repost', 'follow', 'mention', 'reply', and 'quote'.
 	Reason        string                   `json:"reason" cborgen:"reason"`
-	ReasonSubject *string                  `json:"reasonSubject,omitempty" cborgen:"reasonSubject,omitempty"`
+	ReasonSubject *util.FormatAtURI        `json:"reasonSubject,omitempty" cborgen:"reasonSubject,omitempty"`
 	Record        *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
-	Uri           string                   `json:"uri" cborgen:"uri"`
+	Uri           util.FormatAtURI         `json:"uri" cborgen:"uri"`
 }
 
 // NotificationListNotifications_Output is the output of a app.bsky.notification.listNotifications call.

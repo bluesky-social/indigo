@@ -212,7 +212,7 @@ var debugStreamCmd = &cli.Command{
 					}
 				}
 
-				cur, ok := infos[evt.Repo]
+				cur, ok := infos[evt.Repo.String()]
 				if ok {
 					if cur.LastCid.String() != cidStr(evt.Prev) {
 						fmt.Println()
@@ -220,7 +220,7 @@ var debugStreamCmd = &cli.Command{
 					}
 				}
 
-				infos[evt.Repo] = &eventInfo{
+				infos[evt.Repo.String()] = &eventInfo{
 					LastCid: cid.Cid(evt.Commit),
 					LastSeq: evt.Seq,
 				}

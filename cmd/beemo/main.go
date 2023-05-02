@@ -118,8 +118,8 @@ func pollNewReports(cctx *cli.Context) error {
 	}
 	xrpcc.Auth.AccessJwt = auth.AccessJwt
 	xrpcc.Auth.RefreshJwt = auth.RefreshJwt
-	xrpcc.Auth.Did = auth.Did
-	xrpcc.Auth.Handle = auth.Handle
+	xrpcc.Auth.Did = auth.Did.String()
+	xrpcc.Auth.Handle = auth.Handle.String()
 
 	adminToken := cctx.String("admin-password")
 	if len(adminToken) > 0 {

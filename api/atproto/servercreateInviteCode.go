@@ -7,13 +7,14 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // ServerCreateInviteCode_Input is the input argument to a com.atproto.server.createInviteCode call.
 type ServerCreateInviteCode_Input struct {
-	ForAccount *string `json:"forAccount,omitempty" cborgen:"forAccount,omitempty"`
-	UseCount   int64   `json:"useCount" cborgen:"useCount"`
+	ForAccount *util.FormatDID `json:"forAccount,omitempty" cborgen:"forAccount,omitempty"`
+	UseCount   int64           `json:"useCount" cborgen:"useCount"`
 }
 
 // ServerCreateInviteCode_Output is the output of a com.atproto.server.createInviteCode call.

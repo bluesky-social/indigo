@@ -22,11 +22,11 @@ func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string)
 
 	return &appbskytypes.ActorDefs_ProfileViewDetailed{
 		Viewer:         nil, //*ActorGetProfile_MyState `json:"myState" cborgen:"myState"`
-		Did:            profile.Did,
+		Did:            lexutil.NewFormatDID(profile.Did),
 		Description:    nil,
 		PostsCount:     &profile.Posts,
 		FollowsCount:   &profile.Following,
-		Handle:         profile.Handle,
+		Handle:         lexutil.NewFormatHandle(profile.Handle),
 		DisplayName:    &profile.DisplayName,
 		FollowersCount: &profile.Followers,
 	}, nil
@@ -100,7 +100,7 @@ func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth *int,
 			if thr.Parent == nil {
 				out.Parent = &appbskytypes.FeedDefs_ThreadViewPost_Parent{
 					FeedDefs_NotFoundPost: &appbskytypes.FeedDefs_NotFoundPost{
-						Uri:      thr.ParentUri,
+						Uri:      lexutil.NewFormatAtURI(thr.ParentUri),
 						NotFound: true,
 					},
 				}
@@ -168,7 +168,7 @@ func (s *Server) handleAppBskyFeedGetLikes(ctx context.Context, cc string, curso
 	}
 
 	var out appbskytypes.FeedGetLikes_Output
-	out.Uri = uri
+	out.Uri = lexutil.NewFormatAtURI(uri)
 	out.Likes = []*appbskytypes.FeedGetLikes_Like{}
 
 	for _, v := range votes {
@@ -282,11 +282,11 @@ func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *
 		return nil, err
 	}
 
-	if err := s.validateHandle(body.Handle); err != nil {
+	if err := s.validateHandle(body.Handle.String()); err != nil {
 		return nil, err
 	}
 
-	_, err := s.lookupUserByHandle(ctx, body.Handle)
+	_, err := s.lookupUserByHandle(ctx, body.Handle.String())
 	switch err {
 	default:
 		return nil, err
@@ -302,7 +302,7 @@ func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *
 	}
 
 	u := User{
-		Handle:      body.Handle,
+		Handle:      body.Handle.String(),
 		Password:    body.Password,
 		RecoveryKey: recoveryKey,
 		Email:       body.Email,
@@ -315,7 +315,7 @@ func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *
 		recoveryKey = s.signingKey.Public().DID()
 	}
 
-	d, err := s.plc.CreateDID(ctx, s.signingKey, recoveryKey, body.Handle, s.serviceUrl)
+	d, err := s.plc.CreateDID(ctx, s.signingKey, recoveryKey, body.Handle.String(), s.serviceUrl)
 	if err != nil {
 		return nil, fmt.Errorf("create did: %w", err)
 	}
@@ -329,14 +329,14 @@ func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *
 		return nil, err
 	}
 
-	tok, err := s.createAuthTokenForUser(ctx, body.Handle, d)
+	tok, err := s.createAuthTokenForUser(ctx, body.Handle.String(), d)
 	if err != nil {
 		return nil, err
 	}
 
 	return &comatprototypes.ServerCreateAccount_Output{
 		Handle:     body.Handle,
-		Did:        d,
+		Did:        lexutil.NewFormatDID(d),
 		AccessJwt:  tok.AccessJwt,
 		RefreshJwt: tok.RefreshJwt,
 	}, nil
@@ -375,14 +375,14 @@ func (s *Server) handleComAtprotoRepoUploadBlob(ctx context.Context, r io.Reader
 
 func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context, handle string) (*comatprototypes.IdentityResolveHandle_Output, error) {
 	if handle == "" {
-		return &comatprototypes.IdentityResolveHandle_Output{Did: s.signingKey.Public().DID()}, nil
+		return &comatprototypes.IdentityResolveHandle_Output{Did: lexutil.NewFormatDID(s.signingKey.Public().DID())}, nil
 	}
 	u, err := s.lookupUserByHandle(ctx, handle)
 	if err != nil {
 		return nil, err
 	}
 
-	return &comatprototypes.IdentityResolveHandle_Output{Did: u.Did}, nil
+	return &comatprototypes.IdentityResolveHandle_Output{Did: lexutil.NewFormatDID(u.Did)}, nil
 }
 
 func (s *Server) handleComAtprotoRepoApplyWrites(ctx context.Context, body *comatprototypes.RepoApplyWrites_Input) error {
@@ -391,7 +391,7 @@ func (s *Server) handleComAtprotoRepoApplyWrites(ctx context.Context, body *coma
 		return err
 	}
 
-	if u.Did != body.Repo {
+	if u.Did != body.Repo.String() {
 		return fmt.Errorf("writes for non-user actors not supported (DID mismatch)")
 	}
 
@@ -404,14 +404,14 @@ func (s *Server) handleComAtprotoRepoCreateRecord(ctx context.Context, input *co
 		return nil, fmt.Errorf("get user: %w", err)
 	}
 
-	rpath, recid, err := s.repoman.CreateRecord(ctx, u.ID, input.Collection, input.Record.Val)
+	rpath, recid, err := s.repoman.CreateRecord(ctx, u.ID, input.Collection.String(), input.Record.Val)
 	if err != nil {
 		return nil, fmt.Errorf("record create: %w", err)
 	}
 
 	return &comatprototypes.RepoCreateRecord_Output{
-		Uri: "at://" + u.Did + "/" + rpath,
-		Cid: recid.String(),
+		Uri: lexutil.NewFormatAtURI("at://" + u.Did + "/" + rpath),
+		Cid: lexutil.NewFormatCID(recid.String()),
 	}, nil
 }
 
@@ -421,11 +421,11 @@ func (s *Server) handleComAtprotoRepoDeleteRecord(ctx context.Context, input *co
 		return err
 	}
 
-	if u.Did != input.Repo {
+	if u.Did != input.Repo.String() {
 		return fmt.Errorf("specified DID did not match authed user")
 	}
 
-	return s.repoman.DeleteRecord(ctx, u.ID, input.Collection, input.Rkey)
+	return s.repoman.DeleteRecord(ctx, u.ID, input.Collection.String(), input.Rkey)
 }
 
 func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, collection string, repo string, rkey string) (*comatprototypes.RepoGetRecord_Output, error) {
@@ -448,10 +448,10 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 		return nil, fmt.Errorf("repoman GetRecord: %w", err)
 	}
 
-	ccstr := reccid.String()
+	ccstr := lexutil.NewFormatCID(reccid.String())
 	return &comatprototypes.RepoGetRecord_Output{
 		Cid:   &ccstr,
-		Uri:   "at://" + targetUser.Did + "/" + collection + "/" + rkey,
+		Uri:   lexutil.NewFormatAtURI("at://" + targetUser.Did + "/" + collection + "/" + rkey),
 		Value: &lexutil.LexiconTypeDecoder{rec},
 	}, nil
 }
@@ -493,8 +493,8 @@ func (s *Server) handleComAtprotoServerCreateSession(ctx context.Context, body *
 	}
 
 	return &comatprototypes.ServerCreateSession_Output{
-		Handle:     body.Identifier,
-		Did:        u.Did,
+		Handle:     lexutil.NewFormatHandle(body.Identifier),
+		Did:        lexutil.NewFormatDID(u.Did),
 		AccessJwt:  tok.AccessJwt,
 		RefreshJwt: tok.RefreshJwt,
 	}, nil
@@ -511,8 +511,8 @@ func (s *Server) handleComAtprotoServerGetSession(ctx context.Context) (*comatpr
 	}
 
 	return &comatprototypes.ServerGetSession_Output{
-		Handle: u.Handle,
-		Did:    u.Did,
+		Handle: lexutil.NewFormatHandle(u.Handle),
+		Did:    lexutil.NewFormatDID(u.Did),
 	}, nil
 }
 
@@ -546,8 +546,8 @@ func (s *Server) handleComAtprotoServerRefreshSession(ctx context.Context) (*com
 	}
 
 	return &comatprototypes.ServerRefreshSession_Output{
-		Handle:     u.Handle,
-		Did:        u.Did,
+		Handle:     lexutil.NewFormatHandle(u.Handle),
+		Did:        lexutil.NewFormatDID(u.Did),
 		AccessJwt:  outTok.AccessJwt,
 		RefreshJwt: outTok.RefreshJwt,
 	}, nil
@@ -578,7 +578,7 @@ func (s *Server) handleComAtprotoSyncGetHead(ctx context.Context, did string) (*
 	}
 
 	return &comatprototypes.SyncGetHead_Output{
-		Root: root.String(),
+		Root: lexutil.NewFormatCID(root.String()),
 	}, nil
 }
 
@@ -690,7 +690,7 @@ func (s *Server) handleAppBskyUnspeccedGetPopular(ctx context.Context, cursor st
 }
 
 func (s *Server) handleComAtprotoIdentityUpdateHandle(ctx context.Context, body *comatprototypes.IdentityUpdateHandle_Input) error {
-	if err := s.validateHandle(body.Handle); err != nil {
+	if err := s.validateHandle(body.Handle.String()); err != nil {
 		return err
 	}
 
@@ -699,7 +699,7 @@ func (s *Server) handleComAtprotoIdentityUpdateHandle(ctx context.Context, body 
 		return err
 	}
 
-	return s.UpdateUserHandle(ctx, u, body.Handle)
+	return s.UpdateUserHandle(ctx, u, body.Handle.String())
 }
 
 func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, body *comatprototypes.ModerationCreateReport_Input) (*comatprototypes.ModerationCreateReport_Output, error) {

@@ -15,9 +15,9 @@ import (
 func (s *Server) hydrateRepoView(ctx context.Context, did, indexedAt string) *comatproto.AdminDefs_RepoView {
 	return &comatproto.AdminDefs_RepoView{
 		// TODO(bnewbold): populate more, or more correctly, from some backend?
-		Did:            did,
+		Did:            lexutil.NewFormatDID(did),
 		Email:          nil,
-		Handle:         "TODO",
+		Handle:         lexutil.NewFormatHandle("TODO.TODO"),
 		IndexedAt:      indexedAt,
 		Moderation:     nil,
 		RelatedRecords: nil,
@@ -29,7 +29,7 @@ func (s *Server) hydrateRecordView(ctx context.Context, did string, uri, cid *st
 	repoView := s.hydrateRepoView(ctx, did, indexedAt)
 	// TODO(bnewbold): populate more, or more correctly, from some backend?
 	recordView := comatproto.AdminDefs_RecordView{
-		BlobCids:   []string{},
+		BlobCids:   []lexutil.FormatCID{},
 		IndexedAt:  indexedAt,
 		Moderation: nil,
 		Repo:       repoView,
@@ -37,10 +37,10 @@ func (s *Server) hydrateRecordView(ctx context.Context, did string, uri, cid *st
 		Value: &lexutil.LexiconTypeDecoder{&appbsky.FeedPost{}},
 	}
 	if uri != nil {
-		recordView.Uri = *uri
+		recordView.Uri = lexutil.NewFormatAtURI(*uri)
 	}
 	if cid != nil {
-		recordView.Cid = *cid
+		recordView.Cid = lexutil.NewFormatCID(*cid)
 	}
 	return &recordView
 }
@@ -75,7 +75,7 @@ func (s *Server) hydrateModerationActionViews(ctx context.Context, rows []models
 		if row.ReversedAt != nil {
 			reversal = &comatproto.AdminDefs_ActionReversal{
 				CreatedAt: row.ReversedAt.Format(time.RFC3339),
-				CreatedBy: *row.ReversedByDid,
+				CreatedBy: lexutil.NewFormatDID(*row.ReversedByDid),
 				Reason:    *row.ReversedReason,
 			}
 		}
@@ -85,15 +85,15 @@ func (s *Server) hydrateModerationActionViews(ctx context.Context, rows []models
 			subj = &comatproto.AdminDefs_ActionView_Subject{
 				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
 					LexiconTypeID: "com.atproto.repo.repoRef",
-					Did:           row.SubjectDid,
+					Did:           lexutil.NewFormatDID(row.SubjectDid),
 				},
 			}
 		case "com.atproto.repo.recordRef":
 			subj = &comatproto.AdminDefs_ActionView_Subject{
 				RepoStrongRef: &comatproto.RepoStrongRef{
 					LexiconTypeID: "com.atproto.repo.strongRef",
-					Uri:           *row.SubjectUri,
-					Cid:           *row.SubjectCid,
+					Uri:           lexutil.NewFormatAtURI(*row.SubjectUri),
+					Cid:           lexutil.NewFormatCID(*row.SubjectCid),
 				},
 			}
 		default:
@@ -103,7 +103,7 @@ func (s *Server) hydrateModerationActionViews(ctx context.Context, rows []models
 		view := &comatproto.AdminDefs_ActionView{
 			Action:            &row.Action,
 			CreatedAt:         row.CreatedAt.Format(time.RFC3339),
-			CreatedBy:         row.CreatedByDid,
+			CreatedBy:         lexutil.NewFormatDID(row.CreatedByDid),
 			Id:                int64(row.ID),
 			Reason:            row.Reason,
 			ResolvedReportIds: resolvedReportIds,
@@ -139,7 +139,7 @@ func (s *Server) hydrateModerationActionDetails(ctx context.Context, rows []mode
 		}
 		for _, row := range cidRows {
 			subjectBlobViews = append(subjectBlobViews, &comatproto.AdminDefs_BlobView{
-				Cid: row.Cid,
+				Cid: lexutil.NewFormatCID(row.Cid),
 				/* TODO(bnewbold): all these other blob fields (from another backed)
 				CreatedAt     string
 				Details       *AdminDefs_BlobView_Details
@@ -154,7 +154,7 @@ func (s *Server) hydrateModerationActionDetails(ctx context.Context, rows []mode
 		if row.ReversedAt != nil {
 			reversal = &comatproto.AdminDefs_ActionReversal{
 				CreatedAt: row.ReversedAt.Format(time.RFC3339),
-				CreatedBy: *row.ReversedByDid,
+				CreatedBy: lexutil.NewFormatDID(*row.ReversedByDid),
 				Reason:    *row.ReversedReason,
 			}
 		}
@@ -175,7 +175,7 @@ func (s *Server) hydrateModerationActionDetails(ctx context.Context, rows []mode
 		viewDetail := &comatproto.AdminDefs_ActionViewDetail{
 			Action:          &row.Action,
 			CreatedAt:       row.CreatedAt.Format(time.RFC3339),
-			CreatedBy:       row.CreatedByDid,
+			CreatedBy:       lexutil.NewFormatDID(row.CreatedByDid),
 			Id:              int64(row.ID),
 			Reason:          row.Reason,
 			ResolvedReports: resolvedReports,
@@ -208,15 +208,15 @@ func (s *Server) hydrateModerationReportViews(ctx context.Context, rows []models
 			subj = &comatproto.AdminDefs_ReportView_Subject{
 				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
 					LexiconTypeID: "com.atproto.repo.repoRef",
-					Did:           row.SubjectDid,
+					Did:           lexutil.NewFormatDID(row.SubjectDid),
 				},
 			}
 		case "com.atproto.repo.recordRef":
 			subj = &comatproto.AdminDefs_ReportView_Subject{
 				RepoStrongRef: &comatproto.RepoStrongRef{
 					LexiconTypeID: "com.atproto.repo.strongRef",
-					Uri:           *row.SubjectUri,
-					Cid:           *row.SubjectCid,
+					Uri:           lexutil.NewFormatAtURI(*row.SubjectUri),
+					Cid:           lexutil.NewFormatCID(*row.SubjectCid),
 				},
 			}
 		default:
@@ -228,7 +228,7 @@ func (s *Server) hydrateModerationReportViews(ctx context.Context, rows []models
 			Reason:              row.Reason,
 			ReasonType:          &row.ReasonType,
 			Subject:             subj,
-			ReportedBy:          row.ReportedByDid,
+			ReportedBy:          lexutil.NewFormatDID(row.ReportedByDid),
 			CreatedAt:           row.CreatedAt.Format(time.RFC3339),
 			ResolvedByActionIds: resolvedByActionIds,
 		}
@@ -270,7 +270,7 @@ func (s *Server) hydrateModerationReportDetails(ctx context.Context, rows []mode
 			Reason:            row.Reason,
 			ReasonType:        &row.ReasonType,
 			Subject:           subj,
-			ReportedBy:        row.ReportedByDid,
+			ReportedBy:        lexutil.NewFormatDID(row.ReportedByDid),
 			CreatedAt:         row.CreatedAt.Format(time.RFC3339),
 			ResolvedByActions: resolvedByActionViews,
 		}

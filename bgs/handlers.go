@@ -7,6 +7,7 @@ import (
 	"io"
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/ipfs/go-cid"
 )
 
@@ -49,7 +50,8 @@ func (s *BGS) handleComAtprotoSyncGetHead(ctx context.Context, did string) (*com
 	}
 
 	return &comatprototypes.SyncGetHead_Output{
-		Root: root.String(),
+		// TODO: more graceful type conversion
+		Root: lexutil.NewFormatCID(root.String()),
 	}, nil
 }
 

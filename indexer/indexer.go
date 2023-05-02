@@ -268,7 +268,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 			return nil, err
 		}
 	case *bsky.FeedRepost:
-		fp, err := ix.GetPostOrMissing(ctx, rec.Subject.Uri)
+		fp, err := ix.GetPostOrMissing(ctx, rec.Subject.Uri.String())
 		if err != nil {
 			return nil, err
 		}
@@ -314,7 +314,7 @@ func (ix *Indexer) crawlAtUriRef(ctx context.Context, uri string) error {
 	if err != nil {
 		return err
 	} else {
-		_, err := ix.GetUserOrMissing(ctx, puri.Did)
+		_, err := ix.GetUserOrMissing(ctx, puri.Did.String())
 		if err != nil {
 			return err
 		}
@@ -338,13 +338,13 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 
 		if rec.Reply != nil {
 			if rec.Reply.Parent != nil {
-				if err := ix.crawlAtUriRef(ctx, rec.Reply.Parent.Uri); err != nil {
+				if err := ix.crawlAtUriRef(ctx, rec.Reply.Parent.Uri.String()); err != nil {
 					log.Infow("failed to crawl reply parent", "cid", op.RecCid, "replyuri", rec.Reply.Parent.Uri, "err", err)
 				}
 			}
 
 			if rec.Reply.Root != nil {
-				if err := ix.crawlAtUriRef(ctx, rec.Reply.Root.Uri); err != nil {
+				if err := ix.crawlAtUriRef(ctx, rec.Reply.Root.Uri.String()); err != nil {
 					log.Infow("failed to crawl reply root", "cid", op.RecCid, "rooturi", rec.Reply.Root.Uri, "err", err)
 				}
 			}
@@ -353,20 +353,20 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 		return nil
 	case *bsky.FeedRepost:
 		if rec.Subject != nil {
-			if err := ix.crawlAtUriRef(ctx, rec.Subject.Uri); err != nil {
+			if err := ix.crawlAtUriRef(ctx, rec.Subject.Uri.String()); err != nil {
 				log.Infow("failed to crawl repost subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
 			}
 		}
 		return nil
 	case *bsky.FeedLike:
 		if rec.Subject != nil {
-			if err := ix.crawlAtUriRef(ctx, rec.Subject.Uri); err != nil {
+			if err := ix.crawlAtUriRef(ctx, rec.Subject.Uri.String()); err != nil {
 				log.Infow("failed to crawl vote subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
 			}
 		}
 		return nil
 	case *bsky.GraphFollow:
-		_, err := ix.GetUserOrMissing(ctx, rec.Subject)
+		_, err := ix.GetUserOrMissing(ctx, rec.Subject.String())
 		if err != nil {
 			log.Infow("failed to crawl follow subject", "cid", op.RecCid, "subjectdid", rec.Subject, "err", err)
 		}
@@ -380,7 +380,7 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 }
 
 func (ix *Indexer) handleRecordCreateFeedLike(ctx context.Context, rec *bsky.FeedLike, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
-	post, err := ix.GetPostOrMissing(ctx, rec.Subject.Uri)
+	post, err := ix.GetPostOrMissing(ctx, rec.Subject.Uri.String())
 	if err != nil {
 		return err
 	}
@@ -412,13 +412,13 @@ func (ix *Indexer) handleRecordCreateFeedLike(ctx context.Context, rec *bsky.Fee
 }
 
 func (ix *Indexer) handleRecordCreateGraphFollow(ctx context.Context, rec *bsky.GraphFollow, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
-	subj, err := ix.LookupUserByDid(ctx, rec.Subject)
+	subj, err := ix.LookupUserByDid(ctx, rec.Subject.String())
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("failed to lookup user: %w", err)
 		}
 
-		nu, err := ix.createMissingUserRecord(ctx, rec.Subject)
+		nu, err := ix.createMissingUserRecord(ctx, rec.Subject.String())
 		if err != nil {
 			return fmt.Errorf("create external user: %w", err)
 		}
@@ -454,8 +454,8 @@ func (ix *Indexer) handleRecordUpdate(ctx context.Context, evt *repomgr.RepoEven
 			return err
 		}
 
-		uri := "at://" + u.Did + "/app.bsky.feed.post/" + op.Rkey
-		fp, err := ix.GetPostOrMissing(ctx, uri)
+		uri := lexutil.NewFormatAtURI("at://" + u.Did + "/app.bsky.feed.post/" + op.Rkey)
+		fp, err := ix.GetPostOrMissing(ctx, uri.String())
 		if err != nil {
 			return err
 		}
@@ -470,7 +470,7 @@ func (ix *Indexer) handleRecordUpdate(ctx context.Context, evt *repomgr.RepoEven
 		}
 
 		if newReply {
-			replyto, err := ix.GetPostOrMissing(ctx, rec.Reply.Parent.Uri)
+			replyto, err := ix.GetPostOrMissing(ctx, rec.Reply.Parent.Uri.String())
 			if err != nil {
 				return err
 			}
@@ -507,7 +507,7 @@ func (ix *Indexer) handleRecordUpdate(ctx context.Context, evt *repomgr.RepoEven
 			return err
 		}
 
-		fp, err := ix.GetPostOrMissing(ctx, rec.Subject.Uri)
+		fp, err := ix.GetPostOrMissing(ctx, rec.Subject.Uri.String())
 		if err != nil {
 			return err
 		}
@@ -544,7 +544,7 @@ func (ix *Indexer) GetPostOrMissing(ctx context.Context, uri string) (*models.Fe
 	}
 
 	var post models.FeedPost
-	if err := ix.db.Find(&post, "rkey = ? AND author = (?)", puri.Rkey, ix.db.Model(models.ActorInfo{}).Where("did = ?", puri.Did).Select("id")).Error; err != nil {
+	if err := ix.db.Find(&post, "rkey = ? AND author = (?)", puri.Rkey, ix.db.Model(models.ActorInfo{}).Where("did = ?", puri.Did.String()).Select("id")).Error; err != nil {
 		return nil, err
 	}
 
@@ -559,14 +559,14 @@ func (ix *Indexer) GetPostOrMissing(ctx context.Context, uri string) (*models.Fe
 func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user util.Uid, rkey string, rcid cid.Cid, rec *bsky.FeedPost) error {
 	var replyid uint
 	if rec.Reply != nil {
-		replyto, err := ix.GetPostOrMissing(ctx, rec.Reply.Parent.Uri)
+		replyto, err := ix.GetPostOrMissing(ctx, rec.Reply.Parent.Uri.String())
 		if err != nil {
 			return err
 		}
 
 		replyid = replyto.ID
 
-		rootref, err := ix.GetPostOrMissing(ctx, rec.Reply.Root.Uri)
+		rootref, err := ix.GetPostOrMissing(ctx, rec.Reply.Root.Uri.String())
 		if err != nil {
 			return err
 		}
@@ -645,7 +645,7 @@ func (ix *Indexer) GetUserOrMissing(ctx context.Context, did string) (*models.Ac
 
 func (ix *Indexer) createMissingPostRecord(ctx context.Context, puri *parsedUri) (*models.FeedPost, error) {
 	log.Warn("creating missing post record")
-	ai, err := ix.GetUserOrMissing(ctx, puri.Did)
+	ai, err := ix.GetUserOrMissing(ctx, puri.Did.String())
 	if err != nil {
 		return nil, err
 	}
@@ -687,13 +687,13 @@ func (ix *Indexer) addUserToCrawler(ctx context.Context, ai *models.ActorInfo) e
 	return ix.Crawler.Crawl(ctx, ai)
 }
 
-func (ix *Indexer) DidForUser(ctx context.Context, uid util.Uid) (string, error) {
+func (ix *Indexer) DidForUser(ctx context.Context, uid util.Uid) (lexutil.FormatDID, error) {
 	var ai models.ActorInfo
 	if err := ix.db.First(&ai, "uid = ?", uid).Error; err != nil {
-		return "", err
+		return lexutil.FormatDID{}, err
 	}
 
-	return ai.Did, nil
+	return lexutil.NewFormatDID(ai.Did), nil
 }
 
 func (ix *Indexer) LookupUser(ctx context.Context, id util.Uid) (*models.ActorInfo, error) {
@@ -733,7 +733,7 @@ func (ix *Indexer) LookupUserByHandle(ctx context.Context, handle string) (*mode
 
 func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPost, fp *models.FeedPost, mentions []*models.ActorInfo) error {
 	if post.Reply != nil {
-		replyto, err := ix.GetPost(ctx, post.Reply.Parent.Uri)
+		replyto, err := ix.GetPost(ctx, post.Reply.Parent.Uri.String())
 		if err != nil {
 			log.Error("probably shouldn't error when processing a reply to a not-found post")
 			return err
@@ -799,7 +799,7 @@ func (ix *Indexer) GetPost(ctx context.Context, uri string) (*models.FeedPost, e
 	}
 
 	var post models.FeedPost
-	if err := ix.db.First(&post, "rkey = ? AND author = (?)", puri.Rkey, ix.db.Model(models.ActorInfo{}).Where("did = ?", puri.Did).Select("id")).Error; err != nil {
+	if err := ix.db.First(&post, "rkey = ? AND author = (?)", puri.Rkey, ix.db.Model(models.ActorInfo{}).Where("did = ?", puri.Did.String()).Select("id")).Error; err != nil {
 		return nil, err
 	}
 
@@ -807,8 +807,8 @@ func (ix *Indexer) GetPost(ctx context.Context, uri string) (*models.FeedPost, e
 }
 
 type parsedUri struct {
-	Did        string
-	Collection string
+	Did        lexutil.FormatDID
+	Collection lexutil.FormatNSID
 	Rkey       string
 }
 
@@ -824,8 +824,8 @@ func parseAtUri(uri string) (*parsedUri, error) {
 	}
 
 	return &parsedUri{
-		Did:        parts[0],
-		Collection: parts[1],
+		Did:        lexutil.NewFormatDID(parts[0]),
+		Collection: lexutil.NewFormatNSID(parts[1]),
 		Rkey:       parts[2],
 	}, nil
 }
@@ -868,7 +868,7 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 
 	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
 	log.Infow("SyncGetRepo", "did", ai.Did, "user", ai.Handle, "from", from)
-	repo, err := comatproto.SyncGetRepo(ctx, c, ai.Did, from, "")
+	repo, err := comatproto.SyncGetRepo(ctx, c, lexutil.NewFormatDID(ai.Did), lexutil.NewFormatCID(from), lexutil.NewFormatCID(""))
 	if err != nil {
 		return fmt.Errorf("failed to fetch repo: %w", err)
 	}

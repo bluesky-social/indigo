@@ -14,23 +14,23 @@ import (
 // RepoCreateRecord_Input is the input argument to a com.atproto.repo.createRecord call.
 type RepoCreateRecord_Input struct {
 	// collection: The NSID of the record collection.
-	Collection string `json:"collection" cborgen:"collection"`
+	Collection util.FormatNSID `json:"collection" cborgen:"collection"`
 	// record: The record to create.
 	Record *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
 	// repo: The handle or DID of the repo.
-	Repo string `json:"repo" cborgen:"repo"`
+	Repo util.FormatAtIdentifier `json:"repo" cborgen:"repo"`
 	// rkey: The key of the record.
 	Rkey *string `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
 	// swapCommit: Compare and swap with the previous commit by cid.
-	SwapCommit *string `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
+	SwapCommit *util.FormatCID `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
 	// validate: Validate the record?
 	Validate *bool `json:"validate,omitempty" cborgen:"validate,omitempty"`
 }
 
 // RepoCreateRecord_Output is the output of a com.atproto.repo.createRecord call.
 type RepoCreateRecord_Output struct {
-	Cid string `json:"cid" cborgen:"cid"`
-	Uri string `json:"uri" cborgen:"uri"`
+	Cid util.FormatCID   `json:"cid" cborgen:"cid"`
+	Uri util.FormatAtURI `json:"uri" cborgen:"uri"`
 }
 
 // RepoCreateRecord calls the XRPC method "com.atproto.repo.createRecord".

@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -15,7 +16,7 @@ import (
 //
 // cid: The CID of the blob to fetch
 // did: The DID of the repo.
-func SyncGetBlob(ctx context.Context, c *xrpc.Client, cid string, did string) ([]byte, error) {
+func SyncGetBlob(ctx context.Context, c *xrpc.Client, cid util.FormatCID, did util.FormatDID) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{

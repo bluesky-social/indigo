@@ -14,10 +14,19 @@ import (
 )
 
 // cbor-gen internally uses reflect to determine the type of the field, and
-// if the type definition is an alias, it will treat the type as the underlying type(string) instead of the new type.
+// if the type definition is an alias, it will treat the type as the underlying type(string) instead of the new name.
 // For this reason, we need to define a new struct for each format types, not using an alias.
 
 type FormatHandle struct{ str string }
+
+func NewFormatHandle(s string) FormatHandle {
+	return FormatHandle{s}
+}
+
+// Handle is a subset of AtIdentifier.
+func (f FormatHandle) AsAtIdentifier() FormatAtIdentifier {
+	return FormatAtIdentifier{f.str}
+}
 
 // https://github.com/bluesky-social/atproto/blob/main/packages/identifier/src/handle.ts
 var regexValidHandle = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$`)
@@ -85,6 +94,10 @@ func (f *FormatHandle) UnmarshalJSON(b []byte) error {
 
 type FormatNSID struct{ str string }
 
+func NewFormatNSID(s string) FormatNSID {
+	return FormatNSID{s}
+}
+
 // https://github.com/bluesky-social/atproto/blob/main/packages/nsid/src/index.ts
 var regexValidNSID = regexp.MustCompile(`^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(\.[a-zA-Z]([a-zA-Z0-9-]{0,126}[a-zA-Z0-9])?)$`)
 
@@ -150,6 +163,10 @@ func (f *FormatNSID) UnmarshalJSON(b []byte) error {
 }
 
 type FormatAtIdentifier struct{ str string }
+
+func NewFormatAtIdentifier(s string) FormatAtIdentifier {
+	return FormatAtIdentifier{s}
+}
 
 func ParseFormatAtIdentifier(s string) (FormatAtIdentifier, error) {
 	if regexValidDID.MatchString(s) {
@@ -334,6 +351,10 @@ func (f *FormatDateTime) UnmarshalJSON(b []byte) error {
 
 type FormatAtURI struct{ str string }
 
+func NewFormatAtURI(s string) FormatAtURI {
+	return FormatAtURI{s}
+}
+
 // https://github.com/bluesky-social/atproto/blob/main/packages/uri/src/validation.ts
 var regexValidAtURI = regexp.MustCompile(`^at:\/\/(?P<authority>[a-zA-Z0-9._:%-]+)(\/(?P<collection>[a-zA-Z0-9-.]+)(\/(?P<rkey>[a-zA-Z0-9._~:@!$&%')(*+,;=-]+))?)?(#(?P<fragment>\/[a-zA-Z0-9._~:@!$&%')(*+,;=\-[\]/\\]*))?$`)
 var authorityIndex = regexValidAtURI.SubexpIndex("authority")
@@ -396,7 +417,35 @@ func (f *FormatAtURI) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
+func (f FormatAtURI) MarshalJSON() ([]byte, error) {
+	return json.Marshal(f.str)
+}
+
+func (f *FormatAtURI) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return xerrors.Errorf("failed to unmarshal at-uri string: %w", err)
+	}
+	fp, err := ParseAtURI(s)
+	if err != nil {
+		return xerrors.Errorf("failed to parse at-uri string: %w", err)
+	}
+
+	*f = fp
+
+	return nil
+}
+
 type FormatDID struct{ str string }
+
+func NewFormatDID(s string) FormatDID {
+	return FormatDID{s}
+}
+
+// DID is a subset of AtIdentifier.
+func (f FormatDID) AsAtIdentifier() FormatAtIdentifier {
+	return FormatAtIdentifier{f.str}
+}
 
 // https://github.com/bluesky-social/atproto/blob/main/packages/identifier/src/did.ts
 var regexValidDID = regexp.MustCompile(`^did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]$`)
@@ -458,6 +507,10 @@ func (f *FormatDID) UnmarshalJSON(b []byte) error {
 }
 
 type FormatCID struct{ str string }
+
+func NewFormatCID(s string) FormatCID {
+	return FormatCID{s}
+}
 
 func ParseFormatCID(s string) (FormatCID, error) {
 	if _, err := cid.Decode(s); err == nil {

@@ -9,6 +9,7 @@ import (
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/util"
 
@@ -19,9 +20,9 @@ import (
 func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context, handle string) (*atproto.IdentityResolveHandle_Output, error) {
 	// only the one handle, for labelmaker
 	if handle == "" {
-		return &atproto.IdentityResolveHandle_Output{Did: s.user.SigningKey.Public().DID()}, nil
+		return &atproto.IdentityResolveHandle_Output{Did: lexutil.NewFormatDID(s.user.SigningKey.Public().DID())}, nil
 	} else if handle == s.user.Handle {
-		return &atproto.IdentityResolveHandle_Output{Did: s.user.Did}, nil
+		return &atproto.IdentityResolveHandle_Output{Did: lexutil.NewFormatDID(s.user.Did)}, nil
 	} else {
 		return nil, echo.NewHTTPError(404, "user not found: %s", handle)
 	}
@@ -256,7 +257,7 @@ func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context, 
 
 func (s *Server) handleComAtprotoAdminResolveModerationReports(ctx context.Context, body *atproto.AdminResolveModerationReports_Input) (*atproto.AdminDefs_ActionView, error) {
 
-	if body.CreatedBy == "" {
+	if body.CreatedBy.String() == "" {
 		return nil, echo.NewHTTPError(400, "createdBy param must be non-empty")
 	}
 	if len(body.ReportIds) == 0 {
@@ -268,7 +269,7 @@ func (s *Server) handleComAtprotoAdminResolveModerationReports(ctx context.Conte
 		rows = append(rows, models.ModerationReportResolution{
 			ReportId:     uint64(reportId),
 			ActionId:     uint64(body.ActionId),
-			CreatedByDid: body.CreatedBy,
+			CreatedByDid: body.CreatedBy.String(),
 		})
 	}
 	result := s.db.Create(&rows)
@@ -296,7 +297,7 @@ func (s *Server) fetchSingleModerationAction(ctx context.Context, actionId int64
 
 func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Context, body *atproto.AdminReverseModerationAction_Input) (*atproto.AdminDefs_ActionView, error) {
 
-	if body.CreatedBy == "" {
+	if body.CreatedBy.String() == "" {
 		return nil, echo.NewHTTPError(400, "createBy param must be non-empty")
 	}
 	if body.Reason == "" {
@@ -318,7 +319,8 @@ func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Contex
 	}
 
 	now := time.Now()
-	row.ReversedByDid = &body.CreatedBy
+	createdByStr := body.CreatedBy.String()
+	row.ReversedByDid = &createdByStr
 	row.ReversedReason = &body.Reason
 	row.ReversedAt = &now
 
@@ -346,7 +348,7 @@ func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, 
 	if body.Action == "" {
 		return nil, echo.NewHTTPError(400, "action param must be non-empty")
 	}
-	if body.CreatedBy == "" {
+	if body.CreatedBy.String() == "" {
 		return nil, echo.NewHTTPError(400, "createBy param must be non-empty")
 	}
 	if body.Reason == "" {
@@ -356,32 +358,34 @@ func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, 
 	row := models.ModerationAction{
 		Action:       body.Action,
 		Reason:       body.Reason,
-		CreatedByDid: body.CreatedBy,
+		CreatedByDid: body.CreatedBy.String(),
 	}
 
 	var outSubj atproto.AdminDefs_ActionView_Subject
 	if body.Subject.AdminDefs_RepoRef != nil {
 		row.SubjectType = "com.atproto.repo.repoRef"
-		row.SubjectDid = body.Subject.AdminDefs_RepoRef.Did
+		row.SubjectDid = body.Subject.AdminDefs_RepoRef.Did.String()
 		outSubj.AdminDefs_RepoRef = &atproto.AdminDefs_RepoRef{
 			LexiconTypeID: "com.atproto.repo.repoRef",
-			Did:           row.SubjectDid,
+			Did:           lexutil.NewFormatDID(row.SubjectDid),
 		}
 	} else if body.Subject.RepoStrongRef != nil {
-		if body.Subject.RepoStrongRef.Cid == "" {
+		if body.Subject.RepoStrongRef.Cid.String() == "" {
 			return nil, echo.NewHTTPError(400, "this implementation requires a strong record ref (aka, with CID) in reports")
 		}
 		row.SubjectType = "com.atproto.repo.recordRef"
-		row.SubjectUri = &body.Subject.RepoStrongRef.Uri
-		row.SubjectDid = didFromURI(body.Subject.RepoStrongRef.Uri)
+		subjectUriStr := body.Subject.RepoStrongRef.Uri.String()
+		row.SubjectUri = &subjectUriStr
+		row.SubjectDid = didFromURI(body.Subject.RepoStrongRef.Uri.String())
 		if row.SubjectDid == "" {
 			return nil, echo.NewHTTPError(400, "expected URI with a DID: ", row.SubjectUri)
 		}
-		row.SubjectCid = &body.Subject.RepoStrongRef.Cid
+		subjectCidStr := body.Subject.RepoStrongRef.Cid.String()
+		row.SubjectCid = &subjectCidStr
 		outSubj.RepoStrongRef = &atproto.RepoStrongRef{
 			LexiconTypeID: "com.atproto.repo.strongRef",
-			Uri:           *row.SubjectUri,
-			Cid:           *row.SubjectCid,
+			Uri:           lexutil.NewFormatAtURI(*row.SubjectUri),
+			Cid:           lexutil.NewFormatCID(*row.SubjectCid),
 		}
 	} else {
 		return nil, echo.NewHTTPError(400, "report subject must be a repoRef or a recordRef")
@@ -393,11 +397,13 @@ func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, 
 	}
 
 	var cidRows []models.ModerationActionSubjectBlobCid
+	var cidStrs []string
 	for _, sbc := range body.SubjectBlobCids {
 		cidRows = append(cidRows, models.ModerationActionSubjectBlobCid{
 			ActionId: row.ID,
-			Cid:      sbc,
+			Cid:      sbc.String(),
 		})
+		cidStrs = append(cidStrs, sbc.String())
 	}
 
 	if len(cidRows) > 0 {
@@ -411,16 +417,15 @@ func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, 
 		Id:              int64(row.ID),
 		Action:          &row.Action,
 		Reason:          row.Reason,
-		CreatedBy:       row.CreatedByDid,
+		CreatedBy:       lexutil.NewFormatDID(row.CreatedByDid),
 		CreatedAt:       row.CreatedAt.Format(time.RFC3339),
 		Subject:         &outSubj,
-		SubjectBlobCids: body.SubjectBlobCids,
+		SubjectBlobCids: cidStrs,
 	}
 	return &out, nil
 }
 
 func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *atproto.ModerationCreateReport_Input) (*atproto.ModerationCreateReport_Output, error) {
-
 	if body.ReasonType == nil || *body.ReasonType == "" {
 		return nil, echo.NewHTTPError(400, "reasonType is required")
 	}
@@ -436,33 +441,35 @@ func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *atproto
 	}
 	var outSubj atproto.ModerationCreateReport_Output_Subject
 	if body.Subject.AdminDefs_RepoRef != nil {
-		if body.Subject.AdminDefs_RepoRef.Did == "" {
+		if body.Subject.AdminDefs_RepoRef.Did.String() == "" {
 			return nil, echo.NewHTTPError(400, "DID is required for repo reports")
 		}
 		row.SubjectType = "com.atproto.repo.repoRef"
-		row.SubjectDid = body.Subject.AdminDefs_RepoRef.Did
+		row.SubjectDid = body.Subject.AdminDefs_RepoRef.Did.String()
 		outSubj.AdminDefs_RepoRef = &atproto.AdminDefs_RepoRef{
 			LexiconTypeID: "com.atproto.repo.repoRef",
-			Did:           row.SubjectDid,
+			Did:           lexutil.NewFormatDID(row.SubjectDid),
 		}
 	} else if body.Subject.RepoStrongRef != nil {
-		if body.Subject.RepoStrongRef.Uri == "" {
+		if body.Subject.RepoStrongRef.Uri.String() == "" {
 			return nil, echo.NewHTTPError(400, "URI required for record reports")
 		}
-		if body.Subject.RepoStrongRef.Cid == "" {
+		if body.Subject.RepoStrongRef.Cid.String() == "" {
 			return nil, echo.NewHTTPError(400, "this implementation requires a strong record ref (aka, with CID) in reports")
 		}
 		row.SubjectType = "com.atproto.repo.recordRef"
-		row.SubjectUri = &body.Subject.RepoStrongRef.Uri
-		row.SubjectDid = didFromURI(body.Subject.RepoStrongRef.Uri)
+		subjectUriStr := body.Subject.RepoStrongRef.Uri.String()
+		row.SubjectUri = &subjectUriStr
+		row.SubjectDid = didFromURI(body.Subject.RepoStrongRef.Uri.String())
 		if row.SubjectDid == "" {
 			return nil, echo.NewHTTPError(400, "expected URI with a DID: ", row.SubjectUri)
 		}
-		row.SubjectCid = &body.Subject.RepoStrongRef.Cid
+		subjectCidStr := body.Subject.RepoStrongRef.Cid.String()
+		row.SubjectCid = &subjectCidStr
 		outSubj.RepoStrongRef = &atproto.RepoStrongRef{
 			LexiconTypeID: "com.atproto.repo.strongRef",
-			Uri:           *row.SubjectUri,
-			Cid:           *row.SubjectCid,
+			Uri:           body.Subject.RepoStrongRef.Uri,
+			Cid:           body.Subject.RepoStrongRef.Cid,
 		}
 	} else {
 		return nil, echo.NewHTTPError(400, "report subject must be a repoRef or a recordRef")
@@ -478,7 +485,7 @@ func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *atproto
 		CreatedAt:  row.CreatedAt.Format(time.RFC3339),
 		Reason:     row.Reason,
 		ReasonType: &row.ReasonType,
-		ReportedBy: row.ReportedByDid,
+		ReportedBy: lexutil.NewFormatDID(row.ReportedByDid),
 		Subject:    &outSubj,
 	}
 	return &out, nil

@@ -7,12 +7,13 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // SyncListBlobs_Output is the output of a com.atproto.sync.listBlobs call.
 type SyncListBlobs_Output struct {
-	Cids []string `json:"cids" cborgen:"cids"`
+	Cids []util.FormatCID `json:"cids" cborgen:"cids"`
 }
 
 // SyncListBlobs calls the XRPC method "com.atproto.sync.listBlobs".
@@ -20,7 +21,7 @@ type SyncListBlobs_Output struct {
 // did: The DID of the repo.
 // earliest: The earliest commit to start from
 // latest: The most recent commit
-func SyncListBlobs(ctx context.Context, c *xrpc.Client, did string, earliest string, latest string) (*SyncListBlobs_Output, error) {
+func SyncListBlobs(ctx context.Context, c *xrpc.Client, did util.FormatDID, earliest util.FormatCID, latest util.FormatCID) (*SyncListBlobs_Output, error) {
 	var out SyncListBlobs_Output
 
 	params := map[string]interface{}{

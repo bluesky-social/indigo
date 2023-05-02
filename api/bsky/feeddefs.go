@@ -50,15 +50,15 @@ func (t *FeedDefs_FeedViewPost_Reason) UnmarshalJSON(b []byte) error {
 //
 // RECORDTYPE: FeedDefs_NotFoundPost
 type FeedDefs_NotFoundPost struct {
-	LexiconTypeID string `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
-	NotFound      bool   `json:"notFound" cborgen:"notFound"`
-	Uri           string `json:"uri" cborgen:"uri"`
+	LexiconTypeID string           `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
+	NotFound      bool             `json:"notFound" cborgen:"notFound"`
+	Uri           util.FormatAtURI `json:"uri" cborgen:"uri"`
 }
 
 // FeedDefs_PostView is a "postView" in the app.bsky.feed.defs schema.
 type FeedDefs_PostView struct {
 	Author      *ActorDefs_ProfileViewBasic        `json:"author" cborgen:"author"`
-	Cid         string                             `json:"cid" cborgen:"cid"`
+	Cid         util.FormatCID                     `json:"cid" cborgen:"cid"`
 	Embed       *FeedDefs_PostView_Embed           `json:"embed,omitempty" cborgen:"embed,omitempty"`
 	IndexedAt   string                             `json:"indexedAt" cborgen:"indexedAt"`
 	Labels      []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
@@ -66,7 +66,7 @@ type FeedDefs_PostView struct {
 	Record      *util.LexiconTypeDecoder           `json:"record" cborgen:"record"`
 	ReplyCount  *int64                             `json:"replyCount,omitempty" cborgen:"replyCount,omitempty"`
 	RepostCount *int64                             `json:"repostCount,omitempty" cborgen:"repostCount,omitempty"`
-	Uri         string                             `json:"uri" cborgen:"uri"`
+	Uri         util.FormatAtURI                   `json:"uri" cborgen:"uri"`
 	Viewer      *FeedDefs_ViewerState              `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
@@ -218,6 +218,6 @@ func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalJSON(b []byte) error {
 
 // FeedDefs_ViewerState is a "viewerState" in the app.bsky.feed.defs schema.
 type FeedDefs_ViewerState struct {
-	Like   *string `json:"like,omitempty" cborgen:"like,omitempty"`
-	Repost *string `json:"repost,omitempty" cborgen:"repost,omitempty"`
+	Like   *util.FormatAtURI `json:"like,omitempty" cborgen:"like,omitempty"`
+	Repost *util.FormatAtURI `json:"repost,omitempty" cborgen:"repost,omitempty"`
 }

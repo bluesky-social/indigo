@@ -117,7 +117,7 @@ func (bgs *BGS) StartDebug(listen string) error {
 	})
 	http.HandleFunc("/repodbg/blocks", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		did := r.FormValue("did")
+		did := lexutil.NewFormatDID(r.FormValue("did"))
 		c := r.FormValue("cid")
 
 		bcid, err := cid.Decode(c)
@@ -128,7 +128,7 @@ func (bgs *BGS) StartDebug(listen string) error {
 
 		cs := bgs.repoman.CarStore()
 
-		u, err := bgs.Index.LookupUserByDid(ctx, did)
+		u, err := bgs.Index.LookupUserByDid(ctx, did.String())
 		if err != nil {
 			http.Error(w, err.Error(), 400)
 			return
@@ -347,20 +347,20 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	case env.RepoCommit != nil:
 		evt := env.RepoCommit
 		log.Infof("bgs got repo append event %d from %q: %s\n", evt.Seq, host.Host, evt.Repo)
-		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
+		u, err := bgs.lookupUserByDid(ctx, evt.Repo.String())
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return fmt.Errorf("looking up event user: %w", err)
 			}
 
-			subj, err := bgs.createExternalUser(ctx, evt.Repo)
+			subj, err := bgs.createExternalUser(ctx, evt.Repo.String())
 			if err != nil {
 				return fmt.Errorf("fed event create external user: %w", err)
 			}
 
 			u = new(User)
 			u.ID = subj.Uid
-			u.Did = evt.Repo
+			u.Did = evt.Repo.String()
 		}
 
 		// TODO: if the user is already in the 'slow' path, we shouldnt even bother trying to fast path this event
@@ -406,18 +406,18 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	case env.RepoHandle != nil:
 
 		// TODO: ignoring the data in the message and just going out to the DID doc
-		act, err := bgs.createExternalUser(ctx, env.RepoHandle.Did)
+		act, err := bgs.createExternalUser(ctx, env.RepoHandle.Did.String())
 		if err != nil {
 			return err
 		}
 
-		if act.Handle != env.RepoHandle.Handle {
+		if act.Handle != env.RepoHandle.Handle.String() {
 			log.Warnw("handle update did not update handle to asserted value", "did", env.RepoHandle.Did, "expected", env.RepoHandle.Handle, "actual", act.Handle)
 		}
 
 		return nil
 	case env.RepoMigrate != nil:
-		if _, err := bgs.createExternalUser(ctx, env.RepoMigrate.Did); err != nil {
+		if _, err := bgs.createExternalUser(ctx, env.RepoMigrate.Did.String()); err != nil {
 			return err
 		}
 
@@ -440,12 +440,12 @@ func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user bsutil.Ui
 
 	for _, b := range blobs {
 		c := models.ClientForPds(pds)
-		blob, err := atproto.SyncGetBlob(ctx, c, b, did)
+		blob, err := atproto.SyncGetBlob(ctx, c, lexutil.NewFormatCID(b), did)
 		if err != nil {
 			return fmt.Errorf("fetching blob (%s, %s): %w", did, b, err)
 		}
 
-		if err := s.blobs.PutBlob(ctx, b, did, blob); err != nil {
+		if err := s.blobs.PutBlob(ctx, b, did.String(), blob); err != nil {
 			return fmt.Errorf("storing blob (%s, %s): %w", did, b, err)
 		}
 	}
@@ -522,12 +522,12 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	handle := hurl.Host
 
-	res, err := atproto.IdentityResolveHandle(ctx, c, handle)
+	res, err := atproto.IdentityResolveHandle(ctx, c, lexutil.NewFormatHandle(handle))
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve users claimed handle (%q) on pds: %w", handle, err)
 	}
 
-	if res.Did != did {
+	if res.Did.String() != did {
 		return nil, fmt.Errorf("claimed handle did not match servers response (%s != %s)", res.Did, did)
 	}
 
@@ -553,8 +553,8 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 			if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
 				RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
-					Did:    exu.Did,
-					Handle: handle,
+					Did:    lexutil.NewFormatDID(exu.Did),
+					Handle: lexutil.NewFormatHandle(handle),
 					Time:   time.Now().Format(util.ISO8601),
 				},
 			}); err != nil {

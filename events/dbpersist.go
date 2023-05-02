@@ -72,7 +72,7 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 		evt.Ops = evt.Ops[:8192]
 	}
 
-	uid, err := p.uidForDid(ctx, evt.Repo)
+	uid, err := p.uidForDid(ctx, evt.Repo.String())
 	if err != nil {
 		return err
 	}
@@ -205,7 +205,7 @@ func (p *DbPersistence) hydrateRepoEvent(ctx context.Context, rer *RepoEventReco
 
 	out := &comatproto.SyncSubscribeRepos_Commit{
 		Seq:    int64(rer.Seq),
-		Repo:   did,
+		Repo:   lexutil.NewFormatDID(did),
 		Commit: lexutil.LexLink(rer.Commit.CID),
 		Prev:   prevCID,
 		Time:   rer.Time.Format(util.ISO8601),

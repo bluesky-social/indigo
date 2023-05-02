@@ -172,14 +172,14 @@ func (nm *DBNotifMan) hydrateNotificationUpVote(ctx context.Context, nrec *Notif
 		return nil, err
 	}
 
-	rsub := "at://" + postAuthor.Did + "/app.bsky.feed.post/" + votedOn.Rkey
+	rsub := lexutil.NewFormatAtURI("at://" + postAuthor.Did + "/app.bsky.feed.post/" + votedOn.Rkey)
 
 	return &appbskytypes.NotificationListNotifications_Notification{
 		Record:        &lexutil.LexiconTypeDecoder{Val: rec},
 		IsRead:        nrec.CreatedAt.Before(lastSeen),
 		IndexedAt:     nrec.CreatedAt.Format(time.RFC3339),
-		Uri:           "at://" + voter.Did + "/app.bsky.feed.vote/" + vote.Rkey,
-		Cid:           vote.Cid,
+		Uri:           lexutil.NewFormatAtURI("at://" + voter.Did + "/app.bsky.feed.vote/" + vote.Rkey),
+		Cid:           lexutil.NewFormatCID(vote.Cid),
 		Author:        voter.ActorView(),
 		Reason:        "vote",
 		ReasonSubject: &rsub,
@@ -212,14 +212,14 @@ func (nm *DBNotifMan) hydrateNotificationRepost(ctx context.Context, nrec *Notif
 		return nil, err
 	}
 
-	rsub := "at://" + postAuthor.Did + "/app.bsky.feed.post/" + reposted.Rkey
+	rsub := lexutil.NewFormatAtURI("at://" + postAuthor.Did + "/app.bsky.feed.post/" + reposted.Rkey)
 
 	return &appbskytypes.NotificationListNotifications_Notification{
 		Record:        &lexutil.LexiconTypeDecoder{rec},
 		IsRead:        nrec.CreatedAt.Before(lastSeen),
 		IndexedAt:     nrec.CreatedAt.Format(time.RFC3339),
-		Uri:           "at://" + reposter.Did + "/app.bsky.feed.repost/" + repost.Rkey,
-		Cid:           repost.RecCid,
+		Uri:           lexutil.NewFormatAtURI("at://" + reposter.Did + "/app.bsky.feed.repost/" + repost.Rkey),
+		Cid:           lexutil.NewFormatCID(repost.RecCid),
 		Author:        reposter.ActorView(),
 		Reason:        "repost",
 		ReasonSubject: &rsub,
@@ -252,14 +252,14 @@ func (nm *DBNotifMan) hydrateNotificationReply(ctx context.Context, nrec *NotifR
 		return nil, err
 	}
 
-	rsub := "at://" + opAuthor.Did + "/app.bsky.feed.post/" + replyTo.Rkey
+	rsub := lexutil.NewFormatAtURI("at://" + opAuthor.Did + "/app.bsky.feed.post/" + replyTo.Rkey)
 
 	return &appbskytypes.NotificationListNotifications_Notification{
 		Record:        &lexutil.LexiconTypeDecoder{rec},
 		IsRead:        nrec.CreatedAt.Before(lastSeen),
 		IndexedAt:     nrec.CreatedAt.Format(time.RFC3339),
-		Uri:           "at://" + author.Did + "/app.bsky.feed.post/" + fp.Rkey,
-		Cid:           fp.Cid,
+		Uri:           lexutil.NewFormatAtURI("at://" + author.Did + "/app.bsky.feed.post/" + fp.Rkey),
+		Cid:           lexutil.NewFormatCID(fp.Cid),
 		Author:        author.ActorView(),
 		Reason:        "reply",
 		ReasonSubject: &rsub,
@@ -286,8 +286,8 @@ func (nm *DBNotifMan) hydrateNotificationFollow(ctx context.Context, nrec *Notif
 		Record:    &lexutil.LexiconTypeDecoder{rec},
 		IsRead:    nrec.CreatedAt.Before(lastSeen),
 		IndexedAt: nrec.CreatedAt.Format(time.RFC3339),
-		Uri:       "at://" + follower.Did + "/app.bsky.graph.follow/" + frec.Rkey,
-		Cid:       frec.Cid,
+		Uri:       lexutil.NewFormatAtURI("at://" + follower.Did + "/app.bsky.graph.follow/" + frec.Rkey),
+		Cid:       lexutil.NewFormatCID(frec.Cid),
 		Author:    follower.ActorView(),
 		Reason:    "follow",
 	}, nil

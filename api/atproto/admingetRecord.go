@@ -7,11 +7,12 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // AdminGetRecord calls the XRPC method "com.atproto.admin.getRecord".
-func AdminGetRecord(ctx context.Context, c *xrpc.Client, cid string, uri string) (*AdminDefs_RecordViewDetail, error) {
+func AdminGetRecord(ctx context.Context, c *xrpc.Client, cid util.FormatCID, uri util.FormatAtURI) (*AdminDefs_RecordViewDetail, error) {
 	var out AdminDefs_RecordViewDetail
 
 	params := map[string]interface{}{

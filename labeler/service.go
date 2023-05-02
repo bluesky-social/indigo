@@ -358,7 +358,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 
 	labels := []*label.Label{}
 	for _, op := range evt.RepoCommit.Ops {
-		uri := "at://" + evt.RepoCommit.Repo + "/" + op.Path
+		uri := "at://" + evt.RepoCommit.Repo.String() + "/" + op.Path
 		nsid := strings.SplitN(op.Path, "/", 2)[0]
 
 		if !(op.Action == "create" || op.Action == "update") {
@@ -370,7 +370,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 			return fmt.Errorf("record not in CAR slice: %s", uri)
 		}
 		cidStr := cid.String()
-		labelVals, err := s.labelRecord(ctx, evt.RepoCommit.Repo, nsid, uri, cidStr, rec)
+		labelVals, err := s.labelRecord(ctx, evt.RepoCommit.Repo.String(), nsid, uri, cidStr, rec)
 		if err != nil {
 			return err
 		}
@@ -380,7 +380,7 @@ func (s *Server) handleBgsRepoEvent(ctx context.Context, pds *models.PDS, evt *e
 				val = strings.SplitN(val, ":", 2)[1]
 				labels = append(labels, &label.Label{
 					Src: s.user.Did,
-					Uri: "at://" + evt.RepoCommit.Repo,
+					Uri: "at://" + evt.RepoCommit.Repo.String(),
 					Val: val,
 					//Neg
 					//Cts

@@ -50,21 +50,21 @@ func TestBGSBasic(t *testing.T) {
 	fmt.Println("event 1")
 	e1 := evts.Next()
 	assert.NotNil(e1.RepoCommit)
-	assert.Equal(e1.RepoCommit.Repo, bob.DID())
+	assert.Equal(e1.RepoCommit.Repo.String(), bob.DID())
 
 	fmt.Println("event 2")
 	e2 := evts.Next()
 	assert.NotNil(e2.RepoCommit)
-	assert.Equal(e2.RepoCommit.Repo, alice.DID())
+	assert.Equal(e2.RepoCommit.Repo.String(), alice.DID())
 
 	fmt.Println("event 3")
 	e3 := evts.Next()
-	assert.Equal(e3.RepoCommit.Repo, bob.DID())
+	assert.Equal(e3.RepoCommit.Repo.String(), bob.DID())
 	//assert.Equal(e3.RepoCommit.Ops[0].Kind, "createRecord")
 
 	fmt.Println("event 4")
 	e4 := evts.Next()
-	assert.Equal(e4.RepoCommit.Repo, alice.DID())
+	assert.Equal(e4.RepoCommit.Repo.String(), alice.DID())
 	//assert.Equal(e4.RepoCommit.Ops[0].Kind, "createRecord")
 
 	// playback
@@ -165,7 +165,7 @@ func TestBGSMultiPDS(t *testing.T) {
 	// repos its already partially scraped, as long as its seen *something* after the missing post
 	// this is the 'catchup' process
 	ctx := context.Background()
-	_, err := b1.bgs.Index.GetPost(ctx, p2posts2[4].Uri)
+	_, err := b1.bgs.Index.GetPost(ctx, p2posts2[4].Uri.String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +203,7 @@ func TestBGSMultiGap(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 
 	ctx := context.Background()
-	_, err := b1.bgs.Index.GetPost(ctx, p2posts[3].Uri)
+	_, err := b1.bgs.Index.GetPost(ctx, p2posts[3].Uri.String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func TestBGSMultiGap(t *testing.T) {
 	// we expect the bgs to learn about posts that it didnt directly see from
 	// repos its already partially scraped, as long as its seen *something* after the missing post
 	// this is the 'catchup' process
-	_, err = b1.bgs.Index.GetPost(ctx, p2posts2[4].Uri)
+	_, err = b1.bgs.Index.GetPost(ctx, p2posts2[4].Uri.String())
 	if err != nil {
 		t.Fatal(err)
 	}

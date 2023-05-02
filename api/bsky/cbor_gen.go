@@ -1295,7 +1295,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Uri (string) (string)
+	// t.Uri (util.FormatURI) (struct)
 	if len("uri") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"uri\" was too long")
 	}
@@ -1307,14 +1307,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Uri) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Uri was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Uri))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Uri)); err != nil {
+	if err := t.Uri.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -1423,16 +1416,15 @@ func (t *EmbedExternal_External) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Uri (string) (string)
+		// t.Uri (util.FormatURI) (struct)
 		case "uri":
 
 			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
+
+				if err := t.Uri.UnmarshalCBOR(cr); err != nil {
+					return xerrors.Errorf("unmarshaling t.Uri: %w", err)
 				}
 
-				t.Uri = string(sval)
 			}
 			// t.Thumb (util.LexBlob) (struct)
 		case "thumb":
@@ -1647,7 +1639,7 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Subject (string) (string)
+	// t.Subject (util.FormatDID) (struct)
 	if len("subject") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"subject\" was too long")
 	}
@@ -1659,14 +1651,7 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Subject) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Subject was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Subject))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Subject)); err != nil {
+	if err := t.Subject.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -1744,16 +1729,15 @@ func (t *GraphFollow) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.LexiconTypeID = string(sval)
 			}
-			// t.Subject (string) (string)
+			// t.Subject (util.FormatDID) (struct)
 		case "subject":
 
 			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
+
+				if err := t.Subject.UnmarshalCBOR(cr); err != nil {
+					return xerrors.Errorf("unmarshaling t.Subject: %w", err)
 				}
 
-				t.Subject = string(sval)
 			}
 			// t.CreatedAt (string) (string)
 		case "createdAt":
@@ -2675,7 +2659,7 @@ func (t *RichtextFacet_Link) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Uri (string) (string)
+	// t.Uri (util.FormatURI) (struct)
 	if len("uri") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"uri\" was too long")
 	}
@@ -2687,14 +2671,7 @@ func (t *RichtextFacet_Link) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Uri) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Uri was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Uri))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Uri)); err != nil {
+	if err := t.Uri.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -2757,16 +2734,15 @@ func (t *RichtextFacet_Link) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Uri (string) (string)
+		// t.Uri (util.FormatURI) (struct)
 		case "uri":
 
 			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
+
+				if err := t.Uri.UnmarshalCBOR(cr); err != nil {
+					return xerrors.Errorf("unmarshaling t.Uri: %w", err)
 				}
 
-				t.Uri = string(sval)
 			}
 			// t.LexiconTypeID (string) (string)
 		case "$type":
@@ -2800,7 +2776,7 @@ func (t *RichtextFacet_Mention) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Did (string) (string)
+	// t.Did (util.FormatDID) (struct)
 	if len("did") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"did\" was too long")
 	}
@@ -2812,14 +2788,7 @@ func (t *RichtextFacet_Mention) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Did) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Did was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Did))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Did)); err != nil {
+	if err := t.Did.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -2882,16 +2851,15 @@ func (t *RichtextFacet_Mention) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Did (string) (string)
+		// t.Did (util.FormatDID) (struct)
 		case "did":
 
 			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
+
+				if err := t.Did.UnmarshalCBOR(cr); err != nil {
+					return xerrors.Errorf("unmarshaling t.Did: %w", err)
 				}
 
-				t.Did = string(sval)
 			}
 			// t.LexiconTypeID (string) (string)
 		case "$type":
@@ -3088,7 +3056,7 @@ func (t *FeedDefs_NotFoundPost) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Uri (string) (string)
+	// t.Uri (util.FormatAtURI) (struct)
 	if len("uri") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"uri\" was too long")
 	}
@@ -3100,14 +3068,7 @@ func (t *FeedDefs_NotFoundPost) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Uri) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Uri was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Uri))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Uri)); err != nil {
+	if err := t.Uri.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -3186,16 +3147,15 @@ func (t *FeedDefs_NotFoundPost) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Uri (string) (string)
+		// t.Uri (util.FormatAtURI) (struct)
 		case "uri":
 
 			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
+
+				if err := t.Uri.UnmarshalCBOR(cr); err != nil {
+					return xerrors.Errorf("unmarshaling t.Uri: %w", err)
 				}
 
-				t.Uri = string(sval)
 			}
 			// t.LexiconTypeID (string) (string)
 		case "$type":

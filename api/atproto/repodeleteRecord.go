@@ -7,21 +7,22 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // RepoDeleteRecord_Input is the input argument to a com.atproto.repo.deleteRecord call.
 type RepoDeleteRecord_Input struct {
 	// collection: The NSID of the record collection.
-	Collection string `json:"collection" cborgen:"collection"`
+	Collection util.FormatNSID `json:"collection" cborgen:"collection"`
 	// repo: The handle or DID of the repo.
-	Repo string `json:"repo" cborgen:"repo"`
+	Repo util.FormatAtIdentifier `json:"repo" cborgen:"repo"`
 	// rkey: The key of the record.
 	Rkey string `json:"rkey" cborgen:"rkey"`
 	// swapCommit: Compare and swap with the previous commit by cid.
-	SwapCommit *string `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
+	SwapCommit *util.FormatCID `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
 	// swapRecord: Compare and swap with the previous record by cid.
-	SwapRecord *string `json:"swapRecord,omitempty" cborgen:"swapRecord,omitempty"`
+	SwapRecord *util.FormatCID `json:"swapRecord,omitempty" cborgen:"swapRecord,omitempty"`
 }
 
 // RepoDeleteRecord calls the XRPC method "com.atproto.repo.deleteRecord".

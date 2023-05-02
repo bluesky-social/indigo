@@ -33,8 +33,8 @@ type EmbedRecord_View struct {
 //
 // RECORDTYPE: EmbedRecord_ViewNotFound
 type EmbedRecord_ViewNotFound struct {
-	LexiconTypeID string `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
-	Uri           string `json:"uri" cborgen:"uri"`
+	LexiconTypeID string           `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
+	Uri           util.FormatAtURI `json:"uri" cborgen:"uri"`
 }
 
 // EmbedRecord_ViewRecord is a "viewRecord" in the app.bsky.embed.record schema.
@@ -43,11 +43,11 @@ type EmbedRecord_ViewNotFound struct {
 type EmbedRecord_ViewRecord struct {
 	LexiconTypeID string                                `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
 	Author        *ActorDefs_ProfileViewBasic           `json:"author" cborgen:"author"`
-	Cid           string                                `json:"cid" cborgen:"cid"`
+	Cid           util.FormatCID                        `json:"cid" cborgen:"cid"`
 	Embeds        []*EmbedRecord_ViewRecord_Embeds_Elem `json:"embeds,omitempty" cborgen:"embeds,omitempty"`
 	IndexedAt     string                                `json:"indexedAt" cborgen:"indexedAt"`
 	Labels        []*comatprototypes.LabelDefs_Label    `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	Uri           string                                `json:"uri" cborgen:"uri"`
+	Uri           util.FormatAtURI                      `json:"uri" cborgen:"uri"`
 	Value         *util.LexiconTypeDecoder              `json:"value" cborgen:"value"`
 }
 

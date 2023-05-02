@@ -44,13 +44,13 @@ func ConsumeRepoStreamLite(ctx context.Context, con *websocket.Conn, cb LiteStre
 						return fmt.Errorf("mismatch in record and op cid: %s != %s", rc, *op.Cid)
 					}
 
-					if err := cb(ek, evt.Seq, op.Path, evt.Repo, &rc, rec); err != nil {
+					if err := cb(ek, evt.Seq, op.Path, evt.Repo.String(), &rc, rec); err != nil {
 						log.Errorf("event consumer callback (%s): %s", ek, err)
 						continue
 					}
 
 				case repomgr.EvtKindDeleteRecord:
-					if err := cb(ek, evt.Seq, op.Path, evt.Repo, nil, nil); err != nil {
+					if err := cb(ek, evt.Seq, op.Path, evt.Repo.String(), nil, nil); err != nil {
 						log.Errorf("event consumer callback (%s): %s", ek, err)
 						continue
 					}

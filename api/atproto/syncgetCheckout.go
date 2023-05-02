@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -15,7 +16,7 @@ import (
 //
 // commit: The commit to get the checkout from. Defaults to current HEAD.
 // did: The DID of the repo.
-func SyncGetCheckout(ctx context.Context, c *xrpc.Client, commit string, did string) ([]byte, error) {
+func SyncGetCheckout(ctx context.Context, c *xrpc.Client, commit util.FormatCID, did util.FormatDID) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{

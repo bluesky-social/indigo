@@ -13,9 +13,9 @@ import (
 
 // AdminDefs_ActionReversal is a "actionReversal" in the com.atproto.admin.defs schema.
 type AdminDefs_ActionReversal struct {
-	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
-	CreatedBy string `json:"createdBy" cborgen:"createdBy"`
-	Reason    string `json:"reason" cborgen:"reason"`
+	CreatedAt string         `json:"createdAt" cborgen:"createdAt"`
+	CreatedBy util.FormatDID `json:"createdBy" cborgen:"createdBy"`
+	Reason    string         `json:"reason" cborgen:"reason"`
 }
 
 // AdminDefs_ActionView is a "actionView" in the com.atproto.admin.defs schema.
@@ -23,7 +23,7 @@ type AdminDefs_ActionView struct {
 	Action            *string                       `json:"action" cborgen:"action"`
 	CreateLabelVals   []string                      `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
 	CreatedAt         string                        `json:"createdAt" cborgen:"createdAt"`
-	CreatedBy         string                        `json:"createdBy" cborgen:"createdBy"`
+	CreatedBy         util.FormatDID                `json:"createdBy" cborgen:"createdBy"`
 	Id                int64                         `json:"id" cborgen:"id"`
 	NegateLabelVals   []string                      `json:"negateLabelVals,omitempty" cborgen:"negateLabelVals,omitempty"`
 	Reason            string                        `json:"reason" cborgen:"reason"`
@@ -44,7 +44,7 @@ type AdminDefs_ActionViewDetail struct {
 	Action          *string                             `json:"action" cborgen:"action"`
 	CreateLabelVals []string                            `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
 	CreatedAt       string                              `json:"createdAt" cborgen:"createdAt"`
-	CreatedBy       string                              `json:"createdBy" cborgen:"createdBy"`
+	CreatedBy       util.FormatDID                      `json:"createdBy" cborgen:"createdBy"`
 	Id              int64                               `json:"id" cborgen:"id"`
 	NegateLabelVals []string                            `json:"negateLabelVals,omitempty" cborgen:"negateLabelVals,omitempty"`
 	Reason          string                              `json:"reason" cborgen:"reason"`
@@ -126,7 +126,7 @@ func (t *AdminDefs_ActionView_Subject) UnmarshalJSON(b []byte) error {
 
 // AdminDefs_BlobView is a "blobView" in the com.atproto.admin.defs schema.
 type AdminDefs_BlobView struct {
-	Cid        string                      `json:"cid" cborgen:"cid"`
+	Cid        util.FormatCID              `json:"cid" cborgen:"cid"`
 	CreatedAt  string                      `json:"createdAt" cborgen:"createdAt"`
 	Details    *AdminDefs_BlobView_Details `json:"details,omitempty" cborgen:"details,omitempty"`
 	MimeType   string                      `json:"mimeType" cborgen:"mimeType"`
@@ -195,24 +195,24 @@ type AdminDefs_ModerationDetail struct {
 // RECORDTYPE: AdminDefs_RecordView
 type AdminDefs_RecordView struct {
 	LexiconTypeID string                   `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
-	BlobCids      []string                 `json:"blobCids" cborgen:"blobCids"`
-	Cid           string                   `json:"cid" cborgen:"cid"`
+	BlobCids      []util.FormatCID         `json:"blobCids" cborgen:"blobCids"`
+	Cid           util.FormatCID           `json:"cid" cborgen:"cid"`
 	IndexedAt     string                   `json:"indexedAt" cborgen:"indexedAt"`
 	Moderation    *AdminDefs_Moderation    `json:"moderation" cborgen:"moderation"`
 	Repo          *AdminDefs_RepoView      `json:"repo" cborgen:"repo"`
-	Uri           string                   `json:"uri" cborgen:"uri"`
+	Uri           util.FormatAtURI         `json:"uri" cborgen:"uri"`
 	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
 // AdminDefs_RecordViewDetail is a "recordViewDetail" in the com.atproto.admin.defs schema.
 type AdminDefs_RecordViewDetail struct {
 	Blobs      []*AdminDefs_BlobView       `json:"blobs" cborgen:"blobs"`
-	Cid        string                      `json:"cid" cborgen:"cid"`
+	Cid        util.FormatCID              `json:"cid" cborgen:"cid"`
 	IndexedAt  string                      `json:"indexedAt" cborgen:"indexedAt"`
 	Labels     []*LabelDefs_Label          `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	Moderation *AdminDefs_ModerationDetail `json:"moderation" cborgen:"moderation"`
 	Repo       *AdminDefs_RepoView         `json:"repo" cborgen:"repo"`
-	Uri        string                      `json:"uri" cborgen:"uri"`
+	Uri        util.FormatAtURI            `json:"uri" cborgen:"uri"`
 	Value      *util.LexiconTypeDecoder    `json:"value" cborgen:"value"`
 }
 
@@ -220,8 +220,8 @@ type AdminDefs_RecordViewDetail struct {
 //
 // RECORDTYPE: AdminDefs_RepoRef
 type AdminDefs_RepoRef struct {
-	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
-	Did           string `json:"did" cborgen:"did"`
+	LexiconTypeID string         `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
+	Did           util.FormatDID `json:"did" cborgen:"did"`
 }
 
 // AdminDefs_RepoView is a "repoView" in the com.atproto.admin.defs schema.
@@ -229,9 +229,9 @@ type AdminDefs_RepoRef struct {
 // RECORDTYPE: AdminDefs_RepoView
 type AdminDefs_RepoView struct {
 	LexiconTypeID  string                     `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
-	Did            string                     `json:"did" cborgen:"did"`
+	Did            util.FormatDID             `json:"did" cborgen:"did"`
 	Email          *string                    `json:"email,omitempty" cborgen:"email,omitempty"`
-	Handle         string                     `json:"handle" cborgen:"handle"`
+	Handle         util.FormatHandle          `json:"handle" cborgen:"handle"`
 	IndexedAt      string                     `json:"indexedAt" cborgen:"indexedAt"`
 	InvitedBy      *ServerDefs_InviteCode     `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
 	Moderation     *AdminDefs_Moderation      `json:"moderation" cborgen:"moderation"`
@@ -240,9 +240,9 @@ type AdminDefs_RepoView struct {
 
 // AdminDefs_RepoViewDetail is a "repoViewDetail" in the com.atproto.admin.defs schema.
 type AdminDefs_RepoViewDetail struct {
-	Did            string                      `json:"did" cborgen:"did"`
+	Did            util.FormatDID              `json:"did" cborgen:"did"`
 	Email          *string                     `json:"email,omitempty" cborgen:"email,omitempty"`
-	Handle         string                      `json:"handle" cborgen:"handle"`
+	Handle         util.FormatHandle           `json:"handle" cborgen:"handle"`
 	IndexedAt      string                      `json:"indexedAt" cborgen:"indexedAt"`
 	InvitedBy      *ServerDefs_InviteCode      `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
 	Invites        []*ServerDefs_InviteCode    `json:"invites,omitempty" cborgen:"invites,omitempty"`
@@ -257,7 +257,7 @@ type AdminDefs_ReportView struct {
 	Id                  int64                         `json:"id" cborgen:"id"`
 	Reason              *string                       `json:"reason,omitempty" cborgen:"reason,omitempty"`
 	ReasonType          *string                       `json:"reasonType" cborgen:"reasonType"`
-	ReportedBy          string                        `json:"reportedBy" cborgen:"reportedBy"`
+	ReportedBy          util.FormatDID                `json:"reportedBy" cborgen:"reportedBy"`
 	ResolvedByActionIds []int64                       `json:"resolvedByActionIds" cborgen:"resolvedByActionIds"`
 	Subject             *AdminDefs_ReportView_Subject `json:"subject" cborgen:"subject"`
 }
@@ -268,7 +268,7 @@ type AdminDefs_ReportViewDetail struct {
 	Id                int64                               `json:"id" cborgen:"id"`
 	Reason            *string                             `json:"reason,omitempty" cborgen:"reason,omitempty"`
 	ReasonType        *string                             `json:"reasonType" cborgen:"reasonType"`
-	ReportedBy        string                              `json:"reportedBy" cborgen:"reportedBy"`
+	ReportedBy        util.FormatDID                      `json:"reportedBy" cborgen:"reportedBy"`
 	ResolvedByActions []*AdminDefs_ActionView             `json:"resolvedByActions" cborgen:"resolvedByActions"`
 	Subject           *AdminDefs_ReportViewDetail_Subject `json:"subject" cborgen:"subject"`
 }

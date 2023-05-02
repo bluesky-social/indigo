@@ -54,7 +54,7 @@ func (t *FeedGetPostThread_Output_Thread) UnmarshalJSON(b []byte) error {
 }
 
 // FeedGetPostThread calls the XRPC method "app.bsky.feed.getPostThread".
-func FeedGetPostThread(ctx context.Context, c *xrpc.Client, depth int64, uri string) (*FeedGetPostThread_Output, error) {
+func FeedGetPostThread(ctx context.Context, c *xrpc.Client, depth int64, uri util.FormatAtURI) (*FeedGetPostThread_Output, error) {
 	var out FeedGetPostThread_Output
 
 	params := map[string]interface{}{

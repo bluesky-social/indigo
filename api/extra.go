@@ -6,6 +6,7 @@ import (
 	"net/url"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	did "github.com/whyrusleeping/go-did"
 	otel "go.opentelemetry.io/otel"
@@ -49,12 +50,12 @@ func ResolveDidToHandle(ctx context.Context, xrpcc *xrpc.Client, pls *PLCServer,
 		return "", "", fmt.Errorf("our XRPC client is authed for a different pds (%s != %s)", svc.ServiceEndpoint, xrpcc.Host)
 	}
 
-	verdid, err := comatproto.IdentityResolveHandle(ctx, xrpcc, handle)
+	verdid, err := comatproto.IdentityResolveHandle(ctx, xrpcc, lexutil.NewFormatHandle(handle))
 	if err != nil {
 		return "", "", err
 	}
 
-	if verdid.Did != udid {
+	if verdid.Did.String() != udid {
 		return "", "", fmt.Errorf("pds server reported different did for claimed handle")
 	}
 

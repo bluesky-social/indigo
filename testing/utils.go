@@ -170,7 +170,7 @@ func (tp *testPDS) NewUser(handle string) (*testUser, error) {
 	fmt.Println("HOST: ", c.Host)
 	out, err := atproto.ServerCreateAccount(ctx, c, &atproto.ServerCreateAccount_Input{
 		Email:    handle + "@fake.com",
-		Handle:   handle,
+		Handle:   lexutil.NewFormatHandle(handle),
 		Password: "password",
 	})
 	if err != nil {
@@ -180,15 +180,15 @@ func (tp *testPDS) NewUser(handle string) (*testUser, error) {
 	c.Auth = &xrpc.AuthInfo{
 		AccessJwt:  out.AccessJwt,
 		RefreshJwt: out.RefreshJwt,
-		Handle:     out.Handle,
-		Did:        out.Did,
+		Handle:     out.Handle.String(),
+		Did:        out.Did.String(),
 	}
 
 	return &testUser{
 		pds:    tp,
-		handle: out.Handle,
+		handle: out.Handle.String(),
 		client: c,
-		did:    out.Did,
+		did:    out.Did.String(),
 	}, nil
 }
 
@@ -197,8 +197,8 @@ func (u *testUser) Reply(t *testing.T, replyto, root *atproto.RepoStrongRef, bod
 
 	ctx := context.TODO()
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
-		Collection: "app.bsky.feed.post",
-		Repo:       u.did,
+		Collection: lexutil.NewFormatNSID("app.bsky.feed.post"),
+		Repo:       lexutil.NewFormatAtIdentifier(u.did),
 		Record: &lexutil.LexiconTypeDecoder{&bsky.FeedPost{
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Text:      body,
@@ -212,7 +212,7 @@ func (u *testUser) Reply(t *testing.T, replyto, root *atproto.RepoStrongRef, bod
 		t.Fatal(err)
 	}
 
-	return resp.Uri
+	return resp.Uri.String()
 }
 
 func (u *testUser) DID() string {
@@ -224,8 +224,8 @@ func (u *testUser) Post(t *testing.T, body string) *atproto.RepoStrongRef {
 
 	ctx := context.TODO()
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
-		Collection: "app.bsky.feed.post",
-		Repo:       u.did,
+		Collection: lexutil.NewFormatNSID("app.bsky.feed.post"),
+		Repo:       lexutil.NewFormatAtIdentifier(u.did),
 		Record: &lexutil.LexiconTypeDecoder{&bsky.FeedPost{
 			CreatedAt: time.Now().Format(time.RFC3339),
 			Text:      body,
@@ -247,8 +247,8 @@ func (u *testUser) Like(t *testing.T, post *atproto.RepoStrongRef) {
 
 	ctx := context.TODO()
 	_, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
-		Collection: "app.bsky.feed.vote",
-		Repo:       u.did,
+		Collection: lexutil.NewFormatNSID("app.bsky.feed.vote"),
+		Repo:       lexutil.NewFormatAtIdentifier(u.did),
 		Record: &lexutil.LexiconTypeDecoder{&bsky.FeedLike{
 			LexiconTypeID: "app.bsky.feed.vote",
 			CreatedAt:     time.Now().Format(time.RFC3339),
@@ -266,11 +266,11 @@ func (u *testUser) Follow(t *testing.T, did string) string {
 
 	ctx := context.TODO()
 	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
-		Collection: "app.bsky.graph.follow",
-		Repo:       u.did,
+		Collection: lexutil.NewFormatNSID("app.bsky.graph.follow"),
+		Repo:       lexutil.NewFormatAtIdentifier(u.did),
 		Record: &lexutil.LexiconTypeDecoder{&bsky.GraphFollow{
 			CreatedAt: time.Now().Format(time.RFC3339),
-			Subject:   did,
+			Subject:   lexutil.NewFormatDID(did),
 		}},
 	})
 
@@ -278,7 +278,7 @@ func (u *testUser) Follow(t *testing.T, did string) string {
 		t.Fatal(err)
 	}
 
-	return resp.Uri
+	return resp.Uri.String()
 }
 
 func (u *testUser) GetFeed(t *testing.T) []*bsky.FeedDefs_FeedViewPost {
@@ -310,7 +310,7 @@ func (u *testUser) ChangeHandle(t *testing.T, nhandle string) {
 
 	ctx := context.TODO()
 	if err := atproto.IdentityUpdateHandle(ctx, u.client, &atproto.IdentityUpdateHandle_Input{
-		Handle: nhandle,
+		Handle: lexutil.NewFormatHandle(nhandle),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -622,7 +622,7 @@ func ReadWords() ([]string, error) {
 	return strings.Split(string(b), "\n"), nil
 }
 
-func RandFakeCid() cid.Cid {
+func RandFakeCid() lexutil.FormatCID {
 	buf := make([]byte, 32)
 	rand.Read(buf)
 
@@ -632,10 +632,10 @@ func RandFakeCid() cid.Cid {
 		panic(err)
 	}
 
-	return c
+	return lexutil.NewFormatCID(c.String()) // TODO: support graceful type conversion between lexutil.FormatCID and cid.Cid
 }
 
-func RandFakeAtUri(collection, rkey string) string {
+func RandFakeAtUri(collection, rkey string) lexutil.FormatAtURI {
 	buf := make([]byte, 10)
 	rand.Read(buf)
 	did := base32.StdEncoding.EncodeToString(buf)
@@ -645,7 +645,7 @@ func RandFakeAtUri(collection, rkey string) string {
 		rkey = base32.StdEncoding.EncodeToString(buf[:6])
 	}
 
-	return fmt.Sprintf("at://did:plc:%s/%s/%s", did, collection, rkey)
+	return lexutil.NewFormatAtURI(fmt.Sprintf("at://did:plc:%s/%s/%s", did, collection, rkey))
 }
 
 func randAction() string {
@@ -685,7 +685,7 @@ func GenerateFakeRepo(r *repo.Repo, size int) (cid.Cid, error) {
 				CreatedAt: time.Now().Format(bsutil.ISO8601),
 				Subject: &atproto.RepoStrongRef{
 					Uri: RandFakeAtUri("app.bsky.feed.post", ""),
-					Cid: RandFakeCid().String(),
+					Cid: RandFakeCid(),
 				},
 			})
 			if err != nil {
@@ -698,11 +698,11 @@ func GenerateFakeRepo(r *repo.Repo, size int) (cid.Cid, error) {
 				Reply: &bsky.FeedPost_ReplyRef{
 					Root: &atproto.RepoStrongRef{
 						Uri: RandFakeAtUri("app.bsky.feed.post", ""),
-						Cid: RandFakeCid().String(),
+						Cid: RandFakeCid(),
 					},
 					Parent: &atproto.RepoStrongRef{
 						Uri: RandFakeAtUri("app.bsky.feed.post", ""),
-						Cid: RandFakeCid().String(),
+						Cid: RandFakeCid(),
 					},
 				},
 			})
@@ -714,7 +714,7 @@ func GenerateFakeRepo(r *repo.Repo, size int) (cid.Cid, error) {
 				CreatedAt: time.Now().Format(bsutil.ISO8601),
 				Subject: &atproto.RepoStrongRef{
 					Uri: RandFakeAtUri("app.bsky.feed.post", ""),
-					Cid: RandFakeCid().String(),
+					Cid: RandFakeCid(),
 				},
 			})
 			if err != nil {

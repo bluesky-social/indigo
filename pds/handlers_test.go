@@ -12,6 +12,8 @@ import (
 	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/carstore"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/whyrusleeping/go-did"
 	"gorm.io/gorm"
@@ -78,12 +80,12 @@ func TestHandleComAtprotoAccountCreate(t *testing.T) {
 	o, err := s.handleComAtprotoServerCreateAccount(context.Background(), &atproto.ServerCreateAccount_Input{
 		Email:    "test@foo.com",
 		Password: "password",
-		Handle:   "testman.test",
+		Handle:   util.NewFormatHandle("testman.test"),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	u, err := s.lookupUserByDid(context.Background(), o.Did)
+	u, err := s.lookupUserByDid(context.Background(), o.Did.String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,13 +102,13 @@ func TestHandleComAtprotoSessionCreate(t *testing.T) {
 	o, err := s.handleComAtprotoServerCreateAccount(context.Background(), &atproto.ServerCreateAccount_Input{
 		Email:    "test@foo.com",
 		Password: "password",
-		Handle:   "testman.test",
+		Handle:   lexutil.NewFormatHandle("testman.test"),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	so, err := s.handleComAtprotoServerCreateSession(context.Background(), &atproto.ServerCreateSession_Input{
-		Identifier: o.Handle,
+		Identifier: o.Handle.String(),
 		Password:   "password",
 	})
 	if err != nil {
@@ -117,7 +119,7 @@ func TestHandleComAtprotoSessionCreate(t *testing.T) {
 	}
 
 	_, err = s.handleComAtprotoServerCreateSession(context.Background(), &atproto.ServerCreateSession_Input{
-		Identifier: o.Handle,
+		Identifier: o.Handle.String(),
 		Password:   "invalid",
 	})
 	if err != ErrInvalidUsernameOrPassword {

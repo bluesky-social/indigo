@@ -7,24 +7,25 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // ServerCreateAccount_Input is the input argument to a com.atproto.server.createAccount call.
 type ServerCreateAccount_Input struct {
-	Email       string  `json:"email" cborgen:"email"`
-	Handle      string  `json:"handle" cborgen:"handle"`
-	InviteCode  *string `json:"inviteCode,omitempty" cborgen:"inviteCode,omitempty"`
-	Password    string  `json:"password" cborgen:"password"`
-	RecoveryKey *string `json:"recoveryKey,omitempty" cborgen:"recoveryKey,omitempty"`
+	Email       string            `json:"email" cborgen:"email"`
+	Handle      util.FormatHandle `json:"handle" cborgen:"handle"`
+	InviteCode  *string           `json:"inviteCode,omitempty" cborgen:"inviteCode,omitempty"`
+	Password    string            `json:"password" cborgen:"password"`
+	RecoveryKey *string           `json:"recoveryKey,omitempty" cborgen:"recoveryKey,omitempty"`
 }
 
 // ServerCreateAccount_Output is the output of a com.atproto.server.createAccount call.
 type ServerCreateAccount_Output struct {
-	AccessJwt  string `json:"accessJwt" cborgen:"accessJwt"`
-	Did        string `json:"did" cborgen:"did"`
-	Handle     string `json:"handle" cborgen:"handle"`
-	RefreshJwt string `json:"refreshJwt" cborgen:"refreshJwt"`
+	AccessJwt  string            `json:"accessJwt" cborgen:"accessJwt"`
+	Did        util.FormatDID    `json:"did" cborgen:"did"`
+	Handle     util.FormatHandle `json:"handle" cborgen:"handle"`
+	RefreshJwt string            `json:"refreshJwt" cborgen:"refreshJwt"`
 }
 
 // ServerCreateAccount calls the XRPC method "com.atproto.server.createAccount".

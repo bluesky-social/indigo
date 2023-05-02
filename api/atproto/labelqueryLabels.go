@@ -7,6 +7,7 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -20,7 +21,7 @@ type LabelQueryLabels_Output struct {
 //
 // sources: Optional list of label sources (DIDs) to filter on
 // uriPatterns: List of AT URI patterns to match (boolean 'OR'). Each may be a prefix (ending with '*'; will match inclusive of the string leading to '*'), or a full URI
-func LabelQueryLabels(ctx context.Context, c *xrpc.Client, cursor string, limit int64, sources []string, uriPatterns []string) (*LabelQueryLabels_Output, error) {
+func LabelQueryLabels(ctx context.Context, c *xrpc.Client, cursor string, limit int64, sources []util.FormatDID, uriPatterns []string) (*LabelQueryLabels_Output, error) {
 	var out LabelQueryLabels_Output
 
 	params := map[string]interface{}{

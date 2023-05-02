@@ -4,6 +4,10 @@ package atproto
 
 // schema: com.atproto.server.defs
 
+import (
+	"github.com/bluesky-social/indigo/lex/util"
+)
+
 // ServerDefs_InviteCode is a "inviteCode" in the com.atproto.server.defs schema.
 type ServerDefs_InviteCode struct {
 	Available  int64                       `json:"available" cborgen:"available"`
@@ -17,6 +21,6 @@ type ServerDefs_InviteCode struct {
 
 // ServerDefs_InviteCodeUse is a "inviteCodeUse" in the com.atproto.server.defs schema.
 type ServerDefs_InviteCodeUse struct {
-	UsedAt string `json:"usedAt" cborgen:"usedAt"`
-	UsedBy string `json:"usedBy" cborgen:"usedBy"`
+	UsedAt string         `json:"usedAt" cborgen:"usedAt"`
+	UsedBy util.FormatDID `json:"usedBy" cborgen:"usedBy"`
 }

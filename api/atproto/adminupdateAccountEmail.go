@@ -7,14 +7,15 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // AdminUpdateAccountEmail_Input is the input argument to a com.atproto.admin.updateAccountEmail call.
 type AdminUpdateAccountEmail_Input struct {
 	// account: The handle or DID of the repo.
-	Account string `json:"account" cborgen:"account"`
-	Email   string `json:"email" cborgen:"email"`
+	Account util.FormatAtIdentifier `json:"account" cborgen:"account"`
+	Email   string                  `json:"email" cborgen:"email"`
 }
 
 // AdminUpdateAccountEmail calls the XRPC method "com.atproto.admin.updateAccountEmail".

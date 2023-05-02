@@ -12,6 +12,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
@@ -30,14 +31,14 @@ func TestLabelMakerXRPCReportRepo(t *testing.T) {
 		ReasonType: &rt,
 		Subject: &comatproto.ModerationCreateReport_Input_Subject{
 			AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
-				Did: reportedDid,
+				Did: lexutil.NewFormatDID(reportedDid),
 			},
 		},
 	}
 	out := testCreateReport(t, e, lm, &report)
 	assert.Equal(&rt, out.ReasonType)
 	assert.Nil(out.Reason)
-	assert.Equal(reportedDid, out.Subject.AdminDefs_RepoRef.Did)
+	assert.Equal(reportedDid, out.Subject.AdminDefs_RepoRef.Did.String())
 }
 
 func TestLabelMakerXRPCReportRepoBad(t *testing.T) {
@@ -62,7 +63,7 @@ func TestLabelMakerXRPCReportRepoBad(t *testing.T) {
 			ReasonType: &row.rType,
 			Subject: &comatproto.ModerationCreateReport_Input_Subject{
 				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
-					Did: row.rDid,
+					Did: lexutil.NewFormatDID(row.rDid),
 				},
 			},
 		}
@@ -99,8 +100,8 @@ func TestLabelMakerXRPCReportRecord(t *testing.T) {
 		Subject: &comatproto.ModerationCreateReport_Input_Subject{
 			RepoStrongRef: &comatproto.RepoStrongRef{
 				//com.atproto.repo.strongRef
-				Uri: uri,
-				Cid: cid,
+				Uri: lexutil.NewFormatAtURI(uri),
+				Cid: lexutil.NewFormatCID(cid),
 			},
 		},
 	}
@@ -140,8 +141,8 @@ func TestLabelMakerXRPCReportRecordBad(t *testing.T) {
 			Subject: &comatproto.ModerationCreateReport_Input_Subject{
 				RepoStrongRef: &comatproto.RepoStrongRef{
 					//com.atproto.repo.strongRef
-					Uri: row.rUri,
-					Cid: row.rCid,
+					Uri: lexutil.NewFormatAtURI(row.rUri),
+					Cid: lexutil.NewFormatCID(row.rCid),
 				},
 			},
 		}
@@ -179,8 +180,8 @@ func TestLabelMakerXRPCReportAction(t *testing.T) {
 		Subject: &comatproto.ModerationCreateReport_Input_Subject{
 			RepoStrongRef: &comatproto.RepoStrongRef{
 				//com.atproto.repo.strongRef
-				Uri: uri,
-				Cid: cid,
+				Uri: lexutil.NewFormatAtURI(uri),
+				Cid: lexutil.NewFormatCID(cid),
 			},
 		},
 	}
@@ -193,18 +194,20 @@ func TestLabelMakerXRPCReportAction(t *testing.T) {
 	actionReason := "chaos reigns"
 	action := comatproto.AdminTakeModerationAction_Input{
 		Action:    actionVerb,
-		CreatedBy: actionDid,
+		CreatedBy: lexutil.NewFormatDID(actionDid),
 		Reason:    actionReason,
 		Subject: &comatproto.AdminTakeModerationAction_Input_Subject{
 			RepoStrongRef: &comatproto.RepoStrongRef{
 				//com.atproto.repo.strongRef
-				Uri: uri,
-				Cid: cid,
+				Uri: lexutil.NewFormatAtURI(uri),
+				Cid: lexutil.NewFormatCID(cid),
 			},
 		},
-		SubjectBlobCids: []string{
-			"abc",
-			"onetwothree",
+		SubjectBlobCids: []lexutil.FormatCID{
+			// lexutil.NewFormatCID("abc"),
+			// lexutil.NewFormatCID("onetwothree"),
+			lexutil.NewFormatCID("bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454"),
+			lexutil.NewFormatCID("bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz455"),
 		},
 	}
 	actionOut := testCreateAction(t, e, lm, &action)
@@ -213,7 +216,7 @@ func TestLabelMakerXRPCReportAction(t *testing.T) {
 	// resolve report with action
 	resolution := comatproto.AdminResolveModerationReports_Input{
 		ActionId:  actionId,
-		CreatedBy: actionDid,
+		CreatedBy: lexutil.NewFormatDID(actionDid),
 		ReportIds: []int64{reportId},
 	}
 	resolutionJSON, err := json.Marshal(resolution)
@@ -250,7 +253,7 @@ func TestLabelMakerXRPCReportAction(t *testing.T) {
 	reversalReason := "changed my mind"
 	reversal := comatproto.AdminReverseModerationAction_Input{
 		Id:        actionId,
-		CreatedBy: actionDid,
+		CreatedBy: lexutil.NewFormatDID(actionDid),
 		Reason:    reversalReason,
 	}
 	reversalJSON, err := json.Marshal(reversal)

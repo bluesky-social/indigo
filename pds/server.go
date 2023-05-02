@@ -120,13 +120,13 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, env *events.
 	switch {
 	case env.RepoCommit != nil:
 		evt := env.RepoCommit
-		u, err := s.lookupUserByDid(ctx, evt.Repo)
+		u, err := s.lookupUserByDid(ctx, evt.Repo.String())
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return fmt.Errorf("looking up event user: %w", err)
 			}
 
-			subj, err := s.createExternalUser(ctx, evt.Repo)
+			subj, err := s.createExternalUser(ctx, evt.Repo.String())
 			if err != nil {
 				return err
 			}
@@ -166,7 +166,7 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 	c := &xrpc.Client{Host: svc.ServiceEndpoint}
 
 	if peering.ID == 0 {
-		pdsdid, err := comatproto.IdentityResolveHandle(ctx, c, "")
+		pdsdid, err := comatproto.IdentityResolveHandle(ctx, c, lexutil.NewFormatHandle(""))
 		if err != nil {
 			// TODO: failing this shouldnt halt our indexing
 			return nil, fmt.Errorf("failed to get accounts config for unrecognized pds: %w", err)
@@ -174,7 +174,7 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 
 		// TODO: could check other things, a valid response is good enough for now
 		peering.Host = svc.ServiceEndpoint
-		peering.Did = pdsdid.Did
+		peering.Did = pdsdid.Did.String()
 
 		if err := s.db.Create(&peering).Error; err != nil {
 			return nil, err
@@ -191,12 +191,12 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 		handle = hurl.Host
 	}
 
-	profile, err := bsky.ActorGetProfile(ctx, c, did)
+	profile, err := bsky.ActorGetProfile(ctx, c, lexutil.NewFormatAtIdentifier(did))
 	if err != nil {
 		return nil, err
 	}
 
-	if handle != profile.Handle {
+	if handle != profile.Handle.String() {
 		return nil, fmt.Errorf("mismatch in handle between did document and pds profile (%s != %s)", handle, profile.Handle)
 	}
 
@@ -667,8 +667,8 @@ func (s *Server) UpdateUserHandle(ctx context.Context, u *User, handle string) e
 
 	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
-			Did:    u.Did,
-			Handle: handle,
+			Did:    lexutil.NewFormatDID(u.Did),
+			Handle: lexutil.NewFormatHandle(handle),
 			Time:   time.Now().Format(util.ISO8601),
 		},
 	}); err != nil {

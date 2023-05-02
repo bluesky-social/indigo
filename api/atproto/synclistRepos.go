@@ -7,6 +7,7 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -18,8 +19,8 @@ type SyncListRepos_Output struct {
 
 // SyncListRepos_Repo is a "repo" in the com.atproto.sync.listRepos schema.
 type SyncListRepos_Repo struct {
-	Did  string `json:"did" cborgen:"did"`
-	Head string `json:"head" cborgen:"head"`
+	Did  util.FormatDID `json:"did" cborgen:"did"`
+	Head util.FormatCID `json:"head" cborgen:"head"`
 }
 
 // SyncListRepos calls the XRPC method "com.atproto.sync.listRepos".

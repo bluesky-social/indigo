@@ -36,7 +36,7 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Cid (string) (string)
+	// t.Cid (util.FormatCID) (struct)
 	if len("cid") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"cid\" was too long")
 	}
@@ -48,18 +48,11 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Cid) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Cid was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Cid))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Cid)); err != nil {
+	if err := t.Cid.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
-	// t.Uri (string) (string)
+	// t.Uri (util.FormatAtURI) (struct)
 	if len("uri") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"uri\" was too long")
 	}
@@ -71,14 +64,7 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Uri) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Uri was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Uri))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Uri)); err != nil {
+	if err := t.Uri.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -144,27 +130,25 @@ func (t *RepoStrongRef) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Cid (string) (string)
+		// t.Cid (util.FormatCID) (struct)
 		case "cid":
 
 			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
+
+				if err := t.Cid.UnmarshalCBOR(cr); err != nil {
+					return xerrors.Errorf("unmarshaling t.Cid: %w", err)
 				}
 
-				t.Cid = string(sval)
 			}
-			// t.Uri (string) (string)
+			// t.Uri (util.FormatAtURI) (struct)
 		case "uri":
 
 			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
+
+				if err := t.Uri.UnmarshalCBOR(cr); err != nil {
+					return xerrors.Errorf("unmarshaling t.Uri: %w", err)
 				}
 
-				t.Uri = string(sval)
 			}
 			// t.LexiconTypeID (string) (string)
 		case "$type":
@@ -261,7 +245,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Repo (string) (string)
+	// t.Repo (util.FormatDID) (struct)
 	if len("repo") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"repo\" was too long")
 	}
@@ -273,14 +257,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Repo) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Repo was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Repo))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Repo)); err != nil {
+	if err := t.Repo.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -520,16 +497,15 @@ func (t *SyncSubscribeRepos_Commit) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 			}
-			// t.Repo (string) (string)
+			// t.Repo (util.FormatDID) (struct)
 		case "repo":
 
 			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
+
+				if err := t.Repo.UnmarshalCBOR(cr); err != nil {
+					return xerrors.Errorf("unmarshaling t.Repo: %w", err)
 				}
 
-				t.Repo = string(sval)
 			}
 			// t.Time (string) (string)
 		case "time":
@@ -661,7 +637,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Did (string) (string)
+	// t.Did (util.FormatDID) (struct)
 	if len("did") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"did\" was too long")
 	}
@@ -673,14 +649,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Did) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Did was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Did))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Did)); err != nil {
+	if err := t.Did.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -729,7 +698,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Handle (string) (string)
+	// t.Handle (util.FormatHandle) (struct)
 	if len("handle") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"handle\" was too long")
 	}
@@ -741,14 +710,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Handle) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Handle was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Handle))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Handle)); err != nil {
+	if err := t.Handle.MarshalCBOR(cw); err != nil {
 		return err
 	}
 	return nil
@@ -792,16 +754,15 @@ func (t *SyncSubscribeRepos_Handle) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Did (string) (string)
+		// t.Did (util.FormatDID) (struct)
 		case "did":
 
 			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
+
+				if err := t.Did.UnmarshalCBOR(cr); err != nil {
+					return xerrors.Errorf("unmarshaling t.Did: %w", err)
 				}
 
-				t.Did = string(sval)
 			}
 			// t.Seq (int64) (int64)
 		case "seq":
@@ -840,16 +801,15 @@ func (t *SyncSubscribeRepos_Handle) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Time = string(sval)
 			}
-			// t.Handle (string) (string)
+			// t.Handle (util.FormatHandle) (struct)
 		case "handle":
 
 			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
+
+				if err := t.Handle.UnmarshalCBOR(cr); err != nil {
+					return xerrors.Errorf("unmarshaling t.Handle: %w", err)
 				}
 
-				t.Handle = string(sval)
 			}
 
 		default:
@@ -1025,7 +985,7 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Did (string) (string)
+	// t.Did (util.FormatDID) (struct)
 	if len("did") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"did\" was too long")
 	}
@@ -1037,14 +997,7 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Did) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Did was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Did))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Did)); err != nil {
+	if err := t.Did.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -1162,16 +1115,15 @@ func (t *SyncSubscribeRepos_Migrate) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Did (string) (string)
+		// t.Did (util.FormatDID) (struct)
 		case "did":
 
 			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
+
+				if err := t.Did.UnmarshalCBOR(cr); err != nil {
+					return xerrors.Errorf("unmarshaling t.Did: %w", err)
 				}
 
-				t.Did = string(sval)
 			}
 			// t.Seq (int64) (int64)
 		case "seq":
@@ -1417,7 +1369,7 @@ func (t *SyncSubscribeRepos_Tombstone) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Did (string) (string)
+	// t.Did (util.FormatDID) (struct)
 	if len("did") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"did\" was too long")
 	}
@@ -1429,14 +1381,7 @@ func (t *SyncSubscribeRepos_Tombstone) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Did) > cbg.MaxLength {
-		return xerrors.Errorf("Value in field t.Did was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Did))); err != nil {
-		return err
-	}
-	if _, err := io.WriteString(w, string(t.Did)); err != nil {
+	if err := t.Did.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -1525,16 +1470,15 @@ func (t *SyncSubscribeRepos_Tombstone) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Did (string) (string)
+		// t.Did (util.FormatDID) (struct)
 		case "did":
 
 			{
-				sval, err := cbg.ReadString(cr)
-				if err != nil {
-					return err
+
+				if err := t.Did.UnmarshalCBOR(cr); err != nil {
+					return xerrors.Errorf("unmarshaling t.Did: %w", err)
 				}
 
-				t.Did = string(sval)
 			}
 			// t.Seq (int64) (int64)
 		case "seq":

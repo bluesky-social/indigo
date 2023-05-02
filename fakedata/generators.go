@@ -43,7 +43,7 @@ func GenAccount(xrpcc *xrpc.Client, index int, accountType string) (*AccountCont
 	if len(prefix) > 10 {
 		prefix = prefix[0:10]
 	}
-	handle := fmt.Sprintf("%s-%s%d.test", prefix, suffix, index)
+	handle := lexutil.NewFormatHandle(fmt.Sprintf("%s-%s%d.test", prefix, suffix, index))
 	email := gofakeit.Email()
 	password := gofakeit.Password(true, true, true, true, true, 24)
 	ctx := context.TODO()
@@ -58,8 +58,8 @@ func GenAccount(xrpcc *xrpc.Client, index int, accountType string) (*AccountCont
 	auth := xrpc.AuthInfo{
 		AccessJwt:  resp.AccessJwt,
 		RefreshJwt: resp.RefreshJwt,
-		Handle:     resp.Handle,
-		Did:        resp.Did,
+		Handle:     resp.Handle.String(),
+		Did:        resp.Did.String(),
 	}
 	return &AccountContext{
 		Index:       index,
@@ -108,8 +108,8 @@ func GenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner bo
 	}
 
 	_, err := comatproto.RepoPutRecord(context.TODO(), xrpcc, &comatproto.RepoPutRecord_Input{
-		Repo:       acc.Auth.Did,
-		Collection: "app.bsky.actor.profile",
+		Repo:       lexutil.NewFormatAtIdentifier(acc.Auth.Did),
+		Collection: lexutil.NewFormatNSID("app.bsky.actor.profile"),
 		Rkey:       "self",
 		Record: &lexutil.LexiconTypeDecoder{&appbsky.ActorProfile{
 			Description: &desc,
@@ -195,8 +195,8 @@ func GenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContext, 
 			}
 		}
 		if _, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
-			Collection: "app.bsky.feed.post",
-			Repo:       acc.Auth.Did,
+			Collection: lexutil.NewFormatNSID("app.bsky.feed.post"),
+			Repo:       lexutil.NewFormatAtIdentifier(acc.Auth.Did),
 			Record:     &lexutil.LexiconTypeDecoder{&post},
 		}); err != nil {
 			return err
@@ -209,11 +209,11 @@ func GenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContext, 
 func CreateFollow(xrpcc *xrpc.Client, tgt *AccountContext) error {
 	follow := &appbsky.GraphFollow{
 		CreatedAt: time.Now().Format(time.RFC3339),
-		Subject:   tgt.Auth.Did,
+		Subject:   lexutil.NewFormatDID(tgt.Auth.Did),
 	}
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
-		Collection: "app.bsky.graph.follow",
-		Repo:       xrpcc.Auth.Did,
+		Collection: lexutil.NewFormatNSID("app.bsky.graph.follow"),
+		Repo:       lexutil.NewFormatAtIdentifier(xrpcc.Auth.Did),
 		Record:     &lexutil.LexiconTypeDecoder{follow},
 	})
 	return err
@@ -230,8 +230,8 @@ func CreateLike(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) err
 	}
 	// TODO: may have already like? in that case should ignore error
 	_, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
-		Collection: "app.bsky.feed.like",
-		Repo:       xrpcc.Auth.Did,
+		Collection: lexutil.NewFormatNSID("app.bsky.feed.like"),
+		Repo:       lexutil.NewFormatAtIdentifier(xrpcc.Auth.Did),
 		Record:     &lexutil.LexiconTypeDecoder{&like},
 	})
 	return err
@@ -246,8 +246,8 @@ func CreateRepost(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) e
 		},
 	}
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
-		Collection: "app.bsky.feed.repost",
-		Repo:       xrpcc.Auth.Did,
+		Collection: lexutil.NewFormatNSID("app.bsky.feed.repost"),
+		Repo:       lexutil.NewFormatAtIdentifier(xrpcc.Auth.Did),
 		Record:     &lexutil.LexiconTypeDecoder{repost},
 	})
 	return err
@@ -278,8 +278,8 @@ func CreateReply(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) er
 		},
 	}
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
-		Collection: "app.bsky.feed.post",
-		Repo:       xrpcc.Auth.Did,
+		Collection: lexutil.NewFormatNSID("app.bsky.feed.post"),
+		Repo:       lexutil.NewFormatAtIdentifier(xrpcc.Auth.Did),
 		Record:     &lexutil.LexiconTypeDecoder{replyPost},
 	})
 	return err
@@ -335,7 +335,7 @@ func GenFollowsAndMutes(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *Accoun
 		if tgt.Auth.Did == acc.Auth.Did {
 			continue
 		}
-		if err := appbsky.GraphMuteActor(context.TODO(), xrpcc, &appbsky.GraphMuteActor_Input{Actor: tgt.Auth.Did}); err != nil {
+		if err := appbsky.GraphMuteActor(context.TODO(), xrpcc, &appbsky.GraphMuteActor_Input{Actor: lexutil.NewFormatAtIdentifier(tgt.Auth.Did)}); err != nil {
 			return err
 		}
 	}
@@ -355,7 +355,7 @@ func GenLikesRepostsReplies(xrpcc *xrpc.Client, acc *AccountContext, fracLike, f
 	}
 	for _, post := range resp.Feed {
 		// skip account's own posts
-		if post.Post.Author.Did == acc.Auth.Did {
+		if post.Post.Author.Did.String() == acc.Auth.Did {
 			continue
 		}
 
@@ -397,11 +397,11 @@ func BrowseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
 		case "repost":
 			fallthrough
 		case "follow":
-			_, err := appbsky.ActorGetProfile(context.TODO(), xrpcc, notif.Author.Did)
+			_, err := appbsky.ActorGetProfile(context.TODO(), xrpcc, notif.Author.Did.AsAtIdentifier())
 			if err != nil {
 				return err
 			}
-			_, err = appbsky.FeedGetAuthorFeed(context.TODO(), xrpcc, notif.Author.Did, "", 50)
+			_, err = appbsky.FeedGetAuthorFeed(context.TODO(), xrpcc, notif.Author.Did.AsAtIdentifier(), "", 50)
 			if err != nil {
 				return err
 			}
@@ -429,7 +429,7 @@ func BrowseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
 	t2 := MeasureIterations("timeline interactions")
 	for _, post := range timelineResp.Feed {
 		// skip account's own posts
-		if post.Post.Author.Did == acc.Auth.Did {
+		if post.Post.Author.Did.String() == acc.Auth.Did {
 			continue
 		}
 		// TODO: should we do something different here?
@@ -439,11 +439,11 @@ func BrowseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
 				return err
 			}
 		} else if rand.Float64() < 0.25 {
-			_, err = appbsky.ActorGetProfile(context.TODO(), xrpcc, post.Post.Author.Did)
+			_, err = appbsky.ActorGetProfile(context.TODO(), xrpcc, post.Post.Author.Did.AsAtIdentifier())
 			if err != nil {
 				return err
 			}
-			_, err = appbsky.FeedGetAuthorFeed(context.TODO(), xrpcc, post.Post.Author.Did, "", 50)
+			_, err = appbsky.FeedGetAuthorFeed(context.TODO(), xrpcc, post.Post.Author.Did.AsAtIdentifier(), "", 50)
 			if err != nil {
 				return err
 			}

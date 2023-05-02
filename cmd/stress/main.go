@@ -106,7 +106,7 @@ var postingCmd = &cli.Command{
 
 		resp, err := comatproto.ServerCreateAccount(ctx, xrpcc, &comatproto.ServerCreateAccount_Input{
 			Email:      fmt.Sprintf("user-%s@test.com", id),
-			Handle:     "user-" + id + domain,
+			Handle:     lexutil.NewFormatHandle("user-" + id + domain),
 			Password:   "password",
 			InviteCode: invite,
 		})
@@ -117,8 +117,8 @@ var postingCmd = &cli.Command{
 		xrpcc.Auth = &xrpc.AuthInfo{
 			AccessJwt:  resp.AccessJwt,
 			RefreshJwt: resp.RefreshJwt,
-			Handle:     resp.Handle,
-			Did:        resp.Did,
+			Handle:     resp.Handle.String(),
+			Did:        resp.Did.String(),
 		}
 
 		var wg sync.WaitGroup
@@ -131,8 +131,8 @@ var postingCmd = &cli.Command{
 					rand.Read(buf)
 
 					res, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
-						Collection: "app.bsky.feed.post",
-						Repo:       xrpcc.Auth.Did,
+						Collection: lexutil.NewFormatNSID("app.bsky.feed.post"),
+						Repo:       lexutil.NewFormatAtIdentifier(xrpcc.Auth.Did),
 						Record: &lexutil.LexiconTypeDecoder{&appbsky.FeedPost{
 							Text:      hex.EncodeToString(buf),
 							CreatedAt: time.Now().Format(time.RFC3339),

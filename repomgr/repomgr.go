@@ -692,10 +692,10 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*
 			if c.Rkey != nil {
 				rkey = *c.Rkey
 			} else {
-				rkey = rkeyForCollection(c.Collection)
+				rkey = rkeyForCollection(c.Collection.String())
 			}
 
-			nsid := c.Collection + "/" + rkey
+			nsid := c.Collection.String() + "/" + rkey
 			cc, err := r.PutRecord(ctx, nsid, c.Value.Val)
 			if err != nil {
 				return err
@@ -703,7 +703,7 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*
 
 			ops = append(ops, RepoOp{
 				Kind:       EvtKindCreateRecord,
-				Collection: c.Collection,
+				Collection: c.Collection.String(),
 				Rkey:       rkey,
 				RecCid:     &cc,
 				Record:     c.Value.Val,
@@ -711,14 +711,14 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*
 		case w.RepoApplyWrites_Update != nil:
 			u := w.RepoApplyWrites_Update
 
-			cc, err := r.PutRecord(ctx, u.Collection+"/"+u.Rkey, u.Value.Val)
+			cc, err := r.PutRecord(ctx, u.Collection.String()+"/"+u.Rkey, u.Value.Val)
 			if err != nil {
 				return err
 			}
 
 			ops = append(ops, RepoOp{
 				Kind:       EvtKindUpdateRecord,
-				Collection: u.Collection,
+				Collection: u.Collection.String(),
 				Rkey:       u.Rkey,
 				RecCid:     &cc,
 				Record:     u.Value.Val,
@@ -726,13 +726,13 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*
 		case w.RepoApplyWrites_Delete != nil:
 			d := w.RepoApplyWrites_Delete
 
-			if err := r.DeleteRecord(ctx, d.Collection+"/"+d.Rkey); err != nil {
+			if err := r.DeleteRecord(ctx, d.Collection.String()+"/"+d.Rkey); err != nil {
 				return err
 			}
 
 			ops = append(ops, RepoOp{
 				Kind:       EvtKindDeleteRecord,
-				Collection: d.Collection,
+				Collection: d.Collection.String(),
 				Rkey:       d.Rkey,
 			})
 		default:

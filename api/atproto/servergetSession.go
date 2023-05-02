@@ -7,14 +7,15 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // ServerGetSession_Output is the output of a com.atproto.server.getSession call.
 type ServerGetSession_Output struct {
-	Did    string  `json:"did" cborgen:"did"`
-	Email  *string `json:"email,omitempty" cborgen:"email,omitempty"`
-	Handle string  `json:"handle" cborgen:"handle"`
+	Did    util.FormatDID    `json:"did" cborgen:"did"`
+	Email  *string           `json:"email,omitempty" cborgen:"email,omitempty"`
+	Handle util.FormatHandle `json:"handle" cborgen:"handle"`
 }
 
 // ServerGetSession calls the XRPC method "com.atproto.server.getSession".

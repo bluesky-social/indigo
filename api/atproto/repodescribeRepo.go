@@ -13,17 +13,17 @@ import (
 
 // RepoDescribeRepo_Output is the output of a com.atproto.repo.describeRepo call.
 type RepoDescribeRepo_Output struct {
-	Collections     []string                 `json:"collections" cborgen:"collections"`
-	Did             string                   `json:"did" cborgen:"did"`
+	Collections     []util.FormatNSID        `json:"collections" cborgen:"collections"`
+	Did             util.FormatDID           `json:"did" cborgen:"did"`
 	DidDoc          *util.LexiconTypeDecoder `json:"didDoc" cborgen:"didDoc"`
-	Handle          string                   `json:"handle" cborgen:"handle"`
+	Handle          util.FormatHandle        `json:"handle" cborgen:"handle"`
 	HandleIsCorrect bool                     `json:"handleIsCorrect" cborgen:"handleIsCorrect"`
 }
 
 // RepoDescribeRepo calls the XRPC method "com.atproto.repo.describeRepo".
 //
 // repo: The handle or DID of the repo.
-func RepoDescribeRepo(ctx context.Context, c *xrpc.Client, repo string) (*RepoDescribeRepo_Output, error) {
+func RepoDescribeRepo(ctx context.Context, c *xrpc.Client, repo util.FormatAtIdentifier) (*RepoDescribeRepo_Output, error) {
 	var out RepoDescribeRepo_Output
 
 	params := map[string]interface{}{

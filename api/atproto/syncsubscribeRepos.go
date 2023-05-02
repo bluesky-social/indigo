@@ -17,7 +17,7 @@ type SyncSubscribeRepos_Commit struct {
 	Ops    []*SyncSubscribeRepos_RepoOp `json:"ops" cborgen:"ops"`
 	Prev   *util.LexLink                `json:"prev" cborgen:"prev"`
 	Rebase bool                         `json:"rebase" cborgen:"rebase"`
-	Repo   string                       `json:"repo" cborgen:"repo"`
+	Repo   util.FormatDID               `json:"repo" cborgen:"repo"`
 	Seq    int64                        `json:"seq" cborgen:"seq"`
 	Time   string                       `json:"time" cborgen:"time"`
 	TooBig bool                         `json:"tooBig" cborgen:"tooBig"`
@@ -25,10 +25,10 @@ type SyncSubscribeRepos_Commit struct {
 
 // SyncSubscribeRepos_Handle is a "handle" in the com.atproto.sync.subscribeRepos schema.
 type SyncSubscribeRepos_Handle struct {
-	Did    string `json:"did" cborgen:"did"`
-	Handle string `json:"handle" cborgen:"handle"`
-	Seq    int64  `json:"seq" cborgen:"seq"`
-	Time   string `json:"time" cborgen:"time"`
+	Did    util.FormatDID    `json:"did" cborgen:"did"`
+	Handle util.FormatHandle `json:"handle" cborgen:"handle"`
+	Seq    int64             `json:"seq" cborgen:"seq"`
+	Time   string            `json:"time" cborgen:"time"`
 }
 
 // SyncSubscribeRepos_Info is a "info" in the com.atproto.sync.subscribeRepos schema.
@@ -39,10 +39,10 @@ type SyncSubscribeRepos_Info struct {
 
 // SyncSubscribeRepos_Migrate is a "migrate" in the com.atproto.sync.subscribeRepos schema.
 type SyncSubscribeRepos_Migrate struct {
-	Did       string  `json:"did" cborgen:"did"`
-	MigrateTo *string `json:"migrateTo" cborgen:"migrateTo"`
-	Seq       int64   `json:"seq" cborgen:"seq"`
-	Time      string  `json:"time" cborgen:"time"`
+	Did       util.FormatDID `json:"did" cborgen:"did"`
+	MigrateTo *string        `json:"migrateTo" cborgen:"migrateTo"`
+	Seq       int64          `json:"seq" cborgen:"seq"`
+	Time      string         `json:"time" cborgen:"time"`
 }
 
 // SyncSubscribeRepos_RepoOp is a "repoOp" in the com.atproto.sync.subscribeRepos schema.
@@ -54,7 +54,7 @@ type SyncSubscribeRepos_RepoOp struct {
 
 // SyncSubscribeRepos_Tombstone is a "tombstone" in the com.atproto.sync.subscribeRepos schema.
 type SyncSubscribeRepos_Tombstone struct {
-	Did  string `json:"did" cborgen:"did"`
-	Seq  int64  `json:"seq" cborgen:"seq"`
-	Time string `json:"time" cborgen:"time"`
+	Did  util.FormatDID `json:"did" cborgen:"did"`
+	Seq  int64          `json:"seq" cborgen:"seq"`
+	Time string         `json:"time" cborgen:"time"`
 }

@@ -61,7 +61,7 @@ type ModerationCreateReport_Output struct {
 	Id         int64                                  `json:"id" cborgen:"id"`
 	Reason     *string                                `json:"reason,omitempty" cborgen:"reason,omitempty"`
 	ReasonType *string                                `json:"reasonType" cborgen:"reasonType"`
-	ReportedBy string                                 `json:"reportedBy" cborgen:"reportedBy"`
+	ReportedBy util.FormatDID                         `json:"reportedBy" cborgen:"reportedBy"`
 	Subject    *ModerationCreateReport_Output_Subject `json:"subject" cborgen:"subject"`
 }
 

@@ -123,11 +123,11 @@ func (fg *FeedGenerator) hydrateItem(ctx context.Context, item *models.FeedPost)
 	out := &bsky.FeedDefs_FeedViewPost{}
 
 	out.Post = &bsky.FeedDefs_PostView{
-		Uri:         "at://" + authorDid + "/app.bsky.feed.post/" + item.Rkey,
+		Uri:         lexutil.NewFormatAtURI("at://" + authorDid + "/app.bsky.feed.post/" + item.Rkey),
 		ReplyCount:  &item.ReplyCount,
 		RepostCount: &item.RepostCount,
 		LikeCount:   &item.UpCount,
-		Cid:         item.Cid,
+		Cid:         lexutil.NewFormatCID(item.Cid),
 		IndexedAt:   item.UpdatedAt.Format(time.RFC3339),
 	}
 
@@ -162,7 +162,7 @@ func (fg *FeedGenerator) getPostViewerState(ctx context.Context, item uint, view
 	}
 
 	if vote.ID != 0 {
-		vuri := fmt.Sprintf("at://%s/app.bsky.feed.vote/%s", viewerDid, vote.Rkey)
+		vuri := lexutil.NewFormatAtURI(fmt.Sprintf("at://%s/app.bsky.feed.vote/%s", viewerDid, vote.Rkey))
 		out.Like = &vuri
 	}
 
@@ -172,7 +172,7 @@ func (fg *FeedGenerator) getPostViewerState(ctx context.Context, item uint, view
 	}
 
 	if rep.ID != 0 {
-		rpuri := fmt.Sprintf("at://%s/app.bsky.feed.repost/%s", viewerDid, rep.Rkey)
+		rpuri := lexutil.NewFormatAtURI(fmt.Sprintf("at://%s/app.bsky.feed.repost/%s", viewerDid, rep.Rkey))
 		out.Repost = &rpuri
 	}
 
@@ -222,7 +222,7 @@ func (fg *FeedGenerator) personalizeFeed(ctx context.Context, feed []*bsky.FeedD
 		// portion of feed generation from the 'per user' portion. An
 		// optimization could be to hide the internal post IDs in the Post
 		// structs for internal use (stripped out before sending to client)
-		item, err := fg.ix.GetPost(ctx, p.Post.Uri)
+		item, err := fg.ix.GetPost(ctx, p.Post.Uri.String())
 		if err != nil {
 			return nil, err
 		}
@@ -317,10 +317,10 @@ func (fg *FeedGenerator) GetPostThread(ctx context.Context, uri string, depth in
 	}
 
 	if p.Reply != nil {
-		out.ParentUri = p.Reply.Parent.Uri
+		out.ParentUri = p.Reply.Parent.Uri.String()
 		if depth > 0 {
 
-			parent, err := fg.GetPostThread(ctx, p.Reply.Parent.Uri, depth-1)
+			parent, err := fg.GetPostThread(ctx, p.Reply.Parent.Uri.String(), depth-1)
 			if err != nil {
 				// TODO: check for and handle 'not found'
 				return nil, err

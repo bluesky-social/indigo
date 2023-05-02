@@ -102,8 +102,8 @@ func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
 //
 // RECORDTYPE: RichtextFacet_Link
 type RichtextFacet_Link struct {
-	LexiconTypeID string `json:"$type,const=app.bsky.richtext.facet" cborgen:"$type,const=app.bsky.richtext.facet"`
-	Uri           string `json:"uri" cborgen:"uri"`
+	LexiconTypeID string         `json:"$type,const=app.bsky.richtext.facet" cborgen:"$type,const=app.bsky.richtext.facet"`
+	Uri           util.FormatURI `json:"uri" cborgen:"uri"`
 }
 
 // RichtextFacet_Mention is a "mention" in the app.bsky.richtext.facet schema.
@@ -112,6 +112,6 @@ type RichtextFacet_Link struct {
 //
 // RECORDTYPE: RichtextFacet_Mention
 type RichtextFacet_Mention struct {
-	LexiconTypeID string `json:"$type,const=app.bsky.richtext.facet" cborgen:"$type,const=app.bsky.richtext.facet"`
-	Did           string `json:"did" cborgen:"did"`
+	LexiconTypeID string         `json:"$type,const=app.bsky.richtext.facet" cborgen:"$type,const=app.bsky.richtext.facet"`
+	Did           util.FormatDID `json:"did" cborgen:"did"`
 }

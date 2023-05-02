@@ -7,6 +7,7 @@ package bsky
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -16,7 +17,7 @@ type ActorGetProfiles_Output struct {
 }
 
 // ActorGetProfiles calls the XRPC method "app.bsky.actor.getProfiles".
-func ActorGetProfiles(ctx context.Context, c *xrpc.Client, actors []string) (*ActorGetProfiles_Output, error) {
+func ActorGetProfiles(ctx context.Context, c *xrpc.Client, actors []util.FormatAtIdentifier) (*ActorGetProfiles_Output, error) {
 	var out ActorGetProfiles_Output
 
 	params := map[string]interface{}{

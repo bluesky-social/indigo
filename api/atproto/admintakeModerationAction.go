@@ -17,11 +17,11 @@ import (
 type AdminTakeModerationAction_Input struct {
 	Action          string                                   `json:"action" cborgen:"action"`
 	CreateLabelVals []string                                 `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
-	CreatedBy       string                                   `json:"createdBy" cborgen:"createdBy"`
+	CreatedBy       util.FormatDID                           `json:"createdBy" cborgen:"createdBy"`
 	NegateLabelVals []string                                 `json:"negateLabelVals,omitempty" cborgen:"negateLabelVals,omitempty"`
 	Reason          string                                   `json:"reason" cborgen:"reason"`
 	Subject         *AdminTakeModerationAction_Input_Subject `json:"subject" cborgen:"subject"`
-	SubjectBlobCids []string                                 `json:"subjectBlobCids,omitempty" cborgen:"subjectBlobCids,omitempty"`
+	SubjectBlobCids []util.FormatCID                         `json:"subjectBlobCids,omitempty" cborgen:"subjectBlobCids,omitempty"`
 }
 
 type AdminTakeModerationAction_Input_Subject struct {

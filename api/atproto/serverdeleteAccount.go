@@ -7,14 +7,15 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // ServerDeleteAccount_Input is the input argument to a com.atproto.server.deleteAccount call.
 type ServerDeleteAccount_Input struct {
-	Did      string `json:"did" cborgen:"did"`
-	Password string `json:"password" cborgen:"password"`
-	Token    string `json:"token" cborgen:"token"`
+	Did      util.FormatDID `json:"did" cborgen:"did"`
+	Password string         `json:"password" cborgen:"password"`
+	Token    string         `json:"token" cborgen:"token"`
 }
 
 // ServerDeleteAccount calls the XRPC method "com.atproto.server.deleteAccount".

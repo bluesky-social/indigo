@@ -68,8 +68,8 @@ func TestFeedPostParse(t *testing.T) {
 			Record: &appbsky.EmbedRecord{
 				LexiconTypeID: "app.bsky.embed.record",
 				Record: &comatproto.RepoStrongRef{
-					Cid: "bafyreiaku7udekkiijxcuue3sn6esz7qijqj637rigz4xqdw57fk5houji",
-					Uri: "at://did:plc:rbtury4cp2sdk4tvnedaqu54/app.bsky.feed.post/3jilislho4s2k",
+					Cid: lexutil.NewFormatCID("bafyreiaku7udekkiijxcuue3sn6esz7qijqj637rigz4xqdw57fk5houji"),
+					Uri: lexutil.NewFormatAtURI("at://did:plc:rbtury4cp2sdk4tvnedaqu54/app.bsky.feed.post/3jilislho4s2k"),
 				},
 			},
 		},

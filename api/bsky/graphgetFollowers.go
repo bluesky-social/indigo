@@ -7,6 +7,7 @@ package bsky
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -18,7 +19,7 @@ type GraphGetFollowers_Output struct {
 }
 
 // GraphGetFollowers calls the XRPC method "app.bsky.graph.getFollowers".
-func GraphGetFollowers(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*GraphGetFollowers_Output, error) {
+func GraphGetFollowers(ctx context.Context, c *xrpc.Client, actor util.FormatAtIdentifier, cursor string, limit int64) (*GraphGetFollowers_Output, error) {
 	var out GraphGetFollowers_Output
 
 	params := map[string]interface{}{

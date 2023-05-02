@@ -2,6 +2,7 @@ package labeler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -85,6 +86,7 @@ func testCreateReport(t *testing.T, e *echo.Echo, lm *Server, input *comatproto.
 	if err != nil {
 		t.Fatal(err)
 	}
+	fmt.Printf("reportJSON: %s\n", reportJSON)
 	req := httptest.NewRequest(http.MethodPost, "/xrpc/com.atproto.report.create", strings.NewReader(string(reportJSON)))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	recorder := httptest.NewRecorder()
@@ -172,7 +174,7 @@ func testGetAction(t *testing.T, e *echo.Echo, lm *Server, actionId int64) comat
 		assert.Equal(reportId, actionViewDetail.ResolvedReports[i].Id)
 	}
 	for i, blobCid := range actionView.SubjectBlobCids {
-		assert.Equal(blobCid, actionViewDetail.SubjectBlobs[i].Cid)
+		assert.Equal(blobCid, actionViewDetail.SubjectBlobs[i].Cid.String())
 	}
 	if actionViewDetail.Subject.AdminDefs_RepoView != nil {
 		assert.Equal(actionViewDetail.Subject.AdminDefs_RepoView.Did, actionView.Subject.AdminDefs_RepoRef.Did)
@@ -212,7 +214,9 @@ func testCreateAction(t *testing.T, e *echo.Echo, lm *Server, input *comatproto.
 	assert.Equal(input.Reason, out.Reason)
 	assert.Equal(input.Subject.RepoStrongRef, out.Subject.RepoStrongRef)
 	assert.Equal(input.Subject.AdminDefs_RepoRef, out.Subject.AdminDefs_RepoRef)
-	assert.Equal(input.SubjectBlobCids, out.SubjectBlobCids)
+	for i, expected := range input.SubjectBlobCids {
+		assert.Equal(expected.String(), out.SubjectBlobCids[i])
+	}
 
 	// read it back and verify output
 	actionViewDetail := testGetAction(t, e, lm, out.Id)
@@ -231,7 +235,7 @@ func testCreateAction(t *testing.T, e *echo.Echo, lm *Server, input *comatproto.
 		t.Fatal("expected non-empty actionviewdetail.subject enum")
 	}
 	for i, blobCid := range out.SubjectBlobCids {
-		assert.Equal(blobCid, actionViewDetail.SubjectBlobs[i].Cid)
+		assert.Equal(blobCid, actionViewDetail.SubjectBlobs[i].Cid.String())
 	}
 	assert.Equal(0, len(actionViewDetail.ResolvedReports))
 	assert.Nil(actionViewDetail.Reversal)

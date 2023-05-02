@@ -7,14 +7,15 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // AdminReverseModerationAction_Input is the input argument to a com.atproto.admin.reverseModerationAction call.
 type AdminReverseModerationAction_Input struct {
-	CreatedBy string `json:"createdBy" cborgen:"createdBy"`
-	Id        int64  `json:"id" cborgen:"id"`
-	Reason    string `json:"reason" cborgen:"reason"`
+	CreatedBy util.FormatDID `json:"createdBy" cborgen:"createdBy"`
+	Id        int64          `json:"id" cborgen:"id"`
+	Reason    string         `json:"reason" cborgen:"reason"`
 }
 
 // AdminReverseModerationAction calls the XRPC method "com.atproto.admin.reverseModerationAction".
