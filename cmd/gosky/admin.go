@@ -42,6 +42,7 @@ var checkUserCmd = &cli.Command{
 			Name: "raw",
 		},
 	},
+	ArgsUsage: `[handle]`,
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
