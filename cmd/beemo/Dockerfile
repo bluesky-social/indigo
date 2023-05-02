@@ -3,8 +3,8 @@
 #   podman build -f ./cmd/beemo/Dockerfile -t beemo .
 
 ### Compile stage
-FROM alpine:3.17 AS build-env
-RUN apk add --no-cache build-base make go git
+FROM golang:1.20-alpine3.17 AS build-env
+RUN apk add --no-cache build-base make git
 
 ADD . /dockerbuild
 WORKDIR /dockerbuild

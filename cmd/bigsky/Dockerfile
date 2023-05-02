@@ -3,13 +3,8 @@
 #   podman build -f ./cmd/bigsky/Dockerfile -t bigsky .
 
 ### Compile stage
-
-# trouble with 'No such file or directory' when building using 'golang:1.19'
-# images, I think because of library errors when copied to 'alpine' image below
-# https://megamorf.gitlab.io/2019/09/08/alpine-go-builds-with-cgo-enabled/
-# TODO: lock to a specific version of go toolchain
-FROM alpine:3.17 AS build-env
-RUN apk add --no-cache build-base make go git
+FROM golang:1.20-alpine3.17 AS build-env
+RUN apk add --no-cache build-base make git
 
 ADD . /dockerbuild
 WORKDIR /dockerbuild
