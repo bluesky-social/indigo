@@ -34,7 +34,7 @@ func TestBasicMst(t *testing.T) {
 
 	ctx := context.Background()
 	cst := util.CborStore(blockstore.NewBlockstore(datastore.NewMapDatastore()))
-	mst := NewMST(cst, cid.Undef, []NodeEntry{}, -1)
+	mst := createMST(cst, cid.Undef, []nodeEntry{}, -1)
 
 	vals := map[string]cid.Cid{
 		"cats/cats":  randCid(),
@@ -89,8 +89,8 @@ func TestBasicMst(t *testing.T) {
 
 func assertValues(t *testing.T, mst *MerkleSearchTree, vals map[string]cid.Cid) {
 	out := make(map[string]cid.Cid)
-	if err := mst.WalkLeavesFrom(context.TODO(), "", func(ne NodeEntry) error {
-		out[ne.Key] = ne.Val
+	if err := mst.WalkLeavesFrom(context.TODO(), "", func(key string, val cid.Cid) error {
+		out[key] = val
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -369,7 +369,7 @@ func mapToCidMap(a map[string]string) map[string]cid.Cid {
 
 func cidMapToMst(t *testing.T, bs blockstore.Blockstore, m map[string]cid.Cid) *MerkleSearchTree {
 	cst := util.CborStore(bs)
-	mt := NewMST(cst, cid.Undef, []NodeEntry{}, -1)
+	mt := createMST(cst, cid.Undef, []nodeEntry{}, -1)
 
 	for k, v := range m {
 		nmst, err := mt.Add(context.TODO(), k, v, -1)
