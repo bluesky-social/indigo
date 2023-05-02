@@ -5,7 +5,7 @@ Commands (run with, eg, `go run ./cmd/bigsky`):
 
 - `cmd/bigsky`: BGS+indexer daemon
 - `cmd/gosky`: client CLI for talking to a PDS
-- `cmd/lexgen`: codegen tool for lexicons (Lexicon JSON to golang package)
+- `cmd/lexgen`: codegen tool for lexicons (Lexicon JSON to Go package)
 - `cmd/laputa`: PDS daemon
 - `cmd/stress`: connects to local/default PDS and creates a ton of random posts
 - `cmd/beemo`: slack bot for moderation reporting (Bluesky Moderation Observer)
@@ -63,8 +63,8 @@ Other:
     go run ./gen
 
 To run codegen for new or updated Lexicons, using lexgen, first place (or git
-checout) the JSON lexicon files at `../atproto/`. Also, install the `goimports`
-tool. Then, in *this* repository (indigo), run commands like:
+checkout) the JSON lexicon files at `../atproto/`.
+Then, in *this* repository (indigo), run commands like:
 
     go run ./cmd/lexgen/ --package bsky --prefix app.bsky --outdir api/bsky ../atproto/lexicons/app/bsky/
     go run ./cmd/lexgen/ --package atproto --prefix com.atproto --outdir api/atproto ../atproto/lexicons/com/atproto/
@@ -72,6 +72,7 @@ tool. Then, in *this* repository (indigo), run commands like:
 You may want to delete all the codegen files before re-generating, to detect deleted files.
 
 It can require some manual munging between the lexgen step and a later `go run ./gen` to make sure things compile at least temporarily; otherwise the `gen` will not run.
+In some cases, you might also need to add new types to ./gen/main.go.
 
 To generate server stubs and handlers, push them in a temporary directory
 first, then merge changes in to the actual PDS code:
@@ -180,7 +181,7 @@ In a final terminal, run fakermaker to inject data into the system:
     # create posts, including mentions and image uploads
     go run ./cmd/fakermaker/ gen-posts
 
-    # create more interations, such as likes, between accounts
+    # create more interactions, such as likes, between accounts
     go run ./cmd/fakermaker/ gen-interactions
 
     # lastly, read-only queries, including timelines, notifications, and post threads
