@@ -33,6 +33,7 @@ type Slurper struct {
 }
 
 func NewSlurper(db *gorm.DB, cb IndexCallback, ssl bool) (*Slurper, error) {
+	db.AutoMigrate(&SlurpConfig{})
 	s := &Slurper{
 		cb:     cb,
 		db:     db,
