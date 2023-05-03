@@ -599,3 +599,37 @@ func BenchmarkDiffTrees(b *testing.B) {
 		b.Fatal("diffs not equal")
 	}
 }
+
+var countPrefixLenTests = []struct {
+	a, b string
+	want int
+}{
+	{"", "", 0},
+	{"a", "", 0},
+	{"", "a", 0},
+	{"a", "b", 0},
+	{"a", "a", 1},
+	{"ab", "a", 1},
+	{"a", "ab", 1},
+	{"ab", "ab", 2},
+	{"abcdefghijklmnop", "abcdefghijklmnoq", 15},
+}
+
+func TestCountPrefixLen(t *testing.T) {
+	for _, tt := range countPrefixLenTests {
+		if got := countPrefixLen(tt.a, tt.b); got != tt.want {
+			t.Errorf("countPrefixLenTests(%q, %q) = %d, want %d", tt.a, tt.b, got, tt.want)
+		}
+	}
+}
+
+func BenchmarkCountPrefixLen(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		for _, tt := range countPrefixLenTests {
+			if got := countPrefixLen(tt.a, tt.b); got != tt.want {
+				b.Fatalf("countPrefixLenTests(%q, %q) = %d, want %d", tt.a, tt.b, got, tt.want)
+			}
+		}
+	}
+}
