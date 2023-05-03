@@ -1,50 +1,36 @@
+# Run this dockerfile from the top level of the indigo git repository like:
 #
-# Build container.
-#
-FROM golang:1.20-bullseye AS build-env
+#   podman build -f ./cmd/palomar/Dockerfile -t palomar .
 
-WORKDIR /usr/src/thecloud
+### Compile stage
+FROM golang:1.20-alpine3.17 AS build-env
+RUN apk add --no-cache build-base make git
 
-ENV DEBIAN_FRONTEND=noninteractive
+ADD . /dockerbuild
+WORKDIR /dockerbuild
 
-# Go settings.
-ENV GODEBUG=netdns=go
-ENV GOOS=linux
-ENV GOARCH=amd64
-ENV CGO_ENABLED=1
+# timezone data for alpine builds
+RUN GIT_VERSION=$(git describe --tags --long --always) && \
+    go build -tags timetzdata -ldflags="-X github.com/bluesky-social/indigo/version.Version=$GIT_VERSION"  -o /palomar ./cmd/palomar
 
-# Copy files in.
-COPY . .
+### Run stage
+FROM alpine:3.17
 
-# Generate the Go binary.
-RUN go mod download && go mod verify
-RUN go build \
-    -v  \
-    -trimpath \
-    -tags timetzdata \
-    -o /thecloud \
-    ./
-
-#
-# Run container.
-#
-FROM debian:bullseye-slim
-
-ENV GODEBUG=netdns=go
-ENV TZ=Etc/UTC
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install --yes \
-  dumb-init \
-  ca-certificates
-
+RUN apk add --no-cache --update dumb-init ca-certificates
 ENTRYPOINT ["dumb-init", "--"]
 
 WORKDIR /
-COPY --from=build-env /thecloud /usr/bin/thecloud
+RUN mkdir -p data/palomar
+COPY --from=build-env /palomar /
 
-CMD ["/usr/bin/thecloud"]
+# small things to make golang binaries work well under alpine
+ENV GODEBUG=netdns=go
+ENV TZ=Etc/UTC
 
-LABEL org.opencontainers.image.source=https://github.com/bluesky-social/thecloud
-LABEL org.opencontainers.image.description="bsky.app Search"
-LABEL org.opencontainers.image.licenses=UNKNOWN
+EXPOSE 2470
+
+CMD ["/palomar", "run"]
+
+LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
+LABEL org.opencontainers.image.description="atproto Search Service (for app.bsky Lexicon)"
+LABEL org.opencontainers.image.licenses=MIT
