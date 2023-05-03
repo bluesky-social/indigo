@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"regexp"
 	"sort"
 	"testing"
 
@@ -527,6 +528,23 @@ func TestLeadingZerosOnHashAllocs(t *testing.T) {
 		t.Errorf("allocs (bytes) = %d; want 0", n)
 	}
 	_ = sink
+}
+
+// Verify that keyHasAllValidChars matches its documented regexp.
+func FuzzKeyHasAllValidChars(f *testing.F) {
+	for _, seed := range [][]byte{{}} {
+		f.Add(seed)
+	}
+	for i := 0; i < 256; i++ {
+		f.Add([]byte{byte(i)})
+	}
+	rx := regexp.MustCompile("^[a-zA-Z0-9_:.-]+$")
+	f.Fuzz(func(t *testing.T, in []byte) {
+		s := string(in)
+		if a, b := rx.MatchString(s), keyHasAllValidChars(s); a != b {
+			t.Fatalf("for %q, rx=%v, keyHasAllValidChars=%v", s, a, b)
+		}
+	})
 }
 
 func BenchmarkLeadingZerosOnHash(b *testing.B) {
