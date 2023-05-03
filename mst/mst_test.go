@@ -17,6 +17,7 @@ import (
 	"github.com/ipld/go-car/v2"
 	"github.com/multiformats/go-multihash"
 	mh "github.com/multiformats/go-multihash"
+	"golang.org/x/exp/maps"
 )
 
 func randCid() cid.Cid {
@@ -176,21 +177,13 @@ func randStr(s int64) string {
 	return hex.EncodeToString(buf)
 }
 
-func copyMap(a map[string]string) map[string]string {
-	out := make(map[string]string)
-	for k, v := range a {
-		out[k] = v
-	}
-	return out
-}
-
 func TestDiffInsertionsBasic(t *testing.T) {
 	a := map[string]string{
 		"cats/asdf":     randStr(1),
 		"cats/foosesdf": randStr(2),
 	}
 
-	b := copyMap(a)
+	b := maps.Clone(a)
 	b["cats/bawda"] = randStr(3)
 	b["cats/crosasd"] = randStr(4)
 
@@ -215,7 +208,7 @@ func TestDiffInsertionsLarge(t *testing.T) {
 		a[randKey(i)] = randStr(72385739 - i)
 	}
 
-	b := copyMap(a)
+	b := maps.Clone(a)
 	for i := int64(0); i < 30; i++ {
 		b[randKey(5000+i)] = randStr(2293825 - i)
 	}
@@ -245,7 +238,7 @@ func TestDiffSmallOverlap(t *testing.T) {
 		a[randKey(i)] = randStr(72385739 - i)
 	}
 
-	b := copyMap(a)
+	b := maps.Clone(a)
 
 	for i := int64(0); i < 1000; i++ {
 		a[randKey(i)] = randStr(682823 - i)
@@ -265,7 +258,7 @@ func TestDiffSmallOverlapSmall(t *testing.T) {
 		a[randKey(i)] = randStr(72385739 - i)
 	}
 
-	b := copyMap(a)
+	b := maps.Clone(a)
 
 	for i := int64(0); i < 20; i++ {
 		a[randKey(i)] = randStr(682823 - i)
@@ -285,7 +278,7 @@ func TestDiffMutationsBasic(t *testing.T) {
 		"cats/foosesdf": randStr(2),
 	}
 
-	b := copyMap(a)
+	b := maps.Clone(a)
 	b["cats/asdf"] = randStr(3)
 
 	testMapDiffs(t, a, b)
