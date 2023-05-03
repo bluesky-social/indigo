@@ -361,7 +361,7 @@ func mapToCidMap(a map[string]string) map[string]cid.Cid {
 	return out
 }
 
-func cidMapToMst(t *testing.T, bs blockstore.Blockstore, m map[string]cid.Cid) *MerkleSearchTree {
+func cidMapToMst(t testing.TB, bs blockstore.Blockstore, m map[string]cid.Cid) *MerkleSearchTree {
 	cst := util.CborStore(bs)
 	mt := createMST(cst, cid.Undef, []nodeEntry{}, -1)
 
@@ -377,7 +377,7 @@ func cidMapToMst(t *testing.T, bs blockstore.Blockstore, m map[string]cid.Cid) *
 	return mt
 }
 
-func mustCidTree(t *testing.T, tree *MerkleSearchTree) cid.Cid {
+func mustCidTree(t testing.TB, tree *MerkleSearchTree) cid.Cid {
 	c, err := tree.GetPointer(context.TODO())
 	if err != nil {
 		t.Fatal(err)
@@ -389,7 +389,7 @@ func memBs() blockstore.Blockstore {
 	return blockstore.NewBlockstore(datastore.NewMapDatastore())
 }
 
-func testMapDiffs(t *testing.T, a, b map[string]string) {
+func testMapDiffs(t testing.TB, a, b map[string]string) {
 	amc := mapToCidMap(a)
 	bmc := mapToCidMap(b)
 
@@ -544,5 +544,58 @@ func BenchmarkLeadingZerosOnHash(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		_ = leadingZerosOnHash("some.key.prefix/key.bar123456789012334556")
+	}
+}
+
+func BenchmarkDiffTrees(b *testing.B) {
+	b.ReportAllocs()
+	const size = 10000
+	ma := map[string]string{}
+	for i := 0; i < size; i++ {
+		ma[fmt.Sprintf("num/%02d", i)] = fmt.Sprint(i)
+	}
+	// And then mess with half of the items of the first half of it.
+	mb := maps.Clone(ma)
+	for i := 0; i < size/2; i++ {
+		switch i % 4 {
+		case 0, 1:
+		case 2:
+			delete(mb, fmt.Sprintf("num/%02d", i))
+		case 3:
+			ma[fmt.Sprintf("num/%02d", i)] = fmt.Sprint(i + 1)
+		}
+	}
+
+	amc := mapToCidMap(ma)
+	bmc := mapToCidMap(mb)
+
+	want := diffMaps(amc, bmc)
+
+	bs := memBs()
+
+	msta := cidMapToMst(b, bs, amc)
+	mstb := cidMapToMst(b, bs, bmc)
+
+	cida := mustCidTree(b, msta)
+	cidb := mustCidTree(b, mstb)
+
+	b.ResetTimer()
+
+	var diffs []*DiffOp
+	var err error
+	for i := 0; i < b.N; i++ {
+		diffs, err = DiffTrees(context.TODO(), bs, cida, cidb)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	if !sort.SliceIsSorted(diffs, func(i, j int) bool {
+		return diffs[i].Rpath < diffs[j].Rpath
+	}) {
+		b.Log("diff algo did not produce properly sorted diff")
+	}
+	if !compareDiffs(diffs, want) {
+		b.Fatal("diffs not equal")
 	}
 }
