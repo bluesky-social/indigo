@@ -170,25 +170,18 @@ func serializeNodeData(entries []nodeEntry) (*nodeData, error) {
 	return &data, nil
 }
 
-func min(a, b int) int {
-	if a <= b {
-		return a
-	}
-	return b
-}
-
-// how many leading chars are identical between the two strings?
+// how many leading bytes are identical between the two strings?
 // Typescript: countPrefixLen(a: string, b: string) -> number
 func countPrefixLen(a, b string) int {
-	aa := []byte(a)
-	bb := []byte(b)
-	count := min(len(aa), len(bb))
-	for i := 0; i < count; i++ {
-		if aa[i] != bb[i] {
+	// This pattern avoids panicindex calls, as the Go compiler's prove pass can
+	// convince itself that neither a[i] nor b[i] are ever out of bounds.
+	var i int
+	for i = 0; i < len(a) && i < len(b); i++ {
+		if a[i] != b[i] {
 			return i
 		}
 	}
-	return count
+	return i
 }
 
 // both computes *and* persists a tree entry; this is different from typescript
