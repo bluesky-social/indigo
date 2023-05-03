@@ -44,12 +44,13 @@ func run(args []string) error {
 		&cli.StringFlag{
 			Name:    "elastic-username",
 			Usage:   "elasticsearch username",
-			Value:   "elastic",
+			Value:   "admin",
 			EnvVars: []string{"ES_USERNAME", "ELASTIC_USERNAME"},
 		},
 		&cli.StringFlag{
 			Name:    "elastic-password",
 			Usage:   "elasticsearch password",
+			Value:   "admin",
 			EnvVars: []string{"ES_PASSWORD", "ELASTIC_PASSWORD"},
 		},
 		&cli.StringFlag{
