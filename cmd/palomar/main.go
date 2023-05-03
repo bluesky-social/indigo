@@ -279,8 +279,6 @@ func (s *Server) Run(ctx context.Context) error {
 			return nil
 		},
 	})
-
-	return nil
 }
 
 func (s *Server) handleOp(ctx context.Context, op repomgr.EventKind, seq int64, path string, did string, rcid *cid.Cid, rec any) error {
