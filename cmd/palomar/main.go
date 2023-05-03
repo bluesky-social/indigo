@@ -54,8 +54,8 @@ func run(args []string) error {
 		},
 		&cli.StringFlag{
 			Name:    "elastic-hosts",
-			Usage:   "elasticsearch hosts",
-			Value:   "localhost:9200",
+			Usage:   "elasticsearch hosts (schema/host/port)",
+			Value:   "http://localhost:9200",
 			EnvVars: []string{"ES_HOSTS", "ELASTIC_HOSTS"},
 		},
 		&cli.StringFlag{
