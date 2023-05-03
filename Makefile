@@ -70,3 +70,7 @@ run-dev-bgs: .env ## Runs 'bigsky' BGS for local dev
 .PHONY: run-dev-labelmaker
 run-dev-labelmaker: .env ## Runs labelmaker for local dev
 	GOLOG_LOG_LEVEL=info go run ./cmd/labelmaker --subscribe-insecure-ws
+
+.PHONY: run-dev-search
+run-dev-search: .env ## Runs search daemon for local dev
+	GOLOG_LOG_LEVEL=info go run ./cmd/palomar run
