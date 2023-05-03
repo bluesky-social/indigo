@@ -1,4 +1,4 @@
-package main
+package search
 
 import (
 	"bytes"
@@ -29,7 +29,10 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	es "github.com/opensearch-project/opensearch-go/v2"
 	gorm "gorm.io/gorm"
+	logging "github.com/ipfs/go-log"
 )
+
+var log = logging.Logger("search")
 
 type Server struct {
 	escli   *es.Client
