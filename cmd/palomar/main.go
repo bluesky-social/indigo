@@ -11,6 +11,7 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	"github.com/bluesky-social/indigo/search"
 
 	"github.com/bluesky-social/indigo/version"
 	logging "github.com/ipfs/go-log"
@@ -131,7 +132,7 @@ var runCmd = &cli.Command{
 			return fmt.Errorf("failed to get elasticsearch: %w", err)
 		}
 
-		srv, err := NewServer(
+		srv, err := search.NewServer(
 			db,
 			escli,
 			cctx.String("atp-plc-host"),
