@@ -17,15 +17,17 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/version"
 	"github.com/bluesky-social/indigo/xrpc"
+
 	"github.com/gorilla/websocket"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/ipfs/go-cid"
 	flatfs "github.com/ipfs/go-ds-flatfs"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
-
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	es "github.com/opensearch-project/opensearch-go/v2"
-
 	gorm "gorm.io/gorm"
 )
 
@@ -36,6 +38,7 @@ type Server struct {
 	xrpcc   *xrpc.Client
 	bgsxrpc *xrpc.Client
 	plc     *api.PLCServer
+	echo    *echo.Echo
 
 	userCache *lru.Cache
 }
@@ -59,6 +62,45 @@ type LastSeq struct {
 	Seq int64
 }
 
+func NewServer(db *gorm.DB, escli *es.Client, plcHost, pdsHost, bgsHost string) (*Server, error) {
+
+	log.Info("Migrating database")
+	db.AutoMigrate(&PostRef{})
+	db.AutoMigrate(&User{})
+	db.AutoMigrate(&LastSeq{})
+
+	// TODO: robust client
+	xc := &xrpc.Client{
+		Host: pdsHost,
+	}
+
+	plc := &api.PLCServer{
+		Host: plcHost,
+	}
+
+	bgsws := bgsHost
+	if !strings.HasPrefix(bgsws, "ws") {
+		return nil, fmt.Errorf("specified bgs host must include 'ws://' or 'wss://'")
+	}
+
+	bgshttp := strings.Replace(bgsws, "ws", "http", 1)
+	bgsxrpc := &xrpc.Client{
+		Host: bgshttp,
+	}
+
+	ucache, _ := lru.New(100000)
+	s := &Server{
+		escli:     escli,
+		db:        db,
+		bgshost:   bgsHost,
+		xrpcc:     xc,
+		bgsxrpc:   bgsxrpc,
+		plc:       plc,
+		userCache: ucache,
+	}
+	return s, nil
+}
+
 func (s *Server) getLastCursor() (int64, error) {
 	var lastSeq LastSeq
 	if err := s.db.Find(&lastSeq).Error; err != nil {
@@ -76,7 +118,7 @@ func (s *Server) updateLastCursor(curs int64) error {
 	return s.db.Model(LastSeq{}).Where("id = 1").Update("seq", curs).Error
 }
 
-func (s *Server) Run(ctx context.Context) error {
+func (s *Server) RunIndexer(ctx context.Context) error {
 	cur, err := s.getLastCursor()
 	if err != nil {
 		return fmt.Errorf("get last cursor: %w", err)
@@ -375,4 +417,52 @@ func OpenBlockstore(dir string) (blockstore.Blockstore, error) {
 	}
 
 	return blockstore.NewBlockstoreNoPrefix(fds), nil
+}
+
+type HealthStatus struct {
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	Message string `json:"msg,omitempty"`
+}
+
+func (s *Server) handleHealthCheck(c echo.Context) error {
+	if err := s.db.Exec("SELECT 1").Error; err != nil {
+		log.Errorf("healthcheck can't connect to database: %v", err)
+		return c.JSON(500, HealthStatus{Status: "error", Version: version.Version, Message: "can't connect to database"})
+	} else {
+		return c.JSON(200, HealthStatus{Status: "ok", Version: version.Version})
+	}
+}
+
+func (s *Server) RunAPI(listen string) error {
+
+	log.Infof("Configuring HTTP server")
+	e := echo.New()
+	e.HideBanner = true
+
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: "method=${method} uri=${uri} status=${status} latency=${latency_human}\n",
+	}))
+
+	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
+		code := 500
+		if he, ok := err.(*echo.HTTPError); ok {
+			code = he.Code
+		}
+		log.Warnw("HTTP request error", "statusCode", code, "path", ctx.Path(), "err", err)
+		ctx.Response().WriteHeader(code)
+	}
+
+	e.Use(middleware.CORS())
+	e.GET("/_health", s.handleHealthCheck)
+	e.GET("/search/posts", s.handleSearchRequestPosts)
+	e.GET("/search/profiles", s.handleSearchRequestProfiles)
+	s.echo = e
+
+	log.Infof("starting search API daemon at: %s", listen)
+	return s.echo.Start(listen)
+}
+
+func (s *Server) Shutdown(ctx context.Context) error {
+	return s.echo.Shutdown(ctx)
 }
