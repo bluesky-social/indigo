@@ -1,7 +1,7 @@
-# thecloud (working title)
+# palomo
 
-An elasticsearch frontend and ATP repo crawler meant to provide search services
-for the bluesky network.
+An elasticsearch/opensearch frontend and ATP repo crawler meant to provide
+search services for the bluesky network.
 
 ## Building
 
@@ -15,6 +15,7 @@ You will need a running elasticsearch instance (or cluster) for indexing, and
 valid credentials for the PDS you wish to index against.
 
 The following environment variables should be set:
+
 - `ATP_BGS_HOST`
   - The url of the bluesky BGS, e.g. `https://bgs.staging.bsky.dev`
 - `ELASTIC_HTTPS_FINGERPRINT` 
@@ -33,7 +34,7 @@ The following environment variables should be set:
 After ensuring the env is properly configured, run:
 
 ```
-./thecloud run
+./palomar run
 ```
 
 ## Indexing 
