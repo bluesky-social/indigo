@@ -60,6 +60,7 @@ type BGS struct {
 
 func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.DidResolver, blobs blobs.BlobStore, ssl bool) (*BGS, error) {
 	db.AutoMigrate(User{})
+	db.AutoMigrate(AuthToken{})
 	db.AutoMigrate(models.PDS{})
 
 	bgs := &BGS{
@@ -73,7 +74,12 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	}
 
 	ix.CreateExternalUser = bgs.createExternalUser
-	bgs.slurper = NewSlurper(db, bgs.handleFedEvent, ssl)
+	s, err := NewSlurper(db, bgs.handleFedEvent, ssl)
+	if err != nil {
+		return nil, err
+	}
+
+	bgs.slurper = s
 
 	if err := bgs.slurper.RestartAll(); err != nil {
 		return nil, err
@@ -181,7 +187,6 @@ func (bgs *BGS) Start(listen string) error {
 	// TODO: this API is temporary until we formalize what we want here
 
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", bgs.EventsHandler)
-
 	e.GET("/xrpc/com.atproto.sync.getCheckout", bgs.HandleComAtprotoSyncGetCheckout)
 	e.GET("/xrpc/com.atproto.sync.getCommitPath", bgs.HandleComAtprotoSyncGetCommitPath)
 	e.GET("/xrpc/com.atproto.sync.getHead", bgs.HandleComAtprotoSyncGetHead)
@@ -191,6 +196,9 @@ func (bgs *BGS) Start(listen string) error {
 	e.GET("/xrpc/com.atproto.sync.requestCrawl", bgs.HandleComAtprotoSyncRequestCrawl)
 	e.GET("/xrpc/com.atproto.sync.notifyOfUpdate", bgs.HandleComAtprotoSyncNotifyOfUpdate)
 	e.GET("/xrpc/_health", bgs.HandleHealthCheck)
+
+	admin := e.Group("/admin", bgs.checkAdminAuth)
+	admin.POST("/deleteRecord", bgs.handleAdminDeleteRecord)
 
 	return e.Start(listen)
 }
@@ -206,6 +214,62 @@ func (bgs *BGS) HandleHealthCheck(c echo.Context) error {
 		return c.JSON(500, HealthStatus{Status: "error", Message: "can't connect to database"})
 	} else {
 		return c.JSON(200, HealthStatus{Status: "ok"})
+	}
+}
+
+type AuthToken struct {
+	gorm.Model
+	Token string `gorm:"index"`
+}
+
+func (bgs *BGS) lookupAdminToken(tok string) (bool, error) {
+	var at AuthToken
+	if err := bgs.db.Find(&at, "token = ?", tok).Error; err != nil {
+		return false, err
+	}
+
+	if at.ID == 0 {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (bgs *BGS) CreateAdminToken(tok string) error {
+	exists, err := bgs.lookupAdminToken(tok)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		return nil
+	}
+
+	return bgs.db.Create(&AuthToken{
+		Token: tok,
+	}).Error
+}
+
+func (bgs *BGS) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(e echo.Context) error {
+		authheader := e.Request().Header.Get("Authorization")
+		pref := "Bearer "
+		if !strings.HasPrefix(authheader, pref) {
+			return echo.ErrForbidden
+		}
+
+		token := authheader[len(pref):]
+
+		exists, err := bgs.lookupAdminToken(token)
+		if err != nil {
+			return err
+		}
+
+		if !exists {
+			return echo.ErrForbidden
+		}
+
+		return next(e)
 	}
 }
 
