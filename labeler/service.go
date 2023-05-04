@@ -111,7 +111,10 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, 
 		log.Infof("found labelmaker repo: %s", head)
 	}
 
-	slurp := bgs.NewSlurper(db, s.handleBgsRepoEvent, useWss)
+	slurp, err := bgs.NewSlurper(db, s.handleBgsRepoEvent, useWss)
+	if err != nil {
+		return nil, err
+	}
 	s.bgsSlurper = slurp
 
 	go evtmgr.Run()

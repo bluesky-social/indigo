@@ -27,22 +27,70 @@ type Slurper struct {
 	lk     sync.Mutex
 	active map[string]*models.PDS
 
+	newSubsDisabled bool
+
 	ssl bool
 }
 
-func NewSlurper(db *gorm.DB, cb IndexCallback, ssl bool) *Slurper {
-	return &Slurper{
+func NewSlurper(db *gorm.DB, cb IndexCallback, ssl bool) (*Slurper, error) {
+	db.AutoMigrate(&SlurpConfig{})
+	s := &Slurper{
 		cb:     cb,
 		db:     db,
 		active: make(map[string]*models.PDS),
 		ssl:    ssl,
 	}
+	if err := s.loadConfig(); err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }
+
+func (s *Slurper) loadConfig() error {
+	var sc SlurpConfig
+	if err := s.db.Find(&sc).Error; err != nil {
+		return err
+	}
+
+	if sc.ID == 0 {
+		if err := s.db.Create(&SlurpConfig{}).Error; err != nil {
+			return err
+		}
+	}
+
+	s.newSubsDisabled = sc.NewSubsDisabled
+
+	return nil
+}
+
+type SlurpConfig struct {
+	gorm.Model
+
+	NewSubsDisabled bool
+}
+
+func (s *Slurper) SetNewSubsDisabled(dis bool) error {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+
+	if err := s.db.Model(SlurpConfig{}).Where("id = 1").Update("new_subs_disabled", dis).Error; err != nil {
+		return err
+	}
+
+	s.newSubsDisabled = dis
+	return nil
+}
+
+var ErrNewSubsDisabled = fmt.Errorf("new subscriptions temporarily disabled")
 
 func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) error {
 	// TODO: for performance, lock on the hostname instead of global
 	s.lk.Lock()
 	defer s.lk.Unlock()
+	if s.newSubsDisabled {
+		return ErrNewSubsDisabled
+	}
 
 	_, ok := s.active[host]
 	if ok {
@@ -87,7 +135,7 @@ func (s *Slurper) RestartAll() error {
 	defer s.lk.Unlock()
 
 	var all []models.PDS
-	if err := s.db.Find(&all).Error; err != nil {
+	if err := s.db.Find(&all, "registered = true").Error; err != nil {
 		return err
 	}
 
