@@ -158,7 +158,7 @@ Checkout the `did-method-plc` repo in on terminal and run:
 
 Checkout the `atproto` repo in another terminal and run:
 
-    make run-pds
+    make run-dev-pds
 
 In this repo (indigo), start a BGS and labelmaker, in two separate terminals:
 
