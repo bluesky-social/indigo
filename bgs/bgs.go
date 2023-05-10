@@ -158,16 +158,6 @@ func (bgs *BGS) StartDebug(listen string) error {
 	})
 	http.Handle("/prometheus", prometheusHandler())
 
-	http.HandleFunc("/debug/upstream-conns", func(w http.ResponseWriter, r *http.Request) {
-		b, err := json.Marshal(bgs.slurper.GetActiveList())
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-
-		w.Write(b)
-	})
-
 	return http.ListenAndServe(listen, nil)
 }
 
@@ -199,6 +189,7 @@ func (bgs *BGS) Start(listen string) error {
 
 	admin := e.Group("/admin", bgs.checkAdminAuth)
 	admin.POST("/subs/setEnabled", bgs.handleAdminSetSubsEnabled)
+	admin.GET("/subs/getUpstreamConns", bgs.handleAdminGetUpstreamConns)
 	admin.POST("/repo/takeDown", bgs.handleAdminTakeDownRepo)
 	admin.POST("/repo/reverseTakedown", bgs.handleAdminReverseTakedown)
 
