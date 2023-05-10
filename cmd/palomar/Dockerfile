@@ -27,7 +27,7 @@ COPY --from=build-env /palomar /
 ENV GODEBUG=netdns=go
 ENV TZ=Etc/UTC
 
-EXPOSE 2470
+EXPOSE 3999
 
 CMD ["/palomar", "run"]
 
