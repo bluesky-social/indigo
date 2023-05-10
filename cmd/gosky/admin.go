@@ -41,6 +41,9 @@ var checkUserCmd = &cli.Command{
 		&cli.BoolFlag{
 			Name: "raw",
 		},
+		&cli.BoolFlag{
+			Name: "list-invited-dids",
+		},
 	},
 	ArgsUsage: `[handle]`,
 	Action: func(cctx *cli.Context) error {
@@ -73,6 +76,12 @@ var checkUserCmd = &cli.Command{
 
 		if cctx.Bool("raw") {
 			fmt.Println(string(b))
+		} else if cctx.Bool("list-invited-dids") {
+			for _, inv := range rep.Invites {
+				for _, u := range inv.Uses {
+					fmt.Println(u.UsedBy)
+				}
+			}
 		} else {
 			var invby string
 			if fa := rep.InvitedBy.ForAccount; fa != "" {
