@@ -198,7 +198,9 @@ func (bgs *BGS) Start(listen string) error {
 	e.GET("/xrpc/_health", bgs.HandleHealthCheck)
 
 	admin := e.Group("/admin", bgs.checkAdminAuth)
-	admin.POST("/deleteRecord", bgs.handleAdminDeleteRecord)
+	admin.POST("/subs/setEnabled", bgs.handleAdminSetSubsEnabled)
+	admin.POST("/repo/takeDown", bgs.handleAdminTakeDownRepo)
+	admin.POST("/repo/reverseTakedown", bgs.handleAdminReverseTakedown)
 
 	return e.Start(listen)
 }
@@ -281,6 +283,11 @@ type User struct {
 	Handle    string         `gorm:"uniqueIndex"`
 	Did       string         `gorm:"uniqueIndex"`
 	PDS       uint
+
+	// TakenDown is set to true if the user in question has been taken down.
+	// A user in this state will have all future events related to it dropped
+	// and no data about this user will be served.
+	TakenDown bool
 }
 
 type addTargetBody struct {
@@ -425,6 +432,11 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			u = new(User)
 			u.ID = subj.Uid
 			u.Did = evt.Repo
+		}
+
+		if u.TakenDown {
+			log.Infow("dropping event from taken down user", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
+			return nil
 		}
 
 		// TODO: if the user is already in the 'slow' path, we shouldnt even bother trying to fast path this event
@@ -660,4 +672,38 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	}
 
 	return subj, nil
+}
+
+func (bgs *BGS) TakeDownRepo(ctx context.Context, did string) error {
+	u, err := bgs.lookupUserByDid(ctx, did)
+	if err != nil {
+		return err
+	}
+
+	if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("taken_down", true).Error; err != nil {
+		return err
+	}
+
+	if err := bgs.repoman.TakeDownRepo(ctx, u.ID); err != nil {
+		return err
+	}
+
+	if err := bgs.events.TakeDownRepo(ctx, u.ID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (bgs *BGS) ReverseTakedown(ctx context.Context, did string) error {
+	u, err := bgs.lookupUserByDid(ctx, did)
+	if err != nil {
+		return err
+	}
+
+	if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("taken_down", false).Error; err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -1012,6 +1012,29 @@ var getRecordCmd = &cli.Command{
 				return err
 			}
 			repob = rrb
+		} else if strings.HasPrefix(cctx.Args().First(), "at://") {
+			xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+			if err != nil {
+				return err
+			}
+
+			puri, err := util.ParseAtUri(cctx.Args().First())
+			if err != nil {
+				return err
+			}
+
+			out, err := comatproto.RepoGetRecord(ctx, xrpcc, "", puri.Collection, puri.Did, puri.Rkey)
+			if err != nil {
+				return err
+			}
+
+			b, err := json.MarshalIndent(out.Value.Val, "", "  ")
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(b))
+			return nil
 		} else {
 			fb, err := os.ReadFile(rfi)
 			if err != nil {
