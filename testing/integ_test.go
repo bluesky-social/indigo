@@ -260,3 +260,56 @@ func TestHandleChange(t *testing.T) {
 	hcevt := evts.Next()
 	fmt.Println(hcevt.RepoHandle)
 }
+
+func TestBGSTakedown(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping BGS test in 'short' test mode")
+	}
+	assert := assert.New(t)
+	_ = assert
+
+	didr := testPLC(t)
+	p1 := mustSetupPDS(t, "localhost:5151", ".tpds", didr)
+	p1.Run(t)
+
+	b1 := mustSetupBGS(t, "localhost:3231", didr)
+	b1.Run(t)
+
+	p1.RequestScraping(t, b1)
+
+	time.Sleep(time.Millisecond * 50)
+	es1 := b1.Events(t, 0)
+
+	bob := p1.MustNewUser(t, "bob.tpds")
+	alice := p1.MustNewUser(t, "alice.tpds")
+
+	bob.Post(t, "cats for cats")
+	alice.Post(t, "no i like dogs")
+	bp2 := bob.Post(t, "im a bad person who deserves to be taken down")
+	bob.Like(t, bp2)
+
+	expCount := 6
+	evts1 := es1.WaitFor(expCount)
+	assert.Equal(expCount, len(evts1))
+
+	assert.NoError(b1.bgs.TakeDownRepo(context.TODO(), bob.did))
+
+	es2 := b1.Events(t, 0)
+	time.Sleep(time.Millisecond * 50) // wait for events to stream in and be collected
+	evts2 := es2.WaitFor(2)
+
+	assert.Equal(2, len(evts2))
+	for _, e := range evts2 {
+		if e.RepoCommit.Repo == bob.did {
+			t.Fatal("events from bob were not removed")
+		}
+	}
+
+	bob.Post(t, "im gonna sneak through being banned")
+	time.Sleep(time.Millisecond * 50)
+	alice.Post(t, "im a normal person")
+	// ensure events from bob dont get through
+
+	last := es2.Next()
+	assert.Equal(alice.did, last.RepoCommit.Repo)
+}
