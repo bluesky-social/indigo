@@ -147,7 +147,7 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPC
 
 		ra, err := p.hydrateRepoEvent(ctx, &evt)
 		if err != nil {
-			return err
+			return fmt.Errorf("hydrating event: %w", err)
 		}
 
 		if err := cb(&XRPCStreamEvent{RepoCommit: ra}); err != nil {
@@ -256,20 +256,22 @@ func (p *DbPersistence) readCarSlice(ctx context.Context, rer *RepoEventRecord) 
 	return buf.Bytes(), nil
 }
 
-func (p *DbPersistence) TakedownRepo(ctx context.Context, usr util.Uid) error {
-	return p.db.Transaction(func(tx *gorm.DB) error {
-		var event RepoEventRecord
-		if err := p.db.Where("repo = ?", usr).Find(&event).Error; err != nil {
-			return fmt.Errorf("failed to find repo event record: %w", err)
-		}
-
-		if err := p.db.Where("repo_event_record_id = ?", event.Seq).Delete(&RepoOpRecord{}).Error; err != nil {
+func (p *DbPersistence) TakeDownRepo(ctx context.Context, usr util.Uid) error {
+	for {
+		q := p.db.Model(&RepoEventRecord{}).Where("repo = ?", usr).Limit(100).Select("seq")
+		res := p.db.Where("repo_event_record_id in (?)", q).Delete(&RepoOpRecord{})
+		if err := res.Error; err != nil {
 			return fmt.Errorf("failed to delete repo op records: %w", err)
 		}
 
-		if err := p.db.Delete(&RepoEventRecord{}, "seq = ?", event.Seq).Error; err != nil {
-			return err
+		if res.RowsAffected == 0 {
+			break
 		}
-		return nil
-	})
+	}
+
+	if err := p.db.Where("repo = ?", usr).Delete(&RepoEventRecord{}).Error; err != nil {
+		return err
+	}
+
+	return nil
 }

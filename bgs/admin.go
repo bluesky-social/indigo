@@ -19,9 +19,16 @@ func (bgs *BGS) handleAdminSetSubsEnabled(e echo.Context) error {
 	return bgs.slurper.SetNewSubsDisabled(!enabled)
 }
 
-func (bgs *BGS) handleAdminTakedownRepo(e echo.Context) error {
+func (bgs *BGS) handleAdminTakeDownRepo(e echo.Context) error {
 	did := e.QueryParam("did")
 	ctx := e.Request().Context()
 
-	return bgs.TakedownRepo(ctx, did)
+	return bgs.TakeDownRepo(ctx, did)
+}
+
+func (bgs *BGS) handleAdminReverseTakedown(e echo.Context) error {
+	did := e.QueryParam("did")
+	ctx := e.Request().Context()
+
+	return bgs.ReverseTakedown(ctx, did)
 }

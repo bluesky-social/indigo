@@ -377,7 +377,12 @@ func SetupBGS(host string, didr plc.PLCClient) (*testBGS, error) {
 
 	notifman := notifs.NewNotificationManager(maindb, repoman.GetRecord)
 
-	evtman := events.NewEventManager(events.NewMemPersister())
+	dbpersist, err := events.NewDbPersistence(maindb, cs)
+	if err != nil {
+		return nil, err
+	}
+
+	evtman := events.NewEventManager(dbpersist)
 
 	go evtman.Run()
 
@@ -492,6 +497,15 @@ func (es *eventStream) All() []*events.XRPCStreamEvent {
 	out := make([]*events.XRPCStreamEvent, len(es.events))
 	for i, e := range es.events {
 		out[i] = e
+	}
+
+	return out
+}
+
+func (es *eventStream) WaitFor(n int) []*events.XRPCStreamEvent {
+	var out []*events.XRPCStreamEvent
+	for i := 0; i < n; i++ {
+		out = append(out, es.Next())
 	}
 
 	return out

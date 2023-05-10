@@ -708,9 +708,9 @@ func (cs *CarStore) checkFork(ctx context.Context, user util.Uid, prev cid.Cid) 
 		return false, err
 	}
 
-	if maybeShard.ID == lastShard.ID {
+	if maybeShard.ID != 0 && maybeShard.ID == lastShard.ID {
 		// somehow we are checking if a valid 'append' is a fork, seems buggy, throw an error
-		return false, fmt.Errorf("invariant broken: checked for forkiness of a valid append")
+		return false, fmt.Errorf("invariant broken: checked for forkiness of a valid append (%d - %d)", lastShard.ID, maybeShard.ID)
 	}
 
 	if maybeShard.ID == 0 {
@@ -720,7 +720,7 @@ func (cs *CarStore) checkFork(ctx context.Context, user util.Uid, prev cid.Cid) 
 	return true, nil
 }
 
-func (cs *CarStore) TakedownRepo(ctx context.Context, user util.Uid) error {
+func (cs *CarStore) TakeDownRepo(ctx context.Context, user util.Uid) error {
 	var shards []CarShard
 	if err := cs.meta.Find(&shards, "usr = ?", user).Error; err != nil {
 		return err

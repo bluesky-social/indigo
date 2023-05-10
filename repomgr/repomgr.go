@@ -1094,9 +1094,9 @@ func walkTree(ctx context.Context, skip map[cid.Cid]bool, root cid.Cid, bs block
 	return out, nil
 }
 
-func (rm *RepoManager) TakedownRepo(ctx context.Context, uid util.Uid) error {
+func (rm *RepoManager) TakeDownRepo(ctx context.Context, uid util.Uid) error {
 	unlock := rm.lockUser(ctx, uid)
 	defer unlock()
 
-	return rm.cs.TakedownRepo(ctx, uid)
+	return rm.cs.TakeDownRepo(ctx, uid)
 }
