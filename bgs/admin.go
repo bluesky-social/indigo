@@ -32,3 +32,7 @@ func (bgs *BGS) handleAdminReverseTakedown(e echo.Context) error {
 
 	return bgs.ReverseTakedown(ctx, did)
 }
+
+func (bgs *BGS) handleAdminGetUpstreamConns(e echo.Context) error {
+	return e.JSON(200, bgs.slurper.GetActiveList())
+}
