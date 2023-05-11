@@ -15,7 +15,6 @@ import (
 	util "github.com/bluesky-social/indigo/util"
 
 	blockformat "github.com/ipfs/go-block-format"
-	carutil "github.com/ipfs/go-car/util"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -23,6 +22,7 @@ import (
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/ipfs/go-libipfs/blocks"
 	car "github.com/ipld/go-car"
+	carutil "github.com/ipld/go-car/util"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
