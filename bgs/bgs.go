@@ -190,6 +190,7 @@ func (bgs *BGS) Start(listen string) error {
 	admin := e.Group("/admin", bgs.checkAdminAuth)
 	admin.POST("/subs/setEnabled", bgs.handleAdminSetSubsEnabled)
 	admin.GET("/subs/getUpstreamConns", bgs.handleAdminGetUpstreamConns)
+	admin.POST("/subs/killUpstream", bgs.handleAdminKillUpstreamConn)
 	admin.POST("/repo/takeDown", bgs.handleAdminTakeDownRepo)
 	admin.POST("/repo/reverseTakedown", bgs.handleAdminReverseTakedown)
 

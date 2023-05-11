@@ -36,3 +36,12 @@ func (bgs *BGS) handleAdminReverseTakedown(e echo.Context) error {
 func (bgs *BGS) handleAdminGetUpstreamConns(e echo.Context) error {
 	return e.JSON(200, bgs.slurper.GetActiveList())
 }
+
+func (bgs *BGS) handleAdminKillUpstreamConn(e echo.Context) error {
+	host := e.QueryParam("host")
+	if err := bgs.slurper.KillUpstreamConnection(host); err != nil {
+		return err
+	}
+
+	return nil
+}
