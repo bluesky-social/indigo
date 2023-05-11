@@ -25,11 +25,17 @@ type Slurper struct {
 	db *gorm.DB
 
 	lk     sync.Mutex
-	active map[string]*models.PDS
+	active map[string]*activeSub
 
 	newSubsDisabled bool
 
 	ssl bool
+}
+
+type activeSub struct {
+	pds    *models.PDS
+	ctx    context.Context
+	cancel func()
 }
 
 func NewSlurper(db *gorm.DB, cb IndexCallback, ssl bool) (*Slurper, error) {
@@ -37,7 +43,7 @@ func NewSlurper(db *gorm.DB, cb IndexCallback, ssl bool) (*Slurper, error) {
 	s := &Slurper{
 		cb:     cb,
 		db:     db,
-		active: make(map[string]*models.PDS),
+		active: make(map[string]*activeSub),
 		ssl:    ssl,
 	}
 	if err := s.loadConfig(); err != nil {
@@ -123,9 +129,14 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) err
 		}
 	}
 
-	s.active[host] = &peering
+	ctx, cancel := context.WithCancel(context.Background())
+	s.active[host] = &activeSub{
+		pds:    &peering,
+		ctx:    ctx,
+		cancel: cancel,
+	}
 
-	go s.subscribeWithRedialer(&peering)
+	go s.subscribeWithRedialer(ctx, &peering)
 
 	return nil
 }
@@ -141,14 +152,20 @@ func (s *Slurper) RestartAll() error {
 
 	for _, pds := range all {
 		pds := pds
-		s.active[pds.Host] = &pds
-		go s.subscribeWithRedialer(&pds)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		s.active[pds.Host] = &activeSub{
+			pds:    &pds,
+			ctx:    ctx,
+			cancel: cancel,
+		}
+		go s.subscribeWithRedialer(ctx, &pds)
 	}
 
 	return nil
 }
 
-func (s *Slurper) subscribeWithRedialer(host *models.PDS) {
+func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS) {
 	defer func() {
 		s.lk.Lock()
 		defer s.lk.Unlock()
@@ -167,8 +184,14 @@ func (s *Slurper) subscribeWithRedialer(host *models.PDS) {
 
 	var backoff int
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		url := fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", protocol, host.Host, cursor)
-		con, res, err := d.Dial(url, nil)
+		con, res, err := d.DialContext(ctx, url, nil)
 		if err != nil {
 			log.Warnf("dialing %q failed: %s", host.Host, err)
 			time.Sleep(sleepForBackoff(backoff))
@@ -178,7 +201,7 @@ func (s *Slurper) subscribeWithRedialer(host *models.PDS) {
 
 		log.Info("event subscription response code: ", res.StatusCode)
 
-		if err = s.handleConnection(host, con, &cursor); err != nil {
+		if err := s.handleConnection(ctx, host, con, &cursor); err != nil {
 			if errors.Is(err, ErrTimeoutShutdown) {
 				log.Infof("shutting down pds subscription to %s, no activity after %s", host.Host, EventsTimeout)
 				return
@@ -204,8 +227,8 @@ var ErrTimeoutShutdown = fmt.Errorf("timed out waiting for new events")
 
 var EventsTimeout = time.Minute
 
-func (s *Slurper) handleConnection(host *models.PDS, con *websocket.Conn, lastCursor *int64) error {
-	ctx, cancel := context.WithCancel(context.Background())
+func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *websocket.Conn, lastCursor *int64) error {
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	return events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
@@ -293,4 +316,17 @@ func (s *Slurper) GetActiveList() []string {
 	}
 
 	return out
+}
+
+func (s *Slurper) KillUpstreamConnection(host string) error {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+
+	ac, ok := s.active[host]
+	if !ok {
+		return fmt.Errorf("no active connection to host %q", host)
+	}
+
+	ac.cancel()
+	return nil
 }
