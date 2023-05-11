@@ -1,7 +1,9 @@
 package bgs
 
 import (
+	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 )
@@ -38,8 +40,21 @@ func (bgs *BGS) handleAdminGetUpstreamConns(e echo.Context) error {
 }
 
 func (bgs *BGS) handleAdminKillUpstreamConn(e echo.Context) error {
-	host := e.QueryParam("host")
+	host := strings.TrimSpace(e.QueryParam("host"))
+	if host == "" {
+		return &echo.HTTPError{
+			Code:    400,
+			Message: "must pass a valid host",
+		}
+	}
+
 	if err := bgs.slurper.KillUpstreamConnection(host); err != nil {
+		if errors.Is(err, ErrNoActiveConnection) {
+			return &echo.HTTPError{
+				Code:    400,
+				Message: "no active connection to given host",
+			}
+		}
 		return err
 	}
 

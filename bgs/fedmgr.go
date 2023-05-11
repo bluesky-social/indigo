@@ -318,13 +318,15 @@ func (s *Slurper) GetActiveList() []string {
 	return out
 }
 
+var ErrNoActiveConnection = fmt.Errorf("no active connection to host")
+
 func (s *Slurper) KillUpstreamConnection(host string) error {
 	s.lk.Lock()
 	defer s.lk.Unlock()
 
 	ac, ok := s.active[host]
 	if !ok {
-		return fmt.Errorf("no active connection to host %q", host)
+		return fmt.Errorf("killing connection %q: %w", host, ErrNoActiveConnection)
 	}
 
 	ac.cancel()
