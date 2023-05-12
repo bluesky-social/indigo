@@ -11,7 +11,6 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/ipfs/go-block-format v0.1.2
 	github.com/ipfs/go-bs-sqlite3 v0.0.0-20221122195556-bfcee1be620d
-	github.com/ipfs/go-car v0.0.4
 	github.com/ipfs/go-cid v0.4.1
 	github.com/ipfs/go-datastore v0.6.0
 	github.com/ipfs/go-ds-flatfs v0.5.1
