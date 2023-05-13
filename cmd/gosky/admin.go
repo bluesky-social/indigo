@@ -370,33 +370,41 @@ var listReportsCmd = &cli.Command{
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		resp, err := comatproto.AdminGetModerationReports(ctx, xrpcc, "", 100, true, "")
-		if err != nil {
-			return err
-		}
-
-		tojson := func(i any) string {
-			b, err := json.MarshalIndent(i, "", "  ")
+		var cursor string
+		for {
+			resp, err := comatproto.AdminGetModerationReports(ctx, xrpcc, cursor, 100, true, "")
 			if err != nil {
-				panic(err)
+				return fmt.Errorf("getting reports: %w", err)
 			}
 
-			return string(b)
-		}
-
-		for _, rep := range resp.Reports {
-			b, err := json.MarshalIndent(rep, "", "  ")
-			if err != nil {
-				return err
+			if len(resp.Reports) == 0 {
+				break
 			}
-			fmt.Println(string(b))
-			for _, act := range rep.ResolvedByActionIds {
-				action, err := comatproto.AdminGetModerationAction(ctx, xrpcc, act)
+
+			if resp.Cursor != nil {
+				cursor = *resp.Cursor
+			}
+
+			tojson := func(i any) string {
+				b, err := json.MarshalIndent(i, "", "  ")
 				if err != nil {
-					return err
+					panic(err)
 				}
 
-				fmt.Println(tojson(action))
+				return string(b)
+			}
+
+			for _, rep := range resp.Reports {
+				for _, act := range rep.ResolvedByActionIds {
+					action, err := comatproto.AdminGetModerationAction(ctx, xrpcc, act)
+					if err != nil {
+						e := fmt.Errorf("getting action %d: %w", act, err)
+						fmt.Fprintln(os.Stderr, e.Error())
+						continue
+					}
+
+					fmt.Println(tojson(action))
+				}
 			}
 		}
 		return nil
