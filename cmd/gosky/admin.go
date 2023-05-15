@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/api"
+	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	cli "github.com/urfave/cli/v2"
@@ -21,6 +23,7 @@ var adminCmd = &cli.Command{
 		buildInviteTreeCmd,
 		checkUserCmd,
 		reportsCmd,
+		disableInvitesCmd,
 	},
 }
 
@@ -102,6 +105,9 @@ var checkUserCmd = &cli.Command{
 			fmt.Println(rep.Email)
 			fmt.Println("indexed at: ", rep.IndexedAt)
 			fmt.Printf("Invited by: %s\n", invby)
+			if rep.InvitesDisabled != nil && *rep.InvitesDisabled {
+				fmt.Println("INVITES DISABLED")
+			}
 
 			var invited []*comatproto.AdminDefs_RepoViewDetail
 			var lk sync.Mutex
@@ -370,7 +376,7 @@ var listReportsCmd = &cli.Command{
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		resp, err := comatproto.AdminGetModerationReports(ctx, xrpcc, "", 100, true, "")
+		resp, err := comatproto.AdminGetModerationReports(ctx, xrpcc, "", "", 100, true, "")
 		if err != nil {
 			return err
 		}
@@ -400,5 +406,42 @@ var listReportsCmd = &cli.Command{
 			}
 		}
 		return nil
+	},
+}
+
+var disableInvitesCmd = &cli.Command{
+	Name: "disableInvites",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "admin-password",
+			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
+			Required: true,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.Background()
+
+		adminKey := cctx.String("admin-password")
+		xrpcc.AdminToken = &adminKey
+
+		handle := cctx.Args().First()
+		if !strings.HasPrefix(handle, "did:") {
+			resp, err := atproto.IdentityResolveHandle(ctx, xrpcc, handle)
+			if err != nil {
+				return err
+			}
+
+			handle = resp.Did
+		}
+
+		return comatproto.AdminDisableAccountInvites(ctx, xrpcc, &comatproto.AdminDisableAccountInvites_Input{
+			Account: handle,
+		})
 	},
 }

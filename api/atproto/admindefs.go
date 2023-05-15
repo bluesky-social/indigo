@@ -228,27 +228,29 @@ type AdminDefs_RepoRef struct {
 //
 // RECORDTYPE: AdminDefs_RepoView
 type AdminDefs_RepoView struct {
-	LexiconTypeID  string                     `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
-	Did            string                     `json:"did" cborgen:"did"`
-	Email          *string                    `json:"email,omitempty" cborgen:"email,omitempty"`
-	Handle         string                     `json:"handle" cborgen:"handle"`
-	IndexedAt      string                     `json:"indexedAt" cborgen:"indexedAt"`
-	InvitedBy      *ServerDefs_InviteCode     `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
-	Moderation     *AdminDefs_Moderation      `json:"moderation" cborgen:"moderation"`
-	RelatedRecords []*util.LexiconTypeDecoder `json:"relatedRecords" cborgen:"relatedRecords"`
+	LexiconTypeID   string                     `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
+	Did             string                     `json:"did" cborgen:"did"`
+	Email           *string                    `json:"email,omitempty" cborgen:"email,omitempty"`
+	Handle          string                     `json:"handle" cborgen:"handle"`
+	IndexedAt       string                     `json:"indexedAt" cborgen:"indexedAt"`
+	InvitedBy       *ServerDefs_InviteCode     `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
+	InvitesDisabled *bool                      `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
+	Moderation      *AdminDefs_Moderation      `json:"moderation" cborgen:"moderation"`
+	RelatedRecords  []*util.LexiconTypeDecoder `json:"relatedRecords" cborgen:"relatedRecords"`
 }
 
 // AdminDefs_RepoViewDetail is a "repoViewDetail" in the com.atproto.admin.defs schema.
 type AdminDefs_RepoViewDetail struct {
-	Did            string                      `json:"did" cborgen:"did"`
-	Email          *string                     `json:"email,omitempty" cborgen:"email,omitempty"`
-	Handle         string                      `json:"handle" cborgen:"handle"`
-	IndexedAt      string                      `json:"indexedAt" cborgen:"indexedAt"`
-	InvitedBy      *ServerDefs_InviteCode      `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
-	Invites        []*ServerDefs_InviteCode    `json:"invites,omitempty" cborgen:"invites,omitempty"`
-	Labels         []*LabelDefs_Label          `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	Moderation     *AdminDefs_ModerationDetail `json:"moderation" cborgen:"moderation"`
-	RelatedRecords []*util.LexiconTypeDecoder  `json:"relatedRecords" cborgen:"relatedRecords"`
+	Did             string                      `json:"did" cborgen:"did"`
+	Email           *string                     `json:"email,omitempty" cborgen:"email,omitempty"`
+	Handle          string                      `json:"handle" cborgen:"handle"`
+	IndexedAt       string                      `json:"indexedAt" cborgen:"indexedAt"`
+	InvitedBy       *ServerDefs_InviteCode      `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
+	Invites         []*ServerDefs_InviteCode    `json:"invites,omitempty" cborgen:"invites,omitempty"`
+	InvitesDisabled *bool                       `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
+	Labels          []*LabelDefs_Label          `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Moderation      *AdminDefs_ModerationDetail `json:"moderation" cborgen:"moderation"`
+	RelatedRecords  []*util.LexiconTypeDecoder  `json:"relatedRecords" cborgen:"relatedRecords"`
 }
 
 // AdminDefs_ReportView is a "reportView" in the com.atproto.admin.defs schema.
