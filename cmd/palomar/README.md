@@ -4,7 +4,7 @@ Palomar is an Elasticsearch/OpenSearch frontend and ATP (ActivityPub) repository
 
 ## Prerequisites
 
-- GoLang (version 1.x)
+- GoLang (version 1.20)
 - Running instance of Elasticsearch or OpenSearch for indexing.
 - Valid credentials for the Personal Data Store (PDS) you want to index against.
 
