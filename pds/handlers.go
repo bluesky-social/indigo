@@ -633,7 +633,8 @@ func (s *Server) handleComAtprotoAdminGetModerationActions(ctx context.Context, 
 func (s *Server) handleComAtprotoAdminGetModerationReport(ctx context.Context, id int) (*comatprototypes.AdminDefs_ReportViewDetail, error) {
 	panic("nyi")
 }
-func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context, before string, limit int, resolved *bool, subject string) (*comatprototypes.AdminGetModerationReports_Output, error) {
+
+func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context, actionType string, cursor string, limit int, resolved *bool, subject string) (*comatprototypes.AdminGetModerationReports_Output, error) {
 	panic("nyi")
 }
 
@@ -685,7 +686,7 @@ func (s *Server) handleAppBskyActorSearchActorsTypeahead(ctx context.Context, li
 	panic("nyi")
 }
 
-func (s *Server) handleAppBskyUnspeccedGetPopular(ctx context.Context, cursor string, limit int) (*appbskytypes.UnspeccedGetPopular_Output, error) {
+func (s *Server) handleAppBskyUnspeccedGetPopular(ctx context.Context, cursor string, includeNsfw bool, limit int) (*appbskytypes.UnspeccedGetPopular_Output, error) {
 	panic("nyi")
 }
 
@@ -751,5 +752,45 @@ func (s *Server) handleComAtprotoServerListAppPasswords(ctx context.Context) (*c
 }
 
 func (s *Server) handleComAtprotoServerRevokeAppPassword(ctx context.Context, body *comatprototypes.ServerRevokeAppPassword_Input) error {
+	panic("nyi")
+}
+func (s *Server) handleAppBskyActorGetPreferences(ctx context.Context) (*appbskytypes.ActorGetPreferences_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleAppBskyActorPutPreferences(ctx context.Context, body *appbskytypes.ActorPutPreferences_Input) error {
+	panic("nyi")
+}
+func (s *Server) handleAppBskyFeedGetPosts(ctx context.Context, uris []string) (*appbskytypes.FeedGetPosts_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleAppBskyGraphGetBlocks(ctx context.Context, cursor string, limit int) (*appbskytypes.GraphGetBlocks_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleAppBskyGraphGetList(ctx context.Context, cursor string, limit int, list string) (*appbskytypes.GraphGetList_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleAppBskyGraphGetListMutes(ctx context.Context, cursor string, limit int) (*appbskytypes.GraphGetListMutes_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleAppBskyGraphGetLists(ctx context.Context, actor string, cursor string, limit int) (*appbskytypes.GraphGetLists_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleAppBskyGraphMuteActorList(ctx context.Context, body *appbskytypes.GraphMuteActorList_Input) error {
+	panic("nyi")
+}
+func (s *Server) handleAppBskyGraphUnmuteActorList(ctx context.Context, body *appbskytypes.GraphUnmuteActorList_Input) error {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoAdminDisableAccountInvites(ctx context.Context, body *comatprototypes.AdminDisableAccountInvites_Input) error {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoAdminEnableAccountInvites(ctx context.Context, body *comatprototypes.AdminEnableAccountInvites_Input) error {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoRepoRebaseRepo(ctx context.Context, body *comatprototypes.RepoRebaseRepo_Input) error {
 	panic("nyi")
 }

@@ -12,6 +12,7 @@ import (
 
 // ServerCreateAccount_Input is the input argument to a com.atproto.server.createAccount call.
 type ServerCreateAccount_Input struct {
+	Did         *string `json:"did,omitempty" cborgen:"did,omitempty"`
 	Email       string  `json:"email" cborgen:"email"`
 	Handle      string  `json:"handle" cborgen:"handle"`
 	InviteCode  *string `json:"inviteCode,omitempty" cborgen:"inviteCode,omitempty"`

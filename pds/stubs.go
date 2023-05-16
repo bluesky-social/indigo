@@ -11,26 +11,48 @@ import (
 )
 
 func (s *Server) RegisterHandlersAppBsky(e *echo.Echo) error {
+	e.GET("/xrpc/app.bsky.actor.getPreferences", s.HandleAppBskyActorGetPreferences)
 	e.GET("/xrpc/app.bsky.actor.getProfile", s.HandleAppBskyActorGetProfile)
 	e.GET("/xrpc/app.bsky.actor.getProfiles", s.HandleAppBskyActorGetProfiles)
 	e.GET("/xrpc/app.bsky.actor.getSuggestions", s.HandleAppBskyActorGetSuggestions)
+	e.POST("/xrpc/app.bsky.actor.putPreferences", s.HandleAppBskyActorPutPreferences)
 	e.GET("/xrpc/app.bsky.actor.searchActors", s.HandleAppBskyActorSearchActors)
 	e.GET("/xrpc/app.bsky.actor.searchActorsTypeahead", s.HandleAppBskyActorSearchActorsTypeahead)
 	e.GET("/xrpc/app.bsky.feed.getAuthorFeed", s.HandleAppBskyFeedGetAuthorFeed)
 	e.GET("/xrpc/app.bsky.feed.getLikes", s.HandleAppBskyFeedGetLikes)
 	e.GET("/xrpc/app.bsky.feed.getPostThread", s.HandleAppBskyFeedGetPostThread)
+	e.GET("/xrpc/app.bsky.feed.getPosts", s.HandleAppBskyFeedGetPosts)
 	e.GET("/xrpc/app.bsky.feed.getRepostedBy", s.HandleAppBskyFeedGetRepostedBy)
 	e.GET("/xrpc/app.bsky.feed.getTimeline", s.HandleAppBskyFeedGetTimeline)
+	e.GET("/xrpc/app.bsky.graph.getBlocks", s.HandleAppBskyGraphGetBlocks)
 	e.GET("/xrpc/app.bsky.graph.getFollowers", s.HandleAppBskyGraphGetFollowers)
 	e.GET("/xrpc/app.bsky.graph.getFollows", s.HandleAppBskyGraphGetFollows)
+	e.GET("/xrpc/app.bsky.graph.getList", s.HandleAppBskyGraphGetList)
+	e.GET("/xrpc/app.bsky.graph.getListMutes", s.HandleAppBskyGraphGetListMutes)
+	e.GET("/xrpc/app.bsky.graph.getLists", s.HandleAppBskyGraphGetLists)
 	e.GET("/xrpc/app.bsky.graph.getMutes", s.HandleAppBskyGraphGetMutes)
 	e.POST("/xrpc/app.bsky.graph.muteActor", s.HandleAppBskyGraphMuteActor)
+	e.POST("/xrpc/app.bsky.graph.muteActorList", s.HandleAppBskyGraphMuteActorList)
 	e.POST("/xrpc/app.bsky.graph.unmuteActor", s.HandleAppBskyGraphUnmuteActor)
+	e.POST("/xrpc/app.bsky.graph.unmuteActorList", s.HandleAppBskyGraphUnmuteActorList)
 	e.GET("/xrpc/app.bsky.notification.getUnreadCount", s.HandleAppBskyNotificationGetUnreadCount)
 	e.GET("/xrpc/app.bsky.notification.listNotifications", s.HandleAppBskyNotificationListNotifications)
 	e.POST("/xrpc/app.bsky.notification.updateSeen", s.HandleAppBskyNotificationUpdateSeen)
 	e.GET("/xrpc/app.bsky.unspecced.getPopular", s.HandleAppBskyUnspeccedGetPopular)
 	return nil
+}
+
+func (s *Server) HandleAppBskyActorGetPreferences(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyActorGetPreferences")
+	defer span.End()
+	var out *appbskytypes.ActorGetPreferences_Output
+	var handleErr error
+	// func (s *Server) handleAppBskyActorGetPreferences(ctx context.Context) (*appbskytypes.ActorGetPreferences_Output, error)
+	out, handleErr = s.handleAppBskyActorGetPreferences(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) HandleAppBskyActorGetProfile(c echo.Context) error {
@@ -85,6 +107,23 @@ func (s *Server) HandleAppBskyActorGetSuggestions(c echo.Context) error {
 		return handleErr
 	}
 	return c.JSON(200, out)
+}
+
+func (s *Server) HandleAppBskyActorPutPreferences(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyActorPutPreferences")
+	defer span.End()
+
+	var body appbskytypes.ActorPutPreferences_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleAppBskyActorPutPreferences(ctx context.Context,body *appbskytypes.ActorPutPreferences_Input) error
+	handleErr = s.handleAppBskyActorPutPreferences(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
 }
 
 func (s *Server) HandleAppBskyActorSearchActors(c echo.Context) error {
@@ -214,6 +253,21 @@ func (s *Server) HandleAppBskyFeedGetPostThread(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandleAppBskyFeedGetPosts(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyFeedGetPosts")
+	defer span.End()
+
+	uris := c.QueryParams()["uris"]
+	var out *appbskytypes.FeedGetPosts_Output
+	var handleErr error
+	// func (s *Server) handleAppBskyFeedGetPosts(ctx context.Context,uris []string) (*appbskytypes.FeedGetPosts_Output, error)
+	out, handleErr = s.handleAppBskyFeedGetPosts(ctx, uris)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandleAppBskyFeedGetRepostedBy(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyFeedGetRepostedBy")
 	defer span.End()
@@ -261,6 +315,31 @@ func (s *Server) HandleAppBskyFeedGetTimeline(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleAppBskyFeedGetTimeline(ctx context.Context,algorithm string,cursor string,limit int) (*appbskytypes.FeedGetTimeline_Output, error)
 	out, handleErr = s.handleAppBskyFeedGetTimeline(ctx, algorithm, cursor, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleAppBskyGraphGetBlocks(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyGraphGetBlocks")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	var out *appbskytypes.GraphGetBlocks_Output
+	var handleErr error
+	// func (s *Server) handleAppBskyGraphGetBlocks(ctx context.Context,cursor string,limit int) (*appbskytypes.GraphGetBlocks_Output, error)
+	out, handleErr = s.handleAppBskyGraphGetBlocks(ctx, cursor, limit)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -319,6 +398,83 @@ func (s *Server) HandleAppBskyGraphGetFollows(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandleAppBskyGraphGetList(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyGraphGetList")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	list := c.QueryParam("list")
+	var out *appbskytypes.GraphGetList_Output
+	var handleErr error
+	// func (s *Server) handleAppBskyGraphGetList(ctx context.Context,cursor string,limit int,list string) (*appbskytypes.GraphGetList_Output, error)
+	out, handleErr = s.handleAppBskyGraphGetList(ctx, cursor, limit, list)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleAppBskyGraphGetListMutes(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyGraphGetListMutes")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	var out *appbskytypes.GraphGetListMutes_Output
+	var handleErr error
+	// func (s *Server) handleAppBskyGraphGetListMutes(ctx context.Context,cursor string,limit int) (*appbskytypes.GraphGetListMutes_Output, error)
+	out, handleErr = s.handleAppBskyGraphGetListMutes(ctx, cursor, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleAppBskyGraphGetLists(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyGraphGetLists")
+	defer span.End()
+	actor := c.QueryParam("actor")
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	var out *appbskytypes.GraphGetLists_Output
+	var handleErr error
+	// func (s *Server) handleAppBskyGraphGetLists(ctx context.Context,actor string,cursor string,limit int) (*appbskytypes.GraphGetLists_Output, error)
+	out, handleErr = s.handleAppBskyGraphGetLists(ctx, actor, cursor, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandleAppBskyGraphGetMutes(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyGraphGetMutes")
 	defer span.End()
@@ -361,6 +517,23 @@ func (s *Server) HandleAppBskyGraphMuteActor(c echo.Context) error {
 	return nil
 }
 
+func (s *Server) HandleAppBskyGraphMuteActorList(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyGraphMuteActorList")
+	defer span.End()
+
+	var body appbskytypes.GraphMuteActorList_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleAppBskyGraphMuteActorList(ctx context.Context,body *appbskytypes.GraphMuteActorList_Input) error
+	handleErr = s.handleAppBskyGraphMuteActorList(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
 func (s *Server) HandleAppBskyGraphUnmuteActor(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyGraphUnmuteActor")
 	defer span.End()
@@ -372,6 +545,23 @@ func (s *Server) HandleAppBskyGraphUnmuteActor(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleAppBskyGraphUnmuteActor(ctx context.Context,body *appbskytypes.GraphUnmuteActor_Input) error
 	handleErr = s.handleAppBskyGraphUnmuteActor(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
+func (s *Server) HandleAppBskyGraphUnmuteActorList(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyGraphUnmuteActorList")
+	defer span.End()
+
+	var body appbskytypes.GraphUnmuteActorList_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleAppBskyGraphUnmuteActorList(ctx context.Context,body *appbskytypes.GraphUnmuteActorList_Input) error
+	handleErr = s.handleAppBskyGraphUnmuteActorList(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -440,6 +630,17 @@ func (s *Server) HandleAppBskyUnspeccedGetPopular(c echo.Context) error {
 	defer span.End()
 	cursor := c.QueryParam("cursor")
 
+	var includeNsfw bool
+	if p := c.QueryParam("includeNsfw"); p != "" {
+		var err error
+		includeNsfw, err = strconv.ParseBool(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		includeNsfw = false
+	}
+
 	var limit int
 	if p := c.QueryParam("limit"); p != "" {
 		var err error
@@ -452,8 +653,8 @@ func (s *Server) HandleAppBskyUnspeccedGetPopular(c echo.Context) error {
 	}
 	var out *appbskytypes.UnspeccedGetPopular_Output
 	var handleErr error
-	// func (s *Server) handleAppBskyUnspeccedGetPopular(ctx context.Context,cursor string,limit int) (*appbskytypes.UnspeccedGetPopular_Output, error)
-	out, handleErr = s.handleAppBskyUnspeccedGetPopular(ctx, cursor, limit)
+	// func (s *Server) handleAppBskyUnspeccedGetPopular(ctx context.Context,cursor string,includeNsfw bool,limit int) (*appbskytypes.UnspeccedGetPopular_Output, error)
+	out, handleErr = s.handleAppBskyUnspeccedGetPopular(ctx, cursor, includeNsfw, limit)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -461,7 +662,9 @@ func (s *Server) HandleAppBskyUnspeccedGetPopular(c echo.Context) error {
 }
 
 func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
+	e.POST("/xrpc/com.atproto.admin.disableAccountInvites", s.HandleComAtprotoAdminDisableAccountInvites)
 	e.POST("/xrpc/com.atproto.admin.disableInviteCodes", s.HandleComAtprotoAdminDisableInviteCodes)
+	e.POST("/xrpc/com.atproto.admin.enableAccountInvites", s.HandleComAtprotoAdminEnableAccountInvites)
 	e.GET("/xrpc/com.atproto.admin.getInviteCodes", s.HandleComAtprotoAdminGetInviteCodes)
 	e.GET("/xrpc/com.atproto.admin.getModerationAction", s.HandleComAtprotoAdminGetModerationAction)
 	e.GET("/xrpc/com.atproto.admin.getModerationActions", s.HandleComAtprotoAdminGetModerationActions)
@@ -486,6 +689,7 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.GET("/xrpc/com.atproto.repo.getRecord", s.HandleComAtprotoRepoGetRecord)
 	e.GET("/xrpc/com.atproto.repo.listRecords", s.HandleComAtprotoRepoListRecords)
 	e.POST("/xrpc/com.atproto.repo.putRecord", s.HandleComAtprotoRepoPutRecord)
+	e.POST("/xrpc/com.atproto.repo.rebaseRepo", s.HandleComAtprotoRepoRebaseRepo)
 	e.POST("/xrpc/com.atproto.repo.uploadBlob", s.HandleComAtprotoRepoUploadBlob)
 	e.POST("/xrpc/com.atproto.server.createAccount", s.HandleComAtprotoServerCreateAccount)
 	e.POST("/xrpc/com.atproto.server.createAppPassword", s.HandleComAtprotoServerCreateAppPassword)
@@ -517,6 +721,23 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	return nil
 }
 
+func (s *Server) HandleComAtprotoAdminDisableAccountInvites(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminDisableAccountInvites")
+	defer span.End()
+
+	var body comatprototypes.AdminDisableAccountInvites_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleComAtprotoAdminDisableAccountInvites(ctx context.Context,body *comatprototypes.AdminDisableAccountInvites_Input) error
+	handleErr = s.handleComAtprotoAdminDisableAccountInvites(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
 func (s *Server) HandleComAtprotoAdminDisableInviteCodes(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminDisableInviteCodes")
 	defer span.End()
@@ -528,6 +749,23 @@ func (s *Server) HandleComAtprotoAdminDisableInviteCodes(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleComAtprotoAdminDisableInviteCodes(ctx context.Context,body *comatprototypes.AdminDisableInviteCodes_Input) error
 	handleErr = s.handleComAtprotoAdminDisableInviteCodes(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
+func (s *Server) HandleComAtprotoAdminEnableAccountInvites(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminEnableAccountInvites")
+	defer span.End()
+
+	var body comatprototypes.AdminEnableAccountInvites_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleComAtprotoAdminEnableAccountInvites(ctx context.Context,body *comatprototypes.AdminEnableAccountInvites_Input) error
+	handleErr = s.handleComAtprotoAdminEnableAccountInvites(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -625,6 +863,7 @@ func (s *Server) HandleComAtprotoAdminGetModerationReport(c echo.Context) error 
 func (s *Server) HandleComAtprotoAdminGetModerationReports(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetModerationReports")
 	defer span.End()
+	actionType := c.QueryParam("actionType")
 	cursor := c.QueryParam("cursor")
 
 	var limit int
@@ -649,8 +888,8 @@ func (s *Server) HandleComAtprotoAdminGetModerationReports(c echo.Context) error
 	subject := c.QueryParam("subject")
 	var out *comatprototypes.AdminGetModerationReports_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context,cursor string,limit int,resolved *bool,subject string) (*comatprototypes.AdminGetModerationReports_Output, error)
-	out, handleErr = s.handleComAtprotoAdminGetModerationReports(ctx, cursor, limit, resolved, subject)
+	// func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context,actionType string,cursor string,limit int,resolved *bool,subject string) (*comatprototypes.AdminGetModerationReports_Output, error)
+	out, handleErr = s.handleComAtprotoAdminGetModerationReports(ctx, actionType, cursor, limit, resolved, subject)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1016,6 +1255,23 @@ func (s *Server) HandleComAtprotoRepoPutRecord(c echo.Context) error {
 		return handleErr
 	}
 	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoRepoRebaseRepo(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoRebaseRepo")
+	defer span.End()
+
+	var body comatprototypes.RepoRebaseRepo_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleComAtprotoRepoRebaseRepo(ctx context.Context,body *comatprototypes.RepoRebaseRepo_Input) error
+	handleErr = s.handleComAtprotoRepoRebaseRepo(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
 }
 
 func (s *Server) HandleComAtprotoRepoUploadBlob(c echo.Context) error {
