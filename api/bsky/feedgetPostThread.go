@@ -21,6 +21,7 @@ type FeedGetPostThread_Output struct {
 type FeedGetPostThread_Output_Thread struct {
 	FeedDefs_ThreadViewPost *FeedDefs_ThreadViewPost
 	FeedDefs_NotFoundPost   *FeedDefs_NotFoundPost
+	FeedDefs_BlockedPost    *FeedDefs_BlockedPost
 }
 
 func (t *FeedGetPostThread_Output_Thread) MarshalJSON() ([]byte, error) {
@@ -31,6 +32,10 @@ func (t *FeedGetPostThread_Output_Thread) MarshalJSON() ([]byte, error) {
 	if t.FeedDefs_NotFoundPost != nil {
 		t.FeedDefs_NotFoundPost.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
 		return json.Marshal(t.FeedDefs_NotFoundPost)
+	}
+	if t.FeedDefs_BlockedPost != nil {
+		t.FeedDefs_BlockedPost.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
+		return json.Marshal(t.FeedDefs_BlockedPost)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -47,6 +52,9 @@ func (t *FeedGetPostThread_Output_Thread) UnmarshalJSON(b []byte) error {
 	case "app.bsky.feed.defs#notFoundPost":
 		t.FeedDefs_NotFoundPost = new(FeedDefs_NotFoundPost)
 		return json.Unmarshal(b, t.FeedDefs_NotFoundPost)
+	case "app.bsky.feed.defs#blockedPost":
+		t.FeedDefs_BlockedPost = new(FeedDefs_BlockedPost)
+		return json.Unmarshal(b, t.FeedDefs_BlockedPost)
 
 	default:
 		return nil

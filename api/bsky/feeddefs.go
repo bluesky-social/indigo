@@ -12,6 +12,15 @@ import (
 	"github.com/bluesky-social/indigo/lex/util"
 )
 
+// FeedDefs_BlockedPost is a "blockedPost" in the app.bsky.feed.defs schema.
+//
+// RECORDTYPE: FeedDefs_BlockedPost
+type FeedDefs_BlockedPost struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
+	Blocked       bool   `json:"blocked" cborgen:"blocked"`
+	Uri           string `json:"uri" cborgen:"uri"`
+}
+
 // FeedDefs_FeedViewPost is a "feedViewPost" in the app.bsky.feed.defs schema.
 type FeedDefs_FeedViewPost struct {
 	Post   *FeedDefs_PostView            `json:"post" cborgen:"post"`
@@ -149,6 +158,7 @@ type FeedDefs_ThreadViewPost struct {
 type FeedDefs_ThreadViewPost_Parent struct {
 	FeedDefs_ThreadViewPost *FeedDefs_ThreadViewPost
 	FeedDefs_NotFoundPost   *FeedDefs_NotFoundPost
+	FeedDefs_BlockedPost    *FeedDefs_BlockedPost
 }
 
 func (t *FeedDefs_ThreadViewPost_Parent) MarshalJSON() ([]byte, error) {
@@ -159,6 +169,10 @@ func (t *FeedDefs_ThreadViewPost_Parent) MarshalJSON() ([]byte, error) {
 	if t.FeedDefs_NotFoundPost != nil {
 		t.FeedDefs_NotFoundPost.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
 		return json.Marshal(t.FeedDefs_NotFoundPost)
+	}
+	if t.FeedDefs_BlockedPost != nil {
+		t.FeedDefs_BlockedPost.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
+		return json.Marshal(t.FeedDefs_BlockedPost)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -175,6 +189,9 @@ func (t *FeedDefs_ThreadViewPost_Parent) UnmarshalJSON(b []byte) error {
 	case "app.bsky.feed.defs#notFoundPost":
 		t.FeedDefs_NotFoundPost = new(FeedDefs_NotFoundPost)
 		return json.Unmarshal(b, t.FeedDefs_NotFoundPost)
+	case "app.bsky.feed.defs#blockedPost":
+		t.FeedDefs_BlockedPost = new(FeedDefs_BlockedPost)
+		return json.Unmarshal(b, t.FeedDefs_BlockedPost)
 
 	default:
 		return nil
@@ -184,6 +201,7 @@ func (t *FeedDefs_ThreadViewPost_Parent) UnmarshalJSON(b []byte) error {
 type FeedDefs_ThreadViewPost_Replies_Elem struct {
 	FeedDefs_ThreadViewPost *FeedDefs_ThreadViewPost
 	FeedDefs_NotFoundPost   *FeedDefs_NotFoundPost
+	FeedDefs_BlockedPost    *FeedDefs_BlockedPost
 }
 
 func (t *FeedDefs_ThreadViewPost_Replies_Elem) MarshalJSON() ([]byte, error) {
@@ -194,6 +212,10 @@ func (t *FeedDefs_ThreadViewPost_Replies_Elem) MarshalJSON() ([]byte, error) {
 	if t.FeedDefs_NotFoundPost != nil {
 		t.FeedDefs_NotFoundPost.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
 		return json.Marshal(t.FeedDefs_NotFoundPost)
+	}
+	if t.FeedDefs_BlockedPost != nil {
+		t.FeedDefs_BlockedPost.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
+		return json.Marshal(t.FeedDefs_BlockedPost)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -210,6 +232,9 @@ func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.feed.defs#notFoundPost":
 		t.FeedDefs_NotFoundPost = new(FeedDefs_NotFoundPost)
 		return json.Unmarshal(b, t.FeedDefs_NotFoundPost)
+	case "app.bsky.feed.defs#blockedPost":
+		t.FeedDefs_BlockedPost = new(FeedDefs_BlockedPost)
+		return json.Unmarshal(b, t.FeedDefs_BlockedPost)
 
 	default:
 		return nil
