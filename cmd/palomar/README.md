@@ -1,12 +1,11 @@
 # Palomar
 
-Palomar is an Elasticsearch/OpenSearch frontend and ATP (ActivityPub) repository crawler designed to provide search services for the Bluesky network.
+Palomar is an Elasticsearch/OpenSearch frontend and ATP (AT Protocol) repository crawler designed to provide search services for the Bluesky network.
 
 ## Prerequisites
 
 - GoLang (version 1.20)
 - Running instance of Elasticsearch or OpenSearch for indexing.
-- Valid credentials for the Personal Data Store (PDS) you want to index against.
 
 ## Building
 
@@ -16,7 +15,7 @@ go build
 
 ## Configuration
 
-Palomar uses environment variables for configuration. Here are the required ones:
+Palomar uses environment variables for configuration.
 
 - `ATP_BGS_HOST`: URL of the Bluesky BGS (e.g., `https://bgs.staging.bsky.dev`).
 - `ELASTIC_HTTPS_FINGERPRINT`: Required if using a self-signed cert for your Elasticsearch deployment.
