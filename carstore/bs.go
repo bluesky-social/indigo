@@ -446,8 +446,6 @@ func (cs *CarStore) writeBlockFromShard(ctx context.Context, sh *CarShard, w io.
 			return err
 		}
 	}
-
-	return fmt.Errorf("block not found in shard")
 }
 
 var _ blockstore.Blockstore = (*DeltaSession)(nil)
