@@ -160,6 +160,10 @@ func (r *Repo) PrevCommit(ctx context.Context) (*cid.Cid, error) {
 	return r.sc.Prev, nil
 }
 
+func (r *Repo) DataCid() cid.Cid {
+	return r.sc.Data
+}
+
 func (r *Repo) SignedCommit() SignedCommit {
 	return r.sc
 }
@@ -235,6 +239,12 @@ func (r *Repo) DeleteRecord(ctx context.Context, rpath string) error {
 
 	r.mst = nmst
 	return nil
+}
+
+// truncates history while retaining the same data root
+func (r *Repo) Truncate() {
+	r.sc.Prev = nil
+	r.repoCid = cid.Undef
 }
 
 // creates and writes a new SignedCommit for this repo, with `prev` pointing to old value
@@ -380,4 +390,39 @@ func (r *Repo) DiffSince(ctx context.Context, oldrepo cid.Cid) ([]*mst.DiffOp, e
 	}
 
 	return mst.DiffTrees(ctx, r.bs, oldTree, curptr)
+}
+
+func (r *Repo) CopyDataTo(ctx context.Context, bs blockstore.Blockstore) error {
+	return copyRecCbor(ctx, r.bs, bs, r.sc.Data, make(map[cid.Cid]struct{}))
+}
+
+func copyRecCbor(ctx context.Context, from, to blockstore.Blockstore, c cid.Cid, seen map[cid.Cid]struct{}) error {
+	if _, ok := seen[c]; ok {
+		return nil
+	}
+	seen[c] = struct{}{}
+
+	blk, err := from.Get(ctx, c)
+	if err != nil {
+		return err
+	}
+
+	if err := to.Put(ctx, blk); err != nil {
+		return err
+	}
+
+	var out []cid.Cid
+	if err := cbg.ScanForLinks(bytes.NewReader(blk.RawData()), func(c cid.Cid) {
+		out = append(out, c)
+	}); err != nil {
+		return err
+	}
+
+	for _, child := range out {
+		if err := copyRecCbor(ctx, from, to, child, seen); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
