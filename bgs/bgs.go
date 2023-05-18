@@ -431,7 +431,15 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return nil
 		}
 
-		// TODO: if the user is already in the 'slow' path, we shouldnt even bother trying to fast path this event
+		// skip the fast path for rebases or if the user is already in the slow path
+		if evt.Rebase || bgs.Index.Crawler.RepoInSlowPath(ctx, host, u.ID) {
+			ai, err := bgs.Index.LookupUser(ctx, u.ID)
+			if err != nil {
+				return err
+			}
+
+			return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
+		}
 
 		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, (*cid.Cid)(evt.Prev), evt.Blocks); err != nil {
 			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())

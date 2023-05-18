@@ -221,3 +221,7 @@ func (em *EventManager) Subscribe(ctx context.Context, filter func(*XRPCStreamEv
 func (em *EventManager) TakeDownRepo(ctx context.Context, user util.Uid) error {
 	return em.persister.TakeDownRepo(ctx, user)
 }
+
+func (em *EventManager) HandleRebase(ctx context.Context, user util.Uid) error {
+	return em.persister.RebaseRepoEvents(ctx, user)
+}

@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
@@ -8,7 +9,10 @@ import (
 	"time"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/repo"
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-log/v2"
+	car "github.com/ipld/go-car"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -312,4 +316,76 @@ func TestBGSTakedown(t *testing.T) {
 
 	last := es2.Next()
 	assert.Equal(alice.did, last.RepoCommit.Repo)
+}
+
+func TestRebase(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping BGS test in 'short' test mode")
+	}
+	assert := assert.New(t)
+	didr := testPLC(t)
+	p1 := mustSetupPDS(t, "localhost:9155", ".tpds", didr)
+	p1.Run(t)
+
+	b1 := mustSetupBGS(t, "localhost:1531", didr)
+	b1.Run(t)
+
+	p1.RequestScraping(t, b1)
+
+	time.Sleep(time.Millisecond * 50)
+
+	bob := p1.MustNewUser(t, "bob.tpds")
+
+	bob.Post(t, "cats for cats")
+	bob.Post(t, "i am the king of the world")
+	bob.Post(t, "the name is bob")
+	bob.Post(t, "why cant i eat pie")
+
+	time.Sleep(time.Millisecond * 100)
+
+	evts1 := b1.Events(t, 0)
+	defer evts1.cancel()
+
+	preRebaseEvts := evts1.WaitFor(5)
+	fmt.Println(preRebaseEvts)
+
+	bob.DoRebase(t)
+
+	rbevt := evts1.Next()
+	assert.Equal(true, rbevt.RepoCommit.Rebase)
+
+	sc := commitFromSlice(t, rbevt.RepoCommit.Blocks, (cid.Cid)(rbevt.RepoCommit.Commit))
+	assert.Nil(sc.Prev)
+
+	lev := preRebaseEvts[4]
+	oldsc := commitFromSlice(t, lev.RepoCommit.Blocks, (cid.Cid)(lev.RepoCommit.Commit))
+
+	assert.Equal(sc.Data, oldsc.Data)
+
+	evts2 := b1.Events(t, 0)
+	afterEvts := evts2.WaitFor(1)
+	assert.Equal(true, afterEvts[0].RepoCommit.Rebase)
+}
+
+func commitFromSlice(t *testing.T, slice []byte, rcid cid.Cid) *repo.SignedCommit {
+	carr, err := car.NewCarReader(bytes.NewReader(slice))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for {
+		blk, err := carr.Next()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if blk.Cid() == rcid {
+
+			var sc repo.SignedCommit
+			if err := sc.UnmarshalCBOR(bytes.NewReader(blk.RawData())); err != nil {
+				t.Fatal(err)
+			}
+			return &sc
+		}
+	}
 }
