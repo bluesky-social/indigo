@@ -34,23 +34,11 @@ type RepoEventRecord struct {
 	Event  string
 	Rebase bool
 
-	Ops []RepoOpRecord
-}
-
-type RepoOpRecord struct {
-	ID                uint `gorm:"primarykey"`
-	RepoEventRecordID uint `gorm:"index"`
-	Path              string
-	Action            string
-	Rec               *util.DbCID
+	Ops []byte
 }
 
 func NewDbPersistence(db *gorm.DB, cs *carstore.CarStore) (*DbPersistence, error) {
 	if err := db.AutoMigrate(&RepoEventRecord{}); err != nil {
-		return nil, err
-	}
-
-	if err := db.AutoMigrate(&RepoOpRecord{}); err != nil {
 		return nil, err
 	}
 
@@ -107,17 +95,12 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 		Rebase: evt.Rebase,
 	}
 
-	for _, op := range evt.Ops {
-		var rec *util.DbCID
-		if op.Cid != nil && op.Cid.Defined() {
-			rec = &util.DbCID{cid.Cid(*op.Cid)}
-		}
-		rer.Ops = append(rer.Ops, RepoOpRecord{
-			Path:   op.Path,
-			Action: op.Action,
-			Rec:    rec,
-		})
+	opsb, err := json.Marshal(evt.Ops)
+	if err != nil {
+		return err
 	}
+	rer.Ops = opsb
+
 	if err := p.db.Create(&rer).Error; err != nil {
 		return err
 	}
@@ -139,13 +122,6 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPC
 		if err := p.db.ScanRows(rows, &evt); err != nil {
 			return err
 		}
-
-		var ops []RepoOpRecord
-		if err := p.db.Find(&ops, "repo_event_record_id = ?", evt.Seq).Error; err != nil {
-			return err
-		}
-
-		evt.Ops = ops
 
 		ra, err := p.hydrateRepoEvent(ctx, &evt)
 		if err != nil {
@@ -205,6 +181,11 @@ func (p *DbPersistence) hydrateRepoEvent(ctx context.Context, rer *RepoEventReco
 		prevCID = &tmp
 	}
 
+	var ops []*comatproto.SyncSubscribeRepos_RepoOp
+	if err := json.Unmarshal(rer.Ops, &ops); err != nil {
+		return nil, err
+	}
+
 	out := &comatproto.SyncSubscribeRepos_Commit{
 		Seq:    int64(rer.Seq),
 		Repo:   did,
@@ -213,21 +194,8 @@ func (p *DbPersistence) hydrateRepoEvent(ctx context.Context, rer *RepoEventReco
 		Time:   rer.Time.Format(util.ISO8601),
 		Blobs:  blobCIDs,
 		Rebase: rer.Rebase,
+		Ops:    ops,
 		// TODO: there was previously an Event field here. are these all Commit, or are some other events?
-	}
-
-	for _, op := range rer.Ops {
-		var recCID *lexutil.LexLink
-		if op.Rec != nil {
-			tmp := lexutil.LexLink(op.Rec.CID)
-			recCID = &tmp
-		}
-
-		out.Ops = append(out.Ops, &comatproto.SyncSubscribeRepos_RepoOp{
-			Path:   op.Path,
-			Action: op.Action,
-			Cid:    recCID,
-		})
 	}
 
 	cs, err := p.readCarSlice(ctx, rer)
@@ -264,18 +232,6 @@ func (p *DbPersistence) TakeDownRepo(ctx context.Context, usr util.Uid) error {
 }
 
 func (p *DbPersistence) deleteAllEventsForUser(ctx context.Context, usr util.Uid) error {
-	for {
-		q := p.db.Model(&RepoEventRecord{}).Where("repo = ?", usr).Limit(100).Select("seq")
-		res := p.db.Where("repo_event_record_id in (?)", q).Delete(&RepoOpRecord{})
-		if err := res.Error; err != nil {
-			return fmt.Errorf("failed to delete repo op records: %w", err)
-		}
-
-		if res.RowsAffected == 0 {
-			break
-		}
-	}
-
 	if err := p.db.Where("repo = ?", usr).Delete(&RepoEventRecord{}).Error; err != nil {
 		return err
 	}
