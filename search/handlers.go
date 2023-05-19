@@ -2,8 +2,6 @@ package search
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 	"strings"
 
 	api "github.com/bluesky-social/indigo/api"
@@ -37,33 +35,7 @@ func (s *Server) handleSearchRequestPosts(e echo.Context) error {
 		})
 	}
 
-	offset := 0
-	if q := strings.TrimSpace(e.QueryParam("offset")); q != "" {
-		v, err := strconv.Atoi(q)
-		if err != nil {
-			return &echo.HTTPError{
-				Code:    400,
-				Message: fmt.Sprintf("invalid value for 'offset': %s", err),
-			}
-		}
-
-		offset = v
-	}
-
-	count := 30
-	if q := strings.TrimSpace(e.QueryParam("count")); q != "" {
-		v, err := strconv.Atoi(q)
-		if err != nil {
-			return &echo.HTTPError{
-				Code:    400,
-				Message: fmt.Sprintf("invalid value for 'count': %s", err),
-			}
-		}
-
-		count = v
-	}
-
-	out, err := s.SearchPosts(ctx, q, offset, count)
+	out, err := s.SearchPosts(ctx, q)
 	if err != nil {
 		return err
 	}
