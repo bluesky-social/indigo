@@ -25,11 +25,11 @@ import (
 	"github.com/ipfs/go-cid"
 	flatfs "github.com/ipfs/go-ds-flatfs"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	es "github.com/opensearch-project/opensearch-go/v2"
 	gorm "gorm.io/gorm"
+	logging "github.com/ipfs/go-log"
 )
 
 var log = logging.Logger("search")
@@ -282,8 +282,8 @@ func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSu
 	})
 }
 
-func (s *Server) SearchPosts(ctx context.Context, srch string, offset, size int) ([]PostSearchResult, error) {
-	resp, err := doSearchPosts(ctx, s.escli, srch, offset, size)
+func (s *Server) SearchPosts(ctx context.Context, srch string) ([]PostSearchResult, error) {
+	resp, err := doSearchPosts(ctx, s.escli, srch)
 	if err != nil {
 		return nil, err
 	}
