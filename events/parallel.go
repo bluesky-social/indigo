@@ -9,7 +9,7 @@ type ConsumerPool struct {
 	maxConcurrency int
 	maxQueue       int
 
-	do func(*RepoAppend)
+	do func(*XRPCStreamEvent)
 
 	feeder chan *consumerTask
 
@@ -17,7 +17,7 @@ type ConsumerPool struct {
 	active map[string][]*consumerTask
 }
 
-func NewConsumerPool(maxC, maxQ int, do func(*RepoAppend)) *ConsumerPool {
+func NewConsumerPool(maxC, maxQ int, do func(*XRPCStreamEvent)) *ConsumerPool {
 	p := &ConsumerPool{
 		maxConcurrency: maxC,
 		maxQueue:       maxQ,
@@ -36,25 +36,25 @@ func NewConsumerPool(maxC, maxQ int, do func(*RepoAppend)) *ConsumerPool {
 }
 
 type consumerTask struct {
-	key string
-	val *RepoAppend
+	repo string
+	val  *XRPCStreamEvent
 }
 
-func (p *ConsumerPool) Add(ctx context.Context, key string, val *RepoAppend) error {
+func (p *ConsumerPool) Add(ctx context.Context, repo string, val *XRPCStreamEvent) error {
 	t := &consumerTask{
-		key: key,
-		val: val,
+		repo: repo,
+		val:  val,
 	}
 	p.lk.Lock()
 
-	a, ok := p.active[key]
+	a, ok := p.active[repo]
 	if ok {
-		p.active[key] = append(a, t)
+		p.active[repo] = append(a, t)
 		p.lk.Unlock()
 		return nil
 	}
 
-	p.active[key] = []*consumerTask{}
+	p.active[repo] = []*consumerTask{}
 	p.lk.Unlock()
 
 	select {
@@ -71,17 +71,17 @@ func (p *ConsumerPool) worker() {
 			p.do(work.val)
 
 			p.lk.Lock()
-			rem, ok := p.active[work.key]
+			rem, ok := p.active[work.repo]
 			if !ok {
 				log.Errorf("should always have an 'active' entry if a worker is processing a job")
 			}
 
 			if len(rem) == 0 {
-				delete(p.active, work.key)
+				delete(p.active, work.repo)
 				work = nil
 			} else {
 				work = rem[0]
-				p.active[work.key] = rem[1:]
+				p.active[work.repo] = rem[1:]
 			}
 			p.lk.Unlock()
 		}
