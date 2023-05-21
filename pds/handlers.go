@@ -792,5 +792,10 @@ func (s *Server) handleComAtprotoAdminEnableAccountInvites(ctx context.Context, 
 }
 
 func (s *Server) handleComAtprotoRepoRebaseRepo(ctx context.Context, body *comatprototypes.RepoRebaseRepo_Input) error {
-	panic("nyi")
+	u, err := s.getUser(ctx)
+	if err != nil {
+		return err
+	}
+
+	return s.repoman.DoRebase(ctx, u.ID)
 }
