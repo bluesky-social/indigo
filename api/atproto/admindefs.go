@@ -55,8 +55,10 @@ type AdminDefs_ActionViewDetail struct {
 }
 
 type AdminDefs_ActionViewDetail_Subject struct {
-	AdminDefs_RepoView   *AdminDefs_RepoView
-	AdminDefs_RecordView *AdminDefs_RecordView
+	AdminDefs_RepoView           *AdminDefs_RepoView
+	AdminDefs_RepoViewNotFound   *AdminDefs_RepoViewNotFound
+	AdminDefs_RecordView         *AdminDefs_RecordView
+	AdminDefs_RecordViewNotFound *AdminDefs_RecordViewNotFound
 }
 
 func (t *AdminDefs_ActionViewDetail_Subject) MarshalJSON() ([]byte, error) {
@@ -64,9 +66,17 @@ func (t *AdminDefs_ActionViewDetail_Subject) MarshalJSON() ([]byte, error) {
 		t.AdminDefs_RepoView.LexiconTypeID = "com.atproto.admin.defs#repoView"
 		return json.Marshal(t.AdminDefs_RepoView)
 	}
+	if t.AdminDefs_RepoViewNotFound != nil {
+		t.AdminDefs_RepoViewNotFound.LexiconTypeID = "com.atproto.admin.defs#repoViewNotFound"
+		return json.Marshal(t.AdminDefs_RepoViewNotFound)
+	}
 	if t.AdminDefs_RecordView != nil {
 		t.AdminDefs_RecordView.LexiconTypeID = "com.atproto.admin.defs#recordView"
 		return json.Marshal(t.AdminDefs_RecordView)
+	}
+	if t.AdminDefs_RecordViewNotFound != nil {
+		t.AdminDefs_RecordViewNotFound.LexiconTypeID = "com.atproto.admin.defs#recordViewNotFound"
+		return json.Marshal(t.AdminDefs_RecordViewNotFound)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -80,9 +90,15 @@ func (t *AdminDefs_ActionViewDetail_Subject) UnmarshalJSON(b []byte) error {
 	case "com.atproto.admin.defs#repoView":
 		t.AdminDefs_RepoView = new(AdminDefs_RepoView)
 		return json.Unmarshal(b, t.AdminDefs_RepoView)
+	case "com.atproto.admin.defs#repoViewNotFound":
+		t.AdminDefs_RepoViewNotFound = new(AdminDefs_RepoViewNotFound)
+		return json.Unmarshal(b, t.AdminDefs_RepoViewNotFound)
 	case "com.atproto.admin.defs#recordView":
 		t.AdminDefs_RecordView = new(AdminDefs_RecordView)
 		return json.Unmarshal(b, t.AdminDefs_RecordView)
+	case "com.atproto.admin.defs#recordViewNotFound":
+		t.AdminDefs_RecordViewNotFound = new(AdminDefs_RecordViewNotFound)
+		return json.Unmarshal(b, t.AdminDefs_RecordViewNotFound)
 
 	default:
 		return nil
@@ -216,6 +232,14 @@ type AdminDefs_RecordViewDetail struct {
 	Value      *util.LexiconTypeDecoder    `json:"value" cborgen:"value"`
 }
 
+// AdminDefs_RecordViewNotFound is a "recordViewNotFound" in the com.atproto.admin.defs schema.
+//
+// RECORDTYPE: AdminDefs_RecordViewNotFound
+type AdminDefs_RecordViewNotFound struct {
+	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
+	Uri           string `json:"uri" cborgen:"uri"`
+}
+
 // AdminDefs_RepoRef is a "repoRef" in the com.atproto.admin.defs schema.
 //
 // RECORDTYPE: AdminDefs_RepoRef
@@ -253,6 +277,14 @@ type AdminDefs_RepoViewDetail struct {
 	RelatedRecords  []*util.LexiconTypeDecoder  `json:"relatedRecords" cborgen:"relatedRecords"`
 }
 
+// AdminDefs_RepoViewNotFound is a "repoViewNotFound" in the com.atproto.admin.defs schema.
+//
+// RECORDTYPE: AdminDefs_RepoViewNotFound
+type AdminDefs_RepoViewNotFound struct {
+	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
+	Did           string `json:"did" cborgen:"did"`
+}
+
 // AdminDefs_ReportView is a "reportView" in the com.atproto.admin.defs schema.
 type AdminDefs_ReportView struct {
 	CreatedAt           string                        `json:"createdAt" cborgen:"createdAt"`
@@ -276,8 +308,10 @@ type AdminDefs_ReportViewDetail struct {
 }
 
 type AdminDefs_ReportViewDetail_Subject struct {
-	AdminDefs_RepoView   *AdminDefs_RepoView
-	AdminDefs_RecordView *AdminDefs_RecordView
+	AdminDefs_RepoView           *AdminDefs_RepoView
+	AdminDefs_RepoViewNotFound   *AdminDefs_RepoViewNotFound
+	AdminDefs_RecordView         *AdminDefs_RecordView
+	AdminDefs_RecordViewNotFound *AdminDefs_RecordViewNotFound
 }
 
 func (t *AdminDefs_ReportViewDetail_Subject) MarshalJSON() ([]byte, error) {
@@ -285,9 +319,17 @@ func (t *AdminDefs_ReportViewDetail_Subject) MarshalJSON() ([]byte, error) {
 		t.AdminDefs_RepoView.LexiconTypeID = "com.atproto.admin.defs#repoView"
 		return json.Marshal(t.AdminDefs_RepoView)
 	}
+	if t.AdminDefs_RepoViewNotFound != nil {
+		t.AdminDefs_RepoViewNotFound.LexiconTypeID = "com.atproto.admin.defs#repoViewNotFound"
+		return json.Marshal(t.AdminDefs_RepoViewNotFound)
+	}
 	if t.AdminDefs_RecordView != nil {
 		t.AdminDefs_RecordView.LexiconTypeID = "com.atproto.admin.defs#recordView"
 		return json.Marshal(t.AdminDefs_RecordView)
+	}
+	if t.AdminDefs_RecordViewNotFound != nil {
+		t.AdminDefs_RecordViewNotFound.LexiconTypeID = "com.atproto.admin.defs#recordViewNotFound"
+		return json.Marshal(t.AdminDefs_RecordViewNotFound)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -301,9 +343,15 @@ func (t *AdminDefs_ReportViewDetail_Subject) UnmarshalJSON(b []byte) error {
 	case "com.atproto.admin.defs#repoView":
 		t.AdminDefs_RepoView = new(AdminDefs_RepoView)
 		return json.Unmarshal(b, t.AdminDefs_RepoView)
+	case "com.atproto.admin.defs#repoViewNotFound":
+		t.AdminDefs_RepoViewNotFound = new(AdminDefs_RepoViewNotFound)
+		return json.Unmarshal(b, t.AdminDefs_RepoViewNotFound)
 	case "com.atproto.admin.defs#recordView":
 		t.AdminDefs_RecordView = new(AdminDefs_RecordView)
 		return json.Unmarshal(b, t.AdminDefs_RecordView)
+	case "com.atproto.admin.defs#recordViewNotFound":
+		t.AdminDefs_RecordViewNotFound = new(AdminDefs_RecordViewNotFound)
+		return json.Unmarshal(b, t.AdminDefs_RecordViewNotFound)
 
 	default:
 		return nil

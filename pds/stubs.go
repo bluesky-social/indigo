@@ -18,7 +18,13 @@ func (s *Server) RegisterHandlersAppBsky(e *echo.Echo) error {
 	e.POST("/xrpc/app.bsky.actor.putPreferences", s.HandleAppBskyActorPutPreferences)
 	e.GET("/xrpc/app.bsky.actor.searchActors", s.HandleAppBskyActorSearchActors)
 	e.GET("/xrpc/app.bsky.actor.searchActorsTypeahead", s.HandleAppBskyActorSearchActorsTypeahead)
+	e.GET("/xrpc/app.bsky.feed.describeFeedGenerator", s.HandleAppBskyFeedDescribeFeedGenerator)
+	e.GET("/xrpc/app.bsky.feed.getActorFeeds", s.HandleAppBskyFeedGetActorFeeds)
 	e.GET("/xrpc/app.bsky.feed.getAuthorFeed", s.HandleAppBskyFeedGetAuthorFeed)
+	e.GET("/xrpc/app.bsky.feed.getFeed", s.HandleAppBskyFeedGetFeed)
+	e.GET("/xrpc/app.bsky.feed.getFeedGenerator", s.HandleAppBskyFeedGetFeedGenerator)
+	e.GET("/xrpc/app.bsky.feed.getFeedGenerators", s.HandleAppBskyFeedGetFeedGenerators)
+	e.GET("/xrpc/app.bsky.feed.getFeedSkeleton", s.HandleAppBskyFeedGetFeedSkeleton)
 	e.GET("/xrpc/app.bsky.feed.getLikes", s.HandleAppBskyFeedGetLikes)
 	e.GET("/xrpc/app.bsky.feed.getPostThread", s.HandleAppBskyFeedGetPostThread)
 	e.GET("/xrpc/app.bsky.feed.getPosts", s.HandleAppBskyFeedGetPosts)
@@ -177,6 +183,45 @@ func (s *Server) HandleAppBskyActorSearchActorsTypeahead(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandleAppBskyFeedDescribeFeedGenerator(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyFeedDescribeFeedGenerator")
+	defer span.End()
+	var out *appbskytypes.FeedDescribeFeedGenerator_Output
+	var handleErr error
+	// func (s *Server) handleAppBskyFeedDescribeFeedGenerator(ctx context.Context) (*appbskytypes.FeedDescribeFeedGenerator_Output, error)
+	out, handleErr = s.handleAppBskyFeedDescribeFeedGenerator(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleAppBskyFeedGetActorFeeds(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyFeedGetActorFeeds")
+	defer span.End()
+	actor := c.QueryParam("actor")
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	var out *appbskytypes.FeedGetActorFeeds_Output
+	var handleErr error
+	// func (s *Server) handleAppBskyFeedGetActorFeeds(ctx context.Context,actor string,cursor string,limit int) (*appbskytypes.FeedGetActorFeeds_Output, error)
+	out, handleErr = s.handleAppBskyFeedGetActorFeeds(ctx, actor, cursor, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandleAppBskyFeedGetAuthorFeed(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyFeedGetAuthorFeed")
 	defer span.End()
@@ -197,6 +242,87 @@ func (s *Server) HandleAppBskyFeedGetAuthorFeed(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleAppBskyFeedGetAuthorFeed(ctx context.Context,actor string,cursor string,limit int) (*appbskytypes.FeedGetAuthorFeed_Output, error)
 	out, handleErr = s.handleAppBskyFeedGetAuthorFeed(ctx, actor, cursor, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleAppBskyFeedGetFeed(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyFeedGetFeed")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+	feed := c.QueryParam("feed")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	var out *appbskytypes.FeedGetFeed_Output
+	var handleErr error
+	// func (s *Server) handleAppBskyFeedGetFeed(ctx context.Context,cursor string,feed string,limit int) (*appbskytypes.FeedGetFeed_Output, error)
+	out, handleErr = s.handleAppBskyFeedGetFeed(ctx, cursor, feed, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleAppBskyFeedGetFeedGenerator(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyFeedGetFeedGenerator")
+	defer span.End()
+	feed := c.QueryParam("feed")
+	var out *appbskytypes.FeedGetFeedGenerator_Output
+	var handleErr error
+	// func (s *Server) handleAppBskyFeedGetFeedGenerator(ctx context.Context,feed string) (*appbskytypes.FeedGetFeedGenerator_Output, error)
+	out, handleErr = s.handleAppBskyFeedGetFeedGenerator(ctx, feed)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleAppBskyFeedGetFeedGenerators(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyFeedGetFeedGenerators")
+	defer span.End()
+
+	feeds := c.QueryParams()["feeds"]
+	var out *appbskytypes.FeedGetFeedGenerators_Output
+	var handleErr error
+	// func (s *Server) handleAppBskyFeedGetFeedGenerators(ctx context.Context,feeds []string) (*appbskytypes.FeedGetFeedGenerators_Output, error)
+	out, handleErr = s.handleAppBskyFeedGetFeedGenerators(ctx, feeds)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleAppBskyFeedGetFeedSkeleton(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyFeedGetFeedSkeleton")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+	feed := c.QueryParam("feed")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	var out *appbskytypes.FeedGetFeedSkeleton_Output
+	var handleErr error
+	// func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context,cursor string,feed string,limit int) (*appbskytypes.FeedGetFeedSkeleton_Output, error)
+	out, handleErr = s.handleAppBskyFeedGetFeedSkeleton(ctx, cursor, feed, limit)
 	if handleErr != nil {
 		return handleErr
 	}
