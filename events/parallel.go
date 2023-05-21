@@ -9,7 +9,7 @@ type ConsumerPool struct {
 	maxConcurrency int
 	maxQueue       int
 
-	do func(*XRPCStreamEvent)
+	do func(*XRPCStreamEvent) error
 
 	feeder chan *consumerTask
 
@@ -17,7 +17,7 @@ type ConsumerPool struct {
 	active map[string][]*consumerTask
 }
 
-func NewConsumerPool(maxC, maxQ int, do func(*XRPCStreamEvent)) *ConsumerPool {
+func NewConsumerPool(maxC, maxQ int, do func(*XRPCStreamEvent) error) *ConsumerPool {
 	p := &ConsumerPool{
 		maxConcurrency: maxC,
 		maxQueue:       maxQ,
@@ -68,7 +68,9 @@ func (p *ConsumerPool) Add(ctx context.Context, repo string, val *XRPCStreamEven
 func (p *ConsumerPool) worker() {
 	for work := range p.feeder {
 		for work != nil {
-			p.do(work.val)
+			if err := p.do(work.val); err != nil {
+				log.Errorf("event handler failed: %s", err)
+			}
 
 			p.lk.Lock()
 			rem, ok := p.active[work.repo]

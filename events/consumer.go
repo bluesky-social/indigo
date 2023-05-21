@@ -166,3 +166,160 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 
 	}
 }
+
+func HandleRepoStreamPool(ctx context.Context, con *websocket.Conn, pool *ConsumerPool) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	go func() {
+		t := time.NewTicker(time.Second * 30)
+		defer t.Stop()
+
+		for {
+			select {
+			case <-t.C:
+				if err := con.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(time.Second*10)); err != nil {
+					log.Warnf("failed to ping: %s", err)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	lastSeq := int64(-1)
+	for {
+		mt, r, err := con.NextReader()
+		if err != nil {
+			return err
+		}
+
+		switch mt {
+		default:
+			return fmt.Errorf("expected binary message from subscription endpoint")
+		case websocket.BinaryMessage:
+			// ok
+		}
+
+		var header EventHeader
+		if err := header.UnmarshalCBOR(r); err != nil {
+			return fmt.Errorf("reading header: %w", err)
+		}
+
+		switch header.Op {
+		case EvtKindMessage:
+			switch header.MsgType {
+			case "#commit":
+				var evt comatproto.SyncSubscribeRepos_Commit
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return fmt.Errorf("reading repoCommit event: %w", err)
+				}
+
+				if evt.Seq < lastSeq {
+					log.Errorf("Got events out of order from stream (seq = %d, prev = %d)", evt.Seq, lastSeq)
+				}
+
+				lastSeq = evt.Seq
+
+				if err := pool.Add(ctx, evt.Repo, &XRPCStreamEvent{
+					RepoCommit: &evt,
+				}); err != nil {
+					return err
+				}
+			case "#handle":
+				var evt comatproto.SyncSubscribeRepos_Handle
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return err
+				}
+
+				if evt.Seq < lastSeq {
+					log.Errorf("Got events out of order from stream (seq = %d, prev = %d)", evt.Seq, lastSeq)
+				}
+				lastSeq = evt.Seq
+
+				if err := pool.Add(ctx, evt.Did, &XRPCStreamEvent{
+					RepoHandle: &evt,
+				}); err != nil {
+					return err
+				}
+			case "#info":
+				// TODO: this might also be a LabelInfo (as opposed to RepoInfo)
+				var evt comatproto.SyncSubscribeRepos_Info
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return err
+				}
+
+				if err := pool.Add(ctx, "", &XRPCStreamEvent{
+					RepoInfo: &evt,
+				}); err != nil {
+					return err
+				}
+			case "#migrate":
+				var evt comatproto.SyncSubscribeRepos_Migrate
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return err
+				}
+
+				if evt.Seq < lastSeq {
+					log.Errorf("Got events out of order from stream (seq = %d, prev = %d)", evt.Seq, lastSeq)
+				}
+				lastSeq = evt.Seq
+
+				if err := pool.Add(ctx, evt.Did, &XRPCStreamEvent{
+					RepoMigrate: &evt,
+				}); err != nil {
+					return err
+				}
+			case "#tombstone":
+				var evt comatproto.SyncSubscribeRepos_Tombstone
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return err
+				}
+
+				if evt.Seq < lastSeq {
+					log.Errorf("Got events out of order from stream (seq = %d, prev = %d)", evt.Seq, lastSeq)
+				}
+				lastSeq = evt.Seq
+
+				if err := pool.Add(ctx, evt.Did, &XRPCStreamEvent{
+					RepoTombstone: &evt,
+				}); err != nil {
+					return err
+				}
+			case "#labebatch":
+				var evt label.SubscribeLabels_Labels
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return fmt.Errorf("reading Labels event: %w", err)
+				}
+
+				if evt.Seq < lastSeq {
+					log.Errorf("Got events out of order from stream (seq = %d, prev = %d)", evt.Seq, lastSeq)
+				}
+
+				lastSeq = evt.Seq
+
+				if err := pool.Add(ctx, "", &XRPCStreamEvent{
+					LabelLabels: &evt,
+				}); err != nil {
+					return err
+				}
+			}
+
+		case EvtKindErrorFrame:
+			var errframe ErrorFrame
+			if err := errframe.UnmarshalCBOR(r); err != nil {
+				return err
+			}
+
+			if err := pool.Add(ctx, "", &XRPCStreamEvent{
+				Error: &errframe,
+			}); err != nil {
+				return err
+			}
+
+		default:
+			return fmt.Errorf("unrecognized event stream type: %d", header.Op)
+		}
+
+	}
+}
