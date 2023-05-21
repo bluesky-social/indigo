@@ -72,22 +72,22 @@ func run(args []string) error {
 			EnvVars: []string{"ES_PROFILE_INDEX"},
 		},
 		&cli.StringFlag{
-			Name:    "bgs-host",
+			Name:    "atp-bgs-host",
 			Usage:   "hostname and port of BGS to subscribe to",
 			Value:   "https://bsky.social",
 			EnvVars: []string{"ATP_BGS_HOST"},
 		},
 		&cli.StringFlag{
-			Name:    "plc-host",
+			Name:    "atp-plc-host",
 			Usage:   "method, hostname, and port of PLC registry",
 			Value:   "https://plc.directory",
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
 		// TODO(bnewbold): this is a temporary hack to fetch our own blobs
 		&cli.StringFlag{
-			Name:    "pds-host",
+			Name:    "atp-pds-host",
 			Usage:   "method, hostname, and port of PDS instance",
-			Value:   "https://bsky.social",
+			Value:   "wss://bsky.social",
 			EnvVars: []string{"ATP_PDS_HOST"},
 		},
 	}
