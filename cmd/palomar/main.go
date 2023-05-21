@@ -74,7 +74,7 @@ func run(args []string) error {
 		&cli.StringFlag{
 			Name:    "atp-bgs-host",
 			Usage:   "hostname and port of BGS to subscribe to",
-			Value:   "https://bsky.social",
+			Value:   "wss://bsky.social",
 			EnvVars: []string{"ATP_BGS_HOST"},
 		},
 		&cli.StringFlag{
@@ -87,7 +87,7 @@ func run(args []string) error {
 		&cli.StringFlag{
 			Name:    "atp-pds-host",
 			Usage:   "method, hostname, and port of PDS instance",
-			Value:   "wss://bsky.social",
+			Value:   "https://bsky.social",
 			EnvVars: []string{"ATP_PDS_HOST"},
 		},
 	}
