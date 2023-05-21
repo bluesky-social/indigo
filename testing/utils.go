@@ -316,6 +316,18 @@ func (u *testUser) ChangeHandle(t *testing.T, nhandle string) {
 	}
 }
 
+func (u *testUser) DoRebase(t *testing.T) {
+	t.Helper()
+
+	ctx := context.TODO()
+	err := atproto.RepoRebaseRepo(ctx, u.client, &atproto.RepoRebaseRepo_Input{
+		Repo: u.did,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func testPLC(t *testing.T) *plc.FakeDid {
 	// TODO: just do in memory...
 	tdir, err := os.MkdirTemp("", "plcserv")

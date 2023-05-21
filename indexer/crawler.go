@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/models"
@@ -19,6 +20,10 @@ type CrawlDispatcher struct {
 	catchup chan *catchupJob
 
 	complete chan util.Uid
+
+	maplk      sync.Mutex
+	todo       map[util.Uid]*crawlWork
+	inProgress map[util.Uid]*crawlWork
 
 	doRepoCrawl func(context.Context, *crawlWork) error
 
@@ -37,6 +42,8 @@ func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurre
 		catchup:     make(chan *catchupJob),
 		doRepoCrawl: repoFn,
 		concurrency: concurrency,
+		todo:        make(map[util.Uid]*crawlWork),
+		inProgress:  make(map[util.Uid]*crawlWork),
 	}, nil
 }
 
@@ -62,14 +69,13 @@ type crawlWork struct {
 
 	// for events that come in while this actor is being processed
 	next []*catchupJob
+
+	rebase *catchupJob
 }
 
 func (c *CrawlDispatcher) mainLoop() {
 	var next *crawlWork
 	var buffer []*crawlWork
-
-	todo := make(map[util.Uid]*crawlWork)
-	inProgress := make(map[util.Uid]*crawlWork)
 
 	var rs chan *crawlWork
 	for {
@@ -77,13 +83,16 @@ func (c *CrawlDispatcher) mainLoop() {
 		case act := <-c.ingest:
 			// TODO: max buffer size
 
-			_, ok := inProgress[act.Uid]
+			c.maplk.Lock()
+			_, ok := c.inProgress[act.Uid]
 			if ok {
+				c.maplk.Unlock()
 				break
 			}
 
-			_, has := todo[act.Uid]
+			_, has := c.todo[act.Uid]
 			if has {
+				c.maplk.Unlock()
 				break
 			}
 
@@ -91,7 +100,8 @@ func (c *CrawlDispatcher) mainLoop() {
 				act:        act,
 				initScrape: true,
 			}
-			todo[act.Uid] = cw
+			c.todo[act.Uid] = cw
+			c.maplk.Unlock()
 
 			if next == nil {
 				next = cw
@@ -100,8 +110,10 @@ func (c *CrawlDispatcher) mainLoop() {
 				buffer = append(buffer, cw)
 			}
 		case rs <- next:
-			delete(todo, next.act.Uid)
-			inProgress[next.act.Uid] = next
+			c.maplk.Lock()
+			delete(c.todo, next.act.Uid)
+			c.inProgress[next.act.Uid] = next
+			c.maplk.Unlock()
 
 			if len(buffer) > 0 {
 				next = buffer[0]
@@ -111,15 +123,19 @@ func (c *CrawlDispatcher) mainLoop() {
 				rs = nil
 			}
 		case catchup := <-c.catchup:
-			job, ok := todo[catchup.user.Uid]
+			c.maplk.Lock()
+			job, ok := c.todo[catchup.user.Uid]
+			// TODO: in the event of receiving a rebase event, we *could* pre-empt all other pending events
 			if ok {
 				job.catchup = append(job.catchup, catchup)
+				c.maplk.Unlock()
 				break
 			}
 
-			job, ok = inProgress[catchup.user.Uid]
+			job, ok = c.inProgress[catchup.user.Uid]
 			if ok {
 				job.next = append(job.next, catchup)
+				c.maplk.Unlock()
 				break
 			}
 
@@ -127,7 +143,8 @@ func (c *CrawlDispatcher) mainLoop() {
 				act:     catchup.user,
 				catchup: []*catchupJob{catchup},
 			}
-			todo[catchup.user.Uid] = cw
+			c.todo[catchup.user.Uid] = cw
+			c.maplk.Unlock()
 
 			if next == nil {
 				next = cw
@@ -137,14 +154,15 @@ func (c *CrawlDispatcher) mainLoop() {
 			}
 
 		case uid := <-c.complete:
-			job, ok := inProgress[uid]
+			c.maplk.Lock()
+			job, ok := c.inProgress[uid]
 			if !ok {
 				panic("should not be possible to not have a job in progress we receive a completion signal for")
 			}
-			delete(inProgress, uid)
+			delete(c.inProgress, uid)
 
 			if len(job.next) > 0 {
-				todo[uid] = job
+				c.todo[uid] = job
 				job.initScrape = false
 				job.catchup = job.next
 				job.next = nil
@@ -155,6 +173,8 @@ func (c *CrawlDispatcher) mainLoop() {
 					buffer = append(buffer, job)
 				}
 			}
+
+			c.maplk.Unlock()
 
 		}
 	}
@@ -205,4 +225,18 @@ func (c *CrawlDispatcher) AddToCatchupQueue(ctx context.Context, host *models.PD
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func (c *CrawlDispatcher) RepoInSlowPath(ctx context.Context, host *models.PDS, uid util.Uid) bool {
+	c.maplk.Lock()
+	defer c.maplk.Unlock()
+	if _, ok := c.todo[uid]; ok {
+		return true
+	}
+
+	if _, ok := c.inProgress[uid]; ok {
+		return true
+	}
+
+	return false
 }

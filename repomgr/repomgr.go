@@ -77,6 +77,7 @@ type RepoEvent struct {
 	RepoSlice []byte
 	PDS       uint
 	Ops       []RepoOp
+	Rebase    bool
 }
 
 type RepoOp struct {
@@ -508,6 +509,173 @@ func (rm *RepoManager) GetProfile(ctx context.Context, uid util.Uid) (*bsky.Acto
 	return ap, nil
 }
 
+var ErrUncleanRebase = fmt.Errorf("unclean rebase")
+
+func (rm *RepoManager) HandleRebase(ctx context.Context, pdsid uint, uid util.Uid, did string, prev *cid.Cid, commit cid.Cid, carslice []byte) error {
+	ctx, span := otel.Tracer("repoman").Start(ctx, "HandleRebase")
+	defer span.End()
+
+	log.Infow("HandleRebase", "pds", pdsid, "uid", uid, "commit", commit)
+
+	unlock := rm.lockUser(ctx, uid)
+	defer unlock()
+
+	ro, err := rm.cs.ReadOnlySession(uid)
+	if err != nil {
+		return err
+	}
+
+	head, err := rm.cs.GetUserRepoHead(ctx, uid)
+	if err != nil {
+		return err
+	}
+
+	// TODO: do we allow prev to be nil in any case here?
+	if prev != nil {
+		if *prev != head {
+			log.Errorw("rebase 'prev' value did not match our latest head for repo", "did", did, "rprev", prev.String(), "lprev", head.String())
+		}
+	}
+
+	currepo, err := repo.OpenRepo(ctx, ro, head, true)
+	if err != nil {
+		return err
+	}
+
+	olddc := currepo.DataCid()
+
+	root, ds, err := rm.cs.ImportSlice(ctx, uid, nil, carslice)
+	if err != nil {
+		return fmt.Errorf("importing external carslice: %w", err)
+	}
+
+	r, err := repo.OpenRepo(ctx, ds, root, true)
+	if err != nil {
+		return fmt.Errorf("opening external user repo (%d, root=%s): %w", uid, root, err)
+	}
+
+	if r.DataCid() != olddc {
+		return ErrUncleanRebase
+	}
+
+	if err := rm.CheckRepoSig(ctx, r, did); err != nil {
+		return err
+	}
+
+	// TODO: this is moderately expensive and currently results in the users
+	// entire repo being held in memory
+	if err := r.CopyDataTo(ctx, ds); err != nil {
+		return err
+	}
+
+	if err := ds.CloseAsRebase(ctx, root); err != nil {
+		return fmt.Errorf("finalizing rebase: %w", err)
+	}
+
+	// TODO: what happens if this update fails?
+	if err := rm.updateUserRepoHead(ctx, uid, root); err != nil {
+		return fmt.Errorf("updating user head: %w", err)
+	}
+
+	if rm.events != nil {
+		rm.events(ctx, &RepoEvent{
+			User:      uid,
+			OldRoot:   prev,
+			NewRoot:   root,
+			Ops:       nil,
+			RepoSlice: carslice,
+			PDS:       pdsid,
+			Rebase:    true,
+		})
+	}
+
+	return nil
+}
+
+func (rm *RepoManager) DoRebase(ctx context.Context, uid util.Uid) error {
+	ctx, span := otel.Tracer("repoman").Start(ctx, "DoRebase")
+	defer span.End()
+
+	log.Infow("DoRebase", "uid", uid)
+
+	unlock := rm.lockUser(ctx, uid)
+	defer unlock()
+
+	ds, err := rm.cs.NewDeltaSession(ctx, uid, nil)
+	if err != nil {
+		return err
+	}
+
+	head, err := rm.cs.GetUserRepoHead(ctx, uid)
+	if err != nil {
+		return err
+	}
+
+	r, err := repo.OpenRepo(ctx, ds, head, true)
+	if err != nil {
+		return err
+	}
+
+	r.Truncate()
+
+	nroot, err := r.Commit(ctx, rm.kmgr.SignForUser)
+	if err != nil {
+		return err
+	}
+
+	if err := ds.CloseAsRebase(ctx, nroot); err != nil {
+		return fmt.Errorf("finalizing rebase: %w", err)
+	}
+
+	// outbound car slice should just be the new signed root
+	buf := new(bytes.Buffer)
+	if _, err := carstore.WriteCarHeader(buf, nroot); err != nil {
+		return err
+	}
+	robj, err := ds.Get(ctx, nroot)
+	if err != nil {
+		return err
+	}
+	_, err = carstore.LdWrite(buf, robj.Cid().Bytes(), robj.RawData())
+	if err != nil {
+		return err
+	}
+
+	if rm.events != nil {
+		rm.events(ctx, &RepoEvent{
+			User:      uid,
+			OldRoot:   &head,
+			NewRoot:   nroot,
+			Ops:       nil,
+			RepoSlice: buf.Bytes(),
+			PDS:       0,
+			Rebase:    true,
+		})
+	}
+
+	return nil
+}
+
+func (rm *RepoManager) CheckRepoSig(ctx context.Context, r *repo.Repo, expdid string) error {
+	repoDid := r.RepoDid()
+	if expdid != repoDid {
+		return fmt.Errorf("DID in repo did not match (%q != %q)", expdid, repoDid)
+	}
+
+	scom := r.SignedCommit()
+
+	usc := scom.Unsigned()
+	sb, err := usc.BytesForSigning()
+	if err != nil {
+		return fmt.Errorf("commit serialization failed: %w", err)
+	}
+	if err := rm.kmgr.VerifyUserSignature(ctx, repoDid, scom.Sig, sb); err != nil {
+		return fmt.Errorf("signature check failed: %w", err)
+	}
+
+	return nil
+}
+
 func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid util.Uid, did string, prev *cid.Cid, carslice []byte) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "HandleExternalUserEvent")
 	defer span.End()
@@ -527,21 +695,8 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		return fmt.Errorf("opening external user repo (%d, root=%s): %w", uid, root, err)
 	}
 
-	repoDid := r.RepoDid()
-
-	if did != repoDid {
-		return fmt.Errorf("DID in repo did not match (%q != %q)", did, repoDid)
-	}
-
-	scom := r.SignedCommit()
-
-	usc := scom.Unsigned()
-	sb, err := usc.BytesForSigning()
-	if err != nil {
-		return fmt.Errorf("commit serialization failed: %w", err)
-	}
-	if err := rm.kmgr.VerifyUserSignature(ctx, repoDid, scom.Sig, sb); err != nil {
-		return fmt.Errorf("signature check failed: %w", err)
+	if err := rm.CheckRepoSig(ctx, r, did); err != nil {
+		return err
 	}
 
 	var pcid cid.Cid

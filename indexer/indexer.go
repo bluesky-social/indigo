@@ -112,6 +112,12 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 
 	}
 
+	if evt.Rebase {
+		if err := ix.events.HandleRebase(ctx, evt.User); err != nil {
+			log.Errorf("failed to handle rebase in events manager: %s", err)
+		}
+	}
+
 	log.Debugw("Sending event", "did", did)
 	if err := ix.events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoCommit: &comatproto.SyncSubscribeRepos_Commit{
@@ -122,6 +128,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 			Time:   time.Now().Format(util.ISO8601),
 			Ops:    outops,
 			TooBig: toobig,
+			Rebase: evt.Rebase,
 		},
 		PrivUid: evt.User,
 	}); err != nil {
@@ -822,6 +829,26 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 	curHead, err := ix.repomgr.GetRepoRoot(ctx, ai.Uid)
 	if err != nil && !isNotFound(err) {
 		return err
+	}
+
+	var rebase *comatproto.SyncSubscribeRepos_Commit
+	for _, job := range job.catchup {
+		if job.evt.Rebase {
+			rebase = job.evt
+			break
+		}
+	}
+	if rebase == nil {
+		for _, job := range job.next {
+			if job.evt.Rebase {
+				rebase = job.evt
+				break
+			}
+		}
+	}
+
+	if rebase != nil {
+		return ix.repomgr.HandleRebase(ctx, ai.PDS, ai.Uid, ai.Did, (*cid.Cid)(rebase.Prev), (cid.Cid)(rebase.Commit), rebase.Blocks)
 	}
 
 	var host string

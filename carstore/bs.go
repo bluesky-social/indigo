@@ -70,6 +70,7 @@ type CarShard struct {
 	Seq       int `gorm:"index"`
 	Path      string
 	Usr       util.Uid `gorm:"index"`
+	Rebase    bool
 }
 
 type blockRef struct {
@@ -344,7 +345,7 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user util.Uid, earlyCid, la
 	if earlyCid.Defined() {
 		var untilShard CarShard
 		if err := cs.meta.First(&untilShard, "root = ? AND usr = ?", util.DbCID{earlyCid}, user).Error; err != nil {
-			return err
+			return fmt.Errorf("finding early shard: %w", err)
 		}
 		earlySeq = untilShard.Seq
 	}
@@ -352,7 +353,7 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user util.Uid, earlyCid, la
 	if lateCid.Defined() {
 		var fromShard CarShard
 		if err := cs.meta.First(&fromShard, "root = ? AND usr = ?", util.DbCID{lateCid}, user).Error; err != nil {
-			return err
+			return fmt.Errorf("finding late shard: %w", err)
 		}
 		lateSeq = fromShard.Seq
 	}
@@ -384,8 +385,15 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user util.Uid, earlyCid, la
 	}
 
 	for _, sh := range shards {
-		if err := cs.writeShardBlocks(ctx, &sh, w); err != nil {
-			return err
+		// for rebase shards, only include the modified root, not the whole tree
+		if sh.Rebase && incremental {
+			if err := cs.writeBlockFromShard(ctx, &sh, w, sh.Root.CID); err != nil {
+				return err
+			}
+		} else {
+			if err := cs.writeShardBlocks(ctx, &sh, w); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -413,6 +421,31 @@ func (cs *CarStore) writeShardBlocks(ctx context.Context, sh *CarShard, w io.Wri
 	}
 
 	return nil
+}
+
+func (cs *CarStore) writeBlockFromShard(ctx context.Context, sh *CarShard, w io.Writer, c cid.Cid) error {
+	fi, err := os.Open(sh.Path)
+	if err != nil {
+		return err
+	}
+	defer fi.Close()
+
+	rr, err := car.NewCarReader(fi)
+	if err != nil {
+		return err
+	}
+
+	for {
+		blk, err := rr.Next()
+		if err != nil {
+			return err
+		}
+
+		if blk.Cid() == c {
+			_, err := LdWrite(w, c.Bytes(), blk.RawData())
+			return err
+		}
+	}
 }
 
 var _ blockstore.Blockstore = (*DeltaSession)(nil)
@@ -515,6 +548,28 @@ func (cs *CarStore) deleteShardFile(ctx context.Context, sh *CarShard) error {
 // CloseWithRoot writes all new blocks in a car file to the writer with the
 // given cid as the 'root'
 func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) ([]byte, error) {
+	return ds.closeWithRoot(ctx, root, false)
+}
+
+func WriteCarHeader(w io.Writer, root cid.Cid) (int64, error) {
+	h := &car.CarHeader{
+		Roots:   []cid.Cid{root},
+		Version: 1,
+	}
+	hb, err := cbor.DumpObject(h)
+	if err != nil {
+		return 0, err
+	}
+
+	hnw, err := LdWrite(w, hb)
+	if err != nil {
+		return 0, err
+	}
+
+	return hnw, nil
+}
+
+func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase bool) ([]byte, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "CloseWithRoot")
 	defer span.End()
 
@@ -523,16 +578,7 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) ([]byte
 	}
 
 	buf := new(bytes.Buffer)
-	h := &car.CarHeader{
-		Roots:   []cid.Cid{root},
-		Version: 1,
-	}
-	hb, err := cbor.DumpObject(h)
-	if err != nil {
-		return nil, err
-	}
-
-	hnw, err := LdWrite(buf, hb)
+	hnw, err := WriteCarHeader(buf, root)
 	if err != nil {
 		return nil, err
 	}
@@ -540,7 +586,8 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) ([]byte
 	// TODO: writing these blocks in map traversal order is bad, I believe the
 	// optimal ordering will be something like reverse-write-order, but random
 	// is definitely not it
-	var offset int64 = hnw
+
+	offset := hnw
 	//brefs := make([]*blockRef, 0, len(ds.blks))
 	brefs := make([]map[string]interface{}, 0, len(ds.blks))
 	for k, blk := range ds.blks {
@@ -602,6 +649,35 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) ([]byte
 	}
 
 	return buf.Bytes(), nil
+}
+
+func (ds *DeltaSession) CloseAsRebase(ctx context.Context, root cid.Cid) error {
+	_, err := ds.closeWithRoot(ctx, root, true)
+	if err != nil {
+		return err
+	}
+
+	// TODO: this *could* get large, might be worth doing it incrementally
+	var oldslices []CarShard
+	if err := ds.cs.meta.Find(&oldslices, "usr = ? AND seq < ?", ds.user, ds.seq).Error; err != nil {
+		return err
+	}
+
+	// If anything here fails, cleanup is straightforward. Simply look for any
+	// shard in the database with a higher seq shard marked as 'rebase'
+	for _, sl := range oldslices {
+		if err := os.Remove(sl.Path); err != nil {
+			if !os.IsNotExist(err) {
+				return err
+			}
+		}
+
+		if err := ds.cs.meta.Delete(&sl).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func LdWrite(w io.Writer, d ...[]byte) (int64, error) {
