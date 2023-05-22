@@ -231,7 +231,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	return events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
+	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 			log.Infow("got remote repo event", "host", host.Host, "repo", evt.Repo, "seq", evt.Seq)
 			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
@@ -300,7 +300,10 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		Error: func(errf *events.ErrorFrame) error {
 			return fmt.Errorf("error frame: %s: %s", errf.Error, errf.Message)
 		},
-	})
+	}
+
+	// TODO: probably make this use the parallel handler after some thought
+	return events.HandleRepoStream(ctx, con, &events.SequentialScheduler{rsc.EventHandler})
 }
 
 func (s *Slurper) updateCursor(host *models.PDS, curs int64) error {
