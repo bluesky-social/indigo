@@ -62,7 +62,7 @@ var inspectEventCmd = &cli.Command{
 		var match *comatproto.SyncSubscribeRepos_Commit
 
 		ctx := context.TODO()
-		err = events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
+		rsc := &events.RepoStreamCallbacks{
 			RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 				n := int64(n)
 				if evt.Seq == n {
@@ -82,8 +82,9 @@ var inspectEventCmd = &cli.Command{
 			Error: func(evt *events.ErrorFrame) error {
 				return fmt.Errorf("%s: %s", evt.Error, evt.Message)
 			},
-		})
+		}
 
+		err = events.HandleRepoStream(ctx, con, &events.SequentialScheduler{rsc.EventHandler})
 		if err != errFoundIt {
 			return err
 		}
@@ -183,7 +184,7 @@ var debugStreamCmd = &cli.Command{
 		infos := make(map[string]*eventInfo)
 
 		ctx := context.TODO()
-		err = events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
+		rsc := &events.RepoStreamCallbacks{
 			RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 
 				fmt.Printf("\rChecking seq: %d      ", evt.Seq)
@@ -236,7 +237,8 @@ var debugStreamCmd = &cli.Command{
 			Error: func(evt *events.ErrorFrame) error {
 				return fmt.Errorf("%s: %s", evt.Error, evt.Message)
 			},
-		})
+		}
+		err = events.HandleRepoStream(ctx, con, &events.SequentialScheduler{rsc.EventHandler})
 		if err != nil {
 			return err
 		}

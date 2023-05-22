@@ -133,7 +133,7 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 		return fmt.Errorf("events dial failed: %w", err)
 	}
 
-	return events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
+	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 			if evt.TooBig && evt.Prev != nil {
 				log.Errorf("skipping non-genesis too big events for now: %d", evt.Seq)
@@ -193,7 +193,9 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 			}
 			return nil
 		},
-	})
+	}
+
+	return events.HandleRepoStream(ctx, con, events.NewConsumerPool(8, 32, rsc.EventHandler))
 }
 
 func (s *Server) handleOp(ctx context.Context, op repomgr.EventKind, seq int64, path string, did string, rcid *cid.Cid, rec any) error {
