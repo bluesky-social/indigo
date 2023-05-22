@@ -265,8 +265,8 @@ func CreateReply(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) er
 	root := parent
 	if viewPost.Reply != nil {
 		root = &comatproto.RepoStrongRef{
-			Uri: viewPost.Reply.Root.Uri,
-			Cid: viewPost.Reply.Root.Cid,
+			Uri: viewPost.Reply.Root.FeedDefs_PostView.Uri,
+			Cid: viewPost.Reply.Root.FeedDefs_PostView.Cid,
 		}
 	}
 	replyPost := &appbsky.FeedPost{
