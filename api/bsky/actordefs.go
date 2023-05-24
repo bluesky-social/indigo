@@ -32,6 +32,7 @@ type ActorDefs_ContentLabelPref struct {
 type ActorDefs_Preferences_Elem struct {
 	ActorDefs_AdultContentPref *ActorDefs_AdultContentPref
 	ActorDefs_ContentLabelPref *ActorDefs_ContentLabelPref
+	ActorDefs_SavedFeedsPref   *ActorDefs_SavedFeedsPref
 }
 
 func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
@@ -42,6 +43,10 @@ func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
 	if t.ActorDefs_ContentLabelPref != nil {
 		t.ActorDefs_ContentLabelPref.LexiconTypeID = "app.bsky.actor.defs#contentLabelPref"
 		return json.Marshal(t.ActorDefs_ContentLabelPref)
+	}
+	if t.ActorDefs_SavedFeedsPref != nil {
+		t.ActorDefs_SavedFeedsPref.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPref"
+		return json.Marshal(t.ActorDefs_SavedFeedsPref)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -58,6 +63,9 @@ func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.actor.defs#contentLabelPref":
 		t.ActorDefs_ContentLabelPref = new(ActorDefs_ContentLabelPref)
 		return json.Unmarshal(b, t.ActorDefs_ContentLabelPref)
+	case "app.bsky.actor.defs#savedFeedsPref":
+		t.ActorDefs_SavedFeedsPref = new(ActorDefs_SavedFeedsPref)
+		return json.Unmarshal(b, t.ActorDefs_SavedFeedsPref)
 
 	default:
 		return nil
@@ -100,6 +108,15 @@ type ActorDefs_ProfileViewDetailed struct {
 	Labels         []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	PostsCount     *int64                             `json:"postsCount,omitempty" cborgen:"postsCount,omitempty"`
 	Viewer         *ActorDefs_ViewerState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+}
+
+// ActorDefs_SavedFeedsPref is a "savedFeedsPref" in the app.bsky.actor.defs schema.
+//
+// RECORDTYPE: ActorDefs_SavedFeedsPref
+type ActorDefs_SavedFeedsPref struct {
+	LexiconTypeID string   `json:"$type,const=app.bsky.actor.defs" cborgen:"$type,const=app.bsky.actor.defs"`
+	Pinned        []string `json:"pinned" cborgen:"pinned"`
+	Saved         []string `json:"saved" cborgen:"saved"`
 }
 
 // ActorDefs_ViewerState is a "viewerState" in the app.bsky.actor.defs schema.

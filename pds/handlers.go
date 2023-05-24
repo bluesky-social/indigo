@@ -799,3 +799,22 @@ func (s *Server) handleComAtprotoRepoRebaseRepo(ctx context.Context, body *comat
 
 	return s.repoman.DoRebase(ctx, u.ID)
 }
+
+func (s *Server) handleAppBskyFeedDescribeFeedGenerator(ctx context.Context) (*appbskytypes.FeedDescribeFeedGenerator_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleAppBskyFeedGetActorFeeds(ctx context.Context, actor string, cursor string, limit int) (*appbskytypes.FeedGetActorFeeds_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleAppBskyFeedGetFeed(ctx context.Context, cursor string, feed string, limit int) (*appbskytypes.FeedGetFeed_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleAppBskyFeedGetFeedGenerator(ctx context.Context, feed string) (*appbskytypes.FeedGetFeedGenerator_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleAppBskyFeedGetFeedGenerators(ctx context.Context, feeds []string) (*appbskytypes.FeedGetFeedGenerators_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, cursor string, feed string, limit int) (*appbskytypes.FeedGetFeedSkeleton_Output, error) {
+	panic("nyi")
+}

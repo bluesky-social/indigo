@@ -13,7 +13,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/api/bsky"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	"github.com/bluesky-social/indigo/events"
@@ -84,6 +86,7 @@ func run(args []string) {
 		getRecordCmd,
 		createInviteCmd,
 		adminCmd,
+		createFeedGeneratorCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -178,7 +181,7 @@ var postCmd = &cli.Command{
 			Repo:       auth.Did,
 			Record: &lexutil.LexiconTypeDecoder{&appbsky.FeedPost{
 				Text:      text,
-				CreatedAt: time.Now().Format("2006-01-02T15:04:05.000Z"),
+				CreatedAt: time.Now().Format(util.ISO8601),
 			}},
 		})
 		if err != nil {
@@ -1228,4 +1231,50 @@ func needArgs(cctx *cli.Context, name ...string) ([]string, error) {
 		out = append(out, v)
 	}
 	return out, nil
+}
+
+var createFeedGeneratorCmd = &cli.Command{
+	Name: "createFeedGen",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "name",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "did",
+			Required: true,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		name := cctx.String("name")
+		did := cctx.String("did")
+
+		var desc *string
+		if d := cctx.String("description"); d != "" {
+			desc = &d
+		}
+
+		resp, err := atproto.RepoCreateRecord(context.TODO(), xrpcc, &atproto.RepoCreateRecord_Input{
+			Collection: "app.bsky.feed.generator",
+			Repo:       xrpcc.Auth.Did,
+			Record: &lexutil.LexiconTypeDecoder{&bsky.FeedGenerator{
+				CreatedAt:   time.Now().Format(util.ISO8601),
+				Description: desc,
+				Did:         did,
+				DisplayName: name,
+			}},
+		})
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(resp.Uri)
+
+		return nil
+	},
 }
