@@ -117,8 +117,6 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, 
 	}
 	s.bgsSlurper = slurp
 
-	go evtmgr.Run()
-
 	return s, nil
 }
 

@@ -106,8 +106,6 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, serkey *did.PrivKey, handleSu
 
 	s.feedgen = feedgen
 
-	go evtman.Run()
-
 	return s, nil
 }
 
