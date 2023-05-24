@@ -396,8 +396,6 @@ func SetupBGS(host string, didr plc.PLCClient) (*testBGS, error) {
 
 	evtman := events.NewEventManager(dbpersist)
 
-	go evtman.Run()
-
 	ix, err := indexer.NewIndexer(maindb, notifman, evtman, didr, repoman, true, true)
 	if err != nil {
 		return nil, err
