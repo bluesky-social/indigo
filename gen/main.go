@@ -44,6 +44,7 @@ func main() {
 		bsky.GraphBlock{},
 		bsky.GraphList{},
 		bsky.GraphListitem{},
+		bsky.FeedGenerator{},
 		/*bsky.EmbedImages_View{},
 		bsky.EmbedRecord_View{}, bsky.EmbedRecordWithMedia_View{},
 		bsky.EmbedExternal_View{}, bsky.EmbedImages_ViewImage{},
