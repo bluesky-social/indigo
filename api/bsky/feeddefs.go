@@ -16,9 +16,9 @@ import (
 //
 // RECORDTYPE: FeedDefs_BlockedPost
 type FeedDefs_BlockedPost struct {
-	LexiconTypeID string `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
-	Blocked       bool   `json:"blocked" cborgen:"blocked"`
-	Uri           string `json:"uri" cborgen:"uri"`
+	LexiconTypeID string           `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
+	Blocked       bool             `json:"blocked" cborgen:"blocked"`
+	Uri           util.FormatAtURI `json:"uri" cborgen:"uri"`
 }
 
 // FeedDefs_FeedViewPost is a "feedViewPost" in the app.bsky.feed.defs schema.
@@ -61,21 +61,21 @@ func (t *FeedDefs_FeedViewPost_Reason) UnmarshalJSON(b []byte) error {
 type FeedDefs_GeneratorView struct {
 	LexiconTypeID     string                         `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
 	Avatar            *string                        `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	Cid               string                         `json:"cid" cborgen:"cid"`
+	Cid               util.FormatCID                 `json:"cid" cborgen:"cid"`
 	Creator           *ActorDefs_ProfileView         `json:"creator" cborgen:"creator"`
 	Description       *string                        `json:"description,omitempty" cborgen:"description,omitempty"`
 	DescriptionFacets []*RichtextFacet               `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
-	Did               *string                        `json:"did,omitempty" cborgen:"did,omitempty"`
+	Did               *util.FormatDID                `json:"did,omitempty" cborgen:"did,omitempty"`
 	DisplayName       string                         `json:"displayName" cborgen:"displayName"`
 	IndexedAt         string                         `json:"indexedAt" cborgen:"indexedAt"`
 	LikeCount         *int64                         `json:"likeCount,omitempty" cborgen:"likeCount,omitempty"`
-	Uri               string                         `json:"uri" cborgen:"uri"`
+	Uri               util.FormatAtURI               `json:"uri" cborgen:"uri"`
 	Viewer            *FeedDefs_GeneratorViewerState `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 // FeedDefs_GeneratorViewerState is a "generatorViewerState" in the app.bsky.feed.defs schema.
 type FeedDefs_GeneratorViewerState struct {
-	Like *string `json:"like,omitempty" cborgen:"like,omitempty"`
+	Like *util.FormatAtURI `json:"like,omitempty" cborgen:"like,omitempty"`
 }
 
 // FeedDefs_NotFoundPost is a "notFoundPost" in the app.bsky.feed.defs schema.
@@ -93,7 +93,7 @@ type FeedDefs_NotFoundPost struct {
 type FeedDefs_PostView struct {
 	LexiconTypeID string                             `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
 	Author        *ActorDefs_ProfileViewBasic        `json:"author" cborgen:"author"`
-	Cid           util.FormatCID                             `json:"cid" cborgen:"cid"`
+	Cid           util.FormatCID                     `json:"cid" cborgen:"cid"`
 	Embed         *FeedDefs_PostView_Embed           `json:"embed,omitempty" cborgen:"embed,omitempty"`
 	IndexedAt     string                             `json:"indexedAt" cborgen:"indexedAt"`
 	Labels        []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
@@ -101,7 +101,7 @@ type FeedDefs_PostView struct {
 	Record        *util.LexiconTypeDecoder           `json:"record" cborgen:"record"`
 	ReplyCount    *int64                             `json:"replyCount,omitempty" cborgen:"replyCount,omitempty"`
 	RepostCount   *int64                             `json:"repostCount,omitempty" cborgen:"repostCount,omitempty"`
-	Uri           util.FormatAtURI                             `json:"uri" cborgen:"uri"`
+	Uri           util.FormatAtURI                   `json:"uri" cborgen:"uri"`
 	Viewer        *FeedDefs_ViewerState              `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
@@ -259,7 +259,7 @@ func (t *FeedDefs_ReplyRef_Root) UnmarshalJSON(b []byte) error {
 
 // FeedDefs_SkeletonFeedPost is a "skeletonFeedPost" in the app.bsky.feed.defs schema.
 type FeedDefs_SkeletonFeedPost struct {
-	Post   string                            `json:"post" cborgen:"post"`
+	Post   util.FormatAtURI                  `json:"post" cborgen:"post"`
 	Reason *FeedDefs_SkeletonFeedPost_Reason `json:"reason,omitempty" cborgen:"reason,omitempty"`
 }
 
@@ -294,8 +294,8 @@ func (t *FeedDefs_SkeletonFeedPost_Reason) UnmarshalJSON(b []byte) error {
 //
 // RECORDTYPE: FeedDefs_SkeletonReasonRepost
 type FeedDefs_SkeletonReasonRepost struct {
-	LexiconTypeID string `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
-	Repost        string `json:"repost" cborgen:"repost"`
+	LexiconTypeID string           `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
+	Repost        util.FormatAtURI `json:"repost" cborgen:"repost"`
 }
 
 // FeedDefs_ThreadViewPost is a "threadViewPost" in the app.bsky.feed.defs schema.

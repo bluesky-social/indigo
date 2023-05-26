@@ -114,17 +114,17 @@ type ActorDefs_ProfileViewDetailed struct {
 //
 // RECORDTYPE: ActorDefs_SavedFeedsPref
 type ActorDefs_SavedFeedsPref struct {
-	LexiconTypeID string   `json:"$type,const=app.bsky.actor.defs" cborgen:"$type,const=app.bsky.actor.defs"`
-	Pinned        []string `json:"pinned" cborgen:"pinned"`
-	Saved         []string `json:"saved" cborgen:"saved"`
+	LexiconTypeID string             `json:"$type,const=app.bsky.actor.defs" cborgen:"$type,const=app.bsky.actor.defs"`
+	Pinned        []util.FormatAtURI `json:"pinned" cborgen:"pinned"`
+	Saved         []util.FormatAtURI `json:"saved" cborgen:"saved"`
 }
 
 // ActorDefs_ViewerState is a "viewerState" in the app.bsky.actor.defs schema.
 type ActorDefs_ViewerState struct {
-	BlockedBy   *util.FormatAtURI                    `json:"blockedBy,omitempty" cborgen:"blockedBy,omitempty"`
-	Blocking    *util.FormatAtURI                  `json:"blocking,omitempty" cborgen:"blocking,omitempty"`
-	FollowedBy  *util.FormatAtURI                  `json:"followedBy,omitempty" cborgen:"followedBy,omitempty"`
-	Following   *util.FormatAtURI                  `json:"following,omitempty" cborgen:"following,omitempty"`
+	BlockedBy   *bool                    `json:"blockedBy,omitempty" cborgen:"blockedBy,omitempty"`
+	Blocking    *util.FormatAtURI        `json:"blocking,omitempty" cborgen:"blocking,omitempty"`
+	FollowedBy  *util.FormatAtURI        `json:"followedBy,omitempty" cborgen:"followedBy,omitempty"`
+	Following   *util.FormatAtURI        `json:"following,omitempty" cborgen:"following,omitempty"`
 	Muted       *bool                    `json:"muted,omitempty" cborgen:"muted,omitempty"`
 	MutedByList *GraphDefs_ListViewBasic `json:"mutedByList,omitempty" cborgen:"mutedByList,omitempty"`
 }

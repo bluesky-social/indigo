@@ -13,8 +13,8 @@ func init() {
 } //
 // RECORDTYPE: GraphListitem
 type GraphListitem struct {
-	LexiconTypeID string `json:"$type,const=app.bsky.graph.listitem" cborgen:"$type,const=app.bsky.graph.listitem"`
-	CreatedAt     string `json:"createdAt" cborgen:"createdAt"`
-	List          string `json:"list" cborgen:"list"`
-	Subject       string `json:"subject" cborgen:"subject"`
+	LexiconTypeID string           `json:"$type,const=app.bsky.graph.listitem" cborgen:"$type,const=app.bsky.graph.listitem"`
+	CreatedAt     string           `json:"createdAt" cborgen:"createdAt"`
+	List          util.FormatAtURI `json:"list" cborgen:"list"`
+	Subject       util.FormatDID   `json:"subject" cborgen:"subject"`
 }

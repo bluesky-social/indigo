@@ -7,6 +7,7 @@ package bsky
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -17,7 +18,7 @@ type GraphGetLists_Output struct {
 }
 
 // GraphGetLists calls the XRPC method "app.bsky.graph.getLists".
-func GraphGetLists(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*GraphGetLists_Output, error) {
+func GraphGetLists(ctx context.Context, c *xrpc.Client, actor util.FormatAtIdentifier, cursor string, limit int64) (*GraphGetLists_Output, error) {
 	var out GraphGetLists_Output
 
 	params := map[string]interface{}{

@@ -33,8 +33,8 @@ type EmbedRecord_View struct {
 //
 // RECORDTYPE: EmbedRecord_ViewBlocked
 type EmbedRecord_ViewBlocked struct {
-	LexiconTypeID string `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
-	Uri           string `json:"uri" cborgen:"uri"`
+	LexiconTypeID string           `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
+	Uri           util.FormatAtURI `json:"uri" cborgen:"uri"`
 }
 
 // EmbedRecord_ViewNotFound is a "viewNotFound" in the app.bsky.embed.record schema.

@@ -13,7 +13,7 @@ func init() {
 } //
 // RECORDTYPE: GraphBlock
 type GraphBlock struct {
-	LexiconTypeID string `json:"$type,const=app.bsky.graph.block" cborgen:"$type,const=app.bsky.graph.block"`
-	CreatedAt     string `json:"createdAt" cborgen:"createdAt"`
-	Subject       string `json:"subject" cborgen:"subject"`
+	LexiconTypeID string         `json:"$type,const=app.bsky.graph.block" cborgen:"$type,const=app.bsky.graph.block"`
+	CreatedAt     string         `json:"createdAt" cborgen:"createdAt"`
+	Subject       util.FormatDID `json:"subject" cborgen:"subject"`
 }

@@ -7,12 +7,13 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // AdminDisableAccountInvites_Input is the input argument to a com.atproto.admin.disableAccountInvites call.
 type AdminDisableAccountInvites_Input struct {
-	Account string `json:"account" cborgen:"account"`
+	Account util.FormatDID `json:"account" cborgen:"account"`
 }
 
 // AdminDisableAccountInvites calls the XRPC method "com.atproto.admin.disableAccountInvites".

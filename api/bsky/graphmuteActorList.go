@@ -7,12 +7,13 @@ package bsky
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // GraphMuteActorList_Input is the input argument to a app.bsky.graph.muteActorList call.
 type GraphMuteActorList_Input struct {
-	List string `json:"list" cborgen:"list"`
+	List util.FormatAtURI `json:"list" cborgen:"list"`
 }
 
 // GraphMuteActorList calls the XRPC method "app.bsky.graph.muteActorList".

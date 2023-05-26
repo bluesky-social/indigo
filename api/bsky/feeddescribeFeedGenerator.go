@@ -7,12 +7,13 @@ package bsky
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // FeedDescribeFeedGenerator_Feed is a "feed" in the app.bsky.feed.describeFeedGenerator schema.
 type FeedDescribeFeedGenerator_Feed struct {
-	Uri string `json:"uri" cborgen:"uri"`
+	Uri util.FormatAtURI `json:"uri" cborgen:"uri"`
 }
 
 // FeedDescribeFeedGenerator_Links is a "links" in the app.bsky.feed.describeFeedGenerator schema.
@@ -23,7 +24,7 @@ type FeedDescribeFeedGenerator_Links struct {
 
 // FeedDescribeFeedGenerator_Output is the output of a app.bsky.feed.describeFeedGenerator call.
 type FeedDescribeFeedGenerator_Output struct {
-	Did   string                            `json:"did" cborgen:"did"`
+	Did   util.FormatDID                    `json:"did" cborgen:"did"`
 	Feeds []*FeedDescribeFeedGenerator_Feed `json:"feeds" cborgen:"feeds"`
 	Links *FeedDescribeFeedGenerator_Links  `json:"links,omitempty" cborgen:"links,omitempty"`
 }

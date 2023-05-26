@@ -7,6 +7,7 @@ package bsky
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -17,7 +18,7 @@ type FeedGetActorFeeds_Output struct {
 }
 
 // FeedGetActorFeeds calls the XRPC method "app.bsky.feed.getActorFeeds".
-func FeedGetActorFeeds(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*FeedGetActorFeeds_Output, error) {
+func FeedGetActorFeeds(ctx context.Context, c *xrpc.Client, actor util.FormatAtIdentifier, cursor string, limit int64) (*FeedGetActorFeeds_Output, error) {
 	var out FeedGetActorFeeds_Output
 
 	params := map[string]interface{}{

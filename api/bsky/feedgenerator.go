@@ -18,6 +18,6 @@ type FeedGenerator struct {
 	CreatedAt         string           `json:"createdAt" cborgen:"createdAt"`
 	Description       *string          `json:"description,omitempty" cborgen:"description,omitempty"`
 	DescriptionFacets []*RichtextFacet `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
-	Did               string           `json:"did" cborgen:"did"`
+	Did               util.FormatDID   `json:"did" cborgen:"did"`
 	DisplayName       string           `json:"displayName" cborgen:"displayName"`
 }

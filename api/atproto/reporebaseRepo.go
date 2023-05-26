@@ -7,15 +7,16 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // RepoRebaseRepo_Input is the input argument to a com.atproto.repo.rebaseRepo call.
 type RepoRebaseRepo_Input struct {
 	// repo: The handle or DID of the repo.
-	Repo string `json:"repo" cborgen:"repo"`
+	Repo util.FormatAtIdentifier `json:"repo" cborgen:"repo"`
 	// swapCommit: Compare and swap with the previous commit by cid.
-	SwapCommit *string `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
+	SwapCommit *util.FormatCID `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
 }
 
 // RepoRebaseRepo calls the XRPC method "com.atproto.repo.rebaseRepo".

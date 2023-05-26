@@ -13,12 +13,12 @@ import (
 
 // ServerCreateAccount_Input is the input argument to a com.atproto.server.createAccount call.
 type ServerCreateAccount_Input struct {
-	Did         *util.FormatDID `json:"did,omitempty" cborgen:"did,omitempty"`
-	Email       string  `json:"email" cborgen:"email"`
-	Handle      util.FormatHandle  `json:"handle" cborgen:"handle"`
-	InviteCode  *string `json:"inviteCode,omitempty" cborgen:"inviteCode,omitempty"`
-	Password    string  `json:"password" cborgen:"password"`
-	RecoveryKey *string `json:"recoveryKey,omitempty" cborgen:"recoveryKey,omitempty"`
+	Did         *util.FormatDID   `json:"did,omitempty" cborgen:"did,omitempty"`
+	Email       string            `json:"email" cborgen:"email"`
+	Handle      util.FormatHandle `json:"handle" cborgen:"handle"`
+	InviteCode  *string           `json:"inviteCode,omitempty" cborgen:"inviteCode,omitempty"`
+	Password    string            `json:"password" cborgen:"password"`
+	RecoveryKey *string           `json:"recoveryKey,omitempty" cborgen:"recoveryKey,omitempty"`
 }
 
 // ServerCreateAccount_Output is the output of a com.atproto.server.createAccount call.

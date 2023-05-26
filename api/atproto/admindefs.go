@@ -236,8 +236,8 @@ type AdminDefs_RecordViewDetail struct {
 //
 // RECORDTYPE: AdminDefs_RecordViewNotFound
 type AdminDefs_RecordViewNotFound struct {
-	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
-	Uri           string `json:"uri" cborgen:"uri"`
+	LexiconTypeID string           `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
+	Uri           util.FormatAtURI `json:"uri" cborgen:"uri"`
 }
 
 // AdminDefs_RepoRef is a "repoRef" in the com.atproto.admin.defs schema.
@@ -253,9 +253,9 @@ type AdminDefs_RepoRef struct {
 // RECORDTYPE: AdminDefs_RepoView
 type AdminDefs_RepoView struct {
 	LexiconTypeID   string                     `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
-	Did             util.FormatDID                     `json:"did" cborgen:"did"`
+	Did             util.FormatDID             `json:"did" cborgen:"did"`
 	Email           *string                    `json:"email,omitempty" cborgen:"email,omitempty"`
-	Handle          util.FormatDID                     `json:"handle" cborgen:"handle"`
+	Handle          util.FormatHandle          `json:"handle" cborgen:"handle"`
 	IndexedAt       string                     `json:"indexedAt" cborgen:"indexedAt"`
 	InvitedBy       *ServerDefs_InviteCode     `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
 	InvitesDisabled *bool                      `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
@@ -265,9 +265,9 @@ type AdminDefs_RepoView struct {
 
 // AdminDefs_RepoViewDetail is a "repoViewDetail" in the com.atproto.admin.defs schema.
 type AdminDefs_RepoViewDetail struct {
-	util.FormatDID                     `json:"did" cborgen:"did"`
+	Did             util.FormatDID              `json:"did" cborgen:"did"`
 	Email           *string                     `json:"email,omitempty" cborgen:"email,omitempty"`
-	Handle          util.FormatHandle                      `json:"handle" cborgen:"handle"`
+	Handle          util.FormatHandle           `json:"handle" cborgen:"handle"`
 	IndexedAt       string                      `json:"indexedAt" cborgen:"indexedAt"`
 	InvitedBy       *ServerDefs_InviteCode      `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
 	Invites         []*ServerDefs_InviteCode    `json:"invites,omitempty" cborgen:"invites,omitempty"`
@@ -281,7 +281,7 @@ type AdminDefs_RepoViewDetail struct {
 //
 // RECORDTYPE: AdminDefs_RepoViewNotFound
 type AdminDefs_RepoViewNotFound struct {
-	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
+	LexiconTypeID string         `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
 	Did           util.FormatDID `json:"did" cborgen:"did"`
 }
 

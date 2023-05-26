@@ -18,7 +18,7 @@ type IdentityResolveHandle_Output struct {
 
 // IdentityResolveHandle calls the XRPC method "com.atproto.identity.resolveHandle".
 //
-// handle: The handle to resolve. If not supplied, will resolve the host's own handle.
+// handle: The handle to resolve.
 func IdentityResolveHandle(ctx context.Context, c *xrpc.Client, handle util.FormatHandle) (*IdentityResolveHandle_Output, error) {
 	var out IdentityResolveHandle_Output
 

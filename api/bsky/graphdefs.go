@@ -4,6 +4,10 @@ package bsky
 
 // schema: app.bsky.graph.defs
 
+import (
+	"github.com/bluesky-social/indigo/lex/util"
+)
+
 // GraphDefs_ListItemView is a "listItemView" in the app.bsky.graph.defs schema.
 type GraphDefs_ListItemView struct {
 	Subject *ActorDefs_ProfileView `json:"subject" cborgen:"subject"`
@@ -18,7 +22,7 @@ type GraphDefs_ListView struct {
 	IndexedAt         string                     `json:"indexedAt" cborgen:"indexedAt"`
 	Name              string                     `json:"name" cborgen:"name"`
 	Purpose           *string                    `json:"purpose" cborgen:"purpose"`
-	Uri               string                     `json:"uri" cborgen:"uri"`
+	Uri               util.FormatAtURI           `json:"uri" cborgen:"uri"`
 	Viewer            *GraphDefs_ListViewerState `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
@@ -28,7 +32,7 @@ type GraphDefs_ListViewBasic struct {
 	IndexedAt *string                    `json:"indexedAt,omitempty" cborgen:"indexedAt,omitempty"`
 	Name      string                     `json:"name" cborgen:"name"`
 	Purpose   *string                    `json:"purpose" cborgen:"purpose"`
-	Uri       string                     `json:"uri" cborgen:"uri"`
+	Uri       util.FormatAtURI           `json:"uri" cborgen:"uri"`
 	Viewer    *GraphDefs_ListViewerState `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
