@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -113,6 +112,12 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 
 	}
 
+	if evt.Rebase {
+		if err := ix.events.HandleRebase(ctx, evt.User); err != nil {
+			log.Errorf("failed to handle rebase in events manager: %s", err)
+		}
+	}
+
 	log.Debugw("Sending event", "did", did)
 	if err := ix.events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoCommit: &comatproto.SyncSubscribeRepos_Commit{
@@ -123,6 +128,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 			Time:   time.Now().Format(util.ISO8601),
 			Ops:    outops,
 			TooBig: toobig,
+			Rebase: evt.Rebase,
 		},
 		PrivUid: evt.User,
 	}); err != nil {
@@ -310,7 +316,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 }
 
 func (ix *Indexer) crawlAtUriRef(ctx context.Context, uri string) error {
-	puri, err := parseAtUri(uri)
+	puri, err := util.ParseAtUri(uri)
 	if err != nil {
 		return err
 	} else {
@@ -374,7 +380,7 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 	case *bsky.ActorProfile:
 		return nil
 	default:
-		log.Warnf("unrecognized record type: %T", rec)
+		log.Warnf("unrecognized record type: %T", op.Record)
 		return nil
 	}
 }
@@ -538,7 +544,7 @@ func (ix *Indexer) handleRecordUpdate(ctx context.Context, evt *repomgr.RepoEven
 }
 
 func (ix *Indexer) GetPostOrMissing(ctx context.Context, uri string) (*models.FeedPost, error) {
-	puri, err := parseAtUri(uri)
+	puri, err := util.ParseAtUri(uri)
 	if err != nil {
 		return nil, err
 	}
@@ -643,7 +649,7 @@ func (ix *Indexer) GetUserOrMissing(ctx context.Context, did string) (*models.Ac
 	return ix.createMissingUserRecord(ctx, did)
 }
 
-func (ix *Indexer) createMissingPostRecord(ctx context.Context, puri *parsedUri) (*models.FeedPost, error) {
+func (ix *Indexer) createMissingPostRecord(ctx context.Context, puri *util.ParsedUri) (*models.FeedPost, error) {
 	log.Warn("creating missing post record")
 	ai, err := ix.GetUserOrMissing(ctx, puri.Did.String())
 	if err != nil {
@@ -793,7 +799,7 @@ func isNotFound(err error) bool {
 }
 
 func (ix *Indexer) GetPost(ctx context.Context, uri string) (*models.FeedPost, error) {
-	puri, err := parseAtUri(uri)
+	puri, err := util.ParseAtUri(uri)
 	if err != nil {
 		return nil, err
 	}
@@ -804,30 +810,6 @@ func (ix *Indexer) GetPost(ctx context.Context, uri string) (*models.FeedPost, e
 	}
 
 	return &post, nil
-}
-
-type parsedUri struct {
-	Did        lexutil.FormatDID
-	Collection lexutil.FormatNSID
-	Rkey       string
-}
-
-func parseAtUri(uri string) (*parsedUri, error) {
-	if !strings.HasPrefix(uri, "at://") {
-		return nil, fmt.Errorf("AT uris must be prefixed with 'at://'")
-	}
-
-	trimmed := strings.TrimPrefix(uri, "at://")
-	parts := strings.Split(trimmed, "/")
-	if len(parts) != 3 {
-		return nil, fmt.Errorf("AT uris must have three parts: did, collection, tid")
-	}
-
-	return &parsedUri{
-		Did:        lexutil.NewFormatDID(parts[0]),
-		Collection: lexutil.NewFormatNSID(parts[1]),
-		Rkey:       parts[2],
-	}, nil
 }
 
 // TODO: since this function is the only place we depend on the repomanager, i wonder if this should be wired some other way?
@@ -847,6 +829,26 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 	curHead, err := ix.repomgr.GetRepoRoot(ctx, ai.Uid)
 	if err != nil && !isNotFound(err) {
 		return err
+	}
+
+	var rebase *comatproto.SyncSubscribeRepos_Commit
+	for _, job := range job.catchup {
+		if job.evt.Rebase {
+			rebase = job.evt
+			break
+		}
+	}
+	if rebase == nil {
+		for _, job := range job.next {
+			if job.evt.Rebase {
+				rebase = job.evt
+				break
+			}
+		}
+	}
+
+	if rebase != nil {
+		return ix.repomgr.HandleRebase(ctx, ai.PDS, ai.Uid, ai.Did, (*cid.Cid)(rebase.Prev), (cid.Cid)(rebase.Commit), rebase.Blocks)
 	}
 
 	var host string

@@ -60,6 +60,7 @@ type BGS struct {
 
 func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.DidResolver, blobs blobs.BlobStore, ssl bool) (*BGS, error) {
 	db.AutoMigrate(User{})
+	db.AutoMigrate(AuthToken{})
 	db.AutoMigrate(models.PDS{})
 
 	bgs := &BGS{
@@ -73,7 +74,12 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	}
 
 	ix.CreateExternalUser = bgs.createExternalUser
-	bgs.slurper = NewSlurper(db, bgs.handleFedEvent, ssl)
+	s, err := NewSlurper(db, bgs.handleFedEvent, ssl)
+	if err != nil {
+		return nil, err
+	}
+
+	bgs.slurper = s
 
 	if err := bgs.slurper.RestartAll(); err != nil {
 		return nil, err
@@ -152,16 +158,6 @@ func (bgs *BGS) StartDebug(listen string) error {
 	})
 	http.Handle("/prometheus", prometheusHandler())
 
-	http.HandleFunc("/debug/upstream-conns", func(w http.ResponseWriter, r *http.Request) {
-		b, err := json.Marshal(bgs.slurper.GetActiveList())
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-
-		w.Write(b)
-	})
-
 	return http.ListenAndServe(listen, nil)
 }
 
@@ -181,7 +177,6 @@ func (bgs *BGS) Start(listen string) error {
 	// TODO: this API is temporary until we formalize what we want here
 
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", bgs.EventsHandler)
-
 	e.GET("/xrpc/com.atproto.sync.getCheckout", bgs.HandleComAtprotoSyncGetCheckout)
 	e.GET("/xrpc/com.atproto.sync.getCommitPath", bgs.HandleComAtprotoSyncGetCommitPath)
 	e.GET("/xrpc/com.atproto.sync.getHead", bgs.HandleComAtprotoSyncGetHead)
@@ -191,6 +186,13 @@ func (bgs *BGS) Start(listen string) error {
 	e.GET("/xrpc/com.atproto.sync.requestCrawl", bgs.HandleComAtprotoSyncRequestCrawl)
 	e.GET("/xrpc/com.atproto.sync.notifyOfUpdate", bgs.HandleComAtprotoSyncNotifyOfUpdate)
 	e.GET("/xrpc/_health", bgs.HandleHealthCheck)
+
+	admin := e.Group("/admin", bgs.checkAdminAuth)
+	admin.POST("/subs/setEnabled", bgs.handleAdminSetSubsEnabled)
+	admin.GET("/subs/getUpstreamConns", bgs.handleAdminGetUpstreamConns)
+	admin.POST("/subs/killUpstream", bgs.handleAdminKillUpstreamConn)
+	admin.POST("/repo/takeDown", bgs.handleAdminTakeDownRepo)
+	admin.POST("/repo/reverseTakedown", bgs.handleAdminReverseTakedown)
 
 	return e.Start(listen)
 }
@@ -209,6 +211,62 @@ func (bgs *BGS) HandleHealthCheck(c echo.Context) error {
 	}
 }
 
+type AuthToken struct {
+	gorm.Model
+	Token string `gorm:"index"`
+}
+
+func (bgs *BGS) lookupAdminToken(tok string) (bool, error) {
+	var at AuthToken
+	if err := bgs.db.Find(&at, "token = ?", tok).Error; err != nil {
+		return false, err
+	}
+
+	if at.ID == 0 {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (bgs *BGS) CreateAdminToken(tok string) error {
+	exists, err := bgs.lookupAdminToken(tok)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		return nil
+	}
+
+	return bgs.db.Create(&AuthToken{
+		Token: tok,
+	}).Error
+}
+
+func (bgs *BGS) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(e echo.Context) error {
+		authheader := e.Request().Header.Get("Authorization")
+		pref := "Bearer "
+		if !strings.HasPrefix(authheader, pref) {
+			return echo.ErrForbidden
+		}
+
+		token := authheader[len(pref):]
+
+		exists, err := bgs.lookupAdminToken(token)
+		if err != nil {
+			return err
+		}
+
+		if !exists {
+			return echo.ErrForbidden
+		}
+
+		return next(e)
+	}
+}
+
 type User struct {
 	ID        bsutil.Uid `gorm:"primarykey"`
 	CreatedAt time.Time
@@ -217,6 +275,11 @@ type User struct {
 	Handle    string         `gorm:"uniqueIndex"`
 	Did       string         `gorm:"uniqueIndex"`
 	PDS       uint
+
+	// TakenDown is set to true if the user in question has been taken down.
+	// A user in this state will have all future events related to it dropped
+	// and no data about this user will be served.
+	TakenDown bool
 }
 
 type addTargetBody struct {
@@ -363,7 +426,20 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			u.Did = evt.Repo.String()
 		}
 
-		// TODO: if the user is already in the 'slow' path, we shouldnt even bother trying to fast path this event
+		if u.TakenDown {
+			log.Infow("dropping event from taken down user", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
+			return nil
+		}
+
+		// skip the fast path for rebases or if the user is already in the slow path
+		if evt.Rebase || bgs.Index.Crawler.RepoInSlowPath(ctx, host, u.ID) {
+			ai, err := bgs.Index.LookupUser(ctx, u.ID)
+			if err != nil {
+				return err
+			}
+
+			return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
+		}
 
 		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, (*cid.Cid)(evt.Prev), evt.Blocks); err != nil {
 			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
@@ -596,4 +672,38 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	}
 
 	return subj, nil
+}
+
+func (bgs *BGS) TakeDownRepo(ctx context.Context, did string) error {
+	u, err := bgs.lookupUserByDid(ctx, did)
+	if err != nil {
+		return err
+	}
+
+	if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("taken_down", true).Error; err != nil {
+		return err
+	}
+
+	if err := bgs.repoman.TakeDownRepo(ctx, u.ID); err != nil {
+		return err
+	}
+
+	if err := bgs.events.TakeDownRepo(ctx, u.ID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (bgs *BGS) ReverseTakedown(ctx context.Context, did string) error {
+	u, err := bgs.lookupUserByDid(ctx, did)
+	if err != nil {
+		return err
+	}
+
+	if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("taken_down", false).Error; err != nil {
+		return err
+	}
+
+	return nil
 }

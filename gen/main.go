@@ -1,19 +1,25 @@
 package main
 
 import (
+	"reflect"
+
 	"github.com/bluesky-social/indigo/api"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	label "github.com/bluesky-social/indigo/api/label"
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
-	mst "github.com/bluesky-social/indigo/mst"
+	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/repo"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func main() {
-	if err := cbg.WriteMapEncodersToFile("mst/cbor_gen.go", "mst", mst.NodeData{}, mst.TreeEntry{}); err != nil {
+	var typVals []any
+	for _, typ := range mst.CBORTypes() {
+		typVals = append(typVals, reflect.New(typ).Elem().Interface())
+	}
+	if err := cbg.WriteMapEncodersToFile("mst/cbor_gen.go", "mst", typVals...); err != nil {
 		panic(err)
 	}
 
@@ -35,6 +41,10 @@ func main() {
 		bsky.RichtextFacet_Link{}, bsky.RichtextFacet_Mention{},
 		bsky.EmbedRecordWithMedia{},
 		bsky.FeedDefs_NotFoundPost{},
+		bsky.GraphBlock{},
+		bsky.GraphList{},
+		bsky.GraphListitem{},
+		bsky.FeedGenerator{},
 		/*bsky.EmbedImages_View{},
 		bsky.EmbedRecord_View{}, bsky.EmbedRecordWithMedia_View{},
 		bsky.EmbedExternal_View{}, bsky.EmbedImages_ViewImage{},

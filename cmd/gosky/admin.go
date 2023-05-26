@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/api"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/api/atproto"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	cli "github.com/urfave/cli/v2"
@@ -21,6 +22,8 @@ var adminCmd = &cli.Command{
 	Subcommands: []*cli.Command{
 		buildInviteTreeCmd,
 		checkUserCmd,
+		reportsCmd,
+		disableInvitesCmd,
 	},
 }
 
@@ -41,7 +44,11 @@ var checkUserCmd = &cli.Command{
 		&cli.BoolFlag{
 			Name: "raw",
 		},
+		&cli.BoolFlag{
+			Name: "list-invited-dids",
+		},
 	},
+	ArgsUsage: `[handle]`,
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
@@ -50,7 +57,7 @@ var checkUserCmd = &cli.Command{
 
 		ctx := context.Background()
 
-		resp, err := comatproto.IdentityResolveHandle(ctx, xrpcc, lexutil.NewFormatHandle(cctx.Args().First()))
+		resp, err := atproto.IdentityResolveHandle(ctx, xrpcc, lexutil.NewFormatHandle(cctx.Args().First()))
 		if err != nil {
 			return fmt.Errorf("resolve handle %q: %w", cctx.Args().First(), err)
 		}
@@ -58,7 +65,7 @@ var checkUserCmd = &cli.Command{
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		rep, err := comatproto.AdminGetRepo(ctx, xrpcc, resp.Did)
+		rep, err := atproto.AdminGetRepo(ctx, xrpcc, resp.Did)
 		if err != nil {
 			return fmt.Errorf("getRepo %s: %w", resp.Did, err)
 		}
@@ -72,6 +79,12 @@ var checkUserCmd = &cli.Command{
 
 		if cctx.Bool("raw") {
 			fmt.Println(string(b))
+		} else if cctx.Bool("list-invited-dids") {
+			for _, inv := range rep.Invites {
+				for _, u := range inv.Uses {
+					fmt.Println(u.UsedBy)
+				}
+			}
 		} else {
 			var invby string
 			if fa := rep.InvitedBy.ForAccount; fa != "" {
@@ -92,19 +105,26 @@ var checkUserCmd = &cli.Command{
 			fmt.Println(rep.Email)
 			fmt.Println("indexed at: ", rep.IndexedAt)
 			fmt.Printf("Invited by: %s\n", invby)
+			if rep.InvitesDisabled != nil && *rep.InvitesDisabled {
+				fmt.Println("INVITES DISABLED")
+			}
 
-			var invited []*comatproto.AdminDefs_RepoViewDetail
+			var invited []*atproto.AdminDefs_RepoViewDetail
 			var lk sync.Mutex
 			var wg sync.WaitGroup
 			var used int
+			var revoked int
 			for _, inv := range rep.Invites {
 				used += len(inv.Uses)
 
+				if inv.Disabled {
+					revoked++
+				}
 				for _, u := range inv.Uses {
 					wg.Add(1)
 					go func(did string) {
 						defer wg.Done()
-						repo, err := comatproto.AdminGetRepo(ctx, xrpcc, lexutil.NewFormatDID(did))
+						repo, err := atproto.AdminGetRepo(ctx, xrpcc, lexutil.NewFormatDID(did))
 						if err != nil {
 							fmt.Println("ERROR: ", err)
 							return
@@ -119,7 +139,7 @@ var checkUserCmd = &cli.Command{
 
 			wg.Wait()
 
-			fmt.Printf("Invites, used %d of %d\n", used, len(rep.Invites))
+			fmt.Printf("Invites, used %d of %d (%d disabled)\n", used, len(rep.Invites), revoked)
 			for _, inv := range invited {
 
 				var invited, total int
@@ -163,7 +183,7 @@ var buildInviteTreeCmd = &cli.Command{
 
 		xrpcc.AdminToken = &adminKey
 
-		var allcodes []*comatproto.ServerDefs_InviteCode
+		var allcodes []*atproto.ServerDefs_InviteCode
 
 		if invl := cctx.String("invite-list"); invl != "" {
 			fi, err := os.Open(invl)
@@ -177,7 +197,7 @@ var buildInviteTreeCmd = &cli.Command{
 		} else {
 			var cursor string
 			for {
-				invites, err := comatproto.AdminGetInviteCodes(ctx, xrpcc, cursor, 100, "")
+				invites, err := atproto.AdminGetInviteCodes(ctx, xrpcc, cursor, 100, "")
 				if err != nil {
 					return err
 				}
@@ -215,7 +235,7 @@ var buildInviteTreeCmd = &cli.Command{
 				return u, nil
 			}
 
-			repo, err := comatproto.AdminGetRepo(ctx, xrpcc, lexutil.NewFormatDID(did))
+			repo, err := atproto.AdminGetRepo(ctx, xrpcc, lexutil.NewFormatDID(did))
 			if err != nil {
 				return nil, err
 			}
@@ -229,7 +249,7 @@ var buildInviteTreeCmd = &cli.Command{
 					if ok {
 						invby = invu.Handle
 					} else {
-						invrepo, err := comatproto.AdminGetRepo(ctx, xrpcc, lexutil.NewFormatDID(fa))
+						invrepo, err := atproto.AdminGetRepo(ctx, xrpcc, lexutil.NewFormatDID(fa))
 						if err != nil {
 							return nil, fmt.Errorf("resolving inviter (%q): %w", fa, err)
 						}
@@ -298,6 +318,7 @@ var buildInviteTreeCmd = &cli.Command{
 
 			return json.NewEncoder(outfi).Encode(users)
 		*/
+
 		return nil
 	},
 }
@@ -317,4 +338,110 @@ type basicInvInfo struct {
 	Did          string
 	Invited      []string
 	TotalInvites int
+}
+
+var reportsCmd = &cli.Command{
+	Name: "reports",
+	Subcommands: []*cli.Command{
+		listReportsCmd,
+	},
+}
+
+var listReportsCmd = &cli.Command{
+	Name: "list",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "admin-password",
+			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:    "plc",
+			Usage:   "method, hostname, and port of PLC registry",
+			Value:   "https://plc.directory",
+			EnvVars: []string{"ATP_PLC_HOST"},
+		},
+		&cli.BoolFlag{
+			Name: "raw",
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.Background()
+
+		adminKey := cctx.String("admin-password")
+		xrpcc.AdminToken = &adminKey
+
+		resp, err := atproto.AdminGetModerationReports(ctx, xrpcc, "", "", 100, true, "")
+		if err != nil {
+			return err
+		}
+
+		tojson := func(i any) string {
+			b, err := json.MarshalIndent(i, "", "  ")
+			if err != nil {
+				panic(err)
+			}
+
+			return string(b)
+		}
+
+		for _, rep := range resp.Reports {
+			b, err := json.MarshalIndent(rep, "", "  ")
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(b))
+			for _, act := range rep.ResolvedByActionIds {
+				action, err := atproto.AdminGetModerationAction(ctx, xrpcc, act)
+				if err != nil {
+					return err
+				}
+
+				fmt.Println(tojson(action))
+			}
+		}
+		return nil
+	},
+}
+
+var disableInvitesCmd = &cli.Command{
+	Name: "disableInvites",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "admin-password",
+			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
+			Required: true,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.Background()
+
+		adminKey := cctx.String("admin-password")
+		xrpcc.AdminToken = &adminKey
+
+		handle := cctx.Args().First()
+		if !strings.HasPrefix(handle, "did:") {
+			resp, err := atproto.IdentityResolveHandle(ctx, xrpcc, handle)
+			if err != nil {
+				return err
+			}
+
+			handle = resp.Did
+		}
+
+		return atproto.AdminDisableAccountInvites(ctx, xrpcc, &atproto.AdminDisableAccountInvites_Input{
+			Account: handle,
+		})
+	},
 }

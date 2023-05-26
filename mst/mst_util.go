@@ -6,8 +6,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"regexp"
 	"strings"
+	"unsafe"
 
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
@@ -18,19 +18,29 @@ import (
 // chunks of 2-bits. Eg, a leading 0x00 byte is 4 "zeros".
 // Typescript: leadingZerosOnHash(key, fanout) -> number
 func leadingZerosOnHash(key string) int {
-	k := []byte(key)
-	hv := sha256.Sum256(k)
+	var b []byte
+	if len(key) > 0 {
+		b = unsafe.Slice(unsafe.StringData(key), len(key))
+	}
+	return leadingZerosOnHashBytes(b)
+}
 
-	total := 0
-	for i := 0; i < len(hv); i++ {
-		if hv[i] == 0x00 {
+func leadingZerosOnHashBytes(key []byte) (total int) {
+	hv := sha256.Sum256(key)
+	for _, b := range hv {
+		if b&0xC0 != 0 {
+			// Common case. No leading pair of zero bits.
+			break
+		}
+		if b == 0x00 {
 			total += 4
 			continue
-		} else if hv[i]&0xFC == 0x00 {
+		}
+		if b&0xFC == 0x00 {
 			total += 3
-		} else if hv[i]&0xF0 == 0x00 {
+		} else if b&0xF0 == 0x00 {
 			total += 2
-		} else if hv[i]&0xC0 == 0x00 {
+		} else {
 			total += 1
 		}
 		break
@@ -39,8 +49,8 @@ func leadingZerosOnHash(key string) int {
 }
 
 // Typescript: layerForEntries(entries, fanout) -> (number?)
-func layerForEntries(entries []NodeEntry) int {
-	var firstLeaf NodeEntry
+func layerForEntries(entries []nodeEntry) int {
+	var firstLeaf nodeEntry
 	for _, e := range entries {
 		if e.isLeaf() {
 			firstLeaf = e
@@ -48,7 +58,7 @@ func layerForEntries(entries []NodeEntry) int {
 		}
 	}
 
-	if firstLeaf.Kind == EntryUndefined {
+	if firstLeaf.Kind == entryUndefined {
 		return -1
 	}
 
@@ -56,49 +66,53 @@ func layerForEntries(entries []NodeEntry) int {
 }
 
 // Typescript: deserializeNodeData(storage, data, layer)
-func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, layer int) ([]NodeEntry, error) {
-	entries := []NodeEntry{}
+func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *nodeData, layer int) ([]nodeEntry, error) {
+	entries := []nodeEntry{}
 	if nd.Left != nil {
 		// Note: like Typescript, this is actually a lazy load
-		entries = append(entries, NodeEntry{
-			Kind: EntryTree,
-			Tree: NewMST(cst, *nd.Left, nil, layer-1),
+		entries = append(entries, nodeEntry{
+			Kind: entryTree,
+			Tree: createMST(cst, *nd.Left, nil, layer-1),
 		})
 	}
 
 	var lastKey string
+	var keyb []byte // re-used between entries
 	for _, e := range nd.Entries {
-		key := make([]byte, int(e.PrefixLen)+len(e.KeySuffix))
-		copy(key, lastKey[:e.PrefixLen])
-		copy(key[e.PrefixLen:], e.KeySuffix)
+		if keyb == nil {
+			keyb = make([]byte, 0, int(e.PrefixLen)+len(e.KeySuffix))
+		}
+		keyb = append(keyb[:0], lastKey[:e.PrefixLen]...)
+		keyb = append(keyb, e.KeySuffix...)
 
-		err := ensureValidMstKey(string(key))
+		keyStr := string(keyb)
+		err := ensureValidMstKey(keyStr)
 		if err != nil {
 			return nil, err
 		}
 
-		entries = append(entries, NodeEntry{
-			Kind: EntryLeaf,
-			Key:  string(key),
+		entries = append(entries, nodeEntry{
+			Kind: entryLeaf,
+			Key:  keyStr,
 			Val:  e.Val,
 		})
 
 		if e.Tree != nil {
-			entries = append(entries, NodeEntry{
-				Kind: EntryTree,
-				Tree: NewMST(cst, *e.Tree, nil, layer-1),
-				Key:  string(key),
+			entries = append(entries, nodeEntry{
+				Kind: entryTree,
+				Tree: createMST(cst, *e.Tree, nil, layer-1),
+				Key:  keyStr,
 			})
 		}
-		lastKey = string(key)
+		lastKey = keyStr
 	}
 
 	return entries, nil
 }
 
 // Typescript: serializeNodeData(entries) -> NodeData
-func serializeNodeData(entries []NodeEntry) (*NodeData, error) {
-	var data NodeData
+func serializeNodeData(entries []nodeEntry) (*nodeData, error) {
+	var data nodeData
 
 	i := 0
 	if len(entries) > 0 && entries[0].isTree() {
@@ -143,7 +157,7 @@ func serializeNodeData(entries []NodeEntry) (*NodeData, error) {
 		}
 
 		prefixLen := countPrefixLen(lastKey, leaf.Key)
-		data.Entries = append(data.Entries, TreeEntry{
+		data.Entries = append(data.Entries, treeEntry{
 			PrefixLen: int64(prefixLen),
 			KeySuffix: []byte(leaf.Key)[prefixLen:],
 			Val:       leaf.Val,
@@ -156,31 +170,24 @@ func serializeNodeData(entries []NodeEntry) (*NodeData, error) {
 	return &data, nil
 }
 
-func min(a, b int) int {
-	if a <= b {
-		return a
-	}
-	return b
-}
-
-// how many leading chars are identical between the two strings?
+// how many leading bytes are identical between the two strings?
 // Typescript: countPrefixLen(a: string, b: string) -> number
 func countPrefixLen(a, b string) int {
-	aa := []byte(a)
-	bb := []byte(b)
-	count := min(len(aa), len(bb))
-	for i := 0; i < count; i++ {
-		if aa[i] != bb[i] {
+	// This pattern avoids panicindex calls, as the Go compiler's prove pass can
+	// convince itself that neither a[i] nor b[i] are ever out of bounds.
+	var i int
+	for i = 0; i < len(a) && i < len(b); i++ {
+		if a[i] != b[i] {
 			return i
 		}
 	}
-	return count
+	return i
 }
 
 // both computes *and* persists a tree entry; this is different from typescript
 // implementation
 // Typescript: cidForEntries(entries) -> CID
-func cidForEntries(ctx context.Context, entries []NodeEntry, cst cbor.IpldStore) (cid.Cid, error) {
+func cidForEntries(ctx context.Context, entries []nodeEntry, cst cbor.IpldStore) (cid.Cid, error) {
 	nd, err := serializeNodeData(entries)
 	if err != nil {
 		return cid.Undef, fmt.Errorf("serializing new entries: %w", err)
@@ -189,17 +196,39 @@ func cidForEntries(ctx context.Context, entries []NodeEntry, cst cbor.IpldStore)
 	return cst.Put(ctx, nd)
 }
 
-var reMstKeyChars = regexp.MustCompile("^[a-zA-Z0-9_:.-]+$")
+// keyHasAllValidChars reports whether s matches
+// the regexp /^[a-zA-Z0-9_:.-]+$/ without using regexp,
+// which is slower.
+func keyHasAllValidChars(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		b := s[i]
+		if 'a' <= b && b <= 'z' ||
+			'A' <= b && b <= 'Z' ||
+			'0' <= b && b <= '9' {
+			continue
+		}
+		switch b {
+		case '_', ':', '.', '-':
+			continue
+		default:
+			return false
+		}
+	}
+	return true
+}
 
 // Typescript: isValidMstKey(str)
 func isValidMstKey(s string) bool {
-	split := strings.Split(s, "/")
-	return (len(s) <= 256 &&
-		len(split) == 2 &&
-		len(split[0]) > 0 &&
-		len(split[1]) > 1 &&
-		reMstKeyChars.MatchString(split[0]) &&
-		reMstKeyChars.MatchString(split[1]))
+	if len(s) > 256 || strings.Count(s, "/") != 1 {
+		return false
+	}
+	a, b, _ := strings.Cut(s, "/")
+	return len(b) > 1 &&
+		keyHasAllValidChars(a) &&
+		keyHasAllValidChars(b)
 }
 
 // Typescript: ensureValidMstKey(str)

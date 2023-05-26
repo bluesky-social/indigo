@@ -1071,6 +1071,14 @@ func (s *TypeSchema) TypeName() string {
 		n += "_" + strings.Title(s.defName)
 	}
 
+	if s.Type == "array" {
+		n = "[]" + n
+
+		if s.Items.Type == "union" {
+			n = n + "_Elem"
+		}
+	}
+
 	return n
 }
 
@@ -1104,7 +1112,11 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 	case "object":
 		return "*" + name + "_" + strings.Title(k), nil
 	case "ref":
-		return "*" + s.typeNameFromRef(v.Ref), nil
+		tn := s.typeNameFromRef(v.Ref)
+		if tn[0] == '[' {
+			return tn, nil
+		}
+		return "*" + tn, nil
 	case "datetime":
 		return "util.FormatDateTime", nil
 	case "unknown":

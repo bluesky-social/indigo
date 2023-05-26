@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
@@ -8,7 +9,10 @@ import (
 	"time"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/repo"
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-log/v2"
+	car "github.com/ipld/go-car"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -259,4 +263,129 @@ func TestHandleChange(t *testing.T) {
 	fmt.Println(initevt.RepoCommit)
 	hcevt := evts.Next()
 	fmt.Println(hcevt.RepoHandle)
+}
+
+func TestBGSTakedown(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping BGS test in 'short' test mode")
+	}
+	assert := assert.New(t)
+	_ = assert
+
+	didr := testPLC(t)
+	p1 := mustSetupPDS(t, "localhost:5151", ".tpds", didr)
+	p1.Run(t)
+
+	b1 := mustSetupBGS(t, "localhost:3231", didr)
+	b1.Run(t)
+
+	p1.RequestScraping(t, b1)
+
+	time.Sleep(time.Millisecond * 50)
+	es1 := b1.Events(t, 0)
+
+	bob := p1.MustNewUser(t, "bob.tpds")
+	alice := p1.MustNewUser(t, "alice.tpds")
+
+	bob.Post(t, "cats for cats")
+	alice.Post(t, "no i like dogs")
+	bp2 := bob.Post(t, "im a bad person who deserves to be taken down")
+	bob.Like(t, bp2)
+
+	expCount := 6
+	evts1 := es1.WaitFor(expCount)
+	assert.Equal(expCount, len(evts1))
+
+	assert.NoError(b1.bgs.TakeDownRepo(context.TODO(), bob.did))
+
+	es2 := b1.Events(t, 0)
+	time.Sleep(time.Millisecond * 50) // wait for events to stream in and be collected
+	evts2 := es2.WaitFor(2)
+
+	assert.Equal(2, len(evts2))
+	for _, e := range evts2 {
+		if e.RepoCommit.Repo == bob.did {
+			t.Fatal("events from bob were not removed")
+		}
+	}
+
+	bob.Post(t, "im gonna sneak through being banned")
+	time.Sleep(time.Millisecond * 50)
+	alice.Post(t, "im a normal person")
+	// ensure events from bob dont get through
+
+	last := es2.Next()
+	assert.Equal(alice.did, last.RepoCommit.Repo)
+}
+
+func TestRebase(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping BGS test in 'short' test mode")
+	}
+	assert := assert.New(t)
+	didr := testPLC(t)
+	p1 := mustSetupPDS(t, "localhost:9155", ".tpds", didr)
+	p1.Run(t)
+
+	b1 := mustSetupBGS(t, "localhost:1531", didr)
+	b1.Run(t)
+
+	p1.RequestScraping(t, b1)
+
+	time.Sleep(time.Millisecond * 50)
+
+	bob := p1.MustNewUser(t, "bob.tpds")
+
+	bob.Post(t, "cats for cats")
+	bob.Post(t, "i am the king of the world")
+	bob.Post(t, "the name is bob")
+	bob.Post(t, "why cant i eat pie")
+
+	time.Sleep(time.Millisecond * 100)
+
+	evts1 := b1.Events(t, 0)
+	defer evts1.cancel()
+
+	preRebaseEvts := evts1.WaitFor(5)
+	fmt.Println(preRebaseEvts)
+
+	bob.DoRebase(t)
+
+	rbevt := evts1.Next()
+	assert.Equal(true, rbevt.RepoCommit.Rebase)
+
+	sc := commitFromSlice(t, rbevt.RepoCommit.Blocks, (cid.Cid)(rbevt.RepoCommit.Commit))
+	assert.Nil(sc.Prev)
+
+	lev := preRebaseEvts[4]
+	oldsc := commitFromSlice(t, lev.RepoCommit.Blocks, (cid.Cid)(lev.RepoCommit.Commit))
+
+	assert.Equal(sc.Data, oldsc.Data)
+
+	evts2 := b1.Events(t, 0)
+	afterEvts := evts2.WaitFor(1)
+	assert.Equal(true, afterEvts[0].RepoCommit.Rebase)
+}
+
+func commitFromSlice(t *testing.T, slice []byte, rcid cid.Cid) *repo.SignedCommit {
+	carr, err := car.NewCarReader(bytes.NewReader(slice))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for {
+		blk, err := carr.Next()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if blk.Cid() == rcid {
+
+			var sc repo.SignedCommit
+			if err := sc.UnmarshalCBOR(bytes.NewReader(blk.RawData())); err != nil {
+				t.Fatal(err)
+			}
+			return &sc
+		}
+	}
 }

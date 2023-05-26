@@ -108,7 +108,7 @@ func ReadRepoFromCar(ctx context.Context, r io.Reader) (*Repo, error) {
 func NewRepo(ctx context.Context, did string, bs blockstore.Blockstore) *Repo {
 	cst := util.CborStore(bs)
 
-	t := mst.NewMST(cst, cid.Undef, []mst.NodeEntry{}, 0)
+	t := mst.NewEmptyMST(cst)
 	sc := SignedCommit{
 		Did:     did,
 		Version: 2,
@@ -158,6 +158,10 @@ func (r *Repo) RepoDid() string {
 // TODO(bnewbold): this could return just *cid.Cid
 func (r *Repo) PrevCommit(ctx context.Context) (*cid.Cid, error) {
 	return r.sc.Prev, nil
+}
+
+func (r *Repo) DataCid() cid.Cid {
+	return r.sc.Data
 }
 
 func (r *Repo) SignedCommit() SignedCommit {
@@ -237,6 +241,12 @@ func (r *Repo) DeleteRecord(ctx context.Context, rpath string) error {
 	return nil
 }
 
+// truncates history while retaining the same data root
+func (r *Repo) Truncate() {
+	r.sc.Prev = nil
+	r.repoCid = cid.Undef
+}
+
 // creates and writes a new SignedCommit for this repo, with `prev` pointing to old value
 func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, []byte) ([]byte, error)) (cid.Cid, error) {
 	ctx, span := otel.Tracer("repo").Start(ctx, "Commit")
@@ -310,9 +320,7 @@ func (r *Repo) ForEach(ctx context.Context, prefix string, cb func(k string, v c
 
 	t := mst.LoadMST(r.cst, r.sc.Data)
 
-	if err := t.WalkLeavesFrom(ctx, prefix, func(e mst.NodeEntry) error {
-		return cb(e.Key, e.Val)
-	}); err != nil {
+	if err := t.WalkLeavesFrom(ctx, prefix, cb); err != nil {
 		if err != ErrDoneIterating {
 			return err
 		}
@@ -382,4 +390,39 @@ func (r *Repo) DiffSince(ctx context.Context, oldrepo cid.Cid) ([]*mst.DiffOp, e
 	}
 
 	return mst.DiffTrees(ctx, r.bs, oldTree, curptr)
+}
+
+func (r *Repo) CopyDataTo(ctx context.Context, bs blockstore.Blockstore) error {
+	return copyRecCbor(ctx, r.bs, bs, r.sc.Data, make(map[cid.Cid]struct{}))
+}
+
+func copyRecCbor(ctx context.Context, from, to blockstore.Blockstore, c cid.Cid, seen map[cid.Cid]struct{}) error {
+	if _, ok := seen[c]; ok {
+		return nil
+	}
+	seen[c] = struct{}{}
+
+	blk, err := from.Get(ctx, c)
+	if err != nil {
+		return err
+	}
+
+	if err := to.Put(ctx, blk); err != nil {
+		return err
+	}
+
+	var out []cid.Cid
+	if err := cbg.ScanForLinks(bytes.NewReader(blk.RawData()), func(c cid.Cid) {
+		out = append(out, c)
+	}); err != nil {
+		return err
+	}
+
+	for _, child := range out {
+		if err := copyRecCbor(ctx, from, to, child, seen); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

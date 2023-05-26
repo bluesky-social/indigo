@@ -17,12 +17,13 @@ type UnspeccedGetPopular_Output struct {
 }
 
 // UnspeccedGetPopular calls the XRPC method "app.bsky.unspecced.getPopular".
-func UnspeccedGetPopular(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*UnspeccedGetPopular_Output, error) {
+func UnspeccedGetPopular(ctx context.Context, c *xrpc.Client, cursor string, includeNsfw bool, limit int64) (*UnspeccedGetPopular_Output, error) {
 	var out UnspeccedGetPopular_Output
 
 	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
+		"cursor":      cursor,
+		"includeNsfw": includeNsfw,
+		"limit":       limit,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getPopular", params, nil, &out); err != nil {
 		return nil, err

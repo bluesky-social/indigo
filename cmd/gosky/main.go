@@ -10,11 +10,12 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
+	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/api/bsky"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	"github.com/bluesky-social/indigo/events"
@@ -85,22 +86,26 @@ func run(args []string) {
 		getRecordCmd,
 		createInviteCmd,
 		adminCmd,
+		createFeedGeneratorCmd,
 	}
 
 	app.RunAndExitOnError()
 }
 
 var newAccountCmd = &cli.Command{
-	Name: "newAccount",
+	Name:      "newAccount",
+	ArgsUsage: `<email> <handle> <password> [inviteCode]`,
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
 			return err
 		}
 
-		email := cctx.Args().Get(0)
-		handle := lexutil.NewFormatHandle(cctx.Args().Get(1))
-		password := cctx.Args().Get(2)
+		args, err := needArgs(cctx, "email", "handle", "password")
+		if err != nil {
+			return err
+		}
+		email, handle, password := args[0], lexutil.NewFormatHandle(args[1]), args[2]
 
 		var invite *string
 		if inv := cctx.Args().Get(3); inv != "" {
@@ -127,14 +132,18 @@ var newAccountCmd = &cli.Command{
 	},
 }
 var createSessionCmd = &cli.Command{
-	Name: "createSession",
+	Name:      "createSession",
+	ArgsUsage: `<handle> <password>`,
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
 			return err
 		}
-		handle := cctx.Args().Get(0)
-		password := cctx.Args().Get(1)
+		args, err := needArgs(cctx, "handle", "password")
+		if err != nil {
+			return err
+		}
+		handle, password := args[0], args[1]
 
 		ses, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
 			Identifier: handle,
@@ -155,7 +164,8 @@ var createSessionCmd = &cli.Command{
 }
 
 var postCmd = &cli.Command{
-	Name: "post",
+	Name:      "post",
+	ArgsUsage: `<text>`,
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
@@ -171,7 +181,7 @@ var postCmd = &cli.Command{
 			Repo:       lexutil.NewFormatAtIdentifier(auth.Did),
 			Record: &lexutil.LexiconTypeDecoder{&appbsky.FeedPost{
 				Text:      text,
-				CreatedAt: time.Now().Format("2006-01-02T15:04:05.000Z"),
+				CreatedAt: time.Now().Format(util.ISO8601),
 			}},
 		})
 		if err != nil {
@@ -202,7 +212,8 @@ var didCmd = &cli.Command{
 }
 
 var didGetCmd = &cli.Command{
-	Name: "get",
+	Name:      "get",
+	ArgsUsage: `<did>`,
 	Action: func(cctx *cli.Context) error {
 		s := cliutil.GetPLCClient(cctx)
 
@@ -222,7 +233,8 @@ var didGetCmd = &cli.Command{
 }
 
 var didCreateCmd = &cli.Command{
-	Name: "create",
+	Name:      "create",
+	ArgsUsage: `<handle> <service>`,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name: "recoverydid",
@@ -234,8 +246,11 @@ var didCreateCmd = &cli.Command{
 	Action: func(cctx *cli.Context) error {
 		s := cliutil.GetPLCClient(cctx)
 
-		handle := cctx.Args().Get(0)
-		service := cctx.Args().Get(1)
+		args, err := needArgs(cctx, "handle", "service")
+		if err != nil {
+			return err
+		}
+		handle, service := args[0], args[1]
 
 		recoverydid := cctx.String("recoverydid")
 
@@ -289,6 +304,7 @@ var syncGetRepoCmd = &cli.Command{
 			Name: "raw",
 		},
 	},
+	ArgsUsage: `<did>`,
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
@@ -313,7 +329,8 @@ var syncGetRepoCmd = &cli.Command{
 }
 
 var syncGetRootCmd = &cli.Command{
-	Name: "getRoot",
+	Name:      "getRoot",
+	ArgsUsage: `<did>`,
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
@@ -428,7 +445,8 @@ var feedGetCmd = &cli.Command{
 }
 
 var actorGetSuggestionsCmd = &cli.Command{
-	Name: "actorGetSuggestions",
+	Name:      "actorGetSuggestions",
+	ArgsUsage: "[author]",
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
@@ -536,7 +554,8 @@ var refreshAuthTokenCmd = &cli.Command{
 }
 
 var deletePostCmd = &cli.Command{
-	Name: "delete",
+	Name:      "delete",
+	ArgsUsage: `<rkey>`,
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
@@ -577,6 +596,7 @@ var listAllPostsCmd = &cli.Command{
 			Name: "cids",
 		},
 	},
+	ArgsUsage: `<did>|<repo-path>`,
 	Action: func(cctx *cli.Context) error {
 
 		arg := cctx.Args().First()
@@ -599,6 +619,9 @@ var listAllPostsCmd = &cli.Command{
 			}
 			repob = rrb
 		} else {
+			if len(arg) == 0 {
+				return cli.Exit("must specify DID string or repo path", 127)
+			}
 			fb, err := os.ReadFile(arg)
 			if err != nil {
 				return err
@@ -689,8 +712,9 @@ var followsCmd = &cli.Command{
 }
 
 var followsAddCmd = &cli.Command{
-	Name:  "add",
-	Flags: []cli.Flag{},
+	Name:      "add",
+	Flags:     []cli.Flag{},
+	ArgsUsage: `<user>`,
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
@@ -721,9 +745,10 @@ var followsAddCmd = &cli.Command{
 }
 
 var followsListCmd = &cli.Command{
-	Name: "list",
+	Name:      "list",
+	ArgsUsage: `[actor]`,
 	Action: func(cctx *cli.Context) error {
-		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
 			return err
 		}
@@ -767,7 +792,8 @@ func cborToJson(data []byte) ([]byte, error) {
 }
 
 var resetPasswordCmd = &cli.Command{
-	Name: "resetPassword",
+	Name:      "resetPassword",
+	ArgsUsage: `<email>`,
 	Action: func(cctx *cli.Context) error {
 		ctx := context.TODO()
 
@@ -776,7 +802,11 @@ var resetPasswordCmd = &cli.Command{
 			return err
 		}
 
-		email := cctx.Args().Get(0)
+		args, err := needArgs(cctx, "email")
+		if err != nil {
+			return err
+		}
+		email := args[0]
 
 		err = comatproto.ServerRequestPasswordReset(ctx, xrpcc, &comatproto.ServerRequestPasswordReset_Input{
 			Email: email,
@@ -814,7 +844,8 @@ var handleCmd = &cli.Command{
 }
 
 var resolveHandleCmd = &cli.Command{
-	Name: "resolve",
+	Name:      "resolve",
+	ArgsUsage: `<handle>`,
 	Action: func(cctx *cli.Context) error {
 		ctx := context.TODO()
 
@@ -823,7 +854,11 @@ var resolveHandleCmd = &cli.Command{
 			return err
 		}
 
-		handle := cctx.Args().Get(0)
+		args, err := needArgs(cctx, "handle")
+		if err != nil {
+			return err
+		}
+		handle := args[0]
 
 		out, err := comatproto.IdentityResolveHandle(ctx, xrpcc, lexutil.NewFormatHandle(handle))
 		if err != nil {
@@ -837,7 +872,8 @@ var resolveHandleCmd = &cli.Command{
 }
 
 var updateHandleCmd = &cli.Command{
-	Name: "update",
+	Name:      "update",
+	ArgsUsage: `<handle>`,
 	Action: func(cctx *cli.Context) error {
 		ctx := context.TODO()
 
@@ -846,7 +882,11 @@ var updateHandleCmd = &cli.Command{
 			return err
 		}
 
-		handle := cctx.Args().Get(0)
+		args, err := needArgs(cctx, "handle")
+		if err != nil {
+			return err
+		}
+		handle := args[0]
 
 		err = comatproto.IdentityUpdateHandle(ctx, xrpcc, &comatproto.IdentityUpdateHandle_Input{
 			Handle: lexutil.NewFormatHandle(handle),
@@ -866,6 +906,7 @@ var readRepoStreamCmd = &cli.Command{
 			Name: "json",
 		},
 	},
+	ArgsUsage: `[<repo> [cursor]]`,
 	Action: func(cctx *cli.Context) error {
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT)
 		defer stop()
@@ -957,6 +998,7 @@ var getRecordCmd = &cli.Command{
 			Name: "raw",
 		},
 	},
+	ArgsUsage: `<rpath>`,
 	Action: func(cctx *cli.Context) error {
 		ctx := context.Background()
 		rfi := cctx.String("repo")
@@ -973,6 +1015,29 @@ var getRecordCmd = &cli.Command{
 				return err
 			}
 			repob = rrb
+		} else if strings.HasPrefix(cctx.Args().First(), "at://") {
+			xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+			if err != nil {
+				return err
+			}
+
+			puri, err := util.ParseAtUri(cctx.Args().First())
+			if err != nil {
+				return err
+			}
+
+			out, err := comatproto.RepoGetRecord(ctx, xrpcc, "", puri.Collection, puri.Did, puri.Rkey)
+			if err != nil {
+				return err
+			}
+
+			b, err := json.MarshalIndent(out.Value.Val, "", "  ")
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(b))
+			return nil
 		} else {
 			fb, err := os.ReadFile(rfi)
 			if err != nil {
@@ -1030,9 +1095,10 @@ var createInviteCmd = &cli.Command{
 			Value: 1,
 		},
 		&cli.StringFlag{
-			Name: "bulk-dids",
+			Name: "bulk",
 		},
 	},
+	ArgsUsage: "[handle]",
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
@@ -1044,41 +1110,33 @@ var createInviteCmd = &cli.Command{
 		count := cctx.Int("useCount")
 		num := cctx.Int("num")
 
-		if bulkfi := cctx.String("bulk-dids"); bulkfi != "" {
+		if bulkfi := cctx.String("bulk"); bulkfi != "" {
 			xrpcc.AdminToken = &adminKey
 			dids, err := readDids(bulkfi)
 			if err != nil {
 				return err
 			}
 
-			feeder := make(chan string)
-			var wg sync.WaitGroup
-			for i := 0; i < 20; i++ {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					for d := range feeder {
-						did := d
-						resp, err := comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
-							UseCount:    int64(count),
-							ForAccounts: []lexutil.FormatDID{lexutil.NewFormatDID(did)},
-							CodeCount:   int64(num),
-						})
-						if err != nil {
-							log.Error(err)
-						}
-						_ = resp
+			for i, d := range dids {
+				if !strings.HasPrefix(d, "did:plc:") {
+					out, err := comatproto.IdentityResolveHandle(context.TODO(), xrpcc, d)
+					if err != nil {
+						return fmt.Errorf("failed to resolve %q: %w", d, err)
 					}
-				}()
+
+					dids[i] = out.Did
+				}
 			}
 
-			for _, d := range dids {
-				feeder <- d
+			_, err = comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
+				UseCount:    int64(count),
+				ForAccounts: dids,
+				CodeCount:   int64(num),
+			})
+			if err != nil {
+				return err
 			}
 
-			close(feeder)
-
-			wg.Wait()
 			return nil
 		}
 
@@ -1112,7 +1170,7 @@ var createInviteCmd = &cli.Command{
 	},
 }
 
-func readDids(f string) ([]string, error) {
+func readDids(f string) ([]lexutil.FormatDID, error) {
 	fi, err := os.Open(f)
 	if err != nil {
 		return nil, err
@@ -1121,9 +1179,9 @@ func readDids(f string) ([]string, error) {
 	defer fi.Close()
 
 	scan := bufio.NewScanner(fi)
-	var out []string
+	var out []lexutil.FormatDID
 	for scan.Scan() {
-		out = append(out, scan.Text())
+		out = append(out, lexutil.NewFormatDID(strings.Split(scan.Text(), " ")[0]))
 	}
 
 	return out, nil
@@ -1158,6 +1216,64 @@ var syncListReposCmd = &cli.Command{
 
 			curs = *out.Cursor
 		}
+
+		return nil
+	},
+}
+
+func needArgs(cctx *cli.Context, name ...string) ([]string, error) {
+	var out []string
+	for i, n := range name {
+		v := cctx.Args().Get(i)
+		if v == "" {
+			return nil, cli.Exit(fmt.Sprintf("argument %q required at position %d", n, i+1), 127)
+		}
+		out = append(out, v)
+	}
+	return out, nil
+}
+
+var createFeedGeneratorCmd = &cli.Command{
+	Name: "createFeedGen",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "name",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "did",
+			Required: true,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		name := cctx.String("name")
+		did := cctx.String("did")
+
+		var desc *string
+		if d := cctx.String("description"); d != "" {
+			desc = &d
+		}
+
+		resp, err := atproto.RepoCreateRecord(context.TODO(), xrpcc, &atproto.RepoCreateRecord_Input{
+			Collection: "app.bsky.feed.generator",
+			Repo:       xrpcc.Auth.Did,
+			Record: &lexutil.LexiconTypeDecoder{&bsky.FeedGenerator{
+				CreatedAt:   time.Now().Format(util.ISO8601),
+				Description: desc,
+				Did:         did,
+				DisplayName: name,
+			}},
+		})
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(resp.Uri)
 
 		return nil
 	},

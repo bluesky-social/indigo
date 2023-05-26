@@ -316,6 +316,18 @@ func (u *testUser) ChangeHandle(t *testing.T, nhandle string) {
 	}
 }
 
+func (u *testUser) DoRebase(t *testing.T) {
+	t.Helper()
+
+	ctx := context.TODO()
+	err := atproto.RepoRebaseRepo(ctx, u.client, &atproto.RepoRebaseRepo_Input{
+		Repo: u.did,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func testPLC(t *testing.T) *plc.FakeDid {
 	// TODO: just do in memory...
 	tdir, err := os.MkdirTemp("", "plcserv")
@@ -377,7 +389,12 @@ func SetupBGS(host string, didr plc.PLCClient) (*testBGS, error) {
 
 	notifman := notifs.NewNotificationManager(maindb, repoman.GetRecord)
 
-	evtman := events.NewEventManager(events.NewMemPersister())
+	dbpersist, err := events.NewDbPersistence(maindb, cs)
+	if err != nil {
+		return nil, err
+	}
+
+	evtman := events.NewEventManager(dbpersist)
 
 	go evtman.Run()
 
@@ -492,6 +509,15 @@ func (es *eventStream) All() []*events.XRPCStreamEvent {
 	out := make([]*events.XRPCStreamEvent, len(es.events))
 	for i, e := range es.events {
 		out[i] = e
+	}
+
+	return out
+}
+
+func (es *eventStream) WaitFor(n int) []*events.XRPCStreamEvent {
+	var out []*events.XRPCStreamEvent
+	for i := 0; i < n; i++ {
+		out = append(out, es.Next())
 	}
 
 	return out

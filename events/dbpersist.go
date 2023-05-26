@@ -28,10 +28,11 @@ type RepoEventRecord struct {
 	Commit util.DbCID
 	Prev   *util.DbCID
 
-	Time  time.Time
-	Blobs []byte
-	Repo  util.Uid
-	Event string
+	Time   time.Time
+	Blobs  []byte
+	Repo   util.Uid
+	Event  string
+	Rebase bool
 
 	Ops []RepoOpRecord
 }
@@ -103,6 +104,7 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 		Event:  "repo_append", // TODO: refactor to "#commit"? can "rebase" come through this path?
 		Blobs:  blobs,
 		Time:   t,
+		Rebase: evt.Rebase,
 	}
 
 	for _, op := range evt.Ops {
@@ -147,7 +149,7 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPC
 
 		ra, err := p.hydrateRepoEvent(ctx, &evt)
 		if err != nil {
-			return err
+			return fmt.Errorf("hydrating event: %w", err)
 		}
 
 		if err := cb(&XRPCStreamEvent{RepoCommit: ra}); err != nil {
@@ -210,6 +212,7 @@ func (p *DbPersistence) hydrateRepoEvent(ctx context.Context, rer *RepoEventReco
 		Prev:   prevCID,
 		Time:   rer.Time.Format(util.ISO8601),
 		Blobs:  blobCIDs,
+		Rebase: rer.Rebase,
 		// TODO: there was previously an Event field here. are these all Commit, or are some other events?
 	}
 
@@ -229,7 +232,7 @@ func (p *DbPersistence) hydrateRepoEvent(ctx context.Context, rer *RepoEventReco
 
 	cs, err := p.readCarSlice(ctx, rer)
 	if err != nil {
-		return nil, fmt.Errorf("read car slice: %w", err)
+		return nil, fmt.Errorf("read car slice (%s): %w", rer.Commit.CID, err)
 	}
 
 	if len(cs) > carstore.MaxSliceLength {
@@ -244,7 +247,7 @@ func (p *DbPersistence) hydrateRepoEvent(ctx context.Context, rer *RepoEventReco
 func (p *DbPersistence) readCarSlice(ctx context.Context, rer *RepoEventRecord) ([]byte, error) {
 
 	var early cid.Cid
-	if rer.Prev != nil {
+	if rer.Prev != nil && !rer.Rebase {
 		early = rer.Prev.CID
 	}
 
@@ -254,4 +257,33 @@ func (p *DbPersistence) readCarSlice(ctx context.Context, rer *RepoEventRecord) 
 	}
 
 	return buf.Bytes(), nil
+}
+
+func (p *DbPersistence) TakeDownRepo(ctx context.Context, usr util.Uid) error {
+	return p.deleteAllEventsForUser(ctx, usr)
+}
+
+func (p *DbPersistence) deleteAllEventsForUser(ctx context.Context, usr util.Uid) error {
+	for {
+		q := p.db.Model(&RepoEventRecord{}).Where("repo = ?", usr).Limit(100).Select("seq")
+		res := p.db.Where("repo_event_record_id in (?)", q).Delete(&RepoOpRecord{})
+		if err := res.Error; err != nil {
+			return fmt.Errorf("failed to delete repo op records: %w", err)
+		}
+
+		if res.RowsAffected == 0 {
+			break
+		}
+	}
+
+	if err := p.db.Where("repo = ?", usr).Delete(&RepoEventRecord{}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *DbPersistence) RebaseRepoEvents(ctx context.Context, usr util.Uid) error {
+	// a little weird that this is the same action as a takedown
+	return p.deleteAllEventsForUser(ctx, usr)
 }

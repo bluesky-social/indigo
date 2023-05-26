@@ -79,7 +79,7 @@ func (em *EventManager) Run() {
 							}
 						}(s)
 					default:
-						log.Error("event overflow")
+						log.Warnf("event overflow (%d)", len(s.outgoing))
 					}
 				}
 			}
@@ -216,4 +216,12 @@ func (em *EventManager) Subscribe(ctx context.Context, filter func(*XRPCStreamEv
 	}
 
 	return sub.outgoing, cleanup, nil
+}
+
+func (em *EventManager) TakeDownRepo(ctx context.Context, user util.Uid) error {
+	return em.persister.TakeDownRepo(ctx, user)
+}
+
+func (em *EventManager) HandleRebase(ctx context.Context, user util.Uid) error {
+	return em.persister.RebaseRepoEvents(ctx, user)
 }

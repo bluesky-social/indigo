@@ -17,14 +17,15 @@ type AdminGetModerationReports_Output struct {
 }
 
 // AdminGetModerationReports calls the XRPC method "com.atproto.admin.getModerationReports".
-func AdminGetModerationReports(ctx context.Context, c *xrpc.Client, cursor string, limit int64, resolved bool, subject string) (*AdminGetModerationReports_Output, error) {
+func AdminGetModerationReports(ctx context.Context, c *xrpc.Client, actionType string, cursor string, limit int64, resolved bool, subject string) (*AdminGetModerationReports_Output, error) {
 	var out AdminGetModerationReports_Output
 
 	params := map[string]interface{}{
-		"cursor":   cursor,
-		"limit":    limit,
-		"resolved": resolved,
-		"subject":  subject,
+		"actionType": actionType,
+		"cursor":     cursor,
+		"limit":      limit,
+		"resolved":   resolved,
+		"subject":    subject,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.getModerationReports", params, nil, &out); err != nil {
 		return nil, err

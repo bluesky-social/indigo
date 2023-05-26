@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"regexp"
 	"sort"
 	"testing"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/ipld/go-car/v2"
 	"github.com/multiformats/go-multihash"
 	mh "github.com/multiformats/go-multihash"
+	"golang.org/x/exp/maps"
 )
 
 func randCid() cid.Cid {
@@ -34,7 +36,7 @@ func TestBasicMst(t *testing.T) {
 
 	ctx := context.Background()
 	cst := util.CborStore(blockstore.NewBlockstore(datastore.NewMapDatastore()))
-	mst := NewMST(cst, cid.Undef, []NodeEntry{}, -1)
+	mst := createMST(cst, cid.Undef, []nodeEntry{}, -1)
 
 	vals := map[string]cid.Cid{
 		"cats/cats":  randCid(),
@@ -89,8 +91,8 @@ func TestBasicMst(t *testing.T) {
 
 func assertValues(t *testing.T, mst *MerkleSearchTree, vals map[string]cid.Cid) {
 	out := make(map[string]cid.Cid)
-	if err := mst.WalkLeavesFrom(context.TODO(), "", func(ne NodeEntry) error {
-		out[ne.Key] = ne.Val
+	if err := mst.WalkLeavesFrom(context.TODO(), "", func(key string, val cid.Cid) error {
+		out[key] = val
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -176,21 +178,13 @@ func randStr(s int64) string {
 	return hex.EncodeToString(buf)
 }
 
-func copyMap(a map[string]string) map[string]string {
-	out := make(map[string]string)
-	for k, v := range a {
-		out[k] = v
-	}
-	return out
-}
-
 func TestDiffInsertionsBasic(t *testing.T) {
 	a := map[string]string{
 		"cats/asdf":     randStr(1),
 		"cats/foosesdf": randStr(2),
 	}
 
-	b := copyMap(a)
+	b := maps.Clone(a)
 	b["cats/bawda"] = randStr(3)
 	b["cats/crosasd"] = randStr(4)
 
@@ -215,7 +209,7 @@ func TestDiffInsertionsLarge(t *testing.T) {
 		a[randKey(i)] = randStr(72385739 - i)
 	}
 
-	b := copyMap(a)
+	b := maps.Clone(a)
 	for i := int64(0); i < 30; i++ {
 		b[randKey(5000+i)] = randStr(2293825 - i)
 	}
@@ -245,7 +239,7 @@ func TestDiffSmallOverlap(t *testing.T) {
 		a[randKey(i)] = randStr(72385739 - i)
 	}
 
-	b := copyMap(a)
+	b := maps.Clone(a)
 
 	for i := int64(0); i < 1000; i++ {
 		a[randKey(i)] = randStr(682823 - i)
@@ -265,7 +259,7 @@ func TestDiffSmallOverlapSmall(t *testing.T) {
 		a[randKey(i)] = randStr(72385739 - i)
 	}
 
-	b := copyMap(a)
+	b := maps.Clone(a)
 
 	for i := int64(0); i < 20; i++ {
 		a[randKey(i)] = randStr(682823 - i)
@@ -285,7 +279,7 @@ func TestDiffMutationsBasic(t *testing.T) {
 		"cats/foosesdf": randStr(2),
 	}
 
-	b := copyMap(a)
+	b := maps.Clone(a)
 	b["cats/asdf"] = randStr(3)
 
 	testMapDiffs(t, a, b)
@@ -367,9 +361,9 @@ func mapToCidMap(a map[string]string) map[string]cid.Cid {
 	return out
 }
 
-func cidMapToMst(t *testing.T, bs blockstore.Blockstore, m map[string]cid.Cid) *MerkleSearchTree {
+func cidMapToMst(t testing.TB, bs blockstore.Blockstore, m map[string]cid.Cid) *MerkleSearchTree {
 	cst := util.CborStore(bs)
-	mt := NewMST(cst, cid.Undef, []NodeEntry{}, -1)
+	mt := createMST(cst, cid.Undef, []nodeEntry{}, -1)
 
 	for k, v := range m {
 		nmst, err := mt.Add(context.TODO(), k, v, -1)
@@ -383,7 +377,7 @@ func cidMapToMst(t *testing.T, bs blockstore.Blockstore, m map[string]cid.Cid) *
 	return mt
 }
 
-func mustCidTree(t *testing.T, tree *MerkleSearchTree) cid.Cid {
+func mustCidTree(t testing.TB, tree *MerkleSearchTree) cid.Cid {
 	c, err := tree.GetPointer(context.TODO())
 	if err != nil {
 		t.Fatal(err)
@@ -395,7 +389,7 @@ func memBs() blockstore.Blockstore {
 	return blockstore.NewBlockstore(datastore.NewMapDatastore())
 }
 
-func testMapDiffs(t *testing.T, a, b map[string]string) {
+func testMapDiffs(t testing.TB, a, b map[string]string) {
 	amc := mapToCidMap(a)
 	bmc := mapToCidMap(b)
 
@@ -501,4 +495,141 @@ func diffOpEq(aa, bb *DiffOp) bool {
 		return false
 	}
 	return true
+}
+
+func BenchmarkIsValidMstKey(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if !isValidMstKey("foo/foo.bar123") {
+			b.Fatal()
+		}
+	}
+}
+
+func TestLeadingZerosOnHashAllocs(t *testing.T) {
+	var sink int
+	const in = "some.key.prefix/key.bar123456789012334556"
+	var inb = []byte(in)
+	if n := int(testing.AllocsPerRun(1000, func() {
+		sink = leadingZerosOnHash(in)
+	})); n != 0 {
+		t.Errorf("allocs (string) = %d; want 0", n)
+	}
+	if n := int(testing.AllocsPerRun(1000, func() {
+		sink = leadingZerosOnHashBytes(inb)
+	})); n != 0 {
+		t.Errorf("allocs (bytes) = %d; want 0", n)
+	}
+	_ = sink
+}
+
+// Verify that keyHasAllValidChars matches its documented regexp.
+func FuzzKeyHasAllValidChars(f *testing.F) {
+	for _, seed := range [][]byte{{}} {
+		f.Add(seed)
+	}
+	for i := 0; i < 256; i++ {
+		f.Add([]byte{byte(i)})
+	}
+	rx := regexp.MustCompile("^[a-zA-Z0-9_:.-]+$")
+	f.Fuzz(func(t *testing.T, in []byte) {
+		s := string(in)
+		if a, b := rx.MatchString(s), keyHasAllValidChars(s); a != b {
+			t.Fatalf("for %q, rx=%v, keyHasAllValidChars=%v", s, a, b)
+		}
+	})
+}
+
+func BenchmarkLeadingZerosOnHash(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		_ = leadingZerosOnHash("some.key.prefix/key.bar123456789012334556")
+	}
+}
+
+func BenchmarkDiffTrees(b *testing.B) {
+	b.ReportAllocs()
+	const size = 10000
+	ma := map[string]string{}
+	for i := 0; i < size; i++ {
+		ma[fmt.Sprintf("num/%02d", i)] = fmt.Sprint(i)
+	}
+	// And then mess with half of the items of the first half of it.
+	mb := maps.Clone(ma)
+	for i := 0; i < size/2; i++ {
+		switch i % 4 {
+		case 0, 1:
+		case 2:
+			delete(mb, fmt.Sprintf("num/%02d", i))
+		case 3:
+			ma[fmt.Sprintf("num/%02d", i)] = fmt.Sprint(i + 1)
+		}
+	}
+
+	amc := mapToCidMap(ma)
+	bmc := mapToCidMap(mb)
+
+	want := diffMaps(amc, bmc)
+
+	bs := memBs()
+
+	msta := cidMapToMst(b, bs, amc)
+	mstb := cidMapToMst(b, bs, bmc)
+
+	cida := mustCidTree(b, msta)
+	cidb := mustCidTree(b, mstb)
+
+	b.ResetTimer()
+
+	var diffs []*DiffOp
+	var err error
+	for i := 0; i < b.N; i++ {
+		diffs, err = DiffTrees(context.TODO(), bs, cida, cidb)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	if !sort.SliceIsSorted(diffs, func(i, j int) bool {
+		return diffs[i].Rpath < diffs[j].Rpath
+	}) {
+		b.Log("diff algo did not produce properly sorted diff")
+	}
+	if !compareDiffs(diffs, want) {
+		b.Fatal("diffs not equal")
+	}
+}
+
+var countPrefixLenTests = []struct {
+	a, b string
+	want int
+}{
+	{"", "", 0},
+	{"a", "", 0},
+	{"", "a", 0},
+	{"a", "b", 0},
+	{"a", "a", 1},
+	{"ab", "a", 1},
+	{"a", "ab", 1},
+	{"ab", "ab", 2},
+	{"abcdefghijklmnop", "abcdefghijklmnoq", 15},
+}
+
+func TestCountPrefixLen(t *testing.T) {
+	for _, tt := range countPrefixLenTests {
+		if got := countPrefixLen(tt.a, tt.b); got != tt.want {
+			t.Errorf("countPrefixLenTests(%q, %q) = %d, want %d", tt.a, tt.b, got, tt.want)
+		}
+	}
+}
+
+func BenchmarkCountPrefixLen(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		for _, tt := range countPrefixLenTests {
+			if got := countPrefixLen(tt.a, tt.b); got != tt.want {
+				b.Fatalf("countPrefixLenTests(%q, %q) = %d, want %d", tt.a, tt.b, got, tt.want)
+			}
+		}
+	}
 }
