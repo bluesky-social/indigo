@@ -215,7 +215,7 @@ var didGetCmd = &cli.Command{
 	Name:      "get",
 	ArgsUsage: `<did>`,
 	Action: func(cctx *cli.Context) error {
-		s := cliutil.GetPLCClient(cctx)
+		s := cliutil.GetDidResolver(cctx)
 
 		doc, err := s.GetDocument(context.TODO(), cctx.Args().First())
 		if err != nil {

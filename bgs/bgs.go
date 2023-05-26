@@ -18,11 +18,11 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/blobs"
 	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
 	bsutil "github.com/bluesky-social/indigo/util"
@@ -45,7 +45,7 @@ type BGS struct {
 	db      *gorm.DB
 	slurper *Slurper
 	events  *events.EventManager
-	didr    plc.DidResolver
+	didr    did.Resolver
 
 	blobs blobs.BlobStore
 
@@ -58,7 +58,7 @@ type BGS struct {
 	repoman *repomgr.RepoManager
 }
 
-func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr plc.DidResolver, blobs blobs.BlobStore, ssl bool) (*BGS, error) {
+func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, blobs blobs.BlobStore, ssl bool) (*BGS, error) {
 	db.AutoMigrate(User{})
 	db.AutoMigrate(AuthToken{})
 	db.AutoMigrate(models.PDS{})

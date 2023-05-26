@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/api"
+	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/xrpc"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/urfave/cli/v2"
@@ -17,6 +18,16 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+func GetDidResolver(cctx *cli.Context) did.Resolver {
+	mr := did.NewMultiResolver()
+	mr.AddHandler("plc", &api.PLCServer{
+		Host: cctx.String("plc"),
+	})
+	mr.AddHandler("web", &did.WebResolver{})
+
+	return mr
+}
 
 func GetPLCClient(cctx *cli.Context) *api.PLCServer {
 	return &api.PLCServer{
