@@ -4,14 +4,14 @@ import (
 	"context"
 	"time"
 
+	did "github.com/bluesky-social/indigo/did"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/whyrusleeping/go-did"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 )
 
 type CachingDidResolver struct {
-	res    DidResolver
+	res    did.Resolver
 	maxAge time.Duration
 	cache  *lru.ARCCache
 }
@@ -21,7 +21,7 @@ type cachedDoc struct {
 	doc      *did.Document
 }
 
-func NewCachingDidResolver(res DidResolver, maxAge time.Duration, size int) *CachingDidResolver {
+func NewCachingDidResolver(res did.Resolver, maxAge time.Duration, size int) *CachingDidResolver {
 	c, err := lru.NewARC(size)
 	if err != nil {
 		panic(err)

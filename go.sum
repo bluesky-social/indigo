@@ -519,8 +519,8 @@ github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11 h1:5HZfQkwe0mIf
 github.com/whyrusleeping/cbor-gen v0.0.0-20230331140348-1f892b517e70 h1:iNBzUKTsJc9RqStEVX2VYgVHATTU39IuB7g0e8OPWXU=
 github.com/whyrusleeping/cbor-gen v0.0.0-20230331140348-1f892b517e70/go.mod h1:fgkXqYy7bV2cFeIEOkVTZS/WjXARfBqSH6Q2qHL33hQ=
 github.com/whyrusleeping/chunker v0.0.0-20181014151217-fe64bd25879f h1:jQa4QT2UP9WYv2nzyawpKMOCl+Z/jW7djv2/J50lj9E=
-github.com/whyrusleeping/go-did v0.0.0-20230301193428-2146016fc220 h1:EO/9z3yDvx1van1/0esdcqhalZZQGRj3I1BPTWr5k3A=
-github.com/whyrusleeping/go-did v0.0.0-20230301193428-2146016fc220/go.mod h1:qPtRyexGM5XMHFIfjH+EiA/A/1n2JakWEdMPC53pJAE=
+github.com/whyrusleeping/go-did v0.0.0-20230526214621-656e0e65f260 h1:OZYfuf/Cq1WkWcL9pdBdllmFqNuSOLaSV7UlNfV21Z4=
+github.com/whyrusleeping/go-did v0.0.0-20230526214621-656e0e65f260/go.mod h1:qPtRyexGM5XMHFIfjH+EiA/A/1n2JakWEdMPC53pJAE=
 github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 h1:bAn7/zixMGCfxrRTfdpNzjtPYqr8smhKouy9mxVdGPU=
 github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673/go.mod h1:N3UwUGtsrSj3ccvlPHLoLsHnpR27oXr4ZE984MbSER8=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=

@@ -74,7 +74,7 @@ var checkUserCmd = &cli.Command{
 			return err
 		}
 
-		plcc := cliutil.GetPLCClient(cctx)
+		plcc := cliutil.GetDidResolver(cctx)
 
 		if cctx.Bool("raw") {
 			fmt.Println(string(b))
