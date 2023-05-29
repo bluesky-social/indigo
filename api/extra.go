@@ -6,16 +6,16 @@ import (
 	"net/url"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/xrpc"
-	did "github.com/whyrusleeping/go-did"
 	otel "go.opentelemetry.io/otel"
 )
 
-func ResolveDidToHandle(ctx context.Context, xrpcc *xrpc.Client, pls *PLCServer, udid string) (string, string, error) {
+func ResolveDidToHandle(ctx context.Context, xrpcc *xrpc.Client, res did.Resolver, udid string) (string, string, error) {
 	ctx, span := otel.Tracer("gosky").Start(ctx, "resolveDidToHandle")
 	defer span.End()
 
-	doc, err := pls.GetDocument(ctx, udid)
+	doc, err := res.GetDocument(ctx, udid)
 	if err != nil {
 		return "", "", err
 	}
