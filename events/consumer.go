@@ -22,7 +22,30 @@ type RepoStreamCallbacks struct {
 	Error         func(evt *ErrorFrame) error
 }
 
-func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamCallbacks) error {
+func (rsc *RepoStreamCallbacks) EventHandler(ctx context.Context, xev *XRPCStreamEvent) error {
+	switch {
+	case xev.RepoCommit != nil && rsc.RepoCommit != nil:
+		return rsc.RepoCommit(xev.RepoCommit)
+	case xev.RepoHandle != nil && rsc.RepoHandle != nil:
+		return rsc.RepoHandle(xev.RepoHandle)
+	case xev.RepoInfo != nil && rsc.RepoInfo != nil:
+		return rsc.RepoInfo(xev.RepoInfo)
+	case xev.RepoMigrate != nil && rsc.RepoMigrate != nil:
+		return rsc.RepoMigrate(xev.RepoMigrate)
+	case xev.RepoTombstone != nil && rsc.RepoTombstone != nil:
+		return rsc.RepoTombstone(xev.RepoTombstone)
+	case xev.LabelLabels != nil && rsc.LabelLabels != nil:
+		return rsc.LabelLabels(xev.LabelLabels)
+	case xev.LabelInfo != nil && rsc.LabelInfo != nil:
+		return rsc.LabelInfo(xev.LabelInfo)
+	case xev.Error != nil && rsc.Error != nil:
+		return rsc.Error(xev.Error)
+	default:
+		return fmt.Errorf("no know event in XRPCStreamEvent object")
+	}
+}
+
+func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -76,12 +99,10 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 
 				lastSeq = evt.Seq
 
-				if cbs.RepoCommit != nil {
-					if err := cbs.RepoCommit(&evt); err != nil {
-						return err
-					}
-				} else {
-					log.Warnf("received repo commit event with nil commit object (seq %d)", evt.Seq)
+				if err := sched.AddWork(ctx, evt.Repo, &XRPCStreamEvent{
+					RepoCommit: &evt,
+				}); err != nil {
+					return err
 				}
 			case "#handle":
 				var evt comatproto.SyncSubscribeRepos_Handle
@@ -89,10 +110,15 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 					return err
 				}
 
-				if cbs.RepoHandle != nil {
-					if err := cbs.RepoHandle(&evt); err != nil {
-						return err
-					}
+				if evt.Seq < lastSeq {
+					log.Errorf("Got events out of order from stream (seq = %d, prev = %d)", evt.Seq, lastSeq)
+				}
+				lastSeq = evt.Seq
+
+				if err := sched.AddWork(ctx, evt.Did, &XRPCStreamEvent{
+					RepoHandle: &evt,
+				}); err != nil {
+					return err
 				}
 			case "#info":
 				// TODO: this might also be a LabelInfo (as opposed to RepoInfo)
@@ -101,10 +127,10 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 					return err
 				}
 
-				if cbs.RepoInfo != nil {
-					if err := cbs.RepoInfo(&evt); err != nil {
-						return err
-					}
+				if err := sched.AddWork(ctx, "", &XRPCStreamEvent{
+					RepoInfo: &evt,
+				}); err != nil {
+					return err
 				}
 			case "#migrate":
 				var evt comatproto.SyncSubscribeRepos_Migrate
@@ -112,10 +138,15 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 					return err
 				}
 
-				if cbs.RepoMigrate != nil {
-					if err := cbs.RepoMigrate(&evt); err != nil {
-						return err
-					}
+				if evt.Seq < lastSeq {
+					log.Errorf("Got events out of order from stream (seq = %d, prev = %d)", evt.Seq, lastSeq)
+				}
+				lastSeq = evt.Seq
+
+				if err := sched.AddWork(ctx, evt.Did, &XRPCStreamEvent{
+					RepoMigrate: &evt,
+				}); err != nil {
+					return err
 				}
 			case "#tombstone":
 				var evt comatproto.SyncSubscribeRepos_Tombstone
@@ -123,10 +154,15 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 					return err
 				}
 
-				if cbs.RepoMigrate != nil {
-					if err := cbs.RepoTombstone(&evt); err != nil {
-						return err
-					}
+				if evt.Seq < lastSeq {
+					log.Errorf("Got events out of order from stream (seq = %d, prev = %d)", evt.Seq, lastSeq)
+				}
+				lastSeq = evt.Seq
+
+				if err := sched.AddWork(ctx, evt.Did, &XRPCStreamEvent{
+					RepoTombstone: &evt,
+				}); err != nil {
+					return err
 				}
 			case "#labebatch":
 				var evt label.SubscribeLabels_Labels
@@ -140,12 +176,10 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 
 				lastSeq = evt.Seq
 
-				if cbs.LabelLabels != nil {
-					if err := cbs.LabelLabels(&evt); err != nil {
-						return err
-					}
-				} else {
-					log.Warnf("received label event with nil append object (seq %d)", evt.Seq)
+				if err := sched.AddWork(ctx, "", &XRPCStreamEvent{
+					LabelLabels: &evt,
+				}); err != nil {
+					return err
 				}
 			}
 
@@ -155,11 +189,12 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, cbs *RepoStreamC
 				return err
 			}
 
-			if cbs.Error != nil {
-				if err := cbs.Error(&errframe); err != nil {
-					return err
-				}
+			if err := sched.AddWork(ctx, "", &XRPCStreamEvent{
+				Error: &errframe,
+			}); err != nil {
+				return err
 			}
+
 		default:
 			return fmt.Errorf("unrecognized event stream type: %d", header.Op)
 		}

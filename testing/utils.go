@@ -467,7 +467,7 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 	}()
 
 	go func() {
-		if err := events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
+		rsc := &events.RepoStreamCallbacks{
 			RepoCommit: func(evt *atproto.SyncSubscribeRepos_Commit) error {
 				fmt.Println("received event: ", evt.Seq, evt.Repo)
 				es.lk.Lock()
@@ -482,7 +482,8 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 				es.lk.Unlock()
 				return nil
 			},
-		}); err != nil {
+		}
+		if err := events.HandleRepoStream(ctx, con, &events.SequentialScheduler{rsc.EventHandler}); err != nil {
 			fmt.Println(err)
 		}
 	}()

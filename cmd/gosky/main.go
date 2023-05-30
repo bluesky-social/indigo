@@ -938,7 +938,7 @@ var readRepoStreamCmd = &cli.Command{
 			_ = con.Close()
 		}()
 
-		return events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
+		rsc := &events.RepoStreamCallbacks{
 			RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 				if jsonfmt {
 					b, err := json.Marshal(evt)
@@ -984,7 +984,8 @@ var readRepoStreamCmd = &cli.Command{
 			Error: func(errf *events.ErrorFrame) error {
 				return fmt.Errorf("error frame: %s: %s", errf.Error, errf.Message)
 			},
-		})
+		}
+		return events.HandleRepoStream(ctx, con, &events.SequentialScheduler{rsc.EventHandler})
 	},
 }
 
