@@ -312,6 +312,25 @@ var debugFeedGenCmd = &cli.Command{
 			Host: ss.ServiceEndpoint,
 		}
 
+		desc, err := bsky.FeedDescribeFeedGenerator(ctx, fgclient)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Found %d feeds at discovered endpoint\n", len(desc.Feeds))
+		var found bool
+		for _, f := range desc.Feeds {
+			fmt.Println("Feed: ", f.Uri)
+			if f.Uri == uri {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return fmt.Errorf("specified feed was not present in linked feedGenerators 'describe' method output")
+		}
+
 		skel, err := bsky.FeedGetFeedSkeleton(ctx, fgclient, "", uri, 30)
 		if err != nil {
 			return fmt.Errorf("failed to fetch feed skeleton: %w", err)
@@ -320,6 +339,13 @@ var debugFeedGenCmd = &cli.Command{
 		if len(skel.Feed) > 30 {
 			return fmt.Errorf("feedgen not respecting limit param (returned %d posts)", len(skel.Feed))
 		}
+
+		if len(skel.Feed) == 0 {
+			return fmt.Errorf("feedgen response is empty (might be expected since we aren't authed)")
+
+		}
+
+		fmt.Println("Feed response looks good!")
 
 		return nil
 	},
