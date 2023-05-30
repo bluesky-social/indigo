@@ -100,7 +100,7 @@ func labelEvents(t *testing.T, lm *labeler.Server, since int64) *eventStream {
 	}()
 
 	go func() {
-		if err := events.HandleRepoStream(ctx, con, &events.RepoStreamCallbacks{
+		rsc := &events.RepoStreamCallbacks{
 			LabelLabels: func(evt *label.SubscribeLabels_Labels) error {
 				fmt.Println("received event: ", evt.Seq)
 				es.lk.Lock()
@@ -108,7 +108,8 @@ func labelEvents(t *testing.T, lm *labeler.Server, since int64) *eventStream {
 				es.lk.Unlock()
 				return nil
 			},
-		}); err != nil {
+		}
+		if err := events.HandleRepoStream(ctx, con, &events.SequentialScheduler{rsc.EventHandler}); err != nil {
 			fmt.Println(err)
 		}
 	}()

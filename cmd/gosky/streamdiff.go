@@ -40,7 +40,7 @@ var streamCompareCmd = &cli.Command{
 		defer cancel()
 
 		go func() {
-			err = events.HandleRepoStream(ctx, cona, &events.RepoStreamCallbacks{
+			rsc := &events.RepoStreamCallbacks{
 				RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 					sd.PushA(&events.XRPCStreamEvent{
 						RepoCommit: evt,
@@ -54,14 +54,15 @@ var streamCompareCmd = &cli.Command{
 				Error: func(evt *events.ErrorFrame) error {
 					return fmt.Errorf("%s: %s", evt.Error, evt.Message)
 				},
-			})
+			}
+			err = events.HandleRepoStream(ctx, cona, &events.SequentialScheduler{rsc.EventHandler})
 			if err != nil {
 				log.Errorf("stream A failed: %s", err)
 			}
 		}()
 
 		go func() {
-			err = events.HandleRepoStream(ctx, conb, &events.RepoStreamCallbacks{
+			rsc := &events.RepoStreamCallbacks{
 				RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 					sd.PushB(&events.XRPCStreamEvent{
 						RepoCommit: evt,
@@ -75,7 +76,8 @@ var streamCompareCmd = &cli.Command{
 				Error: func(evt *events.ErrorFrame) error {
 					return fmt.Errorf("%s: %s", evt.Error, evt.Message)
 				},
-			})
+			}
+			err = events.HandleRepoStream(ctx, conb, &events.SequentialScheduler{rsc.EventHandler})
 			if err != nil {
 				log.Errorf("stream A failed: %s", err)
 			}

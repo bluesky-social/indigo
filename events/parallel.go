@@ -5,11 +5,23 @@ import (
 	"sync"
 )
 
-type ConsumerPool struct {
+type Scheduler interface {
+	AddWork(ctx context.Context, repo string, val *XRPCStreamEvent) error
+}
+
+type SequentialScheduler struct {
+	Do func(context.Context, *XRPCStreamEvent) error
+}
+
+func (s *SequentialScheduler) AddWork(ctx context.Context, repo string, val *XRPCStreamEvent) error {
+	return s.Do(ctx, val)
+}
+
+type ParallelConsumerPool struct {
 	maxConcurrency int
 	maxQueue       int
 
-	do func(*XRPCStreamEvent)
+	do func(context.Context, *XRPCStreamEvent) error
 
 	feeder chan *consumerTask
 
@@ -17,8 +29,8 @@ type ConsumerPool struct {
 	active map[string][]*consumerTask
 }
 
-func NewConsumerPool(maxC, maxQ int, do func(*XRPCStreamEvent)) *ConsumerPool {
-	p := &ConsumerPool{
+func NewConsumerPool(maxC, maxQ int, do func(context.Context, *XRPCStreamEvent) error) *ParallelConsumerPool {
+	p := &ParallelConsumerPool{
 		maxConcurrency: maxC,
 		maxQueue:       maxQ,
 
@@ -40,7 +52,7 @@ type consumerTask struct {
 	val  *XRPCStreamEvent
 }
 
-func (p *ConsumerPool) Add(ctx context.Context, repo string, val *XRPCStreamEvent) error {
+func (p *ParallelConsumerPool) AddWork(ctx context.Context, repo string, val *XRPCStreamEvent) error {
 	t := &consumerTask{
 		repo: repo,
 		val:  val,
@@ -65,10 +77,12 @@ func (p *ConsumerPool) Add(ctx context.Context, repo string, val *XRPCStreamEven
 	}
 }
 
-func (p *ConsumerPool) worker() {
+func (p *ParallelConsumerPool) worker() {
 	for work := range p.feeder {
 		for work != nil {
-			p.do(work.val)
+			if err := p.do(context.TODO(), work.val); err != nil {
+				log.Errorf("event handler failed: %s", err)
+			}
 
 			p.lk.Lock()
 			rem, ok := p.active[work.repo]
