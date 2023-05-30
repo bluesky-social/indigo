@@ -9,11 +9,17 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/api/bsky"
+	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
@@ -27,6 +33,7 @@ var debugCmd = &cli.Command{
 	Subcommands: []*cli.Command{
 		inspectEventCmd,
 		debugStreamCmd,
+		debugFeedGenCmd,
 	},
 }
 
@@ -145,7 +152,7 @@ type eventInfo struct {
 	LastSeq int64
 }
 
-func cidStr(c *util.LexLink) string {
+func cidStr(c *lexutil.LexLink) string {
 	if c == nil {
 		return "<nil>"
 	}
@@ -240,6 +247,105 @@ var debugStreamCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
+
+		return nil
+	},
+}
+
+var debugFeedGenCmd = &cli.Command{
+	Name: "debug-feed",
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		didr := cliutil.GetDidResolver(cctx)
+
+		uri := cctx.Args().First()
+		puri, err := util.ParseAtUri(uri)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.TODO()
+
+		out, err := atproto.RepoGetRecord(ctx, xrpcc, "", puri.Collection, puri.Did, puri.Rkey)
+		if err != nil {
+			return fmt.Errorf("getting record: %w", err)
+		}
+
+		fgr, ok := out.Value.Val.(*bsky.FeedGenerator)
+		if !ok {
+			return fmt.Errorf("invalid feedgen record")
+		}
+
+		fmt.Println("Feed DID is: ", fgr.Did)
+		doc, err := didr.GetDocument(ctx, fgr.Did)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("Got service did document:")
+		b, err := json.MarshalIndent(doc, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(b))
+
+		var ss *did.Service
+		for _, s := range doc.Service {
+			if s.ID.String() == "#bsky_fg" {
+				cp := s
+				ss = &cp
+				break
+			}
+		}
+
+		if ss == nil {
+			return fmt.Errorf("No '#bsky_fg' service entry found in feedgens DID document")
+		}
+
+		fmt.Println("Service endpoint is: ", ss.ServiceEndpoint)
+
+		fgclient := &xrpc.Client{
+			Host: ss.ServiceEndpoint,
+		}
+
+		desc, err := bsky.FeedDescribeFeedGenerator(ctx, fgclient)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Found %d feeds at discovered endpoint\n", len(desc.Feeds))
+		var found bool
+		for _, f := range desc.Feeds {
+			fmt.Println("Feed: ", f.Uri)
+			if f.Uri == uri {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return fmt.Errorf("specified feed was not present in linked feedGenerators 'describe' method output")
+		}
+
+		skel, err := bsky.FeedGetFeedSkeleton(ctx, fgclient, "", uri, 30)
+		if err != nil {
+			return fmt.Errorf("failed to fetch feed skeleton: %w", err)
+		}
+
+		if len(skel.Feed) > 30 {
+			return fmt.Errorf("feedgen not respecting limit param (returned %d posts)", len(skel.Feed))
+		}
+
+		if len(skel.Feed) == 0 {
+			return fmt.Errorf("feedgen response is empty (might be expected since we aren't authed)")
+
+		}
+
+		fmt.Println("Feed response looks good!")
 
 		return nil
 	},
