@@ -3,6 +3,7 @@ package search
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -30,19 +31,22 @@ func (s *Server) handleSearchRequestPosts(e echo.Context) error {
 	ctx, span := otel.Tracer("search").Start(e.Request().Context(), "handleSearchRequestPosts")
 	defer span.End()
 
-	q := strings.TrimSpace(e.QueryParam("q"))
-	if q == "" {
-		return e.JSON(400, map[string]any{
+	// Set a limit on the number of posts that can be returned.
+	maxCount := 100
+
+	query := strings.TrimSpace(e.QueryParam("q"))
+	if query == "" {
+		return e.JSON(http.StatusBadRequest, map[string]any{
 			"error": "must pass non-empty search query",
 		})
 	}
 
 	offset := 0
-	if q := strings.TrimSpace(e.QueryParam("offset")); q != "" {
-		v, err := strconv.Atoi(q)
+	if offsetFromQuery := strings.TrimSpace(e.QueryParam("offset")); offsetFromQuery != "" {
+		v, err := strconv.Atoi(offsetFromQuery)
 		if err != nil {
 			return &echo.HTTPError{
-				Code:    400,
+				Code:    http.StatusBadRequest,
 				Message: fmt.Sprintf("invalid value for 'offset': %s", err),
 			}
 		}
@@ -51,24 +55,28 @@ func (s *Server) handleSearchRequestPosts(e echo.Context) error {
 	}
 
 	count := 30
-	if q := strings.TrimSpace(e.QueryParam("count")); q != "" {
-		v, err := strconv.Atoi(q)
+	if countFromQuery := strings.TrimSpace(e.QueryParam("count")); countFromQuery != "" {
+		v, err := strconv.Atoi(countFromQuery)
 		if err != nil {
 			return &echo.HTTPError{
-				Code:    400,
+				Code:    http.StatusBadRequest,
 				Message: fmt.Sprintf("invalid value for 'count': %s", err),
 			}
+		}
+
+		if v > maxCount {
+			v = maxCount
 		}
 
 		count = v
 	}
 
-	out, err := s.SearchPosts(ctx, q, offset, count)
+	out, err := s.SearchPosts(ctx, query, offset, count)
 	if err != nil {
 		return err
 	}
 
-	return e.JSON(200, out)
+	return e.JSON(http.StatusOK, out)
 }
 
 func (s *Server) handleSearchRequestProfiles(e echo.Context) error {
@@ -77,7 +85,7 @@ func (s *Server) handleSearchRequestProfiles(e echo.Context) error {
 
 	q := strings.TrimSpace(e.QueryParam("q"))
 	if q == "" {
-		return e.JSON(400, map[string]any{
+		return e.JSON(http.StatusBadRequest, map[string]any{
 			"error": "must pass non-empty search query",
 		})
 	}
@@ -87,5 +95,5 @@ func (s *Server) handleSearchRequestProfiles(e echo.Context) error {
 		return err
 	}
 
-	return e.JSON(200, out)
+	return e.JSON(http.StatusOK, out)
 }
