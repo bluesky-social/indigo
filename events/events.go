@@ -26,10 +26,14 @@ type EventManager struct {
 }
 
 func NewEventManager(persister EventPersistence) *EventManager {
-	return &EventManager{
+	em := &EventManager{
 		bufferSize: 1024,
 		persister:  persister,
 	}
+
+	persister.SetEventBroadcaster(em.broadcastEvent)
+
+	return em
 }
 
 const (
@@ -45,7 +49,8 @@ type Operation struct {
 }
 
 func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
-	// NOTE: Assumes subsLk is held
+	em.subsLk.Lock()
+	defer em.subsLk.Unlock()
 
 	// TODO: for a larger fanout we should probably have dedicated goroutines
 	// for subsets of the subscriber set, and tiered channels to distribute
@@ -68,14 +73,9 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 }
 
 func (em *EventManager) persistAndSendEvent(ctx context.Context, evt *XRPCStreamEvent) {
-	em.subsLk.Lock()
-	defer em.subsLk.Unlock()
-
 	if err := em.persister.Persist(context.TODO(), evt); err != nil {
 		log.Errorf("failed to persist outbound event: %s", err)
 	}
-
-	em.broadcastEvent(evt)
 }
 
 type Subscriber struct {
