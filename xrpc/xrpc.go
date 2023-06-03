@@ -21,6 +21,7 @@ type Client struct {
 	AdminToken *string
 	Host       string
 	UserAgent  *string
+	Headers    map[string]string
 }
 
 func (c *Client) getClient() *http.Client {
@@ -104,6 +105,12 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 		req.Header.Set("User-Agent", "indigo/"+version.Version)
 	}
 
+	if c.Headers != nil {
+		for k, v := range c.Headers {
+			req.Header.Set(k, v)
+		}
+	}
+
 	// use admin auth if we have it configured and are doing a request that requires it
 	if c.AdminToken != nil && (strings.HasPrefix(method, "com.atproto.admin.") || method == "com.atproto.account.createInviteCode" || method == "com.atproto.server.createInviteCodes") {
 		req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("admin:"+*c.AdminToken)))
@@ -121,7 +128,7 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 	if resp.StatusCode != 200 {
 		var i interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&i)
-		//fmt.Println(i)
+		fmt.Println(i)
 		return fmt.Errorf("XRPC ERROR %d: %s", resp.StatusCode, resp.Status)
 	}
 
