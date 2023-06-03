@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -21,6 +22,10 @@ type DbPersistence struct {
 	db *gorm.DB
 
 	cs *carstore.CarStore
+
+	lk sync.Mutex
+
+	broadcast func(*XRPCStreamEvent)
 }
 
 type RepoEventRecord struct {
@@ -46,6 +51,10 @@ func NewDbPersistence(db *gorm.DB, cs *carstore.CarStore) (*DbPersistence, error
 		db: db,
 		cs: cs,
 	}, nil
+}
+
+func (p *DbPersistence) SetEventBroadcaster(brc func(*XRPCStreamEvent)) {
+	p.broadcast = brc
 }
 
 func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
@@ -101,11 +110,15 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	}
 	rer.Ops = opsb
 
+	p.lk.Lock()
+	defer p.lk.Unlock()
 	if err := p.db.Create(&rer).Error; err != nil {
 		return err
 	}
 
 	e.RepoCommit.Seq = int64(rer.Seq)
+
+	p.broadcast(e)
 
 	return nil
 }
