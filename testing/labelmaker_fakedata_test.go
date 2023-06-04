@@ -69,7 +69,7 @@ func testLabelMaker(t *testing.T) *labeler.Server {
 	return lm
 }
 
-func labelEvents(t *testing.T, lm *labeler.Server, since int64) *eventStream {
+func labelEvents(t *testing.T, lm *labeler.Server, since int64) *EventStream {
 	d := websocket.Dialer{}
 	h := http.Header{}
 	bgsHost := "localhost:1234"
@@ -90,8 +90,8 @@ func labelEvents(t *testing.T, lm *labeler.Server, since int64) *eventStream {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	es := &eventStream{
-		cancel: cancel,
+	es := &EventStream{
+		Cancel: cancel,
 	}
 
 	go func() {
@@ -103,9 +103,9 @@ func labelEvents(t *testing.T, lm *labeler.Server, since int64) *eventStream {
 		rsc := &events.RepoStreamCallbacks{
 			LabelLabels: func(evt *label.SubscribeLabels_Labels) error {
 				fmt.Println("received event: ", evt.Seq)
-				es.lk.Lock()
-				es.events = append(es.events, &events.XRPCStreamEvent{LabelLabels: evt})
-				es.lk.Unlock()
+				es.Lk.Lock()
+				es.Events = append(es.Events, &events.XRPCStreamEvent{LabelLabels: evt})
+				es.Lk.Unlock()
 				return nil
 			},
 		}
@@ -128,11 +128,11 @@ func TestLabelmakerBasic(t *testing.T) {
 	assert := assert.New(t)
 	_ = assert
 	ctx := context.TODO()
-	didr := testPLC(t)
-	p1 := mustSetupPDS(t, "localhost:5115", ".tpds", didr)
+	didr := TestPLC(t)
+	p1 := MustSetupPDS(t, "localhost:5115", ".tpds", didr)
 	p1.Run(t)
 
-	b1 := mustSetupBGS(t, "localhost:8322", didr)
+	b1 := MustSetupBGS(t, "localhost:8322", didr)
 	b1.Run(t)
 
 	p1.RequestScraping(t, b1)
@@ -145,7 +145,7 @@ func TestLabelmakerBasic(t *testing.T) {
 	time.Sleep(time.Millisecond * 50)
 
 	evts := b1.Events(t, -1)
-	defer evts.cancel()
+	defer evts.Cancel()
 
 	bob := p1.MustNewUser(t, "bob.tpds")
 	alice := p1.MustNewUser(t, "alice.tpds")
