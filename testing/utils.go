@@ -77,9 +77,14 @@ func SetupPDS(host, suffix string, plc plc.PLCClient) (*TestPDS, error) {
 		return nil, err
 	}
 
-	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.sqlite")))
+	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.sqlite?cache=shared&mode=rwc")))
 	if err != nil {
 		return nil, err
+	}
+
+	tx := maindb.Exec("PRAGMA journal_mode=WAL;")
+	if tx.Error != nil {
+		return nil, tx.Error
 	}
 
 	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.sqlite")))
