@@ -187,12 +187,12 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	var err error
 
 	if e.RepoCommit != nil {
-		rer, err = p.RepoCommitToRecord(ctx, e.RepoCommit)
+		rer, err = p.RecordFromRepoCommit(ctx, e.RepoCommit)
 		if err != nil {
 			return err
 		}
 	} else if e.RepoHandle != nil {
-		rer, err = p.HandleChangeToRecord(ctx, e.RepoHandle)
+		rer, err = p.RecordFromHandleChange(ctx, e.RepoHandle)
 		if err != nil {
 			return err
 		}
@@ -207,7 +207,7 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	return nil
 }
 
-func (p *DbPersistence) HandleChangeToRecord(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Handle) (*RepoEventRecord, error) {
+func (p *DbPersistence) RecordFromHandleChange(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Handle) (*RepoEventRecord, error) {
 	t, err := time.Parse(util.ISO8601, evt.Time)
 	if err != nil {
 		return nil, err
@@ -226,7 +226,7 @@ func (p *DbPersistence) HandleChangeToRecord(ctx context.Context, evt *comatprot
 	}, nil
 }
 
-func (p *DbPersistence) RepoCommitToRecord(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) (*RepoEventRecord, error) {
+func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) (*RepoEventRecord, error) {
 	// TODO: hack hack hack
 	if len(evt.Ops) > 8192 {
 		log.Errorf("(VERY BAD) truncating ops field in outgoing event (len = %d)", len(evt.Ops))
@@ -276,41 +276,100 @@ func (p *DbPersistence) RepoCommitToRecord(ctx context.Context, evt *comatproto.
 	return &rer, nil
 }
 
+const playbackBatchSize = 100
+
+type RecordOrError struct {
+	Record *RepoEventRecord
+	Err    error
+}
+
+type EventOrError struct {
+	Event *XRPCStreamEvent
+	Err   error
+}
+
 func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
-	rows, err := p.db.Model(RepoEventRecord{}).Where("seq > ?", since).Order("seq asc").Rows()
+	rows, err := p.db.Model(&RepoEventRecord{}).Where("seq > ?", since).Order("seq asc").Rows()
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
 
-	for rows.Next() {
-		var evt RepoEventRecord
-		if err := p.db.ScanRows(rows, &evt); err != nil {
-			return err
-		}
+	ctx, cancel := context.WithCancel(ctx)
 
-		var streamEvent *XRPCStreamEvent
-		switch {
-		case evt.Commit != nil:
-			streamEvent, err = p.hydrateCommit(ctx, &evt)
-			if err != nil {
-				return fmt.Errorf("failed to hydrate commit: %w", err)
-			}
-		case evt.NewHandle != nil:
-			streamEvent, err = p.hydrateHandleChange(ctx, &evt)
-			if err != nil {
-				return fmt.Errorf("failed to hydrate handle change: %w", err)
-			}
-		default:
-			return fmt.Errorf("unknown event type: %s", evt.Type)
-		}
+	recordsIn := make(chan *RecordOrError, playbackBatchSize)
+	hydratedEventsOut := make(chan *EventOrError, playbackBatchSize)
 
-		if err := cb(streamEvent); err != nil {
+	// Start the hydration worker
+	go p.processBatch(ctx, recordsIn, hydratedEventsOut)
+
+	// Read the rows and send them to the input channel.
+	go func(ctx context.Context) {
+		defer close(recordsIn)
+		for rows.Next() {
+			var evt RepoEventRecord
+			if err := p.db.ScanRows(rows, &evt); err != nil {
+				// Handle error
+				select {
+				case <-ctx.Done():
+					return
+				case recordsIn <- &RecordOrError{Err: err}:
+				}
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case recordsIn <- &RecordOrError{Record: &evt}:
+			}
+		}
+	}(ctx)
+
+	for evtOrErr := range hydratedEventsOut {
+		evt := evtOrErr.Event
+		if err := cb(evt); err != nil {
+			cancel()
 			return err
 		}
 	}
 
+	cancel()
+
 	return nil
+}
+
+func (p *DbPersistence) processBatch(ctx context.Context, in <-chan *RecordOrError, out chan<- *EventOrError) {
+	defer close(out)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case recordOrError, ok := <-in:
+			if !ok {
+				return
+			}
+
+			if recordOrError.Err != nil {
+				out <- &EventOrError{nil, recordOrError.Err}
+				return
+			}
+			evt := recordOrError.Record
+			var streamEvent *XRPCStreamEvent
+			var err error
+			switch {
+			case evt.Commit != nil:
+				streamEvent, err = p.hydrateCommit(ctx, evt)
+			case evt.NewHandle != nil:
+				streamEvent, err = p.hydrateHandleChange(ctx, evt)
+			default:
+				err = fmt.Errorf("unknown event type: %s", evt.Type)
+			}
+			if err != nil {
+				fmt.Println("Error processing event:", err) // Or handle the error in a way that is suitable for your use case
+				continue
+			}
+			out <- &EventOrError{streamEvent, nil}
+		}
+	}
 }
 
 func (p *DbPersistence) uidForDid(ctx context.Context, did string) (util.Uid, error) {
