@@ -13,6 +13,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/util"
+	lru "github.com/hashicorp/golang-lru"
 
 	cid "github.com/ipfs/go-cid"
 	"gorm.io/gorm"
@@ -23,17 +24,21 @@ type PersistenceBatchItem struct {
 	Event  *XRPCStreamEvent
 }
 
-type BatchOptions struct {
+type Options struct {
 	MaxBatchSize        int
 	MinBatchSize        int
 	MaxTimeBetweenFlush time.Duration
+	UIDCacheSize        int
+	DIDCacheSize        int
 }
 
-func DefaultBatchOptions() *BatchOptions {
-	return &BatchOptions{
+func DefaultOptions() *Options {
+	return &Options{
 		MaxBatchSize:        200,
 		MinBatchSize:        10,
 		MaxTimeBetweenFlush: 500 * time.Millisecond,
+		UIDCacheSize:        10000,
+		DIDCacheSize:        10000,
 	}
 }
 
@@ -47,38 +52,54 @@ type DbPersistence struct {
 	broadcast func(*XRPCStreamEvent)
 
 	batch        []*PersistenceBatchItem
-	batchOptions BatchOptions
+	batchOptions Options
 	lastFlush    time.Time
+
+	uidCache *lru.ARCCache
+	didCache *lru.ARCCache
 }
 
 type RepoEventRecord struct {
-	Seq    uint `gorm:"primarykey"`
-	Commit util.DbCID
-	Prev   *util.DbCID
+	Seq       uint `gorm:"primarykey"`
+	Commit    *util.DbCID
+	Prev      *util.DbCID
+	NewHandle *string // NewHandle is only set if this is a handle change event
 
 	Time   time.Time
 	Blobs  []byte
 	Repo   util.Uid
-	Event  string
+	Type   string
 	Rebase bool
 
 	Ops []byte
 }
 
-func NewDbPersistence(db *gorm.DB, cs *carstore.CarStore, batchOptions *BatchOptions) (*DbPersistence, error) {
+func NewDbPersistence(db *gorm.DB, cs *carstore.CarStore, options *Options) (*DbPersistence, error) {
 	if err := db.AutoMigrate(&RepoEventRecord{}); err != nil {
 		return nil, err
 	}
 
-	if batchOptions == nil {
-		batchOptions = DefaultBatchOptions()
+	if options == nil {
+		options = DefaultOptions()
+	}
+
+	uidCache, err := lru.NewARC(options.UIDCacheSize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create uid cache: %w", err)
+	}
+
+	didCache, err := lru.NewARC(options.DIDCacheSize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create did cache: %w", err)
 	}
 
 	p := DbPersistence{
 		db:           db,
 		cs:           cs,
-		batchOptions: *batchOptions,
+		batchOptions: *options,
 		batch:        []*PersistenceBatchItem{},
+		uidCache:     uidCache,
+		didCache:     didCache,
 	}
 
 	go func() {
@@ -120,7 +141,14 @@ func (p *DbPersistence) FlushBatch(ctx context.Context) error {
 
 	for i, item := range records {
 		e := p.batch[i].Event
-		e.RepoCommit.Seq = int64(item.Seq)
+		switch {
+		case e.RepoCommit != nil:
+			e.RepoCommit.Seq = int64(item.Seq)
+		case e.RepoHandle != nil:
+			e.RepoHandle.Seq = int64(item.Seq)
+		default:
+			return fmt.Errorf("unknown event type")
+		}
 		p.broadcast(e)
 	}
 
@@ -155,12 +183,50 @@ func (p *DbPersistence) AddItemToBatch(ctx context.Context, rec *RepoEventRecord
 }
 
 func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
-	if e.RepoCommit == nil {
+	var rer *RepoEventRecord
+	var err error
+
+	if e.RepoCommit != nil {
+		rer, err = p.RepoCommitToRecord(ctx, e.RepoCommit)
+		if err != nil {
+			return err
+		}
+	} else if e.RepoHandle != nil {
+		rer, err = p.HandleChangeToRecord(ctx, e.RepoHandle)
+		if err != nil {
+			return err
+		}
+	} else {
 		return nil
 	}
 
-	evt := e.RepoCommit
+	if err := p.AddItemToBatch(ctx, rer, e); err != nil {
+		return err
+	}
 
+	return nil
+}
+
+func (p *DbPersistence) HandleChangeToRecord(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Handle) (*RepoEventRecord, error) {
+	t, err := time.Parse(util.ISO8601, evt.Time)
+	if err != nil {
+		return nil, err
+	}
+
+	uid, err := p.uidForDid(ctx, evt.Did)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RepoEventRecord{
+		Repo:      uid,
+		Type:      "repo_handle",
+		Time:      t,
+		NewHandle: &evt.Handle,
+	}, nil
+}
+
+func (p *DbPersistence) RepoCommitToRecord(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) (*RepoEventRecord, error) {
 	// TODO: hack hack hack
 	if len(evt.Ops) > 8192 {
 		log.Errorf("(VERY BAD) truncating ops field in outgoing event (len = %d)", len(evt.Ops))
@@ -169,7 +235,7 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 
 	uid, err := p.uidForDid(ctx, evt.Repo)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var prev *util.DbCID
@@ -181,21 +247,21 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	if len(evt.Blobs) > 0 {
 		b, err := json.Marshal(evt.Blobs)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		blobs = b
 	}
 
 	t, err := time.Parse(util.ISO8601, evt.Time)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	rer := RepoEventRecord{
-		Commit: util.DbCID{cid.Cid(evt.Commit)},
+		Commit: &util.DbCID{cid.Cid(evt.Commit)},
 		Prev:   prev,
 		Repo:   uid,
-		Event:  "repo_append", // TODO: refactor to "#commit"? can "rebase" come through this path?
+		Type:   "repo_append", // TODO: refactor to "#commit"? can "rebase" come through this path?
 		Blobs:  blobs,
 		Time:   t,
 		Rebase: evt.Rebase,
@@ -203,15 +269,11 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 
 	opsb, err := json.Marshal(evt.Ops)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	rer.Ops = opsb
 
-	if err := p.AddItemToBatch(ctx, &rer, e); err != nil {
-		return err
-	}
-
-	return nil
+	return &rer, nil
 }
 
 func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
@@ -227,12 +289,23 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPC
 			return err
 		}
 
-		ra, err := p.hydrateRepoEvent(ctx, &evt)
-		if err != nil {
-			return fmt.Errorf("hydrating event: %w", err)
+		var streamEvent *XRPCStreamEvent
+		switch {
+		case evt.Commit != nil:
+			streamEvent, err = p.hydrateCommit(ctx, &evt)
+			if err != nil {
+				return fmt.Errorf("failed to hydrate commit: %w", err)
+			}
+		case evt.NewHandle != nil:
+			streamEvent, err = p.hydrateHandleChange(ctx, &evt)
+			if err != nil {
+				return fmt.Errorf("failed to hydrate handle change: %w", err)
+			}
+		default:
+			return fmt.Errorf("unknown event type: %s", evt.Type)
 		}
 
-		if err := cb(&XRPCStreamEvent{RepoCommit: ra}); err != nil {
+		if err := cb(streamEvent); err != nil {
 			return err
 		}
 	}
@@ -241,24 +314,51 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPC
 }
 
 func (p *DbPersistence) uidForDid(ctx context.Context, did string) (util.Uid, error) {
+	if uid, ok := p.didCache.Get(did); ok {
+		return uid.(util.Uid), nil
+	}
+
 	var u models.ActorInfo
 	if err := p.db.First(&u, "did = ?", did).Error; err != nil {
 		return 0, err
 	}
 
+	p.didCache.Add(did, u.Uid)
+
 	return u.Uid, nil
 }
 
 func (p *DbPersistence) didForUid(ctx context.Context, uid util.Uid) (string, error) {
+	if did, ok := p.uidCache.Get(uid); ok {
+		return did.(string), nil
+	}
+
 	var u models.ActorInfo
 	if err := p.db.First(&u, "uid = ?", uid).Error; err != nil {
 		return "", err
 	}
 
+	p.uidCache.Add(uid, u.Did)
+
 	return u.Did, nil
 }
 
-func (p *DbPersistence) hydrateRepoEvent(ctx context.Context, rer *RepoEventRecord) (*comatproto.SyncSubscribeRepos_Commit, error) {
+func (p *DbPersistence) hydrateHandleChange(ctx context.Context, rer *RepoEventRecord) (*XRPCStreamEvent, error) {
+	did, err := p.didForUid(ctx, rer.Repo)
+	if err != nil {
+		return nil, err
+	}
+
+	return &XRPCStreamEvent{
+		RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
+			Did:    did,
+			Handle: *rer.NewHandle,
+			Time:   rer.Time.Format(util.ISO8601),
+		},
+	}, nil
+}
+
+func (p *DbPersistence) hydrateCommit(ctx context.Context, rer *RepoEventRecord) (*XRPCStreamEvent, error) {
 	var blobs []string
 	if len(rer.Blobs) > 0 {
 		if err := json.Unmarshal(rer.Blobs, &blobs); err != nil {
@@ -299,7 +399,6 @@ func (p *DbPersistence) hydrateRepoEvent(ctx context.Context, rer *RepoEventReco
 		Blobs:  blobCIDs,
 		Rebase: rer.Rebase,
 		Ops:    ops,
-		// TODO: there was previously an Event field here. are these all Commit, or are some other events?
 	}
 
 	cs, err := p.readCarSlice(ctx, rer)
@@ -313,7 +412,7 @@ func (p *DbPersistence) hydrateRepoEvent(ctx context.Context, rer *RepoEventReco
 		out.Blocks = cs
 	}
 
-	return out, nil
+	return &XRPCStreamEvent{RepoCommit: out}, nil
 }
 
 func (p *DbPersistence) readCarSlice(ctx context.Context, rer *RepoEventRecord) ([]byte, error) {
