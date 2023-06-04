@@ -28,6 +28,7 @@ type Options struct {
 	MaxBatchSize        int
 	MinBatchSize        int
 	MaxTimeBetweenFlush time.Duration
+	CheckBatchInterval  time.Duration
 	UIDCacheSize        int
 	DIDCacheSize        int
 }
@@ -37,6 +38,7 @@ func DefaultOptions() *Options {
 		MaxBatchSize:        200,
 		MinBatchSize:        10,
 		MaxTimeBetweenFlush: 500 * time.Millisecond,
+		CheckBatchInterval:  100 * time.Millisecond,
 		UIDCacheSize:        10000,
 		DIDCacheSize:        10000,
 	}
@@ -104,7 +106,7 @@ func NewDbPersistence(db *gorm.DB, cs *carstore.CarStore, options *Options) (*Db
 
 	go func() {
 		for {
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(p.batchOptions.CheckBatchInterval)
 			p.lk.Lock()
 			if len(p.batch) > 0 &&
 				(len(p.batch) >= p.batchOptions.MinBatchSize ||
@@ -160,10 +162,6 @@ func (p *DbPersistence) FlushBatch(ctx context.Context) error {
 
 func (p *DbPersistence) AddItemToBatch(ctx context.Context, rec *RepoEventRecord, evt *XRPCStreamEvent) error {
 	p.lk.Lock()
-	if p.batch == nil {
-		p.batch = []*PersistenceBatchItem{}
-	}
-
 	if len(p.batch) >= p.batchOptions.MaxBatchSize {
 		p.lk.Unlock()
 		if err := p.FlushBatch(ctx); err != nil {
@@ -186,17 +184,18 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	var rer *RepoEventRecord
 	var err error
 
-	if e.RepoCommit != nil {
+	switch {
+	case e.RepoCommit != nil:
 		rer, err = p.RepoCommitToRecord(ctx, e.RepoCommit)
 		if err != nil {
 			return err
 		}
-	} else if e.RepoHandle != nil {
+	case e.RepoHandle != nil:
 		rer, err = p.HandleChangeToRecord(ctx, e.RepoHandle)
 		if err != nil {
 			return err
 		}
-	} else {
+	default:
 		return nil
 	}
 
@@ -344,6 +343,10 @@ func (p *DbPersistence) didForUid(ctx context.Context, uid util.Uid) (string, er
 }
 
 func (p *DbPersistence) hydrateHandleChange(ctx context.Context, rer *RepoEventRecord) (*XRPCStreamEvent, error) {
+	if rer.NewHandle == nil {
+		return nil, fmt.Errorf("NewHandle is nil")
+	}
+
 	did, err := p.didForUid(ctx, rer.Repo)
 	if err != nil {
 		return nil, err
@@ -359,6 +362,10 @@ func (p *DbPersistence) hydrateHandleChange(ctx context.Context, rer *RepoEventR
 }
 
 func (p *DbPersistence) hydrateCommit(ctx context.Context, rer *RepoEventRecord) (*XRPCStreamEvent, error) {
+	if rer.Commit == nil {
+		return nil, fmt.Errorf("Commit is nil")
+	}
+
 	var blobs []string
 	if len(rer.Blobs) > 0 {
 		if err := json.Unmarshal(rer.Blobs, &blobs); err != nil {
