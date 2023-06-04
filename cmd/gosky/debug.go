@@ -344,10 +344,43 @@ var debugFeedGenCmd = &cli.Command{
 
 		if len(skel.Feed) == 0 {
 			return fmt.Errorf("feedgen response is empty (might be expected since we aren't authed)")
-
 		}
 
 		fmt.Println("Feed response looks good!")
+
+		seen := make(map[string]bool)
+		for _, p := range skel.Feed {
+			seen[p.Post] = true
+		}
+
+		curs := skel.Cursor
+		for i := 0; i < 10 && curs != nil; i++ {
+			fmt.Println("Response had cursor: ", *curs)
+			nresp, err := bsky.FeedGetFeedSkeleton(ctx, fgclient, *curs, uri, 10)
+			if err != nil {
+				return fmt.Errorf("fetching paginated feed failed: %w", err)
+			}
+
+			fmt.Printf("Got %d posts from cursored query\n", len(nresp.Feed))
+
+			if len(nresp.Feed) > 10 {
+				return fmt.Errorf("got more posts than we requested")
+			}
+
+			for _, p := range nresp.Feed {
+				if seen[p.Post] {
+					return fmt.Errorf("duplicate post in response: %s", p.Post)
+				}
+
+				seen[p.Post] = true
+			}
+
+			if len(nresp.Feed) == 0 || nresp.Cursor == nil {
+				break
+			}
+
+			curs = nresp.Cursor
+		}
 
 		return nil
 	},
