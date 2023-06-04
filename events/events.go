@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
@@ -16,10 +17,9 @@ import (
 var log = logging.Logger("events")
 
 type EventManager struct {
-	subs []*Subscriber
+	subs   []*Subscriber
+	subsLk sync.Mutex
 
-	ops        chan *Operation
-	closed     chan struct{}
 	bufferSize int
 
 	persister EventPersistence
@@ -27,8 +27,6 @@ type EventManager struct {
 
 func NewEventManager(persister EventPersistence) *EventManager {
 	return &EventManager{
-		ops:        make(chan *Operation),
-		closed:     make(chan struct{}),
 		bufferSize: 1024,
 		persister:  persister,
 	}
@@ -46,47 +44,38 @@ type Operation struct {
 	evt *XRPCStreamEvent
 }
 
-func (em *EventManager) Run() {
-	for op := range em.ops {
-		switch op.op {
-		case opSubscribe:
-			em.subs = append(em.subs, op.sub)
-		case opUnsubscribe:
-			for i, s := range em.subs {
-				if s == op.sub {
-					em.subs[i] = em.subs[len(em.subs)-1]
-					em.subs = em.subs[:len(em.subs)-1]
-					break
-				}
-			}
-		case opSend:
-			if err := em.persister.Persist(context.TODO(), op.evt); err != nil {
-				log.Errorf("failed to persist outbound event: %s", err)
-			}
+func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
+	// NOTE: Assumes subsLk is held
 
-			for _, s := range em.subs {
-				if s.filter(op.evt) {
-					select {
-					case s.outgoing <- op.evt:
-					case <-s.done:
-						go func(torem *Subscriber) {
-							select {
-							case em.ops <- &Operation{
-								op:  opUnsubscribe,
-								sub: torem,
-							}:
-							case <-em.closed:
-							}
-						}(s)
-					default:
-						log.Warnf("event overflow (%d)", len(s.outgoing))
-					}
-				}
+	// TODO: for a larger fanout we should probably have dedicated goroutines
+	// for subsets of the subscriber set, and tiered channels to distribute
+	// events out to them, or some similar architecture
+	// Alternatively, we might just want to not allow too many subscribers
+	// directly to the bgs, and have rebroadcasting proxies instead
+	for _, s := range em.subs {
+		if s.filter(evt) {
+			select {
+			case s.outgoing <- evt:
+			case <-s.done:
+				go func(torem *Subscriber) {
+					em.rmSubscriber(torem)
+				}(s)
+			default:
+				log.Warnf("event overflow (%d)", len(s.outgoing))
 			}
-		default:
-			log.Errorf("unrecognized eventmgr operation: %d", op.op)
 		}
 	}
+}
+
+func (em *EventManager) persistAndSendEvent(ctx context.Context, evt *XRPCStreamEvent) {
+	em.subsLk.Lock()
+	defer em.subsLk.Unlock()
+
+	if err := em.persister.Persist(context.TODO(), evt); err != nil {
+		log.Errorf("failed to persist outbound event: %s", err)
+	}
+
+	em.broadcastEvent(evt)
 }
 
 type Subscriber struct {
@@ -132,27 +121,8 @@ func (em *EventManager) AddEvent(ctx context.Context, ev *XRPCStreamEvent) error
 	ctx, span := otel.Tracer("events").Start(ctx, "AddEvent")
 	defer span.End()
 
-	select {
-	case em.ops <- &Operation{
-		op:  opSend,
-		evt: ev,
-	}:
-		return nil
-	case <-em.closed:
-		return fmt.Errorf("event manager shut down")
-	}
-}
-
-func (em *EventManager) AddLabelEvent(ev *XRPCStreamEvent) error {
-	select {
-	case em.ops <- &Operation{
-		op:  opSend,
-		evt: ev,
-	}:
-		return nil
-	case <-em.closed:
-		return fmt.Errorf("event manager shut down")
-	}
+	em.persistAndSendEvent(ctx, ev)
+	return nil
 }
 
 var ErrPlaybackShutdown = fmt.Errorf("playback shutting down")
@@ -194,28 +164,35 @@ func (em *EventManager) Subscribe(ctx context.Context, filter func(*XRPCStreamEv
 		default:
 		}
 
-		select {
-		case em.ops <- &Operation{
-			op:  opSubscribe,
-			sub: sub,
-		}:
-		case <-em.closed:
-			log.Errorf("failed to subscribe, event manager shut down")
-		}
+		em.addSubscriber(sub)
 	}()
 
 	cleanup := func() {
 		close(done)
-		select {
-		case em.ops <- &Operation{
-			op:  opUnsubscribe,
-			sub: sub,
-		}:
-		case <-em.closed:
-		}
+		em.rmSubscriber(sub)
 	}
 
 	return sub.outgoing, cleanup, nil
+}
+
+func (em *EventManager) rmSubscriber(sub *Subscriber) {
+	em.subsLk.Lock()
+	defer em.subsLk.Unlock()
+
+	for i, s := range em.subs {
+		if s == sub {
+			em.subs[i] = em.subs[len(em.subs)-1]
+			em.subs = em.subs[:len(em.subs)-1]
+			break
+		}
+	}
+}
+
+func (em *EventManager) addSubscriber(sub *Subscriber) {
+	em.subsLk.Lock()
+	defer em.subsLk.Unlock()
+
+	em.subs = append(em.subs, sub)
 }
 
 func (em *EventManager) TakeDownRepo(ctx context.Context, user util.Uid) error {
