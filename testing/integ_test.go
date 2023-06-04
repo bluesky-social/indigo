@@ -25,11 +25,11 @@ func TestBGSBasic(t *testing.T) {
 		t.Skip("skipping BGS test in 'short' test mode")
 	}
 	assert := assert.New(t)
-	didr := testPLC(t)
-	p1 := mustSetupPDS(t, "localhost:5155", ".tpds", didr)
+	didr := TestPLC(t)
+	p1 := MustSetupPDS(t, "localhost:5155", ".tpds", didr)
 	p1.Run(t)
 
-	b1 := mustSetupBGS(t, "localhost:8231", didr)
+	b1 := MustSetupBGS(t, "localhost:8231", didr)
 	b1.Run(t)
 
 	p1.RequestScraping(t, b1)
@@ -37,7 +37,7 @@ func TestBGSBasic(t *testing.T) {
 	time.Sleep(time.Millisecond * 50)
 
 	evts := b1.Events(t, -1)
-	defer evts.cancel()
+	defer evts.Cancel()
 
 	bob := p1.MustNewUser(t, "bob.tpds")
 	alice := p1.MustNewUser(t, "alice.tpds")
@@ -73,14 +73,14 @@ func TestBGSBasic(t *testing.T) {
 
 	// playback
 	pbevts := b1.Events(t, 2)
-	defer pbevts.cancel()
+	defer pbevts.Cancel()
 
 	fmt.Println("event 5")
 	pbe1 := pbevts.Next()
 	assert.Equal(*e3, *pbe1)
 }
 
-func randomFollows(t *testing.T, users []*testUser) {
+func randomFollows(t *testing.T, users []*TestUser) {
 	for n := 0; n < 3; n++ {
 		for i, u := range users {
 			oi := rand.Intn(len(users))
@@ -93,11 +93,11 @@ func randomFollows(t *testing.T, users []*testUser) {
 	}
 }
 
-func socialSim(t *testing.T, users []*testUser, postiter, likeiter int) []*atproto.RepoStrongRef {
+func socialSim(t *testing.T, users []*TestUser, postiter, likeiter int) []*atproto.RepoStrongRef {
 	var posts []*atproto.RepoStrongRef
 	for i := 0; i < postiter; i++ {
 		for _, u := range users {
-			posts = append(posts, u.Post(t, makeRandomPost()))
+			posts = append(posts, u.Post(t, MakeRandomPost()))
 		}
 	}
 
@@ -118,20 +118,20 @@ func TestBGSMultiPDS(t *testing.T) {
 
 	assert := assert.New(t)
 	_ = assert
-	didr := testPLC(t)
-	p1 := mustSetupPDS(t, "localhost:5185", ".pdsuno", didr)
+	didr := TestPLC(t)
+	p1 := MustSetupPDS(t, "localhost:5185", ".pdsuno", didr)
 	p1.Run(t)
 
-	p2 := mustSetupPDS(t, "localhost:5186", ".pdsdos", didr)
+	p2 := MustSetupPDS(t, "localhost:5186", ".pdsdos", didr)
 	p2.Run(t)
 
-	b1 := mustSetupBGS(t, "localhost:8281", didr)
+	b1 := MustSetupBGS(t, "localhost:8281", didr)
 	b1.Run(t)
 
 	p1.RequestScraping(t, b1)
 	time.Sleep(time.Millisecond * 100)
 
-	var users []*testUser
+	var users []*TestUser
 	for i := 0; i < 5; i++ {
 		users = append(users, p1.MustNewUser(t, usernames[i]+".pdsuno"))
 	}
@@ -139,7 +139,7 @@ func TestBGSMultiPDS(t *testing.T) {
 	randomFollows(t, users)
 	socialSim(t, users, 10, 10)
 
-	var users2 []*testUser
+	var users2 []*TestUser
 	for i := 0; i < 5; i++ {
 		users2 = append(users2, p2.MustNewUser(t, usernames[i+5]+".pdsdos"))
 	}
@@ -182,24 +182,24 @@ func TestBGSMultiGap(t *testing.T) {
 	//t.Skip("test too sleepy to run in CI for now")
 	assert := assert.New(t)
 	_ = assert
-	didr := testPLC(t)
-	p1 := mustSetupPDS(t, "localhost:5195", ".pdsuno", didr)
+	didr := TestPLC(t)
+	p1 := MustSetupPDS(t, "localhost:5195", ".pdsuno", didr)
 	p1.Run(t)
 
-	p2 := mustSetupPDS(t, "localhost:5196", ".pdsdos", didr)
+	p2 := MustSetupPDS(t, "localhost:5196", ".pdsdos", didr)
 	p2.Run(t)
 
-	b1 := mustSetupBGS(t, "localhost:8291", didr)
+	b1 := MustSetupBGS(t, "localhost:8291", didr)
 	b1.Run(t)
 
 	p1.RequestScraping(t, b1)
 	time.Sleep(time.Millisecond * 50)
 
-	users := []*testUser{p1.MustNewUser(t, usernames[0]+".pdsuno")}
+	users := []*TestUser{p1.MustNewUser(t, usernames[0]+".pdsuno")}
 
 	socialSim(t, users, 10, 0)
 
-	users2 := []*testUser{p2.MustNewUser(t, usernames[1]+".pdsdos")}
+	users2 := []*TestUser{p2.MustNewUser(t, usernames[1]+".pdsdos")}
 
 	p2posts := socialSim(t, users2, 10, 0)
 
@@ -239,11 +239,11 @@ func TestHandleChange(t *testing.T) {
 	//t.Skip("test too sleepy to run in CI for now")
 	assert := assert.New(t)
 	_ = assert
-	didr := testPLC(t)
-	p1 := mustSetupPDS(t, "localhost:5385", ".pdsuno", didr)
+	didr := TestPLC(t)
+	p1 := MustSetupPDS(t, "localhost:5385", ".pdsuno", didr)
 	p1.Run(t)
 
-	b1 := mustSetupBGS(t, "localhost:8391", didr)
+	b1 := MustSetupBGS(t, "localhost:8391", didr)
 	b1.Run(t)
 
 	p1.RequestScraping(t, b1)
@@ -272,11 +272,11 @@ func TestBGSTakedown(t *testing.T) {
 	assert := assert.New(t)
 	_ = assert
 
-	didr := testPLC(t)
-	p1 := mustSetupPDS(t, "localhost:5151", ".tpds", didr)
+	didr := TestPLC(t)
+	p1 := MustSetupPDS(t, "localhost:5151", ".tpds", didr)
 	p1.Run(t)
 
-	b1 := mustSetupBGS(t, "localhost:3231", didr)
+	b1 := MustSetupBGS(t, "localhost:3231", didr)
 	b1.Run(t)
 
 	p1.RequestScraping(t, b1)
@@ -323,11 +323,11 @@ func TestRebase(t *testing.T) {
 		t.Skip("skipping BGS test in 'short' test mode")
 	}
 	assert := assert.New(t)
-	didr := testPLC(t)
-	p1 := mustSetupPDS(t, "localhost:9155", ".tpds", didr)
+	didr := TestPLC(t)
+	p1 := MustSetupPDS(t, "localhost:9155", ".tpds", didr)
 	p1.Run(t)
 
-	b1 := mustSetupBGS(t, "localhost:1531", didr)
+	b1 := MustSetupBGS(t, "localhost:1531", didr)
 	b1.Run(t)
 
 	p1.RequestScraping(t, b1)
@@ -344,7 +344,7 @@ func TestRebase(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 
 	evts1 := b1.Events(t, 0)
-	defer evts1.cancel()
+	defer evts1.Cancel()
 
 	preRebaseEvts := evts1.WaitFor(5)
 	fmt.Println(preRebaseEvts)
