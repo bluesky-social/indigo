@@ -73,7 +73,7 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 }
 
 func (em *EventManager) persistAndSendEvent(ctx context.Context, evt *XRPCStreamEvent) {
-	if err := em.persister.Persist(context.TODO(), evt); err != nil {
+	if err := em.persister.Persist(ctx, evt); err != nil {
 		log.Errorf("failed to persist outbound event: %s", err)
 	}
 }
