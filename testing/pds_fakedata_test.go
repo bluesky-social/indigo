@@ -59,8 +59,8 @@ func TestPDSFakedata(t *testing.T) {
 		t.Skip("skipping PDS+fakedata test in 'short' test mode")
 	}
 	assert := assert.New(t)
-	plcc := testPLC(t)
-	pds := mustSetupPDS(t, "localhost:5159", ".test", plcc)
+	plcc := TestPLC(t)
+	pds := MustSetupPDS(t, "localhost:5159", ".test", plcc)
 	pds.Run(t)
 
 	time.Sleep(time.Millisecond * 50)
