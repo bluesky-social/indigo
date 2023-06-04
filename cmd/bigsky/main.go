@@ -180,8 +180,6 @@ func run(args []string) {
 
 		evtman := events.NewEventManager(dbp)
 
-		go evtman.Run()
-
 		notifman := &notifs.NullNotifs{}
 
 		ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, repoman, true, cctx.Bool("aggregation"))
