@@ -186,12 +186,12 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 
 	switch {
 	case e.RepoCommit != nil:
-		rer, err = p.RepoCommitToRecord(ctx, e.RepoCommit)
+		rer, err = p.RecordFromRepoCommit(ctx, e.RepoCommit)
 		if err != nil {
 			return err
 		}
 	case e.RepoHandle != nil:
-		rer, err = p.HandleChangeToRecord(ctx, e.RepoHandle)
+		rer, err = p.RecordFromHandleChange(ctx, e.RepoHandle)
 		if err != nil {
 			return err
 		}
@@ -206,7 +206,7 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	return nil
 }
 
-func (p *DbPersistence) HandleChangeToRecord(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Handle) (*RepoEventRecord, error) {
+func (p *DbPersistence) RecordFromHandleChange(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Handle) (*RepoEventRecord, error) {
 	t, err := time.Parse(util.ISO8601, evt.Time)
 	if err != nil {
 		return nil, err
@@ -225,7 +225,7 @@ func (p *DbPersistence) HandleChangeToRecord(ctx context.Context, evt *comatprot
 	}, nil
 }
 
-func (p *DbPersistence) RepoCommitToRecord(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) (*RepoEventRecord, error) {
+func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) (*RepoEventRecord, error) {
 	// TODO: hack hack hack
 	if len(evt.Ops) > 8192 {
 		log.Errorf("(VERY BAD) truncating ops field in outgoing event (len = %d)", len(evt.Ops))
