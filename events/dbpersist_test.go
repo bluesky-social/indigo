@@ -286,9 +286,14 @@ func setupDBs(t testing.TB) (*gorm.DB, *gorm.DB, *carstore.CarStore, string, err
 
 	tx.Commit()
 
-	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.sqlite")))
+	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.sqlite?cache=shared&mode=rwc")))
 	if err != nil {
 		return nil, nil, nil, "", err
+	}
+
+	tx = cardb.Exec("PRAGMA journal_mode=WAL;")
+	if tx.Error != nil {
+		return nil, nil, nil, "", tx.Error
 	}
 
 	cspath := filepath.Join(dir, "carstore")
