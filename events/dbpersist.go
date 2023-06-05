@@ -300,7 +300,7 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPC
 		batch = append(batch, &evt)
 
 		if len(batch) >= p.batchOptions.PlaybackBatchSize {
-			events, err := p.playbackBatch(ctx, batch)
+			events, err := p.hydrateBatch(ctx, batch)
 			if err != nil {
 				return err
 			}
@@ -316,7 +316,7 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPC
 	}
 
 	if len(batch) > 0 {
-		events, err := p.playbackBatch(ctx, batch)
+		events, err := p.hydrateBatch(ctx, batch)
 		if err != nil {
 			return err
 		}
@@ -331,7 +331,7 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPC
 	return nil
 }
 
-func (p *DbPersistence) playbackBatch(ctx context.Context, batch []*RepoEventRecord) ([]*XRPCStreamEvent, error) {
+func (p *DbPersistence) hydrateBatch(ctx context.Context, batch []*RepoEventRecord) ([]*XRPCStreamEvent, error) {
 	events := make([]*XRPCStreamEvent, len(batch))
 
 	type Result struct {
