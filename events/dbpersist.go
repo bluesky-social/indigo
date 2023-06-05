@@ -25,20 +25,24 @@ type PersistenceBatchItem struct {
 }
 
 type Options struct {
-	MaxBatchSize        int
-	MinBatchSize        int
-	MaxTimeBetweenFlush time.Duration
-	UIDCacheSize        int
-	DIDCacheSize        int
+	MaxBatchSize         int
+	MinBatchSize         int
+	MaxTimeBetweenFlush  time.Duration
+	UIDCacheSize         int
+	DIDCacheSize         int
+	PlaybackBatchSize    int
+	HydrationConcurrency int
 }
 
 func DefaultOptions() *Options {
 	return &Options{
-		MaxBatchSize:        200,
-		MinBatchSize:        10,
-		MaxTimeBetweenFlush: 500 * time.Millisecond,
-		UIDCacheSize:        10000,
-		DIDCacheSize:        10000,
+		MaxBatchSize:         200,
+		MinBatchSize:         10,
+		MaxTimeBetweenFlush:  500 * time.Millisecond,
+		UIDCacheSize:         10000,
+		DIDCacheSize:         10000,
+		PlaybackBatchSize:    500,
+		HydrationConcurrency: 10,
 	}
 }
 
@@ -275,8 +279,6 @@ func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatprot
 	return &rer, nil
 }
 
-const playbackBatchSize = 500
-
 type RecordOrError struct {
 	Record *RepoEventRecord
 	Err    error
@@ -297,7 +299,7 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPC
 	// Batch events into groups of 100 and hydrate them in parallel.
 	// Join the hydrated events back into a single stream in order and pass them to the callback.
 
-	batch := make([]*RepoEventRecord, 0, playbackBatchSize)
+	batch := make([]*RepoEventRecord, 0, p.batchOptions.PlaybackBatchSize)
 	for rows.Next() {
 		var evt RepoEventRecord
 		if err := p.db.ScanRows(rows, &evt); err != nil {
@@ -307,7 +309,7 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPC
 
 		batch = append(batch, &evt)
 
-		if len(batch) >= playbackBatchSize {
+		if len(batch) >= p.batchOptions.PlaybackBatchSize {
 			events, err := p.playbackBatch(ctx, batch)
 			if err != nil {
 				return err
@@ -319,7 +321,7 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPC
 				}
 			}
 
-			batch = make([]*RepoEventRecord, 0, playbackBatchSize)
+			batch = make([]*RepoEventRecord, 0, p.batchOptions.PlaybackBatchSize)
 		}
 	}
 
@@ -351,7 +353,7 @@ func (p *DbPersistence) playbackBatch(ctx context.Context, batch []*RepoEventRec
 	resultChan := make(chan Result, len(batch))
 
 	// Semaphore pattern for limiting concurrent goroutines
-	sem := make(chan struct{}, 10)
+	sem := make(chan struct{}, p.batchOptions.HydrationConcurrency)
 	var wg sync.WaitGroup
 
 	for i, record := range batch {
