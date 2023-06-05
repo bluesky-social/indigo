@@ -186,18 +186,17 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	var rer *RepoEventRecord
 	var err error
 
-	if e.RepoCommit != nil {
+	switch {
+	case e.RepoCommit != nil:
 		rer, err = p.RecordFromRepoCommit(ctx, e.RepoCommit)
-		if err != nil {
-			return err
-		}
-	} else if e.RepoHandle != nil {
+	case e.RepoHandle != nil:
 		rer, err = p.RecordFromHandleChange(ctx, e.RepoHandle)
-		if err != nil {
-			return err
-		}
-	} else {
+	default:
 		return nil
+	}
+
+	if err != nil {
+		return err
 	}
 
 	if err := p.AddItemToBatch(ctx, rer, e); err != nil {
@@ -276,7 +275,7 @@ func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatprot
 	return &rer, nil
 }
 
-const playbackBatchSize = 100
+const playbackBatchSize = 500
 
 type RecordOrError struct {
 	Record *RepoEventRecord
@@ -295,81 +294,104 @@ func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPC
 	}
 	defer rows.Close()
 
-	ctx, cancel := context.WithCancel(ctx)
+	// Batch events into groups of 100 and hydrate them in parallel.
+	// Join the hydrated events back into a single stream in order and pass them to the callback.
 
-	recordsIn := make(chan *RecordOrError, playbackBatchSize)
-	hydratedEventsOut := make(chan *EventOrError, playbackBatchSize)
+	batch := make([]*RepoEventRecord, 0, playbackBatchSize)
+	for rows.Next() {
+		var evt RepoEventRecord
+		if err := p.db.ScanRows(rows, &evt); err != nil {
+			// Handle error
+			return err
+		}
 
-	// Start the hydration worker
-	go p.processBatch(ctx, recordsIn, hydratedEventsOut)
+		batch = append(batch, &evt)
 
-	// Read the rows and send them to the input channel.
-	go func(ctx context.Context) {
-		defer close(recordsIn)
-		for rows.Next() {
-			var evt RepoEventRecord
-			if err := p.db.ScanRows(rows, &evt); err != nil {
-				// Handle error
-				select {
-				case <-ctx.Done():
-					return
-				case recordsIn <- &RecordOrError{Err: err}:
+		if len(batch) >= playbackBatchSize {
+			events, err := p.playbackBatch(ctx, batch)
+			if err != nil {
+				return err
+			}
+
+			for _, evt := range events {
+				if err := cb(evt); err != nil {
+					return err
 				}
 			}
-			select {
-			case <-ctx.Done():
-				return
-			case recordsIn <- &RecordOrError{Record: &evt}:
-			}
-		}
-	}(ctx)
 
-	for evtOrErr := range hydratedEventsOut {
-		evt := evtOrErr.Event
-		if err := cb(evt); err != nil {
-			cancel()
-			return err
+			batch = make([]*RepoEventRecord, 0, playbackBatchSize)
 		}
 	}
 
-	cancel()
+	if len(batch) > 0 {
+		events, err := p.playbackBatch(ctx, batch)
+		if err != nil {
+			return err
+		}
+
+		for _, evt := range events {
+			if err := cb(evt); err != nil {
+				return err
+			}
+		}
+	}
 
 	return nil
 }
 
-func (p *DbPersistence) processBatch(ctx context.Context, in <-chan *RecordOrError, out chan<- *EventOrError) {
-	defer close(out)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case recordOrError, ok := <-in:
-			if !ok {
-				return
-			}
+func (p *DbPersistence) playbackBatch(ctx context.Context, batch []*RepoEventRecord) ([]*XRPCStreamEvent, error) {
+	events := make([]*XRPCStreamEvent, len(batch))
 
-			if recordOrError.Err != nil {
-				out <- &EventOrError{nil, recordOrError.Err}
-				return
-			}
-			evt := recordOrError.Record
+	type Result struct {
+		Event *XRPCStreamEvent
+		Index int
+		Err   error
+	}
+
+	resultChan := make(chan Result, len(batch))
+
+	// Semaphore pattern for limiting concurrent goroutines
+	sem := make(chan struct{}, 10)
+	var wg sync.WaitGroup
+
+	for i, record := range batch {
+		wg.Add(1)
+		go func(i int, record *RepoEventRecord) {
+			defer wg.Done()
+			sem <- struct{}{}
+			// release the semaphore at the end of the goroutine
+			defer func() { <-sem }()
+
 			var streamEvent *XRPCStreamEvent
 			var err error
+
 			switch {
-			case evt.Commit != nil:
-				streamEvent, err = p.hydrateCommit(ctx, evt)
-			case evt.NewHandle != nil:
-				streamEvent, err = p.hydrateHandleChange(ctx, evt)
+			case record.Commit != nil:
+				streamEvent, err = p.hydrateCommit(ctx, record)
+			case record.NewHandle != nil:
+				streamEvent, err = p.hydrateHandleChange(ctx, record)
 			default:
-				err = fmt.Errorf("unknown event type: %s", evt.Type)
+				err = fmt.Errorf("unknown event type: %s", record.Type)
 			}
-			if err != nil {
-				fmt.Println("Error processing event:", err) // Or handle the error in a way that is suitable for your use case
-				continue
-			}
-			out <- &EventOrError{streamEvent, nil}
-		}
+
+			resultChan <- Result{Event: streamEvent, Index: i, Err: err}
+
+		}(i, record)
 	}
+
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	for result := range resultChan {
+		if result.Err != nil {
+			return nil, result.Err
+		}
+		events[result.Index] = result.Event
+	}
+
+	return events, nil
 }
 
 func (p *DbPersistence) uidForDid(ctx context.Context, did string) (util.Uid, error) {
