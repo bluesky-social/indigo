@@ -23,6 +23,7 @@ var adminCmd = &cli.Command{
 		checkUserCmd,
 		reportsCmd,
 		disableInvitesCmd,
+		enableInvitesCmd,
 	},
 }
 
@@ -440,6 +441,43 @@ var disableInvitesCmd = &cli.Command{
 		}
 
 		return atproto.AdminDisableAccountInvites(ctx, xrpcc, &atproto.AdminDisableAccountInvites_Input{
+			Account: handle,
+		})
+	},
+}
+
+var enableInvitesCmd = &cli.Command{
+	Name: "enableInvites",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "admin-password",
+			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
+			Required: true,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.Background()
+
+		adminKey := cctx.String("admin-password")
+		xrpcc.AdminToken = &adminKey
+
+		handle := cctx.Args().First()
+		if !strings.HasPrefix(handle, "did:") {
+			resp, err := atproto.IdentityResolveHandle(ctx, xrpcc, handle)
+			if err != nil {
+				return err
+			}
+
+			handle = resp.Did
+		}
+
+		return atproto.AdminEnableAccountInvites(ctx, xrpcc, &atproto.AdminEnableAccountInvites_Input{
 			Account: handle,
 		})
 	},
