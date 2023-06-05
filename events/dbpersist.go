@@ -279,16 +279,6 @@ func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatprot
 	return &rer, nil
 }
 
-type RecordOrError struct {
-	Record *RepoEventRecord
-	Err    error
-}
-
-type EventOrError struct {
-	Event *XRPCStreamEvent
-	Err   error
-}
-
 func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
 	rows, err := p.db.Model(&RepoEventRecord{}).Where("seq > ?", since).Order("seq asc").Rows()
 	if err != nil {
