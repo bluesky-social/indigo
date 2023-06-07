@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
@@ -214,10 +215,33 @@ var didCmd = &cli.Command{
 var didGetCmd = &cli.Command{
 	Name:      "get",
 	ArgsUsage: `<did>`,
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "handle",
+			Usage: "resolve did to handle and print",
+		},
+	},
 	Action: func(cctx *cli.Context) error {
 		s := cliutil.GetDidResolver(cctx)
 
-		doc, err := s.GetDocument(context.TODO(), cctx.Args().First())
+		did := cctx.Args().First()
+
+		if cctx.Bool("handle") {
+			xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+			if err != nil {
+				return err
+			}
+
+			h, _, err := api.ResolveDidToHandle(context.TODO(), xrpcc, s, did)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(h)
+			return nil
+		}
+
+		doc, err := s.GetDocument(context.TODO(), did)
 		if err != nil {
 			return err
 		}
@@ -1143,12 +1167,16 @@ var createInviteCmd = &cli.Command{
 
 		var usrdid []string
 		if forUser := cctx.Args().Get(0); forUser != "" {
-			resp, err := comatproto.IdentityResolveHandle(context.TODO(), xrpcc, forUser)
-			if err != nil {
-				return fmt.Errorf("resolving handle: %w", err)
-			}
+			if !strings.HasPrefix(forUser, "did:") {
+				resp, err := comatproto.IdentityResolveHandle(context.TODO(), xrpcc, forUser)
+				if err != nil {
+					return fmt.Errorf("resolving handle: %w", err)
+				}
 
-			usrdid = []string{resp.Did}
+				usrdid = []string{resp.Did}
+			} else {
+				usrdid = []string{forUser}
+			}
 		}
 
 		xrpcc.AdminToken = &adminKey
