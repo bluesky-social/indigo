@@ -28,7 +28,7 @@ type Options struct {
 	MaxBatchSize         int
 	MinBatchSize         int
 	MaxTimeBetweenFlush  time.Duration
-  CheckBatchInterval  time.Duration
+	CheckBatchInterval   time.Duration
 	UIDCacheSize         int
 	DIDCacheSize         int
 	PlaybackBatchSize    int
@@ -40,7 +40,7 @@ func DefaultOptions() *Options {
 		MaxBatchSize:         200,
 		MinBatchSize:         10,
 		MaxTimeBetweenFlush:  500 * time.Millisecond,
-    CheckBatchInterval:  100 * time.Millisecond,
+		CheckBatchInterval:   100 * time.Millisecond,
 		UIDCacheSize:         10000,
 		DIDCacheSize:         10000,
 		PlaybackBatchSize:    500,
