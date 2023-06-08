@@ -14,6 +14,8 @@ type EventPersistence interface {
 	Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error
 	TakeDownRepo(ctx context.Context, usr util.Uid) error
 	RebaseRepoEvents(ctx context.Context, usr util.Uid) error
+
+	SetEventBroadcaster(func(*XRPCStreamEvent))
 }
 
 // MemPersister is the most naive implementation of event persistence
@@ -23,6 +25,8 @@ type MemPersister struct {
 	buf []*XRPCStreamEvent
 	lk  sync.Mutex
 	seq int64
+
+	broadcast func(*XRPCStreamEvent)
 }
 
 func NewMemPersister() *MemPersister {
@@ -48,6 +52,8 @@ func (mp *MemPersister) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 		panic("no event in persist call")
 	}
 	mp.buf = append(mp.buf, e)
+
+	mp.broadcast(e)
 
 	return nil
 }
@@ -77,4 +83,8 @@ func (mp *MemPersister) TakeDownRepo(ctx context.Context, uid util.Uid) error {
 
 func (mp *MemPersister) RebaseRepoEvents(ctx context.Context, usr util.Uid) error {
 	return fmt.Errorf("repo rebases not currently supported by memory persister, test usage only")
+}
+
+func (mp *MemPersister) SetEventBroadcaster(brc func(*XRPCStreamEvent)) {
+	mp.broadcast = brc
 }

@@ -40,7 +40,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type testPDS struct {
+type TestPDS struct {
 	dir    string
 	server *pds.Server
 	plc    *api.PLCServer
@@ -50,7 +50,7 @@ type testPDS struct {
 	shutdown func()
 }
 
-func (tp *testPDS) Cleanup() {
+func (tp *TestPDS) Cleanup() {
 	if tp.shutdown != nil {
 		tp.shutdown()
 	}
@@ -60,7 +60,7 @@ func (tp *testPDS) Cleanup() {
 	}
 }
 
-func mustSetupPDS(t *testing.T, host, suffix string, plc plc.PLCClient) *testPDS {
+func MustSetupPDS(t *testing.T, host, suffix string, plc plc.PLCClient) *TestPDS {
 	t.Helper()
 
 	tpds, err := SetupPDS(host, suffix, plc)
@@ -71,15 +71,20 @@ func mustSetupPDS(t *testing.T, host, suffix string, plc plc.PLCClient) *testPDS
 	return tpds
 }
 
-func SetupPDS(host, suffix string, plc plc.PLCClient) (*testPDS, error) {
+func SetupPDS(host, suffix string, plc plc.PLCClient) (*TestPDS, error) {
 	dir, err := os.MkdirTemp("", "integtest")
 	if err != nil {
 		return nil, err
 	}
 
-	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.sqlite")))
+	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.sqlite?cache=shared&mode=rwc")))
 	if err != nil {
 		return nil, err
+	}
+
+	tx := maindb.Exec("PRAGMA journal_mode=WAL;")
+	if tx.Error != nil {
+		return nil, tx.Error
 	}
 
 	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.sqlite")))
@@ -111,14 +116,14 @@ func SetupPDS(host, suffix string, plc plc.PLCClient) (*testPDS, error) {
 		return nil, err
 	}
 
-	return &testPDS{
+	return &TestPDS{
 		dir:    dir,
 		server: srv,
 		host:   host,
 	}, nil
 }
 
-func (tp *testPDS) Run(t *testing.T) {
+func (tp *TestPDS) Run(t *testing.T) {
 	// TODO: rig this up so it t.Fatals if the RunAPI call fails immediately
 	go func() {
 		if err := tp.server.RunAPI(tp.host); err != nil {
@@ -132,7 +137,7 @@ func (tp *testPDS) Run(t *testing.T) {
 	}
 }
 
-func (tp *testPDS) RequestScraping(t *testing.T, b *testBGS) {
+func (tp *TestPDS) RequestScraping(t *testing.T, b *TestBGS) {
 	t.Helper()
 
 	c := &xrpc.Client{Host: "http://" + b.host}
@@ -141,15 +146,15 @@ func (tp *testPDS) RequestScraping(t *testing.T, b *testBGS) {
 	}
 }
 
-type testUser struct {
+type TestUser struct {
 	handle string
-	pds    *testPDS
+	pds    *TestPDS
 	did    string
 
 	client *xrpc.Client
 }
 
-func (tp *testPDS) MustNewUser(t *testing.T, handle string) *testUser {
+func (tp *TestPDS) MustNewUser(t *testing.T, handle string) *TestUser {
 	t.Helper()
 
 	u, err := tp.NewUser(handle)
@@ -160,7 +165,7 @@ func (tp *testPDS) MustNewUser(t *testing.T, handle string) *testUser {
 	return u
 }
 
-func (tp *testPDS) NewUser(handle string) (*testUser, error) {
+func (tp *TestPDS) NewUser(handle string) (*TestUser, error) {
 	ctx := context.TODO()
 
 	c := &xrpc.Client{
@@ -184,7 +189,7 @@ func (tp *testPDS) NewUser(handle string) (*testUser, error) {
 		Did:        out.Did,
 	}
 
-	return &testUser{
+	return &TestUser{
 		pds:    tp,
 		handle: out.Handle,
 		client: c,
@@ -192,7 +197,7 @@ func (tp *testPDS) NewUser(handle string) (*testUser, error) {
 	}, nil
 }
 
-func (u *testUser) Reply(t *testing.T, replyto, root *atproto.RepoStrongRef, body string) string {
+func (u *TestUser) Reply(t *testing.T, replyto, root *atproto.RepoStrongRef, body string) string {
 	t.Helper()
 
 	ctx := context.TODO()
@@ -215,11 +220,11 @@ func (u *testUser) Reply(t *testing.T, replyto, root *atproto.RepoStrongRef, bod
 	return resp.Uri
 }
 
-func (u *testUser) DID() string {
+func (u *TestUser) DID() string {
 	return u.did
 }
 
-func (u *testUser) Post(t *testing.T, body string) *atproto.RepoStrongRef {
+func (u *TestUser) Post(t *testing.T, body string) *atproto.RepoStrongRef {
 	t.Helper()
 
 	ctx := context.TODO()
@@ -242,7 +247,7 @@ func (u *testUser) Post(t *testing.T, body string) *atproto.RepoStrongRef {
 	}
 }
 
-func (u *testUser) Like(t *testing.T, post *atproto.RepoStrongRef) {
+func (u *TestUser) Like(t *testing.T, post *atproto.RepoStrongRef) {
 	t.Helper()
 
 	ctx := context.TODO()
@@ -261,7 +266,7 @@ func (u *testUser) Like(t *testing.T, post *atproto.RepoStrongRef) {
 
 }
 
-func (u *testUser) Follow(t *testing.T, did string) string {
+func (u *TestUser) Follow(t *testing.T, did string) string {
 	t.Helper()
 
 	ctx := context.TODO()
@@ -281,7 +286,7 @@ func (u *testUser) Follow(t *testing.T, did string) string {
 	return resp.Uri
 }
 
-func (u *testUser) GetFeed(t *testing.T) []*bsky.FeedDefs_FeedViewPost {
+func (u *TestUser) GetFeed(t *testing.T) []*bsky.FeedDefs_FeedViewPost {
 	t.Helper()
 
 	ctx := context.TODO()
@@ -293,7 +298,7 @@ func (u *testUser) GetFeed(t *testing.T) []*bsky.FeedDefs_FeedViewPost {
 	return resp.Feed
 }
 
-func (u *testUser) GetNotifs(t *testing.T) []*bsky.NotificationListNotifications_Notification {
+func (u *TestUser) GetNotifs(t *testing.T) []*bsky.NotificationListNotifications_Notification {
 	t.Helper()
 
 	ctx := context.TODO()
@@ -305,7 +310,7 @@ func (u *testUser) GetNotifs(t *testing.T) []*bsky.NotificationListNotifications
 	return resp.Notifications
 }
 
-func (u *testUser) ChangeHandle(t *testing.T, nhandle string) {
+func (u *TestUser) ChangeHandle(t *testing.T, nhandle string) {
 	t.Helper()
 
 	ctx := context.TODO()
@@ -316,7 +321,7 @@ func (u *testUser) ChangeHandle(t *testing.T, nhandle string) {
 	}
 }
 
-func (u *testUser) DoRebase(t *testing.T) {
+func (u *TestUser) DoRebase(t *testing.T) {
 	t.Helper()
 
 	ctx := context.TODO()
@@ -328,7 +333,7 @@ func (u *testUser) DoRebase(t *testing.T) {
 	}
 }
 
-func testPLC(t *testing.T) *plc.FakeDid {
+func TestPLC(t *testing.T) *plc.FakeDid {
 	// TODO: just do in memory...
 	tdir, err := os.MkdirTemp("", "plcserv")
 	if err != nil {
@@ -342,12 +347,12 @@ func testPLC(t *testing.T) *plc.FakeDid {
 	return plc.NewFakeDid(db)
 }
 
-type testBGS struct {
+type TestBGS struct {
 	bgs  *bgs.BGS
 	host string
 }
 
-func mustSetupBGS(t *testing.T, host string, didr plc.PLCClient) *testBGS {
+func MustSetupBGS(t *testing.T, host string, didr plc.PLCClient) *TestBGS {
 	tbgs, err := SetupBGS(host, didr)
 	if err != nil {
 		t.Fatal(err)
@@ -356,7 +361,7 @@ func mustSetupBGS(t *testing.T, host string, didr plc.PLCClient) *testBGS {
 	return tbgs
 }
 
-func SetupBGS(host string, didr plc.PLCClient) (*testBGS, error) {
+func SetupBGS(host string, didr plc.PLCClient) (*TestBGS, error) {
 	dir, err := os.MkdirTemp("", "integtest")
 	if err != nil {
 		return nil, err
@@ -389,7 +394,7 @@ func SetupBGS(host string, didr plc.PLCClient) (*testBGS, error) {
 
 	notifman := notifs.NewNotificationManager(maindb, repoman.GetRecord)
 
-	dbpersist, err := events.NewDbPersistence(maindb, cs)
+	dbpersist, err := events.NewDbPersistence(maindb, cs, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -412,13 +417,13 @@ func SetupBGS(host string, didr plc.PLCClient) (*testBGS, error) {
 		return nil, err
 	}
 
-	return &testBGS{
+	return &TestBGS{
 		bgs:  b,
 		host: host,
 	}, nil
 }
 
-func (b *testBGS) Run(t *testing.T) {
+func (b *TestBGS) Run(t *testing.T) {
 	go func() {
 		if err := b.bgs.Start(b.host); err != nil {
 			fmt.Println(err)
@@ -427,15 +432,15 @@ func (b *testBGS) Run(t *testing.T) {
 	time.Sleep(time.Millisecond * 10)
 }
 
-type eventStream struct {
-	lk     sync.Mutex
-	events []*events.XRPCStreamEvent
-	cancel func()
+type EventStream struct {
+	Lk     sync.Mutex
+	Events []*events.XRPCStreamEvent
+	Cancel func()
 
-	cur int
+	Cur int
 }
 
-func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
+func (b *TestBGS) Events(t *testing.T, since int64) *EventStream {
 	d := websocket.Dialer{}
 	h := http.Header{}
 
@@ -455,8 +460,8 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	es := &eventStream{
-		cancel: cancel,
+	es := &EventStream{
+		Cancel: cancel,
 	}
 
 	go func() {
@@ -468,16 +473,16 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 		rsc := &events.RepoStreamCallbacks{
 			RepoCommit: func(evt *atproto.SyncSubscribeRepos_Commit) error {
 				fmt.Println("received event: ", evt.Seq, evt.Repo)
-				es.lk.Lock()
-				es.events = append(es.events, &events.XRPCStreamEvent{RepoCommit: evt})
-				es.lk.Unlock()
+				es.Lk.Lock()
+				es.Events = append(es.Events, &events.XRPCStreamEvent{RepoCommit: evt})
+				es.Lk.Unlock()
 				return nil
 			},
 			RepoHandle: func(evt *atproto.SyncSubscribeRepos_Handle) error {
 				fmt.Println("received handle event: ", evt.Seq, evt.Did)
-				es.lk.Lock()
-				es.events = append(es.events, &events.XRPCStreamEvent{RepoHandle: evt})
-				es.lk.Unlock()
+				es.Lk.Lock()
+				es.Events = append(es.Events, &events.XRPCStreamEvent{RepoHandle: evt})
+				es.Lk.Unlock()
 				return nil
 			},
 		}
@@ -489,31 +494,31 @@ func (b *testBGS) Events(t *testing.T, since int64) *eventStream {
 	return es
 }
 
-func (es *eventStream) Next() *events.XRPCStreamEvent {
-	defer es.lk.Unlock()
+func (es *EventStream) Next() *events.XRPCStreamEvent {
+	defer es.Lk.Unlock()
 	for {
-		es.lk.Lock()
-		if len(es.events) > es.cur {
-			es.cur++
-			return es.events[es.cur-1]
+		es.Lk.Lock()
+		if len(es.Events) > es.Cur {
+			es.Cur++
+			return es.Events[es.Cur-1]
 		}
-		es.lk.Unlock()
+		es.Lk.Unlock()
 		time.Sleep(time.Millisecond * 10)
 	}
 }
 
-func (es *eventStream) All() []*events.XRPCStreamEvent {
-	es.lk.Lock()
-	defer es.lk.Unlock()
-	out := make([]*events.XRPCStreamEvent, len(es.events))
-	for i, e := range es.events {
+func (es *EventStream) All() []*events.XRPCStreamEvent {
+	es.Lk.Lock()
+	defer es.Lk.Unlock()
+	out := make([]*events.XRPCStreamEvent, len(es.Events))
+	for i, e := range es.Events {
 		out[i] = e
 	}
 
 	return out
 }
 
-func (es *eventStream) WaitFor(n int) []*events.XRPCStreamEvent {
+func (es *EventStream) WaitFor(n int) []*events.XRPCStreamEvent {
 	var out []*events.XRPCStreamEvent
 	for i := 0; i < n; i++ {
 		out = append(out, es.Next())
@@ -588,7 +593,7 @@ var words = []string{
 	"parrot",
 }
 
-func makeRandomPost() string {
+func MakeRandomPost() string {
 	var out []string
 	for i := 0; i < 20; i++ {
 		out = append(out, words[mathrand.Intn(len(words))])
@@ -673,7 +678,7 @@ func RandFakeAtUri(collection, rkey string) string {
 	return fmt.Sprintf("at://did:plc:%s/%s/%s", did, collection, rkey)
 }
 
-func randAction() string {
+func RandAction() string {
 	v := mathrand.Intn(100)
 	if v < 40 {
 		return "post"
@@ -696,7 +701,7 @@ func GenerateFakeRepo(r *repo.Repo, size int) (cid.Cid, error) {
 
 	var root cid.Cid
 	for i := 0; i < size; i++ {
-		switch randAction() {
+		switch RandAction() {
 		case "post":
 			_, _, err := r.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
 				CreatedAt: time.Now().Format(bsutil.ISO8601),

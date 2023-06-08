@@ -173,7 +173,7 @@ func run(args []string) {
 
 		repoman := repomgr.NewRepoManager(db, cstore, kmgr)
 
-		dbp, err := events.NewDbPersistence(db, cstore)
+		dbp, err := events.NewDbPersistence(db, cstore, nil)
 		if err != nil {
 			return fmt.Errorf("setting up db event persistence: %w", err)
 		}
