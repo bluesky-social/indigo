@@ -28,6 +28,7 @@ type Options struct {
 	MaxBatchSize         int
 	MinBatchSize         int
 	MaxTimeBetweenFlush  time.Duration
+  CheckBatchInterval  time.Duration
 	UIDCacheSize         int
 	DIDCacheSize         int
 	PlaybackBatchSize    int
@@ -39,6 +40,7 @@ func DefaultOptions() *Options {
 		MaxBatchSize:         200,
 		MinBatchSize:         10,
 		MaxTimeBetweenFlush:  500 * time.Millisecond,
+    CheckBatchInterval:  100 * time.Millisecond,
 		UIDCacheSize:         10000,
 		DIDCacheSize:         10000,
 		PlaybackBatchSize:    500,
@@ -106,24 +108,27 @@ func NewDbPersistence(db *gorm.DB, cs *carstore.CarStore, options *Options) (*Db
 		didCache:     didCache,
 	}
 
-	go func() {
-		for {
-			time.Sleep(100 * time.Millisecond)
-			p.lk.Lock()
-			if len(p.batch) > 0 &&
-				(len(p.batch) >= p.batchOptions.MinBatchSize ||
-					time.Since(p.lastFlush) >= p.batchOptions.MaxTimeBetweenFlush) {
-				p.lk.Unlock()
-				if err := p.FlushBatch(context.Background()); err != nil {
-					log.Errorf("failed to flush batch: %s", err)
-				}
-			} else {
-				p.lk.Unlock()
-			}
-		}
-	}()
+	go p.batchFlusher()
 
 	return &p, nil
+}
+
+func (p *DbPersistence) batchFlusher() {
+	for {
+		time.Sleep(p.batchOptions.CheckBatchInterval)
+
+		p.lk.Lock()
+		needsFlush := len(p.batch) > 0 &&
+			(len(p.batch) >= p.batchOptions.MinBatchSize ||
+				time.Since(p.lastFlush) >= p.batchOptions.MaxTimeBetweenFlush)
+		p.lk.Unlock()
+
+		if needsFlush {
+			if err := p.FlushBatch(context.Background()); err != nil {
+				log.Errorf("failed to flush batch: %s", err)
+			}
+		}
+	}
 }
 
 func (p *DbPersistence) SetEventBroadcaster(brc func(*XRPCStreamEvent)) {
@@ -133,6 +138,14 @@ func (p *DbPersistence) SetEventBroadcaster(brc func(*XRPCStreamEvent)) {
 func (p *DbPersistence) FlushBatch(ctx context.Context) error {
 	p.lk.Lock()
 	defer p.lk.Unlock()
+	return p.flushBatchLocked(ctx)
+}
+
+func (p *DbPersistence) flushBatchLocked(ctx context.Context) error {
+	// TODO: we technically don't need to hold the lock through the database
+	// operation, all we need to do is swap the batch out, and ensure nobody
+	// else tries to enter this function to flush another batch while we are
+	// flushing. I'll leave that for a later optimization
 
 	records := make([]*RepoEventRecord, len(p.batch))
 	for i, item := range p.batch {
@@ -164,24 +177,17 @@ func (p *DbPersistence) FlushBatch(ctx context.Context) error {
 
 func (p *DbPersistence) AddItemToBatch(ctx context.Context, rec *RepoEventRecord, evt *XRPCStreamEvent) error {
 	p.lk.Lock()
-	if p.batch == nil {
-		p.batch = []*PersistenceBatchItem{}
-	}
-
-	if len(p.batch) >= p.batchOptions.MaxBatchSize {
-		p.lk.Unlock()
-		if err := p.FlushBatch(ctx); err != nil {
-			return fmt.Errorf("failed to flush batch at max size: %w", err)
-		}
-		p.lk.Lock()
-	}
-
+	defer p.lk.Unlock()
 	p.batch = append(p.batch, &PersistenceBatchItem{
 		Record: rec,
 		Event:  evt,
 	})
 
-	p.lk.Unlock()
+	if len(p.batch) >= p.batchOptions.MaxBatchSize {
+		if err := p.flushBatchLocked(ctx); err != nil {
+			return fmt.Errorf("failed to flush batch at max size: %w", err)
+		}
+	}
 
 	return nil
 }
@@ -193,14 +199,16 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	switch {
 	case e.RepoCommit != nil:
 		rer, err = p.RecordFromRepoCommit(ctx, e.RepoCommit)
+		if err != nil {
+			return err
+		}
 	case e.RepoHandle != nil:
 		rer, err = p.RecordFromHandleChange(ctx, e.RepoHandle)
+		if err != nil {
+			return err
+		}
 	default:
 		return nil
-	}
-
-	if err != nil {
-		return err
 	}
 
 	if err := p.AddItemToBatch(ctx, rer, e); err != nil {
@@ -417,6 +425,10 @@ func (p *DbPersistence) didForUid(ctx context.Context, uid util.Uid) (string, er
 }
 
 func (p *DbPersistence) hydrateHandleChange(ctx context.Context, rer *RepoEventRecord) (*XRPCStreamEvent, error) {
+	if rer.NewHandle == nil {
+		return nil, fmt.Errorf("NewHandle is nil")
+	}
+
 	did, err := p.didForUid(ctx, rer.Repo)
 	if err != nil {
 		return nil, err
@@ -432,6 +444,10 @@ func (p *DbPersistence) hydrateHandleChange(ctx context.Context, rer *RepoEventR
 }
 
 func (p *DbPersistence) hydrateCommit(ctx context.Context, rer *RepoEventRecord) (*XRPCStreamEvent, error) {
+	if rer.Commit == nil {
+		return nil, fmt.Errorf("commit is nil")
+	}
+
 	var blobs []string
 	if len(rer.Blobs) > 0 {
 		if err := json.Unmarshal(rer.Blobs, &blobs); err != nil {

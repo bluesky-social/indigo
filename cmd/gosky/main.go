@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
@@ -214,10 +215,33 @@ var didCmd = &cli.Command{
 var didGetCmd = &cli.Command{
 	Name:      "get",
 	ArgsUsage: `<did>`,
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "handle",
+			Usage: "resolve did to handle and print",
+		},
+	},
 	Action: func(cctx *cli.Context) error {
 		s := cliutil.GetDidResolver(cctx)
 
-		doc, err := s.GetDocument(context.TODO(), cctx.Args().First())
+		did := cctx.Args().First()
+
+		if cctx.Bool("handle") {
+			xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+			if err != nil {
+				return err
+			}
+
+			h, _, err := api.ResolveDidToHandle(context.TODO(), xrpcc, s, did)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(h)
+			return nil
+		}
+
+		doc, err := s.GetDocument(context.TODO(), did)
 		if err != nil {
 			return err
 		}
@@ -1143,12 +1167,16 @@ var createInviteCmd = &cli.Command{
 
 		var usrdid []string
 		if forUser := cctx.Args().Get(0); forUser != "" {
-			resp, err := comatproto.IdentityResolveHandle(context.TODO(), xrpcc, forUser)
-			if err != nil {
-				return fmt.Errorf("resolving handle: %w", err)
-			}
+			if !strings.HasPrefix(forUser, "did:") {
+				resp, err := comatproto.IdentityResolveHandle(context.TODO(), xrpcc, forUser)
+				if err != nil {
+					return fmt.Errorf("resolving handle: %w", err)
+				}
 
-			usrdid = []string{resp.Did}
+				usrdid = []string{resp.Did}
+			} else {
+				usrdid = []string{forUser}
+			}
 		}
 
 		xrpcc.AdminToken = &adminKey
@@ -1245,6 +1273,12 @@ var createFeedGeneratorCmd = &cli.Command{
 			Name:     "did",
 			Required: true,
 		},
+		&cli.StringFlag{
+			Name: "description",
+		},
+		&cli.StringFlag{
+			Name: "display-name",
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
@@ -1252,7 +1286,12 @@ var createFeedGeneratorCmd = &cli.Command{
 			return err
 		}
 
-		name := cctx.String("name")
+		rkey := cctx.String("name")
+		name := rkey
+		if dn := cctx.String("display-name"); dn != "" {
+			name = dn
+		}
+
 		did := cctx.String("did")
 
 		var desc *string
@@ -1260,21 +1299,42 @@ var createFeedGeneratorCmd = &cli.Command{
 			desc = &d
 		}
 
-		resp, err := atproto.RepoCreateRecord(context.TODO(), xrpcc, &atproto.RepoCreateRecord_Input{
-			Collection: "app.bsky.feed.generator",
-			Repo:       xrpcc.Auth.Did,
-			Record: &lexutil.LexiconTypeDecoder{&bsky.FeedGenerator{
-				CreatedAt:   time.Now().Format(util.ISO8601),
-				Description: desc,
-				Did:         did,
-				DisplayName: name,
-			}},
-		})
-		if err != nil {
-			return err
-		}
+		ctx := context.TODO()
 
-		fmt.Println(resp.Uri)
+		rec := &lexutil.LexiconTypeDecoder{&bsky.FeedGenerator{
+			CreatedAt:   time.Now().Format(util.ISO8601),
+			Description: desc,
+			Did:         did,
+			DisplayName: name,
+		}}
+
+		ex, err := atproto.RepoGetRecord(ctx, xrpcc, "", "app.bsky.feed.generator", xrpcc.Auth.Did, rkey)
+		if err == nil {
+			resp, err := atproto.RepoPutRecord(ctx, xrpcc, &atproto.RepoPutRecord_Input{
+				SwapRecord: ex.Cid,
+				Collection: "app.bsky.feed.generator",
+				Repo:       xrpcc.Auth.Did,
+				Rkey:       rkey,
+				Record:     rec,
+			})
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(resp.Uri)
+		} else {
+			resp, err := atproto.RepoCreateRecord(ctx, xrpcc, &atproto.RepoCreateRecord_Input{
+				Collection: "app.bsky.feed.generator",
+				Repo:       xrpcc.Auth.Did,
+				Rkey:       &rkey,
+				Record:     rec,
+			})
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(resp.Uri)
+		}
 
 		return nil
 	},
