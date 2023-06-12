@@ -31,7 +31,6 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/whyrusleeping/go-did"
-	"golang.org/x/xerrors"
 	"gorm.io/gorm"
 )
 
@@ -316,7 +315,7 @@ func (s *Server) RunAPI(listen string) error {
 		// TODO: need to properly figure out where http error codes for error
 		// types get decided. This spot is reasonable, but maybe a bit weird.
 		// reviewers, please advise
-		if xerrors.Is(err, ErrNoSuchUser) {
+		if errors.Is(err, ErrNoSuchUser) {
 			ctx.Response().WriteHeader(404)
 			return
 		}
