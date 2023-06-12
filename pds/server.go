@@ -61,6 +61,13 @@ type Server struct {
 const UserActorDeclCid = "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u"
 const UserActorDeclType = "app.bsky.system.actorUser"
 
+// serverListenerBootTimeout is how long to wait for the requested server socket
+// to become available for use. This is an arbitrary timeout that should be safe
+// on any platform, but there's no great way to weave this timeout without
+// adding another parameter to the (at time of writing) long signature of
+// NewServer.
+const serverListenerBootTimeout = 5 * time.Second
+
 func NewServer(db *gorm.DB, cs *carstore.CarStore, serkey *did.PrivKey, handleSuffix, serviceUrl string, didr plc.PLCClient, jwtkey []byte) (*Server, error) {
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&Peering{})
@@ -269,10 +276,7 @@ func (s *Server) readRecordFunc(ctx context.Context, user bsutil.Uid, c cid.Cid)
 
 func (s *Server) RunAPI(addr string) error {
 	var lc net.ListenConfig
-	// This is an arbitrary timeout that should be safe on any platform, but
-	// there's no great way to weave this timeout without adding another
-	// parameter to the (at time of writing) long signature of NewServer.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), serverListenerBootTimeout)
 	defer cancel()
 
 	li, err := lc.Listen(ctx, "tcp", addr)
