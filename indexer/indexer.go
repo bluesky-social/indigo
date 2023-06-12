@@ -9,7 +9,6 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
@@ -29,6 +28,9 @@ import (
 
 var log = logging.Logger("indexer")
 
+const MaxEventSliceLength = 1000000
+const MaxOpsSliceLength = 200
+
 type Indexer struct {
 	db *gorm.DB
 
@@ -43,8 +45,9 @@ type Indexer struct {
 
 	doAggregations bool
 
-	SendRemoteFollow   func(context.Context, string, uint) error
-	CreateExternalUser func(context.Context, string) (*models.ActorInfo, error)
+	SendRemoteFollow       func(context.Context, string, uint) error
+	CreateExternalUser     func(context.Context, string) (*models.ActorInfo, error)
+	ApplyPDSClientSettings func(*xrpc.Client)
 }
 
 func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events.EventManager, didr did.Resolver, repoman *repomgr.RepoManager, crawl, aggregate bool) (*Indexer, error) {
@@ -64,6 +67,7 @@ func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events
 		SendRemoteFollow: func(context.Context, string, uint) error {
 			return nil
 		},
+		ApplyPDSClientSettings: func(*xrpc.Client) {},
 	}
 
 	if crawl {
@@ -106,10 +110,10 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 
 	toobig := false
 	slice := evt.RepoSlice
-	if len(slice) > carstore.MaxSliceLength {
+	if len(slice) > MaxEventSliceLength || len(outops) > MaxOpsSliceLength {
 		slice = nil
+		outops = nil
 		toobig = true
-
 	}
 
 	if evt.Rebase {
@@ -372,6 +376,12 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 		}
 		return nil
 	case *bsky.GraphFollow:
+		_, err := ix.GetUserOrMissing(ctx, rec.Subject)
+		if err != nil {
+			log.Infow("failed to crawl follow subject", "cid", op.RecCid, "subjectdid", rec.Subject, "err", err)
+		}
+		return nil
+	case *bsky.GraphBlock:
 		_, err := ix.GetUserOrMissing(ctx, rec.Subject)
 		if err != nil {
 			log.Infow("failed to crawl follow subject", "cid", op.RecCid, "subjectdid", rec.Subject, "err", err)
@@ -828,7 +838,7 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 
 	curHead, err := ix.repomgr.GetRepoRoot(ctx, ai.Uid)
 	if err != nil && !isNotFound(err) {
-		return err
+		return fmt.Errorf("failed to get repo root: %w", err)
 	}
 
 	var rebase *comatproto.SyncSubscribeRepos_Commit
@@ -848,7 +858,10 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 	}
 
 	if rebase != nil {
-		return ix.repomgr.HandleRebase(ctx, ai.PDS, ai.Uid, ai.Did, (*cid.Cid)(rebase.Prev), (cid.Cid)(rebase.Commit), rebase.Blocks)
+		if err := ix.repomgr.HandleRebase(ctx, ai.PDS, ai.Uid, ai.Did, (*cid.Cid)(rebase.Prev), (cid.Cid)(rebase.Commit), rebase.Blocks); err != nil {
+			return fmt.Errorf("handling rebase: %w", err)
+		}
+		return nil
 	}
 
 	var host string
@@ -860,6 +873,8 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 	c := &xrpc.Client{
 		Host: host,
 	}
+
+	ix.ApplyPDSClientSettings(c)
 
 	var from string
 	if curHead.Defined() {

@@ -110,6 +110,9 @@ func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
 }
 
 func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, error) {
+	if !k.Defined() {
+		return nil, fmt.Errorf("attempted to 'get' undefined cid")
+	}
 	if uv.cache != nil {
 		blk, ok := uv.cache[k]
 		if ok {

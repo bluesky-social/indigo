@@ -516,6 +516,7 @@ func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user bsutil.Ui
 
 	for _, b := range blobs {
 		c := models.ClientForPds(pds)
+		s.Index.ApplyPDSClientSettings(c)
 		blob, err := atproto.SyncGetBlob(ctx, c, b, did)
 		if err != nil {
 			return fmt.Errorf("fetching blob (%s, %s): %w", did, b, err)
@@ -562,6 +563,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	}
 
 	c := &xrpc.Client{Host: durl.String()}
+	s.Index.ApplyPDSClientSettings(c)
 
 	if peering.ID == 0 {
 		// TODO: the case of handling a new user on a new PDS probably requires more thought
