@@ -8,6 +8,7 @@ import (
 	"encoding/base32"
 	"fmt"
 	mathrand "math/rand"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -35,6 +36,8 @@ import (
 	"github.com/multiformats/go-multihash"
 	"github.com/whyrusleeping/go-did"
 
+	"net/url"
+
 	"github.com/gorilla/websocket"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -45,9 +48,21 @@ type TestPDS struct {
 	server *pds.Server
 	plc    *api.PLCServer
 
-	host string
+	listener net.Listener
 
 	shutdown func()
+}
+
+// HTTPHost returns a host:port string that the PDS server is running at
+func (tp *TestPDS) RawHost() string {
+	return tp.listener.Addr().String()
+}
+
+// HTTPHost returns a URL string that the PDS server is running at with the
+// scheme set for HTTP
+func (tp *TestPDS) HTTPHost() string {
+	u := url.URL{Scheme: "http", Host: tp.listener.Addr().String()}
+	return u.String()
 }
 
 func (tp *TestPDS) Cleanup() {
@@ -60,10 +75,11 @@ func (tp *TestPDS) Cleanup() {
 	}
 }
 
-func MustSetupPDS(t *testing.T, host, suffix string, plc plc.PLCClient) *TestPDS {
+func MustSetupPDS(t *testing.T, suffix string, plc plc.PLCClient) *TestPDS {
 	t.Helper()
-
-	tpds, err := SetupPDS(host, suffix, plc)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	tpds, err := SetupPDS(ctx, suffix, plc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +87,7 @@ func MustSetupPDS(t *testing.T, host, suffix string, plc plc.PLCClient) *TestPDS
 	return tpds
 }
 
-func SetupPDS(host, suffix string, plc plc.PLCClient) (*TestPDS, error) {
+func SetupPDS(ctx context.Context, suffix string, plc plc.PLCClient) (*TestPDS, error) {
 	dir, err := os.MkdirTemp("", "integtest")
 	if err != nil {
 		return nil, err
@@ -111,22 +127,29 @@ func SetupPDS(host, suffix string, plc plc.PLCClient) (*TestPDS, error) {
 		Type: did.KeyTypeP256,
 	}
 
+	var lc net.ListenConfig
+	li, err := lc.Listen(ctx, "tcp", "localhost:0")
+	if err != nil {
+		return nil, err
+	}
+
+	host := li.Addr().String()
 	srv, err := pds.NewServer(maindb, cs, serkey, suffix, host, plc, []byte(host+suffix))
 	if err != nil {
 		return nil, err
 	}
 
 	return &TestPDS{
-		dir:    dir,
-		server: srv,
-		host:   host,
+		dir:      dir,
+		server:   srv,
+		listener: li,
 	}, nil
 }
 
 func (tp *TestPDS) Run(t *testing.T) {
 	// TODO: rig this up so it t.Fatals if the RunAPI call fails immediately
 	go func() {
-		if err := tp.server.RunAPI(tp.host); err != nil {
+		if err := tp.server.RunAPIWithListener(tp.listener); err != nil {
 			fmt.Println(err)
 		}
 	}()
@@ -141,7 +164,7 @@ func (tp *TestPDS) RequestScraping(t *testing.T, b *TestBGS) {
 	t.Helper()
 
 	c := &xrpc.Client{Host: "http://" + b.host}
-	if err := atproto.SyncRequestCrawl(context.TODO(), c, tp.host); err != nil {
+	if err := atproto.SyncRequestCrawl(context.TODO(), c, tp.RawHost()); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -169,7 +192,7 @@ func (tp *TestPDS) NewUser(handle string) (*TestUser, error) {
 	ctx := context.TODO()
 
 	c := &xrpc.Client{
-		Host: "http://" + tp.host,
+		Host: tp.HTTPHost(),
 	}
 
 	fmt.Println("HOST: ", c.Host)
