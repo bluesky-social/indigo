@@ -26,7 +26,7 @@ func TestBGSBasic(t *testing.T) {
 	}
 	assert := assert.New(t)
 	didr := TestPLC(t)
-	p1 := MustSetupPDS(t, "localhost:5155", ".tpds", didr)
+	p1 := MustSetupPDS(t, ".tpds", didr)
 	p1.Run(t)
 
 	b1 := MustSetupBGS(t, "localhost:8231", didr)
@@ -119,10 +119,10 @@ func TestBGSMultiPDS(t *testing.T) {
 	assert := assert.New(t)
 	_ = assert
 	didr := TestPLC(t)
-	p1 := MustSetupPDS(t, "localhost:5185", ".pdsuno", didr)
+	p1 := MustSetupPDS(t, ".pdsuno", didr)
 	p1.Run(t)
 
-	p2 := MustSetupPDS(t, "localhost:5186", ".pdsdos", didr)
+	p2 := MustSetupPDS(t, ".pdsdos", didr)
 	p2.Run(t)
 
 	b1 := MustSetupBGS(t, "localhost:8281", didr)
@@ -183,10 +183,10 @@ func TestBGSMultiGap(t *testing.T) {
 	assert := assert.New(t)
 	_ = assert
 	didr := TestPLC(t)
-	p1 := MustSetupPDS(t, "localhost:5195", ".pdsuno", didr)
+	p1 := MustSetupPDS(t, ".pdsuno", didr)
 	p1.Run(t)
 
-	p2 := MustSetupPDS(t, "localhost:5196", ".pdsdos", didr)
+	p2 := MustSetupPDS(t, ".pdsdos", didr)
 	p2.Run(t)
 
 	b1 := MustSetupBGS(t, "localhost:8291", didr)
@@ -240,7 +240,7 @@ func TestHandleChange(t *testing.T) {
 	assert := assert.New(t)
 	_ = assert
 	didr := TestPLC(t)
-	p1 := MustSetupPDS(t, "localhost:5385", ".pdsuno", didr)
+	p1 := MustSetupPDS(t, ".pdsuno", didr)
 	p1.Run(t)
 
 	b1 := MustSetupBGS(t, "localhost:8391", didr)
@@ -273,7 +273,7 @@ func TestBGSTakedown(t *testing.T) {
 	_ = assert
 
 	didr := TestPLC(t)
-	p1 := MustSetupPDS(t, "localhost:5151", ".tpds", didr)
+	p1 := MustSetupPDS(t, ".tpds", didr)
 	p1.Run(t)
 
 	b1 := MustSetupBGS(t, "localhost:3231", didr)
@@ -324,7 +324,7 @@ func TestRebase(t *testing.T) {
 	}
 	assert := assert.New(t)
 	didr := TestPLC(t)
-	p1 := MustSetupPDS(t, "localhost:9155", ".tpds", didr)
+	p1 := MustSetupPDS(t, ".tpds", didr)
 	p1.Run(t)
 
 	b1 := MustSetupBGS(t, "localhost:1531", didr)

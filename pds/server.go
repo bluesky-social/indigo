@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
 	"net/mail"
 	"net/url"
 	"strings"
@@ -265,7 +267,22 @@ func (s *Server) readRecordFunc(ctx context.Context, user bsutil.Uid, c cid.Cid)
 	return lexutil.CborDecodeValue(blk.RawData())
 }
 
-func (s *Server) RunAPI(listen string) error {
+func (s *Server) RunAPI(addr string) error {
+	var lc net.ListenConfig
+	// This is an arbitrary timeout that should be safe on any platform, but
+	// there's no great way to weave this timeout without adding another
+	// parameter to the (at time of writing) long signature of NewServer.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	li, err := lc.Listen(ctx, "tcp", addr)
+	if err != nil {
+		return err
+	}
+	return s.RunAPIWithListener(li)
+}
+
+func (s *Server) RunAPIWithListener(listen net.Listener) error {
 	e := echo.New()
 	s.echo = e
 	e.HideBanner = true
@@ -330,7 +347,12 @@ func (s *Server) RunAPI(listen string) error {
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
 	e.GET("/xrpc/_health", s.HandleHealthCheck)
 
-	return e.Start(listen)
+	// In order to support booting on random ports in tests, we need to tell the
+	// Echo instance it's already got a port, and then use its StartServer
+	// method to re-use that listener.
+	e.Listener = listen
+	srv := &http.Server{}
+	return e.StartServer(srv)
 }
 
 type HealthStatus struct {
