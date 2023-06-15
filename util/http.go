@@ -52,7 +52,7 @@ func RobustHTTPClient() *http.Client {
 	retryClient.RetryWaitMax = 10 * time.Second
 	retryClient.Logger = retryablehttp.LeveledLogger(LeveledZap{log})
 	client := retryClient.StandardClient()
-	client.Timeout = 20 * time.Second
+	client.Timeout = 30 * time.Second
 	return client
 }
 
