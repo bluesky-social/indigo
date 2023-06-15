@@ -108,6 +108,7 @@ type PDS struct {
 	SSL        bool
 	Cursor     int64
 	Registered bool
+	Blocked    bool
 }
 
 func ClientForPds(pds *PDS) *xrpc.Client {

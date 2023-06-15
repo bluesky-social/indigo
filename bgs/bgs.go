@@ -121,6 +121,23 @@ func (bgs *BGS) StartDebug(listen string) error {
 
 		json.NewEncoder(w).Encode(out)
 	})
+	http.HandleFunc("/repodbg/crawl", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		did := r.FormValue("did")
+
+		act, err := bgs.Index.GetUserOrMissing(ctx, did)
+		if err != nil {
+			w.WriteHeader(500)
+			log.Errorf("failed to get user: %s", err)
+			return
+		}
+
+		if err := bgs.Index.Crawler.Crawl(ctx, act); err != nil {
+			w.WriteHeader(500)
+			log.Errorf("failed to add user to crawler: %s", err)
+			return
+		}
+	})
 	http.HandleFunc("/repodbg/blocks", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		did := r.FormValue("did")
@@ -154,7 +171,6 @@ func (bgs *BGS) StartDebug(listen string) error {
 
 		w.WriteHeader(200)
 		w.Write(blk.RawData())
-
 	})
 	http.Handle("/prometheus", prometheusHandler())
 
@@ -171,7 +187,18 @@ func (bgs *BGS) Start(listen string) error {
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
 		log.Warnf("HANDLER ERROR: (%s) %s", ctx.Path(), err)
-		ctx.Response().WriteHeader(500)
+		switch err := err.(type) {
+		case *echo.HTTPError:
+			fmt.Println("ECHO ERROR CODE: ", err.Code)
+			if err2 := ctx.JSON(err.Code, map[string]any{
+				"error": err.Message,
+			}); err2 != nil {
+				fmt.Println("Failed to write http error: ", err2)
+
+			}
+		default:
+			ctx.Response().WriteHeader(500)
+		}
 	}
 
 	// TODO: this API is temporary until we formalize what we want here
@@ -409,7 +436,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	switch {
 	case env.RepoCommit != nil:
 		evt := env.RepoCommit
-		log.Infof("bgs got repo append event %d from %q: %s\n", evt.Seq, host.Host, evt.Repo)
+		log.Infof("bgs got repo append event %d from %q: %s", evt.Seq, host.Host, evt.Repo)
 		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -505,7 +532,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user bsutil.Uid, blobs []string) error {
 	if s.blobs == nil {
-		log.Infof("blob syncing disabled")
+		log.Debugf("blob syncing disabled")
 		return nil
 	}
 
@@ -625,7 +652,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 		if exu.Handle != handle {
 			// Users handle has changed, update
-			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("handle", peering.ID).Error; err != nil {
+			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("handle", handle).Error; err != nil {
 				return nil, fmt.Errorf("failed to update users handle: %w", err)
 			}
 
