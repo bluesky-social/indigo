@@ -60,5 +60,7 @@ func (bgs *BGS) handleAdminKillUpstreamConn(e echo.Context) error {
 		return err
 	}
 
-	return nil
+	return e.JSON(200, map[string]any{
+		"success": "true",
+	})
 }

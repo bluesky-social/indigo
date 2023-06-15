@@ -189,12 +189,10 @@ func (bgs *BGS) Start(listen string) error {
 		log.Warnf("HANDLER ERROR: (%s) %s", ctx.Path(), err)
 		switch err := err.(type) {
 		case *echo.HTTPError:
-			fmt.Println("ECHO ERROR CODE: ", err.Code)
 			if err2 := ctx.JSON(err.Code, map[string]any{
 				"error": err.Message,
 			}); err2 != nil {
-				fmt.Println("Failed to write http error: ", err2)
-
+				log.Errorf("Failed to write http error: %s", err2)
 			}
 		default:
 			ctx.Response().WriteHeader(500)

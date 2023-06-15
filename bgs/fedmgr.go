@@ -302,7 +302,17 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 		// TODO: all the other event types (handle change, migration, etc)
 		Error: func(errf *events.ErrorFrame) error {
-			return fmt.Errorf("error frame: %s: %s", errf.Error, errf.Message)
+			switch errf.Error {
+			case "FutureCursor":
+				// if we get a FutureCursor frame, reset our sequence number for this host
+				if err := s.db.Table("pds").Where("id = ?", host.ID).Update("cursor", 0).Error; err != nil {
+					return err
+				}
+
+				return fmt.Errorf("got FutureCursor frame, reset cursor tracking for host")
+			default:
+				return fmt.Errorf("error frame: %s: %s", errf.Error, errf.Message)
+			}
 		},
 	}
 
