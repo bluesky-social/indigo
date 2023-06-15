@@ -533,7 +533,7 @@ func (rm *RepoManager) HandleRebase(ctx context.Context, pdsid uint, uid util.Ui
 	// TODO: do we allow prev to be nil in any case here?
 	if prev != nil {
 		if *prev != head {
-			log.Errorw("rebase 'prev' value did not match our latest head for repo", "did", did, "rprev", prev.String(), "lprev", head.String())
+			log.Warnw("rebase 'prev' value did not match our latest head for repo", "did", did, "rprev", prev.String(), "lprev", head.String())
 		}
 	}
 
@@ -992,10 +992,6 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user util.Uid, repoDid
 		slice, err := finish(ctx)
 		if err != nil {
 			return err
-		}
-
-		if len(slice) > carstore.MaxSliceLength {
-			log.Warnw("output slice too large", "len", len(slice), "user", user, "old", old, "new", nu)
 		}
 
 		if err := rm.updateUserRepoHead(ctx, user, nu); err != nil {
