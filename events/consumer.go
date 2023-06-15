@@ -41,7 +41,7 @@ func (rsc *RepoStreamCallbacks) EventHandler(ctx context.Context, xev *XRPCStrea
 	case xev.Error != nil && rsc.Error != nil:
 		return rsc.Error(xev.Error)
 	default:
-		return fmt.Errorf("no know event in XRPCStreamEvent object")
+		return nil
 	}
 }
 

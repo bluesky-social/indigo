@@ -40,6 +40,15 @@ type AuthInfo struct {
 	Did        string `json:"did"`
 }
 
+type XRPCError struct {
+	ErrStr  string `json:"error"`
+	Message string `json:"message"`
+}
+
+func (xe *XRPCError) Error() string {
+	return fmt.Sprintf("%s: %s", xe.ErrStr, xe.Message)
+}
+
 const (
 	Query = XRPCRequestType(iota)
 	Procedure
@@ -126,10 +135,11 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		var i interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&i)
-		fmt.Println(i)
-		return fmt.Errorf("XRPC ERROR %d: %s", resp.StatusCode, resp.Status)
+		var xe XRPCError
+		if err := json.NewDecoder(resp.Body).Decode(&xe); err != nil {
+			return fmt.Errorf("failed to decode xrpc error message (status: %d): %w", resp.StatusCode, err)
+		}
+		return fmt.Errorf("XRPC ERROR %d: %w", resp.StatusCode, &xe)
 	}
 
 	if out != nil {

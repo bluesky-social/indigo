@@ -48,7 +48,9 @@ func (bgs *BGS) handleAdminKillUpstreamConn(e echo.Context) error {
 		}
 	}
 
-	if err := bgs.slurper.KillUpstreamConnection(host); err != nil {
+	block := strings.ToLower(e.QueryParam("block")) == "true"
+
+	if err := bgs.slurper.KillUpstreamConnection(host, block); err != nil {
 		if errors.Is(err, ErrNoActiveConnection) {
 			return &echo.HTTPError{
 				Code:    400,
@@ -58,5 +60,7 @@ func (bgs *BGS) handleAdminKillUpstreamConn(e echo.Context) error {
 		return err
 	}
 
-	return nil
+	return e.JSON(200, map[string]any{
+		"success": "true",
+	})
 }
