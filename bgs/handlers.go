@@ -30,11 +30,11 @@ func (s *BGS) handleComAtprotoSyncGetCheckout(ctx context.Context, commit string
 
 		return buf, nil
 	*/
-	panic("nyi")
+	return nil, fmt.Errorf("nyi")
 }
 
 func (s *BGS) handleComAtprotoSyncGetCommitPath(ctx context.Context, did string, earliest string, latest string) (*comatprototypes.SyncGetCommitPath_Output, error) {
-	panic("nyi")
+	return nil, fmt.Errorf("nyi")
 }
 
 func (s *BGS) handleComAtprotoSyncGetHead(ctx context.Context, did string) (*comatprototypes.SyncGetHead_Output, error) {
@@ -54,7 +54,7 @@ func (s *BGS) handleComAtprotoSyncGetHead(ctx context.Context, did string) (*com
 }
 
 func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection string, commit string, did string, rkey string) (io.Reader, error) {
-	panic("nyi")
+	return nil, fmt.Errorf("nyi")
 }
 
 func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, earliest string, latest string) (io.Reader, error) {
@@ -92,7 +92,7 @@ func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, earli
 }
 
 func (s *BGS) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []string, did string) (io.Reader, error) {
-	panic("NYI")
+	return nil, fmt.Errorf("NYI")
 }
 
 func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, host string) error {
@@ -105,8 +105,8 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, host string)
 }
 
 func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, hostname string) error {
-	panic("NYI")
-	//return s.slurper.SubscribeToPds(ctx, host, false)
+	// TODO:
+	return nil
 }
 
 func (s *BGS) handleComAtprotoSyncGetBlob(ctx context.Context, cid string, did string) (io.Reader, error) {
@@ -123,9 +123,9 @@ func (s *BGS) handleComAtprotoSyncGetBlob(ctx context.Context, cid string, did s
 }
 
 func (s *BGS) handleComAtprotoSyncListBlobs(ctx context.Context, did string, earliest string, latest string) (*comatprototypes.SyncListBlobs_Output, error) {
-	panic("NYI")
+	return nil, fmt.Errorf("NYI")
 }
 
 func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, limit int) (*comatprototypes.SyncListRepos_Output, error) {
-	panic("NYI")
+	return nil, fmt.Errorf("NYI")
 }
