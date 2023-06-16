@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -27,6 +28,9 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	"github.com/ipld/go-car"
 
 	_ "github.com/joho/godotenv/autoload"
 
@@ -929,6 +933,9 @@ var readRepoStreamCmd = &cli.Command{
 		&cli.BoolFlag{
 			Name: "json",
 		},
+		&cli.BoolFlag{
+			Name: "unpack",
+		},
 	},
 	ArgsUsage: `[<repo> [cursor]]`,
 	Action: func(cctx *cli.Context) error {
@@ -951,6 +958,7 @@ var readRepoStreamCmd = &cli.Command{
 		}
 
 		jsonfmt := cctx.Bool("json")
+		unpack := cctx.Bool("unpack")
 
 		fmt.Println("Stream Started", time.Now().Format(time.RFC3339))
 		defer func() {
@@ -975,18 +983,40 @@ var readRepoStreamCmd = &cli.Command{
 					}
 					out["blocks"] = fmt.Sprintf("[%d bytes]", len(evt.Blocks))
 
+					if unpack {
+						recs, err := unpackRecords(evt.Blocks, evt.Ops)
+						if err != nil {
+							fmt.Println("Failed to unpack records: ", err)
+						}
+						out["records"] = recs
+					}
+
 					b, err = json.Marshal(out)
 					if err != nil {
 						return err
 					}
 					fmt.Println(string(b))
-
 				} else {
 					pstr := "<nil>"
 					if evt.Prev != nil && evt.Prev.Defined() {
 						pstr = evt.Prev.String()
 					}
 					fmt.Printf("(%d) RepoAppend: %s (%s -> %s)\n", evt.Seq, evt.Repo, pstr, evt.Commit.String())
+
+					if unpack {
+						recs, err := unpackRecords(evt.Blocks, evt.Ops)
+						if err != nil {
+							fmt.Println("failed to unpack records: ", err)
+						}
+
+						for _, rec := range recs {
+							switch rec := rec.(type) {
+							case *bsky.FeedPost:
+								fmt.Printf("\tPost: %q\n", strings.Replace(rec.Text, "\n", " ", -1))
+							}
+						}
+
+					}
 				}
 
 				return nil
@@ -1011,6 +1041,48 @@ var readRepoStreamCmd = &cli.Command{
 		}
 		return events.HandleRepoStream(ctx, con, &events.SequentialScheduler{rsc.EventHandler})
 	},
+}
+
+func unpackRecords(blks []byte, ops []*atproto.SyncSubscribeRepos_RepoOp) ([]any, error) {
+	ctx := context.TODO()
+
+	bstore := blockstore.NewBlockstore(datastore.NewMapDatastore())
+	carr, err := car.NewCarReader(bytes.NewReader(blks))
+	if err != nil {
+		return nil, err
+	}
+
+	for {
+		blk, err := carr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		if err := bstore.Put(ctx, blk); err != nil {
+			return nil, err
+		}
+	}
+
+	r, err := repo.OpenRepo(ctx, bstore, carr.Header.Roots[0], false)
+	if err != nil {
+		return nil, err
+	}
+
+	var out []any
+	for _, op := range ops {
+		if op.Action == "create" {
+			_, rec, err := r.GetRecord(ctx, op.Path)
+			if err != nil {
+				return nil, err
+			}
+
+			out = append(out, rec)
+		}
+	}
+
+	return out, nil
 }
 
 var getRecordCmd = &cli.Command{
