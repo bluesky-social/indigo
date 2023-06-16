@@ -950,7 +950,7 @@ var readRepoStreamCmd = &cli.Command{
 			arg = fmt.Sprintf("%s?cursor=%s", arg, cctx.Args().Get(1))
 		}
 
-		fmt.Println("dialing: ", arg)
+		fmt.Fprintln(os.Stderr, "dialing: ", arg)
 		d := websocket.DefaultDialer
 		con, _, err := d.Dial(arg, http.Header{})
 		if err != nil {
@@ -960,9 +960,9 @@ var readRepoStreamCmd = &cli.Command{
 		jsonfmt := cctx.Bool("json")
 		unpack := cctx.Bool("unpack")
 
-		fmt.Println("Stream Started", time.Now().Format(time.RFC3339))
+		fmt.Fprintln(os.Stderr, "Stream Started", time.Now().Format(time.RFC3339))
 		defer func() {
-			fmt.Println("Stream Exited", time.Now().Format(time.RFC3339))
+			fmt.Fprintln(os.Stderr, "Stream Exited", time.Now().Format(time.RFC3339))
 		}()
 
 		go func() {
@@ -986,7 +986,7 @@ var readRepoStreamCmd = &cli.Command{
 					if unpack {
 						recs, err := unpackRecords(evt.Blocks, evt.Ops)
 						if err != nil {
-							fmt.Println("Failed to unpack records: ", err)
+							fmt.Fprintln(os.Stderr, "failed to unpack records: ", err)
 						}
 						out["records"] = recs
 					}
@@ -1006,7 +1006,7 @@ var readRepoStreamCmd = &cli.Command{
 					if unpack {
 						recs, err := unpackRecords(evt.Blocks, evt.Ops)
 						if err != nil {
-							fmt.Println("failed to unpack records: ", err)
+							fmt.Fprintln(os.Stderr, "failed to unpack records: ", err)
 						}
 
 						for _, rec := range recs {
