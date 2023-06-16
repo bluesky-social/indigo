@@ -243,7 +243,12 @@ func run(args []string) {
 			blobstore = &blobs.DiskBlobStore{bsdir}
 		}
 
-		bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, !cctx.Bool("crawl-insecure-ws"))
+		var hr api.HandleResolver = &api.ProdHandleResolver{}
+		if cctx.Bool("crawl-insecure-ws") {
+			hr = &api.TestHandleResolver{}
+		}
+
+		bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, hr, !cctx.Bool("crawl-insecure-ws"))
 		if err != nil {
 			return err
 		}

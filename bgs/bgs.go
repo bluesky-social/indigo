@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"contrib.go.opencensus.io/exporter/prometheus"
+	"github.com/bluesky-social/indigo/api"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/blobs"
@@ -48,6 +49,11 @@ type BGS struct {
 	didr    did.Resolver
 
 	blobs blobs.BlobStore
+	hr    api.HandleResolver
+
+	// TODO: work on doing away with this flag in favor of more pluggable
+	// pieces that abstract the need for explicit ssl checks
+	ssl bool
 
 	crawlOnly bool
 
@@ -58,7 +64,7 @@ type BGS struct {
 	repoman *repomgr.RepoManager
 }
 
-func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, blobs blobs.BlobStore, ssl bool) (*BGS, error) {
+func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, blobs blobs.BlobStore, hr api.HandleResolver, ssl bool) (*BGS, error) {
 	db.AutoMigrate(User{})
 	db.AutoMigrate(AuthToken{})
 	db.AutoMigrate(models.PDS{})
@@ -67,6 +73,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		Index: ix,
 		db:    db,
 
+		hr:      hr,
 		repoman: repoman,
 		events:  evtman,
 		didr:    didr,
@@ -605,6 +612,10 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		peering.Host = durl.Host
 		peering.SSL = (durl.Scheme == "https")
 
+		if s.ssl != peering.SSL {
+			return nil, fmt.Errorf("did references non-ssl PDS, this is disallowed in prod: %q %q", did, svc.ServiceEndpoint)
+		}
+
 		if err := s.db.Create(&peering).Error; err != nil {
 			return nil, err
 		}
@@ -625,13 +636,13 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	handle := hurl.Host
 
-	res, err := atproto.IdentityResolveHandle(ctx, c, handle)
+	resdid, err := s.hr.ResolveHandleToDid(ctx, handle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve users claimed handle (%q) on pds: %w", handle, err)
 	}
 
-	if res.Did != did {
-		return nil, fmt.Errorf("claimed handle did not match servers response (%s != %s)", res.Did, did)
+	if resdid != did {
+		return nil, fmt.Errorf("claimed handle did not match servers response (%s != %s)", resdid, did)
 	}
 
 	s.extUserLk.Lock()

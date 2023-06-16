@@ -373,18 +373,6 @@ func (s *Server) handleComAtprotoRepoUploadBlob(ctx context.Context, r io.Reader
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context, handle string) (*comatprototypes.IdentityResolveHandle_Output, error) {
-	if handle == "" {
-		return &comatprototypes.IdentityResolveHandle_Output{Did: s.signingKey.Public().DID()}, nil
-	}
-	u, err := s.lookupUserByHandle(ctx, handle)
-	if err != nil {
-		return nil, err
-	}
-
-	return &comatprototypes.IdentityResolveHandle_Output{Did: u.Did}, nil
-}
-
 func (s *Server) handleComAtprotoRepoApplyWrites(ctx context.Context, body *comatprototypes.RepoApplyWrites_Input) error {
 	u, err := s.getUser(ctx)
 	if err != nil {
