@@ -32,6 +32,8 @@ func TestBGSBasic(t *testing.T) {
 	b1 := MustSetupBGS(t, "localhost:8231", didr)
 	b1.Run(t)
 
+	b1.tr.TrialHosts = []string{p1.host}
+
 	p1.RequestScraping(t, b1)
 
 	time.Sleep(time.Millisecond * 50)
@@ -128,6 +130,8 @@ func TestBGSMultiPDS(t *testing.T) {
 	b1 := MustSetupBGS(t, "localhost:8281", didr)
 	b1.Run(t)
 
+	b1.tr.TrialHosts = []string{p1.host, p2.host}
+
 	p1.RequestScraping(t, b1)
 	time.Sleep(time.Millisecond * 100)
 
@@ -192,6 +196,8 @@ func TestBGSMultiGap(t *testing.T) {
 	b1 := MustSetupBGS(t, "localhost:8291", didr)
 	b1.Run(t)
 
+	b1.tr.TrialHosts = []string{p1.host, p2.host}
+
 	p1.RequestScraping(t, b1)
 	time.Sleep(time.Millisecond * 50)
 
@@ -246,6 +252,8 @@ func TestHandleChange(t *testing.T) {
 	b1 := MustSetupBGS(t, "localhost:8391", didr)
 	b1.Run(t)
 
+	b1.tr.TrialHosts = []string{p1.host}
+
 	p1.RequestScraping(t, b1)
 	time.Sleep(time.Millisecond * 50)
 
@@ -278,6 +286,8 @@ func TestBGSTakedown(t *testing.T) {
 
 	b1 := MustSetupBGS(t, "localhost:3231", didr)
 	b1.Run(t)
+
+	b1.tr.TrialHosts = []string{p1.host}
 
 	p1.RequestScraping(t, b1)
 
@@ -329,6 +339,8 @@ func TestRebase(t *testing.T) {
 
 	b1 := MustSetupBGS(t, "localhost:1531", didr)
 	b1.Run(t)
+
+	b1.tr.TrialHosts = []string{p1.host}
 
 	p1.RequestScraping(t, b1)
 

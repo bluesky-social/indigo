@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
@@ -173,15 +174,17 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 	c := &xrpc.Client{Host: svc.ServiceEndpoint}
 
 	if peering.ID == 0 {
-		pdsdid, err := comatproto.IdentityResolveHandle(ctx, c, "")
+		cfg, err := atproto.ServerDescribeServer(ctx, c)
 		if err != nil {
 			// TODO: failing this shouldnt halt our indexing
-			return nil, fmt.Errorf("failed to get accounts config for unrecognized pds: %w", err)
+			return nil, fmt.Errorf("failed to check unrecognized pds: %w", err)
 		}
+
+		// since handles can be anything, checking against this list doesnt matter...
+		_ = cfg
 
 		// TODO: could check other things, a valid response is good enough for now
 		peering.Host = svc.ServiceEndpoint
-		peering.Did = pdsdid.Did
 
 		if err := s.db.Create(&peering).Error; err != nil {
 			return nil, err
@@ -324,6 +327,8 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 				ctx = context.WithValue(ctx, "auth", auth)
 				c.SetRequest(c.Request().WithContext(ctx))
 				return true
+			case "/.well-known/atproto-did":
+				return true
 			default:
 				return false
 			}
@@ -350,6 +355,7 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 	s.RegisterHandlersAppBsky(e)
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
 	e.GET("/xrpc/_health", s.HandleHealthCheck)
+	e.GET("/.well-known/atproto-did", s.HandleResolveDid)
 
 	// In order to support booting on random ports in tests, we need to tell the
 	// Echo instance it's already got a port, and then use its StartServer
@@ -371,6 +377,22 @@ func (s *Server) HandleHealthCheck(c echo.Context) error {
 	} else {
 		return c.JSON(200, HealthStatus{Status: "ok"})
 	}
+}
+
+func (s *Server) HandleResolveDid(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	handle := c.Request().Host
+	if hh := c.Request().Header.Get("Host"); hh != "" {
+		handle = hh
+	}
+
+	u, err := s.lookupUserByHandle(ctx, handle)
+	if err != nil {
+		return fmt.Errorf("resolving %q: %w", handle, err)
+	}
+
+	return c.String(200, u.Did)
 }
 
 type User struct {
