@@ -424,7 +424,6 @@ var compareStreamsCmd = &cli.Command{
 
 			printCurrentDelta()
 		}
-		return nil
 	},
 }
 
