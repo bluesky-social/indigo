@@ -164,7 +164,7 @@ func (tp *TestPDS) Run(t *testing.T) {
 func (tp *TestPDS) RequestScraping(t *testing.T, b *TestBGS) {
 	t.Helper()
 
-	c := &xrpc.Client{Host: "http://" + b.host}
+	c := &xrpc.Client{Host: "http://" + b.Host()}
 	if err := atproto.SyncRequestCrawl(context.TODO(), c, tp.RawHost()); err != nil {
 		t.Fatal(err)
 	}
@@ -372,14 +372,23 @@ func TestPLC(t *testing.T) *plc.FakeDid {
 }
 
 type TestBGS struct {
-	bgs  *bgs.BGS
-	host string
-	tr   *api.TestHandleResolver
-	db   *gorm.DB
+	bgs *bgs.BGS
+	tr  *api.TestHandleResolver
+	db  *gorm.DB
+
+	// listener is owned by by the BGS structure and should be closed by
+	// shutting down the BGS.
+	listener net.Listener
 }
 
-func MustSetupBGS(t *testing.T, host string, didr plc.PLCClient) *TestBGS {
-	tbgs, err := SetupBGS(host, didr)
+func (t *TestBGS) Host() string {
+	return t.listener.Addr().String()
+}
+
+func MustSetupBGS(t *testing.T, didr plc.PLCClient) *TestBGS {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	tbgs, err := SetupBGS(ctx, didr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -387,7 +396,7 @@ func MustSetupBGS(t *testing.T, host string, didr plc.PLCClient) *TestBGS {
 	return tbgs
 }
 
-func SetupBGS(host string, didr plc.PLCClient) (*TestBGS, error) {
+func SetupBGS(ctx context.Context, didr plc.PLCClient) (*TestBGS, error) {
 	dir, err := os.MkdirTemp("", "integtest")
 	if err != nil {
 		return nil, err
@@ -445,17 +454,23 @@ func SetupBGS(host string, didr plc.PLCClient) (*TestBGS, error) {
 		return nil, err
 	}
 
+	var lc net.ListenConfig
+	listener, err := lc.Listen(ctx, "tcp", "localhost:0")
+	if err != nil {
+		return nil, err
+	}
+
 	return &TestBGS{
-		db:   maindb,
-		bgs:  b,
-		host: host,
-		tr:   tr,
+		db:       maindb,
+		bgs:      b,
+		tr:       tr,
+		listener: listener,
 	}, nil
 }
 
 func (b *TestBGS) Run(t *testing.T) {
 	go func() {
-		if err := b.bgs.Start(b.host); err != nil {
+		if err := b.bgs.StartWithListener(b.listener); err != nil {
 			fmt.Println(err)
 		}
 	}()
@@ -489,7 +504,7 @@ func (b *TestBGS) Events(t *testing.T, since int64) *EventStream {
 		q = fmt.Sprintf("?cursor=%d", since)
 	}
 
-	con, resp, err := d.Dial("ws://"+b.host+"/xrpc/com.atproto.sync.subscribeRepos"+q, h)
+	con, resp, err := d.Dial("ws://"+b.Host()+"/xrpc/com.atproto.sync.subscribeRepos"+q, h)
 	if err != nil {
 		t.Fatal(err)
 	}
