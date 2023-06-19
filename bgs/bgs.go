@@ -642,6 +642,19 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		return nil, err
 	}
 
+	if peering.Blocked {
+		return nil, fmt.Errorf("refusing to create user with blocked PDS")
+	}
+
+	ban, err := s.domainIsBanned(ctx, durl.Host)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check pds ban status: %w", err)
+	}
+
+	if ban {
+		return nil, fmt.Errorf("cannot create user on pds with banned domain")
+	}
+
 	c := &xrpc.Client{Host: durl.String()}
 	s.Index.ApplyPDSClientSettings(c)
 

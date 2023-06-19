@@ -374,11 +374,8 @@ func TestPLC(t *testing.T) *plc.FakeDid {
 type TestBGS struct {
 	bgs  *bgs.BGS
 	host string
-<<<<<<< HEAD
 	tr   *api.TestHandleResolver
-=======
 	db   *gorm.DB
->>>>>>> 34e500d (add ability to ban entire domains, including subdomains)
 }
 
 func MustSetupBGS(t *testing.T, host string, didr plc.PLCClient) *TestBGS {
