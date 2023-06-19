@@ -71,6 +71,7 @@ func run(args []string) {
 	}
 	app.Commands = []*cli.Command{
 		actorGetSuggestionsCmd,
+		bgsAdminCmd,
 		createSessionCmd,
 		debugCmd,
 		deletePostCmd,
@@ -1017,6 +1018,20 @@ var readRepoStreamCmd = &cli.Command{
 				}
 
 				return nil
+			},
+			RepoHandle: func(handle *comatproto.SyncSubscribeRepos_Handle) error {
+				if jsonfmt {
+					b, err := json.Marshal(handle)
+					if err != nil {
+						return err
+					}
+					fmt.Println(string(b))
+				} else {
+					fmt.Printf("(%d) RepoHandle: %s (changed to: %s)\n", handle.Seq, handle.Did, handle.Handle)
+				}
+
+				return nil
+
 			},
 			RepoInfo: func(info *comatproto.SyncSubscribeRepos_Info) error {
 				if jsonfmt {

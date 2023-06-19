@@ -7,6 +7,7 @@ import (
 	"io"
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 )
@@ -101,11 +102,12 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, host string)
 		return fmt.Errorf("must pass valid hostname")
 	}
 
-	banned, err := s.domainIsBanned(ctx, host)
+	norm, err := util.NormalizeHostname(host)
 	if err != nil {
 		return err
 	}
 
+	banned, err := s.domainIsBanned(ctx, host)
 	if banned {
 		return &echo.HTTPError{
 			Code:    401,
@@ -113,8 +115,9 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, host string)
 		}
 	}
 
-	log.Warnf("TODO: host validation for crawl requests")
-	return s.slurper.SubscribeToPds(ctx, host, true)
+	log.Warnf("TODO: better host validation for crawl requests")
+
+	return s.slurper.SubscribeToPds(ctx, norm, true)
 }
 
 func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, hostname string) error {
