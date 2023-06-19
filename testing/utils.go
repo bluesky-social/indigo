@@ -25,6 +25,7 @@ import (
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/plc"
@@ -373,7 +374,11 @@ func TestPLC(t *testing.T) *plc.FakeDid {
 type TestBGS struct {
 	bgs  *bgs.BGS
 	host string
+<<<<<<< HEAD
 	tr   *api.TestHandleResolver
+=======
+	db   *gorm.DB
+>>>>>>> 34e500d (add ability to ban entire domains, including subdomains)
 }
 
 func MustSetupBGS(t *testing.T, host string, didr plc.PLCClient) *TestBGS {
@@ -444,6 +449,7 @@ func SetupBGS(host string, didr plc.PLCClient) (*TestBGS, error) {
 	}
 
 	return &TestBGS{
+		db:   maindb,
 		bgs:  b,
 		host: host,
 		tr:   tr,
@@ -457,6 +463,16 @@ func (b *TestBGS) Run(t *testing.T) {
 		}
 	}()
 	time.Sleep(time.Millisecond * 10)
+}
+
+func (b *TestBGS) BanDomain(t *testing.T, d string) {
+	t.Helper()
+
+	if err := b.db.Create(&models.DomainBan{
+		Domain: d,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
 }
 
 type EventStream struct {
