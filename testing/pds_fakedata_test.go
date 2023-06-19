@@ -12,7 +12,6 @@ import (
 )
 
 const (
-	pdsHost       = "http://localhost:5159"
 	adminPassword = "admin"
 	celebCount    = 2
 	regularCount  = 5
@@ -60,18 +59,18 @@ func TestPDSFakedata(t *testing.T) {
 	}
 	assert := assert.New(t)
 	plcc := TestPLC(t)
-	pds := MustSetupPDS(t, "localhost:5159", ".test", plcc)
+	pds := MustSetupPDS(t, ".test", plcc)
 	pds.Run(t)
 
 	time.Sleep(time.Millisecond * 50)
 
-	catalog := genTestCatalog(t, pdsHost)
+	catalog := genTestCatalog(t, pds.HTTPHost())
 	combined := catalog.Combined()
 	testClient := util.TestingHTTPClient()
 
 	// generate profile, graph, posts
 	for _, acc := range combined {
-		xrpcc, err := fakedata.AccountXrpcClient(pdsHost, &acc)
+		xrpcc, err := fakedata.AccountXrpcClient(pds.HTTPHost(), &acc)
 		xrpcc.Client = testClient
 		if err != nil {
 			t.Fatal(err)
@@ -84,7 +83,7 @@ func TestPDSFakedata(t *testing.T) {
 
 	// generate interactions (additional posts, etc)
 	for _, acc := range combined {
-		xrpcc, err := fakedata.AccountXrpcClient(pdsHost, &acc)
+		xrpcc, err := fakedata.AccountXrpcClient(pds.HTTPHost(), &acc)
 		xrpcc.Client = testClient
 		if err != nil {
 			t.Fatal(err)
@@ -95,7 +94,7 @@ func TestPDSFakedata(t *testing.T) {
 
 	// do browsing (read-only)
 	for _, acc := range combined {
-		xrpcc, err := fakedata.AccountXrpcClient(pdsHost, &acc)
+		xrpcc, err := fakedata.AccountXrpcClient(pds.HTTPHost(), &acc)
 		xrpcc.Client = testClient
 		if err != nil {
 			t.Fatal(err)

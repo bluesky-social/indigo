@@ -129,7 +129,7 @@ func TestLabelmakerBasic(t *testing.T) {
 	_ = assert
 	ctx := context.TODO()
 	didr := TestPLC(t)
-	p1 := MustSetupPDS(t, "localhost:5115", ".tpds", didr)
+	p1 := MustSetupPDS(t, ".tpds", didr)
 	p1.Run(t)
 
 	b1 := MustSetupBGS(t, "localhost:8322", didr)
