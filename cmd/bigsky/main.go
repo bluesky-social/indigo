@@ -29,6 +29,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
@@ -57,6 +58,10 @@ func run(args []string) {
 	app.Flags = []cli.Flag{
 		&cli.BoolFlag{
 			Name: "jaeger",
+		},
+		&cli.BoolFlag{
+			Name:    "otlp",
+			EnvVars: []string{"OTLP_TRACE_HTTP"},
 		},
 		&cli.StringFlag{
 			Name:    "db-url",
@@ -130,6 +135,32 @@ func run(args []string) {
 				)),
 			)
 
+			otel.SetTracerProvider(tp)
+		}
+		if cctx.Bool("oltp") {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			exp, err := otlptracehttp.New(ctx, otlptracehttp.WithInsecure())
+			if err != nil {
+				log.Fatalw("failed to create trace exporter", "error", err)
+			}
+			defer func() {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+				if err := exp.Shutdown(ctx); err != nil {
+					log.Errorw("failed to shutdown trace exporter", "error", err)
+				}
+			}()
+
+			tp := tracesdk.NewTracerProvider(
+				tracesdk.WithBatcher(exp),
+				tracesdk.WithResource(resource.NewWithAttributes(
+					semconv.SchemaURL,
+					semconv.ServiceNameKey.String("bgs"),
+					attribute.Int64("ID", 1),
+				)),
+			)
 			otel.SetTracerProvider(tp)
 		}
 
