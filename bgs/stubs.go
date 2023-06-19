@@ -1,6 +1,7 @@
 package bgs
 
 import (
+	"fmt"
 	"io"
 	"strconv"
 
@@ -194,7 +195,21 @@ func (s *BGS) HandleComAtprotoSyncNotifyOfUpdate(c echo.Context) error {
 func (s *BGS) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncRequestCrawl")
 	defer span.End()
-	hostname := c.QueryParam("hostname")
+
+	var hostname string
+	switch c.Request().Method {
+	case "GET":
+		hostname = c.QueryParam("hostname")
+	case "POST":
+		var m map[string]string
+		if err := c.Bind(&m); err != nil {
+			return err
+		}
+
+		hostname = m["hostname"]
+	default:
+		return fmt.Errorf("invalid method for handler")
+	}
 	var handleErr error
 	// func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context,hostname string) error
 	handleErr = s.handleComAtprotoSyncRequestCrawl(ctx, hostname)
