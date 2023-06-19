@@ -59,10 +59,6 @@ func run(args []string) {
 		&cli.BoolFlag{
 			Name: "jaeger",
 		},
-		&cli.BoolFlag{
-			Name:    "otlp",
-			EnvVars: []string{"OTLP_TRACE_HTTP"},
-		},
 		&cli.StringFlag{
 			Name:    "db-url",
 			Usage:   "database connection string for BGS database",
@@ -137,11 +133,17 @@ func run(args []string) {
 
 			otel.SetTracerProvider(tp)
 		}
-		if cctx.Bool("oltp") {
+
+		// Enable OTLP HTTP exporter
+		// For relevant environment variables:
+		// https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace#readme-environment-variables
+		// At a minimum, you need to set
+		// OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+		if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") != "" {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			exp, err := otlptracehttp.New(ctx, otlptracehttp.WithInsecure())
+			exp, err := otlptracehttp.New(ctx)
 			if err != nil {
 				log.Fatalw("failed to create trace exporter", "error", err)
 			}
