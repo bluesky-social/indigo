@@ -3,11 +3,13 @@ package api
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -75,11 +77,25 @@ type ProdHandleResolver struct {
 }
 
 func (dr *ProdHandleResolver) ResolveHandleToDid(ctx context.Context, handle string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
 	c := http.DefaultClient
 
-	resp, wkerr := c.Get(fmt.Sprintf("https://%s/.well-known/atproto-did", handle))
+	req, err := http.NewRequest("GET", fmt.Sprintf("https://%s/.well-known/atproto-did", handle), nil)
+	if err != nil {
+		return "", err
+	}
+
+	req = req.WithContext(ctx)
+
+	resp, wkerr := c.Do(req)
 	if wkerr == nil && resp.StatusCode == 200 {
-		b, err := ioutil.ReadAll(resp.Body)
+		if resp.ContentLength > 2048 {
+			return "", fmt.Errorf("http well-known route returned too much data")
+		}
+
+		b, err := ioutil.ReadAll(io.LimitReader(resp.Body, 2048))
 		if err != nil {
 			return "", fmt.Errorf("failed to read resolved did: %w", err)
 		}
@@ -91,7 +107,7 @@ func (dr *ProdHandleResolver) ResolveHandleToDid(ctx context.Context, handle str
 
 		return parsed.String(), nil
 	}
-	log.Infof("failed to resolve handle (%s) through well-known route: %s", handle, wkerr)
+	log.Infof("failed to resolve handle (%s) through HTTP well-known route: %s", handle, wkerr)
 
 	res, err := net.LookupTXT("_atproto." + handle)
 	if err != nil {
