@@ -160,6 +160,8 @@ func run(args []string) {
 				tracesdk.WithResource(resource.NewWithAttributes(
 					semconv.SchemaURL,
 					semconv.ServiceNameKey.String("bgs"),
+					attribute.String("env", os.Getenv("ENVIRONMENT")),         // DataDog
+					attribute.String("environment", os.Getenv("ENVIRONMENT")), // Others
 					attribute.Int64("ID", 1),
 				)),
 			)
