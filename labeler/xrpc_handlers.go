@@ -16,17 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context, handle string) (*atproto.IdentityResolveHandle_Output, error) {
-	// only the one handle, for labelmaker
-	if handle == "" {
-		return &atproto.IdentityResolveHandle_Output{Did: s.user.SigningKey.Public().DID()}, nil
-	} else if handle == s.user.Handle {
-		return &atproto.IdentityResolveHandle_Output{Did: s.user.Did}, nil
-	} else {
-		return nil, echo.NewHTTPError(404, "user not found: %s", handle)
-	}
-}
-
 func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*atproto.ServerDescribeServer_Output, error) {
 	invcode := true
 	return &atproto.ServerDescribeServer_Output{

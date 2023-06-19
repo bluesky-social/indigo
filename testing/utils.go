@@ -373,6 +373,7 @@ func TestPLC(t *testing.T) *plc.FakeDid {
 type TestBGS struct {
 	bgs  *bgs.BGS
 	host string
+	tr   *api.TestHandleResolver
 }
 
 func MustSetupBGS(t *testing.T, host string, didr plc.PLCClient) *TestBGS {
@@ -435,7 +436,9 @@ func SetupBGS(host string, didr plc.PLCClient) (*TestBGS, error) {
 		}
 	})
 
-	b, err := bgs.NewBGS(maindb, ix, repoman, evtman, didr, nil, false)
+	tr := &api.TestHandleResolver{}
+
+	b, err := bgs.NewBGS(maindb, ix, repoman, evtman, didr, nil, tr, false)
 	if err != nil {
 		return nil, err
 	}
@@ -443,6 +446,7 @@ func SetupBGS(host string, didr plc.PLCClient) (*TestBGS, error) {
 	return &TestBGS{
 		bgs:  b,
 		host: host,
+		tr:   tr,
 	}, nil
 }
 

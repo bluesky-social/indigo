@@ -236,7 +236,8 @@ var didGetCmd = &cli.Command{
 				return err
 			}
 
-			h, _, err := api.ResolveDidToHandle(context.TODO(), xrpcc, s, did)
+			phr := &api.ProdHandleResolver{}
+			h, _, err := api.ResolveDidToHandle(context.TODO(), xrpcc, s, phr, did)
 			if err != nil {
 				return err
 			}
@@ -877,23 +878,19 @@ var resolveHandleCmd = &cli.Command{
 	Action: func(cctx *cli.Context) error {
 		ctx := context.TODO()
 
-		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
-		if err != nil {
-			return err
-		}
-
 		args, err := needArgs(cctx, "handle")
 		if err != nil {
 			return err
 		}
 		handle := args[0]
 
-		out, err := comatproto.IdentityResolveHandle(ctx, xrpcc, handle)
+		phr := &api.ProdHandleResolver{}
+		out, err := phr.ResolveHandleToDid(ctx, handle)
 		if err != nil {
 			return err
 		}
 
-		fmt.Println(out.Did)
+		fmt.Println(out)
 
 		return nil
 	},
@@ -1207,6 +1204,7 @@ var createInviteCmd = &cli.Command{
 		count := cctx.Int("useCount")
 		num := cctx.Int("num")
 
+		phr := &api.ProdHandleResolver{}
 		if bulkfi := cctx.String("bulk"); bulkfi != "" {
 			xrpcc.AdminToken = &adminKey
 			dids, err := readDids(bulkfi)
@@ -1216,12 +1214,12 @@ var createInviteCmd = &cli.Command{
 
 			for i, d := range dids {
 				if !strings.HasPrefix(d, "did:plc:") {
-					out, err := comatproto.IdentityResolveHandle(context.TODO(), xrpcc, d)
+					out, err := phr.ResolveHandleToDid(context.TODO(), d)
 					if err != nil {
 						return fmt.Errorf("failed to resolve %q: %w", d, err)
 					}
 
-					dids[i] = out.Did
+					dids[i] = out
 				}
 			}
 
@@ -1240,12 +1238,12 @@ var createInviteCmd = &cli.Command{
 		var usrdid []string
 		if forUser := cctx.Args().Get(0); forUser != "" {
 			if !strings.HasPrefix(forUser, "did:") {
-				resp, err := comatproto.IdentityResolveHandle(context.TODO(), xrpcc, forUser)
+				resp, err := phr.ResolveHandleToDid(context.TODO(), forUser)
 				if err != nil {
 					return fmt.Errorf("resolving handle: %w", err)
 				}
 
-				usrdid = []string{resp.Did}
+				usrdid = []string{resp}
 			} else {
 				usrdid = []string{forUser}
 			}

@@ -18,7 +18,8 @@ type ActorSearchResp struct {
 }
 
 func (s *Server) handleFromDid(ctx context.Context, did string) (string, error) {
-	handle, _, err := api.ResolveDidToHandle(ctx, s.xrpcc, s.plc, did)
+	phr := &api.ProdHandleResolver{}
+	handle, _, err := api.ResolveDidToHandle(ctx, s.xrpcc, s.plc, phr, did)
 	if err != nil {
 		return "", err
 	}
