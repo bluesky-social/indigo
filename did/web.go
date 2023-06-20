@@ -9,6 +9,7 @@ import (
 	"unicode"
 
 	"github.com/whyrusleeping/go-did"
+	"go.opentelemetry.io/otel"
 )
 
 type WebResolver struct {
@@ -16,6 +17,9 @@ type WebResolver struct {
 }
 
 func (wr *WebResolver) GetDocument(ctx context.Context, didstr string) (*Document, error) {
+	ctx, span := otel.Tracer("did").Start(ctx, "didWebGetDocument")
+	defer span.End()
+
 	pdid, err := did.ParseDID(didstr)
 	if err != nil {
 		return nil, err
