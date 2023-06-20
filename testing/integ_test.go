@@ -10,6 +10,7 @@ import (
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-log/v2"
 	car "github.com/ipld/go-car"
@@ -400,4 +401,35 @@ func commitFromSlice(t *testing.T, slice []byte, rcid cid.Cid) *repo.SignedCommi
 			return &sc
 		}
 	}
+}
+
+func TestDomainBans(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping BGS test in 'short' test mode")
+	}
+	didr := TestPLC(t)
+
+	b1 := MustSetupBGS(t, "localhost:8999", didr)
+	b1.Run(t)
+
+	b1.BanDomain(t, "foo.com")
+
+	c := &xrpc.Client{Host: "http://" + b1.host}
+	if err := atproto.SyncRequestCrawl(context.TODO(), c, "foo.com"); err == nil {
+		t.Fatal("domain should be banned")
+	}
+
+	if err := atproto.SyncRequestCrawl(context.TODO(), c, "pds.foo.com"); err == nil {
+		t.Fatal("domain should be banned")
+	}
+
+	if err := atproto.SyncRequestCrawl(context.TODO(), c, "app.pds.foo.com"); err == nil {
+		t.Fatal("domain should be banned")
+	}
+
+	// should not be banned
+	if err := atproto.SyncRequestCrawl(context.TODO(), c, "foo.bar.com"); err != nil {
+		t.Fatal(err)
+	}
+
 }
