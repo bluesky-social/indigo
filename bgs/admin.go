@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bluesky-social/indigo/models"
 	"github.com/labstack/echo/v4"
 )
 
@@ -61,6 +62,41 @@ func (bgs *BGS) handleAdminKillUpstreamConn(e echo.Context) error {
 	}
 
 	return e.JSON(200, map[string]any{
+		"success": "true",
+	})
+}
+
+func (bgs *BGS) handleAdminListDomainBans(c echo.Context) error {
+	var all []models.DomainBan
+	if err := bgs.db.Find(&all).Error; err != nil {
+		return err
+	}
+
+	var out []string
+	for _, b := range all {
+		out = append(out, b.Domain)
+	}
+
+	return c.JSON(200, out)
+}
+
+type banDomainBody struct {
+	Domain string
+}
+
+func (bgs *BGS) handleAdminBanDomain(c echo.Context) error {
+	var body banDomainBody
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+
+	if err := bgs.db.Create(&models.DomainBan{
+		Domain: body.Domain,
+	}).Error; err != nil {
+		return err
+	}
+
+	return c.JSON(200, map[string]any{
 		"success": "true",
 	})
 }
