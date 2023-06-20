@@ -5,9 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 
+	atproto "github.com/bluesky-social/indigo/api/atproto"
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 )
@@ -116,6 +119,26 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, host string)
 	}
 
 	log.Warnf("TODO: better host validation for crawl requests")
+
+	c := &xrpc.Client{
+		Host:   "https://" + host,
+		Client: http.DefaultClient, // not using the client that auto-retries
+	}
+
+	if !s.ssl {
+		c.Host = "http://" + host
+	}
+
+	desc, err := atproto.ServerDescribeServer(ctx, c)
+	if err != nil {
+		return &echo.HTTPError{
+			Code:    401,
+			Message: fmt.Sprintf("given host failed to respond to ping: %s", err),
+		}
+	}
+
+	// Maybe we could do something with this response later
+	_ = desc
 
 	return s.slurper.SubscribeToPds(ctx, norm, true)
 }
