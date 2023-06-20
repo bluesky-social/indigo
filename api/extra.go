@@ -80,6 +80,9 @@ func (dr *ProdHandleResolver) ResolveHandleToDid(ctx context.Context, handle str
 	ctx, cancel := context.WithTimeout(ctx, time.Second*20)
 	defer cancel()
 
+	ctx, span := otel.Tracer("resolver").Start(ctx, "ResolveHandleToDid")
+	defer span.End()
+
 	c := http.DefaultClient
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("https://%s/.well-known/atproto-did", handle), nil)
