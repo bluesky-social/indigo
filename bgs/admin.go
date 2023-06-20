@@ -16,15 +16,29 @@ func (bgs *BGS) handleAdminBlockRepoStream(e echo.Context) error {
 func (bgs *BGS) handleAdminSetSubsEnabled(e echo.Context) error {
 	enabled, err := strconv.ParseBool(e.QueryParam("enabled"))
 	if err != nil {
-		return err
+		return &echo.HTTPError{
+			Code:    400,
+			Message: err.Error(),
+		}
 	}
 
 	return bgs.slurper.SetNewSubsDisabled(!enabled)
 }
 
 func (bgs *BGS) handleAdminTakeDownRepo(e echo.Context) error {
-	did := e.QueryParam("did")
 	ctx := e.Request().Context()
+
+	var body map[string]string
+	if err := e.Bind(&body); err != nil {
+		return err
+	}
+	did, ok := body["did"]
+	if !ok {
+		return &echo.HTTPError{
+			Code:    400,
+			Message: "must specify did parameter in body",
+		}
+	}
 
 	return bgs.TakeDownRepo(ctx, did)
 }
