@@ -53,7 +53,7 @@ func ResolveDidToHandle(ctx context.Context, xrpcc *xrpc.Client, res did.Resolve
 		return "", "", fmt.Errorf("users did document has no pds service set")
 	}
 
-	if svc.ServiceEndpoint != xrpcc.Host {
+	if xrpcc.Host != "*" && svc.ServiceEndpoint != xrpcc.Host {
 		return "", "", fmt.Errorf("our XRPC client is authed for a different pds (%s != %s)", svc.ServiceEndpoint, xrpcc.Host)
 	}
 
@@ -77,7 +77,7 @@ type ProdHandleResolver struct {
 }
 
 func (dr *ProdHandleResolver) ResolveHandleToDid(ctx context.Context, handle string) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*20)
 	defer cancel()
 
 	c := http.DefaultClient

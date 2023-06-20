@@ -224,6 +224,8 @@ func (bgs *BGS) Start(listen string) error {
 	admin.POST("/subs/setEnabled", bgs.handleAdminSetSubsEnabled)
 	admin.GET("/subs/getUpstreamConns", bgs.handleAdminGetUpstreamConns)
 	admin.POST("/subs/killUpstream", bgs.handleAdminKillUpstreamConn)
+	admin.GET("/subs/listDomainBans", bgs.handleAdminListDomainBans)
+	admin.POST("/subs/banDomain", bgs.handleAdminBanDomain)
 	admin.POST("/repo/takeDown", bgs.handleAdminTakeDownRepo)
 	admin.POST("/repo/reverseTakedown", bgs.handleAdminReverseTakedown)
 

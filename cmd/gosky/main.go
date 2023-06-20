@@ -25,6 +25,7 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/version"
+	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
@@ -67,6 +68,11 @@ func run(args []string) {
 			Usage:   "path to JSON file with ATP auth info",
 			Value:   "bsky.auth",
 			EnvVars: []string{"ATP_AUTH_FILE"},
+		},
+		&cli.StringFlag{
+			Name:    "plc",
+			Value:   "https://plc.directory",
+			EnvVars: []string{"ATP_PLC_HOST"},
 		},
 	}
 	app.Commands = []*cli.Command{
@@ -202,14 +208,8 @@ var postCmd = &cli.Command{
 }
 
 var didCmd = &cli.Command{
-	Name: "did",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:    "plc",
-			Value:   "https://plc.directory",
-			EnvVars: []string{"ATP_PLC_HOST"},
-		},
-	},
+	Name:  "did",
+	Flags: []cli.Flag{},
 	Subcommands: []*cli.Command{
 		didGetCmd,
 		didCreateCmd,
@@ -934,6 +934,9 @@ var readRepoStreamCmd = &cli.Command{
 		&cli.BoolFlag{
 			Name: "unpack",
 		},
+		&cli.BoolFlag{
+			Name: "resolve-handles",
+		},
 	},
 	ArgsUsage: `[<repo> [cursor]]`,
 	Action: func(cctx *cli.Context) error {
@@ -968,6 +971,10 @@ var readRepoStreamCmd = &cli.Command{
 			_ = con.Close()
 		}()
 
+		didr := cliutil.GetDidResolver(cctx)
+		hr := &api.ProdHandleResolver{}
+		resolveHandles := cctx.Bool("resolve-handles")
+
 		rsc := &events.RepoStreamCallbacks{
 			RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 				if jsonfmt {
@@ -999,7 +1006,16 @@ var readRepoStreamCmd = &cli.Command{
 					if evt.Prev != nil && evt.Prev.Defined() {
 						pstr = evt.Prev.String()
 					}
-					fmt.Printf("(%d) RepoAppend: %s (%s -> %s)\n", evt.Seq, evt.Repo, pstr, evt.Commit.String())
+					var handle string
+					if resolveHandles {
+						h, _, err := api.ResolveDidToHandle(ctx, &xrpc.Client{Host: "*"}, didr, hr, evt.Repo)
+						if err != nil {
+							fmt.Println("failed to resolve handle: ", err)
+						} else {
+							handle = h
+						}
+					}
+					fmt.Printf("(%d) RepoAppend: %s %s (%s -> %s)\n", evt.Seq, evt.Repo, handle, pstr, evt.Commit.String())
 
 					if unpack {
 						recs, err := unpackRecords(evt.Blocks, evt.Ops)
