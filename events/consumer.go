@@ -60,6 +60,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler)
 					log.Warnf("failed to ping: %s", err)
 				}
 			case <-ctx.Done():
+				con.Close()
 				return
 			}
 		}
@@ -67,6 +68,11 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler)
 
 	lastSeq := int64(-1)
 	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		mt, r, err := con.NextReader()
 		if err != nil {
 			return err

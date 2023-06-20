@@ -535,6 +535,9 @@ func (cs *CarStore) openNewShardFile(ctx context.Context, user util.Uid, seq int
 }
 
 func (cs *CarStore) writeNewShardFile(ctx context.Context, user util.Uid, seq int, data []byte) (string, error) {
+	_, span := otel.Tracer("carstore").Start(ctx, "writeNewShardFile")
+	defer span.End()
+
 	// TODO: some overwrite protections
 	fname := filepath.Join(cs.rootDir, fnameForShard(user, seq))
 	if err := os.WriteFile(fname, data, 0664); err != nil {
@@ -708,6 +711,8 @@ func LdWrite(w io.Writer, d ...[]byte) (int64, error) {
 }
 
 func (cs *CarStore) ImportSlice(ctx context.Context, uid util.Uid, prev *cid.Cid, carslice []byte) (cid.Cid, *DeltaSession, error) {
+	ctx, span := otel.Tracer("carstore").Start(ctx, "ImportSlice")
+	defer span.End()
 
 	carr, err := car.NewCarReader(bytes.NewReader(carslice))
 	if err != nil {
