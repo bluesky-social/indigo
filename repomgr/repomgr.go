@@ -657,6 +657,9 @@ func (rm *RepoManager) DoRebase(ctx context.Context, uid util.Uid) error {
 }
 
 func (rm *RepoManager) CheckRepoSig(ctx context.Context, r *repo.Repo, expdid string) error {
+	ctx, span := otel.Tracer("repoman").Start(ctx, "CheckRepoSig")
+	defer span.End()
+
 	repoDid := r.RepoDid()
 	if expdid != repoDid {
 		return fmt.Errorf("DID in repo did not match (%q != %q)", expdid, repoDid)

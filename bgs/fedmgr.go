@@ -197,9 +197,19 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS) {
 		url := fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", protocol, host.Host, cursor)
 		con, res, err := d.DialContext(ctx, url, nil)
 		if err != nil {
-			log.Warnf("dialing %q failed: %s", host.Host, err)
+			log.Warnw("dialing failed", "host", host.Host, "err", err, "backoff", backoff)
 			time.Sleep(sleepForBackoff(backoff))
 			backoff++
+
+			if backoff > 15 {
+				log.Warnw("pds does not appear to be online, disabling for now", "host", host.Host)
+				if err := s.db.Model(&models.PDS{}).Where("id = ?", host.ID).Update("registered", false).Error; err != nil {
+					log.Errorf("failed to unregister failing pds: %w", err)
+				}
+
+				return
+			}
+
 			continue
 		}
 
@@ -348,7 +358,7 @@ func (s *Slurper) KillUpstreamConnection(host string, block bool) error {
 	ac.cancel()
 
 	if block {
-		if err := s.db.Model(models.PDS{}).Where("id = ?").UpdateColumn("blocked", true).Error; err != nil {
+		if err := s.db.Model(models.PDS{}).Where("id = ?", ac.pds.ID).UpdateColumn("blocked", true).Error; err != nil {
 			return fmt.Errorf("failed to set host as blocked: %w", err)
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strings"
 	"testing"
 	"time"
 
@@ -262,6 +263,9 @@ func TestHandleChange(t *testing.T) {
 
 	u := p1.MustNewUser(t, usernames[0]+".pdsuno")
 
+	// if the handle changes before the bgs processes the first event, things
+	// get a little weird
+	time.Sleep(time.Millisecond * 50)
 	//socialSim(t, []*testUser{u}, 10, 0)
 
 	u.ChangeHandle(t, "catbear.pdsuno")
@@ -428,8 +432,13 @@ func TestDomainBans(t *testing.T) {
 	}
 
 	// should not be banned
-	if err := atproto.SyncRequestCrawl(context.TODO(), c, "foo.bar.com"); err != nil {
-		t.Fatal(err)
+	err := atproto.SyncRequestCrawl(context.TODO(), c, "foo.bar.com")
+	if err == nil {
+		t.Fatal("should still fail")
+	}
+
+	if !strings.Contains(err.Error(), "XRPC ERROR 401") {
+		t.Fatal("should have failed with a 401")
 	}
 
 }
