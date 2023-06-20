@@ -8,6 +8,7 @@ import (
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/ipfs/go-cid"
+	"github.com/labstack/echo/v4"
 )
 
 func (s *BGS) handleComAtprotoSyncGetCheckout(ctx context.Context, commit string, did string) (io.Reader, error) {
@@ -98,6 +99,18 @@ func (s *BGS) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []string, 
 func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, host string) error {
 	if host == "" {
 		return fmt.Errorf("must pass valid hostname")
+	}
+
+	banned, err := s.domainIsBanned(ctx, host)
+	if err != nil {
+		return err
+	}
+
+	if banned {
+		return &echo.HTTPError{
+			Code:    401,
+			Message: "domain is banned",
+		}
 	}
 
 	log.Warnf("TODO: host validation for crawl requests")

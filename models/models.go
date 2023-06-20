@@ -137,3 +137,8 @@ type Label struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+
+type DomainBan struct {
+	gorm.Model
+	Domain string
+}

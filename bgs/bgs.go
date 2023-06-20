@@ -68,6 +68,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	db.AutoMigrate(User{})
 	db.AutoMigrate(AuthToken{})
 	db.AutoMigrate(models.PDS{})
+	db.AutoMigrate(models.DomainBan{})
 
 	bgs := &BGS{
 		Index: ix,
@@ -413,6 +414,53 @@ func prometheusHandler() http.Handler {
 	return exporter
 }
 
+// domainIsBanned checks if the given host is banned, starting with the host
+// itself, then checking every parent domain up to the tld
+func (s *BGS) domainIsBanned(ctx context.Context, host string) (bool, error) {
+	// ignore ports when checking for ban status
+	hostport := strings.Split(host, ":")
+
+	segments := strings.Split(hostport[0], ".")
+
+	// TODO: use normalize method once that merges
+	var cleaned []string
+	for _, s := range segments {
+		if s == "" {
+			continue
+		}
+		s = strings.ToLower(s)
+
+		cleaned = append(cleaned, s)
+	}
+	segments = cleaned
+
+	for i := 0; i < len(segments)-1; i++ {
+		dchk := strings.Join(segments[i:], ".")
+		found, err := s.findDomainBan(ctx, dchk)
+		if err != nil {
+			return false, err
+		}
+
+		if found {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (s *BGS) findDomainBan(ctx context.Context, host string) (bool, error) {
+	var db models.DomainBan
+	if err := s.db.Find(&db, "domain = ?", host).Error; err != nil {
+		return false, err
+	}
+
+	if db.ID == 0 {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) {
 	var u User
 	if err := bgs.db.Find(&u, "did = ?", did).Error; err != nil {
@@ -592,6 +640,19 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	if err := s.db.Find(&peering, "host = ?", durl.Host).Error; err != nil {
 		log.Error("failed to find pds", durl.Host)
 		return nil, err
+	}
+
+	if peering.Blocked {
+		return nil, fmt.Errorf("refusing to create user with blocked PDS")
+	}
+
+	ban, err := s.domainIsBanned(ctx, durl.Host)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check pds ban status: %w", err)
+	}
+
+	if ban {
+		return nil, fmt.Errorf("cannot create user on pds with banned domain")
 	}
 
 	c := &xrpc.Client{Host: durl.String()}
