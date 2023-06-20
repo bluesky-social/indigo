@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
@@ -103,6 +104,13 @@ func (s *BGS) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []string, 
 func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, host string) error {
 	if host == "" {
 		return fmt.Errorf("must pass valid hostname")
+	}
+
+	if strings.HasPrefix(host, "https://") || strings.HasPrefix(host, "http://") {
+		return &echo.HTTPError{
+			Code:    400,
+			Message: "must pass domain without protocol scheme",
+		}
 	}
 
 	norm, err := util.NormalizeHostname(host)
