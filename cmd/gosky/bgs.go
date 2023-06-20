@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/bluesky-social/indigo/xrpc"
 	cli "github.com/urfave/cli/v2"
@@ -28,6 +29,8 @@ var bgsAdminCmd = &cli.Command{
 		bgsKickConnectionCmd,
 		bgsListDomainBansCmd,
 		bgsBanDomainCmd,
+		bgsTakedownRepoCmd,
+		bgsSetNewSubsEnabledCmd,
 	},
 }
 
@@ -176,6 +179,98 @@ var bgsBanDomainCmd = &cli.Command{
 		}
 
 		req.Header.Set("Content-Type", "application/json")
+
+		auth := cctx.String("key")
+		req.Header.Set("Authorization", "Bearer "+auth)
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+
+		if resp.StatusCode != 200 {
+			var e xrpc.XRPCError
+			if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
+				return err
+			}
+
+			return &e
+		}
+
+		var out map[string]any
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			return err
+		}
+
+		fmt.Println(out)
+
+		return nil
+	},
+}
+
+var bgsTakedownRepoCmd = &cli.Command{
+	Name: "take-down-repo",
+	Action: func(cctx *cli.Context) error {
+		url := cctx.String("bgs") + "/admin/repo/takeDown"
+
+		b, err := json.Marshal(map[string]string{
+			"did": cctx.Args().First(),
+		})
+		if err != nil {
+			return err
+		}
+
+		req, err := http.NewRequest("POST", url, bytes.NewReader(b))
+		if err != nil {
+			return err
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+
+		auth := cctx.String("key")
+		req.Header.Set("Authorization", "Bearer "+auth)
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+
+		if resp.StatusCode != 200 {
+			var e xrpc.XRPCError
+			if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
+				return err
+			}
+
+			return &e
+		}
+
+		var out map[string]any
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			return err
+		}
+
+		fmt.Println(out)
+
+		return nil
+	},
+}
+
+var bgsSetNewSubsEnabledCmd = &cli.Command{
+	Name: "set-accept-subs",
+	Action: func(cctx *cli.Context) error {
+		url := cctx.String("bgs") + "/admin/subs/setEnabled"
+
+		bv, err := strconv.ParseBool(cctx.Args().First())
+		if err != nil {
+			return err
+		}
+
+		url += fmt.Sprintf("?enabled=%v", bv)
+
+		req, err := http.NewRequest("POST", url, nil)
+		if err != nil {
+			return err
+		}
 
 		auth := cctx.String("key")
 		req.Header.Set("Authorization", "Bearer "+auth)
