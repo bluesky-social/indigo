@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
@@ -40,6 +41,13 @@ import (
 )
 
 var log = logging.Logger("bgs")
+
+// serverListenerBootTimeout is how long to wait for the requested server socket
+// to become available for use. This is an arbitrary timeout that should be safe
+// on any platform, but there's no great way to weave this timeout without
+// adding another parameter to the (at time of writing) long signature of
+// NewServer.
+const serverListenerBootTimeout = 5 * time.Second
 
 type BGS struct {
 	Index   *indexer.Indexer
@@ -185,7 +193,19 @@ func (bgs *BGS) StartDebug(listen string) error {
 	return http.ListenAndServe(listen, nil)
 }
 
-func (bgs *BGS) Start(listen string) error {
+func (bgs *BGS) Start(addr string) error {
+	var lc net.ListenConfig
+	ctx, cancel := context.WithTimeout(context.Background(), serverListenerBootTimeout)
+	defer cancel()
+
+	li, err := lc.Listen(ctx, "tcp", addr)
+	if err != nil {
+		return err
+	}
+	return bgs.StartWithListener(li)
+}
+
+func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	e := echo.New()
 	e.HideBanner = true
 
@@ -230,7 +250,12 @@ func (bgs *BGS) Start(listen string) error {
 	admin.POST("/repo/takeDown", bgs.handleAdminTakeDownRepo)
 	admin.POST("/repo/reverseTakedown", bgs.handleAdminReverseTakedown)
 
-	return e.Start(listen)
+	// In order to support booting on random ports in tests, we need to tell the
+	// Echo instance it's already got a port, and then use its StartServer
+	// method to re-use that listener.
+	e.Listener = listen
+	srv := &http.Server{}
+	return e.StartServer(srv)
 }
 
 type HealthStatus struct {

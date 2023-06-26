@@ -31,7 +31,7 @@ func TestBGSBasic(t *testing.T) {
 	p1 := MustSetupPDS(t, ".tpds", didr)
 	p1.Run(t)
 
-	b1 := MustSetupBGS(t, "localhost:8231", didr)
+	b1 := MustSetupBGS(t, didr)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost()}
@@ -129,7 +129,7 @@ func TestBGSMultiPDS(t *testing.T) {
 	p2 := MustSetupPDS(t, ".pdsdos", didr)
 	p2.Run(t)
 
-	b1 := MustSetupBGS(t, "localhost:8281", didr)
+	b1 := MustSetupBGS(t, didr)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost(), p2.RawHost()}
@@ -195,7 +195,7 @@ func TestBGSMultiGap(t *testing.T) {
 	p2 := MustSetupPDS(t, ".pdsdos", didr)
 	p2.Run(t)
 
-	b1 := MustSetupBGS(t, "localhost:8291", didr)
+	b1 := MustSetupBGS(t, didr)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost(), p2.RawHost()}
@@ -251,7 +251,7 @@ func TestHandleChange(t *testing.T) {
 	p1 := MustSetupPDS(t, ".pdsuno", didr)
 	p1.Run(t)
 
-	b1 := MustSetupBGS(t, "localhost:8391", didr)
+	b1 := MustSetupBGS(t, didr)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost()}
@@ -289,7 +289,7 @@ func TestBGSTakedown(t *testing.T) {
 	p1 := MustSetupPDS(t, ".tpds", didr)
 	p1.Run(t)
 
-	b1 := MustSetupBGS(t, "localhost:3231", didr)
+	b1 := MustSetupBGS(t, didr)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost()}
@@ -342,7 +342,7 @@ func TestRebase(t *testing.T) {
 	p1 := MustSetupPDS(t, ".tpds", didr)
 	p1.Run(t)
 
-	b1 := MustSetupBGS(t, "localhost:1531", didr)
+	b1 := MustSetupBGS(t, didr)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost()}
@@ -413,12 +413,12 @@ func TestDomainBans(t *testing.T) {
 	}
 	didr := TestPLC(t)
 
-	b1 := MustSetupBGS(t, "localhost:8999", didr)
+	b1 := MustSetupBGS(t, didr)
 	b1.Run(t)
 
 	b1.BanDomain(t, "foo.com")
 
-	c := &xrpc.Client{Host: "http://" + b1.host}
+	c := &xrpc.Client{Host: "http://" + b1.Host()}
 	if err := atproto.SyncRequestCrawl(context.TODO(), c, "foo.com"); err == nil {
 		t.Fatal("domain should be banned")
 	}

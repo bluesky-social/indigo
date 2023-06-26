@@ -132,7 +132,7 @@ func TestLabelmakerBasic(t *testing.T) {
 	p1 := MustSetupPDS(t, ".tpds", didr)
 	p1.Run(t)
 
-	b1 := MustSetupBGS(t, "localhost:8322", didr)
+	b1 := MustSetupBGS(t, didr)
 	b1.Run(t)
 
 	p1.RequestScraping(t, b1)
