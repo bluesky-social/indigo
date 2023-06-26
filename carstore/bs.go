@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -636,7 +637,7 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase 
 	// TODO: there should be a way to create the shard and block_refs that
 	// reference it in the same query, would save a lot of time
 	if err := ds.cs.meta.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&shard).Error; err != nil {
+		if err := tx.WithContext(ctx).Create(&shard).Error; err != nil {
 			return err
 		}
 		ds.cs.putLastShardCache(ds.user, &shard)
@@ -645,7 +646,7 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase 
 			ref["shard"] = shard.ID
 		}
 
-		if err := tx.Table("block_refs").CreateInBatches(brefs, 100).Error; err != nil {
+		if err := createBlockRefs(ctx, tx, brefs); err != nil {
 			return err
 		}
 
@@ -655,6 +656,49 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase 
 	}
 
 	return buf.Bytes(), nil
+}
+
+func createBlockRefs(ctx context.Context, tx *gorm.DB, brefs []map[string]any) error {
+	ctx, span := otel.Tracer("carstore").Start(ctx, "createBlockRefs")
+	defer span.End()
+
+	if err := createInBatches(ctx, tx, brefs, 100); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func generateInsertQuery(data []map[string]any) (string, []any) {
+	placeholders := strings.Repeat("(?, ?, ?),", len(data))
+	placeholders = placeholders[:len(placeholders)-1] // trim trailing comma
+
+	query := "INSERT INTO block_refs (cid, offset, shard) VALUES " + placeholders
+
+	values := make([]any, 0, 3*len(data))
+	for _, entry := range data {
+		values = append(values, entry["cid"], entry["offset"], entry["shard"])
+	}
+
+	return query, values
+}
+
+// Function to create in batches
+func createInBatches(ctx context.Context, tx *gorm.DB, data []map[string]any, batchSize int) error {
+	for i := 0; i < len(data); i += batchSize {
+		end := i + batchSize
+		if end > len(data) {
+			end = len(data)
+		}
+
+		batch := data[i:end]
+		query, values := generateInsertQuery(batch)
+
+		if err := tx.WithContext(ctx).Exec(query, values...).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (ds *DeltaSession) CloseAsRebase(ctx context.Context, root cid.Cid) error {
