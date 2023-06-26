@@ -26,6 +26,7 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/version"
 	"github.com/bluesky-social/indigo/xrpc"
+	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
@@ -925,6 +926,11 @@ var updateHandleCmd = &cli.Command{
 	},
 }
 
+type cachedHandle struct {
+	Handle string
+	Valid  time.Time
+}
+
 var readRepoStreamCmd = &cli.Command{
 	Name: "readStream",
 	Flags: []cli.Flag{
@@ -975,6 +981,29 @@ var readRepoStreamCmd = &cli.Command{
 		hr := &api.ProdHandleResolver{}
 		resolveHandles := cctx.Bool("resolve-handles")
 
+		cache, _ := lru.New(10000)
+		resolveDid := func(ctx context.Context, did string) (string, error) {
+			val, ok := cache.Get(did)
+			if ok {
+				ch := val.(*cachedHandle)
+				if time.Now().Before(ch.Valid) {
+					return ch.Handle, nil
+				}
+			}
+
+			h, _, err := api.ResolveDidToHandle(ctx, &xrpc.Client{Host: "*"}, didr, hr, did)
+			if err != nil {
+				return "", err
+			}
+
+			cache.Add(did, &cachedHandle{
+				Handle: h,
+				Valid:  time.Now().Add(time.Minute * 10),
+			})
+
+			return h, nil
+		}
+
 		rsc := &events.RepoStreamCallbacks{
 			RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 				if jsonfmt {
@@ -1008,7 +1037,7 @@ var readRepoStreamCmd = &cli.Command{
 					}
 					var handle string
 					if resolveHandles {
-						h, _, err := api.ResolveDidToHandle(ctx, &xrpc.Client{Host: "*"}, didr, hr, evt.Repo)
+						h, err := resolveDid(ctx, evt.Repo)
 						if err != nil {
 							fmt.Println("failed to resolve handle: ", err)
 						} else {
