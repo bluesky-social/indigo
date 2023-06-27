@@ -143,7 +143,7 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, env *events.
 			u.ID = subj.Uid
 		}
 
-		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, (*cid.Cid)(evt.Prev), evt.Blocks)
+		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, (*cid.Cid)(evt.Prev), evt.Blocks, evt.Ops)
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
