@@ -654,12 +654,23 @@ var debugFeedViewCmd = &cli.Command{
 
 		printPosts := func(posts []*bsky.FeedDefs_PostView) {
 			for _, p := range posts {
-				text := p.Record.Val.(*bsky.FeedPost).Text
+				fp, ok := p.Record.Val.(*bsky.FeedPost)
+				if !ok {
+					fmt.Printf("ERROR: Post had invalid record type: %T\n", p.Record.Val)
+					continue
+				}
+				text := fp.Text
 				text = strings.Replace(text, "\n", " ", -1)
 				if len(text) > 70 {
 					text = text[:70] + "..."
 				}
-				fmt.Printf("%s: %s\n", *p.Author.DisplayName, text)
+
+				dn := p.Author.Handle
+				if p.Author.DisplayName != nil {
+					dn = *p.Author.DisplayName
+				}
+
+				fmt.Printf("%s: %s\n", dn, text)
 			}
 		}
 

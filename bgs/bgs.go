@@ -214,7 +214,6 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	}))
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
-		log.Warnf("HANDLER ERROR: (%s) %s", ctx.Path(), err)
 		switch err := err.(type) {
 		case *echo.HTTPError:
 			if err2 := ctx.JSON(err.Code, map[string]any{
@@ -223,7 +222,16 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 				log.Errorf("Failed to write http error: %s", err2)
 			}
 		default:
-			ctx.Response().WriteHeader(500)
+			sendHeader := true
+			if ctx.Path() == "/xrpc/com.atproto.sync.subscribeRepos" {
+				sendHeader = false
+			}
+
+			log.Warnf("HANDLER ERROR: (%s) %s", ctx.Path(), err)
+
+			if sendHeader {
+				ctx.Response().WriteHeader(500)
+			}
 		}
 	}
 
@@ -517,7 +525,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	switch {
 	case env.RepoCommit != nil:
 		evt := env.RepoCommit
-		log.Infof("bgs got repo append event %d from %q: %s", evt.Seq, host.Host, evt.Repo)
+		log.Infow("bgs got repo append event", "seq", evt.Seq, "host", host.Host, "repo", evt.Repo)
 		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
