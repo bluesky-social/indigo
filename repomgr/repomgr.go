@@ -13,7 +13,6 @@ import (
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
@@ -426,13 +425,10 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user util.Uid, handle, 
 			User:    user,
 			NewRoot: root,
 			Ops: []RepoOp{{
-				Kind: EvtKindInitActor,
-				ActorInfo: &ActorInfo{
-					Did:         did,
-					Handle:      handle,
-					DisplayName: displayname,
-					Type:        actortype,
-				},
+				Kind:       EvtKindCreateRecord,
+				Collection: "app.bsky.actor.profile",
+				Rkey:       "self",
+				Record:     profile,
 			}},
 			RepoSlice: rslice,
 		})
@@ -679,7 +675,7 @@ func (rm *RepoManager) CheckRepoSig(ctx context.Context, r *repo.Repo, expdid st
 	return nil
 }
 
-func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid util.Uid, did string, prev *cid.Cid, carslice []byte) error {
+func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid util.Uid, did string, prev *cid.Cid, carslice []byte, ops []*atproto.SyncSubscribeRepos_RepoOp) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "HandleExternalUserEvent")
 	defer span.End()
 
@@ -702,44 +698,17 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		return err
 	}
 
-	var pcid cid.Cid
-	if prev != nil {
-		pcid = *prev
-	}
-
-	ops, err := r.DiffSince(ctx, pcid)
-	if err != nil {
-		return fmt.Errorf("calculating operations in event: %w", err)
-	}
 	var evtops []RepoOp
 
-	if prev == nil {
-		// send an implicit init actor event
-		var ai models.ActorInfo
-		if err := rm.db.First(&ai, "uid = ?", uid).Error; err != nil {
-			return fmt.Errorf("expected initialized user: %w", err)
-		}
-
-		evtops = append(evtops, RepoOp{
-			Kind: EvtKindInitActor,
-			ActorInfo: &ActorInfo{
-				Did:         ai.Did,
-				Handle:      ai.Handle,
-				DisplayName: ai.DisplayName,
-				Type:        ai.Type,
-			},
-		})
-	}
-
 	for _, op := range ops {
-		parts := strings.SplitN(op.Rpath, "/", 2)
+		parts := strings.SplitN(op.Path, "/", 2)
 		if len(parts) != 2 {
 			return fmt.Errorf("invalid rpath in mst diff, must have collection and rkey")
 		}
 
-		switch op.Op {
-		case "add":
-			recid, rec, err := r.GetRecord(ctx, op.Rpath)
+		switch EventKind(op.Action) {
+		case EvtKindCreateRecord:
+			recid, rec, err := r.GetRecord(ctx, op.Path)
 			if err != nil {
 				return fmt.Errorf("reading changed record from car slice: %w", err)
 			}
@@ -751,25 +720,8 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 				Record:     rec,
 				RecCid:     &recid,
 			})
-			/*
-				case EvtKindInitActor:
-					var ai models.ActorInfo
-					if err := rm.db.First(&ai, "id = ?", uid).Error; err != nil {
-						return fmt.Errorf("expected initialized user: %w", err)
-					}
-
-					evtops = append(evtops, RepoOp{
-						Kind: EvtKindInitActor,
-						ActorInfo: &ActorInfo{
-							Did:         ai.Did,
-							Handle:      ai.Handle,
-							DisplayName: ai.DisplayName,
-							Type:        ai.Type,
-						},
-					})
-			*/
-		case "mut":
-			recid, rec, err := r.GetRecord(ctx, op.Rpath)
+		case EvtKindUpdateRecord:
+			recid, rec, err := r.GetRecord(ctx, op.Path)
 			if err != nil {
 				return fmt.Errorf("reading changed record from car slice: %w", err)
 			}
@@ -781,14 +733,14 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 				Record:     rec,
 				RecCid:     &recid,
 			})
-		case "del":
+		case EvtKindDeleteRecord:
 			evtops = append(evtops, RepoOp{
 				Kind:       EvtKindDeleteRecord,
 				Collection: parts[0],
 				Rkey:       parts[1],
 			})
 		default:
-			return fmt.Errorf("unrecognized external user event kind: %q", op.Op)
+			return fmt.Errorf("unrecognized external user event kind: %q", op.Action)
 		}
 	}
 
