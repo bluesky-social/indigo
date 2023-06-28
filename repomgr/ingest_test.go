@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/models"
@@ -122,9 +123,16 @@ func TestIngestWithGap(t *testing.T) {
 	ctx := context.TODO()
 	var prev *cid.Cid
 	for i := 0; i < 5; i++ {
-		slice, head := doPost(t, cs2, did, prev, i)
+		slice, head, tid := doPost(t, cs2, did, prev, i)
 
-		if err := repoman.HandleExternalUserEvent(ctx, 1, 1, did, prev, slice); err != nil {
+		ops := []*atproto.SyncSubscribeRepos_RepoOp{
+			{
+				Action: "create",
+				Path:   "app.bsky.feed.post/" + tid,
+			},
+		}
+
+		if err := repoman.HandleExternalUserEvent(ctx, 1, 1, did, prev, slice, ops); err != nil {
 			t.Fatal(err)
 		}
 
@@ -135,7 +143,7 @@ func TestIngestWithGap(t *testing.T) {
 
 	// now do a few outside of the standard event stream flow
 	for i := 0; i < 5; i++ {
-		_, head := doPost(t, cs2, did, prev, i)
+		_, head, _ := doPost(t, cs2, did, prev, i)
 		prev = &head
 	}
 
@@ -149,7 +157,7 @@ func TestIngestWithGap(t *testing.T) {
 	}
 }
 
-func doPost(t *testing.T, cs *carstore.CarStore, did string, prev *cid.Cid, postid int) ([]byte, cid.Cid) {
+func doPost(t *testing.T, cs *carstore.CarStore, did string, prev *cid.Cid, postid int) ([]byte, cid.Cid, string) {
 	ctx := context.TODO()
 	ds, err := cs.NewDeltaSession(ctx, 1, prev)
 	if err != nil {
@@ -158,9 +166,10 @@ func doPost(t *testing.T, cs *carstore.CarStore, did string, prev *cid.Cid, post
 
 	r := repo.NewRepo(ctx, did, ds)
 
-	if _, _, err := r.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
+	_, tid, err := r.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
 		Text: fmt.Sprintf("hello friend %d", postid),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -174,5 +183,5 @@ func doPost(t *testing.T, cs *carstore.CarStore, did string, prev *cid.Cid, post
 		t.Fatal(err)
 	}
 
-	return slice, root
+	return slice, root, tid
 }
