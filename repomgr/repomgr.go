@@ -425,13 +425,10 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user util.Uid, handle, 
 			User:    user,
 			NewRoot: root,
 			Ops: []RepoOp{{
-				Kind: EvtKindInitActor,
-				ActorInfo: &ActorInfo{
-					Did:         did,
-					Handle:      handle,
-					DisplayName: displayname,
-					Type:        actortype,
-				},
+				Kind:       EvtKindCreateRecord,
+				Collection: "app.bsky.actor.profile",
+				Rkey:       "self",
+				Record:     profile,
 			}},
 			RepoSlice: rslice,
 		})

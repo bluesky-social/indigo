@@ -10,6 +10,7 @@ import (
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/models"
 	"github.com/ipfs/go-cid"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
@@ -322,6 +323,15 @@ func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *
 
 	u.Did = d
 	if err := s.db.Save(&u).Error; err != nil {
+		return nil, err
+	}
+
+	ai := &models.ActorInfo{
+		Uid:    u.ID,
+		Did:    d,
+		Handle: body.Handle,
+	}
+	if err := s.db.Create(ai).Error; err != nil {
 		return nil, err
 	}
 
