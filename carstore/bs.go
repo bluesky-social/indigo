@@ -64,7 +64,8 @@ type UserInfo struct {
 }
 
 type CarShard struct {
-	gorm.Model
+	ID        uint `gorm:"primarykey"`
+	CreatedAt time.Time
 
 	Root      util.DbCID
 	DataStart int64
@@ -270,6 +271,8 @@ func (cs *CarStore) getLastShard(ctx context.Context, user util.Uid) (*CarShard,
 	}
 
 	var lastShard CarShard
+	// this is often slow (which is why we're caching it) but could be sped up with an extra index:
+	// CREATE INDEX idx_car_shards_usr_id ON car_shards (usr, id DESC);
 	if err := cs.meta.WithContext(ctx).Model(CarShard{}).Limit(1).Order("id desc").Find(&lastShard, "usr = ?", user).Error; err != nil {
 		//if err := cs.meta.Model(CarShard{}).Where("user = ?", user).Last(&lastShard).Error; err != nil {
 		//if err != gorm.ErrRecordNotFound {
