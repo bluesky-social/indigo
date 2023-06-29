@@ -265,6 +265,9 @@ func (cs *CarStore) putLastShardCache(user models.Uid, ls *CarShard) {
 }
 
 func (cs *CarStore) getLastShard(ctx context.Context, user models.Uid) (*CarShard, error) {
+	ctx, span := otel.Tracer("carstore").Start(ctx, "getLastShard")
+	defer span.End()
+
 	maybeLs := cs.checkLastShardCache(user)
 	if maybeLs != nil {
 		return maybeLs, nil
@@ -829,6 +832,9 @@ func (cs *CarStore) Stat(ctx context.Context, usr models.Uid) ([]UserStat, error
 }
 
 func (cs *CarStore) checkFork(ctx context.Context, user models.Uid, prev cid.Cid) (bool, error) {
+	ctx, span := otel.Tracer("carstore").Start(ctx, "checkFork")
+	defer span.End()
+
 	lastShard, err := cs.getLastShard(ctx, user)
 	if err != nil {
 		return false, err

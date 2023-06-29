@@ -527,6 +527,9 @@ func (s *BGS) findDomainBan(ctx context.Context, host string) (bool, error) {
 }
 
 func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) {
+	ctx, span := otel.Tracer("bgs").Start(ctx, "lookupUserByDid")
+	defer span.End()
+
 	var u User
 	if err := bgs.db.Find(&u, "did = ?", did).Error; err != nil {
 		return nil, err

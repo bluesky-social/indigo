@@ -994,7 +994,7 @@ func processOp(ctx context.Context, bs blockstore.Blockstore, op *mst.DiffOp) (*
 }
 
 func (rm *RepoManager) processNewRepo(ctx context.Context, user models.Uid, r io.Reader, until cid.Cid, cb func(ctx context.Context, old, nu cid.Cid, finish func(context.Context) ([]byte, error), bs blockstore.Blockstore) error) error {
-	ctx, span := otel.Tracer("repoman").Start(ctx, "ImportNewRepo")
+	ctx, span := otel.Tracer("repoman").Start(ctx, "processNewRepo")
 	defer span.End()
 
 	carr, err := car.NewCarReader(r)
