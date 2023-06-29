@@ -673,7 +673,7 @@ func generateInsertQuery(data []map[string]any) (string, []any) {
 	placeholders := strings.Repeat("(?, ?, ?),", len(data))
 	placeholders = placeholders[:len(placeholders)-1] // trim trailing comma
 
-	query := "INSERT INTO block_refs (cid, offset, shard) VALUES " + placeholders
+	query := "INSERT INTO block_refs (\"cid\", \"offset\", \"shard\") VALUES " + placeholders
 
 	values := make([]any, 0, 3*len(data))
 	for _, entry := range data {
