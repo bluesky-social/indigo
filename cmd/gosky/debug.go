@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -717,7 +716,7 @@ func loadCache(filename string) (map[string]*bsky.FeedDefs_PostView, error) {
 	}
 	defer jsonFile.Close()
 
-	byteValue, err := ioutil.ReadAll(jsonFile)
+	byteValue, err := io.ReadAll(jsonFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
@@ -736,7 +735,7 @@ func saveCache(filename string, data map[string]*bsky.FeedDefs_PostView) error {
 		return fmt.Errorf("failed to marshal json: %w", err)
 	}
 
-	err = ioutil.WriteFile(filename, file, 0644)
+	err = os.WriteFile(filename, file, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
