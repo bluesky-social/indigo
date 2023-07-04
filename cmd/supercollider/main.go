@@ -2,30 +2,40 @@ package main
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"fmt"
 	"log"
-	"net"
+	"net/url"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/pds"
-	"github.com/bluesky-social/indigo/plc"
-	"github.com/bluesky-social/indigo/supercollider"
-	"github.com/bluesky-social/indigo/testing"
-	"github.com/whyrusleeping/go-did"
+	"github.com/bluesky-social/indigo/events"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/gorilla/websocket"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"go.uber.org/zap"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
+
+var eventsGeneratedCounter = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "supercollider_events_generated_total",
+	Help: "The total number of events generated",
+})
+
+var eventsSentCounter = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "supercollider_events_sent_total",
+	Help: "The total number of events sent",
+})
+
+type Server struct {
+	events *events.EventManager
+}
 
 func main() {
 	ctx := context.Background()
@@ -63,266 +73,218 @@ func main() {
 
 	log := rawlog.Sugar().With("source", "supercollider_main")
 
-	log.Info("Initializing PLC...")
-	memPLC, err := NewPLC(ctx)
+	log.Info("starting supercollider")
+
+	em := events.NewEventManager(events.NewMemPersister())
+
+	s := &Server{
+		events: em,
+	}
+
+	e := echo.New()
+
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
+	}))
+
+	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
+		switch err := err.(type) {
+		case *echo.HTTPError:
+			if err2 := ctx.JSON(err.Code, map[string]any{
+				"error": err.Message,
+			}); err2 != nil {
+				log.Errorf("Failed to write http error: %s", err2)
+			}
+		default:
+			sendHeader := true
+			if ctx.Path() == "/xrpc/com.atproto.sync.subscribeRepos" {
+				sendHeader = false
+			}
+
+			log.Warnf("HANDLER ERROR: (%s) %s", ctx.Path(), err)
+
+			if sendHeader {
+				ctx.Response().WriteHeader(500)
+			}
+		}
+	}
+
+	testCommit, err := acquireCommitFromProdFirehose(ctx)
 	if err != nil {
-		log.Fatalf("failed to create plc: %+v\n", err)
+		log.Fatalf("failed to acquire test commit: %+v\n", err)
 	}
 
-	log.Info("Initializing in-memory PDS...")
-	tp, err := SetupInMemoryPDS(ctx, ".supercollider", memPLC)
-	if err != nil {
-		log.Fatalf("failed to setup pds: %+v\n", err)
-	}
+	log.Infof("testCommit: %s | %s\n", testCommit.Repo, testCommit.Ops[0].Path)
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	log.Infof("starting pds on %s ...", tp.Listener.Addr().String())
-	if err := RunPDS(ctx, tp); err != nil {
-		log.Fatalf("failed to run pds: %+v\n", err)
-	}
-	log.Info("...started pds")
-
-	userCreationConcurrency := 10
-	numUsers := 1000
-
-	start := time.Now()
-	log.Infof("creating %d users...", numUsers)
-	users, errors := CreateUsersParallel(ctx, tp, userCreationConcurrency, numUsers)
-	if len(errors) > 0 {
-		log.Errorf("failed to create some users: %+v\n", errors)
-	}
-	usersDone := time.Now()
-	log.Infof("...created %d users in %v", len(users), time.Since(start))
-
-	// Create 100 posts per user
-	recordCreationConcurrency := 20
-	postsPerUser := 100
-	log.Infof("creating %d posts...", numUsers*postsPerUser)
-	posts, errors := CreateRecordsParallel(ctx, users, recordCreationConcurrency, postsPerUser)
-	if len(errors) > 0 {
-		log.Errorf("failed to create some posts: %+v\n", errors)
-	}
-	log.Infof("...created %d posts in %v", len(posts), time.Since(usersDone))
-
-	wg.Wait()
-}
-
-type CreateUserResult struct {
-	User  *testing.TestUser
-	Error error
-}
-
-func CreateUsersParallel(ctx context.Context, tp *testing.TestPDS, concurrency int, numUsers int) ([]*testing.TestUser, []error) {
-	users := make([]*testing.TestUser, 0)
-	handles := supercollider.GenHandles("supercollider", numUsers)
-
-	workCh := make(chan int, numUsers)
-	resultsCh := make(chan CreateUserResult, numUsers)
-	var wg sync.WaitGroup
-
-	for i := 0; i < concurrency; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for idx := range workCh {
-				user, err := tp.NewUser(ctx, handles[idx])
-				resultsCh <- CreateUserResult{User: user, Error: err}
-				select {
-				case <-ctx.Done():
-					return
-				default:
+	// Create a control channel for the event emitter control messages
+	evtControl := make(chan string, 1)
+	go func() {
+		running := false
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case cmd := <-evtControl:
+				switch cmd {
+				case "start":
+					running = true
+				case "stop":
+					running = false
+				}
+			default:
+				if !running {
+					time.Sleep(time.Second)
 					continue
 				}
-			}
-		}()
-	}
-
-	for i := 0; i < numUsers; i++ {
-		workCh <- i
-	}
-
-	close(workCh)
-
-	go func() {
-		wg.Wait()
-		close(resultsCh)
-	}()
-
-	var errors []error
-	for result := range resultsCh {
-		if result.Error != nil {
-			errors = append(errors, result.Error)
-			continue
-		}
-		users = append(users, result.User)
-	}
-
-	return users, errors
-}
-
-type CreateRecordResult struct {
-	Record *atproto.RepoStrongRef
-	Error  error
-}
-
-func CreateRecordsParallel(
-	ctx context.Context,
-	users []*testing.TestUser,
-	concurrency int,
-	recordsPerUser int,
-) ([]*atproto.RepoStrongRef, []error) {
-	records := make([]*atproto.RepoStrongRef, 0)
-	errors := make([]error, 0)
-
-	workCh := make(chan int, len(users)*recordsPerUser)
-	resultsCh := make(chan CreateRecordResult, len(users)*recordsPerUser)
-
-	var wg sync.WaitGroup
-
-	// Divide the users slice into chunks
-	chunkSize := (len(users) + concurrency - 1) / concurrency
-	for i := 0; i < concurrency; i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-
-			// Calculate start and end indexes for this goroutine's chunk of users
-			start, end := i*chunkSize, (i+1)*chunkSize
-			if end > len(users) {
-				end = len(users)
-			}
-
-			// Iterate over the users in this goroutine's chunk
-			for j := start; j < end; j++ {
-				// Fetch work from the work channel (in this case, the number of posts to create for this user)
-				for k := 0; k < recordsPerUser; k++ {
-					select {
-					case <-workCh:
-						record, err := users[j].CreatePost(ctx, fmt.Sprintf("post %d", k))
-						resultsCh <- CreateRecordResult{Record: record, Error: err}
-					case <-ctx.Done():
-						return
+				eventCount := 10_000
+				for i := 0; i < eventCount; i++ {
+					eventsGeneratedCounter.Inc()
+					ops := []*atproto.SyncSubscribeRepos_RepoOp{}
+					for _, op := range testCommit.Ops {
+						ops = append(ops, &atproto.SyncSubscribeRepos_RepoOp{
+							Action: op.Action,
+							Cid:    op.Cid,
+							Path:   op.Path,
+						})
 					}
+
+					commit := &atproto.SyncSubscribeRepos_Commit{
+						Seq:    testCommit.Seq + int64(i),
+						Blobs:  testCommit.Blobs,
+						Blocks: testCommit.Blocks,
+						Prev:   testCommit.Prev,
+						Commit: testCommit.Commit,
+						Rebase: testCommit.Rebase,
+						Repo:   testCommit.Repo,
+						Ops:    ops,
+						Time:   testCommit.Time,
+						TooBig: testCommit.TooBig,
+					}
+
+					em.AddEvent(ctx, &events.XRPCStreamEvent{
+						RepoCommit: commit,
+					})
 				}
+				log.Infof("added %d events\n", eventCount)
+				time.Sleep(time.Millisecond * 10)
 			}
-		}(i)
-	}
-
-	// Fill the work channel with the total amount of work to be done
-	for i := 0; i < len(users)*recordsPerUser; i++ {
-		workCh <- i
-	}
-
-	close(workCh)
-
-	go func() {
-		wg.Wait()
-		close(resultsCh)
+		}
 	}()
 
-	for result := range resultsCh {
-		if result.Error != nil {
-			errors = append(errors, result.Error)
-			continue
-		}
-		records = append(records, result.Record)
-	}
+	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
+	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
+	e.GET("/generate", func(c echo.Context) error {
+		evtControl <- "start"
+		return c.String(200, "stream started")
+	})
+	e.GET("/stop", func(c echo.Context) error {
+		evtControl <- "stop"
+		return c.String(200, "stream stopped")
+	})
 
-	return records, errors
+	port := "12832"
+
+	if err := e.Start(":" + port); err != nil {
+		log.Errorf("failed to start server: %+v\n", err)
+	}
 }
 
-func RunPDS(ctx context.Context, tp *testing.TestPDS) error {
-	go func() {
-		if err := tp.Server.RunAPIWithListener(tp.Listener); err != nil {
-			fmt.Println(err)
-		}
-	}()
-	time.Sleep(time.Millisecond * 10)
+func acquireCommitFromProdFirehose(ctx context.Context) (*atproto.SyncSubscribeRepos_Commit, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	u := url.URL{Scheme: "wss", Host: "bsky.social", Path: "/xrpc/com.atproto.sync.subscribeRepos"}
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to websocket: %w", err)
+	}
+	defer c.Close()
 
-	tp.Shutdown = func() {
-		tp.Server.Shutdown(context.TODO())
+	var commit *atproto.SyncSubscribeRepos_Commit
+
+	sched := events.SequentialScheduler{
+		Do: func(ctx context.Context, evt *events.XRPCStreamEvent) error {
+			switch {
+			case evt.RepoCommit != nil:
+				commit = evt.RepoCommit
+				return nil
+			}
+			return nil
+		},
+	}
+
+	go events.HandleRepoStream(ctx, c, &sched)
+
+	// Wait in a loop for the commit to be populated, then cancel the context and return the commit
+	for {
+		if commit != nil {
+			return commit, nil
+		}
+		time.Sleep(time.Millisecond * 100)
+	}
+}
+
+func (s *Server) EventsHandler(c echo.Context) error {
+	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
+	if err != nil {
+		return err
+	}
+
+	ctx := c.Request().Context()
+
+	evts, cancel, err := s.events.Subscribe(ctx, func(evt *events.XRPCStreamEvent) bool {
+		return true
+	}, nil)
+	if err != nil {
+		return err
+	}
+	defer cancel()
+
+	header := events.EventHeader{Op: events.EvtKindMessage}
+	for evt := range evts {
+		wc, err := conn.NextWriter(websocket.BinaryMessage)
+		if err != nil {
+			return err
+		}
+
+		var obj lexutil.CBOR
+
+		switch {
+		case evt.Error != nil:
+			header.Op = events.EvtKindErrorFrame
+			obj = evt.Error
+		case evt.RepoCommit != nil:
+			header.MsgType = "#commit"
+			obj = evt.RepoCommit
+		case evt.RepoHandle != nil:
+			header.MsgType = "#handle"
+			obj = evt.RepoHandle
+		case evt.RepoInfo != nil:
+			header.MsgType = "#info"
+			obj = evt.RepoInfo
+		case evt.RepoMigrate != nil:
+			header.MsgType = "#migrate"
+			obj = evt.RepoMigrate
+		case evt.RepoTombstone != nil:
+			header.MsgType = "#tombstone"
+			obj = evt.RepoTombstone
+		default:
+			return fmt.Errorf("unrecognized event kind")
+		}
+
+		if err := header.MarshalCBOR(wc); err != nil {
+			return fmt.Errorf("failed to write header: %w", err)
+		}
+
+		if err := obj.MarshalCBOR(wc); err != nil {
+			return fmt.Errorf("failed to write event: %w", err)
+		}
+
+		if err := wc.Close(); err != nil {
+			return fmt.Errorf("failed to flush-close our event write: %w", err)
+		}
+
+		eventsSentCounter.Inc()
 	}
 
 	return nil
-}
-
-func NewPLC(ctx context.Context) (*plc.FakeDid, error) {
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared&mode=rwc"), &gorm.Config{})
-	if err != nil {
-		return nil, err
-	}
-	rawDB, err := db.DB()
-	if err != nil {
-		return nil, err
-	}
-	rawDB.SetMaxOpenConns(1)
-	return plc.NewFakeDid(db), nil
-}
-
-func SetupInMemoryPDS(ctx context.Context, suffix string, plc plc.PLCClient) (*testing.TestPDS, error) {
-	dir, err := os.MkdirTemp("", "supercollider")
-	if err != nil {
-		return nil, err
-	}
-
-	maindb, err := gorm.Open(sqlite.Open("file::memory:?cache=shared&mode=rwc"))
-	if err != nil {
-		return nil, err
-	}
-
-	rawDB, err := maindb.DB()
-	if err != nil {
-		return nil, err
-	}
-	rawDB.SetMaxOpenConns(1)
-
-	tx := maindb.Exec("PRAGMA journal_mode=WAL;")
-	if tx.Error != nil {
-		return nil, tx.Error
-	}
-
-	cardb, err := gorm.Open(sqlite.Open("file::memory:?cache=shared&mode=rwc"))
-	if err != nil {
-		return nil, err
-	}
-
-	rawDB, err = cardb.DB()
-	if err != nil {
-		return nil, err
-	}
-	rawDB.SetMaxOpenConns(1)
-
-	cspath := filepath.Join(dir, "carstore")
-	if err := os.Mkdir(cspath, 0775); err != nil {
-		return nil, err
-	}
-
-	cs, err := carstore.NewCarStore(cardb, cspath)
-	if err != nil {
-		return nil, err
-	}
-
-	raw, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate new ECDSA private key: %s", err)
-	}
-	serkey := &did.PrivKey{
-		Raw:  raw,
-		Type: did.KeyTypeP256,
-	}
-
-	var lc net.ListenConfig
-	li, err := lc.Listen(ctx, "tcp", "localhost:0")
-	if err != nil {
-		return nil, err
-	}
-
-	host := li.Addr().String()
-	srv, err := pds.NewServer(maindb, cs, serkey, suffix, host, plc, []byte(host+suffix))
-	if err != nil {
-		return nil, err
-	}
-
-	return testing.NewTestPDS(dir, srv, li), nil
 }
