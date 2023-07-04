@@ -4,24 +4,29 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/atproto"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
+
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"golang.org/x/time/rate"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 
 	"go.uber.org/zap"
 )
@@ -112,12 +117,46 @@ func main() {
 		}
 	}
 
-	testCommit, err := acquireCommitFromProdFirehose(ctx)
+	repoman, err := initSpeedyRepoMan(ctx)
 	if err != nil {
-		log.Fatalf("failed to acquire test commit: %+v\n", err)
+		log.Fatalf("failed to init repo manager: %+v\n", err)
 	}
 
-	log.Infof("testCommit: %s | %s\n", testCommit.Repo, testCommit.Ops[0].Path)
+	staticDid := "did:foo:bar"
+
+	if err := repoman.InitNewActor(ctx, 1, "hello.supercollider", staticDid, "catdog", "", ""); err != nil {
+		log.Fatalf("failed to init actor: %+v\n", err)
+	}
+
+	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
+		var outops []*comatproto.SyncSubscribeRepos_RepoOp
+		for _, op := range evt.Ops {
+			link := (*lexutil.LexLink)(op.RecCid)
+			outops = append(outops, &comatproto.SyncSubscribeRepos_RepoOp{
+				Path:   op.Collection + "/" + op.Rkey,
+				Action: string(op.Kind),
+				Cid:    link,
+			})
+		}
+
+		toobig := false
+
+		if err := em.AddEvent(ctx, &events.XRPCStreamEvent{
+			RepoCommit: &comatproto.SyncSubscribeRepos_Commit{
+				Repo:   staticDid,
+				Prev:   (*lexutil.LexLink)(evt.OldRoot),
+				Blocks: evt.RepoSlice,
+				Commit: lexutil.LexLink(evt.NewRoot),
+				Time:   time.Now().Format(util.ISO8601),
+				Ops:    outops,
+				TooBig: toobig,
+				Rebase: evt.Rebase,
+			},
+			PrivUid: evt.User,
+		}); err != nil {
+			log.Errorf("failed to add event: %+v\n", err)
+		}
+	})
 
 	// Create a control channel for the event emitter control messages
 	// We want to produce events at around 80k/s since the socket can't handle much more than that
@@ -126,7 +165,7 @@ func main() {
 		running := false
 		totalEmittedEvents := 0
 		totalDesiredEvents := 100_000_000
-		limiter := rate.NewLimiter(rate.Limit(80_000), 100)
+		// limiter := rate.NewLimiter(rate.Limit(80_000), 100)
 
 		for {
 			select {
@@ -151,40 +190,18 @@ func main() {
 					if i%40_000 == 0 {
 						log.Infof("emitted %d events\n", totalEmittedEvents)
 					}
-					ops := []*atproto.SyncSubscribeRepos_RepoOp{}
-					for _, op := range testCommit.Ops {
-						ops = append(ops, &atproto.SyncSubscribeRepos_RepoOp{
-							Action: op.Action,
-							Cid:    op.Cid,
-							Path:   op.Path,
-						})
-					}
-
-					commit := &atproto.SyncSubscribeRepos_Commit{
-						Seq:    testCommit.Seq + int64(i),
-						Blobs:  testCommit.Blobs,
-						Blocks: testCommit.Blocks,
-						Prev:   testCommit.Prev,
-						Commit: testCommit.Commit,
-						Rebase: testCommit.Rebase,
-						Repo:   testCommit.Repo,
-						Ops:    ops,
-						Time:   testCommit.Time,
-						TooBig: testCommit.TooBig,
-					}
 
 					// Wait for the limiter to allow us to emit another event
-					limiter.Wait(ctx)
+					// limiter.Wait(ctx)
 
-					err := em.AddEvent(ctx, &events.XRPCStreamEvent{
-						RepoCommit: commit,
+					_, _, err = repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
+						Text: "cats",
 					})
 					if err != nil {
-						log.Errorf("failed to add event: %+v\n", err)
+						log.Errorf("failed to create record: %+v\n", err)
 					} else {
 						eventsGeneratedCounter.Inc()
 					}
-
 					select {
 					case <-ctx.Done():
 						return
@@ -213,46 +230,6 @@ func main() {
 
 	if err := e.Start(":" + port); err != nil {
 		log.Errorf("failed to start server: %+v\n", err)
-	}
-}
-
-func acquireCommitFromProdFirehose(ctx context.Context) (*atproto.SyncSubscribeRepos_Commit, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	u := url.URL{Scheme: "wss", Host: "bsky.social", Path: "/xrpc/com.atproto.sync.subscribeRepos"}
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to websocket: %w", err)
-	}
-	defer c.Close()
-
-	var commit *atproto.SyncSubscribeRepos_Commit
-
-	sched := events.SequentialScheduler{
-		Do: func(ctx context.Context, evt *events.XRPCStreamEvent) error {
-			switch {
-			case evt.RepoCommit != nil:
-				if evt.RepoCommit.Ops == nil {
-					return nil
-				}
-				// Grab the first op and check its path, make sure we're grabbing a post
-				if strings.HasPrefix(evt.RepoCommit.Ops[0].Path, "app.bsky.feed.post") {
-					commit = evt.RepoCommit
-				}
-				return nil
-			}
-			return nil
-		},
-	}
-
-	go events.HandleRepoStream(ctx, c, &sched)
-
-	// Wait in a loop for the commit to be populated, then cancel the context and return the commit
-	for {
-		if commit != nil {
-			return commit, nil
-		}
-		time.Sleep(time.Millisecond * 100)
 	}
 }
 
@@ -330,4 +307,48 @@ func (s *Server) EventsHandler(c echo.Context) error {
 	}
 
 	return nil
+}
+
+func setupDb(p string) (*gorm.DB, error) {
+
+	db, err := gorm.Open(sqlite.Open(p))
+	if err != nil {
+		return nil, fmt.Errorf("failed to open db: %w", err)
+	}
+
+	if err := db.Exec("PRAGMA journal_mode=WAL;").Error; err != nil {
+		return nil, fmt.Errorf("failed to set WAL mode: %w", err)
+	}
+
+	return db, nil
+}
+
+func initSpeedyRepoMan(ctx context.Context) (*repomgr.RepoManager, error) {
+	dir, err := os.MkdirTemp("", "supercollider")
+	if err != nil {
+		return nil, err
+	}
+
+	maindb, err := setupDb(filepath.Join(dir, "test.sqlite"))
+	if err != nil {
+		return nil, err
+	}
+	cardb, err := setupDb(filepath.Join(dir, "car.sqlite"))
+	if err != nil {
+		return nil, err
+	}
+
+	cspath := filepath.Join(dir, "carstore")
+	if err := os.Mkdir(cspath, 0775); err != nil {
+		return nil, err
+	}
+
+	cs, err := carstore.NewCarStore(cardb, cspath)
+	if err != nil {
+		return nil, err
+	}
+
+	repoman := repomgr.NewRepoManager(maindb, cs, &util.FakeKeyManager{})
+
+	return repoman, nil
 }
