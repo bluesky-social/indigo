@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/time/rate"
 
 	"go.uber.org/zap"
 )
@@ -76,7 +78,7 @@ func main() {
 
 	log.Info("starting supercollider")
 
-	em := events.NewEventManager(events.NewMemPersister())
+	em := events.NewEventManager(events.NewYoloPersister())
 
 	s := &Server{
 		events: em,
@@ -118,11 +120,14 @@ func main() {
 	log.Infof("testCommit: %s | %s\n", testCommit.Repo, testCommit.Ops[0].Path)
 
 	// Create a control channel for the event emitter control messages
+	// We want to produce events at around 80k/s since the socket can't handle much more than that
 	evtControl := make(chan string, 1)
 	go func() {
 		running := false
 		totalEmittedEvents := 0
-		totalDesiredEvents := 10_000_000
+		totalDesiredEvents := 100_000_000
+		limiter := rate.NewLimiter(rate.Limit(80_000), 100)
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -140,13 +145,11 @@ func main() {
 					time.Sleep(time.Second)
 					continue
 				}
-				eventCount := 10_000
-				for i := 0; i < eventCount; i++ {
+
+				for i := 0; i < totalDesiredEvents; i++ {
 					totalEmittedEvents++
-					if totalEmittedEvents >= totalDesiredEvents {
-						log.Infof("emitted %d events, stopping\n", totalEmittedEvents)
-						evtControl <- "stop"
-						break
+					if i%40_000 == 0 {
+						log.Infof("emitted %d events\n", totalEmittedEvents)
 					}
 					ops := []*atproto.SyncSubscribeRepos_RepoOp{}
 					for _, op := range testCommit.Ops {
@@ -170,6 +173,9 @@ func main() {
 						TooBig: testCommit.TooBig,
 					}
 
+					// Wait for the limiter to allow us to emit another event
+					limiter.Wait(ctx)
+
 					err := em.AddEvent(ctx, &events.XRPCStreamEvent{
 						RepoCommit: commit,
 					})
@@ -178,9 +184,16 @@ func main() {
 					} else {
 						eventsGeneratedCounter.Inc()
 					}
+
+					select {
+					case <-ctx.Done():
+						return
+					default:
+					}
 				}
-				log.Infof("added %d events\n", eventCount)
-				time.Sleep(time.Millisecond * 100)
+				log.Infof("emitted %d events, stopping\n", totalEmittedEvents)
+				evtControl <- "stop"
+				break
 			}
 		}
 	}()
@@ -219,7 +232,13 @@ func acquireCommitFromProdFirehose(ctx context.Context) (*atproto.SyncSubscribeR
 		Do: func(ctx context.Context, evt *events.XRPCStreamEvent) error {
 			switch {
 			case evt.RepoCommit != nil:
-				commit = evt.RepoCommit
+				if evt.RepoCommit.Ops == nil {
+					return nil
+				}
+				// Grab the first op and check its path, make sure we're grabbing a post
+				if strings.HasPrefix(evt.RepoCommit.Ops[0].Path, "app.bsky.feed.post") {
+					commit = evt.RepoCommit
+				}
 				return nil
 			}
 			return nil
