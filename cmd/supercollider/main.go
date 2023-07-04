@@ -122,7 +122,7 @@ func main() {
 	go func() {
 		running := false
 		totalEmittedEvents := 0
-		totalDesiredEvents := 1_000_000
+		totalDesiredEvents := 10_000_000
 		for {
 			select {
 			case <-ctx.Done():
@@ -133,6 +133,7 @@ func main() {
 					running = true
 				case "stop":
 					running = false
+					totalEmittedEvents = 0
 				}
 			default:
 				if !running {
