@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/plc"
@@ -82,20 +83,32 @@ func main() {
 	}
 	log.Info("...started pds")
 
-	concurrency := 10
+	userCreationConcurrency := 10
 	numUsers := 1000
 
+	start := time.Now()
 	log.Infof("creating %d users...", numUsers)
-	users, errors := CreateUsersParallel(ctx, tp, concurrency, numUsers)
+	users, errors := CreateUsersParallel(ctx, tp, userCreationConcurrency, numUsers)
 	if len(errors) > 0 {
 		log.Errorf("failed to create some users: %+v\n", errors)
 	}
-	log.Infof("...created %d users", len(users))
+	usersDone := time.Now()
+	log.Infof("...created %d users in %v", len(users), time.Since(start))
+
+	// Create 100 posts per user
+	recordCreationConcurrency := 20
+	postsPerUser := 100
+	log.Infof("creating %d posts...", numUsers*postsPerUser)
+	posts, errors := CreateRecordsParallel(ctx, users, recordCreationConcurrency, postsPerUser)
+	if len(errors) > 0 {
+		log.Errorf("failed to create some posts: %+v\n", errors)
+	}
+	log.Infof("...created %d posts in %v", len(posts), time.Since(usersDone))
 
 	wg.Wait()
 }
 
-type Result struct {
+type CreateUserResult struct {
 	User  *testing.TestUser
 	Error error
 }
@@ -105,7 +118,7 @@ func CreateUsersParallel(ctx context.Context, tp *testing.TestPDS, concurrency i
 	handles := supercollider.GenHandles("supercollider", numUsers)
 
 	workCh := make(chan int, numUsers)
-	resultsCh := make(chan Result, numUsers)
+	resultsCh := make(chan CreateUserResult, numUsers)
 	var wg sync.WaitGroup
 
 	for i := 0; i < concurrency; i++ {
@@ -114,7 +127,7 @@ func CreateUsersParallel(ctx context.Context, tp *testing.TestPDS, concurrency i
 			defer wg.Done()
 			for idx := range workCh {
 				user, err := tp.NewUser(ctx, handles[idx])
-				resultsCh <- Result{User: user, Error: err}
+				resultsCh <- CreateUserResult{User: user, Error: err}
 				select {
 				case <-ctx.Done():
 					return
@@ -146,6 +159,77 @@ func CreateUsersParallel(ctx context.Context, tp *testing.TestPDS, concurrency i
 	}
 
 	return users, errors
+}
+
+type CreateRecordResult struct {
+	Record *atproto.RepoStrongRef
+	Error  error
+}
+
+func CreateRecordsParallel(
+	ctx context.Context,
+	users []*testing.TestUser,
+	concurrency int,
+	recordsPerUser int,
+) ([]*atproto.RepoStrongRef, []error) {
+	records := make([]*atproto.RepoStrongRef, 0)
+	errors := make([]error, 0)
+
+	workCh := make(chan int, len(users)*recordsPerUser)
+	resultsCh := make(chan CreateRecordResult, len(users)*recordsPerUser)
+
+	var wg sync.WaitGroup
+
+	// Divide the users slice into chunks
+	chunkSize := (len(users) + concurrency - 1) / concurrency
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+
+			// Calculate start and end indexes for this goroutine's chunk of users
+			start, end := i*chunkSize, (i+1)*chunkSize
+			if end > len(users) {
+				end = len(users)
+			}
+
+			// Iterate over the users in this goroutine's chunk
+			for j := start; j < end; j++ {
+				// Fetch work from the work channel (in this case, the number of posts to create for this user)
+				for k := 0; k < recordsPerUser; k++ {
+					select {
+					case <-workCh:
+						record, err := users[j].CreatePost(ctx, fmt.Sprintf("post %d", k))
+						resultsCh <- CreateRecordResult{Record: record, Error: err}
+					case <-ctx.Done():
+						return
+					}
+				}
+			}
+		}(i)
+	}
+
+	// Fill the work channel with the total amount of work to be done
+	for i := 0; i < len(users)*recordsPerUser; i++ {
+		workCh <- i
+	}
+
+	close(workCh)
+
+	go func() {
+		wg.Wait()
+		close(resultsCh)
+	}()
+
+	for result := range resultsCh {
+		if result.Error != nil {
+			errors = append(errors, result.Error)
+			continue
+		}
+		records = append(records, result.Record)
+	}
+
+	return records, errors
 }
 
 func RunPDS(ctx context.Context, tp *testing.TestPDS) error {
