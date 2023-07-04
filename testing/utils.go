@@ -255,6 +255,26 @@ func (u *TestUser) DID() string {
 	return u.did
 }
 
+func (u *TestUser) CreatePost(ctx context.Context, body string) (*atproto.RepoStrongRef, error) {
+	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
+		Collection: "app.bsky.feed.post",
+		Repo:       u.did,
+		Record: &lexutil.LexiconTypeDecoder{&bsky.FeedPost{
+			CreatedAt: time.Now().Format(time.RFC3339),
+			Text:      body,
+		}},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &atproto.RepoStrongRef{
+		Cid: resp.Cid,
+		Uri: resp.Uri,
+	}, nil
+}
+
 func (u *TestUser) Post(t *testing.T, body string) *atproto.RepoStrongRef {
 	t.Helper()
 
