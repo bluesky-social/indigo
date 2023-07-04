@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -120,6 +121,8 @@ func main() {
 	evtControl := make(chan string, 1)
 	go func() {
 		running := false
+		totalEmittedEvents := 0
+		totalDesiredEvents := 1_000_000
 		for {
 			select {
 			case <-ctx.Done():
@@ -138,7 +141,12 @@ func main() {
 				}
 				eventCount := 10_000
 				for i := 0; i < eventCount; i++ {
-					eventsGeneratedCounter.Inc()
+					totalEmittedEvents++
+					if totalEmittedEvents >= totalDesiredEvents {
+						log.Infof("emitted %d events, stopping\n", totalEmittedEvents)
+						evtControl <- "stop"
+						break
+					}
 					ops := []*atproto.SyncSubscribeRepos_RepoOp{}
 					for _, op := range testCommit.Ops {
 						ops = append(ops, &atproto.SyncSubscribeRepos_RepoOp{
@@ -161,12 +169,17 @@ func main() {
 						TooBig: testCommit.TooBig,
 					}
 
-					em.AddEvent(ctx, &events.XRPCStreamEvent{
+					err := em.AddEvent(ctx, &events.XRPCStreamEvent{
 						RepoCommit: commit,
 					})
+					if err != nil {
+						log.Errorf("failed to add event: %+v\n", err)
+					} else {
+						eventsGeneratedCounter.Inc()
+					}
 				}
 				log.Infof("added %d events\n", eventCount)
-				time.Sleep(time.Millisecond * 10)
+				time.Sleep(time.Millisecond * 100)
 			}
 		}
 	}()
@@ -229,11 +242,21 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		return err
 	}
 
+	var cursor *int64
+
+	if c.QueryParam("cursor") != "" {
+		cursorFromQuery, err := strconv.ParseInt(c.QueryParam("cursor"), 10, 64)
+		if err != nil {
+			return err
+		}
+		cursor = &cursorFromQuery
+	}
+
 	ctx := c.Request().Context()
 
 	evts, cancel, err := s.events.Subscribe(ctx, func(evt *events.XRPCStreamEvent) bool {
 		return true
-	}, nil)
+	}, cursor)
 	if err != nil {
 		return err
 	}
