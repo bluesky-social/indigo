@@ -13,7 +13,7 @@ func main() {
 	ctx := context.Background()
 	log.Println("connecting to WebSocket...")
 
-	u := url.URL{Scheme: "ws", Host: "localhost:12832", Path: "/xrpc/com.atproto.sync.subscribeRepos"}
+	u := url.URL{Scheme: "ws", Host: "localhost:12832", Path: "/xrpc/com.atproto.sync.subscribeRepos", RawQuery: "cursor=0"}
 	//u := url.URL{Scheme: "wss", Host: "bsky.social", Path: "/xrpc/com.atproto.sync.subscribeRepos"}
 
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
