@@ -308,9 +308,6 @@ func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *
 		RecoveryKey: recoveryKey,
 		Email:       body.Email,
 	}
-	if err := s.db.Create(&u).Error; err != nil {
-		return nil, err
-	}
 
 	if recoveryKey == "" {
 		recoveryKey = s.signingKey.Public().DID()
@@ -322,7 +319,7 @@ func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *
 	}
 
 	u.Did = d
-	if err := s.db.Save(&u).Error; err != nil {
+	if err := s.db.Create(&u).Error; err != nil {
 		return nil, err
 	}
 
