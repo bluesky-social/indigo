@@ -15,7 +15,6 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
-	"golang.org/x/time/rate"
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repomgr"
@@ -43,9 +42,7 @@ var eventsSentCounter = promauto.NewCounter(prometheus.CounterOpts{
 })
 
 type Server struct {
-	events                  *events.EventManager
-	numProducers            int
-	producerControlChannels []chan string
+	events *events.EventManager
 }
 
 func main() {
@@ -163,72 +160,69 @@ func main() {
 
 	// Create a control channel for the event emitter control messages
 	// We want to produce events at around 80k/s since the socket can't handle much more than that
-	limiter := rate.NewLimiter(rate.Limit(80_000), 100)
+	evtControl := make(chan string, 1)
+	go func() {
+		running := false
+		totalEmittedEvents := 0
+		totalDesiredEvents := 100_000_000
+		// limiter := rate.NewLimiter(rate.Limit(80_000), 100)
 
-	s.numProducers = 20
-	s.producerControlChannels = []chan string{}
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case cmd := <-evtControl:
+				switch cmd {
+				case "start":
+					running = true
+				case "stop":
+					running = false
+					totalEmittedEvents = 0
+				}
+			default:
+				if !running {
+					time.Sleep(time.Second)
+					continue
+				}
 
-	for i := 0; i < s.numProducers; i++ {
-		evtControl := make(chan string)
-		s.producerControlChannels = append(s.producerControlChannels, evtControl)
-
-		go func(workerID int) {
-			running := false
-			log.Infof("event emitter %d launch", workerID)
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case cmd := <-evtControl:
-					switch cmd {
-					case "start":
-						log.Infof("event emitter %d starting", workerID)
-						running = true
-					case "stop":
-						log.Infof("event emitter %d stopping", workerID)
-						running = false
+				for i := 0; i < totalDesiredEvents; i++ {
+					totalEmittedEvents++
+					if i%40_000 == 0 {
+						log.Infof("emitted %d events\n", totalEmittedEvents)
 					}
-				default:
-					if !running {
-						time.Sleep(time.Millisecond * 50)
-						continue
-					}
 
-					for {
-						// Wait for the limiter to allow us to emit another event
-						limiter.Wait(ctx)
-						_, _, err = repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
-							Text: "cats",
-						})
-						if err != nil {
-							log.Errorf("failed to create record: %+v\n", err)
-						} else {
-							eventsGeneratedCounter.Inc()
-						}
-						select {
-						case <-ctx.Done():
-							log.Info("event emitter shutting down")
-							return
-						default:
-						}
+					// Wait for the limiter to allow us to emit another event
+					// limiter.Wait(ctx)
+
+					_, _, err = repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
+						Text: "cats",
+					})
+					if err != nil {
+						log.Errorf("failed to create record: %+v\n", err)
+					} else {
+						eventsGeneratedCounter.Inc()
+					}
+					select {
+					case <-ctx.Done():
+						return
+					default:
 					}
 				}
+				log.Infof("emitted %d events, stopping\n", totalEmittedEvents)
+				evtControl <- "stop"
+				break
 			}
-		}(i)
-	}
+		}
+	}()
 
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/generate", func(c echo.Context) error {
-		for _, evtControl := range s.producerControlChannels {
-			evtControl <- "start"
-		}
+		evtControl <- "start"
 		return c.String(200, "stream started")
 	})
 	e.GET("/stop", func(c echo.Context) error {
-		for _, evtControl := range s.producerControlChannels {
-			evtControl <- "stop"
-		}
+		evtControl <- "stop"
 		return c.String(200, "stream stopped")
 	})
 
@@ -335,11 +329,11 @@ func initSpeedyRepoMan(ctx context.Context) (*repomgr.RepoManager, error) {
 		return nil, err
 	}
 
-	maindb, err := setupDb(filepath.Join(dir, "test.sqlite"))
+	maindb, err := setupDb("file::memory:?cache=shared")
 	if err != nil {
 		return nil, err
 	}
-	cardb, err := setupDb(filepath.Join(dir, "car.sqlite"))
+	cardb, err := setupDb("file::memory:?cache=shared")
 	if err != nil {
 		return nil, err
 	}
