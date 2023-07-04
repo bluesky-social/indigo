@@ -45,34 +45,42 @@ import (
 )
 
 type TestPDS struct {
-	dir    string
-	server *pds.Server
-	plc    *api.PLCServer
+	Dir    string
+	Server *pds.Server
+	PLC    *api.PLCServer
 
-	listener net.Listener
+	Listener net.Listener
 
-	shutdown func()
+	Shutdown func()
+}
+
+func NewTestPDS(dir string, server *pds.Server, listener net.Listener) *TestPDS {
+	return &TestPDS{
+		Dir:      dir,
+		Server:   server,
+		Listener: listener,
+	}
 }
 
 // HTTPHost returns a host:port string that the PDS server is running at
 func (tp *TestPDS) RawHost() string {
-	return tp.listener.Addr().String()
+	return tp.Listener.Addr().String()
 }
 
 // HTTPHost returns a URL string that the PDS server is running at with the
 // scheme set for HTTP
 func (tp *TestPDS) HTTPHost() string {
-	u := url.URL{Scheme: "http", Host: tp.listener.Addr().String()}
+	u := url.URL{Scheme: "http", Host: tp.Listener.Addr().String()}
 	return u.String()
 }
 
 func (tp *TestPDS) Cleanup() {
-	if tp.shutdown != nil {
-		tp.shutdown()
+	if tp.Shutdown != nil {
+		tp.Shutdown()
 	}
 
-	if tp.dir != "" {
-		_ = os.RemoveAll(tp.dir)
+	if tp.Dir != "" {
+		_ = os.RemoveAll(tp.Dir)
 	}
 }
 
@@ -141,23 +149,23 @@ func SetupPDS(ctx context.Context, suffix string, plc plc.PLCClient) (*TestPDS, 
 	}
 
 	return &TestPDS{
-		dir:      dir,
-		server:   srv,
-		listener: li,
+		Dir:      dir,
+		Server:   srv,
+		Listener: li,
 	}, nil
 }
 
 func (tp *TestPDS) Run(t *testing.T) {
 	// TODO: rig this up so it t.Fatals if the RunAPI call fails immediately
 	go func() {
-		if err := tp.server.RunAPIWithListener(tp.listener); err != nil {
+		if err := tp.Server.RunAPIWithListener(tp.Listener); err != nil {
 			fmt.Println(err)
 		}
 	}()
 	time.Sleep(time.Millisecond * 10)
 
-	tp.shutdown = func() {
-		tp.server.Shutdown(context.TODO())
+	tp.Shutdown = func() {
+		tp.Server.Shutdown(context.TODO())
 	}
 }
 
@@ -179,9 +187,10 @@ type TestUser struct {
 }
 
 func (tp *TestPDS) MustNewUser(t *testing.T, handle string) *TestUser {
+	ctx := context.TODO()
 	t.Helper()
 
-	u, err := tp.NewUser(handle)
+	u, err := tp.NewUser(ctx, handle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,9 +198,7 @@ func (tp *TestPDS) MustNewUser(t *testing.T, handle string) *TestUser {
 	return u
 }
 
-func (tp *TestPDS) NewUser(handle string) (*TestUser, error) {
-	ctx := context.TODO()
-
+func (tp *TestPDS) NewUser(ctx context.Context, handle string) (*TestUser, error) {
 	c := &xrpc.Client{
 		Host: tp.HTTPHost(),
 	}
