@@ -45,42 +45,34 @@ import (
 )
 
 type TestPDS struct {
-	Dir    string
-	Server *pds.Server
-	PLC    *api.PLCServer
+	dir    string
+	server *pds.Server
+	plc    *api.PLCServer
 
-	Listener net.Listener
+	listener net.Listener
 
-	Shutdown func()
-}
-
-func NewTestPDS(dir string, server *pds.Server, listener net.Listener) *TestPDS {
-	return &TestPDS{
-		Dir:      dir,
-		Server:   server,
-		Listener: listener,
-	}
+	shutdown func()
 }
 
 // HTTPHost returns a host:port string that the PDS server is running at
 func (tp *TestPDS) RawHost() string {
-	return tp.Listener.Addr().String()
+	return tp.listener.Addr().String()
 }
 
 // HTTPHost returns a URL string that the PDS server is running at with the
 // scheme set for HTTP
 func (tp *TestPDS) HTTPHost() string {
-	u := url.URL{Scheme: "http", Host: tp.Listener.Addr().String()}
+	u := url.URL{Scheme: "http", Host: tp.listener.Addr().String()}
 	return u.String()
 }
 
 func (tp *TestPDS) Cleanup() {
-	if tp.Shutdown != nil {
-		tp.Shutdown()
+	if tp.shutdown != nil {
+		tp.shutdown()
 	}
 
-	if tp.Dir != "" {
-		_ = os.RemoveAll(tp.Dir)
+	if tp.dir != "" {
+		_ = os.RemoveAll(tp.dir)
 	}
 }
 
@@ -149,23 +141,23 @@ func SetupPDS(ctx context.Context, suffix string, plc plc.PLCClient) (*TestPDS, 
 	}
 
 	return &TestPDS{
-		Dir:      dir,
-		Server:   srv,
-		Listener: li,
+		dir:      dir,
+		server:   srv,
+		listener: li,
 	}, nil
 }
 
 func (tp *TestPDS) Run(t *testing.T) {
 	// TODO: rig this up so it t.Fatals if the RunAPI call fails immediately
 	go func() {
-		if err := tp.Server.RunAPIWithListener(tp.Listener); err != nil {
+		if err := tp.server.RunAPIWithListener(tp.listener); err != nil {
 			fmt.Println(err)
 		}
 	}()
 	time.Sleep(time.Millisecond * 10)
 
-	tp.Shutdown = func() {
-		tp.Server.Shutdown(context.TODO())
+	tp.shutdown = func() {
+		tp.server.Shutdown(context.TODO())
 	}
 }
 
@@ -187,10 +179,9 @@ type TestUser struct {
 }
 
 func (tp *TestPDS) MustNewUser(t *testing.T, handle string) *TestUser {
-	ctx := context.TODO()
 	t.Helper()
 
-	u, err := tp.NewUser(ctx, handle)
+	u, err := tp.NewUser(handle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +189,9 @@ func (tp *TestPDS) MustNewUser(t *testing.T, handle string) *TestUser {
 	return u
 }
 
-func (tp *TestPDS) NewUser(ctx context.Context, handle string) (*TestUser, error) {
+func (tp *TestPDS) NewUser(handle string) (*TestUser, error) {
+	ctx := context.TODO()
+
 	c := &xrpc.Client{
 		Host: tp.HTTPHost(),
 	}
@@ -253,26 +246,6 @@ func (u *TestUser) Reply(t *testing.T, replyto, root *atproto.RepoStrongRef, bod
 
 func (u *TestUser) DID() string {
 	return u.did
-}
-
-func (u *TestUser) CreatePost(ctx context.Context, body string) (*atproto.RepoStrongRef, error) {
-	resp, err := atproto.RepoCreateRecord(ctx, u.client, &atproto.RepoCreateRecord_Input{
-		Collection: "app.bsky.feed.post",
-		Repo:       u.did,
-		Record: &lexutil.LexiconTypeDecoder{&bsky.FeedPost{
-			CreatedAt: time.Now().Format(time.RFC3339),
-			Text:      body,
-		}},
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &atproto.RepoStrongRef{
-		Cid: resp.Cid,
-		Uri: resp.Uri,
-	}, nil
 }
 
 func (u *TestUser) Post(t *testing.T, body string) *atproto.RepoStrongRef {
