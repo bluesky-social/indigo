@@ -26,20 +26,24 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 var log = logging.Logger("repomgr")
 
-func NewRepoManager(db *gorm.DB, cs *carstore.CarStore, kmgr KeyManager) *RepoManager {
-	db.AutoMigrate(RepoHead{})
+func NewRepoManager(hs HeadStore, cs *carstore.CarStore, kmgr KeyManager) *RepoManager {
 
 	return &RepoManager{
-		db:        db,
+		hs:        hs,
 		cs:        cs,
 		userLocks: make(map[util.Uid]*userLock),
 		kmgr:      kmgr,
 	}
+}
+
+type HeadStore interface {
+	GetUserRepoHead(ctx context.Context, user util.Uid) (cid.Cid, error)
+	UpdateUserRepoHead(ctx context.Context, user util.Uid, root cid.Cid) error
+	InitUser(ctx context.Context, user util.Uid, root cid.Cid) error
 }
 
 type KeyManager interface {
@@ -53,7 +57,7 @@ func (rm *RepoManager) SetEventHandler(cb func(context.Context, *RepoEvent)) {
 
 type RepoManager struct {
 	cs   *carstore.CarStore
-	db   *gorm.DB
+	hs   HeadStore
 	kmgr KeyManager
 
 	lklk      sync.Mutex
@@ -139,41 +143,6 @@ func (rm *RepoManager) lockUser(ctx context.Context, user util.Uid) func() {
 	}
 }
 
-func (rm *RepoManager) getUserRepoHead(ctx context.Context, user util.Uid) (cid.Cid, error) {
-	ctx, span := otel.Tracer("repoman").Start(ctx, "getUserRepoHead")
-	defer span.End()
-
-	var headrec RepoHead
-	if err := rm.db.Find(&headrec, "usr = ?", user).Error; err != nil {
-		return cid.Undef, err
-	}
-
-	if headrec.ID == 0 {
-		return cid.Undef, gorm.ErrRecordNotFound
-	}
-
-	cc, err := cid.Decode(headrec.Root)
-	if err != nil {
-		return cid.Undef, err
-	}
-
-	return cc, nil
-}
-
-func (rm *RepoManager) updateUserRepoHead(ctx context.Context, user util.Uid, root cid.Cid) error {
-	if err := rm.db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "usr"}},
-		DoUpdates: clause.AssignmentColumns([]string{"root"}),
-	}).Create(&RepoHead{
-		Usr:  user,
-		Root: root.String(),
-	}).Error; err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (rm *RepoManager) CarStore() *carstore.CarStore {
 	return rm.cs
 }
@@ -185,7 +154,7 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user util.Uid, collecti
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	head, err := rm.getUserRepoHead(ctx, user)
+	head, err := rm.hs.GetUserRepoHead(ctx, user)
 	if err != nil {
 		return "", cid.Undef, err
 	}
@@ -216,7 +185,7 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user util.Uid, collecti
 	}
 
 	// TODO: what happens if this update fails?
-	if err := rm.updateUserRepoHead(ctx, user, nroot); err != nil {
+	if err := rm.hs.UpdateUserRepoHead(ctx, user, nroot); err != nil {
 		return "", cid.Undef, fmt.Errorf("updating user head: %w", err)
 	}
 
@@ -251,7 +220,7 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user util.Uid, collecti
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	head, err := rm.getUserRepoHead(ctx, user)
+	head, err := rm.hs.GetUserRepoHead(ctx, user)
 	if err != nil {
 		return cid.Undef, err
 	}
@@ -283,7 +252,7 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user util.Uid, collecti
 	}
 
 	// TODO: what happens if this update fails?
-	if err := rm.updateUserRepoHead(ctx, user, nroot); err != nil {
+	if err := rm.hs.UpdateUserRepoHead(ctx, user, nroot); err != nil {
 		return cid.Undef, fmt.Errorf("updating user head: %w", err)
 	}
 
@@ -318,7 +287,7 @@ func (rm *RepoManager) DeleteRecord(ctx context.Context, user util.Uid, collecti
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	head, err := rm.getUserRepoHead(ctx, user)
+	head, err := rm.hs.GetUserRepoHead(ctx, user)
 	if err != nil {
 		return err
 	}
@@ -349,7 +318,7 @@ func (rm *RepoManager) DeleteRecord(ctx context.Context, user util.Uid, collecti
 	}
 
 	// TODO: what happens if this update fails?
-	if err := rm.updateUserRepoHead(ctx, user, nroot); err != nil {
+	if err := rm.hs.UpdateUserRepoHead(ctx, user, nroot); err != nil {
 		return fmt.Errorf("updating user head: %w", err)
 	}
 	var oldroot *cid.Cid
@@ -413,10 +382,7 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user util.Uid, handle, 
 		return err
 	}
 
-	if err := rm.db.Create(&RepoHead{
-		Usr:  user,
-		Root: root.String(),
-	}).Error; err != nil {
+	if err := rm.hs.InitUser(ctx, user, root); err != nil {
 		return err
 	}
 
@@ -441,7 +407,7 @@ func (rm *RepoManager) GetRepoRoot(ctx context.Context, user util.Uid) (cid.Cid,
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	return rm.getUserRepoHead(ctx, user)
+	return rm.hs.GetUserRepoHead(ctx, user)
 }
 
 func (rm *RepoManager) ReadRepo(ctx context.Context, user util.Uid, earlyCid, lateCid cid.Cid, w io.Writer) error {
@@ -454,7 +420,7 @@ func (rm *RepoManager) GetRecord(ctx context.Context, user util.Uid, collection 
 		return cid.Undef, nil, err
 	}
 
-	head, err := rm.getUserRepoHead(ctx, user)
+	head, err := rm.hs.GetUserRepoHead(ctx, user)
 	if err != nil {
 		return cid.Undef, nil, err
 	}
@@ -482,7 +448,7 @@ func (rm *RepoManager) GetProfile(ctx context.Context, uid util.Uid) (*bsky.Acto
 		return nil, err
 	}
 
-	head, err := rm.getUserRepoHead(ctx, uid)
+	head, err := rm.hs.GetUserRepoHead(ctx, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -569,7 +535,7 @@ func (rm *RepoManager) HandleRebase(ctx context.Context, pdsid uint, uid util.Ui
 	}
 
 	// TODO: what happens if this update fails?
-	if err := rm.updateUserRepoHead(ctx, uid, root); err != nil {
+	if err := rm.hs.UpdateUserRepoHead(ctx, uid, root); err != nil {
 		return fmt.Errorf("updating user head: %w", err)
 	}
 
@@ -750,7 +716,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 	}
 
 	// TODO: what happens if this update fails?
-	if err := rm.updateUserRepoHead(ctx, uid, root); err != nil {
+	if err := rm.hs.UpdateUserRepoHead(ctx, uid, root); err != nil {
 		return fmt.Errorf("updating user head: %w", err)
 	}
 
@@ -779,7 +745,7 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	head, err := rm.getUserRepoHead(ctx, user)
+	head, err := rm.hs.GetUserRepoHead(ctx, user)
 	if err != nil {
 		return err
 	}
@@ -862,7 +828,7 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user util.Uid, writes []*
 	}
 
 	// TODO: what happens if this update fails?
-	if err := rm.updateUserRepoHead(ctx, user, nroot); err != nil {
+	if err := rm.hs.UpdateUserRepoHead(ctx, user, nroot); err != nil {
 		return fmt.Errorf("updating user head: %w", err)
 	}
 
@@ -891,7 +857,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user util.Uid, repoDid
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	head, err := rm.getUserRepoHead(ctx, user)
+	head, err := rm.hs.GetUserRepoHead(ctx, user)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
@@ -949,7 +915,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user util.Uid, repoDid
 			return err
 		}
 
-		if err := rm.updateUserRepoHead(ctx, user, nu); err != nil {
+		if err := rm.hs.UpdateUserRepoHead(ctx, user, nu); err != nil {
 			// TODO: this will lead to things being in an inconsistent state
 			return fmt.Errorf("failed to update repo head: %w", err)
 		}
