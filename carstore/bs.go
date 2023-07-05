@@ -590,7 +590,7 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase 
 	buf := new(bytes.Buffer)
 	hnw, err := WriteCarHeader(buf, root)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to write car header: %w", err)
 	}
 
 	// TODO: writing these blocks in map traversal order is bad, I believe the
@@ -603,7 +603,7 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase 
 	for k, blk := range ds.blks {
 		nw, err := LdWrite(buf, k.Bytes(), blk.RawData())
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to write block: %w", err)
 		}
 
 		/*
@@ -625,7 +625,7 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase 
 
 	path, err := ds.cs.writeNewShardFile(ctx, ds.user, ds.seq, buf.Bytes())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to write shard file: %w", err)
 	}
 
 	// TODO: all this database work needs to be in a single transaction
@@ -641,7 +641,7 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase 
 	// reference it in the same query, would save a lot of time
 	if err := ds.cs.meta.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.WithContext(ctx).Create(&shard).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to create shard in DB tx: %w", err)
 		}
 		ds.cs.putLastShardCache(ds.user, &shard)
 
@@ -650,12 +650,12 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase 
 		}
 
 		if err := createBlockRefs(ctx, tx, brefs); err != nil {
-			return err
+			return fmt.Errorf("failed to create block refs: %w", err)
 		}
 
 		return nil
 	}); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to commit shard DB transaction: %w", err)
 	}
 
 	return buf.Bytes(), nil
