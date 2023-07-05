@@ -100,6 +100,7 @@ func run(args []string) {
 		createInviteCmd,
 		adminCmd,
 		createFeedGeneratorCmd,
+		blocksCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -1464,6 +1465,75 @@ var createFeedGeneratorCmd = &cli.Command{
 			}
 
 			fmt.Println(resp.Uri)
+		}
+
+		return nil
+	},
+}
+
+var blocksCmd = &cli.Command{
+	Name: "blocks",
+	Subcommands: []*cli.Command{
+		blocksAddCmd,
+		blocksListCmd,
+	},
+}
+
+var blocksAddCmd = &cli.Command{
+	Name:      "add",
+	Flags:     []cli.Flag{},
+	ArgsUsage: `<user>`,
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		user := cctx.Args().First()
+
+		block := appbsky.GraphBlock{
+			LexiconTypeID: "app.bsky.graph.block",
+			CreatedAt:     time.Now().Format(time.RFC3339),
+			Subject:       user,
+		}
+
+		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
+			Collection: "app.bsky.graph.block",
+			Repo:       xrpcc.Auth.Did,
+			Record:     &lexutil.LexiconTypeDecoder{&block},
+		})
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(resp.Uri)
+
+		return nil
+	},
+}
+
+var blocksListCmd = &cli.Command{
+	Name:      "list",
+	ArgsUsage: `[actor]`,
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		user := cctx.Args().First()
+		if user == "" {
+			user = xrpcc.Auth.Did
+		}
+
+		ctx := context.TODO()
+		resp, err := appbsky.GraphGetBlocks(ctx, xrpcc, "", 100)
+		if err != nil {
+			return err
+		}
+
+		for _, f := range resp.Blocks {
+			fmt.Println(f.Did, f.Handle)
 		}
 
 		return nil
