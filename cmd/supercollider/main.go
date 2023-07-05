@@ -338,10 +338,6 @@ func initSpeedyRepoMan(ctx context.Context) (*repomgr.RepoManager, error) {
 		return nil, err
 	}
 
-	maindb, err := setupDb("file::memory:?cache=shared")
-	if err != nil {
-		return nil, err
-	}
 	cardb, err := setupDb("file::memory:?cache=shared")
 	if err != nil {
 		return nil, err
@@ -357,7 +353,9 @@ func initSpeedyRepoMan(ctx context.Context) (*repomgr.RepoManager, error) {
 		return nil, err
 	}
 
-	repoman := repomgr.NewRepoManager(maindb, cs, &util.FakeKeyManager{})
+	hs := repomgr.NewMemHeadStore()
+
+	repoman := repomgr.NewRepoManager(hs, cs, &util.FakeKeyManager{})
 
 	return repoman, nil
 }
