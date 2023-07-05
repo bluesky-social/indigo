@@ -11,10 +11,13 @@ import (
 	"syscall"
 	"time"
 
+	_ "net/http/pprof"
+
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/labstack/echo-contrib/pprof"
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repomgr"
@@ -90,6 +93,8 @@ func main() {
 	}
 
 	e := echo.New()
+
+	pprof.Register(e)
 
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
@@ -316,8 +321,12 @@ func setupDb(p string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
 
-	if err := db.Exec("PRAGMA journal_mode=WAL;").Error; err != nil {
-		return nil, fmt.Errorf("failed to set WAL mode: %w", err)
+	if err := db.Exec(`PRAGMA journal_mode=WAL;
+		pragma synchronous = normal;
+		pragma temp_store = memory;
+		pragma mmap_size = 30000000000;`,
+	).Error; err != nil {
+		return nil, fmt.Errorf("failed to set pragma modes: %w", err)
 	}
 
 	return db, nil
