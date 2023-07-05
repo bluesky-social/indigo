@@ -59,7 +59,8 @@ func TestLoadNewRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	repoman := NewRepoManager(maindb, cs, &util.FakeKeyManager{})
+	hs := NewDbHeadStore(maindb)
+	repoman := NewRepoManager(hs, cs, &util.FakeKeyManager{})
 
 	fi, err := os.Open("../testing/testdata/divy.repo")
 	if err != nil {
@@ -112,7 +113,8 @@ func TestIngestWithGap(t *testing.T) {
 
 	cs := testCarstore(t, dir)
 
-	repoman := NewRepoManager(maindb, cs, &util.FakeKeyManager{})
+	hs := NewDbHeadStore(maindb)
+	repoman := NewRepoManager(hs, cs, &util.FakeKeyManager{})
 
 	dir2, err := os.MkdirTemp("", "integtest")
 	if err != nil {

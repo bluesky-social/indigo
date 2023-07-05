@@ -77,7 +77,8 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, serkey *did.PrivKey, handleSu
 
 	kmgr := indexer.NewKeyManager(didr, serkey)
 
-	repoman := repomgr.NewRepoManager(db, cs, kmgr)
+	hs := repomgr.NewDbHeadStore(db)
+	repoman := repomgr.NewRepoManager(hs, cs, kmgr)
 	notifman := notifs.NewNotificationManager(db, repoman.GetRecord)
 
 	ix, err := indexer.NewIndexer(db, notifman, evtman, didr, repoman, false, true)
