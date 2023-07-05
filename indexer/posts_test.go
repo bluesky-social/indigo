@@ -55,7 +55,7 @@ func testIndexer(t *testing.T) *testIx {
 		t.Fatal(err)
 	}
 
-	repoman := repomgr.NewRepoManager(maindb, cs, &util.FakeKeyManager{})
+	repoman := repomgr.NewRepoManager(repomgr.NewDbHeadStore(maindb), cs, &util.FakeKeyManager{})
 	notifman := notifs.NewNotificationManager(maindb, repoman.GetRecord)
 	evtman := events.NewEventManager(events.NewMemPersister())
 
