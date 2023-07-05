@@ -207,7 +207,7 @@ func run(args []string) {
 
 		kmgr := indexer.NewKeyManager(cachedidr, nil)
 
-		repoman := repomgr.NewRepoManager(db, cstore, kmgr)
+		repoman := repomgr.NewRepoManager(repomgr.NewDbHeadStore(db), cstore, kmgr)
 
 		dbp, err := events.NewDbPersistence(db, cstore, nil)
 		if err != nil {
