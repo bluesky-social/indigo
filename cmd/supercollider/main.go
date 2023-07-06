@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"fmt"
 	"log"
@@ -25,6 +26,7 @@ import (
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/labstack/echo-contrib/pprof"
+	"github.com/multiformats/go-multibase"
 	godid "github.com/whyrusleeping/go-did"
 	"golang.org/x/crypto/acme/autocert"
 
@@ -32,7 +34,6 @@ import (
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/gorilla/websocket"
-	secp "github.com/ipsn/go-secp256k1"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus"
@@ -145,6 +146,11 @@ func main() {
 		log.Fatalf("failed to init repo manager: %+v\n", err)
 	}
 
+	multibaseKey, err := multibase.Encode(multibase.Base58BTC, privkey.Public().Raw.([]byte))
+	if err != nil {
+		log.Fatalf("failed to multibase encode key: %+v\n", err)
+	}
+
 	e.GET("/.well-known/did.json", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]any{
 			"@context": []string{"https://www.w3.org/ns/did/v1"},
@@ -155,9 +161,9 @@ func main() {
 			"verificationMethod": []map[string]any{
 				{
 					"id":                 "#atproto",
-					"type":               godid.KeyTypeSecp256k1,
+					"type":               godid.KeyTypeP256,
 					"controller":         "did:web:" + supercolliderHost,
-					"publicKeyMultibase": privkey.Public().MultibaseString(),
+					"publicKeyMultibase": multibaseKey,
 				},
 			},
 			"service": []map[string]any{
@@ -222,7 +228,7 @@ func main() {
 	go func() {
 		running := false
 		totalEmittedEvents := 0
-		totalDesiredEvents := 5
+		totalDesiredEvents := 500
 		// limiter := rate.NewLimiter(rate.Limit(80_000), 100)
 
 		for {
@@ -428,13 +434,13 @@ func initSpeedyRepoMan(ctx context.Context) (*repomgr.RepoManager, *godid.PrivKe
 	})
 	mr.AddHandler("web", &did.WebResolver{})
 
-	privateKey, err := ecdsa.GenerateKey(secp.S256(), rand.Reader)
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	key := godid.PrivKey{
-		Type: godid.KeyTypeSecp256k1,
+		Type: godid.KeyTypeP256,
 		Raw:  privateKey,
 	}
 
