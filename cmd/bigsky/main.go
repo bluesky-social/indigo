@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/blobs"
 	"github.com/bluesky-social/indigo/carstore"
 	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/notifs"
@@ -202,8 +203,18 @@ func run(args []string) {
 			return err
 		}
 
+		mr := did.NewMultiResolver()
+
 		didr := &api.PLCServer{Host: cctx.String("plc-host")}
-		cachedidr := plc.NewCachingDidResolver(didr, time.Minute*5, 1000)
+		mr.AddHandler("plc", didr)
+
+		webr := did.WebResolver{}
+		if cctx.Bool("crawl-insecure-ws") {
+			webr.Insecure = true
+		}
+		mr.AddHandler("web", &webr)
+
+		cachedidr := plc.NewCachingDidResolver(mr, time.Minute*5, 1000)
 
 		kmgr := indexer.NewKeyManager(cachedidr, nil)
 
@@ -245,7 +256,9 @@ func run(args []string) {
 
 		var hr api.HandleResolver = &api.ProdHandleResolver{}
 		if cctx.Bool("crawl-insecure-ws") {
-			hr = &api.TestHandleResolver{}
+			hr = &api.TestHandleResolver{
+				TrialHosts: []string{"supercollider.jazco.io"},
+			}
 		}
 
 		bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, hr, !cctx.Bool("crawl-insecure-ws"))
