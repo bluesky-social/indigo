@@ -35,7 +35,7 @@ type DiskPersistence struct {
 	uidCache *lru.ARCCache
 	didCache *lru.ARCCache
 
-	buffer  *bytes.Buffer
+	buffers *sync.Pool
 	scratch []byte
 }
 
@@ -72,11 +72,17 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 
 	db.AutoMigrate(&LogFileRef{})
 
+	bufpool := &sync.Pool{
+		New: func() any {
+			return new(bytes.Buffer)
+		},
+	}
+
 	dp := &DiskPersistence{
 		meta:          db,
 		primaryDir:    primaryDir,
 		archiveDir:    archiveDir,
-		buffer:        new(bytes.Buffer),
+		buffers:       bufpool,
 		uidCache:      uidCache,
 		didCache:      didCache,
 		eventsPerFile: opts.EventsPerFile,
@@ -221,25 +227,21 @@ const (
 )
 
 func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
-	p.seqLk.Lock()
-	defer p.seqLk.Unlock()
+	buffer := p.buffers.Get().(*bytes.Buffer)
+	defer p.buffers.Put(buffer)
 
-	p.buffer.Truncate(0)
-	seq := p.curSeq
-	p.curSeq++
+	buffer.Truncate(0)
 
 	var evtKind uint32
 	switch {
 	case e.RepoCommit != nil:
 		evtKind = evtKindCommit
-		e.RepoCommit.Seq = seq
-		if err := e.RepoCommit.MarshalCBOR(p.buffer); err != nil {
+		if err := e.RepoCommit.MarshalCBOR(buffer); err != nil {
 			return fmt.Errorf("failed to marshal: %w", err)
 		}
 	case e.RepoHandle != nil:
 		evtKind = evtKindHandle
-		e.RepoHandle.Seq = seq
-		if err := e.RepoHandle.MarshalCBOR(p.buffer); err != nil {
+		if err := e.RepoHandle.MarshalCBOR(buffer); err != nil {
 			return fmt.Errorf("failed to marshal: %w", err)
 		}
 	default:
@@ -247,11 +249,27 @@ func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error
 		// only those two get peristed right now
 	}
 
-	if err := p.writeHeader(ctx, 0, evtKind, uint32(p.buffer.Len()), seq); err != nil {
+	p.seqLk.Lock()
+	defer p.seqLk.Unlock()
+
+	seq := p.curSeq
+	p.curSeq++
+
+	switch {
+	case e.RepoCommit != nil:
+		e.RepoCommit.Seq = seq
+	case e.RepoHandle != nil:
+		e.RepoHandle.Seq = seq
+	default:
+		return nil
+		// only those two get peristed right now
+	}
+
+	if err := p.writeHeader(ctx, 0, evtKind, uint32(buffer.Len()), seq); err != nil {
 		return fmt.Errorf("failed to write header: %w", err)
 	}
 
-	if _, err := io.Copy(p.logfi, p.buffer); err != nil {
+	if _, err := io.Copy(p.logfi, buffer); err != nil {
 		return err
 	}
 
@@ -340,7 +358,9 @@ func (p *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*XR
 	}
 
 	for _, lf := range logs {
+		fmt.Println("LOGS", lf)
 		if err := p.readEventsFrom(ctx, since, filepath.Join(p.primaryDir, lf.Path), cb); err != nil {
+			fmt.Println("EVENT ERROR: ", err)
 			return err
 		}
 		since = 0
@@ -381,6 +401,7 @@ func (p *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn st
 			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len)); err != nil {
 				return err
 			}
+			evt.Seq = h.Seq
 			if err := cb(&XRPCStreamEvent{RepoCommit: &evt}); err != nil {
 				return err
 			}
@@ -389,6 +410,7 @@ func (p *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn st
 			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len)); err != nil {
 				return err
 			}
+			evt.Seq = h.Seq
 			if err := cb(&XRPCStreamEvent{RepoHandle: &evt}); err != nil {
 				return err
 			}
