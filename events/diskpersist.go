@@ -23,6 +23,8 @@ type DiskPersistence struct {
 	archiveDir    string
 	eventsPerFile int64
 
+	evts chan *persistJob
+
 	meta *gorm.DB
 
 	broadcast func(*XRPCStreamEvent)
@@ -30,13 +32,23 @@ type DiskPersistence struct {
 	logfi *os.File
 
 	curSeq int64
-	seqLk  sync.Mutex
 
 	uidCache *lru.ARCCache
 	didCache *lru.ARCCache
 
 	buffers *sync.Pool
 	scratch []byte
+}
+
+type persistJob struct {
+	Buf  []byte
+	Evt  *XRPCStreamEvent
+	Done chan jobResult
+}
+
+type jobResult struct {
+	Err error
+	Seq int64
 }
 
 var _ (EventPersistence) = (*DiskPersistence)(nil)
@@ -85,6 +97,7 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 		buffers:       bufpool,
 		uidCache:      uidCache,
 		didCache:      didCache,
+		evts:          make(chan *persistJob, 1024),
 		eventsPerFile: opts.EventsPerFile,
 		scratch:       make([]byte, headerSize),
 	}
@@ -92,6 +105,8 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 	if err := dp.resumeLog(); err != nil {
 		return nil, err
 	}
+
+	go dp.persistWorker()
 
 	return dp, nil
 }
@@ -228,6 +243,24 @@ const (
 
 var emptyHeader = make([]byte, headerSize)
 
+func (p *DiskPersistence) persistWorker() {
+	for {
+		select {
+		case job, ok := <-p.evts:
+			if !ok {
+				return
+			}
+
+			seq, err := p.doPersist(job.Buf, job.Evt)
+			if err != nil {
+				job.Done <- jobResult{Err: err}
+			} else {
+				job.Done <- jobResult{Seq: seq}
+			}
+		}
+	}
+}
+
 func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	buffer := p.buffers.Get().(*bytes.Buffer)
 	defer p.buffers.Put(buffer)
@@ -259,11 +292,27 @@ func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error
 	binary.LittleEndian.PutUint32(b[4:], evtKind)
 	binary.LittleEndian.PutUint32(b[8:], uint32(len(b)-headerSize))
 
-	p.seqLk.Lock()
-	defer p.seqLk.Unlock()
+	done := make(chan jobResult, 1)
+	p.evts <- &persistJob{
+		Buf:  b,
+		Evt:  e,
+		Done: done,
+	}
 
+	resp := <-done
+
+	if resp.Err != nil {
+		return resp.Err
+	}
+
+	return nil
+}
+
+func (p *DiskPersistence) doPersist(b []byte, e *XRPCStreamEvent) (int64, error) {
 	seq := p.curSeq
 	p.curSeq++
+
+	binary.LittleEndian.PutUint64(b[12:], uint64(seq))
 
 	switch {
 	case e.RepoCommit != nil:
@@ -271,26 +320,27 @@ func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error
 	case e.RepoHandle != nil:
 		e.RepoHandle.Seq = seq
 	default:
-		return nil
 		// only those two get peristed right now
+		// we shouldnt actually ever get here...
+		return 0, nil
 	}
 
-	binary.LittleEndian.PutUint64(b[12:], uint64(seq))
-
-	if _, err := io.Copy(p.logfi, buffer); err != nil {
-		return err
+	// TODO: does this guarantee a full write?
+	_, err := p.logfi.Write(b)
+	if err != nil {
+		return 0, err
 	}
 
 	p.broadcast(e)
 
 	if seq%p.eventsPerFile == 0 {
 		// time to roll the log file
-		if err := p.swapLog(ctx); err != nil {
-			return err
+		if err := p.swapLog(context.TODO()); err != nil {
+			return 0, err
 		}
 	}
 
-	return nil
+	return seq, nil
 }
 
 type evtHeader struct {
