@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/models"
@@ -23,7 +24,8 @@ type DiskPersistence struct {
 	archiveDir    string
 	eventsPerFile int64
 
-	evts chan *persistJob
+	evts  chan *persistJob
+	flush chan chan struct{}
 
 	meta *gorm.DB
 
@@ -38,12 +40,15 @@ type DiskPersistence struct {
 
 	buffers *sync.Pool
 	scratch []byte
+
+	outbuf *bytes.Buffer
+	evtbuf []*persistJob
 }
 
 type persistJob struct {
 	Buf  []byte
 	Evt  *XRPCStreamEvent
-	Done chan jobResult
+	Done chan error
 }
 
 type jobResult struct {
@@ -100,6 +105,8 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 		evts:          make(chan *persistJob, 1024),
 		eventsPerFile: opts.EventsPerFile,
 		scratch:       make([]byte, headerSize),
+		outbuf:        new(bytes.Buffer),
+		flush:         make(chan chan struct{}),
 	}
 
 	if err := dp.resumeLog(); err != nil {
@@ -244,6 +251,10 @@ const (
 var emptyHeader = make([]byte, headerSize)
 
 func (p *DiskPersistence) persistWorker() {
+	t := time.NewTimer(time.Hour)
+	t.Stop()
+
+	var tick <-chan time.Time
 	for {
 		select {
 		case job, ok := <-p.evts:
@@ -251,14 +262,115 @@ func (p *DiskPersistence) persistWorker() {
 				return
 			}
 
-			seq, err := p.doPersist(job.Buf, job.Evt)
-			if err != nil {
-				job.Done <- jobResult{Err: err}
+			if err := p.doPersist(job); err != nil {
+				job.Done <- err
+				continue
 			} else {
-				job.Done <- jobResult{Seq: seq}
+				job.Done <- nil
+			}
+
+			if len(p.evtbuf) > 50 {
+				if err := p.flushLog(context.TODO()); err != nil {
+					log.Errorf("failed to flush disk log: %s", err)
+				}
+				t.Stop()
+				tick = nil
+			}
+
+			if len(p.evtbuf) > 0 && tick == nil {
+				t.Reset(time.Millisecond * 50)
+				tick = t.C
+			}
+		case <-tick:
+			if err := p.flushLog(context.TODO()); err != nil {
+				log.Errorf("failed to flush disk log: %s", err)
+			}
+
+			tick = nil
+		case freq := <-p.flush:
+			// ensure that flushing waits until all pending events get through
+			// if theres a huge stream of events coming in this might never happen though...
+			if len(p.evts) > 0 {
+				go func() {
+					time.Sleep(time.Millisecond * 50)
+					p.flush <- freq
+				}()
+			} else {
+				if len(p.evtbuf) > 0 {
+					if err := p.flushLog(context.TODO()); err != nil {
+						log.Errorf("failed to flush disk log: %s", err)
+					}
+					t.Stop()
+					tick = nil
+				}
+
+				freq <- struct{}{}
 			}
 		}
 	}
+}
+
+func (p *DiskPersistence) flushLog(ctx context.Context) error {
+	if len(p.evtbuf) == 0 {
+		fmt.Println("attempted a double flush")
+		return nil
+	}
+
+	_, err := io.Copy(p.logfi, p.outbuf)
+	if err != nil {
+		return err
+	}
+
+	p.outbuf.Truncate(0)
+
+	for _, ej := range p.evtbuf {
+		p.broadcast(ej.Evt)
+	}
+
+	p.evtbuf = p.evtbuf[:0]
+
+	return nil
+}
+
+func (p *DiskPersistence) doPersist(j *persistJob) error {
+	b := j.Buf
+	e := j.Evt
+	seq := p.curSeq
+	p.curSeq++
+
+	binary.LittleEndian.PutUint64(b[12:], uint64(seq))
+
+	switch {
+	case e.RepoCommit != nil:
+		e.RepoCommit.Seq = seq
+	case e.RepoHandle != nil:
+		e.RepoHandle.Seq = seq
+	default:
+		// only those two get peristed right now
+		// we shouldnt actually ever get here...
+		return nil
+	}
+
+	// TODO: does this guarantee a full write?
+	_, err := p.outbuf.Write(b)
+	if err != nil {
+		return err
+	}
+
+	p.evtbuf = append(p.evtbuf, j)
+
+	if seq%p.eventsPerFile == 0 {
+		if err := p.flushLog(context.TODO()); err != nil {
+			return err
+		}
+
+		// time to roll the log file
+		if err := p.swapLog(context.TODO()); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
@@ -292,55 +404,14 @@ func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error
 	binary.LittleEndian.PutUint32(b[4:], evtKind)
 	binary.LittleEndian.PutUint32(b[8:], uint32(len(b)-headerSize))
 
-	done := make(chan jobResult, 1)
+	done := make(chan error, 1)
 	p.evts <- &persistJob{
 		Buf:  b,
 		Evt:  e,
 		Done: done,
 	}
 
-	resp := <-done
-
-	if resp.Err != nil {
-		return resp.Err
-	}
-
-	return nil
-}
-
-func (p *DiskPersistence) doPersist(b []byte, e *XRPCStreamEvent) (int64, error) {
-	seq := p.curSeq
-	p.curSeq++
-
-	binary.LittleEndian.PutUint64(b[12:], uint64(seq))
-
-	switch {
-	case e.RepoCommit != nil:
-		e.RepoCommit.Seq = seq
-	case e.RepoHandle != nil:
-		e.RepoHandle.Seq = seq
-	default:
-		// only those two get peristed right now
-		// we shouldnt actually ever get here...
-		return 0, nil
-	}
-
-	// TODO: does this guarantee a full write?
-	_, err := p.logfi.Write(b)
-	if err != nil {
-		return 0, err
-	}
-
-	p.broadcast(e)
-
-	if seq%p.eventsPerFile == 0 {
-		// time to roll the log file
-		if err := p.swapLog(context.TODO()); err != nil {
-			return 0, err
-		}
-	}
-
-	return seq, nil
+	return <-done // NB: getting rid of this channel 'wait for things to be done' thing makes it go a good deal faster
 }
 
 type evtHeader struct {
@@ -416,9 +487,7 @@ func (p *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*XR
 	}
 
 	for _, lf := range logs {
-		fmt.Println("LOGS", lf)
 		if err := p.readEventsFrom(ctx, since, filepath.Join(p.primaryDir, lf.Path), cb); err != nil {
-			fmt.Println("EVENT ERROR: ", err)
 			return err
 		}
 		since = 0
@@ -488,6 +557,9 @@ func (p *DiskPersistence) RebaseRepoEvents(ctx context.Context, usr models.Uid) 
 }
 
 func (p *DiskPersistence) Flush(ctx context.Context) error {
+	req := make(chan struct{})
+	p.flush <- req
+	<-req
 	return nil
 }
 
