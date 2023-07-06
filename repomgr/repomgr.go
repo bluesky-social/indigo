@@ -633,7 +633,7 @@ func (rm *RepoManager) CheckRepoSig(ctx context.Context, r *repo.Repo, expdid st
 		return fmt.Errorf("commit serialization failed: %w", err)
 	}
 	if err := rm.kmgr.VerifyUserSignature(ctx, repoDid, scom.Sig, sb); err != nil {
-		return fmt.Errorf("signature check failed: %w", err)
+		return fmt.Errorf("signature check failed (sig: %x) (sb: %x) : %w", scom.Sig, sb, err)
 	}
 
 	return nil
