@@ -103,6 +103,10 @@ func TestDiskPersist(t *testing.T) {
 		}
 	}
 
+	if err := dp.Flush(ctx); err != nil {
+		t.Fatal(err)
+	}
+
 	outEvtCount := 0
 	expectedEvtCount := n
 
