@@ -226,11 +226,15 @@ const (
 	evtKindHandle = 2
 )
 
+var emptyHeader = make([]byte, headerSize)
+
 func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	buffer := p.buffers.Get().(*bytes.Buffer)
 	defer p.buffers.Put(buffer)
 
 	buffer.Truncate(0)
+
+	buffer.Write(emptyHeader)
 
 	var evtKind uint32
 	switch {
@@ -249,6 +253,12 @@ func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error
 		// only those two get peristed right now
 	}
 
+	b := buffer.Bytes()
+
+	binary.LittleEndian.PutUint32(b, 0)
+	binary.LittleEndian.PutUint32(b[4:], evtKind)
+	binary.LittleEndian.PutUint32(b[8:], uint32(len(b)-headerSize))
+
 	p.seqLk.Lock()
 	defer p.seqLk.Unlock()
 
@@ -265,9 +275,7 @@ func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error
 		// only those two get peristed right now
 	}
 
-	if err := p.writeHeader(ctx, 0, evtKind, uint32(buffer.Len()), seq); err != nil {
-		return fmt.Errorf("failed to write header: %w", err)
-	}
+	binary.LittleEndian.PutUint64(b[12:], uint64(seq))
 
 	if _, err := io.Copy(p.logfi, buffer); err != nil {
 		return err
