@@ -25,22 +25,26 @@ type PersistenceBatchItem struct {
 }
 
 type Options struct {
-	MaxBatchSize        int
-	MinBatchSize        int
-	MaxTimeBetweenFlush time.Duration
-	CheckBatchInterval  time.Duration
-	UIDCacheSize        int
-	DIDCacheSize        int
+	MaxBatchSize         int
+	MinBatchSize         int
+	MaxTimeBetweenFlush  time.Duration
+	CheckBatchInterval   time.Duration
+	UIDCacheSize         int
+	DIDCacheSize         int
+	PlaybackBatchSize    int
+	HydrationConcurrency int
 }
 
 func DefaultOptions() *Options {
 	return &Options{
-		MaxBatchSize:        200,
-		MinBatchSize:        10,
-		MaxTimeBetweenFlush: 500 * time.Millisecond,
-		CheckBatchInterval:  100 * time.Millisecond,
-		UIDCacheSize:        10000,
-		DIDCacheSize:        10000,
+		MaxBatchSize:         200,
+		MinBatchSize:         10,
+		MaxTimeBetweenFlush:  500 * time.Millisecond,
+		CheckBatchInterval:   100 * time.Millisecond,
+		UIDCacheSize:         10000,
+		DIDCacheSize:         10000,
+		PlaybackBatchSize:    500,
+		HydrationConcurrency: 10,
 	}
 }
 
@@ -125,7 +129,6 @@ func (p *DbPersistence) batchFlusher() {
 			}
 		}
 	}
-
 }
 
 func (p *DbPersistence) SetEventBroadcaster(brc func(*XRPCStreamEvent)) {
@@ -135,7 +138,6 @@ func (p *DbPersistence) SetEventBroadcaster(brc func(*XRPCStreamEvent)) {
 func (p *DbPersistence) FlushBatch(ctx context.Context) error {
 	p.lk.Lock()
 	defer p.lk.Unlock()
-
 	return p.flushBatchLocked(ctx)
 }
 
@@ -286,36 +288,100 @@ func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatprot
 }
 
 func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
-	rows, err := p.db.Model(RepoEventRecord{}).Where("seq > ?", since).Order("seq asc").Rows()
+	rows, err := p.db.Model(&RepoEventRecord{}).Where("seq > ?", since).Order("seq asc").Rows()
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
 
+	// Batch events into groups of 100 and hydrate them in parallel.
+	// Join the hydrated events back into a single stream in order and pass them to the callback.
+
+	batch := make([]*RepoEventRecord, 0, p.batchOptions.PlaybackBatchSize)
 	for rows.Next() {
 		var evt RepoEventRecord
 		if err := p.db.ScanRows(rows, &evt); err != nil {
+			// Handle error
 			return err
 		}
 
-		var streamEvent *XRPCStreamEvent
-		switch {
-		case evt.Commit != nil:
-			streamEvent, err = p.hydrateCommit(ctx, &evt)
-			if err != nil {
-				return fmt.Errorf("failed to hydrate commit: %w", err)
+		batch = append(batch, &evt)
+
+		if len(batch) >= p.batchOptions.PlaybackBatchSize {
+			if err := p.hydrateBatch(ctx, batch, cb); err != nil {
+				return err
 			}
-		case evt.NewHandle != nil:
-			streamEvent, err = p.hydrateHandleChange(ctx, &evt)
-			if err != nil {
-				return fmt.Errorf("failed to hydrate handle change: %w", err)
+
+			batch = batch[:0]
+		}
+	}
+
+	if len(batch) > 0 {
+		if err := p.hydrateBatch(ctx, batch, cb); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *DbPersistence) hydrateBatch(ctx context.Context, batch []*RepoEventRecord, cb func(*XRPCStreamEvent) error) error {
+	events := make([]*XRPCStreamEvent, len(batch))
+
+	type Result struct {
+		Event *XRPCStreamEvent
+		Index int
+		Err   error
+	}
+
+	resultChan := make(chan Result, len(batch))
+
+	// Semaphore pattern for limiting concurrent goroutines
+	sem := make(chan struct{}, p.batchOptions.HydrationConcurrency)
+	var wg sync.WaitGroup
+
+	for i, record := range batch {
+		wg.Add(1)
+		go func(i int, record *RepoEventRecord) {
+			defer wg.Done()
+			sem <- struct{}{}
+			// release the semaphore at the end of the goroutine
+			defer func() { <-sem }()
+
+			var streamEvent *XRPCStreamEvent
+			var err error
+
+			switch {
+			case record.Commit != nil:
+				streamEvent, err = p.hydrateCommit(ctx, record)
+			case record.NewHandle != nil:
+				streamEvent, err = p.hydrateHandleChange(ctx, record)
+			default:
+				err = fmt.Errorf("unknown event type: %s", record.Type)
 			}
-		default:
-			return fmt.Errorf("unknown event type: %s", evt.Type)
+
+			resultChan <- Result{Event: streamEvent, Index: i, Err: err}
+
+		}(i, record)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	cur := 0
+	for result := range resultChan {
+		if result.Err != nil {
+			return result.Err
 		}
 
-		if err := cb(streamEvent); err != nil {
-			return err
+		events[result.Index] = result.Event
+
+		for ; cur < len(events) && events[cur] != nil; cur++ {
+			if err := cb(events[cur]); err != nil {
+				return err
+			}
 		}
 	}
 
