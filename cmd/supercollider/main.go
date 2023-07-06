@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/rand"
 	"fmt"
 	"log"
 	"os"
@@ -11,18 +13,26 @@ import (
 	"syscall"
 	"time"
 
+	"net/http"
 	_ "net/http/pprof"
 
+	"github.com/bluesky-social/indigo/api"
+	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/indexer"
 	"github.com/labstack/echo-contrib/pprof"
+	godid "github.com/whyrusleeping/go-did"
+	"golang.org/x/crypto/acme/autocert"
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/gorilla/websocket"
+	secp "github.com/ipsn/go-secp256k1"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus"
@@ -33,6 +43,8 @@ import (
 
 	"go.uber.org/zap"
 )
+
+var supercolliderHost = "supercollider.jazco.io"
 
 var eventsGeneratedCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "supercollider_events_generated_total",
@@ -94,11 +106,17 @@ func main() {
 
 	e := echo.New()
 
+	e.AutoTLSManager.Cache = autocert.DirCache("/var/www/.cache")
+
 	pprof.Register(e)
 
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
 	}))
+
+	e.GET("/", func(c echo.Context) error {
+		return c.HTML(http.StatusOK, `<h1>Welcome to Supercollider!</h1>`)
+	})
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
 		switch err := err.(type) {
@@ -122,16 +140,51 @@ func main() {
 		}
 	}
 
-	repoman, err := initSpeedyRepoMan(ctx)
+	repoman, privkey, err := initSpeedyRepoMan(ctx)
 	if err != nil {
 		log.Fatalf("failed to init repo manager: %+v\n", err)
 	}
 
-	staticDid := "did:foo:bar"
+	e.GET("/.well-known/did.json", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]any{
+			"@context": []string{"https://www.w3.org/ns/did/v1"},
+			"id":       "did:web:" + supercolliderHost,
+			"alsoKnownAs": []string{
+				"at://hello." + supercolliderHost,
+			},
+			"verificationMethod": []map[string]any{
+				{
+					"id":                 "#atproto",
+					"type":               godid.KeyTypeSecp256k1,
+					"controller":         "did:web:" + supercolliderHost,
+					"publicKeyMultibase": privkey.Public().MultibaseString(),
+				},
+			},
+			"service": []map[string]any{
+				{
+					"id":              "#atproto_pds",
+					"type":            "AtprotoPersonalDataServer",
+					"serviceEndpoint": "http://" + supercolliderHost,
+				},
+			},
+		})
+	})
 
-	if err := repoman.InitNewActor(ctx, 1, "hello.supercollider", staticDid, "catdog", "", ""); err != nil {
-		log.Fatalf("failed to init actor: %+v\n", err)
-	}
+	e.GET("/.well-known/atproto-did", func(c echo.Context) error {
+		return c.String(http.StatusOK, "did:web:"+c.Request().Host)
+	})
+
+	// plcServer := api.PLCServer{
+	// 	Host: "http://localhost:2582",
+	// 	C:    http.DefaultClient,
+	// }
+
+	// statidDID, err := plcServer.CreateDID(ctx, privkey, "did:key:asdf", "hello.supercollider", "supercollider.jazco.io")
+	// if err != nil {
+	// 	log.Fatalf("failed to create did: %+v\n", err)
+	// }
+
+	staticDID := "did:web:hello." + supercolliderHost
 
 	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
 		var outops []*comatproto.SyncSubscribeRepos_RepoOp
@@ -148,7 +201,7 @@ func main() {
 
 		if err := em.AddEvent(ctx, &events.XRPCStreamEvent{
 			RepoCommit: &comatproto.SyncSubscribeRepos_Commit{
-				Repo:   staticDid,
+				Repo:   staticDID,
 				Prev:   (*lexutil.LexLink)(evt.OldRoot),
 				Blocks: evt.RepoSlice,
 				Commit: lexutil.LexLink(evt.NewRoot),
@@ -169,7 +222,7 @@ func main() {
 	go func() {
 		running := false
 		totalEmittedEvents := 0
-		totalDesiredEvents := 100_000_000
+		totalDesiredEvents := 5
 		// limiter := rate.NewLimiter(rate.Limit(80_000), 100)
 
 		for {
@@ -188,6 +241,10 @@ func main() {
 				if !running {
 					time.Sleep(time.Second)
 					continue
+				}
+
+				if err := repoman.InitNewActor(ctx, 1, "hello."+supercolliderHost, staticDID, "catdog", "", ""); err != nil {
+					log.Fatalf("failed to init actor: %+v\n", err)
 				}
 
 				for i := 0; i < totalDesiredEvents; i++ {
@@ -220,6 +277,7 @@ func main() {
 		}
 	}()
 
+	e.GET("/xrpc/com.atproto.server.describeServer", s.DescribeServerHandler)
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/generate", func(c echo.Context) error {
@@ -231,7 +289,7 @@ func main() {
 		return c.String(200, "stream stopped")
 	})
 
-	port := "12832"
+	port := "80"
 
 	if err := e.Start(":" + port); err != nil {
 		log.Errorf("failed to start server: %+v\n", err)
@@ -314,8 +372,17 @@ func (s *Server) EventsHandler(c echo.Context) error {
 	return nil
 }
 
-func setupDb(p string) (*gorm.DB, error) {
+func (s *Server) DescribeServerHandler(c echo.Context) error {
+	invcode := false
+	resp := &atproto.ServerDescribeServer_Output{
+		InviteCodeRequired:   &invcode,
+		AvailableUserDomains: []string{},
+		Links:                &atproto.ServerDescribeServer_Links{},
+	}
+	return c.JSON(http.StatusOK, resp)
+}
 
+func setupDb(p string) (*gorm.DB, error) {
 	db, err := gorm.Open(sqlite.Open(p))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db: %w", err)
@@ -332,30 +399,48 @@ func setupDb(p string) (*gorm.DB, error) {
 	return db, nil
 }
 
-func initSpeedyRepoMan(ctx context.Context) (*repomgr.RepoManager, error) {
+func initSpeedyRepoMan(ctx context.Context) (*repomgr.RepoManager, *godid.PrivKey, error) {
 	dir, err := os.MkdirTemp("", "supercollider")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	cardb, err := setupDb("file::memory:?cache=shared")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	cspath := filepath.Join(dir, "carstore")
 	if err := os.Mkdir(cspath, 0775); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	cs, err := carstore.NewCarStore(cardb, cspath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	hs := repomgr.NewMemHeadStore()
 
-	repoman := repomgr.NewRepoManager(hs, cs, &util.FakeKeyManager{})
+	mr := did.NewMultiResolver()
+	mr.AddHandler("plc", &api.PLCServer{
+		Host: "http://localhost:2582",
+	})
+	mr.AddHandler("web", &did.WebResolver{})
 
-	return repoman, nil
+	privateKey, err := ecdsa.GenerateKey(secp.S256(), rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	key := godid.PrivKey{
+		Type: godid.KeyTypeSecp256k1,
+		Raw:  privateKey,
+	}
+
+	kmgr := indexer.NewKeyManager(mr, &key)
+
+	repoman := repomgr.NewRepoManager(hs, cs, kmgr)
+
+	return repoman, &key, nil
 }

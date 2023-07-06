@@ -13,6 +13,7 @@ import (
 )
 
 type WebResolver struct {
+	Insecure bool
 	// TODO: cache? maybe at a different layer
 }
 
@@ -30,7 +31,12 @@ func (wr *WebResolver) GetDocument(ctx context.Context, didstr string) (*Documen
 		return nil, err
 	}
 
-	resp, err := http.Get("https://" + val + "/.well-known/did.json")
+	proto := "https"
+	if wr.Insecure {
+		proto = "http"
+	}
+
+	resp, err := http.Get(proto + "://" + val + "/.well-known/did.json")
 	if err != nil {
 		return nil, err
 	}
