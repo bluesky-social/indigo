@@ -46,9 +46,9 @@ type DiskPersistence struct {
 }
 
 type persistJob struct {
-	Buf  []byte
-	Evt  *XRPCStreamEvent
-	Done chan error
+	Buf    []byte
+	Evt    *XRPCStreamEvent
+	Buffer *bytes.Buffer // so we can put it back in the pool when we're done
 }
 
 type jobResult struct {
@@ -263,10 +263,7 @@ func (p *DiskPersistence) persistWorker() {
 			}
 
 			if err := p.doPersist(job); err != nil {
-				job.Done <- err
-				continue
-			} else {
-				job.Done <- nil
+				log.Error(err)
 			}
 
 			if len(p.evtbuf) > 50 {
@@ -325,6 +322,7 @@ func (p *DiskPersistence) flushLog(ctx context.Context) error {
 
 	for _, ej := range p.evtbuf {
 		p.broadcast(ej.Evt)
+		p.buffers.Put(ej.Buffer)
 	}
 
 	p.evtbuf = p.evtbuf[:0]
@@ -375,7 +373,6 @@ func (p *DiskPersistence) doPersist(j *persistJob) error {
 
 func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	buffer := p.buffers.Get().(*bytes.Buffer)
-	defer p.buffers.Put(buffer)
 
 	buffer.Truncate(0)
 
@@ -404,14 +401,13 @@ func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error
 	binary.LittleEndian.PutUint32(b[4:], evtKind)
 	binary.LittleEndian.PutUint32(b[8:], uint32(len(b)-headerSize))
 
-	done := make(chan error, 1)
 	p.evts <- &persistJob{
-		Buf:  b,
-		Evt:  e,
-		Done: done,
+		Buf:    b,
+		Evt:    e,
+		Buffer: buffer,
 	}
 
-	return <-done // NB: getting rid of this channel 'wait for things to be done' thing makes it go a good deal faster
+	return nil
 }
 
 type evtHeader struct {
