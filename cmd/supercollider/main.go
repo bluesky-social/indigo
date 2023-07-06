@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -25,10 +26,12 @@ import (
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
+	"github.com/bluesky-social/indigo/plc"
+	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/labstack/echo-contrib/pprof"
-	"github.com/multiformats/go-multibase"
 	godid "github.com/whyrusleeping/go-did"
 	"golang.org/x/crypto/acme/autocert"
+	"golang.org/x/time/rate"
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repomgr"
@@ -146,7 +149,7 @@ func main() {
 		log.Fatalf("failed to init repo manager: %+v\n", err)
 	}
 
-	multibaseKey, err := multibase.Encode(multibase.Base58BTC, privkey.Public().Raw.([]byte))
+	multibaseKey := privkey.Public().MultibaseString()
 	if err != nil {
 		log.Fatalf("failed to multibase encode key: %+v\n", err)
 	}
@@ -154,9 +157,9 @@ func main() {
 	e.GET("/.well-known/did.json", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]any{
 			"@context": []string{"https://www.w3.org/ns/did/v1"},
-			"id":       "did:web:" + supercolliderHost,
+			"id":       "did:web:" + c.Request().Host,
 			"alsoKnownAs": []string{
-				"at://hello." + supercolliderHost,
+				"at://" + c.Request().Host,
 			},
 			"verificationMethod": []map[string]any{
 				{
@@ -180,17 +183,12 @@ func main() {
 		return c.String(http.StatusOK, "did:web:"+c.Request().Host)
 	})
 
-	// plcServer := api.PLCServer{
-	// 	Host: "http://localhost:2582",
-	// 	C:    http.DefaultClient,
-	// }
-
-	// statidDID, err := plcServer.CreateDID(ctx, privkey, "did:key:asdf", "hello.supercollider", "supercollider.jazco.io")
-	// if err != nil {
-	// 	log.Fatalf("failed to create did: %+v\n", err)
-	// }
-
-	staticDID := "did:web:hello." + supercolliderHost
+	dids := []string{}
+	numAccounts := 100
+	for i := 0; i < numAccounts; i++ {
+		did := fmt.Sprintf("did:web:%s.%s", petname.Generate(4, "-"), supercolliderHost)
+		dids = append(dids, did)
+	}
 
 	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
 		var outops []*comatproto.SyncSubscribeRepos_RepoOp
@@ -207,7 +205,7 @@ func main() {
 
 		if err := em.AddEvent(ctx, &events.XRPCStreamEvent{
 			RepoCommit: &comatproto.SyncSubscribeRepos_Commit{
-				Repo:   staticDID,
+				Repo:   dids[evt.User-1],
 				Prev:   (*lexutil.LexLink)(evt.OldRoot),
 				Blocks: evt.RepoSlice,
 				Commit: lexutil.LexLink(evt.NewRoot),
@@ -223,13 +221,13 @@ func main() {
 	})
 
 	// Create a control channel for the event emitter control messages
-	// We want to produce events at around 80k/s since the socket can't handle much more than that
+	// We want to produce events at around 1k/s
 	evtControl := make(chan string, 1)
 	go func() {
 		running := false
 		totalEmittedEvents := 0
-		totalDesiredEvents := 500
-		// limiter := rate.NewLimiter(rate.Limit(80_000), 100)
+		totalDesiredEvents := 10_000_000
+		limiter := rate.NewLimiter(rate.Limit(300), 10)
 
 		for {
 			select {
@@ -248,9 +246,11 @@ func main() {
 					time.Sleep(time.Second)
 					continue
 				}
-
-				if err := repoman.InitNewActor(ctx, 1, "hello."+supercolliderHost, staticDID, "catdog", "", ""); err != nil {
-					log.Fatalf("failed to init actor: %+v\n", err)
+				for i, did := range dids {
+					uid := util.Uid(i + 1)
+					if err := repoman.InitNewActor(ctx, uid, strings.TrimPrefix(did, "did:web:"), did, "catdog", "", ""); err != nil {
+						log.Fatalf("failed to init actor: %+v\n", err)
+					}
 				}
 
 				for i := 0; i < totalDesiredEvents; i++ {
@@ -260,9 +260,9 @@ func main() {
 					}
 
 					// Wait for the limiter to allow us to emit another event
-					// limiter.Wait(ctx)
+					limiter.Wait(ctx)
 
-					_, _, err = repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
+					_, _, err = repoman.CreateRecord(ctx, util.Uid(i%len(dids)+1), "app.bsky.feed.post", &bsky.FeedPost{
 						Text: "cats",
 					})
 					if err != nil {
@@ -432,7 +432,11 @@ func initSpeedyRepoMan(ctx context.Context) (*repomgr.RepoManager, *godid.PrivKe
 	mr.AddHandler("plc", &api.PLCServer{
 		Host: "http://localhost:2582",
 	})
-	mr.AddHandler("web", &did.WebResolver{})
+	mr.AddHandler("web", &did.WebResolver{
+		Insecure: true,
+	})
+
+	cachedidr := plc.NewCachingDidResolver(mr, time.Minute*5, 1000)
 
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -444,7 +448,7 @@ func initSpeedyRepoMan(ctx context.Context) (*repomgr.RepoManager, *godid.PrivKe
 		Raw:  privateKey,
 	}
 
-	kmgr := indexer.NewKeyManager(mr, &key)
+	kmgr := indexer.NewKeyManager(cachedidr, &key)
 
 	repoman := repomgr.NewRepoManager(hs, cs, kmgr)
 

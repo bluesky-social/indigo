@@ -51,7 +51,7 @@ func TestVerification(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pk, err := did.KeyFromMultibase(vm)
+	pk, err := did.PubKeyFromMultibaseString(*vm.PublicKeyMultibase)
 	if err != nil {
 		t.Fatal(err)
 	}
