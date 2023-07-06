@@ -197,7 +197,7 @@ func runPersisterBenchmark(b *testing.B, cs *carstore.CarStore, db *gorm.DB, p e
 		}
 	}
 
-	numRoutines := 5
+	numRoutines := 4
 	wg := sync.WaitGroup{}
 
 	b.ResetTimer()

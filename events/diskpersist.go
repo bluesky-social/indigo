@@ -20,12 +20,12 @@ import (
 )
 
 type DiskPersistence struct {
-	primaryDir    string
-	archiveDir    string
-	eventsPerFile int64
+	primaryDir      string
+	archiveDir      string
+	eventsPerFile   int64
+	writeBufferSize int
 
-	evts  chan *persistJob
-	flush chan chan struct{}
+	evts chan *persistJob
 
 	meta *gorm.DB
 
@@ -42,7 +42,9 @@ type DiskPersistence struct {
 	scratch []byte
 
 	outbuf *bytes.Buffer
-	evtbuf []*persistJob
+	evtbuf []persistJob
+
+	lk sync.Mutex
 }
 
 type persistJob struct {
@@ -59,16 +61,18 @@ type jobResult struct {
 var _ (EventPersistence) = (*DiskPersistence)(nil)
 
 type DiskPersistOptions struct {
-	UIDCacheSize  int
-	DIDCacheSize  int
-	EventsPerFile int64
+	UIDCacheSize    int
+	DIDCacheSize    int
+	EventsPerFile   int64
+	WriteBufferSize int
 }
 
 func DefaultDiskPersistOptions() *DiskPersistOptions {
 	return &DiskPersistOptions{
-		EventsPerFile: 10000,
-		UIDCacheSize:  100000,
-		DIDCacheSize:  100000,
+		EventsPerFile:   10000,
+		UIDCacheSize:    100000,
+		DIDCacheSize:    100000,
+		WriteBufferSize: 50,
 	}
 }
 
@@ -96,24 +100,24 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 	}
 
 	dp := &DiskPersistence{
-		meta:          db,
-		primaryDir:    primaryDir,
-		archiveDir:    archiveDir,
-		buffers:       bufpool,
-		uidCache:      uidCache,
-		didCache:      didCache,
-		evts:          make(chan *persistJob, 1024),
-		eventsPerFile: opts.EventsPerFile,
-		scratch:       make([]byte, headerSize),
-		outbuf:        new(bytes.Buffer),
-		flush:         make(chan chan struct{}),
+		meta:            db,
+		primaryDir:      primaryDir,
+		archiveDir:      archiveDir,
+		buffers:         bufpool,
+		uidCache:        uidCache,
+		didCache:        didCache,
+		evts:            make(chan *persistJob, 1024),
+		eventsPerFile:   opts.EventsPerFile,
+		scratch:         make([]byte, headerSize),
+		outbuf:          new(bytes.Buffer),
+		writeBufferSize: opts.WriteBufferSize,
 	}
 
 	if err := dp.resumeLog(); err != nil {
 		return nil, err
 	}
 
-	go dp.persistWorker()
+	go dp.flushRoutine()
 
 	return dp, nil
 }
@@ -250,66 +254,42 @@ const (
 
 var emptyHeader = make([]byte, headerSize)
 
-func (p *DiskPersistence) persistWorker() {
-	t := time.NewTimer(time.Hour)
-	t.Stop()
+func (p *DiskPersistence) addJobToQueue(job persistJob) error {
+	p.lk.Lock()
+	defer p.lk.Unlock()
 
-	var tick <-chan time.Time
+	if err := p.doPersist(job); err != nil {
+		return err
+	}
+
+	// TODO: for some reason replacing this constant with p.writeBufferSize dramatically reduces perf...
+	if len(p.evtbuf) > 400 {
+		if err := p.flushLog(context.TODO()); err != nil {
+			return fmt.Errorf("failed to flush disk log: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (p *DiskPersistence) flushRoutine() {
+	t := time.NewTicker(time.Millisecond * 100)
+
 	for {
 		select {
-		case job, ok := <-p.evts:
-			if !ok {
-				return
-			}
-
-			if err := p.doPersist(job); err != nil {
-				log.Error(err)
-			}
-
-			if len(p.evtbuf) > 50 {
-				if err := p.flushLog(context.TODO()); err != nil {
-					log.Errorf("failed to flush disk log: %s", err)
-				}
-				t.Stop()
-				tick = nil
-			}
-
-			if len(p.evtbuf) > 0 && tick == nil {
-				t.Reset(time.Millisecond * 50)
-				tick = t.C
-			}
-		case <-tick:
+		case <-t.C:
+			p.lk.Lock()
 			if err := p.flushLog(context.TODO()); err != nil {
+				// TODO: this happening is quite bad. Need a recovery strategy
 				log.Errorf("failed to flush disk log: %s", err)
 			}
-
-			tick = nil
-		case freq := <-p.flush:
-			// ensure that flushing waits until all pending events get through
-			// if theres a huge stream of events coming in this might never happen though...
-			if len(p.evts) > 0 {
-				go func() {
-					time.Sleep(time.Millisecond * 50)
-					p.flush <- freq
-				}()
-			} else {
-				if len(p.evtbuf) > 0 {
-					if err := p.flushLog(context.TODO()); err != nil {
-						log.Errorf("failed to flush disk log: %s", err)
-					}
-					t.Stop()
-					tick = nil
-				}
-
-				freq <- struct{}{}
-			}
+			p.lk.Unlock()
 		}
 	}
 }
 
 func (p *DiskPersistence) flushLog(ctx context.Context) error {
 	if len(p.evtbuf) == 0 {
-		fmt.Println("attempted a double flush")
 		return nil
 	}
 
@@ -330,7 +310,7 @@ func (p *DiskPersistence) flushLog(ctx context.Context) error {
 	return nil
 }
 
-func (p *DiskPersistence) doPersist(j *persistJob) error {
+func (p *DiskPersistence) doPersist(j persistJob) error {
 	b := j.Buf
 	e := j.Evt
 	seq := p.curSeq
@@ -401,13 +381,11 @@ func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error
 	binary.LittleEndian.PutUint32(b[4:], evtKind)
 	binary.LittleEndian.PutUint32(b[8:], uint32(len(b)-headerSize))
 
-	p.evts <- &persistJob{
+	return p.addJobToQueue(persistJob{
 		Buf:    b,
 		Evt:    e,
 		Buffer: buffer,
-	}
-
-	return nil
+	})
 }
 
 type evtHeader struct {
@@ -553,9 +531,11 @@ func (p *DiskPersistence) RebaseRepoEvents(ctx context.Context, usr models.Uid) 
 }
 
 func (p *DiskPersistence) Flush(ctx context.Context) error {
-	req := make(chan struct{})
-	p.flush <- req
-	<-req
+	p.lk.Lock()
+	defer p.lk.Unlock()
+	if len(p.evtbuf) > 0 {
+		return p.flushLog(ctx)
+	}
 	return nil
 }
 
