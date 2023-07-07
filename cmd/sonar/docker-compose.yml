@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+  sonar:
+    build:
+      context: ../../
+      dockerfile: cmd/sonar/Dockerfile
+    image: atproto-sonar
+    restart: always
+    volumes:
+      - ${PWD}/sonar_cursor.json:/sonar_cursor.json
+    ports:
+      - "8345:8345"
