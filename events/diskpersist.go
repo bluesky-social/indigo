@@ -58,6 +58,10 @@ type jobResult struct {
 	Seq int64
 }
 
+const (
+	EvtFlagTakedown = 1 << iota
+)
+
 var _ (EventPersistence) = (*DiskPersistence)(nil)
 
 type DiskPersistOptions struct {
@@ -254,6 +258,26 @@ const (
 
 var emptyHeader = make([]byte, headerSize)
 
+func (p *DiskPersistence) addJobsToQueue(jobs []persistJob) error {
+	p.lk.Lock()
+	defer p.lk.Unlock()
+
+	for _, job := range jobs {
+		if err := p.doPersist(job); err != nil {
+			return err
+		}
+
+		// TODO: for some reason replacing this constant with p.writeBufferSize dramatically reduces perf...
+		if len(p.evtbuf) > 400 {
+			if err := p.flushLog(context.TODO()); err != nil {
+				return fmt.Errorf("failed to flush disk log: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func (p *DiskPersistence) addJobToQueue(job persistJob) error {
 	p.lk.Lock()
 	defer p.lk.Unlock()
@@ -302,6 +326,7 @@ func (p *DiskPersistence) flushLog(ctx context.Context) error {
 
 	for _, ej := range p.evtbuf {
 		p.broadcast(ej.Evt)
+		ej.Buffer.Truncate(0)
 		p.buffers.Put(ej.Buffer)
 	}
 
@@ -316,7 +341,7 @@ func (p *DiskPersistence) doPersist(j persistJob) error {
 	seq := p.curSeq
 	p.curSeq++
 
-	binary.LittleEndian.PutUint64(b[12:], uint64(seq))
+	binary.LittleEndian.PutUint64(b[20:], uint64(seq))
 
 	switch {
 	case e.RepoCommit != nil:
@@ -358,15 +383,18 @@ func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error
 
 	buffer.Write(emptyHeader)
 
+	var did string
 	var evtKind uint32
 	switch {
 	case e.RepoCommit != nil:
 		evtKind = evtKindCommit
+		did = e.RepoCommit.Repo
 		if err := e.RepoCommit.MarshalCBOR(buffer); err != nil {
 			return fmt.Errorf("failed to marshal: %w", err)
 		}
 	case e.RepoHandle != nil:
 		evtKind = evtKindHandle
+		did = e.RepoHandle.Did
 		if err := e.RepoHandle.MarshalCBOR(buffer); err != nil {
 			return fmt.Errorf("failed to marshal: %w", err)
 		}
@@ -375,11 +403,17 @@ func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error
 		// only those two get peristed right now
 	}
 
+	usr, err := p.uidForDid(ctx, did)
+	if err != nil {
+		return err
+	}
+
 	b := buffer.Bytes()
 
 	binary.LittleEndian.PutUint32(b, 0)
 	binary.LittleEndian.PutUint32(b[4:], evtKind)
 	binary.LittleEndian.PutUint32(b[8:], uint32(len(b)-headerSize))
+	binary.LittleEndian.PutUint64(b[12:], uint64(usr))
 
 	return p.addJobToQueue(persistJob{
 		Buf:    b,
@@ -392,10 +426,11 @@ type evtHeader struct {
 	Flags uint32
 	Kind  uint32
 	Seq   int64
+	Usr   models.Uid
 	Len   int64
 }
 
-const headerSize = 4 + 4 + 4 + 8
+const headerSize = 4 + 4 + 4 + 8 + 8
 
 func readHeader(r io.Reader, scratch []byte) (*evtHeader, error) {
 	if len(scratch) < headerSize {
@@ -411,21 +446,24 @@ func readHeader(r io.Reader, scratch []byte) (*evtHeader, error) {
 	flags := binary.LittleEndian.Uint32(scratch[:4])
 	kind := binary.LittleEndian.Uint32(scratch[4:8])
 	l := binary.LittleEndian.Uint32(scratch[8:12])
-	seq := binary.LittleEndian.Uint64(scratch[12:20])
+	usr := binary.LittleEndian.Uint64(scratch[12:20])
+	seq := binary.LittleEndian.Uint64(scratch[20:28])
 
 	return &evtHeader{
 		Flags: flags,
 		Kind:  kind,
 		Len:   int64(l),
+		Usr:   models.Uid(usr),
 		Seq:   int64(seq),
 	}, nil
 }
 
-func (p *DiskPersistence) writeHeader(ctx context.Context, flags uint32, kind uint32, l uint32, seq int64) error {
+func (p *DiskPersistence) writeHeader(ctx context.Context, flags uint32, kind uint32, l uint32, usr uint64, seq int64) error {
 	binary.LittleEndian.PutUint32(p.scratch, flags)
 	binary.LittleEndian.PutUint32(p.scratch[4:], kind)
 	binary.LittleEndian.PutUint32(p.scratch[8:], l)
-	binary.LittleEndian.PutUint64(p.scratch[12:], uint64(seq))
+	binary.LittleEndian.PutUint64(p.scratch[12:], usr)
+	binary.LittleEndian.PutUint64(p.scratch[20:], uint64(seq))
 
 	nw, err := p.logfi.Write(p.scratch)
 	if err != nil {
@@ -496,6 +534,14 @@ func (p *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn st
 			return err
 		}
 
+		if h.Flags&EvtFlagTakedown != 0 {
+			// event taken down, skip
+			_, err := io.CopyN(io.Discard, bufr, h.Len) // would be really nice if the buffered reader had a 'skip' method that does a seek under the hood
+			if err != nil {
+				return fmt.Errorf("failed while skipping event (seq: %d, fn: %q): %w", h.Seq, fn, err)
+			}
+		}
+
 		switch h.Kind {
 		case evtKindCommit:
 			var evt atproto.SyncSubscribeRepos_Commit
@@ -522,12 +568,129 @@ func (p *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn st
 	}
 }
 
+type UserAction struct {
+	gorm.Model
+
+	Usr      models.Uid
+	RebaseAt int64
+	Takedown bool
+}
+
 func (p *DiskPersistence) TakeDownRepo(ctx context.Context, usr models.Uid) error {
-	panic("no")
+	/*
+		if err := p.meta.Create(&UserAction{
+			Usr:      usr,
+			Takedown: true,
+		}).Error; err != nil {
+			return err
+		}
+	*/
+
+	return p.forEachShardWithUserEvents(ctx, usr, func(ctx context.Context, fn string) error {
+		if err := p.deleteEventsForUser(ctx, usr, fn); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func (p *DiskPersistence) forEachShardWithUserEvents(ctx context.Context, usr models.Uid, cb func(context.Context, string) error) error {
+	var refs []LogFileRef
+	if err := p.meta.Order("created_at desc").Find(&refs).Error; err != nil {
+		return err
+	}
+
+	for _, r := range refs {
+		mhas, err := p.refMaybeHasUserEvents(ctx, usr, r)
+		if err != nil {
+			return err
+		}
+
+		if mhas {
+			var path string
+			if r.Archived {
+				path = filepath.Join(p.archiveDir, r.Path)
+			} else {
+				path = filepath.Join(p.primaryDir, r.Path)
+			}
+
+			if err := cb(ctx, path); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (p *DiskPersistence) refMaybeHasUserEvents(ctx context.Context, usr models.Uid, ref LogFileRef) (bool, error) {
+	// TODO: lazily computed bloom filters for users in each logfile
+	return true, nil
+}
+
+type zeroReader struct{}
+
+func (zr *zeroReader) Read(p []byte) (n int, err error) {
+	for i := range p {
+		p[i] = 0
+	}
+	return len(p), nil
+}
+
+func (p *DiskPersistence) deleteEventsForUser(ctx context.Context, usr models.Uid, fn string) error {
+	fi, err := os.OpenFile(fn, os.O_RDWR, 0)
+	if err != nil {
+		return fmt.Errorf("failed to open log file: %w", err)
+	}
+	defer fi.Close()
+
+	scratch := make([]byte, headerSize)
+	var offset int64
+	for {
+		h, err := readHeader(fi, scratch)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+
+			return err
+		}
+
+		if h.Usr == usr && h.Flags&EvtFlagTakedown == 0 {
+			nflag := h.Flags | EvtFlagTakedown
+
+			binary.LittleEndian.PutUint32(scratch, nflag)
+
+			if _, err := fi.WriteAt(scratch[:4], offset); err != nil {
+				return fmt.Errorf("failed to write updated flag value: %w", err)
+			}
+
+			// sync that write before blanking the event data
+			if err := fi.Sync(); err != nil {
+				return err
+			}
+
+			if _, err := fi.Seek(offset+headerSize, io.SeekStart); err != nil {
+				return fmt.Errorf("failed to seek: %w", err)
+			}
+
+			_, err := io.CopyN(fi, &zeroReader{}, h.Len)
+			if err != nil {
+				return err
+			}
+		}
+
+		offset += headerSize + h.Len
+		_, err = fi.Seek(offset, io.SeekStart)
+		if err != nil {
+			return fmt.Errorf("failed to seek: %w", err)
+		}
+	}
 }
 
 func (p *DiskPersistence) RebaseRepoEvents(ctx context.Context, usr models.Uid) error {
-	panic("no")
+	panic("todo")
 }
 
 func (p *DiskPersistence) Flush(ctx context.Context) error {
