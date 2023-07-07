@@ -155,10 +155,6 @@ func (ix *Indexer) handleRepoOp(ctx context.Context, evt *repomgr.RepoEvent, op 
 				return fmt.Errorf("handle recordCreate: %w", err)
 			}
 		}
-	case repomgr.EvtKindInitActor:
-		if err := ix.handleInitActor(ctx, evt, op); err != nil {
-			return fmt.Errorf("handle initActor: %w", err)
-		}
 	case repomgr.EvtKindDeleteRecord:
 		if ix.doAggregations {
 			if err := ix.handleRecordDelete(ctx, evt, op, true); err != nil {
