@@ -540,6 +540,7 @@ func (p *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn st
 			if err != nil {
 				return fmt.Errorf("failed while skipping event (seq: %d, fn: %q): %w", h.Seq, fn, err)
 			}
+			continue
 		}
 
 		switch h.Kind {
