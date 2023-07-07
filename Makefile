@@ -78,4 +78,4 @@ run-dev-search: .env ## Runs search daemon for local dev
 
 .PHONY: sonar-up
 sonar-up: # Runs sonar docker container
-	docker compose -f cmd/sonar/docker-compose.yml up --build -d
+	docker compose -f cmd/sonar/docker-compose.yml up --build -d || docker-compose -f cmd/sonar/docker-compose.yml up --build -d
