@@ -375,13 +375,18 @@ func runTakedownTest(t *testing.T, cs *carstore.CarStore, db *gorm.DB, p events.
 	userCount := 10
 	users := make([]*models.ActorInfo, userCount)
 	for i := models.Uid(1); i <= models.Uid(userCount); i++ {
+		did := fmt.Sprintf("did:example:%d", i)
+		handle := fmt.Sprintf("user%d", i)
 		users[i-1] = &models.ActorInfo{
-			Uid: i,
-			Did: fmt.Sprintf("did:example:%d", i),
+			Uid:    i,
+			Did:    did,
+			Handle: handle,
 		}
-		db.Create(users[i-1])
+		if err := db.Create(&users[i-1]).Error; err != nil {
+			t.Fatal(err)
+		}
 
-		err := mgr.InitNewActor(ctx, i, fmt.Sprintf("user%d", i), users[i-1].Did, fmt.Sprintf("User%d", i), "", "")
+		err := mgr.InitNewActor(ctx, i, handle, did, fmt.Sprintf("User%d", i), "", "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -443,10 +448,18 @@ func runTakedownTest(t *testing.T, cs *carstore.CarStore, db *gorm.DB, p events.
 
 	// Verify that the events of the user have been removed from the event stream
 	var evtsCount int
-	p.Playback(ctx, 0, func(evt *events.XRPCStreamEvent) error {
+	if err := p.Playback(ctx, 0, func(evt *events.XRPCStreamEvent) error {
+		evtsCount++
 		if evt.RepoCommit.Repo == takeDownUser.Did {
 			t.Fatalf("found event for user %d after takedown", takeDownUser.Uid)
 		}
 		return nil
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	exp := testSize * (userCount - 1)
+	if evtsCount != exp {
+		t.Fatalf("wrong number of events out: %d != %d", evtsCount, exp)
+	}
 }
