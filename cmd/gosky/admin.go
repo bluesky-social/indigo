@@ -59,17 +59,22 @@ var checkUserCmd = &cli.Command{
 
 		phr := &api.ProdHandleResolver{}
 
-		rdid, err := phr.ResolveHandleToDid(ctx, cctx.Args().First())
-		if err != nil {
-			return fmt.Errorf("resolve handle %q: %w", cctx.Args().First(), err)
+		did := cctx.Args().First()
+		if !strings.HasPrefix(did, "did:") {
+			rdid, err := phr.ResolveHandleToDid(ctx, cctx.Args().First())
+			if err != nil {
+				return fmt.Errorf("resolve handle %q: %w", cctx.Args().First(), err)
+			}
+
+			did = rdid
 		}
 
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		rep, err := atproto.AdminGetRepo(ctx, xrpcc, rdid)
+		rep, err := atproto.AdminGetRepo(ctx, xrpcc, did)
 		if err != nil {
-			return fmt.Errorf("getRepo %s: %w", rdid, err)
+			return fmt.Errorf("getRepo %s: %w", did, err)
 		}
 
 		b, err := json.MarshalIndent(rep, "", "  ")
