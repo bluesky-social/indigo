@@ -100,6 +100,7 @@ func run(args []string) {
 		createInviteCmd,
 		adminCmd,
 		createFeedGeneratorCmd,
+		rebaseRepoCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -1464,6 +1465,27 @@ var createFeedGeneratorCmd = &cli.Command{
 			}
 
 			fmt.Println(resp.Uri)
+		}
+
+		return nil
+	},
+}
+
+var rebaseRepoCmd = &cli.Command{
+	Name:  "rebase",
+	Flags: []cli.Flag{},
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		did := xrpcc.Auth.Did
+
+		if err := atproto.RepoRebaseRepo(context.Background(), xrpcc, &atproto.RepoRebaseRepo_Input{
+			Repo: did,
+		}); err != nil {
+			return err
 		}
 
 		return nil
