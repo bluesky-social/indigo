@@ -14,6 +14,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/goccy/go-json"
+	"github.com/labstack/gommon/log"
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/repo"
@@ -109,10 +110,38 @@ func (s *Sonar) HandleStreamEvent(ctx context.Context, xe *events.XRPCStreamEven
 		return s.HandleRepoCommit(ctx, xe.RepoCommit)
 	case xe.RepoHandle != nil:
 		eventsProcessedCounter.WithLabelValues("repo_handle").Inc()
+		now := time.Now()
+		s.ProgMux.Lock()
+		s.Progress.LastSeq = xe.RepoHandle.Seq
+		s.Progress.LastSeqProcessedAt = now
+		s.ProgMux.Unlock()
+		// Parse time from the event time string
+		t, err := time.Parse(time.RFC3339, xe.RepoHandle.Time)
+		if err != nil {
+			log.Errorf("error parsing time: %+v", err)
+			return nil
+		}
+		lastSeqCommittedAtGauge.Set(float64(t.UnixNano()))
+		lastSeqProcessedAtGauge.Set(float64(now.UnixNano()))
+		lastSeqGauge.Set(float64(xe.RepoHandle.Seq))
 	case xe.RepoInfo != nil:
 		eventsProcessedCounter.WithLabelValues("repo_info").Inc()
 	case xe.RepoMigrate != nil:
 		eventsProcessedCounter.WithLabelValues("repo_migrate").Inc()
+		now := time.Now()
+		s.ProgMux.Lock()
+		s.Progress.LastSeq = xe.RepoMigrate.Seq
+		s.Progress.LastSeqProcessedAt = time.Now()
+		s.ProgMux.Unlock()
+		// Parse time from the event time string
+		t, err := time.Parse(time.RFC3339, xe.RepoMigrate.Time)
+		if err != nil {
+			log.Errorf("error parsing time: %+v", err)
+			return nil
+		}
+		lastSeqCommittedAtGauge.Set(float64(t.UnixNano()))
+		lastSeqProcessedAtGauge.Set(float64(now.UnixNano()))
+		lastSeqGauge.Set(float64(xe.RepoHandle.Seq))
 	case xe.RepoTombstone != nil:
 		eventsProcessedCounter.WithLabelValues("repo_tombstone").Inc()
 	case xe.LabelInfo != nil:
