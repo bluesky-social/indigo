@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -78,20 +79,6 @@ func Sonar(cctx *cli.Context) error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
-	go func() {
-		select {
-		case <-signals:
-			cancel()
-			fmt.Println("shutting down on signal")
-			time.Sleep(3 * time.Second)
-			os.Exit(0)
-		case <-ctx.Done():
-			fmt.Println("shutting down on context done")
-			time.Sleep(3 * time.Second)
-			os.Exit(0)
-		}
-	}()
-
 	rawlog, err := zap.NewProduction()
 	if err != nil {
 		log.Fatalf("failed to create logger: %+v\n", err)
@@ -118,10 +105,14 @@ func Sonar(cctx *cli.Context) error {
 		log.Fatalf("failed to create sonar: %+v\n", err)
 	}
 
+	wg := sync.WaitGroup{}
+
 	pool := events.NewConsumerPool(cctx.Int("worker-count"), cctx.Int("max-queue-size"), s.HandleStreamEvent)
 
 	// Start a goroutine to manage the cursor file, saving the current cursor every 5 seconds.
 	go func() {
+		wg.Add(1)
+		defer wg.Done()
 		ticker := time.NewTicker(5 * time.Second)
 		rawlog, err := zap.NewProduction()
 		if err != nil {
@@ -150,6 +141,8 @@ func Sonar(cctx *cli.Context) error {
 
 	// Start a goroutine to manage the liveness checker, shutting down if no events are received for 15 seconds
 	go func() {
+		wg.Add(1)
+		defer wg.Done()
 		ticker := time.NewTicker(15 * time.Second)
 		lastSeq := int64(0)
 
@@ -179,22 +172,30 @@ func Sonar(cctx *cli.Context) error {
 		}
 	}()
 
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+
+	metricServer := &http.Server{
+		Addr:    fmt.Sprintf(":%d", cctx.Int("port")),
+		Handler: mux,
+	}
+
 	// Startup metrics server
 	go func() {
+		wg.Add(1)
+		defer wg.Done()
 		rawlog, err := zap.NewProduction()
 		if err != nil {
 			log.Fatalf("failed to create logger: %+v\n", err)
 		}
 		log := rawlog.Sugar().With("source", "metrics_server")
 
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.Handler())
 		log.Infof("metrics server listening on port %d", cctx.Int("port"))
-		err = http.ListenAndServe(fmt.Sprintf(":%d", cctx.Int("port")), mux)
-		if err != nil {
-			cancel()
+
+		if err := metricServer.ListenAndServe(); err != http.ErrServerClosed {
 			log.Fatalf("failed to start metrics server: %+v\n", err)
 		}
+		log.Info("metrics server shut down successfully")
 	}()
 
 	if s.Progress.LastSeq >= 0 {
@@ -205,15 +206,35 @@ func Sonar(cctx *cli.Context) error {
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		log.Infof("failed to connect to websocket: %v", err)
+		return err
 	}
 	defer c.Close()
 
-	err = events.HandleRepoStream(ctx, c, pool)
-	log.Info("HandleRepoStream returned unexpectedly: %w...", err)
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+		err = events.HandleRepoStream(ctx, c, pool)
+		log.Infof("HandleRepoStream returned unexpectedly: %+v...", err)
+		cancel()
+	}()
 
-	log.Info("shutting down... (waiting 3 seconds for workers to clean up)")
-	cancel()
-	time.Sleep(3 * time.Second)
+	select {
+	case <-signals:
+		cancel()
+		fmt.Println("shutting down on signal")
+	case <-ctx.Done():
+		fmt.Println("shutting down on context done")
+	}
+
+	log.Info("shutting down, waiting for workers to clean up...")
+
+	if err := metricServer.Shutdown(ctx); err != nil {
+		log.Errorf("failed to shut down metrics server: %+v\n", err)
+		wg.Done()
+	}
+
+	wg.Wait()
+	log.Info("shut down successfully")
 
 	return nil
 }
