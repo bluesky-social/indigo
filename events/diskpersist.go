@@ -60,6 +60,7 @@ type jobResult struct {
 
 const (
 	EvtFlagTakedown = 1 << iota
+	EvtFlagRebased
 )
 
 var _ (EventPersistence) = (*DiskPersistence)(nil)
@@ -221,7 +222,7 @@ func scanForLastSeq(fi *os.File, end int64) (int64, error) {
 			return 0, err
 		}
 
-		if end > 0 && eh.Seq >= end {
+		if end > 0 && eh.Seq > end {
 			// return to beginning of offset
 			n, err := fi.Seek(offset, io.SeekStart)
 			if err != nil {
@@ -493,8 +494,9 @@ func (p *DiskPersistence) uidForDid(ctx context.Context, did string) (models.Uid
 }
 
 func (p *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
+	base := since - (since * p.eventsPerFile)
 	var logs []LogFileRef
-	if err := p.meta.Debug().Order("seq_start asc").Find(&logs, "seq_start >= ?", since%p.eventsPerFile).Error; err != nil {
+	if err := p.meta.Debug().Order("seq_start asc").Find(&logs, "seq_start >= ?", base).Error; err != nil {
 		return err
 	}
 
@@ -506,6 +508,14 @@ func (p *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*XR
 	}
 
 	return nil
+}
+
+func postDoNotEmit(flags uint32) bool {
+	if flags&(EvtFlagRebased|EvtFlagTakedown) != 0 {
+		return true
+	}
+
+	return false
 }
 
 func (p *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn string, cb func(*XRPCStreamEvent) error) error {
@@ -534,7 +544,7 @@ func (p *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn st
 			return err
 		}
 
-		if h.Flags&EvtFlagTakedown != 0 {
+		if postDoNotEmit(h.Flags) {
 			// event taken down, skip
 			_, err := io.CopyN(io.Discard, bufr, h.Len) // would be really nice if the buffered reader had a 'skip' method that does a seek under the hood
 			if err != nil {
@@ -640,11 +650,16 @@ func (zr *zeroReader) Read(p []byte) (n int, err error) {
 }
 
 func (p *DiskPersistence) deleteEventsForUser(ctx context.Context, usr models.Uid, fn string) error {
+	return p.mutateUserEventsInLog(ctx, usr, fn, EvtFlagTakedown, true)
+}
+
+func (p *DiskPersistence) mutateUserEventsInLog(ctx context.Context, usr models.Uid, fn string, flag uint32, zeroEvts bool) error {
 	fi, err := os.OpenFile(fn, os.O_RDWR, 0)
 	if err != nil {
 		return fmt.Errorf("failed to open log file: %w", err)
 	}
 	defer fi.Close()
+	defer fi.Sync()
 
 	scratch := make([]byte, headerSize)
 	var offset int64
@@ -658,8 +673,8 @@ func (p *DiskPersistence) deleteEventsForUser(ctx context.Context, usr models.Ui
 			return err
 		}
 
-		if h.Usr == usr && h.Flags&EvtFlagTakedown == 0 {
-			nflag := h.Flags | EvtFlagTakedown
+		if h.Usr == usr && h.Flags&flag == 0 {
+			nflag := h.Flags | flag
 
 			binary.LittleEndian.PutUint32(scratch, nflag)
 
@@ -667,18 +682,20 @@ func (p *DiskPersistence) deleteEventsForUser(ctx context.Context, usr models.Ui
 				return fmt.Errorf("failed to write updated flag value: %w", err)
 			}
 
-			// sync that write before blanking the event data
-			if err := fi.Sync(); err != nil {
-				return err
-			}
+			if zeroEvts {
+				// sync that write before blanking the event data
+				if err := fi.Sync(); err != nil {
+					return err
+				}
 
-			if _, err := fi.Seek(offset+headerSize, io.SeekStart); err != nil {
-				return fmt.Errorf("failed to seek: %w", err)
-			}
+				if _, err := fi.Seek(offset+headerSize, io.SeekStart); err != nil {
+					return fmt.Errorf("failed to seek: %w", err)
+				}
 
-			_, err := io.CopyN(fi, &zeroReader{}, h.Len)
-			if err != nil {
-				return err
+				_, err := io.CopyN(fi, &zeroReader{}, h.Len)
+				if err != nil {
+					return err
+				}
 			}
 		}
 
@@ -691,7 +708,9 @@ func (p *DiskPersistence) deleteEventsForUser(ctx context.Context, usr models.Ui
 }
 
 func (p *DiskPersistence) RebaseRepoEvents(ctx context.Context, usr models.Uid) error {
-	panic("todo")
+	return p.forEachShardWithUserEvents(ctx, usr, func(ctx context.Context, fn string) error {
+		return p.mutateUserEventsInLog(ctx, usr, fn, EvtFlagRebased, false)
+	})
 }
 
 func (p *DiskPersistence) Flush(ctx context.Context) error {
