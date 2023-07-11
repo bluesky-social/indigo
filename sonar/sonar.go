@@ -93,7 +93,7 @@ func NewSonar(logger *zap.SugaredLogger, cursorFile string) (*Sonar, error) {
 		// Read the cursor file
 		err := s.ReadCursorFile()
 		if err != nil {
-			return nil, fmt.Errorf("failed to read cursor file: %+v", err)
+			logger.Errorf("read cursor file, will start drinking from live: %+v", err.Error())
 		}
 	}
 
