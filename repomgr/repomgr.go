@@ -98,7 +98,6 @@ const (
 	EvtKindCreateRecord = EventKind("create")
 	EvtKindUpdateRecord = EventKind("update")
 	EvtKindDeleteRecord = EventKind("delete")
-	EvtKindInitActor    = EventKind("init")
 )
 
 type RepoHead struct {
