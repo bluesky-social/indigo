@@ -24,6 +24,7 @@ import (
 )
 
 type Sonar struct {
+	SocketURL  string
 	Progress   *Progress
 	ProgMux    sync.Mutex
 	Logger     *zap.SugaredLogger
@@ -71,8 +72,9 @@ func (s *Sonar) ReadCursorFile() error {
 	return nil
 }
 
-func NewSonar(logger *zap.SugaredLogger, cursorFile string) (*Sonar, error) {
+func NewSonar(logger *zap.SugaredLogger, cursorFile string, socketURL string) (*Sonar, error) {
 	s := Sonar{
+		SocketURL: socketURL,
 		Progress: &Progress{
 			LastSeq: -1,
 		},
@@ -106,10 +108,10 @@ func (s *Sonar) HandleStreamEvent(ctx context.Context, xe *events.XRPCStreamEven
 
 	switch {
 	case xe.RepoCommit != nil:
-		eventsProcessedCounter.WithLabelValues("repo_commit").Inc()
+		eventsProcessedCounter.WithLabelValues("repo_commit", s.SocketURL).Inc()
 		return s.HandleRepoCommit(ctx, xe.RepoCommit)
 	case xe.RepoHandle != nil:
-		eventsProcessedCounter.WithLabelValues("repo_handle").Inc()
+		eventsProcessedCounter.WithLabelValues("repo_handle", s.SocketURL).Inc()
 		now := time.Now()
 		s.ProgMux.Lock()
 		s.Progress.LastSeq = xe.RepoHandle.Seq
@@ -121,13 +123,13 @@ func (s *Sonar) HandleStreamEvent(ctx context.Context, xe *events.XRPCStreamEven
 			log.Errorf("error parsing time: %+v", err)
 			return nil
 		}
-		lastSeqCommittedAtGauge.Set(float64(t.UnixNano()))
-		lastSeqProcessedAtGauge.Set(float64(now.UnixNano()))
-		lastSeqGauge.Set(float64(xe.RepoHandle.Seq))
+		lastSeqCommittedAtGauge.WithLabelValues(s.SocketURL).Set(float64(t.UnixNano()))
+		lastSeqProcessedAtGauge.WithLabelValues(s.SocketURL).Set(float64(now.UnixNano()))
+		lastSeqGauge.WithLabelValues(s.SocketURL).Set(float64(xe.RepoHandle.Seq))
 	case xe.RepoInfo != nil:
-		eventsProcessedCounter.WithLabelValues("repo_info").Inc()
+		eventsProcessedCounter.WithLabelValues("repo_info", s.SocketURL).Inc()
 	case xe.RepoMigrate != nil:
-		eventsProcessedCounter.WithLabelValues("repo_migrate").Inc()
+		eventsProcessedCounter.WithLabelValues("repo_migrate", s.SocketURL).Inc()
 		now := time.Now()
 		s.ProgMux.Lock()
 		s.Progress.LastSeq = xe.RepoMigrate.Seq
@@ -139,17 +141,17 @@ func (s *Sonar) HandleStreamEvent(ctx context.Context, xe *events.XRPCStreamEven
 			log.Errorf("error parsing time: %+v", err)
 			return nil
 		}
-		lastSeqCommittedAtGauge.Set(float64(t.UnixNano()))
-		lastSeqProcessedAtGauge.Set(float64(now.UnixNano()))
-		lastSeqGauge.Set(float64(xe.RepoHandle.Seq))
+		lastSeqCommittedAtGauge.WithLabelValues(s.SocketURL).Set(float64(t.UnixNano()))
+		lastSeqProcessedAtGauge.WithLabelValues(s.SocketURL).Set(float64(now.UnixNano()))
+		lastSeqGauge.WithLabelValues(s.SocketURL).Set(float64(xe.RepoHandle.Seq))
 	case xe.RepoTombstone != nil:
-		eventsProcessedCounter.WithLabelValues("repo_tombstone").Inc()
+		eventsProcessedCounter.WithLabelValues("repo_tombstone", s.SocketURL).Inc()
 	case xe.LabelInfo != nil:
-		eventsProcessedCounter.WithLabelValues("label_info").Inc()
+		eventsProcessedCounter.WithLabelValues("label_info", s.SocketURL).Inc()
 	case xe.LabelLabels != nil:
-		eventsProcessedCounter.WithLabelValues("label_labels").Inc()
+		eventsProcessedCounter.WithLabelValues("label_labels", s.SocketURL).Inc()
 	case xe.Error != nil:
-		eventsProcessedCounter.WithLabelValues("error").Inc()
+		eventsProcessedCounter.WithLabelValues("error", s.SocketURL).Inc()
 	}
 	return nil
 }
@@ -165,7 +167,7 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 	s.Progress.LastSeqProcessedAt = start
 	s.ProgMux.Unlock()
 
-	lastSeqGauge.Set(float64(evt.Seq))
+	lastSeqGauge.WithLabelValues(s.SocketURL).Set(float64(evt.Seq))
 
 	log := s.Logger.With("repo", evt.Repo, "seq", evt.Seq, "commit", evt.Commit)
 
@@ -177,7 +179,7 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 
 	if evt.Rebase {
 		log.Debug("rebase")
-		rebasesProcessedCounter.Inc()
+		rebasesProcessedCounter.WithLabelValues(s.SocketURL).Inc()
 	}
 
 	// Parse time from the event time string
@@ -187,8 +189,8 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 		return nil
 	}
 
-	lastSeqCommittedAtGauge.Set(float64(t.UnixNano()))
-	lastSeqProcessedAtGauge.Set(float64(start.UnixNano()))
+	lastSeqCommittedAtGauge.WithLabelValues(s.SocketURL).Set(float64(t.UnixNano()))
+	lastSeqProcessedAtGauge.WithLabelValues(s.SocketURL).Set(float64(start.UnixNano()))
 
 	for _, op := range evt.Ops {
 		collection := strings.Split(op.Path, "/")[0]
@@ -196,7 +198,7 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 		ek := repomgr.EventKind(op.Action)
 		log = log.With("action", op.Action, "collection", collection)
 
-		opsProcessedCounter.WithLabelValues(op.Action, collection).Inc()
+		opsProcessedCounter.WithLabelValues(op.Action, collection, s.SocketURL).Inc()
 
 		switch ek {
 		case repomgr.EvtKindCreateRecord, repomgr.EvtKindUpdateRecord:
@@ -218,9 +220,9 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 			// Unpack the record and process it
 			switch rec := rec.(type) {
 			case *bsky.FeedPost:
-				recordsProcessedCounter.WithLabelValues("feed_post").Inc()
+				recordsProcessedCounter.WithLabelValues("feed_post", s.SocketURL).Inc()
 				if rec.Embed != nil && rec.Embed.EmbedRecord != nil && rec.Embed.EmbedRecord.Record != nil {
-					quoteRepostsProcessedCounter.Inc()
+					quoteRepostsProcessedCounter.WithLabelValues(s.SocketURL).Inc()
 				}
 				// Parse time from the event time string
 				recCreatedAt, err := time.Parse(util.ISO8601, evt.Time)
@@ -228,79 +230,79 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 					log.Errorf("error parsing time: %+v", err)
 					continue
 				}
-				lastSeqCreatedAtGauge.Set(float64(recCreatedAt.UnixNano()))
+				lastSeqCreatedAtGauge.WithLabelValues(s.SocketURL).Set(float64(recCreatedAt.UnixNano()))
 			case *bsky.FeedLike:
-				recordsProcessedCounter.WithLabelValues("feed_like").Inc()
+				recordsProcessedCounter.WithLabelValues("feed_like", s.SocketURL).Inc()
 				// Parse time from the event time string
 				recCreatedAt, err := time.Parse(util.ISO8601, evt.Time)
 				if err != nil {
 					log.Errorf("error parsing time: %+v", err)
 					continue
 				}
-				lastSeqCreatedAtGauge.Set(float64(recCreatedAt.UnixNano()))
+				lastSeqCreatedAtGauge.WithLabelValues(s.SocketURL).Set(float64(recCreatedAt.UnixNano()))
 			case *bsky.FeedRepost:
-				recordsProcessedCounter.WithLabelValues("feed_repost").Inc()
+				recordsProcessedCounter.WithLabelValues("feed_repost", s.SocketURL).Inc()
 				// Parse time from the event time string
 				recCreatedAt, err := time.Parse(util.ISO8601, evt.Time)
 				if err != nil {
 					log.Errorf("error parsing time: %+v", err)
 					continue
 				}
-				lastSeqCreatedAtGauge.Set(float64(recCreatedAt.UnixNano()))
+				lastSeqCreatedAtGauge.WithLabelValues(s.SocketURL).Set(float64(recCreatedAt.UnixNano()))
 			case *bsky.GraphBlock:
-				recordsProcessedCounter.WithLabelValues("graph_block").Inc()
+				recordsProcessedCounter.WithLabelValues("graph_block", s.SocketURL).Inc()
 				// Parse time from the event time string
 				recCreatedAt, err := time.Parse(util.ISO8601, evt.Time)
 				if err != nil {
 					log.Errorf("error parsing time: %+v", err)
 					continue
 				}
-				lastSeqCreatedAtGauge.Set(float64(recCreatedAt.UnixNano()))
+				lastSeqCreatedAtGauge.WithLabelValues(s.SocketURL).Set(float64(recCreatedAt.UnixNano()))
 			case *bsky.GraphFollow:
-				recordsProcessedCounter.WithLabelValues("graph_follow").Inc()
+				recordsProcessedCounter.WithLabelValues("graph_follow", s.SocketURL).Inc()
 				// Parse time from the event time string
 				recCreatedAt, err := time.Parse(util.ISO8601, evt.Time)
 				if err != nil {
 					log.Errorf("error parsing time: %+v", err)
 					continue
 				}
-				lastSeqCreatedAtGauge.Set(float64(recCreatedAt.UnixNano()))
+				lastSeqCreatedAtGauge.WithLabelValues(s.SocketURL).Set(float64(recCreatedAt.UnixNano()))
 			case *bsky.ActorProfile:
-				recordsProcessedCounter.WithLabelValues("actor_profile").Inc()
+				recordsProcessedCounter.WithLabelValues("actor_profile", s.SocketURL).Inc()
 				// Parse time from the event time string
 				recCreatedAt, err := time.Parse(util.ISO8601, evt.Time)
 				if err != nil {
 					log.Errorf("error parsing time: %+v", err)
 					continue
 				}
-				lastSeqCreatedAtGauge.Set(float64(recCreatedAt.UnixNano()))
+				lastSeqCreatedAtGauge.WithLabelValues(s.SocketURL).Set(float64(recCreatedAt.UnixNano()))
 			case *bsky.FeedGenerator:
-				recordsProcessedCounter.WithLabelValues("feed_generator").Inc()
+				recordsProcessedCounter.WithLabelValues("feed_generator", s.SocketURL).Inc()
 				// Parse time from the event time string
 				recCreatedAt, err := time.Parse(util.ISO8601, evt.Time)
 				if err != nil {
 					log.Errorf("error parsing time: %+v", err)
 					continue
 				}
-				lastSeqCreatedAtGauge.Set(float64(recCreatedAt.UnixNano()))
+				lastSeqCreatedAtGauge.WithLabelValues(s.SocketURL).Set(float64(recCreatedAt.UnixNano()))
 			case *bsky.GraphList:
-				recordsProcessedCounter.WithLabelValues("graph_list").Inc()
+				recordsProcessedCounter.WithLabelValues("graph_list", s.SocketURL).Inc()
 				// Parse time from the event time string
 				recCreatedAt, err := time.Parse(util.ISO8601, evt.Time)
 				if err != nil {
 					log.Errorf("error parsing time: %+v", err)
 					continue
 				}
-				lastSeqCreatedAtGauge.Set(float64(recCreatedAt.UnixNano()))
+				lastSeqCreatedAtGauge.WithLabelValues(s.SocketURL).Set(float64(recCreatedAt.UnixNano()))
 			case *bsky.GraphListitem:
-				recordsProcessedCounter.WithLabelValues("graph_listitem").Inc()
+				recordsProcessedCounter.WithLabelValues("graph_listitem", s.SocketURL).Inc()
 				// Parse time from the event time string
 				recCreatedAt, err := time.Parse(util.ISO8601, evt.Time)
 				if err != nil {
 					log.Errorf("error parsing time: %+v", err)
 					continue
 				}
-				lastSeqCreatedAtGauge.Set(float64(recCreatedAt.UnixNano()))
+				lastSeqCreatedAtGauge.WithLabelValues(s.SocketURL).Set(float64(recCreatedAt.UnixNano()))
 			default:
 				log.Warnf("unknown record type: %+v", rec)
 			}
@@ -311,6 +313,6 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 		}
 	}
 
-	eventProcessingDurationHistogram.Observe(time.Since(start).Seconds())
+	eventProcessingDurationHistogram.WithLabelValues(s.SocketURL).Observe(time.Since(start).Seconds())
 	return nil
 }

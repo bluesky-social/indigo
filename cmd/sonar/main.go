@@ -100,7 +100,7 @@ func Sonar(cctx *cli.Context) error {
 		log.Fatalf("failed to parse ws-url: %+v\n", err)
 	}
 
-	s, err := sonar.NewSonar(log, cctx.String("cursor-file"))
+	s, err := sonar.NewSonar(log, cctx.String("cursor-file"), u.String())
 	if err != nil {
 		log.Fatalf("failed to create sonar: %+v\n", err)
 	}
