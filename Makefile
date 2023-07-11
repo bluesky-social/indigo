@@ -21,6 +21,7 @@ build: ## Build all executables
 	go build ./cmd/stress
 	go build ./cmd/fakermaker
 	go build ./cmd/labelmaker
+	go build -o ./sonar-cli ./cmd/sonar 
 
 .PHONY: all
 all: build
@@ -74,3 +75,7 @@ run-dev-labelmaker: .env ## Runs labelmaker for local dev
 .PHONY: run-dev-search
 run-dev-search: .env ## Runs search daemon for local dev
 	GOLOG_LOG_LEVEL=info go run ./cmd/palomar run
+
+.PHONY: sonar-up
+sonar-up: # Runs sonar docker container
+	docker compose -f cmd/sonar/docker-compose.yml up --build -d || docker-compose -f cmd/sonar/docker-compose.yml up --build -d

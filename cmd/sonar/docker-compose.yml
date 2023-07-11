@@ -1,0 +1,10 @@
+version: "3.8"
+services:
+  sonar:
+    build:
+      context: ../../
+      dockerfile: cmd/sonar/Dockerfile
+    image: atproto-sonar
+    restart: always
+    ports:
+      - "8345:8345"

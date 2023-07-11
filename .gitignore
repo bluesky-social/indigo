@@ -36,3 +36,6 @@ test-coverage.out
 
 # Don't commit your (default location) creds
 bsky.auth
+
+# Sonar cursor file
+sonar_cursor.json
