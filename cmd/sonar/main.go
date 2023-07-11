@@ -87,6 +87,7 @@ func Sonar(cctx *cli.Context) error {
 			os.Exit(0)
 		case <-ctx.Done():
 			fmt.Println("shutting down on context done")
+			time.Sleep(3 * time.Second)
 			os.Exit(0)
 		}
 	}()
@@ -196,11 +197,9 @@ func Sonar(cctx *cli.Context) error {
 		}
 	}()
 
-	s.ProgMux.Lock()
 	if s.Progress.LastSeq >= 0 {
 		u.RawQuery = fmt.Sprintf("cursor=%d", s.Progress.LastSeq)
 	}
-	s.ProgMux.Unlock()
 
 	log.Infof("connecting to WebSocket at: %s", u.String())
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
