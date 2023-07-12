@@ -568,7 +568,7 @@ func (ix *Indexer) GetPostOrMissing(ctx context.Context, uri string) (*models.Fe
 	return &post, nil
 }
 
-func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user util.Uid, rkey string, rcid cid.Cid, rec *bsky.FeedPost) error {
+func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user models.Uid, rkey string, rcid cid.Cid, rec *bsky.FeedPost) error {
 	var replyid uint
 	if rec.Reply != nil {
 		replyto, err := ix.GetPostOrMissing(ctx, rec.Reply.Parent.Uri)
@@ -699,7 +699,7 @@ func (ix *Indexer) addUserToCrawler(ctx context.Context, ai *models.ActorInfo) e
 	return ix.Crawler.Crawl(ctx, ai)
 }
 
-func (ix *Indexer) DidForUser(ctx context.Context, uid util.Uid) (string, error) {
+func (ix *Indexer) DidForUser(ctx context.Context, uid models.Uid) (string, error) {
 	var ai models.ActorInfo
 	if err := ix.db.First(&ai, "uid = ?", uid).Error; err != nil {
 		return "", err
@@ -708,7 +708,7 @@ func (ix *Indexer) DidForUser(ctx context.Context, uid util.Uid) (string, error)
 	return ai.Did, nil
 }
 
-func (ix *Indexer) LookupUser(ctx context.Context, id util.Uid) (*models.ActorInfo, error) {
+func (ix *Indexer) LookupUser(ctx context.Context, id models.Uid) (*models.ActorInfo, error) {
 	var ai models.ActorInfo
 	if err := ix.db.First(&ai, "uid = ?", id).Error; err != nil {
 		return nil, err
@@ -765,7 +765,7 @@ func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPo
 	return nil
 }
 
-func (ix *Indexer) addNewVoteNotification(ctx context.Context, postauthor util.Uid, vr *models.VoteRecord) error {
+func (ix *Indexer) addNewVoteNotification(ctx context.Context, postauthor models.Uid, vr *models.VoteRecord) error {
 	return ix.notifman.AddUpVote(ctx, vr.Voter, vr.Post, vr.ID, postauthor)
 }
 

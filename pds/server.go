@@ -263,7 +263,7 @@ func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent
 	return out, nil
 }
 
-func (s *Server) readRecordFunc(ctx context.Context, user bsutil.Uid, c cid.Cid) (lexutil.CBOR, error) {
+func (s *Server) readRecordFunc(ctx context.Context, user models.Uid, c cid.Cid) (lexutil.CBOR, error) {
 	bs, err := s.cs.ReadOnlySession(user)
 	if err != nil {
 		return nil, err
@@ -396,7 +396,7 @@ func (s *Server) HandleResolveDid(c echo.Context) error {
 }
 
 type User struct {
-	ID          bsutil.Uid `gorm:"primarykey"`
+	ID          models.Uid `gorm:"primarykey"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	DeletedAt   gorm.DeletedAt `gorm:"index"`

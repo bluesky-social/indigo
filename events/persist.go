@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/models"
 )
 
 // Note that this interface looks generic, but some persisters might only work with RepoAppend or LabelLabels
 type EventPersistence interface {
 	Persist(ctx context.Context, e *XRPCStreamEvent) error
 	Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error
-	TakeDownRepo(ctx context.Context, usr util.Uid) error
-	RebaseRepoEvents(ctx context.Context, usr util.Uid) error
+	TakeDownRepo(ctx context.Context, usr models.Uid) error
+	RebaseRepoEvents(ctx context.Context, usr models.Uid) error
 
 	SetEventBroadcaster(func(*XRPCStreamEvent))
 }
@@ -77,11 +77,11 @@ func (mp *MemPersister) Playback(ctx context.Context, since int64, cb func(*XRPC
 	return nil
 }
 
-func (mp *MemPersister) TakeDownRepo(ctx context.Context, uid util.Uid) error {
+func (mp *MemPersister) TakeDownRepo(ctx context.Context, uid models.Uid) error {
 	return fmt.Errorf("repo takedowns not currently supported by memory persister, test usage only")
 }
 
-func (mp *MemPersister) RebaseRepoEvents(ctx context.Context, usr util.Uid) error {
+func (mp *MemPersister) RebaseRepoEvents(ctx context.Context, usr models.Uid) error {
 	return fmt.Errorf("repo rebases not currently supported by memory persister, test usage only")
 }
 
