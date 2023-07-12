@@ -408,17 +408,40 @@ func TestRebaseMulti(t *testing.T) {
 
 	bob.DoRebase(t)
 
+	var posts []*atproto.RepoStrongRef
 	for i := 0; i < 10; i++ {
-		bob.Post(t, fmt.Sprintf("this is bobs post after rebase %d", i))
+		ref := bob.Post(t, fmt.Sprintf("this is bobs post after rebase %d", i))
+		posts = append(posts, ref)
 	}
+
+	time.Sleep(time.Millisecond * 50)
 
 	evts1 := b1.Events(t, 0)
 	defer evts1.Cancel()
 
 	all := evts1.WaitFor(11)
-	fmt.Println(all)
 
 	assert.Equal(true, all[0].RepoCommit.Rebase)
+	assert.Equal(posts[0].Cid, all[1].RepoCommit.Ops[0].Cid.String())
+
+	// and another one!
+	bob.DoRebase(t)
+
+	var posts2 []*atproto.RepoStrongRef
+	for i := 0; i < 15; i++ {
+		ref := bob.Post(t, fmt.Sprintf("this is bobs post after second rebase %d", i))
+		posts2 = append(posts2, ref)
+	}
+
+	time.Sleep(time.Millisecond * 50)
+
+	evts2 := b1.Events(t, 0)
+	defer evts2.Cancel()
+
+	all = evts2.WaitFor(16)
+
+	assert.Equal(true, all[0].RepoCommit.Rebase)
+	assert.Equal(posts2[0].Cid, all[1].RepoCommit.Ops[0].Cid.String())
 }
 
 func commitFromSlice(t *testing.T, slice []byte, rcid cid.Cid) *repo.SignedCommit {
