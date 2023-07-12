@@ -12,7 +12,7 @@ import (
 
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/api/atproto"
-	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
+	"github.com/bluesky-social/indigo/util/cliutil"
 	cli "github.com/urfave/cli/v2"
 )
 

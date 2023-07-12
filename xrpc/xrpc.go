@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/version"
+	"github.com/bluesky-social/indigo/util/version"
 )
 
 type Client struct {
