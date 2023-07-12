@@ -6,7 +6,7 @@ import (
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
-	"github.com/bluesky-social/indigo/version"
+	"github.com/bluesky-social/indigo/util/version"
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
