@@ -8,7 +8,7 @@ import (
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/labeler"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/version"
+	"github.com/bluesky-social/indigo/util/version"
 	"github.com/urfave/cli/v2"
 
 	_ "github.com/joho/godotenv/autoload"

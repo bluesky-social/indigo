@@ -13,7 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/search"
 	"github.com/bluesky-social/indigo/util/cliutil"
 
-	"github.com/bluesky-social/indigo/version"
+	"github.com/bluesky-social/indigo/util/version"
 	logging "github.com/ipfs/go-log"
 	es "github.com/opensearch-project/opensearch-go/v2"
 	cli "github.com/urfave/cli/v2"

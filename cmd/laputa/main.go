@@ -9,7 +9,7 @@ import (
 	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/version"
+	"github.com/bluesky-social/indigo/util/version"
 
 	_ "github.com/joho/godotenv/autoload"
 
