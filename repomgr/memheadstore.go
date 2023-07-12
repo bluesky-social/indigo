@@ -4,21 +4,22 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/models"
+
 	"github.com/ipfs/go-cid"
 )
 
 type MemHeadStore struct {
-	heads map[util.Uid]cid.Cid
+	heads map[models.Uid]cid.Cid
 }
 
 func NewMemHeadStore() *MemHeadStore {
 	return &MemHeadStore{
-		heads: make(map[util.Uid]cid.Cid),
+		heads: make(map[models.Uid]cid.Cid),
 	}
 }
 
-func (hs *MemHeadStore) GetUserRepoHead(ctx context.Context, user util.Uid) (cid.Cid, error) {
+func (hs *MemHeadStore) GetUserRepoHead(ctx context.Context, user models.Uid) (cid.Cid, error) {
 	h, ok := hs.heads[user]
 	if !ok {
 		return cid.Undef, fmt.Errorf("user head not found")
@@ -27,7 +28,7 @@ func (hs *MemHeadStore) GetUserRepoHead(ctx context.Context, user util.Uid) (cid
 	return h, nil
 }
 
-func (hs *MemHeadStore) UpdateUserRepoHead(ctx context.Context, user util.Uid, root cid.Cid) error {
+func (hs *MemHeadStore) UpdateUserRepoHead(ctx context.Context, user models.Uid, root cid.Cid) error {
 	_, ok := hs.heads[user]
 	if !ok {
 		return fmt.Errorf("cannot update user head if it doesnt exist already")
@@ -37,7 +38,7 @@ func (hs *MemHeadStore) UpdateUserRepoHead(ctx context.Context, user util.Uid, r
 	return nil
 }
 
-func (hs *MemHeadStore) InitUser(ctx context.Context, user util.Uid, root cid.Cid) error {
+func (hs *MemHeadStore) InitUser(ctx context.Context, user models.Uid, root cid.Cid) error {
 	_, ok := hs.heads[user]
 	if ok {
 		return fmt.Errorf("cannot init user head if it exists already")

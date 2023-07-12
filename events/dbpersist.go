@@ -73,7 +73,7 @@ type RepoEventRecord struct {
 
 	Time   time.Time
 	Blobs  []byte
-	Repo   util.Uid
+	Repo   models.Uid
 	Type   string
 	Rebase bool
 
@@ -388,9 +388,9 @@ func (p *DbPersistence) hydrateBatch(ctx context.Context, batch []*RepoEventReco
 	return nil
 }
 
-func (p *DbPersistence) uidForDid(ctx context.Context, did string) (util.Uid, error) {
+func (p *DbPersistence) uidForDid(ctx context.Context, did string) (models.Uid, error) {
 	if uid, ok := p.didCache.Get(did); ok {
-		return uid.(util.Uid), nil
+		return uid.(models.Uid), nil
 	}
 
 	var u models.ActorInfo
@@ -403,7 +403,7 @@ func (p *DbPersistence) uidForDid(ctx context.Context, did string) (util.Uid, er
 	return u.Uid, nil
 }
 
-func (p *DbPersistence) didForUid(ctx context.Context, uid util.Uid) (string, error) {
+func (p *DbPersistence) didForUid(ctx context.Context, uid models.Uid) (string, error) {
 	if did, ok := p.uidCache.Get(uid); ok {
 		return did.(string), nil
 	}
@@ -513,11 +513,11 @@ func (p *DbPersistence) readCarSlice(ctx context.Context, rer *RepoEventRecord) 
 	return buf.Bytes(), nil
 }
 
-func (p *DbPersistence) TakeDownRepo(ctx context.Context, usr util.Uid) error {
+func (p *DbPersistence) TakeDownRepo(ctx context.Context, usr models.Uid) error {
 	return p.deleteAllEventsForUser(ctx, usr)
 }
 
-func (p *DbPersistence) deleteAllEventsForUser(ctx context.Context, usr util.Uid) error {
+func (p *DbPersistence) deleteAllEventsForUser(ctx context.Context, usr models.Uid) error {
 	if err := p.db.Where("repo = ?", usr).Delete(&RepoEventRecord{}).Error; err != nil {
 		return err
 	}
@@ -525,7 +525,7 @@ func (p *DbPersistence) deleteAllEventsForUser(ctx context.Context, usr util.Uid
 	return nil
 }
 
-func (p *DbPersistence) RebaseRepoEvents(ctx context.Context, usr util.Uid) error {
+func (p *DbPersistence) RebaseRepoEvents(ctx context.Context, usr models.Uid) error {
 	// a little weird that this is the same action as a takedown
 	return p.deleteAllEventsForUser(ctx, usr)
 }

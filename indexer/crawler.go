@@ -7,7 +7,6 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/util"
 
 	"go.opentelemetry.io/otel"
 )
@@ -19,11 +18,11 @@ type CrawlDispatcher struct {
 
 	catchup chan *catchupJob
 
-	complete chan util.Uid
+	complete chan models.Uid
 
 	maplk      sync.Mutex
-	todo       map[util.Uid]*crawlWork
-	inProgress map[util.Uid]*crawlWork
+	todo       map[models.Uid]*crawlWork
+	inProgress map[models.Uid]*crawlWork
 
 	doRepoCrawl func(context.Context, *crawlWork) error
 
@@ -38,12 +37,12 @@ func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurre
 	return &CrawlDispatcher{
 		ingest:      make(chan *models.ActorInfo),
 		repoSync:    make(chan *crawlWork),
-		complete:    make(chan util.Uid),
+		complete:    make(chan models.Uid),
 		catchup:     make(chan *catchupJob),
 		doRepoCrawl: repoFn,
 		concurrency: concurrency,
-		todo:        make(map[util.Uid]*crawlWork),
-		inProgress:  make(map[util.Uid]*crawlWork),
+		todo:        make(map[models.Uid]*crawlWork),
+		inProgress:  make(map[models.Uid]*crawlWork),
 	}, nil
 }
 
@@ -227,7 +226,7 @@ func (c *CrawlDispatcher) AddToCatchupQueue(ctx context.Context, host *models.PD
 	}
 }
 
-func (c *CrawlDispatcher) RepoInSlowPath(ctx context.Context, host *models.PDS, uid util.Uid) bool {
+func (c *CrawlDispatcher) RepoInSlowPath(ctx context.Context, host *models.PDS, uid models.Uid) bool {
 	c.maplk.Lock()
 	defer c.maplk.Unlock()
 	if _, ok := c.todo[uid]; ok {
