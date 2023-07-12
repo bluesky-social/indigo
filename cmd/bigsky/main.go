@@ -110,6 +110,10 @@ func run(args []string) {
 			Name:    "admin-key",
 			EnvVars: []string{"BGS_ADMIN_KEY"},
 		},
+		&cli.StringSliceFlag{
+			Name:    "handle-resolver-hosts",
+			EnvVars: []string{"HANDLE_RESOLVER_HOSTS"},
+		},
 	}
 
 	app.Action = func(cctx *cli.Context) error {
@@ -255,9 +259,9 @@ func run(args []string) {
 		}
 
 		var hr api.HandleResolver = &api.ProdHandleResolver{}
-		if cctx.Bool("crawl-insecure-ws") {
+		if cctx.StringSlice("handle-resolver-hosts") != nil {
 			hr = &api.TestHandleResolver{
-				TrialHosts: []string{"supercollider.jazco.io"},
+				TrialHosts: cctx.StringSlice("handle-resolver-hosts"),
 			}
 		}
 
