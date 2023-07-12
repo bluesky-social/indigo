@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bluesky-social/indigo/models"
 	util "github.com/bluesky-social/indigo/util"
 
 	blockformat "github.com/ipfs/go-block-format"
@@ -67,7 +68,7 @@ type CarShard struct {
 	ID        uint `gorm:"primarykey"`
 	CreatedAt time.Time
 
-	Root      util.DbCID
+	Root      models.DbCID
 	DataStart int64
 	Seq       int `gorm:"index"`
 	Path      string
@@ -76,8 +77,8 @@ type CarShard struct {
 }
 
 type blockRef struct {
-	ID     uint       `gorm:"primarykey"`
-	Cid    util.DbCID `gorm:"index"`
+	ID     uint         `gorm:"primarykey"`
+	Cid    models.DbCID `gorm:"index"`
 	Shard  uint
 	Offset int64
 	//User   uint `gorm:"index"`
@@ -103,7 +104,7 @@ func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
 		Model(blockRef{}).
 		Select("path, block_refs.offset").
 		Joins("left join car_shards on block_refs.shard = car_shards.id").
-		Where("usr = ? AND cid = ?", uv.user, util.DbCID{k}).
+		Where("usr = ? AND cid = ?", uv.user, models.DbCID{k}).
 		Count(&count).Error; err != nil {
 		return false, err
 	}
@@ -133,7 +134,7 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, erro
 		Model(blockRef{}).
 		Select("path, block_refs.offset").
 		Joins("left join car_shards on block_refs.shard = car_shards.id").
-		Where("usr = ? AND cid = ?", uv.user, util.DbCID{k}).
+		Where("usr = ? AND cid = ?", uv.user, models.DbCID{k}).
 		Find(&info).Error; err != nil {
 		return nil, err
 	}
@@ -351,7 +352,7 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user util.Uid, earlyCid, la
 
 	if earlyCid.Defined() {
 		var untilShard CarShard
-		if err := cs.meta.First(&untilShard, "root = ? AND usr = ?", util.DbCID{earlyCid}, user).Error; err != nil {
+		if err := cs.meta.First(&untilShard, "root = ? AND usr = ?", models.DbCID{earlyCid}, user).Error; err != nil {
 			return fmt.Errorf("finding early shard: %w", err)
 		}
 		earlySeq = untilShard.Seq
@@ -359,7 +360,7 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user util.Uid, earlyCid, la
 
 	if lateCid.Defined() {
 		var fromShard CarShard
-		if err := cs.meta.First(&fromShard, "root = ? AND usr = ?", util.DbCID{lateCid}, user).Error; err != nil {
+		if err := cs.meta.First(&fromShard, "root = ? AND usr = ?", models.DbCID{lateCid}, user).Error; err != nil {
 			return fmt.Errorf("finding late shard: %w", err)
 		}
 		lateSeq = fromShard.Seq
@@ -616,7 +617,7 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase 
 		// adding things to the db by map is the only way to get gorm to not
 		// add the 'returning' clause, which costs a lot of time
 		brefs = append(brefs, map[string]interface{}{
-			"cid":    util.DbCID{k},
+			"cid":    models.DbCID{k},
 			"offset": offset,
 		})
 
@@ -630,7 +631,7 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase 
 
 	// TODO: all this database work needs to be in a single transaction
 	shard := CarShard{
-		Root:      util.DbCID{root},
+		Root:      models.DbCID{root},
 		DataStart: hnw,
 		Seq:       ds.seq,
 		Path:      path,
@@ -835,7 +836,7 @@ func (cs *CarStore) checkFork(ctx context.Context, user util.Uid, prev cid.Cid) 
 	}
 
 	var maybeShard CarShard
-	if err := cs.meta.WithContext(ctx).Model(CarShard{}).Find(&maybeShard, "usr = ? AND root = ?", user, &util.DbCID{prev}).Error; err != nil {
+	if err := cs.meta.WithContext(ctx).Model(CarShard{}).Find(&maybeShard, "usr = ? AND root = ?", user, &models.DbCID{prev}).Error; err != nil {
 		return false, err
 	}
 

@@ -67,8 +67,8 @@ type DbPersistence struct {
 
 type RepoEventRecord struct {
 	Seq       uint `gorm:"primarykey"`
-	Commit    *util.DbCID
-	Prev      *util.DbCID
+	Commit    *models.DbCID
+	Prev      *models.DbCID
 	NewHandle *string // NewHandle is only set if this is a handle change event
 
 	Time   time.Time
@@ -249,9 +249,9 @@ func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatprot
 		return nil, err
 	}
 
-	var prev *util.DbCID
+	var prev *models.DbCID
 	if evt.Prev != nil && evt.Prev.Defined() {
-		prev = &util.DbCID{cid.Cid(*evt.Prev)}
+		prev = &models.DbCID{cid.Cid(*evt.Prev)}
 	}
 
 	var blobs []byte
@@ -269,7 +269,7 @@ func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatprot
 	}
 
 	rer := RepoEventRecord{
-		Commit: &util.DbCID{cid.Cid(evt.Commit)},
+		Commit: &models.DbCID{cid.Cid(evt.Commit)},
 		Prev:   prev,
 		Repo:   uid,
 		Type:   "repo_append", // TODO: refactor to "#commit"? can "rebase" come through this path?
