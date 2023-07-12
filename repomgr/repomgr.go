@@ -554,8 +554,16 @@ func (rm *RepoManager) DoRebase(ctx context.Context, uid models.Uid) error {
 		return err
 	}
 
+	if err := r.CopyDataTo(ctx, ds); err != nil {
+		return err
+	}
+
 	if err := ds.CloseAsRebase(ctx, nroot); err != nil {
 		return fmt.Errorf("finalizing rebase: %w", err)
+	}
+
+	if err := rm.hs.UpdateUserRepoHead(ctx, uid, nroot); err != nil {
+		return fmt.Errorf("updating user head: %w", err)
 	}
 
 	// outbound car slice should just be the new signed root
@@ -563,6 +571,7 @@ func (rm *RepoManager) DoRebase(ctx context.Context, uid models.Uid) error {
 	if _, err := carstore.WriteCarHeader(buf, nroot); err != nil {
 		return err
 	}
+
 	robj, err := ds.Get(ctx, nroot)
 	if err != nil {
 		return err
