@@ -6,9 +6,9 @@ import (
 
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/carstore"
-	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/plc"
+	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/version"
 
 	_ "github.com/joho/godotenv/autoload"

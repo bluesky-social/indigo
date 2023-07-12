@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/bluesky-social/indigo/carstore"
-	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	"github.com/bluesky-social/indigo/labeler"
+	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/version"
 	"github.com/urfave/cli/v2"
 
