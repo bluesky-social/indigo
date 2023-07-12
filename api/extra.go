@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -98,7 +97,7 @@ func (dr *ProdHandleResolver) ResolveHandleToDid(ctx context.Context, handle str
 			return "", fmt.Errorf("http well-known route returned too much data")
 		}
 
-		b, err := ioutil.ReadAll(io.LimitReader(resp.Body, 2048))
+		b, err := io.ReadAll(io.LimitReader(resp.Body, 2048))
 		if err != nil {
 			return "", fmt.Errorf("failed to read resolved did: %w", err)
 		}
@@ -158,7 +157,7 @@ func (tr *TestHandleResolver) ResolveHandleToDid(ctx context.Context, handle str
 			continue
 		}
 
-		b, err := ioutil.ReadAll(resp.Body)
+		b, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return "", fmt.Errorf("failed to read resolved did: %w", err)
 		}
