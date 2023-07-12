@@ -382,6 +382,45 @@ func TestRebase(t *testing.T) {
 	assert.Equal(true, afterEvts[0].RepoCommit.Rebase)
 }
 
+func TestRebaseMulti(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping BGS test in 'short' test mode")
+	}
+	assert := assert.New(t)
+	didr := TestPLC(t)
+	p1 := MustSetupPDS(t, ".tpds", didr)
+	p1.Run(t)
+
+	b1 := MustSetupBGS(t, didr)
+	b1.Run(t)
+
+	b1.tr.TrialHosts = []string{p1.RawHost()}
+
+	p1.RequestScraping(t, b1)
+
+	time.Sleep(time.Millisecond * 50)
+
+	bob := p1.MustNewUser(t, "bob.tpds")
+
+	for i := 0; i < 10; i++ {
+		bob.Post(t, fmt.Sprintf("this is bobs post %d", i))
+	}
+
+	bob.DoRebase(t)
+
+	for i := 0; i < 10; i++ {
+		bob.Post(t, fmt.Sprintf("this is bobs post after rebase %d", i))
+	}
+
+	evts1 := b1.Events(t, 0)
+	defer evts1.Cancel()
+
+	all := evts1.WaitFor(11)
+	fmt.Println(all)
+
+	assert.Equal(true, all[0].RepoCommit.Rebase)
+}
+
 func commitFromSlice(t *testing.T, slice []byte, rcid cid.Cid) *repo.SignedCommit {
 	carr, err := car.NewCarReader(bytes.NewReader(slice))
 	if err != nil {

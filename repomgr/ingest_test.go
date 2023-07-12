@@ -180,3 +180,52 @@ func doPost(t *testing.T, cs *carstore.CarStore, did string, prev *cid.Cid, post
 
 	return slice, root, tid
 }
+
+func TestRebase(t *testing.T) {
+	dir, err := os.MkdirTemp("", "integtest")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.sqlite")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	maindb.AutoMigrate(models.ActorInfo{})
+
+	did := "did:plc:beepboop"
+	maindb.Create(&models.ActorInfo{
+		Did: did,
+		Uid: 1,
+	})
+
+	cs := testCarstore(t, dir)
+
+	hs := NewDbHeadStore(maindb)
+	repoman := NewRepoManager(hs, cs, &util.FakeKeyManager{})
+
+	ctx := context.TODO()
+	if err := repoman.InitNewActor(ctx, 1, "hello.world", "did:plc:foobar", "", "", ""); err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 5; i++ {
+		_, _, err := repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
+			Text: fmt.Sprintf("hello friend %d", i),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := repoman.DoRebase(ctx, 1); err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, err = repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
+		Text: "after the rebase",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
