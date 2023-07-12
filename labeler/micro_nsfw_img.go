@@ -11,7 +11,7 @@ import (
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	util "github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/version"
+	"github.com/bluesky-social/indigo/util/version"
 )
 
 type MicroNSFWImgLabeler struct {
