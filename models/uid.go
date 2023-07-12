@@ -1,3 +1,3 @@
-package util
+package models
 
 type Uid uint
