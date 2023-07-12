@@ -10,8 +10,8 @@ import (
 
 	_ "github.com/joho/godotenv/autoload"
 
-	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	"github.com/bluesky-social/indigo/search"
+	"github.com/bluesky-social/indigo/util/cliutil"
 
 	"github.com/bluesky-social/indigo/version"
 	logging "github.com/ipfs/go-log"
