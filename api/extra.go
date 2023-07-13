@@ -109,7 +109,11 @@ func (dr *ProdHandleResolver) ResolveHandleToDid(ctx context.Context, handle str
 
 		return parsed.String(), nil
 	}
-	log.Infof("failed to resolve handle (%s) through HTTP well-known route: %s", handle, wkerr)
+	if wkerr != nil {
+		log.Infof("failed to resolve handle (%s) through HTTP well-known route: %s", handle, wkerr)
+	} else if resp.StatusCode != 200 {
+		log.Infof("failed to resolve handle (%s) through HTTP well-known route: status=%d", handle, resp.StatusCode)
+	}
 
 	res, err := net.LookupTXT("_atproto." + handle)
 	if err != nil {
