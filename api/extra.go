@@ -73,6 +73,7 @@ type HandleResolver interface {
 }
 
 type ProdHandleResolver struct {
+	ReqMod func(*http.Request, string) error
 }
 
 func (dr *ProdHandleResolver) ResolveHandleToDid(ctx context.Context, handle string) (string, error) {
@@ -87,6 +88,12 @@ func (dr *ProdHandleResolver) ResolveHandleToDid(ctx context.Context, handle str
 	req, err := http.NewRequest("GET", fmt.Sprintf("https://%s/.well-known/atproto-did", handle), nil)
 	if err != nil {
 		return "", err
+	}
+
+	if dr.ReqMod != nil {
+		if err := dr.ReqMod(req, handle); err != nil {
+			return "", err
+		}
 	}
 
 	req = req.WithContext(ctx)
