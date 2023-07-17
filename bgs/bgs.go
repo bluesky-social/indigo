@@ -27,8 +27,8 @@ import (
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
-	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
+
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
@@ -337,7 +337,7 @@ func (bgs *BGS) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 type User struct {
-	ID        bsutil.Uid `gorm:"primarykey"`
+	ID        models.Uid `gorm:"primarykey"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
@@ -522,8 +522,11 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	ctx, span := otel.Tracer("bgs").Start(ctx, "handleFedEvent")
 	defer span.End()
 
+	eventsReceivedCounter.WithLabelValues(host.Host).Add(1)
+
 	switch {
 	case env.RepoCommit != nil:
+		repoCommitsReceivedCounter.WithLabelValues(host.Host).Add(1)
 		evt := env.RepoCommit
 		log.Infow("bgs got repo append event", "seq", evt.Seq, "host", host.Host, "repo", evt.Repo)
 		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
@@ -549,6 +552,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		// skip the fast path for rebases or if the user is already in the slow path
 		if evt.Rebase || bgs.Index.Crawler.RepoInSlowPath(ctx, host, u.ID) {
+			rebasesCounter.WithLabelValues(host.Host).Add(1)
 			ai, err := bgs.Index.LookupUser(ctx, u.ID)
 			if err != nil {
 				return err
@@ -619,7 +623,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	}
 }
 
-func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user bsutil.Uid, blobs []string) error {
+func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user models.Uid, blobs []string) error {
 	if s.blobs == nil {
 		log.Debugf("blob syncing disabled")
 		return nil

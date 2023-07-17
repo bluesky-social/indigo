@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	util "github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/models"
 
 	blockformat "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
@@ -35,7 +35,7 @@ type CarStore struct {
 	rootDir string
 
 	lscLk          sync.Mutex
-	lastShardCache map[util.Uid]*CarShard
+	lastShardCache map[models.Uid]*CarShard
 }
 
 func NewCarStore(meta *gorm.DB, root string) (*CarStore, error) {
@@ -54,7 +54,7 @@ func NewCarStore(meta *gorm.DB, root string) (*CarStore, error) {
 	return &CarStore{
 		meta:           meta,
 		rootDir:        root,
-		lastShardCache: make(map[util.Uid]*CarShard),
+		lastShardCache: make(map[models.Uid]*CarShard),
 	}, nil
 }
 
@@ -67,17 +67,17 @@ type CarShard struct {
 	ID        uint `gorm:"primarykey"`
 	CreatedAt time.Time
 
-	Root      util.DbCID
+	Root      models.DbCID
 	DataStart int64
 	Seq       int `gorm:"index"`
 	Path      string
-	Usr       util.Uid `gorm:"index"`
+	Usr       models.Uid `gorm:"index"`
 	Rebase    bool
 }
 
 type blockRef struct {
-	ID     uint       `gorm:"primarykey"`
-	Cid    util.DbCID `gorm:"index"`
+	ID     uint         `gorm:"primarykey"`
+	Cid    models.DbCID `gorm:"index"`
 	Shard  uint
 	Offset int64
 	//User   uint `gorm:"index"`
@@ -85,7 +85,7 @@ type blockRef struct {
 
 type userView struct {
 	cs   *CarStore
-	user util.Uid
+	user models.Uid
 
 	cache    map[cid.Cid]blockformat.Block
 	prefetch bool
@@ -103,7 +103,7 @@ func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
 		Model(blockRef{}).
 		Select("path, block_refs.offset").
 		Joins("left join car_shards on block_refs.shard = car_shards.id").
-		Where("usr = ? AND cid = ?", uv.user, util.DbCID{k}).
+		Where("usr = ? AND cid = ?", uv.user, models.DbCID{k}).
 		Count(&count).Error; err != nil {
 		return false, err
 	}
@@ -133,7 +133,7 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, erro
 		Model(blockRef{}).
 		Select("path, block_refs.offset").
 		Joins("left join car_shards on block_refs.shard = car_shards.id").
-		Where("usr = ? AND cid = ?", uv.user, util.DbCID{k}).
+		Where("usr = ? AND cid = ?", uv.user, models.DbCID{k}).
 		Find(&info).Error; err != nil {
 		return nil, err
 	}
@@ -239,13 +239,13 @@ type DeltaSession struct {
 	fresh    blockstore.Blockstore
 	blks     map[cid.Cid]blockformat.Block
 	base     blockstore.Blockstore
-	user     util.Uid
+	user     models.Uid
 	seq      int
 	readonly bool
 	cs       *CarStore
 }
 
-func (cs *CarStore) checkLastShardCache(user util.Uid) *CarShard {
+func (cs *CarStore) checkLastShardCache(user models.Uid) *CarShard {
 	cs.lscLk.Lock()
 	defer cs.lscLk.Unlock()
 
@@ -257,14 +257,14 @@ func (cs *CarStore) checkLastShardCache(user util.Uid) *CarShard {
 	return nil
 }
 
-func (cs *CarStore) putLastShardCache(user util.Uid, ls *CarShard) {
+func (cs *CarStore) putLastShardCache(user models.Uid, ls *CarShard) {
 	cs.lscLk.Lock()
 	defer cs.lscLk.Unlock()
 
 	cs.lastShardCache[user] = ls
 }
 
-func (cs *CarStore) getLastShard(ctx context.Context, user util.Uid) (*CarShard, error) {
+func (cs *CarStore) getLastShard(ctx context.Context, user models.Uid) (*CarShard, error) {
 	maybeLs := cs.checkLastShardCache(user)
 	if maybeLs != nil {
 		return maybeLs, nil
@@ -288,7 +288,7 @@ var ErrRepoBaseMismatch = fmt.Errorf("attempted a delta session on top of the wr
 
 var ErrRepoFork = fmt.Errorf("repo fork detected")
 
-func (cs *CarStore) NewDeltaSession(ctx context.Context, user util.Uid, prev *cid.Cid) (*DeltaSession, error) {
+func (cs *CarStore) NewDeltaSession(ctx context.Context, user models.Uid, prev *cid.Cid) (*DeltaSession, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "NewSession")
 	defer span.End()
 
@@ -329,7 +329,7 @@ func (cs *CarStore) NewDeltaSession(ctx context.Context, user util.Uid, prev *ci
 	}, nil
 }
 
-func (cs *CarStore) ReadOnlySession(user util.Uid) (*DeltaSession, error) {
+func (cs *CarStore) ReadOnlySession(user models.Uid) (*DeltaSession, error) {
 	return &DeltaSession{
 		base: &userView{
 			user:     user,
@@ -343,7 +343,7 @@ func (cs *CarStore) ReadOnlySession(user util.Uid) (*DeltaSession, error) {
 	}, nil
 }
 
-func (cs *CarStore) ReadUserCar(ctx context.Context, user util.Uid, earlyCid, lateCid cid.Cid, incremental bool, w io.Writer) error {
+func (cs *CarStore) ReadUserCar(ctx context.Context, user models.Uid, earlyCid, lateCid cid.Cid, incremental bool, w io.Writer) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ReadUserCar")
 	defer span.End()
 
@@ -351,7 +351,7 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user util.Uid, earlyCid, la
 
 	if earlyCid.Defined() {
 		var untilShard CarShard
-		if err := cs.meta.First(&untilShard, "root = ? AND usr = ?", util.DbCID{earlyCid}, user).Error; err != nil {
+		if err := cs.meta.First(&untilShard, "root = ? AND usr = ?", models.DbCID{earlyCid}, user).Error; err != nil {
 			return fmt.Errorf("finding early shard: %w", err)
 		}
 		earlySeq = untilShard.Seq
@@ -359,7 +359,7 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user util.Uid, earlyCid, la
 
 	if lateCid.Defined() {
 		var fromShard CarShard
-		if err := cs.meta.First(&fromShard, "root = ? AND usr = ?", util.DbCID{lateCid}, user).Error; err != nil {
+		if err := cs.meta.First(&fromShard, "root = ? AND usr = ?", models.DbCID{lateCid}, user).Error; err != nil {
 			return fmt.Errorf("finding late shard: %w", err)
 		}
 		lateSeq = fromShard.Seq
@@ -524,10 +524,10 @@ func (ds *DeltaSession) GetSize(ctx context.Context, c cid.Cid) (int, error) {
 	return ds.base.GetSize(ctx, c)
 }
 
-func fnameForShard(user util.Uid, seq int) string {
+func fnameForShard(user models.Uid, seq int) string {
 	return fmt.Sprintf("sh-%d-%d", user, seq)
 }
-func (cs *CarStore) openNewShardFile(ctx context.Context, user util.Uid, seq int) (*os.File, string, error) {
+func (cs *CarStore) openNewShardFile(ctx context.Context, user models.Uid, seq int) (*os.File, string, error) {
 	// TODO: some overwrite protections
 	fname := filepath.Join(cs.rootDir, fnameForShard(user, seq))
 	fi, err := os.Create(fname)
@@ -538,7 +538,7 @@ func (cs *CarStore) openNewShardFile(ctx context.Context, user util.Uid, seq int
 	return fi, fname, nil
 }
 
-func (cs *CarStore) writeNewShardFile(ctx context.Context, user util.Uid, seq int, data []byte) (string, error) {
+func (cs *CarStore) writeNewShardFile(ctx context.Context, user models.Uid, seq int, data []byte) (string, error) {
 	_, span := otel.Tracer("carstore").Start(ctx, "writeNewShardFile")
 	defer span.End()
 
@@ -616,7 +616,7 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase 
 		// adding things to the db by map is the only way to get gorm to not
 		// add the 'returning' clause, which costs a lot of time
 		brefs = append(brefs, map[string]interface{}{
-			"cid":    util.DbCID{k},
+			"cid":    models.DbCID{k},
 			"offset": offset,
 		})
 
@@ -630,7 +630,7 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase 
 
 	// TODO: all this database work needs to be in a single transaction
 	shard := CarShard{
-		Root:      util.DbCID{root},
+		Root:      models.DbCID{root},
 		DataStart: hnw,
 		Seq:       ds.seq,
 		Path:      path,
@@ -757,7 +757,7 @@ func LdWrite(w io.Writer, d ...[]byte) (int64, error) {
 	return int64(nw), nil
 }
 
-func (cs *CarStore) ImportSlice(ctx context.Context, uid util.Uid, prev *cid.Cid, carslice []byte) (cid.Cid, *DeltaSession, error) {
+func (cs *CarStore) ImportSlice(ctx context.Context, uid models.Uid, prev *cid.Cid, carslice []byte) (cid.Cid, *DeltaSession, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ImportSlice")
 	defer span.End()
 
@@ -792,7 +792,7 @@ func (cs *CarStore) ImportSlice(ctx context.Context, uid util.Uid, prev *cid.Cid
 	return carr.Header.Roots[0], ds, nil
 }
 
-func (cs *CarStore) GetUserRepoHead(ctx context.Context, user util.Uid) (cid.Cid, error) {
+func (cs *CarStore) GetUserRepoHead(ctx context.Context, user models.Uid) (cid.Cid, error) {
 	lastShard, err := cs.getLastShard(ctx, user)
 	if err != nil {
 		return cid.Undef, err
@@ -810,7 +810,7 @@ type UserStat struct {
 	Created time.Time
 }
 
-func (cs *CarStore) Stat(ctx context.Context, usr util.Uid) ([]UserStat, error) {
+func (cs *CarStore) Stat(ctx context.Context, usr models.Uid) ([]UserStat, error) {
 	var shards []CarShard
 	if err := cs.meta.Order("seq asc").Find(&shards, "usr = ?", usr).Error; err != nil {
 		return nil, err
@@ -828,14 +828,14 @@ func (cs *CarStore) Stat(ctx context.Context, usr util.Uid) ([]UserStat, error) 
 	return out, nil
 }
 
-func (cs *CarStore) checkFork(ctx context.Context, user util.Uid, prev cid.Cid) (bool, error) {
+func (cs *CarStore) checkFork(ctx context.Context, user models.Uid, prev cid.Cid) (bool, error) {
 	lastShard, err := cs.getLastShard(ctx, user)
 	if err != nil {
 		return false, err
 	}
 
 	var maybeShard CarShard
-	if err := cs.meta.WithContext(ctx).Model(CarShard{}).Find(&maybeShard, "usr = ? AND root = ?", user, &util.DbCID{prev}).Error; err != nil {
+	if err := cs.meta.WithContext(ctx).Model(CarShard{}).Find(&maybeShard, "usr = ? AND root = ?", user, &models.DbCID{prev}).Error; err != nil {
 		return false, err
 	}
 
@@ -851,7 +851,7 @@ func (cs *CarStore) checkFork(ctx context.Context, user util.Uid, prev cid.Cid) 
 	return true, nil
 }
 
-func (cs *CarStore) TakeDownRepo(ctx context.Context, user util.Uid) error {
+func (cs *CarStore) TakeDownRepo(ctx context.Context, user models.Uid) error {
 	var shards []CarShard
 	if err := cs.meta.Find(&shards, "usr = ?", user).Error; err != nil {
 		return err

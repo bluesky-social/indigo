@@ -8,8 +8,8 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
+	"github.com/bluesky-social/indigo/models"
 
-	"github.com/bluesky-social/indigo/util"
 	logging "github.com/ipfs/go-log"
 	"go.opentelemetry.io/otel"
 )
@@ -107,9 +107,9 @@ type XRPCStreamEvent struct {
 	LabelInfo     *label.SubscribeLabels_Info
 
 	// some private fields for internal routing perf
-	PrivUid         util.Uid `json:"-" cborgen:"-"`
-	PrivPdsId       uint     `json:"-" cborgen:"-"`
-	PrivRelevantPds []uint   `json:"-" cborgen:"-"`
+	PrivUid         models.Uid `json:"-" cborgen:"-"`
+	PrivPdsId       uint       `json:"-" cborgen:"-"`
+	PrivRelevantPds []uint     `json:"-" cborgen:"-"`
 }
 
 type ErrorFrame struct {
@@ -195,10 +195,10 @@ func (em *EventManager) addSubscriber(sub *Subscriber) {
 	em.subs = append(em.subs, sub)
 }
 
-func (em *EventManager) TakeDownRepo(ctx context.Context, user util.Uid) error {
+func (em *EventManager) TakeDownRepo(ctx context.Context, user models.Uid) error {
 	return em.persister.TakeDownRepo(ctx, user)
 }
 
-func (em *EventManager) HandleRebase(ctx context.Context, user util.Uid) error {
+func (em *EventManager) HandleRebase(ctx context.Context, user models.Uid) error {
 	return em.persister.RebaseRepoEvents(ctx, user)
 }
