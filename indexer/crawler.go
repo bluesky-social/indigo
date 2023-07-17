@@ -16,7 +16,7 @@ type CrawlDispatcher struct {
 
 	repoSync chan *crawlWork
 
-	catchup chan *catchupJob
+	catchup chan *crawlWork
 
 	complete chan models.Uid
 
@@ -38,7 +38,7 @@ func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurre
 		ingest:      make(chan *models.ActorInfo),
 		repoSync:    make(chan *crawlWork),
 		complete:    make(chan models.Uid),
-		catchup:     make(chan *catchupJob),
+		catchup:     make(chan *crawlWork),
 		doRepoCrawl: repoFn,
 		concurrency: concurrency,
 		todo:        make(map[models.Uid]*crawlWork),
@@ -121,30 +121,7 @@ func (c *CrawlDispatcher) mainLoop() {
 				next = nil
 				rs = nil
 			}
-		case catchup := <-c.catchup:
-			c.maplk.Lock()
-			job, ok := c.todo[catchup.user.Uid]
-			// TODO: in the event of receiving a rebase event, we *could* pre-empt all other pending events
-			if ok {
-				job.catchup = append(job.catchup, catchup)
-				c.maplk.Unlock()
-				break
-			}
-
-			job, ok = c.inProgress[catchup.user.Uid]
-			if ok {
-				job.next = append(job.next, catchup)
-				c.maplk.Unlock()
-				break
-			}
-
-			cw := &crawlWork{
-				act:     catchup.user,
-				catchup: []*catchupJob{catchup},
-			}
-			c.todo[catchup.user.Uid] = cw
-			c.maplk.Unlock()
-
+		case cw := <-c.catchup:
 			if next == nil {
 				next = cw
 				rs = c.repoSync
@@ -177,6 +154,30 @@ func (c *CrawlDispatcher) mainLoop() {
 
 		}
 	}
+}
+
+func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
+	c.maplk.Lock()
+	defer c.maplk.Unlock()
+	job, ok := c.todo[catchup.user.Uid]
+	// TODO: in the event of receiving a rebase event, we *could* pre-empt all other pending events
+	if ok {
+		job.catchup = append(job.catchup, catchup)
+		return nil
+	}
+
+	job, ok = c.inProgress[catchup.user.Uid]
+	if ok {
+		job.next = append(job.next, catchup)
+		return nil
+	}
+
+	cw := &crawlWork{
+		act:     catchup.user,
+		catchup: []*catchupJob{catchup},
+	}
+	c.todo[catchup.user.Uid] = cw
+	return cw
 }
 
 func (c *CrawlDispatcher) fetchWorker() {
@@ -214,12 +215,19 @@ func (c *CrawlDispatcher) AddToCatchupQueue(ctx context.Context, host *models.PD
 		panic("not okay")
 	}
 
-	select {
-	case c.catchup <- &catchupJob{
+	catchup := &catchupJob{
 		evt:  evt,
 		host: host,
 		user: u,
-	}:
+	}
+
+	cw := c.addToCatchupQueue(catchup)
+	if cw == nil {
+		return nil
+	}
+
+	select {
+	case c.catchup <- cw:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()

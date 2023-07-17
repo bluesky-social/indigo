@@ -562,10 +562,6 @@ func (rm *RepoManager) DoRebase(ctx context.Context, uid models.Uid) error {
 		return fmt.Errorf("finalizing rebase: %w", err)
 	}
 
-	if err := rm.hs.UpdateUserRepoHead(ctx, uid, nroot); err != nil {
-		return fmt.Errorf("updating user head: %w", err)
-	}
-
 	// outbound car slice should just be the new signed root
 	buf := new(bytes.Buffer)
 	if _, err := carstore.WriteCarHeader(buf, nroot); err != nil {

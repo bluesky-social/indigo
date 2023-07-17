@@ -406,6 +406,7 @@ func TestRebaseMulti(t *testing.T) {
 		bob.Post(t, fmt.Sprintf("this is bobs post %d", i))
 	}
 
+	fmt.Println("REBASE TWO")
 	bob.DoRebase(t)
 
 	var posts []*atproto.RepoStrongRef
@@ -422,9 +423,11 @@ func TestRebaseMulti(t *testing.T) {
 	all := evts1.WaitFor(11)
 
 	assert.Equal(true, all[0].RepoCommit.Rebase)
+	assert.Equal(int64(1), all[0].RepoCommit.Seq)
 	assert.Equal(posts[0].Cid, all[1].RepoCommit.Ops[0].Cid.String())
 
 	// and another one!
+	fmt.Println("REBASE TWO")
 	bob.DoRebase(t)
 
 	var posts2 []*atproto.RepoStrongRef
