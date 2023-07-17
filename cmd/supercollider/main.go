@@ -258,8 +258,12 @@ func Supercollider(cctx *cli.Context) error {
 	go s.EventGenerationLoop(ctx)
 
 	listenAddress := fmt.Sprintf(":%d", port)
-
-	if err := e.Start(listenAddress); err != nil {
+	if cctx.Bool("use-ssl") {
+		err = e.StartAutoTLS(listenAddress)
+	} else {
+		err = e.Start(listenAddress)
+	}
+	if err != nil {
 		log.Errorf("failed to start server: %+v\n", err)
 	}
 	return nil
@@ -488,6 +492,7 @@ func (s *Server) DescribeServerHandler(c echo.Context) error {
 
 // HandleSubscribeRepos opens and manages a websocket connection for subscribing to repo events
 func (s *Server) HandleSubscribeRepos(c echo.Context) error {
+	s.Logger.Infof("new repo subscription from %s\n", c.Request().RemoteAddr)
 	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
 	if err != nil {
 		return err
