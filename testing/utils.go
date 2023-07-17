@@ -526,9 +526,9 @@ func (b *TestBGS) Events(t *testing.T, since int64) *EventStream {
 	go func() {
 		rsc := &events.RepoStreamCallbacks{
 			RepoCommit: func(evt *atproto.SyncSubscribeRepos_Commit) error {
+				fmt.Println("received event: ", evt.Seq, evt.Repo, len(es.Events))
 				es.Lk.Lock()
 				es.Events = append(es.Events, &events.XRPCStreamEvent{RepoCommit: evt})
-				fmt.Println("received event: ", evt.Seq, evt.Repo, len(es.Events))
 				es.Lk.Unlock()
 				return nil
 			},

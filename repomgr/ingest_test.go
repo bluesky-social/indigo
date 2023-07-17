@@ -201,8 +201,7 @@ func TestRebase(t *testing.T) {
 
 	cs := testCarstore(t, dir)
 
-	hs := NewDbHeadStore(maindb)
-	repoman := NewRepoManager(hs, cs, &util.FakeKeyManager{})
+	repoman := NewRepoManager(cs, &util.FakeKeyManager{})
 
 	ctx := context.TODO()
 	if err := repoman.InitNewActor(ctx, 1, "hello.world", "did:plc:foobar", "", "", ""); err != nil {
