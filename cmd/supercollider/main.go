@@ -25,8 +25,9 @@ import (
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
+	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/plc"
-	"github.com/bluesky-social/indigo/version"
+	"github.com/bluesky-social/indigo/util/version"
 	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/labstack/echo-contrib/pprof"
 	"github.com/urfave/cli/v2"
@@ -393,7 +394,7 @@ func (s *Server) EventGenerationLoop(ctx context.Context) {
 				continue
 			}
 			for i, did := range s.Dids {
-				uid := util.Uid(i + 1)
+				uid := models.Uid(i + 1)
 				if err := s.RepoManager.InitNewActor(ctx, uid, strings.TrimPrefix(did, "did:web:"), did, "catdog", "", ""); err != nil {
 					log.Fatalf("failed to init actor: %+v\n", err)
 				}
@@ -408,7 +409,7 @@ func (s *Server) EventGenerationLoop(ctx context.Context) {
 				// Wait for the limiter to allow us to emit another event
 				limiter.Wait(ctx)
 
-				_, _, err := s.RepoManager.CreateRecord(ctx, util.Uid(i%len(s.Dids)+1), "app.bsky.feed.post", &bsky.FeedPost{
+				_, _, err := s.RepoManager.CreateRecord(ctx, models.Uid(i%len(s.Dids)+1), "app.bsky.feed.post", &bsky.FeedPost{
 					Text: "cats",
 				})
 				if err != nil {

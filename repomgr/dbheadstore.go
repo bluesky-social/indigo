@@ -3,7 +3,8 @@ package repomgr
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/models"
+
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
@@ -20,7 +21,7 @@ type DbHeadStore struct {
 	db *gorm.DB
 }
 
-func (hs *DbHeadStore) InitUser(ctx context.Context, user util.Uid, root cid.Cid) error {
+func (hs *DbHeadStore) InitUser(ctx context.Context, user models.Uid, root cid.Cid) error {
 	if err := hs.db.Create(&RepoHead{
 		Usr:  user,
 		Root: root.String(),
@@ -31,7 +32,7 @@ func (hs *DbHeadStore) InitUser(ctx context.Context, user util.Uid, root cid.Cid
 	return nil
 }
 
-func (hs *DbHeadStore) UpdateUserRepoHead(ctx context.Context, user util.Uid, root cid.Cid) error {
+func (hs *DbHeadStore) UpdateUserRepoHead(ctx context.Context, user models.Uid, root cid.Cid) error {
 	if err := hs.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "usr"}},
 		DoUpdates: clause.AssignmentColumns([]string{"root"}),
@@ -45,7 +46,7 @@ func (hs *DbHeadStore) UpdateUserRepoHead(ctx context.Context, user util.Uid, ro
 	return nil
 }
 
-func (hs *DbHeadStore) GetUserRepoHead(ctx context.Context, user util.Uid) (cid.Cid, error) {
+func (hs *DbHeadStore) GetUserRepoHead(ctx context.Context, user models.Uid) (cid.Cid, error) {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "GetUserRepoHead")
 	defer span.End()
 

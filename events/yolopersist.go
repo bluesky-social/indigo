@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/models"
 )
 
 // YoloPersister is used for benchmarking, it has no persistence, it just emits events and forgets them
@@ -48,11 +48,11 @@ func (mp *YoloPersister) Playback(ctx context.Context, since int64, cb func(*XRP
 	return fmt.Errorf("playback not supported by yolo persister, test usage only")
 }
 
-func (yp *YoloPersister) TakeDownRepo(ctx context.Context, uid util.Uid) error {
+func (yp *YoloPersister) TakeDownRepo(ctx context.Context, uid models.Uid) error {
 	return fmt.Errorf("repo takedowns not currently supported by memory persister, test usage only")
 }
 
-func (yp *YoloPersister) RebaseRepoEvents(ctx context.Context, usr util.Uid) error {
+func (yp *YoloPersister) RebaseRepoEvents(ctx context.Context, usr models.Uid) error {
 	return fmt.Errorf("repo rebases not currently supported by memory persister, test usage only")
 }
 

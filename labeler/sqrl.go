@@ -10,7 +10,7 @@ import (
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/version"
+	"github.com/bluesky-social/indigo/util/version"
 )
 
 type SQRLLabeler struct {

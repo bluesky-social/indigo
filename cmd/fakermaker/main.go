@@ -10,9 +10,9 @@ import (
 	"os"
 	"runtime"
 
-	cliutil "github.com/bluesky-social/indigo/cmd/gosky/util"
 	"github.com/bluesky-social/indigo/fakedata"
-	"github.com/bluesky-social/indigo/version"
+	"github.com/bluesky-social/indigo/util/cliutil"
+	"github.com/bluesky-social/indigo/util/version"
 
 	_ "github.com/joho/godotenv/autoload"
 

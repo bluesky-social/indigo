@@ -24,7 +24,6 @@ import (
 	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
-	util "github.com/bluesky-social/indigo/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
 
 	logging "github.com/ipfs/go-log"
@@ -58,7 +57,7 @@ type RepoConfig struct {
 	Did        string
 	Password   string
 	SigningKey *did.PrivKey
-	UserId     util.Uid
+	UserId     models.Uid
 }
 
 // In addition to configuring the service, will connect to upstream BGS and start processing events. Won't handle HTTP or WebSocket endpoints until RunAPI() is called.
