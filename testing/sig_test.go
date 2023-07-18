@@ -2,10 +2,8 @@ package testing
 
 import (
 	"context"
-	"crypto/elliptic"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -14,9 +12,10 @@ import (
 
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	"github.com/multiformats/go-multibase"
 	"github.com/stretchr/testify/assert"
 	"github.com/whyrusleeping/go-did"
+	secp "gitlab.com/yawning/secp256k1-voi"
+	"gitlab.com/yawning/secp256k1-voi/secec"
 )
 
 func TestVerification(t *testing.T) {
@@ -51,7 +50,7 @@ func TestVerification(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pk, err := did.KeyFromMultibase(vm)
+	pk, err := vm.GetPublicKey()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,50 +80,46 @@ func TestVerificationK256(t *testing.T) {
 	sigBytes, err := base64.StdEncoding.DecodeString("1ZJM8YFVmHJksi+liHFn62GBfUd7zDio0BVej0JTjtJUdYMgmV8Mg4/4RNfL9VFM8bXMhzusJ1qpu2kTyHoliA==")
 	assert.NoError(err)
 
+	pt, err := secp.NewIdentityPoint().SetBytes(keyBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	k, err := secec.NewPublicKeyFromPoint(pt)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	key := did.PubKey{
 		Type: "EcdsaSecp256k1VerificationKey2019", // k1 -> K256
-		Raw:  keyBytes,
+		Raw:  k,
 	}
 
 	assert.NoError(key.Verify(msgBytes, sigBytes))
 }
 
 func parseKeyFromMultibase(t *testing.T, s, keyType string) did.PubKey {
-	_, data, err := multibase.Decode(s)
+	vm := did.VerificationMethod{
+		Type:               keyType,
+		PublicKeyMultibase: &s,
+	}
+
+	pk, err := vm.GetPublicKey()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return did.PubKey{
-		Type: keyType,
-		Raw:  data,
-	}
+
+	return *pk
 }
 
-func parseDidKey(t *testing.T, s string) did.PubKey {
+func parseDidKey(t *testing.T, s string) *did.PubKey {
 	parts := strings.SplitN(s, ":", 3)
-	_, data, err := multibase.Decode(parts[2])
+	k, err := did.PubKeyFromMultibaseString(parts[2])
 	if err != nil {
 		t.Fatal(err)
 	}
-	switch {
-	case data[0] == 0x80 && data[1] == 0x24:
-		// p256;  need to "uncompress"
-		curve := elliptic.P256()
-		x, y := elliptic.UnmarshalCompressed(curve, data[2:])
-		return did.PubKey{
-			Type: "EcdsaSecp256r1VerificationKey2019",
-			Raw:  elliptic.Marshal(curve, x, y),
-		}
-	case data[0] == 0xE7 && data[1] == 0x01:
-		// k256; apparently don't need to uncompress
-		return did.PubKey{
-			Type: "EcdsaSecp256k1VerificationKey2019",
-			Raw:  data[2:],
-		}
-	default:
-		t.Fatal(fmt.Errorf("unhandled did:key type: %d %d", data[0], data[1]))
-	}
-	panic("unreachable")
+
+	return k
 }
 
 func TestInteropSignatures(t *testing.T) {
@@ -143,10 +138,10 @@ func TestInteropSignatures(t *testing.T) {
 			description:  "p256/secp256r1",
 			keyType:      "ES256",
 			docType:      "EcdsaSecp256r1VerificationKey2019",
-			didKey:       "did:key:zDnaebKg3xzqP4DnpjCjaUpPkCVridQJufGQqwYWi623VPxcN",
-			multibaseKey: "zQi6N7wGYuk7GhUfU17jkaitpAPzeGyCufAyz9i7jT4T2XSC1KjbAA2QridVGidGbfXdV9X9fWotHmmkVwbeXRujR",
 			msgBase64:    "oWVoZWxsb2V3b3JsZA",
-			sigBase64:    "/SbeL+Tx6TXUZGC7uHHkI9b+1ARoLcqTzkUYJmPBqlCVAvKkxkPowfqKwnJWpZcuF4g3MT7eVgdBROHgdUplIQ",
+			didKey:       "did:key:zDnaembgSGUhZULN2Caob4HLJPaxBh92N7rtH21TErzqf8HQo",
+			multibaseKey: "zxdM8dSstjrpZaRUwBmDvjGXweKuEMVN95A9oJBFjkWMh",
+			sigBase64:    "2vZNsG3UKvvO/CDlrdvyZRISOFylinBh0Jupc6KcWoJWExHptCfduPleDbG3rko3YZnn9Lw0IjpixVmexJDegg",
 		},
 		{
 			description:  "k256/secp256k1",

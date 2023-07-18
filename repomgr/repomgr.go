@@ -24,7 +24,6 @@ import (
 	ipld "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-car"
-	"github.com/urfave/cli/v2"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
@@ -350,16 +349,16 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user models.Uid, handle
 	defer unlock()
 
 	if did == "" {
-		return cli.Exit("must specify did for new actor", 127)
+		return fmt.Errorf("must specify DID for new actor")
 	}
 
 	if user == 0 {
-		return cli.Exit("must specify unique non-zero id for new actor", 127)
+		return fmt.Errorf("must specify user for new actor")
 	}
 
 	ds, err := rm.cs.NewDeltaSession(ctx, user, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("creating new delta session: %w", err)
 	}
 
 	r := repo.NewRepo(ctx, did, ds)
@@ -380,11 +379,11 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user models.Uid, handle
 
 	rslice, err := ds.CloseWithRoot(ctx, root)
 	if err != nil {
-		return err
+		return fmt.Errorf("close with root: %w", err)
 	}
 
 	if err := rm.hs.InitUser(ctx, user, root); err != nil {
-		return err
+		return fmt.Errorf("initializing user in headstore: %w", err)
 	}
 
 	if rm.events != nil {
@@ -636,7 +635,7 @@ func (rm *RepoManager) CheckRepoSig(ctx context.Context, r *repo.Repo, expdid st
 		return fmt.Errorf("commit serialization failed: %w", err)
 	}
 	if err := rm.kmgr.VerifyUserSignature(ctx, repoDid, scom.Sig, sb); err != nil {
-		return fmt.Errorf("signature check failed: %w", err)
+		return fmt.Errorf("signature check failed (sig: %x) (sb: %x) : %w", scom.Sig, sb, err)
 	}
 
 	return nil
