@@ -67,7 +67,7 @@ lexgen: ## Run codegen tool for lexicons (lexicon JSON to Go packages)
 
 .PHONY: run-dev-bgs
 run-dev-bgs: .env ## Runs 'bigsky' BGS for local dev
-	GOLOG_LOG_LEVEL=info go run ./cmd/bigsky --crawl-insecure-ws
+	GOLOG_LOG_LEVEL=info go run ./cmd/bigsky --admin-key localdev --crawl-insecure-ws 
 
 .PHONY: run-dev-labelmaker
 run-dev-labelmaker: .env ## Runs labelmaker for local dev
