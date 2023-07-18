@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"fmt"
 	"log"
@@ -173,9 +171,9 @@ func Supercollider(cctx *cli.Context) error {
 		log.Fatalf("failed to init repo manager: %+v\n", err)
 	}
 
-	multibaseKey := privkey.Public().MultibaseString()
+	vMethod, err := godid.VerificationMethodFromKey(privkey.Public())
 	if err != nil {
-		log.Fatalf("failed to multibase encode key: %+v\n", err)
+		log.Fatalf("failed to generate verification method: %+v\n", err)
 	}
 
 	// Initialize fake account DIDs
@@ -192,7 +190,7 @@ func Supercollider(cctx *cli.Context) error {
 		Host:      cctx.String("hostname"),
 
 		RepoManager:  repoman,
-		MultibaseKey: multibaseKey,
+		MultibaseKey: *vMethod.PublicKeyMultibase,
 		Dids:         dids,
 
 		Events:             em,
@@ -318,21 +316,16 @@ func initSpeedyRepoMan() (*repomgr.RepoManager, *godid.PrivKey, error) {
 
 	cachedidr := plc.NewCachingDidResolver(mr, time.Minute*5, 1000)
 
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	key, err := godid.GeneratePrivKey(rand.Reader, godid.KeyTypeP256)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	key := godid.PrivKey{
-		Type: godid.KeyTypeP256,
-		Raw:  privateKey,
-	}
-
-	kmgr := indexer.NewKeyManager(cachedidr, &key)
+	kmgr := indexer.NewKeyManager(cachedidr, key)
 
 	repoman := repomgr.NewRepoManager(hs, cs, kmgr)
 
-	return repoman, &key, nil
+	return repoman, key, nil
 }
 
 // HandleRepoEvent is the callback for the RepoManager
