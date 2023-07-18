@@ -188,7 +188,7 @@ func (bgs *BGS) StartDebug(listen string) error {
 		w.WriteHeader(200)
 		w.Write(blk.RawData())
 	})
-	http.Handle("/prometheus", prometheusHandler())
+	http.Handle("/metrics", prometheusHandler())
 
 	return http.ListenAndServe(listen, nil)
 }

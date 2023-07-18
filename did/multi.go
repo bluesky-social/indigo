@@ -38,5 +38,7 @@ func (mr *MultiResolver) GetDocument(ctx context.Context, didstr string) (*did.D
 		return nil, fmt.Errorf("unknown did method: %q", method)
 	}
 
+	mrResolvedDidsTotal.WithLabelValues(method).Inc()
+
 	return res.GetDocument(ctx, didstr)
 }
