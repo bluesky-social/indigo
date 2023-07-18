@@ -208,6 +208,11 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	e := echo.New()
 	e.HideBanner = true
 
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"http://localhost:*", "https://bgs.bsky-sandbox.dev"},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+	}))
+
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
 	}))
@@ -262,6 +267,8 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	admin.POST("/subs/banDomain", bgs.handleAdminBanDomain)
 	admin.POST("/repo/takeDown", bgs.handleAdminTakeDownRepo)
 	admin.POST("/repo/reverseTakedown", bgs.handleAdminReverseTakedown)
+	admin.GET("/pds/list", bgs.handleListPDSs)
+	admin.POST("/pds/unblock", bgs.handleUnblockPDS)
 
 	// In order to support booting on random ports in tests, we need to tell the
 	// Echo instance it's already got a port, and then use its StartServer

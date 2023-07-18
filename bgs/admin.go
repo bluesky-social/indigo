@@ -7,6 +7,7 @@ import (
 
 	"github.com/bluesky-social/indigo/models"
 	"github.com/labstack/echo/v4"
+	dto "github.com/prometheus/client_model/go"
 )
 
 func (bgs *BGS) handleAdminBlockRepoStream(e echo.Context) error {
@@ -54,6 +55,42 @@ func (bgs *BGS) handleAdminGetUpstreamConns(e echo.Context) error {
 	return e.JSON(200, bgs.slurper.GetActiveList())
 }
 
+type enrichedPDS struct {
+	models.PDS
+	HasActiveConnection    bool   `json:"HasActiveConnection"`
+	EventsSeenSinceStartup uint64 `json:"EventsSeenSinceStartup"`
+}
+
+func (bgs *BGS) handleListPDSs(e echo.Context) error {
+	var pds []models.PDS
+	if err := bgs.db.Find(&pds).Error; err != nil {
+		return err
+	}
+
+	enrichedPDSs := make([]enrichedPDS, len(pds))
+
+	activePDSHosts := bgs.slurper.GetActiveList()
+
+	for i, p := range pds {
+		enrichedPDSs[i].PDS = p
+		enrichedPDSs[i].HasActiveConnection = false
+		for _, host := range activePDSHosts {
+			if strings.ToLower(host) == strings.ToLower(p.Host) {
+				enrichedPDSs[i].HasActiveConnection = true
+				break
+			}
+		}
+		var m = &dto.Metric{}
+		if err := eventsReceivedCounter.WithLabelValues(p.Host).Write(m); err != nil {
+			enrichedPDSs[i].EventsSeenSinceStartup = 0
+			continue
+		}
+		enrichedPDSs[i].EventsSeenSinceStartup = uint64(m.Counter.GetValue())
+	}
+
+	return e.JSON(200, enrichedPDSs)
+}
+
 func (bgs *BGS) handleAdminKillUpstreamConn(e echo.Context) error {
 	host := strings.TrimSpace(e.QueryParam("host"))
 	if host == "" {
@@ -72,6 +109,25 @@ func (bgs *BGS) handleAdminKillUpstreamConn(e echo.Context) error {
 				Message: "no active connection to given host",
 			}
 		}
+		return err
+	}
+
+	return e.JSON(200, map[string]any{
+		"success": "true",
+	})
+}
+
+func (bgs *BGS) handleUnblockPDS(e echo.Context) error {
+	host := strings.TrimSpace(e.QueryParam("host"))
+	if host == "" {
+		return &echo.HTTPError{
+			Code:    400,
+			Message: "must pass a valid host",
+		}
+	}
+
+	// Set the block flag to false in the DB
+	if err := bgs.db.Model(&models.PDS{}).Where("host = ?", host).Update("blocked", false).Error; err != nil {
 		return err
 	}
 
