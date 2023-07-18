@@ -11,6 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/bgs"
 	"github.com/bluesky-social/indigo/blobs"
 	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/notifs"
@@ -109,6 +110,10 @@ func run(args []string) {
 			Name:    "admin-key",
 			EnvVars: []string{"BGS_ADMIN_KEY"},
 		},
+		&cli.StringSliceFlag{
+			Name:    "handle-resolver-hosts",
+			EnvVars: []string{"HANDLE_RESOLVER_HOSTS"},
+		},
 	}
 
 	app.Action = func(cctx *cli.Context) error {
@@ -202,8 +207,18 @@ func run(args []string) {
 			return err
 		}
 
+		mr := did.NewMultiResolver()
+
 		didr := &api.PLCServer{Host: cctx.String("plc-host")}
-		cachedidr := plc.NewCachingDidResolver(didr, time.Minute*5, 1000)
+		mr.AddHandler("plc", didr)
+
+		webr := did.WebResolver{}
+		if cctx.Bool("crawl-insecure-ws") {
+			webr.Insecure = true
+		}
+		mr.AddHandler("web", &webr)
+
+		cachedidr := plc.NewCachingDidResolver(mr, time.Minute*5, 1000)
 
 		kmgr := indexer.NewKeyManager(cachedidr, nil)
 
@@ -244,8 +259,10 @@ func run(args []string) {
 		}
 
 		var hr api.HandleResolver = &api.ProdHandleResolver{}
-		if cctx.Bool("crawl-insecure-ws") {
-			hr = &api.TestHandleResolver{}
+		if cctx.StringSlice("handle-resolver-hosts") != nil {
+			hr = &api.TestHandleResolver{
+				TrialHosts: cctx.StringSlice("handle-resolver-hosts"),
+			}
 		}
 
 		bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, hr, !cctx.Bool("crawl-insecure-ws"))
