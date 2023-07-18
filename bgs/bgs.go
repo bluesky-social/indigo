@@ -188,7 +188,6 @@ func (bgs *BGS) StartDebug(listen string) error {
 		w.WriteHeader(200)
 		w.Write(blk.RawData())
 	})
-	http.Handle("/prometheus", prometheusHandler())
 
 	return http.ListenAndServe(listen, nil)
 }
@@ -248,6 +247,12 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	e.POST("/xrpc/com.atproto.sync.requestCrawl", bgs.HandleComAtprotoSyncRequestCrawl)
 	e.GET("/xrpc/com.atproto.sync.notifyOfUpdate", bgs.HandleComAtprotoSyncNotifyOfUpdate)
 	e.GET("/xrpc/_health", bgs.HandleHealthCheck)
+
+	promh := prometheusHandler()
+	e.GET("/metrics", func(e echo.Context) error {
+		promh.ServeHTTP(e.Response().Writer, e.Request())
+		return nil
+	})
 
 	admin := e.Group("/admin", bgs.checkAdminAuth)
 	admin.POST("/subs/setEnabled", bgs.handleAdminSetSubsEnabled)
