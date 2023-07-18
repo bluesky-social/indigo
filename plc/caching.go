@@ -62,8 +62,10 @@ func (r *CachingDidResolver) GetDocument(ctx context.Context, didstr string) (*d
 	doc, ok := r.tryCache(didstr)
 	if ok {
 		span.SetAttributes(attribute.Bool("cache", true))
+		cacheHitsTotal.Inc()
 		return doc, nil
 	}
+	cacheMissesTotal.Inc()
 	span.SetAttributes(attribute.Bool("cache", false))
 
 	doc, err := r.res.GetDocument(ctx, didstr)
