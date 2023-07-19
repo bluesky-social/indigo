@@ -123,6 +123,25 @@ func (bgs *BGS) handleAdminKillUpstreamConn(e echo.Context) error {
 	})
 }
 
+func (bgs *BGS) handleBlockPDS(e echo.Context) error {
+	host := strings.TrimSpace(e.QueryParam("host"))
+	if host == "" {
+		return &echo.HTTPError{
+			Code:    400,
+			Message: "must pass a valid host",
+		}
+	}
+
+	// Set the block flag to true in the DB
+	if err := bgs.db.Model(&models.PDS{}).Where("host = ?", host).Update("blocked", true).Error; err != nil {
+		return err
+	}
+
+	return e.JSON(200, map[string]any{
+		"success": "true",
+	})
+}
+
 func (bgs *BGS) handleUnblockPDS(e echo.Context) error {
 	host := strings.TrimSpace(e.QueryParam("host"))
 	if host == "" {
