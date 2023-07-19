@@ -230,7 +230,7 @@ const Domains: FC<{}> = () => {
             domains are also banned.
           </p>
         </div>
-        <div className="flex-grow">
+        <div className="flex-grow mt-5 sm:mt-0">
           <div className="max-w-3xl w-full">
             <label
               htmlFor="email"
@@ -269,7 +269,7 @@ const Domains: FC<{}> = () => {
       </div>
 
       <div className="mt-8 flow-root">
-        <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg sm:rounded-b-none">
+        <div className="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg sm:rounded-b-none">
           <table className="min-w-full divide-y divide-gray-300">
             <thead className="bg-gray-50">
               <tr>

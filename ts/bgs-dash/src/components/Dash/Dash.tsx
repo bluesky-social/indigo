@@ -359,7 +359,7 @@ const Dash: FC<{}> = () => {
             A list of all PDS connections and their current status.
           </p>
         </div>
-        <div>
+        <div className="inline-flex mt-5 sm:mt-0">
           <Switch.Group as="div" className="flex items-center justify-between">
             <span className="flex flex-grow flex-col mr-5">
               <Switch.Label as="span" className="text-gray-900" passive>
@@ -402,7 +402,7 @@ const Dash: FC<{}> = () => {
       </div>
 
       <div className="mt-8 flow-root">
-        <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg sm:rounded-b-none">
+        <div className="shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg sm:rounded-b-none overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-300">
             <thead className="bg-gray-50">
               <tr>

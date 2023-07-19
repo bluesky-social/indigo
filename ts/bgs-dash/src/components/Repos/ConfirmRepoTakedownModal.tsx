@@ -1,19 +1,21 @@
 import { Fragment, useState } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { XCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
-
-import { PDS } from "../../models/pds";
+import { XCircleIcon } from "@heroicons/react/24/outline";
 
 interface ConfirmModalProps {
   action: {
-    type: "block" | "disconnect";
-    pds: PDS;
+    type: "takedown" | "untakedown";
+    repo: string;
   };
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-const ConfirmModal = ({ action, onConfirm, onCancel }: ConfirmModalProps) => {
+const ConfirmRepoTakedownModal = ({
+  action,
+  onConfirm,
+  onCancel,
+}: ConfirmModalProps) => {
   const [open, setOpen] = useState(true);
 
   const handleConfirm = () => {
@@ -55,31 +57,24 @@ const ConfirmModal = ({ action, onConfirm, onCancel }: ConfirmModalProps) => {
               <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-sm sm:p-6">
                 <div>
                   <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
-                    {action.type === "block" ? (
-                      <XCircleIcon
-                        className="h-6 w-6 text-yellow-600"
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <XMarkIcon
-                        className="h-6 w-6 text-yellow-600"
-                        aria-hidden="true"
-                      />
-                    )}
+                    <XCircleIcon
+                      className="h-6 w-6 text-yellow-600"
+                      aria-hidden="true"
+                    />
                   </div>
                   <div className="mt-3 text-center sm:mt-5">
                     <Dialog.Title
                       as="h3"
                       className="text-lg font-medium leading-6 text-gray-900"
                     >
-                      {action.type === "block"
-                        ? "Block Host"
-                        : "Disconnect Host"}
+                      {`${action.type[0].toLocaleUpperCase()}${action.type.substring(
+                        1
+                      )}`}{" "}
+                      Repo
                     </Dialog.Title>
                     <div className="mt-2">
                       <p className="text-sm text-gray-500">
-                        Are you sure you want to {action.type}{" "}
-                        {action.pds!.Host}?
+                        Are you sure you want to {action.type} {action.repo}?
                       </p>
                     </div>
                   </div>
@@ -109,4 +104,4 @@ const ConfirmModal = ({ action, onConfirm, onCancel }: ConfirmModalProps) => {
   );
 };
 
-export default ConfirmModal;
+export default ConfirmRepoTakedownModal;

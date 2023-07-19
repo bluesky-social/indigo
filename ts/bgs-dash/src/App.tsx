@@ -12,6 +12,7 @@ import Login from "./components/Login/Login";
 import { useEffect } from "react";
 import Logout from "./components/Logout/Logout";
 import Domains from "./components/Domains/Domains";
+import Repos from "./components/Repos/Repos";
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
@@ -46,7 +47,7 @@ const routes: Route[] = [
       <RequireAuth>
         <Nav />
         <main>
-          <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl px-2 py-6 sm:px-6 lg:px-8">
             <Dash />
           </div>
         </main>
@@ -61,12 +62,28 @@ const routes: Route[] = [
       <RequireAuth>
         <Nav />
         <main>
-          <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl px-2 py-6 sm:px-6 lg:px-8">
             <Domains />
           </div>
         </main>
       </RequireAuth>
     ),
+    requrieAuth: true,
+  },
+  {
+    path: "/repo_takedowns",
+    name: "Repo Takedowns",
+    element: (
+      <RequireAuth>
+        <Nav />
+        <main>
+          <div className="mx-auto max-w-7xl px-2 py-6 sm:px-6 lg:px-8">
+            <Repos />
+          </div>
+        </main>
+      </RequireAuth>
+    ),
+    requrieAuth: true,
   },
   {
     path: "/login",
@@ -75,7 +92,7 @@ const routes: Route[] = [
       <>
         <Nav />
         <main>
-          <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl px-2 py-6 sm:px-6 lg:px-8">
             <Login />
           </div>
         </main>
@@ -91,7 +108,7 @@ const routes: Route[] = [
       <>
         <Nav />
         <main>
-          <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl py-6 px-2 sm:px-6 lg:px-8">
             <Logout />
           </div>
         </main>
@@ -169,26 +186,40 @@ function Nav() {
 
           <Disclosure.Panel className="md:hidden">
             <div className="space-y-1 px-2 pb-3 pt-2 sm:px-3">
-              {router.routes.map((item) => (
-                <Disclosure.Button
-                  key={item.id}
-                  as="a"
-                  href={item.path}
-                  className={classNames(
-                    router.state.location.pathname === item.path
-                      ? "bg-gray-900 text-white"
-                      : "text-gray-300 hover:bg-gray-700 hover:text-white",
-                    "block rounded-md px-3 py-2 text-base font-medium"
-                  )}
-                  aria-current={
-                    router.state.location.pathname === item.path
-                      ? "page"
-                      : undefined
-                  }
-                >
-                  {item.path}
-                </Disclosure.Button>
-              ))}
+              {routes.map((item) =>
+                (isAuthed && item.hideIfAuth) ||
+                (!isAuthed && item.requrieAuth) ? null : (
+                  <Disclosure.Button
+                    key={item.path}
+                    className={classNames(
+                      router.state.location.pathname === item.path
+                        ? "bg-gray-900 text-white"
+                        : "text-gray-300 hover:bg-gray-700 hover:text-white",
+                      "block rounded-md px-3 py-2 text-base font-medium"
+                    )}
+                  >
+                    <NavLink
+                      key={item.path}
+                      to={item.path || "/"}
+                      className={({ isActive }) =>
+                        classNames(
+                          isActive
+                            ? "bg-gray-900 text-white"
+                            : "text-gray-300 hover:bg-gray-700 hover:text-white",
+                          "rounded-md px-3 py-2 text-sm font-medium"
+                        )
+                      }
+                      aria-current={
+                        router.state.location.pathname === item.path
+                          ? "page"
+                          : undefined
+                      }
+                    >
+                      {item.name}
+                    </NavLink>
+                  </Disclosure.Button>
+                )
+              )}
             </div>
           </Disclosure.Panel>
         </>

@@ -2,12 +2,14 @@ package bgs
 
 import (
 	"errors"
+	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/bluesky-social/indigo/models"
 	"github.com/labstack/echo/v4"
 	dto "github.com/prometheus/client_model/go"
+	"gorm.io/gorm"
 )
 
 func (bgs *BGS) handleAdminBlockRepoStream(e echo.Context) error {
@@ -47,14 +49,41 @@ func (bgs *BGS) handleAdminTakeDownRepo(e echo.Context) error {
 		}
 	}
 
-	return bgs.TakeDownRepo(ctx, did)
+	err := bgs.TakeDownRepo(ctx, did)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return &echo.HTTPError{
+				Code:    http.StatusNotFound,
+				Message: "repo not found",
+			}
+		}
+		return &echo.HTTPError{
+			Code:    http.StatusInternalServerError,
+			Message: err.Error(),
+		}
+	}
+	return nil
 }
 
 func (bgs *BGS) handleAdminReverseTakedown(e echo.Context) error {
 	did := e.QueryParam("did")
 	ctx := e.Request().Context()
+	err := bgs.ReverseTakedown(ctx, did)
 
-	return bgs.ReverseTakedown(ctx, did)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return &echo.HTTPError{
+				Code:    http.StatusNotFound,
+				Message: "repo not found",
+			}
+		}
+		return &echo.HTTPError{
+			Code:    http.StatusInternalServerError,
+			Message: err.Error(),
+		}
+	}
+
+	return nil
 }
 
 func (bgs *BGS) handleAdminGetUpstreamConns(e echo.Context) error {

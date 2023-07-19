@@ -866,6 +866,7 @@ func (bgs *BGS) TakeDownRepo(ctx context.Context, did string) error {
 func (bgs *BGS) ReverseTakedown(ctx context.Context, did string) error {
 	u, err := bgs.lookupUserByDid(ctx, did)
 	if err != nil {
+
 		return err
 	}
 
