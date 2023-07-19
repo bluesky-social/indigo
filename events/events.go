@@ -78,17 +78,6 @@ func (em *EventManager) persistAndSendEvent(ctx context.Context, evt *XRPCStream
 	}
 }
 
-type batchPersister interface {
-	PersistMany(ctx context.Context, evts []*XRPCStreamEvent) error
-}
-
-func (em *EventManager) persistAndSendEvents(ctx context.Context, evts []*XRPCStreamEvent) {
-	pm := em.persister.(batchPersister)
-	if err := pm.PersistMany(ctx, evts); err != nil {
-		log.Errorf("failed to persist outbound events: %s", err)
-	}
-}
-
 type Subscriber struct {
 	outgoing chan *XRPCStreamEvent
 
@@ -133,14 +122,6 @@ func (em *EventManager) AddEvent(ctx context.Context, ev *XRPCStreamEvent) error
 	defer span.End()
 
 	em.persistAndSendEvent(ctx, ev)
-	return nil
-}
-
-func (em *EventManager) AddEventBatch(ctx context.Context, evs []*XRPCStreamEvent) error {
-	ctx, span := otel.Tracer("events").Start(ctx, "AddEventBatch")
-	defer span.End()
-
-	em.persistAndSendEvents(ctx, evs)
 	return nil
 }
 
