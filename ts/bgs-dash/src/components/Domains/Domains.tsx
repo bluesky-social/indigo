@@ -2,7 +2,6 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  XCircleIcon,
 } from "@heroicons/react/24/solid";
 import { FC, useEffect, useState } from "react";
 import Notification, {
