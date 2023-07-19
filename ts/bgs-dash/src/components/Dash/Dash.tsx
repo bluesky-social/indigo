@@ -210,13 +210,15 @@ const Dash: FC<{}> = () => {
       if (res.status !== 200) {
         setAlertWithTimeout(
           "failure",
-          `Failed to request disconnect: ${res.statusText} (${res.status})`,
+          `Failed to request ${shouldBlock ? "block" : "disconnect"}: ${
+            res.statusText
+          } (${res.status})`,
           true
         );
       } else {
         setAlertWithTimeout(
           "success",
-          "Successfully requested disconnect",
+          `Successfully requested ${shouldBlock ? "block" : "disconnect"}`,
           true
         );
       }
@@ -224,6 +226,26 @@ const Dash: FC<{}> = () => {
     });
   };
 
+  const requestBlockHost = (host: string) => {
+    fetch(`${BGS_HOST}/admin/pds/block?host=${host}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+    }).then((res) => {
+      if (res.status !== 200) {
+        setAlertWithTimeout(
+          "failure",
+          `Failed to request block: ${res.statusText} (${res.status})`,
+          true
+        );
+      } else {
+        setAlertWithTimeout("success", "Successfully requested block", true);
+      }
+      refreshPDSList();
+    });
+  };
   const requestUnblockHost = (host: string) => {
     fetch(`${BGS_HOST}/admin/pds/unblock?host=${host}`, {
       method: "POST",
@@ -254,7 +276,11 @@ const Dash: FC<{}> = () => {
     setModalConfirm(() => {
       return () => {
         console.log(shouldBlock ? "Blocking" : "Disconnecting");
-        requestDisconnectHost(pds.Host, shouldBlock);
+        if (shouldBlock && pds.HasActiveConnection) {
+          requestDisconnectHost(pds.Host, true);
+        } else {
+          requestBlockHost(pds.Host);
+        }
         setModalAction(null);
       };
     });
