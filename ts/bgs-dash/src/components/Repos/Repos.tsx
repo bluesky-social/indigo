@@ -129,15 +129,15 @@ const Repos: FC<{}> = () => {
   };
 
   const handleTakedownRepo = (
-    domain: string,
+    repo: string,
     type: "takedown" | "untakedown"
   ) => {
-    setModalAction({ repo: domain, type });
+    setModalAction({ repo: repo, type });
 
     setModalConfirm(() => {
       return () => {
-        if (type === "takedown") requestTakedownRepo(domain);
-        else requestUntakedownRepo(domain);
+        if (type === "takedown") requestTakedownRepo(repo);
+        else requestUntakedownRepo(repo);
 
         setModalAction(null);
       };
@@ -189,8 +189,8 @@ const Repos: FC<{}> = () => {
           <div className="mt-2 inline-flex flex-col sm:flex-row">
             <input
               type="text"
-              name="domain"
-              id="domain"
+              name="repo"
+              id="repo"
               className="block w-72 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
               placeholder="did:plc:abadperson"
               value={repoToTakedown}
