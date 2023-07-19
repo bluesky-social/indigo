@@ -81,7 +81,8 @@ const Dash: FC<{}> = () => {
           );
           return;
         }
-        setPDSList(res);
+        const sortedList = sortPDSList(res);
+        setPDSList(sortedList);
       })
       .catch((err) => {
         setAlertWithTimeout("error", `Failed to fetch PDS list: ${err}`, true);
@@ -175,11 +176,8 @@ const Dash: FC<{}> = () => {
     });
   };
 
-  useEffect(() => {
-    if (!pdsList) {
-      return;
-    }
-    const sortedPDSs: PDS[] = [...pdsList].sort((a, b) => {
+  const sortPDSList = (list: PDS[]): PDS[] => {
+    const sortedPDSs: PDS[] = [...list].sort((a, b) => {
       if (sortOrder === "asc") {
         if (a[sortField]! < b[sortField]!) {
           return -1;
@@ -197,7 +195,14 @@ const Dash: FC<{}> = () => {
       }
       return 0;
     });
-    setPDSList(sortedPDSs);
+    return sortedPDSs;
+  };
+
+  useEffect(() => {
+    if (!pdsList) {
+      return;
+    }
+    setPDSList(sortPDSList(pdsList));
   }, [sortOrder, sortField]);
 
   useEffect(() => {
