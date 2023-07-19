@@ -426,6 +426,37 @@ const Dash: FC<{}> = () => {
                     </span>
                   </a>
                 </th>
+                <th
+                  scope="col"
+                  className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
+                >
+                  <a
+                    href="#"
+                    className="group inline-flex"
+                    onClick={() => {
+                      setSortField("CreatedAt");
+                      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                    }}
+                  >
+                    First Seen
+                    <span
+                      className={`ml-2 flex-none rounded text-gray-400 ${
+                        sortField === "CreatedAt"
+                          ? "group-hover:bg-gray-200"
+                          : "invisible group-hover:visible group-focus:visible"
+                      }`}
+                    >
+                      {sortField === "CreatedAt" && sortOrder === "asc" ? (
+                        <ChevronUpIcon className="h-5 w-5" aria-hidden="true" />
+                      ) : (
+                        <ChevronDownIcon
+                          className="h-5 w-5"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </span>
+                  </a>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
@@ -522,6 +553,9 @@ const Dash: FC<{}> = () => {
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
                         {pds.Cursor?.toLocaleString()}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
+                        {new Date(Date.parse(pds.CreatedAt)).toLocaleString()}
                       </td>
                     </tr>
                   );
