@@ -1,4 +1,3 @@
-const BGS_HOST = "http://localhost:2470";
-const ADMIN_TOKEN = "localdev";
+const BGS_HOST = `${window.location.protocol}//${window.location.host}`;
 
-export { BGS_HOST, ADMIN_TOKEN };
+export { BGS_HOST };

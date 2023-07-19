@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useEffect, useState } from "react";
 import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
@@ -13,17 +13,24 @@ interface Alert {
 }
 
 const Alert: FC<Alert> = ({ type, message, autoDismiss, dismissAlert }) => {
-  if (autoDismiss) {
-    setTimeout(() => {
-      dismissAlert();
-    }, 5000);
-  }
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    if (autoDismiss) {
+      const timeout = setTimeout(() => {
+        setIsVisible(false);
+        setTimeout(dismissAlert, 500);
+      }, 3000);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [autoDismiss, dismissAlert]);
 
   return (
     <div
       className={`rounded-md p-4 ${
         type === "success" ? "bg-green-50" : "bg-red-50"
-      }`}
+      } ${isVisible ? "fade-in" : "fade-out"}`}
     >
       <div className="flex">
         <div className="flex-shrink-0">
@@ -61,7 +68,9 @@ const Alert: FC<Alert> = ({ type, message, autoDismiss, dismissAlert }) => {
                   ? "focus:ring-green-600 focus:ring-offset-green-50"
                   : "focus:ring-red-600 focus:ring-offset-red-50"
               }`}
-              onClick={dismissAlert}
+              onClick={() => {
+                dismissAlert();
+              }}
             >
               <span className="sr-only">Dismiss</span>
               <XMarkIcon className="h-5 w-5" aria-hidden="true" />
