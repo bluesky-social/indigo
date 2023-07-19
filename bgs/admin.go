@@ -142,18 +142,24 @@ func (bgs *BGS) handleUnblockPDS(e echo.Context) error {
 	})
 }
 
+type bannedDomains struct {
+	BannedDomains []string `json:"banned_domains"`
+}
+
 func (bgs *BGS) handleAdminListDomainBans(c echo.Context) error {
 	var all []models.DomainBan
 	if err := bgs.db.Find(&all).Error; err != nil {
 		return err
 	}
 
-	var out []string
+	resp := bannedDomains{
+		BannedDomains: []string{},
+	}
 	for _, b := range all {
-		out = append(out, b.Domain)
+		resp.BannedDomains = append(resp.BannedDomains, b.Domain)
 	}
 
-	return c.JSON(200, out)
+	return c.JSON(200, resp)
 }
 
 type banDomainBody struct {
@@ -166,9 +172,33 @@ func (bgs *BGS) handleAdminBanDomain(c echo.Context) error {
 		return err
 	}
 
+	// Check if the domain is already banned
+	var existing models.DomainBan
+	if err := bgs.db.Where("domain = ?", body.Domain).First(&existing).Error; err == nil {
+		return &echo.HTTPError{
+			Code:    400,
+			Message: "domain is already banned",
+		}
+	}
+
 	if err := bgs.db.Create(&models.DomainBan{
 		Domain: body.Domain,
 	}).Error; err != nil {
+		return err
+	}
+
+	return c.JSON(200, map[string]any{
+		"success": "true",
+	})
+}
+
+func (bgs *BGS) handleAdminUnbanDomain(c echo.Context) error {
+	var body banDomainBody
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+
+	if err := bgs.db.Where("domain = ?", body.Domain).Delete(&models.DomainBan{}).Error; err != nil {
 		return err
 	}
 

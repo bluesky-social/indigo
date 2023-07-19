@@ -11,6 +11,7 @@ import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import Login from "./components/Login/Login";
 import { useEffect } from "react";
 import Logout from "./components/Logout/Logout";
+import Domains from "./components/Domains/Domains";
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
@@ -52,6 +53,20 @@ const routes: Route[] = [
       </RequireAuth>
     ),
     requrieAuth: true,
+  },
+  {
+    path: "/domain_bans",
+    name: "Domain Bans",
+    element: (
+      <RequireAuth>
+        <Nav />
+        <main>
+          <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
+            <Domains />
+          </div>
+        </main>
+      </RequireAuth>
+    ),
   },
   {
     path: "/login",
