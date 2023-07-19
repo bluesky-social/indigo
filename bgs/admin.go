@@ -7,6 +7,7 @@ import (
 
 	"github.com/bluesky-social/indigo/models"
 	"github.com/labstack/echo/v4"
+	dto "github.com/prometheus/client_model/go"
 )
 
 func (bgs *BGS) handleAdminBlockRepoStream(e echo.Context) error {
@@ -23,6 +24,12 @@ func (bgs *BGS) handleAdminSetSubsEnabled(e echo.Context) error {
 	}
 
 	return bgs.slurper.SetNewSubsDisabled(!enabled)
+}
+
+func (bgs *BGS) handleAdminGetSubsEnabled(e echo.Context) error {
+	return e.JSON(200, map[string]bool{
+		"enabled": !bgs.slurper.GetNewSubsDisabledState(),
+	})
 }
 
 func (bgs *BGS) handleAdminTakeDownRepo(e echo.Context) error {
@@ -54,6 +61,42 @@ func (bgs *BGS) handleAdminGetUpstreamConns(e echo.Context) error {
 	return e.JSON(200, bgs.slurper.GetActiveList())
 }
 
+type enrichedPDS struct {
+	models.PDS
+	HasActiveConnection    bool   `json:"HasActiveConnection"`
+	EventsSeenSinceStartup uint64 `json:"EventsSeenSinceStartup"`
+}
+
+func (bgs *BGS) handleListPDSs(e echo.Context) error {
+	var pds []models.PDS
+	if err := bgs.db.Find(&pds).Error; err != nil {
+		return err
+	}
+
+	enrichedPDSs := make([]enrichedPDS, len(pds))
+
+	activePDSHosts := bgs.slurper.GetActiveList()
+
+	for i, p := range pds {
+		enrichedPDSs[i].PDS = p
+		enrichedPDSs[i].HasActiveConnection = false
+		for _, host := range activePDSHosts {
+			if strings.ToLower(host) == strings.ToLower(p.Host) {
+				enrichedPDSs[i].HasActiveConnection = true
+				break
+			}
+		}
+		var m = &dto.Metric{}
+		if err := eventsReceivedCounter.WithLabelValues(p.Host).Write(m); err != nil {
+			enrichedPDSs[i].EventsSeenSinceStartup = 0
+			continue
+		}
+		enrichedPDSs[i].EventsSeenSinceStartup = uint64(m.Counter.GetValue())
+	}
+
+	return e.JSON(200, enrichedPDSs)
+}
+
 func (bgs *BGS) handleAdminKillUpstreamConn(e echo.Context) error {
 	host := strings.TrimSpace(e.QueryParam("host"))
 	if host == "" {
@@ -80,18 +123,62 @@ func (bgs *BGS) handleAdminKillUpstreamConn(e echo.Context) error {
 	})
 }
 
+func (bgs *BGS) handleBlockPDS(e echo.Context) error {
+	host := strings.TrimSpace(e.QueryParam("host"))
+	if host == "" {
+		return &echo.HTTPError{
+			Code:    400,
+			Message: "must pass a valid host",
+		}
+	}
+
+	// Set the block flag to true in the DB
+	if err := bgs.db.Model(&models.PDS{}).Where("host = ?", host).Update("blocked", true).Error; err != nil {
+		return err
+	}
+
+	return e.JSON(200, map[string]any{
+		"success": "true",
+	})
+}
+
+func (bgs *BGS) handleUnblockPDS(e echo.Context) error {
+	host := strings.TrimSpace(e.QueryParam("host"))
+	if host == "" {
+		return &echo.HTTPError{
+			Code:    400,
+			Message: "must pass a valid host",
+		}
+	}
+
+	// Set the block flag to false in the DB
+	if err := bgs.db.Model(&models.PDS{}).Where("host = ?", host).Update("blocked", false).Error; err != nil {
+		return err
+	}
+
+	return e.JSON(200, map[string]any{
+		"success": "true",
+	})
+}
+
+type bannedDomains struct {
+	BannedDomains []string `json:"banned_domains"`
+}
+
 func (bgs *BGS) handleAdminListDomainBans(c echo.Context) error {
 	var all []models.DomainBan
 	if err := bgs.db.Find(&all).Error; err != nil {
 		return err
 	}
 
-	var out []string
+	resp := bannedDomains{
+		BannedDomains: []string{},
+	}
 	for _, b := range all {
-		out = append(out, b.Domain)
+		resp.BannedDomains = append(resp.BannedDomains, b.Domain)
 	}
 
-	return c.JSON(200, out)
+	return c.JSON(200, resp)
 }
 
 type banDomainBody struct {
@@ -104,9 +191,33 @@ func (bgs *BGS) handleAdminBanDomain(c echo.Context) error {
 		return err
 	}
 
+	// Check if the domain is already banned
+	var existing models.DomainBan
+	if err := bgs.db.Where("domain = ?", body.Domain).First(&existing).Error; err == nil {
+		return &echo.HTTPError{
+			Code:    400,
+			Message: "domain is already banned",
+		}
+	}
+
 	if err := bgs.db.Create(&models.DomainBan{
 		Domain: body.Domain,
 	}).Error; err != nil {
+		return err
+	}
+
+	return c.JSON(200, map[string]any{
+		"success": "true",
+	})
+}
+
+func (bgs *BGS) handleAdminUnbanDomain(c echo.Context) error {
+	var body banDomainBody
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+
+	if err := bgs.db.Where("domain = ?", body.Domain).Delete(&models.DomainBan{}).Error; err != nil {
 		return err
 	}
 

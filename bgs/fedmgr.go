@@ -88,6 +88,12 @@ func (s *Slurper) SetNewSubsDisabled(dis bool) error {
 	return nil
 }
 
+func (s *Slurper) GetNewSubsDisabledState() bool {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+	return s.newSubsDisabled
+}
+
 var ErrNewSubsDisabled = fmt.Errorf("new subscriptions temporarily disabled")
 
 func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) error {

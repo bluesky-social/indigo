@@ -67,7 +67,17 @@ lexgen: ## Run codegen tool for lexicons (lexicon JSON to Go packages)
 
 .PHONY: run-dev-bgs
 run-dev-bgs: .env ## Runs 'bigsky' BGS for local dev
-	GOLOG_LOG_LEVEL=info go run ./cmd/bigsky --crawl-insecure-ws
+	GOLOG_LOG_LEVEL=info go run ./cmd/bigsky --admin-key localdev 
+# --crawl-insecure-ws 
+
+.PHONY: build-bgs-image
+build-bgs-image: ## Builds 'bigsky' BGS docker image
+	docker build -t bigsky -f cmd/bigsky/Dockerfile .
+
+.PHONY: run-bgs-image
+run-bgs-image:
+	docker run -p 2470:2470 bigsky /bigsky --admin-key localdev
+# --crawl-insecure-ws 
 
 .PHONY: run-dev-labelmaker
 run-dev-labelmaker: .env ## Runs labelmaker for local dev

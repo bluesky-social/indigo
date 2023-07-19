@@ -204,7 +204,7 @@ func Supercollider(cctx *cli.Context) error {
 	e.AutoTLSManager.Cache = autocert.DirCache("/var/www/.cache")
 	pprof.Register(e)
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
+		Format: "method=${method}, ip=${remote_ip}, uri=${uri}, status=${status} latency=${latency_human} (ua=${user_agent})\n",
 	}))
 
 	// Configure the HTTP Error Handler to support Websocket errors
@@ -316,7 +316,7 @@ func initSpeedyRepoMan() (*repomgr.RepoManager, *godid.PrivKey, error) {
 
 	cachedidr := plc.NewCachingDidResolver(mr, time.Minute*5, 1000)
 
-	key, err := godid.GeneratePrivKey(rand.Reader, godid.KeyTypeP256)
+	key, err := godid.GeneratePrivKey(rand.Reader, godid.KeyTypeSecp256k1)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -457,7 +457,7 @@ func (s *Server) HandleWellKnownDid(c echo.Context) error {
 		"verificationMethod": []map[string]any{
 			{
 				"id":                 "#atproto",
-				"type":               godid.KeyTypeP256,
+				"type":               godid.KeyTypeSecp256k1,
 				"controller":         "did:web:" + s.Host,
 				"publicKeyMultibase": s.MultibaseKey,
 			},
