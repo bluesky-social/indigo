@@ -208,9 +208,20 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	e := echo.New()
 	e.HideBanner = true
 
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"http://localhost:*", "https://bgs.bsky-sandbox.dev"},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+	}))
+
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
 	}))
+
+	// React uses a virtual router, so we need to serve the index.html for all
+	// routes that aren't otherwise handled or in the /assets directory.
+	e.File("/dash", "/public/index.html")
+	e.File("/dash/*", "/public/index.html")
+	e.Static("/assets", "/public/assets")
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
 		switch err := err.(type) {
@@ -255,13 +266,26 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	})
 
 	admin := e.Group("/admin", bgs.checkAdminAuth)
-	admin.POST("/subs/setEnabled", bgs.handleAdminSetSubsEnabled)
+
+	// Slurper-related Admin API
 	admin.GET("/subs/getUpstreamConns", bgs.handleAdminGetUpstreamConns)
+	admin.GET("/subs/getEnabled", bgs.handleAdminGetSubsEnabled)
+	admin.POST("/subs/setEnabled", bgs.handleAdminSetSubsEnabled)
 	admin.POST("/subs/killUpstream", bgs.handleAdminKillUpstreamConn)
+
+	// Domain-related Admin API
 	admin.GET("/subs/listDomainBans", bgs.handleAdminListDomainBans)
 	admin.POST("/subs/banDomain", bgs.handleAdminBanDomain)
+	admin.POST("/subs/unbanDomain", bgs.handleAdminUnbanDomain)
+
+	// Repo-related Admin API
 	admin.POST("/repo/takeDown", bgs.handleAdminTakeDownRepo)
 	admin.POST("/repo/reverseTakedown", bgs.handleAdminReverseTakedown)
+
+	// PDS-related Admin API
+	admin.GET("/pds/list", bgs.handleListPDSs)
+	admin.POST("/pds/block", bgs.handleBlockPDS)
+	admin.POST("/pds/unblock", bgs.handleUnblockPDS)
 
 	// In order to support booting on random ports in tests, we need to tell the
 	// Echo instance it's already got a port, and then use its StartServer
