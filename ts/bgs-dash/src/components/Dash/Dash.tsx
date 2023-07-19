@@ -10,10 +10,11 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/solid";
 
-import { BGS_HOST, ADMIN_TOKEN } from "../../constants";
+import { BGS_HOST } from "../../constants";
 import { PDS, PDSKey } from "../../models/pds";
 
 import ConfirmModal from "./ConfirmModal";
+import { useNavigate } from "react-router-dom";
 
 const Dash: FC<{}> = () => {
   const [pdsList, setPDSList] = useState<PDS[] | null>(null);
@@ -29,6 +30,35 @@ const Dash: FC<{}> = () => {
   const [modalConfirm, setModalConfirm] = useState<() => void>(() => {});
   const [modalCancel, setModalCancel] = useState<() => void>(() => {});
 
+  const [adminToken, setAdminToken] = useState<string>(
+    localStorage.getItem("admin_route_token") || ""
+  );
+  const navigate = useNavigate();
+
+  const setAlertWithTimeout = (
+    type: "error" | "success",
+    message: string,
+    dismiss: boolean
+  ) => {
+    setAlert({
+      type,
+      message,
+      dismissAlert: () => {
+        setAlert(null);
+      },
+      autoDismiss: dismiss,
+    });
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem("admin_route_token");
+    if (token) {
+      setAdminToken(token);
+    } else {
+      navigate("/login");
+    }
+  }, []);
+
   useEffect(() => {
     document.title = "BGS Admin Dashboard";
   }, []);
@@ -38,21 +68,23 @@ const Dash: FC<{}> = () => {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${ADMIN_TOKEN}`,
+        Authorization: `Bearer ${adminToken}`,
       },
     })
       .then((res) => res.json())
       .then((res: PDS[]) => {
+        if ("error" in res) {
+          setAlertWithTimeout(
+            "error",
+            `Failed to fetch PDS list: ${res.error}`,
+            true
+          );
+          return;
+        }
         setPDSList(res);
       })
       .catch((err) => {
-        setAlert({
-          type: "error",
-          message: `Failed to fetch PDS list: ${err}`,
-          dismissAlert: () => {
-            setAlert(null);
-          },
-        });
+        setAlertWithTimeout("error", `Failed to fetch PDS list: ${err}`, true);
       });
   };
 
@@ -61,21 +93,13 @@ const Dash: FC<{}> = () => {
       `${BGS_HOST}/xrpc/com.atproto.sync.requestCrawl?hostname=${host}`
     ).then((res) => {
       if (res.status !== 200) {
-        setAlert({
-          type: "error",
-          message: `Failed to request crawl: ${res.statusText} (${res.status})`,
-          dismissAlert: () => {
-            setAlert(null);
-          },
-        });
+        setAlertWithTimeout(
+          "error",
+          `Failed to request crawl: ${res.statusText} (${res.status})`,
+          true
+        );
       } else {
-        setAlert({
-          type: "success",
-          message: "Successfully requested crawl",
-          dismissAlert: () => {
-            setAlert(null);
-          },
-        });
+        setAlertWithTimeout("success", "Successfully requested crawl", true);
       }
       refreshPDSList();
     });
@@ -88,26 +112,22 @@ const Dash: FC<{}> = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${ADMIN_TOKEN}`,
+          Authorization: `Bearer ${adminToken}`,
         },
       }
     ).then((res) => {
       if (res.status !== 200) {
-        setAlert({
-          type: "error",
-          message: `Failed to request disconnect: ${res.statusText} (${res.status})`,
-          dismissAlert: () => {
-            setAlert(null);
-          },
-        });
+        setAlertWithTimeout(
+          "error",
+          `Failed to request disconnect: ${res.statusText} (${res.status})`,
+          true
+        );
       } else {
-        setAlert({
-          type: "success",
-          message: "Successfully requested disconnect",
-          dismissAlert: () => {
-            setAlert(null);
-          },
-        });
+        setAlertWithTimeout(
+          "success",
+          "Successfully requested disconnect",
+          true
+        );
       }
       refreshPDSList();
     });
@@ -118,25 +138,17 @@ const Dash: FC<{}> = () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${ADMIN_TOKEN}`,
+        Authorization: `Bearer ${adminToken}`,
       },
     }).then((res) => {
       if (res.status !== 200) {
-        setAlert({
-          type: "error",
-          message: `Failed to request unblock: ${res.statusText} (${res.status})`,
-          dismissAlert: () => {
-            setAlert(null);
-          },
-        });
+        setAlertWithTimeout(
+          "error",
+          `Failed to request unblock: ${res.statusText} (${res.status})`,
+          true
+        );
       } else {
-        setAlert({
-          type: "success",
-          message: "Successfully requested unblock",
-          dismissAlert: () => {
-            setAlert(null);
-          },
-        });
+        setAlertWithTimeout("success", "Successfully requested unblock", true);
       }
       refreshPDSList();
     });

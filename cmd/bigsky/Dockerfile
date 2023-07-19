@@ -13,6 +13,17 @@ WORKDIR /dockerbuild
 RUN GIT_VERSION=$(git describe --tags --long --always) && \
     go build -tags timetzdata -ldflags="-X github.com/bluesky-social/indigo/version.Version=$GIT_VERSION"  -o /bigsky ./cmd/bigsky
 
+### Build Frontend stage
+FROM node:18-alpine as web-builder
+
+WORKDIR /app
+
+COPY ts/bgs-dash /app/
+
+RUN yarn install --frozen-lockfile
+
+RUN yarn build
+
 ### Run stage
 FROM alpine:3.17
 
@@ -22,6 +33,7 @@ ENTRYPOINT ["dumb-init", "--"]
 WORKDIR /
 RUN mkdir -p data/bigsky
 COPY --from=build-env /bigsky /
+COPY --from=web-builder /app/dist/ public/
 
 # small things to make golang binaries work well under alpine
 ENV GODEBUG=netdns=go

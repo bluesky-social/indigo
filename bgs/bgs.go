@@ -217,6 +217,12 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 		Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
 	}))
 
+	// React uses a virtual router, so we need to serve the index.html for all
+	// routes that aren't otherwise handled or in the /assets directory.
+	e.File("/dash", "/public/index.html")
+	e.File("/dash/*", "/public/index.html")
+	e.Static("/assets", "/public/assets")
+
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
 		switch err := err.(type) {
 		case *echo.HTTPError:
