@@ -213,7 +213,7 @@ const Dash: FC<{}> = () => {
     }, 10 * 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [sortField, sortOrder]);
 
   return (
     <div className="mx-auto max-w-full">
