@@ -1,5 +1,7 @@
-import { FC, useEffect, useState } from "react";
-import Alert from "../Alert/Alert";
+import {
+  ShieldCheckIcon,
+  ShieldExclamationIcon,
+} from "@heroicons/react/24/outline";
 import {
   ArrowPathIcon,
   CheckCircleIcon,
@@ -9,18 +11,39 @@ import {
   XCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/solid";
+import { FC, useEffect, useState } from "react";
+import Notification, {
+  NotificationMeta,
+  NotificationType,
+} from "../Notification/Notification";
 
 import { BGS_HOST } from "../../constants";
 import { PDS, PDSKey } from "../../models/pds";
 
-import ConfirmModal from "./ConfirmModal";
+import { Switch } from "@headlessui/react";
 import { useNavigate } from "react-router-dom";
+import ConfirmModal from "./ConfirmModal";
+
+function classNames(...classes: string[]) {
+  return classes.filter(Boolean).join(" ");
+}
 
 const Dash: FC<{}> = () => {
   const [pdsList, setPDSList] = useState<PDS[] | null>(null);
-  const [alert, setAlert] = useState<Alert | null>(null);
   const [sortField, setSortField] = useState<PDSKey>("ID");
   const [sortOrder, setSortOrder] = useState<string>("asc");
+
+  // Slurp Toggle Management
+  const [slurpsEnabled, setSlurpsEnabled] = useState<boolean>(true);
+  const [canToggleSlurps, setCanToggleSlurps] = useState<boolean>(true);
+
+  // Notification Management
+  const [shouldShowNotification, setShouldShowNotification] =
+    useState<boolean>(false);
+  const [notification, setNotification] = useState<NotificationMeta>({
+    message: "",
+    alertType: "",
+  });
 
   // Modal state management
   const [modalAction, setModalAction] = useState<{
@@ -36,18 +59,16 @@ const Dash: FC<{}> = () => {
   const navigate = useNavigate();
 
   const setAlertWithTimeout = (
-    type: "error" | "success",
+    type: NotificationType,
     message: string,
     dismiss: boolean
   ) => {
-    setAlert({
-      type,
+    setNotification({
       message,
-      dismissAlert: () => {
-        setAlert(null);
-      },
-      autoDismiss: dismiss,
+      alertType: type,
+      autodismiss: dismiss,
     });
+    setShouldShowNotification(true);
   };
 
   useEffect(() => {
@@ -75,7 +96,7 @@ const Dash: FC<{}> = () => {
       .then((res: PDS[]) => {
         if ("error" in res) {
           setAlertWithTimeout(
-            "error",
+            "failure",
             `Failed to fetch PDS list: ${res.error}`,
             true
           );
@@ -85,7 +106,76 @@ const Dash: FC<{}> = () => {
         setPDSList(sortedList);
       })
       .catch((err) => {
-        setAlertWithTimeout("error", `Failed to fetch PDS list: ${err}`, true);
+        setAlertWithTimeout(
+          "failure",
+          `Failed to fetch PDS list: ${err}`,
+          true
+        );
+      });
+  };
+
+  const getSlurpsEnabled = () => {
+    fetch(`${BGS_HOST}/admin/subs/getEnabled`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((res) => {
+        if ("error" in res) {
+          setAlertWithTimeout(
+            "failure",
+            `Failed to fetch slurp status: ${res.error}`,
+            true
+          );
+          return;
+        }
+        setSlurpsEnabled(res.enabled);
+      })
+      .catch((err) => {
+        setAlertWithTimeout(
+          "failure",
+          `Failed to fetch slurp status: ${err}`,
+          true
+        );
+      });
+  };
+
+  const requestSlurpsEnabledStateChange = (state: boolean) => {
+    setCanToggleSlurps(false);
+    fetch(`${BGS_HOST}/admin/subs/setEnabled?enabled=${state}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+    })
+      .then((res) => {
+        setCanToggleSlurps(true);
+        if (res.status !== 200) {
+          setAlertWithTimeout(
+            "failure",
+            `Failed to set slurp status: ${res.status}`,
+            true
+          );
+          return;
+        }
+        setAlertWithTimeout(
+          "success",
+          `Successfully ${state ? "enabled" : "disabled"} new slurps`,
+          true
+        );
+        setSlurpsEnabled(state);
+      })
+      .catch((err) => {
+        setCanToggleSlurps(true);
+        setAlertWithTimeout(
+          "failure",
+          `Failed to set slurp status: ${err}`,
+          true
+        );
       });
   };
 
@@ -95,7 +185,7 @@ const Dash: FC<{}> = () => {
     ).then((res) => {
       if (res.status !== 200) {
         setAlertWithTimeout(
-          "error",
+          "failure",
           `Failed to request crawl: ${res.statusText} (${res.status})`,
           true
         );
@@ -119,7 +209,7 @@ const Dash: FC<{}> = () => {
     ).then((res) => {
       if (res.status !== 200) {
         setAlertWithTimeout(
-          "error",
+          "failure",
           `Failed to request disconnect: ${res.statusText} (${res.status})`,
           true
         );
@@ -144,7 +234,7 @@ const Dash: FC<{}> = () => {
     }).then((res) => {
       if (res.status !== 200) {
         setAlertWithTimeout(
-          "error",
+          "failure",
           `Failed to request unblock: ${res.statusText} (${res.status})`,
           true
         );
@@ -207,9 +297,11 @@ const Dash: FC<{}> = () => {
 
   useEffect(() => {
     refreshPDSList();
+    getSlurpsEnabled();
     // Refresh stats every 10 seconds
     const interval = setInterval(() => {
       refreshPDSList();
+      getSlurpsEnabled();
     }, 10 * 1000);
 
     return () => clearInterval(interval);
@@ -217,6 +309,21 @@ const Dash: FC<{}> = () => {
 
   return (
     <div className="mx-auto max-w-full">
+      {shouldShowNotification ? (
+        <Notification
+          message={notification.message}
+          alertType={notification.alertType}
+          subMessage={notification.subMessage}
+          autodismiss={notification.autodismiss}
+          unshow={() => {
+            setShouldShowNotification(false);
+            setNotification({ message: "", alertType: "" });
+          }}
+          show={shouldShowNotification}
+        ></Notification>
+      ) : (
+        <></>
+      )}
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-semibold leading-6 text-gray-900">
@@ -226,15 +333,45 @@ const Dash: FC<{}> = () => {
             A list of all PDS connections and their current status.
           </p>
         </div>
-        <div className="">
-          {alert && (
-            <Alert
-              type={alert.type}
-              message={alert.message}
-              dismissAlert={alert.dismissAlert}
-              autoDismiss={alert.autoDismiss}
-            />
-          )}
+        <div>
+          <Switch.Group as="div" className="flex items-center justify-between">
+            <span className="flex flex-grow flex-col mr-5">
+              <Switch.Label as="span" className="text-gray-900" passive>
+                {slurpsEnabled ? (
+                  <ShieldCheckIcon
+                    className="h-5 w-5 mr-2 mb-1 inline-block"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <ShieldExclamationIcon
+                    className="h-5 w-5 mr-2 mb-1 inline-block"
+                    aria-hidden="true"
+                  />
+                )}
+                <span className="text-md font-medium leading-6">
+                  New Connections {slurpsEnabled ? "Enabled" : "Disabled"}
+                </span>
+              </Switch.Label>
+            </span>
+            <Switch
+              checked={slurpsEnabled}
+              onChange={requestSlurpsEnabledStateChange}
+              disabled={!canToggleSlurps}
+              className={classNames(
+                slurpsEnabled ? "bg-green-600" : "bg-red-400",
+                canToggleSlurps ? "cursor-pointer" : "cursor-not-allowed",
+                "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2"
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={classNames(
+                  slurpsEnabled ? "translate-x-5" : "translate-x-0",
+                  "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                )}
+              />
+            </Switch>
+          </Switch.Group>
         </div>
       </div>
 

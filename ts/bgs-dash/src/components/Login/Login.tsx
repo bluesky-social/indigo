@@ -1,12 +1,19 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BGS_HOST } from "../../constants";
-import Alert from "../Alert/Alert";
+import Notification, { NotificationMeta } from "../Notification/Notification";
 
 export default function Login() {
   const [token, setToken] = useState("");
   const navigate = useNavigate();
-  const [alert, setAlert] = useState<Alert | null>(null);
+
+  // Notification Management
+  const [shouldShowNotification, setShouldShowNotification] =
+    useState<boolean>(false);
+  const [notification, setNotification] = useState<NotificationMeta>({
+    message: "",
+    alertType: "",
+  });
 
   const handleSaveToken = (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,13 +29,12 @@ export default function Login() {
       })
         .then((res) => {
           if (res.status !== 200) {
-            setAlert({
-              type: "error",
+            setNotification({
               message: `Failed to validate Admin Token: Status ${res.status}`,
-              dismissAlert: () => {
-                setAlert(null);
-              },
+              alertType: "failure",
+              autodismiss: true,
             });
+            setShouldShowNotification(true);
             return;
           }
           localStorage.setItem("admin_route_token", token);
@@ -36,13 +42,12 @@ export default function Login() {
           navigate("/");
         })
         .catch((err) => {
-          setAlert({
-            type: "error",
+          setNotification({
             message: `Failed to validate Admin Token: ${err}`,
-            dismissAlert: () => {
-              setAlert(null);
-            },
+            alertType: "failure",
+            autodismiss: true,
           });
+          setShouldShowNotification(true);
         });
     }
   };
@@ -52,13 +57,20 @@ export default function Login() {
       <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-sm">
           <div className="my-4">
-            {alert && (
-              <Alert
-                type={alert.type}
-                message={alert.message}
-                dismissAlert={alert.dismissAlert}
-                autoDismiss={alert.autoDismiss}
-              />
+            {shouldShowNotification ? (
+              <Notification
+                message={notification.message}
+                alertType={notification.alertType}
+                subMessage={notification.subMessage}
+                autodismiss={notification.autodismiss}
+                unshow={() => {
+                  setShouldShowNotification(false);
+                  setNotification({ message: "", alertType: "" });
+                }}
+                show={shouldShowNotification}
+              ></Notification>
+            ) : (
+              <></>
             )}
           </div>
           <h2 className=" text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
@@ -79,7 +91,7 @@ export default function Login() {
                 <input
                   id="token"
                   name="token"
-                  type="text"
+                  type="password"
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
                   required

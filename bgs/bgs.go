@@ -266,6 +266,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	})
 
 	admin := e.Group("/admin", bgs.checkAdminAuth)
+	admin.GET("/subs/getEnabled", bgs.handleAdminGetSubsEnabled)
 	admin.POST("/subs/setEnabled", bgs.handleAdminSetSubsEnabled)
 	admin.GET("/subs/getUpstreamConns", bgs.handleAdminGetUpstreamConns)
 	admin.POST("/subs/killUpstream", bgs.handleAdminKillUpstreamConn)
