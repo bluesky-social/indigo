@@ -184,6 +184,8 @@ func (dp *DiskPersistence) initLogFile() error {
 	return nil
 }
 
+// swapLog swaps the current log file out for a new empty one
+// must only be called while holding dp.lk
 func (dp *DiskPersistence) swapLog(ctx context.Context) error {
 	if err := dp.logfi.Close(); err != nil {
 		return fmt.Errorf("failed to close current log file: %w", err)
@@ -258,26 +260,6 @@ const (
 )
 
 var emptyHeader = make([]byte, headerSize)
-
-func (p *DiskPersistence) addJobsToQueue(jobs []persistJob) error {
-	p.lk.Lock()
-	defer p.lk.Unlock()
-
-	for _, job := range jobs {
-		if err := p.doPersist(job); err != nil {
-			return err
-		}
-
-		// TODO: for some reason replacing this constant with p.writeBufferSize dramatically reduces perf...
-		if len(p.evtbuf) > 400 {
-			if err := p.flushLog(context.TODO()); err != nil {
-				return fmt.Errorf("failed to flush disk log: %w", err)
-			}
-		}
-	}
-
-	return nil
-}
 
 func (p *DiskPersistence) addJobToQueue(job persistJob) error {
 	p.lk.Lock()
