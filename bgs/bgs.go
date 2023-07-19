@@ -266,14 +266,23 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	})
 
 	admin := e.Group("/admin", bgs.checkAdminAuth)
+
+	// Slurper-related Admin API
+	admin.GET("/subs/getUpstreamConns", bgs.handleAdminGetUpstreamConns)
 	admin.GET("/subs/getEnabled", bgs.handleAdminGetSubsEnabled)
 	admin.POST("/subs/setEnabled", bgs.handleAdminSetSubsEnabled)
-	admin.GET("/subs/getUpstreamConns", bgs.handleAdminGetUpstreamConns)
 	admin.POST("/subs/killUpstream", bgs.handleAdminKillUpstreamConn)
+
+	// Domain-related Admin API
 	admin.GET("/subs/listDomainBans", bgs.handleAdminListDomainBans)
 	admin.POST("/subs/banDomain", bgs.handleAdminBanDomain)
+	admin.POST("/subs/unbanDomain", bgs.handleAdminUnbanDomain)
+
+	// Repo-related Admin API
 	admin.POST("/repo/takeDown", bgs.handleAdminTakeDownRepo)
 	admin.POST("/repo/reverseTakedown", bgs.handleAdminReverseTakedown)
+
+	// PDS-related Admin API
 	admin.GET("/pds/list", bgs.handleListPDSs)
 	admin.POST("/pds/unblock", bgs.handleUnblockPDS)
 
