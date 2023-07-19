@@ -26,6 +26,12 @@ func (bgs *BGS) handleAdminSetSubsEnabled(e echo.Context) error {
 	return bgs.slurper.SetNewSubsDisabled(!enabled)
 }
 
+func (bgs *BGS) handleAdminGetSubsEnabled(e echo.Context) error {
+	return e.JSON(200, map[string]bool{
+		"enabled": !bgs.slurper.GetNewSubsDisabledState(),
+	})
+}
+
 func (bgs *BGS) handleAdminTakeDownRepo(e echo.Context) error {
 	ctx := e.Request().Context()
 
