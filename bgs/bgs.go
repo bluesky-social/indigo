@@ -284,6 +284,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 
 	// PDS-related Admin API
 	admin.GET("/pds/list", bgs.handleListPDSs)
+	admin.POST("/pds/block", bgs.handleBlockPDS)
 	admin.POST("/pds/unblock", bgs.handleUnblockPDS)
 
 	// In order to support booting on random ports in tests, we need to tell the
