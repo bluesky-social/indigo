@@ -1049,6 +1049,7 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user models.Uid, r io
 			"root", carr.Header.Roots[0],
 			"commits", len(commits),
 			"head", head,
+			"user", user,
 		)
 	}
 
