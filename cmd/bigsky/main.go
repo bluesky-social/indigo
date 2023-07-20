@@ -107,6 +107,10 @@ func run(args []string) {
 			Name: "disk-blob-store",
 		},
 		&cli.StringFlag{
+			Name:  "disk-persister-dir",
+			Usage: "set directory for disk persister (implicitly enables disk persister)",
+		},
+		&cli.StringFlag{
 			Name:    "admin-key",
 			EnvVars: []string{"BGS_ADMIN_KEY"},
 		},
@@ -224,12 +228,23 @@ func run(args []string) {
 
 		repoman := repomgr.NewRepoManager(repomgr.NewDbHeadStore(db), cstore, kmgr)
 
-		dbp, err := events.NewDbPersistence(db, cstore, nil)
-		if err != nil {
-			return fmt.Errorf("setting up db event persistence: %w", err)
+		var persister events.EventPersistence
+
+		if dpd := cctx.String("disk-persister-dir"); dpd != "" {
+			dp, err := events.NewDiskPersistence(dpd, "", db, events.DefaultDiskPersistOptions())
+			if err != nil {
+				return fmt.Errorf("setting up disk persister: %w", err)
+			}
+			persister = dp
+		} else {
+			dbp, err := events.NewDbPersistence(db, cstore, nil)
+			if err != nil {
+				return fmt.Errorf("setting up db event persistence: %w", err)
+			}
+			persister = dbp
 		}
 
-		evtman := events.NewEventManager(dbp)
+		evtman := events.NewEventManager(persister)
 
 		notifman := &notifs.NullNotifs{}
 
