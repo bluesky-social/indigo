@@ -68,7 +68,7 @@ const Consumers: FC<{}> = () => {
           );
           return;
         }
-        const list: Consumer[] = res.map((consumer, idx) => {
+        const list: Consumer[] = res.map((consumer) => {
           return {
             RemoteAddr: consumer.remote_addr,
             UserAgent: consumer.user_agent,
