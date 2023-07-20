@@ -156,7 +156,7 @@ func (s *Slurper) RestartAll() error {
 	defer s.lk.Unlock()
 
 	var all []models.PDS
-	if err := s.db.Find(&all, "registered = true").Error; err != nil {
+	if err := s.db.Find(&all, "registered = true AND blocked = false").Error; err != nil {
 		return err
 	}
 
