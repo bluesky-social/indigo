@@ -35,6 +35,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	promclient "github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
@@ -70,6 +71,18 @@ type BGS struct {
 	extUserLk sync.Mutex
 
 	repoman *repomgr.RepoManager
+
+	// Management of Socket Consumers
+	consumersLk    sync.RWMutex
+	nextConsumerID uint64
+	consumers      map[uint64]*SocketConsumer
+}
+
+type SocketConsumer struct {
+	UserAgent   string
+	RemoteAddr  string
+	ConnectedAt time.Time
+	EventsSent  promclient.Counter
 }
 
 func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, blobs blobs.BlobStore, hr api.HandleResolver, ssl bool) (*BGS, error) {
@@ -87,6 +100,9 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		events:  evtman,
 		didr:    didr,
 		blobs:   blobs,
+
+		consumersLk: sync.RWMutex{},
+		consumers:   make(map[uint64]*SocketConsumer),
 	}
 
 	ix.CreateExternalUser = bgs.createExternalUser
@@ -287,6 +303,9 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	admin.POST("/pds/block", bgs.handleBlockPDS)
 	admin.POST("/pds/unblock", bgs.handleUnblockPDS)
 
+	// Consumer-related Admin API
+	admin.GET("/consumers/list", bgs.handleAdminListConsumers)
+
 	// In order to support booting on random ports in tests, we need to tell the
 	// Echo instance it's already got a port, and then use its StartServer
 	// method to re-use that listener.
@@ -394,7 +413,8 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		since = &sval
 	}
 
-	ctx := c.Request().Context()
+	ctx, cancel := context.WithCancel(c.Request().Context())
+	defer cancel()
 
 	// TODO: authhhh
 	conn, err := websocket.Upgrade(c.Response(), c.Request(), c.Response().Header(), 1<<10, 1<<10)
@@ -402,11 +422,69 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
 
-	evts, cancel, err := bgs.events.Subscribe(ctx, func(evt *events.XRPCStreamEvent) bool { return true }, since)
+	// Start a goroutine to ping the client every 30 seconds to check if it's
+	// still alive. If the client doesn't respond to a ping within 5 seconds,
+	// we'll close the connection and teardown the consumer.
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
+					log.Errorf("failed to ping client: %s", err)
+					cancel()
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	evts, cleanup, err := bgs.events.Subscribe(ctx, func(evt *events.XRPCStreamEvent) bool { return true }, since)
 	if err != nil {
 		return err
 	}
-	defer cancel()
+	defer cleanup()
+
+	// Keep track of the consumer for metrics and admin endpoints
+	consumer := SocketConsumer{
+		RemoteAddr:  c.RealIP(),
+		UserAgent:   c.Request().UserAgent(),
+		ConnectedAt: time.Now(),
+	}
+
+	sentCounter := eventsSentCounter.WithLabelValues(consumer.RemoteAddr, consumer.UserAgent)
+	consumer.EventsSent = sentCounter
+
+	bgs.consumersLk.Lock()
+	bgs.nextConsumerID++
+	consumerID := bgs.nextConsumerID
+	bgs.consumers[bgs.nextConsumerID] = &consumer
+	bgs.consumersLk.Unlock()
+
+	// Cleanup the consumer when we're done
+	defer func() {
+		bgs.consumersLk.Lock()
+		defer bgs.consumersLk.Unlock()
+
+		var m = &dto.Metric{}
+		if err := sentCounter.Write(m); err != nil {
+			log.Errorf("failed to get sent counter: %s", err)
+		}
+
+		log.Infow("consumer disconnected",
+			"consumer_id", consumerID,
+			"remote_addr", consumer.RemoteAddr,
+			"user_agent", consumer.UserAgent,
+			"events_sent", m.Counter.GetValue())
+
+		delete(bgs.consumers, consumerID)
+	}()
+
+	log.Infow("new consumer", "remote_addr", consumer.RemoteAddr, "user_agent", consumer.UserAgent)
 
 	header := events.EventHeader{Op: events.EvtKindMessage}
 	for {
@@ -414,6 +492,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		case evt := <-evts:
 			wc, err := conn.NextWriter(websocket.BinaryMessage)
 			if err != nil {
+				log.Errorf("failed to get next writer: %s", err)
 				return err
 			}
 
@@ -453,6 +532,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			if err := wc.Close(); err != nil {
 				return fmt.Errorf("failed to flush-close our event write: %w", err)
 			}
+			sentCounter.Inc()
 		case <-ctx.Done():
 			return nil
 		}

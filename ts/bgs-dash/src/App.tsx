@@ -13,6 +13,7 @@ import { useEffect } from "react";
 import Logout from "./components/Logout/Logout";
 import Domains from "./components/Domains/Domains";
 import Repos from "./components/Repos/Repos";
+import Consumers from "./components/Consumers/Consumers";
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
@@ -49,6 +50,21 @@ const routes: Route[] = [
         <main>
           <div className="mx-auto max-w-7xl px-2 py-6 sm:px-6 lg:px-8">
             <Dash />
+          </div>
+        </main>
+      </RequireAuth>
+    ),
+    requrieAuth: true,
+  },
+  {
+    path: "/consumers",
+    name: "Consumers",
+    element: (
+      <RequireAuth>
+        <Nav />
+        <main>
+          <div className="mx-auto max-w-7xl px-2 py-6 sm:px-6 lg:px-8">
+            <Consumers />
           </div>
         </main>
       </RequireAuth>
