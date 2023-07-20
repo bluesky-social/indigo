@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bluesky-social/indigo/models"
 	"github.com/labstack/echo/v4"
@@ -124,6 +125,36 @@ func (bgs *BGS) handleListPDSs(e echo.Context) error {
 	}
 
 	return e.JSON(200, enrichedPDSs)
+}
+
+type consumer struct {
+	ID             uint64    `json:"id"`
+	RemoteAddr     string    `json:"remote_addr"`
+	UserAgent      string    `json:"user_agent"`
+	EventsConsumed uint64    `json:"events_consumed"`
+	ConnectedAt    time.Time `json:"connected_at"`
+}
+
+func (bgs *BGS) handleAdminListConsumers(e echo.Context) error {
+	bgs.consumersLk.RLock()
+	defer bgs.consumersLk.RUnlock()
+
+	consumers := make([]consumer, 0, len(bgs.consumers))
+	for id, c := range bgs.consumers {
+		var m = &dto.Metric{}
+		if err := eventsReceivedCounter.WithLabelValues(c.RemoteAddr).Write(m); err != nil {
+			continue
+		}
+		consumers = append(consumers, consumer{
+			ID:             id,
+			RemoteAddr:     c.RemoteAddr,
+			UserAgent:      c.UserAgent,
+			EventsConsumed: uint64(m.Counter.GetValue()),
+			ConnectedAt:    c.ConnectedAt,
+		})
+	}
+
+	return e.JSON(200, consumers)
 }
 
 func (bgs *BGS) handleAdminKillUpstreamConn(e echo.Context) error {
