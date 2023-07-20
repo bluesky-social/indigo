@@ -514,6 +514,10 @@ var listInviteTreeCmd = &cli.Command{
 			Value:   "https://plc.directory",
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
+		&cli.BoolFlag{
+			Name:  "disable-invites",
+			Usage: "additionally disable invites for all printed DIDs",
+		},
 	},
 	ArgsUsage: `[handle]`,
 	Action: func(cctx *cli.Context) error {
@@ -544,6 +548,14 @@ var listInviteTreeCmd = &cli.Command{
 		for len(queue) > 0 {
 			next := queue[0]
 			queue = queue[1:]
+
+			if cctx.Bool("disable-invites") {
+				if err := atproto.AdminDisableAccountInvites(ctx, xrpcc, &atproto.AdminDisableAccountInvites_Input{
+					Account: next,
+				}); err != nil {
+					return fmt.Errorf("failed to disable invites on %q: %w", next, err)
+				}
+			}
 
 			rep, err := atproto.AdminGetRepo(ctx, xrpcc, next)
 			if err != nil {
