@@ -403,6 +403,38 @@ type addTargetBody struct {
 	Host string `json:"host"`
 }
 
+func (bgs *BGS) registerConsumer(c *SocketConsumer) uint64 {
+	bgs.consumersLk.Lock()
+	defer bgs.consumersLk.Unlock()
+
+	id := bgs.nextConsumerID
+	bgs.nextConsumerID++
+
+	bgs.consumers[id] = c
+
+	return id
+}
+
+func (bgs *BGS) cleanupConsumer(id uint64) {
+	bgs.consumersLk.Lock()
+	defer bgs.consumersLk.Unlock()
+
+	c := bgs.consumers[id]
+
+	var m = &dto.Metric{}
+	if err := c.EventsSent.Write(m); err != nil {
+		log.Errorf("failed to get sent counter: %s", err)
+	}
+
+	log.Infow("consumer disconnected",
+		"consumer_id", id,
+		"remote_addr", c.RemoteAddr,
+		"user_agent", c.UserAgent,
+		"events_sent", m.Counter.GetValue())
+
+	delete(bgs.consumers, id)
+}
+
 func (bgs *BGS) EventsHandler(c echo.Context) error {
 	var since *int64
 	if sinceVal := c.QueryParam("cursor"); sinceVal != "" {
@@ -455,34 +487,11 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		UserAgent:   c.Request().UserAgent(),
 		ConnectedAt: time.Now(),
 	}
-
 	sentCounter := eventsSentCounter.WithLabelValues(consumer.RemoteAddr, consumer.UserAgent)
 	consumer.EventsSent = sentCounter
 
-	bgs.consumersLk.Lock()
-	bgs.nextConsumerID++
-	consumerID := bgs.nextConsumerID
-	bgs.consumers[bgs.nextConsumerID] = &consumer
-	bgs.consumersLk.Unlock()
-
-	// Cleanup the consumer when we're done
-	defer func() {
-		bgs.consumersLk.Lock()
-		defer bgs.consumersLk.Unlock()
-
-		var m = &dto.Metric{}
-		if err := sentCounter.Write(m); err != nil {
-			log.Errorf("failed to get sent counter: %s", err)
-		}
-
-		log.Infow("consumer disconnected",
-			"consumer_id", consumerID,
-			"remote_addr", consumer.RemoteAddr,
-			"user_agent", consumer.UserAgent,
-			"events_sent", m.Counter.GetValue())
-
-		delete(bgs.consumers, consumerID)
-	}()
+	consumerID := bgs.registerConsumer(&consumer)
+	defer bgs.cleanupConsumer(consumerID)
 
 	log.Infow("new consumer", "remote_addr", consumer.RemoteAddr, "user_agent", consumer.UserAgent)
 
