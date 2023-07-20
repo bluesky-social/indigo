@@ -240,12 +240,12 @@ func scanForLastSeq(fi *os.File, end int64) (int64, error) {
 
 		lastSeq = eh.Seq
 
-		noff, err := fi.Seek(eh.Len, io.SeekCurrent)
+		noff, err := fi.Seek(int64(eh.Len), io.SeekCurrent)
 		if err != nil {
 			return 0, err
 		}
 
-		if noff != offset+headerSize+eh.Len {
+		if noff != offset+headerSize+int64(eh.Len) {
 			// TODO: must recover from this
 			return 0, fmt.Errorf("did not seek to next event properly")
 		}
@@ -410,7 +410,11 @@ type evtHeader struct {
 	Kind  uint32
 	Seq   int64
 	Usr   models.Uid
-	Len   int64
+	Len   uint32
+}
+
+func (eh *evtHeader) Len64() int64 {
+	return int64(eh.Len)
 }
 
 const headerSize = 4 + 4 + 4 + 8 + 8
@@ -435,7 +439,7 @@ func readHeader(r io.Reader, scratch []byte) (*evtHeader, error) {
 	return &evtHeader{
 		Flags: flags,
 		Kind:  kind,
-		Len:   int64(l),
+		Len:   l,
 		Usr:   models.Uid(usr),
 		Seq:   int64(seq),
 	}, nil
@@ -528,7 +532,7 @@ func (p *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn st
 
 		if postDoNotEmit(h.Flags) {
 			// event taken down, skip
-			_, err := io.CopyN(io.Discard, bufr, h.Len) // would be really nice if the buffered reader had a 'skip' method that does a seek under the hood
+			_, err := io.CopyN(io.Discard, bufr, h.Len64()) // would be really nice if the buffered reader had a 'skip' method that does a seek under the hood
 			if err != nil {
 				return fmt.Errorf("failed while skipping event (seq: %d, fn: %q): %w", h.Seq, fn, err)
 			}
@@ -538,7 +542,7 @@ func (p *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn st
 		switch h.Kind {
 		case evtKindCommit:
 			var evt atproto.SyncSubscribeRepos_Commit
-			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len)); err != nil {
+			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len64())); err != nil {
 				return err
 			}
 			evt.Seq = h.Seq
@@ -547,7 +551,7 @@ func (p *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn st
 			}
 		case evtKindHandle:
 			var evt atproto.SyncSubscribeRepos_Handle
-			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len)); err != nil {
+			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len64())); err != nil {
 				return err
 			}
 			evt.Seq = h.Seq
@@ -674,14 +678,14 @@ func (p *DiskPersistence) mutateUserEventsInLog(ctx context.Context, usr models.
 					return fmt.Errorf("failed to seek: %w", err)
 				}
 
-				_, err := io.CopyN(fi, &zeroReader{}, h.Len)
+				_, err := io.CopyN(fi, &zeroReader{}, h.Len64())
 				if err != nil {
 					return err
 				}
 			}
 		}
 
-		offset += headerSize + h.Len
+		offset += headerSize + h.Len64()
 		_, err = fi.Seek(offset, io.SeekStart)
 		if err != nil {
 			return fmt.Errorf("failed to seek: %w", err)
