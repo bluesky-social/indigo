@@ -142,7 +142,7 @@ func (bgs *BGS) handleAdminListConsumers(e echo.Context) error {
 	consumers := make([]consumer, 0, len(bgs.consumers))
 	for id, c := range bgs.consumers {
 		var m = &dto.Metric{}
-		if err := eventsReceivedCounter.WithLabelValues(c.RemoteAddr, c.UserAgent).Write(m); err != nil {
+		if err := c.EventsSent.Write(m); err != nil {
 			continue
 		}
 		consumers = append(consumers, consumer{
