@@ -1,3 +1,3 @@
 package models
 
-type Uid uint
+type Uid uint64
