@@ -640,13 +640,24 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase 
 		Usr:       ds.user,
 	}
 
+	if err := ds.putShard(ctx, &shard, brefs); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+func (ds *DeltaSession) putShard(ctx context.Context, shard *CarShard, brefs []map[string]any) error {
+	ctx, span := otel.Tracer("carstore").Start(ctx, "putShard")
+	defer span.End()
+
 	// TODO: there should be a way to create the shard and block_refs that
 	// reference it in the same query, would save a lot of time
 	if err := ds.cs.meta.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.WithContext(ctx).Create(&shard).Error; err != nil {
+		if err := tx.WithContext(ctx).Create(shard).Error; err != nil {
 			return fmt.Errorf("failed to create shard in DB tx: %w", err)
 		}
-		ds.cs.putLastShardCache(ds.user, &shard)
+		ds.cs.putLastShardCache(ds.user, shard)
 
 		for _, ref := range brefs {
 			ref["shard"] = shard.ID
@@ -658,10 +669,10 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase 
 
 		return nil
 	}); err != nil {
-		return nil, fmt.Errorf("failed to commit shard DB transaction: %w", err)
+		return fmt.Errorf("failed to commit shard DB transaction: %w", err)
 	}
 
-	return buf.Bytes(), nil
+	return nil
 }
 
 func createBlockRefs(ctx context.Context, tx *gorm.DB, brefs []map[string]any) error {
