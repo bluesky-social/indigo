@@ -19,3 +19,8 @@ var rebasesCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "event_rebases",
 	Help: "The total number of rebase events received",
 }, []string{"pds"})
+
+var eventsSentCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "events_sent_counter",
+	Help: "The total number of events sent to consumers",
+}, []string{"remote_addr", "user_agent"})
