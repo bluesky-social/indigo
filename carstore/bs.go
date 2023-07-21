@@ -67,7 +67,7 @@ type CarShard struct {
 	ID        uint `gorm:"primarykey"`
 	CreatedAt time.Time
 
-	Root      models.DbCID
+	Root      models.DbCID `gorm:"index"`
 	DataStart int64
 	Seq       int `gorm:"index"`
 	Path      string
