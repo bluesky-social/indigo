@@ -233,6 +233,8 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 		Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
 	}))
 
+	e.Use(MetricsMiddleware)
+
 	// React uses a virtual router, so we need to serve the index.html for all
 	// routes that aren't otherwise handled or in the /assets directory.
 	e.File("/dash", "/public/index.html")

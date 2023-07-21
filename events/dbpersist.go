@@ -288,37 +288,48 @@ func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatprot
 }
 
 func (p *DbPersistence) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
-	rows, err := p.db.Model(&RepoEventRecord{}).Where("seq > ?", since).Order("seq asc").Rows()
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
+	pageSize := 1000
 
-	// Batch events into groups of 100 and hydrate them in parallel.
-	// Join the hydrated events back into a single stream in order and pass them to the callback.
-
-	batch := make([]*RepoEventRecord, 0, p.batchOptions.PlaybackBatchSize)
-	for rows.Next() {
-		var evt RepoEventRecord
-		if err := p.db.ScanRows(rows, &evt); err != nil {
-			// Handle error
+	for {
+		rows, err := p.db.Model(&RepoEventRecord{}).Where("seq > ?", since).Order("seq asc").Limit(pageSize).Rows()
+		if err != nil {
 			return err
 		}
+		defer rows.Close()
 
-		batch = append(batch, &evt)
+		hasRows := false
 
-		if len(batch) >= p.batchOptions.PlaybackBatchSize {
-			if err := p.hydrateBatch(ctx, batch, cb); err != nil {
+		batch := make([]*RepoEventRecord, 0, p.batchOptions.PlaybackBatchSize)
+		for rows.Next() {
+			hasRows = true
+
+			var evt RepoEventRecord
+			if err := p.db.ScanRows(rows, &evt); err != nil {
 				return err
 			}
 
-			batch = batch[:0]
-		}
-	}
+			// Advance the since cursor
+			since = int64(evt.Seq)
 
-	if len(batch) > 0 {
-		if err := p.hydrateBatch(ctx, batch, cb); err != nil {
-			return err
+			batch = append(batch, &evt)
+
+			if len(batch) >= p.batchOptions.PlaybackBatchSize {
+				if err := p.hydrateBatch(ctx, batch, cb); err != nil {
+					return err
+				}
+
+				batch = batch[:0]
+			}
+		}
+
+		if len(batch) > 0 {
+			if err := p.hydrateBatch(ctx, batch, cb); err != nil {
+				return err
+			}
+		}
+
+		if !hasRows {
+			break
 		}
 	}
 
