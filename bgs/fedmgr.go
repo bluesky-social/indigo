@@ -332,8 +332,8 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 	}
 
-	// TODO: probably make this use the parallel handler after some thought
-	return events.HandleRepoStream(ctx, con, &events.SequentialScheduler{rsc.EventHandler})
+	pool := events.NewConsumerPool(32, 20, rsc.EventHandler)
+	return events.HandleRepoStream(ctx, con, pool)
 }
 
 func (s *Slurper) updateCursor(host *models.PDS, curs int64) error {
