@@ -110,7 +110,9 @@ var checkUserCmd = &cli.Command{
 
 			fmt.Println(rep.Handle)
 			fmt.Println(rep.Did)
-			fmt.Println(rep.Email)
+			if rep.Email != nil {
+				fmt.Println(*rep.Email)
+			}
 			fmt.Println("indexed at: ", rep.IndexedAt)
 			fmt.Printf("Invited by: %s\n", invby)
 			if rep.InvitesDisabled != nil && *rep.InvitesDisabled {
@@ -518,6 +520,9 @@ var listInviteTreeCmd = &cli.Command{
 			Name:  "disable-invites",
 			Usage: "additionally disable invites for all printed DIDs",
 		},
+		&cli.BoolFlag{
+			Name: "print-emails",
+		},
 	},
 	ArgsUsage: `[handle]`,
 	Action: func(cctx *cli.Context) error {
@@ -561,10 +566,20 @@ var listInviteTreeCmd = &cli.Command{
 			if err != nil {
 				return fmt.Errorf("getRepo %s: %w", did, err)
 			}
+			fmt.Print(next)
+
+			if cctx.Bool("print-emails") {
+				if rep.Email != nil {
+					fmt.Println(" ", *rep.Email)
+				} else {
+					fmt.Println(" NO EMAIL")
+				}
+			} else {
+				fmt.Println()
+			}
 
 			for _, inv := range rep.Invites {
 				for _, u := range inv.Uses {
-					fmt.Println(u.UsedBy)
 					queue = append(queue, u.UsedBy)
 				}
 			}
