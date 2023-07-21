@@ -2,12 +2,14 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/did"
@@ -83,6 +85,41 @@ func (dr *ProdHandleResolver) ResolveHandleToDid(ctx context.Context, handle str
 	ctx, span := otel.Tracer("resolver").Start(ctx, "ResolveHandleToDid")
 	defer span.End()
 
+	var wkres, dnsres string
+	var wkerr, dnserr error
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		wkres, wkerr = dr.resolveWellKnown(ctx, handle)
+		if wkerr == nil {
+			cancel()
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		dnsres, dnserr = dr.resolveDNS(ctx, handle)
+		if dnserr == nil {
+			cancel()
+		}
+	}()
+
+	wg.Wait()
+
+	if dnserr == nil {
+		return dnsres, nil
+	}
+
+	if wkerr == nil {
+		return wkres, nil
+	}
+
+	return "", errors.Join(fmt.Errorf("no did record found for handle %q", handle), dnserr, wkerr)
+}
+
+func (dr *ProdHandleResolver) resolveWellKnown(ctx context.Context, handle string) (string, error) {
 	c := http.DefaultClient
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("https://%s/.well-known/atproto-did", handle), nil)
@@ -98,29 +135,32 @@ func (dr *ProdHandleResolver) ResolveHandleToDid(ctx context.Context, handle str
 
 	req = req.WithContext(ctx)
 
-	resp, wkerr := c.Do(req)
-	if wkerr == nil && resp.StatusCode == 200 {
-		if resp.ContentLength > 2048 {
-			return "", fmt.Errorf("http well-known route returned too much data")
-		}
-
-		b, err := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		if err != nil {
-			return "", fmt.Errorf("failed to read resolved did: %w", err)
-		}
-
-		parsed, err := did.ParseDID(string(b))
-		if err != nil {
-			return "", err
-		}
-
-		return parsed.String(), nil
+	resp, err := c.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve handle (%s) through HTTP well-known route: %s", handle, err)
 	}
-	if wkerr != nil {
-		log.Infof("failed to resolve handle (%s) through HTTP well-known route: %s", handle, wkerr)
-	} else if resp.StatusCode != 200 {
-		log.Infof("failed to resolve handle (%s) through HTTP well-known route: status=%d", handle, resp.StatusCode)
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("failed to resolve handle (%s) through HTTP well-known route: status=%d", handle, resp.StatusCode)
 	}
+
+	if resp.ContentLength > 2048 {
+		return "", fmt.Errorf("http well-known route returned too much data")
+	}
+
+	b, err := io.ReadAll(io.LimitReader(resp.Body, 2048))
+	if err != nil {
+		return "", fmt.Errorf("failed to read resolved did: %w", err)
+	}
+
+	parsed, err := did.ParseDID(string(b))
+	if err != nil {
+		return "", err
+	}
+
+	return parsed.String(), nil
+}
+
+func (dr *ProdHandleResolver) resolveDNS(ctx context.Context, handle string) (string, error) {
 
 	res, err := net.LookupTXT("_atproto." + handle)
 	if err != nil {
@@ -139,7 +179,7 @@ func (dr *ProdHandleResolver) ResolveHandleToDid(ctx context.Context, handle str
 		}
 	}
 
-	return "", fmt.Errorf("no did record found for handle %q", handle)
+	return "", fmt.Errorf("no did record found")
 }
 
 type TestHandleResolver struct {
