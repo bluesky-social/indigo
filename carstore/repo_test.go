@@ -36,6 +36,7 @@ func testCarStore() (*CarStore, func(), error) {
 	db, err := gorm.Open(sqlite.Open(dbstr),
 		&gorm.Config{
 			SkipDefaultTransaction: true,
+			PrepareStmt:            true,
 		})
 	if err != nil {
 		return nil, nil, err
@@ -246,6 +247,53 @@ func BenchmarkRepoWritesFlatfs(b *testing.B) {
 }
 
 func BenchmarkRepoWritesSqlite(b *testing.B) {
+	ctx := context.TODO()
+
+	tdir, err := os.MkdirTemp("", "testsql")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	defer func() {
+		os.RemoveAll(tdir)
+	}()
+
+	bs, err := sqlbs.Open(filepath.Join(tdir, "carstore.db"), sqlbs.Options{})
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	ncid, err := setupRepo(ctx, bs)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	head := ncid
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+
+		rr, err := repo.OpenRepo(ctx, bs, head, true)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		if _, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
+			Text: fmt.Sprintf("hey look its a tweet %s", time.Now()),
+		}); err != nil {
+			b.Fatal(err)
+		}
+
+		kmgr := &util.FakeKeyManager{}
+		nroot, err := rr.Commit(ctx, kmgr.SignForUser)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		head = nroot
+	}
+}
+
+func BenchmarkRepoWritesSqliteMemory(b *testing.B) {
 	ctx := context.TODO()
 
 	bs, err := sqlbs.Open("file::memory:", sqlbs.Options{})
