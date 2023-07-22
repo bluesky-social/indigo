@@ -44,7 +44,16 @@ func TestBGSBasic(t *testing.T) {
 	defer evts.Cancel()
 
 	bob := p1.MustNewUser(t, "bob.tpds")
+	fmt.Println("event 1")
+	e1 := evts.Next()
+	assert.NotNil(e1.RepoCommit)
+	assert.Equal(e1.RepoCommit.Repo, bob.DID())
+
 	alice := p1.MustNewUser(t, "alice.tpds")
+	fmt.Println("event 2")
+	e2 := evts.Next()
+	assert.NotNil(e2.RepoCommit)
+	assert.Equal(e2.RepoCommit.Repo, alice.DID())
 
 	bp1 := bob.Post(t, "cats for cats")
 	ap1 := alice.Post(t, "no i like dogs")
@@ -53,23 +62,12 @@ func TestBGSBasic(t *testing.T) {
 	_ = ap1
 
 	fmt.Println("bob:", bob.DID())
-	fmt.Println("alice:", alice.DID())
-
-	fmt.Println("event 1")
-	e1 := evts.Next()
-	assert.NotNil(e1.RepoCommit)
-	assert.Equal(e1.RepoCommit.Repo, bob.DID())
-
-	fmt.Println("event 2")
-	e2 := evts.Next()
-	assert.NotNil(e2.RepoCommit)
-	assert.Equal(e2.RepoCommit.Repo, alice.DID())
-
 	fmt.Println("event 3")
 	e3 := evts.Next()
 	assert.Equal(e3.RepoCommit.Repo, bob.DID())
 	//assert.Equal(e3.RepoCommit.Ops[0].Kind, "createRecord")
 
+	fmt.Println("alice:", alice.DID())
 	fmt.Println("event 4")
 	e4 := evts.Next()
 	assert.Equal(e4.RepoCommit.Repo, alice.DID())
