@@ -203,7 +203,9 @@ func Sonar(cctx *cli.Context) error {
 	}
 
 	log.Infof("connecting to WebSocket at: %s", u.String())
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), http.Header{
+		"User-Agent": []string{"sonar/1.0"},
+	})
 	if err != nil {
 		log.Infof("failed to connect to websocket: %v", err)
 		return err
