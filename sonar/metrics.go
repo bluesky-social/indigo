@@ -40,20 +40,35 @@ var eventProcessingDurationHistogram = promauto.NewHistogramVec(prometheus.Histo
 
 var lastSeqGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "sonar_last_seq",
-	Help: "The last sequence number processed",
+	Help: "The sequence number of the last event processed",
 }, []string{"socket_url"})
 
-var lastSeqProcessedAtGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-	Name: "sonar_last_seq_processed_at",
-	Help: "The timestamp of the last sequence number processed",
+var lastEvtProcessedAtGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "sonar_last_evt_processed_at",
+	Help: "The timestamp of the last event processed",
 }, []string{"socket_url"})
 
-var lastSeqCreatedAtGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-	Name: "sonar_last_seq_created_at",
-	Help: "The timestamp of the last sequence number created",
+var lastEvtCreatedAtGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "sonar_last_evt_created_at",
+	Help: "The timestamp of the last event created",
 }, []string{"socket_url"})
 
-var lastSeqCommittedAtGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-	Name: "sonar_last_seq_committed_at",
-	Help: "The commit timestamp of the last sequence number processed",
+var lastRecordCreatedAtGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "sonar_last_record_created_at",
+	Help: "The timestamp of the last record processed",
+}, []string{"socket_url"})
+
+var lastEvtCreatedRecordCreatedGapGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "sonar_last_evt_created_record_created_gap",
+	Help: "The gap between the last event's event timestamp and it's record timestamp",
+}, []string{"socket_url"})
+
+var lastEvtCreatedEvtProcessedGapGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "sonar_last_evt_created_evt_processed_gap",
+	Help: "The gap between the last event's event timestamp and when it was processed by sonar",
+}, []string{"socket_url"})
+
+var lastRecordCreatedEvtProcessedGapGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "sonar_last_record_created_evt_processed_gap",
+	Help: "The gap between the last record's record timestamp and when it was processed by sonar",
 }, []string{"socket_url"})
