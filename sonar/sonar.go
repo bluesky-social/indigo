@@ -225,7 +225,7 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 					quoteRepostsProcessedCounter.WithLabelValues(s.SocketURL).Inc()
 				}
 				// Parse time from the event time string
-				recCreatedAt, err := time.Parse(util.ISO8601, rec.CreatedAt)
+				recCreatedAt, err := util.ParseTimestamp(rec.CreatedAt)
 				if err != nil {
 					log.Errorf("error parsing time: %+v", err)
 					continue
@@ -234,7 +234,7 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 			case *bsky.FeedLike:
 				recordsProcessedCounter.WithLabelValues("feed_like", s.SocketURL).Inc()
 				// Parse time from the event time string
-				recCreatedAt, err := time.Parse(util.ISO8601, rec.CreatedAt)
+				recCreatedAt, err := util.ParseTimestamp(rec.CreatedAt)
 				if err != nil {
 					log.Errorf("error parsing time: %+v", err)
 					continue
@@ -243,7 +243,7 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 			case *bsky.FeedRepost:
 				recordsProcessedCounter.WithLabelValues("feed_repost", s.SocketURL).Inc()
 				// Parse time from the event time string
-				recCreatedAt, err := time.Parse(util.ISO8601, rec.CreatedAt)
+				recCreatedAt, err := util.ParseTimestamp(rec.CreatedAt)
 				if err != nil {
 					log.Errorf("error parsing time: %+v", err)
 					continue
@@ -252,7 +252,7 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 			case *bsky.GraphBlock:
 				recordsProcessedCounter.WithLabelValues("graph_block", s.SocketURL).Inc()
 				// Parse time from the event time string
-				recCreatedAt, err := time.Parse(util.ISO8601, rec.CreatedAt)
+				recCreatedAt, err := util.ParseTimestamp(rec.CreatedAt)
 				if err != nil {
 					log.Errorf("error parsing time: %+v", err)
 					continue
@@ -261,7 +261,7 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 			case *bsky.GraphFollow:
 				recordsProcessedCounter.WithLabelValues("graph_follow", s.SocketURL).Inc()
 				// Parse time from the event time string
-				recCreatedAt, err := time.Parse(util.ISO8601, rec.CreatedAt)
+				recCreatedAt, err := util.ParseTimestamp(rec.CreatedAt)
 				if err != nil {
 					log.Errorf("error parsing time: %+v", err)
 					continue
@@ -272,7 +272,7 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 			case *bsky.FeedGenerator:
 				recordsProcessedCounter.WithLabelValues("feed_generator", s.SocketURL).Inc()
 				// Parse time from the event time string
-				recCreatedAt, err := time.Parse(util.ISO8601, rec.CreatedAt)
+				recCreatedAt, err := util.ParseTimestamp(rec.CreatedAt)
 				if err != nil {
 					log.Errorf("error parsing time: %+v", err)
 					continue
@@ -281,7 +281,7 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 			case *bsky.GraphList:
 				recordsProcessedCounter.WithLabelValues("graph_list", s.SocketURL).Inc()
 				// Parse time from the event time string
-				recCreatedAt, err := time.Parse(util.ISO8601, rec.CreatedAt)
+				recCreatedAt, err := util.ParseTimestamp(rec.CreatedAt)
 				if err != nil {
 					log.Errorf("error parsing time: %+v", err)
 					continue
@@ -290,7 +290,7 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 			case *bsky.GraphListitem:
 				recordsProcessedCounter.WithLabelValues("graph_listitem", s.SocketURL).Inc()
 				// Parse time from the event time string
-				recCreatedAt, err := time.Parse(util.ISO8601, rec.CreatedAt)
+				recCreatedAt, err := util.ParseTimestamp(rec.CreatedAt)
 				if err != nil {
 					log.Errorf("error parsing time: %+v", err)
 					continue
