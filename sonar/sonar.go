@@ -173,7 +173,7 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 
 	rr, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
 	if err != nil {
-		log.Errorf("failed to read repo from car: %+v\n", err)
+		log.Errorf("failed to read repo from car: %+v", err)
 		return nil
 	}
 
@@ -206,14 +206,14 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 			rc, rec, err := rr.GetRecord(ctx, op.Path)
 			if err != nil {
 				e := fmt.Errorf("getting record %s (%s) within seq %d for %s: %w", op.Path, *op.Cid, evt.Seq, evt.Repo, err)
-				log.Errorf("failed to get a record from the event: %+v\n", e)
+				log.Errorf("failed to get a record from the event: %+v", e)
 				break
 			}
 
 			// Verify that the record cid matches the cid in the event
 			if lexutil.LexLink(rc) != *op.Cid {
 				e := fmt.Errorf("mismatch in record and op cid: %s != %s", rc, *op.Cid)
-				log.Errorf("failed to LexLink the record in the event: %+v\n", e)
+				log.Errorf("failed to LexLink the record in the event: %+v", e)
 				break
 			}
 
