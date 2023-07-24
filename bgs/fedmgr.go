@@ -388,7 +388,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 	}
 
-	pool := events.NewConsumerPool(32, 20, rsc.EventHandler)
+	pool := events.NewConsumerPool(32, 20, con.RemoteAddr().String(), rsc.EventHandler)
 	return events.HandleRepoStream(ctx, con, pool)
 }
 
