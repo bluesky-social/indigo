@@ -618,7 +618,9 @@ func (s *Server) EventsHandler(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	evts, cancel, err := s.events.Subscribe(ctx, func(evt *events.XRPCStreamEvent) bool {
+	ident := c.RealIP() + "-" + c.Request().UserAgent()
+
+	evts, cancel, err := s.events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool {
 		if !s.enforcePeering {
 			return true
 		}

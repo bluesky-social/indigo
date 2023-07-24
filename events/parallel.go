@@ -85,11 +85,10 @@ func (p *ParallelConsumerPool) AddWork(ctx context.Context, repo string, val *XR
 func (p *ParallelConsumerPool) worker() {
 	for work := range p.feeder {
 		for work != nil {
-			workItemsInFlight.WithLabelValues(p.ident).Inc()
+			workItemsActive.WithLabelValues(p.ident).Inc()
 			if err := p.do(context.TODO(), work.val); err != nil {
 				log.Errorf("event handler failed: %s", err)
 			}
-			workItemsInFlight.WithLabelValues(p.ident).Dec()
 			workItemsProcessed.WithLabelValues(p.ident).Inc()
 
 			p.lk.Lock()

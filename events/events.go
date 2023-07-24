@@ -59,6 +59,7 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 	// directly to the bgs, and have rebroadcasting proxies instead
 	for _, s := range em.subs {
 		if s.filter(evt) {
+			eventsEnqueued.WithLabelValues(s.ident).Inc()
 			select {
 			case s.outgoing <- evt:
 			case <-s.done:
@@ -68,6 +69,7 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 			default:
 				log.Warnf("event overflow (%d)", len(s.outgoing))
 			}
+			eventsBroadcast.WithLabelValues(s.ident).Inc()
 		}
 	}
 }
@@ -79,6 +81,8 @@ func (em *EventManager) persistAndSendEvent(ctx context.Context, evt *XRPCStream
 }
 
 type Subscriber struct {
+	ident string
+
 	outgoing chan *XRPCStreamEvent
 
 	filter func(*XRPCStreamEvent) bool
@@ -127,13 +131,14 @@ func (em *EventManager) AddEvent(ctx context.Context, ev *XRPCStreamEvent) error
 
 var ErrPlaybackShutdown = fmt.Errorf("playback shutting down")
 
-func (em *EventManager) Subscribe(ctx context.Context, filter func(*XRPCStreamEvent) bool, since *int64) (<-chan *XRPCStreamEvent, func(), error) {
+func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func(*XRPCStreamEvent) bool, since *int64) (<-chan *XRPCStreamEvent, func(), error) {
 	if filter == nil {
 		filter = func(*XRPCStreamEvent) bool { return true }
 	}
 
 	done := make(chan struct{})
 	sub := &Subscriber{
+		ident:    ident,
 		outgoing: make(chan *XRPCStreamEvent, em.bufferSize),
 		filter:   filter,
 		done:     done,
