@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -45,9 +46,22 @@ func (rsc *RepoStreamCallbacks) EventHandler(ctx context.Context, xev *XRPCStrea
 	}
 }
 
+type instrumentedReader struct {
+	r    io.Reader
+	addr string
+}
+
+func (sr *instrumentedReader) Read(p []byte) (int, error) {
+	n, err := sr.r.Read(p)
+	bytesFromStreamCounter.WithLabelValues(sr.addr).Add(float64(n))
+	return n, err
+}
+
 func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	remoteAddr := con.RemoteAddr().String()
 
 	go func() {
 		t := time.NewTicker(time.Second * 30)
@@ -73,7 +87,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler)
 			return ctx.Err()
 		default:
 		}
-		mt, r, err := con.NextReader()
+		mt, rawReader, err := con.NextReader()
 		if err != nil {
 			return err
 		}
@@ -85,10 +99,14 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler)
 			// ok
 		}
 
+		r := &instrumentedReader{r: rawReader, addr: remoteAddr}
+
 		var header EventHeader
 		if err := header.UnmarshalCBOR(r); err != nil {
 			return fmt.Errorf("reading header: %w", err)
 		}
+
+		eventsFromStreamCounter.WithLabelValues(remoteAddr).Inc()
 
 		switch header.Op {
 		case EvtKindMessage:
