@@ -94,8 +94,7 @@ func NewSlurper(db *gorm.DB, cb IndexCallback, ssl bool) (*Slurper, error) {
 }
 
 // Shutdown shuts down the slurper
-func (s *Slurper) Shutdown() {
-	log.Info("shutting down slurper")
+func (s *Slurper) Shutdown() []error {
 	s.shutdownChan <- true
 	log.Info("waiting for slurper shutdown")
 	errs := <-s.shutdownResult
@@ -105,6 +104,7 @@ func (s *Slurper) Shutdown() {
 		}
 	}
 	log.Info("slurper shutdown complete")
+	return errs
 }
 
 func (s *Slurper) loadConfig() error {
