@@ -25,7 +25,17 @@ var workItemsProcessed = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "Total number of work items processed by the consumer pool",
 }, []string{"pool"})
 
-var workItemsInFlight = promauto.NewGaugeVec(prometheus.GaugeOpts{
-	Name: "work_items_in_flight",
-	Help: "Number of work items currently in flight",
+var workItemsActive = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "work_items_active_total",
+	Help: "Total number of work items passed into a worker",
+}, []string{"pool"})
+
+var eventsEnqueued = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "events_enqueued_for_broadcast_total",
+	Help: "Total number of events enqueued to broadcast to subscribers",
+}, []string{"pool"})
+
+var eventsBroadcast = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "events_broadcast_total",
+	Help: "Total number of events broadcast to subscribers",
 }, []string{"pool"})

@@ -481,7 +481,9 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		}
 	}()
 
-	evts, cleanup, err := bgs.events.Subscribe(ctx, func(evt *events.XRPCStreamEvent) bool { return true }, since)
+	ident := c.RealIP() + "-" + c.Request().UserAgent()
+
+	evts, cleanup, err := bgs.events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool { return true }, since)
 	if err != nil {
 		return err
 	}

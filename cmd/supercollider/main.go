@@ -503,7 +503,9 @@ func (s *Server) HandleSubscribeRepos(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	evts, cancel, err := s.Events.Subscribe(ctx, func(evt *events.XRPCStreamEvent) bool {
+	ident := c.Request().RemoteAddr + "-" + c.Request().UserAgent()
+
+	evts, cancel, err := s.Events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool {
 		return true
 	}, cursor)
 	if err != nil {
