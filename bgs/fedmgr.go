@@ -413,7 +413,6 @@ func (s *Slurper) flushCursors(ctx context.Context) []error {
 	for _, sub := range s.active {
 		sub.lk.RLock()
 		if err := s.db.WithContext(ctx).Model(models.PDS{}).Where("id = ?", sub.pds.ID).UpdateColumn("cursor", sub.pds.Cursor).Error; err != nil {
-			sub.lk.RUnlock()
 			errs = append(errs, err)
 		}
 		sub.lk.RUnlock()
