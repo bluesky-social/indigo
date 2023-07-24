@@ -59,3 +59,7 @@ func (yp *YoloPersister) RebaseRepoEvents(ctx context.Context, usr models.Uid) e
 func (yp *YoloPersister) SetEventBroadcaster(brc func(*XRPCStreamEvent)) {
 	yp.broadcast = brc
 }
+
+func (yp *YoloPersister) Flush(ctx context.Context) error {
+	return nil
+}

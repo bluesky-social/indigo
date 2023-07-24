@@ -124,7 +124,7 @@ func (p *DbPersistence) batchFlusher() {
 		p.lk.Unlock()
 
 		if needsFlush {
-			if err := p.FlushBatch(context.Background()); err != nil {
+			if err := p.Flush(context.Background()); err != nil {
 				log.Errorf("failed to flush batch: %s", err)
 			}
 		}
@@ -135,7 +135,7 @@ func (p *DbPersistence) SetEventBroadcaster(brc func(*XRPCStreamEvent)) {
 	p.broadcast = brc
 }
 
-func (p *DbPersistence) FlushBatch(ctx context.Context) error {
+func (p *DbPersistence) Flush(ctx context.Context) error {
 	p.lk.Lock()
 	defer p.lk.Unlock()
 	return p.flushBatchLocked(ctx)

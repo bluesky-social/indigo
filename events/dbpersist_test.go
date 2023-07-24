@@ -129,7 +129,7 @@ func BenchmarkDBPersist(b *testing.B) {
 	expectedEvtCount := b.N * numRoutines
 
 	// Flush manually
-	err = dbp.FlushBatch(ctx)
+	err = dbp.Flush(ctx)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -249,7 +249,7 @@ func BenchmarkPlayback(b *testing.B) {
 	expectedEvtCount := n * numRoutines
 
 	// Flush manually
-	err = dbp.FlushBatch(ctx)
+	err = dbp.Flush(ctx)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -306,5 +306,5 @@ func setupDBs(t testing.TB) (*gorm.DB, *gorm.DB, *carstore.CarStore, string, err
 		return nil, nil, nil, "", err
 	}
 
-	return maindb, cardb, cs, "", nil
+	return maindb, cardb, cs, dir, nil
 }

@@ -14,6 +14,7 @@ type EventPersistence interface {
 	Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error
 	TakeDownRepo(ctx context.Context, usr models.Uid) error
 	RebaseRepoEvents(ctx context.Context, usr models.Uid) error
+	Flush(context.Context) error
 
 	SetEventBroadcaster(func(*XRPCStreamEvent))
 }
@@ -83,6 +84,10 @@ func (mp *MemPersister) TakeDownRepo(ctx context.Context, uid models.Uid) error 
 
 func (mp *MemPersister) RebaseRepoEvents(ctx context.Context, usr models.Uid) error {
 	return fmt.Errorf("repo rebases not currently supported by memory persister, test usage only")
+}
+
+func (mp *MemPersister) Flush(ctx context.Context) error {
+	return nil
 }
 
 func (mp *MemPersister) SetEventBroadcaster(brc func(*XRPCStreamEvent)) {

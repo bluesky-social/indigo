@@ -25,6 +25,18 @@ func setupDb(t testing.TB, p string) *gorm.DB {
 		t.Fatal(err)
 	}
 
+	if err := db.Exec("PRAGMA synchronous=normal;").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.Exec("PRAGMA temp_store=memory;").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.Exec("PRAGMA mmap_size=3000000000;").Error; err != nil {
+		t.Fatal(err)
+	}
+
 	return db
 }
 
