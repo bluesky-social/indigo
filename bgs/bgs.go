@@ -687,11 +687,16 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 				return err
 			}
 
-			fmt.Println("adding to slow path")
-			fmt.Println("NEED TO HANDLE THINGS THAT GOT QUEUED UP IN THE CATCHUP QUEUE BEHIND AN ALREADY IN-PROGRESS THING")
+			// TODO: we currently do not handle events that get queued up
+			// behind an already 'in progress' slow path event.
+			// this is strictly less efficient than it could be, and while it
+			// does 'work' (due to falling back to resyncing the repo), its
+			// technically incorrect. Now that we have the parallel event
+			// processor coming off of the pds stream, we should investigate
+			// whether or not we even need this 'slow path' logic, as it makes
+			// accounting for which events have been processed much harder
 			return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
 		}
-		fmt.Println("fast pathhhh")
 
 		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, (*cid.Cid)(evt.Prev), evt.Blocks, evt.Ops); err != nil {
 			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
