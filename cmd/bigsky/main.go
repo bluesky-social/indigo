@@ -309,7 +309,12 @@ func Bigsky(cctx *cli.Context) error {
 		}
 	}()
 
-	go bgs.Start(cctx.String("api-listen"))
+	bgsErr := make(chan error, 1)
+
+	go func() {
+		err := bgs.Start(cctx.String("api-listen"))
+		bgsErr <- err
+	}()
 
 	select {
 	case <-signals:
@@ -318,9 +323,18 @@ func Bigsky(cctx *cli.Context) error {
 		for err := range errs {
 			log.Errorw("error during BGS shutdown", "err", err)
 		}
+	case err := <-bgsErr:
+		if err != nil {
+			log.Errorw("error during BGS startup", "err", err)
+		}
+		log.Info("shutting down")
+		errs := bgs.Shutdown()
+		for err := range errs {
+			log.Errorw("error during BGS shutdown", "err", err)
+		}
 	}
 
-	log.Info("shutting down")
+	log.Info("shutdown complete")
 
 	return nil
 }
