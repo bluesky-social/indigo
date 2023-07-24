@@ -316,6 +316,10 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	return e.StartServer(srv)
 }
 
+func (bgs *BGS) Shutdown() []error {
+	return bgs.slurper.Shutdown()
+}
+
 type HealthStatus struct {
 	Status  string `json:"status"`
 	Message string `json:"msg,omitempty"`

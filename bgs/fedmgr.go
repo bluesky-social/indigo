@@ -11,6 +11,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/models"
+	"go.opentelemetry.io/otel"
 
 	"github.com/gorilla/websocket"
 	"gorm.io/gorm"
@@ -29,11 +30,15 @@ type Slurper struct {
 
 	newSubsDisabled bool
 
+	shutdownChan   chan bool
+	shutdownResult chan []error
+
 	ssl bool
 }
 
 type activeSub struct {
 	pds    *models.PDS
+	lk     sync.RWMutex
 	ctx    context.Context
 	cancel func()
 }
@@ -41,16 +46,65 @@ type activeSub struct {
 func NewSlurper(db *gorm.DB, cb IndexCallback, ssl bool) (*Slurper, error) {
 	db.AutoMigrate(&SlurpConfig{})
 	s := &Slurper{
-		cb:     cb,
-		db:     db,
-		active: make(map[string]*activeSub),
-		ssl:    ssl,
+		cb:             cb,
+		db:             db,
+		active:         make(map[string]*activeSub),
+		ssl:            ssl,
+		shutdownChan:   make(chan bool),
+		shutdownResult: make(chan []error),
 	}
 	if err := s.loadConfig(); err != nil {
 		return nil, err
 	}
 
+	// Start a goroutine to flush cursors to the DB every 30s
+	go func() {
+		for {
+			select {
+			case <-s.shutdownChan:
+				log.Info("flushing PDS cursors on shutdown")
+				ctx := context.Background()
+				ctx, span := otel.Tracer("feedmgr").Start(ctx, "CursorFlusherShutdown")
+				defer span.End()
+				var errs []error
+				if errs = s.flushCursors(ctx); len(errs) > 0 {
+					for _, err := range errs {
+						log.Errorf("failed to flush cursors on shutdown: %s", err)
+					}
+				}
+				log.Info("done flushing PDS cursors on shutdown")
+				s.shutdownResult <- errs
+				return
+			case <-time.After(time.Second * 10):
+				log.Debug("flushing PDS cursors")
+				ctx := context.Background()
+				ctx, span := otel.Tracer("feedmgr").Start(ctx, "CursorFlusher")
+				defer span.End()
+				if errs := s.flushCursors(ctx); len(errs) > 0 {
+					for _, err := range errs {
+						log.Errorf("failed to flush cursors: %s", err)
+					}
+				}
+				log.Debug("done flushing PDS cursors")
+			}
+		}
+	}()
+
 	return s, nil
+}
+
+// Shutdown shuts down the slurper
+func (s *Slurper) Shutdown() []error {
+	s.shutdownChan <- true
+	log.Info("waiting for slurper shutdown")
+	errs := <-s.shutdownResult
+	if len(errs) > 0 {
+		for _, err := range errs {
+			log.Errorf("shutdown error: %s", err)
+		}
+	}
+	log.Info("slurper shutdown complete")
+	return errs
 }
 
 func (s *Slurper) loadConfig() error {
@@ -140,13 +194,14 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) err
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	s.active[host] = &activeSub{
+	sub := activeSub{
 		pds:    &peering,
 		ctx:    ctx,
 		cancel: cancel,
 	}
+	s.active[host] = &sub
 
-	go s.subscribeWithRedialer(ctx, &peering)
+	go s.subscribeWithRedialer(ctx, &peering, &sub)
 
 	return nil
 }
@@ -164,18 +219,19 @@ func (s *Slurper) RestartAll() error {
 		pds := pds
 
 		ctx, cancel := context.WithCancel(context.Background())
-		s.active[pds.Host] = &activeSub{
+		sub := activeSub{
 			pds:    &pds,
 			ctx:    ctx,
 			cancel: cancel,
 		}
-		go s.subscribeWithRedialer(ctx, &pds)
+		s.active[pds.Host] = &sub
+		go s.subscribeWithRedialer(ctx, &pds, &sub)
 	}
 
 	return nil
 }
 
-func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS) {
+func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS, sub *activeSub) {
 	defer func() {
 		s.lk.Lock()
 		defer s.lk.Unlock()
@@ -221,7 +277,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS) {
 
 		log.Info("event subscription response code: ", res.StatusCode)
 
-		if err := s.handleConnection(ctx, host, con, &cursor); err != nil {
+		if err := s.handleConnection(ctx, host, con, &cursor, sub); err != nil {
 			if errors.Is(err, ErrTimeoutShutdown) {
 				log.Infof("shutting down pds subscription to %s, no activity after %s", host.Host, EventsTimeout)
 				return
@@ -247,7 +303,7 @@ var ErrTimeoutShutdown = fmt.Errorf("timed out waiting for new events")
 
 var EventsTimeout = time.Minute
 
-func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *websocket.Conn, lastCursor *int64) error {
+func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *websocket.Conn, lastCursor *int64, sub *activeSub) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -261,7 +317,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			}
 			*lastCursor = evt.Seq
 
-			if err := s.updateCursor(host, *lastCursor); err != nil {
+			if err := s.updateCursor(sub, *lastCursor); err != nil {
 				return fmt.Errorf("updating cursor: %w", err)
 			}
 
@@ -276,7 +332,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			}
 			*lastCursor = evt.Seq
 
-			if err := s.updateCursor(host, *lastCursor); err != nil {
+			if err := s.updateCursor(sub, *lastCursor); err != nil {
 				return fmt.Errorf("updating cursor: %w", err)
 			}
 
@@ -291,7 +347,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			}
 			*lastCursor = evt.Seq
 
-			if err := s.updateCursor(host, *lastCursor); err != nil {
+			if err := s.updateCursor(sub, *lastCursor); err != nil {
 				return fmt.Errorf("updating cursor: %w", err)
 			}
 
@@ -306,7 +362,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			}
 			*lastCursor = evt.Seq
 
-			if err := s.updateCursor(host, *lastCursor); err != nil {
+			if err := s.updateCursor(sub, *lastCursor); err != nil {
 				return fmt.Errorf("updating cursor: %w", err)
 			}
 
@@ -336,8 +392,33 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 	return events.HandleRepoStream(ctx, con, pool)
 }
 
-func (s *Slurper) updateCursor(host *models.PDS, curs int64) error {
-	return s.db.Model(models.PDS{}).Where("id = ?", host.ID).UpdateColumn("cursor", curs).Error
+func (s *Slurper) updateCursor(sub *activeSub, curs int64) error {
+	sub.lk.Lock()
+	defer sub.lk.Unlock()
+	sub.pds.Cursor = curs
+	return nil
+}
+
+// flushCursors updates the PDS cursors in the DB for all active subscriptions
+func (s *Slurper) flushCursors(ctx context.Context) []error {
+	ctx, span := otel.Tracer("feedmgr").Start(ctx, "flushCursors")
+	defer span.End()
+
+	s.lk.Lock()
+	defer s.lk.Unlock()
+
+	errs := []error{}
+
+	// Iterate over active subs and update the PDS cursor in the DB
+	for _, sub := range s.active {
+		sub.lk.RLock()
+		if err := s.db.WithContext(ctx).Model(models.PDS{}).Where("id = ?", sub.pds.ID).UpdateColumn("cursor", sub.pds.Cursor).Error; err != nil {
+			errs = append(errs, err)
+		}
+		sub.lk.RUnlock()
+	}
+
+	return errs
 }
 
 func (s *Slurper) GetActiveList() []string {
