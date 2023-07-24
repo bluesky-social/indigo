@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/araddon/dateparse"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/util"
 	"github.com/goccy/go-json"
 	"github.com/labstack/gommon/log"
 
@@ -230,30 +230,30 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 				if rec.Embed != nil && rec.Embed.EmbedRecord != nil && rec.Embed.EmbedRecord.Record != nil {
 					quoteRepostsProcessedCounter.WithLabelValues(s.SocketURL).Inc()
 				}
-				recCreatedAt, parseError = util.ParseTimestamp(rec.CreatedAt)
+				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
 			case *bsky.FeedLike:
 				recordsProcessedCounter.WithLabelValues("feed_like", s.SocketURL).Inc()
-				recCreatedAt, parseError = util.ParseTimestamp(rec.CreatedAt)
+				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
 			case *bsky.FeedRepost:
 				recordsProcessedCounter.WithLabelValues("feed_repost", s.SocketURL).Inc()
-				recCreatedAt, parseError = util.ParseTimestamp(rec.CreatedAt)
+				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
 			case *bsky.GraphBlock:
 				recordsProcessedCounter.WithLabelValues("graph_block", s.SocketURL).Inc()
-				recCreatedAt, parseError = util.ParseTimestamp(rec.CreatedAt)
+				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
 			case *bsky.GraphFollow:
 				recordsProcessedCounter.WithLabelValues("graph_follow", s.SocketURL).Inc()
-				recCreatedAt, parseError = util.ParseTimestamp(rec.CreatedAt)
+				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
 			case *bsky.ActorProfile:
 				recordsProcessedCounter.WithLabelValues("actor_profile", s.SocketURL).Inc()
 			case *bsky.FeedGenerator:
 				recordsProcessedCounter.WithLabelValues("feed_generator", s.SocketURL).Inc()
-				recCreatedAt, parseError = util.ParseTimestamp(rec.CreatedAt)
+				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
 			case *bsky.GraphList:
 				recordsProcessedCounter.WithLabelValues("graph_list", s.SocketURL).Inc()
-				recCreatedAt, parseError = util.ParseTimestamp(rec.CreatedAt)
+				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
 			case *bsky.GraphListitem:
 				recordsProcessedCounter.WithLabelValues("graph_listitem", s.SocketURL).Inc()
-				recCreatedAt, parseError = util.ParseTimestamp(rec.CreatedAt)
+				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
 			default:
 				log.Warnf("unknown record type: %+v", rec)
 			}
