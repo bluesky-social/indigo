@@ -15,6 +15,7 @@ import (
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/xrpc"
 	logging "github.com/ipfs/go-log"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	otel "go.opentelemetry.io/otel"
 )
 
@@ -120,7 +121,9 @@ func (dr *ProdHandleResolver) ResolveHandleToDid(ctx context.Context, handle str
 }
 
 func (dr *ProdHandleResolver) resolveWellKnown(ctx context.Context, handle string) (string, error) {
-	c := http.DefaultClient
+	c := http.Client{
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
+	}
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("https://%s/.well-known/atproto-did", handle), nil)
 	if err != nil {
