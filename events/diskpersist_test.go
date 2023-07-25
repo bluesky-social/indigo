@@ -39,7 +39,7 @@ func TestDiskPersist(t *testing.T) {
 		Did: "did:example:123",
 	})
 
-	mgr := repomgr.NewRepoManager(repomgr.NewDbHeadStore(db), cs, &util.FakeKeyManager{})
+	mgr := repomgr.NewRepoManager(cs, &util.FakeKeyManager{})
 
 	err = mgr.InitNewActor(ctx, 1, "alice", "did:example:123", "Alice", "", "")
 	if err != nil {
@@ -155,7 +155,7 @@ func runPersisterBenchmark(b *testing.B, cs *carstore.CarStore, db *gorm.DB, p e
 		Did: "did:example:123",
 	})
 
-	mgr := repomgr.NewRepoManager(repomgr.NewDbHeadStore(db), cs, &util.FakeKeyManager{})
+	mgr := repomgr.NewRepoManager(cs, &util.FakeKeyManager{})
 
 	err := mgr.InitNewActor(ctx, 1, "alice", "did:example:123", "Alice", "", "")
 	if err != nil {
@@ -270,7 +270,7 @@ func runEventManagerTest(t *testing.T, cs *carstore.CarStore, db *gorm.DB, p eve
 		Did: "did:example:123",
 	})
 
-	mgr := repomgr.NewRepoManager(repomgr.NewDbHeadStore(db), cs, &util.FakeKeyManager{})
+	mgr := repomgr.NewRepoManager(cs, &util.FakeKeyManager{})
 
 	err := mgr.InitNewActor(ctx, 1, "alice", "did:example:123", "Alice", "", "")
 	if err != nil {
@@ -369,7 +369,7 @@ func runTakedownTest(t *testing.T, cs *carstore.CarStore, db *gorm.DB, p events.
 	db.AutoMigrate(&pds.Peering{})
 	db.AutoMigrate(&models.ActorInfo{})
 
-	mgr := repomgr.NewRepoManager(repomgr.NewDbHeadStore(db), cs, &util.FakeKeyManager{})
+	mgr := repomgr.NewRepoManager(cs, &util.FakeKeyManager{})
 
 	// Create multiple users
 	userCount := 10

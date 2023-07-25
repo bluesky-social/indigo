@@ -31,20 +31,13 @@ import (
 
 var log = logging.Logger("repomgr")
 
-func NewRepoManager(hs HeadStore, cs *carstore.CarStore, kmgr KeyManager) *RepoManager {
+func NewRepoManager(cs *carstore.CarStore, kmgr KeyManager) *RepoManager {
 
 	return &RepoManager{
-		hs:        hs,
 		cs:        cs,
 		userLocks: make(map[models.Uid]*userLock),
 		kmgr:      kmgr,
 	}
-}
-
-type HeadStore interface {
-	GetUserRepoHead(ctx context.Context, user models.Uid) (cid.Cid, error)
-	UpdateUserRepoHead(ctx context.Context, user models.Uid, root cid.Cid) error
-	InitUser(ctx context.Context, user models.Uid, root cid.Cid) error
 }
 
 type KeyManager interface {
@@ -58,7 +51,6 @@ func (rm *RepoManager) SetEventHandler(cb func(context.Context, *RepoEvent)) {
 
 type RepoManager struct {
 	cs   *carstore.CarStore
-	hs   HeadStore
 	kmgr KeyManager
 
 	lklk      sync.Mutex
@@ -154,7 +146,7 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user models.Uid, collec
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	head, err := rm.hs.GetUserRepoHead(ctx, user)
+	head, err := rm.cs.GetUserRepoHead(ctx, user)
 	if err != nil {
 		return "", cid.Undef, err
 	}
@@ -182,11 +174,6 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user models.Uid, collec
 	rslice, err := ds.CloseWithRoot(ctx, nroot)
 	if err != nil {
 		return "", cid.Undef, fmt.Errorf("close with root: %w", err)
-	}
-
-	// TODO: what happens if this update fails?
-	if err := rm.hs.UpdateUserRepoHead(ctx, user, nroot); err != nil {
-		return "", cid.Undef, fmt.Errorf("updating user head: %w", err)
 	}
 
 	var oldroot *cid.Cid
@@ -220,7 +207,7 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user models.Uid, collec
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	head, err := rm.hs.GetUserRepoHead(ctx, user)
+	head, err := rm.cs.GetUserRepoHead(ctx, user)
 	if err != nil {
 		return cid.Undef, err
 	}
@@ -249,11 +236,6 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user models.Uid, collec
 	rslice, err := ds.CloseWithRoot(ctx, nroot)
 	if err != nil {
 		return cid.Undef, fmt.Errorf("close with root: %w", err)
-	}
-
-	// TODO: what happens if this update fails?
-	if err := rm.hs.UpdateUserRepoHead(ctx, user, nroot); err != nil {
-		return cid.Undef, fmt.Errorf("updating user head: %w", err)
 	}
 
 	var oldroot *cid.Cid
@@ -287,7 +269,7 @@ func (rm *RepoManager) DeleteRecord(ctx context.Context, user models.Uid, collec
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	head, err := rm.hs.GetUserRepoHead(ctx, user)
+	head, err := rm.cs.GetUserRepoHead(ctx, user)
 	if err != nil {
 		return err
 	}
@@ -317,10 +299,6 @@ func (rm *RepoManager) DeleteRecord(ctx context.Context, user models.Uid, collec
 		return fmt.Errorf("close with root: %w", err)
 	}
 
-	// TODO: what happens if this update fails?
-	if err := rm.hs.UpdateUserRepoHead(ctx, user, nroot); err != nil {
-		return fmt.Errorf("updating user head: %w", err)
-	}
 	var oldroot *cid.Cid
 	if head.Defined() {
 		oldroot = &head
@@ -382,10 +360,6 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user models.Uid, handle
 		return fmt.Errorf("close with root: %w", err)
 	}
 
-	if err := rm.hs.InitUser(ctx, user, root); err != nil {
-		return fmt.Errorf("initializing user in headstore: %w", err)
-	}
-
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
 			User:    user,
@@ -407,7 +381,7 @@ func (rm *RepoManager) GetRepoRoot(ctx context.Context, user models.Uid) (cid.Ci
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	return rm.hs.GetUserRepoHead(ctx, user)
+	return rm.cs.GetUserRepoHead(ctx, user)
 }
 
 func (rm *RepoManager) ReadRepo(ctx context.Context, user models.Uid, earlyCid, lateCid cid.Cid, w io.Writer) error {
@@ -420,7 +394,7 @@ func (rm *RepoManager) GetRecord(ctx context.Context, user models.Uid, collectio
 		return cid.Undef, nil, err
 	}
 
-	head, err := rm.hs.GetUserRepoHead(ctx, user)
+	head, err := rm.cs.GetUserRepoHead(ctx, user)
 	if err != nil {
 		return cid.Undef, nil, err
 	}
@@ -448,7 +422,7 @@ func (rm *RepoManager) GetProfile(ctx context.Context, uid models.Uid) (*bsky.Ac
 		return nil, err
 	}
 
-	head, err := rm.hs.GetUserRepoHead(ctx, uid)
+	head, err := rm.cs.GetUserRepoHead(ctx, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -532,11 +506,6 @@ func (rm *RepoManager) HandleRebase(ctx context.Context, pdsid uint, uid models.
 
 	if err := ds.CloseAsRebase(ctx, root); err != nil {
 		return fmt.Errorf("finalizing rebase: %w", err)
-	}
-
-	// TODO: what happens if this update fails?
-	if err := rm.hs.UpdateUserRepoHead(ctx, uid, root); err != nil {
-		return fmt.Errorf("updating user head: %w", err)
 	}
 
 	if rm.events != nil {
@@ -715,11 +684,6 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		return fmt.Errorf("close with root: %w", err)
 	}
 
-	// TODO: what happens if this update fails?
-	if err := rm.hs.UpdateUserRepoHead(ctx, uid, root); err != nil {
-		return fmt.Errorf("updating user head: %w", err)
-	}
-
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
 			User:      uid,
@@ -745,7 +709,7 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user models.Uid, writes [
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	head, err := rm.hs.GetUserRepoHead(ctx, user)
+	head, err := rm.cs.GetUserRepoHead(ctx, user)
 	if err != nil {
 		return err
 	}
@@ -827,11 +791,6 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user models.Uid, writes [
 		return fmt.Errorf("close with root: %w", err)
 	}
 
-	// TODO: what happens if this update fails?
-	if err := rm.hs.UpdateUserRepoHead(ctx, user, nroot); err != nil {
-		return fmt.Errorf("updating user head: %w", err)
-	}
-
 	var oldroot *cid.Cid
 	if head.Defined() {
 		oldroot = &head
@@ -857,18 +816,9 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	head, err := rm.hs.GetUserRepoHead(ctx, user)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
-	}
-
-	cshead, err := rm.cs.GetUserRepoHead(ctx, user)
+	head, err := rm.cs.GetUserRepoHead(ctx, user)
 	if err != nil {
 		return err
-	}
-
-	if head != cshead {
-		return fmt.Errorf("mismatch between carstore head tracking and repomgr: %s != %s", head, cshead)
 	}
 
 	if head != oldest {
@@ -915,10 +865,6 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 			return err
 		}
 
-		if err := rm.hs.UpdateUserRepoHead(ctx, user, nu); err != nil {
-			// TODO: this will lead to things being in an inconsistent state
-			return fmt.Errorf("failed to update repo head: %w", err)
-		}
 		var oldroot *cid.Cid
 		if old.Defined() {
 			oldroot = &old

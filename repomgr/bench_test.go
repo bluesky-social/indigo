@@ -58,8 +58,7 @@ func BenchmarkRepoMgrCreates(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	hs := NewMemHeadStore()
-	repoman := NewRepoManager(hs, cs, &util.FakeKeyManager{})
+	repoman := NewRepoManager(cs, &util.FakeKeyManager{})
 
 	ctx := context.TODO()
 	if err := repoman.InitNewActor(ctx, 1, "hello.world", "did:foo:bar", "catdog", "", ""); err != nil {
