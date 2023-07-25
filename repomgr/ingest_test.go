@@ -39,11 +39,6 @@ func TestLoadNewRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.sqlite")))
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.sqlite")))
 	if err != nil {
 		t.Fatal(err)
@@ -59,8 +54,7 @@ func TestLoadNewRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	hs := NewDbHeadStore(maindb)
-	repoman := NewRepoManager(hs, cs, &util.FakeKeyManager{})
+	repoman := NewRepoManager(cs, &util.FakeKeyManager{})
 
 	fi, err := os.Open("../testing/testdata/divy.repo")
 	if err != nil {
@@ -113,8 +107,7 @@ func TestIngestWithGap(t *testing.T) {
 
 	cs := testCarstore(t, dir)
 
-	hs := NewDbHeadStore(maindb)
-	repoman := NewRepoManager(hs, cs, &util.FakeKeyManager{})
+	repoman := NewRepoManager(cs, &util.FakeKeyManager{})
 
 	dir2, err := os.MkdirTemp("", "integtest")
 	if err != nil {

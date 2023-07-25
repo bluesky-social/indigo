@@ -43,7 +43,7 @@ func BenchmarkDBPersist(b *testing.B) {
 		Did: "did:example:123",
 	})
 
-	mgr := repomgr.NewRepoManager(repomgr.NewDbHeadStore(db), cs, &util.FakeKeyManager{})
+	mgr := repomgr.NewRepoManager(cs, &util.FakeKeyManager{})
 
 	err = mgr.InitNewActor(ctx, 1, "alice", "did:example:123", "Alice", "", "")
 	if err != nil {
@@ -165,7 +165,7 @@ func BenchmarkPlayback(b *testing.B) {
 		Did: "did:example:123",
 	})
 
-	mgr := repomgr.NewRepoManager(repomgr.NewDbHeadStore(db), cs, &util.FakeKeyManager{})
+	mgr := repomgr.NewRepoManager(cs, &util.FakeKeyManager{})
 
 	err = mgr.InitNewActor(ctx, 1, "alice", "did:example:123", "Alice", "", "")
 	if err != nil {

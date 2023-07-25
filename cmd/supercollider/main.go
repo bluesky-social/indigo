@@ -332,8 +332,6 @@ func initSpeedyRepoMan(postgresString string) (*repomgr.RepoManager, *godid.Priv
 		return nil, nil, err
 	}
 
-	hs := repomgr.NewMemHeadStore()
-
 	mr := did.NewMultiResolver()
 	mr.AddHandler("web", &did.WebResolver{
 		Insecure: true,
@@ -348,7 +346,7 @@ func initSpeedyRepoMan(postgresString string) (*repomgr.RepoManager, *godid.Priv
 
 	kmgr := indexer.NewKeyManager(cachedidr, key)
 
-	repoman := repomgr.NewRepoManager(hs, cs, kmgr)
+	repoman := repomgr.NewRepoManager(cs, kmgr)
 
 	return repoman, key, nil
 }
