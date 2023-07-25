@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -42,6 +43,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
@@ -90,6 +92,11 @@ func main() {
 			Usage:   "hostname of this server (forward *.hostname DNS records to this server)",
 			Value:   "supercollider.jazco.io",
 			EnvVars: []string{"SUPERCOLLIDER_HOST"},
+		},
+		&cli.StringFlag{
+			Name:    "postgres-url",
+			Usage:   "postgres connection string for CarDB (if not set, will use sqlite in-memory)",
+			EnvVars: []string{"SUPERCOLLIDER_POSTGRES_URL"},
 		},
 		&cli.BoolFlag{
 			Name:  "use-ssl",
@@ -166,7 +173,7 @@ func Supercollider(cctx *cli.Context) error {
 	em := events.NewEventManager(events.NewYoloPersister())
 
 	// Configure the repomanager and keypair for our fake accounts
-	repoman, privkey, err := initSpeedyRepoMan()
+	repoman, privkey, err := initSpeedyRepoMan(cctx.String("postgres-url"))
 	if err != nil {
 		log.Fatalf("failed to init repo manager: %+v\n", err)
 	}
@@ -253,7 +260,7 @@ func Supercollider(cctx *cli.Context) error {
 		}
 	}
 
-	go s.EventGenerationLoop(ctx)
+	go s.EventGenerationLoop(ctx, cctx.String("postgres-url") != "")
 
 	listenAddress := fmt.Sprintf(":%d", port)
 	if cctx.Bool("use-ssl") {
@@ -285,16 +292,34 @@ func setupDb(p string) (*gorm.DB, error) {
 	return db, nil
 }
 
+// Configure a Postgres SqliteDB
+func setupPostgresDb(p string) (*gorm.DB, error) {
+	db, err := gorm.Open(postgres.Open(p), &gorm.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to open db: %w", err)
+	}
+
+	return db, nil
+}
+
 // Stand up a Repo Manager with a Web DID Resolver
-func initSpeedyRepoMan() (*repomgr.RepoManager, *godid.PrivKey, error) {
+func initSpeedyRepoMan(postgresString string) (*repomgr.RepoManager, *godid.PrivKey, error) {
 	dir, err := os.MkdirTemp("", "supercollider")
 	if err != nil {
 		return nil, nil, err
 	}
 
-	cardb, err := setupDb("file::memory:?cache=shared")
-	if err != nil {
-		return nil, nil, err
+	var cardb *gorm.DB
+	if postgresString != "" {
+		cardb, err = setupPostgresDb(postgresString)
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		cardb, err = setupDb("file::memory:?cache=shared")
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	cspath := filepath.Join(dir, "carstore")
@@ -362,7 +387,7 @@ func (s *Server) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
 // Event Generation Loop and Control
 
 // EventGenerationLoop is the main loop for generating events
-func (s *Server) EventGenerationLoop(ctx context.Context) {
+func (s *Server) EventGenerationLoop(ctx context.Context, concurrent bool) {
 	running := false
 	totalEmittedEvents := 0
 
@@ -397,29 +422,50 @@ func (s *Server) EventGenerationLoop(ctx context.Context) {
 				}
 			}
 
-			for i := 0; i < s.TotalDesiredEvents; i++ {
-				totalEmittedEvents++
-				if i%40_000 == 0 {
-					s.Logger.Infof("emitted %d events\n", totalEmittedEvents)
+			if concurrent {
+				recordsPerActor := s.TotalDesiredEvents / len(s.Dids)
+				wg := sync.WaitGroup{}
+				for i := 0; i < len(s.Dids); i++ {
+					wg.Add(1)
+					go func(i int) {
+						for j := 0; j < recordsPerActor; j++ {
+							limiter.Wait(ctx)
+							_, _, err := s.RepoManager.CreateRecord(ctx, models.Uid(i+1), "app.bsky.feed.post", &bsky.FeedPost{
+								Text: "cats",
+							})
+							if err != nil {
+								s.Logger.Errorf("failed to create record: %+v\n", err)
+							} else {
+								eventsGeneratedCounter.Inc()
+							}
+							select {
+							case <-ctx.Done():
+								return
+							default:
+							}
+						}
+					}(i)
 				}
-
-				// Wait for the limiter to allow us to emit another event
-				limiter.Wait(ctx)
-
-				_, _, err := s.RepoManager.CreateRecord(ctx, models.Uid(i%len(s.Dids)+1), "app.bsky.feed.post", &bsky.FeedPost{
-					Text: "cats",
-				})
-				if err != nil {
-					s.Logger.Errorf("failed to create record: %+v\n", err)
-				} else {
-					eventsGeneratedCounter.Inc()
-				}
-				select {
-				case <-ctx.Done():
-					return
-				default:
+				wg.Wait()
+			} else {
+				for i := 0; i < s.TotalDesiredEvents; i++ {
+					limiter.Wait(ctx)
+					_, _, err := s.RepoManager.CreateRecord(ctx, models.Uid(i%len(s.Dids)+1), "app.bsky.feed.post", &bsky.FeedPost{
+						Text: "cats",
+					})
+					if err != nil {
+						s.Logger.Errorf("failed to create record: %+v\n", err)
+					} else {
+						eventsGeneratedCounter.Inc()
+					}
+					select {
+					case <-ctx.Done():
+						return
+					default:
+					}
 				}
 			}
+
 			s.Logger.Infof("emitted %d events, stopping\n", totalEmittedEvents)
 			s.EventControl <- "stop"
 			break
@@ -503,7 +549,9 @@ func (s *Server) HandleSubscribeRepos(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	evts, cancel, err := s.Events.Subscribe(ctx, func(evt *events.XRPCStreamEvent) bool {
+	ident := c.Request().RemoteAddr + "-" + c.Request().UserAgent()
+
+	evts, cancel, err := s.Events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool {
 		return true
 	}, cursor)
 	if err != nil {
