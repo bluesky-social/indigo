@@ -237,7 +237,7 @@ func Bigsky(cctx *cli.Context) error {
 
 	kmgr := indexer.NewKeyManager(cachedidr, nil)
 
-	repoman := repomgr.NewRepoManager(repomgr.NewDbHeadStore(db), cstore, kmgr)
+	repoman := repomgr.NewRepoManager(cstore, kmgr)
 
 	var persister events.EventPersistence
 
