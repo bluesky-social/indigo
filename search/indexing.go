@@ -50,6 +50,7 @@ func (s *Server) indexPost(ctx context.Context, u *User, rec *bsky.FeedPost, tid
 		"text":      rec.Text,
 		"createdAt": ts.UnixNano(),
 		"user":      u.Handle,
+		"did":       u.Did,
 	}
 	b, err := json.Marshal(blob)
 	if err != nil {

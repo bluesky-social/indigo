@@ -383,8 +383,8 @@ func decodeDocumentID(docid string) (uint, string, error) {
 	return uint(uid), parts[1], nil
 }
 
-func (s *Server) SearchProfiles(ctx context.Context, srch string) ([]*ActorSearchResp, error) {
-	resp, err := doSearchProfiles(ctx, s.escli, srch)
+func (s *Server) SearchProfiles(ctx context.Context, srch string, offset, count int) ([]*ActorSearchResp, error) {
+	resp, err := doSearchProfiles(ctx, s.escli, srch, offset, count)
 	if err != nil {
 		return nil, err
 	}

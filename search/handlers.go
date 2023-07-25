@@ -83,7 +83,33 @@ func (s *Server) handleSearchRequestProfiles(e echo.Context) error {
 		})
 	}
 
-	out, err := s.SearchProfiles(ctx, q)
+	offset := 0
+	if q := strings.TrimSpace(e.QueryParam("offset")); q != "" {
+		v, err := strconv.Atoi(q)
+		if err != nil {
+			return &echo.HTTPError{
+				Code:    400,
+				Message: fmt.Sprintf("invalid value for 'offset': %s", err),
+			}
+		}
+
+		offset = v
+	}
+
+	count := 30
+	if q := strings.TrimSpace(e.QueryParam("count")); q != "" {
+		v, err := strconv.Atoi(q)
+		if err != nil {
+			return &echo.HTTPError{
+				Code:    400,
+				Message: fmt.Sprintf("invalid value for 'count': %s", err),
+			}
+		}
+
+		count = v
+	}
+
+	out, err := s.SearchProfiles(ctx, q, offset, count)
 	if err != nil {
 		return err
 	}

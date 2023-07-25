@@ -66,7 +66,7 @@ func doSearchPosts(ctx context.Context, escli *es.Client, q string, offset int, 
 	return doSearch(ctx, escli, "posts", query)
 }
 
-func doSearchProfiles(ctx context.Context, escli *es.Client, q string) (*EsSearchResponse, error) {
+func doSearchProfiles(ctx context.Context, escli *es.Client, q string, offset int, size int) (*EsSearchResponse, error) {
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"multi_match": map[string]interface{}{
@@ -75,6 +75,8 @@ func doSearchProfiles(ctx context.Context, escli *es.Client, q string) (*EsSearc
 				"operator": "or",
 			},
 		},
+		"size": size,
+		"from": offset,
 	}
 
 	return doSearch(ctx, escli, "profiles", query)
