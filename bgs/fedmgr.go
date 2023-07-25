@@ -425,7 +425,6 @@ func (s *Slurper) flushCursors(ctx context.Context) []error {
 
 	errs := []error{}
 
-	// Iterate over active subs and update the PDS cursor in the DB
 	tx := s.db.Begin()
 	for _, cursor := range cursors {
 		if err := tx.WithContext(ctx).Model(models.PDS{}).Where("id = ?", cursor.id).UpdateColumn("cursor", cursor.cursor).Error; err != nil {
