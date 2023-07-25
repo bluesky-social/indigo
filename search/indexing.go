@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	bsky "github.com/bluesky-social/indigo/api/bsky"
@@ -41,13 +42,24 @@ func (s *Server) indexPost(ctx context.Context, u *User, rec *bsky.FeedPost, tid
 		return err
 	}
 
+	// collect all image alt text if available
+	allText := []string{rec.Text}
+	if rec.Embed != nil && rec.Embed.EmbedImages != nil && rec.Embed.EmbedImages.Images != nil {
+		for _, img := range rec.Embed.EmbedImages.Images {
+			if len(img.Alt) > 0 {
+				allText = append(allText, img.Alt)
+			}
+		}
+	}
+	docText := strings.Join(allText, " ")
+
 	ts, err := time.Parse(util.ISO8601, rec.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("post (%d, %s) had invalid timestamp (%q): %w", u.ID, tid, rec.CreatedAt, err)
 	}
 
 	blob := map[string]any{
-		"text":      rec.Text,
+		"text":      docText,
 		"createdAt": ts.UnixNano(),
 		"user":      u.Handle,
 	}
