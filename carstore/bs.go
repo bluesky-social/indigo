@@ -653,10 +653,8 @@ func (ds *DeltaSession) putShard(ctx context.Context, shard *CarShard, brefs []m
 
 	// TODO: there should be a way to create the shard and block_refs that
 	// reference it in the same query, would save a lot of time
-	tx := ds.cs.meta.WithContext(ctx).Begin()
-
-	if err := tx.WithContext(ctx).Create(shard).Error; err != nil {
-		return fmt.Errorf("failed to create shard in DB tx: %w", err)
+	if err := ds.cs.meta.WithContext(ctx).Create(shard).Error; err != nil {
+		return fmt.Errorf("failed to create shard in DB: %w", err)
 	}
 	ds.cs.putLastShardCache(ds.user, shard)
 
@@ -664,13 +662,13 @@ func (ds *DeltaSession) putShard(ctx context.Context, shard *CarShard, brefs []m
 		ref["shard"] = shard.ID
 	}
 
-	if err := createBlockRefs(ctx, tx, brefs); err != nil {
-		return fmt.Errorf("failed to create block refs: %w", err)
-	}
-
-	err := tx.WithContext(ctx).Commit().Error
-	if err != nil {
-		return fmt.Errorf("failed to commit shard DB transaction: %w", err)
+	if err := createBlockRefs(ctx, ds.cs.meta, brefs); err != nil {
+		// Delete the shard if we failed to create the block refs
+		blockRefsErr := fmt.Errorf("failed to create block refs: %w", err)
+		if err := ds.cs.deleteShardFile(ctx, shard); err != nil {
+			shardFileError := fmt.Errorf("failed to delete shard file after failed block ref creation: %w", err)
+			return fmt.Errorf("%w: %w", blockRefsErr, shardFileError)
+		}
 	}
 
 	return nil
