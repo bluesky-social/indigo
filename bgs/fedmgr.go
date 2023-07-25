@@ -425,13 +425,13 @@ func (s *Slurper) flushCursors(ctx context.Context) []error {
 
 	errs := []error{}
 
-	tx := s.db.Begin()
+	tx := s.db.WithContext(ctx).Begin()
 	for _, cursor := range cursors {
 		if err := tx.WithContext(ctx).Model(models.PDS{}).Where("id = ?", cursor.id).UpdateColumn("cursor", cursor.cursor).Error; err != nil {
 			errs = append(errs, err)
 		}
 	}
-	if err := tx.Commit().Error; err != nil {
+	if err := tx.WithContext(ctx).Commit().Error; err != nil {
 		errs = append(errs, err)
 	}
 
