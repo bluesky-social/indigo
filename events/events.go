@@ -9,6 +9,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
 	"github.com/bluesky-social/indigo/models"
+	"github.com/prometheus/client_golang/prometheus"
 
 	logging "github.com/ipfs/go-log"
 	"go.opentelemetry.io/otel"
@@ -59,7 +60,7 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 	// directly to the bgs, and have rebroadcasting proxies instead
 	for _, s := range em.subs {
 		if s.filter(evt) {
-			eventsEnqueued.WithLabelValues(s.ident).Inc()
+			s.enqueuedCounter.Inc()
 			select {
 			case s.outgoing <- evt:
 			case <-s.done:
@@ -69,7 +70,7 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 			default:
 				log.Warnf("event overflow (%d)", len(s.outgoing))
 			}
-			eventsBroadcast.WithLabelValues(s.ident).Inc()
+			s.broadcastCounter.Inc()
 		}
 	}
 }
@@ -81,13 +82,15 @@ func (em *EventManager) persistAndSendEvent(ctx context.Context, evt *XRPCStream
 }
 
 type Subscriber struct {
-	ident string
-
 	outgoing chan *XRPCStreamEvent
 
 	filter func(*XRPCStreamEvent) bool
 
 	done chan struct{}
+
+	ident            string
+	enqueuedCounter  prometheus.Counter
+	broadcastCounter prometheus.Counter
 }
 
 const (
@@ -138,10 +141,12 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 
 	done := make(chan struct{})
 	sub := &Subscriber{
-		ident:    ident,
-		outgoing: make(chan *XRPCStreamEvent, em.bufferSize),
-		filter:   filter,
-		done:     done,
+		ident:            ident,
+		outgoing:         make(chan *XRPCStreamEvent, em.bufferSize),
+		filter:           filter,
+		done:             done,
+		enqueuedCounter:  eventsEnqueued.WithLabelValues(ident),
+		broadcastCounter: eventsBroadcast.WithLabelValues(ident),
 	}
 
 	go func() {
