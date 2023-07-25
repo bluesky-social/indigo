@@ -9,6 +9,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
 	"github.com/bluesky-social/indigo/models"
+	"github.com/prometheus/client_golang/prometheus"
 
 	logging "github.com/ipfs/go-log"
 	"go.opentelemetry.io/otel"
@@ -59,6 +60,7 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 	// directly to the bgs, and have rebroadcasting proxies instead
 	for _, s := range em.subs {
 		if s.filter(evt) {
+			s.enqueuedCounter.Inc()
 			select {
 			case s.outgoing <- evt:
 			case <-s.done:
@@ -68,6 +70,7 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 			default:
 				log.Warnf("event overflow (%d)", len(s.outgoing))
 			}
+			s.broadcastCounter.Inc()
 		}
 	}
 }
@@ -84,6 +87,10 @@ type Subscriber struct {
 	filter func(*XRPCStreamEvent) bool
 
 	done chan struct{}
+
+	ident            string
+	enqueuedCounter  prometheus.Counter
+	broadcastCounter prometheus.Counter
 }
 
 const (
@@ -127,16 +134,19 @@ func (em *EventManager) AddEvent(ctx context.Context, ev *XRPCStreamEvent) error
 
 var ErrPlaybackShutdown = fmt.Errorf("playback shutting down")
 
-func (em *EventManager) Subscribe(ctx context.Context, filter func(*XRPCStreamEvent) bool, since *int64) (<-chan *XRPCStreamEvent, func(), error) {
+func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func(*XRPCStreamEvent) bool, since *int64) (<-chan *XRPCStreamEvent, func(), error) {
 	if filter == nil {
 		filter = func(*XRPCStreamEvent) bool { return true }
 	}
 
 	done := make(chan struct{})
 	sub := &Subscriber{
-		outgoing: make(chan *XRPCStreamEvent, em.bufferSize),
-		filter:   filter,
-		done:     done,
+		ident:            ident,
+		outgoing:         make(chan *XRPCStreamEvent, em.bufferSize),
+		filter:           filter,
+		done:             done,
+		enqueuedCounter:  eventsEnqueued.WithLabelValues(ident),
+		broadcastCounter: eventsBroadcast.WithLabelValues(ident),
 	}
 
 	go func() {

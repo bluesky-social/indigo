@@ -69,9 +69,9 @@ type CarShard struct {
 
 	Root      models.DbCID `gorm:"index"`
 	DataStart int64
-	Seq       int `gorm:"index"`
+	Seq       int `gorm:"index:idx_car_shards_seq;index:idx_car_shards_usr_seq,priority:2,sort:desc"`
 	Path      string
-	Usr       models.Uid `gorm:"index"`
+	Usr       models.Uid `gorm:"index:idx_car_shards_usr;index:idx_car_shards_usr_seq,priority:1"`
 	Rebase    bool
 }
 
@@ -275,8 +275,8 @@ func (cs *CarStore) getLastShard(ctx context.Context, user models.Uid) (*CarShar
 
 	var lastShard CarShard
 	// this is often slow (which is why we're caching it) but could be sped up with an extra index:
-	// CREATE INDEX idx_car_shards_usr_id ON car_shards (usr, id DESC);
-	if err := cs.meta.WithContext(ctx).Model(CarShard{}).Limit(1).Order("id desc").Find(&lastShard, "usr = ?", user).Error; err != nil {
+	// CREATE INDEX idx_car_shards_usr_id ON car_shards (usr, seq DESC);
+	if err := cs.meta.WithContext(ctx).Model(CarShard{}).Limit(1).Order("seq desc").Find(&lastShard, "usr = ?", user).Error; err != nil {
 		//if err := cs.meta.Model(CarShard{}).Where("user = ?", user).Last(&lastShard).Error; err != nil {
 		//if err != gorm.ErrRecordNotFound {
 		return nil, err
@@ -653,22 +653,23 @@ func (ds *DeltaSession) putShard(ctx context.Context, shard *CarShard, brefs []m
 
 	// TODO: there should be a way to create the shard and block_refs that
 	// reference it in the same query, would save a lot of time
-	if err := ds.cs.meta.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.WithContext(ctx).Create(shard).Error; err != nil {
-			return fmt.Errorf("failed to create shard in DB tx: %w", err)
-		}
-		ds.cs.putLastShardCache(ds.user, shard)
+	tx := ds.cs.meta.WithContext(ctx).Begin()
 
-		for _, ref := range brefs {
-			ref["shard"] = shard.ID
-		}
+	if err := tx.WithContext(ctx).Create(shard).Error; err != nil {
+		return fmt.Errorf("failed to create shard in DB tx: %w", err)
+	}
+	ds.cs.putLastShardCache(ds.user, shard)
 
-		if err := createBlockRefs(ctx, tx, brefs); err != nil {
-			return fmt.Errorf("failed to create block refs: %w", err)
-		}
+	for _, ref := range brefs {
+		ref["shard"] = shard.ID
+	}
 
-		return nil
-	}); err != nil {
+	if err := createBlockRefs(ctx, tx, brefs); err != nil {
+		return fmt.Errorf("failed to create block refs: %w", err)
+	}
+
+	err := tx.WithContext(ctx).Commit().Error
+	if err != nil {
 		return fmt.Errorf("failed to commit shard DB transaction: %w", err)
 	}
 
