@@ -521,7 +521,12 @@ var listInviteTreeCmd = &cli.Command{
 			Usage: "additionally disable invites for all printed DIDs",
 		},
 		&cli.BoolFlag{
+			Name: "print-handles",
+			Usage: "print handle for each DID",
+		},
+		&cli.BoolFlag{
 			Name: "print-emails",
+			Usage: "print account email for each DID",
 		},
 	},
 	ArgsUsage: `[handle]`,
@@ -568,15 +573,22 @@ var listInviteTreeCmd = &cli.Command{
 			}
 			fmt.Print(next)
 
+			if cctx.Bool("print-handles") {
+				if rep.Handle != "" {
+					fmt.Print(" ", rep.Handle)
+				} else {
+					fmt.Print(" NO HANDLE")
+				}
+			}
+
 			if cctx.Bool("print-emails") {
 				if rep.Email != nil {
-					fmt.Println(" ", *rep.Email)
+					fmt.Print(" ", *rep.Email)
 				} else {
-					fmt.Println(" NO EMAIL")
+					fmt.Print(" NO EMAIL")
 				}
-			} else {
-				fmt.Println()
 			}
+			fmt.Println()
 
 			for _, inv := range rep.Invites {
 				for _, u := range inv.Uses {
