@@ -39,8 +39,8 @@ func (s *Server) handleSearchRequestPosts(e echo.Context) error {
 	}
 
 	offset := 0
-	if q := strings.TrimSpace(e.QueryParam("offset")); q != "" {
-		v, err := strconv.Atoi(q)
+	if offsetParam := strings.TrimSpace(e.QueryParam("offset")); offsetParam != "" {
+		v, err := strconv.Atoi(offsetParam)
 		if err != nil {
 			return &echo.HTTPError{
 				Code:    400,
@@ -52,8 +52,8 @@ func (s *Server) handleSearchRequestPosts(e echo.Context) error {
 	}
 
 	count := 30
-	if q := strings.TrimSpace(e.QueryParam("count")); q != "" {
-		v, err := strconv.Atoi(q)
+	if countParam := strings.TrimSpace(e.QueryParam("count")); countParam != "" {
+		v, err := strconv.Atoi(countParam)
 		if err != nil {
 			return &echo.HTTPError{
 				Code:    400,
