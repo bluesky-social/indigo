@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -293,8 +294,11 @@ func Reload(cctx *cli.Context) error {
 		}
 	}
 
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	// Start a loop to subscribe to events and write them to a file
 	go func() {
+		defer wg.Done()
 		outFile := cctx.String("output-file")
 		f, err := os.OpenFile(outFile, os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
@@ -302,6 +306,7 @@ func Reload(cctx *cli.Context) error {
 		}
 		defer f.Close()
 		since := int64(0)
+
 		evts, cancel, err := s.Events.Subscribe(ctx, "supercollider_file", func(evt *events.XRPCStreamEvent) bool {
 			return true
 		}, &since)
@@ -320,10 +325,6 @@ func Reload(cctx *cli.Context) error {
 				err = f.Sync()
 				if err != nil {
 					log.Errorf("failed to sync file: %+v\n", err)
-				}
-				err = f.Close()
-				if err != nil {
-					log.Errorf("failed to close file: %+v\n", err)
 				}
 				log.Info("file writer shutdown complete")
 				return
@@ -375,14 +376,20 @@ func Reload(cctx *cli.Context) error {
 	}()
 
 	listenAddress := fmt.Sprintf(":%d", port)
-	if cctx.Bool("use-ssl") {
-		err = e.StartAutoTLS(listenAddress)
-	} else {
-		err = e.Start(listenAddress)
-	}
-	if err != nil {
-		log.Errorf("failed to start server: %+v\n", err)
-	}
+	go func() {
+		if cctx.Bool("use-ssl") {
+			err = e.StartAutoTLS(listenAddress)
+		} else {
+			err = e.Start(listenAddress)
+		}
+		if err != nil {
+			log.Errorf("failed to start server: %+v\n", err)
+		}
+	}()
+	<-ctx.Done()
+	log.Info("shutting down server...")
+	wg.Wait()
+	log.Info("server shutdown complete")
 	return nil
 }
 
@@ -517,14 +524,18 @@ func Fire(cctx *cli.Context) error {
 	}
 
 	listenAddress := fmt.Sprintf(":%d", port)
-	if cctx.Bool("use-ssl") {
-		err = e.StartAutoTLS(listenAddress)
-	} else {
-		err = e.Start(listenAddress)
-	}
-	if err != nil {
-		log.Errorf("failed to start server: %+v\n", err)
-	}
+	go func() {
+		if cctx.Bool("use-ssl") {
+			err = e.StartAutoTLS(listenAddress)
+		} else {
+			err = e.Start(listenAddress)
+		}
+		if err != nil {
+			log.Errorf("failed to start server: %+v\n", err)
+		}
+	}()
+	<-ctx.Done()
+	log.Info("shutting down server")
 	return nil
 }
 
