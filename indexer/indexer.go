@@ -838,18 +838,13 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 	}
 
 	var rebase *comatproto.SyncSubscribeRepos_Commit
-	for _, job := range job.catchup {
-		if job.evt.Rebase {
-			rebase = job.evt
+	var rebaseIx int
+	for i, j := range job.catchup {
+		if j.evt.Rebase {
+			fmt.Println("REBASE AT: ", i, len(job.catchup))
+			rebase = j.evt
+			rebaseIx = i
 			break
-		}
-	}
-	if rebase == nil {
-		for _, job := range job.next {
-			if job.evt.Rebase {
-				rebase = job.evt
-				break
-			}
 		}
 	}
 
@@ -857,7 +852,32 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 		if err := ix.repomgr.HandleRebase(ctx, ai.PDS, ai.Uid, ai.Did, (*cid.Cid)(rebase.Prev), (cid.Cid)(rebase.Commit), rebase.Blocks); err != nil {
 			return fmt.Errorf("handling rebase: %w", err)
 		}
+		// now process the rest of the catchup events
+		// these are all events that got received *after* the rebase, but
+		// before we could start processing it.
+		// That means these should be the next operations that get cleanly
+		// applied after the rebase
+		for _, j := range job.catchup[rebaseIx+1:] {
+			if err := ix.repomgr.HandleExternalUserEvent(ctx, pds.ID, ai.Uid, ai.Did, (*cid.Cid)(j.evt.Prev), j.evt.Blocks, j.evt.Ops); err != nil {
+				return fmt.Errorf("post rebase catchup failed: %w", err)
+			}
+		}
 		return nil
+	}
+
+	if !(job.initScrape || len(job.catchup) == 0) {
+		first := job.catchup[0]
+		if first.evt.Prev == nil || curHead == (cid.Cid)(*first.evt.Prev) {
+			for _, j := range job.catchup {
+				fmt.Println("Processing catchup job")
+				if err := ix.repomgr.HandleExternalUserEvent(ctx, pds.ID, ai.Uid, ai.Did, (*cid.Cid)(j.evt.Prev), j.evt.Blocks, j.evt.Ops); err != nil {
+					// TODO: if we fail here, we should probably fall back to a repo re-sync
+					return fmt.Errorf("post rebase catchup failed: %w", err)
+				}
+			}
+
+			return nil
+		}
 	}
 
 	var host string

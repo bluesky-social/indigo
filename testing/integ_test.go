@@ -3,6 +3,7 @@ package testing
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -19,7 +20,7 @@ import (
 )
 
 func init() {
-	log.SetAllLoggers(log.LevelDebug)
+	log.SetAllLoggers(log.LevelInfo)
 }
 
 func TestBGSBasic(t *testing.T) {
@@ -398,6 +399,8 @@ func TestRebaseMulti(t *testing.T) {
 
 	p1.RequestScraping(t, b1)
 
+	esgenesis := b1.Events(t, 0)
+
 	time.Sleep(time.Millisecond * 50)
 
 	bob := p1.MustNewUser(t, "bob.tpds")
@@ -406,7 +409,11 @@ func TestRebaseMulti(t *testing.T) {
 		bob.Post(t, fmt.Sprintf("this is bobs post %d", i))
 	}
 
-	fmt.Println("REBASE TWO")
+	// wait for 11 events, the first one is the actor creation
+	firsten := esgenesis.WaitFor(11)
+	_ = firsten
+
+	fmt.Println("REBASE ONE")
 	bob.DoRebase(t)
 
 	var posts []*atproto.RepoStrongRef
@@ -423,7 +430,7 @@ func TestRebaseMulti(t *testing.T) {
 	all := evts1.WaitFor(11)
 
 	assert.Equal(true, all[0].RepoCommit.Rebase)
-	assert.Equal(int64(1), all[0].RepoCommit.Seq)
+	assert.Equal(int64(12), all[0].RepoCommit.Seq)
 	assert.Equal(posts[0].Cid, all[1].RepoCommit.Ops[0].Cid.String())
 
 	// and another one!
@@ -445,6 +452,11 @@ func TestRebaseMulti(t *testing.T) {
 
 	assert.Equal(true, all[0].RepoCommit.Rebase)
 	assert.Equal(posts2[0].Cid, all[1].RepoCommit.Ops[0].Cid.String())
+}
+
+func jsonPrint(v any) {
+	b, _ := json.Marshal(v)
+	fmt.Println(string(b))
 }
 
 func commitFromSlice(t *testing.T, slice []byte, rcid cid.Cid) *repo.SignedCommit {
