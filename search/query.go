@@ -44,24 +44,46 @@ type PostSearchResult struct {
 	Post any        `json:"post"`
 }
 
-func doSearchPosts(ctx context.Context, escli *es.Client, q string, offset int, size int) (*EsSearchResponse, error) {
-	query := map[string]interface{}{
-		"sort": map[string]any{
-			"createdAt": map[string]any{
-				"order": "desc",
-			},
+func doSearchPosts(
+	ctx context.Context,
+	escli *es.Client,
+	q string,
+	fromHandle string,
+	offset int,
+	size int,
+) (*EsSearchResponse, error) {
+	query := make(map[string]interface{})
+	query["sort"] = map[string]any{
+		"createdAt": map[string]any{
+			"order": "desc",
 		},
-		"query": map[string]interface{}{
+	}
+
+	var musts []map[string]interface{}
+	if len(q) > 0 {
+		musts = append(musts, map[string]interface{}{
 			"match": map[string]interface{}{
 				"text": map[string]any{
 					"query":    q,
 					"operator": "and",
 				},
 			},
-		},
-		"size": size,
-		"from": offset,
+		})
 	}
+	if len(fromHandle) > 0 {
+		musts = append(musts, map[string]interface{}{
+			"term": map[string]interface{}{
+				"user": fromHandle,
+			},
+		})
+	}
+	query["query"] = map[string]interface{}{
+		"bool": map[string]interface{}{
+			"must": musts,
+		},
+	}
+	query["size"] = size
+	query["from"] = offset
 
 	return doSearch(ctx, escli, "posts", query)
 }
