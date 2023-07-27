@@ -38,7 +38,7 @@ func NewConsumerPool(maxC, maxQ int, ident string, do func(context.Context, *XRP
 
 		do: do,
 
-		feeder: make(chan *consumerTask),
+		feeder: make(chan *consumerTask, 105),
 		active: make(map[string][]*consumerTask),
 
 		ident: ident,
