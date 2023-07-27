@@ -27,7 +27,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 7
+	fieldCount := 8
 
 	if t.Embed == nil {
 		fieldCount--
@@ -38,6 +38,10 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	}
 
 	if t.Facets == nil {
+		fieldCount--
+	}
+
+	if t.Langs == nil {
 		fieldCount--
 	}
 
@@ -107,6 +111,41 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 
 		if err := t.Embed.MarshalCBOR(cw); err != nil {
 			return err
+		}
+	}
+
+	// t.Langs ([]string) (slice)
+	if t.Langs != nil {
+
+		if len("langs") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"langs\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("langs"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("langs")); err != nil {
+			return err
+		}
+
+		if len(t.Langs) > cbg.MaxLength {
+			return xerrors.Errorf("Slice value in field t.Langs was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Langs))); err != nil {
+			return err
+		}
+		for _, v := range t.Langs {
+			if len(v) > cbg.MaxLength {
+				return xerrors.Errorf("Value in field v was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(v))); err != nil {
+				return err
+			}
+			if _, err := io.WriteString(w, string(v)); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -290,6 +329,38 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 			}
+			// t.Langs ([]string) (slice)
+		case "langs":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > cbg.MaxLength {
+				return fmt.Errorf("t.Langs: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Langs = make([]string, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+
+				{
+					sval, err := cbg.ReadString(cr)
+					if err != nil {
+						return err
+					}
+
+					t.Langs[i] = string(sval)
+				}
+			}
+
 			// t.Reply (bsky.FeedPost_ReplyRef) (struct)
 		case "reply":
 
