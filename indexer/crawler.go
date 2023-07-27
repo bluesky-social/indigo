@@ -196,7 +196,7 @@ func (c *CrawlDispatcher) fetchWorker() {
 
 func (c *CrawlDispatcher) Crawl(ctx context.Context, ai *models.ActorInfo) error {
 	if ai.PDS == 0 {
-		panic("not today!")
+		panic("must have pds for user in queue")
 	}
 
 	ctx, span := otel.Tracer("crawler").Start(ctx, "addToCrawler")
@@ -212,7 +212,7 @@ func (c *CrawlDispatcher) Crawl(ctx context.Context, ai *models.ActorInfo) error
 
 func (c *CrawlDispatcher) AddToCatchupQueue(ctx context.Context, host *models.PDS, u *models.ActorInfo, evt *comatproto.SyncSubscribeRepos_Commit) error {
 	if u.PDS == 0 {
-		panic("not okay")
+		panic("must have pds for user in queue")
 	}
 
 	catchup := &catchupJob{

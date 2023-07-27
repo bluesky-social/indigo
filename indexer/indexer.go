@@ -841,7 +841,6 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 	var rebaseIx int
 	for i, j := range job.catchup {
 		if j.evt.Rebase {
-			fmt.Println("REBASE AT: ", i, len(job.catchup))
 			rebase = j.evt
 			rebaseIx = i
 			break
@@ -869,7 +868,6 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 		first := job.catchup[0]
 		if first.evt.Prev == nil || curHead == (cid.Cid)(*first.evt.Prev) {
 			for _, j := range job.catchup {
-				fmt.Println("Processing catchup job")
 				if err := ix.repomgr.HandleExternalUserEvent(ctx, pds.ID, ai.Uid, ai.Did, (*cid.Cid)(j.evt.Prev), j.evt.Blocks, j.evt.Ops); err != nil {
 					// TODO: if we fail here, we should probably fall back to a repo re-sync
 					return fmt.Errorf("post rebase catchup failed: %w", err)
