@@ -371,7 +371,7 @@ func Reload(cctx *cli.Context) error {
 	// Start the event generation loop
 	go func() {
 		time.Sleep(time.Second * 5)
-		s.EventGenerationLoop(ctx)
+		s.EventGenerationLoop(ctx, cancel)
 	}()
 
 	listenAddress := fmt.Sprintf(":%d", port)
@@ -614,7 +614,8 @@ func (s *Server) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
 }
 
 // EventGenerationLoop is the main loop for generating events
-func (s *Server) EventGenerationLoop(ctx context.Context) {
+func (s *Server) EventGenerationLoop(ctx context.Context, cancel context.CancelFunc) {
+	defer cancel()
 	s.Logger.Infof("starting event generation for %d events", s.TotalDesiredEvents)
 
 	s.Logger.Infof("initializing %d fake users", len(s.Dids))
@@ -649,6 +650,8 @@ func (s *Server) EventGenerationLoop(ctx context.Context) {
 		default:
 		}
 	}
+
+	s.Logger.Infof("event generation complete, shutting down")
 	return
 }
 
