@@ -12,6 +12,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/go-retryablehttp v0.7.2
 	github.com/hashicorp/golang-lru v0.5.4
+	github.com/icrowley/fake v0.0.0-20221112152111-d7b7e2276db2
 	github.com/ipfs/go-block-format v0.1.2
 	github.com/ipfs/go-bs-sqlite3 v0.0.0-20221122195556-bfcee1be620d
 	github.com/ipfs/go-cid v0.4.1
@@ -64,6 +65,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/corpix/uarand v0.0.0-20170723150923-031be390f409 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect

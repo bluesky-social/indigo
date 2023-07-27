@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -28,6 +27,7 @@ import (
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/util/version"
 	petname "github.com/dustinkirkland/golang-petname"
+	"github.com/icrowley/fake"
 	"github.com/labstack/echo-contrib/pprof"
 	"github.com/urfave/cli/v2"
 	godid "github.com/whyrusleeping/go-did"
@@ -43,9 +43,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+
+	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"go.uber.org/zap"
 )
@@ -73,6 +74,8 @@ type Server struct {
 	// Event Loop Parameters
 	TotalDesiredEvents int
 	MaxEventsPerSecond int
+
+	PlaybackFile string
 }
 
 func main() {
@@ -93,38 +96,72 @@ func main() {
 			Value:   "supercollider.jazco.io",
 			EnvVars: []string{"SUPERCOLLIDER_HOST"},
 		},
-		&cli.StringFlag{
-			Name:    "postgres-url",
-			Usage:   "postgres connection string for CarDB (if not set, will use sqlite in-memory)",
-			EnvVars: []string{"SUPERCOLLIDER_POSTGRES_URL"},
-		},
 		&cli.BoolFlag{
-			Name:  "use-ssl",
-			Usage: "listen on port 443 and use SSL (needs to be run as root and have external DNS setup)",
-			Value: false,
+			Name:    "use-ssl",
+			Usage:   "listen on port 443 and use SSL (needs to be run as root and have external DNS setup)",
+			Value:   false,
+			EnvVars: []string{"SUPERCOLLIDER_USE_SSL"},
 		},
 		&cli.IntFlag{
-			Name:  "port",
-			Usage: "port for the HTTP(S) server to listen on (defaults to 80 if not using SSL, 443 if using SSL)",
+			Name:    "port",
+			Usage:   "port for the HTTP(S) server to listen on (defaults to 80 if not using SSL, 443 if using SSL)",
+			EnvVars: []string{"SUPERCOLLIDER_PORT"},
 		},
-		&cli.IntFlag{
-			Name:  "num-users",
-			Usage: "number of fake users to produce events for",
-			Value: 100,
-		},
-		&cli.IntFlag{
-			Name:  "events-per-second",
-			Usage: "maximum number of events to generate per second",
-			Value: 300,
-		},
-		&cli.IntFlag{
-			Name:  "total-events-per-loop",
-			Usage: "total number of events to generate per loop",
-			Value: 1_000_000,
+
+		&cli.StringFlag{
+			Name:    "key-file",
+			Usage:   "file to store the private key used to sign events",
+			Value:   "key.raw",
+			EnvVars: []string{"KEY_FILE"},
 		},
 	}
 
-	app.Action = Supercollider
+	app.Commands = []*cli.Command{
+		{
+			Name:   "reload",
+			Usage:  "reload events from a file and write them to an output file",
+			Action: Reload,
+			Flags: append([]cli.Flag{
+				&cli.IntFlag{
+					Name:    "num-users",
+					Usage:   "number of fake users to produce events for",
+					Value:   100,
+					EnvVars: []string{"NUM_USERS"},
+				},
+				&cli.IntFlag{
+					Name:    "total-events",
+					Usage:   "total number of events to generate",
+					Value:   1_000_000,
+					EnvVars: []string{"TOTAL_EVENTS"},
+				},
+				&cli.StringFlag{
+					Name:    "output-file",
+					Usage:   "output file for the generated events",
+					Value:   "events_out.cbor",
+					EnvVars: []string{"OUTPUT_FILE"},
+				},
+			}, app.Flags...),
+		},
+		{
+			Name:   "fire",
+			Usage:  "fire events from a file over a websocket",
+			Action: Fire,
+			Flags: append([]cli.Flag{
+				&cli.IntFlag{
+					Name:    "events-per-second",
+					Usage:   "maximum number of events to generate per second",
+					Value:   300,
+					EnvVars: []string{"EVENTS_PER_SECOND"},
+				},
+				&cli.StringFlag{
+					Name:    "input-file",
+					Usage:   "input file for the generated events (if set, will read events from this file instead of generating them)",
+					Value:   "events_in.cbor",
+					EnvVars: []string{"INPUT_FILE"},
+				},
+			}, app.Flags...),
+		},
+	}
 
 	err := app.Run(os.Args)
 	if err != nil {
@@ -132,7 +169,7 @@ func main() {
 	}
 }
 
-func Supercollider(cctx *cli.Context) error {
+func Reload(cctx *cli.Context) error {
 	ctx := cctx.Context
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -168,12 +205,41 @@ func Supercollider(cctx *cli.Context) error {
 
 	log := rawlog.Sugar().With("source", "supercollider_main")
 
-	log.Info("starting supercollider")
+	log.Info("Starting Supercollider in Reload Mode")
+	log.Infof("Generating %d total events and writing them to %s",
+		cctx.Int("total-events"), cctx.String("output-file"))
 
 	em := events.NewEventManager(events.NewYoloPersister())
 
+	// Try to read the key from disk
+	keyBytes, err := os.ReadFile(cctx.String("key-file"))
+	if err != nil {
+		log.Warnf("failed to read key from disk, creating new key: %s", err.Error())
+	}
+
+	var privkey *godid.PrivKey
+	if len(keyBytes) == 0 {
+		privkey, err = godid.GeneratePrivKey(rand.Reader, godid.KeyTypeSecp256k1)
+		if err != nil {
+			log.Fatalf("failed to generate privkey: %+v\n", err)
+		}
+		rawKey, err := privkey.RawBytes()
+		if err != nil {
+			log.Fatalf("failed to serialize privkey: %+v\n", err)
+		}
+		err = os.WriteFile(cctx.String("key-file"), rawKey, 0644)
+		if err != nil {
+			log.Fatalf("failed to write privkey to disk: %+v\n", err)
+		}
+	} else {
+		privkey, err = godid.PrivKeyFromRawBytes(godid.KeyTypeSecp256k1, keyBytes)
+		if err != nil {
+			log.Fatalf("failed to parse privkey from disk: %+v\n", err)
+		}
+	}
+
 	// Configure the repomanager and keypair for our fake accounts
-	repoman, privkey, err := initSpeedyRepoMan(cctx.String("postgres-url"))
+	repoman, privkey, err := initSpeedyRepoMan(privkey)
 	if err != nil {
 		log.Fatalf("failed to init repo manager: %+v\n", err)
 	}
@@ -201,9 +267,210 @@ func Supercollider(cctx *cli.Context) error {
 		Dids:         dids,
 
 		Events:             em,
-		EventControl:       make(chan string),
-		TotalDesiredEvents: cctx.Int("total-events-per-loop"),
+		TotalDesiredEvents: cctx.Int("total-events"),
+	}
+
+	repoman.SetEventHandler(s.HandleRepoEvent)
+
+	// HTTP Server setup and Middleware Plumbing
+	e := echo.New()
+	e.AutoTLSManager.Cache = autocert.DirCache("/var/www/.cache")
+	pprof.Register(e)
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: "method=${method}, ip=${remote_ip}, uri=${uri}, status=${status} latency=${latency_human} (ua=${user_agent})\n",
+	}))
+
+	e.GET("/", func(c echo.Context) error {
+		return c.HTML(http.StatusOK, `<h1>Supercollider is reloading...</h1>`)
+	})
+	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
+
+	port := cctx.Int("port")
+	if port == 0 {
+		if cctx.Bool("use-ssl") {
+			port = 443
+		} else {
+			port = 80
+		}
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	// Start a loop to subscribe to events and write them to a file
+	go func() {
+		defer wg.Done()
+		outFile := cctx.String("output-file")
+		f, err := os.OpenFile(outFile, os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatalf("failed to open output file: %+v\n", err)
+		}
+		defer f.Close()
+		since := int64(0)
+
+		evts, cancel, err := s.Events.Subscribe(ctx, "supercollider_file", func(evt *events.XRPCStreamEvent) bool {
+			return true
+		}, &since)
+		if err != nil {
+			log.Fatalf("failed to subscribe to events: %+v\n", err)
+		}
+		defer cancel()
+
+		log.Infof("writing events to %s", outFile)
+
+		header := events.EventHeader{Op: events.EvtKindMessage}
+		for {
+			select {
+			case <-ctx.Done():
+				log.Info("shutting down file writer")
+				err = f.Sync()
+				if err != nil {
+					log.Errorf("failed to sync file: %+v\n", err)
+				}
+				log.Info("file writer shutdown complete")
+				return
+			case evt := <-evts:
+				if evt.Error != nil {
+					log.Errorf("error in event stream: %+v\n", evt.Error)
+					continue
+				}
+				var obj lexutil.CBOR
+				switch {
+				case evt.Error != nil:
+					header.Op = events.EvtKindErrorFrame
+					obj = evt.Error
+				case evt.RepoCommit != nil:
+					header.MsgType = "#commit"
+					obj = evt.RepoCommit
+				case evt.RepoHandle != nil:
+					header.MsgType = "#handle"
+					obj = evt.RepoHandle
+				case evt.RepoInfo != nil:
+					header.MsgType = "#info"
+					obj = evt.RepoInfo
+				case evt.RepoMigrate != nil:
+					header.MsgType = "#migrate"
+					obj = evt.RepoMigrate
+				case evt.RepoTombstone != nil:
+					header.MsgType = "#tombstone"
+					obj = evt.RepoTombstone
+				default:
+					log.Errorf("unrecognized event kind")
+					continue
+				}
+
+				if err := header.MarshalCBOR(f); err != nil {
+					log.Errorf("failed to write header: %+v\n", err)
+				}
+
+				if err := obj.MarshalCBOR(f); err != nil {
+					log.Errorf("failed to write event: %+v\n", err)
+				}
+			}
+		}
+	}()
+
+	// Start the event generation loop
+	go func() {
+		time.Sleep(time.Second * 5)
+		s.EventGenerationLoop(ctx, cancel)
+	}()
+
+	listenAddress := fmt.Sprintf(":%d", port)
+	go func() {
+		if cctx.Bool("use-ssl") {
+			err = e.StartAutoTLS(listenAddress)
+		} else {
+			err = e.Start(listenAddress)
+		}
+		if err != nil {
+			log.Errorf("failed to start server: %+v\n", err)
+		}
+	}()
+	<-ctx.Done()
+	log.Info("shutting down server...")
+	wg.Wait()
+	log.Info("server shutdown complete")
+	return nil
+}
+
+func Fire(cctx *cli.Context) error {
+	ctx := cctx.Context
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Trap SIGINT to trigger a shutdown.
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		select {
+		case <-signals:
+			cancel()
+			fmt.Println("shutting down on signal")
+			// Give the server some time to shutdown gracefully, then exit.
+			time.Sleep(time.Second * 5)
+			os.Exit(0)
+		case <-ctx.Done():
+			fmt.Println("shutting down on context done")
+		}
+	}()
+
+	rawlog, err := zap.NewDevelopment()
+	if err != nil {
+		log.Fatalf("failed to create logger: %+v\n", err)
+	}
+	defer func() {
+		log.Printf("main function teardown\n")
+		err := rawlog.Sync()
+		if err != nil {
+			log.Printf("failed to sync logger on teardown: %+v", err.Error())
+		}
+	}()
+
+	log := rawlog.Sugar().With("source", "supercollider_main")
+
+	log.Info("Starting Supercollider in Fire Mode")
+
+	// Try to read the key from disk
+	keyBytes, err := os.ReadFile(cctx.String("key-file"))
+	if err != nil {
+		log.Warnf("failed to read key from disk, creating new key: %s", err.Error())
+	}
+
+	var privkey *godid.PrivKey
+	if len(keyBytes) == 0 {
+		privkey, err = godid.GeneratePrivKey(rand.Reader, godid.KeyTypeSecp256k1)
+		if err != nil {
+			log.Fatalf("failed to generate privkey: %+v\n", err)
+		}
+		rawKey, err := privkey.RawBytes()
+		if err != nil {
+			log.Fatalf("failed to serialize privkey: %+v\n", err)
+		}
+		err = os.WriteFile(cctx.String("key-file"), rawKey, 0644)
+		if err != nil {
+			log.Fatalf("failed to write privkey to disk: %+v\n", err)
+		}
+	} else {
+		privkey, err = godid.PrivKeyFromRawBytes(godid.KeyTypeSecp256k1, keyBytes)
+		if err != nil {
+			log.Fatalf("failed to parse privkey from disk: %+v\n", err)
+		}
+	}
+
+	vMethod, err := godid.VerificationMethodFromKey(privkey.Public())
+	if err != nil {
+		log.Fatalf("failed to generate verification method: %+v\n", err)
+	}
+
+	// Instantiate Server
+	s := &Server{
+		Logger:             log,
+		EnableSSL:          cctx.Bool("use-ssl"),
+		Host:               cctx.String("hostname"),
+		MultibaseKey:       *vMethod.PublicKeyMultibase,
 		MaxEventsPerSecond: cctx.Int("events-per-second"),
+		PlaybackFile:       cctx.String("input-file"),
 	}
 
 	// HTTP Server setup and Middleware Plumbing
@@ -238,18 +505,14 @@ func Supercollider(cctx *cli.Context) error {
 	}
 
 	e.GET("/", func(c echo.Context) error {
-		return c.HTML(http.StatusOK, `<h1>Welcome to Supercollider!</h1>`)
+		return c.HTML(http.StatusOK, `<h1>Supercollider is firing...</h1>`)
 	})
-
-	repoman.SetEventHandler(s.HandleRepoEvent)
 
 	e.GET("/.well-known/did.json", s.HandleWellKnownDid)
 	e.GET("/.well-known/atproto-did", s.HandleAtprotoDid)
 	e.GET("/xrpc/com.atproto.server.describeServer", s.DescribeServerHandler)
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.HandleSubscribeRepos)
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
-	e.GET("/generate", s.HandleStartGenerating)
-	e.GET("/stop", s.HandleStopGenerating)
 
 	port := cctx.Int("port")
 	if port == 0 {
@@ -260,17 +523,19 @@ func Supercollider(cctx *cli.Context) error {
 		}
 	}
 
-	go s.EventGenerationLoop(ctx, cctx.String("postgres-url") != "")
-
 	listenAddress := fmt.Sprintf(":%d", port)
-	if cctx.Bool("use-ssl") {
-		err = e.StartAutoTLS(listenAddress)
-	} else {
-		err = e.Start(listenAddress)
-	}
-	if err != nil {
-		log.Errorf("failed to start server: %+v\n", err)
-	}
+	go func() {
+		if cctx.Bool("use-ssl") {
+			err = e.StartAutoTLS(listenAddress)
+		} else {
+			err = e.Start(listenAddress)
+		}
+		if err != nil {
+			log.Errorf("failed to start server: %+v\n", err)
+		}
+	}()
+	<-ctx.Done()
+	log.Info("shutting down server")
 	return nil
 }
 
@@ -292,34 +557,16 @@ func setupDb(p string) (*gorm.DB, error) {
 	return db, nil
 }
 
-// Configure a Postgres SqliteDB
-func setupPostgresDb(p string) (*gorm.DB, error) {
-	db, err := gorm.Open(postgres.Open(p), &gorm.Config{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to open db: %w", err)
-	}
-
-	return db, nil
-}
-
 // Stand up a Repo Manager with a Web DID Resolver
-func initSpeedyRepoMan(postgresString string) (*repomgr.RepoManager, *godid.PrivKey, error) {
+func initSpeedyRepoMan(key *godid.PrivKey) (*repomgr.RepoManager, *godid.PrivKey, error) {
 	dir, err := os.MkdirTemp("", "supercollider")
 	if err != nil {
 		return nil, nil, err
 	}
 
-	var cardb *gorm.DB
-	if postgresString != "" {
-		cardb, err = setupPostgresDb(postgresString)
-		if err != nil {
-			return nil, nil, err
-		}
-	} else {
-		cardb, err = setupDb("file::memory:?cache=shared")
-		if err != nil {
-			return nil, nil, err
-		}
+	cardb, err := setupDb("file::memory:?cache=shared")
+	if err != nil {
+		return nil, nil, err
 	}
 
 	cspath := filepath.Join(dir, "carstore")
@@ -338,11 +585,6 @@ func initSpeedyRepoMan(postgresString string) (*repomgr.RepoManager, *godid.Priv
 	})
 
 	cachedidr := plc.NewCachingDidResolver(mr, time.Minute*5, 1000)
-
-	key, err := godid.GeneratePrivKey(rand.Reader, godid.KeyTypeSecp256k1)
-	if err != nil {
-		return nil, nil, err
-	}
 
 	kmgr := indexer.NewKeyManager(cachedidr, key)
 
@@ -382,105 +624,46 @@ func (s *Server) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
 	}
 }
 
-// Event Generation Loop and Control
-
 // EventGenerationLoop is the main loop for generating events
-func (s *Server) EventGenerationLoop(ctx context.Context, concurrent bool) {
-	running := false
-	totalEmittedEvents := 0
+func (s *Server) EventGenerationLoop(ctx context.Context, cancel context.CancelFunc) {
+	defer cancel()
+	s.Logger.Infof("starting event generation for %d events", s.TotalDesiredEvents)
 
-	// We want to produce events at a maximum rate to prevent the buffer from overrunning
-	limiter := rate.NewLimiter(rate.Limit(s.MaxEventsPerSecond), 10)
-
-	s.Logger.Infof("starting event generation loop with %d desired events and %d evt/s maximum\n",
-		s.TotalDesiredEvents, s.MaxEventsPerSecond,
-	)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case cmd := <-s.EventControl:
-			switch cmd {
-			case "start":
-				running = true
-			case "stop":
-				running = false
-				totalEmittedEvents = 0
-			}
-		default:
-			if !running {
-				time.Sleep(time.Second)
-				continue
-			}
-			for i, did := range s.Dids {
-				uid := models.Uid(i + 1)
-				if err := s.RepoManager.InitNewActor(ctx, uid, strings.TrimPrefix(did, "did:web:"), did, "catdog", "", ""); err != nil {
-					log.Fatalf("failed to init actor: %+v\n", err)
-				}
-			}
-
-			if concurrent {
-				recordsPerActor := s.TotalDesiredEvents / len(s.Dids)
-				wg := sync.WaitGroup{}
-				for i := 0; i < len(s.Dids); i++ {
-					wg.Add(1)
-					go func(i int) {
-						for j := 0; j < recordsPerActor; j++ {
-							limiter.Wait(ctx)
-							_, _, err := s.RepoManager.CreateRecord(ctx, models.Uid(i+1), "app.bsky.feed.post", &bsky.FeedPost{
-								Text: "cats",
-							})
-							if err != nil {
-								s.Logger.Errorf("failed to create record: %+v\n", err)
-							} else {
-								eventsGeneratedCounter.Inc()
-							}
-							select {
-							case <-ctx.Done():
-								return
-							default:
-							}
-						}
-					}(i)
-				}
-				wg.Wait()
-			} else {
-				for i := 0; i < s.TotalDesiredEvents; i++ {
-					limiter.Wait(ctx)
-					_, _, err := s.RepoManager.CreateRecord(ctx, models.Uid(i%len(s.Dids)+1), "app.bsky.feed.post", &bsky.FeedPost{
-						Text: "cats",
-					})
-					if err != nil {
-						s.Logger.Errorf("failed to create record: %+v\n", err)
-					} else {
-						eventsGeneratedCounter.Inc()
-					}
-					select {
-					case <-ctx.Done():
-						return
-					default:
-					}
-				}
-			}
-
-			s.Logger.Infof("emitted %d events, stopping\n", totalEmittedEvents)
-			s.EventControl <- "stop"
-			break
+	s.Logger.Infof("initializing %d fake users", len(s.Dids))
+	for i, did := range s.Dids {
+		uid := models.Uid(i + 1)
+		if err := s.RepoManager.InitNewActor(ctx, uid, strings.TrimPrefix(did, "did:web:"), did, "catdog", "", ""); err != nil {
+			log.Fatalf("failed to init actor: %+v\n", err)
 		}
 	}
-}
 
-// HandleStartGenerating starts the event generation loop
-func (s *Server) HandleStartGenerating(ctx echo.Context) error {
-	s.EventControl <- "start"
-	return ctx.String(200, "stream started")
-}
+	s.Logger.Infof("generating %d events", s.TotalDesiredEvents)
 
-// HandleStopGenerating stops the event generation loop
-func (s *Server) HandleStopGenerating(ctx echo.Context) error {
-	s.EventControl <- "stop"
-	return ctx.String(200, "stream stopped")
+	for i := 0; i < s.TotalDesiredEvents; i++ {
+		text := fake.SentencesN(3)
+		// Trim to 300 chars
+		if len(text) > 300 {
+			text = text[:300]
+		}
+		_, _, err := s.RepoManager.CreateRecord(ctx, models.Uid(i%len(s.Dids)+1), "app.bsky.feed.post", &bsky.FeedPost{
+			CreatedAt: time.Now().Format(util.ISO8601),
+			Text:      text,
+		})
+		if err != nil {
+			s.Logger.Errorf("failed to create record: %+v\n", err)
+		} else {
+			eventsGeneratedCounter.Inc()
+		}
+		select {
+		case <-ctx.Done():
+			s.Logger.Infof("shutting down event generation loop on context done")
+			return
+		default:
+		}
+	}
+
+	s.Logger.Infof("event generation complete, shutting down")
+	return
 }
 
 // ATProto Handlers for DID Web
@@ -534,75 +717,44 @@ func (s *Server) HandleSubscribeRepos(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-
-	var cursor *int64
-
-	if c.QueryParam("cursor") != "" {
-		cursorFromQuery, err := strconv.ParseInt(c.QueryParam("cursor"), 10, 64)
-		if err != nil {
-			return err
-		}
-		cursor = &cursorFromQuery
-	}
+	defer conn.Close()
 
 	ctx := c.Request().Context()
 
-	ident := c.Request().RemoteAddr + "-" + c.Request().UserAgent()
+	limiter := rate.NewLimiter(rate.Limit(s.MaxEventsPerSecond), 10)
 
-	evts, cancel, err := s.Events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool {
-		return true
-	}, cursor)
+	f, err := os.Open(s.PlaybackFile)
 	if err != nil {
+		s.Logger.Errorf("failed to open playback file: %+v\n", err)
 		return err
 	}
-	defer cancel()
+	defer f.Close()
 
-	header := events.EventHeader{Op: events.EvtKindMessage}
-	for evt := range evts {
+	header := cbg.Deferred{}
+	obj := cbg.Deferred{}
+	for {
 		wc, err := conn.NextWriter(websocket.BinaryMessage)
 		if err != nil {
 			return err
 		}
 
-		var obj lexutil.CBOR
+		limiter.Wait(ctx)
 
-		switch {
-		case evt.Error != nil:
-			header.Op = events.EvtKindErrorFrame
-			obj = evt.Error
-		case evt.RepoCommit != nil:
-			header.MsgType = "#commit"
-			obj = evt.RepoCommit
-		case evt.RepoHandle != nil:
-			header.MsgType = "#handle"
-			obj = evt.RepoHandle
-		case evt.RepoInfo != nil:
-			header.MsgType = "#info"
-			obj = evt.RepoInfo
-		case evt.RepoMigrate != nil:
-			header.MsgType = "#migrate"
-			obj = evt.RepoMigrate
-		case evt.RepoTombstone != nil:
-			header.MsgType = "#tombstone"
-			obj = evt.RepoTombstone
-		default:
-			return fmt.Errorf("unrecognized event kind")
+		if err := header.UnmarshalCBOR(f); err != nil {
+			return fmt.Errorf("failed to read header: %w", err)
 		}
-
+		if err := obj.UnmarshalCBOR(f); err != nil {
+			return fmt.Errorf("failed to read event: %w", err)
+		}
 		if err := header.MarshalCBOR(wc); err != nil {
 			return fmt.Errorf("failed to write header: %w", err)
 		}
-
 		if err := obj.MarshalCBOR(wc); err != nil {
 			return fmt.Errorf("failed to write event: %w", err)
 		}
-
 		if err := wc.Close(); err != nil {
 			return fmt.Errorf("failed to flush-close our event write: %w", err)
 		}
-
 		eventsSentCounter.Inc()
 	}
-
-	return nil
 }
