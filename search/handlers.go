@@ -31,8 +31,8 @@ func (s *Server) handleSearchRequestPosts(e echo.Context) error {
 	ctx, span := otel.Tracer("search").Start(e.Request().Context(), "handleSearchRequestPosts")
 	defer span.End()
 
-	q := strings.TrimSpace(e.QueryParam("q"))
-	if q == "" {
+	queryParam := strings.TrimSpace(e.QueryParam("q"))
+	if queryParam == "" {
 		return e.JSON(400, map[string]any{
 			"error": "must pass non-empty search query",
 		})
@@ -64,7 +64,7 @@ func (s *Server) handleSearchRequestPosts(e echo.Context) error {
 		count = v
 	}
 
-	out, err := s.SearchPosts(ctx, q, offset, count)
+	out, err := s.SearchPosts(ctx, queryParam, offset, count)
 	if err != nil {
 		return err
 	}
