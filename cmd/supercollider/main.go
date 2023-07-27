@@ -45,6 +45,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	cbg "github.com/whyrusleeping/cbor-gen"
+
 	"go.uber.org/zap"
 )
 
@@ -714,7 +716,8 @@ func (s *Server) HandleSubscribeRepos(c echo.Context) error {
 	}
 	defer f.Close()
 
-	header := events.EventHeader{}
+	header := cbg.Deferred{}
+	obj := cbg.Deferred{}
 	for {
 		wc, err := conn.NextWriter(websocket.BinaryMessage)
 		if err != nil {
@@ -722,34 +725,10 @@ func (s *Server) HandleSubscribeRepos(c echo.Context) error {
 		}
 
 		limiter.Wait(ctx)
+
 		if err := header.UnmarshalCBOR(f); err != nil {
 			return fmt.Errorf("failed to read header: %w", err)
 		}
-
-		var obj lexutil.CBOR
-
-		switch header.Op {
-		case events.EvtKindMessage:
-			switch header.MsgType {
-			case "#commit":
-				obj = &comatproto.SyncSubscribeRepos_Commit{}
-			case "#handle":
-				obj = &comatproto.SyncSubscribeRepos_Handle{}
-			case "#info":
-				obj = &comatproto.SyncSubscribeRepos_Info{}
-			case "#migrate":
-				obj = &comatproto.SyncSubscribeRepos_Migrate{}
-			case "#tombstone":
-				obj = &comatproto.SyncSubscribeRepos_Tombstone{}
-			default:
-				return fmt.Errorf("unrecognized message type: %s", header.MsgType)
-			}
-		case events.EvtKindErrorFrame:
-			return fmt.Errorf("got error frame: %d", header.Op)
-		default:
-			return fmt.Errorf("unrecognized event kind: %d", header.Op)
-		}
-
 		if err := obj.UnmarshalCBOR(f); err != nil {
 			return fmt.Errorf("failed to read event: %w", err)
 		}
