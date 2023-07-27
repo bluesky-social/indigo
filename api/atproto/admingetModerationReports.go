@@ -17,15 +17,23 @@ type AdminGetModerationReports_Output struct {
 }
 
 // AdminGetModerationReports calls the XRPC method "com.atproto.admin.getModerationReports".
-func AdminGetModerationReports(ctx context.Context, c *xrpc.Client, actionType string, cursor string, limit int64, resolved bool, subject string) (*AdminGetModerationReports_Output, error) {
+//
+// actionedBy: Get all reports that were actioned by a specific moderator
+// reporters: Filter reports made by one or more DIDs
+// reverse: Reverse the order of the returned records? when true, returns reports in chronological order
+func AdminGetModerationReports(ctx context.Context, c *xrpc.Client, actionType string, actionedBy string, cursor string, ignoreSubjects []string, limit int64, reporters []string, resolved bool, reverse bool, subject string) (*AdminGetModerationReports_Output, error) {
 	var out AdminGetModerationReports_Output
 
 	params := map[string]interface{}{
-		"actionType": actionType,
-		"cursor":     cursor,
-		"limit":      limit,
-		"resolved":   resolved,
-		"subject":    subject,
+		"actionType":     actionType,
+		"actionedBy":     actionedBy,
+		"cursor":         cursor,
+		"ignoreSubjects": ignoreSubjects,
+		"limit":          limit,
+		"reporters":      reporters,
+		"resolved":       resolved,
+		"reverse":        reverse,
+		"subject":        subject,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.getModerationReports", params, nil, &out); err != nil {
 		return nil, err
