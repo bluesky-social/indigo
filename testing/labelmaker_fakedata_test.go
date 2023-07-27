@@ -169,12 +169,12 @@ func TestLabelmakerBasic(t *testing.T) {
 	assert.Nil(queryOut.Cursor)
 
 	// auth is required
-	_, err = comatproto.AdminGetModerationReports(ctx, &xrpcc, "", "", 20, false, "")
+	_, err = comatproto.AdminGetModerationReports(ctx, &xrpcc, "", "", "", nil, 20, nil, false, false, "")
 	assert.Error(err)
 
 	adminPassword := "test-admin-pass"
 	xrpcc.AdminToken = &adminPassword
-	_, err = comatproto.AdminGetModerationReports(ctx, &xrpcc, "", "", 20, false, "")
+	_, err = comatproto.AdminGetModerationReports(ctx, &xrpcc, "", "", "", nil, 20, nil, false, false, "")
 	assert.NoError(err)
 
 	// TODO: many more tests

@@ -408,7 +408,7 @@ func BrowseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
 		case "mention":
 			fallthrough
 		case "reply":
-			_, err := appbsky.FeedGetPostThread(context.TODO(), xrpcc, 4, notif.Uri)
+			_, err := appbsky.FeedGetPostThread(context.TODO(), xrpcc, 4, 80, notif.Uri)
 			if err != nil {
 				return err
 			}
@@ -434,7 +434,7 @@ func BrowseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
 		}
 		// TODO: should we do something different here?
 		if rand.Float64() < 0.25 {
-			_, err = appbsky.FeedGetPostThread(context.TODO(), xrpcc, 4, post.Post.Uri)
+			_, err = appbsky.FeedGetPostThread(context.TODO(), xrpcc, 4, 80, post.Post.Uri)
 			if err != nil {
 				return err
 			}
