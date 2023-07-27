@@ -65,7 +65,7 @@ type FeedDefs_GeneratorView struct {
 	Creator           *ActorDefs_ProfileView         `json:"creator" cborgen:"creator"`
 	Description       *string                        `json:"description,omitempty" cborgen:"description,omitempty"`
 	DescriptionFacets []*RichtextFacet               `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
-	Did               *string                        `json:"did,omitempty" cborgen:"did,omitempty"`
+	Did               string                         `json:"did" cborgen:"did"`
 	DisplayName       string                         `json:"displayName" cborgen:"displayName"`
 	IndexedAt         string                         `json:"indexedAt" cborgen:"indexedAt"`
 	LikeCount         *int64                         `json:"likeCount,omitempty" cborgen:"likeCount,omitempty"`

@@ -26,6 +26,7 @@ type FeedPost struct {
 	// entities: Deprecated: replaced by app.bsky.richtext.facet.
 	Entities []*FeedPost_Entity `json:"entities,omitempty" cborgen:"entities,omitempty"`
 	Facets   []*RichtextFacet   `json:"facets,omitempty" cborgen:"facets,omitempty"`
+	Langs    []string           `json:"langs,omitempty" cborgen:"langs,omitempty"`
 	Reply    *FeedPost_ReplyRef `json:"reply,omitempty" cborgen:"reply,omitempty"`
 	Text     string             `json:"text" cborgen:"text"`
 }

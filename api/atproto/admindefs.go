@@ -294,6 +294,7 @@ type AdminDefs_ReportView struct {
 	ReportedBy          string                        `json:"reportedBy" cborgen:"reportedBy"`
 	ResolvedByActionIds []int64                       `json:"resolvedByActionIds" cborgen:"resolvedByActionIds"`
 	Subject             *AdminDefs_ReportView_Subject `json:"subject" cborgen:"subject"`
+	SubjectRepoHandle   *string                       `json:"subjectRepoHandle,omitempty" cborgen:"subjectRepoHandle,omitempty"`
 }
 
 // AdminDefs_ReportViewDetail is a "reportViewDetail" in the com.atproto.admin.defs schema.
