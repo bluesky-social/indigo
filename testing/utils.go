@@ -165,7 +165,7 @@ func (tp *TestPDS) RequestScraping(t *testing.T, b *TestBGS) {
 	t.Helper()
 
 	c := &xrpc.Client{Host: "http://" + b.Host()}
-	if err := atproto.SyncRequestCrawl(context.TODO(), c, tp.RawHost()); err != nil {
+	if err := atproto.SyncRequestCrawl(context.TODO(), c, &atproto.SyncRequestCrawl_Input{Hostname: tp.RawHost()}); err != nil {
 		t.Fatal(err)
 	}
 }

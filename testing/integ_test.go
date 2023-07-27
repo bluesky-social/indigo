@@ -417,20 +417,20 @@ func TestDomainBans(t *testing.T) {
 	b1.BanDomain(t, "foo.com")
 
 	c := &xrpc.Client{Host: "http://" + b1.Host()}
-	if err := atproto.SyncRequestCrawl(context.TODO(), c, "foo.com"); err == nil {
+	if err := atproto.SyncRequestCrawl(context.TODO(), c, &atproto.SyncRequestCrawl_Input{Hostname: "foo.com"}); err == nil {
 		t.Fatal("domain should be banned")
 	}
 
-	if err := atproto.SyncRequestCrawl(context.TODO(), c, "pds.foo.com"); err == nil {
+	if err := atproto.SyncRequestCrawl(context.TODO(), c, &atproto.SyncRequestCrawl_Input{Hostname: "pds.foo.com"}); err == nil {
 		t.Fatal("domain should be banned")
 	}
 
-	if err := atproto.SyncRequestCrawl(context.TODO(), c, "app.pds.foo.com"); err == nil {
+	if err := atproto.SyncRequestCrawl(context.TODO(), c, &atproto.SyncRequestCrawl_Input{Hostname: "app.pds.foo.com"}); err == nil {
 		t.Fatal("domain should be banned")
 	}
 
 	// should not be banned
-	err := atproto.SyncRequestCrawl(context.TODO(), c, "foo.bar.com")
+	err := atproto.SyncRequestCrawl(context.TODO(), c, &atproto.SyncRequestCrawl_Input{Hostname: "foo.bar.com"})
 	if err == nil {
 		t.Fatal("should still fail")
 	}

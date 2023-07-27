@@ -393,7 +393,8 @@ var listReportsCmd = &cli.Command{
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		resp, err := atproto.AdminGetModerationReports(ctx, xrpcc, "", "", 100, cctx.Bool("resolved"), "")
+		// AdminGetModerationReports(ctx context.Context, c *xrpc.Client, actionType string, actionedBy string, cursor string, ignoreSubjects []string, limit int64, reporters []string, resolved bool, reverse bool, subject string) (*AdminGetModerationReports_Output, error)
+		resp, err := atproto.AdminGetModerationReports(ctx, xrpcc, "", "", "", nil, 100, nil, cctx.Bool("resolved"), false, "")
 		if err != nil {
 			return err
 		}
