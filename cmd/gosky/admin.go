@@ -521,11 +521,11 @@ var listInviteTreeCmd = &cli.Command{
 			Usage: "additionally disable invites for all printed DIDs",
 		},
 		&cli.BoolFlag{
-			Name: "print-handles",
+			Name:  "print-handles",
 			Usage: "print handle for each DID",
 		},
 		&cli.BoolFlag{
-			Name: "print-emails",
+			Name:  "print-emails",
 			Usage: "print account email for each DID",
 		},
 	},
