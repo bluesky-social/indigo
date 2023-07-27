@@ -62,12 +62,13 @@ func (t *FeedGetPostThread_Output_Thread) UnmarshalJSON(b []byte) error {
 }
 
 // FeedGetPostThread calls the XRPC method "app.bsky.feed.getPostThread".
-func FeedGetPostThread(ctx context.Context, c *xrpc.Client, depth int64, uri string) (*FeedGetPostThread_Output, error) {
+func FeedGetPostThread(ctx context.Context, c *xrpc.Client, depth int64, parentHeight int64, uri string) (*FeedGetPostThread_Output, error) {
 	var out FeedGetPostThread_Output
 
 	params := map[string]interface{}{
-		"depth": depth,
-		"uri":   uri,
+		"depth":        depth,
+		"parentHeight": parentHeight,
+		"uri":          uri,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getPostThread", params, nil, &out); err != nil {
 		return nil, err
