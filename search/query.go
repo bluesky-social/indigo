@@ -52,13 +52,6 @@ func doSearchPosts(
 	offset int,
 	size int,
 ) (*EsSearchResponse, error) {
-	query := make(map[string]interface{})
-	query["sort"] = map[string]any{
-		"createdAt": map[string]any{
-			"order": "desc",
-		},
-	}
-
 	var musts []map[string]interface{}
 	if len(q) > 0 {
 		musts = append(musts, map[string]interface{}{
@@ -77,13 +70,21 @@ func doSearchPosts(
 			},
 		})
 	}
-	query["query"] = map[string]interface{}{
-		"bool": map[string]interface{}{
-			"must": musts,
+
+	query := map[string]interface{}{
+		"sort": map[string]any{
+			"createdAt": map[string]any{
+				"order": "desc",
+			},
 		},
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": musts,
+			},
+		},
+		"size": size,
+		"from": offset,
 	}
-	query["size"] = size
-	query["from"] = offset
 
 	return doSearch(ctx, escli, "posts", query)
 }
