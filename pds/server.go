@@ -33,7 +33,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lestrrat-go/jwx/v2/jwt"
-	"github.com/whyrusleeping/go-did"
 	"gorm.io/gorm"
 )
 
@@ -308,6 +307,8 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 			case "/xrpc/com.atproto.identity.resolveHandle":
 				return true
 			case "/xrpc/com.atproto.server.createAccount":
+				return true
+			case "/xrpc/com.atproto.server.createSession":
 				return true
 			case "/xrpc/com.atproto.server.describeServer":
 				return true
