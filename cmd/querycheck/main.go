@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
 	"net/http"
 	_ "net/http/pprof"
@@ -121,24 +120,14 @@ func Querycheck(cctx *cli.Context) error {
 		log.Fatalf("failed to create querychecker: %+v\n", err)
 	}
 
-	getLikesQuery := `SELECT *
-FROM likes
-WHERE subject_actor_did = 'did:plc:q6gjnaw2blty4crticxkmujt'
-	AND subject_namespace = 'app.bsky.feed.post'
-	AND subject_rkey = '3k3jf5lgbsw24'
-ORDER BY created_at DESC
-LIMIT 50;`
+	// 	getLikeCountQuery := `SELECT *
+	// FROM like_counts
+	// WHERE actor_did = 'did:plc:q6gjnaw2blty4crticxkmujt'
+	// 	AND ns = 'app.bsky.feed.post'
+	// 	AND rkey = '3k3jf5lgbsw24'
+	// LIMIT 1;`
 
-	querychecker.AddQuery(ctx, "get_likes", getLikesQuery, time.Second*30)
-
-	getLikeCountQuery := `SELECT *
-FROM like_counts
-WHERE actor_did = 'did:plc:q6gjnaw2blty4crticxkmujt'
-	AND ns = 'app.bsky.feed.post'
-	AND rkey = '3k3jf5lgbsw24'
-LIMIT 1;`
-
-	querychecker.AddQuery(ctx, "get_like_count", getLikeCountQuery, time.Second*20)
+	// 	querychecker.AddQuery(ctx, "get_like_count", getLikeCountQuery, time.Second*20)
 
 	err = querychecker.Start()
 	if err != nil {
