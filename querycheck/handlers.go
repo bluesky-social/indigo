@@ -7,12 +7,13 @@ import (
 )
 
 type RetQuery struct {
-	Name        string     `json:"name"`
-	Query       string     `json:"query"`
-	LastPlan    *QueryPlan `json:"last_plan"`
-	LastChecked time.Time  `json:"last_checked"`
-	LastError   error      `json:"last_error"`
-	CheckEvery  string     `json:"check_every"`
+	Name         string     `json:"name"`
+	Query        string     `json:"query"`
+	LatestPlan   *QueryPlan `json:"latest_plan"`
+	PreviousPlan *QueryPlan `json:"previous_plan"`
+	LastChecked  time.Time  `json:"last_checked"`
+	LastError    error      `json:"last_error"`
+	CheckEvery   string     `json:"check_every"`
 }
 
 func (q *Querychecker) HandleGetQueries(c echo.Context) error {
@@ -20,12 +21,13 @@ func (q *Querychecker) HandleGetQueries(c echo.Context) error {
 	retQueries := []RetQuery{}
 	for _, query := range queries {
 		retQueries = append(retQueries, RetQuery{
-			Name:        query.Name,
-			Query:       query.Query,
-			LastPlan:    query.LastPlan,
-			LastChecked: query.LastChecked,
-			LastError:   query.LastError,
-			CheckEvery:  query.CheckEvery.String(),
+			Name:         query.Name,
+			Query:        query.Query,
+			LatestPlan:   query.LatestPlan,
+			PreviousPlan: query.PreviousPlan,
+			LastChecked:  query.LastChecked,
+			LastError:    query.LastError,
+			CheckEvery:   query.CheckEvery.String(),
 		})
 	}
 
@@ -41,12 +43,13 @@ func (q *Querychecker) HandleGetQuery(c echo.Context) error {
 	}
 
 	retQuery := RetQuery{
-		Name:        query.Name,
-		Query:       query.Query,
-		LastPlan:    query.LastPlan,
-		LastChecked: query.LastChecked,
-		LastError:   query.LastError,
-		CheckEvery:  query.CheckEvery.String(),
+		Name:         query.Name,
+		Query:        query.Query,
+		LatestPlan:   query.LatestPlan,
+		PreviousPlan: query.PreviousPlan,
+		LastChecked:  query.LastChecked,
+		LastError:    query.LastError,
+		CheckEvery:   query.CheckEvery.String(),
 	}
 
 	return c.JSON(200, retQuery)

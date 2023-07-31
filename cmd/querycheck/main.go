@@ -49,7 +49,7 @@ func main() {
 		&cli.StringFlag{
 			Name:    "auth-token",
 			Usage:   "auth token for accessing the querycheck api",
-			Value:   "localdev",
+			Value:   "",
 			EnvVars: []string{"AUTH_TOKEN"},
 		},
 	}
@@ -136,7 +136,7 @@ func Querycheck(cctx *cli.Context) error {
 
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			if c.Request().Header.Get("Authorization") != cctx.String("auth-token") {
+			if cctx.String("auth-token") != "" && c.Request().Header.Get("Authorization") != cctx.String("auth-token") {
 				return c.String(http.StatusUnauthorized, "unauthorized")
 			}
 			return next(c)

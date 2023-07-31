@@ -17,12 +17,13 @@ var tracer = otel.Tracer("querycheck")
 
 // Query is a query to check
 type Query struct {
-	Name        string
-	Query       string
-	LastPlan    *QueryPlan
-	LastChecked time.Time
-	LastError   error
-	CheckEvery  time.Duration
+	Name         string
+	Query        string
+	LatestPlan   *QueryPlan
+	PreviousPlan *QueryPlan
+	LastChecked  time.Time
+	LastError    error
+	CheckEvery   time.Duration
 
 	lk  sync.RWMutex
 	in  chan struct{}
@@ -103,12 +104,13 @@ func (q *Querychecker) GetQuery(ctx context.Context, name string) *Query {
 	for _, qu := range q.Queries {
 		if qu.Name == name {
 			return &Query{
-				Name:        qu.Name,
-				Query:       qu.Query,
-				LastPlan:    qu.LastPlan,
-				LastChecked: qu.LastChecked,
-				LastError:   qu.LastError,
-				CheckEvery:  qu.CheckEvery,
+				Name:         qu.Name,
+				Query:        qu.Query,
+				LatestPlan:   qu.LatestPlan,
+				PreviousPlan: qu.PreviousPlan,
+				LastChecked:  qu.LastChecked,
+				LastError:    qu.LastError,
+				CheckEvery:   qu.CheckEvery,
 			}
 		}
 	}
@@ -125,12 +127,13 @@ func (q *Querychecker) GetQueries(ctx context.Context) []*Query {
 	queries := make([]*Query, len(q.Queries))
 	for i, qu := range q.Queries {
 		queries[i] = &Query{
-			Name:        qu.Name,
-			Query:       qu.Query,
-			LastPlan:    qu.LastPlan,
-			LastChecked: qu.LastChecked,
-			LastError:   qu.LastError,
-			CheckEvery:  qu.CheckEvery,
+			Name:         qu.Name,
+			Query:        qu.Query,
+			LatestPlan:   qu.LatestPlan,
+			PreviousPlan: qu.PreviousPlan,
+			LastChecked:  qu.LastChecked,
+			LastError:    qu.LastError,
+			CheckEvery:   qu.CheckEvery,
 		}
 	}
 
@@ -177,14 +180,14 @@ func (q *Querychecker) Start() error {
 			ticker := time.NewTicker(query.CheckEvery)
 			defer ticker.Stop()
 
-			query.LastPlan, err = q.CheckQueryPlan(ctx, query.Query)
+			query.LatestPlan, err = q.CheckQueryPlan(ctx, query.Query)
 			if err != nil {
 				log.Errorf("failed to check query plan: %+v\n", err)
 			}
 
-			if query.LastPlan != nil {
-				log.Infof("Initial plan:\n%+v\n", query.LastPlan.String())
-				query.RecordPlanMetrics(*query.LastPlan)
+			if query.LatestPlan != nil {
+				log.Infof("Initial plan:\n%+v\n", query.LatestPlan.String())
+				query.RecordPlanMetrics(*query.LatestPlan)
 				query.LastChecked = time.Now()
 			}
 
@@ -216,7 +219,7 @@ func (q *Querychecker) Start() error {
 					}
 
 					query.lk.RLock()
-					lastPlan := *query.LastPlan
+					lastPlan := *query.LatestPlan
 					query.lk.RUnlock()
 
 					query.RecordPlanMetrics(*qp)
@@ -231,7 +234,8 @@ func (q *Querychecker) Start() error {
 						log.Infof("query plan has changed (%s%.03fms): \n%+v\n", sign, diff, qp.String())
 
 						query.lk.Lock()
-						query.LastPlan = qp
+						query.PreviousPlan = query.LatestPlan
+						query.LatestPlan = qp
 						query.lk.Unlock()
 					}
 				case <-query.in:
