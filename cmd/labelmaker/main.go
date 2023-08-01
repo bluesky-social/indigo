@@ -12,6 +12,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	_ "github.com/joho/godotenv/autoload"
+	_ "go.uber.org/automaxprocs"
 
 	logging "github.com/ipfs/go-log"
 	"github.com/whyrusleeping/go-did"

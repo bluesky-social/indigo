@@ -35,6 +35,7 @@ import (
 	"github.com/ipld/go-car"
 
 	_ "github.com/joho/godotenv/autoload"
+	_ "go.uber.org/automaxprocs"
 
 	logging "github.com/ipfs/go-log"
 	"github.com/polydawn/refmt/cbor"
