@@ -19,6 +19,7 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 
 	_ "github.com/joho/godotenv/autoload"
+	_ "go.uber.org/automaxprocs"
 
 	logging "github.com/ipfs/go-log"
 	"github.com/urfave/cli/v2"

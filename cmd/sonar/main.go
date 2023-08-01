@@ -17,6 +17,7 @@ import (
 	"github.com/bluesky-social/indigo/util/version"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 
 	"github.com/urfave/cli/v2"
