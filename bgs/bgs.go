@@ -460,7 +460,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
 
-	lastWriteLk := sync.RWMutex{}
+	lastWriteLk := sync.Mutex{}
 	lastWrite := time.Now()
 
 	// Start a goroutine to ping the client every 30 seconds to check if it's
@@ -473,11 +473,12 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		for {
 			select {
 			case <-ticker.C:
-				lastWriteLk.RLock()
+				lastWriteLk.Lock()
 				lw := lastWrite
-				lastWriteLk.RUnlock()
+				lastWriteLk.Unlock()
 
 				if time.Since(lw) < 30*time.Second {
+					log.Infof("client %s is still alive", c.RealIP())
 					continue
 				}
 
@@ -486,10 +487,6 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 					cancel()
 					return
 				}
-
-				lastWriteLk.Lock()
-				lastWrite = time.Now()
-				lastWriteLk.Unlock()
 			case <-ctx.Done():
 				return
 			}
