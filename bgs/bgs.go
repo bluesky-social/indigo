@@ -460,6 +460,9 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
 
+	lastWriteLk := sync.RWMutex{}
+	lastWrite := time.Now()
+
 	// Start a goroutine to ping the client every 30 seconds to check if it's
 	// still alive. If the client doesn't respond to a ping within 5 seconds,
 	// we'll close the connection and teardown the consumer.
@@ -470,11 +473,22 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		for {
 			select {
 			case <-ticker.C:
+				lastWriteLk.RLock()
+				if time.Since(lastWrite) < 30*time.Second {
+					lastWriteLk.RUnlock()
+					continue
+				}
+				lastWriteLk.RUnlock()
+
 				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
 					log.Errorf("failed to ping client: %s", err)
 					cancel()
 					return
 				}
+
+				lastWriteLk.Lock()
+				lastWrite = time.Now()
+				lastWriteLk.Unlock()
 			case <-ctx.Done():
 				return
 			}
@@ -549,6 +563,9 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			if err := wc.Close(); err != nil {
 				return fmt.Errorf("failed to flush-close our event write: %w", err)
 			}
+			lastWriteLk.Lock()
+			lastWrite = time.Now()
+			lastWriteLk.Unlock()
 			sentCounter.Inc()
 		case <-ctx.Done():
 			return nil
