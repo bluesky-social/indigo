@@ -48,6 +48,7 @@ func NewConsumerPool(concurrency, maxC int, ident string, do func(context.Contex
 		itemsAdded:     workItemsAdded.WithLabelValues(ident, "autoscaling"),
 		itemsProcessed: workItemsProcessed.WithLabelValues(ident, "autoscaling"),
 		itemsActive:    workItemsActive.WithLabelValues(ident, "autoscaling"),
+		workersAcrive:  workersActive.WithLabelValues(ident, "autoscaling"),
 
 		// autoscaling
 		// By default, the ThroughputManager will calculate the average throughput over the last 60 seconds.
