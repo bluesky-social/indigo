@@ -474,11 +474,12 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			select {
 			case <-ticker.C:
 				lastWriteLk.RLock()
-				if time.Since(lastWrite) < 30*time.Second {
-					lastWriteLk.RUnlock()
+				lw := lastWrite
+				lastWriteLk.RUnlock()
+
+				if time.Since(lw) < 30*time.Second {
 					continue
 				}
-				lastWriteLk.RUnlock()
 
 				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
 					log.Errorf("failed to ping client: %s", err)
