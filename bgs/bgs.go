@@ -478,7 +478,6 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 				lastWriteLk.Unlock()
 
 				if time.Since(lw) < 30*time.Second {
-					log.Infof("client %s is still alive", c.RealIP())
 					continue
 				}
 
