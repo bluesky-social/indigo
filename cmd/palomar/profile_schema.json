@@ -1,0 +1,62 @@
+{
+"settings": {
+    "index": {
+        "analysis": {
+            "analyzer": {
+                "default": {
+                    "type": "custom",
+                    "tokenizer": "standard",
+                    "filter": [ "lowercase", "asciifolding" ]
+                },
+                "textIcu": {
+                    "type": "custom",
+                    "tokenizer": "icu_tokenizer",
+                    "char_filter": [ "icu_normalizer" ],
+                    "filter": [ "icu_folding" ]
+                },
+                "textIcuSearch": {
+                    "type": "custom",
+                    "tokenizer": "icu_tokenizer",
+                    "char_filter": [ "icu_normalizer" ],
+                    "filter": [ "icu_folding" ]
+                }
+            },
+            "normalizer": {
+                "default": {
+                    "type": "custom",
+                    "char_filter": [],
+                    "filter": ["lowercase"]
+                },
+                "caseSensitive": {
+                    "type": "custom",
+                    "char_filter": [],
+                    "filter": []
+                }
+            }
+        }
+    }
+},
+"mappings": {
+    "_doc": {
+        "properties": {
+            "doc_index_ts":   { "type": "date" },
+            "created_at":     { "type": "date" },
+            "did":            { "type": "keyword", "normalizer": "default", "doc_values": false },
+            "handle":         { "type": "keyword", "normalizer": "default", "copy_to": "everything" },
+            "display_name":   { "type": "keyword", "normalizer": "default", "copy_to": "everything" },
+
+            "description":    { "type": "text", "index": true, "analyzer": "textIcu", "search_analyzer":"textIcuSearch", "copy_to": "everything" },
+
+            "record_label":          { "type": "keyword", "normalizer": "default", "copy_to": "label" },
+            "repo_label":          { "type": "keyword", "normalizer": "default", "copy_to": "label" },
+            "lang_code":      { "type": "keyword", "normalizer": "default" },
+            "img_alt_text":  { "type": "text", "index": true, "analyzer": "textIcu", "search_analyzer":"textIcuSearch", "copy_to": "everything" },
+            "has_avatar":       { "type": "boolean" },
+            "has_banner":       { "type": "boolean" },
+
+            "label":          { "type": "keyword", "normalizer": "default" },
+            "everything":               { "type": "text", "index": true, "analyzer": "textIcu", "search_analyzer":"textIcuSearch" }
+        }
+    }
+}
+}
