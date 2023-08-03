@@ -5,9 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
 	es "github.com/opensearch-project/opensearch-go/v2"
 )
+
+var /* const */ SearchDefaultSize = 30
+var /* const */ SearchMinSize = 1
+var /* const */ SearchMaxSize = 100
+
+var /* const */ SearchDefaultFrom = 0
+var /* const */ SearchMinFrom = 0
 
 type EsSearchHit struct {
 	Index  string          `json:"_index"`
@@ -50,10 +56,12 @@ func doSearchPosts(
 	searchQuery SearchQuery,
 ) (*EsSearchResponse, error) {
 	esQuery, err := ToPostsEsQuery(searchQuery)
+	fromPtr := &searchQuery.Offset
+	sizePtr := &searchQuery.Count
 	if err != nil {
 		return nil, err
 	}
-	return doSearch(ctx, escli, "posts", esQuery)
+	return doSearch(ctx, escli, "posts", esQuery, sizePtr, fromPtr)
 }
 
 func doSearchProfiles(ctx context.Context, escli *es.Client, q string) (*EsSearchResponse, error) {
@@ -67,13 +75,22 @@ func doSearchProfiles(ctx context.Context, escli *es.Client, q string) (*EsSearc
 		},
 	}
 
-	return doSearch(ctx, escli, "profiles", query)
+	return doSearch(ctx, escli, "profiles", query, nil, nil)
 }
 
-func doSearch(ctx context.Context, escli *es.Client, index string, esQuery interface{}) (*EsSearchResponse, error) {
+func doSearch(ctx context.Context, escli *es.Client, index string, esQuery interface{}, sizePtr *int, fromPtr *int) (*EsSearchResponse, error) {
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(esQuery); err != nil {
 		log.Fatalf("Error encoding query: %s", err)
+	}
+
+	size := SearchDefaultSize
+	if sizePtr != nil && *sizePtr >= SearchMinSize && *sizePtr < SearchMaxSize {
+		size = *sizePtr
+	}
+	from := SearchDefaultFrom
+	if fromPtr != nil && *fromPtr >= SearchMinFrom {
+		from = *fromPtr
 	}
 
 	// Perform the search request.
@@ -82,7 +99,8 @@ func doSearch(ctx context.Context, escli *es.Client, index string, esQuery inter
 		escli.Search.WithIndex(index),
 		escli.Search.WithBody(&buf),
 		escli.Search.WithTrackTotalHits(true),
-		escli.Search.WithSize(30),
+		escli.Search.WithSize(size),
+		escli.Search.WithFrom(from),
 	)
 	if err != nil {
 		log.Fatalf("Error getting response: %s", err)
