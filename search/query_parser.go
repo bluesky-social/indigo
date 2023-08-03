@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// DID is not currently being used presently
 type DidHandle struct {
 	DID    string
 	Handle string
