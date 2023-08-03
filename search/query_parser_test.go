@@ -45,16 +45,6 @@ func TestParamsExtractFromOperatorCaseInsensitive(t *testing.T) {
 	}, searchQuery.FromUser)
 }
 
-func TestParamsExtractFromUserDid(t *testing.T) {
-	assert := assert.New(t)
-	searchQuery, _ := paramsToSearchQuery("from:did:plc:testing foo", "0", "10")
-	assert.Equal("foo", searchQuery.QueryString)
-	assert.Equal(&DidHandle{
-		Handle: "",
-		DID:    "did:plc:testing",
-	}, searchQuery.FromUser)
-}
-
 func TestParamsMultipleFromOperatorsPassThroughAsQuery(t *testing.T) {
 	assert := assert.New(t)
 	searchQuery, _ := paramsToSearchQuery("from:bob.tld from:alice.tld", "0", "10")

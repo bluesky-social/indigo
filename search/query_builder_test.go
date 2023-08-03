@@ -66,50 +66,6 @@ func TestToEsQueryFromUserHandle(t *testing.T) {
 	assert.Equal(expected, esQuery)
 }
 
-func TestToEsQueryFromUserDid(t *testing.T) {
-	assert := assert.New(t)
-	searchQuery := SearchQuery{
-		QueryString: "",
-		FromUser: &DidHandle{
-			DID:    "did:plc:alice",
-			Handle: "",
-		},
-		Count:  10,
-		Offset: 0,
-	}
-	esQuery, _ := ToPostsEsQuery(searchQuery)
-	expected := esQueryWith([]map[string]interface{}{
-		{
-			"term": map[string]interface{}{
-				"did": "did:plc:alice",
-			},
-		},
-	}, 10, 0)
-	assert.Equal(expected, esQuery)
-}
-
-func TestToEsQueryFromUserDidPrioritizesOverHandle(t *testing.T) {
-	assert := assert.New(t)
-	searchQuery := SearchQuery{
-		QueryString: "",
-		FromUser: &DidHandle{
-			DID:    "did:plc:alice",
-			Handle: "alice",
-		},
-		Count:  10,
-		Offset: 0,
-	}
-	esQuery, _ := ToPostsEsQuery(searchQuery)
-	expected := esQueryWith([]map[string]interface{}{
-		{
-			"term": map[string]interface{}{
-				"did": "did:plc:alice",
-			},
-		},
-	}, 10, 0)
-	assert.Equal(expected, esQuery)
-}
-
 func TestToEsQueryQueryStringAndHandle(t *testing.T) {
 	assert := assert.New(t)
 	searchQuery := SearchQuery{

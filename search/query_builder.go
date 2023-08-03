@@ -2,7 +2,6 @@ package search
 
 import "fmt"
 
-var /* const */ DidEsField = "did"
 var /* const */ TextEsField = "text"
 var /* const */ UserEsField = "user"
 
@@ -19,13 +18,7 @@ func ToPostsEsQuery(searchQuery SearchQuery) (map[string]interface{}, error) {
 		})
 	}
 	if fromUser := searchQuery.FromUser; fromUser != nil {
-		if len(fromUser.DID) > 0 {
-			musts = append(musts, map[string]interface{}{
-				"term": map[string]interface{}{
-					DidEsField: fromUser.DID,
-				},
-			})
-		} else if len(fromUser.Handle) > 0 {
+		if len(fromUser.Handle) > 0 {
 			musts = append(musts, map[string]interface{}{
 				"term": map[string]interface{}{
 					UserEsField: fromUser.Handle,

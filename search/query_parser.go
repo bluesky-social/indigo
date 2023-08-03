@@ -24,7 +24,7 @@ var /* const */ DefaultOffset = 0
 var /* const */ MinOffset = 0
 var /* const */ DefaultCount = 30
 var /* const */ MaxCount = 100
-var /* const */ FromOperatorRegexp = regexp.MustCompile(`(?i)\bfrom:([\w\.\:]+)`)
+var /* const */ FromOperatorRegexp = regexp.MustCompile(`(?i)\bfrom:([\w\.]+)`)
 
 func paramsToSearchQuery(queryString string, offsetParam string, countParam string) (*SearchQuery, error) {
 	var searchQuery SearchQuery
@@ -39,16 +39,10 @@ func paramsToSearchQuery(queryString string, offsetParam string, countParam stri
 	if len(allMatches) == 1 {
 		matches := allMatches[0]
 		fromIdentifier = matches[1]
-		if strings.HasPrefix(fromIdentifier, "did:") {
-			searchQuery.FromUser = &DidHandle{
-				Handle: "",
-				DID:    fromIdentifier,
-			}
-		} else {
-			searchQuery.FromUser = &DidHandle{
-				Handle: fromIdentifier,
-				DID:    "",
-			}
+		// TODO can update regex to allow : and populate DID based on fromIdentifier
+		searchQuery.FromUser = &DidHandle{
+			Handle: fromIdentifier,
+			DID:    "",
 		}
 		queryString = strings.TrimSpace(
 			FromOperatorRegexp.ReplaceAllString(queryString, ""),
