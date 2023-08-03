@@ -71,6 +71,7 @@ func doSearchProfiles(ctx context.Context, escli *es.Client, q string) (*EsSearc
 				"operator": "or",
 			},
 		},
+		"size": SearchDefaultSize,
 	}
 
 	return doSearch(ctx, escli, "profiles", query)
