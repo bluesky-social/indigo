@@ -49,44 +49,11 @@ func doSearchPosts(
 	escli *es.Client,
 	searchQuery SearchQuery,
 ) (*EsSearchResponse, error) {
-	var musts []map[string]interface{}
-	if len(searchQuery.QueryString) > 0 {
-		musts = append(musts, map[string]interface{}{
-			"match": map[string]interface{}{
-				"text": map[string]any{
-					"query":    searchQuery.QueryString,
-					"operator": "and",
-				},
-			},
-		})
+	esQuery, err := ToPostsEsQuery(searchQuery)
+	if err != nil {
+		return nil, err
 	}
-	if searchQuery.FromUser != nil {
-		fromHandle := searchQuery.FromUser.Handle
-		if len(fromHandle) > 0 {
-			musts = append(musts, map[string]interface{}{
-				"term": map[string]interface{}{
-					"user": fromHandle,
-				},
-			})
-		}
-	}
-
-	query := map[string]interface{}{
-		"sort": map[string]any{
-			"createdAt": map[string]any{
-				"order": "desc",
-			},
-		},
-		"query": map[string]interface{}{
-			"bool": map[string]interface{}{
-				"must": musts,
-			},
-		},
-		"size": searchQuery.Count,
-		"from": searchQuery.Offset,
-	}
-
-	return doSearch(ctx, escli, "posts", query)
+	return doSearch(ctx, escli, "posts", esQuery)
 }
 
 func doSearchProfiles(ctx context.Context, escli *es.Client, q string) (*EsSearchResponse, error) {
@@ -103,9 +70,9 @@ func doSearchProfiles(ctx context.Context, escli *es.Client, q string) (*EsSearc
 	return doSearch(ctx, escli, "profiles", query)
 }
 
-func doSearch(ctx context.Context, escli *es.Client, index string, query interface{}) (*EsSearchResponse, error) {
+func doSearch(ctx context.Context, escli *es.Client, index string, esQuery interface{}) (*EsSearchResponse, error) {
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(query); err != nil {
+	if err := json.NewEncoder(&buf).Encode(esQuery); err != nil {
 		log.Fatalf("Error encoding query: %s", err)
 	}
 
