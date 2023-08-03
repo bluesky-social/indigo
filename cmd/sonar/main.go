@@ -109,7 +109,11 @@ func Sonar(cctx *cli.Context) error {
 
 	wg := sync.WaitGroup{}
 
-	pool := autoscaling.NewScheduler(cctx.Int("worker-count"), cctx.Int("max-queue-size"), time.Second, u.Host, s.HandleStreamEvent)
+	scalingSettings := autoscaling.DefaultAutoscaleSettings()
+	scalingSettings.MaxConcurrency = cctx.Int("worker-count")
+	scalingSettings.AutoscaleFrequency = time.Second
+
+	pool := autoscaling.NewScheduler(scalingSettings, u.Host, s.HandleStreamEvent)
 
 	// Start a goroutine to manage the cursor file, saving the current cursor every 5 seconds.
 	go func() {

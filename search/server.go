@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	api "github.com/bluesky-social/indigo/api"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -197,7 +196,13 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 		},
 	}
 
-	return events.HandleRepoStream(ctx, con, autoscaling.NewScheduler(1, 32, time.Second, s.bgshost, rsc.EventHandler))
+	return events.HandleRepoStream(
+		ctx, con, autoscaling.NewScheduler(
+			autoscaling.DefaultAutoscaleSettings(),
+			s.bgshost,
+			rsc.EventHandler,
+		),
+	)
 }
 
 func (s *Server) handleOp(ctx context.Context, op repomgr.EventKind, seq int64, path string, did string, rcid *cid.Cid, rec any) error {
