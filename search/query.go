@@ -50,11 +50,7 @@ type PostSearchResult struct {
 	Post any        `json:"post"`
 }
 
-func doSearchPosts(
-	ctx context.Context,
-	escli *es.Client,
-	searchQuery SearchQuery,
-) (*EsSearchResponse, error) {
+func doSearchPosts(ctx context.Context, escli *es.Client, searchQuery SearchQuery) (*EsSearchResponse, error) {
 	esQuery, err := ToPostsEsQuery(searchQuery)
 	if err != nil {
 		return nil, err
