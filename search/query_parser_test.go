@@ -55,17 +55,17 @@ func TestParamsMultipleFromOperatorsPassThroughAsQuery(t *testing.T) {
 func TestParamsExtractAllowEmptyOffsetCount(t *testing.T) {
 	assert := assert.New(t)
 	searchQuery, _ := paramsToSearchQuery("foobar", "", "")
-	assert.Equal(DefaultCount, searchQuery.Count)
-	assert.Equal(DefaultOffset, searchQuery.Offset)
+	assert.Equal(SearchQueryCountDefault, searchQuery.Count)
+	assert.Equal(SearchQueryOffsetDefault, searchQuery.Offset)
 }
 
 func TestParamsExtractEnforceMinOffset(t *testing.T) {
 	assert := assert.New(t)
 	searchQuery, _ := paramsToSearchQuery("foobar", "-100", "")
-	assert.Equal(MinOffset, searchQuery.Offset)
+	assert.Equal(SearchQueryOffsetMin, searchQuery.Offset)
 
 	searchQuery, _ = paramsToSearchQuery("foobar", "-1", "")
-	assert.Equal(MinOffset, searchQuery.Offset)
+	assert.Equal(SearchQueryOffsetMin, searchQuery.Offset)
 }
 
 func TestParamsExtractResetsDefaultCountWhenExceedsMaxCount(t *testing.T) {
@@ -73,16 +73,16 @@ func TestParamsExtractResetsDefaultCountWhenExceedsMaxCount(t *testing.T) {
 	countParamValue := 101
 	countParam := strconv.Itoa(countParamValue)
 	searchQuery, _ := paramsToSearchQuery("foobar", "", countParam)
-	assert.True(countParamValue > MaxCount)
-	assert.Equal(DefaultCount, searchQuery.Count)
+	assert.True(countParamValue > SearchQueryCountMax)
+	assert.Equal(SearchQueryCountDefault, searchQuery.Count)
 }
 
 func TestParamsExtractAllowsMaxCount(t *testing.T) {
 	assert := assert.New(t)
-	countParamValue := MaxCount
+	countParamValue := SearchQueryCountMax
 	countParam := strconv.Itoa(countParamValue)
 	searchQuery, _ := paramsToSearchQuery("foobar", "", countParam)
-	assert.Equal(MaxCount, searchQuery.Count)
+	assert.Equal(SearchQueryCountMax, searchQuery.Count)
 }
 
 func TestParamsExtractReturnsErrorForBunkCountAndOffset(t *testing.T) {

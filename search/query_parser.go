@@ -21,11 +21,11 @@ type SearchQuery struct {
 	Count       int
 }
 
-var /* const */ DefaultOffset = 0
-var /* const */ MinOffset = 0
-var /* const */ DefaultCount = 30
-var /* const */ MaxCount = 100
 var /* const */ FromOperatorRegexp = regexp.MustCompile(`(?i)\bfrom:([\w\.]+)`)
+var /* const */ SearchQueryOffsetDefault = 0
+var /* const */ SearchQueryOffsetMin = 0
+var /* const */ SearchQueryCountDefault = 30
+var /* const */ SearchQueryCountMax = 100
 
 func paramsToSearchQuery(queryString string, offsetParam string, countParam string) (*SearchQuery, error) {
 	var searchQuery SearchQuery
@@ -56,7 +56,7 @@ func paramsToSearchQuery(queryString string, offsetParam string, countParam stri
 
 	searchQuery.QueryString = queryString
 
-	offset := DefaultOffset
+	offset := SearchQueryOffsetDefault
 	if offsetParam := strings.TrimSpace(offsetParam); offsetParam != "" {
 		v, err := strconv.Atoi(offsetParam)
 		if err != nil {
@@ -66,12 +66,12 @@ func paramsToSearchQuery(queryString string, offsetParam string, countParam stri
 		}
 		offset = v
 	}
-	if offset < MinOffset {
-		offset = MinOffset
+	if offset < SearchQueryOffsetMin {
+		offset = SearchQueryOffsetMin
 	}
 	searchQuery.Offset = offset
 
-	count := DefaultCount
+	count := SearchQueryCountDefault
 	if countParam := strings.TrimSpace(countParam); countParam != "" {
 		v, err := strconv.Atoi(countParam)
 		if err != nil {
@@ -81,8 +81,8 @@ func paramsToSearchQuery(queryString string, offsetParam string, countParam stri
 		}
 		count = v
 	}
-	if count > MaxCount {
-		count = DefaultCount
+	if count > SearchQueryCountMax {
+		count = SearchQueryCountDefault
 	}
 	searchQuery.Count = count
 
