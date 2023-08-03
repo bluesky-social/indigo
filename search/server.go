@@ -284,8 +284,8 @@ func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSu
 	})
 }
 
-func (s *Server) SearchPosts(ctx context.Context, srch string, fromHandle string, offset, size int) ([]PostSearchResult, error) {
-	resp, err := doSearchPosts(ctx, s.escli, srch, fromHandle, offset, size)
+func (s *Server) SearchPosts(ctx context.Context, searchQuery SearchQuery) ([]PostSearchResult, error) {
+	resp, err := doSearchPosts(ctx, s.escli, searchQuery)
 	if err != nil {
 		return nil, err
 	}

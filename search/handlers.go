@@ -3,8 +3,6 @@ package search
 import (
 	"context"
 	"fmt"
-	"regexp"
-	"strconv"
 	"strings"
 
 	api "github.com/bluesky-social/indigo/api"
@@ -12,8 +10,6 @@ import (
 	"github.com/labstack/echo/v4"
 	otel "go.opentelemetry.io/otel"
 )
-
-var /* const */ FromOperatorRegexp = regexp.MustCompile(`\bfrom:([\w\.]+)`)
 
 type ActorSearchResp struct {
 	bsky.ActorProfile
@@ -34,51 +30,16 @@ func (s *Server) handleSearchRequestPosts(e echo.Context) error {
 	ctx, span := otel.Tracer("search").Start(e.Request().Context(), "handleSearchRequestPosts")
 	defer span.End()
 
-	queryParam := strings.TrimSpace(e.QueryParam("q"))
-	if queryParam == "" {
-		return e.JSON(400, map[string]any{
-			"error": "must pass non-empty search query",
-		})
-	}
-
-	// if the query contains 'from:username.foo.tld',
-	// extract username.foo.tld, and remove the entire operator token
-	fromHandle := ""
-	matches := FromOperatorRegexp.FindStringSubmatch(queryParam)
-	if len(matches) == 2 {
-		fromHandle = matches[1]
-		queryParam = strings.TrimSpace(
-			FromOperatorRegexp.ReplaceAllString(queryParam, ""),
-		)
-	}
-
-	offset := 0
-	if offsetParam := strings.TrimSpace(e.QueryParam("offset")); offsetParam != "" {
-		v, err := strconv.Atoi(offsetParam)
-		if err != nil {
-			return &echo.HTTPError{
-				Code:    400,
-				Message: fmt.Sprintf("invalid value for 'offset': %s", err),
-			}
+	searchQuery, err := paramsToSearchQuery(
+		e.QueryParam("q"), e.QueryParam("offset"), e.QueryParam("count"))
+	if err != nil {
+		return &echo.HTTPError{
+			Code:    400,
+			Message: fmt.Sprintf("%s", err),
 		}
-
-		offset = v
 	}
 
-	count := 30
-	if countParam := strings.TrimSpace(e.QueryParam("count")); countParam != "" {
-		v, err := strconv.Atoi(countParam)
-		if err != nil {
-			return &echo.HTTPError{
-				Code:    400,
-				Message: fmt.Sprintf("invalid value for 'count': %s", err),
-			}
-		}
-
-		count = v
-	}
-
-	out, err := s.SearchPosts(ctx, queryParam, fromHandle, offset, count)
+	out, err := s.SearchPosts(ctx, *searchQuery)
 	if err != nil {
 		return err
 	}

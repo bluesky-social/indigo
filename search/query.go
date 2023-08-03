@@ -47,28 +47,28 @@ type PostSearchResult struct {
 func doSearchPosts(
 	ctx context.Context,
 	escli *es.Client,
-	q string,
-	fromHandle string,
-	offset int,
-	size int,
+	searchQuery SearchQuery,
 ) (*EsSearchResponse, error) {
 	var musts []map[string]interface{}
-	if len(q) > 0 {
+	if len(searchQuery.QueryString) > 0 {
 		musts = append(musts, map[string]interface{}{
 			"match": map[string]interface{}{
 				"text": map[string]any{
-					"query":    q,
+					"query":    searchQuery.QueryString,
 					"operator": "and",
 				},
 			},
 		})
 	}
-	if len(fromHandle) > 0 {
-		musts = append(musts, map[string]interface{}{
-			"term": map[string]interface{}{
-				"user": fromHandle,
-			},
-		})
+	if searchQuery.FromUser != nil {
+		fromHandle := searchQuery.FromUser.Handle
+		if len(fromHandle) > 0 {
+			musts = append(musts, map[string]interface{}{
+				"term": map[string]interface{}{
+					"user": fromHandle,
+				},
+			})
+		}
 	}
 
 	query := map[string]interface{}{
@@ -82,8 +82,8 @@ func doSearchPosts(
 				"must": musts,
 			},
 		},
-		"size": size,
-		"from": offset,
+		"size": searchQuery.Count,
+		"from": searchQuery.Offset,
 	}
 
 	return doSearch(ctx, escli, "posts", query)
