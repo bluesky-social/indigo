@@ -7,9 +7,11 @@ import (
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers"
-	"github.com/labstack/gommon/log"
+	logging "github.com/ipfs/go-log"
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+var log = logging.Logger("autoscaling-scheduler")
 
 // Scheduler is a scheduler that will scale up and down the number of workers based on the throughput of the workers.
 type Scheduler struct {
@@ -19,6 +21,7 @@ type Scheduler struct {
 	do func(context.Context, *events.XRPCStreamEvent) error
 
 	feeder chan *consumerTask
+	out    chan struct{}
 
 	lk     sync.Mutex
 	active map[string][]*consumerTask
@@ -34,6 +37,8 @@ type Scheduler struct {
 	// autoscaling
 	throughputManager  *ThroughputManager
 	autoscaleFrequency time.Duration
+	autoscalerIn       chan struct{}
+	autoscalerOut      chan struct{}
 }
 
 type AutoscaleSettings struct {
@@ -72,6 +77,7 @@ func NewScheduler(autoscaleSettings AutoscaleSettings, ident string, do func(con
 
 		feeder: make(chan *consumerTask),
 		active: make(map[string][]*consumerTask),
+		out:    make(chan struct{}),
 
 		ident: ident,
 
@@ -87,6 +93,8 @@ func NewScheduler(autoscaleSettings AutoscaleSettings, ident string, do func(con
 			autoscaleSettings.ThroughputBucketDuration,
 		),
 		autoscaleFrequency: autoscaleSettings.AutoscaleFrequency,
+		autoscalerIn:       make(chan struct{}),
+		autoscalerOut:      make(chan struct{}),
 	}
 
 	for i := 0; i < p.concurrency; i++ {
@@ -98,18 +106,54 @@ func NewScheduler(autoscaleSettings AutoscaleSettings, ident string, do func(con
 	return p
 }
 
+func (p *Scheduler) Shutdown() {
+	log.Infof("shutting down autoscaling scheduler for %s", p.ident)
+
+	// stop autoscaling
+	p.autoscalerIn <- struct{}{}
+	close(p.autoscalerIn)
+	<-p.autoscalerOut
+
+	log.Info("stopping autoscaling scheduler workers")
+	// stop workers
+	for i := 0; i < p.concurrency; i++ {
+		p.feeder <- &consumerTask{signal: "stop"}
+	}
+	close(p.feeder)
+
+	log.Info("waiting for autoscaling scheduler workers to stop")
+	// wait for all workers to stop
+	for i := 0; i < p.concurrency; i++ {
+		<-p.out
+	}
+	close(p.out)
+
+	log.Info("stopping autoscaling scheduler throughput manager")
+	p.throughputManager.Stop()
+
+	log.Info("autoscaling scheduler shutdown complete")
+}
+
 // Add autoscaling function
 func (p *Scheduler) autoscale() {
 	p.throughputManager.Start()
 	tick := time.NewTicker(p.autoscaleFrequency)
-	for range tick.C {
-		avg := p.throughputManager.AvgThroughput()
-		if avg > float64(p.concurrency) && p.concurrency < p.maxConcurrency {
-			p.concurrency++
-			go p.worker()
-		} else if avg < float64(p.concurrency-1) && p.concurrency > 1 {
-			p.concurrency--
-			p.feeder <- &consumerTask{signal: "stop"}
+	defer tick.Stop()
+	for {
+		select {
+		case <-p.autoscalerIn:
+			p.autoscalerOut <- struct{}{}
+			close(p.autoscalerOut)
+			return
+		case <-tick.C:
+			avg := p.throughputManager.AvgThroughput()
+			if avg > float64(p.concurrency) && p.concurrency < p.maxConcurrency {
+				p.concurrency++
+				go p.worker()
+			} else if avg < float64(p.concurrency-1) && p.concurrency > 1 {
+				p.concurrency--
+				p.feeder <- &consumerTask{signal: "stop"}
+			}
 		}
 	}
 }
@@ -156,6 +200,7 @@ func (p *Scheduler) worker() {
 			if work.signal == "stop" {
 				log.Infof("stopping autoscaling worker for %s", p.ident)
 				p.workersActive.Dec()
+				p.out <- struct{}{}
 				return
 			}
 

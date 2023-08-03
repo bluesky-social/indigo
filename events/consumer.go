@@ -63,6 +63,7 @@ func (sr *instrumentedReader) Read(p []byte) (int, error) {
 func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	defer sched.Shutdown()
 
 	remoteAddr := con.RemoteAddr().String()
 

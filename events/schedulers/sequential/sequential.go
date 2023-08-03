@@ -5,8 +5,11 @@ import (
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers"
+	logging "github.com/ipfs/go-log"
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+var log = logging.Logger("sequential-scheduler")
 
 // Scheduler is a sequential scheduler that will run work on a single worker
 type Scheduler struct {
@@ -36,6 +39,10 @@ func NewScheduler(ident string, do func(context.Context, *events.XRPCStreamEvent
 	p.workersActive.Set(1)
 
 	return p
+}
+
+func (p *Scheduler) Shutdown() {
+	p.workersActive.Set(0)
 }
 
 func (s *Scheduler) AddWork(ctx context.Context, repo string, val *events.XRPCStreamEvent) error {

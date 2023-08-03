@@ -13,6 +13,8 @@ type ThroughputManager struct {
 	sum            int
 	bucketCount    int
 	bucketDuration time.Duration
+	in             chan struct{}
+	out            chan struct{}
 }
 
 // NewThroughputManager creates a new ThroughputManager with the specified interval.
@@ -46,14 +48,20 @@ func (m *ThroughputManager) AvgThroughput() float64 {
 // shift shifts the position in the circular buffer every bucketDuration, resetting the old value.
 func (m *ThroughputManager) shift() {
 	tick := time.NewTicker(m.bucketDuration)
-	for range tick.C {
-		m.mu.Lock()
+	for {
+		select {
+		case <-tick.C:
+			m.mu.Lock()
 
-		m.pos = (m.pos + 1) % m.bucketCount
-		m.sum -= m.circular[m.pos]
-		m.circular[m.pos] = 0
+			m.pos = (m.pos + 1) % m.bucketCount
+			m.sum -= m.circular[m.pos]
+			m.circular[m.pos] = 0
 
-		m.mu.Unlock()
+			m.mu.Unlock()
+		case <-m.in:
+			m.out <- struct{}{}
+			return
+		}
 	}
 }
 
@@ -61,4 +69,9 @@ func (m *ThroughputManager) shift() {
 // It ticks every bucketDuration, shifting the position in the circular buffer.
 func (m *ThroughputManager) Start() {
 	go m.shift()
+}
+
+func (m *ThroughputManager) Stop() {
+	m.in <- struct{}{}
+	<-m.out
 }
