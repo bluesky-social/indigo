@@ -115,6 +115,7 @@ type EmbedRecord_View_Record struct {
 	EmbedRecord_ViewNotFound *EmbedRecord_ViewNotFound
 	EmbedRecord_ViewBlocked  *EmbedRecord_ViewBlocked
 	FeedDefs_GeneratorView   *FeedDefs_GeneratorView
+	GraphDefs_ListView       *GraphDefs_ListView
 }
 
 func (t *EmbedRecord_View_Record) MarshalJSON() ([]byte, error) {
@@ -133,6 +134,10 @@ func (t *EmbedRecord_View_Record) MarshalJSON() ([]byte, error) {
 	if t.FeedDefs_GeneratorView != nil {
 		t.FeedDefs_GeneratorView.LexiconTypeID = "app.bsky.feed.defs#generatorView"
 		return json.Marshal(t.FeedDefs_GeneratorView)
+	}
+	if t.GraphDefs_ListView != nil {
+		t.GraphDefs_ListView.LexiconTypeID = "app.bsky.graph.defs#listView"
+		return json.Marshal(t.GraphDefs_ListView)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -155,6 +160,9 @@ func (t *EmbedRecord_View_Record) UnmarshalJSON(b []byte) error {
 	case "app.bsky.feed.defs#generatorView":
 		t.FeedDefs_GeneratorView = new(FeedDefs_GeneratorView)
 		return json.Unmarshal(b, t.FeedDefs_GeneratorView)
+	case "app.bsky.graph.defs#listView":
+		t.GraphDefs_ListView = new(GraphDefs_ListView)
+		return json.Unmarshal(b, t.GraphDefs_ListView)
 
 	default:
 		return nil

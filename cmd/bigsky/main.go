@@ -22,6 +22,7 @@ import (
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/util/version"
 	"github.com/bluesky-social/indigo/xrpc"
+	_ "go.uber.org/automaxprocs"
 
 	_ "net/http/pprof"
 

@@ -62,6 +62,10 @@ lexgen: ## Run codegen tool for lexicons (lexicon JSON to Go packages)
 	go run ./cmd/lexgen/ --package bsky --prefix app.bsky --outdir api/bsky $(LEXDIR)
 	go run ./cmd/lexgen/ --package atproto --prefix com.atproto --outdir api/atproto $(LEXDIR)
 
+.PHONY: cborgen
+cborgen: ## Run codegen tool for CBOR serialization
+	go run ./gen
+
 .env:
 	if [ ! -f ".env" ]; then cp example.dev.env .env; fi
 
@@ -90,3 +94,21 @@ run-dev-search: .env ## Runs search daemon for local dev
 .PHONY: sonar-up
 sonar-up: # Runs sonar docker container
 	docker compose -f cmd/sonar/docker-compose.yml up --build -d || docker-compose -f cmd/sonar/docker-compose.yml up --build -d
+
+.PHONY: sc-reload
+sc-reload: # Reloads supercollider
+	go run cmd/supercollider/main.go \
+		reload \
+		--port 6125 --total-events 2000000 \
+		--hostname alpha.supercollider.jazco.io \
+		--key-file out/alpha.pem \
+		--output-file out/alpha_in.cbor
+
+.PHONY: sc-fire
+sc-fire: # Fires supercollider
+	go run cmd/supercollider/main.go \
+		fire \
+		--port 6125 --events-per-second 10000 \
+		--hostname alpha.supercollider.jazco.io \
+		--key-file out/alpha.pem \
+		--input-file out/alpha_in.cbor

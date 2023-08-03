@@ -32,25 +32,29 @@ func MeasureIterations(name string) func(int) {
 	}
 }
 
-func GenAccount(xrpcc *xrpc.Client, index int, accountType string) (*AccountContext, error) {
-	var suffix string
+func GenAccount(xrpcc *xrpc.Client, index int, accountType, domainSuffix string, inviteCode *string) (*AccountContext, error) {
+	if domainSuffix == "" {
+		domainSuffix = "test"
+	}
+	var handleSuffix string
 	if accountType == "celebrity" {
-		suffix = "C"
+		handleSuffix = "C"
 	} else {
-		suffix = ""
+		handleSuffix = ""
 	}
 	prefix := gofakeit.Username()
 	if len(prefix) > 10 {
 		prefix = prefix[0:10]
 	}
-	handle := fmt.Sprintf("%s-%s%d.test", prefix, suffix, index)
+	handle := fmt.Sprintf("%s-%s%d.%s", prefix, handleSuffix, index, domainSuffix)
 	email := gofakeit.Email()
 	password := gofakeit.Password(true, true, true, true, true, 24)
 	ctx := context.TODO()
 	resp, err := comatproto.ServerCreateAccount(ctx, xrpcc, &comatproto.ServerCreateAccount_Input{
-		Email:    email,
-		Handle:   handle,
-		Password: password,
+		Email:      email,
+		Handle:     handle,
+		InviteCode: inviteCode,
+		Password:   password,
 	})
 	if err != nil {
 		return nil, err
@@ -408,7 +412,7 @@ func BrowseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
 		case "mention":
 			fallthrough
 		case "reply":
-			_, err := appbsky.FeedGetPostThread(context.TODO(), xrpcc, 4, notif.Uri)
+			_, err := appbsky.FeedGetPostThread(context.TODO(), xrpcc, 4, 80, notif.Uri)
 			if err != nil {
 				return err
 			}
@@ -434,7 +438,7 @@ func BrowseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
 		}
 		// TODO: should we do something different here?
 		if rand.Float64() < 0.25 {
-			_, err = appbsky.FeedGetPostThread(context.TODO(), xrpcc, 4, post.Post.Uri)
+			_, err = appbsky.FeedGetPostThread(context.TODO(), xrpcc, 4, 80, post.Post.Uri)
 			if err != nil {
 				return err
 			}

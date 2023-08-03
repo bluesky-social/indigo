@@ -10,8 +10,12 @@ type GraphDefs_ListItemView struct {
 }
 
 // GraphDefs_ListView is a "listView" in the app.bsky.graph.defs schema.
+//
+// RECORDTYPE: GraphDefs_ListView
 type GraphDefs_ListView struct {
+	LexiconTypeID     string                     `json:"$type,const=app.bsky.graph.defs" cborgen:"$type,const=app.bsky.graph.defs"`
 	Avatar            *string                    `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	Cid               string                     `json:"cid" cborgen:"cid"`
 	Creator           *ActorDefs_ProfileView     `json:"creator" cborgen:"creator"`
 	Description       *string                    `json:"description,omitempty" cborgen:"description,omitempty"`
 	DescriptionFacets []*RichtextFacet           `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
@@ -25,6 +29,7 @@ type GraphDefs_ListView struct {
 // GraphDefs_ListViewBasic is a "listViewBasic" in the app.bsky.graph.defs schema.
 type GraphDefs_ListViewBasic struct {
 	Avatar    *string                    `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	Cid       string                     `json:"cid" cborgen:"cid"`
 	IndexedAt *string                    `json:"indexedAt,omitempty" cborgen:"indexedAt,omitempty"`
 	Name      string                     `json:"name" cborgen:"name"`
 	Purpose   *string                    `json:"purpose" cborgen:"purpose"`
