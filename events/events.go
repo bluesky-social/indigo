@@ -19,6 +19,7 @@ var log = logging.Logger("events")
 
 type Scheduler interface {
 	AddWork(ctx context.Context, repo string, val *XRPCStreamEvent) error
+	Shutdown()
 }
 
 type EventManager struct {

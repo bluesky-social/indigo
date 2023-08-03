@@ -6,9 +6,12 @@ import (
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers"
-	"github.com/labstack/gommon/log"
+	logging "github.com/ipfs/go-log"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+var log = logging.Logger("parallel-scheduler")
 
 // Scheduler is a parallel scheduler that will run work on a fixed number of workers
 type Scheduler struct {
@@ -18,6 +21,7 @@ type Scheduler struct {
 	do func(context.Context, *events.XRPCStreamEvent) error
 
 	feeder chan *consumerTask
+	out    chan struct{}
 
 	lk     sync.Mutex
 	active map[string][]*consumerTask
@@ -40,6 +44,7 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events
 
 		feeder: make(chan *consumerTask),
 		active: make(map[string][]*consumerTask),
+		out:    make(chan struct{}),
 
 		ident: ident,
 
@@ -58,9 +63,28 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events
 	return p
 }
 
+func (p *Scheduler) Shutdown() {
+	log.Infof("shutting down parallel scheduler for %s", p.ident)
+
+	for i := 0; i < p.maxConcurrency; i++ {
+		p.feeder <- &consumerTask{
+			control: "stop",
+		}
+	}
+
+	close(p.feeder)
+
+	for i := 0; i < p.maxConcurrency; i++ {
+		<-p.out
+	}
+
+	log.Info("parallel scheduler shutdown complete")
+}
+
 type consumerTask struct {
-	repo string
-	val  *events.XRPCStreamEvent
+	repo    string
+	val     *events.XRPCStreamEvent
+	control string
 }
 
 func (p *Scheduler) AddWork(ctx context.Context, repo string, val *events.XRPCStreamEvent) error {
@@ -92,6 +116,11 @@ func (p *Scheduler) AddWork(ctx context.Context, repo string, val *events.XRPCSt
 func (p *Scheduler) worker() {
 	for work := range p.feeder {
 		for work != nil {
+			if work.control == "stop" {
+				p.out <- struct{}{}
+				return
+			}
+
 			p.itemsActive.Inc()
 			if err := p.do(context.TODO(), work.val); err != nil {
 				log.Errorf("event handler failed: %s", err)
