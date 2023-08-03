@@ -36,10 +36,37 @@ type Scheduler struct {
 	autoscaleFrequency time.Duration
 }
 
-func NewScheduler(concurrency, maxC int, autoscaleFrequency time.Duration, ident string, do func(context.Context, *events.XRPCStreamEvent) error) *Scheduler {
+type AutoscaleSettings struct {
+	Concurrency              int
+	MaxConcurrency           int
+	AutoscaleFrequency       time.Duration
+	ThroughputBucketCount    int
+	ThroughputBucketDuration time.Duration
+}
+
+// DefaultAutoscaleSettings returns the default autoscale settings.
+// Concurrency is the number of workers to start with.
+// MaxConcurrency is the maximum number of workers to scale up to.
+// AutoscaleFrequency is the frequency to check the average throughput.
+// ThroughputBucketCount is the number of buckets to use to calculate the average throughput.
+// ThroughputBucketDuration is the duration of each bucket.
+// By default we check the average throughput over the last 60 seconds with 1 second buckets
+// We make an autoscaling decision every 5 seconds.
+// We start with 1 worker and scale up to 32 workers.
+func DefaultAutoscaleSettings() AutoscaleSettings {
+	return AutoscaleSettings{
+		Concurrency:              1,
+		MaxConcurrency:           32,
+		AutoscaleFrequency:       5 * time.Second,
+		ThroughputBucketCount:    60,
+		ThroughputBucketDuration: time.Second,
+	}
+}
+
+func NewScheduler(autoscaleSettings AutoscaleSettings, ident string, do func(context.Context, *events.XRPCStreamEvent) error) *Scheduler {
 	p := &Scheduler{
-		concurrency:    concurrency,
-		maxConcurrency: maxC,
+		concurrency:    autoscaleSettings.Concurrency,
+		maxConcurrency: autoscaleSettings.MaxConcurrency,
 
 		do: do,
 
@@ -55,11 +82,14 @@ func NewScheduler(concurrency, maxC int, autoscaleFrequency time.Duration, ident
 
 		// autoscaling
 		// By default, the ThroughputManager will calculate the average throughput over the last 60 seconds.
-		throughputManager:  NewThroughputManager(60),
-		autoscaleFrequency: autoscaleFrequency,
+		throughputManager: NewThroughputManager(
+			autoscaleSettings.ThroughputBucketCount,
+			autoscaleSettings.ThroughputBucketDuration,
+		),
+		autoscaleFrequency: autoscaleSettings.AutoscaleFrequency,
 	}
 
-	for i := 0; i < concurrency; i++ {
+	for i := 0; i < p.concurrency; i++ {
 		go p.worker()
 	}
 

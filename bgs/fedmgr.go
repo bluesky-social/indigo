@@ -389,7 +389,15 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 	}
 
-	pool := autoscaling.NewScheduler(1, 360, time.Second, con.RemoteAddr().String(), rsc.EventHandler)
+	scalingSettings := autoscaling.AutoscaleSettings{
+		Concurrency:              1,
+		MaxConcurrency:           360,
+		AutoscaleFrequency:       time.Second,
+		ThroughputBucketCount:    60,
+		ThroughputBucketDuration: time.Second,
+	}
+
+	pool := autoscaling.NewScheduler(scalingSettings, con.RemoteAddr().String(), rsc.EventHandler)
 	return events.HandleRepoStream(ctx, con, pool)
 }
 

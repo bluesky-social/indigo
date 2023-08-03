@@ -7,18 +7,20 @@ import (
 
 // ThroughputManager keeps track of the number of tasks processed per second over a specified interval.
 type ThroughputManager struct {
-	mu       sync.Mutex
-	circular []int
-	pos      int
-	sum      int
-	interval int
+	mu             sync.Mutex
+	circular       []int
+	pos            int
+	sum            int
+	bucketCount    int
+	bucketDuration time.Duration
 }
 
 // NewThroughputManager creates a new ThroughputManager with the specified interval.
-func NewThroughputManager(interval int) *ThroughputManager {
+func NewThroughputManager(bucketCount int, bucketDuration time.Duration) *ThroughputManager {
 	return &ThroughputManager{
-		circular: make([]int, interval),
-		interval: interval,
+		circular:       make([]int, bucketCount),
+		bucketCount:    bucketCount,
+		bucketDuration: bucketDuration,
 	}
 }
 
@@ -37,16 +39,16 @@ func (m *ThroughputManager) AvgThroughput() float64 {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return float64(m.sum) / float64(m.interval)
+	return float64(m.sum) / float64(m.bucketCount)
 }
 
 // shift shifts the position in the circular buffer every second, resetting the old value.
 func (m *ThroughputManager) shift() {
-	tick := time.NewTicker(time.Second)
+	tick := time.NewTicker(m.bucketDuration)
 	for range tick.C {
 		m.mu.Lock()
 
-		m.pos = (m.pos + 1) % m.interval
+		m.pos = (m.pos + 1) % m.bucketCount
 		m.sum -= m.circular[m.pos]
 		m.circular[m.pos] = 0
 
