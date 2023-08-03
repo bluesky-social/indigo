@@ -30,7 +30,7 @@ func (s *Server) handleSearchRequestPosts(e echo.Context) error {
 	ctx, span := otel.Tracer("search").Start(e.Request().Context(), "handleSearchRequestPosts")
 	defer span.End()
 
-	searchQuery, err := paramsToSearchQuery(
+	searchQuery, err := paramsToPostsSearchQuery(
 		e.QueryParam("q"), e.QueryParam("offset"), e.QueryParam("count"))
 	if err != nil {
 		return &echo.HTTPError{

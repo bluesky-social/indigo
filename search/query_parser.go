@@ -27,7 +27,7 @@ var /* const */ SearchQueryOffsetMin = 0
 var /* const */ SearchQueryCountDefault = 30
 var /* const */ SearchQueryCountMax = 100
 
-func paramsToSearchQuery(queryString string, offsetParam string, countParam string) (*SearchQuery, error) {
+func paramsToPostsSearchQuery(queryString string, offsetParam string, countParam string) (*SearchQuery, error) {
 	var searchQuery SearchQuery
 
 	queryString = strings.TrimSpace(queryString)

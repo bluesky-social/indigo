@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func esQueryWith(musts interface{}, size int, from int) interface{} {
+func buildEsQueryWith(musts interface{}, size int, from int) interface{} {
 	return map[string]interface{}{
 		"sort": map[string]any{
 			"createdAt": map[string]any{
@@ -22,7 +22,7 @@ func esQueryWith(musts interface{}, size int, from int) interface{} {
 	}
 }
 
-func TestToEsQueryJustQueryString(t *testing.T) {
+func TestToPostsEsQueryJustQueryString(t *testing.T) {
 	assert := assert.New(t)
 	searchQuery := SearchQuery{
 		QueryString: "foo",
@@ -31,7 +31,7 @@ func TestToEsQueryJustQueryString(t *testing.T) {
 		Offset:      0,
 	}
 	esQuery, _ := ToPostsEsQuery(searchQuery)
-	expected := esQueryWith([]map[string]interface{}{
+	expected := buildEsQueryWith([]map[string]interface{}{
 		{
 			"match": map[string]interface{}{
 				"text": map[string]any{
@@ -44,7 +44,7 @@ func TestToEsQueryJustQueryString(t *testing.T) {
 	assert.Equal(expected, esQuery)
 }
 
-func TestToEsQueryFromUserHandle(t *testing.T) {
+func TestToPostsEsQueryFromUserHandle(t *testing.T) {
 	assert := assert.New(t)
 	searchQuery := SearchQuery{
 		QueryString: "",
@@ -56,7 +56,7 @@ func TestToEsQueryFromUserHandle(t *testing.T) {
 		Offset: 0,
 	}
 	esQuery, _ := ToPostsEsQuery(searchQuery)
-	expected := esQueryWith([]map[string]interface{}{
+	expected := buildEsQueryWith([]map[string]interface{}{
 		{
 			"term": map[string]interface{}{
 				"user": "alice",
@@ -66,7 +66,7 @@ func TestToEsQueryFromUserHandle(t *testing.T) {
 	assert.Equal(expected, esQuery)
 }
 
-func TestToEsQueryQueryStringAndHandle(t *testing.T) {
+func TestToPostsEsQueryQueryStringAndHandle(t *testing.T) {
 	assert := assert.New(t)
 	searchQuery := SearchQuery{
 		QueryString: "tacos",
@@ -78,7 +78,7 @@ func TestToEsQueryQueryStringAndHandle(t *testing.T) {
 		Offset: 0,
 	}
 	esQuery, _ := ToPostsEsQuery(searchQuery)
-	expected := esQueryWith([]map[string]interface{}{
+	expected := buildEsQueryWith([]map[string]interface{}{
 		{
 			"match": map[string]interface{}{
 				"text": map[string]any{
@@ -96,7 +96,7 @@ func TestToEsQueryQueryStringAndHandle(t *testing.T) {
 	assert.Equal(expected, esQuery)
 }
 
-func TestToEsQueryCountToSize(t *testing.T) {
+func TestToPostsEsQueryCountToSize(t *testing.T) {
 	assert := assert.New(t)
 	countSize := 123
 	searchQuery := SearchQuery{
@@ -109,7 +109,7 @@ func TestToEsQueryCountToSize(t *testing.T) {
 	assert.Equal(countSize, esQuery["size"])
 }
 
-func TestToEsQueryOffsetToFrom(t *testing.T) {
+func TestToPostsEsQueryOffsetToFrom(t *testing.T) {
 	assert := assert.New(t)
 	offsetValue := 123
 	searchQuery := SearchQuery{
