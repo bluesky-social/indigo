@@ -13,6 +13,7 @@ import (
 	label "github.com/bluesky-social/indigo/api/label"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	"github.com/bluesky-social/indigo/labeler"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -109,7 +110,8 @@ func labelEvents(t *testing.T, lm *labeler.Server, since int64) *EventStream {
 				return nil
 			},
 		}
-		if err := events.HandleRepoStream(ctx, con, &events.SequentialScheduler{rsc.EventHandler}); err != nil {
+		seqScheduler := sequential.NewScheduler("test", rsc.EventHandler)
+		if err := events.HandleRepoStream(ctx, con, seqScheduler); err != nil {
 			fmt.Println(err)
 		}
 	}()

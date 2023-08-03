@@ -6,11 +6,13 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/schedulers"
 	"github.com/labstack/gommon/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-type ConsumerPool struct {
+// Scheduler is a scheduler that will scale up and down the number of workers based on the throughput of the workers.
+type Scheduler struct {
 	concurrency    int
 	maxConcurrency int
 
@@ -27,14 +29,15 @@ type ConsumerPool struct {
 	itemsAdded     prometheus.Counter
 	itemsProcessed prometheus.Counter
 	itemsActive    prometheus.Counter
-	workersAcrive  prometheus.Gauge
+	workersActive  prometheus.Gauge
 
 	// autoscaling
-	throughputManager *ThroughputManager
+	throughputManager  *ThroughputManager
+	autoscaleFrequency time.Duration
 }
 
-func NewConsumerPool(concurrency, maxC int, ident string, do func(context.Context, *events.XRPCStreamEvent) error) *ConsumerPool {
-	p := &ConsumerPool{
+func NewScheduler(concurrency, maxC int, autoscaleFrequency time.Duration, ident string, do func(context.Context, *events.XRPCStreamEvent) error) *Scheduler {
+	p := &Scheduler{
 		concurrency:    concurrency,
 		maxConcurrency: maxC,
 
@@ -45,14 +48,15 @@ func NewConsumerPool(concurrency, maxC int, ident string, do func(context.Contex
 
 		ident: ident,
 
-		itemsAdded:     workItemsAdded.WithLabelValues(ident, "autoscaling"),
-		itemsProcessed: workItemsProcessed.WithLabelValues(ident, "autoscaling"),
-		itemsActive:    workItemsActive.WithLabelValues(ident, "autoscaling"),
-		workersAcrive:  workersActive.WithLabelValues(ident, "autoscaling"),
+		itemsAdded:     schedulers.WorkItemsAdded.WithLabelValues(ident, "autoscaling"),
+		itemsProcessed: schedulers.WorkItemsProcessed.WithLabelValues(ident, "autoscaling"),
+		itemsActive:    schedulers.WorkItemsActive.WithLabelValues(ident, "autoscaling"),
+		workersActive:  schedulers.WorkersActive.WithLabelValues(ident, "autoscaling"),
 
 		// autoscaling
 		// By default, the ThroughputManager will calculate the average throughput over the last 60 seconds.
-		throughputManager: NewThroughputManager(60),
+		throughputManager:  NewThroughputManager(60),
+		autoscaleFrequency: autoscaleFrequency,
 	}
 
 	for i := 0; i < concurrency; i++ {
@@ -65,9 +69,9 @@ func NewConsumerPool(concurrency, maxC int, ident string, do func(context.Contex
 }
 
 // Add autoscaling function
-func (p *ConsumerPool) autoscale() {
+func (p *Scheduler) autoscale() {
 	p.throughputManager.Start()
-	tick := time.NewTicker(time.Second * 5) // adjust as needed
+	tick := time.NewTicker(p.autoscaleFrequency)
 	for range tick.C {
 		avg := p.throughputManager.AvgThroughput()
 		if avg > float64(p.concurrency) && p.concurrency < p.maxConcurrency {
@@ -86,7 +90,7 @@ type consumerTask struct {
 	signal string
 }
 
-func (p *ConsumerPool) AddWork(ctx context.Context, repo string, val *events.XRPCStreamEvent) error {
+func (p *Scheduler) AddWork(ctx context.Context, repo string, val *events.XRPCStreamEvent) error {
 	p.itemsAdded.Inc()
 	p.throughputManager.Add(1)
 	t := &consumerTask{
@@ -113,15 +117,15 @@ func (p *ConsumerPool) AddWork(ctx context.Context, repo string, val *events.XRP
 	}
 }
 
-func (p *ConsumerPool) worker() {
+func (p *Scheduler) worker() {
 	log.Infof("starting autoscaling worker for %s", p.ident)
-	p.workersAcrive.Inc()
+	p.workersActive.Inc()
 	for work := range p.feeder {
 		for work != nil {
 			// Check if the work item contains a signal to stop the worker.
 			if work.signal == "stop" {
 				log.Infof("stopping autoscaling worker for %s", p.ident)
-				p.workersAcrive.Dec()
+				p.workersActive.Dec()
 				return
 			}
 

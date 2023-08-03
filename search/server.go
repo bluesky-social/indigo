@@ -9,11 +9,13 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	api "github.com/bluesky-social/indigo/api"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
@@ -195,7 +197,7 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 		},
 	}
 
-	return events.HandleRepoStream(ctx, con, events.NewConsumerPool(8, 32, s.bgshost, rsc.EventHandler))
+	return events.HandleRepoStream(ctx, con, autoscaling.NewScheduler(1, 32, time.Second, s.bgshost, rsc.EventHandler))
 }
 
 func (s *Server) handleOp(ctx context.Context, op repomgr.EventKind, seq int64, path string, did string, rcid *cid.Cid, rec any) error {

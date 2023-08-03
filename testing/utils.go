@@ -23,6 +23,7 @@ import (
 	"github.com/bluesky-social/indigo/bgs"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	"github.com/bluesky-social/indigo/indexer"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
@@ -540,7 +541,8 @@ func (b *TestBGS) Events(t *testing.T, since int64) *EventStream {
 				return nil
 			},
 		}
-		if err := events.HandleRepoStream(ctx, con, &events.SequentialScheduler{rsc.EventHandler}); err != nil {
+		seqScheduler := sequential.NewScheduler("test", rsc.EventHandler)
+		if err := events.HandleRepoStream(ctx, con, seqScheduler); err != nil {
 			fmt.Println(err)
 		}
 	}()

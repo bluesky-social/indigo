@@ -17,6 +17,10 @@ import (
 
 var log = logging.Logger("events")
 
+type Scheduler interface {
+	AddWork(ctx context.Context, repo string, val *XRPCStreamEvent) error
+}
+
 type EventManager struct {
 	subs   []*Subscriber
 	subsLk sync.Mutex
