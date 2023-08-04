@@ -165,7 +165,7 @@ func (tp *TestPDS) RequestScraping(t *testing.T, b *TestBGS) {
 	t.Helper()
 
 	c := &xrpc.Client{Host: "http://" + b.Host()}
-	if err := atproto.SyncRequestCrawl(context.TODO(), c, tp.RawHost()); err != nil {
+	if err := atproto.SyncRequestCrawl(context.TODO(), c, &atproto.SyncRequestCrawl_Input{Hostname: tp.RawHost()}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -425,7 +425,7 @@ func SetupBGS(ctx context.Context, didr plc.PLCClient) (*TestBGS, error) {
 	//kmgr := indexer.NewKeyManager(didr, nil)
 	kmgr := &bsutil.FakeKeyManager{}
 
-	repoman := repomgr.NewRepoManager(repomgr.NewDbHeadStore(maindb), cs, kmgr)
+	repoman := repomgr.NewRepoManager(cs, kmgr)
 
 	notifman := notifs.NewNotificationManager(maindb, repoman.GetRecord)
 

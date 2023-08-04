@@ -10,15 +10,15 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// SyncNotifyOfUpdate calls the XRPC method "com.atproto.sync.notifyOfUpdate".
-//
-// hostname: Hostname of the service that is notifying of update.
-func SyncNotifyOfUpdate(ctx context.Context, c *xrpc.Client, hostname string) error {
+// SyncNotifyOfUpdate_Input is the input argument to a com.atproto.sync.notifyOfUpdate call.
+type SyncNotifyOfUpdate_Input struct {
+	// hostname: Hostname of the service that is notifying of update.
+	Hostname string `json:"hostname" cborgen:"hostname"`
+}
 
-	params := map[string]interface{}{
-		"hostname": hostname,
-	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.notifyOfUpdate", params, nil, nil); err != nil {
+// SyncNotifyOfUpdate calls the XRPC method "com.atproto.sync.notifyOfUpdate".
+func SyncNotifyOfUpdate(ctx context.Context, c *xrpc.Client, input *SyncNotifyOfUpdate_Input) error {
+	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.sync.notifyOfUpdate", nil, input, nil); err != nil {
 		return err
 	}
 

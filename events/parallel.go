@@ -27,9 +27,11 @@ type ParallelConsumerPool struct {
 
 	lk     sync.Mutex
 	active map[string][]*consumerTask
+
+	ident string
 }
 
-func NewConsumerPool(maxC, maxQ int, do func(context.Context, *XRPCStreamEvent) error) *ParallelConsumerPool {
+func NewConsumerPool(maxC, maxQ int, ident string, do func(context.Context, *XRPCStreamEvent) error) *ParallelConsumerPool {
 	p := &ParallelConsumerPool{
 		maxConcurrency: maxC,
 		maxQueue:       maxQ,
@@ -38,6 +40,8 @@ func NewConsumerPool(maxC, maxQ int, do func(context.Context, *XRPCStreamEvent) 
 
 		feeder: make(chan *consumerTask),
 		active: make(map[string][]*consumerTask),
+
+		ident: ident,
 	}
 
 	for i := 0; i < maxC; i++ {
@@ -53,6 +57,7 @@ type consumerTask struct {
 }
 
 func (p *ParallelConsumerPool) AddWork(ctx context.Context, repo string, val *XRPCStreamEvent) error {
+	workItemsAdded.WithLabelValues(p.ident).Inc()
 	t := &consumerTask{
 		repo: repo,
 		val:  val,
@@ -80,9 +85,11 @@ func (p *ParallelConsumerPool) AddWork(ctx context.Context, repo string, val *XR
 func (p *ParallelConsumerPool) worker() {
 	for work := range p.feeder {
 		for work != nil {
+			workItemsActive.WithLabelValues(p.ident).Inc()
 			if err := p.do(context.TODO(), work.val); err != nil {
 				log.Errorf("event handler failed: %s", err)
 			}
+			workItemsProcessed.WithLabelValues(p.ident).Inc()
 
 			p.lk.Lock()
 			rem, ok := p.active[work.repo]

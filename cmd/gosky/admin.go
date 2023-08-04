@@ -393,7 +393,8 @@ var listReportsCmd = &cli.Command{
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		resp, err := atproto.AdminGetModerationReports(ctx, xrpcc, "", "", 100, cctx.Bool("resolved"), "")
+		// AdminGetModerationReports(ctx context.Context, c *xrpc.Client, actionType string, actionedBy string, cursor string, ignoreSubjects []string, limit int64, reporters []string, resolved bool, reverse bool, subject string) (*AdminGetModerationReports_Output, error)
+		resp, err := atproto.AdminGetModerationReports(ctx, xrpcc, "", "", "", nil, 100, nil, cctx.Bool("resolved"), false, "")
 		if err != nil {
 			return err
 		}
@@ -521,7 +522,12 @@ var listInviteTreeCmd = &cli.Command{
 			Usage: "additionally disable invites for all printed DIDs",
 		},
 		&cli.BoolFlag{
-			Name: "print-emails",
+			Name:  "print-handles",
+			Usage: "print handle for each DID",
+		},
+		&cli.BoolFlag{
+			Name:  "print-emails",
+			Usage: "print account email for each DID",
 		},
 	},
 	ArgsUsage: `[handle]`,
@@ -568,15 +574,22 @@ var listInviteTreeCmd = &cli.Command{
 			}
 			fmt.Print(next)
 
+			if cctx.Bool("print-handles") {
+				if rep.Handle != "" {
+					fmt.Print(" ", rep.Handle)
+				} else {
+					fmt.Print(" NO HANDLE")
+				}
+			}
+
 			if cctx.Bool("print-emails") {
 				if rep.Email != nil {
-					fmt.Println(" ", *rep.Email)
+					fmt.Print(" ", *rep.Email)
 				} else {
-					fmt.Println(" NO EMAIL")
+					fmt.Print(" NO EMAIL")
 				}
-			} else {
-				fmt.Println()
 			}
+			fmt.Println()
 
 			for _, inv := range rep.Invites {
 				for _, u := range inv.Uses {

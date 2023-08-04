@@ -5,16 +5,19 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"runtime"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/fakedata"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/util/version"
 
 	_ "github.com/joho/godotenv/autoload"
+	_ "go.uber.org/automaxprocs"
 
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
@@ -68,6 +71,16 @@ func run(args []string) {
 					Name:  "count-celebrities",
 					Usage: "number of accounts as 'celebrities' (many followers)",
 					Value: 10,
+				},
+				&cli.StringFlag{
+					Name:  "domain-suffix",
+					Usage: "domain to register handle under",
+					Value: "test",
+				},
+				&cli.BoolFlag{
+					Name:  "use-invite-code",
+					Usage: "create and use an invite code",
+					Value: false,
 				},
 			},
 		},
@@ -202,17 +215,34 @@ func genAccounts(cctx *cli.Context) error {
 
 	countTotal := cctx.Int("count")
 	countCelebrities := cctx.Int("count-celebrities")
+	domainSuffix := cctx.String("domain-suffix")
 	if countCelebrities > countTotal {
 		return fmt.Errorf("more celebrities than total accounts!")
 	}
 	countRegulars := countTotal - countCelebrities
+
+	var inviteCode *string = nil
+	if cctx.Bool("use-invite-code") {
+		resp, err := comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
+			UseCount:    int64(countTotal),
+			ForAccounts: nil,
+			CodeCount:   1,
+		})
+		if err != nil {
+			return err
+		}
+		if len(resp.Codes) != 1 || len(resp.Codes[0].Codes) != 1 {
+			return fmt.Errorf("expected a single invite code")
+		}
+		inviteCode = &resp.Codes[0].Codes[0]
+	}
 
 	// call helper to do actual creation
 	var usr *fakedata.AccountContext
 	var line []byte
 	t1 := fakedata.MeasureIterations("register celebrity accounts")
 	for i := 0; i < countCelebrities; i++ {
-		if usr, err = fakedata.GenAccount(xrpcc, i, "celebrity"); err != nil {
+		if usr, err = fakedata.GenAccount(xrpcc, i, "celebrity", domainSuffix, inviteCode); err != nil {
 			return err
 		}
 		// compact single-line JSON by default
@@ -225,7 +255,7 @@ func genAccounts(cctx *cli.Context) error {
 
 	t2 := fakedata.MeasureIterations("register regular accounts")
 	for i := 0; i < countRegulars; i++ {
-		if usr, err = fakedata.GenAccount(xrpcc, i, "regular"); err != nil {
+		if usr, err = fakedata.GenAccount(xrpcc, i, "regular", domainSuffix, inviteCode); err != nil {
 			return err
 		}
 		// compact single-line JSON by default

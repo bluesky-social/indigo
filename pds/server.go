@@ -76,8 +76,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, serkey *did.PrivKey, handleSu
 
 	kmgr := indexer.NewKeyManager(didr, serkey)
 
-	hs := repomgr.NewDbHeadStore(db)
-	repoman := repomgr.NewRepoManager(hs, cs, kmgr)
+	repoman := repomgr.NewRepoManager(cs, kmgr)
 	notifman := notifs.NewNotificationManager(db, repoman.GetRecord)
 
 	ix, err := indexer.NewIndexer(db, notifman, evtman, didr, repoman, false, true)
@@ -618,7 +617,9 @@ func (s *Server) EventsHandler(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	evts, cancel, err := s.events.Subscribe(ctx, func(evt *events.XRPCStreamEvent) bool {
+	ident := c.RealIP() + "-" + c.Request().UserAgent()
+
+	evts, cancel, err := s.events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool {
 		if !s.enforcePeering {
 			return true
 		}

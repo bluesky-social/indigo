@@ -19,6 +19,7 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 
 	_ "github.com/joho/godotenv/autoload"
+	_ "go.uber.org/automaxprocs"
 
 	logging "github.com/ipfs/go-log"
 	"github.com/urfave/cli/v2"
@@ -143,10 +144,10 @@ func pollNewReports(cctx *cli.Context) error {
 		xrpcc.Auth.AccessJwt = refresh.AccessJwt
 		xrpcc.Auth.RefreshJwt = refresh.RefreshJwt
 
-		// AdminGetModerationReports(ctx context.Context, c *xrpc.Client, actionType string, cursor string, limit int64, resolved bool, subject string) (*AdminGetModerationReports_Output, error) {
+		// AdminGetModerationReports(ctx context.Context, c *xrpc.Client, actionType string, actionedBy string, cursor string, ignoreSubjects []string, limit int64, reporters []string, resolved bool, reverse bool, subject string) (*AdminGetModerationReports_Output, error)
 		resolved := false
 		var limit int64 = 50
-		mrr, err := comatproto.AdminGetModerationReports(context.TODO(), xrpcc, "", "", limit, resolved, "")
+		mrr, err := comatproto.AdminGetModerationReports(context.TODO(), xrpcc, "", "", "", nil, limit, nil, resolved, false, "")
 		if err != nil {
 			return err
 		}

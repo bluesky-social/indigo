@@ -10,15 +10,15 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// SyncRequestCrawl calls the XRPC method "com.atproto.sync.requestCrawl".
-//
-// hostname: Hostname of the service that is requesting to be crawled.
-func SyncRequestCrawl(ctx context.Context, c *xrpc.Client, hostname string) error {
+// SyncRequestCrawl_Input is the input argument to a com.atproto.sync.requestCrawl call.
+type SyncRequestCrawl_Input struct {
+	// hostname: Hostname of the service that is requesting to be crawled.
+	Hostname string `json:"hostname" cborgen:"hostname"`
+}
 
-	params := map[string]interface{}{
-		"hostname": hostname,
-	}
-	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.requestCrawl", params, nil, nil); err != nil {
+// SyncRequestCrawl calls the XRPC method "com.atproto.sync.requestCrawl".
+func SyncRequestCrawl(ctx context.Context, c *xrpc.Client, input *SyncRequestCrawl_Input) error {
+	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.sync.requestCrawl", nil, input, nil); err != nil {
 		return err
 	}
 

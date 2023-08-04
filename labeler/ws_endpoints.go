@@ -28,7 +28,9 @@ func (s *Server) EventsLabelsWebsocket(c echo.Context) error {
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
 
-	evts, cancel, err := s.evtmgr.Subscribe(ctx, func(evt *events.XRPCStreamEvent) bool {
+	ident := c.RealIP() + "-" + c.Request().UserAgent()
+
+	evts, cancel, err := s.evtmgr.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool {
 		return true
 	}, since)
 	if err != nil {

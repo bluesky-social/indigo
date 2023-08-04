@@ -388,7 +388,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 	}
 
-	pool := events.NewConsumerPool(32, 20, rsc.EventHandler)
+	pool := events.NewConsumerPool(32, 20, con.RemoteAddr().String(), rsc.EventHandler)
 	return events.HandleRepoStream(ctx, con, pool)
 }
 
@@ -399,23 +399,40 @@ func (s *Slurper) updateCursor(sub *activeSub, curs int64) error {
 	return nil
 }
 
+type cursorSnapshot struct {
+	id     uint
+	cursor int64
+}
+
 // flushCursors updates the PDS cursors in the DB for all active subscriptions
 func (s *Slurper) flushCursors(ctx context.Context) []error {
 	ctx, span := otel.Tracer("feedmgr").Start(ctx, "flushCursors")
 	defer span.End()
 
+	var cursors []cursorSnapshot
+
 	s.lk.Lock()
-	defer s.lk.Unlock()
+	// Iterate over active subs and copy the current cursor
+	for _, sub := range s.active {
+		sub.lk.RLock()
+		cursors = append(cursors, cursorSnapshot{
+			id:     sub.pds.ID,
+			cursor: sub.pds.Cursor,
+		})
+		sub.lk.RUnlock()
+	}
+	s.lk.Unlock()
 
 	errs := []error{}
 
-	// Iterate over active subs and update the PDS cursor in the DB
-	for _, sub := range s.active {
-		sub.lk.RLock()
-		if err := s.db.WithContext(ctx).Model(models.PDS{}).Where("id = ?", sub.pds.ID).UpdateColumn("cursor", sub.pds.Cursor).Error; err != nil {
+	tx := s.db.WithContext(ctx).Begin()
+	for _, cursor := range cursors {
+		if err := tx.WithContext(ctx).Model(models.PDS{}).Where("id = ?", cursor.id).UpdateColumn("cursor", cursor.cursor).Error; err != nil {
 			errs = append(errs, err)
 		}
-		sub.lk.RUnlock()
+	}
+	if err := tx.WithContext(ctx).Commit().Error; err != nil {
+		errs = append(errs, err)
 	}
 
 	return errs

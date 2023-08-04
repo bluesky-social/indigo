@@ -74,7 +74,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, 
 	didr := &api.PLCServer{Host: plcURL}
 	kmgr := indexer.NewKeyManager(didr, repoUser.SigningKey)
 	evtmgr := events.NewEventManager(events.NewMemPersister())
-	repoman := repomgr.NewRepoManager(repomgr.NewDbHeadStore(db), cs, kmgr)
+	repoman := repomgr.NewRepoManager(cs, kmgr)
 
 	if repoUser.Password == "" || repoUser.Did == "" || repoUser.Handle == "" {
 		return nil, fmt.Errorf("bad labeler repo config (empty string)")
