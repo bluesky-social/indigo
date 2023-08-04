@@ -20,6 +20,7 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
@@ -1098,7 +1099,8 @@ var readRepoStreamCmd = &cli.Command{
 				return fmt.Errorf("error frame: %s: %s", errf.Error, errf.Message)
 			},
 		}
-		return events.HandleRepoStream(ctx, con, &events.SequentialScheduler{rsc.EventHandler})
+		seqScheduler := sequential.NewScheduler(con.RemoteAddr().String(), rsc.EventHandler)
+		return events.HandleRepoStream(ctx, con, seqScheduler)
 	},
 }
 
