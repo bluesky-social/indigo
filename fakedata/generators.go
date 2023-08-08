@@ -32,25 +32,29 @@ func MeasureIterations(name string) func(int) {
 	}
 }
 
-func GenAccount(xrpcc *xrpc.Client, index int, accountType string) (*AccountContext, error) {
-	var suffix string
+func GenAccount(xrpcc *xrpc.Client, index int, accountType, domainSuffix string, inviteCode *string) (*AccountContext, error) {
+	if domainSuffix == "" {
+		domainSuffix = "test"
+	}
+	var handleSuffix string
 	if accountType == "celebrity" {
-		suffix = "C"
+		handleSuffix = "C"
 	} else {
-		suffix = ""
+		handleSuffix = ""
 	}
 	prefix := gofakeit.Username()
 	if len(prefix) > 10 {
 		prefix = prefix[0:10]
 	}
-	handle := fmt.Sprintf("%s-%s%d.test", prefix, suffix, index)
+	handle := fmt.Sprintf("%s-%s%d.%s", prefix, handleSuffix, index, domainSuffix)
 	email := gofakeit.Email()
 	password := gofakeit.Password(true, true, true, true, true, 24)
 	ctx := context.TODO()
 	resp, err := comatproto.ServerCreateAccount(ctx, xrpcc, &comatproto.ServerCreateAccount_Input{
-		Email:    email,
-		Handle:   handle,
-		Password: password,
+		Email:      email,
+		Handle:     handle,
+		InviteCode: inviteCode,
+		Password:   password,
 	})
 	if err != nil {
 		return nil, err

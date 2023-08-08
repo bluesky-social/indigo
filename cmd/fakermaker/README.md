@@ -23,6 +23,7 @@ Then, from the top-level directory, run test commands:
     export GOLOG_LOG_LEVEL=info
 
     # setup and create initial accounts; 100 by default
+    # supply --use-invite-code and/or --domain-suffix SUFFIX as needed
 	go run ./cmd/fakermaker/ gen-accounts > data/fakermaker/accounts.json
 
     # create or update profiles for all the accounts

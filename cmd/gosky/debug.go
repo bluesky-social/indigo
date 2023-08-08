@@ -18,6 +18,7 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
@@ -97,7 +98,8 @@ var inspectEventCmd = &cli.Command{
 			},
 		}
 
-		err = events.HandleRepoStream(ctx, con, &events.SequentialScheduler{rsc.EventHandler})
+		seqScheduler := sequential.NewScheduler("debug-inspect-event", rsc.EventHandler)
+		err = events.HandleRepoStream(ctx, con, seqScheduler)
 		if err != errFoundIt {
 			return err
 		}
@@ -251,7 +253,8 @@ var debugStreamCmd = &cli.Command{
 				return fmt.Errorf("%s: %s", evt.Error, evt.Message)
 			},
 		}
-		err = events.HandleRepoStream(ctx, con, &events.SequentialScheduler{rsc.EventHandler})
+		seqScheduler := sequential.NewScheduler("debug-stream", rsc.EventHandler)
+		err = events.HandleRepoStream(ctx, con, seqScheduler)
 		if err != nil {
 			return err
 		}
@@ -371,7 +374,8 @@ var compareStreamsCmd = &cli.Command{
 						return fmt.Errorf("%s: %s", evt.Error, evt.Message)
 					},
 				}
-				if err := events.HandleRepoStream(ctx, con, &events.SequentialScheduler{rsc.EventHandler}); err != nil {
+				seqScheduler := sequential.NewScheduler(fmt.Sprintf("debug-stream-%d", i+1), rsc.EventHandler)
+				if err := events.HandleRepoStream(ctx, con, seqScheduler); err != nil {
 					log.Fatalf("HandleRepoStream failure on url%d: %s", i+1, err)
 				}
 			}(i, url)
