@@ -3,6 +3,7 @@ package testing
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -19,7 +20,7 @@ import (
 )
 
 func init() {
-	log.SetAllLoggers(log.LevelDebug)
+	log.SetAllLoggers(log.LevelInfo)
 }
 
 func TestBGSBasic(t *testing.T) {
@@ -380,6 +381,82 @@ func TestRebase(t *testing.T) {
 	evts2 := b1.Events(t, 0)
 	afterEvts := evts2.WaitFor(1)
 	assert.Equal(true, afterEvts[0].RepoCommit.Rebase)
+}
+
+func TestRebaseMulti(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping BGS test in 'short' test mode")
+	}
+	assert := assert.New(t)
+	didr := TestPLC(t)
+	p1 := MustSetupPDS(t, ".tpds", didr)
+	p1.Run(t)
+
+	b1 := MustSetupBGS(t, didr)
+	b1.Run(t)
+
+	b1.tr.TrialHosts = []string{p1.RawHost()}
+
+	p1.RequestScraping(t, b1)
+
+	esgenesis := b1.Events(t, 0)
+
+	time.Sleep(time.Millisecond * 50)
+
+	bob := p1.MustNewUser(t, "bob.tpds")
+
+	for i := 0; i < 10; i++ {
+		bob.Post(t, fmt.Sprintf("this is bobs post %d", i))
+	}
+
+	// wait for 11 events, the first one is the actor creation
+	firsten := esgenesis.WaitFor(11)
+	_ = firsten
+
+	fmt.Println("REBASE ONE")
+	bob.DoRebase(t)
+
+	var posts []*atproto.RepoStrongRef
+	for i := 0; i < 10; i++ {
+		ref := bob.Post(t, fmt.Sprintf("this is bobs post after rebase %d", i))
+		posts = append(posts, ref)
+	}
+
+	time.Sleep(time.Millisecond * 50)
+
+	evts1 := b1.Events(t, 0)
+	defer evts1.Cancel()
+
+	all := evts1.WaitFor(11)
+
+	assert.Equal(true, all[0].RepoCommit.Rebase)
+	assert.Equal(int64(12), all[0].RepoCommit.Seq)
+	assert.Equal(posts[0].Cid, all[1].RepoCommit.Ops[0].Cid.String())
+
+	// and another one!
+	fmt.Println("REBASE TWO")
+	bob.DoRebase(t)
+
+	var posts2 []*atproto.RepoStrongRef
+	for i := 0; i < 15; i++ {
+		ref := bob.Post(t, fmt.Sprintf("this is bobs post after second rebase %d", i))
+		posts2 = append(posts2, ref)
+	}
+
+	time.Sleep(time.Millisecond * 50)
+
+	evts2 := b1.Events(t, 0)
+	defer evts2.Cancel()
+
+	all = evts2.WaitFor(16)
+
+	assert.Equal(true, all[0].RepoCommit.Rebase)
+	assert.Equal(posts2[0].Cid, all[1].RepoCommit.Ops[0].Cid.String())
+}
+
+func jsonPrint(v any) {
+	b, _ := json.Marshal(v)
+	fmt.Println(string(b))
 }
 
 func commitFromSlice(t *testing.T, slice []byte, rcid cid.Cid) *repo.SignedCommit {

@@ -743,6 +743,10 @@ func (ds *DeltaSession) CloseAsRebase(ctx context.Context, root cid.Cid) error {
 		if err := ds.cs.meta.Delete(&sl).Error; err != nil {
 			return err
 		}
+
+		if err := ds.cs.meta.Where("shard = ?", sl.ID).Delete(&blockRef{}).Error; err != nil {
+			return err
+		}
 	}
 
 	return nil
