@@ -460,6 +460,9 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
 
+	lastWriteLk := sync.Mutex{}
+	lastWrite := time.Now()
+
 	// Start a goroutine to ping the client every 30 seconds to check if it's
 	// still alive. If the client doesn't respond to a ping within 5 seconds,
 	// we'll close the connection and teardown the consumer.
@@ -470,6 +473,14 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		for {
 			select {
 			case <-ticker.C:
+				lastWriteLk.Lock()
+				lw := lastWrite
+				lastWriteLk.Unlock()
+
+				if time.Since(lw) < 30*time.Second {
+					continue
+				}
+
 				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
 					log.Errorf("failed to ping client: %s", err)
 					cancel()
@@ -480,6 +491,16 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			}
 		}
 	}()
+
+	conn.SetPingHandler(func(message string) error {
+		err := conn.WriteControl(websocket.PongMessage, []byte(message), time.Now().Add(time.Second*60))
+		if err == websocket.ErrCloseSent {
+			return nil
+		} else if e, ok := err.(net.Error); ok && e.Temporary() {
+			return nil
+		}
+		return err
+	})
 
 	ident := c.RealIP() + "-" + c.Request().UserAgent()
 
@@ -549,6 +570,9 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			if err := wc.Close(); err != nil {
 				return fmt.Errorf("failed to flush-close our event write: %w", err)
 			}
+			lastWriteLk.Lock()
+			lastWrite = time.Now()
+			lastWriteLk.Unlock()
 			sentCounter.Inc()
 		case <-ctx.Done():
 			return nil
@@ -687,6 +711,14 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 				return err
 			}
 
+			// TODO: we currently do not handle events that get queued up
+			// behind an already 'in progress' slow path event.
+			// this is strictly less efficient than it could be, and while it
+			// does 'work' (due to falling back to resyncing the repo), its
+			// technically incorrect. Now that we have the parallel event
+			// processor coming off of the pds stream, we should investigate
+			// whether or not we even need this 'slow path' logic, as it makes
+			// accounting for which events have been processed much harder
 			return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
 		}
 

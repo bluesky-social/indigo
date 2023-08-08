@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -62,6 +63,7 @@ func (sr *instrumentedReader) Read(p []byte) (int, error) {
 func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	defer sched.Shutdown()
 
 	remoteAddr := con.RemoteAddr().String()
 
@@ -81,6 +83,16 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler)
 			}
 		}
 	}()
+
+	con.SetPingHandler(func(message string) error {
+		err := con.WriteControl(websocket.PongMessage, []byte(message), time.Now().Add(time.Second*60))
+		if err == websocket.ErrCloseSent {
+			return nil
+		} else if e, ok := err.(net.Error); ok && e.Temporary() {
+			return nil
+		}
+		return err
+	})
 
 	lastSeq := int64(-1)
 	for {

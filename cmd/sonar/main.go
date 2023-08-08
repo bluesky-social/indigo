@@ -13,10 +13,12 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
 	"github.com/bluesky-social/indigo/sonar"
 	"github.com/bluesky-social/indigo/util/version"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 
 	"github.com/urfave/cli/v2"
@@ -107,7 +109,11 @@ func Sonar(cctx *cli.Context) error {
 
 	wg := sync.WaitGroup{}
 
-	pool := events.NewConsumerPool(cctx.Int("worker-count"), cctx.Int("max-queue-size"), u.Host, s.HandleStreamEvent)
+	scalingSettings := autoscaling.DefaultAutoscaleSettings()
+	scalingSettings.MaxConcurrency = cctx.Int("worker-count")
+	scalingSettings.AutoscaleFrequency = time.Second
+
+	pool := autoscaling.NewScheduler(scalingSettings, u.Host, s.HandleStreamEvent)
 
 	// Start a goroutine to manage the cursor file, saving the current cursor every 5 seconds.
 	go func() {

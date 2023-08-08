@@ -37,14 +37,14 @@ func genTestCatalog(t *testing.T, pdsHost string) fakedata.AccountCatalog {
 
 	var catalog fakedata.AccountCatalog
 	for i := 0; i < celebCount; i++ {
-		usr, err := fakedata.GenAccount(&xrpccAdmin, i, "celebrity")
+		usr, err := fakedata.GenAccount(&xrpccAdmin, i, "celebrity", "", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		catalog.Celebs = append(catalog.Celebs, *usr)
 	}
 	for i := 0; i < regularCount; i++ {
-		usr, err := fakedata.GenAccount(&xrpccAdmin, i, "regular")
+		usr, err := fakedata.GenAccount(&xrpccAdmin, i, "regular", "", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
