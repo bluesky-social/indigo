@@ -492,6 +492,16 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		}
 	}()
 
+	conn.SetPingHandler(func(message string) error {
+		err := conn.WriteControl(websocket.PongMessage, []byte(message), time.Now().Add(time.Second*60))
+		if err == websocket.ErrCloseSent {
+			return nil
+		} else if e, ok := err.(net.Error); ok && e.Temporary() {
+			return nil
+		}
+		return err
+	})
+
 	ident := c.RealIP() + "-" + c.Request().UserAgent()
 
 	evts, cleanup, err := bgs.events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool { return true }, since)
@@ -701,6 +711,14 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 				return err
 			}
 
+			// TODO: we currently do not handle events that get queued up
+			// behind an already 'in progress' slow path event.
+			// this is strictly less efficient than it could be, and while it
+			// does 'work' (due to falling back to resyncing the repo), its
+			// technically incorrect. Now that we have the parallel event
+			// processor coming off of the pds stream, we should investigate
+			// whether or not we even need this 'slow path' logic, as it makes
+			// accounting for which events have been processed much harder
 			return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
 		}
 

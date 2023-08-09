@@ -7,6 +7,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	"github.com/gorilla/websocket"
 	cli "github.com/urfave/cli/v2"
 )
@@ -55,7 +56,8 @@ var streamCompareCmd = &cli.Command{
 					return fmt.Errorf("%s: %s", evt.Error, evt.Message)
 				},
 			}
-			err = events.HandleRepoStream(ctx, cona, &events.SequentialScheduler{rsc.EventHandler})
+			seqScheduler := sequential.NewScheduler("streamA", rsc.EventHandler)
+			err = events.HandleRepoStream(ctx, cona, seqScheduler)
 			if err != nil {
 				log.Errorf("stream A failed: %s", err)
 			}
@@ -77,9 +79,11 @@ var streamCompareCmd = &cli.Command{
 					return fmt.Errorf("%s: %s", evt.Error, evt.Message)
 				},
 			}
-			err = events.HandleRepoStream(ctx, conb, &events.SequentialScheduler{rsc.EventHandler})
+
+			seqScheduler := sequential.NewScheduler("streamB", rsc.EventHandler)
+			err = events.HandleRepoStream(ctx, conb, seqScheduler)
 			if err != nil {
-				log.Errorf("stream A failed: %s", err)
+				log.Errorf("stream B failed: %s", err)
 			}
 		}()
 

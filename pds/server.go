@@ -309,6 +309,8 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 				return true
 			case "/xrpc/com.atproto.server.createAccount":
 				return true
+			case "/xrpc/com.atproto.server.createSession":
+				return true
 			case "/xrpc/com.atproto.server.describeServer":
 				return true
 			case "/xrpc/app.bsky.actor.getProfile":
