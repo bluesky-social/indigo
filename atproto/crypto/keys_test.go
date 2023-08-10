@@ -45,20 +45,15 @@ func TestKeyBasics(t *testing.T) {
 		assert.NoError(pub.HashAndVerify(bigMsg, bigSig))
 
 		pubDidKeyString := pub.DidKey()
-		pubMultibaseString := pub.Multibase()
+		// TODO: compressed vs. not compressed multibase here
+		pubMultibaseString := pub.CompressedMultibase()
 		pubDK, err := ParsePublicDidKey(pubDidKeyString)
 		assert.NoError(err)
 
-		_ = pubMultibaseString
-		_ = pubDK
-		/* XXX
 		pubMB, err := ParsePublicMultibase(pubMultibaseString, kt)
 		assert.NoError(err)
-		assert.Equal(pub, pubDK)
-		assert.Equal(pub == pubDK, true)
-		assert.Equal(pub.Equal(pubDK), true)
-		assert.Equal(pub.Equal(pubMB), true)
-		*/
+		assert.True(pub.Equal(pubDK))
+		assert.True(pub.Equal(pubMB))
 	}
 }
 
