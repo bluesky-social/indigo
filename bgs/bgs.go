@@ -460,48 +460,6 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
 
-	lastWriteLk := sync.Mutex{}
-	lastWrite := time.Now()
-
-	// Start a goroutine to ping the client every 30 seconds to check if it's
-	// still alive. If the client doesn't respond to a ping within 5 seconds,
-	// we'll close the connection and teardown the consumer.
-	go func() {
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				lastWriteLk.Lock()
-				lw := lastWrite
-				lastWriteLk.Unlock()
-
-				if time.Since(lw) < 30*time.Second {
-					continue
-				}
-
-				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
-					log.Errorf("failed to ping client: %s", err)
-					cancel()
-					return
-				}
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	conn.SetPingHandler(func(message string) error {
-		err := conn.WriteControl(websocket.PongMessage, []byte(message), time.Now().Add(time.Second*60))
-		if err == websocket.ErrCloseSent {
-			return nil
-		} else if e, ok := err.(net.Error); ok && e.Temporary() {
-			return nil
-		}
-		return err
-	})
-
 	ident := c.RealIP() + "-" + c.Request().UserAgent()
 
 	evts, cleanup, err := bgs.events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool { return true }, since)
@@ -570,9 +528,6 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			if err := wc.Close(); err != nil {
 				return fmt.Errorf("failed to flush-close our event write: %w", err)
 			}
-			lastWriteLk.Lock()
-			lastWrite = time.Now()
-			lastWriteLk.Unlock()
 			sentCounter.Inc()
 		case <-ctx.Done():
 			return nil
