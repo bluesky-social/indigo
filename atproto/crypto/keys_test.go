@@ -30,7 +30,7 @@ func TestKeyBasics(t *testing.T) {
 		assert.NoError(err)
 		assert.Equal(priv, privFromBytes)
 
-		pub := priv.PublicKey()
+		pub := priv.Public()
 
 		sig, err := priv.HashAndSign(msg)
 		assert.NoError(err)
@@ -52,7 +52,7 @@ func TestKeyBasics(t *testing.T) {
 		_ = pubMultibaseString
 		_ = pubDK
 		/* XXX
-		arsePublicMultibase(pubMultibaseString, kt)
+		pubMB, err := ParsePublicMultibase(pubMultibaseString, kt)
 		assert.NoError(err)
 		assert.Equal(pub, pubDK)
 		assert.Equal(pub == pubDK, true)
@@ -72,7 +72,7 @@ func TestLowSMany(t *testing.T) {
 		for i := 0; i < 128; i++ {
 			priv, err := GeneratePrivateKey(kt)
 			assert.NoError(err)
-			pub := priv.PublicKey()
+			pub := priv.Public()
 
 			_, err = rand.Read(msg)
 			assert.NoError(err)
@@ -96,11 +96,10 @@ func TestKeyCompressionP256(t *testing.T) {
 	assert.NoError(err)
 	privBytes, err := priv.Bytes()
 	assert.NoError(err)
-	pub := priv.PublicKey()
+	pub := priv.Public()
 
 	// P-256 key sizes
-	// XXX: should be 32 bytes
-	assert.Equal(33, len(privBytes))
+	assert.Equal(32, len(privBytes))
 	assert.Equal(33, len(pub.CompressedBytes()))
 	assert.Equal(65, len(pub.UncompressedBytes()))
 }
@@ -112,7 +111,7 @@ func TestKeyCompressionK256(t *testing.T) {
 	assert.NoError(err)
 	privBytes, err := priv.Bytes()
 	assert.NoError(err)
-	pub := priv.PublicKey()
+	pub := priv.Public()
 
 	// K-256 key sizes
 	assert.Equal(32, len(privBytes))

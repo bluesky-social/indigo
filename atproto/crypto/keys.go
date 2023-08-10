@@ -2,11 +2,12 @@ package crypto
 
 import (
 	"crypto"
+	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
-	// XXX: "crypto/x509"
+	"crypto/x509"
 	"fmt"
 	"math/big"
 	"strings"
@@ -45,24 +46,6 @@ var k256Options = &secp256k1secec.ECDSAOptions{
 	RejectMalleable: true,
 }
 
-func (k *PrivateKey) Equal(other *PrivateKey) bool {
-	if k.keyType != other.keyType {
-		return false
-	}
-	switch k.keyType {
-	case P256:
-		sk := k.inner.(*ecdsa.PrivateKey)
-		skOther := other.inner.(*ecdsa.PrivateKey)
-		return sk.Equal(skOther)
-	case K256:
-		sk := k.inner.(*secp256k1secec.PrivateKey)
-		skOther := other.inner.(**secp256k1secec.PrivateKey)
-		return sk.Equal(skOther)
-	default:
-		panic("unexpected crypto KeyType")
-	}
-}
-
 func GeneratePrivateKey(kt KeyType) (*PrivateKey, error) {
 	switch kt {
 	case P256:
@@ -85,58 +68,65 @@ func GeneratePrivateKey(kt KeyType) (*PrivateKey, error) {
 func ParsePrivateKeyBytes(data []byte, kt KeyType) (*PrivateKey, error) {
 	switch kt {
 	case P256:
-		x, y := elliptic.UnmarshalCompressed(elliptic.P256(), data)
-		if x == nil {
+		// elaborately parse as an ecdh.PrivateKey, then get from that to ecdsa.PrivateKey by encoding/decoding using x509 PKCS8 encoding.
+		// Note that the 'data' bytes format is *not* x509 PKCS8!
+		skEcdh, err := ecdh.P256().NewPrivateKey(data)
+		if err != nil {
 			// TODO: better error msg
-			return nil, fmt.Errorf("invalid p256 public key")
+			return nil, fmt.Errorf("invalid p256 private key")
 		}
-		_ = y
-		panic("NOT IMPLEMENTED")
-		/* XXX
-		k := &ecdsa.PrivateKey{
-			Curve: elliptic.P256(),
-			X:     x,
-			Y:     y,
+		enc, err := x509.MarshalPKCS8PrivateKey(skEcdh)
+		if err != nil {
+			// TODO: better error msg
+			return nil, fmt.Errorf("invalid p256 private key")
 		}
-		return &PrivateKey{ keyType: kt, inner: k, }, nil
-		*/
+		sk, err := x509.ParsePKCS8PrivateKey(enc)
+		if err != nil {
+			// TODO: better error msg
+			return nil, fmt.Errorf("invalid p256 private key")
+		}
+		return &PrivateKey{keyType: kt, inner: sk}, nil
 	case K256:
-		k, err := secp256k1secec.NewPrivateKey(data)
+		sk, err := secp256k1secec.NewPrivateKey(data)
 		if err != nil {
 			return nil, fmt.Errorf("invalid K-256/secp256k1 private key: %w", err)
 		}
-		return &PrivateKey{keyType: kt, inner: k}, nil
+		return &PrivateKey{keyType: kt, inner: sk}, nil
 	default:
 		return nil, fmt.Errorf("unexpected crypto KeyType")
 	}
 }
 
-func (k *PrivateKey) HashAndSign(content []byte) ([]byte, error) {
-	hash := sha256.Sum256(content)
+func (k *PrivateKey) Equal(other *PrivateKey) bool {
+	if k.keyType != other.keyType {
+		return false
+	}
 	switch k.keyType {
 	case P256:
-		r, s, err := ecdsa.Sign(rand.Reader, k.inner.(*ecdsa.PrivateKey), hash[:])
-		if err != nil {
-			return nil, fmt.Errorf("crypto error signing with K-256/secp256k1 private key: %w", err)
-		}
-		sig := make([]byte, 64)
-		r.FillBytes(sig[:32])
-		s.FillBytes(sig[32:])
-		return sig, nil
+		sk := k.inner.(*ecdsa.PrivateKey)
+		skOther := other.inner.(*ecdsa.PrivateKey)
+		return sk.Equal(skOther)
 	case K256:
 		sk := k.inner.(*secp256k1secec.PrivateKey)
-		return sk.Sign(rand.Reader, hash[:], k256Options)
+		skOther := other.inner.(**secp256k1secec.PrivateKey)
+		return sk.Equal(skOther)
 	default:
-		return nil, fmt.Errorf("unexpected crypto KeyType")
+		panic("unexpected crypto KeyType")
 	}
 }
 
 func (k *PrivateKey) Bytes() ([]byte, error) {
 	switch k.keyType {
 	case P256:
-		pk := k.inner.(*ecdsa.PrivateKey)
+		sk := k.inner.(*ecdsa.PrivateKey)
 		// TODO: replace with ecdh's Bytes()
-		return elliptic.MarshalCompressed(pk.Curve, pk.X, pk.Y), nil
+		//return elliptic.MarshalCompressed(sk.Curve, sk.X, sk.Y), nil
+		skEcdh, err := sk.ECDH()
+		if err != nil {
+			// XXX
+			return nil, err
+		}
+		return skEcdh.Bytes(), nil
 	case K256:
 		return k.inner.(*secp256k1secec.PrivateKey).Bytes(), nil
 	default:
@@ -144,7 +134,7 @@ func (k *PrivateKey) Bytes() ([]byte, error) {
 	}
 }
 
-func (k *PrivateKey) PublicKey() PublicKey {
+func (k *PrivateKey) Public() PublicKey {
 	switch k.keyType {
 	case P256:
 		sk := k.inner.(*ecdsa.PrivateKey)
@@ -160,6 +150,27 @@ func (k *PrivateKey) PublicKey() PublicKey {
 		}
 	default:
 		panic("unexpected crypto KeyType")
+	}
+}
+
+func (k *PrivateKey) HashAndSign(content []byte) ([]byte, error) {
+	hash := sha256.Sum256(content)
+	switch k.keyType {
+	case P256:
+		r, s, err := ecdsa.Sign(rand.Reader, k.inner.(*ecdsa.PrivateKey), hash[:])
+		if err != nil {
+			return nil, fmt.Errorf("crypto error signing with P-256/secp256r1 private key: %w", err)
+		}
+		s = sigSToLowS_P256(s)
+		sig := make([]byte, 64)
+		r.FillBytes(sig[:32])
+		s.FillBytes(sig[32:])
+		return sig, nil
+	case K256:
+		sk := k.inner.(*secp256k1secec.PrivateKey)
+		return sk.Sign(rand.Reader, hash[:], k256Options)
+	default:
+		return nil, fmt.Errorf("unexpected crypto KeyType")
 	}
 }
 
@@ -303,8 +314,6 @@ func (k *PublicKey) CompressedBytes() []byte {
 	}
 }
 
-var curveHalfOrderP256 *big.Int = new(big.Int).Rsh(elliptic.P256().Params().N, 1)
-
 func (k *PublicKey) HashAndVerify(content, sig []byte) error {
 	hash := sha256.Sum256(content)
 	switch k.keyType {
@@ -326,8 +335,7 @@ func (k *PublicKey) HashAndVerify(content, sig []byte) error {
 		}
 
 		// ensure that signature is low-S
-		// un-reviewed, un-safe code from: https://github.com/golang/go/issues/545
-		if s.Cmp(curveHalfOrderP256) == 1 {
+		if !sigSIsLowS_P256(s) {
 			return fmt.Errorf("crypto: invalid signature (high-S P-256)")
 		}
 
