@@ -21,7 +21,7 @@ type GraphDefs_ListView struct {
 	DescriptionFacets []*RichtextFacet           `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
 	IndexedAt         string                     `json:"indexedAt" cborgen:"indexedAt"`
 	Name              string                     `json:"name" cborgen:"name"`
-	Purpose           *GraphDefs_ListPurpose     `json:"purpose" cborgen:"purpose"`
+	Purpose           *string                    `json:"purpose" cborgen:"purpose"`
 	Uri               string                     `json:"uri" cborgen:"uri"`
 	Viewer            *GraphDefs_ListViewerState `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
@@ -32,7 +32,7 @@ type GraphDefs_ListViewBasic struct {
 	Cid       string                     `json:"cid" cborgen:"cid"`
 	IndexedAt *string                    `json:"indexedAt,omitempty" cborgen:"indexedAt,omitempty"`
 	Name      string                     `json:"name" cborgen:"name"`
-	Purpose   *GraphDefs_ListPurpose     `json:"purpose" cborgen:"purpose"`
+	Purpose   *string                    `json:"purpose" cborgen:"purpose"`
 	Uri       string                     `json:"uri" cborgen:"uri"`
 	Viewer    *GraphDefs_ListViewerState `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }

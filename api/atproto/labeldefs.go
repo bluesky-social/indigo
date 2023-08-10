@@ -33,6 +33,9 @@ type LabelDefs_SelfLabel struct {
 // LabelDefs_SelfLabels is a "selfLabels" in the com.atproto.label.defs schema.
 //
 // Metadata tags on an atproto record, published by the author within the record.
+//
+// RECORDTYPE: LabelDefs_SelfLabels
 type LabelDefs_SelfLabels struct {
-	Values []*LabelDefs_SelfLabel `json:"values" cborgen:"values"`
+	LexiconTypeID string                 `json:"$type,const=com.atproto.label.defs" cborgen:"$type,const=com.atproto.label.defs"`
+	Values        []*LabelDefs_SelfLabel `json:"values" cborgen:"values"`
 }

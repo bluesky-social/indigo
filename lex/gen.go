@@ -110,6 +110,10 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 			ts.needsCbor = true
 		}
 
+		if name == "LabelDefs_SelfLabels" {
+			ts.needsType = true
+		}
+
 		ts.prefix = prefix
 		ts.id = s.ID
 		ts.defMap = defMap
@@ -1051,9 +1055,9 @@ func (s *TypeSchema) namesFromRef(r string) (string, string) {
 
 	// TODO: probably not technically correct, but i'm kinda over how lexicon
 	// tries to enforce application logic in a schema language
-	// if ts.Type == "string" {
-	// 	return "string"
-	// }
+	if ts.Type == "string" {
+		return "INVALID", "string"
+	}
 
 	var pkg string
 	if ts.prefix != s.prefix {

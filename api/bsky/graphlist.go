@@ -20,14 +20,14 @@ func init() {
 } //
 // RECORDTYPE: GraphList
 type GraphList struct {
-	LexiconTypeID     string                 `json:"$type,const=app.bsky.graph.list" cborgen:"$type,const=app.bsky.graph.list"`
-	Avatar            *util.LexBlob          `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	CreatedAt         string                 `json:"createdAt" cborgen:"createdAt"`
-	Description       *string                `json:"description,omitempty" cborgen:"description,omitempty"`
-	DescriptionFacets []*RichtextFacet       `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
-	Labels            *GraphList_Labels      `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	Name              string                 `json:"name" cborgen:"name"`
-	Purpose           *GraphDefs_ListPurpose `json:"purpose" cborgen:"purpose"`
+	LexiconTypeID     string            `json:"$type,const=app.bsky.graph.list" cborgen:"$type,const=app.bsky.graph.list"`
+	Avatar            *util.LexBlob     `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	CreatedAt         string            `json:"createdAt" cborgen:"createdAt"`
+	Description       *string           `json:"description,omitempty" cborgen:"description,omitempty"`
+	DescriptionFacets []*RichtextFacet  `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
+	Labels            *GraphList_Labels `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Name              string            `json:"name" cborgen:"name"`
+	Purpose           *string           `json:"purpose" cborgen:"purpose"`
 }
 
 type GraphList_Labels struct {
