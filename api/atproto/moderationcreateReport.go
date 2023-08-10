@@ -16,7 +16,7 @@ import (
 // ModerationCreateReport_Input is the input argument to a com.atproto.moderation.createReport call.
 type ModerationCreateReport_Input struct {
 	Reason     *string                               `json:"reason,omitempty" cborgen:"reason,omitempty"`
-	ReasonType *string                               `json:"reasonType" cborgen:"reasonType"`
+	ReasonType *ModerationDefs_ReasonType            `json:"reasonType" cborgen:"reasonType"`
 	Subject    *ModerationCreateReport_Input_Subject `json:"subject" cborgen:"subject"`
 }
 
@@ -60,7 +60,7 @@ type ModerationCreateReport_Output struct {
 	CreatedAt  string                                 `json:"createdAt" cborgen:"createdAt"`
 	Id         int64                                  `json:"id" cborgen:"id"`
 	Reason     *string                                `json:"reason,omitempty" cborgen:"reason,omitempty"`
-	ReasonType *string                                `json:"reasonType" cborgen:"reasonType"`
+	ReasonType *ModerationDefs_ReasonType             `json:"reasonType" cborgen:"reasonType"`
 	ReportedBy string                                 `json:"reportedBy" cborgen:"reportedBy"`
 	Subject    *ModerationCreateReport_Output_Subject `json:"subject" cborgen:"subject"`
 }

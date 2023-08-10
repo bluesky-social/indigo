@@ -5,7 +5,14 @@ package bsky
 // schema: app.bsky.feed.generator
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+
+	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/lex/util"
+	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
@@ -13,11 +20,66 @@ func init() {
 } //
 // RECORDTYPE: FeedGenerator
 type FeedGenerator struct {
-	LexiconTypeID     string           `json:"$type,const=app.bsky.feed.generator" cborgen:"$type,const=app.bsky.feed.generator"`
-	Avatar            *util.LexBlob    `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	CreatedAt         string           `json:"createdAt" cborgen:"createdAt"`
-	Description       *string          `json:"description,omitempty" cborgen:"description,omitempty"`
-	DescriptionFacets []*RichtextFacet `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
-	Did               string           `json:"did" cborgen:"did"`
-	DisplayName       string           `json:"displayName" cborgen:"displayName"`
+	LexiconTypeID     string                `json:"$type,const=app.bsky.feed.generator" cborgen:"$type,const=app.bsky.feed.generator"`
+	Avatar            *util.LexBlob         `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	CreatedAt         string                `json:"createdAt" cborgen:"createdAt"`
+	Description       *string               `json:"description,omitempty" cborgen:"description,omitempty"`
+	DescriptionFacets []*RichtextFacet      `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
+	Did               string                `json:"did" cborgen:"did"`
+	DisplayName       string                `json:"displayName" cborgen:"displayName"`
+	Labels            *FeedGenerator_Labels `json:"labels,omitempty" cborgen:"labels,omitempty"`
+}
+
+type FeedGenerator_Labels struct {
+	LabelDefs_SelfLabels *comatprototypes.LabelDefs_SelfLabels
+}
+
+func (t *FeedGenerator_Labels) MarshalJSON() ([]byte, error) {
+	if t.LabelDefs_SelfLabels != nil {
+		t.LabelDefs_SelfLabels.LexiconTypeID = "com.atproto.label.defs#selfLabels"
+		return json.Marshal(t.LabelDefs_SelfLabels)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *FeedGenerator_Labels) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "com.atproto.label.defs#selfLabels":
+		t.LabelDefs_SelfLabels = new(comatprototypes.LabelDefs_SelfLabels)
+		return json.Unmarshal(b, t.LabelDefs_SelfLabels)
+
+	default:
+		return nil
+	}
+}
+
+func (t *FeedGenerator_Labels) MarshalCBOR(w io.Writer) error {
+
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if t.LabelDefs_SelfLabels != nil {
+		return t.LabelDefs_SelfLabels.MarshalCBOR(w)
+	}
+	return fmt.Errorf("cannot cbor marshal empty enum")
+}
+func (t *FeedGenerator_Labels) UnmarshalCBOR(r io.Reader) error {
+	typ, b, err := util.CborTypeExtractReader(r)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "com.atproto.label.defs#selfLabels":
+		t.LabelDefs_SelfLabels = new(comatprototypes.LabelDefs_SelfLabels)
+		return t.LabelDefs_SelfLabels.UnmarshalCBOR(bytes.NewReader(b))
+
+	default:
+		return nil
+	}
 }
