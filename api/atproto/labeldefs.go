@@ -21,3 +21,18 @@ type LabelDefs_Label struct {
 	// val: the short string name of the value or type of this label
 	Val string `json:"val" cborgen:"val"`
 }
+
+// LabelDefs_SelfLabel is a "selfLabel" in the com.atproto.label.defs schema.
+//
+// Metadata tag on an atproto record, published by the author within the record. Note -- schemas should use #selfLabels, not #selfLabel.
+type LabelDefs_SelfLabel struct {
+	// val: the short string name of the value or type of this label
+	Val string `json:"val" cborgen:"val"`
+}
+
+// LabelDefs_SelfLabels is a "selfLabels" in the com.atproto.label.defs schema.
+//
+// Metadata tags on an atproto record, published by the author within the record.
+type LabelDefs_SelfLabels struct {
+	Values []*LabelDefs_SelfLabel `json:"values" cborgen:"values"`
+}

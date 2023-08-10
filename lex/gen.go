@@ -145,6 +145,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 		if ts.Type == "ref" {
 			refname := ts.Ref
 			if strings.HasPrefix(refname, "#") {
+				fmt.Println("Foo")
 				refname = s.ID + ts.Ref
 			}
 
@@ -386,6 +387,10 @@ func writeDecoderRegister(w io.Writer, tps []outputType) error {
 func writeCodeFile(b []byte, fname string) error {
 	fixed, err := imports.Process(fname, b, nil)
 	if err != nil {
+		werr := os.WriteFile("temp", b, 0664)
+		if werr != nil {
+			return werr
+		}
 		return fmt.Errorf("failed to format output of %q with goimports: %w", fname, err)
 	}
 
@@ -494,7 +499,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 		case EncodingJSON:
 			outname := fname + "_Output"
 			if s.Output.Schema.Type == "ref" {
-				outname = s.typeNameFromRef(s.Output.Schema.Ref)
+				_, outname = s.namesFromRef(s.Output.Schema.Ref)
 			}
 
 			out = fmt.Sprintf("(*%s, error)", outname)
@@ -530,7 +535,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 		case EncodingJSON:
 			outname := fname + "_Output"
 			if s.Output.Schema.Type == "ref" {
-				outname = s.typeNameFromRef(s.Output.Schema.Ref)
+				_, outname = s.namesFromRef(s.Output.Schema.Ref)
 			}
 			pf("\tvar out %s\n", outname)
 			outvar = "&out"
@@ -801,7 +806,7 @@ func (s *TypeSchema) WriteHandlerStub(w io.Writer, fname, shortname, impname str
 		case "application/json":
 			outname := shortname + "_Output"
 			if s.Output.Schema.Type == "ref" {
-				outname = s.typeNameFromRef(s.Output.Schema.Ref)
+				outname, _ = s.namesFromRef(s.Output.Schema.Ref)
 			}
 			returndef = fmt.Sprintf("(*%s.%s, error)", impname, outname)
 		case "application/cbor", "application/vnd.ipld.car", "*/*":
@@ -993,7 +998,7 @@ if err := c.Bind(&body); err != nil {
 			assign = "out, handleErr"
 			outname := tname + "_Output"
 			if s.Output.Schema.Type == "ref" {
-				outname = s.typeNameFromRef(s.Output.Schema.Ref)
+				outname, _ = s.namesFromRef(s.Output.Schema.Ref)
 			}
 			pf("var out *%s.%s\n", impname, outname)
 			returndef = fmt.Sprintf("(*%s.%s, error)", impname, outname)
@@ -1030,7 +1035,7 @@ if err := c.Bind(&body); err != nil {
 	return nil
 }
 
-func (s *TypeSchema) typeNameFromRef(r string) string {
+func (s *TypeSchema) namesFromRef(r string) (string, string) {
 	ts, err := s.lookupRef(r)
 	if err != nil {
 		panic(err)
@@ -1046,16 +1051,23 @@ func (s *TypeSchema) typeNameFromRef(r string) string {
 
 	// TODO: probably not technically correct, but i'm kinda over how lexicon
 	// tries to enforce application logic in a schema language
-	if ts.Type == "string" {
-		return "string"
-	}
+	// if ts.Type == "string" {
+	// 	return "string"
+	// }
 
 	var pkg string
 	if ts.prefix != s.prefix {
 		pkg = importNameForPrefix(ts.prefix) + "."
 	}
 
-	return pkg + ts.TypeName()
+	tname := pkg + ts.TypeName()
+	vname := tname
+	if strings.Contains(vname, ".") {
+		// Trim the package name from the variable name
+		vname = strings.Split(vname, ".")[1]
+	}
+
+	return vname, tname
 }
 
 func (s *TypeSchema) TypeName() string {
@@ -1094,7 +1106,7 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 	case "object":
 		return "*" + name + "_" + strings.Title(k), nil
 	case "ref":
-		tn := s.typeNameFromRef(v.Ref)
+		_, tn := s.namesFromRef(v.Ref)
 		if tn[0] == '[' {
 			return tn, nil
 		}
@@ -1263,8 +1275,8 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 		if len(ts.Refs) > 0 {
 			pf("type %s struct {\n", name)
 			for _, r := range ts.Refs {
-				tname := ts.typeNameFromRef(r)
-				pf("\t%s *%s\n", tname, tname)
+				vname, tname := ts.namesFromRef(r)
+				pf("\t%s *%s\n", vname, tname)
 			}
 			pf("}\n\n")
 		}
@@ -1354,14 +1366,14 @@ func (ts *TypeSchema) writeJsonMarshalerEnum(name string, w io.Writer) error {
 	pf("func (t *%s) MarshalJSON() ([]byte, error) {\n", name)
 
 	for _, e := range ts.Refs {
-		tname := ts.typeNameFromRef(e)
+		vname, _ := ts.namesFromRef(e)
 		if strings.HasPrefix(e, "#") {
 			e = ts.id + e
 		}
 
-		pf("\tif t.%s != nil {\n", tname)
-		pf("\tt.%s.LexiconTypeID = %q\n", tname, e)
-		pf("\t\treturn json.Marshal(t.%s)\n\t}\n", tname)
+		pf("\tif t.%s != nil {\n", vname)
+		pf("\tt.%s.LexiconTypeID = %q\n", vname, e)
+		pf("\t\treturn json.Marshal(t.%s)\n\t}\n", vname)
 	}
 
 	pf("\treturn nil, fmt.Errorf(\"cannot marshal empty enum\")\n}\n")
@@ -1399,11 +1411,11 @@ func (ts *TypeSchema) writeJsonUnmarshalerEnum(name string, w io.Writer) error {
 			e = ts.id + e
 		}
 
-		goname := ts.typeNameFromRef(e)
+		vname, goname := ts.namesFromRef(e)
 
 		pf("\t\tcase \"%s\":\n", e)
-		pf("\t\t\tt.%s = new(%s)\n", goname, goname)
-		pf("\t\t\treturn json.Unmarshal(b, t.%s)\n", goname)
+		pf("\t\t\tt.%s = new(%s)\n", vname, goname)
+		pf("\t\t\treturn json.Unmarshal(b, t.%s)\n", vname)
 	}
 
 	if ts.Closed {
@@ -1436,9 +1448,9 @@ func (ts *TypeSchema) writeCborMarshalerEnum(name string, w io.Writer) error {
 `)
 
 	for _, e := range ts.Refs {
-		tname := ts.typeNameFromRef(e)
-		pf("\tif t.%s != nil {\n", tname)
-		pf("\t\treturn t.%s.MarshalCBOR(w)\n\t}\n", tname)
+		vname, _ := ts.namesFromRef(e)
+		pf("\tif t.%s != nil {\n", vname)
+		pf("\t\treturn t.%s.MarshalCBOR(w)\n\t}\n", vname)
 	}
 
 	pf("\treturn fmt.Errorf(\"cannot cbor marshal empty enum\")\n}\n")
@@ -1456,11 +1468,11 @@ func (ts *TypeSchema) writeCborUnmarshalerEnum(name string, w io.Writer) error {
 			e = ts.id + e
 		}
 
-		goname := ts.typeNameFromRef(e)
+		vname, goname := ts.namesFromRef(e)
 
 		pf("\t\tcase \"%s\":\n", e)
-		pf("\t\t\tt.%s = new(%s)\n", goname, goname)
-		pf("\t\t\treturn t.%s.UnmarshalCBOR(bytes.NewReader(b))\n", goname)
+		pf("\t\t\tt.%s = new(%s)\n", vname, goname)
+		pf("\t\t\treturn t.%s.UnmarshalCBOR(bytes.NewReader(b))\n", vname)
 	}
 
 	if ts.Closed {

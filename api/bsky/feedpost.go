@@ -26,6 +26,7 @@ type FeedPost struct {
 	// entities: Deprecated: replaced by app.bsky.richtext.facet.
 	Entities []*FeedPost_Entity `json:"entities,omitempty" cborgen:"entities,omitempty"`
 	Facets   []*RichtextFacet   `json:"facets,omitempty" cborgen:"facets,omitempty"`
+	Labels   *FeedPost_Labels   `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	Langs    []string           `json:"langs,omitempty" cborgen:"langs,omitempty"`
 	Reply    *FeedPost_ReplyRef `json:"reply,omitempty" cborgen:"reply,omitempty"`
 	Text     string             `json:"text" cborgen:"text"`
@@ -135,6 +136,60 @@ type FeedPost_Entity struct {
 	// type: Expected values are 'mention' and 'link'.
 	Type  string `json:"type" cborgen:"type"`
 	Value string `json:"value" cborgen:"value"`
+}
+
+type FeedPost_Labels struct {
+	LabelDefs_SelfLabels *comatprototypes.LabelDefs_SelfLabels
+}
+
+func (t *FeedPost_Labels) MarshalJSON() ([]byte, error) {
+	if t.LabelDefs_SelfLabels != nil {
+		t.LabelDefs_SelfLabels.LexiconTypeID = "com.atproto.label.defs#selfLabels"
+		return json.Marshal(t.LabelDefs_SelfLabels)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *FeedPost_Labels) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "com.atproto.label.defs#selfLabels":
+		t.LabelDefs_SelfLabels = new(comatprototypes.LabelDefs_SelfLabels)
+		return json.Unmarshal(b, t.LabelDefs_SelfLabels)
+
+	default:
+		return nil
+	}
+}
+
+func (t *FeedPost_Labels) MarshalCBOR(w io.Writer) error {
+
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if t.LabelDefs_SelfLabels != nil {
+		return t.LabelDefs_SelfLabels.MarshalCBOR(w)
+	}
+	return fmt.Errorf("cannot cbor marshal empty enum")
+}
+func (t *FeedPost_Labels) UnmarshalCBOR(r io.Reader) error {
+	typ, b, err := util.CborTypeExtractReader(r)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "com.atproto.label.defs#selfLabels":
+		t.LabelDefs_SelfLabels = new(comatprototypes.LabelDefs_SelfLabels)
+		return t.LabelDefs_SelfLabels.UnmarshalCBOR(bytes.NewReader(b))
+
+	default:
+		return nil
+	}
 }
 
 // FeedPost_ReplyRef is a "replyRef" in the app.bsky.feed.post schema.

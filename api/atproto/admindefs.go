@@ -20,7 +20,7 @@ type AdminDefs_ActionReversal struct {
 
 // AdminDefs_ActionView is a "actionView" in the com.atproto.admin.defs schema.
 type AdminDefs_ActionView struct {
-	Action            *string                       `json:"action" cborgen:"action"`
+	Action            *AdminDefs_ActionType         `json:"action" cborgen:"action"`
 	CreateLabelVals   []string                      `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
 	CreatedAt         string                        `json:"createdAt" cborgen:"createdAt"`
 	CreatedBy         string                        `json:"createdBy" cborgen:"createdBy"`
@@ -35,13 +35,13 @@ type AdminDefs_ActionView struct {
 
 // AdminDefs_ActionViewCurrent is a "actionViewCurrent" in the com.atproto.admin.defs schema.
 type AdminDefs_ActionViewCurrent struct {
-	Action *string `json:"action" cborgen:"action"`
-	Id     int64   `json:"id" cborgen:"id"`
+	Action *AdminDefs_ActionType `json:"action" cborgen:"action"`
+	Id     int64                 `json:"id" cborgen:"id"`
 }
 
 // AdminDefs_ActionViewDetail is a "actionViewDetail" in the com.atproto.admin.defs schema.
 type AdminDefs_ActionViewDetail struct {
-	Action          *string                             `json:"action" cborgen:"action"`
+	Action          *AdminDefs_ActionType               `json:"action" cborgen:"action"`
 	CreateLabelVals []string                            `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
 	CreatedAt       string                              `json:"createdAt" cborgen:"createdAt"`
 	CreatedBy       string                              `json:"createdBy" cborgen:"createdBy"`
@@ -257,6 +257,7 @@ type AdminDefs_RepoView struct {
 	Email           *string                    `json:"email,omitempty" cborgen:"email,omitempty"`
 	Handle          string                     `json:"handle" cborgen:"handle"`
 	IndexedAt       string                     `json:"indexedAt" cborgen:"indexedAt"`
+	InviteNote      *string                    `json:"inviteNote,omitempty" cborgen:"inviteNote,omitempty"`
 	InvitedBy       *ServerDefs_InviteCode     `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
 	InvitesDisabled *bool                      `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
 	Moderation      *AdminDefs_Moderation      `json:"moderation" cborgen:"moderation"`
@@ -269,6 +270,7 @@ type AdminDefs_RepoViewDetail struct {
 	Email           *string                     `json:"email,omitempty" cborgen:"email,omitempty"`
 	Handle          string                      `json:"handle" cborgen:"handle"`
 	IndexedAt       string                      `json:"indexedAt" cborgen:"indexedAt"`
+	InviteNote      *string                     `json:"inviteNote,omitempty" cborgen:"inviteNote,omitempty"`
 	InvitedBy       *ServerDefs_InviteCode      `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
 	Invites         []*ServerDefs_InviteCode    `json:"invites,omitempty" cborgen:"invites,omitempty"`
 	InvitesDisabled *bool                       `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
@@ -290,7 +292,7 @@ type AdminDefs_ReportView struct {
 	CreatedAt           string                        `json:"createdAt" cborgen:"createdAt"`
 	Id                  int64                         `json:"id" cborgen:"id"`
 	Reason              *string                       `json:"reason,omitempty" cborgen:"reason,omitempty"`
-	ReasonType          *string                       `json:"reasonType" cborgen:"reasonType"`
+	ReasonType          *ModerationDefs_ReasonType    `json:"reasonType" cborgen:"reasonType"`
 	ReportedBy          string                        `json:"reportedBy" cborgen:"reportedBy"`
 	ResolvedByActionIds []int64                       `json:"resolvedByActionIds" cborgen:"resolvedByActionIds"`
 	Subject             *AdminDefs_ReportView_Subject `json:"subject" cborgen:"subject"`
@@ -302,7 +304,7 @@ type AdminDefs_ReportViewDetail struct {
 	CreatedAt         string                              `json:"createdAt" cborgen:"createdAt"`
 	Id                int64                               `json:"id" cborgen:"id"`
 	Reason            *string                             `json:"reason,omitempty" cborgen:"reason,omitempty"`
-	ReasonType        *string                             `json:"reasonType" cborgen:"reasonType"`
+	ReasonType        *ModerationDefs_ReasonType          `json:"reasonType" cborgen:"reasonType"`
 	ReportedBy        string                              `json:"reportedBy" cborgen:"reportedBy"`
 	ResolvedByActions []*AdminDefs_ActionView             `json:"resolvedByActions" cborgen:"resolvedByActions"`
 	Subject           *AdminDefs_ReportViewDetail_Subject `json:"subject" cborgen:"subject"`

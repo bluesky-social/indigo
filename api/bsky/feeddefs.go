@@ -12,13 +12,20 @@ import (
 	"github.com/bluesky-social/indigo/lex/util"
 )
 
+// FeedDefs_BlockedAuthor is a "blockedAuthor" in the app.bsky.feed.defs schema.
+type FeedDefs_BlockedAuthor struct {
+	Did    string                 `json:"did" cborgen:"did"`
+	Viewer *ActorDefs_ViewerState `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+}
+
 // FeedDefs_BlockedPost is a "blockedPost" in the app.bsky.feed.defs schema.
 //
 // RECORDTYPE: FeedDefs_BlockedPost
 type FeedDefs_BlockedPost struct {
-	LexiconTypeID string `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
-	Blocked       bool   `json:"blocked" cborgen:"blocked"`
-	Uri           string `json:"uri" cborgen:"uri"`
+	LexiconTypeID string                  `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
+	Author        *FeedDefs_BlockedAuthor `json:"author" cborgen:"author"`
+	Blocked       bool                    `json:"blocked" cborgen:"blocked"`
+	Uri           string                  `json:"uri" cborgen:"uri"`
 }
 
 // FeedDefs_FeedViewPost is a "feedViewPost" in the app.bsky.feed.defs schema.
