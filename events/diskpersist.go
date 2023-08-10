@@ -218,7 +218,7 @@ func scanForLastSeq(fi *os.File, end int64) (int64, error) {
 	for {
 		eh, err := readHeader(fi, scratch)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return lastSeq, nil
 			}
 			return 0, err
