@@ -33,8 +33,10 @@ type EmbedRecord_View struct {
 //
 // RECORDTYPE: EmbedRecord_ViewBlocked
 type EmbedRecord_ViewBlocked struct {
-	LexiconTypeID string `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
-	Uri           string `json:"uri" cborgen:"uri"`
+	LexiconTypeID string                  `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
+	Author        *FeedDefs_BlockedAuthor `json:"author" cborgen:"author"`
+	Blocked       bool                    `json:"blocked" cborgen:"blocked"`
+	Uri           string                  `json:"uri" cborgen:"uri"`
 }
 
 // EmbedRecord_ViewNotFound is a "viewNotFound" in the app.bsky.embed.record schema.
@@ -42,6 +44,7 @@ type EmbedRecord_ViewBlocked struct {
 // RECORDTYPE: EmbedRecord_ViewNotFound
 type EmbedRecord_ViewNotFound struct {
 	LexiconTypeID string `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
+	NotFound      bool   `json:"notFound" cborgen:"notFound"`
 	Uri           string `json:"uri" cborgen:"uri"`
 }
 

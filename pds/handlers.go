@@ -40,7 +40,7 @@ func (s *Server) handleAppBskyActorGetSuggestions(ctx context.Context, cursor st
 	return &out, nil
 }
 
-func (s *Server) handleAppBskyFeedGetAuthorFeed(ctx context.Context, author string, before string, limit int) (*appbskytypes.FeedGetAuthorFeed_Output, error) {
+func (s *Server) handleAppBskyFeedGetAuthorFeed(ctx context.Context, author string, before string, filter string, limit int) (*appbskytypes.FeedGetAuthorFeed_Output, error) {
 	_, err := s.getUser(ctx)
 	if err != nil {
 		return nil, err
@@ -64,16 +64,13 @@ func (s *Server) handleAppBskyFeedGetAuthorFeed(ctx context.Context, author stri
 	return &out, nil
 }
 
-func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth *int, uri string) (*appbskytypes.FeedGetPostThread_Output, error) {
+func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth int, parentHeight int, uri string) (*appbskytypes.FeedGetPostThread_Output, error) {
 	u, err := s.getUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	d := 6
-	if depth != nil {
-		d = *depth
-	}
+	d := depth
 
 	pthread, err := s.feedgen.GetPostThread(ctx, uri, d)
 	if err != nil {
@@ -644,7 +641,7 @@ func (s *Server) handleComAtprotoAdminGetModerationReport(ctx context.Context, i
 	panic("nyi")
 }
 
-func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context, actionType string, cursor string, limit int, resolved *bool, subject string) (*comatprototypes.AdminGetModerationReports_Output, error) {
+func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context, actionType string, actionedBy string, cursor string, ignoreSubjects []string, limit int, reporters []string, resolved *bool, reverse *bool, subject string) (*comatprototypes.AdminGetModerationReports_Output, error) {
 	panic("nyi")
 }
 
@@ -826,5 +823,23 @@ func (s *Server) handleAppBskyFeedGetFeedGenerators(ctx context.Context, feeds [
 	panic("nyi")
 }
 func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, cursor string, feed string, limit int) (*appbskytypes.FeedGetFeedSkeleton_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleAppBskyUnspeccedApplyLabels(ctx context.Context, body *appbskytypes.UnspeccedApplyLabels_Input) error {
+	panic("nyi")
+}
+func (s *Server) handleAppBskyUnspeccedGetPopularFeedGenerators(ctx context.Context, cursor string, limit int, query string) (*appbskytypes.UnspeccedGetPopularFeedGenerators_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleAppBskyUnspeccedGetTimelineSkeleton(ctx context.Context, cursor string, limit int) (*appbskytypes.UnspeccedGetTimelineSkeleton_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoAdminRebaseRepo(ctx context.Context, body *comatprototypes.AdminRebaseRepo_Input) error {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoAdminSendEmail(ctx context.Context, body *comatprototypes.AdminSendEmail_Input) (*comatprototypes.AdminSendEmail_Output, error) {
 	panic("nyi")
 }

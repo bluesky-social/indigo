@@ -20,7 +20,7 @@ type AdminDefs_ActionReversal struct {
 
 // AdminDefs_ActionView is a "actionView" in the com.atproto.admin.defs schema.
 type AdminDefs_ActionView struct {
-	Action            *AdminDefs_ActionType         `json:"action" cborgen:"action"`
+	Action            *string                       `json:"action" cborgen:"action"`
 	CreateLabelVals   []string                      `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
 	CreatedAt         string                        `json:"createdAt" cborgen:"createdAt"`
 	CreatedBy         string                        `json:"createdBy" cborgen:"createdBy"`
@@ -35,13 +35,13 @@ type AdminDefs_ActionView struct {
 
 // AdminDefs_ActionViewCurrent is a "actionViewCurrent" in the com.atproto.admin.defs schema.
 type AdminDefs_ActionViewCurrent struct {
-	Action *AdminDefs_ActionType `json:"action" cborgen:"action"`
-	Id     int64                 `json:"id" cborgen:"id"`
+	Action *string `json:"action" cborgen:"action"`
+	Id     int64   `json:"id" cborgen:"id"`
 }
 
 // AdminDefs_ActionViewDetail is a "actionViewDetail" in the com.atproto.admin.defs schema.
 type AdminDefs_ActionViewDetail struct {
-	Action          *AdminDefs_ActionType               `json:"action" cborgen:"action"`
+	Action          *string                             `json:"action" cborgen:"action"`
 	CreateLabelVals []string                            `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
 	CreatedAt       string                              `json:"createdAt" cborgen:"createdAt"`
 	CreatedBy       string                              `json:"createdBy" cborgen:"createdBy"`
@@ -292,7 +292,7 @@ type AdminDefs_ReportView struct {
 	CreatedAt           string                        `json:"createdAt" cborgen:"createdAt"`
 	Id                  int64                         `json:"id" cborgen:"id"`
 	Reason              *string                       `json:"reason,omitempty" cborgen:"reason,omitempty"`
-	ReasonType          *ModerationDefs_ReasonType    `json:"reasonType" cborgen:"reasonType"`
+	ReasonType          *string                       `json:"reasonType" cborgen:"reasonType"`
 	ReportedBy          string                        `json:"reportedBy" cborgen:"reportedBy"`
 	ResolvedByActionIds []int64                       `json:"resolvedByActionIds" cborgen:"resolvedByActionIds"`
 	Subject             *AdminDefs_ReportView_Subject `json:"subject" cborgen:"subject"`
@@ -304,7 +304,7 @@ type AdminDefs_ReportViewDetail struct {
 	CreatedAt         string                              `json:"createdAt" cborgen:"createdAt"`
 	Id                int64                               `json:"id" cborgen:"id"`
 	Reason            *string                             `json:"reason,omitempty" cborgen:"reason,omitempty"`
-	ReasonType        *ModerationDefs_ReasonType          `json:"reasonType" cborgen:"reasonType"`
+	ReasonType        *string                             `json:"reasonType" cborgen:"reasonType"`
 	ReportedBy        string                              `json:"reportedBy" cborgen:"reportedBy"`
 	ResolvedByActions []*AdminDefs_ActionView             `json:"resolvedByActions" cborgen:"resolvedByActions"`
 	Subject           *AdminDefs_ReportViewDetail_Subject `json:"subject" cborgen:"subject"`
