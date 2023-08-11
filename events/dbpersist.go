@@ -540,3 +540,7 @@ func (p *DbPersistence) RebaseRepoEvents(ctx context.Context, usr models.Uid) er
 	// a little weird that this is the same action as a takedown
 	return p.deleteAllEventsForUser(ctx, usr)
 }
+
+func (p *DbPersistence) Shutdown(context.Context) error {
+	return nil
+}

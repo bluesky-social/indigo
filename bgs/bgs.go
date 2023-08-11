@@ -317,7 +317,13 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 }
 
 func (bgs *BGS) Shutdown() []error {
-	return bgs.slurper.Shutdown()
+	errs := bgs.slurper.Shutdown()
+
+	if err := bgs.events.Shutdown(context.TODO()); err != nil {
+		errs = append(errs, err)
+	}
+
+	return errs
 }
 
 type HealthStatus struct {
