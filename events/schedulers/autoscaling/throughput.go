@@ -23,6 +23,8 @@ func NewThroughputManager(bucketCount int, bucketDuration time.Duration) *Throug
 		circular:       make([]int, bucketCount),
 		bucketCount:    bucketCount,
 		bucketDuration: bucketDuration,
+		in:             make(chan struct{}),
+		out:            make(chan struct{}),
 	}
 }
 
@@ -59,7 +61,7 @@ func (m *ThroughputManager) shift() {
 
 			m.mu.Unlock()
 		case <-m.in:
-			m.out <- struct{}{}
+			close(m.out)
 			return
 		}
 	}
@@ -72,6 +74,6 @@ func (m *ThroughputManager) Start() {
 }
 
 func (m *ThroughputManager) Stop() {
-	m.in <- struct{}{}
+	close(m.in)
 	<-m.out
 }
