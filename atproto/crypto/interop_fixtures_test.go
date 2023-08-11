@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -62,7 +63,9 @@ func testSignatureFixture(t *testing.T, row InteropFixture) {
 	// parse all the fields
 	pkDid, err := ParsePublicDidKey(row.PublicKeyDid)
 	assert.NoError(err)
-	pkCompMultibase, err := ParsePublicCompressedMultibase(row.PublicKeyMultibase, kt)
+	keyBytes, err := base58.Decode(row.PublicKeyMultibase[1:])
+	assert.NoError(err)
+	pkCompMultibase, err := ParsePublicBytes(keyBytes, kt)
 	assert.NoError(err)
 	msgBytes, err := base64.RawStdEncoding.DecodeString(row.MessageBase64)
 	assert.NoError(err)
@@ -71,10 +74,9 @@ func testSignatureFixture(t *testing.T, row InteropFixture) {
 
 	// verify encodings
 	assert.Equal(pkDid, pkCompMultibase, "key equality")
-	assert.Equal(row.DidDocSuite, pkDid.DidDocSuite())
-	assert.Equal(row.DidDocSuite, pkCompMultibase.DidDocSuite())
+	assert.Equal(row.DidDocSuite, pkDid.LegacyDidDocSuite())
+	assert.Equal(row.DidDocSuite, pkCompMultibase.LegacyDidDocSuite())
 	assert.Equal(row.PublicKeyDid, pkDid.DidKey(), "did:key re-encoding")
-	assert.Equal(row.PublicKeyMultibase, pkCompMultibase.CompressedMultibase(), "multibase re-encoding")
 
 	// verify signatures
 	if row.ValidSignature {

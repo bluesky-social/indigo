@@ -195,10 +195,10 @@ func (k *PublicKey) Equal(other *PublicKey) bool {
 	}
 }
 
-// Loads a [PublicKey] of the indicated curve type from raw bytes, as exported by the [PublicKey.CompressedBytes] method.
+// Loads a [PublicKey] of the indicated curve type from raw bytes, as exported by the [PublicKey.Bytes] method. This is the "compressed" curve format.
 //
 // Calling code needs to know the key type ahead of time, and must remove any string encoding (hex encoding, base64, etc) before calling this function.
-func ParsePublicCompressedBytes(data []byte, kt KeyType) (*PublicKey, error) {
+func ParsePublicBytes(data []byte, kt KeyType) (*PublicKey, error) {
 	switch kt {
 	case P256:
 		curve := elliptic.P256()
@@ -240,7 +240,7 @@ func ParsePublicCompressedBytes(data []byte, kt KeyType) (*PublicKey, error) {
 	}
 }
 
-// Loads a [PublicKey] of the indicated curve type from raw bytes, as exported by the [PublicKey.CompressedBytes] method.
+// Loads a [PublicKey] of the indicated curve type from raw bytes, as exported by the [PublicKey.UncompressedBytes] method.
 //
 // Calling code needs to know the key type ahead of time, and must remove any string encoding (hex encoding, base64, etc) before calling this function.
 func ParsePublicUncompressedBytes(data []byte, kt KeyType) (*PublicKey, error) {
@@ -277,10 +277,10 @@ func ParsePublicUncompressedBytes(data []byte, kt KeyType) (*PublicKey, error) {
 	}
 }
 
-// Parses a public key in multibase encoding, as would be found in a DID Document `verificationMethod` section.
+// Parses a public key in multibase encoding, as would be found in a older DID Document `verificationMethod` section.
 //
 // This implementation does not handle the many possible multibase encodings (eg, base32), only the base58btc encoding that would be found in a DID Document.
-func ParsePublicMultibase(encoded string, kt KeyType) (*PublicKey, error) {
+func ParsePublicLegacyMultibase(encoded string, kt KeyType) (*PublicKey, error) {
 	if len(encoded) < 2 || encoded[0] != 'z' {
 		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
 	}
@@ -291,8 +291,8 @@ func ParsePublicMultibase(encoded string, kt KeyType) (*PublicKey, error) {
 	return ParsePublicUncompressedBytes(data, kt)
 }
 
-// Parses a public key in a variant of multibase encoding, with no key type indicator (unlike did:key), but with key compression (unlike `verificationMethod` in a DID Document).
-func ParsePublicCompressedMultibase(encoded string, kt KeyType) (*PublicKey, error) {
+// Parses a public key from multibase encoding, with multicodec indicating the key type.
+func ParsePublicMultibase(encoded string) (*PublicKey, error) {
 	if len(encoded) < 2 || encoded[0] != 'z' {
 		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
 	}
@@ -300,7 +300,15 @@ func ParsePublicCompressedMultibase(encoded string, kt KeyType) (*PublicKey, err
 	if err != nil {
 		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
 	}
-	return ParsePublicCompressedBytes(data, kt)
+	if data[0] == 0x80 && data[1] == 0x24 {
+		// multicodec p256-pub, code 0x1200, varint-encoded bytes: [0x80, 0x24]
+		return ParsePublicBytes(data[2:], P256)
+	} else if data[0] == 0xE7 && data[1] == 0x01 {
+		// multicodec secp256k1-pub, code 0xE7, varint bytes: [0xE7, 0x01]
+		return ParsePublicBytes(data[2:], K256)
+	} else {
+		return nil, fmt.Errorf("unexpected did:key multicode value")
+	}
 }
 
 // Loads a [PublicKey] from did:key string serialization.
@@ -310,20 +318,8 @@ func ParsePublicDidKey(didKey string) (*PublicKey, error) {
 	if !strings.HasPrefix(didKey, "did:key:z") {
 		return nil, fmt.Errorf("string is not a DID key: %s", didKey)
 	}
-	mb := strings.TrimPrefix(didKey, "did:key:z")
-	data, err := base58.Decode(mb)
-	if err != nil || len(data) < 2 {
-		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
-	}
-	if data[0] == 0x80 && data[1] == 0x24 {
-		// multicodec p256-pub, code 0x1200, varint-encoded bytes: [0x80, 0x24]
-		return ParsePublicCompressedBytes(data[2:], P256)
-	} else if data[0] == 0xE7 && data[1] == 0x01 {
-		// multicodec secp256k1-pub, code 0xE7, varint bytes: [0xE7, 0x01]
-		return ParsePublicCompressedBytes(data[2:], K256)
-	} else {
-		return nil, fmt.Errorf("unexpected did:key multicode value")
-	}
+	mb := strings.TrimPrefix(didKey, "did:key:")
+	return ParsePublicMultibase(mb)
 }
 
 // Serializes the [PublicKey] in to "uncompressed" binary format.
@@ -348,7 +344,7 @@ func (k *PublicKey) UncompressedBytes() []byte {
 }
 
 // Serializes the [PublicKey] in to "compressed" binary format.
-func (k *PublicKey) CompressedBytes() []byte {
+func (k *PublicKey) Bytes() []byte {
 	switch k.keyType {
 	case P256:
 		if !k.pubP256.Curve.IsOnCurve(k.pubP256.X, k.pubP256.Y) {
@@ -414,7 +410,12 @@ func (k *PublicKey) HashAndVerify(content, sig []byte) error {
 //   - add "z" prefix to indicate encoding
 //   - add "did:key:" prefix
 func (k *PublicKey) DidKey() string {
-	kbytes := k.CompressedBytes()
+	return "did:key:" + k.Multibase()
+}
+
+// Returns a multibased string encoding of the public key, including a multicodec indicator and compressed curve bytes serialization
+func (k *PublicKey) Multibase() string {
+	kbytes := k.Bytes()
 	switch k.keyType {
 	case P256:
 		// multicodec p256-pub, code 0x1200, varint-encoded bytes: [0x80, 0x24]
@@ -425,22 +426,16 @@ func (k *PublicKey) DidKey() string {
 	default:
 		panic("unexpected crypto KeyType")
 	}
-	return "did:key:z" + base58.Encode(kbytes)
+	return "z" + base58.Encode(kbytes)
 }
 
-// Returns multibase string encoding of the public key, as would be included in a DID Document "verificationMethod" section:
+// Returns multibase string encoding of the public key, as would be included in an older DID Document "verificationMethod" section:
 //
 //   - non-compressed / non-compacted binary representation
 //   - encode bytes with base58btc
 //   - prefix "z" (lower-case) to indicate encoding
-func (k *PublicKey) Multibase() string {
+func (k *PublicKey) LegacyMultibase() string {
 	kbytes := k.UncompressedBytes()
-	return "z" + base58.Encode(kbytes)
-}
-
-// Variant of Multibase() which outputs compressed key format.
-func (k *PublicKey) CompressedMultibase() string {
-	kbytes := k.CompressedBytes()
 	return "z" + base58.Encode(kbytes)
 }
 
@@ -449,7 +444,7 @@ func (k *PublicKey) KeyType() KeyType {
 }
 
 // Returns the DID cryptographic suite string which would be included in the `type` field of a `verificationMethod`.
-func (k *PublicKey) DidDocSuite() string {
+func (k *PublicKey) LegacyDidDocSuite() string {
 	switch k.keyType {
 	case P256:
 		return "EcdsaSecp256r1VerificationKey2019"
