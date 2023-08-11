@@ -148,6 +148,7 @@ func (dp *DiskPersistence) resumeLog() error {
 		return dp.initLogFile()
 	}
 
+	// 0 for the mode is fine since thats only used if O_CREAT is passed
 	fi, err := os.OpenFile(filepath.Join(dp.primaryDir, lfr.Path), os.O_RDWR, 0)
 	if err != nil {
 		return err
