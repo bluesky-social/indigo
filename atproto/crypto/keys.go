@@ -17,12 +17,12 @@ import (
 	secp256k1secec "gitlab.com/yawning/secp256k1-voi/secec"
 )
 
+// Represents the specific support curve type. It is not possible to use [elliptic.Curve] for this because some curves are not in stdlib
 type KeyType uint8
 
 const (
-	// NOTE: consider making these the multiformat table values (public key version); uint16?
-	K256 KeyType = 1
-	P256 KeyType = 2
+	P256 KeyType = 1 // P-256 / secp256r1 / ES256
+	K256 KeyType = 2 // K-256 / secp256k1 / ES256K
 )
 
 type PrivateKey struct {
@@ -46,6 +46,7 @@ var k256Options = &secp256k1secec.ECDSAOptions{
 	RejectMalleable: true,
 }
 
+// Creates a secure new cryptographic key from scratch, with the indicated curve type.
 func GeneratePrivateKey(kt KeyType) (*PrivateKey, error) {
 	switch kt {
 	case P256:
@@ -65,6 +66,9 @@ func GeneratePrivateKey(kt KeyType) (*PrivateKey, error) {
 	}
 }
 
+// Loads a [PrivateKey] of the indicated curve type from raw bytes, as exported by the [PrivateKey.Bytes()] method.
+//
+// Calling code needs to know the key type ahead of time, and must remove any string encoding (hex encoding, base64, etc) before calling this function.
 func ParsePrivateKeyBytes(data []byte, kt KeyType) (*PrivateKey, error) {
 	switch kt {
 	case P256:
@@ -94,6 +98,7 @@ func ParsePrivateKeyBytes(data []byte, kt KeyType) (*PrivateKey, error) {
 	}
 }
 
+// Checks if the two private keys are the same. Note that the naive == operator does not work for most equality checks.
 func (k *PrivateKey) Equal(other *PrivateKey) bool {
 	if k.keyType != other.keyType {
 		return false
@@ -108,6 +113,13 @@ func (k *PrivateKey) Equal(other *PrivateKey) bool {
 	}
 }
 
+func (k *PrivateKey) KeyType() KeyType {
+	return k.keyType
+}
+
+// Serializes the secret key material in to a raw binary format, which can be parsed by [ParsePrivateKeyBytes].
+//
+// The encoding format is curve-specific, and is generally "compact" for private keys. Both P-256 and K-256 private keys end up 32 bytes long. There is no ASN.1 or other enclosing structure to the binary encoding.
 func (k *PrivateKey) Bytes() ([]byte, error) {
 	switch k.keyType {
 	case P256:
@@ -123,6 +135,7 @@ func (k *PrivateKey) Bytes() ([]byte, error) {
 	}
 }
 
+// Outputs the PublicKey corresponding to this PrivateKey.
 func (k *PrivateKey) Public() PublicKey {
 	switch k.keyType {
 	case P256:
@@ -140,6 +153,13 @@ func (k *PrivateKey) Public() PublicKey {
 	}
 }
 
+// First hashes the raw bytes, then signs the digest, returning a binary signature.
+//
+// SHA-256 is the hash algorithm used, as specified by atproto. Signing digests is the norm for ECDSA, and required by some backend implementations. This method does not "double hash", it simply has name which clarifies that hashing is happening.
+//
+// Calling code is responsible for any string encoding of signatures (eg, hex or base64). Both P-256 and K-256 signatures are 64 bytes long.
+//
+// NIST ECDSA signatures can have a "malleability" issue, meaning that there are multiple valid signatures for the same content with the same signing key. This method always returns a "low-S" signature, as required by atproto.
 func (k *PrivateKey) HashAndSign(content []byte) ([]byte, error) {
 	hash := sha256.Sum256(content)
 	switch k.keyType {
@@ -160,6 +180,7 @@ func (k *PrivateKey) HashAndSign(content []byte) ([]byte, error) {
 	}
 }
 
+// Checks if the two public keys are the same. Note that the naive == operator does not work for most equality checks.
 func (k *PublicKey) Equal(other *PublicKey) bool {
 	if k.keyType != other.keyType {
 		return false
@@ -174,6 +195,9 @@ func (k *PublicKey) Equal(other *PublicKey) bool {
 	}
 }
 
+// Loads a [PublicKey] of the indicated curve type from raw bytes, as exported by the [PublicKey.CompressedBytes] method.
+//
+// Calling code needs to know the key type ahead of time, and must remove any string encoding (hex encoding, base64, etc) before calling this function.
 func ParsePublicCompressedBytes(data []byte, kt KeyType) (*PublicKey, error) {
 	switch kt {
 	case P256:
@@ -216,8 +240,59 @@ func ParsePublicCompressedBytes(data []byte, kt KeyType) (*PublicKey, error) {
 	}
 }
 
-// Parses a public key in multibase encoding, as would be found in a DID Document `verificationMethod` section. This does not handle the many possible multibase variations (eg, base32 encoding).
+// Loads a [PublicKey] of the indicated curve type from raw bytes, as exported by the [PublicKey.CompressedBytes] method.
+//
+// Calling code needs to know the key type ahead of time, and must remove any string encoding (hex encoding, base64, etc) before calling this function.
+func ParsePublicUncompressedBytes(data []byte, kt KeyType) (*PublicKey, error) {
+	switch kt {
+	case P256:
+		curve := elliptic.P256()
+		x, y := elliptic.Unmarshal(curve, data)
+		if x == nil {
+			return nil, fmt.Errorf("invalid P-256 public key (x==nil)")
+		}
+		if !curve.Params().IsOnCurve(x, y) {
+			return nil, fmt.Errorf("invalid P-256 public key (not on curve)")
+		}
+		pub := &ecdsa.PublicKey{
+			Curve: curve,
+			X:     x,
+			Y:     y,
+		}
+		return &PublicKey{
+			keyType: kt,
+			pubP256: pub,
+		}, nil
+	case K256:
+		pub, err := secp256k1secec.NewPublicKey(data)
+		if err != nil {
+			return nil, fmt.Errorf("invalid K-256/secp256k1 public key: %w", err)
+		}
+		return &PublicKey{
+			keyType: kt,
+			pubK256: pub,
+		}, nil
+	default:
+		return nil, fmt.Errorf("unexpected crypto KeyType")
+	}
+}
+
+// Parses a public key in multibase encoding, as would be found in a DID Document `verificationMethod` section.
+//
+// This implementation does not handle the many possible multibase encodings (eg, base32), only the base58btc encoding that would be found in a DID Document.
 func ParsePublicMultibase(encoded string, kt KeyType) (*PublicKey, error) {
+	if len(encoded) < 2 || encoded[0] != 'z' {
+		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
+	}
+	data, err := base58.Decode(encoded[1:])
+	if err != nil {
+		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
+	}
+	return ParsePublicUncompressedBytes(data, kt)
+}
+
+// Parses a public key in a variant of multibase encoding, with no key type indicator (unlike did:key), but with key compression (unlike `verificationMethod` in a DID Document).
+func ParsePublicCompressedMultibase(encoded string, kt KeyType) (*PublicKey, error) {
 	if len(encoded) < 2 || encoded[0] != 'z' {
 		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
 	}
@@ -228,6 +303,9 @@ func ParsePublicMultibase(encoded string, kt KeyType) (*PublicKey, error) {
 	return ParsePublicCompressedBytes(data, kt)
 }
 
+// Loads a [PublicKey] from did:key string serialization.
+//
+// The did:key format encodes the key type.
 func ParsePublicDidKey(didKey string) (*PublicKey, error) {
 	if !strings.HasPrefix(didKey, "did:key:z") {
 		return nil, fmt.Errorf("string is not a DID key: %s", didKey)
@@ -248,6 +326,7 @@ func ParsePublicDidKey(didKey string) (*PublicKey, error) {
 	}
 }
 
+// Serializes the [PublicKey] in to "uncompressed" binary format.
 func (k *PublicKey) UncompressedBytes() []byte {
 	switch k.keyType {
 	case P256:
@@ -268,6 +347,7 @@ func (k *PublicKey) UncompressedBytes() []byte {
 	}
 }
 
+// Serializes the [PublicKey] in to "compressed" binary format.
 func (k *PublicKey) CompressedBytes() []byte {
 	switch k.keyType {
 	case P256:
@@ -286,6 +366,13 @@ func (k *PublicKey) CompressedBytes() []byte {
 	}
 }
 
+// First hashes the raw bytes, then verifies the digest, returning `nil` for valid signatures, or an error for any failure.
+//
+// SHA-256 is the hash algorithm used, as specified by atproto. Signing digests is the norm for ECDSA, and required by some backend implementations. This method does not "double hash", it simply has name which clarifies that hashing is happening.
+//
+// Calling code is responsible for any string decoding of signatures (eg, hex or base64) before calling this function.
+//
+// This method requires a "low-S" signature, as specified by atproto.
 func (k *PublicKey) HashAndVerify(content, sig []byte) error {
 	hash := sha256.Sum256(content)
 	switch k.keyType {
@@ -320,11 +407,12 @@ func (k *PublicKey) HashAndVerify(content, sig []byte) error {
 }
 
 // Returns a did:key string encoding of the public key, as would be encoded in a DID PLC operation:
-// - compressed / compacted binary representation
-// - prefix with appropriate curve multicodec bytes
-// - encode bytes with base58btc
-// - add "z" prefix to indicate encoding
-// - add "did:key:" prefix
+//
+//   - compressed / compacted binary representation
+//   - prefix with appropriate curve multicodec bytes
+//   - encode bytes with base58btc
+//   - add "z" prefix to indicate encoding
+//   - add "did:key:" prefix
 func (k *PublicKey) DidKey() string {
 	kbytes := k.CompressedBytes()
 	switch k.keyType {
@@ -341,19 +429,26 @@ func (k *PublicKey) DidKey() string {
 }
 
 // Returns multibase string encoding of the public key, as would be included in a DID Document "verificationMethod" section:
-// - non-compressed / non-compacted binary representation
-// - encode bytes with base58btc
-// - prefix "z" (lower-case) to indicate encoding
+//
+//   - non-compressed / non-compacted binary representation
+//   - encode bytes with base58btc
+//   - prefix "z" (lower-case) to indicate encoding
 func (k *PublicKey) Multibase() string {
 	kbytes := k.UncompressedBytes()
 	return "z" + base58.Encode(kbytes)
 }
 
+// Variant of Multibase() which outputs compressed key format.
 func (k *PublicKey) CompressedMultibase() string {
 	kbytes := k.CompressedBytes()
 	return "z" + base58.Encode(kbytes)
 }
 
+func (k *PublicKey) KeyType() KeyType {
+	return k.keyType
+}
+
+// Returns the DID cryptographic suite string which would be included in the `type` field of a `verificationMethod`.
 func (k *PublicKey) DidDocSuite() string {
 	switch k.keyType {
 	case P256:
