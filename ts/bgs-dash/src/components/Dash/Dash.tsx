@@ -278,6 +278,8 @@ const Dash: FC<{}> = () => {
         console.log(shouldBlock ? "Blocking" : "Disconnecting");
         if (shouldBlock && pds.HasActiveConnection) {
           requestDisconnectHost(pds.Host, true);
+        } else if (pds.HasActiveConnection) {
+          requestDisconnectHost(pds.Host, false);
         } else {
           requestBlockHost(pds.Host);
         }
