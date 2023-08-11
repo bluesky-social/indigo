@@ -119,6 +119,48 @@ func TestDiskPersist(t *testing.T) {
 	if outEvtCount != expectedEvtCount {
 		t.Fatalf("expected %d events, got %d", expectedEvtCount, outEvtCount)
 	}
+
+	dp.Shutdown()
+
+	time.Sleep(time.Millisecond * 100)
+
+	dp2, err := events.NewDiskPersistence(filepath.Join(tempPath, "diskPrimary"), filepath.Join(tempPath, "diskArchive"), db, &events.DiskPersistOptions{
+		EventsPerFile: 10,
+		UIDCacheSize:  100000,
+		DIDCacheSize:  100000,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	evtman2 := events.NewEventManager(dp2)
+
+	inEvts = make([]*events.XRPCStreamEvent, n)
+	for i := 0; i < n; i++ {
+		cidLink := lexutil.LexLink(cid)
+		headLink := lexutil.LexLink(userRepoHead)
+		inEvts[i] = &events.XRPCStreamEvent{
+			RepoCommit: &atproto.SyncSubscribeRepos_Commit{
+				Repo:   "did:example:123",
+				Commit: headLink,
+				Ops: []*atproto.SyncSubscribeRepos_RepoOp{
+					{
+						Action: "add",
+						Cid:    &cidLink,
+						Path:   "path1",
+					},
+				},
+				Time: time.Now().Format(util.ISO8601),
+			},
+		}
+	}
+
+	for i := 0; i < n; i++ {
+		err = evtman2.AddEvent(ctx, inEvts[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func BenchmarkDiskPersist(b *testing.B) {
@@ -141,6 +183,7 @@ func BenchmarkDiskPersist(b *testing.B) {
 	}
 
 	runPersisterBenchmark(b, cs, db, dp)
+
 }
 
 func runPersisterBenchmark(b *testing.B, cs *carstore.CarStore, db *gorm.DB, p events.EventPersistence) {
