@@ -532,7 +532,12 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 	consumerID := bgs.registerConsumer(&consumer)
 	defer bgs.cleanupConsumer(consumerID)
 
-	log.Infow("new consumer", "remote_addr", consumer.RemoteAddr, "user_agent", consumer.UserAgent)
+	log.Infow("new consumer",
+		"remote_addr", consumer.RemoteAddr,
+		"user_agent", consumer.UserAgent,
+		"cursor", since,
+		"consumer_id", consumerID,
+	)
 
 	header := events.EventHeader{Op: events.EvtKindMessage}
 	for {
