@@ -10,7 +10,7 @@ func ExamplePublicKey() {
 	if err != nil {
 		panic("failed to parse did:key")
 	}
-	fmt.Println(pub.DidDocSuite())
+	fmt.Println(pub.LegacyDidDocSuite())
 
 	// parse existing base64 message and signature to raw bytes
 	msg, _ := base64.RawStdEncoding.DecodeString("oWVoZWxsb2V3b3JsZA")
