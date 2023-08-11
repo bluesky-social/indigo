@@ -11,7 +11,7 @@ env:
 
 jobs:
   container-labelmaker-ghcr:
-    if: github.repository == 'bluesky-social/indigo' || github.repository == 'bnewbold/indigo'
+    if: github.repository == 'bluesky-social/indigo'
     runs-on: ubuntu-latest
     permissions:
       contents: read
