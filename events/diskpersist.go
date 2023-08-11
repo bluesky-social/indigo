@@ -289,6 +289,7 @@ func (p *DiskPersistence) flushRoutine() {
 	for {
 		select {
 		case <-p.shutdown:
+			return
 		case <-t.C:
 			p.lk.Lock()
 			if err := p.flushLog(context.TODO()); err != nil {
@@ -713,8 +714,12 @@ func (p *DiskPersistence) Flush(ctx context.Context) error {
 	return nil
 }
 
-func (p *DiskPersistence) Shutdown() error {
+func (p *DiskPersistence) Shutdown(ctx context.Context) error {
 	close(p.shutdown)
+	if err := p.Flush(ctx); err != nil {
+		return err
+	}
+
 	p.logfi.Close()
 	return nil
 }

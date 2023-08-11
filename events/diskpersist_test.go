@@ -120,7 +120,7 @@ func TestDiskPersist(t *testing.T) {
 		t.Fatalf("expected %d events, got %d", expectedEvtCount, outEvtCount)
 	}
 
-	dp.Shutdown()
+	dp.Shutdown(ctx)
 
 	time.Sleep(time.Millisecond * 100)
 
