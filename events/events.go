@@ -54,6 +54,10 @@ type Operation struct {
 	evt *XRPCStreamEvent
 }
 
+func (em *EventManager) Shutdown(ctx context.Context) error {
+	return em.persister.Shutdown(ctx)
+}
+
 func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 	em.subsLk.Lock()
 	defer em.subsLk.Unlock()
