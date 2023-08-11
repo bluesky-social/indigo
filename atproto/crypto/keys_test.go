@@ -33,8 +33,8 @@ func TestKeyBasics(t *testing.T) {
 		// public key encoding
 		pub := priv.Public()
 
-		pubCompBytes := pub.CompressedBytes()
-		pubFromCompBytes, err := ParsePublicCompressedBytes(pubCompBytes, kt)
+		pubCompBytes := pub.Bytes()
+		pubFromCompBytes, err := ParsePublicBytes(pubCompBytes, kt)
 		assert.NoError(err)
 		assert.True(pub.Equal(pubFromCompBytes))
 
@@ -49,14 +49,14 @@ func TestKeyBasics(t *testing.T) {
 		assert.True(pub.Equal(pubDK))
 
 		pubMultibaseString := pub.Multibase()
-		pubMB, err := ParsePublicMultibase(pubMultibaseString, kt)
+		pubMB, err := ParsePublicMultibase(pubMultibaseString)
 		assert.NoError(err)
 		assert.True(pub.Equal(pubMB))
 
-		pubCompMultibaseString := pub.CompressedMultibase()
-		pubCMB, err := ParsePublicCompressedMultibase(pubCompMultibaseString, kt)
+		pubLegacyMultibaseString := pub.LegacyMultibase()
+		pubLMB, err := ParsePublicLegacyMultibase(pubLegacyMultibaseString, kt)
 		assert.NoError(err)
-		assert.True(pub.Equal(pubCMB))
+		assert.True(pub.Equal(pubLMB))
 
 		// signature verification
 		sig, err := priv.HashAndSign(msg)
@@ -113,7 +113,7 @@ func TestKeyCompressionP256(t *testing.T) {
 
 	// P-256 key and signature sizes
 	assert.Equal(32, len(privBytes))
-	assert.Equal(33, len(pub.CompressedBytes()))
+	assert.Equal(33, len(pub.Bytes()))
 	assert.Equal(65, len(pub.UncompressedBytes()))
 	assert.Equal(64, len(sig))
 }
@@ -131,7 +131,7 @@ func TestKeyCompressionK256(t *testing.T) {
 
 	// K-256 key and signature sizes
 	assert.Equal(32, len(privBytes))
-	assert.Equal(33, len(pub.CompressedBytes()))
+	assert.Equal(33, len(pub.Bytes()))
 	assert.Equal(65, len(pub.UncompressedBytes()))
 	assert.Equal(64, len(sig))
 }
