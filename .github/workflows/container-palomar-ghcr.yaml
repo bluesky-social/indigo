@@ -10,6 +10,7 @@ env:
 
 jobs:
   container-palomar-ghcr:
+    if: github.repository == 'bluesky-social/indigo'
     runs-on: ubuntu-latest
     permissions:
       contents: read
