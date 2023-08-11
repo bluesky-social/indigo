@@ -63,3 +63,7 @@ func (yp *YoloPersister) SetEventBroadcaster(brc func(*XRPCStreamEvent)) {
 func (yp *YoloPersister) Flush(ctx context.Context) error {
 	return nil
 }
+
+func (yp *YoloPersister) Shutdown(ctx context.Context) error {
+	return nil
+}
