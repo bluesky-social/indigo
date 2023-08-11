@@ -229,9 +229,13 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
-	}))
+	if !bgs.ssl {
+		e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+			Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
+		}))
+	} else {
+		e.Use(middleware.LoggerWithConfig(middleware.DefaultLoggerConfig))
+	}
 
 	e.Use(MetricsMiddleware)
 
