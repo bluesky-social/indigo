@@ -15,6 +15,7 @@ type EventPersistence interface {
 	TakeDownRepo(ctx context.Context, usr models.Uid) error
 	RebaseRepoEvents(ctx context.Context, usr models.Uid) error
 	Flush(context.Context) error
+	Shutdown(context.Context) error
 
 	SetEventBroadcaster(func(*XRPCStreamEvent))
 }
@@ -92,4 +93,8 @@ func (mp *MemPersister) Flush(ctx context.Context) error {
 
 func (mp *MemPersister) SetEventBroadcaster(brc func(*XRPCStreamEvent)) {
 	mp.broadcast = brc
+}
+
+func (mp *MemPersister) Shutdown(context.Context) error {
+	return nil
 }
