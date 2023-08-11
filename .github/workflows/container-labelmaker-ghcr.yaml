@@ -11,7 +11,7 @@ env:
 
 jobs:
   build:
-    if: github.repository == 'bluesky-social/indigo'
+    if: github.repository == 'bluesky-social/indigo' || github.repository == 'bnewbold/indigo'
     runs-on: ubuntu-latest
     permissions:
       contents: read
