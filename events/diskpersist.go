@@ -517,9 +517,17 @@ func (p *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn st
 	}
 
 	if since != 0 {
-		_, err := scanForLastSeq(fi, since)
+		lastSeq, err := scanForLastSeq(fi, since)
 		if err != nil {
 			return err
+		}
+		if since > lastSeq {
+			log.Errorw("playback cursor is greater than last seq of file checked",
+				"since", since,
+				"lastSeq", lastSeq,
+				"filename", fn,
+			)
+			return nil
 		}
 	}
 
@@ -530,7 +538,6 @@ func (p *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn st
 		h, err := readHeader(bufr, scratch)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				log.Error("EOF while reading header, assuming end of file")
 				return nil
 			}
 
