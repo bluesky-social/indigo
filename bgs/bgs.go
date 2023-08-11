@@ -101,6 +101,8 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		didr:    didr,
 		blobs:   blobs,
 
+		ssl: ssl,
+
 		consumersLk: sync.RWMutex{},
 		consumers:   make(map[uint64]*SocketConsumer),
 	}
@@ -532,7 +534,12 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 	consumerID := bgs.registerConsumer(&consumer)
 	defer bgs.cleanupConsumer(consumerID)
 
-	log.Infow("new consumer", "remote_addr", consumer.RemoteAddr, "user_agent", consumer.UserAgent)
+	log.Infow("new consumer",
+		"remote_addr", consumer.RemoteAddr,
+		"user_agent", consumer.UserAgent,
+		"cursor", since,
+		"consumer_id", consumerID,
+	)
 
 	header := events.EventHeader{Op: events.EvtKindMessage}
 	for {

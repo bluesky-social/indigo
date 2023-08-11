@@ -486,7 +486,7 @@ func (p *DiskPersistence) uidForDid(ctx context.Context, did string) (models.Uid
 }
 
 func (p *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
-	base := since - (since * p.eventsPerFile)
+	base := since - (since % p.eventsPerFile)
 	var logs []LogFileRef
 	if err := p.meta.Debug().Order("seq_start asc").Find(&logs, "seq_start >= ?", base).Error; err != nil {
 		return err
@@ -517,9 +517,17 @@ func (p *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn st
 	}
 
 	if since != 0 {
-		_, err := scanForLastSeq(fi, since)
+		lastSeq, err := scanForLastSeq(fi, since)
 		if err != nil {
 			return err
+		}
+		if since > lastSeq {
+			log.Errorw("playback cursor is greater than last seq of file checked",
+				"since", since,
+				"lastSeq", lastSeq,
+				"filename", fn,
+			)
+			return nil
 		}
 	}
 
