@@ -57,18 +57,18 @@ func run(args []string) error {
 			Name:    "elastic-hosts",
 			Usage:   "elasticsearch hosts (schema/host/port)",
 			Value:   "http://localhost:9200",
-			EnvVars: []string{"ES_HOSTS", "ELASTIC_HOSTS"},
+			EnvVars: []string{"ES_HOSTS", "ELASTIC_HOSTS", "OPENSEARCH_URL", "ELASTICSEARCH_URL"},
 		},
 		&cli.StringFlag{
 			Name:    "es-post-index",
 			Usage:   "ES index for 'post' documents",
-			Value:   "posts",
+			Value:   "palomar_post",
 			EnvVars: []string{"ES_POST_INDEX"},
 		},
 		&cli.StringFlag{
 			Name:    "es-profile-index",
 			Usage:   "ES index for 'profile' documents",
-			Value:   "profiles",
+			Value:   "palomar_profile",
 			EnvVars: []string{"ES_PROFILE_INDEX"},
 		},
 		&cli.StringFlag{
@@ -98,9 +98,10 @@ func run(args []string) error {
 	}
 
 	app.Commands = []*cli.Command{
-		elasticCheckCmd,
-		searchCmd,
 		runCmd,
+		elasticCheckCmd,
+		searchPostCmd,
+		searchProfileCmd,
 	}
 
 	return app.Run(args)
@@ -111,9 +112,8 @@ var runCmd = &cli.Command{
 	Usage: "combined indexing+query server",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name: "database-url",
-			// XXX: data/palomar/search.db
-			Value:   "sqlite://data/thecloud.db",
+			Name:    "database-url",
+			Value:   "sqlite://data/palomar/search.db",
 			EnvVars: []string{"DATABASE_URL"},
 		},
 		&cli.BoolFlag{
@@ -144,6 +144,8 @@ var runCmd = &cli.Command{
 			cctx.String("atp-plc-host"),
 			cctx.String("atp-pds-host"),
 			cctx.String("atp-bgs-host"),
+			cctx.String("es-profile-index"),
+			cctx.String("es-post-index"),
 		)
 		if err != nil {
 			return err
@@ -191,42 +193,76 @@ var elasticCheckCmd = &cli.Command{
 	},
 }
 
-var searchCmd = &cli.Command{
-	Name:  "search",
-	Usage: "run a simple query against search index",
-	Action: func(cctx *cli.Context) error {
-		escli, err := createEsClient(cctx)
-		if err != nil {
-			return err
-		}
+func queryIndex(cctx *cli.Context, index string) error {
+	escli, err := createEsClient(cctx)
+	if err != nil {
+		return err
+	}
 
-		var buf bytes.Buffer
-		query := map[string]interface{}{
+	var buf bytes.Buffer
+	var query map[string]interface{}
+	if cctx.Bool("typeahead") == true {
+		query = map[string]interface{}{
 			"query": map[string]interface{}{
-				"match": map[string]interface{}{
-					"text": cctx.Args().First(),
+				"multi_match": map[string]interface{}{
+					"query": strings.Join(cctx.Args().Slice(), " "),
+					"type":  "bool_prefix",
+					"fields": []string{
+						"typeahead",
+						"typeahead._2gram",
+						"typeahead._3gram",
+					},
 				},
 			},
 		}
-		if err := json.NewEncoder(&buf).Encode(query); err != nil {
-			log.Fatalf("Error encoding query: %s", err)
+	} else {
+		query = map[string]interface{}{
+			"query": map[string]interface{}{
+				"query_string": map[string]interface{}{
+					"query":         strings.Join(cctx.Args().Slice(), " "),
+					"default_field": "everything",
+				},
+			},
 		}
+	}
+	if err := json.NewEncoder(&buf).Encode(query); err != nil {
+		log.Fatalf("Error encoding query: %s", err)
+	}
 
-		// Perform the search request.
-		res, err := escli.Search(
-			escli.Search.WithContext(context.Background()),
-			escli.Search.WithIndex(cctx.String("es-posts-index")),
-			escli.Search.WithBody(&buf),
-			escli.Search.WithTrackTotalHits(true),
-			escli.Search.WithPretty(),
-		)
-		if err != nil {
-			log.Fatalf("Error getting response: %s", err)
-		}
+	// Perform the search request.
+	res, err := escli.Search(
+		escli.Search.WithContext(context.Background()),
+		escli.Search.WithIndex(index),
+		escli.Search.WithBody(&buf),
+		escli.Search.WithTrackTotalHits(true),
+		escli.Search.WithPretty(),
+	)
+	if err != nil {
+		log.Fatalf("Error getting response: %s", err)
+	}
 
-		fmt.Println(res)
-		return nil
+	fmt.Println(res)
+	return nil
+}
 
+var searchPostCmd = &cli.Command{
+	Name:  "search-post",
+	Usage: "run a simple query against posts index",
+	Action: func(cctx *cli.Context) error {
+		return queryIndex(cctx, cctx.String("es-post-index"))
+	},
+}
+
+var searchProfileCmd = &cli.Command{
+	Name:  "search-profile",
+	Usage: "run a simple query against posts index",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name: "typeahead",
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		return queryIndex(cctx, cctx.String("es-profile-index"))
 	},
 }
 
@@ -266,7 +302,7 @@ func createEsClient(cctx *cli.Context) (*es.Client, error) {
 		return nil, fmt.Errorf("cannot get escli info: %w", err)
 	}
 	defer info.Body.Close()
-	log.Info(info)
+	log.Debug(info)
 
 	return escli, nil
 }
