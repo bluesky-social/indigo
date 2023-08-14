@@ -514,6 +514,18 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		return err
 	})
 
+	// Start a goroutine to read messages from the client and discard them.
+	go func() {
+		for {
+			_, _, err := conn.ReadMessage()
+			if err != nil {
+				log.Errorf("failed to read message from client: %s", err)
+				cancel()
+				return
+			}
+		}
+	}()
+
 	ident := c.RealIP() + "-" + c.Request().UserAgent()
 
 	evts, cleanup, err := bgs.events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool { return true }, since)
