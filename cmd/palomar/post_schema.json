@@ -37,35 +37,35 @@
     }
 },
 "mappings": {
-    "_doc": {
-        "properties": {
-            "doc_index_ts":   { "type": "date" },
-            "did":            { "type": "keyword", "normalizer": "default", "doc_values": false },
-            "record_tid":     { "type": "keyword", "normalizer": "default" },
-            "handle":         { "type": "keyword", "normalizer": "default" },
+    "dynamic": false,
+    "properties": {
+        "doc_index_ts":   { "type": "date" },
+        "did":            { "type": "keyword", "normalizer": "default", "doc_values": false },
+        "handle":         { "type": "keyword", "normalizer": "default" },
+        "record_rkey":    { "type": "keyword", "normalizer": "default", "doc_values": false },
+        "record_cid":     { "type": "keyword", "normalizer": "default", "doc_values": false },
 
-            "text":           { "type": "text", "index": true, "analyzer": "textIcu", "search_analyzer":"textIcuSearch", "copy_to": "everything" },
-            "created_at":     { "type": "date" },
-            "mention_did":    { "type": "keyword", "normalizer": "default", "doc_values": false },
-            "mention_handle": { "type": "keyword", "normalizer": "default" },
-            "embed_url":      { "type": "keyword", "normalizer": "default" },
-            "embed_text":     { "type": "text", "index": true, "analyzer": "textIcu", "search_analyzer":"textIcuSearch" },
-            "quote_uri":      { "type": "keyword", "normalizer": "default" },
-            "reply_parent_uri": { "type": "keyword", "normalizer": "default" },
-            "reply_root_uri": { "type": "keyword", "normalizer": "default" },
-            "lang_code":      { "type": "keyword", "normalizer": "default" },
-            "lang_code_norm": { "type": "keyword", "normalizer": "default" },
-            "img_count":      { "type": "integer" },
-            "img_alt_text":   { "type": "text", "index": true, "analyzer": "textIcu", "search_analyzer":"textIcuSearch", "copy_to": "everything" },
+        "created_at":     { "type": "date" },
+        "text":           { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
+        "lang_code":      { "type": "keyword", "normalizer": "default" },
+        "lang_code_iso2": { "type": "keyword", "normalizer": "default" },
+        "mention_did":    { "type": "keyword", "normalizer": "default" },
+        "link_url":       { "type": "keyword", "normalizer": "default" },
+        "embed_url":      { "type": "keyword", "normalizer": "default" },
+        "embed_aturi":    { "type": "keyword", "normalizer": "default" },
+        "reply_root_aturi": { "type": "keyword", "normalizer": "default" },
+        "embed_img_count": { "type": "integer" },
+        "embed_img_alt_text": { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
 
-            "everything":     { "type": "text", "index": true, "analyzer": "textIcu", "search_analyzer":"textIcuSearch" },
+        "hashtag":        { "type": "keyword", "normalizer": "default" },
+        "emoji":          { "type": "keyword", "normalizer": "caseSensitive" },
 
-            "author":         { "type": "alias", "path": "handle" },
-            "by":             { "type": "alias", "path": "handle" },
-            "from":           { "type": "alias", "path": "handle" },
-            "lang":           { "type": "alias", "path": "lang_code_norm" },
-            "mentions":       { "type": "alias", "path": "mention_handle" }
-        }
+        "everything":     { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" },
+
+        "author":         { "type": "alias", "path": "handle" },
+        "from":           { "type": "alias", "path": "handle" },
+        "by":             { "type": "alias", "path": "handle" },
+        "lang":           { "type": "alias", "path": "lang_code_iso2" }
     }
 }
 }

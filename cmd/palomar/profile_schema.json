@@ -37,24 +37,24 @@
     }
 },
 "mappings": {
-    "_doc": {
-        "properties": {
-            "doc_index_ts":   { "type": "date" },
-            "did":            { "type": "keyword", "normalizer": "default", "doc_values": false },
-            "record_tid":     { "type": "keyword", "normalizer": "default" },
-            "handle":         { "type": "keyword", "normalizer": "default", "copy_to": "everything" },
+    "dynamic": false,
+    "properties": {
+        "doc_index_ts":   { "type": "date" },
+        "did":            { "type": "keyword", "normalizer": "default", "doc_values": false },
+        "handle":         { "type": "keyword", "normalizer": "default", "copy_to": ["everything", "typeahead"] },
 
-            "description":    { "type": "text", "index": true, "analyzer": "textIcu", "search_analyzer":"textIcuSearch", "copy_to": "everything" },
-            "display_name":   { "type": "keyword", "normalizer": "default", "copy_to": "everything" },
-            "created_at":     { "type": "date" },
-            "lang_code":      { "type": "keyword", "normalizer": "default" },
-            "lang_code_norm": { "type": "keyword", "normalizer": "default" },
-            "img_alt_text":   { "type": "text", "index": true, "analyzer": "textIcu", "search_analyzer":"textIcuSearch", "copy_to": "everything" },
-            "has_avatar":     { "type": "boolean" },
-            "has_banner":     { "type": "boolean" },
+        "display_name":   { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": ["everything", "typeahead"] },
+        "description":    { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
+        "img_alt_text":   { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
 
-            "everything":     { "type": "text", "index": true, "analyzer": "textIcu", "search_analyzer":"textIcuSearch" }
-        }
+        "hashtag":        { "type": "keyword", "normalizer": "default" },
+        "emoji":          { "type": "keyword", "normalizer": "caseSensitive" },
+
+        "has_avatar":     { "type": "boolean" },
+        "has_banner":     { "type": "boolean" },
+
+        "typeahead":      { "type": "search_as_you_type" },
+        "everything":     { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" }
     }
 }
 }
