@@ -219,7 +219,7 @@ func (s *Server) handleOp(ctx context.Context, op repomgr.EventKind, seq int64, 
 				return fmt.Errorf("indexing post: %w", err)
 			}
 		case *bsky.ActorProfile:
-			if err := s.indexProfile(ctx, u, rec); err != nil {
+			if err := s.indexProfile(ctx, u, rec, path, *rcid); err != nil {
 				return fmt.Errorf("indexing profile: %w", err)
 			}
 		default:
@@ -280,7 +280,7 @@ func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSu
 					return fmt.Errorf("indexing post: %w", err)
 				}
 			case *bsky.ActorProfile:
-				if err := s.indexProfile(ctx, u, rec); err != nil {
+				if err := s.indexProfile(ctx, u, rec, k, rcid); err != nil {
 					return fmt.Errorf("indexing profile: %w", err)
 				}
 			default:
