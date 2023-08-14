@@ -43,6 +43,7 @@ You can run test queries from the top level of the repository:
 
     go run ./cmd/palomar search-post "hello"
     go run ./cmd/palomar search-profile "hello"
+    go run ./cmd/palomar search-profile -typeahead "h"
 
 ## Configuration
 

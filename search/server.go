@@ -36,13 +36,15 @@ import (
 var log = logging.Logger("search")
 
 type Server struct {
-	escli   *es.Client
-	db      *gorm.DB
-	bgshost string
-	xrpcc   *xrpc.Client
-	bgsxrpc *xrpc.Client
-	plc     *api.PLCServer
-	echo    *echo.Echo
+	escli        *es.Client
+	postIndex    string
+	profileIndex string
+	db           *gorm.DB
+	bgshost      string
+	xrpcc        *xrpc.Client
+	bgsxrpc      *xrpc.Client
+	plc          *api.PLCServer
+	echo         *echo.Echo
 
 	userCache *lru.Cache
 }
@@ -66,7 +68,7 @@ type LastSeq struct {
 	Seq int64
 }
 
-func NewServer(db *gorm.DB, escli *es.Client, plcHost, pdsHost, bgsHost string) (*Server, error) {
+func NewServer(db *gorm.DB, escli *es.Client, plcHost, pdsHost, bgsHost, profileIndex, postIndex string) (*Server, error) {
 
 	log.Info("Migrating database")
 	db.AutoMigrate(&PostRef{})
@@ -94,13 +96,15 @@ func NewServer(db *gorm.DB, escli *es.Client, plcHost, pdsHost, bgsHost string) 
 
 	ucache, _ := lru.New(100000)
 	s := &Server{
-		escli:     escli,
-		db:        db,
-		bgshost:   bgsHost,
-		xrpcc:     xc,
-		bgsxrpc:   bgsxrpc,
-		plc:       plc,
-		userCache: ucache,
+		escli:        escli,
+		profileIndex: profileIndex,
+		postIndex:    postIndex,
+		db:           db,
+		bgshost:      bgsHost,
+		xrpcc:        xc,
+		bgsxrpc:      bgsxrpc,
+		plc:          plc,
+		userCache:    ucache,
 	}
 	return s, nil
 }
@@ -157,6 +161,10 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 			}
 
 			for _, op := range evt.Ops {
+				// filter out all records other than "post" and "profile"
+				if !(strings.HasPrefix(op.Path, "app.bsky.feed.post/") || strings.HasPrefix(op.Path, "app.bsky.actor.profile/")) {
+					continue
+				}
 				ek := repomgr.EventKind(op.Action)
 				switch ek {
 				case repomgr.EvtKindCreateRecord, repomgr.EvtKindUpdateRecord:
@@ -469,6 +477,7 @@ func (s *Server) RunAPI(listen string) error {
 	e.GET("/_health", s.handleHealthCheck)
 	e.GET("/search/posts", s.handleSearchRequestPosts)
 	e.GET("/search/profiles", s.handleSearchRequestProfiles)
+	// XXX: e.GET("/search/profiles-typeahead", s.handleSearchRequestProfiles)
 	s.echo = e
 
 	log.Infof("starting search API daemon at: %s", listen)

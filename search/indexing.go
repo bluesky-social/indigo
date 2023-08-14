@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	bsky "github.com/bluesky-social/indigo/api/bsky"
@@ -17,7 +19,7 @@ import (
 func (s *Server) deletePost(ctx context.Context, u *User, path string) error {
 	log.Infof("deleting post: %s", path)
 	req := esapi.DeleteRequest{
-		Index:      "posts",
+		Index:      s.postIndex,
 		DocumentID: encodeDocumentID(u.ID, path),
 		Refresh:    "true",
 	}
@@ -32,10 +34,20 @@ func (s *Server) deletePost(ctx context.Context, u *User, path string) error {
 	return nil
 }
 
-func (s *Server) indexPost(ctx context.Context, u *User, rec *bsky.FeedPost, tid string, pcid cid.Cid) error {
+func (s *Server) indexPost(ctx context.Context, u *User, rec *bsky.FeedPost, path string, pcid cid.Cid) error {
+
+	parts := strings.SplitN(path, "/", 3)
+	var tidRegex = regexp.MustCompile(`^[234567abcdefghijklmnopqrstuvwxyz]{13}$`)
+	if len(parts) != 2 || !tidRegex.MatchString(parts[1]) {
+		log.Warnf("Skipping post record with weird path/TID did=%s path=%s", u.Did, path)
+		return nil
+	}
+	rkey := parts[1]
+
+	// TODO: just skip this part?
 	if err := s.db.Create(&PostRef{
 		Cid: pcid.String(),
-		Tid: tid,
+		Tid: rkey,
 		Uid: u.ID,
 	}).Error; err != nil {
 		return err
@@ -44,10 +56,10 @@ func (s *Server) indexPost(ctx context.Context, u *User, rec *bsky.FeedPost, tid
 	// TODO: is this needed? what happens if we try to index w/ invalid timestamp?
 	_, err := time.Parse(util.ISO8601, rec.CreatedAt)
 	if err != nil {
-		return fmt.Errorf("post (%d, %s) had invalid timestamp (%q): %w", u.ID, tid, rec.CreatedAt, err)
+		return fmt.Errorf("post (%d, %s) had invalid timestamp (%q): %w", u.ID, rkey, rec.CreatedAt, err)
 	}
 
-	doc := TransformPost(rec, u, tid, pcid.String())
+	doc := TransformPost(rec, u, rkey, pcid.String())
 	b, err := json.Marshal(doc)
 	if err != nil {
 		return err
@@ -55,7 +67,7 @@ func (s *Server) indexPost(ctx context.Context, u *User, rec *bsky.FeedPost, tid
 
 	log.Infof("Indexing post")
 	req := esapi.IndexRequest{
-		Index:      "posts",
+		Index:      s.postIndex,
 		DocumentID: doc.DocId(),
 		Body:       bytes.NewReader(b),
 		Refresh:    "true",
@@ -71,10 +83,11 @@ func (s *Server) indexPost(ctx context.Context, u *User, rec *bsky.FeedPost, tid
 	return nil
 }
 
-func (s *Server) indexProfile(ctx context.Context, u *User, rec *bsky.ActorProfile, rkey string, pcid cid.Cid) error {
+func (s *Server) indexProfile(ctx context.Context, u *User, rec *bsky.ActorProfile, path string, pcid cid.Cid) error {
 
-	if rkey != "self" {
-		log.Warnf("Skipping non-canonical profile record  did=%s rkey=%s", u.Did, rkey)
+	parts := strings.SplitN(path, "/", 3)
+	if len(parts) != 2 || parts[1] != "self" {
+		log.Warnf("Skipping non-canonical profile record  did=%s path=%s", u.Did, path)
 		return nil
 	}
 
@@ -90,7 +103,7 @@ func (s *Server) indexProfile(ctx context.Context, u *User, rec *bsky.ActorProfi
 		return err
 	}
 	req := esapi.IndexRequest{
-		Index:      "profiles",
+		Index:      s.profileIndex,
 		DocumentID: fmt.Sprint(u.ID),
 		Body:       bytes.NewReader(b),
 		Refresh:    "true",
@@ -131,7 +144,7 @@ func (s *Server) updateUserHandle(ctx context.Context, did, handle string) error
 	}
 
 	req := esapi.UpdateRequest{
-		Index:      "profiles",
+		Index:      s.profileIndex,
 		DocumentID: fmt.Sprint(u.ID),
 		Body:       bytes.NewReader(b),
 		Refresh:    "true",
