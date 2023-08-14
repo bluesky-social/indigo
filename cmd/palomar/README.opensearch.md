@@ -1,7 +1,10 @@
 
 # Basic OpenSearch Operations
 
-We use OpenSearch version 2.5, with the built-in `analysis-icu`.
+We use OpenSearch version 2.5, with the `analysis-icu` plugin. This is included automatically on the AWS hosted version of Opensearch, otherwise you need to install:
+
+    sudo /usr/share/opensearch/bin/opensearch-plugin install analysis-icu
+    sudo service opensearch restart
 
 If you are trying to use Elasticsearch 7.10, you can install the plugin with:
 
@@ -10,16 +13,14 @@ If you are trying to use Elasticsearch 7.10, you can install the plugin with:
 
 ## Local Development
 
-Run OpenSearch locally with docker:
+With OpenSearch running locally.
 
-    docker run -p 9200:9200 -p 9600:9600 -e "discovery.type=single-node" opensearchproject/opensearch:2.5.0
-
-Eg, with OpenSearch running locally. Drop and rebuild the schema:
+Drop and rebuild the schema:
 
     http delete :9200/palomar_post
     http delete :9200/palomar_profile
-    http put :9200/palomar_post?include_type_name=true < palomar_post.json
-    http put :9200/palomar_profile?include_type_name=true < palomar_profile.json
+    http put :9200/palomar_post < post_schema.json
+    http put :9200/palomar_profile < profile_schema.json
 
 Put a single object (good for debugging):
 
@@ -79,3 +80,10 @@ actual query string, and "size" field with the max results to return):
 In the results take `.hits.hits[]._source` as the objects; `.hits.total` is the
 total number of search hits.
 
+
+## Index Debugging
+
+Check index size:
+
+    http get :9200/palomar_post/_count
+    http get :9200/palomar_profile/_count

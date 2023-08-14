@@ -1,17 +1,48 @@
 # Palomar
 
-Palomar is an Elasticsearch/OpenSearch frontend and ATP (AT Protocol) repository crawler designed to provide search services for the Bluesky network.
+Palomar is a backend search service for atproto, specifically the `bsky.app` post and profile record types. It works by consuming a repo event stream ("firehose") and upating an Opensearch/Elasticsearch cluster with docs.
 
-## Prerequisites
+Almost all the code for this service is actually in the `search/` directory at the top of this repo.
 
-- GoLang (version 1.21)
-- Running instance of Elasticsearch or OpenSearch for indexing.
+## API
 
-## Building
+### `/search/posts?q=QUERY`
 
-```
-go build
-```
+### `/search/profiles?q=QUERY`
+
+### `/search/profiles-typeahead?q=QUERY`
+
+
+## Development Quickstart
+
+Run an ephemeral opensearch instance on local port 9200, with SSL disabled, and the `analysis-icu` plugin installed, using docker:
+
+    docker build -f Dockerfile.opensearch . -t opensearch-palomar
+    docker run -p 9200:9200 -p 9600:9600 -e "discovery.type=single-node" -e "plugins.security.disabled=true" opensearch-palomar
+
+In this directory, use HTTPie to create indices:
+
+    #http --verify no put https://admin:admin@localhost:9200/palomar_post < post_schema.json
+    #http --verify no put https://admin:admin@localhost:9200/palomar_profile < profile_schema.json
+    http put http://admin:admin@localhost:9200/palomar_post < post_schema.json
+    http put http://admin:admin@localhost:9200/palomar_profile < profile_schema.json
+
+See [README.opensearch.md]() for more Opensearch operational tips.
+
+From the top level of the repository:
+
+    # run combined indexing and search service
+    make run-dev-search
+
+    # run just the search service
+    READONLY=true make run-dev-search
+
+You'll need to get some content in to the index. An easy way to do this is to have palomar consume from the public production firehose.
+
+You can run test queries from the top level of the repository:
+
+    go run ./cmd/palomar search-post "hello"
+    go run ./cmd/palomar search-profile "hello"
 
 ## Configuration
 
