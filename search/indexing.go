@@ -41,17 +41,14 @@ func (s *Server) indexPost(ctx context.Context, u *User, rec *bsky.FeedPost, tid
 		return err
 	}
 
-	ts, err := time.Parse(util.ISO8601, rec.CreatedAt)
+	// TODO: is this needed? what happens if we try to index w/ invalid timestamp?
+	_, err := time.Parse(util.ISO8601, rec.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("post (%d, %s) had invalid timestamp (%q): %w", u.ID, tid, rec.CreatedAt, err)
 	}
 
-	blob := map[string]any{
-		"text":      rec.Text,
-		"createdAt": ts.UnixNano(),
-		"user":      u.Handle,
-	}
-	b, err := json.Marshal(blob)
+	doc := TransformPost(rec, u, tid, pcid.String())
+	b, err := json.Marshal(doc)
 	if err != nil {
 		return err
 	}
@@ -59,7 +56,7 @@ func (s *Server) indexPost(ctx context.Context, u *User, rec *bsky.FeedPost, tid
 	log.Infof("Indexing post")
 	req := esapi.IndexRequest{
 		Index:      "posts",
-		DocumentID: encodeDocumentID(u.ID, tid),
+		DocumentID: doc.DocId(),
 		Body:       bytes.NewReader(b),
 		Refresh:    "true",
 	}
@@ -74,28 +71,24 @@ func (s *Server) indexPost(ctx context.Context, u *User, rec *bsky.FeedPost, tid
 	return nil
 }
 
-func (s *Server) indexProfile(ctx context.Context, u *User, rec *bsky.ActorProfile) error {
-	b, err := json.Marshal(rec)
-	if err != nil {
-		return err
+func (s *Server) indexProfile(ctx context.Context, u *User, rec *bsky.ActorProfile, rkey string, pcid cid.Cid) error {
+
+	if rkey != "self" {
+		log.Warnf("Skipping non-canonical profile record  did=%s rkey=%s", u.Did, rkey)
+		return nil
 	}
 
 	n := ""
 	if rec.DisplayName != nil {
 		n = *rec.DisplayName
 	}
-
-	blob := map[string]string{
-		"displayName": n,
-		"handle":      u.Handle,
-		"did":         u.Did,
-	}
-
-	if rec.Description != nil {
-		blob["description"] = *rec.Description
-	}
-
 	log.Infof("Indexing profile: %s", n)
+
+	doc := TransformProfile(rec, u, pcid.String())
+	b, err := json.Marshal(doc)
+	if err != nil {
+		return err
+	}
 	req := esapi.IndexRequest{
 		Index:      "profiles",
 		DocumentID: fmt.Sprint(u.ID),
