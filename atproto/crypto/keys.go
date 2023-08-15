@@ -300,6 +300,9 @@ func ParsePublicMultibase(encoded string) (*PublicKey, error) {
 	if err != nil {
 		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
 	}
+	if len(data) < 3 {
+		return nil, fmt.Errorf("crypto: multibase key was too short")
+	}
 	if data[0] == 0x80 && data[1] == 0x24 {
 		// multicodec p256-pub, code 0x1200, varint-encoded bytes: [0x80, 0x24]
 		return ParsePublicBytes(data[2:], P256)
@@ -307,7 +310,7 @@ func ParsePublicMultibase(encoded string) (*PublicKey, error) {
 		// multicodec secp256k1-pub, code 0xE7, varint bytes: [0xE7, 0x01]
 		return ParsePublicBytes(data[2:], K256)
 	} else {
-		return nil, fmt.Errorf("unexpected did:key multicode value")
+		return nil, fmt.Errorf("unexpected multicode code for multibase-encoded key")
 	}
 }
 
