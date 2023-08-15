@@ -467,7 +467,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 	defer cancel()
 
 	// TODO: authhhh
-	conn, err := websocket.Upgrade(c.Response(), c.Request(), c.Response().Header(), 1<<10, 1<<10)
+	conn, err := websocket.Upgrade(c.Response(), c.Request(), c.Response().Header(), 10<<10, 10<<10)
 	if err != nil {
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
@@ -513,6 +513,18 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		}
 		return err
 	})
+
+	// Start a goroutine to read messages from the client and discard them.
+	go func() {
+		for {
+			_, _, err := conn.ReadMessage()
+			if err != nil {
+				log.Errorf("failed to read message from client: %s", err)
+				cancel()
+				return
+			}
+		}
+	}()
 
 	ident := c.RealIP() + "-" + c.Request().UserAgent()
 
