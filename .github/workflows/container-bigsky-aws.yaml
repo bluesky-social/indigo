@@ -9,6 +9,7 @@ env:
 
 jobs:
   container-bigsky-aws:
+    if: github.repository == 'bluesky-social/indigo'
     runs-on: ubuntu-latest
     permissions:
       contents: read
