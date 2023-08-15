@@ -1,4 +1,4 @@
-name: container-labelmaker-ghcr.yaml
+name: container-labelmaker-ghcr
 on:
   push:
     branches:
@@ -10,7 +10,8 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build:
+  container-labelmaker-ghcr:
+    if: github.repository == 'bluesky-social/indigo'
     runs-on: ubuntu-latest
     permissions:
       contents: read

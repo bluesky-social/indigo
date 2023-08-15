@@ -1,4 +1,4 @@
-name: container-beemo-ghcr.yaml
+name: container-beemo-ghcr
 on:
   push:
     branches:
@@ -9,7 +9,8 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build:
+  container-beemo-ghcr:
+    if: github.repository == 'bluesky-social/indigo'
     runs-on: ubuntu-latest
     permissions:
       contents: read
