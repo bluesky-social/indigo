@@ -159,12 +159,12 @@ func ReadAuth(fname string) (*xrpc.AuthInfo, error) {
 // - "sqlite://file.sqlite"
 // - "postgres=host=localhost user=postgres password=password dbname=pdsdb port=5432 sslmode=disable"
 // - "postgresql://postgres:password@localhost:5432/pdsdb?sslmode=disable"
-func SetupDatabase(dburl string) (*gorm.DB, error) {
+func SetupDatabase(dburl string, maxConnections int) (*gorm.DB, error) {
 	var dial gorm.Dialector
 	// NOTE(bnewbold): might also handle file:// as sqlite, but let's keep it
 	// explicit for now
 
-	openConns := 40
+	openConns := maxConnections
 	if strings.HasPrefix(dburl, "sqlite://") {
 		sqliteSuffix := dburl[len("sqlite://"):]
 		// if this isn't ":memory:", ensure that directory exists (eg, if db

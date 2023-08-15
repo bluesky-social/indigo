@@ -85,6 +85,16 @@ func run(args []string) {
 			Value:   ".test",
 			EnvVars: []string{"ATP_PDS_HANDLE_DOMAINS"},
 		},
+		&cli.IntFlag{
+			Name:    "max-carstore-connections",
+			EnvVars: []string{"MAX_CARSTORE_CONNECTIONS"},
+			Value:   40,
+		},
+		&cli.IntFlag{
+			Name:    "max-metadb-connections",
+			EnvVars: []string{"MAX_METADB_CONNECTIONS"},
+			Value:   40,
+		},
 	}
 
 	app.Commands = []*cli.Command{
@@ -128,13 +138,13 @@ func run(args []string) {
 		os.MkdirAll(csdir, os.ModePerm)
 
 		// default postgres setup: postgresql://postgres:password@localhost:5432/pdsdb?sslmode=disable
-		db, err := cliutil.SetupDatabase(cctx.String("db-url"))
+		db, err := cliutil.SetupDatabase(cctx.String("db-url"), cctx.Int("max-metadb-connections"))
 		if err != nil {
 			return err
 		}
 
 		// default postgres setup: postgresql://postgres:password@localhost:5432/cardb?sslmode=disable
-		csdb, err := cliutil.SetupDatabase(cctx.String("carstore-db-url"))
+		csdb, err := cliutil.SetupDatabase(cctx.String("carstore-db-url"), cctx.Int("max-carstore-connections"))
 		if err != nil {
 			return err
 		}

@@ -90,6 +90,11 @@ func run(args []string) error {
 			Value:   "https://bsky.social",
 			EnvVars: []string{"ATP_PDS_HOST"},
 		},
+		&cli.IntFlag{
+			Name:    "max-metadb-connections",
+			EnvVars: []string{"MAX_METADB_CONNECTIONS"},
+			Value:   40,
+		},
 	}
 
 	app.Commands = []*cli.Command{
@@ -123,7 +128,7 @@ var runCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-		db, err := cliutil.SetupDatabase(cctx.String("database-url"))
+		db, err := cliutil.SetupDatabase(cctx.String("database-url"), cctx.Int("max-metadb-connections"))
 		if err != nil {
 			return err
 		}
