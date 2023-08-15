@@ -39,7 +39,7 @@ func testCarStore(t *testing.T, db *gorm.DB) (*carstore.CarStore, func()) {
 
 func newTestServer(t *testing.T) (*Server, func()) {
 	t.Helper()
-	db, err := cliutil.SetupDatabase("sqlite://:memory:")
+	db, err := cliutil.SetupDatabase("sqlite://:memory:", 40)
 	if err != nil {
 		t.Fatal(err)
 	}

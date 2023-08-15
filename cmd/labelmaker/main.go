@@ -141,6 +141,16 @@ func run(args []string) error {
 			Usage:   "SQRL API endpoint (full URL)",
 			EnvVars: []string{"LABELMAKER_SQRL_URL"},
 		},
+		&cli.IntFlag{
+			Name:    "max-carstore-connections",
+			EnvVars: []string{"MAX_CARSTORE_CONNECTIONS"},
+			Value:   40,
+		},
+		&cli.IntFlag{
+			Name:    "max-metadb-connections",
+			EnvVars: []string{"MAX_METADB_CONNECTIONS"},
+			Value:   40,
+		},
 	}
 
 	app.Action = func(cctx *cli.Context) error {
@@ -152,13 +162,13 @@ func run(args []string) error {
 		repoKeyPath := filepath.Join(datadir, "labelmaker.key")
 
 		dburl := cctx.String("db-url")
-		db, err := cliutil.SetupDatabase(dburl)
+		db, err := cliutil.SetupDatabase(dburl, cctx.Int("max-metadb-connections"))
 		if err != nil {
 			return err
 		}
 
 		csdburl := cctx.String("carstore-db-url")
-		csdb, err := cliutil.SetupDatabase(csdburl)
+		csdb, err := cliutil.SetupDatabase(csdburl, cctx.Int("max-carstore-connections"))
 		if err != nil {
 			return err
 		}
