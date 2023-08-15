@@ -13,6 +13,8 @@ import (
 // AdminDisableAccountInvites_Input is the input argument to a com.atproto.admin.disableAccountInvites call.
 type AdminDisableAccountInvites_Input struct {
 	Account string `json:"account" cborgen:"account"`
+	// note: Additionally add a note describing why the invites were disabled
+	Note *string `json:"note,omitempty" cborgen:"note,omitempty"`
 }
 
 // AdminDisableAccountInvites calls the XRPC method "com.atproto.admin.disableAccountInvites".

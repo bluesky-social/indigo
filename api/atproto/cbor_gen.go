@@ -1582,3 +1582,243 @@ func (t *SyncSubscribeRepos_Tombstone) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
+func (t *LabelDefs_SelfLabels) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{162}); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("com.atproto.label.defs"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("com.atproto.label.defs")); err != nil {
+		return err
+	}
+
+	// t.Values ([]*atproto.LabelDefs_SelfLabel) (slice)
+	if len("values") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"values\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("values"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("values")); err != nil {
+		return err
+	}
+
+	if len(t.Values) > cbg.MaxLength {
+		return xerrors.Errorf("Slice value in field t.Values was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Values))); err != nil {
+		return err
+	}
+	for _, v := range t.Values {
+		if err := v.MarshalCBOR(cw); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *LabelDefs_SelfLabels) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = LabelDefs_SelfLabels{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("LabelDefs_SelfLabels: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Values ([]*atproto.LabelDefs_SelfLabel) (slice)
+		case "values":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > cbg.MaxLength {
+				return fmt.Errorf("t.Values: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Values = make([]*LabelDefs_SelfLabel, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+
+				var v LabelDefs_SelfLabel
+				if err := v.UnmarshalCBOR(cr); err != nil {
+					return err
+				}
+
+				t.Values[i] = &v
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *LabelDefs_SelfLabel) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{161}); err != nil {
+		return err
+	}
+
+	// t.Val (string) (string)
+	if len("val") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"val\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("val"))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string("val")); err != nil {
+		return err
+	}
+
+	if len(t.Val) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Val was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Val))); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, string(t.Val)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *LabelDefs_SelfLabel) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = LabelDefs_SelfLabel{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("LabelDefs_SelfLabel: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.Val (string) (string)
+		case "val":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Val = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}

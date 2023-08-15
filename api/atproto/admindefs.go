@@ -257,6 +257,7 @@ type AdminDefs_RepoView struct {
 	Email           *string                    `json:"email,omitempty" cborgen:"email,omitempty"`
 	Handle          string                     `json:"handle" cborgen:"handle"`
 	IndexedAt       string                     `json:"indexedAt" cborgen:"indexedAt"`
+	InviteNote      *string                    `json:"inviteNote,omitempty" cborgen:"inviteNote,omitempty"`
 	InvitedBy       *ServerDefs_InviteCode     `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
 	InvitesDisabled *bool                      `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
 	Moderation      *AdminDefs_Moderation      `json:"moderation" cborgen:"moderation"`
@@ -269,6 +270,7 @@ type AdminDefs_RepoViewDetail struct {
 	Email           *string                     `json:"email,omitempty" cborgen:"email,omitempty"`
 	Handle          string                      `json:"handle" cborgen:"handle"`
 	IndexedAt       string                      `json:"indexedAt" cborgen:"indexedAt"`
+	InviteNote      *string                     `json:"inviteNote,omitempty" cborgen:"inviteNote,omitempty"`
 	InvitedBy       *ServerDefs_InviteCode      `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
 	Invites         []*ServerDefs_InviteCode    `json:"invites,omitempty" cborgen:"invites,omitempty"`
 	InvitesDisabled *bool                       `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`

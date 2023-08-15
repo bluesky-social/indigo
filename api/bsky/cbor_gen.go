@@ -27,7 +27,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 8
+	fieldCount := 9
 
 	if t.Embed == nil {
 		fieldCount--
@@ -38,6 +38,10 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	}
 
 	if t.Facets == nil {
+		fieldCount--
+	}
+
+	if t.Labels == nil {
 		fieldCount--
 	}
 
@@ -193,6 +197,25 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 			if err := v.MarshalCBOR(cw); err != nil {
 				return err
 			}
+		}
+	}
+
+	// t.Labels (bsky.FeedPost_Labels) (struct)
+	if t.Labels != nil {
+
+		if len("labels") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"labels\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("labels"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("labels")); err != nil {
+			return err
+		}
+
+		if err := t.Labels.MarshalCBOR(cw); err != nil {
+			return err
 		}
 	}
 
@@ -411,6 +434,26 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 				t.Facets[i] = &v
 			}
 
+			// t.Labels (bsky.FeedPost_Labels) (struct)
+		case "labels":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Labels = new(FeedPost_Labels)
+					if err := t.Labels.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Labels pointer: %w", err)
+					}
+				}
+
+			}
 			// t.Entities ([]*bsky.FeedPost_Entity) (slice)
 		case "entities":
 
@@ -1853,7 +1896,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 5
+	fieldCount := 6
 
 	if t.Avatar == nil {
 		fieldCount--
@@ -1868,6 +1911,10 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	}
 
 	if t.DisplayName == nil {
+		fieldCount--
+	}
+
+	if t.Labels == nil {
 		fieldCount--
 	}
 
@@ -1928,6 +1975,25 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 		}
 
 		if err := t.Banner.MarshalCBOR(cw); err != nil {
+			return err
+		}
+	}
+
+	// t.Labels (bsky.ActorProfile_Labels) (struct)
+	if t.Labels != nil {
+
+		if len("labels") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"labels\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("labels"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("labels")); err != nil {
+			return err
+		}
+
+		if err := t.Labels.MarshalCBOR(cw); err != nil {
 			return err
 		}
 	}
@@ -2083,6 +2149,26 @@ func (t *ActorProfile) UnmarshalCBOR(r io.Reader) (err error) {
 					t.Banner = new(util.LexBlob)
 					if err := t.Banner.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.Banner pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Labels (bsky.ActorProfile_Labels) (struct)
+		case "labels":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Labels = new(ActorProfile_Labels)
+					if err := t.Labels.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Labels pointer: %w", err)
 					}
 				}
 
@@ -3472,7 +3558,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 7
+	fieldCount := 8
 
 	if t.Avatar == nil {
 		fieldCount--
@@ -3483,6 +3569,10 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 	}
 
 	if t.DescriptionFacets == nil {
+		fieldCount--
+	}
+
+	if t.Labels == nil {
 		fieldCount--
 	}
 
@@ -3547,6 +3637,25 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 		}
 
 		if err := t.Avatar.MarshalCBOR(cw); err != nil {
+			return err
+		}
+	}
+
+	// t.Labels (bsky.GraphList_Labels) (struct)
+	if t.Labels != nil {
+
+		if len("labels") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"labels\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("labels"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("labels")); err != nil {
+			return err
+		}
+
+		if err := t.Labels.MarshalCBOR(cw); err != nil {
 			return err
 		}
 	}
@@ -3741,6 +3850,26 @@ func (t *GraphList) UnmarshalCBOR(r io.Reader) (err error) {
 					t.Avatar = new(util.LexBlob)
 					if err := t.Avatar.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.Avatar pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Labels (bsky.GraphList_Labels) (struct)
+		case "labels":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Labels = new(GraphList_Labels)
+					if err := t.Labels.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Labels pointer: %w", err)
 					}
 				}
 
@@ -4036,7 +4165,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 7
+	fieldCount := 8
 
 	if t.Avatar == nil {
 		fieldCount--
@@ -4047,6 +4176,10 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	}
 
 	if t.DescriptionFacets == nil {
+		fieldCount--
+	}
+
+	if t.Labels == nil {
 		fieldCount--
 	}
 
@@ -4111,6 +4244,25 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 		}
 
 		if err := t.Avatar.MarshalCBOR(cw); err != nil {
+			return err
+		}
+	}
+
+	// t.Labels (bsky.FeedGenerator_Labels) (struct)
+	if t.Labels != nil {
+
+		if len("labels") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"labels\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("labels"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("labels")); err != nil {
+			return err
+		}
+
+		if err := t.Labels.MarshalCBOR(cw); err != nil {
 			return err
 		}
 	}
@@ -4299,6 +4451,26 @@ func (t *FeedGenerator) UnmarshalCBOR(r io.Reader) (err error) {
 					t.Avatar = new(util.LexBlob)
 					if err := t.Avatar.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.Avatar pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Labels (bsky.FeedGenerator_Labels) (struct)
+		case "labels":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Labels = new(FeedGenerator_Labels)
+					if err := t.Labels.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Labels pointer: %w", err)
 					}
 				}
 

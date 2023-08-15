@@ -56,7 +56,17 @@ func main() {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("api/atproto/cbor_gen.go", "atproto", atproto.RepoStrongRef{}, atproto.SyncSubscribeRepos_Commit{}, atproto.SyncSubscribeRepos_Handle{}, atproto.SyncSubscribeRepos_Info{}, atproto.SyncSubscribeRepos_Migrate{}, atproto.SyncSubscribeRepos_RepoOp{}, atproto.SyncSubscribeRepos_Tombstone{}); err != nil {
+	if err := cbg.WriteMapEncodersToFile("api/atproto/cbor_gen.go", "atproto",
+		atproto.RepoStrongRef{},
+		atproto.SyncSubscribeRepos_Commit{},
+		atproto.SyncSubscribeRepos_Handle{},
+		atproto.SyncSubscribeRepos_Info{},
+		atproto.SyncSubscribeRepos_Migrate{},
+		atproto.SyncSubscribeRepos_RepoOp{},
+		atproto.SyncSubscribeRepos_Tombstone{},
+		atproto.LabelDefs_SelfLabels{},
+		atproto.LabelDefs_SelfLabel{},
+	); err != nil {
 		panic(err)
 	}
 
