@@ -467,7 +467,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 	defer cancel()
 
 	// TODO: authhhh
-	conn, err := websocket.Upgrade(c.Response(), c.Request(), c.Response().Header(), 1<<20, 1<<20)
+	conn, err := websocket.Upgrade(c.Response(), c.Request(), c.Response().Header(), 10<<10, 10<<10)
 	if err != nil {
 		return fmt.Errorf("upgrading websocket: %w", err)
 	}
