@@ -15,11 +15,11 @@ type ProfileDoc struct {
 	Did         string   `json:"did"`
 	RecordCid   string   `json:"record_cid"`
 	Handle      string   `json:"handle"`
-	DisplayName *string  `json:"display_name",omitempty`
-	Description *string  `json:"description",omitempty`
-	ImgAltText  []string `json:"img_alt_text",omitempty`
-	Hashtag     []string `json:"hashtag",omitempty`
-	Emoji       []string `json:"emoji",omitempty`
+	DisplayName *string  `json:"display_name,omitempty"`
+	Description *string  `json:"description,omitempty"`
+	ImgAltText  []string `json:"img_alt_text,omitempty"`
+	Hashtag     []string `json:"hashtag,omitempty"`
+	Emoji       []string `json:"emoji,omitempty"`
 	HasAvatar   bool     `json:"has_avatar"`
 	HasBanner   bool     `json:"has_banner"`
 }
@@ -32,17 +32,17 @@ type PostDoc struct {
 	Handle          string   `json:"handle"`
 	CreatedAt       string   `json:"created_at"`
 	Text            string   `json:"text"`
-	LangCode        []string `json:"lang_code",omitempty`
-	LangCodeIso2    []string `json:"lang_code_iso2",omitempty`
-	MentionDid      []string `json:"mention_did",omitempty`
-	LinkUrl         []string `json:"link_url",omitempty`
-	EmbedUrl        *string  `json:"embed_url",omitempty`
-	EmbedAturi      *string  `json:"embed_aturi",omitempty`
-	ReplyRootAturi  *string  `json:"reply_root_aturi",omitempty`
+	LangCode        []string `json:"lang_code,omitempty"`
+	LangCodeIso2    []string `json:"lang_code_iso2,omitempty"`
+	MentionDid      []string `json:"mention_did,omitempty"`
+	LinkUrl         []string `json:"link_url,omitempty"`
+	EmbedUrl        *string  `json:"embed_url,omitempty"`
+	EmbedAturi      *string  `json:"embed_aturi,omitempty"`
+	ReplyRootAturi  *string  `json:"reply_root_aturi,omitempty"`
 	EmbedImgCount   int      `json:"embed_img_count"`
-	EmbedImgAltText []string `json:"embed_img_alt_text",omitempty`
-	Hashtag         []string `json:"hashtag",omitempty`
-	Emoji           []string `json:"emoji",omitempty`
+	EmbedImgAltText []string `json:"embed_img_alt_text,omitempty"`
+	Hashtag         []string `json:"hashtag,omitempty"`
+	Emoji           []string `json:"emoji,omitempty"`
 }
 
 // Returns the search index document ID (`_id`) for this document.
