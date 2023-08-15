@@ -7,52 +7,74 @@ import (
 	"github.com/mr-tron/base58"
 )
 
+// Common interface for private keys of all the supported cryptographic systems in the atproto ecosystem, in a format which may or may not have secret key material directly available in memory to be exported as bytes.
 type PrivateKey interface {
+	Equal(other PrivateKey) bool
+
+	// Returns the public key for this private key. Verifies that the public
+	// key is valid and will be possible to encode as bytes or a string later.
 	Public() (PublicKey, error)
+
+	// First hashes the raw bytes, then signs the digest, returning a binary
+	// signature. SHA-256 is the hash algorithm used, as specified by atproto.
+	// This method always returns a "low-S" signature, as required by atproto.
 	HashAndSign(content []byte) ([]byte, error)
 }
 
+// Common interface for private keys of all the supported cryptographic systems in the atproto ecosystem, in a format which does have secret key material directly available in memory to be exported as bytes.
 type PrivateKeyExportable interface {
+	Equal(other PrivateKey) bool
+
+	// Outputs an untyped (no multicodec) compact encoding of the secret key
+	// material. The encoding format is curve-specific, and is generally
+	// "compact" for private keys. Both P-256 and K-256 private keys end up 32
+	// bytes long. There is no ASN.1 or other enclosing structure to the binary
+	// encoding.
 	Bytes() []byte
-	Equal(other PrivateKeyExportable) bool
+
+	// Same as PrivateKey.Public()
 	Public() (PublicKey, error)
+
+	// Same as PrivateKey.HashAndSign()
 	HashAndSign(content []byte) ([]byte, error)
 }
 
+// Common interface for public keys of all the supported cryptographic systems in the atproto ecosystem.
 type PublicKey interface {
-	UncompressedBytes() []byte
-	Bytes() []byte
 	Equal(other PublicKey) bool
+
+	// Outputs a compact byte serialization of this key.
+	Bytes() []byte
+
+	// Hashes content bytes with SHA-256, then verifies the signature of the
+	// digest.
 	HashAndVerify(content, sig []byte) error
+
+	// String serialization of the public key using common parameters:
+	// compressed byte serialization; multicode varint code prefix; base58btc
+	// string encoding ("z" prefix)
 	Multibase() string
+
+	// String serialization of the public key as did:key.
 	DidKey() string
 
-	// these are likely to be deprecated
-	LegacyDidDocSuite() string
-	LegacyMultibase() string
-}
+	// Outputs a non-compact byte serialization of this key. This is not used
+	// frequently, or directly in atproto, but some serializations and
+	// encodings require it.
+	// For curves with no compressed/uncompressed distinction, returns the same
+	// value as Bytes().
+	UncompressedBytes() []byte
 
-// Parses a public key in multibase encoding, as would be found in a older DID Document `verificationMethod` section.
-//
-// This implementation does not handle the many possible multibase encodings (eg, base32), only the base58btc encoding that would be found in a DID Document.
-//
-// This function is deprecated!
-func ParsePublicLegacyMultibase(encoded string, didDocSuite string) (PublicKey, error) {
-	if len(encoded) < 2 || encoded[0] != 'z' {
-		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
-	}
-	data, err := base58.Decode(encoded[1:])
-	if err != nil {
-		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
-	}
-	switch didDocSuite {
-	case "EcdsaSecp256r1VerificationKey2019":
-		return ParsePublicUncompressedBytesP256(data)
-	case "EcdsaSecp256k1VerificationKey2019":
-		return ParsePublicUncompressedBytesK256(data)
-	default:
-		return nil, fmt.Errorf("unhandled legacy crypto suite: %s", didDocSuite)
-	}
+	// Outputs a DID cryptographic suite type name for this curve, as used in
+	// some DID documents.
+	// This method may be removed in the future.
+	LegacyDidDocSuite() string
+
+	// Helper to serialize in a format used in older DID documents:
+	// uncompressed byte encoding, no multicodec prefix, base58btc multibase
+	// string encoding ("z" prefix)
+	// This method may be removed in the future.
+	LegacyMultibase() string
 }
 
 // Parses a public key from multibase encoding, with multicodec indicating the key type.
@@ -74,7 +96,7 @@ func ParsePublicMultibase(encoded string) (PublicKey, error) {
 		// multicodec secp256k1-pub, code 0xE7, varint bytes: [0xE7, 0x01]
 		return ParsePublicBytesK256(data[2:])
 	} else {
-		return nil, fmt.Errorf("unexpected multicode code for multibase-encoded key")
+		return nil, fmt.Errorf("unsupported atproto key type (unknown multicodec prefix)")
 	}
 }
 
@@ -87,4 +109,25 @@ func ParsePublicDidKey(didKey string) (PublicKey, error) {
 	}
 	mb := strings.TrimPrefix(didKey, "did:key:")
 	return ParsePublicMultibase(mb)
+}
+
+// Parses a public key in multibase encoding, as would be found in a older DID Document `verificationMethod` section: uncompressed binary, no multicodec prefix, and base58btc multibase string encoding.
+//
+// This function is likely to be deprecated and removed.
+func ParsePublicLegacyMultibase(encoded string, didDocSuite string) (PublicKey, error) {
+	if len(encoded) < 2 || encoded[0] != 'z' {
+		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
+	}
+	data, err := base58.Decode(encoded[1:])
+	if err != nil {
+		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
+	}
+	switch didDocSuite {
+	case "EcdsaSecp256r1VerificationKey2019":
+		return ParsePublicUncompressedBytesP256(data)
+	case "EcdsaSecp256k1VerificationKey2019":
+		return ParsePublicUncompressedBytesK256(data)
+	default:
+		return nil, fmt.Errorf("unhandled legacy crypto suite: %s", didDocSuite)
+	}
 }

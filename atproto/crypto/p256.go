@@ -13,16 +13,18 @@ import (
 	"github.com/mr-tron/base58"
 )
 
-// P-256 / secp256r1 / ES256
+// Implements the [PrivateKeyExportable] and [PrivateKey] interfaces for the NIST P-256 / secp256r1 / ES256 cryptographic curve.
+// Secret key material is naively stored in memory.
 type PrivateKeyP256 struct {
 	privP256 *ecdsa.PrivateKey
 }
 
+// Implements the [PublicKey] interface for the NIST P-256 / secp256r1 / ES256 cryptographic curve.
 type PublicKeyP256 struct {
 	pubP256 *ecdsa.PublicKey
 }
 
-// Creates a secure new cryptographic key from scratch, with the indicated curve type.
+// Creates a secure new cryptographic key from scratch.
 func GeneratePrivateKeyP256() (*PrivateKeyP256, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -36,7 +38,7 @@ func GeneratePrivateKeyP256() (*PrivateKeyP256, error) {
 	return &priv, nil
 }
 
-// Loads a [PrivateKey] of the indicated curve type from raw bytes, as exported by the [PrivateKey.Bytes()] method.
+// Loads a [PrivateKeyP256] from raw bytes, as exported by the PrivateKeyP256.Bytes method.
 //
 // Calling code needs to know the key type ahead of time, and must remove any string encoding (hex encoding, base64, etc) before calling this function.
 func ParsePrivateBytesP256(data []byte) (*PrivateKeyP256, error) {
@@ -63,7 +65,7 @@ func ParsePrivateBytesP256(data []byte) (*PrivateKeyP256, error) {
 }
 
 // Checks if the two private keys are the same. Note that the naive == operator does not work for most equality checks.
-func (k *PrivateKeyP256) Equal(other PrivateKeyExportable) bool {
+func (k *PrivateKeyP256) Equal(other PrivateKey) bool {
 	otherP256, ok := other.(*PrivateKeyP256)
 	if ok {
 		return k.privP256.Equal(otherP256.privP256)
@@ -71,7 +73,24 @@ func (k *PrivateKeyP256) Equal(other PrivateKeyExportable) bool {
 	return false
 }
 
-// Outputs the PublicKey corresponding to this PrivateKey.
+// internal helper which checks that they key will be possible to export later
+func (k *PrivateKeyP256) ensureBytes() error {
+	_, err := k.privP256.ECDH()
+	return err
+}
+
+// Serializes the secret key material in to a raw binary format, which can be parsed by [ParsePrivateBytesP256].
+//
+// For P-256, this is the "compact" encoding and is 32 bytes long. There is no ASN.1 or other enclosing structure.
+func (k *PrivateKeyP256) Bytes() []byte {
+	skEcdh, err := k.privP256.ECDH()
+	if err != nil {
+		panic("unexpected failure to export P-256 private key, after being exportable at parse time")
+	}
+	return skEcdh.Bytes()
+}
+
+// Outputs the [PublicKey] corresponding to this [PrivateKeyP256]; it will be a [PublicKeyP256].
 func (k *PrivateKeyP256) Public() (PublicKey, error) {
 	pub := PublicKeyP256{pubP256: k.privP256.Public().(*ecdsa.PublicKey)}
 	err := pub.ensureBytes()
@@ -81,28 +100,11 @@ func (k *PrivateKeyP256) Public() (PublicKey, error) {
 	return &pub, nil
 }
 
-// internal helper which checks that they key will be possible to export later
-func (k *PrivateKeyP256) ensureBytes() error {
-	_, err := k.privP256.ECDH()
-	return err
-}
-
-// Serializes the secret key material in to a raw binary format, which can be parsed by [ParsePrivateKeyBytes].
-//
-// The encoding format is curve-specific, and is generally "compact" for private keys. Both P-256 and K-256 private keys end up 32 bytes long. There is no ASN.1 or other enclosing structure to the binary encoding.
-func (k *PrivateKeyP256) Bytes() []byte {
-	skEcdh, err := k.privP256.ECDH()
-	if err != nil {
-		panic("unexpected failure to export P-256 private key, after being exportable at parse time")
-	}
-	return skEcdh.Bytes()
-}
-
 // First hashes the raw bytes, then signs the digest, returning a binary signature.
 //
 // SHA-256 is the hash algorithm used, as specified by atproto. Signing digests is the norm for ECDSA, and required by some backend implementations. This method does not "double hash", it simply has name which clarifies that hashing is happening.
 //
-// Calling code is responsible for any string encoding of signatures (eg, hex or base64). Both P-256 and K-256 signatures are 64 bytes long.
+// Calling code is responsible for any string encoding of signatures (eg, hex or base64). For P-256, the signature is 64 bytes long.
 //
 // NIST ECDSA signatures can have a "malleability" issue, meaning that there are multiple valid signatures for the same content with the same signing key. This method always returns a "low-S" signature, as required by atproto.
 func (k *PrivateKeyP256) HashAndSign(content []byte) ([]byte, error) {
@@ -118,7 +120,7 @@ func (k *PrivateKeyP256) HashAndSign(content []byte) ([]byte, error) {
 	return sig, nil
 }
 
-// Loads a [PublicKey] of the indicated curve type from raw bytes, as exported by the [PublicKey.Bytes] method. This is the "compressed" curve format.
+// Loads a [PublicKeyP256] raw bytes, as exported by the PublicKey.Bytes method. This is the "compressed" curve format.
 //
 // Calling code needs to know the key type ahead of time, and must remove any string encoding (hex encoding, base64, etc) before calling this function.
 func ParsePublicBytesP256(data []byte) (*PublicKeyP256, error) {
@@ -143,7 +145,7 @@ func ParsePublicBytesP256(data []byte) (*PublicKeyP256, error) {
 	return &pub, nil
 }
 
-// Loads a [PublicKey] of the indicated curve type from raw bytes, as exported by the [PublicKey.UncompressedBytes] method.
+// Loads a [PublicKeyP256] from raw bytes, as exported by the PublicKey.UncompressedBytes method.
 //
 // Calling code needs to know the key type ahead of time, and must remove any string encoding (hex encoding, base64, etc) before calling this function.
 func ParsePublicUncompressedBytesP256(data []byte) (*PublicKeyP256, error) {
@@ -186,7 +188,7 @@ func (k *PublicKeyP256) ensureBytes() error {
 	return err
 }
 
-// Serializes the [PublicKey] in to "uncompressed" binary format.
+// Serializes the key in to "uncompressed" binary format.
 func (k *PublicKeyP256) UncompressedBytes() []byte {
 	pkEcdh, err := k.pubP256.ECDH()
 	if err != nil {
@@ -195,7 +197,7 @@ func (k *PublicKeyP256) UncompressedBytes() []byte {
 	return pkEcdh.Bytes()
 }
 
-// Serializes the [PublicKey] in to "compressed" binary format.
+// Serializes the key in to "compressed" binary format.
 func (k *PublicKeyP256) Bytes() []byte {
 	return elliptic.MarshalCompressed(k.pubP256.Curve, k.pubP256.X, k.pubP256.Y)
 }
@@ -230,7 +232,7 @@ func (k *PublicKeyP256) HashAndVerify(content, sig []byte) error {
 	return nil
 }
 
-// Returns a multibased string encoding of the public key, including a multicodec indicator and compressed curve bytes serialization
+// Returns a multibase string encoding of the public key, including a multicodec indicator and compressed curve bytes serialization
 func (k *PublicKeyP256) Multibase() string {
 	kbytes := k.Bytes()
 	// multicodec p256-pub, code 0x1200, varint-encoded bytes: [0x80, 0x24]
