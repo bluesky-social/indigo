@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -730,6 +731,27 @@ func (s *Server) HandleSubscribeRepos(c echo.Context) error {
 		return err
 	}
 	defer f.Close()
+
+	// Set a ping handler
+	conn.SetPingHandler(func(message string) error {
+		err := conn.WriteControl(websocket.PongMessage, []byte(message), time.Now().Add(time.Second*60))
+		if err == websocket.ErrCloseSent {
+			return nil
+		} else if e, ok := err.(net.Error); ok && e.Temporary() {
+			return nil
+		}
+		return err
+	})
+
+	// Start a goroutine to read messages from the client and discard them.
+	go func() {
+		for {
+			_, _, err := conn.ReadMessage()
+			if err != nil {
+				return
+			}
+		}
+	}()
 
 	header := cbg.Deferred{}
 	obj := cbg.Deferred{}

@@ -164,7 +164,7 @@ func SetupDatabase(dburl string) (*gorm.DB, error) {
 	// NOTE(bnewbold): might also handle file:// as sqlite, but let's keep it
 	// explicit for now
 
-	openConns := 99
+	openConns := 40
 	if strings.HasPrefix(dburl, "sqlite://") {
 		sqliteSuffix := dburl[len("sqlite://"):]
 		// if this isn't ":memory:", ensure that directory exists (eg, if db
