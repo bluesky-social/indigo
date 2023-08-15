@@ -17,12 +17,13 @@ type FeedGetAuthorFeed_Output struct {
 }
 
 // FeedGetAuthorFeed calls the XRPC method "app.bsky.feed.getAuthorFeed".
-func FeedGetAuthorFeed(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*FeedGetAuthorFeed_Output, error) {
+func FeedGetAuthorFeed(ctx context.Context, c *xrpc.Client, actor string, cursor string, filter string, limit int64) (*FeedGetAuthorFeed_Output, error) {
 	var out FeedGetAuthorFeed_Output
 
 	params := map[string]interface{}{
 		"actor":  actor,
 		"cursor": cursor,
+		"filter": filter,
 		"limit":  limit,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.feed.getAuthorFeed", params, nil, &out); err != nil {

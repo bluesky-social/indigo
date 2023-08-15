@@ -443,7 +443,7 @@ var feedGetCmd = &cli.Command{
 				author = xrpcc.Auth.Did
 			}
 
-			tl, err := appbsky.FeedGetAuthorFeed(ctx, xrpcc, author, "", 99)
+			tl, err := appbsky.FeedGetAuthorFeed(ctx, xrpcc, author, "", "", 99)
 			if err != nil {
 				return err
 			}
