@@ -7,8 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var keyTypes = []KeyType{K256, P256}
-
 func TestKeyBasics(t *testing.T) {
 	assert := assert.New(t)
 
@@ -20,29 +18,46 @@ func TestKeyBasics(t *testing.T) {
 	_, err = rand.Read(bigMsg)
 	assert.NoError(err)
 
-	for _, kt := range keyTypes {
-		// private key generation and encoding
-		priv, err := GeneratePrivateKey(kt)
+	// private key generation and byte serialization (P-256)
+	privP256, err := GeneratePrivateKeyP256()
+	assert.NoError(err)
+	privP256Bytes := privP256.Bytes()
+	privP256FromBytes, err := ParsePrivateBytesP256(privP256Bytes)
+	assert.NoError(err)
+	assert.Equal(privP256, privP256FromBytes)
+
+	// private key generation and byte serialization (K-256)
+	privK256, err := GeneratePrivateKeyK256()
+	assert.NoError(err)
+	privK256Bytes := privK256.Bytes()
+	privK256FromBytes, err := ParsePrivateBytesK256(privK256Bytes)
+	assert.NoError(err)
+	assert.Equal(privK256, privK256FromBytes)
+
+	// public key byte serialization (P-256)
+	pubP256, err := privP256.Public()
+	assert.NoError(err)
+	pubP256CompBytes := pubP256.Bytes()
+	pubP256FromCompBytes, err := ParsePublicBytesP256(pubP256CompBytes)
+	assert.NoError(err)
+	assert.True(pubP256.Equal(pubP256FromCompBytes))
+
+	pubP256UncompBytes := pubP256.UncompressedBytes()
+	pubP256FromUncompBytes, err := ParsePublicUncompressedBytesP256(pubP256UncompBytes)
+	assert.NoError(err)
+	assert.True(pubP256.Equal(pubP256FromUncompBytes))
+
+	pubP256LegacyMultibaseString := pubP256.LegacyMultibase()
+	pubP256LMB, err := ParsePublicLegacyMultibase(pubP256LegacyMultibaseString, "EcdsaSecp256r1VerificationKey2019")
+	assert.NoError(err)
+	assert.True(pubP256.Equal(pubP256LMB))
+
+	both := []PrivateKey{privP256, privK256}
+	for _, priv := range both {
+		pub, err := priv.Public()
 		assert.NoError(err)
-		privBytes, err := priv.Bytes()
-		assert.NoError(err)
-		privFromBytes, err := ParsePrivateKeyBytes(privBytes, kt)
-		assert.NoError(err)
-		assert.Equal(priv, privFromBytes)
 
 		// public key encoding
-		pub := priv.Public()
-
-		pubCompBytes := pub.Bytes()
-		pubFromCompBytes, err := ParsePublicBytes(pubCompBytes, kt)
-		assert.NoError(err)
-		assert.True(pub.Equal(pubFromCompBytes))
-
-		pubUncompBytes := pub.UncompressedBytes()
-		pubFromUncompBytes, err := ParsePublicUncompressedBytes(pubUncompBytes, kt)
-		assert.NoError(err)
-		assert.True(pub.Equal(pubFromUncompBytes))
-
 		pubDidKeyString := pub.DidKey()
 		pubDK, err := ParsePublicDidKey(pubDidKeyString)
 		assert.NoError(err)
@@ -52,11 +67,6 @@ func TestKeyBasics(t *testing.T) {
 		pubMB, err := ParsePublicMultibase(pubMultibaseString)
 		assert.NoError(err)
 		assert.True(pub.Equal(pubMB))
-
-		pubLegacyMultibaseString := pub.LegacyMultibase()
-		pubLMB, err := ParsePublicLegacyMultibase(pubLegacyMultibaseString, kt)
-		assert.NoError(err)
-		assert.True(pub.Equal(pubLMB))
 
 		// signature verification
 		sig, err := priv.HashAndSign(msg)
@@ -79,11 +89,16 @@ func TestLowSMany(t *testing.T) {
 
 	msg := make([]byte, 1024)
 
-	for _, kt := range keyTypes {
-		for i := 0; i < 128; i++ {
-			priv, err := GeneratePrivateKey(kt)
+	for i := 0; i < 128; i++ {
+		privP256, err := GeneratePrivateKeyP256()
+		assert.NoError(err)
+		privK256, err := GeneratePrivateKeyK256()
+		assert.NoError(err)
+
+		both := []PrivateKey{privP256, privK256}
+		for _, priv := range both {
+			pub, err := priv.Public()
 			assert.NoError(err)
-			pub := priv.Public()
 
 			_, err = rand.Read(msg)
 			assert.NoError(err)
@@ -103,11 +118,11 @@ func TestLowSMany(t *testing.T) {
 func TestKeyCompressionP256(t *testing.T) {
 	assert := assert.New(t)
 
-	priv, err := GeneratePrivateKey(P256)
+	priv, err := GeneratePrivateKeyP256()
 	assert.NoError(err)
-	privBytes, err := priv.Bytes()
+	privBytes := priv.Bytes()
+	pub, err := priv.Public()
 	assert.NoError(err)
-	pub := priv.Public()
 	sig, err := priv.HashAndSign([]byte("test-message"))
 	assert.NoError(err)
 
@@ -121,11 +136,11 @@ func TestKeyCompressionP256(t *testing.T) {
 func TestKeyCompressionK256(t *testing.T) {
 	assert := assert.New(t)
 
-	priv, err := GeneratePrivateKey(K256)
+	priv, err := GeneratePrivateKeyK256()
 	assert.NoError(err)
-	privBytes, err := priv.Bytes()
+	privBytes := priv.Bytes()
+	pub, err := priv.Public()
 	assert.NoError(err)
-	pub := priv.Public()
 	sig, err := priv.HashAndSign([]byte("test-message"))
 	assert.NoError(err)
 

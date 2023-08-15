@@ -50,27 +50,27 @@ func TestInteropSignatureFixtures(t *testing.T) {
 func testSignatureFixture(t *testing.T, row InteropFixture) {
 	assert := assert.New(t)
 
-	var kt KeyType
-	switch row.DidDocSuite {
-	case "EcdsaSecp256r1VerificationKey2019":
-		kt = P256
-	case "EcdsaSecp256k1VerificationKey2019":
-		kt = K256
-	default:
-		t.Fatal("expected DidDocSuite")
-	}
-
 	// parse all the fields
 	pkDid, err := ParsePublicDidKey(row.PublicKeyDid)
 	assert.NoError(err)
 	keyBytes, err := base58.Decode(row.PublicKeyMultibase[1:])
 	assert.NoError(err)
-	pkCompMultibase, err := ParsePublicBytes(keyBytes, kt)
-	assert.NoError(err)
 	msgBytes, err := base64.RawStdEncoding.DecodeString(row.MessageBase64)
 	assert.NoError(err)
 	sigBytes, err := base64.RawStdEncoding.DecodeString(row.SignatureBase64)
 	assert.NoError(err)
+
+	var pkCompMultibase PublicKey
+	switch row.DidDocSuite {
+	case "EcdsaSecp256r1VerificationKey2019":
+		pkCompMultibase, err = ParsePublicBytesP256(keyBytes)
+		assert.NoError(err)
+	case "EcdsaSecp256k1VerificationKey2019":
+		pkCompMultibase, err = ParsePublicBytesK256(keyBytes)
+		assert.NoError(err)
+	default:
+		t.Fatal("expected DidDocSuite")
+	}
 
 	// verify encodings
 	assert.Equal(pkDid, pkCompMultibase, "key equality")

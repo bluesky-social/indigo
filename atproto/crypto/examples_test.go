@@ -27,11 +27,14 @@ func ExamplePublicKey() {
 
 func ExamplePrivateKey() {
 	// create secure private key, and corresponding public key
-	priv, err := GeneratePrivateKey(K256)
+	priv, err := GeneratePrivateKeyK256()
 	if err != nil {
 		panic("failed to generate key")
 	}
-	pub := priv.Public()
+	pub, err := priv.Public()
+	if err != nil {
+		panic("failed to get public key")
+	}
 
 	// sign a message
 	msg := []byte("hello world")
