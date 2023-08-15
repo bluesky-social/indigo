@@ -405,7 +405,7 @@ func BrowseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
 			if err != nil {
 				return err
 			}
-			_, err = appbsky.FeedGetAuthorFeed(context.TODO(), xrpcc, notif.Author.Did, "", 50)
+			_, err = appbsky.FeedGetAuthorFeed(context.TODO(), xrpcc, notif.Author.Did, "", "", 50)
 			if err != nil {
 				return err
 			}
@@ -447,7 +447,7 @@ func BrowseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
 			if err != nil {
 				return err
 			}
-			_, err = appbsky.FeedGetAuthorFeed(context.TODO(), xrpcc, post.Post.Author.Did, "", 50)
+			_, err = appbsky.FeedGetAuthorFeed(context.TODO(), xrpcc, post.Post.Author.Did, "", "", 50)
 			if err != nil {
 				return err
 			}
