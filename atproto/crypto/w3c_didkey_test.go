@@ -20,11 +20,11 @@ type DidKeyFixture struct {
 func TestDidKeyFixtures(t *testing.T) {
 
 	fixtureBatches := []struct {
-		path string
-		kt   KeyType
+		path    string
+		keyType string
 	}{
-		{path: "testdata/w3c_didkey_P256.json", kt: P256},
-		{path: "testdata/w3c_didkey_K256.json", kt: K256},
+		{path: "testdata/w3c_didkey_P256.json", keyType: "P256"},
+		{path: "testdata/w3c_didkey_K256.json", keyType: "K256"},
 	}
 
 	for _, batch := range fixtureBatches {
@@ -46,12 +46,12 @@ func TestDidKeyFixtures(t *testing.T) {
 		}
 
 		for _, row := range fixtures {
-			testDidKeyFixture(t, row, batch.kt)
+			testDidKeyFixture(t, row, batch.keyType)
 		}
 	}
 }
 
-func testDidKeyFixture(t *testing.T, row DidKeyFixture, kt KeyType) {
+func testDidKeyFixture(t *testing.T, row DidKeyFixture, keyType string) {
 	assert := assert.New(t)
 
 	var raw []byte
@@ -70,11 +70,22 @@ func testDidKeyFixture(t *testing.T, row DidKeyFixture, kt KeyType) {
 		t.Fatal("no private key found")
 	}
 
-	priv, err := ParsePrivateKeyBytes(raw, kt)
+	var priv PrivateKey
+	switch keyType {
+	case "P256":
+		priv, err = ParsePrivateBytesP256(raw)
+	case "K256":
+		priv, err = ParsePrivateBytesK256(raw)
+	default:
+		panic("impossible key type")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
-	kBytes := priv.Public()
+	kBytes, err := priv.Public()
+	if err != nil {
+		t.Fatal(err)
+	}
 	kDidKey, err := ParsePublicDidKey(row.PublicDidKey)
 	if err != nil {
 		t.Fatal(err)
