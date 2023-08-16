@@ -47,11 +47,6 @@ func TestKeyBasics(t *testing.T) {
 	assert.NoError(err)
 	assert.True(pubP256.Equal(pubP256FromUncompBytes))
 
-	pubP256LegacyMultibaseString := pubP256.LegacyMultibase()
-	pubP256LMB, err := ParsePublicLegacyMultibase(pubP256LegacyMultibaseString, "EcdsaSecp256r1VerificationKey2019")
-	assert.NoError(err)
-	assert.True(pubP256.Equal(pubP256LMB))
-
 	both := []PrivateKey{privP256, privK256}
 	for _, priv := range both {
 		pub, err := priv.Public()
