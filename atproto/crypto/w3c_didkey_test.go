@@ -11,13 +11,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type DidKeyFixture struct {
+type DIDKeyFixture struct {
 	PrivateKeyBytesBase58 string `json:"privateKeyBytesBase58"`
 	PrivateKeyBytesHex    string `json:"privateKeyBytesHex"`
-	PublicDidKey          string `json:"publicDidKey"`
+	PublicDIDKey          string `json:"publicDidKey"`
 }
 
-func TestDidKeyFixtures(t *testing.T) {
+func TestDIDKeyFixtures(t *testing.T) {
 
 	fixtureBatches := []struct {
 		path    string
@@ -40,18 +40,18 @@ func TestDidKeyFixtures(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var fixtures []DidKeyFixture
+		var fixtures []DIDKeyFixture
 		if err := json.Unmarshal(fixBytes, &fixtures); err != nil {
 			t.Fatal(err)
 		}
 
 		for _, row := range fixtures {
-			testDidKeyFixture(t, row, batch.keyType)
+			testDIDKeyFixture(t, row, batch.keyType)
 		}
 	}
 }
 
-func testDidKeyFixture(t *testing.T, row DidKeyFixture, keyType string) {
+func testDIDKeyFixture(t *testing.T, row DIDKeyFixture, keyType string) {
 	assert := assert.New(t)
 
 	var raw []byte
@@ -86,11 +86,11 @@ func testDidKeyFixture(t *testing.T, row DidKeyFixture, keyType string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	kDidKey, err := ParsePublicDidKey(row.PublicDidKey)
+	kDIDKey, err := ParsePublicDIDKey(row.PublicDIDKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(kBytes.Equal(kDidKey), true)
-	assert.Equal(row.PublicDidKey, kBytes.DidKey())
-	assert.Equal(row.PublicDidKey, kDidKey.DidKey())
+	assert.Equal(kBytes.Equal(kDIDKey), true)
+	assert.Equal(row.PublicDIDKey, kBytes.DIDKey())
+	assert.Equal(row.PublicDIDKey, kDIDKey.DIDKey())
 }

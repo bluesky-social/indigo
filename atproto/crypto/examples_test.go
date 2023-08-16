@@ -6,7 +6,7 @@ import (
 )
 
 func ExamplePublicKey() {
-	pub, err := ParsePublicDidKey("did:key:zDnaembgSGUhZULN2Caob4HLJPaxBh92N7rtH21TErzqf8HQo")
+	pub, err := ParsePublicDIDKey("did:key:zDnaembgSGUhZULN2Caob4HLJPaxBh92N7rtH21TErzqf8HQo")
 	if err != nil {
 		panic("failed to parse did:key")
 	}

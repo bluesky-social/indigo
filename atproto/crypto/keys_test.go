@@ -53,8 +53,8 @@ func TestKeyBasics(t *testing.T) {
 		assert.NoError(err)
 
 		// public key encoding
-		pubDidKeyString := pub.DidKey()
-		pubDK, err := ParsePublicDidKey(pubDidKeyString)
+		pubDIDKeyString := pub.DIDKey()
+		pubDK, err := ParsePublicDIDKey(pubDIDKeyString)
 		assert.NoError(err)
 		assert.True(pub.Equal(pubDK))
 
