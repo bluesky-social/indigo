@@ -64,17 +64,6 @@ type PublicKey interface {
 	// For curves with no compressed/uncompressed distinction, returns the same
 	// value as Bytes().
 	UncompressedBytes() []byte
-
-	// Outputs a DID cryptographic suite type name for this curve, as used in
-	// some DID documents.
-	// This method may be removed in the future.
-	LegacyDidDocSuite() string
-
-	// Helper to serialize in a format used in older DID documents:
-	// uncompressed byte encoding, no multicodec prefix, base58btc multibase
-	// string encoding ("z" prefix)
-	// This method may be removed in the future.
-	LegacyMultibase() string
 }
 
 // Parses a public key from multibase encoding, with multicodec indicating the key type.
@@ -109,25 +98,4 @@ func ParsePublicDidKey(didKey string) (PublicKey, error) {
 	}
 	mb := strings.TrimPrefix(didKey, "did:key:")
 	return ParsePublicMultibase(mb)
-}
-
-// Parses a public key in multibase encoding, as would be found in a older DID Document `verificationMethod` section: uncompressed binary, no multicodec prefix, and base58btc multibase string encoding.
-//
-// This function is likely to be deprecated and removed.
-func ParsePublicLegacyMultibase(encoded string, didDocSuite string) (PublicKey, error) {
-	if len(encoded) < 2 || encoded[0] != 'z' {
-		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
-	}
-	data, err := base58.Decode(encoded[1:])
-	if err != nil {
-		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
-	}
-	switch didDocSuite {
-	case "EcdsaSecp256r1VerificationKey2019":
-		return ParsePublicUncompressedBytesP256(data)
-	case "EcdsaSecp256k1VerificationKey2019":
-		return ParsePublicUncompressedBytesK256(data)
-	default:
-		return nil, fmt.Errorf("unhandled legacy crypto suite: %s", didDocSuite)
-	}
 }

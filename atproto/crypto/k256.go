@@ -183,12 +183,6 @@ func (k *PublicKeyK256) Multibase() string {
 	return "z" + base58.Encode(kbytes)
 }
 
-// Returns the DID cryptographic suite string which would be included in the `type` field of a `verificationMethod`.
-func (k *PublicKeyK256) LegacyDidDocSuite() string {
-	// NOTE: this is not a W3C standard suite, and will probably be replaced with "Multikey"
-	return "EcdsaSecp256k1VerificationKey2019"
-}
-
 // Returns a did:key string encoding of the public key, as would be encoded in a DID PLC operation:
 //
 //   - compressed / compacted binary representation
@@ -198,14 +192,4 @@ func (k *PublicKeyK256) LegacyDidDocSuite() string {
 //   - add "did:key:" prefix
 func (k *PublicKeyK256) DidKey() string {
 	return "did:key:" + k.Multibase()
-}
-
-// Returns multibase string encoding of the public key, as would be included in an older DID Document "verificationMethod" section:
-//
-//   - non-compressed / non-compacted binary representation
-//   - encode bytes with base58btc
-//   - prefix "z" (lower-case) to indicate encoding
-func (k *PublicKeyK256) LegacyMultibase() string {
-	kbytes := k.UncompressedBytes()
-	return "z" + base58.Encode(kbytes)
 }

@@ -10,7 +10,6 @@ func ExamplePublicKey() {
 	if err != nil {
 		panic("failed to parse did:key")
 	}
-	fmt.Println(pub.LegacyDidDocSuite())
 
 	// parse existing base64 message and signature to raw bytes
 	msg, _ := base64.RawStdEncoding.DecodeString("oWVoZWxsb2V3b3JsZA")
@@ -20,9 +19,7 @@ func ExamplePublicKey() {
 	} else {
 		fmt.Println("Success!")
 	}
-	// Output:
-	// EcdsaSecp256r1VerificationKey2019
-	// Success!
+	// Output: Success!
 }
 
 func ExamplePrivateKey() {
