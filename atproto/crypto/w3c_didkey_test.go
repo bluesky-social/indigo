@@ -77,7 +77,7 @@ func testDIDKeyFixture(t *testing.T, row DIDKeyFixture, keyType string) {
 	case "K256":
 		priv, err = ParsePrivateBytesK256(raw)
 	default:
-		panic("impossible key type")
+		t.Fatal("impossible key type")
 	}
 	if err != nil {
 		t.Fatal(err)
@@ -90,7 +90,7 @@ func testDIDKeyFixture(t *testing.T, row DIDKeyFixture, keyType string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(kBytes.Equal(kDIDKey), true)
+	assert.True(kBytes.Equal(kDIDKey))
 	assert.Equal(row.PublicDIDKey, kBytes.DIDKey())
 	assert.Equal(row.PublicDIDKey, kDIDKey.DIDKey())
 }

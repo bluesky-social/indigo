@@ -25,7 +25,7 @@ func TestKeyBasics(t *testing.T) {
 	privP256Bytes := privP256.Bytes()
 	privP256FromBytes, err := ParsePrivateBytesP256(privP256Bytes)
 	assert.NoError(err)
-	assert.Equal(privP256, privP256FromBytes)
+	assert.True(privP256.Equal(privP256FromBytes))
 
 	// private key generation and byte serialization (K-256)
 	privK256, err := GeneratePrivateKeyK256()
