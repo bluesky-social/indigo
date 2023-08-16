@@ -14,6 +14,7 @@ func TestKeyBasics(t *testing.T) {
 	msg := []byte("test-message")
 	midMsg := make([]byte, 13*1024)
 	_, err := rand.Read(midMsg)
+	assert.NoError(err)
 	bigMsg := make([]byte, 16*1024*1024)
 	_, err = rand.Read(bigMsg)
 	assert.NoError(err)
