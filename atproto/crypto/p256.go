@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"fmt"
-	"log"
 	"math/big"
 
 	"github.com/mr-tron/base58"
@@ -17,12 +16,14 @@ import (
 // Implements the [PrivateKeyExportable] and [PrivateKey] interfaces for the NIST P-256 / secp256r1 / ES256 cryptographic curve.
 // Secret key material is naively stored in memory.
 type PrivateKeyP256 struct {
-	privP256 *ecdsa.PrivateKey
+	privP256     ecdsa.PrivateKey
+	privP256ecdh *ecdh.PrivateKey
 }
 
 // Implements the [PublicKey] interface for the NIST P-256 / secp256r1 / ES256 cryptographic curve.
 type PublicKeyP256 struct {
-	pubP256 *ecdsa.PublicKey
+	pubP256     ecdsa.PublicKey
+	pubP256ecdh ecdh.PublicKey
 }
 
 var _ PrivateKey = (*PrivateKeyP256)(nil)
@@ -31,16 +32,15 @@ var _ PublicKey = (*PublicKeyP256)(nil)
 
 // Creates a secure new cryptographic key from scratch.
 func GeneratePrivateKeyP256() (*PrivateKeyP256, error) {
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	skECDSA, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, fmt.Errorf("P-256/secp256r1 key generation failed: %w", err)
 	}
-	priv := PrivateKeyP256{privP256: key}
-	err = priv.ensureBytes()
+	skECDH, err := skECDSA.ECDH()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unexpected internal error converting P-256 key from ecdsa to ecdh: %w", err)
 	}
-	return &priv, nil
+	return &PrivateKeyP256{privP256: *skECDSA, privP256ecdh: skECDH}, nil
 }
 
 // Loads a [PrivateKeyP256] from raw bytes, as exported by the PrivateKeyP256.Bytes method.
@@ -49,11 +49,11 @@ func GeneratePrivateKeyP256() (*PrivateKeyP256, error) {
 func ParsePrivateBytesP256(data []byte) (*PrivateKeyP256, error) {
 	// elaborately parse as an ecdh.PrivateKey, then get from that to ecdsa.PrivateKey by encoding/decoding using x509 PKCS8 encoding.
 	// Note that the 'data' bytes format is *not* x509 PKCS8!
-	skEcdh, err := ecdh.P256().NewPrivateKey(data)
+	skECDH, err := ecdh.P256().NewPrivateKey(data)
 	if err != nil {
 		return nil, fmt.Errorf("invalid P-256/secp256r1 private key: %w", err)
 	}
-	enc, err := x509.MarshalPKCS8PrivateKey(skEcdh)
+	enc, err := x509.MarshalPKCS8PrivateKey(skECDH)
 	if err != nil {
 		return nil, fmt.Errorf("invalid P-256/secp256r1 private key: %w", err)
 	}
@@ -63,50 +63,38 @@ func ParsePrivateBytesP256(data []byte) (*PrivateKeyP256, error) {
 	}
 	skECDSA, ok := sk.(*ecdsa.PrivateKey)
 	if !ok {
-		return nil, fmt.Errorf("expected ECDSA privatekey from internal encoding")
+		return nil, fmt.Errorf("unexpected internal error parsing own private P-256 x509 key: %w", err)
 	}
-	priv := PrivateKeyP256{privP256: skECDSA}
-	err = priv.ensureBytes()
-	if err != nil {
-		return nil, err
-	}
-	return &priv, nil
+	return &PrivateKeyP256{privP256: *skECDSA, privP256ecdh: skECDH}, nil
 }
 
 // Checks if the two private keys are the same. Note that the naive == operator does not work for most equality checks.
 func (k *PrivateKeyP256) Equal(other PrivateKey) bool {
 	otherP256, ok := other.(*PrivateKeyP256)
 	if ok {
-		return k.privP256.Equal(otherP256.privP256)
+		return k.privP256.Equal(&otherP256.privP256)
 	}
 	return false
-}
-
-// internal helper which checks that they key will be possible to export later
-func (k *PrivateKeyP256) ensureBytes() error {
-	_, err := k.privP256.ECDH()
-	return err
 }
 
 // Serializes the secret key material in to a raw binary format, which can be parsed by [ParsePrivateBytesP256].
 //
 // For P-256, this is the "compact" encoding and is 32 bytes long. There is no ASN.1 or other enclosing structure.
 func (k *PrivateKeyP256) Bytes() []byte {
-	skEcdh, err := k.privP256.ECDH()
-	if err != nil {
-		log.Fatal("unexpected failure to export P-256 private key, after being exportable at parse time")
-	}
-	return skEcdh.Bytes()
+	return k.privP256ecdh.Bytes()
 }
 
 // Outputs the [PublicKey] corresponding to this [PrivateKeyP256]; it will be a [PublicKeyP256].
 func (k *PrivateKeyP256) Public() (PublicKey, error) {
-	pub := PublicKeyP256{pubP256: k.privP256.Public().(*ecdsa.PublicKey)}
-	err := pub.ensureBytes()
-	if err != nil {
-		return nil, err
+	pkECDSA, ok := k.privP256.Public().(*ecdsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("unexpected internal error casting P-256 ecdsa public key")
 	}
-	return &pub, nil
+	pkECDH, err := pkECDSA.ECDH()
+	if err != nil {
+		return nil, fmt.Errorf("unexpected internal error converting P-256 key from ecdsa to ecdh: %w", err)
+	}
+	return &PublicKeyP256{pubP256: *pkECDSA, pubP256ecdh: *pkECDH}, nil
 }
 
 // First hashes the raw bytes, then signs the digest, returning a binary signature.
@@ -118,7 +106,7 @@ func (k *PrivateKeyP256) Public() (PublicKey, error) {
 // NIST ECDSA signatures can have a "malleability" issue, meaning that there are multiple valid signatures for the same content with the same signing key. This method always returns a "low-S" signature, as required by atproto.
 func (k *PrivateKeyP256) HashAndSign(content []byte) ([]byte, error) {
 	hash := sha256.Sum256(content)
-	r, s, err := ecdsa.Sign(rand.Reader, k.privP256, hash[:])
+	r, s, err := ecdsa.Sign(rand.Reader, &k.privP256, hash[:])
 	if err != nil {
 		return nil, fmt.Errorf("crypto error signing with P-256/secp256r1 private key: %w", err)
 	}
@@ -141,13 +129,17 @@ func ParsePublicBytesP256(data []byte) (*PublicKeyP256, error) {
 	if !curve.Params().IsOnCurve(x, y) {
 		return nil, fmt.Errorf("invalid P-256 public key (not on curve)")
 	}
-	pubK := &ecdsa.PublicKey{
+	pubECDSA := &ecdsa.PublicKey{
 		Curve: curve,
 		X:     x,
 		Y:     y,
 	}
-	pub := PublicKeyP256{pubP256: pubK}
-	err := pub.ensureBytes()
+	pubECDH, err := pubECDSA.ECDH()
+	pub := PublicKeyP256{pubP256: *pubECDSA, pubP256ecdh: *pubECDH}
+	if err != nil {
+		return nil, fmt.Errorf("unexpected internal error converting P-256 x509 key from ecdsa to ecdh: %w", err)
+	}
+	err = pub.checkCurve()
 	if err != nil {
 		return nil, err
 	}
@@ -166,13 +158,17 @@ func ParsePublicUncompressedBytesP256(data []byte) (*PublicKeyP256, error) {
 	if !curve.Params().IsOnCurve(x, y) {
 		return nil, fmt.Errorf("invalid P-256 public key (not on curve)")
 	}
-	pubK := &ecdsa.PublicKey{
+	pubECDSA := &ecdsa.PublicKey{
 		Curve: curve,
 		X:     x,
 		Y:     y,
 	}
-	pub := PublicKeyP256{pubP256: pubK}
-	err := pub.ensureBytes()
+	pubECDH, err := pubECDSA.ECDH()
+	pub := PublicKeyP256{pubP256: *pubECDSA, pubP256ecdh: *pubECDH}
+	if err != nil {
+		return nil, fmt.Errorf("unexpected internal error converting P-256 x509 key from ecdsa to ecdh: %w", err)
+	}
+	err = pub.checkCurve()
 	if err != nil {
 		return nil, err
 	}
@@ -183,27 +179,21 @@ func ParsePublicUncompressedBytesP256(data []byte) (*PublicKeyP256, error) {
 func (k *PublicKeyP256) Equal(other PublicKey) bool {
 	otherP256, ok := other.(*PublicKeyP256)
 	if ok {
-		return k.pubP256.Equal(otherP256.pubP256)
+		return k.pubP256.Equal(&otherP256.pubP256)
 	}
 	return false
 }
 
-// checks that key will be exportable later, both compressed and uncompressed
-func (k *PublicKeyP256) ensureBytes() error {
+func (k *PublicKeyP256) checkCurve() error {
 	if !k.pubP256.Curve.IsOnCurve(k.pubP256.X, k.pubP256.Y) {
 		return fmt.Errorf("unexpected invalid P-256/secp256r1 public key (internal)")
 	}
-	_, err := k.pubP256.ECDH()
-	return err
+	return nil
 }
 
 // Serializes the key in to "uncompressed" binary format.
 func (k *PublicKeyP256) UncompressedBytes() []byte {
-	pkEcdh, err := k.pubP256.ECDH()
-	if err != nil {
-		log.Fatal("unexpected invalid P-256/secp256r1 public key, was verified at parse time")
-	}
-	return pkEcdh.Bytes()
+	return k.pubP256ecdh.Bytes()
 }
 
 // Serializes the key in to "compressed" binary format.
@@ -229,7 +219,7 @@ func (k *PublicKeyP256) HashAndVerify(content, sig []byte) error {
 	r.SetBytes(sig[:32])
 	s.SetBytes(sig[32:])
 
-	if !ecdsa.Verify(k.pubP256, hash[:], r, s) {
+	if !ecdsa.Verify(&k.pubP256, hash[:], r, s) {
 		return ErrInvalidSignature
 	}
 
