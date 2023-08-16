@@ -11,10 +11,7 @@ var curveHalfOrder_P256 *big.Int = new(big.Int).Rsh(curveN_P256, 1)
 // Checks if 'S' value from a P-256 signature is "low-S".
 // un-reviewed, un-safe code from: https://github.com/golang/go/issues/54549
 func sigSIsLowS_P256(s *big.Int) bool {
-	if s.Cmp(curveHalfOrder_P256) == 1 {
-		return false
-	}
-	return true
+	return s.Cmp(curveHalfOrder_P256) != 1
 }
 
 // Ensures that 'S' value from a P-256 signature is "low-S" variant.

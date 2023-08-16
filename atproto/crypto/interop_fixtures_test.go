@@ -29,7 +29,7 @@ func TestInteropSignatureFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	fixBytes, err := io.ReadAll(f)
 	if err != nil {
