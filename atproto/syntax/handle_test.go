@@ -23,6 +23,8 @@ func TestInteropHandlesValid(t *testing.T) {
 		_, err := ParseHandle(line)
 		if err != nil {
 			fmt.Println("GOOD: " + line)
+		} else {
+			fmt.Println("BAD: " + line)
 		}
 		assert.NoError(err)
 	}
@@ -54,9 +56,18 @@ func TestHandleNormalize(t *testing.T) {
 
 	handle, err := ParseHandle("JoHn.TeST")
 	assert.NoError(err)
-	assert.Equal(string(handle.Normalize()), "john.test")
+	assert.Equal("john.test", string(handle.Normalize()))
 	assert.NoError(err)
 
 	_, err = ParseHandle("JoH!n.TeST")
 	assert.Error(err)
+}
+
+func TestHandleNoPanic(t *testing.T) {
+	for _, s := range []string{"", ".", ".."} {
+		bad := Handle(s)
+		_ = bad.Normalize()
+		_ = bad.TLD()
+		_ = bad.AllowedTLD()
+	}
 }
