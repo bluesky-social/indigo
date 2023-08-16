@@ -8,6 +8,8 @@ import (
 
 // Represents a syntaxtually valid DID identifier, as would pass Lexicon syntax validation.
 //
+// Always use [ParseDID] instead of wrapping strings directly, especially when working with input.
+//
 // Syntax specification: https://atproto.com/specs/did
 type DID string
 
@@ -26,6 +28,10 @@ func ParseDID(raw string) (DID, error) {
 func (d DID) Method() string {
 	// syntax guarantees that there are at least 3 parts of split
 	parts := strings.SplitN(string(d), ":", 3)
+	if len(parts) < 2 {
+		// this should be impossible; return empty to avoid out-of-bounds
+		return ""
+	}
 	return strings.ToLower(parts[1])
 }
 
@@ -33,5 +39,13 @@ func (d DID) Method() string {
 func (d DID) Identifier() string {
 	// syntax guarantees that there are at least 3 parts of split
 	parts := strings.SplitN(string(d), ":", 3)
+	if len(parts) < 3 {
+		// this should be impossible; return empty to avoid out-of-bounds
+		return ""
+	}
 	return parts[2]
+}
+
+func (d DID) String() string {
+	return string(d)
 }

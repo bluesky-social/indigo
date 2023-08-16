@@ -9,14 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDIDParts(t *testing.T) {
-	assert := assert.New(t)
-	d, err := ParseDID("did:example:123456789abcDEFghi")
-	assert.NoError(err)
-	assert.Equal("example", d.Method())
-	assert.Equal("123456789abcDEFghi", d.Identifier())
-}
-
 func TestInteropDIDsValid(t *testing.T) {
 	assert := assert.New(t)
 	file, err := os.Open("testdata/did_syntax_valid.txt")
@@ -55,4 +47,20 @@ func TestInteropDIDsInvalid(t *testing.T) {
 		assert.Error(err)
 	}
 	assert.NoError(scanner.Err())
+}
+
+func TestDIDParts(t *testing.T) {
+	assert := assert.New(t)
+	d, err := ParseDID("did:example:123456789abcDEFghi")
+	assert.NoError(err)
+	assert.Equal("example", d.Method())
+	assert.Equal("123456789abcDEFghi", d.Identifier())
+}
+
+func TestDIDNoPanic(t *testing.T) {
+	for _, s := range []string{"", ":", "::"} {
+		bad := DID(s)
+		_ = bad.Identifier()
+		_ = bad.Method()
+	}
 }
