@@ -23,6 +23,10 @@ type PublicKeyK256 struct {
 	pubK256 *secp256k1secec.PublicKey
 }
 
+var _ PrivateKey = (*PrivateKeyK256)(nil)
+var _ PrivateKeyExportable = (*PrivateKeyK256)(nil)
+var _ PublicKey = (*PublicKeyK256)(nil)
+
 var k256Options = &secp256k1secec.ECDSAOptions{
 	// Used to *verify* digest, not to re-hash
 	Hash: crypto.SHA256,
@@ -64,12 +68,12 @@ func (k *PrivateKeyK256) Equal(other PrivateKey) bool {
 // Serializes the secret key material in to a raw binary format, which can be parsed by [ParsePrivateBytesK256].
 //
 // For K-256, this is the "compact" encoding and is 32 bytes long. There is no ASN.1 or other enclosing structure.
-func (k *PrivateKeyK256) Bytes() []byte {
+func (k PrivateKeyK256) Bytes() []byte {
 	return k.privK256.Bytes()
 }
 
 // Outputs the [PublicKey] corresponding to this [PrivateKeyK256]; it will be a [PublicKeyK256].
-func (k *PrivateKeyK256) Public() (PublicKey, error) {
+func (k PrivateKeyK256) Public() (PublicKey, error) {
 	pub := PublicKeyK256{pubK256: k.privK256.PublicKey()}
 	err := pub.ensureBytes()
 	if err != nil {
@@ -85,7 +89,7 @@ func (k *PrivateKeyK256) Public() (PublicKey, error) {
 // Calling code is responsible for any string encoding of signatures (eg, hex or base64). For K-256, the signature is 64 bytes long.
 //
 // NIST ECDSA signatures can have a "malleability" issue, meaning that there are multiple valid signatures for the same content with the same signing key. This method always returns a "low-S" signature, as required by atproto.
-func (k *PrivateKeyK256) HashAndSign(content []byte) ([]byte, error) {
+func (k PrivateKeyK256) HashAndSign(content []byte) ([]byte, error) {
 	hash := sha256.Sum256(content)
 	return k.privK256.Sign(rand.Reader, hash[:], k256Options)
 }
@@ -170,7 +174,7 @@ func (k *PublicKeyK256) Bytes() []byte {
 func (k *PublicKeyK256) HashAndVerify(content, sig []byte) error {
 	hash := sha256.Sum256(content)
 	if !k.pubK256.Verify(hash[:], sig, k256Options) {
-		return fmt.Errorf("crypto: invalid signature")
+		return ErrInvalidSignature
 	}
 	return nil
 }
@@ -190,6 +194,6 @@ func (k *PublicKeyK256) Multibase() string {
 //   - encode bytes with base58btc
 //   - add "z" prefix to indicate encoding
 //   - add "did:key:" prefix
-func (k *PublicKeyK256) DidKey() string {
+func (k *PublicKeyK256) DIDKey() string {
 	return "did:key:" + k.Multibase()
 }

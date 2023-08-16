@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"fmt"
+	"log"
 	"math/big"
 
 	"github.com/mr-tron/base58"
@@ -23,6 +24,10 @@ type PrivateKeyP256 struct {
 type PublicKeyP256 struct {
 	pubP256 *ecdsa.PublicKey
 }
+
+var _ PrivateKey = (*PrivateKeyP256)(nil)
+var _ PrivateKeyExportable = (*PrivateKeyP256)(nil)
+var _ PublicKey = (*PublicKeyP256)(nil)
 
 // Creates a secure new cryptographic key from scratch.
 func GeneratePrivateKeyP256() (*PrivateKeyP256, error) {
@@ -56,7 +61,11 @@ func ParsePrivateBytesP256(data []byte) (*PrivateKeyP256, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid P-256/secp256r1 private key: %w", err)
 	}
-	priv := PrivateKeyP256{privP256: sk.(*ecdsa.PrivateKey)}
+	skECDSA, ok := sk.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("expected ECDSA privatekey from internal encoding")
+	}
+	priv := PrivateKeyP256{privP256: skECDSA}
 	err = priv.ensureBytes()
 	if err != nil {
 		return nil, err
@@ -85,7 +94,7 @@ func (k *PrivateKeyP256) ensureBytes() error {
 func (k *PrivateKeyP256) Bytes() []byte {
 	skEcdh, err := k.privP256.ECDH()
 	if err != nil {
-		panic("unexpected failure to export P-256 private key, after being exportable at parse time")
+		log.Fatal("unexpected failure to export P-256 private key, after being exportable at parse time")
 	}
 	return skEcdh.Bytes()
 }
@@ -192,7 +201,7 @@ func (k *PublicKeyP256) ensureBytes() error {
 func (k *PublicKeyP256) UncompressedBytes() []byte {
 	pkEcdh, err := k.pubP256.ECDH()
 	if err != nil {
-		panic("unexpected invalid P-256/secp256r1 public key, was verified at parse time")
+		log.Fatal("unexpected invalid P-256/secp256r1 public key, was verified at parse time")
 	}
 	return pkEcdh.Bytes()
 }
@@ -202,9 +211,9 @@ func (k *PublicKeyP256) Bytes() []byte {
 	return elliptic.MarshalCompressed(k.pubP256.Curve, k.pubP256.X, k.pubP256.Y)
 }
 
-// First hashes the raw bytes, then verifies the digest, returning `nil` for valid signatures, or an error for any failure.
+// Hashes the raw bytes using SHA-256, then verifies the signature against the digest bytes.
 //
-// SHA-256 is the hash algorithm used, as specified by atproto. Signing digests is the norm for ECDSA, and required by some backend implementations. This method does not "double hash", it simply has name which clarifies that hashing is happening.
+// Signing digests is the norm for ECDSA, and required by some backend implementations. This method does not "double hash", it simply has name which clarifies that hashing is happening.
 //
 // Calling code is responsible for any string decoding of signatures (eg, hex or base64) before calling this function.
 //
@@ -221,18 +230,18 @@ func (k *PublicKeyP256) HashAndVerify(content, sig []byte) error {
 	s.SetBytes(sig[32:])
 
 	if !ecdsa.Verify(k.pubP256, hash[:], r, s) {
-		return fmt.Errorf("crypto: invalid signature")
+		return ErrInvalidSignature
 	}
 
 	// ensure that signature is low-S
 	if !sigSIsLowS_P256(s) {
-		return fmt.Errorf("crypto: invalid signature (high-S P-256)")
+		return ErrInvalidSignature
 	}
 
 	return nil
 }
 
-// Returns a multibase string encoding of the public key, including a multicodec indicator and compressed curve bytes serialization
+// Multibase string encoding of the public key, including a multicodec indicator and compressed curve bytes serialization
 func (k *PublicKeyP256) Multibase() string {
 	kbytes := k.Bytes()
 	// multicodec p256-pub, code 0x1200, varint-encoded bytes: [0x80, 0x24]
@@ -240,13 +249,13 @@ func (k *PublicKeyP256) Multibase() string {
 	return "z" + base58.Encode(kbytes)
 }
 
-// Returns a did:key string encoding of the public key, as would be encoded in a DID PLC operation:
+// did:key string encoding of the public key, as would be encoded in a DID PLC operation:
 //
 //   - compressed / compacted binary representation
 //   - prefix with appropriate curve multicodec bytes
 //   - encode bytes with base58btc
 //   - add "z" prefix to indicate encoding
 //   - add "did:key:" prefix
-func (k *PublicKeyP256) DidKey() string {
+func (k *PublicKeyP256) DIDKey() string {
 	return "did:key:" + k.Multibase()
 }
