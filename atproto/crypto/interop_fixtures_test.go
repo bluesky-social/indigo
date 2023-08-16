@@ -74,8 +74,6 @@ func testSignatureFixture(t *testing.T, row InteropFixture) {
 
 	// verify encodings
 	assert.Equal(pkDid, pkCompMultibase, "key equality")
-	assert.Equal(row.DidDocSuite, pkDid.LegacyDidDocSuite())
-	assert.Equal(row.DidDocSuite, pkCompMultibase.LegacyDidDocSuite())
 	assert.Equal(row.PublicKeyDid, pkDid.DidKey(), "did:key re-encoding")
 
 	// verify signatures
