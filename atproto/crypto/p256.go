@@ -16,14 +16,14 @@ import (
 // Implements the [PrivateKeyExportable] and [PrivateKey] interfaces for the NIST P-256 / secp256r1 / ES256 cryptographic curve.
 // Secret key material is naively stored in memory.
 type PrivateKeyP256 struct {
-	privP256     ecdsa.PrivateKey
 	privP256ecdh *ecdh.PrivateKey
+	privP256     ecdsa.PrivateKey
 }
 
 // Implements the [PublicKey] interface for the NIST P-256 / secp256r1 / ES256 cryptographic curve.
 type PublicKeyP256 struct {
-	pubP256     ecdsa.PublicKey
 	pubP256ecdh ecdh.PublicKey
+	pubP256     ecdsa.PublicKey
 }
 
 var _ PrivateKey = (*PrivateKeyP256)(nil)
