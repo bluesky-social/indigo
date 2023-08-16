@@ -1,72 +1,70 @@
 package crypto
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/mr-tron/base58"
 )
 
-// Common interface for private keys of all the supported cryptographic systems in the atproto ecosystem, in a format which may or may not have secret key material directly available in memory to be exported as bytes.
+// Common interface for all the supported atproto cryptographic systems, when
+// secret key material may not be directly available to be exported as bytes.
 type PrivateKey interface {
 	Equal(other PrivateKey) bool
 
-	// Returns the public key for this private key. Verifies that the public
-	// key is valid and will be possible to encode as bytes or a string later.
+	// If necessary, pre-verifies that the public key curve point is valid and
+	// will be possible to encode as bytes or a string later.
 	Public() (PublicKey, error)
 
-	// First hashes the raw bytes, then signs the digest, returning a binary
-	// signature. SHA-256 is the hash algorithm used, as specified by atproto.
-	// This method always returns a "low-S" signature, as required by atproto.
+	// Hashes the raw bytes using SHA-256, then signs the digest bytes.
+	// Always returns a "low-S" signature (for elliptic curve systems where that is ambigious).
 	HashAndSign(content []byte) ([]byte, error)
 }
 
-// Common interface for private keys of all the supported cryptographic systems in the atproto ecosystem, in a format which does have secret key material directly available in memory to be exported as bytes.
+// Common interface for all the supported atproto cryptographic systems, when
+// secret key material is directly available to be exported as bytes.
 type PrivateKeyExportable interface {
-	Equal(other PrivateKey) bool
+	PrivateKey
 
-	// Outputs an untyped (no multicodec) compact encoding of the secret key
-	// material. The encoding format is curve-specific, and is generally
-	// "compact" for private keys. Both P-256 and K-256 private keys end up 32
-	// bytes long. There is no ASN.1 or other enclosing structure to the binary
-	// encoding.
+	// Untyped (no multicodec) encoding of the secret key material.
+	// The encoding format is curve-specific, and is generally "compact" for private keys.
+	// No ASN.1 or other enclosing structure is applied to the bytes.
 	Bytes() []byte
-
-	// Same as PrivateKey.Public()
-	Public() (PublicKey, error)
-
-	// Same as PrivateKey.HashAndSign()
-	HashAndSign(content []byte) ([]byte, error)
 }
 
-// Common interface for public keys of all the supported cryptographic systems in the atproto ecosystem.
+// Common interface for all the supported atproto cryptographic systems.
 type PublicKey interface {
 	Equal(other PublicKey) bool
 
-	// Outputs a compact byte serialization of this key.
+	// Compact byte serialization (for elliptic curve systems where encoding is ambigious).
 	Bytes() []byte
 
-	// Hashes content bytes with SHA-256, then verifies the signature of the
-	// digest.
+	// Hashes the raw bytes using SHA-256, then verifies the signature of the digest bytes.
 	HashAndVerify(content, sig []byte) error
 
-	// String serialization of the public key using common parameters:
+	// String serialization of the key bytes using common parameters:
 	// compressed byte serialization; multicode varint code prefix; base58btc
 	// string encoding ("z" prefix)
 	Multibase() string
 
-	// String serialization of the public key as did:key.
-	DidKey() string
+	// String serialization of the key bytes as a did:key.
+	DIDKey() string
 
-	// Outputs a non-compact byte serialization of this key. This is not used
-	// frequently, or directly in atproto, but some serializations and
-	// encodings require it.
-	// For curves with no compressed/uncompressed distinction, returns the same
+	// Non-compact byte serialization (for elliptic curve systems where
+	// encoding is ambigious)
+	//
+	// This is not used frequently, or directly in atproto, but some
+	// serializations and encodings require it.
+	//
+	// For systems with no compressed/uncompressed distinction, returns the same
 	// value as Bytes().
 	UncompressedBytes() []byte
 }
 
-// Parses a public key from multibase encoding, with multicodec indicating the key type.
+var ErrInvalidSignature = errors.New("crytographic signature invalid")
+
+// Loads a public key from multibase string encoding, with multicodec indicating the key type.
 func ParsePublicMultibase(encoded string) (PublicKey, error) {
 	if len(encoded) < 2 || encoded[0] != 'z' {
 		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
@@ -92,7 +90,7 @@ func ParsePublicMultibase(encoded string) (PublicKey, error) {
 // Loads a [PublicKey] from did:key string serialization.
 //
 // The did:key format encodes the key type.
-func ParsePublicDidKey(didKey string) (PublicKey, error) {
+func ParsePublicDIDKey(didKey string) (PublicKey, error) {
 	if !strings.HasPrefix(didKey, "did:key:z") {
 		return nil, fmt.Errorf("string is not a DID key: %s", didKey)
 	}

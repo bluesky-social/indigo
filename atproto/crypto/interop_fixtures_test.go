@@ -14,8 +14,8 @@ import (
 type InteropFixture struct {
 	MessageBase64      string `json:"messageBase64"`
 	Algorithm          string `json:"algorithm"`
-	DidDocSuite        string `json:"didDocSuite"`
-	PublicKeyDid       string `json:"publicKeyDid"`
+	DIDDocSuite        string `json:"didDocSuite"`
+	PublicKeyDID       string `json:"publicKeyDid"`
 	PublicKeyMultibase string `json:"publicKeyMultibase"`
 	SignatureBase64    string `json:"signatureBase64"`
 	ValidSignature     bool   `json:"validSignature"`
@@ -51,7 +51,7 @@ func testSignatureFixture(t *testing.T, row InteropFixture) {
 	assert := assert.New(t)
 
 	// parse all the fields
-	pkDid, err := ParsePublicDidKey(row.PublicKeyDid)
+	pkDID, err := ParsePublicDIDKey(row.PublicKeyDID)
 	assert.NoError(err)
 	keyBytes, err := base58.Decode(row.PublicKeyMultibase[1:])
 	assert.NoError(err)
@@ -61,7 +61,7 @@ func testSignatureFixture(t *testing.T, row InteropFixture) {
 	assert.NoError(err)
 
 	var pkCompMultibase PublicKey
-	switch row.DidDocSuite {
+	switch row.DIDDocSuite {
 	case "EcdsaSecp256r1VerificationKey2019":
 		pkCompMultibase, err = ParsePublicBytesP256(keyBytes)
 		assert.NoError(err)
@@ -69,19 +69,19 @@ func testSignatureFixture(t *testing.T, row InteropFixture) {
 		pkCompMultibase, err = ParsePublicBytesK256(keyBytes)
 		assert.NoError(err)
 	default:
-		t.Fatal("expected DidDocSuite")
+		t.Fatal("expected DIDDocSuite")
 	}
 
 	// verify encodings
-	assert.Equal(pkDid, pkCompMultibase, "key equality")
-	assert.Equal(row.PublicKeyDid, pkDid.DidKey(), "did:key re-encoding")
+	assert.Equal(pkDID, pkCompMultibase, "key equality")
+	assert.Equal(row.PublicKeyDID, pkDID.DIDKey(), "did:key re-encoding")
 
 	// verify signatures
 	if row.ValidSignature {
-		assert.NoError(pkDid.HashAndVerify(msgBytes, sigBytes), "keyType=%v format=%v", row.Algorithm, "did:key")
+		assert.NoError(pkDID.HashAndVerify(msgBytes, sigBytes), "keyType=%v format=%v", row.Algorithm, "did:key")
 		assert.NoError(pkCompMultibase.HashAndVerify(msgBytes, sigBytes), "keyType=%v format=%v", row.Algorithm, "multibase")
 	} else {
-		assert.Error(pkDid.HashAndVerify(msgBytes, sigBytes), "keyType=%v format=%v", row.Algorithm, "did:key")
+		assert.Error(pkDID.HashAndVerify(msgBytes, sigBytes), "keyType=%v format=%v", row.Algorithm, "did:key")
 		assert.Error(pkCompMultibase.HashAndVerify(msgBytes, sigBytes), "keyType=%v format=%v", row.Algorithm, "multibase")
 	}
 
