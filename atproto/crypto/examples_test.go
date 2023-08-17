@@ -28,7 +28,7 @@ func ExamplePrivateKey() {
 	if err != nil {
 		panic("failed to generate key")
 	}
-	pub, err := priv.Public()
+	pub, err := priv.PublicKey()
 	if err != nil {
 		panic("failed to get public key")
 	}

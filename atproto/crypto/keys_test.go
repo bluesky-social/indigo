@@ -36,7 +36,7 @@ func TestKeyBasics(t *testing.T) {
 	assert.Equal(privK256, privK256FromBytes)
 
 	// public key byte serialization (P-256)
-	pubP256, err := privP256.Public()
+	pubP256, err := privP256.PublicKey()
 	assert.NoError(err)
 	pubP256CompBytes := pubP256.Bytes()
 	pubP256FromCompBytes, err := ParsePublicBytesP256(pubP256CompBytes)
@@ -50,7 +50,7 @@ func TestKeyBasics(t *testing.T) {
 
 	both := []PrivateKey{privP256, privK256}
 	for _, priv := range both {
-		pub, err := priv.Public()
+		pub, err := priv.PublicKey()
 		assert.NoError(err)
 
 		// public key encoding
@@ -93,7 +93,7 @@ func TestLowSMany(t *testing.T) {
 
 		both := []PrivateKey{privP256, privK256}
 		for _, priv := range both {
-			pub, err := priv.Public()
+			pub, err := priv.PublicKey()
 			assert.NoError(err)
 
 			_, err = rand.Read(msg)
@@ -117,7 +117,7 @@ func TestKeyCompressionP256(t *testing.T) {
 	priv, err := GeneratePrivateKeyP256()
 	assert.NoError(err)
 	privBytes := priv.Bytes()
-	pub, err := priv.Public()
+	pub, err := priv.PublicKey()
 	assert.NoError(err)
 	sig, err := priv.HashAndSign([]byte("test-message"))
 	assert.NoError(err)
@@ -135,7 +135,7 @@ func TestKeyCompressionK256(t *testing.T) {
 	priv, err := GeneratePrivateKeyK256()
 	assert.NoError(err)
 	privBytes := priv.Bytes()
-	pub, err := priv.Public()
+	pub, err := priv.PublicKey()
 	assert.NoError(err)
 	sig, err := priv.HashAndSign([]byte("test-message"))
 	assert.NoError(err)

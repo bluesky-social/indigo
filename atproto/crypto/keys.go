@@ -13,9 +13,7 @@ import (
 type PrivateKey interface {
 	Equal(other PrivateKey) bool
 
-	// If necessary, pre-verifies that the public key curve point is valid and
-	// will be possible to encode as bytes or a string later.
-	Public() (PublicKey, error)
+	PublicKey() (PublicKey, error)
 
 	// Hashes the raw bytes using SHA-256, then signs the digest bytes.
 	// Always returns a "low-S" signature (for elliptic curve systems where that is ambigious).

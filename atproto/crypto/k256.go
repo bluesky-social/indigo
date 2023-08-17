@@ -73,7 +73,7 @@ func (k PrivateKeyK256) Bytes() []byte {
 }
 
 // Outputs the [PublicKey] corresponding to this [PrivateKeyK256]; it will be a [PublicKeyK256].
-func (k PrivateKeyK256) Public() (PublicKey, error) {
+func (k PrivateKeyK256) PublicKey() (PublicKey, error) {
 	pub := PublicKeyK256{pubK256: k.privK256.PublicKey()}
 	err := pub.ensureBytes()
 	if err != nil {
