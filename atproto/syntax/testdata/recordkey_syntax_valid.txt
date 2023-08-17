@@ -1,0 +1,5 @@
+# specs
+self
+example.com
+~1.2-3_
+dHJ1ZQ
