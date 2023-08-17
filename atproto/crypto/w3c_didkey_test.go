@@ -82,7 +82,7 @@ func testDIDKeyFixture(t *testing.T, row DIDKeyFixture, keyType string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	kBytes, err := priv.Public()
+	kBytes, err := priv.PublicKey()
 	if err != nil {
 		t.Fatal(err)
 	}

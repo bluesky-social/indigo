@@ -22,7 +22,7 @@ type PrivateKeyP256 struct {
 
 // Implements the [PublicKey] interface for the NIST P-256 / secp256r1 / ES256 cryptographic curve.
 type PublicKeyP256 struct {
-	pubP256     ecdsa.PublicKey
+	pubP256 ecdsa.PublicKey
 }
 
 var _ PrivateKey = (*PrivateKeyP256)(nil)
@@ -84,7 +84,7 @@ func (k *PrivateKeyP256) Bytes() []byte {
 }
 
 // Outputs the [PublicKey] corresponding to this [PrivateKeyP256]; it will be a [PublicKeyP256].
-func (k *PrivateKeyP256) Public() (PublicKey, error) {
+func (k *PrivateKeyP256) PublicKey() (PublicKey, error) {
 	pkECDSA, ok := k.privP256.Public().(*ecdsa.PublicKey)
 	if !ok {
 		return nil, fmt.Errorf("unexpected internal error casting P-256 ecdsa public key")
