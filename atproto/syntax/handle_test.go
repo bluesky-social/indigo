@@ -22,9 +22,7 @@ func TestInteropHandlesValid(t *testing.T) {
 		}
 		_, err := ParseHandle(line)
 		if err != nil {
-			fmt.Println("GOOD: " + line)
-		} else {
-			fmt.Println("BAD: " + line)
+			fmt.Println("FAILED, GOOD: " + line)
 		}
 		assert.NoError(err)
 	}
@@ -44,7 +42,7 @@ func TestInteropHandlesInvalid(t *testing.T) {
 		}
 		_, err := ParseHandle(line)
 		if err == nil {
-			fmt.Println("BAD: " + line)
+			fmt.Println("FAILED, BAD: " + line)
 		}
 		assert.Error(err)
 	}
