@@ -51,7 +51,7 @@ type DiskPersistence struct {
 }
 
 type persistJob struct {
-	Buf    []byte
+	Bytes  []byte
 	Evt    *XRPCStreamEvent
 	Buffer *bytes.Buffer // so we can put it back in the pool when we're done
 }
@@ -78,9 +78,9 @@ type DiskPersistOptions struct {
 
 func DefaultDiskPersistOptions() *DiskPersistOptions {
 	return &DiskPersistOptions{
-		EventsPerFile:   10000,
-		UIDCacheSize:    100000,
-		DIDCacheSize:    100000,
+		EventsPerFile:   20,
+		UIDCacheSize:    100_000,
+		DIDCacheSize:    100_000,
 		WriteBufferSize: 50,
 		Retention:       time.Hour * 24 * 3, // 3 days
 	}
@@ -325,7 +325,7 @@ func (dp *DiskPersistence) flushLog(ctx context.Context) error {
 		dp.buffers.Put(ej.Buffer)
 	}
 
-	clear(dp.evtbuf)
+	dp.evtbuf = dp.evtbuf[:0]
 
 	return nil
 }
@@ -340,8 +340,10 @@ func (dp *DiskPersistence) garbageCollectRoutine() {
 		case <-dp.shutdown:
 			return
 		case <-t.C:
-			if err := dp.garbageCollect(ctx); err != nil {
-				log.Errorf("failed to garbage collect: %s", err)
+			if errs := dp.garbageCollect(ctx); len(errs) > 0 {
+				for _, err := range errs {
+					log.Errorf("garbage collection error: %s", err)
+				}
 			}
 		}
 	}
@@ -391,7 +393,8 @@ func (dp *DiskPersistence) garbageCollect(ctx context.Context) []error {
 		dp.lk.Lock()
 		currentLogfile := dp.logfi.Name()
 		dp.lk.Unlock()
-		if r.Path == currentLogfile {
+
+		if filepath.Join(dp.primaryDir, r.Path) == currentLogfile {
 			// Don't delete the current log file
 			log.Info("skipping deletion of current log file")
 			continue
@@ -425,7 +428,7 @@ func (dp *DiskPersistence) garbageCollect(ctx context.Context) []error {
 }
 
 func (dp *DiskPersistence) doPersist(ctx context.Context, j persistJob) error {
-	b := j.Buf
+	b := j.Bytes
 	e := j.Evt
 	seq := dp.curSeq
 	dp.curSeq++
@@ -500,13 +503,17 @@ func (dp *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) erro
 
 	b := buffer.Bytes()
 
+	// Set flags in header (no flags for now)
 	binary.LittleEndian.PutUint32(b, 0)
+	// Set event kind in header
 	binary.LittleEndian.PutUint32(b[4:], evtKind)
+	// Set event length in header
 	binary.LittleEndian.PutUint32(b[8:], uint32(len(b)-headerSize))
+	// Set user UID in header
 	binary.LittleEndian.PutUint64(b[12:], uint64(usr))
 
 	return dp.addJobToQueue(ctx, persistJob{
-		Buf:    b,
+		Bytes:  b,
 		Evt:    e,
 		Buffer: buffer,
 	})
