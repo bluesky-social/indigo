@@ -22,7 +22,6 @@ type PrivateKeyP256 struct {
 
 // Implements the [PublicKey] interface for the NIST P-256 / secp256r1 / ES256 cryptographic curve.
 type PublicKeyP256 struct {
-	pubP256ecdh ecdh.PublicKey
 	pubP256     ecdsa.PublicKey
 }
 
@@ -90,11 +89,7 @@ func (k *PrivateKeyP256) Public() (PublicKey, error) {
 	if !ok {
 		return nil, fmt.Errorf("unexpected internal error casting P-256 ecdsa public key")
 	}
-	pkECDH, err := pkECDSA.ECDH()
-	if err != nil {
-		return nil, fmt.Errorf("unexpected internal error converting P-256 key from ecdsa to ecdh: %w", err)
-	}
-	return &PublicKeyP256{pubP256: *pkECDSA, pubP256ecdh: *pkECDH}, nil
+	return &PublicKeyP256{pubP256: *pkECDSA}, nil
 }
 
 // First hashes the raw bytes, then signs the digest, returning a binary signature.
@@ -134,12 +129,8 @@ func ParsePublicBytesP256(data []byte) (*PublicKeyP256, error) {
 		X:     x,
 		Y:     y,
 	}
-	pubECDH, err := pubECDSA.ECDH()
-	pub := PublicKeyP256{pubP256: *pubECDSA, pubP256ecdh: *pubECDH}
-	if err != nil {
-		return nil, fmt.Errorf("unexpected internal error converting P-256 x509 key from ecdsa to ecdh: %w", err)
-	}
-	err = pub.checkCurve()
+	pub := PublicKeyP256{pubP256: *pubECDSA}
+	err := pub.checkCurve()
 	if err != nil {
 		return nil, err
 	}
@@ -163,12 +154,8 @@ func ParsePublicUncompressedBytesP256(data []byte) (*PublicKeyP256, error) {
 		X:     x,
 		Y:     y,
 	}
-	pubECDH, err := pubECDSA.ECDH()
-	pub := PublicKeyP256{pubP256: *pubECDSA, pubP256ecdh: *pubECDH}
-	if err != nil {
-		return nil, fmt.Errorf("unexpected internal error converting P-256 x509 key from ecdsa to ecdh: %w", err)
-	}
-	err = pub.checkCurve()
+	pub := PublicKeyP256{pubP256: *pubECDSA}
+	err := pub.checkCurve()
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +180,7 @@ func (k *PublicKeyP256) checkCurve() error {
 
 // Serializes the key in to "uncompressed" binary format.
 func (k *PublicKeyP256) UncompressedBytes() []byte {
-	return k.pubP256ecdh.Bytes()
+	return elliptic.Marshal(k.pubP256.Curve, k.pubP256.X, k.pubP256.Y)
 }
 
 // Serializes the key in to "compressed" binary format.
