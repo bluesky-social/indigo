@@ -388,6 +388,12 @@ func (dp *DiskPersistence) garbageCollect(ctx context.Context) []error {
 
 	// In the future if we want to support Archiving, we could do that here instead of deleting
 	for _, r := range refs {
+		if r.Path == dp.logfi.Name() {
+			// Don't delete the current log file
+			log.Info("skipping deletion of current log file")
+			continue
+		}
+
 		// Delete the ref in the database to prevent playback from finding it
 		if err := dp.meta.WithContext(ctx).Delete(&r).Error; err != nil {
 			errs = append(errs, err)
