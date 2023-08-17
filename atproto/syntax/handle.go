@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+var handleRegex = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$`)
+
 // String type which represents a syntaxtually valid handle identifier, as would pass Lexicon syntax validation.
 //
 // Always use [ParseHandle] instead of wrapping strings directly, especially when working with input.
@@ -17,7 +19,6 @@ func ParseHandle(raw string) (Handle, error) {
 	if len(raw) > 253 {
 		return "", fmt.Errorf("handle is too long (253 chars max)")
 	}
-	var handleRegex = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$`)
 	if !handleRegex.MatchString(raw) {
 		return "", fmt.Errorf("handle syntax didn't validate via regex")
 	}

@@ -32,7 +32,11 @@ joh-.test
 john.-est
 john.tes-
 
-# TODO: short/long examples
+# max over all handle: 'shoooort' + '.loooooooooooooooooooooooooong'.repeat(9) + '.test'
+shoooort.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.test
+
+# max segment: 'short.' + 'o'.repeat(64) + '.test'
+short.oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo.test
 
 # throws on "dotless" TLD handles
 org

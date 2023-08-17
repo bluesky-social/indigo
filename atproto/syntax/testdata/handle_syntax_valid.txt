@@ -16,7 +16,12 @@ j0.h0
 jaymome-johnber123456.test
 jay.mome-johnber123456.test
 john.test.bsky.app
-# TODO: short and long
+
+# max over all handle: 'shoooort' + '.loooooooooooooooooooooooooong'.repeat(8) + '.test'
+shoooort.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.loooooooooooooooooooooooooong.test
+
+# max segment: 'short.' + 'o'.repeat(63) + '.test'
+short.ooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo.test
 
 # NOTE: this probably isn't ever going to be a real domain, but my read of the RFC is that it would be possible
 john.t

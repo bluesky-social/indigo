@@ -22,7 +22,7 @@ func TestInteropNSIDsValid(t *testing.T) {
 		}
 		_, err := ParseNSID(line)
 		if err != nil {
-			fmt.Println("GOOD: " + line)
+			fmt.Println("FAILED, GOOD: " + line)
 		}
 		assert.NoError(err)
 	}
@@ -42,7 +42,7 @@ func TestInteropNSIDsInvalid(t *testing.T) {
 		}
 		_, err := ParseNSID(line)
 		if err == nil {
-			fmt.Println("BAD: " + line)
+			fmt.Println("FAILED, BAD: " + line)
 		}
 		assert.Error(err)
 	}

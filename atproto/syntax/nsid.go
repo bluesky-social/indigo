@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+var nsidRegex = regexp.MustCompile(`^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(\.[a-zA-Z]([a-zA-Z]{0,61}[a-zA-Z])?)$`)
+
 // String type which represents a syntaxtually valid Namespace Identifier (NSID), as would pass Lexicon syntax validation.
 //
 // Always use [ParseNSID] instead of wrapping strings directly, especially when working with input.
@@ -17,7 +19,6 @@ func ParseNSID(raw string) (NSID, error) {
 	if len(raw) > 317 {
 		return "", fmt.Errorf("NSID is too long (317 chars max)")
 	}
-	var nsidRegex = regexp.MustCompile(`^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(\.[a-zA-Z]([a-zA-Z]{0,61}[a-zA-Z])?)$`)
 	if !nsidRegex.MatchString(raw) {
 		return "", fmt.Errorf("NSID syntax didn't validate via regex")
 	}
