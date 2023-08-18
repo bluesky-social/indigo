@@ -49,3 +49,16 @@ func (d DID) Identifier() string {
 func (d DID) String() string {
 	return string(d)
 }
+
+func (d DID) MarshalText() ([]byte, error) {
+	return []byte(d.String()), nil
+}
+
+func (d *DID) UnmarshalText(text []byte) error {
+	did, err := ParseDID(string(text))
+	if err != nil {
+		return err
+	}
+	*d = did
+	return nil
+}

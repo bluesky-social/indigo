@@ -30,3 +30,16 @@ func ParseRecordKey(raw string) (RecordKey, error) {
 func (r RecordKey) String() string {
 	return string(r)
 }
+
+func (r RecordKey) MarshalText() ([]byte, error) {
+	return []byte(r.String()), nil
+}
+
+func (r *RecordKey) UnmarshalText(text []byte) error {
+	rkey, err := ParseRecordKey(string(text))
+	if err != nil {
+		return err
+	}
+	*r = rkey
+	return nil
+}

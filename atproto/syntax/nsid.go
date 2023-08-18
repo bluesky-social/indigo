@@ -60,3 +60,16 @@ func (n NSID) Normalize() NSID {
 	prefix := strings.ToLower(strings.Join(parts[:len(parts)-1], "."))
 	return NSID(prefix + "." + name)
 }
+
+func (n NSID) MarshalText() ([]byte, error) {
+	return []byte(n.String()), nil
+}
+
+func (n *NSID) UnmarshalText(text []byte) error {
+	nsid, err := ParseNSID(string(text))
+	if err != nil {
+		return err
+	}
+	*n = nsid
+	return nil
+}

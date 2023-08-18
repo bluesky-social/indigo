@@ -20,7 +20,7 @@ func ParseHandle(raw string) (Handle, error) {
 		return "", fmt.Errorf("handle is too long (253 chars max)")
 	}
 	if !handleRegex.MatchString(raw) {
-		return "", fmt.Errorf("handle syntax didn't validate via regex")
+		return "", fmt.Errorf("handle syntax didn't validate via regex: %s", raw)
 	}
 	return Handle(raw), nil
 }
@@ -55,4 +55,17 @@ func (h Handle) Normalize() Handle {
 
 func (h Handle) String() string {
 	return string(h)
+}
+
+func (h Handle) MarshalText() ([]byte, error) {
+	return []byte(h.String()), nil
+}
+
+func (h *Handle) UnmarshalText(text []byte) error {
+	handle, err := ParseHandle(string(text))
+	if err != nil {
+		return err
+	}
+	*h = handle
+	return nil
 }
