@@ -38,7 +38,7 @@ func (t *CborChecker) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
@@ -49,7 +49,7 @@ func (t *CborChecker) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Type))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Type)); err != nil {
+	if _, err := cw.WriteString(string(t.Type)); err != nil {
 		return err
 	}
 	return nil
@@ -133,7 +133,7 @@ func (t *LegacyBlob) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("cid"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("cid")); err != nil {
+	if _, err := cw.WriteString(string("cid")); err != nil {
 		return err
 	}
 
@@ -144,7 +144,7 @@ func (t *LegacyBlob) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Cid))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Cid)); err != nil {
+	if _, err := cw.WriteString(string(t.Cid)); err != nil {
 		return err
 	}
 
@@ -156,7 +156,7 @@ func (t *LegacyBlob) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("mimeType"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("mimeType")); err != nil {
+	if _, err := cw.WriteString(string("mimeType")); err != nil {
 		return err
 	}
 
@@ -167,7 +167,7 @@ func (t *LegacyBlob) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.MimeType))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.MimeType)); err != nil {
+	if _, err := cw.WriteString(string(t.MimeType)); err != nil {
 		return err
 	}
 	return nil
@@ -262,7 +262,7 @@ func (t *BlobSchema) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("ref"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("ref")); err != nil {
+	if _, err := cw.WriteString(string("ref")); err != nil {
 		return err
 	}
 
@@ -278,7 +278,7 @@ func (t *BlobSchema) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("size"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("size")); err != nil {
+	if _, err := cw.WriteString(string("size")); err != nil {
 		return err
 	}
 
@@ -300,14 +300,14 @@ func (t *BlobSchema) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("blob"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("blob")); err != nil {
+	if _, err := cw.WriteString(string("blob")); err != nil {
 		return err
 	}
 
@@ -319,7 +319,7 @@ func (t *BlobSchema) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("mimeType"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("mimeType")); err != nil {
+	if _, err := cw.WriteString(string("mimeType")); err != nil {
 		return err
 	}
 
@@ -330,7 +330,7 @@ func (t *BlobSchema) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.MimeType))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.MimeType)); err != nil {
+	if _, err := cw.WriteString(string(t.MimeType)); err != nil {
 		return err
 	}
 	return nil

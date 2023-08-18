@@ -45,7 +45,7 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("cid"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("cid")); err != nil {
+		if _, err := cw.WriteString(string("cid")); err != nil {
 			return err
 		}
 
@@ -61,7 +61,7 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Cid))); err != nil {
 				return err
 			}
-			if _, err := io.WriteString(w, string(*t.Cid)); err != nil {
+			if _, err := cw.WriteString(string(*t.Cid)); err != nil {
 				return err
 			}
 		}
@@ -75,7 +75,7 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("cts"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("cts")); err != nil {
+	if _, err := cw.WriteString(string("cts")); err != nil {
 		return err
 	}
 
@@ -86,7 +86,7 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Cts))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Cts)); err != nil {
+	if _, err := cw.WriteString(string(t.Cts)); err != nil {
 		return err
 	}
 
@@ -98,7 +98,7 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("neg"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("neg")); err != nil {
+	if _, err := cw.WriteString(string("neg")); err != nil {
 		return err
 	}
 
@@ -114,7 +114,7 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("src"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("src")); err != nil {
+	if _, err := cw.WriteString(string("src")); err != nil {
 		return err
 	}
 
@@ -125,7 +125,7 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Src))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Src)); err != nil {
+	if _, err := cw.WriteString(string(t.Src)); err != nil {
 		return err
 	}
 
@@ -137,7 +137,7 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("uri"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("uri")); err != nil {
+	if _, err := cw.WriteString(string("uri")); err != nil {
 		return err
 	}
 
@@ -148,7 +148,7 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Uri))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Uri)); err != nil {
+	if _, err := cw.WriteString(string(t.Uri)); err != nil {
 		return err
 	}
 
@@ -160,7 +160,7 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("val"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("val")); err != nil {
+	if _, err := cw.WriteString(string("val")); err != nil {
 		return err
 	}
 
@@ -171,7 +171,7 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Val))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Val)); err != nil {
+	if _, err := cw.WriteString(string(t.Val)); err != nil {
 		return err
 	}
 
@@ -183,14 +183,14 @@ func (t *Label) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("com.atproto.label.label"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("com.atproto.label.label")); err != nil {
+	if _, err := cw.WriteString(string("com.atproto.label.label")); err != nil {
 		return err
 	}
 	return nil
@@ -366,7 +366,7 @@ func (t *SubscribeLabels_Info) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("name"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("name")); err != nil {
+	if _, err := cw.WriteString(string("name")); err != nil {
 		return err
 	}
 
@@ -377,7 +377,7 @@ func (t *SubscribeLabels_Info) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Name))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Name)); err != nil {
+	if _, err := cw.WriteString(string(t.Name)); err != nil {
 		return err
 	}
 
@@ -391,7 +391,7 @@ func (t *SubscribeLabels_Info) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("$type")); err != nil {
+		if _, err := cw.WriteString(string("$type")); err != nil {
 			return err
 		}
 
@@ -402,7 +402,7 @@ func (t *SubscribeLabels_Info) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+		if _, err := cw.WriteString(string(t.LexiconTypeID)); err != nil {
 			return err
 		}
 	}
@@ -417,7 +417,7 @@ func (t *SubscribeLabels_Info) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("message"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("message")); err != nil {
+		if _, err := cw.WriteString(string("message")); err != nil {
 			return err
 		}
 
@@ -433,7 +433,7 @@ func (t *SubscribeLabels_Info) MarshalCBOR(w io.Writer) error {
 			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Message))); err != nil {
 				return err
 			}
-			if _, err := io.WriteString(w, string(*t.Message)); err != nil {
+			if _, err := cw.WriteString(string(*t.Message)); err != nil {
 				return err
 			}
 		}
@@ -556,7 +556,7 @@ func (t *SubscribeLabels_Labels) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("seq"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("seq")); err != nil {
+	if _, err := cw.WriteString(string("seq")); err != nil {
 		return err
 	}
 
@@ -580,7 +580,7 @@ func (t *SubscribeLabels_Labels) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("$type")); err != nil {
+		if _, err := cw.WriteString(string("$type")); err != nil {
 			return err
 		}
 
@@ -591,7 +591,7 @@ func (t *SubscribeLabels_Labels) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.LexiconTypeID))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string(t.LexiconTypeID)); err != nil {
+		if _, err := cw.WriteString(string(t.LexiconTypeID)); err != nil {
 			return err
 		}
 	}
@@ -604,7 +604,7 @@ func (t *SubscribeLabels_Labels) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("labels"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("labels")); err != nil {
+	if _, err := cw.WriteString(string("labels")); err != nil {
 		return err
 	}
 
