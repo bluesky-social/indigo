@@ -59,3 +59,16 @@ func (n AtIdentifier) String() string {
 	}
 	return ""
 }
+
+func (a AtIdentifier) MarshalText() ([]byte, error) {
+	return []byte(a.String()), nil
+}
+
+func (a *AtIdentifier) UnmarshalText(text []byte) error {
+	atid, err := ParseAtIdentifier(string(text))
+	if err != nil {
+		return err
+	}
+	*a = *atid
+	return nil
+}

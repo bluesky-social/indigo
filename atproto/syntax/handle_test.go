@@ -2,6 +2,7 @@ package syntax
 
 import (
 	"bufio"
+	"encoding"
 	"fmt"
 	"os"
 	"testing"
@@ -68,4 +69,9 @@ func TestHandleNoPanic(t *testing.T) {
 		_ = bad.TLD()
 		_ = bad.AllowedTLD()
 	}
+}
+func TestHandleInterfaces(t *testing.T) {
+	h := Handle("e.com")
+	var _ encoding.TextMarshaler = h
+	var _ encoding.TextUnmarshaler = &h
 }
