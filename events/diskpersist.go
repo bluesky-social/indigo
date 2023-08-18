@@ -16,6 +16,7 @@ import (
 	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/models"
 	lru "github.com/hashicorp/golang-lru"
+	cbg "github.com/whyrusleeping/cbor-gen"
 	"gorm.io/gorm"
 )
 
@@ -38,6 +39,7 @@ type DiskPersistence struct {
 	uidCache *lru.ARCCache
 	didCache *lru.ARCCache
 
+	writers *sync.Pool
 	buffers *sync.Pool
 	scratch []byte
 
@@ -106,11 +108,18 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 		},
 	}
 
+	wrpool := &sync.Pool{
+		New: func() any {
+			return cbg.NewCborWriter(nil)
+		},
+	}
+
 	dp := &DiskPersistence{
 		meta:            db,
 		primaryDir:      primaryDir,
 		archiveDir:      archiveDir,
 		buffers:         bufpool,
+		writers:         wrpool,
 		uidCache:        uidCache,
 		didCache:        didCache,
 		evts:            make(chan *persistJob, 1024),
@@ -367,6 +376,8 @@ func (p *DiskPersistence) doPersist(j persistJob) error {
 
 func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	buffer := p.buffers.Get().(*bytes.Buffer)
+	cw := p.writers.Get().(*cbg.CborWriter)
+	cw.SetWriter(buffer)
 
 	buffer.Truncate(0)
 
@@ -378,13 +389,13 @@ func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error
 	case e.RepoCommit != nil:
 		evtKind = evtKindCommit
 		did = e.RepoCommit.Repo
-		if err := e.RepoCommit.MarshalCBOR(buffer); err != nil {
+		if err := e.RepoCommit.MarshalCBOR(cw); err != nil {
 			return fmt.Errorf("failed to marshal: %w", err)
 		}
 	case e.RepoHandle != nil:
 		evtKind = evtKindHandle
 		did = e.RepoHandle.Did
-		if err := e.RepoHandle.MarshalCBOR(buffer); err != nil {
+		if err := e.RepoHandle.MarshalCBOR(cw); err != nil {
 			return fmt.Errorf("failed to marshal: %w", err)
 		}
 	default:

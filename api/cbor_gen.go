@@ -45,7 +45,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("sig"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("sig")); err != nil {
+		if _, err := cw.WriteString(string("sig")); err != nil {
 			return err
 		}
 
@@ -56,7 +56,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Sig))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string(t.Sig)); err != nil {
+		if _, err := cw.WriteString(string(t.Sig)); err != nil {
 			return err
 		}
 	}
@@ -69,7 +69,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("prev")); err != nil {
+	if _, err := cw.WriteString(string("prev")); err != nil {
 		return err
 	}
 
@@ -85,7 +85,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Prev))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string(*t.Prev)); err != nil {
+		if _, err := cw.WriteString(string(*t.Prev)); err != nil {
 			return err
 		}
 	}
@@ -98,7 +98,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("type")); err != nil {
+	if _, err := cw.WriteString(string("type")); err != nil {
 		return err
 	}
 
@@ -109,7 +109,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Type))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Type)); err != nil {
+	if _, err := cw.WriteString(string(t.Type)); err != nil {
 		return err
 	}
 
@@ -121,7 +121,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("handle"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("handle")); err != nil {
+	if _, err := cw.WriteString(string("handle")); err != nil {
 		return err
 	}
 
@@ -132,7 +132,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Handle))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Handle)); err != nil {
+	if _, err := cw.WriteString(string(t.Handle)); err != nil {
 		return err
 	}
 
@@ -144,7 +144,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("service"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("service")); err != nil {
+	if _, err := cw.WriteString(string("service")); err != nil {
 		return err
 	}
 
@@ -155,7 +155,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Service))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Service)); err != nil {
+	if _, err := cw.WriteString(string(t.Service)); err != nil {
 		return err
 	}
 
@@ -167,7 +167,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("signingKey"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("signingKey")); err != nil {
+	if _, err := cw.WriteString(string("signingKey")); err != nil {
 		return err
 	}
 
@@ -178,7 +178,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.SigningKey))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.SigningKey)); err != nil {
+	if _, err := cw.WriteString(string(t.SigningKey)); err != nil {
 		return err
 	}
 
@@ -190,7 +190,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("recoveryKey"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("recoveryKey")); err != nil {
+	if _, err := cw.WriteString(string("recoveryKey")); err != nil {
 		return err
 	}
 
@@ -201,7 +201,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.RecoveryKey))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.RecoveryKey)); err != nil {
+	if _, err := cw.WriteString(string(t.RecoveryKey)); err != nil {
 		return err
 	}
 	return nil
