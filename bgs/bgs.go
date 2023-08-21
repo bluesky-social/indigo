@@ -108,7 +108,9 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	}
 
 	ix.CreateExternalUser = bgs.createExternalUser
-	s, err := NewSlurper(db, bgs.handleFedEvent, ssl)
+	slOpts := DefaultSlurperOptions()
+	slOpts.SSL = ssl
+	s, err := NewSlurper(db, bgs.handleFedEvent, slOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -308,6 +310,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 
 	// PDS-related Admin API
 	admin.GET("/pds/list", bgs.handleListPDSs)
+	admin.POST("/pds/changeRateLimit", bgs.handleAdminChangePDSRateLimit)
 	admin.POST("/pds/block", bgs.handleBlockPDS)
 	admin.POST("/pds/unblock", bgs.handleUnblockPDS)
 

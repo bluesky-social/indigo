@@ -11,6 +11,8 @@ interface PDS {
   Blocked: boolean;
   HasActiveConnection: boolean;
   EventsSeenSinceStartup?: number;
+  MaxEventsPerSecond?: number;
+  TokenCount?: number;
 }
 
 type PDSKey = keyof PDS;

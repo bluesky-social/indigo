@@ -604,6 +604,69 @@ const Dash: FC<{}> = () => {
                     href="#"
                     className="group inline-flex"
                     onClick={() => {
+                      setSortField("MaxEventsPerSecond");
+                      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                    }}
+                  >
+                    Rate Limit
+                    <span
+                      className={`ml-2 flex-none rounded text-gray-400 ${
+                        sortField === "MaxEventsPerSecond"
+                          ? "group-hover:bg-gray-200"
+                          : "invisible group-hover:visible group-focus:visible"
+                      }`}
+                    >
+                      {sortField === "MaxEventsPerSecond" &&
+                      sortOrder === "asc" ? (
+                        <ChevronUpIcon className="h-5 w-5" aria-hidden="true" />
+                      ) : (
+                        <ChevronDownIcon
+                          className="h-5 w-5"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </span>
+                  </a>
+                </th>
+                <th
+                  scope="col"
+                  className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
+                >
+                  <a
+                    href="#"
+                    className="group inline-flex"
+                    onClick={() => {
+                      setSortField("TokenCount");
+                      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                    }}
+                  >
+                    Event Throughput
+                    <span
+                      className={`ml-2 flex-none rounded text-gray-400 ${
+                        sortField === "TokenCount"
+                          ? "group-hover:bg-gray-200"
+                          : "invisible group-hover:visible group-focus:visible"
+                      }`}
+                    >
+                      {sortField === "TokenCount" && sortOrder === "desc" ? (
+                        <ChevronUpIcon className="h-5 w-5" aria-hidden="true" />
+                      ) : (
+                        <ChevronDownIcon
+                          className="h-5 w-5"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </span>
+                  </a>
+                </th>
+                <th
+                  scope="col"
+                  className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
+                >
+                  <a
+                    href="#"
+                    className="group inline-flex"
+                    onClick={() => {
                       setSortField("CreatedAt");
                       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
                     }}
@@ -723,6 +786,12 @@ const Dash: FC<{}> = () => {
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
                         {pds.Cursor?.toLocaleString()}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
+                        {pds.MaxEventsPerSecond?.toLocaleString()}/sec
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
+                        {Math.abs(pds.TokenCount || 0).toLocaleString()}/sec
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
                         {new Date(Date.parse(pds.CreatedAt)).toLocaleString()}

@@ -13,6 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
 	"github.com/bluesky-social/indigo/models"
 	"go.opentelemetry.io/otel"
+	"golang.org/x/time/rate"
 
 	"github.com/gorilla/websocket"
 	"gorm.io/gorm"
@@ -29,12 +30,28 @@ type Slurper struct {
 	lk     sync.Mutex
 	active map[string]*activeSub
 
+	LimitMux     sync.RWMutex
+	Limiters     map[uint]*rate.Limiter
+	DefaultLimit rate.Limit
+
 	newSubsDisabled bool
 
 	shutdownChan   chan bool
 	shutdownResult chan []error
 
 	ssl bool
+}
+
+type SlurperOptions struct {
+	SSL          bool
+	DefaultLimit rate.Limit
+}
+
+func DefaultSlurperOptions() *SlurperOptions {
+	return &SlurperOptions{
+		SSL:          false,
+		DefaultLimit: rate.Limit(50),
+	}
 }
 
 type activeSub struct {
@@ -44,13 +61,18 @@ type activeSub struct {
 	cancel func()
 }
 
-func NewSlurper(db *gorm.DB, cb IndexCallback, ssl bool) (*Slurper, error) {
+func NewSlurper(db *gorm.DB, cb IndexCallback, opts *SlurperOptions) (*Slurper, error) {
+	if opts == nil {
+		opts = DefaultSlurperOptions()
+	}
 	db.AutoMigrate(&SlurpConfig{})
 	s := &Slurper{
 		cb:             cb,
 		db:             db,
 		active:         make(map[string]*activeSub),
-		ssl:            ssl,
+		Limiters:       make(map[uint]*rate.Limiter),
+		DefaultLimit:   opts.DefaultLimit,
+		ssl:            opts.SSL,
 		shutdownChan:   make(chan bool),
 		shutdownResult: make(chan []error),
 	}
@@ -179,6 +201,7 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) err
 			Host:       host,
 			SSL:        s.ssl,
 			Registered: reg,
+			RateLimit:  float64(s.DefaultLimit),
 		}
 		if err := s.db.Create(&npds).Error; err != nil {
 			return err
@@ -201,6 +224,18 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) err
 		cancel: cancel,
 	}
 	s.active[host] = &sub
+
+	// Check if we've already got a limiter for this PDS
+	s.LimitMux.RLock()
+	limiter, ok := s.Limiters[peering.ID]
+	s.LimitMux.RUnlock()
+	if !ok {
+		// Create a new limiter for this PDS
+		limiter = rate.NewLimiter(rate.Limit(peering.RateLimit), 1)
+		s.LimitMux.Lock()
+		s.Limiters[peering.ID] = limiter
+		s.LimitMux.Unlock()
+	}
 
 	go s.subscribeWithRedialer(ctx, &peering, &sub)
 
@@ -226,6 +261,17 @@ func (s *Slurper) RestartAll() error {
 			cancel: cancel,
 		}
 		s.active[pds.Host] = &sub
+		// Check if we've already got a limiter for this PDS
+		s.LimitMux.RLock()
+		limiter, ok := s.Limiters[pds.ID]
+		s.LimitMux.RUnlock()
+		if !ok {
+			// Create a new limiter for this PDS
+			limiter = rate.NewLimiter(rate.Limit(pds.RateLimit), 1)
+			s.LimitMux.Lock()
+			s.Limiters[pds.ID] = limiter
+			s.LimitMux.Unlock()
+		}
 		go s.subscribeWithRedialer(ctx, &pds, &sub)
 	}
 
@@ -389,6 +435,12 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 	}
 
+	s.LimitMux.RLock()
+	limiter := s.Limiters[host.ID]
+	s.LimitMux.RUnlock()
+
+	instrumentedRSC := events.NewInstrumentedRepoStreamCallbacks(limiter, rsc.EventHandler)
+
 	scalingSettings := autoscaling.AutoscaleSettings{
 		Concurrency:              1,
 		MaxConcurrency:           360,
@@ -397,7 +449,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		ThroughputBucketDuration: time.Second,
 	}
 
-	pool := autoscaling.NewScheduler(scalingSettings, con.RemoteAddr().String(), rsc.EventHandler)
+	pool := autoscaling.NewScheduler(scalingSettings, con.RemoteAddr().String(), instrumentedRSC.EventHandler)
 	return events.HandleRepoStream(ctx, con, pool)
 }
 
