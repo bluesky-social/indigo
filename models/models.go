@@ -108,6 +108,7 @@ type PDS struct {
 	Cursor     int64
 	Registered bool
 	Blocked    bool
+	RateLimit  float64
 }
 
 func ClientForPds(pds *PDS) *xrpc.Client {
