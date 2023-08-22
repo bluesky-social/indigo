@@ -102,13 +102,14 @@ type FollowRecord struct {
 type PDS struct {
 	gorm.Model
 
-	Host       string
-	Did        string
-	SSL        bool
-	Cursor     int64
-	Registered bool
-	Blocked    bool
-	RateLimit  float64
+	Host           string
+	Did            string
+	SSL            bool
+	Cursor         int64
+	Registered     bool
+	Blocked        bool
+	RateLimit      float64
+	CrawlRateLimit float64
 }
 
 func ClientForPds(pds *PDS) *xrpc.Client {

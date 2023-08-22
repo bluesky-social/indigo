@@ -30,9 +30,10 @@ type Slurper struct {
 	lk     sync.Mutex
 	active map[string]*activeSub
 
-	LimitMux     sync.RWMutex
-	Limiters     map[uint]*rate.Limiter
-	DefaultLimit rate.Limit
+	LimitMux          sync.RWMutex
+	Limiters          map[uint]*rate.Limiter
+	DefaultLimit      rate.Limit
+	DefaultCrawlLimit rate.Limit
 
 	newSubsDisabled bool
 
@@ -43,14 +44,16 @@ type Slurper struct {
 }
 
 type SlurperOptions struct {
-	SSL          bool
-	DefaultLimit rate.Limit
+	SSL                bool
+	DefaultIngestLimit rate.Limit
+	DefaultCrawlLimit  rate.Limit
 }
 
 func DefaultSlurperOptions() *SlurperOptions {
 	return &SlurperOptions{
-		SSL:          false,
-		DefaultLimit: rate.Limit(50),
+		SSL:                false,
+		DefaultIngestLimit: rate.Limit(50),
+		DefaultCrawlLimit:  rate.Limit(5),
 	}
 }
 
@@ -67,14 +70,15 @@ func NewSlurper(db *gorm.DB, cb IndexCallback, opts *SlurperOptions) (*Slurper, 
 	}
 	db.AutoMigrate(&SlurpConfig{})
 	s := &Slurper{
-		cb:             cb,
-		db:             db,
-		active:         make(map[string]*activeSub),
-		Limiters:       make(map[uint]*rate.Limiter),
-		DefaultLimit:   opts.DefaultLimit,
-		ssl:            opts.SSL,
-		shutdownChan:   make(chan bool),
-		shutdownResult: make(chan []error),
+		cb:                cb,
+		db:                db,
+		active:            make(map[string]*activeSub),
+		Limiters:          make(map[uint]*rate.Limiter),
+		DefaultLimit:      opts.DefaultIngestLimit,
+		DefaultCrawlLimit: opts.DefaultCrawlLimit,
+		ssl:               opts.SSL,
+		shutdownChan:      make(chan bool),
+		shutdownResult:    make(chan []error),
 	}
 	if err := s.loadConfig(); err != nil {
 		return nil, err
@@ -198,10 +202,11 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) err
 	if peering.ID == 0 {
 		// New PDS!
 		npds := models.PDS{
-			Host:       host,
-			SSL:        s.ssl,
-			Registered: reg,
-			RateLimit:  float64(s.DefaultLimit),
+			Host:           host,
+			SSL:            s.ssl,
+			Registered:     reg,
+			RateLimit:      float64(s.DefaultLimit),
+			CrawlRateLimit: float64(s.DefaultCrawlLimit),
 		}
 		if err := s.db.Create(&npds).Error; err != nil {
 			return err
