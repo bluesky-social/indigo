@@ -522,6 +522,10 @@ var listInviteTreeCmd = &cli.Command{
 			Usage: "additionally disable invites for all printed DIDs",
 		},
 		&cli.BoolFlag{
+			Name:  "revoke-existing-invites",
+			Usage: "additionally revoke any existing invites for all printed DIDs",
+		},
+		&cli.BoolFlag{
 			Name:  "print-handles",
 			Usage: "print handle for each DID",
 		},
@@ -565,6 +569,14 @@ var listInviteTreeCmd = &cli.Command{
 					Account: next,
 				}); err != nil {
 					return fmt.Errorf("failed to disable invites on %q: %w", next, err)
+				}
+			}
+
+			if cctx.Bool("revoke-existing-invites") {
+				if err := atproto.AdminDisableInviteCodes(ctx, xrpcc, &atproto.AdminDisableInviteCodes_Input{
+					Accounts: []string{next},
+				}); err != nil {
+					return fmt.Errorf("failed to revoke existing invites on %q: %w", next, err)
 				}
 			}
 
