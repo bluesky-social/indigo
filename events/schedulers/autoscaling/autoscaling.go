@@ -23,8 +23,9 @@ type Scheduler struct {
 	feeder chan *consumerTask
 	out    chan struct{}
 
-	lk     sync.Mutex
-	active map[string][]*consumerTask
+	lk        sync.Mutex
+	active    map[string][]*consumerTask
+	maxActive int
 
 	ident string
 
@@ -42,11 +43,12 @@ type Scheduler struct {
 }
 
 type AutoscaleSettings struct {
-	Concurrency              int
-	MaxConcurrency           int
-	AutoscaleFrequency       time.Duration
-	ThroughputBucketCount    int
-	ThroughputBucketDuration time.Duration
+	Concurrency                 int
+	MaxConcurrency              int
+	AutoscaleFrequency          time.Duration
+	ThroughputBucketCount       int
+	ThroughputBucketDuration    time.Duration
+	MaximumBufferedItemsPerRepo int
 }
 
 // DefaultAutoscaleSettings returns the default autoscale settings.
@@ -60,11 +62,12 @@ type AutoscaleSettings struct {
 // We start with 1 worker and scale up to 32 workers.
 func DefaultAutoscaleSettings() AutoscaleSettings {
 	return AutoscaleSettings{
-		Concurrency:              1,
-		MaxConcurrency:           32,
-		AutoscaleFrequency:       5 * time.Second,
-		ThroughputBucketCount:    60,
-		ThroughputBucketDuration: time.Second,
+		Concurrency:                 1,
+		MaxConcurrency:              32,
+		AutoscaleFrequency:          5 * time.Second,
+		ThroughputBucketCount:       60,
+		ThroughputBucketDuration:    time.Second,
+		MaximumBufferedItemsPerRepo: 100,
 	}
 }
 
@@ -75,9 +78,10 @@ func NewScheduler(autoscaleSettings AutoscaleSettings, ident string, do func(con
 
 		do: do,
 
-		feeder: make(chan *consumerTask),
-		active: make(map[string][]*consumerTask),
-		out:    make(chan struct{}),
+		feeder:    make(chan *consumerTask),
+		active:    make(map[string][]*consumerTask),
+		out:       make(chan struct{}),
+		maxActive: autoscaleSettings.MaximumBufferedItemsPerRepo,
 
 		ident: ident,
 
@@ -175,6 +179,9 @@ func (p *Scheduler) AddWork(ctx context.Context, repo string, val *events.XRPCSt
 
 	a, ok := p.active[repo]
 	if ok {
+		if len(a) >= p.maxActive {
+			// TODO: Need a pattern to prevent buffer stuffing
+		}
 		p.active[repo] = append(a, t)
 		p.lk.Unlock()
 		return nil
