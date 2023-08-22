@@ -38,7 +38,7 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("did"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("did")); err != nil {
+	if _, err := cw.WriteString(string("did")); err != nil {
 		return err
 	}
 
@@ -49,7 +49,7 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Did))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Did)); err != nil {
+	if _, err := cw.WriteString(string(t.Did)); err != nil {
 		return err
 	}
 
@@ -61,7 +61,7 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("sig"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("sig")); err != nil {
+	if _, err := cw.WriteString(string("sig")); err != nil {
 		return err
 	}
 
@@ -85,7 +85,7 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("data"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("data")); err != nil {
+	if _, err := cw.WriteString(string("data")); err != nil {
 		return err
 	}
 
@@ -101,7 +101,7 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("prev")); err != nil {
+	if _, err := cw.WriteString(string("prev")); err != nil {
 		return err
 	}
 
@@ -123,7 +123,7 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("version"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("version")); err != nil {
+	if _, err := cw.WriteString(string("version")); err != nil {
 		return err
 	}
 
@@ -301,7 +301,7 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("did"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("did")); err != nil {
+	if _, err := cw.WriteString(string("did")); err != nil {
 		return err
 	}
 
@@ -312,7 +312,7 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Did))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Did)); err != nil {
+	if _, err := cw.WriteString(string(t.Did)); err != nil {
 		return err
 	}
 
@@ -324,7 +324,7 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("data"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("data")); err != nil {
+	if _, err := cw.WriteString(string("data")); err != nil {
 		return err
 	}
 
@@ -340,7 +340,7 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("prev")); err != nil {
+	if _, err := cw.WriteString(string("prev")); err != nil {
 		return err
 	}
 
@@ -362,7 +362,7 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("version"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("version")); err != nil {
+	if _, err := cw.WriteString(string("version")); err != nil {
 		return err
 	}
 

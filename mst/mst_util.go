@@ -4,13 +4,13 @@ package mst
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"strings"
 	"unsafe"
 
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
+	sha256 "github.com/minio/sha256-simd"
 )
 
 // Used to determine the "depth" of keys in an MST.
