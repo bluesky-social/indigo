@@ -16,6 +16,8 @@ import (
 	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/models"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"gorm.io/gorm"
 )
@@ -25,8 +27,7 @@ type DiskPersistence struct {
 	archiveDir      string
 	eventsPerFile   int64
 	writeBufferSize int
-
-	evts chan *persistJob
+	retention       time.Duration
 
 	meta *gorm.DB
 
@@ -52,7 +53,7 @@ type DiskPersistence struct {
 }
 
 type persistJob struct {
-	Buf    []byte
+	Bytes  []byte
 	Evt    *XRPCStreamEvent
 	Buffer *bytes.Buffer // so we can put it back in the pool when we're done
 }
@@ -74,14 +75,16 @@ type DiskPersistOptions struct {
 	DIDCacheSize    int
 	EventsPerFile   int64
 	WriteBufferSize int
+	Retention       time.Duration
 }
 
 func DefaultDiskPersistOptions() *DiskPersistOptions {
 	return &DiskPersistOptions{
-		EventsPerFile:   10000,
-		UIDCacheSize:    100000,
-		DIDCacheSize:    100000,
+		EventsPerFile:   10_000,
+		UIDCacheSize:    100_000,
+		DIDCacheSize:    100_000,
 		WriteBufferSize: 50,
+		Retention:       time.Hour * 24 * 3, // 3 days
 	}
 }
 
@@ -119,10 +122,10 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 		primaryDir:      primaryDir,
 		archiveDir:      archiveDir,
 		buffers:         bufpool,
+		retention:       opts.Retention,
 		writers:         wrpool,
 		uidCache:        uidCache,
 		didCache:        didCache,
-		evts:            make(chan *persistJob, 1024),
 		eventsPerFile:   opts.EventsPerFile,
 		scratch:         make([]byte, headerSize),
 		outbuf:          new(bytes.Buffer),
@@ -135,6 +138,8 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 	}
 
 	go dp.flushRoutine()
+
+	go dp.garbageCollectRoutine()
 
 	return dp, nil
 }
@@ -274,17 +279,17 @@ const (
 
 var emptyHeader = make([]byte, headerSize)
 
-func (p *DiskPersistence) addJobToQueue(job persistJob) error {
-	p.lk.Lock()
-	defer p.lk.Unlock()
+func (dp *DiskPersistence) addJobToQueue(ctx context.Context, job persistJob) error {
+	dp.lk.Lock()
+	defer dp.lk.Unlock()
 
-	if err := p.doPersist(job); err != nil {
+	if err := dp.doPersist(ctx, job); err != nil {
 		return err
 	}
 
 	// TODO: for some reason replacing this constant with p.writeBufferSize dramatically reduces perf...
-	if len(p.evtbuf) > 400 {
-		if err := p.flushLog(context.TODO()); err != nil {
+	if len(dp.evtbuf) > 400 {
+		if err := dp.flushLog(ctx); err != nil {
 			return fmt.Errorf("failed to flush disk log: %w", err)
 		}
 	}
@@ -292,53 +297,152 @@ func (p *DiskPersistence) addJobToQueue(job persistJob) error {
 	return nil
 }
 
-func (p *DiskPersistence) flushRoutine() {
+func (dp *DiskPersistence) flushRoutine() {
 	t := time.NewTicker(time.Millisecond * 100)
 
 	for {
+		ctx := context.Background()
 		select {
-		case <-p.shutdown:
+		case <-dp.shutdown:
 			return
 		case <-t.C:
-			p.lk.Lock()
-			if err := p.flushLog(context.TODO()); err != nil {
+			dp.lk.Lock()
+			if err := dp.flushLog(ctx); err != nil {
 				// TODO: this happening is quite bad. Need a recovery strategy
 				log.Errorf("failed to flush disk log: %s", err)
 			}
-			p.lk.Unlock()
+			dp.lk.Unlock()
 		}
 	}
 }
 
-func (p *DiskPersistence) flushLog(ctx context.Context) error {
-	if len(p.evtbuf) == 0 {
+func (dp *DiskPersistence) flushLog(ctx context.Context) error {
+	if len(dp.evtbuf) == 0 {
 		return nil
 	}
 
-	_, err := io.Copy(p.logfi, p.outbuf)
+	_, err := io.Copy(dp.logfi, dp.outbuf)
 	if err != nil {
 		return err
 	}
 
-	p.outbuf.Truncate(0)
+	dp.outbuf.Truncate(0)
 
-	for _, ej := range p.evtbuf {
-		p.broadcast(ej.Evt)
+	for _, ej := range dp.evtbuf {
+		dp.broadcast(ej.Evt)
 		ej.Buffer.Truncate(0)
-		p.buffers.Put(ej.Buffer)
+		dp.buffers.Put(ej.Buffer)
 	}
 
-	p.evtbuf = p.evtbuf[:0]
+	dp.evtbuf = dp.evtbuf[:0]
 
 	return nil
 }
 
-func (p *DiskPersistence) doPersist(j persistJob) error {
-	b := j.Buf
-	e := j.Evt
-	seq := p.curSeq
-	p.curSeq++
+func (dp *DiskPersistence) garbageCollectRoutine() {
+	t := time.NewTicker(time.Hour)
 
+	for {
+		ctx := context.Background()
+		select {
+		// Closing a channel can be listened to with multiple routines: https://goplay.tools/snippet/UcwbC0CeJAL
+		case <-dp.shutdown:
+			return
+		case <-t.C:
+			if errs := dp.garbageCollect(ctx); len(errs) > 0 {
+				for _, err := range errs {
+					log.Errorf("garbage collection error: %s", err)
+				}
+			}
+		}
+	}
+}
+
+var garbageCollectionsExecuted = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "disk_persister_garbage_collections_executed",
+	Help: "Number of garbage collections executed",
+}, []string{})
+
+var garbageCollectionErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "disk_persister_garbage_collections_errors",
+	Help: "Number of errors encountered during garbage collection",
+}, []string{})
+
+var refsGarbageCollected = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "disk_persister_garbage_collections_refs_collected",
+	Help: "Number of refs collected during garbage collection",
+}, []string{})
+
+var filesGarbageCollected = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "disk_persister_garbage_collections_files_collected",
+	Help: "Number of files collected during garbage collection",
+}, []string{})
+
+func (dp *DiskPersistence) garbageCollect(ctx context.Context) []error {
+	garbageCollectionsExecuted.WithLabelValues().Inc()
+
+	// Grab refs created before the retention period
+	var refs []LogFileRef
+	var errs []error
+
+	defer func() {
+		garbageCollectionErrors.WithLabelValues().Add(float64(len(errs)))
+	}()
+
+	if err := dp.meta.WithContext(ctx).Find(&refs, "created_at < ?", time.Now().Add(-dp.retention)).Error; err != nil {
+		return []error{err}
+	}
+
+	oldRefsFound := len(refs)
+	refsDeleted := 0
+	filesDeleted := 0
+
+	// In the future if we want to support Archiving, we could do that here instead of deleting
+	for _, r := range refs {
+		dp.lk.Lock()
+		currentLogfile := dp.logfi.Name()
+		dp.lk.Unlock()
+
+		if filepath.Join(dp.primaryDir, r.Path) == currentLogfile {
+			// Don't delete the current log file
+			log.Info("skipping deletion of current log file")
+			continue
+		}
+
+		// Delete the ref in the database to prevent playback from finding it
+		if err := dp.meta.WithContext(ctx).Delete(&r).Error; err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		refsDeleted++
+
+		// Delete the file from disk
+		if err := os.Remove(filepath.Join(dp.primaryDir, r.Path)); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		filesDeleted++
+	}
+
+	refsGarbageCollected.WithLabelValues().Add(float64(refsDeleted))
+	filesGarbageCollected.WithLabelValues().Add(float64(filesDeleted))
+
+	log.Infow("garbage collection complete",
+		"filesDeleted", filesDeleted,
+		"refsDeleted", refsDeleted,
+		"oldRefsFound", oldRefsFound,
+	)
+
+	return errs
+}
+
+func (dp *DiskPersistence) doPersist(ctx context.Context, j persistJob) error {
+	b := j.Bytes
+	e := j.Evt
+	seq := dp.curSeq
+	dp.curSeq++
+
+	// Set sequence number in event header
 	binary.LittleEndian.PutUint64(b[20:], uint64(seq))
 
 	switch {
@@ -353,20 +457,20 @@ func (p *DiskPersistence) doPersist(j persistJob) error {
 	}
 
 	// TODO: does this guarantee a full write?
-	_, err := p.outbuf.Write(b)
+	_, err := dp.outbuf.Write(b)
 	if err != nil {
 		return err
 	}
 
-	p.evtbuf = append(p.evtbuf, j)
+	dp.evtbuf = append(dp.evtbuf, j)
 
-	if seq%p.eventsPerFile == 0 {
-		if err := p.flushLog(context.TODO()); err != nil {
+	if seq%dp.eventsPerFile == 0 {
+		if err := dp.flushLog(ctx); err != nil {
 			return err
 		}
 
 		// time to roll the log file
-		if err := p.swapLog(context.TODO()); err != nil {
+		if err := dp.swapLog(ctx); err != nil {
 			return err
 		}
 	}
@@ -374,9 +478,9 @@ func (p *DiskPersistence) doPersist(j persistJob) error {
 	return nil
 }
 
-func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
-	buffer := p.buffers.Get().(*bytes.Buffer)
-	cw := p.writers.Get().(*cbg.CborWriter)
+func (dp *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
+	buffer := dp.buffers.Get().(*bytes.Buffer)
+	cw := dp.writers.Get().(*cbg.CborWriter)
 	cw.SetWriter(buffer)
 
 	buffer.Truncate(0)
@@ -403,20 +507,24 @@ func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error
 		// only those two get peristed right now
 	}
 
-	usr, err := p.uidForDid(ctx, did)
+	usr, err := dp.uidForDid(ctx, did)
 	if err != nil {
 		return err
 	}
 
 	b := buffer.Bytes()
 
+	// Set flags in header (no flags for now)
 	binary.LittleEndian.PutUint32(b, 0)
+	// Set event kind in header
 	binary.LittleEndian.PutUint32(b[4:], evtKind)
+	// Set event length in header
 	binary.LittleEndian.PutUint32(b[8:], uint32(len(b)-headerSize))
+	// Set user UID in header
 	binary.LittleEndian.PutUint64(b[12:], uint64(usr))
 
-	return p.addJobToQueue(persistJob{
-		Buf:    b,
+	return dp.addJobToQueue(ctx, persistJob{
+		Bytes:  b,
 		Evt:    e,
 		Buffer: buffer,
 	})
@@ -462,14 +570,14 @@ func readHeader(r io.Reader, scratch []byte) (*evtHeader, error) {
 	}, nil
 }
 
-func (p *DiskPersistence) writeHeader(ctx context.Context, flags uint32, kind uint32, l uint32, usr uint64, seq int64) error {
-	binary.LittleEndian.PutUint32(p.scratch, flags)
-	binary.LittleEndian.PutUint32(p.scratch[4:], kind)
-	binary.LittleEndian.PutUint32(p.scratch[8:], l)
-	binary.LittleEndian.PutUint64(p.scratch[12:], usr)
-	binary.LittleEndian.PutUint64(p.scratch[20:], uint64(seq))
+func (dp *DiskPersistence) writeHeader(ctx context.Context, flags uint32, kind uint32, l uint32, usr uint64, seq int64) error {
+	binary.LittleEndian.PutUint32(dp.scratch, flags)
+	binary.LittleEndian.PutUint32(dp.scratch[4:], kind)
+	binary.LittleEndian.PutUint32(dp.scratch[8:], l)
+	binary.LittleEndian.PutUint64(dp.scratch[12:], usr)
+	binary.LittleEndian.PutUint64(dp.scratch[20:], uint64(seq))
 
-	nw, err := p.logfi.Write(p.scratch)
+	nw, err := dp.logfi.Write(dp.scratch)
 	if err != nil {
 		return err
 	}
@@ -481,30 +589,30 @@ func (p *DiskPersistence) writeHeader(ctx context.Context, flags uint32, kind ui
 	return nil
 }
 
-func (p *DiskPersistence) uidForDid(ctx context.Context, did string) (models.Uid, error) {
-	if uid, ok := p.didCache.Get(did); ok {
+func (dp *DiskPersistence) uidForDid(ctx context.Context, did string) (models.Uid, error) {
+	if uid, ok := dp.didCache.Get(did); ok {
 		return uid.(models.Uid), nil
 	}
 
 	var u models.ActorInfo
-	if err := p.meta.First(&u, "did = ?", did).Error; err != nil {
+	if err := dp.meta.First(&u, "did = ?", did).Error; err != nil {
 		return 0, err
 	}
 
-	p.didCache.Add(did, u.Uid)
+	dp.didCache.Add(did, u.Uid)
 
 	return u.Uid, nil
 }
 
-func (p *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
-	base := since - (since % p.eventsPerFile)
+func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
+	base := since - (since % dp.eventsPerFile)
 	var logs []LogFileRef
-	if err := p.meta.Debug().Order("seq_start asc").Find(&logs, "seq_start >= ?", base).Error; err != nil {
+	if err := dp.meta.Debug().Order("seq_start asc").Find(&logs, "seq_start >= ?", base).Error; err != nil {
 		return err
 	}
 
 	for _, lf := range logs {
-		if err := p.readEventsFrom(ctx, since, filepath.Join(p.primaryDir, lf.Path), cb); err != nil {
+		if err := dp.readEventsFrom(ctx, since, filepath.Join(dp.primaryDir, lf.Path), cb); err != nil {
 			return err
 		}
 		since = 0
@@ -521,7 +629,7 @@ func postDoNotEmit(flags uint32) bool {
 	return false
 }
 
-func (p *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn string, cb func(*XRPCStreamEvent) error) error {
+func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn string, cb func(*XRPCStreamEvent) error) error {
 	fi, err := os.OpenFile(fn, os.O_RDONLY, 0)
 	if err != nil {
 		return err
@@ -598,7 +706,7 @@ type UserAction struct {
 	Takedown bool
 }
 
-func (p *DiskPersistence) TakeDownRepo(ctx context.Context, usr models.Uid) error {
+func (dp *DiskPersistence) TakeDownRepo(ctx context.Context, usr models.Uid) error {
 	/*
 		if err := p.meta.Create(&UserAction{
 			Usr:      usr,
@@ -608,8 +716,8 @@ func (p *DiskPersistence) TakeDownRepo(ctx context.Context, usr models.Uid) erro
 		}
 	*/
 
-	return p.forEachShardWithUserEvents(ctx, usr, func(ctx context.Context, fn string) error {
-		if err := p.deleteEventsForUser(ctx, usr, fn); err != nil {
+	return dp.forEachShardWithUserEvents(ctx, usr, func(ctx context.Context, fn string) error {
+		if err := dp.deleteEventsForUser(ctx, usr, fn); err != nil {
 			return err
 		}
 
@@ -617,14 +725,14 @@ func (p *DiskPersistence) TakeDownRepo(ctx context.Context, usr models.Uid) erro
 	})
 }
 
-func (p *DiskPersistence) forEachShardWithUserEvents(ctx context.Context, usr models.Uid, cb func(context.Context, string) error) error {
+func (dp *DiskPersistence) forEachShardWithUserEvents(ctx context.Context, usr models.Uid, cb func(context.Context, string) error) error {
 	var refs []LogFileRef
-	if err := p.meta.Order("created_at desc").Find(&refs).Error; err != nil {
+	if err := dp.meta.Order("created_at desc").Find(&refs).Error; err != nil {
 		return err
 	}
 
 	for _, r := range refs {
-		mhas, err := p.refMaybeHasUserEvents(ctx, usr, r)
+		mhas, err := dp.refMaybeHasUserEvents(ctx, usr, r)
 		if err != nil {
 			return err
 		}
@@ -632,9 +740,9 @@ func (p *DiskPersistence) forEachShardWithUserEvents(ctx context.Context, usr mo
 		if mhas {
 			var path string
 			if r.Archived {
-				path = filepath.Join(p.archiveDir, r.Path)
+				path = filepath.Join(dp.archiveDir, r.Path)
 			} else {
-				path = filepath.Join(p.primaryDir, r.Path)
+				path = filepath.Join(dp.primaryDir, r.Path)
 			}
 
 			if err := cb(ctx, path); err != nil {
@@ -646,7 +754,7 @@ func (p *DiskPersistence) forEachShardWithUserEvents(ctx context.Context, usr mo
 	return nil
 }
 
-func (p *DiskPersistence) refMaybeHasUserEvents(ctx context.Context, usr models.Uid, ref LogFileRef) (bool, error) {
+func (dp *DiskPersistence) refMaybeHasUserEvents(ctx context.Context, usr models.Uid, ref LogFileRef) (bool, error) {
 	// TODO: lazily computed bloom filters for users in each logfile
 	return true, nil
 }
@@ -660,11 +768,11 @@ func (zr *zeroReader) Read(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func (p *DiskPersistence) deleteEventsForUser(ctx context.Context, usr models.Uid, fn string) error {
-	return p.mutateUserEventsInLog(ctx, usr, fn, EvtFlagTakedown, true)
+func (dp *DiskPersistence) deleteEventsForUser(ctx context.Context, usr models.Uid, fn string) error {
+	return dp.mutateUserEventsInLog(ctx, usr, fn, EvtFlagTakedown, true)
 }
 
-func (p *DiskPersistence) mutateUserEventsInLog(ctx context.Context, usr models.Uid, fn string, flag uint32, zeroEvts bool) error {
+func (dp *DiskPersistence) mutateUserEventsInLog(ctx context.Context, usr models.Uid, fn string, flag uint32, zeroEvts bool) error {
 	fi, err := os.OpenFile(fn, os.O_RDWR, 0)
 	if err != nil {
 		return fmt.Errorf("failed to open log file: %w", err)
@@ -718,31 +826,31 @@ func (p *DiskPersistence) mutateUserEventsInLog(ctx context.Context, usr models.
 	}
 }
 
-func (p *DiskPersistence) RebaseRepoEvents(ctx context.Context, usr models.Uid) error {
-	return p.forEachShardWithUserEvents(ctx, usr, func(ctx context.Context, fn string) error {
-		return p.mutateUserEventsInLog(ctx, usr, fn, EvtFlagRebased, false)
+func (dp *DiskPersistence) RebaseRepoEvents(ctx context.Context, usr models.Uid) error {
+	return dp.forEachShardWithUserEvents(ctx, usr, func(ctx context.Context, fn string) error {
+		return dp.mutateUserEventsInLog(ctx, usr, fn, EvtFlagRebased, false)
 	})
 }
 
-func (p *DiskPersistence) Flush(ctx context.Context) error {
-	p.lk.Lock()
-	defer p.lk.Unlock()
-	if len(p.evtbuf) > 0 {
-		return p.flushLog(ctx)
+func (dp *DiskPersistence) Flush(ctx context.Context) error {
+	dp.lk.Lock()
+	defer dp.lk.Unlock()
+	if len(dp.evtbuf) > 0 {
+		return dp.flushLog(ctx)
 	}
 	return nil
 }
 
-func (p *DiskPersistence) Shutdown(ctx context.Context) error {
-	close(p.shutdown)
-	if err := p.Flush(ctx); err != nil {
+func (dp *DiskPersistence) Shutdown(ctx context.Context) error {
+	close(dp.shutdown)
+	if err := dp.Flush(ctx); err != nil {
 		return err
 	}
 
-	p.logfi.Close()
+	dp.logfi.Close()
 	return nil
 }
 
-func (p *DiskPersistence) SetEventBroadcaster(f func(*XRPCStreamEvent)) {
-	p.broadcast = f
+func (dp *DiskPersistence) SetEventBroadcaster(f func(*XRPCStreamEvent)) {
+	dp.broadcast = f
 }
