@@ -32,6 +32,7 @@ require (
 	github.com/labstack/echo/v4 v4.10.2
 	github.com/labstack/gommon v0.4.0
 	github.com/lestrrat-go/jwx/v2 v2.0.11
+	github.com/minio/sha256-simd v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multihash v0.2.1
 	github.com/opensearch-project/opensearch-go/v2 v2.2.0
@@ -40,7 +41,7 @@ require (
 	github.com/prometheus/client_model v0.3.0
 	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli/v2 v2.25.1
-	github.com/whyrusleeping/cbor-gen v0.0.0-20230331140348-1f892b517e70
+	github.com/whyrusleeping/cbor-gen v0.0.0-20230818171029-f91ae536ca25
 	github.com/whyrusleeping/go-did v0.0.0-20230717231106-35050b2a69a3
 	gitlab.com/yawning/secp256k1-voi v0.0.0-20230702045112-3980093d98cd
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.42.0
@@ -111,7 +112,6 @@ require (
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-sqlite3 v1.14.15 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
-	github.com/minio/sha256-simd v1.0.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect

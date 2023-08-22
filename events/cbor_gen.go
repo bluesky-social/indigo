@@ -38,7 +38,7 @@ func (t *EventHeader) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("t"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("t")); err != nil {
+	if _, err := cw.WriteString(string("t")); err != nil {
 		return err
 	}
 
@@ -49,7 +49,7 @@ func (t *EventHeader) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.MsgType))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.MsgType)); err != nil {
+	if _, err := cw.WriteString(string(t.MsgType)); err != nil {
 		return err
 	}
 
@@ -61,7 +61,7 @@ func (t *EventHeader) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("op"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("op")); err != nil {
+	if _, err := cw.WriteString(string("op")); err != nil {
 		return err
 	}
 
@@ -181,7 +181,7 @@ func (t *ErrorFrame) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("error"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("error")); err != nil {
+	if _, err := cw.WriteString(string("error")); err != nil {
 		return err
 	}
 
@@ -192,7 +192,7 @@ func (t *ErrorFrame) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Error))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Error)); err != nil {
+	if _, err := cw.WriteString(string(t.Error)); err != nil {
 		return err
 	}
 
@@ -204,7 +204,7 @@ func (t *ErrorFrame) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("message"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("message")); err != nil {
+	if _, err := cw.WriteString(string("message")); err != nil {
 		return err
 	}
 
@@ -215,7 +215,7 @@ func (t *ErrorFrame) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Message))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Message)); err != nil {
+	if _, err := cw.WriteString(string(t.Message)); err != nil {
 		return err
 	}
 	return nil
