@@ -478,9 +478,9 @@ func (dp *DiskPersistence) doPersist(ctx context.Context, j persistJob) error {
 	return nil
 }
 
-func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
-	buffer := p.buffers.Get().(*bytes.Buffer)
-	cw := p.writers.Get().(*cbg.CborWriter)
+func (dp *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
+	buffer := dp.buffers.Get().(*bytes.Buffer)
+	cw := dp.writers.Get().(*cbg.CborWriter)
 	cw.SetWriter(buffer)
 
 	buffer.Truncate(0)
@@ -507,7 +507,7 @@ func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error
 		// only those two get peristed right now
 	}
 
-	usr, err := p.uidForDid(ctx, did)
+	usr, err := dp.uidForDid(ctx, did)
 	if err != nil {
 		return err
 	}
@@ -523,7 +523,7 @@ func (p *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error
 	// Set user UID in header
 	binary.LittleEndian.PutUint64(b[12:], uint64(usr))
 
-	return p.addJobToQueue(ctx, persistJob{
+	return dp.addJobToQueue(ctx, persistJob{
 		Bytes:  b,
 		Evt:    e,
 		Buffer: buffer,
