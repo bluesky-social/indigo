@@ -624,7 +624,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 	unlock := rm.lockUser(ctx, uid)
 	defer unlock()
 
-	root, ncids, ds, err := rm.cs.ImportSlice(ctx, uid, prev, carslice)
+	root, ds, err := rm.cs.ImportSlice(ctx, uid, prev, carslice)
 	if err != nil {
 		return fmt.Errorf("importing external carslice: %w", err)
 	}
@@ -636,15 +636,6 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 
 	if err := rm.CheckRepoSig(ctx, r, did); err != nil {
 		return err
-	}
-
-	base := cid.Undef
-	if prev != nil {
-		base = *prev
-	}
-	rmcids, err := repo.BlockDiff(ctx, ds, base, ncids)
-	if err != nil {
-		return fmt.Errorf("failed to process block-level repo diff: %w", err)
 	}
 
 	var evtops []RepoOp

@@ -802,6 +802,10 @@ func BlockDiff(ctx context.Context, bs blockstore.Blockstore, oldroot cid.Cid, n
 	ctx, span := otel.Tracer("repo").Start(ctx, "BlockDiff")
 	defer span.End()
 
+	if !oldroot.Defined() {
+		return map[cid.Cid]bool{}, nil
+	}
+
 	// walk the entire 'new' portion of the tree, marking all referenced cids as 'keep'
 	keepset := make(map[cid.Cid]bool)
 	for _, c := range newcids {
