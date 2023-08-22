@@ -38,7 +38,7 @@ func (t *nodeData) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("e"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("e")); err != nil {
+	if _, err := cw.WriteString(string("e")); err != nil {
 		return err
 	}
 
@@ -63,7 +63,7 @@ func (t *nodeData) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("l"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("l")); err != nil {
+	if _, err := cw.WriteString(string("l")); err != nil {
 		return err
 	}
 
@@ -200,7 +200,7 @@ func (t *treeEntry) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("k"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("k")); err != nil {
+	if _, err := cw.WriteString(string("k")); err != nil {
 		return err
 	}
 
@@ -224,7 +224,7 @@ func (t *treeEntry) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("p"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("p")); err != nil {
+	if _, err := cw.WriteString(string("p")); err != nil {
 		return err
 	}
 
@@ -246,7 +246,7 @@ func (t *treeEntry) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("t"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("t")); err != nil {
+	if _, err := cw.WriteString(string("t")); err != nil {
 		return err
 	}
 
@@ -268,7 +268,7 @@ func (t *treeEntry) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("v"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("v")); err != nil {
+	if _, err := cw.WriteString(string("v")); err != nil {
 		return err
 	}
 

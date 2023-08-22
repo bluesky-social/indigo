@@ -65,7 +65,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("text"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("text")); err != nil {
+	if _, err := cw.WriteString(string("text")); err != nil {
 		return err
 	}
 
@@ -76,7 +76,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Text))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Text)); err != nil {
+	if _, err := cw.WriteString(string(t.Text)); err != nil {
 		return err
 	}
 
@@ -88,14 +88,14 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.feed.post"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("app.bsky.feed.post")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.feed.post")); err != nil {
 		return err
 	}
 
@@ -109,7 +109,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("embed"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("embed")); err != nil {
+		if _, err := cw.WriteString(string("embed")); err != nil {
 			return err
 		}
 
@@ -128,7 +128,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("langs"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("langs")); err != nil {
+		if _, err := cw.WriteString(string("langs")); err != nil {
 			return err
 		}
 
@@ -147,7 +147,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(v))); err != nil {
 				return err
 			}
-			if _, err := io.WriteString(w, string(v)); err != nil {
+			if _, err := cw.WriteString(string(v)); err != nil {
 				return err
 			}
 		}
@@ -163,7 +163,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("reply"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("reply")); err != nil {
+		if _, err := cw.WriteString(string("reply")); err != nil {
 			return err
 		}
 
@@ -182,7 +182,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("facets"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("facets")); err != nil {
+		if _, err := cw.WriteString(string("facets")); err != nil {
 			return err
 		}
 
@@ -210,7 +210,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("labels"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("labels")); err != nil {
+		if _, err := cw.WriteString(string("labels")); err != nil {
 			return err
 		}
 
@@ -229,7 +229,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("entities"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("entities")); err != nil {
+		if _, err := cw.WriteString(string("entities")); err != nil {
 			return err
 		}
 
@@ -255,7 +255,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("createdAt")); err != nil {
+	if _, err := cw.WriteString(string("createdAt")); err != nil {
 		return err
 	}
 
@@ -266,7 +266,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.CreatedAt)); err != nil {
+	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
 		return err
 	}
 	return nil
@@ -524,14 +524,14 @@ func (t *FeedRepost) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.feed.repost"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("app.bsky.feed.repost")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.feed.repost")); err != nil {
 		return err
 	}
 
@@ -543,7 +543,7 @@ func (t *FeedRepost) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("subject"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("subject")); err != nil {
+	if _, err := cw.WriteString(string("subject")); err != nil {
 		return err
 	}
 
@@ -559,7 +559,7 @@ func (t *FeedRepost) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("createdAt")); err != nil {
+	if _, err := cw.WriteString(string("createdAt")); err != nil {
 		return err
 	}
 
@@ -570,7 +570,7 @@ func (t *FeedRepost) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.CreatedAt)); err != nil {
+	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
 		return err
 	}
 	return nil
@@ -685,7 +685,7 @@ func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("type")); err != nil {
+	if _, err := cw.WriteString(string("type")); err != nil {
 		return err
 	}
 
@@ -696,7 +696,7 @@ func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Type))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Type)); err != nil {
+	if _, err := cw.WriteString(string(t.Type)); err != nil {
 		return err
 	}
 
@@ -708,7 +708,7 @@ func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("index"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("index")); err != nil {
+	if _, err := cw.WriteString(string("index")); err != nil {
 		return err
 	}
 
@@ -724,7 +724,7 @@ func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("value"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("value")); err != nil {
+	if _, err := cw.WriteString(string("value")); err != nil {
 		return err
 	}
 
@@ -735,7 +735,7 @@ func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Value))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Value)); err != nil {
+	if _, err := cw.WriteString(string(t.Value)); err != nil {
 		return err
 	}
 	return nil
@@ -850,7 +850,7 @@ func (t *FeedPost_ReplyRef) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("root"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("root")); err != nil {
+	if _, err := cw.WriteString(string("root")); err != nil {
 		return err
 	}
 
@@ -866,7 +866,7 @@ func (t *FeedPost_ReplyRef) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("parent"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("parent")); err != nil {
+	if _, err := cw.WriteString(string("parent")); err != nil {
 		return err
 	}
 
@@ -983,7 +983,7 @@ func (t *FeedPost_TextSlice) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("end"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("end")); err != nil {
+	if _, err := cw.WriteString(string("end")); err != nil {
 		return err
 	}
 
@@ -1005,7 +1005,7 @@ func (t *FeedPost_TextSlice) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("start"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("start")); err != nil {
+	if _, err := cw.WriteString(string("start")); err != nil {
 		return err
 	}
 
@@ -1140,14 +1140,14 @@ func (t *EmbedImages) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.embed.images"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("app.bsky.embed.images")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.embed.images")); err != nil {
 		return err
 	}
 
@@ -1159,7 +1159,7 @@ func (t *EmbedImages) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("images"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("images")); err != nil {
+	if _, err := cw.WriteString(string("images")); err != nil {
 		return err
 	}
 
@@ -1285,14 +1285,14 @@ func (t *EmbedExternal) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.embed.external"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("app.bsky.embed.external")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.embed.external")); err != nil {
 		return err
 	}
 
@@ -1304,7 +1304,7 @@ func (t *EmbedExternal) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("external"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("external")); err != nil {
+	if _, err := cw.WriteString(string("external")); err != nil {
 		return err
 	}
 
@@ -1417,7 +1417,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("uri"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("uri")); err != nil {
+	if _, err := cw.WriteString(string("uri")); err != nil {
 		return err
 	}
 
@@ -1428,7 +1428,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Uri))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Uri)); err != nil {
+	if _, err := cw.WriteString(string(t.Uri)); err != nil {
 		return err
 	}
 
@@ -1442,7 +1442,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("thumb"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("thumb")); err != nil {
+		if _, err := cw.WriteString(string("thumb")); err != nil {
 			return err
 		}
 
@@ -1459,7 +1459,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("title"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("title")); err != nil {
+	if _, err := cw.WriteString(string("title")); err != nil {
 		return err
 	}
 
@@ -1470,7 +1470,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Title))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Title)); err != nil {
+	if _, err := cw.WriteString(string(t.Title)); err != nil {
 		return err
 	}
 
@@ -1482,7 +1482,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("description"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("description")); err != nil {
+	if _, err := cw.WriteString(string("description")); err != nil {
 		return err
 	}
 
@@ -1493,7 +1493,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Description))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Description)); err != nil {
+	if _, err := cw.WriteString(string(t.Description)); err != nil {
 		return err
 	}
 	return nil
@@ -1619,7 +1619,7 @@ func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("alt"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("alt")); err != nil {
+	if _, err := cw.WriteString(string("alt")); err != nil {
 		return err
 	}
 
@@ -1630,7 +1630,7 @@ func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Alt))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Alt)); err != nil {
+	if _, err := cw.WriteString(string(t.Alt)); err != nil {
 		return err
 	}
 
@@ -1642,7 +1642,7 @@ func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("image"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("image")); err != nil {
+	if _, err := cw.WriteString(string("image")); err != nil {
 		return err
 	}
 
@@ -1750,14 +1750,14 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.graph.follow"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("app.bsky.graph.follow")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.graph.follow")); err != nil {
 		return err
 	}
 
@@ -1769,7 +1769,7 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("subject"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("subject")); err != nil {
+	if _, err := cw.WriteString(string("subject")); err != nil {
 		return err
 	}
 
@@ -1780,7 +1780,7 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Subject))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Subject)); err != nil {
+	if _, err := cw.WriteString(string(t.Subject)); err != nil {
 		return err
 	}
 
@@ -1792,7 +1792,7 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("createdAt")); err != nil {
+	if _, err := cw.WriteString(string("createdAt")); err != nil {
 		return err
 	}
 
@@ -1803,7 +1803,7 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.CreatedAt)); err != nil {
+	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
 		return err
 	}
 	return nil
@@ -1930,14 +1930,14 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.actor.profile"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("app.bsky.actor.profile")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.actor.profile")); err != nil {
 		return err
 	}
 
@@ -1951,7 +1951,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("avatar"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("avatar")); err != nil {
+		if _, err := cw.WriteString(string("avatar")); err != nil {
 			return err
 		}
 
@@ -1970,7 +1970,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("banner"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("banner")); err != nil {
+		if _, err := cw.WriteString(string("banner")); err != nil {
 			return err
 		}
 
@@ -1989,7 +1989,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("labels"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("labels")); err != nil {
+		if _, err := cw.WriteString(string("labels")); err != nil {
 			return err
 		}
 
@@ -2008,7 +2008,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("description"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("description")); err != nil {
+		if _, err := cw.WriteString(string("description")); err != nil {
 			return err
 		}
 
@@ -2024,7 +2024,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Description))); err != nil {
 				return err
 			}
-			if _, err := io.WriteString(w, string(*t.Description)); err != nil {
+			if _, err := cw.WriteString(string(*t.Description)); err != nil {
 				return err
 			}
 		}
@@ -2040,7 +2040,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("displayName"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("displayName")); err != nil {
+		if _, err := cw.WriteString(string("displayName")); err != nil {
 			return err
 		}
 
@@ -2056,7 +2056,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.DisplayName))); err != nil {
 				return err
 			}
-			if _, err := io.WriteString(w, string(*t.DisplayName)); err != nil {
+			if _, err := cw.WriteString(string(*t.DisplayName)); err != nil {
 				return err
 			}
 		}
@@ -2244,14 +2244,14 @@ func (t *EmbedRecord) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.embed.record"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("app.bsky.embed.record")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.embed.record")); err != nil {
 		return err
 	}
 
@@ -2263,7 +2263,7 @@ func (t *EmbedRecord) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("record"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("record")); err != nil {
+	if _, err := cw.WriteString(string("record")); err != nil {
 		return err
 	}
 
@@ -2371,14 +2371,14 @@ func (t *FeedLike) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.feed.like"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("app.bsky.feed.like")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.feed.like")); err != nil {
 		return err
 	}
 
@@ -2390,7 +2390,7 @@ func (t *FeedLike) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("subject"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("subject")); err != nil {
+	if _, err := cw.WriteString(string("subject")); err != nil {
 		return err
 	}
 
@@ -2406,7 +2406,7 @@ func (t *FeedLike) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("createdAt")); err != nil {
+	if _, err := cw.WriteString(string("createdAt")); err != nil {
 		return err
 	}
 
@@ -2417,7 +2417,7 @@ func (t *FeedLike) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.CreatedAt)); err != nil {
+	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
 		return err
 	}
 	return nil
@@ -2532,7 +2532,7 @@ func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("index"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("index")); err != nil {
+	if _, err := cw.WriteString(string("index")); err != nil {
 		return err
 	}
 
@@ -2548,7 +2548,7 @@ func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("features"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("features")); err != nil {
+	if _, err := cw.WriteString(string("features")); err != nil {
 		return err
 	}
 
@@ -2683,7 +2683,7 @@ func (t *RichtextFacet_ByteSlice) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("byteEnd"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("byteEnd")); err != nil {
+	if _, err := cw.WriteString(string("byteEnd")); err != nil {
 		return err
 	}
 
@@ -2705,7 +2705,7 @@ func (t *RichtextFacet_ByteSlice) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("byteStart"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("byteStart")); err != nil {
+	if _, err := cw.WriteString(string("byteStart")); err != nil {
 		return err
 	}
 
@@ -2840,7 +2840,7 @@ func (t *RichtextFacet_Link) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("uri"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("uri")); err != nil {
+	if _, err := cw.WriteString(string("uri")); err != nil {
 		return err
 	}
 
@@ -2851,7 +2851,7 @@ func (t *RichtextFacet_Link) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Uri))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Uri)); err != nil {
+	if _, err := cw.WriteString(string(t.Uri)); err != nil {
 		return err
 	}
 
@@ -2863,14 +2863,14 @@ func (t *RichtextFacet_Link) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.richtext.facet"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("app.bsky.richtext.facet")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.richtext.facet")); err != nil {
 		return err
 	}
 	return nil
@@ -2965,7 +2965,7 @@ func (t *RichtextFacet_Mention) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("did"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("did")); err != nil {
+	if _, err := cw.WriteString(string("did")); err != nil {
 		return err
 	}
 
@@ -2976,7 +2976,7 @@ func (t *RichtextFacet_Mention) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Did))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Did)); err != nil {
+	if _, err := cw.WriteString(string(t.Did)); err != nil {
 		return err
 	}
 
@@ -2988,14 +2988,14 @@ func (t *RichtextFacet_Mention) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.richtext.facet"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("app.bsky.richtext.facet")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.richtext.facet")); err != nil {
 		return err
 	}
 	return nil
@@ -3090,14 +3090,14 @@ func (t *EmbedRecordWithMedia) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.embed.recordWithMedia"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("app.bsky.embed.recordWithMedia")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.embed.recordWithMedia")); err != nil {
 		return err
 	}
 
@@ -3109,7 +3109,7 @@ func (t *EmbedRecordWithMedia) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("media"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("media")); err != nil {
+	if _, err := cw.WriteString(string("media")); err != nil {
 		return err
 	}
 
@@ -3125,7 +3125,7 @@ func (t *EmbedRecordWithMedia) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("record"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("record")); err != nil {
+	if _, err := cw.WriteString(string("record")); err != nil {
 		return err
 	}
 
@@ -3253,7 +3253,7 @@ func (t *FeedDefs_NotFoundPost) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("uri"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("uri")); err != nil {
+	if _, err := cw.WriteString(string("uri")); err != nil {
 		return err
 	}
 
@@ -3264,7 +3264,7 @@ func (t *FeedDefs_NotFoundPost) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Uri))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Uri)); err != nil {
+	if _, err := cw.WriteString(string(t.Uri)); err != nil {
 		return err
 	}
 
@@ -3276,14 +3276,14 @@ func (t *FeedDefs_NotFoundPost) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.feed.defs"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("app.bsky.feed.defs")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.feed.defs")); err != nil {
 		return err
 	}
 
@@ -3295,7 +3295,7 @@ func (t *FeedDefs_NotFoundPost) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("notFound"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("notFound")); err != nil {
+	if _, err := cw.WriteString(string("notFound")); err != nil {
 		return err
 	}
 
@@ -3412,14 +3412,14 @@ func (t *GraphBlock) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.graph.block"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("app.bsky.graph.block")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.graph.block")); err != nil {
 		return err
 	}
 
@@ -3431,7 +3431,7 @@ func (t *GraphBlock) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("subject"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("subject")); err != nil {
+	if _, err := cw.WriteString(string("subject")); err != nil {
 		return err
 	}
 
@@ -3442,7 +3442,7 @@ func (t *GraphBlock) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Subject))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Subject)); err != nil {
+	if _, err := cw.WriteString(string(t.Subject)); err != nil {
 		return err
 	}
 
@@ -3454,7 +3454,7 @@ func (t *GraphBlock) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("createdAt")); err != nil {
+	if _, err := cw.WriteString(string("createdAt")); err != nil {
 		return err
 	}
 
@@ -3465,7 +3465,7 @@ func (t *GraphBlock) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.CreatedAt)); err != nil {
+	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
 		return err
 	}
 	return nil
@@ -3588,7 +3588,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("name"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("name")); err != nil {
+	if _, err := cw.WriteString(string("name")); err != nil {
 		return err
 	}
 
@@ -3599,7 +3599,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Name))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Name)); err != nil {
+	if _, err := cw.WriteString(string(t.Name)); err != nil {
 		return err
 	}
 
@@ -3611,14 +3611,14 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.graph.list"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("app.bsky.graph.list")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.graph.list")); err != nil {
 		return err
 	}
 
@@ -3632,7 +3632,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("avatar"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("avatar")); err != nil {
+		if _, err := cw.WriteString(string("avatar")); err != nil {
 			return err
 		}
 
@@ -3651,7 +3651,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("labels"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("labels")); err != nil {
+		if _, err := cw.WriteString(string("labels")); err != nil {
 			return err
 		}
 
@@ -3668,7 +3668,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("purpose"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("purpose")); err != nil {
+	if _, err := cw.WriteString(string("purpose")); err != nil {
 		return err
 	}
 
@@ -3684,7 +3684,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Purpose))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string(*t.Purpose)); err != nil {
+		if _, err := cw.WriteString(string(*t.Purpose)); err != nil {
 			return err
 		}
 	}
@@ -3697,7 +3697,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("createdAt")); err != nil {
+	if _, err := cw.WriteString(string("createdAt")); err != nil {
 		return err
 	}
 
@@ -3708,7 +3708,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.CreatedAt)); err != nil {
+	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
 		return err
 	}
 
@@ -3722,7 +3722,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("description"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("description")); err != nil {
+		if _, err := cw.WriteString(string("description")); err != nil {
 			return err
 		}
 
@@ -3738,7 +3738,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Description))); err != nil {
 				return err
 			}
-			if _, err := io.WriteString(w, string(*t.Description)); err != nil {
+			if _, err := cw.WriteString(string(*t.Description)); err != nil {
 				return err
 			}
 		}
@@ -3754,7 +3754,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("descriptionFacets"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("descriptionFacets")); err != nil {
+		if _, err := cw.WriteString(string("descriptionFacets")); err != nil {
 			return err
 		}
 
@@ -3985,7 +3985,7 @@ func (t *GraphListitem) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("list"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("list")); err != nil {
+	if _, err := cw.WriteString(string("list")); err != nil {
 		return err
 	}
 
@@ -3996,7 +3996,7 @@ func (t *GraphListitem) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.List))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.List)); err != nil {
+	if _, err := cw.WriteString(string(t.List)); err != nil {
 		return err
 	}
 
@@ -4008,14 +4008,14 @@ func (t *GraphListitem) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.graph.listitem"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("app.bsky.graph.listitem")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.graph.listitem")); err != nil {
 		return err
 	}
 
@@ -4027,7 +4027,7 @@ func (t *GraphListitem) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("subject"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("subject")); err != nil {
+	if _, err := cw.WriteString(string("subject")); err != nil {
 		return err
 	}
 
@@ -4038,7 +4038,7 @@ func (t *GraphListitem) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Subject))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Subject)); err != nil {
+	if _, err := cw.WriteString(string(t.Subject)); err != nil {
 		return err
 	}
 
@@ -4050,7 +4050,7 @@ func (t *GraphListitem) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("createdAt")); err != nil {
+	if _, err := cw.WriteString(string("createdAt")); err != nil {
 		return err
 	}
 
@@ -4061,7 +4061,7 @@ func (t *GraphListitem) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.CreatedAt)); err != nil {
+	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
 		return err
 	}
 	return nil
@@ -4195,7 +4195,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("did"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("did")); err != nil {
+	if _, err := cw.WriteString(string("did")); err != nil {
 		return err
 	}
 
@@ -4206,7 +4206,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Did))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Did)); err != nil {
+	if _, err := cw.WriteString(string(t.Did)); err != nil {
 		return err
 	}
 
@@ -4218,14 +4218,14 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.feed.generator"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("app.bsky.feed.generator")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.feed.generator")); err != nil {
 		return err
 	}
 
@@ -4239,7 +4239,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("avatar"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("avatar")); err != nil {
+		if _, err := cw.WriteString(string("avatar")); err != nil {
 			return err
 		}
 
@@ -4258,7 +4258,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("labels"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("labels")); err != nil {
+		if _, err := cw.WriteString(string("labels")); err != nil {
 			return err
 		}
 
@@ -4275,7 +4275,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("createdAt")); err != nil {
+	if _, err := cw.WriteString(string("createdAt")); err != nil {
 		return err
 	}
 
@@ -4286,7 +4286,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.CreatedAt)); err != nil {
+	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
 		return err
 	}
 
@@ -4300,7 +4300,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("description"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("description")); err != nil {
+		if _, err := cw.WriteString(string("description")); err != nil {
 			return err
 		}
 
@@ -4316,7 +4316,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Description))); err != nil {
 				return err
 			}
-			if _, err := io.WriteString(w, string(*t.Description)); err != nil {
+			if _, err := cw.WriteString(string(*t.Description)); err != nil {
 				return err
 			}
 		}
@@ -4330,7 +4330,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("displayName"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("displayName")); err != nil {
+	if _, err := cw.WriteString(string("displayName")); err != nil {
 		return err
 	}
 
@@ -4341,7 +4341,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.DisplayName))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.DisplayName)); err != nil {
+	if _, err := cw.WriteString(string(t.DisplayName)); err != nil {
 		return err
 	}
 
@@ -4355,7 +4355,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("descriptionFacets"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("descriptionFacets")); err != nil {
+		if _, err := cw.WriteString(string("descriptionFacets")); err != nil {
 			return err
 		}
 

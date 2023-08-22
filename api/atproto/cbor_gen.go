@@ -44,7 +44,7 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("cid"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("cid")); err != nil {
+	if _, err := cw.WriteString(string("cid")); err != nil {
 		return err
 	}
 
@@ -55,7 +55,7 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Cid))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Cid)); err != nil {
+	if _, err := cw.WriteString(string(t.Cid)); err != nil {
 		return err
 	}
 
@@ -67,7 +67,7 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("uri"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("uri")); err != nil {
+	if _, err := cw.WriteString(string("uri")); err != nil {
 		return err
 	}
 
@@ -78,7 +78,7 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Uri))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Uri)); err != nil {
+	if _, err := cw.WriteString(string(t.Uri)); err != nil {
 		return err
 	}
 
@@ -92,14 +92,14 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("$type")); err != nil {
+		if _, err := cw.WriteString(string("$type")); err != nil {
 			return err
 		}
 
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("com.atproto.repo.strongRef"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("com.atproto.repo.strongRef")); err != nil {
+		if _, err := cw.WriteString(string("com.atproto.repo.strongRef")); err != nil {
 			return err
 		}
 	}
@@ -206,7 +206,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("ops"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("ops")); err != nil {
+	if _, err := cw.WriteString(string("ops")); err != nil {
 		return err
 	}
 
@@ -231,7 +231,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("seq"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("seq")); err != nil {
+	if _, err := cw.WriteString(string("seq")); err != nil {
 		return err
 	}
 
@@ -253,7 +253,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("prev")); err != nil {
+	if _, err := cw.WriteString(string("prev")); err != nil {
 		return err
 	}
 
@@ -269,7 +269,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("repo"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("repo")); err != nil {
+	if _, err := cw.WriteString(string("repo")); err != nil {
 		return err
 	}
 
@@ -280,7 +280,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Repo))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Repo)); err != nil {
+	if _, err := cw.WriteString(string(t.Repo)); err != nil {
 		return err
 	}
 
@@ -292,7 +292,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("time"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("time")); err != nil {
+	if _, err := cw.WriteString(string("time")); err != nil {
 		return err
 	}
 
@@ -303,7 +303,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Time))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Time)); err != nil {
+	if _, err := cw.WriteString(string(t.Time)); err != nil {
 		return err
 	}
 
@@ -315,7 +315,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("blobs"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("blobs")); err != nil {
+	if _, err := cw.WriteString(string("blobs")); err != nil {
 		return err
 	}
 
@@ -340,7 +340,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("blocks"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("blocks")); err != nil {
+	if _, err := cw.WriteString(string("blocks")); err != nil {
 		return err
 	}
 
@@ -364,7 +364,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("commit"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("commit")); err != nil {
+	if _, err := cw.WriteString(string("commit")); err != nil {
 		return err
 	}
 
@@ -380,7 +380,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("rebase"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("rebase")); err != nil {
+	if _, err := cw.WriteString(string("rebase")); err != nil {
 		return err
 	}
 
@@ -396,7 +396,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("tooBig"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("tooBig")); err != nil {
+	if _, err := cw.WriteString(string("tooBig")); err != nil {
 		return err
 	}
 
@@ -669,7 +669,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("did"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("did")); err != nil {
+	if _, err := cw.WriteString(string("did")); err != nil {
 		return err
 	}
 
@@ -680,7 +680,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Did))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Did)); err != nil {
+	if _, err := cw.WriteString(string(t.Did)); err != nil {
 		return err
 	}
 
@@ -692,7 +692,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("seq"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("seq")); err != nil {
+	if _, err := cw.WriteString(string("seq")); err != nil {
 		return err
 	}
 
@@ -714,7 +714,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("time"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("time")); err != nil {
+	if _, err := cw.WriteString(string("time")); err != nil {
 		return err
 	}
 
@@ -725,7 +725,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Time))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Time)); err != nil {
+	if _, err := cw.WriteString(string(t.Time)); err != nil {
 		return err
 	}
 
@@ -737,7 +737,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("handle"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("handle")); err != nil {
+	if _, err := cw.WriteString(string("handle")); err != nil {
 		return err
 	}
 
@@ -748,7 +748,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Handle))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Handle)); err != nil {
+	if _, err := cw.WriteString(string(t.Handle)); err != nil {
 		return err
 	}
 	return nil
@@ -885,7 +885,7 @@ func (t *SyncSubscribeRepos_Info) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("name"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("name")); err != nil {
+	if _, err := cw.WriteString(string("name")); err != nil {
 		return err
 	}
 
@@ -896,7 +896,7 @@ func (t *SyncSubscribeRepos_Info) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Name))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Name)); err != nil {
+	if _, err := cw.WriteString(string(t.Name)); err != nil {
 		return err
 	}
 
@@ -910,7 +910,7 @@ func (t *SyncSubscribeRepos_Info) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("message"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("message")); err != nil {
+		if _, err := cw.WriteString(string("message")); err != nil {
 			return err
 		}
 
@@ -926,7 +926,7 @@ func (t *SyncSubscribeRepos_Info) MarshalCBOR(w io.Writer) error {
 			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Message))); err != nil {
 				return err
 			}
-			if _, err := io.WriteString(w, string(*t.Message)); err != nil {
+			if _, err := cw.WriteString(string(*t.Message)); err != nil {
 				return err
 			}
 		}
@@ -1033,7 +1033,7 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("did"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("did")); err != nil {
+	if _, err := cw.WriteString(string("did")); err != nil {
 		return err
 	}
 
@@ -1044,7 +1044,7 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Did))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Did)); err != nil {
+	if _, err := cw.WriteString(string(t.Did)); err != nil {
 		return err
 	}
 
@@ -1056,7 +1056,7 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("seq"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("seq")); err != nil {
+	if _, err := cw.WriteString(string("seq")); err != nil {
 		return err
 	}
 
@@ -1078,7 +1078,7 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("time"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("time")); err != nil {
+	if _, err := cw.WriteString(string("time")); err != nil {
 		return err
 	}
 
@@ -1089,7 +1089,7 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Time))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Time)); err != nil {
+	if _, err := cw.WriteString(string(t.Time)); err != nil {
 		return err
 	}
 
@@ -1101,7 +1101,7 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("migrateTo"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("migrateTo")); err != nil {
+	if _, err := cw.WriteString(string("migrateTo")); err != nil {
 		return err
 	}
 
@@ -1117,7 +1117,7 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.MigrateTo))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string(*t.MigrateTo)); err != nil {
+		if _, err := cw.WriteString(string(*t.MigrateTo)); err != nil {
 			return err
 		}
 	}
@@ -1260,7 +1260,7 @@ func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("cid"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("cid")); err != nil {
+	if _, err := cw.WriteString(string("cid")); err != nil {
 		return err
 	}
 
@@ -1276,7 +1276,7 @@ func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("path"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("path")); err != nil {
+	if _, err := cw.WriteString(string("path")); err != nil {
 		return err
 	}
 
@@ -1287,7 +1287,7 @@ func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Path))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Path)); err != nil {
+	if _, err := cw.WriteString(string(t.Path)); err != nil {
 		return err
 	}
 
@@ -1299,7 +1299,7 @@ func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("action"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("action")); err != nil {
+	if _, err := cw.WriteString(string("action")); err != nil {
 		return err
 	}
 
@@ -1310,7 +1310,7 @@ func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Action))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Action)); err != nil {
+	if _, err := cw.WriteString(string(t.Action)); err != nil {
 		return err
 	}
 	return nil
@@ -1425,7 +1425,7 @@ func (t *SyncSubscribeRepos_Tombstone) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("did"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("did")); err != nil {
+	if _, err := cw.WriteString(string("did")); err != nil {
 		return err
 	}
 
@@ -1436,7 +1436,7 @@ func (t *SyncSubscribeRepos_Tombstone) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Did))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Did)); err != nil {
+	if _, err := cw.WriteString(string(t.Did)); err != nil {
 		return err
 	}
 
@@ -1448,7 +1448,7 @@ func (t *SyncSubscribeRepos_Tombstone) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("seq"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("seq")); err != nil {
+	if _, err := cw.WriteString(string("seq")); err != nil {
 		return err
 	}
 
@@ -1470,7 +1470,7 @@ func (t *SyncSubscribeRepos_Tombstone) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("time"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("time")); err != nil {
+	if _, err := cw.WriteString(string("time")); err != nil {
 		return err
 	}
 
@@ -1481,7 +1481,7 @@ func (t *SyncSubscribeRepos_Tombstone) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Time))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Time)); err != nil {
+	if _, err := cw.WriteString(string(t.Time)); err != nil {
 		return err
 	}
 	return nil
@@ -1602,14 +1602,14 @@ func (t *LabelDefs_SelfLabels) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("$type")); err != nil {
+	if _, err := cw.WriteString(string("$type")); err != nil {
 		return err
 	}
 
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("com.atproto.label.defs"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("com.atproto.label.defs")); err != nil {
+	if _, err := cw.WriteString(string("com.atproto.label.defs")); err != nil {
 		return err
 	}
 
@@ -1621,7 +1621,7 @@ func (t *LabelDefs_SelfLabels) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("values"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("values")); err != nil {
+	if _, err := cw.WriteString(string("values")); err != nil {
 		return err
 	}
 
@@ -1747,7 +1747,7 @@ func (t *LabelDefs_SelfLabel) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("val"))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string("val")); err != nil {
+	if _, err := cw.WriteString(string("val")); err != nil {
 		return err
 	}
 
@@ -1758,7 +1758,7 @@ func (t *LabelDefs_SelfLabel) MarshalCBOR(w io.Writer) error {
 	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Val))); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(w, string(t.Val)); err != nil {
+	if _, err := cw.WriteString(string(t.Val)); err != nil {
 		return err
 	}
 	return nil
