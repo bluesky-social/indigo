@@ -669,11 +669,11 @@ func (s *Server) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []strin
 	panic("nyi")
 }
 
-func (s *Server) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, hostname string) error {
+func (s *Server) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, body *comatprototypes.SyncNotifyOfUpdate_Input) error {
 	panic("nyi")
 }
 
-func (s *Server) handleComAtprotoSyncRequestCrawl(ctx context.Context, host string) error {
+func (s *Server) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatprototypes.SyncRequestCrawl_Input) error {
 	panic("nyi")
 }
 
