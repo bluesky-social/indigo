@@ -22,7 +22,7 @@ type FeedDefs_BlockedAuthor struct {
 //
 // RECORDTYPE: FeedDefs_BlockedPost
 type FeedDefs_BlockedPost struct {
-	LexiconTypeID string                  `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
+	LexiconTypeID string                  `json:"$type,const=app.bsky.feed.defs#blockedPost" cborgen:"$type,const=app.bsky.feed.defs#blockedPost"`
 	Author        *FeedDefs_BlockedAuthor `json:"author" cborgen:"author"`
 	Blocked       bool                    `json:"blocked" cborgen:"blocked"`
 	Uri           string                  `json:"uri" cborgen:"uri"`
@@ -66,7 +66,7 @@ func (t *FeedDefs_FeedViewPost_Reason) UnmarshalJSON(b []byte) error {
 //
 // RECORDTYPE: FeedDefs_GeneratorView
 type FeedDefs_GeneratorView struct {
-	LexiconTypeID     string                         `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
+	LexiconTypeID     string                         `json:"$type,const=app.bsky.feed.defs#generatorView" cborgen:"$type,const=app.bsky.feed.defs#generatorView"`
 	Avatar            *string                        `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	Cid               string                         `json:"cid" cborgen:"cid"`
 	Creator           *ActorDefs_ProfileView         `json:"creator" cborgen:"creator"`
@@ -89,7 +89,7 @@ type FeedDefs_GeneratorViewerState struct {
 //
 // RECORDTYPE: FeedDefs_NotFoundPost
 type FeedDefs_NotFoundPost struct {
-	LexiconTypeID string `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
+	LexiconTypeID string `json:"$type,const=app.bsky.feed.defs#notFoundPost" cborgen:"$type,const=app.bsky.feed.defs#notFoundPost"`
 	NotFound      bool   `json:"notFound" cborgen:"notFound"`
 	Uri           string `json:"uri" cborgen:"uri"`
 }
@@ -98,7 +98,7 @@ type FeedDefs_NotFoundPost struct {
 //
 // RECORDTYPE: FeedDefs_PostView
 type FeedDefs_PostView struct {
-	LexiconTypeID string                             `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
+	LexiconTypeID string                             `json:"$type,const=app.bsky.feed.defs#postView" cborgen:"$type,const=app.bsky.feed.defs#postView"`
 	Author        *ActorDefs_ProfileViewBasic        `json:"author" cborgen:"author"`
 	Cid           string                             `json:"cid" cborgen:"cid"`
 	Embed         *FeedDefs_PostView_Embed           `json:"embed,omitempty" cborgen:"embed,omitempty"`
@@ -167,7 +167,7 @@ func (t *FeedDefs_PostView_Embed) UnmarshalJSON(b []byte) error {
 //
 // RECORDTYPE: FeedDefs_ReasonRepost
 type FeedDefs_ReasonRepost struct {
-	LexiconTypeID string                      `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
+	LexiconTypeID string                      `json:"$type,const=app.bsky.feed.defs#reasonRepost" cborgen:"$type,const=app.bsky.feed.defs#reasonRepost"`
 	By            *ActorDefs_ProfileViewBasic `json:"by" cborgen:"by"`
 	IndexedAt     string                      `json:"indexedAt" cborgen:"indexedAt"`
 }
@@ -301,7 +301,7 @@ func (t *FeedDefs_SkeletonFeedPost_Reason) UnmarshalJSON(b []byte) error {
 //
 // RECORDTYPE: FeedDefs_SkeletonReasonRepost
 type FeedDefs_SkeletonReasonRepost struct {
-	LexiconTypeID string `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
+	LexiconTypeID string `json:"$type,const=app.bsky.feed.defs#skeletonReasonRepost" cborgen:"$type,const=app.bsky.feed.defs#skeletonReasonRepost"`
 	Repost        string `json:"repost" cborgen:"repost"`
 }
 
@@ -309,7 +309,7 @@ type FeedDefs_SkeletonReasonRepost struct {
 //
 // RECORDTYPE: FeedDefs_ThreadViewPost
 type FeedDefs_ThreadViewPost struct {
-	LexiconTypeID string                                  `json:"$type,const=app.bsky.feed.defs" cborgen:"$type,const=app.bsky.feed.defs"`
+	LexiconTypeID string                                  `json:"$type,const=app.bsky.feed.defs#threadViewPost" cborgen:"$type,const=app.bsky.feed.defs#threadViewPost"`
 	Parent        *FeedDefs_ThreadViewPost_Parent         `json:"parent,omitempty" cborgen:"parent,omitempty"`
 	Post          *FeedDefs_PostView                      `json:"post" cborgen:"post"`
 	Replies       []*FeedDefs_ThreadViewPost_Replies_Elem `json:"replies,omitempty" cborgen:"replies,omitempty"`

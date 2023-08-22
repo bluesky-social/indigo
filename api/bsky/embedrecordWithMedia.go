@@ -19,7 +19,7 @@ func init() {
 } // EmbedRecordWithMedia is a "main" in the app.bsky.embed.recordWithMedia schema.
 // RECORDTYPE: EmbedRecordWithMedia
 type EmbedRecordWithMedia struct {
-	LexiconTypeID string                      `json:"$type,const=app.bsky.embed.recordWithMedia" cborgen:"$type,const=app.bsky.embed.recordWithMedia"`
+	LexiconTypeID string                      `json:"$type,const=app.bsky.embed.recordWithMedia#main" cborgen:"$type,const=app.bsky.embed.recordWithMedia#main"`
 	Media         *EmbedRecordWithMedia_Media `json:"media" cborgen:"media"`
 	Record        *EmbedRecord                `json:"record" cborgen:"record"`
 }
@@ -96,7 +96,7 @@ func (t *EmbedRecordWithMedia_Media) UnmarshalCBOR(r io.Reader) error {
 //
 // RECORDTYPE: EmbedRecordWithMedia_View
 type EmbedRecordWithMedia_View struct {
-	LexiconTypeID string                           `json:"$type,const=app.bsky.embed.recordWithMedia" cborgen:"$type,const=app.bsky.embed.recordWithMedia"`
+	LexiconTypeID string                           `json:"$type,const=app.bsky.embed.recordWithMedia#view" cborgen:"$type,const=app.bsky.embed.recordWithMedia#view"`
 	Media         *EmbedRecordWithMedia_View_Media `json:"media" cborgen:"media"`
 	Record        *EmbedRecord_View                `json:"record" cborgen:"record"`
 }

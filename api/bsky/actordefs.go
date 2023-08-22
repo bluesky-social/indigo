@@ -16,7 +16,7 @@ import (
 //
 // RECORDTYPE: ActorDefs_AdultContentPref
 type ActorDefs_AdultContentPref struct {
-	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs" cborgen:"$type,const=app.bsky.actor.defs"`
+	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs#adultContentPref" cborgen:"$type,const=app.bsky.actor.defs#adultContentPref"`
 	Enabled       bool   `json:"enabled" cborgen:"enabled"`
 }
 
@@ -24,7 +24,7 @@ type ActorDefs_AdultContentPref struct {
 //
 // RECORDTYPE: ActorDefs_ContentLabelPref
 type ActorDefs_ContentLabelPref struct {
-	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs" cborgen:"$type,const=app.bsky.actor.defs"`
+	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs#contentLabelPref" cborgen:"$type,const=app.bsky.actor.defs#contentLabelPref"`
 	Label         string `json:"label" cborgen:"label"`
 	Visibility    string `json:"visibility" cborgen:"visibility"`
 }
@@ -114,7 +114,7 @@ type ActorDefs_ProfileViewDetailed struct {
 //
 // RECORDTYPE: ActorDefs_SavedFeedsPref
 type ActorDefs_SavedFeedsPref struct {
-	LexiconTypeID string   `json:"$type,const=app.bsky.actor.defs" cborgen:"$type,const=app.bsky.actor.defs"`
+	LexiconTypeID string   `json:"$type,const=app.bsky.actor.defs#savedFeedsPref" cborgen:"$type,const=app.bsky.actor.defs#savedFeedsPref"`
 	Pinned        []string `json:"pinned" cborgen:"pinned"`
 	Saved         []string `json:"saved" cborgen:"saved"`
 }

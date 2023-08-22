@@ -1210,7 +1210,11 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 			if ts.id == "com.atproto.repo.strongRef" { // TODO: hack
 				omit = ",omitempty"
 			}
-			pf("\tLexiconTypeID string `json:\"$type,const=%s%s\" cborgen:\"$type,const=%s%s\"`\n", ts.id, omit, ts.id, omit)
+			cval := ts.id
+			if ts.defName != "" {
+				cval += "#" + ts.defName
+			}
+			pf("\tLexiconTypeID string `json:\"$type,const=%s%s\" cborgen:\"$type,const=%s%s\"`\n", cval, omit, cval, omit)
 		} else {
 			//pf("\tLexiconTypeID string `json:\"$type,omitempty\" cborgen:\"$type,omitempty\"`\n")
 		}
