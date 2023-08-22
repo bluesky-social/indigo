@@ -8,6 +8,7 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  PencilSquareIcon,
   XCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/solid";
@@ -52,6 +53,8 @@ const Dash: FC<{}> = () => {
   } | null>(null);
   const [modalConfirm, setModalConfirm] = useState<() => void>(() => {});
   const [modalCancel, setModalCancel] = useState<() => void>(() => {});
+
+  const [editingRateLimit, setEditingRateLimit] = useState<PDS | null>(null);
 
   const [adminToken, setAdminToken] = useState<string>(
     localStorage.getItem("admin_route_token") || ""
@@ -262,6 +265,30 @@ const Dash: FC<{}> = () => {
         );
       } else {
         setAlertWithTimeout("success", "Successfully requested unblock", true);
+      }
+      refreshPDSList();
+    });
+  };
+
+  const changeRateLimit = (pds: PDS, newLimit: number) => {
+    fetch(
+      `${BGS_HOST}/admin/pds/changeRateLimit?host=${pds.Host}&limit=${newLimit}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+      }
+    ).then((res) => {
+      if (res.status !== 200) {
+        setAlertWithTimeout(
+          "failure",
+          `Failed to change rate limit: ${res.statusText} (${res.status})`,
+          true
+        );
+      } else {
+        setAlertWithTimeout("success", "Successfully changed rate limit", true);
       }
       refreshPDSList();
     });
@@ -608,7 +635,7 @@ const Dash: FC<{}> = () => {
                       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
                     }}
                   >
-                    Rate Limit
+                    Ingest Rate Limit
                     <span
                       className={`ml-2 flex-none rounded text-gray-400 ${
                         sortField === "MaxEventsPerSecond"
@@ -640,7 +667,7 @@ const Dash: FC<{}> = () => {
                       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
                     }}
                   >
-                    Event Throughput
+                    Limiter Tokens
                     <span
                       className={`ml-2 flex-none rounded text-gray-400 ${
                         sortField === "TokenCount"
@@ -788,10 +815,53 @@ const Dash: FC<{}> = () => {
                         {pds.Cursor?.toLocaleString()}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
-                        {pds.MaxEventsPerSecond?.toLocaleString()}/sec
+                        <span className={editingRateLimit ? "hidden" : ""}>
+                          {pds.MaxEventsPerSecond?.toLocaleString()}/sec
+                        </span>
+                        <input
+                          type="number"
+                          name={`rate-limit-${pds.ID}`}
+                          id={`rate-limit-${pds.ID}`}
+                          className={
+                            `inline-block w-24 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6` +
+                            (editingRateLimit?.ID === pds.ID ? "" : " hidden")
+                          }
+                          defaultValue={pds.MaxEventsPerSecond?.toLocaleString()}
+                        />
+                        <a
+                          href="#"
+                          onClick={() => setEditingRateLimit(pds)}
+                          className={editingRateLimit ? "hidden" : ""}
+                        >
+                          <PencilSquareIcon
+                            className="h-5 w-5 text-gray-500 ml-1 inline-block align-sub"
+                            aria-hidden="true"
+                          />
+                        </a>
+                        <a
+                          href="#"
+                          onClick={() => {
+                            const newRateLimit = document.getElementById(
+                              `rate-limit-${pds.ID}`
+                            ) as HTMLInputElement;
+                            if (newRateLimit) {
+                              changeRateLimit(pds, +newRateLimit.value);
+                            }
+                            setEditingRateLimit(null);
+                          }}
+                          className={
+                            "rounded-md p-2  ml-1 hover:text-green-600 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50" +
+                            (editingRateLimit?.ID === pds.ID ? "" : " hidden")
+                          }
+                        >
+                          <CheckIcon
+                            className="h-5 w-5 text-green-500 inline-block align-sub"
+                            aria-hidden="true"
+                          />
+                        </a>
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
-                        {Math.abs(pds.TokenCount || 0).toLocaleString()}/sec
+                        {Math.abs(pds.TokenCount || 0).toLocaleString()}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
                         {new Date(Date.parse(pds.CreatedAt)).toLocaleString()}
