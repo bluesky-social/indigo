@@ -310,7 +310,8 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 
 	// PDS-related Admin API
 	admin.GET("/pds/list", bgs.handleListPDSs)
-	admin.POST("/pds/changeRateLimit", bgs.handleAdminChangePDSRateLimit)
+	admin.POST("/pds/changeIngestRateLimit", bgs.handleAdminChangePDSRateLimit)
+	admin.POST("/pds/changeCrawlRateLimit", bgs.handleAdminChangePDSCrawlLimit)
 	admin.POST("/pds/block", bgs.handleBlockPDS)
 	admin.POST("/pds/unblock", bgs.handleUnblockPDS)
 

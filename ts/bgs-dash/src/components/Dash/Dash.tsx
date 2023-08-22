@@ -54,7 +54,10 @@ const Dash: FC<{}> = () => {
   const [modalConfirm, setModalConfirm] = useState<() => void>(() => {});
   const [modalCancel, setModalCancel] = useState<() => void>(() => {});
 
-  const [editingRateLimit, setEditingRateLimit] = useState<PDS | null>(null);
+  const [editingIngestRateLimit, setEditingIngestRateLimit] =
+    useState<PDS | null>(null);
+  const [editingCrawlRateLimit, setEditingCrawlRateLimit] =
+    useState<PDS | null>(null);
 
   const [adminToken, setAdminToken] = useState<string>(
     localStorage.getItem("admin_route_token") || ""
@@ -270,9 +273,33 @@ const Dash: FC<{}> = () => {
     });
   };
 
-  const changeRateLimit = (pds: PDS, newLimit: number) => {
+  const changeIngestRateLimit = (pds: PDS, newLimit: number) => {
     fetch(
-      `${BGS_HOST}/admin/pds/changeRateLimit?host=${pds.Host}&limit=${newLimit}`,
+      `${BGS_HOST}/admin/pds/changeIngestRateLimit?host=${pds.Host}&limit=${newLimit}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+      }
+    ).then((res) => {
+      if (res.status !== 200) {
+        setAlertWithTimeout(
+          "failure",
+          `Failed to change rate limit: ${res.statusText} (${res.status})`,
+          true
+        );
+      } else {
+        setAlertWithTimeout("success", "Successfully changed rate limit", true);
+      }
+      refreshPDSList();
+    });
+  };
+
+  const changeCrawlRateLimit = (pds: PDS, newLimit: number) => {
+    fetch(
+      `${BGS_HOST}/admin/pds/changeCrawlRateLimit?host=${pds.Host}&limit=${newLimit}`,
       {
         method: "POST",
         headers: {
@@ -627,63 +654,32 @@ const Dash: FC<{}> = () => {
                   scope="col"
                   className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
                 >
-                  <a
-                    href="#"
-                    className="group inline-flex"
-                    onClick={() => {
-                      setSortField("MaxEventsPerSecond");
-                      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                    }}
-                  >
+                  <a href="#" className="group inline-flex">
                     Ingest Rate Limit
-                    <span
-                      className={`ml-2 flex-none rounded text-gray-400 ${
-                        sortField === "MaxEventsPerSecond"
-                          ? "group-hover:bg-gray-200"
-                          : "invisible group-hover:visible group-focus:visible"
-                      }`}
-                    >
-                      {sortField === "MaxEventsPerSecond" &&
-                      sortOrder === "asc" ? (
-                        <ChevronUpIcon className="h-5 w-5" aria-hidden="true" />
-                      ) : (
-                        <ChevronDownIcon
-                          className="h-5 w-5"
-                          aria-hidden="true"
-                        />
-                      )}
-                    </span>
                   </a>
                 </th>
                 <th
                   scope="col"
                   className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
                 >
-                  <a
-                    href="#"
-                    className="group inline-flex"
-                    onClick={() => {
-                      setSortField("TokenCount");
-                      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                    }}
-                  >
-                    Limiter Tokens
-                    <span
-                      className={`ml-2 flex-none rounded text-gray-400 ${
-                        sortField === "TokenCount"
-                          ? "group-hover:bg-gray-200"
-                          : "invisible group-hover:visible group-focus:visible"
-                      }`}
-                    >
-                      {sortField === "TokenCount" && sortOrder === "desc" ? (
-                        <ChevronUpIcon className="h-5 w-5" aria-hidden="true" />
-                      ) : (
-                        <ChevronDownIcon
-                          className="h-5 w-5"
-                          aria-hidden="true"
-                        />
-                      )}
-                    </span>
+                  <a href="#" className="group inline-flex">
+                    Tokens
+                  </a>
+                </th>
+                <th
+                  scope="col"
+                  className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
+                >
+                  <a href="#" className="group inline-flex">
+                    Crawl Limit
+                  </a>
+                </th>
+                <th
+                  scope="col"
+                  className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
+                >
+                  <a href="#" className="group inline-flex">
+                    Tokens
                   </a>
                 </th>
                 <th
@@ -815,23 +811,32 @@ const Dash: FC<{}> = () => {
                         {pds.Cursor?.toLocaleString()}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
-                        <span className={editingRateLimit ? "hidden" : ""}>
-                          {pds.MaxEventsPerSecond?.toLocaleString()}/sec
+                        <span
+                          className={
+                            editingIngestRateLimit?.ID === pds.ID
+                              ? "hidden"
+                              : ""
+                          }
+                        >
+                          {pds.IngestRateLimit.MaxEventsPerSecond?.toLocaleString()}
+                          /sec
                         </span>
                         <input
                           type="number"
-                          name={`rate-limit-${pds.ID}`}
-                          id={`rate-limit-${pds.ID}`}
+                          name={`ingest-rate-limit-${pds.ID}`}
+                          id={`ingest-rate-limit-${pds.ID}`}
                           className={
                             `inline-block w-24 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6` +
-                            (editingRateLimit?.ID === pds.ID ? "" : " hidden")
+                            (editingIngestRateLimit?.ID === pds.ID
+                              ? ""
+                              : " hidden")
                           }
-                          defaultValue={pds.MaxEventsPerSecond?.toLocaleString()}
+                          defaultValue={pds.IngestRateLimit.MaxEventsPerSecond?.toLocaleString()}
                         />
                         <a
                           href="#"
-                          onClick={() => setEditingRateLimit(pds)}
-                          className={editingRateLimit ? "hidden" : ""}
+                          onClick={() => setEditingIngestRateLimit(pds)}
+                          className={editingIngestRateLimit ? "hidden" : ""}
                         >
                           <PencilSquareIcon
                             className="h-5 w-5 text-gray-500 ml-1 inline-block align-sub"
@@ -842,16 +847,18 @@ const Dash: FC<{}> = () => {
                           href="#"
                           onClick={() => {
                             const newRateLimit = document.getElementById(
-                              `rate-limit-${pds.ID}`
+                              `ingest-rate-limit-${pds.ID}`
                             ) as HTMLInputElement;
                             if (newRateLimit) {
-                              changeRateLimit(pds, +newRateLimit.value);
+                              changeIngestRateLimit(pds, +newRateLimit.value);
                             }
-                            setEditingRateLimit(null);
+                            setEditingIngestRateLimit(null);
                           }}
                           className={
                             "rounded-md p-2  ml-1 hover:text-green-600 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50" +
-                            (editingRateLimit?.ID === pds.ID ? "" : " hidden")
+                            (editingIngestRateLimit?.ID === pds.ID
+                              ? ""
+                              : " hidden")
                           }
                         >
                           <CheckIcon
@@ -861,7 +868,69 @@ const Dash: FC<{}> = () => {
                         </a>
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
-                        {Math.abs(pds.TokenCount || 0).toLocaleString()}
+                        {Math.abs(
+                          pds.IngestRateLimit.TokenCount || 0
+                        ).toLocaleString()}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
+                        <span
+                          className={
+                            editingCrawlRateLimit?.ID === pds.ID ? "hidden" : ""
+                          }
+                        >
+                          {pds.CrawlRateLimit.MaxEventsPerSecond?.toLocaleString()}
+                          /sec
+                        </span>
+                        <input
+                          type="number"
+                          name={`crawl-rate-limit-${pds.ID}`}
+                          id={`crawl-rate-limit-${pds.ID}`}
+                          className={
+                            `inline-block w-24 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6` +
+                            (editingCrawlRateLimit?.ID === pds.ID
+                              ? ""
+                              : " hidden")
+                          }
+                          defaultValue={pds.CrawlRateLimit.MaxEventsPerSecond?.toLocaleString()}
+                        />
+                        <a
+                          href="#"
+                          onClick={() => setEditingCrawlRateLimit(pds)}
+                          className={editingCrawlRateLimit ? "hidden" : ""}
+                        >
+                          <PencilSquareIcon
+                            className="h-5 w-5 text-gray-500 ml-1 inline-block align-sub"
+                            aria-hidden="true"
+                          />
+                        </a>
+                        <a
+                          href="#"
+                          onClick={() => {
+                            const newRateLimit = document.getElementById(
+                              `crawl-rate-limit-${pds.ID}`
+                            ) as HTMLInputElement;
+                            if (newRateLimit) {
+                              changeCrawlRateLimit(pds, +newRateLimit.value);
+                            }
+                            setEditingCrawlRateLimit(null);
+                          }}
+                          className={
+                            "rounded-md p-2  ml-1 hover:text-green-600 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50" +
+                            (editingCrawlRateLimit?.ID === pds.ID
+                              ? ""
+                              : " hidden")
+                          }
+                        >
+                          <CheckIcon
+                            className="h-5 w-5 text-green-500 inline-block align-sub"
+                            aria-hidden="true"
+                          />
+                        </a>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
+                        {Math.abs(
+                          pds.CrawlRateLimit.TokenCount || 0
+                        ).toLocaleString()}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
                         {new Date(Date.parse(pds.CreatedAt)).toLocaleString()}
