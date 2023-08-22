@@ -36,6 +36,6 @@ type LabelDefs_SelfLabel struct {
 //
 // RECORDTYPE: LabelDefs_SelfLabels
 type LabelDefs_SelfLabels struct {
-	LexiconTypeID string                 `json:"$type,const=com.atproto.label.defs" cborgen:"$type,const=com.atproto.label.defs"`
+	LexiconTypeID string                 `json:"$type,const=com.atproto.label.defs#selfLabels" cborgen:"$type,const=com.atproto.label.defs#selfLabels"`
 	Values        []*LabelDefs_SelfLabel `json:"values" cborgen:"values"`
 }

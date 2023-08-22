@@ -19,7 +19,7 @@ import (
 //
 // RECORDTYPE: RepoApplyWrites_Create
 type RepoApplyWrites_Create struct {
-	LexiconTypeID string                   `json:"$type,const=com.atproto.repo.applyWrites" cborgen:"$type,const=com.atproto.repo.applyWrites"`
+	LexiconTypeID string                   `json:"$type,const=com.atproto.repo.applyWrites#create" cborgen:"$type,const=com.atproto.repo.applyWrites#create"`
 	Collection    string                   `json:"collection" cborgen:"collection"`
 	Rkey          *string                  `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
 	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
@@ -31,7 +31,7 @@ type RepoApplyWrites_Create struct {
 //
 // RECORDTYPE: RepoApplyWrites_Delete
 type RepoApplyWrites_Delete struct {
-	LexiconTypeID string `json:"$type,const=com.atproto.repo.applyWrites" cborgen:"$type,const=com.atproto.repo.applyWrites"`
+	LexiconTypeID string `json:"$type,const=com.atproto.repo.applyWrites#delete" cborgen:"$type,const=com.atproto.repo.applyWrites#delete"`
 	Collection    string `json:"collection" cborgen:"collection"`
 	Rkey          string `json:"rkey" cborgen:"rkey"`
 }
@@ -95,7 +95,7 @@ func (t *RepoApplyWrites_Input_Writes_Elem) UnmarshalJSON(b []byte) error {
 //
 // RECORDTYPE: RepoApplyWrites_Update
 type RepoApplyWrites_Update struct {
-	LexiconTypeID string                   `json:"$type,const=com.atproto.repo.applyWrites" cborgen:"$type,const=com.atproto.repo.applyWrites"`
+	LexiconTypeID string                   `json:"$type,const=com.atproto.repo.applyWrites#update" cborgen:"$type,const=com.atproto.repo.applyWrites#update"`
 	Collection    string                   `json:"collection" cborgen:"collection"`
 	Rkey          string                   `json:"rkey" cborgen:"rkey"`
 	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`

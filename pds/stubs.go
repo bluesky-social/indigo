@@ -1980,7 +1980,7 @@ func (s *Server) HandleComAtprotoSyncNotifyOfUpdate(c echo.Context) error {
 	}
 	var handleErr error
 	// func (s *Server) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context,body *comatprototypes.SyncNotifyOfUpdate_Input) error
-	handleErr = s.handleComAtprotoSyncNotifyOfUpdate(ctx, body.Hostname)
+	handleErr = s.handleComAtprotoSyncNotifyOfUpdate(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1997,7 +1997,7 @@ func (s *Server) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 	}
 	var handleErr error
 	// func (s *Server) handleComAtprotoSyncRequestCrawl(ctx context.Context,body *comatprototypes.SyncRequestCrawl_Input) error
-	handleErr = s.handleComAtprotoSyncRequestCrawl(ctx, body.Hostname)
+	handleErr = s.handleComAtprotoSyncRequestCrawl(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}
