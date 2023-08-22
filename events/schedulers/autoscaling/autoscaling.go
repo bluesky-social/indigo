@@ -20,8 +20,8 @@ type Scheduler struct {
 
 	do func(context.Context, *events.XRPCStreamEvent) error
 
-	feeder chan *consumerTask
-	out    chan struct{}
+	feeder      chan *consumerTask
+	workerGroup sync.WaitGroup
 
 	lk        sync.Mutex
 	active    map[string][]*consumerTask
@@ -78,10 +78,10 @@ func NewScheduler(autoscaleSettings AutoscaleSettings, ident string, do func(con
 
 		do: do,
 
-		feeder:    make(chan *consumerTask),
-		active:    make(map[string][]*consumerTask),
-		out:       make(chan struct{}),
-		maxActive: autoscaleSettings.MaximumBufferedItemsPerRepo,
+		feeder:      make(chan *consumerTask),
+		active:      make(map[string][]*consumerTask),
+		maxActive:   autoscaleSettings.MaximumBufferedItemsPerRepo,
+		workerGroup: sync.WaitGroup{},
 
 		ident: ident,
 
@@ -126,11 +126,8 @@ func (p *Scheduler) Shutdown() {
 	close(p.feeder)
 
 	log.Info("waiting for autoscaling scheduler workers to stop")
-	// wait for all workers to stop
-	for i := 0; i < p.concurrency; i++ {
-		<-p.out
-	}
-	close(p.out)
+
+	p.workerGroup.Wait()
 
 	log.Info("stopping autoscaling scheduler throughput manager")
 	p.throughputManager.Stop()
@@ -166,6 +163,7 @@ type consumerTask struct {
 	repo   string
 	val    *events.XRPCStreamEvent
 	signal string
+	wg     *sync.WaitGroup
 }
 
 func (p *Scheduler) AddWork(ctx context.Context, repo string, val *events.XRPCStreamEvent) error {
@@ -201,13 +199,14 @@ func (p *Scheduler) AddWork(ctx context.Context, repo string, val *events.XRPCSt
 func (p *Scheduler) worker() {
 	log.Infof("starting autoscaling worker for %s", p.ident)
 	p.workersActive.Inc()
+	p.workerGroup.Add(1)
+	defer p.workerGroup.Done()
 	for work := range p.feeder {
 		for work != nil {
 			// Check if the work item contains a signal to stop the worker.
 			if work.signal == "stop" {
 				log.Infof("stopping autoscaling worker for %s", p.ident)
 				p.workersActive.Dec()
-				p.out <- struct{}{}
 				return
 			}
 
