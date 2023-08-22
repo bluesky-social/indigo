@@ -13,7 +13,7 @@ func init() {
 } // RepoStrongRef is a "main" in the com.atproto.repo.strongRef schema.
 // RECORDTYPE: RepoStrongRef
 type RepoStrongRef struct {
-	LexiconTypeID string `json:"$type,const=com.atproto.repo.strongRef,omitempty" cborgen:"$type,const=com.atproto.repo.strongRef,omitempty"`
+	LexiconTypeID string `json:"$type,const=com.atproto.repo.strongRef#main,omitempty" cborgen:"$type,const=com.atproto.repo.strongRef#main,omitempty"`
 	Cid           string `json:"cid" cborgen:"cid"`
 	Uri           string `json:"uri" cborgen:"uri"`
 }

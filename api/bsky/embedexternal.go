@@ -13,7 +13,7 @@ func init() {
 } // EmbedExternal is a "main" in the app.bsky.embed.external schema.
 // RECORDTYPE: EmbedExternal
 type EmbedExternal struct {
-	LexiconTypeID string                  `json:"$type,const=app.bsky.embed.external" cborgen:"$type,const=app.bsky.embed.external"`
+	LexiconTypeID string                  `json:"$type,const=app.bsky.embed.external#main" cborgen:"$type,const=app.bsky.embed.external#main"`
 	External      *EmbedExternal_External `json:"external" cborgen:"external"`
 }
 
@@ -29,7 +29,7 @@ type EmbedExternal_External struct {
 //
 // RECORDTYPE: EmbedExternal_View
 type EmbedExternal_View struct {
-	LexiconTypeID string                      `json:"$type,const=app.bsky.embed.external" cborgen:"$type,const=app.bsky.embed.external"`
+	LexiconTypeID string                      `json:"$type,const=app.bsky.embed.external#view" cborgen:"$type,const=app.bsky.embed.external#view"`
 	External      *EmbedExternal_ViewExternal `json:"external" cborgen:"external"`
 }
 

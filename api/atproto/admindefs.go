@@ -189,7 +189,7 @@ func (t *AdminDefs_BlobView_Details) UnmarshalJSON(b []byte) error {
 //
 // RECORDTYPE: AdminDefs_ImageDetails
 type AdminDefs_ImageDetails struct {
-	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
+	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs#imageDetails" cborgen:"$type,const=com.atproto.admin.defs#imageDetails"`
 	Height        int64  `json:"height" cborgen:"height"`
 	Width         int64  `json:"width" cborgen:"width"`
 }
@@ -210,7 +210,7 @@ type AdminDefs_ModerationDetail struct {
 //
 // RECORDTYPE: AdminDefs_RecordView
 type AdminDefs_RecordView struct {
-	LexiconTypeID string                   `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
+	LexiconTypeID string                   `json:"$type,const=com.atproto.admin.defs#recordView" cborgen:"$type,const=com.atproto.admin.defs#recordView"`
 	BlobCids      []string                 `json:"blobCids" cborgen:"blobCids"`
 	Cid           string                   `json:"cid" cborgen:"cid"`
 	IndexedAt     string                   `json:"indexedAt" cborgen:"indexedAt"`
@@ -236,7 +236,7 @@ type AdminDefs_RecordViewDetail struct {
 //
 // RECORDTYPE: AdminDefs_RecordViewNotFound
 type AdminDefs_RecordViewNotFound struct {
-	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
+	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs#recordViewNotFound" cborgen:"$type,const=com.atproto.admin.defs#recordViewNotFound"`
 	Uri           string `json:"uri" cborgen:"uri"`
 }
 
@@ -244,7 +244,7 @@ type AdminDefs_RecordViewNotFound struct {
 //
 // RECORDTYPE: AdminDefs_RepoRef
 type AdminDefs_RepoRef struct {
-	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
+	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs#repoRef" cborgen:"$type,const=com.atproto.admin.defs#repoRef"`
 	Did           string `json:"did" cborgen:"did"`
 }
 
@@ -252,7 +252,7 @@ type AdminDefs_RepoRef struct {
 //
 // RECORDTYPE: AdminDefs_RepoView
 type AdminDefs_RepoView struct {
-	LexiconTypeID   string                     `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
+	LexiconTypeID   string                     `json:"$type,const=com.atproto.admin.defs#repoView" cborgen:"$type,const=com.atproto.admin.defs#repoView"`
 	Did             string                     `json:"did" cborgen:"did"`
 	Email           *string                    `json:"email,omitempty" cborgen:"email,omitempty"`
 	Handle          string                     `json:"handle" cborgen:"handle"`
@@ -283,7 +283,7 @@ type AdminDefs_RepoViewDetail struct {
 //
 // RECORDTYPE: AdminDefs_RepoViewNotFound
 type AdminDefs_RepoViewNotFound struct {
-	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
+	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs#repoViewNotFound" cborgen:"$type,const=com.atproto.admin.defs#repoViewNotFound"`
 	Did           string `json:"did" cborgen:"did"`
 }
 
@@ -400,7 +400,7 @@ func (t *AdminDefs_ReportView_Subject) UnmarshalJSON(b []byte) error {
 //
 // RECORDTYPE: AdminDefs_VideoDetails
 type AdminDefs_VideoDetails struct {
-	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs" cborgen:"$type,const=com.atproto.admin.defs"`
+	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs#videoDetails" cborgen:"$type,const=com.atproto.admin.defs#videoDetails"`
 	Height        int64  `json:"height" cborgen:"height"`
 	Length        int64  `json:"length" cborgen:"length"`
 	Width         int64  `json:"width" cborgen:"width"`
