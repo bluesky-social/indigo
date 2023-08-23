@@ -135,9 +135,8 @@ func (bgs *BGS) handleListPDSs(e echo.Context) error {
 		ingestRateLimit := rateLimit{
 			MaxEventsPerSecond: p.RateLimit,
 		}
-		bgs.slurper.LimitMux.RLock()
-		limiter := bgs.slurper.Limiters[p.ID]
-		bgs.slurper.LimitMux.RUnlock()
+
+		limiter := bgs.slurper.GetLimiter(p.ID)
 		if limiter != nil {
 			ingestRateLimit.TokenCount = limiter.Tokens()
 		}
@@ -148,9 +147,8 @@ func (bgs *BGS) handleListPDSs(e echo.Context) error {
 		crawlRateLimit := rateLimit{
 			MaxEventsPerSecond: p.CrawlRateLimit,
 		}
-		bgs.Index.LimitMux.RLock()
-		limiter = bgs.Index.Limiters[p.ID]
-		bgs.Index.LimitMux.RUnlock()
+
+		limiter = bgs.Index.GetLimiter(p.ID)
 		if limiter != nil {
 			crawlRateLimit.TokenCount = limiter.Tokens()
 		}

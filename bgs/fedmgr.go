@@ -120,6 +120,18 @@ func NewSlurper(db *gorm.DB, cb IndexCallback, opts *SlurperOptions) (*Slurper, 
 	return s, nil
 }
 
+func (s *Slurper) GetLimiter(pdsID uint) *rate.Limiter {
+	s.LimitMux.RLock()
+	defer s.LimitMux.RUnlock()
+	return s.Limiters[pdsID]
+}
+
+func (s *Slurper) SetLimiter(pdsID uint, limiter *rate.Limiter) {
+	s.LimitMux.Lock()
+	defer s.LimitMux.Unlock()
+	s.Limiters[pdsID] = limiter
+}
+
 // Shutdown shuts down the slurper
 func (s *Slurper) Shutdown() []error {
 	s.shutdownChan <- true
@@ -231,15 +243,11 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) err
 	s.active[host] = &sub
 
 	// Check if we've already got a limiter for this PDS
-	s.LimitMux.RLock()
-	limiter, ok := s.Limiters[peering.ID]
-	s.LimitMux.RUnlock()
-	if !ok {
+	limiter := s.GetLimiter(peering.ID)
+	if limiter == nil {
 		// Create a new limiter for this PDS
 		limiter = rate.NewLimiter(rate.Limit(peering.RateLimit), 1)
-		s.LimitMux.Lock()
-		s.Limiters[peering.ID] = limiter
-		s.LimitMux.Unlock()
+		s.SetLimiter(peering.ID, limiter)
 	}
 
 	go s.subscribeWithRedialer(ctx, &peering, &sub)
@@ -267,15 +275,11 @@ func (s *Slurper) RestartAll() error {
 		}
 		s.active[pds.Host] = &sub
 		// Check if we've already got a limiter for this PDS
-		s.LimitMux.RLock()
-		limiter, ok := s.Limiters[pds.ID]
-		s.LimitMux.RUnlock()
-		if !ok {
+		limiter := s.GetLimiter(pds.ID)
+		if limiter == nil {
 			// Create a new limiter for this PDS
 			limiter = rate.NewLimiter(rate.Limit(pds.RateLimit), 1)
-			s.LimitMux.Lock()
-			s.Limiters[pds.ID] = limiter
-			s.LimitMux.Unlock()
+			s.SetLimiter(pds.ID, limiter)
 		}
 		go s.subscribeWithRedialer(ctx, &pds, &sub)
 	}
@@ -440,9 +444,11 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 	}
 
-	s.LimitMux.RLock()
-	limiter := s.Limiters[host.ID]
-	s.LimitMux.RUnlock()
+	limiter := s.GetLimiter(host.ID)
+	if limiter == nil {
+		limiter = rate.NewLimiter(rate.Limit(host.RateLimit), 1)
+		s.SetLimiter(host.ID, limiter)
+	}
 
 	instrumentedRSC := events.NewInstrumentedRepoStreamCallbacks(limiter, rsc.EventHandler)
 
