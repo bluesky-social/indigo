@@ -5,6 +5,9 @@ SHELL = /bin/bash
 # base path for Lexicon document tree (for lexgen)
 LEXDIR?=../atproto/lexicons
 
+# https://github.com/golang/go/wiki/LoopvarExperiment
+export GOEXPERIMENT := loopvar
+
 .PHONY: help
 help: ## Print info about all commands
 	@echo "Commands:"

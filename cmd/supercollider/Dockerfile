@@ -11,6 +11,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
+ENV GOEXPERIMENT=loopvar
 RUN CGO_ENABLED=1 GOOS=linux go build -o /supercollider ./cmd/supercollider
 
 FROM alpine:latest as certs
