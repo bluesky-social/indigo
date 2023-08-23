@@ -81,6 +81,7 @@ type blockRef struct {
 	Cid    models.DbCID `gorm:"index"`
 	Shard  uint
 	Offset int64
+	Dirty  bool
 	//User   uint `gorm:"index"`
 }
 
@@ -676,7 +677,7 @@ func (ds *DeltaSession) putShard(ctx context.Context, shard *CarShard, brefs []m
 		}
 
 		subq := ds.cs.meta.Model(&blockRef{}).Joins("left join car_shards cs on cs.id = block_refs.shard").Where("cid in (?) AND usr = ?", torm, ds.user).Select("block_refs.id")
-		if err := tx.Delete(&blockRef{}, "id in (?)", subq).Error; err != nil {
+		if err := tx.Model(&blockRef{}).Where("id in (?)", subq).UpdateColumn("dirty", true).Error; err != nil {
 			return err
 		}
 	}
