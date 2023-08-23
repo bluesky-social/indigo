@@ -10,6 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/models"
 	"github.com/labstack/echo/v4"
 	dto "github.com/prometheus/client_model/go"
+	"golang.org/x/time/rate"
 	"gorm.io/gorm"
 )
 
@@ -91,10 +92,17 @@ func (bgs *BGS) handleAdminGetUpstreamConns(e echo.Context) error {
 	return e.JSON(200, bgs.slurper.GetActiveList())
 }
 
+type rateLimit struct {
+	MaxEventsPerSecond float64 `json:"MaxEventsPerSecond"`
+	TokenCount         float64 `json:"TokenCount"`
+}
+
 type enrichedPDS struct {
 	models.PDS
-	HasActiveConnection    bool   `json:"HasActiveConnection"`
-	EventsSeenSinceStartup uint64 `json:"EventsSeenSinceStartup"`
+	HasActiveConnection    bool      `json:"HasActiveConnection"`
+	EventsSeenSinceStartup uint64    `json:"EventsSeenSinceStartup"`
+	IngestRate             rateLimit `json:"IngestRate"`
+	CrawlRate              rateLimit `json:"CrawlRate"`
 }
 
 func (bgs *BGS) handleListPDSs(e echo.Context) error {
@@ -122,6 +130,30 @@ func (bgs *BGS) handleListPDSs(e echo.Context) error {
 			continue
 		}
 		enrichedPDSs[i].EventsSeenSinceStartup = uint64(m.Counter.GetValue())
+
+		// Get the ingest rate limit for this PDS
+		ingestRate := rateLimit{
+			MaxEventsPerSecond: p.RateLimit,
+		}
+
+		limiter := bgs.slurper.GetLimiter(p.ID)
+		if limiter != nil {
+			ingestRate.TokenCount = limiter.Tokens()
+		}
+
+		enrichedPDSs[i].IngestRate = ingestRate
+
+		// Get the crawl rate limit for this PDS
+		crawlRate := rateLimit{
+			MaxEventsPerSecond: p.CrawlRateLimit,
+		}
+
+		limiter = bgs.Index.GetLimiter(p.ID)
+		if limiter != nil {
+			crawlRate.TokenCount = limiter.Tokens()
+		}
+
+		enrichedPDSs[i].CrawlRate = crawlRate
 	}
 
 	return e.JSON(200, enrichedPDSs)
@@ -282,6 +314,92 @@ func (bgs *BGS) handleAdminUnbanDomain(c echo.Context) error {
 	}
 
 	return c.JSON(200, map[string]any{
+		"success": "true",
+	})
+}
+
+func (bgs *BGS) handleAdminChangePDSRateLimit(e echo.Context) error {
+	host := strings.TrimSpace(e.QueryParam("host"))
+	if host == "" {
+		return &echo.HTTPError{
+			Code:    400,
+			Message: "must pass a valid host",
+		}
+	}
+
+	// Get the new rate limit
+	limit, err := strconv.ParseFloat(e.QueryParam("limit"), 64)
+	if err != nil {
+		return &echo.HTTPError{
+			Code:    400,
+			Message: "must pass a valid limit",
+		}
+	}
+
+	// Get the PDS from the DB
+	var pds models.PDS
+	if err := bgs.db.Where("host = ?", host).First(&pds).Error; err != nil {
+		return err
+	}
+
+	// Update the rate limit in the DB
+	if err := bgs.db.Model(&pds).Update("rate_limit", limit).Error; err != nil {
+		return err
+	}
+
+	// Update the rate limit in the limiter
+	bgs.slurper.LimitMux.RLock()
+	limiter := bgs.slurper.Limiters[pds.ID]
+	bgs.slurper.LimitMux.RUnlock()
+	limiter.SetLimit(rate.Limit(limit))
+
+	return e.JSON(200, map[string]any{
+		"success": "true",
+	})
+}
+
+func (bgs *BGS) handleAdminChangePDSCrawlLimit(e echo.Context) error {
+	host := strings.TrimSpace(e.QueryParam("host"))
+	if host == "" {
+		return &echo.HTTPError{
+			Code:    400,
+			Message: "must pass a valid host",
+		}
+	}
+
+	// Get the new crawl limit
+	limit, err := strconv.ParseFloat(e.QueryParam("limit"), 64)
+	if err != nil {
+		return &echo.HTTPError{
+			Code:    400,
+			Message: "must pass a valid limit",
+		}
+	}
+
+	// Get the PDS from the DB
+	var pds models.PDS
+	if err := bgs.db.Where("host = ?", host).First(&pds).Error; err != nil {
+		return err
+	}
+
+	// Update the crawl limit in the DB
+	if err := bgs.db.Model(&pds).Update("crawl_rate_limit", limit).Error; err != nil {
+		return err
+	}
+
+	// Update the crawl limit in the limiter
+	bgs.Index.LimitMux.RLock()
+	limiter := bgs.Index.Limiters[pds.ID]
+	bgs.Index.LimitMux.RUnlock()
+	if limiter != nil {
+		limiter.SetLimit(rate.Limit(limit))
+	} else if limiter == nil {
+		bgs.Index.LimitMux.Lock()
+		bgs.Index.Limiters[pds.ID] = rate.NewLimiter(rate.Limit(limit), 1)
+		bgs.Index.LimitMux.Unlock()
+	}
+
+	return e.JSON(200, map[string]any{
 		"success": "true",
 	})
 }

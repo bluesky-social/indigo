@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -17,6 +18,7 @@ import (
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
+	"golang.org/x/time/rate"
 
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
@@ -43,6 +45,9 @@ type Indexer struct {
 
 	Crawler *CrawlDispatcher
 
+	Limiters map[uint]*rate.Limiter
+	LimitMux sync.RWMutex
+
 	doAggregations bool
 
 	SendRemoteFollow       func(context.Context, string, uint) error
@@ -63,6 +68,7 @@ func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events
 		events:         evtman,
 		repomgr:        repoman,
 		didr:           didr,
+		Limiters:       make(map[uint]*rate.Limiter),
 		doAggregations: aggregate,
 		SendRemoteFollow: func(context.Context, string, uint) error {
 			return nil
@@ -81,6 +87,20 @@ func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events
 	}
 
 	return ix, nil
+}
+
+func (ix *Indexer) GetLimiter(pdsID uint) *rate.Limiter {
+	ix.LimitMux.RLock()
+	defer ix.LimitMux.RUnlock()
+
+	return ix.Limiters[pdsID]
+}
+
+func (ix *Indexer) SetLimiter(pdsID uint, lim *rate.Limiter) {
+	ix.LimitMux.Lock()
+	defer ix.LimitMux.Unlock()
+
+	ix.Limiters[pdsID] = lim
 }
 
 func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) error {
@@ -897,8 +917,17 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 		span.SetAttributes(attribute.Bool("full", true))
 	}
 
-	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
+	limiter := ix.GetLimiter(pds.ID)
+	if limiter == nil {
+		limiter = rate.NewLimiter(rate.Limit(pds.CrawlRateLimit), 1)
+		ix.SetLimiter(pds.ID, limiter)
+	}
+
+	// Wait to prevent DOSing the PDS when connecting to a new stream with lots of active repos
+	limiter.Wait(ctx)
+
 	log.Infow("SyncGetRepo", "did", ai.Did, "user", ai.Handle, "from", from)
+	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
 	repo, err := comatproto.SyncGetRepo(ctx, c, ai.Did, from, "")
 	if err != nil {
 		return fmt.Errorf("failed to fetch repo: %w", err)
