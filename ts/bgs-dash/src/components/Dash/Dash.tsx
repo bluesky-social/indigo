@@ -818,7 +818,7 @@ const Dash: FC<{}> = () => {
                               : ""
                           }
                         >
-                          {pds.IngestRateLimit.MaxEventsPerSecond?.toLocaleString()}
+                          {pds.IngestRate.MaxEventsPerSecond?.toLocaleString()}
                           /sec
                         </span>
                         <input
@@ -831,7 +831,7 @@ const Dash: FC<{}> = () => {
                               ? ""
                               : " hidden")
                           }
-                          defaultValue={pds.IngestRateLimit.MaxEventsPerSecond?.toLocaleString()}
+                          defaultValue={pds.IngestRate.MaxEventsPerSecond?.toLocaleString()}
                         />
                         <a
                           href="#"
@@ -869,7 +869,7 @@ const Dash: FC<{}> = () => {
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
                         {Math.abs(
-                          pds.IngestRateLimit.TokenCount || 0
+                          pds.IngestRate.TokenCount || 0
                         ).toLocaleString()}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
@@ -878,7 +878,7 @@ const Dash: FC<{}> = () => {
                             editingCrawlRateLimit?.ID === pds.ID ? "hidden" : ""
                           }
                         >
-                          {pds.CrawlRateLimit.MaxEventsPerSecond?.toLocaleString()}
+                          {pds.CrawlRate.MaxEventsPerSecond?.toLocaleString()}
                           /sec
                         </span>
                         <input
@@ -891,7 +891,7 @@ const Dash: FC<{}> = () => {
                               ? ""
                               : " hidden")
                           }
-                          defaultValue={pds.CrawlRateLimit.MaxEventsPerSecond?.toLocaleString()}
+                          defaultValue={pds.CrawlRate.MaxEventsPerSecond?.toLocaleString()}
                         />
                         <a
                           href="#"
@@ -929,7 +929,7 @@ const Dash: FC<{}> = () => {
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
                         {Math.abs(
-                          pds.CrawlRateLimit.TokenCount || 0
+                          pds.CrawlRate.TokenCount || 0
                         ).toLocaleString()}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">

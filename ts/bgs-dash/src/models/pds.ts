@@ -16,8 +16,8 @@ interface PDS {
   Blocked: boolean;
   HasActiveConnection: boolean;
   EventsSeenSinceStartup?: number;
-  IngestRateLimit: RateLimit;
-  CrawlRateLimit: RateLimit;
+  IngestRate: RateLimit;
+  CrawlRate: RateLimit;
 }
 
 type PDSKey = keyof PDS;
