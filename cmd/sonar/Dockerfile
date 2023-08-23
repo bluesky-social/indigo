@@ -14,6 +14,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
+ENV GOEXPERIMENT=loopvar
 RUN CGO_ENABLED=0 GOOS=linux go build -o /sonar ./cmd/sonar
 
 # Stage 2: Build a minimal Docker image
