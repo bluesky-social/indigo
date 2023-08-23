@@ -3,7 +3,7 @@
 #   podman build -f ./cmd/palomar/Dockerfile -t palomar .
 
 ### Compile stage
-FROM golang:1.21-alpine3.17 AS build-env
+FROM golang:1.21-alpine3.18 AS build-env
 RUN apk add --no-cache build-base make git
 
 ADD . /dockerbuild
@@ -15,7 +15,7 @@ RUN GIT_VERSION=$(git describe --tags --long --always) && \
     go build -tags timetzdata -ldflags="-X github.com/bluesky-social/indigo/version.Version=$GIT_VERSION"  -o /palomar ./cmd/palomar
 
 ### Run stage
-FROM alpine:3.17
+FROM alpine:3.18
 
 RUN apk add --no-cache --update dumb-init ca-certificates
 ENTRYPOINT ["dumb-init", "--"]
