@@ -10,6 +10,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
 	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/time/rate"
 
 	"github.com/gorilla/websocket"
 )
@@ -46,6 +47,23 @@ func (rsc *RepoStreamCallbacks) EventHandler(ctx context.Context, xev *XRPCStrea
 	default:
 		return nil
 	}
+}
+
+type InstrumentedRepoStreamCallbacks struct {
+	limiter *rate.Limiter
+	Next    func(ctx context.Context, xev *XRPCStreamEvent) error
+}
+
+func NewInstrumentedRepoStreamCallbacks(limiter *rate.Limiter, next func(ctx context.Context, xev *XRPCStreamEvent) error) *InstrumentedRepoStreamCallbacks {
+	return &InstrumentedRepoStreamCallbacks{
+		limiter: limiter,
+		Next:    next,
+	}
+}
+
+func (rsc *InstrumentedRepoStreamCallbacks) EventHandler(ctx context.Context, xev *XRPCStreamEvent) error {
+	rsc.limiter.Wait(ctx)
+	return rsc.Next(ctx, xev)
 }
 
 type instrumentedReader struct {

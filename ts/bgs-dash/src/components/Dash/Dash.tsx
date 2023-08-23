@@ -8,6 +8,7 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  PencilSquareIcon,
   XCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/solid";
@@ -52,6 +53,11 @@ const Dash: FC<{}> = () => {
   } | null>(null);
   const [modalConfirm, setModalConfirm] = useState<() => void>(() => {});
   const [modalCancel, setModalCancel] = useState<() => void>(() => {});
+
+  const [editingIngestRateLimit, setEditingIngestRateLimit] =
+    useState<PDS | null>(null);
+  const [editingCrawlRateLimit, setEditingCrawlRateLimit] =
+    useState<PDS | null>(null);
 
   const [adminToken, setAdminToken] = useState<string>(
     localStorage.getItem("admin_route_token") || ""
@@ -262,6 +268,54 @@ const Dash: FC<{}> = () => {
         );
       } else {
         setAlertWithTimeout("success", "Successfully requested unblock", true);
+      }
+      refreshPDSList();
+    });
+  };
+
+  const changeIngestRateLimit = (pds: PDS, newLimit: number) => {
+    fetch(
+      `${BGS_HOST}/admin/pds/changeIngestRateLimit?host=${pds.Host}&limit=${newLimit}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+      }
+    ).then((res) => {
+      if (res.status !== 200) {
+        setAlertWithTimeout(
+          "failure",
+          `Failed to change rate limit: ${res.statusText} (${res.status})`,
+          true
+        );
+      } else {
+        setAlertWithTimeout("success", "Successfully changed rate limit", true);
+      }
+      refreshPDSList();
+    });
+  };
+
+  const changeCrawlRateLimit = (pds: PDS, newLimit: number) => {
+    fetch(
+      `${BGS_HOST}/admin/pds/changeCrawlRateLimit?host=${pds.Host}&limit=${newLimit}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+      }
+    ).then((res) => {
+      if (res.status !== 200) {
+        setAlertWithTimeout(
+          "failure",
+          `Failed to change rate limit: ${res.statusText} (${res.status})`,
+          true
+        );
+      } else {
+        setAlertWithTimeout("success", "Successfully changed rate limit", true);
       }
       refreshPDSList();
     });
@@ -600,6 +654,38 @@ const Dash: FC<{}> = () => {
                   scope="col"
                   className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
                 >
+                  <a href="#" className="group inline-flex">
+                    Ingest Rate Limit
+                  </a>
+                </th>
+                <th
+                  scope="col"
+                  className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
+                >
+                  <a href="#" className="group inline-flex">
+                    Tokens
+                  </a>
+                </th>
+                <th
+                  scope="col"
+                  className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
+                >
+                  <a href="#" className="group inline-flex">
+                    Crawl Limit
+                  </a>
+                </th>
+                <th
+                  scope="col"
+                  className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
+                >
+                  <a href="#" className="group inline-flex">
+                    Tokens
+                  </a>
+                </th>
+                <th
+                  scope="col"
+                  className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
+                >
                   <a
                     href="#"
                     className="group inline-flex"
@@ -723,6 +809,128 @@ const Dash: FC<{}> = () => {
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
                         {pds.Cursor?.toLocaleString()}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
+                        <span
+                          className={
+                            editingIngestRateLimit?.ID === pds.ID
+                              ? "hidden"
+                              : ""
+                          }
+                        >
+                          {pds.IngestRate.MaxEventsPerSecond?.toLocaleString()}
+                          /sec
+                        </span>
+                        <input
+                          type="number"
+                          name={`ingest-rate-limit-${pds.ID}`}
+                          id={`ingest-rate-limit-${pds.ID}`}
+                          className={
+                            `inline-block w-24 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6` +
+                            (editingIngestRateLimit?.ID === pds.ID
+                              ? ""
+                              : " hidden")
+                          }
+                          defaultValue={pds.IngestRate.MaxEventsPerSecond?.toLocaleString()}
+                        />
+                        <a
+                          href="#"
+                          onClick={() => setEditingIngestRateLimit(pds)}
+                          className={editingIngestRateLimit ? "hidden" : ""}
+                        >
+                          <PencilSquareIcon
+                            className="h-5 w-5 text-gray-500 ml-1 inline-block align-sub"
+                            aria-hidden="true"
+                          />
+                        </a>
+                        <a
+                          href="#"
+                          onClick={() => {
+                            const newRateLimit = document.getElementById(
+                              `ingest-rate-limit-${pds.ID}`
+                            ) as HTMLInputElement;
+                            if (newRateLimit) {
+                              changeIngestRateLimit(pds, +newRateLimit.value);
+                            }
+                            setEditingIngestRateLimit(null);
+                          }}
+                          className={
+                            "rounded-md p-2  ml-1 hover:text-green-600 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50" +
+                            (editingIngestRateLimit?.ID === pds.ID
+                              ? ""
+                              : " hidden")
+                          }
+                        >
+                          <CheckIcon
+                            className="h-5 w-5 text-green-500 inline-block align-sub"
+                            aria-hidden="true"
+                          />
+                        </a>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
+                        {Math.abs(
+                          pds.IngestRate.TokenCount || 0
+                        ).toLocaleString()}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
+                        <span
+                          className={
+                            editingCrawlRateLimit?.ID === pds.ID ? "hidden" : ""
+                          }
+                        >
+                          {pds.CrawlRate.MaxEventsPerSecond?.toLocaleString()}
+                          /sec
+                        </span>
+                        <input
+                          type="number"
+                          name={`crawl-rate-limit-${pds.ID}`}
+                          id={`crawl-rate-limit-${pds.ID}`}
+                          className={
+                            `inline-block w-24 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6` +
+                            (editingCrawlRateLimit?.ID === pds.ID
+                              ? ""
+                              : " hidden")
+                          }
+                          defaultValue={pds.CrawlRate.MaxEventsPerSecond?.toLocaleString()}
+                        />
+                        <a
+                          href="#"
+                          onClick={() => setEditingCrawlRateLimit(pds)}
+                          className={editingCrawlRateLimit ? "hidden" : ""}
+                        >
+                          <PencilSquareIcon
+                            className="h-5 w-5 text-gray-500 ml-1 inline-block align-sub"
+                            aria-hidden="true"
+                          />
+                        </a>
+                        <a
+                          href="#"
+                          onClick={() => {
+                            const newRateLimit = document.getElementById(
+                              `crawl-rate-limit-${pds.ID}`
+                            ) as HTMLInputElement;
+                            if (newRateLimit) {
+                              changeCrawlRateLimit(pds, +newRateLimit.value);
+                            }
+                            setEditingCrawlRateLimit(null);
+                          }}
+                          className={
+                            "rounded-md p-2  ml-1 hover:text-green-600 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50" +
+                            (editingCrawlRateLimit?.ID === pds.ID
+                              ? ""
+                              : " hidden")
+                          }
+                        >
+                          <CheckIcon
+                            className="h-5 w-5 text-green-500 inline-block align-sub"
+                            aria-hidden="true"
+                          />
+                        </a>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
+                        {Math.abs(
+                          pds.CrawlRate.TokenCount || 0
+                        ).toLocaleString()}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
                         {new Date(Date.parse(pds.CreatedAt)).toLocaleString()}

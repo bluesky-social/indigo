@@ -211,7 +211,7 @@ func TestBGSMultiGap(t *testing.T) {
 	p2posts := socialSim(t, users2, 10, 0)
 
 	users[0].Reply(t, p2posts[0], p2posts[0], "what a wonderful life")
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(time.Millisecond * 500)
 
 	ctx := context.Background()
 	_, err := b1.bgs.Index.GetPost(ctx, p2posts[3].Uri)
@@ -231,7 +231,7 @@ func TestBGSMultiGap(t *testing.T) {
 	// Now, the bgs will discover a gap, and have to catch up somehow
 	socialSim(t, users2, 1, 0)
 
-	time.Sleep(time.Second)
+	time.Sleep(time.Second * 2)
 
 	// we expect the bgs to learn about posts that it didnt directly see from
 	// repos its already partially scraped, as long as its seen *something* after the missing post
