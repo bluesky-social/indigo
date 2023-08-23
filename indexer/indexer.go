@@ -89,6 +89,20 @@ func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events
 	return ix, nil
 }
 
+func (ix *Indexer) GetLimiter(pdsID uint) *rate.Limiter {
+	ix.LimitMux.RLock()
+	defer ix.LimitMux.RUnlock()
+
+	return ix.Limiters[pdsID]
+}
+
+func (ix *Indexer) SetLimiter(pdsID uint, lim *rate.Limiter) {
+	ix.LimitMux.Lock()
+	defer ix.LimitMux.Unlock()
+
+	ix.Limiters[pdsID] = lim
+}
+
 func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) error {
 	ctx, span := otel.Tracer("indexer").Start(ctx, "HandleRepoEvent")
 	defer span.End()
@@ -903,14 +917,10 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 		span.SetAttributes(attribute.Bool("full", true))
 	}
 
-	ix.LimitMux.RLock()
-	limiter, ok := ix.Limiters[ai.PDS]
-	ix.LimitMux.RUnlock()
-	if !ok {
+	limiter := ix.GetLimiter(pds.ID)
+	if limiter == nil {
 		limiter = rate.NewLimiter(rate.Limit(pds.CrawlRateLimit), 1)
-		ix.LimitMux.Lock()
-		ix.Limiters[ai.PDS] = limiter
-		ix.LimitMux.Unlock()
+		ix.SetLimiter(pds.ID, limiter)
 	}
 
 	// Wait to prevent DOSing the PDS when connecting to a new stream with lots of active repos
