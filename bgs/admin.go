@@ -101,8 +101,8 @@ type enrichedPDS struct {
 	models.PDS
 	HasActiveConnection    bool      `json:"HasActiveConnection"`
 	EventsSeenSinceStartup uint64    `json:"EventsSeenSinceStartup"`
-	IngestRateLimit        rateLimit `json:"IngestRateLimit"`
-	CrawlRateLimit         rateLimit `json:"CrawlRateLimit"`
+	IngestRate             rateLimit `json:"IngestRate"`
+	CrawlRate              rateLimit `json:"CrawlRate"`
 }
 
 func (bgs *BGS) handleListPDSs(e echo.Context) error {
@@ -132,28 +132,28 @@ func (bgs *BGS) handleListPDSs(e echo.Context) error {
 		enrichedPDSs[i].EventsSeenSinceStartup = uint64(m.Counter.GetValue())
 
 		// Get the ingest rate limit for this PDS
-		ingestRateLimit := rateLimit{
+		ingestRate := rateLimit{
 			MaxEventsPerSecond: p.RateLimit,
 		}
 
 		limiter := bgs.slurper.GetLimiter(p.ID)
 		if limiter != nil {
-			ingestRateLimit.TokenCount = limiter.Tokens()
+			ingestRate.TokenCount = limiter.Tokens()
 		}
 
-		enrichedPDSs[i].IngestRateLimit = ingestRateLimit
+		enrichedPDSs[i].IngestRate = ingestRate
 
 		// Get the crawl rate limit for this PDS
-		crawlRateLimit := rateLimit{
+		crawlRate := rateLimit{
 			MaxEventsPerSecond: p.CrawlRateLimit,
 		}
 
 		limiter = bgs.Index.GetLimiter(p.ID)
 		if limiter != nil {
-			crawlRateLimit.TokenCount = limiter.Tokens()
+			crawlRate.TokenCount = limiter.Tokens()
 		}
 
-		enrichedPDSs[i].CrawlRateLimit = crawlRateLimit
+		enrichedPDSs[i].CrawlRate = crawlRate
 	}
 
 	return e.JSON(200, enrichedPDSs)
