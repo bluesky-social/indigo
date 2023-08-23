@@ -10,6 +10,7 @@ ADD . /dockerbuild
 WORKDIR /dockerbuild
 
 # timezone data for alpine builds
+ENV GOEXPERIMENT=loopvar
 RUN GIT_VERSION=$(git describe --tags --long --always) && \
     go build -tags timetzdata -ldflags="-X github.com/bluesky-social/indigo/version.Version=$GIT_VERSION" -o /labelmaker ./cmd/labelmaker
 
