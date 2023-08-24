@@ -25,7 +25,7 @@ services:
       retries: 3
 
   plc:
-    image: ghcr.io/bluesky-social/did-method-plc:plc-79cda64f2e51f0017c75e86b63afe95b100273c2
+    image: ghcr.io/bluesky-social/did-method-plc:plc-c54aea0373e65df0b87f5bc81710007092f539b1 # DID doc iteration branch
     ports:
       - "2582:2582"
     expose:
@@ -47,7 +47,7 @@ services:
         condition: service_healthy
 
   pds-one:
-    image: ghcr.io/bluesky-social/atproto:pds-c18cb6a25d2d3bb7d1e8bc32f4c4aa617c5d73be
+    image: ghcr.io/bluesky-social/atproto:pds-19d2bdc4576bfabe6609afe160cc2c220c351579
     ports:
       - "2583:2583"
     expose:
@@ -76,7 +76,7 @@ services:
   bgs:
     # to build/run locally, uncomment this instead
     #build: ../bigsky/
-    image: ghcr.io/bluesky-social/indigo:bigsky-8c8248dc2d2767532f545fc18c949608a6baf1df
+    image: ghcr.io/bluesky-social/indigo:bigsky-ed809269938c453ebed3a05487acc6417d77bb4e
     ports:
       - "2470:2470"
     environment:
@@ -96,7 +96,7 @@ services:
         condition: service_started
 
   appview:
-    image: ghcr.io/bluesky-social/atproto:bsky-af9f11fbde332dfebb8c79e52f009cfd13d08346
+    image: ghcr.io/bluesky-social/atproto:bsky-19d2bdc4576bfabe6609afe160cc2c220c351579
     ports:
       - "2584:2584"
     expose:
