@@ -41,7 +41,7 @@ func genTestCatalog(t *testing.T, pdsHost string) AccountCatalog {
 		catalog.Celebs = append(catalog.Celebs, *usr)
 	}
 	for i := 0; i < regularCount; i++ {
-		usr, err := GenAccount(&xrpccAdmin, i, "regular", "test2", nil)
+		usr, err := GenAccount(&xrpccAdmin, i, "regular", "test", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
