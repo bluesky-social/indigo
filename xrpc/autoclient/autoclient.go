@@ -1,4 +1,4 @@
-package xrpcutil
+package autoclient
 
 import (
 	"context"
