@@ -24,6 +24,8 @@ func SyncGetRecord(ctx context.Context, c *xrpc.Client, collection string, commi
 		"did":        did,
 		"rkey":       rkey,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getRecord", params, nil, buf); err != nil {
 		return nil, err
 	}

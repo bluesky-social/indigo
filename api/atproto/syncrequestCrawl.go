@@ -18,6 +18,8 @@ type SyncRequestCrawl_Input struct {
 
 // SyncRequestCrawl calls the XRPC method "com.atproto.sync.requestCrawl".
 func SyncRequestCrawl(ctx context.Context, c *xrpc.Client, input *SyncRequestCrawl_Input) error {
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.sync.requestCrawl", nil, input, nil); err != nil {
 		return err
 	}

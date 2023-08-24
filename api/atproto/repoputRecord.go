@@ -38,6 +38,8 @@ type RepoPutRecord_Output struct {
 // RepoPutRecord calls the XRPC method "com.atproto.repo.putRecord".
 func RepoPutRecord(ctx context.Context, c *xrpc.Client, input *RepoPutRecord_Input) (*RepoPutRecord_Output, error) {
 	var out RepoPutRecord_Output
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", nil, input, &out); err != nil {
 		return nil, err
 	}

@@ -24,6 +24,8 @@ func SyncGetHead(ctx context.Context, c *xrpc.Client, did string) (*SyncGetHead_
 	params := map[string]interface{}{
 		"did": did,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getHead", params, nil, &out); err != nil {
 		return nil, err
 	}

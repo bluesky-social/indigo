@@ -17,6 +17,8 @@ type ServerRevokeAppPassword_Input struct {
 
 // ServerRevokeAppPassword calls the XRPC method "com.atproto.server.revokeAppPassword".
 func ServerRevokeAppPassword(ctx context.Context, c *xrpc.Client, input *ServerRevokeAppPassword_Input) error {
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.server.revokeAppPassword", nil, input, nil); err != nil {
 		return err
 	}

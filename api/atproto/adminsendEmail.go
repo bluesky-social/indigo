@@ -25,6 +25,8 @@ type AdminSendEmail_Output struct {
 // AdminSendEmail calls the XRPC method "com.atproto.admin.sendEmail".
 func AdminSendEmail(ctx context.Context, c *xrpc.Client, input *AdminSendEmail_Input) (*AdminSendEmail_Output, error) {
 	var out AdminSendEmail_Output
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.admin.sendEmail", nil, input, &out); err != nil {
 		return nil, err
 	}

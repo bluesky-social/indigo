@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/version"
@@ -22,6 +23,7 @@ type Client struct {
 	Host       string
 	UserAgent  *string
 	Headers    map[string]string
+	Mux        *sync.RWMutex
 }
 
 func (c *Client) getClient() *http.Client {

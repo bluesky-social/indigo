@@ -576,6 +576,11 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 		return fmt.Errorf("can only generate RPC for Query or Procedure (got %s)", s.Type)
 	}
 
+	if fname != "ServerRefreshSession" {
+		pf("\tc.Mux.RLock()\n")
+		pf("\tdefer c.Mux.RUnlock()\n")
+	}
+
 	pf("\tif err := c.Do(ctx, %s, %q, \"%s\", %s, %s, %s); err != nil {\n", reqtype, inpenc, s.id, queryparams, inpvar, outvar)
 	pf("\t\treturn %s\n", errRet)
 	pf("\t}\n\n")

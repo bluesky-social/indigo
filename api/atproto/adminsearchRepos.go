@@ -26,6 +26,8 @@ func AdminSearchRepos(ctx context.Context, c *xrpc.Client, cursor string, invite
 		"limit":     limit,
 		"term":      term,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.searchRepos", params, nil, &out); err != nil {
 		return nil, err
 	}

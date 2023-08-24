@@ -26,6 +26,8 @@ type RepoDeleteRecord_Input struct {
 
 // RepoDeleteRecord calls the XRPC method "com.atproto.repo.deleteRecord".
 func RepoDeleteRecord(ctx context.Context, c *xrpc.Client, input *RepoDeleteRecord_Input) error {
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", nil, input, nil); err != nil {
 		return err
 	}

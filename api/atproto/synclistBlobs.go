@@ -28,6 +28,8 @@ func SyncListBlobs(ctx context.Context, c *xrpc.Client, did string, earliest str
 		"earliest": earliest,
 		"latest":   latest,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.listBlobs", params, nil, &out); err != nil {
 		return nil, err
 	}

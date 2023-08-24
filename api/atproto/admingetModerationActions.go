@@ -25,6 +25,8 @@ func AdminGetModerationActions(ctx context.Context, c *xrpc.Client, cursor strin
 		"limit":   limit,
 		"subject": subject,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.getModerationActions", params, nil, &out); err != nil {
 		return nil, err
 	}

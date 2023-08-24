@@ -103,7 +103,7 @@ func (n ATURI) Normalize() ATURI {
 }
 
 func (a ATURI) MarshalText() ([]byte, error) {
-	return []byte(a.String()), nil
+	return []byte(string(a)), nil
 }
 
 func (a *ATURI) UnmarshalText(text []byte) error {

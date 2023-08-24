@@ -20,6 +20,8 @@ type RepoUploadBlob_Output struct {
 // RepoUploadBlob calls the XRPC method "com.atproto.repo.uploadBlob".
 func RepoUploadBlob(ctx context.Context, c *xrpc.Client, input io.Reader) (*RepoUploadBlob_Output, error) {
 	var out RepoUploadBlob_Output
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "*/*", "com.atproto.repo.uploadBlob", nil, input, &out); err != nil {
 		return nil, err
 	}

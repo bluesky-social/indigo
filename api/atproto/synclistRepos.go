@@ -30,6 +30,8 @@ func SyncListRepos(ctx context.Context, c *xrpc.Client, cursor string, limit int
 		"cursor": cursor,
 		"limit":  limit,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.listRepos", params, nil, &out); err != nil {
 		return nil, err
 	}

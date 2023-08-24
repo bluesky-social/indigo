@@ -12,6 +12,8 @@ import (
 
 // ServerRequestAccountDelete calls the XRPC method "com.atproto.server.requestAccountDelete".
 func ServerRequestAccountDelete(ctx context.Context, c *xrpc.Client) error {
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "", "com.atproto.server.requestAccountDelete", nil, nil, nil); err != nil {
 		return err
 	}

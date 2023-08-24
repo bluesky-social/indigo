@@ -19,6 +19,8 @@ type ServerDeleteAccount_Input struct {
 
 // ServerDeleteAccount calls the XRPC method "com.atproto.server.deleteAccount".
 func ServerDeleteAccount(ctx context.Context, c *xrpc.Client, input *ServerDeleteAccount_Input) error {
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.server.deleteAccount", nil, input, nil); err != nil {
 		return err
 	}

@@ -103,6 +103,8 @@ type RepoApplyWrites_Update struct {
 
 // RepoApplyWrites calls the XRPC method "com.atproto.repo.applyWrites".
 func RepoApplyWrites(ctx context.Context, c *xrpc.Client, input *RepoApplyWrites_Input) error {
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.applyWrites", nil, input, nil); err != nil {
 		return err
 	}

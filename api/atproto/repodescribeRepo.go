@@ -29,6 +29,8 @@ func RepoDescribeRepo(ctx context.Context, c *xrpc.Client, repo string) (*RepoDe
 	params := map[string]interface{}{
 		"repo": repo,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.repo.describeRepo", params, nil, &out); err != nil {
 		return nil, err
 	}

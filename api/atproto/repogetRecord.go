@@ -33,6 +33,8 @@ func RepoGetRecord(ctx context.Context, c *xrpc.Client, cid string, collection s
 		"repo":       repo,
 		"rkey":       rkey,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.repo.getRecord", params, nil, &out); err != nil {
 		return nil, err
 	}

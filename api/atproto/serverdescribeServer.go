@@ -26,6 +26,8 @@ type ServerDescribeServer_Output struct {
 // ServerDescribeServer calls the XRPC method "com.atproto.server.describeServer".
 func ServerDescribeServer(ctx context.Context, c *xrpc.Client) (*ServerDescribeServer_Output, error) {
 	var out ServerDescribeServer_Output
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.server.describeServer", nil, nil, &out); err != nil {
 		return nil, err
 	}

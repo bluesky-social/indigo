@@ -62,6 +62,8 @@ func (t *AdminTakeModerationAction_Input_Subject) UnmarshalJSON(b []byte) error 
 // AdminTakeModerationAction calls the XRPC method "com.atproto.admin.takeModerationAction".
 func AdminTakeModerationAction(ctx context.Context, c *xrpc.Client, input *AdminTakeModerationAction_Input) (*AdminDefs_ActionView, error) {
 	var out AdminDefs_ActionView
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.admin.takeModerationAction", nil, input, &out); err != nil {
 		return nil, err
 	}

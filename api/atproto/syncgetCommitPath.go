@@ -28,6 +28,8 @@ func SyncGetCommitPath(ctx context.Context, c *xrpc.Client, did string, earliest
 		"earliest": earliest,
 		"latest":   latest,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getCommitPath", params, nil, &out); err != nil {
 		return nil, err
 	}

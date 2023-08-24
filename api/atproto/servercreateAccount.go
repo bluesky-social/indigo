@@ -31,6 +31,8 @@ type ServerCreateAccount_Output struct {
 // ServerCreateAccount calls the XRPC method "com.atproto.server.createAccount".
 func ServerCreateAccount(ctx context.Context, c *xrpc.Client, input *ServerCreateAccount_Input) (*ServerCreateAccount_Output, error) {
 	var out ServerCreateAccount_Output
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.server.createAccount", nil, input, &out); err != nil {
 		return nil, err
 	}

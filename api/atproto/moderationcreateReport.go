@@ -103,6 +103,8 @@ func (t *ModerationCreateReport_Output_Subject) UnmarshalJSON(b []byte) error {
 // ModerationCreateReport calls the XRPC method "com.atproto.moderation.createReport".
 func ModerationCreateReport(ctx context.Context, c *xrpc.Client, input *ModerationCreateReport_Input) (*ModerationCreateReport_Output, error) {
 	var out ModerationCreateReport_Output
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.moderation.createReport", nil, input, &out); err != nil {
 		return nil, err
 	}

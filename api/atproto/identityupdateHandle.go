@@ -17,6 +17,8 @@ type IdentityUpdateHandle_Input struct {
 
 // IdentityUpdateHandle calls the XRPC method "com.atproto.identity.updateHandle".
 func IdentityUpdateHandle(ctx context.Context, c *xrpc.Client, input *IdentityUpdateHandle_Input) error {
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.identity.updateHandle", nil, input, nil); err != nil {
 		return err
 	}

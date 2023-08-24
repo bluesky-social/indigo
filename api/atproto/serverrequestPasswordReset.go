@@ -17,6 +17,8 @@ type ServerRequestPasswordReset_Input struct {
 
 // ServerRequestPasswordReset calls the XRPC method "com.atproto.server.requestPasswordReset".
 func ServerRequestPasswordReset(ctx context.Context, c *xrpc.Client, input *ServerRequestPasswordReset_Input) error {
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.server.requestPasswordReset", nil, input, nil); err != nil {
 		return err
 	}
