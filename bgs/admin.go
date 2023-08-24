@@ -348,9 +348,10 @@ func (bgs *BGS) handleAdminChangePDSRateLimit(e echo.Context) error {
 	}
 
 	// Update the rate limit in the limiter
-	bgs.slurper.LimitMux.RLock()
-	limiter := bgs.slurper.Limiters[pds.ID]
-	bgs.slurper.LimitMux.RUnlock()
+	limiter := bgs.slurper.GetLimiter(pds.ID)
+	if limiter == nil {
+		limiter = rate.NewLimiter(rate.Limit(limit), 1)
+	}
 	limiter.SetLimit(rate.Limit(limit))
 
 	return e.JSON(200, map[string]any{
@@ -388,16 +389,11 @@ func (bgs *BGS) handleAdminChangePDSCrawlLimit(e echo.Context) error {
 	}
 
 	// Update the crawl limit in the limiter
-	bgs.Index.LimitMux.RLock()
-	limiter := bgs.Index.Limiters[pds.ID]
-	bgs.Index.LimitMux.RUnlock()
+	limiter := bgs.Index.GetLimiter(pds.ID)
 	if limiter != nil {
-		limiter.SetLimit(rate.Limit(limit))
-	} else if limiter == nil {
-		bgs.Index.LimitMux.Lock()
-		bgs.Index.Limiters[pds.ID] = rate.NewLimiter(rate.Limit(limit), 1)
-		bgs.Index.LimitMux.Unlock()
+		limiter = rate.NewLimiter(rate.Limit(limit), 1)
 	}
+	limiter.SetLimit(rate.Limit(limit))
 
 	return e.JSON(200, map[string]any{
 		"success": "true",
