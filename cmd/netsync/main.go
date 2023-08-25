@@ -163,9 +163,16 @@ func (s *NetsyncState) Resume() error {
 	return nil
 }
 
+var enqueuedJobs = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "netsync_enqueued_jobs",
+	Help: "Number of enqueued jobs",
+})
+
 func (s *NetsyncState) Dequeue() string {
 	s.lk.Lock()
 	defer s.lk.Unlock()
+
+	enqueuedJobs.Set(float64(len(s.EnqueuedRepos)))
 
 	for repo, state := range s.EnqueuedRepos {
 		if state.State == "enqueued" {
@@ -177,6 +184,11 @@ func (s *NetsyncState) Dequeue() string {
 	return ""
 }
 
+var finishedJobs = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "netsync_finished_jobs",
+	Help: "Number of finished jobs",
+})
+
 func (s *NetsyncState) Finish(repo string, state string) {
 	s.lk.Lock()
 	defer s.lk.Unlock()
@@ -186,6 +198,8 @@ func (s *NetsyncState) Finish(repo string, state string) {
 		State:      state,
 		FinishedAt: time.Now(),
 	}
+
+	finishedJobs.Set(float64(len(s.FinishedRepos)))
 
 	delete(s.EnqueuedRepos, repo)
 }
@@ -223,6 +237,8 @@ func Netsync(cctx *cli.Context) error {
 	if state.FinishedRepos == nil {
 		state.FinishedRepos = make(map[string]*RepoState)
 	}
+
+	state.OutDir = cctx.String("out-dir")
 
 	if err != nil {
 		// Read repo list
