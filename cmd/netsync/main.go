@@ -14,9 +14,11 @@ import (
 	"time"
 
 	logging "github.com/ipfs/go-log"
+	_ "github.com/joho/godotenv/autoload"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"golang.org/x/time/rate"
 
 	"github.com/bluesky-social/indigo/util/version"
@@ -68,6 +70,18 @@ func main() {
 			Usage: "path to checkout endpoint",
 			Value: "https://bsky.social/xrpc/com.atproto.sync.getCheckout",
 		},
+		&cli.StringFlag{
+			Name:    "magic-header-key",
+			Usage:   "header key to send with checkout request",
+			Value:   "",
+			EnvVars: []string{"MAGIC_HEADER_KEY"},
+		},
+		&cli.StringFlag{
+			Name:    "magic-header-val",
+			Usage:   "header value to send with checkout request",
+			Value:   "",
+			EnvVars: []string{"MAGIC_HEADER_VAL"},
+		},
 	}
 
 	app.Action = Netsync
@@ -88,8 +102,11 @@ type NetsyncState struct {
 	EnqueuedRepos map[string]*RepoState
 	FinishedRepos map[string]*RepoState
 	StatePath     string
-	OutDir        string
 	CheckoutPath  string
+
+	outDir         string
+	magicHeaderKey string
+	magicHeaderVal string
 
 	lk          sync.RWMutex
 	wg          sync.WaitGroup
@@ -209,26 +226,34 @@ func Netsync(cctx *cli.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Try to resume from state file
 	state := &NetsyncState{
 		StatePath:    cctx.String("state-file"),
 		CheckoutPath: cctx.String("checkout-path"),
-		OutDir:       cctx.String("out-dir"),
-		workerCount:  cctx.Int("worker-count"),
-		limiter:      rate.NewLimiter(rate.Limit(cctx.Float64("checkout-limit")), 1),
-		exit:         make(chan struct{}),
-		wg:           sync.WaitGroup{},
+
+		outDir:         cctx.String("out-dir"),
+		workerCount:    cctx.Int("worker-count"),
+		limiter:        rate.NewLimiter(rate.Limit(cctx.Float64("checkout-limit")), 1),
+		magicHeaderKey: cctx.String("magic-header-key"),
+		magicHeaderVal: cctx.String("magic-header-val"),
+
+		exit: make(chan struct{}),
+		wg:   sync.WaitGroup{},
 		client: &http.Client{
 			Timeout: 180 * time.Second,
 		},
 	}
 
+	if state.magicHeaderKey != "" && state.magicHeaderVal != "" {
+		log.Info("using magic header")
+	}
+
 	// Create out dir
-	err := os.MkdirAll(state.OutDir, 0755)
+	err := os.MkdirAll(state.outDir, 0755)
 	if err != nil {
 		return err
 	}
 
+	// Try to resume from state file
 	err = state.Resume()
 	if state.EnqueuedRepos == nil {
 		state.EnqueuedRepos = make(map[string]*RepoState)
@@ -237,8 +262,6 @@ func Netsync(cctx *cli.Context) error {
 	if state.FinishedRepos == nil {
 		state.FinishedRepos = make(map[string]*RepoState)
 	}
-
-	state.OutDir = cctx.String("out-dir")
 
 	if err != nil {
 		// Read repo list
@@ -326,10 +349,10 @@ func Netsync(cctx *cli.Context) error {
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	select {
-	case <-signals:
+	case sig := <-signals:
 		cancel()
 		close(state.exit)
-		log.Info("shutting down on signal")
+		log.Infof("shutting down on signal: %+v", sig)
 	case <-ctx.Done():
 		cancel()
 		close(state.exit)
@@ -416,6 +439,12 @@ func (s *NetsyncState) cloneRepo(ctx context.Context, repo string) (cloneState s
 		return cloneState, fmt.Errorf("failed to create request: %w", err)
 	}
 
+	req.Header.Set("Accept", "application/vnd.ipld.car")
+	req.Header.Set("User-Agent", "jaz-atproto-netsync/0.0.1")
+	if s.magicHeaderKey != "" && s.magicHeaderVal != "" {
+		req.Header.Set(s.magicHeaderKey, s.magicHeaderVal)
+	}
+
 	resp, err := s.client.Do(req)
 	if err != nil {
 		cloneState = "failed (client.do)"
@@ -434,7 +463,7 @@ func (s *NetsyncState) cloneRepo(ctx context.Context, repo string) (cloneState s
 	defer instrumentedReader.Close()
 
 	// Write to file
-	outPath := fmt.Sprintf("%s/%s", s.OutDir, repo)
+	outPath := fmt.Sprintf("%s/%s", s.outDir, repo)
 	outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		cloneState = "failed (file.open)"
