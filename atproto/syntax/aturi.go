@@ -43,8 +43,8 @@ func ParseATURI(raw string) (ATURI, error) {
 	return ATURI(raw), nil
 }
 
-func (n ATURI) Authority() (*AtIdentifier, error) {
-	parts := strings.SplitN(string(n), "/", 4)
+func (a ATURI) Authority() (*AtIdentifier, error) {
+	parts := strings.SplitN(string(a), "/", 4)
 	if len(parts) < 3 {
 		// something has gone wrong (would not validate)
 		return nil, fmt.Errorf("AT-URI has no authority segment (invalid)")
@@ -53,8 +53,8 @@ func (n ATURI) Authority() (*AtIdentifier, error) {
 }
 
 // Returns path segment, without leading slash, as would be used in an atproto repository key
-func (n ATURI) Path() string {
-	parts := strings.SplitN(string(n), "/", 5)
+func (a ATURI) Path() string {
+	parts := strings.SplitN(string(a), "/", 5)
 	if len(parts) < 3 {
 		// something has gone wrong (would not validate)
 		return ""
@@ -65,8 +65,8 @@ func (n ATURI) Path() string {
 	return parts[2] + "/" + parts[3]
 }
 
-func (n ATURI) Collection() (NSID, error) {
-	parts := strings.SplitN(string(n), "/", 5)
+func (a ATURI) Collection() (NSID, error) {
+	parts := strings.SplitN(string(a), "/", 5)
 	if len(parts) < 4 {
 		// something has gone wrong (would not validate)
 		return NSID(""), fmt.Errorf("AT-URI has no collection segment")
@@ -75,8 +75,8 @@ func (n ATURI) Collection() (NSID, error) {
 	return ParseNSID(parts[3])
 }
 
-func (n ATURI) RecordKey() (RecordKey, error) {
-	parts := strings.SplitN(string(n), "/", 6)
+func (a ATURI) RecordKey() (RecordKey, error) {
+	parts := strings.SplitN(string(a), "/", 6)
 	if len(parts) < 5 {
 		// something has gone wrong (would not validate)
 		return RecordKey(""), fmt.Errorf("AT-URI has no record key segment")
@@ -85,25 +85,29 @@ func (n ATURI) RecordKey() (RecordKey, error) {
 	return ParseRecordKey(parts[4])
 }
 
-func (n ATURI) Normalize() ATURI {
-	auth, err := n.Authority()
+func (a ATURI) Normalize() ATURI {
+	auth, err := a.Authority()
 	if err != nil {
 		// invalid AT-URI
-		return n
+		return a
 	}
-	coll, err := n.Collection()
+	coll, err := a.Collection()
 	if err != nil {
 		return ATURI("at://" + auth.Normalize().String())
 	}
-	rkey, err := n.RecordKey()
+	rkey, err := a.RecordKey()
 	if err != nil {
 		return ATURI("at://" + auth.Normalize().String() + "/" + coll.String())
 	}
 	return ATURI("at://" + auth.Normalize().String() + "/" + coll.Normalize().String() + "/" + rkey.String())
 }
 
+func (a ATURI) String() string {
+	return string(a)
+}
+
 func (a ATURI) MarshalText() ([]byte, error) {
-	return []byte(string(a)), nil
+	return []byte(a.String()), nil
 }
 
 func (a *ATURI) UnmarshalText(text []byte) error {
