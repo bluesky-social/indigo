@@ -93,9 +93,6 @@ func TestATURINoPanic(t *testing.T) {
 		_, _ = bad.Collection()
 		_, _ = bad.RecordKey()
 		_ = bad.Normalize()
+		_ = bad.String()
 	}
-}
-
-func (u ATURI) String() string {
-	return string(u)
 }

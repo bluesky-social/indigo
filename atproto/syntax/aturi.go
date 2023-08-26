@@ -102,6 +102,10 @@ func (n ATURI) Normalize() ATURI {
 	return ATURI("at://" + auth.Normalize().String() + "/" + coll.Normalize().String() + "/" + rkey.String())
 }
 
+func (n ATURI) String() string {
+	return string(n)
+}
+
 func (a ATURI) MarshalText() ([]byte, error) {
 	return []byte(a.String()), nil
 }
