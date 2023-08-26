@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -81,6 +82,37 @@ func main() {
 			Usage:   "header value to send with checkout request",
 			Value:   "",
 			EnvVars: []string{"MAGIC_HEADER_VAL"},
+		},
+	}
+
+	app.Commands = []*cli.Command{
+		{
+			Name:  "retry",
+			Usage: "requeue failed repos",
+			Action: func(cctx *cli.Context) error {
+				state := &NetsyncState{
+					StatePath: cctx.String("state-file"),
+				}
+
+				err := state.Resume()
+				if err != nil {
+					return err
+				}
+
+				// Look through finished repos for failed ones
+				for _, repoState := range state.FinishedRepos {
+					// Don't retry repos that failed due to a 400 (they've been deleted)
+					if strings.HasPrefix(repoState.State, "failed") && repoState.State != "failed (status: 400)" {
+						state.EnqueuedRepos[repoState.Repo] = &RepoState{
+							Repo:  repoState.Repo,
+							State: "enqueued",
+						}
+					}
+				}
+
+				// Save state
+				return state.Save()
+			},
 		},
 	}
 
@@ -257,6 +289,13 @@ func Netsync(cctx *cli.Context) error {
 	err = state.Resume()
 	if state.EnqueuedRepos == nil {
 		state.EnqueuedRepos = make(map[string]*RepoState)
+	} else {
+		// Reset any dequeued repos
+		for _, repoState := range state.EnqueuedRepos {
+			if repoState.State == "dequeued" {
+				repoState.State = "enqueued"
+			}
+		}
 	}
 
 	if state.FinishedRepos == nil {
