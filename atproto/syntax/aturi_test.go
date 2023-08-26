@@ -76,7 +76,7 @@ func TestATURINormalize(t *testing.T) {
 
 	testVec := [][]string{
 		{"at://did:abc:123/io.NsId.someFunc/record-KEY", "at://did:abc:123/io.nsid.someFunc/record-KEY"},
-		// XXX: { "at://E.com", "at://e.com" },
+		{"at://E.com", "at://e.com"},
 	}
 
 	for _, parts := range testVec {
