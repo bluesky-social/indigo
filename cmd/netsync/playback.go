@@ -17,6 +17,8 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/urfave/cli/v2"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 type PlaybackState struct {
@@ -176,8 +178,11 @@ func Playback(cctx *cli.Context) error {
 
 	state.wg.Wait()
 
+	p := message.NewPrinter(language.English)
+
 	// Print stats
-	log.Infof("processed %d repos and %d UTF-8 text characters in %s", len(state.FinishedRepos), state.textLen.Load(), time.Since(start))
+	log.Info(p.Sprintf("processed %d repos and %d UTF-8 text characters in %s",
+		len(state.FinishedRepos), state.textLen.Load(), time.Since(start)))
 	log.Info("shut down successfully")
 
 	return nil
