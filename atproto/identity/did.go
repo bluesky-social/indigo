@@ -1,29 +1,37 @@
 package identity
 
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/bluesky-social/indigo/atproto/syntax"
+)
+
 type DIDDocument struct {
-	DID syntax.DID `json:"id"`
-	AlsoKnownAs []string `json:"alsoKnownAs,omitempty"`
+	DID                syntax.DID              `json:"id"`
+	AlsoKnownAs        []string                `json:"alsoKnownAs,omitempty"`
 	VerificationMethod []DocVerificationMethod `json:"alsoKnownAs,omitempty"`
-	Service []DocService `json:"alsoKnownAs,omitempty"`
+	Service            []DocService            `json:"alsoKnownAs,omitempty"`
 }
 
 type DocVerificationMethod struct {
-	ID `json:"id"`
-	Type `json:"type"`
-	Controller `json:"controller"`
-	PublicKeyMultibase `json:"publicKeyMultibase"`
+	ID                 string `json:"id"`
+	Type               string `json:"type"`
+	Controller         string `json:"controller"`
+	PublicKeyMultibase string `json:"publicKeyMultibase"`
 }
 
 type DocService struct {
-	ID `json:"id"`
-	Type `json:"type"`
-	ServiceEndpoint `json:"serviceEndpoint"`
+	ID              string `json:"id"`
+	Type            string `json:"type"`
+	ServiceEndpoint string `json:"serviceEndpoint"`
 }
 
-var ErrDIDNotFound = error.New("DID not found")
+var ErrDIDNotFound = errors.New("DID not found")
 
 // WARNING: this does *not* bi-directionally verify account metadata; it only implements direct DID-to-DID-document lookup for the supported DID methods, and parses the resulting DID Doc into an Account struct
-func ResolveDID(ctx context.Context, did identifier.DID) (*DIDDocument, error) {
+func ResolveDID(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
 	switch did.Method() {
 	case "web":
 		panic("NOT IMPLEMENTED")
@@ -34,19 +42,19 @@ func ResolveDID(ctx context.Context, did identifier.DID) (*DIDDocument, error) {
 	}
 }
 
-func ResolveDIDWeb(ctx context.Context, did identifier.DID) (*DIDDocument, error) {
-	// XXX
+func ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
+	return nil, fmt.Errorf("XXX UNIMPLEMENTED")
 }
 
-func ResolvePLC(ctx context.Context, did identifier.DID) (*DIDDocument, error) {
-	// XXX
+func ResolvePLC(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
+	return nil, fmt.Errorf("XXX UNIMPLEMENTED")
 }
 
 func (d *DIDDocument) Account() Account {
-	// XXX
+	panic("XXX UNIMPLEMENTED")
 }
 
 // "Renders" a DID Document
 func (a *Account) DIDDocument() DIDDocument {
-	// XXX
+	panic("XXX UNIMPLEMENTED")
 }

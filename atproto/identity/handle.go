@@ -1,16 +1,23 @@
 package identity
 
 import (
-	"net"
 	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"strings"
+
+	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-var ErrHandleNotFound = error.New("handle not found")
+var ErrHandleNotFound = errors.New("handle not found")
 
 // Does not cross-verify, just does the handle resolution step.
-func ResolveHandleDNS(ctx context.Context, handle identifier.Handle) (identifier.DID, error) {
+func ResolveHandleDNS(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
 
-	res, err := net.LookupTXT("_atproto." + handle)
+	res, err := net.LookupTXT("_atproto." + handle.String())
 	if err != nil {
 		return "", fmt.Errorf("handle DNS resolution failed: %w", err)
 	}
@@ -28,7 +35,7 @@ func ResolveHandleDNS(ctx context.Context, handle identifier.Handle) (identifier
 	return "", ErrHandleNotFound
 }
 
-func ResolveHandleWellKnown(ctx context.Context, handle identifier.Handle) (identifier.DID, error) {
+func ResolveHandleWellKnown(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
 	// NOTE: could pull a client or transport from context
 	c := http.DefaultClient
 
