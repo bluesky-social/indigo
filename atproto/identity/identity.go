@@ -1,8 +1,6 @@
 package identity
 
 import (
-	"fmt"
-
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
@@ -28,26 +26,26 @@ type Account struct {
 
 	// these fields are nullable
 	AlsoKnownAs []string
-	Services map[string]Service
-	Keys map[string]Key
+	Services    map[string]Service
+	Keys        map[string]Key
 }
 
 type Key struct {
-	Type string
+	Type               string
 	PublicKeyMultibase string
 }
 
 type Service struct {
 	Type string
-	URL string
+	URL  string
 }
 
 func (a *Account) SigningKey() *Key {
 	if a.Keys == nil {
 		return nil
 	}
-	atp := a.Keys["atproto"]
-	if atp == nil {
+	atp, ok := a.Keys["atproto"]
+	if !ok {
 		return nil
 	}
 	return &atp
@@ -55,11 +53,11 @@ func (a *Account) SigningKey() *Key {
 
 func (a *Account) PDS() string {
 	if a.Services == nil {
-		return nil
+		return ""
 	}
-	atp := a.Services["atproto_pds"]
-	if atp == nil {
-		return nil
+	atp, ok := a.Services["atproto_pds"]
+	if !ok {
+		return ""
 	}
-	return &atp
+	return atp.URL
 }
