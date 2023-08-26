@@ -115,3 +115,11 @@ sc-fire: # Fires supercollider
 		--hostname alpha.supercollider.jazco.io \
 		--key-file out/alpha.pem \
 		--input-file out/alpha_in.cbor
+
+.PHONY: run-netsync
+run-netsync: .env ## Runs netsync for local dev
+	go run ./cmd/netsync--checkout-limit 40 --worker-count 60 --out-dir ../netsync-out
+
+.PHONY: netsync-playback
+netsync-playback: .env ## Runs netsync for local dev
+	go run ./cmd/netsync --worker-count 60 --out-dir ../netsync-out_2023_08_25 playback 
