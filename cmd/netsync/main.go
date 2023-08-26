@@ -114,6 +114,11 @@ func main() {
 				return state.Save()
 			},
 		},
+		{
+			Name:   "playback",
+			Usage:  "playback the contents of a netsync output directory",
+			Action: Playback,
+		},
 	}
 
 	app.Action = Netsync
