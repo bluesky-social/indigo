@@ -9,11 +9,10 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// TODO: refactor this to wrap a regular Catalog. have it always update both handle and identity maps together.
 type CacheCatalog struct {
 	HitTTL        time.Duration
 	ErrTTL        time.Duration
-	PLCURL        string
+	Inner         Catalog
 	mutex         sync.RWMutex
 	handleCache   map[syntax.Handle]HandleEntry
 	identityCache map[syntax.DID]IdentityEntry
@@ -33,8 +32,8 @@ type IdentityEntry struct {
 
 var _ Catalog = (*CacheCatalog)(nil)
 
-func NewCacheCatalog(plcURL string) CacheCatalog {
-	// TODO: these are kind of arbitrary default values
+func NewCacheCatalog(inner Catalog) CacheCatalog {
+	// TODO: these are kind of arbitrary default values...
 	hitTTL, err := time.ParseDuration("1h")
 	if err != nil {
 		panic(err)
@@ -46,23 +45,62 @@ func NewCacheCatalog(plcURL string) CacheCatalog {
 	return CacheCatalog{
 		HitTTL:        hitTTL,
 		ErrTTL:        errTTL,
-		PLCURL:        plcURL,
+		Inner:         inner,
 		handleCache:   make(map[syntax.Handle]HandleEntry, 10),
 		identityCache: make(map[syntax.DID]IdentityEntry, 10),
 	}
 }
 
-func (c *CacheCatalog) updateHandle(ctx context.Context, h syntax.Handle) (*HandleEntry, error) {
-	did, err := ResolveHandle(ctx, h)
-	entry := HandleEntry{
-		Updated: time.Now(),
-		DID:     did,
-		Err:     err,
+func (c *CacheCatalog) IsHandleStale(e *HandleEntry) bool {
+	if e.Err == nil && time.Since(e.Updated) > c.HitTTL {
+		return true
 	}
+	if e.Err != nil && time.Since(e.Updated) > c.ErrTTL {
+		return true
+	}
+	return false
+}
+
+func (c *CacheCatalog) IsIdentityStale(e *IdentityEntry) bool {
+	if e.Err == nil && time.Since(e.Updated) > c.HitTTL {
+		return true
+	}
+	if e.Err != nil && time.Since(e.Updated) > c.ErrTTL {
+		return true
+	}
+	return false
+}
+
+func (c *CacheCatalog) updateHandle(ctx context.Context, h syntax.Handle) (*HandleEntry, error) {
+	ident, err := c.Inner.LookupHandle(ctx, h)
+	if err != nil {
+		he := HandleEntry{
+			Updated: time.Now(),
+			DID:     "",
+			Err:     err,
+		}
+		c.mutex.Lock()
+		c.handleCache[h] = he
+		c.mutex.Unlock()
+		return &he, nil
+	}
+
+	entry := IdentityEntry{
+		Updated:  time.Now(),
+		Identity: ident,
+		Err:      nil,
+	}
+	he := HandleEntry{
+		Updated: time.Now(),
+		DID:     ident.DID,
+		Err:     nil,
+	}
+
 	c.mutex.Lock()
-	c.handleCache[h] = entry
+	c.identityCache[ident.DID] = entry
+	c.handleCache[ident.Handle] = he
 	c.mutex.Unlock()
-	return &entry, nil
+	return &he, nil
 }
 
 func (c *CacheCatalog) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
@@ -80,7 +118,7 @@ func (c *CacheCatalog) ResolveHandle(ctx context.Context, h syntax.Handle) (synt
 	} else {
 		entry = &eObj
 	}
-	if (entry.Err == nil && time.Since(entry.Updated) > c.HitTTL) || (entry.Err != nil && time.Since(entry.Updated) > c.ErrTTL) {
+	if c.IsHandleStale(entry) {
 		entry, err = c.updateHandle(ctx, h)
 		if err != nil {
 			return "", err
@@ -89,42 +127,27 @@ func (c *CacheCatalog) ResolveHandle(ctx context.Context, h syntax.Handle) (synt
 	return entry.DID, entry.Err
 }
 
-func (c *CacheCatalog) getIdentity(ctx context.Context, did syntax.DID) (*Identity, error) {
-	doc, err := ResolveDID(ctx, did)
-	if err != nil {
-		return nil, err
-	}
-	ident := ParseIdentity(doc)
-	declared, err := ident.DeclaredHandle()
-	if err != nil {
-		return nil, err
-	}
-	resolvedDID, err := c.ResolveHandle(ctx, declared)
-	if err != nil {
-		return nil, err
-	}
-	if resolvedDID == did {
-		ident.Handle = declared
-	}
-
-	// optimistic caching of public key
-	pk, err := ident.PublicKey()
-	if nil == err {
-		ident.ParsedPublicKey = pk
-	}
-	return &ident, nil
-}
-
-func (c *CacheCatalog) updateIdentity(ctx context.Context, did syntax.DID) (*IdentityEntry, error) {
-	ident, err := c.getIdentity(ctx, did)
+func (c *CacheCatalog) updateDID(ctx context.Context, did syntax.DID) (*IdentityEntry, error) {
+	ident, err := c.Inner.LookupDID(ctx, did)
 	entry := IdentityEntry{
 		Updated:  time.Now(),
 		Identity: ident,
 		Err:      err,
 	}
+	var he *HandleEntry
+	if err == nil && !ident.Handle.IsInvalidHandle() {
+		he = &HandleEntry{
+			Updated: time.Now(),
+			DID:     did,
+			Err:     nil,
+		}
+	}
 
 	c.mutex.Lock()
 	c.identityCache[did] = entry
+	if he != nil {
+		c.handleCache[ident.Handle] = *he
+	}
 	c.mutex.Unlock()
 	return &entry, nil
 }
@@ -137,15 +160,15 @@ func (c *CacheCatalog) LookupDID(ctx context.Context, did syntax.DID) (*Identity
 	c.mutex.RUnlock()
 
 	if !ok {
-		entry, err = c.updateIdentity(ctx, did)
+		entry, err = c.updateDID(ctx, did)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		entry = &eObj
 	}
-	if (entry.Err == nil && time.Since(entry.Updated) > c.HitTTL) || (entry.Err != nil && time.Since(entry.Updated) > c.ErrTTL) {
-		entry, err = c.updateIdentity(ctx, did)
+	if c.IsIdentityStale(entry) {
+		entry, err = c.updateDID(ctx, did)
 		if err != nil {
 			return nil, err
 		}

@@ -38,6 +38,7 @@ func main() {
 }
 
 func runLookup(cctx *cli.Context) error {
+	ctx := context.Background()
 	s := cctx.Args().First()
 	if s == "" {
 		return fmt.Errorf("need to provide identifier as an argument")
@@ -49,9 +50,9 @@ func runLookup(cctx *cli.Context) error {
 	}
 	fmt.Printf("valid at-identifier syntax: %s\n", id)
 
-	ncat := identity.NewNaiveCatalog("https://plc.directory")
+	ncat := identity.NewBasicCatalog("https://plc.directory")
 
-	acc, err := ncat.Lookup(context.TODO(), *id)
+	acc, err := ncat.Lookup(ctx, *id)
 	if err != nil {
 		return err
 	}
@@ -60,6 +61,7 @@ func runLookup(cctx *cli.Context) error {
 }
 
 func runResolveHandle(cctx *cli.Context) error {
+	ctx := context.Background()
 	s := cctx.Args().First()
 	if s == "" {
 		return fmt.Errorf("need to provide handle as an argument")
@@ -71,7 +73,7 @@ func runResolveHandle(cctx *cli.Context) error {
 	}
 	fmt.Printf("valid handle syntax: %s\n", handle)
 
-	did, err := identity.ResolveHandle(context.TODO(), handle)
+	did, err := identity.ResolveHandle(ctx, handle)
 	if err != nil {
 		return err
 	}
@@ -80,6 +82,7 @@ func runResolveHandle(cctx *cli.Context) error {
 }
 
 func runResolveDID(cctx *cli.Context) error {
+	ctx := context.Background()
 	s := cctx.Args().First()
 	if s == "" {
 		fmt.Println("need to provide DID as an argument")
@@ -93,7 +96,7 @@ func runResolveDID(cctx *cli.Context) error {
 	}
 	fmt.Printf("valid DID syntax: %s\n", did)
 
-	doc, err := identity.ResolveDID(context.TODO(), did)
+	doc, err := identity.DefaultResolveDID(ctx, did)
 	if err != nil {
 		return err
 	}
