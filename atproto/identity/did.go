@@ -31,16 +31,13 @@ type DocService struct {
 	ServiceEndpoint string `json:"serviceEndpoint"`
 }
 
-// Indicates that resolution process completed successfully, but the DID does not exist.
-var ErrDIDNotFound = errors.New("DID not found")
-
 // WARNING: this does *not* bi-directionally verify account metadata; it only implements direct DID-to-DID-document lookup for the supported DID methods, and parses the resulting DID Doc into an Identity struct
-func ResolveDID(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
+func DefaultResolveDID(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
 	switch did.Method() {
 	case "web":
 		return ResolveDIDWeb(ctx, did)
 	case "plc":
-		return ResolveDIDPLC(ctx, did)
+		return ResolveDIDPLC(ctx, DefaultPLCURL, did)
 	default:
 		return nil, fmt.Errorf("DID method not supported: %s", did.Method())
 	}
@@ -75,7 +72,6 @@ func ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
 	if resp.StatusCode == 404 {
 		return nil, ErrDIDNotFound
 	}
-	// TODO: HTTP redirects
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("failed did:web well-known fetch, HTTP status: %d", resp.StatusCode)
 	}
@@ -87,13 +83,13 @@ func ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
 	return &doc, nil
 }
 
-func ResolveDIDPLC(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
-	// TODO: configurable PLC hostname
+// plcURL should have URL method, hostname, and optional port; it should not have a path or trailing slash
+func ResolveDIDPLC(ctx context.Context, plcURL string, did syntax.DID) (*DIDDocument, error) {
 	if did.Method() != "plc" {
 		return nil, fmt.Errorf("expected a did:plc, got: %s", did)
 	}
 
-	resp, err := http.Get("https://plc.directory/" + did.String())
+	resp, err := http.Get(plcURL + "/" + did.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed did:plc directory resolution: %w", err)
 	}

@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,15 +12,15 @@ import (
 	"github.com/mr-tron/base58"
 )
 
-// API for doing account lookups by DID or handle, with bi-directional verification handled automatically.
+// API for doing account lookups by DID or handle, with bi-directional verification handled automatically. Almost all atproto services and clients should use an implementation of this interface instead of resolving handles or DIDs separately
 //
-// Handles which fail to resolve or don't match DID alsoKnownAs are an error. DIDs which resolve but the handle does not resolve back to the DID return an Identity where the Handle is the special `handle.invalid` value.
+// Handles which fail to resolve, or don't match DID alsoKnownAs, are an error. DIDs which resolve but the handle does not resolve back to the DID return an Identity where the Handle is the special `handle.invalid` value.
 //
-// Some example implementations of this interface would be:
-//   - naive direct resolution on every call
+// Some example implementations of this interface could be:
+//   - basic direct resolution on every call
+//   - local in-memory caching layer to reduce network hits
 //   - API client, which just makes requests to PDS (or other remote service)
-//   - simple in-memory caching wrapper layer to reduce network hits
-//   - services with backing datastore to do sophisticated caching, TTL, auto-refresh, etc
+//   - client for shared network cache (eg, Redis)
 type Catalog interface {
 	LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error)
 	LookupDID(ctx context.Context, d syntax.DID) (*Identity, error)
@@ -27,14 +28,23 @@ type Catalog interface {
 	// TODO: add "flush" methods to purge caches?
 }
 
+// Indicates that resolution process completed successfully, but handle does not exist.
+var ErrHandleNotFound = errors.New("handle not found")
+
+// Indicates that handle and DID resolved, but handle points to a DID with a different handle. This is only returned when looking up a handle, not when looking up a DID.
+var ErrHandleNotValid = errors.New("handle resolves to DID with different handle")
+
+// Indicates that resolution process completed successfully, but the DID does not exist.
+var ErrDIDNotFound = errors.New("DID not found")
+
 var DefaultPLCURL = "https://plc.directory"
 
+// Returns a reasonable default Catalog implementation for most use cases
 func DefaultCatalog() Catalog {
-	cat := NewCacheCatalog(DefaultPLCURL)
-	return &cat
+	naive := NewBasicCatalog(DefaultPLCURL)
+	cached := NewCacheCatalog(&naive)
+	return &cached
 }
-
-// TODO: DIDHistory() helper, returns log of declared handle, PDS location, and public key? or maybe this is something best left to did-method-plc helper library
 
 // Represents an atproto identity. Could be a regular user account, or a service account (eg, feed generator)
 type Identity struct {
@@ -52,7 +62,7 @@ type Identity struct {
 	// TODO: this doesn't preserve order (doesn't round-trip)
 	Keys map[string]Key
 
-	// If a valid atproto repo signing public key was parsed, it can be cached here. This is nullable/optional.
+	// If a valid atproto repo signing public key was parsed, it can be cached here. This is nullable/optional. Calling code should call PublicKey() instead of accessing this member.
 	ParsedPublicKey crypto.PublicKey
 }
 
@@ -112,6 +122,9 @@ func ParseIdentity(doc *DIDDocument) Identity {
 	}
 }
 
+// Identifiers the atproto repo signing public key, specifically, out of any keys associated with this identity.
+//
+// Returns an error if there is no key. Note that 'crypto.PublicKey' is an interface, not a concrete type.
 func (i *Identity) PublicKey() (crypto.PublicKey, error) {
 	if i.ParsedPublicKey != nil {
 		return i.ParsedPublicKey, nil
@@ -149,6 +162,7 @@ func (i *Identity) PublicKey() (crypto.PublicKey, error) {
 	}
 }
 
+// The home PDS endpoint for this account, if one is included in identity metadata (returns empty string if not found). The endpoint will be an HTTP URL with method, hostname, and optional port, but no path segments.
 func (i *Identity) PDSEndpoint() string {
 	if i.Services == nil {
 		return ""
@@ -160,6 +174,9 @@ func (i *Identity) PDSEndpoint() string {
 	return atp.URL
 }
 
+// Returns an atproto handle from the alsoKnownAs URI list for this identifier. Returns an error if there is no handle, or if an at:// URI failes to parse as a handle.
+//
+// Note that this handle is *not* necessarily to be trusted, as it may not have been bi-directionally verified. The 'Handle' field on the 'Identity' should contain either a verified handle, or the special 'handle.invalid' indicator value.
 func (i *Identity) DeclaredHandle() (syntax.Handle, error) {
 	for _, u := range i.AlsoKnownAs {
 		if strings.HasPrefix(u, "at://") && len(u) > len("at://") {
