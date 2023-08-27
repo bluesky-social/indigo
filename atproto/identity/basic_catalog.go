@@ -7,25 +7,38 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-type NaiveCatalog struct {
-	// TODO: actually wire through use of PLC host
-	PLCHost string
+type BasicCatalog struct {
+	PLCURL string
 }
 
-var _ Catalog = (*NaiveCatalog)(nil)
+var _ Catalog = (*BasicCatalog)(nil)
 
-func NewNaiveCatalog(plcHost string) NaiveCatalog {
-	return NaiveCatalog{
-		PLCHost: plcHost,
+func NewBasicCatalog(plcURL string) BasicCatalog {
+	if plcURL == "" {
+		plcURL = DefaultPLCURL
+	}
+	return BasicCatalog{
+		PLCURL: plcURL,
 	}
 }
 
-func (c *NaiveCatalog) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
+func (c *BasicCatalog) ResolveDID(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
+	switch did.Method() {
+	case "web":
+		return ResolveDIDWeb(ctx, did)
+	case "plc":
+		return ResolveDIDPLC(ctx, c.PLCURL, did)
+	default:
+		return nil, fmt.Errorf("DID method not supported: %s", did.Method())
+	}
+}
+
+func (c *BasicCatalog) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
 	did, err := ResolveHandle(ctx, h)
 	if err != nil {
 		return nil, err
 	}
-	doc, err := ResolveDID(ctx, did)
+	doc, err := c.ResolveDID(ctx, did)
 	if err != nil {
 		return nil, err
 	}
@@ -47,8 +60,8 @@ func (c *NaiveCatalog) LookupHandle(ctx context.Context, h syntax.Handle) (*Iden
 	return &ident, nil
 }
 
-func (c *NaiveCatalog) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
-	doc, err := ResolveDID(ctx, did)
+func (c *BasicCatalog) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
+	doc, err := c.ResolveDID(ctx, did)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +86,7 @@ func (c *NaiveCatalog) LookupDID(ctx context.Context, did syntax.DID) (*Identity
 	return &ident, nil
 }
 
-func (c *NaiveCatalog) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Identity, error) {
+func (c *BasicCatalog) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Identity, error) {
 	handle, err := a.AsHandle()
 	if err == nil {
 		return c.LookupHandle(ctx, handle)

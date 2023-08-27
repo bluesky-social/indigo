@@ -12,7 +12,7 @@ import (
 // NOTE: this hits the open internet! marked as skip below by default
 func testCatalogLive(t *testing.T, c Catalog) {
 	assert := assert.New(t)
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	handle := syntax.Handle("atproto.com")
 	did := syntax.DID("did:plc:ewvi7nxzyoun6zhxrhs64oiz")
@@ -49,15 +49,16 @@ func testCatalogLive(t *testing.T, c Catalog) {
 	assert.Error(err)
 }
 
-func TestNaiveCatalog(t *testing.T) {
-	t.Skip("skipping live network test")
-	c := NewNaiveCatalog(DefaultPLCURL)
+func TestBasicCatalog(t *testing.T) {
+	// XXX: t.Skip("skipping live network test")
+	c := NewBasicCatalog(DefaultPLCURL)
 	testCatalogLive(t, &c)
 }
 
 func TestCacheCatalog(t *testing.T) {
-	t.Skip("skipping live network test")
-	c := NewCacheCatalog(DefaultPLCURL)
+	// XXX: t.Skip("skipping live network test")
+	inner := NewBasicCatalog(DefaultPLCURL)
+	c := NewCacheCatalog(&inner)
 	for i := 0; i < 3; i = i + 1 {
 		testCatalogLive(t, &c)
 	}

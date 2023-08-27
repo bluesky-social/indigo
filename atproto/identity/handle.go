@@ -12,13 +12,10 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// Indicates that resolution process completed successfully, but handle does not exist.
-var ErrHandleNotFound = errors.New("handle not found")
-
 // Does not cross-verify, just does the handle resolution step.
 func ResolveHandleDNS(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
 	// TODO: timeout
-	// TODO: mechanism to control resolution; context? separate method?
+	// TODO: mechanism to control NDS better; context? separate method?
 
 	res, err := net.LookupTXT("_atproto." + handle.String())
 	// look for NXDOMAIN
@@ -46,8 +43,8 @@ func ResolveHandleDNS(ctx context.Context, handle syntax.Handle) (syntax.DID, er
 }
 
 func ResolveHandleWellKnown(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
-	// TODO: could pull a client or transport from context?
 	// TODO: timeout
+	// TODO: could pull a client or transport from context?
 	c := http.DefaultClient
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("https://%s/.well-known/atproto-did", handle), nil)

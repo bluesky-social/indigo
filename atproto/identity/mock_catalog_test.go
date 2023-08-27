@@ -12,7 +12,7 @@ import (
 func TestMockCatalog(t *testing.T) {
 	var err error
 	assert := assert.New(t)
-	ctx := context.TODO()
+	ctx := context.Background()
 	c := NewMockCatalog()
 	id1 := Identity{
 		DID:    syntax.DID("did:plc:abc111"),
