@@ -12,12 +12,22 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
+// Indicates that resolution process completed successfully, but handle does not exist.
 var ErrHandleNotFound = errors.New("handle not found")
 
 // Does not cross-verify, just does the handle resolution step.
 func ResolveHandleDNS(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
+	// TODO: timeout
+	// TODO: mechanism to control resolution; context? separate method?
 
 	res, err := net.LookupTXT("_atproto." + handle.String())
+	// look for NXDOMAIN
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		if dnsErr.IsNotFound {
+			return "", ErrHandleNotFound
+		}
+	}
 	if err != nil {
 		return "", fmt.Errorf("handle DNS resolution failed: %w", err)
 	}
@@ -36,7 +46,8 @@ func ResolveHandleDNS(ctx context.Context, handle syntax.Handle) (syntax.DID, er
 }
 
 func ResolveHandleWellKnown(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
-	// NOTE: could pull a client or transport from context
+	// TODO: could pull a client or transport from context?
+	// TODO: timeout
 	c := http.DefaultClient
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("https://%s/.well-known/atproto-did", handle), nil)
@@ -47,6 +58,13 @@ func ResolveHandleWellKnown(ctx context.Context, handle syntax.Handle) (syntax.D
 
 	resp, err := c.Do(req)
 	if err != nil {
+		// look for NXDOMAIN
+		var dnsErr *net.DNSError
+		if errors.As(err, &dnsErr) {
+			if dnsErr.IsNotFound {
+				return "", ErrHandleNotFound
+			}
+		}
 		return "", fmt.Errorf("failed to resolve handle (%s) through HTTP well-known route: %s", handle, err)
 	}
 	if resp.StatusCode != 200 {
@@ -63,4 +81,24 @@ func ResolveHandleWellKnown(ctx context.Context, handle syntax.Handle) (syntax.D
 	}
 	line := strings.TrimSpace(string(b))
 	return syntax.ParseDID(line)
+}
+
+func ResolveHandle(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
+	did, dnsErr := ResolveHandleDNS(ctx, handle)
+	if dnsErr == nil {
+		return did, nil
+	}
+	did, httpErr := ResolveHandleWellKnown(ctx, handle)
+	if httpErr == nil {
+		return did, nil
+	}
+
+	// return the most specific/helpful error
+	if dnsErr != ErrHandleNotFound {
+		return "", dnsErr
+	}
+	if httpErr != ErrHandleNotFound {
+		return "", httpErr
+	}
+	return "", dnsErr
 }

@@ -2,8 +2,11 @@ package identity
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
@@ -11,8 +14,8 @@ import (
 type DIDDocument struct {
 	DID                syntax.DID              `json:"id"`
 	AlsoKnownAs        []string                `json:"alsoKnownAs,omitempty"`
-	VerificationMethod []DocVerificationMethod `json:"alsoKnownAs,omitempty"`
-	Service            []DocService            `json:"alsoKnownAs,omitempty"`
+	VerificationMethod []DocVerificationMethod `json:"verificationMethod,omitempty"`
+	Service            []DocService            `json:"service,omitempty"`
 }
 
 type DocVerificationMethod struct {
@@ -28,33 +31,82 @@ type DocService struct {
 	ServiceEndpoint string `json:"serviceEndpoint"`
 }
 
+// Indicates that resolution process completed successfully, but the DID does not exist.
 var ErrDIDNotFound = errors.New("DID not found")
 
-// WARNING: this does *not* bi-directionally verify account metadata; it only implements direct DID-to-DID-document lookup for the supported DID methods, and parses the resulting DID Doc into an Account struct
+// WARNING: this does *not* bi-directionally verify account metadata; it only implements direct DID-to-DID-document lookup for the supported DID methods, and parses the resulting DID Doc into an Identity struct
 func ResolveDID(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
 	switch did.Method() {
 	case "web":
-		panic("NOT IMPLEMENTED")
+		return ResolveDIDWeb(ctx, did)
 	case "plc":
-		panic("NOT IMPLEMENTED")
+		return ResolveDIDPLC(ctx, did)
 	default:
 		return nil, fmt.Errorf("DID method not supported: %s", did.Method())
 	}
 }
 
 func ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
-	return nil, fmt.Errorf("XXX UNIMPLEMENTED")
+	if did.Method() != "web" {
+		return nil, fmt.Errorf("expected a did:web, got: %s", did)
+	}
+	hostname := did.Identifier()
+	handle, err := syntax.ParseHandle(hostname)
+	if err != nil {
+		return nil, fmt.Errorf("did:web identifier not a simple hostname: %s", hostname)
+	}
+	if !handle.AllowedTLD() {
+		return nil, fmt.Errorf("did:web hostname has disallowed TLD: %s", hostname)
+	}
+
+	// TODO: use a more robust client
+	// TODO: allow ctx to specify unsafe http:// resolution, for testing?
+	resp, err := http.Get("https://" + hostname + "/.well-known/did.json")
+	// look for NXDOMAIN
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		if dnsErr.IsNotFound {
+			return nil, ErrDIDNotFound
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed HTTP fetch of did:web well-known document: %w", err)
+	}
+	if resp.StatusCode == 404 {
+		return nil, ErrDIDNotFound
+	}
+	// TODO: HTTP redirects
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("failed did:web well-known fetch, HTTP status: %d", resp.StatusCode)
+	}
+
+	var doc DIDDocument
+	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+		return nil, fmt.Errorf("failed parse of did:web document JSON: %w", err)
+	}
+	return &doc, nil
 }
 
-func ResolvePLC(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
-	return nil, fmt.Errorf("XXX UNIMPLEMENTED")
-}
+func ResolveDIDPLC(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
+	// TODO: configurable PLC hostname
+	if did.Method() != "plc" {
+		return nil, fmt.Errorf("expected a did:plc, got: %s", did)
+	}
 
-func (d *DIDDocument) Account() Account {
-	panic("XXX UNIMPLEMENTED")
-}
+	resp, err := http.Get("https://plc.directory/" + did.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed did:plc directory resolution: %w", err)
+	}
+	if resp.StatusCode == 404 {
+		return nil, ErrDIDNotFound
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("failed did:web well-known fetch, HTTP status: %d", resp.StatusCode)
+	}
 
-// "Renders" a DID Document
-func (a *Account) DIDDocument() DIDDocument {
-	panic("XXX UNIMPLEMENTED")
+	var doc DIDDocument
+	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+		return nil, fmt.Errorf("failed parse of did:plc document JSON: %w", err)
+	}
+	return &doc, nil
 }
