@@ -100,8 +100,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		events:  evtman,
 		didr:    didr,
 		blobs:   blobs,
-
-		ssl: ssl,
+		ssl:     ssl,
 
 		consumersLk: sync.RWMutex{},
 		consumers:   make(map[uint64]*SocketConsumer),
