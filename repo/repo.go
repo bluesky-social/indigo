@@ -29,7 +29,7 @@ type SignedCommit struct {
 	Prev    *cid.Cid `cborgen:"prev"`
 	Data    cid.Cid  `cborgen:"data"`
 	Sig     []byte   `cborgen:"sig"`
-	Rev     string   `cborgen:"rev"`
+	Rev     string   `cborgen:"rev,omitempty"`
 }
 
 type UnsignedCommit struct {
@@ -37,7 +37,7 @@ type UnsignedCommit struct {
 	Version int64    `cborgen:"version"`
 	Prev    *cid.Cid `cborgen:"prev"`
 	Data    cid.Cid  `cborgen:"data"`
-	Rev     string   `cborgen:"rev"`
+	Rev     string   `cborgen:"rev,omitempty"`
 }
 
 type Repo struct {
