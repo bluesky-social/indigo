@@ -24,6 +24,7 @@ import (
 	"github.com/ipfs/go-libipfs/blocks"
 	car "github.com/ipld/go-car"
 	carutil "github.com/ipld/go-car/util"
+	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
@@ -80,6 +81,7 @@ type blockRef struct {
 	Cid    models.DbCID `gorm:"index"`
 	Shard  uint
 	Offset int64
+	Dirty  bool
 	//User   uint `gorm:"index"`
 }
 
@@ -238,6 +240,7 @@ func (uv *userView) GetSize(ctx context.Context, k cid.Cid) (int, error) {
 type DeltaSession struct {
 	fresh    blockstore.Blockstore
 	blks     map[cid.Cid]blockformat.Block
+	rmcids   map[cid.Cid]bool
 	base     blockstore.Blockstore
 	user     models.Uid
 	seq      int
@@ -631,7 +634,6 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase 
 		return nil, fmt.Errorf("failed to write shard file: %w", err)
 	}
 
-	// TODO: all this database work needs to be in a single transaction
 	shard := CarShard{
 		Root:      models.DbCID{root},
 		DataStart: hnw,
@@ -666,6 +668,18 @@ func (ds *DeltaSession) putShard(ctx context.Context, shard *CarShard, brefs []m
 
 	if err := createBlockRefs(ctx, tx, brefs); err != nil {
 		return fmt.Errorf("failed to create block refs: %w", err)
+	}
+
+	if len(ds.rmcids) > 0 {
+		var torm []models.DbCID
+		for c := range ds.rmcids {
+			torm = append(torm, models.DbCID{c})
+		}
+
+		subq := ds.cs.meta.Model(&blockRef{}).Joins("left join car_shards cs on cs.id = block_refs.shard").Where("cid in (?) AND usr = ?", torm, ds.user).Select("block_refs.id")
+		if err := tx.Model(&blockRef{}).Where("id in (?)", subq).UpdateColumn("dirty", true).Error; err != nil {
+			return err
+		}
 	}
 
 	err := tx.WithContext(ctx).Commit().Error
@@ -776,6 +790,71 @@ func LdWrite(w io.Writer, d ...[]byte) (int64, error) {
 	return int64(nw), nil
 }
 
+func setToSlice(s map[cid.Cid]bool) []cid.Cid {
+	out := make([]cid.Cid, 0, len(s))
+	for c := range s {
+		out = append(out, c)
+	}
+
+	return out
+}
+
+func BlockDiff(ctx context.Context, bs blockstore.Blockstore, oldroot cid.Cid, newcids []cid.Cid) (map[cid.Cid]bool, error) {
+	ctx, span := otel.Tracer("repo").Start(ctx, "BlockDiff")
+	defer span.End()
+
+	if !oldroot.Defined() {
+		return map[cid.Cid]bool{}, nil
+	}
+
+	// walk the entire 'new' portion of the tree, marking all referenced cids as 'keep'
+	keepset := make(map[cid.Cid]bool)
+	for _, c := range newcids {
+		keepset[c] = true
+		oblk, err := bs.Get(ctx, c)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := cbg.ScanForLinks(bytes.NewReader(oblk.RawData()), func(lnk cid.Cid) {
+			keepset[lnk] = true
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	if keepset[oldroot] {
+		// this should probably never happen, but is technically correct
+		return nil, nil
+	}
+
+	// next, walk the old tree from the root, recursing on cids *not* in the keepset.
+	dropset := make(map[cid.Cid]bool)
+	dropset[oldroot] = true
+	queue := []cid.Cid{oldroot}
+
+	for len(queue) > 0 {
+		c := queue[0]
+		queue = queue[1:]
+
+		oblk, err := bs.Get(ctx, c)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := cbg.ScanForLinks(bytes.NewReader(oblk.RawData()), func(lnk cid.Cid) {
+			if !keepset[lnk] {
+				dropset[lnk] = true
+				queue = append(queue, lnk)
+			}
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	return dropset, nil
+}
+
 func (cs *CarStore) ImportSlice(ctx context.Context, uid models.Uid, prev *cid.Cid, carslice []byte) (cid.Cid, *DeltaSession, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ImportSlice")
 	defer span.End()
@@ -794,6 +873,7 @@ func (cs *CarStore) ImportSlice(ctx context.Context, uid models.Uid, prev *cid.C
 		return cid.Undef, nil, err
 	}
 
+	var cids []cid.Cid
 	for {
 		blk, err := carr.Next()
 		if err != nil {
@@ -803,10 +883,24 @@ func (cs *CarStore) ImportSlice(ctx context.Context, uid models.Uid, prev *cid.C
 			return cid.Undef, nil, err
 		}
 
+		cids = append(cids, blk.Cid())
+
 		if err := ds.Put(ctx, blk); err != nil {
 			return cid.Undef, nil, err
 		}
 	}
+
+	base := cid.Undef
+	if prev != nil {
+		base = *prev
+	}
+
+	rmcids, err := BlockDiff(ctx, ds, base, cids)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	ds.rmcids = rmcids
 
 	return carr.Header.Roots[0], ds, nil
 }
