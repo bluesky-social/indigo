@@ -19,7 +19,9 @@ import (
 )
 
 // current version of repo currently implemented
-const ATP_REPO_VERSION int64 = 2
+const ATP_REPO_VERSION int64 = 3
+
+const ATP_REPO_VERSION_2 int64 = 2
 
 type SignedCommit struct {
 	Did     string   `cborgen:"did"`
@@ -27,6 +29,7 @@ type SignedCommit struct {
 	Prev    *cid.Cid `cborgen:"prev"`
 	Data    cid.Cid  `cborgen:"data"`
 	Sig     []byte   `cborgen:"sig"`
+	Rev     string   `cborgen:"rev,omitempty"`
 }
 
 type UnsignedCommit struct {
@@ -34,6 +37,7 @@ type UnsignedCommit struct {
 	Version int64    `cborgen:"version"`
 	Prev    *cid.Cid `cborgen:"prev"`
 	Data    cid.Cid  `cborgen:"data"`
+	Rev     string   `cborgen:"rev,omitempty"`
 }
 
 type Repo struct {
@@ -55,6 +59,7 @@ func (sc *SignedCommit) Unsigned() *UnsignedCommit {
 		Version: sc.Version,
 		Prev:    sc.Prev,
 		Data:    sc.Data,
+		Rev:     sc.Rev,
 	}
 }
 
@@ -131,7 +136,7 @@ func OpenRepo(ctx context.Context, bs blockstore.Blockstore, root cid.Cid, fullR
 		return nil, fmt.Errorf("loading root from blockstore: %w", err)
 	}
 
-	if sc.Version != ATP_REPO_VERSION {
+	if sc.Version != ATP_REPO_VERSION && sc.Version != ATP_REPO_VERSION_2 {
 		return nil, fmt.Errorf("unsupported repo version: %d", sc.Version)
 	}
 
@@ -262,16 +267,11 @@ func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, 
 		return cid.Undef, err
 	}
 
-	var nprev *cid.Cid
-	if r.repoCid.Defined() {
-		nprev = &r.repoCid
-	}
-
 	ncom := UnsignedCommit{
 		Did:     r.RepoDid(),
 		Version: ATP_REPO_VERSION,
-		Prev:    nprev,
 		Data:    rcid,
+		Rev:     NextTID(),
 	}
 
 	sb, err := ncom.BytesForSigning()
@@ -289,6 +289,7 @@ func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, 
 		Version: ncom.Version,
 		Prev:    ncom.Prev,
 		Data:    ncom.Data,
+		Rev:     ncom.Rev,
 	}
 
 	nsccid, err := r.cst.Put(ctx, &nsc)
