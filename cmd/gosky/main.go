@@ -1287,13 +1287,20 @@ var createInviteCmd = &cli.Command{
 				}
 			}
 
-			_, err = comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
-				UseCount:    int64(count),
-				ForAccounts: dids,
-				CodeCount:   int64(num),
-			})
-			if err != nil {
-				return err
+			for n := 0; n < len(dids); n += 500 {
+				slice := dids
+				if len(slice) > 500 {
+					slice = slice[:500]
+				}
+
+				_, err = comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
+					UseCount:    int64(count),
+					ForAccounts: slice,
+					CodeCount:   int64(num),
+				})
+				if err != nil {
+					return err
+				}
 			}
 
 			return nil
