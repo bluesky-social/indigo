@@ -69,10 +69,10 @@ func ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed HTTP fetch of did:web well-known document: %w", err)
 	}
-	if resp.StatusCode == 404 {
+	if resp.StatusCode == http.StatusNotFound {
 		return nil, ErrDIDNotFound
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed did:web well-known fetch, HTTP status: %d", resp.StatusCode)
 	}
 
@@ -93,10 +93,10 @@ func ResolveDIDPLC(ctx context.Context, plcURL string, did syntax.DID) (*DIDDocu
 	if err != nil {
 		return nil, fmt.Errorf("failed did:plc directory resolution: %w", err)
 	}
-	if resp.StatusCode == 404 {
+	if resp.StatusCode == http.StatusNotFound {
 		return nil, ErrDIDNotFound
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed did:web well-known fetch, HTTP status: %d", resp.StatusCode)
 	}
 

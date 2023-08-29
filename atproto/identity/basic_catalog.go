@@ -88,11 +88,11 @@ func (c *BasicCatalog) LookupDID(ctx context.Context, did syntax.DID) (*Identity
 
 func (c *BasicCatalog) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Identity, error) {
 	handle, err := a.AsHandle()
-	if err == nil {
+	if nil == err { // if *not* an error
 		return c.LookupHandle(ctx, handle)
 	}
 	did, err := a.AsDID()
-	if err == nil {
+	if nil == err { // if *not* an error
 		return c.LookupDID(ctx, did)
 	}
 	return nil, fmt.Errorf("at-identifier neither a Handle nor a DID")
