@@ -33,15 +33,9 @@ type IdentityEntry struct {
 var _ Catalog = (*CacheCatalog)(nil)
 
 func NewCacheCatalog(inner Catalog) CacheCatalog {
-	// TODO: these are kind of arbitrary default values...
-	hitTTL, err := time.ParseDuration("1h")
-	if err != nil {
-		panic(err)
-	}
-	errTTL, err := time.ParseDuration("2m")
-	if err != nil {
-		panic(err)
-	}
+	// NOTE: these are kind of arbitrary default values...
+	hitTTL := time.Duration(1e9 * 60 * 60) // 1 hour
+	errTTL := time.Duration(1e9 * 60 * 2)  // 2 minutes
 	return CacheCatalog{
 		HitTTL:        hitTTL,
 		ErrTTL:        errTTL,
