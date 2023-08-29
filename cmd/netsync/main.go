@@ -118,6 +118,13 @@ func main() {
 			Name:   "playback",
 			Usage:  "playback the contents of a netsync output directory",
 			Action: Playback,
+			Flags: []cli.Flag{
+				&cli.StringSliceFlag{
+					Name:    "scylla-nodes",
+					Usage:   "list of scylla nodes to connect to",
+					EnvVars: []string{"SCYLLA_NODES"},
+				},
+			},
 		},
 	}
 
