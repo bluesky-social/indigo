@@ -7,15 +7,21 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 
+	"github.com/araddon/dateparse"
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/repo"
+	"github.com/gocql/gocql"
 	"github.com/ipfs/go-cid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/scylladb/gocqlx/v2"
+	"github.com/scylladb/gocqlx/v2/table"
+
 	"github.com/urfave/cli/v2"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -33,6 +39,8 @@ type PlaybackState struct {
 	workerCount int
 
 	textLen atomic.Uint64
+
+	ses gocqlx.Session
 }
 
 func (s *PlaybackState) Dequeue() string {
@@ -66,6 +74,33 @@ func (s *PlaybackState) Finish(repo string, state string) {
 	delete(s.EnqueuedRepos, repo)
 }
 
+var postMetadata = table.Metadata{
+	Name:    "netsync.post",
+	Columns: []string{"did", "rkey", "content", "created_at"},
+	PartKey: []string{"did"},
+	SortKey: []string{"rkey"},
+}
+var postTable = table.New(postMetadata)
+
+type Post struct {
+	Did       string
+	Rkey      string
+	Content   string
+	CreatedAt time.Time
+}
+
+func (s *PlaybackState) SetupSchema() error {
+	if err := s.ses.ExecStmt(`CREATE KEYSPACE IF NOT EXISTS netsync WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };`); err != nil {
+		return fmt.Errorf("failed to create keyspace: %w", err)
+	}
+
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.post (did text, rkey text, content text, created_at timestamp, PRIMARY KEY (did, rkey));`); err != nil {
+		return fmt.Errorf("failed to create post table: %w", err)
+	}
+
+	return nil
+}
+
 func Playback(cctx *cli.Context) error {
 	ctx := cctx.Context
 	ctx, cancel := context.WithCancel(ctx)
@@ -73,10 +108,22 @@ func Playback(cctx *cli.Context) error {
 
 	start := time.Now()
 
+	cluster := gocql.NewCluster(cctx.StringSlice("scylla-nodes")...)
+	session, err := gocqlx.WrapSession(cluster.CreateSession())
+	if err != nil {
+		return fmt.Errorf("failed to create scylla session: %w", err)
+	}
+
 	state := &PlaybackState{
 		outDir:      cctx.String("out-dir"),
 		workerCount: cctx.Int("worker-count"),
 		wg:          sync.WaitGroup{},
+		ses:         session,
+	}
+
+	err = state.SetupSchema()
+	if err != nil {
+		return fmt.Errorf("failed to setup schema: %w", err)
 	}
 
 	state.EnqueuedRepos = make(map[string]*RepoState)
@@ -103,7 +150,7 @@ func Playback(cctx *cli.Context) error {
 	}()
 
 	// Load all the repos from the out dir
-	err := filepath.Walk(state.outDir, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(state.outDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return fmt.Errorf("failed to walk path: %w", err)
 		}
@@ -243,10 +290,29 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 			return nil
 		}
 
+		rkey := strings.Split(path, "/")[1]
+
 		switch rec := rec.(type) {
 		case *bsky.FeedPost:
 			log.Debugf("processing feed post: %s", rec.Text)
 			s.textLen.Add(uint64(len(rec.Text)))
+			recCreatedAt, err := dateparse.ParseAny(rec.CreatedAt)
+			if err != nil {
+				log.Errorf("failed to parse created at: %w", err)
+				return nil
+			}
+
+			insertPost := postTable.InsertQuery(s.ses)
+			insertPost.BindStruct(Post{
+				Did:       did,
+				Rkey:      rkey,
+				Content:   rec.Text,
+				CreatedAt: recCreatedAt,
+			})
+			if err := insertPost.ExecRelease(); err != nil {
+				log.Errorf("failed to insert post: %+v", err)
+				return nil
+			}
 		case *bsky.FeedLike:
 			log.Debugf("processing feed like: %s", rec.Subject.Uri)
 		case *bsky.FeedRepost:
