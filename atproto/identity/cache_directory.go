@@ -9,10 +9,10 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-type CacheCatalog struct {
+type CacheDirectory struct {
 	HitTTL        time.Duration
 	ErrTTL        time.Duration
-	Inner         Catalog
+	Inner         Directory
 	mutex         sync.RWMutex
 	handleCache   map[syntax.Handle]HandleEntry
 	identityCache map[syntax.DID]IdentityEntry
@@ -30,13 +30,13 @@ type IdentityEntry struct {
 	Err      error
 }
 
-var _ Catalog = (*CacheCatalog)(nil)
+var _ Directory = (*CacheDirectory)(nil)
 
-func NewCacheCatalog(inner Catalog) CacheCatalog {
+func NewCacheDirectory(inner Directory) CacheDirectory {
 	// NOTE: these are kind of arbitrary default values...
 	hitTTL := time.Duration(1e9 * 60 * 60) // 1 hour
 	errTTL := time.Duration(1e9 * 60 * 2)  // 2 minutes
-	return CacheCatalog{
+	return CacheDirectory{
 		HitTTL:        hitTTL,
 		ErrTTL:        errTTL,
 		Inner:         inner,
@@ -45,37 +45,37 @@ func NewCacheCatalog(inner Catalog) CacheCatalog {
 	}
 }
 
-func (c *CacheCatalog) IsHandleStale(e *HandleEntry) bool {
-	if nil == e.Err && time.Since(e.Updated) > c.HitTTL {
+func (d *CacheDirectory) IsHandleStale(e *HandleEntry) bool {
+	if nil == e.Err && time.Since(e.Updated) > d.HitTTL {
 		return true
 	}
-	if e.Err != nil && time.Since(e.Updated) > c.ErrTTL {
-		return true
-	}
-	return false
-}
-
-func (c *CacheCatalog) IsIdentityStale(e *IdentityEntry) bool {
-	if nil == e.Err && time.Since(e.Updated) > c.HitTTL {
-		return true
-	}
-	if e.Err != nil && time.Since(e.Updated) > c.ErrTTL {
+	if e.Err != nil && time.Since(e.Updated) > d.ErrTTL {
 		return true
 	}
 	return false
 }
 
-func (c *CacheCatalog) updateHandle(ctx context.Context, h syntax.Handle) (*HandleEntry, error) {
-	ident, err := c.Inner.LookupHandle(ctx, h)
+func (d *CacheDirectory) IsIdentityStale(e *IdentityEntry) bool {
+	if nil == e.Err && time.Since(e.Updated) > d.HitTTL {
+		return true
+	}
+	if e.Err != nil && time.Since(e.Updated) > d.ErrTTL {
+		return true
+	}
+	return false
+}
+
+func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*HandleEntry, error) {
+	ident, err := d.Inner.LookupHandle(ctx, h)
 	if err != nil {
 		he := HandleEntry{
 			Updated: time.Now(),
 			DID:     "",
 			Err:     err,
 		}
-		c.mutex.Lock()
-		c.handleCache[h] = he
-		c.mutex.Unlock()
+		d.mutex.Lock()
+		d.handleCache[h] = he
+		d.mutex.Unlock()
 		return &he, nil
 	}
 
@@ -90,30 +90,30 @@ func (c *CacheCatalog) updateHandle(ctx context.Context, h syntax.Handle) (*Hand
 		Err:     nil,
 	}
 
-	c.mutex.Lock()
-	c.identityCache[ident.DID] = entry
-	c.handleCache[ident.Handle] = he
-	c.mutex.Unlock()
+	d.mutex.Lock()
+	d.identityCache[ident.DID] = entry
+	d.handleCache[ident.Handle] = he
+	d.mutex.Unlock()
 	return &he, nil
 }
 
-func (c *CacheCatalog) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
+func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
 	var err error
 	var entry *HandleEntry
-	c.mutex.RLock()
-	maybeEntry, ok := c.handleCache[h]
-	c.mutex.RUnlock()
+	d.mutex.RLock()
+	maybeEntry, ok := d.handleCache[h]
+	d.mutex.RUnlock()
 
 	if !ok {
-		entry, err = c.updateHandle(ctx, h)
+		entry, err = d.updateHandle(ctx, h)
 		if err != nil {
 			return "", err
 		}
 	} else {
 		entry = &maybeEntry
 	}
-	if c.IsHandleStale(entry) {
-		entry, err = c.updateHandle(ctx, h)
+	if d.IsHandleStale(entry) {
+		entry, err = d.updateHandle(ctx, h)
 		if err != nil {
 			return "", err
 		}
@@ -121,8 +121,8 @@ func (c *CacheCatalog) ResolveHandle(ctx context.Context, h syntax.Handle) (synt
 	return entry.DID, entry.Err
 }
 
-func (c *CacheCatalog) updateDID(ctx context.Context, did syntax.DID) (*IdentityEntry, error) {
-	ident, err := c.Inner.LookupDID(ctx, did)
+func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) (*IdentityEntry, error) {
+	ident, err := d.Inner.LookupDID(ctx, did)
 	// persist the identity lookup error, instead of processing it immediately
 	entry := IdentityEntry{
 		Updated:  time.Now(),
@@ -139,32 +139,32 @@ func (c *CacheCatalog) updateDID(ctx context.Context, did syntax.DID) (*Identity
 		}
 	}
 
-	c.mutex.Lock()
-	c.identityCache[did] = entry
+	d.mutex.Lock()
+	d.identityCache[did] = entry
 	if he != nil {
-		c.handleCache[ident.Handle] = *he
+		d.handleCache[ident.Handle] = *he
 	}
-	c.mutex.Unlock()
+	d.mutex.Unlock()
 	return &entry, nil
 }
 
-func (c *CacheCatalog) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
+func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
 	var err error
 	var entry *IdentityEntry
-	c.mutex.RLock()
-	maybeEntry, ok := c.identityCache[did]
-	c.mutex.RUnlock()
+	d.mutex.RLock()
+	maybeEntry, ok := d.identityCache[did]
+	d.mutex.RUnlock()
 
 	if !ok {
-		entry, err = c.updateDID(ctx, did)
+		entry, err = d.updateDID(ctx, did)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		entry = &maybeEntry
 	}
-	if c.IsIdentityStale(entry) {
-		entry, err = c.updateDID(ctx, did)
+	if d.IsIdentityStale(entry) {
+		entry, err = d.updateDID(ctx, did)
 		if err != nil {
 			return nil, err
 		}
@@ -172,12 +172,12 @@ func (c *CacheCatalog) LookupDID(ctx context.Context, did syntax.DID) (*Identity
 	return entry.Identity, entry.Err
 }
 
-func (c *CacheCatalog) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
-	did, err := c.ResolveHandle(ctx, h)
+func (d *CacheDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
+	did, err := d.ResolveHandle(ctx, h)
 	if err != nil {
 		return nil, err
 	}
-	ident, err := c.LookupDID(ctx, did)
+	ident, err := d.LookupDID(ctx, did)
 	if err != nil {
 		return nil, err
 	}
@@ -192,14 +192,14 @@ func (c *CacheCatalog) LookupHandle(ctx context.Context, h syntax.Handle) (*Iden
 	return ident, nil
 }
 
-func (c *CacheCatalog) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Identity, error) {
+func (d *CacheDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Identity, error) {
 	handle, err := a.AsHandle()
 	if nil == err { // if not an error, is a handle
-		return c.LookupHandle(ctx, handle)
+		return d.LookupHandle(ctx, handle)
 	}
 	did, err := a.AsDID()
 	if nil == err { // if not an error, is a DID
-		return c.LookupDID(ctx, did)
+		return d.LookupDID(ctx, did)
 	}
 	return nil, fmt.Errorf("at-identifier neither a Handle nor a DID")
 }

@@ -50,9 +50,9 @@ func runLookup(cctx *cli.Context) error {
 	}
 	fmt.Printf("valid at-identifier syntax: %s\n", id)
 
-	ncat := identity.NewBasicCatalog("https://plc.directory")
+	ndir := identity.NewBasicDirectory("https://plc.directory")
 
-	acc, err := ncat.Lookup(ctx, *id)
+	acc, err := ndir.Lookup(ctx, *id)
 	if err != nil {
 		return err
 	}
