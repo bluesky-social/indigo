@@ -21,7 +21,7 @@ import (
 //   - local in-memory caching layer to reduce network hits
 //   - API client, which just makes requests to PDS (or other remote service)
 //   - client for shared network cache (eg, Redis)
-type Catalog interface {
+type Directory interface {
 	LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error)
 	LookupDID(ctx context.Context, d syntax.DID) (*Identity, error)
 	Lookup(ctx context.Context, i syntax.AtIdentifier) (*Identity, error)
@@ -39,10 +39,10 @@ var ErrDIDNotFound = errors.New("DID not found")
 
 var DefaultPLCURL = "https://plc.directory"
 
-// Returns a reasonable default Catalog implementation for most use cases
-func DefaultCatalog() Catalog {
-	naive := NewBasicCatalog(DefaultPLCURL)
-	cached := NewCacheCatalog(&naive)
+// Returns a reasonable default Directory implementation for most use cases
+func DefaultDirectory() Directory {
+	naive := NewBasicDirectory(DefaultPLCURL)
+	cached := NewCacheDirectory(&naive)
 	return &cached
 }
 

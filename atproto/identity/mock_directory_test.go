@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMockCatalog(t *testing.T) {
+func TestMockDirectory(t *testing.T) {
 	var err error
 	assert := assert.New(t)
 	ctx := context.Background()
-	c := NewMockCatalog()
+	c := NewMockDirectory()
 	id1 := Identity{
 		DID:    syntax.DID("did:plc:abc111"),
 		Handle: syntax.Handle("handle.example.com"),
@@ -27,7 +27,7 @@ func TestMockCatalog(t *testing.T) {
 		Handle: syntax.Handle("handle3.example.com"),
 	}
 
-	// first, empty catalog
+	// first, empty directory
 	_, err = c.LookupHandle(ctx, syntax.Handle("handle.example.com"))
 	assert.Equal(ErrHandleNotFound, err)
 	_, err = c.LookupDID(ctx, syntax.DID("did:plc:abc123"))
