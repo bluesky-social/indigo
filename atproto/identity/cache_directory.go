@@ -34,8 +34,8 @@ var _ Directory = (*CacheDirectory)(nil)
 
 func NewCacheDirectory(inner Directory) CacheDirectory {
 	// NOTE: these are kind of arbitrary default values...
-	hitTTL := time.Duration(1e9 * 60 * 60) // 1 hour
-	errTTL := time.Duration(1e9 * 60 * 2)  // 2 minutes
+	hitTTL := time.Hour * 1
+	errTTL := time.Minute * 2
 	return CacheDirectory{
 		HitTTL:        hitTTL,
 		ErrTTL:        errTTL,
