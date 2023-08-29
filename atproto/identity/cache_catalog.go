@@ -52,7 +52,7 @@ func NewCacheCatalog(inner Catalog) CacheCatalog {
 }
 
 func (c *CacheCatalog) IsHandleStale(e *HandleEntry) bool {
-	if e.Err == nil && time.Since(e.Updated) > c.HitTTL {
+	if nil == e.Err && time.Since(e.Updated) > c.HitTTL {
 		return true
 	}
 	if e.Err != nil && time.Since(e.Updated) > c.ErrTTL {
@@ -62,7 +62,7 @@ func (c *CacheCatalog) IsHandleStale(e *HandleEntry) bool {
 }
 
 func (c *CacheCatalog) IsIdentityStale(e *IdentityEntry) bool {
-	if e.Err == nil && time.Since(e.Updated) > c.HitTTL {
+	if nil == e.Err && time.Since(e.Updated) > c.HitTTL {
 		return true
 	}
 	if e.Err != nil && time.Since(e.Updated) > c.ErrTTL {
@@ -107,7 +107,7 @@ func (c *CacheCatalog) ResolveHandle(ctx context.Context, h syntax.Handle) (synt
 	var err error
 	var entry *HandleEntry
 	c.mutex.RLock()
-	eObj, ok := c.handleCache[h]
+	maybeEntry, ok := c.handleCache[h]
 	c.mutex.RUnlock()
 
 	if !ok {
@@ -116,7 +116,7 @@ func (c *CacheCatalog) ResolveHandle(ctx context.Context, h syntax.Handle) (synt
 			return "", err
 		}
 	} else {
-		entry = &eObj
+		entry = &maybeEntry
 	}
 	if c.IsHandleStale(entry) {
 		entry, err = c.updateHandle(ctx, h)
@@ -129,13 +129,15 @@ func (c *CacheCatalog) ResolveHandle(ctx context.Context, h syntax.Handle) (synt
 
 func (c *CacheCatalog) updateDID(ctx context.Context, did syntax.DID) (*IdentityEntry, error) {
 	ident, err := c.Inner.LookupDID(ctx, did)
+	// persist the identity lookup error, instead of processing it immediately
 	entry := IdentityEntry{
 		Updated:  time.Now(),
 		Identity: ident,
 		Err:      err,
 	}
 	var he *HandleEntry
-	if err == nil && !ident.Handle.IsInvalidHandle() {
+	// if *not* an error, then also update the handle cache
+	if nil == err && !ident.Handle.IsInvalidHandle() {
 		he = &HandleEntry{
 			Updated: time.Now(),
 			DID:     did,
@@ -156,7 +158,7 @@ func (c *CacheCatalog) LookupDID(ctx context.Context, did syntax.DID) (*Identity
 	var err error
 	var entry *IdentityEntry
 	c.mutex.RLock()
-	eObj, ok := c.identityCache[did]
+	maybeEntry, ok := c.identityCache[did]
 	c.mutex.RUnlock()
 
 	if !ok {
@@ -165,7 +167,7 @@ func (c *CacheCatalog) LookupDID(ctx context.Context, did syntax.DID) (*Identity
 			return nil, err
 		}
 	} else {
-		entry = &eObj
+		entry = &maybeEntry
 	}
 	if c.IsIdentityStale(entry) {
 		entry, err = c.updateDID(ctx, did)
@@ -198,11 +200,11 @@ func (c *CacheCatalog) LookupHandle(ctx context.Context, h syntax.Handle) (*Iden
 
 func (c *CacheCatalog) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Identity, error) {
 	handle, err := a.AsHandle()
-	if err == nil {
+	if nil == err { // if not an error, is a handle
 		return c.LookupHandle(ctx, handle)
 	}
 	did, err := a.AsDID()
-	if err == nil {
+	if nil == err { // if not an error, is a DID
 		return c.LookupDID(ctx, did)
 	}
 	return nil, fmt.Errorf("at-identifier neither a Handle nor a DID")

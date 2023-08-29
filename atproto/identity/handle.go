@@ -47,11 +47,10 @@ func ResolveHandleWellKnown(ctx context.Context, handle syntax.Handle) (syntax.D
 	// TODO: could pull a client or transport from context?
 	c := http.DefaultClient
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("https://%s/.well-known/atproto-did", handle), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s/.well-known/atproto-did", handle), nil)
 	if err != nil {
 		return "", err
 	}
-	req = req.WithContext(ctx)
 
 	resp, err := c.Do(req)
 	if err != nil {
@@ -64,7 +63,7 @@ func ResolveHandleWellKnown(ctx context.Context, handle syntax.Handle) (syntax.D
 		}
 		return "", fmt.Errorf("failed to resolve handle (%s) through HTTP well-known route: %s", handle, err)
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("failed to resolve handle (%s) through HTTP well-known route: status=%d", handle, resp.StatusCode)
 	}
 
