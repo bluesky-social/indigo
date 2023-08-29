@@ -35,6 +35,8 @@ func AdminGetModerationReports(ctx context.Context, c *xrpc.Client, actionType s
 		"reverse":        reverse,
 		"subject":        subject,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.getModerationReports", params, nil, &out); err != nil {
 		return nil, err
 	}

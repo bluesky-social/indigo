@@ -25,6 +25,8 @@ type ServerCreateAppPassword_Input struct {
 // ServerCreateAppPassword calls the XRPC method "com.atproto.server.createAppPassword".
 func ServerCreateAppPassword(ctx context.Context, c *xrpc.Client, input *ServerCreateAppPassword_Input) (*ServerCreateAppPassword_AppPassword, error) {
 	var out ServerCreateAppPassword_AppPassword
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.server.createAppPassword", nil, input, &out); err != nil {
 		return nil, err
 	}

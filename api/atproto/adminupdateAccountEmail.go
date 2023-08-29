@@ -19,6 +19,8 @@ type AdminUpdateAccountEmail_Input struct {
 
 // AdminUpdateAccountEmail calls the XRPC method "com.atproto.admin.updateAccountEmail".
 func AdminUpdateAccountEmail(ctx context.Context, c *xrpc.Client, input *AdminUpdateAccountEmail_Input) error {
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.admin.updateAccountEmail", nil, input, nil); err != nil {
 		return err
 	}

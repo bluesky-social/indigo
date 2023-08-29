@@ -24,6 +24,8 @@ func SyncGetRepo(ctx context.Context, c *xrpc.Client, did string, earliest strin
 		"earliest": earliest,
 		"latest":   latest,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getRepo", params, nil, buf); err != nil {
 		return nil, err
 	}

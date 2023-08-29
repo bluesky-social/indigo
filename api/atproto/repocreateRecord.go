@@ -36,6 +36,8 @@ type RepoCreateRecord_Output struct {
 // RepoCreateRecord calls the XRPC method "com.atproto.repo.createRecord".
 func RepoCreateRecord(ctx context.Context, c *xrpc.Client, input *RepoCreateRecord_Input) (*RepoCreateRecord_Output, error) {
 	var out RepoCreateRecord_Output
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", nil, input, &out); err != nil {
 		return nil, err
 	}

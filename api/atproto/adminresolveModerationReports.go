@@ -20,6 +20,8 @@ type AdminResolveModerationReports_Input struct {
 // AdminResolveModerationReports calls the XRPC method "com.atproto.admin.resolveModerationReports".
 func AdminResolveModerationReports(ctx context.Context, c *xrpc.Client, input *AdminResolveModerationReports_Input) (*AdminDefs_ActionView, error) {
 	var out AdminDefs_ActionView
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.admin.resolveModerationReports", nil, input, &out); err != nil {
 		return nil, err
 	}

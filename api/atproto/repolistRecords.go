@@ -44,6 +44,8 @@ func RepoListRecords(ctx context.Context, c *xrpc.Client, collection string, cur
 		"rkeyEnd":    rkeyEnd,
 		"rkeyStart":  rkeyStart,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.repo.listRecords", params, nil, &out); err != nil {
 		return nil, err
 	}

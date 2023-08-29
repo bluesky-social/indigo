@@ -22,6 +22,8 @@ func SyncGetBlob(ctx context.Context, c *xrpc.Client, cid string, did string) ([
 		"cid": cid,
 		"did": did,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getBlob", params, nil, buf); err != nil {
 		return nil, err
 	}

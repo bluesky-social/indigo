@@ -20,6 +20,8 @@ type RepoRebaseRepo_Input struct {
 
 // RepoRebaseRepo calls the XRPC method "com.atproto.repo.rebaseRepo".
 func RepoRebaseRepo(ctx context.Context, c *xrpc.Client, input *RepoRebaseRepo_Input) error {
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.rebaseRepo", nil, input, nil); err != nil {
 		return err
 	}

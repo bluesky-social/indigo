@@ -29,6 +29,8 @@ func LabelQueryLabels(ctx context.Context, c *xrpc.Client, cursor string, limit 
 		"sources":     sources,
 		"uriPatterns": uriPatterns,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.label.queryLabels", params, nil, &out); err != nil {
 		return nil, err
 	}

@@ -25,6 +25,8 @@ func AdminGetInviteCodes(ctx context.Context, c *xrpc.Client, cursor string, lim
 		"limit":  limit,
 		"sort":   sort,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.getInviteCodes", params, nil, &out); err != nil {
 		return nil, err
 	}

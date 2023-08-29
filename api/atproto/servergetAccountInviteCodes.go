@@ -23,6 +23,8 @@ func ServerGetAccountInviteCodes(ctx context.Context, c *xrpc.Client, createAvai
 		"createAvailable": createAvailable,
 		"includeUsed":     includeUsed,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.server.getAccountInviteCodes", params, nil, &out); err != nil {
 		return nil, err
 	}

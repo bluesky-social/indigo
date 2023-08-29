@@ -19,6 +19,8 @@ type AdminEnableAccountInvites_Input struct {
 
 // AdminEnableAccountInvites calls the XRPC method "com.atproto.admin.enableAccountInvites".
 func AdminEnableAccountInvites(ctx context.Context, c *xrpc.Client, input *AdminEnableAccountInvites_Input) error {
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.admin.enableAccountInvites", nil, input, nil); err != nil {
 		return err
 	}

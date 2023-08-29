@@ -24,6 +24,8 @@ func IdentityResolveHandle(ctx context.Context, c *xrpc.Client, handle string) (
 	params := map[string]interface{}{
 		"handle": handle,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.identity.resolveHandle", params, nil, &out); err != nil {
 		return nil, err
 	}

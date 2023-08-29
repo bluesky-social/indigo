@@ -18,6 +18,8 @@ func AdminGetRecord(ctx context.Context, c *xrpc.Client, cid string, uri string)
 		"cid": cid,
 		"uri": uri,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.getRecord", params, nil, &out); err != nil {
 		return nil, err
 	}

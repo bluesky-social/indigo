@@ -29,6 +29,8 @@ type ServerCreateSession_Output struct {
 // ServerCreateSession calls the XRPC method "com.atproto.server.createSession".
 func ServerCreateSession(ctx context.Context, c *xrpc.Client, input *ServerCreateSession_Input) (*ServerCreateSession_Output, error) {
 	var out ServerCreateSession_Output
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.server.createSession", nil, input, &out); err != nil {
 		return nil, err
 	}

@@ -17,6 +17,8 @@ func AdminGetRepo(ctx context.Context, c *xrpc.Client, did string) (*AdminDefs_R
 	params := map[string]interface{}{
 		"did": did,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.getRepo", params, nil, &out); err != nil {
 		return nil, err
 	}

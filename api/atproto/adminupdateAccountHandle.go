@@ -18,6 +18,8 @@ type AdminUpdateAccountHandle_Input struct {
 
 // AdminUpdateAccountHandle calls the XRPC method "com.atproto.admin.updateAccountHandle".
 func AdminUpdateAccountHandle(ctx context.Context, c *xrpc.Client, input *AdminUpdateAccountHandle_Input) error {
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.admin.updateAccountHandle", nil, input, nil); err != nil {
 		return err
 	}

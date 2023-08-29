@@ -20,6 +20,8 @@ type AdminRebaseRepo_Input struct {
 
 // AdminRebaseRepo calls the XRPC method "com.atproto.admin.rebaseRepo".
 func AdminRebaseRepo(ctx context.Context, c *xrpc.Client, input *AdminRebaseRepo_Input) error {
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.admin.rebaseRepo", nil, input, nil); err != nil {
 		return err
 	}

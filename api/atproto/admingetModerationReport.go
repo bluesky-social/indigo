@@ -17,6 +17,8 @@ func AdminGetModerationReport(ctx context.Context, c *xrpc.Client, id int64) (*A
 	params := map[string]interface{}{
 		"id": id,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.getModerationReport", params, nil, &out); err != nil {
 		return nil, err
 	}

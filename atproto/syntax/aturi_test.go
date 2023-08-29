@@ -95,7 +95,3 @@ func TestATURINoPanic(t *testing.T) {
 		_ = bad.Normalize()
 	}
 }
-
-func (u ATURI) String() string {
-	return string(u)
-}

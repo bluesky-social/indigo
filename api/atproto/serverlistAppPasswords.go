@@ -24,6 +24,8 @@ type ServerListAppPasswords_Output struct {
 // ServerListAppPasswords calls the XRPC method "com.atproto.server.listAppPasswords".
 func ServerListAppPasswords(ctx context.Context, c *xrpc.Client) (*ServerListAppPasswords_Output, error) {
 	var out ServerListAppPasswords_Output
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.server.listAppPasswords", nil, nil, &out); err != nil {
 		return nil, err
 	}

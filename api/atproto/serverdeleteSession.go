@@ -12,6 +12,8 @@ import (
 
 // ServerDeleteSession calls the XRPC method "com.atproto.server.deleteSession".
 func ServerDeleteSession(ctx context.Context, c *xrpc.Client) error {
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "", "com.atproto.server.deleteSession", nil, nil, nil); err != nil {
 		return err
 	}

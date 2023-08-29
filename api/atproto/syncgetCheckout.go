@@ -22,6 +22,8 @@ func SyncGetCheckout(ctx context.Context, c *xrpc.Client, commit string, did str
 		"commit": commit,
 		"did":    did,
 	}
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getCheckout", params, nil, buf); err != nil {
 		return nil, err
 	}

@@ -20,6 +20,8 @@ type ServerGetSession_Output struct {
 // ServerGetSession calls the XRPC method "com.atproto.server.getSession".
 func ServerGetSession(ctx context.Context, c *xrpc.Client) (*ServerGetSession_Output, error) {
 	var out ServerGetSession_Output
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.server.getSession", nil, nil, &out); err != nil {
 		return nil, err
 	}

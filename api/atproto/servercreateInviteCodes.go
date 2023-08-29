@@ -31,6 +31,8 @@ type ServerCreateInviteCodes_Output struct {
 // ServerCreateInviteCodes calls the XRPC method "com.atproto.server.createInviteCodes".
 func ServerCreateInviteCodes(ctx context.Context, c *xrpc.Client, input *ServerCreateInviteCodes_Input) (*ServerCreateInviteCodes_Output, error) {
 	var out ServerCreateInviteCodes_Output
+	c.Mux.RLock()
+	defer c.Mux.RUnlock()
 	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.server.createInviteCodes", nil, input, &out); err != nil {
 		return nil, err
 	}
