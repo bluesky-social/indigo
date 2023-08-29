@@ -10,7 +10,7 @@ import (
 )
 
 // NOTE: this hits the open internet! marked as skip below by default
-func testCatalogLive(t *testing.T, c Catalog) {
+func testDirectoryLive(t *testing.T, d Directory) {
 	assert := assert.New(t)
 	ctx := context.Background()
 
@@ -18,7 +18,7 @@ func testCatalogLive(t *testing.T, c Catalog) {
 	did := syntax.DID("did:plc:ewvi7nxzyoun6zhxrhs64oiz")
 	pds := "https://bsky.social"
 
-	resp, err := c.LookupHandle(ctx, handle)
+	resp, err := d.LookupHandle(ctx, handle)
 	assert.NoError(err)
 	assert.Equal(handle, resp.Handle)
 	assert.Equal(did, resp.DID)
@@ -30,36 +30,36 @@ func testCatalogLive(t *testing.T, c Catalog) {
 	assert.NoError(err)
 	assert.NotNil(pk)
 
-	resp, err = c.LookupDID(ctx, did)
+	resp, err = d.LookupDID(ctx, did)
 	assert.NoError(err)
 	assert.Equal(handle, resp.Handle)
 	assert.Equal(did, resp.DID)
 	assert.Equal(pds, resp.PDSEndpoint())
 
-	_, err = c.LookupHandle(ctx, syntax.Handle("fake-dummy-no-resolve.atproto.com"))
+	_, err = d.LookupHandle(ctx, syntax.Handle("fake-dummy-no-resolve.atproto.com"))
 	assert.Equal(ErrHandleNotFound, err)
 
-	_, err = c.LookupDID(ctx, syntax.DID("did:web:fake-dummy-no-resolve.atproto.com"))
+	_, err = d.LookupDID(ctx, syntax.DID("did:web:fake-dummy-no-resolve.atproto.com"))
 	assert.Equal(ErrDIDNotFound, err)
 
-	_, err = c.LookupDID(ctx, syntax.DID("did:plc:fake-dummy-no-resolve.atproto.com"))
+	_, err = d.LookupDID(ctx, syntax.DID("did:plc:fake-dummy-no-resolve.atproto.com"))
 	assert.Equal(ErrDIDNotFound, err)
 
-	_, err = c.LookupHandle(ctx, syntax.Handle("handle.invalid"))
+	_, err = d.LookupHandle(ctx, syntax.Handle("handle.invalid"))
 	assert.Error(err)
 }
 
-func TestBasicCatalog(t *testing.T) {
+func TestBasicDirectory(t *testing.T) {
 	// XXX: t.Skip("skipping live network test")
-	c := NewBasicCatalog(DefaultPLCURL)
-	testCatalogLive(t, &c)
+	d := NewBasicDirectory(DefaultPLCURL)
+	testDirectoryLive(t, &d)
 }
 
-func TestCacheCatalog(t *testing.T) {
+func TestCacheDirectory(t *testing.T) {
 	// XXX: t.Skip("skipping live network test")
-	inner := NewBasicCatalog(DefaultPLCURL)
-	c := NewCacheCatalog(&inner)
+	inner := NewBasicDirectory(DefaultPLCURL)
+	d := NewCacheDirectory(&inner)
 	for i := 0; i < 3; i = i + 1 {
-		testCatalogLive(t, &c)
+		testDirectoryLive(t, &d)
 	}
 }
