@@ -29,7 +29,9 @@ type Directory interface {
 	LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error)
 	LookupDID(ctx context.Context, d syntax.DID) (*Identity, error)
 	Lookup(ctx context.Context, i syntax.AtIdentifier) (*Identity, error)
-	// TODO: add "flush" methods to purge caches?
+
+	// Flushes any cache of the indicated identifier. If directory is not using caching, can ignore this.
+	Purge(ctx context.Context, i syntax.AtIdentifier) error
 }
 
 // Indicates that resolution process completed successfully, but handle does not exist.

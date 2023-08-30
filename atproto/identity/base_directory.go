@@ -85,3 +85,7 @@ func (d *BaseDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Ide
 	}
 	return nil, fmt.Errorf("at-identifier neither a Handle nor a DID")
 }
+
+func (d *BaseDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error {
+	return nil
+}

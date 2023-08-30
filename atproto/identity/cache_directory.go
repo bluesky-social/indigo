@@ -203,3 +203,8 @@ func (d *CacheDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Id
 	}
 	return nil, fmt.Errorf("at-identifier neither a Handle nor a DID")
 }
+
+// XXX:
+func (d *CacheDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error {
+	return nil
+}
