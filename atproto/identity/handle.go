@@ -13,7 +13,7 @@ import (
 )
 
 // Does not cross-verify, just does the handle resolution step.
-func ResolveHandleDNS(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
+func (d *BaseDirectory) ResolveHandleDNS(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
 	// TODO: timeout
 	// TODO: mechanism to control NDS better; context? separate method?
 
@@ -42,7 +42,7 @@ func ResolveHandleDNS(ctx context.Context, handle syntax.Handle) (syntax.DID, er
 	return "", ErrHandleNotFound
 }
 
-func ResolveHandleWellKnown(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
+func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
 	// TODO: timeout
 	// TODO: could pull a client or transport from context?
 	c := http.DefaultClient
@@ -79,12 +79,12 @@ func ResolveHandleWellKnown(ctx context.Context, handle syntax.Handle) (syntax.D
 	return syntax.ParseDID(line)
 }
 
-func ResolveHandle(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
-	did, dnsErr := ResolveHandleDNS(ctx, handle)
+func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
+	did, dnsErr := d.ResolveHandleDNS(ctx, handle)
 	if dnsErr == nil {
 		return did, nil
 	}
-	did, httpErr := ResolveHandleWellKnown(ctx, handle)
+	did, httpErr := d.ResolveHandleWellKnown(ctx, handle)
 	if httpErr == nil {
 		return did, nil
 	}

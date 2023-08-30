@@ -7,34 +7,23 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-type BasicDirectory struct {
+type BaseDirectory struct {
 	PLCURL string
 }
 
-var _ Directory = (*BasicDirectory)(nil)
+var _ Directory = (*BaseDirectory)(nil)
 
-func NewBasicDirectory(plcURL string) BasicDirectory {
+func NewBaseDirectory(plcURL string) BaseDirectory {
 	if plcURL == "" {
 		plcURL = DefaultPLCURL
 	}
-	return BasicDirectory{
+	return BaseDirectory{
 		PLCURL: plcURL,
 	}
 }
 
-func (d *BasicDirectory) ResolveDID(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
-	switch did.Method() {
-	case "web":
-		return ResolveDIDWeb(ctx, did)
-	case "plc":
-		return ResolveDIDPLC(ctx, d.PLCURL, did)
-	default:
-		return nil, fmt.Errorf("DID method not supported: %s", did.Method())
-	}
-}
-
-func (d *BasicDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
-	did, err := ResolveHandle(ctx, h)
+func (d *BaseDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
+	did, err := d.ResolveHandle(ctx, h)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +49,7 @@ func (d *BasicDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Id
 	return &ident, nil
 }
 
-func (d *BasicDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
+func (d *BaseDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
 	doc, err := d.ResolveDID(ctx, did)
 	if err != nil {
 		return nil, err
@@ -70,7 +59,7 @@ func (d *BasicDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identi
 	if err != nil {
 		return nil, err
 	}
-	resolvedDID, err := ResolveHandle(ctx, declared)
+	resolvedDID, err := d.ResolveHandle(ctx, declared)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +75,7 @@ func (d *BasicDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identi
 	return &ident, nil
 }
 
-func (d *BasicDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Identity, error) {
+func (d *BaseDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Identity, error) {
 	handle, err := a.AsHandle()
 	if nil == err { // if *not* an error
 		return d.LookupHandle(ctx, handle)

@@ -50,7 +50,7 @@ func runLookup(cctx *cli.Context) error {
 	}
 	fmt.Printf("valid at-identifier syntax: %s\n", id)
 
-	ndir := identity.NewBasicDirectory("https://plc.directory")
+	ndir := identity.NewBaseDirectory("https://plc.directory")
 
 	acc, err := ndir.Lookup(ctx, *id)
 	if err != nil {
@@ -73,7 +73,8 @@ func runResolveHandle(cctx *cli.Context) error {
 	}
 	fmt.Printf("valid handle syntax: %s\n", handle)
 
-	did, err := identity.ResolveHandle(ctx, handle)
+	d := identity.NewBaseDirectory(identity.DefaultPLCURL)
+	did, err := d.ResolveHandle(ctx, handle)
 	if err != nil {
 		return err
 	}
@@ -96,7 +97,8 @@ func runResolveDID(cctx *cli.Context) error {
 	}
 	fmt.Printf("valid DID syntax: %s\n", did)
 
-	doc, err := identity.DefaultResolveDID(ctx, did)
+	d := identity.NewBaseDirectory(identity.DefaultPLCURL)
+	doc, err := d.ResolveDID(ctx, did)
 	if err != nil {
 		return err
 	}

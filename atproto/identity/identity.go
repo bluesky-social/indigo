@@ -41,7 +41,7 @@ var DefaultPLCURL = "https://plc.directory"
 
 // Returns a reasonable default Directory implementation for most use cases
 func DefaultDirectory() Directory {
-	naive := NewBasicDirectory(DefaultPLCURL)
+	naive := NewBaseDirectory(DefaultPLCURL)
 	cached := NewCacheDirectory(&naive)
 	return &cached
 }
