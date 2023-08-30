@@ -7,8 +7,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// A fake identity directory , for use in tests
-// TODO: should probably move this to a 'mockdirectory' sub-package?
+// A fake identity directory, for use in tests
 type MockDirectory struct {
 	Handles    map[syntax.Handle]syntax.DID
 	Identities map[syntax.DID]Identity
@@ -60,4 +59,8 @@ func (d *MockDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Ide
 		return d.LookupDID(ctx, did)
 	}
 	return nil, fmt.Errorf("at-identifier neither a Handle nor a DID")
+}
+
+func (d *MockDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error {
+	return nil
 }
