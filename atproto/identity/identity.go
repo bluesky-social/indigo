@@ -61,7 +61,7 @@ func DefaultDirectory() Directory {
 			},
 		},
 	}
-	cached := NewCacheDirectory(&base)
+	cached := NewCacheDirectory(&base, 10000, time.Hour*24, time.Minute*2)
 	return &cached
 }
 

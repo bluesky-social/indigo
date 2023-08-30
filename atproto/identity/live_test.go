@@ -3,6 +3,7 @@ package identity
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
@@ -58,7 +59,7 @@ func TestBaseDirectory(t *testing.T) {
 func TestCacheDirectory(t *testing.T) {
 	// XXX: t.Skip("skipping live network test")
 	inner := BaseDirectory{}
-	d := NewCacheDirectory(&inner)
+	d := NewCacheDirectory(&inner, 1000, time.Hour*1, time.Hour*1)
 	for i := 0; i < 3; i = i + 1 {
 		testDirectoryLive(t, &d)
 	}
