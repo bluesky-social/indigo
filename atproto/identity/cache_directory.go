@@ -3,19 +3,18 @@ package identity
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
+
+	"github.com/hashicorp/golang-lru/v2/expirable"
 )
 
 type CacheDirectory struct {
-	HitTTL        time.Duration
-	ErrTTL        time.Duration
 	Inner         Directory
-	mutex         sync.RWMutex
-	handleCache   map[syntax.Handle]HandleEntry
-	identityCache map[syntax.DID]IdentityEntry
+	ErrTTL        time.Duration
+	handleCache   *expirable.LRU[syntax.Handle, HandleEntry]
+	identityCache *expirable.LRU[syntax.DID, IdentityEntry]
 }
 
 type HandleEntry struct {
@@ -32,23 +31,17 @@ type IdentityEntry struct {
 
 var _ Directory = (*CacheDirectory)(nil)
 
-func NewCacheDirectory(inner Directory) CacheDirectory {
-	// NOTE: these are kind of arbitrary default values...
-	hitTTL := time.Hour * 1
-	errTTL := time.Minute * 2
+// Capacity of zero means unlimited size. Similarly, ttl of zero means unlimited duration.
+func NewCacheDirectory(inner Directory, capacity int, hitTTL, errTTL time.Duration) CacheDirectory {
 	return CacheDirectory{
-		HitTTL:        hitTTL,
 		ErrTTL:        errTTL,
 		Inner:         inner,
-		handleCache:   make(map[syntax.Handle]HandleEntry, 10),
-		identityCache: make(map[syntax.DID]IdentityEntry, 10),
+		handleCache:   expirable.NewLRU[syntax.Handle, HandleEntry](capacity, nil, hitTTL),
+		identityCache: expirable.NewLRU[syntax.DID, IdentityEntry](capacity, nil, hitTTL),
 	}
 }
 
 func (d *CacheDirectory) IsHandleStale(e *HandleEntry) bool {
-	if nil == e.Err && time.Since(e.Updated) > d.HitTTL {
-		return true
-	}
 	if e.Err != nil && time.Since(e.Updated) > d.ErrTTL {
 		return true
 	}
@@ -56,9 +49,6 @@ func (d *CacheDirectory) IsHandleStale(e *HandleEntry) bool {
 }
 
 func (d *CacheDirectory) IsIdentityStale(e *IdentityEntry) bool {
-	if nil == e.Err && time.Since(e.Updated) > d.HitTTL {
-		return true
-	}
 	if e.Err != nil && time.Since(e.Updated) > d.ErrTTL {
 		return true
 	}
@@ -73,9 +63,7 @@ func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*Ha
 			DID:     "",
 			Err:     err,
 		}
-		d.mutex.Lock()
-		d.handleCache[h] = he
-		d.mutex.Unlock()
+		d.handleCache.Add(h, he)
 		return &he, nil
 	}
 
@@ -90,19 +78,15 @@ func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*Ha
 		Err:     nil,
 	}
 
-	d.mutex.Lock()
-	d.identityCache[ident.DID] = entry
-	d.handleCache[ident.Handle] = he
-	d.mutex.Unlock()
+	d.identityCache.Add(ident.DID, entry)
+	d.handleCache.Add(ident.Handle, he)
 	return &he, nil
 }
 
 func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
 	var err error
 	var entry *HandleEntry
-	d.mutex.RLock()
-	maybeEntry, ok := d.handleCache[h]
-	d.mutex.RUnlock()
+	maybeEntry, ok := d.handleCache.Get(h)
 
 	if !ok {
 		entry, err = d.updateHandle(ctx, h)
@@ -139,21 +123,17 @@ func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) (*Identi
 		}
 	}
 
-	d.mutex.Lock()
-	d.identityCache[did] = entry
+	d.identityCache.Add(did, entry)
 	if he != nil {
-		d.handleCache[ident.Handle] = *he
+		d.handleCache.Add(ident.Handle, *he)
 	}
-	d.mutex.Unlock()
 	return &entry, nil
 }
 
 func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
 	var err error
 	var entry *IdentityEntry
-	d.mutex.RLock()
-	maybeEntry, ok := d.identityCache[did]
-	d.mutex.RUnlock()
+	maybeEntry, ok := d.identityCache.Get(did)
 
 	if !ok {
 		entry, err = d.updateDID(ctx, did)
@@ -204,7 +184,16 @@ func (d *CacheDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Id
 	return nil, fmt.Errorf("at-identifier neither a Handle nor a DID")
 }
 
-// XXX:
 func (d *CacheDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error {
-	return nil
+	handle, err := a.AsHandle()
+	if nil == err { // if not an error, is a handle
+		d.handleCache.Remove(handle)
+		return nil
+	}
+	did, err := a.AsDID()
+	if nil == err { // if not an error, is a DID
+		d.identityCache.Remove(did)
+		return nil
+	}
+	return fmt.Errorf("at-identifier neither a Handle nor a DID")
 }
