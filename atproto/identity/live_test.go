@@ -49,15 +49,15 @@ func testDirectoryLive(t *testing.T, d Directory) {
 	assert.Error(err)
 }
 
-func TestBasicDirectory(t *testing.T) {
+func TestBaseDirectory(t *testing.T) {
 	// XXX: t.Skip("skipping live network test")
-	d := NewBasicDirectory(DefaultPLCURL)
+	d := NewBaseDirectory(DefaultPLCURL)
 	testDirectoryLive(t, &d)
 }
 
 func TestCacheDirectory(t *testing.T) {
 	// XXX: t.Skip("skipping live network test")
-	inner := NewBasicDirectory(DefaultPLCURL)
+	inner := NewBaseDirectory(DefaultPLCURL)
 	d := NewCacheDirectory(&inner)
 	for i := 0; i < 3; i = i + 1 {
 		testDirectoryLive(t, &d)
