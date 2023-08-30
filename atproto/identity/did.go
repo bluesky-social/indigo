@@ -37,7 +37,7 @@ func (d *BaseDirectory) ResolveDID(ctx context.Context, did syntax.DID) (*DIDDoc
 	case "web":
 		return d.ResolveDIDWeb(ctx, did)
 	case "plc":
-		return d.ResolveDIDPLC(ctx, DefaultPLCURL, did)
+		return d.ResolveDIDPLC(ctx, did)
 	default:
 		return nil, fmt.Errorf("DID method not supported: %s", did.Method())
 	}
@@ -83,12 +83,15 @@ func (d *BaseDirectory) ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DID
 	return &doc, nil
 }
 
-// plcURL should have URL method, hostname, and optional port; it should not have a path or trailing slash
-func (d *BaseDirectory) ResolveDIDPLC(ctx context.Context, plcURL string, did syntax.DID) (*DIDDocument, error) {
+func (d *BaseDirectory) ResolveDIDPLC(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
 	if did.Method() != "plc" {
 		return nil, fmt.Errorf("expected a did:plc, got: %s", did)
 	}
 
+	plcURL := d.PLCURL
+	if plcURL == "" {
+		plcURL = DefaultPLCURL
+	}
 	resp, err := http.Get(plcURL + "/" + did.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed did:plc directory resolution: %w", err)

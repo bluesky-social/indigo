@@ -3,24 +3,23 @@ package identity
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/http"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
+// The zero value ('BaseDirectory{}') is a usable Directory.
 type BaseDirectory struct {
+	// if non-empty, this string should have URL method, hostname, and optional port; it should not have a path or trailing slash
 	PLCURL string
+	// HTTP client used for did:web, did:plc, and HTTP (well-known) handle resolution
+	HTTPClient http.Client
+	// DNS resolver used for DNS handle resolution. Calling code can use a custom Dialer to query against a specific DNS server, or re-implement the interface for even more control over the resolution process
+	Resolver net.Resolver
 }
 
 var _ Directory = (*BaseDirectory)(nil)
-
-func NewBaseDirectory(plcURL string) BaseDirectory {
-	if plcURL == "" {
-		plcURL = DefaultPLCURL
-	}
-	return BaseDirectory{
-		PLCURL: plcURL,
-	}
-}
 
 func (d *BaseDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
 	did, err := d.ResolveHandle(ctx, h)

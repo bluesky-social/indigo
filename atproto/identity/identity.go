@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -44,12 +45,19 @@ var ErrKeyNotFound = errors.New("identity has no public repo signing key")
 
 var DefaultPLCURL = "https://plc.directory"
 
-// Returns a reasonable default Directory implementation for most use cases
+// Returns a reasonable Directory implementation for applications
 func DefaultDirectory() Directory {
 	base := BaseDirectory{
-		PLCURL:     DefaultPLCURL,
-		HTTPClient: http.DefaultClient,
-		Resolver:   net.DefaultResolver,
+		PLCURL: DefaultPLCURL,
+		HTTPClient: http.Client{
+			Timeout: time.Second * 15,
+		},
+		Resolver: net.Resolver{
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				d := net.Dialer{Timeout: time.Second * 5}
+				return d.DialContext(ctx, network, address)
+			},
+		},
 	}
 	cached := NewCacheDirectory(&base)
 	return &cached

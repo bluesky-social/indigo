@@ -12,12 +12,9 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// Does not cross-verify, just does the handle resolution step.
+// Does not cross-verify, only does the handle resolution step.
 func (d *BaseDirectory) ResolveHandleDNS(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
-	// TODO: timeout
-	// TODO: mechanism to control NDS better; context? separate method?
-
-	res, err := net.LookupTXT("_atproto." + handle.String())
+	res, err := d.Resolver.LookupTXT(ctx, "_atproto."+handle.String())
 	// look for NXDOMAIN
 	var dnsErr *net.DNSError
 	if errors.As(err, &dnsErr) {
@@ -43,16 +40,12 @@ func (d *BaseDirectory) ResolveHandleDNS(ctx context.Context, handle syntax.Hand
 }
 
 func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
-	// TODO: timeout
-	// TODO: could pull a client or transport from context?
-	c := http.DefaultClient
-
 	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s/.well-known/atproto-did", handle), nil)
 	if err != nil {
 		return "", err
 	}
 
-	resp, err := c.Do(req)
+	resp, err := d.HTTPClient.Do(req)
 	if err != nil {
 		// look for NXDOMAIN
 		var dnsErr *net.DNSError
@@ -80,6 +73,7 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 }
 
 func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
+	// TODO: *could* do resolution in parallel, but expecting that sequential is sufficient to start
 	did, dnsErr := d.ResolveHandleDNS(ctx, handle)
 	if dnsErr == nil {
 		return did, nil

@@ -51,13 +51,13 @@ func testDirectoryLive(t *testing.T, d Directory) {
 
 func TestBaseDirectory(t *testing.T) {
 	// XXX: t.Skip("skipping live network test")
-	d := NewBaseDirectory(DefaultPLCURL)
+	d := BaseDirectory{}
 	testDirectoryLive(t, &d)
 }
 
 func TestCacheDirectory(t *testing.T) {
 	// XXX: t.Skip("skipping live network test")
-	inner := NewBaseDirectory(DefaultPLCURL)
+	inner := BaseDirectory{}
 	d := NewCacheDirectory(&inner)
 	for i := 0; i < 3; i = i + 1 {
 		testDirectoryLive(t, &d)
