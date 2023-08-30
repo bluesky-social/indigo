@@ -17,6 +17,8 @@ type BaseDirectory struct {
 	HTTPClient http.Client
 	// DNS resolver used for DNS handle resolution. Calling code can use a custom Dialer to query against a specific DNS server, or re-implement the interface for even more control over the resolution process
 	Resolver net.Resolver
+	// when doing DNS handle resolution, should this resolver attempt re-try against an authoritative nameserver if the first TXT lookup fails?
+	TryAuthoritativeDNS bool
 }
 
 var _ Directory = (*BaseDirectory)(nil)
