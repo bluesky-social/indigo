@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
@@ -33,11 +35,18 @@ type DocService struct {
 
 // WARNING: this does *not* bi-directionally verify account metadata; it only implements direct DID-to-DID-document lookup for the supported DID methods, and parses the resulting DID Doc into an Identity struct
 func (d *BaseDirectory) ResolveDID(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
+	start := time.Now()
 	switch did.Method() {
 	case "web":
-		return d.ResolveDIDWeb(ctx, did)
+		doc, err := d.ResolveDIDWeb(ctx, did)
+		elapsed := time.Since(start)
+		slog.Debug("resolve DID", "did", did, "err", err, "duration_ms", elapsed.Milliseconds())
+		return doc, err
 	case "plc":
-		return d.ResolveDIDPLC(ctx, did)
+		doc, err := d.ResolveDIDPLC(ctx, did)
+		elapsed := time.Since(start)
+		slog.Debug("resolve DID", "did", did, "err", err, "duration_ms", elapsed.Milliseconds())
+		return doc, err
 	default:
 		return nil, fmt.Errorf("DID method not supported: %s", did.Method())
 	}

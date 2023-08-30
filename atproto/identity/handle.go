@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -123,15 +124,25 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 
 func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
 	// TODO: *could* do resolution in parallel, but expecting that sequential is sufficient to start
+	start := time.Now()
+	triedAuthoritative := false
 	did, dnsErr := d.ResolveHandleDNS(ctx, handle)
 	if dnsErr == ErrHandleNotFound && d.TryAuthoritativeDNS {
+		slog.Info("attempting authoritative handle DNS resolution", "handle", handle)
+		triedAuthoritative = true
 		// try harder with authoritative lookup
 		did, dnsErr = d.ResolveHandleDNSAuthoritative(ctx, handle)
 	}
+	elapsed := time.Since(start)
+	slog.Debug("resolve handle DNS", "handle", handle, "err", dnsErr, "did", did, "authoritative", triedAuthoritative, "duration_ms", elapsed.Milliseconds())
 	if nil == dnsErr { // if *not* an error
 		return did, nil
 	}
+
+	start = time.Now()
 	did, httpErr := d.ResolveHandleWellKnown(ctx, handle)
+	elapsed = time.Since(start)
+	slog.Debug("resolve handle HTTP well-known", "handle", handle, "err", httpErr, "did", did, "duration_ms", elapsed.Milliseconds())
 	if nil == httpErr { // if *not* an error
 		return did, nil
 	}
