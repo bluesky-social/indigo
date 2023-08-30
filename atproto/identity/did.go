@@ -32,18 +32,18 @@ type DocService struct {
 }
 
 // WARNING: this does *not* bi-directionally verify account metadata; it only implements direct DID-to-DID-document lookup for the supported DID methods, and parses the resulting DID Doc into an Identity struct
-func DefaultResolveDID(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
+func (d *BaseDirectory) ResolveDID(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
 	switch did.Method() {
 	case "web":
-		return ResolveDIDWeb(ctx, did)
+		return d.ResolveDIDWeb(ctx, did)
 	case "plc":
-		return ResolveDIDPLC(ctx, DefaultPLCURL, did)
+		return d.ResolveDIDPLC(ctx, DefaultPLCURL, did)
 	default:
 		return nil, fmt.Errorf("DID method not supported: %s", did.Method())
 	}
 }
 
-func ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
+func (d *BaseDirectory) ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
 	if did.Method() != "web" {
 		return nil, fmt.Errorf("expected a did:web, got: %s", did)
 	}
@@ -84,7 +84,7 @@ func ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
 }
 
 // plcURL should have URL method, hostname, and optional port; it should not have a path or trailing slash
-func ResolveDIDPLC(ctx context.Context, plcURL string, did syntax.DID) (*DIDDocument, error) {
+func (d *BaseDirectory) ResolveDIDPLC(ctx context.Context, plcURL string, did syntax.DID) (*DIDDocument, error) {
 	if did.Method() != "plc" {
 		return nil, fmt.Errorf("expected a did:plc, got: %s", did)
 	}
