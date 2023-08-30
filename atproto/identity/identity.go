@@ -60,6 +60,7 @@ func DefaultDirectory() Directory {
 				return d.DialContext(ctx, network, address)
 			},
 		},
+		TryAuthoritativeDNS: true,
 	}
 	cached := NewCacheDirectory(&base, 10000, time.Hour*24, time.Minute*2)
 	return &cached

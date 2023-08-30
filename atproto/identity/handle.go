@@ -8,24 +8,12 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// Does not cross-verify, only does the handle resolution step.
-func (d *BaseDirectory) ResolveHandleDNS(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
-	res, err := d.Resolver.LookupTXT(ctx, "_atproto."+handle.String())
-	// look for NXDOMAIN
-	var dnsErr *net.DNSError
-	if errors.As(err, &dnsErr) {
-		if dnsErr.IsNotFound {
-			return "", ErrHandleNotFound
-		}
-	}
-	if err != nil {
-		return "", fmt.Errorf("handle DNS resolution failed: %w", err)
-	}
-
+func parseTXTResp(res []string) (syntax.DID, error) {
 	for _, s := range res {
 		if strings.HasPrefix(s, "did=") {
 			parts := strings.SplitN(s, "=", 2)
@@ -39,6 +27,67 @@ func (d *BaseDirectory) ResolveHandleDNS(ctx context.Context, handle syntax.Hand
 	return "", ErrHandleNotFound
 }
 
+// Does not cross-verify, only does the handle resolution step.
+func (d *BaseDirectory) ResolveHandleDNS(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
+	res, err := d.Resolver.LookupTXT(ctx, "_atproto."+handle.String())
+	// check for NXDOMAIN
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		if dnsErr.IsNotFound {
+			return "", ErrHandleNotFound
+		}
+	}
+	if err != nil {
+		return "", fmt.Errorf("handle DNS resolution failed: %w", err)
+	}
+	return parseTXTResp(res)
+}
+
+// this is a variant of ResolveHandleDNS which first does an authoritative nameserver lookup, then queries there
+func (d *BaseDirectory) ResolveHandleDNSAuthoritative(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
+	// lookup nameserver using configured resolver
+	resNS, err := d.Resolver.LookupNS(ctx, handle.String())
+	// check for NXDOMAIN
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		if dnsErr.IsNotFound {
+			return "", ErrHandleNotFound
+		}
+	}
+	if err != nil {
+		return "", fmt.Errorf("handle DNS resolution failed: %w", err)
+	}
+	if len(resNS) == 0 {
+		return "", ErrHandleNotFound
+	}
+	ns := resNS[0].Host
+	if !strings.Contains(ns, ":") {
+		ns = ns + ":53"
+	}
+
+	// create a custom resolver to use the specific nameserver for TXT lookup
+	resolver := &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			rd := net.Dialer{
+				Timeout: time.Second * 5,
+			}
+			return rd.DialContext(ctx, network, ns)
+		},
+	}
+	res, err := resolver.LookupTXT(ctx, "_atproto."+handle.String())
+	// check for NXDOMAIN
+	if errors.As(err, &dnsErr) {
+		if dnsErr.IsNotFound {
+			return "", ErrHandleNotFound
+		}
+	}
+	if err != nil {
+		return "", fmt.Errorf("handle DNS resolution failed: %w", err)
+	}
+	return parseTXTResp(res)
+}
+
 func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s/.well-known/atproto-did", handle), nil)
 	if err != nil {
@@ -47,7 +96,7 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 
 	resp, err := d.HTTPClient.Do(req)
 	if err != nil {
-		// look for NXDOMAIN
+		// check for NXDOMAIN
 		var dnsErr *net.DNSError
 		if errors.As(err, &dnsErr) {
 			if dnsErr.IsNotFound {
@@ -75,11 +124,15 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
 	// TODO: *could* do resolution in parallel, but expecting that sequential is sufficient to start
 	did, dnsErr := d.ResolveHandleDNS(ctx, handle)
-	if dnsErr == nil {
+	if dnsErr == ErrHandleNotFound && d.TryAuthoritativeDNS {
+		// try harder with authoritative lookup
+		did, dnsErr = d.ResolveHandleDNSAuthoritative(ctx, handle)
+	}
+	if nil == dnsErr { // if *not* an error
 		return did, nil
 	}
 	did, httpErr := d.ResolveHandleWellKnown(ctx, handle)
-	if httpErr == nil {
+	if nil == httpErr { // if *not* an error
 		return did, nil
 	}
 
