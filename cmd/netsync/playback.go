@@ -181,7 +181,7 @@ type LikeCount struct {
 }
 
 func (s *PlaybackState) SetupSchema() error {
-	if err := s.ses.ExecStmt(`CREATE KEYSPACE IF NOT EXISTS netsync WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE KEYSPACE IF NOT EXISTS netsync WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 3 };`); err != nil {
 		return fmt.Errorf("failed to create keyspace: %w", err)
 	}
 
