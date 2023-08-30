@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/crypto"
@@ -37,12 +40,18 @@ var ErrHandleNotValid = errors.New("handle resolves to DID with different handle
 // Indicates that resolution process completed successfully, but the DID does not exist.
 var ErrDIDNotFound = errors.New("DID not found")
 
+var ErrKeyNotFound = errors.New("identity has no public repo signing key")
+
 var DefaultPLCURL = "https://plc.directory"
 
 // Returns a reasonable default Directory implementation for most use cases
 func DefaultDirectory() Directory {
-	naive := NewBaseDirectory(DefaultPLCURL)
-	cached := NewCacheDirectory(&naive)
+	base := BaseDirectory{
+		PLCURL:     DefaultPLCURL,
+		HTTPClient: http.DefaultClient,
+		Resolver:   net.DefaultResolver,
+	}
+	cached := NewCacheDirectory(&base)
 	return &cached
 }
 
@@ -51,18 +60,14 @@ type Identity struct {
 	DID syntax.DID
 
 	// Handle/DID mapping must be bi-directionally verified. If that fails, the Handle should be the special 'handle.invalid' value
-	// TODO: should we make this nullable, instead of 'handle.invalid'?
 	Handle syntax.Handle
 
-	// These fields represent a parsed subset of a DID document. They are all nullable.
-	// TODO: should we just embed DIDDocument here?
+	// These fields represent a parsed subset of a DID document. They are all nullable. Note that the services and keys maps do not preserve order, so they don't exactly round-trip DID documents.
 	AlsoKnownAs []string
-	// TODO: this doesn't preserve order (doesn't round-trip)
-	Services map[string]Service
-	// TODO: this doesn't preserve order (doesn't round-trip)
-	Keys map[string]Key
+	Services    map[string]Service
+	Keys        map[string]Key
 
-	// If a valid atproto repo signing public key was parsed, it can be cached here. This is nullable/optional. Calling code should call PublicKey() instead of accessing this member.
+	// If a valid atproto repo signing public key was parsed, it can be cached here. This is a nullable/optional field (crypto.PublicKey is an interface). Calling code should use [Identity.PublicKey] instead of accessing this member.
 	ParsedPublicKey crypto.PublicKey
 }
 
@@ -76,6 +81,9 @@ type Service struct {
 	URL  string
 }
 
+// Extracts the information relevant to atproto from an arbitrary DID document.
+//
+// Always returns an invalid Handle field; calling code should only populate that field if it has been bi-directionally verified.
 func ParseIdentity(doc *DIDDocument) Identity {
 	keys := make(map[string]Key, len(doc.VerificationMethod))
 	for _, vm := range doc.VerificationMethod {
@@ -122,9 +130,11 @@ func ParseIdentity(doc *DIDDocument) Identity {
 	}
 }
 
-// Identifiers the atproto repo signing public key, specifically, out of any keys associated with this identity.
+// Identifies and parses the atproto repo signing public key, specifically, out of any keys associated with this identity.
 //
-// Returns an error if there is no key. Note that 'crypto.PublicKey' is an interface, not a concrete type.
+// Returns [ErrKeyNotFound] if there is no such key.
+//
+// Note that [crypto.PublicKey] is an interface, not a concrete type.
 func (i *Identity) PublicKey() (crypto.PublicKey, error) {
 	if i.ParsedPublicKey != nil {
 		return i.ParsedPublicKey, nil
@@ -134,7 +144,7 @@ func (i *Identity) PublicKey() (crypto.PublicKey, error) {
 	}
 	k, ok := i.Keys["atproto"]
 	if !ok {
-		return nil, fmt.Errorf("identity has no atproto public key attached")
+		return nil, ErrKeyNotFound
 	}
 	switch k.Type {
 	case "Multikey":
@@ -162,16 +172,22 @@ func (i *Identity) PublicKey() (crypto.PublicKey, error) {
 	}
 }
 
-// The home PDS endpoint for this account, if one is included in identity metadata (returns empty string if not found). The endpoint will be an HTTP URL with method, hostname, and optional port, but no path segments.
+// The home PDS endpoint for this account, if one is included in identity metadata (returns empty string if not found).
+//
+// The endpoint should be an HTTP URL with method, hostname, and optional port, and (usually) no path segments.
 func (i *Identity) PDSEndpoint() string {
 	if i.Services == nil {
 		return ""
 	}
-	atp, ok := i.Services["atproto_pds"]
+	endpoint, ok := i.Services["atproto_pds"]
 	if !ok {
 		return ""
 	}
-	return atp.URL
+	_, err := url.Parse(endpoint.URL)
+	if err != nil {
+		return ""
+	}
+	return endpoint.URL
 }
 
 // Returns an atproto handle from the alsoKnownAs URI list for this identifier. Returns an error if there is no handle, or if an at:// URI failes to parse as a handle.
