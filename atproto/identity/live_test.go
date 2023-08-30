@@ -51,13 +51,13 @@ func testDirectoryLive(t *testing.T, d Directory) {
 }
 
 func TestBaseDirectory(t *testing.T) {
-	// XXX: t.Skip("skipping live network test")
+	t.Skip("TODO: skipping live network test")
 	d := BaseDirectory{}
 	testDirectoryLive(t, &d)
 }
 
 func TestCacheDirectory(t *testing.T) {
-	// XXX: t.Skip("skipping live network test")
+	t.Skip("TODO: skipping live network test")
 	inner := BaseDirectory{}
 	d := NewCacheDirectory(&inner, 1000, time.Hour*1, time.Hour*1)
 	for i := 0; i < 3; i = i + 1 {
