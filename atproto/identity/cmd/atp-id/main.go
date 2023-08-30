@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -34,6 +35,8 @@ func main() {
 			Action: runResolveDID,
 		},
 	}
+	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})
+	slog.SetDefault(slog.New(h))
 	app.RunAndExitOnError()
 }
 
@@ -48,11 +51,10 @@ func runLookup(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("valid at-identifier syntax: %s\n", id)
+	slog.Info("valid syntax", "at-identifier", id)
 
-	ndir := identity.BaseDirectory{}
-
-	acc, err := ndir.Lookup(ctx, *id)
+	dir := identity.DefaultDirectory()
+	acc, err := dir.Lookup(ctx, *id)
 	if err != nil {
 		return err
 	}
@@ -71,7 +73,7 @@ func runResolveHandle(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("valid handle syntax: %s\n", handle)
+	slog.Info("valid syntax", "handle", handle)
 
 	d := identity.BaseDirectory{}
 	did, err := d.ResolveHandle(ctx, handle)
@@ -95,7 +97,7 @@ func runResolveDID(cctx *cli.Context) error {
 		fmt.Println(err)
 		os.Exit(-1)
 	}
-	fmt.Printf("valid DID syntax: %s\n", did)
+	slog.Info("valid syntax", "did", did)
 
 	d := identity.BaseDirectory{}
 	doc, err := d.ResolveDID(ctx, did)
