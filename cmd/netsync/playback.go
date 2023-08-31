@@ -94,6 +94,22 @@ type Post struct {
 	CreatedAt   time.Time
 }
 
+var repliesMetadata = table.Metadata{
+	Name:    "netsync.replies",
+	Columns: []string{"parent_did", "parent_rkey", "child_did", "child_rkey", "created_at"},
+	PartKey: []string{"parent_did", "parent_rkey"},
+	SortKey: []string{"child_did", "child_rkey"},
+}
+var repliesTable = table.New(repliesMetadata)
+
+type Reply struct {
+	ParentDid  string
+	ParentRkey string
+	ChildDid   string
+	ChildRkey  string
+	CreatedAt  time.Time
+}
+
 var followByActorMetadata = table.Metadata{
 	Name:    "netsync.follows_by_actor",
 	Columns: []string{"actor", "rkey", "target", "created_at"},
@@ -449,7 +465,19 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 
 			facets := ""
 			if rec.Facets != nil && len(rec.Facets) > 0 {
-				facetBytes, err := json.Marshal(rec.Facets)
+				nonNilFacets := []*bsky.RichtextFacet{}
+
+				// Filter out nil facets
+				for i, facet := range rec.Facets {
+					for _, feature := range facet.Features {
+						if feature.RichtextFacet_Link != nil || feature.RichtextFacet_Mention != nil {
+							nonNilFacets = append(nonNilFacets, rec.Facets[i])
+							break
+						}
+					}
+				}
+
+				facetBytes, err := json.Marshal(nonNilFacets)
 				if err != nil {
 					log.Errorf("failed to marshal facets: %+v", err)
 					return nil
@@ -470,6 +498,30 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 				return nil
 			}
 			postBatchSize++
+
+			if rec.Reply != nil && rec.Reply.Parent != nil {
+				// at://did/app.bsky.feed.post/rkey
+				parentURI := rec.Reply.Parent.Uri
+				parentURI = strings.TrimPrefix(parentURI, "at://")
+				parentParts := strings.Split(parentURI, "/")
+				if len(parentParts) != 3 {
+					log.Errorf("invalid parent URI: %s", parentURI)
+					return nil
+				}
+
+				insertReply := repliesTable.InsertQuery(s.ses)
+				err = insertReply.BindStruct(&Reply{
+					ParentDid:  parentParts[0],
+					ParentRkey: parentParts[2],
+					ChildDid:   did,
+					ChildRkey:  rkey,
+					CreatedAt:  recCreatedAt,
+				}).ExecRelease()
+				if err != nil {
+					log.Errorf("failed to exec reply: %w", err)
+					return nil
+				}
+			}
 		case *bsky.FeedLike:
 			log.Debugf("processing feed like: %s", rec.Subject.Uri)
 			recCreatedAt, err := dateparse.ParseAny(rec.CreatedAt)
