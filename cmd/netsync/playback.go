@@ -504,12 +504,18 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 
 			embed := ""
 			if rec.Embed != nil {
-				embedBytes, err := json.Marshal(rec.Embed)
-				if err != nil {
-					log.Errorf("failed to marshal embed: %+v", err)
-					return nil
+				// Filter out empty embeds
+				if rec.Embed.EmbedExternal != nil ||
+					rec.Embed.EmbedImages != nil ||
+					rec.Embed.EmbedRecord != nil ||
+					rec.Embed.EmbedRecordWithMedia != nil {
+					embedBytes, err := json.Marshal(rec.Embed)
+					if err != nil {
+						log.Errorf("failed to marshal embed: %+v", err)
+						return nil
+					}
+					embed = string(embedBytes)
 				}
-				embed = string(embedBytes)
 			}
 
 			selfLabels := []string{}
