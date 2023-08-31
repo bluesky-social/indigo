@@ -120,13 +120,13 @@ sc-fire: # Fires supercollider
 run-netsync: .env ## Runs netsync for local dev
 	go run ./cmd/netsync--checkout-limit 40 --worker-count 60 --out-dir ../netsync-out
 
-.PHONY: netsync-playback
-netsync-playback: .env ## Runs netsync for local dev
-	go run ./cmd/netsync --worker-count 96 --out-dir ../netsync-out_2023_08_25 playback --scylla-nodes 127.0.0.1:9042
-
-
 SCYLLA_VERSION := latest
 SCYLLA_CPU := 0
+SCYLLA_NODES := 127.0.0.1:9042
+
+.PHONY: netsync-playback
+netsync-playback: .env ## Runs netsync for local dev
+	go run ./cmd/netsync --worker-count 96 --out-dir ../netsync-out_2023_08_25 playback --scylla-nodes $(SCYLLA_NODES)
 
 .PHONY: run-scylla
 run-scylla:
