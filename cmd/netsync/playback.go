@@ -211,7 +211,7 @@ func (s *PlaybackState) SetupSchema() error {
 		return fmt.Errorf("failed to create replies table: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.follows_by_actor (actor text, rkey text, target text, created_at timestamp, PRIMARY KEY (actor, target));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.follows_by_actor (actor text, rkey text, target text, created_at timestamp, PRIMARY KEY (actor, rkey));`); err != nil {
 		return fmt.Errorf("failed to create follows by actor table: %w", err)
 	}
 
@@ -219,7 +219,7 @@ func (s *PlaybackState) SetupSchema() error {
 		return fmt.Errorf("failed to create follows by target table: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.blocks_by_actor (actor text, rkey text, target text, created_at timestamp, PRIMARY KEY (actor, target));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.blocks_by_actor (actor text, rkey text, target text, created_at timestamp, PRIMARY KEY (actor, rkey));`); err != nil {
 		return fmt.Errorf("failed to create blocks by actor table: %w", err)
 	}
 
