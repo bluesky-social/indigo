@@ -79,7 +79,7 @@ func (s *PlaybackState) Finish(repo string, state string) {
 
 var postMetadata = table.Metadata{
 	Name:    "netsync.posts",
-	Columns: []string{"did", "rkey", "parent_did", "parent_rkey", "display_name", "content", "facets", "created_at"},
+	Columns: []string{"did", "rkey", "parent_did", "parent_rkey", "display_name", "content", "facets", "self_labels", "created_at"},
 	PartKey: []string{"did"},
 	SortKey: []string{"rkey"},
 }
@@ -89,11 +89,15 @@ type Post struct {
 	Did         string
 	DisplayName string
 	Rkey        string
-	ParentDid   string
-	ParentRkey  string
-	Content     string
-	Facets      string
-	CreatedAt   time.Time
+
+	ParentDid  string
+	ParentRkey string
+
+	Content    string
+	Facets     string
+	SelfLabels []string
+
+	CreatedAt time.Time
 }
 
 var repliesMetadata = table.Metadata{
@@ -205,7 +209,7 @@ func (s *PlaybackState) SetupSchema() error {
 		return fmt.Errorf("failed to create keyspace: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.posts (did text, display_name text static, rkey text, parent_did text, parent_rkey text, content text, facets text, created_at timestamp, PRIMARY KEY (did, rkey));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.posts (did text, display_name text static, rkey text, parent_did text, parent_rkey text, content text, facets text, self_labels list<text>, created_at timestamp, PRIMARY KEY (did, rkey));`); err != nil {
 		return fmt.Errorf("failed to create posts table: %w", err)
 	}
 
@@ -491,6 +495,16 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 				facets = string(facetBytes)
 			}
 
+			selfLabels := []string{}
+
+			if rec.Labels != nil &&
+				rec.Labels.LabelDefs_SelfLabels != nil &&
+				len(rec.Labels.LabelDefs_SelfLabels.Values) > 0 {
+				for _, label := range rec.Labels.LabelDefs_SelfLabels.Values {
+					selfLabels = append(selfLabels, label.Val)
+				}
+			}
+
 			parentParts := []string{}
 			if rec.Reply != nil && rec.Reply.Parent != nil {
 				// at://did/app.bsky.feed.post/rkey
@@ -515,6 +529,10 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 			if len(parentParts) > 0 {
 				post.ParentDid = parentParts[0]
 				post.ParentRkey = parentParts[2]
+			}
+
+			if len(selfLabels) > 0 {
+				post.SelfLabels = selfLabels
 			}
 
 			err = postBatch.BindStruct(insertPost, &post)
