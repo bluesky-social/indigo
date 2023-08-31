@@ -79,7 +79,7 @@ func (s *PlaybackState) Finish(repo string, state string) {
 
 var postMetadata = table.Metadata{
 	Name:    "netsync.posts",
-	Columns: []string{"did", "rkey", "display_name", "content", "facets", "created_at"},
+	Columns: []string{"did", "rkey", "parent_did", "parent_rkey", "display_name", "content", "facets", "created_at"},
 	PartKey: []string{"did"},
 	SortKey: []string{"rkey"},
 }
@@ -89,6 +89,8 @@ type Post struct {
 	Did         string
 	DisplayName string
 	Rkey        string
+	ParentDid   string
+	ParentRkey  string
 	Content     string
 	Facets      string
 	CreatedAt   time.Time
@@ -203,7 +205,7 @@ func (s *PlaybackState) SetupSchema() error {
 		return fmt.Errorf("failed to create keyspace: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.posts (did text, display_name text static, rkey text, content text, facets text, created_at timestamp, PRIMARY KEY (did, rkey));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.posts (did text, display_name text static, rkey text, parent_did text, parent_rkey text, content text, facets text, created_at timestamp, PRIMARY KEY (did, rkey));`); err != nil {
 		return fmt.Errorf("failed to create posts table: %w", err)
 	}
 
@@ -489,30 +491,40 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 				facets = string(facetBytes)
 			}
 
-			err = postBatch.BindStruct(insertPost, &Post{
+			parentParts := []string{}
+			if rec.Reply != nil && rec.Reply.Parent != nil {
+				// at://did/app.bsky.feed.post/rkey
+				parentURI := rec.Reply.Parent.Uri
+				parentURI = strings.TrimPrefix(parentURI, "at://")
+				parentParts = strings.Split(parentURI, "/")
+				if len(parentParts) != 3 {
+					log.Errorf("invalid parent URI: %s", parentURI)
+					return nil
+				}
+			}
+
+			post := Post{
 				Did:         did,
 				Rkey:        rkey,
 				DisplayName: displayName,
 				Content:     rec.Text,
 				Facets:      facets,
 				CreatedAt:   recCreatedAt,
-			})
+			}
+
+			if len(parentParts) > 0 {
+				post.ParentDid = parentParts[0]
+				post.ParentRkey = parentParts[2]
+			}
+
+			err = postBatch.BindStruct(insertPost, &post)
 			if err != nil {
 				log.Errorf("failed to bind post: %w", err)
 				return nil
 			}
 			postBatchSize++
 
-			if rec.Reply != nil && rec.Reply.Parent != nil {
-				// at://did/app.bsky.feed.post/rkey
-				parentURI := rec.Reply.Parent.Uri
-				parentURI = strings.TrimPrefix(parentURI, "at://")
-				parentParts := strings.Split(parentURI, "/")
-				if len(parentParts) != 3 {
-					log.Errorf("invalid parent URI: %s", parentURI)
-					return nil
-				}
-
+			if len(parentParts) > 0 {
 				insertReply := repliesTable.InsertQuery(s.ses)
 				err = insertReply.BindStruct(&Reply{
 					ParentDid:  parentParts[0],
