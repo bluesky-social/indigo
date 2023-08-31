@@ -277,13 +277,13 @@ func Query(cctx *cli.Context) error {
 		Did:  postParts[0],
 		Rkey: postParts[2],
 	}
-	err = postTable.GetQuery(session).BindStruct(&post).ExecRelease()
+	err = postTable.GetQuery(session).BindStruct(&post).Scan(&post)
 	if err != nil {
 		return fmt.Errorf("failed to get post: %w", err)
 	}
 
 	// Get the replies
-	replyRefs := []*Reply{}
+	replyRefs := []Reply{}
 	err = repliesTable.SelectQuery(session).BindStruct(&Reply{
 		ParentDid:  postParts[0],
 		ParentRkey: postParts[2],
@@ -300,7 +300,7 @@ func Query(cctx *cli.Context) error {
 	for i := range replyRefs {
 		wg.Add(1)
 		replyRef := replyRefs[i]
-		go func(replyRef *Reply) {
+		go func(replyRef Reply) {
 			defer wg.Done()
 
 			reply := Post{
@@ -308,7 +308,7 @@ func Query(cctx *cli.Context) error {
 				Rkey: replyRef.ChildRkey,
 			}
 
-			err = postTable.GetQuery(session).BindStruct(&reply).ExecRelease()
+			err = postTable.GetQuery(session).BindStruct(&reply).Scan(&reply)
 			if err != nil {
 				log.Errorf("failed to get reply: %w", err)
 				return
