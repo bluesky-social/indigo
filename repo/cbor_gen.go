@@ -25,8 +25,13 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 6
 
-	if _, err := cw.Write([]byte{165}); err != nil {
+	if t.Rev == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -51,6 +56,32 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := cw.WriteString(string(t.Did)); err != nil {
 		return err
+	}
+
+	// t.Rev (string) (string)
+	if t.Rev != "" {
+
+		if len("rev") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"rev\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("rev"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("rev")); err != nil {
+			return err
+		}
+
+		if len(t.Rev) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.Rev was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Rev))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(t.Rev)); err != nil {
+			return err
+		}
 	}
 
 	// t.Sig ([]uint8) (slice)
@@ -188,6 +219,17 @@ func (t *SignedCommit) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Did = string(sval)
 			}
+			// t.Rev (string) (string)
+		case "rev":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Rev = string(sval)
+			}
 			// t.Sig ([]uint8) (slice)
 		case "sig":
 
@@ -288,8 +330,13 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 5
 
-	if _, err := cw.Write([]byte{164}); err != nil {
+	if t.Rev == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -314,6 +361,32 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := cw.WriteString(string(t.Did)); err != nil {
 		return err
+	}
+
+	// t.Rev (string) (string)
+	if t.Rev != "" {
+
+		if len("rev") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"rev\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("rev"))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string("rev")); err != nil {
+			return err
+		}
+
+		if len(t.Rev) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.Rev was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Rev))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, string(t.Rev)); err != nil {
+			return err
+		}
 	}
 
 	// t.Data (cid.Cid) (struct)
@@ -426,6 +499,17 @@ func (t *UnsignedCommit) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Did = string(sval)
+			}
+			// t.Rev (string) (string)
+		case "rev":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Rev = string(sval)
 			}
 			// t.Data (cid.Cid) (struct)
 		case "data":

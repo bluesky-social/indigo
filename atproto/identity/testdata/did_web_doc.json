@@ -1,0 +1,16 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/did/v1"
+  ],
+  "id": "did:web:discover.bsky.social",
+  "alsoKnownAs": [ ],
+  "authentication": null,
+  "verificationMethod": [ ],
+  "service": [
+    {
+      "id": "#bsky_fg",
+      "type": "BskyFeedGenerator",
+      "serviceEndpoint": "https://discover.bsky.social"
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
@@ -227,4 +228,60 @@ func TestRebase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestDuplicateRecord(t *testing.T) {
+	dir, err := os.MkdirTemp("", "integtest")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.sqlite")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	maindb.AutoMigrate(models.ActorInfo{})
+
+	did := "did:plc:beepboop"
+	maindb.Create(&models.ActorInfo{
+		Did: did,
+		Uid: 1,
+	})
+
+	cs := testCarstore(t, dir)
+
+	repoman := NewRepoManager(cs, &util.FakeKeyManager{})
+
+	ctx := context.TODO()
+	if err := repoman.InitNewActor(ctx, 1, "hello.world", "did:plc:foobar", "", "", ""); err != nil {
+		t.Fatal(err)
+	}
+
+	p1, _, err := repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
+		Text: fmt.Sprintf("hello friend"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	p2, _, err := repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
+		Text: fmt.Sprintf("hello friend"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rkey2 := strings.Split(p2, "/")[1]
+	if err := repoman.DeleteRecord(ctx, 1, "app.bsky.feed.post", rkey2); err != nil {
+		t.Fatal(err)
+	}
+
+	rkey1 := strings.Split(p1, "/")[1]
+	c, rec, err := repoman.GetRecord(ctx, 1, "app.bsky.feed.post", rkey1, cid.Undef)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_ = c
+	_ = rec
 }
