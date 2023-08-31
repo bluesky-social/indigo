@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -216,6 +217,11 @@ func (s *PlaybackState) SetupSchema() error {
 	return nil
 }
 
+type dirEnt struct {
+	name string
+	size int64
+}
+
 func Playback(cctx *cli.Context) error {
 	ctx := cctx.Context
 	ctx, cancel := context.WithCancel(ctx)
@@ -264,6 +270,8 @@ func Playback(cctx *cli.Context) error {
 		log.Info("metrics server shut down successfully")
 	}()
 
+	dirEnts := []dirEnt{}
+
 	// Load all the repos from the out dir
 	err = filepath.WalkDir(state.outDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -274,17 +282,39 @@ func Playback(cctx *cli.Context) error {
 			return nil
 		}
 
-		state.EnqueuedRepos[d.Name()] = &RepoState{
-			Repo:  d.Name(),
-			State: "enqueued",
+		finfo, err := d.Info()
+		if err != nil {
+			return fmt.Errorf("failed to get dir entry info: %w", err)
 		}
 
-		enqueuedJobs.Inc()
-
+		dirEnts = append(dirEnts, dirEnt{
+			name: path,
+			size: finfo.Size(),
+		})
 		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("failed to walk out dir: %w", err)
+	}
+
+	// Sort the repos by size descending
+	slices.SortFunc(dirEnts, func(a, b dirEnt) int {
+		if a.size > b.size {
+			return -1
+		}
+		if a.size < b.size {
+			return 1
+		}
+		return 0
+	})
+
+	// Enqueue the repos
+	for _, ent := range dirEnts {
+		state.EnqueuedRepos[ent.name] = &RepoState{
+			Repo:  ent.name,
+			State: "enqueued",
+		}
+		enqueuedJobs.Inc()
 	}
 
 	// Start workers
