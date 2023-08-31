@@ -184,7 +184,7 @@ var likesMetadata = table.Metadata{
 }
 var likesTable = table.New(likesMetadata)
 
-type Likes struct {
+type Like struct {
 	Did       string
 	Rkey      string
 	Subject   string
@@ -200,6 +200,36 @@ var likeCountMetadata = table.Metadata{
 var likeCountTable = table.New(likeCountMetadata)
 
 type LikeCount struct {
+	Did   string
+	Nsid  string
+	Rkey  string
+	Count int64
+}
+
+var repostsMetadata = table.Metadata{
+	Name:    "netsync.reposts",
+	Columns: []string{"did", "rkey", "subject", "created_at"},
+	PartKey: []string{"did"},
+	SortKey: []string{"rkey"},
+}
+var repostsTable = table.New(repostsMetadata)
+
+type Repost struct {
+	Did       string
+	Rkey      string
+	Subject   string
+	CreatedAt time.Time
+}
+
+var repostCountMetadata = table.Metadata{
+	Name:    "netsync.repost_counts",
+	Columns: []string{"did", "nsid", "rkey", "count"},
+	PartKey: []string{"did", "nsid"},
+	SortKey: []string{"rkey"},
+}
+var repostCountTable = table.New(repostCountMetadata)
+
+type RepostCount struct {
 	Did   string
 	Nsid  string
 	Rkey  string
@@ -241,6 +271,14 @@ func (s *PlaybackState) SetupSchema() error {
 
 	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.like_counts (did text, nsid text, rkey text, count counter, PRIMARY KEY ((did, nsid), rkey));`); err != nil {
 		return fmt.Errorf("failed to create like counts table: %w", err)
+	}
+
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.reposts (did text, rkey text, subject text, created_at timestamp, PRIMARY KEY (did, rkey));`); err != nil {
+		return fmt.Errorf("failed to create reposts table: %w", err)
+	}
+
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.repost_counts (did text, nsid text, rkey text, count counter, PRIMARY KEY ((did, nsid), rkey));`); err != nil {
+		return fmt.Errorf("failed to create repost counts table: %w", err)
 	}
 
 	return nil
@@ -609,6 +647,9 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 	likeBatch := s.ses.NewBatch(gocql.LoggedBatch)
 	likeBatchSize := 0
 
+	repostBatch := s.ses.NewBatch(gocql.LoggedBatch)
+	repostBatchSize := 0
+
 	displayName := "unknown"
 
 	_, rec, err := r.GetRecord(ctx, "app.bsky.actor.profile/self")
@@ -761,7 +802,7 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 			}
 
 			insertLike := likesTable.InsertQuery(s.ses)
-			err = likeBatch.BindStruct(insertLike, &Likes{
+			err = likeBatch.BindStruct(insertLike, &Like{
 				Did:       did,
 				Rkey:      rkey,
 				Subject:   rec.Subject.Uri,
@@ -798,6 +839,47 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 
 		case *bsky.FeedRepost:
 			log.Debugf("processing feed repost: %s", rec.Subject.Uri)
+			recCreatedAt, err := dateparse.ParseAny(rec.CreatedAt)
+			if err != nil {
+				log.Errorf("failed to parse created at: %+v", err)
+				return nil
+			}
+
+			insertRepost := repostsTable.InsertQuery(s.ses)
+			err = repostBatch.BindStruct(insertRepost, &Repost{
+				Did:       did,
+				Rkey:      rkey,
+				Subject:   rec.Subject.Uri,
+				CreatedAt: recCreatedAt,
+			})
+			if err != nil {
+				log.Errorf("failed to bind repost: %w", err)
+				return nil
+			}
+			repostBatchSize++
+
+			// Don't batch repost count because the partition key isn't consistent
+			subj := strings.TrimPrefix(rec.Subject.Uri, "at://")
+			subjParts := strings.Split(subj, "/")
+			if len(subjParts) != 3 {
+				log.Errorf("invalid subject: %s", rec.Subject.Uri)
+				return nil
+			}
+
+			updateRepostCount := repostCountTable.UpdateBuilder().
+				Add("count").Where(qb.Eq("did"), qb.Eq("nsid"), qb.Eq("rkey")).Query(s.ses).
+				BindStruct(&RepostCount{
+					Did:   subjParts[0],
+					Nsid:  subjParts[1],
+					Rkey:  subjParts[2],
+					Count: 1,
+				})
+
+			err = updateRepostCount.ExecRelease()
+			if err != nil {
+				log.Errorf("failed to exec repost count: %w", err)
+				return nil
+			}
 		case *bsky.GraphFollow:
 			log.Debugf("processing graph follow: %s", rec.Subject)
 			recCreatedAt, err := dateparse.ParseAny(rec.CreatedAt)
@@ -907,6 +989,15 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 			likeBatchSize = 0
 		}
 
+		if repostBatchSize >= maxBatchSize {
+			err = s.ses.ExecuteBatch(repostBatch)
+			if err != nil {
+				log.Errorf("failed to execute batch: %w", err)
+			}
+			repostBatch = s.ses.NewBatch(gocql.LoggedBatch)
+			repostBatchSize = 0
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -936,6 +1027,13 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 
 	if likeBatchSize > 0 {
 		err = s.ses.ExecuteBatch(likeBatch)
+		if err != nil {
+			return "failed (batch)", fmt.Errorf("failed to execute batch: %w", err)
+		}
+	}
+
+	if repostBatchSize > 0 {
+		err = s.ses.ExecuteBatch(repostBatch)
 		if err != nil {
 			return "failed (batch)", fmt.Errorf("failed to execute batch: %w", err)
 		}
