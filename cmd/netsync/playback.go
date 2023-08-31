@@ -207,6 +207,10 @@ func (s *PlaybackState) SetupSchema() error {
 		return fmt.Errorf("failed to create posts table: %w", err)
 	}
 
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.replies (parent_did text, parent_rkey text, child_did text, child_rkey text, created_at timestamp, PRIMARY KEY ((parent_did, parent_rkey), child_did, child_rkey));`); err != nil {
+		return fmt.Errorf("failed to create replies table: %w", err)
+	}
+
 	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.follows_by_actor (actor text, rkey text, target text, created_at timestamp, PRIMARY KEY (actor, target));`); err != nil {
 		return fmt.Errorf("failed to create follows by actor table: %w", err)
 	}
