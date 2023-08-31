@@ -79,7 +79,7 @@ func (s *PlaybackState) Finish(repo string, state string) {
 
 var postMetadata = table.Metadata{
 	Name:    "netsync.posts",
-	Columns: []string{"did", "rkey", "parent_did", "parent_rkey", "display_name", "content", "facets", "self_labels", "created_at"},
+	Columns: []string{"did", "rkey", "parent_did", "parent_rkey", "display_name", "content", "embed", "facets", "self_labels", "created_at"},
 	PartKey: []string{"did"},
 	SortKey: []string{"rkey"},
 }
@@ -94,6 +94,7 @@ type Post struct {
 	ParentRkey string
 
 	Content    string
+	Embed      string
 	Facets     string
 	SelfLabels []string
 
@@ -209,7 +210,7 @@ func (s *PlaybackState) SetupSchema() error {
 		return fmt.Errorf("failed to create keyspace: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.posts (did text, display_name text static, rkey text, parent_did text, parent_rkey text, content text, facets text, self_labels list<text>, created_at timestamp, PRIMARY KEY (did, rkey));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.posts (did text, display_name text static, rkey text, parent_did text, parent_rkey text, content text, embed text, facets text, self_labels list<text>, created_at timestamp, PRIMARY KEY (did, rkey));`); err != nil {
 		return fmt.Errorf("failed to create posts table: %w", err)
 	}
 
@@ -471,7 +472,13 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 				return nil
 			}
 
-			insertPost := postTable.InsertQuery(s.ses)
+			post := Post{
+				Did:         did,
+				Rkey:        rkey,
+				DisplayName: displayName,
+				Content:     rec.Text,
+				CreatedAt:   recCreatedAt,
+			}
 
 			facets := ""
 			if rec.Facets != nil && len(rec.Facets) > 0 {
@@ -493,6 +500,16 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 					return nil
 				}
 				facets = string(facetBytes)
+			}
+
+			embed := ""
+			if rec.Embed != nil {
+				embedBytes, err := json.Marshal(rec.Embed)
+				if err != nil {
+					log.Errorf("failed to marshal embed: %+v", err)
+					return nil
+				}
+				embed = string(embedBytes)
 			}
 
 			selfLabels := []string{}
@@ -517,13 +534,12 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 				}
 			}
 
-			post := Post{
-				Did:         did,
-				Rkey:        rkey,
-				DisplayName: displayName,
-				Content:     rec.Text,
-				Facets:      facets,
-				CreatedAt:   recCreatedAt,
+			if facets != "" {
+				post.Facets = facets
+			}
+
+			if embed != "" {
+				post.Embed = embed
 			}
 
 			if len(parentParts) > 0 {
@@ -535,6 +551,7 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 				post.SelfLabels = selfLabels
 			}
 
+			insertPost := postTable.InsertQuery(s.ses)
 			err = postBatch.BindStruct(insertPost, &post)
 			if err != nil {
 				log.Errorf("failed to bind post: %w", err)
