@@ -297,8 +297,9 @@ func Query(cctx *cli.Context) error {
 
 	// Resolve the replies as posts in parallel
 	var wg sync.WaitGroup
-	for _, replyRef := range replyRefs {
+	for i := range replyRefs {
 		wg.Add(1)
+		replyRef := replyRefs[i]
 		go func(replyRef *Reply) {
 			defer wg.Done()
 
@@ -320,32 +321,34 @@ func Query(cctx *cli.Context) error {
 
 	// Resolve the parent up to the root
 	parents := []Post{}
-	go func() {
-		wg.Add(1)
-		defer wg.Done()
-		parentDid := post.ParentDid
-		parentRkey := post.ParentRkey
-		for {
-			parent := Post{
-				Did:  parentDid,
-				Rkey: parentRkey,
-			}
-			err = postTable.GetQuery(session).BindStruct(&parent).ExecRelease()
-			if err != nil {
-				log.Errorf("failed to get parent: %w", err)
-				return
-			}
+	if post.ParentDid != "" && post.ParentRkey != "" {
+		go func() {
+			wg.Add(1)
+			defer wg.Done()
+			parentDid := post.ParentDid
+			parentRkey := post.ParentRkey
+			for {
+				parent := Post{
+					Did:  parentDid,
+					Rkey: parentRkey,
+				}
+				err = postTable.GetQuery(session).BindStruct(&parent).ExecRelease()
+				if err != nil {
+					log.Errorf("failed to get parent: %w", err)
+					return
+				}
 
-			parents = append(parents, parent)
+				parents = append(parents, parent)
 
-			if parent.ParentDid == "" {
-				break
+				if parent.ParentDid == "" {
+					break
+				}
+
+				parentDid = parent.ParentDid
+				parentRkey = parent.ParentRkey
 			}
-
-			parentDid = parent.ParentDid
-			parentRkey = parent.ParentRkey
-		}
-	}()
+		}()
+	}
 
 	wg.Wait()
 
