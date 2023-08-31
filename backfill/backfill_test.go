@@ -2,7 +2,6 @@ package backfill_test
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"sync"
 	"testing"
@@ -90,7 +89,7 @@ func TestBackfill(t *testing.T) {
 }
 
 func (ts *testState) handleCreate(ctx context.Context, repo string, path string, rec *typegen.CBORMarshaler, cid *cid.Cid) error {
-	slog.Info(fmt.Sprintf("got create: %s %s", repo, path))
+	slog.Info("got create", "repo", repo, "path", path)
 	ts.lk.Lock()
 	ts.creates++
 	ts.lk.Unlock()
@@ -98,7 +97,7 @@ func (ts *testState) handleCreate(ctx context.Context, repo string, path string,
 }
 
 func (ts *testState) handleUpdate(ctx context.Context, repo string, path string, rec *typegen.CBORMarshaler, cid *cid.Cid) error {
-	slog.Info(fmt.Sprintf("got update: %s %s", repo, path))
+	slog.Info("got update", "repo", repo, "path", path)
 	ts.lk.Lock()
 	ts.updates++
 	ts.lk.Unlock()
@@ -106,7 +105,7 @@ func (ts *testState) handleUpdate(ctx context.Context, repo string, path string,
 }
 
 func (ts *testState) handleDelete(ctx context.Context, repo string, path string) error {
-	slog.Info(fmt.Sprintf("got delete: %s %s", repo, path))
+	slog.Info("got delete", "repo", repo, "path", path)
 	ts.lk.Lock()
 	ts.deletes++
 	ts.lk.Unlock()
