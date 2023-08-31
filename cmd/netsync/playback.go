@@ -564,6 +564,15 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 			followByActorBatchSize = 0
 		}
 
+		if likeBatchSize >= maxBatchSize {
+			err = s.ses.ExecuteBatch(likeBatch)
+			if err != nil {
+				log.Errorf("failed to execute batch: %w", err)
+			}
+			likeBatch = s.ses.NewBatch(gocql.LoggedBatch)
+			likeBatchSize = 0
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -579,6 +588,13 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 
 	if followByActorBatchSize > 0 {
 		err = s.ses.ExecuteBatch(followByActorBatch)
+		if err != nil {
+			return "failed (batch)", fmt.Errorf("failed to execute batch: %w", err)
+		}
+	}
+
+	if likeBatchSize > 0 {
+		err = s.ses.ExecuteBatch(likeBatch)
 		if err != nil {
 			return "failed (batch)", fmt.Errorf("failed to execute batch: %w", err)
 		}
