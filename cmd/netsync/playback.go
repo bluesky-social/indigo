@@ -96,14 +96,15 @@ type Post struct {
 
 var followByActorMetadata = table.Metadata{
 	Name:    "netsync.follows_by_actor",
-	Columns: []string{"actor", "target", "created_at"},
+	Columns: []string{"actor", "rkey", "target", "created_at"},
 	PartKey: []string{"actor"},
-	SortKey: []string{"target"},
+	SortKey: []string{"rkey"},
 }
 var followByActorTable = table.New(followByActorMetadata)
 
 type FollowByActor struct {
 	Actor     string
+	Rkey      string
 	Target    string
 	CreatedAt time.Time
 }
@@ -124,14 +125,15 @@ type FollowByTarget struct {
 
 var blockByActorMetadata = table.Metadata{
 	Name:    "netsync.blocks_by_actor",
-	Columns: []string{"actor", "target", "created_at"},
+	Columns: []string{"actor", "rkey", "target", "created_at"},
 	PartKey: []string{"actor"},
-	SortKey: []string{"target"},
+	SortKey: []string{"rkey"},
 }
 var blockByActorTable = table.New(blockByActorMetadata)
 
 type BlockByActor struct {
 	Actor     string
+	Rkey      string
 	Target    string
 	CreatedAt time.Time
 }
@@ -189,7 +191,7 @@ func (s *PlaybackState) SetupSchema() error {
 		return fmt.Errorf("failed to create posts table: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.follows_by_actor (actor text, target text, created_at timestamp, PRIMARY KEY (actor, target));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.follows_by_actor (actor text, rkey text, target text, created_at timestamp, PRIMARY KEY (actor, target));`); err != nil {
 		return fmt.Errorf("failed to create follows by actor table: %w", err)
 	}
 
@@ -197,7 +199,7 @@ func (s *PlaybackState) SetupSchema() error {
 		return fmt.Errorf("failed to create follows by target table: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.blocks_by_actor (actor text, target text, created_at timestamp, PRIMARY KEY (actor, target));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.blocks_by_actor (actor text, rkey text, target text, created_at timestamp, PRIMARY KEY (actor, target));`); err != nil {
 		return fmt.Errorf("failed to create blocks by actor table: %w", err)
 	}
 
@@ -401,6 +403,9 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 	followByActorBatch := s.ses.NewBatch(gocql.LoggedBatch)
 	followByActorBatchSize := 0
 
+	blockByActorBatch := s.ses.NewBatch(gocql.LoggedBatch)
+	blockByActorBatchSize := 0
+
 	likeBatch := s.ses.NewBatch(gocql.LoggedBatch)
 	likeBatchSize := 0
 
@@ -518,6 +523,7 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 
 			err = followByActorBatch.BindStruct(insertFollowByActor, &FollowByActor{
 				Actor:     did,
+				Rkey:      rkey,
 				Target:    rec.Subject,
 				CreatedAt: recCreatedAt,
 			})
@@ -532,13 +538,44 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 				Target:    rec.Subject,
 				Actor:     did,
 				CreatedAt: recCreatedAt,
-			}).Exec()
+			}).ExecRelease()
 			if err != nil {
 				log.Errorf("failed to exec follow by target: %w", err)
 				return nil
 			}
 		case *bsky.GraphBlock:
 			log.Debugf("processing graph block: %s", rec.Subject)
+			recCreatedAt, err := dateparse.ParseAny(rec.CreatedAt)
+			if err != nil {
+				log.Errorf("failed to parse created at: %+v", err)
+				return nil
+			}
+
+			insertBlockByActor := blockByActorTable.InsertQuery(s.ses)
+			insertBlockByTarget := blockByTargetTable.InsertQuery(s.ses)
+
+			err = blockByActorBatch.BindStruct(insertBlockByActor, &BlockByActor{
+				Actor:     did,
+				Rkey:      rkey,
+				Target:    rec.Subject,
+				CreatedAt: recCreatedAt,
+			})
+			if err != nil {
+				log.Errorf("failed to bind block by actor: %w", err)
+				return nil
+			}
+			blockByActorBatchSize++
+
+			// Don't batch block by target because the partition key isn't consistent
+			err = insertBlockByTarget.BindStruct(&BlockByTarget{
+				Target:    rec.Subject,
+				Actor:     did,
+				CreatedAt: recCreatedAt,
+			}).ExecRelease()
+			if err != nil {
+				log.Errorf("failed to exec block by target: %w", err)
+				return nil
+			}
 		case *bsky.ActorProfile:
 			if rec.DisplayName != nil {
 				log.Debugf("processing actor profile: %s", *rec.DisplayName)
@@ -562,6 +599,15 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 			}
 			followByActorBatch = s.ses.NewBatch(gocql.LoggedBatch)
 			followByActorBatchSize = 0
+		}
+
+		if blockByActorBatchSize >= maxBatchSize {
+			err = s.ses.ExecuteBatch(blockByActorBatch)
+			if err != nil {
+				log.Errorf("failed to execute batch: %w", err)
+			}
+			blockByActorBatch = s.ses.NewBatch(gocql.LoggedBatch)
+			blockByActorBatchSize = 0
 		}
 
 		if likeBatchSize >= maxBatchSize {
@@ -588,6 +634,13 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 
 	if followByActorBatchSize > 0 {
 		err = s.ses.ExecuteBatch(followByActorBatch)
+		if err != nil {
+			return "failed (batch)", fmt.Errorf("failed to execute batch: %w", err)
+		}
+	}
+
+	if blockByActorBatchSize > 0 {
+		err = s.ses.ExecuteBatch(blockByActorBatch)
 		if err != nil {
 			return "failed (batch)", fmt.Errorf("failed to execute batch: %w", err)
 		}
