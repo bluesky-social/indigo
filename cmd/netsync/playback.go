@@ -277,7 +277,7 @@ func Query(cctx *cli.Context) error {
 		Did:  postParts[0],
 		Rkey: postParts[2],
 	}
-	err = postTable.GetQuery(session).BindStruct(&post).SelectRelease(&post)
+	err = postTable.GetQuery(session).BindStruct(&post).GetRelease(&post)
 	if err != nil {
 		return fmt.Errorf("failed to get post: %w", err)
 	}
@@ -308,7 +308,7 @@ func Query(cctx *cli.Context) error {
 				Rkey: replyRef.ChildRkey,
 			}
 
-			err = postTable.GetQuery(session).BindStruct(&reply).SelectRelease(&reply)
+			err = postTable.GetQuery(session).BindStruct(&reply).GetRelease(&reply)
 			if err != nil {
 				log.Errorf("failed to get reply: %w", err)
 				return
@@ -332,7 +332,7 @@ func Query(cctx *cli.Context) error {
 					Did:  parentDid,
 					Rkey: parentRkey,
 				}
-				err = postTable.GetQuery(session).BindStruct(&parent).SelectRelease(&parent)
+				err = postTable.GetQuery(session).BindStruct(&parent).GetRelease(&parent)
 				if err != nil {
 					log.Errorf("failed to get parent: %w", err)
 					return
