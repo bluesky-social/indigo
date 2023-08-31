@@ -126,6 +126,18 @@ func main() {
 				},
 			},
 		},
+		{
+			Name:   "query",
+			Usage:  "run a test query against scylla",
+			Action: Query,
+			Flags: []cli.Flag{
+				&cli.StringSliceFlag{
+					Name:    "scylla-nodes",
+					Usage:   "list of scylla nodes to connect to",
+					EnvVars: []string{"SCYLLA_NODES"},
+				},
+			},
+		},
 	}
 
 	app.Action = Netsync

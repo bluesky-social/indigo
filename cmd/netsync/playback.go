@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -241,6 +242,127 @@ func (s *PlaybackState) SetupSchema() error {
 	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.like_counts (did text, nsid text, rkey text, count counter, PRIMARY KEY ((did, nsid), rkey));`); err != nil {
 		return fmt.Errorf("failed to create like counts table: %w", err)
 	}
+
+	return nil
+}
+
+func Query(cctx *cli.Context) error {
+	ctx := cctx.Context
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	start := time.Now()
+
+	cluster := gocql.NewCluster(cctx.StringSlice("scylla-nodes")...)
+	session, err := gocqlx.WrapSession(cluster.CreateSession())
+	if err != nil {
+		return fmt.Errorf("failed to create scylla session: %w", err)
+	}
+
+	args := cctx.Args()
+	if args.Len() != 1 {
+		return fmt.Errorf("must provide a post URI")
+	}
+	postURI := args.First()
+
+	// at://did/app.bsky.feed.post/rkey
+	postURI = strings.TrimPrefix(postURI, "at://")
+	postParts := strings.Split(postURI, "/")
+	if len(postParts) != 3 {
+		return fmt.Errorf("invalid post URI: %s", postURI)
+	}
+
+	// Get the post
+	post := Post{
+		Did:  postParts[0],
+		Rkey: postParts[2],
+	}
+	err = postTable.GetQuery(session).BindStruct(&post).ExecRelease()
+	if err != nil {
+		return fmt.Errorf("failed to get post: %w", err)
+	}
+
+	// Get the replies
+	replyRefs := []*Reply{}
+	err = repliesTable.SelectQuery(session).BindStruct(&Reply{
+		ParentDid:  postParts[0],
+		ParentRkey: postParts[2],
+	}).SelectRelease(&replyRefs)
+	if err != nil {
+		return fmt.Errorf("failed to get replies: %w", err)
+	}
+
+	replies := []Post{}
+	lk := sync.Mutex{}
+
+	// Resolve the replies as posts in parallel
+	var wg sync.WaitGroup
+	for _, replyRef := range replyRefs {
+		wg.Add(1)
+		go func(replyRef *Reply) {
+			defer wg.Done()
+
+			reply := Post{
+				Did:  replyRef.ChildDid,
+				Rkey: replyRef.ChildRkey,
+			}
+
+			err = postTable.GetQuery(session).BindStruct(&reply).ExecRelease()
+			if err != nil {
+				log.Errorf("failed to get reply: %w", err)
+				return
+			}
+			lk.Lock()
+			replies = append(replies, reply)
+			lk.Unlock()
+		}(replyRef)
+	}
+
+	// Resolve the parent up to the root
+	parents := []Post{}
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+		parentDid := post.ParentDid
+		parentRkey := post.ParentRkey
+		for {
+			parent := Post{
+				Did:  parentDid,
+				Rkey: parentRkey,
+			}
+			err = postTable.GetQuery(session).BindStruct(&parent).ExecRelease()
+			if err != nil {
+				log.Errorf("failed to get parent: %w", err)
+				return
+			}
+
+			parents = append(parents, parent)
+
+			if parent.ParentDid == "" {
+				break
+			}
+
+			parentDid = parent.ParentDid
+			parentRkey = parent.ParentRkey
+		}
+	}()
+
+	wg.Wait()
+
+	// Print the thread
+	p := message.NewPrinter(language.English)
+	log.Infof("post: %s", post.Content)
+	log.Infof("replies: %d", len(replies))
+	for _, reply := range replies {
+		log.Infof("  %s", reply.Content)
+	}
+	slices.Reverse(parents)
+	log.Infof("parents: %d", len(parents))
+	for _, parent := range parents {
+		log.Infof("  %s", parent.Content)
+	}
+
+	log.Info(p.Sprintf("processed post with %d replies and resolved %d parents in %s", len(replies), len(parents), time.Since(start)))
 
 	return nil
 }
