@@ -106,7 +106,6 @@ func NewServer(db *gorm.DB, escli *es.Client, plcHost, pdsHost, bgsHost string) 
 		s.handleCreateOrUpdate,
 		s.handleCreateOrUpdate,
 		s.handleDelete,
-		log.Desugar().Sugar(),
 		opts,
 	)
 

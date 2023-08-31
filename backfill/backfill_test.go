@@ -2,6 +2,8 @@ package backfill_test
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
@@ -9,10 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/backfill"
 	"github.com/ipfs/go-cid"
 	typegen "github.com/whyrusleeping/cbor-gen"
-	"go.uber.org/zap"
 )
-
-var logger *zap.SugaredLogger
 
 type testState struct {
 	creates int
@@ -31,14 +30,6 @@ func TestBackfill(t *testing.T) {
 	}
 
 	mem := backfill.NewMemstore()
-
-	rawLog, err := zap.NewDevelopment()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	logger = rawLog.Sugar()
-
 	ts := &testState{}
 
 	opts := backfill.DefaultBackfillOptions()
@@ -50,11 +41,10 @@ func TestBackfill(t *testing.T) {
 		ts.handleCreate,
 		ts.handleUpdate,
 		ts.handleDelete,
-		logger,
 		opts,
 	)
 
-	logger.Info("starting backfiller")
+	slog.Info("starting backfiller")
 
 	go bf.Start()
 
@@ -96,11 +86,11 @@ func TestBackfill(t *testing.T) {
 
 	bf.Stop()
 
-	logger.Infof("shutting down")
+	slog.Info("shutting down")
 }
 
 func (ts *testState) handleCreate(ctx context.Context, repo string, path string, rec *typegen.CBORMarshaler, cid *cid.Cid) error {
-	logger.Infof("got create: %s %s", repo, path)
+	slog.Info(fmt.Sprintf("got create: %s %s", repo, path))
 	ts.lk.Lock()
 	ts.creates++
 	ts.lk.Unlock()
@@ -108,7 +98,7 @@ func (ts *testState) handleCreate(ctx context.Context, repo string, path string,
 }
 
 func (ts *testState) handleUpdate(ctx context.Context, repo string, path string, rec *typegen.CBORMarshaler, cid *cid.Cid) error {
-	logger.Infof("got update: %s %s", repo, path)
+	slog.Info(fmt.Sprintf("got update: %s %s", repo, path))
 	ts.lk.Lock()
 	ts.updates++
 	ts.lk.Unlock()
@@ -116,7 +106,7 @@ func (ts *testState) handleUpdate(ctx context.Context, repo string, path string,
 }
 
 func (ts *testState) handleDelete(ctx context.Context, repo string, path string) error {
-	logger.Infof("got delete: %s %s", repo, path)
+	slog.Info(fmt.Sprintf("got delete: %s %s", repo, path))
 	ts.lk.Lock()
 	ts.deletes++
 	ts.lk.Unlock()
