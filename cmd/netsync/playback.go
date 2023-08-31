@@ -328,6 +328,7 @@ func Query(cctx *cli.Context) error {
 			parentDid := post.ParentDid
 			parentRkey := post.ParentRkey
 			for {
+				log.Infof("getting parent: %s/%s", parentDid, parentRkey)
 				parent := Post{
 					Did:  parentDid,
 					Rkey: parentRkey,
