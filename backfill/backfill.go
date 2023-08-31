@@ -135,7 +135,7 @@ func NewBackfiller(
 func (b *Backfiller) Start() {
 	ctx := context.Background()
 
-	log := slog.With(slog.String("source", "backfiller"), slog.String("name", b.Name))
+	log := slog.With("source", "backfiller", "name", b.Name)
 	log.Info("starting backfill processor")
 
 	sem := make(chan struct{}, b.ParallelBackfills)
@@ -152,7 +152,7 @@ func (b *Backfiller) Start() {
 		// Get the next job
 		job, err := b.Store.GetNextEnqueuedJob(ctx)
 		if err != nil {
-			log.Error(fmt.Sprintf("failed to get next backfill: %+v", err))
+			log.Error("failed to get next enqueued job", "error", err)
 			time.Sleep(1 * time.Second)
 			continue
 		} else if job == nil {
@@ -163,7 +163,7 @@ func (b *Backfiller) Start() {
 		// Mark the backfill as "in progress"
 		err = job.SetState(ctx, StateInProgress)
 		if err != nil {
-			log.Error(fmt.Sprintf("failed to set backfill state: %+v", err))
+			log.Error("failed to set job state", "error", err)
 			continue
 		}
 
@@ -178,7 +178,7 @@ func (b *Backfiller) Start() {
 
 // Stop stops the backfill processor
 func (b *Backfiller) Stop() {
-	log := slog.With(slog.String("source", "backfiller"), slog.String("name", b.Name))
+	log := slog.With("source", "backfiller", "name", b.Name)
 	log.Info("stopping backfill processor")
 	stopped := make(chan struct{})
 	b.stop <- stopped
@@ -190,7 +190,7 @@ func (b *Backfiller) Stop() {
 func (b *Backfiller) FlushBuffer(ctx context.Context, job Job) int {
 	ctx, span := tracer.Start(ctx, "FlushBuffer")
 	defer span.End()
-	log := slog.With(slog.String("source", "backfiller_buffer_flush"), slog.String("repo", job.Repo()))
+	log := slog.With("source", "backfiller_buffer_flush", "repo", job.Repo())
 
 	processed := 0
 
@@ -203,17 +203,17 @@ func (b *Backfiller) FlushBuffer(ctx context.Context, job Job) int {
 		case repomgr.EvtKindCreateRecord:
 			err := b.HandleCreateRecord(ctx, repo, path, rec, cid)
 			if err != nil {
-				log.Error(fmt.Sprintf("failed to handle create record: %+v", err))
+				log.Error("failed to handle create record", "error", err)
 			}
 		case repomgr.EvtKindUpdateRecord:
 			err := b.HandleUpdateRecord(ctx, repo, path, rec, cid)
 			if err != nil {
-				log.Error(fmt.Sprintf("failed to handle update record: %+v", err))
+				log.Error("failed to handle update record", "error", err)
 			}
 		case repomgr.EvtKindDeleteRecord:
 			err := b.HandleDeleteRecord(ctx, repo, path)
 			if err != nil {
-				log.Error(fmt.Sprintf("failed to handle delete record: %+v", err))
+				log.Error("failed to handle delete record", "error", err)
 			}
 		}
 		backfillOpsBuffered.WithLabelValues(b.Name).Dec()
@@ -221,7 +221,7 @@ func (b *Backfiller) FlushBuffer(ctx context.Context, job Job) int {
 		return nil
 	})
 	if err != nil {
-		log.Error(fmt.Sprintf("failed to flush buffered ops: %+v", err))
+		log.Error("failed to flush buffered ops", "error", err)
 	}
 
 	return processed
@@ -246,7 +246,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 
 	repoDid := job.Repo()
 
-	log := slog.With(slog.String("source", "backfiller_backfill_repo"), slog.String("repo", repoDid))
+	log := slog.With("source", "backfiller_backfill_repo", "repo", repoDid)
 	log.Info(fmt.Sprintf("processing backfill for %s", repoDid))
 
 	var url = fmt.Sprintf("%s?did=%s", b.CheckoutPath, repoDid)
@@ -258,7 +258,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 	}
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		log.Error(fmt.Sprintf("Error creating request: %v", err))
+		log.Error("failed to create request", "error", err)
 		return
 	}
 
@@ -272,12 +272,12 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Error(fmt.Sprintf("Error sending request: %v", err))
+		log.Error("failed to send request", "error", err)
 		return
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Info(fmt.Sprintf("Error response: %v", resp.StatusCode))
+		log.Info("failed to get repo", "status", resp.StatusCode)
 		reason := "unknown error"
 		if resp.StatusCode == http.StatusBadRequest {
 			reason = "repo not found"
@@ -287,13 +287,13 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 		// Mark the job as "failed"
 		err := job.SetState(ctx, state)
 		if err != nil {
-			log.Error(fmt.Sprintf("failed to set job state: %+v", err))
+			log.Error("failed to set job state", "error", err)
 		}
 
 		// Clear buffered ops
 		err = job.ClearBufferedOps(ctx)
 		if err != nil {
-			log.Error(fmt.Sprintf("failed to clear buffered ops: %+v", err))
+			log.Error("failed to clear buffered ops", "error", err)
 		}
 		return
 	}
@@ -307,20 +307,20 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 
 	r, err := repo.ReadRepoFromCar(ctx, instrumentedReader)
 	if err != nil {
-		log.Error(fmt.Sprintf("Error reading repo: %v", err))
+		log.Error("failed to read repo from car", "error", err)
 
 		state := "failed (couldn't read repo CAR from response body)"
 
 		// Mark the job as "failed"
 		err := job.SetState(ctx, state)
 		if err != nil {
-			log.Error(fmt.Sprintf("failed to set job state: %+v", err))
+			log.Error("failed to set job state", "error", err)
 		}
 
 		// Clear buffered ops
 		err = job.ClearBufferedOps(ctx)
 		if err != nil {
-			log.Error(fmt.Sprintf("failed to clear buffered ops: %+v", err))
+			log.Error("failed to clear buffered ops", "error", err)
 		}
 		return
 	}
@@ -379,7 +379,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 		defer resultWG.Done()
 		for result := range recordResults {
 			if result.err != nil {
-				log.Error(fmt.Sprintf("Error processing record %s: %v", result.recordPath, result.err))
+				log.Error("Error processing record", "record", result.recordPath, "error", result.err)
 			}
 		}
 	}()
@@ -392,8 +392,8 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 	numProcessed := b.FlushBuffer(ctx, job)
 
 	log.Info("backfill complete",
-		slog.Int("buffered_records_processed", numProcessed),
-		slog.Int("records_backfilled", numRecords),
-		slog.Duration("duration", time.Since(start)),
+		"buffered_records_processed", numProcessed,
+		"records_backfilled", numRecords,
+		"duration", time.Since(start),
 	)
 }
