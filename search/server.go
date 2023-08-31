@@ -1,29 +1,20 @@
 package search
 
 import (
-	"bytes"
 	"context"
 	"encoding/base32"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 
 	api "github.com/bluesky-social/indigo/api"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/backfill"
 	"github.com/bluesky-social/indigo/util/version"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	"github.com/gorilla/websocket"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/ipfs/go-cid"
 	flatfs "github.com/ipfs/go-ds-flatfs"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log"
@@ -43,6 +34,9 @@ type Server struct {
 	bgsxrpc *xrpc.Client
 	plc     *api.PLCServer
 	echo    *echo.Echo
+
+	bfs *backfill.Gormstore
+	bf  *backfill.Backfiller
 
 	userCache *lru.Cache
 }
@@ -72,6 +66,7 @@ func NewServer(db *gorm.DB, escli *es.Client, plcHost, pdsHost, bgsHost string) 
 	db.AutoMigrate(&PostRef{})
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&LastSeq{})
+	db.AutoMigrate(&backfill.GormDBJob{})
 
 	// TODO: robust client
 	xc := &xrpc.Client{
@@ -102,193 +97,23 @@ func NewServer(db *gorm.DB, escli *es.Client, plcHost, pdsHost, bgsHost string) 
 		plc:       plc,
 		userCache: ucache,
 	}
-	return s, nil
-}
 
-func (s *Server) getLastCursor() (int64, error) {
-	var lastSeq LastSeq
-	if err := s.db.Find(&lastSeq).Error; err != nil {
-		return 0, err
-	}
-
-	if lastSeq.ID == 0 {
-		return 0, s.db.Create(&lastSeq).Error
-	}
-
-	return lastSeq.Seq, nil
-}
-
-func (s *Server) updateLastCursor(curs int64) error {
-	return s.db.Model(LastSeq{}).Where("id = 1").Update("seq", curs).Error
-}
-
-func (s *Server) RunIndexer(ctx context.Context) error {
-	cur, err := s.getLastCursor()
-	if err != nil {
-		return fmt.Errorf("get last cursor: %w", err)
-	}
-
-	d := websocket.DefaultDialer
-	con, _, err := d.Dial(fmt.Sprintf("%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", s.bgshost, cur), http.Header{})
-	if err != nil {
-		return fmt.Errorf("events dial failed: %w", err)
-	}
-
-	rsc := &events.RepoStreamCallbacks{
-		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
-			if evt.TooBig && evt.Prev != nil {
-				log.Errorf("skipping non-genesis too big events for now: %d", evt.Seq)
-				return nil
-			}
-
-			if evt.TooBig {
-				if err := s.processTooBigCommit(ctx, evt); err != nil {
-					log.Errorf("failed to process tooBig event: %s", err)
-					return nil
-				}
-
-				return nil
-			}
-
-			r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
-			if err != nil {
-				log.Errorf("reading repo from car (seq: %d, len: %d): %w", evt.Seq, len(evt.Blocks), err)
-				return nil
-			}
-
-			for _, op := range evt.Ops {
-				ek := repomgr.EventKind(op.Action)
-				switch ek {
-				case repomgr.EvtKindCreateRecord, repomgr.EvtKindUpdateRecord:
-					rc, rec, err := r.GetRecord(ctx, op.Path)
-					if err != nil {
-						e := fmt.Errorf("getting record %s (%s) within seq %d for %s: %w", op.Path, *op.Cid, evt.Seq, evt.Repo, err)
-						log.Error(e)
-						return nil
-					}
-
-					if lexutil.LexLink(rc) != *op.Cid {
-						log.Errorf("mismatch in record and op cid: %s != %s", rc, *op.Cid)
-						return nil
-					}
-
-					if err := s.handleOp(ctx, ek, evt.Seq, op.Path, evt.Repo, &rc, rec); err != nil {
-						log.Errorf("failed to handle op: %s", err)
-						return nil
-					}
-
-				case repomgr.EvtKindDeleteRecord:
-					if err := s.handleOp(ctx, ek, evt.Seq, op.Path, evt.Repo, nil, nil); err != nil {
-						log.Errorf("failed to handle delete: %s", err)
-						return nil
-					}
-				}
-			}
-
-			return nil
-
-		},
-		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-			if err := s.updateUserHandle(ctx, evt.Did, evt.Handle); err != nil {
-				log.Errorf("failed to update user handle: %s", err)
-			}
-			return nil
-		},
-	}
-
-	return events.HandleRepoStream(
-		ctx, con, autoscaling.NewScheduler(
-			autoscaling.DefaultAutoscaleSettings(),
-			s.bgshost,
-			rsc.EventHandler,
-		),
+	bfstore := backfill.NewGormstore(db)
+	opts := backfill.DefaultBackfillOptions()
+	bf := backfill.NewBackfiller(
+		"search",
+		bfstore,
+		s.handleCreateOrUpdate,
+		s.handleCreateOrUpdate,
+		s.handleDelete,
+		log.Desugar().Sugar(),
+		opts,
 	)
-}
 
-func (s *Server) handleOp(ctx context.Context, op repomgr.EventKind, seq int64, path string, did string, rcid *cid.Cid, rec any) error {
-	if op == repomgr.EvtKindCreateRecord || op == repomgr.EvtKindUpdateRecord {
+	s.bfs = bfstore
+	s.bf = bf
 
-		log.Infof("handling event(%d): %s - %s", seq, did, path)
-		u, err := s.getOrCreateUser(ctx, did)
-		if err != nil {
-			return fmt.Errorf("checking user: %w", err)
-		}
-		switch rec := rec.(type) {
-		case *bsky.FeedPost:
-			if err := s.indexPost(ctx, u, rec, path, *rcid); err != nil {
-				return fmt.Errorf("indexing post: %w", err)
-			}
-		case *bsky.ActorProfile:
-			if err := s.indexProfile(ctx, u, rec); err != nil {
-				return fmt.Errorf("indexing profile: %w", err)
-			}
-		default:
-		}
-
-	} else if op == repomgr.EvtKindDeleteRecord {
-		u, err := s.getOrCreateUser(ctx, did)
-		if err != nil {
-			return err
-		}
-
-		switch {
-		// TODO: handle profile deletes, its an edge case, but worth doing still
-		case strings.Contains(path, "app.bsky.feed.post"):
-			if err := s.deletePost(ctx, u, path); err != nil {
-				return err
-			}
-		}
-
-	}
-
-	if seq%50 == 0 {
-		if err := s.updateLastCursor(seq); err != nil {
-			log.Error("Failed to update cursor: ", err)
-		}
-	}
-
-	return nil
-}
-
-func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
-	repodata, err := comatproto.SyncGetRepo(ctx, s.bgsxrpc, evt.Repo, "", evt.Commit.String())
-	if err != nil {
-		return err
-	}
-
-	r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(repodata))
-	if err != nil {
-		return err
-	}
-
-	u, err := s.getOrCreateUser(ctx, evt.Repo)
-	if err != nil {
-		return err
-	}
-
-	return r.ForEach(ctx, "", func(k string, v cid.Cid) error {
-		if strings.HasPrefix(k, "app.bsky.feed.post") || strings.HasPrefix(k, "app.bsky.actor.profile") {
-			rcid, rec, err := r.GetRecord(ctx, k)
-			if err != nil {
-				log.Errorf("failed to get record from repo checkout: %s", err)
-				return nil
-			}
-
-			switch rec := rec.(type) {
-			case *bsky.FeedPost:
-				if err := s.indexPost(ctx, u, rec, k, rcid); err != nil {
-					return fmt.Errorf("indexing post: %w", err)
-				}
-			case *bsky.ActorProfile:
-				if err := s.indexProfile(ctx, u, rec); err != nil {
-					return fmt.Errorf("indexing profile: %w", err)
-				}
-			default:
-			}
-
-		}
-		return nil
-	})
+	return s, nil
 }
 
 func (s *Server) SearchPosts(ctx context.Context, srch string, offset, size int) ([]PostSearchResult, error) {
