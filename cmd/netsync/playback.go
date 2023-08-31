@@ -422,6 +422,12 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 	}
 
 	err = r.ForEach(ctx, "", func(path string, _ cid.Cid) error {
+		select {
+		case <-s.exit:
+			return fmt.Errorf("exiting")
+		default:
+		}
+
 		_, rec, err := r.GetRecord(ctx, path)
 		if err != nil {
 			return fmt.Errorf("failed to get record: %w", err)
