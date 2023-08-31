@@ -322,13 +322,12 @@ func Query(cctx *cli.Context) error {
 	// Resolve the parent up to the root
 	parents := []Post{}
 	if post.ParentDid != "" && post.ParentRkey != "" {
+		wg.Add(1)
 		go func() {
-			wg.Add(1)
 			defer wg.Done()
 			parentDid := post.ParentDid
 			parentRkey := post.ParentRkey
 			for {
-				log.Infof("getting parent: %s/%s", parentDid, parentRkey)
 				parent := Post{
 					Did:  parentDid,
 					Rkey: parentRkey,
