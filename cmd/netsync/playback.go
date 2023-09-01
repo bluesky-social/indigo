@@ -80,15 +80,14 @@ func (s *PlaybackState) Finish(repo string, state string) {
 
 var postMetadata = table.Metadata{
 	Name:    "netsync.posts",
-	Columns: []string{"did", "rkey", "parent_did", "parent_rkey", "display_name", "content", "embed", "facets", "self_labels", "created_at"},
+	Columns: []string{"did", "rkey", "parent_did", "parent_rkey", "content", "embed", "facets", "self_labels", "created_at"},
 	PartKey: []string{"did", "rkey"},
 }
 var postTable = table.New(postMetadata)
 
 type Post struct {
-	Did         string
-	DisplayName string
-	Rkey        string
+	Did  string
+	Rkey string
 
 	ParentDid  string
 	ParentRkey string
@@ -255,7 +254,7 @@ func (s *PlaybackState) SetupSchema() error {
 		return fmt.Errorf("failed to create keyspace: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.posts (did text, display_name text static, rkey text, parent_did text, parent_rkey text, content text, embed text, facets text, self_labels list<text>, created_at timestamp, PRIMARY KEY ((did, rkey)));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.posts (did text, rkey text, parent_did text, parent_rkey text, content text, embed text, facets text, self_labels list<text>, created_at timestamp, PRIMARY KEY ((did, rkey)));`); err != nil {
 		return fmt.Errorf("failed to create posts table: %w", err)
 	}
 
@@ -668,18 +667,6 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 	repostBatch := s.ses.NewBatch(gocql.LoggedBatch)
 	repostBatchSize := 0
 
-	displayName := "unknown"
-
-	_, rec, err := r.GetRecord(ctx, "app.bsky.actor.profile/self")
-	if err == nil {
-		switch rec := rec.(type) {
-		case *bsky.ActorProfile:
-			if rec.DisplayName != nil {
-				displayName = *rec.DisplayName
-			}
-		}
-	}
-
 	err = r.ForEach(ctx, "", func(path string, _ cid.Cid) error {
 		select {
 		case <-s.exit:
@@ -705,11 +692,10 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 			}
 
 			post := Post{
-				Did:         did,
-				Rkey:        rkey,
-				DisplayName: displayName,
-				Content:     rec.Text,
-				CreatedAt:   recCreatedAt,
+				Did:       did,
+				Rkey:      rkey,
+				Content:   rec.Text,
+				CreatedAt: recCreatedAt,
 			}
 
 			facets := ""
