@@ -81,8 +81,7 @@ func (s *PlaybackState) Finish(repo string, state string) {
 var postMetadata = table.Metadata{
 	Name:    "netsync.posts",
 	Columns: []string{"did", "rkey", "parent_did", "parent_rkey", "display_name", "content", "embed", "facets", "self_labels", "created_at"},
-	PartKey: []string{"did"},
-	SortKey: []string{"rkey"},
+	PartKey: []string{"did", "rkey"},
 }
 var postTable = table.New(postMetadata)
 
@@ -99,6 +98,21 @@ type Post struct {
 	Facets     string
 	SelfLabels []string
 
+	CreatedAt time.Time
+}
+
+var postWindowMetadata = table.Metadata{
+	Name:    "netsync.post_windows",
+	Columns: []string{"did", "window", "rkey", "created_at"},
+	PartKey: []string{"did", "window"},
+	SortKey: []string{"created_at"},
+}
+var postWindowTable = table.New(postWindowMetadata)
+
+type PostWindow struct {
+	Did       string
+	Window    string
+	Rkey      string
 	CreatedAt time.Time
 }
 
@@ -241,8 +255,12 @@ func (s *PlaybackState) SetupSchema() error {
 		return fmt.Errorf("failed to create keyspace: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.posts (did text, display_name text static, rkey text, parent_did text, parent_rkey text, content text, embed text, facets text, self_labels list<text>, created_at timestamp, PRIMARY KEY (did, rkey));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.posts (did text, display_name text static, rkey text, parent_did text, parent_rkey text, content text, embed text, facets text, self_labels list<text>, created_at timestamp, PRIMARY KEY ((did, rkey)));`); err != nil {
 		return fmt.Errorf("failed to create posts table: %w", err)
+	}
+
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.post_windows (did text, window text, rkey text, created_at timestamp, PRIMARY KEY ((did, window), created_at));`); err != nil {
+		return fmt.Errorf("failed to create post windows table: %w", err)
 	}
 
 	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.replies (parent_did text, parent_rkey text, child_did text, child_rkey text, created_at timestamp, PRIMARY KEY ((parent_did, parent_rkey), child_did, child_rkey));`); err != nil {
@@ -778,6 +796,20 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 				return nil
 			}
 			postBatchSize++
+
+			// Insert into post windows using the day as the window
+			window := recCreatedAt.Format("2006-01-02")
+			insertPostWindow := postWindowTable.InsertQuery(s.ses)
+			err = insertPostWindow.BindStruct(&PostWindow{
+				Did:       did,
+				Window:    window,
+				Rkey:      rkey,
+				CreatedAt: recCreatedAt,
+			}).ExecRelease()
+			if err != nil {
+				log.Errorf("failed to exec post window: %w", err)
+				return nil
+			}
 
 			if len(parentParts) > 0 {
 				insertReply := repliesTable.InsertQuery(s.ses)
