@@ -218,6 +218,7 @@ var searchPostCmd = &cli.Command{
 		}
 		res, err := search.DoSearchPosts(
 			context.Background(),
+			identity.DefaultDirectory(), // TODO: parse PLC arg
 			escli,
 			cctx.String("es-post-index"),
 			strings.Join(cctx.Args().Slice(), " "),
@@ -259,6 +260,7 @@ var searchProfileCmd = &cli.Command{
 		} else {
 			res, err := search.DoSearchProfiles(
 				context.Background(),
+				identity.DefaultDirectory(), // TODO: parse PLC arg
 				escli,
 				cctx.String("es-profile-index"),
 				strings.Join(cctx.Args().Slice(), " "),

@@ -296,7 +296,7 @@ func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSu
 }
 
 func (s *Server) SearchPosts(ctx context.Context, srch string, offset, size int) ([]PostSearchResult, error) {
-	resp, err := DoSearchPosts(ctx, s.escli, s.postIndex, srch, offset, size)
+	resp, err := DoSearchPosts(ctx, s.dir, s.escli, s.postIndex, srch, offset, size)
 	if err != nil {
 		return nil, err
 	}
@@ -408,7 +408,7 @@ func (s *Server) SearchProfiles(ctx context.Context, srch string, typeahead bool
 	if typeahead {
 		resp, err = DoSearchProfilesTypeahead(ctx, s.escli, s.profileIndex, srch)
 	} else {
-		resp, err = DoSearchProfiles(ctx, s.escli, s.profileIndex, srch, offset, size)
+		resp, err = DoSearchProfiles(ctx, s.dir, s.escli, s.profileIndex, srch, offset, size)
 	}
 	if err != nil {
 		return nil, err
