@@ -142,7 +142,7 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, env *events.
 			u.ID = subj.Uid
 		}
 
-		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, (*cid.Cid)(evt.Prev), evt.Blocks, evt.Ops)
+		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.Since, evt.Rev, evt.Blocks, evt.Ops)
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
@@ -338,7 +338,7 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 	}
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
-		fmt.Printf("HANDLER ERROR: (%s) %s\n", ctx.Path(), err)
+		fmt.Printf("PDS HANDLER ERROR: (%s) %s\n", ctx.Path(), err)
 
 		// TODO: need to properly figure out where http error codes for error
 		// types get decided. This spot is reasonable, but maybe a bit weird.

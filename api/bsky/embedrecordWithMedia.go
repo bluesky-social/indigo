@@ -19,7 +19,7 @@ func init() {
 } // EmbedRecordWithMedia is a "main" in the app.bsky.embed.recordWithMedia schema.
 // RECORDTYPE: EmbedRecordWithMedia
 type EmbedRecordWithMedia struct {
-	LexiconTypeID string                      `json:"$type,const=app.bsky.embed.recordWithMedia#main" cborgen:"$type,const=app.bsky.embed.recordWithMedia#main"`
+	LexiconTypeID string                      `json:"$type,const=app.bsky.embed.recordWithMedia" cborgen:"$type,const=app.bsky.embed.recordWithMedia"`
 	Media         *EmbedRecordWithMedia_Media `json:"media" cborgen:"media"`
 	Record        *EmbedRecord                `json:"record" cborgen:"record"`
 }

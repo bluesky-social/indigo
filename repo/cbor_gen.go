@@ -68,7 +68,7 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("rev"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("rev")); err != nil {
+		if _, err := cw.WriteString(string("rev")); err != nil {
 			return err
 		}
 
@@ -79,7 +79,7 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Rev))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string(t.Rev)); err != nil {
+		if _, err := cw.WriteString(string(t.Rev)); err != nil {
 			return err
 		}
 	}
@@ -373,7 +373,7 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("rev"))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string("rev")); err != nil {
+		if _, err := cw.WriteString(string("rev")); err != nil {
 			return err
 		}
 
@@ -384,7 +384,7 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Rev))); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, string(t.Rev)); err != nil {
+		if _, err := cw.WriteString(string(t.Rev)); err != nil {
 			return err
 		}
 	}

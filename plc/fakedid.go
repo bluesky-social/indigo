@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 
 	"github.com/whyrusleeping/go-did"
 	"gorm.io/gorm"
@@ -32,6 +33,8 @@ func (fd *FakeDid) GetDocument(ctx context.Context, udid string) (*did.Document,
 	if err := fd.db.First(&rec, "did = ?", udid).Error; err != nil {
 		return nil, err
 	}
+
+	fmt.Println("GET DOCUMENT: ", udid, rec.Handle, rec.Service)
 
 	d, err := did.ParseDID(rec.Did)
 	if err != nil {

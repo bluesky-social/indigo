@@ -74,6 +74,7 @@ type CarShard struct {
 	Path      string
 	Usr       models.Uid `gorm:"index:idx_car_shards_usr;index:idx_car_shards_usr_seq,priority:1"`
 	Rebase    bool
+	Rev       string
 }
 
 type blockRef struct {
@@ -243,6 +244,7 @@ type DeltaSession struct {
 	rmcids   map[cid.Cid]bool
 	base     blockstore.Blockstore
 	user     models.Uid
+	baseCid  cid.Cid
 	seq      int
 	readonly bool
 	cs       *CarStore
@@ -292,9 +294,7 @@ func (cs *CarStore) getLastShard(ctx context.Context, user models.Uid) (*CarShar
 
 var ErrRepoBaseMismatch = fmt.Errorf("attempted a delta session on top of the wrong previous head")
 
-var ErrRepoFork = fmt.Errorf("repo fork detected")
-
-func (cs *CarStore) NewDeltaSession(ctx context.Context, user models.Uid, prev *cid.Cid) (*DeltaSession, error) {
+func (cs *CarStore) NewDeltaSession(ctx context.Context, user models.Uid, since *string) (*DeltaSession, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "NewSession")
 	defer span.End()
 
@@ -305,19 +305,8 @@ func (cs *CarStore) NewDeltaSession(ctx context.Context, user models.Uid, prev *
 		return nil, err
 	}
 
-	if prev != nil {
-		if lastShard.Root.CID != *prev {
-			fork, err := cs.checkFork(ctx, user, *prev)
-			if err != nil {
-				return nil, fmt.Errorf("failed to check carstore base mismatch for fork condition: %w", err)
-			}
-
-			if fork {
-				return nil, fmt.Errorf("fork at %s: %w", prev.String(), ErrRepoFork)
-			}
-
-			return nil, fmt.Errorf("mismatch: %s != %s: %w", lastShard.Root.CID, prev.String(), ErrRepoBaseMismatch)
-		}
+	if since != nil && *since != lastShard.Rev {
+		return nil, fmt.Errorf("revision mismatch: %s != %s: %w", *since, lastShard.Rev, ErrRepoBaseMismatch)
 	}
 
 	return &DeltaSession{
@@ -329,9 +318,10 @@ func (cs *CarStore) NewDeltaSession(ctx context.Context, user models.Uid, prev *
 			prefetch: true,
 			cache:    make(map[cid.Cid]blockformat.Block),
 		},
-		user: user,
-		cs:   cs,
-		seq:  lastShard.Seq + 1,
+		user:    user,
+		baseCid: lastShard.Root.CID,
+		cs:      cs,
+		seq:     lastShard.Seq + 1,
 	}, nil
 }
 
@@ -349,38 +339,31 @@ func (cs *CarStore) ReadOnlySession(user models.Uid) (*DeltaSession, error) {
 	}, nil
 }
 
-func (cs *CarStore) ReadUserCar(ctx context.Context, user models.Uid, earlyCid, lateCid cid.Cid, incremental bool, w io.Writer) error {
+func (cs *CarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev string, incremental bool, w io.Writer) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ReadUserCar")
 	defer span.End()
 
-	var lateSeq, earlySeq int
-
-	if earlyCid.Defined() {
+	var earlySeq int
+	if sinceRev != "" {
 		var untilShard CarShard
-		if err := cs.meta.First(&untilShard, "root = ? AND usr = ?", models.DbCID{earlyCid}, user).Error; err != nil {
+		if err := cs.meta.Where("rev >= ? AND usr = ?", sinceRev, user).Order("rev").First(&untilShard).Error; err != nil {
 			return fmt.Errorf("finding early shard: %w", err)
 		}
 		earlySeq = untilShard.Seq
 	}
 
-	if lateCid.Defined() {
-		var fromShard CarShard
-		if err := cs.meta.First(&fromShard, "root = ? AND usr = ?", models.DbCID{lateCid}, user).Error; err != nil {
-			return fmt.Errorf("finding late shard: %w", err)
+	q := cs.meta.Order("seq desc").Where("usr = ? AND seq >= ?", user, earlySeq)
+	/*
+		if lateCid.Defined() {
+			q = q.Where("seq <= ?", lateSeq)
 		}
-		lateSeq = fromShard.Seq
-	}
-
-	q := cs.meta.Order("seq desc").Where("usr = ? AND seq > ?", user, earlySeq)
-	if lateCid.Defined() {
-		q = q.Where("seq <= ?", lateSeq)
-	}
+	*/
 	var shards []CarShard
-	if err := q.Find(&shards).Error; err != nil {
+	if err := q.Debug().Find(&shards).Error; err != nil {
 		return err
 	}
 
-	if !incremental && earlyCid.Defined() {
+	if !incremental && earlySeq > 0 {
 		// have to do it the ugly way
 		return fmt.Errorf("nyi")
 	}
@@ -462,6 +445,10 @@ func (cs *CarStore) writeBlockFromShard(ctx context.Context, sh *CarShard, w io.
 }
 
 var _ blockstore.Blockstore = (*DeltaSession)(nil)
+
+func (ds *DeltaSession) BaseCid() cid.Cid {
+	return ds.baseCid
+}
 
 func (ds *DeltaSession) Put(ctx context.Context, b blockformat.Block) error {
 	if ds.readonly {
@@ -563,8 +550,8 @@ func (cs *CarStore) deleteShardFile(ctx context.Context, sh *CarShard) error {
 
 // CloseWithRoot writes all new blocks in a car file to the writer with the
 // given cid as the 'root'
-func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid) ([]byte, error) {
-	return ds.closeWithRoot(ctx, root, false)
+func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid, rev string) ([]byte, error) {
+	return ds.closeWithRoot(ctx, root, rev, false)
 }
 
 func WriteCarHeader(w io.Writer, root cid.Cid) (int64, error) {
@@ -585,7 +572,7 @@ func WriteCarHeader(w io.Writer, root cid.Cid) (int64, error) {
 	return hnw, nil
 }
 
-func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase bool) ([]byte, error) {
+func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rev string, rebase bool) ([]byte, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "CloseWithRoot")
 	defer span.End()
 
@@ -640,6 +627,7 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rebase 
 		Seq:       ds.seq,
 		Path:      path,
 		Usr:       ds.user,
+		Rev:       rev,
 	}
 
 	if err := ds.putShard(ctx, &shard, brefs); err != nil {
@@ -733,8 +721,8 @@ func createInBatches(ctx context.Context, tx *gorm.DB, data []map[string]any, ba
 	return nil
 }
 
-func (ds *DeltaSession) CloseAsRebase(ctx context.Context, root cid.Cid) error {
-	_, err := ds.closeWithRoot(ctx, root, true)
+func (ds *DeltaSession) CloseAsRebase(ctx context.Context, root cid.Cid, rev string) error {
+	_, err := ds.closeWithRoot(ctx, root, rev, true)
 	if err != nil {
 		return err
 	}
@@ -855,7 +843,7 @@ func BlockDiff(ctx context.Context, bs blockstore.Blockstore, oldroot cid.Cid, n
 	return dropset, nil
 }
 
-func (cs *CarStore) ImportSlice(ctx context.Context, uid models.Uid, prev *cid.Cid, carslice []byte) (cid.Cid, *DeltaSession, error) {
+func (cs *CarStore) ImportSlice(ctx context.Context, uid models.Uid, since *string, carslice []byte) (cid.Cid, *DeltaSession, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ImportSlice")
 	defer span.End()
 
@@ -868,9 +856,9 @@ func (cs *CarStore) ImportSlice(ctx context.Context, uid models.Uid, prev *cid.C
 		return cid.Undef, nil, fmt.Errorf("invalid car file, header must have a single root (has %d)", len(carr.Header.Roots))
 	}
 
-	ds, err := cs.NewDeltaSession(ctx, uid, prev)
+	ds, err := cs.NewDeltaSession(ctx, uid, since)
 	if err != nil {
-		return cid.Undef, nil, err
+		return cid.Undef, nil, fmt.Errorf("new delta session failed: %w", err)
 	}
 
 	var cids []cid.Cid
@@ -890,14 +878,9 @@ func (cs *CarStore) ImportSlice(ctx context.Context, uid models.Uid, prev *cid.C
 		}
 	}
 
-	base := cid.Undef
-	if prev != nil {
-		base = *prev
-	}
-
-	rmcids, err := BlockDiff(ctx, ds, base, cids)
+	rmcids, err := BlockDiff(ctx, ds, ds.baseCid, cids)
 	if err != nil {
-		return cid.Undef, nil, err
+		return cid.Undef, nil, fmt.Errorf("block diff failed (base=%s): %w", ds.baseCid, err)
 	}
 
 	ds.rmcids = rmcids
@@ -915,6 +898,18 @@ func (cs *CarStore) GetUserRepoHead(ctx context.Context, user models.Uid) (cid.C
 	}
 
 	return lastShard.Root.CID, nil
+}
+
+func (cs *CarStore) GetUserRepoRev(ctx context.Context, user models.Uid) (string, error) {
+	lastShard, err := cs.getLastShard(ctx, user)
+	if err != nil {
+		return "", err
+	}
+	if lastShard.ID == 0 {
+		return "", nil
+	}
+
+	return lastShard.Rev, nil
 }
 
 type UserStat struct {
