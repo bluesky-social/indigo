@@ -652,9 +652,6 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 
 	maxBatchSize := 1000
 
-	postBatch := s.ses.NewBatch(gocql.LoggedBatch)
-	postBatchSize := 0
-
 	followByActorBatch := s.ses.NewBatch(gocql.LoggedBatch)
 	followByActorBatchSize := 0
 
@@ -776,12 +773,11 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 			}
 
 			insertPost := postTable.InsertQuery(s.ses)
-			err = postBatch.BindStruct(insertPost, &post)
+			err = insertPost.BindStruct(&post).ExecRelease()
 			if err != nil {
 				log.Errorf("failed to bind post: %w", err)
 				return nil
 			}
-			postBatchSize++
 
 			// Insert into post windows using the day as the window
 			window := recCreatedAt.Format("2006-01-02")
@@ -970,16 +966,6 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 			}
 		}
 
-		if postBatchSize >= maxBatchSize {
-			err = s.ses.ExecuteBatch(postBatch)
-			if err != nil {
-				log.Errorf("failed to execute batch: %w", err)
-				return nil
-			}
-			postBatch = s.ses.NewBatch(gocql.LoggedBatch)
-			postBatchSize = 0
-		}
-
 		if followByActorBatchSize >= maxBatchSize {
 			err = s.ses.ExecuteBatch(followByActorBatch)
 			if err != nil {
@@ -1020,13 +1006,6 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 	})
 	if err != nil {
 		return "failed (repo foreach)", fmt.Errorf("failed to process repo: %w", err)
-	}
-
-	if postBatchSize > 0 {
-		err = s.ses.ExecuteBatch(postBatch)
-		if err != nil {
-			return "failed (batch)", fmt.Errorf("failed to execute batch: %w", err)
-		}
 	}
 
 	if followByActorBatchSize > 0 {
