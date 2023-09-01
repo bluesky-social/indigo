@@ -20,6 +20,7 @@ func (s *Server) RegisterHandlersAppBsky(e *echo.Echo) error {
 	e.GET("/xrpc/app.bsky.actor.searchActorsTypeahead", s.HandleAppBskyActorSearchActorsTypeahead)
 	e.GET("/xrpc/app.bsky.feed.describeFeedGenerator", s.HandleAppBskyFeedDescribeFeedGenerator)
 	e.GET("/xrpc/app.bsky.feed.getActorFeeds", s.HandleAppBskyFeedGetActorFeeds)
+	e.GET("/xrpc/app.bsky.feed.getActorLikes", s.HandleAppBskyFeedGetActorLikes)
 	e.GET("/xrpc/app.bsky.feed.getAuthorFeed", s.HandleAppBskyFeedGetAuthorFeed)
 	e.GET("/xrpc/app.bsky.feed.getFeed", s.HandleAppBskyFeedGetFeed)
 	e.GET("/xrpc/app.bsky.feed.getFeedGenerator", s.HandleAppBskyFeedGetFeedGenerator)
@@ -43,6 +44,7 @@ func (s *Server) RegisterHandlersAppBsky(e *echo.Echo) error {
 	e.POST("/xrpc/app.bsky.graph.unmuteActorList", s.HandleAppBskyGraphUnmuteActorList)
 	e.GET("/xrpc/app.bsky.notification.getUnreadCount", s.HandleAppBskyNotificationGetUnreadCount)
 	e.GET("/xrpc/app.bsky.notification.listNotifications", s.HandleAppBskyNotificationListNotifications)
+	e.POST("/xrpc/app.bsky.notification.registerPush", s.HandleAppBskyNotificationRegisterPush)
 	e.POST("/xrpc/app.bsky.notification.updateSeen", s.HandleAppBskyNotificationUpdateSeen)
 	e.POST("/xrpc/app.bsky.unspecced.applyLabels", s.HandleAppBskyUnspeccedApplyLabels)
 	e.GET("/xrpc/app.bsky.unspecced.getPopular", s.HandleAppBskyUnspeccedGetPopular)
@@ -219,6 +221,32 @@ func (s *Server) HandleAppBskyFeedGetActorFeeds(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleAppBskyFeedGetActorFeeds(ctx context.Context,actor string,cursor string,limit int) (*appbskytypes.FeedGetActorFeeds_Output, error)
 	out, handleErr = s.handleAppBskyFeedGetActorFeeds(ctx, actor, cursor, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleAppBskyFeedGetActorLikes(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyFeedGetActorLikes")
+	defer span.End()
+	actor := c.QueryParam("actor")
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	var out *appbskytypes.FeedGetActorLikes_Output
+	var handleErr error
+	// func (s *Server) handleAppBskyFeedGetActorLikes(ctx context.Context,actor string,cursor string,limit int) (*appbskytypes.FeedGetActorLikes_Output, error)
+	out, handleErr = s.handleAppBskyFeedGetActorLikes(ctx, actor, cursor, limit)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -751,6 +779,23 @@ func (s *Server) HandleAppBskyNotificationListNotifications(c echo.Context) erro
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandleAppBskyNotificationRegisterPush(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyNotificationRegisterPush")
+	defer span.End()
+
+	var body appbskytypes.NotificationRegisterPush_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleAppBskyNotificationRegisterPush(ctx context.Context,body *appbskytypes.NotificationRegisterPush_Input) error
+	handleErr = s.handleAppBskyNotificationRegisterPush(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
 func (s *Server) HandleAppBskyNotificationUpdateSeen(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyNotificationUpdateSeen")
 	defer span.End()
@@ -883,7 +928,6 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.GET("/xrpc/com.atproto.admin.getModerationReports", s.HandleComAtprotoAdminGetModerationReports)
 	e.GET("/xrpc/com.atproto.admin.getRecord", s.HandleComAtprotoAdminGetRecord)
 	e.GET("/xrpc/com.atproto.admin.getRepo", s.HandleComAtprotoAdminGetRepo)
-	e.POST("/xrpc/com.atproto.admin.rebaseRepo", s.HandleComAtprotoAdminRebaseRepo)
 	e.POST("/xrpc/com.atproto.admin.resolveModerationReports", s.HandleComAtprotoAdminResolveModerationReports)
 	e.POST("/xrpc/com.atproto.admin.reverseModerationAction", s.HandleComAtprotoAdminReverseModerationAction)
 	e.GET("/xrpc/com.atproto.admin.searchRepos", s.HandleComAtprotoAdminSearchRepos)
@@ -902,7 +946,6 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.GET("/xrpc/com.atproto.repo.getRecord", s.HandleComAtprotoRepoGetRecord)
 	e.GET("/xrpc/com.atproto.repo.listRecords", s.HandleComAtprotoRepoListRecords)
 	e.POST("/xrpc/com.atproto.repo.putRecord", s.HandleComAtprotoRepoPutRecord)
-	e.POST("/xrpc/com.atproto.repo.rebaseRepo", s.HandleComAtprotoRepoRebaseRepo)
 	e.POST("/xrpc/com.atproto.repo.uploadBlob", s.HandleComAtprotoRepoUploadBlob)
 	e.POST("/xrpc/com.atproto.server.createAccount", s.HandleComAtprotoServerCreateAccount)
 	e.POST("/xrpc/com.atproto.server.createAppPassword", s.HandleComAtprotoServerCreateAppPassword)
@@ -923,14 +966,15 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.GET("/xrpc/com.atproto.sync.getBlob", s.HandleComAtprotoSyncGetBlob)
 	e.GET("/xrpc/com.atproto.sync.getBlocks", s.HandleComAtprotoSyncGetBlocks)
 	e.GET("/xrpc/com.atproto.sync.getCheckout", s.HandleComAtprotoSyncGetCheckout)
-	e.GET("/xrpc/com.atproto.sync.getCommitPath", s.HandleComAtprotoSyncGetCommitPath)
 	e.GET("/xrpc/com.atproto.sync.getHead", s.HandleComAtprotoSyncGetHead)
+	e.GET("/xrpc/com.atproto.sync.getLatestCommit", s.HandleComAtprotoSyncGetLatestCommit)
 	e.GET("/xrpc/com.atproto.sync.getRecord", s.HandleComAtprotoSyncGetRecord)
 	e.GET("/xrpc/com.atproto.sync.getRepo", s.HandleComAtprotoSyncGetRepo)
 	e.GET("/xrpc/com.atproto.sync.listBlobs", s.HandleComAtprotoSyncListBlobs)
 	e.GET("/xrpc/com.atproto.sync.listRepos", s.HandleComAtprotoSyncListRepos)
 	e.POST("/xrpc/com.atproto.sync.notifyOfUpdate", s.HandleComAtprotoSyncNotifyOfUpdate)
 	e.POST("/xrpc/com.atproto.sync.requestCrawl", s.HandleComAtprotoSyncRequestCrawl)
+	e.POST("/xrpc/com.atproto.temp.upgradeRepoVersion", s.HandleComAtprotoTempUpgradeRepoVersion)
 	return nil
 }
 
@@ -1150,23 +1194,6 @@ func (s *Server) HandleComAtprotoAdminGetRepo(c echo.Context) error {
 		return handleErr
 	}
 	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoAdminRebaseRepo(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminRebaseRepo")
-	defer span.End()
-
-	var body comatprototypes.AdminRebaseRepo_Input
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminRebaseRepo(ctx context.Context,body *comatprototypes.AdminRebaseRepo_Input) error
-	handleErr = s.handleComAtprotoAdminRebaseRepo(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
 }
 
 func (s *Server) HandleComAtprotoAdminResolveModerationReports(c echo.Context) error {
@@ -1519,23 +1546,6 @@ func (s *Server) HandleComAtprotoRepoPutRecord(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *Server) HandleComAtprotoRepoRebaseRepo(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoRebaseRepo")
-	defer span.End()
-
-	var body comatprototypes.RepoRebaseRepo_Input
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoRepoRebaseRepo(ctx context.Context,body *comatprototypes.RepoRebaseRepo_Input) error
-	handleErr = s.handleComAtprotoRepoRebaseRepo(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
-}
-
 func (s *Server) HandleComAtprotoRepoUploadBlob(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoUploadBlob")
 	defer span.End()
@@ -1854,32 +1864,15 @@ func (s *Server) HandleComAtprotoSyncGetBlocks(c echo.Context) error {
 func (s *Server) HandleComAtprotoSyncGetCheckout(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetCheckout")
 	defer span.End()
-	commit := c.QueryParam("commit")
 	did := c.QueryParam("did")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handleComAtprotoSyncGetCheckout(ctx context.Context,commit string,did string) (io.Reader, error)
-	out, handleErr = s.handleComAtprotoSyncGetCheckout(ctx, commit, did)
+	// func (s *Server) handleComAtprotoSyncGetCheckout(ctx context.Context,did string) (io.Reader, error)
+	out, handleErr = s.handleComAtprotoSyncGetCheckout(ctx, did)
 	if handleErr != nil {
 		return handleErr
 	}
 	return c.Stream(200, "application/vnd.ipld.car", out)
-}
-
-func (s *Server) HandleComAtprotoSyncGetCommitPath(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetCommitPath")
-	defer span.End()
-	did := c.QueryParam("did")
-	earliest := c.QueryParam("earliest")
-	latest := c.QueryParam("latest")
-	var out *comatprototypes.SyncGetCommitPath_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoSyncGetCommitPath(ctx context.Context,did string,earliest string,latest string) (*comatprototypes.SyncGetCommitPath_Output, error)
-	out, handleErr = s.handleComAtprotoSyncGetCommitPath(ctx, did, earliest, latest)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
 }
 
 func (s *Server) HandleComAtprotoSyncGetHead(c echo.Context) error {
@@ -1890,6 +1883,20 @@ func (s *Server) HandleComAtprotoSyncGetHead(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleComAtprotoSyncGetHead(ctx context.Context,did string) (*comatprototypes.SyncGetHead_Output, error)
 	out, handleErr = s.handleComAtprotoSyncGetHead(ctx, did)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoSyncGetLatestCommit(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetLatestCommit")
+	defer span.End()
+	did := c.QueryParam("did")
+	var out *comatprototypes.SyncGetLatestCommit_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoSyncGetLatestCommit(ctx context.Context,did string) (*comatprototypes.SyncGetLatestCommit_Output, error)
+	out, handleErr = s.handleComAtprotoSyncGetLatestCommit(ctx, did)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1917,12 +1924,11 @@ func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetRepo")
 	defer span.End()
 	did := c.QueryParam("did")
-	earliest := c.QueryParam("earliest")
-	latest := c.QueryParam("latest")
+	since := c.QueryParam("since")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context,did string,earliest string,latest string) (io.Reader, error)
-	out, handleErr = s.handleComAtprotoSyncGetRepo(ctx, did, earliest, latest)
+	// func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context,did string,since string) (io.Reader, error)
+	out, handleErr = s.handleComAtprotoSyncGetRepo(ctx, did, since)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1932,13 +1938,24 @@ func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 func (s *Server) HandleComAtprotoSyncListBlobs(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncListBlobs")
 	defer span.End()
+	cursor := c.QueryParam("cursor")
 	did := c.QueryParam("did")
-	earliest := c.QueryParam("earliest")
-	latest := c.QueryParam("latest")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 500
+	}
+	since := c.QueryParam("since")
 	var out *comatprototypes.SyncListBlobs_Output
 	var handleErr error
-	// func (s *Server) handleComAtprotoSyncListBlobs(ctx context.Context,did string,earliest string,latest string) (*comatprototypes.SyncListBlobs_Output, error)
-	out, handleErr = s.handleComAtprotoSyncListBlobs(ctx, did, earliest, latest)
+	// func (s *Server) handleComAtprotoSyncListBlobs(ctx context.Context,cursor string,did string,limit int,since string) (*comatprototypes.SyncListBlobs_Output, error)
+	out, handleErr = s.handleComAtprotoSyncListBlobs(ctx, cursor, did, limit, since)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1998,6 +2015,23 @@ func (s *Server) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleComAtprotoSyncRequestCrawl(ctx context.Context,body *comatprototypes.SyncRequestCrawl_Input) error
 	handleErr = s.handleComAtprotoSyncRequestCrawl(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
+func (s *Server) HandleComAtprotoTempUpgradeRepoVersion(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoTempUpgradeRepoVersion")
+	defer span.End()
+
+	var body comatprototypes.TempUpgradeRepoVersion_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleComAtprotoTempUpgradeRepoVersion(ctx context.Context,body *comatprototypes.TempUpgradeRepoVersion_Input) error
+	handleErr = s.handleComAtprotoTempUpgradeRepoVersion(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}
