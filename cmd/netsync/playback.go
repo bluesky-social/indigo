@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -321,8 +320,18 @@ func GetPostsForUser(cctx *cli.Context) error {
 	did := args.First()
 
 	limit := 500
-	maxParallel := 500_000
-	sem := semaphore.NewWeighted(int64(maxParallel))
+
+	numRuns := 64
+	maxConcurrent := 200
+	maxByKeyConcurrent := 20000
+	sem := semaphore.NewWeighted(int64(maxConcurrent))
+	semByKey := semaphore.NewWeighted(int64(maxByKeyConcurrent))
+
+	totalRowsRead := atomic.Uint64{}
+
+	runtimes := make(chan time.Duration, numRuns)
+
+	start := time.Now()
 
 	// Compute window names
 	windowRangeStart := time.Date(2023, 6, 1, 0, 0, 0, 0, time.UTC)
@@ -333,73 +342,86 @@ func GetPostsForUser(cctx *cli.Context) error {
 		windowRangeStart = windowRangeStart.Add(24 * time.Hour)
 	}
 
-	start := time.Now()
-
-	// Query for all the posts in each window
-	// Note we can't query more than 100 partitions at a time using an IN clause
-	postWindows := []PostWindow{}
-	err = qb.Select(postWindowMetadata.Name).
-		Where(qb.Eq("did"), qb.In("window")).OrderBy("created_at", qb.DESC).
-		Limit(uint(limit)).Query(session).BindMap(qb.M{
-		"did":    did,
-		"window": windowNames,
-	}).PageSize(-1).SelectRelease(&postWindows)
-	if err != nil {
-		log.Errorw("failed to get post windows", "err", err)
-		return nil
-	}
-
-	// Query for all the posts in each window in parallel
-	var wg2 sync.WaitGroup
-	postsLk := sync.Mutex{}
-	posts := []Post{}
-	for _, postWindow := range postWindows {
-		wg2.Add(1)
-		go func(postWindow PostWindow) {
-			defer wg2.Done()
-
+	// Run the query in numRuns goroutines
+	var pwg sync.WaitGroup
+	for i := 0; i < numRuns; i++ {
+		pwg.Add(1)
+		go func() error {
+			defer pwg.Done()
 			sem.Acquire(ctx, 1)
 			defer sem.Release(1)
+			iterStart := time.Now()
+			defer func() {
+				runtimes <- time.Since(iterStart)
+			}()
 
-			post := Post{
-				Did:  postWindow.Did,
-				Rkey: postWindow.Rkey,
-			}
-
-			err = postTable.GetQuery(session).BindStruct(&post).GetRelease(&post)
+			// Query for all the posts in each window
+			// Note we can't query more than 100 partitions at a time using an IN clause
+			postWindows := []PostWindow{}
+			err = qb.Select(postWindowMetadata.Name).
+				Where(qb.Eq("did"), qb.In("window")).OrderBy("created_at", qb.DESC).
+				Limit(uint(limit)).Query(session).BindMap(qb.M{
+				"did":    did,
+				"window": windowNames,
+			}).PageSize(-1).SelectRelease(&postWindows)
 			if err != nil {
-				log.Errorf("failed to get post: %+v", err)
-				return
+				log.Errorw("failed to get post windows", "err", err)
+				return nil
 			}
 
-			postsLk.Lock()
-			posts = append(posts, post)
-			postsLk.Unlock()
-		}(postWindow)
+			totalRowsRead.Add(uint64(len(postWindows)))
+
+			// Query for all the posts in each window in parallel
+			var wg2 sync.WaitGroup
+			postsLk := sync.Mutex{}
+			posts := []Post{}
+			for _, postWindow := range postWindows {
+				wg2.Add(1)
+				go func(postWindow PostWindow) {
+					defer wg2.Done()
+
+					semByKey.Acquire(ctx, 1)
+					defer semByKey.Release(1)
+
+					post := Post{
+						Did:  postWindow.Did,
+						Rkey: postWindow.Rkey,
+					}
+
+					err = postTable.GetQuery(session).BindStruct(&post).GetRelease(&post)
+					if err != nil {
+						log.Errorf("failed to get post: %+v", err)
+						return
+					}
+
+					postsLk.Lock()
+					posts = append(posts, post)
+					postsLk.Unlock()
+				}(postWindow)
+			}
+			wg2.Wait()
+
+			totalRowsRead.Add(uint64(len(posts)))
+
+			return nil
+		}()
 	}
 
-	wg2.Wait()
+	// Wait for all the queries to finish
+	pwg.Wait()
+	clockTime := time.Since(start)
+	close(runtimes)
 
-	end := time.Now()
+	// Calculate the average runtime
+	var total time.Duration
+	for runtime := range runtimes {
+		total += runtime
+	}
+	avg := total / time.Duration(numRuns)
 
-	// Sort the posts descending by created_at
-	slices.SortFunc(posts, func(a, b Post) int {
-		if a.CreatedAt.Before(b.CreatedAt) {
-			return 1
-		}
-		if a.CreatedAt.After(b.CreatedAt) {
-			return -1
-		}
-		return 0
-	})
-
-	// Print the posts
 	p := message.NewPrinter(language.English)
-	for _, post := range posts {
-		log.Info(p.Sprintf("post: %s", post.Content))
-	}
 
-	log.Warn(p.Sprintf("got %d posts in %s", len(posts), end.Sub(start)))
+	log.Info(p.Sprintf("got post page %d times (%d total reads) in %s (avg: %s, total: %s)", numRuns, totalRowsRead.Load(), clockTime, avg, total))
 
 	return nil
 }
