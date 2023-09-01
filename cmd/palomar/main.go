@@ -1,15 +1,17 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	_ "github.com/joho/godotenv/autoload"
 
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/search"
 	"github.com/bluesky-social/indigo/util/cliutil"
 
@@ -83,13 +85,6 @@ func run(args []string) error {
 			Value:   "https://plc.directory",
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
-		// TODO(bnewbold): this is a temporary hack to fetch our own blobs
-		&cli.StringFlag{
-			Name:    "atp-pds-host",
-			Usage:   "method, hostname, and port of PDS instance",
-			Value:   "https://bsky.social",
-			EnvVars: []string{"ATP_PDS_HOST"},
-		},
 		&cli.IntFlag{
 			Name:    "max-metadb-connections",
 			EnvVars: []string{"MAX_METADB_CONNECTIONS"},
@@ -138,14 +133,25 @@ var runCmd = &cli.Command{
 			return fmt.Errorf("failed to get elasticsearch: %w", err)
 		}
 
+		// TODO: replace this with "bingo" resolver
+		base := identity.BaseDirectory{
+			PLCURL: cctx.String("atp-plc-host"),
+			HTTPClient: http.Client{
+				Timeout: time.Second * 15,
+			},
+			TryAuthoritativeDNS: false,
+		}
+		dir := identity.NewCacheDirectory(&base, 50000, time.Hour*24, time.Minute*2)
+
 		srv, err := search.NewServer(
 			db,
 			escli,
-			cctx.String("atp-plc-host"),
-			cctx.String("atp-pds-host"),
-			cctx.String("atp-bgs-host"),
-			cctx.String("es-profile-index"),
-			cctx.String("es-post-index"),
+			&dir,
+			search.Config{
+				BGSHost:      cctx.String("atp-bgs-host"),
+				ProfileIndex: cctx.String("es-profile-index"),
+				PostIndex:    cctx.String("es-post-index"),
+			},
 		)
 		if err != nil {
 			return err
@@ -193,63 +199,36 @@ var elasticCheckCmd = &cli.Command{
 	},
 }
 
-func queryIndex(cctx *cli.Context, index string) error {
-	escli, err := createEsClient(cctx)
-	if err != nil {
-		return err
+func printHits(resp *search.EsSearchResponse) {
+	fmt.Printf("%d hits in %d\n", len(resp.Hits.Hits), resp.Took)
+	for _, hit := range resp.Hits.Hits {
+		b, _ := json.Marshal(hit.Source)
+		fmt.Println(string(b))
 	}
-
-	var buf bytes.Buffer
-	var query map[string]interface{}
-	if cctx.Bool("typeahead") == true {
-		query = map[string]interface{}{
-			"query": map[string]interface{}{
-				"multi_match": map[string]interface{}{
-					"query": strings.Join(cctx.Args().Slice(), " "),
-					"type":  "bool_prefix",
-					"fields": []string{
-						"typeahead",
-						"typeahead._2gram",
-						"typeahead._3gram",
-					},
-				},
-			},
-		}
-	} else {
-		query = map[string]interface{}{
-			"query": map[string]interface{}{
-				"query_string": map[string]interface{}{
-					"query":         strings.Join(cctx.Args().Slice(), " "),
-					"default_field": "everything",
-				},
-			},
-		}
-	}
-	if err := json.NewEncoder(&buf).Encode(query); err != nil {
-		log.Fatalf("Error encoding query: %s", err)
-	}
-
-	// Perform the search request.
-	res, err := escli.Search(
-		escli.Search.WithContext(context.Background()),
-		escli.Search.WithIndex(index),
-		escli.Search.WithBody(&buf),
-		escli.Search.WithTrackTotalHits(true),
-		escli.Search.WithPretty(),
-	)
-	if err != nil {
-		log.Fatalf("Error getting response: %s", err)
-	}
-
-	fmt.Println(res)
-	return nil
+	return
 }
 
 var searchPostCmd = &cli.Command{
 	Name:  "search-post",
 	Usage: "run a simple query against posts index",
 	Action: func(cctx *cli.Context) error {
-		return queryIndex(cctx, cctx.String("es-post-index"))
+		escli, err := createEsClient(cctx)
+		if err != nil {
+			return err
+		}
+		res, err := search.DoSearchPosts(
+			context.Background(),
+			escli,
+			cctx.String("es-post-index"),
+			strings.Join(cctx.Args().Slice(), " "),
+			0,
+			20,
+		)
+		if err != nil {
+			return err
+		}
+		printHits(res)
+		return nil
 	},
 }
 
@@ -262,7 +241,36 @@ var searchProfileCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-		return queryIndex(cctx, cctx.String("es-profile-index"))
+		escli, err := createEsClient(cctx)
+		if err != nil {
+			return err
+		}
+		if cctx.Bool("typeahead") {
+			res, err := search.DoSearchProfilesTypeahead(
+				context.Background(),
+				escli,
+				cctx.String("es-profile-index"),
+				strings.Join(cctx.Args().Slice(), " "),
+			)
+			if err != nil {
+				return err
+			}
+			printHits(res)
+		} else {
+			res, err := search.DoSearchProfiles(
+				context.Background(),
+				escli,
+				cctx.String("es-profile-index"),
+				strings.Join(cctx.Args().Slice(), " "),
+				0,
+				20,
+			)
+			if err != nil {
+				return err
+			}
+			printHits(res)
+		}
+		return nil
 	},
 }
 
