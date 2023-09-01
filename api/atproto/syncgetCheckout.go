@@ -13,14 +13,12 @@ import (
 
 // SyncGetCheckout calls the XRPC method "com.atproto.sync.getCheckout".
 //
-// commit: The commit to get the checkout from. Defaults to current HEAD.
 // did: The DID of the repo.
-func SyncGetCheckout(ctx context.Context, c *xrpc.Client, commit string, did string) ([]byte, error) {
+func SyncGetCheckout(ctx context.Context, c *xrpc.Client, did string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{
-		"commit": commit,
-		"did":    did,
+		"did": did,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getCheckout", params, nil, buf); err != nil {
 		return nil, err
