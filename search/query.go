@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/bluesky-social/indigo/atproto/identity"
+
 	es "github.com/opensearch-project/opensearch-go/v2"
 )
 
@@ -52,22 +54,31 @@ func checkParams(offset, size int) error {
 	return nil
 }
 
-func DoSearchPosts(ctx context.Context, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
+func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
 	if err := checkParams(offset, size); err != nil {
 		return nil, err
 	}
+	queryStr, filters := ParseQuery(ctx, dir, q)
+	basic := map[string]interface{}{
+		"simple_query_string": map[string]interface{}{
+			"query":            queryStr,
+			"fields":           []string{"everything"},
+			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
+			"default_operator": "and",
+			"lenient":          true,
+			"analyze_wildcard": false,
+		},
+	}
 	query := map[string]interface{}{
-		// TODO: filter to not show any created_at in the future
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must":   basic,
+				"filter": filters,
+			},
+		},
 		"sort": map[string]any{
 			"created_at": map[string]any{
 				"order": "desc",
-			},
-		},
-		"query": map[string]interface{}{
-			"match": map[string]interface{}{
-				"everything": map[string]interface{}{
-					"query": q,
-				},
 			},
 		},
 		"size": size,
@@ -77,15 +88,19 @@ func DoSearchPosts(ctx context.Context, escli *es.Client, index, q string, offse
 	return doSearch(ctx, escli, index, query)
 }
 
-func DoSearchProfiles(ctx context.Context, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
+func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
 	if err := checkParams(offset, size); err != nil {
 		return nil, err
 	}
+	queryStr, filters := ParseQuery(ctx, dir, q)
 	basic := map[string]interface{}{
-		"match": map[string]interface{}{
-			"everything": map[string]interface{}{
-				"query": q,
-			},
+		"simple_query_string": map[string]interface{}{
+			"query":            queryStr,
+			"fields":           []string{"everything"},
+			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
+			"default_operator": "and",
+			"lenient":          true,
+			"analyze_wildcard": false,
 		},
 	}
 	query := map[string]interface{}{
@@ -96,7 +111,8 @@ func DoSearchProfiles(ctx context.Context, escli *es.Client, index, q string, of
 					map[string]interface{}{"term": map[string]interface{}{"has_avatar": true}},
 					map[string]interface{}{"term": map[string]interface{}{"has_banner": true}},
 				},
-				"boost": 1.0,
+				"filter": filters,
+				"boost":  1.0,
 			},
 		},
 		"size": size,
@@ -148,7 +164,10 @@ func doSearch(ctx context.Context, escli *es.Client, index string, query interfa
 	if err := json.NewEncoder(&buf).Encode(query); err != nil {
 		log.Fatalf("Error encoding query: %s", err)
 	}
-	slog.Warn("sending query", "index", index, "query", query)
+	bod, err := json.Marshal(query)
+	if nil == err {
+		slog.Warn("sending query", "index", index, "query", string(bod))
+	}
 
 	// Perform the search request.
 	res, err := escli.Search(
@@ -158,7 +177,10 @@ func doSearch(ctx context.Context, escli *es.Client, index string, query interfa
 		escli.Search.WithTrackTotalHits(false), // expensive to track total hits
 	)
 	if err != nil {
-		log.Fatalf("Error getting response: %s", err)
+		return nil, fmt.Errorf("search query error: %w", err)
+	}
+	if res.IsError() {
+		return nil, fmt.Errorf("search query error, code=%d", res.StatusCode)
 	}
 	defer res.Body.Close()
 

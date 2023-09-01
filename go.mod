@@ -9,6 +9,7 @@ require (
 	github.com/dustinkirkland/golang-petname v0.0.0-20230626224747-e794b9370d49
 	github.com/goccy/go-json v0.10.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/go-retryablehttp v0.7.2
 	github.com/hashicorp/golang-lru v0.5.4
