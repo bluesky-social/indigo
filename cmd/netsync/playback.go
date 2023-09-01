@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -322,6 +323,7 @@ func GetPostsForUser(cctx *cli.Context) error {
 	// Posts are stored in windows by day, so we need to query for all the windows in parallel since Jan 1, 2023
 	// and then query for all the posts in each window
 
+	limit := 500
 	maxParallel := 500_000
 	sem := semaphore.NewWeighted(int64(maxParallel))
 
@@ -368,6 +370,21 @@ func GetPostsForUser(cctx *cli.Context) error {
 	}
 
 	wg.Wait()
+
+	// Sort the post windows by created at
+	slices.SortFunc(postWindows, func(a, b PostWindow) int {
+		if a.CreatedAt.Before(b.CreatedAt) {
+			return -1
+		} else if a.CreatedAt.After(b.CreatedAt) {
+			return 1
+		}
+		return 0
+	})
+
+	// Limit the number of post windows
+	if len(postWindows) > limit {
+		postWindows = postWindows[:limit]
+	}
 
 	// Query for all the posts in each window in parallel
 	var wg2 sync.WaitGroup
