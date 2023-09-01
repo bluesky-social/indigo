@@ -301,6 +301,118 @@ func (s *PlaybackState) SetupSchema() error {
 	return nil
 }
 
+func GetPostsForUser(cctx *cli.Context) error {
+	ctx := cctx.Context
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	cluster := gocql.NewCluster(cctx.StringSlice("scylla-nodes")...)
+	session, err := gocqlx.WrapSession(cluster.CreateSession())
+	if err != nil {
+		return fmt.Errorf("failed to create scylla session: %w", err)
+	}
+
+	args := cctx.Args()
+	if args.Len() != 1 {
+		return fmt.Errorf("must provide a did")
+	}
+
+	did := args.First()
+
+	// Posts are stored in windows by day, so we need to query for all the windows in parallel since Jan 1, 2023
+	// and then query for all the posts in each window
+
+	maxParallel := 500_000
+	sem := semaphore.NewWeighted(int64(maxParallel))
+
+	// Compute window names
+	windowRangeStart := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
+	windowRangeEnd := time.Now().UTC()
+	windowNames := []string{}
+	for windowRangeStart.Before(windowRangeEnd) {
+		windowNames = append(windowNames, windowRangeStart.Format("2006-01-02"))
+		windowRangeStart = windowRangeStart.Add(24 * time.Hour)
+	}
+
+	start := time.Now()
+
+	// Query for all the posts in each window in parallel
+	var wg sync.WaitGroup
+	postWindows := []PostWindow{}
+	postWindowsLk := sync.Mutex{}
+	for _, windowName := range windowNames {
+		wg.Add(1)
+		go func(windowName string) {
+			defer wg.Done()
+
+			sem.Acquire(ctx, 1)
+			defer sem.Release(1)
+
+			postWindow := PostWindow{
+				Did:    did,
+				Window: windowName,
+			}
+
+			windows := []PostWindow{}
+
+			err = postWindowTable.SelectQuery(session).BindStruct(&postWindow).SelectRelease(&windows)
+			if err != nil {
+				log.Errorf("failed to get post windows: %+v", err)
+				return
+			}
+
+			postWindowsLk.Lock()
+			postWindows = append(postWindows, windows...)
+			postWindowsLk.Unlock()
+		}(windowName)
+	}
+
+	wg.Wait()
+
+	// Query for all the posts in each window in parallel
+	var wg2 sync.WaitGroup
+	postsLk := sync.Mutex{}
+	posts := []Post{}
+	for _, postWindow := range postWindows {
+		wg2.Add(1)
+		go func(postWindow PostWindow) {
+			defer wg2.Done()
+
+			sem.Acquire(ctx, 1)
+			defer sem.Release(1)
+
+			post := Post{
+				Did:  postWindow.Did,
+				Rkey: postWindow.Rkey,
+			}
+
+			err = postTable.GetQuery(session).BindStruct(&post).GetRelease(&post)
+			if err != nil {
+				log.Errorf("failed to get post: %+v", err)
+				return
+			}
+
+			postsLk.Lock()
+			posts = append(posts, post)
+			postsLk.Unlock()
+		}(postWindow)
+	}
+
+	wg2.Wait()
+
+	end := time.Now()
+
+	// Print the posts
+	p := message.NewPrinter(language.English)
+	for _, post := range posts {
+		log.Info(p.Sprintf("post: %s", post.Content))
+	}
+
+	log.Warn(p.Sprintf("got %d posts in %s", len(posts), end.Sub(start)))
+
+	return nil
+}
+
 func Query(cctx *cli.Context) error {
 	ctx := cctx.Context
 	ctx, cancel := context.WithCancel(ctx)
