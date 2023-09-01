@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -321,11 +322,9 @@ func GetPostsForUser(cctx *cli.Context) error {
 
 	limit := 500
 
-	numRuns := 64
-	maxConcurrent := 200
-	maxByKeyConcurrent := 20000
+	numRuns := 2000
+	maxConcurrent := 40
 	sem := semaphore.NewWeighted(int64(maxConcurrent))
-	semByKey := semaphore.NewWeighted(int64(maxByKeyConcurrent))
 
 	totalRowsRead := atomic.Uint64{}
 
@@ -334,7 +333,7 @@ func GetPostsForUser(cctx *cli.Context) error {
 	start := time.Now()
 
 	// Compute window names
-	windowRangeStart := time.Date(2023, 6, 1, 0, 0, 0, 0, time.UTC)
+	windowRangeStart := time.Date(2023, 8, 1, 0, 0, 0, 0, time.UTC)
 	windowRangeEnd := time.Now().UTC()
 	windowNames := []string{}
 	for windowRangeStart.Before(windowRangeEnd) {
@@ -355,19 +354,52 @@ func GetPostsForUser(cctx *cli.Context) error {
 				runtimes <- time.Since(iterStart)
 			}()
 
-			// Query for all the posts in each window
-			// Note we can't query more than 100 partitions at a time using an IN clause
+			// Query for all the posts in each window in parallel
+			var wg sync.WaitGroup
 			postWindows := []PostWindow{}
-			err = qb.Select(postWindowMetadata.Name).
-				Where(qb.Eq("did"), qb.In("window")).OrderBy("created_at", qb.DESC).
-				Limit(uint(limit)).Query(session).BindMap(qb.M{
-				"did":    did,
-				"window": windowNames,
-			}).PageSize(-1).SelectRelease(&postWindows)
-			if err != nil {
-				log.Errorw("failed to get post windows", "err", err)
-				return nil
+			postWindowsLk := sync.Mutex{}
+			for _, windowName := range windowNames {
+				wg.Add(1)
+				go func(windowName string) {
+					defer wg.Done()
+
+					postWindow := PostWindow{
+						Did:    did,
+						Window: windowName,
+					}
+
+					windows := []PostWindow{}
+
+					err = qb.Select(postWindowMetadata.Name).
+						Where(qb.Eq("did"), qb.Eq("window")).
+						OrderBy("created_at", qb.DESC).Limit(uint(limit)).
+						Query(session).BindStruct(&postWindow).SelectRelease(&windows)
+					if err != nil {
+						log.Errorf("failed to get post windows: %+v", err)
+						return
+					}
+
+					postWindowsLk.Lock()
+					postWindows = append(postWindows, windows...)
+					postWindowsLk.Unlock()
+				}(windowName)
 			}
+
+			wg.Wait()
+
+			// log.Infow("got post windows", "count", len(postWindows), "duration", time.Since(iterStart))
+
+			// Sort the post windows by created at and limit
+			slices.SortFunc(postWindows, func(a, b PostWindow) int {
+				if a.CreatedAt.Before(b.CreatedAt) {
+					return -1
+				}
+				if a.CreatedAt.After(b.CreatedAt) {
+					return 1
+				}
+				return 0
+			})
+			postWindows = postWindows[:limit]
 
 			totalRowsRead.Add(uint64(len(postWindows)))
 
@@ -379,10 +411,6 @@ func GetPostsForUser(cctx *cli.Context) error {
 				wg2.Add(1)
 				go func(postWindow PostWindow) {
 					defer wg2.Done()
-
-					semByKey.Acquire(ctx, 1)
-					defer semByKey.Release(1)
-
 					post := Post{
 						Did:  postWindow.Did,
 						Rkey: postWindow.Rkey,
