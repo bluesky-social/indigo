@@ -352,14 +352,8 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev s
 		earlySeq = untilShard.Seq
 	}
 
-	q := cs.meta.Order("seq desc").Where("usr = ? AND seq >= ?", user, earlySeq)
-	/*
-		if lateCid.Defined() {
-			q = q.Where("seq <= ?", lateSeq)
-		}
-	*/
 	var shards []CarShard
-	if err := q.Debug().Find(&shards).Error; err != nil {
+	if err := cs.meta.Order("seq desc").Where("usr = ? AND seq >= ?", user, earlySeq).Find(&shards).Error; err != nil {
 		return err
 	}
 

@@ -166,7 +166,6 @@ func TestBGSMultiPDS(t *testing.T) {
 	time.Sleep(time.Millisecond * 50)
 
 	// Now, the bgs will discover a gap, and have to catch up somehow
-	fmt.Println("EXPECT BGS TO CATCHUP NOW")
 	socialSim(t, users2, 1, 0)
 
 	time.Sleep(time.Second)
@@ -229,7 +228,6 @@ func TestBGSMultiGap(t *testing.T) {
 	p2.RequestScraping(t, b1)
 	time.Sleep(time.Millisecond * 50)
 
-	fmt.Println("AFTER THIS EXPECT THE BGS TO DO A GETREPO TO CATCH UP")
 	// Now, the bgs will discover a gap, and have to catch up somehow
 	socialSim(t, users2, 1, 0)
 
