@@ -74,7 +74,6 @@ type RepoEvent struct {
 	RepoSlice []byte
 	PDS       uint
 	Ops       []RepoOp
-	TooBig    bool
 }
 
 type RepoOp struct {
@@ -173,8 +172,6 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user models.Uid, collec
 	if err != nil {
 		return "", cid.Undef, err
 	}
-
-	fmt.Println("NEW REV: ", nrev)
 
 	rslice, err := ds.CloseWithRoot(ctx, nroot, nrev)
 	if err != nil {
