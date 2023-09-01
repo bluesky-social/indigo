@@ -41,7 +41,6 @@
     "properties": {
         "doc_index_ts":   { "type": "date" },
         "did":            { "type": "keyword", "normalizer": "default", "doc_values": false },
-        "handle":         { "type": "keyword", "normalizer": "default" },
         "record_rkey":    { "type": "keyword", "normalizer": "default", "doc_values": false },
         "record_cid":     { "type": "keyword", "normalizer": "default", "doc_values": false },
 
@@ -56,15 +55,13 @@
         "reply_root_aturi": { "type": "keyword", "normalizer": "default" },
         "embed_img_count": { "type": "integer" },
         "embed_img_alt_text": { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
+        "self_label":     { "type": "keyword", "normalizer": "default" },
 
         "hashtag":        { "type": "keyword", "normalizer": "default" },
         "emoji":          { "type": "keyword", "normalizer": "caseSensitive" },
 
         "everything":     { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" },
 
-        "author":         { "type": "alias", "path": "handle" },
-        "from":           { "type": "alias", "path": "handle" },
-        "by":             { "type": "alias", "path": "handle" },
         "lang":           { "type": "alias", "path": "lang_code_iso2" }
     }
 }

@@ -26,6 +26,12 @@
   			"$type": "app.bsky.actor.profile",
     		"displayName": "Big Bubba",
     		"description": "Big Description 🥸 #cheese",
+            "labels": {
+                "$type": "com.atproto.label.defs#selfLabels",
+                "values": [
+                    {"val": "nudity"}
+                ]
+            },
             "avatar": {
                 "$type": "blob",
                 "mimeType": "image/jpeg",
@@ -47,6 +53,7 @@
   			"record_cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
   			"display_name": "Big Bubba",
   			"description": "Big Description 🥸 #cheese",
+            "self_label": ["nudity"],
   			"emoji": ["🥸"],
   			"hashtag": ["cheese"],
   			"has_avatar": true,

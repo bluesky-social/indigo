@@ -18,6 +18,7 @@ type ProfileDoc struct {
 	DisplayName *string  `json:"display_name,omitempty"`
 	Description *string  `json:"description,omitempty"`
 	ImgAltText  []string `json:"img_alt_text,omitempty"`
+	SelfLabel   []string `json:"self_label,omitempty"`
 	Hashtag     []string `json:"hashtag,omitempty"`
 	Emoji       []string `json:"emoji,omitempty"`
 	HasAvatar   bool     `json:"has_avatar"`
@@ -29,7 +30,6 @@ type PostDoc struct {
 	Did             string   `json:"did"`
 	RecordRkey      string   `json:"record_rkey"`
 	RecordCid       string   `json:"record_cid"`
-	Handle          string   `json:"handle"`
 	CreatedAt       string   `json:"created_at"`
 	Text            string   `json:"text"`
 	LangCode        []string `json:"lang_code,omitempty"`
@@ -41,6 +41,7 @@ type PostDoc struct {
 	ReplyRootAturi  *string  `json:"reply_root_aturi,omitempty"`
 	EmbedImgCount   int      `json:"embed_img_count"`
 	EmbedImgAltText []string `json:"embed_img_alt_text,omitempty"`
+	SelfLabel       []string `json:"self_label,omitempty"`
 	Hashtag         []string `json:"hashtag,omitempty"`
 	Emoji           []string `json:"emoji,omitempty"`
 }
@@ -68,6 +69,12 @@ func TransformProfile(profile *bsky.ActorProfile, repo *User, cid string) Profil
 		hashtags = parseHashtags(*profile.Description)
 		emojis = parseEmojis(*profile.Description)
 	}
+	var selfLabels []string
+	if profile.Labels != nil && profile.Labels.LabelDefs_SelfLabels != nil {
+		for _, le := range profile.Labels.LabelDefs_SelfLabels.Values {
+			selfLabels = append(selfLabels, le.Val)
+		}
+	}
 	return ProfileDoc{
 		DocIndexTs:  time.Now().UTC().Format(util.ISO8601),
 		Did:         repo.Did,
@@ -76,6 +83,7 @@ func TransformProfile(profile *bsky.ActorProfile, repo *User, cid string) Profil
 		DisplayName: profile.DisplayName,
 		Description: profile.Description,
 		ImgAltText:  altText,
+		SelfLabel:   selfLabels,
 		Hashtag:     hashtags,
 		Emoji:       emojis,
 		HasAvatar:   profile.Avatar != nil,
@@ -137,12 +145,18 @@ func TransformPost(post *bsky.FeedPost, repo *User, rkey, cid string) PostDoc {
 			}
 		}
 	}
+	var selfLabels []string
+	if post.Labels != nil && post.Labels.LabelDefs_SelfLabels != nil {
+		for _, le := range post.Labels.LabelDefs_SelfLabels.Values {
+			selfLabels = append(selfLabels, le.Val)
+		}
+	}
+
 	return PostDoc{
 		DocIndexTs:      time.Now().UTC().Format(util.ISO8601),
 		Did:             repo.Did,
 		RecordRkey:      rkey,
 		RecordCid:       cid,
-		Handle:          repo.Handle,
 		CreatedAt:       post.CreatedAt,
 		Text:            post.Text,
 		LangCode:        post.Langs,
@@ -154,6 +168,7 @@ func TransformPost(post *bsky.FeedPost, repo *User, rkey, cid string) PostDoc {
 		ReplyRootAturi:  replyRootAturi,
 		EmbedImgCount:   embedImgCount,
 		EmbedImgAltText: embedImgAltText,
+		SelfLabel:       selfLabels,
 		Hashtag:         parseHashtags(post.Text),
 		Emoji:           parseEmojis(post.Text),
 	}

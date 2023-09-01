@@ -74,6 +74,12 @@
       			]
     			}
   			],
+            "labels": {
+                "$type": "com.atproto.label.defs#selfLabels",
+                "values": [
+                    {"val": "nudity"}
+                ]
+            },
   			"reply": {
     			"root": {
       			"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k43tv4rft22g",
@@ -107,6 +113,7 @@
   			"embed_aturi": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k44deefqdk2g",
   			"lang_code": ["th", "en-US"],
   			"lang_code_iso2": ["th", "en"],
+            "self_label": ["nudity"],
   			"hashtag": ["some", "hashtags"],
   			"emoji": ["\u2620", "\ud83d\ude42", "\ud83c\udf85\ud83c\udfff", "\ud83c\uddf8\ud83c\udde8"],
   			"embed_img_count": 0
