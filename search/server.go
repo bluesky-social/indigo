@@ -10,9 +10,10 @@ import (
 	"strconv"
 	"strings"
 
-	api "github.com/bluesky-social/indigo/api"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
@@ -41,9 +42,8 @@ type Server struct {
 	profileIndex string
 	db           *gorm.DB
 	bgshost      string
-	xrpcc        *xrpc.Client
 	bgsxrpc      *xrpc.Client
-	plc          *api.PLCServer
+	dir          identity.Directory
 	echo         *echo.Echo
 
 	userCache *lru.Cache
@@ -68,23 +68,20 @@ type LastSeq struct {
 	Seq int64
 }
 
-func NewServer(db *gorm.DB, escli *es.Client, plcHost, pdsHost, bgsHost, profileIndex, postIndex string) (*Server, error) {
+type Config struct {
+	BGSHost      string
+	ProfileIndex string
+	PostIndex    string
+}
+
+func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Config) (*Server, error) {
 
 	log.Info("Migrating database")
 	db.AutoMigrate(&PostRef{})
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&LastSeq{})
 
-	// TODO: robust client
-	xc := &xrpc.Client{
-		Host: pdsHost,
-	}
-
-	plc := &api.PLCServer{
-		Host: plcHost,
-	}
-
-	bgsws := bgsHost
+	bgsws := config.BGSHost
 	if !strings.HasPrefix(bgsws, "ws") {
 		return nil, fmt.Errorf("specified bgs host must include 'ws://' or 'wss://'")
 	}
@@ -97,13 +94,12 @@ func NewServer(db *gorm.DB, escli *es.Client, plcHost, pdsHost, bgsHost, profile
 	ucache, _ := lru.New(100000)
 	s := &Server{
 		escli:        escli,
-		profileIndex: profileIndex,
-		postIndex:    postIndex,
+		profileIndex: config.ProfileIndex,
+		postIndex:    config.PostIndex,
 		db:           db,
-		bgshost:      bgsHost,
-		xrpcc:        xc,
+		bgshost:      config.BGSHost, // NOTE: the original URL, not 'bgshttp'
 		bgsxrpc:      bgsxrpc,
-		plc:          plc,
+		dir:          dir,
 		userCache:    ucache,
 	}
 	return s, nil
@@ -300,7 +296,7 @@ func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSu
 }
 
 func (s *Server) SearchPosts(ctx context.Context, srch string, offset, size int) ([]PostSearchResult, error) {
-	resp, err := doSearchPosts(ctx, s.escli, srch, offset, size)
+	resp, err := DoSearchPosts(ctx, s.escli, s.postIndex, srch, offset, size)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +338,11 @@ func (s *Server) SearchPosts(ctx context.Context, srch string, offset, size int)
 	return out, nil
 }
 
-func (s *Server) getOrCreateUser(ctx context.Context, did string) (*User, error) {
+func (s *Server) getOrCreateUser(ctx context.Context, didStr string) (*User, error) {
+	did, err := syntax.ParseDID(didStr)
+	if err != nil {
+		return nil, err
+	}
 	cu, ok := s.userCache.Get(did)
 	if ok {
 		return cu.(*User), nil
@@ -353,21 +353,25 @@ func (s *Server) getOrCreateUser(ctx context.Context, did string) (*User, error)
 		return nil, err
 	}
 	if u.ID == 0 {
-		// TODO: figure out peoples handles
-		h, err := s.handleFromDid(ctx, did)
+		id, err := s.dir.LookupDID(ctx, did)
 		if err != nil {
 			log.Errorw("failed to resolve did to handle", "did", did, "err", err)
 		} else {
-			u.Handle = h
+			// note: this can prevents handle.invalid in the index
+			if id.Handle.IsInvalidHandle() {
+				u.Handle = ""
+			} else {
+				u.Handle = id.Handle.String()
+			}
 		}
 
-		u.Did = did
+		u.Did = did.String()
 		if err := s.db.Create(&u).Error; err != nil {
 			return nil, err
 		}
 	}
 
-	s.userCache.Add(did, &u)
+	s.userCache.Add(did.String(), &u)
 
 	return &u, nil
 }
@@ -398,8 +402,14 @@ func decodeDocumentID(docid string) (uint, string, error) {
 	return uint(uid), parts[1], nil
 }
 
-func (s *Server) SearchProfiles(ctx context.Context, srch string) ([]*ActorSearchResp, error) {
-	resp, err := doSearchProfiles(ctx, s.escli, srch)
+func (s *Server) SearchProfiles(ctx context.Context, srch string, typeahead bool, offset, size int) ([]*ActorSearchResp, error) {
+	var resp *EsSearchResponse
+	var err error
+	if typeahead {
+		resp, err = DoSearchProfilesTypeahead(ctx, s.escli, s.profileIndex, srch)
+	} else {
+		resp, err = DoSearchProfiles(ctx, s.escli, s.profileIndex, srch, offset, size)
+	}
 	if err != nil {
 		return nil, err
 	}

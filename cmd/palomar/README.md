@@ -6,12 +6,9 @@ Almost all the code for this service is actually in the `search/` directory at t
 
 ## API
 
-### `/search/posts?q=QUERY`
+### `/search/posts?q=QUERY&size=COUNT&offset=INT`
 
-### `/search/profiles?q=QUERY`
-
-### `/search/profiles-typeahead?q=QUERY`
-
+### `/search/profiles?q=QUERY&typeahead=BOOL`
 
 ## Development Quickstart
 
@@ -22,10 +19,13 @@ Run an ephemeral opensearch instance on local port 9200, with SSL disabled, and 
 
 In this directory, use HTTPie to create indices:
 
-    #http --verify no put https://admin:admin@localhost:9200/palomar_post < post_schema.json
-    #http --verify no put https://admin:admin@localhost:9200/palomar_profile < profile_schema.json
-    http put http://admin:admin@localhost:9200/palomar_post < post_schema.json
+    # may need to pass '--verify no' as first arg to 'http' in some cases
     http put http://admin:admin@localhost:9200/palomar_profile < profile_schema.json
+    http put http://admin:admin@localhost:9200/palomar_post < post_schema.json
+
+    # if needed to delete any existing first (DATA LOSS)
+    http delete http://admin:admin@localhost:9200/palomar_profile
+    http delete http://admin:admin@localhost:9200/palomar_post
 
 See [README.opensearch.md]() for more Opensearch operational tips.
 

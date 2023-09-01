@@ -1,12 +1,10 @@
 package search
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"strings"
 
-	api "github.com/bluesky-social/indigo/api"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/labstack/echo/v4"
 	otel "go.opentelemetry.io/otel"
@@ -15,16 +13,6 @@ import (
 type ActorSearchResp struct {
 	bsky.ActorProfile
 	DID string `json:"did"`
-}
-
-func (s *Server) handleFromDid(ctx context.Context, did string) (string, error) {
-	phr := &api.ProdHandleResolver{}
-	handle, _, err := api.ResolveDidToHandle(ctx, s.xrpcc, s.plc, phr, did)
-	if err != nil {
-		return "", err
-	}
-
-	return handle, nil
 }
 
 func (s *Server) handleSearchRequestPosts(e echo.Context) error {
@@ -83,7 +71,38 @@ func (s *Server) handleSearchRequestProfiles(e echo.Context) error {
 		})
 	}
 
-	out, err := s.SearchProfiles(ctx, q)
+	offset := 0
+	if q := strings.TrimSpace(e.QueryParam("offset")); q != "" {
+		v, err := strconv.Atoi(q)
+		if err != nil {
+			return &echo.HTTPError{
+				Code:    400,
+				Message: fmt.Sprintf("invalid value for 'offset': %s", err),
+			}
+		}
+
+		offset = v
+	}
+
+	count := 30
+	if q := strings.TrimSpace(e.QueryParam("count")); q != "" {
+		v, err := strconv.Atoi(q)
+		if err != nil {
+			return &echo.HTTPError{
+				Code:    400,
+				Message: fmt.Sprintf("invalid value for 'count': %s", err),
+			}
+		}
+
+		count = v
+	}
+
+	typeahead := false
+	if q := strings.TrimSpace(e.QueryParam("typeahead")); q == "true" || q == "1" || q == "y" {
+		typeahead = true
+	}
+
+	out, err := s.SearchProfiles(ctx, q, typeahead, offset, count)
 	if err != nil {
 		return err
 	}
