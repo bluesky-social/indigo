@@ -11,6 +11,7 @@ import (
 
 	// Blank import to register types for CBORGEN
 	_ "github.com/bluesky-social/indigo/api/bsky"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/ipfs/go-cid"
@@ -249,7 +250,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 	log := slog.With("source", "backfiller_backfill_repo", "repo", repoDid)
 	log.Info(fmt.Sprintf("processing backfill for %s", repoDid))
 
-	var url = fmt.Sprintf("%s?did=%s", b.CheckoutPath, repoDid)
+	url := fmt.Sprintf("%s?did=%s", b.CheckoutPath, repoDid)
 
 	// GET and CAR decode the body
 	client := &http.Client{
@@ -348,19 +349,24 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 		go func() {
 			defer wg.Done()
 			for item := range recordQueue {
-				recordCid, rec, err := r.GetRecord(ctx, item.recordPath)
+				blk, err := r.Blockstore().Get(ctx, item.nodeCid)
 				if err != nil {
-					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to get record: %w", err)}
+					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to get blocks for record: %w", err)}
+					continue
+				}
+				rec, err := lexutil.CborDecodeValue(blk.RawData())
+				if err != nil {
+					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to decode record: %w", err)}
 					continue
 				}
 
-				// Verify that the record cid matches the cid in the event
-				if recordCid != item.nodeCid {
-					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("mismatch in record and op cid: %s != %s", recordCid, item.nodeCid)}
+				recM, ok := rec.(typegen.CBORMarshaler)
+				if !ok {
+					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to cast record to CBORMarshaler")}
 					continue
 				}
 
-				err = b.HandleCreateRecord(ctx, repoDid, item.recordPath, &rec, &recordCid)
+				err = b.HandleCreateRecord(ctx, repoDid, item.recordPath, &recM, &item.nodeCid)
 				if err != nil {
 					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to handle create record: %w", err)}
 					continue
