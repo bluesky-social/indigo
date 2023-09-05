@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 	_ "go.uber.org/automaxprocs"
 
+	"net/http"
 	_ "net/http/pprof"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -295,7 +297,17 @@ func Bigsky(cctx *cli.Context) error {
 		blobstore = &blobs.DiskBlobStore{bsdir}
 	}
 
-	var hr api.HandleResolver = &api.ProdHandleResolver{}
+	prodHR := api.ProdHandleResolver{}
+	if rlskip != "" {
+		prodHR.ReqMod = func(req *http.Request, host string) error {
+			if strings.HasSuffix(host, ".bsky.social") {
+				req.Header.Set("x-ratelimit-bypass", rlskip)
+			}
+			return nil
+		}
+	}
+
+	var hr api.HandleResolver = &prodHR
 	if cctx.StringSlice("handle-resolver-hosts") != nil {
 		hr = &api.TestHandleResolver{
 			TrialHosts: cctx.StringSlice("handle-resolver-hosts"),
