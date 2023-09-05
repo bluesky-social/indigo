@@ -1211,7 +1211,7 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 				omit = ",omitempty"
 			}
 			cval := ts.id
-			if ts.defName != "" {
+			if ts.defName != "" && ts.defName != "main" {
 				cval += "#" + ts.defName
 			}
 			pf("\tLexiconTypeID string `json:\"$type,const=%s%s\" cborgen:\"$type,const=%s%s\"`\n", cval, omit, cval, omit)

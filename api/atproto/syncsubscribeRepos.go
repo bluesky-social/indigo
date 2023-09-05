@@ -18,9 +18,13 @@ type SyncSubscribeRepos_Commit struct {
 	Prev   *util.LexLink                `json:"prev" cborgen:"prev"`
 	Rebase bool                         `json:"rebase" cborgen:"rebase"`
 	Repo   string                       `json:"repo" cborgen:"repo"`
-	Seq    int64                        `json:"seq" cborgen:"seq"`
-	Time   string                       `json:"time" cborgen:"time"`
-	TooBig bool                         `json:"tooBig" cborgen:"tooBig"`
+	// rev: The rev of the emitted commit
+	Rev string `json:"rev" cborgen:"rev"`
+	Seq int64  `json:"seq" cborgen:"seq"`
+	// since: The rev of the last emitted commit from this repo
+	Since  *string `json:"since" cborgen:"since"`
+	Time   string  `json:"time" cborgen:"time"`
+	TooBig bool    `json:"tooBig" cborgen:"tooBig"`
 }
 
 // SyncSubscribeRepos_Handle is a "handle" in the com.atproto.sync.subscribeRepos schema.
@@ -46,6 +50,8 @@ type SyncSubscribeRepos_Migrate struct {
 }
 
 // SyncSubscribeRepos_RepoOp is a "repoOp" in the com.atproto.sync.subscribeRepos schema.
+//
+// A repo operation, ie a write of a single record. For creates and updates, cid is the record's CID as of this operation. For deletes, it's null.
 type SyncSubscribeRepos_RepoOp struct {
 	Action string        `json:"action" cborgen:"action"`
 	Cid    *util.LexLink `json:"cid" cborgen:"cid"`

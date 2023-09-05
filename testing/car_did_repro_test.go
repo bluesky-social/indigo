@@ -81,7 +81,7 @@ func deepReproduceRepo(t *testing.T, carPath, docPath string) {
 
 	// verify MST tree reproduced
 	kmgr := &util.FakeKeyManager{}
-	_, err = secondRepo.Commit(ctx, kmgr.SignForUser)
+	_, _, err = secondRepo.Commit(ctx, kmgr.SignForUser)
 	if err != nil {
 		t.Fatal(err)
 	}

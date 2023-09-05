@@ -347,7 +347,7 @@ var syncGetRepoCmd = &cli.Command{
 
 		ctx := context.TODO()
 
-		repobytes, err := comatproto.SyncGetRepo(ctx, xrpcc, cctx.Args().First(), "", "")
+		repobytes, err := comatproto.SyncGetRepo(ctx, xrpcc, cctx.Args().First(), "")
 		if err != nil {
 			return err
 		}
@@ -647,7 +647,7 @@ var listAllPostsCmd = &cli.Command{
 				arg = xrpcc.Auth.Did
 			}
 
-			rrb, err := comatproto.SyncGetRepo(ctx, xrpcc, arg, "", "")
+			rrb, err := comatproto.SyncGetRepo(ctx, xrpcc, arg, "")
 			if err != nil {
 				return err
 			}
@@ -1168,7 +1168,7 @@ var getRecordCmd = &cli.Command{
 				return err
 			}
 
-			rrb, err := comatproto.SyncGetRepo(ctx, xrpcc, rfi, "", "")
+			rrb, err := comatproto.SyncGetRepo(ctx, xrpcc, rfi, "")
 			if err != nil {
 				return err
 			}
