@@ -13,7 +13,7 @@ func init() {
 } // EmbedExternal is a "main" in the app.bsky.embed.external schema.
 // RECORDTYPE: EmbedExternal
 type EmbedExternal struct {
-	LexiconTypeID string                  `json:"$type,const=app.bsky.embed.external#main" cborgen:"$type,const=app.bsky.embed.external#main"`
+	LexiconTypeID string                  `json:"$type,const=app.bsky.embed.external" cborgen:"$type,const=app.bsky.embed.external"`
 	External      *EmbedExternal_External `json:"external" cborgen:"external"`
 }
 

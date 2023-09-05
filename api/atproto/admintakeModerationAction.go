@@ -15,9 +15,11 @@ import (
 
 // AdminTakeModerationAction_Input is the input argument to a com.atproto.admin.takeModerationAction call.
 type AdminTakeModerationAction_Input struct {
-	Action          string                                   `json:"action" cborgen:"action"`
-	CreateLabelVals []string                                 `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
-	CreatedBy       string                                   `json:"createdBy" cborgen:"createdBy"`
+	Action          string   `json:"action" cborgen:"action"`
+	CreateLabelVals []string `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
+	CreatedBy       string   `json:"createdBy" cborgen:"createdBy"`
+	// durationInHours: Indicates how long this action was meant to be in effect before automatically expiring.
+	DurationInHours *int64                                   `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
 	NegateLabelVals []string                                 `json:"negateLabelVals,omitempty" cborgen:"negateLabelVals,omitempty"`
 	Reason          string                                   `json:"reason" cborgen:"reason"`
 	Subject         *AdminTakeModerationAction_Input_Subject `json:"subject" cborgen:"subject"`
