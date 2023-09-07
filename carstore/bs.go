@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -73,7 +74,6 @@ type CarShard struct {
 	Seq       int `gorm:"index:idx_car_shards_seq;index:idx_car_shards_usr_seq,priority:2,sort:desc"`
 	Path      string
 	Usr       models.Uid `gorm:"index:idx_car_shards_usr;index:idx_car_shards_usr_seq,priority:1"`
-	Rebase    bool
 	Rev       string
 }
 
@@ -262,11 +262,11 @@ func (cs *CarStore) checkLastShardCache(user models.Uid) *CarShard {
 	return nil
 }
 
-func (cs *CarStore) putLastShardCache(user models.Uid, ls *CarShard) {
+func (cs *CarStore) putLastShardCache(ls *CarShard) {
 	cs.lscLk.Lock()
 	defer cs.lscLk.Unlock()
 
-	cs.lastShardCache[user] = ls
+	cs.lastShardCache[ls.Usr] = ls
 }
 
 func (cs *CarStore) getLastShard(ctx context.Context, user models.Uid) (*CarShard, error) {
@@ -288,7 +288,7 @@ func (cs *CarStore) getLastShard(ctx context.Context, user models.Uid) (*CarShar
 		//}
 	}
 
-	cs.putLastShardCache(user, &lastShard)
+	cs.putLastShardCache(&lastShard)
 	return &lastShard, nil
 }
 
@@ -375,15 +375,8 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev s
 	}
 
 	for _, sh := range shards {
-		// for rebase shards, only include the modified root, not the whole tree
-		if sh.Rebase && incremental {
-			if err := cs.writeBlockFromShard(ctx, &sh, w, sh.Root.CID); err != nil {
-				return err
-			}
-		} else {
-			if err := cs.writeShardBlocks(ctx, &sh, w); err != nil {
-				return err
-			}
+		if err := cs.writeShardBlocks(ctx, &sh, w); err != nil {
+			return err
 		}
 	}
 
@@ -433,6 +426,33 @@ func (cs *CarStore) writeBlockFromShard(ctx context.Context, sh *CarShard, w io.
 
 		if blk.Cid() == c {
 			_, err := LdWrite(w, c.Bytes(), blk.RawData())
+			return err
+		}
+	}
+}
+
+func (cs *CarStore) iterateShardBlocks(ctx context.Context, sh *CarShard, cb func(blk blockformat.Block) error) error {
+	fi, err := os.Open(sh.Path)
+	if err != nil {
+		return err
+	}
+	defer fi.Close()
+
+	rr, err := car.NewCarReader(fi)
+	if err != nil {
+		return err
+	}
+
+	for {
+		blk, err := rr.Next()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+
+		if err := cb(blk); err != nil {
 			return err
 		}
 	}
@@ -539,13 +559,20 @@ func (cs *CarStore) writeNewShardFile(ctx context.Context, user models.Uid, seq 
 }
 
 func (cs *CarStore) deleteShardFile(ctx context.Context, sh *CarShard) error {
-	return os.Remove(fnameForShard(sh.Usr, sh.Seq))
+	return os.Remove(sh.Path)
 }
 
 // CloseWithRoot writes all new blocks in a car file to the writer with the
 // given cid as the 'root'
 func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid, rev string) ([]byte, error) {
-	return ds.closeWithRoot(ctx, root, rev, false)
+	ctx, span := otel.Tracer("carstore").Start(ctx, "CloseWithRoot")
+	defer span.End()
+
+	if ds.readonly {
+		return nil, fmt.Errorf("cannot write to readonly deltaSession")
+	}
+
+	return ds.cs.writeNewShard(ctx, root, rev, ds.user, ds.seq, ds.blks, ds.rmcids)
 }
 
 func WriteCarHeader(w io.Writer, root cid.Cid) (int64, error) {
@@ -566,13 +593,7 @@ func WriteCarHeader(w io.Writer, root cid.Cid) (int64, error) {
 	return hnw, nil
 }
 
-func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rev string, rebase bool) ([]byte, error) {
-	ctx, span := otel.Tracer("carstore").Start(ctx, "CloseWithRoot")
-	defer span.End()
-
-	if ds.readonly {
-		return nil, fmt.Errorf("cannot write to readonly deltaSession")
-	}
+func (cs *CarStore) writeNewShard(ctx context.Context, root cid.Cid, rev string, user models.Uid, seq int, blks map[cid.Cid]blockformat.Block, rmcids map[cid.Cid]bool) ([]byte, error) {
 
 	buf := new(bytes.Buffer)
 	hnw, err := WriteCarHeader(buf, root)
@@ -586,8 +607,8 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rev str
 
 	offset := hnw
 	//brefs := make([]*blockRef, 0, len(ds.blks))
-	brefs := make([]map[string]interface{}, 0, len(ds.blks))
-	for k, blk := range ds.blks {
+	brefs := make([]map[string]interface{}, 0, len(blks))
+	for k, blk := range blks {
 		nw, err := LdWrite(buf, k.Bytes(), blk.RawData())
 		if err != nil {
 			return nil, fmt.Errorf("failed to write block: %w", err)
@@ -610,7 +631,7 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rev str
 		offset += nw
 	}
 
-	path, err := ds.cs.writeNewShardFile(ctx, ds.user, ds.seq, buf.Bytes())
+	path, err := cs.writeNewShardFile(ctx, user, seq, buf.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("failed to write shard file: %w", err)
 	}
@@ -618,31 +639,34 @@ func (ds *DeltaSession) closeWithRoot(ctx context.Context, root cid.Cid, rev str
 	shard := CarShard{
 		Root:      models.DbCID{root},
 		DataStart: hnw,
-		Seq:       ds.seq,
+		Seq:       seq,
 		Path:      path,
-		Usr:       ds.user,
+		Usr:       user,
 		Rev:       rev,
 	}
 
-	if err := ds.putShard(ctx, &shard, brefs); err != nil {
+	if err := cs.putShard(ctx, &shard, brefs, rmcids, false); err != nil {
 		return nil, err
 	}
 
 	return buf.Bytes(), nil
 }
 
-func (ds *DeltaSession) putShard(ctx context.Context, shard *CarShard, brefs []map[string]any) error {
+func (cs *CarStore) putShard(ctx context.Context, shard *CarShard, brefs []map[string]any, rmcids map[cid.Cid]bool, nocache bool) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "putShard")
 	defer span.End()
 
 	// TODO: there should be a way to create the shard and block_refs that
 	// reference it in the same query, would save a lot of time
-	tx := ds.cs.meta.WithContext(ctx).Begin()
+	tx := cs.meta.WithContext(ctx).Begin()
 
 	if err := tx.WithContext(ctx).Create(shard).Error; err != nil {
 		return fmt.Errorf("failed to create shard in DB tx: %w", err)
 	}
-	ds.cs.putLastShardCache(ds.user, shard)
+
+	if !nocache {
+		cs.putLastShardCache(shard)
+	}
 
 	for _, ref := range brefs {
 		ref["shard"] = shard.ID
@@ -652,13 +676,13 @@ func (ds *DeltaSession) putShard(ctx context.Context, shard *CarShard, brefs []m
 		return fmt.Errorf("failed to create block refs: %w", err)
 	}
 
-	if len(ds.rmcids) > 0 {
+	if len(rmcids) > 0 {
 		var torm []models.DbCID
-		for c := range ds.rmcids {
+		for c := range rmcids {
 			torm = append(torm, models.DbCID{c})
 		}
 
-		subq := ds.cs.meta.Model(&blockRef{}).Joins("left join car_shards cs on cs.id = block_refs.shard").Where("cid in (?) AND usr = ?", torm, ds.user).Select("block_refs.id")
+		subq := cs.meta.Model(&blockRef{}).Joins("left join car_shards cs on cs.id = block_refs.shard").Where("cid in (?) AND usr = ?", torm, shard.Usr).Select("block_refs.id")
 		if err := tx.Model(&blockRef{}).Where("id in (?)", subq).UpdateColumn("dirty", true).Error; err != nil {
 			return err
 		}
@@ -715,39 +739,6 @@ func createInBatches(ctx context.Context, tx *gorm.DB, data []map[string]any, ba
 	return nil
 }
 
-func (ds *DeltaSession) CloseAsRebase(ctx context.Context, root cid.Cid, rev string) error {
-	_, err := ds.closeWithRoot(ctx, root, rev, true)
-	if err != nil {
-		return err
-	}
-
-	// TODO: this *could* get large, might be worth doing it incrementally
-	var oldslices []CarShard
-	if err := ds.cs.meta.Find(&oldslices, "usr = ? AND seq < ?", ds.user, ds.seq).Error; err != nil {
-		return err
-	}
-
-	// If anything here fails, cleanup is straightforward. Simply look for any
-	// shard in the database with a higher seq shard marked as 'rebase'
-	for _, sl := range oldslices {
-		if err := os.Remove(sl.Path); err != nil {
-			if !os.IsNotExist(err) {
-				return err
-			}
-		}
-
-		if err := ds.cs.meta.Delete(&sl).Error; err != nil {
-			return err
-		}
-
-		if err := ds.cs.meta.Where("shard = ?", sl.ID).Delete(&blockRef{}).Error; err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func LdWrite(w io.Writer, d ...[]byte) (int64, error) {
 	var sum uint64
 	for _, s := range d {
@@ -781,7 +772,7 @@ func setToSlice(s map[cid.Cid]bool) []cid.Cid {
 	return out
 }
 
-func BlockDiff(ctx context.Context, bs blockstore.Blockstore, oldroot cid.Cid, newcids []cid.Cid) (map[cid.Cid]bool, error) {
+func BlockDiff(ctx context.Context, bs blockstore.Blockstore, oldroot cid.Cid, newcids map[cid.Cid]blockformat.Block) (map[cid.Cid]bool, error) {
 	ctx, span := otel.Tracer("repo").Start(ctx, "BlockDiff")
 	defer span.End()
 
@@ -791,7 +782,7 @@ func BlockDiff(ctx context.Context, bs blockstore.Blockstore, oldroot cid.Cid, n
 
 	// walk the entire 'new' portion of the tree, marking all referenced cids as 'keep'
 	keepset := make(map[cid.Cid]bool)
-	for _, c := range newcids {
+	for c := range newcids {
 		keepset[c] = true
 		oblk, err := bs.Get(ctx, c)
 		if err != nil {
@@ -872,7 +863,7 @@ func (cs *CarStore) ImportSlice(ctx context.Context, uid models.Uid, since *stri
 		}
 	}
 
-	rmcids, err := BlockDiff(ctx, ds, ds.baseCid, cids)
+	rmcids, err := BlockDiff(ctx, ds, ds.baseCid, ds.blks)
 	if err != nil {
 		return cid.Undef, nil, fmt.Errorf("block diff failed (base=%s): %w", ds.baseCid, err)
 	}
@@ -880,6 +871,16 @@ func (cs *CarStore) ImportSlice(ctx context.Context, uid models.Uid, since *stri
 	ds.rmcids = rmcids
 
 	return carr.Header.Roots[0], ds, nil
+}
+
+func (ds *DeltaSession) CalcDiff(ctx context.Context, nroot cid.Cid) error {
+	rmcids, err := BlockDiff(ctx, ds, ds.baseCid, ds.blks)
+	if err != nil {
+		return fmt.Errorf("block diff failed: %w", err)
+	}
+
+	ds.rmcids = rmcids
+	return nil
 }
 
 func (cs *CarStore) GetUserRepoHead(ctx context.Context, user models.Uid) (cid.Cid, error) {
@@ -930,32 +931,6 @@ func (cs *CarStore) Stat(ctx context.Context, usr models.Uid) ([]UserStat, error
 	return out, nil
 }
 
-func (cs *CarStore) checkFork(ctx context.Context, user models.Uid, prev cid.Cid) (bool, error) {
-	ctx, span := otel.Tracer("carstore").Start(ctx, "checkFork")
-	defer span.End()
-
-	lastShard, err := cs.getLastShard(ctx, user)
-	if err != nil {
-		return false, err
-	}
-
-	var maybeShard CarShard
-	if err := cs.meta.WithContext(ctx).Model(CarShard{}).Find(&maybeShard, "usr = ? AND root = ?", user, &models.DbCID{prev}).Error; err != nil {
-		return false, err
-	}
-
-	if maybeShard.ID != 0 && maybeShard.ID == lastShard.ID {
-		// somehow we are checking if a valid 'append' is a fork, seems buggy, throw an error
-		return false, fmt.Errorf("invariant broken: checked for forkiness of a valid append (%d - %d)", lastShard.ID, maybeShard.ID)
-	}
-
-	if maybeShard.ID == 0 {
-		return false, nil
-	}
-
-	return true, nil
-}
-
 func (cs *CarStore) TakeDownRepo(ctx context.Context, user models.Uid) error {
 	var shards []CarShard
 	if err := cs.meta.Find(&shards, "usr = ?", user).Error; err != nil {
@@ -963,7 +938,7 @@ func (cs *CarStore) TakeDownRepo(ctx context.Context, user models.Uid) error {
 	}
 
 	for _, sh := range shards {
-		if err := cs.deleteShardFile(ctx, &sh); err != nil {
+		if err := cs.deleteShard(ctx, &sh); err != nil {
 			if !os.IsNotExist(err) {
 				return err
 			}
@@ -974,5 +949,302 @@ func (cs *CarStore) TakeDownRepo(ctx context.Context, user models.Uid) error {
 		return err
 	}
 
+	return nil
+}
+
+func (cs *CarStore) deleteShard(ctx context.Context, sh *CarShard) error {
+	if err := cs.meta.Delete(&CarShard{}, "id = ?", sh.ID).Error; err != nil {
+		return err
+	}
+
+	if err := cs.meta.Delete(&blockRef{}, "shard = ?", sh.ID).Error; err != nil {
+		return err
+	}
+
+	return cs.deleteShardFile(ctx, sh)
+}
+
+type shardStat struct {
+	ID    uint
+	Seq   int
+	Dirty int
+	Total int
+
+	refs []blockRef
+}
+
+func (s shardStat) dirtyFrac() float64 {
+	return float64(s.Dirty) / float64(s.Total)
+}
+
+func shouldCompact(s shardStat) bool {
+	// if shard is mostly removed blocks
+	if s.dirtyFrac() > 0.5 {
+		return true
+	}
+
+	// if its a big shard with a sufficient number of removed blocks
+	if s.Dirty > 1000 {
+		return true
+	}
+
+	// if its just rather small and we want to compact it up with other shards
+	if s.Total < 20 {
+		return true
+	}
+
+	return false
+}
+
+func aggrRefs(brefs []blockRef) []shardStat {
+	byId := make(map[uint]*shardStat)
+
+	for _, br := range brefs {
+		s, ok := byId[br.Shard]
+		if !ok {
+			s = &shardStat{
+				ID: br.Shard,
+			}
+			byId[br.Shard] = s
+		}
+
+		s.Total++
+		if br.Dirty {
+			s.Dirty++
+		}
+
+		s.refs = append(s.refs, br)
+	}
+
+	var out []shardStat
+	for _, s := range byId {
+		out = append(out, *s)
+	}
+
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].ID < out[j].ID
+	})
+
+	return out
+}
+
+type compBucket struct {
+	shards []shardStat
+
+	cleanBlocks int
+}
+
+func (cb *compBucket) addShardStat(ss shardStat) {
+	cb.cleanBlocks += (ss.Total - ss.Dirty)
+	cb.shards = append(cb.shards, ss)
+}
+
+func (cb *compBucket) isFull() bool {
+	return cb.cleanBlocks > 50
+}
+
+func (cb *compBucket) isEmpty() bool {
+	return len(cb.shards) == 0
+}
+
+func (cs *CarStore) copyShardBlocksFiltered(ctx context.Context, sh *CarShard, w io.Writer, keep map[cid.Cid]bool) error {
+	fi, err := os.Open(sh.Path)
+	if err != nil {
+		return err
+	}
+	defer fi.Close()
+
+	rr, err := car.NewCarReader(fi)
+	if err != nil {
+		return err
+	}
+
+	for {
+		blk, err := rr.Next()
+		if err != nil {
+			return err
+		}
+
+		if keep[blk.Cid()] {
+			_, err := LdWrite(w, blk.Cid().Bytes(), blk.RawData())
+			return err
+		}
+	}
+}
+
+func (cs *CarStore) openNewCompactedShardFile(ctx context.Context, user models.Uid, seq int) (*os.File, string, error) {
+	// TODO: some overwrite protections
+	fi, err := os.CreateTemp(cs.rootDir, fnameForShard(user, seq))
+	if err != nil {
+		return nil, "", err
+	}
+
+	return fi, fi.Name(), nil
+}
+
+func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) error {
+	/*
+			var results []shardStat
+			if err := cs.meta.Raw(`
+		WITH user_shards AS
+			(select cs.id, cs.seq, br.dirty from block_refs br left join car_shards cs on br.shard = cs.id where cs.usr = ?)
+		SELECT
+			id,
+			seq,
+			count(*) as total,
+			sum(case when dirty then 1 else 0 end) as dirty
+		FROM user_shards group by id, seq;`, user).Scan(&results).Error; err != nil {
+				return err
+			}
+	*/
+
+	var brefs []blockRef
+	if err := cs.meta.Raw(`select br.* from block_refs br left join car_shards cs on br.shard = cs.id where cs.usr = ?`, user).Scan(&brefs).Error; err != nil {
+		return err
+	}
+
+	cset := make(map[cid.Cid]bool)
+	var hasDirtyDupes bool
+	for _, br := range brefs {
+		if br.Dirty {
+			if cset[br.Cid.CID] {
+				hasDirtyDupes = true
+				break
+			}
+			cset[br.Cid.CID] = true
+		}
+	}
+
+	if hasDirtyDupes {
+		// if we have no duplicates, then the keep set is simply all the 'clean' blockRefs
+		// in the case we have duplicate dirty references we have to compute
+		// the keep set by walking the entire repo to check if anything is
+		// still referencing the dirty block in question
+		return fmt.Errorf("WIP: not currently handling this case")
+	}
+
+	keep := make(map[cid.Cid]bool)
+	for _, br := range brefs {
+		if !br.Dirty {
+			keep[br.Cid.CID] = true
+		}
+	}
+
+	results := aggrRefs(brefs)
+
+	var shardIds []uint
+	for _, r := range results {
+		shardIds = append(shardIds, r.ID)
+	}
+
+	fmt.Println(shardIds)
+
+	var shards []CarShard
+	if err := cs.meta.Find(&shards, "id in (?)", shardIds).Error; err != nil {
+		return err
+	}
+
+	shardsById := make(map[uint]CarShard)
+	for _, s := range shards {
+		shardsById[s.ID] = s
+	}
+
+	var compactionQueue []*compBucket
+
+	cur := new(compBucket)
+
+	for _, r := range results {
+		fmt.Println("res: ", shouldCompact(r), r.Dirty, r.Total)
+		if shouldCompact(r) {
+			if cur.isFull() {
+				compactionQueue = append(compactionQueue, cur)
+				cur = new(compBucket)
+			}
+
+			cur.addShardStat(r)
+		} else {
+			if !cur.isEmpty() {
+				compactionQueue = append(compactionQueue, cur)
+				cur = new(compBucket)
+			}
+		}
+	}
+
+	if !cur.isEmpty() {
+		compactionQueue = append(compactionQueue, cur)
+	}
+
+	for _, b := range compactionQueue {
+		if err := cs.compactBucket(ctx, user, b, shardsById, keep); err != nil {
+			return err
+		}
+
+		for _, s := range b.shards {
+			sh, ok := shardsById[s.ID]
+			if !ok {
+				return fmt.Errorf("missing shard to delete")
+			}
+
+			if err := cs.deleteShard(ctx, &sh); err != nil {
+				return fmt.Errorf("deleting shard: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compBucket, shardsById map[uint]CarShard, keep map[cid.Cid]bool) error {
+	last := b.shards[len(b.shards)-1]
+	lastsh := shardsById[last.ID]
+	fi, path, err := cs.openNewCompactedShardFile(ctx, user, last.Seq)
+	if err != nil {
+		return err
+	}
+
+	defer fi.Close()
+	root := lastsh.Root.CID
+
+	hnw, err := WriteCarHeader(fi, root)
+	if err != nil {
+		return err
+	}
+
+	offset := hnw
+	var nbrefs []map[string]any
+	for _, s := range b.shards {
+		sh := shardsById[s.ID]
+		if err := cs.iterateShardBlocks(ctx, &sh, func(blk blockformat.Block) error {
+			if keep[blk.Cid()] {
+				nw, err := LdWrite(fi, blk.Cid().Bytes(), blk.RawData())
+				if err != nil {
+					return fmt.Errorf("failed to write block: %w", err)
+				}
+
+				nbrefs = append(nbrefs, map[string]interface{}{
+					"cid":    models.DbCID{blk.Cid()},
+					"offset": offset,
+				})
+
+				offset += nw
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+
+	shard := CarShard{
+		Root:      models.DbCID{root},
+		DataStart: hnw,
+		Seq:       lastsh.Seq,
+		Path:      path,
+		Usr:       user,
+		Rev:       lastsh.Rev,
+	}
+
+	if err := cs.putShard(ctx, &shard, nbrefs, nil, true); err != nil {
+		return err
+	}
 	return nil
 }
