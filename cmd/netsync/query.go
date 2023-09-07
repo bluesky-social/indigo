@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -57,63 +59,130 @@ func Trim(cctx *cli.Context) error {
 
 	limit := uint(20_001)
 
+	// Read repo list
+	repoListFile, err := os.Open(cctx.String("repo-list"))
+	if err != nil {
+		return err
+	}
+
+	fileScanner := bufio.NewScanner(repoListFile)
+	fileScanner.Split(bufio.ScanLines)
+
+	repos := []string{}
+
+	for fileScanner.Scan() {
+		repo := fileScanner.Text()
+		repos = append(repos, repo)
+	}
+
 	cluster := gocql.NewCluster(cctx.StringSlice("scylla-nodes")...)
 	session, err := gocqlx.WrapSession(cluster.CreateSession())
 	if err != nil {
 		return fmt.Errorf("failed to create scylla session: %w", err)
 	}
 
-	args := cctx.Args()
-	if args.Len() != 1 {
-		return fmt.Errorf("must provide a did")
-	}
-	did := args.First()
-
 	// Trim posts_by_did to 20,000 posts
 	// Select 20k posts, grab the `created_at` of the last one, then delete all posts with a `created_at` less than that
 
-	start := time.Now()
-
-	posts := []PostByDID{}
-	err = postsByDIDTable.SelectBuilder().
-		Limit(limit).
-		OrderBy("created_at", qb.DESC).
-		QueryContext(ctx, session).
-		BindStruct(&PostByDID{Did: did}).
-		SelectRelease(&posts)
-	if err != nil {
-		return fmt.Errorf("failed to get posts: %w", err)
+	type output struct {
+		err      error
+		msg      string
+		duration time.Duration
 	}
 
-	if len(posts) == 0 {
-		return nil
+	st := time.Now()
+	outChan := make(chan output, len(repos))
+	sem := semaphore.NewWeighted(int64(cctx.Int("worker-count")))
+	var wg sync.WaitGroup
+
+	// Run in parallel
+	for _, repo := range repos {
+		wg.Add(1)
+		go func(repo string) {
+			defer wg.Done()
+			sem.Acquire(ctx, 1)
+			defer sem.Release(1)
+
+			start := time.Now()
+			log := log.With("repo", repo)
+
+			posts := []PostByDID{}
+			err = postsByDIDTable.SelectBuilder().
+				Limit(limit).
+				OrderBy("created_at", qb.DESC).
+				QueryContext(ctx, session).
+				BindStruct(&PostByDID{Did: repo}).
+				SelectRelease(&posts)
+			if err != nil {
+				outChan <- output{err: fmt.Errorf("failed to get posts: %w", err)}
+				return
+			}
+
+			if len(posts) == 0 {
+				outChan <- output{msg: "no posts found for DID", duration: time.Since(start)}
+				return
+			}
+
+			loadTime := time.Now()
+
+			log.Debugw("got posts", "num_posts", len(posts), "duration", loadTime.Sub(start).String())
+
+			if len(posts) < int(limit) {
+				outChan <- output{msg: "no posts to trim", duration: time.Since(start)}
+				return
+			}
+
+			// Get the last post's created_at
+			lastPostCreatedAt := posts[len(posts)-2].CreatedAt
+
+			// Delete all posts with a created_at less than the last post's created_at
+			err = qb.Delete(postsByDIDTable.Name()).
+				Where(qb.Eq("did"), qb.Lt("created_at")).
+				QueryContext(ctx, session).
+				BindStruct(&PostByDID{Did: repo, CreatedAt: lastPostCreatedAt}).
+				ExecRelease()
+			if err != nil {
+				outChan <- output{err: fmt.Errorf("failed to delete posts: %w", err)}
+				return
+			}
+
+			deleteTime := time.Now()
+
+			log.Debugw("deleted posts", "duration", deleteTime.Sub(loadTime).String())
+
+			outChan <- output{msg: "trimmed posts", duration: time.Since(start)}
+		}(repo)
 	}
 
-	loadTime := time.Since(start)
+	// Wait for all the queries to finish
+	wg.Wait()
+	close(outChan)
 
-	// Get the last post's created_at
-	lastPostCreatedAt := posts[len(posts)-2].CreatedAt
+	end := time.Now()
 
-	log.Infow("got posts", "num_posts", len(posts), "last_post_created_at", lastPostCreatedAt, "duration", loadTime.String())
-
-	if len(posts) < int(limit) {
-		log.Info("no posts to trim")
-		return nil
+	// Enumerate the results
+	var total time.Duration
+	errs := []error{}
+	successes := 0
+	for out := range outChan {
+		if out.err != nil {
+			errs = append(errs, out.err)
+		}
+		if out.duration > 0 {
+			total += out.duration
+			successes++
+		}
+		if out.msg != "" {
+			log.Debug(out.msg)
+		}
 	}
 
-	// Delete all posts with a created_at less than the last post's created_at
-	err = qb.Delete(postsByDIDTable.Name()).
-		Where(qb.Eq("did"), qb.Lt("created_at")).
-		QueryContext(ctx, session).
-		BindStruct(&PostByDID{Did: did, CreatedAt: lastPostCreatedAt}).
-		ExecRelease()
-	if err != nil {
-		return fmt.Errorf("failed to delete posts: %w", err)
-	}
+	// Calculate the average runtime
+	avg := total / time.Duration(successes)
 
-	deleteTime := time.Since(start)
+	p := message.NewPrinter(language.English)
 
-	log.Infow("deleted posts", "duration", deleteTime.String())
+	log.Info(p.Sprintf("trimmed %d repos (%d errors) in %s (avg: %s, total: %s)", successes, len(errs), end.Sub(st), avg, total))
 
 	return nil
 }
