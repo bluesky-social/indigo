@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -27,7 +26,6 @@ import (
 	"github.com/scylladb/gocqlx/v2/table"
 
 	"github.com/urfave/cli/v2"
-	"golang.org/x/sync/semaphore"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
@@ -101,17 +99,16 @@ type Post struct {
 	CreatedAt time.Time
 }
 
-var postWindowMetadata = table.Metadata{
-	Name:    "netsync.post_windows",
-	Columns: []string{"did", "window", "rkey", "created_at"},
-	PartKey: []string{"did", "window"},
+var postsByDIDMetadata = table.Metadata{
+	Name:    "netsync.posts_by_did",
+	Columns: []string{"did", "rkey", "created_at"},
+	PartKey: []string{"did"},
 	SortKey: []string{"created_at"},
 }
-var postWindowTable = table.New(postWindowMetadata)
+var postsByDIDTable = table.New(postsByDIDMetadata)
 
-type PostWindow struct {
+type PostByDID struct {
 	Did       string
-	Window    string
 	Rkey      string
 	CreatedAt time.Time
 }
@@ -132,17 +129,29 @@ type Reply struct {
 	CreatedAt  time.Time
 }
 
+var followsMetadata = table.Metadata{
+	Name:    "netsync.follows",
+	Columns: []string{"actor", "rkey", "target", "created_at"},
+	PartKey: []string{"actor", "rkey"},
+}
+var followsTable = table.New(followsMetadata)
+
+type Follow struct {
+	Actor     string
+	Rkey      string
+	Target    string
+	CreatedAt time.Time
+}
+
 var followByActorMetadata = table.Metadata{
 	Name:    "netsync.follows_by_actor",
-	Columns: []string{"actor", "rkey", "target", "created_at"},
-	PartKey: []string{"actor"},
-	SortKey: []string{"rkey"},
+	Columns: []string{"actor", "target", "created_at"},
+	PartKey: []string{"actor", "target"},
 }
 var followByActorTable = table.New(followByActorMetadata)
 
 type FollowByActor struct {
 	Actor     string
-	Rkey      string
 	Target    string
 	CreatedAt time.Time
 }
@@ -150,8 +159,7 @@ type FollowByActor struct {
 var followByTargetMetadata = table.Metadata{
 	Name:    "netsync.follows_by_target",
 	Columns: []string{"target", "actor", "created_at"},
-	PartKey: []string{"target"},
-	SortKey: []string{"actor"},
+	PartKey: []string{"target", "actor"},
 }
 var followByTargetTable = table.New(followByTargetMetadata)
 
@@ -161,17 +169,29 @@ type FollowByTarget struct {
 	CreatedAt time.Time
 }
 
+var blocksMetadata = table.Metadata{
+	Name:    "netsync.blocks",
+	Columns: []string{"actor", "rkey", "target", "created_at"},
+	PartKey: []string{"actor", "rkey"},
+}
+var blocksTable = table.New(blocksMetadata)
+
+type Block struct {
+	Actor     string
+	Rkey      string
+	Target    string
+	CreatedAt time.Time
+}
+
 var blockByActorMetadata = table.Metadata{
 	Name:    "netsync.blocks_by_actor",
-	Columns: []string{"actor", "rkey", "target", "created_at"},
-	PartKey: []string{"actor"},
-	SortKey: []string{"rkey"},
+	Columns: []string{"actor", "target", "created_at"},
+	PartKey: []string{"actor", "target"},
 }
 var blockByActorTable = table.New(blockByActorMetadata)
 
 type BlockByActor struct {
 	Actor     string
-	Rkey      string
 	Target    string
 	CreatedAt time.Time
 }
@@ -179,8 +199,7 @@ type BlockByActor struct {
 var blockByTargetMetadata = table.Metadata{
 	Name:    "netsync.blocks_by_target",
 	Columns: []string{"target", "actor", "created_at"},
-	PartKey: []string{"target"},
-	SortKey: []string{"actor"},
+	PartKey: []string{"target", "actor"},
 }
 var blockByTargetTable = table.New(blockByTargetMetadata)
 
@@ -193,8 +212,7 @@ type BlockByTarget struct {
 var likesMetadata = table.Metadata{
 	Name:    "netsync.likes",
 	Columns: []string{"did", "rkey", "subject", "created_at"},
-	PartKey: []string{"did"},
-	SortKey: []string{"rkey"},
+	PartKey: []string{"did", "rkey"},
 }
 var likesTable = table.New(likesMetadata)
 
@@ -208,8 +226,7 @@ type Like struct {
 var likeCountMetadata = table.Metadata{
 	Name:    "netsync.like_counts",
 	Columns: []string{"did", "nsid", "rkey", "count"},
-	PartKey: []string{"did", "nsid"},
-	SortKey: []string{"rkey"},
+	PartKey: []string{"did", "nsid", "rkey"},
 }
 var likeCountTable = table.New(likeCountMetadata)
 
@@ -223,8 +240,7 @@ type LikeCount struct {
 var repostsMetadata = table.Metadata{
 	Name:    "netsync.reposts",
 	Columns: []string{"did", "rkey", "subject", "created_at"},
-	PartKey: []string{"did"},
-	SortKey: []string{"rkey"},
+	PartKey: []string{"did", "rkey"},
 }
 var repostsTable = table.New(repostsMetadata)
 
@@ -238,8 +254,7 @@ type Repost struct {
 var repostCountMetadata = table.Metadata{
 	Name:    "netsync.repost_counts",
 	Columns: []string{"did", "nsid", "rkey", "count"},
-	PartKey: []string{"did", "nsid"},
-	SortKey: []string{"rkey"},
+	PartKey: []string{"did", "nsid", "rkey"},
 }
 var repostCountTable = table.New(repostCountMetadata)
 
@@ -259,369 +274,53 @@ func (s *PlaybackState) SetupSchema() error {
 		return fmt.Errorf("failed to create posts table: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.post_windows (did text, window text, rkey text, created_at timestamp, PRIMARY KEY ((did, window), created_at));`); err != nil {
-		return fmt.Errorf("failed to create post windows table: %w", err)
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.posts_by_did (did text, rkey text, created_at timestamp, PRIMARY KEY (did, created_at)) WITH CLUSTERING ORDER BY (created_at DESC);`); err != nil {
+		return fmt.Errorf("failed to create posts by did table: %w", err)
 	}
 
 	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.replies (parent_did text, parent_rkey text, child_did text, child_rkey text, created_at timestamp, PRIMARY KEY ((parent_did, parent_rkey), child_did, child_rkey));`); err != nil {
 		return fmt.Errorf("failed to create replies table: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.follows_by_actor (actor text, rkey text, target text, created_at timestamp, PRIMARY KEY (actor, rkey));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.follows (actor text, rkey text, target text, created_at timestamp, PRIMARY KEY ((actor, rkey)));`); err != nil {
+		return fmt.Errorf("failed to create follows table: %w", err)
+	}
+
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.follows_by_actor (actor text, rkey text, target text, created_at timestamp, PRIMARY KEY ((actor, target)));`); err != nil {
 		return fmt.Errorf("failed to create follows by actor table: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.follows_by_target (target text, actor text, created_at timestamp, PRIMARY KEY (target, actor));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.follows_by_target (target text, actor text, created_at timestamp, PRIMARY KEY ((target, actor)));`); err != nil {
 		return fmt.Errorf("failed to create follows by target table: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.blocks_by_actor (actor text, rkey text, target text, created_at timestamp, PRIMARY KEY (actor, rkey));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.blocks (actor text, rkey text, target text, created_at timestamp, PRIMARY KEY ((actor, rkey)));`); err != nil {
+		return fmt.Errorf("failed to create blocks table: %w", err)
+	}
+
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.blocks_by_actor (actor text, target text, created_at timestamp, PRIMARY KEY ((actor, target)));`); err != nil {
 		return fmt.Errorf("failed to create blocks by actor table: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.blocks_by_target (target text, actor text, created_at timestamp, PRIMARY KEY (target, actor));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.blocks_by_target (target text, actor text, created_at timestamp, PRIMARY KEY ((target, actor)));`); err != nil {
 		return fmt.Errorf("failed to create blocks by target table: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.likes (did text, rkey text, subject text, created_at timestamp, PRIMARY KEY (did, rkey));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.likes (did text, rkey text, subject text, created_at timestamp, PRIMARY KEY ((did, rkey)));`); err != nil {
 		return fmt.Errorf("failed to create likes table: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.like_counts (did text, nsid text, rkey text, count counter, PRIMARY KEY ((did, nsid), rkey));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.like_counts (did text, nsid text, rkey text, count counter, PRIMARY KEY ((did, nsid, rkey)));`); err != nil {
 		return fmt.Errorf("failed to create like counts table: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.reposts (did text, rkey text, subject text, created_at timestamp, PRIMARY KEY (did, rkey));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.reposts (did text, rkey text, subject text, created_at timestamp, PRIMARY KEY ((did, rkey)));`); err != nil {
 		return fmt.Errorf("failed to create reposts table: %w", err)
 	}
 
-	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.repost_counts (did text, nsid text, rkey text, count counter, PRIMARY KEY ((did, nsid), rkey));`); err != nil {
+	if err := s.ses.ExecStmt(`CREATE TABLE IF NOT EXISTS netsync.repost_counts (did text, nsid text, rkey text, count counter, PRIMARY KEY ((did, nsid, rkey)));`); err != nil {
 		return fmt.Errorf("failed to create repost counts table: %w", err)
 	}
-
-	return nil
-}
-
-func GetPostsForUser(cctx *cli.Context) error {
-	ctx := cctx.Context
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	cluster := gocql.NewCluster(cctx.StringSlice("scylla-nodes")...)
-	session, err := gocqlx.WrapSession(cluster.CreateSession())
-	if err != nil {
-		return fmt.Errorf("failed to create scylla session: %w", err)
-	}
-
-	args := cctx.Args()
-	if args.Len() != 1 {
-		return fmt.Errorf("must provide a did")
-	}
-
-	did := args.First()
-
-	limit := 500
-
-	numRuns := 2000
-	maxConcurrent := 40
-	sem := semaphore.NewWeighted(int64(maxConcurrent))
-
-	totalRowsRead := atomic.Uint64{}
-
-	runtimes := make(chan time.Duration, numRuns)
-
-	start := time.Now()
-
-	// Compute window names
-	windowRangeStart := time.Date(2023, 8, 1, 0, 0, 0, 0, time.UTC)
-	windowRangeEnd := time.Now().UTC()
-	windowNames := []string{}
-	for windowRangeStart.Before(windowRangeEnd) {
-		windowNames = append(windowNames, windowRangeStart.Format("2006-01-02"))
-		windowRangeStart = windowRangeStart.Add(24 * time.Hour)
-	}
-
-	// Run the query in numRuns goroutines
-	var pwg sync.WaitGroup
-	for i := 0; i < numRuns; i++ {
-		pwg.Add(1)
-		go func() error {
-			defer pwg.Done()
-			sem.Acquire(ctx, 1)
-			defer sem.Release(1)
-			iterStart := time.Now()
-			defer func() {
-				runtimes <- time.Since(iterStart)
-			}()
-
-			// Query for all the posts in each window in parallel
-			var wg sync.WaitGroup
-			postWindows := []PostWindow{}
-			postWindowsLk := sync.Mutex{}
-			for _, windowName := range windowNames {
-				wg.Add(1)
-				go func(windowName string) {
-					defer wg.Done()
-
-					postWindow := PostWindow{
-						Did:    did,
-						Window: windowName,
-					}
-
-					windows := []PostWindow{}
-
-					err = qb.Select(postWindowMetadata.Name).
-						Where(qb.Eq("did"), qb.Eq("window")).
-						OrderBy("created_at", qb.DESC).Limit(uint(limit)).
-						Query(session).BindStruct(&postWindow).SelectRelease(&windows)
-					if err != nil {
-						log.Errorf("failed to get post windows: %+v", err)
-						return
-					}
-
-					postWindowsLk.Lock()
-					postWindows = append(postWindows, windows...)
-					postWindowsLk.Unlock()
-				}(windowName)
-			}
-
-			wg.Wait()
-
-			// log.Infow("got post windows", "count", len(postWindows), "duration", time.Since(iterStart))
-
-			// Sort the post windows by created at and limit
-			slices.SortFunc(postWindows, func(a, b PostWindow) int {
-				if a.CreatedAt.Before(b.CreatedAt) {
-					return -1
-				}
-				if a.CreatedAt.After(b.CreatedAt) {
-					return 1
-				}
-				return 0
-			})
-			postWindows = postWindows[:limit]
-
-			totalRowsRead.Add(uint64(len(postWindows)))
-
-			// Query for all the posts in each window in parallel
-			var wg2 sync.WaitGroup
-			postsLk := sync.Mutex{}
-			posts := []Post{}
-			for _, postWindow := range postWindows {
-				wg2.Add(1)
-				go func(postWindow PostWindow) {
-					defer wg2.Done()
-					post := Post{
-						Did:  postWindow.Did,
-						Rkey: postWindow.Rkey,
-					}
-
-					err = postTable.GetQuery(session).BindStruct(&post).GetRelease(&post)
-					if err != nil {
-						log.Errorf("failed to get post: %+v", err)
-						return
-					}
-
-					postsLk.Lock()
-					posts = append(posts, post)
-					postsLk.Unlock()
-				}(postWindow)
-			}
-			wg2.Wait()
-
-			totalRowsRead.Add(uint64(len(posts)))
-
-			return nil
-		}()
-	}
-
-	// Wait for all the queries to finish
-	pwg.Wait()
-	clockTime := time.Since(start)
-	close(runtimes)
-
-	// Calculate the average runtime
-	var total time.Duration
-	for runtime := range runtimes {
-		total += runtime
-	}
-	avg := total / time.Duration(numRuns)
-
-	p := message.NewPrinter(language.English)
-
-	log.Info(p.Sprintf("got post page %d times (%d total reads) in %s (avg: %s, total: %s)", numRuns, totalRowsRead.Load(), clockTime, avg, total))
-
-	return nil
-}
-
-func Query(cctx *cli.Context) error {
-	ctx := cctx.Context
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	cluster := gocql.NewCluster(cctx.StringSlice("scylla-nodes")...)
-	session, err := gocqlx.WrapSession(cluster.CreateSession())
-	if err != nil {
-		return fmt.Errorf("failed to create scylla session: %w", err)
-	}
-
-	args := cctx.Args()
-	if args.Len() != 1 {
-		return fmt.Errorf("must provide a post URI")
-	}
-	postURI := args.First()
-
-	// at://did/app.bsky.feed.post/rkey
-	postURI = strings.TrimPrefix(postURI, "at://")
-	postParts := strings.Split(postURI, "/")
-	if len(postParts) != 3 {
-		return fmt.Errorf("invalid post URI: %s", postURI)
-	}
-
-	numRuns := 500000
-	maxConcurrent := 400
-	sem := semaphore.NewWeighted(int64(maxConcurrent))
-
-	totalRowsRead := atomic.Uint64{}
-
-	runtimes := make(chan time.Duration, numRuns)
-
-	start := time.Now()
-
-	// Run the query in numRuns goroutines
-	var pwg sync.WaitGroup
-	for i := 0; i < numRuns; i++ {
-		pwg.Add(1)
-		go func() error {
-			defer pwg.Done()
-			sem.Acquire(ctx, 1)
-			defer sem.Release(1)
-			iterStart := time.Now()
-			defer func() {
-				runtimes <- time.Since(iterStart)
-			}()
-
-			// Get the post
-			post := Post{
-				Did:  postParts[0],
-				Rkey: postParts[2],
-			}
-			err = postTable.GetQuery(session).BindStruct(&post).GetRelease(&post)
-			if err != nil {
-				return fmt.Errorf("failed to get post: %w", err)
-			}
-
-			totalRowsRead.Add(1)
-
-			// Get the replies
-			replyRefs := []Reply{}
-			err = repliesTable.SelectQuery(session).BindStruct(&Reply{
-				ParentDid:  postParts[0],
-				ParentRkey: postParts[2],
-			}).SelectRelease(&replyRefs)
-			if err != nil {
-				return fmt.Errorf("failed to get replies: %w", err)
-			}
-
-			totalRowsRead.Add(uint64(len(replyRefs)))
-
-			replies := []Post{}
-			lk := sync.Mutex{}
-
-			// Resolve the replies as posts in parallel
-			var wg sync.WaitGroup
-			for i := range replyRefs {
-				wg.Add(1)
-				replyRef := replyRefs[i]
-				go func(replyRef Reply) {
-					defer wg.Done()
-
-					reply := Post{
-						Did:  replyRef.ChildDid,
-						Rkey: replyRef.ChildRkey,
-					}
-
-					err = postTable.GetQuery(session).BindStruct(&reply).GetRelease(&reply)
-					if err != nil {
-						log.Errorf("failed to get reply: %+v", err)
-						return
-					}
-					lk.Lock()
-					replies = append(replies, reply)
-					lk.Unlock()
-				}(replyRef)
-			}
-
-			totalRowsRead.Add(uint64(len(replies)))
-
-			// Resolve the parent up to the root
-			parents := []Post{}
-			if post.ParentDid != "" && post.ParentRkey != "" {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					parentDid := post.ParentDid
-					parentRkey := post.ParentRkey
-					for {
-						parent := Post{
-							Did:  parentDid,
-							Rkey: parentRkey,
-						}
-						err = postTable.GetQuery(session).BindStruct(&parent).GetRelease(&parent)
-						if err != nil && err != gocql.ErrNotFound {
-							log.Errorf("failed to get parent: %+v", err)
-							return
-						}
-
-						parents = append(parents, parent)
-
-						if parent.ParentDid == "" {
-							break
-						}
-
-						parentDid = parent.ParentDid
-						parentRkey = parent.ParentRkey
-					}
-				}()
-			}
-
-			totalRowsRead.Add(uint64(len(parents)))
-
-			wg.Wait()
-			return nil
-		}()
-	}
-
-	// // Print the thread
-	// p := message.NewPrinter(language.English)
-	// log.Debugf("post: %s", post.Content)
-	// log.Debugf("replies: %d", len(replies))
-	// for _, reply := range replies {
-	// 	log.Debugf("  %s", reply.Content)
-	// }
-	// slices.Reverse(parents)
-	// log.Debugf("parents: %d", len(parents))
-	// for _, parent := range parents {
-	// 	log.Debugf("  %s", parent.Content)
-	// }
-
-	// log.Info(p.Sprintf("processed post with %d replies and resolved %d parents in %s", len(replies), len(parents), time.Since(start)))
-
-	// Wait for all the queries to finish
-	pwg.Wait()
-	clockTime := time.Since(start)
-	close(runtimes)
-
-	// Calculate the average runtime
-	var total time.Duration
-	for runtime := range runtimes {
-		total += runtime
-	}
-	avg := total / time.Duration(numRuns)
-
-	p := message.NewPrinter(language.English)
-
-	log.Info(p.Sprintf("processed post %d times (%d total reads) in %s (avg: %s, total: %s)", numRuns, totalRowsRead.Load(), clockTime, avg, total))
 
 	return nil
 }
@@ -803,19 +502,19 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 		return "", fmt.Errorf("failed to read repo from car: %w", err)
 	}
 
-	maxBatchSize := 1000
+	// maxBatchSize := 1000
 
-	followByActorBatch := s.ses.NewBatch(gocql.LoggedBatch)
-	followByActorBatchSize := 0
+	// followBatch := s.ses.NewBatch(gocql.LoggedBatch)
+	// followBatchSize := 0
 
-	blockByActorBatch := s.ses.NewBatch(gocql.LoggedBatch)
-	blockByActorBatchSize := 0
+	// blockBatch := s.ses.NewBatch(gocql.LoggedBatch)
+	// blockBatchSize := 0
 
-	likeBatch := s.ses.NewBatch(gocql.LoggedBatch)
-	likeBatchSize := 0
+	// likeBatch := s.ses.NewBatch(gocql.LoggedBatch)
+	// likeBatchSize := 0
 
-	repostBatch := s.ses.NewBatch(gocql.LoggedBatch)
-	repostBatchSize := 0
+	// repostBatch := s.ses.NewBatch(gocql.LoggedBatch)
+	// repostBatchSize := 0
 
 	err = r.ForEach(ctx, "", func(path string, _ cid.Cid) error {
 		select {
@@ -925,6 +624,7 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 				post.SelfLabels = selfLabels
 			}
 
+			// Insert into the DID+RKey lookup table
 			insertPost := postTable.InsertQuery(s.ses)
 			err = insertPost.BindStruct(&post).ExecRelease()
 			if err != nil {
@@ -932,20 +632,19 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 				return nil
 			}
 
-			// Insert into post windows using the day as the window
-			window := recCreatedAt.Format("2006-01-02")
-			insertPostWindow := postWindowTable.InsertQuery(s.ses)
-			err = insertPostWindow.BindStruct(&PostWindow{
+			// Insert into post into author-indexed table
+			insertPostByDID := postsByDIDTable.InsertQuery(s.ses)
+			err = insertPostByDID.BindStruct(&PostByDID{
 				Did:       did,
-				Window:    window,
 				Rkey:      rkey,
 				CreatedAt: recCreatedAt,
 			}).ExecRelease()
 			if err != nil {
-				log.Errorf("failed to exec post window: %w", err)
+				log.Errorf("failed to exec post by did: %w", err)
 				return nil
 			}
 
+			// Insert into the reply lookup table
 			if len(parentParts) > 0 {
 				insertReply := repliesTable.InsertQuery(s.ses)
 				err = insertReply.BindStruct(&Reply{
@@ -968,20 +667,32 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 				return nil
 			}
 
+			// insertLike := likesTable.InsertQuery(s.ses)
+			// err = likeBatch.BindStruct(insertLike, &Like{
+			// 	Did:       did,
+			// 	Rkey:      rkey,
+			// 	Subject:   rec.Subject.Uri,
+			// 	CreatedAt: recCreatedAt,
+			// })
+			// if err != nil {
+			// 	log.Errorf("failed to bind like: %w", err)
+			// 	return nil
+			// }
+			// likeBatchSize++
+
+			// Insert into the DID+RKey lookup table
 			insertLike := likesTable.InsertQuery(s.ses)
-			err = likeBatch.BindStruct(insertLike, &Like{
+			err = insertLike.BindStruct(&Like{
 				Did:       did,
 				Rkey:      rkey,
 				Subject:   rec.Subject.Uri,
 				CreatedAt: recCreatedAt,
-			})
+			}).ExecRelease()
 			if err != nil {
-				log.Errorf("failed to bind like: %w", err)
+				log.Errorf("failed to exec like: %w", err)
 				return nil
 			}
-			likeBatchSize++
 
-			// Don't batch like count because the partition key isn't consistent
 			subj := strings.TrimPrefix(rec.Subject.Uri, "at://")
 			subjParts := strings.Split(subj, "/")
 			if len(subjParts) != 3 {
@@ -989,6 +700,7 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 				return nil
 			}
 
+			// Increment counter for subject
 			updateLikeCount := likeCountTable.UpdateBuilder().
 				Add("count").Where(qb.Eq("did"), qb.Eq("nsid"), qb.Eq("rkey")).Query(s.ses).
 				BindStruct(&LikeCount{
@@ -1012,20 +724,32 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 				return nil
 			}
 
+			// insertRepost := repostsTable.InsertQuery(s.ses)
+			// err = repostBatch.BindStruct(insertRepost, &Repost{
+			// 	Did:       did,
+			// 	Rkey:      rkey,
+			// 	Subject:   rec.Subject.Uri,
+			// 	CreatedAt: recCreatedAt,
+			// })
+			// if err != nil {
+			// 	log.Errorf("failed to bind repost: %w", err)
+			// 	return nil
+			// }
+			// repostBatchSize++
+
+			// Insert into the DID+RKey lookup table
 			insertRepost := repostsTable.InsertQuery(s.ses)
-			err = repostBatch.BindStruct(insertRepost, &Repost{
+			err = insertRepost.BindStruct(&Repost{
 				Did:       did,
 				Rkey:      rkey,
 				Subject:   rec.Subject.Uri,
 				CreatedAt: recCreatedAt,
-			})
+			}).ExecRelease()
 			if err != nil {
-				log.Errorf("failed to bind repost: %w", err)
+				log.Errorf("failed to exec repost: %w", err)
 				return nil
 			}
-			repostBatchSize++
 
-			// Don't batch repost count because the partition key isn't consistent
 			subj := strings.TrimPrefix(rec.Subject.Uri, "at://")
 			subjParts := strings.Split(subj, "/")
 			if len(subjParts) != 3 {
@@ -1033,6 +757,7 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 				return nil
 			}
 
+			// Increment counter for subject
 			updateRepostCount := repostCountTable.UpdateBuilder().
 				Add("count").Where(qb.Eq("did"), qb.Eq("nsid"), qb.Eq("rkey")).Query(s.ses).
 				BindStruct(&RepostCount{
@@ -1055,22 +780,46 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 				return nil
 			}
 
-			insertFollowByActor := followByActorTable.InsertQuery(s.ses)
-			insertFollowByTarget := followByTargetTable.InsertQuery(s.ses)
+			// Batch
+			// insertFollow := followsTable.InsertQuery(s.ses)
+			// err = followBatch.BindStruct(insertFollow, &FollowByActor{
+			// 	Actor:     did,
+			// 	Target:    rec.Subject,
+			// 	CreatedAt: recCreatedAt,
+			// })
+			// if err != nil {
+			// 	log.Errorf("failed to bind follow: %w", err)
+			// 	return nil
+			// }
+			// followBatchSize++
 
-			err = followByActorBatch.BindStruct(insertFollowByActor, &FollowByActor{
+			// Insert follow to DID+RKey Lookup table
+			insertFollow := followsTable.InsertQuery(s.ses)
+			err = insertFollow.BindStruct(&Follow{
 				Actor:     did,
 				Rkey:      rkey,
 				Target:    rec.Subject,
 				CreatedAt: recCreatedAt,
-			})
+			}).ExecRelease()
 			if err != nil {
-				log.Errorf("failed to bind follow by actor: %w", err)
+				log.Errorf("failed to exec follow: %w", err)
 				return nil
 			}
-			followByActorBatchSize++
 
-			// Don't batch follow by target because the partition key isn't consistent
+			// Insert follow to Actor Lookup table
+			insertFollowByActor := followByActorTable.InsertQuery(s.ses)
+			err = insertFollowByActor.BindStruct(&FollowByActor{
+				Actor:     did,
+				Target:    rec.Subject,
+				CreatedAt: recCreatedAt,
+			}).ExecRelease()
+			if err != nil {
+				log.Errorf("failed to exec follow by actor: %w", err)
+				return nil
+			}
+
+			// Insert follow to Target Lookup table
+			insertFollowByTarget := followByTargetTable.InsertQuery(s.ses)
 			err = insertFollowByTarget.BindStruct(&FollowByTarget{
 				Target:    rec.Subject,
 				Actor:     did,
@@ -1088,22 +837,33 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 				return nil
 			}
 
-			insertBlockByActor := blockByActorTable.InsertQuery(s.ses)
-			insertBlockByTarget := blockByTargetTable.InsertQuery(s.ses)
-
-			err = blockByActorBatch.BindStruct(insertBlockByActor, &BlockByActor{
+			// Insert follow to DID+RKey Lookup table
+			insertBlock := blocksTable.InsertQuery(s.ses)
+			err = insertBlock.BindStruct(&Block{
 				Actor:     did,
 				Rkey:      rkey,
 				Target:    rec.Subject,
 				CreatedAt: recCreatedAt,
-			})
+			}).ExecRelease()
 			if err != nil {
-				log.Errorf("failed to bind block by actor: %w", err)
+				log.Errorf("failed to exec block: %w", err)
 				return nil
 			}
-			blockByActorBatchSize++
 
-			// Don't batch block by target because the partition key isn't consistent
+			// Insert block to Actor Lookup table
+			insertBlockByActor := blockByActorTable.InsertQuery(s.ses)
+			err = insertBlockByActor.BindStruct(&BlockByActor{
+				Actor:     did,
+				Target:    rec.Subject,
+				CreatedAt: recCreatedAt,
+			}).ExecRelease()
+			if err != nil {
+				log.Errorf("failed to exec block by actor: %w", err)
+				return nil
+			}
+
+			// Insert block to Target Lookup table
+			insertBlockByTarget := blockByTargetTable.InsertQuery(s.ses)
 			err = insertBlockByTarget.BindStruct(&BlockByTarget{
 				Target:    rec.Subject,
 				Actor:     did,
@@ -1119,41 +879,41 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 			}
 		}
 
-		if followByActorBatchSize >= maxBatchSize {
-			err = s.ses.ExecuteBatch(followByActorBatch)
-			if err != nil {
-				log.Errorf("failed to execute batch: %w", err)
-			}
-			followByActorBatch = s.ses.NewBatch(gocql.LoggedBatch)
-			followByActorBatchSize = 0
-		}
+		// if followBatchSize >= maxBatchSize {
+		// 	err = s.ses.ExecuteBatch(followBatch)
+		// 	if err != nil {
+		// 		log.Errorf("failed to execute batch: %w", err)
+		// 	}
+		// 	followBatch = s.ses.NewBatch(gocql.LoggedBatch)
+		// 	followBatchSize = 0
+		// }
 
-		if blockByActorBatchSize >= maxBatchSize {
-			err = s.ses.ExecuteBatch(blockByActorBatch)
-			if err != nil {
-				log.Errorf("failed to execute batch: %w", err)
-			}
-			blockByActorBatch = s.ses.NewBatch(gocql.LoggedBatch)
-			blockByActorBatchSize = 0
-		}
+		// if blockBatchSize >= maxBatchSize {
+		// 	err = s.ses.ExecuteBatch(blockBatch)
+		// 	if err != nil {
+		// 		log.Errorf("failed to execute batch: %w", err)
+		// 	}
+		// 	blockBatch = s.ses.NewBatch(gocql.LoggedBatch)
+		// 	blockBatchSize = 0
+		// }
 
-		if likeBatchSize >= maxBatchSize {
-			err = s.ses.ExecuteBatch(likeBatch)
-			if err != nil {
-				log.Errorf("failed to execute batch: %w", err)
-			}
-			likeBatch = s.ses.NewBatch(gocql.LoggedBatch)
-			likeBatchSize = 0
-		}
+		// if likeBatchSize >= maxBatchSize {
+		// 	err = s.ses.ExecuteBatch(likeBatch)
+		// 	if err != nil {
+		// 		log.Errorf("failed to execute batch: %w", err)
+		// 	}
+		// 	likeBatch = s.ses.NewBatch(gocql.LoggedBatch)
+		// 	likeBatchSize = 0
+		// }
 
-		if repostBatchSize >= maxBatchSize {
-			err = s.ses.ExecuteBatch(repostBatch)
-			if err != nil {
-				log.Errorf("failed to execute batch: %w", err)
-			}
-			repostBatch = s.ses.NewBatch(gocql.LoggedBatch)
-			repostBatchSize = 0
-		}
+		// if repostBatchSize >= maxBatchSize {
+		// 	err = s.ses.ExecuteBatch(repostBatch)
+		// 	if err != nil {
+		// 		log.Errorf("failed to execute batch: %w", err)
+		// 	}
+		// 	repostBatch = s.ses.NewBatch(gocql.LoggedBatch)
+		// 	repostBatchSize = 0
+		// }
 
 		return nil
 	})
@@ -1161,33 +921,33 @@ func (s *PlaybackState) processRepo(ctx context.Context, did string) (processSta
 		return "failed (repo foreach)", fmt.Errorf("failed to process repo: %w", err)
 	}
 
-	if followByActorBatchSize > 0 {
-		err = s.ses.ExecuteBatch(followByActorBatch)
-		if err != nil {
-			return "failed (batch)", fmt.Errorf("failed to execute batch: %w", err)
-		}
-	}
+	// if followBatchSize > 0 {
+	// 	err = s.ses.ExecuteBatch(followBatch)
+	// 	if err != nil {
+	// 		return "failed (batch)", fmt.Errorf("failed to execute batch: %w", err)
+	// 	}
+	// }
 
-	if blockByActorBatchSize > 0 {
-		err = s.ses.ExecuteBatch(blockByActorBatch)
-		if err != nil {
-			return "failed (batch)", fmt.Errorf("failed to execute batch: %w", err)
-		}
-	}
+	// if blockBatchSize > 0 {
+	// 	err = s.ses.ExecuteBatch(blockBatch)
+	// 	if err != nil {
+	// 		return "failed (batch)", fmt.Errorf("failed to execute batch: %w", err)
+	// 	}
+	// }
 
-	if likeBatchSize > 0 {
-		err = s.ses.ExecuteBatch(likeBatch)
-		if err != nil {
-			return "failed (batch)", fmt.Errorf("failed to execute batch: %w", err)
-		}
-	}
+	// if likeBatchSize > 0 {
+	// 	err = s.ses.ExecuteBatch(likeBatch)
+	// 	if err != nil {
+	// 		return "failed (batch)", fmt.Errorf("failed to execute batch: %w", err)
+	// 	}
+	// }
 
-	if repostBatchSize > 0 {
-		err = s.ses.ExecuteBatch(repostBatch)
-		if err != nil {
-			return "failed (batch)", fmt.Errorf("failed to execute batch: %w", err)
-		}
-	}
+	// if repostBatchSize > 0 {
+	// 	err = s.ses.ExecuteBatch(repostBatch)
+	// 	if err != nil {
+	// 		return "failed (batch)", fmt.Errorf("failed to execute batch: %w", err)
+	// 	}
+	// }
 
 	return "finished", nil
 }
