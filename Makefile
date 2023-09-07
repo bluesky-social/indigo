@@ -118,7 +118,7 @@ sc-fire: # Fires supercollider
 
 .PHONY: run-netsync
 run-netsync: .env ## Runs netsync for local dev
-	go run ./cmd/netsync--checkout-limit 40 --worker-count 60 --out-dir ../netsync-out
+	go run ./cmd/netsync --checkout-limit 30 --worker-count 60 --out-dir ../netsync-out
 
 SCYLLA_VERSION := latest
 SCYLLA_CPU := 0
