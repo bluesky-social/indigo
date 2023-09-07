@@ -43,7 +43,8 @@ type Indexer struct {
 	// TODO: i feel like the repomgr doesnt belong here
 	repomgr *repomgr.RepoManager
 
-	Crawler *CrawlDispatcher
+	Crawler        *CrawlDispatcher
+	CrawlFailedTTL time.Duration
 
 	Limiters map[uint]*rate.Limiter
 	LimitMux sync.RWMutex
@@ -73,6 +74,7 @@ func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events
 		SendRemoteFollow: func(context.Context, string, uint) error {
 			return nil
 		},
+		CrawlFailedTTL:         time.Hour * 1,
 		ApplyPDSClientSettings: func(*xrpc.Client) {},
 	}
 
@@ -270,7 +272,7 @@ func (ix *Indexer) GetUserOrMissing(ctx context.Context, did string) (*models.Ac
 	defer span.End()
 
 	ai, err := ix.LookupUserByDid(ctx, did)
-	if err == nil {
+	if err == nil && ai.FailedAt == nil {
 		return ai, nil
 	}
 
@@ -286,8 +288,40 @@ func (ix *Indexer) createMissingUserRecord(ctx context.Context, did string) (*mo
 	ctx, span := otel.Tracer("indexer").Start(ctx, "createMissingUserRecord")
 	defer span.End()
 
-	ai, err := ix.CreateExternalUser(ctx, did)
+	// Check if we already have a record for this user
+	ai := &models.ActorInfo{}
+	err := ix.db.First(ai, "did = ?", did).Error
 	if err != nil {
+		if !isNotFound(err) {
+			return nil, fmt.Errorf("failed to lookup user: %w", err)
+		}
+	}
+
+	// If we've already tried to create this user and failed, dont try again until the TTL is up
+	if ai.FailedAt != nil {
+		if time.Since(*ai.FailedAt) < ix.CrawlFailedTTL {
+			return nil, fmt.Errorf("failed to create user (cooldown): %w", errors.New(*ai.FailedReason))
+		}
+	}
+
+	ai, err = ix.CreateExternalUser(ctx, did)
+	if err != nil {
+		// Mark the user as failed so we dont keep trying to crawl them
+		now := time.Now()
+		reason := err.Error()
+
+		ai.Did = did
+		ai.FailedAt = &now
+		ai.FailedReason = &reason
+		ai.FailureCount++
+
+		if err := ix.db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "did"}},
+			UpdateAll: true,
+		}).Create(ai).Error; err != nil {
+			return nil, fmt.Errorf("failed to create user failure tombstone: %w", err)
+		}
+
 		return nil, err
 	}
 

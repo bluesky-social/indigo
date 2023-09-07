@@ -39,6 +39,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var log = logging.Logger("bgs")
@@ -989,8 +990,12 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		Type:        "",
 		PDS:         peering.ID,
 	}
-	if err := s.db.Create(subj).Error; err != nil {
-		return nil, err
+	// Overwrite the user in the index with the new one to clear failure states
+	if err := s.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "did"}},
+		UpdateAll: true,
+	}).Create(subj).Error; err != nil {
+		return nil, fmt.Errorf("failed to create local user: %w", err)
 	}
 
 	return subj, nil

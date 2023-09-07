@@ -35,15 +35,18 @@ type RepostRecord struct {
 
 type ActorInfo struct {
 	gorm.Model
-	Uid         Uid    `gorm:"uniqueindex"`
-	Handle      string `gorm:"uniqueindex"`
-	DisplayName string
-	Did         string `gorm:"uniqueindex"`
-	Following   int64
-	Followers   int64
-	Posts       int64
-	Type        string
-	PDS         uint
+	Uid          Uid    `gorm:"uniqueindex"`
+	Handle       string `gorm:"uniqueindex"`
+	DisplayName  string
+	Did          string `gorm:"uniqueindex"`
+	Following    int64
+	Followers    int64
+	Posts        int64
+	Type         string
+	PDS          uint
+	FailedAt     *time.Time
+	FailedReason *string
+	FailureCount int64
 }
 
 func (ai *ActorInfo) ActorRef() *bsky.ActorDefs_ProfileViewBasic {
