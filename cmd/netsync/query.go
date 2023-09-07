@@ -10,6 +10,7 @@ import (
 
 	"github.com/gocql/gocql"
 	"github.com/scylladb/gocqlx/v2"
+	"github.com/scylladb/gocqlx/v2/qb"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/text/language"
@@ -53,6 +54,66 @@ func Trim(cctx *cli.Context) error {
 	ctx := cctx.Context
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	limit := uint(20_001)
+
+	cluster := gocql.NewCluster(cctx.StringSlice("scylla-nodes")...)
+	session, err := gocqlx.WrapSession(cluster.CreateSession())
+	if err != nil {
+		return fmt.Errorf("failed to create scylla session: %w", err)
+	}
+
+	args := cctx.Args()
+	if args.Len() != 1 {
+		return fmt.Errorf("must provide a did")
+	}
+	did := args.First()
+
+	// Trim posts_by_did to 20,000 posts
+	// Select 20k posts, grab the `created_at` of the last one, then delete all posts with a `created_at` less than that
+
+	start := time.Now()
+
+	posts := []PostByDID{}
+	err = postsByDIDTable.SelectBuilder().
+		Limit(limit).
+		OrderBy("created_at", qb.DESC).
+		QueryContext(ctx, session).
+		BindStruct(&PostByDID{Did: did}).
+		SelectRelease(&posts)
+	if err != nil {
+		return fmt.Errorf("failed to get posts: %w", err)
+	}
+
+	if len(posts) == 0 {
+		return nil
+	}
+
+	loadTime := time.Since(start)
+
+	// Get the last post's created_at
+	lastPostCreatedAt := posts[len(posts)-2].CreatedAt
+
+	log.Infow("got posts", "num_posts", len(posts), "last_post_created_at", lastPostCreatedAt, "duration", loadTime.String())
+
+	if len(posts) < int(limit) {
+		log.Info("no posts to trim")
+		return nil
+	}
+
+	// Delete all posts with a created_at less than the last post's created_at
+	err = qb.Delete(postsByDIDTable.Name()).
+		Where(qb.Eq("did"), qb.Lt("created_at")).
+		QueryContext(ctx, session).
+		BindStruct(&PostByDID{Did: did, CreatedAt: lastPostCreatedAt}).
+		ExecRelease()
+	if err != nil {
+		return fmt.Errorf("failed to delete posts: %w", err)
+	}
+
+	deleteTime := time.Since(start)
+
+	log.Infow("deleted posts", "duration", deleteTime.String())
 
 	return nil
 }
