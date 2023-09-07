@@ -934,7 +934,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	defer s.extUserLk.Unlock()
 
 	exu, err := s.Index.LookupUserByDid(ctx, did)
-	if err == nil {
+	if err == nil && exu.FailedAt == nil {
 		log.Infow("lost the race to create a new user", "did", did, "handle", handle)
 		if exu.PDS != peering.ID {
 			// User is now on a different PDS, update
