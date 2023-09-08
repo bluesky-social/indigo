@@ -297,7 +297,10 @@ func Bigsky(cctx *cli.Context) error {
 		blobstore = &blobs.DiskBlobStore{bsdir}
 	}
 
-	prodHR := api.ProdHandleResolver{}
+	prodHR, err := api.NewProdHandleResolver(100_000)
+	if err != nil {
+		return fmt.Errorf("failed to set up handle resolver: %w", err)
+	}
 	if rlskip != "" {
 		prodHR.ReqMod = func(req *http.Request, host string) error {
 			if strings.HasSuffix(host, ".bsky.social") {
@@ -307,7 +310,7 @@ func Bigsky(cctx *cli.Context) error {
 		}
 	}
 
-	var hr api.HandleResolver = &prodHR
+	var hr api.HandleResolver = prodHR
 	if cctx.StringSlice("handle-resolver-hosts") != nil {
 		hr = &api.TestHandleResolver{
 			TrialHosts: cctx.StringSlice("handle-resolver-hosts"),
