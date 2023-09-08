@@ -1079,20 +1079,8 @@ func (cs *CarStore) openNewCompactedShardFile(ctx context.Context, user models.U
 }
 
 func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) error {
-	/*
-			var results []shardStat
-			if err := cs.meta.Raw(`
-		WITH user_shards AS
-			(select cs.id, cs.seq, br.dirty from block_refs br left join car_shards cs on br.shard = cs.id where cs.usr = ?)
-		SELECT
-			id,
-			seq,
-			count(*) as total,
-			sum(case when dirty then 1 else 0 end) as dirty
-		FROM user_shards group by id, seq;`, user).Scan(&results).Error; err != nil {
-				return err
-			}
-	*/
+	ctx, span := otel.Tracer("carstore").Start(ctx, "CompactUserShards")
+	defer span.End()
 
 	var brefs []blockRef
 	if err := cs.meta.Raw(`select br.* from block_refs br left join car_shards cs on br.shard = cs.id where cs.usr = ?`, user).Scan(&brefs).Error; err != nil {
