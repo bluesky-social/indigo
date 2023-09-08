@@ -27,6 +27,7 @@ import (
 	carutil "github.com/ipld/go-car/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
 )
 
@@ -80,7 +81,7 @@ type CarShard struct {
 type blockRef struct {
 	ID     uint         `gorm:"primarykey"`
 	Cid    models.DbCID `gorm:"index"`
-	Shard  uint
+	Shard  uint         `gorm:"index"`
 	Offset int64
 	Dirty  bool
 	//User   uint `gorm:"index"`
@@ -1078,12 +1079,46 @@ func (cs *CarStore) openNewCompactedShardFile(ctx context.Context, user models.U
 	return fi, fi.Name(), nil
 }
 
+type CompactionTarget struct {
+	Usr       models.Uid
+	NumShards int
+}
+
+func (cs *CarStore) GetCompactionTargets(ctx context.Context) ([]CompactionTarget, error) {
+	ctx, span := otel.Tracer("carstore").Start(ctx, "GetCompactionTargets")
+	defer span.End()
+
+	var targets []CompactionTarget
+	if err := cs.meta.Raw(`select usr, count(*) as num_shards from car_shards group by usr having count(*) > 50 order by num_shards desc`).Scan(&targets).Error; err != nil {
+		return nil, err
+	}
+
+	return targets, nil
+}
+
 func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "CompactUserShards")
 	defer span.End()
 
+	span.SetAttributes(attribute.Int64("user", int64(user)))
+
+	var shards []CarShard
+	if err := cs.meta.Find(&shards, "usr = ?", user).Error; err != nil {
+		return err
+	}
+
+	var shardIds []uint
+	for _, s := range shards {
+		shardIds = append(shardIds, s.ID)
+	}
+
+	shardsById := make(map[uint]CarShard)
+	for _, s := range shards {
+		shardsById[s.ID] = s
+	}
+
 	var brefs []blockRef
-	if err := cs.meta.Raw(`select br.* from block_refs br left join car_shards cs on br.shard = cs.id where cs.usr = ?`, user).Scan(&brefs).Error; err != nil {
+	if err := cs.meta.Debug().Raw(`select * from block_refs where shard in (?)`, shardIds).Scan(&brefs).Error; err != nil {
 		return err
 	}
 
@@ -1120,21 +1155,6 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) erro
 	}
 
 	results := aggrRefs(brefs)
-
-	var shardIds []uint
-	for _, r := range results {
-		shardIds = append(shardIds, r.ID)
-	}
-
-	var shards []CarShard
-	if err := cs.meta.Find(&shards, "id in (?)", shardIds).Error; err != nil {
-		return err
-	}
-
-	shardsById := make(map[uint]CarShard)
-	for _, s := range shards {
-		shardsById[s.ID] = s
-	}
 
 	thresholdForPosition := func(i int) int {
 		// TODO: calculate some curve here so earlier shards end up with more

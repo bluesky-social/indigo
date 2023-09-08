@@ -305,6 +305,8 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	// Repo-related Admin API
 	admin.POST("/repo/takeDown", bgs.handleAdminTakeDownRepo)
 	admin.POST("/repo/reverseTakedown", bgs.handleAdminReverseTakedown)
+	admin.POST("/repo/compact", bgs.handleAdminCompactRepo)
+	admin.POST("/repo/compactAll", bgs.handleAdminCompactAllRepos)
 
 	// PDS-related Admin API
 	admin.GET("/pds/list", bgs.handleListPDSs)
@@ -1028,4 +1030,28 @@ func (bgs *BGS) ReverseTakedown(ctx context.Context, did string) error {
 	}
 
 	return nil
+}
+
+func (bgs *BGS) runRepoCompaction(ctx context.Context) error {
+	ctx, span := otel.Tracer("bgs").Start(ctx, "runRepoCompaction")
+	defer span.End()
+
+	repos, err := bgs.repoman.CarStore().GetCompactionTargets(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get repos to compact: %w", err)
+	}
+
+	for _, r := range repos {
+		if err := bgs.repoman.CarStore().CompactUserShards(ctx, r.Usr); err != nil {
+			log.Errorf("failed to compact shards for user %d: %s", r.Usr, err)
+			continue
+		}
+	}
+
+	return nil
+}
+
+func (bgs *BGS) runRepoCompactor(ctx context.Context) {
+	for range time.Tick(time.Hour) {
+	}
 }
