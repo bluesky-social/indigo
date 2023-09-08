@@ -1039,10 +1039,6 @@ func (cb *compBucket) addShardStat(ss shardStat) {
 	cb.shards = append(cb.shards, ss)
 }
 
-func (cb *compBucket) isFull() bool {
-	return cb.cleanBlocks > 50
-}
-
 func (cb *compBucket) isEmpty() bool {
 	return len(cb.shards) == 0
 }
@@ -1120,6 +1116,11 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) erro
 		// in the case we have duplicate dirty references we have to compute
 		// the keep set by walking the entire repo to check if anything is
 		// still referencing the dirty block in question
+
+		// we could also just add the duplicates to the keep set for now and
+		// focus on compacting everything else. it leaves *some* dirty blocks
+		// still around but we're doing that anyways since compaction isnt a
+		// perfect process
 		return fmt.Errorf("WIP: not currently handling this case")
 	}
 
@@ -1137,8 +1138,6 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) erro
 		shardIds = append(shardIds, r.ID)
 	}
 
-	fmt.Println(shardIds)
-
 	var shards []CarShard
 	if err := cs.meta.Find(&shards, "id in (?)", shardIds).Error; err != nil {
 		return err
@@ -1149,14 +1148,17 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) erro
 		shardsById[s.ID] = s
 	}
 
-	var compactionQueue []*compBucket
+	thresholdForPosition := func(i int) int {
+		// TODO: calculate some curve here so earlier shards end up with more
+		// blocks and recent shards end up with less
+		return 50
+	}
 
 	cur := new(compBucket)
-
-	for _, r := range results {
-		fmt.Println("res: ", shouldCompact(r), r.Dirty, r.Total)
+	var compactionQueue []*compBucket
+	for i, r := range results {
 		if shouldCompact(r) {
-			if cur.isFull() {
+			if cur.cleanBlocks > thresholdForPosition(i) {
 				compactionQueue = append(compactionQueue, cur)
 				cur = new(compBucket)
 			}
