@@ -14,6 +14,7 @@ import (
 
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/xrpc"
+	arc "github.com/hashicorp/golang-lru/arc/v2"
 	logging "github.com/ipfs/go-log"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	otel "go.opentelemetry.io/otel"
@@ -75,8 +76,26 @@ type HandleResolver interface {
 	ResolveHandleToDid(ctx context.Context, handle string) (string, error)
 }
 
+type failCacheItem struct {
+	err       error
+	count     int
+	expiresAt time.Time
+}
+
 type ProdHandleResolver struct {
-	ReqMod func(*http.Request, string) error
+	ReqMod    func(*http.Request, string) error
+	FailCache *arc.ARCCache[string, *failCacheItem]
+}
+
+func NewProdHandleResolver(failureCacheSize int) (*ProdHandleResolver, error) {
+	failureCache, err := arc.NewARC[string, *failCacheItem](failureCacheSize)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ProdHandleResolver{
+		FailCache: failureCache,
+	}, nil
 }
 
 func (dr *ProdHandleResolver) ResolveHandleToDid(ctx context.Context, handle string) (string, error) {
@@ -85,6 +104,18 @@ func (dr *ProdHandleResolver) ResolveHandleToDid(ctx context.Context, handle str
 
 	ctx, span := otel.Tracer("resolver").Start(ctx, "ResolveHandleToDid")
 	defer span.End()
+
+	var cachedFailureCount int
+
+	if dr.FailCache != nil {
+		if item, ok := dr.FailCache.Get(handle); ok {
+			cachedFailureCount = item.count
+			if item.expiresAt.After(time.Now()) {
+				return "", item.err
+			}
+			dr.FailCache.Remove(handle)
+		}
+	}
 
 	var wkres, dnsres string
 	var wkerr, dnserr error
@@ -117,7 +148,28 @@ func (dr *ProdHandleResolver) ResolveHandleToDid(ctx context.Context, handle str
 		return wkres, nil
 	}
 
-	return "", errors.Join(fmt.Errorf("no did record found for handle %q", handle), dnserr, wkerr)
+	err := errors.Join(fmt.Errorf("no did record found for handle %q", handle), dnserr, wkerr)
+
+	if dr.FailCache != nil {
+		cachedFailureCount++
+		expireAt := time.Now().Add(time.Millisecond * 100)
+		if cachedFailureCount > 1 {
+			// exponential backoff
+			expireAt = time.Now().Add(time.Millisecond * 100 * time.Duration(cachedFailureCount*cachedFailureCount))
+			// Clamp to one hour
+			if expireAt.After(time.Now().Add(time.Hour)) {
+				expireAt = time.Now().Add(time.Hour)
+			}
+		}
+
+		dr.FailCache.Add(handle, &failCacheItem{
+			err:       err,
+			expiresAt: expireAt,
+			count:     cachedFailureCount,
+		})
+	}
+
+	return "", err
 }
 
 func (dr *ProdHandleResolver) resolveWellKnown(ctx context.Context, handle string) (string, error) {
