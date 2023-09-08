@@ -164,7 +164,6 @@ func (dr *ProdHandleResolver) resolveWellKnown(ctx context.Context, handle strin
 }
 
 func (dr *ProdHandleResolver) resolveDNS(ctx context.Context, handle string) (string, error) {
-
 	res, err := net.LookupTXT("_atproto." + handle)
 	if err != nil {
 		return "", fmt.Errorf("handle lookup failed: %w", err)
