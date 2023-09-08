@@ -459,9 +459,19 @@ var disableInvitesCmd = &cli.Command{
 			handle = resp
 		}
 
-		return atproto.AdminDisableAccountInvites(ctx, xrpcc, &atproto.AdminDisableAccountInvites_Input{
+		if err := atproto.AdminDisableAccountInvites(ctx, xrpcc, &atproto.AdminDisableAccountInvites_Input{
 			Account: handle,
-		})
+		}); err != nil {
+			return err
+		}
+
+		if err := atproto.AdminDisableInviteCodes(ctx, xrpcc, &atproto.AdminDisableInviteCodes_Input{
+			Accounts: []string{handle},
+		}); err != nil {
+			return err
+		}
+
+		return nil
 	},
 }
 
