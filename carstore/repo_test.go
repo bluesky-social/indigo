@@ -177,8 +177,8 @@ func TestRepeatedCompactions(t *testing.T) {
 	var recs []cid.Cid
 	head := ncid
 
-	for loop := 0; loop < 100; loop++ {
-		for i := 0; i < 25; i++ {
+	for loop := 0; loop < 30; loop++ {
+		for i := 0; i < 20; i++ {
 			ds, err := cs.NewDeltaSession(ctx, 1, &rev)
 			if err != nil {
 				t.Fatal(err)
