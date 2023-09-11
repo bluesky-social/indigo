@@ -1050,8 +1050,3 @@ func (bgs *BGS) runRepoCompaction(ctx context.Context) error {
 
 	return nil
 }
-
-func (bgs *BGS) runRepoCompactor(ctx context.Context) {
-	for range time.Tick(time.Hour) {
-	}
-}
