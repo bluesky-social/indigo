@@ -177,8 +177,8 @@ func TestRepeatedCompactions(t *testing.T) {
 	var recs []cid.Cid
 	head := ncid
 
-	for loop := 0; loop < 30; loop++ {
-		for i := 0; i < 20; i++ {
+	for loop := 0; loop < 50; loop++ {
+		for i := 0; i < 100; i++ {
 			ds, err := cs.NewDeltaSession(ctx, 1, &rev)
 			if err != nil {
 				t.Fatal(err)
@@ -325,6 +325,9 @@ func BenchmarkRepoWritesCarstore(b *testing.B) {
 		}
 
 		rev = nrev
+		if err := ds.CalcDiff(ctx, nroot); err != nil {
+			b.Fatal(err)
+		}
 
 		if _, err := ds.CloseWithRoot(ctx, nroot, rev); err != nil {
 			b.Fatal(err)
