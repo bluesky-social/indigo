@@ -47,7 +47,7 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("loading backfill jobs: %w", err)
 	}
-	s.bf.Start()
+	go s.bf.Start()
 
 	d := websocket.DefaultDialer
 	con, _, err := d.Dial(fmt.Sprintf("%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", s.bgshost, cur), http.Header{})
