@@ -239,7 +239,7 @@ func (s *Server) handleOp(ctx context.Context, op repomgr.EventKind, seq int64, 
 }
 
 func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
-	repodata, err := comatproto.SyncGetRepo(ctx, s.bgsxrpc, evt.Repo, "", evt.Commit.String())
+	repodata, err := comatproto.SyncGetRepo(ctx, s.bgsxrpc, evt.Repo, "")
 	if err != nil {
 		return err
 	}

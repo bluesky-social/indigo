@@ -2867,10 +2867,10 @@ func (t *RichtextFacet_Link) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.richtext.facet"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.richtext.facet#link"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("app.bsky.richtext.facet")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.richtext.facet#link")); err != nil {
 		return err
 	}
 	return nil
@@ -2992,10 +2992,10 @@ func (t *RichtextFacet_Mention) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.richtext.facet"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.richtext.facet#mention"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("app.bsky.richtext.facet")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.richtext.facet#mention")); err != nil {
 		return err
 	}
 	return nil
@@ -3280,10 +3280,10 @@ func (t *FeedDefs_NotFoundPost) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.feed.defs"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.feed.defs#notFoundPost"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("app.bsky.feed.defs")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.feed.defs#notFoundPost")); err != nil {
 		return err
 	}
 

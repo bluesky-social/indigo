@@ -100,8 +100,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		events:  evtman,
 		didr:    didr,
 		blobs:   blobs,
-
-		ssl: ssl,
+		ssl:     ssl,
 
 		consumersLk: sync.RWMutex{},
 		consumers:   make(map[uint64]*SocketConsumer),
@@ -275,7 +274,6 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", bgs.EventsHandler)
 	e.GET("/xrpc/com.atproto.sync.getCheckout", bgs.HandleComAtprotoSyncGetCheckout)
-	e.GET("/xrpc/com.atproto.sync.getCommitPath", bgs.HandleComAtprotoSyncGetCommitPath)
 	e.GET("/xrpc/com.atproto.sync.getHead", bgs.HandleComAtprotoSyncGetHead)
 	e.GET("/xrpc/com.atproto.sync.getRecord", bgs.HandleComAtprotoSyncGetRecord)
 	e.GET("/xrpc/com.atproto.sync.getRepo", bgs.HandleComAtprotoSyncGetRepo)
@@ -755,7 +753,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
 		}
 
-		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, (*cid.Cid)(evt.Prev), evt.Blocks, evt.Ops); err != nil {
+		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.Since, evt.Rev, evt.Blocks, evt.Ops); err != nil {
 			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
 
 			if errors.Is(err, carstore.ErrRepoBaseMismatch) {
@@ -767,15 +765,6 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 				span.SetAttributes(attribute.Bool("catchup_queue", true))
 
 				return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
-			}
-
-			if errors.Is(err, carstore.ErrRepoFork) {
-				log.Errorw("detected repo fork", "from", stringLink(evt.Prev), "host", host.Host, "repo", u.Did)
-
-				span.SetAttributes(attribute.Bool("catchup_queue", true))
-				span.SetAttributes(attribute.Bool("fork", true))
-
-				return fmt.Errorf("cannot process repo fork")
 			}
 
 			return fmt.Errorf("handle user event failed: %w", err)

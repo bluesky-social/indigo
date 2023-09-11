@@ -14,15 +14,13 @@ import (
 // SyncGetRepo calls the XRPC method "com.atproto.sync.getRepo".
 //
 // did: The DID of the repo.
-// earliest: The earliest commit in the commit range (not inclusive)
-// latest: The latest commit in the commit range (inclusive)
-func SyncGetRepo(ctx context.Context, c *xrpc.Client, did string, earliest string, latest string) ([]byte, error) {
+// since: The revision of the repo to catch up from.
+func SyncGetRepo(ctx context.Context, c *xrpc.Client, did string, since string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{
-		"did":      did,
-		"earliest": earliest,
-		"latest":   latest,
+		"did":   did,
+		"since": since,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.getRepo", params, nil, buf); err != nil {
 		return nil, err

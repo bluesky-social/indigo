@@ -136,23 +136,18 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 		toobig = true
 	}
 
-	if evt.Rebase {
-		if err := ix.events.HandleRebase(ctx, evt.User); err != nil {
-			log.Errorf("failed to handle rebase in events manager: %s", err)
-		}
-	}
-
 	log.Debugw("Sending event", "did", did)
 	if err := ix.events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoCommit: &comatproto.SyncSubscribeRepos_Commit{
 			Repo:   did,
 			Prev:   (*lexutil.LexLink)(evt.OldRoot),
 			Blocks: slice,
+			Rev:    evt.Rev,
+			Since:  evt.Since,
 			Commit: lexutil.LexLink(evt.NewRoot),
 			Time:   time.Now().Format(util.ISO8601),
 			Ops:    outops,
 			TooBig: toobig,
-			Rebase: evt.Rebase,
 		},
 		PrivUid: evt.User,
 	}); err != nil {
@@ -165,16 +160,16 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 func (ix *Indexer) handleRepoOp(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
 	switch op.Kind {
 	case repomgr.EvtKindCreateRecord:
-		if err := ix.crawlRecordReferences(ctx, op); err != nil {
-			return err
-		}
-
 		if ix.doAggregations {
 			_, err := ix.handleRecordCreate(ctx, evt, op, true)
 			if err != nil {
 				return fmt.Errorf("handle recordCreate: %w", err)
 			}
 		}
+		if err := ix.crawlRecordReferences(ctx, op); err != nil {
+			return err
+		}
+
 	case repomgr.EvtKindDeleteRecord:
 		if ix.doAggregations {
 			if err := ix.handleRecordDelete(ctx, evt, op, true); err != nil {
@@ -192,6 +187,295 @@ func (ix *Indexer) handleRepoOp(ctx context.Context, evt *repomgr.RepoEvent, op 
 	}
 
 	return nil
+}
+
+func (ix *Indexer) crawlAtUriRef(ctx context.Context, uri string) error {
+	puri, err := util.ParseAtUri(uri)
+	if err != nil {
+		return err
+	} else {
+		_, err := ix.GetUserOrMissing(ctx, puri.Did)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp) error {
+	ctx, span := otel.Tracer("indexer").Start(ctx, "crawlRecordReferences")
+	defer span.End()
+
+	switch rec := op.Record.(type) {
+	case *bsky.FeedPost:
+		for _, e := range rec.Entities {
+			if e.Type == "mention" {
+				_, err := ix.GetUserOrMissing(ctx, e.Value)
+				if err != nil {
+					log.Infow("failed to parse user mention", "ref", e.Value, "err", err)
+				}
+			}
+		}
+
+		if rec.Reply != nil {
+			if rec.Reply.Parent != nil {
+				if err := ix.crawlAtUriRef(ctx, rec.Reply.Parent.Uri); err != nil {
+					log.Infow("failed to crawl reply parent", "cid", op.RecCid, "replyuri", rec.Reply.Parent.Uri, "err", err)
+				}
+			}
+
+			if rec.Reply.Root != nil {
+				if err := ix.crawlAtUriRef(ctx, rec.Reply.Root.Uri); err != nil {
+					log.Infow("failed to crawl reply root", "cid", op.RecCid, "rooturi", rec.Reply.Root.Uri, "err", err)
+				}
+			}
+		}
+
+		return nil
+	case *bsky.FeedRepost:
+		if rec.Subject != nil {
+			if err := ix.crawlAtUriRef(ctx, rec.Subject.Uri); err != nil {
+				log.Infow("failed to crawl repost subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
+			}
+		}
+		return nil
+	case *bsky.FeedLike:
+		if rec.Subject != nil {
+			if err := ix.crawlAtUriRef(ctx, rec.Subject.Uri); err != nil {
+				log.Infow("failed to crawl vote subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
+			}
+		}
+		return nil
+	case *bsky.GraphFollow:
+		_, err := ix.GetUserOrMissing(ctx, rec.Subject)
+		if err != nil {
+			log.Infow("failed to crawl follow subject", "cid", op.RecCid, "subjectdid", rec.Subject, "err", err)
+		}
+		return nil
+	case *bsky.GraphBlock:
+		_, err := ix.GetUserOrMissing(ctx, rec.Subject)
+		if err != nil {
+			log.Infow("failed to crawl follow subject", "cid", op.RecCid, "subjectdid", rec.Subject, "err", err)
+		}
+		return nil
+	case *bsky.ActorProfile:
+		return nil
+	default:
+		log.Warnf("unrecognized record type: %T", op.Record)
+		return nil
+	}
+}
+
+func (ix *Indexer) GetUserOrMissing(ctx context.Context, did string) (*models.ActorInfo, error) {
+	ctx, span := otel.Tracer("indexer").Start(ctx, "getUserOrMissing")
+	defer span.End()
+
+	ai, err := ix.LookupUserByDid(ctx, did)
+	if err == nil {
+		return ai, nil
+	}
+
+	if !isNotFound(err) {
+		return nil, err
+	}
+
+	// unknown user... create it and send it off to the crawler
+	return ix.createMissingUserRecord(ctx, did)
+}
+
+func (ix *Indexer) createMissingUserRecord(ctx context.Context, did string) (*models.ActorInfo, error) {
+	ctx, span := otel.Tracer("indexer").Start(ctx, "createMissingUserRecord")
+	defer span.End()
+
+	ai, err := ix.CreateExternalUser(ctx, did)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := ix.addUserToCrawler(ctx, ai); err != nil {
+		return nil, fmt.Errorf("failed to add unknown user to crawler: %w", err)
+	}
+
+	return ai, nil
+}
+
+func (ix *Indexer) addUserToCrawler(ctx context.Context, ai *models.ActorInfo) error {
+	log.Infow("Sending user to crawler: ", "did", ai.Did)
+	if ix.Crawler == nil {
+		return nil
+	}
+
+	return ix.Crawler.Crawl(ctx, ai)
+}
+
+func (ix *Indexer) DidForUser(ctx context.Context, uid models.Uid) (string, error) {
+	var ai models.ActorInfo
+	if err := ix.db.First(&ai, "uid = ?", uid).Error; err != nil {
+		return "", err
+	}
+
+	return ai.Did, nil
+}
+
+func (ix *Indexer) LookupUser(ctx context.Context, id models.Uid) (*models.ActorInfo, error) {
+	var ai models.ActorInfo
+	if err := ix.db.First(&ai, "uid = ?", id).Error; err != nil {
+		return nil, err
+	}
+
+	return &ai, nil
+}
+
+func (ix *Indexer) LookupUserByDid(ctx context.Context, did string) (*models.ActorInfo, error) {
+	var ai models.ActorInfo
+	if err := ix.db.Find(&ai, "did = ?", did).Error; err != nil {
+		return nil, err
+	}
+
+	if ai.ID == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	return &ai, nil
+}
+
+func (ix *Indexer) LookupUserByHandle(ctx context.Context, handle string) (*models.ActorInfo, error) {
+	var ai models.ActorInfo
+	if err := ix.db.Find(&ai, "handle = ?", handle).Error; err != nil {
+		return nil, err
+	}
+
+	if ai.ID == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	return &ai, nil
+}
+
+func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
+	ai := op.ActorInfo
+
+	if err := ix.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "uid"}},
+		UpdateAll: true,
+	}).Create(&models.ActorInfo{
+		Uid:         evt.User,
+		Handle:      ai.Handle,
+		Did:         ai.Did,
+		DisplayName: ai.DisplayName,
+		Type:        ai.Type,
+		PDS:         evt.PDS,
+	}).Error; err != nil {
+		return fmt.Errorf("initializing new actor info: %w", err)
+	}
+
+	if err := ix.db.Create(&models.FollowRecord{
+		Follower: evt.User,
+		Target:   evt.User,
+	}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func isNotFound(err error) bool {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return true
+	}
+
+	return false
+}
+
+// TODO: since this function is the only place we depend on the repomanager, i wonder if this should be wired some other way?
+func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error {
+	ctx, span := otel.Tracer("indexer").Start(ctx, "FetchAndIndexRepo")
+	defer span.End()
+
+	span.SetAttributes(attribute.Int("catchup", len(job.catchup)))
+
+	ai := job.act
+
+	var pds models.PDS
+	if err := ix.db.First(&pds, "id = ?", ai.PDS).Error; err != nil {
+		return fmt.Errorf("expected to find pds record (%d) in db for crawling one of their users: %w", ai.PDS, err)
+	}
+
+	rev, err := ix.repomgr.GetRepoRev(ctx, ai.Uid)
+	if err != nil && !isNotFound(err) {
+		return fmt.Errorf("failed to get repo root: %w", err)
+	}
+
+	if !(job.initScrape || len(job.catchup) == 0) {
+		first := job.catchup[0]
+		if first.evt.Since == nil || rev == *first.evt.Since {
+			for _, j := range job.catchup {
+				if err := ix.repomgr.HandleExternalUserEvent(ctx, pds.ID, ai.Uid, ai.Did, j.evt.Since, j.evt.Rev, j.evt.Blocks, j.evt.Ops); err != nil {
+					// TODO: if we fail here, we should probably fall back to a repo re-sync
+					return fmt.Errorf("post rebase catchup failed: %w", err)
+				}
+			}
+
+			return nil
+		}
+	}
+
+	var host string
+	if pds.SSL {
+		host = "https://" + pds.Host
+	} else {
+		host = "http://" + pds.Host
+	}
+	c := &xrpc.Client{
+		Host: host,
+	}
+
+	ix.ApplyPDSClientSettings(c)
+
+	if rev == "" {
+		span.SetAttributes(attribute.Bool("full", true))
+	}
+
+	limiter := ix.GetLimiter(pds.ID)
+	if limiter == nil {
+		limiter = rate.NewLimiter(rate.Limit(pds.CrawlRateLimit), 1)
+		ix.SetLimiter(pds.ID, limiter)
+	}
+
+	// Wait to prevent DOSing the PDS when connecting to a new stream with lots of active repos
+	limiter.Wait(ctx)
+
+	log.Infow("SyncGetRepo", "did", ai.Did, "user", ai.Handle, "since", rev)
+	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
+	repo, err := comatproto.SyncGetRepo(ctx, c, ai.Did, rev)
+	if err != nil {
+		return fmt.Errorf("failed to fetch repo: %w", err)
+	}
+
+	// this process will send individual indexing events back to the indexer, doing a 'fast forward' of the users entire history
+	// we probably want alternative ways of doing this for 'very large' or 'very old' repos, but this works for now
+	if err := ix.repomgr.ImportNewRepo(ctx, ai.Uid, ai.Did, bytes.NewReader(repo), &rev); err != nil {
+		span.RecordError(err)
+		return fmt.Errorf("importing fetched repo (curRev: %s): %w", rev, err)
+	}
+
+	// TODO: this is currently doing too much work, allowing us to ignore the catchup events we've gotten
+	// need to do 'just enough' work...
+
+	return nil
+}
+
+func (ix *Indexer) GetPost(ctx context.Context, uri string) (*models.FeedPost, error) {
+	puri, err := util.ParseAtUri(uri)
+	if err != nil {
+		return nil, err
+	}
+
+	var post models.FeedPost
+	if err := ix.db.First(&post, "rkey = ? AND author = (?)", puri.Rkey, ix.db.Model(models.ActorInfo{}).Where("did = ?", puri.Did).Select("id")).Error; err != nil {
+		return nil, err
+	}
+
+	return &post, nil
 }
 
 func (ix *Indexer) handleRecordDelete(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp, local bool) error {
@@ -227,9 +511,9 @@ func (ix *Indexer) handleRecordDelete(ctx context.Context, evt *repomgr.RepoEven
 
 		log.Warn("TODO: remove notifications on delete")
 		/*
-			if err := ix.notifman.RemoveRepost(ctx, fp.Author, rr.ID, evt.User); err != nil {
-				return nil, err
-			}
+		   if err := ix.notifman.RemoveRepost(ctx, fp.Author, rr.ID, evt.User); err != nil {
+		           return nil, err
+		   }
 		*/
 
 	case "app.bsky.feed.vote":
@@ -333,82 +617,6 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 	}
 
 	return out, nil
-}
-
-func (ix *Indexer) crawlAtUriRef(ctx context.Context, uri string) error {
-	puri, err := util.ParseAtUri(uri)
-	if err != nil {
-		return err
-	} else {
-		_, err := ix.GetUserOrMissing(ctx, puri.Did)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp) error {
-	ctx, span := otel.Tracer("indexer").Start(ctx, "crawlRecordReferences")
-	defer span.End()
-
-	switch rec := op.Record.(type) {
-	case *bsky.FeedPost:
-		for _, e := range rec.Entities {
-			if e.Type == "mention" {
-				_, err := ix.GetUserOrMissing(ctx, e.Value)
-				if err != nil {
-					log.Infow("failed to parse user mention", "ref", e.Value, "err", err)
-				}
-			}
-		}
-
-		if rec.Reply != nil {
-			if rec.Reply.Parent != nil {
-				if err := ix.crawlAtUriRef(ctx, rec.Reply.Parent.Uri); err != nil {
-					log.Infow("failed to crawl reply parent", "cid", op.RecCid, "replyuri", rec.Reply.Parent.Uri, "err", err)
-				}
-			}
-
-			if rec.Reply.Root != nil {
-				if err := ix.crawlAtUriRef(ctx, rec.Reply.Root.Uri); err != nil {
-					log.Infow("failed to crawl reply root", "cid", op.RecCid, "rooturi", rec.Reply.Root.Uri, "err", err)
-				}
-			}
-		}
-
-		return nil
-	case *bsky.FeedRepost:
-		if rec.Subject != nil {
-			if err := ix.crawlAtUriRef(ctx, rec.Subject.Uri); err != nil {
-				log.Infow("failed to crawl repost subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
-			}
-		}
-		return nil
-	case *bsky.FeedLike:
-		if rec.Subject != nil {
-			if err := ix.crawlAtUriRef(ctx, rec.Subject.Uri); err != nil {
-				log.Infow("failed to crawl vote subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
-			}
-		}
-		return nil
-	case *bsky.GraphFollow:
-		_, err := ix.GetUserOrMissing(ctx, rec.Subject)
-		if err != nil {
-			log.Infow("failed to crawl follow subject", "cid", op.RecCid, "subjectdid", rec.Subject, "err", err)
-		}
-		return nil
-	case *bsky.GraphBlock:
-		_, err := ix.GetUserOrMissing(ctx, rec.Subject)
-		if err != nil {
-			log.Infow("failed to crawl follow subject", "cid", op.RecCid, "subjectdid", rec.Subject, "err", err)
-		}
-		return nil
-	case *bsky.ActorProfile:
-		return nil
-	default:
-		log.Warnf("unrecognized record type: %T", op.Record)
-		return nil
-	}
 }
 
 func (ix *Indexer) handleRecordCreateFeedLike(ctx context.Context, rec *bsky.FeedLike, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
@@ -658,23 +866,6 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user models.U
 	return nil
 }
 
-func (ix *Indexer) GetUserOrMissing(ctx context.Context, did string) (*models.ActorInfo, error) {
-	ctx, span := otel.Tracer("indexer").Start(ctx, "getUserOrMissing")
-	defer span.End()
-
-	ai, err := ix.LookupUserByDid(ctx, did)
-	if err == nil {
-		return ai, nil
-	}
-
-	if !isNotFound(err) {
-		return nil, err
-	}
-
-	// unknown user... create it and send it off to the crawler
-	return ix.createMissingUserRecord(ctx, did)
-}
-
 func (ix *Indexer) createMissingPostRecord(ctx context.Context, puri *util.ParsedUri) (*models.FeedPost, error) {
 	log.Warn("creating missing post record")
 	ai, err := ix.GetUserOrMissing(ctx, puri.Did)
@@ -692,75 +883,6 @@ func (ix *Indexer) createMissingPostRecord(ctx context.Context, puri *util.Parse
 	}
 
 	return &fp, nil
-}
-
-func (ix *Indexer) createMissingUserRecord(ctx context.Context, did string) (*models.ActorInfo, error) {
-	ctx, span := otel.Tracer("indexer").Start(ctx, "createMissingUserRecord")
-	defer span.End()
-
-	ai, err := ix.CreateExternalUser(ctx, did)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := ix.addUserToCrawler(ctx, ai); err != nil {
-		return nil, fmt.Errorf("failed to add unknown user to crawler: %w", err)
-	}
-
-	return ai, nil
-}
-
-func (ix *Indexer) addUserToCrawler(ctx context.Context, ai *models.ActorInfo) error {
-	log.Infow("Sending user to crawler: ", "did", ai.Did)
-	if ix.Crawler == nil {
-		return nil
-	}
-
-	return ix.Crawler.Crawl(ctx, ai)
-}
-
-func (ix *Indexer) DidForUser(ctx context.Context, uid models.Uid) (string, error) {
-	var ai models.ActorInfo
-	if err := ix.db.First(&ai, "uid = ?", uid).Error; err != nil {
-		return "", err
-	}
-
-	return ai.Did, nil
-}
-
-func (ix *Indexer) LookupUser(ctx context.Context, id models.Uid) (*models.ActorInfo, error) {
-	var ai models.ActorInfo
-	if err := ix.db.First(&ai, "uid = ?", id).Error; err != nil {
-		return nil, err
-	}
-
-	return &ai, nil
-}
-
-func (ix *Indexer) LookupUserByDid(ctx context.Context, did string) (*models.ActorInfo, error) {
-	var ai models.ActorInfo
-	if err := ix.db.Find(&ai, "did = ?", did).Error; err != nil {
-		return nil, err
-	}
-
-	if ai.ID == 0 {
-		return nil, gorm.ErrRecordNotFound
-	}
-
-	return &ai, nil
-}
-
-func (ix *Indexer) LookupUserByHandle(ctx context.Context, handle string) (*models.ActorInfo, error) {
-	var ai models.ActorInfo
-	if err := ix.db.Find(&ai, "handle = ?", handle).Error; err != nil {
-		return nil, err
-	}
-
-	if ai.ID == 0 {
-		return nil, gorm.ErrRecordNotFound
-	}
-
-	return &ai, nil
 }
 
 func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPost, fp *models.FeedPost, mentions []*models.ActorInfo) error {
@@ -787,161 +909,4 @@ func (ix *Indexer) addNewPostNotification(ctx context.Context, post *bsky.FeedPo
 
 func (ix *Indexer) addNewVoteNotification(ctx context.Context, postauthor models.Uid, vr *models.VoteRecord) error {
 	return ix.notifman.AddUpVote(ctx, vr.Voter, vr.Post, vr.ID, postauthor)
-}
-
-func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
-	ai := op.ActorInfo
-
-	if err := ix.db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "uid"}},
-		UpdateAll: true,
-	}).Create(&models.ActorInfo{
-		Uid:         evt.User,
-		Handle:      ai.Handle,
-		Did:         ai.Did,
-		DisplayName: ai.DisplayName,
-		Type:        ai.Type,
-		PDS:         evt.PDS,
-	}).Error; err != nil {
-		return fmt.Errorf("initializing new actor info: %w", err)
-	}
-
-	if err := ix.db.Create(&models.FollowRecord{
-		Follower: evt.User,
-		Target:   evt.User,
-	}).Error; err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func isNotFound(err error) bool {
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return true
-	}
-
-	return false
-}
-
-func (ix *Indexer) GetPost(ctx context.Context, uri string) (*models.FeedPost, error) {
-	puri, err := util.ParseAtUri(uri)
-	if err != nil {
-		return nil, err
-	}
-
-	var post models.FeedPost
-	if err := ix.db.First(&post, "rkey = ? AND author = (?)", puri.Rkey, ix.db.Model(models.ActorInfo{}).Where("did = ?", puri.Did).Select("id")).Error; err != nil {
-		return nil, err
-	}
-
-	return &post, nil
-}
-
-// TODO: since this function is the only place we depend on the repomanager, i wonder if this should be wired some other way?
-func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error {
-	ctx, span := otel.Tracer("indexer").Start(ctx, "FetchAndIndexRepo")
-	defer span.End()
-
-	span.SetAttributes(attribute.Int("catchup", len(job.catchup)))
-
-	ai := job.act
-
-	var pds models.PDS
-	if err := ix.db.First(&pds, "id = ?", ai.PDS).Error; err != nil {
-		return fmt.Errorf("expected to find pds record (%d) in db for crawling one of their users: %w", ai.PDS, err)
-	}
-
-	curHead, err := ix.repomgr.GetRepoRoot(ctx, ai.Uid)
-	if err != nil && !isNotFound(err) {
-		return fmt.Errorf("failed to get repo root: %w", err)
-	}
-
-	var rebase *comatproto.SyncSubscribeRepos_Commit
-	var rebaseIx int
-	for i, j := range job.catchup {
-		if j.evt.Rebase {
-			rebase = j.evt
-			rebaseIx = i
-			break
-		}
-	}
-
-	if rebase != nil {
-		if err := ix.repomgr.HandleRebase(ctx, ai.PDS, ai.Uid, ai.Did, (*cid.Cid)(rebase.Prev), (cid.Cid)(rebase.Commit), rebase.Blocks); err != nil {
-			return fmt.Errorf("handling rebase: %w", err)
-		}
-		// now process the rest of the catchup events
-		// these are all events that got received *after* the rebase, but
-		// before we could start processing it.
-		// That means these should be the next operations that get cleanly
-		// applied after the rebase
-		for _, j := range job.catchup[rebaseIx+1:] {
-			if err := ix.repomgr.HandleExternalUserEvent(ctx, pds.ID, ai.Uid, ai.Did, (*cid.Cid)(j.evt.Prev), j.evt.Blocks, j.evt.Ops); err != nil {
-				return fmt.Errorf("post rebase catchup failed: %w", err)
-			}
-		}
-		return nil
-	}
-
-	if !(job.initScrape || len(job.catchup) == 0) {
-		first := job.catchup[0]
-		if first.evt.Prev == nil || curHead == (cid.Cid)(*first.evt.Prev) {
-			for _, j := range job.catchup {
-				if err := ix.repomgr.HandleExternalUserEvent(ctx, pds.ID, ai.Uid, ai.Did, (*cid.Cid)(j.evt.Prev), j.evt.Blocks, j.evt.Ops); err != nil {
-					// TODO: if we fail here, we should probably fall back to a repo re-sync
-					return fmt.Errorf("post rebase catchup failed: %w", err)
-				}
-			}
-
-			return nil
-		}
-	}
-
-	var host string
-	if pds.SSL {
-		host = "https://" + pds.Host
-	} else {
-		host = "http://" + pds.Host
-	}
-	c := &xrpc.Client{
-		Host: host,
-	}
-
-	ix.ApplyPDSClientSettings(c)
-
-	var from string
-	if curHead.Defined() {
-		from = curHead.String()
-	} else {
-		span.SetAttributes(attribute.Bool("full", true))
-	}
-
-	limiter := ix.GetLimiter(pds.ID)
-	if limiter == nil {
-		limiter = rate.NewLimiter(rate.Limit(pds.CrawlRateLimit), 1)
-		ix.SetLimiter(pds.ID, limiter)
-	}
-
-	// Wait to prevent DOSing the PDS when connecting to a new stream with lots of active repos
-	limiter.Wait(ctx)
-
-	log.Infow("SyncGetRepo", "did", ai.Did, "user", ai.Handle, "from", from)
-	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
-	repo, err := comatproto.SyncGetRepo(ctx, c, ai.Did, from, "")
-	if err != nil {
-		return fmt.Errorf("failed to fetch repo: %w", err)
-	}
-
-	// this process will send individual indexing events back to the indexer, doing a 'fast forward' of the users entire history
-	// we probably want alternative ways of doing this for 'very large' or 'very old' repos, but this works for now
-	if err := ix.repomgr.ImportNewRepo(ctx, ai.Uid, ai.Did, bytes.NewReader(repo), curHead); err != nil {
-		span.RecordError(err)
-		return fmt.Errorf("importing fetched repo (curHead: %s): %w", from, err)
-	}
-
-	// TODO: this is currently doing too much work, allowing us to ignore the catchup events we've gotten
-	// need to do 'just enough' work...
-
-	return nil
 }

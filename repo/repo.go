@@ -253,18 +253,18 @@ func (r *Repo) Truncate() {
 }
 
 // creates and writes a new SignedCommit for this repo, with `prev` pointing to old value
-func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, []byte) ([]byte, error)) (cid.Cid, error) {
+func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, []byte) ([]byte, error)) (cid.Cid, string, error) {
 	ctx, span := otel.Tracer("repo").Start(ctx, "Commit")
 	defer span.End()
 
 	t, err := r.getMst(ctx)
 	if err != nil {
-		return cid.Undef, err
+		return cid.Undef, "", err
 	}
 
 	rcid, err := t.GetPointer(ctx)
 	if err != nil {
-		return cid.Undef, err
+		return cid.Undef, "", err
 	}
 
 	ncom := UnsignedCommit{
@@ -276,11 +276,11 @@ func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, 
 
 	sb, err := ncom.BytesForSigning()
 	if err != nil {
-		return cid.Undef, fmt.Errorf("failed to serialize commit: %w", err)
+		return cid.Undef, "", fmt.Errorf("failed to serialize commit: %w", err)
 	}
 	sig, err := signer(ctx, ncom.Did, sb)
 	if err != nil {
-		return cid.Undef, fmt.Errorf("failed to sign root: %w", err)
+		return cid.Undef, "", fmt.Errorf("failed to sign root: %w", err)
 	}
 
 	nsc := SignedCommit{
@@ -294,13 +294,13 @@ func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, 
 
 	nsccid, err := r.cst.Put(ctx, &nsc)
 	if err != nil {
-		return cid.Undef, err
+		return cid.Undef, "", err
 	}
 
 	r.sc = nsc
 	r.dirty = false
 
-	return nsccid, nil
+	return nsccid, nsc.Rev, nil
 }
 
 func (r *Repo) getMst(ctx context.Context) (*mst.MerkleSearchTree, error) {

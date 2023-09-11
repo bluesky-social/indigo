@@ -12,11 +12,10 @@ import (
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
-	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 )
 
-func (s *BGS) handleComAtprotoSyncGetCheckout(ctx context.Context, commit string, did string) (io.Reader, error) {
+func (s *BGS) handleComAtprotoSyncGetCheckout(ctx context.Context, did string) (io.Reader, error) {
 	/*
 		u, err := s.Index.LookupUserByDid(ctx, did)
 		if err != nil {
@@ -63,35 +62,16 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 	return nil, fmt.Errorf("nyi")
 }
 
-func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, earliest string, latest string) (io.Reader, error) {
+func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since string) (io.Reader, error) {
 	u, err := s.Index.LookupUserByDid(ctx, did)
 	if err != nil {
 		return nil, err
 	}
 
-	var earlyCid, lateCid cid.Cid
-	if earliest != "" {
-		c, err := cid.Decode(earliest)
-		if err != nil {
-			return nil, err
-		}
-
-		earlyCid = c
-	}
-
-	if latest != "" {
-		c, err := cid.Decode(latest)
-		if err != nil {
-			return nil, err
-		}
-
-		lateCid = c
-	}
-
 	// TODO: stream the response
 	buf := new(bytes.Buffer)
-	if err := s.repoman.ReadRepo(ctx, u.Uid, earlyCid, lateCid, buf); err != nil {
-		return nil, err
+	if err := s.repoman.ReadRepo(ctx, u.Uid, since, buf); err != nil {
+		return nil, fmt.Errorf("failed to read repo: %w", err)
 	}
 
 	return buf, nil
@@ -101,7 +81,8 @@ func (s *BGS) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []string, 
 	return nil, fmt.Errorf("NYI")
 }
 
-func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, host string) error {
+func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatprototypes.SyncRequestCrawl_Input) error {
+	host := body.Hostname
 	if host == "" {
 		return fmt.Errorf("must pass valid hostname")
 	}
@@ -151,7 +132,7 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, host string)
 	return s.slurper.SubscribeToPds(ctx, norm, true)
 }
 
-func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, hostname string) error {
+func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, body *comatprototypes.SyncNotifyOfUpdate_Input) error {
 	// TODO:
 	return nil
 }
@@ -169,10 +150,14 @@ func (s *BGS) handleComAtprotoSyncGetBlob(ctx context.Context, cid string, did s
 	return bytes.NewReader(b), nil
 }
 
-func (s *BGS) handleComAtprotoSyncListBlobs(ctx context.Context, did string, earliest string, latest string) (*comatprototypes.SyncListBlobs_Output, error) {
+func (s *BGS) handleComAtprotoSyncListBlobs(ctx context.Context, cursor string, did string, limit int, since string) (*comatprototypes.SyncListBlobs_Output, error) {
 	return nil, fmt.Errorf("NYI")
 }
 
 func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, limit int) (*comatprototypes.SyncListRepos_Output, error) {
+	return nil, fmt.Errorf("NYI")
+}
+
+func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatprototypes.SyncGetLatestCommit_Output, error) {
 	return nil, fmt.Errorf("NYI")
 }
