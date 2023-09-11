@@ -16,7 +16,6 @@ import (
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/util"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -70,10 +69,11 @@ type RepoEvent struct {
 	User      models.Uid
 	OldRoot   *cid.Cid
 	NewRoot   cid.Cid
+	Since     *string
+	Rev       string
 	RepoSlice []byte
 	PDS       uint
 	Ops       []RepoOp
-	Rebase    bool
 }
 
 type RepoOp struct {
@@ -146,15 +146,17 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user models.Uid, collec
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	head, err := rm.cs.GetUserRepoHead(ctx, user)
+	rev, err := rm.cs.GetUserRepoRev(ctx, user)
 	if err != nil {
 		return "", cid.Undef, err
 	}
 
-	ds, err := rm.cs.NewDeltaSession(ctx, user, &head)
+	ds, err := rm.cs.NewDeltaSession(ctx, user, &rev)
 	if err != nil {
 		return "", cid.Undef, err
 	}
+
+	head := ds.BaseCid()
 
 	r, err := repo.OpenRepo(ctx, ds, head, true)
 	if err != nil {
@@ -166,12 +168,12 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user models.Uid, collec
 		return "", cid.Undef, err
 	}
 
-	nroot, err := r.Commit(ctx, rm.kmgr.SignForUser)
+	nroot, nrev, err := r.Commit(ctx, rm.kmgr.SignForUser)
 	if err != nil {
 		return "", cid.Undef, err
 	}
 
-	rslice, err := ds.CloseWithRoot(ctx, nroot)
+	rslice, err := ds.CloseWithRoot(ctx, nroot, nrev)
 	if err != nil {
 		return "", cid.Undef, fmt.Errorf("close with root: %w", err)
 	}
@@ -186,6 +188,8 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user models.Uid, collec
 			User:    user,
 			OldRoot: oldroot,
 			NewRoot: nroot,
+			Rev:     nrev,
+			Since:   &rev,
 			Ops: []RepoOp{{
 				Kind:       EvtKindCreateRecord,
 				Collection: collection,
@@ -207,16 +211,17 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user models.Uid, collec
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	head, err := rm.cs.GetUserRepoHead(ctx, user)
+	rev, err := rm.cs.GetUserRepoRev(ctx, user)
 	if err != nil {
 		return cid.Undef, err
 	}
 
-	ds, err := rm.cs.NewDeltaSession(ctx, user, &head)
+	ds, err := rm.cs.NewDeltaSession(ctx, user, &rev)
 	if err != nil {
 		return cid.Undef, err
 	}
 
+	head := ds.BaseCid()
 	r, err := repo.OpenRepo(ctx, ds, head, true)
 	if err != nil {
 		return cid.Undef, err
@@ -228,12 +233,12 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user models.Uid, collec
 		return cid.Undef, err
 	}
 
-	nroot, err := r.Commit(ctx, rm.kmgr.SignForUser)
+	nroot, nrev, err := r.Commit(ctx, rm.kmgr.SignForUser)
 	if err != nil {
 		return cid.Undef, err
 	}
 
-	rslice, err := ds.CloseWithRoot(ctx, nroot)
+	rslice, err := ds.CloseWithRoot(ctx, nroot, nrev)
 	if err != nil {
 		return cid.Undef, fmt.Errorf("close with root: %w", err)
 	}
@@ -248,6 +253,8 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user models.Uid, collec
 			User:    user,
 			OldRoot: oldroot,
 			NewRoot: nroot,
+			Rev:     nrev,
+			Since:   &rev,
 			Ops: []RepoOp{{
 				Kind:       EvtKindUpdateRecord,
 				Collection: collection,
@@ -269,16 +276,17 @@ func (rm *RepoManager) DeleteRecord(ctx context.Context, user models.Uid, collec
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	head, err := rm.cs.GetUserRepoHead(ctx, user)
+	rev, err := rm.cs.GetUserRepoRev(ctx, user)
 	if err != nil {
 		return err
 	}
 
-	ds, err := rm.cs.NewDeltaSession(ctx, user, &head)
+	ds, err := rm.cs.NewDeltaSession(ctx, user, &rev)
 	if err != nil {
 		return err
 	}
 
+	head := ds.BaseCid()
 	r, err := repo.OpenRepo(ctx, ds, head, true)
 	if err != nil {
 		return err
@@ -289,12 +297,12 @@ func (rm *RepoManager) DeleteRecord(ctx context.Context, user models.Uid, collec
 		return err
 	}
 
-	nroot, err := r.Commit(ctx, rm.kmgr.SignForUser)
+	nroot, nrev, err := r.Commit(ctx, rm.kmgr.SignForUser)
 	if err != nil {
 		return err
 	}
 
-	rslice, err := ds.CloseWithRoot(ctx, nroot)
+	rslice, err := ds.CloseWithRoot(ctx, nroot, nrev)
 	if err != nil {
 		return fmt.Errorf("close with root: %w", err)
 	}
@@ -309,6 +317,8 @@ func (rm *RepoManager) DeleteRecord(ctx context.Context, user models.Uid, collec
 			User:    user,
 			OldRoot: oldroot,
 			NewRoot: nroot,
+			Rev:     nrev,
+			Since:   &rev,
 			Ops: []RepoOp{{
 				Kind:       EvtKindDeleteRecord,
 				Collection: collection,
@@ -350,12 +360,12 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user models.Uid, handle
 		return fmt.Errorf("setting initial actor profile: %w", err)
 	}
 
-	root, err := r.Commit(ctx, rm.kmgr.SignForUser)
+	root, nrev, err := r.Commit(ctx, rm.kmgr.SignForUser)
 	if err != nil {
 		return fmt.Errorf("committing repo for actor init: %w", err)
 	}
 
-	rslice, err := ds.CloseWithRoot(ctx, root)
+	rslice, err := ds.CloseWithRoot(ctx, root, nrev)
 	if err != nil {
 		return fmt.Errorf("close with root: %w", err)
 	}
@@ -364,6 +374,7 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user models.Uid, handle
 		rm.events(ctx, &RepoEvent{
 			User:    user,
 			NewRoot: root,
+			Rev:     nrev,
 			Ops: []RepoOp{{
 				Kind:       EvtKindCreateRecord,
 				Collection: "app.bsky.actor.profile",
@@ -384,8 +395,15 @@ func (rm *RepoManager) GetRepoRoot(ctx context.Context, user models.Uid) (cid.Ci
 	return rm.cs.GetUserRepoHead(ctx, user)
 }
 
-func (rm *RepoManager) ReadRepo(ctx context.Context, user models.Uid, earlyCid, lateCid cid.Cid, w io.Writer) error {
-	return rm.cs.ReadUserCar(ctx, user, earlyCid, lateCid, true, w)
+func (rm *RepoManager) GetRepoRev(ctx context.Context, user models.Uid) (string, error) {
+	unlock := rm.lockUser(ctx, user)
+	defer unlock()
+
+	return rm.cs.GetUserRepoRev(ctx, user)
+}
+
+func (rm *RepoManager) ReadRepo(ctx context.Context, user models.Uid, since string, w io.Writer) error {
+	return rm.cs.ReadUserCar(ctx, user, since, true, w)
 }
 
 func (rm *RepoManager) GetRecord(ctx context.Context, user models.Uid, collection string, rkey string, maybeCid cid.Cid) (cid.Cid, cbg.CBORMarshaler, error) {
@@ -445,153 +463,6 @@ func (rm *RepoManager) GetProfile(ctx context.Context, uid models.Uid) (*bsky.Ac
 	return ap, nil
 }
 
-var ErrUncleanRebase = fmt.Errorf("unclean rebase")
-
-func (rm *RepoManager) HandleRebase(ctx context.Context, pdsid uint, uid models.Uid, did string, prev *cid.Cid, commit cid.Cid, carslice []byte) error {
-	ctx, span := otel.Tracer("repoman").Start(ctx, "HandleRebase")
-	defer span.End()
-
-	log.Infow("HandleRebase", "pds", pdsid, "uid", uid, "commit", commit)
-
-	unlock := rm.lockUser(ctx, uid)
-	defer unlock()
-
-	ro, err := rm.cs.ReadOnlySession(uid)
-	if err != nil {
-		return err
-	}
-
-	head, err := rm.cs.GetUserRepoHead(ctx, uid)
-	if err != nil {
-		return err
-	}
-
-	// TODO: do we allow prev to be nil in any case here?
-	if prev != nil {
-		if *prev != head {
-			log.Warnw("rebase 'prev' value did not match our latest head for repo", "did", did, "rprev", prev.String(), "lprev", head.String())
-		}
-	}
-
-	currepo, err := repo.OpenRepo(ctx, ro, head, true)
-	if err != nil {
-		return err
-	}
-
-	olddc := currepo.DataCid()
-
-	root, ds, err := rm.cs.ImportSlice(ctx, uid, nil, carslice)
-	if err != nil {
-		return fmt.Errorf("importing external carslice: %w", err)
-	}
-
-	r, err := repo.OpenRepo(ctx, ds, root, true)
-	if err != nil {
-		return fmt.Errorf("opening external user repo (%d, root=%s): %w", uid, root, err)
-	}
-
-	if r.DataCid() != olddc {
-		return ErrUncleanRebase
-	}
-
-	if err := rm.CheckRepoSig(ctx, r, did); err != nil {
-		return err
-	}
-
-	// TODO: this is moderately expensive and currently results in the users
-	// entire repo being held in memory
-	if err := r.CopyDataTo(ctx, ds); err != nil {
-		return err
-	}
-
-	if err := ds.CloseAsRebase(ctx, root); err != nil {
-		return fmt.Errorf("finalizing rebase: %w", err)
-	}
-
-	if rm.events != nil {
-		rm.events(ctx, &RepoEvent{
-			User:      uid,
-			OldRoot:   prev,
-			NewRoot:   root,
-			Ops:       nil,
-			RepoSlice: carslice,
-			PDS:       pdsid,
-			Rebase:    true,
-		})
-	}
-
-	return nil
-}
-
-func (rm *RepoManager) DoRebase(ctx context.Context, uid models.Uid) error {
-	ctx, span := otel.Tracer("repoman").Start(ctx, "DoRebase")
-	defer span.End()
-
-	log.Infow("DoRebase", "uid", uid)
-
-	unlock := rm.lockUser(ctx, uid)
-	defer unlock()
-
-	ds, err := rm.cs.NewDeltaSession(ctx, uid, nil)
-	if err != nil {
-		return err
-	}
-
-	head, err := rm.cs.GetUserRepoHead(ctx, uid)
-	if err != nil {
-		return err
-	}
-
-	r, err := repo.OpenRepo(ctx, ds, head, true)
-	if err != nil {
-		return err
-	}
-
-	r.Truncate()
-
-	nroot, err := r.Commit(ctx, rm.kmgr.SignForUser)
-	if err != nil {
-		return err
-	}
-
-	if err := r.CopyDataTo(ctx, ds); err != nil {
-		return err
-	}
-
-	if err := ds.CloseAsRebase(ctx, nroot); err != nil {
-		return fmt.Errorf("finalizing rebase: %w", err)
-	}
-
-	// outbound car slice should just be the new signed root
-	buf := new(bytes.Buffer)
-	if _, err := carstore.WriteCarHeader(buf, nroot); err != nil {
-		return err
-	}
-
-	robj, err := ds.Get(ctx, nroot)
-	if err != nil {
-		return err
-	}
-	_, err = carstore.LdWrite(buf, robj.Cid().Bytes(), robj.RawData())
-	if err != nil {
-		return err
-	}
-
-	if rm.events != nil {
-		rm.events(ctx, &RepoEvent{
-			User:      uid,
-			OldRoot:   &head,
-			NewRoot:   nroot,
-			Ops:       nil,
-			RepoSlice: buf.Bytes(),
-			PDS:       0,
-			Rebase:    true,
-		})
-	}
-
-	return nil
-}
-
 func (rm *RepoManager) CheckRepoSig(ctx context.Context, r *repo.Repo, expdid string) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "CheckRepoSig")
 	defer span.End()
@@ -615,16 +486,16 @@ func (rm *RepoManager) CheckRepoSig(ctx context.Context, r *repo.Repo, expdid st
 	return nil
 }
 
-func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid models.Uid, did string, prev *cid.Cid, carslice []byte, ops []*atproto.SyncSubscribeRepos_RepoOp) error {
+func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid models.Uid, did string, since *string, nrev string, carslice []byte, ops []*atproto.SyncSubscribeRepos_RepoOp) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "HandleExternalUserEvent")
 	defer span.End()
 
-	log.Infow("HandleExternalUserEvent", "pds", pdsid, "uid", uid, "prev", prev)
+	log.Infow("HandleExternalUserEvent", "pds", pdsid, "uid", uid, "since", since, "nrev", nrev)
 
 	unlock := rm.lockUser(ctx, uid)
 	defer unlock()
 
-	root, ds, err := rm.cs.ImportSlice(ctx, uid, prev, carslice)
+	root, ds, err := rm.cs.ImportSlice(ctx, uid, since, carslice)
 	if err != nil {
 		return fmt.Errorf("importing external carslice: %w", err)
 	}
@@ -684,16 +555,18 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		}
 	}
 
-	rslice, err := ds.CloseWithRoot(ctx, root)
+	rslice, err := ds.CloseWithRoot(ctx, root, nrev)
 	if err != nil {
 		return fmt.Errorf("close with root: %w", err)
 	}
 
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
-			User:      uid,
-			OldRoot:   prev,
+			User: uid,
+			//OldRoot:   prev,
 			NewRoot:   root,
+			Rev:       nrev,
+			Since:     since,
 			Ops:       evtops,
 			RepoSlice: rslice,
 			PDS:       pdsid,
@@ -714,16 +587,17 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user models.Uid, writes [
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	head, err := rm.cs.GetUserRepoHead(ctx, user)
+	rev, err := rm.cs.GetUserRepoRev(ctx, user)
 	if err != nil {
 		return err
 	}
 
-	ds, err := rm.cs.NewDeltaSession(ctx, user, &head)
+	ds, err := rm.cs.NewDeltaSession(ctx, user, &rev)
 	if err != nil {
 		return err
 	}
 
+	head := ds.BaseCid()
 	r, err := repo.OpenRepo(ctx, ds, head, true)
 	if err != nil {
 		return err
@@ -786,12 +660,12 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user models.Uid, writes [
 		}
 	}
 
-	nroot, err := r.Commit(ctx, rm.kmgr.SignForUser)
+	nroot, nrev, err := r.Commit(ctx, rm.kmgr.SignForUser)
 	if err != nil {
 		return err
 	}
 
-	rslice, err := ds.CloseWithRoot(ctx, nroot)
+	rslice, err := ds.CloseWithRoot(ctx, nroot, nrev)
 	if err != nil {
 		return fmt.Errorf("close with root: %w", err)
 	}
@@ -807,6 +681,8 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user models.Uid, writes [
 			OldRoot:   oldroot,
 			NewRoot:   nroot,
 			RepoSlice: rslice,
+			Rev:       nrev,
+			Since:     &rev,
 			Ops:       ops,
 		})
 	}
@@ -814,25 +690,30 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user models.Uid, writes [
 	return nil
 }
 
-func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoDid string, r io.Reader, oldest cid.Cid) error {
+func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoDid string, r io.Reader, rev *string) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "ImportNewRepo")
 	defer span.End()
 
 	unlock := rm.lockUser(ctx, user)
 	defer unlock()
 
-	head, err := rm.cs.GetUserRepoHead(ctx, user)
+	currev, err := rm.cs.GetUserRepoRev(ctx, user)
 	if err != nil {
 		return err
 	}
 
-	if head != oldest {
+	curhead, err := rm.cs.GetUserRepoHead(ctx, user)
+	if err != nil {
+		return err
+	}
+
+	if rev != nil && *rev != currev {
 		// TODO: we could probably just deal with this
 		return fmt.Errorf("ImportNewRepo called with incorrect base")
 	}
 
-	err = rm.processNewRepo(ctx, user, r, head, func(ctx context.Context, old, nu cid.Cid, finish func(context.Context) ([]byte, error), bs blockstore.Blockstore) error {
-		r, err := repo.OpenRepo(ctx, bs, nu, true)
+	err = rm.processNewRepo(ctx, user, r, rev, func(ctx context.Context, root cid.Cid, finish func(context.Context, string) ([]byte, error), bs blockstore.Blockstore) error {
+		r, err := repo.OpenRepo(ctx, bs, root, true)
 		if err != nil {
 			return fmt.Errorf("opening new repo: %w", err)
 		}
@@ -848,7 +729,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 			return fmt.Errorf("new user signature check failed: %w", err)
 		}
 
-		diffops, err := r.DiffSince(ctx, old)
+		diffops, err := r.DiffSince(ctx, curhead)
 		if err != nil {
 			return fmt.Errorf("diff trees: %w", err)
 		}
@@ -865,21 +746,18 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 			}
 		}
 
-		slice, err := finish(ctx)
+		slice, err := finish(ctx, scom.Rev)
 		if err != nil {
 			return err
 		}
 
-		var oldroot *cid.Cid
-		if old.Defined() {
-			oldroot = &old
-		}
-
 		if rm.events != nil {
 			rm.events(ctx, &RepoEvent{
-				User:      user,
-				OldRoot:   oldroot,
-				NewRoot:   nu,
+				User: user,
+				//OldRoot:   oldroot,
+				NewRoot:   root,
+				Rev:       scom.Rev,
+				Since:     &currev,
 				RepoSlice: slice,
 				Ops:       ops,
 			})
@@ -888,7 +766,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("process new repo (current head: %s): %w:", head, err)
+		return fmt.Errorf("process new repo (current rev: %s): %w:", currev, err)
 	}
 
 	return nil
@@ -944,7 +822,7 @@ func processOp(ctx context.Context, bs blockstore.Blockstore, op *mst.DiffOp) (*
 	}
 }
 
-func (rm *RepoManager) processNewRepo(ctx context.Context, user models.Uid, r io.Reader, until cid.Cid, cb func(ctx context.Context, old, nu cid.Cid, finish func(context.Context) ([]byte, error), bs blockstore.Blockstore) error) error {
+func (rm *RepoManager) processNewRepo(ctx context.Context, user models.Uid, r io.Reader, rev *string, cb func(ctx context.Context, root cid.Cid, finish func(context.Context, string) ([]byte, error), bs blockstore.Blockstore) error) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "processNewRepo")
 	defer span.End()
 
@@ -973,97 +851,40 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user models.Uid, r io
 		}
 	}
 
-	head := &carr.Header.Roots[0]
-
-	var commits []cid.Cid
-	for head != nil && *head != until {
-		commits = append(commits, *head)
-		rep, err := repo.OpenRepo(ctx, membs, *head, true)
-		if err != nil {
-			return fmt.Errorf("opening repo for backwalk (%d commits, until: %s, head: %s, carRoot: %s): %w", len(commits), until, *head, carr.Header.Roots[0], err)
-		}
-
-		prev, err := rep.PrevCommit(ctx)
-		if err != nil {
-			return fmt.Errorf("prevCommit: %w", err)
-		}
-
-		head = prev
-	}
-
-	if until.Defined() && (head == nil || *head != until) {
-		// TODO: this shouldnt be happening, but i've seen some log messages
-		// suggest that it might. Leaving this here to discover any cases where
-		// it does.
-		log.Errorw("reached end of walkback without finding our 'until' commit",
-			"until", until,
-			"root", carr.Header.Roots[0],
-			"commits", len(commits),
-			"head", head,
-			"user", user,
-		)
-	}
-
-	// now we need to generate repo slices for each commit
-
 	seen := make(map[cid.Cid]bool)
 
-	if until.Defined() {
-		seen[until] = true
+	root := carr.Header.Roots[0]
+	// TODO: if there are blocks that get convergently recreated throughout
+	// the repos lifecycle, this will end up erroneously not including
+	// them. We should compute the set of blocks needed to read any repo
+	// ops that happened in the commit and use that for our 'output' blocks
+	cids, err := walkTree(ctx, seen, root, membs, true)
+	if err != nil {
+		return fmt.Errorf("walkTree: %w", err)
 	}
 
-	cbs := membs
-	if until.Defined() {
-		bs, err := rm.cs.ReadOnlySession(user)
+	ds, err := rm.cs.NewDeltaSession(ctx, user, rev)
+	if err != nil {
+		return fmt.Errorf("opening delta session: %w", err)
+	}
+
+	for _, c := range cids {
+		blk, err := membs.Get(ctx, c)
 		if err != nil {
+			return fmt.Errorf("copying walked cids to carstore: %w", err)
+		}
+
+		if err := ds.Put(ctx, blk); err != nil {
 			return err
 		}
-
-		// TODO: we technically only need this for the 'next' commit to diff against our current head.
-		cbs = util.NewReadThroughBstore(bs, membs)
 	}
 
-	prev := until
-	for i := len(commits) - 1; i >= 0; i-- {
-		root := commits[i]
-		// TODO: if there are blocks that get convergently recreated throughout
-		// the repos lifecycle, this will end up erroneously not including
-		// them. We should compute the set of blocks needed to read any repo
-		// ops that happened in the commit and use that for our 'output' blocks
-		cids, err := walkTree(ctx, seen, root, membs, true)
-		if err != nil {
-			return fmt.Errorf("walkTree: %w", err)
-		}
+	finish := func(ctx context.Context, nrev string) ([]byte, error) {
+		return ds.CloseWithRoot(ctx, root, nrev)
+	}
 
-		var prevptr *cid.Cid
-		if prev.Defined() {
-			prevptr = &prev
-		}
-		ds, err := rm.cs.NewDeltaSession(ctx, user, prevptr)
-		if err != nil {
-			return fmt.Errorf("opening delta session (%d / %d): %w", i, len(commits)-1, err)
-		}
-
-		for _, c := range cids {
-			blk, err := membs.Get(ctx, c)
-			if err != nil {
-				return fmt.Errorf("copying walked cids to carstore: %w", err)
-			}
-
-			if err := ds.Put(ctx, blk); err != nil {
-				return err
-			}
-		}
-
-		finish := func(ctx context.Context) ([]byte, error) {
-			return ds.CloseWithRoot(ctx, root)
-		}
-
-		if err := cb(ctx, prev, root, finish, cbs); err != nil {
-			return fmt.Errorf("cb errored (%d/%d) root: %s, prev: %s: %w", i, len(commits)-1, root, prev, err)
-		}
-
-		prev = root
+	if err := cb(ctx, root, finish, membs); err != nil {
+		return fmt.Errorf("cb errored root: %s, rev: %s: %w", root, *rev, err)
 	}
 
 	return nil

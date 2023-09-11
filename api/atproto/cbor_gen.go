@@ -194,7 +194,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 
 	cw := cbg.NewCborWriter(w)
 
-	if _, err := cw.Write([]byte{170}); err != nil {
+	if _, err := cw.Write([]byte{172}); err != nil {
 		return err
 	}
 
@@ -221,6 +221,29 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 		if err := v.MarshalCBOR(cw); err != nil {
 			return err
 		}
+	}
+
+	// t.Rev (string) (string)
+	if len("rev") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"rev\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("rev"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("rev")); err != nil {
+		return err
+	}
+
+	if len(t.Rev) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Rev was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Rev))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Rev)); err != nil {
+		return err
 	}
 
 	// t.Seq (int64) (int64)
@@ -328,6 +351,35 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 	for _, v := range t.Blobs {
 		if err := v.MarshalCBOR(cw); err != nil {
+			return err
+		}
+	}
+
+	// t.Since (string) (string)
+	if len("since") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"since\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("since"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("since")); err != nil {
+		return err
+	}
+
+	if t.Since == nil {
+		if _, err := cw.Write(cbg.CborNull); err != nil {
+			return err
+		}
+	} else {
+		if len(*t.Since) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field t.Since was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Since))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string(*t.Since)); err != nil {
 			return err
 		}
 	}
@@ -474,6 +526,17 @@ func (t *SyncSubscribeRepos_Commit) UnmarshalCBOR(r io.Reader) (err error) {
 				t.Ops[i] = &v
 			}
 
+			// t.Rev (string) (string)
+		case "rev":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Rev = string(sval)
+			}
 			// t.Seq (int64) (int64)
 		case "seq":
 			{
@@ -572,6 +635,27 @@ func (t *SyncSubscribeRepos_Commit) UnmarshalCBOR(r io.Reader) (err error) {
 				t.Blobs[i] = v
 			}
 
+			// t.Since (string) (string)
+		case "since":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadString(cr)
+					if err != nil {
+						return err
+					}
+
+					t.Since = (*string)(&sval)
+				}
+			}
 			// t.Blocks (util.LexBytes) (slice)
 		case "blocks":
 
@@ -1606,10 +1690,10 @@ func (t *LabelDefs_SelfLabels) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("com.atproto.label.defs"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("com.atproto.label.defs#selfLabels"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("com.atproto.label.defs")); err != nil {
+	if _, err := cw.WriteString(string("com.atproto.label.defs#selfLabels")); err != nil {
 		return err
 	}
 
