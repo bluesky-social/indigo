@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -92,6 +93,7 @@ func TestBasicOperation(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	var recs []cid.Cid
 	head := ncid
 	for i := 0; i < 10; i++ {
 		ds, err := cs.NewDeltaSession(ctx, 1, &rev)
@@ -104,11 +106,14 @@ func TestBasicOperation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if _, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
+		rc, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
 			Text: fmt.Sprintf("hey look its a tweet %d", time.Now().UnixNano()),
-		}); err != nil {
+		})
+		if err != nil {
 			t.Fatal(err)
 		}
+
+		recs = append(recs, rc)
 
 		kmgr := &util.FakeKeyManager{}
 		nroot, nrev, err := rr.Commit(ctx, kmgr.SignForUser)
@@ -117,6 +122,10 @@ func TestBasicOperation(t *testing.T) {
 		}
 
 		rev = nrev
+
+		if err := ds.CalcDiff(ctx, nroot); err != nil {
+			t.Fatal(err)
+		}
 
 		if _, err := ds.CloseWithRoot(ctx, nroot, rev); err != nil {
 			t.Fatal(err)
@@ -129,19 +138,134 @@ func TestBasicOperation(t *testing.T) {
 	if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
 		t.Fatal(err)
 	}
+	checkRepo(t, buf, recs)
 
-	fmt.Println(buf.Len())
+	if err := cs.CompactUserShards(ctx, 1); err != nil {
+		t.Fatal(err)
+	}
+
+	buf = new(bytes.Buffer)
+	if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
+		t.Fatal(err)
+	}
+	checkRepo(t, buf, recs)
+}
+
+func TestRepeatedCompactions(t *testing.T) {
+	ctx := context.TODO()
+
+	cs, cleanup, err := testCarStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+
+	ds, err := cs.NewDeltaSession(ctx, 1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ncid, rev, err := setupRepo(ctx, ds)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := ds.CloseWithRoot(ctx, ncid, rev); err != nil {
+		t.Fatal(err)
+	}
+
+	var recs []cid.Cid
+	head := ncid
+
+	for loop := 0; loop < 50; loop++ {
+		for i := 0; i < 100; i++ {
+			ds, err := cs.NewDeltaSession(ctx, 1, &rev)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			rr, err := repo.OpenRepo(ctx, ds, head, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			rc, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
+				Text: fmt.Sprintf("hey look its a tweet %d", time.Now().UnixNano()),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			recs = append(recs, rc)
+
+			kmgr := &util.FakeKeyManager{}
+			nroot, nrev, err := rr.Commit(ctx, kmgr.SignForUser)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			rev = nrev
+
+			if err := ds.CalcDiff(ctx, nroot); err != nil {
+				t.Fatal(err)
+			}
+
+			if _, err := ds.CloseWithRoot(ctx, nroot, rev); err != nil {
+				t.Fatal(err)
+			}
+
+			head = nroot
+		}
+		fmt.Println("Run compaction", loop)
+		if err := cs.CompactUserShards(ctx, 1); err != nil {
+			t.Fatal(err)
+		}
+
+		buf := new(bytes.Buffer)
+		if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
+			t.Fatal(err)
+		}
+		checkRepo(t, buf, recs)
+	}
+
+	buf := new(bytes.Buffer)
+	if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
+		t.Fatal(err)
+	}
+	checkRepo(t, buf, recs)
+}
+
+func checkRepo(t *testing.T, r io.Reader, expRecs []cid.Cid) {
+	rep, err := repo.ReadRepoFromCar(context.TODO(), r)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	set := make(map[cid.Cid]bool)
+	for _, c := range expRecs {
+		set[c] = true
+	}
+
+	if err := rep.ForEach(context.TODO(), "", func(k string, v cid.Cid) error {
+		if !set[v] {
+			return fmt.Errorf("have record we didnt expect")
+		}
+
+		delete(set, v)
+		return nil
+
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(set) > 0 {
+		t.Fatalf("expected to find more cids in repo: %v", set)
+	}
 
 }
 
 func setupRepo(ctx context.Context, bs blockstore.Blockstore) (cid.Cid, string, error) {
 	nr := repo.NewRepo(ctx, "did:foo", bs)
-
-	if _, _, err := nr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
-		Text: fmt.Sprintf("hey look its a tweet %s", time.Now()),
-	}); err != nil {
-		return cid.Undef, "", err
-	}
 
 	kmgr := &util.FakeKeyManager{}
 	ncid, rev, err := nr.Commit(ctx, kmgr.SignForUser)
@@ -201,6 +325,9 @@ func BenchmarkRepoWritesCarstore(b *testing.B) {
 		}
 
 		rev = nrev
+		if err := ds.CalcDiff(ctx, nroot); err != nil {
+			b.Fatal(err)
+		}
 
 		if _, err := ds.CloseWithRoot(ctx, nroot, rev); err != nil {
 			b.Fatal(err)

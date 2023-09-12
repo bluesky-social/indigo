@@ -2,6 +2,7 @@ package bgs
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -394,6 +395,40 @@ func (bgs *BGS) handleAdminChangePDSCrawlLimit(e echo.Context) error {
 		limiter = rate.NewLimiter(rate.Limit(limit), 1)
 	}
 	limiter.SetLimit(rate.Limit(limit))
+
+	return e.JSON(200, map[string]any{
+		"success": "true",
+	})
+}
+
+func (bgs *BGS) handleAdminCompactRepo(e echo.Context) error {
+	ctx := e.Request().Context()
+
+	did := e.QueryParam("did")
+	if did == "" {
+		return fmt.Errorf("must pass a did")
+	}
+
+	u, err := bgs.lookupUserByDid(ctx, did)
+	if err != nil {
+		return fmt.Errorf("no such user: %w", err)
+	}
+
+	if err := bgs.repoman.CarStore().CompactUserShards(ctx, u.ID); err != nil {
+		return fmt.Errorf("compaction failed: %w", err)
+	}
+
+	return e.JSON(200, map[string]any{
+		"success": "true",
+	})
+}
+
+func (bgs *BGS) handleAdminCompactAllRepos(e echo.Context) error {
+	ctx := e.Request().Context()
+
+	if err := bgs.runRepoCompaction(ctx); err != nil {
+		return fmt.Errorf("compaction run failed: %w", err)
+	}
 
 	return e.JSON(200, map[string]any{
 		"success": "true",
