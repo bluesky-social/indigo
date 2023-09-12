@@ -67,6 +67,8 @@ type DbPersistence struct {
 
 type RepoEventRecord struct {
 	Seq       uint `gorm:"primarykey"`
+	Rev       string
+	Since     *string
 	Commit    *models.DbCID
 	Prev      *models.DbCID
 	NewHandle *string // NewHandle is only set if this is a handle change event
@@ -276,6 +278,8 @@ func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatprot
 		Blobs:  blobs,
 		Time:   t,
 		Rebase: evt.Rebase,
+		Rev:    evt.Rev,
+		Since:  evt.Since,
 	}
 
 	opsb, err := json.Marshal(evt.Ops)
@@ -493,6 +497,8 @@ func (p *DbPersistence) hydrateCommit(ctx context.Context, rer *RepoEventRecord)
 		Blobs:  blobCIDs,
 		Rebase: rer.Rebase,
 		Ops:    ops,
+		Rev:    rer.Rev,
+		Since:  rer.Since,
 	}
 
 	cs, err := p.readCarSlice(ctx, rer)
@@ -511,13 +517,8 @@ func (p *DbPersistence) hydrateCommit(ctx context.Context, rer *RepoEventRecord)
 
 func (p *DbPersistence) readCarSlice(ctx context.Context, rer *RepoEventRecord) ([]byte, error) {
 
-	var early cid.Cid
-	if rer.Prev != nil && !rer.Rebase {
-		early = rer.Prev.CID
-	}
-
 	buf := new(bytes.Buffer)
-	if err := p.cs.ReadUserCar(ctx, rer.Repo, early, rer.Commit.CID, true, buf); err != nil {
+	if err := p.cs.ReadUserCar(ctx, rer.Repo, rer.Rev, true, buf); err != nil {
 		return nil, err
 	}
 

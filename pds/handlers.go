@@ -565,7 +565,7 @@ func (s *Server) handleComAtprotoSyncUpdateRepo(ctx context.Context, r io.Reader
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoSyncGetCheckout(ctx context.Context, commit string, did string) (io.Reader, error) {
+func (s *Server) handleComAtprotoSyncGetCheckout(ctx context.Context, did string) (io.Reader, error) {
 	panic("not yet implemented")
 }
 
@@ -593,34 +593,14 @@ func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context, collection s
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, earliest, latest string) (io.Reader, error) {
-	var earlyCid cid.Cid
-	if earliest != "" {
-		cc, err := cid.Decode(earliest)
-		if err != nil {
-			return nil, err
-		}
-
-		earlyCid = cc
-	}
-
-	var lateCid cid.Cid
-	if latest != "" {
-		cc, err := cid.Decode(latest)
-		if err != nil {
-			return nil, err
-		}
-
-		lateCid = cc
-	}
-
+func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since string) (io.Reader, error) {
 	targetUser, err := s.lookupUser(ctx, did)
 	if err != nil {
 		return nil, err
 	}
 
 	buf := new(bytes.Buffer)
-	if err := s.repoman.ReadRepo(ctx, targetUser.ID, earlyCid, lateCid, buf); err != nil {
+	if err := s.repoman.ReadRepo(ctx, targetUser.ID, since, buf); err != nil {
 		return nil, err
 	}
 
@@ -681,7 +661,7 @@ func (s *Server) handleComAtprotoSyncGetBlob(ctx context.Context, cid string, di
 	panic("nyi")
 }
 
-func (s *Server) handleComAtprotoSyncListBlobs(ctx context.Context, did string, earliest string, latest string) (*comatprototypes.SyncListBlobs_Output, error) {
+func (s *Server) handleComAtprotoSyncListBlobs(ctx context.Context, cursor string, did string, limit int, since string) (*comatprototypes.SyncListBlobs_Output, error) {
 	panic("nyi")
 }
 
@@ -798,15 +778,6 @@ func (s *Server) handleComAtprotoAdminEnableAccountInvites(ctx context.Context, 
 	panic("nyi")
 }
 
-func (s *Server) handleComAtprotoRepoRebaseRepo(ctx context.Context, body *comatprototypes.RepoRebaseRepo_Input) error {
-	u, err := s.getUser(ctx)
-	if err != nil {
-		return err
-	}
-
-	return s.repoman.DoRebase(ctx, u.ID)
-}
-
 func (s *Server) handleAppBskyFeedDescribeFeedGenerator(ctx context.Context) (*appbskytypes.FeedDescribeFeedGenerator_Output, error) {
 	panic("nyi")
 }
@@ -841,5 +812,21 @@ func (s *Server) handleComAtprotoAdminRebaseRepo(ctx context.Context, body *coma
 }
 
 func (s *Server) handleComAtprotoAdminSendEmail(ctx context.Context, body *comatprototypes.AdminSendEmail_Input) (*comatprototypes.AdminSendEmail_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleAppBskyFeedGetActorLikes(ctx context.Context, actor string, cursor string, limit int) (*appbskytypes.FeedGetActorLikes_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleAppBskyNotificationRegisterPush(ctx context.Context, body *appbskytypes.NotificationRegisterPush_Input) error {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatprototypes.SyncGetLatestCommit_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoTempUpgradeRepoVersion(ctx context.Context, body *comatprototypes.TempUpgradeRepoVersion_Input) error {
 	panic("nyi")
 }
