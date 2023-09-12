@@ -83,18 +83,18 @@ func TestBasicOperation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ncid, err := setupRepo(ctx, ds)
+	ncid, rev, err := setupRepo(ctx, ds)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := ds.CloseWithRoot(ctx, ncid); err != nil {
+	if _, err := ds.CloseWithRoot(ctx, ncid, rev); err != nil {
 		t.Fatal(err)
 	}
 
 	head := ncid
 	for i := 0; i < 10; i++ {
-		ds, err := cs.NewDeltaSession(ctx, 1, &head)
+		ds, err := cs.NewDeltaSession(ctx, 1, &rev)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -111,12 +111,14 @@ func TestBasicOperation(t *testing.T) {
 		}
 
 		kmgr := &util.FakeKeyManager{}
-		nroot, err := rr.Commit(ctx, kmgr.SignForUser)
+		nroot, nrev, err := rr.Commit(ctx, kmgr.SignForUser)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if _, err := ds.CloseWithRoot(ctx, nroot); err != nil {
+		rev = nrev
+
+		if _, err := ds.CloseWithRoot(ctx, nroot, rev); err != nil {
 			t.Fatal(err)
 		}
 
@@ -124,7 +126,7 @@ func TestBasicOperation(t *testing.T) {
 	}
 
 	buf := new(bytes.Buffer)
-	if err := cs.ReadUserCar(ctx, 1, cid.Undef, cid.Undef, true, buf); err != nil {
+	if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
 		t.Fatal(err)
 	}
 
@@ -132,22 +134,22 @@ func TestBasicOperation(t *testing.T) {
 
 }
 
-func setupRepo(ctx context.Context, bs blockstore.Blockstore) (cid.Cid, error) {
+func setupRepo(ctx context.Context, bs blockstore.Blockstore) (cid.Cid, string, error) {
 	nr := repo.NewRepo(ctx, "did:foo", bs)
 
 	if _, _, err := nr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
 		Text: fmt.Sprintf("hey look its a tweet %s", time.Now()),
 	}); err != nil {
-		return cid.Undef, err
+		return cid.Undef, "", err
 	}
 
 	kmgr := &util.FakeKeyManager{}
-	ncid, err := nr.Commit(ctx, kmgr.SignForUser)
+	ncid, rev, err := nr.Commit(ctx, kmgr.SignForUser)
 	if err != nil {
-		return cid.Undef, fmt.Errorf("commit failed: %w", err)
+		return cid.Undef, "", fmt.Errorf("commit failed: %w", err)
 	}
 
-	return ncid, nil
+	return ncid, rev, nil
 }
 
 func BenchmarkRepoWritesCarstore(b *testing.B) {
@@ -159,24 +161,24 @@ func BenchmarkRepoWritesCarstore(b *testing.B) {
 	}
 	defer cleanup()
 
-	ds, err := cs.NewDeltaSession(ctx, 1, &cid.Undef)
+	ds, err := cs.NewDeltaSession(ctx, 1, nil)
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	ncid, err := setupRepo(ctx, ds)
+	ncid, rev, err := setupRepo(ctx, ds)
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	if _, err := ds.CloseWithRoot(ctx, ncid); err != nil {
+	if _, err := ds.CloseWithRoot(ctx, ncid, rev); err != nil {
 		b.Fatal(err)
 	}
 
 	head := ncid
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ds, err := cs.NewDeltaSession(ctx, 1, &head)
+		ds, err := cs.NewDeltaSession(ctx, 1, &rev)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -193,12 +195,14 @@ func BenchmarkRepoWritesCarstore(b *testing.B) {
 		}
 
 		kmgr := &util.FakeKeyManager{}
-		nroot, err := rr.Commit(ctx, kmgr.SignForUser)
+		nroot, nrev, err := rr.Commit(ctx, kmgr.SignForUser)
 		if err != nil {
 			b.Fatal(err)
 		}
 
-		if _, err := ds.CloseWithRoot(ctx, nroot); err != nil {
+		rev = nrev
+
+		if _, err := ds.CloseWithRoot(ctx, nroot, rev); err != nil {
 			b.Fatal(err)
 		}
 
@@ -215,7 +219,7 @@ func BenchmarkRepoWritesFlatfs(b *testing.B) {
 	}
 	defer cleanup()
 
-	ncid, err := setupRepo(ctx, bs)
+	ncid, _, err := setupRepo(ctx, bs)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -236,7 +240,7 @@ func BenchmarkRepoWritesFlatfs(b *testing.B) {
 		}
 
 		kmgr := &util.FakeKeyManager{}
-		nroot, err := rr.Commit(ctx, kmgr.SignForUser)
+		nroot, _, err := rr.Commit(ctx, kmgr.SignForUser)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -253,7 +257,7 @@ func BenchmarkRepoWritesSqlite(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	ncid, err := setupRepo(ctx, bs)
+	ncid, _, err := setupRepo(ctx, bs)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -274,7 +278,7 @@ func BenchmarkRepoWritesSqlite(b *testing.B) {
 		}
 
 		kmgr := &util.FakeKeyManager{}
-		nroot, err := rr.Commit(ctx, kmgr.SignForUser)
+		nroot, _, err := rr.Commit(ctx, kmgr.SignForUser)
 		if err != nil {
 			b.Fatal(err)
 		}

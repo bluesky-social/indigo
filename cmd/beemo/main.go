@@ -49,10 +49,10 @@ func run(args []string) error {
 			EnvVars: []string{"ATP_PDS_HOST"},
 		},
 		&cli.StringFlag{
-			Name:    "redsky-host",
-			Usage:   "method, hostname, and port of redsky, for direct links",
+			Name:    "admin-host",
+			Usage:   "method, hostname, and port of admin interface (eg, Ozone), for direct links",
 			Value:   "http://localhost:3000",
-			EnvVars: []string{"ATP_REDSKY_HOST"},
+			EnvVars: []string{"ATP_ADMIN_HOST", "ATP_REDSKY_HOST"},
 		},
 		&cli.StringFlag{
 			Name:     "handle",
@@ -171,7 +171,7 @@ func pollNewReports(cctx *cli.Context) error {
 				msg += fmt.Sprintf("recent unresolved: `%d`\t", len(mrr.Reports))
 				msg += fmt.Sprintf("instance: `%s`\n", cctx.String("pds-host"))
 				msg += fmt.Sprintf("reasonType: `%s`\t", shortType)
-				msg += fmt.Sprintf("Redsky: %s/reports/%d\n", cctx.String("redsky-host"), report.Id)
+				msg += fmt.Sprintf("Admin: %s/reports/%d\n", cctx.String("admin-host"), report.Id)
 				//msg += fmt.Sprintf("reportedByDid: `%s`\n", report.ReportedByDid)
 				log.Infof("found new report, notifying slack: %s", report)
 				err := sendSlackMsg(cctx, msg)

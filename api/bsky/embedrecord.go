@@ -17,7 +17,7 @@ func init() {
 } // EmbedRecord is a "main" in the app.bsky.embed.record schema.
 // RECORDTYPE: EmbedRecord
 type EmbedRecord struct {
-	LexiconTypeID string                         `json:"$type,const=app.bsky.embed.record#main" cborgen:"$type,const=app.bsky.embed.record#main"`
+	LexiconTypeID string                         `json:"$type,const=app.bsky.embed.record" cborgen:"$type,const=app.bsky.embed.record"`
 	Record        *comatprototypes.RepoStrongRef `json:"record" cborgen:"record"`
 }
 

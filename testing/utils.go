@@ -810,7 +810,7 @@ func GenerateFakeRepo(r *repo.Repo, size int) (cid.Cid, error) {
 
 		kmgr := &bsutil.FakeKeyManager{}
 
-		nroot, err := r.Commit(ctx, kmgr.SignForUser)
+		nroot, _, err := r.Commit(ctx, kmgr.SignForUser)
 		if err != nil {
 			return cid.Undef, err
 		}
