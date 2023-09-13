@@ -411,7 +411,7 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 		return fmt.Errorf("failed to get repo root: %w", err)
 	}
 
-	if !(job.initScrape || len(job.catchup) == 0) {
+	if !job.initScrape && len(job.catchup) > 0 {
 		first := job.catchup[0]
 		if first.evt.Since == nil || rev == *first.evt.Since {
 			for _, j := range job.catchup {
