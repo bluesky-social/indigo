@@ -64,12 +64,11 @@ type crawlWork struct {
 	act        *models.ActorInfo
 	initScrape bool
 
+	// for events that come in while this actor's crawl is enqueued
 	catchup []*catchupJob
 
 	// for events that come in while this actor is being processed
 	next []*catchupJob
-
-	rebase *catchupJob
 }
 
 func (c *CrawlDispatcher) mainLoop() {
@@ -175,19 +174,22 @@ func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
 	catchupEventsEnqueued.Inc()
 	c.maplk.Lock()
 	defer c.maplk.Unlock()
+
+	// If the actor crawl is enqueued, we can append to the catchup queue to run after the initial crawl
 	job, ok := c.todo[catchup.user.Uid]
-	// TODO: in the event of receiving a rebase event, we *could* pre-empt all other pending events
 	if ok {
 		job.catchup = append(job.catchup, catchup)
 		return nil
 	}
 
+	// If the actor crawl is in progress, we can append to the active queue for the job
 	job, ok = c.inProgress[catchup.user.Uid]
 	if ok {
 		job.next = append(job.next, catchup)
 		return nil
 	}
 
+	// Otherwise, we need to create a new crawl job for this actor and enqueue it
 	cw := &crawlWork{
 		act:     catchup.user,
 		catchup: []*catchupJob{catchup},
