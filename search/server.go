@@ -2,15 +2,12 @@ package search
 
 import (
 	"context"
-	"encoding/base32"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
-	"strconv"
 	"strings"
 
-	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/backfill"
@@ -45,20 +42,6 @@ type Server struct {
 	userCache *lru.Cache
 }
 
-type PostRef struct {
-	gorm.Model
-	Cid string
-	Tid string `gorm:"index"`
-	Uid uint   `gorm:"index"`
-}
-
-type User struct {
-	gorm.Model
-	Did       string `gorm:"index"`
-	Handle    string
-	LastCrawl string
-}
-
 type LastSeq struct {
 	ID  uint `gorm:"primarykey"`
 	Seq int64
@@ -81,8 +64,6 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 	}
 
 	logger.Info("running database migrations")
-	db.AutoMigrate(&PostRef{})
-	db.AutoMigrate(&User{})
 	db.AutoMigrate(&LastSeq{})
 	db.AutoMigrate(&backfill.GormDBJob{})
 
@@ -126,120 +107,60 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 	return s, nil
 }
 
-func (s *Server) SearchPosts(ctx context.Context, srch string, offset, size int) ([]PostSearchResult, error) {
-	resp, err := DoSearchPosts(ctx, s.dir, s.escli, s.postIndex, srch, offset, size)
+func (s *Server) SearchPosts(ctx context.Context, q string, offset, size int) ([]PostSearchResult, error) {
+	resp, err := DoSearchPosts(ctx, s.dir, s.escli, s.postIndex, q, offset, size)
 	if err != nil {
 		return nil, err
 	}
 
 	out := []PostSearchResult{}
 	for _, r := range resp.Hits.Hits {
-		uid, tid, err := decodeDocumentID(r.ID)
 		if err != nil {
 			return nil, fmt.Errorf("decoding document id: %w", err)
 		}
 
-		var p PostRef
-		if err := s.db.First(&p, "tid = ? AND uid = ?", tid, uid).Error; err != nil {
-			s.logger.Warn("failed to find post in database that is referenced by elasticsearch", "tid", tid, "uid", uid)
+		var doc PostDoc
+		if err := json.Unmarshal(r.Source, &doc); err != nil {
 			return nil, err
 		}
 
-		var u User
-		if err := s.db.First(&u, "id = ?", p.Uid).Error; err != nil {
-			return nil, err
+		did, err := syntax.ParseDID(doc.DID)
+		if err != nil {
+			s.logger.Warn("invalid DID in indexed document", "did", doc.DID, "err", err)
+			continue
 		}
-
-		var rec map[string]any
-		if err := json.Unmarshal(r.Source, &rec); err != nil {
-			return nil, err
+		handle := ""
+		ident, err := s.dir.LookupDID(ctx, did)
+		if err != nil {
+			s.logger.Warn("could not resolve identity", "did", doc.DID)
+			continue
+		} else {
+			handle = ident.Handle.String()
 		}
 
 		out = append(out, PostSearchResult{
-			Tid: p.Tid,
-			Cid: p.Cid,
+			Tid: doc.RecordRkey,
+			Cid: doc.RecordCID,
 			User: UserResult{
-				Did:    u.Did,
-				Handle: u.Handle,
+				Did:    doc.DID,
+				Handle: handle,
 			},
-			Post: &rec,
+			Post: &doc,
 		})
 	}
 
 	return out, nil
 }
 
-func (s *Server) getOrCreateUser(ctx context.Context, didStr string) (*User, error) {
-	did, err := syntax.ParseDID(didStr)
-	if err != nil {
-		return nil, err
-	}
-	cu, ok := s.userCache.Get(did)
-	if ok {
-		return cu.(*User), nil
-	}
-
-	var u User
-	if err := s.db.Find(&u, "did = ?", did).Error; err != nil {
-		return nil, err
-	}
-	if u.ID == 0 {
-		id, err := s.dir.LookupDID(ctx, did)
-		if err != nil {
-			s.logger.Warn("failed to resolve did to handle", "did", did, "err", err)
-		} else {
-			// note: this can prevents handle.invalid in the index
-			if id.Handle.IsInvalidHandle() {
-				u.Handle = ""
-			} else {
-				u.Handle = id.Handle.String()
-			}
-		}
-
-		u.Did = did.String()
-		if err := s.db.Create(&u).Error; err != nil {
-			return nil, err
-		}
-	}
-
-	s.userCache.Add(did.String(), &u)
-
-	return &u, nil
-}
-
 var ErrDoneIterating = fmt.Errorf("done iterating")
 
-func encodeDocumentID(uid uint, tid string) string {
-	comb := fmt.Sprintf("%d:%s", uid, tid)
-	return base32.StdEncoding.EncodeToString([]byte(comb))
-}
-
-func decodeDocumentID(docid string) (uint, string, error) {
-	dec, err := base32.StdEncoding.DecodeString(docid)
-	if err != nil {
-		return 0, "", err
-	}
-
-	parts := strings.SplitN(string(dec), ":", 2)
-	if len(parts) < 2 {
-		return 0, "", fmt.Errorf("invalid document id: %q", string(dec))
-	}
-
-	uid, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return 0, "", err
-	}
-
-	return uint(uid), parts[1], nil
-}
-
-func (s *Server) SearchProfiles(ctx context.Context, srch string, typeahead bool, offset, size int) ([]*ActorSearchResp, error) {
+func (s *Server) SearchProfiles(ctx context.Context, q string, typeahead bool, offset, size int) ([]*ActorSearchResp, error) {
 	var resp *EsSearchResponse
 	var err error
 	if typeahead {
-		resp, err = DoSearchProfilesTypeahead(ctx, s.escli, s.profileIndex, srch)
+		resp, err = DoSearchProfilesTypeahead(ctx, s.escli, s.profileIndex, q)
 	} else {
-		resp, err = DoSearchProfiles(ctx, s.dir, s.escli, s.profileIndex, srch, offset, size)
+		resp, err = DoSearchProfiles(ctx, s.dir, s.escli, s.profileIndex, q, offset, size)
 	}
 	if err != nil {
 		return nil, err
@@ -247,24 +168,14 @@ func (s *Server) SearchProfiles(ctx context.Context, srch string, typeahead bool
 
 	out := []*ActorSearchResp{}
 	for _, r := range resp.Hits.Hits {
-		uid, err := strconv.Atoi(r.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		var u User
-		if err := s.db.First(&u, "id = ?", uid).Error; err != nil {
-			return nil, err
-		}
-
-		var rec bsky.ActorProfile
-		if err := json.Unmarshal(r.Source, &rec); err != nil {
+		var doc ProfileDoc
+		if err := json.Unmarshal(r.Source, &doc); err != nil {
 			return nil, err
 		}
 
 		out = append(out, &ActorSearchResp{
-			ActorProfile: rec,
-			DID:          u.Did,
+			ActorProfile: doc,
+			DID:          doc.DID,
 		})
 	}
 

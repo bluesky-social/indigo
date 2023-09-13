@@ -5,13 +5,12 @@ import (
 	"strconv"
 	"strings"
 
-	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/labstack/echo/v4"
 	otel "go.opentelemetry.io/otel"
 )
 
 type ActorSearchResp struct {
-	bsky.ActorProfile
+	ActorProfile ProfileDoc
 	DID string `json:"did"`
 }
 
