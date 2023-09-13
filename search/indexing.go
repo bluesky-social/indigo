@@ -17,7 +17,7 @@ import (
 )
 
 func (s *Server) deletePost(ctx context.Context, u *User, path string) error {
-	log.Infof("deleting post: %s", path)
+	s.logger.Info("deleting post from index", "path", path) // TODO: repo DID
 	req := esapi.DeleteRequest{
 		Index:      s.postIndex,
 		DocumentID: encodeDocumentID(u.ID, path),
@@ -39,7 +39,7 @@ func (s *Server) indexPost(ctx context.Context, u *User, rec *bsky.FeedPost, pat
 	parts := strings.SplitN(path, "/", 3)
 	var tidRegex = regexp.MustCompile(`^[234567abcdefghijklmnopqrstuvwxyz]{13}$`)
 	if len(parts) != 2 || !tidRegex.MatchString(parts[1]) {
-		log.Warnf("Skipping post record with weird path/TID did=%s path=%s", u.Did, path)
+		s.logger.Warn("skipping index post record with weird path/TID", "did", u.Did, "path", path)
 		return nil
 	}
 	rkey := parts[1]
@@ -65,7 +65,7 @@ func (s *Server) indexPost(ctx context.Context, u *User, rec *bsky.FeedPost, pat
 		return err
 	}
 
-	log.Infof("Indexing post")
+	s.logger.Debug("indexing post") // TODO: more info
 	req := esapi.IndexRequest{
 		Index:      s.postIndex,
 		DocumentID: doc.DocId(),
@@ -87,7 +87,7 @@ func (s *Server) indexProfile(ctx context.Context, u *User, rec *bsky.ActorProfi
 
 	parts := strings.SplitN(path, "/", 3)
 	if len(parts) != 2 || parts[1] != "self" {
-		log.Warnf("Skipping non-canonical profile record  did=%s path=%s", u.Did, path)
+		s.logger.Warn("skipping indexing non-canonical profile record", "did", u.Did, "path", path)
 		return nil
 	}
 
@@ -95,7 +95,7 @@ func (s *Server) indexProfile(ctx context.Context, u *User, rec *bsky.ActorProfi
 	if rec.DisplayName != nil {
 		n = *rec.DisplayName
 	}
-	log.Infof("Indexing profile: %s", n)
+	s.logger.Info("indexing profile", "display_name", n)
 
 	doc := TransformProfile(rec, u, pcid.String())
 	b, err := json.Marshal(doc)
