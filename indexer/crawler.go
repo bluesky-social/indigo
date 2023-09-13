@@ -157,6 +157,7 @@ func (c *CrawlDispatcher) mainLoop() {
 }
 
 func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
+	catchupEventsEnqueued.Inc()
 	c.maplk.Lock()
 	defer c.maplk.Unlock()
 	job, ok := c.todo[catchup.user.Uid]
