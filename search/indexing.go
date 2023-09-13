@@ -9,15 +9,15 @@ import (
 	"strings"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 
 	esapi "github.com/opensearch-project/opensearch-go/v2/opensearchapi"
 )
 
 func (s *Server) deletePost(ctx context.Context, ident *identity.Identity, rkey string) error {
-	s.logger.Info("deleting post from index", "repo", ident.DID, "rkey", rkey) // TODO: repo DID
+	s.logger.Info("deleting post from index", "repo", ident.DID, "rkey", rkey)
 	docID := fmt.Sprintf("%s_%s", ident.DID.String(), rkey)
 	req := esapi.DeleteRequest{
 		Index:      s.postIndex,
@@ -59,7 +59,7 @@ func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *a
 		return err
 	}
 
-	s.logger.Debug("indexing post") // TODO: more info
+	s.logger.Debug("indexing post", "did", ident.DID, "rkey", rkey)
 	req := esapi.IndexRequest{
 		Index:      s.postIndex,
 		DocumentID: doc.DocId(),

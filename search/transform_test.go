@@ -7,6 +7,9 @@ import (
 	"testing"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -30,7 +33,7 @@ func TestParseEmojis(t *testing.T) {
 }
 
 type profileFixture struct {
-	Did           string `json:"did"`
+	DID           string `json:"did"`
 	Handle        string `json:"handle"`
 	Rkey          string `json:"rkey"`
 	Cid           string `json:"cid"`
@@ -65,10 +68,9 @@ func TestTransformProfileFixtures(t *testing.T) {
 func testProfileFixture(t *testing.T, row profileFixture) {
 	assert := assert.New(t)
 
-	repo := User{
-		Handle:    row.Handle,
-		Did:       row.Did,
-		LastCrawl: "dummy",
+	repo := identity.Identity{
+		Handle: syntax.Handle(row.Handle),
+		DID:    syntax.DID(row.DID),
 	}
 	doc := TransformProfile(row.ProfileRecord, &repo, row.Cid)
 	doc.DocIndexTs = "2006-01-02T15:04:05.000Z"
@@ -77,7 +79,7 @@ func testProfileFixture(t *testing.T, row profileFixture) {
 }
 
 type postFixture struct {
-	Did        string `json:"did"`
+	DID        string `json:"did"`
 	Handle     string `json:"handle"`
 	Rkey       string `json:"rkey"`
 	Cid        string `json:"cid"`
@@ -112,10 +114,9 @@ func TestTransformPostFixtures(t *testing.T) {
 func testPostFixture(t *testing.T, row postFixture) {
 	assert := assert.New(t)
 
-	repo := User{
-		Handle:    row.Handle,
-		Did:       row.Did,
-		LastCrawl: "dummy",
+	repo := identity.Identity{
+		Handle: syntax.Handle(row.Handle),
+		DID:    syntax.DID(row.DID),
 	}
 	doc := TransformPost(row.PostRecord, &repo, row.Rkey, row.Cid)
 	doc.DocIndexTs = "2006-01-02T15:04:05.000Z"

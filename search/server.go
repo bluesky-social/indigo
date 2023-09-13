@@ -2,21 +2,16 @@ package search
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/backfill"
 	"github.com/bluesky-social/indigo/util/version"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	lru "github.com/hashicorp/golang-lru"
-	flatfs "github.com/ipfs/go-ds-flatfs"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/labstack/echo-contrib/echoprometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -38,8 +33,6 @@ type Server struct {
 
 	bfs *backfill.Gormstore
 	bf  *backfill.Backfiller
-
-	userCache *lru.Cache
 }
 
 type LastSeq struct {
@@ -77,7 +70,6 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 		Host: bgshttp,
 	}
 
-	ucache, _ := lru.New(100000)
 	s := &Server{
 		escli:        escli,
 		profileIndex: config.ProfileIndex,
@@ -86,7 +78,6 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 		bgshost:      config.BGSHost, // NOTE: the original URL, not 'bgshttp'
 		bgsxrpc:      bgsxrpc,
 		dir:          dir,
-		userCache:    ucache,
 		logger:       logger,
 	}
 
@@ -105,90 +96,6 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 	s.bf = bf
 
 	return s, nil
-}
-
-func (s *Server) SearchPosts(ctx context.Context, q string, offset, size int) ([]PostSearchResult, error) {
-	resp, err := DoSearchPosts(ctx, s.dir, s.escli, s.postIndex, q, offset, size)
-	if err != nil {
-		return nil, err
-	}
-
-	out := []PostSearchResult{}
-	for _, r := range resp.Hits.Hits {
-		if err != nil {
-			return nil, fmt.Errorf("decoding document id: %w", err)
-		}
-
-		var doc PostDoc
-		if err := json.Unmarshal(r.Source, &doc); err != nil {
-			return nil, err
-		}
-
-		did, err := syntax.ParseDID(doc.DID)
-		if err != nil {
-			s.logger.Warn("invalid DID in indexed document", "did", doc.DID, "err", err)
-			continue
-		}
-		handle := ""
-		ident, err := s.dir.LookupDID(ctx, did)
-		if err != nil {
-			s.logger.Warn("could not resolve identity", "did", doc.DID)
-			continue
-		} else {
-			handle = ident.Handle.String()
-		}
-
-		out = append(out, PostSearchResult{
-			Tid: doc.RecordRkey,
-			Cid: doc.RecordCID,
-			User: UserResult{
-				Did:    doc.DID,
-				Handle: handle,
-			},
-			Post: &doc,
-		})
-	}
-
-	return out, nil
-}
-
-var ErrDoneIterating = fmt.Errorf("done iterating")
-
-func (s *Server) SearchProfiles(ctx context.Context, q string, typeahead bool, offset, size int) ([]*ActorSearchResp, error) {
-	var resp *EsSearchResponse
-	var err error
-	if typeahead {
-		resp, err = DoSearchProfilesTypeahead(ctx, s.escli, s.profileIndex, q)
-	} else {
-		resp, err = DoSearchProfiles(ctx, s.dir, s.escli, s.profileIndex, q, offset, size)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	out := []*ActorSearchResp{}
-	for _, r := range resp.Hits.Hits {
-		var doc ProfileDoc
-		if err := json.Unmarshal(r.Source, &doc); err != nil {
-			return nil, err
-		}
-
-		out = append(out, &ActorSearchResp{
-			ActorProfile: doc,
-			DID:          doc.DID,
-		})
-	}
-
-	return out, nil
-}
-
-func OpenBlockstore(dir string) (blockstore.Blockstore, error) {
-	fds, err := flatfs.CreateOrOpen(dir, flatfs.IPFS_DEF_SHARD, false)
-	if err != nil {
-		return nil, err
-	}
-
-	return blockstore.NewBlockstoreNoPrefix(fds), nil
 }
 
 type HealthStatus struct {
