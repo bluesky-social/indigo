@@ -83,8 +83,8 @@ func (c *CrawlDispatcher) mainLoop() {
 		select {
 		case actorToCrawl := <-c.ingest:
 			// TODO: max buffer size
-			crawlJob, enqueued := c.enqueueJobForActor(actorToCrawl)
-			if !enqueued {
+			crawlJob := c.enqueueJobForActor(actorToCrawl)
+			if crawlJob == nil {
 				break
 			}
 
@@ -141,17 +141,18 @@ func (c *CrawlDispatcher) mainLoop() {
 	}
 }
 
-func (c *CrawlDispatcher) enqueueJobForActor(ai *models.ActorInfo) (*crawlWork, bool) {
+// enqueueJobForActor adds a new crawl job to the todo list if there isn't already a job in progress for this actor
+func (c *CrawlDispatcher) enqueueJobForActor(ai *models.ActorInfo) *crawlWork {
 	c.maplk.Lock()
 	defer c.maplk.Unlock()
 	_, ok := c.inProgress[ai.Uid]
 	if ok {
-		return nil, false
+		return nil
 	}
 
 	_, has := c.todo[ai.Uid]
 	if has {
-		return nil, false
+		return nil
 	}
 
 	crawlJob := &crawlWork{
@@ -159,9 +160,10 @@ func (c *CrawlDispatcher) enqueueJobForActor(ai *models.ActorInfo) (*crawlWork, 
 		initScrape: true,
 	}
 	c.todo[ai.Uid] = crawlJob
-	return crawlJob, true
+	return crawlJob
 }
 
+// dequeueJob removes a job from the todo list and adds it to the inProgress list
 func (c *CrawlDispatcher) dequeueJob(job *crawlWork) {
 	c.maplk.Lock()
 	defer c.maplk.Unlock()
