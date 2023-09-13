@@ -257,6 +257,7 @@ var searchProfileCmd = &cli.Command{
 				escli,
 				cctx.String("es-profile-index"),
 				strings.Join(cctx.Args().Slice(), " "),
+				10,
 			)
 			if err != nil {
 				return err

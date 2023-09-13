@@ -29,10 +29,9 @@ type EsSearchHits struct {
 }
 
 type EsSearchResponse struct {
-	Took     int  `json:"took"`
-	TimedOut bool `json:"timed_out"`
-	// Shards ???
-	Hits EsSearchHits `json:"hits"`
+	Took     int          `json:"took"`
+	TimedOut bool         `json:"timed_out"`
+	Hits     EsSearchHits `json:"hits"`
 }
 
 type UserResult struct {
@@ -122,7 +121,10 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 	return doSearch(ctx, escli, index, query)
 }
 
-func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q string) (*EsSearchResponse, error) {
+func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q string, size int) (*EsSearchResponse, error) {
+	if err := checkParams(0, size); err != nil {
+		return nil, err
+	}
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"multi_match": map[string]interface{}{
@@ -135,7 +137,7 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 				},
 			},
 		},
-		"size": 30,
+		"size": size,
 	}
 
 	return doSearch(ctx, escli, index, query)
