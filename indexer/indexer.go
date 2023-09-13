@@ -193,11 +193,13 @@ func (ix *Indexer) crawlAtUriRef(ctx context.Context, uri string) error {
 	puri, err := util.ParseAtUri(uri)
 	if err != nil {
 		return err
-	} else {
-		_, err := ix.GetUserOrMissing(ctx, puri.Did)
-		if err != nil {
-			return err
-		}
+	}
+
+	referencesCrawled.Inc()
+
+	_, err = ix.GetUserOrMissing(ctx, puri.Did)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -286,6 +288,8 @@ func (ix *Indexer) createMissingUserRecord(ctx context.Context, did string) (*mo
 	ctx, span := otel.Tracer("indexer").Start(ctx, "createMissingUserRecord")
 	defer span.End()
 
+	externalUserCreationAttempts.Inc()
+
 	ai, err := ix.CreateExternalUser(ctx, did)
 	if err != nil {
 		return nil, err
@@ -299,6 +303,8 @@ func (ix *Indexer) createMissingUserRecord(ctx context.Context, did string) (*mo
 }
 
 func (ix *Indexer) addUserToCrawler(ctx context.Context, ai *models.ActorInfo) error {
+	userCrawlsEnqueued.Inc()
+
 	log.Infow("Sending user to crawler: ", "did", ai.Did)
 	if ix.Crawler == nil {
 		return nil
@@ -409,6 +415,7 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 		first := job.catchup[0]
 		if first.evt.Since == nil || rev == *first.evt.Since {
 			for _, j := range job.catchup {
+				catchupEventsProcessed.Inc()
 				if err := ix.repomgr.HandleExternalUserEvent(ctx, pds.ID, ai.Uid, ai.Did, j.evt.Since, j.evt.Rev, j.evt.Blocks, j.evt.Ops); err != nil {
 					// TODO: if we fail here, we should probably fall back to a repo re-sync
 					return fmt.Errorf("post rebase catchup failed: %w", err)
@@ -448,8 +455,10 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
 	repo, err := comatproto.SyncGetRepo(ctx, c, ai.Did, rev)
 	if err != nil {
+		reposFetched.WithLabelValues("fail").Inc()
 		return fmt.Errorf("failed to fetch repo: %w", err)
 	}
+	reposFetched.WithLabelValues("success").Inc()
 
 	// this process will send individual indexing events back to the indexer, doing a 'fast forward' of the users entire history
 	// we probably want alternative ways of doing this for 'very large' or 'very old' repos, but this works for now
