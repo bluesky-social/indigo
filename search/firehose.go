@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -15,6 +16,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
+
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
 	typegen "github.com/whyrusleeping/cbor-gen"
@@ -50,7 +52,15 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 	go s.bf.Start()
 
 	d := websocket.DefaultDialer
-	con, _, err := d.Dial(fmt.Sprintf("%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", s.bgshost, cur), http.Header{})
+	u, err := url.Parse(s.bgshost)
+	if err != nil {
+		return fmt.Errorf("invalid bgshost URI: %w", err)
+	}
+	u.Path = "xrpc/com.atproto.sync.subscribeRepos"
+	if cur != 0 {
+		u.RawPath = fmt.Sprintf("cursor=%d", cur)
+	}
+	con, _, err := d.Dial(u.String(), http.Header{})
 	if err != nil {
 		return fmt.Errorf("events dial failed: %w", err)
 	}
