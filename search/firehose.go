@@ -70,18 +70,21 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 			defer func() {
 				if evt.Seq%50 == 0 {
 					if err := s.updateLastCursor(evt.Seq); err != nil {
-						log.Error("Failed to update cursor: ", err)
+						s.logger.Error("failed to persist cursor", "err", err)
 					}
 				}
 			}()
+			logEvt := s.logger.With("repo", evt.Repo, "rev", evt.Rev, "seq", evt.Seq)
 			if evt.TooBig && evt.Prev != nil {
-				log.Errorf("skipping non-genesis too big events for now: %d", evt.Seq)
+				// TODO: handle this case (instead of return nil)
+				logEvt.Error("skipping non-genesis tooBig events for now")
 				return nil
 			}
 
 			if evt.TooBig {
 				if err := s.processTooBigCommit(ctx, evt); err != nil {
-					log.Errorf("failed to process tooBig event: %s", err)
+					// TODO: handle this case (instead of return nil)
+					logEvt.Error("failed to process tooBig event", "err", err)
 					return nil
 				}
 
@@ -90,34 +93,39 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 
 			r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
 			if err != nil {
-				log.Errorf("reading repo from car (seq: %d, len: %d): %w", evt.Seq, len(evt.Blocks), err)
+				// TODO: handle this case (instead of return nil)
+				logEvt.Error("reading repo from car", "size_bytes", len(evt.Blocks), "err", err)
 				return nil
 			}
 
 			for _, op := range evt.Ops {
 				ek := repomgr.EventKind(op.Action)
+				logOp := logEvt.With("op_path", op.Path, "op_cid", op.Cid)
 				switch ek {
 				case repomgr.EvtKindCreateRecord, repomgr.EvtKindUpdateRecord:
 					rc, rec, err := r.GetRecord(ctx, op.Path)
 					if err != nil {
-						e := fmt.Errorf("getting record %s (%s) within seq %d for %s: %w", op.Path, *op.Cid, evt.Seq, evt.Repo, err)
-						log.Error(e)
+						// TODO: handle this case (instead of return nil)
+						logOp.Error("fetching record from event CAR slice", "err", err)
 						return nil
 					}
 
 					if lexutil.LexLink(rc) != *op.Cid {
-						log.Errorf("mismatch in record and op cid: %s != %s", rc, *op.Cid)
+						// TODO: handle this case (instead of return nil)
+						logOp.Error("mismatch in record and op cid", "record_cid", rc)
 						return nil
 					}
 
 					if err := s.handleOp(ctx, ek, evt.Seq, op.Path, evt.Repo, &rc, rec); err != nil {
-						log.Errorf("failed to handle op: %s", err)
+						// TODO: handle this case (instead of return nil)
+						logOp.Error("failed to handle event op", "err", err)
 						return nil
 					}
 
 				case repomgr.EvtKindDeleteRecord:
 					if err := s.handleOp(ctx, ek, evt.Seq, op.Path, evt.Repo, nil, nil); err != nil {
-						log.Errorf("failed to handle delete: %s", err)
+						// TODO: handle this case (instead of return nil)
+						logOp.Error("failed to handle delete", "err", err)
 						return nil
 					}
 				}
@@ -128,7 +136,8 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 		},
 		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
 			if err := s.updateUserHandle(ctx, evt.Did, evt.Handle); err != nil {
-				log.Errorf("failed to update user handle: %s", err)
+				// TODO: handle this case (instead of return nil)
+				s.logger.Error("failed to update user handle", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
 			}
 			return nil
 		},
@@ -158,11 +167,11 @@ func (s *Server) handleCreateOrUpdate(ctx context.Context, did string, path stri
 	switch rec := rec.(type) {
 	case *bsky.FeedPost:
 		if err := s.indexPost(ctx, u, rec, path, *rcid); err != nil {
-			return fmt.Errorf("indexing post: %w", err)
+			return fmt.Errorf("indexing post for %s: %w", did, err)
 		}
 	case *bsky.ActorProfile:
 		if err := s.indexProfile(ctx, u, rec, path, *rcid); err != nil {
-			return fmt.Errorf("indexing profile: %w", err)
+			return fmt.Errorf("indexing profile for %s: %w", did, err)
 		}
 	default:
 	}
@@ -198,42 +207,42 @@ func (s *Server) handleOp(ctx context.Context, op repomgr.EventKind, seq int64, 
 	}
 
 	if op == repomgr.EvtKindCreateRecord || op == repomgr.EvtKindUpdateRecord {
-		log.Infof("handling create(%d): %s - %s", seq, did, path)
+		s.logger.Debug("processing create record op", "seq", seq, "did", did, "path", path)
 
 		// Try to buffer the op, if it fails, we need to create a backfill job
 		_, err := s.bfs.BufferOp(ctx, did, string(op), path, &rec, rcid)
 		if err == backfill.ErrJobNotFound {
-			log.Infof("no job found for repo %s, creating one", did)
+			s.logger.Debug("no backfill job found for repo, creating one", "did", did)
 
 			if err := s.bfs.EnqueueJob(did); err != nil {
-				return fmt.Errorf("enqueueing job: %w", err)
+				return fmt.Errorf("enqueueing backfill job: %w", err)
 			}
 
 			// Try to buffer the op again so it gets picked up by the backfill job
 			_, err = s.bfs.BufferOp(ctx, did, string(op), path, &rec, rcid)
 			if err != nil {
-				return fmt.Errorf("buffering op: %w", err)
+				return fmt.Errorf("buffering backfill op: %w", err)
 			}
 		} else if err == backfill.ErrJobComplete {
 			// Backfill is done for this repo so we can just index it now
 			err = s.handleCreateOrUpdate(ctx, did, path, &rec, rcid)
 		}
 	} else if op == repomgr.EvtKindDeleteRecord {
-		log.Infof("handling delete(%d): %s - %s", seq, did, path)
+		s.logger.Debug("processing delete record op", "seq", seq, "did", did, "path", path)
 
 		// Try to buffer the op, if it fails, we need to create a backfill job
 		_, err := s.bfs.BufferOp(ctx, did, string(op), path, &rec, rcid)
 		if err == backfill.ErrJobNotFound {
-			log.Infof("no job found for repo %s, creating one", did)
+			s.logger.Debug("no backfill job found for repo, creating one", "did", did)
 
 			if err := s.bfs.EnqueueJob(did); err != nil {
-				return fmt.Errorf("enqueueing job: %w", err)
+				return fmt.Errorf("enqueueing backfill job: %w", err)
 			}
 
 			// Try to buffer the op again so it gets picked up by the backfill job
 			_, err = s.bfs.BufferOp(ctx, did, string(op), path, &rec, rcid)
 			if err != nil {
-				return fmt.Errorf("buffering op: %w", err)
+				return fmt.Errorf("buffering backfill op: %w", err)
 			}
 		} else if err == backfill.ErrJobComplete {
 			// Backfill is done for this repo so we can delete imemdiately
@@ -268,7 +277,8 @@ func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSu
 		if strings.HasPrefix(k, "app.bsky.feed.post") || strings.HasPrefix(k, "app.bsky.actor.profile") {
 			rcid, rec, err := r.GetRecord(ctx, k)
 			if err != nil {
-				log.Errorf("failed to get record from repo checkout: %s", err)
+				// TODO: handle this case (instead of return nil)
+				s.logger.Error("failed to get record from repo checkout", "path", k, "err", err)
 				return nil
 			}
 

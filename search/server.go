@@ -5,6 +5,8 @@ import (
 	"encoding/base32"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"os"
 	"strconv"
 	"strings"
 
@@ -18,14 +20,13 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	flatfs "github.com/ipfs/go-ds-flatfs"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	logging "github.com/ipfs/go-log"
+	"github.com/labstack/echo-contrib/echoprometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	es "github.com/opensearch-project/opensearch-go/v2"
+	slogecho "github.com/samber/slog-echo"
 	gorm "gorm.io/gorm"
 )
-
-var log = logging.Logger("search")
 
 type Server struct {
 	escli        *es.Client
@@ -36,6 +37,7 @@ type Server struct {
 	bgsxrpc      *xrpc.Client
 	dir          identity.Directory
 	echo         *echo.Echo
+	logger       *slog.Logger
 
 	bfs *backfill.Gormstore
 	bf  *backfill.Backfiller
@@ -66,11 +68,19 @@ type Config struct {
 	BGSHost      string
 	ProfileIndex string
 	PostIndex    string
+	Logger       *slog.Logger
 }
 
 func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Config) (*Server, error) {
 
-	log.Info("Migrating database")
+	logger := config.Logger
+	if logger == nil {
+		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		}))
+	}
+
+	logger.Info("running database migrations")
 	db.AutoMigrate(&PostRef{})
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&LastSeq{})
@@ -96,6 +106,7 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 		bgsxrpc:      bgsxrpc,
 		dir:          dir,
 		userCache:    ucache,
+		logger:       logger,
 	}
 
 	bfstore := backfill.NewGormstore(db)
@@ -130,7 +141,7 @@ func (s *Server) SearchPosts(ctx context.Context, srch string, offset, size int)
 
 		var p PostRef
 		if err := s.db.First(&p, "tid = ? AND uid = ?", tid, uid).Error; err != nil {
-			log.Infof("failed to find post in database that is referenced by elasticsearch: %s", r.ID)
+			s.logger.Warn("failed to find post in database that is referenced by elasticsearch", "tid", tid, "uid", uid)
 			return nil, err
 		}
 
@@ -175,7 +186,7 @@ func (s *Server) getOrCreateUser(ctx context.Context, didStr string) (*User, err
 	if u.ID == 0 {
 		id, err := s.dir.LookupDID(ctx, did)
 		if err != nil {
-			log.Errorw("failed to resolve did to handle", "did", did, "err", err)
+			s.logger.Warn("failed to resolve did to handle", "did", did, "err", err)
 		} else {
 			// note: this can prevents handle.invalid in the index
 			if id.Handle.IsInvalidHandle() {
@@ -277,7 +288,7 @@ type HealthStatus struct {
 
 func (s *Server) handleHealthCheck(c echo.Context) error {
 	if err := s.db.Exec("SELECT 1").Error; err != nil {
-		log.Errorf("healthcheck can't connect to database: %v", err)
+		s.logger.Error("healthcheck can't connect to database", "err", err)
 		return c.JSON(500, HealthStatus{Status: "error", Version: version.Version, Message: "can't connect to database"})
 	} else {
 		return c.JSON(200, HealthStatus{Status: "ok", Version: version.Version})
@@ -286,30 +297,31 @@ func (s *Server) handleHealthCheck(c echo.Context) error {
 
 func (s *Server) RunAPI(listen string) error {
 
-	log.Infof("Configuring HTTP server")
+	s.logger.Info("Configuring HTTP server")
 	e := echo.New()
 	e.HideBanner = true
-
-	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		Format: "method=${method} uri=${uri} status=${status} latency=${latency_human}\n",
-	}))
+	e.Use(slogecho.New(s.logger))
+	e.Use(middleware.Recover())
+	e.Use(echoprometheus.NewMiddleware("palomar"))
+	e.Use(middleware.BodyLimit("64M"))
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
 		code := 500
 		if he, ok := err.(*echo.HTTPError); ok {
 			code = he.Code
 		}
-		log.Warnw("HTTP request error", "statusCode", code, "path", ctx.Path(), "err", err)
+		s.logger.Warn("HTTP request error", "statusCode", code, "path", ctx.Path(), "err", err)
 		ctx.Response().WriteHeader(code)
 	}
 
 	e.Use(middleware.CORS())
 	e.GET("/_health", s.handleHealthCheck)
+	e.GET("/metrics", echoprometheus.NewHandler())
 	e.GET("/search/posts", s.handleSearchRequestPosts)
 	e.GET("/search/profiles", s.handleSearchRequestProfiles)
 	s.echo = e
 
-	log.Infof("starting search API daemon at: %s", listen)
+	s.logger.Info("starting search API daemon", "bind", listen)
 	return s.echo.Start(listen)
 }
 

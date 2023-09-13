@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -16,16 +17,14 @@ import (
 	"github.com/bluesky-social/indigo/util/cliutil"
 
 	"github.com/bluesky-social/indigo/util/version"
-	logging "github.com/ipfs/go-log"
 	es "github.com/opensearch-project/opensearch-go/v2"
 	cli "github.com/urfave/cli/v2"
 )
 
-var log = logging.Logger("palomar")
-
 func main() {
 	if err := run(os.Args); err != nil {
-		log.Fatal(err)
+		slog.Error("exiting", "err", err)
+		os.Exit(-1)
 	}
 }
 
@@ -123,6 +122,11 @@ var runCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
+		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		}))
+		slog.SetDefault(logger)
+
 		db, err := cliutil.SetupDatabase(cctx.String("database-url"), cctx.Int("max-metadb-connections"))
 		if err != nil {
 			return err
@@ -151,6 +155,7 @@ var runCmd = &cli.Command{
 				BGSHost:      cctx.String("atp-bgs-host"),
 				ProfileIndex: cctx.String("es-profile-index"),
 				PostIndex:    cctx.String("es-post-index"),
+				Logger:       logger,
 			},
 		)
 		if err != nil {
@@ -193,7 +198,7 @@ var elasticCheckCmd = &cli.Command{
 			return fmt.Errorf("failed to get info: %w", err)
 		}
 
-		fmt.Println(inf)
+		slog.Info("opensearch client connected", "client_info", inf)
 		return nil
 
 	},
@@ -312,7 +317,7 @@ func createEsClient(cctx *cli.Context) (*es.Client, error) {
 		return nil, fmt.Errorf("cannot get escli info: %w", err)
 	}
 	defer info.Body.Close()
-	log.Debug(info)
+	slog.Debug("opensearch client initialized", "info", info)
 
 	return escli, nil
 }

@@ -162,7 +162,7 @@ func DoSearchGeneric(ctx context.Context, escli *es.Client, index, q string) (*E
 func doSearch(ctx context.Context, escli *es.Client, index string, query interface{}) (*EsSearchResponse, error) {
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(query); err != nil {
-		log.Fatalf("Error encoding query: %s", err)
+		return nil, fmt.Errorf("error encoding query: %s", err)
 	}
 	bod, err := json.Marshal(query)
 	if nil == err {
