@@ -70,7 +70,6 @@ func (s *Server) indexPost(ctx context.Context, u *User, rec *bsky.FeedPost, pat
 		Index:      s.postIndex,
 		DocumentID: doc.DocId(),
 		Body:       bytes.NewReader(b),
-		Refresh:    "true",
 	}
 
 	res, err := req.Do(ctx, s.escli)
@@ -106,7 +105,6 @@ func (s *Server) indexProfile(ctx context.Context, u *User, rec *bsky.ActorProfi
 		Index:      s.profileIndex,
 		DocumentID: fmt.Sprint(u.ID),
 		Body:       bytes.NewReader(b),
-		Refresh:    "true",
 	}
 
 	res, err := req.Do(context.Background(), s.escli)
@@ -147,7 +145,6 @@ func (s *Server) updateUserHandle(ctx context.Context, did, handle string) error
 		Index:      s.profileIndex,
 		DocumentID: fmt.Sprint(u.ID),
 		Body:       bytes.NewReader(b),
-		Refresh:    "true",
 	}
 
 	res, err := req.Do(context.Background(), s.escli)
