@@ -65,9 +65,11 @@ type crawlWork struct {
 	initScrape bool
 
 	// for events that come in while this actor's crawl is enqueued
+	// catchup items are processed during the crawl
 	catchup []*catchupJob
 
 	// for events that come in while this actor is being processed
+	// next items are processed after the crawl
 	next []*catchupJob
 }
 
@@ -175,14 +177,14 @@ func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
 	c.maplk.Lock()
 	defer c.maplk.Unlock()
 
-	// If the actor crawl is enqueued, we can append to the catchup queue to run after the initial crawl
+	// If the actor crawl is enqueued, we can append to the catchup queue which gets emptied during the crawl
 	job, ok := c.todo[catchup.user.Uid]
 	if ok {
 		job.catchup = append(job.catchup, catchup)
 		return nil
 	}
 
-	// If the actor crawl is in progress, we can append to the active queue for the job
+	// If the actor crawl is in progress, we can append to the nextr queue which gets emptied after the crawl
 	job, ok = c.inProgress[catchup.user.Uid]
 	if ok {
 		job.next = append(job.next, catchup)
