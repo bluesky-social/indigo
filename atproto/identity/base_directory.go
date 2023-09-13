@@ -61,10 +61,11 @@ func (d *BaseDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identit
 		return nil, err
 	}
 	resolvedDID, err := d.ResolveHandle(ctx, declared)
-	if err != nil {
+	if err != nil && err != ErrHandleNotFound {
 		return nil, err
-	}
-	if resolvedDID == did {
+	} else if ErrHandleNotFound == err || resolvedDID != did {
+		ident.Handle = syntax.Handle("handle.invalid")
+	} else {
 		ident.Handle = declared
 	}
 
