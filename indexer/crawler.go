@@ -83,26 +83,10 @@ func (c *CrawlDispatcher) mainLoop() {
 		select {
 		case actorToCrawl := <-c.ingest:
 			// TODO: max buffer size
-			c.maplk.Lock()
-
-			_, ok := c.inProgress[actorToCrawl.Uid]
-			if ok {
-				c.maplk.Unlock()
+			crawlJob, enqueued := c.enqueueJobForActor(actorToCrawl)
+			if !enqueued {
 				break
 			}
-
-			_, has := c.todo[actorToCrawl.Uid]
-			if has {
-				c.maplk.Unlock()
-				break
-			}
-
-			crawlJob := &crawlWork{
-				act:        actorToCrawl,
-				initScrape: true,
-			}
-			c.todo[actorToCrawl.Uid] = crawlJob
-			c.maplk.Unlock()
 
 			if nextDispatchedJob == nil {
 				nextDispatchedJob = crawlJob
@@ -111,11 +95,7 @@ func (c *CrawlDispatcher) mainLoop() {
 				jobsAwaitingDispatch = append(jobsAwaitingDispatch, crawlJob)
 			}
 		case dispatchQueue <- nextDispatchedJob:
-			c.maplk.Lock()
-
-			delete(c.todo, nextDispatchedJob.act.Uid)
-			c.inProgress[nextDispatchedJob.act.Uid] = nextDispatchedJob
-			c.maplk.Unlock()
+			c.dequeueJob(nextDispatchedJob)
 
 			if len(jobsAwaitingDispatch) > 0 {
 				nextDispatchedJob = jobsAwaitingDispatch[0]
@@ -159,6 +139,34 @@ func (c *CrawlDispatcher) mainLoop() {
 			c.maplk.Unlock()
 		}
 	}
+}
+
+func (c *CrawlDispatcher) enqueueJobForActor(ai *models.ActorInfo) (*crawlWork, bool) {
+	c.maplk.Lock()
+	defer c.maplk.Unlock()
+	_, ok := c.inProgress[ai.Uid]
+	if ok {
+		return nil, false
+	}
+
+	_, has := c.todo[ai.Uid]
+	if has {
+		return nil, false
+	}
+
+	crawlJob := &crawlWork{
+		act:        ai,
+		initScrape: true,
+	}
+	c.todo[ai.Uid] = crawlJob
+	return crawlJob, true
+}
+
+func (c *CrawlDispatcher) dequeueJob(job *crawlWork) {
+	c.maplk.Lock()
+	defer c.maplk.Unlock()
+	delete(c.todo, job.act.Uid)
+	c.inProgress[job.act.Uid] = job
 }
 
 func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
