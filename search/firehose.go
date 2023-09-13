@@ -11,6 +11,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/backfill"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
@@ -152,39 +153,49 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 	)
 }
 
-func (s *Server) handleCreateOrUpdate(ctx context.Context, did string, path string, recP *typegen.CBORMarshaler, rcid *cid.Cid) error {
+func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, path string, recP *typegen.CBORMarshaler, rcid *cid.Cid) error {
 	// Since this gets called in a backfill job, we need to check if the path is a post or profile
 	if !strings.Contains(path, "app.bsky.feed.post") && !strings.Contains(path, "app.bsky.actor.profile") {
 		return nil
 	}
 
-	u, err := s.getOrCreateUser(ctx, did)
+	did, err := syntax.ParseDID(rawDID)
 	if err != nil {
-		return fmt.Errorf("checking user: %w", err)
+		return fmt.Errorf("bad DID syntax in event: %w", err)
+	}
+
+	ident, err := s.dir.LookupDID(ctx, did)
+	if err != nil {
+		return fmt.Errorf("resolving identity: %w", err)
 	}
 	rec := *recP
 
 	switch rec := rec.(type) {
 	case *bsky.FeedPost:
-		if err := s.indexPost(ctx, u, rec, path, *rcid); err != nil {
-			return fmt.Errorf("indexing post for %s: %w", did, err)
+		if err := s.indexPost(ctx, ident, rec, path, *rcid); err != nil {
+			return fmt.Errorf("indexing post for %s: %w", did.String(), err)
 		}
 	case *bsky.ActorProfile:
-		if err := s.indexProfile(ctx, u, rec, path, *rcid); err != nil {
-			return fmt.Errorf("indexing profile for %s: %w", did, err)
+		if err := s.indexProfile(ctx, ident, rec, path, *rcid); err != nil {
+			return fmt.Errorf("indexing profile for %s: %w", did.String(), err)
 		}
 	default:
 	}
 	return nil
 }
 
-func (s *Server) handleDelete(ctx context.Context, did string, path string) error {
+func (s *Server) handleDelete(ctx context.Context, rawDID, path string) error {
 	// Since this gets called in a backfill job, we need to check if the path is a post or profile
 	if !strings.Contains(path, "app.bsky.feed.post") && !strings.Contains(path, "app.bsky.actor.profile") {
 		return nil
 	}
 
-	u, err := s.getOrCreateUser(ctx, did)
+	did, err := syntax.ParseDID(rawDID)
+	if err != nil {
+		return fmt.Errorf("invalid DID in event: %w", err)
+	}
+
+	ident, err := s.dir.LookupDID(ctx, did)
 	if err != nil {
 		return err
 	}
@@ -192,7 +203,7 @@ func (s *Server) handleDelete(ctx context.Context, did string, path string) erro
 	switch {
 	// TODO: handle profile deletes, its an edge case, but worth doing still
 	case strings.Contains(path, "app.bsky.feed.post"):
-		if err := s.deletePost(ctx, u, path); err != nil {
+		if err := s.deletePost(ctx, ident, path); err != nil {
 			return err
 		}
 	}
@@ -268,7 +279,12 @@ func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSu
 		return err
 	}
 
-	u, err := s.getOrCreateUser(ctx, evt.Repo)
+	did, err := syntax.ParseDID(evt.Repo)
+	if err != nil {
+		return fmt.Errorf("bad DID in repo event: %w", err)
+	}
+
+	ident, err := s.dir.LookupDID(ctx, did)
 	if err != nil {
 		return err
 	}
@@ -284,11 +300,11 @@ func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSu
 
 			switch rec := rec.(type) {
 			case *bsky.FeedPost:
-				if err := s.indexPost(ctx, u, rec, k, rcid); err != nil {
+				if err := s.indexPost(ctx, ident, rec, k, rcid); err != nil {
 					return fmt.Errorf("indexing post: %w", err)
 				}
 			case *bsky.ActorProfile:
-				if err := s.indexProfile(ctx, u, rec, k, rcid); err != nil {
+				if err := s.indexProfile(ctx, ident, rec, k, rcid); err != nil {
 					return fmt.Errorf("indexing profile: %w", err)
 				}
 			default:

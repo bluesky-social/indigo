@@ -5,15 +5,16 @@ import (
 	"strings"
 	"time"
 
-	bsky "github.com/bluesky-social/indigo/api/bsky"
+	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/rivo/uniseg"
 )
 
 type ProfileDoc struct {
 	DocIndexTs  string   `json:"doc_index_ts"`
-	Did         string   `json:"did"`
-	RecordCid   string   `json:"record_cid"`
+	DID         string   `json:"did"`
+	RecordCID   string   `json:"record_cid"`
 	Handle      string   `json:"handle"`
 	DisplayName *string  `json:"display_name,omitempty"`
 	Description *string  `json:"description,omitempty"`
@@ -27,18 +28,18 @@ type ProfileDoc struct {
 
 type PostDoc struct {
 	DocIndexTs      string   `json:"doc_index_ts"`
-	Did             string   `json:"did"`
+	DID             string   `json:"did"`
 	RecordRkey      string   `json:"record_rkey"`
-	RecordCid       string   `json:"record_cid"`
+	RecordCID       string   `json:"record_cid"`
 	CreatedAt       string   `json:"created_at"`
 	Text            string   `json:"text"`
 	LangCode        []string `json:"lang_code,omitempty"`
 	LangCodeIso2    []string `json:"lang_code_iso2,omitempty"`
-	MentionDid      []string `json:"mention_did,omitempty"`
-	LinkUrl         []string `json:"link_url,omitempty"`
-	EmbedUrl        *string  `json:"embed_url,omitempty"`
-	EmbedAturi      *string  `json:"embed_aturi,omitempty"`
-	ReplyRootAturi  *string  `json:"reply_root_aturi,omitempty"`
+	MentionDID      []string `json:"mention_did,omitempty"`
+	LinkURL         []string `json:"link_url,omitempty"`
+	EmbedURL        *string  `json:"embed_url,omitempty"`
+	EmbedATURI      *string  `json:"embed_aturi,omitempty"`
+	ReplyRootATURI  *string  `json:"reply_root_aturi,omitempty"`
 	EmbedImgCount   int      `json:"embed_img_count"`
 	EmbedImgAltText []string `json:"embed_img_alt_text,omitempty"`
 	SelfLabel       []string `json:"self_label,omitempty"`
@@ -50,17 +51,17 @@ type PostDoc struct {
 //
 // This identifier should be URL safe and not contain a slash ("/").
 func (d *ProfileDoc) DocId() string {
-	return d.Did
+	return d.DID
 }
 
 // Returns the search index document ID (`_id`) for this document.
 //
 // This identifier should be URL safe and not contain a slash ("/").
 func (d *PostDoc) DocId() string {
-	return d.Did + "_" + d.RecordRkey
+	return d.DID + "_" + d.RecordRkey
 }
 
-func TransformProfile(profile *bsky.ActorProfile, repo *User, cid string) ProfileDoc {
+func TransformProfile(profile *appbsky.ActorProfile, ident *identity.Identity, cid string) ProfileDoc {
 	// TODO: placeholder for future alt text on profile blobs
 	var altText []string
 	var hashtags []string
@@ -75,11 +76,15 @@ func TransformProfile(profile *bsky.ActorProfile, repo *User, cid string) Profil
 			selfLabels = append(selfLabels, le.Val)
 		}
 	}
+	handle := ""
+	if !ident.Handle.IsInvalidHandle() {
+		handle = ident.Handle.String()
+	}
 	return ProfileDoc{
 		DocIndexTs:  time.Now().UTC().Format(util.ISO8601),
-		Did:         repo.Did,
-		RecordCid:   cid,
-		Handle:      repo.Handle,
+		DID:         ident.DID.String(),
+		RecordCID:   cid,
+		Handle:      handle,
 		DisplayName: profile.DisplayName,
 		Description: profile.Description,
 		ImgAltText:  altText,
@@ -91,7 +96,7 @@ func TransformProfile(profile *bsky.ActorProfile, repo *User, cid string) Profil
 	}
 }
 
-func TransformPost(post *bsky.FeedPost, repo *User, rkey, cid string) PostDoc {
+func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid string) PostDoc {
 	altText := []string{}
 	if post.Embed != nil && post.Embed.EmbedImages != nil {
 		for _, img := range post.Embed.EmbedImages.Images {
@@ -108,32 +113,32 @@ func TransformPost(post *bsky.FeedPost, repo *User, rkey, cid string) PostDoc {
 			langCodeIso2 = append(langCodeIso2, strings.ToLower(prefix))
 		}
 	}
-	var mentionDids []string
-	var linkUrls []string
+	var mentionDIDs []string
+	var linkURLs []string
 	for _, facet := range post.Facets {
 		for _, feat := range facet.Features {
 			if feat.RichtextFacet_Mention != nil {
-				mentionDids = append(mentionDids, feat.RichtextFacet_Mention.Did)
+				mentionDIDs = append(mentionDIDs, feat.RichtextFacet_Mention.Did)
 			}
 			if feat.RichtextFacet_Link != nil {
-				linkUrls = append(linkUrls, feat.RichtextFacet_Link.Uri)
+				linkURLs = append(linkURLs, feat.RichtextFacet_Link.Uri)
 			}
 		}
 	}
-	var replyRootAturi *string
+	var replyRootATURI *string
 	if post.Reply != nil {
-		replyRootAturi = &(post.Reply.Root.Uri)
+		replyRootATURI = &(post.Reply.Root.Uri)
 	}
-	var embedUrl *string
+	var embedURL *string
 	if post.Embed != nil && post.Embed.EmbedExternal != nil {
-		embedUrl = &post.Embed.EmbedExternal.External.Uri
+		embedURL = &post.Embed.EmbedExternal.External.Uri
 	}
-	var embedAturi *string
+	var embedATURI *string
 	if post.Embed != nil && post.Embed.EmbedRecord != nil {
-		embedAturi = &post.Embed.EmbedRecord.Record.Uri
+		embedATURI = &post.Embed.EmbedRecord.Record.Uri
 	}
 	if post.Embed != nil && post.Embed.EmbedRecordWithMedia != nil {
-		embedAturi = &post.Embed.EmbedRecordWithMedia.Record.Record.Uri
+		embedATURI = &post.Embed.EmbedRecordWithMedia.Record.Record.Uri
 	}
 	var embedImgCount int = 0
 	var embedImgAltText []string
@@ -154,18 +159,18 @@ func TransformPost(post *bsky.FeedPost, repo *User, rkey, cid string) PostDoc {
 
 	return PostDoc{
 		DocIndexTs:      time.Now().UTC().Format(util.ISO8601),
-		Did:             repo.Did,
+		DID:             ident.DID.String(),
 		RecordRkey:      rkey,
-		RecordCid:       cid,
+		RecordCID:       cid,
 		CreatedAt:       post.CreatedAt,
 		Text:            post.Text,
 		LangCode:        post.Langs,
 		LangCodeIso2:    langCodeIso2,
-		MentionDid:      mentionDids,
-		LinkUrl:         linkUrls,
-		EmbedUrl:        embedUrl,
-		EmbedAturi:      embedAturi,
-		ReplyRootAturi:  replyRootAturi,
+		MentionDID:      mentionDIDs,
+		LinkURL:         linkURLs,
+		EmbedURL:        embedURL,
+		EmbedATURI:      embedATURI,
+		ReplyRootATURI:  replyRootATURI,
 		EmbedImgCount:   embedImgCount,
 		EmbedImgAltText: embedImgAltText,
 		SelfLabel:       selfLabels,
