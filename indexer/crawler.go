@@ -76,7 +76,7 @@ func (c *CrawlDispatcher) mainLoop() {
 	var nextDispatchedJob *crawlWork
 	var jobsAwaitingDispatch []*crawlWork
 
-	// dispatchQueue represents the repoSync channel to dispatch crawl work.
+	// dispatchQueue represents the repoSync worker channel to which we dispatch crawl work
 	var dispatchQueue chan *crawlWork
 
 	for {
