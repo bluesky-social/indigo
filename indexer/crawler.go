@@ -124,12 +124,14 @@ func (c *CrawlDispatcher) mainLoop() {
 				nextDispatchedJob = nil
 				dispatchQueue = nil
 			}
-		case lowPriorityJob := <-c.catchup:
+		case catchupJob := <-c.catchup:
+			// CatchupJobs are for processing events that come in while a crawl is in progress
+			// They are lower priority than new crawls so we only add them to the queue if there isn't already a job in progress
 			if nextDispatchedJob == nil {
-				nextDispatchedJob = lowPriorityJob
+				nextDispatchedJob = catchupJob
 				dispatchQueue = c.repoSync
 			} else {
-				jobsAwaitingDispatch = append(jobsAwaitingDispatch, lowPriorityJob)
+				jobsAwaitingDispatch = append(jobsAwaitingDispatch, catchupJob)
 			}
 		case uid := <-c.complete:
 			c.maplk.Lock()
