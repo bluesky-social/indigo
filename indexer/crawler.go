@@ -73,98 +73,85 @@ type crawlWork struct {
 }
 
 func (c *CrawlDispatcher) mainLoop() {
-	var next *crawlWork
-	var buffer []*crawlWork
+	var nextDispatchedJob *crawlWork
+	var jobsAwaitingDispatch []*crawlWork
 
-	// rs represents the repoSync channel to dispatch crawl work.
-	var rs chan *crawlWork
+	// dispatchQueue represents the repoSync channel to dispatch crawl work.
+	var dispatchQueue chan *crawlWork
 
 	for {
 		select {
-		case act := <-c.ingest:
-			// When an ActorInfo is received on the ingest channel:
+		case actorToCrawl := <-c.ingest:
 			// TODO: max buffer size
 			c.maplk.Lock()
 
-			// If a crawl for the actor is already in progress, ignore duplicate requests
-			_, ok := c.inProgress[act.Uid]
+			_, ok := c.inProgress[actorToCrawl.Uid]
 			if ok {
 				c.maplk.Unlock()
 				break
 			}
 
-			// If a crawl for the actor is already enqueued, ignore duplicate requests
-			_, has := c.todo[act.Uid]
+			_, has := c.todo[actorToCrawl.Uid]
 			if has {
 				c.maplk.Unlock()
 				break
 			}
 
-			// Otherwise, create a new crawlWork for the actor and set it to initialize the scrape.
-			cw := &crawlWork{
-				act:        act,
+			crawlJob := &crawlWork{
+				act:        actorToCrawl,
 				initScrape: true,
 			}
-			// Add the new crawl work to the todo map.
-			c.todo[act.Uid] = cw
+			c.todo[actorToCrawl.Uid] = crawlJob
 			c.maplk.Unlock()
 
-			// If there's no current 'next' crawlWork, set it as the next. Otherwise, append to the buffer.
-			if next == nil {
-				next = cw
-				rs = c.repoSync
+			if nextDispatchedJob == nil {
+				nextDispatchedJob = crawlJob
+				dispatchQueue = c.repoSync
 			} else {
-				buffer = append(buffer, cw)
+				jobsAwaitingDispatch = append(jobsAwaitingDispatch, crawlJob)
 			}
-		case rs <- next:
-			// When the next crawlWork is ready to be dispatched to repoSync:
+		case dispatchQueue <- nextDispatchedJob:
 			c.maplk.Lock()
 
-			// Move the crawlWork to in-progress
-			delete(c.todo, next.act.Uid)
-			c.inProgress[next.act.Uid] = next
+			delete(c.todo, nextDispatchedJob.act.Uid)
+			c.inProgress[nextDispatchedJob.act.Uid] = nextDispatchedJob
 			c.maplk.Unlock()
 
-			// Take the next crawlWork from the buffer, if there is one.
-			if len(buffer) > 0 {
-				next = buffer[0]
-				buffer = buffer[1:]
+			if len(jobsAwaitingDispatch) > 0 {
+				nextDispatchedJob = jobsAwaitingDispatch[0]
+				jobsAwaitingDispatch = jobsAwaitingDispatch[1:]
 			} else {
-				next = nil
-				rs = nil
+				nextDispatchedJob = nil
+				dispatchQueue = nil
 			}
-		case cw := <-c.catchup:
-			// When a new crawlWork comes from the catchup channel:
-			// If there's no current 'next' crawlWork, set this as the next. Otherwise, append to the buffer.
-			if next == nil {
-				next = cw
-				rs = c.repoSync
+		case lowPriorityJob := <-c.catchup:
+			if nextDispatchedJob == nil {
+				nextDispatchedJob = lowPriorityJob
+				dispatchQueue = c.repoSync
 			} else {
-				buffer = append(buffer, cw)
+				jobsAwaitingDispatch = append(jobsAwaitingDispatch, lowPriorityJob)
 			}
 		case uid := <-c.complete:
-			// When a crawlWork is completed:
 			c.maplk.Lock()
 
-			// Get the completed crawlWork from the inProgress map.
 			job, ok := c.inProgress[uid]
 			if !ok {
 				panic("should not be possible to not have a job in progress we receive a completion signal for")
 			}
-			// Remove the completed job from the inProgress map.
 			delete(c.inProgress, uid)
 
 			// If there are any subsequent jobs for this UID, add it back to the todo list or buffer.
+			// We're basically pumping the `next` queue into the `catchup` queue and will do this over and over until the `next` queue is empty.
 			if len(job.next) > 0 {
 				c.todo[uid] = job
 				job.initScrape = false
 				job.catchup = job.next
 				job.next = nil
-				if next == nil {
-					next = job
-					rs = c.repoSync
+				if nextDispatchedJob == nil {
+					nextDispatchedJob = job
+					dispatchQueue = c.repoSync
 				} else {
-					buffer = append(buffer, job)
+					jobsAwaitingDispatch = append(jobsAwaitingDispatch, job)
 				}
 			}
 			c.maplk.Unlock()
