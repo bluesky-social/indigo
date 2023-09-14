@@ -322,8 +322,10 @@ func createEsClient(cctx *cli.Context) (*es.Client, error) {
 		Addresses: addrs,
 		Username:  cctx.String("elastic-username"),
 		Password:  cctx.String("elastic-password"),
-
-		CACert: cert,
+		CACert:    cert,
+		Transport: &http.Transport{
+			MaxIdleConnsPerHost: 20,
+		},
 	}
 
 	escli, err := es.NewClient(cfg)

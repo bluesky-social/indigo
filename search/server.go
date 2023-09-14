@@ -84,6 +84,9 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 
 	bfstore := backfill.NewGormstore(db)
 	opts := backfill.DefaultBackfillOptions()
+	opts.ParallelRecordCreates = 20
+	opts.SyncRequestsPerSecond = 8
+	opts.NSIDFilter = "app.bsky."
 	bf := backfill.NewBackfiller(
 		"search",
 		bfstore,
