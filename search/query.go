@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log/slog"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -185,10 +186,11 @@ func doSearch(ctx context.Context, escli *es.Client, index string, query interfa
 	if err != nil {
 		return nil, fmt.Errorf("search query error: %w", err)
 	}
+	defer res.Body.Close()
 	if res.IsError() {
+		ioutil.ReadAll(res.Body)
 		return nil, fmt.Errorf("search query error, code=%d", res.StatusCode)
 	}
-	defer res.Body.Close()
 
 	var out EsSearchResponse
 	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
