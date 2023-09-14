@@ -167,9 +167,10 @@ func doSearch(ctx context.Context, escli *es.Client, index string, query interfa
 		return nil, fmt.Errorf("error encoding query: %s", err)
 	}
 	bod, err := json.Marshal(query)
-	if nil == err {
-		slog.Warn("sending query", "index", index, "query", string(bod))
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize query: %w", err)
 	}
+	slog.Warn("sending query", "index", index, "query", string(bod))
 
 	// Perform the search request.
 	res, err := escli.Search(
