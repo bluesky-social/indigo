@@ -1,12 +1,12 @@
 
 # Basic OpenSearch Operations
 
-We use OpenSearch version 2.5, with the `analysis-icu` plugin. This is included automatically on the AWS hosted version of Opensearch, otherwise you need to install:
+We use OpenSearch version 2.5+, with the `analysis-icu` plugin. This is included automatically on the AWS hosted version of Opensearch, otherwise you need to install:
 
     sudo /usr/share/opensearch/bin/opensearch-plugin install analysis-icu
     sudo service opensearch restart
 
-If you are trying to use Elasticsearch 7.10, you can install the plugin with:
+If you are trying to use Elasticsearch 7.10 instead of OpenSearch, you can install the plugin with:
 
     sudo /usr/share/elasticsearch/bin/elasticsearch-plugin install analysis-icu
     sudo service elasticsearch restart
@@ -15,7 +15,7 @@ If you are trying to use Elasticsearch 7.10, you can install the plugin with:
 
 With OpenSearch running locally.
 
-Drop and rebuild the schema:
+To manually drop and re-build the indices with new schemas (palomar will create these automatically if they don't exist, but this can be helpful when developing the schema itself):
 
     http delete :9200/palomar_post
     http delete :9200/palomar_profile
@@ -29,6 +29,7 @@ Put a single object (good for debugging):
 
 Bulk insert from a file on disk:
 
+    # esbulk is a golang CLI tool which must be installed separately
     esbulk -verbose -id ident -index palomar_post -type _doc examples.json
 
 ## Index Aliases

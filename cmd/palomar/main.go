@@ -112,7 +112,7 @@ var runCmd = &cli.Command{
 		},
 		&cli.BoolFlag{
 			Name:    "readonly",
-			EnvVars: []string{"READONLY"},
+			EnvVars: []string{"PALOMAR_READONLY", "READONLY"},
 		},
 		&cli.StringFlag{
 			Name:    "bind",
