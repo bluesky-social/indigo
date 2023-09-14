@@ -169,7 +169,10 @@ var runCmd = &cli.Command{
 		if cctx.Bool("readonly") {
 			select {}
 		} else {
-			ctx := context.TODO()
+			ctx := context.Background()
+			if err := srv.EnsureIndices(ctx); err != nil {
+				return fmt.Errorf("failed to create opensearch indices: %w", err)
+			}
 			if err := srv.RunIndexer(ctx); err != nil {
 				return fmt.Errorf("failed to run indexer: %w", err)
 			}
@@ -197,8 +200,20 @@ var elasticCheckCmd = &cli.Command{
 		if err != nil {
 			return fmt.Errorf("failed to get info: %w", err)
 		}
-
+		if inf.IsError() {
+			return fmt.Errorf("failed to get info")
+		}
 		slog.Info("opensearch client connected", "client_info", inf)
+
+		resp, err := escli.Indices.Exists([]string{cctx.String("es-profile-index"), cctx.String("es-post-index")})
+		if err != nil {
+			return fmt.Errorf("failed to check index existence: %w", err)
+		}
+		if inf.IsError() {
+			return fmt.Errorf("failed to check index existence")
+		}
+		slog.Info("index existence", "resp", resp)
+
 		return nil
 
 	},

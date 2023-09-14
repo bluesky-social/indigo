@@ -98,6 +98,45 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 	return s, nil
 }
 
+// go:embed post_schema.json
+var palomarPostSchemaJSON string
+
+// go:embed profile_schema.json
+var palomarProfileSchemaJSON string
+
+func (s *Server) EnsureIndices(ctx context.Context) error {
+
+	indices := []struct {
+		Name       string
+		SchemaJSON string
+	}{
+		{Name: s.postIndex, SchemaJSON: palomarPostSchemaJSON},
+		{Name: s.profileIndex, SchemaJSON: palomarProfileSchemaJSON},
+	}
+	for _, idx := range indices {
+		resp, err := s.escli.Indices.Exists([]string{idx.Name})
+		if err != nil {
+			return err
+		}
+		if resp.IsError() && resp.StatusCode != 404 {
+			return fmt.Errorf("failed to check index existence")
+		}
+		if resp.StatusCode == 404 {
+			s.logger.Warn("creating opensearch index", "index", idx.Name)
+			resp, err := s.escli.Indices.Create(
+				idx.Name,
+				s.escli.Indices.Create.WithBody(strings.NewReader(idx.SchemaJSON)))
+			if err != nil {
+				return err
+			}
+			if resp.IsError() {
+				return fmt.Errorf("failed to create index")
+			}
+		}
+	}
+	return nil
+}
+
 type HealthStatus struct {
 	Status  string `json:"status"`
 	Version string `json:"version"`
