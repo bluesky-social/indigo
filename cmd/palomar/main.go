@@ -143,7 +143,7 @@ var runCmd = &cli.Command{
 			HTTPClient: http.Client{
 				Timeout: time.Second * 15,
 			},
-			TryAuthoritativeDNS: true,
+			TryAuthoritativeDNS:   true,
 			SkipDNSDomainSuffixes: []string{".bsky.social"},
 		}
 		dir := identity.NewCacheDirectory(&base, 50000, time.Hour*24, time.Minute*2)
@@ -201,6 +201,7 @@ var elasticCheckCmd = &cli.Command{
 		if err != nil {
 			return fmt.Errorf("failed to get info: %w", err)
 		}
+		defer inf.Body.Close()
 		if inf.IsError() {
 			return fmt.Errorf("failed to get info")
 		}
@@ -210,6 +211,7 @@ var elasticCheckCmd = &cli.Command{
 		if err != nil {
 			return fmt.Errorf("failed to check index existence: %w", err)
 		}
+		defer resp.Body.Close()
 		if inf.IsError() {
 			return fmt.Errorf("failed to check index existence")
 		}

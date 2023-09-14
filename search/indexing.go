@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"regexp"
 	"strings"
 
@@ -29,6 +30,8 @@ func (s *Server) deletePost(ctx context.Context, ident *identity.Identity, rkey 
 	if err != nil {
 		return fmt.Errorf("failed to delete post: %w", err)
 	}
+	defer res.Body.Close()
+	ioutil.ReadAll(res.Body)
 	if res.IsError() {
 		s.logger.Warn("opensearch indexing error", "status_code", res.StatusCode, "response", res)
 		return fmt.Errorf("indexing error, code=%d", res.StatusCode)
@@ -70,6 +73,8 @@ func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *a
 	if err != nil {
 		return fmt.Errorf("failed to send indexing request: %w", err)
 	}
+	defer res.Body.Close()
+	ioutil.ReadAll(res.Body)
 	if res.IsError() {
 		s.logger.Warn("opensearch indexing error", "status_code", res.StatusCode, "response", res)
 		return fmt.Errorf("indexing error, code=%d", res.StatusCode)
@@ -102,6 +107,8 @@ func (s *Server) indexProfile(ctx context.Context, ident *identity.Identity, rec
 	if err != nil {
 		return fmt.Errorf("failed to send indexing request: %w", err)
 	}
+	defer res.Body.Close()
+	ioutil.ReadAll(res.Body)
 	if res.IsError() {
 		s.logger.Warn("opensearch indexing error", "status_code", res.StatusCode, "response", res)
 		return fmt.Errorf("indexing error, code=%d", res.StatusCode)
@@ -133,6 +140,8 @@ func (s *Server) updateUserHandle(ctx context.Context, did, handle string) error
 	if err != nil {
 		return fmt.Errorf("failed to send indexing request: %w", err)
 	}
+	defer res.Body.Close()
+	ioutil.ReadAll(res.Body)
 	if res.IsError() {
 		s.logger.Warn("opensearch indexing error", "status_code", res.StatusCode, "response", res)
 		return fmt.Errorf("indexing error, code=%d", res.StatusCode)

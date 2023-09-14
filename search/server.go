@@ -3,6 +3,7 @@ package search
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"log/slog"
 	"os"
 	"strings"
@@ -118,6 +119,8 @@ func (s *Server) EnsureIndices(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		defer resp.Body.Close()
+		ioutil.ReadAll(resp.Body)
 		if resp.IsError() && resp.StatusCode != 404 {
 			return fmt.Errorf("failed to check index existence")
 		}
@@ -129,6 +132,8 @@ func (s *Server) EnsureIndices(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+			defer resp.Body.Close()
+			ioutil.ReadAll(resp.Body)
 			if resp.IsError() {
 				return fmt.Errorf("failed to create index")
 			}
