@@ -1,7 +1,7 @@
 MIT License
 
 Copyright (c) 2022-2023 @whyrusleeping
-              2023 Bluesky PBLLC
+              2023 Bluesky PBC
 
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
