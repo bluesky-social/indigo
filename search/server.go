@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	_ "embed"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/backfill"
@@ -102,10 +103,10 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 	return s, nil
 }
 
-// go:embed post_schema.json
+//go:embed post_schema.json
 var palomarPostSchemaJSON string
 
-// go:embed profile_schema.json
+//go:embed profile_schema.json
 var palomarProfileSchemaJSON string
 
 func (s *Server) EnsureIndices(ctx context.Context) error {
@@ -129,9 +130,13 @@ func (s *Server) EnsureIndices(ctx context.Context) error {
 		}
 		if resp.StatusCode == 404 {
 			s.logger.Warn("creating opensearch index", "index", idx.Name)
+			if len(idx.SchemaJSON) < 2 {
+				return fmt.Errorf("empty schema file (go:embed failed)")
+			}
+			buf := strings.NewReader(idx.SchemaJSON)
 			resp, err := s.escli.Indices.Create(
 				idx.Name,
-				s.escli.Indices.Create.WithBody(strings.NewReader(idx.SchemaJSON)))
+				s.escli.Indices.Create.WithBody(buf))
 			if err != nil {
 				return err
 			}
