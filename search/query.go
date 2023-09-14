@@ -176,7 +176,6 @@ func doSearch(ctx context.Context, escli *es.Client, index string, query interfa
 		escli.Search.WithContext(ctx),
 		escli.Search.WithIndex(index),
 		escli.Search.WithBody(&buf),
-		escli.Search.WithTrackTotalHits(false), // expensive to track total hits
 	)
 	if err != nil {
 		return nil, fmt.Errorf("search query error: %w", err)
