@@ -143,7 +143,8 @@ var runCmd = &cli.Command{
 			HTTPClient: http.Client{
 				Timeout: time.Second * 15,
 			},
-			TryAuthoritativeDNS: false,
+			TryAuthoritativeDNS: true,
+			SkipDNSDomainSuffixes: []string{".bsky.social"},
 		}
 		dir := identity.NewCacheDirectory(&base, 50000, time.Hour*24, time.Minute*2)
 
