@@ -50,10 +50,10 @@ func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *a
 	}
 	rkey := parts[1]
 
-	// TODO: is this needed? what happens if we try to index w/ invalid timestamp?
 	_, err := util.ParseTimestamp(rec.CreatedAt)
 	if err != nil {
-		return fmt.Errorf("post (%s, %s) had invalid timestamp (%q): %w", ident.DID, rkey, rec.CreatedAt, err)
+		s.logger.Warn("post (%s, %s) had invalid timestamp (%q): %w", ident.DID, rkey, rec.CreatedAt, err)
+		rec.CreatedAt = ""
 	}
 
 	doc := TransformPost(rec, ident, rkey, rcid.String())
