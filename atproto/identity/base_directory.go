@@ -19,6 +19,8 @@ type BaseDirectory struct {
 	Resolver net.Resolver
 	// when doing DNS handle resolution, should this resolver attempt re-try against an authoritative nameserver if the first TXT lookup fails?
 	TryAuthoritativeDNS bool
+	// set of handle domain suffixes for for which DNS handle resolution will be skipped
+	SkipDNSDomainSuffixes []string
 }
 
 var _ Directory = (*BaseDirectory)(nil)
