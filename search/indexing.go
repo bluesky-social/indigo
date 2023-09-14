@@ -36,7 +36,7 @@ func (s *Server) deletePost(ctx context.Context, ident *identity.Identity, rkey 
 	return nil
 }
 
-func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *appbsky.FeedPost, path string, pcid cid.Cid) error {
+func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *appbsky.FeedPost, path string, rcid cid.Cid) error {
 
 	parts := strings.SplitN(path, "/", 3)
 	// TODO: replace with an atproto/syntax package type for TID
@@ -53,7 +53,7 @@ func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *a
 		return fmt.Errorf("post (%s, %s) had invalid timestamp (%q): %w", ident.DID, rkey, rec.CreatedAt, err)
 	}
 
-	doc := TransformPost(rec, ident, rkey, pcid.String())
+	doc := TransformPost(rec, ident, rkey, rcid.String())
 	b, err := json.Marshal(doc)
 	if err != nil {
 		return err
@@ -77,7 +77,7 @@ func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *a
 	return nil
 }
 
-func (s *Server) indexProfile(ctx context.Context, ident *identity.Identity, rec *appbsky.ActorProfile, path string, pcid cid.Cid) error {
+func (s *Server) indexProfile(ctx context.Context, ident *identity.Identity, rec *appbsky.ActorProfile, path string, rcid cid.Cid) error {
 
 	parts := strings.SplitN(path, "/", 3)
 	if len(parts) != 2 || parts[1] != "self" {
@@ -85,13 +85,9 @@ func (s *Server) indexProfile(ctx context.Context, ident *identity.Identity, rec
 		return nil
 	}
 
-	n := ""
-	if rec.DisplayName != nil {
-		n = *rec.DisplayName
-	}
-	s.logger.Info("indexing profile", "display_name", n)
+	s.logger.Info("indexing profile", "did", ident.DID, "handle", ident.Handle)
 
-	doc := TransformProfile(rec, ident, pcid.String())
+	doc := TransformProfile(rec, ident, rcid.String())
 	b, err := json.Marshal(doc)
 	if err != nil {
 		return err
