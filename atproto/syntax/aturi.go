@@ -43,16 +43,23 @@ func ParseATURI(raw string) (ATURI, error) {
 	return ATURI(raw), nil
 }
 
-func (n ATURI) Authority() (*AtIdentifier, error) {
+// Every valid ATURI has a valid AtIdentifier in the authority position.
+//
+// If this ATURI is malformed, returns empty
+func (n ATURI) Authority() AtIdentifier {
 	parts := strings.SplitN(string(n), "/", 4)
 	if len(parts) < 3 {
 		// something has gone wrong (would not validate)
-		return nil, fmt.Errorf("AT-URI has no authority segment (invalid)")
+		return AtIdentifier{}
 	}
-	return ParseAtIdentifier(parts[2])
+	atid, err := ParseAtIdentifier(parts[2])
+	if err != nil {
+		return AtIdentifier{}
+	}
+	return *atid
 }
 
-// Returns path segment, without leading slash, as would be used in an atproto repository key
+// Returns path segment, without leading slash, as would be used in an atproto repository key. Or empty string if there is no path.
 func (n ATURI) Path() string {
 	parts := strings.SplitN(string(n), "/", 5)
 	if len(parts) < 3 {
@@ -65,38 +72,45 @@ func (n ATURI) Path() string {
 	return parts[2] + "/" + parts[3]
 }
 
-func (n ATURI) Collection() (NSID, error) {
+// Returns a valid NSID if there is one in the appropriate part of the path, otherwise empty.
+func (n ATURI) Collection() NSID {
 	parts := strings.SplitN(string(n), "/", 5)
 	if len(parts) < 4 {
 		// something has gone wrong (would not validate)
-		return NSID(""), fmt.Errorf("AT-URI has no collection segment")
+		return NSID("")
 	}
-	// re-parsing is safest
-	return ParseNSID(parts[3])
+	nsid, err := ParseNSID(parts[3])
+	if err != nil {
+		return NSID("")
+	}
+	return nsid
 }
 
-func (n ATURI) RecordKey() (RecordKey, error) {
+func (n ATURI) RecordKey() RecordKey {
 	parts := strings.SplitN(string(n), "/", 6)
 	if len(parts) < 5 {
 		// something has gone wrong (would not validate)
-		return RecordKey(""), fmt.Errorf("AT-URI has no record key segment")
+		return RecordKey("")
 	}
-	// re-parsing is safest
-	return ParseRecordKey(parts[4])
+	rkey, err := ParseRecordKey(parts[4])
+	if err != nil {
+		return RecordKey("")
+	}
+	return rkey
 }
 
 func (n ATURI) Normalize() ATURI {
-	auth, err := n.Authority()
-	if err != nil {
-		// invalid AT-URI
+	auth := n.Authority()
+	if auth.Inner == nil {
+		// invalid AT-URI; return the current value (!)
 		return n
 	}
-	coll, err := n.Collection()
-	if err != nil {
+	coll := n.Collection()
+	if coll == NSID("") {
 		return ATURI("at://" + auth.Normalize().String())
 	}
-	rkey, err := n.RecordKey()
-	if err != nil {
+	rkey := n.RecordKey()
+	if rkey == RecordKey("") {
 		return ATURI("at://" + auth.Normalize().String() + "/" + coll.String())
 	}
 	return ATURI("at://" + auth.Normalize().String() + "/" + coll.Normalize().String() + "/" + rkey.String())
