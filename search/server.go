@@ -2,12 +2,12 @@ package search
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"io/ioutil"
 	"log/slog"
 	"os"
 	"strings"
-	_ "embed"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/backfill"
