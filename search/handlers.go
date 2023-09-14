@@ -15,13 +15,13 @@ import (
 
 type SearchPostsSkeletonResp struct {
 	Cursor    string         `json:"cursor,omitempty"`
-	HitsTotal *int           `json:"hits_total,omitempty"`
+	HitsTotal *int           `json:"hitsTotal,omitempty"`
 	Posts     []syntax.ATURI `json:"posts"`
 }
 
 type SearchActorsSkeletonResp struct {
 	Cursor    string       `json:"cursor,omitempty"`
-	HitsTotal *int         `json:"hits_total,omitempty"`
+	HitsTotal *int         `json:"hitsTotal,omitempty"`
 	Actors    []syntax.DID `json:"actors"`
 }
 
