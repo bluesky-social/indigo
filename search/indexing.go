@@ -52,7 +52,7 @@ func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *a
 
 	_, err := util.ParseTimestamp(rec.CreatedAt)
 	if err != nil {
-		s.logger.Warn("post (%s, %s) had invalid timestamp (%q): %w", ident.DID, rkey, rec.CreatedAt, err)
+		s.logger.Warn("post had invalid timestamp", "repo", ident.DID, "rkey", rkey, "createdAt", rec.CreatedAt, "parseErr", err)
 		rec.CreatedAt = ""
 	}
 
