@@ -1,14 +1,66 @@
 # Palomar
 
-Palomar is a backend search service for atproto, specifically the `bsky.app` post and profile record types. It works by consuming a repo event stream ("firehose") and upating an Opensearch/Elasticsearch cluster with docs.
+Palomar is a backend search service for atproto, specifically the `bsky.app` post and profile record types. It works by consuming a repo event stream ("firehose") and upating an OpenSearch cluster (fork of Elasticsearch) with docs.
 
 Almost all the code for this service is actually in the `search/` directory at the top of this repo.
 
-## API
+In September 2023, this service was substantially re-written. It no longer stores records in a local database, returns only "skelton" results (list of ATURIs or DIDs) via the HTTP API, and defines index mappings.
 
-### `/search/posts?q=QUERY&size=COUNT&offset=INT`
 
-### `/search/profiles?q=QUERY&typeahead=BOOL`
+## Query String Syntax
+
+Currently only a simple query string syntax is supported. Double-quotes can surround phrases, `-` prefix negates a single keyword, and the following initial filters are supported:
+
+- `from:<handle>` will filter to results from that account, based on current (cached) identity resolution
+- entire DIDs as an un-quoted keyword will result in filtering to results from that account
+
+
+## Configuration
+
+Palomar uses environment variables for configuration.
+
+- `ATP_BGS_HOST`: URL of firehose to subscribe to, either global BGS or individual PDS (default: `wss://bsky.social`)
+- `ATP_PLC_HOST`: PLC directory for identity lookups (default: `https://plc.directory`)
+- `DATABASE_URL`: connection string for database to persist firehose cursor subscription state
+- `PALOMAR_BIND`: IP/port to have HTTP API listen on (default: `:3999`)
+- `ES_USERNAME`: Elasticsearch username (default: `admin`)
+- `ES_PASSWORD`: Password for Elasticsearch authentication
+- `ES_CERT_FILE`: Optional, for TLS connections
+- `ES_HOSTS`: Comma-separated list of Elasticsearch endpoints
+- `ES_POST_INDEX`: name of index for post docs (default: `palomar_post`)
+- `ES_PROFILE_INDEX`: name of index for profile docs (default: `palomar_profile`)
+- `PALOMAR_READONLY`: Set this if the instance should act as a readonly HTTP server (no indexing)
+
+## HTTP API
+
+### Query Posts: `/xrpc/app.bsky.unspecced.searchPostsSkeleton`
+
+HTTP Query Params:
+
+- `q`: query string, required
+- `limit`: integer, default 25
+- `cursor`: string, for partial pagination (uses offset, not a scroll)
+
+Response:
+
+- `posts`: array of AT-URI strings
+- `hits_total`: integer; optional number of search hits (may not be populated for large result sets, eg over 10k hits)
+- `cursor`: string; optionally included if there are more results that can be paginated
+
+### Query Profiles: `/xrpc/app.bsky.unspecced.searchActorsSkeleton`
+
+HTTP Query Params:
+
+- `q`: query string, required
+- `limit`: integer, default 25
+- `cursor`: string, for partial pagination (uses offset, not a scroll)
+- `typeahead`: boolean, for typeahead behavior (vs. full search)
+
+Response:
+
+- `actors`: array of AT-URI strings
+- `hits_total`: integer; optional number of search hits (may not be populated for large result sets, eg over 10k hits)
+- `cursor`: string; optionally included if there are more results that can be paginated
 
 ## Development Quickstart
 
@@ -16,16 +68,6 @@ Run an ephemeral opensearch instance on local port 9200, with SSL disabled, and 
 
     docker build -f Dockerfile.opensearch . -t opensearch-palomar
     docker run -p 9200:9200 -p 9600:9600 -e "discovery.type=single-node" -e "plugins.security.disabled=true" opensearch-palomar
-
-In this directory, use HTTPie to create indices:
-
-    # may need to pass '--verify no' as first arg to 'http' in some cases
-    http put http://admin:admin@localhost:9200/palomar_profile < profile_schema.json
-    http put http://admin:admin@localhost:9200/palomar_post < post_schema.json
-
-    # if needed to delete any existing first (DATA LOSS)
-    http delete http://admin:admin@localhost:9200/palomar_profile
-    http delete http://admin:admin@localhost:9200/palomar_post
 
 See [README.opensearch.md]() for more Opensearch operational tips.
 
@@ -45,36 +87,6 @@ You can run test queries from the top level of the repository:
     go run ./cmd/palomar search-profile "hello"
     go run ./cmd/palomar search-profile -typeahead "h"
 
-## Configuration
+For more commands and args:
 
-Palomar uses environment variables for configuration.
-
-- `ATP_BGS_HOST`: URL of the Bluesky BGS (e.g., `https://bgs.staging.bsky.dev`).
-- `ELASTIC_HTTPS_FINGERPRINT`: Required if using a self-signed cert for your Elasticsearch deployment.
-- `ELASTIC_USERNAME`: Elasticsearch username (default: `admin`).
-- `ELASTIC_PASSWORD`: Password for Elasticsearch authentication.
-- `ELASTIC_HOSTS`: Comma-separated list of Elasticsearch endpoints.
-- `READONLY`: Set this if the instance should act as a readonly HTTP server (no indexing).
-
-## Running the Application
-
-Once the environment variables are set properly, you can start Palomar by running:
-
-```
-./palomar run
-```
-
-## Indexing
-
-For now, there isnt an easy way to get updates from the PDS, so to keep the
-index up to date you will periodcally need to scrape the data.
-
-## API
-
-### `/index/:did`
-
-Indexes the content in the given user's repository. It keeps track of the last repository update and only fetches incremental changes.
-
-### `/search?q=QUERY`
-
-Performs a simple, case-insensitive search across the entire application.
+    go run ./cmd/palomar --help
