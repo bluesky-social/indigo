@@ -135,8 +135,8 @@ func (s *Server) RunAPI(listen string) error {
 	e.Use(middleware.CORS())
 	e.GET("/_health", s.handleHealthCheck)
 	e.GET("/metrics", echoprometheus.NewHandler())
-	e.GET("/search/posts", s.handleSearchRequestPosts)
-	e.GET("/search/profiles", s.handleSearchRequestProfiles)
+	e.GET("/xrpc/app.bsky.unspecced.searchPostsSkeleton", s.handleSearchPostsSkeleton)
+	e.GET("/xrpc/app.bsky.unspecced.searchActorsSkeleton", s.handleSearchActorsSkeleton)
 	s.echo = e
 
 	s.logger.Info("starting search API daemon", "bind", listen)

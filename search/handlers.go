@@ -13,13 +13,65 @@ import (
 	otel "go.opentelemetry.io/otel"
 )
 
-type ActorSearchResp struct {
-	ActorProfile ProfileDoc
-	DID          string `json:"did"`
+type SearchPostsSkeletonResp struct {
+	Cursor    string         `json:"cursor,omitempty"`
+	HitsTotal *int           `json:"hits_total,omitempty"`
+	Posts     []syntax.ATURI `json:"posts"`
 }
 
-func (s *Server) handleSearchRequestPosts(e echo.Context) error {
-	ctx, span := otel.Tracer("search").Start(e.Request().Context(), "handleSearchRequestPosts")
+type SearchActorsSkeletonResp struct {
+	Cursor    string       `json:"cursor,omitempty"`
+	HitsTotal *int         `json:"hits_total,omitempty"`
+	Actors    []syntax.DID `json:"actors"`
+}
+
+func parseCursorLimit(e echo.Context) (int, int, error) {
+	offset := 0
+	if c := strings.TrimSpace(e.QueryParam("cursor")); c != "" {
+		v, err := strconv.Atoi(c)
+		if err != nil {
+			return 0, 0, &echo.HTTPError{
+				Code:    400,
+				Message: fmt.Sprintf("invalid value for 'cursor': %s", err),
+			}
+		}
+		offset = v
+	}
+
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > 10000 {
+		return 0, 0, &echo.HTTPError{
+			Code:    400,
+			Message: fmt.Sprintf("invalid value for 'cursor' (can't paginate so deep)"),
+		}
+	}
+
+	limit := 25
+	if l := strings.TrimSpace(e.QueryParam("limit")); l != "" {
+		v, err := strconv.Atoi(l)
+		if err != nil {
+			return 0, 0, &echo.HTTPError{
+				Code:    400,
+				Message: fmt.Sprintf("invalid value for 'count': %s", err),
+			}
+		}
+
+		limit = v
+	}
+
+	if limit > 100 {
+		limit = 100
+	}
+	if limit < 0 {
+		limit = 0
+	}
+	return offset, limit, nil
+}
+
+func (s *Server) handleSearchPostsSkeleton(e echo.Context) error {
+	ctx, span := otel.Tracer("search").Start(e.Request().Context(), "handleSearchPostsSkeleton")
 	defer span.End()
 
 	q := strings.TrimSpace(e.QueryParam("q"))
@@ -29,33 +81,12 @@ func (s *Server) handleSearchRequestPosts(e echo.Context) error {
 		})
 	}
 
-	offset := 0
-	if q := strings.TrimSpace(e.QueryParam("offset")); q != "" {
-		v, err := strconv.Atoi(q)
-		if err != nil {
-			return &echo.HTTPError{
-				Code:    400,
-				Message: fmt.Sprintf("invalid value for 'offset': %s", err),
-			}
-		}
-
-		offset = v
+	offset, limit, err := parseCursorLimit(e)
+	if err != nil {
+		return err
 	}
 
-	count := 30
-	if q := strings.TrimSpace(e.QueryParam("count")); q != "" {
-		v, err := strconv.Atoi(q)
-		if err != nil {
-			return &echo.HTTPError{
-				Code:    400,
-				Message: fmt.Sprintf("invalid value for 'count': %s", err),
-			}
-		}
-
-		count = v
-	}
-
-	out, err := s.SearchPosts(ctx, q, offset, count)
+	out, err := s.SearchPosts(ctx, q, offset, limit)
 	if err != nil {
 		return err
 	}
@@ -63,8 +94,8 @@ func (s *Server) handleSearchRequestPosts(e echo.Context) error {
 	return e.JSON(200, out)
 }
 
-func (s *Server) handleSearchRequestProfiles(e echo.Context) error {
-	ctx, span := otel.Tracer("search").Start(e.Request().Context(), "handleSearchRequestProfiles")
+func (s *Server) handleSearchActorsSkeleton(e echo.Context) error {
+	ctx, span := otel.Tracer("search").Start(e.Request().Context(), "handleSearchActorsSkeleton")
 	defer span.End()
 
 	q := strings.TrimSpace(e.QueryParam("q"))
@@ -74,30 +105,9 @@ func (s *Server) handleSearchRequestProfiles(e echo.Context) error {
 		})
 	}
 
-	offset := 0
-	if q := strings.TrimSpace(e.QueryParam("offset")); q != "" {
-		v, err := strconv.Atoi(q)
-		if err != nil {
-			return &echo.HTTPError{
-				Code:    400,
-				Message: fmt.Sprintf("invalid value for 'offset': %s", err),
-			}
-		}
-
-		offset = v
-	}
-
-	count := 30
-	if q := strings.TrimSpace(e.QueryParam("count")); q != "" {
-		v, err := strconv.Atoi(q)
-		if err != nil {
-			return &echo.HTTPError{
-				Code:    400,
-				Message: fmt.Sprintf("invalid value for 'count': %s", err),
-			}
-		}
-
-		count = v
+	offset, limit, err := parseCursorLimit(e)
+	if err != nil {
+		return err
 	}
 
 	typeahead := false
@@ -105,7 +115,7 @@ func (s *Server) handleSearchRequestProfiles(e echo.Context) error {
 		typeahead = true
 	}
 
-	out, err := s.SearchProfiles(ctx, q, typeahead, offset, count)
+	out, err := s.SearchProfiles(ctx, q, typeahead, offset, limit)
 	if err != nil {
 		return err
 	}
@@ -113,52 +123,39 @@ func (s *Server) handleSearchRequestProfiles(e echo.Context) error {
 	return e.JSON(200, out)
 }
 
-func (s *Server) SearchPosts(ctx context.Context, q string, offset, size int) ([]PostSearchResult, error) {
+func (s *Server) SearchPosts(ctx context.Context, q string, offset, size int) (*SearchPostsSkeletonResp, error) {
 	resp, err := DoSearchPosts(ctx, s.dir, s.escli, s.postIndex, q, offset, size)
 	if err != nil {
 		return nil, err
 	}
 
-	out := []PostSearchResult{}
+	posts := []syntax.ATURI{}
 	for _, r := range resp.Hits.Hits {
-		if err != nil {
-			return nil, fmt.Errorf("decoding document id: %w", err)
-		}
-
 		var doc PostDoc
 		if err := json.Unmarshal(r.Source, &doc); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("decoding post doc from search response: %w", err)
 		}
 
 		did, err := syntax.ParseDID(doc.DID)
 		if err != nil {
-			s.logger.Warn("invalid DID in indexed document", "did", doc.DID, "err", err)
-			continue
-		}
-		handle := ""
-		ident, err := s.dir.LookupDID(ctx, did)
-		if err != nil {
-			s.logger.Warn("could not resolve identity", "did", doc.DID)
-			continue
-		} else {
-			handle = ident.Handle.String()
+			return nil, fmt.Errorf("invalid DID in indexed document: %w", err)
 		}
 
-		out = append(out, PostSearchResult{
-			Tid: doc.RecordRkey,
-			Cid: doc.RecordCID,
-			User: UserResult{
-				Did:    doc.DID,
-				Handle: handle,
-			},
-			Post: &doc,
-		})
+		posts = append(posts, syntax.ATURI(fmt.Sprintf("at://%s/app.bsky.feed.post/%s", did, doc.RecordRkey)))
 	}
 
-	return out, nil
+	out := SearchPostsSkeletonResp{Posts: posts}
+	if len(posts) == size && (offset+size) < 10000 {
+		out.Cursor = fmt.Sprintf("%d", offset+size)
+	}
+	fmt.Println(resp.Hits.Total)
+	if resp.Hits.Total.Relation == "eq" {
+		out.HitsTotal = &resp.Hits.Total.Value
+	}
+	return &out, nil
 }
 
-func (s *Server) SearchProfiles(ctx context.Context, q string, typeahead bool, offset, size int) ([]*ActorSearchResp, error) {
+func (s *Server) SearchProfiles(ctx context.Context, q string, typeahead bool, offset, size int) (*SearchActorsSkeletonResp, error) {
 	var resp *EsSearchResponse
 	var err error
 	if typeahead {
@@ -170,18 +167,27 @@ func (s *Server) SearchProfiles(ctx context.Context, q string, typeahead bool, o
 		return nil, err
 	}
 
-	out := []*ActorSearchResp{}
+	actors := []syntax.DID{}
 	for _, r := range resp.Hits.Hits {
 		var doc ProfileDoc
 		if err := json.Unmarshal(r.Source, &doc); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("decoding profile doc from search response: %w", err)
 		}
 
-		out = append(out, &ActorSearchResp{
-			ActorProfile: doc,
-			DID:          doc.DID,
-		})
+		did, err := syntax.ParseDID(doc.DID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid DID in indexed document: %w", err)
+		}
+
+		actors = append(actors, did)
 	}
 
-	return out, nil
+	out := SearchActorsSkeletonResp{Actors: actors}
+	if len(actors) == size && (offset+size) < 10000 {
+		out.Cursor = fmt.Sprintf("%d", offset+size)
+	}
+	if resp.Hits.Total.Relation == "eq" {
+		out.HitsTotal = &resp.Hits.Total.Value
+	}
+	return &out, nil
 }
