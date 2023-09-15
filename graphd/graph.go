@@ -15,7 +15,7 @@ type Graph struct {
 	dtu   map[string]uint64
 	dtuLk sync.RWMutex
 
-	nextUID uint64
+	uidNext uint64
 	nextLk  sync.Mutex
 }
 
@@ -29,27 +29,6 @@ func NewGraph() *Graph {
 		utd: map[uint64]string{},
 		dtu: map[string]uint64{},
 	}
-}
-
-func (g *Graph) GetUID(did string) (uint64, bool) {
-	g.dtuLk.RLock()
-	defer g.dtuLk.RUnlock()
-	uid, ok := g.dtu[did]
-	return uid, ok
-}
-
-func (g *Graph) SetUID(did string, uid uint64) {
-	g.dtuLk.Lock()
-	defer g.dtuLk.Unlock()
-	g.dtu[did] = uid
-}
-
-func (g *Graph) NextUID() uint64 {
-	g.nextLk.Lock()
-	defer g.nextLk.Unlock()
-	uid := g.nextUID
-	g.nextUID++
-	return uid
 }
 
 func (g *Graph) GetDID(uid uint64) (string, bool) {
@@ -73,6 +52,13 @@ func (g *Graph) GetDIDs(uids []uint64) ([]string, error) {
 	return dids, nil
 }
 
+func (g *Graph) GetUID(did string) (uint64, bool) {
+	g.dtuLk.RLock()
+	defer g.dtuLk.RUnlock()
+	uid, ok := g.dtu[did]
+	return uid, ok
+}
+
 func (g *Graph) GetUIDs(dids []string) ([]uint64, error) {
 	g.dtuLk.RLock()
 	defer g.dtuLk.RUnlock()
@@ -87,7 +73,21 @@ func (g *Graph) GetUIDs(dids []string) ([]uint64, error) {
 	return uids, nil
 }
 
-func (g *Graph) SetDID(uid uint64, did string) {
+func (g *Graph) setUID(did string, uid uint64) {
+	g.dtuLk.Lock()
+	defer g.dtuLk.Unlock()
+	g.dtu[did] = uid
+}
+
+func (g *Graph) nextUID() uint64 {
+	g.nextLk.Lock()
+	defer g.nextLk.Unlock()
+	uid := g.uidNext
+	g.uidNext++
+	return uid
+}
+
+func (g *Graph) setDID(uid uint64, did string) {
 	g.utdLk.Lock()
 	defer g.utdLk.Unlock()
 	g.utd[uid] = did
@@ -98,9 +98,17 @@ func (g *Graph) SetDID(uid uint64, did string) {
 func (g *Graph) AcquireDID(did string) uint64 {
 	uid, ok := g.GetUID(did)
 	if !ok {
-		uid = g.NextUID()
-		g.SetUID(did, uid)
-		g.SetDID(uid, did)
+		uid = g.nextUID()
+		g.setUID(did, uid)
+		g.setDID(uid, did)
+
+		// Initialize the follow maps
+		g.follows.Store(uid, &FollowMap{
+			data: map[uint64]struct{}{},
+		})
+		g.following.Store(uid, &FollowMap{
+			data: map[uint64]struct{}{},
+		})
 	}
 	return uid
 }
@@ -117,7 +125,6 @@ func (g *Graph) AddFollow(actorUID, targetUID uint64) {
 	followMap.(*FollowMap).data[targetUID] = struct{}{}
 	followMap.(*FollowMap).lk.Unlock()
 
-	// Add the follow to the graph
 	followMap, ok = g.following.Load(targetUID)
 	if !ok {
 		followMap = &FollowMap{
@@ -130,25 +137,21 @@ func (g *Graph) AddFollow(actorUID, targetUID uint64) {
 	followMap.(*FollowMap).lk.Unlock()
 }
 
-func (g *Graph) RemoveFollow(actorUID, targetUID uint64) error {
+// RemoveFollow removes a follow from the graph if it exists
+func (g *Graph) RemoveFollow(actorUID, targetUID uint64) {
 	followMap, ok := g.follows.Load(actorUID)
-	if !ok {
-		return fmt.Errorf("actor uid %d not found", actorUID)
+	if ok {
+		followMap.(*FollowMap).lk.Lock()
+		delete(followMap.(*FollowMap).data, targetUID)
+		followMap.(*FollowMap).lk.Unlock()
 	}
-	followMap.(*FollowMap).lk.Lock()
-	delete(followMap.(*FollowMap).data, targetUID)
-	followMap.(*FollowMap).lk.Unlock()
 
-	// Remove the follow from the graph
 	followMap, ok = g.following.Load(targetUID)
 	if !ok {
-		return fmt.Errorf("target uid %d not found", targetUID)
+		followMap.(*FollowMap).lk.Lock()
+		delete(followMap.(*FollowMap).data, actorUID)
+		followMap.(*FollowMap).lk.Unlock()
 	}
-	followMap.(*FollowMap).lk.Lock()
-	delete(followMap.(*FollowMap).data, actorUID)
-	followMap.(*FollowMap).lk.Unlock()
-
-	return nil
 }
 
 func (g *Graph) GetFollowers(uid uint64) ([]uint64, error) {

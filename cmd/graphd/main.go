@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/graphd"
+	"github.com/bluesky-social/indigo/graphd/handlers"
 	"github.com/bluesky-social/indigo/util/version"
 	"github.com/labstack/echo-contrib/echoprometheus"
 	"github.com/labstack/echo/v4"
@@ -34,7 +35,7 @@ func main() {
 		&cli.IntFlag{
 			Name:  "port",
 			Usage: "listen port for http server",
-			Value: 8345,
+			Value: 1323,
 		},
 		&cli.StringFlag{
 			Name:  "graph-csv",
@@ -49,12 +50,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-}
-
-type HealthStatus struct {
-	Status  string `json:"status"`
-	Version string `json:"version"`
-	Message string `json:"msg,omitempty"`
 }
 
 func GraphD(cctx *cli.Context) error {
@@ -108,115 +103,23 @@ func GraphD(cctx *cli.Context) error {
 
 	e := echo.New()
 
-	e.GET("/_health", func(c echo.Context) error {
-		return c.JSON(200, HealthStatus{
-			Status:  "ok",
-			Version: version.Version,
-		})
-	})
+	h := handlers.NewHandlers(graph)
+
+	e.GET("/_health", h.Health)
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/debug/*", echo.WrapHandler(http.DefaultServeMux))
 
 	e.Use(echoprometheus.NewMiddleware("graphd"))
 
-	e.GET("/followers", func(c echo.Context) error {
-		did := c.QueryParam("did")
-		queryStart := time.Now()
+	e.GET("/followers", h.GetFollowers)
+	e.GET("/following", h.GetFollowing)
+	e.GET("/doesFollow", h.GetDoesFollow)
 
-		uid, ok := graph.GetUID(did)
-		if !ok {
-			slog.Error("uid not found")
-			return c.JSON(404, "uid not found")
-		}
+	e.POST("/follow", h.PostFollow)
+	e.POST("/follows", h.PostFollows)
 
-		uidDone := time.Now()
-		followers, err := graph.GetFollowers(uid)
-		if err != nil {
-			slog.Error("failed to get followers", "err", err)
-		}
-		membersDone := time.Now()
-
-		dids, err := graph.GetDIDs(followers)
-		if err != nil {
-			slog.Error("failed to get dids", "err", err)
-		}
-
-		didsDone := time.Now()
-		slog.Debug("got followers",
-			"followers", len(followers),
-			"uid", uid,
-			"uidDuration", uidDone.Sub(queryStart),
-			"membersDuration", membersDone.Sub(uidDone),
-			"didsDuration", didsDone.Sub(membersDone),
-			"totalDuration", didsDone.Sub(queryStart),
-		)
-
-		return c.JSON(200, dids)
-	})
-
-	e.GET("/following", func(c echo.Context) error {
-		did := c.QueryParam("did")
-		queryStart := time.Now()
-
-		uid, ok := graph.GetUID(did)
-		if !ok {
-			slog.Error("uid not found")
-			return c.JSON(404, "uid not found")
-		}
-
-		uidDone := time.Now()
-		following, err := graph.GetFollowing(uid)
-		if err != nil {
-			slog.Error("failed to get following", "err", err)
-		}
-		membersDone := time.Now()
-
-		dids, err := graph.GetDIDs(following)
-		if err != nil {
-			slog.Error("failed to get dids", "err", err)
-		}
-
-		didsDone := time.Now()
-		slog.Debug("got following",
-			"following", len(following),
-			"uid", uid,
-			"uidDuration", uidDone.Sub(queryStart),
-			"membersDuration", membersDone.Sub(uidDone),
-			"didsDuration", didsDone.Sub(membersDone),
-			"totalDuration", didsDone.Sub(queryStart),
-		)
-
-		return c.JSON(200, dids)
-	})
-
-	e.GET("/doesFollow", func(c echo.Context) error {
-		actorDid := c.QueryParam("actorDid")
-		targetDid := c.QueryParam("targetDid")
-
-		start := time.Now()
-
-		actorUID, ok := graph.GetUID(actorDid)
-		if !ok {
-			slog.Error("actor uid not found")
-			return c.JSON(404, "actor uid not found")
-		}
-
-		targetUID, ok := graph.GetUID(targetDid)
-		if !ok {
-			slog.Error("target uid not found")
-			return c.JSON(404, "target uid not found")
-		}
-
-		doesFollow, err := graph.DoesFollow(actorUID, targetUID)
-		if err != nil {
-			slog.Error("failed to check if follows", "err", err)
-			return c.JSON(500, "failed to check if follows")
-		}
-
-		slog.Debug("checked if follows", "doesFollow", doesFollow, "duration", time.Since(start))
-
-		return c.JSON(200, doesFollow)
-	})
+	e.POST("/unfollow", h.PostUnfollow)
+	e.POST("/unfollows", h.PostUnfollows)
 
 	return e.Start(fmt.Sprintf(":%d", cctx.Int("port")))
 }
