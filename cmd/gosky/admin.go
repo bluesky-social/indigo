@@ -25,6 +25,8 @@ var adminCmd = &cli.Command{
 		disableInvitesCmd,
 		enableInvitesCmd,
 		listInviteTreeCmd,
+		takeDownAccountCmd,
+		getModerationActionsCmd,
 	},
 }
 
@@ -619,6 +621,158 @@ var listInviteTreeCmd = &cli.Command{
 				}
 			}
 		}
+		return nil
+	},
+}
+
+var takeDownAccountCmd = &cli.Command{
+	Name: "take-down",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "admin-password",
+			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "reason",
+			Usage:    "why the account is being taken down",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "admin-user",
+			Usage:    "account of person running this command, for recordkeeping",
+			Required: true,
+		},
+		&cli.BoolFlag{
+			Name:  "revert-actions",
+			Usage: "revert existing moderation actions on this user before taking down",
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.Background()
+
+		adminKey := cctx.String("admin-password")
+		xrpcc.AdminToken = &adminKey
+
+		did := cctx.Args().First()
+		if !strings.HasPrefix(did, "did:") {
+			phr := &api.ProdHandleResolver{}
+			resp, err := phr.ResolveHandleToDid(ctx, did)
+			if err != nil {
+				return err
+			}
+
+			did = resp
+		}
+
+		reason := cctx.String("reason")
+		adminUser := cctx.String("admin-user")
+		if !strings.HasPrefix(adminUser, "did:") {
+			phr := &api.ProdHandleResolver{}
+			resp, err := phr.ResolveHandleToDid(ctx, adminUser)
+			if err != nil {
+				return err
+			}
+
+			adminUser = resp
+		}
+
+		if cctx.Bool("revert-actions") {
+			resp, err := atproto.AdminGetModerationActions(ctx, xrpcc, "", 100, did)
+			if err != nil {
+				return err
+			}
+
+			for _, act := range resp.Actions {
+				if act.Action == nil || *act.Action != "com.atproto.admin.defs#acknowledge" {
+					return fmt.Errorf("will only revert acknowledge actions")
+				}
+
+				_, err := atproto.AdminReverseModerationAction(ctx, xrpcc, &atproto.AdminReverseModerationAction_Input{
+					CreatedBy: adminUser,
+					Id:        act.Id,
+					Reason:    "reverting for takedown",
+				})
+				if err != nil {
+					return fmt.Errorf("failed to revert existing action: %w", err)
+				}
+			}
+
+		}
+
+		resp, err := atproto.AdminTakeModerationAction(ctx, xrpcc, &atproto.AdminTakeModerationAction_Input{
+			Action:    "com.atproto.admin.defs#takedown",
+			Reason:    reason,
+			CreatedBy: adminUser,
+			Subject: &atproto.AdminTakeModerationAction_Input_Subject{
+				AdminDefs_RepoRef: &atproto.AdminDefs_RepoRef{
+					Did: did,
+				},
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		b, err := json.MarshalIndent(resp, "", "  ")
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(string(b))
+		return nil
+	},
+}
+
+var getModerationActionsCmd = &cli.Command{
+	Name: "get-moderation-actions",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "admin-password",
+			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
+			Required: true,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.Background()
+
+		adminKey := cctx.String("admin-password")
+		xrpcc.AdminToken = &adminKey
+
+		did := cctx.Args().First()
+		if !strings.HasPrefix(did, "did:") {
+			phr := &api.ProdHandleResolver{}
+			resp, err := phr.ResolveHandleToDid(ctx, did)
+			if err != nil {
+				return err
+			}
+
+			did = resp
+		}
+
+		resp, err := atproto.AdminGetModerationActions(ctx, xrpcc, "", 100, did)
+		if err != nil {
+			return err
+		}
+
+		b, err := json.MarshalIndent(resp, "", "  ")
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(string(b))
 		return nil
 	},
 }
