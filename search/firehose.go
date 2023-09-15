@@ -59,7 +59,7 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 	}
 	u.Path = "xrpc/com.atproto.sync.subscribeRepos"
 	if cur != 0 {
-		u.RawPath = fmt.Sprintf("cursor=%d", cur)
+		u.RawQuery = fmt.Sprintf("cursor=%d", cur)
 	}
 	con, _, err := d.Dial(u.String(), http.Header{})
 	if err != nil {
