@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/joho/godotenv/autoload"
+
 	"github.com/bluesky-social/indigo/graphd"
 	"github.com/bluesky-social/indigo/graphd/handlers"
 	"github.com/bluesky-social/indigo/util/version"
@@ -38,8 +40,9 @@ func main() {
 			Value: 1323,
 		},
 		&cli.StringFlag{
-			Name:  "graph-csv",
-			Usage: "path to graph csv file",
+			Name:    "graph-csv",
+			Usage:   "path to graph csv file",
+			EnvVars: []string{"GRAPH_CSV"},
 		},
 	}
 
@@ -70,35 +73,33 @@ func GraphD(cctx *cli.Context) error {
 	// Load all the follows from the graph CSV
 	if cctx.String("graph-csv") != "" {
 		f, err := os.Open(cctx.String("graph-csv"))
-		if err != nil {
-			return fmt.Errorf("failed to open graph CSV (%s): %w", cctx.String("graph-csv"), err)
-		}
+		if err == nil {
+			fileScanner := bufio.NewScanner(f)
+			fileScanner.Split(bufio.ScanLines)
+			for fileScanner.Scan() {
+				if totalFollows%1_000_000 == 0 {
+					slog.Info("loaded follows", "total", totalFollows, "duration", time.Since(start))
+				}
 
-		fileScanner := bufio.NewScanner(f)
+				followTxt := fileScanner.Text()
+				parts := strings.Split(followTxt, ",") // actorDid,rkey,targetDid,createdAt,insertedAt
+				if len(parts) < 3 {
+					slog.Error("invalid follow", "follow", followTxt)
+					continue
+				}
 
-		fileScanner.Split(bufio.ScanLines)
+				actorUID := graph.AcquireDID(parts[0])
+				targetUID := graph.AcquireDID(parts[2])
 
-		for fileScanner.Scan() {
-			if totalFollows%1_000_000 == 0 {
-				slog.Info("loaded follows", "total", totalFollows, "duration", time.Since(start))
+				graph.AddFollow(actorUID, targetUID)
+
+				totalFollows++
 			}
 
-			followTxt := fileScanner.Text()
-			parts := strings.Split(followTxt, ",") // actorDid,rkey,targetDid,createdAt,insertedAt
-			if len(parts) < 3 {
-				slog.Error("invalid follow", "follow", followTxt)
-				continue
-			}
-
-			actorUID := graph.AcquireDID(parts[0])
-			targetUID := graph.AcquireDID(parts[2])
-
-			graph.AddFollow(actorUID, targetUID)
-
-			totalFollows++
+			slog.Info("total follows", "total", totalFollows, "duration", time.Since(start))
+		} else {
+			slog.Error("failed to open graph CSV", "path", cctx.String("graph-csv"), "error", err)
 		}
-
-		slog.Info("total follows", "total", totalFollows, "duration", time.Since(start))
 	}
 
 	e := echo.New()

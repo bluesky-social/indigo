@@ -115,3 +115,15 @@ sc-fire: # Fires supercollider
 		--hostname alpha.supercollider.jazco.io \
 		--key-file out/alpha.pem \
 		--input-file out/alpha_in.cbor
+
+.PHONY: graphd-up
+graphd-up: # Runs graphd docker container
+	docker compose -f cmd/graphd/docker-compose.yml up --build -d
+
+.PHONY: graphd-down
+graphd-down: # Stops graphd docker container
+	docker compose -f cmd/graphd/docker-compose.yml down
+
+.PHONY: run-dev-graphd
+run-dev-graphd: .env ## Runs graphd for local dev
+	go run ./cmd/graphd

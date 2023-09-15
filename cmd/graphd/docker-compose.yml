@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  graphd:
+    build:
+      context: ../../
+      dockerfile: cmd/graphd/Dockerfile
+    image: graphd
+    restart: always
+    environment:
+      GRAPH_CSV: /data/follows.csv
+    network_mode: host # For higher performance avoid the Docker Bridge
+    volumes:
+      - ../../data:/data
