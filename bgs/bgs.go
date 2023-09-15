@@ -952,7 +952,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 		if exu.Handle != handle {
 			// Users handle has changed, update
-			if err := s.db.Model(User{}).Where("uid = ?", exu.Uid).Update("handle", handle).Error; err != nil {
+			if err := s.db.Model(User{}).Where("id = ?", exu.Uid).Update("handle", handle).Error; err != nil {
 				return nil, fmt.Errorf("failed to update users handle: %w", err)
 			}
 
