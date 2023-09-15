@@ -54,6 +54,10 @@ func (s *PLCServer) GetDocument(ctx context.Context, didstr string) (*did.Docume
 	return &doc, nil
 }
 
+func (s *PLCServer) FlushCacheFor(did string) {
+	return
+}
+
 type CreateOp struct {
 	Type        string  `json:"type" cborgen:"type"`
 	SigningKey  string  `json:"signingKey" cborgen:"signingKey"`

@@ -785,6 +785,8 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		return nil
 	case env.RepoHandle != nil:
+		// Flush any cached DID documents for this user
+		bgs.didr.FlushCacheFor(env.RepoHandle.Did)
 
 		// TODO: ignoring the data in the message and just going out to the DID doc
 		act, err := bgs.createExternalUser(ctx, env.RepoHandle.Did)
