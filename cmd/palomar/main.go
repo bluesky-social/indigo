@@ -120,6 +120,18 @@ var runCmd = &cli.Command{
 			Value:   ":3999",
 			EnvVars: []string{"PALOMAR_BIND"},
 		},
+		&cli.IntFlag{
+			Name:    "bgs-sync-rate-limit",
+			Usage:   "max repo sync (checkout) requests per second to upstream (BGS)",
+			Value:   8,
+			EnvVars: []string{"PALOMAR_BGS_SYNC_RATE_LIMIT"},
+		},
+		&cli.IntFlag{
+			Name:    "index-max-concurrency",
+			Usage:   "max number of concurrent index requests (HTTP POST) to search index",
+			Value:   20,
+			EnvVars: []string{"PALOMAR_INDEX_MAX_CONCURRENCY"},
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -146,17 +158,19 @@ var runCmd = &cli.Command{
 			TryAuthoritativeDNS:   true,
 			SkipDNSDomainSuffixes: []string{".bsky.social"},
 		}
-		dir := identity.NewCacheDirectory(&base, 50000, time.Hour*24, time.Minute*2)
+		dir := identity.NewCacheDirectory(&base, 200000, time.Hour*24, time.Minute*2)
 
 		srv, err := search.NewServer(
 			db,
 			escli,
 			&dir,
 			search.Config{
-				BGSHost:      cctx.String("atp-bgs-host"),
-				ProfileIndex: cctx.String("es-profile-index"),
-				PostIndex:    cctx.String("es-post-index"),
-				Logger:       logger,
+				BGSHost:             cctx.String("atp-bgs-host"),
+				ProfileIndex:        cctx.String("es-profile-index"),
+				PostIndex:           cctx.String("es-post-index"),
+				Logger:              logger,
+				BGSSyncRateLimit:    cctx.Int("bgs-sync-rate-limit"),
+				IndexMaxConcurrency: cctx.Int("index-max-concurrency"),
 			},
 		)
 		if err != nil {

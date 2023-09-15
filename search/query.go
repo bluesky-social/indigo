@@ -163,25 +163,17 @@ func DoSearchGeneric(ctx context.Context, escli *es.Client, index, q string) (*E
 }
 
 func doSearch(ctx context.Context, escli *es.Client, index string, query interface{}) (*EsSearchResponse, error) {
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(query); err != nil {
-		return nil, fmt.Errorf("error encoding query: %s", err)
+	b, err := json.Marshal(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize query: %w", err)
 	}
-
-	// re-marshal query as string for logging
-	if true {
-		bod, err := json.Marshal(query)
-		if err != nil {
-			return nil, fmt.Errorf("failed to serialize query: %w", err)
-		}
-		slog.Warn("sending query", "index", index, "query", string(bod))
-	}
+	slog.Warn("sending query", "index", index, "query", string(b))
 
 	// Perform the search request.
 	res, err := escli.Search(
 		escli.Search.WithContext(ctx),
 		escli.Search.WithIndex(index),
-		escli.Search.WithBody(&buf),
+		escli.Search.WithBody(bytes.NewBuffer(b)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("search query error: %w", err)
