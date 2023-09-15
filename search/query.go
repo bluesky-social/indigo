@@ -5,6 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log/slog"
+
+	"github.com/bluesky-social/indigo/atproto/identity"
 
 	es "github.com/opensearch-project/opensearch-go/v2"
 )
@@ -17,7 +21,7 @@ type EsSearchHit struct {
 }
 
 type EsSearchHits struct {
-	Total struct {
+	Total struct { // not used
 		Value    int
 		Relation string
 	} `json:"total"`
@@ -26,10 +30,9 @@ type EsSearchHits struct {
 }
 
 type EsSearchResponse struct {
-	Took     int  `json:"took"`
-	TimedOut bool `json:"timed_out"`
-	// Shards ???
-	Hits EsSearchHits `json:"hits"`
+	Took     int          `json:"took"`
+	TimedOut bool         `json:"timed_out"`
+	Hits     EsSearchHits `json:"hits"`
 }
 
 type UserResult struct {
@@ -44,60 +47,142 @@ type PostSearchResult struct {
 	Post any        `json:"post"`
 }
 
-func doSearchPosts(ctx context.Context, escli *es.Client, q string, offset int, size int) (*EsSearchResponse, error) {
+func checkParams(offset, size int) error {
+	if offset+size > 10000 || size > 250 || offset > 10000 || offset < 0 || size < 0 {
+		return fmt.Errorf("disallowed size/offset parameters")
+	}
+	return nil
+}
+
+func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
+	if err := checkParams(offset, size); err != nil {
+		return nil, err
+	}
+	queryStr, filters := ParseQuery(ctx, dir, q)
+	basic := map[string]interface{}{
+		"simple_query_string": map[string]interface{}{
+			"query":            queryStr,
+			"fields":           []string{"everything"},
+			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
+			"default_operator": "and",
+			"lenient":          true,
+			"analyze_wildcard": false,
+		},
+	}
 	query := map[string]interface{}{
-		"sort": map[string]any{
-			"createdAt": map[string]any{
-				"order": "desc",
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must":   basic,
+				"filter": filters,
 			},
 		},
-		"query": map[string]interface{}{
-			"match": map[string]interface{}{
-				"text": map[string]any{
-					"query":    q,
-					"operator": "and",
-				},
+		"sort": map[string]any{
+			"created_at": map[string]any{
+				"order": "desc",
 			},
 		},
 		"size": size,
 		"from": offset,
 	}
 
-	return doSearch(ctx, escli, "posts", query)
+	return doSearch(ctx, escli, index, query)
 }
 
-func doSearchProfiles(ctx context.Context, escli *es.Client, q string) (*EsSearchResponse, error) {
+func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
+	if err := checkParams(offset, size); err != nil {
+		return nil, err
+	}
+	queryStr, filters := ParseQuery(ctx, dir, q)
+	basic := map[string]interface{}{
+		"simple_query_string": map[string]interface{}{
+			"query":            queryStr,
+			"fields":           []string{"everything"},
+			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
+			"default_operator": "and",
+			"lenient":          true,
+			"analyze_wildcard": false,
+		},
+	}
+	query := map[string]interface{}{
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": basic,
+				"should": []interface{}{
+					map[string]interface{}{"term": map[string]interface{}{"has_avatar": true}},
+					map[string]interface{}{"term": map[string]interface{}{"has_banner": true}},
+				},
+				"filter": filters,
+				"boost":  1.0,
+			},
+		},
+		"size": size,
+		"from": offset,
+	}
+
+	return doSearch(ctx, escli, index, query)
+}
+
+func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q string, size int) (*EsSearchResponse, error) {
+	if err := checkParams(0, size); err != nil {
+		return nil, err
+	}
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"multi_match": map[string]interface{}{
-				"query":    q,
-				"fields":   []string{"description", "displayName", "handle"},
-				"operator": "or",
+				"query": q,
+				"type":  "bool_prefix",
+				"fields": []string{
+					"typeahead",
+					"typeahead._2gram",
+					"typeahead._3gram",
+				},
+			},
+		},
+		"size": size,
+	}
+
+	return doSearch(ctx, escli, index, query)
+}
+
+// helper to do a full-featured Lucene query parser (query_string) search, with all possible facets. Not safe to expose publicly.
+func DoSearchGeneric(ctx context.Context, escli *es.Client, index, q string) (*EsSearchResponse, error) {
+	query := map[string]interface{}{
+		"query": map[string]interface{}{
+			"query_string": map[string]interface{}{
+				"query":                  q,
+				"default_operator":       "and",
+				"analyze_wildcard":       true,
+				"allow_leading_wildcard": false,
+				"lenient":                true,
+				"default_field":          "everything",
 			},
 		},
 	}
 
-	return doSearch(ctx, escli, "profiles", query)
+	return doSearch(ctx, escli, index, query)
 }
 
 func doSearch(ctx context.Context, escli *es.Client, index string, query interface{}) (*EsSearchResponse, error) {
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(query); err != nil {
-		log.Fatalf("Error encoding query: %s", err)
+	b, err := json.Marshal(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize query: %w", err)
 	}
+	slog.Warn("sending query", "index", index, "query", string(b))
 
 	// Perform the search request.
 	res, err := escli.Search(
 		escli.Search.WithContext(ctx),
 		escli.Search.WithIndex(index),
-		escli.Search.WithBody(&buf),
-		escli.Search.WithTrackTotalHits(true),
-		escli.Search.WithSize(30),
+		escli.Search.WithBody(bytes.NewBuffer(b)),
 	)
 	if err != nil {
-		log.Fatalf("Error getting response: %s", err)
+		return nil, fmt.Errorf("search query error: %w", err)
 	}
 	defer res.Body.Close()
+	if res.IsError() {
+		ioutil.ReadAll(res.Body)
+		return nil, fmt.Errorf("search query error, code=%d", res.StatusCode)
+	}
 
 	var out EsSearchResponse
 	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
