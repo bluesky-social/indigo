@@ -17,6 +17,12 @@ type Graph struct {
 
 	uidNext uint64
 	nextLk  sync.Mutex
+
+	followCount   uint64
+	followCountLk sync.RWMutex
+
+	userCount   uint64
+	userCountLk sync.RWMutex
 }
 
 type FollowMap struct {
@@ -29,6 +35,18 @@ func NewGraph() *Graph {
 		utd: map[uint64]string{},
 		dtu: map[string]uint64{},
 	}
+}
+
+func (g *Graph) GetUsercount() uint64 {
+	g.userCountLk.RLock()
+	defer g.userCountLk.RUnlock()
+	return g.userCount
+}
+
+func (g *Graph) GetFollowcount() uint64 {
+	g.followCountLk.RLock()
+	defer g.followCountLk.RUnlock()
+	return g.followCount
 }
 
 func (g *Graph) GetDID(uid uint64) (string, bool) {
@@ -109,6 +127,10 @@ func (g *Graph) AcquireDID(did string) uint64 {
 		g.following.Store(uid, &FollowMap{
 			data: map[uint64]struct{}{},
 		})
+
+		g.userCountLk.Lock()
+		g.userCount++
+		g.userCountLk.Unlock()
 	}
 	return uid
 }
@@ -135,6 +157,10 @@ func (g *Graph) AddFollow(actorUID, targetUID uint64) {
 	followMap.(*FollowMap).lk.Lock()
 	followMap.(*FollowMap).data[actorUID] = struct{}{}
 	followMap.(*FollowMap).lk.Unlock()
+
+	g.followCountLk.Lock()
+	g.followCount++
+	g.followCountLk.Unlock()
 }
 
 // RemoveFollow removes a follow from the graph if it exists

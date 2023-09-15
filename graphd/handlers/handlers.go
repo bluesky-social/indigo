@@ -10,12 +10,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type HealthStatus struct {
-	Status  string `json:"status"`
-	Version string `json:"version"`
-	Message string `json:"msg,omitempty"`
-}
-
 type Handlers struct {
 	graph *graphd.Graph
 }
@@ -26,11 +20,28 @@ func NewHandlers(graph *graphd.Graph) *Handlers {
 	}
 }
 
+type HealthStatus struct {
+	Status      string  `json:"status"`
+	Version     string  `json:"version"`
+	Message     string  `json:"msg,omitempty"`
+	UserCount   *uint64 `json:"userCount,omitempty"`
+	FollowCount *uint64 `json:"followCount,omitempty"`
+}
+
 func (h *Handlers) Health(c echo.Context) error {
-	return c.JSON(200, HealthStatus{
+	s := HealthStatus{
 		Status:  "ok",
 		Version: version.Version,
-	})
+	}
+	if c.QueryParam("stats") == "true" {
+		userCount := h.graph.GetUsercount()
+		s.UserCount = &userCount
+
+		followCount := h.graph.GetFollowcount()
+		s.FollowCount = &followCount
+	}
+
+	return c.JSON(200, s)
 }
 
 func (h *Handlers) GetFollowers(c echo.Context) error {
