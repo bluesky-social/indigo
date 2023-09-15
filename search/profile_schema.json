@@ -1,0 +1,63 @@
+{
+"settings": {
+    "index": {
+        "number_of_shards": 1,
+        "number_of_replicas": 0,
+        "analysis": {
+            "analyzer": {
+                "default": {
+                    "type": "custom",
+                    "tokenizer": "standard",
+                    "filter": [ "lowercase", "asciifolding" ]
+                },
+                "textIcu": {
+                    "type": "custom",
+                    "tokenizer": "icu_tokenizer",
+                    "char_filter": [ "icu_normalizer" ],
+                    "filter": [ "icu_folding" ]
+                },
+                "textIcuSearch": {
+                    "type": "custom",
+                    "tokenizer": "icu_tokenizer",
+                    "char_filter": [ "icu_normalizer" ],
+                    "filter": [ "icu_folding" ]
+                }
+            },
+            "normalizer": {
+                "default": {
+                    "type": "custom",
+                    "char_filter": [],
+                    "filter": ["lowercase"]
+                },
+                "caseSensitive": {
+                    "type": "custom",
+                    "char_filter": [],
+                    "filter": []
+                }
+            }
+        }
+    }
+},
+"mappings": {
+    "dynamic": false,
+    "properties": {
+        "doc_index_ts":   { "type": "date" },
+        "did":            { "type": "keyword", "normalizer": "default", "doc_values": false },
+        "handle":         { "type": "keyword", "normalizer": "default", "copy_to": ["everything", "typeahead"] },
+
+        "display_name":   { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": ["everything", "typeahead"] },
+        "description":    { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
+        "img_alt_text":   { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
+        "self_label":     { "type": "keyword", "normalizer": "default" },
+
+        "hashtag":        { "type": "keyword", "normalizer": "default" },
+        "emoji":          { "type": "keyword", "normalizer": "caseSensitive" },
+
+        "has_avatar":     { "type": "boolean" },
+        "has_banner":     { "type": "boolean" },
+
+        "typeahead":      { "type": "search_as_you_type" },
+        "everything":     { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" }
+    }
+}
+}
