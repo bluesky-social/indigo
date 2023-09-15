@@ -920,6 +920,8 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		return nil, err
 	}
 
+	log.Infow("creating external user", "did", did, "handle", hurl.Host, "pds", peering.ID)
+
 	handle := hurl.Host
 
 	resdid, err := s.hr.ResolveHandleToDid(ctx, handle)
@@ -936,7 +938,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	exu, err := s.Index.LookupUserByDid(ctx, did)
 	if err == nil {
-		log.Infow("lost the race to create a new user", "did", did, "handle", handle)
+		log.Infow("lost the race to create a new user", "did", did, "handle", handle, "existing_hand", exu.Handle)
 		if exu.PDS != peering.ID {
 			// User is now on a different PDS, update
 			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("pds", peering.ID).Error; err != nil {
