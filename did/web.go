@@ -63,6 +63,10 @@ var disallowedTlds = map[string]bool{
 	"internal": true,
 }
 
+func (wr *WebResolver) FlushCacheFor(did string) {
+	return
+}
+
 func checkValidDidWeb(val string) error {
 	// no ports or ipv6
 	if strings.Contains(val, ":") {
