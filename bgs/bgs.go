@@ -785,6 +785,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		return nil
 	case env.RepoHandle != nil:
+		log.Info("bgs got repo handle event", "did", env.RepoHandle.Did, "handle", env.RepoHandle.Handle)
 
 		// TODO: ignoring the data in the message and just going out to the DID doc
 		act, err := bgs.createExternalUser(ctx, env.RepoHandle.Did)
