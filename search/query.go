@@ -48,7 +48,7 @@ type PostSearchResult struct {
 }
 
 func checkParams(offset, size int) error {
-	if offset+size > 5000 || size > 1000 || offset > 1000 || offset < 0 || size < 0 {
+	if offset+size > 10000 || size > 250 || offset > 10000 || offset < 0 || size < 0 {
 		return fmt.Errorf("disallowed size/offset parameters")
 	}
 	return nil
