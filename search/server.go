@@ -43,10 +43,12 @@ type LastSeq struct {
 }
 
 type Config struct {
-	BGSHost      string
-	ProfileIndex string
-	PostIndex    string
-	Logger       *slog.Logger
+	BGSHost             string
+	ProfileIndex        string
+	PostIndex           string
+	Logger              *slog.Logger
+	BGSSyncRateLimit    int
+	IndexMaxConcurrency int
 }
 
 func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Config) (*Server, error) {
@@ -85,8 +87,16 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 
 	bfstore := backfill.NewGormstore(db)
 	opts := backfill.DefaultBackfillOptions()
-	opts.ParallelRecordCreates = 20
-	opts.SyncRequestsPerSecond = 8
+	if config.BGSSyncRateLimit > 0 {
+		opts.SyncRequestsPerSecond = config.BGSSyncRateLimit
+	} else {
+		opts.SyncRequestsPerSecond = 8
+	}
+	if config.IndexMaxConcurrency > 0 {
+		opts.ParallelRecordCreates = config.IndexMaxConcurrency
+	} else {
+		opts.ParallelRecordCreates = 20
+	}
 	opts.NSIDFilter = "app.bsky."
 	bf := backfill.NewBackfiller(
 		"search",

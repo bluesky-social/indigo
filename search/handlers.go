@@ -148,7 +148,6 @@ func (s *Server) SearchPosts(ctx context.Context, q string, offset, size int) (*
 	if len(posts) == size && (offset+size) < 10000 {
 		out.Cursor = fmt.Sprintf("%d", offset+size)
 	}
-	fmt.Println(resp.Hits.Total)
 	if resp.Hits.Total.Relation == "eq" {
 		out.HitsTotal = &resp.Hits.Total.Value
 	}
