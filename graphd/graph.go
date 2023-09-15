@@ -1,4 +1,4 @@
-package charybdis
+package graphd
 
 import (
 	"fmt"

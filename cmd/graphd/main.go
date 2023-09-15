@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/charybdis"
+	"github.com/bluesky-social/indigo/graphd"
 	"github.com/bluesky-social/indigo/util/version"
 	"github.com/labstack/echo-contrib/echoprometheus"
 	"github.com/labstack/echo/v4"
@@ -21,7 +21,7 @@ import (
 
 func main() {
 	app := cli.App{
-		Name:    "charybdis",
+		Name:    "graphd",
 		Usage:   "relational graph daemon",
 		Version: version.Version,
 	}
@@ -67,7 +67,7 @@ func GraphD(cctx *cli.Context) error {
 		Level: logLevel,
 	})))
 
-	graph := charybdis.NewGraph()
+	graph := graphd.NewGraph()
 
 	start := time.Now()
 	totalFollows := 0
