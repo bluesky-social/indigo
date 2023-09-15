@@ -14,6 +14,9 @@ type Graph struct {
 
 	dtu   map[string]uint64
 	dtuLk sync.RWMutex
+
+	nextUID uint64
+	nextLk  sync.Mutex
 }
 
 type FollowMap struct {
@@ -28,27 +31,35 @@ func NewGraph() *Graph {
 	}
 }
 
-func (g *Graph) GetUid(did string) (uint64, bool) {
+func (g *Graph) GetUID(did string) (uint64, bool) {
 	g.dtuLk.RLock()
 	defer g.dtuLk.RUnlock()
 	uid, ok := g.dtu[did]
 	return uid, ok
 }
 
-func (g *Graph) SetUid(did string, uid uint64) {
+func (g *Graph) SetUID(did string, uid uint64) {
 	g.dtuLk.Lock()
 	defer g.dtuLk.Unlock()
 	g.dtu[did] = uid
 }
 
-func (g *Graph) GetDid(uid uint64) (string, bool) {
+func (g *Graph) NextUID() uint64 {
+	g.nextLk.Lock()
+	defer g.nextLk.Unlock()
+	uid := g.nextUID
+	g.nextUID++
+	return uid
+}
+
+func (g *Graph) GetDID(uid uint64) (string, bool) {
 	g.utdLk.RLock()
 	defer g.utdLk.RUnlock()
 	did, ok := g.utd[uid]
 	return did, ok
 }
 
-func (g *Graph) GetDids(uids []uint64) ([]string, error) {
+func (g *Graph) GetDIDs(uids []uint64) ([]string, error) {
 	g.utdLk.RLock()
 	defer g.utdLk.RUnlock()
 	dids := make([]string, len(uids))
@@ -62,7 +73,7 @@ func (g *Graph) GetDids(uids []uint64) ([]string, error) {
 	return dids, nil
 }
 
-func (g *Graph) GetUids(dids []string) ([]uint64, error) {
+func (g *Graph) GetUIDs(dids []string) ([]uint64, error) {
 	g.dtuLk.RLock()
 	defer g.dtuLk.RUnlock()
 	uids := make([]uint64, len(dids))
@@ -76,10 +87,22 @@ func (g *Graph) GetUids(dids []string) ([]uint64, error) {
 	return uids, nil
 }
 
-func (g *Graph) SetDid(uid uint64, did string) {
+func (g *Graph) SetDID(uid uint64, did string) {
 	g.utdLk.Lock()
 	defer g.utdLk.Unlock()
 	g.utd[uid] = did
+}
+
+// AcquireDID links a DID to a UID, creating a new UID if necessary.
+// If the DID is already linked to a UID, that UID is returned
+func (g *Graph) AcquireDID(did string) uint64 {
+	uid, ok := g.GetUID(did)
+	if !ok {
+		uid = g.NextUID()
+		g.SetUID(did, uid)
+		g.SetDID(uid, did)
+	}
+	return uid
 }
 
 func (g *Graph) AddFollow(actorUID, targetUID uint64) {

@@ -72,8 +72,6 @@ func GraphD(cctx *cli.Context) error {
 	start := time.Now()
 	totalFollows := 0
 
-	nextUID := uint64(0)
-
 	// Load all the follows from the graph CSV
 	if cctx.String("graph-csv") != "" {
 		f, err := os.Open(cctx.String("graph-csv"))
@@ -90,26 +88,15 @@ func GraphD(cctx *cli.Context) error {
 				slog.Info("loaded follows", "total", totalFollows, "duration", time.Since(start))
 			}
 
-			// actorDid,rkey,targetDid,createdAt,insertedAt
 			followTxt := fileScanner.Text()
-			parts := strings.Split(followTxt, ",")
-			actorDID := parts[0]
-			targetDID := parts[2]
+			parts := strings.Split(followTxt, ",") // actorDid,rkey,targetDid,createdAt,insertedAt
+			if len(parts) < 3 {
+				slog.Error("invalid follow", "follow", followTxt)
+				continue
+			}
 
-			actorUID, ok := graph.GetUid(actorDID)
-			if !ok {
-				actorUID = nextUID
-				nextUID++
-				graph.SetUid(actorDID, actorUID)
-				graph.SetDid(actorUID, actorDID)
-			}
-			targetUID, ok := graph.GetUid(targetDID)
-			if !ok {
-				targetUID = nextUID
-				nextUID++
-				graph.SetUid(targetDID, targetUID)
-				graph.SetDid(targetUID, targetDID)
-			}
+			actorUID := graph.AcquireDID(parts[0])
+			targetUID := graph.AcquireDID(parts[2])
 
 			graph.AddFollow(actorUID, targetUID)
 
@@ -136,7 +123,7 @@ func GraphD(cctx *cli.Context) error {
 		did := c.QueryParam("did")
 		queryStart := time.Now()
 
-		uid, ok := graph.GetUid(did)
+		uid, ok := graph.GetUID(did)
 		if !ok {
 			slog.Error("uid not found")
 			return c.JSON(404, "uid not found")
@@ -149,7 +136,7 @@ func GraphD(cctx *cli.Context) error {
 		}
 		membersDone := time.Now()
 
-		dids, err := graph.GetDids(followers)
+		dids, err := graph.GetDIDs(followers)
 		if err != nil {
 			slog.Error("failed to get dids", "err", err)
 		}
@@ -171,7 +158,7 @@ func GraphD(cctx *cli.Context) error {
 		did := c.QueryParam("did")
 		queryStart := time.Now()
 
-		uid, ok := graph.GetUid(did)
+		uid, ok := graph.GetUID(did)
 		if !ok {
 			slog.Error("uid not found")
 			return c.JSON(404, "uid not found")
@@ -184,7 +171,7 @@ func GraphD(cctx *cli.Context) error {
 		}
 		membersDone := time.Now()
 
-		dids, err := graph.GetDids(following)
+		dids, err := graph.GetDIDs(following)
 		if err != nil {
 			slog.Error("failed to get dids", "err", err)
 		}
@@ -208,13 +195,13 @@ func GraphD(cctx *cli.Context) error {
 
 		start := time.Now()
 
-		actorUID, ok := graph.GetUid(actorDid)
+		actorUID, ok := graph.GetUID(actorDid)
 		if !ok {
 			slog.Error("actor uid not found")
 			return c.JSON(404, "actor uid not found")
 		}
 
-		targetUID, ok := graph.GetUid(targetDid)
+		targetUID, ok := graph.GetUID(targetDid)
 		if !ok {
 			slog.Error("target uid not found")
 			return c.JSON(404, "target uid not found")
