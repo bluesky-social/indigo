@@ -113,6 +113,96 @@ func (h *Handlers) GetDoesFollow(c echo.Context) error {
 	return c.JSON(200, doesFollow)
 }
 
+func (h *Handlers) GetAreMoots(c echo.Context) error {
+	didA := c.QueryParam("didA")
+	didB := c.QueryParam("didB")
+
+	uidA, ok := h.graph.GetUID(didA)
+	if !ok {
+		return c.JSON(404, "actor uid not found")
+	}
+
+	uidB, ok := h.graph.GetUID(didB)
+	if !ok {
+		return c.JSON(404, "target uid not found")
+	}
+
+	aFollowsB := false
+	bFollowsA := false
+
+	aFollowsB, err := h.graph.DoesFollow(uidA, uidB)
+	if err != nil {
+		slog.Error("failed to check follows", "err", err)
+		return c.JSON(500, "failed to check follows")
+	}
+
+	bFollowsA, err = h.graph.DoesFollow(uidB, uidA)
+	if err != nil {
+		slog.Error("failed to check follows", "err", err)
+		return c.JSON(500, "failed to check follows")
+	}
+
+	return c.JSON(200, aFollowsB && bFollowsA)
+}
+
+func (h *Handlers) GetIntersectFollowers(c echo.Context) error {
+	didA := c.QueryParam("didA")
+	didB := c.QueryParam("didB")
+
+	uidA, ok := h.graph.GetUID(didA)
+	if !ok {
+		return c.JSON(404, "actor uid not found")
+	}
+
+	uidB, ok := h.graph.GetUID(didB)
+	if !ok {
+		return c.JSON(404, "target uid not found")
+	}
+
+	intersect, err := h.graph.IntersectFollowers(uidA, uidB)
+	if err != nil {
+		slog.Error("failed to intersect followers", "err", err)
+		return c.JSON(500, "failed to intersect followers")
+	}
+
+	dids, err := h.graph.GetDIDs(intersect)
+	if err != nil {
+		slog.Error("failed to get dids", "err", err)
+		return c.JSON(500, fmt.Errorf("failed to get dids"))
+	}
+
+	return c.JSON(200, dids)
+}
+
+func (h *Handlers) GetIntersectFollowing(c echo.Context) error {
+	didA := c.QueryParam("didA")
+	didB := c.QueryParam("didB")
+
+	uidA, ok := h.graph.GetUID(didA)
+	if !ok {
+		return c.JSON(404, "actor uid not found")
+	}
+
+	uidB, ok := h.graph.GetUID(didB)
+	if !ok {
+		return c.JSON(404, "target uid not found")
+	}
+
+	intersect, err := h.graph.IntersectFollowing(uidA, uidB)
+	if err != nil {
+		slog.Error("failed to intersect following", "err", err)
+		return c.JSON(500, "failed to intersect following")
+	}
+
+	dids, err := h.graph.GetDIDs(intersect)
+	if err != nil {
+		slog.Error("failed to get dids", "err", err)
+		return c.JSON(500, fmt.Errorf("failed to get dids"))
+	}
+
+	return c.JSON(200, dids)
+}
+
 type Follow struct {
 	ActorDid  string `json:"actorDid"`
 	TargetDid string `json:"targetDid"`

@@ -7,7 +7,7 @@ import (
 
 type Graph struct {
 	follows   sync.Map
-	following sync.Map
+	followers sync.Map
 
 	utd   map[uint64]string
 	utdLk sync.RWMutex
@@ -124,7 +124,7 @@ func (g *Graph) AcquireDID(did string) uint64 {
 		g.follows.Store(uid, &FollowMap{
 			data: map[uint64]struct{}{},
 		})
-		g.following.Store(uid, &FollowMap{
+		g.followers.Store(uid, &FollowMap{
 			data: map[uint64]struct{}{},
 		})
 
@@ -147,12 +147,12 @@ func (g *Graph) AddFollow(actorUID, targetUID uint64) {
 	followMap.(*FollowMap).data[targetUID] = struct{}{}
 	followMap.(*FollowMap).lk.Unlock()
 
-	followMap, ok = g.following.Load(targetUID)
+	followMap, ok = g.followers.Load(targetUID)
 	if !ok {
 		followMap = &FollowMap{
 			data: map[uint64]struct{}{},
 		}
-		g.following.Store(targetUID, followMap)
+		g.followers.Store(targetUID, followMap)
 	}
 	followMap.(*FollowMap).lk.Lock()
 	followMap.(*FollowMap).data[actorUID] = struct{}{}
@@ -172,7 +172,7 @@ func (g *Graph) RemoveFollow(actorUID, targetUID uint64) {
 		followMap.(*FollowMap).lk.Unlock()
 	}
 
-	followMap, ok = g.following.Load(targetUID)
+	followMap, ok = g.followers.Load(targetUID)
 	if !ok {
 		followMap.(*FollowMap).lk.Lock()
 		delete(followMap.(*FollowMap).data, actorUID)
@@ -181,7 +181,7 @@ func (g *Graph) RemoveFollow(actorUID, targetUID uint64) {
 }
 
 func (g *Graph) GetFollowers(uid uint64) ([]uint64, error) {
-	followMap, ok := g.following.Load(uid)
+	followMap, ok := g.followers.Load(uid)
 	if !ok {
 		return nil, fmt.Errorf("uid %d not found", uid)
 	}
@@ -196,6 +196,76 @@ func (g *Graph) GetFollowers(uid uint64) ([]uint64, error) {
 	}
 
 	return followers, nil
+}
+
+func (g *Graph) IntersectFollowers(uidA, uidB uint64) ([]uint64, error) {
+	followMapA, ok := g.followers.Load(uidA)
+	if !ok {
+		return nil, fmt.Errorf("uid %d not found", uidA)
+	}
+	followMapA.(*FollowMap).lk.RLock()
+	defer followMapA.(*FollowMap).lk.RUnlock()
+
+	followMapB, ok := g.followers.Load(uidB)
+	if !ok {
+		return nil, fmt.Errorf("uid %d not found", uidB)
+	}
+	followMapB.(*FollowMap).lk.RLock()
+	defer followMapB.(*FollowMap).lk.RUnlock()
+
+	intersection := make([]uint64, 0)
+
+	// Iterate over the smaller map to speed up intersections between asymmetric sets
+	if len(followMapA.(*FollowMap).data) < len(followMapB.(*FollowMap).data) {
+		for follower := range followMapA.(*FollowMap).data {
+			if _, ok := followMapB.(*FollowMap).data[follower]; ok {
+				intersection = append(intersection, follower)
+			}
+		}
+	} else {
+		for follower := range followMapB.(*FollowMap).data {
+			if _, ok := followMapA.(*FollowMap).data[follower]; ok {
+				intersection = append(intersection, follower)
+			}
+		}
+	}
+
+	return intersection, nil
+}
+
+func (g *Graph) IntersectFollowing(uidA, uidB uint64) ([]uint64, error) {
+	followMapA, ok := g.follows.Load(uidA)
+	if !ok {
+		return nil, fmt.Errorf("uid %d not found", uidA)
+	}
+	followMapA.(*FollowMap).lk.RLock()
+	defer followMapA.(*FollowMap).lk.RUnlock()
+
+	followMapB, ok := g.follows.Load(uidB)
+	if !ok {
+		return nil, fmt.Errorf("uid %d not found", uidB)
+	}
+	followMapB.(*FollowMap).lk.RLock()
+	defer followMapB.(*FollowMap).lk.RUnlock()
+
+	intersection := make([]uint64, 0)
+
+	// Iterate over the smaller map to speed up intersections between asymmetric sets
+	if len(followMapA.(*FollowMap).data) < len(followMapB.(*FollowMap).data) {
+		for following := range followMapA.(*FollowMap).data {
+			if _, ok := followMapB.(*FollowMap).data[following]; ok {
+				intersection = append(intersection, following)
+			}
+		}
+	} else {
+		for following := range followMapB.(*FollowMap).data {
+			if _, ok := followMapA.(*FollowMap).data[following]; ok {
+				intersection = append(intersection, following)
+			}
+		}
+	}
+
+	return intersection, nil
 }
 
 func (g *Graph) GetFollowing(uid uint64) ([]uint64, error) {
