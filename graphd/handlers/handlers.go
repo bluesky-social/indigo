@@ -146,20 +146,20 @@ func (h *Handlers) GetAreMoots(c echo.Context) error {
 }
 
 func (h *Handlers) GetIntersectFollowers(c echo.Context) error {
-	didA := c.QueryParam("didA")
-	didB := c.QueryParam("didB")
-
-	uidA, ok := h.graph.GetUID(didA)
-	if !ok {
-		return c.JSON(404, "actor uid not found")
+	if !c.QueryParams().Has("did") {
+		return c.JSON(400, "did query param is required")
+	}
+	qDIDs := c.QueryParams()["did"]
+	uids := make([]uint64, 0)
+	for _, qDID := range qDIDs {
+		uid, ok := h.graph.GetUID(qDID)
+		if !ok {
+			return c.JSON(404, fmt.Sprintf("uid not found for did %s", qDID))
+		}
+		uids = append(uids, uid)
 	}
 
-	uidB, ok := h.graph.GetUID(didB)
-	if !ok {
-		return c.JSON(404, "target uid not found")
-	}
-
-	intersect, err := h.graph.IntersectFollowers(uidA, uidB)
+	intersect, err := h.graph.IntersectFollowers(uids)
 	if err != nil {
 		slog.Error("failed to intersect followers", "err", err)
 		return c.JSON(500, "failed to intersect followers")
@@ -175,20 +175,20 @@ func (h *Handlers) GetIntersectFollowers(c echo.Context) error {
 }
 
 func (h *Handlers) GetIntersectFollowing(c echo.Context) error {
-	didA := c.QueryParam("didA")
-	didB := c.QueryParam("didB")
-
-	uidA, ok := h.graph.GetUID(didA)
-	if !ok {
-		return c.JSON(404, "actor uid not found")
+	if !c.QueryParams().Has("did") {
+		return c.JSON(400, "did query param is required")
+	}
+	qDIDs := c.QueryParams()["did"]
+	uids := make([]uint64, 0)
+	for _, qDID := range qDIDs {
+		uid, ok := h.graph.GetUID(qDID)
+		if !ok {
+			return c.JSON(404, fmt.Sprintf("uid not found for did %s", qDID))
+		}
+		uids = append(uids, uid)
 	}
 
-	uidB, ok := h.graph.GetUID(didB)
-	if !ok {
-		return c.JSON(404, "target uid not found")
-	}
-
-	intersect, err := h.graph.IntersectFollowing(uidA, uidB)
+	intersect, err := h.graph.IntersectFollowing(uids)
 	if err != nil {
 		slog.Error("failed to intersect following", "err", err)
 		return c.JSON(500, "failed to intersect following")

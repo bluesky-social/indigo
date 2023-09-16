@@ -198,70 +198,96 @@ func (g *Graph) GetFollowers(uid uint64) ([]uint64, error) {
 	return followers, nil
 }
 
-func (g *Graph) IntersectFollowers(uidA, uidB uint64) ([]uint64, error) {
-	followMapA, ok := g.followers.Load(uidA)
-	if !ok {
-		return nil, fmt.Errorf("uid %d not found", uidA)
+func (g *Graph) IntersectFollowers(uids []uint64) ([]uint64, error) {
+	if len(uids) == 0 {
+		return nil, fmt.Errorf("uids must have at least one element")
 	}
-	followMapA.(*FollowMap).lk.RLock()
-	defer followMapA.(*FollowMap).lk.RUnlock()
 
-	followMapB, ok := g.followers.Load(uidB)
-	if !ok {
-		return nil, fmt.Errorf("uid %d not found", uidB)
+	if len(uids) == 1 {
+		return g.GetFollowers(uids[0])
 	}
-	followMapB.(*FollowMap).lk.RLock()
-	defer followMapB.(*FollowMap).lk.RUnlock()
+
+	followMaps := make([]*FollowMap, len(uids))
+	for i, uid := range uids {
+		followMap, ok := g.followers.Load(uid)
+		if !ok {
+			return nil, fmt.Errorf("uid %d not found", uid)
+		}
+		followMap.(*FollowMap).lk.RLock()
+		defer followMap.(*FollowMap).lk.RUnlock()
+		followMaps[i] = followMap.(*FollowMap)
+	}
+
+	// Find the smallest map
+	smallest := followMaps[0]
+	for _, followMap := range followMaps {
+		if len(followMap.data) < len(smallest.data) {
+			smallest = followMap
+		}
+	}
+
+	// Remove the smallest map from the list of maps to intersect
+	followMaps = followMaps[1:]
 
 	intersection := make([]uint64, 0)
-
-	// Iterate over the smaller map to speed up intersections between asymmetric sets
-	if len(followMapA.(*FollowMap).data) < len(followMapB.(*FollowMap).data) {
-		for follower := range followMapA.(*FollowMap).data {
-			if _, ok := followMapB.(*FollowMap).data[follower]; ok {
-				intersection = append(intersection, follower)
+	for follower := range smallest.data {
+		found := true
+		for _, followMap := range followMaps {
+			if _, ok := followMap.data[follower]; !ok {
+				found = false
+				break
 			}
 		}
-	} else {
-		for follower := range followMapB.(*FollowMap).data {
-			if _, ok := followMapA.(*FollowMap).data[follower]; ok {
-				intersection = append(intersection, follower)
-			}
+		if found {
+			intersection = append(intersection, follower)
 		}
 	}
 
 	return intersection, nil
 }
 
-func (g *Graph) IntersectFollowing(uidA, uidB uint64) ([]uint64, error) {
-	followMapA, ok := g.follows.Load(uidA)
-	if !ok {
-		return nil, fmt.Errorf("uid %d not found", uidA)
+func (g *Graph) IntersectFollowing(uids []uint64) ([]uint64, error) {
+	if len(uids) == 0 {
+		return nil, fmt.Errorf("uids must have at least one element")
 	}
-	followMapA.(*FollowMap).lk.RLock()
-	defer followMapA.(*FollowMap).lk.RUnlock()
 
-	followMapB, ok := g.follows.Load(uidB)
-	if !ok {
-		return nil, fmt.Errorf("uid %d not found", uidB)
+	if len(uids) == 1 {
+		return g.GetFollowing(uids[0])
 	}
-	followMapB.(*FollowMap).lk.RLock()
-	defer followMapB.(*FollowMap).lk.RUnlock()
+
+	followMaps := make([]*FollowMap, len(uids))
+	for i, uid := range uids {
+		followMap, ok := g.follows.Load(uid)
+		if !ok {
+			return nil, fmt.Errorf("uid %d not found", uid)
+		}
+		followMap.(*FollowMap).lk.RLock()
+		defer followMap.(*FollowMap).lk.RUnlock()
+		followMaps[i] = followMap.(*FollowMap)
+	}
+
+	// Find the smallest map
+	smallest := followMaps[0]
+	for _, followMap := range followMaps {
+		if len(followMap.data) < len(smallest.data) {
+			smallest = followMap
+		}
+	}
+
+	// Remove the smallest map from the list of maps to intersect
+	followMaps = followMaps[1:]
 
 	intersection := make([]uint64, 0)
-
-	// Iterate over the smaller map to speed up intersections between asymmetric sets
-	if len(followMapA.(*FollowMap).data) < len(followMapB.(*FollowMap).data) {
-		for following := range followMapA.(*FollowMap).data {
-			if _, ok := followMapB.(*FollowMap).data[following]; ok {
-				intersection = append(intersection, following)
+	for follower := range smallest.data {
+		found := true
+		for _, followMap := range followMaps {
+			if _, ok := followMap.data[follower]; !ok {
+				found = false
+				break
 			}
 		}
-	} else {
-		for following := range followMapB.(*FollowMap).data {
-			if _, ok := followMapA.(*FollowMap).data[following]; ok {
-				intersection = append(intersection, following)
-			}
+		if found {
+			intersection = append(intersection, follower)
 		}
 	}
 

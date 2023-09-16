@@ -128,3 +128,59 @@ func BenchmarkDoesFollow(b *testing.B) {
 		graph.DoesFollow(uids[i], uids[i])
 	}
 }
+
+func TestIntersectNFollowers(t *testing.T) {
+	graph := graphd.NewGraph()
+
+	dids := make([]string, 100)
+
+	// Generate some random DIDs
+	for i := 0; i < 100; i++ {
+		dids[i] = fmt.Sprintf("did:example:%d", i)
+	}
+
+	uids := make([]uint64, 100)
+
+	// Acquire all DIDs
+	for i := 0; i < 100; i++ {
+		uids[i] = graph.AcquireDID(dids[i])
+	}
+
+	// Create a known set of followers
+	for i := 0; i < 100; i++ {
+		graph.AddFollow(uids[i], uids[0])
+	}
+
+	for i := 5; i < 50; i++ {
+		graph.AddFollow(uids[i], uids[1])
+	}
+
+	for i := 2; i < 25; i++ {
+		graph.AddFollow(uids[i], uids[2])
+	}
+
+	for i := 0; i < 10; i++ {
+		graph.AddFollow(uids[i], uids[3])
+	}
+
+	// Intersect the followers of the first 4 DIDs
+	intersect, err := graph.IntersectFollowers(uids[:4])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(intersect) != 5 {
+		t.Errorf("expected 5 followers, got %d", len(intersect))
+	}
+
+	// Check the followers are the expected ones
+	intersectMap := make(map[uint64]bool)
+	for _, uid := range intersect {
+		intersectMap[uid] = true
+	}
+
+	for i := 5; i < 10; i++ {
+		if !intersectMap[uids[i]] {
+			t.Errorf("expected uid %d to be in the intersection", uids[i])
+		}
+	}
+}
