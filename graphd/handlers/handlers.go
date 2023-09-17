@@ -90,6 +90,29 @@ func (h *Handlers) GetFollowing(c echo.Context) error {
 	return c.JSON(200, dids)
 }
 
+func (h *Handlers) GetFollowersNotFollowing(c echo.Context) error {
+	did := c.QueryParam("did")
+
+	uid, ok := h.graph.GetUID(did)
+	if !ok {
+		return c.JSON(404, "uid not found")
+	}
+
+	followersNotFollowing, err := h.graph.GetFollowersNotFollowing(uid)
+	if err != nil {
+		slog.Error("failed to get followers not following", "err", err)
+		return c.JSON(500, fmt.Errorf("failed to get followers not following"))
+	}
+
+	dids, err := h.graph.GetDIDs(followersNotFollowing)
+	if err != nil {
+		slog.Error("failed to get dids", "err", err)
+		return c.JSON(500, fmt.Errorf("failed to get dids"))
+	}
+
+	return c.JSON(200, dids)
+}
+
 func (h *Handlers) GetDoesFollow(c echo.Context) error {
 	actorDid := c.QueryParam("actorDid")
 	targetDid := c.QueryParam("targetDid")

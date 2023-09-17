@@ -312,6 +312,36 @@ func (g *Graph) GetFollowing(uid uint64) ([]uint64, error) {
 	return following, nil
 }
 
+// GetFollowersNotFollowing returns a list of followers of the given UID that
+// the given UID is not following
+func (g *Graph) GetFollowersNotFollowing(uid uint64) ([]uint64, error) {
+	followers, err := g.GetFollowers(uid)
+	if err != nil {
+		return nil, err
+	}
+
+	following, err := g.GetFollowing(uid)
+	if err != nil {
+		return nil, err
+	}
+
+	notFollowing := make([]uint64, 0)
+	for _, follower := range followers {
+		found := false
+		for _, followee := range following {
+			if follower == followee {
+				found = true
+				break
+			}
+		}
+		if !found {
+			notFollowing = append(notFollowing, follower)
+		}
+	}
+
+	return notFollowing, nil
+}
+
 func (g *Graph) DoesFollow(actorUID, targetUID uint64) (bool, error) {
 	followMap, ok := g.follows.Load(actorUID)
 	if !ok {
