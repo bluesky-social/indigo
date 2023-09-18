@@ -117,6 +117,12 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 						return nil
 					}
 
+					if strings.HasPrefix(op.Path, "app.bsky.feed.post") {
+						postsReceived.Inc()
+					} else if strings.HasPrefix(op.Path, "app.bsky.actor.profile") {
+						profilesReceived.Inc()
+					}
+
 					if err := s.handleOp(ctx, ek, evt.Seq, op.Path, evt.Repo, &rc, rec); err != nil {
 						// TODO: handle this case (instead of return nil)
 						logOp.Error("failed to handle event op", "err", err)
@@ -173,12 +179,16 @@ func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, path s
 	switch rec := rec.(type) {
 	case *bsky.FeedPost:
 		if err := s.indexPost(ctx, ident, rec, path, *rcid); err != nil {
+			postsFailed.Inc()
 			return fmt.Errorf("indexing post for %s: %w", did.String(), err)
 		}
+		postsIndexed.Inc()
 	case *bsky.ActorProfile:
 		if err := s.indexProfile(ctx, ident, rec, path, *rcid); err != nil {
+			profilesFailed.Inc()
 			return fmt.Errorf("indexing profile for %s: %w", did.String(), err)
 		}
+		profilesIndexed.Inc()
 	default:
 	}
 	return nil
@@ -206,6 +216,9 @@ func (s *Server) handleDelete(ctx context.Context, rawDID, path string) error {
 		if err := s.deletePost(ctx, ident, path); err != nil {
 			return err
 		}
+		postsDeleted.Inc()
+	case strings.Contains(path, "app.bsky.actor.profile"):
+		// profilesDeleted.Inc()
 	}
 
 	return nil

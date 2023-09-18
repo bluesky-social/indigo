@@ -721,6 +721,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 				return fmt.Errorf("looking up event user: %w", err)
 			}
 
+			newUsersDiscovered.Inc()
 			subj, err := bgs.createExternalUser(ctx, evt.Repo)
 			if err != nil {
 				return fmt.Errorf("fed event create external user: %w", err)
@@ -842,6 +843,8 @@ func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user models.Ui
 func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.ActorInfo, error) {
 	ctx, span := otel.Tracer("bgs").Start(ctx, "createExternalUser")
 	defer span.End()
+
+	externalUserCreationAttempts.Inc()
 
 	log.Infof("create external user: %s", did)
 	doc, err := s.didr.GetDocument(ctx, did)
