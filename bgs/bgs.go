@@ -407,13 +407,14 @@ func (bgs *BGS) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 type User struct {
-	ID        models.Uid `gorm:"primarykey"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
-	Handle    string         `gorm:"uniqueIndex"`
-	Did       string         `gorm:"uniqueIndex"`
-	PDS       uint
+	ID          models.Uid `gorm:"primarykey"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	DeletedAt   gorm.DeletedAt `gorm:"index"`
+	Handle      string         `gorm:"uniqueIndex"`
+	Did         string         `gorm:"uniqueIndex"`
+	PDS         uint
+	ValidHandle bool `gorm:"default:true"`
 
 	// TakenDown is set to true if the user in question has been taken down.
 	// A user in this state will have all future events related to it dropped
@@ -992,7 +993,20 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	}
 
 	if err := s.db.Create(&u).Error; err != nil {
-		// some debugging...
+		// If the new user's handle conflicts with an existing user,
+		// since we just validated the handle for this user, we'll assume
+		// the existing user no longer has control of the handle
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			// Set the existing user's handle to NULL and set the valid_handle flag to false
+			if err := s.db.Model(User{}).Where("handle = ?", handle).Update("handle", nil).Update("valid_handle", false).Error; err != nil {
+				return nil, fmt.Errorf("failed to update outdated user's handle: %w", err)
+			}
+
+			// Create the new user
+			if err := s.db.Create(&u).Error; err != nil {
+				return nil, fmt.Errorf("failed to create user after handle conflict: %w", err)
+			}
+		}
 		return nil, fmt.Errorf("failed to create other pds user: %w", err)
 	}
 
