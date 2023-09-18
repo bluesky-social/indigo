@@ -997,9 +997,22 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		// since we just validated the handle for this user, we'll assume
 		// the existing user no longer has control of the handle
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			// Get the UID of the existing user
+			var existingUser User
+			if err := s.db.Find(&existingUser, "handle = ?", handle).Error; err != nil {
+				return nil, fmt.Errorf("failed to find existing user: %w", err)
+			}
+
 			// Set the existing user's handle to NULL and set the valid_handle flag to false
-			if err := s.db.Model(User{}).Where("handle = ?", handle).Update("handle", nil).Update("valid_handle", false).Error; err != nil {
+			if err := s.db.Model(User{}).Where("id = ?", existingUser.ID).Update("handle", nil).Update("valid_handle", false).Error; err != nil {
 				return nil, fmt.Errorf("failed to update outdated user's handle: %w", err)
+			}
+
+			// Do the same thing for the ActorInfo if it exists
+			if err := s.db.Model(models.ActorInfo{}).Where("uid = ?", existingUser.ID).Update("handle", nil).Update("valid_handle", false).Error; err != nil {
+				if !errors.Is(err, gorm.ErrRecordNotFound) {
+					return nil, fmt.Errorf("failed to update outdated actorInfo's handle: %w", err)
+				}
 			}
 
 			// Create the new user

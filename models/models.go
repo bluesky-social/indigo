@@ -44,6 +44,7 @@ type ActorInfo struct {
 	Posts       int64
 	Type        string
 	PDS         uint
+	ValidHandle bool `gorm:"default:true"`
 }
 
 func (ai *ActorInfo) ActorRef() *bsky.ActorDefs_ProfileViewBasic {
