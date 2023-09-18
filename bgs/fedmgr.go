@@ -437,6 +437,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 					return err
 				}
 
+				*lastCursor = 0
 				return fmt.Errorf("got FutureCursor frame, reset cursor tracking for host")
 			default:
 				return fmt.Errorf("error frame: %s: %s", errf.Error, errf.Message)
