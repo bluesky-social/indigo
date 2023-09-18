@@ -24,12 +24,22 @@ func ParseAtIdentifier(raw string) (*AtIdentifier, error) {
 	return &AtIdentifier{Inner: handle}, nil
 }
 
+func (n AtIdentifier) IsHandle() bool {
+	_, ok := n.Inner.(Handle)
+	return ok
+}
+
 func (n AtIdentifier) AsHandle() (Handle, error) {
 	handle, ok := n.Inner.(Handle)
 	if ok {
 		return handle, nil
 	}
 	return "", fmt.Errorf("AT Identifier is not a Handle")
+}
+
+func (n AtIdentifier) IsDID() bool {
+	_, ok := n.Inner.(DID)
+	return ok
 }
 
 func (n AtIdentifier) AsDID() (DID, error) {

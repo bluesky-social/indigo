@@ -2,57 +2,39 @@ package search
 
 import (
 	"context"
-	"encoding/base32"
-	"encoding/json"
+	_ "embed"
 	"fmt"
-	"strconv"
+	"io/ioutil"
+	"log/slog"
+	"os"
 	"strings"
 
-	api "github.com/bluesky-social/indigo/api"
-	bsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/backfill"
 	"github.com/bluesky-social/indigo/util/version"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	lru "github.com/hashicorp/golang-lru"
-	flatfs "github.com/ipfs/go-ds-flatfs"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	logging "github.com/ipfs/go-log"
+	"github.com/labstack/echo-contrib/echoprometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	es "github.com/opensearch-project/opensearch-go/v2"
+	slogecho "github.com/samber/slog-echo"
 	gorm "gorm.io/gorm"
 )
 
-var log = logging.Logger("search")
-
 type Server struct {
-	escli   *es.Client
-	db      *gorm.DB
-	bgshost string
-	xrpcc   *xrpc.Client
-	bgsxrpc *xrpc.Client
-	plc     *api.PLCServer
-	echo    *echo.Echo
+	escli        *es.Client
+	postIndex    string
+	profileIndex string
+	db           *gorm.DB
+	bgshost      string
+	bgsxrpc      *xrpc.Client
+	dir          identity.Directory
+	echo         *echo.Echo
+	logger       *slog.Logger
 
 	bfs *backfill.Gormstore
 	bf  *backfill.Backfiller
-
-	userCache *lru.Cache
-}
-
-type PostRef struct {
-	gorm.Model
-	Cid string
-	Tid string `gorm:"index"`
-	Uid uint   `gorm:"index"`
-}
-
-type User struct {
-	gorm.Model
-	Did       string `gorm:"index"`
-	Handle    string
-	LastCrawl string
 }
 
 type LastSeq struct {
@@ -60,24 +42,29 @@ type LastSeq struct {
 	Seq int64
 }
 
-func NewServer(db *gorm.DB, escli *es.Client, plcHost, pdsHost, bgsHost string) (*Server, error) {
+type Config struct {
+	BGSHost             string
+	ProfileIndex        string
+	PostIndex           string
+	Logger              *slog.Logger
+	BGSSyncRateLimit    int
+	IndexMaxConcurrency int
+}
 
-	log.Info("Migrating database")
-	db.AutoMigrate(&PostRef{})
-	db.AutoMigrate(&User{})
+func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Config) (*Server, error) {
+
+	logger := config.Logger
+	if logger == nil {
+		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		}))
+	}
+
+	logger.Info("running database migrations")
 	db.AutoMigrate(&LastSeq{})
 	db.AutoMigrate(&backfill.GormDBJob{})
 
-	// TODO: robust client
-	xc := &xrpc.Client{
-		Host: pdsHost,
-	}
-
-	plc := &api.PLCServer{
-		Host: plcHost,
-	}
-
-	bgsws := bgsHost
+	bgsws := config.BGSHost
 	if !strings.HasPrefix(bgsws, "ws") {
 		return nil, fmt.Errorf("specified bgs host must include 'ws://' or 'wss://'")
 	}
@@ -87,19 +74,30 @@ func NewServer(db *gorm.DB, escli *es.Client, plcHost, pdsHost, bgsHost string) 
 		Host: bgshttp,
 	}
 
-	ucache, _ := lru.New(100000)
 	s := &Server{
-		escli:     escli,
-		db:        db,
-		bgshost:   bgsHost,
-		xrpcc:     xc,
-		bgsxrpc:   bgsxrpc,
-		plc:       plc,
-		userCache: ucache,
+		escli:        escli,
+		profileIndex: config.ProfileIndex,
+		postIndex:    config.PostIndex,
+		db:           db,
+		bgshost:      config.BGSHost, // NOTE: the original URL, not 'bgshttp'
+		bgsxrpc:      bgsxrpc,
+		dir:          dir,
+		logger:       logger,
 	}
 
 	bfstore := backfill.NewGormstore(db)
 	opts := backfill.DefaultBackfillOptions()
+	if config.BGSSyncRateLimit > 0 {
+		opts.SyncRequestsPerSecond = config.BGSSyncRateLimit
+	} else {
+		opts.SyncRequestsPerSecond = 8
+	}
+	if config.IndexMaxConcurrency > 0 {
+		opts.ParallelRecordCreates = config.IndexMaxConcurrency
+	} else {
+		opts.ParallelRecordCreates = 20
+	}
+	opts.NSIDFilter = "app.bsky."
 	bf := backfill.NewBackfiller(
 		"search",
 		bfstore,
@@ -115,144 +113,51 @@ func NewServer(db *gorm.DB, escli *es.Client, plcHost, pdsHost, bgsHost string) 
 	return s, nil
 }
 
-func (s *Server) SearchPosts(ctx context.Context, srch string, offset, size int) ([]PostSearchResult, error) {
-	resp, err := doSearchPosts(ctx, s.escli, srch, offset, size)
-	if err != nil {
-		return nil, err
-	}
+//go:embed post_schema.json
+var palomarPostSchemaJSON string
 
-	out := []PostSearchResult{}
-	for _, r := range resp.Hits.Hits {
-		uid, tid, err := decodeDocumentID(r.ID)
+//go:embed profile_schema.json
+var palomarProfileSchemaJSON string
+
+func (s *Server) EnsureIndices(ctx context.Context) error {
+
+	indices := []struct {
+		Name       string
+		SchemaJSON string
+	}{
+		{Name: s.postIndex, SchemaJSON: palomarPostSchemaJSON},
+		{Name: s.profileIndex, SchemaJSON: palomarProfileSchemaJSON},
+	}
+	for _, idx := range indices {
+		resp, err := s.escli.Indices.Exists([]string{idx.Name})
 		if err != nil {
-			return nil, fmt.Errorf("decoding document id: %w", err)
+			return err
 		}
-
-		var p PostRef
-		if err := s.db.First(&p, "tid = ? AND uid = ?", tid, uid).Error; err != nil {
-			log.Infof("failed to find post in database that is referenced by elasticsearch: %s", r.ID)
-			return nil, err
+		defer resp.Body.Close()
+		ioutil.ReadAll(resp.Body)
+		if resp.IsError() && resp.StatusCode != 404 {
+			return fmt.Errorf("failed to check index existence")
 		}
-
-		var u User
-		if err := s.db.First(&u, "id = ?", p.Uid).Error; err != nil {
-			return nil, err
-		}
-
-		var rec map[string]any
-		if err := json.Unmarshal(r.Source, &rec); err != nil {
-			return nil, err
-		}
-
-		out = append(out, PostSearchResult{
-			Tid: p.Tid,
-			Cid: p.Cid,
-			User: UserResult{
-				Did:    u.Did,
-				Handle: u.Handle,
-			},
-			Post: &rec,
-		})
-	}
-
-	return out, nil
-}
-
-func (s *Server) getOrCreateUser(ctx context.Context, did string) (*User, error) {
-	cu, ok := s.userCache.Get(did)
-	if ok {
-		return cu.(*User), nil
-	}
-
-	var u User
-	if err := s.db.Find(&u, "did = ?", did).Error; err != nil {
-		return nil, err
-	}
-	if u.ID == 0 {
-		// TODO: figure out peoples handles
-		h, err := s.handleFromDid(ctx, did)
-		if err != nil {
-			log.Errorw("failed to resolve did to handle", "did", did, "err", err)
-		} else {
-			u.Handle = h
-		}
-
-		u.Did = did
-		if err := s.db.Create(&u).Error; err != nil {
-			return nil, err
+		if resp.StatusCode == 404 {
+			s.logger.Warn("creating opensearch index", "index", idx.Name)
+			if len(idx.SchemaJSON) < 2 {
+				return fmt.Errorf("empty schema file (go:embed failed)")
+			}
+			buf := strings.NewReader(idx.SchemaJSON)
+			resp, err := s.escli.Indices.Create(
+				idx.Name,
+				s.escli.Indices.Create.WithBody(buf))
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			ioutil.ReadAll(resp.Body)
+			if resp.IsError() {
+				return fmt.Errorf("failed to create index")
+			}
 		}
 	}
-
-	s.userCache.Add(did, &u)
-
-	return &u, nil
-}
-
-var ErrDoneIterating = fmt.Errorf("done iterating")
-
-func encodeDocumentID(uid uint, tid string) string {
-	comb := fmt.Sprintf("%d:%s", uid, tid)
-	return base32.StdEncoding.EncodeToString([]byte(comb))
-}
-
-func decodeDocumentID(docid string) (uint, string, error) {
-	dec, err := base32.StdEncoding.DecodeString(docid)
-	if err != nil {
-		return 0, "", err
-	}
-
-	parts := strings.SplitN(string(dec), ":", 2)
-	if len(parts) < 2 {
-		return 0, "", fmt.Errorf("invalid document id: %q", string(dec))
-	}
-
-	uid, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return 0, "", err
-	}
-
-	return uint(uid), parts[1], nil
-}
-
-func (s *Server) SearchProfiles(ctx context.Context, srch string) ([]*ActorSearchResp, error) {
-	resp, err := doSearchProfiles(ctx, s.escli, srch)
-	if err != nil {
-		return nil, err
-	}
-
-	out := []*ActorSearchResp{}
-	for _, r := range resp.Hits.Hits {
-		uid, err := strconv.Atoi(r.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		var u User
-		if err := s.db.First(&u, "id = ?", uid).Error; err != nil {
-			return nil, err
-		}
-
-		var rec bsky.ActorProfile
-		if err := json.Unmarshal(r.Source, &rec); err != nil {
-			return nil, err
-		}
-
-		out = append(out, &ActorSearchResp{
-			ActorProfile: rec,
-			DID:          u.Did,
-		})
-	}
-
-	return out, nil
-}
-
-func OpenBlockstore(dir string) (blockstore.Blockstore, error) {
-	fds, err := flatfs.CreateOrOpen(dir, flatfs.IPFS_DEF_SHARD, false)
-	if err != nil {
-		return nil, err
-	}
-
-	return blockstore.NewBlockstoreNoPrefix(fds), nil
+	return nil
 }
 
 type HealthStatus struct {
@@ -263,7 +168,7 @@ type HealthStatus struct {
 
 func (s *Server) handleHealthCheck(c echo.Context) error {
 	if err := s.db.Exec("SELECT 1").Error; err != nil {
-		log.Errorf("healthcheck can't connect to database: %v", err)
+		s.logger.Error("healthcheck can't connect to database", "err", err)
 		return c.JSON(500, HealthStatus{Status: "error", Version: version.Version, Message: "can't connect to database"})
 	} else {
 		return c.JSON(200, HealthStatus{Status: "ok", Version: version.Version})
@@ -272,30 +177,31 @@ func (s *Server) handleHealthCheck(c echo.Context) error {
 
 func (s *Server) RunAPI(listen string) error {
 
-	log.Infof("Configuring HTTP server")
+	s.logger.Info("Configuring HTTP server")
 	e := echo.New()
 	e.HideBanner = true
-
-	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		Format: "method=${method} uri=${uri} status=${status} latency=${latency_human}\n",
-	}))
+	e.Use(slogecho.New(s.logger))
+	e.Use(middleware.Recover())
+	e.Use(echoprometheus.NewMiddleware("palomar"))
+	e.Use(middleware.BodyLimit("64M"))
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
 		code := 500
 		if he, ok := err.(*echo.HTTPError); ok {
 			code = he.Code
 		}
-		log.Warnw("HTTP request error", "statusCode", code, "path", ctx.Path(), "err", err)
+		s.logger.Warn("HTTP request error", "statusCode", code, "path", ctx.Path(), "err", err)
 		ctx.Response().WriteHeader(code)
 	}
 
 	e.Use(middleware.CORS())
 	e.GET("/_health", s.handleHealthCheck)
-	e.GET("/search/posts", s.handleSearchRequestPosts)
-	e.GET("/search/profiles", s.handleSearchRequestProfiles)
+	e.GET("/metrics", echoprometheus.NewHandler())
+	e.GET("/xrpc/app.bsky.unspecced.searchPostsSkeleton", s.handleSearchPostsSkeleton)
+	e.GET("/xrpc/app.bsky.unspecced.searchActorsSkeleton", s.handleSearchActorsSkeleton)
 	s.echo = e
 
-	log.Infof("starting search API daemon at: %s", listen)
+	s.logger.Info("starting search API daemon", "bind", listen)
 	return s.echo.Start(listen)
 }
 

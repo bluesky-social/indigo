@@ -786,6 +786,9 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		return nil
 	case env.RepoHandle != nil:
+		log.Infow("bgs got repo handle event", "did", env.RepoHandle.Did, "handle", env.RepoHandle.Handle)
+		// Flush any cached DID documents for this user
+		bgs.didr.FlushCacheFor(env.RepoHandle.Did)
 
 		// TODO: ignoring the data in the message and just going out to the DID doc
 		act, err := bgs.createExternalUser(ctx, env.RepoHandle.Did)
@@ -923,6 +926,8 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		return nil, err
 	}
 
+	log.Infow("creating external user", "did", did, "handle", hurl.Host, "pds", peering.ID)
+
 	handle := hurl.Host
 
 	resdid, err := s.hr.ResolveHandleToDid(ctx, handle)
@@ -939,7 +944,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	exu, err := s.Index.LookupUserByDid(ctx, did)
 	if err == nil {
-		log.Infow("lost the race to create a new user", "did", did, "handle", handle)
+		log.Infow("lost the race to create a new user", "did", did, "handle", handle, "existing_hand", exu.Handle)
 		if exu.PDS != peering.ID {
 			// User is now on a different PDS, update
 			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("pds", peering.ID).Error; err != nil {
@@ -950,9 +955,16 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 		if exu.Handle != handle {
 			// Users handle has changed, update
-			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("handle", handle).Error; err != nil {
+			if err := s.db.Model(User{}).Where("id = ?", exu.Uid).Update("handle", handle).Error; err != nil {
 				return nil, fmt.Errorf("failed to update users handle: %w", err)
 			}
+
+			// Update ActorInfos
+			if err := s.db.Model(models.ActorInfo{}).Where("uid = ?", exu.Uid).Update("handle", handle).Error; err != nil {
+				return nil, fmt.Errorf("failed to update actorInfos handle: %w", err)
+			}
+
+			exu.Handle = handle
 
 			if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
 				RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
