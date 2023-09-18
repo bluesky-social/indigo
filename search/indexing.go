@@ -5,20 +5,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
+	"io/ioutil"
+	"regexp"
+	"strings"
 
-	bsky "github.com/bluesky-social/indigo/api/bsky"
+	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 
 	esapi "github.com/opensearch-project/opensearch-go/v2/opensearchapi"
 )
 
-func (s *Server) deletePost(ctx context.Context, u *User, path string) error {
-	log.Infof("deleting post: %s", path)
+func (s *Server) deletePost(ctx context.Context, ident *identity.Identity, rkey string) error {
+	s.logger.Info("deleting post from index", "repo", ident.DID, "rkey", rkey)
+	docID := fmt.Sprintf("%s_%s", ident.DID.String(), rkey)
 	req := esapi.DeleteRequest{
-		Index:      "posts",
-		DocumentID: encodeDocumentID(u.ID, path),
+		Index:      s.postIndex,
+		DocumentID: docID,
 		Refresh:    "true",
 	}
 
@@ -26,104 +30,93 @@ func (s *Server) deletePost(ctx context.Context, u *User, path string) error {
 	if err != nil {
 		return fmt.Errorf("failed to delete post: %w", err)
 	}
-
-	fmt.Println(res)
-
+	defer res.Body.Close()
+	ioutil.ReadAll(res.Body)
+	if res.IsError() {
+		s.logger.Warn("opensearch indexing error", "status_code", res.StatusCode, "response", res)
+		return fmt.Errorf("indexing error, code=%d", res.StatusCode)
+	}
 	return nil
 }
 
-func (s *Server) indexPost(ctx context.Context, u *User, rec *bsky.FeedPost, tid string, pcid cid.Cid) error {
-	if err := s.db.Create(&PostRef{
-		Cid: pcid.String(),
-		Tid: tid,
-		Uid: u.ID,
-	}).Error; err != nil {
+func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *appbsky.FeedPost, path string, rcid cid.Cid) error {
+
+	parts := strings.SplitN(path, "/", 3)
+	// TODO: replace with an atproto/syntax package type for TID
+	var tidRegex = regexp.MustCompile(`^[234567abcdefghijklmnopqrstuvwxyz]{13}$`)
+	if len(parts) != 2 || !tidRegex.MatchString(parts[1]) {
+		s.logger.Warn("skipping index post record with weird path/TID", "did", ident.DID, "path", path)
+		return nil
+	}
+	rkey := parts[1]
+
+	_, err := util.ParseTimestamp(rec.CreatedAt)
+	if err != nil {
+		s.logger.Warn("post had invalid timestamp", "repo", ident.DID, "rkey", rkey, "createdAt", rec.CreatedAt, "parseErr", err)
+		rec.CreatedAt = ""
+	}
+
+	doc := TransformPost(rec, ident, rkey, rcid.String())
+	b, err := json.Marshal(doc)
+	if err != nil {
 		return err
 	}
 
-	ts, err := time.Parse(util.ISO8601, rec.CreatedAt)
-	if err != nil {
-		return fmt.Errorf("post (%d, %s) had invalid timestamp (%q): %w", u.ID, tid, rec.CreatedAt, err)
-	}
-
-	blob := map[string]any{
-		"text":      rec.Text,
-		"createdAt": ts.UnixNano(),
-		"user":      u.Handle,
-	}
-	b, err := json.Marshal(blob)
-	if err != nil {
-		return err
-	}
-
-	log.Infof("Indexing post")
+	s.logger.Debug("indexing post", "did", ident.DID, "rkey", rkey)
 	req := esapi.IndexRequest{
-		Index:      "posts",
-		DocumentID: encodeDocumentID(u.ID, tid),
+		Index:      s.postIndex,
+		DocumentID: doc.DocId(),
 		Body:       bytes.NewReader(b),
-		Refresh:    "true",
 	}
 
 	res, err := req.Do(ctx, s.escli)
 	if err != nil {
 		return fmt.Errorf("failed to send indexing request: %w", err)
 	}
-
-	fmt.Println(res)
-
+	defer res.Body.Close()
+	ioutil.ReadAll(res.Body)
+	if res.IsError() {
+		s.logger.Warn("opensearch indexing error", "status_code", res.StatusCode, "response", res)
+		return fmt.Errorf("indexing error, code=%d", res.StatusCode)
+	}
 	return nil
 }
 
-func (s *Server) indexProfile(ctx context.Context, u *User, rec *bsky.ActorProfile) error {
-	b, err := json.Marshal(rec)
+func (s *Server) indexProfile(ctx context.Context, ident *identity.Identity, rec *appbsky.ActorProfile, path string, rcid cid.Cid) error {
+
+	parts := strings.SplitN(path, "/", 3)
+	if len(parts) != 2 || parts[1] != "self" {
+		s.logger.Warn("skipping indexing non-canonical profile record", "did", ident.DID, "path", path)
+		return nil
+	}
+
+	s.logger.Info("indexing profile", "did", ident.DID, "handle", ident.Handle)
+
+	doc := TransformProfile(rec, ident, rcid.String())
+	b, err := json.Marshal(doc)
 	if err != nil {
 		return err
 	}
-
-	n := ""
-	if rec.DisplayName != nil {
-		n = *rec.DisplayName
-	}
-
-	blob := map[string]string{
-		"displayName": n,
-		"handle":      u.Handle,
-		"did":         u.Did,
-	}
-
-	if rec.Description != nil {
-		blob["description"] = *rec.Description
-	}
-
-	log.Infof("Indexing profile: %s", n)
 	req := esapi.IndexRequest{
-		Index:      "profiles",
-		DocumentID: fmt.Sprint(u.ID),
+		Index:      s.profileIndex,
+		DocumentID: ident.DID.String(),
 		Body:       bytes.NewReader(b),
-		Refresh:    "true",
 	}
 
 	res, err := req.Do(context.Background(), s.escli)
 	if err != nil {
 		return fmt.Errorf("failed to send indexing request: %w", err)
 	}
-	fmt.Println(res)
-
+	defer res.Body.Close()
+	ioutil.ReadAll(res.Body)
+	if res.IsError() {
+		s.logger.Warn("opensearch indexing error", "status_code", res.StatusCode, "response", res)
+		return fmt.Errorf("indexing error, code=%d", res.StatusCode)
+	}
 	return nil
 }
 
 func (s *Server) updateUserHandle(ctx context.Context, did, handle string) error {
-	u, err := s.getOrCreateUser(ctx, did)
-	if err != nil {
-		return err
-	}
-
-	if err := s.db.Model(User{}).Where("id = ?", u.ID).Update("handle", handle).Error; err != nil {
-		return err
-	}
-
-	u.Handle = handle
-
 	b, err := json.Marshal(map[string]any{
 		"script": map[string]any{
 			"source": "ctx._source.handle = params.handle",
@@ -138,17 +131,20 @@ func (s *Server) updateUserHandle(ctx context.Context, did, handle string) error
 	}
 
 	req := esapi.UpdateRequest{
-		Index:      "profiles",
-		DocumentID: fmt.Sprint(u.ID),
+		Index:      s.profileIndex,
+		DocumentID: did,
 		Body:       bytes.NewReader(b),
-		Refresh:    "true",
 	}
 
 	res, err := req.Do(context.Background(), s.escli)
 	if err != nil {
 		return fmt.Errorf("failed to send indexing request: %w", err)
 	}
-	fmt.Println(res)
-
+	defer res.Body.Close()
+	ioutil.ReadAll(res.Body)
+	if res.IsError() {
+		s.logger.Warn("opensearch indexing error", "status_code", res.StatusCode, "response", res)
+		return fmt.Errorf("indexing error, code=%d", res.StatusCode)
+	}
 	return nil
 }

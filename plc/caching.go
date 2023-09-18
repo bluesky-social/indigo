@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	did "github.com/bluesky-social/indigo/did"
+	"github.com/bluesky-social/indigo/did"
 	lru "github.com/hashicorp/golang-lru"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -32,6 +32,10 @@ func NewCachingDidResolver(res did.Resolver, maxAge time.Duration, size int) *Ca
 		cache:  c,
 		maxAge: maxAge,
 	}
+}
+
+func (r *CachingDidResolver) FlushCacheFor(didstr string) {
+	r.cache.Remove(didstr)
 }
 
 func (r *CachingDidResolver) tryCache(did string) (*did.Document, bool) {

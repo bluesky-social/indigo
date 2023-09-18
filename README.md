@@ -19,7 +19,7 @@ We are developing in the open, but not ready to accept or review significant con
 
 *not to be confused with the [AT command set](https://en.wikipedia.org/wiki/Hayes_command_set) or [Adenosine triphosphate](https://en.wikipedia.org/wiki/Adenosine_triphosphate)*
 
-The Authenticated Transfer Protocol ("ATP" or "atproto") is a decentralized social media protocol, developed by [Bluesky PBLLC](https://blueskyweb.xyz). Learn more at:
+The Authenticated Transfer Protocol ("ATP" or "atproto") is a decentralized social media protocol, developed by [Bluesky PBC](https://blueskyweb.xyz). Learn more at:
 
 - [Protocol Documentation](https://atproto.com/docs)
 - [Overview Guide](https://atproto.com/guides/overview) 👈 Good place to start
