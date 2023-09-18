@@ -947,39 +947,54 @@ func (cs *CarStore) Stat(ctx context.Context, usr models.Uid) ([]UserStat, error
 }
 
 func (cs *CarStore) TakeDownRepo(ctx context.Context, user models.Uid) error {
-	var shards []CarShard
+	var shards []*CarShard
 	if err := cs.meta.Find(&shards, "usr = ?", user).Error; err != nil {
 		return err
 	}
 
-	for _, sh := range shards {
-		if err := cs.deleteShard(ctx, &sh); err != nil {
-			if !os.IsNotExist(err) {
-				return err
-			}
+	if err := cs.deleteShards(ctx, shards); err != nil {
+		if !os.IsNotExist(err) {
+			return err
 		}
-	}
-
-	if err := cs.meta.Delete(&CarShard{}, "usr = ?", user).Error; err != nil {
-		return err
 	}
 
 	return nil
 }
 
-func (cs *CarStore) deleteShard(ctx context.Context, sh *CarShard) error {
+func (cs *CarStore) deleteShards(ctx context.Context, shs []*CarShard) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "deleteShard")
 	defer span.End()
 
-	if err := cs.meta.Delete(&CarShard{}, "id = ?", sh.ID).Error; err != nil {
+	var ids []uint
+	for _, sh := range shs {
+		ids = append(ids, sh.ID)
+	}
+
+	txn := cs.meta.Begin()
+
+	if err := txn.Delete(&CarShard{}, "id in (?)", ids).Error; err != nil {
 		return err
 	}
 
-	if err := cs.meta.Delete(&blockRef{}, "shard = ?", sh.ID).Error; err != nil {
+	if err := txn.Delete(&blockRef{}, "shard in (?)", ids).Error; err != nil {
 		return err
 	}
 
-	return cs.deleteShardFile(ctx, sh)
+	if err := txn.Commit().Error; err != nil {
+		return err
+	}
+
+	var outErr error
+	for _, sh := range shs {
+		if err := cs.deleteShardFile(ctx, sh); err != nil {
+			if !os.IsNotExist(err) {
+				return err
+			}
+			outErr = err
+		}
+	}
+
+	return outErr
 }
 
 type shardStat struct {
@@ -1210,6 +1225,7 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) erro
 			return err
 		}
 
+		var todelete []*CarShard
 		for _, s := range b.shards {
 			removedShards[s.ID] = true
 			sh, ok := shardsById[s.ID]
@@ -1217,9 +1233,11 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) erro
 				return fmt.Errorf("missing shard to delete")
 			}
 
-			if err := cs.deleteShard(ctx, &sh); err != nil {
-				return fmt.Errorf("deleting shard: %w", err)
-			}
+			todelete = append(todelete, &sh)
+		}
+
+		if err := cs.deleteShards(ctx, todelete); err != nil {
+			return fmt.Errorf("deleting shards: %w", err)
 		}
 	}
 
