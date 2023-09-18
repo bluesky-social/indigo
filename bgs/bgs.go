@@ -1019,8 +1019,9 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 			if err := s.db.Create(&u).Error; err != nil {
 				return nil, fmt.Errorf("failed to create user after handle conflict: %w", err)
 			}
+		} else {
+			return nil, fmt.Errorf("failed to create other pds user: %w", err)
 		}
-		return nil, fmt.Errorf("failed to create other pds user: %w", err)
 	}
 
 	// okay cool, its a user on a server we are peered with
