@@ -4,7 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -134,7 +134,7 @@ func (s *Server) EnsureIndices(ctx context.Context) error {
 			return err
 		}
 		defer resp.Body.Close()
-		ioutil.ReadAll(resp.Body)
+		io.ReadAll(resp.Body)
 		if resp.IsError() && resp.StatusCode != 404 {
 			return fmt.Errorf("failed to check index existence")
 		}
@@ -151,7 +151,7 @@ func (s *Server) EnsureIndices(ctx context.Context) error {
 				return err
 			}
 			defer resp.Body.Close()
-			ioutil.ReadAll(resp.Body)
+			io.ReadAll(resp.Body)
 			if resp.IsError() {
 				return fmt.Errorf("failed to create index")
 			}
@@ -170,9 +170,8 @@ func (s *Server) handleHealthCheck(c echo.Context) error {
 	if err := s.db.Exec("SELECT 1").Error; err != nil {
 		s.logger.Error("healthcheck can't connect to database", "err", err)
 		return c.JSON(500, HealthStatus{Status: "error", Version: version.Version, Message: "can't connect to database"})
-	} else {
-		return c.JSON(200, HealthStatus{Status: "ok", Version: version.Version})
 	}
+	return c.JSON(200, HealthStatus{Status: "ok", Version: version.Version})
 }
 
 func (s *Server) RunAPI(listen string) error {

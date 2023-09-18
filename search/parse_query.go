@@ -12,7 +12,7 @@ import (
 	"github.com/google/shlex"
 )
 
-// takes a query string and pulls out some facet patterns ("from:handle.net") as filters
+// ParseQuery takes a query string and pulls out some facet patterns ("from:handle.net") as filters
 func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string, []map[string]interface{}) {
 	var filters []map[string]interface{}
 	parts, err := shlex.Split(raw)
