@@ -200,7 +200,7 @@ func TestBGSMultiGap(t *testing.T) {
 	b1.tr.TrialHosts = []string{p1.RawHost(), p2.RawHost()}
 
 	p1.RequestScraping(t, b1)
-	time.Sleep(time.Millisecond * 50)
+	time.Sleep(time.Millisecond * 250)
 
 	users := []*TestUser{p1.MustNewUser(t, usernames[0]+".pdsuno")}
 
@@ -211,7 +211,7 @@ func TestBGSMultiGap(t *testing.T) {
 	p2posts := socialSim(t, users2, 10, 0)
 
 	users[0].Reply(t, p2posts[0], p2posts[0], "what a wonderful life")
-	time.Sleep(time.Millisecond * 500)
+	time.Sleep(time.Second * 2)
 
 	ctx := context.Background()
 	_, err := b1.bgs.Index.GetPost(ctx, p2posts[3].Uri)
@@ -226,7 +226,7 @@ func TestBGSMultiGap(t *testing.T) {
 	time.Sleep(time.Second)
 
 	p2.RequestScraping(t, b1)
-	time.Sleep(time.Millisecond * 50)
+	time.Sleep(time.Second * 2)
 
 	// Now, the bgs will discover a gap, and have to catch up somehow
 	socialSim(t, users2, 1, 0)

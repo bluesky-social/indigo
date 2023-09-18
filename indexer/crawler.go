@@ -64,114 +64,134 @@ type crawlWork struct {
 	act        *models.ActorInfo
 	initScrape bool
 
+	// for events that come in while this actor's crawl is enqueued
+	// catchup items are processed during the crawl
 	catchup []*catchupJob
 
 	// for events that come in while this actor is being processed
+	// next items are processed after the crawl
 	next []*catchupJob
-
-	rebase *catchupJob
 }
 
 func (c *CrawlDispatcher) mainLoop() {
-	var next *crawlWork
-	var buffer []*crawlWork
+	var nextDispatchedJob *crawlWork
+	var jobsAwaitingDispatch []*crawlWork
 
-	var rs chan *crawlWork
+	// dispatchQueue represents the repoSync worker channel to which we dispatch crawl work
+	var dispatchQueue chan *crawlWork
+
 	for {
 		select {
-		case act := <-c.ingest:
+		case actorToCrawl := <-c.ingest:
 			// TODO: max buffer size
-
-			c.maplk.Lock()
-			_, ok := c.inProgress[act.Uid]
-			if ok {
-				c.maplk.Unlock()
+			crawlJob := c.enqueueJobForActor(actorToCrawl)
+			if crawlJob == nil {
 				break
 			}
 
-			_, has := c.todo[act.Uid]
-			if has {
-				c.maplk.Unlock()
-				break
-			}
-
-			cw := &crawlWork{
-				act:        act,
-				initScrape: true,
-			}
-			c.todo[act.Uid] = cw
-			c.maplk.Unlock()
-
-			if next == nil {
-				next = cw
-				rs = c.repoSync
+			if nextDispatchedJob == nil {
+				nextDispatchedJob = crawlJob
+				dispatchQueue = c.repoSync
 			} else {
-				buffer = append(buffer, cw)
+				jobsAwaitingDispatch = append(jobsAwaitingDispatch, crawlJob)
 			}
-		case rs <- next:
-			c.maplk.Lock()
-			delete(c.todo, next.act.Uid)
-			c.inProgress[next.act.Uid] = next
-			c.maplk.Unlock()
+		case dispatchQueue <- nextDispatchedJob:
+			c.dequeueJob(nextDispatchedJob)
 
-			if len(buffer) > 0 {
-				next = buffer[0]
-				buffer = buffer[1:]
+			if len(jobsAwaitingDispatch) > 0 {
+				nextDispatchedJob = jobsAwaitingDispatch[0]
+				jobsAwaitingDispatch = jobsAwaitingDispatch[1:]
 			} else {
-				next = nil
-				rs = nil
+				nextDispatchedJob = nil
+				dispatchQueue = nil
 			}
-		case cw := <-c.catchup:
-			if next == nil {
-				next = cw
-				rs = c.repoSync
+		case catchupJob := <-c.catchup:
+			// CatchupJobs are for processing events that come in while a crawl is in progress
+			// They are lower priority than new crawls so we only add them to the queue if there isn't already a job in progress
+			if nextDispatchedJob == nil {
+				nextDispatchedJob = catchupJob
+				dispatchQueue = c.repoSync
 			} else {
-				buffer = append(buffer, cw)
+				jobsAwaitingDispatch = append(jobsAwaitingDispatch, catchupJob)
 			}
-
 		case uid := <-c.complete:
 			c.maplk.Lock()
+
 			job, ok := c.inProgress[uid]
 			if !ok {
 				panic("should not be possible to not have a job in progress we receive a completion signal for")
 			}
 			delete(c.inProgress, uid)
 
+			// If there are any subsequent jobs for this UID, add it back to the todo list or buffer.
+			// We're basically pumping the `next` queue into the `catchup` queue and will do this over and over until the `next` queue is empty.
 			if len(job.next) > 0 {
 				c.todo[uid] = job
 				job.initScrape = false
 				job.catchup = job.next
 				job.next = nil
-				if next == nil {
-					next = job
-					rs = c.repoSync
+				if nextDispatchedJob == nil {
+					nextDispatchedJob = job
+					dispatchQueue = c.repoSync
 				} else {
-					buffer = append(buffer, job)
+					jobsAwaitingDispatch = append(jobsAwaitingDispatch, job)
 				}
 			}
-
 			c.maplk.Unlock()
-
 		}
 	}
 }
 
-func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
+// enqueueJobForActor adds a new crawl job to the todo list if there isn't already a job in progress for this actor
+func (c *CrawlDispatcher) enqueueJobForActor(ai *models.ActorInfo) *crawlWork {
 	c.maplk.Lock()
 	defer c.maplk.Unlock()
+	_, ok := c.inProgress[ai.Uid]
+	if ok {
+		return nil
+	}
+
+	_, has := c.todo[ai.Uid]
+	if has {
+		return nil
+	}
+
+	crawlJob := &crawlWork{
+		act:        ai,
+		initScrape: true,
+	}
+	c.todo[ai.Uid] = crawlJob
+	return crawlJob
+}
+
+// dequeueJob removes a job from the todo list and adds it to the inProgress list
+func (c *CrawlDispatcher) dequeueJob(job *crawlWork) {
+	c.maplk.Lock()
+	defer c.maplk.Unlock()
+	delete(c.todo, job.act.Uid)
+	c.inProgress[job.act.Uid] = job
+}
+
+func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
+	catchupEventsEnqueued.Inc()
+	c.maplk.Lock()
+	defer c.maplk.Unlock()
+
+	// If the actor crawl is enqueued, we can append to the catchup queue which gets emptied during the crawl
 	job, ok := c.todo[catchup.user.Uid]
-	// TODO: in the event of receiving a rebase event, we *could* pre-empt all other pending events
 	if ok {
 		job.catchup = append(job.catchup, catchup)
 		return nil
 	}
 
+	// If the actor crawl is in progress, we can append to the nextr queue which gets emptied after the crawl
 	job, ok = c.inProgress[catchup.user.Uid]
 	if ok {
 		job.next = append(job.next, catchup)
 		return nil
 	}
 
+	// Otherwise, we need to create a new crawl job for this actor and enqueue it
 	cw := &crawlWork{
 		act:     catchup.user,
 		catchup: []*catchupJob{catchup},
