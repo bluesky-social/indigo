@@ -62,6 +62,42 @@ type PublicKey interface {
 
 var ErrInvalidSignature = errors.New("crytographic signature invalid")
 
+/*
+// quick code to verify varint byte conversion (https://play.golang.com/):
+import  (
+	"encoding/binary"
+	"fmt"
+)
+buf := make([]byte, binary.MaxVarintLen64)
+for _, x := range []uint64{0xE7, 0x1200, 0x1306, 0x1301} {
+	n := binary.PutUvarint(buf, x)
+	fmt.Printf("%x -> %x\n", x, buf[:n])
+}
+*/
+
+// Loads a private key from multibase string encoding, with multicodec indicating the key type.
+func ParsePrivateMultibase(encoded string) (PrivateKeyExportable, error) {
+	if len(encoded) < 2 || encoded[0] != 'z' {
+		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
+	}
+	data, err := base58.Decode(encoded[1:])
+	if err != nil {
+		return nil, fmt.Errorf("crypto: not a multibase base58btc string")
+	}
+	if len(data) < 3 {
+		return nil, fmt.Errorf("crypto: multibase key was too short")
+	}
+	if data[0] == 0x86 && data[1] == 0x26 {
+		// multicodec p256-priv, code 0x1306, varint-encoded bytes: [0x86, 0x26]
+		return ParsePrivateBytesP256(data[2:])
+	} else if data[0] == 0x81 && data[1] == 0x26 {
+		// multicodec secp256k1-priv, code 0x1301, varint-encoded bytes: [0x81, 0x26]
+		return ParsePrivateBytesK256(data[2:])
+	} else {
+		return nil, fmt.Errorf("unsupported atproto key type (unknown multicodec prefix)")
+	}
+}
+
 // Loads a public key from multibase string encoding, with multicodec indicating the key type.
 func ParsePublicMultibase(encoded string) (PublicKey, error) {
 	if len(encoded) < 2 || encoded[0] != 'z' {
