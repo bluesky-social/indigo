@@ -1260,6 +1260,13 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) erro
 	// now we need to delete the staleRefs we successfully cleaned up
 	// we can delete a staleRef if all the shards that have blockRefs with matching stale refs were processed
 
+	return cs.deleteStaleRefs(ctx, brefs, staleRefs, removedShards)
+}
+
+func (cs *CarStore) deleteStaleRefs(ctx context.Context, brefs []blockRef, staleRefs []staleRef, removedShards map[uint]bool) error {
+	ctx, span := otel.Tracer("carstore").Start(ctx, "deleteStaleRefs")
+	defer span.End()
+
 	brByCid := make(map[cid.Cid][]blockRef)
 	for _, br := range brefs {
 		brByCid[br.Cid.CID] = append(brByCid[br.Cid.CID], br)
