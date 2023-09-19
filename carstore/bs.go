@@ -965,36 +965,52 @@ func (cs *CarStore) deleteShards(ctx context.Context, shs []*CarShard) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "deleteShard")
 	defer span.End()
 
-	var ids []uint
-	for _, sh := range shs {
-		ids = append(ids, sh.ID)
-	}
+	deleteSlice := func(ctx context.Context, subs []*CarShard) error {
+		var ids []uint
+		for _, sh := range subs {
+			ids = append(ids, sh.ID)
+		}
 
-	txn := cs.meta.Begin()
+		txn := cs.meta.Begin()
 
-	if err := txn.Delete(&CarShard{}, "id in (?)", ids).Error; err != nil {
-		return err
-	}
+		if err := txn.Delete(&CarShard{}, "id in (?)", ids).Error; err != nil {
+			return err
+		}
 
-	if err := txn.Delete(&blockRef{}, "shard in (?)", ids).Error; err != nil {
-		return err
-	}
+		if err := txn.Delete(&blockRef{}, "shard in (?)", ids).Error; err != nil {
+			return err
+		}
 
-	if err := txn.Commit().Error; err != nil {
-		return err
-	}
+		if err := txn.Commit().Error; err != nil {
+			return err
+		}
 
-	var outErr error
-	for _, sh := range shs {
-		if err := cs.deleteShardFile(ctx, sh); err != nil {
-			if !os.IsNotExist(err) {
-				return err
+		var outErr error
+		for _, sh := range subs {
+			if err := cs.deleteShardFile(ctx, sh); err != nil {
+				if !os.IsNotExist(err) {
+					return err
+				}
+				outErr = err
 			}
-			outErr = err
+		}
+
+		return outErr
+	}
+
+	chunkSize := 100
+	for i := 0; i < len(shs); i += chunkSize {
+		sl := shs[i:]
+		if len(sl) > chunkSize {
+			sl = sl[:chunkSize]
+		}
+
+		if err := deleteSlice(ctx, sl); err != nil {
+			return err
 		}
 	}
 
-	return outErr
+	return nil
 }
 
 type shardStat struct {
@@ -1265,8 +1281,16 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) erro
 		}
 	}
 
-	if err := cs.meta.Delete(&staleRef{}, "id in (?)", staleToDelete).Error; err != nil {
-		return err
+	chunkSize := 100
+	for i := 0; i < len(staleToDelete); i += chunkSize {
+		sl := staleToDelete[i:]
+		if len(sl) > chunkSize {
+			sl = sl[:chunkSize]
+		}
+
+		if err := cs.meta.Delete(&staleRef{}, "id in (?)", sl).Error; err != nil {
+			return err
+		}
 	}
 
 	return nil
