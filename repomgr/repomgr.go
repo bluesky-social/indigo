@@ -884,7 +884,7 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user models.Uid, r io
 		return ds.CloseWithRoot(ctx, root, nrev)
 	}
 
-	if err := cb(ctx, root, finish, membs); err != nil {
+	if err := cb(ctx, root, finish, ds); err != nil {
 		return fmt.Errorf("cb errored root: %s, rev: %s: %w", root, *rev, err)
 	}
 
