@@ -385,6 +385,11 @@ func (bgs *BGS) CreateAdminToken(tok string) error {
 
 func (bgs *BGS) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(e echo.Context) error {
+		ctx, span := otel.Tracer("bgs").Start(e.Request().Context(), "checkAdminAuth")
+		defer span.End()
+
+		e.SetRequest(e.Request().WithContext(ctx))
+
 		authheader := e.Request().Header.Get("Authorization")
 		pref := "Bearer "
 		if !strings.HasPrefix(authheader, pref) {
