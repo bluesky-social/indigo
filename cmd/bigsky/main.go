@@ -172,7 +172,8 @@ func Bigsky(cctx *cli.Context) error {
 	// https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace#readme-environment-variables
 	// At a minimum, you need to set
 	// OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") != "" {
+	if ep := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); ep != "" {
+		log.Infow("setting up trace exporter", "endpoint", ep)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -208,12 +209,14 @@ func Bigsky(cctx *cli.Context) error {
 		return err
 	}
 
+	log.Infow("setting up main database")
 	dburl := cctx.String("db-url")
 	db, err := cliutil.SetupDatabase(dburl, cctx.Int("max-metadb-connections"))
 	if err != nil {
 		return err
 	}
 
+	log.Infow("setting up carstore database")
 	csdburl := cctx.String("carstore-db-url")
 	csdb, err := cliutil.SetupDatabase(csdburl, cctx.Int("max-carstore-connections"))
 	if err != nil {
@@ -255,6 +258,7 @@ func Bigsky(cctx *cli.Context) error {
 	var persister events.EventPersistence
 
 	if dpd := cctx.String("disk-persister-dir"); dpd != "" {
+		log.Infow("setting up disk persister")
 		dp, err := events.NewDiskPersistence(dpd, "", db, events.DefaultDiskPersistOptions())
 		if err != nil {
 			return fmt.Errorf("setting up disk persister: %w", err)
@@ -317,6 +321,7 @@ func Bigsky(cctx *cli.Context) error {
 		}
 	}
 
+	log.Infow("constructing bgs")
 	bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, hr, !cctx.Bool("crawl-insecure-ws"))
 	if err != nil {
 		return err
@@ -342,6 +347,7 @@ func Bigsky(cctx *cli.Context) error {
 		bgsErr <- err
 	}()
 
+	log.Infow("startup complete")
 	select {
 	case <-signals:
 		log.Info("received shutdown signal")
