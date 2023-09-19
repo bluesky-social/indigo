@@ -91,9 +91,9 @@ type blockRef struct {
 }
 
 type staleRef struct {
-	ID  uint         `gorm:"primarykey"`
-	Cid models.DbCID `gorm:"index"`
-	Usr models.Uid
+	ID  uint `gorm:"primarykey"`
+	Cid models.DbCID
+	Usr models.Uid `gorm:"index"`
 }
 
 type userView struct {
