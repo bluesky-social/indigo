@@ -1151,7 +1151,7 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) erro
 	span.SetAttributes(attribute.Int64("user", int64(user)))
 
 	var shards []CarShard
-	if err := cs.meta.Find(&shards, "usr = ?", user).Error; err != nil {
+	if err := cs.meta.WithContext(ctx).Find(&shards, "usr = ?", user).Error; err != nil {
 		return err
 	}
 
@@ -1166,12 +1166,12 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) erro
 	}
 
 	var brefs []blockRef
-	if err := cs.meta.Debug().Raw(`select * from block_refs where shard in (?)`, shardIds).Scan(&brefs).Error; err != nil {
+	if err := cs.meta.WithContext(ctx).Raw(`select * from block_refs where shard in (?)`, shardIds).Scan(&brefs).Error; err != nil {
 		return err
 	}
 
 	var staleRefs []staleRef
-	if err := cs.meta.Debug().Find(&staleRefs, "usr = ?", user).Error; err != nil {
+	if err := cs.meta.WithContext(ctx).Find(&staleRefs, "usr = ?", user).Error; err != nil {
 		return err
 	}
 
