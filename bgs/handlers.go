@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	"gorm.io/gorm"
 
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -174,7 +176,50 @@ func (s *BGS) handleComAtprotoSyncListBlobs(ctx context.Context, cursor string, 
 }
 
 func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, limit int) (*comatprototypes.SyncListRepos_Output, error) {
-	return nil, fmt.Errorf("NYI")
+	if limit > 1000 {
+		limit = 1000
+	}
+
+	// Use UIDs for the cursor
+	var err error
+	c := int64(0)
+	if cursor != "" {
+		c, err = strconv.ParseInt(cursor, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid cursor: %w", err)
+		}
+	}
+
+	users := []User{}
+	if err := s.db.Model(&User{}).Where("uid > ?", c).Limit(limit).Find(&users).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return &comatprototypes.SyncListRepos_Output{}, nil
+		}
+		return nil, fmt.Errorf("failed to get users: %w", err)
+	}
+
+	resp := &comatprototypes.SyncListRepos_Output{
+		Repos: []*comatprototypes.SyncListRepos_Repo{},
+	}
+
+	for i := range users {
+		user := users[i]
+		root, err := s.repoman.GetRepoRoot(ctx, user.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get repo root for (%s): %w", user.Did, err)
+		}
+
+		resp.Repos = append(resp.Repos, &comatprototypes.SyncListRepos_Repo{
+			Did:  user.Did,
+			Head: root.String(),
+		})
+	}
+
+	c += int64(len(users))
+	cursor = strconv.FormatInt(c, 10)
+	resp.Cursor = &cursor
+
+	return resp, nil
 }
 
 func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatprototypes.SyncGetLatestCommit_Output, error) {
