@@ -10,32 +10,27 @@ import (
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 )
 
+// Since the removal of repo history, this is the same as GetRepo but without the "since" bit
 func (s *BGS) handleComAtprotoSyncGetCheckout(ctx context.Context, did string) (io.Reader, error) {
-	/*
-		u, err := s.Index.LookupUserByDid(ctx, did)
-		if err != nil {
-			return nil, err
-		}
+	u, err := s.Index.LookupUserByDid(ctx, did)
+	if err != nil {
+		return nil, err
+	}
 
-		c, err := cid.Decode(commit)
-		if err != nil {
-			return nil, err
-		}
+	// TODO: stream the response
+	buf := new(bytes.Buffer)
+	if err := s.repoman.ReadRepo(ctx, u.Uid, "", buf); err != nil {
+		return nil, fmt.Errorf("failed to read repo: %w", err)
+	}
 
-		// TODO: need to enable a 'write to' interface for codegenned things...
-		buf := new(bytes.Buffer)
-		if err := s.repoman.GetCheckout(ctx, u.Uid, c, buf); err != nil {
-			return nil, err
-		}
-
-		return buf, nil
-	*/
-	return nil, fmt.Errorf("nyi")
+	return buf, nil
 }
 
 func (s *BGS) handleComAtprotoSyncGetCommitPath(ctx context.Context, did string, earliest string, latest string) (*comatprototypes.SyncGetCommitPath_Output, error) {
@@ -59,7 +54,31 @@ func (s *BGS) handleComAtprotoSyncGetHead(ctx context.Context, did string) (*com
 }
 
 func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection string, commit string, did string, rkey string) (io.Reader, error) {
-	return nil, fmt.Errorf("nyi")
+	u, err := s.Index.LookupUserByDid(ctx, did)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find user: %w", err)
+	}
+
+	reqCid := cid.Undef
+	if commit != "" {
+		reqCid, err = cid.Decode(commit)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode commit cid: %w", err)
+		}
+	}
+
+	_, record, err := s.repoman.GetRecord(ctx, u.Uid, collection, rkey, reqCid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get record: %w", err)
+	}
+
+	buf := new(bytes.Buffer)
+	err = record.MarshalCBOR(buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal record: %w", err)
+	}
+
+	return buf, nil
 }
 
 func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since string) (io.Reader, error) {
@@ -159,5 +178,23 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 }
 
 func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatprototypes.SyncGetLatestCommit_Output, error) {
-	return nil, fmt.Errorf("NYI")
+	u, err := s.Index.LookupUserByDid(ctx, did)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find user: %w", err)
+	}
+
+	root, err := s.repoman.GetRepoRoot(ctx, u.Uid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repo root: %w", err)
+	}
+
+	rev, err := s.repoman.GetRepoRev(ctx, u.Uid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repo rev: %w", err)
+	}
+
+	return &comatprototypes.SyncGetLatestCommit_Output{
+		Cid: root.String(),
+		Rev: rev,
+	}, nil
 }
