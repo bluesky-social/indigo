@@ -19,42 +19,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// Since the removal of repo history, this is the same as GetRepo but without the "since" bit
-func (s *BGS) handleComAtprotoSyncGetCheckout(ctx context.Context, did string) (io.Reader, error) {
-	u, err := s.Index.LookupUserByDid(ctx, did)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: stream the response
-	buf := new(bytes.Buffer)
-	if err := s.repoman.ReadRepo(ctx, u.Uid, "", buf); err != nil {
-		return nil, fmt.Errorf("failed to read repo: %w", err)
-	}
-
-	return buf, nil
-}
-
-func (s *BGS) handleComAtprotoSyncGetCommitPath(ctx context.Context, did string, earliest string, latest string) (*comatprototypes.SyncGetCommitPath_Output, error) {
-	return nil, fmt.Errorf("nyi")
-}
-
-func (s *BGS) handleComAtprotoSyncGetHead(ctx context.Context, did string) (*comatprototypes.SyncGetHead_Output, error) {
-	u, err := s.Index.LookupUserByDid(ctx, did)
-	if err != nil {
-		return nil, err
-	}
-
-	root, err := s.repoman.GetRepoRoot(ctx, u.Uid)
-	if err != nil {
-		return nil, err
-	}
-
-	return &comatprototypes.SyncGetHead_Output{
-		Root: root.String(),
-	}, nil
-}
-
 func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection string, commit string, did string, rkey string) (io.Reader, error) {
 	u, err := s.Index.LookupUserByDid(ctx, did)
 	if err != nil {
@@ -191,7 +155,7 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 	}
 
 	users := []User{}
-	if err := s.db.Model(&User{}).Where("uid > ?", c).Limit(limit).Find(&users).Error; err != nil {
+	if err := s.db.Model(&User{}).Where("uid > ?", c).Order("uid").Limit(limit).Find(&users).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return &comatprototypes.SyncListRepos_Output{}, nil
 		}

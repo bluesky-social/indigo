@@ -273,8 +273,6 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	// TODO: this API is temporary until we formalize what we want here
 
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", bgs.EventsHandler)
-	e.GET("/xrpc/com.atproto.sync.getCheckout", bgs.HandleComAtprotoSyncGetCheckout)
-	e.GET("/xrpc/com.atproto.sync.getHead", bgs.HandleComAtprotoSyncGetHead)
 	e.GET("/xrpc/com.atproto.sync.getRecord", bgs.HandleComAtprotoSyncGetRecord)
 	e.GET("/xrpc/com.atproto.sync.getRepo", bgs.HandleComAtprotoSyncGetRepo)
 	e.GET("/xrpc/com.atproto.sync.getBlocks", bgs.HandleComAtprotoSyncGetBlocks)
