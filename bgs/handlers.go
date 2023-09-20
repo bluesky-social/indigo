@@ -198,6 +198,10 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 		return nil, fmt.Errorf("failed to get users: %w", err)
 	}
 
+	if len(users) == 0 {
+		return &comatprototypes.SyncListRepos_Output{}, nil
+	}
+
 	resp := &comatprototypes.SyncListRepos_Output{
 		Repos: []*comatprototypes.SyncListRepos_Repo{},
 	}
