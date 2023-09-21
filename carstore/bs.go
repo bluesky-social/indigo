@@ -1150,11 +1150,11 @@ func (cs *CarStore) GetCompactionTargets(ctx context.Context) ([]CompactionTarge
 }
 
 type CompactionStats struct {
-	StartShards   int
-	NewShards     int
-	SkippedShards int
-	ShardsDeleted int
-	RefsDeleted   int
+	StartShards   int `json:"startShards"`
+	NewShards     int `json:"newShards"`
+	SkippedShards int `json:"skippedShards"`
+	ShardsDeleted int `json:"shardsDeleted"`
+	RefsDeleted   int `json:"refsDeleted"`
 }
 
 func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*CompactionStats, error) {
