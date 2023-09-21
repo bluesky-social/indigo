@@ -140,7 +140,7 @@ func TestBasicOperation(t *testing.T) {
 	}
 	checkRepo(t, buf, recs)
 
-	if err := cs.CompactUserShards(ctx, 1); err != nil {
+	if _, err := cs.CompactUserShards(ctx, 1); err != nil {
 		t.Fatal(err)
 	}
 
@@ -217,9 +217,12 @@ func TestRepeatedCompactions(t *testing.T) {
 			head = nroot
 		}
 		fmt.Println("Run compaction", loop)
-		if err := cs.CompactUserShards(ctx, 1); err != nil {
+		st, err := cs.CompactUserShards(ctx, 1)
+		if err != nil {
 			t.Fatal(err)
 		}
+
+		fmt.Printf("%#v\n", st)
 
 		buf := new(bytes.Buffer)
 		if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
@@ -236,6 +239,7 @@ func TestRepeatedCompactions(t *testing.T) {
 }
 
 func checkRepo(t *testing.T, r io.Reader, expRecs []cid.Cid) {
+	t.Helper()
 	rep, err := repo.ReadRepoFromCar(context.TODO(), r)
 	if err != nil {
 		t.Fatal(err)
