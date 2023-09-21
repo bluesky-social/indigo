@@ -1275,14 +1275,8 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 	for _, b := range compactionQueue {
 		if !b.shouldCompact() {
 			stats.SkippedShards += len(b.shards)
-			for _, s := range b.shards {
-				fmt.Println("o: ", s.Total, s.dirtyFrac())
-
-			}
 			continue
 		}
-
-		fmt.Println("n: ", b.cleanBlocks)
 
 		if err := cs.compactBucket(ctx, user, b, shardsById, keep); err != nil {
 			return nil, err
