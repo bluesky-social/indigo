@@ -155,7 +155,7 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 	}
 
 	users := []User{}
-	if err := s.db.Model(&User{}).Where("uid > ?", c).Order("uid").Limit(limit).Find(&users).Error; err != nil {
+	if err := s.db.Model(&User{}).Where("id > ?", c).Order("id").Limit(limit).Find(&users).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return &comatprototypes.SyncListRepos_Output{}, nil
 		}
