@@ -140,10 +140,6 @@ func (s *BGS) handleComAtprotoSyncListBlobs(ctx context.Context, cursor string, 
 }
 
 func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, limit int) (*comatprototypes.SyncListRepos_Output, error) {
-	if limit > 1000 {
-		limit = 1000
-	}
-
 	// Use UIDs for the cursor
 	var err error
 	c := int64(0)
