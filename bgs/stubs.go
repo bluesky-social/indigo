@@ -1,10 +1,14 @@
 package bgs
 
 import (
+	"fmt"
 	"io"
+	"net/http"
 	"strconv"
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
 )
@@ -29,12 +33,23 @@ func (s *BGS) RegisterHandlersComAtproto(e *echo.Echo) error {
 func (s *BGS) HandleComAtprotoSyncGetBlob(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetBlob")
 	defer span.End()
-	cid := c.QueryParam("cid")
+	bCid := c.QueryParam("cid")
 	did := c.QueryParam("did")
+
+	_, err := cid.Parse(bCid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid cid: %w", err))
+	}
+
+	_, err = syntax.ParseDID(did)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid did: %w", err))
+	}
+
 	var out io.Reader
 	var handleErr error
 	// func (s *BGS) handleComAtprotoSyncGetBlob(ctx context.Context,cid string,did string) (io.Reader, error)
-	out, handleErr = s.handleComAtprotoSyncGetBlob(ctx, cid, did)
+	out, handleErr = s.handleComAtprotoSyncGetBlob(ctx, bCid, did)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -47,6 +62,18 @@ func (s *BGS) HandleComAtprotoSyncGetBlocks(c echo.Context) error {
 
 	cids := c.QueryParams()["cids"]
 	did := c.QueryParam("did")
+	_, err := syntax.ParseDID(did)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid did: %w", err))
+	}
+
+	for _, c := range cids {
+		_, err = cid.Parse(c)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid cid: %w", err))
+		}
+	}
+
 	var out io.Reader
 	var handleErr error
 	// func (s *BGS) handleComAtprotoSyncGetBlocks(ctx context.Context,cids []string,did string) (io.Reader, error)
@@ -61,6 +88,12 @@ func (s *BGS) HandleComAtprotoSyncGetLatestCommit(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetLatestCommit")
 	defer span.End()
 	did := c.QueryParam("did")
+
+	_, err := syntax.ParseDID(did)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid did: %w", err))
+	}
+
 	var out *comatprototypes.SyncGetLatestCommit_Output
 	var handleErr error
 	// func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context,did string) (*comatprototypes.SyncGetLatestCommit_Output, error)
@@ -78,6 +111,29 @@ func (s *BGS) HandleComAtprotoSyncGetRecord(c echo.Context) error {
 	commit := c.QueryParam("commit")
 	did := c.QueryParam("did")
 	rkey := c.QueryParam("rkey")
+
+	_, err := syntax.ParseRecordKey(rkey)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid rkey: %w", err))
+	}
+
+	_, err = syntax.ParseNSID(collection)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid collection: %w", err))
+	}
+
+	_, err = syntax.ParseDID(did)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid did: %w", err))
+	}
+
+	if commit != "" {
+		_, err = cid.Parse(commit)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid commit: %w", err))
+		}
+	}
+
 	var out io.Reader
 	var handleErr error
 	// func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context,collection string,commit string,did string,rkey string) (io.Reader, error)
@@ -93,6 +149,12 @@ func (s *BGS) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	defer span.End()
 	did := c.QueryParam("did")
 	since := c.QueryParam("since")
+
+	_, err := syntax.ParseDID(did)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid did: %w", err))
+	}
+
 	var out io.Reader
 	var handleErr error
 	// func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context,did string,since string) (io.Reader, error)
@@ -114,11 +176,17 @@ func (s *BGS) HandleComAtprotoSyncListBlobs(c echo.Context) error {
 		var err error
 		limit, err = strconv.Atoi(p)
 		if err != nil {
-			return err
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid limit: %w", err))
 		}
 	} else {
 		limit = 500
 	}
+
+	_, err := syntax.ParseDID(did)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid did: %w", err))
+	}
+
 	since := c.QueryParam("since")
 	var out *comatprototypes.SyncListBlobs_Output
 	var handleErr error
