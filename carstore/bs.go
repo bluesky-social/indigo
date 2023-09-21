@@ -367,11 +367,6 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev s
 		return err
 	}
 
-	var allshards []CarShard
-	if err := cs.meta.Order("seq desc").Where("usr = ?", user).Find(&allshards).Error; err != nil {
-		return err
-	}
-
 	if !incremental && earlySeq > 0 {
 		// have to do it the ugly way
 		return fmt.Errorf("nyi")
@@ -1031,25 +1026,6 @@ func (s shardStat) dirtyFrac() float64 {
 	return float64(s.Dirty) / float64(s.Total)
 }
 
-func shouldCompact(s shardStat) bool {
-	// if shard is mostly removed blocks
-	if s.dirtyFrac() > 0.5 {
-		return true
-	}
-
-	// if its a big shard with a sufficient number of removed blocks
-	if s.Dirty > 1000 {
-		return true
-	}
-
-	// if its just rather small and we want to compact it up with other shards
-	if s.Total < 20 {
-		return true
-	}
-
-	return false
-}
-
 func aggrRefs(brefs []blockRef, shards map[uint]CarShard, staleCids map[cid.Cid]bool) []shardStat {
 	byId := make(map[uint]*shardStat)
 
@@ -1106,7 +1082,7 @@ func (cb *compBucket) shouldCompact() bool {
 	frac /= float64(len(cb.shards))
 
 	if len(cb.shards) > 3 && frac > 0.2 {
-
+		return true
 	}
 
 	return frac > 0.4
@@ -1268,10 +1244,9 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 	}
 
 	thresholdForPosition := func(i int) int {
-		if i >= len(threshs) {
-			return 5
+		if i > len(threshs) {
+			return lowBound
 		}
-
 		return threshs[i]
 	}
 
@@ -1300,8 +1275,14 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 	for _, b := range compactionQueue {
 		if !b.shouldCompact() {
 			stats.SkippedShards += len(b.shards)
+			for _, s := range b.shards {
+				fmt.Println("o: ", s.Total, s.dirtyFrac())
+
+			}
 			continue
 		}
+
+		fmt.Println("n: ", b.cleanBlocks)
 
 		if err := cs.compactBucket(ctx, user, b, shardsById, keep); err != nil {
 			return nil, err
