@@ -13,6 +13,10 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
+type XRPCError struct {
+	Message string `json:"message"`
+}
+
 func (s *BGS) RegisterHandlersAppBsky(e *echo.Echo) error {
 	return nil
 }
@@ -38,12 +42,12 @@ func (s *BGS) HandleComAtprotoSyncGetBlob(c echo.Context) error {
 
 	_, err := cid.Parse(bCid)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid cid: %w", err))
+		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid cid: %s", bCid)})
 	}
 
 	_, err = syntax.ParseDID(did)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid did: %w", err))
+		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid did: %s", did)})
 	}
 
 	var out io.Reader
@@ -64,13 +68,13 @@ func (s *BGS) HandleComAtprotoSyncGetBlocks(c echo.Context) error {
 	did := c.QueryParam("did")
 	_, err := syntax.ParseDID(did)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid did: %w", err))
+		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid did: %s", did)})
 	}
 
-	for _, c := range cids {
-		_, err = cid.Parse(c)
+	for _, cd := range cids {
+		_, err = cid.Parse(cd)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid cid: %w", err))
+			return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid cid: %s", cd)})
 		}
 	}
 
@@ -91,7 +95,7 @@ func (s *BGS) HandleComAtprotoSyncGetLatestCommit(c echo.Context) error {
 
 	_, err := syntax.ParseDID(did)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid did: %w", err))
+		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid did: %s", did)})
 	}
 
 	var out *comatprototypes.SyncGetLatestCommit_Output
@@ -114,23 +118,23 @@ func (s *BGS) HandleComAtprotoSyncGetRecord(c echo.Context) error {
 
 	_, err := syntax.ParseRecordKey(rkey)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid rkey: %w", err))
+		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid rkey: %s", rkey)})
 	}
 
 	_, err = syntax.ParseNSID(collection)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid collection: %w", err))
+		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid collection: %s", collection)})
 	}
 
 	_, err = syntax.ParseDID(did)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid did: %w", err))
+		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid did: %s", did)})
 	}
 
 	if commit != "" {
 		_, err = cid.Parse(commit)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid commit: %w", err))
+			return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid commit: %s", commit)})
 		}
 	}
 
@@ -152,7 +156,7 @@ func (s *BGS) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 
 	_, err := syntax.ParseDID(did)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid did: %w", err))
+		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid did: %s", did)})
 	}
 
 	var out io.Reader
@@ -176,7 +180,7 @@ func (s *BGS) HandleComAtprotoSyncListBlobs(c echo.Context) error {
 		var err error
 		limit, err = strconv.Atoi(p)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid limit: %w", err))
+			return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid limit: %s", p)})
 		}
 	} else {
 		limit = 500
@@ -184,7 +188,7 @@ func (s *BGS) HandleComAtprotoSyncListBlobs(c echo.Context) error {
 
 	_, err := syntax.ParseDID(did)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid did: %w", err))
+		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid did: %s", did)})
 	}
 
 	since := c.QueryParam("since")
@@ -208,7 +212,7 @@ func (s *BGS) HandleComAtprotoSyncListRepos(c echo.Context) error {
 		var err error
 		limit, err = strconv.Atoi(p)
 		if err != nil {
-			return err
+			return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid limit: %s", p)})
 		}
 	} else {
 		limit = 500
@@ -229,7 +233,7 @@ func (s *BGS) HandleComAtprotoSyncNotifyOfUpdate(c echo.Context) error {
 
 	var body comatprototypes.SyncNotifyOfUpdate_Input
 	if err := c.Bind(&body); err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid body: %s", err)})
 	}
 	var handleErr error
 	// func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context,body *comatprototypes.SyncNotifyOfUpdate_Input) error
@@ -246,7 +250,7 @@ func (s *BGS) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 
 	var body comatprototypes.SyncRequestCrawl_Input
 	if err := c.Bind(&body); err != nil {
-		return err
+		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid body: %s", err)})
 	}
 	var handleErr error
 	// func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context,body *comatprototypes.SyncRequestCrawl_Input) error
