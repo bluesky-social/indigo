@@ -367,6 +367,11 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev s
 		return err
 	}
 
+	var allshards []CarShard
+	if err := cs.meta.Order("seq desc").Where("usr = ?", user).Find(&allshards).Error; err != nil {
+		return err
+	}
+
 	if !incremental && earlySeq > 0 {
 		// have to do it the ugly way
 		return fmt.Errorf("nyi")
@@ -1015,8 +1020,8 @@ func (cs *CarStore) deleteShards(ctx context.Context, shs []*CarShard) error {
 
 type shardStat struct {
 	ID    uint
-	Seq   int
 	Dirty int
+	Seq   int
 	Total int
 
 	refs []blockRef
@@ -1045,14 +1050,15 @@ func shouldCompact(s shardStat) bool {
 	return false
 }
 
-func aggrRefs(brefs []blockRef, staleCids map[cid.Cid]bool) []shardStat {
+func aggrRefs(brefs []blockRef, shards map[uint]CarShard, staleCids map[cid.Cid]bool) []shardStat {
 	byId := make(map[uint]*shardStat)
 
 	for _, br := range brefs {
 		s, ok := byId[br.Shard]
 		if !ok {
 			s = &shardStat{
-				ID: br.Shard,
+				ID:  br.Shard,
+				Seq: shards[br.Shard].Seq,
 			}
 			byId[br.Shard] = s
 		}
@@ -1071,7 +1077,7 @@ func aggrRefs(brefs []blockRef, staleCids map[cid.Cid]bool) []shardStat {
 	}
 
 	sort.Slice(out, func(i, j int) bool {
-		return out[i].ID < out[j].ID
+		return out[i].Seq < out[j].Seq
 	})
 
 	return out
@@ -1081,6 +1087,29 @@ type compBucket struct {
 	shards []shardStat
 
 	cleanBlocks int
+	expSize     int
+}
+
+func (cb *compBucket) shouldCompact() bool {
+	if len(cb.shards) == 0 {
+		return false
+	}
+
+	if len(cb.shards) > 5 {
+		return true
+	}
+
+	var frac float64
+	for _, s := range cb.shards {
+		frac += s.dirtyFrac()
+	}
+	frac /= float64(len(cb.shards))
+
+	if len(cb.shards) > 3 && frac > 0.2 {
+
+	}
+
+	return frac > 0.4
 }
 
 func (cb *compBucket) addShardStat(ss shardStat) {
@@ -1144,7 +1173,15 @@ func (cs *CarStore) GetCompactionTargets(ctx context.Context) ([]CompactionTarge
 	return targets, nil
 }
 
-func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) error {
+type CompactionStats struct {
+	StartShards   int
+	NewShards     int
+	SkippedShards int
+	ShardsDeleted int
+	RefsDeleted   int
+}
+
+func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*CompactionStats, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "CompactUserShards")
 	defer span.End()
 
@@ -1152,7 +1189,7 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) erro
 
 	var shards []CarShard
 	if err := cs.meta.WithContext(ctx).Find(&shards, "usr = ?", user).Error; err != nil {
-		return err
+		return nil, err
 	}
 
 	var shardIds []uint
@@ -1166,13 +1203,13 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) erro
 	}
 
 	var brefs []blockRef
-	if err := cs.meta.WithContext(ctx).Raw(`select * from block_refs where shard in (?)`, shardIds).Scan(&brefs).Error; err != nil {
-		return err
+	if err := cs.meta.WithContext(ctx).Raw(`select shard, cid from block_refs where shard in (?)`, shardIds).Scan(&brefs).Error; err != nil {
+		return nil, err
 	}
 
 	var staleRefs []staleRef
 	if err := cs.meta.WithContext(ctx).Find(&staleRefs, "usr = ?", user).Error; err != nil {
-		return err
+		return nil, err
 	}
 
 	stale := make(map[cid.Cid]bool)
@@ -1195,7 +1232,7 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) erro
 		// focus on compacting everything else. it leaves *some* dirty blocks
 		// still around but we're doing that anyways since compaction isnt a
 		// perfect process
-		return fmt.Errorf("WIP: not currently handling this case")
+		return nil, fmt.Errorf("WIP: not currently handling this case")
 	}
 
 	keep := make(map[cid.Cid]bool)
@@ -1205,65 +1242,104 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) erro
 		}
 	}
 
-	results := aggrRefs(brefs, stale)
+	results := aggrRefs(brefs, shardsById, stale)
+	var sum int
+	for _, r := range results {
+		sum += r.Total
+	}
+
+	lowBound := 20
+	N := 10
+	// we want to *aim* for N shards per user
+	// the last several should be left small to allow easy loading from disk
+	// for updates (since recent blocks are most likely needed for edits)
+	// the beginning of the list should be some sort of exponential fall-off
+	// with the area under the curve targeted by the total number of blocks we
+	// have
+	var threshs []int
+	tot := len(brefs)
+	for i := 0; i < N; i++ {
+		v := tot / 2
+		if v < lowBound {
+			v = lowBound
+		}
+		tot = tot / 2
+		threshs = append(threshs, v)
+	}
 
 	thresholdForPosition := func(i int) int {
-		// TODO: calculate some curve here so earlier shards end up with more
-		// blocks and recent shards end up with less
-		return 50
+		if i >= len(threshs) {
+			return 5
+		}
+
+		return threshs[i]
 	}
 
 	cur := new(compBucket)
+	cur.expSize = thresholdForPosition(0)
 	var compactionQueue []*compBucket
 	for i, r := range results {
-		if shouldCompact(r) {
-			if cur.cleanBlocks > thresholdForPosition(i) {
-				compactionQueue = append(compactionQueue, cur)
-				cur = new(compBucket)
-			}
+		cur.addShardStat(r)
 
-			cur.addShardStat(r)
-		} else {
-			if !cur.isEmpty() {
-				compactionQueue = append(compactionQueue, cur)
-				cur = new(compBucket)
+		if cur.cleanBlocks > cur.expSize || i > len(results)-3 {
+			compactionQueue = append(compactionQueue, cur)
+			cur = &compBucket{
+				expSize: thresholdForPosition(len(compactionQueue)),
 			}
 		}
 	}
-
 	if !cur.isEmpty() {
 		compactionQueue = append(compactionQueue, cur)
 	}
 
+	stats := &CompactionStats{
+		StartShards: len(shards),
+	}
+
 	removedShards := make(map[uint]bool)
 	for _, b := range compactionQueue {
-		if err := cs.compactBucket(ctx, user, b, shardsById, keep); err != nil {
-			return err
+		if !b.shouldCompact() {
+			stats.SkippedShards += len(b.shards)
+			continue
 		}
+
+		if err := cs.compactBucket(ctx, user, b, shardsById, keep); err != nil {
+			return nil, err
+		}
+
+		stats.NewShards++
 
 		var todelete []*CarShard
 		for _, s := range b.shards {
 			removedShards[s.ID] = true
 			sh, ok := shardsById[s.ID]
 			if !ok {
-				return fmt.Errorf("missing shard to delete")
+				return nil, fmt.Errorf("missing shard to delete")
 			}
 
 			todelete = append(todelete, &sh)
 		}
 
+		stats.ShardsDeleted += len(todelete)
 		if err := cs.deleteShards(ctx, todelete); err != nil {
-			return fmt.Errorf("deleting shards: %w", err)
+			return nil, fmt.Errorf("deleting shards: %w", err)
 		}
 	}
 
 	// now we need to delete the staleRefs we successfully cleaned up
 	// we can delete a staleRef if all the shards that have blockRefs with matching stale refs were processed
 
-	return cs.deleteStaleRefs(ctx, brefs, staleRefs, removedShards)
+	num, err := cs.deleteStaleRefs(ctx, brefs, staleRefs, removedShards)
+	if err != nil {
+		return nil, err
+	}
+
+	stats.RefsDeleted = num
+
+	return stats, nil
 }
 
-func (cs *CarStore) deleteStaleRefs(ctx context.Context, brefs []blockRef, staleRefs []staleRef, removedShards map[uint]bool) error {
+func (cs *CarStore) deleteStaleRefs(ctx context.Context, brefs []blockRef, staleRefs []staleRef, removedShards map[uint]bool) (int, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "deleteStaleRefs")
 	defer span.End()
 
@@ -1296,11 +1372,11 @@ func (cs *CarStore) deleteStaleRefs(ctx context.Context, brefs []blockRef, stale
 		}
 
 		if err := cs.meta.Delete(&staleRef{}, "id in (?)", sl).Error; err != nil {
-			return err
+			return 0, err
 		}
 	}
 
-	return nil
+	return len(staleToDelete), nil
 }
 
 func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compBucket, shardsById map[uint]CarShard, keep map[cid.Cid]bool) error {
