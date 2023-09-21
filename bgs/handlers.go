@@ -3,6 +3,7 @@ package bgs
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,7 +23,10 @@ import (
 func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection string, commit string, did string, rkey string) (io.Reader, error) {
 	u, err := s.Index.LookupUserByDid(ctx, did)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find user: %w", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, echo.NewHTTPError(http.StatusNotFound, "user not found")
+		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
 	}
 
 	reqCid := cid.Undef
@@ -50,7 +54,10 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since string) (io.Reader, error) {
 	u, err := s.Index.LookupUserByDid(ctx, did)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, echo.NewHTTPError(http.StatusNotFound, "user not found")
+		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
 	}
 
 	// TODO: stream the response
@@ -124,7 +131,7 @@ func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, body *coma
 
 func (s *BGS) handleComAtprotoSyncGetBlob(ctx context.Context, cid string, did string) (io.Reader, error) {
 	if s.blobs == nil {
-		return nil, fmt.Errorf("blob store disabled")
+		return nil, echo.NewHTTPError(http.StatusNotFound, "blobs not enabled on this server")
 	}
 
 	b, err := s.blobs.GetBlob(ctx, cid, did)
@@ -189,7 +196,10 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatprototypes.SyncGetLatestCommit_Output, error) {
 	u, err := s.Index.LookupUserByDid(ctx, did)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find user: %w", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, echo.NewHTTPError(http.StatusNotFound, "user not found")
+		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
 	}
 
 	root, err := s.repoman.GetRepoRoot(ctx, u.Uid)
