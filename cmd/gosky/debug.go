@@ -41,6 +41,7 @@ var debugCmd = &cli.Command{
 		debugFeedGenCmd,
 		debugFeedViewCmd,
 		compareStreamsCmd,
+		debugGetRepoCmd,
 	},
 }
 
@@ -745,4 +746,46 @@ func saveCache(filename string, data map[string]*bsky.FeedDefs_PostView) error {
 	}
 
 	return nil
+}
+
+var debugGetRepoCmd = &cli.Command{
+	Name:      "get-repo",
+	Flags:     []cli.Flag{},
+	ArgsUsage: `<did>`,
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.TODO()
+
+		repobytes, err := comatproto.SyncGetRepo(ctx, xrpcc, cctx.Args().First(), "")
+		if err != nil {
+			return fmt.Errorf("getting repo: %w", err)
+		}
+
+		rep, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(repobytes))
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("Rev: ", rep.SignedCommit().Rev)
+		var count int
+		if err := rep.ForEach(ctx, "", func(k string, v cid.Cid) error {
+			rec, err := rep.Blockstore().Get(ctx, v)
+			if err != nil {
+				return err
+			}
+
+			count++
+			_ = rec
+			return nil
+		}); err != nil {
+			return err
+		}
+		fmt.Printf("scanned %d records\n", count)
+
+		return nil
+	},
 }
