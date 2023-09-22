@@ -749,7 +749,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			rebasesCounter.WithLabelValues(host.Host).Add(1)
 			ai, err := bgs.Index.LookupUser(ctx, u.ID)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to look up user (slow path): %w", err)
 			}
 
 			// TODO: we currently do not handle events that get queued up
@@ -769,7 +769,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			if errors.Is(err, carstore.ErrRepoBaseMismatch) || ipld.IsNotFound(err) {
 				ai, err := bgs.Index.LookupUser(ctx, u.ID)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to look up user (err case): %w", err)
 				}
 
 				span.SetAttributes(attribute.Bool("catchup_queue", true))
