@@ -93,6 +93,7 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 	} else {
 		opts.SyncRequestsPerSecond = 8
 	}
+	opts.CheckoutPath = fmt.Sprintf("%s/xrpc/com.atproto.sync.getRepo", bgshttp)
 	if config.IndexMaxConcurrency > 0 {
 		opts.ParallelRecordCreates = config.IndexMaxConcurrency
 	} else {
