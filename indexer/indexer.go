@@ -21,6 +21,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/ipfs/go-cid"
+	ipld "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -464,6 +465,22 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 	// we probably want alternative ways of doing this for 'very large' or 'very old' repos, but this works for now
 	if err := ix.repomgr.ImportNewRepo(ctx, ai.Uid, ai.Did, bytes.NewReader(repo), &rev); err != nil {
 		span.RecordError(err)
+
+		if ipld.IsNotFound(err) {
+			limiter.Wait(ctx)
+			log.Infow("SyncGetRepo", "did", ai.Did, "user", ai.Handle, "since", "", "fallback", true)
+			repo, err := comatproto.SyncGetRepo(ctx, c, ai.Did, "")
+			if err != nil {
+				reposFetched.WithLabelValues("fail").Inc()
+				return fmt.Errorf("failed to fetch repo: %w", err)
+			}
+			reposFetched.WithLabelValues("success").Inc()
+
+			if err := ix.repomgr.ImportNewRepo(ctx, ai.Uid, ai.Did, bytes.NewReader(repo), nil); err != nil {
+				span.RecordError(err)
+				return fmt.Errorf("failed to import backup repo (%s): %w", ai.Did, err)
+			}
+		}
 		return fmt.Errorf("importing fetched repo (curRev: %s): %w", rev, err)
 	}
 

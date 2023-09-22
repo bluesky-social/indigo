@@ -31,6 +31,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
+	ipld "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -765,7 +766,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.Since, evt.Rev, evt.Blocks, evt.Ops); err != nil {
 			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
 
-			if errors.Is(err, carstore.ErrRepoBaseMismatch) {
+			if errors.Is(err, carstore.ErrRepoBaseMismatch) || ipld.IsNotFound(err) {
 				ai, err := bgs.Index.LookupUser(ctx, u.ID)
 				if err != nil {
 					return err
