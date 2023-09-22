@@ -31,7 +31,7 @@ type PostDoc struct {
 	DID             string   `json:"did"`
 	RecordRkey      string   `json:"record_rkey"`
 	RecordCID       string   `json:"record_cid"`
-	CreatedAt       string   `json:"created_at"`
+	CreatedAt       *string  `json:"created_at,omitempty"`
 	Text            string   `json:"text"`
 	LangCode        []string `json:"lang_code,omitempty"`
 	LangCodeIso2    []string `json:"lang_code_iso2,omitempty"`
@@ -157,12 +157,11 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 		}
 	}
 
-	return PostDoc{
+	doc := PostDoc{
 		DocIndexTs:      time.Now().UTC().Format(util.ISO8601),
 		DID:             ident.DID.String(),
 		RecordRkey:      rkey,
 		RecordCID:       cid,
-		CreatedAt:       post.CreatedAt,
 		Text:            post.Text,
 		LangCode:        post.Langs,
 		LangCodeIso2:    langCodeIso2,
@@ -177,6 +176,12 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 		Hashtag:         parseHashtags(post.Text),
 		Emoji:           parseEmojis(post.Text),
 	}
+
+	if post.CreatedAt != "" {
+		doc.CreatedAt = &post.CreatedAt
+	}
+
+	return doc
 }
 
 func parseHashtags(s string) []string {
