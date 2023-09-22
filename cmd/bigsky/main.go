@@ -283,9 +283,12 @@ func Bigsky(cctx *cli.Context) error {
 
 	rlskip := os.Getenv("BSKY_SOCIAL_RATE_LIMIT_SKIP")
 	ix.ApplyPDSClientSettings = func(c *xrpc.Client) {
-		if c.Host == "https://bsky.social" && rlskip != "" {
-			c.Headers = map[string]string{
-				"x-ratelimit-bypass": rlskip,
+		if c.Host == "https://bsky.social" {
+			c.Client.Timeout = time.Minute * 30
+			if rlskip != "" {
+				c.Headers = map[string]string{
+					"x-ratelimit-bypass": rlskip,
+				}
 			}
 		}
 	}
