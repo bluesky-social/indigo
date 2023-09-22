@@ -89,6 +89,7 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 	opts := backfill.DefaultBackfillOptions()
 	if config.BGSSyncRateLimit > 0 {
 		opts.SyncRequestsPerSecond = config.BGSSyncRateLimit
+		opts.ParallelBackfills = 2 * config.BGSSyncRateLimit
 	} else {
 		opts.SyncRequestsPerSecond = 8
 	}

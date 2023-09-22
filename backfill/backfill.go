@@ -225,6 +225,12 @@ func (b *Backfiller) FlushBuffer(ctx context.Context, job Job) int {
 		log.Error("failed to flush buffered ops", "error", err)
 	}
 
+	// Mark the job as "complete"
+	err = job.SetState(ctx, StateComplete)
+	if err != nil {
+		log.Error("failed to set job state", "error", err)
+	}
+
 	return processed
 }
 
