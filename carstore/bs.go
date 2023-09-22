@@ -258,6 +258,7 @@ type DeltaSession struct {
 	seq      int
 	readonly bool
 	cs       *CarStore
+	lastRev  string
 }
 
 func (cs *CarStore) checkLastShardCache(user models.Uid) *CarShard {
@@ -332,6 +333,7 @@ func (cs *CarStore) NewDeltaSession(ctx context.Context, user models.Uid, since 
 		baseCid: lastShard.Root.CID,
 		cs:      cs,
 		seq:     lastShard.Seq + 1,
+		lastRev: lastShard.Rev,
 	}, nil
 }
 
@@ -880,7 +882,7 @@ func (cs *CarStore) ImportSlice(ctx context.Context, uid models.Uid, since *stri
 
 	rmcids, err := BlockDiff(ctx, ds, ds.baseCid, ds.blks)
 	if err != nil {
-		return cid.Undef, nil, fmt.Errorf("block diff failed (base=%s): %w", ds.baseCid, err)
+		return cid.Undef, nil, fmt.Errorf("block diff failed (base=%s,since=%v,rev=%s): %w", ds.baseCid, since, ds.lastRev, err)
 	}
 
 	ds.rmcids = rmcids
