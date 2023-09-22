@@ -626,7 +626,7 @@ var listInviteTreeCmd = &cli.Command{
 }
 
 var takeDownAccountCmd = &cli.Command{
-	Name: "take-down",
+	Name: "takeDownAccount",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "admin-password",
@@ -660,72 +660,73 @@ var takeDownAccountCmd = &cli.Command{
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		did := cctx.Args().First()
-		if !strings.HasPrefix(did, "did:") {
-			phr := &api.ProdHandleResolver{}
-			resp, err := phr.ResolveHandleToDid(ctx, did)
-			if err != nil {
-				return err
-			}
-
-			did = resp
-		}
-
-		reason := cctx.String("reason")
-		adminUser := cctx.String("admin-user")
-		if !strings.HasPrefix(adminUser, "did:") {
-			phr := &api.ProdHandleResolver{}
-			resp, err := phr.ResolveHandleToDid(ctx, adminUser)
-			if err != nil {
-				return err
-			}
-
-			adminUser = resp
-		}
-
-		if cctx.Bool("revert-actions") {
-			resp, err := atproto.AdminGetModerationActions(ctx, xrpcc, "", 100, did)
-			if err != nil {
-				return err
-			}
-
-			for _, act := range resp.Actions {
-				if act.Action == nil || *act.Action != "com.atproto.admin.defs#acknowledge" {
-					return fmt.Errorf("will only revert acknowledge actions")
-				}
-
-				_, err := atproto.AdminReverseModerationAction(ctx, xrpcc, &atproto.AdminReverseModerationAction_Input{
-					CreatedBy: adminUser,
-					Id:        act.Id,
-					Reason:    "reverting for takedown",
-				})
+		for _, did := range cctx.Args().Slice() {
+			if !strings.HasPrefix(did, "did:") {
+				phr := &api.ProdHandleResolver{}
+				resp, err := phr.ResolveHandleToDid(ctx, did)
 				if err != nil {
-					return fmt.Errorf("failed to revert existing action: %w", err)
+					return err
 				}
+
+				did = resp
 			}
 
-		}
+			reason := cctx.String("reason")
+			adminUser := cctx.String("admin-user")
+			if !strings.HasPrefix(adminUser, "did:") {
+				phr := &api.ProdHandleResolver{}
+				resp, err := phr.ResolveHandleToDid(ctx, adminUser)
+				if err != nil {
+					return err
+				}
 
-		resp, err := atproto.AdminTakeModerationAction(ctx, xrpcc, &atproto.AdminTakeModerationAction_Input{
-			Action:    "com.atproto.admin.defs#takedown",
-			Reason:    reason,
-			CreatedBy: adminUser,
-			Subject: &atproto.AdminTakeModerationAction_Input_Subject{
-				AdminDefs_RepoRef: &atproto.AdminDefs_RepoRef{
-					Did: did,
+				adminUser = resp
+			}
+
+			if cctx.Bool("revert-actions") {
+				resp, err := atproto.AdminGetModerationActions(ctx, xrpcc, "", 100, did)
+				if err != nil {
+					return err
+				}
+
+				for _, act := range resp.Actions {
+					if act.Action == nil || *act.Action != "com.atproto.admin.defs#acknowledge" {
+						return fmt.Errorf("will only revert acknowledge actions")
+					}
+
+					_, err := atproto.AdminReverseModerationAction(ctx, xrpcc, &atproto.AdminReverseModerationAction_Input{
+						CreatedBy: adminUser,
+						Id:        act.Id,
+						Reason:    "reverting for takedown",
+					})
+					if err != nil {
+						return fmt.Errorf("failed to revert existing action: %w", err)
+					}
+				}
+
+			}
+
+			resp, err := atproto.AdminTakeModerationAction(ctx, xrpcc, &atproto.AdminTakeModerationAction_Input{
+				Action:    "com.atproto.admin.defs#takedown",
+				Reason:    reason,
+				CreatedBy: adminUser,
+				Subject: &atproto.AdminTakeModerationAction_Input_Subject{
+					AdminDefs_RepoRef: &atproto.AdminDefs_RepoRef{
+						Did: did,
+					},
 				},
-			},
-		})
-		if err != nil {
-			return err
-		}
+			})
+			if err != nil {
+				return err
+			}
 
-		b, err := json.MarshalIndent(resp, "", "  ")
-		if err != nil {
-			return err
-		}
+			b, err := json.MarshalIndent(resp, "", "  ")
+			if err != nil {
+				return err
+			}
 
-		fmt.Println(string(b))
+			fmt.Println(string(b))
+		}
 		return nil
 	},
 }
