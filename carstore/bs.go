@@ -1151,6 +1151,29 @@ func (cs *CarStore) GetCompactionTargets(ctx context.Context) ([]CompactionTarge
 	return targets, nil
 }
 
+func (cs *CarStore) getBlockRefsForShards(ctx context.Context, shardIds []uint) ([]blockRef, error) {
+	ctx, span := otel.Tracer("carstore").Start(ctx, "getBlockRefsForShards")
+	defer span.End()
+
+	chunkSize := 10000
+	out := make([]blockRef, 0, len(shardIds))
+	for i := 0; i < len(shardIds); i += chunkSize {
+		sl := shardIds[i:]
+		if len(sl) > chunkSize {
+			sl = sl[:chunkSize]
+		}
+
+		var brefs []blockRef
+		if err := cs.meta.Raw(`select * from block_refs where shard in (?)`, sl).Scan(&brefs).Error; err != nil {
+			return nil, err
+		}
+
+		out = append(out, brefs...)
+	}
+
+	return out, nil
+}
+
 type CompactionStats struct {
 	StartShards   int `json:"startShards"`
 	NewShards     int `json:"newShards"`
@@ -1180,9 +1203,9 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 		shardsById[s.ID] = s
 	}
 
-	var brefs []blockRef
-	if err := cs.meta.WithContext(ctx).Raw(`select shard, cid from block_refs where shard in (?)`, shardIds).Scan(&brefs).Error; err != nil {
-		return nil, err
+	brefs, err := cs.getBlockRefsForShards(ctx, shardIds)
+	if err != nil {
+		return nil, fmt.Errorf("getting block refs failed: %w", err)
 	}
 
 	var staleRefs []staleRef
