@@ -20,6 +20,7 @@ import (
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/util/version"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -284,6 +285,9 @@ func Bigsky(cctx *cli.Context) error {
 	rlskip := os.Getenv("BSKY_SOCIAL_RATE_LIMIT_SKIP")
 	ix.ApplyPDSClientSettings = func(c *xrpc.Client) {
 		if c.Host == "https://bsky.social" {
+			if c.Client == nil {
+				c.Client = util.RobustHTTPClient()
+			}
 			c.Client.Timeout = time.Minute * 30
 			if rlskip != "" {
 				c.Headers = map[string]string{
