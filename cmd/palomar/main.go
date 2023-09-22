@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
 
 	_ "github.com/joho/godotenv/autoload"
+	"golang.org/x/time/rate"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/search"
@@ -132,6 +135,16 @@ var runCmd = &cli.Command{
 			Value:   20,
 			EnvVars: []string{"PALOMAR_INDEX_MAX_CONCURRENCY"},
 		},
+		&cli.IntFlag{
+			Name:  "plc-rate-limit",
+			Usage: "max number of requests per second to PLC registry",
+			Value: 20,
+		},
+		&cli.IntFlag{
+			Name:  "bsky-social-rate-limit",
+			Usage: "max number of requests per second to bsky.social",
+			Value: 20,
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -149,11 +162,33 @@ var runCmd = &cli.Command{
 			return fmt.Errorf("failed to get elasticsearch: %w", err)
 		}
 
+		plcRateLimiter := rate.NewLimiter(rate.Limit(cctx.Int("plc-rate-limit")), 1)
+		bskySocialRateLimiter := rate.NewLimiter(rate.Limit(cctx.Int("bsky-social-rate-limit")), 1)
+
+		plcAddr, err := url.Parse(cctx.String("atp-plc-host"))
+		if err != nil {
+			return fmt.Errorf("failed to parse PLC URL: %w", err)
+		}
+
 		// TODO: replace this with "bingo" resolver
 		base := identity.BaseDirectory{
 			PLCURL: cctx.String("atp-plc-host"),
 			HTTPClient: http.Client{
 				Timeout: time.Second * 15,
+				Transport: &http.Transport{
+					DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+						if strings.HasPrefix(addr, plcAddr.Host) {
+							if err := plcRateLimiter.Wait(ctx); err != nil {
+								return nil, fmt.Errorf("failed to wait for PLC rate limiter: %w", err)
+							}
+						} else if strings.Contains(addr, ".bsky.social/") {
+							if err := bskySocialRateLimiter.Wait(ctx); err != nil {
+								return nil, fmt.Errorf("failed to wait for bsky.social rate limiter: %w", err)
+							}
+						}
+						return net.DialTimeout(network, addr, time.Second*15)
+					},
+				},
 			},
 			TryAuthoritativeDNS:   true,
 			SkipDNSDomainSuffixes: []string{".bsky.social"},
