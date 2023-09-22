@@ -1090,7 +1090,7 @@ func (bgs *BGS) runRepoCompaction(ctx context.Context) error {
 	}
 
 	for _, r := range repos {
-		if err := bgs.repoman.CarStore().CompactUserShards(ctx, r.Usr); err != nil {
+		if _, err := bgs.repoman.CarStore().CompactUserShards(ctx, r.Usr); err != nil {
 			log.Errorf("failed to compact shards for user %d: %s", r.Usr, err)
 			continue
 		}

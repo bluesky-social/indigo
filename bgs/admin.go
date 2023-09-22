@@ -414,12 +414,14 @@ func (bgs *BGS) handleAdminCompactRepo(e echo.Context) error {
 		return fmt.Errorf("no such user: %w", err)
 	}
 
-	if err := bgs.repoman.CarStore().CompactUserShards(ctx, u.ID); err != nil {
+	stats, err := bgs.repoman.CarStore().CompactUserShards(ctx, u.ID)
+	if err != nil {
 		return fmt.Errorf("compaction failed: %w", err)
 	}
 
 	return e.JSON(200, map[string]any{
 		"success": "true",
+		"stats":   stats,
 	})
 }
 
