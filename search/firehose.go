@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
@@ -185,6 +186,7 @@ func (s *Server) discoverRepos() {
 		resp, err := comatproto.SyncListRepos(ctx, s.bgsxrpc, cursor, limit)
 		if err != nil {
 			log.Error("failed to list repos", "err", err)
+			time.Sleep(5 * time.Second)
 			continue
 		}
 		log.Info("got repo page", "count", len(resp.Repos), "cursor", resp.Cursor)
