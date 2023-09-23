@@ -198,6 +198,7 @@ func (s *Server) discoverRepos() {
 				if err := s.bfs.EnqueueJob(repo.Did); err != nil {
 					log.Warn("failed to enqueue backfill job", "err", err)
 					errored++
+					continue
 				}
 				enqueued++
 			} else if err != nil {
