@@ -45,41 +45,37 @@ func NewGormstore(db *gorm.DB) *Gormstore {
 }
 
 func (s *Gormstore) LoadJobs(ctx context.Context) error {
-
 	limit := 100_000
 	offset := 0
-	dbjobs := []*GormDBJob{}
-
-	for {
-		var jobs []*GormDBJob
-		// Load all jobs from the database
-		if err := s.db.Find(&jobs).Limit(limit).Offset(offset).Error; err != nil {
-			return err
-		}
-		if len(jobs) == 0 {
-			break
-		}
-		dbjobs = append(dbjobs, jobs...)
-		offset += len(jobs)
-	}
-
 	s.lk.Lock()
 	defer s.lk.Unlock()
 
-	// Convert them to in-memory jobs
-	for i := range dbjobs {
-		dbj := dbjobs[i]
-		j := &Gormjob{
-			repo:        dbj.Repo,
-			state:       dbj.State,
-			bufferedOps: map[string][]*bufferedOp{},
-			createdAt:   dbj.CreatedAt,
-			updatedAt:   dbj.UpdatedAt,
-
-			dbj: dbj,
-			db:  s.db,
+	for {
+		var dbjobs []*GormDBJob
+		// Load all jobs from the database
+		if err := s.db.Find(&dbjobs).Offset(offset).Limit(limit).Error; err != nil {
+			return err
 		}
-		s.jobs[dbj.Repo] = j
+		if len(dbjobs) == 0 {
+			break
+		}
+		offset += len(dbjobs)
+
+		// Convert them to in-memory jobs
+		for i := range dbjobs {
+			dbj := dbjobs[i]
+			j := &Gormjob{
+				repo:        dbj.Repo,
+				state:       dbj.State,
+				bufferedOps: map[string][]*bufferedOp{},
+				createdAt:   dbj.CreatedAt,
+				updatedAt:   dbj.UpdatedAt,
+
+				dbj: dbj,
+				db:  s.db,
+			}
+			s.jobs[dbj.Repo] = j
+		}
 	}
 
 	return nil
