@@ -166,7 +166,7 @@ var runCmd = &cli.Command{
 			TryAuthoritativeDNS:   true,
 			SkipDNSDomainSuffixes: []string{".bsky.social"},
 		}
-		dir := identity.NewCacheDirectory(&base, 200000, time.Hour*24, time.Minute*2)
+		dir := identity.NewCacheDirectory(&base, 1_500_000, time.Hour*24, time.Minute*2)
 
 		srv, err := search.NewServer(
 			db,
