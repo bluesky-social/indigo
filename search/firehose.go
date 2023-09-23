@@ -92,6 +92,15 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 				return nil
 			}
 
+			// Check if we've backfilled this repo, if not, we should enqueue it
+			job, err := s.bfs.GetJob(ctx, evt.Repo)
+			if job == nil && err == nil {
+				logEvt.Info("enqueueing backfill job for new repo")
+				if err := s.bfs.EnqueueJob(evt.Repo); err != nil {
+					logEvt.Warn("failed to enqueue backfill job", "err", err)
+				}
+			}
+
 			r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
 			if err != nil {
 				// TODO: handle this case (instead of return nil)
