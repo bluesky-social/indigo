@@ -15,8 +15,8 @@ import (
 type CacheDirectory struct {
 	Inner         Directory
 	ErrTTL        time.Duration
-	handleCache   *expirable.LRU[string, HandleEntry]
-	identityCache *expirable.LRU[string, IdentityEntry]
+	handleCache   *expirable.LRU[syntax.Handle, HandleEntry]
+	identityCache *expirable.LRU[syntax.DID, IdentityEntry]
 }
 
 type HandleEntry struct {
@@ -58,8 +58,8 @@ func NewCacheDirectory(inner Directory, capacity int, hitTTL, errTTL time.Durati
 	return CacheDirectory{
 		ErrTTL:        errTTL,
 		Inner:         inner,
-		handleCache:   expirable.NewLRU[string, HandleEntry](capacity, nil, hitTTL),
-		identityCache: expirable.NewLRU[string, IdentityEntry](capacity, nil, hitTTL),
+		handleCache:   expirable.NewLRU[syntax.Handle, HandleEntry](capacity, nil, hitTTL),
+		identityCache: expirable.NewLRU[syntax.DID, IdentityEntry](capacity, nil, hitTTL),
 	}
 }
 
@@ -85,7 +85,7 @@ func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*Ha
 			DID:     "",
 			Err:     err,
 		}
-		d.handleCache.Add(h.String(), he)
+		d.handleCache.Add(h, he)
 		return &he, nil
 	}
 
@@ -100,15 +100,15 @@ func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*Ha
 		Err:     nil,
 	}
 
-	d.identityCache.Add(ident.DID.String(), entry)
-	d.handleCache.Add(ident.Handle.String(), he)
+	d.identityCache.Add(ident.DID, entry)
+	d.handleCache.Add(ident.Handle, he)
 	return &he, nil
 }
 
 func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
 	var err error
 	var entry *HandleEntry
-	maybeEntry, ok := d.handleCache.Get(h.String())
+	maybeEntry, ok := d.handleCache.Get(h)
 
 	if !ok {
 		handleCacheMisses.Inc()
@@ -149,9 +149,9 @@ func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) (*Identi
 		}
 	}
 
-	d.identityCache.Add(did.String(), entry)
+	d.identityCache.Add(did, entry)
 	if he != nil {
-		d.handleCache.Add(ident.Handle.String(), *he)
+		d.handleCache.Add(ident.Handle, *he)
 	}
 	return &entry, nil
 }
@@ -159,7 +159,7 @@ func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) (*Identi
 func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
 	var err error
 	var entry *IdentityEntry
-	maybeEntry, ok := d.identityCache.Get(did.String())
+	maybeEntry, ok := d.identityCache.Get(did)
 
 	if !ok {
 		identityCacheMisses.Inc()
@@ -217,12 +217,12 @@ func (d *CacheDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Id
 func (d *CacheDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error {
 	handle, err := a.AsHandle()
 	if nil == err { // if not an error, is a handle
-		d.handleCache.Remove(handle.String())
+		d.handleCache.Remove(handle)
 		return nil
 	}
 	did, err := a.AsDID()
 	if nil == err { // if not an error, is a DID
-		d.identityCache.Remove(did.String())
+		d.identityCache.Remove(did)
 		return nil
 	}
 	return fmt.Errorf("at-identifier neither a Handle nor a DID")
