@@ -45,7 +45,7 @@ func NewGormstore(db *gorm.DB) *Gormstore {
 }
 
 func (s *Gormstore) LoadJobs(ctx context.Context) error {
-	limit := 100_000
+	limit := 20_000
 	offset := 0
 	s.lk.Lock()
 	defer s.lk.Unlock()
@@ -53,7 +53,7 @@ func (s *Gormstore) LoadJobs(ctx context.Context) error {
 	for {
 		var dbjobs []*GormDBJob
 		// Load all jobs from the database
-		if err := s.db.Find(&dbjobs).Offset(offset).Limit(limit).Error; err != nil {
+		if err := s.db.Limit(limit).Offset(offset).Find(&dbjobs).Error; err != nil {
 			return err
 		}
 		if len(dbjobs) == 0 {
