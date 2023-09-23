@@ -200,6 +200,7 @@ func (s *Server) RunAPI(listen string) error {
 	e.GET("/metrics", echoprometheus.NewHandler())
 	e.GET("/xrpc/app.bsky.unspecced.searchPostsSkeleton", s.handleSearchPostsSkeleton)
 	e.GET("/xrpc/app.bsky.unspecced.searchActorsSkeleton", s.handleSearchActorsSkeleton)
+	e.GET("/xrpc/app.bsky.unspecced.indexRepos", s.handleIndexRepos)
 	s.echo = e
 
 	s.logger.Info("starting search API daemon", "bind", listen)
