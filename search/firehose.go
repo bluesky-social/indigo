@@ -51,6 +51,7 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 		return fmt.Errorf("loading backfill jobs: %w", err)
 	}
 	go s.bf.Start()
+	go s.discoverRepos()
 
 	d := websocket.DefaultDialer
 	u, err := url.Parse(s.bgshost)
@@ -166,6 +167,58 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 			rsc.EventHandler,
 		),
 	)
+}
+
+func (s *Server) discoverRepos() {
+	ctx := context.Background()
+	log := s.logger.With("func", "discoverRepos")
+	log.Info("starting repo discovery")
+
+	cursor := ""
+	limit := int64(500)
+
+	totalEnqueued := 0
+	totalSkipped := 0
+	totalErrored := 0
+
+	for {
+		resp, err := comatproto.SyncListRepos(ctx, s.bgsxrpc, cursor, limit)
+		if err != nil {
+			log.Error("failed to list repos", "err", err)
+			continue
+		}
+		log.Info("got repo page", "count", len(resp.Repos), "cursor", resp.Cursor)
+		enqueued := 0
+		skipped := 0
+		errored := 0
+		for _, repo := range resp.Repos {
+			job, err := s.bfs.GetJob(ctx, repo.Did)
+			if job == nil && err == nil {
+				log.Info("enqueuing backfill job for new repo", "did", repo.Did)
+				if err := s.bfs.EnqueueJob(repo.Did); err != nil {
+					log.Warn("failed to enqueue backfill job", "err", err)
+					errored++
+				}
+				enqueued++
+			} else if err != nil {
+				log.Warn("failed to get backfill job", "did", repo.Did, "err", err)
+				errored++
+			} else {
+				skipped++
+			}
+		}
+		log.Info("enqueued repos", "enqueued", enqueued, "skipped", skipped, "errored", errored)
+		totalEnqueued += enqueued
+		totalSkipped += skipped
+		totalErrored += errored
+		if resp.Cursor != nil && *resp.Cursor != "" {
+			cursor = *resp.Cursor
+		} else {
+			break
+		}
+	}
+
+	log.Info("finished repo discovery", "totalEnqueued", totalEnqueued, "totalSkipped", totalSkipped, "totalErrored", totalErrored)
 }
 
 func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, path string, recP *typegen.CBORMarshaler, rcid *cid.Cid) error {
