@@ -45,10 +45,22 @@ func NewGormstore(db *gorm.DB) *Gormstore {
 }
 
 func (s *Gormstore) LoadJobs(ctx context.Context) error {
-	// Load all jobs from the database
-	var dbjobs []*GormDBJob
-	if err := s.db.Find(&dbjobs).Error; err != nil {
-		return err
+
+	limit := 100_000
+	offset := 0
+	dbjobs := []*GormDBJob{}
+
+	for {
+		var jobs []*GormDBJob
+		// Load all jobs from the database
+		if err := s.db.Find(&jobs).Limit(limit).Offset(offset).Error; err != nil {
+			return err
+		}
+		if len(jobs) == 0 {
+			break
+		}
+		dbjobs = append(dbjobs, jobs...)
+		offset += len(jobs)
 	}
 
 	s.lk.Lock()
