@@ -119,8 +119,7 @@ func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*Ha
 }
 
 func (d *CacheDirectory) coalescedResolveHandle(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
-	resC := make(chan syntax.DID, 1)
-	errC := make(chan error, 1)
+	resC := make(chan struct{}, 1)
 	actualLookup := false
 
 	val, loaded := d.handleLookupChans.LoadOrStore(handle.String(), resC)
@@ -128,15 +127,13 @@ func (d *CacheDirectory) coalescedResolveHandle(ctx context.Context, handle synt
 		handleRequestsCoalesced.Inc()
 		// Wait for the result from the original goroutine
 		select {
-		case <-val.(chan *Identity):
+		case <-val.(chan struct{}):
 			// The result should now be in the cache
 			entry, ok := d.handleCache.Get(handle)
 			if ok && !d.IsHandleStale(&entry) {
 				return entry.DID, entry.Err
 			}
-			return "", fmt.Errorf("handle not found")
-		case err := <-errC:
-			return "", err
+			return "", fmt.Errorf("identity not found in cache after coalesce returned")
 		case <-ctx.Done():
 			return "", ctx.Err()
 		}
@@ -149,19 +146,16 @@ func (d *CacheDirectory) coalescedResolveHandle(ctx context.Context, handle synt
 
 	// Perform actual lookup only if this goroutine is the one doing it
 	if actualLookup {
-		entry, err := d.updateHandle(ctx, handle)
-		if err != nil {
-			errC <- err
-		} else {
-			if entry != nil {
-				did = entry.DID
-			}
-			resC <- did
+		var entry *HandleEntry
+		// Update the cache entry for this Handle
+		entry, err = d.updateHandle(ctx, handle)
+		if err == nil && entry != nil {
+			did = entry.DID
 		}
-		// Cleanup after sending result or error
+		// Cleanup the coalesce map and close the results channel
 		d.handleLookupChans.Delete(handle.String())
+		// Callers waiting will now get the result from the cache
 		close(resC)
-		close(errC)
 	}
 
 	return did, err
@@ -208,8 +202,7 @@ func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) (*Identi
 }
 
 func (d *CacheDirectory) coalescedResolveDID(ctx context.Context, did syntax.DID) (*Identity, error) {
-	resC := make(chan *Identity, 1)
-	errC := make(chan error, 1)
+	resC := make(chan struct{}, 1)
 	actualLookup := false
 
 	val, loaded := d.didLookupChans.LoadOrStore(did.String(), resC)
@@ -217,15 +210,13 @@ func (d *CacheDirectory) coalescedResolveDID(ctx context.Context, did syntax.DID
 		identityRequestsCoalesced.Inc()
 		// Wait for the result from the original goroutine
 		select {
-		case <-val.(chan *Identity):
+		case <-val.(chan struct{}):
 			// The result should now be in the cache
 			entry, ok := d.identityCache.Get(did)
 			if ok && !d.IsIdentityStale(&entry) {
 				return entry.Identity, entry.Err
 			}
-			return nil, fmt.Errorf("identity not found")
-		case err := <-errC:
-			return nil, err
+			return nil, fmt.Errorf("identity not found in cache after coalesce returned")
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
@@ -238,19 +229,16 @@ func (d *CacheDirectory) coalescedResolveDID(ctx context.Context, did syntax.DID
 
 	// Perform actual lookup only if this goroutine is the one doing it
 	if actualLookup {
-		entry, err := d.updateDID(ctx, did)
-		if err != nil {
-			errC <- err
-		} else {
-			if entry != nil {
-				doc = entry.Identity
-			}
-			resC <- doc
+		var entry *IdentityEntry
+		// Update the cache entry for this DID
+		entry, err = d.updateDID(ctx, did)
+		if err == nil && entry != nil {
+			doc = entry.Identity
 		}
-		// Cleanup after sending result or error
+		// Cleanup the coalesce map and close the results channel
 		d.didLookupChans.Delete(did.String())
+		// Callers waiting will now get the result from the cache
 		close(resC)
-		close(errC)
 	}
 
 	return doc, err
