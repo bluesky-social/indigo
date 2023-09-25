@@ -21,12 +21,20 @@ import (
 )
 
 func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection string, commit string, did string, rkey string) (io.Reader, error) {
-	u, err := s.Index.LookupUserByDid(ctx, did)
+	u, err := s.lookupUserByDid(ctx, did)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "user not found")
 		}
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
+	}
+
+	if u.Tombstoned {
+		return nil, fmt.Errorf("account was deleted")
+	}
+
+	if u.TakenDown {
+		return nil, fmt.Errorf("account was taken down")
 	}
 
 	reqCid := cid.Undef
@@ -37,7 +45,7 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 		}
 	}
 
-	_, record, err := s.repoman.GetRecord(ctx, u.Uid, collection, rkey, reqCid)
+	_, record, err := s.repoman.GetRecord(ctx, u.ID, collection, rkey, reqCid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get record: %w", err)
 	}
@@ -52,7 +60,7 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 }
 
 func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since string) (io.Reader, error) {
-	u, err := s.Index.LookupUserByDid(ctx, did)
+	u, err := s.lookupUserByDid(ctx, did)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "user not found")
@@ -60,9 +68,17 @@ func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
 	}
 
+	if u.Tombstoned {
+		return nil, fmt.Errorf("account was deleted")
+	}
+
+	if u.TakenDown {
+		return nil, fmt.Errorf("account was taken down")
+	}
+
 	// TODO: stream the response
 	buf := new(bytes.Buffer)
-	if err := s.repoman.ReadRepo(ctx, u.Uid, since, buf); err != nil {
+	if err := s.repoman.ReadRepo(ctx, u.ID, since, buf); err != nil {
 		return nil, fmt.Errorf("failed to read repo: %w", err)
 	}
 
@@ -158,7 +174,7 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 	}
 
 	users := []User{}
-	if err := s.db.Model(&User{}).Where("id > ?", c).Order("id").Limit(limit).Find(&users).Error; err != nil {
+	if err := s.db.Model(&User{}).Where("id > ? AND NOT tombstoned AND NOT taken_down", c).Order("id").Limit(limit).Find(&users).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return &comatprototypes.SyncListRepos_Output{}, nil
 		}
@@ -175,6 +191,7 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 
 	for i := range users {
 		user := users[i]
+
 		root, err := s.repoman.GetRepoRoot(ctx, user.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get repo root for (%s): %w", user.Did, err)
@@ -194,7 +211,7 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 }
 
 func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatprototypes.SyncGetLatestCommit_Output, error) {
-	u, err := s.Index.LookupUserByDid(ctx, did)
+	u, err := s.lookupUserByDid(ctx, did)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "user not found")
@@ -202,12 +219,20 @@ func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did strin
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
 	}
 
-	root, err := s.repoman.GetRepoRoot(ctx, u.Uid)
+	if u.Tombstoned {
+		return nil, fmt.Errorf("account was deleted")
+	}
+
+	if u.TakenDown {
+		return nil, fmt.Errorf("account was taken down")
+	}
+
+	root, err := s.repoman.GetRepoRoot(ctx, u.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo root: %w", err)
 	}
 
-	rev, err := s.repoman.GetRepoRev(ctx, u.Uid)
+	rev, err := s.repoman.GetRepoRev(ctx, u.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo rev: %w", err)
 	}
