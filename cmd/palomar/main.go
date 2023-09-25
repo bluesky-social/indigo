@@ -11,6 +11,7 @@ import (
 	"time"
 
 	_ "github.com/joho/godotenv/autoload"
+	"golang.org/x/time/rate"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/search"
@@ -132,6 +133,12 @@ var runCmd = &cli.Command{
 			Value:   20,
 			EnvVars: []string{"PALOMAR_INDEX_MAX_CONCURRENCY"},
 		},
+		&cli.IntFlag{
+			Name:    "plc-rate-limit",
+			Usage:   "max number of requests per second to PLC registry",
+			Value:   100,
+			EnvVars: []string{"PALOMAR_PLC_RATE_LIMIT"},
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -155,10 +162,11 @@ var runCmd = &cli.Command{
 			HTTPClient: http.Client{
 				Timeout: time.Second * 15,
 			},
+			PLCLimiter:            rate.NewLimiter(rate.Limit(cctx.Int("plc-rate-limit")), 1),
 			TryAuthoritativeDNS:   true,
 			SkipDNSDomainSuffixes: []string{".bsky.social"},
 		}
-		dir := identity.NewCacheDirectory(&base, 200000, time.Hour*24, time.Minute*2)
+		dir := identity.NewCacheDirectory(&base, 1_500_000, time.Hour*24, time.Minute*2)
 
 		srv, err := search.NewServer(
 			db,

@@ -93,6 +93,7 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 	} else {
 		opts.SyncRequestsPerSecond = 8
 	}
+	opts.CheckoutPath = fmt.Sprintf("%s/xrpc/com.atproto.sync.getRepo", bgshttp)
 	if config.IndexMaxConcurrency > 0 {
 		opts.ParallelRecordCreates = config.IndexMaxConcurrency
 	} else {
@@ -199,6 +200,7 @@ func (s *Server) RunAPI(listen string) error {
 	e.GET("/metrics", echoprometheus.NewHandler())
 	e.GET("/xrpc/app.bsky.unspecced.searchPostsSkeleton", s.handleSearchPostsSkeleton)
 	e.GET("/xrpc/app.bsky.unspecced.searchActorsSkeleton", s.handleSearchActorsSkeleton)
+	e.GET("/xrpc/app.bsky.unspecced.indexRepos", s.handleIndexRepos)
 	s.echo = e
 
 	s.logger.Info("starting search API daemon", "bind", listen)
