@@ -453,7 +453,8 @@ type User struct {
 	// TakenDown is set to true if the user in question has been taken down.
 	// A user in this state will have all future events related to it dropped
 	// and no data about this user will be served.
-	TakenDown bool
+	TakenDown  bool
+	Tombstoned bool
 }
 
 type addTargetBody struct {
@@ -861,9 +862,49 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		return nil
+	case env.RepoTombstone != nil:
+		if err := bgs.handleRepoTombstone(ctx, host, env.RepoTombstone); err != nil {
+			return err
+		}
+
+		return nil
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
+}
+
+func (bgs *BGS) handleRepoTombstone(ctx context.Context, pds *models.PDS, evt *atproto.SyncSubscribeRepos_Tombstone) error {
+	u, err := bgs.lookupUserByDid(ctx, evt.Did)
+	if err != nil {
+		return err
+	}
+
+	if u.PDS != pds.ID {
+		return fmt.Errorf("unauthoritative tombstone event from %s for %s", pds.Host, evt.Did)
+	}
+
+	if err := bgs.db.Model(&User{}).Where("id = ?", u.ID).UpdateColumns(map[string]any{
+		"tombstoned": true,
+		"handle":     nil,
+	}).Error; err != nil {
+		return err
+	}
+
+	if err := bgs.db.Model(&models.ActorInfo{}).Where("uid = ?", u.ID).UpdateColumns(map[string]any{
+		"handle": nil,
+	}).Error; err != nil {
+		return err
+	}
+
+	// delete data from carstore
+	if err := bgs.repoman.TakeDownRepo(ctx, u.ID); err != nil {
+		// don't let a failure here prevent us from propagating this event
+		log.Errorf("failed to delete user data from carstore: %s", err)
+	}
+
+	return bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
+		RepoTombstone: evt,
+	})
 }
 
 func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user models.Uid, blobs []string) error {
