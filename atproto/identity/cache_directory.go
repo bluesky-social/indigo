@@ -148,7 +148,9 @@ func (d *CacheDirectory) coalescedResolveHandle(ctx context.Context, handle synt
 		if err != nil {
 			errC <- err
 		} else {
-			did = entry.DID
+			if entry != nil {
+				did = entry.DID
+			}
 			resC <- did
 		}
 		// Cleanup after sending result or error
@@ -230,7 +232,9 @@ func (d *CacheDirectory) coalescedResolveDID(ctx context.Context, did syntax.DID
 		if err != nil {
 			errC <- err
 		} else {
-			doc = entry.Identity
+			if entry != nil {
+				doc = entry.Identity
+			}
 			resC <- doc
 		}
 		// Cleanup after sending result or error
