@@ -128,8 +128,13 @@ func (d *CacheDirectory) coalescedResolveHandle(ctx context.Context, handle synt
 		handleRequestsCoalesced.Inc()
 		// Wait for the result from the original goroutine
 		select {
-		case res := <-val.(chan syntax.DID):
-			return res, nil
+		case <-val.(chan *Identity):
+			// The result should now be in the cache
+			entry, ok := d.handleCache.Get(handle)
+			if ok && !d.IsHandleStale(&entry) {
+				return entry.DID, entry.Err
+			}
+			return "", fmt.Errorf("handle not found")
 		case err := <-errC:
 			return "", err
 		case <-ctx.Done():
@@ -212,8 +217,13 @@ func (d *CacheDirectory) coalescedResolveDID(ctx context.Context, did syntax.DID
 		identityRequestsCoalesced.Inc()
 		// Wait for the result from the original goroutine
 		select {
-		case res := <-val.(chan *Identity):
-			return res, nil
+		case <-val.(chan *Identity):
+			// The result should now be in the cache
+			entry, ok := d.identityCache.Get(did)
+			if ok && !d.IsIdentityStale(&entry) {
+				return entry.Identity, entry.Err
+			}
+			return nil, fmt.Errorf("identity not found")
 		case err := <-errC:
 			return nil, err
 		case <-ctx.Done():
