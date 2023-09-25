@@ -123,6 +123,59 @@ func (s *Server) handleSearchActorsSkeleton(e echo.Context) error {
 	return e.JSON(200, out)
 }
 
+type IndexError struct {
+	DID string `json:"did"`
+	Err string `json:"err"`
+}
+
+func (s *Server) handleIndexRepos(e echo.Context) error {
+	ctx, span := otel.Tracer("search").Start(e.Request().Context(), "handleIndexRepos")
+	defer span.End()
+
+	dids, ok := e.QueryParams()["did"]
+	if !ok {
+		return e.JSON(400, map[string]any{
+			"error": "must pass at least one did to index",
+		})
+	}
+
+	for _, did := range dids {
+		_, err := syntax.ParseDID(did)
+		if err != nil {
+			return e.JSON(400, map[string]any{
+				"error": fmt.Sprintf("invalid DID (%s): %s", did, err),
+			})
+		}
+	}
+
+	errs := []IndexError{}
+	successes := 0
+	skipped := 0
+	for _, did := range dids {
+		job, err := s.bfs.GetJob(ctx, did)
+		if job == nil && err == nil {
+			err := s.bfs.EnqueueJob(did)
+			if err != nil {
+				errs = append(errs, IndexError{
+					DID: did,
+					Err: err.Error(),
+				})
+				continue
+			}
+			successes++
+			continue
+		}
+		skipped++
+	}
+
+	return e.JSON(200, map[string]any{
+		"numEnqueued": successes,
+		"numSkipped":  skipped,
+		"numErrored":  len(errs),
+		"errors":      errs,
+	})
+}
+
 func (s *Server) SearchPosts(ctx context.Context, q string, offset, size int) (*SearchPostsSkeletonResp, error) {
 	resp, err := DoSearchPosts(ctx, s.dir, s.escli, s.postIndex, q, offset, size)
 	if err != nil {

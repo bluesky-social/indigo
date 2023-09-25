@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
 )
@@ -31,6 +33,36 @@ type IdentityEntry struct {
 	Identity *Identity
 	Err      error
 }
+
+var handleCacheHits = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "atproto_directory_handle_cache_hits",
+	Help: "Number of cache hits for ATProto handle lookups",
+})
+
+var handleCacheMisses = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "atproto_directory_handle_cache_misses",
+	Help: "Number of cache misses for ATProto handle lookups",
+})
+
+var identityCacheHits = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "atproto_directory_identity_cache_hits",
+	Help: "Number of cache hits for ATProto identity lookups",
+})
+
+var identityCacheMisses = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "atproto_directory_identity_cache_misses",
+	Help: "Number of cache misses for ATProto identity lookups",
+})
+
+var identityRequestsCoalesced = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "atproto_directory_identity_requests_coalesced",
+	Help: "Number of identity requests coalesced",
+})
+
+var handleRequestsCoalesced = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "atproto_directory_handle_requests_coalesced",
+	Help: "Number of handle requests coalesced",
+})
 
 var _ Directory = (*CacheDirectory)(nil)
 
@@ -93,6 +125,7 @@ func (d *CacheDirectory) coalescedResolveHandle(ctx context.Context, handle synt
 
 	val, loaded := d.handleLookupChans.LoadOrStore(handle.String(), resC)
 	if loaded {
+		handleRequestsCoalesced.Inc()
 		// Wait for the result from the original goroutine
 		select {
 		case res := <-val.(chan syntax.DID):
@@ -130,8 +163,10 @@ func (d *CacheDirectory) coalescedResolveHandle(ctx context.Context, handle synt
 func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
 	entry, ok := d.handleCache.Get(h)
 	if ok && !d.IsHandleStale(&entry) {
+		handleCacheHits.Inc()
 		return entry.DID, entry.Err
 	}
+	handleCacheMisses.Inc()
 
 	did, err := d.coalescedResolveHandle(ctx, h)
 	if err != nil {
@@ -172,6 +207,7 @@ func (d *CacheDirectory) coalescedResolveDID(ctx context.Context, did syntax.DID
 
 	val, loaded := d.didLookupChans.LoadOrStore(did.String(), resC)
 	if loaded {
+		identityRequestsCoalesced.Inc()
 		// Wait for the result from the original goroutine
 		select {
 		case res := <-val.(chan *Identity):
@@ -209,8 +245,10 @@ func (d *CacheDirectory) coalescedResolveDID(ctx context.Context, did syntax.DID
 func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
 	entry, ok := d.identityCache.Get(did)
 	if ok && !d.IsIdentityStale(&entry) {
+		identityCacheHits.Inc()
 		return entry.Identity, entry.Err
 	}
+	identityCacheMisses.Inc()
 
 	doc, err := d.coalescedResolveDID(ctx, did)
 	if err != nil {
