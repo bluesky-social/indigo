@@ -67,6 +67,13 @@ func (d *BaseDirectory) ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DID
 
 	// TODO: use a more robust client
 	// TODO: allow ctx to specify unsafe http:// resolution, for testing?
+
+	if d.DIDWebLimitFunc != nil {
+		if err := d.DIDWebLimitFunc(ctx, hostname); err != nil {
+			return nil, fmt.Errorf("did:web limit func returned an error for (%s): %w", hostname, err)
+		}
+	}
+
 	resp, err := http.Get("https://" + hostname + "/.well-known/did.json")
 	// look for NXDOMAIN
 	var dnsErr *net.DNSError
@@ -101,6 +108,13 @@ func (d *BaseDirectory) ResolveDIDPLC(ctx context.Context, did syntax.DID) (*DID
 	if plcURL == "" {
 		plcURL = DefaultPLCURL
 	}
+
+	if d.PLCLimiter != nil {
+		if err := d.PLCLimiter.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("failed to wait for PLC limiter: %w", err)
+		}
+	}
+
 	resp, err := http.Get(plcURL + "/" + did.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed did:plc directory resolution: %w", err)

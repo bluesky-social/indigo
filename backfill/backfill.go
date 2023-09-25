@@ -101,7 +101,7 @@ func DefaultBackfillOptions() *BackfillOptions {
 		ParallelRecordCreates: 100,
 		NSIDFilter:            "",
 		SyncRequestsPerSecond: 2,
-		CheckoutPath:          "https://bsky.social/xrpc/com.atproto.sync.getCheckout",
+		CheckoutPath:          "https://bsky.social/xrpc/com.atproto.sync.getRepo",
 	}
 }
 
@@ -261,7 +261,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 	// GET and CAR decode the body
 	client := &http.Client{
 		Transport: otelhttp.NewTransport(http.DefaultTransport),
-		Timeout:   120 * time.Second,
+		Timeout:   600 * time.Second,
 	}
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
