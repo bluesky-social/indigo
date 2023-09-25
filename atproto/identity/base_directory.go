@@ -7,12 +7,17 @@ import (
 	"net/http"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"golang.org/x/time/rate"
 )
 
 // The zero value ('BaseDirectory{}') is a usable Directory.
 type BaseDirectory struct {
 	// if non-empty, this string should have URL method, hostname, and optional port; it should not have a path or trailing slash
 	PLCURL string
+	// If not nil, this limiter will be used to rate-limit requests to the PLCURL
+	PLCLimiter *rate.Limiter
+	// If not nil, this function will be called inline with DID Web lookups, and can be used to limit the number of requests to a given hostname
+	DIDWebLimitFunc func(ctx context.Context, hostname string) error
 	// HTTP client used for did:web, did:plc, and HTTP (well-known) handle resolution
 	HTTPClient http.Client
 	// DNS resolver used for DNS handle resolution. Calling code can use a custom Dialer to query against a specific DNS server, or re-implement the interface for even more control over the resolution process

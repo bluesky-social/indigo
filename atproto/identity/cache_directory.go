@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
 )
@@ -28,6 +30,26 @@ type IdentityEntry struct {
 	Identity *Identity
 	Err      error
 }
+
+var handleCacheHits = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "atproto_directory_handle_cache_hits",
+	Help: "Number of cache hits for ATProto handle lookups",
+})
+
+var handleCacheMisses = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "atproto_directory_handle_cache_misses",
+	Help: "Number of cache misses for ATProto handle lookups",
+})
+
+var identityCacheHits = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "atproto_directory_identity_cache_hits",
+	Help: "Number of cache hits for ATProto identity lookups",
+})
+
+var identityCacheMisses = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "atproto_directory_identity_cache_misses",
+	Help: "Number of cache misses for ATProto identity lookups",
+})
 
 var _ Directory = (*CacheDirectory)(nil)
 
@@ -89,6 +111,7 @@ func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 	maybeEntry, ok := d.handleCache.Get(h)
 
 	if !ok {
+		handleCacheMisses.Inc()
 		entry, err = d.updateHandle(ctx, h)
 		if err != nil {
 			return "", err
@@ -97,10 +120,13 @@ func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 		entry = &maybeEntry
 	}
 	if d.IsHandleStale(entry) {
+		handleCacheMisses.Inc()
 		entry, err = d.updateHandle(ctx, h)
 		if err != nil {
 			return "", err
 		}
+	} else {
+		handleCacheHits.Inc()
 	}
 	return entry.DID, entry.Err
 }
@@ -136,6 +162,7 @@ func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identi
 	maybeEntry, ok := d.identityCache.Get(did)
 
 	if !ok {
+		identityCacheMisses.Inc()
 		entry, err = d.updateDID(ctx, did)
 		if err != nil {
 			return nil, err
@@ -144,10 +171,13 @@ func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identi
 		entry = &maybeEntry
 	}
 	if d.IsIdentityStale(entry) {
+		identityCacheMisses.Inc()
 		entry, err = d.updateDID(ctx, did)
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		identityCacheHits.Inc()
 	}
 	return entry.Identity, entry.Err
 }
