@@ -2,10 +2,14 @@ package identity
 
 import (
 	"context"
+	"log/slog"
+	"net/http"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"golang.org/x/time/rate"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -63,4 +67,49 @@ func TestCacheDirectory(t *testing.T) {
 	for i := 0; i < 3; i = i + 1 {
 		testDirectoryLive(t, &d)
 	}
+}
+
+func TestCacheCoalesce(t *testing.T) {
+	assert := assert.New(t)
+
+	handle := syntax.Handle("atproto.com")
+	did := syntax.DID("did:plc:ewvi7nxzyoun6zhxrhs64oiz")
+
+	base := BaseDirectory{
+		PLCURL: "https://plc.directory",
+		HTTPClient: http.Client{
+			Timeout: time.Second * 15,
+		},
+		// Limit the number of requests we can make to the PLC to 1 per second
+		PLCLimiter:            rate.NewLimiter(1, 1),
+		TryAuthoritativeDNS:   true,
+		SkipDNSDomainSuffixes: []string{".bsky.social"},
+	}
+	dir := NewCacheDirectory(&base, 1000, time.Hour*1, time.Hour*1)
+	routines := 60
+	wg := sync.WaitGroup{}
+
+	// Cancel the context after 2 seconds, if we're coalescing correctly, we should only make 1 request
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+	defer cancel()
+	for i := 0; i < routines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ident, err := dir.LookupDID(ctx, did)
+			if err != nil {
+				slog.Error("Failed lookup", "error", err)
+			}
+			assert.NoError(err)
+			assert.Equal(handle, ident.Handle)
+
+			ident, err = dir.LookupHandle(ctx, handle)
+			if err != nil {
+				slog.Error("Failed lookup", "error", err)
+			}
+			assert.NoError(err)
+			assert.Equal(did, ident.DID)
+		}()
+	}
+	wg.Wait()
 }
