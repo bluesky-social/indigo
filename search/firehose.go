@@ -239,6 +239,9 @@ func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, path s
 	if err != nil {
 		return fmt.Errorf("resolving identity: %w", err)
 	}
+	if ident == nil {
+		return fmt.Errorf("identity not found for did: %s", did.String())
+	}
 	rec := *recP
 
 	switch rec := rec.(type) {
@@ -273,6 +276,9 @@ func (s *Server) handleDelete(ctx context.Context, rawDID, path string) error {
 	ident, err := s.dir.LookupDID(ctx, did)
 	if err != nil {
 		return err
+	}
+	if ident == nil {
+		return fmt.Errorf("identity not found for did: %s", did.String())
 	}
 
 	switch {
@@ -365,6 +371,9 @@ func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSu
 	ident, err := s.dir.LookupDID(ctx, did)
 	if err != nil {
 		return err
+	}
+	if ident == nil {
+		return fmt.Errorf("identity not found for did: %s", did.String())
 	}
 
 	return r.ForEach(ctx, "", func(k string, v cid.Cid) error {
