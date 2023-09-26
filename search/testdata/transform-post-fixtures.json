@@ -114,7 +114,6 @@
   			"lang_code": ["th", "en-US"],
   			"lang_code_iso2": ["th", "en"],
             "self_label": ["nudity"],
-  			"hashtag": ["some", "hashtags"],
   			"emoji": ["\u2620", "\ud83d\ude42", "\ud83c\udf85\ud83c\udfff", "\ud83c\uddf8\ud83c\udde8"],
   			"embed_img_count": 0
 		}
