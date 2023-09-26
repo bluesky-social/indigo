@@ -412,18 +412,23 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 		return fmt.Errorf("failed to get repo root: %w", err)
 	}
 
+	// attempt to process buffered events
 	if !job.initScrape && len(job.catchup) > 0 {
 		first := job.catchup[0]
+		var resync bool
 		if first.evt.Since == nil || rev == *first.evt.Since {
-			for _, j := range job.catchup {
+			for i, j := range job.catchup {
 				catchupEventsProcessed.Inc()
 				if err := ix.repomgr.HandleExternalUserEvent(ctx, pds.ID, ai.Uid, ai.Did, j.evt.Since, j.evt.Rev, j.evt.Blocks, j.evt.Ops); err != nil {
-					// TODO: if we fail here, we should probably fall back to a repo re-sync
-					return fmt.Errorf("post rebase catchup failed: %w", err)
+					log.Errorw("buffered event catchup failed", "error", err, "did", ai.Did, "i", i, "jobCount", len(job.catchup))
+					resync = true // fall back to a repo sync
+					break
 				}
 			}
 
-			return nil
+			if !resync {
+				return nil
+			}
 		}
 	}
 
