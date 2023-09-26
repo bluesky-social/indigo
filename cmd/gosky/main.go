@@ -29,6 +29,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car"
@@ -77,102 +78,20 @@ func run(args []string) {
 		},
 	}
 	app.Commands = []*cli.Command{
-		actorGetSuggestionsCmd,
 		adminCmd,
 		bgsAdminCmd,
 		carCmd,
 		createFeedGeneratorCmd,
-		createSessionCmd,
 		debugCmd,
-		deletePostCmd,
 		didCmd,
-		feedGetCmd,
-		feedSetVoteCmd,
-		followsCmd,
-		getNotificationsCmd,
 		getRecordCmd,
 		handleCmd,
-		listAllPostsCmd,
-		newAccountCmd,
-		postCmd,
+		listAllRecordsCmd,
 		readRepoStreamCmd,
-		refreshAuthTokenCmd,
-		resetPasswordCmd,
 		syncCmd,
 	}
 
 	app.RunAndExitOnError()
-}
-
-var newAccountCmd = &cli.Command{
-	Name:      "newAccount",
-	ArgsUsage: `<email> <handle> <password> [inviteCode]`,
-	Action: func(cctx *cli.Context) error {
-		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
-		if err != nil {
-			return err
-		}
-
-		args, err := needArgs(cctx, "email", "handle", "password")
-		if err != nil {
-			return err
-		}
-		email, handle, password := args[0], args[1], args[2]
-
-		var invite *string
-		if inv := cctx.Args().Get(3); inv != "" {
-			invite = &inv
-		}
-
-		acc, err := comatproto.ServerCreateAccount(context.TODO(), xrpcc, &comatproto.ServerCreateAccount_Input{
-			Email:      email,
-			Handle:     handle,
-			InviteCode: invite,
-			Password:   password,
-		})
-		if err != nil {
-			return err
-		}
-
-		b, err := json.MarshalIndent(acc, "", "  ")
-		if err != nil {
-			return err
-		}
-
-		fmt.Println(string(b))
-		return nil
-	},
-}
-var createSessionCmd = &cli.Command{
-	Name:      "createSession",
-	ArgsUsage: `<handle> <password>`,
-	Action: func(cctx *cli.Context) error {
-		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
-		if err != nil {
-			return err
-		}
-		args, err := needArgs(cctx, "handle", "password")
-		if err != nil {
-			return err
-		}
-		handle, password := args[0], args[1]
-
-		ses, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
-			Identifier: handle,
-			Password:   password,
-		})
-		if err != nil {
-			return err
-		}
-
-		b, err := json.MarshalIndent(ses, "", "  ")
-		if err != nil {
-			return err
-		}
-
-		fmt.Println(string(b))
-		return nil
-	},
 }
 
 func jsonPrint(i any) {
@@ -182,37 +101,6 @@ func jsonPrint(i any) {
 	}
 
 	fmt.Println(string(b))
-}
-
-var refreshAuthTokenCmd = &cli.Command{
-	Name:  "refresh",
-	Usage: "refresh your auth token and overwrite it with new auth info",
-	Action: func(cctx *cli.Context) error {
-		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
-		if err != nil {
-			return err
-		}
-
-		a := xrpcc.Auth
-		a.AccessJwt = a.RefreshJwt
-
-		ctx := context.TODO()
-		nauth, err := comatproto.ServerRefreshSession(ctx, xrpcc)
-		if err != nil {
-			return err
-		}
-
-		b, err := json.Marshal(nauth)
-		if err != nil {
-			return err
-		}
-
-		if err := os.WriteFile(cctx.String("auth"), b, 0600); err != nil {
-			return err
-		}
-
-		return nil
-	},
 }
 
 func cborToJson(data []byte) ([]byte, error) {
@@ -232,50 +120,6 @@ func cborToJson(data []byte) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
-}
-
-var resetPasswordCmd = &cli.Command{
-	Name:      "resetPassword",
-	ArgsUsage: `<email>`,
-	Action: func(cctx *cli.Context) error {
-		ctx := context.TODO()
-
-		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
-		if err != nil {
-			return err
-		}
-
-		args, err := needArgs(cctx, "email")
-		if err != nil {
-			return err
-		}
-		email := args[0]
-
-		err = comatproto.ServerRequestPasswordReset(ctx, xrpcc, &comatproto.ServerRequestPasswordReset_Input{
-			Email: email,
-		})
-		if err != nil {
-			return err
-		}
-
-		inp := bufio.NewScanner(os.Stdin)
-		fmt.Println("Enter recovery code from email:")
-		inp.Scan()
-		code := inp.Text()
-
-		fmt.Println("Enter new password:")
-		inp.Scan()
-		npass := inp.Text()
-
-		if err := comatproto.ServerResetPassword(ctx, xrpcc, &comatproto.ServerResetPassword_Input{
-			Password: npass,
-			Token:    code,
-		}); err != nil {
-			return err
-		}
-
-		return nil
-	},
 }
 
 type cachedHandle struct {
@@ -686,6 +530,98 @@ var createFeedGeneratorCmd = &cli.Command{
 			}
 
 			fmt.Println(resp.Uri)
+		}
+
+		return nil
+	},
+}
+
+var listAllRecordsCmd = &cli.Command{
+	Name:  "list",
+	Usage: "print all of the records for a repo or local CAR file",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name: "all",
+		},
+		&cli.BoolFlag{
+			Name: "values",
+		},
+		&cli.BoolFlag{
+			Name: "cids",
+		},
+	},
+	ArgsUsage: `<did>|<repo-path>`,
+	Action: func(cctx *cli.Context) error {
+
+		arg := cctx.Args().First()
+		ctx := context.TODO()
+
+		var repob []byte
+		if strings.HasPrefix(arg, "did:") {
+			xrpcc, err := cliutil.GetXrpcClient(cctx, true)
+			if err != nil {
+				return err
+			}
+
+			if arg == "" {
+				arg = xrpcc.Auth.Did
+			}
+
+			rrb, err := comatproto.SyncGetRepo(ctx, xrpcc, arg, "")
+			if err != nil {
+				return err
+			}
+			repob = rrb
+		} else {
+			if len(arg) == 0 {
+				return cli.Exit("must specify DID string or repo path", 127)
+			}
+			fb, err := os.ReadFile(arg)
+			if err != nil {
+				return err
+			}
+
+			repob = fb
+		}
+
+		rr, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(repob))
+		if err != nil {
+			return err
+		}
+
+		collection := "app.bsky.feed.post"
+		if cctx.Bool("all") {
+			collection = ""
+		}
+		vals := cctx.Bool("values")
+		cids := cctx.Bool("cids")
+
+		if err := rr.ForEach(ctx, collection, func(k string, v cid.Cid) error {
+			if !strings.HasPrefix(k, collection) {
+				return repo.ErrDoneIterating
+			}
+
+			fmt.Print(k)
+			if cids {
+				fmt.Println(" - ", v)
+			} else {
+				fmt.Println()
+			}
+			if vals {
+				b, err := rr.Blockstore().Get(ctx, v)
+				if err != nil {
+					return err
+				}
+
+				convb, err := cborToJson(b.RawData())
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(convb))
+			}
+			return nil
+		}); err != nil {
+			return err
 		}
 
 		return nil

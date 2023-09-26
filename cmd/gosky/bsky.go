@@ -1,36 +1,39 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 
-	"github.com/ipfs/go-cid"
 	cli "github.com/urfave/cli/v2"
 )
 
-var followsCmd = &cli.Command{
-	Name:  "follows",
-	Usage: "sub-commands for bsky follows",
+var bskyCmd = &cli.Command{
+	Name:  "bsky",
+	Usage: "sub-commands for bsky-specific endpoints",
 	Subcommands: []*cli.Command{
-		followsAddCmd,
-		followsListCmd,
+		bskyFollowCmd,
+		bskyListFollowsCmd,
+		bskyPostCmd,
+		bskyGetFeedCmd,
+		bskyLikeCmd,
+		bskyDeletePostCmd,
+		bskyActorGetSuggestionsCmd,
+		bskyNotificationsCmd,
 	},
 }
 
-var followsAddCmd = &cli.Command{
-	Name:      "add",
+var bskyFollowCmd = &cli.Command{
+	Name:      "follow",
+	Usage:     "create a follow relationship (auth required)",
 	Flags:     []cli.Flag{},
 	ArgsUsage: `<user>`,
 	Action: func(cctx *cli.Context) error {
@@ -62,8 +65,8 @@ var followsAddCmd = &cli.Command{
 	},
 }
 
-var followsListCmd = &cli.Command{
-	Name:      "list",
+var bskyListFollowsCmd = &cli.Command{
+	Name:      "list-follows",
 	Usage:     "print list of follows for account",
 	ArgsUsage: `[actor]`,
 	Action: func(cctx *cli.Context) error {
@@ -91,7 +94,7 @@ var followsListCmd = &cli.Command{
 	},
 }
 
-var postCmd = &cli.Command{
+var bskyPostCmd = &cli.Command{
 	Name:      "post",
 	Usage:     "create a post record",
 	ArgsUsage: `<text>`,
@@ -136,8 +139,8 @@ func prettyPrintPost(p *appbsky.FeedDefs_FeedViewPost, uris bool) {
 	fmt.Println(rec.Text)
 }
 
-var feedGetCmd = &cli.Command{
-	Name:  "feed",
+var bskyGetFeedCmd = &cli.Command{
+	Name:  "get-feed",
 	Usage: "fetch bsky feed",
 	Flags: []cli.Flag{
 		&cli.IntFlag{
@@ -210,7 +213,7 @@ var feedGetCmd = &cli.Command{
 	},
 }
 
-var actorGetSuggestionsCmd = &cli.Command{
+var bskyActorGetSuggestionsCmd = &cli.Command{
 	Name:      "actorGetSuggestions",
 	ArgsUsage: "[author]",
 	Action: func(cctx *cli.Context) error {
@@ -243,8 +246,8 @@ var actorGetSuggestionsCmd = &cli.Command{
 	},
 }
 
-var feedSetVoteCmd = &cli.Command{
-	Name:      "vote",
+var bskyLikeCmd = &cli.Command{
+	Name:      "like",
 	Usage:     "create bsky 'like' record",
 	ArgsUsage: "<post>",
 	Action: func(cctx *cli.Context) error {
@@ -281,7 +284,7 @@ var feedSetVoteCmd = &cli.Command{
 			},
 		})
 		if err != nil {
-			return fmt.Errorf("creating vote failed: %w", err)
+			return fmt.Errorf("creating like failed: %w", err)
 		}
 		_ = out
 		return nil
@@ -289,8 +292,8 @@ var feedSetVoteCmd = &cli.Command{
 	},
 }
 
-var deletePostCmd = &cli.Command{
-	Name:      "delete",
+var bskyDeletePostCmd = &cli.Command{
+	Name:      "delete-post",
 	ArgsUsage: `<rkey>`,
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
@@ -319,98 +322,7 @@ var deletePostCmd = &cli.Command{
 	},
 }
 
-var listAllPostsCmd = &cli.Command{
-	Name: "list",
-	Flags: []cli.Flag{
-		&cli.BoolFlag{
-			Name: "all",
-		},
-		&cli.BoolFlag{
-			Name: "values",
-		},
-		&cli.BoolFlag{
-			Name: "cids",
-		},
-	},
-	ArgsUsage: `<did>|<repo-path>`,
-	Action: func(cctx *cli.Context) error {
-
-		arg := cctx.Args().First()
-		ctx := context.TODO()
-
-		var repob []byte
-		if strings.HasPrefix(arg, "did:") {
-			xrpcc, err := cliutil.GetXrpcClient(cctx, true)
-			if err != nil {
-				return err
-			}
-
-			if arg == "" {
-				arg = xrpcc.Auth.Did
-			}
-
-			rrb, err := comatproto.SyncGetRepo(ctx, xrpcc, arg, "")
-			if err != nil {
-				return err
-			}
-			repob = rrb
-		} else {
-			if len(arg) == 0 {
-				return cli.Exit("must specify DID string or repo path", 127)
-			}
-			fb, err := os.ReadFile(arg)
-			if err != nil {
-				return err
-			}
-
-			repob = fb
-		}
-
-		rr, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(repob))
-		if err != nil {
-			return err
-		}
-
-		collection := "app.bsky.feed.post"
-		if cctx.Bool("all") {
-			collection = ""
-		}
-		vals := cctx.Bool("values")
-		cids := cctx.Bool("cids")
-
-		if err := rr.ForEach(ctx, collection, func(k string, v cid.Cid) error {
-			if !strings.HasPrefix(k, collection) {
-				return repo.ErrDoneIterating
-			}
-
-			fmt.Print(k)
-			if cids {
-				fmt.Println(" - ", v)
-			} else {
-				fmt.Println()
-			}
-			if vals {
-				b, err := rr.Blockstore().Get(ctx, v)
-				if err != nil {
-					return err
-				}
-
-				convb, err := cborToJson(b.RawData())
-				if err != nil {
-					return err
-				}
-				fmt.Println(string(convb))
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-
-		return nil
-	},
-}
-
-var getNotificationsCmd = &cli.Command{
+var bskyNotificationsCmd = &cli.Command{
 	Name:  "notifs",
 	Usage: "fetch bsky notifications (requires auth)",
 	Flags: []cli.Flag{},
