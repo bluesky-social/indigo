@@ -84,6 +84,7 @@ func run(args []string) {
 		actorGetSuggestionsCmd,
 		bgsAdminCmd,
 		createSessionCmd,
+		carCmd,
 		debugCmd,
 		deletePostCmd,
 		didCmd,
