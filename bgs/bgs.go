@@ -28,6 +28,7 @@ import (
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
+	"golang.org/x/time/rate"
 
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
@@ -311,6 +312,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 
 	// PDS-related Admin API
 	admin.GET("/pds/list", bgs.handleListPDSs)
+	admin.GET("/pds/resync", bgs.handleAdminResyncPDS)
 	admin.POST("/pds/changeIngestRateLimit", bgs.handleAdminChangePDSRateLimit)
 	admin.POST("/pds/changeCrawlRateLimit", bgs.handleAdminChangePDSCrawlLimit)
 	admin.POST("/pds/block", bgs.handleBlockPDS)
@@ -1096,6 +1098,100 @@ func (bgs *BGS) runRepoCompaction(ctx context.Context) error {
 			continue
 		}
 	}
+
+	return nil
+}
+
+type repoHead struct {
+	Did  string
+	Head string
+}
+
+func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
+	ctx, span := otel.Tracer("bgs").Start(ctx, "SyncPDS")
+	defer span.End()
+
+	log := log.With("pds", pds.Host, "source", "sync_pds")
+	start := time.Now()
+
+	log.Info("starting PDS resync")
+
+	xrpcc := xrpc.Client{Host: pds.Host}
+	bgs.Index.ApplyPDSClientSettings(&xrpcc)
+
+	limiter := rate.NewLimiter(rate.Limit(50), 1)
+	cursor := ""
+	limit := int64(500)
+
+	repos := []repoHead{}
+	reposToCrawl := []*models.ActorInfo{}
+
+	for {
+		if err := limiter.Wait(ctx); err != nil {
+			return fmt.Errorf("failed to wait for rate limiter: %w", err)
+		}
+		repoList, err := comatproto.SyncListRepos(ctx, &xrpcc, cursor, limit)
+		if err != nil {
+			return fmt.Errorf("failed to list repos: %w", err)
+		}
+
+		for _, r := range repoList.Repos {
+			repos = append(repos, repoHead{
+				Did:  r.Did,
+				Head: r.Head,
+			})
+		}
+
+		if repoList.Cursor == nil || *repoList.Cursor != "" {
+			break
+		}
+		cursor = *repoList.Cursor
+	}
+
+	repolistDone := time.Now()
+
+	log.Infow("listed all repos, checking roots", "num_repos", len(repos), "took", repolistDone.Sub(start))
+
+	// Check the heads of repos against our own records
+	for _, r := range repos {
+		log := log.With("did", r.Did, "head", r.Head)
+		shouldCrawl := false
+		// Fetches the user if we have it, otherwise automatically enqueues it for crawling
+		ai, err := bgs.Index.GetUserOrMissing(ctx, r.Did)
+		if err != nil {
+			log.Errorw("failed to get user while resyncing PDS, we can't recrawl it", "error", err)
+			continue
+		}
+
+		head, err := bgs.repoman.GetRepoRoot(ctx, ai.Uid)
+		if err != nil {
+			log.Warnw("recrawling because we failed to get the local repo root", "err", err, "uid", ai.Uid)
+			shouldCrawl = true
+		}
+
+		if head.String() != r.Head {
+			log.Warnw("recrawling because the repo head from the PDS is different from our local repo root", "local_head", head.String())
+			shouldCrawl = true
+		}
+
+		if shouldCrawl {
+			reposToCrawl = append(reposToCrawl, ai)
+		}
+	}
+
+	headCheckDone := time.Now()
+
+	log.Infow("checked all heads, starting crawls", "num_repos_to_crawl", len(reposToCrawl), "took", headCheckDone.Sub(repolistDone))
+
+	// Enqueue a crawl for each repo that needs it
+	for _, ai := range reposToCrawl {
+		err := bgs.Index.Crawler.Crawl(ctx, ai)
+		if err != nil {
+			log.Errorw("failed to enqueue crawl for repo during resync", "error", err, "uid", ai.Uid, "did", ai.Did)
+		}
+	}
+
+	log.Infow("enqueued all crawls, exiting resync", "took", time.Now().Sub(start))
 
 	return nil
 }
