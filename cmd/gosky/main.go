@@ -19,6 +19,8 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
@@ -27,9 +29,9 @@ import (
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/util/version"
 	"github.com/bluesky-social/indigo/xrpc"
-	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/gorilla/websocket"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -82,6 +84,7 @@ func run(args []string) {
 		actorGetSuggestionsCmd,
 		bgsAdminCmd,
 		createSessionCmd,
+		carCmd,
 		debugCmd,
 		deletePostCmd,
 		didCmd,
@@ -326,6 +329,7 @@ var syncCmd = &cli.Command{
 	Name: "sync",
 	Subcommands: []*cli.Command{
 		syncGetRepoCmd,
+		syncDownloadRepoCmd,
 		syncGetRootCmd,
 		syncListReposCmd,
 	},
@@ -359,6 +363,54 @@ var syncGetRepoCmd = &cli.Command{
 		}
 
 		return nil
+	},
+}
+
+var syncDownloadRepoCmd = &cli.Command{
+	Name: "downloadRepo",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name: "car-file",
+		},
+	},
+	ArgsUsage: `<at-identifier>`,
+	Action: func(cctx *cli.Context) error {
+		ctx := context.Background()
+		arg := cctx.Args().First()
+		if arg == "" {
+			return fmt.Errorf("identifier arg is required")
+		}
+		atid, err := syntax.ParseAtIdentifier(arg)
+		if err != nil {
+			return err
+		}
+		dir := identity.DefaultDirectory()
+		ident, err := dir.Lookup(ctx, *atid)
+		if err != nil {
+			return err
+		}
+
+		carPath := cctx.String("car-file")
+		if carPath == "" {
+			carPath = ident.DID.String() + ".car"
+		}
+
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+		xrpcc.Host = ident.PDSEndpoint()
+		if xrpcc.Host == "" {
+			return fmt.Errorf("no PDS endpoint for identity")
+		}
+
+		log.Infof("downloading from %s to: %s", xrpcc.Host, carPath)
+		repoBytes, err := comatproto.SyncGetRepo(ctx, xrpcc, ident.DID.String(), "")
+		if err != nil {
+			return err
+		}
+
+		return os.WriteFile(carPath, repoBytes, 0666)
 	},
 }
 
