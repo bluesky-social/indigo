@@ -3,7 +3,6 @@ package labeler
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	label "github.com/bluesky-social/indigo/api/label"
@@ -24,21 +23,12 @@ func (s *Server) CommitLabels(ctx context.Context, labels []*label.Label, negate
 	for _, l := range labels {
 		l.Cts = nowStr
 
-		path, _, err := s.repoman.CreateRecord(ctx, s.user.UserId, "com.atproto.label.label", l)
-		if err != nil {
-			return fmt.Errorf("failed to persist label in local repo: %w", err)
-		}
-		labelUri := "at://" + s.user.Did + "/" + path
-		log.Infof("persisted label in repo: %s", labelUri)
-
-		rkey := strings.SplitN(path, "/", 2)[1]
 		lr := models.Label{
 			Uri:       l.Uri,
 			SourceDid: l.Src,
 			Cid:       l.Cid,
 			Val:       l.Val,
 			Neg:       nil,
-			RepoRKey:  &rkey,
 			CreatedAt: now,
 		}
 		if negate {

@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/labeler"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/util/version"
@@ -42,18 +41,12 @@ func run(args []string) error {
 			Value:   "sqlite://./data/labelmaker/labelmaker.sqlite",
 			EnvVars: []string{"DATABASE_URL"},
 		},
-		&cli.StringFlag{
-			Name:    "carstore-db-url",
-			Usage:   "database connection string for carstore database",
-			Value:   "sqlite://./data/labelmaker/carstore.sqlite",
-			EnvVars: []string{"CARSTORE_DATABASE_URL"},
-		},
 		&cli.BoolFlag{
 			Name: "db-tracing",
 		},
 		&cli.StringFlag{
 			Name:    "data-dir",
-			Usage:   "path of directory for CAR files and other data",
+			Usage:   "path of directory for keys and other data",
 			Value:   "data/labelmaker",
 			EnvVars: []string{"DATA_DIR"},
 		},
@@ -142,11 +135,6 @@ func run(args []string) error {
 			EnvVars: []string{"LABELMAKER_SQRL_URL"},
 		},
 		&cli.IntFlag{
-			Name:    "max-carstore-connections",
-			EnvVars: []string{"MAX_CARSTORE_CONNECTIONS"},
-			Value:   40,
-		},
-		&cli.IntFlag{
 			Name:    "max-metadb-connections",
 			EnvVars: []string{"MAX_METADB_CONNECTIONS"},
 			Value:   40,
@@ -157,7 +145,6 @@ func run(args []string) error {
 
 		// ensure data directory exists; won't error if it does
 		datadir := cctx.String("data-dir")
-		csdir := filepath.Join(datadir, "carstore")
 		os.MkdirAll(datadir, os.ModePerm)
 		repoKeyPath := filepath.Join(datadir, "labelmaker.key")
 
@@ -167,25 +154,10 @@ func run(args []string) error {
 			return err
 		}
 
-		csdburl := cctx.String("carstore-db-url")
-		csdb, err := cliutil.SetupDatabase(csdburl, cctx.Int("max-carstore-connections"))
-		if err != nil {
-			return err
-		}
-
 		if cctx.Bool("db-tracing") {
 			if err := db.Use(tracing.NewPlugin()); err != nil {
 				return err
 			}
-			if err := csdb.Use(tracing.NewPlugin()); err != nil {
-				return err
-			}
-		}
-
-		os.MkdirAll(filepath.Dir(csdir), os.ModePerm)
-		cstore, err := carstore.NewCarStore(csdb, csdir)
-		if err != nil {
-			return err
 		}
 
 		kwlFile := cctx.String("keyword-file")
@@ -242,7 +214,7 @@ func run(args []string) error {
 			UserId:     1,
 		}
 
-		srv, err := labeler.NewServer(db, cstore, repoUser, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword, useWss)
+		srv, err := labeler.NewServer(db, repoUser, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword, useWss)
 		if err != nil {
 			return err
 		}

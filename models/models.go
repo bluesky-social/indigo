@@ -135,7 +135,6 @@ type Label struct {
 	Val       string  `gorm:"uniqueIndex:idx_uri_src_val_cid;not null"`
 	Cid       *string `gorm:"uniqueIndex:idx_uri_src_val_cid"`
 	Neg       *bool
-	RepoRKey  *string `gorm:"uniqueIndex:idx_src_rkey"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
