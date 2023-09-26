@@ -31,6 +31,7 @@ type RichtextFacet_ByteSlice struct {
 type RichtextFacet_Features_Elem struct {
 	RichtextFacet_Mention *RichtextFacet_Mention
 	RichtextFacet_Link    *RichtextFacet_Link
+	RichtextFacet_Tag     *RichtextFacet_Tag
 }
 
 func (t *RichtextFacet_Features_Elem) MarshalJSON() ([]byte, error) {
@@ -41,6 +42,10 @@ func (t *RichtextFacet_Features_Elem) MarshalJSON() ([]byte, error) {
 	if t.RichtextFacet_Link != nil {
 		t.RichtextFacet_Link.LexiconTypeID = "app.bsky.richtext.facet#link"
 		return json.Marshal(t.RichtextFacet_Link)
+	}
+	if t.RichtextFacet_Tag != nil {
+		t.RichtextFacet_Tag.LexiconTypeID = "app.bsky.richtext.facet#tag"
+		return json.Marshal(t.RichtextFacet_Tag)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -57,6 +62,9 @@ func (t *RichtextFacet_Features_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.richtext.facet#link":
 		t.RichtextFacet_Link = new(RichtextFacet_Link)
 		return json.Unmarshal(b, t.RichtextFacet_Link)
+	case "app.bsky.richtext.facet#tag":
+		t.RichtextFacet_Tag = new(RichtextFacet_Tag)
+		return json.Unmarshal(b, t.RichtextFacet_Tag)
 
 	default:
 		return nil
@@ -75,6 +83,9 @@ func (t *RichtextFacet_Features_Elem) MarshalCBOR(w io.Writer) error {
 	if t.RichtextFacet_Link != nil {
 		return t.RichtextFacet_Link.MarshalCBOR(w)
 	}
+	if t.RichtextFacet_Tag != nil {
+		return t.RichtextFacet_Tag.MarshalCBOR(w)
+	}
 	return fmt.Errorf("cannot cbor marshal empty enum")
 }
 func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
@@ -90,6 +101,9 @@ func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.richtext.facet#link":
 		t.RichtextFacet_Link = new(RichtextFacet_Link)
 		return t.RichtextFacet_Link.UnmarshalCBOR(bytes.NewReader(b))
+	case "app.bsky.richtext.facet#tag":
+		t.RichtextFacet_Tag = new(RichtextFacet_Tag)
+		return t.RichtextFacet_Tag.UnmarshalCBOR(bytes.NewReader(b))
 
 	default:
 		return nil
@@ -114,4 +128,14 @@ type RichtextFacet_Link struct {
 type RichtextFacet_Mention struct {
 	LexiconTypeID string `json:"$type,const=app.bsky.richtext.facet#mention" cborgen:"$type,const=app.bsky.richtext.facet#mention"`
 	Did           string `json:"did" cborgen:"did"`
+}
+
+// RichtextFacet_Tag is a "tag" in the app.bsky.richtext.facet schema.
+//
+// A hashtag.
+//
+// RECORDTYPE: RichtextFacet_Tag
+type RichtextFacet_Tag struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.richtext.facet#tag" cborgen:"$type,const=app.bsky.richtext.facet#tag"`
+	Tag           string `json:"tag" cborgen:"tag"`
 }
