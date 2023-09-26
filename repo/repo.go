@@ -24,12 +24,12 @@ const ATP_REPO_VERSION int64 = 3
 const ATP_REPO_VERSION_2 int64 = 2
 
 type SignedCommit struct {
-	Did     string   `cborgen:"did"`
-	Version int64    `cborgen:"version"`
-	Prev    *cid.Cid `cborgen:"prev"`
-	Data    cid.Cid  `cborgen:"data"`
-	Sig     []byte   `cborgen:"sig"`
-	Rev     string   `cborgen:"rev,omitempty"`
+	Did     string   `json:"did" cborgen:"did"`
+	Version int64    `json:"version" cborgen:"version"`
+	Prev    *cid.Cid `json:"prev" cborgen:"prev"`
+	Data    cid.Cid  `json:"data" cborgen:"data"`
+	Sig     []byte   `json:"sig" cborgen:"sig"`
+	Rev     string   `json:"rev" cborgen:"rev,omitempty"`
 }
 
 type UnsignedCommit struct {
