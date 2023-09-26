@@ -78,6 +78,19 @@ type BGS struct {
 	consumersLk    sync.RWMutex
 	nextConsumerID uint64
 	consumers      map[uint64]*SocketConsumer
+
+	// Management of Resyncs
+	pdsResyncsLk sync.RWMutex
+	pdsResyncs   map[uint]*PDSResync
+}
+
+type PDSResync struct {
+	PDS              models.PDS `json:"pds"`
+	NumRepoPages     int        `json:"numRepoPages"`
+	NumRepos         int        `json:"numRepos"`
+	NumReposToResync int        `json:"numReposToResync"`
+	Status           string     `json:"status"`
+	StatusChangedAt  time.Time  `json:"statusChangedAt"`
 }
 
 type SocketConsumer struct {
@@ -106,6 +119,8 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 
 		consumersLk: sync.RWMutex{},
 		consumers:   make(map[uint64]*SocketConsumer),
+
+		pdsResyncs: make(map[uint]*PDSResync),
 	}
 
 	ix.CreateExternalUser = bgs.createExternalUser
@@ -312,7 +327,8 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 
 	// PDS-related Admin API
 	admin.GET("/pds/list", bgs.handleListPDSs)
-	admin.GET("/pds/resync", bgs.handleAdminResyncPDS)
+	admin.POST("/pds/resync", bgs.handleAdminPostResyncPDS)
+	admin.GET("/pds/resync", bgs.handleAdminGetResyncPDS)
 	admin.POST("/pds/changeIngestRateLimit", bgs.handleAdminChangePDSRateLimit)
 	admin.POST("/pds/changeCrawlRateLimit", bgs.handleAdminChangePDSCrawlLimit)
 	admin.POST("/pds/block", bgs.handleBlockPDS)
@@ -1107,11 +1123,73 @@ type repoHead struct {
 	Head string
 }
 
+func (bgs *BGS) LoadOrStoreResync(pds models.PDS) (PDSResync, bool) {
+	bgs.pdsResyncsLk.Lock()
+	defer bgs.pdsResyncsLk.Unlock()
+
+	if r, ok := bgs.pdsResyncs[pds.ID]; ok && r != nil {
+		return *r, false
+	}
+
+	r := PDSResync{
+		PDS:             pds,
+		Status:          "started",
+		StatusChangedAt: time.Now(),
+	}
+
+	bgs.pdsResyncs[pds.ID] = &r
+
+	return r, true
+}
+
+func (bgs *BGS) GetResync(pds models.PDS) (PDSResync, bool) {
+	bgs.pdsResyncsLk.RLock()
+	defer bgs.pdsResyncsLk.RUnlock()
+
+	if r, ok := bgs.pdsResyncs[pds.ID]; ok {
+		return *r, true
+	}
+
+	return PDSResync{}, false
+}
+
+func (bgs *BGS) UpdateResync(resync PDSResync) {
+	bgs.pdsResyncsLk.Lock()
+	defer bgs.pdsResyncsLk.Unlock()
+
+	if r, ok := bgs.pdsResyncs[resync.PDS.ID]; ok {
+		*r = resync
+	}
+}
+
+func (bgs *BGS) SetResyncStatus(id uint, status string) {
+	bgs.pdsResyncsLk.Lock()
+	defer bgs.pdsResyncsLk.Unlock()
+
+	if r, ok := bgs.pdsResyncs[id]; ok {
+		r.Status = status
+		r.StatusChangedAt = time.Now()
+	}
+}
+
+func (bgs *BGS) CompleteResync(resync PDSResync) {
+	bgs.pdsResyncsLk.Lock()
+	defer bgs.pdsResyncsLk.Unlock()
+
+	if _, ok := bgs.pdsResyncs[resync.PDS.ID]; ok {
+		delete(bgs.pdsResyncs, resync.PDS.ID)
+	}
+}
+
 func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 	ctx, span := otel.Tracer("bgs").Start(ctx, "SyncPDS")
 	defer span.End()
-
 	log := log.With("pds", pds.Host, "source", "sync_pds")
+	resync, found := bgs.LoadOrStoreResync(pds)
+	if found {
+		return fmt.Errorf("resync already in progress")
+	}
+
 	start := time.Now()
 
 	log.Info("starting PDS resync")
@@ -1132,7 +1210,17 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 	repos := []repoHead{}
 	reposToCrawl := []*models.ActorInfo{}
 
+	pages := 0
+
+	bgs.SetResyncStatus(pds.ID, "listing repos")
 	for {
+		pages++
+		if pages%10 == 0 {
+			log.Infow("fetching PDS page during resync", "pages", pages, "total_repos", len(repos))
+			resync.NumRepoPages = pages
+			resync.NumRepos = len(repos)
+			bgs.UpdateResync(resync)
+		}
 		if err := limiter.Wait(ctx); err != nil {
 			return fmt.Errorf("failed to wait for rate limiter: %w", err)
 		}
@@ -1154,13 +1242,22 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 		cursor = *repoList.Cursor
 	}
 
+	resync.NumRepoPages = pages
+	resync.NumRepos = len(repos)
+	bgs.UpdateResync(resync)
+
 	repolistDone := time.Now()
 
 	log.Infow("listed all repos, checking roots", "num_repos", len(repos), "took", repolistDone.Sub(start))
 
+	bgs.SetResyncStatus(pds.ID, "checking heads")
 	// Check the heads of repos against our own records
-	for _, r := range repos {
+	for i, r := range repos {
 		log := log.With("did", r.Did, "head", r.Head)
+		if i%10_000 == 0 {
+			log.Infow("checking repo head during resync", "repos_checked", i, "total_repos", len(repos))
+		}
+
 		shouldCrawl := false
 		// Fetches the user if we have it, otherwise automatically enqueues it for crawling
 		ai, err := bgs.Index.GetUserOrMissing(ctx, r.Did)
@@ -1181,6 +1278,8 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 		}
 
 		if shouldCrawl {
+			resync.NumReposToResync++
+			bgs.UpdateResync(resync)
 			reposToCrawl = append(reposToCrawl, ai)
 		}
 	}
@@ -1189,6 +1288,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 
 	log.Infow("checked all heads, starting crawls", "num_repos_to_crawl", len(reposToCrawl), "took", headCheckDone.Sub(repolistDone))
 
+	bgs.SetResyncStatus(pds.ID, "crawling")
 	// Enqueue a crawl for each repo that needs it
 	for _, ai := range reposToCrawl {
 		err := bgs.Index.Crawler.Crawl(ctx, ai)
@@ -1198,6 +1298,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 	}
 
 	log.Infow("enqueued all crawls, exiting resync", "took", time.Now().Sub(start))
+	bgs.CompleteResync(resync)
 
 	return nil
 }
