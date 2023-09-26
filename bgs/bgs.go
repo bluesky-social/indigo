@@ -1116,7 +1116,13 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 
 	log.Info("starting PDS resync")
 
-	xrpcc := xrpc.Client{Host: pds.Host}
+	host := "http://"
+	if pds.SSL {
+		host = "https://"
+	}
+	host += pds.Host
+
+	xrpcc := xrpc.Client{Host: host}
 	bgs.Index.ApplyPDSClientSettings(&xrpcc)
 
 	limiter := rate.NewLimiter(rate.Limit(50), 1)
