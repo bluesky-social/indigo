@@ -56,7 +56,7 @@
         "has_avatar":     { "type": "boolean" },
         "has_banner":     { "type": "boolean" },
 
-        "typeahead":      { "type": "search_as_you_type" },
+        "typeahead":      { "type": "search_as_you_type", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" },
         "everything":     { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" }
     }
 }
