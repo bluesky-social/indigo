@@ -88,6 +88,7 @@ type PDSResync struct {
 	PDS              models.PDS `json:"pds"`
 	NumRepoPages     int        `json:"numRepoPages"`
 	NumRepos         int        `json:"numRepos"`
+	NumReposChecked  int        `json:"numReposChecked"`
 	NumReposToResync int        `json:"numReposToResync"`
 	Status           string     `json:"status"`
 	StatusChangedAt  time.Time  `json:"statusChangedAt"`
@@ -1252,6 +1253,8 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 		log := log.With("did", r.Did, "head", r.Head)
 		if i%10_000 == 0 {
 			log.Warnw("checking repo head during resync", "repos_checked", i, "total_repos", len(repos))
+			resync.NumReposChecked = i
+			bgs.UpdateResync(resync)
 		}
 
 		shouldCrawl := false
