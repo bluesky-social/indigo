@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -70,6 +71,14 @@ func (s *Server) handleSearchPostsSkeleton(e echo.Context) error {
 		})
 	}
 
+	var err error
+	q, err = url.QueryUnescape(q)
+	if err != nil {
+		return e.JSON(400, map[string]any{
+			"error": fmt.Sprintf("failed to unescape query: %s", err),
+		})
+	}
+
 	offset, limit, err := parseCursorLimit(e)
 	if err != nil {
 		return err
@@ -91,6 +100,14 @@ func (s *Server) handleSearchActorsSkeleton(e echo.Context) error {
 	if q == "" {
 		return e.JSON(400, map[string]any{
 			"error": "must pass non-empty search query",
+		})
+	}
+
+	var err error
+	q, err = url.QueryUnescape(q)
+	if err != nil {
+		return e.JSON(400, map[string]any{
+			"error": fmt.Sprintf("failed to unescape query: %s", err),
 		})
 	}
 
