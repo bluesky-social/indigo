@@ -420,7 +420,7 @@ func (ix *Indexer) fetchRepo(ctx context.Context, c *xrpc.Client, pds *models.PD
 	repo, err := comatproto.SyncGetRepo(ctx, c, did, rev)
 	if err != nil {
 		reposFetched.WithLabelValues("fail").Inc()
-		return nil, fmt.Errorf("failed to fetch repo: %w", err)
+		return nil, fmt.Errorf("failed to fetch repo (did=%s,rev=%s,host=%s): %w", did, rev, pds.Host, err)
 	}
 	reposFetched.WithLabelValues("success").Inc()
 
@@ -482,6 +482,7 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 		span.RecordError(err)
 
 		if ipld.IsNotFound(err) {
+			log.Errorw("partial repo fetch was missing data", "did", ai.Did, "pds", pds.Host, "rev", rev)
 			repo, err := ix.fetchRepo(ctx, c, &pds, ai.Did, "")
 			if err != nil {
 				return err
