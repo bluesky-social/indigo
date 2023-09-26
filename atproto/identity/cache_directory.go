@@ -3,6 +3,7 @@ package identity
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -13,10 +14,12 @@ import (
 )
 
 type CacheDirectory struct {
-	Inner         Directory
-	ErrTTL        time.Duration
-	handleCache   *expirable.LRU[syntax.Handle, HandleEntry]
-	identityCache *expirable.LRU[syntax.DID, IdentityEntry]
+	Inner             Directory
+	ErrTTL            time.Duration
+	handleCache       *expirable.LRU[syntax.Handle, HandleEntry]
+	identityCache     *expirable.LRU[syntax.DID, IdentityEntry]
+	didLookupChans    sync.Map
+	handleLookupChans sync.Map
 }
 
 type HandleEntry struct {
@@ -49,6 +52,16 @@ var identityCacheHits = promauto.NewCounter(prometheus.CounterOpts{
 var identityCacheMisses = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "atproto_directory_identity_cache_misses",
 	Help: "Number of cache misses for ATProto identity lookups",
+})
+
+var identityRequestsCoalesced = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "atproto_directory_identity_requests_coalesced",
+	Help: "Number of identity requests coalesced",
+})
+
+var handleRequestsCoalesced = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "atproto_directory_handle_requests_coalesced",
+	Help: "Number of handle requests coalesced",
 })
 
 var _ Directory = (*CacheDirectory)(nil)
@@ -105,30 +118,62 @@ func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*Ha
 	return &he, nil
 }
 
-func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
-	var err error
-	var entry *HandleEntry
-	maybeEntry, ok := d.handleCache.Get(h)
+func (d *CacheDirectory) coalescedResolveHandle(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
+	resC := make(chan struct{}, 1)
+	actualLookup := false
 
-	if !ok {
-		handleCacheMisses.Inc()
-		entry, err = d.updateHandle(ctx, h)
-		if err != nil {
-			return "", err
+	val, loaded := d.handleLookupChans.LoadOrStore(handle.String(), resC)
+	if loaded {
+		handleRequestsCoalesced.Inc()
+		// Wait for the result from the original goroutine
+		select {
+		case <-val.(chan struct{}):
+			// The result should now be in the cache
+			entry, ok := d.handleCache.Get(handle)
+			if ok && !d.IsHandleStale(&entry) {
+				return entry.DID, entry.Err
+			}
+			return "", fmt.Errorf("identity not found in cache after coalesce returned")
+		case <-ctx.Done():
+			return "", ctx.Err()
 		}
 	} else {
-		entry = &maybeEntry
+		actualLookup = true
 	}
-	if d.IsHandleStale(entry) {
-		handleCacheMisses.Inc()
-		entry, err = d.updateHandle(ctx, h)
-		if err != nil {
-			return "", err
+
+	var did syntax.DID
+	var err error
+
+	// Perform actual lookup only if this goroutine is the one doing it
+	if actualLookup {
+		var entry *HandleEntry
+		// Update the cache entry for this Handle
+		entry, err = d.updateHandle(ctx, handle)
+		if err == nil && entry != nil {
+			did = entry.DID
 		}
-	} else {
+		// Cleanup the coalesce map and close the results channel
+		d.handleLookupChans.Delete(handle.String())
+		// Callers waiting will now get the result from the cache
+		close(resC)
+	}
+
+	return did, err
+}
+
+func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
+	entry, ok := d.handleCache.Get(h)
+	if ok && !d.IsHandleStale(&entry) {
 		handleCacheHits.Inc()
+		return entry.DID, entry.Err
 	}
-	return entry.DID, entry.Err
+	handleCacheMisses.Inc()
+
+	did, err := d.coalescedResolveHandle(ctx, h)
+	if err != nil {
+		return "", err
+	}
+	return did, nil
 }
 
 func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) (*IdentityEntry, error) {
@@ -156,30 +201,62 @@ func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) (*Identi
 	return &entry, nil
 }
 
-func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
-	var err error
-	var entry *IdentityEntry
-	maybeEntry, ok := d.identityCache.Get(did)
+func (d *CacheDirectory) coalescedResolveDID(ctx context.Context, did syntax.DID) (*Identity, error) {
+	resC := make(chan struct{}, 1)
+	actualLookup := false
 
-	if !ok {
-		identityCacheMisses.Inc()
-		entry, err = d.updateDID(ctx, did)
-		if err != nil {
-			return nil, err
+	val, loaded := d.didLookupChans.LoadOrStore(did.String(), resC)
+	if loaded {
+		identityRequestsCoalesced.Inc()
+		// Wait for the result from the original goroutine
+		select {
+		case <-val.(chan struct{}):
+			// The result should now be in the cache
+			entry, ok := d.identityCache.Get(did)
+			if ok && !d.IsIdentityStale(&entry) {
+				return entry.Identity, entry.Err
+			}
+			return nil, fmt.Errorf("identity not found in cache after coalesce returned")
+		case <-ctx.Done():
+			return nil, ctx.Err()
 		}
 	} else {
-		entry = &maybeEntry
+		actualLookup = true
 	}
-	if d.IsIdentityStale(entry) {
-		identityCacheMisses.Inc()
+
+	var doc *Identity
+	var err error
+
+	// Perform actual lookup only if this goroutine is the one doing it
+	if actualLookup {
+		var entry *IdentityEntry
+		// Update the cache entry for this DID
 		entry, err = d.updateDID(ctx, did)
-		if err != nil {
-			return nil, err
+		if err == nil && entry != nil {
+			doc = entry.Identity
 		}
-	} else {
+		// Cleanup the coalesce map and close the results channel
+		d.didLookupChans.Delete(did.String())
+		// Callers waiting will now get the result from the cache
+		close(resC)
+	}
+
+	return doc, err
+}
+
+func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
+	entry, ok := d.identityCache.Get(did)
+	if ok && !d.IsIdentityStale(&entry) {
 		identityCacheHits.Inc()
+		return entry.Identity, entry.Err
 	}
-	return entry.Identity, entry.Err
+	identityCacheMisses.Inc()
+
+	doc, err := d.coalescedResolveDID(ctx, did)
+	if err != nil {
+		return nil, err
+	}
+	return doc, nil
 }
 
 func (d *CacheDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
