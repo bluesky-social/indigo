@@ -17,7 +17,8 @@ import (
 )
 
 var adminCmd = &cli.Command{
-	Name: "admin",
+	Name:  "admin",
+	Usage: "sub-commands for PDS administration",
 	Subcommands: []*cli.Command{
 		buildInviteTreeCmd,
 		checkUserCmd,

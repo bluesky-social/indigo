@@ -13,7 +13,8 @@ import (
 )
 
 var bgsAdminCmd = &cli.Command{
-	Name: "bgs",
+	Name:  "bgs",
+	Usage: "sub-commands for administering a BGS",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:    "key",
