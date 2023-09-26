@@ -82,7 +82,6 @@ func run(args []string) {
 		bgsAdminCmd,
 		carCmd,
 		createFeedGeneratorCmd,
-		createInviteCmd,
 		createSessionCmd,
 		debugCmd,
 		deletePostCmd,
@@ -581,110 +580,6 @@ var getRecordCmd = &cli.Command{
 		}
 
 		fmt.Println(string(b))
-
-		return nil
-	},
-}
-
-var createInviteCmd = &cli.Command{
-	Name: "createInvites",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
-		&cli.IntFlag{
-			Name:  "useCount",
-			Value: 1,
-		},
-		&cli.IntFlag{
-			Name:  "num",
-			Value: 1,
-		},
-		&cli.StringFlag{
-			Name: "bulk",
-		},
-	},
-	ArgsUsage: "[handle]",
-	Action: func(cctx *cli.Context) error {
-		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
-		if err != nil {
-			return err
-		}
-
-		adminKey := cctx.String("admin-password")
-
-		count := cctx.Int("useCount")
-		num := cctx.Int("num")
-
-		phr := &api.ProdHandleResolver{}
-		if bulkfi := cctx.String("bulk"); bulkfi != "" {
-			xrpcc.AdminToken = &adminKey
-			dids, err := readDids(bulkfi)
-			if err != nil {
-				return err
-			}
-
-			for i, d := range dids {
-				if !strings.HasPrefix(d, "did:plc:") {
-					out, err := phr.ResolveHandleToDid(context.TODO(), d)
-					if err != nil {
-						return fmt.Errorf("failed to resolve %q: %w", d, err)
-					}
-
-					dids[i] = out
-				}
-			}
-
-			for n := 0; n < len(dids); n += 500 {
-				slice := dids
-				if len(slice) > 500 {
-					slice = slice[:500]
-				}
-
-				_, err = comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
-					UseCount:    int64(count),
-					ForAccounts: slice,
-					CodeCount:   int64(num),
-				})
-				if err != nil {
-					return err
-				}
-			}
-
-			return nil
-		}
-
-		var usrdid []string
-		if forUser := cctx.Args().Get(0); forUser != "" {
-			if !strings.HasPrefix(forUser, "did:") {
-				resp, err := phr.ResolveHandleToDid(context.TODO(), forUser)
-				if err != nil {
-					return fmt.Errorf("resolving handle: %w", err)
-				}
-
-				usrdid = []string{resp}
-			} else {
-				usrdid = []string{forUser}
-			}
-		}
-
-		xrpcc.AdminToken = &adminKey
-		resp, err := comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
-			UseCount:    int64(count),
-			ForAccounts: usrdid,
-			CodeCount:   int64(num),
-		})
-		if err != nil {
-			return fmt.Errorf("creating codes: %w", err)
-		}
-
-		for _, c := range resp.Codes {
-			for _, cc := range c.Codes {
-				fmt.Println(cc)
-			}
-		}
 
 		return nil
 	},
