@@ -97,6 +97,19 @@ func (ix *Indexer) GetLimiter(pdsID uint) *rate.Limiter {
 	return ix.Limiters[pdsID]
 }
 
+func (ix *Indexer) GetOrCreateLimiter(pdsID uint, pdsrate float64) *rate.Limiter {
+	ix.LimitMux.RLock()
+	defer ix.LimitMux.RUnlock()
+
+	lim, ok := ix.Limiters[pdsID]
+	if !ok {
+		lim = rate.NewLimiter(rate.Limit(pdsrate), 1)
+		ix.Limiters[pdsID] = lim
+	}
+
+	return lim
+}
+
 func (ix *Indexer) SetLimiter(pdsID uint, lim *rate.Limiter) {
 	ix.LimitMux.Lock()
 	defer ix.LimitMux.Unlock()
@@ -432,27 +445,14 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 		}
 	}
 
-	var host string
-	if pds.SSL {
-		host = "https://" + pds.Host
-	} else {
-		host = "http://" + pds.Host
-	}
-	c := &xrpc.Client{
-		Host: host,
-	}
-
+	c := models.ClientForPds(&pds)
 	ix.ApplyPDSClientSettings(c)
 
 	if rev == "" {
 		span.SetAttributes(attribute.Bool("full", true))
 	}
 
-	limiter := ix.GetLimiter(pds.ID)
-	if limiter == nil {
-		limiter = rate.NewLimiter(rate.Limit(pds.CrawlRateLimit), 1)
-		ix.SetLimiter(pds.ID, limiter)
-	}
+	limiter := ix.GetOrCreateLimiter(pds.ID, pds.CrawlRateLimit)
 
 	// Wait to prevent DOSing the PDS when connecting to a new stream with lots of active repos
 	limiter.Wait(ctx)

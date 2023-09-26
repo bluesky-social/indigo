@@ -349,10 +349,7 @@ func (bgs *BGS) handleAdminChangePDSRateLimit(e echo.Context) error {
 	}
 
 	// Update the rate limit in the limiter
-	limiter := bgs.slurper.GetLimiter(pds.ID)
-	if limiter == nil {
-		limiter = rate.NewLimiter(rate.Limit(limit), 1)
-	}
+	limiter := bgs.slurper.GetOrCreateLimiter(pds.ID, limit)
 	limiter.SetLimit(rate.Limit(limit))
 
 	return e.JSON(200, map[string]any{
@@ -390,10 +387,7 @@ func (bgs *BGS) handleAdminChangePDSCrawlLimit(e echo.Context) error {
 	}
 
 	// Update the crawl limit in the limiter
-	limiter := bgs.Index.GetLimiter(pds.ID)
-	if limiter != nil {
-		limiter = rate.NewLimiter(rate.Limit(limit), 1)
-	}
+	limiter := bgs.Index.GetOrCreateLimiter(pds.ID, limit)
 	limiter.SetLimit(rate.Limit(limit))
 
 	return e.JSON(200, map[string]any{

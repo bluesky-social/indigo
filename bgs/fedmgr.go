@@ -126,6 +126,18 @@ func (s *Slurper) GetLimiter(pdsID uint) *rate.Limiter {
 	return s.Limiters[pdsID]
 }
 
+func (s *Slurper) GetOrCreateLimiter(pdsID uint, nlimit float64) *rate.Limiter {
+	s.LimitMux.RLock()
+	defer s.LimitMux.RUnlock()
+	lim, ok := s.Limiters[pdsID]
+	if !ok {
+		lim = rate.NewLimiter(rate.Limit(nlimit), 1)
+		s.Limiters[pdsID] = lim
+	}
+
+	return lim
+}
+
 func (s *Slurper) SetLimiter(pdsID uint, limiter *rate.Limiter) {
 	s.LimitMux.Lock()
 	defer s.LimitMux.Unlock()
@@ -242,13 +254,7 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) err
 	}
 	s.active[host] = &sub
 
-	// Check if we've already got a limiter for this PDS
-	limiter := s.GetLimiter(peering.ID)
-	if limiter == nil {
-		// Create a new limiter for this PDS
-		limiter = rate.NewLimiter(rate.Limit(peering.RateLimit), 1)
-		s.SetLimiter(peering.ID, limiter)
-	}
+	s.GetOrCreateLimiter(peering.ID, peering.RateLimit)
 
 	go s.subscribeWithRedialer(ctx, &peering, &sub)
 
@@ -274,13 +280,9 @@ func (s *Slurper) RestartAll() error {
 			cancel: cancel,
 		}
 		s.active[pds.Host] = &sub
+
 		// Check if we've already got a limiter for this PDS
-		limiter := s.GetLimiter(pds.ID)
-		if limiter == nil {
-			// Create a new limiter for this PDS
-			limiter = rate.NewLimiter(rate.Limit(pds.RateLimit), 1)
-			s.SetLimiter(pds.ID, limiter)
-		}
+		s.GetOrCreateLimiter(pds.ID, pds.RateLimit)
 		go s.subscribeWithRedialer(ctx, &pds, &sub)
 	}
 
@@ -445,11 +447,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 	}
 
-	limiter := s.GetLimiter(host.ID)
-	if limiter == nil {
-		limiter = rate.NewLimiter(rate.Limit(host.RateLimit), 1)
-		s.SetLimiter(host.ID, limiter)
-	}
+	limiter := s.GetOrCreateLimiter(host.ID, host.RateLimit)
 
 	instrumentedRSC := events.NewInstrumentedRepoStreamCallbacks(limiter, rsc.EventHandler)
 
