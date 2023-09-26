@@ -329,56 +329,20 @@ var syncCmd = &cli.Command{
 	Name: "sync",
 	Subcommands: []*cli.Command{
 		syncGetRepoCmd,
-		syncDownloadRepoCmd,
 		syncGetRootCmd,
 		syncListReposCmd,
 	},
 }
 
 var syncGetRepoCmd = &cli.Command{
-	Name: "getRepo",
-	Flags: []cli.Flag{
-		&cli.BoolFlag{
-			Name: "raw",
-		},
-	},
-	ArgsUsage: `<did>`,
-	Action: func(cctx *cli.Context) error {
-		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
-		if err != nil {
-			return err
-		}
-
-		ctx := context.TODO()
-
-		repobytes, err := comatproto.SyncGetRepo(ctx, xrpcc, cctx.Args().First(), "")
-		if err != nil {
-			return err
-		}
-
-		if cctx.Bool("raw") {
-			os.Stdout.Write(repobytes)
-		} else {
-			fmt.Printf("%x", repobytes)
-		}
-
-		return nil
-	},
-}
-
-var syncDownloadRepoCmd = &cli.Command{
-	Name: "downloadRepo",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name: "car-file",
-		},
-	},
-	ArgsUsage: `<at-identifier>`,
+	Name:      "getRepo",
+	Usage:     "download repo from account's PDS to local file (or '-' for stdout). for hex combine with 'xxd -ps -u -c 0'",
+	ArgsUsage: `<at-identifier> [<car-file-path>]`,
 	Action: func(cctx *cli.Context) error {
 		ctx := context.Background()
 		arg := cctx.Args().First()
 		if arg == "" {
-			return fmt.Errorf("identifier arg is required")
+			return fmt.Errorf("at-identifier arg is required")
 		}
 		atid, err := syntax.ParseAtIdentifier(arg)
 		if err != nil {
@@ -390,7 +354,7 @@ var syncDownloadRepoCmd = &cli.Command{
 			return err
 		}
 
-		carPath := cctx.String("car-file")
+		carPath := cctx.Args().Get(1)
 		if carPath == "" {
 			carPath = ident.DID.String() + ".car"
 		}
@@ -410,7 +374,12 @@ var syncDownloadRepoCmd = &cli.Command{
 			return err
 		}
 
-		return os.WriteFile(carPath, repoBytes, 0666)
+		if carPath == "-" {
+			_, err = os.Stdout.Write(repoBytes)
+			return err
+		} else {
+			return os.WriteFile(carPath, repoBytes, 0666)
+		}
 	},
 }
 
