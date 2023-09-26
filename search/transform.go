@@ -183,22 +183,43 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 	return doc
 }
 
+func dedupeStrings(in []string) []string {
+	var out []string
+	seen := make(map[string]bool)
+	for _, v := range in {
+		if !seen[v] {
+			out = append(out, v)
+			seen[v] = true
+		}
+	}
+	return out
+}
+
 func parseProfileTags(p *appbsky.ActorProfile) []string {
 	// TODO: waiting for profile tag lexicon support
 	var ret []string = []string{}
 	if len(ret) == 0 {
 		return nil
 	}
-	return ret
+	return dedupeStrings(ret)
 }
 
 func parsePostTags(p *appbsky.FeedPost) []string {
-	// TODO: waiting for post tag lexicon support (indigo codegen)
 	var ret []string = []string{}
+	for _, facet := range p.Facets {
+		for _, feat := range facet.Features {
+			if feat.RichtextFacet_Tag != nil {
+				ret = append(ret, feat.RichtextFacet_Tag.Tag)
+			}
+		}
+	}
+	for _, t := range p.Tags {
+		ret = append(ret, t)
+	}
 	if len(ret) == 0 {
 		return nil
 	}
-	return ret
+	return dedupeStrings(ret)
 }
 
 func parseEmojis(s string) []string {
