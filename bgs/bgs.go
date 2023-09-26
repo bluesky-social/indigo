@@ -1233,6 +1233,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 		}
 
 		if repoList.Cursor == nil || *repoList.Cursor != "" {
+			log.Warnw("no more repos to list", "cursor", cursor)
 			break
 		}
 		cursor = *repoList.Cursor
