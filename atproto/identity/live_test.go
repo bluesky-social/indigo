@@ -70,8 +70,9 @@ func TestCacheDirectory(t *testing.T) {
 }
 
 func TestCacheCoalesce(t *testing.T) {
-	assert := assert.New(t)
+	t.Skip("TODO: skipping live network test")
 
+	assert := assert.New(t)
 	handle := syntax.Handle("atproto.com")
 	did := syntax.DID("did:plc:ewvi7nxzyoun6zhxrhs64oiz")
 
