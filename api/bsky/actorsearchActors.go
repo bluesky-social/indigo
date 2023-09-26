@@ -17,12 +17,16 @@ type ActorSearchActors_Output struct {
 }
 
 // ActorSearchActors calls the XRPC method "app.bsky.actor.searchActors".
-func ActorSearchActors(ctx context.Context, c *xrpc.Client, cursor string, limit int64, term string) (*ActorSearchActors_Output, error) {
+//
+// q: search query string; syntax, phrase, boolean, and faceting is unspecified, but Lucene query syntax is recommended
+// term: DEPRECATED: use 'q' instead
+func ActorSearchActors(ctx context.Context, c *xrpc.Client, cursor string, limit int64, q string, term string) (*ActorSearchActors_Output, error) {
 	var out ActorSearchActors_Output
 
 	params := map[string]interface{}{
 		"cursor": cursor,
 		"limit":  limit,
+		"q":      q,
 		"term":   term,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.actor.searchActors", params, nil, &out); err != nil {

@@ -1,7 +1,6 @@
 package search
 
 import (
-	"regexp"
 	"strings"
 	"time"
 
@@ -20,7 +19,7 @@ type ProfileDoc struct {
 	Description *string  `json:"description,omitempty"`
 	ImgAltText  []string `json:"img_alt_text,omitempty"`
 	SelfLabel   []string `json:"self_label,omitempty"`
-	Hashtag     []string `json:"hashtag,omitempty"`
+	Tag         []string `json:"tag,omitempty"`
 	Emoji       []string `json:"emoji,omitempty"`
 	HasAvatar   bool     `json:"has_avatar"`
 	HasBanner   bool     `json:"has_banner"`
@@ -43,7 +42,7 @@ type PostDoc struct {
 	EmbedImgCount   int      `json:"embed_img_count"`
 	EmbedImgAltText []string `json:"embed_img_alt_text,omitempty"`
 	SelfLabel       []string `json:"self_label,omitempty"`
-	Hashtag         []string `json:"hashtag,omitempty"`
+	Tag             []string `json:"tag,omitempty"`
 	Emoji           []string `json:"emoji,omitempty"`
 }
 
@@ -64,10 +63,10 @@ func (d *PostDoc) DocId() string {
 func TransformProfile(profile *appbsky.ActorProfile, ident *identity.Identity, cid string) ProfileDoc {
 	// TODO: placeholder for future alt text on profile blobs
 	var altText []string
-	var hashtags []string
+	var tags []string
 	var emojis []string
 	if profile.Description != nil {
-		hashtags = parseHashtags(*profile.Description)
+		tags = parseProfileTags(profile)
 		emojis = parseEmojis(*profile.Description)
 	}
 	var selfLabels []string
@@ -89,7 +88,7 @@ func TransformProfile(profile *appbsky.ActorProfile, ident *identity.Identity, c
 		Description: profile.Description,
 		ImgAltText:  altText,
 		SelfLabel:   selfLabels,
-		Hashtag:     hashtags,
+		Tag:         tags,
 		Emoji:       emojis,
 		HasAvatar:   profile.Avatar != nil,
 		HasBanner:   profile.Banner != nil,
@@ -173,7 +172,7 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 		EmbedImgCount:   embedImgCount,
 		EmbedImgAltText: embedImgAltText,
 		SelfLabel:       selfLabels,
-		Hashtag:         parseHashtags(post.Text),
+		Tag:             parsePostTags(post),
 		Emoji:           parseEmojis(post.Text),
 	}
 
@@ -184,20 +183,43 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 	return doc
 }
 
-func parseHashtags(s string) []string {
-	var hashtagRegex = regexp.MustCompile(`\B#([A-Za-z]+)\b`)
-	var ret []string = []string{}
+func dedupeStrings(in []string) []string {
+	var out []string
 	seen := make(map[string]bool)
-	for _, m := range hashtagRegex.FindAllStringSubmatch(s, -1) {
-		if seen[m[1]] == false {
-			ret = append(ret, m[1])
-			seen[m[1]] = true
+	for _, v := range in {
+		if !seen[v] {
+			out = append(out, v)
+			seen[v] = true
 		}
+	}
+	return out
+}
+
+func parseProfileTags(p *appbsky.ActorProfile) []string {
+	// TODO: waiting for profile tag lexicon support
+	var ret []string = []string{}
+	if len(ret) == 0 {
+		return nil
+	}
+	return dedupeStrings(ret)
+}
+
+func parsePostTags(p *appbsky.FeedPost) []string {
+	var ret []string = []string{}
+	for _, facet := range p.Facets {
+		for _, feat := range facet.Features {
+			if feat.RichtextFacet_Tag != nil {
+				ret = append(ret, feat.RichtextFacet_Tag.Tag)
+			}
+		}
+	}
+	for _, t := range p.Tags {
+		ret = append(ret, t)
 	}
 	if len(ret) == 0 {
 		return nil
 	}
-	return ret
+	return dedupeStrings(ret)
 }
 
 func parseEmojis(s string) []string {

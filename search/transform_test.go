@@ -13,16 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestParseHashtags(t *testing.T) {
-	assert := assert.New(t)
-
-	assert.Equal(parseHashtags("#basic post with #HashTag #examples"), []string{"basic", "HashTag", "examples"})
-	assert.Equal(parseHashtags("#dedupe #dedupe"), []string{"dedupe"})
-	assert.Equal(parseHashtags("##double"), []string{"double"})
-	assert.Equal(parseHashtags("#with-punc"), []string{"with"})
-	assert.True(parseHashtags("not https://example.com/thing#fragment") == nil)
-}
-
 func TestParseEmojis(t *testing.T) {
 	assert := assert.New(t)
 

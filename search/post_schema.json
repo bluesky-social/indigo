@@ -59,7 +59,7 @@
         "embed_img_alt_text": { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
         "self_label":     { "type": "keyword", "normalizer": "default" },
 
-        "hashtag":        { "type": "keyword", "normalizer": "default" },
+        "tag":            { "type": "keyword", "normalizer": "default" },
         "emoji":          { "type": "keyword", "normalizer": "caseSensitive" },
 
         "everything":     { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" },

@@ -72,6 +72,18 @@
           			"uri": "https://en.wikipedia.org/wiki/CBOR"
         			}
       			]
+    			},
+    			{
+      			"index": {
+        			"byteStart": 21,
+        			"byteEnd": 25
+      			},
+      			"features": [
+        			{
+          			"$type": "app.bsky.richtext.facet#tag",
+          			"tag": "some"
+        			}
+      			]
     			}
   			],
             "labels": {
@@ -96,7 +108,10 @@
       			"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k44deefqdk2g",
       			"cid": "bafyreiecx6dujwoeqpdzl27w67z4h46hyklk3an4i4cvvmioaqb2qbyo5u"
     			}
-  			}
+  			},
+            "tags": [
+                "thing"
+            ]
 		},
 		"doc_id": "did:plc:u5cwb2mwiv2bfq53cjufe6yn_3k4duaz5vfs2b",
 		"PostDoc": {
@@ -114,7 +129,7 @@
   			"lang_code": ["th", "en-US"],
   			"lang_code_iso2": ["th", "en"],
             "self_label": ["nudity"],
-  			"hashtag": ["some", "hashtags"],
+  			"tag": ["some", "thing"],
   			"emoji": ["\u2620", "\ud83d\ude42", "\ud83c\udf85\ud83c\udfff", "\ud83c\uddf8\ud83c\udde8"],
   			"embed_img_count": 0
 		}

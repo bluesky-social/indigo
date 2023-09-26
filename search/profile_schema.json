@@ -50,13 +50,13 @@
         "img_alt_text":   { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
         "self_label":     { "type": "keyword", "normalizer": "default" },
 
-        "hashtag":        { "type": "keyword", "normalizer": "default" },
+        "tag":            { "type": "keyword", "normalizer": "default" },
         "emoji":          { "type": "keyword", "normalizer": "caseSensitive" },
 
         "has_avatar":     { "type": "boolean" },
         "has_banner":     { "type": "boolean" },
 
-        "typeahead":      { "type": "search_as_you_type" },
+        "typeahead":      { "type": "search_as_you_type", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" },
         "everything":     { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" }
     }
 }
