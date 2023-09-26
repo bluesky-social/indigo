@@ -87,6 +87,7 @@ func TestCacheCoalesce(t *testing.T) {
 		SkipDNSDomainSuffixes: []string{".bsky.social"},
 	}
 	dir := NewCacheDirectory(&base, 1000, time.Hour*1, time.Hour*1)
+	// All 60 routines launch at the same time, so they should all miss the cache initially
 	routines := 60
 	wg := sync.WaitGroup{}
 
