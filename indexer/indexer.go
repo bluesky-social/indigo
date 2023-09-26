@@ -97,6 +97,19 @@ func (ix *Indexer) GetLimiter(pdsID uint) *rate.Limiter {
 	return ix.Limiters[pdsID]
 }
 
+func (ix *Indexer) GetOrCreateLimiter(pdsID uint, pdsrate float64) *rate.Limiter {
+	ix.LimitMux.RLock()
+	defer ix.LimitMux.RUnlock()
+
+	lim, ok := ix.Limiters[pdsID]
+	if !ok {
+		lim = rate.NewLimiter(rate.Limit(pdsrate), 1)
+		ix.Limiters[pdsID] = lim
+	}
+
+	return lim
+}
+
 func (ix *Indexer) SetLimiter(pdsID uint, lim *rate.Limiter) {
 	ix.LimitMux.Lock()
 	defer ix.LimitMux.Unlock()
@@ -393,6 +406,27 @@ func isNotFound(err error) bool {
 	return false
 }
 
+func (ix *Indexer) fetchRepo(ctx context.Context, c *xrpc.Client, pds *models.PDS, did string, rev string) ([]byte, error) {
+	ctx, span := otel.Tracer("indexer").Start(ctx, "fetchRepo")
+	defer span.End()
+
+	limiter := ix.GetOrCreateLimiter(pds.ID, pds.CrawlRateLimit)
+
+	// Wait to prevent DOSing the PDS when connecting to a new stream with lots of active repos
+	limiter.Wait(ctx)
+
+	log.Infow("SyncGetRepo", "did", did, "since", rev)
+	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
+	repo, err := comatproto.SyncGetRepo(ctx, c, did, rev)
+	if err != nil {
+		reposFetched.WithLabelValues("fail").Inc()
+		return nil, fmt.Errorf("failed to fetch repo (did=%s,rev=%s,host=%s): %w", did, rev, pds.Host, err)
+	}
+	reposFetched.WithLabelValues("success").Inc()
+
+	return repo, nil
+}
+
 // TODO: since this function is the only place we depend on the repomanager, i wonder if this should be wired some other way?
 func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error {
 	ctx, span := otel.Tracer("indexer").Start(ctx, "FetchAndIndexRepo")
@@ -412,80 +446,57 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 		return fmt.Errorf("failed to get repo root: %w", err)
 	}
 
+	// attempt to process buffered events
 	if !job.initScrape && len(job.catchup) > 0 {
 		first := job.catchup[0]
+		var resync bool
 		if first.evt.Since == nil || rev == *first.evt.Since {
-			for _, j := range job.catchup {
+			for i, j := range job.catchup {
 				catchupEventsProcessed.Inc()
 				if err := ix.repomgr.HandleExternalUserEvent(ctx, pds.ID, ai.Uid, ai.Did, j.evt.Since, j.evt.Rev, j.evt.Blocks, j.evt.Ops); err != nil {
-					// TODO: if we fail here, we should probably fall back to a repo re-sync
-					return fmt.Errorf("post rebase catchup failed: %w", err)
+					log.Errorw("buffered event catchup failed", "error", err, "did", ai.Did, "i", i, "jobCount", len(job.catchup))
+					resync = true // fall back to a repo sync
+					break
 				}
 			}
 
-			return nil
+			if !resync {
+				return nil
+			}
 		}
 	}
-
-	var host string
-	if pds.SSL {
-		host = "https://" + pds.Host
-	} else {
-		host = "http://" + pds.Host
-	}
-	c := &xrpc.Client{
-		Host: host,
-	}
-
-	ix.ApplyPDSClientSettings(c)
 
 	if rev == "" {
 		span.SetAttributes(attribute.Bool("full", true))
 	}
 
-	limiter := ix.GetLimiter(pds.ID)
-	if limiter == nil {
-		limiter = rate.NewLimiter(rate.Limit(pds.CrawlRateLimit), 1)
-		ix.SetLimiter(pds.ID, limiter)
-	}
+	c := models.ClientForPds(&pds)
+	ix.ApplyPDSClientSettings(c)
 
-	// Wait to prevent DOSing the PDS when connecting to a new stream with lots of active repos
-	limiter.Wait(ctx)
-
-	log.Infow("SyncGetRepo", "did", ai.Did, "user", ai.Handle, "since", rev)
-	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
-	repo, err := comatproto.SyncGetRepo(ctx, c, ai.Did, rev)
+	repo, err := ix.fetchRepo(ctx, c, &pds, ai.Did, rev)
 	if err != nil {
-		reposFetched.WithLabelValues("fail").Inc()
-		return fmt.Errorf("failed to fetch repo: %w", err)
+		return err
 	}
-	reposFetched.WithLabelValues("success").Inc()
 
-	// this process will send individual indexing events back to the indexer, doing a 'fast forward' of the users entire history
-	// we probably want alternative ways of doing this for 'very large' or 'very old' repos, but this works for now
 	if err := ix.repomgr.ImportNewRepo(ctx, ai.Uid, ai.Did, bytes.NewReader(repo), &rev); err != nil {
 		span.RecordError(err)
 
 		if ipld.IsNotFound(err) {
-			limiter.Wait(ctx)
-			log.Infow("SyncGetRepo", "did", ai.Did, "user", ai.Handle, "since", "", "fallback", true)
-			repo, err := comatproto.SyncGetRepo(ctx, c, ai.Did, "")
+			log.Errorw("partial repo fetch was missing data", "did", ai.Did, "pds", pds.Host, "rev", rev)
+			repo, err := ix.fetchRepo(ctx, c, &pds, ai.Did, "")
 			if err != nil {
-				reposFetched.WithLabelValues("fail").Inc()
-				return fmt.Errorf("failed to fetch repo: %w", err)
+				return err
 			}
-			reposFetched.WithLabelValues("success").Inc()
 
 			if err := ix.repomgr.ImportNewRepo(ctx, ai.Uid, ai.Did, bytes.NewReader(repo), nil); err != nil {
 				span.RecordError(err)
 				return fmt.Errorf("failed to import backup repo (%s): %w", ai.Did, err)
 			}
+
+			return nil
 		}
 		return fmt.Errorf("importing fetched repo (curRev: %s): %w", rev, err)
 	}
-
-	// TODO: this is currently doing too much work, allowing us to ignore the catchup events we've gotten
-	// need to do 'just enough' work...
 
 	return nil
 }
