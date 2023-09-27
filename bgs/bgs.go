@@ -1226,10 +1226,12 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 			bgs.UpdateResync(resync)
 		}
 		if err := limiter.Wait(ctx); err != nil {
+			log.Errorw("failed to wait for rate limiter", "error", err)
 			return fmt.Errorf("failed to wait for rate limiter: %w", err)
 		}
 		repoList, err := comatproto.SyncListRepos(ctx, &xrpcc, cursor, limit)
 		if err != nil {
+			log.Errorw("failed to list repos", "error", err)
 			return fmt.Errorf("failed to list repos: %w", err)
 		}
 
