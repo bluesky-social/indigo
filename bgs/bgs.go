@@ -1296,41 +1296,33 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 		}(r)
 	}
 
-	var reposToCrawl []*models.ActorInfo
+	var numReposToResync int
 	for i := 0; i < len(repos); i++ {
 		res := <-results
 		if res.err != nil {
 			log.Errorw("failed to process repo during resync", "error", res.err)
+
 		}
 		if res.ai != nil {
-			reposToCrawl = append(reposToCrawl, res.ai)
+			numReposToResync++
+			err := bgs.Index.Crawler.Crawl(ctx, res.ai)
+			if err != nil {
+				log.Errorw("failed to enqueue crawl for repo during resync", "error", err, "uid", res.ai.Uid, "did", res.ai.Did)
+			}
 		}
 		if i%10_000 == 0 {
-			log.Warnw("checked heads during resync", "num_repos_checked", i, "num_repos_to_crawl", len(reposToCrawl), "took", time.Now().Sub(resync.StatusChangedAt))
+			log.Warnw("checked heads during resync", "num_repos_checked", i, "num_repos_to_crawl", numReposToResync, "took", time.Now().Sub(resync.StatusChangedAt))
 			resync.NumReposChecked = i
-			resync.NumReposToResync = len(reposToCrawl)
+			resync.NumReposToResync = numReposToResync
 			bgs.UpdateResync(resync)
 		}
 	}
 
 	resync.NumReposChecked = len(repos)
-	resync.NumReposToResync = len(reposToCrawl)
+	resync.NumReposToResync = numReposToResync
 	bgs.UpdateResync(resync)
 
-	headCheckDone := time.Now()
-
-	log.Warnw("checked all heads, starting crawls", "num_repos_to_crawl", len(reposToCrawl), "took", headCheckDone.Sub(repolistDone))
-
-	resync = bgs.SetResyncStatus(pds.ID, "crawling")
-	// Enqueue a crawl for each repo that needs it
-	for _, ai := range reposToCrawl {
-		err := bgs.Index.Crawler.Crawl(ctx, ai)
-		if err != nil {
-			log.Errorw("failed to enqueue crawl for repo during resync", "error", err, "uid", ai.Uid, "did", ai.Did)
-		}
-	}
-
-	log.Warnw("enqueued all crawls, exiting resync", "took", time.Now().Sub(start))
+	log.Warnw("enqueued all crawls, exiting resync", "took", time.Now().Sub(start), "num_repos_to_crawl", numReposToResync)
 	bgs.CompleteResync(resync)
 
 	return nil
