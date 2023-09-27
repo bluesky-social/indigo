@@ -1125,6 +1125,11 @@ type repoHead struct {
 	Head string
 }
 
+type headCheckResult struct {
+	ai  *models.ActorInfo
+	err error
+}
+
 func (bgs *BGS) LoadOrStoreResync(pds models.PDS) (PDSResync, bool) {
 	bgs.pdsResyncsLk.Lock()
 	defer bgs.pdsResyncsLk.Unlock()
@@ -1246,78 +1251,71 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 	bgs.UpdateResync(resync)
 
 	repolistDone := time.Now()
-	wg := sync.WaitGroup{}
-	sem := semaphore.NewWeighted(40)
-
-	numReposChecked := 0
-	numReposToResync := 0
-	checkLk := sync.Mutex{}
-
-	rtcLk := sync.Mutex{}
-	reposToCrawl := []*models.ActorInfo{}
 
 	log.Warnw("listed all repos, checking roots", "num_repos", len(repos), "took", repolistDone.Sub(start))
-
 	resync = bgs.SetResyncStatus(pds.ID, "checking heads")
-	// Check the heads of repos against our own records
+
+	// Create a buffered channel for collecting results
+	results := make(chan headCheckResult, len(repos))
+
+	sem := semaphore.NewWeighted(40)
+	// Create a worker function for goroutines
+	worker := func(r repoHead) {
+		if err := sem.Acquire(ctx, 1); err != nil {
+			log.Errorw("failed to acquire semaphore", "error", err)
+			return
+		}
+		defer sem.Release(1)
+
+		log := log.With("did", r.Did, "head", r.Head)
+		// Fetches the user if we have it, otherwise automatically enqueues it for crawling
+		ai, err := bgs.Index.GetUserOrMissing(ctx, r.Did)
+		if err != nil {
+			log.Errorw("failed to get user while resyncing PDS, we can't recrawl it", "error", err)
+			results <- headCheckResult{err: err}
+		}
+
+		head, err := bgs.repoman.GetRepoRoot(ctx, ai.Uid)
+		if err != nil {
+			log.Warnw("recrawling because we failed to get the local repo root", "err", err, "uid", ai.Uid)
+			return
+		}
+
+		if head.String() != r.Head {
+			log.Warnw("recrawling because the repo head from the PDS is different from our local repo root", "local_head", head.String())
+			results <- headCheckResult{ai: ai}
+			return
+		}
+
+		results <- headCheckResult{}
+	}
+
 	for _, r := range repos {
-		wg.Add(1)
 		go func(r repoHead) {
-			defer wg.Done()
-			defer sem.Release(1)
-			if err := sem.Acquire(ctx, 1); err != nil {
-				log.Errorw("failed to acquire semaphore", "error", err)
-				return
-			}
-
-			log := log.With("did", r.Did, "head", r.Head)
-
-			checkLk.Lock()
-			numReposChecked++
-			nc := numReposChecked
-			checkLk.Unlock()
-
-			if nc%10_000 == 0 {
-				log.Warnw("checking repo head during resync", "repos_checked", nc, "total_repos", len(repos))
-				resync.NumReposChecked = nc
-				bgs.UpdateResync(resync)
-			}
-
-			shouldCrawl := false
-			// Fetches the user if we have it, otherwise automatically enqueues it for crawling
-			ai, err := bgs.Index.GetUserOrMissing(ctx, r.Did)
-			if err != nil {
-				log.Errorw("failed to get user while resyncing PDS, we can't recrawl it", "error", err)
-				return
-			}
-
-			head, err := bgs.repoman.GetRepoRoot(ctx, ai.Uid)
-			if err != nil {
-				log.Warnw("recrawling because we failed to get the local repo root", "err", err, "uid", ai.Uid)
-				shouldCrawl = true
-			}
-
-			if head.String() != r.Head {
-				log.Warnw("recrawling because the repo head from the PDS is different from our local repo root", "local_head", head.String())
-				shouldCrawl = true
-			}
-
-			if shouldCrawl {
-				checkLk.Lock()
-				numReposToResync++
-				resync.NumReposToResync = numReposToResync
-				checkLk.Unlock()
-
-				bgs.UpdateResync(resync)
-
-				rtcLk.Lock()
-				reposToCrawl = append(reposToCrawl, ai)
-				rtcLk.Unlock()
-			}
+			worker(r)
 		}(r)
 	}
 
-	wg.Wait()
+	var reposToCrawl []*models.ActorInfo
+	for i := 0; i < len(repos); i++ {
+		res := <-results
+		if res.err != nil {
+			log.Errorw("failed to process repo during resync", "error", res.err)
+		}
+		if res.ai != nil {
+			reposToCrawl = append(reposToCrawl, res.ai)
+		}
+		if i%10_000 == 0 {
+			log.Warnw("checked heads during resync", "num_repos_checked", i, "num_repos_to_crawl", len(reposToCrawl), "took", time.Now().Sub(resync.StatusChangedAt))
+			resync.NumReposChecked = i
+			resync.NumReposToResync = len(reposToCrawl)
+			bgs.UpdateResync(resync)
+		}
+	}
+
+	resync.NumReposChecked = len(repos)
+	resync.NumReposToResync = len(reposToCrawl)
+	bgs.UpdateResync(resync)
 
 	headCheckDone := time.Now()
 
