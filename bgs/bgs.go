@@ -1257,42 +1257,38 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 
 	// Create a buffered channel for collecting results
 	results := make(chan headCheckResult, len(repos))
-
 	sem := semaphore.NewWeighted(40)
-	// Create a worker function for goroutines
-	worker := func(r repoHead) {
-		if err := sem.Acquire(ctx, 1); err != nil {
-			log.Errorw("failed to acquire semaphore", "error", err)
-			return
-		}
-		defer sem.Release(1)
 
-		log := log.With("did", r.Did, "head", r.Head)
-		// Fetches the user if we have it, otherwise automatically enqueues it for crawling
-		ai, err := bgs.Index.GetUserOrMissing(ctx, r.Did)
-		if err != nil {
-			log.Errorw("failed to get user while resyncing PDS, we can't recrawl it", "error", err)
-			results <- headCheckResult{err: err}
-		}
-
-		head, err := bgs.repoman.GetRepoRoot(ctx, ai.Uid)
-		if err != nil {
-			log.Warnw("recrawling because we failed to get the local repo root", "err", err, "uid", ai.Uid)
-			return
-		}
-
-		if head.String() != r.Head {
-			log.Warnw("recrawling because the repo head from the PDS is different from our local repo root", "local_head", head.String())
-			results <- headCheckResult{ai: ai}
-			return
-		}
-
-		results <- headCheckResult{}
-	}
-
+	// Check repo heads against our local copy and enqueue crawls for any that are out of date
 	for _, r := range repos {
 		go func(r repoHead) {
-			worker(r)
+			if err := sem.Acquire(ctx, 1); err != nil {
+				log.Errorw("failed to acquire semaphore", "error", err)
+				return
+			}
+			defer sem.Release(1)
+
+			log := log.With("did", r.Did, "head", r.Head)
+			// Fetches the user if we have it, otherwise automatically enqueues it for crawling
+			ai, err := bgs.Index.GetUserOrMissing(ctx, r.Did)
+			if err != nil {
+				log.Errorw("failed to get user while resyncing PDS, we can't recrawl it", "error", err)
+				results <- headCheckResult{err: err}
+			}
+
+			head, err := bgs.repoman.GetRepoRoot(ctx, ai.Uid)
+			if err != nil {
+				log.Warnw("recrawling because we failed to get the local repo root", "err", err, "uid", ai.Uid)
+				return
+			}
+
+			if head.String() != r.Head {
+				log.Warnw("recrawling because the repo head from the PDS is different from our local repo root", "local_head", head.String())
+				results <- headCheckResult{ai: ai}
+				return
+			}
+
+			results <- headCheckResult{}
 		}(r)
 	}
 
