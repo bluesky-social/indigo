@@ -1162,7 +1162,7 @@ func (bgs *BGS) UpdateResync(resync PDSResync) {
 	bgs.pdsResyncs[resync.PDS.ID] = &resync
 }
 
-func (bgs *BGS) SetResyncStatus(id uint, status string) {
+func (bgs *BGS) SetResyncStatus(id uint, status string) PDSResync {
 	bgs.pdsResyncsLk.Lock()
 	defer bgs.pdsResyncsLk.Unlock()
 
@@ -1170,6 +1170,8 @@ func (bgs *BGS) SetResyncStatus(id uint, status string) {
 		r.Status = status
 		r.StatusChangedAt = time.Now()
 	}
+
+	return *bgs.pdsResyncs[id]
 }
 
 func (bgs *BGS) CompleteResync(resync PDSResync) {
@@ -1209,7 +1211,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 
 	pages := 0
 
-	bgs.SetResyncStatus(pds.ID, "listing repos")
+	resync = bgs.SetResyncStatus(pds.ID, "listing repos")
 	for {
 		pages++
 		if pages%10 == 0 {
@@ -1256,7 +1258,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 
 	log.Warnw("listed all repos, checking roots", "num_repos", len(repos), "took", repolistDone.Sub(start))
 
-	bgs.SetResyncStatus(pds.ID, "checking heads")
+	resync = bgs.SetResyncStatus(pds.ID, "checking heads")
 	// Check the heads of repos against our own records
 	for _, r := range repos {
 		wg.Add(1)
@@ -1321,7 +1323,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 
 	log.Warnw("checked all heads, starting crawls", "num_repos_to_crawl", len(reposToCrawl), "took", headCheckDone.Sub(repolistDone))
 
-	bgs.SetResyncStatus(pds.ID, "crawling")
+	resync = bgs.SetResyncStatus(pds.ID, "crawling")
 	// Enqueue a crawl for each repo that needs it
 	for _, ai := range reposToCrawl {
 		err := bgs.Index.Crawler.Crawl(ctx, ai)
