@@ -317,8 +317,6 @@ func (ix *Indexer) createMissingUserRecord(ctx context.Context, did string) (*mo
 }
 
 func (ix *Indexer) addUserToCrawler(ctx context.Context, ai *models.ActorInfo) error {
-	userCrawlsEnqueued.Inc()
-
 	log.Infow("Sending user to crawler: ", "did", ai.Did)
 	if ix.Crawler == nil {
 		return nil
