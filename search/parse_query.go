@@ -66,5 +66,8 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 			}
 		}
 	}
+	if out == "" && len(filters) >= 1 {
+		out = "*"
+	}
 	return out, filters
 }
