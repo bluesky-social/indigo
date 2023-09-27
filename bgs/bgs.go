@@ -1266,6 +1266,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 		go func(r repoHead) {
 			if err := sem.Acquire(ctx, 1); err != nil {
 				log.Errorw("failed to acquire semaphore", "error", err)
+				results <- headCheckResult{err: err}
 				return
 			}
 			defer sem.Release(1)
