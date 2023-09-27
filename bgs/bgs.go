@@ -764,8 +764,12 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return nil
 		}
 
+		if evt.Rebase {
+			return fmt.Errorf("rebase was true in event seq:%d,host:%s", evt.Seq, host.Host)
+		}
+
 		// skip the fast path for rebases or if the user is already in the slow path
-		if evt.Rebase || bgs.Index.Crawler.RepoInSlowPath(ctx, host, u.ID) {
+		if bgs.Index.Crawler.RepoInSlowPath(ctx, host, u.ID) {
 			rebasesCounter.WithLabelValues(host.Host).Add(1)
 			ai, err := bgs.Index.LookupUser(ctx, u.ID)
 			if err != nil {
@@ -787,9 +791,9 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
 
 			if errors.Is(err, carstore.ErrRepoBaseMismatch) || ipld.IsNotFound(err) {
-				ai, err := bgs.Index.LookupUser(ctx, u.ID)
-				if err != nil {
-					return fmt.Errorf("failed to look up user (err case): %w", err)
+				ai, lerr := bgs.Index.LookupUser(ctx, u.ID)
+				if lerr != nil {
+					return fmt.Errorf("failed to look up user %s (%d) (err case: %s): %w", u.Did, u.ID, err, lerr)
 				}
 
 				span.SetAttributes(attribute.Bool("catchup_queue", true))
