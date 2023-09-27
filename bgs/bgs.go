@@ -26,7 +26,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
@@ -831,6 +830,21 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			log.Warnw("handle update did not update handle to asserted value", "did", env.RepoHandle.Did, "expected", env.RepoHandle.Handle, "actual", act.Handle)
 		}
 
+		// TODO: Update the ReposHandle event type to include "verified" or something
+
+		// Broadcast the handle update to all consumers
+		err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
+			RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
+				Did:    env.RepoHandle.Did,
+				Handle: env.RepoHandle.Handle,
+				Time:   env.RepoHandle.Time,
+			},
+		})
+		if err != nil {
+			log.Errorw("failed to broadcast RepoHandle event", "error", err, "did", env.RepoHandle.Did, "handle", env.RepoHandle.Handle)
+			return fmt.Errorf("failed to broadcast RepoHandle event: %w", err)
+		}
+
 		return nil
 	case env.RepoMigrate != nil:
 		if _, err := bgs.createExternalUser(ctx, env.RepoMigrate.Did); err != nil {
@@ -961,13 +975,17 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	handle := hurl.Host
 
+	validHandle := true
+
 	resdid, err := s.hr.ResolveHandleToDid(ctx, handle)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve users claimed handle (%q) on pds: %w", handle, err)
+		log.Errorf("failed to resolve users claimed handle (%q) on pds: %s", handle, err)
+		validHandle = false
 	}
 
 	if resdid != did {
-		return nil, fmt.Errorf("claimed handle did not match servers response (%s != %s)", resdid, did)
+		log.Errorf("claimed handle did not match servers response (%s != %s)", resdid, did)
+		validHandle = false
 	}
 
 	s.extUserLk.Lock()
@@ -996,17 +1014,6 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 			}
 
 			exu.Handle = handle
-
-			if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
-				RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
-					Did:    exu.Did,
-					Handle: handle,
-					Time:   time.Now().Format(util.ISO8601),
-				},
-			}); err != nil {
-				// TODO: should we really error here? I'm leaning towards no
-				return nil, fmt.Errorf("failed to push handle update event: %s", err)
-			}
 		}
 		return exu, nil
 	}
@@ -1017,9 +1024,12 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	// TODO: request this users info from their server to fill out our data...
 	u := User{
-		Handle: handle,
-		Did:    did,
-		PDS:    peering.ID,
+		Did:         did,
+		PDS:         peering.ID,
+		ValidHandle: validHandle,
+	}
+	if validHandle {
+		u.Handle = handle
 	}
 
 	if err := s.db.Create(&u).Error; err != nil {
@@ -1058,11 +1068,14 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	// lets make a local record of that user for the future
 	subj := &models.ActorInfo{
 		Uid:         u.ID,
-		Handle:      handle,
 		DisplayName: "", //*profile.DisplayName,
 		Did:         did,
 		Type:        "",
 		PDS:         peering.ID,
+		ValidHandle: validHandle,
+	}
+	if validHandle {
+		subj.Handle = handle
 	}
 	if err := s.db.Create(subj).Error; err != nil {
 		return nil, err
