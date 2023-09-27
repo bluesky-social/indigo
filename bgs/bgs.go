@@ -1276,6 +1276,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 			if err != nil {
 				log.Errorw("failed to get user while resyncing PDS, we can't recrawl it", "error", err)
 				results <- headCheckResult{err: err}
+				return
 			}
 
 			head, err := bgs.repoman.GetRepoRoot(ctx, ai.Uid)
