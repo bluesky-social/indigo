@@ -1,6 +1,7 @@
 package bgs
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -428,5 +429,55 @@ func (bgs *BGS) handleAdminCompactAllRepos(e echo.Context) error {
 
 	return e.JSON(200, map[string]any{
 		"success": "true",
+	})
+}
+
+func (bgs *BGS) handleAdminPostResyncPDS(e echo.Context) error {
+	host := strings.TrimSpace(e.QueryParam("host"))
+	if host == "" {
+		return fmt.Errorf("must pass a host")
+	}
+
+	// Get the PDS from the DB
+	var pds models.PDS
+	if err := bgs.db.Where("host = ?", host).First(&pds).Error; err != nil {
+		return err
+	}
+
+	go func() {
+		ctx := context.Background()
+		err := bgs.ResyncPDS(ctx, pds)
+		if err != nil {
+			log.Errorw("failed to resync PDS", "err", err, "pds", pds.Host)
+		}
+	}()
+
+	return e.JSON(200, map[string]any{
+		"message": "resync started...",
+	})
+}
+
+func (bgs *BGS) handleAdminGetResyncPDS(e echo.Context) error {
+	host := strings.TrimSpace(e.QueryParam("host"))
+	if host == "" {
+		return fmt.Errorf("must pass a host")
+	}
+
+	// Get the PDS from the DB
+	var pds models.PDS
+	if err := bgs.db.Where("host = ?", host).First(&pds).Error; err != nil {
+		return err
+	}
+
+	resync, found := bgs.GetResync(pds)
+	if !found {
+		return &echo.HTTPError{
+			Code:    404,
+			Message: "no resync found for given PDS",
+		}
+	}
+
+	return e.JSON(200, map[string]any{
+		"resync": resync,
 	})
 }
