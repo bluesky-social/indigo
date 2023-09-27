@@ -1135,7 +1135,7 @@ func (bgs *BGS) LoadOrStoreResync(pds models.PDS) (PDSResync, bool) {
 	defer bgs.pdsResyncsLk.Unlock()
 
 	if r, ok := bgs.pdsResyncs[pds.ID]; ok && r != nil {
-		return *r, false
+		return *r, true
 	}
 
 	r := PDSResync{
@@ -1146,7 +1146,7 @@ func (bgs *BGS) LoadOrStoreResync(pds models.PDS) (PDSResync, bool) {
 
 	bgs.pdsResyncs[pds.ID] = &r
 
-	return r, true
+	return r, false
 }
 
 func (bgs *BGS) GetResync(pds models.PDS) (PDSResync, bool) {
