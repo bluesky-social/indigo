@@ -2,6 +2,7 @@ package bgs
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -436,7 +437,7 @@ type User struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	DeletedAt   gorm.DeletedAt `gorm:"index"`
-	Handle      string         `gorm:"uniqueIndex"`
+	Handle      sql.NullString `gorm:"uniqueIndex"`
 	Did         string         `gorm:"uniqueIndex"`
 	PDS         uint
 	ValidHandle bool `gorm:"default:true"`
@@ -826,7 +827,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return err
 		}
 
-		if act.Handle != env.RepoHandle.Handle {
+		if act.Handle.String != env.RepoHandle.Handle {
 			log.Warnw("handle update did not update handle to asserted value", "did", env.RepoHandle.Did, "expected", env.RepoHandle.Handle, "actual", act.Handle)
 		}
 
@@ -1002,7 +1003,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 		}
 
-		if exu.Handle != handle {
+		if exu.Handle.String != handle {
 			// Users handle has changed, update
 			if err := s.db.Model(User{}).Where("id = ?", exu.Uid).Update("handle", handle).Error; err != nil {
 				return nil, fmt.Errorf("failed to update users handle: %w", err)
@@ -1013,7 +1014,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 				return nil, fmt.Errorf("failed to update actorInfos handle: %w", err)
 			}
 
-			exu.Handle = handle
+			exu.Handle = sql.NullString{String: handle, Valid: true}
 		}
 		return exu, nil
 	}
@@ -1029,7 +1030,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		ValidHandle: validHandle,
 	}
 	if validHandle {
-		u.Handle = handle
+		u.Handle = sql.NullString{String: handle, Valid: true}
 	}
 
 	if err := s.db.Create(&u).Error; err != nil {
@@ -1075,7 +1076,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		ValidHandle: validHandle,
 	}
 	if validHandle {
-		subj.Handle = handle
+		subj.Handle = sql.NullString{String: handle, Valid: true}
 	}
 	if err := s.db.Create(subj).Error; err != nil {
 		return nil, err
