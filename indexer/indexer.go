@@ -3,6 +3,7 @@ package indexer
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"sync"
@@ -377,7 +378,7 @@ func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, 
 		UpdateAll: true,
 	}).Create(&models.ActorInfo{
 		Uid:         evt.User,
-		Handle:      ai.Handle,
+		Handle:      sql.NullString{String: ai.Handle, Valid: true},
 		Did:         ai.Did,
 		DisplayName: ai.DisplayName,
 		Type:        ai.Type,

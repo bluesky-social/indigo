@@ -2,6 +2,7 @@ package events_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -423,7 +424,7 @@ func runTakedownTest(t *testing.T, cs *carstore.CarStore, db *gorm.DB, p events.
 		users[i-1] = &models.ActorInfo{
 			Uid:    i,
 			Did:    did,
-			Handle: handle,
+			Handle: sql.NullString{String: handle, Valid: true},
 		}
 		if err := db.Create(&users[i-1]).Error; err != nil {
 			t.Fatal(err)
