@@ -1194,6 +1194,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 	if found {
 		return fmt.Errorf("resync already in progress")
 	}
+	defer bgs.CompleteResync(resync)
 
 	start := time.Now()
 
@@ -1324,7 +1325,6 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 	bgs.UpdateResync(resync)
 
 	log.Warnw("enqueued all crawls, exiting resync", "took", time.Now().Sub(start), "num_repos_to_crawl", numReposToResync)
-	bgs.CompleteResync(resync)
 
 	return nil
 }
