@@ -1282,6 +1282,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 			head, err := bgs.repoman.GetRepoRoot(ctx, ai.Uid)
 			if err != nil {
 				log.Warnw("recrawling because we failed to get the local repo root", "err", err, "uid", ai.Uid)
+				results <- headCheckResult{ai: ai}
 				return
 			}
 
