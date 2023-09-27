@@ -28,6 +28,7 @@ import (
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
+	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
 
 	"github.com/gorilla/websocket"
@@ -1205,7 +1206,6 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 	limit := int64(500)
 
 	repos := []repoHead{}
-	reposToCrawl := []*models.ActorInfo{}
 
 	pages := 0
 
@@ -1244,44 +1244,78 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 	bgs.UpdateResync(resync)
 
 	repolistDone := time.Now()
+	wg := sync.WaitGroup{}
+	sem := semaphore.NewWeighted(40)
+
+	numReposChecked := 0
+	numReposToResync := 0
+	checkLk := sync.Mutex{}
+
+	rtcLk := sync.Mutex{}
+	reposToCrawl := []*models.ActorInfo{}
 
 	log.Warnw("listed all repos, checking roots", "num_repos", len(repos), "took", repolistDone.Sub(start))
 
 	bgs.SetResyncStatus(pds.ID, "checking heads")
 	// Check the heads of repos against our own records
-	for i, r := range repos {
-		log := log.With("did", r.Did, "head", r.Head)
-		if i%10_000 == 0 {
-			log.Warnw("checking repo head during resync", "repos_checked", i, "total_repos", len(repos))
-			resync.NumReposChecked = i
-			bgs.UpdateResync(resync)
-		}
+	for _, r := range repos {
+		wg.Add(1)
+		go func(r repoHead) {
+			defer wg.Done()
+			defer sem.Release(1)
+			if err := sem.Acquire(ctx, 1); err != nil {
+				log.Errorw("failed to acquire semaphore", "error", err)
+				return
+			}
 
-		shouldCrawl := false
-		// Fetches the user if we have it, otherwise automatically enqueues it for crawling
-		ai, err := bgs.Index.GetUserOrMissing(ctx, r.Did)
-		if err != nil {
-			log.Errorw("failed to get user while resyncing PDS, we can't recrawl it", "error", err)
-			continue
-		}
+			log := log.With("did", r.Did, "head", r.Head)
 
-		head, err := bgs.repoman.GetRepoRoot(ctx, ai.Uid)
-		if err != nil {
-			log.Warnw("recrawling because we failed to get the local repo root", "err", err, "uid", ai.Uid)
-			shouldCrawl = true
-		}
+			checkLk.Lock()
+			numReposChecked++
+			nc := numReposChecked
+			checkLk.Unlock()
 
-		if head.String() != r.Head {
-			log.Warnw("recrawling because the repo head from the PDS is different from our local repo root", "local_head", head.String())
-			shouldCrawl = true
-		}
+			if nc%10_000 == 0 {
+				log.Warnw("checking repo head during resync", "repos_checked", nc, "total_repos", len(repos))
+				resync.NumReposChecked = nc
+				bgs.UpdateResync(resync)
+			}
 
-		if shouldCrawl {
-			resync.NumReposToResync++
-			bgs.UpdateResync(resync)
-			reposToCrawl = append(reposToCrawl, ai)
-		}
+			shouldCrawl := false
+			// Fetches the user if we have it, otherwise automatically enqueues it for crawling
+			ai, err := bgs.Index.GetUserOrMissing(ctx, r.Did)
+			if err != nil {
+				log.Errorw("failed to get user while resyncing PDS, we can't recrawl it", "error", err)
+				return
+			}
+
+			head, err := bgs.repoman.GetRepoRoot(ctx, ai.Uid)
+			if err != nil {
+				log.Warnw("recrawling because we failed to get the local repo root", "err", err, "uid", ai.Uid)
+				shouldCrawl = true
+			}
+
+			if head.String() != r.Head {
+				log.Warnw("recrawling because the repo head from the PDS is different from our local repo root", "local_head", head.String())
+				shouldCrawl = true
+			}
+
+			if shouldCrawl {
+				checkLk.Lock()
+				numReposToResync++
+				resync.NumReposToResync = numReposToResync
+				checkLk.Unlock()
+
+				bgs.UpdateResync(resync)
+
+				rtcLk.Lock()
+				reposToCrawl = append(reposToCrawl, ai)
+				rtcLk.Unlock()
+			}
+		}(r)
 	}
+
+	wg.Wait()
 
 	headCheckDone := time.Now()
 
