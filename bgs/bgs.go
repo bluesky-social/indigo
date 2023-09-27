@@ -1187,9 +1187,9 @@ func (bgs *BGS) CompleteResync(resync PDSResync) {
 }
 
 func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
-	ctx, span := otel.Tracer("bgs").Start(ctx, "SyncPDS")
+	ctx, span := otel.Tracer("bgs").Start(ctx, "ResyncPDS")
 	defer span.End()
-	log := log.With("pds", pds.Host, "source", "sync_pds")
+	log := log.With("pds", pds.Host, "source", "resync_pds")
 	resync, found := bgs.LoadOrStoreResync(pds)
 	if found {
 		return fmt.Errorf("resync already in progress")
