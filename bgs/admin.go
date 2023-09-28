@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/models"
 	"github.com/labstack/echo/v4"
 	dto "github.com/prometheus/client_model/go"
+	"go.opentelemetry.io/otel"
 	"golang.org/x/time/rate"
 	"gorm.io/gorm"
 )
@@ -397,7 +398,8 @@ func (bgs *BGS) handleAdminChangePDSCrawlLimit(e echo.Context) error {
 }
 
 func (bgs *BGS) handleAdminCompactRepo(e echo.Context) error {
-	ctx := e.Request().Context()
+	ctx, span := otel.Tracer("bgs").Start(context.Background(), "adminCompactRepo")
+	defer span.End()
 
 	did := e.QueryParam("did")
 	if did == "" {
@@ -421,7 +423,8 @@ func (bgs *BGS) handleAdminCompactRepo(e echo.Context) error {
 }
 
 func (bgs *BGS) handleAdminCompactAllRepos(e echo.Context) error {
-	ctx := e.Request().Context()
+	ctx, span := otel.Tracer("bgs").Start(context.Background(), "adminCompactAllRepos")
+	defer span.End()
 
 	if err := bgs.runRepoCompaction(ctx); err != nil {
 		return fmt.Errorf("compaction run failed: %w", err)
