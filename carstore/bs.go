@@ -1447,6 +1447,13 @@ func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compB
 	}
 
 	if err := cs.putShard(ctx, &shard, nbrefs, nil, true); err != nil {
+		// if writing the shard fails, we should also delete the file
+		_ = fi.Close()
+
+		if err2 := os.Remove(fi.Name()); err2 != nil {
+			log.Errorf("failed to remove shard file (%s) after failed db transaction: %w", fi.Name(), err2)
+		}
+
 		return err
 	}
 	return nil
