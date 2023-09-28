@@ -23,6 +23,7 @@ import (
 	cbor "github.com/ipfs/go-ipld-cbor"
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/ipfs/go-libipfs/blocks"
+	logging "github.com/ipfs/go-log"
 	car "github.com/ipld/go-car"
 	carutil "github.com/ipld/go-car/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -30,6 +31,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
 )
+
+var log = logging.Logger("carstore")
 
 const MaxSliceLength = 2 << 20
 
@@ -1180,6 +1183,7 @@ type CompactionStats struct {
 	SkippedShards int `json:"skippedShards"`
 	ShardsDeleted int `json:"shardsDeleted"`
 	RefsDeleted   int `json:"refsDeleted"`
+	DupeCount     int `json:"dupeCount"`
 }
 
 func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*CompactionStats, error) {
@@ -1214,13 +1218,16 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 	}
 
 	stale := make(map[cid.Cid]bool)
+	var dupes []cid.Cid
 	var hasDirtyDupes bool
 	for _, br := range staleRefs {
 		if stale[br.Cid.CID] {
+			delete(stale, br.Cid.CID) // remove dupes from stale list, see comment below
 			hasDirtyDupes = true
-			break
+			dupes = append(dupes, br.Cid.CID)
+		} else {
+			stale[br.Cid.CID] = true
 		}
-		stale[br.Cid.CID] = true
 	}
 
 	if hasDirtyDupes {
@@ -1233,7 +1240,10 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 		// focus on compacting everything else. it leaves *some* dirty blocks
 		// still around but we're doing that anyways since compaction isnt a
 		// perfect process
-		return nil, fmt.Errorf("WIP: not currently handling this case")
+
+		log.Warnw("repo has dirty dupes", "count", len(dupes), "uid", user, "staleRefs", len(staleRefs), "blockRefs", len(brefs))
+
+		//return nil, fmt.Errorf("WIP: not currently handling this case")
 	}
 
 	keep := make(map[cid.Cid]bool)
@@ -1241,6 +1251,10 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 		if !stale[br.Cid.CID] {
 			keep[br.Cid.CID] = true
 		}
+	}
+
+	for _, dupe := range dupes {
+		keep[dupe] = true
 	}
 
 	results := aggrRefs(brefs, shardsById, stale)
@@ -1335,6 +1349,7 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 	}
 
 	stats.RefsDeleted = num
+	stats.DupeCount = len(dupes)
 
 	return stats, nil
 }

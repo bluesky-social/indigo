@@ -281,6 +281,13 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 				sendHeader = false
 			}
 
+			if strings.HasPrefix(ctx.Path(), "/admin/") {
+				ctx.JSON(500, map[string]any{
+					"error": err.Error(),
+				})
+				return
+			}
+
 			log.Warnf("HANDLER ERROR: (%s) %s", ctx.Path(), err)
 
 			if sendHeader {
