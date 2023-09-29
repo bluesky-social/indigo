@@ -1,0 +1,62 @@
+[
+	{
+		"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
+		"rkey": "self",
+		"cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
+        "handle": "handle.example.com",
+		"ProfileRecord": {
+  			"$type": "app.bsky.actor.profile"
+		},
+		"doc_id": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
+		"ProfileDoc": {
+            "doc_index_ts": "2006-01-02T15:04:05.000Z",
+  			"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
+  			"handle": "handle.example.com",
+  			"record_cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
+  			"has_avatar": false,
+  			"has_banner": false 
+		}
+	},
+	{
+		"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
+		"rkey": "self",
+		"cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
+        "handle": "handle.example.com",
+		"ProfileRecord": {
+  			"$type": "app.bsky.actor.profile",
+    		"displayName": "Big Bubba",
+    		"description": "Big Description 🥸 #cheese",
+            "labels": {
+                "$type": "com.atproto.label.defs#selfLabels",
+                "values": [
+                    {"val": "nudity"}
+                ]
+            },
+            "avatar": {
+                "$type": "blob",
+                "mimeType": "image/jpeg",
+                "ref": {
+                    "$link": "bafkreiglnysron3h2je7nf6cmvtimuaxi7xe2c7rkxitmks3mzmajnc2ou"
+                },
+                "size": 106760
+            },
+            "banner": {
+                "cid": "bafkreih42ufe7ies4zephtkdw4tcb4hvuoc2pjzybpjxpecz3tyymnvkhm",
+                "mimeType": "image/jpeg"
+            }
+		},
+		"doc_id": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
+		"ProfileDoc": {
+            "doc_index_ts": "2006-01-02T15:04:05.000Z",
+  			"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
+  			"handle": "handle.example.com",
+  			"record_cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
+  			"display_name": "Big Bubba",
+  			"description": "Big Description 🥸 #cheese",
+            "self_label": ["nudity"],
+  			"emoji": ["🥸"],
+  			"has_avatar": true,
+  			"has_banner": true
+		}
+	}
+]

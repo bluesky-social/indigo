@@ -2,6 +2,7 @@ package bgs
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,11 +27,13 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
+	"golang.org/x/sync/semaphore"
+	"golang.org/x/time/rate"
 
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
+	ipld "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -76,6 +79,20 @@ type BGS struct {
 	consumersLk    sync.RWMutex
 	nextConsumerID uint64
 	consumers      map[uint64]*SocketConsumer
+
+	// Management of Resyncs
+	pdsResyncsLk sync.RWMutex
+	pdsResyncs   map[uint]*PDSResync
+}
+
+type PDSResync struct {
+	PDS              models.PDS `json:"pds"`
+	NumRepoPages     int        `json:"numRepoPages"`
+	NumRepos         int        `json:"numRepos"`
+	NumReposChecked  int        `json:"numReposChecked"`
+	NumReposToResync int        `json:"numReposToResync"`
+	Status           string     `json:"status"`
+	StatusChangedAt  time.Time  `json:"statusChangedAt"`
 }
 
 type SocketConsumer struct {
@@ -100,11 +117,12 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		events:  evtman,
 		didr:    didr,
 		blobs:   blobs,
-
-		ssl: ssl,
+		ssl:     ssl,
 
 		consumersLk: sync.RWMutex{},
 		consumers:   make(map[uint64]*SocketConsumer),
+
+		pdsResyncs: make(map[uint]*PDSResync),
 	}
 
 	ix.CreateExternalUser = bgs.createExternalUser
@@ -274,14 +292,13 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	// TODO: this API is temporary until we formalize what we want here
 
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", bgs.EventsHandler)
-	e.GET("/xrpc/com.atproto.sync.getCheckout", bgs.HandleComAtprotoSyncGetCheckout)
-	e.GET("/xrpc/com.atproto.sync.getCommitPath", bgs.HandleComAtprotoSyncGetCommitPath)
-	e.GET("/xrpc/com.atproto.sync.getHead", bgs.HandleComAtprotoSyncGetHead)
 	e.GET("/xrpc/com.atproto.sync.getRecord", bgs.HandleComAtprotoSyncGetRecord)
 	e.GET("/xrpc/com.atproto.sync.getRepo", bgs.HandleComAtprotoSyncGetRepo)
 	e.GET("/xrpc/com.atproto.sync.getBlocks", bgs.HandleComAtprotoSyncGetBlocks)
 	e.GET("/xrpc/com.atproto.sync.requestCrawl", bgs.HandleComAtprotoSyncRequestCrawl)
 	e.POST("/xrpc/com.atproto.sync.requestCrawl", bgs.HandleComAtprotoSyncRequestCrawl)
+	e.GET("/xrpc/com.atproto.sync.listRepos", bgs.HandleComAtprotoSyncListRepos)
+	e.GET("/xrpc/com.atproto.sync.getLatestCommit", bgs.HandleComAtprotoSyncGetLatestCommit)
 	e.GET("/xrpc/com.atproto.sync.notifyOfUpdate", bgs.HandleComAtprotoSyncNotifyOfUpdate)
 	e.GET("/xrpc/_health", bgs.HandleHealthCheck)
 
@@ -307,9 +324,13 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	// Repo-related Admin API
 	admin.POST("/repo/takeDown", bgs.handleAdminTakeDownRepo)
 	admin.POST("/repo/reverseTakedown", bgs.handleAdminReverseTakedown)
+	admin.POST("/repo/compact", bgs.handleAdminCompactRepo)
+	admin.POST("/repo/compactAll", bgs.handleAdminCompactAllRepos)
 
 	// PDS-related Admin API
 	admin.GET("/pds/list", bgs.handleListPDSs)
+	admin.POST("/pds/resync", bgs.handleAdminPostResyncPDS)
+	admin.GET("/pds/resync", bgs.handleAdminGetResyncPDS)
 	admin.POST("/pds/changeIngestRateLimit", bgs.handleAdminChangePDSRateLimit)
 	admin.POST("/pds/changeCrawlRateLimit", bgs.handleAdminChangePDSCrawlLimit)
 	admin.POST("/pds/block", bgs.handleBlockPDS)
@@ -385,6 +406,11 @@ func (bgs *BGS) CreateAdminToken(tok string) error {
 
 func (bgs *BGS) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(e echo.Context) error {
+		ctx, span := otel.Tracer("bgs").Start(e.Request().Context(), "checkAdminAuth")
+		defer span.End()
+
+		e.SetRequest(e.Request().WithContext(ctx))
+
 		authheader := e.Request().Header.Get("Authorization")
 		pref := "Bearer "
 		if !strings.HasPrefix(authheader, pref) {
@@ -407,13 +433,14 @@ func (bgs *BGS) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 type User struct {
-	ID        models.Uid `gorm:"primarykey"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
-	Handle    string         `gorm:"uniqueIndex"`
-	Did       string         `gorm:"uniqueIndex"`
-	PDS       uint
+	ID          models.Uid `gorm:"primarykey"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	DeletedAt   gorm.DeletedAt `gorm:"index"`
+	Handle      sql.NullString `gorm:"uniqueIndex"`
+	Did         string         `gorm:"uniqueIndex"`
+	PDS         uint
+	ValidHandle bool `gorm:"default:true"`
 
 	// TakenDown is set to true if the user in question has been taken down.
 	// A user in this state will have all future events related to it dropped
@@ -721,6 +748,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 				return fmt.Errorf("looking up event user: %w", err)
 			}
 
+			newUsersDiscovered.Inc()
 			subj, err := bgs.createExternalUser(ctx, evt.Repo)
 			if err != nil {
 				return fmt.Errorf("fed event create external user: %w", err)
@@ -736,12 +764,16 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return nil
 		}
 
+		if evt.Rebase {
+			return fmt.Errorf("rebase was true in event seq:%d,host:%s", evt.Seq, host.Host)
+		}
+
 		// skip the fast path for rebases or if the user is already in the slow path
-		if evt.Rebase || bgs.Index.Crawler.RepoInSlowPath(ctx, host, u.ID) {
+		if bgs.Index.Crawler.RepoInSlowPath(ctx, host, u.ID) {
 			rebasesCounter.WithLabelValues(host.Host).Add(1)
 			ai, err := bgs.Index.LookupUser(ctx, u.ID)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to look up user (slow path): %w", err)
 			}
 
 			// TODO: we currently do not handle events that get queued up
@@ -755,27 +787,18 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
 		}
 
-		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, (*cid.Cid)(evt.Prev), evt.Blocks, evt.Ops); err != nil {
+		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.Since, evt.Rev, evt.Blocks, evt.Ops); err != nil {
 			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
 
-			if errors.Is(err, carstore.ErrRepoBaseMismatch) {
-				ai, err := bgs.Index.LookupUser(ctx, u.ID)
-				if err != nil {
-					return err
+			if errors.Is(err, carstore.ErrRepoBaseMismatch) || ipld.IsNotFound(err) {
+				ai, lerr := bgs.Index.LookupUser(ctx, u.ID)
+				if lerr != nil {
+					return fmt.Errorf("failed to look up user %s (%d) (err case: %s): %w", u.Did, u.ID, err, lerr)
 				}
 
 				span.SetAttributes(attribute.Bool("catchup_queue", true))
 
 				return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
-			}
-
-			if errors.Is(err, carstore.ErrRepoFork) {
-				log.Errorw("detected repo fork", "from", stringLink(evt.Prev), "host", host.Host, "repo", u.Did)
-
-				span.SetAttributes(attribute.Bool("catchup_queue", true))
-				span.SetAttributes(attribute.Bool("fork", true))
-
-				return fmt.Errorf("cannot process repo fork")
 			}
 
 			return fmt.Errorf("handle user event failed: %w", err)
@@ -794,6 +817,9 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		return nil
 	case env.RepoHandle != nil:
+		log.Infow("bgs got repo handle event", "did", env.RepoHandle.Did, "handle", env.RepoHandle.Handle)
+		// Flush any cached DID documents for this user
+		bgs.didr.FlushCacheFor(env.RepoHandle.Did)
 
 		// TODO: ignoring the data in the message and just going out to the DID doc
 		act, err := bgs.createExternalUser(ctx, env.RepoHandle.Did)
@@ -801,8 +827,23 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return err
 		}
 
-		if act.Handle != env.RepoHandle.Handle {
+		if act.Handle.String != env.RepoHandle.Handle {
 			log.Warnw("handle update did not update handle to asserted value", "did", env.RepoHandle.Did, "expected", env.RepoHandle.Handle, "actual", act.Handle)
+		}
+
+		// TODO: Update the ReposHandle event type to include "verified" or something
+
+		// Broadcast the handle update to all consumers
+		err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
+			RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
+				Did:    env.RepoHandle.Did,
+				Handle: env.RepoHandle.Handle,
+				Time:   env.RepoHandle.Time,
+			},
+		})
+		if err != nil {
+			log.Errorw("failed to broadcast RepoHandle event", "error", err, "did", env.RepoHandle.Did, "handle", env.RepoHandle.Handle)
+			return fmt.Errorf("failed to broadcast RepoHandle event: %w", err)
 		}
 
 		return nil
@@ -848,6 +889,8 @@ func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user models.Ui
 func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.ActorInfo, error) {
 	ctx, span := otel.Tracer("bgs").Start(ctx, "createExternalUser")
 	defer span.End()
+
+	externalUserCreationAttempts.Inc()
 
 	log.Infof("create external user: %s", did)
 	doc, err := s.didr.GetDocument(ctx, did)
@@ -929,15 +972,21 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		return nil, err
 	}
 
+	log.Infow("creating external user", "did", did, "handle", hurl.Host, "pds", peering.ID)
+
 	handle := hurl.Host
+
+	validHandle := true
 
 	resdid, err := s.hr.ResolveHandleToDid(ctx, handle)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve users claimed handle (%q) on pds: %w", handle, err)
+		log.Errorf("failed to resolve users claimed handle (%q) on pds: %s", handle, err)
+		validHandle = false
 	}
 
 	if resdid != did {
-		return nil, fmt.Errorf("claimed handle did not match servers response (%s != %s)", resdid, did)
+		log.Errorf("claimed handle did not match servers response (%s != %s)", resdid, did)
+		validHandle = false
 	}
 
 	s.extUserLk.Lock()
@@ -945,7 +994,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	exu, err := s.Index.LookupUserByDid(ctx, did)
 	if err == nil {
-		log.Infow("lost the race to create a new user", "did", did, "handle", handle)
+		log.Infow("lost the race to create a new user", "did", did, "handle", handle, "existing_hand", exu.Handle)
 		if exu.PDS != peering.ID {
 			// User is now on a different PDS, update
 			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("pds", peering.ID).Error; err != nil {
@@ -954,22 +1003,18 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 		}
 
-		if exu.Handle != handle {
+		if exu.Handle.String != handle {
 			// Users handle has changed, update
-			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("handle", handle).Error; err != nil {
+			if err := s.db.Model(User{}).Where("id = ?", exu.Uid).Update("handle", handle).Error; err != nil {
 				return nil, fmt.Errorf("failed to update users handle: %w", err)
 			}
 
-			if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
-				RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
-					Did:    exu.Did,
-					Handle: handle,
-					Time:   time.Now().Format(util.ISO8601),
-				},
-			}); err != nil {
-				// TODO: should we really error here? I'm leaning towards no
-				return nil, fmt.Errorf("failed to push handle update event: %s", err)
+			// Update ActorInfos
+			if err := s.db.Model(models.ActorInfo{}).Where("uid = ?", exu.Uid).Update("handle", handle).Error; err != nil {
+				return nil, fmt.Errorf("failed to update actorInfos handle: %w", err)
 			}
+
+			exu.Handle = sql.NullString{String: handle, Valid: true}
 		}
 		return exu, nil
 	}
@@ -980,25 +1025,58 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	// TODO: request this users info from their server to fill out our data...
 	u := User{
-		Handle: handle,
-		Did:    did,
-		PDS:    peering.ID,
+		Did:         did,
+		PDS:         peering.ID,
+		ValidHandle: validHandle,
+	}
+	if validHandle {
+		u.Handle = sql.NullString{String: handle, Valid: true}
 	}
 
 	if err := s.db.Create(&u).Error; err != nil {
-		// some debugging...
-		return nil, fmt.Errorf("failed to create other pds user: %w", err)
+		// If the new user's handle conflicts with an existing user,
+		// since we just validated the handle for this user, we'll assume
+		// the existing user no longer has control of the handle
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			// Get the UID of the existing user
+			var existingUser User
+			if err := s.db.Find(&existingUser, "handle = ?", handle).Error; err != nil {
+				return nil, fmt.Errorf("failed to find existing user: %w", err)
+			}
+
+			// Set the existing user's handle to NULL and set the valid_handle flag to false
+			if err := s.db.Model(User{}).Where("id = ?", existingUser.ID).Update("handle", nil).Update("valid_handle", false).Error; err != nil {
+				return nil, fmt.Errorf("failed to update outdated user's handle: %w", err)
+			}
+
+			// Do the same thing for the ActorInfo if it exists
+			if err := s.db.Model(models.ActorInfo{}).Where("uid = ?", existingUser.ID).Update("handle", nil).Update("valid_handle", false).Error; err != nil {
+				if !errors.Is(err, gorm.ErrRecordNotFound) {
+					return nil, fmt.Errorf("failed to update outdated actorInfo's handle: %w", err)
+				}
+			}
+
+			// Create the new user
+			if err := s.db.Create(&u).Error; err != nil {
+				return nil, fmt.Errorf("failed to create user after handle conflict: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to create other pds user: %w", err)
+		}
 	}
 
 	// okay cool, its a user on a server we are peered with
 	// lets make a local record of that user for the future
 	subj := &models.ActorInfo{
 		Uid:         u.ID,
-		Handle:      handle,
 		DisplayName: "", //*profile.DisplayName,
 		Did:         did,
 		Type:        "",
 		PDS:         peering.ID,
+		ValidHandle: validHandle,
+	}
+	if validHandle {
+		subj.Handle = sql.NullString{String: handle, Valid: true}
 	}
 	if err := s.db.Create(subj).Error; err != nil {
 		return nil, err
@@ -1037,6 +1115,234 @@ func (bgs *BGS) ReverseTakedown(ctx context.Context, did string) error {
 	if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("taken_down", false).Error; err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func (bgs *BGS) runRepoCompaction(ctx context.Context) error {
+	ctx, span := otel.Tracer("bgs").Start(ctx, "runRepoCompaction")
+	defer span.End()
+
+	repos, err := bgs.repoman.CarStore().GetCompactionTargets(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get repos to compact: %w", err)
+	}
+
+	for _, r := range repos {
+		if _, err := bgs.repoman.CarStore().CompactUserShards(ctx, r.Usr); err != nil {
+			log.Errorf("failed to compact shards for user %d: %s", r.Usr, err)
+			continue
+		}
+	}
+
+	return nil
+}
+
+type repoHead struct {
+	Did  string
+	Head string
+}
+
+type headCheckResult struct {
+	ai  *models.ActorInfo
+	err error
+}
+
+func (bgs *BGS) LoadOrStoreResync(pds models.PDS) (PDSResync, bool) {
+	bgs.pdsResyncsLk.Lock()
+	defer bgs.pdsResyncsLk.Unlock()
+
+	if r, ok := bgs.pdsResyncs[pds.ID]; ok && r != nil {
+		return *r, true
+	}
+
+	r := PDSResync{
+		PDS:             pds,
+		Status:          "started",
+		StatusChangedAt: time.Now(),
+	}
+
+	bgs.pdsResyncs[pds.ID] = &r
+
+	return r, false
+}
+
+func (bgs *BGS) GetResync(pds models.PDS) (PDSResync, bool) {
+	bgs.pdsResyncsLk.RLock()
+	defer bgs.pdsResyncsLk.RUnlock()
+
+	if r, ok := bgs.pdsResyncs[pds.ID]; ok {
+		return *r, true
+	}
+
+	return PDSResync{}, false
+}
+
+func (bgs *BGS) UpdateResync(resync PDSResync) {
+	bgs.pdsResyncsLk.Lock()
+	defer bgs.pdsResyncsLk.Unlock()
+
+	bgs.pdsResyncs[resync.PDS.ID] = &resync
+}
+
+func (bgs *BGS) SetResyncStatus(id uint, status string) PDSResync {
+	bgs.pdsResyncsLk.Lock()
+	defer bgs.pdsResyncsLk.Unlock()
+
+	if r, ok := bgs.pdsResyncs[id]; ok {
+		r.Status = status
+		r.StatusChangedAt = time.Now()
+	}
+
+	return *bgs.pdsResyncs[id]
+}
+
+func (bgs *BGS) CompleteResync(resync PDSResync) {
+	bgs.pdsResyncsLk.Lock()
+	defer bgs.pdsResyncsLk.Unlock()
+
+	delete(bgs.pdsResyncs, resync.PDS.ID)
+}
+
+func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
+	ctx, span := otel.Tracer("bgs").Start(ctx, "ResyncPDS")
+	defer span.End()
+	log := log.With("pds", pds.Host, "source", "resync_pds")
+	resync, found := bgs.LoadOrStoreResync(pds)
+	if found {
+		return fmt.Errorf("resync already in progress")
+	}
+	defer bgs.CompleteResync(resync)
+
+	start := time.Now()
+
+	log.Warn("starting PDS resync")
+
+	host := "http://"
+	if pds.SSL {
+		host = "https://"
+	}
+	host += pds.Host
+
+	xrpcc := xrpc.Client{Host: host}
+	bgs.Index.ApplyPDSClientSettings(&xrpcc)
+
+	limiter := rate.NewLimiter(rate.Limit(50), 1)
+	cursor := ""
+	limit := int64(500)
+
+	repos := []repoHead{}
+
+	pages := 0
+
+	resync = bgs.SetResyncStatus(pds.ID, "listing repos")
+	for {
+		pages++
+		if pages%10 == 0 {
+			log.Warnw("fetching PDS page during resync", "pages", pages, "total_repos", len(repos))
+			resync.NumRepoPages = pages
+			resync.NumRepos = len(repos)
+			bgs.UpdateResync(resync)
+		}
+		if err := limiter.Wait(ctx); err != nil {
+			log.Errorw("failed to wait for rate limiter", "error", err)
+			return fmt.Errorf("failed to wait for rate limiter: %w", err)
+		}
+		repoList, err := comatproto.SyncListRepos(ctx, &xrpcc, cursor, limit)
+		if err != nil {
+			log.Errorw("failed to list repos", "error", err)
+			return fmt.Errorf("failed to list repos: %w", err)
+		}
+
+		for _, r := range repoList.Repos {
+			repos = append(repos, repoHead{
+				Did:  r.Did,
+				Head: r.Head,
+			})
+		}
+
+		if repoList.Cursor == nil || *repoList.Cursor == "" {
+			break
+		}
+		cursor = *repoList.Cursor
+	}
+
+	resync.NumRepoPages = pages
+	resync.NumRepos = len(repos)
+	bgs.UpdateResync(resync)
+
+	repolistDone := time.Now()
+
+	log.Warnw("listed all repos, checking roots", "num_repos", len(repos), "took", repolistDone.Sub(start))
+	resync = bgs.SetResyncStatus(pds.ID, "checking heads")
+
+	// Create a buffered channel for collecting results
+	results := make(chan headCheckResult, len(repos))
+	sem := semaphore.NewWeighted(40)
+
+	// Check repo heads against our local copy and enqueue crawls for any that are out of date
+	for _, r := range repos {
+		go func(r repoHead) {
+			if err := sem.Acquire(ctx, 1); err != nil {
+				log.Errorw("failed to acquire semaphore", "error", err)
+				results <- headCheckResult{err: err}
+				return
+			}
+			defer sem.Release(1)
+
+			log := log.With("did", r.Did, "head", r.Head)
+			// Fetches the user if we have it, otherwise automatically enqueues it for crawling
+			ai, err := bgs.Index.GetUserOrMissing(ctx, r.Did)
+			if err != nil {
+				log.Errorw("failed to get user while resyncing PDS, we can't recrawl it", "error", err)
+				results <- headCheckResult{err: err}
+				return
+			}
+
+			head, err := bgs.repoman.GetRepoRoot(ctx, ai.Uid)
+			if err != nil {
+				log.Warnw("recrawling because we failed to get the local repo root", "err", err, "uid", ai.Uid)
+				results <- headCheckResult{ai: ai}
+				return
+			}
+
+			if head.String() != r.Head {
+				log.Warnw("recrawling because the repo head from the PDS is different from our local repo root", "local_head", head.String())
+				results <- headCheckResult{ai: ai}
+				return
+			}
+
+			results <- headCheckResult{}
+		}(r)
+	}
+
+	var numReposToResync int
+	for i := 0; i < len(repos); i++ {
+		res := <-results
+		if res.err != nil {
+			log.Errorw("failed to process repo during resync", "error", res.err)
+
+		}
+		if res.ai != nil {
+			numReposToResync++
+			err := bgs.Index.Crawler.Crawl(ctx, res.ai)
+			if err != nil {
+				log.Errorw("failed to enqueue crawl for repo during resync", "error", err, "uid", res.ai.Uid, "did", res.ai.Did)
+			}
+		}
+		if i%10_000 == 0 {
+			log.Warnw("checked heads during resync", "num_repos_checked", i, "num_repos_to_crawl", numReposToResync, "took", time.Now().Sub(resync.StatusChangedAt))
+			resync.NumReposChecked = i
+			resync.NumReposToResync = numReposToResync
+			bgs.UpdateResync(resync)
+		}
+	}
+
+	resync.NumReposChecked = len(repos)
+	resync.NumReposToResync = numReposToResync
+	bgs.UpdateResync(resync)
+
+	log.Warnw("enqueued all crawls, exiting resync", "took", time.Now().Sub(start), "num_repos_to_crawl", numReposToResync)
 
 	return nil
 }

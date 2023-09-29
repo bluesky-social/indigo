@@ -31,6 +31,16 @@ var eventsSentCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "The total number of events sent to consumers",
 }, []string{"remote_addr", "user_agent"})
 
+var externalUserCreationAttempts = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "bgs_external_user_creation_attempts",
+	Help: "The total number of external users created",
+})
+
+var newUsersDiscovered = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "bgs_new_users_discovered",
+	Help: "The total number of new users discovered directly from the firehose (not from refs)",
+})
+
 var reqSz = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "http_request_size_bytes",
 	Help:    "A histogram of request sizes for requests.",

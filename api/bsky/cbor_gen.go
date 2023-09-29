@@ -27,7 +27,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 9
+	fieldCount := 10
 
 	if t.Embed == nil {
 		fieldCount--
@@ -53,8 +53,47 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 		fieldCount--
 	}
 
+	if t.Tags == nil {
+		fieldCount--
+	}
+
 	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
+	}
+
+	// t.Tags ([]string) (slice)
+	if t.Tags != nil {
+
+		if len("tags") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"tags\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("tags"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("tags")); err != nil {
+			return err
+		}
+
+		if len(t.Tags) > cbg.MaxLength {
+			return xerrors.Errorf("Slice value in field t.Tags was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Tags))); err != nil {
+			return err
+		}
+		for _, v := range t.Tags {
+			if len(v) > cbg.MaxLength {
+				return xerrors.Errorf("Value in field v was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(v))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(v)); err != nil {
+				return err
+			}
+		}
 	}
 
 	// t.Text (string) (string)
@@ -310,7 +349,39 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Text (string) (string)
+		// t.Tags ([]string) (slice)
+		case "tags":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > cbg.MaxLength {
+				return fmt.Errorf("t.Tags: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Tags = make([]string, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+
+				{
+					sval, err := cbg.ReadString(cr)
+					if err != nil {
+						return err
+					}
+
+					t.Tags[i] = string(sval)
+				}
+			}
+
+			// t.Text (string) (string)
 		case "text":
 
 			{
@@ -2867,10 +2938,10 @@ func (t *RichtextFacet_Link) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.richtext.facet"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.richtext.facet#link"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("app.bsky.richtext.facet")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.richtext.facet#link")); err != nil {
 		return err
 	}
 	return nil
@@ -2992,10 +3063,10 @@ func (t *RichtextFacet_Mention) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.richtext.facet"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.richtext.facet#mention"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("app.bsky.richtext.facet")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.richtext.facet#mention")); err != nil {
 		return err
 	}
 	return nil
@@ -3049,6 +3120,131 @@ func (t *RichtextFacet_Mention) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Did = string(sval)
+			}
+			// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *RichtextFacet_Tag) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{162}); err != nil {
+		return err
+	}
+
+	// t.Tag (string) (string)
+	if len("tag") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"tag\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("tag"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("tag")); err != nil {
+		return err
+	}
+
+	if len(t.Tag) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Tag was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Tag))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Tag)); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.richtext.facet#tag"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("app.bsky.richtext.facet#tag")); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *RichtextFacet_Tag) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = RichtextFacet_Tag{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("RichtextFacet_Tag: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.Tag (string) (string)
+		case "tag":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Tag = string(sval)
 			}
 			// t.LexiconTypeID (string) (string)
 		case "$type":
@@ -3280,10 +3476,10 @@ func (t *FeedDefs_NotFoundPost) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.feed.defs"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.feed.defs#notFoundPost"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("app.bsky.feed.defs")); err != nil {
+	if _, err := cw.WriteString(string("app.bsky.feed.defs#notFoundPost")); err != nil {
 		return err
 	}
 

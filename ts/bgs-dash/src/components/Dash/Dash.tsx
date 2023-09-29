@@ -186,9 +186,15 @@ const Dash: FC<{}> = () => {
   };
 
   const requestCrawlHost = (host: string) => {
-    fetch(
-      `${BGS_HOST}/xrpc/com.atproto.sync.requestCrawl?hostname=${host}`
-    ).then((res) => {
+    fetch(`${BGS_HOST}/xrpc/com.atproto.sync.requestCrawl`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        hostname: host,
+      }),
+    }).then((res) => {
       if (res.status !== 200) {
         setAlertWithTimeout(
           "failure",

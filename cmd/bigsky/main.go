@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -19,11 +20,13 @@ import (
 	"github.com/bluesky-social/indigo/notifs"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/util/version"
 	"github.com/bluesky-social/indigo/xrpc"
 	_ "go.uber.org/automaxprocs"
 
+	"net/http"
 	_ "net/http/pprof"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -170,7 +173,8 @@ func Bigsky(cctx *cli.Context) error {
 	// https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace#readme-environment-variables
 	// At a minimum, you need to set
 	// OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") != "" {
+	if ep := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); ep != "" {
+		log.Infow("setting up trace exporter", "endpoint", ep)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -206,12 +210,14 @@ func Bigsky(cctx *cli.Context) error {
 		return err
 	}
 
+	log.Infow("setting up main database")
 	dburl := cctx.String("db-url")
 	db, err := cliutil.SetupDatabase(dburl, cctx.Int("max-metadb-connections"))
 	if err != nil {
 		return err
 	}
 
+	log.Infow("setting up carstore database")
 	csdburl := cctx.String("carstore-db-url")
 	csdb, err := cliutil.SetupDatabase(csdburl, cctx.Int("max-carstore-connections"))
 	if err != nil {
@@ -253,6 +259,7 @@ func Bigsky(cctx *cli.Context) error {
 	var persister events.EventPersistence
 
 	if dpd := cctx.String("disk-persister-dir"); dpd != "" {
+		log.Infow("setting up disk persister")
 		dp, err := events.NewDiskPersistence(dpd, "", db, events.DefaultDiskPersistOptions())
 		if err != nil {
 			return fmt.Errorf("setting up disk persister: %w", err)
@@ -277,9 +284,15 @@ func Bigsky(cctx *cli.Context) error {
 
 	rlskip := os.Getenv("BSKY_SOCIAL_RATE_LIMIT_SKIP")
 	ix.ApplyPDSClientSettings = func(c *xrpc.Client) {
-		if c.Host == "https://bsky.social" && rlskip != "" {
-			c.Headers = map[string]string{
-				"x-ratelimit-bypass": rlskip,
+		if c.Host == "https://bsky.social" {
+			if c.Client == nil {
+				c.Client = util.RobustHTTPClient()
+			}
+			c.Client.Timeout = time.Minute * 30
+			if rlskip != "" {
+				c.Headers = map[string]string{
+					"x-ratelimit-bypass": rlskip,
+				}
 			}
 		}
 	}
@@ -295,13 +308,27 @@ func Bigsky(cctx *cli.Context) error {
 		blobstore = &blobs.DiskBlobStore{bsdir}
 	}
 
-	var hr api.HandleResolver = &api.ProdHandleResolver{}
+	prodHR, err := api.NewProdHandleResolver(100_000)
+	if err != nil {
+		return fmt.Errorf("failed to set up handle resolver: %w", err)
+	}
+	if rlskip != "" {
+		prodHR.ReqMod = func(req *http.Request, host string) error {
+			if strings.HasSuffix(host, ".bsky.social") {
+				req.Header.Set("x-ratelimit-bypass", rlskip)
+			}
+			return nil
+		}
+	}
+
+	var hr api.HandleResolver = prodHR
 	if cctx.StringSlice("handle-resolver-hosts") != nil {
 		hr = &api.TestHandleResolver{
 			TrialHosts: cctx.StringSlice("handle-resolver-hosts"),
 		}
 	}
 
+	log.Infow("constructing bgs")
 	bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, hr, !cctx.Bool("crawl-insecure-ws"))
 	if err != nil {
 		return err
@@ -327,6 +354,7 @@ func Bigsky(cctx *cli.Context) error {
 		bgsErr <- err
 	}()
 
+	log.Infow("startup complete")
 	select {
 	case <-signals:
 		log.Info("received shutdown signal")

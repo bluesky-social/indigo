@@ -64,7 +64,7 @@ func TestLoadNewRepo(t *testing.T) {
 	defer fi.Close()
 
 	ctx := context.TODO()
-	if err := repoman.ImportNewRepo(ctx, 2, "", fi, cid.Undef); err != nil {
+	if err := repoman.ImportNewRepo(ctx, 2, "", fi, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -116,10 +116,10 @@ func TestIngestWithGap(t *testing.T) {
 	}
 	cs2 := testCarstore(t, dir2)
 
+	var since *string
 	ctx := context.TODO()
-	var prev *cid.Cid
 	for i := 0; i < 5; i++ {
-		slice, head, tid := doPost(t, cs2, did, prev, i)
+		slice, _, nrev, tid := doPost(t, cs2, did, since, i)
 
 		ops := []*atproto.SyncSubscribeRepos_RepoOp{
 			{
@@ -128,32 +128,30 @@ func TestIngestWithGap(t *testing.T) {
 			},
 		}
 
-		if err := repoman.HandleExternalUserEvent(ctx, 1, 1, did, prev, slice, ops); err != nil {
+		if err := repoman.HandleExternalUserEvent(ctx, 1, 1, did, since, nrev, slice, ops); err != nil {
 			t.Fatal(err)
 		}
 
-		prev = &head
+		since = &nrev
 	}
-
-	latest := *prev
 
 	// now do a few outside of the standard event stream flow
 	for i := 0; i < 5; i++ {
-		_, head, _ := doPost(t, cs2, did, prev, i)
-		prev = &head
+		_, _, nrev, _ := doPost(t, cs2, did, since, i)
+		since = &nrev
 	}
 
 	buf := new(bytes.Buffer)
-	if err := cs2.ReadUserCar(ctx, 1, latest, *prev, true, buf); err != nil {
+	if err := cs2.ReadUserCar(ctx, 1, "", true, buf); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := repoman.ImportNewRepo(ctx, 1, did, buf, latest); err != nil {
+	if err := repoman.ImportNewRepo(ctx, 1, did, buf, nil); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func doPost(t *testing.T, cs *carstore.CarStore, did string, prev *cid.Cid, postid int) ([]byte, cid.Cid, string) {
+func doPost(t *testing.T, cs *carstore.CarStore, did string, prev *string, postid int) ([]byte, cid.Cid, string, string) {
 	ctx := context.TODO()
 	ds, err := cs.NewDeltaSession(ctx, 1, prev)
 	if err != nil {
@@ -169,65 +167,17 @@ func doPost(t *testing.T, cs *carstore.CarStore, did string, prev *cid.Cid, post
 		t.Fatal(err)
 	}
 
-	root, err := r.Commit(ctx, func(context.Context, string, []byte) ([]byte, error) { return nil, nil })
+	root, nrev, err := r.Commit(ctx, func(context.Context, string, []byte) ([]byte, error) { return nil, nil })
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	slice, err := ds.CloseWithRoot(ctx, root)
+	slice, err := ds.CloseWithRoot(ctx, root, nrev)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return slice, root, tid
-}
-
-func TestRebase(t *testing.T) {
-	dir, err := os.MkdirTemp("", "integtest")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	maindb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "test.sqlite")))
-	if err != nil {
-		t.Fatal(err)
-	}
-	maindb.AutoMigrate(models.ActorInfo{})
-
-	did := "did:plc:beepboop"
-	maindb.Create(&models.ActorInfo{
-		Did: did,
-		Uid: 1,
-	})
-
-	cs := testCarstore(t, dir)
-
-	repoman := NewRepoManager(cs, &util.FakeKeyManager{})
-
-	ctx := context.TODO()
-	if err := repoman.InitNewActor(ctx, 1, "hello.world", "did:plc:foobar", "", "", ""); err != nil {
-		t.Fatal(err)
-	}
-
-	for i := 0; i < 5; i++ {
-		_, _, err := repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
-			Text: fmt.Sprintf("hello friend %d", i),
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	if err := repoman.DoRebase(ctx, 1); err != nil {
-		t.Fatal(err)
-	}
-
-	_, _, err = repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
-		Text: "after the rebase",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	return slice, root, nrev, tid
 }
 
 func TestDuplicateRecord(t *testing.T) {

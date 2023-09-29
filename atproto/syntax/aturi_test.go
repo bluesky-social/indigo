@@ -60,12 +60,11 @@ func TestATURIParts(t *testing.T) {
 	for _, parts := range testVec {
 		uri, err := ParseATURI(parts[0])
 		assert.NoError(err)
-		auth, _ := uri.Authority()
+		auth := uri.Authority()
 		assert.Equal(parts[1], auth.String())
-		col, _ := uri.Collection()
+		col := uri.Collection()
 		assert.Equal(parts[2], col.String())
-		rkey, _ := uri.RecordKey()
-		assert.NoError(err)
+		rkey := uri.RecordKey()
 		assert.Equal(parts[3], rkey.String())
 	}
 
@@ -89,9 +88,9 @@ func TestATURINormalize(t *testing.T) {
 func TestATURINoPanic(t *testing.T) {
 	for _, s := range []string{"", ".", "at://", "at:///", "at://e.com", "at://e.com/", "at://e.com//"} {
 		bad := ATURI(s)
-		_, _ = bad.Authority()
-		_, _ = bad.Collection()
-		_, _ = bad.RecordKey()
+		_ = bad.Authority()
+		_ = bad.Collection()
+		_ = bad.RecordKey()
 		_ = bad.Normalize()
 		_ = bad.String()
 	}

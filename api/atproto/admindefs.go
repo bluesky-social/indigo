@@ -20,10 +20,12 @@ type AdminDefs_ActionReversal struct {
 
 // AdminDefs_ActionView is a "actionView" in the com.atproto.admin.defs schema.
 type AdminDefs_ActionView struct {
-	Action            *string                       `json:"action" cborgen:"action"`
-	CreateLabelVals   []string                      `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
-	CreatedAt         string                        `json:"createdAt" cborgen:"createdAt"`
-	CreatedBy         string                        `json:"createdBy" cborgen:"createdBy"`
+	Action          *string  `json:"action" cborgen:"action"`
+	CreateLabelVals []string `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
+	CreatedAt       string   `json:"createdAt" cborgen:"createdAt"`
+	CreatedBy       string   `json:"createdBy" cborgen:"createdBy"`
+	// durationInHours: Indicates how long this action was meant to be in effect before automatically expiring.
+	DurationInHours   *int64                        `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
 	Id                int64                         `json:"id" cborgen:"id"`
 	NegateLabelVals   []string                      `json:"negateLabelVals,omitempty" cborgen:"negateLabelVals,omitempty"`
 	Reason            string                        `json:"reason" cborgen:"reason"`
@@ -36,15 +38,19 @@ type AdminDefs_ActionView struct {
 // AdminDefs_ActionViewCurrent is a "actionViewCurrent" in the com.atproto.admin.defs schema.
 type AdminDefs_ActionViewCurrent struct {
 	Action *string `json:"action" cborgen:"action"`
-	Id     int64   `json:"id" cborgen:"id"`
+	// durationInHours: Indicates how long this action was meant to be in effect before automatically expiring.
+	DurationInHours *int64 `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
+	Id              int64  `json:"id" cborgen:"id"`
 }
 
 // AdminDefs_ActionViewDetail is a "actionViewDetail" in the com.atproto.admin.defs schema.
 type AdminDefs_ActionViewDetail struct {
-	Action          *string                             `json:"action" cborgen:"action"`
-	CreateLabelVals []string                            `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
-	CreatedAt       string                              `json:"createdAt" cborgen:"createdAt"`
-	CreatedBy       string                              `json:"createdBy" cborgen:"createdBy"`
+	Action          *string  `json:"action" cborgen:"action"`
+	CreateLabelVals []string `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
+	CreatedAt       string   `json:"createdAt" cborgen:"createdAt"`
+	CreatedBy       string   `json:"createdBy" cborgen:"createdBy"`
+	// durationInHours: Indicates how long this action was meant to be in effect before automatically expiring.
+	DurationInHours *int64                              `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
 	Id              int64                               `json:"id" cborgen:"id"`
 	NegateLabelVals []string                            `json:"negateLabelVals,omitempty" cborgen:"negateLabelVals,omitempty"`
 	Reason          string                              `json:"reason" cborgen:"reason"`

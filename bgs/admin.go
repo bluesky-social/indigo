@@ -1,7 +1,9 @@
 package bgs
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -348,10 +350,7 @@ func (bgs *BGS) handleAdminChangePDSRateLimit(e echo.Context) error {
 	}
 
 	// Update the rate limit in the limiter
-	limiter := bgs.slurper.GetLimiter(pds.ID)
-	if limiter == nil {
-		limiter = rate.NewLimiter(rate.Limit(limit), 1)
-	}
+	limiter := bgs.slurper.GetOrCreateLimiter(pds.ID, limit)
 	limiter.SetLimit(rate.Limit(limit))
 
 	return e.JSON(200, map[string]any{
@@ -389,13 +388,96 @@ func (bgs *BGS) handleAdminChangePDSCrawlLimit(e echo.Context) error {
 	}
 
 	// Update the crawl limit in the limiter
-	limiter := bgs.Index.GetLimiter(pds.ID)
-	if limiter != nil {
-		limiter = rate.NewLimiter(rate.Limit(limit), 1)
-	}
+	limiter := bgs.Index.GetOrCreateLimiter(pds.ID, limit)
 	limiter.SetLimit(rate.Limit(limit))
 
 	return e.JSON(200, map[string]any{
 		"success": "true",
+	})
+}
+
+func (bgs *BGS) handleAdminCompactRepo(e echo.Context) error {
+	ctx := e.Request().Context()
+
+	did := e.QueryParam("did")
+	if did == "" {
+		return fmt.Errorf("must pass a did")
+	}
+
+	u, err := bgs.lookupUserByDid(ctx, did)
+	if err != nil {
+		return fmt.Errorf("no such user: %w", err)
+	}
+
+	stats, err := bgs.repoman.CarStore().CompactUserShards(ctx, u.ID)
+	if err != nil {
+		return fmt.Errorf("compaction failed: %w", err)
+	}
+
+	return e.JSON(200, map[string]any{
+		"success": "true",
+		"stats":   stats,
+	})
+}
+
+func (bgs *BGS) handleAdminCompactAllRepos(e echo.Context) error {
+	ctx := e.Request().Context()
+
+	if err := bgs.runRepoCompaction(ctx); err != nil {
+		return fmt.Errorf("compaction run failed: %w", err)
+	}
+
+	return e.JSON(200, map[string]any{
+		"success": "true",
+	})
+}
+
+func (bgs *BGS) handleAdminPostResyncPDS(e echo.Context) error {
+	host := strings.TrimSpace(e.QueryParam("host"))
+	if host == "" {
+		return fmt.Errorf("must pass a host")
+	}
+
+	// Get the PDS from the DB
+	var pds models.PDS
+	if err := bgs.db.Where("host = ?", host).First(&pds).Error; err != nil {
+		return err
+	}
+
+	go func() {
+		ctx := context.Background()
+		err := bgs.ResyncPDS(ctx, pds)
+		if err != nil {
+			log.Errorw("failed to resync PDS", "err", err, "pds", pds.Host)
+		}
+	}()
+
+	return e.JSON(200, map[string]any{
+		"message": "resync started...",
+	})
+}
+
+func (bgs *BGS) handleAdminGetResyncPDS(e echo.Context) error {
+	host := strings.TrimSpace(e.QueryParam("host"))
+	if host == "" {
+		return fmt.Errorf("must pass a host")
+	}
+
+	// Get the PDS from the DB
+	var pds models.PDS
+	if err := bgs.db.Where("host = ?", host).First(&pds).Error; err != nil {
+		return err
+	}
+
+	resync, found := bgs.GetResync(pds)
+	if !found {
+		return &echo.HTTPError{
+			Code:    404,
+			Message: "no resync found for given PDS",
+		}
+	}
+
+	return e.JSON(200, map[string]any{
+		"resync": resync,
 	})
 }
