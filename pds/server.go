@@ -2,6 +2,7 @@ package pds
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -224,7 +225,7 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 	// lets make a local record of that user for the future
 	subj := &models.ActorInfo{
 		Uid:         u.ID,
-		Handle:      handle,
+		Handle:      sql.NullString{String: handle, Valid: true},
 		DisplayName: *profile.DisplayName,
 		Did:         did,
 		Type:        "",
