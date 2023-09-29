@@ -131,7 +131,7 @@ func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 	val, loaded := d.handleLookupChans.LoadOrStore(h.String(), res)
 	if loaded {
 		handleRequestsCoalesced.Inc()
-		// Wait for the result from the original goroutine
+		// Wait for the result from the pending request
 		select {
 		case <-val.(chan struct{}):
 			// The result should now be in the cache
