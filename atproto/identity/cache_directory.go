@@ -146,10 +146,7 @@ func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 	}
 
 	var did syntax.DID
-
-	// Perform actual lookup only if this goroutine is the one doing it
-	var newEntry *HandleEntry
-	// Update the cache entry for this Handle
+	// Update the Handle Entry from PLC and cache the result
 	newEntry, err := d.updateHandle(ctx, h)
 	if err == nil && newEntry != nil {
 		did = newEntry.DID
