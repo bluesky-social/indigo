@@ -380,18 +380,22 @@ func TestDomainBans(t *testing.T) {
 		t.Fatal("domain should be banned")
 	}
 
-	if err := atproto.SyncRequestCrawl(context.TODO(), c, &atproto.SyncRequestCrawl_Input{Hostname: "app.pds.foo.com"}); err == nil {
-		t.Fatal("domain should be banned")
-	}
-
-	// should not be banned
-	err := atproto.SyncRequestCrawl(context.TODO(), c, &atproto.SyncRequestCrawl_Input{Hostname: "foo.bar.com"})
+	err := atproto.SyncRequestCrawl(context.TODO(), c, &atproto.SyncRequestCrawl_Input{Hostname: "app.pds.foo.com"})
 	if err == nil {
-		t.Fatal("should still fail")
+		t.Fatal("domain should be banned")
 	}
 
 	if !strings.Contains(err.Error(), "XRPC ERROR 401") {
 		t.Fatal("should have failed with a 401")
 	}
 
+	// should not be banned
+	err = atproto.SyncRequestCrawl(context.TODO(), c, &atproto.SyncRequestCrawl_Input{Hostname: "foo.bar.com"})
+	if err == nil {
+		t.Fatal("should still fail")
+	}
+
+	if !strings.Contains(err.Error(), "XRPC ERROR 400") {
+		t.Fatal("should have failed with a 400")
+	}
 }
