@@ -43,3 +43,5 @@ bsky.auth
 # Sonar cursor file
 sonar_cursor.json
 out/
+state.json
+netsync-out/

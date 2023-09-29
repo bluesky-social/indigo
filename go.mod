@@ -8,6 +8,7 @@ require (
 	github.com/brianvoe/gofakeit/v6 v6.20.2
 	github.com/dustinkirkland/golang-petname v0.0.0-20230626224747-e794b9370d49
 	github.com/goccy/go-json v0.10.2
+	github.com/gocql/gocql v1.6.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/gorilla/websocket v1.5.0
@@ -44,6 +45,8 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/client_model v0.3.0
 	github.com/rivo/uniseg v0.1.0
+	github.com/samber/slog-echo v1.2.1
+	github.com/scylladb/gocqlx/v2 v2.8.1-0.20230309105046-dec046bd85e6
 	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli/v2 v2.25.1
 	github.com/whyrusleeping/cbor-gen v0.0.0-20230818171029-f91ae536ca25
@@ -61,6 +64,7 @@ require (
 	golang.org/x/crypto v0.12.0
 	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
 	golang.org/x/sync v0.1.0
+	golang.org/x/text v0.12.0
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.8.0
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2
@@ -87,8 +91,10 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.2 // indirect
+	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/ipfs/bbloom v0.0.4 // indirect
 	github.com/ipfs/go-blockservice v0.5.0 // indirect
@@ -131,7 +137,7 @@ require (
 	github.com/prometheus/statsd_exporter v0.22.7 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/samber/lo v1.38.1 // indirect
-	github.com/samber/slog-echo v1.2.1 // indirect
+	github.com/scylladb/go-reflectx v1.0.1 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
@@ -147,12 +153,12 @@ require (
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/net v0.14.0 // indirect
 	golang.org/x/sys v0.11.0 // indirect
-	golang.org/x/text v0.12.0 // indirect
 	google.golang.org/genproto v0.0.0-20230526015343-6ee61e4f9d5f // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230526161137-0005af68ea54 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230526161137-0005af68ea54 // indirect
 	google.golang.org/grpc v1.55.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
+	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.1.7 // indirect
