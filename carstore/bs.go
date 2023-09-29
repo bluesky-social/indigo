@@ -23,6 +23,7 @@ import (
 	cbor "github.com/ipfs/go-ipld-cbor"
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/ipfs/go-libipfs/blocks"
+	logging "github.com/ipfs/go-log"
 	car "github.com/ipld/go-car"
 	carutil "github.com/ipld/go-car/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -30,6 +31,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
 )
+
+var log = logging.Logger("carstore")
 
 const MaxSliceLength = 2 << 20
 
@@ -271,6 +274,13 @@ func (cs *CarStore) checkLastShardCache(user models.Uid) *CarShard {
 	}
 
 	return nil
+}
+
+func (cs *CarStore) removeLastShardCache(user models.Uid) {
+	cs.lscLk.Lock()
+	defer cs.lscLk.Unlock()
+
+	delete(cs.lastShardCache, user)
 }
 
 func (cs *CarStore) putLastShardCache(ls *CarShard) {
@@ -741,12 +751,11 @@ func generateInsertQuery(data []map[string]any) (string, []any) {
 // Function to create in batches
 func createInBatches(ctx context.Context, tx *gorm.DB, data []map[string]any, batchSize int) error {
 	for i := 0; i < len(data); i += batchSize {
-		end := i + batchSize
-		if end > len(data) {
-			end = len(data)
+		batch := data[i:]
+		if len(batch) > batchSize {
+			batch = batch[:batchSize]
 		}
 
-		batch := data[i:end]
 		query, values := generateInsertQuery(batch)
 
 		if err := tx.WithContext(ctx).Exec(query, values...).Error; err != nil {
@@ -948,7 +957,7 @@ func (cs *CarStore) Stat(ctx context.Context, usr models.Uid) ([]UserStat, error
 	return out, nil
 }
 
-func (cs *CarStore) TakeDownRepo(ctx context.Context, user models.Uid) error {
+func (cs *CarStore) WipeUserData(ctx context.Context, user models.Uid) error {
 	var shards []*CarShard
 	if err := cs.meta.Find(&shards, "usr = ?", user).Error; err != nil {
 		return err
@@ -959,6 +968,8 @@ func (cs *CarStore) TakeDownRepo(ctx context.Context, user models.Uid) error {
 			return err
 		}
 	}
+
+	cs.removeLastShardCache(user)
 
 	return nil
 }
@@ -1180,6 +1191,7 @@ type CompactionStats struct {
 	SkippedShards int `json:"skippedShards"`
 	ShardsDeleted int `json:"shardsDeleted"`
 	RefsDeleted   int `json:"refsDeleted"`
+	DupeCount     int `json:"dupeCount"`
 }
 
 func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*CompactionStats, error) {
@@ -1214,13 +1226,26 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 	}
 
 	stale := make(map[cid.Cid]bool)
-	var hasDirtyDupes bool
 	for _, br := range staleRefs {
-		if stale[br.Cid.CID] {
-			hasDirtyDupes = true
-			break
-		}
 		stale[br.Cid.CID] = true
+	}
+
+	// if we have a staleRef that references multiple blockRefs, we consider that block a 'dirty duplicate'
+	var dupes []cid.Cid
+	var hasDirtyDupes bool
+	seenBlocks := make(map[cid.Cid]bool)
+	for _, br := range brefs {
+		if seenBlocks[br.Cid.CID] {
+			dupes = append(dupes, br.Cid.CID)
+			hasDirtyDupes = true
+			delete(stale, br.Cid.CID)
+		} else {
+			seenBlocks[br.Cid.CID] = true
+		}
+	}
+
+	for _, dupe := range dupes {
+		delete(stale, dupe) // remove dupes from stale list, see comment below
 	}
 
 	if hasDirtyDupes {
@@ -1233,7 +1258,10 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 		// focus on compacting everything else. it leaves *some* dirty blocks
 		// still around but we're doing that anyways since compaction isnt a
 		// perfect process
-		return nil, fmt.Errorf("WIP: not currently handling this case")
+
+		log.Warnw("repo has dirty dupes", "count", len(dupes), "uid", user, "staleRefs", len(staleRefs), "blockRefs", len(brefs))
+
+		//return nil, fmt.Errorf("WIP: not currently handling this case")
 	}
 
 	keep := make(map[cid.Cid]bool)
@@ -1241,6 +1269,10 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 		if !stale[br.Cid.CID] {
 			keep[br.Cid.CID] = true
 		}
+	}
+
+	for _, dupe := range dupes {
+		keep[dupe] = true
 	}
 
 	results := aggrRefs(brefs, shardsById, stale)
@@ -1335,6 +1367,7 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 	}
 
 	stats.RefsDeleted = num
+	stats.DupeCount = len(dupes)
 
 	return stats, nil
 }
@@ -1400,9 +1433,14 @@ func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compB
 
 	offset := hnw
 	var nbrefs []map[string]any
+	written := make(map[cid.Cid]bool)
 	for _, s := range b.shards {
 		sh := shardsById[s.ID]
 		if err := cs.iterateShardBlocks(ctx, &sh, func(blk blockformat.Block) error {
+			if written[blk.Cid()] {
+				return nil
+			}
+
 			if keep[blk.Cid()] {
 				nw, err := LdWrite(fi, blk.Cid().Bytes(), blk.RawData())
 				if err != nil {
@@ -1415,6 +1453,7 @@ func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compB
 				})
 
 				offset += nw
+				written[blk.Cid()] = true
 			}
 			return nil
 		}); err != nil {
@@ -1432,6 +1471,13 @@ func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compB
 	}
 
 	if err := cs.putShard(ctx, &shard, nbrefs, nil, true); err != nil {
+		// if writing the shard fails, we should also delete the file
+		_ = fi.Close()
+
+		if err2 := os.Remove(fi.Name()); err2 != nil {
+			log.Errorf("failed to remove shard file (%s) after failed db transaction: %w", fi.Name(), err2)
+		}
+
 		return err
 	}
 	return nil
