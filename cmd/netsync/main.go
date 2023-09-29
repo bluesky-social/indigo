@@ -69,7 +69,7 @@ func main() {
 		&cli.StringFlag{
 			Name:  "checkout-path",
 			Usage: "path to checkout endpoint",
-			Value: "https://bsky.social/xrpc/com.atproto.sync.getCheckout",
+			Value: "https://bgs.bsky.social/xrpc/com.atproto.sync.getRepo",
 		},
 		&cli.StringFlag{
 			Name:    "magic-header-key",
