@@ -28,6 +28,7 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "user not found")
 		}
+		log.Errorw("failed to lookup user", "err", err, "did", did)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
 	}
 
@@ -35,6 +36,7 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 	if commit != "" {
 		reqCid, err = cid.Decode(commit)
 		if err != nil {
+			log.Errorw("failed to decode commit cid", "err", err, "cid", commit)
 			return nil, echo.NewHTTPError(http.StatusBadRequest, "failed to decode commit cid")
 		}
 	}
@@ -44,12 +46,14 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 		if errors.Is(err, mst.ErrNotFound) {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "record not found in repo")
 		}
+		log.Errorw("failed to get record from repo", "err", err, "did", did, "collection", collection, "rkey", rkey)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to get record from repo")
 	}
 
 	buf := new(bytes.Buffer)
 	err = record.MarshalCBOR(buf)
 	if err != nil {
+		log.Errorw("failed to marshal record to CBOR", "err", err, "did", did, "collection", collection, "rkey", rkey)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to marshal record to CBOR")
 	}
 
@@ -62,12 +66,14 @@ func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "user not found")
 		}
+		log.Errorw("failed to lookup user", "err", err, "did", did)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
 	}
 
 	// TODO: stream the response
 	buf := new(bytes.Buffer)
 	if err := s.repoman.ReadRepo(ctx, u.Uid, since, buf); err != nil {
+		log.Errorw("failed to read repo into buffer", "err", err, "did", did)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to read repo into buffer")
 	}
 
@@ -135,6 +141,7 @@ func (s *BGS) handleComAtprotoSyncGetBlob(ctx context.Context, cid string, did s
 		if errors.Is(err, blobs.NotFoundErr) {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "blob not found")
 		}
+		log.Errorw("failed to get blob", "err", err, "cid", cid, "did", did)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to get blob")
 	}
 
@@ -161,6 +168,7 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 		if err == gorm.ErrRecordNotFound {
 			return &comatprototypes.SyncListRepos_Output{}, nil
 		}
+		log.Errorw("failed to query users", "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to query users")
 	}
 
