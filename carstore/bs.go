@@ -751,12 +751,11 @@ func generateInsertQuery(data []map[string]any) (string, []any) {
 // Function to create in batches
 func createInBatches(ctx context.Context, tx *gorm.DB, data []map[string]any, batchSize int) error {
 	for i := 0; i < len(data); i += batchSize {
-		end := i + batchSize
-		if end > len(data) {
-			end = len(data)
+		batch := data[i:]
+		if len(batch) > batchSize {
+			batch = batch[:batchSize]
 		}
 
-		batch := data[i:end]
 		query, values := generateInsertQuery(batch)
 
 		if err := tx.WithContext(ctx).Exec(query, values...).Error; err != nil {
@@ -1227,14 +1226,21 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 	}
 
 	stale := make(map[cid.Cid]bool)
+	for _, br := range staleRefs {
+		stale[br.Cid.CID] = true
+	}
+
+	// if we have a staleRef that references multiple blockRefs, we consider that block a 'dirty duplicate'
 	var dupes []cid.Cid
 	var hasDirtyDupes bool
-	for _, br := range staleRefs {
-		if stale[br.Cid.CID] {
-			hasDirtyDupes = true
+	seenBlocks := make(map[cid.Cid]bool)
+	for _, br := range brefs {
+		if seenBlocks[br.Cid.CID] {
 			dupes = append(dupes, br.Cid.CID)
+			hasDirtyDupes = true
+			delete(stale, br.Cid.CID)
 		} else {
-			stale[br.Cid.CID] = true
+			seenBlocks[br.Cid.CID] = true
 		}
 	}
 
