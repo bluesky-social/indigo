@@ -618,7 +618,6 @@ func (s *Server) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
 			Time:   time.Now().Format(util.ISO8601),
 			Ops:    outops,
 			TooBig: toobig,
-			Rebase: evt.Rebase,
 		},
 		PrivUid: evt.User,
 	}); err != nil {

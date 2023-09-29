@@ -1,0 +1,70 @@
+{
+"settings": {
+    "index": {
+        "number_of_shards": 6,
+        "number_of_replicas": 0,
+        "analysis": {
+            "analyzer": {
+                "default": {
+                    "type": "custom",
+                    "tokenizer": "standard",
+                    "filter": [ "lowercase", "asciifolding" ]
+                },
+                "textIcu": {
+                    "type": "custom",
+                    "tokenizer": "icu_tokenizer",
+                    "char_filter": [ "icu_normalizer" ],
+                    "filter": [ "icu_folding" ]
+                },
+                "textIcuSearch": {
+                    "type": "custom",
+                    "tokenizer": "icu_tokenizer",
+                    "char_filter": [ "icu_normalizer" ],
+                    "filter": [ "icu_folding" ]
+                }
+            },
+            "normalizer": {
+                "default": {
+                    "type": "custom",
+                    "char_filter": [],
+                    "filter": ["lowercase"]
+                },
+                "caseSensitive": {
+                    "type": "custom",
+                    "char_filter": [],
+                    "filter": []
+                }
+            }
+        }
+    }
+},
+"mappings": {
+    "dynamic": false,
+    "properties": {
+        "doc_index_ts":   { "type": "date" },
+        "did":            { "type": "keyword", "normalizer": "default", "doc_values": false },
+        "record_rkey":    { "type": "keyword", "normalizer": "default", "doc_values": false },
+        "record_cid":     { "type": "keyword", "normalizer": "default", "doc_values": false },
+
+        "created_at":     { "type": "date" },
+        "text":           { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
+        "lang_code":      { "type": "keyword", "normalizer": "default" },
+        "lang_code_iso2": { "type": "keyword", "normalizer": "default" },
+        "mention_did":    { "type": "keyword", "normalizer": "default" },
+        "link_url":       { "type": "keyword", "normalizer": "default" },
+        "embed_url":      { "type": "keyword", "normalizer": "default" },
+        "embed_aturi":    { "type": "keyword", "normalizer": "default" },
+        "reply_root_aturi": { "type": "keyword", "normalizer": "default" },
+        "embed_img_count": { "type": "integer" },
+        "embed_img_alt_text": { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
+        "self_label":     { "type": "keyword", "normalizer": "default" },
+
+        "tag":            { "type": "keyword", "normalizer": "default" },
+        "emoji":          { "type": "keyword", "normalizer": "caseSensitive" },
+
+        "everything":     { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" },
+
+        "lang":           { "type": "alias", "path": "lang_code_iso2" }
+    }
+}
+}

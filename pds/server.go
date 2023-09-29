@@ -2,6 +2,7 @@ package pds
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -142,7 +143,7 @@ func (s *Server) handleFedEvent(ctx context.Context, host *Peering, env *events.
 			u.ID = subj.Uid
 		}
 
-		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, (*cid.Cid)(evt.Prev), evt.Blocks, evt.Ops)
+		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.Since, evt.Rev, evt.Blocks, evt.Ops)
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
@@ -224,7 +225,7 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 	// lets make a local record of that user for the future
 	subj := &models.ActorInfo{
 		Uid:         u.ID,
-		Handle:      handle,
+		Handle:      sql.NullString{String: handle, Valid: true},
 		DisplayName: *profile.DisplayName,
 		Did:         did,
 		Type:        "",
@@ -338,7 +339,7 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 	}
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
-		fmt.Printf("HANDLER ERROR: (%s) %s\n", ctx.Path(), err)
+		fmt.Printf("PDS HANDLER ERROR: (%s) %s\n", ctx.Path(), err)
 
 		// TODO: need to properly figure out where http error codes for error
 		// types get decided. This spot is reasonable, but maybe a bit weird.

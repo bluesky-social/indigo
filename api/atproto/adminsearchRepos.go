@@ -17,13 +17,16 @@ type AdminSearchRepos_Output struct {
 }
 
 // AdminSearchRepos calls the XRPC method "com.atproto.admin.searchRepos".
-func AdminSearchRepos(ctx context.Context, c *xrpc.Client, cursor string, invitedBy string, limit int64, term string) (*AdminSearchRepos_Output, error) {
+//
+// term: DEPRECATED: use 'q' instead
+func AdminSearchRepos(ctx context.Context, c *xrpc.Client, cursor string, invitedBy string, limit int64, q string, term string) (*AdminSearchRepos_Output, error) {
 	var out AdminSearchRepos_Output
 
 	params := map[string]interface{}{
 		"cursor":    cursor,
 		"invitedBy": invitedBy,
 		"limit":     limit,
+		"q":         q,
 		"term":      term,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.admin.searchRepos", params, nil, &out); err != nil {

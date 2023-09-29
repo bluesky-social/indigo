@@ -200,7 +200,7 @@ func TestBGSMultiGap(t *testing.T) {
 	b1.tr.TrialHosts = []string{p1.RawHost(), p2.RawHost()}
 
 	p1.RequestScraping(t, b1)
-	time.Sleep(time.Millisecond * 50)
+	time.Sleep(time.Millisecond * 250)
 
 	users := []*TestUser{p1.MustNewUser(t, usernames[0]+".pdsuno")}
 
@@ -211,7 +211,7 @@ func TestBGSMultiGap(t *testing.T) {
 	p2posts := socialSim(t, users2, 10, 0)
 
 	users[0].Reply(t, p2posts[0], p2posts[0], "what a wonderful life")
-	time.Sleep(time.Millisecond * 500)
+	time.Sleep(time.Second * 2)
 
 	ctx := context.Background()
 	_, err := b1.bgs.Index.GetPost(ctx, p2posts[3].Uri)
@@ -226,7 +226,7 @@ func TestBGSMultiGap(t *testing.T) {
 	time.Sleep(time.Second)
 
 	p2.RequestScraping(t, b1)
-	time.Sleep(time.Millisecond * 50)
+	time.Sleep(time.Second * 2)
 
 	// Now, the bgs will discover a gap, and have to catch up somehow
 	socialSim(t, users2, 1, 0)
@@ -330,128 +330,6 @@ func TestBGSTakedown(t *testing.T) {
 
 	last := es2.Next()
 	assert.Equal(alice.did, last.RepoCommit.Repo)
-}
-
-func TestRebase(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping BGS test in 'short' test mode")
-	}
-	assert := assert.New(t)
-	didr := TestPLC(t)
-	p1 := MustSetupPDS(t, ".tpds", didr)
-	p1.Run(t)
-
-	b1 := MustSetupBGS(t, didr)
-	b1.Run(t)
-
-	b1.tr.TrialHosts = []string{p1.RawHost()}
-
-	p1.RequestScraping(t, b1)
-
-	time.Sleep(time.Millisecond * 50)
-
-	bob := p1.MustNewUser(t, "bob.tpds")
-
-	bob.Post(t, "cats for cats")
-	bob.Post(t, "i am the king of the world")
-	bob.Post(t, "the name is bob")
-	bob.Post(t, "why cant i eat pie")
-
-	time.Sleep(time.Millisecond * 100)
-
-	evts1 := b1.Events(t, 0)
-	defer evts1.Cancel()
-
-	preRebaseEvts := evts1.WaitFor(5)
-	fmt.Println(preRebaseEvts)
-
-	bob.DoRebase(t)
-
-	rbevt := evts1.Next()
-	assert.Equal(true, rbevt.RepoCommit.Rebase)
-
-	sc := commitFromSlice(t, rbevt.RepoCommit.Blocks, (cid.Cid)(rbevt.RepoCommit.Commit))
-	assert.Nil(sc.Prev)
-
-	lev := preRebaseEvts[4]
-	oldsc := commitFromSlice(t, lev.RepoCommit.Blocks, (cid.Cid)(lev.RepoCommit.Commit))
-
-	assert.Equal(sc.Data, oldsc.Data)
-
-	evts2 := b1.Events(t, 0)
-	afterEvts := evts2.WaitFor(1)
-	assert.Equal(true, afterEvts[0].RepoCommit.Rebase)
-}
-
-func TestRebaseMulti(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping BGS test in 'short' test mode")
-	}
-	assert := assert.New(t)
-	didr := TestPLC(t)
-	p1 := MustSetupPDS(t, ".tpds", didr)
-	p1.Run(t)
-
-	b1 := MustSetupBGS(t, didr)
-	b1.Run(t)
-
-	b1.tr.TrialHosts = []string{p1.RawHost()}
-
-	p1.RequestScraping(t, b1)
-
-	esgenesis := b1.Events(t, 0)
-
-	time.Sleep(time.Millisecond * 50)
-
-	bob := p1.MustNewUser(t, "bob.tpds")
-
-	for i := 0; i < 10; i++ {
-		bob.Post(t, fmt.Sprintf("this is bobs post %d", i))
-	}
-
-	// wait for 11 events, the first one is the actor creation
-	firsten := esgenesis.WaitFor(11)
-	_ = firsten
-
-	fmt.Println("REBASE ONE")
-	bob.DoRebase(t)
-
-	var posts []*atproto.RepoStrongRef
-	for i := 0; i < 10; i++ {
-		ref := bob.Post(t, fmt.Sprintf("this is bobs post after rebase %d", i))
-		posts = append(posts, ref)
-	}
-
-	time.Sleep(time.Millisecond * 50)
-
-	evts1 := b1.Events(t, 0)
-	defer evts1.Cancel()
-
-	all := evts1.WaitFor(11)
-
-	assert.Equal(true, all[0].RepoCommit.Rebase)
-	assert.Equal(int64(12), all[0].RepoCommit.Seq)
-	assert.Equal(posts[0].Cid, all[1].RepoCommit.Ops[0].Cid.String())
-
-	// and another one!
-	fmt.Println("REBASE TWO")
-	bob.DoRebase(t)
-
-	var posts2 []*atproto.RepoStrongRef
-	for i := 0; i < 15; i++ {
-		ref := bob.Post(t, fmt.Sprintf("this is bobs post after second rebase %d", i))
-		posts2 = append(posts2, ref)
-	}
-
-	time.Sleep(time.Millisecond * 50)
-
-	evts2 := b1.Events(t, 0)
-	defer evts2.Cancel()
-
-	all = evts2.WaitFor(16)
-
-	assert.Equal(true, all[0].RepoCommit.Rebase)
-	assert.Equal(posts2[0].Cid, all[1].RepoCommit.Ops[0].Cid.String())
 }
 
 func jsonPrint(v any) {

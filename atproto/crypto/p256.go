@@ -83,6 +83,14 @@ func (k *PrivateKeyP256) Bytes() []byte {
 	return k.privP256ecdh.Bytes()
 }
 
+// Multibase string encoding of the private key, including a multicodec indicator
+func (k *PrivateKeyP256) Multibase() string {
+	kbytes := k.Bytes()
+	// multicodec p256-priv, code 0x1306, varint-encoded bytes: [0x86, 0x26]
+	kbytes = append([]byte{0x86, 0x26}, kbytes...)
+	return "z" + base58.Encode(kbytes)
+}
+
 // Outputs the [PublicKey] corresponding to this [PrivateKeyP256]; it will be a [PublicKeyP256].
 func (k *PrivateKeyP256) PublicKey() (PublicKey, error) {
 	pkECDSA, ok := k.privP256.Public().(*ecdsa.PublicKey)

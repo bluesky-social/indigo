@@ -13,7 +13,7 @@ func init() {
 } // EmbedImages is a "main" in the app.bsky.embed.images schema.
 // RECORDTYPE: EmbedImages
 type EmbedImages struct {
-	LexiconTypeID string               `json:"$type,const=app.bsky.embed.images#main" cborgen:"$type,const=app.bsky.embed.images#main"`
+	LexiconTypeID string               `json:"$type,const=app.bsky.embed.images" cborgen:"$type,const=app.bsky.embed.images"`
 	Images        []*EmbedImages_Image `json:"images" cborgen:"images"`
 }
 

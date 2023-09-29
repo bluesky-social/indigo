@@ -26,6 +26,7 @@ build: ## Build all executables
 	go build ./cmd/labelmaker
 	go build ./cmd/supercollider
 	go build -o ./sonar-cli ./cmd/sonar 
+	go build ./cmd/palomar
 
 .PHONY: all
 all: build

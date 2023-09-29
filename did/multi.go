@@ -9,6 +9,7 @@ import (
 
 type Resolver interface {
 	GetDocument(ctx context.Context, didstr string) (*did.Document, error)
+	FlushCacheFor(did string)
 }
 
 type MultiResolver struct {
@@ -23,6 +24,22 @@ func NewMultiResolver() *MultiResolver {
 
 func (mr *MultiResolver) AddHandler(method string, res Resolver) {
 	mr.handlers[method] = res
+}
+
+func (mr *MultiResolver) FlushCacheFor(didstr string) {
+	pdid, err := did.ParseDID(didstr)
+	if err != nil {
+		return
+	}
+
+	method := pdid.Protocol()
+
+	res, ok := mr.handlers[method]
+	if !ok {
+		return
+	}
+
+	res.FlushCacheFor(didstr)
 }
 
 func (mr *MultiResolver) GetDocument(ctx context.Context, didstr string) (*did.Document, error) {

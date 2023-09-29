@@ -12,21 +12,22 @@ import (
 
 // SyncListBlobs_Output is the output of a com.atproto.sync.listBlobs call.
 type SyncListBlobs_Output struct {
-	Cids []string `json:"cids" cborgen:"cids"`
+	Cids   []string `json:"cids" cborgen:"cids"`
+	Cursor *string  `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 }
 
 // SyncListBlobs calls the XRPC method "com.atproto.sync.listBlobs".
 //
 // did: The DID of the repo.
-// earliest: The earliest commit to start from
-// latest: The most recent commit
-func SyncListBlobs(ctx context.Context, c *xrpc.Client, did string, earliest string, latest string) (*SyncListBlobs_Output, error) {
+// since: Optional revision of the repo to list blobs since
+func SyncListBlobs(ctx context.Context, c *xrpc.Client, cursor string, did string, limit int64, since string) (*SyncListBlobs_Output, error) {
 	var out SyncListBlobs_Output
 
 	params := map[string]interface{}{
-		"did":      did,
-		"earliest": earliest,
-		"latest":   latest,
+		"cursor": cursor,
+		"did":    did,
+		"limit":  limit,
+		"since":  since,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "com.atproto.sync.listBlobs", params, nil, &out); err != nil {
 		return nil, err

@@ -196,6 +196,7 @@ func SetupDatabase(dburl string, maxConnections int) (*gorm.DB, error) {
 
 	db, err := gorm.Open(dial, &gorm.Config{
 		SkipDefaultTransaction: true,
+		TranslateError:         true,
 	})
 	if err != nil {
 		return nil, err

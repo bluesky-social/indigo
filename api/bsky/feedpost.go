@@ -29,7 +29,9 @@ type FeedPost struct {
 	Labels   *FeedPost_Labels   `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	Langs    []string           `json:"langs,omitempty" cborgen:"langs,omitempty"`
 	Reply    *FeedPost_ReplyRef `json:"reply,omitempty" cborgen:"reply,omitempty"`
-	Text     string             `json:"text" cborgen:"text"`
+	// tags: Additional non-inline tags describing this post.
+	Tags []string `json:"tags,omitempty" cborgen:"tags,omitempty"`
+	Text string   `json:"text" cborgen:"text"`
 }
 
 type FeedPost_Embed struct {

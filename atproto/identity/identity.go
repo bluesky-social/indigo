@@ -61,6 +61,8 @@ func DefaultDirectory() Directory {
 			},
 		},
 		TryAuthoritativeDNS: true,
+		// primary Bluesky PDS instance only supports HTTP resolution method
+		SkipDNSDomainSuffixes: []string{".bsky.social"},
 	}
 	cached := NewCacheDirectory(&base, 10000, time.Hour*24, time.Minute*2)
 	return &cached
