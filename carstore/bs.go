@@ -951,7 +951,7 @@ func (cs *CarStore) Stat(ctx context.Context, usr models.Uid) ([]UserStat, error
 	return out, nil
 }
 
-func (cs *CarStore) TakeDownRepo(ctx context.Context, user models.Uid) error {
+func (cs *CarStore) WipeUserData(ctx context.Context, user models.Uid) error {
 	var shards []*CarShard
 	if err := cs.meta.Find(&shards, "usr = ?", user).Error; err != nil {
 		return err
@@ -1222,12 +1222,15 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 	var hasDirtyDupes bool
 	for _, br := range staleRefs {
 		if stale[br.Cid.CID] {
-			delete(stale, br.Cid.CID) // remove dupes from stale list, see comment below
 			hasDirtyDupes = true
 			dupes = append(dupes, br.Cid.CID)
 		} else {
 			stale[br.Cid.CID] = true
 		}
+	}
+
+	for _, dupe := range dupes {
+		delete(stale, dupe) // remove dupes from stale list, see comment below
 	}
 
 	if hasDirtyDupes {
@@ -1415,9 +1418,14 @@ func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compB
 
 	offset := hnw
 	var nbrefs []map[string]any
+	written := make(map[cid.Cid]bool)
 	for _, s := range b.shards {
 		sh := shardsById[s.ID]
 		if err := cs.iterateShardBlocks(ctx, &sh, func(blk blockformat.Block) error {
+			if written[blk.Cid()] {
+				return nil
+			}
+
 			if keep[blk.Cid()] {
 				nw, err := LdWrite(fi, blk.Cid().Bytes(), blk.RawData())
 				if err != nil {
@@ -1430,6 +1438,7 @@ func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compB
 				})
 
 				offset += nw
+				written[blk.Cid()] = true
 			}
 			return nil
 		}); err != nil {

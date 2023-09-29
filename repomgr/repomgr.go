@@ -951,5 +951,13 @@ func (rm *RepoManager) TakeDownRepo(ctx context.Context, uid models.Uid) error {
 	unlock := rm.lockUser(ctx, uid)
 	defer unlock()
 
-	return rm.cs.TakeDownRepo(ctx, uid)
+	return rm.cs.WipeUserData(ctx, uid)
+}
+
+// technically identical to TakeDownRepo, for now
+func (rm *RepoManager) ResetRepo(ctx context.Context, uid models.Uid) error {
+	unlock := rm.lockUser(ctx, uid)
+	defer unlock()
+
+	return rm.cs.WipeUserData(ctx, uid)
 }
