@@ -101,7 +101,7 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 
 	banned, err := s.domainIsBanned(ctx, host)
 	if banned {
-		return echo.NewHTTPError(http.StatusForbidden, "domain is banned")
+		return echo.NewHTTPError(http.StatusUnauthorized, "domain is banned")
 	}
 
 	log.Warnf("TODO: better host validation for crawl requests")
@@ -117,7 +117,7 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 
 	desc, err := atproto.ServerDescribeServer(ctx, c)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "requested host failed to respond to describe request")
+		return echo.NewHTTPError(http.StatusBadRequest, "requested host failed to respond to describe request")
 	}
 
 	// Maybe we could do something with this response later
