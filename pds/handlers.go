@@ -3,6 +3,7 @@ package pds
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"time"
@@ -27,7 +28,7 @@ func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string)
 		Description:    nil,
 		PostsCount:     &profile.Posts,
 		FollowsCount:   &profile.Following,
-		Handle:         profile.Handle,
+		Handle:         profile.Handle.String,
 		DisplayName:    &profile.DisplayName,
 		FollowersCount: &profile.Followers,
 	}, nil
@@ -326,7 +327,7 @@ func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *
 	ai := &models.ActorInfo{
 		Uid:    u.ID,
 		Did:    d,
-		Handle: body.Handle,
+		Handle: sql.NullString{String: body.Handle, Valid: true},
 	}
 	if err := s.db.Create(ai).Error; err != nil {
 		return nil, err
