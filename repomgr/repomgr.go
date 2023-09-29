@@ -885,10 +885,17 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user models.Uid, r io
 	}
 
 	if err := cb(ctx, root, finish, ds); err != nil {
-		return fmt.Errorf("cb errored root: %s, rev: %s: %w", root, *rev, err)
+		return fmt.Errorf("cb errored root: %s, rev: %s: %w", root, stringOrNil(rev), err)
 	}
 
 	return nil
+}
+
+func stringOrNil(s *string) string {
+	if s == nil {
+		return "nil"
+	}
+	return *s
 }
 
 // walkTree returns all cids linked recursively by the root, skipping any cids
