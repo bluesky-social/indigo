@@ -775,7 +775,7 @@ var debugGetRepoCmd = &cli.Command{
 		if err := rep.ForEach(ctx, "", func(k string, v cid.Cid) error {
 			rec, err := rep.Blockstore().Get(ctx, v)
 			if err != nil {
-				return err
+				return fmt.Errorf("getting record %q: %w", k, err)
 			}
 
 			count++
