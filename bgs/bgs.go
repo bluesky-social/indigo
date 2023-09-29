@@ -765,16 +765,19 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		if evt.Rebase {
-			return fmt.Errorf("rebase was true in event seq:%d,host:%s", evt.Seq, host.Host)
+			log.Warnw("rebase was true in event", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
+			return nil
 		}
 
-		// skip the fast path for rebases or if the user is already in the slow path
+		// skip the fast path if the user is already in the slow path
 		if bgs.Index.Crawler.RepoInSlowPath(ctx, host, u.ID) {
 			rebasesCounter.WithLabelValues(host.Host).Add(1)
 			ai, err := bgs.Index.LookupUser(ctx, u.ID)
 			if err != nil {
 				return fmt.Errorf("failed to look up user (slow path): %w", err)
 			}
+
+			span.SetAttributes(attribute.Bool("catchup_queue", true))
 
 			// TODO: we currently do not handle events that get queued up
 			// behind an already 'in progress' slow path event.
@@ -831,7 +834,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			log.Warnw("handle update did not update handle to asserted value", "did", env.RepoHandle.Did, "expected", env.RepoHandle.Handle, "actual", act.Handle)
 		}
 
-		// TODO: Update the ReposHandle event type to include "verified" or something
+		// TODO: Update the #handle event type to include "verified" or something
 
 		// Broadcast the handle update to all consumers
 		err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
@@ -852,7 +855,22 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return err
 		}
 
-		return nil
+		// pass through the #migrate event to all consumers
+		return bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
+			RepoMigrate: &comatproto.SyncSubscribeRepos_Migrate{
+				Did:       env.RepoMigrate.Did,
+				MigrateTo: env.RepoMigrate.MigrateTo,
+				Time:      env.RepoMigrate.Time,
+			},
+		})
+	case env.RepoTombstone != nil:
+		// pass through the #tombstone event to all consumers, even if BGS takes no action
+		return bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
+			RepoTombstone: &comatproto.SyncSubscribeRepos_Tombstone{
+				Did:  env.RepoTombstone.Did,
+				Time: env.RepoTombstone.Time,
+			},
+		})
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
@@ -912,7 +930,6 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		durl.Scheme = "http"
 	}
 
-	// TODO: the PDS's DID should also be in the service, we could use that to look up?
 	var peering models.PDS
 	if err := s.db.Find(&peering, "host = ?", durl.Host).Error; err != nil {
 		log.Error("failed to find pds", durl.Host)
@@ -1023,7 +1040,6 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		return nil, err
 	}
 
-	// TODO: request this users info from their server to fill out our data...
 	u := User{
 		Did:         did,
 		PDS:         peering.ID,
