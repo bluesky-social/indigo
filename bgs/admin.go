@@ -506,5 +506,7 @@ func (bgs *BGS) handleAdminResetRepo(e echo.Context) error {
 		return err
 	}
 
-	return nil
+	return e.JSON(200, map[string]any{
+		"success": true,
+	})
 }

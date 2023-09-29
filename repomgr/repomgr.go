@@ -731,7 +731,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 
 		diffops, err := r.DiffSince(ctx, curhead)
 		if err != nil {
-			return fmt.Errorf("diff trees: %w", err)
+			return fmt.Errorf("diff trees (curhead: %s): %w", curhead, err)
 		}
 
 		var ops []RepoOp

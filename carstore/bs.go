@@ -276,6 +276,13 @@ func (cs *CarStore) checkLastShardCache(user models.Uid) *CarShard {
 	return nil
 }
 
+func (cs *CarStore) removeLastShardCache(user models.Uid) {
+	cs.lscLk.Lock()
+	defer cs.lscLk.Unlock()
+
+	delete(cs.lastShardCache, user)
+}
+
 func (cs *CarStore) putLastShardCache(ls *CarShard) {
 	cs.lscLk.Lock()
 	defer cs.lscLk.Unlock()
@@ -962,6 +969,8 @@ func (cs *CarStore) WipeUserData(ctx context.Context, user models.Uid) error {
 			return err
 		}
 	}
+
+	cs.removeLastShardCache(user)
 
 	return nil
 }
