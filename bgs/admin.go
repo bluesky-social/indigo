@@ -484,3 +484,27 @@ func (bgs *BGS) handleAdminGetResyncPDS(e echo.Context) error {
 		"resync": resync,
 	})
 }
+
+func (bgs *BGS) handleAdminResetRepo(e echo.Context) error {
+	ctx := e.Request().Context()
+
+	did := e.QueryParam("did")
+	if did == "" {
+		return fmt.Errorf("must pass a did")
+	}
+
+	ai, err := bgs.Index.LookupUserByDid(ctx, did)
+	if err != nil {
+		return fmt.Errorf("no such user: %w", err)
+	}
+
+	if err := bgs.repoman.ResetRepo(ctx, ai.Uid); err != nil {
+		return err
+	}
+
+	if err := bgs.Index.Crawler.Crawl(ctx, ai); err != nil {
+		return err
+	}
+
+	return nil
+}
