@@ -944,26 +944,26 @@ func (mst *MerkleSearchTree) WalkLeavesFrom(ctx context.Context, from string, cb
 
 	entries, err := mst.getEntries(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("get entries: %w", err)
 	}
 
 	if index > 0 {
 		prev := entries[index-1]
 		if !prev.isUndefined() && prev.isTree() {
 			if err := prev.Tree.WalkLeavesFrom(ctx, from, cb); err != nil {
-				return err
+				return fmt.Errorf("walk leaves %d: %w", index, err)
 			}
 		}
 	}
 
-	for _, e := range entries[index:] {
+	for i, e := range entries[index:] {
 		if e.isLeaf() {
 			if err := cb(e.Key, e.Val); err != nil {
 				return err
 			}
 		} else {
 			if err := e.Tree.WalkLeavesFrom(ctx, from, cb); err != nil {
-				return err
+				return fmt.Errorf("walk leaves from (%d): %w", i, err)
 			}
 		}
 	}

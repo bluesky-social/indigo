@@ -283,6 +283,13 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 
 			log.Warnf("HANDLER ERROR: (%s) %s", ctx.Path(), err)
 
+			if strings.HasPrefix(ctx.Path(), "/admin/") {
+				ctx.JSON(500, map[string]any{
+					"error": err.Error(),
+				})
+				return
+			}
+
 			if sendHeader {
 				ctx.Response().WriteHeader(500)
 			}
@@ -326,6 +333,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	admin.POST("/repo/reverseTakedown", bgs.handleAdminReverseTakedown)
 	admin.POST("/repo/compact", bgs.handleAdminCompactRepo)
 	admin.POST("/repo/compactAll", bgs.handleAdminCompactAllRepos)
+	admin.POST("/repo/reset", bgs.handleAdminResetRepo)
 
 	// PDS-related Admin API
 	admin.GET("/pds/list", bgs.handleListPDSs)
