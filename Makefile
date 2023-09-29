@@ -116,3 +116,27 @@ sc-fire: # Fires supercollider
 		--hostname alpha.supercollider.jazco.io \
 		--key-file out/alpha.pem \
 		--input-file out/alpha_in.cbor
+
+.PHONY: run-netsync
+run-netsync: .env ## Runs netsync for local dev
+	go run ./cmd/netsync --checkout-limit 30 --worker-count 60 --out-dir ../netsync-out
+
+SCYLLA_VERSION := latest
+SCYLLA_CPU := 0
+SCYLLA_NODES := 127.0.0.1:9042
+
+.PHONY: netsync-playback
+netsync-playback: .env ## Runs netsync for local dev
+	go run ./cmd/netsync --worker-count 96 --out-dir ../netsync-out_2023_08_25 playback --scylla-nodes $(SCYLLA_NODES)
+
+.PHONY: run-scylla
+run-scylla:
+	@echo "==> Running test instance of Scylla $(SCYLLA_VERSION)"
+	@docker pull scylladb/scylla:$(SCYLLA_VERSION)
+	@docker run --name scylla -p 9042:9042 --cpuset-cpus=$(SCYLLA_CPU) --memory 1G --rm -d scylladb/scylla:$(SCYLLA_VERSION)
+	@until docker exec scylla cqlsh -e "DESCRIBE SCHEMA"; do sleep 2; done
+
+.PHONY: stop-scylla
+stop-scylla:
+	@echo "==> Stopping test instance of Scylla $(SCYLLA_VERSION)"
+	@docker stop scylla
