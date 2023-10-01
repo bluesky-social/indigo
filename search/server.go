@@ -13,8 +13,8 @@ import (
 	"github.com/bluesky-social/indigo/backfill"
 	"github.com/bluesky-social/indigo/util/version"
 	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/labstack/echo-contrib/echoprometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	es "github.com/opensearch-project/opensearch-go/v2"
@@ -183,7 +183,7 @@ func (s *Server) RunAPI(listen string) error {
 	e.HideBanner = true
 	e.Use(slogecho.New(s.logger))
 	e.Use(middleware.Recover())
-	e.Use(echoprometheus.NewMiddleware("palomar"))
+	e.Use(MetricsMiddleware)
 	e.Use(middleware.BodyLimit("64M"))
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
@@ -197,7 +197,7 @@ func (s *Server) RunAPI(listen string) error {
 
 	e.Use(middleware.CORS())
 	e.GET("/_health", s.handleHealthCheck)
-	e.GET("/metrics", echoprometheus.NewHandler())
+	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/xrpc/app.bsky.unspecced.searchPostsSkeleton", s.handleSearchPostsSkeleton)
 	e.GET("/xrpc/app.bsky.unspecced.searchActorsSkeleton", s.handleSearchActorsSkeleton)
 	e.GET("/xrpc/app.bsky.unspecced.indexRepos", s.handleIndexRepos)
