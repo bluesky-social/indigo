@@ -426,13 +426,27 @@ func (bgs *BGS) handleAdminCompactAllRepos(e echo.Context) error {
 	ctx, span := otel.Tracer("bgs").Start(context.Background(), "adminCompactAllRepos")
 	defer span.End()
 
-	if err := bgs.runRepoCompaction(ctx); err != nil {
+	var dry bool
+	if strings.ToLower(e.QueryParam("dry")) == "true" {
+		dry = true
+	}
+
+	lim := 50
+	if limstr := e.QueryParam("limit"); limstr != "" {
+		v, err := strconv.Atoi(limstr)
+		if err != nil {
+			return err
+		}
+
+		lim = v
+	}
+
+	stats, err := bgs.runRepoCompaction(ctx, lim, dry)
+	if err != nil {
 		return fmt.Errorf("compaction run failed: %w", err)
 	}
 
-	return e.JSON(200, map[string]any{
-		"success": "true",
-	})
+	return e.JSON(200, stats)
 }
 
 func (bgs *BGS) handleAdminPostResyncPDS(e echo.Context) error {
