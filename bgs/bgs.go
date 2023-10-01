@@ -1127,23 +1127,44 @@ func (bgs *BGS) ReverseTakedown(ctx context.Context, did string) error {
 	return nil
 }
 
-func (bgs *BGS) runRepoCompaction(ctx context.Context) error {
+type compactionStats struct {
+	Completed map[models.Uid]*carstore.CompactionStats
+	Targets   []carstore.CompactionTarget
+}
+
+func (bgs *BGS) runRepoCompaction(ctx context.Context, lim int, dry bool) (*compactionStats, error) {
 	ctx, span := otel.Tracer("bgs").Start(ctx, "runRepoCompaction")
 	defer span.End()
 
-	repos, err := bgs.repoman.CarStore().GetCompactionTargets(ctx)
+	repos, err := bgs.repoman.CarStore().GetCompactionTargets(ctx, 50)
 	if err != nil {
-		return fmt.Errorf("failed to get repos to compact: %w", err)
+		return nil, fmt.Errorf("failed to get repos to compact: %w", err)
 	}
 
+	if lim > 0 && len(repos) > lim {
+		repos = repos[:lim]
+	}
+
+	if dry {
+		return &compactionStats{
+			Targets: repos,
+		}, nil
+	}
+
+	results := make(map[models.Uid]*carstore.CompactionStats)
 	for _, r := range repos {
-		if _, err := bgs.repoman.CarStore().CompactUserShards(ctx, r.Usr); err != nil {
+		st, err := bgs.repoman.CarStore().CompactUserShards(ctx, r.Usr)
+		if err != nil {
 			log.Errorf("failed to compact shards for user %d: %s", r.Usr, err)
 			continue
 		}
+		results[r.Usr] = st
 	}
 
-	return nil
+	return &compactionStats{
+		Targets:   repos,
+		Completed: results,
+	}, nil
 }
 
 type repoHead struct {
