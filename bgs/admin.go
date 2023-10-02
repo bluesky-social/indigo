@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/models"
 	"github.com/labstack/echo/v4"
 	dto "github.com/prometheus/client_model/go"
+	"go.opentelemetry.io/otel"
 	"golang.org/x/time/rate"
 	"gorm.io/gorm"
 )
@@ -397,7 +398,8 @@ func (bgs *BGS) handleAdminChangePDSCrawlLimit(e echo.Context) error {
 }
 
 func (bgs *BGS) handleAdminCompactRepo(e echo.Context) error {
-	ctx := e.Request().Context()
+	ctx, span := otel.Tracer("bgs").Start(context.Background(), "adminCompactRepo")
+	defer span.End()
 
 	did := e.QueryParam("did")
 	if did == "" {
@@ -421,15 +423,30 @@ func (bgs *BGS) handleAdminCompactRepo(e echo.Context) error {
 }
 
 func (bgs *BGS) handleAdminCompactAllRepos(e echo.Context) error {
-	ctx := e.Request().Context()
+	ctx, span := otel.Tracer("bgs").Start(context.Background(), "adminCompactAllRepos")
+	defer span.End()
 
-	if err := bgs.runRepoCompaction(ctx); err != nil {
+	var dry bool
+	if strings.ToLower(e.QueryParam("dry")) == "true" {
+		dry = true
+	}
+
+	lim := 50
+	if limstr := e.QueryParam("limit"); limstr != "" {
+		v, err := strconv.Atoi(limstr)
+		if err != nil {
+			return err
+		}
+
+		lim = v
+	}
+
+	stats, err := bgs.runRepoCompaction(ctx, lim, dry)
+	if err != nil {
 		return fmt.Errorf("compaction run failed: %w", err)
 	}
 
-	return e.JSON(200, map[string]any{
-		"success": "true",
-	})
+	return e.JSON(200, stats)
 }
 
 func (bgs *BGS) handleAdminPostResyncPDS(e echo.Context) error {
@@ -479,5 +496,31 @@ func (bgs *BGS) handleAdminGetResyncPDS(e echo.Context) error {
 
 	return e.JSON(200, map[string]any{
 		"resync": resync,
+	})
+}
+
+func (bgs *BGS) handleAdminResetRepo(e echo.Context) error {
+	ctx := e.Request().Context()
+
+	did := e.QueryParam("did")
+	if did == "" {
+		return fmt.Errorf("must pass a did")
+	}
+
+	ai, err := bgs.Index.LookupUserByDid(ctx, did)
+	if err != nil {
+		return fmt.Errorf("no such user: %w", err)
+	}
+
+	if err := bgs.repoman.ResetRepo(ctx, ai.Uid); err != nil {
+		return err
+	}
+
+	if err := bgs.Index.Crawler.Crawl(ctx, ai); err != nil {
+		return err
+	}
+
+	return e.JSON(200, map[string]any{
+		"success": true,
 	})
 }
