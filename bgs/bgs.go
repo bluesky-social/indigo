@@ -1026,7 +1026,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		peering.Host = durl.Host
 		peering.SSL = (durl.Scheme == "https")
 
-		if s.ssl != peering.SSL {
+		if s.ssl && !peering.SSL {
 			return nil, fmt.Errorf("did references non-ssl PDS, this is disallowed in prod: %q %q", did, svc.ServiceEndpoint)
 		}
 
