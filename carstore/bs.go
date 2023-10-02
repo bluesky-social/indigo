@@ -454,9 +454,6 @@ func (cs *CarStore) writeBlockFromShard(ctx context.Context, sh *CarShard, w io.
 }
 
 func (cs *CarStore) iterateShardBlocks(ctx context.Context, sh *CarShard, cb func(blk blockformat.Block) error) error {
-	ctx, span := otel.Tracer("carstore").Start(ctx, "iterateShardBlocks")
-	defer span.End()
-
 	fi, err := os.Open(sh.Path)
 	if err != nil {
 		return err
@@ -1417,6 +1414,8 @@ func (cs *CarStore) deleteStaleRefs(ctx context.Context, brefs []blockRef, stale
 func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compBucket, shardsById map[uint]CarShard, keep map[cid.Cid]bool) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "compactBucket")
 	defer span.End()
+
+	span.SetAttributes(attribute.Int("shards", len(b.shards)))
 
 	last := b.shards[len(b.shards)-1]
 	lastsh := shardsById[last.ID]
