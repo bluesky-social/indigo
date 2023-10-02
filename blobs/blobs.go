@@ -2,9 +2,12 @@ package blobs
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 )
+
+var NotFoundErr = fmt.Errorf("blob not found")
 
 type BlobStore interface {
 	PutBlob(ctx context.Context, cid string, did string, blob []byte) error
@@ -25,5 +28,13 @@ func (dbs *DiskBlobStore) PutBlob(ctx context.Context, cid string, did string, b
 }
 
 func (dbs *DiskBlobStore) GetBlob(ctx context.Context, cid string, did string) ([]byte, error) {
+	// Check if the blob exists
+	_, err := os.Stat(filepath.Join(dbs.Dir, did, cid))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, NotFoundErr
+		}
+		return nil, err
+	}
 	return os.ReadFile(filepath.Join(dbs.Dir, did, cid))
 }
