@@ -4,6 +4,14 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
+)
+
+const (
+	// Prefered atproto Datetime string syntax, for use with [time.Format].
+	//
+	// Note that *parsing* syntax is more flexible.
+	AtprotoDatetimeLayout = "2006-01-02T15:04:05.999Z"
 )
 
 // Represents the a Datetime in string format, as would pass Lexicon syntax validation: the intersection of RFC-3339 and ISO-8601 syntax.
@@ -23,6 +31,29 @@ func ParseDatetime(raw string) (Datetime, error) {
 		return "", fmt.Errorf("Datetime can't use '-00:00' for UTC timezone, must use '+00:00', per ISO-8601")
 	}
 	return Datetime(raw), nil
+}
+
+// Parses a string to a golang time.Time in a single step.
+func ParseDatetimeTime(raw string) (time.Time, error) {
+	var zero time.Time
+	d, err := ParseDatetime(raw)
+	if err != nil {
+		return zero, err
+	}
+	return d.Time()
+}
+
+// Parses the Datetime string in to a golang time.Time.
+//
+// There are a small number of strings which will pass initial syntax validation but fail when actually parsing, so this function can return an error. Use [ParseDatetimeTime] to fully parse in a single function call.
+func (d Datetime) Time() (time.Time, error) {
+	return time.Parse(time.RFC3339Nano, d.String())
+}
+
+// Creates a new valid Datetime string matching the current time, in prefered syntax.
+func DatetimeNow() Datetime {
+	t := time.Now().UTC()
+	return Datetime(t.Format(AtprotoDatetimeLayout))
 }
 
 func (d Datetime) String() string {

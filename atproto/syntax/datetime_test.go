@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestInteropDatetimesValid(t *testing.T) {
+func TestInteropDatetimeValid(t *testing.T) {
 	assert := assert.New(t)
 	file, err := os.Open("testdata/datetime_syntax_valid.txt")
 	assert.NoError(err)
@@ -20,7 +20,7 @@ func TestInteropDatetimesValid(t *testing.T) {
 		if len(line) == 0 || line[0] == '#' {
 			continue
 		}
-		_, err := ParseDatetime(line)
+		_, err := ParseDatetimeTime(line)
 		if err != nil {
 			fmt.Println("GOOD: " + line)
 		}
@@ -29,7 +29,7 @@ func TestInteropDatetimesValid(t *testing.T) {
 	assert.NoError(scanner.Err())
 }
 
-func TestInteropDatetimesInvalid(t *testing.T) {
+func TestInteropDatetimeInvalid(t *testing.T) {
 	assert := assert.New(t)
 	file, err := os.Open("testdata/datetime_syntax_invalid.txt")
 	assert.NoError(err)
@@ -47,4 +47,32 @@ func TestInteropDatetimesInvalid(t *testing.T) {
 		assert.Error(err)
 	}
 	assert.NoError(scanner.Err())
+}
+
+func TestInteropDatetimeTimeInvalid(t *testing.T) {
+	assert := assert.New(t)
+	file, err := os.Open("testdata/datetime_parse_invalid.txt")
+	assert.NoError(err)
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) == 0 || line[0] == '#' {
+			continue
+		}
+		_, err := ParseDatetimeTime(line)
+		if err == nil {
+			fmt.Println("BAD: " + line)
+		}
+		assert.Error(err)
+	}
+	assert.NoError(scanner.Err())
+}
+
+func TestInteropDatetimeNow(t *testing.T) {
+	assert := assert.New(t)
+
+	dt := DatetimeNow()
+	_, err := ParseDatetimeTime(dt.String())
+	assert.NoError(err)
 }
