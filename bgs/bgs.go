@@ -453,7 +453,8 @@ type User struct {
 	// TakenDown is set to true if the user in question has been taken down.
 	// A user in this state will have all future events related to it dropped
 	// and no data about this user will be served.
-	TakenDown bool
+	TakenDown  bool
+	Tombstoned bool
 }
 
 type addTargetBody struct {
@@ -776,6 +777,33 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return fmt.Errorf("rebase was true in event seq:%d,host:%s", evt.Seq, host.Host)
 		}
 
+		if host.ID != u.PDS {
+			log.Infow("received event for repo from different pds than expected", "repo", evt.Repo, "expPds", u.PDS, "gotPds", host.Host)
+			subj, err := bgs.createExternalUser(ctx, evt.Repo)
+			if err != nil {
+				return err
+			}
+
+			if subj.PDS != host.ID {
+				return fmt.Errorf("event from non-authoritative pds")
+			}
+		}
+
+		if u.Tombstoned {
+			// we've checked the authority of the users PDS, so reinstate the account
+			if err := bgs.db.Model(&User{}).Where("id = ?", u.ID).UpdateColumn("tombstoned", false).Error; err != nil {
+				return fmt.Errorf("failed to un-tombstone a user: %w", err)
+			}
+
+			ai, err := bgs.Index.LookupUser(ctx, u.ID)
+			if err != nil {
+				return fmt.Errorf("failed to look up user (tombstone recover): %w", err)
+			}
+
+			// Now a simple re-crawl should suffice to bring the user back online
+			return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
+		}
+
 		// skip the fast path for rebases or if the user is already in the slow path
 		if bgs.Index.Crawler.RepoInSlowPath(ctx, host, u.ID) {
 			rebasesCounter.WithLabelValues(host.Host).Add(1)
@@ -861,9 +889,49 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		return nil
+	case env.RepoTombstone != nil:
+		if err := bgs.handleRepoTombstone(ctx, host, env.RepoTombstone); err != nil {
+			return err
+		}
+
+		return nil
 	default:
 		return fmt.Errorf("invalid fed event")
 	}
+}
+
+func (bgs *BGS) handleRepoTombstone(ctx context.Context, pds *models.PDS, evt *atproto.SyncSubscribeRepos_Tombstone) error {
+	u, err := bgs.lookupUserByDid(ctx, evt.Did)
+	if err != nil {
+		return err
+	}
+
+	if u.PDS != pds.ID {
+		return fmt.Errorf("unauthoritative tombstone event from %s for %s", pds.Host, evt.Did)
+	}
+
+	if err := bgs.db.Model(&User{}).Where("id = ?", u.ID).UpdateColumns(map[string]any{
+		"tombstoned": true,
+		"handle":     nil,
+	}).Error; err != nil {
+		return err
+	}
+
+	if err := bgs.db.Model(&models.ActorInfo{}).Where("uid = ?", u.ID).UpdateColumns(map[string]any{
+		"handle": nil,
+	}).Error; err != nil {
+		return err
+	}
+
+	// delete data from carstore
+	if err := bgs.repoman.TakeDownRepo(ctx, u.ID); err != nil {
+		// don't let a failure here prevent us from propagating this event
+		log.Errorf("failed to delete user data from carstore: %s", err)
+	}
+
+	return bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
+		RepoTombstone: evt,
+	})
 }
 
 func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user models.Uid, blobs []string) error {
@@ -1009,6 +1077,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 				return nil, fmt.Errorf("failed to update users pds: %w", err)
 			}
 
+			exu.PDS = peering.ID
 		}
 
 		if exu.Handle.String != handle {
