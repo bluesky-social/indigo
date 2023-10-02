@@ -731,7 +731,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 
 		diffops, err := r.DiffSince(ctx, curhead)
 		if err != nil {
-			return fmt.Errorf("diff trees: %w", err)
+			return fmt.Errorf("diff trees (curhead: %s): %w", curhead, err)
 		}
 
 		var ops []RepoOp
@@ -951,5 +951,13 @@ func (rm *RepoManager) TakeDownRepo(ctx context.Context, uid models.Uid) error {
 	unlock := rm.lockUser(ctx, uid)
 	defer unlock()
 
-	return rm.cs.TakeDownRepo(ctx, uid)
+	return rm.cs.WipeUserData(ctx, uid)
+}
+
+// technically identical to TakeDownRepo, for now
+func (rm *RepoManager) ResetRepo(ctx context.Context, uid models.Uid) error {
+	unlock := rm.lockUser(ctx, uid)
+	defer unlock()
+
+	return rm.cs.WipeUserData(ctx, uid)
 }

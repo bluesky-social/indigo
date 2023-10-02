@@ -33,6 +33,7 @@ var bgsAdminCmd = &cli.Command{
 		bgsSetNewSubsEnabledCmd,
 		bgsCompactRepo,
 		bgsCompactAll,
+		bgsResetRepo,
 	},
 }
 
@@ -346,8 +347,68 @@ var bgsCompactRepo = &cli.Command{
 
 var bgsCompactAll = &cli.Command{
 	Name: "compact-all",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name: "dry",
+		},
+		&cli.IntFlag{
+			Name: "limit",
+		},
+	},
 	Action: func(cctx *cli.Context) error {
-		url := cctx.String("bgs") + "/admin/repo/compactAll"
+		uu, err := url.Parse(cctx.String("bgs") + "/admin/repo/compactAll")
+		if err != nil {
+			return err
+		}
+
+		if cctx.Bool("dry") {
+			uu.Query().Add("dry", "true")
+		}
+
+		if cctx.IsSet("limit") {
+			uu.Query().Add("limit", fmt.Sprint(cctx.Int("limit")))
+		}
+
+		req, err := http.NewRequest("POST", uu.String(), nil)
+		if err != nil {
+			return err
+		}
+
+		auth := cctx.String("key")
+		req.Header.Set("Authorization", "Bearer "+auth)
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+
+		if resp.StatusCode != 200 {
+			var e xrpc.XRPCError
+			if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
+				return err
+			}
+
+			return &e
+		}
+
+		var out map[string]any
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			return err
+		}
+
+		fmt.Println(out)
+
+		return nil
+	},
+}
+
+var bgsResetRepo = &cli.Command{
+	Name: "reset-repo",
+	Action: func(cctx *cli.Context) error {
+		url := cctx.String("bgs") + "/admin/repo/reset"
+
+		did := cctx.Args().First()
+		url += fmt.Sprintf("?did=%s", did)
 
 		req, err := http.NewRequest("POST", url, nil)
 		if err != nil {
