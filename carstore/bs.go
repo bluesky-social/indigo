@@ -727,7 +727,7 @@ func createBlockRefs(ctx context.Context, tx *gorm.DB, brefs []map[string]any) e
 	ctx, span := otel.Tracer("carstore").Start(ctx, "createBlockRefs")
 	defer span.End()
 
-	if err := createInBatches(ctx, tx, brefs, 100); err != nil {
+	if err := createInBatches(ctx, tx, brefs, 1000); err != nil {
 		return err
 	}
 
@@ -1150,12 +1150,12 @@ type CompactionTarget struct {
 	NumShards int
 }
 
-func (cs *CarStore) GetCompactionTargets(ctx context.Context) ([]CompactionTarget, error) {
+func (cs *CarStore) GetCompactionTargets(ctx context.Context, shardCount int) ([]CompactionTarget, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "GetCompactionTargets")
 	defer span.End()
 
 	var targets []CompactionTarget
-	if err := cs.meta.Raw(`select usr, count(*) as num_shards from car_shards group by usr having count(*) > 50 order by num_shards desc`).Scan(&targets).Error; err != nil {
+	if err := cs.meta.Raw(`select usr, count(*) as num_shards from car_shards group by usr having count(*) > ? order by num_shards desc`, shardCount).Scan(&targets).Error; err != nil {
 		return nil, err
 	}
 
@@ -1186,6 +1186,7 @@ func (cs *CarStore) getBlockRefsForShards(ctx context.Context, shardIds []uint) 
 }
 
 type CompactionStats struct {
+	TotalRefs     int `json:"totalRefs"`
 	StartShards   int `json:"startShards"`
 	NewShards     int `json:"newShards"`
 	SkippedShards int `json:"skippedShards"`
@@ -1326,6 +1327,7 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 
 	stats := &CompactionStats{
 		StartShards: len(shards),
+		TotalRefs:   len(brefs),
 	}
 
 	removedShards := make(map[uint]bool)
@@ -1397,7 +1399,7 @@ func (cs *CarStore) deleteStaleRefs(ctx context.Context, brefs []blockRef, stale
 		}
 	}
 
-	chunkSize := 100
+	chunkSize := 500
 	for i := 0; i < len(staleToDelete); i += chunkSize {
 		sl := staleToDelete[i:]
 		if len(sl) > chunkSize {
