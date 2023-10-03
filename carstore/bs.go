@@ -37,7 +37,6 @@ var log = logging.Logger("carstore")
 const MaxSliceLength = 2 << 20
 
 type CarStore struct {
-	meta    *gorm.DB
 	rootDir string
 
 	dbp *singleDbProvider
@@ -64,7 +63,6 @@ func NewCarStore(meta *gorm.DB, root string) (*CarStore, error) {
 	}
 
 	return &CarStore{
-		meta:           meta,
 		rootDir:        root,
 		dbp:            &singleDbProvider{meta},
 		lastShardCache: make(map[models.Uid]*CarShard),
@@ -1277,11 +1275,15 @@ type CompactionTarget struct {
 }
 
 func (cs *CarStore) GetCompactionTargets(ctx context.Context, shardCount int) ([]CompactionTarget, error) {
+	return cs.dbp.GetCompactionTargets(ctx, shardCount)
+}
+
+func (dbp *singleDbProvider) GetCompactionTargets(ctx context.Context, shardCount int) ([]CompactionTarget, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "GetCompactionTargets")
 	defer span.End()
 
 	var targets []CompactionTarget
-	if err := cs.meta.Raw(`select usr, count(*) as num_shards from car_shards group by usr having count(*) > ? order by num_shards desc`, shardCount).Scan(&targets).Error; err != nil {
+	if err := dbp.db.Raw(`select usr, count(*) as num_shards from car_shards group by usr having count(*) > ? order by num_shards desc`, shardCount).Scan(&targets).Error; err != nil {
 		return nil, err
 	}
 
