@@ -928,6 +928,10 @@ var debugCompareReposCmd = &cli.Command{
 			fmt.Println("All blocks match!")
 		}
 
+		if hasBadBlock || hasBadCid {
+			return fmt.Errorf("mismatched blocks or cids")
+		}
+
 		return nil
 	},
 }
