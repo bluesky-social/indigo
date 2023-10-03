@@ -117,6 +117,8 @@ func TestCacheCoalesce(t *testing.T) {
 }
 
 func TestFallbackDNS(t *testing.T) {
+	t.Skip("TODO: skipping live network test")
+
 	assert := assert.New(t)
 	ctx := context.Background()
 	handle := syntax.Handle("no-such-record.atproto.com")
