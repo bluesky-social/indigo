@@ -60,7 +60,12 @@ func TestInteropDatetimeTimeInvalid(t *testing.T) {
 		if len(line) == 0 || line[0] == '#' {
 			continue
 		}
-		_, err := ParseDatetimeTime(line)
+		_, err := ParseDatetime(line)
+		if err == nil {
+			fmt.Println("BAD: " + line)
+		}
+		assert.Error(err)
+		_, err = ParseDatetimeTime(line)
 		if err == nil {
 			fmt.Println("BAD: " + line)
 		}
@@ -69,7 +74,7 @@ func TestInteropDatetimeTimeInvalid(t *testing.T) {
 	assert.NoError(scanner.Err())
 }
 
-func TestInteropDatetimeNow(t *testing.T) {
+func TestDatetimeNow(t *testing.T) {
 	assert := assert.New(t)
 
 	dt := DatetimeNow()
