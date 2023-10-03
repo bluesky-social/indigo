@@ -744,6 +744,11 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	ctx, span := otel.Tracer("bgs").Start(ctx, "handleFedEvent")
 	defer span.End()
 
+	start := time.Now()
+	defer func() {
+		eventsHandleDuration.WithLabelValues(host.Host).Observe(time.Since(start).Seconds())
+	}()
+
 	eventsReceivedCounter.WithLabelValues(host.Host).Add(1)
 
 	switch {
@@ -1222,7 +1227,7 @@ func (bgs *BGS) runRepoCompaction(ctx context.Context, lim int, dry bool) (*comp
 
 	results := make(map[models.Uid]*carstore.CompactionStats)
 	for _, r := range repos {
-		st, err := bgs.repoman.CarStore().CompactUserShards(ctx, r.Usr)
+		st, err := bgs.repoman.CarStore().CompactUserShards(context.Background(), r.Usr)
 		if err != nil {
 			log.Errorf("failed to compact shards for user %d: %s", r.Usr, err)
 			continue
