@@ -1299,7 +1299,7 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 	}
 
 	thresholdForPosition := func(i int) int {
-		if i > len(threshs) {
+		if i >= len(threshs) {
 			return lowBound
 		}
 		return threshs[i]
