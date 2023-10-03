@@ -226,7 +226,7 @@ func isValidMstKey(s string) bool {
 		return false
 	}
 	a, b, _ := strings.Cut(s, "/")
-	return len(b) > 1 &&
+	return len(b) > 0 &&
 		keyHasAllValidChars(a) &&
 		keyHasAllValidChars(b)
 }
