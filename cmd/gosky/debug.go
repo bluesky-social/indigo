@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -816,10 +817,16 @@ var debugCompareReposCmd = &cli.Command{
 
 		xrpc1 := xrpc.Client{
 			Host: cctx.String("host-1"),
+			Client: &http.Client{
+				Timeout: 15 * time.Minute,
+			},
 		}
 
 		xrpc2 := xrpc.Client{
 			Host: cctx.String("host-2"),
+			Client: &http.Client{
+				Timeout: 15 * time.Minute,
+			},
 		}
 
 		var rep1 *repo.Repo
