@@ -276,6 +276,12 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 		return nil
 	case *bsky.ActorProfile:
 		return nil
+	case *bsky.GraphList:
+		return nil
+	case *bsky.GraphListitem:
+		return nil
+	case *bsky.FeedGenerator:
+		return nil
 	default:
 		log.Warnf("unrecognized record type: %T", op.Record)
 		return nil
