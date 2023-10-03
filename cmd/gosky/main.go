@@ -199,7 +199,7 @@ var postCmd = &cli.Command{
 			Repo:       auth.Did,
 			Record: &lexutil.LexiconTypeDecoder{&appbsky.FeedPost{
 				Text:      text,
-				CreatedAt: time.Now().Format(util.ISO8601),
+				CreatedAt: time.Now().UTC().Format(util.ISO8601),
 			}},
 		})
 		if err != nil {

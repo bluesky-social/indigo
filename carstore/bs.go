@@ -164,12 +164,29 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, erro
 	}
 }
 
+const prefetchThreshold = 512 << 10
+
 func (uv *userView) prefetchRead(ctx context.Context, k cid.Cid, path string, offset int64) (blockformat.Block, error) {
+	ctx, span := otel.Tracer("carstore").Start(ctx, "getLastShard")
+	defer span.End()
+
 	fi, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer fi.Close()
+
+	st, err := fi.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("stat file for prefetch: %w", err)
+	}
+
+	span.SetAttributes(attribute.Int64("shard_size", st.Size()))
+
+	if st.Size() > prefetchThreshold {
+		span.SetAttributes(attribute.Bool("no_prefetch", true))
+		return doBlockRead(fi, k, offset)
+	}
 
 	cr, err := car.NewCarReader(fi)
 	if err != nil {
@@ -203,6 +220,10 @@ func (uv *userView) singleRead(ctx context.Context, k cid.Cid, path string, offs
 	}
 	defer fi.Close()
 
+	return doBlockRead(fi, k, offset)
+}
+
+func doBlockRead(fi *os.File, k cid.Cid, offset int64) (blockformat.Block, error) {
 	seeked, err := fi.Seek(offset, io.SeekStart)
 	if err != nil {
 		return nil, err
@@ -724,7 +745,7 @@ func createBlockRefs(ctx context.Context, tx *gorm.DB, brefs []map[string]any) e
 	ctx, span := otel.Tracer("carstore").Start(ctx, "createBlockRefs")
 	defer span.End()
 
-	if err := createInBatches(ctx, tx, brefs, 1000); err != nil {
+	if err := createInBatches(ctx, tx, brefs, 2000); err != nil {
 		return err
 	}
 
@@ -1008,7 +1029,7 @@ func (cs *CarStore) deleteShards(ctx context.Context, shs []*CarShard) error {
 		return outErr
 	}
 
-	chunkSize := 100
+	chunkSize := 10000
 	for i := 0; i < len(shs); i += chunkSize {
 		sl := shs[i:]
 		if len(sl) > chunkSize {
@@ -1163,6 +1184,8 @@ func (cs *CarStore) getBlockRefsForShards(ctx context.Context, shardIds []uint) 
 	ctx, span := otel.Tracer("carstore").Start(ctx, "getBlockRefsForShards")
 	defer span.End()
 
+	span.SetAttributes(attribute.Int("shards", len(shardIds)))
+
 	chunkSize := 10000
 	out := make([]blockRef, 0, len(shardIds))
 	for i := 0; i < len(shardIds); i += chunkSize {
@@ -1178,6 +1201,8 @@ func (cs *CarStore) getBlockRefsForShards(ctx context.Context, shardIds []uint) 
 
 		out = append(out, brefs...)
 	}
+
+	span.SetAttributes(attribute.Int("refs", len(out)))
 
 	return out, nil
 }
@@ -1396,7 +1421,7 @@ func (cs *CarStore) deleteStaleRefs(ctx context.Context, brefs []blockRef, stale
 		}
 	}
 
-	chunkSize := 500
+	chunkSize := 10000
 	for i := 0; i < len(staleToDelete); i += chunkSize {
 		sl := staleToDelete[i:]
 		if len(sl) > chunkSize {
