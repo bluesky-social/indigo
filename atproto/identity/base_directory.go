@@ -26,6 +26,8 @@ type BaseDirectory struct {
 	TryAuthoritativeDNS bool
 	// set of handle domain suffixes for for which DNS handle resolution will be skipped
 	SkipDNSDomainSuffixes []string
+	// set of fallback DNS servers (eg, domain registrars) to try as a fallback. each entry should be "ip:port", eg "8.8.8.8:53"
+	FallbackDNSServers []string
 }
 
 var _ Directory = (*BaseDirectory)(nil)

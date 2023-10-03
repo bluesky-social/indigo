@@ -89,6 +89,43 @@ func (d *BaseDirectory) ResolveHandleDNSAuthoritative(ctx context.Context, handl
 	return parseTXTResp(res)
 }
 
+// variant of ResolveHandleDNS which uses any configured fallback DNS servers
+func (d *BaseDirectory) ResolveHandleDNSFallback(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
+	retErr := fmt.Errorf("no fallback servers configured")
+	var dnsErr *net.DNSError
+	for _, ns := range d.FallbackDNSServers {
+		// create a custom resolver to use the specific nameserver for TXT lookup
+		resolver := &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				rd := net.Dialer{
+					Timeout: time.Second * 5,
+				}
+				return rd.DialContext(ctx, network, ns)
+			},
+		}
+		res, err := resolver.LookupTXT(ctx, "_atproto."+handle.String())
+		// check for NXDOMAIN
+		if errors.As(err, &dnsErr) {
+			if dnsErr.IsNotFound {
+				retErr = ErrHandleNotFound
+				continue
+			}
+		}
+		if err != nil {
+			retErr = err
+			continue
+		}
+		ret, err := parseTXTResp(res)
+		if err != nil {
+			retErr = err
+			continue
+		}
+		return ret, nil
+	}
+	return "", retErr
+}
+
 func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s/.well-known/atproto-did", handle), nil)
 	if err != nil {
@@ -138,6 +175,7 @@ func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle)
 	if tryDNS {
 		start := time.Now()
 		triedAuthoritative := false
+		triedFallback := false
 		did, dnsErr = d.ResolveHandleDNS(ctx, handle)
 		if dnsErr == ErrHandleNotFound && d.TryAuthoritativeDNS {
 			slog.Info("attempting authoritative handle DNS resolution", "handle", handle)
@@ -145,8 +183,14 @@ func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle)
 			// try harder with authoritative lookup
 			did, dnsErr = d.ResolveHandleDNSAuthoritative(ctx, handle)
 		}
+		if dnsErr == ErrHandleNotFound && len(d.FallbackDNSServers) > 0 {
+			slog.Info("attempting fallback DNS resolution", "handle", handle)
+			triedFallback = true
+			// try harder with fallback lookup
+			did, dnsErr = d.ResolveHandleDNSFallback(ctx, handle)
+		}
 		elapsed := time.Since(start)
-		slog.Debug("resolve handle DNS", "handle", handle, "err", dnsErr, "did", did, "authoritative", triedAuthoritative, "duration_ms", elapsed.Milliseconds())
+		slog.Debug("resolve handle DNS", "handle", handle, "err", dnsErr, "did", did, "authoritative", triedAuthoritative, "fallback", triedFallback, "duration_ms", elapsed.Milliseconds())
 		if nil == dnsErr { // if *not* an error
 			return did, nil
 		}
