@@ -17,6 +17,8 @@ const (
 // Represents the a Datetime in string format, as would pass Lexicon syntax validation: the intersection of RFC-3339 and ISO-8601 syntax.
 //
 // Always use [ParseDatetime] instead of wrapping strings directly, especially when working with network input.
+//
+// Syntax is specified at: https://atproto.com/specs/lexicon#datetime
 type Datetime string
 
 func ParseDatetime(raw string) (Datetime, error) {
@@ -30,24 +32,34 @@ func ParseDatetime(raw string) (Datetime, error) {
 	if strings.HasSuffix(raw, "-00:00") {
 		return "", fmt.Errorf("Datetime can't use '-00:00' for UTC timezone, must use '+00:00', per ISO-8601")
 	}
+	// ensure that the datetime actually parses using golang time lib
+	_, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		return "", err
+	}
 	return Datetime(raw), nil
 }
 
-// Parses a string to a golang time.Time in a single step.
+// Validates and converts a string to a golang [time.Time] in a single step.
 func ParseDatetimeTime(raw string) (time.Time, error) {
-	var zero time.Time
 	d, err := ParseDatetime(raw)
 	if err != nil {
+		var zero time.Time
 		return zero, err
 	}
-	return d.Time()
+	return d.Time(), nil
 }
 
-// Parses the Datetime string in to a golang time.Time.
+// Parses the Datetime string in to a golang [time.Time].
 //
-// There are a small number of strings which will pass initial syntax validation but fail when actually parsing, so this function can return an error. Use [ParseDatetimeTime] to fully parse in a single function call.
-func (d Datetime) Time() (time.Time, error) {
-	return time.Parse(time.RFC3339Nano, d.String())
+// This method assumes that [ParseDatetime] was used to create the Datetime, which already verified parsing, and thus that [time.Parse] will always succeed. In the event of an error, zero/nil will be returned.
+func (d Datetime) Time() time.Time {
+	var zero time.Time
+	ret, err := time.Parse(time.RFC3339Nano, d.String())
+	if err != nil {
+		return zero
+	}
+	return ret
 }
 
 // Creates a new valid Datetime string matching the current time, in prefered syntax.
