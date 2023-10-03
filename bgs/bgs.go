@@ -1227,6 +1227,15 @@ func (bgs *BGS) runRepoCompaction(ctx context.Context, lim int, dry bool) (*comp
 
 	results := make(map[models.Uid]*carstore.CompactionStats)
 	for _, r := range repos {
+		select {
+		case <-ctx.Done():
+			return &compactionStats{
+				Targets:   repos,
+				Completed: results,
+			}, nil
+		default:
+		}
+
 		st, err := bgs.repoman.CarStore().CompactUserShards(context.Background(), r.Usr)
 		if err != nil {
 			log.Errorf("failed to compact shards for user %d: %s", r.Usr, err)
