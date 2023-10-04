@@ -49,7 +49,7 @@ func (srv *Server) WebPost(c echo.Context) error {
 	if err != nil {
 		slog.Warn("failed to fetch handle", "handle", handle, "err", err)
 		// TODO: only if "not found"
-		return echo.NewHTTPError(404, "handle not found: %s", handle)
+		return echo.NewHTTPError(404, fmt.Sprintf("handle not found: %s", handle))
 	}
 	did := pv.Did
 	data["did"] = did
@@ -76,7 +76,7 @@ func (srv *Server) WebProfile(c echo.Context) error {
 	if err != nil {
 		slog.Warn("failed to fetch handle", "handle", handle, "err", err)
 		// TODO: only if "not found"
-		return echo.NewHTTPError(404, "handle not found: %s", handle)
+		return echo.NewHTTPError(404, fmt.Sprintf("handle not found: %s", handle))
 	} else {
 		req := c.Request()
 		data["profileView"] = pv
@@ -122,7 +122,7 @@ func (srv *Server) WebRepoRSS(c echo.Context) error {
 	if err != nil {
 		slog.Warn("failed to fetch handle", "handle", handle, "err", err)
 		// TODO: only if "not found"
-		return echo.NewHTTPError(404, "handle not found: %s", handle)
+		return echo.NewHTTPError(404, fmt.Sprintf("handle not found: %s", handle))
 		//return err
 	}
 
