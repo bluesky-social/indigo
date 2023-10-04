@@ -1,30 +1,34 @@
 package main
 
 import (
+	slogging "log/slog"
 	"os"
+	"fmt"
+
+	"github.com/carlmjohnson/versioninfo"
+	"github.com/urfave/cli/v2"
 
 	_ "github.com/joho/godotenv/autoload"
-
-	logging "github.com/ipfs/go-log"
-	"github.com/urfave/cli/v2"
 )
 
-var log = logging.Logger("pubweb")
 
-func init() {
-	logging.SetAllLoggers(logging.LevelDebug)
-	//logging.SetAllLoggers(logging.LevelWarn)
-}
+var (
+	slog = slogging.New(slogging.NewJSONHandler(os.Stdout, nil))
+    version = versioninfo.Short()                                                                                              
+)
 
 func main() {
-	run(os.Args)
+	if err := run(os.Args); err != nil {
+		slog.Error("fatal", "err", err)
+		os.Exit(-1)
+	}
 }
 
-func run(args []string) {
+func run(args []string) error {
 
 	app := cli.App{
-		Name:  "pubweb",
-		Usage: "public web interface to bluesky content",
+		Name:  "athome",
+		Usage: "public web interface to bluesky account content",
 	}
 
 	app.Commands = []*cli.Command{
@@ -34,29 +38,17 @@ func run(args []string) {
 			Action: serve,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:    "pds-host",
-					Usage:   "method, hostname, and port of PDS instance",
-					Value:   "http://localhost:4849",
-					EnvVars: []string{"ATP_PDS_HOST"},
+					Name:    "appview-host",
+					Usage:   "method, hostname, and port of AppView instance",
+					Value:   "https://api.bsky.app",
+					EnvVars: []string{"ATP_APPVIEW_HOST"},
 				},
 				&cli.StringFlag{
-					Name:     "handle",
-					Usage:    "for PDS login",
-					Required: true,
-					EnvVars:  []string{"ATP_AUTH_HANDLE"},
-				},
-				&cli.StringFlag{
-					Name:     "password",
-					Usage:    "for PDS login",
-					Required: true,
-					EnvVars:  []string{"ATP_AUTH_PASSWORD"},
-				},
-				&cli.StringFlag{
-					Name:     "http-address",
+					Name:     "bind",
 					Usage:    "Specify the local IP/port to bind to",
 					Required: false,
 					Value:    ":8200",
-					EnvVars:  []string{"PUBWEB_BIND"},
+					EnvVars:  []string{"ATHOME_BIND"},
 				},
 				&cli.BoolFlag{
 					Name:     "debug",
@@ -67,6 +59,15 @@ func run(args []string) {
 				},
 			},
 		},
+		&cli.Command{
+    		Name:  "version",
+    		Usage: "print version",
+    		Action: func(cctx *cli.Context) error {
+        		fmt.Println(version)
+        		return nil
+    		},
+    	},
 	}
-	app.RunAndExitOnError()
+
+	return app.Run(args)
 }

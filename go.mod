@@ -6,7 +6,9 @@ require (
 	contrib.go.opencensus.io/exporter/prometheus v0.4.2
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/brianvoe/gofakeit/v6 v6.20.2
+	github.com/carlmjohnson/versioninfo v0.22.5
 	github.com/dustinkirkland/golang-petname v0.0.0-20230626224747-e794b9370d49
+	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/goccy/go-json v0.10.2
 	github.com/gocql/gocql v1.6.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
