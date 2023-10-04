@@ -29,7 +29,7 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png"/>
   {% block html_head_extra -%}{%- endblock %}
   <meta name="application-name" name="Bluesky">
-  <meta name="generator" name="pubweb">
+  <meta name="generator" name="athome">
 </head>
 <body>
 {%- block body_all %}
@@ -37,12 +37,10 @@
   <div class="ui grid">
   <div class="fixed four wide column">
     <div class="ui vertical text menu" style="padding-top: 2em; font-size: 1.3rem;">
-      <h2 style="color: blue;">Bluesky</h2>
-      <a href="/feed/whatshot" class="item">What's Hot</a>
-      <a href="/profile/nori.gay/post/3juzlwllznd24" class="item">Hell Thread</a>
-      <a href="/profile/bnewbold.bsky.team" class="item">Prod bnewbold</a>
-      <a href="/profile/bnewbold.staging.bsky.dev" class="item">Staging bnewbold</a>
-      <a href="/profile/paul.staging.bsky.dev" class="item">Staging paul</a>
+      <h2 style="color: blue;">{%- block sidebar_title -%}Bluesky{%- endblock -%}</h2>
+      <a href="/bsky" class="item">Profile</a>
+      <a href="/bsky/repo.car" class="item">repo.car</a>
+      <a href="/bsky/rss.xml" class="item">RSS</a>
     </div>
   </div>
   <div class="ten wide column">
