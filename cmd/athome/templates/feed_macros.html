@@ -1,0 +1,106 @@
+
+{% macro feed_post(feedItem) export %}
+<div class="event">
+  <div class="label">
+    {% if feedItem.Post.Author.Avatar %}
+    <img src="{{ feedItem.Post.Author.Avatar }}">
+    {% else %}
+    <img src="/static/default-avatar.png">
+    {% endif %}
+  </div>
+  <div class="content">
+    {% if feedItem.Reason %}
+      {{ feedItem.Reason.FeedDefs_ReasonRepost }}
+    {% endif %}
+    <div class="summary">
+      <a href="/profile/{{ feedItem.Post.Author.Handle }}" class="user">
+        {% if feedItem.Post.Author.DisplayName %}
+        <b>{{ feedItem.Post.Author.DisplayName }}</b>
+        {% endif %}
+        @{{ feedItem.Post.Author.Handle }}
+      </a>
+
+
+      <div class="date">
+        {# TODO: relative time#}
+        {# TODO: parse and fix link (custom filter?) #}
+        <a href="/profile/{{ feedItem.Author.Handle }}/post/{{ feedItem.Post.Uri }}">{{ feedItem.Post.IndexedAt }}</a>
+      </div>
+    </div>
+    <div class="extra text">
+      {{ feedItem.Post.Record.Val.Text }}
+      {% if feedItem.Post.Embed and feedItem.Post.Embed.EmbedImages_View %}
+      <div class="ui four cards">
+        {% for image in feedItem.Post.Embed.EmbedImages_View.Images %}
+        <div class="card">
+          <div class="image">
+            <a href="{{ image.Fullsize }}">
+              <img alt="{{ image.Alt }}" src="{{ image.Thumb }}" style="width: 100%;">
+            </a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="meta">
+      <a class="like"><i class="reply icon"></i> {{ feedItem.Post.ReplyCount }}</a>
+      <a class="like"><i class="comment outline icon"></i> {{ feedItem.Post.RepostCount }}</a>
+      <a class="like"><i class="like outline icon"></i> {{ feedItem.Post.LikeCount }}</a>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro primary_post(feedItem) export %}
+<div class="event">
+  <div class="label">
+    {% if feedItem.Post.Author.Avatar %}
+    <img src="{{ feedItem.Post.Author.Avatar }}">
+    {% else %}
+    <img src="/static/default-avatar.png">
+    {% endif %}
+  </div>
+  <div class="content">
+    {% if feedItem.Reason %}
+      {{ feedItem.Reason.FeedDefs_ReasonRepost }}
+    {% endif %}
+    <div class="summary">
+      <a href="/profile/{{ feedItem.Post.Author.Handle }}" class="user">
+        {% if feedItem.Post.Author.DisplayName %}
+        <b>{{ feedItem.Post.Author.DisplayName }}</b>
+        {% endif %}
+        @{{ feedItem.Post.Author.Handle }}
+      </a>
+
+
+      <div class="date">
+        {# TODO: relative time#}
+        {# TODO: parse and fix link (custom filter?) #}
+        <a href="/profile/{{ feedItem.Author.Handle }}/post/{{ feedItem.Post.Uri }}">{{ feedItem.Post.IndexedAt }}</a>
+      </div>
+    </div>
+    <div class="extra text">
+      {{ feedItem.Post.Record.Val.Text }}
+      {% if feedItem.Post.Embed and feedItem.Post.Embed.EmbedImages_View %}
+      <div class="ui four cards">
+        {% for image in feedItem.Post.Embed.EmbedImages_View.Images %}
+        <div class="card">
+          <div class="image">
+            <a href="{{ image.Fullsize }}">
+              <img alt="{{ image.Alt }}" src="{{ image.Thumb }}" style="width: 100%;">
+            </a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="meta">
+      <a class="like"><i class="reply icon"></i> {{ feedItem.Post.ReplyCount }}</a>
+      <a class="like"><i class="comment outline icon"></i> {{ feedItem.Post.RepostCount }}</a>
+      <a class="like"><i class="like outline icon"></i> {{ feedItem.Post.LikeCount }}</a>
+    </div>
+  </div>
+</div>
+{% endmacro %}

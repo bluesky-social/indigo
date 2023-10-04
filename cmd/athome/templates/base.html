@@ -1,0 +1,55 @@
+<!DOCTYPE html>                                                                                          
+<html lang="en">
+<head>   
+  <meta charset="UTF-8" />
+  <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>{%- block head_title -%}Bluesky{%- endblock -%}</title>
+
+  <!-- Hello Humans! API docs at https://atproto.com -->
+  
+  <link rel="stylesheet"
+    type="text/css"
+    href="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.css"
+    type="text/css"
+    crossorigin="anonymous">
+  <!--
+  <link rel="preload"
+    href="https://fonts.googleapis.com/css?family=Lato:400,700,400italic,700italic&subset=latin&display=swap"
+    as="style">
+  <link rel="preload"
+    href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.8.6/dist/themes/default/assets/fonts/icons.woff2"
+    as="font"
+    type="font/woff2"
+    crossorigin="anonymous">
+  -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png"/>
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png"/>
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png"/>
+  {% block html_head_extra -%}{%- endblock %}
+  <meta name="application-name" name="Bluesky">
+  <meta name="generator" name="pubweb">
+</head>
+<body>
+{%- block body_all %}
+<main class="ui main container" style="min-height: calc(100vh);">
+  <div class="ui grid">
+  <div class="fixed four wide column">
+    <div class="ui vertical text menu" style="padding-top: 2em; font-size: 1.3rem;">
+      <h2 style="color: blue;">Bluesky</h2>
+      <a href="/feed/whatshot" class="item">What's Hot</a>
+      <a href="/profile/nori.gay/post/3juzlwllznd24" class="item">Hell Thread</a>
+      <a href="/profile/bnewbold.bsky.team" class="item">Prod bnewbold</a>
+      <a href="/profile/bnewbold.staging.bsky.dev" class="item">Staging bnewbold</a>
+      <a href="/profile/paul.staging.bsky.dev" class="item">Staging paul</a>
+    </div>
+  </div>
+  <div class="ten wide column">
+    {% block main_content %}blank page{% endblock %}
+  </div>
+  </div>
+</main>
+{% endblock -%}
+</body>
+</html>
