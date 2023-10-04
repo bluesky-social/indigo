@@ -8,6 +8,14 @@
 {%- endif -%}
 {% endblock %}
 
+{% block sidebar_title %}
+{%- if profileView -%}
+  {{ profileView.Handle }}
+{%- else -%}
+  Bluesky
+{%- endif -%}
+{% endblock %}
+
 {% block html_head_extra -%}
 {%- if profileView -%}
   <meta property="og:type" content="website">
@@ -58,9 +66,9 @@
   <p>{{ profileView.Description }}</p>
 
   <div class="ui divider"></div>
-  <div class="ui feed">
+  <div class="ui large feed">
   {% for feedItem in authorFeed %}
-    {{ feed_post(feedItem) }}
+    {{ feed_post(feedItem, did) }}
     <div class="ui divider"></div>
   {% endfor %}
   </div>
