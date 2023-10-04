@@ -1228,6 +1228,8 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 		return nil, err
 	}
 
+	span.SetAttributes(attribute.Int("shards", len(shards)))
+
 	var shardIds []uint
 	for _, s := range shards {
 		shardIds = append(shardIds, s.ID)
@@ -1243,10 +1245,14 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 		return nil, fmt.Errorf("getting block refs failed: %w", err)
 	}
 
+	span.SetAttributes(attribute.Int("blockRefs", len(brefs)))
+
 	var staleRefs []staleRef
 	if err := cs.meta.WithContext(ctx).Find(&staleRefs, "usr = ?", user).Error; err != nil {
 		return nil, err
 	}
+
+	span.SetAttributes(attribute.Int("staleRefs", len(staleRefs)))
 
 	stale := make(map[cid.Cid]bool)
 	for _, br := range staleRefs {
