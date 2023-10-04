@@ -53,9 +53,14 @@ func NewTIDFromInteger(v uint64) TID {
 }
 
 // Constructs a new TID from a UNIX timestamp (in milliseconds) and clock ID value.
-func NewTID(unixMilis int64, clockId uint) TID {
-	var v uint64 = (uint64(unixMilis&0x1F_FFFF_FFFF_FFFF) << 10) | uint64(clockId&0x3FF)
+func NewTID(unixMicros int64, clockId uint) TID {
+	var v uint64 = (uint64(unixMicros&0x1F_FFFF_FFFF_FFFF) << 10) | uint64(clockId&0x3FF)
 	return NewTIDFromInteger(v)
+}
+
+// Constructs a new TID from a [time.Time] and clock ID value
+func NewTIDFromTime(ts time.Time, clockId uint) TID {
+	return NewTID(ts.UTC().UnixMicro(), clockId)
 }
 
 // Returns full integer representation of this TID (not used often)
