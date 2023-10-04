@@ -2,39 +2,48 @@ package main
 
 import (
 	"context"
+	"embed"
+	"errors"
 	"io/fs"
 	"net/http"
 	"os"
-	"time"
-	"embed"
 	"os/signal"
-	"errors"
 	"syscall"
+	"time"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/xrpc"
 
-	"github.com/urfave/cli/v2"
 	"github.com/flosch/pongo2/v6"
+	"github.com/labstack/echo-contrib/echoprometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/labstack/echo-contrib/echoprometheus"
 	slogecho "github.com/samber/slog-echo"
+	"github.com/urfave/cli/v2"
 )
 
 //go:embed static/*
 var StaticFS embed.FS
 
 type Server struct {
-	echo            *echo.Echo
-	httpd           *http.Server
-	xrpcc *xrpc.Client
+	echo          *echo.Echo
+	httpd         *http.Server
+	dir           identity.Directory // TODO: unused?
+	xrpcc         *xrpc.Client
+	defaultHandle syntax.Handle
 }
 
 func serve(cctx *cli.Context) error {
 	debug := cctx.Bool("debug")
 	httpAddress := cctx.String("bind")
 	appviewHost := cctx.String("appview-host")
+
+	dh, err := syntax.ParseHandle("atproto.com")
+	if err != nil {
+		return err
+	}
 
 	xrpcc := &xrpc.Client{
 		Client: util.RobustHTTPClient(),
@@ -50,8 +59,10 @@ func serve(cctx *cli.Context) error {
 	)
 
 	srv := &Server{
-		echo:  e,
-		xrpcc: xrpcc,
+		echo:          e,
+		xrpcc:         xrpcc,
+		dir:           identity.DefaultDirectory(),
+		defaultHandle: dh,
 	}
 	srv.httpd = &http.Server{
 		Handler:        srv,
@@ -67,6 +78,7 @@ func serve(cctx *cli.Context) error {
 	e.Use(echoprometheus.NewMiddleware("athome"))
 	e.Use(middleware.BodyLimit("64M"))
 	e.HTTPErrorHandler = srv.errorHandler
+	e.Renderer = NewRenderer("templates/", &TemplateFS, debug)
 	e.Use(middleware.SecureWithConfig(middleware.SecureConfig{
 		ContentTypeNosniff: "nosniff",
 		XFrameOptions:      "SAMEORIGIN",
@@ -94,42 +106,20 @@ func serve(cctx *cli.Context) error {
 		return http.FS(fsys)
 	}())
 
-	e.Renderer = NewRenderer("templates/", &TemplateFS, debug)
 	e.GET("/static/*", echo.WrapHandler(http.StripPrefix("/static/", staticHandler)))
-
 	e.GET("/_health", srv.HandleHealthCheck)
 	e.GET("/metrics", echoprometheus.NewHandler())
 
 	// basic static routes
 	e.GET("/robots.txt", echo.WrapHandler(staticHandler))
 	e.GET("/favicon.ico", echo.WrapHandler(staticHandler))
+
+	// actual content
 	e.GET("/", srv.WebHome)
-
-	// generic routes
-	//e.GET("/search", srv.WebGeneric)
-	//e.GET("/support", srv.WebGeneric)
-	//e.GET("/support/privacy", srv.WebGeneric)
-	//e.GET("/support/tos", srv.WebGeneric)
-	//e.GET("/support/community-guidelines", srv.WebGeneric)
-	//e.GET("/support/copyright", srv.WebGeneric)
-
-	// profile endpoints; only first populates info
-	e.GET("/profile/:handle", srv.WebProfile)
-	//e.GET("/profile/:handle/repo.car.gz", srv.WebProfile)
-	//e.GET("/profile/:handle/follows", srv.WebGeneric)
-	//e.GET("/profile/:handle/followers", srv.WebGeneric)
-
-	// post endpoints; only first populates info
-	e.GET("/profile/:handle/post/:rkey", srv.WebPost)
-	//e.GET("/profile/:handle/post/:rkey/liked-by", srv.WebGeneric)
-	//e.GET("/profile/:handle/post/:rkey/reposted-by", srv.WebGeneric)
-
-	// feeds
-	//e.GET("/feed/:name", srv.WebFeed)
-
-	// redirect
-	//e.GET("/at://:account", srv.WebAccountURI)
-	//e.GET("/at://:account/:nsid/:rkey", srv.WebRecordURI)
+	e.GET("/bsky", srv.WebProfile)
+	e.GET("/bsky/post/:rkey", srv.WebPost)
+	e.GET("/bsky/repo.car", srv.WebRepoCar)
+	e.GET("/bsky/rss.xml", srv.WebRepoRSS)
 
 	// Start the server
 	slog.Info("starting server", "bind", httpAddress)
@@ -175,7 +165,7 @@ func (srv *Server) errorHandler(err error, c echo.Context) {
 		code = he.Code
 	}
 	if code >= 500 {
-		slog.Warn("abyss-http-internal-error", "err", err)
+		slog.Warn("athome-http-internal-error", "err", err)
 	}
 	data := pongo2.Context{
 		"statusCode": code,
@@ -197,6 +187,5 @@ func (srv *Server) Shutdown() error {
 }
 
 func (s *Server) HandleHealthCheck(c echo.Context) error {
-	return c.JSON(200, GenericStatus{Status: "ok", Daemon: "abyss"})
+	return c.JSON(200, GenericStatus{Status: "ok", Daemon: "athome"})
 }
-

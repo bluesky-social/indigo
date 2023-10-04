@@ -1,9 +1,9 @@
 package main
 
 import (
+	"fmt"
 	slogging "log/slog"
 	"os"
-	"fmt"
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/urfave/cli/v2"
@@ -11,10 +11,9 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 )
 
-
 var (
-	slog = slogging.New(slogging.NewJSONHandler(os.Stdout, nil))
-    version = versioninfo.Short()                                                                                              
+	slog    = slogging.New(slogging.NewJSONHandler(os.Stdout, nil))
+	version = versioninfo.Short()
 )
 
 func main() {
@@ -60,13 +59,13 @@ func run(args []string) error {
 			},
 		},
 		&cli.Command{
-    		Name:  "version",
-    		Usage: "print version",
-    		Action: func(cctx *cli.Context) error {
-        		fmt.Println(version)
-        		return nil
-    		},
-    	},
+			Name:  "version",
+			Usage: "print version",
+			Action: func(cctx *cli.Context) error {
+				fmt.Println(version)
+				return nil
+			},
+		},
 	}
 
 	return app.Run(args)
