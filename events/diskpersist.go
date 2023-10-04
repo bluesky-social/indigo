@@ -273,8 +273,9 @@ func scanForLastSeq(fi *os.File, end int64) (int64, error) {
 }
 
 const (
-	evtKindCommit = 1
-	evtKindHandle = 2
+	evtKindCommit    = 1
+	evtKindHandle    = 2
+	evtKindTombstone = 3
 )
 
 var emptyHeader = make([]byte, headerSize)
@@ -450,8 +451,10 @@ func (dp *DiskPersistence) doPersist(ctx context.Context, j persistJob) error {
 		e.RepoCommit.Seq = seq
 	case e.RepoHandle != nil:
 		e.RepoHandle.Seq = seq
+	case e.RepoTombstone != nil:
+		e.RepoTombstone.Seq = seq
 	default:
-		// only those two get peristed right now
+		// only those three get peristed right now
 		// we shouldnt actually ever get here...
 		return nil
 	}
@@ -500,6 +503,12 @@ func (dp *DiskPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) erro
 		evtKind = evtKindHandle
 		did = e.RepoHandle.Did
 		if err := e.RepoHandle.MarshalCBOR(cw); err != nil {
+			return fmt.Errorf("failed to marshal: %w", err)
+		}
+	case e.RepoTombstone != nil:
+		evtKind = evtKindTombstone
+		did = e.RepoTombstone.Did
+		if err := e.RepoTombstone.MarshalCBOR(cw); err != nil {
 			return fmt.Errorf("failed to marshal: %w", err)
 		}
 	default:
@@ -689,6 +698,15 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 			}
 			evt.Seq = h.Seq
 			if err := cb(&XRPCStreamEvent{RepoHandle: &evt}); err != nil {
+				return err
+			}
+		case evtKindTombstone:
+			var evt atproto.SyncSubscribeRepos_Tombstone
+			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len64())); err != nil {
+				return err
+			}
+			evt.Seq = h.Seq
+			if err := cb(&XRPCStreamEvent{RepoTombstone: &evt}); err != nil {
 				return err
 			}
 		default:
