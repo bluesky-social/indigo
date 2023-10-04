@@ -165,6 +165,8 @@ func (p *DbPersistence) flushBatchLocked(ctx context.Context) error {
 			e.RepoCommit.Seq = int64(item.Seq)
 		case e.RepoHandle != nil:
 			e.RepoHandle.Seq = int64(item.Seq)
+		case e.RepoTombstone != nil:
+			e.RepoTombstone.Seq = int64(item.Seq)
 		default:
 			return fmt.Errorf("unknown event type")
 		}
@@ -209,6 +211,11 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 		if err != nil {
 			return err
 		}
+	case e.RepoTombstone != nil:
+		rer, err = p.RecordFromTombstone(ctx, e.RepoTombstone)
+		if err != nil {
+			return err
+		}
 	default:
 		return nil
 	}
@@ -236,6 +243,24 @@ func (p *DbPersistence) RecordFromHandleChange(ctx context.Context, evt *comatpr
 		Type:      "repo_handle",
 		Time:      t,
 		NewHandle: &evt.Handle,
+	}, nil
+}
+
+func (p *DbPersistence) RecordFromTombstone(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Tombstone) (*RepoEventRecord, error) {
+	t, err := time.Parse(util.ISO8601, evt.Time)
+	if err != nil {
+		return nil, err
+	}
+
+	uid, err := p.uidForDid(ctx, evt.Did)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RepoEventRecord{
+		Repo: uid,
+		Type: "repo_tombstone",
+		Time: t,
 	}, nil
 }
 
@@ -371,6 +396,8 @@ func (p *DbPersistence) hydrateBatch(ctx context.Context, batch []*RepoEventReco
 				streamEvent, err = p.hydrateCommit(ctx, record)
 			case record.NewHandle != nil:
 				streamEvent, err = p.hydrateHandleChange(ctx, record)
+			case record.Type == "repo_tombstone":
+				streamEvent, err = p.hydrateTombstone(ctx, record)
 			default:
 				err = fmt.Errorf("unknown event type: %s", record.Type)
 			}
@@ -448,6 +475,20 @@ func (p *DbPersistence) hydrateHandleChange(ctx context.Context, rer *RepoEventR
 			Did:    did,
 			Handle: *rer.NewHandle,
 			Time:   rer.Time.Format(util.ISO8601),
+		},
+	}, nil
+}
+
+func (p *DbPersistence) hydrateTombstone(ctx context.Context, rer *RepoEventRecord) (*XRPCStreamEvent, error) {
+	did, err := p.didForUid(ctx, rer.Repo)
+	if err != nil {
+		return nil, err
+	}
+
+	return &XRPCStreamEvent{
+		RepoTombstone: &comatproto.SyncSubscribeRepos_Tombstone{
+			Did:  did,
+			Time: rer.Time.Format(util.ISO8601),
 		},
 	}, nil
 }

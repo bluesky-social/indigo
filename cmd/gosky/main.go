@@ -1145,6 +1145,20 @@ var readRepoStreamCmd = &cli.Command{
 
 				return nil
 			},
+			RepoTombstone: func(tomb *comatproto.SyncSubscribeRepos_Tombstone) error {
+				if jsonfmt {
+					b, err := json.Marshal(tomb)
+					if err != nil {
+						return err
+					}
+					fmt.Println(string(b))
+				} else {
+					fmt.Printf("(%d) Tombstone: %s\n", tomb.Seq, tomb.Did)
+				}
+
+				return nil
+
+			},
 			// TODO: all the other event types
 			Error: func(errf *events.ErrorFrame) error {
 				return fmt.Errorf("error frame: %s: %s", errf.Error, errf.Message)
