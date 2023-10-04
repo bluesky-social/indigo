@@ -104,7 +104,7 @@ func TestTIDConstruction(t *testing.T) {
 	assert.Equal("2222222222222", zero.String())
 	assert.Equal(uint64(0), zero.Integer())
 	assert.Equal(uint(0), zero.ClockID())
-	assert.Equal(time.UnixMilli(0).UTC(), zero.Time())
+	assert.Equal(time.UnixMicro(0).UTC(), zero.Time())
 
 	now := NewTIDNow(1011)
 	assert.Equal(uint(1011), now.ClockID())
@@ -112,6 +112,10 @@ func TestTIDConstruction(t *testing.T) {
 
 	over := NewTIDNow(4096)
 	assert.Equal(uint(0), over.ClockID())
+
+	next := NewTIDFromTime(time.Now(), 123)
+	assert.Equal(uint(123), next.ClockID())
+	assert.True(time.Since(next.Time()) < time.Minute)
 }
 
 func TestTIDClock(t *testing.T) {
