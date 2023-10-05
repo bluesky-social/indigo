@@ -148,6 +148,7 @@ func (bgs *BGS) StartMetrics(listen string) error {
 	return http.ListenAndServe(listen, nil)
 }
 
+// Disabled for now, maybe reimplement behind admin auth later
 func (bgs *BGS) StartDebug(listen string) error {
 	http.HandleFunc("/repodbg/user", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
