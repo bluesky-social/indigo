@@ -20,6 +20,7 @@ type SyncListRepos_Output struct {
 type SyncListRepos_Repo struct {
 	Did  string `json:"did" cborgen:"did"`
 	Head string `json:"head" cborgen:"head"`
+	Rev  string `json:"rev" cborgen:"rev"`
 }
 
 // SyncListRepos calls the XRPC method "com.atproto.sync.listRepos".
