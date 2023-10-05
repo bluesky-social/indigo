@@ -1677,13 +1677,8 @@ func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 3
 
-	if t.AspectRatio == nil {
-		fieldCount--
-	}
-
-	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+	if _, err := cw.Write([]byte{162}); err != nil {
 		return err
 	}
 
@@ -1724,25 +1719,6 @@ func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {
 
 	if err := t.Image.MarshalCBOR(cw); err != nil {
 		return err
-	}
-
-	// t.AspectRatio (bsky.EmbedImages_AspectRatio) (struct)
-	if t.AspectRatio != nil {
-
-		if len("aspectRatio") > cbg.MaxLength {
-			return xerrors.Errorf("Value in field \"aspectRatio\" was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("aspectRatio"))); err != nil {
-			return err
-		}
-		if _, err := cw.WriteString(string("aspectRatio")); err != nil {
-			return err
-		}
-
-		if err := t.AspectRatio.MarshalCBOR(cw); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -1812,26 +1788,6 @@ func (t *EmbedImages_Image) UnmarshalCBOR(r io.Reader) (err error) {
 					t.Image = new(util.LexBlob)
 					if err := t.Image.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.Image pointer: %w", err)
-					}
-				}
-
-			}
-			// t.AspectRatio (bsky.EmbedImages_AspectRatio) (struct)
-		case "aspectRatio":
-
-			{
-
-				b, err := cr.ReadByte()
-				if err != nil {
-					return err
-				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-					t.AspectRatio = new(EmbedImages_AspectRatio)
-					if err := t.AspectRatio.UnmarshalCBOR(cr); err != nil {
-						return xerrors.Errorf("unmarshaling t.AspectRatio pointer: %w", err)
 					}
 				}
 

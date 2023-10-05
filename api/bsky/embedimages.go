@@ -17,18 +17,9 @@ type EmbedImages struct {
 	Images        []*EmbedImages_Image `json:"images" cborgen:"images"`
 }
 
-// EmbedImages_AspectRatio is a "aspectRatio" in the app.bsky.embed.images schema.
-//
-// width:height represents an aspect ratio. It may be approximate, and may not correspond to absolute dimensions in any given unit.
-type EmbedImages_AspectRatio struct {
-	Height int64 `json:"height" cborgen:"height"`
-	Width  int64 `json:"width" cborgen:"width"`
-}
-
 // EmbedImages_Image is a "image" in the app.bsky.embed.images schema.
 type EmbedImages_Image struct {
 	Alt         string                   `json:"alt" cborgen:"alt"`
-	AspectRatio *EmbedImages_AspectRatio `json:"aspectRatio,omitempty" cborgen:"aspectRatio,omitempty"`
 	Image       *util.LexBlob            `json:"image" cborgen:"image"`
 }
 
@@ -43,7 +34,6 @@ type EmbedImages_View struct {
 // EmbedImages_ViewImage is a "viewImage" in the app.bsky.embed.images schema.
 type EmbedImages_ViewImage struct {
 	Alt         string                   `json:"alt" cborgen:"alt"`
-	AspectRatio *EmbedImages_AspectRatio `json:"aspectRatio,omitempty" cborgen:"aspectRatio,omitempty"`
 	Fullsize    string                   `json:"fullsize" cborgen:"fullsize"`
 	Thumb       string                   `json:"thumb" cborgen:"thumb"`
 }
