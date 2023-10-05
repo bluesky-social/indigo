@@ -108,6 +108,7 @@ type FeedDefs_PostView struct {
 	Record        *util.LexiconTypeDecoder           `json:"record" cborgen:"record"`
 	ReplyCount    *int64                             `json:"replyCount,omitempty" cborgen:"replyCount,omitempty"`
 	RepostCount   *int64                             `json:"repostCount,omitempty" cborgen:"repostCount,omitempty"`
+	Threadgate    *FeedDefs_ThreadgateView           `json:"threadgate,omitempty" cborgen:"threadgate,omitempty"`
 	Uri           string                             `json:"uri" cborgen:"uri"`
 	Viewer        *FeedDefs_ViewerState              `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
@@ -313,6 +314,7 @@ type FeedDefs_ThreadViewPost struct {
 	Parent        *FeedDefs_ThreadViewPost_Parent         `json:"parent,omitempty" cborgen:"parent,omitempty"`
 	Post          *FeedDefs_PostView                      `json:"post" cborgen:"post"`
 	Replies       []*FeedDefs_ThreadViewPost_Replies_Elem `json:"replies,omitempty" cborgen:"replies,omitempty"`
+	Viewer        *FeedDefs_ViewerThreadState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 type FeedDefs_ThreadViewPost_Parent struct {
@@ -401,8 +403,21 @@ func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// FeedDefs_ThreadgateView is a "threadgateView" in the app.bsky.feed.defs schema.
+type FeedDefs_ThreadgateView struct {
+	Cid    *string                    `json:"cid,omitempty" cborgen:"cid,omitempty"`
+	Lists  []*GraphDefs_ListViewBasic `json:"lists,omitempty" cborgen:"lists,omitempty"`
+	Record *util.LexiconTypeDecoder   `json:"record,omitempty" cborgen:"record,omitempty"`
+	Uri    *string                    `json:"uri,omitempty" cborgen:"uri,omitempty"`
+}
+
 // FeedDefs_ViewerState is a "viewerState" in the app.bsky.feed.defs schema.
 type FeedDefs_ViewerState struct {
 	Like   *string `json:"like,omitempty" cborgen:"like,omitempty"`
 	Repost *string `json:"repost,omitempty" cborgen:"repost,omitempty"`
+}
+
+// FeedDefs_ViewerThreadState is a "viewerThreadState" in the app.bsky.feed.defs schema.
+type FeedDefs_ViewerThreadState struct {
+	CanReply *bool `json:"canReply,omitempty" cborgen:"canReply,omitempty"`
 }
