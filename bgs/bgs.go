@@ -1362,10 +1362,9 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 		}
 
 		for _, r := range repoList.Repos {
-			repos = append(repos, comatproto.SyncListRepos_Repo{
-				Did: r.Did,
-				Rev: r.Rev,
-			})
+			if r != nil {
+				repos = append(repos, *r)
+			}
 		}
 
 		if repoList.Cursor == nil || *repoList.Cursor == "" {
