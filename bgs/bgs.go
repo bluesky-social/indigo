@@ -1250,11 +1250,6 @@ func (bgs *BGS) runRepoCompaction(ctx context.Context, lim int, dry bool) (*comp
 	}, nil
 }
 
-type repoRev struct {
-	Did string
-	Rev string
-}
-
 type revCheckResult struct {
 	ai  *models.ActorInfo
 	err error
@@ -1343,7 +1338,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 	cursor := ""
 	limit := int64(500)
 
-	repos := []repoRev{}
+	repos := []comatproto.SyncListRepos_Repo{}
 
 	pages := 0
 
@@ -1367,7 +1362,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 		}
 
 		for _, r := range repoList.Repos {
-			repos = append(repos, repoRev{
+			repos = append(repos, comatproto.SyncListRepos_Repo{
 				Did: r.Did,
 				Rev: r.Rev,
 			})
@@ -1394,7 +1389,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 
 	// Check repo revs against our local copy and enqueue crawls for any that are out of date
 	for _, r := range repos {
-		go func(r repoRev) {
+		go func(r comatproto.SyncListRepos_Repo) {
 			if err := sem.Acquire(ctx, 1); err != nil {
 				log.Errorw("failed to acquire semaphore", "error", err)
 				results <- revCheckResult{err: err}
