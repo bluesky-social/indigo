@@ -19,8 +19,8 @@ type EmbedImages struct {
 
 // EmbedImages_Image is a "image" in the app.bsky.embed.images schema.
 type EmbedImages_Image struct {
-	Alt   string        `json:"alt" cborgen:"alt"`
-	Image *util.LexBlob `json:"image" cborgen:"image"`
+	Alt         string                   `json:"alt" cborgen:"alt"`
+	Image       *util.LexBlob            `json:"image" cborgen:"image"`
 }
 
 // EmbedImages_View is a "view" in the app.bsky.embed.images schema.
@@ -33,7 +33,7 @@ type EmbedImages_View struct {
 
 // EmbedImages_ViewImage is a "viewImage" in the app.bsky.embed.images schema.
 type EmbedImages_ViewImage struct {
-	Alt      string `json:"alt" cborgen:"alt"`
-	Fullsize string `json:"fullsize" cborgen:"fullsize"`
-	Thumb    string `json:"thumb" cborgen:"thumb"`
+	Alt         string                   `json:"alt" cborgen:"alt"`
+	Fullsize    string                   `json:"fullsize" cborgen:"fullsize"`
+	Thumb       string                   `json:"thumb" cborgen:"thumb"`
 }
