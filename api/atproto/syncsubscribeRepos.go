@@ -12,7 +12,7 @@ import (
 type SyncSubscribeRepos_Commit struct {
 	Blobs []util.LexLink `json:"blobs" cborgen:"blobs"`
 	// blocks: CAR file containing relevant blocks
-	Blocks util.LexBytes                `json:"blocks,omitempty" cborgen:"blocks"`
+	Blocks util.LexBytes                `json:"blocks,omitempty" cborgen:"blocks,omitempty"`
 	Commit util.LexLink                 `json:"commit" cborgen:"commit"`
 	Ops    []*SyncSubscribeRepos_RepoOp `json:"ops" cborgen:"ops"`
 	Prev   *util.LexLink                `json:"prev" cborgen:"prev"`
