@@ -42,6 +42,12 @@ var externalUserCreationAttempts = promauto.NewCounter(prometheus.CounterOpts{
 	Help: "The total number of external users created",
 })
 
+var compactionDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+	Name:    "compaction_duration",
+	Help:    "A histogram of compaction latencies",
+	Buckets: prometheus.ExponentialBuckets(0.001, 3, 14),
+})
+
 var newUsersDiscovered = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "bgs_new_users_discovered",
 	Help: "The total number of new users discovered directly from the firehose (not from refs)",
