@@ -38,6 +38,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	promclient "github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -140,6 +141,11 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	}
 
 	return bgs, nil
+}
+
+func (bgs *BGS) StartMetrics(listen string) error {
+	http.Handle("/metrics", promhttp.Handler())
+	return http.ListenAndServe(listen, nil)
 }
 
 func (bgs *BGS) StartDebug(listen string) error {
@@ -259,13 +265,13 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 		e.Use(middleware.LoggerWithConfig(middleware.DefaultLoggerConfig))
 	}
 
-	e.Use(MetricsMiddleware)
-
 	// React uses a virtual router, so we need to serve the index.html for all
 	// routes that aren't otherwise handled or in the /assets directory.
 	e.File("/dash", "/public/index.html")
 	e.File("/dash/*", "/public/index.html")
 	e.Static("/assets", "/public/assets")
+
+	e.Use(MetricsMiddleware)
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
 		switch err := err.(type) {
@@ -308,12 +314,6 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	e.GET("/xrpc/com.atproto.sync.getLatestCommit", bgs.HandleComAtprotoSyncGetLatestCommit)
 	e.GET("/xrpc/com.atproto.sync.notifyOfUpdate", bgs.HandleComAtprotoSyncNotifyOfUpdate)
 	e.GET("/xrpc/_health", bgs.HandleHealthCheck)
-
-	promh := prometheusHandler()
-	e.GET("/metrics", func(e echo.Context) error {
-		promh.ServeHTTP(e.Response().Writer, e.Request())
-		return nil
-	})
 
 	admin := e.Group("/admin", bgs.checkAdminAuth)
 
