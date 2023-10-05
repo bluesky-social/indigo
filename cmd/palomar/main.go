@@ -121,6 +121,12 @@ var runCmd = &cli.Command{
 			Value:   ":3999",
 			EnvVars: []string{"PALOMAR_BIND"},
 		},
+		&cli.StringFlag{
+			Name:    "metrics-listen",
+			Usage:   "IP or address, and port, to listen on for metrics APIs",
+			Value:   ":3998",
+			EnvVars: []string{"PALOMAR_METRICS_LISTEN"},
+		},
 		&cli.IntFlag{
 			Name:    "bgs-sync-rate-limit",
 			Usage:   "max repo sync (checkout) requests per second to upstream (BGS)",
@@ -184,6 +190,13 @@ var runCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
+
+		go func() {
+			if err := srv.RunMetrics(cctx.String("metrics-listen")); err != nil {
+				slog.Error("failed to start metrics endpoint", "error", err)
+				panic(fmt.Errorf("failed to start metrics endpoint: %w", err))
+			}
+		}()
 
 		go func() {
 			srv.RunAPI(cctx.String("bind"))
