@@ -1250,12 +1250,7 @@ func (bgs *BGS) runRepoCompaction(ctx context.Context, lim int, dry bool) (*comp
 	}, nil
 }
 
-type repoHead struct {
-	Did  string
-	Head string
-}
-
-type headCheckResult struct {
+type revCheckResult struct {
 	ai  *models.ActorInfo
 	err error
 }
@@ -1343,7 +1338,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 	cursor := ""
 	limit := int64(500)
 
-	repos := []repoHead{}
+	repos := []comatproto.SyncListRepos_Repo{}
 
 	pages := 0
 
@@ -1367,10 +1362,9 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 		}
 
 		for _, r := range repoList.Repos {
-			repos = append(repos, repoHead{
-				Did:  r.Did,
-				Head: r.Head,
-			})
+			if r != nil {
+				repos = append(repos, *r)
+			}
 		}
 
 		if repoList.Cursor == nil || *repoList.Cursor == "" {
@@ -1386,45 +1380,45 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 	repolistDone := time.Now()
 
 	log.Warnw("listed all repos, checking roots", "num_repos", len(repos), "took", repolistDone.Sub(start))
-	resync = bgs.SetResyncStatus(pds.ID, "checking heads")
+	resync = bgs.SetResyncStatus(pds.ID, "checking revs")
 
 	// Create a buffered channel for collecting results
-	results := make(chan headCheckResult, len(repos))
+	results := make(chan revCheckResult, len(repos))
 	sem := semaphore.NewWeighted(40)
 
-	// Check repo heads against our local copy and enqueue crawls for any that are out of date
+	// Check repo revs against our local copy and enqueue crawls for any that are out of date
 	for _, r := range repos {
-		go func(r repoHead) {
+		go func(r comatproto.SyncListRepos_Repo) {
 			if err := sem.Acquire(ctx, 1); err != nil {
 				log.Errorw("failed to acquire semaphore", "error", err)
-				results <- headCheckResult{err: err}
+				results <- revCheckResult{err: err}
 				return
 			}
 			defer sem.Release(1)
 
-			log := log.With("did", r.Did, "head", r.Head)
+			log := log.With("did", r.Did, "remote_rev", r.Rev)
 			// Fetches the user if we have it, otherwise automatically enqueues it for crawling
 			ai, err := bgs.Index.GetUserOrMissing(ctx, r.Did)
 			if err != nil {
 				log.Errorw("failed to get user while resyncing PDS, we can't recrawl it", "error", err)
-				results <- headCheckResult{err: err}
+				results <- revCheckResult{err: err}
 				return
 			}
 
-			head, err := bgs.repoman.GetRepoRoot(ctx, ai.Uid)
+			rev, err := bgs.repoman.GetRepoRev(ctx, ai.Uid)
 			if err != nil {
 				log.Warnw("recrawling because we failed to get the local repo root", "err", err, "uid", ai.Uid)
-				results <- headCheckResult{ai: ai}
+				results <- revCheckResult{ai: ai}
 				return
 			}
 
-			if head.String() != r.Head {
-				log.Warnw("recrawling because the repo head from the PDS is different from our local repo root", "local_head", head.String())
-				results <- headCheckResult{ai: ai}
+			if rev == "" || rev < r.Rev {
+				log.Warnw("recrawling because the repo rev from the PDS is newer than our local repo rev", "local_rev", rev)
+				results <- revCheckResult{ai: ai}
 				return
 			}
 
-			results <- headCheckResult{}
+			results <- revCheckResult{}
 		}(r)
 	}
 
@@ -1442,8 +1436,8 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 				log.Errorw("failed to enqueue crawl for repo during resync", "error", err, "uid", res.ai.Uid, "did", res.ai.Did)
 			}
 		}
-		if i%10_000 == 0 {
-			log.Warnw("checked heads during resync", "num_repos_checked", i, "num_repos_to_crawl", numReposToResync, "took", time.Now().Sub(resync.StatusChangedAt))
+		if i%100_000 == 0 {
+			log.Warnw("checked revs during resync", "num_repos_checked", i, "num_repos_to_crawl", numReposToResync, "took", time.Now().Sub(resync.StatusChangedAt))
 			resync.NumReposChecked = i
 			resync.NumReposToResync = numReposToResync
 			bgs.UpdateResync(resync)
