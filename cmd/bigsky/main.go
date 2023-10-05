@@ -105,8 +105,9 @@ func run(args []string) {
 			Value: ":2470",
 		},
 		&cli.StringFlag{
-			Name:  "debug-listen",
-			Value: "localhost:2471",
+			Name:    "metrics-listen",
+			Value:   ":2471",
+			EnvVars: []string{"BGS_METRICS_LISTEN"},
 		},
 		&cli.StringFlag{
 			Name: "disk-blob-store",
@@ -340,10 +341,10 @@ func Bigsky(cctx *cli.Context) error {
 		}
 	}
 
-	// set up pprof endpoint
+	// set up metrics endpoint
 	go func() {
-		if err := bgs.StartDebug(cctx.String("debug-listen")); err != nil {
-			panic(err)
+		if err := bgs.StartMetrics(cctx.String("metrics-listen")); err != nil {
+			log.Fatalf("failed to start metrics endpoint: %s", err)
 		}
 	}()
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"strings"
 
@@ -205,6 +206,11 @@ func (s *Server) RunAPI(listen string) error {
 
 	s.logger.Info("starting search API daemon", "bind", listen)
 	return s.echo.Start(listen)
+}
+
+func (s *Server) RunMetrics(listen string) error {
+	http.Handle("/metrics", promhttp.Handler())
+	return http.ListenAndServe(listen, nil)
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
