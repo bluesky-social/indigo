@@ -406,12 +406,17 @@ func (bgs *BGS) handleAdminCompactRepo(e echo.Context) error {
 		return fmt.Errorf("must pass a did")
 	}
 
+	var fast bool
+	if strings.ToLower(e.QueryParam("fast")) == "true" {
+		fast = true
+	}
+
 	u, err := bgs.lookupUserByDid(ctx, did)
 	if err != nil {
 		return fmt.Errorf("no such user: %w", err)
 	}
 
-	stats, err := bgs.repoman.CarStore().CompactUserShards(ctx, u.ID)
+	stats, err := bgs.repoman.CarStore().CompactUserShards(ctx, u.ID, fast)
 	if err != nil {
 		return fmt.Errorf("compaction failed: %w", err)
 	}
@@ -431,6 +436,11 @@ func (bgs *BGS) handleAdminCompactAllRepos(e echo.Context) error {
 		dry = true
 	}
 
+	var fast bool
+	if strings.ToLower(e.QueryParam("fast")) == "true" {
+		fast = true
+	}
+
 	lim := 50
 	if limstr := e.QueryParam("limit"); limstr != "" {
 		v, err := strconv.Atoi(limstr)
@@ -441,7 +451,7 @@ func (bgs *BGS) handleAdminCompactAllRepos(e echo.Context) error {
 		lim = v
 	}
 
-	stats, err := bgs.runRepoCompaction(ctx, lim, dry)
+	stats, err := bgs.runRepoCompaction(ctx, lim, dry, fast)
 	if err != nil {
 		return fmt.Errorf("compaction run failed: %w", err)
 	}

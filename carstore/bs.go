@@ -36,6 +36,8 @@ var log = logging.Logger("carstore")
 
 const MaxSliceLength = 2 << 20
 
+const BigShardThreshold = 2 << 20
+
 type CarStore struct {
 	meta    *gorm.DB
 	rootDir string
@@ -1207,6 +1209,15 @@ func (cs *CarStore) getBlockRefsForShards(ctx context.Context, shardIds []uint) 
 	return out, nil
 }
 
+func shardSize(sh *CarShard) (int64, error) {
+	st, err := os.Stat(sh.Path)
+	if err != nil {
+		return 0, fmt.Errorf("stat %q: %w", sh.Path, err)
+	}
+
+	return st.Size(), nil
+}
+
 type CompactionStats struct {
 	TotalRefs     int `json:"totalRefs"`
 	StartShards   int `json:"startShards"`
@@ -1217,7 +1228,7 @@ type CompactionStats struct {
 	DupeCount     int `json:"dupeCount"`
 }
 
-func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*CompactionStats, error) {
+func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid, skipBigShards bool) (*CompactionStats, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "CompactUserShards")
 	defer span.End()
 
@@ -1226,6 +1237,27 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 	var shards []CarShard
 	if err := cs.meta.WithContext(ctx).Find(&shards, "usr = ?", user).Error; err != nil {
 		return nil, err
+	}
+
+	sort.Slice(shards, func(i, j int) bool {
+		return shards[i].Seq < shards[j].Seq
+	})
+
+	if skipBigShards {
+		var skip int
+		for i, sh := range shards {
+			size, err := shardSize(&sh)
+			if err != nil {
+				return nil, fmt.Errorf("could not check size of shard file: %w", err)
+			}
+
+			if size > BigShardThreshold {
+				skip = i + 1
+			} else {
+				break
+			}
+		}
+		shards = shards[skip:]
 	}
 
 	span.SetAttributes(attribute.Int("shards", len(shards)))
