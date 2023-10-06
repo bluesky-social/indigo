@@ -13,6 +13,10 @@ public web interface at home:
 3. serves up profile and feed for that account only
 4. fetches data from public bsky app view API
 
+⚠️ This is a fun little proof-of-concept ⚠️
+
+Not all post features are rendered, has not been hardened against clever Unicode tricks, etc.
+
 
 ## Running athome
 
