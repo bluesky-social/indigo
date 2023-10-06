@@ -39,5 +39,6 @@ type GraphDefs_ListViewBasic struct {
 
 // GraphDefs_ListViewerState is a "listViewerState" in the app.bsky.graph.defs schema.
 type GraphDefs_ListViewerState struct {
-	Muted *bool `json:"muted,omitempty" cborgen:"muted,omitempty"`
+	Blocked *string `json:"blocked,omitempty" cborgen:"blocked,omitempty"`
+	Muted   *bool   `json:"muted,omitempty" cborgen:"muted,omitempty"`
 }

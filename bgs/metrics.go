@@ -16,6 +16,12 @@ var eventsReceivedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "The total number of events received",
 }, []string{"pds"})
 
+var eventsHandleDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "events_handle_duration",
+	Help:    "A histogram of handleFedEvent latencies",
+	Buckets: prometheus.ExponentialBuckets(0.001, 2, 15),
+}, []string{"pds"})
+
 var repoCommitsReceivedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "repo_commits_received_counter",
 	Help: "The total number of events received",
@@ -34,6 +40,12 @@ var eventsSentCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 var externalUserCreationAttempts = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "bgs_external_user_creation_attempts",
 	Help: "The total number of external users created",
+})
+
+var compactionDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+	Name:    "compaction_duration",
+	Help:    "A histogram of compaction latencies",
+	Buckets: prometheus.ExponentialBuckets(0.001, 3, 14),
 })
 
 var newUsersDiscovered = promauto.NewCounter(prometheus.CounterOpts{

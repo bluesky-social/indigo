@@ -29,10 +29,41 @@ type ActorDefs_ContentLabelPref struct {
 	Visibility    string `json:"visibility" cborgen:"visibility"`
 }
 
+// ActorDefs_FeedViewPref is a "feedViewPref" in the app.bsky.actor.defs schema.
+//
+// RECORDTYPE: ActorDefs_FeedViewPref
+type ActorDefs_FeedViewPref struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs#feedViewPref" cborgen:"$type,const=app.bsky.actor.defs#feedViewPref"`
+	// feed: The URI of the feed, or an identifier which describes the feed.
+	Feed string `json:"feed" cborgen:"feed"`
+	// hideQuotePosts: Hide quote posts in the feed.
+	HideQuotePosts *bool `json:"hideQuotePosts,omitempty" cborgen:"hideQuotePosts,omitempty"`
+	// hideReplies: Hide replies in the feed.
+	HideReplies *bool `json:"hideReplies,omitempty" cborgen:"hideReplies,omitempty"`
+	// hideRepliesByLikeCount: Hide replies in the feed if they do not have this number of likes.
+	HideRepliesByLikeCount *int64 `json:"hideRepliesByLikeCount,omitempty" cborgen:"hideRepliesByLikeCount,omitempty"`
+	// hideRepliesByUnfollowed: Hide replies in the feed if they are not by followed users.
+	HideRepliesByUnfollowed *bool `json:"hideRepliesByUnfollowed,omitempty" cborgen:"hideRepliesByUnfollowed,omitempty"`
+	// hideReposts: Hide reposts in the feed.
+	HideReposts *bool `json:"hideReposts,omitempty" cborgen:"hideReposts,omitempty"`
+}
+
+// ActorDefs_PersonalDetailsPref is a "personalDetailsPref" in the app.bsky.actor.defs schema.
+//
+// RECORDTYPE: ActorDefs_PersonalDetailsPref
+type ActorDefs_PersonalDetailsPref struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs#personalDetailsPref" cborgen:"$type,const=app.bsky.actor.defs#personalDetailsPref"`
+	// birthDate: The birth date of the owner of the account.
+	BirthDate *string `json:"birthDate,omitempty" cborgen:"birthDate,omitempty"`
+}
+
 type ActorDefs_Preferences_Elem struct {
-	ActorDefs_AdultContentPref *ActorDefs_AdultContentPref
-	ActorDefs_ContentLabelPref *ActorDefs_ContentLabelPref
-	ActorDefs_SavedFeedsPref   *ActorDefs_SavedFeedsPref
+	ActorDefs_AdultContentPref    *ActorDefs_AdultContentPref
+	ActorDefs_ContentLabelPref    *ActorDefs_ContentLabelPref
+	ActorDefs_SavedFeedsPref      *ActorDefs_SavedFeedsPref
+	ActorDefs_PersonalDetailsPref *ActorDefs_PersonalDetailsPref
+	ActorDefs_FeedViewPref        *ActorDefs_FeedViewPref
+	ActorDefs_ThreadViewPref      *ActorDefs_ThreadViewPref
 }
 
 func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
@@ -47,6 +78,18 @@ func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
 	if t.ActorDefs_SavedFeedsPref != nil {
 		t.ActorDefs_SavedFeedsPref.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPref"
 		return json.Marshal(t.ActorDefs_SavedFeedsPref)
+	}
+	if t.ActorDefs_PersonalDetailsPref != nil {
+		t.ActorDefs_PersonalDetailsPref.LexiconTypeID = "app.bsky.actor.defs#personalDetailsPref"
+		return json.Marshal(t.ActorDefs_PersonalDetailsPref)
+	}
+	if t.ActorDefs_FeedViewPref != nil {
+		t.ActorDefs_FeedViewPref.LexiconTypeID = "app.bsky.actor.defs#feedViewPref"
+		return json.Marshal(t.ActorDefs_FeedViewPref)
+	}
+	if t.ActorDefs_ThreadViewPref != nil {
+		t.ActorDefs_ThreadViewPref.LexiconTypeID = "app.bsky.actor.defs#threadViewPref"
+		return json.Marshal(t.ActorDefs_ThreadViewPref)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -66,6 +109,15 @@ func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.actor.defs#savedFeedsPref":
 		t.ActorDefs_SavedFeedsPref = new(ActorDefs_SavedFeedsPref)
 		return json.Unmarshal(b, t.ActorDefs_SavedFeedsPref)
+	case "app.bsky.actor.defs#personalDetailsPref":
+		t.ActorDefs_PersonalDetailsPref = new(ActorDefs_PersonalDetailsPref)
+		return json.Unmarshal(b, t.ActorDefs_PersonalDetailsPref)
+	case "app.bsky.actor.defs#feedViewPref":
+		t.ActorDefs_FeedViewPref = new(ActorDefs_FeedViewPref)
+		return json.Unmarshal(b, t.ActorDefs_FeedViewPref)
+	case "app.bsky.actor.defs#threadViewPref":
+		t.ActorDefs_ThreadViewPref = new(ActorDefs_ThreadViewPref)
+		return json.Unmarshal(b, t.ActorDefs_ThreadViewPref)
 
 	default:
 		return nil
@@ -117,6 +169,17 @@ type ActorDefs_SavedFeedsPref struct {
 	LexiconTypeID string   `json:"$type,const=app.bsky.actor.defs#savedFeedsPref" cborgen:"$type,const=app.bsky.actor.defs#savedFeedsPref"`
 	Pinned        []string `json:"pinned" cborgen:"pinned"`
 	Saved         []string `json:"saved" cborgen:"saved"`
+}
+
+// ActorDefs_ThreadViewPref is a "threadViewPref" in the app.bsky.actor.defs schema.
+//
+// RECORDTYPE: ActorDefs_ThreadViewPref
+type ActorDefs_ThreadViewPref struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs#threadViewPref" cborgen:"$type,const=app.bsky.actor.defs#threadViewPref"`
+	// prioritizeFollowedUsers: Show followed users at the top of all replies.
+	PrioritizeFollowedUsers *bool `json:"prioritizeFollowedUsers,omitempty" cborgen:"prioritizeFollowedUsers,omitempty"`
+	// sort: Sorting mode.
+	Sort *string `json:"sort,omitempty" cborgen:"sort,omitempty"`
 }
 
 // ActorDefs_ViewerState is a "viewerState" in the app.bsky.actor.defs schema.

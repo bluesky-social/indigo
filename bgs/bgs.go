@@ -38,6 +38,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	promclient "github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -142,6 +143,12 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	return bgs, nil
 }
 
+func (bgs *BGS) StartMetrics(listen string) error {
+	http.Handle("/metrics", promhttp.Handler())
+	return http.ListenAndServe(listen, nil)
+}
+
+// Disabled for now, maybe reimplement behind admin auth later
 func (bgs *BGS) StartDebug(listen string) error {
 	http.HandleFunc("/repodbg/user", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -259,13 +266,13 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 		e.Use(middleware.LoggerWithConfig(middleware.DefaultLoggerConfig))
 	}
 
-	e.Use(MetricsMiddleware)
-
 	// React uses a virtual router, so we need to serve the index.html for all
 	// routes that aren't otherwise handled or in the /assets directory.
 	e.File("/dash", "/public/index.html")
 	e.File("/dash/*", "/public/index.html")
 	e.Static("/assets", "/public/assets")
+
+	e.Use(MetricsMiddleware)
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
 		switch err := err.(type) {
@@ -308,12 +315,6 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	e.GET("/xrpc/com.atproto.sync.getLatestCommit", bgs.HandleComAtprotoSyncGetLatestCommit)
 	e.GET("/xrpc/com.atproto.sync.notifyOfUpdate", bgs.HandleComAtprotoSyncNotifyOfUpdate)
 	e.GET("/xrpc/_health", bgs.HandleHealthCheck)
-
-	promh := prometheusHandler()
-	e.GET("/metrics", func(e echo.Context) error {
-		promh.ServeHTTP(e.Response().Writer, e.Request())
-		return nil
-	})
 
 	admin := e.Group("/admin", bgs.checkAdminAuth)
 
@@ -743,6 +744,11 @@ func stringLink(lnk *lexutil.LexLink) string {
 func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *events.XRPCStreamEvent) error {
 	ctx, span := otel.Tracer("bgs").Start(ctx, "handleFedEvent")
 	defer span.End()
+
+	start := time.Now()
+	defer func() {
+		eventsHandleDuration.WithLabelValues(host.Host).Observe(time.Since(start).Seconds())
+	}()
 
 	eventsReceivedCounter.WithLabelValues(host.Host).Add(1)
 
@@ -1205,6 +1211,10 @@ func (bgs *BGS) runRepoCompaction(ctx context.Context, lim int, dry bool) (*comp
 	ctx, span := otel.Tracer("bgs").Start(ctx, "runRepoCompaction")
 	defer span.End()
 
+	log.Warn("starting repo compaction")
+
+	runStart := time.Now()
+
 	repos, err := bgs.repoman.CarStore().GetCompactionTargets(ctx, 50)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repos to compact: %w", err)
@@ -1221,14 +1231,31 @@ func (bgs *BGS) runRepoCompaction(ctx context.Context, lim int, dry bool) (*comp
 	}
 
 	results := make(map[models.Uid]*carstore.CompactionStats)
-	for _, r := range repos {
-		st, err := bgs.repoman.CarStore().CompactUserShards(ctx, r.Usr)
+	for i, r := range repos {
+		select {
+		case <-ctx.Done():
+			return &compactionStats{
+				Targets:   repos,
+				Completed: results,
+			}, nil
+		default:
+		}
+
+		repostart := time.Now()
+		st, err := bgs.repoman.CarStore().CompactUserShards(context.Background(), r.Usr)
 		if err != nil {
 			log.Errorf("failed to compact shards for user %d: %s", r.Usr, err)
 			continue
 		}
+		compactionDuration.Observe(time.Since(repostart).Seconds())
 		results[r.Usr] = st
+
+		if i%100 == 0 {
+			log.Warnf("compacted %d repos in %s", i+1, time.Since(runStart))
+		}
 	}
+
+	log.Warnf("compacted %d repos in %s", len(repos), time.Since(runStart))
 
 	return &compactionStats{
 		Targets:   repos,
@@ -1236,12 +1263,7 @@ func (bgs *BGS) runRepoCompaction(ctx context.Context, lim int, dry bool) (*comp
 	}, nil
 }
 
-type repoHead struct {
-	Did  string
-	Head string
-}
-
-type headCheckResult struct {
+type revCheckResult struct {
 	ai  *models.ActorInfo
 	err error
 }
@@ -1329,7 +1351,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 	cursor := ""
 	limit := int64(500)
 
-	repos := []repoHead{}
+	repos := []comatproto.SyncListRepos_Repo{}
 
 	pages := 0
 
@@ -1353,10 +1375,9 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 		}
 
 		for _, r := range repoList.Repos {
-			repos = append(repos, repoHead{
-				Did:  r.Did,
-				Head: r.Head,
-			})
+			if r != nil {
+				repos = append(repos, *r)
+			}
 		}
 
 		if repoList.Cursor == nil || *repoList.Cursor == "" {
@@ -1372,45 +1393,45 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 	repolistDone := time.Now()
 
 	log.Warnw("listed all repos, checking roots", "num_repos", len(repos), "took", repolistDone.Sub(start))
-	resync = bgs.SetResyncStatus(pds.ID, "checking heads")
+	resync = bgs.SetResyncStatus(pds.ID, "checking revs")
 
 	// Create a buffered channel for collecting results
-	results := make(chan headCheckResult, len(repos))
+	results := make(chan revCheckResult, len(repos))
 	sem := semaphore.NewWeighted(40)
 
-	// Check repo heads against our local copy and enqueue crawls for any that are out of date
+	// Check repo revs against our local copy and enqueue crawls for any that are out of date
 	for _, r := range repos {
-		go func(r repoHead) {
+		go func(r comatproto.SyncListRepos_Repo) {
 			if err := sem.Acquire(ctx, 1); err != nil {
 				log.Errorw("failed to acquire semaphore", "error", err)
-				results <- headCheckResult{err: err}
+				results <- revCheckResult{err: err}
 				return
 			}
 			defer sem.Release(1)
 
-			log := log.With("did", r.Did, "head", r.Head)
+			log := log.With("did", r.Did, "remote_rev", r.Rev)
 			// Fetches the user if we have it, otherwise automatically enqueues it for crawling
 			ai, err := bgs.Index.GetUserOrMissing(ctx, r.Did)
 			if err != nil {
 				log.Errorw("failed to get user while resyncing PDS, we can't recrawl it", "error", err)
-				results <- headCheckResult{err: err}
+				results <- revCheckResult{err: err}
 				return
 			}
 
-			head, err := bgs.repoman.GetRepoRoot(ctx, ai.Uid)
+			rev, err := bgs.repoman.GetRepoRev(ctx, ai.Uid)
 			if err != nil {
 				log.Warnw("recrawling because we failed to get the local repo root", "err", err, "uid", ai.Uid)
-				results <- headCheckResult{ai: ai}
+				results <- revCheckResult{ai: ai}
 				return
 			}
 
-			if head.String() != r.Head {
-				log.Warnw("recrawling because the repo head from the PDS is different from our local repo root", "local_head", head.String())
-				results <- headCheckResult{ai: ai}
+			if rev == "" || rev < r.Rev {
+				log.Warnw("recrawling because the repo rev from the PDS is newer than our local repo rev", "local_rev", rev)
+				results <- revCheckResult{ai: ai}
 				return
 			}
 
-			results <- headCheckResult{}
+			results <- revCheckResult{}
 		}(r)
 	}
 
@@ -1428,8 +1449,8 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 				log.Errorw("failed to enqueue crawl for repo during resync", "error", err, "uid", res.ai.Uid, "did", res.ai.Did)
 			}
 		}
-		if i%10_000 == 0 {
-			log.Warnw("checked heads during resync", "num_repos_checked", i, "num_repos_to_crawl", numReposToResync, "took", time.Now().Sub(resync.StatusChangedAt))
+		if i%100_000 == 0 {
+			log.Warnw("checked revs during resync", "num_repos_checked", i, "num_repos_to_crawl", numReposToResync, "took", time.Now().Sub(resync.StatusChangedAt))
 			resync.NumReposChecked = i
 			resync.NumReposToResync = numReposToResync
 			bgs.UpdateResync(resync)
