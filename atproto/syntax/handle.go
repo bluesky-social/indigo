@@ -6,7 +6,12 @@ import (
 	"strings"
 )
 
-var handleRegex = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$`)
+var (
+	handleRegex = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$`)
+
+	// special handle string constant indicating that handle resolution failed
+	HandleInvalid = Handle("handle.invalid")
+)
 
 // String type which represents a syntaxtually valid handle identifier, as would pass Lexicon syntax validation.
 //
