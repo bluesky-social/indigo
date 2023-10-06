@@ -164,6 +164,10 @@ func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle)
 	var dnsErr error
 	var did syntax.DID
 
+	if !handle.AllowedTLD() {
+		return "", ErrHandleReservedTLD
+	}
+
 	tryDNS := true
 	for _, suffix := range d.SkipDNSDomainSuffixes {
 		if strings.HasSuffix(handle.String(), suffix) {
