@@ -50,7 +50,7 @@ func testDirectoryLive(t *testing.T, d Directory) {
 	_, err = d.LookupDID(ctx, syntax.DID("did:plc:fake-dummy-no-resolve.atproto.com"))
 	assert.Equal(ErrDIDNotFound, err)
 
-	_, err = d.LookupHandle(ctx, syntax.Handle("handle.invalid"))
+	_, err = d.LookupHandle(ctx, syntax.HandleInvalid)
 	assert.Error(err)
 }
 
