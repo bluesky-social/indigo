@@ -1576,7 +1576,7 @@ var requestAccountDeletionCmd = &cli.Command{
 			return err
 		}
 
-		err = comatproto.ServerRequestAccountDelete(context.TODO(), xrpcc)
+		err = comatproto.ServerRequestAccountDelete(cctx.Context, xrpcc)
 		if err != nil {
 			return err
 		}
@@ -1596,7 +1596,7 @@ var deleteAccountCmd = &cli.Command{
 		token := cctx.Args().First()
 		password := cctx.Args().Get(1)
 
-		err = comatproto.ServerDeleteAccount(context.TODO(), xrpcc, &comatproto.ServerDeleteAccount_Input{
+		err = comatproto.ServerDeleteAccount(cctx.Context, xrpcc, &comatproto.ServerDeleteAccount_Input{
 			Did:      xrpcc.Auth.Did,
 			Token:    token,
 			Password: password,
