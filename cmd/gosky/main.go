@@ -94,7 +94,6 @@ func run(args []string) {
 		refreshAuthTokenCmd,
 		syncCmd,
 		listAllPostsCmd,
-		deletePostCmd,
 		getNotificationsCmd,
 		followsCmd,
 		resetPasswordCmd,
@@ -105,6 +104,8 @@ func run(args []string) {
 		adminCmd,
 		createFeedGeneratorCmd,
 		rebaseRepoCmd,
+		requestAccountDeletionCmd,
+		deleteAccountCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -1560,6 +1561,47 @@ var rebaseRepoCmd = &cli.Command{
 		if err := atproto.RepoRebaseRepo(context.Background(), xrpcc, &atproto.RepoRebaseRepo_Input{
 			Repo: did,
 		}); err != nil {
+			return err
+		}
+
+		return nil
+	},
+}
+
+var requestAccountDeletionCmd = &cli.Command{
+	Name: "request-account-deletion",
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		err = comatproto.ServerRequestAccountDelete(cctx.Context, xrpcc)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	},
+}
+
+var deleteAccountCmd = &cli.Command{
+	Name: "delete-account",
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		token := cctx.Args().First()
+		password := cctx.Args().Get(1)
+
+		err = comatproto.ServerDeleteAccount(cctx.Context, xrpcc, &comatproto.ServerDeleteAccount_Input{
+			Did:      xrpcc.Auth.Did,
+			Token:    token,
+			Password: password,
+		})
+		if err != nil {
 			return err
 		}
 
