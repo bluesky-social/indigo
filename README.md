@@ -1,32 +1,22 @@
 
 ![photo](https://static.bnewbold.net/tmp/indigo_serac.jpeg)
 
-indigo: golang code for Bluesky's atproto services
-==================================================
+indigo: atproto libraries and services in golang
+================================================
 
 Some Bluesky software is developed in Typescript, and lives in the [bluesky-social/atproto](https://github.com/bluesky-social/atproto) repository. Some is developed in Go, and lives here.
 
+Services implemented in this repository:
+
+* **`bigsky`** ([README](./cmd/bigsky/README.md)): "Big Graph Service" (BGS) reference implementation, running at `bsky.network`
+* **`palomar`** ([README](./cmd/palomar/README.md)): fulltext search service for <https://bsky.app>
+
+
+## Development Quickstart
+
+All the packages in this repository are under active development. Features and software interfaces have not stabilized and may break or be removed.
+
 <p align="center"><img src="https://static.bnewbold.net/tmp/under_construction_bar.gif" /></p>
-
-Everything in this repository is an work in progress. Features and "Lexicons" may be removed or updated, software interfaces broken, etc.
-
-We are developing in the open, but not ready to accept or review significant contributions. Keep checking back!
-
-<p align="center"><img src="https://static.bnewbold.net/tmp/under_construction_bar.gif" /></p>
-
-
-## What is atproto?
-
-*not to be confused with the [AT command set](https://en.wikipedia.org/wiki/Hayes_command_set) or [Adenosine triphosphate](https://en.wikipedia.org/wiki/Adenosine_triphosphate)*
-
-The Authenticated Transfer Protocol ("ATP" or "atproto") is a decentralized social media protocol, developed by [Bluesky PBC](https://blueskyweb.xyz). Learn more at:
-
-- [Protocol Documentation](https://atproto.com/docs)
-- [Overview Guide](https://atproto.com/guides/overview) 👈 Good place to start
-- [Blogpost on self-authenticating data structures](https://blueskyweb.xyz/blog/3-6-2022-a-self-authenticating-social-protocol)
-
-
-## Development
 
 First, you will need the Go toolchain installed. We develop using the latest stable version of the language.
 
@@ -40,6 +30,30 @@ The Makefile provides wrapper commands for basic development:
 Individual commands can be run like:
 
     go run ./cmd/bigsky
+
+The [HACKING](./HACKING.md) file has a list of commands and packages in this repository and some other development tips.
+
+
+## What is atproto?
+
+*not to be confused with the [AT command set](https://en.wikipedia.org/wiki/Hayes_command_set) or [Adenosine triphosphate](https://en.wikipedia.org/wiki/Adenosine_triphosphate)*
+
+The Authenticated Transfer Protocol ("ATP" or "atproto") is a decentralized social media protocol, developed by [Bluesky PBC](https://blueskyweb.xyz). Learn more at:
+
+- [Overview and Guides](https://atproto.com/guides/overview) 👈 Best starting point
+- [Github Discussions](https://github.com/bluesky-social/atproto/discussions) 👈 Great place to ask questions
+- [Protocol Specifications](https://atproto.com/specs/atp)
+- [Blogpost on self-authenticating data structures](https://blueskyweb.xyz/blog/3-6-2022-a-self-authenticating-social-protocol)
+
+The Bluesky Social application encompasses a set of schemas and APIs built in the overall AT Protocol framework. The namespace for these "Lexicons" is `app.bsky.*`.
+
+
+## Contributions
+
+We are working in the open, but not ready to actively collaborate on larger contributions to this codebase.
+
+Please at least open an issue ahead of time, *before* starting any non-trivial work that you hope to get reviewed or merged to this repo.
+
 
 ## Are you a developer interested in building on atproto?
 
