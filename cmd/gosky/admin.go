@@ -103,7 +103,8 @@ var checkUserCmd = &cli.Command{
 				} else {
 					handle, _, err := api.ResolveDidToHandle(ctx, xrpcc, plcc, phr, fa)
 					if err != nil {
-						return fmt.Errorf("resolve did %q: %w", fa, err)
+						fmt.Println("ERROR: failed to resolve inviter: ", err)
+						handle = fa
 					}
 
 					invby = handle
