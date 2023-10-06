@@ -6,7 +6,12 @@ import (
 	"strings"
 )
 
-var handleRegex = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$`)
+var (
+	handleRegex = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$`)
+
+	// special handle string constant indicating that handle resolution failed
+	HandleInvalid = Handle("handle.invalid")
+)
 
 // String type which represents a syntaxtually valid handle identifier, as would pass Lexicon syntax validation.
 //
@@ -26,6 +31,8 @@ func ParseHandle(raw string) (Handle, error) {
 }
 
 // Some top-level domains (TLDs) are disallowed for registration across the atproto ecosystem. The *syntax* is valid, but these should never be considered acceptable handles for account registration or linking.
+//
+// The reserved '.test' TLD is allowed, for testing and development. It is expected that '.test' domain resolution will fail in a real-world network.
 func (h Handle) AllowedTLD() bool {
 	switch h.TLD() {
 	case "local",
@@ -33,7 +40,9 @@ func (h Handle) AllowedTLD() bool {
 		"invalid",
 		"localhost",
 		"internal",
-		"onion":
+		"example",
+		"onion",
+		"alt":
 		return false
 	}
 	return true

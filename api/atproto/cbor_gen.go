@@ -193,8 +193,13 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 12
 
-	if _, err := cw.Write([]byte{172}); err != nil {
+	if t.Blocks == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -385,27 +390,30 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Blocks (util.LexBytes) (slice)
-	if len("blocks") > cbg.MaxLength {
-		return xerrors.Errorf("Value in field \"blocks\" was too long")
-	}
+	if t.Blocks != nil {
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("blocks"))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string("blocks")); err != nil {
-		return err
-	}
+		if len("blocks") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"blocks\" was too long")
+		}
 
-	if len(t.Blocks) > cbg.ByteArrayMaxLen {
-		return xerrors.Errorf("Byte array in field t.Blocks was too long")
-	}
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("blocks"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("blocks")); err != nil {
+			return err
+		}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajByteString, uint64(len(t.Blocks))); err != nil {
-		return err
-	}
+		if len(t.Blocks) > cbg.ByteArrayMaxLen {
+			return xerrors.Errorf("Byte array in field t.Blocks was too long")
+		}
 
-	if _, err := cw.Write(t.Blocks[:]); err != nil {
-		return err
+		if err := cw.WriteMajorTypeHeader(cbg.MajByteString, uint64(len(t.Blocks))); err != nil {
+			return err
+		}
+
+		if _, err := cw.Write(t.Blocks[:]); err != nil {
+			return err
+		}
 	}
 
 	// t.Commit (util.LexLink) (struct)

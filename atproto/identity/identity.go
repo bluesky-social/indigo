@@ -40,6 +40,9 @@ var ErrHandleNotFound = errors.New("handle not found")
 // Indicates that handle and DID resolved, but handle points to a DID with a different handle. This is only returned when looking up a handle, not when looking up a DID.
 var ErrHandleNotValid = errors.New("handle resolves to DID with different handle")
 
+// Handle top-level domain (TLD) is one of the special "Reserved" suffixes, and not allowed for atproto use
+var ErrHandleReservedTLD = errors.New("handle top-level domain is disallowed")
+
 // Indicates that resolution process completed successfully, but the DID does not exist.
 var ErrDIDNotFound = errors.New("DID not found")
 

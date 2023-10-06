@@ -38,7 +38,6 @@ import (
 	"github.com/ipld/go-car"
 
 	_ "github.com/joho/godotenv/autoload"
-	_ "go.uber.org/automaxprocs"
 
 	logging "github.com/ipfs/go-log"
 	"github.com/polydawn/refmt/cbor"
@@ -200,7 +199,7 @@ var postCmd = &cli.Command{
 			Repo:       auth.Did,
 			Record: &lexutil.LexiconTypeDecoder{&appbsky.FeedPost{
 				Text:      text,
-				CreatedAt: time.Now().Format(util.ISO8601),
+				CreatedAt: time.Now().UTC().Format(util.ISO8601),
 			}},
 		})
 		if err != nil {
@@ -1145,6 +1144,20 @@ var readRepoStreamCmd = &cli.Command{
 				}
 
 				return nil
+			},
+			RepoTombstone: func(tomb *comatproto.SyncSubscribeRepos_Tombstone) error {
+				if jsonfmt {
+					b, err := json.Marshal(tomb)
+					if err != nil {
+						return err
+					}
+					fmt.Println(string(b))
+				} else {
+					fmt.Printf("(%d) Tombstone: %s\n", tomb.Seq, tomb.Did)
+				}
+
+				return nil
+
 			},
 			// TODO: all the other event types
 			Error: func(errf *events.ErrorFrame) error {

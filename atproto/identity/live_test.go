@@ -50,7 +50,7 @@ func testDirectoryLive(t *testing.T, d Directory) {
 	_, err = d.LookupDID(ctx, syntax.DID("did:plc:fake-dummy-no-resolve.atproto.com"))
 	assert.Equal(ErrDIDNotFound, err)
 
-	_, err = d.LookupHandle(ctx, syntax.Handle("handle.invalid"))
+	_, err = d.LookupHandle(ctx, syntax.HandleInvalid)
 	assert.Error(err)
 }
 
@@ -114,4 +114,26 @@ func TestCacheCoalesce(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestFallbackDNS(t *testing.T) {
+	t.Skip("TODO: skipping live network test")
+
+	assert := assert.New(t)
+	ctx := context.Background()
+	handle := syntax.Handle("no-such-record.atproto.com")
+	dir := BaseDirectory{
+		FallbackDNSServers: []string{"1.1.1.1:53", "8.8.8.8:53"},
+	}
+
+	// valid DNS server
+	_, err := dir.LookupHandle(ctx, handle)
+	assert.Error(err)
+	assert.Equal(ErrHandleNotFound, err)
+
+	// invalid DNS server syntax
+	dir.FallbackDNSServers = []string{"_"}
+	_, err = dir.LookupHandle(ctx, handle)
+	assert.Error(err)
+	assert.NotEqual(ErrHandleNotFound, err)
 }
