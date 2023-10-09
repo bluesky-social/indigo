@@ -94,9 +94,45 @@ type blockRef struct {
 }
 
 type staleRef struct {
-	ID  uint `gorm:"primarykey"`
-	Cid models.DbCID
-	Usr models.Uid `gorm:"index"`
+	ID   uint `gorm:"primarykey"`
+	Cid  *models.DbCID
+	Cids []byte
+	Usr  models.Uid `gorm:"index"`
+}
+
+func (sr *staleRef) getCids() ([]cid.Cid, error) {
+	if sr.Cid != nil {
+		return []cid.Cid{sr.Cid.CID}, nil
+	}
+
+	return unpackCids(sr.Cids)
+}
+
+func packCids(cids []cid.Cid) []byte {
+	buf := new(bytes.Buffer)
+	for _, c := range cids {
+		buf.Write(c.Bytes())
+	}
+
+	return buf.Bytes()
+}
+
+func unpackCids(b []byte) ([]cid.Cid, error) {
+	br := bytes.NewReader(b)
+	var out []cid.Cid
+	for {
+		_, c, err := cid.CidFromReader(br)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+
+		out = append(out, c)
+	}
+
+	return out, nil
 }
 
 type userView struct {
@@ -720,15 +756,15 @@ func (cs *CarStore) putShard(ctx context.Context, shard *CarShard, brefs []map[s
 	}
 
 	if len(rmcids) > 0 {
-		var torm []staleRef
+		cids := make([]cid.Cid, 0, len(rmcids))
 		for c := range rmcids {
-			torm = append(torm, staleRef{
-				Cid: models.DbCID{c},
-				Usr: shard.Usr,
-			})
+			cids = append(cids, c)
 		}
 
-		if err := tx.Create(torm).Error; err != nil {
+		if err := tx.Create(&staleRef{
+			Cids: packCids(cids),
+			Usr:  shard.Usr,
+		}).Error; err != nil {
 			return err
 		}
 	}
@@ -993,7 +1029,7 @@ func (cs *CarStore) WipeUserData(ctx context.Context, user models.Uid) error {
 }
 
 func (cs *CarStore) deleteShards(ctx context.Context, shs []*CarShard) error {
-	ctx, span := otel.Tracer("carstore").Start(ctx, "deleteShard")
+	ctx, span := otel.Tracer("carstore").Start(ctx, "deleteShards")
 	defer span.End()
 
 	deleteSlice := func(ctx context.Context, subs []*CarShard) error {
@@ -1213,7 +1249,6 @@ type CompactionStats struct {
 	NewShards     int `json:"newShards"`
 	SkippedShards int `json:"skippedShards"`
 	ShardsDeleted int `json:"shardsDeleted"`
-	RefsDeleted   int `json:"refsDeleted"`
 	DupeCount     int `json:"dupeCount"`
 }
 
@@ -1256,7 +1291,13 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 
 	stale := make(map[cid.Cid]bool)
 	for _, br := range staleRefs {
-		stale[br.Cid.CID] = true
+		cids, err := br.getCids()
+		if err != nil {
+			return nil, fmt.Errorf("failed to unpack cids from staleRefs record (%d): %w", br.ID, err)
+		}
+		for _, c := range cids {
+			stale[c] = true
+		}
 	}
 
 	// if we have a staleRef that references multiple blockRefs, we consider that block a 'dirty duplicate'
@@ -1389,20 +1430,17 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid) (*Co
 	}
 
 	// now we need to delete the staleRefs we successfully cleaned up
-	// we can delete a staleRef if all the shards that have blockRefs with matching stale refs were processed
-
-	num, err := cs.deleteStaleRefs(ctx, brefs, staleRefs, removedShards)
-	if err != nil {
+	// we can safely delete a staleRef if all the shards that have blockRefs with matching stale refs were processed
+	if err := cs.deleteStaleRefs(ctx, user, brefs, staleRefs, removedShards); err != nil {
 		return nil, err
 	}
 
-	stats.RefsDeleted = num
 	stats.DupeCount = len(dupes)
 
 	return stats, nil
 }
 
-func (cs *CarStore) deleteStaleRefs(ctx context.Context, brefs []blockRef, staleRefs []staleRef, removedShards map[uint]bool) (int, error) {
+func (cs *CarStore) deleteStaleRefs(ctx context.Context, uid models.Uid, brefs []blockRef, staleRefs []staleRef, removedShards map[uint]bool) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "deleteStaleRefs")
 	defer span.End()
 
@@ -1411,35 +1449,42 @@ func (cs *CarStore) deleteStaleRefs(ctx context.Context, brefs []blockRef, stale
 		brByCid[br.Cid.CID] = append(brByCid[br.Cid.CID], br)
 	}
 
-	var staleToDelete []uint
+	var staleToKeep []cid.Cid
 	for _, sr := range staleRefs {
-		brs := brByCid[sr.Cid.CID]
-		del := true
-		for _, br := range brs {
-			if !removedShards[br.Shard] {
-				del = false
-				break
+		cids, err := sr.getCids()
+		if err != nil {
+			return fmt.Errorf("getCids on staleRef failed (%d): %w", sr.ID, err)
+		}
+
+		for _, c := range cids {
+			brs := brByCid[c]
+			del := true
+			for _, br := range brs {
+				if !removedShards[br.Shard] {
+					del = false
+					break
+				}
+			}
+
+			if !del {
+				staleToKeep = append(staleToKeep, c)
 			}
 		}
-
-		if del {
-			staleToDelete = append(staleToDelete, sr.ID)
-		}
 	}
 
-	chunkSize := 10000
-	for i := 0; i < len(staleToDelete); i += chunkSize {
-		sl := staleToDelete[i:]
-		if len(sl) > chunkSize {
-			sl = sl[:chunkSize]
-		}
-
-		if err := cs.meta.Delete(&staleRef{}, "id in (?)", sl).Error; err != nil {
-			return 0, err
-		}
+	if err := cs.meta.Delete(&staleRef{}, "usr = ?", uid).Error; err != nil {
+		return err
 	}
 
-	return len(staleToDelete), nil
+	// now create a new staleRef with all the refs we couldnt clear out
+	if err := cs.meta.Create(&staleRef{
+		Usr:  uid,
+		Cids: packCids(staleToKeep),
+	}).Error; err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compBucket, shardsById map[uint]CarShard, keep map[cid.Cid]bool) error {
