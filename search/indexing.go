@@ -153,7 +153,7 @@ func (s *Server) updateUserHandle(ctx context.Context, did syntax.DID, handle st
 		return fmt.Errorf("got nil identity from directory")
 	}
 
-	log.Info("updating user handle", "handle_from_dir", handle)
+	log.Info("updating user handle", "handle_from_dir", ident.Handle)
 
 	b, err := json.Marshal(map[string]any{
 		"script": map[string]any{
