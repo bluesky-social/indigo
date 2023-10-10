@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -60,24 +61,24 @@ var reqSz = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "http_request_size_bytes",
 	Help:    "A histogram of request sizes for requests.",
 	Buckets: prometheus.ExponentialBuckets(100, 10, 8),
-}, []string{"code", "method", "path"})
+}, []string{"code", "method", "path", "extras"})
 
 var reqDur = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "http_request_duration_seconds",
 	Help:    "A histogram of latencies for requests.",
 	Buckets: prometheus.ExponentialBuckets(0.0001, 2, 18),
-}, []string{"code", "method", "path"})
+}, []string{"code", "method", "path", "extras"})
 
 var reqCnt = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "http_requests_total",
 	Help: "A counter for requests to the wrapped handler.",
-}, []string{"code", "method", "path"})
+}, []string{"code", "method", "path", "extras"})
 
 var resSz = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "http_response_size_bytes",
 	Help:    "A histogram of response sizes for requests.",
 	Buckets: prometheus.ExponentialBuckets(100, 10, 8),
-}, []string{"code", "method", "path"})
+}, []string{"code", "method", "path", "extras"})
 
 // MetricsMiddleware defines handler function for metrics middleware
 func MetricsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
@@ -110,10 +111,23 @@ func MetricsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 
 		responseSize := float64(c.Response().Size)
 
-		reqDur.WithLabelValues(statusStr, method, path).Observe(elapsed)
-		reqCnt.WithLabelValues(statusStr, method, path).Inc()
-		reqSz.WithLabelValues(statusStr, method, path).Observe(float64(requestSize))
-		resSz.WithLabelValues(statusStr, method, path).Observe(responseSize)
+		// Custom label for Typeahead search queries
+		typeahead := false
+		if q := strings.TrimSpace(c.QueryParam("typeahead")); q == "true" || q == "1" || q == "y" {
+			typeahead = true
+		}
+
+		labels := []string{statusStr, method, path}
+		if typeahead {
+			labels = append(labels, "typeahead")
+		} else {
+			labels = append(labels, "_none")
+		}
+
+		reqDur.WithLabelValues(labels...).Observe(elapsed)
+		reqCnt.WithLabelValues(labels...).Inc()
+		reqSz.WithLabelValues(labels...).Observe(float64(requestSize))
+		resSz.WithLabelValues(labels...).Observe(responseSize)
 
 		return err
 	}
