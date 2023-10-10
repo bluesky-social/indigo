@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log/slog"
+	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 
@@ -126,12 +127,15 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 	if err := checkParams(0, size); err != nil {
 		return nil, err
 	}
+
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"multi_match": map[string]interface{}{
-				"query": q,
-				"type":  "bool_prefix",
+				"query":    q,
+				"type":     "bool_prefix",
+				"operator": "and",
 				"fields": []string{
+					"handle^2",
 					"typeahead",
 					"typeahead._2gram",
 					"typeahead._3gram",
@@ -139,6 +143,50 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 			},
 		},
 		"size": size,
+	}
+
+	// special-case: exact string match of handle
+	if strings.HasPrefix(q, "@") && !strings.Contains(q, " ") {
+		q = q[1:]
+		query["query"] = map[string]interface{}{
+			"prefix": map[string]interface{}{
+				"handle": map[string]interface{}{
+					"value": q,
+				},
+			},
+		}
+	}
+
+	// boost exact handle prefix match, if q is single simple term
+	if len(q) >= 3 && !strings.ContainsAny(q, " .") {
+		query["rescore"] = map[string]interface{}{
+			"window_size": 100,
+			"query": map[string]interface{}{
+				"rescore_query": map[string]interface{}{
+					"boosting": map[string]interface{}{
+						"positive": map[string]interface{}{
+							"prefix": map[string]interface{}{
+								"handle": map[string]interface{}{
+									"value": q + ".",
+								},
+							},
+						},
+						// downrank *.bsky.social (vs custom domain)
+						// wildcard is expensive, so only in rescore
+						"negative": map[string]interface{}{
+							"wildcard": map[string]interface{}{
+								"handle": map[string]interface{}{
+									"value": "*.bsky.social",
+								},
+							},
+						},
+						"negative_boost": 0.5,
+					},
+				},
+				"query_weight":         1.0,
+				"rescore_query_weight": 1.0,
+			},
+		}
 	}
 
 	return doSearch(ctx, escli, index, query)
