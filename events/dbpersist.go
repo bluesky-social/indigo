@@ -578,11 +578,6 @@ func (p *DbPersistence) deleteAllEventsForUser(ctx context.Context, usr models.U
 	return nil
 }
 
-func (p *DbPersistence) RebaseRepoEvents(ctx context.Context, usr models.Uid) error {
-	// a little weird that this is the same action as a takedown
-	return p.deleteAllEventsForUser(ctx, usr)
-}
-
 func (p *DbPersistence) Shutdown(context.Context) error {
 	return nil
 }
