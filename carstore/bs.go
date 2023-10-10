@@ -1244,6 +1244,15 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid, skip
 	})
 
 	if skipBigShards {
+		// Since we generally expect shards to start bigger and get smaller,
+		// and because we want to avoid compacting non-adjacent shards
+		// together, and because we want to avoid running a stat on every
+		// single shard (can be expensive for repos that havent been compacted
+		// in a while) we only skip a prefix of shard files that are over the
+		// threshold. this may end up not skipping some shards that are over
+		// the threshold if a below-threshold shard occurs before them, but
+		// since this is a heuristic and imperfect optimization, that is
+		// acceptable.
 		var skip int
 		for i, sh := range shards {
 			size, err := shardSize(&sh)
