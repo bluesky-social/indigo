@@ -121,7 +121,7 @@ func MetricsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		if typeahead {
 			labels = append(labels, "typeahead")
 		} else {
-			labels = append(labels, "")
+			labels = append(labels, "_none")
 		}
 
 		reqDur.WithLabelValues(labels...).Observe(elapsed)
