@@ -52,10 +52,6 @@ func (yp *YoloPersister) TakeDownRepo(ctx context.Context, uid models.Uid) error
 	return fmt.Errorf("repo takedowns not currently supported by memory persister, test usage only")
 }
 
-func (yp *YoloPersister) RebaseRepoEvents(ctx context.Context, usr models.Uid) error {
-	return fmt.Errorf("repo rebases not currently supported by memory persister, test usage only")
-}
-
 func (yp *YoloPersister) SetEventBroadcaster(brc func(*XRPCStreamEvent)) {
 	yp.broadcast = brc
 }

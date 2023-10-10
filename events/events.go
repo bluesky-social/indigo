@@ -220,7 +220,3 @@ func (em *EventManager) addSubscriber(sub *Subscriber) {
 func (em *EventManager) TakeDownRepo(ctx context.Context, user models.Uid) error {
 	return em.persister.TakeDownRepo(ctx, user)
 }
-
-func (em *EventManager) HandleRebase(ctx context.Context, user models.Uid) error {
-	return em.persister.RebaseRepoEvents(ctx, user)
-}
