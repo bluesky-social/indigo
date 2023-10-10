@@ -153,7 +153,12 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 
 		},
 		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-			if err := s.updateUserHandle(ctx, evt.Did, evt.Handle); err != nil {
+			did, err := syntax.ParseDID(evt.Did)
+			if err != nil {
+				s.logger.Error("bad DID in RepoHandle event", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
+				return nil
+			}
+			if err := s.updateUserHandle(ctx, did, evt.Handle); err != nil {
 				// TODO: handle this case (instead of return nil)
 				s.logger.Error("failed to update user handle", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
 			}

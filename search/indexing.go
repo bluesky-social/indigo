@@ -133,22 +133,17 @@ func (s *Server) indexProfile(ctx context.Context, ident *identity.Identity, rec
 	return nil
 }
 
-func (s *Server) updateUserHandle(ctx context.Context, didStr, handle string) error {
-	log := s.logger.With("repo", didStr, "op", "updateUserHandle", "handle_from_event", handle)
+func (s *Server) updateUserHandle(ctx context.Context, did syntax.DID, handle string) error {
+	log := s.logger.With("repo", did.String(), "op", "updateUserHandle", "handle_from_event", handle)
 
-	did, err := syntax.ParseAtIdentifier(didStr)
-	if err != nil || did == nil {
-		log.Warn("failed to parse DID", "err", err)
-		return err
-	}
-
-	err = s.dir.Purge(ctx, *did)
+	didID := syntax.AtIdentifier{Inner: did}
+	err := s.dir.Purge(ctx, didID)
 	if err != nil {
 		log.Warn("failed to purge DID from directory", "err", err)
 		return err
 	}
 
-	ident, err := s.dir.LookupDID(ctx, syntax.DID(didStr))
+	ident, err := s.dir.LookupDID(ctx, did)
 	if err != nil {
 		log.Warn("failed to lookup DID in directory", "err", err)
 		return err
@@ -172,7 +167,7 @@ func (s *Server) updateUserHandle(ctx context.Context, didStr, handle string) er
 
 	req := esapi.UpdateRequest{
 		Index:      s.profileIndex,
-		DocumentID: didStr,
+		DocumentID: did.String(),
 		Body:       bytes.NewReader(b),
 	}
 
