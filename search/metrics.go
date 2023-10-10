@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -111,9 +112,13 @@ func MetricsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		responseSize := float64(c.Response().Size)
 
 		// Custom label for Typeahead search queries
-		isTypeahead := c.QueryParam("typeahead") == "true"
+		typeahead := false
+		if q := strings.TrimSpace(c.QueryParam("typeahead")); q == "true" || q == "1" || q == "y" {
+			typeahead = true
+		}
+
 		labels := []string{statusStr, method, path}
-		if isTypeahead {
+		if typeahead {
 			labels = append(labels, "typeahead")
 		} else {
 			labels = append(labels, "")
