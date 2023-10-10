@@ -1207,7 +1207,7 @@ type compactionStats struct {
 	Targets   []carstore.CompactionTarget
 }
 
-func (bgs *BGS) runRepoCompaction(ctx context.Context, lim int, dry bool) (*compactionStats, error) {
+func (bgs *BGS) runRepoCompaction(ctx context.Context, lim int, dry bool, fast bool) (*compactionStats, error) {
 	ctx, span := otel.Tracer("bgs").Start(ctx, "runRepoCompaction")
 	defer span.End()
 
@@ -1242,7 +1242,7 @@ func (bgs *BGS) runRepoCompaction(ctx context.Context, lim int, dry bool) (*comp
 		}
 
 		repostart := time.Now()
-		st, err := bgs.repoman.CarStore().CompactUserShards(context.Background(), r.Usr)
+		st, err := bgs.repoman.CarStore().CompactUserShards(context.Background(), r.Usr, fast)
 		if err != nil {
 			log.Errorf("failed to compact shards for user %d: %s", r.Usr, err)
 			continue
