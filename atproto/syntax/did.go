@@ -46,6 +46,10 @@ func (d DID) Identifier() string {
 	return parts[2]
 }
 
+func (d DID) AtIdentifier() AtIdentifier {
+	return AtIdentifier{Inner: d}
+}
+
 func (d DID) String() string {
 	return string(d)
 }
