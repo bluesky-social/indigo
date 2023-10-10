@@ -219,12 +219,8 @@ var runCmd = &cli.Command{
 }
 
 var elasticCheckCmd = &cli.Command{
-	Name: "elastic-check",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name: "elastic-cert",
-		},
-	},
+	Name:  "elastic-check",
+	Flags: []cli.Flag{},
 	Action: func(cctx *cli.Context) error {
 		escli, err := createEsClient(cctx)
 		if err != nil {
