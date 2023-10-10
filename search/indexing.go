@@ -11,6 +11,7 @@ import (
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 
@@ -132,14 +133,35 @@ func (s *Server) indexProfile(ctx context.Context, ident *identity.Identity, rec
 	return nil
 }
 
-func (s *Server) updateUserHandle(ctx context.Context, did, handle string) error {
-	log := s.logger.With("repo", did, "op", "updateUserHandle", "handle", handle)
+func (s *Server) updateUserHandle(ctx context.Context, didStr, handle string) error {
+	log := s.logger.With("repo", didStr, "op", "updateUserHandle", "handle_from_event", handle)
+
+	did, err := syntax.ParseAtIdentifier(didStr)
+	if err != nil || did == nil {
+		log.Warn("failed to parse DID", "err", err)
+		return err
+	}
+
+	err = s.dir.Purge(ctx, *did)
+	if err != nil {
+		log.Warn("failed to purge DID from directory", "err", err)
+		return err
+	}
+
+	ident, err := s.dir.LookupDID(ctx, syntax.DID(didStr))
+	if err != nil {
+		log.Warn("failed to lookup DID in directory", "err", err)
+		return err
+	}
+
+	log.Info("updating user handle", "handle_from_dir", handle)
+
 	b, err := json.Marshal(map[string]any{
 		"script": map[string]any{
 			"source": "ctx._source.handle = params.handle",
 			"lang":   "painless",
 			"params": map[string]any{
-				"handle": handle,
+				"handle": ident.Handle,
 			},
 		},
 	})
@@ -150,7 +172,7 @@ func (s *Server) updateUserHandle(ctx context.Context, did, handle string) error
 
 	req := esapi.UpdateRequest{
 		Index:      s.profileIndex,
-		DocumentID: did,
+		DocumentID: didStr,
 		Body:       bytes.NewReader(b),
 	}
 
