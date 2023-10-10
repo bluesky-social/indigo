@@ -93,17 +93,23 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 	if err := checkParams(offset, size); err != nil {
 		return nil, err
 	}
+
 	queryStr, filters := ParseQuery(ctx, dir, q)
 	basic := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
-			"query":            queryStr,
-			"fields":           []string{"everything"},
+			"query": queryStr,
+			"fields": []string{
+				"handle^3",
+				"display_name^2",
+				"everything",
+			},
 			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
 			"default_operator": "and",
 			"lenient":          true,
 			"analyze_wildcard": false,
 		},
 	}
+
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
@@ -112,12 +118,57 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 					map[string]interface{}{"term": map[string]interface{}{"has_avatar": true}},
 					map[string]interface{}{"term": map[string]interface{}{"has_banner": true}},
 				},
-				"filter": filters,
-				"boost":  1.0,
+				"minimum_should_match": 0,
+				"filter":               filters,
+				"boost":                0.5,
 			},
 		},
 		"size": size,
 		"from": offset,
+	}
+
+	// special-case: exact string match of handle
+	if strings.HasPrefix(q, "@") && !strings.Contains(q, " ") {
+		q = q[1:]
+		query["query"] = map[string]interface{}{
+			"prefix": map[string]interface{}{
+				"handle": map[string]interface{}{
+					"value": q,
+				},
+			},
+		}
+	}
+
+	// boost exact handle prefix match, if q is single simple term
+	if len(q) >= 3 && !strings.ContainsAny(q, " .") {
+		query["rescore"] = map[string]interface{}{
+			"window_size": 100,
+			"query": map[string]interface{}{
+				"rescore_query": map[string]interface{}{
+					"boosting": map[string]interface{}{
+						"positive": map[string]interface{}{
+							"prefix": map[string]interface{}{
+								"handle": map[string]interface{}{
+									"value": q + ".",
+								},
+							},
+						},
+						// downrank *.bsky.social (vs custom domain)
+						// wildcard is expensive, so only in rescore
+						"negative": map[string]interface{}{
+							"wildcard": map[string]interface{}{
+								"handle": map[string]interface{}{
+									"value": "*.bsky.social",
+								},
+							},
+						},
+						"negative_boost": 0.5,
+					},
+				},
+				"query_weight":         0.5,
+				"rescore_query_weight": 2.0,
+			},
+		}
 	}
 
 	return doSearch(ctx, escli, index, query)
