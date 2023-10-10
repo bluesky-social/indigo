@@ -305,14 +305,28 @@ var bgsSetNewSubsEnabledCmd = &cli.Command{
 
 var bgsCompactRepo = &cli.Command{
 	Name: "compact-repo",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name: "fast",
+		},
+	},
 	Action: func(cctx *cli.Context) error {
-		url := cctx.String("bgs") + "/admin/repo/compact"
+		uu, err := url.Parse(cctx.String("bgs") + "/admin/repo/compact")
+		if err != nil {
+			return err
+		}
 
+		q := uu.Query()
 		did := cctx.Args().First()
+		q.Add("did", did)
 
-		url += fmt.Sprintf("?did=%s", did)
+		if cctx.Bool("fast") {
+			q.Add("fast", "true")
+		}
 
-		req, err := http.NewRequest("POST", url, nil)
+		uu.RawQuery = q.Encode()
+
+		req, err := http.NewRequest("POST", uu.String(), nil)
 		if err != nil {
 			return err
 		}
@@ -354,6 +368,9 @@ var bgsCompactAll = &cli.Command{
 		&cli.IntFlag{
 			Name: "limit",
 		},
+		&cli.BoolFlag{
+			Name: "fast",
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		uu, err := url.Parse(cctx.String("bgs") + "/admin/repo/compactAll")
@@ -361,13 +378,19 @@ var bgsCompactAll = &cli.Command{
 			return err
 		}
 
+		q := uu.Query()
 		if cctx.Bool("dry") {
-			uu.Query().Add("dry", "true")
+			q.Add("dry", "true")
+		}
+
+		if cctx.Bool("fast") {
+			q.Add("fast", "true")
 		}
 
 		if cctx.IsSet("limit") {
-			uu.Query().Add("limit", fmt.Sprint(cctx.Int("limit")))
+			q.Add("limit", fmt.Sprint(cctx.Int("limit")))
 		}
+		uu.RawQuery = q.Encode()
 
 		req, err := http.NewRequest("POST", uu.String(), nil)
 		if err != nil {

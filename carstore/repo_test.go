@@ -142,7 +142,7 @@ func TestBasicOperation(t *testing.T) {
 	}
 	checkRepo(t, cs, buf, recs)
 
-	if _, err := cs.CompactUserShards(ctx, 1); err != nil {
+	if _, err := cs.CompactUserShards(ctx, 1, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -228,7 +228,7 @@ func TestRepeatedCompactions(t *testing.T) {
 			head = nroot
 		}
 		fmt.Println("Run compaction", loop)
-		st, err := cs.CompactUserShards(ctx, 1)
+		st, err := cs.CompactUserShards(ctx, 1, false)
 		if err != nil {
 			t.Fatal(err)
 		}
