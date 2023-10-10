@@ -228,7 +228,10 @@ func doSearch(ctx context.Context, escli *es.Client, index string, query interfa
 	}
 	defer res.Body.Close()
 	if res.IsError() {
-		ioutil.ReadAll(res.Body)
+		raw, err := ioutil.ReadAll(res.Body)
+		if nil == err {
+			slog.Warn("search query error", "resp", string(raw), "status_code", res.StatusCode)
+		}
 		return nil, fmt.Errorf("search query error, code=%d", res.StatusCode)
 	}
 
