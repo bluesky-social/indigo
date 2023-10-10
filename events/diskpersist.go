@@ -844,12 +844,6 @@ func (dp *DiskPersistence) mutateUserEventsInLog(ctx context.Context, usr models
 	}
 }
 
-func (dp *DiskPersistence) RebaseRepoEvents(ctx context.Context, usr models.Uid) error {
-	return dp.forEachShardWithUserEvents(ctx, usr, func(ctx context.Context, fn string) error {
-		return dp.mutateUserEventsInLog(ctx, usr, fn, EvtFlagRebased, false)
-	})
-}
-
 func (dp *DiskPersistence) Flush(ctx context.Context) error {
 	dp.lk.Lock()
 	defer dp.lk.Unlock()
