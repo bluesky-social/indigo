@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -42,6 +43,11 @@ func run(args []string) error {
 			Name:    "elastic-cert-file",
 			Usage:   "certificate file path",
 			EnvVars: []string{"ES_CERT_FILE", "ELASTIC_CERT_FILE"},
+		},
+		&cli.BoolFlag{
+			Name:    "elastic-insecure-ssl",
+			Usage:   "if true, disable SSL cert validation",
+			EnvVars: []string{"ES_INSECURE_SSL"},
 		},
 		&cli.StringFlag{
 			Name:    "elastic-username",
@@ -349,6 +355,8 @@ func createEsClient(cctx *cli.Context) (*es.Client, error) {
 		cert = b
 	}
 
+	insecure := cctx.Bool("elastic-insecure-ssl")
+
 	cfg := es.Config{
 		Addresses: addrs,
 		Username:  cctx.String("elastic-username"),
@@ -356,6 +364,9 @@ func createEsClient(cctx *cli.Context) (*es.Client, error) {
 		CACert:    cert,
 		Transport: &http.Transport{
 			MaxIdleConnsPerHost: 20,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: insecure,
+			},
 		},
 	}
 
