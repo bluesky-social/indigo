@@ -57,6 +57,7 @@ func TestHandleNormalize(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal("john.test", string(handle.Normalize()))
 	assert.NoError(err)
+	assert.Equal(handle.String(), handle.AtIdentifier().String())
 
 	_, err = ParseHandle("JoH!n.TeST")
 	assert.Error(err)
@@ -68,6 +69,8 @@ func TestHandleNoPanic(t *testing.T) {
 		_ = bad.Normalize()
 		_ = bad.TLD()
 		_ = bad.AllowedTLD()
+		_ = bad.AtIdentifier()
+		_ = bad.AtIdentifier().String()
 	}
 }
 func TestHandleInterfaces(t *testing.T) {

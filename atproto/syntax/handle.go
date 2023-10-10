@@ -62,6 +62,10 @@ func (h Handle) Normalize() Handle {
 	return Handle(strings.ToLower(string(h)))
 }
 
+func (h Handle) AtIdentifier() AtIdentifier {
+	return AtIdentifier{Inner: h}
+}
+
 func (h Handle) String() string {
 	return string(h)
 }
