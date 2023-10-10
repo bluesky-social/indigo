@@ -136,8 +136,7 @@ func (s *Server) indexProfile(ctx context.Context, ident *identity.Identity, rec
 func (s *Server) updateUserHandle(ctx context.Context, did syntax.DID, handle string) error {
 	log := s.logger.With("repo", did.String(), "op", "updateUserHandle", "handle_from_event", handle)
 
-	didID := syntax.AtIdentifier{Inner: did}
-	err := s.dir.Purge(ctx, didID)
+	err := s.dir.Purge(ctx, did.AtIdentifier())
 	if err != nil {
 		log.Warn("failed to purge DID from directory", "err", err)
 		return err
