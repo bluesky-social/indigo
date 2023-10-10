@@ -1472,16 +1472,24 @@ func (cs *CarStore) deleteStaleRefs(ctx context.Context, uid models.Uid, brefs [
 		}
 	}
 
-	if err := cs.meta.Delete(&staleRef{}, "usr = ?", uid).Error; err != nil {
+	txn := cs.meta.Begin()
+
+	if err := txn.Delete(&staleRef{}, "usr = ?", uid).Error; err != nil {
 		return err
 	}
 
 	// now create a new staleRef with all the refs we couldnt clear out
-	if err := cs.meta.Create(&staleRef{
-		Usr:  uid,
-		Cids: packCids(staleToKeep),
-	}).Error; err != nil {
-		return err
+	if len(staleToKeep) > 0 {
+		if err := txn.Create(&staleRef{
+			Usr:  uid,
+			Cids: packCids(staleToKeep),
+		}).Error; err != nil {
+			return err
+		}
+	}
+
+	if err := txn.Commit().Error; err != nil {
+		return fmt.Errorf("failed to commit staleRef updates: %w", err)
 	}
 
 	return nil
