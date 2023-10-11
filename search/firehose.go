@@ -70,6 +70,10 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
+			ctx := context.Background()
+			ctx, span := tracer.Start(ctx, "RepoCommit")
+			defer span.End()
+
 			defer func() {
 				if evt.Seq%50 == 0 {
 					if err := s.updateLastCursor(evt.Seq); err != nil {
@@ -153,6 +157,10 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 
 		},
 		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
+			ctx := context.Background()
+			ctx, span := tracer.Start(ctx, "RepoHandle")
+			defer span.End()
+
 			did, err := syntax.ParseDID(evt.Did)
 			if err != nil {
 				s.logger.Error("bad DID in RepoHandle event", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
