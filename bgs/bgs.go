@@ -756,7 +756,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	case env.RepoCommit != nil:
 		repoCommitsReceivedCounter.WithLabelValues(host.Host).Add(1)
 		evt := env.RepoCommit
-		log.Infow("bgs got repo append event", "seq", evt.Seq, "host", host.Host, "repo", evt.Repo)
+		log.Debugw("bgs got repo append event", "seq", evt.Seq, "host", host.Host, "repo", evt.Repo)
 		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -775,7 +775,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		if u.TakenDown {
-			log.Infow("dropping event from taken down user", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
+			log.Debugw("dropping event from taken down user", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
 			return nil
 		}
 
@@ -784,7 +784,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		if host.ID != u.PDS {
-			log.Infow("received event for repo from different pds than expected", "repo", evt.Repo, "expPds", u.PDS, "gotPds", host.Host)
+			log.Warnw("received event for repo from different pds than expected", "repo", evt.Repo, "expPds", u.PDS, "gotPds", host.Host)
 			subj, err := bgs.createExternalUser(ctx, evt.Repo)
 			if err != nil {
 				return err
@@ -974,7 +974,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	externalUserCreationAttempts.Inc()
 
-	log.Infof("create external user: %s", did)
+	log.Debugf("create external user: %s", did)
 	doc, err := s.didr.GetDocument(ctx, did)
 	if err != nil {
 		return nil, fmt.Errorf("could not locate DID document for followed user (%s): %w", did, err)
@@ -1054,7 +1054,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		return nil, err
 	}
 
-	log.Infow("creating external user", "did", did, "handle", hurl.Host, "pds", peering.ID)
+	log.Debugw("creating external user", "did", did, "handle", hurl.Host, "pds", peering.ID)
 
 	handle := hurl.Host
 
@@ -1076,7 +1076,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	exu, err := s.Index.LookupUserByDid(ctx, did)
 	if err == nil {
-		log.Infow("lost the race to create a new user", "did", did, "handle", handle, "existing_hand", exu.Handle)
+		log.Debugw("lost the race to create a new user", "did", did, "handle", handle, "existing_hand", exu.Handle)
 		if exu.PDS != peering.ID {
 			// User is now on a different PDS, update
 			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("pds", peering.ID).Error; err != nil {
