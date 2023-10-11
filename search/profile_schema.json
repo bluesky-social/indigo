@@ -44,6 +44,7 @@
         "doc_index_ts":   { "type": "date" },
         "did":            { "type": "keyword", "normalizer": "default", "doc_values": false },
         "handle":         { "type": "keyword", "normalizer": "default", "copy_to": ["everything", "typeahead"] },
+        "record_cid":     { "type": "keyword", "normalizer": "default", "doc_values": false },
 
         "display_name":   { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": ["everything", "typeahead"] },
         "description":    { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
