@@ -213,6 +213,12 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 						"positive": map[string]interface{}{
 							"prefix": map[string]interface{}{
 								"handle": map[string]interface{}{
+									"value": q,
+								},
+							},
+							// additional boost if it is the full first name
+							"prefix": map[string]interface{}{
+								"handle": map[string]interface{}{
 									"value": q + ".",
 								},
 							},
