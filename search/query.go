@@ -182,6 +182,8 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 				"type":     "bool_prefix",
 				"operator": "and",
 				"fields": []string{
+					// adding handle here improves relevency but may be too expensive in prod
+					//"handle^2",
 					"typeahead",
 					"typeahead._2gram",
 					"typeahead._3gram",
