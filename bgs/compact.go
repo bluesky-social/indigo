@@ -12,13 +12,18 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+type queueItem struct {
+	uid  models.Uid
+	fast bool
+}
+
 type queue struct {
-	q       []models.Uid
+	q       []queueItem
 	members map[models.Uid]struct{}
 	lk      sync.Mutex
 }
 
-func (q *queue) Append(uid models.Uid) {
+func (q *queue) Append(uid models.Uid, fast bool) {
 	q.lk.Lock()
 	defer q.lk.Unlock()
 
@@ -26,11 +31,11 @@ func (q *queue) Append(uid models.Uid) {
 		return
 	}
 
-	q.q = append(q.q, uid)
+	q.q = append(q.q, queueItem{uid: uid, fast: fast})
 	q.members[uid] = struct{}{}
 }
 
-func (q *queue) Prepend(uid models.Uid) {
+func (q *queue) Prepend(uid models.Uid, fast bool) {
 	q.lk.Lock()
 	defer q.lk.Unlock()
 
@@ -38,7 +43,7 @@ func (q *queue) Prepend(uid models.Uid) {
 		return
 	}
 
-	q.q = append([]models.Uid{uid}, q.q...)
+	q.q = append([]queueItem{{uid: uid, fast: fast}}, q.q...)
 	q.members[uid] = struct{}{}
 }
 
@@ -58,8 +63,8 @@ func (q *queue) Remove(uid models.Uid) {
 		return
 	}
 
-	for i, u := range q.q {
-		if u == uid {
+	for i, item := range q.q {
+		if item.uid == uid {
 			q.q = append(q.q[:i], q.q[i+1:]...)
 			break
 		}
@@ -68,19 +73,19 @@ func (q *queue) Remove(uid models.Uid) {
 	delete(q.members, uid)
 }
 
-func (q *queue) Pop() (models.Uid, bool) {
+func (q *queue) Pop() (*queueItem, bool) {
 	q.lk.Lock()
 	defer q.lk.Unlock()
 
 	if len(q.q) == 0 {
-		return 0, false
+		return nil, false
 	}
 
-	uid := q.q[0]
+	item := q.q[0]
 	q.q = q.q[1:]
-	delete(q.members, uid)
+	delete(q.members, item.uid)
 
-	return uid, true
+	return &item, true
 }
 
 type CompactorState struct {
@@ -134,7 +139,7 @@ func (c *Compactor) GetState() *CompactorState {
 
 var errNoReposToCompact = fmt.Errorf("no repos to compact")
 
-func (c *Compactor) Run(bgs *BGS, fast bool) {
+func (c *Compactor) Run(bgs *BGS) {
 	for {
 		select {
 		case <-c.exit:
@@ -145,7 +150,7 @@ func (c *Compactor) Run(bgs *BGS, fast bool) {
 
 		ctx := context.Background()
 		start := time.Now()
-		state, err := c.CompactNext(ctx, bgs, fast)
+		state, err := c.CompactNext(ctx, bgs)
 		if err != nil {
 			if err == errNoReposToCompact {
 				log.Warn("no repos to compact, waiting and retrying")
@@ -174,42 +179,56 @@ func (c *Compactor) Run(bgs *BGS, fast bool) {
 	}
 }
 
-func (c *Compactor) CompactNext(ctx context.Context, bgs *BGS, fast bool) (*CompactorState, error) {
+func (c *Compactor) CompactNext(ctx context.Context, bgs *BGS) (*CompactorState, error) {
 	ctx, span := otel.Tracer("bgs").Start(ctx, "CompactNext")
 	defer span.End()
 
-	uid, ok := c.q.Pop()
-	if !ok {
+	item, ok := c.q.Pop()
+	if !ok || item == nil {
 		return nil, errNoReposToCompact
 	}
 
-	c.SetState(uid, "unknown", "getting_user", nil)
+	c.SetState(item.uid, "unknown", "getting_user", nil)
 
-	user := User{}
-	if err := bgs.db.Model(&User{}).Where("id = ?", uid).First(&user).Error; err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
+	user, err := bgs.lookupUserByUID(ctx, item.uid)
+	if err != nil {
+		c.SetState(item.uid, "unknown", "failed_getting_user", nil)
+		return nil, fmt.Errorf("failed to get user %d: %w", item.uid, err)
 	}
 
-	c.SetState(uid, user.Did, "compacting", nil)
+	c.SetState(item.uid, user.Did, "compacting", nil)
 
 	start := time.Now()
-	st, err := bgs.repoman.CarStore().CompactUserShards(ctx, uid, fast)
+	st, err := bgs.repoman.CarStore().CompactUserShards(ctx, item.uid, item.fast)
 	if err != nil {
-		c.SetState(uid, user.Did, "failed", nil)
-		return nil, fmt.Errorf("failed to compact shards for user %d: %w", uid, err)
+		c.SetState(item.uid, user.Did, "failed_compacting", nil)
+		return nil, fmt.Errorf("failed to compact shards for user %d: %w", item.uid, err)
 	}
 	compactionDuration.Observe(time.Since(start).Seconds())
 
-	c.SetState(uid, user.Did, "done", st)
+	c.SetState(item.uid, user.Did, "done", st)
 
 	return c.GetState(), nil
 }
 
-func (c *Compactor) EnqueueAllRepos(ctx context.Context, bgs *BGS, lim int, shardCount int) error {
+func (c *Compactor) EnqueueRepo(ctx context.Context, user User, fast bool) {
+	log.Infow("enqueueing compaction for repo", "repo", user.Did, "uid", user.ID, "fast", fast)
+	c.q.Append(user.ID, fast)
+}
+
+// EnqueueAllRepos enqueues all repos for compaction
+// lim is the maximum number of repos to enqueue
+// shardCount is the number of shards to compact per user (0 = default of 50)
+// fast is whether to use the fast compaction method (skip large shards)
+func (c *Compactor) EnqueueAllRepos(ctx context.Context, bgs *BGS, lim int, shardCount int, fast bool) error {
 	ctx, span := otel.Tracer("bgs").Start(ctx, "EnqueueAllRepos")
 	defer span.End()
 
-	span.SetAttributes(attribute.Int("lim", lim), attribute.Int("shardCount", shardCount))
+	span.SetAttributes(
+		attribute.Int("lim", lim),
+		attribute.Int("shardCount", shardCount),
+		attribute.Bool("fast", fast),
+	)
 
 	if shardCount == 0 {
 		shardCount = 50
@@ -217,7 +236,7 @@ func (c *Compactor) EnqueueAllRepos(ctx context.Context, bgs *BGS, lim int, shar
 
 	span.SetAttributes(attribute.Int("clampedShardCount", shardCount))
 
-	log := log.With("source", "compactor_enqueue_all_repos")
+	log := log.With("source", "compactor_enqueue_all_repos", "lim", lim, "shardCount", shardCount, "fast", fast)
 	log.Warn("enqueueing all repos")
 
 	repos, err := bgs.repoman.CarStore().GetCompactionTargets(ctx, shardCount)
@@ -234,7 +253,7 @@ func (c *Compactor) EnqueueAllRepos(ctx context.Context, bgs *BGS, lim int, shar
 	span.SetAttributes(attribute.Int("clampedRepos", len(repos)))
 
 	for _, r := range repos {
-		c.q.Append(r.Usr)
+		c.q.Append(r.Usr, fast)
 	}
 
 	log.Warn("done enqueueing all repos")
