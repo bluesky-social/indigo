@@ -97,12 +97,8 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 	queryStr, filters := ParseQuery(ctx, dir, q)
 	basic := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
-			"query": queryStr,
-			"fields": []string{
-				"handle^3",
-				"display_name^2",
-				"everything",
-			},
+			"query":            queryStr,
+			"fields":           []string{"everything"},
 			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
 			"default_operator": "and",
 			"lenient":          true,
@@ -186,7 +182,6 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 				"type":     "bool_prefix",
 				"operator": "and",
 				"fields": []string{
-					"handle^2",
 					"typeahead",
 					"typeahead._2gram",
 					"typeahead._3gram",
