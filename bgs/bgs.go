@@ -1202,67 +1202,6 @@ func (bgs *BGS) ReverseTakedown(ctx context.Context, did string) error {
 	return nil
 }
 
-type compactionStats struct {
-	Completed map[models.Uid]*carstore.CompactionStats
-	Targets   []carstore.CompactionTarget
-}
-
-func (bgs *BGS) runRepoCompaction(ctx context.Context, lim int, dry bool, fast bool) (*compactionStats, error) {
-	ctx, span := otel.Tracer("bgs").Start(ctx, "runRepoCompaction")
-	defer span.End()
-
-	log.Warn("starting repo compaction")
-
-	runStart := time.Now()
-
-	repos, err := bgs.repoman.CarStore().GetCompactionTargets(ctx, 50)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get repos to compact: %w", err)
-	}
-
-	if lim > 0 && len(repos) > lim {
-		repos = repos[:lim]
-	}
-
-	if dry {
-		return &compactionStats{
-			Targets: repos,
-		}, nil
-	}
-
-	results := make(map[models.Uid]*carstore.CompactionStats)
-	for i, r := range repos {
-		select {
-		case <-ctx.Done():
-			return &compactionStats{
-				Targets:   repos,
-				Completed: results,
-			}, nil
-		default:
-		}
-
-		repostart := time.Now()
-		st, err := bgs.repoman.CarStore().CompactUserShards(context.Background(), r.Usr, fast)
-		if err != nil {
-			log.Errorf("failed to compact shards for user %d: %s", r.Usr, err)
-			continue
-		}
-		compactionDuration.Observe(time.Since(repostart).Seconds())
-		results[r.Usr] = st
-
-		if i%100 == 0 {
-			log.Warnf("compacted %d repos in %s", i+1, time.Since(runStart))
-		}
-	}
-
-	log.Warnf("compacted %d repos in %s", len(repos), time.Since(runStart))
-
-	return &compactionStats{
-		Targets:   repos,
-		Completed: results,
-	}, nil
-}
-
 type revCheckResult struct {
 	ai  *models.ActorInfo
 	err error
