@@ -84,6 +84,9 @@ type BGS struct {
 	// Management of Resyncs
 	pdsResyncsLk sync.RWMutex
 	pdsResyncs   map[uint]*PDSResync
+
+	// Management of Compaction
+	compactor *Compactor
 }
 
 type PDSResync struct {
@@ -723,6 +726,22 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 
 	var u User
 	if err := bgs.db.Find(&u, "did = ?", did).Error; err != nil {
+		return nil, err
+	}
+
+	if u.ID == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	return &u, nil
+}
+
+func (bgs *BGS) lookupUserByUID(ctx context.Context, uid models.Uid) (*User, error) {
+	ctx, span := otel.Tracer("bgs").Start(ctx, "lookupUserByUID")
+	defer span.End()
+
+	var u User
+	if err := bgs.db.Find(&u, "id = ?", uid).Error; err != nil {
 		return nil, err
 	}
 
