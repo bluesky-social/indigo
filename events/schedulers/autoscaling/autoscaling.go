@@ -111,28 +111,28 @@ func NewScheduler(autoscaleSettings AutoscaleSettings, ident string, do func(con
 }
 
 func (p *Scheduler) Shutdown() {
-	log.Infof("shutting down autoscaling scheduler for %s", p.ident)
+	log.Debugf("shutting down autoscaling scheduler for %s", p.ident)
 
 	// stop autoscaling
 	p.autoscalerIn <- struct{}{}
 	close(p.autoscalerIn)
 	<-p.autoscalerOut
 
-	log.Info("stopping autoscaling scheduler workers")
+	log.Debug("stopping autoscaling scheduler workers")
 	// stop workers
 	for i := 0; i < p.concurrency; i++ {
 		p.feeder <- &consumerTask{signal: "stop"}
 	}
 	close(p.feeder)
 
-	log.Info("waiting for autoscaling scheduler workers to stop")
+	log.Debug("waiting for autoscaling scheduler workers to stop")
 
 	p.workerGroup.Wait()
 
-	log.Info("stopping autoscaling scheduler throughput manager")
+	log.Debug("stopping autoscaling scheduler throughput manager")
 	p.throughputManager.Stop()
 
-	log.Info("autoscaling scheduler shutdown complete")
+	log.Debug("autoscaling scheduler shutdown complete")
 }
 
 // Add autoscaling function
@@ -197,7 +197,7 @@ func (p *Scheduler) AddWork(ctx context.Context, repo string, val *events.XRPCSt
 }
 
 func (p *Scheduler) worker() {
-	log.Infof("starting autoscaling worker for %s", p.ident)
+	log.Debugf("starting autoscaling worker for %s", p.ident)
 	p.workersActive.Inc()
 	p.workerGroup.Add(1)
 	defer p.workerGroup.Done()
@@ -205,7 +205,7 @@ func (p *Scheduler) worker() {
 		for work != nil {
 			// Check if the work item contains a signal to stop the worker.
 			if work.signal == "stop" {
-				log.Infof("stopping autoscaling worker for %s", p.ident)
+				log.Debugf("stopping autoscaling worker for %s", p.ident)
 				p.workersActive.Dec()
 				return
 			}
