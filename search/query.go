@@ -210,16 +210,20 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 			"query": map[string]interface{}{
 				"rescore_query": map[string]interface{}{
 					"boosting": map[string]interface{}{
-						"positive": map[string]interface{}{
-							"prefix": map[string]interface{}{
-								"handle": map[string]interface{}{
-									"value": q,
+						"positive": []map[string]interface{}{
+							{
+								"prefix": map[string]interface{}{
+									"handle": map[string]interface{}{
+										"value": q,
+									},
 								},
 							},
 							// additional boost if it is the full first name
-							"prefix": map[string]interface{}{
-								"handle": map[string]interface{}{
-									"value": q + ".",
+							{
+								"prefix": map[string]interface{}{
+									"handle": map[string]interface{}{
+										"value": q + ".",
+									},
 								},
 							},
 						},
