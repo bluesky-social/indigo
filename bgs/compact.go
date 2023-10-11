@@ -107,6 +107,8 @@ func NewCompactor() *Compactor {
 		q: &queue{
 			members: make(map[models.Uid]struct{}),
 		},
+		state: &CompactorState{},
+		exit:  make(chan struct{}),
 	}
 }
 
