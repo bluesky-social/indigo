@@ -4,14 +4,25 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"net"
+	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/bluesky-social/indigo/bgs"
 	events "github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/gorilla/websocket"
 	logging "github.com/ipfs/go-log"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	promclient "github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	dto "github.com/prometheus/client_model/go"
 )
 
 var log = logging.Logger("splitter")
@@ -20,21 +31,313 @@ type Splitter struct {
 	Host   string
 	erb    *EventRingBuffer
 	events *events.EventManager
+
+	// Management of Socket Consumers
+	consumersLk    sync.RWMutex
+	nextConsumerID uint64
+	consumers      map[uint64]*SocketConsumer
 }
 
-func NewSplitter(host string, persister events.EventPersistence) *Splitter {
+func NewSplitter(host string) *Splitter {
 	erb := NewEventRingBuffer(20000, 1000)
 
 	em := events.NewEventManager(erb)
 	return &Splitter{
-		Host:   host,
-		erb:    erb,
-		events: em,
+		Host:      host,
+		erb:       erb,
+		events:    em,
+		consumers: make(map[uint64]*SocketConsumer),
 	}
 }
 
-func (s *Splitter) Start() error {
+func (s *Splitter) Start(addr string) error {
+	var lc net.ListenConfig
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	go s.subscribeWithRedialer(context.Background(), s.Host, 0)
+
+	li, err := lc.Listen(ctx, "tcp", addr)
+	if err != nil {
+		return err
+	}
+	return s.StartWithListener(li)
+}
+
+func (s *Splitter) StartMetrics(listen string) error {
+	http.Handle("/metrics", promhttp.Handler())
+	return http.ListenAndServe(listen, nil)
+}
+
+func (s *Splitter) Shutdown() error {
 	return nil
+}
+
+func (s *Splitter) StartWithListener(listen net.Listener) error {
+	e := echo.New()
+	e.HideBanner = true
+
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"http://localhost:*", "https://bgs.bsky-sandbox.dev"},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+	}))
+
+	/*
+		if !s.ssl {
+			e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+				Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
+			}))
+		} else {
+			e.Use(middleware.LoggerWithConfig(middleware.DefaultLoggerConfig))
+		}
+	*/
+
+	e.Use(bgs.MetricsMiddleware)
+
+	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
+		switch err := err.(type) {
+		case *echo.HTTPError:
+			if err2 := ctx.JSON(err.Code, map[string]any{
+				"error": err.Message,
+			}); err2 != nil {
+				log.Errorf("Failed to write http error: %s", err2)
+			}
+		default:
+			sendHeader := true
+			if ctx.Path() == "/xrpc/com.atproto.sync.subscribeRepos" {
+				sendHeader = false
+			}
+
+			log.Warnf("HANDLER ERROR: (%s) %s", ctx.Path(), err)
+
+			if strings.HasPrefix(ctx.Path(), "/admin/") {
+				ctx.JSON(500, map[string]any{
+					"error": err.Error(),
+				})
+				return
+			}
+
+			if sendHeader {
+				ctx.Response().WriteHeader(500)
+			}
+		}
+	}
+
+	// TODO: this API is temporary until we formalize what we want here
+
+	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
+	e.GET("/xrpc/_health", s.HandleHealthCheck)
+
+	// In order to support booting on random ports in tests, we need to tell the
+	// Echo instance it's already got a port, and then use its StartServer
+	// method to re-use that listener.
+	e.Listener = listen
+	srv := &http.Server{}
+	return e.StartServer(srv)
+}
+
+type HealthStatus struct {
+	Status  string `json:"status"`
+	Message string `json:"msg,omitempty"`
+}
+
+func (s *Splitter) HandleHealthCheck(c echo.Context) error {
+	return c.JSON(200, HealthStatus{Status: "ok"})
+}
+
+func (s *Splitter) EventsHandler(c echo.Context) error {
+	var since *int64
+	if sinceVal := c.QueryParam("cursor"); sinceVal != "" {
+		sval, err := strconv.ParseInt(sinceVal, 10, 64)
+		if err != nil {
+			return err
+		}
+		since = &sval
+	}
+
+	ctx, cancel := context.WithCancel(c.Request().Context())
+	defer cancel()
+
+	// TODO: authhhh
+	conn, err := websocket.Upgrade(c.Response(), c.Request(), c.Response().Header(), 10<<10, 10<<10)
+	if err != nil {
+		return fmt.Errorf("upgrading websocket: %w", err)
+	}
+
+	lastWriteLk := sync.Mutex{}
+	lastWrite := time.Now()
+
+	// Start a goroutine to ping the client every 30 seconds to check if it's
+	// still alive. If the client doesn't respond to a ping within 5 seconds,
+	// we'll close the connection and teardown the consumer.
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				lastWriteLk.Lock()
+				lw := lastWrite
+				lastWriteLk.Unlock()
+
+				if time.Since(lw) < 30*time.Second {
+					continue
+				}
+
+				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
+					log.Errorf("failed to ping client: %s", err)
+					cancel()
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	conn.SetPingHandler(func(message string) error {
+		err := conn.WriteControl(websocket.PongMessage, []byte(message), time.Now().Add(time.Second*60))
+		if err == websocket.ErrCloseSent {
+			return nil
+		} else if e, ok := err.(net.Error); ok && e.Temporary() {
+			return nil
+		}
+		return err
+	})
+
+	// Start a goroutine to read messages from the client and discard them.
+	go func() {
+		for {
+			_, _, err := conn.ReadMessage()
+			if err != nil {
+				log.Errorf("failed to read message from client: %s", err)
+				cancel()
+				return
+			}
+		}
+	}()
+
+	ident := c.RealIP() + "-" + c.Request().UserAgent()
+
+	evts, cleanup, err := s.events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool { return true }, since)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	// Keep track of the consumer for metrics and admin endpoints
+	consumer := SocketConsumer{
+		RemoteAddr:  c.RealIP(),
+		UserAgent:   c.Request().UserAgent(),
+		ConnectedAt: time.Now(),
+	}
+	sentCounter := eventsSentCounter.WithLabelValues(consumer.RemoteAddr, consumer.UserAgent)
+	consumer.EventsSent = sentCounter
+
+	consumerID := s.registerConsumer(&consumer)
+	defer s.cleanupConsumer(consumerID)
+
+	log.Infow("new consumer",
+		"remote_addr", consumer.RemoteAddr,
+		"user_agent", consumer.UserAgent,
+		"cursor", since,
+		"consumer_id", consumerID,
+	)
+
+	header := events.EventHeader{Op: events.EvtKindMessage}
+	for {
+		select {
+		case evt := <-evts:
+			wc, err := conn.NextWriter(websocket.BinaryMessage)
+			if err != nil {
+				log.Errorf("failed to get next writer: %s", err)
+				return err
+			}
+
+			var obj lexutil.CBOR
+
+			switch {
+			case evt.Error != nil:
+				header.Op = events.EvtKindErrorFrame
+				obj = evt.Error
+			case evt.RepoCommit != nil:
+				header.MsgType = "#commit"
+				obj = evt.RepoCommit
+			case evt.RepoHandle != nil:
+				header.MsgType = "#handle"
+				obj = evt.RepoHandle
+			case evt.RepoInfo != nil:
+				header.MsgType = "#info"
+				obj = evt.RepoInfo
+			case evt.RepoMigrate != nil:
+				header.MsgType = "#migrate"
+				obj = evt.RepoMigrate
+			case evt.RepoTombstone != nil:
+				header.MsgType = "#tombstone"
+				obj = evt.RepoTombstone
+			default:
+				return fmt.Errorf("unrecognized event kind")
+			}
+
+			if err := header.MarshalCBOR(wc); err != nil {
+				return fmt.Errorf("failed to write header: %w", err)
+			}
+
+			if err := obj.MarshalCBOR(wc); err != nil {
+				return fmt.Errorf("failed to write event: %w", err)
+			}
+
+			if err := wc.Close(); err != nil {
+				return fmt.Errorf("failed to flush-close our event write: %w", err)
+			}
+			lastWriteLk.Lock()
+			lastWrite = time.Now()
+			lastWriteLk.Unlock()
+			sentCounter.Inc()
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+type SocketConsumer struct {
+	UserAgent   string
+	RemoteAddr  string
+	ConnectedAt time.Time
+	EventsSent  promclient.Counter
+}
+
+func (s *Splitter) registerConsumer(c *SocketConsumer) uint64 {
+	s.consumersLk.Lock()
+	defer s.consumersLk.Unlock()
+
+	id := s.nextConsumerID
+	s.nextConsumerID++
+
+	s.consumers[id] = c
+
+	return id
+}
+
+func (s *Splitter) cleanupConsumer(id uint64) {
+	s.consumersLk.Lock()
+	defer s.consumersLk.Unlock()
+
+	c := s.consumers[id]
+
+	var m = &dto.Metric{}
+	if err := c.EventsSent.Write(m); err != nil {
+		log.Errorf("failed to get sent counter: %s", err)
+	}
+
+	log.Infow("consumer disconnected",
+		"consumer_id", id,
+		"remote_addr", c.RemoteAddr,
+		"user_agent", c.UserAgent,
+		"events_sent", m.Counter.GetValue())
+
+	delete(s.consumers, id)
 }
 
 func sleepForBackoff(b int) time.Duration {
@@ -139,6 +442,7 @@ func (rc *ringChunk) events() []*events.XRPCStreamEvent {
 }
 
 func (er *EventRingBuffer) Persist(ctx context.Context, evt *events.XRPCStreamEvent) error {
+	fmt.Println("persist event", sequenceForEvent(evt))
 	er.lk.Lock()
 	defer er.lk.Unlock()
 
