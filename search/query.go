@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"go.opentelemetry.io/otel/attribute"
 
 	es "github.com/opensearch-project/opensearch-go/v2"
 )
@@ -55,6 +56,9 @@ func checkParams(offset, size int) error {
 }
 
 func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "DoSearchPosts")
+	defer span.End()
+
 	if err := checkParams(offset, size); err != nil {
 		return nil, err
 	}
@@ -89,6 +93,9 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 }
 
 func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "DoSearchProfiles")
+	defer span.End()
+
 	if err := checkParams(offset, size); err != nil {
 		return nil, err
 	}
@@ -126,6 +133,9 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 }
 
 func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q string, size int) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "DoSearchProfilesTypeahead")
+	defer span.End()
+
 	if err := checkParams(0, size); err != nil {
 		return nil, err
 	}
@@ -153,6 +163,9 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 
 // helper to do a full-featured Lucene query parser (query_string) search, with all possible facets. Not safe to expose publicly.
 func DoSearchGeneric(ctx context.Context, escli *es.Client, index, q string) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "DoSearchGeneric")
+	defer span.End()
+
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"query_string": map[string]interface{}{
@@ -170,6 +183,11 @@ func DoSearchGeneric(ctx context.Context, escli *es.Client, index, q string) (*E
 }
 
 func doSearch(ctx context.Context, escli *es.Client, index string, query interface{}) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "doSearch")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("index", index), attribute.String("query", fmt.Sprintf("%+v", query)))
+
 	b, err := json.Marshal(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize query: %w", err)

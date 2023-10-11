@@ -15,6 +15,7 @@ import (
 	"github.com/bluesky-social/indigo/util/version"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -53,7 +54,6 @@ type Config struct {
 }
 
 func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Config) (*Server, error) {
-
 	logger := config.Logger
 	if logger == nil {
 		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -186,6 +186,7 @@ func (s *Server) RunAPI(listen string) error {
 	e.Use(middleware.Recover())
 	e.Use(MetricsMiddleware)
 	e.Use(middleware.BodyLimit("64M"))
+	e.Use(otelecho.Middleware("palomar"))
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
 		code := 500
