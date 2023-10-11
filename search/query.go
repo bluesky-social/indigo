@@ -266,7 +266,7 @@ func doSearch(ctx context.Context, escli *es.Client, index string, query interfa
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize query: %w", err)
 	}
-	slog.Warn("sending query", "index", index, "query", string(b))
+	slog.Info("sending query", "index", index, "query", string(b))
 
 	// Perform the search request.
 	res, err := escli.Search(
