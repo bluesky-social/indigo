@@ -14,11 +14,16 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
+	"go.opentelemetry.io/otel/attribute"
 
 	esapi "github.com/opensearch-project/opensearch-go/v2/opensearchapi"
 )
 
 func (s *Server) deletePost(ctx context.Context, ident *identity.Identity, rkey string) error {
+	ctx, span := tracer.Start(ctx, "deletePost")
+	defer span.End()
+	span.SetAttributes(attribute.String("repo", ident.DID.String()), attribute.String("rkey", rkey))
+
 	log := s.logger.With("repo", ident.DID, "rkey", rkey, "op", "deletePost")
 	log.Info("deleting post from index")
 	docID := fmt.Sprintf("%s_%s", ident.DID.String(), rkey)
@@ -45,6 +50,10 @@ func (s *Server) deletePost(ctx context.Context, ident *identity.Identity, rkey 
 }
 
 func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *appbsky.FeedPost, path string, rcid cid.Cid) error {
+	ctx, span := tracer.Start(ctx, "indexPost")
+	defer span.End()
+	span.SetAttributes(attribute.String("repo", ident.DID.String()), attribute.String("path", path))
+
 	log := s.logger.With("repo", ident.DID, "path", path, "op", "indexPost")
 	parts := strings.SplitN(path, "/", 3)
 	// TODO: replace with an atproto/syntax package type for TID
@@ -95,6 +104,10 @@ func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *a
 }
 
 func (s *Server) indexProfile(ctx context.Context, ident *identity.Identity, rec *appbsky.ActorProfile, path string, rcid cid.Cid) error {
+	ctx, span := tracer.Start(ctx, "indexProfile")
+	defer span.End()
+	span.SetAttributes(attribute.String("repo", ident.DID.String()), attribute.String("path", path))
+
 	log := s.logger.With("repo", ident.DID, "path", path, "op", "indexProfile")
 	parts := strings.SplitN(path, "/", 3)
 	if len(parts) != 2 || parts[1] != "self" {
@@ -134,6 +147,10 @@ func (s *Server) indexProfile(ctx context.Context, ident *identity.Identity, rec
 }
 
 func (s *Server) updateUserHandle(ctx context.Context, did syntax.DID, handle string) error {
+	ctx, span := tracer.Start(ctx, "updateUserHandle")
+	defer span.End()
+	span.SetAttributes(attribute.String("repo", did.String()), attribute.String("event.handle", handle))
+
 	log := s.logger.With("repo", did.String(), "op", "updateUserHandle", "handle_from_event", handle)
 
 	err := s.dir.Purge(ctx, did.AtIdentifier())
@@ -154,6 +171,7 @@ func (s *Server) updateUserHandle(ctx context.Context, did syntax.DID, handle st
 	}
 
 	log.Info("updating user handle", "handle_from_dir", ident.Handle)
+	span.SetAttributes(attribute.String("dir.handle", ident.Handle.String()))
 
 	b, err := json.Marshal(map[string]any{
 		"script": map[string]any{
