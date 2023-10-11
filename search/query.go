@@ -143,8 +143,8 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"multi_match": map[string]interface{}{
-				"query":    q,
-				"type":     "bool_prefix",
+				"query": q,
+				"type":  "bool_prefix",
 				"fields": []string{
 					// adding handle here improves relevency but may be too expensive in prod
 					//"handle^2",
