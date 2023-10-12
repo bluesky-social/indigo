@@ -17,13 +17,15 @@ type queueItem struct {
 	fast bool
 }
 
-type queue struct {
+// uniQueue is a queue that only allows one instance of a given uid
+type uniQueue struct {
 	q       []queueItem
 	members map[models.Uid]struct{}
 	lk      sync.Mutex
 }
 
-func (q *queue) Append(uid models.Uid, fast bool) {
+// Append appends a uid to the end of the queue if it doesn't already exist
+func (q *uniQueue) Append(uid models.Uid, fast bool) {
 	q.lk.Lock()
 	defer q.lk.Unlock()
 
@@ -36,7 +38,8 @@ func (q *queue) Append(uid models.Uid, fast bool) {
 	compactionQueueDepth.Inc()
 }
 
-func (q *queue) Prepend(uid models.Uid, fast bool) {
+// Prepend prepends a uid to the beginning of the queue if it doesn't already exist
+func (q *uniQueue) Prepend(uid models.Uid, fast bool) {
 	q.lk.Lock()
 	defer q.lk.Unlock()
 
@@ -49,7 +52,8 @@ func (q *queue) Prepend(uid models.Uid, fast bool) {
 	compactionQueueDepth.Inc()
 }
 
-func (q *queue) Has(uid models.Uid) bool {
+// Has returns true if the queue contains the given uid
+func (q *uniQueue) Has(uid models.Uid) bool {
 	q.lk.Lock()
 	defer q.lk.Unlock()
 
@@ -57,7 +61,8 @@ func (q *queue) Has(uid models.Uid) bool {
 	return ok
 }
 
-func (q *queue) Remove(uid models.Uid) {
+// Remove removes the given uid from the queue
+func (q *uniQueue) Remove(uid models.Uid) {
 	q.lk.Lock()
 	defer q.lk.Unlock()
 
@@ -76,7 +81,8 @@ func (q *queue) Remove(uid models.Uid) {
 	compactionQueueDepth.Dec()
 }
 
-func (q *queue) Pop() (*queueItem, bool) {
+// Pop pops the first item off the front of the queue
+func (q *uniQueue) Pop() (*queueItem, bool) {
 	q.lk.Lock()
 	defer q.lk.Unlock()
 
@@ -99,8 +105,9 @@ type CompactorState struct {
 	stats     *carstore.CompactionStats
 }
 
+// Compactor is a compactor daemon that compacts repos in the background
 type Compactor struct {
-	q                 *queue
+	q                 *uniQueue
 	state             *CompactorState
 	stateLk           sync.RWMutex
 	exit              chan struct{}
@@ -133,7 +140,7 @@ func NewCompactor(opts *CompactorOptions) *Compactor {
 	}
 
 	return &Compactor{
-		q: &queue{
+		q: &uniQueue{
 			members: make(map[models.Uid]struct{}),
 		},
 		state:             &CompactorState{},
@@ -175,9 +182,10 @@ func (c *Compactor) GetState() *CompactorState {
 
 var errNoReposToCompact = fmt.Errorf("no repos to compact")
 
+// Start starts the compactor
 func (c *Compactor) Start(bgs *BGS) {
 	log.Info("starting compactor")
-	go c.DoWork(bgs)
+	go c.doWork(bgs)
 	go func() {
 		log.Infow("starting compactor requeue routine",
 			"interval", c.requeueInterval,
@@ -211,6 +219,7 @@ func (c *Compactor) Start(bgs *BGS) {
 	}()
 }
 
+// Shutdown shuts down the compactor
 func (c *Compactor) Shutdown() {
 	log.Info("stopping compactor")
 	close(c.exit)
@@ -218,7 +227,7 @@ func (c *Compactor) Shutdown() {
 	log.Info("compactor stopped")
 }
 
-func (c *Compactor) DoWork(bgs *BGS) {
+func (c *Compactor) doWork(bgs *BGS) {
 	for {
 		select {
 		case <-c.exit:
@@ -230,7 +239,7 @@ func (c *Compactor) DoWork(bgs *BGS) {
 
 		ctx := context.Background()
 		start := time.Now()
-		state, err := c.CompactNext(ctx, bgs)
+		state, err := c.compactNext(ctx, bgs)
 		if err != nil {
 			if err == errNoReposToCompact {
 				log.Info("no repos to compact, waiting and retrying")
@@ -259,7 +268,7 @@ func (c *Compactor) DoWork(bgs *BGS) {
 	}
 }
 
-func (c *Compactor) CompactNext(ctx context.Context, bgs *BGS) (*CompactorState, error) {
+func (c *Compactor) compactNext(ctx context.Context, bgs *BGS) (*CompactorState, error) {
 	ctx, span := otel.Tracer("compactor").Start(ctx, "CompactNext")
 	defer span.End()
 
