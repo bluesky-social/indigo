@@ -143,6 +143,10 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		return nil, err
 	}
 
+	compactor := NewCompactor(nil)
+	compactor.Start(bgs)
+	bgs.compactor = compactor
+
 	return bgs, nil
 }
 
@@ -365,6 +369,8 @@ func (bgs *BGS) Shutdown() []error {
 	if err := bgs.events.Shutdown(context.TODO()); err != nil {
 		errs = append(errs, err)
 	}
+
+	bgs.compactor.Shutdown()
 
 	return errs
 }
