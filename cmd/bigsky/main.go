@@ -100,6 +100,11 @@ func run(args []string) {
 			Name:  "aggregation",
 			Value: false,
 		},
+		&cli.BoolFlag{
+			Name:    "spidering",
+			Value:   true,
+			EnvVars: []string{"BGS_SPIDERING"},
+		},
 		&cli.StringFlag{
 			Name:  "api-listen",
 			Value: ":2470",
@@ -278,7 +283,7 @@ func Bigsky(cctx *cli.Context) error {
 
 	notifman := &notifs.NullNotifs{}
 
-	ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, repoman, true, cctx.Bool("aggregation"))
+	ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, repoman, true, cctx.Bool("spidering"), cctx.Bool("aggregation"))
 	if err != nil {
 		return err
 	}
