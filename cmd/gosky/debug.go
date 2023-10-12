@@ -162,8 +162,8 @@ var inspectEventCmd = &cli.Command{
 }
 
 type eventInfo struct {
-	LastCid cid.Cid
 	LastSeq int64
+	LastRev string
 }
 
 func cidStr(c *lexutil.LexLink) string {
@@ -194,7 +194,7 @@ var debugStreamCmd = &cli.Command{
 
 		h := cctx.String("host")
 
-		url := fmt.Sprintf("%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", h, n-1)
+		url := fmt.Sprintf("%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", h, n)
 		d := websocket.DefaultDialer
 		con, _, err := d.Dial(url, http.Header{})
 		if err != nil {
@@ -203,11 +203,16 @@ var debugStreamCmd = &cli.Command{
 
 		infos := make(map[string]*eventInfo)
 
+		var lastSeq int64 = -1
 		ctx := context.TODO()
 		rsc := &events.RepoStreamCallbacks{
 			RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 
 				fmt.Printf("\rChecking seq: %d      ", evt.Seq)
+				if lastSeq > 0 && evt.Seq != lastSeq+1 {
+					fmt.Println("Gap in sequence numbers: ", lastSeq, evt.Seq)
+				}
+				lastSeq = evt.Seq
 
 				if !evt.TooBig {
 					r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
@@ -237,17 +242,35 @@ var debugStreamCmd = &cli.Command{
 
 				cur, ok := infos[evt.Repo]
 				if ok {
-					if cur.LastCid.String() != cidStr(evt.Prev) {
-						fmt.Println()
-						fmt.Printf("Event at sequence %d, repo=%s had prev=%s head=%s, but last commit we saw was %s (seq=%d)\n", evt.Seq, evt.Repo, cidStr(evt.Prev), evt.Commit.String(), cur.LastCid, cur.LastSeq)
+					if evt.Since != nil && cur.LastRev != *evt.Since {
+						/*
+							fmt.Println()
+							fmt.Printf("Event at sequence %d, repo=%s had since=%s, but last rev we saw was %s (seq=%d)\n", evt.Seq, evt.Repo, evt.Since, cur.LastRev, cur.LastSeq)
+						*/
 					}
 				}
 
 				infos[evt.Repo] = &eventInfo{
-					LastCid: cid.Cid(evt.Commit),
 					LastSeq: evt.Seq,
+					LastRev: evt.Rev,
 				}
 
+				return nil
+			},
+			RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
+				fmt.Printf("\rChecking seq: %d      ", evt.Seq)
+				if lastSeq > 0 && evt.Seq != lastSeq+1 {
+					fmt.Println("Gap in sequence numbers: ", lastSeq, evt.Seq)
+				}
+				lastSeq = evt.Seq
+				return nil
+			},
+			RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
+				fmt.Printf("\rChecking seq: %d      ", evt.Seq)
+				if lastSeq > 0 && evt.Seq != lastSeq+1 {
+					fmt.Println("Gap in sequence numbers: ", lastSeq, evt.Seq)
+				}
+				lastSeq = evt.Seq
 				return nil
 			},
 			RepoInfo: func(evt *comatproto.SyncSubscribeRepos_Info) error {
