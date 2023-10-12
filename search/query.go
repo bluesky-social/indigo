@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log/slog"
-	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"go.opentelemetry.io/otel/attribute"
 
 	es "github.com/opensearch-project/opensearch-go/v2"
 )
@@ -56,6 +56,9 @@ func checkParams(offset, size int) error {
 }
 
 func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "DoSearchPosts")
+	defer span.End()
+
 	if err := checkParams(offset, size); err != nil {
 		return nil, err
 	}
@@ -90,6 +93,9 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 }
 
 func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "DoSearchProfiles")
+	defer span.End()
+
 	if err := checkParams(offset, size); err != nil {
 		return nil, err
 	}
@@ -97,12 +103,8 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 	queryStr, filters := ParseQuery(ctx, dir, q)
 	basic := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
-			"query": queryStr,
-			"fields": []string{
-				"handle^3",
-				"display_name^2",
-				"everything",
-			},
+			"query":            queryStr,
+			"fields":           []string{"everything"},
 			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
 			"default_operator": "and",
 			"lenient":          true,
@@ -127,54 +129,13 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 		"from": offset,
 	}
 
-	// special-case: exact string match of handle
-	if strings.HasPrefix(q, "@") && !strings.Contains(q, " ") {
-		q = q[1:]
-		query["query"] = map[string]interface{}{
-			"prefix": map[string]interface{}{
-				"handle": map[string]interface{}{
-					"value": q,
-				},
-			},
-		}
-	}
-
-	// boost exact handle prefix match, if q is single simple term
-	if len(q) >= 3 && !strings.ContainsAny(q, " .") {
-		query["rescore"] = map[string]interface{}{
-			"window_size": 100,
-			"query": map[string]interface{}{
-				"rescore_query": map[string]interface{}{
-					"boosting": map[string]interface{}{
-						"positive": map[string]interface{}{
-							"prefix": map[string]interface{}{
-								"handle": map[string]interface{}{
-									"value": q + ".",
-								},
-							},
-						},
-						// downrank *.bsky.social (vs custom domain)
-						// wildcard is expensive, so only in rescore
-						"negative": map[string]interface{}{
-							"wildcard": map[string]interface{}{
-								"handle": map[string]interface{}{
-									"value": "*.bsky.social",
-								},
-							},
-						},
-						"negative_boost": 0.5,
-					},
-				},
-				"query_weight":         0.5,
-				"rescore_query_weight": 2.0,
-			},
-		}
-	}
-
 	return doSearch(ctx, escli, index, query)
 }
 
 func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q string, size int) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "DoSearchProfilesTypeahead")
+	defer span.End()
+
 	if err := checkParams(0, size); err != nil {
 		return nil, err
 	}
@@ -186,7 +147,8 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 				"type":     "bool_prefix",
 				"operator": "and",
 				"fields": []string{
-					"handle^2",
+					// adding handle here improves relevency but may be too expensive in prod
+					//"handle^2",
 					"typeahead",
 					"typeahead._2gram",
 					"typeahead._3gram",
@@ -196,55 +158,14 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 		"size": size,
 	}
 
-	// special-case: exact string match of handle
-	if strings.HasPrefix(q, "@") && !strings.Contains(q, " ") {
-		q = q[1:]
-		query["query"] = map[string]interface{}{
-			"prefix": map[string]interface{}{
-				"handle": map[string]interface{}{
-					"value": q,
-				},
-			},
-		}
-	}
-
-	// boost exact handle prefix match, if q is single simple term
-	if len(q) >= 3 && !strings.ContainsAny(q, " .") {
-		query["rescore"] = map[string]interface{}{
-			"window_size": 100,
-			"query": map[string]interface{}{
-				"rescore_query": map[string]interface{}{
-					"boosting": map[string]interface{}{
-						"positive": map[string]interface{}{
-							"prefix": map[string]interface{}{
-								"handle": map[string]interface{}{
-									"value": q + ".",
-								},
-							},
-						},
-						// downrank *.bsky.social (vs custom domain)
-						// wildcard is expensive, so only in rescore
-						"negative": map[string]interface{}{
-							"wildcard": map[string]interface{}{
-								"handle": map[string]interface{}{
-									"value": "*.bsky.social",
-								},
-							},
-						},
-						"negative_boost": 0.5,
-					},
-				},
-				"query_weight":         1.0,
-				"rescore_query_weight": 1.0,
-			},
-		}
-	}
-
 	return doSearch(ctx, escli, index, query)
 }
 
 // helper to do a full-featured Lucene query parser (query_string) search, with all possible facets. Not safe to expose publicly.
 func DoSearchGeneric(ctx context.Context, escli *es.Client, index, q string) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "DoSearchGeneric")
+	defer span.End()
+
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"query_string": map[string]interface{}{
@@ -262,11 +183,16 @@ func DoSearchGeneric(ctx context.Context, escli *es.Client, index, q string) (*E
 }
 
 func doSearch(ctx context.Context, escli *es.Client, index string, query interface{}) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "doSearch")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("index", index), attribute.String("query", fmt.Sprintf("%+v", query)))
+
 	b, err := json.Marshal(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize query: %w", err)
 	}
-	slog.Warn("sending query", "index", index, "query", string(b))
+	slog.Info("sending query", "index", index, "query", string(b))
 
 	// Perform the search request.
 	res, err := escli.Search(

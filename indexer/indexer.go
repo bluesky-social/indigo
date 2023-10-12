@@ -258,7 +258,7 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 	case *bsky.FeedLike:
 		if rec.Subject != nil {
 			if err := ix.crawlAtUriRef(ctx, rec.Subject.Uri); err != nil {
-				log.Infow("failed to crawl vote subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
+				log.Infow("failed to crawl like subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
 			}
 		}
 		return nil
@@ -324,7 +324,7 @@ func (ix *Indexer) createMissingUserRecord(ctx context.Context, did string) (*mo
 }
 
 func (ix *Indexer) addUserToCrawler(ctx context.Context, ai *models.ActorInfo) error {
-	log.Infow("Sending user to crawler: ", "did", ai.Did)
+	log.Debugw("Sending user to crawler: ", "did", ai.Did)
 	if ix.Crawler == nil {
 		return nil
 	}
@@ -415,12 +415,18 @@ func (ix *Indexer) fetchRepo(ctx context.Context, c *xrpc.Client, pds *models.PD
 	ctx, span := otel.Tracer("indexer").Start(ctx, "fetchRepo")
 	defer span.End()
 
+	span.SetAttributes(
+		attribute.String("pds", pds.Host),
+		attribute.String("did", did),
+		attribute.String("rev", rev),
+	)
+
 	limiter := ix.GetOrCreateLimiter(pds.ID, pds.CrawlRateLimit)
 
 	// Wait to prevent DOSing the PDS when connecting to a new stream with lots of active repos
 	limiter.Wait(ctx)
 
-	log.Infow("SyncGetRepo", "did", did, "since", rev)
+	log.Debugw("SyncGetRepo", "did", did, "since", rev)
 	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
 	repo, err := comatproto.SyncGetRepo(ctx, c, did, rev)
 	if err != nil {
@@ -521,7 +527,7 @@ func (ix *Indexer) GetPost(ctx context.Context, uri string) (*models.FeedPost, e
 }
 
 func (ix *Indexer) handleRecordDelete(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp, local bool) error {
-	log.Infow("record delete event", "collection", op.Collection)
+	log.Debugw("record delete event", "collection", op.Collection)
 
 	switch op.Collection {
 	case "app.bsky.feed.post":
@@ -611,7 +617,7 @@ func (ix *Indexer) handleRecordDeleteGraphFollow(ctx context.Context, evt *repom
 }
 
 func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp, local bool) ([]uint, error) {
-	log.Infow("record create event", "collection", op.Collection)
+	log.Debugw("record create event", "collection", op.Collection)
 
 	var out []uint
 	switch rec := op.Record.(type) {
@@ -652,8 +658,16 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 		return nil, ix.handleRecordCreateFeedLike(ctx, rec, evt, op)
 	case *bsky.GraphFollow:
 		return out, ix.handleRecordCreateGraphFollow(ctx, rec, evt, op)
+	case *bsky.GraphBlock:
+		return out, nil
+	case *bsky.GraphList:
+		return out, nil
+	case *bsky.GraphListitem:
+		return out, nil
+	case *bsky.FeedGenerator:
+		return out, nil
 	case *bsky.ActorProfile:
-		log.Infof("TODO: got actor profile record creation, need to do something with this")
+		log.Debugf("TODO: got actor profile record creation, need to do something with this")
 	default:
 		return nil, fmt.Errorf("unrecognized record type: %T", rec)
 	}
@@ -727,7 +741,7 @@ func (ix *Indexer) handleRecordCreateGraphFollow(ctx context.Context, rec *bsky.
 }
 
 func (ix *Indexer) handleRecordUpdate(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp, local bool) error {
-	log.Infow("record update event", "collection", op.Collection)
+	log.Debugw("record update event", "collection", op.Collection)
 
 	switch rec := op.Record.(type) {
 	case *bsky.FeedPost:
@@ -811,7 +825,7 @@ func (ix *Indexer) handleRecordUpdate(ctx context.Context, evt *repomgr.RepoEven
 
 		return ix.handleRecordCreateGraphFollow(ctx, rec, evt, op)
 	case *bsky.ActorProfile:
-		log.Infof("TODO: got actor profile record update, need to do something with this")
+		log.Debugf("TODO: got actor profile record update, need to do something with this")
 	default:
 		return fmt.Errorf("unrecognized record type: %T", rec)
 	}
