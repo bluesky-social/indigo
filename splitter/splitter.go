@@ -3,9 +3,11 @@ package splitter
 import (
 	"context"
 	"fmt"
+	"io"
 	"math/rand"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,7 +17,6 @@ import (
 	events "github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/models"
 	"github.com/gorilla/websocket"
 	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
@@ -32,6 +33,9 @@ type Splitter struct {
 	erb    *EventRingBuffer
 	events *events.EventManager
 
+	// cursor storage
+	cursorFile string
+
 	// Management of Socket Consumers
 	consumersLk    sync.RWMutex
 	nextConsumerID uint64
@@ -39,14 +43,15 @@ type Splitter struct {
 }
 
 func NewSplitter(host string) *Splitter {
-	erb := NewEventRingBuffer(20000, 1000)
+	erb := NewEventRingBuffer(20_000, 1000)
 
 	em := events.NewEventManager(erb)
 	return &Splitter{
-		Host:      host,
-		erb:       erb,
-		events:    em,
-		consumers: make(map[uint64]*SocketConsumer),
+		cursorFile: "cursor-file",
+		Host:       host,
+		erb:        erb,
+		events:     em,
+		consumers:  make(map[uint64]*SocketConsumer),
 	}
 }
 
@@ -55,7 +60,12 @@ func (s *Splitter) Start(addr string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	go s.subscribeWithRedialer(context.Background(), s.Host, 0)
+	curs, err := s.getLastCursor()
+	if err != nil {
+		return fmt.Errorf("loading cursor failed: %w", err)
+	}
+
+	go s.subscribeWithRedialer(context.Background(), s.Host, curs)
 
 	li, err := lc.Listen(ctx, "tcp", addr)
 	if err != nil {
@@ -365,8 +375,12 @@ func (s *Splitter) subscribeWithRedialer(ctx context.Context, host string, curso
 		default:
 		}
 
+		header := http.Header{
+			"User-Agent": []string{"bgs-rainbow-v0"},
+		}
+
 		url := fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", protocol, host, cursor)
-		con, res, err := d.DialContext(ctx, url, nil)
+		con, res, err := d.DialContext(ctx, url, header)
 		if err != nil {
 			log.Warnw("dialing failed", "host", host, "err", err, "backoff", backoff)
 			time.Sleep(sleepForBackoff(backoff))
@@ -387,7 +401,26 @@ func (s *Splitter) handleConnection(ctx context.Context, host string, con *webso
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	sched := sequential.NewScheduler("splitter", s.events.AddEvent)
+	sched := sequential.NewScheduler("splitter", func(ctx context.Context, evt *events.XRPCStreamEvent) error {
+		seq := sequenceForEvent(evt)
+		if seq < 0 {
+			// ignore info events and other unsupported types
+			return nil
+		}
+
+		if err := s.events.AddEvent(ctx, evt); err != nil {
+			return err
+		}
+
+		if seq%5000 == 0 {
+			if err := s.writeCursor(seq); err != nil {
+				log.Errorf("write cursor failed: %s", err)
+			}
+		}
+
+		*lastCursor = seq
+		return nil
+	})
 	return events.HandleRepoStream(ctx, con, sched)
 }
 
@@ -408,115 +441,28 @@ func sequenceForEvent(evt *events.XRPCStreamEvent) int64 {
 	}
 }
 
-func NewEventRingBuffer(chunkSize, nchunks int) *EventRingBuffer {
-	return &EventRingBuffer{
-		chunkSize:     chunkSize,
-		maxChunkCount: nchunks,
-	}
-}
-
-type EventRingBuffer struct {
-	lk            sync.Mutex
-	chunks        []*ringChunk
-	chunkSize     int
-	maxChunkCount int
-
-	broadcast func(*events.XRPCStreamEvent)
-}
-
-type ringChunk struct {
-	lk  sync.Mutex
-	buf []*events.XRPCStreamEvent
-}
-
-func (rc *ringChunk) append(evt *events.XRPCStreamEvent) {
-	rc.lk.Lock()
-	defer rc.lk.Unlock()
-	rc.buf = append(rc.buf, evt)
-}
-
-func (rc *ringChunk) events() []*events.XRPCStreamEvent {
-	rc.lk.Lock()
-	defer rc.lk.Unlock()
-	return rc.buf
-}
-
-func (er *EventRingBuffer) Persist(ctx context.Context, evt *events.XRPCStreamEvent) error {
-	fmt.Println("persist event", sequenceForEvent(evt))
-	er.lk.Lock()
-	defer er.lk.Unlock()
-
-	if len(er.chunks) == 0 {
-		er.chunks = []*ringChunk{new(ringChunk)}
-	}
-
-	last := er.chunks[len(er.chunks)-1]
-	if len(last.buf) >= er.chunkSize {
-		last = new(ringChunk)
-		er.chunks = append(er.chunks, last)
-		if len(er.chunks) > er.maxChunkCount {
-			er.chunks = er.chunks[1:]
+func (s *Splitter) getLastCursor() (int64, error) {
+	fi, err := os.Open(s.cursorFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
 		}
+		return 0, err
 	}
 
-	last.append(evt)
-
-	er.broadcast(evt)
-	return nil
-}
-
-func (er *EventRingBuffer) Flush(context.Context) error {
-	return nil
-}
-
-func (er *EventRingBuffer) Playback(ctx context.Context, since int64, cb func(*events.XRPCStreamEvent) error) error {
-	// grab a snapshot of the current chunks
-	er.lk.Lock()
-	chunks := er.chunks
-	er.lk.Unlock()
-
-	i := len(chunks) - 1
-	for ; i >= 0; i-- {
-		c := chunks[i]
-		evts := c.events()
-		if since > sequenceForEvent(evts[len(evts)-1]) {
-			i++
-			break
-		}
+	b, err := io.ReadAll(fi)
+	if err != nil {
+		return 0, err
 	}
 
-	for _, c := range chunks[i:] {
-		var nread int
-		evts := c.events()
-		for nread < len(evts) {
-			for _, e := range evts[nread:] {
-				if since > 0 && sequenceForEvent(e) < since {
-					continue
-				}
-				since = 0
-
-				if err := cb(e); err != nil {
-					return err
-				}
-			}
-
-			// recheck evts buffer to see if more were added while we were here
-			evts = c.events()
-		}
+	v, err := strconv.ParseInt(string(b), 10, 64)
+	if err != nil {
+		return 0, err
 	}
 
-	// TODO: probably also check for if new chunks were added while we were iterating...
-	return nil
+	return v, nil
 }
 
-func (er *EventRingBuffer) SetEventBroadcaster(brc func(*events.XRPCStreamEvent)) {
-	er.broadcast = brc
-}
-
-func (er *EventRingBuffer) Shutdown(context.Context) error {
-	return nil
-}
-
-func (er *EventRingBuffer) TakeDownRepo(context.Context, models.Uid) error {
-	return nil
+func (s *Splitter) writeCursor(curs int64) error {
+	return os.WriteFile(s.cursorFile, []byte(fmt.Sprint(curs)), 0664)
 }

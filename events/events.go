@@ -144,7 +144,10 @@ func (em *EventManager) AddEvent(ctx context.Context, ev *XRPCStreamEvent) error
 	return nil
 }
 
-var ErrPlaybackShutdown = fmt.Errorf("playback shutting down")
+var (
+	ErrPlaybackShutdown = fmt.Errorf("playback shutting down")
+	ErrCaughtUp         = fmt.Errorf("caught up")
+)
 
 func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func(*XRPCStreamEvent) bool, since *int64) (<-chan *XRPCStreamEvent, func(), error) {
 	if filter == nil {
@@ -161,40 +164,102 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 		broadcastCounter: eventsBroadcast.WithLabelValues(ident),
 	}
 
-	go func() {
-		if since != nil {
-			if err := em.persister.Playback(ctx, *since, func(e *XRPCStreamEvent) error {
-				select {
-				case <-done:
-					return ErrPlaybackShutdown
-				case sub.outgoing <- e:
-					return nil
-				}
-			}); err != nil {
-				if errors.Is(err, ErrPlaybackShutdown) {
-					log.Warnf("events playback: %s", err)
-				} else {
-					log.Errorf("events playback: %s", err)
-				}
-			}
-		}
-
-		// if cancel happens before playback completes
-		select {
-		case <-done:
-			return
-		default:
-		}
-
-		em.addSubscriber(sub)
-	}()
-
 	cleanup := func() {
 		close(done)
 		em.rmSubscriber(sub)
 	}
 
-	return sub.outgoing, cleanup, nil
+	if since == nil {
+		em.addSubscriber(sub)
+		return sub.outgoing, cleanup, nil
+	}
+
+	out := make(chan *XRPCStreamEvent, em.bufferSize)
+
+	go func() {
+		lastSeq := *since
+		// run playback to get through *most* of the events, getting our current cursor close to realtime
+		if err := em.persister.Playback(ctx, *since, func(e *XRPCStreamEvent) error {
+			select {
+			case <-done:
+				return ErrPlaybackShutdown
+			case out <- e:
+				seq := sequenceForEvent(e)
+				if seq > 0 {
+					lastSeq = seq
+				}
+				return nil
+			}
+		}); err != nil {
+			if errors.Is(err, ErrPlaybackShutdown) {
+				log.Warnf("events playback: %s", err)
+			} else {
+				log.Errorf("events playback: %s", err)
+			}
+
+			// TODO: send an error frame or something?
+			close(out)
+			return
+		}
+
+		// now, start buffering events from the live stream
+		em.addSubscriber(sub)
+
+		first := <-sub.outgoing
+
+		// run playback again to get us to the events that have started buffering
+		if err := em.persister.Playback(ctx, lastSeq, func(e *XRPCStreamEvent) error {
+			seq := sequenceForEvent(e)
+			if seq > sequenceForEvent(first) {
+				return ErrCaughtUp
+			}
+
+			select {
+			case <-done:
+				return ErrPlaybackShutdown
+			case out <- e:
+				return nil
+			}
+		}); err != nil {
+			if !errors.Is(err, ErrCaughtUp) {
+				log.Errorf("events playback: %s", err)
+
+				// TODO: send an error frame or something?
+				close(out)
+				em.rmSubscriber(sub)
+				return
+			}
+		}
+
+		// now that we are caught up, just copy events from the channel over
+		for evt := range sub.outgoing {
+			select {
+			case out <- evt:
+			case <-done:
+				em.rmSubscriber(sub)
+				return
+			}
+		}
+	}()
+
+	return out, cleanup, nil
+}
+
+func sequenceForEvent(evt *XRPCStreamEvent) int64 {
+	switch {
+	case evt.RepoCommit != nil:
+		return evt.RepoCommit.Seq
+	case evt.RepoHandle != nil:
+		return evt.RepoHandle.Seq
+	case evt.RepoMigrate != nil:
+		return evt.RepoMigrate.Seq
+	case evt.RepoTombstone != nil:
+		return evt.RepoTombstone.Seq
+	case evt.RepoInfo != nil:
+		return -1
+	default:
+		return -1
+	}
 }
 
 func (em *EventManager) rmSubscriber(sub *Subscriber) {
