@@ -51,13 +51,14 @@ type Indexer struct {
 	LimitMux sync.RWMutex
 
 	doAggregations bool
+	doSpider       bool
 
 	SendRemoteFollow       func(context.Context, string, uint) error
 	CreateExternalUser     func(context.Context, string) (*models.ActorInfo, error)
 	ApplyPDSClientSettings func(*xrpc.Client)
 }
 
-func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events.EventManager, didr did.Resolver, repoman *repomgr.RepoManager, crawl, aggregate bool) (*Indexer, error) {
+func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events.EventManager, didr did.Resolver, repoman *repomgr.RepoManager, crawl, aggregate, spider bool) (*Indexer, error) {
 	db.AutoMigrate(&models.FeedPost{})
 	db.AutoMigrate(&models.ActorInfo{})
 	db.AutoMigrate(&models.FollowRecord{})
@@ -72,6 +73,7 @@ func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events
 		didr:           didr,
 		Limiters:       make(map[uint]*rate.Limiter),
 		doAggregations: aggregate,
+		doSpider:       spider,
 		SendRemoteFollow: func(context.Context, string, uint) error {
 			return nil
 		},
@@ -181,10 +183,11 @@ func (ix *Indexer) handleRepoOp(ctx context.Context, evt *repomgr.RepoEvent, op 
 				return fmt.Errorf("handle recordCreate: %w", err)
 			}
 		}
-		if err := ix.crawlRecordReferences(ctx, op); err != nil {
-			return err
+		if ix.doSpider {
+			if err := ix.crawlRecordReferences(ctx, op); err != nil {
+				return err
+			}
 		}
-
 	case repomgr.EvtKindDeleteRecord:
 		if ix.doAggregations {
 			if err := ix.handleRecordDelete(ctx, evt, op, true); err != nil {
