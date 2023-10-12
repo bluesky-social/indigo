@@ -626,14 +626,15 @@ func (dp *DiskPersistence) Playback(ctx context.Context, since int64, cb func(*X
 			return err
 		}
 
-		// If we got a lastSeq, there may be more log files to read
-		if lastSeq != nil {
-			if err := dp.meta.Debug().Order("seq_start asc").Find(&logs, "seq_start >= ?", *lastSeq).Error; err != nil {
-				return err
-			}
-		} else {
+		// No lastSeq implies that we read until the end of known events
+		if lastSeq == nil {
 			break
 		}
+
+		if err := dp.meta.Debug().Order("seq_start asc").Find(&logs, "seq_start >= ?", *lastSeq).Error; err != nil {
+			return err
+		}
+		since = *lastSeq
 	}
 
 	return nil
@@ -648,7 +649,7 @@ func (dp *DiskPersistence) PlaybackLogfiles(ctx context.Context, since int64, cb
 		since = 0
 		if i == len(logFiles)-1 &&
 			lastSeq != nil &&
-			(*lastSeq-lf.SeqStart) == dp.eventsPerFile {
+			(*lastSeq-lf.SeqStart) == dp.eventsPerFile-1 {
 			// There may be more log files to read since the last one was full
 			return lastSeq, nil
 		}
