@@ -493,7 +493,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 
 	span.SetAttributes(attribute.Int64("uid", int64(uid)))
 
-	log.Infow("HandleExternalUserEvent", "pds", pdsid, "uid", uid, "since", since, "nrev", nrev)
+	log.Debugw("HandleExternalUserEvent", "pds", pdsid, "uid", uid, "since", since, "nrev", nrev)
 
 	unlock := rm.lockUser(ctx, uid)
 	defer unlock()
