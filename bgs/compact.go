@@ -359,7 +359,7 @@ func (c *Compactor) EnqueueAllRepos(ctx context.Context, bgs *BGS, lim int, shar
 		c.q.Append(r.Usr, fast)
 	}
 
-	log.Info("done enqueueing all repos")
+	log.Infow("done enqueueing all repos", "repos_enqueued", len(repos))
 
 	return nil
 }
