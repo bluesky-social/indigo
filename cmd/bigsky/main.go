@@ -307,7 +307,7 @@ func Bigsky(cctx *cli.Context) error {
 		if err := ix.HandleRepoEvent(ctx, evt); err != nil {
 			log.Errorw("failed to handle repo event", "err", err)
 		}
-	})
+	}, false)
 
 	var blobstore blobs.BlobStore
 	if bsdir := cctx.String("disk-blob-store"); bsdir != "" {

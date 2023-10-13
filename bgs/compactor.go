@@ -334,7 +334,7 @@ func (c *Compactor) EnqueueAllRepos(ctx context.Context, bgs *BGS, lim int, shar
 	)
 
 	if shardCount == 0 {
-		shardCount = 50
+		shardCount = 20
 	}
 
 	span.SetAttributes(attribute.Int("clampedShardCount", shardCount))
