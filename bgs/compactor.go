@@ -242,7 +242,7 @@ func (c *Compactor) doWork(bgs *BGS) {
 		state, err := c.compactNext(ctx, bgs)
 		if err != nil {
 			if err == errNoReposToCompact {
-				log.Info("no repos to compact, waiting and retrying")
+				log.Debug("no repos to compact, waiting and retrying")
 				time.Sleep(time.Second * 5)
 				continue
 			}
