@@ -16,7 +16,7 @@ type LeveledZap struct {
 
 // re-writes HTTP client ERROR to WARN level (because of retries)
 func (l LeveledZap) Error(msg string, keysAndValues ...interface{}) {
-	l.inner.Errorw(msg, keysAndValues...)
+	l.inner.Warnw(msg, keysAndValues...)
 }
 
 func (l LeveledZap) Warn(msg string, keysAndValues ...interface{}) {
@@ -27,7 +27,6 @@ func (l LeveledZap) Info(msg string, keysAndValues ...interface{}) {
 	l.inner.Infow(msg, keysAndValues...)
 }
 
-// re-writes HTTP client DEBUG to INFO level (this is where retry is logged)
 func (l LeveledZap) Debug(msg string, keysAndValues ...interface{}) {
 	l.inner.Debugw(msg, keysAndValues...)
 }
