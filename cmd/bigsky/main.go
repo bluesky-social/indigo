@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/api"
-	"github.com/bluesky-social/indigo/bgs"
+	libbgs "github.com/bluesky-social/indigo/bgs"
 	"github.com/bluesky-social/indigo/blobs"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/did"
@@ -335,7 +335,7 @@ func Bigsky(cctx *cli.Context) error {
 	}
 
 	log.Infow("constructing bgs")
-	bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, hr, !cctx.Bool("crawl-insecure-ws"))
+	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, hr, !cctx.Bool("crawl-insecure-ws"))
 	if err != nil {
 		return err
 	}

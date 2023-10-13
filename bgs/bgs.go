@@ -84,6 +84,9 @@ type BGS struct {
 	// Management of Resyncs
 	pdsResyncsLk sync.RWMutex
 	pdsResyncs   map[uint]*PDSResync
+
+	// Management of Compaction
+	compactor *Compactor
 }
 
 type PDSResync struct {
@@ -139,6 +142,10 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	if err := bgs.slurper.RestartAll(); err != nil {
 		return nil, err
 	}
+
+	compactor := NewCompactor(nil)
+	compactor.Start(bgs)
+	bgs.compactor = compactor
 
 	return bgs, nil
 }
@@ -362,6 +369,8 @@ func (bgs *BGS) Shutdown() []error {
 	if err := bgs.events.Shutdown(context.TODO()); err != nil {
 		errs = append(errs, err)
 	}
+
+	bgs.compactor.Shutdown()
 
 	return errs
 }
@@ -733,6 +742,22 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 	return &u, nil
 }
 
+func (bgs *BGS) lookupUserByUID(ctx context.Context, uid models.Uid) (*User, error) {
+	ctx, span := otel.Tracer("bgs").Start(ctx, "lookupUserByUID")
+	defer span.End()
+
+	var u User
+	if err := bgs.db.Find(&u, "id = ?", uid).Error; err != nil {
+		return nil, err
+	}
+
+	if u.ID == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	return &u, nil
+}
+
 func stringLink(lnk *lexutil.LexLink) string {
 	if lnk == nil {
 		return "<nil>"
@@ -783,7 +808,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return fmt.Errorf("rebase was true in event seq:%d,host:%s", evt.Seq, host.Host)
 		}
 
-		if host.ID != u.PDS {
+		if host.ID != u.PDS && u.PDS != 0 {
 			log.Warnw("received event for repo from different pds than expected", "repo", evt.Repo, "expPds", u.PDS, "gotPds", host.Host)
 			subj, err := bgs.createExternalUser(ctx, evt.Repo)
 			if err != nil {
@@ -1200,67 +1225,6 @@ func (bgs *BGS) ReverseTakedown(ctx context.Context, did string) error {
 	}
 
 	return nil
-}
-
-type compactionStats struct {
-	Completed map[models.Uid]*carstore.CompactionStats
-	Targets   []carstore.CompactionTarget
-}
-
-func (bgs *BGS) runRepoCompaction(ctx context.Context, lim int, dry bool, fast bool) (*compactionStats, error) {
-	ctx, span := otel.Tracer("bgs").Start(ctx, "runRepoCompaction")
-	defer span.End()
-
-	log.Warn("starting repo compaction")
-
-	runStart := time.Now()
-
-	repos, err := bgs.repoman.CarStore().GetCompactionTargets(ctx, 50)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get repos to compact: %w", err)
-	}
-
-	if lim > 0 && len(repos) > lim {
-		repos = repos[:lim]
-	}
-
-	if dry {
-		return &compactionStats{
-			Targets: repos,
-		}, nil
-	}
-
-	results := make(map[models.Uid]*carstore.CompactionStats)
-	for i, r := range repos {
-		select {
-		case <-ctx.Done():
-			return &compactionStats{
-				Targets:   repos,
-				Completed: results,
-			}, nil
-		default:
-		}
-
-		repostart := time.Now()
-		st, err := bgs.repoman.CarStore().CompactUserShards(context.Background(), r.Usr, fast)
-		if err != nil {
-			log.Errorf("failed to compact shards for user %d: %s", r.Usr, err)
-			continue
-		}
-		compactionDuration.Observe(time.Since(repostart).Seconds())
-		results[r.Usr] = st
-
-		if i%100 == 0 {
-			log.Warnf("compacted %d repos in %s", i+1, time.Since(runStart))
-		}
-	}
-
-	log.Warnf("compacted %d repos in %s", len(repos), time.Since(runStart))
-
-	return &compactionStats{
-		Targets:   repos,
-		Completed: results,
-	}, nil
 }
 
 type revCheckResult struct {

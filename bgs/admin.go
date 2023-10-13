@@ -431,11 +431,6 @@ func (bgs *BGS) handleAdminCompactAllRepos(e echo.Context) error {
 	ctx, span := otel.Tracer("bgs").Start(context.Background(), "adminCompactAllRepos")
 	defer span.End()
 
-	var dry bool
-	if strings.ToLower(e.QueryParam("dry")) == "true" {
-		dry = true
-	}
-
 	var fast bool
 	if strings.ToLower(e.QueryParam("fast")) == "true" {
 		fast = true
@@ -451,12 +446,14 @@ func (bgs *BGS) handleAdminCompactAllRepos(e echo.Context) error {
 		lim = v
 	}
 
-	stats, err := bgs.runRepoCompaction(ctx, lim, dry, fast)
+	err := bgs.compactor.EnqueueAllRepos(ctx, bgs, lim, 0, fast)
 	if err != nil {
-		return fmt.Errorf("compaction run failed: %w", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf("failed to enqueue all repos: %w", err))
 	}
 
-	return e.JSON(200, stats)
+	return e.JSON(200, map[string]any{
+		"success": "true",
+	})
 }
 
 func (bgs *BGS) handleAdminPostResyncPDS(e echo.Context) error {

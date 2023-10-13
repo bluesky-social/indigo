@@ -48,6 +48,11 @@ var compactionDuration = promauto.NewHistogram(prometheus.HistogramOpts{
 	Buckets: prometheus.ExponentialBuckets(0.001, 3, 14),
 })
 
+var compactionQueueDepth = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "compaction_queue_depth",
+	Help: "The current depth of the compaction queue",
+})
+
 var newUsersDiscovered = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "bgs_new_users_discovered",
 	Help: "The total number of new users discovered directly from the firehose (not from refs)",
