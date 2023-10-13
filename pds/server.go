@@ -104,7 +104,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, serkey *did.PrivKey, handleSu
 		if err := ix.HandleRepoEvent(ctx, evt); err != nil {
 			log.Errorw("handle repo event failed", "user", evt.User, "err", err)
 		}
-	})
+	}, true)
 
 	//ix.SendRemoteFollow = s.sendRemoteFollow
 	ix.CreateExternalUser = s.createExternalUser

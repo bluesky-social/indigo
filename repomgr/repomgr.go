@@ -45,8 +45,9 @@ type KeyManager interface {
 	SignForUser(context.Context, string, []byte) ([]byte, error)
 }
 
-func (rm *RepoManager) SetEventHandler(cb func(context.Context, *RepoEvent)) {
+func (rm *RepoManager) SetEventHandler(cb func(context.Context, *RepoEvent), hydrateRecords bool) {
 	rm.events = cb
+	rm.hydrateRecords = hydrateRecords
 }
 
 type RepoManager struct {
@@ -56,7 +57,8 @@ type RepoManager struct {
 	lklk      sync.Mutex
 	userLocks map[models.Uid]*userLock
 
-	events func(context.Context, *RepoEvent)
+	events         func(context.Context, *RepoEvent)
+	hydrateRecords bool
 }
 
 type ActorInfo struct {
@@ -250,19 +252,24 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user models.Uid, collec
 	}
 
 	if rm.events != nil {
+		op := RepoOp{
+			Kind:       EvtKindUpdateRecord,
+			Collection: collection,
+			Rkey:       rkey,
+			RecCid:     &cc,
+		}
+
+		if rm.hydrateRecords {
+			op.Record = rec
+		}
+
 		rm.events(ctx, &RepoEvent{
-			User:    user,
-			OldRoot: oldroot,
-			NewRoot: nroot,
-			Rev:     nrev,
-			Since:   &rev,
-			Ops: []RepoOp{{
-				Kind:       EvtKindUpdateRecord,
-				Collection: collection,
-				Rkey:       rkey,
-				Record:     rec,
-				RecCid:     &cc,
-			}},
+			User:      user,
+			OldRoot:   oldroot,
+			NewRoot:   nroot,
+			Rev:       nrev,
+			Since:     &rev,
+			Ops:       []RepoOp{op},
 			RepoSlice: rslice,
 		})
 	}
@@ -372,16 +379,21 @@ func (rm *RepoManager) InitNewActor(ctx context.Context, user models.Uid, handle
 	}
 
 	if rm.events != nil {
+		op := RepoOp{
+			Kind:       EvtKindCreateRecord,
+			Collection: "app.bsky.actor.profile",
+			Rkey:       "self",
+		}
+
+		if rm.hydrateRecords {
+			op.Record = profile
+		}
+
 		rm.events(ctx, &RepoEvent{
-			User:    user,
-			NewRoot: root,
-			Rev:     nrev,
-			Ops: []RepoOp{{
-				Kind:       EvtKindCreateRecord,
-				Collection: "app.bsky.actor.profile",
-				Rkey:       "self",
-				Record:     profile,
-			}},
+			User:      user,
+			NewRoot:   root,
+			Rev:       nrev,
+			Ops:       []RepoOp{op},
 			RepoSlice: rslice,
 		})
 	}
@@ -522,31 +534,40 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 
 		switch EventKind(op.Action) {
 		case EvtKindCreateRecord:
-			recid, rec, err := r.GetRecord(ctx, op.Path)
-			if err != nil {
-				return fmt.Errorf("reading changed record from car slice: %w", err)
-			}
-
-			evtops = append(evtops, RepoOp{
+			rop := RepoOp{
 				Kind:       EvtKindCreateRecord,
 				Collection: parts[0],
 				Rkey:       parts[1],
-				Record:     rec,
-				RecCid:     &recid,
-			})
-		case EvtKindUpdateRecord:
-			recid, rec, err := r.GetRecord(ctx, op.Path)
-			if err != nil {
-				return fmt.Errorf("reading changed record from car slice: %w", err)
+				RecCid:     (*cid.Cid)(op.Cid),
 			}
 
-			evtops = append(evtops, RepoOp{
+			if rm.hydrateRecords {
+				_, rec, err := r.GetRecord(ctx, op.Path)
+				if err != nil {
+					return fmt.Errorf("reading changed record from car slice: %w", err)
+				}
+				rop.Record = rec
+			}
+
+			evtops = append(evtops, rop)
+		case EvtKindUpdateRecord:
+			rop := RepoOp{
 				Kind:       EvtKindUpdateRecord,
 				Collection: parts[0],
 				Rkey:       parts[1],
-				Record:     rec,
-				RecCid:     &recid,
-			})
+				RecCid:     (*cid.Cid)(op.Cid),
+			}
+
+			if rm.hydrateRecords {
+				_, rec, err := r.GetRecord(ctx, op.Path)
+				if err != nil {
+					return fmt.Errorf("reading changed record from car slice: %w", err)
+				}
+
+				rop.Record = rec
+			}
+
+			evtops = append(evtops, rop)
 		case EvtKindDeleteRecord:
 			evtops = append(evtops, RepoOp{
 				Kind:       EvtKindDeleteRecord,
@@ -624,13 +645,18 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user models.Uid, writes [
 				return err
 			}
 
-			ops = append(ops, RepoOp{
+			op := RepoOp{
 				Kind:       EvtKindCreateRecord,
 				Collection: c.Collection,
 				Rkey:       rkey,
 				RecCid:     &cc,
-				Record:     c.Value.Val,
-			})
+			}
+
+			if rm.hydrateRecords {
+				op.Record = c.Value.Val
+			}
+
+			ops = append(ops, op)
 		case w.RepoApplyWrites_Update != nil:
 			u := w.RepoApplyWrites_Update
 
@@ -639,13 +665,18 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user models.Uid, writes [
 				return err
 			}
 
-			ops = append(ops, RepoOp{
+			op := RepoOp{
 				Kind:       EvtKindUpdateRecord,
 				Collection: u.Collection,
 				Rkey:       u.Rkey,
 				RecCid:     &cc,
-				Record:     u.Value.Val,
-			})
+			}
+
+			if rm.hydrateRecords {
+				op.Record = u.Value.Val
+			}
+
+			ops = append(ops, op)
 		case w.RepoApplyWrites_Delete != nil:
 			d := w.RepoApplyWrites_Delete
 
@@ -740,7 +771,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 		var ops []RepoOp
 		for _, op := range diffops {
 			repoOpsImported.Inc()
-			out, err := processOp(ctx, bs, op)
+			out, err := processOp(ctx, bs, op, rm.hydrateRecords)
 			if err != nil {
 				log.Errorw("failed to process repo op", "err", err, "path", op.Rpath, "repo", repoDid)
 			}
@@ -776,7 +807,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 	return nil
 }
 
-func processOp(ctx context.Context, bs blockstore.Blockstore, op *mst.DiffOp) (*RepoOp, error) {
+func processOp(ctx context.Context, bs blockstore.Blockstore, op *mst.DiffOp, hydrateRecords bool) (*RepoOp, error) {
 	parts := strings.SplitN(op.Rpath, "/", 2)
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("repo mst had invalid rpath: %q", op.Rpath)
@@ -784,10 +815,6 @@ func processOp(ctx context.Context, bs blockstore.Blockstore, op *mst.DiffOp) (*
 
 	switch op.Op {
 	case "add", "mut":
-		blk, err := bs.Get(ctx, op.NewCid)
-		if err != nil {
-			return nil, err
-		}
 
 		kind := EvtKindCreateRecord
 		if op.Op == "mut" {
@@ -801,15 +828,22 @@ func processOp(ctx context.Context, bs blockstore.Blockstore, op *mst.DiffOp) (*
 			RecCid:     &op.NewCid,
 		}
 
-		rec, err := lexutil.CborDecodeValue(blk.RawData())
-		if err != nil {
-			if !errors.Is(err, lexutil.ErrUnrecognizedType) {
+		if hydrateRecords {
+			blk, err := bs.Get(ctx, op.NewCid)
+			if err != nil {
 				return nil, err
 			}
 
-			log.Warnf("failed processing repo diff: %s", err)
-		} else {
-			outop.Record = rec
+			rec, err := lexutil.CborDecodeValue(blk.RawData())
+			if err != nil {
+				if !errors.Is(err, lexutil.ErrUnrecognizedType) {
+					return nil, err
+				}
+
+				log.Warnf("failed processing repo diff: %s", err)
+			} else {
+				outop.Record = rec
+			}
 		}
 
 		return outop, nil
