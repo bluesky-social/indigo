@@ -127,7 +127,7 @@ type CompactorOptions struct {
 
 func DefaultCompactorOptions() *CompactorOptions {
 	return &CompactorOptions{
-		RequeueInterval:   time.Hour * 12,
+		RequeueInterval:   time.Hour * 4,
 		RequeueLimit:      0,
 		RequeueShardCount: 50,
 		RequeueFast:       true,
