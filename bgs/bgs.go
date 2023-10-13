@@ -808,7 +808,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return fmt.Errorf("rebase was true in event seq:%d,host:%s", evt.Seq, host.Host)
 		}
 
-		if host.ID != u.PDS {
+		if host.ID != u.PDS && u.PDS != 0 {
 			log.Warnw("received event for repo from different pds than expected", "repo", evt.Repo, "expPds", u.PDS, "gotPds", host.Host)
 			subj, err := bgs.createExternalUser(ctx, evt.Repo)
 			if err != nil {
