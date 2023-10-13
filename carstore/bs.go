@@ -1370,7 +1370,7 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid, skip
 		// still around but we're doing that anyways since compaction isnt a
 		// perfect process
 
-		log.Warnw("repo has dirty dupes", "count", len(dupes), "uid", user, "staleRefs", len(staleRefs), "blockRefs", len(brefs))
+		log.Debugw("repo has dirty dupes", "count", len(dupes), "uid", user, "staleRefs", len(staleRefs), "blockRefs", len(brefs))
 
 		//return nil, fmt.Errorf("WIP: not currently handling this case")
 	}
