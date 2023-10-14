@@ -38,6 +38,7 @@ require (
 	github.com/labstack/echo/v4 v4.11.1
 	github.com/labstack/gommon v0.4.0
 	github.com/lestrrat-go/jwx/v2 v2.0.12
+	github.com/lib/pq v1.10.9
 	github.com/minio/sha256-simd v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mr-tron/base58 v1.2.0

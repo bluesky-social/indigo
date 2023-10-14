@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/models"
+	"github.com/bluesky-social/indigo/util"
+	lru "github.com/hashicorp/golang-lru"
 
 	blockformat "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
@@ -44,6 +46,8 @@ type CarStore struct {
 
 	lscLk          sync.Mutex
 	lastShardCache map[models.Uid]*CarShard
+
+	cacheCache *lru.TwoQueueCache
 }
 
 func NewCarStore(meta *gorm.DB, root string) (*CarStore, error) {
@@ -63,10 +67,16 @@ func NewCarStore(meta *gorm.DB, root string) (*CarStore, error) {
 		return nil, err
 	}
 
+	cc, err := lru.New2Q(10000)
+	if err != nil {
+		return nil, err
+	}
+
 	return &CarStore{
 		meta:           meta,
 		rootDir:        root,
 		lastShardCache: make(map[models.Uid]*CarShard),
+		cacheCache:     cc,
 	}, nil
 }
 
@@ -390,14 +400,9 @@ func (cs *CarStore) NewDeltaSession(ctx context.Context, user models.Uid, since 
 	}
 
 	return &DeltaSession{
-		fresh: blockstore.NewBlockstore(datastore.NewMapDatastore()),
-		blks:  make(map[cid.Cid]blockformat.Block),
-		base: &userView{
-			user:     user,
-			cs:       cs,
-			prefetch: true,
-			cache:    make(map[cid.Cid]blockformat.Block),
-		},
+		fresh:   blockstore.NewBlockstore(datastore.NewMapDatastore()),
+		blks:    make(map[cid.Cid]blockformat.Block),
+		base:    cs.cacheForUser(user, true),
 		user:    user,
 		baseCid: lastShard.Root.CID,
 		cs:      cs,
@@ -408,16 +413,33 @@ func (cs *CarStore) NewDeltaSession(ctx context.Context, user models.Uid, since 
 
 func (cs *CarStore) ReadOnlySession(user models.Uid) (*DeltaSession, error) {
 	return &DeltaSession{
-		base: &userView{
-			user:     user,
-			cs:       cs,
-			prefetch: false,
-			cache:    make(map[cid.Cid]blockformat.Block),
-		},
+		base:     cs.cacheForUser(user, false),
 		readonly: true,
 		user:     user,
 		cs:       cs,
 	}, nil
+}
+
+func (cs *CarStore) cacheForUser(user models.Uid, prefetch bool) blockstore.Blockstore {
+	return &userView{
+		user:     user,
+		cs:       cs,
+		prefetch: prefetch,
+		cache:    make(map[cid.Cid]blockformat.Block),
+	}
+
+	c, ok := cs.cacheCache.Get(user)
+	if !ok {
+		c, _ = lru.New2Q(100)
+		cs.cacheCache.Add(user, c)
+	}
+
+	return util.NewCacheBlockstore(&userView{
+		user:     user,
+		cs:       cs,
+		prefetch: prefetch,
+		cache:    make(map[cid.Cid]blockformat.Block),
+	}, c.(*lru.TwoQueueCache))
 }
 
 func (cs *CarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev string, incremental bool, w io.Writer) error {
@@ -737,8 +759,6 @@ func (cs *CarStore) putShard(ctx context.Context, shard *CarShard, brefs []map[s
 	ctx, span := otel.Tracer("carstore").Start(ctx, "putShard")
 	defer span.End()
 
-	// TODO: there should be a way to create the shard and block_refs that
-	// reference it in the same query, would save a lot of time
 	tx := cs.meta.WithContext(ctx).Begin()
 
 	if err := tx.WithContext(ctx).Create(shard).Error; err != nil {
@@ -817,6 +837,7 @@ func createInBatches(ctx context.Context, tx *gorm.DB, data []map[string]any, ba
 		if err := tx.WithContext(ctx).Exec(query, values...).Error; err != nil {
 			return err
 		}
+
 	}
 	return nil
 }
