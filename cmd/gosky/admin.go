@@ -595,7 +595,8 @@ var listInviteTreeCmd = &cli.Command{
 
 			rep, err := atproto.AdminGetRepo(ctx, xrpcc, next)
 			if err != nil {
-				return fmt.Errorf("getRepo %s: %w", did, err)
+				fmt.Printf("Failed to getRepo for DID %s: %s\n", next, err.Error())
+				continue
 			}
 			fmt.Print(next)
 
