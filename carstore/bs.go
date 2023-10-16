@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluesky-social/indigo/models"
@@ -165,6 +166,9 @@ func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
 	return count > 0, nil
 }
 
+var CacheHits int64
+var CacheMiss int64
+
 func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, error) {
 	if !k.Defined() {
 		return nil, fmt.Errorf("attempted to 'get' undefined cid")
@@ -172,9 +176,12 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, erro
 	if uv.cache != nil {
 		blk, ok := uv.cache[k]
 		if ok {
+			atomic.AddInt64(&CacheHits, 1)
+
 			return blk, nil
 		}
 	}
+	atomic.AddInt64(&CacheMiss, 1)
 
 	// TODO: for now, im using a join to ensure we only query blocks from the
 	// correct user. maybe it makes sense to put the user in the blockRef
