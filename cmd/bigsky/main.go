@@ -256,7 +256,7 @@ func Bigsky(cctx *cli.Context) error {
 	}
 	mr.AddHandler("web", &webr)
 
-	cachedidr := plc.NewCachingDidResolver(mr, time.Minute*5, 1000)
+	cachedidr := plc.NewCachingDidResolver(mr, time.Minute*5, 500000)
 
 	kmgr := indexer.NewKeyManager(cachedidr, nil)
 
