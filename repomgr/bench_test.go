@@ -2,6 +2,7 @@ package repomgr
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -74,4 +75,6 @@ func BenchmarkRepoMgrCreates(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+
+	fmt.Println(carstore.CacheHits, carstore.CacheMiss)
 }
