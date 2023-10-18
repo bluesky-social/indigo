@@ -810,6 +810,9 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		if host.ID != u.PDS && u.PDS != 0 {
 			log.Warnw("received event for repo from different pds than expected", "repo", evt.Repo, "expPds", u.PDS, "gotPds", host.Host)
+			// Flush any cached DID documents for this user
+			bgs.didr.FlushCacheFor(env.RepoHandle.Did)
+
 			subj, err := bgs.createExternalUser(ctx, evt.Repo)
 			if err != nil {
 				return err
