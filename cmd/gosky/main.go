@@ -73,6 +73,7 @@ func run(args []string) {
 		},
 		&cli.StringFlag{
 			Name:    "plc",
+			Usage:   "method, hostname, and port of PLC registry",
 			Value:   "https://plc.directory",
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
