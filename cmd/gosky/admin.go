@@ -20,6 +20,13 @@ import (
 var adminCmd = &cli.Command{
 	Name:  "admin",
 	Usage: "sub-commands for PDS administration",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "admin-password",
+			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
+			Required: true,
+		},
+	},
 	Subcommands: []*cli.Command{
 		buildInviteTreeCmd,
 		checkUserCmd,
@@ -36,17 +43,6 @@ var adminCmd = &cli.Command{
 var checkUserCmd = &cli.Command{
 	Name: "checkUser",
 	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:    "plc",
-			Usage:   "method, hostname, and port of PLC registry",
-			Value:   "https://plc.directory",
-			EnvVars: []string{"ATP_PLC_HOST"},
-		},
 		&cli.BoolFlag{
 			Name: "raw",
 		},
@@ -173,11 +169,6 @@ var checkUserCmd = &cli.Command{
 var buildInviteTreeCmd = &cli.Command{
 	Name: "buildInviteTree",
 	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
 		&cli.StringFlag{
 			Name: "invite-list",
 		},
@@ -365,17 +356,6 @@ var reportsCmd = &cli.Command{
 var listReportsCmd = &cli.Command{
 	Name: "list",
 	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:    "plc",
-			Usage:   "method, hostname, and port of PLC registry",
-			Value:   "https://plc.directory",
-			EnvVars: []string{"ATP_PLC_HOST"},
-		},
 		&cli.BoolFlag{
 			Name: "raw",
 		},
@@ -434,13 +414,6 @@ var listReportsCmd = &cli.Command{
 
 var disableInvitesCmd = &cli.Command{
 	Name: "disableInvites",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
-	},
 	Action: func(cctx *cli.Context) error {
 
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
@@ -482,13 +455,6 @@ var disableInvitesCmd = &cli.Command{
 
 var enableInvitesCmd = &cli.Command{
 	Name: "enableInvites",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
-	},
 	Action: func(cctx *cli.Context) error {
 
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
@@ -521,17 +487,6 @@ var enableInvitesCmd = &cli.Command{
 var listInviteTreeCmd = &cli.Command{
 	Name: "listInviteTree",
 	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:    "plc",
-			Usage:   "method, hostname, and port of PLC registry",
-			Value:   "https://plc.directory",
-			EnvVars: []string{"ATP_PLC_HOST"},
-		},
 		&cli.BoolFlag{
 			Name:  "disable-invites",
 			Usage: "additionally disable invites for all printed DIDs",
@@ -632,11 +587,6 @@ var takeDownAccountCmd = &cli.Command{
 	Name: "takeDownAccount",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
-		&cli.StringFlag{
 			Name:     "reason",
 			Usage:    "why the account is being taken down",
 			Required: true,
@@ -736,13 +686,6 @@ var takeDownAccountCmd = &cli.Command{
 
 var getModerationActionsCmd = &cli.Command{
 	Name: "get-moderation-actions",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
-	},
 	Action: func(cctx *cli.Context) error {
 
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
@@ -784,11 +727,6 @@ var getModerationActionsCmd = &cli.Command{
 var createInviteCmd = &cli.Command{
 	Name: "createInvites",
 	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
 		&cli.IntFlag{
 			Name:  "useCount",
 			Value: 1,
