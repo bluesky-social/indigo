@@ -24,7 +24,7 @@ var syncCmd = &cli.Command{
 }
 
 var syncGetRepoCmd = &cli.Command{
-	Name:      "getRepo",
+	Name:      "get-repo",
 	Usage:     "download repo from account's PDS to local file (or '-' for stdout). for hex combine with 'xxd -ps -u -c 0'",
 	ArgsUsage: `<at-identifier> [<car-file-path>]`,
 	Action: func(cctx *cli.Context) error {
@@ -73,7 +73,7 @@ var syncGetRepoCmd = &cli.Command{
 }
 
 var syncGetRootCmd = &cli.Command{
-	Name:      "getRoot",
+	Name:      "get-root",
 	ArgsUsage: `<did>`,
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
@@ -95,7 +95,7 @@ var syncGetRootCmd = &cli.Command{
 }
 
 var syncListReposCmd = &cli.Command{
-	Name: "listRepos",
+	Name: "list-repos",
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {

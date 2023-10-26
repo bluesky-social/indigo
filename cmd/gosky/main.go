@@ -129,7 +129,7 @@ type cachedHandle struct {
 }
 
 var readRepoStreamCmd = &cli.Command{
-	Name: "readStream",
+	Name: "read-stream",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name: "json",
@@ -341,7 +341,7 @@ func unpackRecords(blks []byte, ops []*atproto.SyncSubscribeRepos_RepoOp) ([]any
 }
 
 var getRecordCmd = &cli.Command{
-	Name: "getRecord",
+	Name: "get-record",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name: "repo",
@@ -460,7 +460,7 @@ func needArgs(cctx *cli.Context, name ...string) ([]string, error) {
 }
 
 var createFeedGeneratorCmd = &cli.Command{
-	Name: "createFeedGen",
+	Name: "create-feed-gen",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "name",

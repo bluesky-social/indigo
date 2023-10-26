@@ -25,7 +25,7 @@ var accountCmd = &cli.Command{
 }
 
 var createSessionCmd = &cli.Command{
-	Name:      "createSession",
+	Name:      "create-session",
 	ArgsUsage: `<handle> <password>`,
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
@@ -97,7 +97,7 @@ var newAccountCmd = &cli.Command{
 }
 
 var resetPasswordCmd = &cli.Command{
-	Name:      "resetPassword",
+	Name:      "reset-password",
 	ArgsUsage: `<email>`,
 	Action: func(cctx *cli.Context) error {
 		ctx := context.TODO()
@@ -141,7 +141,7 @@ var resetPasswordCmd = &cli.Command{
 }
 
 var refreshAuthTokenCmd = &cli.Command{
-	Name:  "refreshSession",
+	Name:  "refresh-session",
 	Usage: "refresh your auth token and overwrite it with new auth info",
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)

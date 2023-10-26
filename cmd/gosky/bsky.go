@@ -214,7 +214,7 @@ var bskyGetFeedCmd = &cli.Command{
 }
 
 var bskyActorGetSuggestionsCmd = &cli.Command{
-	Name:      "actorGetSuggestions",
+	Name:      "actor-get-suggestions",
 	ArgsUsage: "[author]",
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)

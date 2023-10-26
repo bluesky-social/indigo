@@ -41,7 +41,7 @@ var adminCmd = &cli.Command{
 }
 
 var checkUserCmd = &cli.Command{
-	Name: "checkUser",
+	Name: "check-user",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name: "raw",
@@ -167,7 +167,7 @@ var checkUserCmd = &cli.Command{
 }
 
 var buildInviteTreeCmd = &cli.Command{
-	Name: "buildInviteTree",
+	Name: "build-invite-tree",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name: "invite-list",
@@ -413,7 +413,7 @@ var listReportsCmd = &cli.Command{
 }
 
 var disableInvitesCmd = &cli.Command{
-	Name: "disableInvites",
+	Name: "disable-invites",
 	Action: func(cctx *cli.Context) error {
 
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
@@ -454,7 +454,7 @@ var disableInvitesCmd = &cli.Command{
 }
 
 var enableInvitesCmd = &cli.Command{
-	Name: "enableInvites",
+	Name: "enable-invites",
 	Action: func(cctx *cli.Context) error {
 
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
@@ -485,7 +485,7 @@ var enableInvitesCmd = &cli.Command{
 }
 
 var listInviteTreeCmd = &cli.Command{
-	Name: "listInviteTree",
+	Name: "list-invite-tree",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name:  "disable-invites",
@@ -584,7 +584,7 @@ var listInviteTreeCmd = &cli.Command{
 }
 
 var takeDownAccountCmd = &cli.Command{
-	Name: "takeDownAccount",
+	Name: "account-takedown",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "reason",
@@ -725,7 +725,7 @@ var getModerationActionsCmd = &cli.Command{
 }
 
 var createInviteCmd = &cli.Command{
-	Name: "createInvites",
+	Name: "create-invites",
 	Flags: []cli.Flag{
 		&cli.IntFlag{
 			Name:  "useCount",
