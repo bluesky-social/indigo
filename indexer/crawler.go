@@ -219,6 +219,8 @@ func (c *CrawlDispatcher) Crawl(ctx context.Context, ai *models.ActorInfo) error
 		panic("must have pds for user in queue")
 	}
 
+	userCrawlsEnqueued.Inc()
+
 	ctx, span := otel.Tracer("crawler").Start(ctx, "addToCrawler")
 	defer span.End()
 

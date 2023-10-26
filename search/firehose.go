@@ -18,6 +18,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/util/version"
 
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
@@ -63,13 +64,19 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 	if cur != 0 {
 		u.RawQuery = fmt.Sprintf("cursor=%d", cur)
 	}
-	con, _, err := d.Dial(u.String(), http.Header{})
+	con, _, err := d.Dial(u.String(), http.Header{
+		"User-Agent": []string{fmt.Sprintf("palomar/%s", version.Version)},
+	})
 	if err != nil {
 		return fmt.Errorf("events dial failed: %w", err)
 	}
 
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
+			ctx := context.Background()
+			ctx, span := tracer.Start(ctx, "RepoCommit")
+			defer span.End()
+
 			defer func() {
 				if evt.Seq%50 == 0 {
 					if err := s.updateLastCursor(evt.Seq); err != nil {
@@ -153,7 +160,16 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 
 		},
 		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-			if err := s.updateUserHandle(ctx, evt.Did, evt.Handle); err != nil {
+			ctx := context.Background()
+			ctx, span := tracer.Start(ctx, "RepoHandle")
+			defer span.End()
+
+			did, err := syntax.ParseDID(evt.Did)
+			if err != nil {
+				s.logger.Error("bad DID in RepoHandle event", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
+				return nil
+			}
+			if err := s.updateUserHandle(ctx, did, evt.Handle); err != nil {
 				// TODO: handle this case (instead of return nil)
 				s.logger.Error("failed to update user handle", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
 			}

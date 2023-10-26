@@ -3,6 +3,7 @@ package carstore
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"github.com/ipfs/go-cid"
 	flatfs "github.com/ipfs/go-ds-flatfs"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	ipld "github.com/ipfs/go-ipld-format"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -138,9 +140,9 @@ func TestBasicOperation(t *testing.T) {
 	if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
 		t.Fatal(err)
 	}
-	checkRepo(t, buf, recs)
+	checkRepo(t, cs, buf, recs)
 
-	if _, err := cs.CompactUserShards(ctx, 1); err != nil {
+	if _, err := cs.CompactUserShards(ctx, 1, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -148,7 +150,7 @@ func TestBasicOperation(t *testing.T) {
 	if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
 		t.Fatal(err)
 	}
-	checkRepo(t, buf, recs)
+	checkRepo(t, cs, buf, recs)
 }
 
 func TestRepeatedCompactions(t *testing.T) {
@@ -177,8 +179,10 @@ func TestRepeatedCompactions(t *testing.T) {
 	var recs []cid.Cid
 	head := ncid
 
+	var lastRec string
+
 	for loop := 0; loop < 50; loop++ {
-		for i := 0; i < 100; i++ {
+		for i := 0; i < 20; i++ {
 			ds, err := cs.NewDeltaSession(ctx, 1, &rev)
 			if err != nil {
 				t.Fatal(err)
@@ -188,15 +192,22 @@ func TestRepeatedCompactions(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if i%4 == 3 {
+				if err := rr.DeleteRecord(ctx, lastRec); err != nil {
+					t.Fatal(err)
+				}
+				recs = recs[:len(recs)-1]
+			} else {
+				rc, tid, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
+					Text: fmt.Sprintf("hey look its a tweet %d", time.Now().UnixNano()),
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
 
-			rc, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
-				Text: fmt.Sprintf("hey look its a tweet %d", time.Now().UnixNano()),
-			})
-			if err != nil {
-				t.Fatal(err)
+				recs = append(recs, rc)
+				lastRec = "app.bsky.feed.post/" + tid
 			}
-
-			recs = append(recs, rc)
 
 			kmgr := &util.FakeKeyManager{}
 			nroot, nrev, err := rr.Commit(ctx, kmgr.SignForUser)
@@ -217,7 +228,7 @@ func TestRepeatedCompactions(t *testing.T) {
 			head = nroot
 		}
 		fmt.Println("Run compaction", loop)
-		st, err := cs.CompactUserShards(ctx, 1)
+		st, err := cs.CompactUserShards(ctx, 1, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -228,21 +239,21 @@ func TestRepeatedCompactions(t *testing.T) {
 		if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
 			t.Fatal(err)
 		}
-		checkRepo(t, buf, recs)
+		checkRepo(t, cs, buf, recs)
 	}
 
 	buf := new(bytes.Buffer)
 	if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
 		t.Fatal(err)
 	}
-	checkRepo(t, buf, recs)
+	checkRepo(t, cs, buf, recs)
 }
 
-func checkRepo(t *testing.T, r io.Reader, expRecs []cid.Cid) {
+func checkRepo(t *testing.T, cs *CarStore, r io.Reader, expRecs []cid.Cid) {
 	t.Helper()
 	rep, err := repo.ReadRepoFromCar(context.TODO(), r)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal("Reading repo: ", err)
 	}
 
 	set := make(map[cid.Cid]bool)
@@ -259,7 +270,23 @@ func checkRepo(t *testing.T, r io.Reader, expRecs []cid.Cid) {
 		return nil
 
 	}); err != nil {
-		t.Fatal(err)
+		var ierr ipld.ErrNotFound
+		if errors.As(err, &ierr) {
+			fmt.Println("matched error")
+			bs, err := cs.ReadOnlySession(1)
+			if err != nil {
+				fmt.Println("couldnt read session: ", err)
+			}
+
+			blk, err := bs.Get(context.TODO(), ierr.Cid)
+			if err != nil {
+				fmt.Println("also failed the local get: ", err)
+			} else {
+				fmt.Println("LOCAL GET SUCCESS", len(blk.RawData()))
+			}
+		}
+
+		t.Fatal("walking repo: ", err)
 	}
 
 	if len(set) > 0 {

@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,6 +13,12 @@ import (
 	"time"
 
 	_ "github.com/joho/godotenv/autoload"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/sdk/resource"
+	tracesdk "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"golang.org/x/time/rate"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -42,6 +50,11 @@ func run(args []string) error {
 			Name:    "elastic-cert-file",
 			Usage:   "certificate file path",
 			EnvVars: []string{"ES_CERT_FILE", "ELASTIC_CERT_FILE"},
+		},
+		&cli.BoolFlag{
+			Name:    "elastic-insecure-ssl",
+			Usage:   "if true, disable SSL cert validation",
+			EnvVars: []string{"ES_INSECURE_SSL"},
 		},
 		&cli.StringFlag{
 			Name:    "elastic-username",
@@ -121,6 +134,12 @@ var runCmd = &cli.Command{
 			Value:   ":3999",
 			EnvVars: []string{"PALOMAR_BIND"},
 		},
+		&cli.StringFlag{
+			Name:    "metrics-listen",
+			Usage:   "IP or address, and port, to listen on for metrics APIs",
+			Value:   ":3998",
+			EnvVars: []string{"PALOMAR_METRICS_LISTEN"},
+		},
 		&cli.IntFlag{
 			Name:    "bgs-sync-rate-limit",
 			Usage:   "max repo sync (checkout) requests per second to upstream (BGS)",
@@ -145,6 +164,41 @@ var runCmd = &cli.Command{
 			Level: slog.LevelInfo,
 		}))
 		slog.SetDefault(logger)
+
+		// Enable OTLP HTTP exporter
+		// For relevant environment variables:
+		// https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace#readme-environment-variables
+		// At a minimum, you need to set
+		// OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+		if ep := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); ep != "" {
+			slog.Info("setting up trace exporter", "endpoint", ep)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			exp, err := otlptracehttp.New(ctx)
+			if err != nil {
+				log.Fatal("failed to create trace exporter", "error", err)
+			}
+			defer func() {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+				if err := exp.Shutdown(ctx); err != nil {
+					slog.Error("failed to shutdown trace exporter", "error", err)
+				}
+			}()
+
+			tp := tracesdk.NewTracerProvider(
+				tracesdk.WithBatcher(exp),
+				tracesdk.WithResource(resource.NewWithAttributes(
+					semconv.SchemaURL,
+					semconv.ServiceNameKey.String("palomar"),
+					attribute.String("env", os.Getenv("ENVIRONMENT")),         // DataDog
+					attribute.String("environment", os.Getenv("ENVIRONMENT")), // Others
+					attribute.Int64("ID", 1),
+				)),
+			)
+			otel.SetTracerProvider(tp)
+		}
 
 		db, err := cliutil.SetupDatabase(cctx.String("database-url"), cctx.Int("max-metadb-connections"))
 		if err != nil {
@@ -186,6 +240,13 @@ var runCmd = &cli.Command{
 		}
 
 		go func() {
+			if err := srv.RunMetrics(cctx.String("metrics-listen")); err != nil {
+				slog.Error("failed to start metrics endpoint", "error", err)
+				panic(fmt.Errorf("failed to start metrics endpoint: %w", err))
+			}
+		}()
+
+		go func() {
 			srv.RunAPI(cctx.String("bind"))
 		}()
 
@@ -206,12 +267,8 @@ var runCmd = &cli.Command{
 }
 
 var elasticCheckCmd = &cli.Command{
-	Name: "elastic-check",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name: "elastic-cert",
-		},
-	},
+	Name:  "elastic-check",
+	Flags: []cli.Flag{},
 	Action: func(cctx *cli.Context) error {
 		escli, err := createEsClient(cctx)
 		if err != nil {
@@ -340,6 +397,8 @@ func createEsClient(cctx *cli.Context) (*es.Client, error) {
 		cert = b
 	}
 
+	insecure := cctx.Bool("elastic-insecure-ssl")
+
 	cfg := es.Config{
 		Addresses: addrs,
 		Username:  cctx.String("elastic-username"),
@@ -347,6 +406,9 @@ func createEsClient(cctx *cli.Context) (*es.Client, error) {
 		CACert:    cert,
 		Transport: &http.Transport{
 			MaxIdleConnsPerHost: 20,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: insecure,
+			},
 		},
 	}
 

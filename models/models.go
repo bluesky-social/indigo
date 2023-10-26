@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"time"
 
 	"gorm.io/gorm"
@@ -35,8 +36,8 @@ type RepostRecord struct {
 
 type ActorInfo struct {
 	gorm.Model
-	Uid         Uid    `gorm:"uniqueindex"`
-	Handle      string `gorm:"uniqueindex"`
+	Uid         Uid            `gorm:"uniqueindex"`
+	Handle      sql.NullString `gorm:"uniqueindex"`
 	DisplayName string
 	Did         string `gorm:"uniqueindex"`
 	Following   int64
@@ -50,7 +51,7 @@ type ActorInfo struct {
 func (ai *ActorInfo) ActorRef() *bsky.ActorDefs_ProfileViewBasic {
 	return &bsky.ActorDefs_ProfileViewBasic{
 		Did:         ai.Did,
-		Handle:      ai.Handle,
+		Handle:      ai.Handle.String,
 		DisplayName: &ai.DisplayName,
 	}
 }
@@ -59,7 +60,7 @@ func (ai *ActorInfo) ActorRef() *bsky.ActorDefs_ProfileViewBasic {
 func (ai *ActorInfo) ActorView() *bsky.ActorDefs_ProfileView {
 	return &bsky.ActorDefs_ProfileView{
 		Did:         ai.Did,
-		Handle:      ai.Handle,
+		Handle:      ai.Handle.String,
 		DisplayName: &ai.DisplayName,
 	}
 }

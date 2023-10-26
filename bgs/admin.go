@@ -1,6 +1,7 @@
 package bgs
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/models"
 	"github.com/labstack/echo/v4"
 	dto "github.com/prometheus/client_model/go"
+	"go.opentelemetry.io/otel"
 	"golang.org/x/time/rate"
 	"gorm.io/gorm"
 )
@@ -396,11 +398,17 @@ func (bgs *BGS) handleAdminChangePDSCrawlLimit(e echo.Context) error {
 }
 
 func (bgs *BGS) handleAdminCompactRepo(e echo.Context) error {
-	ctx := e.Request().Context()
+	ctx, span := otel.Tracer("bgs").Start(context.Background(), "adminCompactRepo")
+	defer span.End()
 
 	did := e.QueryParam("did")
 	if did == "" {
 		return fmt.Errorf("must pass a did")
+	}
+
+	var fast bool
+	if strings.ToLower(e.QueryParam("fast")) == "true" {
+		fast = true
 	}
 
 	u, err := bgs.lookupUserByDid(ctx, did)
@@ -408,7 +416,7 @@ func (bgs *BGS) handleAdminCompactRepo(e echo.Context) error {
 		return fmt.Errorf("no such user: %w", err)
 	}
 
-	stats, err := bgs.repoman.CarStore().CompactUserShards(ctx, u.ID)
+	stats, err := bgs.repoman.CarStore().CompactUserShards(ctx, u.ID, fast)
 	if err != nil {
 		return fmt.Errorf("compaction failed: %w", err)
 	}
@@ -420,13 +428,106 @@ func (bgs *BGS) handleAdminCompactRepo(e echo.Context) error {
 }
 
 func (bgs *BGS) handleAdminCompactAllRepos(e echo.Context) error {
-	ctx := e.Request().Context()
+	ctx, span := otel.Tracer("bgs").Start(context.Background(), "adminCompactAllRepos")
+	defer span.End()
 
-	if err := bgs.runRepoCompaction(ctx); err != nil {
-		return fmt.Errorf("compaction run failed: %w", err)
+	var fast bool
+	if strings.ToLower(e.QueryParam("fast")) == "true" {
+		fast = true
+	}
+
+	lim := 50
+	if limstr := e.QueryParam("limit"); limstr != "" {
+		v, err := strconv.Atoi(limstr)
+		if err != nil {
+			return err
+		}
+
+		lim = v
+	}
+
+	err := bgs.compactor.EnqueueAllRepos(ctx, bgs, lim, 0, fast)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf("failed to enqueue all repos: %w", err))
 	}
 
 	return e.JSON(200, map[string]any{
 		"success": "true",
+	})
+}
+
+func (bgs *BGS) handleAdminPostResyncPDS(e echo.Context) error {
+	host := strings.TrimSpace(e.QueryParam("host"))
+	if host == "" {
+		return fmt.Errorf("must pass a host")
+	}
+
+	// Get the PDS from the DB
+	var pds models.PDS
+	if err := bgs.db.Where("host = ?", host).First(&pds).Error; err != nil {
+		return err
+	}
+
+	go func() {
+		ctx := context.Background()
+		err := bgs.ResyncPDS(ctx, pds)
+		if err != nil {
+			log.Errorw("failed to resync PDS", "err", err, "pds", pds.Host)
+		}
+	}()
+
+	return e.JSON(200, map[string]any{
+		"message": "resync started...",
+	})
+}
+
+func (bgs *BGS) handleAdminGetResyncPDS(e echo.Context) error {
+	host := strings.TrimSpace(e.QueryParam("host"))
+	if host == "" {
+		return fmt.Errorf("must pass a host")
+	}
+
+	// Get the PDS from the DB
+	var pds models.PDS
+	if err := bgs.db.Where("host = ?", host).First(&pds).Error; err != nil {
+		return err
+	}
+
+	resync, found := bgs.GetResync(pds)
+	if !found {
+		return &echo.HTTPError{
+			Code:    404,
+			Message: "no resync found for given PDS",
+		}
+	}
+
+	return e.JSON(200, map[string]any{
+		"resync": resync,
+	})
+}
+
+func (bgs *BGS) handleAdminResetRepo(e echo.Context) error {
+	ctx := e.Request().Context()
+
+	did := e.QueryParam("did")
+	if did == "" {
+		return fmt.Errorf("must pass a did")
+	}
+
+	ai, err := bgs.Index.LookupUserByDid(ctx, did)
+	if err != nil {
+		return fmt.Errorf("no such user: %w", err)
+	}
+
+	if err := bgs.repoman.ResetRepo(ctx, ai.Uid); err != nil {
+		return err
+	}
+
+	if err := bgs.Index.Crawler.Crawl(ctx, ai); err != nil {
+		return err
+	}
+
+	return e.JSON(200, map[string]any{
+		"success": true,
 	})
 }

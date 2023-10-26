@@ -102,7 +102,8 @@ var checkUserCmd = &cli.Command{
 				} else {
 					handle, _, err := api.ResolveDidToHandle(ctx, xrpcc, plcc, phr, fa)
 					if err != nil {
-						return fmt.Errorf("resolve did %q: %w", fa, err)
+						fmt.Println("ERROR: failed to resolve inviter: ", err)
+						handle = fa
 					}
 
 					invby = handle
@@ -552,7 +553,8 @@ var listInviteTreeCmd = &cli.Command{
 
 			rep, err := atproto.AdminGetRepo(ctx, xrpcc, next)
 			if err != nil {
-				return fmt.Errorf("getRepo %s: %w", did, err)
+				fmt.Printf("Failed to getRepo for DID %s: %s\n", next, err.Error())
+				continue
 			}
 			fmt.Print(next)
 

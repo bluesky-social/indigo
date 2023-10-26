@@ -71,7 +71,7 @@ func TestDowncase(t *testing.T) {
 	assert.NoError(err)
 }
 
-func TestEmtpy(t *testing.T) {
+func TestEmpty(t *testing.T) {
 	assert := assert.New(t)
 
 	atid := AtIdentifier{}

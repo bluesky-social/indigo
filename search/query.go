@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"go.opentelemetry.io/otel/attribute"
 
 	es "github.com/opensearch-project/opensearch-go/v2"
 )
@@ -55,6 +56,9 @@ func checkParams(offset, size int) error {
 }
 
 func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "DoSearchPosts")
+	defer span.End()
+
 	if err := checkParams(offset, size); err != nil {
 		return nil, err
 	}
@@ -89,9 +93,13 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 }
 
 func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "DoSearchProfiles")
+	defer span.End()
+
 	if err := checkParams(offset, size); err != nil {
 		return nil, err
 	}
+
 	queryStr, filters := ParseQuery(ctx, dir, q)
 	basic := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
@@ -103,6 +111,7 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 			"analyze_wildcard": false,
 		},
 	}
+
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
@@ -111,8 +120,9 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 					map[string]interface{}{"term": map[string]interface{}{"has_avatar": true}},
 					map[string]interface{}{"term": map[string]interface{}{"has_banner": true}},
 				},
-				"filter": filters,
-				"boost":  1.0,
+				"minimum_should_match": 0,
+				"filter":               filters,
+				"boost":                0.5,
 			},
 		},
 		"size": size,
@@ -123,15 +133,22 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 }
 
 func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q string, size int) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "DoSearchProfilesTypeahead")
+	defer span.End()
+
 	if err := checkParams(0, size); err != nil {
 		return nil, err
 	}
+
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"multi_match": map[string]interface{}{
-				"query": q,
-				"type":  "bool_prefix",
+				"query":    q,
+				"type":     "bool_prefix",
+				"operator": "and",
 				"fields": []string{
+					// adding handle here improves relevency but may be too expensive in prod
+					//"handle^2",
 					"typeahead",
 					"typeahead._2gram",
 					"typeahead._3gram",
@@ -146,6 +163,9 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 
 // helper to do a full-featured Lucene query parser (query_string) search, with all possible facets. Not safe to expose publicly.
 func DoSearchGeneric(ctx context.Context, escli *es.Client, index, q string) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "DoSearchGeneric")
+	defer span.End()
+
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"query_string": map[string]interface{}{
@@ -163,11 +183,16 @@ func DoSearchGeneric(ctx context.Context, escli *es.Client, index, q string) (*E
 }
 
 func doSearch(ctx context.Context, escli *es.Client, index string, query interface{}) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "doSearch")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("index", index), attribute.String("query", fmt.Sprintf("%+v", query)))
+
 	b, err := json.Marshal(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize query: %w", err)
 	}
-	slog.Warn("sending query", "index", index, "query", string(b))
+	slog.Info("sending query", "index", index, "query", string(b))
 
 	// Perform the search request.
 	res, err := escli.Search(
@@ -180,7 +205,10 @@ func doSearch(ctx context.Context, escli *es.Client, index string, query interfa
 	}
 	defer res.Body.Close()
 	if res.IsError() {
-		ioutil.ReadAll(res.Body)
+		raw, err := ioutil.ReadAll(res.Body)
+		if nil == err {
+			slog.Warn("search query error", "resp", string(raw), "status_code", res.StatusCode)
+		}
 		return nil, fmt.Errorf("search query error, code=%d", res.StatusCode)
 	}
 

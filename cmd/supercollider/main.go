@@ -272,7 +272,7 @@ func Reload(cctx *cli.Context) error {
 		TotalDesiredEvents: cctx.Int("total-events"),
 	}
 
-	repoman.SetEventHandler(s.HandleRepoEvent)
+	repoman.SetEventHandler(s.HandleRepoEvent, false)
 
 	// HTTP Server setup and Middleware Plumbing
 	e := echo.New()

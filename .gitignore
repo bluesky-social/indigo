@@ -21,16 +21,17 @@ data/
 test-coverage.out
 
 # executables
+/athome
 /beemo
 /bigsky
 /fakermaker
 /gosky
+/labelmaker
 /laputa
 /lexgen
-/stress
-/labelmaker
 /palomar
 /sonar-cli
+/stress
 /supercollider
 
 # Don't ignore this file itself, or other specific dotfiles
@@ -43,3 +44,5 @@ bsky.auth
 # Sonar cursor file
 sonar_cursor.json
 out/
+state.json
+netsync-out/

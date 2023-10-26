@@ -1,0 +1,93 @@
+
+{% macro feed_post(feedItem, selfDID, primary) export %}
+{% if primary %}
+<div class="event" id="primary_post" style="background-color: lightyellow;">
+{% else %}
+<div class="event">
+{% endif %}
+  <div class="label">
+    {% if feedItem.Post.Author.Avatar %}
+    <img src="{{ feedItem.Post.Author.Avatar }}">
+    {% else %}
+    <img src="/static/default-avatar.png">
+    {% endif %}
+  </div>
+  <div class="content" style="margin-top: 0px;">
+    {% if feedItem.Reason %}
+      {{ feedItem.Reason.FeedDefs_ReasonRepost }}
+    {% endif %}
+    <div class="summary">
+      {% if feedItem.Post.Author.Did == selfDID %}
+      <a href="/bsky" class="user">
+      {% else %}
+      <a href="https://bsky.app/profile/{{ feedItem.Post.Author.Handle }}" class="user">
+      {% endif %}
+        {% if feedItem.Post.Author.DisplayName %}
+        <b>{{ feedItem.Post.Author.DisplayName }}</b>
+        <span style="font-weight: normal;">
+        {% else %}
+        <span>
+        {% endif %}
+        @{{ feedItem.Post.Author.Handle }}</span>
+      </a>
+
+      <div class="date">
+        {# TODO: relative time#}
+        {# TODO: parse and fix link (custom filter?) #}
+        {% if feedItem.Post.Author.Did == selfDID %}
+        <a href="/bsky/post/{{ feedItem.Post.Uri|split:"/"|last }}">{{ feedItem.Post.IndexedAt }}</a>
+        {% else %}
+        <a href="https://bsky.app/profile/{{ feedItem.Post.Author.Handle }}/post/{{ feedItem.Post.Uri|split:"/"|last }}">{{ feedItem.Post.IndexedAt }}</a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="extra text">
+      {{ feedItem.Post.Record.Val.Text }}
+      {% if feedItem.Post.Embed and feedItem.Post.Embed.EmbedImages_View %}
+      <div class="ui four cards">
+        {% for image in feedItem.Post.Embed.EmbedImages_View.Images %}
+        <div class="card">
+          <div class="image">
+            <a href="{{ image.Fullsize }}">
+              <img alt="{{ image.Alt }}" src="{{ image.Thumb }}" style="width: 100%;">
+            </a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="meta">
+      <a class="like"><i class="reply icon"></i> {{ feedItem.Post.ReplyCount }}</a>
+      <a class="like"><i class="comment outline icon"></i> {{ feedItem.Post.RepostCount }}</a>
+      <a class="like"><i class="like outline icon"></i> {{ feedItem.Post.LikeCount }}</a>
+    </div>
+  </div>
+</div>
+
+{% if primary %}
+<script>
+window.onload = (event) => {
+  setTimeout(function(){
+    document.getElementById("primary_post").scrollIntoView(true);
+  }, 250);
+};
+</script>
+{% endif %}
+{% endmacro %}
+
+{% macro thread_parents(post, selfDID, primary) export %}
+{% if post.Parent %} 
+  {{ thread_parents(post.Parent.FeedDefs_ThreadViewPost, selfDID, false) }}
+  <div class="ui divider"></div>
+{% endif %}
+{{ feed_post(post, selfDID, primary) }}
+{% endmacro %}
+
+{% macro thread_children(post, selfDID) export %}
+{% for child in post.Replies %}
+  <div class="ui divider"></div>
+  {{ feed_post(child.FeedDefs_ThreadViewPost, selfDID) }}
+  {{ thread_children(child.FeedDefs_ThreadViewPost, selfDID) }}
+{% endfor %}
+{% endmacro %}
