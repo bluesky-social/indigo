@@ -90,8 +90,6 @@ func run(args []string) {
 		listAllRecordsCmd,
 		readRepoStreamCmd,
 		syncCmd,
-		requestAccountDeletionCmd,
-		deleteAccountCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -638,47 +636,6 @@ var listAllRecordsCmd = &cli.Command{
 			}
 			return nil
 		}); err != nil {
-			return err
-		}
-
-		return nil
-	},
-}
-
-var requestAccountDeletionCmd = &cli.Command{
-	Name: "request-account-deletion",
-	Action: func(cctx *cli.Context) error {
-		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
-		if err != nil {
-			return err
-		}
-
-		err = comatproto.ServerRequestAccountDelete(cctx.Context, xrpcc)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	},
-}
-
-var deleteAccountCmd = &cli.Command{
-	Name: "delete-account",
-	Action: func(cctx *cli.Context) error {
-		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
-		if err != nil {
-			return err
-		}
-
-		token := cctx.Args().First()
-		password := cctx.Args().Get(1)
-
-		err = comatproto.ServerDeleteAccount(cctx.Context, xrpcc, &comatproto.ServerDeleteAccount_Input{
-			Did:      xrpcc.Auth.Did,
-			Token:    token,
-			Password: password,
-		})
-		if err != nil {
 			return err
 		}
 
