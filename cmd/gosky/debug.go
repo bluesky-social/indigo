@@ -11,7 +11,9 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -28,6 +30,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-libipfs/blocks"
 	"github.com/ipld/go-car/v2"
 	cli "github.com/urfave/cli/v2"
 )
@@ -42,6 +45,7 @@ var debugCmd = &cli.Command{
 		debugFeedViewCmd,
 		compareStreamsCmd,
 		debugGetRepoCmd,
+		debugCompareReposCmd,
 	},
 }
 
@@ -775,7 +779,7 @@ var debugGetRepoCmd = &cli.Command{
 		if err := rep.ForEach(ctx, "", func(k string, v cid.Cid) error {
 			rec, err := rep.Blockstore().Get(ctx, v)
 			if err != nil {
-				return err
+				return fmt.Errorf("getting record %q: %w", k, err)
 			}
 
 			count++
@@ -785,6 +789,155 @@ var debugGetRepoCmd = &cli.Command{
 			return err
 		}
 		fmt.Printf("scanned %d records\n", count)
+
+		return nil
+	},
+}
+
+var debugCompareReposCmd = &cli.Command{
+	Name: "compare-repos",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:  "host-1",
+			Usage: "method, hostname, and port of PDS instance",
+			Value: "https://bsky.social",
+		},
+		&cli.StringFlag{
+			Name:  "host-2",
+			Usage: "method, hostname, and port of PDS instance",
+			Value: "https://bgs.bsky.social",
+		},
+	},
+	ArgsUsage: `<did>`,
+	Action: func(cctx *cli.Context) error {
+		ctx := cctx.Context
+
+		wg := sync.WaitGroup{}
+		wg.Add(2)
+
+		xrpc1 := xrpc.Client{
+			Host: cctx.String("host-1"),
+			Client: &http.Client{
+				Timeout: 15 * time.Minute,
+			},
+		}
+
+		xrpc2 := xrpc.Client{
+			Host: cctx.String("host-2"),
+			Client: &http.Client{
+				Timeout: 15 * time.Minute,
+			},
+		}
+
+		var rep1 *repo.Repo
+		go func() {
+			defer wg.Done()
+			logger := log.With("host", cctx.String("host-1"))
+			repo1bytes, err := comatproto.SyncGetRepo(ctx, &xrpc1, cctx.Args().First(), "")
+			if err != nil {
+				logger.Fatalf("getting repo: %s", err)
+				return
+			}
+
+			rep1, err = repo.ReadRepoFromCar(ctx, bytes.NewReader(repo1bytes))
+			if err != nil {
+				logger.Fatalf("reading repo: %s", err)
+				return
+			}
+		}()
+
+		var rep2 *repo.Repo
+		go func() {
+			defer wg.Done()
+			logger := log.With("host", cctx.String("host-2"))
+			repo2bytes, err := comatproto.SyncGetRepo(ctx, &xrpc2, cctx.Args().First(), "")
+			if err != nil {
+				logger.Fatalf("getting repo: %s", err)
+				return
+			}
+
+			rep2, err = repo.ReadRepoFromCar(ctx, bytes.NewReader(repo2bytes))
+			if err != nil {
+				logger.Fatalf("reading repo: %s", err)
+				return
+			}
+		}()
+
+		wg.Wait()
+
+		cids1 := []cid.Cid{}
+		blocks1 := []blocks.Block{}
+
+		fmt.Println("Host 1 Results")
+		fmt.Println("Rev: ", rep1.SignedCommit().Rev)
+		var count int
+		if err := rep1.ForEach(ctx, "", func(k string, v cid.Cid) error {
+			cids1 = append(cids1, v)
+			rec, err := rep1.Blockstore().Get(ctx, v)
+			if err != nil {
+				return fmt.Errorf("getting record %q: %w", k, err)
+			}
+			blocks1 = append(blocks1, rec)
+
+			count++
+			_ = rec
+			return nil
+		}); err != nil {
+			return err
+		}
+		fmt.Printf("scanned %d records\n", count)
+
+		cids2 := []cid.Cid{}
+		blocks2 := []blocks.Block{}
+
+		fmt.Println("\nHost 2 Results")
+		fmt.Println("Rev: ", rep2.SignedCommit().Rev)
+		count = 0
+		if err := rep2.ForEach(ctx, "", func(k string, v cid.Cid) error {
+			cids2 = append(cids2, v)
+			rec, err := rep2.Blockstore().Get(ctx, v)
+			if err != nil {
+				return fmt.Errorf("getting record %q: %w", k, err)
+			}
+			blocks2 = append(blocks2, rec)
+
+			count++
+			_ = rec
+			return nil
+		}); err != nil {
+			return err
+		}
+		fmt.Printf("scanned %d records\n", count)
+
+		fmt.Println("\nComparing CIDs")
+		hasBadCid := false
+		for i, c1 := range cids1 {
+			if c1 != cids2[i] {
+				fmt.Printf("CID mismatch at index %d: %s != %s\n", i, c1, cids2[i])
+				hasBadCid = true
+			}
+		}
+
+		if !hasBadCid {
+			fmt.Println("All CIDs match!")
+		}
+
+		fmt.Println("Comparing blocks")
+		hasBadBlock := false
+		for i, b1 := range blocks1 {
+			if !bytes.Equal(b1.RawData(), blocks2[i].RawData()) {
+				fmt.Printf("Block mismatch at index %d Host 1 Cid (%s) Host 2 Cid (%s)\n", i, b1.Cid().String(), blocks2[i].Cid().String())
+				hasBadBlock = true
+			}
+		}
+
+		if !hasBadBlock {
+			fmt.Println("All blocks match!")
+		}
+
+		if hasBadBlock || hasBadCid {
+			return fmt.Errorf("mismatched blocks or cids")
+		}
 
 		return nil
 	},

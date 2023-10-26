@@ -2,6 +2,7 @@ package pds
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -79,7 +80,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, serkey *did.PrivKey, handleSu
 	repoman := repomgr.NewRepoManager(cs, kmgr)
 	notifman := notifs.NewNotificationManager(db, repoman.GetRecord)
 
-	ix, err := indexer.NewIndexer(db, notifman, evtman, didr, repoman, false, true)
+	ix, err := indexer.NewIndexer(db, notifman, evtman, didr, repoman, false, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +104,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, serkey *did.PrivKey, handleSu
 		if err := ix.HandleRepoEvent(ctx, evt); err != nil {
 			log.Errorw("handle repo event failed", "user", evt.User, "err", err)
 		}
-	})
+	}, true)
 
 	//ix.SendRemoteFollow = s.sendRemoteFollow
 	ix.CreateExternalUser = s.createExternalUser
@@ -224,7 +225,7 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 	// lets make a local record of that user for the future
 	subj := &models.ActorInfo{
 		Uid:         u.ID,
-		Handle:      handle,
+		Handle:      sql.NullString{String: handle, Valid: true},
 		DisplayName: *profile.DisplayName,
 		Did:         did,
 		Type:        "",

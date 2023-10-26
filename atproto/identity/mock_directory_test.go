@@ -20,7 +20,7 @@ func TestMockDirectory(t *testing.T) {
 	}
 	id2 := Identity{
 		DID:    syntax.DID("did:plc:abc222"),
-		Handle: syntax.Handle("handle.invalid"),
+		Handle: syntax.HandleInvalid,
 	}
 	id3 := Identity{
 		DID:    syntax.DID("did:plc:abc333"),
@@ -48,7 +48,7 @@ func TestMockDirectory(t *testing.T) {
 	assert.NoError(err)
 	assert.True(out.Handle.IsInvalidHandle())
 
-	_, err = c.LookupHandle(ctx, syntax.Handle("handle.invalid"))
+	_, err = c.LookupHandle(ctx, syntax.HandleInvalid)
 	assert.Equal(ErrHandleNotFound, err)
 	out, err = c.LookupDID(ctx, syntax.DID("did:plc:abc999"))
 	assert.Equal(ErrDIDNotFound, err)

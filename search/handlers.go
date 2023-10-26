@@ -12,7 +12,11 @@ import (
 
 	"github.com/labstack/echo/v4"
 	otel "go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
+
+var tracer = otel.Tracer("search")
 
 func parseCursorLimit(e echo.Context) (int, int, error) {
 	offset := 0
@@ -60,8 +64,10 @@ func parseCursorLimit(e echo.Context) (int, int, error) {
 }
 
 func (s *Server) handleSearchPostsSkeleton(e echo.Context) error {
-	ctx, span := otel.Tracer("search").Start(e.Request().Context(), "handleSearchPostsSkeleton")
+	ctx, span := tracer.Start(e.Request().Context(), "handleSearchPostsSkeleton")
 	defer span.End()
+
+	span.SetAttributes(attribute.String("query", e.QueryParam("q")))
 
 	q := strings.TrimSpace(e.QueryParam("q"))
 	if q == "" {
@@ -72,20 +78,30 @@ func (s *Server) handleSearchPostsSkeleton(e echo.Context) error {
 
 	offset, limit, err := parseCursorLimit(e)
 	if err != nil {
+		span.SetAttributes(attribute.String("error", fmt.Sprintf("invalid cursor/limit: %s", err)))
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
+	span.SetAttributes(attribute.Int("offset", offset), attribute.Int("limit", limit))
+
 	out, err := s.SearchPosts(ctx, q, offset, limit)
 	if err != nil {
+		span.SetAttributes(attribute.String("error", fmt.Sprintf("failed to SearchPosts: %s", err)))
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
+
+	span.SetAttributes(attribute.Int("posts.length", len(out.Posts)))
 
 	return e.JSON(200, out)
 }
 
 func (s *Server) handleSearchActorsSkeleton(e echo.Context) error {
-	ctx, span := otel.Tracer("search").Start(e.Request().Context(), "handleSearchActorsSkeleton")
+	ctx, span := tracer.Start(e.Request().Context(), "handleSearchActorsSkeleton")
 	defer span.End()
+
+	span.SetAttributes(attribute.String("query", e.QueryParam("q")))
 
 	q := strings.TrimSpace(e.QueryParam("q"))
 	if q == "" {
@@ -96,6 +112,8 @@ func (s *Server) handleSearchActorsSkeleton(e echo.Context) error {
 
 	offset, limit, err := parseCursorLimit(e)
 	if err != nil {
+		span.SetAttributes(attribute.String("error", fmt.Sprintf("invalid cursor/limit: %s", err)))
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 
@@ -104,10 +122,20 @@ func (s *Server) handleSearchActorsSkeleton(e echo.Context) error {
 		typeahead = true
 	}
 
+	span.SetAttributes(
+		attribute.Int("offset", offset),
+		attribute.Int("limit", limit),
+		attribute.Bool("typeahead", typeahead),
+	)
+
 	out, err := s.SearchProfiles(ctx, q, typeahead, offset, limit)
 	if err != nil {
+		span.SetAttributes(attribute.String("error", fmt.Sprintf("failed to SearchProfiles: %s", err)))
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
+
+	span.SetAttributes(attribute.Int("actors.length", len(out.Actors)))
 
 	return e.JSON(200, out)
 }
@@ -118,7 +146,7 @@ type IndexError struct {
 }
 
 func (s *Server) handleIndexRepos(e echo.Context) error {
-	ctx, span := otel.Tracer("search").Start(e.Request().Context(), "handleIndexRepos")
+	ctx, span := tracer.Start(e.Request().Context(), "handleIndexRepos")
 	defer span.End()
 
 	dids, ok := e.QueryParams()["did"]
@@ -166,6 +194,9 @@ func (s *Server) handleIndexRepos(e echo.Context) error {
 }
 
 func (s *Server) SearchPosts(ctx context.Context, q string, offset, size int) (*appbsky.UnspeccedSearchPostsSkeleton_Output, error) {
+	ctx, span := tracer.Start(ctx, "SearchPosts")
+	defer span.End()
+
 	resp, err := DoSearchPosts(ctx, s.dir, s.escli, s.postIndex, q, offset, size)
 	if err != nil {
 		return nil, err
@@ -201,6 +232,9 @@ func (s *Server) SearchPosts(ctx context.Context, q string, offset, size int) (*
 }
 
 func (s *Server) SearchProfiles(ctx context.Context, q string, typeahead bool, offset, size int) (*appbsky.UnspeccedSearchActorsSkeleton_Output, error) {
+	ctx, span := tracer.Start(ctx, "SearchProfiles")
+	defer span.End()
+
 	var resp *EsSearchResponse
 	var err error
 	if typeahead {

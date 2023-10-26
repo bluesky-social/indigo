@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  postgres:
+    image: "postgres:14"
+    ports:
+      - "5432:5432"
+    volumes:
+      - type: bind
+        source: /mnt/postgres
+        target: /var/lib/postgresql/data
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: 33pAstcHDMszLedQah2EVYNgnxbCP

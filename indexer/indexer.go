@@ -3,6 +3,7 @@ package indexer
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"sync"
@@ -50,13 +51,14 @@ type Indexer struct {
 	LimitMux sync.RWMutex
 
 	doAggregations bool
+	doSpider       bool
 
 	SendRemoteFollow       func(context.Context, string, uint) error
 	CreateExternalUser     func(context.Context, string) (*models.ActorInfo, error)
 	ApplyPDSClientSettings func(*xrpc.Client)
 }
 
-func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events.EventManager, didr did.Resolver, repoman *repomgr.RepoManager, crawl, aggregate bool) (*Indexer, error) {
+func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events.EventManager, didr did.Resolver, repoman *repomgr.RepoManager, crawl, aggregate, spider bool) (*Indexer, error) {
 	db.AutoMigrate(&models.FeedPost{})
 	db.AutoMigrate(&models.ActorInfo{})
 	db.AutoMigrate(&models.FollowRecord{})
@@ -71,6 +73,7 @@ func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events
 		didr:           didr,
 		Limiters:       make(map[uint]*rate.Limiter),
 		doAggregations: aggregate,
+		doSpider:       spider,
 		SendRemoteFollow: func(context.Context, string, uint) error {
 			return nil
 		},
@@ -180,10 +183,11 @@ func (ix *Indexer) handleRepoOp(ctx context.Context, evt *repomgr.RepoEvent, op 
 				return fmt.Errorf("handle recordCreate: %w", err)
 			}
 		}
-		if err := ix.crawlRecordReferences(ctx, op); err != nil {
-			return err
+		if ix.doSpider {
+			if err := ix.crawlRecordReferences(ctx, op); err != nil {
+				return err
+			}
 		}
-
 	case repomgr.EvtKindDeleteRecord:
 		if ix.doAggregations {
 			if err := ix.handleRecordDelete(ctx, evt, op, true); err != nil {
@@ -257,7 +261,7 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 	case *bsky.FeedLike:
 		if rec.Subject != nil {
 			if err := ix.crawlAtUriRef(ctx, rec.Subject.Uri); err != nil {
-				log.Infow("failed to crawl vote subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
+				log.Infow("failed to crawl like subject", "cid", op.RecCid, "subjecturi", rec.Subject.Uri, "err", err)
 			}
 		}
 		return nil
@@ -274,6 +278,12 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 		}
 		return nil
 	case *bsky.ActorProfile:
+		return nil
+	case *bsky.GraphList:
+		return nil
+	case *bsky.GraphListitem:
+		return nil
+	case *bsky.FeedGenerator:
 		return nil
 	default:
 		log.Warnf("unrecognized record type: %T", op.Record)
@@ -317,9 +327,7 @@ func (ix *Indexer) createMissingUserRecord(ctx context.Context, did string) (*mo
 }
 
 func (ix *Indexer) addUserToCrawler(ctx context.Context, ai *models.ActorInfo) error {
-	userCrawlsEnqueued.Inc()
-
-	log.Infow("Sending user to crawler: ", "did", ai.Did)
+	log.Debugw("Sending user to crawler: ", "did", ai.Did)
 	if ix.Crawler == nil {
 		return nil
 	}
@@ -379,7 +387,7 @@ func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, 
 		UpdateAll: true,
 	}).Create(&models.ActorInfo{
 		Uid:         evt.User,
-		Handle:      ai.Handle,
+		Handle:      sql.NullString{String: ai.Handle, Valid: true},
 		Did:         ai.Did,
 		DisplayName: ai.DisplayName,
 		Type:        ai.Type,
@@ -410,12 +418,18 @@ func (ix *Indexer) fetchRepo(ctx context.Context, c *xrpc.Client, pds *models.PD
 	ctx, span := otel.Tracer("indexer").Start(ctx, "fetchRepo")
 	defer span.End()
 
+	span.SetAttributes(
+		attribute.String("pds", pds.Host),
+		attribute.String("did", did),
+		attribute.String("rev", rev),
+	)
+
 	limiter := ix.GetOrCreateLimiter(pds.ID, pds.CrawlRateLimit)
 
 	// Wait to prevent DOSing the PDS when connecting to a new stream with lots of active repos
 	limiter.Wait(ctx)
 
-	log.Infow("SyncGetRepo", "did", did, "since", rev)
+	log.Debugw("SyncGetRepo", "did", did, "since", rev)
 	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
 	repo, err := comatproto.SyncGetRepo(ctx, c, did, rev)
 	if err != nil {
@@ -454,7 +468,7 @@ func (ix *Indexer) FetchAndIndexRepo(ctx context.Context, job *crawlWork) error 
 			for i, j := range job.catchup {
 				catchupEventsProcessed.Inc()
 				if err := ix.repomgr.HandleExternalUserEvent(ctx, pds.ID, ai.Uid, ai.Did, j.evt.Since, j.evt.Rev, j.evt.Blocks, j.evt.Ops); err != nil {
-					log.Errorw("buffered event catchup failed", "error", err, "did", ai.Did, "i", i, "jobCount", len(job.catchup))
+					log.Errorw("buffered event catchup failed", "error", err, "did", ai.Did, "i", i, "jobCount", len(job.catchup), "seq", j.evt.Seq)
 					resync = true // fall back to a repo sync
 					break
 				}
@@ -516,7 +530,7 @@ func (ix *Indexer) GetPost(ctx context.Context, uri string) (*models.FeedPost, e
 }
 
 func (ix *Indexer) handleRecordDelete(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp, local bool) error {
-	log.Infow("record delete event", "collection", op.Collection)
+	log.Debugw("record delete event", "collection", op.Collection)
 
 	switch op.Collection {
 	case "app.bsky.feed.post":
@@ -606,7 +620,7 @@ func (ix *Indexer) handleRecordDeleteGraphFollow(ctx context.Context, evt *repom
 }
 
 func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp, local bool) ([]uint, error) {
-	log.Infow("record create event", "collection", op.Collection)
+	log.Debugw("record create event", "collection", op.Collection)
 
 	var out []uint
 	switch rec := op.Record.(type) {
@@ -647,8 +661,16 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 		return nil, ix.handleRecordCreateFeedLike(ctx, rec, evt, op)
 	case *bsky.GraphFollow:
 		return out, ix.handleRecordCreateGraphFollow(ctx, rec, evt, op)
+	case *bsky.GraphBlock:
+		return out, nil
+	case *bsky.GraphList:
+		return out, nil
+	case *bsky.GraphListitem:
+		return out, nil
+	case *bsky.FeedGenerator:
+		return out, nil
 	case *bsky.ActorProfile:
-		log.Infof("TODO: got actor profile record creation, need to do something with this")
+		log.Debugf("TODO: got actor profile record creation, need to do something with this")
 	default:
 		return nil, fmt.Errorf("unrecognized record type: %T", rec)
 	}
@@ -722,7 +744,7 @@ func (ix *Indexer) handleRecordCreateGraphFollow(ctx context.Context, rec *bsky.
 }
 
 func (ix *Indexer) handleRecordUpdate(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp, local bool) error {
-	log.Infow("record update event", "collection", op.Collection)
+	log.Debugw("record update event", "collection", op.Collection)
 
 	switch rec := op.Record.(type) {
 	case *bsky.FeedPost:
@@ -806,7 +828,7 @@ func (ix *Indexer) handleRecordUpdate(ctx context.Context, evt *repomgr.RepoEven
 
 		return ix.handleRecordCreateGraphFollow(ctx, rec, evt, op)
 	case *bsky.ActorProfile:
-		log.Infof("TODO: got actor profile record update, need to do something with this")
+		log.Debugf("TODO: got actor profile record update, need to do something with this")
 	default:
 		return fmt.Errorf("unrecognized record type: %T", rec)
 	}

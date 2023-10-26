@@ -55,6 +55,7 @@ func TestDIDParts(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal("example", d.Method())
 	assert.Equal("123456789abcDEFghi", d.Identifier())
+	assert.Equal(d.String(), d.AtIdentifier().String())
 }
 
 func TestDIDNoPanic(t *testing.T) {
@@ -62,5 +63,7 @@ func TestDIDNoPanic(t *testing.T) {
 		bad := DID(s)
 		_ = bad.Identifier()
 		_ = bad.Method()
+		_ = bad.AtIdentifier()
+		_ = bad.AtIdentifier().String()
 	}
 }

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/api"
-	"github.com/bluesky-social/indigo/bgs"
+	libbgs "github.com/bluesky-social/indigo/bgs"
 	"github.com/bluesky-social/indigo/blobs"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/did"
@@ -100,13 +100,19 @@ func run(args []string) {
 			Name:  "aggregation",
 			Value: false,
 		},
+		&cli.BoolFlag{
+			Name:    "spidering",
+			Value:   true,
+			EnvVars: []string{"BGS_SPIDERING"},
+		},
 		&cli.StringFlag{
 			Name:  "api-listen",
 			Value: ":2470",
 		},
 		&cli.StringFlag{
-			Name:  "debug-listen",
-			Value: "localhost:2471",
+			Name:    "metrics-listen",
+			Value:   ":2471",
+			EnvVars: []string{"BGS_METRICS_LISTEN"},
 		},
 		&cli.StringFlag{
 			Name: "disk-blob-store",
@@ -250,7 +256,7 @@ func Bigsky(cctx *cli.Context) error {
 	}
 	mr.AddHandler("web", &webr)
 
-	cachedidr := plc.NewCachingDidResolver(mr, time.Minute*5, 1000)
+	cachedidr := plc.NewCachingDidResolver(mr, time.Hour*24, 500_000)
 
 	kmgr := indexer.NewKeyManager(cachedidr, nil)
 
@@ -277,7 +283,7 @@ func Bigsky(cctx *cli.Context) error {
 
 	notifman := &notifs.NullNotifs{}
 
-	ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, repoman, true, cctx.Bool("aggregation"))
+	ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, repoman, true, cctx.Bool("spidering"), cctx.Bool("aggregation"))
 	if err != nil {
 		return err
 	}
@@ -301,7 +307,7 @@ func Bigsky(cctx *cli.Context) error {
 		if err := ix.HandleRepoEvent(ctx, evt); err != nil {
 			log.Errorw("failed to handle repo event", "err", err)
 		}
-	})
+	}, false)
 
 	var blobstore blobs.BlobStore
 	if bsdir := cctx.String("disk-blob-store"); bsdir != "" {
@@ -329,7 +335,7 @@ func Bigsky(cctx *cli.Context) error {
 	}
 
 	log.Infow("constructing bgs")
-	bgs, err := bgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, hr, !cctx.Bool("crawl-insecure-ws"))
+	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, hr, !cctx.Bool("crawl-insecure-ws"))
 	if err != nil {
 		return err
 	}
@@ -340,10 +346,10 @@ func Bigsky(cctx *cli.Context) error {
 		}
 	}
 
-	// set up pprof endpoint
+	// set up metrics endpoint
 	go func() {
-		if err := bgs.StartDebug(cctx.String("debug-listen")); err != nil {
-			panic(err)
+		if err := bgs.StartMetrics(cctx.String("metrics-listen")); err != nil {
+			log.Fatalf("failed to start metrics endpoint: %s", err)
 		}
 	}()
 

@@ -27,9 +27,8 @@ func (l LeveledZap) Info(msg string, keysAndValues ...interface{}) {
 	l.inner.Infow(msg, keysAndValues...)
 }
 
-// re-writes HTTP client DEBUG to INFO level (this is where retry is logged)
 func (l LeveledZap) Debug(msg string, keysAndValues ...interface{}) {
-	l.inner.Infow(msg, keysAndValues...)
+	l.inner.Debugw(msg, keysAndValues...)
 }
 
 // Generates an HTTP client with decent general-purpose defaults around

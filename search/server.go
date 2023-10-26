@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"strings"
 
@@ -13,8 +14,9 @@ import (
 	"github.com/bluesky-social/indigo/backfill"
 	"github.com/bluesky-social/indigo/util/version"
 	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 
-	"github.com/labstack/echo-contrib/echoprometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	es "github.com/opensearch-project/opensearch-go/v2"
@@ -52,7 +54,6 @@ type Config struct {
 }
 
 func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Config) (*Server, error) {
-
 	logger := config.Logger
 	if logger == nil {
 		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -183,8 +184,9 @@ func (s *Server) RunAPI(listen string) error {
 	e.HideBanner = true
 	e.Use(slogecho.New(s.logger))
 	e.Use(middleware.Recover())
-	e.Use(echoprometheus.NewMiddleware("palomar"))
+	e.Use(MetricsMiddleware)
 	e.Use(middleware.BodyLimit("64M"))
+	e.Use(otelecho.Middleware("palomar"))
 
 	e.HTTPErrorHandler = func(err error, ctx echo.Context) {
 		code := 500
@@ -197,7 +199,7 @@ func (s *Server) RunAPI(listen string) error {
 
 	e.Use(middleware.CORS())
 	e.GET("/_health", s.handleHealthCheck)
-	e.GET("/metrics", echoprometheus.NewHandler())
+	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/xrpc/app.bsky.unspecced.searchPostsSkeleton", s.handleSearchPostsSkeleton)
 	e.GET("/xrpc/app.bsky.unspecced.searchActorsSkeleton", s.handleSearchActorsSkeleton)
 	e.GET("/xrpc/app.bsky.unspecced.indexRepos", s.handleIndexRepos)
@@ -205,6 +207,11 @@ func (s *Server) RunAPI(listen string) error {
 
 	s.logger.Info("starting search API daemon", "bind", listen)
 	return s.echo.Start(listen)
+}
+
+func (s *Server) RunMetrics(listen string) error {
+	http.Handle("/metrics", promhttp.Handler())
+	return http.ListenAndServe(listen, nil)
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {

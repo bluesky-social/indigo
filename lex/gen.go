@@ -1258,6 +1258,7 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 			// be omitempty.
 			if ptr == "" && tname == "util.LexBytes" {
 				jsonOmit = ",omitempty"
+				cborOmit = ",omitempty"
 			}
 
 			if v.Description != "" {

@@ -436,7 +436,7 @@ func SetupBGS(ctx context.Context, didr plc.PLCClient) (*TestBGS, error) {
 
 	evtman := events.NewEventManager(diskpersist)
 
-	ix, err := indexer.NewIndexer(maindb, notifman, evtman, didr, repoman, true, true)
+	ix, err := indexer.NewIndexer(maindb, notifman, evtman, didr, repoman, true, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -445,7 +445,7 @@ func SetupBGS(ctx context.Context, didr plc.PLCClient) (*TestBGS, error) {
 		if err := ix.HandleRepoEvent(ctx, evt); err != nil {
 			fmt.Println("test bgs failed to handle repo event", err)
 		}
-	})
+	}, true) // TODO: actually want this to be false, but some tests use this to confirm the BGS has seen certain records
 
 	tr := &api.TestHandleResolver{}
 
