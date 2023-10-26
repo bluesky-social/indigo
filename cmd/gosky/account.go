@@ -21,6 +21,8 @@ var accountCmd = &cli.Command{
 		newAccountCmd,
 		refreshAuthTokenCmd,
 		resetPasswordCmd,
+		requestAccountDeletionCmd,
+		deleteAccountCmd,
 	},
 }
 
@@ -164,6 +166,47 @@ var refreshAuthTokenCmd = &cli.Command{
 		}
 
 		if err := os.WriteFile(cctx.String("auth"), b, 0600); err != nil {
+			return err
+		}
+
+		return nil
+	},
+}
+
+var requestAccountDeletionCmd = &cli.Command{
+	Name: "request-deletion",
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		err = comatproto.ServerRequestAccountDelete(cctx.Context, xrpcc)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	},
+}
+
+var deleteAccountCmd = &cli.Command{
+	Name: "delete",
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		token := cctx.Args().First()
+		password := cctx.Args().Get(1)
+
+		err = comatproto.ServerDeleteAccount(cctx.Context, xrpcc, &comatproto.ServerDeleteAccount_Input{
+			Did:      xrpcc.Auth.Did,
+			Token:    token,
+			Password: password,
+		})
+		if err != nil {
 			return err
 		}
 
