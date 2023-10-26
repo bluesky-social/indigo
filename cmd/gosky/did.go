@@ -107,7 +107,7 @@ var didCreateCmd = &cli.Command{
 }
 
 var didKeyCmd = &cli.Command{
-	Name: "didKey",
+	Name: "did-key",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name: "keypath",

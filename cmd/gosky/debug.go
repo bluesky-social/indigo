@@ -563,7 +563,7 @@ var debugFeedGenCmd = &cli.Command{
 	},
 }
 var debugFeedViewCmd = &cli.Command{
-	Name: "viewFeed",
+	Name: "view-feed",
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
