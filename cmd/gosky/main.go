@@ -82,14 +82,14 @@ func run(args []string) {
 		adminCmd,
 		bgsAdminCmd,
 		carCmd,
-		createFeedGeneratorCmd,
 		debugCmd,
 		didCmd,
-		getRecordCmd,
 		handleCmd,
+		syncCmd,
+		createFeedGeneratorCmd,
+		getRecordCmd,
 		listAllRecordsCmd,
 		readRepoStreamCmd,
-		syncCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -129,7 +129,8 @@ type cachedHandle struct {
 }
 
 var readRepoStreamCmd = &cli.Command{
-	Name: "read-stream",
+	Name:  "read-stream",
+	Usage: "subscribe to a repo event stream",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name: "json",
@@ -355,7 +356,8 @@ func unpackRecords(blks []byte, ops []*atproto.SyncSubscribeRepos_RepoOp) ([]any
 }
 
 var getRecordCmd = &cli.Command{
-	Name: "get-record",
+	Name:  "get-record",
+	Usage: "fetch a single record for a given repo",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name: "repo",
@@ -474,7 +476,8 @@ func needArgs(cctx *cli.Context, name ...string) ([]string, error) {
 }
 
 var createFeedGeneratorCmd = &cli.Command{
-	Name: "create-feed-gen",
+	Name:  "create-feed-gen",
+	Usage: "create a feed generator record",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "name",
