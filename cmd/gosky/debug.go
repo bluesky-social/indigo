@@ -36,8 +36,8 @@ import (
 )
 
 var debugCmd = &cli.Command{
-	Name:        "debug",
-	Description: "a set of debugging utilities for atproto",
+	Name:  "debug",
+	Usage: "a set of debugging utilities for atproto",
 	Subcommands: []*cli.Command{
 		inspectEventCmd,
 		debugStreamCmd,
@@ -567,7 +567,7 @@ var debugFeedGenCmd = &cli.Command{
 	},
 }
 var debugFeedViewCmd = &cli.Command{
-	Name: "viewFeed",
+	Name: "view-feed",
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {

@@ -12,38 +12,37 @@ import (
 
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/api/atproto"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	cli "github.com/urfave/cli/v2"
 )
 
 var adminCmd = &cli.Command{
-	Name: "admin",
-	Subcommands: []*cli.Command{
-		buildInviteTreeCmd,
-		checkUserCmd,
-		reportsCmd,
-		disableInvitesCmd,
-		enableInvitesCmd,
-		listInviteTreeCmd,
-		takeDownAccountCmd,
-		getModerationActionsCmd,
-	},
-}
-
-var checkUserCmd = &cli.Command{
-	Name: "checkUser",
+	Name:  "admin",
+	Usage: "sub-commands for PDS administration",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "admin-password",
 			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
 			Required: true,
 		},
-		&cli.StringFlag{
-			Name:    "plc",
-			Usage:   "method, hostname, and port of PLC registry",
-			Value:   "https://plc.directory",
-			EnvVars: []string{"ATP_PLC_HOST"},
-		},
+	},
+	Subcommands: []*cli.Command{
+		buildInviteTreeCmd,
+		checkUserCmd,
+		createInviteCmd,
+		disableInvitesCmd,
+		enableInvitesCmd,
+		getModerationActionsCmd,
+		listInviteTreeCmd,
+		reportsCmd,
+		takeDownAccountCmd,
+	},
+}
+
+var checkUserCmd = &cli.Command{
+	Name: "check-user",
+	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name: "raw",
 		},
@@ -169,13 +168,8 @@ var checkUserCmd = &cli.Command{
 }
 
 var buildInviteTreeCmd = &cli.Command{
-	Name: "buildInviteTree",
+	Name: "build-invite-tree",
 	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
 		&cli.StringFlag{
 			Name: "invite-list",
 		},
@@ -363,17 +357,6 @@ var reportsCmd = &cli.Command{
 var listReportsCmd = &cli.Command{
 	Name: "list",
 	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:    "plc",
-			Usage:   "method, hostname, and port of PLC registry",
-			Value:   "https://plc.directory",
-			EnvVars: []string{"ATP_PLC_HOST"},
-		},
 		&cli.BoolFlag{
 			Name: "raw",
 		},
@@ -431,14 +414,7 @@ var listReportsCmd = &cli.Command{
 }
 
 var disableInvitesCmd = &cli.Command{
-	Name: "disableInvites",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
-	},
+	Name: "disable-invites",
 	Action: func(cctx *cli.Context) error {
 
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
@@ -479,14 +455,7 @@ var disableInvitesCmd = &cli.Command{
 }
 
 var enableInvitesCmd = &cli.Command{
-	Name: "enableInvites",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
-	},
+	Name: "enable-invites",
 	Action: func(cctx *cli.Context) error {
 
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
@@ -517,19 +486,8 @@ var enableInvitesCmd = &cli.Command{
 }
 
 var listInviteTreeCmd = &cli.Command{
-	Name: "listInviteTree",
+	Name: "list-invite-tree",
 	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:    "plc",
-			Usage:   "method, hostname, and port of PLC registry",
-			Value:   "https://plc.directory",
-			EnvVars: []string{"ATP_PLC_HOST"},
-		},
 		&cli.BoolFlag{
 			Name:  "disable-invites",
 			Usage: "additionally disable invites for all printed DIDs",
@@ -628,13 +586,8 @@ var listInviteTreeCmd = &cli.Command{
 }
 
 var takeDownAccountCmd = &cli.Command{
-	Name: "takeDownAccount",
+	Name: "account-takedown",
 	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
 		&cli.StringFlag{
 			Name:     "reason",
 			Usage:    "why the account is being taken down",
@@ -735,13 +688,6 @@ var takeDownAccountCmd = &cli.Command{
 
 var getModerationActionsCmd = &cli.Command{
 	Name: "get-moderation-actions",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "admin-password",
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-			Required: true,
-		},
-	},
 	Action: func(cctx *cli.Context) error {
 
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
@@ -776,6 +722,105 @@ var getModerationActionsCmd = &cli.Command{
 		}
 
 		fmt.Println(string(b))
+		return nil
+	},
+}
+
+var createInviteCmd = &cli.Command{
+	Name: "create-invites",
+	Flags: []cli.Flag{
+		&cli.IntFlag{
+			Name:  "useCount",
+			Value: 1,
+		},
+		&cli.IntFlag{
+			Name:  "num",
+			Value: 1,
+		},
+		&cli.StringFlag{
+			Name: "bulk",
+		},
+	},
+	ArgsUsage: "[handle]",
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		adminKey := cctx.String("admin-password")
+
+		count := cctx.Int("useCount")
+		num := cctx.Int("num")
+
+		phr := &api.ProdHandleResolver{}
+		if bulkfi := cctx.String("bulk"); bulkfi != "" {
+			xrpcc.AdminToken = &adminKey
+			dids, err := readDids(bulkfi)
+			if err != nil {
+				return err
+			}
+
+			for i, d := range dids {
+				if !strings.HasPrefix(d, "did:plc:") {
+					out, err := phr.ResolveHandleToDid(context.TODO(), d)
+					if err != nil {
+						return fmt.Errorf("failed to resolve %q: %w", d, err)
+					}
+
+					dids[i] = out
+				}
+			}
+
+			for n := 0; n < len(dids); n += 500 {
+				slice := dids
+				if len(slice) > 500 {
+					slice = slice[:500]
+				}
+
+				_, err = comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
+					UseCount:    int64(count),
+					ForAccounts: slice,
+					CodeCount:   int64(num),
+				})
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
+		}
+
+		var usrdid []string
+		if forUser := cctx.Args().Get(0); forUser != "" {
+			if !strings.HasPrefix(forUser, "did:") {
+				resp, err := phr.ResolveHandleToDid(context.TODO(), forUser)
+				if err != nil {
+					return fmt.Errorf("resolving handle: %w", err)
+				}
+
+				usrdid = []string{resp}
+			} else {
+				usrdid = []string{forUser}
+			}
+		}
+
+		xrpcc.AdminToken = &adminKey
+		resp, err := comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
+			UseCount:    int64(count),
+			ForAccounts: usrdid,
+			CodeCount:   int64(num),
+		})
+		if err != nil {
+			return fmt.Errorf("creating codes: %w", err)
+		}
+
+		for _, c := range resp.Codes {
+			for _, cc := range c.Codes {
+				fmt.Println(cc)
+			}
+		}
+
 		return nil
 	},
 }
