@@ -14,6 +14,7 @@ import (
 
 // TODO: WIP - turns out to be more complicated than i initially thought
 var streamCompareCmd = &cli.Command{
+	Usage:     "utility to subscribe and compare output from two repo streams",
 	Name:      "diff-stream",
 	Flags:     []cli.Flag{},
 	ArgsUsage: `<hostA> <hostB>`,

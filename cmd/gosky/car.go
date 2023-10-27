@@ -17,7 +17,7 @@ import (
 
 var carCmd = &cli.Command{
 	Name:  "car",
-	Usage: "commands to work with CAR files on local disk",
+	Usage: "sub-commands to work with CAR files on local disk",
 	Subcommands: []*cli.Command{
 		carUnpackCmd,
 	},
