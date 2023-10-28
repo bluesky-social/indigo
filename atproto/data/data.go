@@ -1,94 +1,42 @@
 package data
 
 import (
-	"testing"
-	"encoding/base64"
 	"encoding/json"
-	"io"
-	"os"
-	"path/filepath"
 
-	"github.com/ipfs/go-cid"
-	"github.com/stretchr/testify/assert"
+	cbor "github.com/ipfs/go-ipld-cbor"
 )
 
-type DataModelFixture struct {
-	JSON			   json.RawMessage `json:"json"`
-	CBORBase64    	   string `json:"cbor_base64"`
-	CID 			   string `json:"cid"`
+func Validate(obj map[string]any) error {
+	_, err := parseObject(obj)
+	return err
 }
 
-func TestDataModelFixtures(t *testing.T) {
-	f, err := os.Open("testdata/data-model-fixtures.json")
+func UnmarshalJSON(b []byte) (map[string]any, error) {
+	var rawObj map[string]any
+	err := json.Unmarshal(b, &rawObj)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
-	defer func() { _ = f.Close() }()
-
-	fixBytes, err := io.ReadAll(f)
+	out, err := parseObject(rawObj)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
-
-	var fixtures []DataModelFixture
-	if err := json.Unmarshal(fixBytes, &fixtures); err != nil {
-		t.Fatal(err)
-	}
-
-	for _, row := range fixtures {
-		testDataModelFixture(t, row)
-	}
+	return out, nil
 }
 
-func testDataModelFixture(t *testing.T, row DataModelFixture) {
-	assert := assert.New(t)
-
-	jsonBytes := []byte(row.JSON)
-	cborBytes, err := base64.RawStdEncoding.DecodeString(row.CBORBase64)
+func UnmarshalCBOR(b []byte) (map[string]any, error) {
+	var rawObj map[string]any
+	err := cbor.DecodeInto(b, &rawObj)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
-
-	jsonObj, err := UnmarshalJSON(jsonBytes)
-	assert.NoError(err)
-
-	cborObj, err := UnmarshalCBOR(cborBytes)
-	assert.NoError(err)
-
-	assert.Equal(jsonObj, cborObj)
-
-	cborFromJSON, err := MarshalCBOR(jsonObj)
-	assert.NoError(err)
-
-	cborFromCBOR, err := MarshalCBOR(cborObj)
-	assert.NoError(err)
-
-	assert.Equal(cborBytes, cborFromJSON)
-	assert.Equal(cborBytes, cborFromCBOR)
-
-	// XXX: make a helper function
-	// 0x71 = dag-cbor, 0x12 = sha2-256, 0 = default length
-	cidBuilder := cid.V1Builder{0x71, 0x12, 0}
-	cidCBOR, err := cidBuilder.Sum(cborBytes)
-	assert.NoError(err)
-	assert.Equal(row.CID, cidCBOR.String())
-
-	cidFromJSON, err := cidBuilder.Sum(cborFromJSON)
-	assert.NoError(err)
-	assert.Equal(row.CID, cidFromJSON.String())
-
-	cidFromCBOR, err := cidBuilder.Sum(cborFromCBOR)
-	assert.NoError(err)
-	assert.Equal(row.CID, cidFromCBOR.String())
+	out, err := parseObject(rawObj)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-func TestInvalidJSON(t *testing.T) {
-    assert := assert.New(t)
-
-    paths, err := filepath.Glob("testdata/invalid/*.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-    assert.NoError(err)
-    _ = paths
+func MarshalCBOR(obj map[string]any) ([]byte, error) {
+	return cbor.DumpObject(obj)
 }
