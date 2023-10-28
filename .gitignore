@@ -17,7 +17,7 @@ _build/
 src/build/
 *.log
 *.db
-data/
+/data/
 test-coverage.out
 
 # executables
