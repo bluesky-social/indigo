@@ -16,5 +16,25 @@
     },
     "cbor_base64": "p2Rib29s9WRudWxs9mVhcnJheYNjYWJjY2RlZmNnaGlmb2JqZWN0pGNhcnKDY2FiY2NkZWZjZ2hpZGJvb2z1Zm51bWJlchh7ZnN0cmluZ2NhYmNmc3RyaW5nY2FiY2dpbnRlZ2VyGHtndW5pY29kZXgvYX7DtsOxwqnivZjimI7wk4uT8J+YgPCfkajigI3wn5Gp4oCN8J+Rp+KAjfCfkac",
     "cid": "bafyreiclp443lavogvhj3d2ob2cxbfuscni2k5jk7bebjzg7khl3esabwq"
+  },
+  {
+	"json": {
+      "a": {
+        "$link": "bafyreidfayvfuwqa7qlnopdjiqrxzs6blmoeu4rujcjtnci5beludirz2a"
+      },
+      "b": {
+        "$bytes": "nFERjvLLiw9qm45JrqH9QTzyC2Lu1Xb4ne6+sBrCzI0"
+      },
+      "c": {
+        "$type": "blob",
+        "ref": {
+        	"$link": "bafkreiccldh766hwcnuxnf2wh6jgzepf2nlu2lvcllt63eww5p6chi4ity"
+        },
+        "mimeType": "image/jpeg",
+        "size": 10000
+      }
+    },
+    "cbor_base64": "o2Fh2CpYJQABcRIgZQYqWloA/BbXPGlEI3zLwVscSnI0SJM2iR0JF0GiOdBhYlggnFERjvLLiw9qm45JrqH9QTzyC2Lu1Xb4ne6+sBrCzI1hY6RjcmVm2CpYJQABVRIgQljP/3j2E2l2l1Y/kmyR5dNXTS6iWuftktbr/COjiJ5kc2l6ZRknEGUkdHlwZWRibG9iaG1pbWVUeXBlamltYWdlL2pwZWc",
+    "cid": "bafyreihldkhcwijkde7gx4rpkkuw7pl6lbyu5gieunyc7ihactn5bkd2nm"
   }
 ]

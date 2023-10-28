@@ -42,6 +42,14 @@ func parseAtom(atom any) (any, error) {
 		return v, nil
 	case *string:
 		return parseAtom(*v)
+	case cid.Cid:
+		return CIDLink(v), nil
+	case *cid.Cid:
+		return CIDLink(*v), nil
+	case []byte:
+		return Bytes(v), nil
+	case *[]byte:
+		return Bytes(*v), nil
 	case []any:
 		return parseArray(v)
 	case *[]any:
@@ -88,7 +96,11 @@ func parseMap(obj map[string]any) (any, error) {
 	if typeVal, ok := obj["$type"]; ok {
 		if typeStr, ok := typeVal.(string); ok {
 			if typeStr == "blob" {
-				return parseBlob(obj)
+				b, err := parseBlob(obj)
+				if err != nil {
+					return nil, err
+				}
+				return *b, nil
 			}
 			if len(typeStr) == 0 {
 				return nil, fmt.Errorf("$type field must contain a non-empty string")
@@ -153,15 +165,26 @@ func parseBlob(obj map[string]any) (*Blob, error) {
 	if obj["$type"] != "blob" {
 		return nil, fmt.Errorf("blobs expected to have $type=blob")
 	}
-	size, ok := obj["size"].(int64)
-	if !ok {
-		return nil, fmt.Errorf("blob 'size' missing or not an integer")
+	var size int64
+	var err error
+	switch v := obj["size"].(type) {
+	case int:
+		size = int64(v)
+	case int64:
+		size = v
+	case float64:
+		size, err = parseFloat(v)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("blob 'size' missing or not a number")
 	}
 	mimeType, ok := obj["mimeType"].(string)
 	if !ok {
 		return nil, fmt.Errorf("blob 'mimeType' missing or not a string")
 	}
-	rawRef, ok := obj["refStr"]
+	rawRef, ok := obj["ref"]
 	if !ok {
 		return nil, fmt.Errorf("blob 'ref' missing")
 	}
