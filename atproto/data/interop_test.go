@@ -54,10 +54,19 @@ func testDataModelFixture(t *testing.T, row DataModelFixture) {
 	cborObj, err := UnmarshalCBOR(cborBytes)
 	assert.NoError(err)
 
+	assert.Equal(jsonObj, cborObj)
+
 	cborFromJSON, err := MarshalCBOR(jsonObj)
 	assert.NoError(err)
 	cborFromCBOR, err := MarshalCBOR(cborObj)
 	assert.NoError(err)
+
+	cborObjAgain, err := UnmarshalCBOR(cborFromJSON)
+	assert.NoError(err)
+	assert.Equal(jsonObj, cborObjAgain)
+
+	assert.Equal(cborBytes, cborFromJSON)
+	assert.Equal(cborBytes, cborFromCBOR)
 
 	// 0x71 = dag-cbor, 0x12 = sha2-256, 0 = default length
 	cidBuilder := cid.V1Builder{0x71, 0x12, 0}
