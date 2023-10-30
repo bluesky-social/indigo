@@ -119,6 +119,11 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler)
 			return ctx.Err()
 		default:
 		}
+
+		if err := con.SetReadDeadline(time.Now().Add(time.Minute)); err != nil {
+			return fmt.Errorf("failed to set read deadline on websocket: %w", err)
+		}
+
 		mt, rawReader, err := con.NextReader()
 		if err != nil {
 			return err

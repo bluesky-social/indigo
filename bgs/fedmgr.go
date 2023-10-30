@@ -375,7 +375,9 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS, s
 		delete(s.active, host.Host)
 	}()
 
-	d := websocket.Dialer{}
+	d := websocket.Dialer{
+		HandshakeTimeout: time.Second * 5,
+	}
 
 	protocol := "ws"
 	if s.ssl {
