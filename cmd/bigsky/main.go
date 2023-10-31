@@ -22,7 +22,6 @@ import (
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/util/version"
 	"github.com/bluesky-social/indigo/xrpc"
 	_ "go.uber.org/automaxprocs"
 
@@ -31,6 +30,7 @@ import (
 
 	_ "github.com/joho/godotenv/autoload"
 
+	"github.com/carlmjohnson/versioninfo"
 	logging "github.com/ipfs/go-log"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
@@ -58,7 +58,7 @@ func run(args []string) {
 	app := cli.App{
 		Name:    "bigsky",
 		Usage:   "atproto BGS/firehose daemon",
-		Version: version.Version,
+		Version: versioninfo.Short(),
 	}
 
 	app.Flags = []cli.Flag{

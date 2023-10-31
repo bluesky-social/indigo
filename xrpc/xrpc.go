@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/util/version"
+	"github.com/carlmjohnson/versioninfo"
 )
 
 type Client struct {
@@ -111,7 +111,7 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 	if c.UserAgent != nil {
 		req.Header.Set("User-Agent", *c.UserAgent)
 	} else {
-		req.Header.Set("User-Agent", "indigo/"+version.Version)
+		req.Header.Set("User-Agent", "indigo/"+versioninfo.Short())
 	}
 
 	if c.Headers != nil {

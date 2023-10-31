@@ -23,6 +23,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
+	"github.com/carlmjohnson/versioninfo"
 	"github.com/urfave/cli/v2"
 )
 
@@ -30,7 +31,7 @@ func main() {
 	app := cli.App{
 		Name:    "querycheck",
 		Usage:   "a postgresql query plan checker",
-		Version: "0.0.1",
+		Version: versioninfo.Short(),
 	}
 
 	app.Flags = []cli.Flag{

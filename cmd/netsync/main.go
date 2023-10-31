@@ -22,7 +22,7 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"github.com/bluesky-social/indigo/util/version"
+	"github.com/carlmjohnson/versioninfo"
 	"github.com/urfave/cli/v2"
 )
 
@@ -32,7 +32,7 @@ func main() {
 	app := cli.App{
 		Name:    "netsync",
 		Usage:   "atproto network cloning tool",
-		Version: version.Version,
+		Version: versioninfo.Short(),
 	}
 
 	app.Flags = []cli.Flag{
