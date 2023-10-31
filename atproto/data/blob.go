@@ -10,9 +10,11 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
-// used in schemas, and can represent either a legacy blob or a "new" (lex
-// refactor) blob. size=-1 indicates that this is (and should be serialized as)
-// a legacy blob (string CID, no size, etc).
+// Represents the "blob" type from the atproto data model.
+//
+// This struct does not get marshaled/unmarshaled directly in to JSON or CBOR; see the BlobSchema and LegacyBlobSchema structs. This is the type that should be included in golang struct definitions.
+//
+// When representing a "legacy" blob (no size field, string CID), size == -1.
 type Blob struct {
 	Ref      CIDLink
 	MimeType string

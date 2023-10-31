@@ -9,24 +9,37 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
+// Represents the "cid-link" type from the atproto data model.
+//
+// Implementation is a simple wrapper around the github.com/ipfs/go-cid "cid.Cid" type.
 type CIDLink cid.Cid
 
 type jsonLink struct {
 	Link string `json:"$link"`
 }
 
-// convenience helper
-func (ll CIDLink) String() string {
-	return cid.Cid(ll).String()
+// Unwraps the inner cid.Cid type (github.com/ipfs/go-cid)
+func (ll CIDLink) CID() cid.Cid {
+	return cid.Cid(ll)
 }
 
-// convenience helper
-func (ll CIDLink) Defined() bool {
+// Returns string representation.
+//
+// If the CID is "undefined", returns an empty string (note that this is different from how cid.Cid works).
+func (ll CIDLink) String() string {
+	if ll.IsDefined() {
+		return cid.Cid(ll).String()
+	}
+	return ""
+}
+
+// Convenience helper, returns false if CID is "undefined" (golang zero value)
+func (ll CIDLink) IsDefined() bool {
 	return cid.Cid(ll).Defined()
 }
 
 func (ll CIDLink) MarshalJSON() ([]byte, error) {
-	if !ll.Defined() {
+	if !ll.IsDefined() {
 		return nil, fmt.Errorf("tried to marshal nil or undefined cid-link")
 	}
 	jl := jsonLink{
@@ -54,7 +67,7 @@ func (ll *CIDLink) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if !ll.Defined() {
+	if !ll.IsDefined() {
 		return fmt.Errorf("tried to marshal nil or undefined cid-link")
 	}
 	cw := cbg.NewCborWriter(w)

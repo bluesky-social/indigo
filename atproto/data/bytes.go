@@ -9,6 +9,11 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
+// Represents the "bytes" type from the atproto data model.
+//
+// In JSON, marshals to an object with $bytes key and base64-encoded data.
+//
+// In CBOR, marshals to a byte array.
 type Bytes []byte
 
 type JsonBytes struct {
