@@ -1,9 +1,9 @@
 package data
 
 import (
-	"testing"
-	"os"
 	"io"
+	"os"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -30,7 +30,7 @@ func TestExtract(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-    cborBytes, err := io.ReadAll(inFile)
+	cborBytes, err := io.ReadAll(inFile)
 	if err != nil {
 		t.Fail()
 	}

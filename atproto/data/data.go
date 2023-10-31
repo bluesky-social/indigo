@@ -45,6 +45,37 @@ func UnmarshalCBOR(b []byte) (map[string]any, error) {
 	return out, nil
 }
 
+// Recursively finds all the "blob" objects from generic atproto data (which has already been parsed).
+//
+// Returns an array with all Blob instances; does not de-dupe.
+func ExtractBlobs(obj map[string]any) []Blob {
+	return extractBlobsAtom(obj)
+}
+
+func extractBlobsAtom(atom any) []Blob {
+	out := []Blob{}
+	switch v := atom.(type) {
+	case Blob:
+		out = append(out, v)
+	case []any:
+		for _, el := range v {
+			down := extractBlobsAtom(el)
+			for _, d := range down {
+				out = append(out, d)
+			}
+		}
+	case map[string]any:
+		for _, val := range v {
+			down := extractBlobsAtom(val)
+			for _, d := range down {
+				out = append(out, d)
+			}
+		}
+	default:
+	}
+	return out
+}
+
 // Serializes generic atproto data (object) to DAG-CBOR bytes
 //
 // Does not re-validate that data conforms to atproto data model, but does handle Blob, Bytes, and CIDLink as expected.
