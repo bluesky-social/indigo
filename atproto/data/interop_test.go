@@ -78,3 +78,57 @@ func testDataModelFixture(t *testing.T, row DataModelFixture) {
 	assert.Equal(row.CID, cidFromCBOR.String())
 
 }
+
+type DataModelSimpleFixture struct {
+	JSON json.RawMessage `json:"json"`
+}
+
+func TestInteropDataModelValid(t *testing.T) {
+	assert := assert.New(t)
+
+	f, err := os.Open("testdata/data-model-valid.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+
+	fixBytes, err := io.ReadAll(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var fixtures []DataModelSimpleFixture
+	if err := json.Unmarshal(fixBytes, &fixtures); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, row := range fixtures {
+		_, err := UnmarshalJSON(row.JSON)
+		assert.NoError(err)
+	}
+}
+
+func TestInteropDataModelInvalid(t *testing.T) {
+	assert := assert.New(t)
+
+	f, err := os.Open("testdata/data-model-invalid.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+
+	fixBytes, err := io.ReadAll(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var fixtures []DataModelSimpleFixture
+	if err := json.Unmarshal(fixBytes, &fixtures); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, row := range fixtures {
+		_, err := UnmarshalJSON(row.JSON)
+		assert.Error(err)
+	}
+}
