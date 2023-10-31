@@ -246,8 +246,13 @@ func (c *Compactor) doWork(bgs *BGS) {
 				time.Sleep(time.Second * 5)
 				continue
 			}
+			state = c.GetState()
 			log.Errorw("failed to compact repo",
 				"err", err,
+				"uid", state.latestUID,
+				"repo", state.latestDID,
+				"status", state.status,
+				"stats", state.stats,
 				"duration", time.Since(start),
 			)
 			// Pause for a bit to avoid spamming failed compactions
