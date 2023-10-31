@@ -1,6 +1,7 @@
 package data
 
 import (
+	"encoding"
 	"encoding/base64"
 	"fmt"
 	"reflect"
@@ -58,6 +59,12 @@ func parseAtom(atom any) (any, error) {
 		return parseMap(v)
 	case *map[string]any:
 		return parseMap(*v)
+	case encoding.TextMarshaler:
+		s, err := v.MarshalText()
+		if err != nil {
+			return nil, fmt.Errorf("formating data (%s): %w", reflect.TypeOf(v), err)
+		}
+		return s, nil
 	default:
 		return nil, fmt.Errorf("unexpected type: %s", reflect.TypeOf(v))
 	}
