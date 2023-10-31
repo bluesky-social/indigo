@@ -26,7 +26,6 @@ import (
 	"github.com/bluesky-social/indigo/indexer"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/plc"
-	"github.com/bluesky-social/indigo/util/version"
 	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/icrowley/fake"
 	"github.com/labstack/echo-contrib/pprof"
@@ -48,8 +47,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/carlmjohnson/versioninfo"
 	cbg "github.com/whyrusleeping/cbor-gen"
-
 	"go.uber.org/zap"
 )
 
@@ -88,7 +87,7 @@ func main() {
 	app := cli.App{
 		Name:    "supercollider",
 		Usage:   "atproto event noise-maker for BGS load testing",
-		Version: version.Version,
+		Version: versioninfo.Short(),
 	}
 
 	app.Flags = []cli.Flag{

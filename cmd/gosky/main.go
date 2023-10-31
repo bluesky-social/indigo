@@ -24,7 +24,6 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/util/version"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/gorilla/websocket"
@@ -37,6 +36,7 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 	_ "go.uber.org/automaxprocs"
 
+	"github.com/carlmjohnson/versioninfo"
 	logging "github.com/ipfs/go-log"
 	"github.com/polydawn/refmt/cbor"
 	rejson "github.com/polydawn/refmt/json"
@@ -55,7 +55,7 @@ func run(args []string) {
 	app := cli.App{
 		Name:    "gosky",
 		Usage:   "client CLI for atproto and bluesky",
-		Version: version.Version,
+		Version: versioninfo.Short(),
 	}
 
 	app.Flags = []cli.Flag{
