@@ -2,6 +2,7 @@ package data
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
@@ -19,6 +20,9 @@ func Validate(obj map[string]any) error {
 //
 // The standard library's MarshalJSON can be used to invert this function.
 func UnmarshalJSON(b []byte) (map[string]any, error) {
+	if len(b) > MAX_JSON_RECORD_SIZE {
+		return nil, fmt.Errorf("exceeded max JSON record size: %d", len(b))
+	}
 	var rawObj map[string]any
 	err := json.Unmarshal(b, &rawObj)
 	if err != nil {
@@ -33,6 +37,9 @@ func UnmarshalJSON(b []byte) (map[string]any, error) {
 
 // Parses generic data (object) in CBOR (specifically, IPLD dag-cbor), validating against the atproto data model at the same time.
 func UnmarshalCBOR(b []byte) (map[string]any, error) {
+	if len(b) > MAX_CBOR_RECORD_SIZE {
+		return nil, fmt.Errorf("exceeded max CBOR record size: %d", len(b))
+	}
 	var rawObj map[string]any
 	err := cbor.DecodeInto(b, &rawObj)
 	if err != nil {
