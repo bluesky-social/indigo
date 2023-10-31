@@ -69,7 +69,7 @@ func testDataModelFixture(t *testing.T, row DataModelFixture) {
 	assert.Equal(cborBytes, cborFromCBOR)
 
 	// 0x71 = dag-cbor, 0x12 = sha2-256, 0 = default length
-	cidBuilder := cid.V1Builder{0x71, 0x12, 0}
+	cidBuilder := cid.V1Builder{Codec: 0x71, MhType: 0x12, MhLength: 0}
 	cidFromJSON, err := cidBuilder.Sum(cborFromJSON)
 	assert.NoError(err)
 	assert.Equal(row.CID, cidFromJSON.String())
