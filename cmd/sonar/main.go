@@ -15,12 +15,12 @@ import (
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
 	"github.com/bluesky-social/indigo/sonar"
-	"github.com/bluesky-social/indigo/util/version"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 
+	"github.com/carlmjohnson/versioninfo"
 	"github.com/urfave/cli/v2"
 )
 
@@ -28,7 +28,7 @@ func main() {
 	app := cli.App{
 		Name:    "sonar",
 		Usage:   "atproto firehose monitoring tool",
-		Version: version.Version,
+		Version: versioninfo.Short(),
 	}
 
 	app.Flags = []cli.Flag{

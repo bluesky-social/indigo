@@ -8,12 +8,12 @@ import (
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/labeler"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/util/version"
 	"github.com/urfave/cli/v2"
 
 	_ "github.com/joho/godotenv/autoload"
 	_ "go.uber.org/automaxprocs"
 
+	"github.com/carlmjohnson/versioninfo"
 	logging "github.com/ipfs/go-log"
 	"github.com/whyrusleeping/go-did"
 	"gorm.io/plugin/opentelemetry/tracing"
@@ -32,7 +32,7 @@ func run(args []string) error {
 	app := cli.App{
 		Name:    "labelmaker",
 		Usage:   "atproto content labeling daemon",
-		Version: version.Version,
+		Version: versioninfo.Short(),
 	}
 
 	app.Flags = []cli.Flag{

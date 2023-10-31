@@ -16,7 +16,6 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/testing"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/util/version"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/ipfs/go-cid"
@@ -26,6 +25,7 @@ import (
 
 	_ "github.com/joho/godotenv/autoload"
 
+	"github.com/carlmjohnson/versioninfo"
 	logging "github.com/ipfs/go-log"
 	"github.com/ipld/go-car"
 	cli "github.com/urfave/cli/v2"
@@ -41,7 +41,7 @@ func run(args []string) {
 	app := cli.App{
 		Name:    "stress",
 		Usage:   "load generation tool for PDS instances",
-		Version: version.Version,
+		Version: versioninfo.Short(),
 	}
 
 	app.Commands = []*cli.Command{
