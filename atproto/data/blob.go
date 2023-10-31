@@ -19,7 +19,7 @@ type Blob struct {
 	Size     int64
 }
 
-type LegacyBlob struct {
+type LegacyBlobSchema struct {
 	Cid      string `json:"cid" cborgen:"cid"`
 	MimeType string `json:"mimeType" cborgen:"mimeType"`
 }
@@ -33,7 +33,7 @@ type BlobSchema struct {
 
 func (b Blob) MarshalJSON() ([]byte, error) {
 	if b.Size < 0 {
-		lb := LegacyBlob{
+		lb := LegacyBlobSchema{
 			Cid:      b.Ref.String(),
 			MimeType: b.MimeType,
 		}
@@ -50,7 +50,7 @@ func (b Blob) MarshalJSON() ([]byte, error) {
 }
 
 func (b *Blob) UnmarshalJSON(raw []byte) error {
-	typ, err := TypeExtract(raw)
+	typ, err := ExtractTypeJSON(raw)
 	if err != nil {
 		return fmt.Errorf("parsing blob type: %v", err)
 	}
@@ -68,7 +68,7 @@ func (b *Blob) UnmarshalJSON(raw []byte) error {
 			return fmt.Errorf("parsing blob: negative size: %d", bs.Size)
 		}
 	} else {
-		var legacy LegacyBlob
+		var legacy LegacyBlobSchema
 		err := json.Unmarshal(raw, &legacy)
 		if err != nil {
 			return fmt.Errorf("parsing legacy blob: %v", err)
@@ -90,7 +90,7 @@ func (b *Blob) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if b.Size < 0 {
-		lb := LegacyBlob{
+		lb := LegacyBlobSchema{
 			Cid:      b.Ref.String(),
 			MimeType: b.MimeType,
 		}
@@ -107,7 +107,7 @@ func (b *Blob) MarshalCBOR(w io.Writer) error {
 }
 
 func (lb *Blob) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := CborTypeExtractReader(r)
+	typ, b, err := ExtractTypeCBORReader(r)
 	if err != nil {
 		return fmt.Errorf("parsing $blob CBOR type: %w", err)
 	}
@@ -126,7 +126,7 @@ func (lb *Blob) UnmarshalCBOR(r io.Reader) error {
 			return fmt.Errorf("parsing $blob CBOR: negative size: %d", bs.Size)
 		}
 	} else {
-		legacy := LegacyBlob{}
+		legacy := LegacyBlobSchema{}
 		err := legacy.UnmarshalCBOR(bytes.NewReader(b))
 		if err != nil {
 			return fmt.Errorf("parsing legacy blob CBOR: %v", err)

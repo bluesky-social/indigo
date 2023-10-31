@@ -18,7 +18,7 @@ var _ = cid.Undef
 var _ = math.E
 var _ = sort.Sort
 
-func (t *CborChecker) MarshalCBOR(w io.Writer) error {
+func (t *GenericRecord) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -55,8 +55,8 @@ func (t *CborChecker) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *CborChecker) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = CborChecker{}
+func (t *GenericRecord) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = GenericRecord{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -75,7 +75,7 @@ func (t *CborChecker) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("CborChecker: map struct too large (%d)", extra)
+		return fmt.Errorf("GenericRecord: map struct too large (%d)", extra)
 	}
 
 	var name string
@@ -113,7 +113,7 @@ func (t *CborChecker) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *LegacyBlob) MarshalCBOR(w io.Writer) error {
+func (t *LegacyBlobSchema) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -173,8 +173,8 @@ func (t *LegacyBlob) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *LegacyBlob) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = LegacyBlob{}
+func (t *LegacyBlobSchema) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = LegacyBlobSchema{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -193,7 +193,7 @@ func (t *LegacyBlob) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("LegacyBlob: map struct too large (%d)", extra)
+		return fmt.Errorf("LegacyBlobSchema: map struct too large (%d)", extra)
 	}
 
 	var name string
@@ -254,7 +254,7 @@ func (t *BlobSchema) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Ref (util.LexLink) (struct)
+	// t.Ref (data.CIDLink) (struct)
 	if len("ref") > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"ref\" was too long")
 	}
@@ -374,7 +374,7 @@ func (t *BlobSchema) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch name {
-		// t.Ref (util.LexLink) (struct)
+		// t.Ref (data.CIDLink) (struct)
 		case "ref":
 
 			{

@@ -7,40 +7,42 @@ import (
 	"io"
 )
 
-type typeExtractor struct {
+// Helper type for extracting record $type from CBOR
+type GenericRecord struct {
 	Type string `json:"$type" cborgen:"$type"`
 }
 
-func TypeExtract(b []byte) (string, error) {
-	var te typeExtractor
-	if err := json.Unmarshal(b, &te); err != nil {
+// Parses the top-level $type field from generic atproto JSON data
+func ExtractTypeJSON(b []byte) (string, error) {
+	var gr GenericRecord
+	if err := json.Unmarshal(b, &gr); err != nil {
 		return "", err
 	}
 
-	return te.Type, nil
+	return gr.Type, nil
 }
 
-type CborChecker struct {
-	Type string `json:"$type" cborgen:"$type"`
-}
-
-func CborTypeExtract(b []byte) (string, error) {
-	var tcheck CborChecker
-	if err := tcheck.UnmarshalCBOR(bytes.NewReader(b)); err != nil {
+// Parses the top-level $type field from generic atproto CBOR data
+func ExtractTypeCBOR(b []byte) (string, error) {
+	var gr GenericRecord
+	if err := gr.UnmarshalCBOR(bytes.NewReader(b)); err != nil {
 		fmt.Printf("bad bytes: %x\n", b)
 		return "", err
 	}
 
-	return tcheck.Type, nil
+	return gr.Type, nil
 }
 
-func CborTypeExtractReader(r io.Reader) (string, []byte, error) {
+// Parses top-level $type field from generic atproto CBOR.
+//
+// Returns that string field, and additional bytes (TODO: the parsed bytes, or remaining bytes?)
+func ExtractTypeCBORReader(r io.Reader) (string, []byte, error) {
 	buf := new(bytes.Buffer)
 	tr := io.TeeReader(r, buf)
-	var tcheck CborChecker
-	if err := tcheck.UnmarshalCBOR(tr); err != nil {
+	var gr GenericRecord
+	if err := gr.UnmarshalCBOR(tr); err != nil {
 		return "", nil, err
 	}
 
-	return tcheck.Type, buf.Bytes(), nil
+	return gr.Type, buf.Bytes(), nil
 }
