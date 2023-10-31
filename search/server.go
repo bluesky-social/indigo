@@ -12,15 +12,15 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/backfill"
-	"github.com/bluesky-social/indigo/util/version"
 	"github.com/bluesky-social/indigo/xrpc"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 
+	"github.com/carlmjohnson/versioninfo"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	es "github.com/opensearch-project/opensearch-go/v2"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	slogecho "github.com/samber/slog-echo"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	gorm "gorm.io/gorm"
 )
 
@@ -172,9 +172,9 @@ type HealthStatus struct {
 func (s *Server) handleHealthCheck(c echo.Context) error {
 	if err := s.db.Exec("SELECT 1").Error; err != nil {
 		s.logger.Error("healthcheck can't connect to database", "err", err)
-		return c.JSON(500, HealthStatus{Status: "error", Version: version.Version, Message: "can't connect to database"})
+		return c.JSON(500, HealthStatus{Status: "error", Version: versioninfo.Short(), Message: "can't connect to database"})
 	}
-	return c.JSON(200, HealthStatus{Status: "ok", Version: version.Version})
+	return c.JSON(200, HealthStatus{Status: "ok", Version: versioninfo.Short()})
 }
 
 func (s *Server) RunAPI(listen string) error {
