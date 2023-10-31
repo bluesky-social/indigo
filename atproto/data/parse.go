@@ -70,7 +70,7 @@ func parseArray(l []any) ([]any, error) {
 	out := make([]any, len(l))
 	var lastT any
 	for i, v := range l {
-		if lastT != nil && lastT != reflect.TypeOf(v) {
+		if lastT != nil && v != nil && lastT != reflect.TypeOf(v) {
 			return nil, fmt.Errorf("non-homogenous array types: %s != %s", lastT, reflect.TypeOf(v))
 		}
 		lastT = reflect.TypeOf(v)
