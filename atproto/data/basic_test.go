@@ -6,6 +6,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
+	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -56,4 +57,31 @@ func TestSyntaxSerialize(t *testing.T) {
 	assert.NoError(err)
 	_, err = json.Marshal(obj)
 	assert.NoError(err)
+}
+
+func TestExtractBlobs(t *testing.T) {
+	assert := assert.New(t)
+
+	cid1, _ := cid.Parse("bafkreiccldh766hwcnuxnf2wh6jgzepf2nlu2lvcllt63eww5p6chi4ity")
+	obj := map[string]interface{}{
+		"a": 5,
+		"b": 123,
+		"c": map[string]interface{}{
+			"blb": Blob{
+				Size:     567,
+				MimeType: "image/jpeg",
+				Ref:      CIDLink(cid1),
+			},
+		},
+		"d": []interface{}{
+			123,
+			Blob{
+				Size:     123,
+				MimeType: "image/png",
+				Ref:      CIDLink(cid1),
+			},
+		},
+	}
+	blbs := ExtractBlobs(obj)
+	assert.Equal(2, len(blbs))
 }
