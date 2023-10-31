@@ -11,7 +11,8 @@ import (
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/util/version"
+
+	"github.com/carlmjohnson/versioninfo"
 )
 
 type HiveAILabeler struct {
@@ -117,7 +118,7 @@ func (hal *HiveAILabeler) LabelBlob(ctx context.Context, blob lexutil.LexBlob, b
 	req.Header.Set("Authorization", fmt.Sprintf("Token %s", hal.ApiToken))
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "labelmaker/"+version.Version)
+	req.Header.Set("User-Agent", "labelmaker/"+versioninfo.Short())
 
 	res, err := hal.Client.Do(req)
 	if err != nil {

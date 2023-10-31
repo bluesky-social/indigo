@@ -11,7 +11,8 @@ import (
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	util "github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/util/version"
+
+	"github.com/carlmjohnson/versioninfo"
 )
 
 type MicroNSFWImgLabeler struct {
@@ -75,7 +76,7 @@ func (mnil *MicroNSFWImgLabeler) LabelBlob(ctx context.Context, blob lexutil.Lex
 		return nil, err
 	}
 	req.Header.Add("Content-Type", writer.FormDataContentType())
-	req.Header.Set("User-Agent", "labelmaker/"+version.Version)
+	req.Header.Set("User-Agent", "labelmaker/"+versioninfo.Short())
 
 	res, err := mnil.Client.Do(req)
 	if err != nil {
