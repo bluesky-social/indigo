@@ -62,7 +62,7 @@ func parseAtom(atom any) (any, error) {
 	case encoding.TextMarshaler:
 		s, err := v.MarshalText()
 		if err != nil {
-			return nil, fmt.Errorf("formating data (%s): %w", reflect.TypeOf(v), err)
+			return nil, fmt.Errorf("failed to marshal text (%s): %w", reflect.TypeOf(v), err)
 		}
 		return s, nil
 	default:
