@@ -75,12 +75,7 @@ func parseArray(l []any) ([]any, error) {
 		return nil, fmt.Errorf("data array length too long: %d", len(l))
 	}
 	out := make([]any, len(l))
-	var lastT any
 	for i, v := range l {
-		if lastT != nil && v != nil && lastT != reflect.TypeOf(v) {
-			return nil, fmt.Errorf("non-homogenous array types: %s != %s", lastT, reflect.TypeOf(v))
-		}
-		lastT = reflect.TypeOf(v)
 		p, err := parseAtom(v)
 		if err != nil {
 			return nil, err
