@@ -18,8 +18,8 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/util/version"
 
+	"github.com/carlmjohnson/versioninfo"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
 	typegen "github.com/whyrusleeping/cbor-gen"
@@ -65,7 +65,7 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 		u.RawQuery = fmt.Sprintf("cursor=%d", cur)
 	}
 	con, _, err := d.Dial(u.String(), http.Header{
-		"User-Agent": []string{fmt.Sprintf("palomar/%s", version.Version)},
+		"User-Agent": []string{fmt.Sprintf("palomar/%s", versioninfo.Short())},
 	})
 	if err != nil {
 		return fmt.Errorf("events dial failed: %w", err)

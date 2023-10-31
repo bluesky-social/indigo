@@ -15,12 +15,12 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/util/version"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	_ "github.com/joho/godotenv/autoload"
 	_ "go.uber.org/automaxprocs"
 
+	"github.com/carlmjohnson/versioninfo"
 	logging "github.com/ipfs/go-log"
 	"github.com/urfave/cli/v2"
 )
@@ -38,7 +38,7 @@ func run(args []string) error {
 	app := cli.App{
 		Name:    "beemo",
 		Usage:   "bluesky moderation reporting bot",
-		Version: version.Version,
+		Version: versioninfo.Short(),
 	}
 
 	app.Flags = []cli.Flag{

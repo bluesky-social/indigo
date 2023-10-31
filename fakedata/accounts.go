@@ -8,8 +8,9 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/util"
-	"github.com/bluesky-social/indigo/util/version"
 	"github.com/bluesky-social/indigo/xrpc"
+
+	"github.com/carlmjohnson/versioninfo"
 )
 
 type AccountCatalog struct {
@@ -77,7 +78,7 @@ func ReadAccountCatalog(path string) (*AccountCatalog, error) {
 
 func AccountXrpcClient(pdsHost string, ac *AccountContext) (*xrpc.Client, error) {
 	httpClient := util.RobustHTTPClient()
-	ua := "IndigoFakerMaker/" + version.Version
+	ua := "IndigoFakerMaker/" + versioninfo.Short()
 	xrpcc := &xrpc.Client{
 		Client:    httpClient,
 		Host:      pdsHost,

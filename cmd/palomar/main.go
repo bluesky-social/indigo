@@ -25,7 +25,7 @@ import (
 	"github.com/bluesky-social/indigo/search"
 	"github.com/bluesky-social/indigo/util/cliutil"
 
-	"github.com/bluesky-social/indigo/util/version"
+	"github.com/carlmjohnson/versioninfo"
 	es "github.com/opensearch-project/opensearch-go/v2"
 	cli "github.com/urfave/cli/v2"
 )
@@ -42,7 +42,7 @@ func run(args []string) error {
 	app := cli.App{
 		Name:    "palomar",
 		Usage:   "search indexing and query service (using ES or OS)",
-		Version: version.Version,
+		Version: versioninfo.Short(),
 	}
 
 	app.Flags = []cli.Flag{
