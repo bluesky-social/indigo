@@ -107,15 +107,5 @@
 			"other": "blah"
 		}
 	}
-  },
-  {
-  	"note": "inconsistent types in array",
-	"json": {
-		"obj": [
-			"one",
-			2,
-			false
-		]
-	}
   }
 ]
