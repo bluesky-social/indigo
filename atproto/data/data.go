@@ -3,6 +3,8 @@ package data
 import (
 	"encoding/json"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
+
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
 )
@@ -67,8 +69,11 @@ func forCBOR(obj map[string]any) map[string]any {
 				"ref":      cid.Cid(v.Ref),
 				"size":     v.Size,
 			}
+		case syntax.AtIdentifier:
+			out[k] = v.String()
+		case *syntax.AtIdentifier:
+			out[k] = v.String()
 		case map[string]any:
-			out[k] = forCBOR(v)
 			out[k] = forCBOR(v)
 		case []any:
 			out[k] = forCBORArray(v)
@@ -96,6 +101,10 @@ func forCBORArray(arr []any) []any {
 				"ref":      cid.Cid(v.Ref),
 				"size":     v.Size,
 			}
+		case syntax.AtIdentifier:
+			out[i] = v.String()
+		case *syntax.AtIdentifier:
+			out[i] = v.String()
 		case map[string]any:
 			out[i] = forCBOR(v)
 		case []any:
