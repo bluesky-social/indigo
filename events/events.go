@@ -167,6 +167,7 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 	cleanup := func() {
 		close(done)
 		em.rmSubscriber(sub)
+		close(sub.outgoing)
 	}
 
 	if since == nil {
