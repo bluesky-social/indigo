@@ -399,3 +399,41 @@ func TestDomainBans(t *testing.T) {
 		t.Fatal("should have failed with a 400")
 	}
 }
+
+func TestBGSHandleEmptyEvent(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping BGS test in 'short' test mode")
+	}
+	assert := assert.New(t)
+	didr := TestPLC(t)
+	p1 := MustSetupPDS(t, ".tpds", didr)
+	p1.Run(t)
+
+	b1 := MustSetupBGS(t, didr)
+	b1.Run(t)
+
+	b1.tr.TrialHosts = []string{p1.RawHost()}
+
+	p1.RequestScraping(t, b1)
+
+	time.Sleep(time.Millisecond * 50)
+
+	evts := b1.Events(t, -1)
+	defer evts.Cancel()
+
+	bob := p1.MustNewUser(t, "bob.tpds")
+	fmt.Println("event 1")
+	e1 := evts.Next()
+	assert.NotNil(e1.RepoCommit)
+	assert.Equal(e1.RepoCommit.Repo, bob.DID())
+
+	ctx := context.TODO()
+	rm := p1.server.Repoman()
+	if err := rm.BatchWrite(ctx, 1, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	e2 := evts.Next()
+	assert.Equal(len(e2.RepoCommit.Ops), 0)
+	assert.Equal(e2.RepoCommit.Repo, bob.DID())
+}
