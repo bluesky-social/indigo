@@ -148,7 +148,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 	toobig := false
 	slice := evt.RepoSlice
 	if len(slice) > MaxEventSliceLength || len(outops) > MaxOpsSliceLength {
-		slice = nil
+		slice = []byte{}
 		outops = nil
 		toobig = true
 	}

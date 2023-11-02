@@ -549,6 +549,7 @@ func (p *DbPersistence) hydrateCommit(ctx context.Context, rer *RepoEventRecord)
 
 	if len(cs) > carstore.MaxSliceLength {
 		out.TooBig = true
+		out.Blocks = []byte{}
 	} else {
 		out.Blocks = cs
 	}
