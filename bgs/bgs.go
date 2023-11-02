@@ -455,7 +455,7 @@ type User struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	DeletedAt   gorm.DeletedAt `gorm:"index"`
-	Handle      sql.NullString `gorm:"uniqueIndex"`
+	Handle      sql.NullString `gorm:"index"`
 	Did         string         `gorm:"uniqueIndex"`
 	PDS         uint
 	ValidHandle bool `gorm:"default:true"`
