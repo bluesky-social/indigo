@@ -37,7 +37,7 @@ type RepostRecord struct {
 type ActorInfo struct {
 	gorm.Model
 	Uid         Uid            `gorm:"uniqueindex"`
-	Handle      sql.NullString `gorm:"uniqueindex"`
+	Handle      sql.NullString `gorm:"index"`
 	DisplayName string
 	Did         string `gorm:"uniqueindex"`
 	Following   int64
