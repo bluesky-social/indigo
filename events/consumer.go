@@ -90,6 +90,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler)
 		defer t.Stop()
 
 		for {
+
 			select {
 			case <-t.C:
 				if err := con.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(time.Second*10)); err != nil {
@@ -112,16 +113,20 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler)
 		return err
 	})
 
+	con.SetPongHandler(func(_ string) error {
+		if err := con.SetReadDeadline(time.Now().Add(time.Minute)); err != nil {
+			log.Errorf("failed to set read deadline: %s", err)
+		}
+
+		return nil
+	})
+
 	lastSeq := int64(-1)
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-		}
-
-		if err := con.SetReadDeadline(time.Now().Add(time.Minute)); err != nil {
-			return fmt.Errorf("failed to set read deadline on websocket: %w", err)
 		}
 
 		mt, rawReader, err := con.NextReader()
