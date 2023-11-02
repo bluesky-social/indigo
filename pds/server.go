@@ -727,3 +727,7 @@ func (s *Server) UpdateUserHandle(ctx context.Context, u *User, handle string) e
 
 	return nil
 }
+
+func (s *Server) Repoman() *repomgr.RepoManager {
+	return s.repoman
+}
