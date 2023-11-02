@@ -79,7 +79,9 @@ func run(args []string) {
 		},
 	}
 	app.Commands = []*cli.Command{
+		accountCmd,
 		adminCmd,
+		bskyCmd,
 		bgsAdminCmd,
 		carCmd,
 		debugCmd,
