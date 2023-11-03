@@ -73,13 +73,10 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 			select {
 			case s.outgoing <- evt:
 			case <-s.done:
-				go func(torem *Subscriber) {
-					em.rmSubscriber(torem)
-				}(s)
 			default:
 				log.Warnw("event overflow", "bufferSize", len(s.outgoing), "ident", s.ident)
 				go func(torem *Subscriber) {
-					em.rmSubscriber(torem)
+					torem.cleanup()
 				}(s)
 			}
 			s.broadcastCounter.Inc()
@@ -102,6 +99,8 @@ type Subscriber struct {
 	filter func(*XRPCStreamEvent) bool
 
 	done chan struct{}
+
+	cleanup func()
 
 	ident            string
 	enqueuedCounter  prometheus.Counter
@@ -167,15 +166,15 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 		broadcastCounter: eventsBroadcast.WithLabelValues(ident),
 	}
 
-	cleanup := func() {
+	sub.cleanup = sync.OnceFunc(func() {
 		close(done)
 		em.rmSubscriber(sub)
 		close(sub.outgoing)
-	}
+	})
 
 	if since == nil {
 		em.addSubscriber(sub)
-		return sub.outgoing, cleanup, nil
+		return sub.outgoing, sub.cleanup, nil
 	}
 
 	out := make(chan *XRPCStreamEvent, em.bufferSize)
@@ -246,7 +245,7 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 		}
 	}()
 
-	return out, cleanup, nil
+	return out, sub.cleanup, nil
 }
 
 func sequenceForEvent(evt *XRPCStreamEvent) int64 {
