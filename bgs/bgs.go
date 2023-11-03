@@ -569,7 +569,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		for {
 			_, _, err := conn.ReadMessage()
 			if err != nil {
-				log.Errorf("failed to read message from client: %s", err)
+				log.Warnf("failed to read message from client: %s", err)
 				cancel()
 				return
 			}
@@ -647,8 +647,10 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			}
 
 			if err := wc.Close(); err != nil {
-				return fmt.Errorf("failed to flush-close our event write: %w", err)
+				log.Warnf("failed to flush-close our event write: %s", err)
+				return nil
 			}
+
 			lastWriteLk.Lock()
 			lastWrite = time.Now()
 			lastWriteLk.Unlock()
