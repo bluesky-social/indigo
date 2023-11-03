@@ -79,6 +79,10 @@ func (e *Error) Unwrap() error {
 	return e.Wrapped
 }
 
+func (e *Error) IsThrottled() bool {
+	return e.StatusCode == http.StatusTooManyRequests
+}
+
 func errorFromHTTPResponse(resp *http.Response, err error) error {
 	r := &Error{
 		StatusCode: resp.StatusCode,
