@@ -77,7 +77,10 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 					em.rmSubscriber(torem)
 				}(s)
 			default:
-				log.Warnf("event overflow (%d)", len(s.outgoing))
+				log.Warnw("event overflow", "bufferSize", len(s.outgoing), "ident", s.ident)
+				go func(torem *Subscriber) {
+					em.rmSubscriber(torem)
+				}(s)
 			}
 			s.broadcastCounter.Inc()
 		}
