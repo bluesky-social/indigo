@@ -1109,8 +1109,12 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		log.Debugw("lost the race to create a new user", "did", did, "handle", handle, "existing_hand", exu.Handle)
 		if exu.PDS != peering.ID {
 			// User is now on a different PDS, update
-			if err := s.db.Model(User{}).Where("id = ?", exu.ID).Update("pds", peering.ID).Error; err != nil {
+			if err := s.db.Model(User{}).Where("id = ?", exu.Uid).Update("pds", peering.ID).Error; err != nil {
 				return nil, fmt.Errorf("failed to update users pds: %w", err)
+			}
+
+			if err := s.db.Model(models.ActorInfo{}).Where("uid = ?", exu.Uid).Update("pds", peering.ID).Error; err != nil {
+				return nil, fmt.Errorf("failed to update users pds on actorInfo: %w", err)
 			}
 
 			exu.PDS = peering.ID
