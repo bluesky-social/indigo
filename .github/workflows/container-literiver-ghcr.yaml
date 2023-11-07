@@ -1,4 +1,4 @@
-name: container-bigsky-ghcr
+name: container-literiver-ghcr
 on: [push]
 env:
   REGISTRY: ghcr.io
@@ -9,7 +9,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  container-bigsky-ghcr:
+  container-literiver-ghcr:
     if: github.repository == 'bluesky-social/indigo'
     runs-on: ubuntu-latest
     permissions:
