@@ -23,6 +23,11 @@ func main() {
 			Usage:  "parse an individual lexicon schema file (JSON)",
 			Action: runParseSchema,
 		},
+		&cli.Command{
+			Name:   "load-directory",
+			Usage:  "try recursively loading all the schemas from a directory",
+			Action: runLoadDirectory,
+		},
 	}
 	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})
 	slog.SetDefault(slog.New(h))
@@ -55,5 +60,21 @@ func runParseSchema(cctx *cli.Context) error {
 		return err
 	}
 	fmt.Println(string(out))
+	return nil
+}
+
+func runLoadDirectory(cctx *cli.Context) error {
+	p := cctx.Args().First()
+	if p == "" {
+		return fmt.Errorf("need to provide directory path as an argument")
+	}
+
+	c := lexicon.NewCatalog()
+	err := c.LoadDirectory(p)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("success!")
 	return nil
 }
