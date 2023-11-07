@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
 // Serialization helper for top-level Lexicon schema JSON objects (files)
@@ -334,6 +337,20 @@ type SchemaError struct {
 func (s *SchemaError) CheckSchema() error {
 	return nil
 }
+func (s *SchemaError) Validate(d any) error {
+	e, ok := d.(map[string]any)
+	if !ok {
+		return fmt.Errorf("expected an object in error position")
+	}
+	n, ok := e["error"]
+	if !ok {
+		return fmt.Errorf("expected error type")
+	}
+	if n != s.Name {
+		return fmt.Errorf("error type mis-match: %s", n)
+	}
+	return nil
+}
 
 type SchemaNull struct {
 	Type        string  `json:"type,const=null"`
@@ -341,6 +358,13 @@ type SchemaNull struct {
 }
 
 func (s *SchemaNull) CheckSchema() error {
+	return nil
+}
+
+func (s *SchemaNull) Validate(d any) error {
+	if d != nil {
+		return fmt.Errorf("expected null data, got: %s", reflect.TypeOf(d))
+	}
 	return nil
 }
 
@@ -354,6 +378,17 @@ type SchemaBoolean struct {
 func (s *SchemaBoolean) CheckSchema() error {
 	if s.Default != nil && s.Const != nil {
 		return fmt.Errorf("schema can't have both 'default' and 'const'")
+	}
+	return nil
+}
+
+func (s *SchemaBoolean) Validate(d any) error {
+	v, ok := d.(bool)
+	if !ok {
+		return fmt.Errorf("expected a boolean")
+	}
+	if s.Const != nil && v != *s.Const {
+		return fmt.Errorf("boolean val didn't match constant (%v): %v", *s.Const, v)
 	}
 	return nil
 }
@@ -375,6 +410,21 @@ func (s *SchemaInteger) CheckSchema() error {
 	}
 	if s.Minimum != nil && s.Maximum != nil && *s.Maximum < *s.Minimum {
 		return fmt.Errorf("schema max < min")
+	}
+	return nil
+}
+
+func (s *SchemaInteger) Validate(d any) error {
+	v, ok := d.(int)
+	if !ok {
+		return fmt.Errorf("expected an integer")
+	}
+	// TODO: enforce enum
+	if s.Const != nil && v != *s.Const {
+		return fmt.Errorf("integer val didn't match constant (%d): %d", *s.Const, v)
+	}
+	if (s.Minimum != nil && v < *s.Minimum) || (s.Maximum != nil && v > *s.Maximum) {
+		return fmt.Errorf("integer val outside specified range: %d", v)
 	}
 	return nil
 }
@@ -410,6 +460,71 @@ func (s *SchemaString) CheckSchema() error {
 		(s.MaxGraphemes != nil && *s.MaxGraphemes < 0) {
 		return fmt.Errorf("string schema min or max below zero")
 	}
+	if s.Format != nil {
+		switch *s.Format {
+		case "at-identifier", "at-uri", "cid", "datetime", "did", "handle", "nsid", "uri", "language":
+			// pass
+		default:
+			return fmt.Errorf("unknown string format: %s", *s.Format)
+		}
+	}
+	return nil
+}
+
+func (s *SchemaString) Validate(d any) error {
+	v, ok := d.(string)
+	if !ok {
+		return fmt.Errorf("expected a string")
+	}
+	// TODO: enforce enum
+	if s.Const != nil && v != *s.Const {
+		return fmt.Errorf("string val didn't match constant (%s): %s", *s.Const, v)
+	}
+	// TODO: is this actually counting UTF-8 length?
+	if (s.MinLength != nil && len(v) < *s.MinLength) || (s.MaxLength != nil && len(v) > *s.MaxLength) {
+		return fmt.Errorf("string length outside specified range: %d", len(v))
+	}
+	// TODO: grapheme length
+	if s.Format != nil {
+		switch *s.Format {
+		case "at-identifier":
+			if _, err := syntax.ParseAtIdentifier(v); err != nil {
+				return err
+			}
+		case "at-uri":
+			if _, err := syntax.ParseATURI(v); err != nil {
+				return err
+			}
+		case "cid":
+			if _, err := syntax.ParseCID(v); err != nil {
+				return err
+			}
+		case "datetime":
+			if _, err := syntax.ParseDatetime(v); err != nil {
+				return err
+			}
+		case "did":
+			if _, err := syntax.ParseDID(v); err != nil {
+				return err
+			}
+		case "handle":
+			if _, err := syntax.ParseHandle(v); err != nil {
+				return err
+			}
+		case "nsid":
+			if _, err := syntax.ParseNSID(v); err != nil {
+				return err
+			}
+		case "uri":
+			if _, err := syntax.ParseURI(v); err != nil {
+				return err
+			}
+		case "language":
+			if _, err := syntax.ParseLanguage(v); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -431,12 +546,31 @@ func (s *SchemaBytes) CheckSchema() error {
 	return nil
 }
 
+func (s *SchemaBytes) Validate(d any) error {
+	v, ok := d.(data.Bytes)
+	if !ok {
+		return fmt.Errorf("expecting bytes")
+	}
+	if (s.MinLength != nil && len(v) < *s.MinLength) || (s.MaxLength != nil && len(v) > *s.MaxLength) {
+		return fmt.Errorf("bytes size out of bounds: %d", len(v))
+	}
+	return nil
+}
+
 type SchemaCIDLink struct {
 	Type        string  `json:"type,const=cid-link"`
 	Description *string `json:"description,omitempty"`
 }
 
 func (s *SchemaCIDLink) CheckSchema() error {
+	return nil
+}
+
+func (s *SchemaCIDLink) Validate(d any) error {
+	_, ok := d.(data.CIDLink)
+	if !ok {
+		return fmt.Errorf("expecting a cid-link")
+	}
 	return nil
 }
 
@@ -507,6 +641,18 @@ func (s *SchemaBlob) CheckSchema() error {
 	return nil
 }
 
+func (s *SchemaBlob) Validate(d any) error {
+	v, ok := d.(data.Blob)
+	if !ok {
+		return fmt.Errorf("expected a blob")
+	}
+	// TODO: validate accept mimetype
+	if s.MaxSize != nil && int(v.Size) > *s.MaxSize {
+		return fmt.Errorf("blob size too large: %d", v.Size)
+	}
+	return nil
+}
+
 type SchemaParams struct {
 	Type        string               `json:"type,const=params"`
 	Description *string              `json:"description,omitempty"`
@@ -543,6 +689,10 @@ func (s *SchemaParams) CheckSchema() error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (s *SchemaParams) Validate(d any) error {
 	return nil
 }
 
@@ -593,5 +743,9 @@ type SchemaUnknown struct {
 }
 
 func (s *SchemaUnknown) CheckSchema() error {
+	return nil
+}
+
+func (s *SchemaUnknown) Validate(d any) error {
 	return nil
 }

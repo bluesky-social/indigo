@@ -12,7 +12,7 @@ import (
 func TestBasicLabelLexicon(t *testing.T) {
 	assert := assert.New(t)
 
-	f, err := os.Open("testdata/com_atproto_label_defs.json")
+	f, err := os.Open("testdata/valid/com_atproto_label_defs.json")
 	if err != nil {
 		t.Fatal(err)
 	}
