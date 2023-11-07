@@ -132,16 +132,6 @@ func Run(cctx *cli.Context) (err error) {
 		}
 	}()
 
-	// Trim expired DBs in a separate goroutine.
-	go func() {
-		for {
-			if err := r.expireDBs(); err != nil {
-				slog.Error("failed to expire DBs", "error", err)
-			}
-			time.Sleep(time.Second * 5)
-		}
-	}()
-
 	// Serve metrics over HTTP if enabled.
 	if r.Config.Addr != "" {
 		hostport := r.Config.Addr
