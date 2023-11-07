@@ -8,7 +8,7 @@ WORKDIR /dockerbuild
 # timezone data for alpine builds
 ENV GOEXPERIMENT=loopvar
 RUN GIT_VERSION=$(git describe --tags --long --always) && \
-    go build -tags timetzdata -o /literiver ./cmd/literiver
+    go build -ldflags "-extldflags '-static'" -tags osusergo,netgo,sqlite_omit_load_extension,timetzdata -o /literiver ./cmd/literiver
 
 ### Run stage
 FROM alpine:3.18
