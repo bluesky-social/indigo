@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 )
 
@@ -106,4 +107,108 @@ func (c *Catalog) LoadDirectory(dirPath string) error {
 	})
 }
 
-//func (c *Catalog) ValidateData(d map[string]any) error
+func (c *Catalog) Validate(d any, id string) error {
+	schema, err := c.Resolve(id)
+	if err != nil {
+		return nil
+	}
+	switch v := schema.Def.(type) {
+	case SchemaRecord:
+		obj, ok := d.(map[string]any)
+		if !ok {
+			return fmt.Errorf("expected an object, got: %s", reflect.TypeOf(d))
+		}
+		// XXX: return v.Validate(d, schema.ID)
+		_ = obj
+		_ = v
+		return nil
+	case SchemaQuery:
+		// XXX: return v.Validate(d)
+		return nil
+	case SchemaProcedure:
+		// XXX: return v.Validate(d)
+		return nil
+	case SchemaSubscription:
+		obj, ok := d.(map[string]any)
+		if !ok {
+			return fmt.Errorf("expected an object, got: %s", reflect.TypeOf(d))
+		}
+		// XXX: return v.Validate(d)
+		_ = obj
+		return nil
+	case SchemaToken:
+		str, ok := d.(string)
+		if !ok {
+			return fmt.Errorf("expected a string for token, got: %s", reflect.TypeOf(d))
+		}
+		if str != id {
+			return fmt.Errorf("expected token (%s), got: %s", id, str)
+		}
+		return nil
+	default:
+		return c.validateDef(schema.Def, d)
+	}
+}
+
+func (c *Catalog) validateDef(def any, d any) error {
+	// TODO:
+	switch v := def.(type) {
+	case SchemaNull:
+		return v.Validate(d)
+	case SchemaBoolean:
+		return v.Validate(d)
+	case SchemaInteger:
+		return v.Validate(d)
+	case SchemaString:
+		return v.Validate(d)
+	case SchemaBytes:
+		return v.Validate(d)
+	case SchemaCIDLink:
+		return v.Validate(d)
+	case SchemaArray:
+		arr, ok := d.([]any)
+		if !ok {
+			return fmt.Errorf("expected an array, got: %s", reflect.TypeOf(d))
+		}
+		// XXX: return v.ValidateArray(d, v)
+		_ = arr
+		return nil
+	case SchemaObject:
+		obj, ok := d.(map[string]any)
+		if !ok {
+			return fmt.Errorf("expected an object, got: %s", reflect.TypeOf(d))
+		}
+		return c.ValidateObject(v, obj)
+	case SchemaBlob:
+		return v.Validate(d)
+	case SchemaParams:
+		return v.Validate(d)
+	case SchemaRef:
+		// recurse
+		return c.Validate(d, v.Ref)
+	case SchemaUnion:
+		// XXX: special ValidateUnion helper
+		return nil
+	case SchemaUnknown:
+		return v.Validate(d)
+	default:
+		return fmt.Errorf("unhandled schema type: %s", reflect.TypeOf(v))
+	}
+}
+
+func (c *Catalog) ValidateObject(s SchemaObject, d map[string]any) error {
+	for _, k := range s.Required {
+		if _, ok := d[k]; !ok {
+			return fmt.Errorf("required field missing: %s", k)
+		}
+	}
+	for k, def := range s.Properties {
+		if v, ok := d[k]; ok {
+			err := c.validateDef(def.Inner, v)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
