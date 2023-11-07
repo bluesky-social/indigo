@@ -32,6 +32,7 @@ func TestBackfill(t *testing.T) {
 	ts := &testState{}
 
 	opts := backfill.DefaultBackfillOptions()
+	opts.CheckoutPath = "https://bsky.network/xrpc/com.atproto.sync.getRepo"
 	opts.NSIDFilter = "app.bsky.feed.follow/"
 
 	bf := backfill.NewBackfiller(
