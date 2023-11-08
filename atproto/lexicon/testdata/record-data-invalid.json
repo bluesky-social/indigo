@@ -1,0 +1,21 @@
+[
+    { "name": "missing required field",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record" }
+    },
+    { "name": "invalid string field",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "string": 2 } },
+    { "name": "invalid string format handle",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "formats": { "handle": "123" } }
+    },
+    { "name": "invalid string format did",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "formats": { "did": "123" } }
+    },
+    { "name": "invalid array element",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "array": [true, false] }
+    }
+]

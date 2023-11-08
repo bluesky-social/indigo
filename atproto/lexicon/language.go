@@ -63,7 +63,7 @@ func (s *SchemaDef) CheckSchema() error {
 	case SchemaUnknown:
 		return v.CheckSchema()
 	default:
-		return fmt.Errorf("unhandled schema type: %s", reflect.TypeOf(v))
+		return fmt.Errorf("unhandled schema type: %v", reflect.TypeOf(v))
 	}
 }
 
@@ -207,7 +207,6 @@ func (s *SchemaDef) UnmarshalJSON(b []byte) error {
 	default:
 		return fmt.Errorf("unexpected schema type: %s", t)
 	}
-	return fmt.Errorf("unexpected schema type: %s", t)
 }
 
 type SchemaRecord struct {
@@ -415,10 +414,11 @@ func (s *SchemaInteger) CheckSchema() error {
 }
 
 func (s *SchemaInteger) Validate(d any) error {
-	v, ok := d.(int)
+	v64, ok := d.(int64)
 	if !ok {
 		return fmt.Errorf("expected an integer")
 	}
+	v := int(v64)
 	// TODO: enforce enum
 	if s.Const != nil && v != *s.Const {
 		return fmt.Errorf("integer val didn't match constant (%d): %d", *s.Const, v)
@@ -474,7 +474,7 @@ func (s *SchemaString) CheckSchema() error {
 func (s *SchemaString) Validate(d any) error {
 	v, ok := d.(string)
 	if !ok {
-		return fmt.Errorf("expected a string")
+		return fmt.Errorf("expected a string: %v", reflect.TypeOf(d))
 	}
 	// TODO: enforce enum
 	if s.Const != nil && v != *s.Const {
@@ -606,12 +606,12 @@ func (s *SchemaObject) CheckSchema() error {
 	// TODO: check for set uniqueness of required and nullable
 	for _, k := range s.Required {
 		if _, ok := s.Properties[k]; !ok {
-			fmt.Errorf("object 'required' field not in properties: %s", k)
+			return fmt.Errorf("object 'required' field not in properties: %s", k)
 		}
 	}
 	for _, k := range s.Nullable {
 		if _, ok := s.Properties[k]; !ok {
-			fmt.Errorf("object 'nullable' field not in properties: %s", k)
+			return fmt.Errorf("object 'nullable' field not in properties: %s", k)
 		}
 	}
 	for k, def := range s.Properties {
@@ -624,6 +624,16 @@ func (s *SchemaObject) CheckSchema() error {
 		}
 	}
 	return nil
+}
+
+// Checks if a field name 'k' is one of the Nullable fields for this object
+func (s *SchemaObject) IsNullable(k string) bool {
+	for _, el := range s.Nullable {
+		if el == k {
+			return true
+		}
+	}
+	return false
 }
 
 type SchemaBlob struct {
@@ -664,7 +674,7 @@ func (s *SchemaParams) CheckSchema() error {
 	// TODO: check for set uniqueness of required
 	for _, k := range s.Required {
 		if _, ok := s.Properties[k]; !ok {
-			fmt.Errorf("object 'required' field not in properties: %s", k)
+			return fmt.Errorf("object 'required' field not in properties: %s", k)
 		}
 	}
 	for k, def := range s.Properties {

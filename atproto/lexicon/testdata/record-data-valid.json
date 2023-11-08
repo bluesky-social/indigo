@@ -1,0 +1,91 @@
+[
+    {
+        "name": "minimal",
+        "rkey": "demo",
+        "data": {
+        	"$type": "example.lexicon.record",
+            "integer": 1
+        }
+    },
+    {
+        "name": "full",
+        "rkey": "demo",
+        "data": {
+        	"$type": "example.lexicon.record",
+            "null": null,
+            "boolean": true,
+            "integer": 3,
+            "string": "blah",
+            "nullableString": null,
+            "bytes": {
+                "$bytes": "123"
+            },
+            "cidlink": {
+                "$link": "bafyreiclp443lavogvhj3d2ob2cxbfuscni2k5jk7bebjzg7khl3esabwq"
+            },
+            "blob": {
+                "$type": "blob",
+                "mimeType": "text/plain",
+                "size": 12345,
+                "ref": {
+                    "$link": "bafyreiclp443lavogvhj3d2ob2cxbfuscni2k5jk7bebjzg7khl3esabwq"
+                }
+            },
+            "unknown": {
+                "a": "alphabet",
+                "b": 3
+            },
+            "array": [1,2,3],
+            "object": {
+                "a": 1,
+                "b": 2
+            },
+            "ref": "example.lexicon.record#demoToken",
+            "union": {
+                "$type": "example.lexicon.record#demoObject",
+                "a": 1,
+                "b": 2
+            },
+            "formats": {
+                "did": "did:web:example.com",
+                "handle": "handle.example.com",
+                "atidentifier": "handle.example.com",
+                "aturi": "at://handle.example.com/com.example.nsid/asdf123",
+                "nsid": "com.example.nsid",
+                "cid": "bafyreiclp443lavogvhj3d2ob2cxbfuscni2k5jk7bebjzg7khl3esabwq",
+                "datetime": "2023-10-30T22:25:23Z",
+                "language": "en",
+                "uri": "https://example.com/file.txt"
+            },
+            "constInteger": 42,
+            "defaultInteger": 123,
+            "enumInteger": 16,
+            "rangeInteger": 16,
+            "lenString": "1234567890ABC",
+            "graphemeString": "abcde",
+            "enumString": "fish",
+            "knownString": "blue",
+            "sizeBytes": {
+                "$bytes": "asdfasdfasdfasdf"
+            },
+            "lenArray": [1,2,3],
+            "sizeBlob": {
+                "$type": "blob",
+                "mimeType": "text/plain",
+                "size": 8,
+                "ref": {
+                    "$link": "bafyreiclp443lavogvhj3d2ob2cxbfuscni2k5jk7bebjzg7khl3esabwq"
+                }
+            },
+            "acceptBlob": {
+                "$type": "blob",
+                "mimeType": "image/png",
+                "size": 12345,
+                "ref": {
+                    "$link": "bafyreiclp443lavogvhj3d2ob2cxbfuscni2k5jk7bebjzg7khl3esabwq"
+                }
+            },
+            "closedUnion": "example.lexicon.record#demoToken"
+        }
+    }
+]
