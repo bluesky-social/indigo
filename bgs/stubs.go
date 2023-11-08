@@ -112,7 +112,6 @@ func (s *BGS) HandleComAtprotoSyncGetRecord(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetRecord")
 	defer span.End()
 	collection := c.QueryParam("collection")
-	commit := c.QueryParam("commit")
 	did := c.QueryParam("did")
 	rkey := c.QueryParam("rkey")
 
@@ -131,17 +130,10 @@ func (s *BGS) HandleComAtprotoSyncGetRecord(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid did: %s", did)})
 	}
 
-	if commit != "" {
-		_, err = cid.Parse(commit)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid commit: %s", commit)})
-		}
-	}
-
 	var out io.Reader
 	var handleErr error
 	// func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context,collection string,commit string,did string,rkey string) (io.Reader, error)
-	out, handleErr = s.handleComAtprotoSyncGetRecord(ctx, collection, commit, did, rkey)
+	out, handleErr = s.handleComAtprotoSyncGetRecord(ctx, collection, did, rkey)
 	if handleErr != nil {
 		return handleErr
 	}
