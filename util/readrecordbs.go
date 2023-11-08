@@ -52,19 +52,19 @@ func (bs *LoggingBstore) GetSize(ctx context.Context, c cid.Cid) (int, error) {
 }
 
 func (bs *LoggingBstore) DeleteBlock(ctx context.Context, c cid.Cid) error {
-	return fmt.Errorf("deletes not allowed on read-record blockstore")
+	return fmt.Errorf("deletes not allowed on logging blockstore")
 }
 
 func (bs *LoggingBstore) Put(context.Context, blockformat.Block) error {
-	return fmt.Errorf("writes not allowed on read-record blockstore")
+	return fmt.Errorf("writes not allowed on logging blockstore")
 }
 
 func (bs *LoggingBstore) PutMany(context.Context, []blockformat.Block) error {
-	return fmt.Errorf("writes not allowed on read-record blockstore")
+	return fmt.Errorf("writes not allowed on logging blockstore")
 }
 
 func (bs *LoggingBstore) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
-	return nil, fmt.Errorf("iteration not supported on read-record blockstore")
+	return nil, fmt.Errorf("iteration not allowed on logging blockstore")
 }
 
 func (bs *LoggingBstore) HashOnRead(enabled bool) {
