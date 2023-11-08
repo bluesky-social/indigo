@@ -56,11 +56,11 @@ func (bs *ReadRecordBstore) DeleteBlock(ctx context.Context, c cid.Cid) error {
 }
 
 func (bs *ReadRecordBstore) Put(context.Context, blockformat.Block) error {
-	return fmt.Errorf("writes not allows on read-record blockstore")
+	return fmt.Errorf("writes not allowed on read-record blockstore")
 }
 
 func (bs *ReadRecordBstore) PutMany(context.Context, []blockformat.Block) error {
-	return fmt.Errorf("writes not allows on read-record blockstore")
+	return fmt.Errorf("writes not allowed on read-record blockstore")
 }
 
 func (bs *ReadRecordBstore) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
