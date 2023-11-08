@@ -257,30 +257,33 @@ func (s *Slurper) GetTrustedDomains() []string {
 
 var ErrNewSubsDisabled = fmt.Errorf("new subscriptions temporarily disabled")
 
+// Checks whether a host is allowed to be subscribed to
+// must be called with the slurper lock held
+func (s *Slurper) canSlurpHost(host string) bool {
+	// Check if the host is a trusted domain
+	for _, d := range s.trustedDomains {
+		// If the domain starts with a *., it's a wildcard
+		if strings.HasPrefix(d, "*.") {
+			// Cut off the * so we have .domain.com
+			if strings.HasSuffix(host, strings.TrimPrefix(d, "*")) {
+				return true
+			}
+		} else {
+			if host == d {
+				return true
+			}
+		}
+	}
+
+	return !s.newSubsDisabled
+}
+
 func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) error {
 	// TODO: for performance, lock on the hostname instead of global
 	s.lk.Lock()
 	defer s.lk.Unlock()
 
-	isTrusted := false
-
-	// Check if the host is a trusted domain
-	for _, d := range s.trustedDomains {
-		// If the domain starts with a *., it's a wildcard
-		if strings.HasPrefix(d, "*.") {
-			if strings.HasSuffix(host, strings.TrimPrefix(d, "*")) {
-				isTrusted = true
-				break
-			}
-		} else {
-			if host == d {
-				isTrusted = true
-				break
-			}
-		}
-	}
-
-	if s.newSubsDisabled && !isTrusted {
+	if !s.canSlurpHost(host) {
 		return ErrNewSubsDisabled
 	}
 
