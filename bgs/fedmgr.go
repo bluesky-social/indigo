@@ -17,6 +17,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/gorilla/websocket"
+	pq "github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
@@ -182,7 +183,7 @@ type SlurpConfig struct {
 	gorm.Model
 
 	NewSubsDisabled bool
-	TrustedDomains  []string
+	TrustedDomains  pq.StringArray `gorm:"type:text[]"`
 }
 
 func (s *Slurper) SetNewSubsDisabled(dis bool) error {
