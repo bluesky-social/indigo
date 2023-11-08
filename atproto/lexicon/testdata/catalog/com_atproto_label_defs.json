@@ -1,4 +1,6 @@
 {
+  "lexicon": 1,
+  "id": "com.atproto.label.defs",
   "defs": {
     "label": {
       "description": "Metadata tag on an atproto resource (eg, repo or record)",
@@ -72,7 +74,5 @@
       ],
       "type": "object"
     }
-  },
-  "id": "com.atproto.label.defs",
-  "lexicon": 1
+  }
 }

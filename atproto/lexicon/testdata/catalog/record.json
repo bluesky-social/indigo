@@ -1,0 +1,213 @@
+{
+  "lexicon": 1,
+  "id": "example.lexicon.record",
+  "revision": 1,
+  "description": "exersizes many lexicon features for the record type",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "literal:demo",
+      "description": "a record type with many field",
+      "record": {
+        "required": [ "integer" ],
+        "nullable": [ "nullableString" ],
+        "properties": {
+            "null": {
+                "type": "null",
+                "description": "field of type null"
+            },
+            "boolean": {
+                "type": "boolean",
+                "description": "field of type boolean"
+            },
+            "integer": {
+                "type": "integer",
+                "description": "field of type integer"
+            },
+            "string": {
+                "type": "string",
+                "description": "field of type string"
+            },
+            "nullableString": {
+                "type": "string",
+                "description": "field of type string; value is nullable"
+            },
+            "bytes": {
+                "type": "bytes",
+                "description": "field of type bytes"
+            },
+            "cid-link": {
+                "type": "cid-link",
+                "description": "field of type cid-link"
+            },
+            "blob": {
+                "type": "blob",
+                "description": "field of type blob"
+            },
+            "unknown": {
+                "type": "unknown",
+                "description": "field of type unknown"
+            },
+            "array": {
+                "type": "array",
+                "description": "field of type array",
+                "items": { "type": "integer" }
+            },
+            "object": {
+                "type": "object",
+                "description": "field of type null",
+                "properties": {
+                    "a": { "type": "integer" },
+                    "b": { "type": "integer" }
+                }
+            },
+            "ref": {
+                "type": "ref",
+                "description": "field of type ref",
+                "ref": "example.lexicon.record#demoToken"
+            },
+            "union": {
+                "type": "union",
+                "refs": [
+                    "example.lexicon.record#demoToken",
+                    "example.lexicon.record#demoObject"
+                ]
+            },
+            "formats": {
+                "type": "ref",
+                "ref": "example.lexicon.record#stringFormats"
+            },
+            "constInteger": {
+                "type": "integer",
+                "const": 42
+            },
+            "defaultInteger": {
+                "type": "integer",
+                "default": 42
+            },
+            "enumInteger": {
+                "type": "integer",
+                "enum": [4, 9, 16, 25]
+            },
+            "rangeInteger": {
+                "type": "integer",
+                "minimum": 10,
+                "maximum": 20
+            },
+            "lenString": {
+                "type": "string",
+                "minLength": 10,
+                "maxLength": 20
+            },
+            "graphemeString": {
+                "type": "string",
+                "minGraphemes": 10,
+                "maxGraphemes": 20
+            },
+            "enumString": {
+                "type": "string",
+                "knownValues": ["fish", "tree", "rock"]
+            },
+            "knownString": {
+                "type": "string",
+                "knownValues": ["blue", "green", "red"]
+            },
+            "sizeBytes": {
+                "type": "bytes",
+                "minLength": 10,
+                "maxLength": 20
+            },
+            "lenArray": {
+                "type": "array",
+                "items": { "type": "integer" },
+                "minLength": 2,
+                "maxLength": 5
+            },
+            "sizeBlob": {
+                "type": "blob",
+                "maxSize": 20
+            },
+            "acceptBlob": {
+                "type": "blob",
+                "accept": [ "image/*" ]
+            },
+            "closedUnion": {
+                "type": "union",
+                "refs": [
+                    "example.lexicon.record#demoToken",
+                    "example.lexicon.record#demoObject"
+                ],
+                "closed": true
+            }
+        }
+      }
+    },
+    "stringFormats": {
+        "type": "object",
+        "description": "all the various string format types",
+        "properties": {
+            "did": {
+                "type": "string",
+                "format": "did",
+                "description": "a did string"
+            },
+            "handle": {
+                "type": "string",
+                "format": "handle",
+                "description": "a did string"
+            },
+            "atidentifier": {
+                "type": "string",
+                "format": "at-identifier",
+                "description": "an at-identifier string"
+            },
+            "nsid": {
+                "type": "string",
+                "format": "nsid",
+                "description": "an nsid string"
+            },
+            "aturi": {
+                "type": "string",
+                "format": "at-uri",
+                "description": "an at-uri string"
+            },
+            "cid": {
+                "type": "string",
+                "format": "cid",
+                "description": "a cid string (not a cid-link)"
+            },
+            "datetime": {
+                "type": "string",
+                "format": "datetime",
+                "description": "a datetime string"
+            },
+            "language": {
+                "type": "string",
+                "format": "language",
+                "description": "a language string"
+            },
+            "uri": {
+                "type": "string",
+                "format": "uri",
+                "description": "a generic URI field"
+            }
+        }
+    },
+    "demoToken": {
+        "type": "token",
+        "description": "an example of what a token looks like"
+    },
+    "demoObject": {
+        "type": "object",
+        "description": "smaller object schema for unions",
+        "parameters": {
+            "a": {
+                "type": "integer"
+            },
+            "b": {
+                "type": "integer"
+            }
+        }
+    }
+  }
+}
