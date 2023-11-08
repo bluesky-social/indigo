@@ -22,7 +22,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection string, commit string, did string, rkey string) (io.Reader, error) {
+func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection string, did string, rkey string) (io.Reader, error) {
 	u, err := s.lookupUserByDid(ctx, did)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -40,16 +40,7 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 		return nil, fmt.Errorf("account was taken down")
 	}
 
-	reqCid := cid.Undef
-	if commit != "" {
-		reqCid, err = cid.Decode(commit)
-		if err != nil {
-			log.Errorw("failed to decode commit cid", "err", err, "cid", commit)
-			return nil, echo.NewHTTPError(http.StatusBadRequest, "failed to decode commit cid")
-		}
-	}
-
-	_, record, err := s.repoman.GetRecord(ctx, u.ID, collection, rkey, reqCid)
+	_, record, err := s.repoman.GetRecord(ctx, u.ID, collection, rkey, cid.Undef)
 	if err != nil {
 		if errors.Is(err, mst.ErrNotFound) {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "record not found in repo")
