@@ -9,22 +9,22 @@ import (
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 )
 
-type ReadRecordBstore struct {
+type LoggingBstore struct {
 	base blockstore.Blockstore
 
 	set map[cid.Cid]blockformat.Block
 }
 
-func NewReadRecordBstore(base blockstore.Blockstore) *ReadRecordBstore {
-	return &ReadRecordBstore{
+func NewLoggingBstore(base blockstore.Blockstore) *LoggingBstore {
+	return &LoggingBstore{
 		base: base,
 		set:  make(map[cid.Cid]blockformat.Block),
 	}
 }
 
-var _ blockstore.Blockstore = (*ReadRecordBstore)(nil)
+var _ blockstore.Blockstore = (*LoggingBstore)(nil)
 
-func (bs *ReadRecordBstore) AllReadBlocks() []blockformat.Block {
+func (bs *LoggingBstore) GetLoggedBlocks() []blockformat.Block {
 	var out []blockformat.Block
 	for _, v := range bs.set {
 		out = append(out, v)
@@ -32,11 +32,11 @@ func (bs *ReadRecordBstore) AllReadBlocks() []blockformat.Block {
 	return out
 }
 
-func (bs *ReadRecordBstore) Has(ctx context.Context, c cid.Cid) (bool, error) {
+func (bs *LoggingBstore) Has(ctx context.Context, c cid.Cid) (bool, error) {
 	return bs.base.Has(ctx, c)
 }
 
-func (bs *ReadRecordBstore) Get(ctx context.Context, c cid.Cid) (blockformat.Block, error) {
+func (bs *LoggingBstore) Get(ctx context.Context, c cid.Cid) (blockformat.Block, error) {
 	blk, err := bs.base.Get(ctx, c)
 	if err != nil {
 		return nil, err
@@ -47,26 +47,26 @@ func (bs *ReadRecordBstore) Get(ctx context.Context, c cid.Cid) (blockformat.Blo
 	return blk, nil
 }
 
-func (bs *ReadRecordBstore) GetSize(ctx context.Context, c cid.Cid) (int, error) {
+func (bs *LoggingBstore) GetSize(ctx context.Context, c cid.Cid) (int, error) {
 	return bs.base.GetSize(ctx, c)
 }
 
-func (bs *ReadRecordBstore) DeleteBlock(ctx context.Context, c cid.Cid) error {
+func (bs *LoggingBstore) DeleteBlock(ctx context.Context, c cid.Cid) error {
 	return fmt.Errorf("deletes not allowed on read-record blockstore")
 }
 
-func (bs *ReadRecordBstore) Put(context.Context, blockformat.Block) error {
+func (bs *LoggingBstore) Put(context.Context, blockformat.Block) error {
 	return fmt.Errorf("writes not allowed on read-record blockstore")
 }
 
-func (bs *ReadRecordBstore) PutMany(context.Context, []blockformat.Block) error {
+func (bs *LoggingBstore) PutMany(context.Context, []blockformat.Block) error {
 	return fmt.Errorf("writes not allowed on read-record blockstore")
 }
 
-func (bs *ReadRecordBstore) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
+func (bs *LoggingBstore) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
 	return nil, fmt.Errorf("iteration not supported on read-record blockstore")
 }
 
-func (bs *ReadRecordBstore) HashOnRead(enabled bool) {
+func (bs *LoggingBstore) HashOnRead(enabled bool) {
 
 }
