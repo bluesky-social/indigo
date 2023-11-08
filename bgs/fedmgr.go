@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,6 +37,7 @@ type Slurper struct {
 	DefaultCrawlLimit rate.Limit
 
 	newSubsDisabled bool
+	trustedDomains  []string
 
 	shutdownChan   chan bool
 	shutdownResult chan []error
@@ -171,6 +173,7 @@ func (s *Slurper) loadConfig() error {
 	}
 
 	s.newSubsDisabled = sc.NewSubsDisabled
+	s.trustedDomains = sc.TrustedDomains
 
 	return nil
 }
@@ -179,6 +182,7 @@ type SlurpConfig struct {
 	gorm.Model
 
 	NewSubsDisabled bool
+	TrustedDomains  []string
 }
 
 func (s *Slurper) SetNewSubsDisabled(dis bool) error {
@@ -199,13 +203,83 @@ func (s *Slurper) GetNewSubsDisabledState() bool {
 	return s.newSubsDisabled
 }
 
+func (s *Slurper) AddTrustedDomain(domain string) error {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+
+	if err := s.db.Model(SlurpConfig{}).Where("id = 1").Update("trusted_domains", gorm.Expr("array_append(trusted_domains, ?)", domain)).Error; err != nil {
+		return err
+	}
+
+	s.trustedDomains = append(s.trustedDomains, domain)
+	return nil
+}
+
+func (s *Slurper) RemoveTrustedDomain(domain string) error {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+
+	if err := s.db.Model(SlurpConfig{}).Where("id = 1").Update("trusted_domains", gorm.Expr("array_remove(trusted_domains, ?)", domain)).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}
+
+	for i, d := range s.trustedDomains {
+		if d == domain {
+			s.trustedDomains = append(s.trustedDomains[:i], s.trustedDomains[i+1:]...)
+			break
+		}
+	}
+
+	return nil
+}
+
+func (s *Slurper) SetTrustedDomains(domains []string) error {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+
+	if err := s.db.Model(SlurpConfig{}).Where("id = 1").Update("trusted_domains", domains).Error; err != nil {
+		return err
+	}
+
+	s.trustedDomains = domains
+	return nil
+}
+
+func (s *Slurper) GetTrustedDomains() []string {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+	return s.trustedDomains
+}
+
 var ErrNewSubsDisabled = fmt.Errorf("new subscriptions temporarily disabled")
 
 func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) error {
 	// TODO: for performance, lock on the hostname instead of global
 	s.lk.Lock()
 	defer s.lk.Unlock()
-	if s.newSubsDisabled {
+
+	isTrusted := false
+
+	// Check if the host is a trusted domain
+	for _, d := range s.trustedDomains {
+		// If the domain starts with a *., it's a wildcard
+		if strings.HasPrefix(d, "*.") {
+			if strings.HasSuffix(host, strings.TrimPrefix(d, "*")) {
+				isTrusted = true
+				break
+			}
+		} else {
+			if host == d {
+				isTrusted = true
+				break
+			}
+		}
+	}
+
+	if s.newSubsDisabled && !isTrusted {
 		return ErrNewSubsDisabled
 	}
 
