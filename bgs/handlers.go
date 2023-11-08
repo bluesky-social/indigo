@@ -13,12 +13,15 @@ import (
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/blobs"
+	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/mst"
 	"gorm.io/gorm"
 
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
+	cbor "github.com/ipfs/go-ipld-cbor"
+	"github.com/ipld/go-car"
 	"github.com/labstack/echo/v4"
 )
 
@@ -40,7 +43,7 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 		return nil, fmt.Errorf("account was taken down")
 	}
 
-	_, record, err := s.repoman.GetRecord(ctx, u.ID, collection, rkey, cid.Undef)
+	root, blocks, err := s.repoman.GetRecordProof(ctx, u.ID, collection, rkey)
 	if err != nil {
 		if errors.Is(err, mst.ErrNotFound) {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "record not found in repo")
@@ -50,10 +53,18 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 	}
 
 	buf := new(bytes.Buffer)
-	err = record.MarshalCBOR(buf)
-	if err != nil {
-		log.Errorw("failed to marshal record to CBOR", "err", err, "did", did, "collection", collection, "rkey", rkey)
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to marshal record to CBOR")
+	hb, err := cbor.DumpObject(&car.CarHeader{
+		Roots:   []cid.Cid{root},
+		Version: 1,
+	})
+	if _, err := carstore.LdWrite(buf, hb); err != nil {
+		return nil, err
+	}
+
+	for _, blk := range blocks {
+		if _, err := carstore.LdWrite(buf, blk.Cid().Bytes(), blk.RawData()); err != nil {
+			return nil, err
+		}
 	}
 
 	return buf, nil
