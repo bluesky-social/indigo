@@ -16,7 +16,9 @@ import (
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/util"
 
+	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -445,6 +447,32 @@ func (rm *RepoManager) GetRecord(ctx context.Context, user models.Uid, collectio
 	}
 
 	return ocid, val, nil
+}
+
+func (rm *RepoManager) GetRecordProof(ctx context.Context, user models.Uid, collection string, rkey string) (cid.Cid, []blocks.Block, error) {
+	robs, err := rm.cs.ReadOnlySession(user)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	bs := util.NewReadRecordBstore(robs)
+
+	head, err := rm.cs.GetUserRepoHead(ctx, user)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	r, err := repo.OpenRepo(ctx, bs, head, true)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	_, _, err = r.GetRecord(ctx, collection+"/"+rkey)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	return head, bs.AllReadBlocks(), nil
 }
 
 func (rm *RepoManager) GetProfile(ctx context.Context, uid models.Uid) (*bsky.ActorProfile, error) {
