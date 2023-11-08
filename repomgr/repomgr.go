@@ -455,7 +455,7 @@ func (rm *RepoManager) GetRecordProof(ctx context.Context, user models.Uid, coll
 		return cid.Undef, nil, err
 	}
 
-	bs := util.NewReadRecordBstore(robs)
+	bs := util.NewLoggingBstore(robs)
 
 	head, err := rm.cs.GetUserRepoHead(ctx, user)
 	if err != nil {
@@ -472,7 +472,7 @@ func (rm *RepoManager) GetRecordProof(ctx context.Context, user models.Uid, coll
 		return cid.Undef, nil, err
 	}
 
-	return head, bs.AllReadBlocks(), nil
+	return head, bs.GetLoggedBlocks(), nil
 }
 
 func (rm *RepoManager) GetProfile(ctx context.Context, uid models.Uid) (*bsky.ActorProfile, error) {
