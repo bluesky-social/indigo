@@ -52,7 +52,7 @@ func (bs *ReadRecordBstore) GetSize(ctx context.Context, c cid.Cid) (int, error)
 }
 
 func (bs *ReadRecordBstore) DeleteBlock(ctx context.Context, c cid.Cid) error {
-	return fmt.Errorf("deletes not supported")
+	return fmt.Errorf("deletes not allowed on read-record blockstore")
 }
 
 func (bs *ReadRecordBstore) Put(context.Context, blockformat.Block) error {
