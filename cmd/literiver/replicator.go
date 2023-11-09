@@ -66,11 +66,7 @@ func (r *Replicator) Start() {
 	// Watch directories for changes in a separate goroutine.
 	shutdown := make(chan struct{})
 	go func() {
-		if err := r.watchDirs(r.Config.Dirs, func(path string) {
-			if err := r.processDBUpdate(path); err != nil {
-				slog.Error("failed to process DB Update", "error", err)
-			}
-		}, shutdown); err != nil {
+		if err := r.watchDirs(r.Config.Dirs, shutdown); err != nil {
 			slog.Error("failed to watch directories", "error", err)
 		}
 	}()
@@ -91,7 +87,7 @@ func (r *Replicator) Stop() (err error) {
 	return err
 }
 
-func (r *Replicator) watchDirs(dirs []string, onUpdate func(string), shutdown chan struct{}) error {
+func (r *Replicator) watchDirs(dirs []string, shutdown chan struct{}) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
@@ -130,13 +126,17 @@ func (r *Replicator) watchDirs(dirs []string, onUpdate func(string), shutdown ch
 			isCreateOp := event.Op&fsnotify.Create == fsnotify.Create
 
 			if (isWriteOp || isCreateOp) && !startsWithDot && endsInSQLite {
-				log.Debug("file modified", "filename", event.Name)
+				log = log.With("filename", event.Name)
+				log.Debug("file event", "event", event.Op.String())
 
 				if unseen := r.SeenDBs.Add(event.Name); unseen {
 					dbsSeenCounter.Inc()
 				}
 
-				onUpdate(event.Name)
+				err := r.processDBUpdate(event.Name)
+				if err != nil {
+					log.Error("failed to process DB Update", "error", err)
+				}
 			}
 		case err, ok := <-watcher.Errors:
 			if !ok {
