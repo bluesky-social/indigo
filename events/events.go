@@ -84,7 +84,7 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 						},
 					}:
 					case <-time.After(time.Second * 5):
-						log.Warnw("failed to send error frame to backed up consumer", "ident", s.ident)
+						log.Warnw("failed to send error frame to backed up consumer", "ident", torem.ident)
 					}
 					torem.cleanup()
 				}(s)
