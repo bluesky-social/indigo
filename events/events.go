@@ -78,7 +78,7 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 				log.Warnw("dropping slow consumer due to event overflow", "bufferSize", len(s.outgoing), "ident", s.ident)
 				go func(torem *Subscriber) {
 					select {
-					case s.outgoing <- &XRPCStreamEvent{
+					case torem.outgoing <- &XRPCStreamEvent{
 						Error: &ErrorFrame{
 							Error: "ConsumerTooSlow",
 						},
