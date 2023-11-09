@@ -45,6 +45,8 @@ type Replicator struct {
 	lk          sync.RWMutex
 	DebounceSet map[string]time.Time
 	SeenDBs     mapset.Set[string]
+
+	watcherShutdown chan struct{}
 }
 
 func NewReplicator(config Config) *Replicator {
@@ -60,8 +62,28 @@ func NewReplicator(config Config) *Replicator {
 	return &r
 }
 
-// Close closes all open databases.
-func (r *Replicator) Close() (err error) {
+func (r *Replicator) Start() {
+	// Watch directories for changes in a separate goroutine.
+	shutdown := make(chan struct{})
+	go func() {
+		if err := r.watchDirs(r.Config.Dirs, func(path string) {
+			if err := r.processDBUpdate(path); err != nil {
+				slog.Error("failed to process DB Update", "error", err)
+			}
+		}, shutdown); err != nil {
+			slog.Error("failed to watch directories", "error", err)
+		}
+	}()
+
+	r.watcherShutdown = shutdown
+}
+
+// Stop tears down the watcher and closes all open databases.
+func (r *Replicator) Stop() (err error) {
+	// Stop the watcher
+	close(r.watcherShutdown)
+
+	// Close all open databases
 	err = r.shutdown()
 	if err != nil {
 		slog.Error("failed to shutdown", "error", err)
@@ -77,37 +99,6 @@ func (r *Replicator) watchDirs(dirs []string, onUpdate func(string), shutdown ch
 	defer watcher.Close()
 
 	log := slog.With("source", "watcher")
-
-	go func() {
-		for {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					return
-				}
-				// Only sync on file creation or modification of non `.` prefixed files with `.sqlite` suffix.
-				if (event.Op&fsnotify.Write == fsnotify.Write ||
-					event.Op&fsnotify.Create == fsnotify.Create) &&
-					!strings.HasPrefix(filepath.Base(event.Name), ".") &&
-					strings.HasSuffix(event.Name, ".sqlite") {
-					log.Debug("file modified", "filename", event.Name)
-
-					if unseen := r.SeenDBs.Add(event.Name); unseen {
-						dbsSeenCounter.Inc()
-					}
-
-					onUpdate(event.Name)
-				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				log.Error("watcher error", "error", err)
-			case <-shutdown:
-				return
-			}
-		}
-	}()
 
 	// Add initial directories to the watcher.
 	for _, dir := range dirs {
@@ -126,8 +117,36 @@ func (r *Replicator) watchDirs(dirs []string, onUpdate func(string), shutdown ch
 		}
 	}
 
-	<-shutdown
-	return nil
+	for {
+		select {
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return nil
+			}
+			// Only sync on file creation or modification of non `.` prefixed files with `.sqlite` suffix.
+			startsWithDot := strings.HasPrefix(filepath.Base(event.Name), ".")
+			endsInSQLite := strings.HasSuffix(filepath.Base(event.Name), ".sqlite")
+			isWriteOp := event.Op&fsnotify.Write == fsnotify.Write
+			isCreateOp := event.Op&fsnotify.Create == fsnotify.Create
+
+			if (isWriteOp || isCreateOp) && !startsWithDot && endsInSQLite {
+				log.Debug("file modified", "filename", event.Name)
+
+				if unseen := r.SeenDBs.Add(event.Name); unseen {
+					dbsSeenCounter.Inc()
+				}
+
+				onUpdate(event.Name)
+			}
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return nil
+			}
+			log.Error("watcher error", "error", err)
+		case <-shutdown:
+			return nil
+		}
+	}
 }
 
 // shouldDebounce returns true if the given path should be debounced

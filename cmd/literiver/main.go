@@ -299,18 +299,6 @@ func Replicate(cctx *cli.Context) (err error) {
 		return nil
 	}
 
-	// Watch directories for changes in a separate goroutine.
-	shutdown := make(chan struct{})
-	go func() {
-		if err := r.watchDirs(r.Config.Dirs, func(path string) {
-			if err := r.processDBUpdate(path); err != nil {
-				slog.Error("failed to process DB Update", "error", err)
-			}
-		}, shutdown); err != nil {
-			slog.Error("failed to watch directories", "error", err)
-		}
-	}()
-
 	// Serve metrics over HTTP if enabled.
 	if r.Config.Addr != "" {
 		hostport := r.Config.Addr
@@ -335,6 +323,9 @@ func Replicate(cctx *cli.Context) (err error) {
 		}()
 	}
 
+	// Start the replicator watcher and syncs
+	r.Start()
+
 	// Trap SIGINT to trigger a shutdown.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
@@ -346,11 +337,8 @@ func Replicate(cctx *cli.Context) (err error) {
 
 	slog.Warn("shutting down, waiting for workers to clean up...")
 
-	// Close the watcher
-	close(shutdown)
-
 	// Sync and close all active DBs
-	r.Close()
+	r.Stop()
 
 	slog.Warn("all workers shutdown")
 	return nil
