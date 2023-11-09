@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
@@ -74,8 +75,17 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 			case s.outgoing <- evt:
 			case <-s.done:
 			default:
-				log.Warnw("event overflow", "bufferSize", len(s.outgoing), "ident", s.ident)
+				log.Warnw("dropping slow consumer due to event overflow", "bufferSize", len(s.outgoing), "ident", s.ident)
 				go func(torem *Subscriber) {
+					select {
+					case s.outgoing <- &XRPCStreamEvent{
+						Error: &ErrorFrame{
+							Error: "ConsumerTooSlow",
+						},
+					}:
+					case <-time.After(time.Second * 5):
+						log.Warnw("failed to send error frame to backed up consumer", "ident", s.ident)
+					}
 					torem.cleanup()
 				}(s)
 			}
