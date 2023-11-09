@@ -144,14 +144,17 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 
 	log.Warnf("TODO: better host validation for crawl requests")
 
+	clientHost := fmt.Sprintf("%s://%s", u.Scheme, host)
+
 	c := &xrpc.Client{
-		Host:   fmt.Sprintf("%s://%s", u.Scheme, host),
+		Host:   clientHost,
 		Client: http.DefaultClient, // not using the client that auto-retries
 	}
 
 	desc, err := atproto.ServerDescribeServer(ctx, c)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "requested host failed to respond to describe request")
+		errMsg := fmt.Sprintf("requested host (%s) failed to respond to describe request", clientHost)
+		return echo.NewHTTPError(http.StatusBadRequest, errMsg)
 	}
 
 	// Maybe we could do something with this response later
