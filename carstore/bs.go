@@ -905,6 +905,10 @@ func BlockDiff(ctx context.Context, bs blockstore.Blockstore, oldroot cid.Cid, n
 		}
 
 		if err := cbg.ScanForLinks(bytes.NewReader(oblk.RawData()), func(lnk cid.Cid) {
+			if lnk.Prefix().Codec != cid.DagCBOR {
+				return
+			}
+
 			if !keepset[lnk] {
 				dropset[lnk] = true
 				queue = append(queue, lnk)
