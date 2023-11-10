@@ -47,7 +47,7 @@ func testLabelMaker(t *testing.T) *labeler.Server {
 		Handle:     "test.handle.dummy",
 		Did:        "did:plc:testdummy",
 		Password:   "test-admin-pass",
-		SigningKey: serkey,
+		SigningKey: *serkey,
 		UserId:     1,
 	}
 	xrpcProxyURL := "http://proxy-test.dummy"

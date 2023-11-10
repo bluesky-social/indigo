@@ -22,7 +22,7 @@ func testLabelMaker(t *testing.T) *Server {
 	}
 
 	repoKeyPath := filepath.Join(tempdir, "labelmaker.key")
-	serkey, err := LoadOrCreateKeyFile(repoKeyPath, "auto-labelmaker")
+	seckey, err := LoadOrCreateKeyFile(repoKeyPath, "auto-labelmaker")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func testLabelMaker(t *testing.T) *Server {
 		Handle:     "test.handle.dummy",
 		Did:        "did:plc:testdummy",
 		Password:   "admin-test-password",
-		SigningKey: serkey,
+		SigningKey: *seckey,
 		UserId:     1,
 	}
 

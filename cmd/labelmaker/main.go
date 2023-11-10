@@ -5,16 +5,16 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/labeler"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/util/version"
-	"github.com/urfave/cli/v2"
 
 	_ "github.com/joho/godotenv/autoload"
 	_ "go.uber.org/automaxprocs"
 
 	logging "github.com/ipfs/go-log"
-	"github.com/whyrusleeping/go-did"
+	"github.com/urfave/cli/v2"
 	"gorm.io/plugin/opentelemetry/tracing"
 )
 
@@ -92,9 +92,9 @@ func run(args []string) error {
 			EnvVars: []string{"LABELMAKER_REPO_PASSWORD"},
 		},
 		&cli.StringFlag{
-			Name:    "signing-secret-key-jwk",
-			Usage:   "signing key for labelmaker repo, in JWK serialization",
-			EnvVars: []string{"LABELMAKER_SIGNING_SECRET_KEY_JWK"},
+			Name:    "signing-secret-key",
+			Usage:   "signing key for labelmaker repo, in multibase string serialization",
+			EnvVars: []string{"LABELMAKER_SIGNING_SECRET_KEY"},
 		},
 		&cli.StringFlag{
 			Name:    "bind",
@@ -181,7 +181,7 @@ func run(args []string) error {
 		repoDid := cctx.String("repo-did")
 		repoHandle := cctx.String("repo-handle")
 		repoPassword := cctx.String("repo-password")
-		signingSecretKeyJwk := cctx.String("signing-secret-key-jwk")
+		signingSecretKey := cctx.String("signing-secret-key")
 		bind := cctx.String("bind")
 		xrpcProxyURL := cctx.String("xrpc-proxy-url")
 		xrpcProxyAdminPassword := cctx.String("xrpc-proxy-admin-password")
@@ -193,24 +193,25 @@ func run(args []string) error {
 			log.Warn("using insecure default admin password (ok for dev, not for deployment)")
 		}
 
-		var serkey *did.PrivKey
-		if signingSecretKeyJwk != "" {
-			serkey, err = labeler.ParseSecretKey(signingSecretKeyJwk)
+		var seckey crypto.PrivateKey
+		if signingSecretKey != "" {
+			seckey, err = crypto.ParsePrivateMultibase(signingSecretKey)
 			if err != nil {
 				return err
 			}
 		} else {
-			serkey, err = labeler.LoadOrCreateKeyFile(repoKeyPath, "auto-labelmaker")
+			k, err := labeler.LoadOrCreateKeyFile(repoKeyPath, "auto-labelmaker")
 			if err != nil {
 				return err
 			}
+			seckey = *k
 		}
 
 		repoUser := labeler.RepoConfig{
 			Handle:     repoHandle,
 			Did:        repoDid,
 			Password:   repoPassword,
-			SigningKey: serkey,
+			SigningKey: seckey,
 			UserId:     1,
 		}
 

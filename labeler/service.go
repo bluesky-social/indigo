@@ -14,6 +14,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	label "github.com/bluesky-social/indigo/api/label"
+	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/bgs"
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
@@ -24,7 +25,6 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/whyrusleeping/go-did"
 	"gorm.io/gorm"
 )
 
@@ -49,7 +49,7 @@ type RepoConfig struct {
 	Handle     string
 	Did        string
 	Password   string
-	SigningKey *did.PrivKey
+	SigningKey crypto.PrivateKey
 	UserId     models.Uid
 }
 
