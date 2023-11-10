@@ -136,7 +136,7 @@ func (bgs *BGS) handleListPDSs(e echo.Context) error {
 		enrichedPDSs[i].EventsSeenSinceStartup = uint64(m.Counter.GetValue())
 
 		// Get the number of users for this PDS
-		if err := bgs.db.Model(&User{}).Where("pds_id = ?", p.ID).Count(&enrichedPDSs[i].UserCount).Error; err != nil {
+		if err := bgs.db.Model(&User{}).Where("pds = ?", p.ID).Count(&enrichedPDSs[i].UserCount).Error; err != nil {
 			return err
 		}
 
