@@ -606,7 +606,10 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 	header := events.EventHeader{Op: events.EvtKindMessage}
 	for {
 		select {
-		case evt := <-evts:
+		case evt, ok := <-evts:
+			if !ok {
+				return nil
+			}
 			wc, err := conn.NextWriter(websocket.BinaryMessage)
 			if err != nil {
 				log.Errorf("failed to get next writer: %s", err)
