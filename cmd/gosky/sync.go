@@ -27,6 +27,11 @@ var syncGetRepoCmd = &cli.Command{
 	Name:      "get-repo",
 	Usage:     "download repo from account's PDS to local file (or '-' for stdout). for hex combine with 'xxd -ps -u -c 0'",
 	ArgsUsage: `<at-identifier> [<car-file-path>]`,
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name: "host",
+		},
+	},
 	Action: func(cctx *cli.Context) error {
 		ctx := context.Background()
 		arg := cctx.Args().First()
@@ -55,6 +60,10 @@ var syncGetRepoCmd = &cli.Command{
 		xrpcc.Host = ident.PDSEndpoint()
 		if xrpcc.Host == "" {
 			return fmt.Errorf("no PDS endpoint for identity")
+		}
+
+		if h := cctx.String("host"); h != "" {
+			xrpcc.Host = h
 		}
 
 		log.Infof("downloading from %s to: %s", xrpcc.Host, carPath)
