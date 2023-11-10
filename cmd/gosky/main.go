@@ -25,6 +25,7 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
+	"golang.org/x/time/rate"
 
 	"github.com/gorilla/websocket"
 	lru "github.com/hashicorp/golang-lru"
@@ -143,9 +144,9 @@ var readRepoStreamCmd = &cli.Command{
 		&cli.BoolFlag{
 			Name: "resolve-handles",
 		},
-		&cli.DurationFlag{
-			Name:  "read-delay",
-			Usage: "make handling each event take at least this long (debug utility)",
+		&cli.Float64Flag{
+			Name:  "max-throughput",
+			Usage: "limit event consumption to a given # of req/sec (debug utility)",
 		},
 	},
 	ArgsUsage: `[<repo> [cursor]]`,
@@ -207,13 +208,15 @@ var readRepoStreamCmd = &cli.Command{
 
 			return h, nil
 		}
-
-		rr := cctx.Duration("read-delay")
+		var limiter *rate.Limiter
+		if cctx.Float64("max-throughput") > 0 {
+			limiter = rate.NewLimiter(rate.Limit(cctx.Float64("max-throughput")), 1)
+		}
 
 		rsc := &events.RepoStreamCallbacks{
 			RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
-				if rr != 0 {
-					time.Sleep(rr)
+				if limiter != nil {
+					limiter.Wait(ctx)
 				}
 
 				if jsonfmt {
