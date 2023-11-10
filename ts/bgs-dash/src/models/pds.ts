@@ -18,6 +18,7 @@ interface PDS {
   EventsSeenSinceStartup?: number;
   IngestRate: RateLimit;
   CrawlRate: RateLimit;
+  UserCount: number;
 }
 
 type PDSKey = keyof PDS;
