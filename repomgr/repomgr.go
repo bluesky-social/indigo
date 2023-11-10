@@ -769,6 +769,12 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 		return err
 	}
 
+	if rev == nil {
+		// if 'rev' is nil, this implies a fresh sync.
+		// in this case, ignore any existing blocks we have and treat this like a clean import.
+		curhead = cid.Undef
+	}
+
 	if rev != nil && *rev != currev {
 		// TODO: we could probably just deal with this
 		return fmt.Errorf("ImportNewRepo called with incorrect base")
