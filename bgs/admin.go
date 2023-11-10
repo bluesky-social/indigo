@@ -106,6 +106,7 @@ type enrichedPDS struct {
 	EventsSeenSinceStartup uint64    `json:"EventsSeenSinceStartup"`
 	IngestRate             rateLimit `json:"IngestRate"`
 	CrawlRate              rateLimit `json:"CrawlRate"`
+	UserCount              int64     `json:"UserCount"`
 }
 
 func (bgs *BGS) handleListPDSs(e echo.Context) error {
@@ -133,6 +134,11 @@ func (bgs *BGS) handleListPDSs(e echo.Context) error {
 			continue
 		}
 		enrichedPDSs[i].EventsSeenSinceStartup = uint64(m.Counter.GetValue())
+
+		// Get the number of users for this PDS
+		if err := bgs.db.Model(&User{}).Where("pds_id = ?", p.ID).Count(&enrichedPDSs[i].UserCount).Error; err != nil {
+			return err
+		}
 
 		// Get the ingest rate limit for this PDS
 		ingestRate := rateLimit{
