@@ -143,6 +143,10 @@ var readRepoStreamCmd = &cli.Command{
 		&cli.BoolFlag{
 			Name: "resolve-handles",
 		},
+		&cli.DurationFlag{
+			Name:  "read-delay",
+			Usage: "make handling each event take at least this long (debug utility)",
+		},
 	},
 	ArgsUsage: `[<repo> [cursor]]`,
 	Action: func(cctx *cli.Context) error {
@@ -204,8 +208,14 @@ var readRepoStreamCmd = &cli.Command{
 			return h, nil
 		}
 
+		rr := cctx.Duration("read-delay")
+
 		rsc := &events.RepoStreamCallbacks{
 			RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
+				if rr != 0 {
+					time.Sleep(rr)
+				}
+
 				if jsonfmt {
 					b, err := json.Marshal(evt)
 					if err != nil {
