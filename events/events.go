@@ -77,15 +77,19 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 			default:
 				log.Warnw("dropping slow consumer due to event overflow", "bufferSize", len(s.outgoing), "ident", s.ident)
 				go func(torem *Subscriber) {
-					select {
-					case torem.outgoing <- &XRPCStreamEvent{
-						Error: &ErrorFrame{
-							Error: "ConsumerTooSlow",
-						},
-					}:
-					case <-time.After(time.Second * 5):
-						log.Warnw("failed to send error frame to backed up consumer", "ident", torem.ident)
+					torem.lk.Lock()
+					if !torem.cleanedUp {
+						select {
+						case torem.outgoing <- &XRPCStreamEvent{
+							Error: &ErrorFrame{
+								Error: "ConsumerTooSlow",
+							},
+						}:
+						case <-time.After(time.Second * 5):
+							log.Warnw("failed to send error frame to backed up consumer", "ident", torem.ident)
+						}
 					}
+					torem.lk.Unlock()
 					torem.cleanup()
 				}(s)
 			}
@@ -111,6 +115,9 @@ type Subscriber struct {
 	done chan struct{}
 
 	cleanup func()
+
+	lk        sync.Mutex
+	cleanedUp bool
 
 	ident            string
 	enqueuedCounter  prometheus.Counter
@@ -177,9 +184,12 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 	}
 
 	sub.cleanup = sync.OnceFunc(func() {
+		sub.lk.Lock()
+		defer sub.lk.Unlock()
 		close(done)
 		em.rmSubscriber(sub)
 		close(sub.outgoing)
+		sub.cleanedUp = true
 	})
 
 	if since == nil {
@@ -260,6 +270,8 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 
 func sequenceForEvent(evt *XRPCStreamEvent) int64 {
 	switch {
+	case evt == nil:
+		return -1
 	case evt.RepoCommit != nil:
 		return evt.RepoCommit.Seq
 	case evt.RepoHandle != nil:
@@ -269,6 +281,8 @@ func sequenceForEvent(evt *XRPCStreamEvent) int64 {
 	case evt.RepoTombstone != nil:
 		return evt.RepoTombstone.Seq
 	case evt.RepoInfo != nil:
+		return -1
+	case evt.Error != nil:
 		return -1
 	default:
 		return -1
