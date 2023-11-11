@@ -11,13 +11,13 @@ type ModReport struct {
 
 // information about a repo/account/identity, always pre-populated and relevant to many rules
 type AccountMeta struct {
-	Identity identity.Identity
+	Identity *identity.Identity
 	// TODO: createdAt / age
 }
 
 // base type for events. events are both containers for data about the event itself (similar to an HTTP request type); aggregate results and state (counters, mod actions) to be persisted after all rules are run; and act as an API for additional network reads and operations.
 type Event struct {
-	engine            Engine
+	Engine            *Engine
 	Err               *error
 	Account           AccountMeta
 	CounterIncrements []string
@@ -28,7 +28,7 @@ type Event struct {
 }
 
 func (e *Event) CountTotal(key string) int {
-	v, err := e.engine.GetCount(key, PeriodTotal)
+	v, err := e.Engine.GetCount(key, PeriodTotal)
 	if err != nil {
 		e.Err = &err
 		return 0
@@ -37,7 +37,7 @@ func (e *Event) CountTotal(key string) int {
 }
 
 func (e *Event) CountDay(key string) int {
-	v, err := e.engine.GetCount(key, PeriodDay)
+	v, err := e.Engine.GetCount(key, PeriodDay)
 	if err != nil {
 		e.Err = &err
 		return 0
@@ -46,7 +46,7 @@ func (e *Event) CountDay(key string) int {
 }
 
 func (e *Event) CountHour(key string) int {
-	v, err := e.engine.GetCount(key, PeriodHour)
+	v, err := e.Engine.GetCount(key, PeriodHour)
 	if err != nil {
 		e.Err = &err
 		return 0
@@ -55,7 +55,7 @@ func (e *Event) CountHour(key string) int {
 }
 
 func (e *Event) InSet(name, val string) bool {
-	v, err := e.engine.InSet(name, val)
+	v, err := e.Engine.InSet(name, val)
 	if err != nil {
 		e.Err = &err
 		return false
@@ -89,6 +89,7 @@ type IdentityEvent struct {
 
 type RecordEvent struct {
 	Event
+
 	RecordLabels   []string
 	RecordTakedown bool
 	RecordReports  []ModReport
