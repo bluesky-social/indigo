@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bluesky-social/indigo/carstore"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -16,17 +15,8 @@ func testLabelMaker(t *testing.T) *Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sharddir := filepath.Join(tempdir, "shards")
-	if err := os.MkdirAll(sharddir, 0775); err != nil {
-		t.Fatal(err)
-	}
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{SkipDefaultTransaction: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cs, err := carstore.NewCarStore(db, sharddir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +39,7 @@ func testLabelMaker(t *testing.T) *Server {
 		UserId:     1,
 	}
 
-	lm, err := NewServer(db, cs, repoUser, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword, false)
+	lm, err := NewServer(db, repoUser, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword, false)
 	if err != nil {
 		t.Fatal(err)
 	}

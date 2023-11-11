@@ -11,19 +11,14 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/bluesky-social/indigo/api"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	label "github.com/bluesky-social/indigo/api/label"
 	"github.com/bluesky-social/indigo/bgs"
-	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/indexer"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/repomgr"
 	cbg "github.com/whyrusleeping/cbor-gen"
 
 	logging "github.com/ipfs/go-log"
@@ -37,8 +32,6 @@ var log = logging.Logger("labelmaker")
 
 type Server struct {
 	db                  *gorm.DB
-	cs                  *carstore.CarStore
-	repoman             *repomgr.RepoManager
 	bgsSlurper          *bgs.Slurper
 	evtmgr              *events.EventManager
 	echo                *echo.Echo
@@ -62,7 +55,7 @@ type RepoConfig struct {
 
 // In addition to configuring the service, will connect to upstream BGS and start processing events. Won't handle HTTP or WebSocket endpoints until RunAPI() is called.
 // 'useWss' is a flag to use SSL for outbound WebSocket connections
-func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword string, useWss bool) (*Server, error) {
+func NewServer(db *gorm.DB, repoUser RepoConfig, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword string, useWss bool) (*Server, error) {
 
 	db.AutoMigrate(models.PDS{})
 	db.AutoMigrate(models.Label{})
@@ -71,10 +64,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, 
 	db.AutoMigrate(models.ModerationReport{})
 	db.AutoMigrate(models.ModerationReportResolution{})
 
-	didr := &api.PLCServer{Host: plcURL}
-	kmgr := indexer.NewKeyManager(didr, repoUser.SigningKey)
 	evtmgr := events.NewEventManager(events.NewMemPersister())
-	repoman := repomgr.NewRepoManager(cs, kmgr)
 
 	if repoUser.Password == "" || repoUser.Did == "" || repoUser.Handle == "" {
 		return nil, fmt.Errorf("bad labeler repo config (empty string)")
@@ -88,26 +78,12 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, 
 
 	s := &Server{
 		db:                  db,
-		repoman:             repoman,
 		evtmgr:              evtmgr,
 		user:                &repoUser,
 		blobPdsURL:          blobPdsURL,
 		xrpcProxyURL:        proxyURL,
 		xrpcProxyAuthHeader: xrpcProxyAuthHeader,
 		// sluper configured below
-	}
-
-	// ensure that local labelmaker repo exists
-	// NOTE: doesn't need to have app.bsky profile and actor config, this is just expediant (reusing an existing helper function)
-	ctx := context.Background()
-	head, _ := s.repoman.GetRepoRoot(ctx, s.user.UserId)
-	if !head.Defined() {
-		log.Info("initializing labelmaker repo")
-		if err := s.repoman.InitNewActor(ctx, s.user.UserId, s.user.Handle, s.user.Did, "Label Maker", pds.UserActorDeclCid, pds.UserActorDeclType); err != nil {
-			return nil, fmt.Errorf("creating labelmaker repo: %w", err)
-		}
-	} else {
-		log.Infof("found labelmaker repo: %s", head)
 	}
 
 	slOpts := bgs.DefaultSlurperOptions()
@@ -122,7 +98,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, 
 }
 
 func (s *Server) AddKeywordLabeler(kwl KeywordLabeler) {
-	log.Infof("configuring keyword labeler")
+	log.Infof("conbalancerfiguring keyword labeler")
 	s.kwLabelers = append(s.kwLabelers, kwl)
 }
 

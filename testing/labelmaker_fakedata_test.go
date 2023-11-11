@@ -11,7 +11,6 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
-	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	"github.com/bluesky-social/indigo/labeler"
@@ -30,17 +29,8 @@ func testLabelMaker(t *testing.T) *labeler.Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sharddir := filepath.Join(tempdir, "shards")
-	if err := os.MkdirAll(sharddir, 0775); err != nil {
-		t.Fatal(err)
-	}
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{SkipDefaultTransaction: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cs, err := carstore.NewCarStore(db, sharddir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +53,7 @@ func testLabelMaker(t *testing.T) *labeler.Server {
 	xrpcProxyURL := "http://proxy-test.dummy"
 	xrpcProxyAdminPassword := "test-dummy-password"
 
-	lm, err := labeler.NewServer(db, cs, repoUser, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword, false)
+	lm, err := labeler.NewServer(db, repoUser, plcURL, blobPdsURL, xrpcProxyURL, xrpcProxyAdminPassword, false)
 	if err != nil {
 		t.Fatal(err)
 	}
