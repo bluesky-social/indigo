@@ -37,13 +37,8 @@ var didGetCmd = &cli.Command{
 		did := cctx.Args().First()
 
 		if cctx.Bool("handle") {
-			xrpcc, err := cliutil.GetXrpcClient(cctx, false)
-			if err != nil {
-				return err
-			}
-
 			phr := &api.ProdHandleResolver{}
-			h, _, err := api.ResolveDidToHandle(context.TODO(), xrpcc, s, phr, did)
+			h, _, err := api.ResolveDidToHandle(context.TODO(), s, phr, did)
 			if err != nil {
 				return err
 			}

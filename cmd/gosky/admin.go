@@ -100,7 +100,7 @@ var checkUserCmd = &cli.Command{
 				if fa == "admin" {
 					invby = fa
 				} else {
-					handle, _, err := api.ResolveDidToHandle(ctx, xrpcc, plcc, phr, fa)
+					handle, _, err := api.ResolveDidToHandle(ctx, plcc, phr, fa)
 					if err != nil {
 						fmt.Println("ERROR: failed to resolve inviter: ", err)
 						handle = fa
