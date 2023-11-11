@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/did"
-	"github.com/bluesky-social/indigo/xrpc"
 	arc "github.com/hashicorp/golang-lru/arc/v2"
 	logging "github.com/ipfs/go-log"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -22,7 +21,7 @@ import (
 
 var log = logging.Logger("api")
 
-func ResolveDidToHandle(ctx context.Context, xrpcc *xrpc.Client, res did.Resolver, hr HandleResolver, udid string) (string, string, error) {
+func ResolveDidToHandle(ctx context.Context, res did.Resolver, hr HandleResolver, udid string) (string, string, error) {
 	ctx, span := otel.Tracer("gosky").Start(ctx, "resolveDidToHandle")
 	defer span.End()
 
@@ -54,10 +53,6 @@ func ResolveDidToHandle(ctx context.Context, xrpcc *xrpc.Client, res did.Resolve
 
 	if svc == nil {
 		return "", "", fmt.Errorf("users did document has no pds service set")
-	}
-
-	if xrpcc.Host != "*" && svc.ServiceEndpoint != xrpcc.Host {
-		return "", "", fmt.Errorf("our XRPC client is authed for a different pds (%s != %s)", svc.ServiceEndpoint, xrpcc.Host)
 	}
 
 	verdid, err := hr.ResolveHandleToDid(ctx, handle)
