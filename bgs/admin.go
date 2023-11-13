@@ -106,6 +106,12 @@ type enrichedPDS struct {
 	EventsSeenSinceStartup uint64    `json:"EventsSeenSinceStartup"`
 	IngestRate             rateLimit `json:"IngestRate"`
 	CrawlRate              rateLimit `json:"CrawlRate"`
+	UserCount              int64     `json:"UserCount"`
+}
+
+type UserCount struct {
+	PDSID     uint  `gorm:"column:pds"`
+	UserCount int64 `gorm:"column:user_count"`
 }
 
 func (bgs *BGS) handleListPDSs(e echo.Context) error {
@@ -117,6 +123,20 @@ func (bgs *BGS) handleListPDSs(e echo.Context) error {
 	enrichedPDSs := make([]enrichedPDS, len(pds))
 
 	activePDSHosts := bgs.slurper.GetActiveList()
+
+	var userCounts []UserCount
+	if err := bgs.db.Model(&User{}).
+		Select("pds, count(*) as user_count").
+		Group("pds").
+		Find(&userCounts).Error; err != nil {
+		return err
+	}
+
+	// Create a map for fast lookup
+	userCountMap := make(map[uint]int64)
+	for _, count := range userCounts {
+		userCountMap[count.PDSID] = count.UserCount
+	}
 
 	for i, p := range pds {
 		enrichedPDSs[i].PDS = p
@@ -133,6 +153,7 @@ func (bgs *BGS) handleListPDSs(e echo.Context) error {
 			continue
 		}
 		enrichedPDSs[i].EventsSeenSinceStartup = uint64(m.Counter.GetValue())
+		enrichedPDSs[i].UserCount = userCountMap[p.ID]
 
 		// Get the ingest rate limit for this PDS
 		ingestRate := rateLimit{

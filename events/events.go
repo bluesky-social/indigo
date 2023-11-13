@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	label "github.com/bluesky-social/indigo/api/label"
@@ -73,11 +74,24 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 			select {
 			case s.outgoing <- evt:
 			case <-s.done:
-				go func(torem *Subscriber) {
-					em.rmSubscriber(torem)
-				}(s)
 			default:
-				log.Warnf("event overflow (%d)", len(s.outgoing))
+				log.Warnw("dropping slow consumer due to event overflow", "bufferSize", len(s.outgoing), "ident", s.ident)
+				go func(torem *Subscriber) {
+					torem.lk.Lock()
+					if !torem.cleanedUp {
+						select {
+						case torem.outgoing <- &XRPCStreamEvent{
+							Error: &ErrorFrame{
+								Error: "ConsumerTooSlow",
+							},
+						}:
+						case <-time.After(time.Second * 5):
+							log.Warnw("failed to send error frame to backed up consumer", "ident", torem.ident)
+						}
+					}
+					torem.lk.Unlock()
+					torem.cleanup()
+				}(s)
 			}
 			s.broadcastCounter.Inc()
 		}
@@ -99,6 +113,11 @@ type Subscriber struct {
 	filter func(*XRPCStreamEvent) bool
 
 	done chan struct{}
+
+	cleanup func()
+
+	lk        sync.Mutex
+	cleanedUp bool
 
 	ident            string
 	enqueuedCounter  prometheus.Counter
@@ -164,15 +183,18 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 		broadcastCounter: eventsBroadcast.WithLabelValues(ident),
 	}
 
-	cleanup := func() {
+	sub.cleanup = sync.OnceFunc(func() {
+		sub.lk.Lock()
+		defer sub.lk.Unlock()
 		close(done)
 		em.rmSubscriber(sub)
 		close(sub.outgoing)
-	}
+		sub.cleanedUp = true
+	})
 
 	if since == nil {
 		em.addSubscriber(sub)
-		return sub.outgoing, cleanup, nil
+		return sub.outgoing, sub.cleanup, nil
 	}
 
 	out := make(chan *XRPCStreamEvent, em.bufferSize)
@@ -243,11 +265,13 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 		}
 	}()
 
-	return out, cleanup, nil
+	return out, sub.cleanup, nil
 }
 
 func sequenceForEvent(evt *XRPCStreamEvent) int64 {
 	switch {
+	case evt == nil:
+		return -1
 	case evt.RepoCommit != nil:
 		return evt.RepoCommit.Seq
 	case evt.RepoHandle != nil:
@@ -257,6 +281,8 @@ func sequenceForEvent(evt *XRPCStreamEvent) int64 {
 	case evt.RepoTombstone != nil:
 		return evt.RepoTombstone.Seq
 	case evt.RepoInfo != nil:
+		return -1
+	case evt.Error != nil:
 		return -1
 	default:
 		return -1
