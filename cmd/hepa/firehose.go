@@ -145,6 +145,11 @@ func (s *Server) Run(ctx context.Context) error {
 }
 
 func (s *Server) discoverRepos() {
+	if s.skipBackfill {
+		s.logger.Info("skipping repo discovery")
+		return
+	}
+
 	ctx := context.Background()
 	log := s.logger.With("func", "discoverRepos")
 	log.Info("starting repo discovery")

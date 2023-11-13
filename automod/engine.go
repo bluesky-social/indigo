@@ -63,6 +63,7 @@ func (e *Engine) ProcessIdentityEvent(t string, did syntax.DID) error {
 func (e *Engine) ProcessCommit(ctx context.Context, commit *comatproto.SyncSubscribeRepos_Commit) error {
 
 	// similar to an HTTP server, we want to recover any panics from rule execution
+	/*
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("automod event execution exception", "err", r)
@@ -70,6 +71,7 @@ func (e *Engine) ProcessCommit(ctx context.Context, commit *comatproto.SyncSubsc
 			// TODO: circuit-break on repeated panics?
 		}
 	}()
+	*/
 
 	r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(commit.Blocks))
 	if err != nil {
@@ -140,10 +142,12 @@ func (e *Engine) ProcessCommit(ctx context.Context, commit *comatproto.SyncSubsc
 }
 
 func (e *Engine) CallIdentityRules(evt *IdentityEvent) error {
+	slog.Info("calling rules on identity event")
 	return nil
 }
 
 func (e *Engine) CallRecordRules(evt *RecordEvent) error {
+	slog.Info("calling rules on record event")
 	return nil
 }
 
