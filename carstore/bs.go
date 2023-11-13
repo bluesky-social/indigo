@@ -875,7 +875,7 @@ func BlockDiff(ctx context.Context, bs blockstore.Blockstore, oldroot cid.Cid, n
 		keepset[c] = true
 		oblk, err := bs.Get(ctx, c)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get failed in new tree: %w", err)
 		}
 
 		if err := cbg.ScanForLinks(bytes.NewReader(oblk.RawData()), func(lnk cid.Cid) {
@@ -901,10 +901,14 @@ func BlockDiff(ctx context.Context, bs blockstore.Blockstore, oldroot cid.Cid, n
 
 		oblk, err := bs.Get(ctx, c)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get failed in old tree: %w", err)
 		}
 
 		if err := cbg.ScanForLinks(bytes.NewReader(oblk.RawData()), func(lnk cid.Cid) {
+			if lnk.Prefix().Codec != cid.DagCBOR {
+				return
+			}
+
 			if !keepset[lnk] {
 				dropset[lnk] = true
 				queue = append(queue, lnk)
