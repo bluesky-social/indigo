@@ -63,7 +63,9 @@ func NewServer(db *gorm.DB, dir identity.Directory, config Config) (*Server, err
 		Host: bgshttp,
 	}
 
-	engine := automod.Engine{}
+	engine := automod.Engine{
+		Directory: dir,
+	}
 
 	s := &Server{
 		db:           db,
