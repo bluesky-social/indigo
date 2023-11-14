@@ -2,6 +2,9 @@ package automod
 
 import (
 	"context"
+	"encoding/json"
+	"io"
+	"os"
 )
 
 type SetStore interface {
@@ -27,4 +30,32 @@ func (s MemSetStore) InSet(ctx context.Context, name, val string) (bool, error) 
 	}
 	_, ok = set[val]
 	return ok, nil
+}
+
+func (s *MemSetStore) LoadFromFileJSON(p string) error {
+
+	f, err := os.Open(p)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+
+	raw, err := io.ReadAll(f)
+	if err != nil {
+		return err
+	}
+
+	var rules map[string][]string
+	if err := json.Unmarshal(raw, &rules); err != nil {
+		return err
+	}
+
+	for name, l := range rules {
+		m := make(map[string]bool, len(l))
+		for _, val := range l {
+			m[val] = true
+		}
+		s.Sets[name] = m
+	}
+	return nil
 }
