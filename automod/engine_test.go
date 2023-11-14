@@ -83,5 +83,5 @@ func TestEngineBasics(t *testing.T) {
 		Text: "some post blah",
 		Tags: []string{"one", "slur"},
 	}
-	assert.Error(engine.ProcessRecord(ctx, id1.DID, path, cid1, &p2))
+	assert.NoError(engine.ProcessRecord(ctx, id1.DID, path, cid1, &p2))
 }
