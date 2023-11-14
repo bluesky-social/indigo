@@ -3,24 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/util/cliutil"
 
 	"github.com/carlmjohnson/versioninfo"
 	_ "github.com/joho/godotenv/autoload"
 	cli "github.com/urfave/cli/v2"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/sdk/resource"
-	tracesdk "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"golang.org/x/time/rate"
 )
 
@@ -52,11 +44,6 @@ func run(args []string) error {
 			Value:   "https://plc.directory",
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
-		&cli.IntFlag{
-			Name:    "max-metadb-connections",
-			EnvVars: []string{"MAX_METADB_CONNECTIONS"},
-			Value:   40,
-		},
 	}
 
 	app.Commands = []*cli.Command{
@@ -68,34 +55,13 @@ func run(args []string) error {
 
 var runCmd = &cli.Command{
 	Name:  "run",
-	Usage: "run the service",
+	Usage: "run the hepa daemon",
 	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:    "database-url",
-			Value:   "sqlite://data/hepa/automod.db",
-			EnvVars: []string{"DATABASE_URL"},
-		},
-		&cli.BoolFlag{
-			Name:    "readonly",
-			EnvVars: []string{"HEPA_READONLY", "READONLY"},
-		},
-		&cli.StringFlag{
-			Name:    "bind",
-			Usage:   "IP or address, and port, to listen on for HTTP APIs",
-			Value:   ":3999",
-			EnvVars: []string{"HEPA_BIND"},
-		},
 		&cli.StringFlag{
 			Name:    "metrics-listen",
 			Usage:   "IP or address, and port, to listen on for metrics APIs",
-			Value:   ":3998",
+			Value:   ":3989",
 			EnvVars: []string{"HEPA_METRICS_LISTEN"},
-		},
-		&cli.IntFlag{
-			Name:    "bgs-sync-rate-limit",
-			Usage:   "max repo sync (checkout) requests per second to upstream (BGS)",
-			Value:   8,
-			EnvVars: []string{"HEPA_BGS_SYNC_RATE_LIMIT"},
 		},
 		&cli.IntFlag{
 			Name:    "plc-rate-limit",
@@ -111,48 +77,9 @@ var runCmd = &cli.Command{
 		}))
 		slog.SetDefault(logger)
 
-		// Enable OTLP HTTP exporter
-		// For relevant environment variables:
-		// https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace#readme-environment-variables
-		// At a minimum, you need to set
-		// OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-		if ep := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); ep != "" {
-			slog.Info("setting up trace exporter", "endpoint", ep)
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+		configOTEL("hepa")
 
-			exp, err := otlptracehttp.New(ctx)
-			if err != nil {
-				log.Fatal("failed to create trace exporter", "error", err)
-			}
-			defer func() {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-				defer cancel()
-				if err := exp.Shutdown(ctx); err != nil {
-					slog.Error("failed to shutdown trace exporter", "error", err)
-				}
-			}()
-
-			tp := tracesdk.NewTracerProvider(
-				tracesdk.WithBatcher(exp),
-				tracesdk.WithResource(resource.NewWithAttributes(
-					semconv.SchemaURL,
-					semconv.ServiceNameKey.String("hepa"),
-					attribute.String("env", os.Getenv("ENVIRONMENT")),         // DataDog
-					attribute.String("environment", os.Getenv("ENVIRONMENT")), // Others
-					attribute.Int64("ID", 1),
-				)),
-			)
-			otel.SetTracerProvider(tp)
-		}
-
-		db, err := cliutil.SetupDatabase(cctx.String("database-url"), cctx.Int("max-metadb-connections"))
-		if err != nil {
-			return err
-		}
-
-		// TODO: replace this with "bingo" resolver?
-		base := identity.BaseDirectory{
+		baseDir := identity.BaseDirectory{
 			PLCURL: cctx.String("atp-plc-host"),
 			HTTPClient: http.Client{
 				Timeout: time.Second * 15,
@@ -161,21 +88,20 @@ var runCmd = &cli.Command{
 			TryAuthoritativeDNS:   true,
 			SkipDNSDomainSuffixes: []string{".bsky.social"},
 		}
-		dir := identity.NewCacheDirectory(&base, 1_500_000, time.Hour*24, time.Minute*2)
+		dir := identity.NewCacheDirectory(&baseDir, 1_500_000, time.Hour*24, time.Minute*2)
 
 		srv, err := NewServer(
-			db,
 			&dir,
 			Config{
-				BGSHost:          cctx.String("atp-bgs-host"),
-				Logger:           logger,
-				BGSSyncRateLimit: cctx.Int("bgs-sync-rate-limit"),
+				BGSHost: cctx.String("atp-bgs-host"),
+				Logger:  logger,
 			},
 		)
 		if err != nil {
 			return err
 		}
 
+		// prometheus HTTP endpoint: /metrics
 		go func() {
 			if err := srv.RunMetrics(cctx.String("metrics-listen")); err != nil {
 				slog.Error("failed to start metrics endpoint", "error", err)
@@ -183,10 +109,9 @@ var runCmd = &cli.Command{
 			}
 		}()
 
-		// TODO: if cctx.Bool("readonly") ...
-
-		if err := srv.Run(ctx); err != nil {
-			return fmt.Errorf("failed to run automod service: %w", err)
+		// the main service loop
+		if err := srv.RunConsumer(ctx); err != nil {
+			return fmt.Errorf("failure consuming and processing firehose: %w", err)
 		}
 		return nil
 	},

@@ -1,41 +1,36 @@
 package automod
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-// runtime for executing rules, managing state, and recording moderation actions
+// runtime for executing rules, managing state, and recording moderation actions.
+//
+// TODO: careful when initializing: several fields should not be null or zero, even though they are pointer type.
 type Engine struct {
+	Logger  *slog.Logger
+	Directory identity.Directory
 	// current rule sets. will eventually be possible to swap these out at runtime
 	RulesMap  sync.Map
-	Directory identity.Directory
 	// used to persist moderation actions in mod service (optional)
 	AdminClient *xrpc.Client
 	CountStore  CountStore
 }
 
-func (e *Engine) ProcessIdentityEvent(t string, did syntax.DID) error {
-	ctx := context.Background()
-
+func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.DID) error {
 	// similar to an HTTP server, we want to recover any panics from rule execution
 	defer func() {
 		if r := recover(); r != nil {
-			slog.Error("automod event execution exception", "err", r)
-			// TODO: mark repo as dirty?
-			// TODO: circuit-break on repeated panics?
+			e.Logger.Error("automod event execution exception", "err", r)
 		}
 	}()
 
@@ -53,37 +48,18 @@ func (e *Engine) ProcessIdentityEvent(t string, did syntax.DID) error {
 			Account: AccountMeta{Identity: ident},
 		},
 	}
-	e.CallIdentityRules(&evt)
-
-	_ = ctx
+	// TODO: call rules
+	_ = evt
 	return nil
 }
 
-// this method takes a full firehose commit event. it must not be a tooBig
-func (e *Engine) ProcessCommit(ctx context.Context, commit *comatproto.SyncSubscribeRepos_Commit) error {
-
+func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path string, rec any) error {
 	// similar to an HTTP server, we want to recover any panics from rule execution
-	/*
 	defer func() {
 		if r := recover(); r != nil {
-			slog.Error("automod event execution exception", "err", r)
-			// TODO: mark repo as dirty?
-			// TODO: circuit-break on repeated panics?
+			e.Logger.Error("automod event execution exception", "err", r)
 		}
 	}()
-	*/
-
-	r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(commit.Blocks))
-	if err != nil {
-		// TODO: handle this case (instead of return nil)
-		slog.Error("reading repo from car", "size_bytes", len(commit.Blocks), "err", err)
-		return nil
-	}
-
-	did, err := syntax.ParseDID(commit.Repo)
-	if err != nil {
-		return fmt.Errorf("bad DID syntax in event: %w", err)
-	}
 
 	ident, err := e.Directory.LookupDID(ctx, did)
 	if err != nil {
@@ -92,75 +68,61 @@ func (e *Engine) ProcessCommit(ctx context.Context, commit *comatproto.SyncSubsc
 	if ident == nil {
 		return fmt.Errorf("identity not found for did: %s", did.String())
 	}
+	collection := strings.SplitN(path, "/", 2)[0]
 
-	for _, op := range commit.Ops {
-		ek := repomgr.EventKind(op.Action)
-		logOp := slog.With("op_path", op.Path, "op_cid", op.Cid)
-		switch ek {
-		case repomgr.EvtKindCreateRecord:
-			rc, rec, err := r.GetRecord(ctx, op.Path)
-			if err != nil {
-				// TODO: handle this case (instead of return nil)
-				logOp.Error("fetching record from event CAR slice", "err", err)
-				return nil
-			}
-			if lexutil.LexLink(rc) != *op.Cid {
-				// TODO: handle this case (instead of return nil)
-				logOp.Error("mismatch in record and op cid", "record_cid", rc)
-				return nil
-			}
-
-			if strings.HasPrefix(op.Path, "app.bsky.feed.post/") {
-				// TODO: handle as a PostEvent specially
-			} else {
-				// XXX: pass record in to event
-				_ = rec
-				evt := RecordEvent{
-					Event{
-						Engine:  e,
-						Account: AccountMeta{Identity: ident},
-					},
-					[]string{},
-					false,
-					[]ModReport{},
-					[]string{},
-				}
-				e.CallRecordRules(&evt)
-				// TODO persist
-			}
-		case repomgr.EvtKindUpdateRecord:
-			slog.Info("ignoring record update", "did", commit.Repo, "seq", commit.Seq, "path", op.Path)
-			return nil
-		case repomgr.EvtKindDeleteRecord:
-			slog.Info("ignoring record deletion", "did", commit.Repo, "seq", commit.Seq, "path", op.Path)
-			return nil
+	switch collection {
+	case "app.bsky.feed.post":
+		post, ok := rec.(*appbsky.FeedPost)
+		if !ok {
+			return fmt.Errorf("mismatch between collection (%s) and type", collection)
 		}
+		evt := e.NewPostEvent(ident, path, post)
+		e.Logger.Info("processing post", "did", ident.DID, "path", path)
+		_ = evt
+		// TODO: call rules
+	default:
+		evt := e.NewRecordEvent(ident, path, rec)
+		e.Logger.Info("processing record", "did", ident.DID, "path", path)
+		_ = evt
+		// TODO: call rules
 	}
 
-	_ = ctx
 	return nil
 }
 
-func (e *Engine) CallIdentityRules(evt *IdentityEvent) error {
-	slog.Info("calling rules on identity event")
-	return nil
+func (e *Engine) NewPostEvent(ident *identity.Identity, path string, post *appbsky.FeedPost) PostEvent {
+	return PostEvent{
+		RecordEvent {
+			Event{
+				Engine:  e,
+				Account: AccountMeta{Identity: ident},
+			},
+			[]string{},
+			false,
+			[]ModReport{},
+			[]string{},
+		},
+	}
 }
 
-func (e *Engine) CallRecordRules(evt *RecordEvent) error {
-	slog.Info("calling rules on record event")
-	return nil
-}
-
-func (e *Engine) PersistModActions() error {
-	// XXX
-	return nil
+func (e *Engine) NewRecordEvent(ident *identity.Identity, path string, rec any) RecordEvent {
+	return RecordEvent{
+		Event{
+			Engine:  e,
+			Account: AccountMeta{Identity: ident},
+		},
+		[]string{},
+		false,
+		[]ModReport{},
+		[]string{},
+	}
 }
 
 func (e *Engine) GetCount(key, period string) (int, error) {
 	return e.CountStore.GetCount(context.TODO(), key, period)
 }
 
-func (e *Engine) InSet(name, val string) (bool, error) {
+func (e *Engine) InSet(setName, val string) (bool, error) {
 	// XXX: implement
 	return false, nil
 }
