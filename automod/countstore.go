@@ -15,7 +15,7 @@ const (
 
 type CountStore interface {
 	GetCount(ctx context.Context, key, period string) (int, error)
-	Increment(ctx context.Context, key string) (int, error)
+	Increment(ctx context.Context, key string) error
 }
 
 // TODO: this implementation isn't race-safe (yet)!
@@ -45,7 +45,7 @@ func PeriodKey(key, period string) string {
 	}
 }
 
-func (s *MemCountStore) GetCount(ctx context.Context, key, period string) (int, error) {
+func (s MemCountStore) GetCount(ctx context.Context, key, period string) (int, error) {
 	v, ok := s.Counts[PeriodKey(key, period)]
 	if !ok {
 		return 0, nil
@@ -53,7 +53,7 @@ func (s *MemCountStore) GetCount(ctx context.Context, key, period string) (int, 
 	return v, nil
 }
 
-func (s *MemCountStore) Increment(ctx context.Context, key string) error {
+func (s MemCountStore) Increment(ctx context.Context, key string) error {
 	for _, p := range []string{PeriodTotal, PeriodDay, PeriodHour} {
 		k := PeriodKey(key, p)
 		v, ok := s.Counts[k]
