@@ -5,25 +5,24 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"sync"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // runtime for executing rules, managing state, and recording moderation actions.
 //
 // TODO: careful when initializing: several fields should not be null or zero, even though they are pointer type.
 type Engine struct {
-	Logger  *slog.Logger
+	Logger    *slog.Logger
 	Directory identity.Directory
 	// current rule sets. will eventually be possible to swap these out at runtime
-	RulesMap  sync.Map
+	// TODO: RulesMap  sync.Map
 	// used to persist moderation actions in mod service (optional)
-	AdminClient *xrpc.Client
-	CountStore  CountStore
+	// TODO: AdminClient *xrpc.Client
+	Counters CountStore
+	Sets     SetStore
 }
 
 func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.DID) error {
@@ -92,7 +91,7 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path string,
 
 func (e *Engine) NewPostEvent(ident *identity.Identity, path string, post *appbsky.FeedPost) PostEvent {
 	return PostEvent{
-		RecordEvent {
+		RecordEvent{
 			Event{
 				Engine:  e,
 				Account: AccountMeta{Identity: ident},
@@ -119,10 +118,10 @@ func (e *Engine) NewRecordEvent(ident *identity.Identity, path string, rec any) 
 }
 
 func (e *Engine) GetCount(key, period string) (int, error) {
-	return e.CountStore.GetCount(context.TODO(), key, period)
+	return e.Counters.GetCount(context.TODO(), key, period)
 }
 
-func (e *Engine) InSet(setName, val string) (bool, error) {
-	// XXX: implement
-	return false, nil
+// checks if `val` is an element of set `name`
+func (e *Engine) InSet(name, val string) (bool, error) {
+	return e.Sets.InSet(context.TODO(), name, val)
 }

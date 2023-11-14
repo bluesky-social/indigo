@@ -1,10 +1,10 @@
 package main
 
 import (
-	"os"
-	"log/slog"
-	"log"
 	"context"
+	"log"
+	"log/slog"
+	"os"
 	"time"
 
 	"go.opentelemetry.io/otel"
