@@ -9,6 +9,7 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // runtime for executing rules, managing state, and recording moderation actions.
@@ -17,12 +18,11 @@ import (
 type Engine struct {
 	Logger    *slog.Logger
 	Directory identity.Directory
-	// current rule sets. will eventually be possible to swap these out at runtime
-	// TODO: RulesMap  sync.Map
+	Rules     RuleSet
+	Counters  CountStore
+	Sets      SetStore
 	// used to persist moderation actions in mod service (optional)
-	// TODO: AdminClient *xrpc.Client
-	Counters CountStore
-	Sets     SetStore
+	AdminClient *xrpc.Client
 }
 
 func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.DID) error {
@@ -48,7 +48,11 @@ func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.
 		},
 	}
 	// TODO: call rules
+	// TODO: handle errors
 	_ = evt
+	if evt.Err != nil {
+		return evt.Err
+	}
 	return nil
 }
 
@@ -79,11 +83,17 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path string,
 		e.Logger.Info("processing post", "did", ident.DID, "path", path)
 		_ = evt
 		// TODO: call rules
+		if evt.Err != nil {
+			return evt.Err
+		}
 	default:
 		evt := e.NewRecordEvent(ident, path, rec)
 		e.Logger.Info("processing record", "did", ident.DID, "path", path)
 		_ = evt
 		// TODO: call rules
+		if evt.Err != nil {
+			return evt.Err
+		}
 	}
 
 	return nil
@@ -101,6 +111,7 @@ func (e *Engine) NewPostEvent(ident *identity.Identity, path string, post *appbs
 			[]ModReport{},
 			[]string{},
 		},
+		post,
 	}
 }
 

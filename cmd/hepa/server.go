@@ -9,6 +9,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/rules"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -38,12 +39,12 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 	}
 
 	engine := automod.Engine{
-		Logger:    logger,
-		Directory: dir,
-		Counters:  automod.NewMemCountStore(),
-		Sets:      automod.NewMemSetStore(),
-		// TODO: RulesMap (loaded/config from somewhere)
-		// TODO: AdminClient (XRPC with mod access)
+		Logger:      logger,
+		Directory:   dir,
+		Counters:    automod.NewMemCountStore(),
+		Sets:        automod.NewMemSetStore(),
+		Rules:       rules.DefaultRules(),
+		AdminClient: nil, // TODO: AppView with mod access, via config
 	}
 
 	s := &Server{
