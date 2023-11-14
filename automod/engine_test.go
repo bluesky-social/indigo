@@ -73,14 +73,15 @@ func TestEngineBasics(t *testing.T) {
 		Handle: syntax.Handle("handle.example.com"),
 	}
 	path := "app.bsky.feed.post/abc123"
+	cid1 := "cid123"
 	p1 := appbsky.FeedPost{
 		Text: "some post blah",
 	}
-	assert.NoError(engine.ProcessRecord(ctx, id1.DID, path, &p1))
+	assert.NoError(engine.ProcessRecord(ctx, id1.DID, path, cid1, &p1))
 
 	p2 := appbsky.FeedPost{
 		Text: "some post blah",
 		Tags: []string{"one", "slur"},
 	}
-	assert.NoError(engine.ProcessRecord(ctx, id1.DID, path, &p2))
+	assert.NoError(engine.ProcessRecord(ctx, id1.DID, path, cid1, &p2))
 }

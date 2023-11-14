@@ -1,15 +1,18 @@
 package automod
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 )
 
 type ModReport struct {
-	Reason  string
-	Comment string
+	ReasonType string
+	Comment    string
 }
 
 // information about a repo/account/identity, always pre-populated and relevant to many rules
@@ -84,7 +87,61 @@ func (e *Event) AddFlag(val string) {
 }
 
 func (e *Event) ReportAccount(reason, comment string) {
-	e.AccountReports = append(e.AccountReports, ModReport{Reason: reason, Comment: comment})
+	e.AccountReports = append(e.AccountReports, ModReport{ReasonType: reason, Comment: comment})
+}
+
+func (e *Event) PersistAccountActions(ctx context.Context) error {
+	if e.Engine.AdminClient == nil {
+		return nil
+	}
+	xrpcc := e.Engine.AdminClient
+	if len(e.AccountLabels) > 0 {
+		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
+			Action:          "com.atproto.admin.defs#createLabels",
+			CreateLabelVals: e.AccountLabels,
+			Reason:          "automod",
+			CreatedBy:       xrpcc.Auth.Did,
+			Subject: &comatproto.AdminTakeModerationAction_Input_Subject{
+				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
+					Did: e.Account.Identity.DID.String(),
+				},
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	// TODO: AccountFlags
+	for _, mr := range e.AccountReports {
+		_, err := comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
+			ReasonType: &mr.ReasonType,
+			Reason:     &mr.Comment,
+			Subject: &comatproto.ModerationCreateReport_Input_Subject{
+				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
+					Did: e.Account.Identity.DID.String(),
+				},
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	if e.AccountTakedown {
+		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
+			Action:    "com.atproto.admin.defs#takedown",
+			Reason:    "automod",
+			CreatedBy: xrpcc.Auth.Did,
+			Subject: &comatproto.AdminTakeModerationAction_Input_Subject{
+				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
+					Did: e.Account.Identity.DID.String(),
+				},
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type IdentityEvent struct {
@@ -94,6 +151,9 @@ type IdentityEvent struct {
 type RecordEvent struct {
 	Event
 
+	Collection     string
+	RecordKey      string
+	CID            string
 	RecordLabels   []string
 	RecordTakedown bool
 	RecordReports  []ModReport
@@ -114,7 +174,59 @@ func (e *RecordEvent) AddFlag(val string) {
 }
 
 func (e *RecordEvent) Report(reason, comment string) {
-	e.RecordReports = append(e.RecordReports, ModReport{Reason: reason, Comment: comment})
+	e.RecordReports = append(e.RecordReports, ModReport{ReasonType: reason, Comment: comment})
+}
+
+func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
+	if e.Engine.AdminClient == nil {
+		return nil
+	}
+	strongRef := comatproto.RepoStrongRef{
+		Cid: e.CID,
+		Uri: fmt.Sprintf("at://%s/%s/%s", e.Account.Identity.DID, e.Collection, e.RecordKey),
+	}
+	xrpcc := e.Engine.AdminClient
+	if len(e.RecordLabels) > 0 {
+		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
+			Action:          "com.atproto.admin.defs#createLabels",
+			CreateLabelVals: e.RecordLabels,
+			Reason:          "automod",
+			CreatedBy:       xrpcc.Auth.Did,
+			Subject: &comatproto.AdminTakeModerationAction_Input_Subject{
+				RepoStrongRef: &strongRef,
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	// TODO: AccountFlags
+	for _, mr := range e.RecordReports {
+		_, err := comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
+			ReasonType: &mr.ReasonType,
+			Reason:     &mr.Comment,
+			Subject: &comatproto.ModerationCreateReport_Input_Subject{
+				RepoStrongRef: &strongRef,
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	if e.RecordTakedown {
+		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
+			Action:    "com.atproto.admin.defs#takedown",
+			Reason:    "automod",
+			CreatedBy: xrpcc.Auth.Did,
+			Subject: &comatproto.AdminTakeModerationAction_Input_Subject{
+				RepoStrongRef: &strongRef,
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type PostEvent struct {

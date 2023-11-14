@@ -56,7 +56,7 @@ func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.
 	return nil
 }
 
-func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path string, rec any) error {
+func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID string, rec any) error {
 	// similar to an HTTP server, we want to recover any panics from rule execution
 	defer func() {
 		if r := recover(); r != nil {
@@ -79,7 +79,7 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path string,
 		if !ok {
 			return fmt.Errorf("mismatch between collection (%s) and type", collection)
 		}
-		evt := e.NewPostEvent(ident, path, post)
+		evt := e.NewPostEvent(ident, path, recCID, post)
 		e.Logger.Info("processing post", "did", ident.DID, "path", path)
 		_ = evt
 		// TODO: call rules
@@ -87,7 +87,7 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path string,
 			return evt.Err
 		}
 	default:
-		evt := e.NewRecordEvent(ident, path, rec)
+		evt := e.NewRecordEvent(ident, path, recCID, rec)
 		e.Logger.Info("processing record", "did", ident.DID, "path", path)
 		_ = evt
 		// TODO: call rules
@@ -99,7 +99,8 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path string,
 	return nil
 }
 
-func (e *Engine) NewPostEvent(ident *identity.Identity, path string, post *appbsky.FeedPost) PostEvent {
+func (e *Engine) NewPostEvent(ident *identity.Identity, path, recCID string, post *appbsky.FeedPost) PostEvent {
+	parts := strings.SplitN(path, "/", 2)
 	return PostEvent{
 		RecordEvent{
 			Event{
@@ -107,6 +108,9 @@ func (e *Engine) NewPostEvent(ident *identity.Identity, path string, post *appbs
 				Logger:  e.Logger,
 				Account: AccountMeta{Identity: ident},
 			},
+			parts[0],
+			parts[1],
+			recCID,
 			[]string{},
 			false,
 			[]ModReport{},
@@ -116,13 +120,17 @@ func (e *Engine) NewPostEvent(ident *identity.Identity, path string, post *appbs
 	}
 }
 
-func (e *Engine) NewRecordEvent(ident *identity.Identity, path string, rec any) RecordEvent {
+func (e *Engine) NewRecordEvent(ident *identity.Identity, path, recCID string, rec any) RecordEvent {
+	parts := strings.SplitN(path, "/", 2)
 	return RecordEvent{
 		Event{
 			Engine:  e,
 			Logger:  e.Logger,
 			Account: AccountMeta{Identity: ident},
 		},
+		parts[0],
+		parts[1],
+		recCID,
 		[]string{},
 		false,
 		[]ModReport{},
