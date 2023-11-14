@@ -16,6 +16,7 @@ const (
 type CountStore interface {
 	GetCount(ctx context.Context, key, period string) (int, error)
 	Increment(ctx context.Context, key string) error
+	// TODO: batch increment method
 }
 
 // TODO: this implementation isn't race-safe (yet)!

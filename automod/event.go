@@ -98,7 +98,7 @@ func (e *Event) PersistAccountActions(ctx context.Context) error {
 	if len(e.AccountLabels) > 0 {
 		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
 			Action:          "com.atproto.admin.defs#createLabels",
-			CreateLabelVals: e.AccountLabels,
+			CreateLabelVals: dedupeStrings(e.AccountLabels),
 			Reason:          "automod",
 			CreatedBy:       xrpcc.Auth.Did,
 			Subject: &comatproto.AdminTakeModerationAction_Input_Subject{
@@ -142,6 +142,25 @@ func (e *Event) PersistAccountActions(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (e *Event) PersistCounters(ctx context.Context) error {
+	for _, k := range dedupeStrings(e.CounterIncrements) {
+		err := e.Engine.Counters.Increment(ctx, k)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (e *Event) CanonicalLogLine() {
+	e.Logger.Info("canonical-event-line",
+		"accountLabels", e.AccountLabels,
+		"accountFlags", e.AccountFlags,
+		"accountTakedown", e.AccountTakedown,
+		"accountReports", len(e.AccountReports),
+	)
 }
 
 type IdentityEvent struct {
@@ -189,7 +208,7 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 	if len(e.RecordLabels) > 0 {
 		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
 			Action:          "com.atproto.admin.defs#createLabels",
-			CreateLabelVals: e.RecordLabels,
+			CreateLabelVals: dedupeStrings(e.RecordLabels),
 			Reason:          "automod",
 			CreatedBy:       xrpcc.Auth.Did,
 			Subject: &comatproto.AdminTakeModerationAction_Input_Subject{
@@ -227,6 +246,19 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (e *RecordEvent) CanonicalLogLine() {
+	e.Logger.Info("canonical-event-line",
+		"accountLabels", e.AccountLabels,
+		"accountFlags", e.AccountFlags,
+		"accountTakedown", e.AccountTakedown,
+		"accountReports", len(e.AccountReports),
+		"recordLabels", e.RecordLabels,
+		"recordFlags", e.RecordFlags,
+		"recordTakedown", e.RecordTakedown,
+		"recordReports", len(e.RecordReports),
+	)
 }
 
 type PostEvent struct {

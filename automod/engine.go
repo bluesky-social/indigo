@@ -47,11 +47,18 @@ func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.
 			Account: AccountMeta{Identity: ident},
 		},
 	}
-	// TODO: call rules
-	// TODO: handle errors
-	_ = evt
+	if err := e.Rules.CallIdentityRules(&evt); err != nil {
+		return err
+	}
 	if evt.Err != nil {
 		return evt.Err
+	}
+	evt.CanonicalLogLine()
+	if err := evt.PersistAccountActions(ctx); err != nil {
+		return err
+	}
+	if err := evt.PersistCounters(ctx); err != nil {
+		return err
 	}
 	return nil
 }
@@ -81,18 +88,34 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 		}
 		evt := e.NewPostEvent(ident, path, recCID, post)
 		e.Logger.Info("processing post", "did", ident.DID, "path", path)
-		_ = evt
-		// TODO: call rules
+		if err := e.Rules.CallPostRules(&evt); err != nil {
+			return err
+		}
 		if evt.Err != nil {
 			return evt.Err
+		}
+		evt.CanonicalLogLine()
+		if err := evt.PersistAccountActions(ctx); err != nil {
+			return err
+		}
+		if err := evt.PersistCounters(ctx); err != nil {
+			return err
 		}
 	default:
 		evt := e.NewRecordEvent(ident, path, recCID, rec)
 		e.Logger.Info("processing record", "did", ident.DID, "path", path)
-		_ = evt
-		// TODO: call rules
+		if err := e.Rules.CallRecordRules(&evt); err != nil {
+			return err
+		}
 		if evt.Err != nil {
 			return evt.Err
+		}
+		evt.CanonicalLogLine()
+		if err := evt.PersistAccountActions(ctx); err != nil {
+			return err
+		}
+		if err := evt.PersistCounters(ctx); err != nil {
+			return err
 		}
 	}
 
@@ -105,7 +128,7 @@ func (e *Engine) NewPostEvent(ident *identity.Identity, path, recCID string, pos
 		RecordEvent{
 			Event{
 				Engine:  e,
-				Logger:  e.Logger,
+				Logger:  e.Logger.With("did", ident.DID, "collection", parts[0], "rkey", parts[1]),
 				Account: AccountMeta{Identity: ident},
 			},
 			parts[0],
@@ -125,7 +148,7 @@ func (e *Engine) NewRecordEvent(ident *identity.Identity, path, recCID string, r
 	return RecordEvent{
 		Event{
 			Engine:  e,
-			Logger:  e.Logger,
+			Logger:  e.Logger.With("did", ident.DID, "collection", parts[0], "rkey", parts[1]),
 			Account: AccountMeta{Identity: ident},
 		},
 		parts[0],
