@@ -38,9 +38,10 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 	}
 
 	engine := automod.Engine{
-		Logger: logger,
+		Logger:    logger,
 		Directory: dir,
-		CountStore: automod.NewMemCountStore(),
+		Counters:  automod.NewMemCountStore(),
+		Sets:      automod.NewMemSetStore(),
 		// TODO: RulesMap (loaded/config from somewhere)
 		// TODO: AdminClient (XRPC with mod access)
 	}
