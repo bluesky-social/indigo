@@ -44,6 +44,12 @@ func run(args []string) error {
 			Value:   "https://plc.directory",
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
+		&cli.StringFlag{
+			Name:    "atp-mod-host",
+			Usage:   "method, hostname, and port of moderation service",
+			Value:   "https://api.bsky.app",
+			EnvVars: []string{"ATP_MOD_HOST"},
+		},
 	}
 
 	app.Commands = []*cli.Command{
@@ -69,6 +75,21 @@ var runCmd = &cli.Command{
 			Value:   100,
 			EnvVars: []string{"HEPA_PLC_RATE_LIMIT"},
 		},
+		&cli.StringFlag{
+			Name:    "mod-handle",
+			Usage:   "for mod service login",
+			EnvVars: []string{"HEPA_MOD_AUTH_HANDLE"},
+		},
+		&cli.StringFlag{
+			Name:    "mod-password",
+			Usage:   "for mod service login",
+			EnvVars: []string{"ATP_MOD_AUTH_PASSWORD"},
+		},
+		&cli.StringFlag{
+			Name:    "mod-admin-token",
+			Usage:   "admin authentication password for mod service",
+			EnvVars: []string{"ATP_MOD_AUTH_ADMIN_TOKEN"},
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		ctx := context.Background()
@@ -93,8 +114,12 @@ var runCmd = &cli.Command{
 		srv, err := NewServer(
 			&dir,
 			Config{
-				BGSHost: cctx.String("atp-bgs-host"),
-				Logger:  logger,
+				BGSHost:       cctx.String("atp-bgs-host"),
+				Logger:        logger,
+				ModHost:       cctx.String("atp-mod-host"),
+				ModAdminToken: cctx.String("mod-admin-token"),
+				ModUsername:   cctx.String("mod-handle"),
+				ModPassword:   cctx.String("mod-password"),
 			},
 		)
 		if err != nil {
