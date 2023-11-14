@@ -104,6 +104,7 @@ func (e *Engine) NewPostEvent(ident *identity.Identity, path string, post *appbs
 		RecordEvent{
 			Event{
 				Engine:  e,
+				Logger:  e.Logger,
 				Account: AccountMeta{Identity: ident},
 			},
 			[]string{},
@@ -119,6 +120,7 @@ func (e *Engine) NewRecordEvent(ident *identity.Identity, path string, rec any) 
 	return RecordEvent{
 		Event{
 			Engine:  e,
+			Logger:  e.Logger,
 			Account: AccountMeta{Identity: ident},
 		},
 		[]string{},

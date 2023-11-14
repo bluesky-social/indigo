@@ -1,6 +1,8 @@
 package automod
 
 import (
+	"log/slog"
+
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 )
@@ -20,6 +22,7 @@ type AccountMeta struct {
 type Event struct {
 	Engine            *Engine
 	Err               error
+	Logger            *slog.Logger
 	Account           AccountMeta
 	CounterIncrements []string
 	AccountLabels     []string
