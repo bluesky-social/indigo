@@ -1,6 +1,7 @@
 package automod
 
 import (
+	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 )
 
@@ -18,7 +19,7 @@ type AccountMeta struct {
 // base type for events. events are both containers for data about the event itself (similar to an HTTP request type); aggregate results and state (counters, mod actions) to be persisted after all rules are run; and act as an API for additional network reads and operations.
 type Event struct {
 	Engine            *Engine
-	Err               *error
+	Err               error
 	Account           AccountMeta
 	CounterIncrements []string
 	AccountLabels     []string
@@ -30,7 +31,7 @@ type Event struct {
 func (e *Event) CountTotal(key string) int {
 	v, err := e.Engine.GetCount(key, PeriodTotal)
 	if err != nil {
-		e.Err = &err
+		e.Err = err
 		return 0
 	}
 	return v
@@ -39,7 +40,7 @@ func (e *Event) CountTotal(key string) int {
 func (e *Event) CountDay(key string) int {
 	v, err := e.Engine.GetCount(key, PeriodDay)
 	if err != nil {
-		e.Err = &err
+		e.Err = err
 		return 0
 	}
 	return v
@@ -48,7 +49,7 @@ func (e *Event) CountDay(key string) int {
 func (e *Event) CountHour(key string) int {
 	v, err := e.Engine.GetCount(key, PeriodHour)
 	if err != nil {
-		e.Err = &err
+		e.Err = err
 		return 0
 	}
 	return v
@@ -57,7 +58,7 @@ func (e *Event) CountHour(key string) int {
 func (e *Event) InSet(name, val string) bool {
 	v, err := e.Engine.InSet(name, val)
 	if err != nil {
-		e.Err = &err
+		e.Err = err
 		return false
 	}
 	return v
@@ -115,9 +116,11 @@ func (e *RecordEvent) Report(reason, comment string) {
 
 type PostEvent struct {
 	RecordEvent
-	// TODO: thread context
+
+	Post *appbsky.FeedPost
+	// TODO: post thread context (root, parent)
 }
 
-type IdentityRuleFunc = func(evt IdentityEvent) error
-type RecordRuleFunc = func(evt RecordEvent) error
-type PostRuleFunc = func(evt PostEvent) error
+type IdentityRuleFunc = func(evt *IdentityEvent) error
+type RecordRuleFunc = func(evt *RecordEvent) error
+type PostRuleFunc = func(evt *PostEvent) error

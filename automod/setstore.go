@@ -2,7 +2,6 @@ package automod
 
 import (
 	"context"
-	"fmt"
 )
 
 type SetStore interface {
@@ -23,7 +22,8 @@ func NewMemSetStore() MemSetStore {
 func (s MemSetStore) InSet(ctx context.Context, name, val string) (bool, error) {
 	set, ok := s.Sets[name]
 	if !ok {
-		return false, fmt.Errorf("not a known set: %s", name)
+		// NOTE: currently returns false when entire set isn't found
+		return false, nil
 	}
 	_, ok = set[val]
 	return ok, nil
