@@ -18,11 +18,12 @@ func TestBanHashtagPostRule(t *testing.T) {
 		DID:    syntax.DID("did:plc:abc111"),
 		Handle: syntax.Handle("handle.example.com"),
 	}
-	rkey := "abc123"
+	path := "app.bsky.feed.post/abc123"
+	cid1 := "cid123"
 	p1 := appbsky.FeedPost{
 		Text: "some post blah",
 	}
-	evt1 := engine.NewPostEvent(&id1, rkey, &p1)
+	evt1 := engine.NewPostEvent(&id1, path, cid1, &p1)
 	assert.NoError(BanHashtagsPostRule(&evt1))
 	assert.Empty(evt1.RecordLabels)
 
@@ -30,7 +31,7 @@ func TestBanHashtagPostRule(t *testing.T) {
 		Text: "some post blah",
 		Tags: []string{"one", "slur"},
 	}
-	evt2 := engine.NewPostEvent(&id1, rkey, &p2)
+	evt2 := engine.NewPostEvent(&id1, path, cid1, &p2)
 	assert.NoError(BanHashtagsPostRule(&evt2))
 	assert.NotEmpty(evt2.RecordLabels)
 }

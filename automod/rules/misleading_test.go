@@ -18,7 +18,8 @@ func TestMisleadingURLPostRule(t *testing.T) {
 		DID:    syntax.DID("did:plc:abc111"),
 		Handle: syntax.Handle("handle.example.com"),
 	}
-	rkey := "abc123"
+	path := "app.bsky.feed.post/abc123"
+	cid1 := "cid123"
 	p1 := appbsky.FeedPost{
 		Text: "https://safe.com/ is very reputable",
 		Facets: []*appbsky.RichtextFacet{
@@ -37,7 +38,7 @@ func TestMisleadingURLPostRule(t *testing.T) {
 			},
 		},
 	}
-	evt1 := engine.NewPostEvent(&id1, rkey, &p1)
+	evt1 := engine.NewPostEvent(&id1, path, cid1, &p1)
 	assert.NoError(MisleadingURLPostRule(&evt1))
 	assert.NotEmpty(evt1.RecordLabels)
 }
@@ -50,7 +51,8 @@ func TestMisleadingMentionPostRule(t *testing.T) {
 		DID:    syntax.DID("did:plc:abc111"),
 		Handle: syntax.Handle("handle.example.com"),
 	}
-	rkey := "abc123"
+	path := "app.bsky.feed.post/abc123"
+	cid1 := "cid123"
 	p1 := appbsky.FeedPost{
 		Text: "@handle.example.com is a friend",
 		Facets: []*appbsky.RichtextFacet{
@@ -69,7 +71,7 @@ func TestMisleadingMentionPostRule(t *testing.T) {
 			},
 		},
 	}
-	evt1 := engine.NewPostEvent(&id1, rkey, &p1)
+	evt1 := engine.NewPostEvent(&id1, path, cid1, &p1)
 	assert.NoError(MisleadingMentionPostRule(&evt1))
 	assert.NotEmpty(evt1.RecordLabels)
 }

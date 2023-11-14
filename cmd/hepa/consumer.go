@@ -109,7 +109,7 @@ func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubsc
 				break
 			}
 
-			err = s.engine.ProcessRecord(ctx, did, op.Path, rec)
+			err = s.engine.ProcessRecord(ctx, did, op.Path, op.Cid.String(), rec)
 			if err != nil {
 				logger.Error("engine failed to process record", "err", err)
 				continue
