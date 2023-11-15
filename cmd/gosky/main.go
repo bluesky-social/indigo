@@ -18,6 +18,7 @@ import (
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
@@ -35,7 +36,6 @@ import (
 	"github.com/ipld/go-car"
 
 	_ "github.com/joho/godotenv/autoload"
-	_ "go.uber.org/automaxprocs"
 
 	"github.com/carlmjohnson/versioninfo"
 	logging "github.com/ipfs/go-log"
@@ -93,6 +93,7 @@ func run(args []string) {
 		getRecordCmd,
 		listAllRecordsCmd,
 		readRepoStreamCmd,
+		parseRkey,
 	}
 
 	app.RunAndExitOnError()
@@ -657,6 +658,40 @@ var listAllRecordsCmd = &cli.Command{
 			return err
 		}
 
+		return nil
+	},
+}
+
+var parseRkey = &cli.Command{
+	Name:  "parse-rkey",
+	Usage: "get the timestamp out of a record key",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:  "format",
+			Value: "rfc3339",
+			Usage: "output format (rfc3339 or unix)",
+		},
+	},
+	ArgsUsage: `<rkey>`,
+	Action: func(cctx *cli.Context) error {
+		arg := cctx.Args().First()
+		if arg == "" {
+			return cli.Exit("must specify record key", 127)
+		}
+
+		tid, err := syntax.ParseTID(arg)
+		if err != nil {
+			return cli.Exit(fmt.Errorf("failed to parse record key (%s) as a TID: %w", arg, err), 127)
+		}
+
+		switch cctx.String("format") {
+		case "rfc3339":
+			fmt.Println(tid.Time().Format(time.RFC3339Nano))
+		case "unix":
+			fmt.Println(tid.Time().Unix())
+		default:
+			return cli.Exit(fmt.Errorf("unknown format: %s", cctx.String("format")), 127)
+		}
 		return nil
 	},
 }
