@@ -206,8 +206,9 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 	}
 	xrpcc := e.Engine.AdminClient
 	if len(e.RecordLabels) > 0 {
+		// TODO: this does an action, not just create labels; will update after event refactor
 		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
-			Action:          "com.atproto.admin.defs#createLabels",
+			Action:          "com.atproto.admin.defs#flag",
 			CreateLabelVals: dedupeStrings(e.RecordLabels),
 			Reason:          "automod",
 			CreatedBy:       xrpcc.Auth.Did,

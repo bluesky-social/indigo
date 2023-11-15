@@ -54,6 +54,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 			Client:     util.RobustHTTPClient(),
 			Host:       config.ModHost,
 			AdminToken: &config.ModAdminToken,
+			Auth:       &xrpc.AuthInfo{},
 		}
 
 		auth, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
