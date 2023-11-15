@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/automod"
 
 	"github.com/carlmjohnson/versioninfo"
 	_ "github.com/joho/godotenv/autoload"
@@ -83,17 +84,24 @@ var runCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:    "mod-password",
 			Usage:   "for mod service login",
-			EnvVars: []string{"ATP_MOD_AUTH_PASSWORD"},
+			EnvVars: []string{"HEPA_MOD_AUTH_PASSWORD"},
 		},
 		&cli.StringFlag{
 			Name:    "mod-admin-token",
 			Usage:   "admin authentication password for mod service",
-			EnvVars: []string{"ATP_MOD_AUTH_ADMIN_TOKEN"},
+			EnvVars: []string{"HEPA_MOD_AUTH_ADMIN_TOKEN"},
 		},
 		&cli.StringFlag{
 			Name:    "sets-json-path",
 			Usage:   "file path of JSON file containing static sets",
 			EnvVars: []string{"HEPA_SETS_JSON_PATH"},
+		},
+		&cli.StringFlag{
+			Name:  "redis-url",
+			Usage: "redis connection URL",
+			// redis://<user>:<pass>@localhost:6379/<db>
+			// redis://localhost:6379/0
+			EnvVars: []string{"HEPA_REDIS_URL"},
 		},
 	},
 	Action: func(cctx *cli.Context) error {
@@ -114,10 +122,20 @@ var runCmd = &cli.Command{
 			TryAuthoritativeDNS:   true,
 			SkipDNSDomainSuffixes: []string{".bsky.social"},
 		}
-		dir := identity.NewCacheDirectory(&baseDir, 1_500_000, time.Hour*24, time.Minute*2)
+		var dir identity.Directory
+		if cctx.String("redis-url") != "" {
+			rdir, err := automod.NewRedisDirectory(&baseDir, cctx.String("redis-url"), time.Hour*24, time.Minute*2)
+			if err != nil {
+				return err
+			}
+			dir = rdir
+		} else {
+			cdir := identity.NewCacheDirectory(&baseDir, 1_500_000, time.Hour*24, time.Minute*2)
+			dir = &cdir
+		}
 
 		srv, err := NewServer(
-			&dir,
+			dir,
 			Config{
 				BGSHost:       cctx.String("atp-bgs-host"),
 				Logger:        logger,
