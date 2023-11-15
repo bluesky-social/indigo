@@ -90,6 +90,11 @@ var runCmd = &cli.Command{
 			Usage:   "admin authentication password for mod service",
 			EnvVars: []string{"ATP_MOD_AUTH_ADMIN_TOKEN"},
 		},
+		&cli.StringFlag{
+			Name:    "sets-json-path",
+			Usage:   "file path of JSON file containing static sets",
+			EnvVars: []string{"HEPA_SETS_JSON_PATH"},
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		ctx := context.Background()
@@ -120,6 +125,7 @@ var runCmd = &cli.Command{
 				ModAdminToken: cctx.String("mod-admin-token"),
 				ModUsername:   cctx.String("mod-handle"),
 				ModPassword:   cctx.String("mod-password"),
+				SetsFileJSON:  cctx.String("sets-json-path"),
 			},
 		)
 		if err != nil {
