@@ -98,6 +98,9 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 		if err := evt.PersistAccountActions(ctx); err != nil {
 			return err
 		}
+		if err := evt.PersistRecordActions(ctx); err != nil {
+			return err
+		}
 		if err := evt.PersistCounters(ctx); err != nil {
 			return err
 		}
@@ -112,6 +115,9 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 		}
 		evt.CanonicalLogLine()
 		if err := evt.PersistAccountActions(ctx); err != nil {
+			return err
+		}
+		if err := evt.PersistRecordActions(ctx); err != nil {
 			return err
 		}
 		if err := evt.PersistCounters(ctx); err != nil {
