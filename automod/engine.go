@@ -87,7 +87,7 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 			return fmt.Errorf("mismatch between collection (%s) and type", collection)
 		}
 		evt := e.NewPostEvent(ident, path, recCID, post)
-		e.Logger.Info("processing post", "did", ident.DID, "path", path)
+		e.Logger.Debug("processing post", "did", ident.DID, "path", path)
 		if err := e.Rules.CallPostRules(&evt); err != nil {
 			return err
 		}
@@ -103,7 +103,7 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 		}
 	default:
 		evt := e.NewRecordEvent(ident, path, recCID, rec)
-		e.Logger.Info("processing record", "did", ident.DID, "path", path)
+		e.Logger.Debug("processing record", "did", ident.DID, "path", path)
 		if err := e.Rules.CallRecordRules(&evt); err != nil {
 			return err
 		}

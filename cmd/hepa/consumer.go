@@ -59,9 +59,12 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 		// TODO: other event callbacks as needed
 	}
 
+	// start at higher parallelism (somewhat arbitrary)
+	scaleSettings := autoscaling.DefaultAutoscaleSettings()
+	scaleSettings.Concurrency = 6
 	return events.HandleRepoStream(
 		ctx, con, autoscaling.NewScheduler(
-			autoscaling.DefaultAutoscaleSettings(),
+			scaleSettings,
 			s.bgshost,
 			rsc.EventHandler,
 		),
@@ -72,8 +75,7 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
 
 	logger := s.logger.With("event", "commit", "did", evt.Repo, "rev", evt.Rev, "seq", evt.Seq)
-	// XXX: debug, not info
-	logger.Info("received commit event")
+	logger.Debug("received commit event")
 
 	if evt.TooBig {
 		logger.Warn("skipping tooBig events for now")
