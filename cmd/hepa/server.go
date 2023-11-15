@@ -30,6 +30,7 @@ type Config struct {
 	ModAdminToken string
 	ModUsername   string
 	ModPassword   string
+	SetsFileJSON  string
 	Logger        *slog.Logger
 }
 
@@ -68,11 +69,20 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		xrpcc.Auth.Handle = auth.Handle
 	}
 
+	sets := automod.NewMemSetStore()
+	if config.SetsFileJSON != "" {
+		if err := sets.LoadFromFileJSON(config.SetsFileJSON); err != nil {
+			return nil, err
+		} else {
+			logger.Info("loaded set config from JSON", "path", config.SetsFileJSON)
+		}
+	}
+
 	engine := automod.Engine{
 		Logger:      logger,
 		Directory:   dir,
 		Counters:    automod.NewMemCountStore(),
-		Sets:        automod.NewMemSetStore(),
+		Sets:        sets,
 		Rules:       rules.DefaultRules(),
 		AdminClient: xrpcc,
 	}
