@@ -14,6 +14,7 @@ import (
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/util/cliutil"
+	"github.com/fatih/color"
 	cli "github.com/urfave/cli/v2"
 )
 
@@ -37,6 +38,7 @@ var adminCmd = &cli.Command{
 		listInviteTreeCmd,
 		reportsCmd,
 		takeDownAccountCmd,
+		traceInviteTreesCmd,
 	},
 }
 
@@ -818,6 +820,199 @@ var createInviteCmd = &cli.Command{
 		for _, c := range resp.Codes {
 			for _, cc := range c.Codes {
 				fmt.Println(cc)
+			}
+		}
+
+		return nil
+	},
+}
+
+type inviteNode struct {
+	up     *inviteNode
+	did    string
+	handle string
+	email  string
+
+	children map[string]*inviteNode
+
+	bad bool
+	sus bool
+
+	badChildren    int
+	badDescendants int
+}
+
+func nodeFromRepo(rv *comatproto.AdminDefs_RepoViewDetail) *inviteNode {
+	n := &inviteNode{
+		did:      rv.Did,
+		handle:   rv.Handle,
+		children: make(map[string]*inviteNode),
+	}
+	if rv.Email != nil {
+		n.email = *rv.Email
+	}
+
+	return n
+}
+
+var traceInviteTreesCmd = &cli.Command{
+	Name: "trace-tree",
+	Action: func(cctx *cli.Context) error {
+		handles := cctx.Args().Slice()
+
+		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.Background()
+		var dids []string
+		phr := &api.ProdHandleResolver{}
+		for _, h := range handles {
+			if !strings.HasPrefix(h, "did:plc:") {
+				out, err := phr.ResolveHandleToDid(context.TODO(), h)
+				if err != nil {
+					fmt.Printf("failed to resolve %q: %s", h, err)
+					continue
+					dids = append(dids, "")
+				}
+
+				dids = append(dids, out)
+			} else {
+				dids = append(dids, h)
+			}
+		}
+
+		adminKey := cctx.String("admin-password")
+		xrpcc.AdminToken = &adminKey
+
+		nodes := make(map[string]*inviteNode)
+
+		var traverseUp func(nd *inviteNode, rv *comatproto.AdminDefs_RepoViewDetail) error
+		traverseUp = func(nd *inviteNode, rv *comatproto.AdminDefs_RepoViewDetail) error {
+			fmt.Println("INVITED BY: ", rv.InvitedBy.CreatedBy, rv.InvitedBy.CreatedAt, rv.InvitedBy.ForAccount)
+			if rv.InvitedBy.ForAccount == "admin" {
+				return nil
+			}
+
+			seen, ok := nodes[rv.InvitedBy.ForAccount]
+			if ok {
+				seen.children[nd.did] = nd
+				nd.up = seen
+				return nil
+			}
+
+			rep, err := comatproto.AdminGetRepo(ctx, xrpcc, rv.InvitedBy.ForAccount)
+			if err != nil {
+				return fmt.Errorf("failed to get parent (%q): %w", rv.InvitedBy.ForAccount, err)
+			}
+
+			parent := nodeFromRepo(rep)
+			parent.children[nd.did] = nd
+			nodes[rep.Did] = parent
+			nd.up = parent
+
+			return traverseUp(parent, rep)
+		}
+
+		var traverseDown func(nd *inviteNode, rv *comatproto.AdminDefs_RepoViewDetail) error
+		traverseDown = func(nd *inviteNode, rv *comatproto.AdminDefs_RepoViewDetail) error {
+			for _, inv := range rv.Invites {
+				for _, u := range inv.Uses {
+
+					seen, ok := nodes[u.UsedBy]
+					if ok {
+						nd.children[seen.did] = seen
+						seen.up = nd
+						continue
+					}
+
+					rep, err := comatproto.AdminGetRepo(ctx, xrpcc, u.UsedBy)
+					if err != nil {
+						log.Errorf("could not check invited user: %s", u.UsedBy)
+						continue
+					}
+
+					child := nodeFromRepo(rep)
+					child.up = nd
+					nodes[rep.Did] = child
+					nd.children[child.did] = child
+
+					if err := traverseDown(child, rep); err != nil {
+						log.Errorf("recursive traversal failed: %s", err)
+						continue
+					}
+				}
+			}
+			return nil
+		}
+
+		for i, d := range dids {
+			if d == "" {
+				continue
+			}
+
+			rep, err := comatproto.AdminGetRepo(ctx, xrpcc, d)
+			if err != nil {
+				fmt.Println("COULD NOT CHECK: ", handles[i])
+				continue
+			}
+
+			nd := nodeFromRepo(rep)
+			nd.bad = true
+			nodes[rep.Did] = nd
+
+			if err := traverseUp(nd, rep); err != nil {
+				return fmt.Errorf("failed to traverse up: %w", err)
+			}
+
+			if err := traverseDown(nd, rep); err != nil {
+				return fmt.Errorf("failed to traverse down: %w", err)
+			}
+		}
+
+		var printTree func(nd *inviteNode, depth int)
+		printTree = func(nd *inviteNode, depth int) {
+			prefix := strings.Repeat("  ", depth)
+			name := nd.handle
+			if nd.bad {
+				name = "*" + color.RedString(name) + "*"
+			} else if nd.sus {
+				name = color.YellowString(name)
+			}
+			fmt.Printf("%s- %s (%s)\n", prefix, name, nd.email)
+
+			for _, ch := range nd.children {
+				printTree(ch, depth+1)
+			}
+		}
+
+		var checkTree func(nd *inviteNode)
+		checkTree = func(nd *inviteNode) {
+			for _, ch := range nd.children {
+				checkTree(ch)
+
+				if ch.bad {
+					nd.badChildren++
+					nd.badDescendants++
+				}
+			}
+
+			if nd.badDescendants > 1 {
+				nd.sus = true
+			}
+		}
+
+		// label suspicious nodes
+		for _, nd := range nodes {
+			if nd.up == nil {
+				checkTree(nd)
+			}
+		}
+
+		for _, nd := range nodes {
+			if nd.up == nil {
+				printTree(nd, 0)
 			}
 		}
 
