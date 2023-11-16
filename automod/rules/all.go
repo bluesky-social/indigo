@@ -11,6 +11,7 @@ func DefaultRules() automod.RuleSet {
 			MisleadingMentionPostRule,
 			ReplyCountPostRule,
 			BanHashtagsPostRule,
+			AccountDemoPostRule,
 		},
 	}
 	return rules

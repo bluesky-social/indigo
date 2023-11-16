@@ -7,18 +7,11 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/identity"
 )
 
 type ModReport struct {
 	ReasonType string
 	Comment    string
-}
-
-// information about a repo/account/identity, always pre-populated and relevant to many rules
-type AccountMeta struct {
-	Identity *identity.Identity
-	// TODO: createdAt / age
 }
 
 type CounterRef struct {
@@ -84,7 +77,7 @@ func (e *Event) PersistAccountActions(ctx context.Context) error {
 	xrpcc := e.Engine.AdminClient
 	if len(e.AccountLabels) > 0 {
 		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
-			Action:          "com.atproto.admin.defs#createLabels",
+			Action:          "com.atproto.admin.defs#flag",
 			CreateLabelVals: dedupeStrings(e.AccountLabels),
 			Reason:          "automod",
 			CreatedBy:       xrpcc.Auth.Did,

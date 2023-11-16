@@ -16,11 +16,13 @@ import (
 //
 // TODO: careful when initializing: several fields should not be null or zero, even though they are pointer type.
 type Engine struct {
-	Logger    *slog.Logger
-	Directory identity.Directory
-	Rules     RuleSet
-	Counters  CountStore
-	Sets      SetStore
+	Logger     *slog.Logger
+	Directory  identity.Directory
+	Rules      RuleSet
+	Counters   CountStore
+	Sets       SetStore
+	Cache      CacheStore
+	BskyClient *xrpc.Client
 	// used to persist moderation actions in mod service (optional)
 	AdminClient *xrpc.Client
 }
@@ -41,10 +43,14 @@ func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.
 		return fmt.Errorf("identity not found for did: %s", did.String())
 	}
 
+	am, err := e.GetAccountMeta(ctx, ident)
+	if err != nil {
+		return err
+	}
 	evt := IdentityEvent{
 		Event{
 			Engine:  e,
-			Account: AccountMeta{Identity: ident},
+			Account: *am,
 		},
 	}
 	if err := e.Rules.CallIdentityRules(&evt); err != nil {
@@ -62,11 +68,13 @@ func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.
 
 func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID string, rec any) error {
 	// similar to an HTTP server, we want to recover any panics from rule execution
+	/* XXX
 	defer func() {
 		if r := recover(); r != nil {
 			e.Logger.Error("automod event execution exception", "err", r)
 		}
 	}()
+	*/
 
 	ident, err := e.Directory.LookupDID(ctx, did)
 	if err != nil {
@@ -83,7 +91,11 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 		if !ok {
 			return fmt.Errorf("mismatch between collection (%s) and type", collection)
 		}
-		evt := e.NewPostEvent(ident, path, recCID, post)
+		am, err := e.GetAccountMeta(ctx, ident)
+		if err != nil {
+			return err
+		}
+		evt := e.NewPostEvent(*am, path, recCID, post)
 		e.Logger.Debug("processing post", "did", ident.DID, "path", path)
 		if err := e.Rules.CallPostRules(&evt); err != nil {
 			return err
@@ -99,7 +111,11 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 			return err
 		}
 	default:
-		evt := e.NewRecordEvent(ident, path, recCID, rec)
+		am, err := e.GetAccountMeta(ctx, ident)
+		if err != nil {
+			return err
+		}
+		evt := e.NewRecordEvent(*am, path, recCID, rec)
 		e.Logger.Debug("processing record", "did", ident.DID, "path", path)
 		if err := e.Rules.CallRecordRules(&evt); err != nil {
 			return err
@@ -119,14 +135,14 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 	return nil
 }
 
-func (e *Engine) NewPostEvent(ident *identity.Identity, path, recCID string, post *appbsky.FeedPost) PostEvent {
+func (e *Engine) NewPostEvent(am AccountMeta, path, recCID string, post *appbsky.FeedPost) PostEvent {
 	parts := strings.SplitN(path, "/", 2)
 	return PostEvent{
 		RecordEvent{
 			Event{
 				Engine:  e,
-				Logger:  e.Logger.With("did", ident.DID, "collection", parts[0], "rkey", parts[1]),
-				Account: AccountMeta{Identity: ident},
+				Logger:  e.Logger.With("did", am.Identity.DID, "collection", parts[0], "rkey", parts[1]),
+				Account: am,
 			},
 			parts[0],
 			parts[1],
@@ -140,13 +156,13 @@ func (e *Engine) NewPostEvent(ident *identity.Identity, path, recCID string, pos
 	}
 }
 
-func (e *Engine) NewRecordEvent(ident *identity.Identity, path, recCID string, rec any) RecordEvent {
+func (e *Engine) NewRecordEvent(am AccountMeta, path, recCID string, rec any) RecordEvent {
 	parts := strings.SplitN(path, "/", 2)
 	return RecordEvent{
 		Event{
 			Engine:  e,
-			Logger:  e.Logger.With("did", ident.DID, "collection", parts[0], "rkey", parts[1]),
-			Account: AccountMeta{Identity: ident},
+			Logger:  e.Logger.With("did", am.Identity.DID, "collection", parts[0], "rkey", parts[1]),
+			Account: am,
 		},
 		parts[0],
 		parts[1],
