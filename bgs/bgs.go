@@ -544,7 +544,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 				}
 
 				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
-					log.Errorf("failed to ping client: %s", err)
+					log.Warnf("failed to ping client: %s", err)
 					cancel()
 					return
 				}
