@@ -9,13 +9,18 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bluesky-social/indigo/util"
 	"github.com/carlmjohnson/versioninfo"
 )
 
 type Client struct {
+	// Client is an HTTP client to use. If not set, defaults to http.RobustHTTPClient().
+	// Note that http.RobustHTTPClient() swallows retryable errors (including hitting a rate limit),
+	// not allowing your code to handle them differently.
 	Client     *http.Client
 	Auth       *AuthInfo
 	AdminToken *string
@@ -47,6 +52,64 @@ type XRPCError struct {
 
 func (xe *XRPCError) Error() string {
 	return fmt.Sprintf("%s: %s", xe.ErrStr, xe.Message)
+}
+
+type Error struct {
+	StatusCode int
+	Wrapped    error
+	Ratelimit  *RatelimitInfo
+}
+
+func (e *Error) Error() string {
+	// Preserving "XRPC ERROR %d" prefix for compatibility - previously matching this string was the only way
+	// to obtain the status code.
+	if e.Wrapped == nil {
+		return fmt.Sprintf("XRPC ERROR %d", e.StatusCode)
+	}
+	if e.StatusCode == http.StatusTooManyRequests && e.Ratelimit != nil {
+		return fmt.Sprintf("XRPC ERROR %d: %s (throttled until %s)", e.StatusCode, e.Wrapped, e.Ratelimit.Reset.Local())
+	}
+	return fmt.Sprintf("XRPC ERROR %d: %s", e.StatusCode, e.Wrapped)
+}
+
+func (e *Error) Unwrap() error {
+	if e.Wrapped == nil {
+		return nil
+	}
+	return e.Wrapped
+}
+
+func (e *Error) IsThrottled() bool {
+	return e.StatusCode == http.StatusTooManyRequests
+}
+
+func errorFromHTTPResponse(resp *http.Response, err error) error {
+	r := &Error{
+		StatusCode: resp.StatusCode,
+		Wrapped:    err,
+	}
+	if resp.Header.Get("ratelimit-limit") != "" {
+		r.Ratelimit = &RatelimitInfo{
+			Policy: resp.Header.Get("ratelimit-policy"),
+		}
+		if n, err := strconv.ParseInt(resp.Header.Get("ratelimit-reset"), 10, 64); err == nil {
+			r.Ratelimit.Reset = time.Unix(n, 0)
+		}
+		if n, err := strconv.ParseInt(resp.Header.Get("ratelimit-limit"), 10, 64); err == nil {
+			r.Ratelimit.Limit = int(n)
+		}
+		if n, err := strconv.ParseInt(resp.Header.Get("ratelimit-remaining"), 10, 64); err == nil {
+			r.Ratelimit.Remaining = int(n)
+		}
+	}
+	return r
+}
+
+type RatelimitInfo struct {
+	Limit     int
+	Remaining int
+	Policy    string
+	Reset     time.Time
 }
 
 const (
@@ -137,9 +200,9 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 	if resp.StatusCode != 200 {
 		var xe XRPCError
 		if err := json.NewDecoder(resp.Body).Decode(&xe); err != nil {
-			return fmt.Errorf("failed to decode xrpc error message (status: %d): %w", resp.StatusCode, err)
+			return errorFromHTTPResponse(resp, fmt.Errorf("failed to decode xrpc error message: %w", err))
 		}
-		return fmt.Errorf("XRPC ERROR %d: %w", resp.StatusCode, &xe)
+		return errorFromHTTPResponse(resp, &xe)
 	}
 
 	if out != nil {
