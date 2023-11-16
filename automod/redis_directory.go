@@ -93,15 +93,19 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*Ha
 			DID:     "",
 			Err:     err,
 		}
-		d.handleCache.Set(&cache.Item{
+		err = d.handleCache.Set(&cache.Item{
 			Ctx:   ctx,
 			Key:   redisDirPrefix + h.String(),
 			Value: he,
 			TTL:   d.ErrTTL,
 		})
+		if err != nil {
+			return nil, err
+		}
 		return &he, nil
 	}
 
+	ident.ParsedPublicKey = nil
 	entry := IdentityEntry{
 		Updated:  time.Now(),
 		Identity: ident,
@@ -113,18 +117,24 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*Ha
 		Err:     nil,
 	}
 
-	d.identityCache.Set(&cache.Item{
+	err = d.identityCache.Set(&cache.Item{
 		Ctx:   ctx,
 		Key:   redisDirPrefix + ident.DID.String(),
 		Value: entry,
 		TTL:   d.HitTTL,
 	})
-	d.handleCache.Set(&cache.Item{
+	if err != nil {
+		return nil, err
+	}
+	err = d.handleCache.Set(&cache.Item{
 		Ctx:   ctx,
 		Key:   redisDirPrefix + h.String(),
 		Value: he,
 		TTL:   d.HitTTL,
 	})
+	if err != nil {
+		return nil, err
+	}
 	return &he, nil
 }
 
@@ -178,7 +188,7 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 
 func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) (*IdentityEntry, error) {
 	ident, err := d.Inner.LookupDID(ctx, did)
-	// wipe parsed public key; it's a waste of space
+	// wipe parsed public key; it's a waste of space and can't serialize
 	if nil == err {
 		ident.ParsedPublicKey = nil
 	}
@@ -198,19 +208,25 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) (*Identi
 		}
 	}
 
-	d.identityCache.Set(&cache.Item{
+	err = d.identityCache.Set(&cache.Item{
 		Ctx:   ctx,
 		Key:   redisDirPrefix + did.String(),
 		Value: entry,
 		TTL:   d.HitTTL,
 	})
+	if err != nil {
+		return nil, err
+	}
 	if he != nil {
-		d.handleCache.Set(&cache.Item{
+		err = d.handleCache.Set(&cache.Item{
 			Ctx:   ctx,
 			Key:   redisDirPrefix + ident.Handle.String(),
 			Value: *he,
 			TTL:   d.HitTTL,
 		})
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &entry, nil
 }

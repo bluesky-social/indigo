@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -26,6 +27,7 @@ type Server struct {
 
 type Config struct {
 	BGSHost       string
+	BskyHost      string
 	ModHost       string
 	ModAdminToken string
 	ModUsername   string
@@ -91,13 +93,29 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		counters = automod.NewMemCountStore()
 	}
 
+	var cache automod.CacheStore
+	if config.RedisURL != "" {
+		c, err := automod.NewRedisCacheStore(config.RedisURL, 30*time.Minute)
+		if err != nil {
+			return nil, err
+		}
+		cache = c
+	} else {
+		cache = automod.NewMemCacheStore(5_000, 30*time.Minute)
+	}
+
 	engine := automod.Engine{
 		Logger:      logger,
 		Directory:   dir,
 		Counters:    counters,
 		Sets:        sets,
+		Cache:       cache,
 		Rules:       rules.DefaultRules(),
 		AdminClient: xrpcc,
+		BskyClient: &xrpc.Client{
+			Client: util.RobustHTTPClient(),
+			Host:   config.BskyHost,
+		},
 	}
 
 	s := &Server{

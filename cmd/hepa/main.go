@@ -51,6 +51,12 @@ func run(args []string) error {
 			Value:   "https://api.bsky.app",
 			EnvVars: []string{"ATP_MOD_HOST"},
 		},
+		&cli.StringFlag{
+			Name:    "atp-bsky-host",
+			Usage:   "method, hostname, and port of bsky API (appview) service",
+			Value:   "https://api.bsky.app",
+			EnvVars: []string{"ATP_BSKY_HOST"},
+		},
 	}
 
 	app.Commands = []*cli.Command{
@@ -138,6 +144,7 @@ var runCmd = &cli.Command{
 			dir,
 			Config{
 				BGSHost:       cctx.String("atp-bgs-host"),
+				BskyHost:      cctx.String("atp-bsky-host"),
 				Logger:        logger,
 				ModHost:       cctx.String("atp-mod-host"),
 				ModAdminToken: cctx.String("mod-admin-token"),

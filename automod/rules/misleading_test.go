@@ -6,6 +6,7 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/automod"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -14,9 +15,11 @@ func TestMisleadingURLPostRule(t *testing.T) {
 	assert := assert.New(t)
 
 	engine := engineFixture()
-	id1 := identity.Identity{
-		DID:    syntax.DID("did:plc:abc111"),
-		Handle: syntax.Handle("handle.example.com"),
+	am1 := automod.AccountMeta{
+		Identity: &identity.Identity{
+			DID:    syntax.DID("did:plc:abc111"),
+			Handle: syntax.Handle("handle.example.com"),
+		},
 	}
 	path := "app.bsky.feed.post/abc123"
 	cid1 := "cid123"
@@ -38,7 +41,7 @@ func TestMisleadingURLPostRule(t *testing.T) {
 			},
 		},
 	}
-	evt1 := engine.NewPostEvent(&id1, path, cid1, &p1)
+	evt1 := engine.NewPostEvent(am1, path, cid1, &p1)
 	assert.NoError(MisleadingURLPostRule(&evt1))
 	assert.NotEmpty(evt1.RecordLabels)
 }
@@ -47,9 +50,11 @@ func TestMisleadingMentionPostRule(t *testing.T) {
 	assert := assert.New(t)
 
 	engine := engineFixture()
-	id1 := identity.Identity{
-		DID:    syntax.DID("did:plc:abc111"),
-		Handle: syntax.Handle("handle.example.com"),
+	am1 := automod.AccountMeta{
+		Identity: &identity.Identity{
+			DID:    syntax.DID("did:plc:abc111"),
+			Handle: syntax.Handle("handle.example.com"),
+		},
 	}
 	path := "app.bsky.feed.post/abc123"
 	cid1 := "cid123"
@@ -71,7 +76,7 @@ func TestMisleadingMentionPostRule(t *testing.T) {
 			},
 		},
 	}
-	evt1 := engine.NewPostEvent(&id1, path, cid1, &p1)
+	evt1 := engine.NewPostEvent(am1, path, cid1, &p1)
 	assert.NoError(MisleadingMentionPostRule(&evt1))
 	assert.NotEmpty(evt1.RecordLabels)
 }
