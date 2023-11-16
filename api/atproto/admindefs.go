@@ -11,6 +11,19 @@ import (
 	"github.com/bluesky-social/indigo/lex/util"
 )
 
+// AdminDefs_AccountView is a "accountView" in the com.atproto.admin.defs schema.
+type AdminDefs_AccountView struct {
+	Did              string                   `json:"did" cborgen:"did"`
+	Email            *string                  `json:"email,omitempty" cborgen:"email,omitempty"`
+	EmailConfirmedAt *string                  `json:"emailConfirmedAt,omitempty" cborgen:"emailConfirmedAt,omitempty"`
+	Handle           string                   `json:"handle" cborgen:"handle"`
+	IndexedAt        string                   `json:"indexedAt" cborgen:"indexedAt"`
+	InviteNote       *string                  `json:"inviteNote,omitempty" cborgen:"inviteNote,omitempty"`
+	InvitedBy        *ServerDefs_InviteCode   `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
+	Invites          []*ServerDefs_InviteCode `json:"invites,omitempty" cborgen:"invites,omitempty"`
+	InvitesDisabled  *bool                    `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
+}
+
 // AdminDefs_ActionReversal is a "actionReversal" in the com.atproto.admin.defs schema.
 type AdminDefs_ActionReversal struct {
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
@@ -246,6 +259,16 @@ type AdminDefs_RecordViewNotFound struct {
 	Uri           string `json:"uri" cborgen:"uri"`
 }
 
+// AdminDefs_RepoBlobRef is a "repoBlobRef" in the com.atproto.admin.defs schema.
+//
+// RECORDTYPE: AdminDefs_RepoBlobRef
+type AdminDefs_RepoBlobRef struct {
+	LexiconTypeID string  `json:"$type,const=com.atproto.admin.defs#repoBlobRef" cborgen:"$type,const=com.atproto.admin.defs#repoBlobRef"`
+	Cid           string  `json:"cid" cborgen:"cid"`
+	Did           string  `json:"did" cborgen:"did"`
+	RecordUri     *string `json:"recordUri,omitempty" cborgen:"recordUri,omitempty"`
+}
+
 // AdminDefs_RepoRef is a "repoRef" in the com.atproto.admin.defs schema.
 //
 // RECORDTYPE: AdminDefs_RepoRef
@@ -272,17 +295,18 @@ type AdminDefs_RepoView struct {
 
 // AdminDefs_RepoViewDetail is a "repoViewDetail" in the com.atproto.admin.defs schema.
 type AdminDefs_RepoViewDetail struct {
-	Did             string                      `json:"did" cborgen:"did"`
-	Email           *string                     `json:"email,omitempty" cborgen:"email,omitempty"`
-	Handle          string                      `json:"handle" cborgen:"handle"`
-	IndexedAt       string                      `json:"indexedAt" cborgen:"indexedAt"`
-	InviteNote      *string                     `json:"inviteNote,omitempty" cborgen:"inviteNote,omitempty"`
-	InvitedBy       *ServerDefs_InviteCode      `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
-	Invites         []*ServerDefs_InviteCode    `json:"invites,omitempty" cborgen:"invites,omitempty"`
-	InvitesDisabled *bool                       `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
-	Labels          []*LabelDefs_Label          `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	Moderation      *AdminDefs_ModerationDetail `json:"moderation" cborgen:"moderation"`
-	RelatedRecords  []*util.LexiconTypeDecoder  `json:"relatedRecords" cborgen:"relatedRecords"`
+	Did              string                      `json:"did" cborgen:"did"`
+	Email            *string                     `json:"email,omitempty" cborgen:"email,omitempty"`
+	EmailConfirmedAt *string                     `json:"emailConfirmedAt,omitempty" cborgen:"emailConfirmedAt,omitempty"`
+	Handle           string                      `json:"handle" cborgen:"handle"`
+	IndexedAt        string                      `json:"indexedAt" cborgen:"indexedAt"`
+	InviteNote       *string                     `json:"inviteNote,omitempty" cborgen:"inviteNote,omitempty"`
+	InvitedBy        *ServerDefs_InviteCode      `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
+	Invites          []*ServerDefs_InviteCode    `json:"invites,omitempty" cborgen:"invites,omitempty"`
+	InvitesDisabled  *bool                       `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
+	Labels           []*LabelDefs_Label          `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Moderation       *AdminDefs_ModerationDetail `json:"moderation" cborgen:"moderation"`
+	RelatedRecords   []*util.LexiconTypeDecoder  `json:"relatedRecords" cborgen:"relatedRecords"`
 }
 
 // AdminDefs_RepoViewNotFound is a "repoViewNotFound" in the com.atproto.admin.defs schema.
@@ -400,6 +424,12 @@ func (t *AdminDefs_ReportView_Subject) UnmarshalJSON(b []byte) error {
 	default:
 		return nil
 	}
+}
+
+// AdminDefs_StatusAttr is a "statusAttr" in the com.atproto.admin.defs schema.
+type AdminDefs_StatusAttr struct {
+	Applied bool    `json:"applied" cborgen:"applied"`
+	Ref     *string `json:"ref,omitempty" cborgen:"ref,omitempty"`
 }
 
 // AdminDefs_VideoDetails is a "videoDetails" in the com.atproto.admin.defs schema.
