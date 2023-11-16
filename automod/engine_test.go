@@ -16,7 +16,7 @@ import (
 func simpleRule(evt *PostEvent) error {
 	for _, tag := range evt.Post.Tags {
 		if evt.InSet("banned-hashtags", tag) {
-			evt.AddLabel("bad-hashtag")
+			evt.AddRecordLabel("bad-hashtag")
 			break
 		}
 	}
@@ -25,7 +25,7 @@ func simpleRule(evt *PostEvent) error {
 			if feat.RichtextFacet_Tag != nil {
 				tag := feat.RichtextFacet_Tag.Tag
 				if evt.InSet("banned-hashtags", tag) {
-					evt.AddLabel("bad-hashtag")
+					evt.AddRecordLabel("bad-hashtag")
 					break
 				}
 			}

@@ -21,39 +21,26 @@ type AccountMeta struct {
 	// TODO: createdAt / age
 }
 
+type CounterRef struct {
+	Name string
+	Val  string
+}
+
 // base type for events. events are both containers for data about the event itself (similar to an HTTP request type); aggregate results and state (counters, mod actions) to be persisted after all rules are run; and act as an API for additional network reads and operations.
 type Event struct {
 	Engine            *Engine
 	Err               error
 	Logger            *slog.Logger
 	Account           AccountMeta
-	CounterIncrements []string
+	CounterIncrements []CounterRef
 	AccountLabels     []string
 	AccountFlags      []string
 	AccountReports    []ModReport
 	AccountTakedown   bool
 }
 
-func (e *Event) CountTotal(key string) int {
-	v, err := e.Engine.GetCount(key, PeriodTotal)
-	if err != nil {
-		e.Err = err
-		return 0
-	}
-	return v
-}
-
-func (e *Event) CountDay(key string) int {
-	v, err := e.Engine.GetCount(key, PeriodDay)
-	if err != nil {
-		e.Err = err
-		return 0
-	}
-	return v
-}
-
-func (e *Event) CountHour(key string) int {
-	v, err := e.Engine.GetCount(key, PeriodHour)
+func (e *Event) GetCount(name, val, period string) int {
+	v, err := e.Engine.GetCount(name, val, period)
 	if err != nil {
 		e.Err = err
 		return 0
@@ -70,19 +57,19 @@ func (e *Event) InSet(name, val string) bool {
 	return v
 }
 
-func (e *Event) IncrementCounter(key string) {
-	e.CounterIncrements = append(e.CounterIncrements, key)
+func (e *Event) Increment(name, val string) {
+	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val})
 }
 
 func (e *Event) TakedownAccount() {
 	e.AccountTakedown = true
 }
 
-func (e *Event) AddLabelAccount(val string) {
+func (e *Event) AddAccountLabel(val string) {
 	e.AccountLabels = append(e.AccountLabels, val)
 }
 
-func (e *Event) AddFlag(val string) {
+func (e *Event) AddAccountFlag(val string) {
 	e.AccountFlags = append(e.AccountFlags, val)
 }
 
@@ -144,9 +131,14 @@ func (e *Event) PersistAccountActions(ctx context.Context) error {
 	return nil
 }
 
+func (e *Event) PersistActions(ctx context.Context) error {
+	return e.PersistAccountActions(ctx)
+}
+
 func (e *Event) PersistCounters(ctx context.Context) error {
-	for _, k := range dedupeStrings(e.CounterIncrements) {
-		err := e.Engine.Counters.Increment(ctx, k)
+	// TODO: dedupe this array
+	for _, ref := range e.CounterIncrements {
+		err := e.Engine.Counters.Increment(ctx, ref.Name, ref.Val)
 		if err != nil {
 			return err
 		}
@@ -180,19 +172,19 @@ type RecordEvent struct {
 	// TODO: commit metadata
 }
 
-func (e *RecordEvent) Takedown() {
+func (e *RecordEvent) TakedownRecord() {
 	e.RecordTakedown = true
 }
 
-func (e *RecordEvent) AddLabel(val string) {
+func (e *RecordEvent) AddRecordLabel(val string) {
 	e.RecordLabels = append(e.RecordLabels, val)
 }
 
-func (e *RecordEvent) AddFlag(val string) {
+func (e *RecordEvent) AddRecordFlag(val string) {
 	e.RecordFlags = append(e.RecordFlags, val)
 }
 
-func (e *RecordEvent) Report(reason, comment string) {
+func (e *RecordEvent) ReportRecord(reason, comment string) {
 	e.RecordReports = append(e.RecordReports, ModReport{ReasonType: reason, Comment: comment})
 }
 
@@ -247,6 +239,13 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (e *RecordEvent) PersistActions(ctx context.Context) error {
+	if err := e.PersistAccountActions(ctx); err != nil {
+		return err
+	}
+	return e.PersistRecordActions(ctx)
 }
 
 func (e *RecordEvent) CanonicalLogLine() {

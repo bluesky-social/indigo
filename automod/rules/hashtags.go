@@ -7,7 +7,7 @@ import (
 func BanHashtagsPostRule(evt *automod.PostEvent) error {
 	for _, tag := range evt.Post.Tags {
 		if evt.InSet("banned-hashtags", tag) {
-			evt.AddLabel("bad-hashtag")
+			evt.AddRecordLabel("bad-hashtag")
 			break
 		}
 	}
@@ -16,7 +16,7 @@ func BanHashtagsPostRule(evt *automod.PostEvent) error {
 			if feat.RichtextFacet_Tag != nil {
 				tag := feat.RichtextFacet_Tag.Tag
 				if evt.InSet("banned-hashtags", tag) {
-					evt.AddLabel("bad-hashtag")
+					evt.AddRecordLabel("bad-hashtag")
 					break
 				}
 			}

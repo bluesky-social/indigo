@@ -15,6 +15,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+var redisDirPrefix string = "dir/"
+
 // uses redis as a cache for identity lookups. includes a local cache layer as well, for hot keys
 type RedisDirectory struct {
 	Inner  identity.Directory
@@ -93,7 +95,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*Ha
 		}
 		d.handleCache.Set(&cache.Item{
 			Ctx:   ctx,
-			Key:   h.String(),
+			Key:   redisDirPrefix + h.String(),
 			Value: he,
 			TTL:   d.ErrTTL,
 		})
@@ -113,13 +115,13 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*Ha
 
 	d.identityCache.Set(&cache.Item{
 		Ctx:   ctx,
-		Key:   ident.DID.String(),
+		Key:   redisDirPrefix + ident.DID.String(),
 		Value: entry,
 		TTL:   d.HitTTL,
 	})
 	d.handleCache.Set(&cache.Item{
 		Ctx:   ctx,
-		Key:   h.String(),
+		Key:   redisDirPrefix + h.String(),
 		Value: he,
 		TTL:   d.HitTTL,
 	})
@@ -128,7 +130,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*Ha
 
 func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
 	var entry HandleEntry
-	err := d.handleCache.Get(ctx, h.String(), &entry)
+	err := d.handleCache.Get(ctx, redisDirPrefix+h.String(), &entry)
 	if err != nil && err != cache.ErrCacheMiss {
 		return "", err
 	}
@@ -147,7 +149,7 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 		select {
 		case <-val.(chan struct{}):
 			// The result should now be in the cache
-			err := d.handleCache.Get(ctx, h.String(), entry)
+			err := d.handleCache.Get(ctx, redisDirPrefix+h.String(), entry)
 			if err != nil && err != cache.ErrCacheMiss {
 				return "", err
 			}
@@ -198,14 +200,14 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) (*Identi
 
 	d.identityCache.Set(&cache.Item{
 		Ctx:   ctx,
-		Key:   did.String(),
+		Key:   redisDirPrefix + did.String(),
 		Value: entry,
 		TTL:   d.HitTTL,
 	})
 	if he != nil {
 		d.handleCache.Set(&cache.Item{
 			Ctx:   ctx,
-			Key:   ident.Handle.String(),
+			Key:   redisDirPrefix + ident.Handle.String(),
 			Value: *he,
 			TTL:   d.HitTTL,
 		})
@@ -215,7 +217,7 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) (*Identi
 
 func (d *RedisDirectory) LookupDID(ctx context.Context, did syntax.DID) (*identity.Identity, error) {
 	var entry IdentityEntry
-	err := d.identityCache.Get(ctx, did.String(), &entry)
+	err := d.identityCache.Get(ctx, redisDirPrefix+did.String(), &entry)
 	if err != nil && err != cache.ErrCacheMiss {
 		return nil, err
 	}
@@ -234,7 +236,7 @@ func (d *RedisDirectory) LookupDID(ctx context.Context, did syntax.DID) (*identi
 		select {
 		case <-val.(chan struct{}):
 			// The result should now be in the cache
-			err = d.identityCache.Get(ctx, did.String(), &entry)
+			err = d.identityCache.Get(ctx, redisDirPrefix+did.String(), &entry)
 			if err != nil && err != cache.ErrCacheMiss {
 				return nil, err
 			}
