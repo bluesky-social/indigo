@@ -75,9 +75,11 @@ func TestHandleComAtprotoAccountCreate(t *testing.T) {
 	s, cleanup := newTestServer(t)
 	defer cleanup()
 
+	e := "test@foo.com"
+	p := "password"
 	o, err := s.handleComAtprotoServerCreateAccount(context.Background(), &atproto.ServerCreateAccount_Input{
-		Email:    "test@foo.com",
-		Password: "password",
+		Email:    &e,
+		Password: &p,
 		Handle:   "testman.test",
 	})
 	if err != nil {
@@ -97,9 +99,11 @@ func TestHandleComAtprotoSessionCreate(t *testing.T) {
 	s, cleanup := newTestServer(t)
 	defer cleanup()
 
+	e := "test@foo.com"
+	p := "password"
 	o, err := s.handleComAtprotoServerCreateAccount(context.Background(), &atproto.ServerCreateAccount_Input{
-		Email:    "test@foo.com",
-		Password: "password",
+		Email:    &e,
+		Password: &p,
 		Handle:   "testman.test",
 	})
 	if err != nil {

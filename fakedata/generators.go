@@ -51,10 +51,10 @@ func GenAccount(xrpcc *xrpc.Client, index int, accountType, domainSuffix string,
 	password := gofakeit.Password(true, true, true, true, true, 24)
 	ctx := context.TODO()
 	resp, err := comatproto.ServerCreateAccount(ctx, xrpcc, &comatproto.ServerCreateAccount_Input{
-		Email:      email,
+		Email:      &email,
 		Handle:     handle,
 		InviteCode: inviteCode,
-		Password:   password,
+		Password:   &password,
 	})
 	if err != nil {
 		return nil, err
