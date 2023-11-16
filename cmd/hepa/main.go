@@ -144,6 +144,7 @@ var runCmd = &cli.Command{
 				ModUsername:   cctx.String("mod-handle"),
 				ModPassword:   cctx.String("mod-password"),
 				SetsFileJSON:  cctx.String("sets-json-path"),
+				RedisURL:      cctx.String("redis-url"),
 			},
 		)
 		if err != nil {

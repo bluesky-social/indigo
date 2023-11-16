@@ -14,7 +14,7 @@ func MisleadingURLPostRule(evt *automod.PostEvent) error {
 			if feat.RichtextFacet_Link != nil {
 				if int(facet.Index.ByteEnd) > len([]byte(evt.Post.Text)) || facet.Index.ByteStart > facet.Index.ByteEnd {
 					evt.Logger.Warn("invalid facet range")
-					evt.AddLabel("invalid") // TODO: or some other "this record is corrupt" indicator?
+					evt.AddRecordLabel("invalid") // TODO: or some other "this record is corrupt" indicator?
 					continue
 				}
 				txt := string([]byte(evt.Post.Text)[facet.Index.ByteStart:facet.Index.ByteEnd])
@@ -36,7 +36,7 @@ func MisleadingURLPostRule(evt *automod.PostEvent) error {
 				// this public code will obviously get discovered and bypassed. this doesn't earn you any security cred!
 				if linkURL.Host != textURL.Host {
 					evt.Logger.Warn("misleading mismatched domains", "link", linkURL.Host, "text", textURL.Host)
-					evt.AddLabel("misleading")
+					evt.AddRecordLabel("misleading")
 				}
 			}
 		}
@@ -52,7 +52,7 @@ func MisleadingMentionPostRule(evt *automod.PostEvent) error {
 			if feat.RichtextFacet_Mention != nil {
 				if int(facet.Index.ByteEnd) > len([]byte(evt.Post.Text)) || facet.Index.ByteStart > facet.Index.ByteEnd {
 					evt.Logger.Warn("invalid facet range")
-					evt.AddLabel("invalid") // TODO: or some other "this record is corrupt" indicator?
+					evt.AddRecordLabel("invalid") // TODO: or some other "this record is corrupt" indicator?
 					continue
 				}
 				txt := string([]byte(evt.Post.Text)[facet.Index.ByteStart:facet.Index.ByteEnd])
@@ -68,14 +68,14 @@ func MisleadingMentionPostRule(evt *automod.PostEvent) error {
 				mentioned, err := evt.Engine.Directory.LookupHandle(ctx, handle)
 				if err != nil {
 					evt.Logger.Warn("could not resolve handle", "handle", handle)
-					evt.AddLabel("misleading")
+					evt.AddRecordLabel("misleading")
 					break
 				}
 
 				// TODO: check if mentioned DID was recently updated? might be a caching issue
 				if mentioned.DID.String() != feat.RichtextFacet_Mention.Did {
 					evt.Logger.Warn("misleading mention", "text", txt, "did", mentioned.DID)
-					evt.AddLabel("misleading")
+					evt.AddRecordLabel("misleading")
 					continue
 				}
 			}

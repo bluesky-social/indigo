@@ -31,6 +31,7 @@ type Config struct {
 	ModUsername   string
 	ModPassword   string
 	SetsFileJSON  string
+	RedisURL      string
 	Logger        *slog.Logger
 }
 
@@ -79,10 +80,21 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		}
 	}
 
+	var counters automod.CountStore
+	if config.RedisURL != "" {
+		c, err := automod.NewRedisCountStore(config.RedisURL)
+		if err != nil {
+			return nil, err
+		}
+		counters = c
+	} else {
+		counters = automod.NewMemCountStore()
+	}
+
 	engine := automod.Engine{
 		Logger:      logger,
 		Directory:   dir,
-		Counters:    automod.NewMemCountStore(),
+		Counters:    counters,
 		Sets:        sets,
 		Rules:       rules.DefaultRules(),
 		AdminClient: xrpcc,

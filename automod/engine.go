@@ -54,10 +54,7 @@ func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.
 		return evt.Err
 	}
 	evt.CanonicalLogLine()
-	if err := evt.PersistAccountActions(ctx); err != nil {
-		return err
-	}
-	if err := evt.PersistCounters(ctx); err != nil {
+	if err := evt.PersistActions(ctx); err != nil {
 		return err
 	}
 	return nil
@@ -95,10 +92,7 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 			return evt.Err
 		}
 		evt.CanonicalLogLine()
-		if err := evt.PersistAccountActions(ctx); err != nil {
-			return err
-		}
-		if err := evt.PersistRecordActions(ctx); err != nil {
+		if err := evt.PersistActions(ctx); err != nil {
 			return err
 		}
 		if err := evt.PersistCounters(ctx); err != nil {
@@ -114,10 +108,7 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 			return evt.Err
 		}
 		evt.CanonicalLogLine()
-		if err := evt.PersistAccountActions(ctx); err != nil {
-			return err
-		}
-		if err := evt.PersistRecordActions(ctx); err != nil {
+		if err := evt.PersistActions(ctx); err != nil {
 			return err
 		}
 		if err := evt.PersistCounters(ctx); err != nil {
@@ -167,8 +158,8 @@ func (e *Engine) NewRecordEvent(ident *identity.Identity, path, recCID string, r
 	}
 }
 
-func (e *Engine) GetCount(key, period string) (int, error) {
-	return e.Counters.GetCount(context.TODO(), key, period)
+func (e *Engine) GetCount(name, val, period string) (int, error) {
+	return e.Counters.GetCount(context.TODO(), name, val, period)
 }
 
 // checks if `val` is an element of set `name`
