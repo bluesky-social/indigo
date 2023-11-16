@@ -104,10 +104,12 @@ var postingCmd = &cli.Command{
 		domain := cfg.AvailableUserDomains[0]
 		fmt.Println("domain: ", domain)
 
+		email := fmt.Sprintf("user-%s@test.com", id)
+		pass := "password"
 		resp, err := comatproto.ServerCreateAccount(ctx, xrpcc, &comatproto.ServerCreateAccount_Input{
-			Email:      fmt.Sprintf("user-%s@test.com", id),
+			Email:      &email,
 			Handle:     "user-" + id + domain,
-			Password:   "password",
+			Password:   &pass,
 			InviteCode: invite,
 		})
 		if err != nil {

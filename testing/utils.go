@@ -198,10 +198,12 @@ func (tp *TestPDS) NewUser(handle string) (*TestUser, error) {
 	}
 
 	fmt.Println("HOST: ", c.Host)
+	email := handle + "@fake.com"
+	pass := "password"
 	out, err := atproto.ServerCreateAccount(ctx, c, &atproto.ServerCreateAccount_Input{
-		Email:    handle + "@fake.com",
+		Email:    &email,
 		Handle:   handle,
-		Password: "password",
+		Password: &pass,
 	})
 	if err != nil {
 		return nil, err

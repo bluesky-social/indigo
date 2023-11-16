@@ -79,10 +79,10 @@ var newAccountCmd = &cli.Command{
 		}
 
 		acc, err := comatproto.ServerCreateAccount(context.TODO(), xrpcc, &comatproto.ServerCreateAccount_Input{
-			Email:      email,
+			Email:      &email,
 			Handle:     handle,
 			InviteCode: invite,
-			Password:   password,
+			Password:   &password,
 		})
 		if err != nil {
 			return err

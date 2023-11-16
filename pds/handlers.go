@@ -276,8 +276,15 @@ func (s *Server) handleAppBskyNotificationUpdateSeen(ctx context.Context, input 
 }
 
 func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *comatprototypes.ServerCreateAccount_Input) (*comatprototypes.ServerCreateAccount_Output, error) {
+	if body.Email == nil {
+		return nil, fmt.Errorf("email is required")
+	}
 
-	if err := validateEmail(body.Email); err != nil {
+	if body.Password == nil {
+		return nil, fmt.Errorf("password is required")
+	}
+
+	if err := validateEmail(*body.Email); err != nil {
 		return nil, err
 	}
 
@@ -302,9 +309,9 @@ func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *
 
 	u := User{
 		Handle:      body.Handle,
-		Password:    body.Password,
+		Password:    *body.Password,
 		RecoveryKey: recoveryKey,
-		Email:       body.Email,
+		Email:       *body.Email,
 	}
 	if err := s.db.Create(&u).Error; err != nil {
 		return nil, err
@@ -639,7 +646,7 @@ func (s *Server) handleComAtprotoAdminResolveModerationReports(ctx context.Conte
 func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Context, body *comatprototypes.AdminReverseModerationAction_Input) (*comatprototypes.AdminDefs_ActionView, error) {
 	panic("nyi")
 }
-func (s *Server) handleComAtprotoAdminSearchRepos(ctx context.Context, cursor string, invitedBy string, limit int, term string) (*comatprototypes.AdminSearchRepos_Output, error) {
+func (s *Server) handleComAtprotoAdminSearchRepos(ctx context.Context, cursor string, limit int, q string, term string) (*comatprototypes.AdminSearchRepos_Output, error) {
 	panic("nyi")
 }
 func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, body *comatprototypes.AdminTakeModerationAction_Input) (*comatprototypes.AdminDefs_ActionView, error) {
@@ -666,11 +673,11 @@ func (s *Server) handleComAtprotoSyncListBlobs(ctx context.Context, cursor strin
 	panic("nyi")
 }
 
-func (s *Server) handleAppBskyActorSearchActors(ctx context.Context, cursor string, limit int, term string) (*appbskytypes.ActorSearchActors_Output, error) {
+func (s *Server) handleAppBskyActorSearchActors(ctx context.Context, cursor string, limit int, q string, term string) (*appbskytypes.ActorSearchActors_Output, error) {
 	panic("nyi")
 }
 
-func (s *Server) handleAppBskyActorSearchActorsTypeahead(ctx context.Context, limit int, term string) (*appbskytypes.ActorSearchActorsTypeahead_Output, error) {
+func (s *Server) handleAppBskyActorSearchActorsTypeahead(ctx context.Context, limit int, q string, term string) (*appbskytypes.ActorSearchActorsTypeahead_Output, error) {
 	panic("nyi")
 }
 
@@ -829,5 +836,60 @@ func (s *Server) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did st
 }
 
 func (s *Server) handleComAtprotoTempUpgradeRepoVersion(ctx context.Context, body *comatprototypes.TempUpgradeRepoVersion_Input) error {
+	panic("nyi")
+}
+
+func (s *Server) handleAppBskyFeedGetListFeed(ctx context.Context, cursor string, limit int, list string) (*appbskytypes.FeedGetListFeed_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleAppBskyFeedGetSuggestedFeeds(ctx context.Context, cursor string, limit int) (*appbskytypes.FeedGetSuggestedFeeds_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleAppBskyFeedSearchPosts(ctx context.Context, cursor string, limit int, q string) (*appbskytypes.FeedSearchPosts_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleAppBskyGraphGetListBlocks(ctx context.Context, cursor string, limit int) (*appbskytypes.GraphGetListBlocks_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleAppBskyGraphGetSuggestedFollowsByActor(ctx context.Context, actor string) (*appbskytypes.GraphGetSuggestedFollowsByActor_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleAppBskyUnspeccedSearchActorsSkeleton(ctx context.Context, cursor string, limit int, q string, typeahead *bool) (*appbskytypes.UnspeccedSearchActorsSkeleton_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleAppBskyUnspeccedSearchPostsSkeleton(ctx context.Context, cursor string, limit int, q string) (*appbskytypes.UnspeccedSearchPostsSkeleton_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoAdminGetAccountInfo(ctx context.Context, did string) (*comatprototypes.AdminDefs_AccountView, error) {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoAdminGetSubjectStatus(ctx context.Context, blob string, did string, uri string) (*comatprototypes.AdminGetSubjectStatus_Output, error) {
+	panic("nyi")
+}
+
+func (s *Server) handleComAtprotoAdminUpdateSubjectStatus(ctx context.Context, body *comatprototypes.AdminUpdateSubjectStatus_Input) (*comatprototypes.AdminUpdateSubjectStatus_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoServerConfirmEmail(ctx context.Context, body *comatprototypes.ServerConfirmEmail_Input) error {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoServerRequestEmailConfirmation(ctx context.Context) error {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoServerRequestEmailUpdate(ctx context.Context) (*comatprototypes.ServerRequestEmailUpdate_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoServerReserveSigningKey(ctx context.Context, body *comatprototypes.ServerReserveSigningKey_Input) (*comatprototypes.ServerReserveSigningKey_Output, error) {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoServerUpdateEmail(ctx context.Context, body *comatprototypes.ServerUpdateEmail_Input) error {
+	panic("nyi")
+}
+func (s *Server) handleComAtprotoTempFetchLabels(ctx context.Context, limit int, since *int) (*comatprototypes.TempFetchLabels_Output, error) {
 	panic("nyi")
 }
