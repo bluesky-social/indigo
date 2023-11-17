@@ -12,6 +12,7 @@ func DefaultRules() automod.RuleSet {
 			ReplyCountPostRule,
 			BanHashtagsPostRule,
 			AccountDemoPostRule,
+			AccountPrivateDemoPostRule,
 		},
 	}
 	return rules
