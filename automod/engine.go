@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -16,13 +17,14 @@ import (
 //
 // TODO: careful when initializing: several fields should not be null or zero, even though they are pointer type.
 type Engine struct {
-	Logger     *slog.Logger
-	Directory  identity.Directory
-	Rules      RuleSet
-	Counters   CountStore
-	Sets       SetStore
-	Cache      CacheStore
-	BskyClient *xrpc.Client
+	Logger      *slog.Logger
+	Directory   identity.Directory
+	Rules       RuleSet
+	Counters    CountStore
+	Sets        SetStore
+	Cache       CacheStore
+	RelayClient *xrpc.Client
+	BskyClient  *xrpc.Client
 	// used to persist moderation actions in mod service (optional)
 	AdminClient *xrpc.Client
 }
@@ -68,13 +70,11 @@ func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.
 
 func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID string, rec any) error {
 	// similar to an HTTP server, we want to recover any panics from rule execution
-	/* XXX
 	defer func() {
 		if r := recover(); r != nil {
 			e.Logger.Error("automod event execution exception", "err", r)
 		}
 	}()
-	*/
 
 	ident, err := e.Directory.LookupDID(ctx, did)
 	if err != nil {
@@ -133,6 +133,33 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 	}
 
 	return nil
+}
+
+func (e *Engine) FetchAndProcessRecord(ctx context.Context, uri string) error {
+	// resolve URI, identity, and record
+	aturi, err := syntax.ParseATURI(uri)
+	if err != nil {
+		return fmt.Errorf("parsing AT-URI argument: %v", err)
+	}
+	if aturi.RecordKey() == "" {
+		return fmt.Errorf("need a full, not partial, AT-URI: %s", uri)
+	}
+	if e.RelayClient == nil {
+		return fmt.Errorf("can't fetch record without relay client configured")
+	}
+	ident, err := e.Directory.Lookup(ctx, aturi.Authority())
+	if err != nil {
+		return fmt.Errorf("resolving AT-URI authority: %v", err)
+	}
+	e.Logger.Info("fetching record", "did", ident.DID.String(), "collection", aturi.Collection().String(), "rkey", aturi.RecordKey().String())
+	out, err := comatproto.RepoGetRecord(ctx, e.RelayClient, "", aturi.Collection().String(), ident.DID.String(), aturi.RecordKey().String())
+	if err != nil {
+		return fmt.Errorf("fetching record from Relay (%s): %v", aturi, err)
+	}
+	if out.Cid == nil {
+		return fmt.Errorf("expected a CID in getRecord response")
+	}
+	return e.ProcessRecord(ctx, ident.DID, aturi.Path(), *out.Cid, out.Value.Val)
 }
 
 func (e *Engine) NewPostEvent(am AccountMeta, path, recCID string, post *appbsky.FeedPost) PostEvent {
