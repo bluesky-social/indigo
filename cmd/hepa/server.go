@@ -17,12 +17,15 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 )
 
 type Server struct {
 	bgshost string
 	logger  *slog.Logger
 	engine  *automod.Engine
+	rdb     *redis.Client
+	lastSeq int64
 }
 
 type Config struct {
@@ -83,24 +86,34 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 	}
 
 	var counters automod.CountStore
+	var cache automod.CacheStore
+	var rdb *redis.Client
 	if config.RedisURL != "" {
-		c, err := automod.NewRedisCountStore(config.RedisURL)
+		// generic client, for cursor state
+		opt, err := redis.ParseURL(config.RedisURL)
 		if err != nil {
 			return nil, err
 		}
-		counters = c
+		rdb = redis.NewClient(opt)
+		// check redis connection
+		_, err = rdb.Ping(context.TODO()).Result()
+		if err != nil {
+			return nil, err
+		}
+
+		cnt, err := automod.NewRedisCountStore(config.RedisURL)
+		if err != nil {
+			return nil, err
+		}
+		counters = cnt
+
+		csh, err := automod.NewRedisCacheStore(config.RedisURL, 30*time.Minute)
+		if err != nil {
+			return nil, err
+		}
+		cache = csh
 	} else {
 		counters = automod.NewMemCountStore()
-	}
-
-	var cache automod.CacheStore
-	if config.RedisURL != "" {
-		c, err := automod.NewRedisCacheStore(config.RedisURL, 30*time.Minute)
-		if err != nil {
-			return nil, err
-		}
-		cache = c
-	} else {
 		cache = automod.NewMemCacheStore(5_000, 30*time.Minute)
 	}
 
@@ -122,6 +135,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		bgshost: config.BGSHost,
 		logger:  logger,
 		engine:  &engine,
+		rdb:     rdb,
 	}
 
 	return s, nil
@@ -130,4 +144,64 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 func (s *Server) RunMetrics(listen string) error {
 	http.Handle("/metrics", promhttp.Handler())
 	return http.ListenAndServe(listen, nil)
+}
+
+var cursorKey = "hepa/seq"
+
+func (s *Server) ReadLastCursor(ctx context.Context) (int64, error) {
+	// if redis isn't configured, just skip
+	if s.rdb == nil {
+		s.logger.Info("redis not configured, skipping cursor read")
+		return 0, nil
+	}
+
+	val, err := s.rdb.Get(ctx, cursorKey).Int64()
+	if err == redis.Nil {
+		s.logger.Info("no pre-existing cursor in redis")
+		return 0, nil
+	}
+	s.logger.Info("successfully found prior subscription cursor seq in redis", "seq", val)
+	return val, err
+}
+
+func (s *Server) PersistCursor(ctx context.Context) error {
+	// if redis isn't configured, just skip
+	if s.rdb == nil {
+		return nil
+	}
+	if s.lastSeq <= 0 {
+		return nil
+	}
+	err := s.rdb.Set(ctx, cursorKey, s.lastSeq, 14*24*time.Hour).Err()
+	return err
+}
+
+// this method runs in a loop, persisting the current cursor state every 5 seconds
+func (s *Server) RunPersistCursor(ctx context.Context) error {
+
+	// if redis isn't configured, just skip
+	if s.rdb == nil {
+		return nil
+	}
+	ticker := time.NewTicker(5 * time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			if s.lastSeq >= 1 {
+				s.logger.Info("persisting final cursor seq value", "seq", s.lastSeq)
+				err := s.PersistCursor(ctx)
+				if err != nil {
+					s.logger.Error("failed to persist cursor", "err", err, "seq", s.lastSeq)
+				}
+			}
+			return nil
+		case <-ticker.C:
+			if s.lastSeq >= 1 {
+				err := s.PersistCursor(ctx)
+				if err != nil {
+					s.logger.Error("failed to persist cursor", "err", err, "seq", s.lastSeq)
+				}
+			}
+		}
+	}
 }
