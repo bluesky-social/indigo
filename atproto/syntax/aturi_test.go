@@ -20,11 +20,20 @@ func TestInteropATURIsValid(t *testing.T) {
 		if len(line) == 0 || line[0] == '#' {
 			continue
 		}
-		_, err := ParseATURI(line)
+		aturi, err := ParseATURI(line)
 		if err != nil {
 			fmt.Println("FAILED, GOOD: " + line)
 		}
 		assert.NoError(err)
+
+		// check that Path() is working
+		col := aturi.Collection()
+		rkey := aturi.RecordKey()
+		if rkey != "" {
+			assert.Equal(col.String()+"/"+rkey.String(), aturi.Path())
+		} else if col != "" {
+			assert.Equal(col.String(), aturi.Path())
+		}
 	}
 	assert.NoError(scanner.Err())
 }
@@ -67,7 +76,22 @@ func TestATURIParts(t *testing.T) {
 		rkey := uri.RecordKey()
 		assert.Equal(parts[3], rkey.String())
 	}
+}
 
+func TestATURIPath(t *testing.T) {
+	assert := assert.New(t)
+
+	uri1, err := ParseATURI("at://did:abc:123/io.nsid.someFunc/record-key")
+	assert.NoError(err)
+	assert.Equal("io.nsid.someFunc/record-key", uri1.Path())
+
+	uri2, err := ParseATURI("at://did:abc:123/io.nsid.someFunc")
+	assert.NoError(err)
+	assert.Equal("io.nsid.someFunc", uri2.Path())
+
+	uri3, err := ParseATURI("at://did:abc:123")
+	assert.NoError(err)
+	assert.Equal("", uri3.Path())
 }
 
 func TestATURINormalize(t *testing.T) {
@@ -93,5 +117,6 @@ func TestATURINoPanic(t *testing.T) {
 		_ = bad.RecordKey()
 		_ = bad.Normalize()
 		_ = bad.String()
+		_ = bad.Path()
 	}
 }
