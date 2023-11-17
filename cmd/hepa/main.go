@@ -57,30 +57,12 @@ func run(args []string) error {
 			Value:   "https://api.bsky.app",
 			EnvVars: []string{"ATP_BSKY_HOST"},
 		},
-	}
-
-	app.Commands = []*cli.Command{
-		runCmd,
-	}
-
-	return app.Run(args)
-}
-
-var runCmd = &cli.Command{
-	Name:  "run",
-	Usage: "run the hepa daemon",
-	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:    "metrics-listen",
-			Usage:   "IP or address, and port, to listen on for metrics APIs",
-			Value:   ":3989",
-			EnvVars: []string{"HEPA_METRICS_LISTEN"},
-		},
-		&cli.IntFlag{
-			Name:    "plc-rate-limit",
-			Usage:   "max number of requests per second to PLC registry",
-			Value:   100,
-			EnvVars: []string{"HEPA_PLC_RATE_LIMIT"},
+			Name:  "redis-url",
+			Usage: "redis connection URL",
+			// redis://<user>:<pass>@localhost:6379/<db>
+			// redis://localhost:6379/0
+			EnvVars: []string{"HEPA_REDIS_URL"},
 		},
 		&cli.StringFlag{
 			Name:    "mod-handle",
@@ -97,17 +79,60 @@ var runCmd = &cli.Command{
 			Usage:   "admin authentication password for mod service",
 			EnvVars: []string{"HEPA_MOD_AUTH_ADMIN_TOKEN"},
 		},
+		&cli.IntFlag{
+			Name:    "plc-rate-limit",
+			Usage:   "max number of requests per second to PLC registry",
+			Value:   100,
+			EnvVars: []string{"HEPA_PLC_RATE_LIMIT"},
+		},
 		&cli.StringFlag{
 			Name:    "sets-json-path",
 			Usage:   "file path of JSON file containing static sets",
 			EnvVars: []string{"HEPA_SETS_JSON_PATH"},
 		},
+	}
+
+	app.Commands = []*cli.Command{
+		runCmd,
+		processRecordCmd,
+	}
+
+	return app.Run(args)
+}
+
+func configDirectory(cctx *cli.Context) (identity.Directory, error) {
+	baseDir := identity.BaseDirectory{
+		PLCURL: cctx.String("atp-plc-host"),
+		HTTPClient: http.Client{
+			Timeout: time.Second * 15,
+		},
+		PLCLimiter:            rate.NewLimiter(rate.Limit(cctx.Int("plc-rate-limit")), 1),
+		TryAuthoritativeDNS:   true,
+		SkipDNSDomainSuffixes: []string{".bsky.social", ".staging.bsky.dev"},
+	}
+	var dir identity.Directory
+	if cctx.String("redis-url") != "" {
+		rdir, err := automod.NewRedisDirectory(&baseDir, cctx.String("redis-url"), time.Hour*24, time.Minute*2)
+		if err != nil {
+			return nil, err
+		}
+		dir = rdir
+	} else {
+		cdir := identity.NewCacheDirectory(&baseDir, 1_500_000, time.Hour*24, time.Minute*2)
+		dir = &cdir
+	}
+	return dir, nil
+}
+
+var runCmd = &cli.Command{
+	Name:  "run",
+	Usage: "run the hepa daemon",
+	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:  "redis-url",
-			Usage: "redis connection URL",
-			// redis://<user>:<pass>@localhost:6379/<db>
-			// redis://localhost:6379/0
-			EnvVars: []string{"HEPA_REDIS_URL"},
+			Name:    "metrics-listen",
+			Usage:   "IP or address, and port, to listen on for metrics APIs",
+			Value:   ":3989",
+			EnvVars: []string{"HEPA_METRICS_LISTEN"},
 		},
 	},
 	Action: func(cctx *cli.Context) error {
@@ -119,25 +144,9 @@ var runCmd = &cli.Command{
 
 		configOTEL("hepa")
 
-		baseDir := identity.BaseDirectory{
-			PLCURL: cctx.String("atp-plc-host"),
-			HTTPClient: http.Client{
-				Timeout: time.Second * 15,
-			},
-			PLCLimiter:            rate.NewLimiter(rate.Limit(cctx.Int("plc-rate-limit")), 1),
-			TryAuthoritativeDNS:   true,
-			SkipDNSDomainSuffixes: []string{".bsky.social", ".staging.bsky.dev"},
-		}
-		var dir identity.Directory
-		if cctx.String("redis-url") != "" {
-			rdir, err := automod.NewRedisDirectory(&baseDir, cctx.String("redis-url"), time.Hour*24, time.Minute*2)
-			if err != nil {
-				return err
-			}
-			dir = rdir
-		} else {
-			cdir := identity.NewCacheDirectory(&baseDir, 1_500_000, time.Hour*24, time.Minute*2)
-			dir = &cdir
+		dir, err := configDirectory(cctx)
+		if err != nil {
+			return err
 		}
 
 		srv, err := NewServer(
@@ -177,5 +186,49 @@ var runCmd = &cli.Command{
 			return fmt.Errorf("failure consuming and processing firehose: %w", err)
 		}
 		return nil
+	},
+}
+
+var processRecordCmd = &cli.Command{
+	Name:      "process-record",
+	Usage:     "process a single record in isolation",
+	ArgsUsage: `<at-uri>`,
+	Flags:     []cli.Flag{},
+	Action: func(cctx *cli.Context) error {
+		uri := cctx.Args().First()
+		if uri == "" {
+			return fmt.Errorf("expected a single AT-URI argument")
+		}
+
+		ctx := context.Background()
+		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		}))
+		slog.SetDefault(logger)
+
+		dir, err := configDirectory(cctx)
+		if err != nil {
+			return err
+		}
+
+		srv, err := NewServer(
+			dir,
+			Config{
+				BGSHost:       cctx.String("atp-bgs-host"),
+				BskyHost:      cctx.String("atp-bsky-host"),
+				Logger:        logger,
+				ModHost:       cctx.String("atp-mod-host"),
+				ModAdminToken: cctx.String("mod-admin-token"),
+				ModUsername:   cctx.String("mod-handle"),
+				ModPassword:   cctx.String("mod-password"),
+				SetsFileJSON:  cctx.String("sets-json-path"),
+				RedisURL:      cctx.String("redis-url"),
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		return srv.engine.FetchAndProcessRecord(ctx, uri)
 	},
 }

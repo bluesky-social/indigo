@@ -117,6 +117,13 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		cache = automod.NewMemCacheStore(5_000, 30*time.Minute)
 	}
 
+	relayURL := config.BGSHost
+	if strings.HasPrefix(relayURL, "ws") {
+		relayURL = "http" + relayURL[2:]
+	}
+	// XXX:
+	relayURL = "https://bsky.social"
+
 	engine := automod.Engine{
 		Logger:      logger,
 		Directory:   dir,
@@ -128,6 +135,10 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		BskyClient: &xrpc.Client{
 			Client: util.RobustHTTPClient(),
 			Host:   config.BskyHost,
+		},
+		RelayClient: &xrpc.Client{
+			Client: util.RobustHTTPClient(),
+			Host:   relayURL,
 		},
 	}
 
