@@ -8,7 +8,6 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -49,16 +48,12 @@ func engineFixture() Engine {
 		Handle: syntax.Handle("handle.example.com"),
 	}
 	dir.Insert(id1)
-	adminc := xrpc.Client{
-		Host: "http://dummy.local",
-	}
 	engine := Engine{
-		Logger:      slog.Default(),
-		Directory:   &dir,
-		Counters:    NewMemCountStore(),
-		Sets:        sets,
-		Rules:       rules,
-		AdminClient: &adminc,
+		Logger:    slog.Default(),
+		Directory: &dir,
+		Counters:  NewMemCountStore(),
+		Sets:      sets,
+		Rules:     rules,
 	}
 	return engine
 }
