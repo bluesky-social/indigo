@@ -22,7 +22,10 @@ import (
 func (s *Server) RunConsumer(ctx context.Context) error {
 
 	// TODO: persist cursor in a database or local disk
-	cur := 0
+	cur, err := s.ReadLastCursor(ctx)
+	if err != nil {
+		return err
+	}
 
 	dialer := websocket.DefaultDialer
 	u, err := url.Parse(s.bgshost)
@@ -43,9 +46,11 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
+			s.lastSeq = evt.Seq
 			return s.HandleRepoCommit(ctx, evt)
 		},
 		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
+			s.lastSeq = evt.Seq
 			did, err := syntax.ParseDID(evt.Did)
 			if err != nil {
 				s.logger.Error("bad DID in RepoHandle event", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)

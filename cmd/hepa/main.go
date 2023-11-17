@@ -166,6 +166,12 @@ var runCmd = &cli.Command{
 			}
 		}()
 
+		go func() {
+			if err := srv.RunPersistCursor(ctx); err != nil {
+				slog.Error("cursor routine failed", "err", err)
+			}
+		}()
+
 		// the main service loop
 		if err := srv.RunConsumer(ctx); err != nil {
 			return fmt.Errorf("failure consuming and processing firehose: %w", err)
