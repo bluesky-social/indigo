@@ -126,7 +126,7 @@ var runCmd = &cli.Command{
 			},
 			PLCLimiter:            rate.NewLimiter(rate.Limit(cctx.Int("plc-rate-limit")), 1),
 			TryAuthoritativeDNS:   true,
-			SkipDNSDomainSuffixes: []string{".bsky.social"},
+			SkipDNSDomainSuffixes: []string{".bsky.social", ".staging.bsky.dev"},
 		}
 		var dir identity.Directory
 		if cctx.String("redis-url") != "" {

@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
 type ProfileSummary struct {
@@ -19,6 +21,7 @@ type ProfileSummary struct {
 type AccountPrivate struct {
 	Email          string
 	EmailConfirmed bool
+	IndexedAt      time.Time
 }
 
 // information about a repo/account/identity, always pre-populated and relevant to many rules
@@ -30,7 +33,6 @@ type AccountMeta struct {
 	FollowersCount int64
 	FollowsCount   int64
 	PostsCount     int64
-	IndexedAt      *time.Time
 }
 
 func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (*AccountMeta, error) {
@@ -93,7 +95,23 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 	}
 
 	if e.AdminClient != nil {
-		// XXX: get admin-level info (email, indexed at, etc). requires lexgen update
+		pv, err := comatproto.AdminGetAccountInfo(ctx, e.AdminClient, ident.DID.String())
+		if err != nil {
+			return nil, err
+		}
+		ap := AccountPrivate{}
+		if pv.Email != nil && *pv.Email != "" {
+			ap.Email = *pv.Email
+		}
+		if pv.EmailConfirmedAt != nil && *pv.EmailConfirmedAt != "" {
+			ap.EmailConfirmed = true
+		}
+		ts, err := syntax.ParseDatetimeTime(pv.IndexedAt)
+		if err != nil {
+			return nil, err
+		}
+		ap.IndexedAt = ts
+		am.Private = &ap
 	}
 
 	val, err := json.Marshal(&am)
