@@ -25,7 +25,6 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	"github.com/bluesky-social/indigo/xrpc"
 	"golang.org/x/time/rate"
 
 	"github.com/gorilla/websocket"
@@ -197,7 +196,7 @@ var readRepoStreamCmd = &cli.Command{
 				}
 			}
 
-			h, _, err := api.ResolveDidToHandle(ctx, &xrpc.Client{Host: "*"}, didr, hr, did)
+			h, _, err := api.ResolveDidToHandle(ctx, didr, hr, did)
 			if err != nil {
 				return "", err
 			}
