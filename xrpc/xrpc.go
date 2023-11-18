@@ -19,8 +19,6 @@ import (
 
 type Client struct {
 	// Client is an HTTP client to use. If not set, defaults to http.RobustHTTPClient().
-	// Note that http.RobustHTTPClient() swallows retryable errors (including hitting a rate limit),
-	// not allowing your code to handle them differently.
 	Client     *http.Client
 	Auth       *AuthInfo
 	AdminToken *string

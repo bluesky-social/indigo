@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -35,9 +36,8 @@ func (l LeveledZap) Debug(msg string, keysAndValues ...interface{}) {
 // timeouts and retries. The returned client has the stdlib http.Client
 // interface, but has Hashicorp retryablehttp logic internally.
 //
-// This client will retry on connection errors, 5xx status (except 501), and
-// 429 Backoff requests (respecting 'Retry-After' header). It will log
-// intermediate failures with WARN level. This does not start from
+// This client will retry on connection errors, 5xx status (except 501).
+// It will log intermediate failures with WARN level. This does not start from
 // http.DefaultClient.
 //
 // This should be usable for XRPC clients, and other general inter-service
@@ -50,6 +50,7 @@ func RobustHTTPClient() *http.Client {
 	retryClient.RetryWaitMin = 1 * time.Second
 	retryClient.RetryWaitMax = 10 * time.Second
 	retryClient.Logger = retryablehttp.LeveledLogger(LeveledZap{log})
+	retryClient.CheckRetry = XRPCRetryPolicy
 	client := retryClient.StandardClient()
 	client.Timeout = 30 * time.Second
 	return client
@@ -61,4 +62,15 @@ func TestingHTTPClient() *http.Client {
 	client := http.DefaultClient
 	client.Timeout = 1 * time.Second
 	return client
+}
+
+// XRPCRetryPolicy is a custom wrapper around retryablehttp.DefaultRetryPolicy.
+// It treats `429 Too Many Requests` as non-retryable, so the application can decide
+// how to deal with rate-limiting.
+func XRPCRetryPolicy(ctx context.Context, resp *http.Response, err error) (bool, error) {
+	if err == nil && resp.StatusCode == http.StatusTooManyRequests {
+		return false, nil
+	}
+	// TODO: implement returning errors on non-200 responses w/o introducing circular dependencies.
+	return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
 }
