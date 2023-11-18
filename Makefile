@@ -140,3 +140,13 @@ run-scylla:
 stop-scylla:
 	@echo "==> Stopping test instance of Scylla $(SCYLLA_VERSION)"
 	@docker stop scylla
+
+.PHONY: build-literiver
+build-literiver:
+	@echo "==> Building literiver"
+	go build -ldflags "-extldflags '-static'" -tags osusergo,netgo,sqlite_omit_load_extension ./cmd/literiver
+
+.PHONY: build-literiver-image
+build-literiver-image:
+	@echo "==> Building literiver image"
+	docker build -t literiver -f cmd/literiver/Dockerfile .
