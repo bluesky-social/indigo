@@ -277,6 +277,19 @@ var readRepoStreamCmd = &cli.Command{
 
 				return nil
 			},
+			RepoMigrate: func(migrate *comatproto.SyncSubscribeRepos_Migrate) error {
+				if jsonfmt {
+					b, err := json.Marshal(migrate)
+					if err != nil {
+						return err
+					}
+					fmt.Println(string(b))
+				} else {
+					fmt.Printf("(%d) RepoMigrate: %s moving to: %s\n", migrate.Seq, migrate.Did, *migrate.MigrateTo)
+				}
+
+				return nil
+			},
 			RepoHandle: func(handle *comatproto.SyncSubscribeRepos_Handle) error {
 				if jsonfmt {
 					b, err := json.Marshal(handle)
