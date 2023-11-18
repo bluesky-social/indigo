@@ -13,6 +13,7 @@ Run with, eg, `go run ./cmd/bigsky`):
 - `cmd/fakermaker`: helper to generate fake accounts and content for testing
 - `cmd/supercollider`: event stream load generation tool
 - `cmd/sonar`: event stream monitoring tool
+- `cmd/hepa`: auto-moderation rule engine service
 - `gen`: dev tool to run CBOR type codegen
 
 Packages:
@@ -23,6 +24,7 @@ Packages:
 - `atproto/crypto`: crytographic helpers (signing, key generation and serialization)
 - `atproto/syntax`: string types and parsers for identifiers, datetimes, etc
 - `atproto/identity`: DID and handle resolution
+- `automod`: moderation and anti-spam rules engine
 - `bgs`: server implementation for crawling, etc
 - `carstore`: library for storing repo data in CAR files on disk, plus a metadata SQL db
 - `events`: types, codegen CBOR helpers, and persistence for event feeds
