@@ -62,14 +62,14 @@ func (n ATURI) Authority() AtIdentifier {
 // Returns path segment, without leading slash, as would be used in an atproto repository key. Or empty string if there is no path.
 func (n ATURI) Path() string {
 	parts := strings.SplitN(string(n), "/", 5)
-	if len(parts) < 3 {
+	if len(parts) < 4 {
 		// something has gone wrong (would not validate)
 		return ""
 	}
-	if len(parts) == 3 {
-		return parts[2]
+	if len(parts) == 4 {
+		return parts[3]
 	}
-	return parts[2] + "/" + parts[3]
+	return parts[3] + "/" + parts[4]
 }
 
 // Returns a valid NSID if there is one in the appropriate part of the path, otherwise empty.

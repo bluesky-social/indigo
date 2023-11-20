@@ -24,6 +24,7 @@ build: ## Build all executables
 	go build ./cmd/stress
 	go build ./cmd/fakermaker
 	go build ./cmd/labelmaker
+	go build ./cmd/hepa
 	go build ./cmd/supercollider
 	go build -o ./sonar-cli ./cmd/sonar 
 	go build ./cmd/palomar
