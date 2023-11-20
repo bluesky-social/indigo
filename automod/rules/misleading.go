@@ -13,7 +13,7 @@ func MisleadingURLPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) err
 	facets, err := ExtractFacets(post)
 	if err != nil {
 		evt.Logger.Warn("invalid facets", "err", err)
-		evt.AddRecordLabel("invalid") // TODO: or some other "this record is corrupt" indicator?
+		evt.AddRecordFlag("invalid") // TODO: or some other "this record is corrupt" indicator?
 		return nil
 	}
 	for _, facet := range facets {
@@ -35,7 +35,7 @@ func MisleadingURLPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) err
 			// this public code will obviously get discovered and bypassed. this doesn't earn you any security cred!
 			if linkURL.Host != textURL.Host {
 				evt.Logger.Warn("misleading mismatched domains", "link", linkURL.Host, "text", textURL.Host)
-				evt.AddRecordLabel("misleading")
+				evt.AddRecordFlag("misleading")
 			}
 		}
 	}
@@ -48,7 +48,7 @@ func MisleadingMentionPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost)
 	facets, err := ExtractFacets(post)
 	if err != nil {
 		evt.Logger.Warn("invalid facets", "err", err)
-		evt.AddRecordLabel("invalid") // TODO: or some other "this record is corrupt" indicator?
+		evt.AddRecordFlag("invalid") // TODO: or some other "this record is corrupt" indicator?
 		return nil
 	}
 	for _, facet := range facets {
@@ -66,14 +66,14 @@ func MisleadingMentionPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost)
 			mentioned, err := evt.Engine.Directory.LookupHandle(ctx, handle)
 			if err != nil {
 				evt.Logger.Warn("could not resolve handle", "handle", handle)
-				evt.AddRecordLabel("misleading")
+				evt.AddRecordFlag("misleading")
 				break
 			}
 
 			// TODO: check if mentioned DID was recently updated? might be a caching issue
 			if mentioned.DID.String() != *facet.DID {
 				evt.Logger.Warn("misleading mention", "text", txt, "did", facet.DID)
-				evt.AddRecordLabel("misleading")
+				evt.AddRecordFlag("misleading")
 				continue
 			}
 		}
