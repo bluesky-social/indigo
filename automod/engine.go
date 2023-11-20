@@ -115,15 +115,18 @@ func (e *Engine) FetchAndProcessRecord(ctx context.Context, uri string) error {
 	if aturi.RecordKey() == "" {
 		return fmt.Errorf("need a full, not partial, AT-URI: %s", uri)
 	}
-	if e.RelayClient == nil {
-		return fmt.Errorf("can't fetch record without relay client configured")
-	}
 	ident, err := e.Directory.Lookup(ctx, aturi.Authority())
 	if err != nil {
 		return fmt.Errorf("resolving AT-URI authority: %v", err)
 	}
+	pdsURL := ident.PDSEndpoint()
+	if pdsURL == "" {
+		return fmt.Errorf("could not resolve PDS endpoint for AT-URI account: %s", ident.DID.String())
+	}
+	pdsClient := xrpc.Client{Host: ident.PDSEndpoint()}
+
 	e.Logger.Info("fetching record", "did", ident.DID.String(), "collection", aturi.Collection().String(), "rkey", aturi.RecordKey().String())
-	out, err := comatproto.RepoGetRecord(ctx, e.RelayClient, "", aturi.Collection().String(), ident.DID.String(), aturi.RecordKey().String())
+	out, err := comatproto.RepoGetRecord(ctx, &pdsClient, "", aturi.Collection().String(), ident.DID.String(), aturi.RecordKey().String())
 	if err != nil {
 		return fmt.Errorf("fetching record from Relay (%s): %v", aturi, err)
 	}
