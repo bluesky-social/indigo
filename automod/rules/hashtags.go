@@ -8,7 +8,7 @@ import (
 func BanHashtagsPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
 	for _, tag := range ExtractHashtags(post) {
 		if evt.InSet("banned-hashtags", tag) {
-			evt.AddRecordLabel("bad-hashtag")
+			evt.AddRecordFlag("bad-hashtag")
 			break
 		}
 	}
