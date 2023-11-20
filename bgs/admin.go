@@ -172,7 +172,7 @@ func (bgs *BGS) handleListPDSs(e echo.Context) error {
 			MaxEventsPerSecond: p.CrawlRateLimit,
 		}
 
-		limiter = bgs.Index.GetLimiter(p.ID)
+		limiter = bgs.repoFetcher.GetLimiter(p.ID)
 		if limiter != nil {
 			crawlRate.TokenCount = limiter.Tokens()
 		}
@@ -410,7 +410,7 @@ func (bgs *BGS) handleAdminChangePDSCrawlLimit(e echo.Context) error {
 	}
 
 	// Update the crawl limit in the limiter
-	limiter := bgs.Index.GetOrCreateLimiter(pds.ID, limit)
+	limiter := bgs.repoFetcher.GetOrCreateLimiter(pds.ID, limit)
 	limiter.SetLimit(rate.Limit(limit))
 
 	return e.JSON(200, map[string]any{
