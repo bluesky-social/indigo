@@ -4,12 +4,13 @@ import (
 	"context"
 	"net/url"
 
+	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
 )
 
-func MisleadingURLPostRule(evt *automod.PostEvent) error {
-	facets, err := ExtractFacets(evt.Post)
+func MisleadingURLPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
+	facets, err := ExtractFacets(post)
 	if err != nil {
 		evt.Logger.Warn("invalid facets", "err", err)
 		evt.AddRecordLabel("invalid") // TODO: or some other "this record is corrupt" indicator?
@@ -41,10 +42,10 @@ func MisleadingURLPostRule(evt *automod.PostEvent) error {
 	return nil
 }
 
-func MisleadingMentionPostRule(evt *automod.PostEvent) error {
+func MisleadingMentionPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
 	// TODO: do we really need to route context around? probably
 	ctx := context.TODO()
-	facets, err := ExtractFacets(evt.Post)
+	facets, err := ExtractFacets(post)
 	if err != nil {
 		evt.Logger.Warn("invalid facets", "err", err)
 		evt.AddRecordLabel("invalid") // TODO: or some other "this record is corrupt" indicator?
