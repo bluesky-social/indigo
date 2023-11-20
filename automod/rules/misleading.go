@@ -26,7 +26,7 @@ func MisleadingURLPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) err
 			}
 
 			// basic text string pre-cleanups
-			text := strings.TrimSuffix(strings.TrimSpace(facet.Text), "...")
+			text := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(facet.Text), "..."))
 			// if really not a domain, just skipp
 			if !strings.Contains(text, ".") {
 				continue
