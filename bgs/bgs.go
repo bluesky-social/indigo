@@ -55,11 +55,12 @@ var log = logging.Logger("bgs")
 const serverListenerBootTimeout = 5 * time.Second
 
 type BGS struct {
-	Index   *indexer.Indexer
-	db      *gorm.DB
-	slurper *Slurper
-	events  *events.EventManager
-	didr    did.Resolver
+	Index       *indexer.Indexer
+	db          *gorm.DB
+	slurper     *Slurper
+	events      *events.EventManager
+	didr        did.Resolver
+	repoFetcher *indexer.RepoFetcher
 
 	blobs blobs.BlobStore
 	hr    api.HandleResolver
@@ -106,15 +107,16 @@ type SocketConsumer struct {
 	EventsSent  promclient.Counter
 }
 
-func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, blobs blobs.BlobStore, hr api.HandleResolver, ssl bool) (*BGS, error) {
+func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, blobs blobs.BlobStore, rf *indexer.RepoFetcher, hr api.HandleResolver, ssl bool) (*BGS, error) {
 	db.AutoMigrate(User{})
 	db.AutoMigrate(AuthToken{})
 	db.AutoMigrate(models.PDS{})
 	db.AutoMigrate(models.DomainBan{})
 
 	bgs := &BGS{
-		Index: ix,
-		db:    db,
+		Index:       ix,
+		db:          db,
+		repoFetcher: rf,
 
 		hr:      hr,
 		repoman: repoman,
