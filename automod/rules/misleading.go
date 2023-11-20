@@ -25,7 +25,12 @@ func MisleadingURLPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) err
 				continue
 			}
 
-			text := strings.TrimSpace(facet.Text)
+			// basic text string pre-cleanups
+			text := strings.TrimSuffix(strings.TrimSpace(facet.Text), "...")
+			// if really not a domain, just skipp
+			if !strings.Contains(text, ".") {
+				continue
+			}
 			// try to fix any missing method in the text
 			if !strings.Contains(text, "://") {
 				text = "https://" + text
