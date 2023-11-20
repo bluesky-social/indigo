@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -17,7 +18,6 @@ import (
 	"github.com/bluesky-social/indigo/mst"
 	"gorm.io/gorm"
 
-	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
@@ -108,14 +108,36 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname")
 	}
 
-	if strings.HasPrefix(host, "https://") || strings.HasPrefix(host, "http://") {
-		return echo.NewHTTPError(http.StatusBadRequest, "must pass domain without protocol scheme")
+	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
+		if s.ssl {
+			host = "https://" + host
+		} else {
+			host = "http://" + host
+		}
 	}
 
-	norm, err := util.NormalizeHostname(host)
+	u, err := url.Parse(host)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "failed to normalize hostname")
+		return echo.NewHTTPError(http.StatusBadRequest, "failed to parse hostname")
 	}
+
+	if u.Scheme == "http" && s.ssl {
+		return echo.NewHTTPError(http.StatusBadRequest, "this server requires https")
+	}
+
+	if u.Scheme == "https" && !s.ssl {
+		return echo.NewHTTPError(http.StatusBadRequest, "this server does not support https")
+	}
+
+	if u.Path != "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname without path")
+	}
+
+	if u.Query().Encode() != "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname without query")
+	}
+
+	host = u.Host // potentially hostname:port
 
 	banned, err := s.domainIsBanned(ctx, host)
 	if banned {
@@ -124,24 +146,23 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 
 	log.Warnf("TODO: better host validation for crawl requests")
 
-	c := &xrpc.Client{
-		Host:   "https://" + host,
-		Client: http.DefaultClient, // not using the client that auto-retries
-	}
+	clientHost := fmt.Sprintf("%s://%s", u.Scheme, host)
 
-	if !s.ssl {
-		c.Host = "http://" + host
+	c := &xrpc.Client{
+		Host:   clientHost,
+		Client: http.DefaultClient, // not using the client that auto-retries
 	}
 
 	desc, err := atproto.ServerDescribeServer(ctx, c)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "requested host failed to respond to describe request")
+		errMsg := fmt.Sprintf("requested host (%s) failed to respond to describe request", clientHost)
+		return echo.NewHTTPError(http.StatusBadRequest, errMsg)
 	}
 
 	// Maybe we could do something with this response later
 	_ = desc
 
-	return s.slurper.SubscribeToPds(ctx, norm, true)
+	return s.slurper.SubscribeToPds(ctx, host, true)
 }
 
 func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, body *comatprototypes.SyncNotifyOfUpdate_Input) error {
