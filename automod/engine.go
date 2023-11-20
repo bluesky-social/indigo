@@ -51,6 +51,7 @@ func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.
 	evt := IdentityEvent{
 		RepoEvent{
 			Engine:  e,
+			Logger:  e.Logger.With("did", am.Identity.DID),
 			Account: *am,
 		},
 	}
