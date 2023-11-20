@@ -18,6 +18,8 @@ import (
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
@@ -834,6 +836,10 @@ var debugCompareReposCmd = &cli.Command{
 	ArgsUsage: `<did>`,
 	Action: func(cctx *cli.Context) error {
 		ctx := cctx.Context
+		did, err := syntax.ParseAtIdentifier(cctx.Args().First())
+		if err != nil {
+			return err
+		}
 
 		wg := sync.WaitGroup{}
 		wg.Add(2)
@@ -843,6 +849,16 @@ var debugCompareReposCmd = &cli.Command{
 			Client: &http.Client{
 				Timeout: 15 * time.Minute,
 			},
+		}
+
+		if !cctx.IsSet("host-1") {
+			dir := identity.DefaultDirectory()
+			ident, err := dir.Lookup(ctx, *did)
+			if err != nil {
+				return err
+			}
+
+			xrpc1.Host = ident.PDSEndpoint()
 		}
 
 		xrpc2 := xrpc.Client{
@@ -856,7 +872,7 @@ var debugCompareReposCmd = &cli.Command{
 		go func() {
 			defer wg.Done()
 			logger := log.With("host", cctx.String("host-1"))
-			repo1bytes, err := comatproto.SyncGetRepo(ctx, &xrpc1, cctx.Args().First(), "")
+			repo1bytes, err := comatproto.SyncGetRepo(ctx, &xrpc1, did.String(), "")
 			if err != nil {
 				logger.Fatalf("getting repo: %s", err)
 				return
@@ -873,7 +889,7 @@ var debugCompareReposCmd = &cli.Command{
 		go func() {
 			defer wg.Done()
 			logger := log.With("host", cctx.String("host-2"))
-			repo2bytes, err := comatproto.SyncGetRepo(ctx, &xrpc2, cctx.Args().First(), "")
+			repo2bytes, err := comatproto.SyncGetRepo(ctx, &xrpc2, did.String(), "")
 			if err != nil {
 				logger.Fatalf("getting repo: %s", err)
 				return
