@@ -596,23 +596,26 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 	consumerID := bgs.registerConsumer(&consumer)
 	defer bgs.cleanupConsumer(consumerID)
 
-	log.Infow("new consumer",
+	logger := log.With(
+		"consumer_id", consumerID,
 		"remote_addr", consumer.RemoteAddr,
 		"user_agent", consumer.UserAgent,
-		"cursor", since,
-		"consumer_id", consumerID,
 	)
+
+	logger.Infow("new consumer", "cursor", since)
 
 	header := events.EventHeader{Op: events.EvtKindMessage}
 	for {
 		select {
 		case evt, ok := <-evts:
 			if !ok {
+				logger.Error("event stream closed unexpectedly")
 				return nil
 			}
+
 			wc, err := conn.NextWriter(websocket.BinaryMessage)
 			if err != nil {
-				log.Errorf("failed to get next writer: %s", err)
+				logger.Errorf("failed to get next writer: %s", err)
 				return err
 			}
 
@@ -650,7 +653,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			}
 
 			if err := wc.Close(); err != nil {
-				log.Warnf("failed to flush-close our event write: %s", err)
+				logger.Warnf("failed to flush-close our event write: %s", err)
 				return nil
 			}
 
