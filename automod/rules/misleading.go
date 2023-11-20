@@ -3,6 +3,7 @@ package rules
 import (
 	"context"
 	"net/url"
+	"strings"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -20,21 +21,27 @@ func MisleadingURLPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) err
 		if facet.URL != nil {
 			linkURL, err := url.Parse(*facet.URL)
 			if err != nil {
-				evt.Logger.Warn("invalid link metadata URL", "uri", facet.URL)
+				evt.Logger.Warn("invalid link metadata URL", "url", facet.URL)
 				continue
 			}
 
-			// try parsing as a full URL
-			textURL, err := url.Parse(facet.Text)
+			text := strings.TrimSpace(facet.Text)
+			// try to fix any missing method in the text
+			if !strings.Contains(text, "://") {
+				text = "https://" + text
+			}
+
+			// try parsing as a full URL (with whitespace trimmed)
+			textURL, err := url.Parse(text)
 			if err != nil {
-				evt.Logger.Warn("invalid link text URL", "uri", facet.Text)
+				evt.Logger.Warn("invalid link text URL", "url", facet.Text)
 				continue
 			}
 
 			// for now just compare domains to handle the most obvious cases
 			// this public code will obviously get discovered and bypassed. this doesn't earn you any security cred!
-			if linkURL.Host != textURL.Host {
-				evt.Logger.Warn("misleading mismatched domains", "link", linkURL.Host, "text", textURL.Host)
+			if linkURL.Host != textURL.Host && linkURL.Host != "www."+linkURL.Host {
+				evt.Logger.Warn("misleading mismatched domains", "linkHost", linkURL.Host, "textHost", textURL.Host, "text", facet.Text)
 				evt.AddRecordFlag("misleading")
 			}
 		}
