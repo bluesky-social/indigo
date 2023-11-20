@@ -19,8 +19,10 @@ type CounterRef struct {
 	Val  string
 }
 
-// base type for events. events are both containers for data about the event itself (similar to an HTTP request type); aggregate results and state (counters, mod actions) to be persisted after all rules are run; and act as an API for additional network reads and operations.
-type Event struct {
+// base type for events specific to an account, usually derived from a repo event stream message (one such message may result in multiple `RepoEvent`)
+//
+// events are both containers for data about the event itself (similar to an HTTP request type); aggregate results and state (counters, mod actions) to be persisted after all rules are run; and act as an API for additional network reads and operations.
+type RepoEvent struct {
 	Engine            *Engine
 	Err               error
 	Logger            *slog.Logger
@@ -32,7 +34,7 @@ type Event struct {
 	AccountTakedown   bool
 }
 
-func (e *Event) GetCount(name, val, period string) int {
+func (e *RepoEvent) GetCount(name, val, period string) int {
 	v, err := e.Engine.GetCount(name, val, period)
 	if err != nil {
 		e.Err = err
@@ -41,7 +43,7 @@ func (e *Event) GetCount(name, val, period string) int {
 	return v
 }
 
-func (e *Event) InSet(name, val string) bool {
+func (e *RepoEvent) InSet(name, val string) bool {
 	v, err := e.Engine.InSet(name, val)
 	if err != nil {
 		e.Err = err
@@ -50,27 +52,27 @@ func (e *Event) InSet(name, val string) bool {
 	return v
 }
 
-func (e *Event) Increment(name, val string) {
+func (e *RepoEvent) Increment(name, val string) {
 	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val})
 }
 
-func (e *Event) TakedownAccount() {
+func (e *RepoEvent) TakedownAccount() {
 	e.AccountTakedown = true
 }
 
-func (e *Event) AddAccountLabel(val string) {
+func (e *RepoEvent) AddAccountLabel(val string) {
 	e.AccountLabels = append(e.AccountLabels, val)
 }
 
-func (e *Event) AddAccountFlag(val string) {
+func (e *RepoEvent) AddAccountFlag(val string) {
 	e.AccountFlags = append(e.AccountFlags, val)
 }
 
-func (e *Event) ReportAccount(reason, comment string) {
+func (e *RepoEvent) ReportAccount(reason, comment string) {
 	e.AccountReports = append(e.AccountReports, ModReport{ReasonType: reason, Comment: comment})
 }
 
-func (e *Event) PersistAccountActions(ctx context.Context) error {
+func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 	if e.Engine.AdminClient == nil {
 		return nil
 	}
@@ -124,11 +126,11 @@ func (e *Event) PersistAccountActions(ctx context.Context) error {
 	return nil
 }
 
-func (e *Event) PersistActions(ctx context.Context) error {
+func (e *RepoEvent) PersistActions(ctx context.Context) error {
 	return e.PersistAccountActions(ctx)
 }
 
-func (e *Event) PersistCounters(ctx context.Context) error {
+func (e *RepoEvent) PersistCounters(ctx context.Context) error {
 	// TODO: dedupe this array
 	for _, ref := range e.CounterIncrements {
 		err := e.Engine.Counters.Increment(ctx, ref.Name, ref.Val)
@@ -139,7 +141,7 @@ func (e *Event) PersistCounters(ctx context.Context) error {
 	return nil
 }
 
-func (e *Event) CanonicalLogLine() {
+func (e *RepoEvent) CanonicalLogLine() {
 	e.Logger.Info("canonical-event-line",
 		"accountLabels", e.AccountLabels,
 		"accountFlags", e.AccountFlags,
@@ -149,12 +151,13 @@ func (e *Event) CanonicalLogLine() {
 }
 
 type IdentityEvent struct {
-	Event
+	RepoEvent
 }
 
 type RecordEvent struct {
-	Event
+	RepoEvent
 
+	Record         any
 	Collection     string
 	RecordKey      string
 	CID            string
@@ -254,13 +257,7 @@ func (e *RecordEvent) CanonicalLogLine() {
 	)
 }
 
-type PostEvent struct {
-	RecordEvent
-
-	Post *appbsky.FeedPost
-	// TODO: post thread context (root, parent)
-}
-
 type IdentityRuleFunc = func(evt *IdentityEvent) error
 type RecordRuleFunc = func(evt *RecordEvent) error
-type PostRuleFunc = func(evt *PostEvent) error
+type PostRuleFunc = func(evt *RecordEvent, post *appbsky.FeedPost) error
+type ProfileRuleFunc = func(evt *RecordEvent, profile *appbsky.ActorProfile) error

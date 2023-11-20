@@ -12,14 +12,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func simpleRule(evt *PostEvent) error {
-	for _, tag := range evt.Post.Tags {
+func simpleRule(evt *RecordEvent, post *appbsky.FeedPost) error {
+	for _, tag := range post.Tags {
 		if evt.InSet("banned-hashtags", tag) {
 			evt.AddRecordLabel("bad-hashtag")
 			break
 		}
 	}
-	for _, facet := range evt.Post.Facets {
+	for _, facet := range post.Facets {
 		for _, feat := range facet.Features {
 			if feat.RichtextFacet_Tag != nil {
 				tag := feat.RichtextFacet_Tag.Tag

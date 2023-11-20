@@ -26,15 +26,15 @@ func TestBanHashtagPostRule(t *testing.T) {
 	p1 := appbsky.FeedPost{
 		Text: "some post blah",
 	}
-	evt1 := engine.NewPostEvent(am1, path, cid1, &p1)
-	assert.NoError(BanHashtagsPostRule(&evt1))
+	evt1 := engine.NewRecordEvent(am1, path, cid1, &p1)
+	assert.NoError(BanHashtagsPostRule(&evt1, &p1))
 	assert.Empty(evt1.RecordLabels)
 
 	p2 := appbsky.FeedPost{
 		Text: "some post blah",
 		Tags: []string{"one", "slur"},
 	}
-	evt2 := engine.NewPostEvent(am1, path, cid1, &p2)
-	assert.NoError(BanHashtagsPostRule(&evt2))
+	evt2 := engine.NewRecordEvent(am1, path, cid1, &p2)
+	assert.NoError(BanHashtagsPostRule(&evt2, &p2))
 	assert.NotEmpty(evt2.RecordLabels)
 }

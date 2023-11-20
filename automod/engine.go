@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -50,7 +49,7 @@ func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.
 		return err
 	}
 	evt := IdentityEvent{
-		Event{
+		RepoEvent{
 			Engine:  e,
 			Account: *am,
 		},
@@ -83,53 +82,25 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 	if ident == nil {
 		return fmt.Errorf("identity not found for did: %s", did.String())
 	}
-	collection := strings.SplitN(path, "/", 2)[0]
 
-	switch collection {
-	case "app.bsky.feed.post":
-		post, ok := rec.(*appbsky.FeedPost)
-		if !ok {
-			return fmt.Errorf("mismatch between collection (%s) and type", collection)
-		}
-		am, err := e.GetAccountMeta(ctx, ident)
-		if err != nil {
-			return err
-		}
-		evt := e.NewPostEvent(*am, path, recCID, post)
-		e.Logger.Debug("processing post", "did", ident.DID, "path", path)
-		if err := e.Rules.CallPostRules(&evt); err != nil {
-			return err
-		}
-		if evt.Err != nil {
-			return evt.Err
-		}
-		evt.CanonicalLogLine()
-		if err := evt.PersistActions(ctx); err != nil {
-			return err
-		}
-		if err := evt.PersistCounters(ctx); err != nil {
-			return err
-		}
-	default:
-		am, err := e.GetAccountMeta(ctx, ident)
-		if err != nil {
-			return err
-		}
-		evt := e.NewRecordEvent(*am, path, recCID, rec)
-		e.Logger.Debug("processing record", "did", ident.DID, "path", path)
-		if err := e.Rules.CallRecordRules(&evt); err != nil {
-			return err
-		}
-		if evt.Err != nil {
-			return evt.Err
-		}
-		evt.CanonicalLogLine()
-		if err := evt.PersistActions(ctx); err != nil {
-			return err
-		}
-		if err := evt.PersistCounters(ctx); err != nil {
-			return err
-		}
+	am, err := e.GetAccountMeta(ctx, ident)
+	if err != nil {
+		return err
+	}
+	evt := e.NewRecordEvent(*am, path, recCID, rec)
+	e.Logger.Debug("processing record", "did", ident.DID, "path", path)
+	if err := e.Rules.CallRecordRules(&evt); err != nil {
+		return err
+	}
+	if evt.Err != nil {
+		return evt.Err
+	}
+	evt.CanonicalLogLine()
+	if err := evt.PersistActions(ctx); err != nil {
+		return err
+	}
+	if err := evt.PersistCounters(ctx); err != nil {
+		return err
 	}
 
 	return nil
@@ -162,35 +133,15 @@ func (e *Engine) FetchAndProcessRecord(ctx context.Context, uri string) error {
 	return e.ProcessRecord(ctx, ident.DID, aturi.Path(), *out.Cid, out.Value.Val)
 }
 
-func (e *Engine) NewPostEvent(am AccountMeta, path, recCID string, post *appbsky.FeedPost) PostEvent {
-	parts := strings.SplitN(path, "/", 2)
-	return PostEvent{
-		RecordEvent{
-			Event{
-				Engine:  e,
-				Logger:  e.Logger.With("did", am.Identity.DID, "collection", parts[0], "rkey", parts[1]),
-				Account: am,
-			},
-			parts[0],
-			parts[1],
-			recCID,
-			[]string{},
-			false,
-			[]ModReport{},
-			[]string{},
-		},
-		post,
-	}
-}
-
 func (e *Engine) NewRecordEvent(am AccountMeta, path, recCID string, rec any) RecordEvent {
 	parts := strings.SplitN(path, "/", 2)
 	return RecordEvent{
-		Event{
+		RepoEvent{
 			Engine:  e,
 			Logger:  e.Logger.With("did", am.Identity.DID, "collection", parts[0], "rkey", parts[1]),
 			Account: am,
 		},
+		rec,
 		parts[0],
 		parts[1],
 		recCID,

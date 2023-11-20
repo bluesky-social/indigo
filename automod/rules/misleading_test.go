@@ -41,8 +41,8 @@ func TestMisleadingURLPostRule(t *testing.T) {
 			},
 		},
 	}
-	evt1 := engine.NewPostEvent(am1, path, cid1, &p1)
-	assert.NoError(MisleadingURLPostRule(&evt1))
+	evt1 := engine.NewRecordEvent(am1, path, cid1, &p1)
+	assert.NoError(MisleadingURLPostRule(&evt1, &p1))
 	assert.NotEmpty(evt1.RecordLabels)
 }
 
@@ -76,7 +76,7 @@ func TestMisleadingMentionPostRule(t *testing.T) {
 			},
 		},
 	}
-	evt1 := engine.NewPostEvent(am1, path, cid1, &p1)
-	assert.NoError(MisleadingMentionPostRule(&evt1))
+	evt1 := engine.NewRecordEvent(am1, path, cid1, &p1)
+	assert.NoError(MisleadingMentionPostRule(&evt1, &p1))
 	assert.NotEmpty(evt1.RecordLabels)
 }
