@@ -163,7 +163,7 @@ func (rm *RepoManager) CreateRecord(ctx context.Context, user models.Uid, collec
 
 	head := ds.BaseCid()
 
-	r, err := repo.OpenRepo(ctx, ds, head, true)
+	r, err := repo.OpenRepo(ctx, ds, head)
 	if err != nil {
 		return "", cid.Undef, err
 	}
@@ -227,7 +227,7 @@ func (rm *RepoManager) UpdateRecord(ctx context.Context, user models.Uid, collec
 	}
 
 	head := ds.BaseCid()
-	r, err := repo.OpenRepo(ctx, ds, head, true)
+	r, err := repo.OpenRepo(ctx, ds, head)
 	if err != nil {
 		return cid.Undef, err
 	}
@@ -297,7 +297,7 @@ func (rm *RepoManager) DeleteRecord(ctx context.Context, user models.Uid, collec
 	}
 
 	head := ds.BaseCid()
-	r, err := repo.OpenRepo(ctx, ds, head, true)
+	r, err := repo.OpenRepo(ctx, ds, head)
 	if err != nil {
 		return err
 	}
@@ -432,7 +432,7 @@ func (rm *RepoManager) GetRecord(ctx context.Context, user models.Uid, collectio
 		return cid.Undef, nil, err
 	}
 
-	r, err := repo.OpenRepo(ctx, bs, head, true)
+	r, err := repo.OpenRepo(ctx, bs, head)
 	if err != nil {
 		return cid.Undef, nil, err
 	}
@@ -462,7 +462,7 @@ func (rm *RepoManager) GetRecordProof(ctx context.Context, user models.Uid, coll
 		return cid.Undef, nil, err
 	}
 
-	r, err := repo.OpenRepo(ctx, bs, head, true)
+	r, err := repo.OpenRepo(ctx, bs, head)
 	if err != nil {
 		return cid.Undef, nil, err
 	}
@@ -486,7 +486,7 @@ func (rm *RepoManager) GetProfile(ctx context.Context, uid models.Uid) (*bsky.Ac
 		return nil, err
 	}
 
-	r, err := repo.OpenRepo(ctx, bs, head, true)
+	r, err := repo.OpenRepo(ctx, bs, head)
 	if err != nil {
 		return nil, err
 	}
@@ -543,13 +543,35 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		return fmt.Errorf("importing external carslice: %w", err)
 	}
 
-	r, err := repo.OpenRepo(ctx, ds, root, true)
+	r, err := repo.OpenRepo(ctx, ds, root)
 	if err != nil {
 		return fmt.Errorf("opening external user repo (%d, root=%s): %w", uid, root, err)
 	}
 
 	if err := rm.CheckRepoSig(ctx, r, did); err != nil {
 		return err
+	}
+
+	var badPrev bool
+	if ds.BaseCid().Defined() {
+		oldrepo, err := repo.OpenRepo(ctx, ds, ds.BaseCid())
+		if err != nil {
+			return fmt.Errorf("failed to check data root in old repo: %w", err)
+		}
+
+		// if the old commit has a 'prev', CalcDiff will error out while trying
+		// to walk it. This is an old repo thing that is being deprecated.
+		// This check is a temporary workaround until all repos get migrated
+		// and this becomes no longer an issue
+		prev, _ := oldrepo.PrevCommit(ctx)
+		if prev != nil {
+			badPrev = true
+		}
+	}
+
+	if err := ds.CalcDiff(ctx, badPrev); err != nil {
+		return fmt.Errorf("failed while calculating mst diff (since=%v): %w", since, err)
+
 	}
 
 	var evtops []RepoOp
@@ -650,7 +672,7 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user models.Uid, writes [
 	}
 
 	head := ds.BaseCid()
-	r, err := repo.OpenRepo(ctx, ds, head, true)
+	r, err := repo.OpenRepo(ctx, ds, head)
 	if err != nil {
 		return err
 	}
@@ -781,7 +803,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 	}
 
 	err = rm.processNewRepo(ctx, user, r, rev, func(ctx context.Context, root cid.Cid, finish func(context.Context, string) ([]byte, error), bs blockstore.Blockstore) error {
-		r, err := repo.OpenRepo(ctx, bs, root, true)
+		r, err := repo.OpenRepo(ctx, bs, root)
 		if err != nil {
 			return fmt.Errorf("opening new repo: %w", err)
 		}
