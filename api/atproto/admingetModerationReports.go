@@ -18,9 +18,9 @@ type AdminGetModerationReports_Output struct {
 
 // AdminGetModerationReports calls the XRPC method "com.atproto.admin.getModerationReports".
 //
-// actionedBy: Get all reports that were actioned by a specific moderator
-// reporters: Filter reports made by one or more DIDs
-// reverse: Reverse the order of the returned records? when true, returns reports in chronological order
+// actionedBy: Get all reports that were actioned by a specific moderator.
+// reporters: Filter reports made by one or more DIDs.
+// reverse: Reverse the order of the returned records. When true, returns reports in chronological order.
 func AdminGetModerationReports(ctx context.Context, c *xrpc.Client, actionType string, actionedBy string, cursor string, ignoreSubjects []string, limit int64, reporters []string, resolved bool, reverse bool, subject string) (*AdminGetModerationReports_Output, error) {
 	var out AdminGetModerationReports_Output
 

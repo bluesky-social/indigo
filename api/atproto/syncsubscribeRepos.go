@@ -11,17 +11,17 @@ import (
 // SyncSubscribeRepos_Commit is a "commit" in the com.atproto.sync.subscribeRepos schema.
 type SyncSubscribeRepos_Commit struct {
 	Blobs []util.LexLink `json:"blobs" cborgen:"blobs"`
-	// blocks: CAR file containing relevant blocks
+	// blocks: CAR file containing relevant blocks.
 	Blocks util.LexBytes                `json:"blocks,omitempty" cborgen:"blocks,omitempty"`
 	Commit util.LexLink                 `json:"commit" cborgen:"commit"`
 	Ops    []*SyncSubscribeRepos_RepoOp `json:"ops" cborgen:"ops"`
 	Prev   *util.LexLink                `json:"prev" cborgen:"prev"`
 	Rebase bool                         `json:"rebase" cborgen:"rebase"`
 	Repo   string                       `json:"repo" cborgen:"repo"`
-	// rev: The rev of the emitted commit
+	// rev: The rev of the emitted commit.
 	Rev string `json:"rev" cborgen:"rev"`
 	Seq int64  `json:"seq" cborgen:"seq"`
-	// since: The rev of the last emitted commit from this repo
+	// since: The rev of the last emitted commit from this repo.
 	Since  *string `json:"since" cborgen:"since"`
 	Time   string  `json:"time" cborgen:"time"`
 	TooBig bool    `json:"tooBig" cborgen:"tooBig"`
@@ -51,7 +51,7 @@ type SyncSubscribeRepos_Migrate struct {
 
 // SyncSubscribeRepos_RepoOp is a "repoOp" in the com.atproto.sync.subscribeRepos schema.
 //
-// A repo operation, ie a write of a single record. For creates and updates, cid is the record's CID as of this operation. For deletes, it's null.
+// A repo operation, ie a write of a single record. For creates and updates, CID is the record's CID as of this operation. For deletes, it's null.
 type SyncSubscribeRepos_RepoOp struct {
 	Action string        `json:"action" cborgen:"action"`
 	Cid    *util.LexLink `json:"cid" cborgen:"cid"`

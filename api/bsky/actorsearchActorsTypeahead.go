@@ -17,8 +17,8 @@ type ActorSearchActorsTypeahead_Output struct {
 
 // ActorSearchActorsTypeahead calls the XRPC method "app.bsky.actor.searchActorsTypeahead".
 //
-// q: search query prefix; not a full query string
-// term: DEPRECATED: use 'q' instead
+// q: Search query prefix; not a full query string.
+// term: DEPRECATED: use 'q' instead.
 func ActorSearchActorsTypeahead(ctx context.Context, c *xrpc.Client, limit int64, q string, term string) (*ActorSearchActorsTypeahead_Output, error) {
 	var out ActorSearchActorsTypeahead_Output
 

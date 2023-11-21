@@ -41,7 +41,7 @@ type RepoApplyWrites_Input struct {
 	// repo: The handle or DID of the repo.
 	Repo       string  `json:"repo" cborgen:"repo"`
 	SwapCommit *string `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
-	// validate: Validate the records?
+	// validate: Flag for validating the records.
 	Validate *bool                                `json:"validate,omitempty" cborgen:"validate,omitempty"`
 	Writes   []*RepoApplyWrites_Input_Writes_Elem `json:"writes" cborgen:"writes"`
 }
