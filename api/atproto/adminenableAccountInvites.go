@@ -13,7 +13,7 @@ import (
 // AdminEnableAccountInvites_Input is the input argument to a com.atproto.admin.enableAccountInvites call.
 type AdminEnableAccountInvites_Input struct {
 	Account string `json:"account" cborgen:"account"`
-	// note: Additionally add a note describing why the invites were enabled
+	// note: Optional reason for enabled invites.
 	Note *string `json:"note,omitempty" cborgen:"note,omitempty"`
 }
 

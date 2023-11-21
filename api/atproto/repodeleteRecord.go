@@ -18,9 +18,9 @@ type RepoDeleteRecord_Input struct {
 	Repo string `json:"repo" cborgen:"repo"`
 	// rkey: The key of the record.
 	Rkey string `json:"rkey" cborgen:"rkey"`
-	// swapCommit: Compare and swap with the previous commit by cid.
+	// swapCommit: Compare and swap with the previous commit by CID.
 	SwapCommit *string `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
-	// swapRecord: Compare and swap with the previous record by cid.
+	// swapRecord: Compare and swap with the previous record by CID.
 	SwapRecord *string `json:"swapRecord,omitempty" cborgen:"swapRecord,omitempty"`
 }
 

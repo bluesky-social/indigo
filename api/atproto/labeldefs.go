@@ -6,27 +6,27 @@ package atproto
 
 // LabelDefs_Label is a "label" in the com.atproto.label.defs schema.
 //
-// Metadata tag on an atproto resource (eg, repo or record)
+// Metadata tag on an atproto resource (eg, repo or record).
 type LabelDefs_Label struct {
-	// cid: optionally, CID specifying the specific version of 'uri' resource this label applies to
+	// cid: Optionally, CID specifying the specific version of 'uri' resource this label applies to.
 	Cid *string `json:"cid,omitempty" cborgen:"cid,omitempty"`
-	// cts: timestamp when this label was created
+	// cts: Timestamp when this label was created.
 	Cts string `json:"cts" cborgen:"cts"`
-	// neg: if true, this is a negation label, overwriting a previous label
+	// neg: If true, this is a negation label, overwriting a previous label.
 	Neg *bool `json:"neg,omitempty" cborgen:"neg,omitempty"`
-	// src: DID of the actor who created this label
+	// src: DID of the actor who created this label.
 	Src string `json:"src" cborgen:"src"`
-	// uri: AT URI of the record, repository (account), or other resource which this label applies to
+	// uri: AT URI of the record, repository (account), or other resource that this label applies to.
 	Uri string `json:"uri" cborgen:"uri"`
-	// val: the short string name of the value or type of this label
+	// val: The short string name of the value or type of this label.
 	Val string `json:"val" cborgen:"val"`
 }
 
 // LabelDefs_SelfLabel is a "selfLabel" in the com.atproto.label.defs schema.
 //
-// Metadata tag on an atproto record, published by the author within the record. Note -- schemas should use #selfLabels, not #selfLabel.
+// Metadata tag on an atproto record, published by the author within the record. Note that schemas should use #selfLabels, not #selfLabel.
 type LabelDefs_SelfLabel struct {
-	// val: the short string name of the value or type of this label
+	// val: The short string name of the value or type of this label.
 	Val string `json:"val" cborgen:"val"`
 }
 

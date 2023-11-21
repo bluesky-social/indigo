@@ -29,7 +29,7 @@ type RepoListRecords_Record struct {
 // collection: The NSID of the record type.
 // limit: The number of records to return.
 // repo: The handle or DID of the repo.
-// reverse: Reverse the order of the returned records?
+// reverse: Flag to reverse the order of the returned records.
 // rkeyEnd: DEPRECATED: The highest sort-ordered rkey to stop at (exclusive)
 // rkeyStart: DEPRECATED: The lowest sort-ordered rkey to start from (exclusive)
 func RepoListRecords(ctx context.Context, c *xrpc.Client, collection string, cursor string, limit int64, repo string, reverse bool, rkeyEnd string, rkeyStart string) (*RepoListRecords_Output, error) {

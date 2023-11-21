@@ -53,7 +53,7 @@ type ActorDefs_FeedViewPref struct {
 // RECORDTYPE: ActorDefs_PersonalDetailsPref
 type ActorDefs_PersonalDetailsPref struct {
 	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs#personalDetailsPref" cborgen:"$type,const=app.bsky.actor.defs#personalDetailsPref"`
-	// birthDate: The birth date of the owner of the account.
+	// birthDate: The birth date of account owner.
 	BirthDate *string `json:"birthDate,omitempty" cborgen:"birthDate,omitempty"`
 }
 
@@ -178,7 +178,7 @@ type ActorDefs_ThreadViewPref struct {
 	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs#threadViewPref" cborgen:"$type,const=app.bsky.actor.defs#threadViewPref"`
 	// prioritizeFollowedUsers: Show followed users at the top of all replies.
 	PrioritizeFollowedUsers *bool `json:"prioritizeFollowedUsers,omitempty" cborgen:"prioritizeFollowedUsers,omitempty"`
-	// sort: Sorting mode.
+	// sort: Sorting mode for threads.
 	Sort *string `json:"sort,omitempty" cborgen:"sort,omitempty"`
 }
 

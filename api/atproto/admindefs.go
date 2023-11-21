@@ -37,7 +37,7 @@ type AdminDefs_ActionView struct {
 	CreateLabelVals []string `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
 	CreatedAt       string   `json:"createdAt" cborgen:"createdAt"`
 	CreatedBy       string   `json:"createdBy" cborgen:"createdBy"`
-	// durationInHours: Indicates how long this action was meant to be in effect before automatically expiring.
+	// durationInHours: Indicates how long this action is meant to be in effect before automatically expiring.
 	DurationInHours   *int64                        `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
 	Id                int64                         `json:"id" cborgen:"id"`
 	NegateLabelVals   []string                      `json:"negateLabelVals,omitempty" cborgen:"negateLabelVals,omitempty"`
@@ -51,7 +51,7 @@ type AdminDefs_ActionView struct {
 // AdminDefs_ActionViewCurrent is a "actionViewCurrent" in the com.atproto.admin.defs schema.
 type AdminDefs_ActionViewCurrent struct {
 	Action *string `json:"action" cborgen:"action"`
-	// durationInHours: Indicates how long this action was meant to be in effect before automatically expiring.
+	// durationInHours: Indicates how long this action is meant to be in effect before automatically expiring.
 	DurationInHours *int64 `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
 	Id              int64  `json:"id" cborgen:"id"`
 }
@@ -62,7 +62,7 @@ type AdminDefs_ActionViewDetail struct {
 	CreateLabelVals []string `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
 	CreatedAt       string   `json:"createdAt" cborgen:"createdAt"`
 	CreatedBy       string   `json:"createdBy" cborgen:"createdBy"`
-	// durationInHours: Indicates how long this action was meant to be in effect before automatically expiring.
+	// durationInHours: Indicates how long this action is meant to be in effect before automatically expiring.
 	DurationInHours *int64                              `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
 	Id              int64                               `json:"id" cborgen:"id"`
 	NegateLabelVals []string                            `json:"negateLabelVals,omitempty" cborgen:"negateLabelVals,omitempty"`
