@@ -21,9 +21,9 @@ type RepoCreateRecord_Input struct {
 	Repo string `json:"repo" cborgen:"repo"`
 	// rkey: The key of the record.
 	Rkey *string `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
-	// swapCommit: Compare and swap with the previous commit by cid.
+	// swapCommit: Compare and swap with the previous commit by CID.
 	SwapCommit *string `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
-	// validate: Validate the record?
+	// validate: Flag for validating the record.
 	Validate *bool `json:"validate,omitempty" cborgen:"validate,omitempty"`
 }
 

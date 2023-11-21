@@ -13,15 +13,15 @@ import (
 // FeedSearchPosts_Output is the output of a app.bsky.feed.searchPosts call.
 type FeedSearchPosts_Output struct {
 	Cursor *string `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
-	// hitsTotal: count of search hits. optional, may be rounded/truncated, and may not be possible to paginate through all hits
+	// hitsTotal: Count of search hits. Optional, may be rounded/truncated, and may not be possible to paginate through all hits.
 	HitsTotal *int64               `json:"hitsTotal,omitempty" cborgen:"hitsTotal,omitempty"`
 	Posts     []*FeedDefs_PostView `json:"posts" cborgen:"posts"`
 }
 
 // FeedSearchPosts calls the XRPC method "app.bsky.feed.searchPosts".
 //
-// cursor: optional pagination mechanism; may not necessarily allow scrolling through entire result set
-// q: search query string; syntax, phrase, boolean, and faceting is unspecified, but Lucene query syntax is recommended
+// cursor: Optional pagination mechanism; may not necessarily allow scrolling through entire result set.
+// q: Search query string; syntax, phrase, boolean, and faceting is unspecified, but Lucene query syntax is recommended.
 func FeedSearchPosts(ctx context.Context, c *xrpc.Client, cursor string, limit int64, q string) (*FeedSearchPosts_Output, error) {
 	var out FeedSearchPosts_Output
 

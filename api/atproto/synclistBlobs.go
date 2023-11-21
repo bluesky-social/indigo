@@ -19,7 +19,7 @@ type SyncListBlobs_Output struct {
 // SyncListBlobs calls the XRPC method "com.atproto.sync.listBlobs".
 //
 // did: The DID of the repo.
-// since: Optional revision of the repo to list blobs since
+// since: Optional revision of the repo to list blobs since.
 func SyncListBlobs(ctx context.Context, c *xrpc.Client, cursor string, did string, limit int64, since string) (*SyncListBlobs_Output, error) {
 	var out SyncListBlobs_Output
 

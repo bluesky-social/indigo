@@ -18,7 +18,7 @@ type AdminTakeModerationAction_Input struct {
 	Action          string   `json:"action" cborgen:"action"`
 	CreateLabelVals []string `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
 	CreatedBy       string   `json:"createdBy" cborgen:"createdBy"`
-	// durationInHours: Indicates how long this action was meant to be in effect before automatically expiring.
+	// durationInHours: Indicates how long this action is meant to be in effect before automatically expiring.
 	DurationInHours *int64                                   `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
 	NegateLabelVals []string                                 `json:"negateLabelVals,omitempty" cborgen:"negateLabelVals,omitempty"`
 	Reason          string                                   `json:"reason" cborgen:"reason"`
