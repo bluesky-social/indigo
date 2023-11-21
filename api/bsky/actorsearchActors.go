@@ -18,8 +18,8 @@ type ActorSearchActors_Output struct {
 
 // ActorSearchActors calls the XRPC method "app.bsky.actor.searchActors".
 //
-// q: search query string; syntax, phrase, boolean, and faceting is unspecified, but Lucene query syntax is recommended
-// term: DEPRECATED: use 'q' instead
+// q: Search query string. Syntax, phrase, boolean, and faceting is unspecified, but Lucene query syntax is recommended.
+// term: DEPRECATED: use 'q' instead.
 func ActorSearchActors(ctx context.Context, c *xrpc.Client, cursor string, limit int64, q string, term string) (*ActorSearchActors_Output, error) {
 	var out ActorSearchActors_Output
 

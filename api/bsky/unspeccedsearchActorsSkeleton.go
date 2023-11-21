@@ -14,15 +14,15 @@ import (
 type UnspeccedSearchActorsSkeleton_Output struct {
 	Actors []*UnspeccedDefs_SkeletonSearchActor `json:"actors" cborgen:"actors"`
 	Cursor *string                              `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
-	// hitsTotal: count of search hits. optional, may be rounded/truncated, and may not be possible to paginate through all hits
+	// hitsTotal: Count of search hits. Optional, may be rounded/truncated, and may not be possible to paginate through all hits.
 	HitsTotal *int64 `json:"hitsTotal,omitempty" cborgen:"hitsTotal,omitempty"`
 }
 
 // UnspeccedSearchActorsSkeleton calls the XRPC method "app.bsky.unspecced.searchActorsSkeleton".
 //
-// cursor: optional pagination mechanism; may not necessarily allow scrolling through entire result set
-// q: search query string; syntax, phrase, boolean, and faceting is unspecified, but Lucene query syntax is recommended. For typeahead search, only simple term match is supported, not full syntax
-// typeahead: if true, acts as fast/simple 'typeahead' query
+// cursor: Optional pagination mechanism; may not necessarily allow scrolling through entire result set.
+// q: Search query string; syntax, phrase, boolean, and faceting is unspecified, but Lucene query syntax is recommended. For typeahead search, only simple term match is supported, not full syntax.
+// typeahead: If true, acts as fast/simple 'typeahead' query.
 func UnspeccedSearchActorsSkeleton(ctx context.Context, c *xrpc.Client, cursor string, limit int64, q string, typeahead bool) (*UnspeccedSearchActorsSkeleton_Output, error) {
 	var out UnspeccedSearchActorsSkeleton_Output
 
