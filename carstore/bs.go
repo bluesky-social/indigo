@@ -861,7 +861,7 @@ func setToSlice(s map[cid.Cid]bool) []cid.Cid {
 	return out
 }
 
-func BlockDiff(ctx context.Context, bs blockstore.Blockstore, oldroot cid.Cid, newcids map[cid.Cid]blockformat.Block, skipmissing bool) (map[cid.Cid]bool, error) {
+func BlockDiff(ctx context.Context, bs blockstore.Blockstore, oldroot cid.Cid, newcids map[cid.Cid]blockformat.Block, skipcids map[cid.Cid]bool) (map[cid.Cid]bool, error) {
 	ctx, span := otel.Tracer("repo").Start(ctx, "BlockDiff")
 	defer span.End()
 
@@ -899,13 +899,13 @@ func BlockDiff(ctx context.Context, bs blockstore.Blockstore, oldroot cid.Cid, n
 		c := queue[0]
 		queue = queue[1:]
 
+		if skipcids != nil && skipcids[c] {
+			continue
+		}
+
 		oblk, err := bs.Get(ctx, c)
 		if err != nil {
-			if skipmissing && ipld.IsNotFound(err) {
-				log.Warnw("missing block in old tree", "root", oldroot, "missing", c)
-			} else {
-				return nil, fmt.Errorf("get failed in old tree: %w", err)
-			}
+			return nil, fmt.Errorf("get failed in old tree: %w", err)
 		}
 
 		if err := cbg.ScanForLinks(bytes.NewReader(oblk.RawData()), func(lnk cid.Cid) {
@@ -963,8 +963,8 @@ func (cs *CarStore) ImportSlice(ctx context.Context, uid models.Uid, since *stri
 	return carr.Header.Roots[0], ds, nil
 }
 
-func (ds *DeltaSession) CalcDiff(ctx context.Context, skipmissing bool) error {
-	rmcids, err := BlockDiff(ctx, ds, ds.baseCid, ds.blks, skipmissing)
+func (ds *DeltaSession) CalcDiff(ctx context.Context, skipcids map[cid.Cid]bool) error {
+	rmcids, err := BlockDiff(ctx, ds, ds.baseCid, ds.blks, skipcids)
 	if err != nil {
 		return fmt.Errorf("block diff failed (base=%s,rev=%s): %w", ds.baseCid, ds.lastRev, err)
 	}

@@ -552,7 +552,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		return err
 	}
 
-	var badPrev bool
+	var skipcids map[cid.Cid]bool
 	if ds.BaseCid().Defined() {
 		oldrepo, err := repo.OpenRepo(ctx, ds, ds.BaseCid())
 		if err != nil {
@@ -565,11 +565,13 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		// and this becomes no longer an issue
 		prev, _ := oldrepo.PrevCommit(ctx)
 		if prev != nil {
-			badPrev = true
+			skipcids = map[cid.Cid]bool{
+				*prev: true,
+			}
 		}
 	}
 
-	if err := ds.CalcDiff(ctx, badPrev); err != nil {
+	if err := ds.CalcDiff(ctx, skipcids); err != nil {
 		return fmt.Errorf("failed while calculating mst diff (since=%v): %w", since, err)
 
 	}
