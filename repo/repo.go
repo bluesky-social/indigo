@@ -107,7 +107,7 @@ func ReadRepoFromCar(ctx context.Context, r io.Reader) (*Repo, error) {
 		return nil, err
 	}
 
-	return OpenRepo(ctx, bs, root, false)
+	return OpenRepo(ctx, bs, root)
 }
 
 func NewRepo(ctx context.Context, did string, bs blockstore.Blockstore) *Repo {
@@ -128,7 +128,7 @@ func NewRepo(ctx context.Context, did string, bs blockstore.Blockstore) *Repo {
 	}
 }
 
-func OpenRepo(ctx context.Context, bs blockstore.Blockstore, root cid.Cid, fullRepo bool) (*Repo, error) {
+func OpenRepo(ctx context.Context, bs blockstore.Blockstore, root cid.Cid) (*Repo, error) {
 	cst := util.CborStore(bs)
 
 	var sc SignedCommit
@@ -363,7 +363,7 @@ func (r *Repo) DiffSince(ctx context.Context, oldrepo cid.Cid) ([]*mst.DiffOp, e
 
 	var oldTree cid.Cid
 	if oldrepo.Defined() {
-		otherRepo, err := OpenRepo(ctx, r.bs, oldrepo, true)
+		otherRepo, err := OpenRepo(ctx, r.bs, oldrepo)
 		if err != nil {
 			return nil, err
 		}

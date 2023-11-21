@@ -363,7 +363,7 @@ func unpackRecords(blks []byte, ops []*atproto.SyncSubscribeRepos_RepoOp) ([]any
 		}
 	}
 
-	r, err := repo.OpenRepo(ctx, bstore, carr.Header.Roots[0], false)
+	r, err := repo.OpenRepo(ctx, bstore, carr.Header.Roots[0])
 	if err != nil {
 		return nil, err
 	}

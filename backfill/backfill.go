@@ -342,11 +342,13 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 	// Producer routine
 	go func() {
 		defer close(recordQueue)
-		r.ForEach(ctx, b.NSIDFilter, func(recordPath string, nodeCid cid.Cid) error {
+		if err := r.ForEach(ctx, b.NSIDFilter, func(recordPath string, nodeCid cid.Cid) error {
 			numRecords++
 			recordQueue <- recordQueueItem{recordPath: recordPath, nodeCid: nodeCid}
 			return nil
-		})
+		}); err != nil {
+			log.Error("failed to iterated records in repo", "err", err)
+		}
 	}()
 
 	// Consumer routines
