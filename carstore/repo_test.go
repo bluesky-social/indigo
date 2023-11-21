@@ -125,7 +125,7 @@ func TestBasicOperation(t *testing.T) {
 
 		rev = nrev
 
-		if err := ds.CalcDiff(ctx, false); err != nil {
+		if err := ds.CalcDiff(ctx, nil); err != nil {
 			t.Fatal(err)
 		}
 
@@ -217,7 +217,7 @@ func TestRepeatedCompactions(t *testing.T) {
 
 			rev = nrev
 
-			if err := ds.CalcDiff(ctx, false); err != nil {
+			if err := ds.CalcDiff(ctx, nil); err != nil {
 				t.Fatal(err)
 			}
 
@@ -356,7 +356,7 @@ func BenchmarkRepoWritesCarstore(b *testing.B) {
 		}
 
 		rev = nrev
-		if err := ds.CalcDiff(ctx, false); err != nil {
+		if err := ds.CalcDiff(ctx, nil); err != nil {
 			b.Fatal(err)
 		}
 
