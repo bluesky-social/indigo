@@ -14,6 +14,7 @@ import (
 type AdminSendEmail_Input struct {
 	Content      string  `json:"content" cborgen:"content"`
 	RecipientDid string  `json:"recipientDid" cborgen:"recipientDid"`
+	SenderDid    string  `json:"senderDid" cborgen:"senderDid"`
 	Subject      *string `json:"subject,omitempty" cborgen:"subject,omitempty"`
 }
 
