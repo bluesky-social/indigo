@@ -33,7 +33,7 @@ func TestVerification(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r, err := repo.OpenRepo(ctx, bs, c, true)
+	r, err := repo.OpenRepo(ctx, bs, c)
 	if err != nil {
 		t.Fatal(err)
 	}
