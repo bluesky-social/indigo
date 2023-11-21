@@ -103,7 +103,7 @@ func TestBasicOperation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		rr, err := repo.OpenRepo(ctx, ds, head, true)
+		rr, err := repo.OpenRepo(ctx, ds, head)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -125,7 +125,7 @@ func TestBasicOperation(t *testing.T) {
 
 		rev = nrev
 
-		if err := ds.CalcDiff(ctx, nroot); err != nil {
+		if err := ds.CalcDiff(ctx, nil); err != nil {
 			t.Fatal(err)
 		}
 
@@ -188,7 +188,7 @@ func TestRepeatedCompactions(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			rr, err := repo.OpenRepo(ctx, ds, head, true)
+			rr, err := repo.OpenRepo(ctx, ds, head)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -217,7 +217,7 @@ func TestRepeatedCompactions(t *testing.T) {
 
 			rev = nrev
 
-			if err := ds.CalcDiff(ctx, nroot); err != nil {
+			if err := ds.CalcDiff(ctx, nil); err != nil {
 				t.Fatal(err)
 			}
 
@@ -338,7 +338,7 @@ func BenchmarkRepoWritesCarstore(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		rr, err := repo.OpenRepo(ctx, ds, head, true)
+		rr, err := repo.OpenRepo(ctx, ds, head)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -356,7 +356,7 @@ func BenchmarkRepoWritesCarstore(b *testing.B) {
 		}
 
 		rev = nrev
-		if err := ds.CalcDiff(ctx, nroot); err != nil {
+		if err := ds.CalcDiff(ctx, nil); err != nil {
 			b.Fatal(err)
 		}
 
@@ -386,7 +386,7 @@ func BenchmarkRepoWritesFlatfs(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 
-		rr, err := repo.OpenRepo(ctx, bs, head, true)
+		rr, err := repo.OpenRepo(ctx, bs, head)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -424,7 +424,7 @@ func BenchmarkRepoWritesSqlite(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 
-		rr, err := repo.OpenRepo(ctx, bs, head, true)
+		rr, err := repo.OpenRepo(ctx, bs, head)
 		if err != nil {
 			b.Fatal(err)
 		}
