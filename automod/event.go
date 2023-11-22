@@ -78,13 +78,13 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 	}
 	xrpcc := e.Engine.AdminClient
 	if len(e.AccountLabels) > 0 {
+		comment := "automod"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
 				AdminDefs_ModEventLabel: &comatproto.AdminDefs_ModEventLabel{
 					CreateLabelVals: dedupeStrings(e.AccountLabels),
-					// TODO: waiting for schema update
-					//Comment: "automod",
+					Comment:         &comment,
 				},
 			},
 			Subject: &comatproto.AdminEmitModerationEvent_Input_Subject{
@@ -113,12 +113,12 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		}
 	}
 	if e.AccountTakedown {
+		comment := "automod"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
 				AdminDefs_ModEventTakedown: &comatproto.AdminDefs_ModEventTakedown{
-					// TODO: waiting for schema update
-					//Comment:    "automod",
+					Comment: &comment,
 				},
 			},
 			Subject: &comatproto.AdminEmitModerationEvent_Input_Subject{
@@ -202,13 +202,13 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 	}
 	xrpcc := e.Engine.AdminClient
 	if len(e.RecordLabels) > 0 {
+		comment := "automod"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
 				AdminDefs_ModEventLabel: &comatproto.AdminDefs_ModEventLabel{
 					CreateLabelVals: dedupeStrings(e.RecordLabels),
-					// TODO: waiting for schema update
-					//Comment: "automod",
+					Comment:         &comment,
 				},
 			},
 			Subject: &comatproto.AdminEmitModerationEvent_Input_Subject{
@@ -233,12 +233,12 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 		}
 	}
 	if e.RecordTakedown {
+		comment := "automod"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
 				AdminDefs_ModEventTakedown: &comatproto.AdminDefs_ModEventTakedown{
-					// TODO: waiting for schema update
-					//Comment:    "automod",
+					Comment: &comment,
 				},
 			},
 			Subject: &comatproto.AdminEmitModerationEvent_Input_Subject{

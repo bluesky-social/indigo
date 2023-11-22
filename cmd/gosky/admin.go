@@ -618,12 +618,12 @@ var takeDownAccountCmd = &cli.Command{
 				adminUser = resp
 			}
 
-			// TODO: reason can't be included under current schema, but may be possible soon
-			_ = reason
 			resp, err := atproto.AdminEmitModerationEvent(ctx, xrpcc, &atproto.AdminEmitModerationEvent_Input{
 				CreatedBy: adminUser,
 				Event: &atproto.AdminEmitModerationEvent_Input_Event{
-					AdminDefs_ModEventTakedown: &atproto.AdminDefs_ModEventTakedown{},
+					AdminDefs_ModEventTakedown: &atproto.AdminDefs_ModEventTakedown{
+						Comment: &reason,
+					},
 				},
 				Subject: &atproto.AdminEmitModerationEvent_Input_Subject{
 					AdminDefs_RepoRef: &atproto.AdminDefs_RepoRef{
