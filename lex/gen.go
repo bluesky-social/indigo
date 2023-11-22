@@ -58,6 +58,7 @@ type TypeSchema struct {
 	needsType bool
 
 	Type        string      `json:"type"`
+	Format      string      `json:"format,omitempty"`
 	Key         string      `json:"key"`
 	Description string      `json:"description"`
 	Parameters  *TypeSchema `json:"parameters"`
@@ -324,6 +325,7 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 	pf("\tcbg \"github.com/whyrusleeping/cbor-gen\"\n")
 	pf("\t\"github.com/bluesky-social/indigo/xrpc\"\n")
 	pf("\t\"github.com/bluesky-social/indigo/lex/util\"\n")
+	pf("\t\"github.com/bluesky-social/indigo/atproto/syntax\"\n")
 	for k, v := range imports {
 		if k != prefix {
 			pf("\t%s %q\n", importNameForPrefix(k), v)
@@ -1100,7 +1102,33 @@ func (s *TypeSchema) TypeName() string {
 func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, error) {
 	switch v.Type {
 	case "string":
-		return "string", nil
+		switch v.Format {
+		case "at-identifier":
+			return "syntax.AtIdentifier", nil
+		case "at-uri":
+			return "syntax.ATURI", nil
+		case "cid":
+			return "syntax.CID", nil
+		case "datetime":
+			return "syntax.Datetime", nil
+		case "did":
+			return "syntax.DID", nil
+		case "handle":
+			return "syntax.Handle", nil
+		case "nsid":
+			return "syntax.NSID", nil
+		case "uri":
+			return "syntax.URI", nil
+		case "language":
+			return "syntax.Language", nil
+		// NOTE: record-key and tid aren't in spec as of 2023-11, but coming soon
+		case "record-key":
+			return "syntax.RecordKey", nil
+		case "tid":
+			return "syntax.TID", nil
+		default:
+			return "string", nil
+		}
 	case "float":
 		return "float64", nil
 	case "integer":
@@ -1115,9 +1143,6 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 			return tn, nil
 		}
 		return "*" + tn, nil
-	case "datetime":
-		// TODO: maybe do a native type?
-		return "string", nil
 	case "unknown":
 		return "*util.LexiconTypeDecoder", nil
 	case "union":
