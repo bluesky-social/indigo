@@ -124,6 +124,7 @@ type AdminDefs_ModEventEscalate struct {
 // RECORDTYPE: AdminDefs_ModEventLabel
 type AdminDefs_ModEventLabel struct {
 	LexiconTypeID   string   `json:"$type,const=com.atproto.admin.defs#modEventLabel" cborgen:"$type,const=com.atproto.admin.defs#modEventLabel"`
+	Comment         *string  `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	CreateLabelVals []string `json:"createLabelVals" cborgen:"createLabelVals"`
 	NegateLabelVals []string `json:"negateLabelVals" cborgen:"negateLabelVals"`
 }
@@ -168,7 +169,8 @@ type AdminDefs_ModEventReverseTakedown struct {
 //
 // RECORDTYPE: AdminDefs_ModEventTakedown
 type AdminDefs_ModEventTakedown struct {
-	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs#modEventTakedown" cborgen:"$type,const=com.atproto.admin.defs#modEventTakedown"`
+	LexiconTypeID string  `json:"$type,const=com.atproto.admin.defs#modEventTakedown" cborgen:"$type,const=com.atproto.admin.defs#modEventTakedown"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	// durationInHours: Indicates how long the takedown should be in effect before automatically expiring.
 	DurationInHours *int64 `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
 }
