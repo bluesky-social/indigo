@@ -381,7 +381,7 @@ var listReportsCmd = &cli.Command{
 
 		// fetch recent moderation reports
 		// AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, includeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string) (*AdminQueryModerationEvents_Output, error)
-		resp, err := atproto.AdminQueryModerationEvents(ctx, xrpcc, "", "", false, 100, "", "", []string{"com.atproto.admin#modEventReport"})
+		resp, err := atproto.AdminQueryModerationEvents(ctx, xrpcc, "", "", false, 100, "", "", []string{"com.atproto.admin.defs#modEventReport"})
 		if err != nil {
 			return err
 		}
