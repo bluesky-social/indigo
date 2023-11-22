@@ -2,7 +2,6 @@ package labeler
 
 import (
 	"context"
-	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -13,7 +12,6 @@ import (
 	"github.com/bluesky-social/indigo/util"
 
 	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
 )
 
 func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*atproto.ServerDescribeServer_Output, error) {
@@ -103,68 +101,6 @@ func (s *Server) handleComAtprotoLabelQueryLabels(ctx context.Context, cursor st
 	return &out, nil
 }
 
-func (s *Server) handleComAtprotoAdminGetModerationAction(ctx context.Context, id int) (*atproto.AdminDefs_ActionViewDetail, error) {
-
-	var row models.ModerationAction
-	result := s.db.First(&row, id)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	full, err := s.hydrateModerationActionDetails(ctx, []models.ModerationAction{row})
-	if err != nil {
-		return nil, err
-	}
-	return full[0], nil
-}
-
-func (s *Server) handleComAtprotoAdminGetModerationActions(ctx context.Context, before string, limit int, subject string) (*atproto.AdminGetModerationActions_Output, error) {
-
-	if limit <= 0 {
-		limit = 20
-	}
-	if limit > 100 {
-		limit = 100
-	}
-
-	q := s.db.Limit(limit).Order("id desc")
-	cursor := before
-	if cursor != "" {
-		cursorID, err := strconv.Atoi(cursor)
-		if err != nil {
-			return nil, echo.NewHTTPError(400, "invalid cursor param: %v", cursor)
-		}
-		q = q.Where("id < ?", cursorID)
-	}
-
-	if subject != "" {
-		q = q.Where("subject = ?", subject)
-	}
-
-	var actionRows []models.ModerationAction
-	result := q.Find(&actionRows)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	var nextCursor string
-	if len(actionRows) >= 1 && len(actionRows) == limit {
-		nextCursor = strconv.FormatUint(actionRows[len(actionRows)-1].ID, 10)
-	}
-
-	actionObjs, err := s.hydrateModerationActionViews(ctx, actionRows)
-	if err != nil {
-		return nil, err
-	}
-	out := atproto.AdminGetModerationActions_Output{
-		Actions: actionObjs,
-	}
-	if nextCursor != "" {
-		out.Cursor = &nextCursor
-	}
-	return &out, nil
-}
-
 func (s *Server) handleComAtprotoAdminGetModerationReport(ctx context.Context, id int) (*atproto.AdminDefs_ReportViewDetail, error) {
 
 	var row models.ModerationReport
@@ -180,145 +116,6 @@ func (s *Server) handleComAtprotoAdminGetModerationReport(ctx context.Context, i
 	return full[0], nil
 }
 
-func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context, before string, limit int, resolved *bool, subject string) (*atproto.AdminGetModerationReports_Output, error) {
-
-	if limit <= 0 {
-		limit = 20
-	}
-	if limit > 100 {
-		limit = 100
-	}
-
-	q := s.db.Limit(limit).Order("id desc")
-	cursor := before
-	if cursor != "" {
-		cursorID, err := strconv.Atoi(cursor)
-		if err != nil {
-			return nil, echo.NewHTTPError(400, "invalid cursor param: %v", cursor)
-		}
-		q = q.Where("id < ?", cursorID)
-	}
-
-	if subject != "" {
-		q = q.Where("subject = ?", subject)
-	}
-
-	var reportRows []models.ModerationReport
-	result := q.Find(&reportRows)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	var nextCursor string
-	if len(reportRows) >= 1 && len(reportRows) == limit {
-		nextCursor = strconv.FormatUint(reportRows[len(reportRows)-1].ID, 10)
-	}
-
-	reportObjs, err := s.hydrateModerationReportViews(ctx, reportRows)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: a bit inefficient to do this filter after hydration. could do it
-	// in the SQL query instead, but this was faster to implement right now
-	if resolved != nil {
-		var filtered []*atproto.AdminDefs_ReportView
-		for _, obj := range reportObjs {
-			if *resolved == true && len(obj.ResolvedByActionIds) > 0 {
-				filtered = append(filtered, obj)
-			}
-			if *resolved == false && len(obj.ResolvedByActionIds) == 0 {
-				filtered = append(filtered, obj)
-			}
-		}
-		reportObjs = filtered
-	}
-
-	out := atproto.AdminGetModerationReports_Output{
-		Reports: reportObjs,
-	}
-	if nextCursor != "" {
-		out.Cursor = &nextCursor
-	}
-	return &out, nil
-}
-
-func (s *Server) handleComAtprotoAdminResolveModerationReports(ctx context.Context, body *atproto.AdminResolveModerationReports_Input) (*atproto.AdminDefs_ActionView, error) {
-
-	if body.CreatedBy == "" {
-		return nil, echo.NewHTTPError(400, "createdBy param must be non-empty")
-	}
-	if len(body.ReportIds) == 0 {
-		return nil, echo.NewHTTPError(400, "at least one reportId required")
-	}
-
-	var rows []models.ModerationReportResolution
-	for _, reportId := range body.ReportIds {
-		rows = append(rows, models.ModerationReportResolution{
-			ReportId:     uint64(reportId),
-			ActionId:     uint64(body.ActionId),
-			CreatedByDid: body.CreatedBy,
-		})
-	}
-	result := s.db.Create(&rows)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	return s.fetchSingleModerationAction(ctx, body.ActionId)
-}
-
-// helper for endpoints that return a partially hydrated moderation action
-func (s *Server) fetchSingleModerationAction(ctx context.Context, actionId int64) (*atproto.AdminDefs_ActionView, error) {
-	var actionRow models.ModerationAction
-	result := s.db.First(&actionRow, actionId)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	actionObjs, err := s.hydrateModerationActionViews(ctx, []models.ModerationAction{actionRow})
-	if err != nil {
-		return nil, err
-	}
-	return actionObjs[0], nil
-}
-
-func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Context, body *atproto.AdminReverseModerationAction_Input) (*atproto.AdminDefs_ActionView, error) {
-
-	if body.CreatedBy == "" {
-		return nil, echo.NewHTTPError(400, "createBy param must be non-empty")
-	}
-	if body.Reason == "" {
-		return nil, echo.NewHTTPError(400, "reason param was provided, but empty string")
-	}
-
-	row := models.ModerationAction{ID: uint64(body.Id)}
-	result := s.db.First(&row)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, echo.NewHTTPError(404, "moderation action not found: %d", body.Id)
-		} else {
-			return nil, result.Error
-		}
-	}
-
-	if row.ReversedAt != nil {
-		return nil, echo.NewHTTPError(400, "action has already been reversed actionId=%d", body.Id)
-	}
-
-	now := time.Now()
-	row.ReversedByDid = &body.CreatedBy
-	row.ReversedReason = &body.Reason
-	row.ReversedAt = &now
-
-	result = s.db.Save(&row)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	return s.fetchSingleModerationAction(ctx, body.Id)
-}
-
 func didFromURI(uri string) string {
 	parts := strings.SplitN(uri, "/", 4)
 	if len(parts) < 3 {
@@ -328,84 +125,6 @@ func didFromURI(uri string) string {
 		return parts[2]
 	}
 	return ""
-}
-
-func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, body *atproto.AdminTakeModerationAction_Input) (*atproto.AdminDefs_ActionView, error) {
-
-	if body.Action == "" {
-		return nil, echo.NewHTTPError(400, "action param must be non-empty")
-	}
-	if body.CreatedBy == "" {
-		return nil, echo.NewHTTPError(400, "createBy param must be non-empty")
-	}
-	if body.Reason == "" {
-		return nil, echo.NewHTTPError(400, "reason param was provided, but empty string")
-	}
-
-	row := models.ModerationAction{
-		Action:       body.Action,
-		Reason:       body.Reason,
-		CreatedByDid: body.CreatedBy,
-	}
-
-	var outSubj atproto.AdminDefs_ActionView_Subject
-	if body.Subject.AdminDefs_RepoRef != nil {
-		row.SubjectType = "com.atproto.repo.repoRef"
-		row.SubjectDid = body.Subject.AdminDefs_RepoRef.Did
-		outSubj.AdminDefs_RepoRef = &atproto.AdminDefs_RepoRef{
-			LexiconTypeID: "com.atproto.repo.repoRef",
-			Did:           row.SubjectDid,
-		}
-	} else if body.Subject.RepoStrongRef != nil {
-		if body.Subject.RepoStrongRef.Cid == "" {
-			return nil, echo.NewHTTPError(400, "this implementation requires a strong record ref (aka, with CID) in reports")
-		}
-		row.SubjectType = "com.atproto.repo.recordRef"
-		row.SubjectUri = &body.Subject.RepoStrongRef.Uri
-		row.SubjectDid = didFromURI(body.Subject.RepoStrongRef.Uri)
-		if row.SubjectDid == "" {
-			return nil, echo.NewHTTPError(400, "expected URI with a DID: ", row.SubjectUri)
-		}
-		row.SubjectCid = &body.Subject.RepoStrongRef.Cid
-		outSubj.RepoStrongRef = &atproto.RepoStrongRef{
-			LexiconTypeID: "com.atproto.repo.strongRef",
-			Uri:           *row.SubjectUri,
-			Cid:           *row.SubjectCid,
-		}
-	} else {
-		return nil, echo.NewHTTPError(400, "report subject must be a repoRef or a recordRef")
-	}
-
-	result := s.db.Create(&row)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	var cidRows []models.ModerationActionSubjectBlobCid
-	for _, sbc := range body.SubjectBlobCids {
-		cidRows = append(cidRows, models.ModerationActionSubjectBlobCid{
-			ActionId: row.ID,
-			Cid:      sbc,
-		})
-	}
-
-	if len(cidRows) > 0 {
-		result = s.db.Create(&cidRows)
-		if result.Error != nil {
-			return nil, result.Error
-		}
-	}
-
-	out := atproto.AdminDefs_ActionView{
-		Id:              int64(row.ID),
-		Action:          &row.Action,
-		Reason:          row.Reason,
-		CreatedBy:       row.CreatedByDid,
-		CreatedAt:       row.CreatedAt.Format(time.RFC3339),
-		Subject:         &outSubj,
-		SubjectBlobCids: body.SubjectBlobCids,
-	}
-	return &out, nil
 }
 
 func (s *Server) handleComAtprotoReportCreate(ctx context.Context, body *atproto.ModerationCreateReport_Input) (*atproto.ModerationCreateReport_Output, error) {
