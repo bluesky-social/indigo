@@ -33,7 +33,7 @@ var adminCmd = &cli.Command{
 		createInviteCmd,
 		disableInvitesCmd,
 		enableInvitesCmd,
-		getModerationActionsCmd,
+		queryModerationStatusesCmd,
 		listInviteTreeCmd,
 		reportsCmd,
 		takeDownAccountCmd,
@@ -379,35 +379,19 @@ var listReportsCmd = &cli.Command{
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
 
-		// AdminGetModerationReports(ctx context.Context, c *xrpc.Client, actionType string, actionedBy string, cursor string, ignoreSubjects []string, limit int64, reporters []string, resolved bool, reverse bool, subject string) (*AdminGetModerationReports_Output, error)
-		resp, err := atproto.AdminGetModerationReports(ctx, xrpcc, "", "", "", nil, 100, nil, cctx.Bool("resolved"), false, "")
+		// fetch recent moderation reports
+		// AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, includeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string) (*AdminQueryModerationEvents_Output, error)
+		resp, err := atproto.AdminQueryModerationEvents(ctx, xrpcc, "", "", false, 100, "", "", []string{"com.atproto.admin#modEventReports"})
 		if err != nil {
 			return err
 		}
 
-		tojson := func(i any) string {
-			b, err := json.MarshalIndent(i, "", "  ")
-			if err != nil {
-				panic(err)
-			}
-
-			return string(b)
-		}
-
-		for _, rep := range resp.Reports {
+		for _, rep := range resp.Events {
 			b, err := json.MarshalIndent(rep, "", "  ")
 			if err != nil {
 				return err
 			}
 			fmt.Println(string(b))
-			for _, act := range rep.ResolvedByActionIds {
-				action, err := atproto.AdminGetModerationAction(ctx, xrpcc, act)
-				if err != nil {
-					return err
-				}
-
-				fmt.Println(tojson(action))
-			}
 		}
 		return nil
 	},
@@ -598,10 +582,6 @@ var takeDownAccountCmd = &cli.Command{
 			Usage:    "account of person running this command, for recordkeeping",
 			Required: true,
 		},
-		&cli.BoolFlag{
-			Name:  "revert-actions",
-			Usage: "revert existing moderation actions on this user before taking down",
-		},
 	},
 	Action: func(cctx *cli.Context) error {
 
@@ -638,34 +618,14 @@ var takeDownAccountCmd = &cli.Command{
 				adminUser = resp
 			}
 
-			if cctx.Bool("revert-actions") {
-				resp, err := atproto.AdminGetModerationActions(ctx, xrpcc, "", 100, did)
-				if err != nil {
-					return err
-				}
-
-				for _, act := range resp.Actions {
-					if act.Action == nil || *act.Action != "com.atproto.admin.defs#acknowledge" {
-						return fmt.Errorf("will only revert acknowledge actions")
-					}
-
-					_, err := atproto.AdminReverseModerationAction(ctx, xrpcc, &atproto.AdminReverseModerationAction_Input{
-						CreatedBy: adminUser,
-						Id:        act.Id,
-						Reason:    "reverting for takedown",
-					})
-					if err != nil {
-						return fmt.Errorf("failed to revert existing action: %w", err)
-					}
-				}
-
-			}
-
-			resp, err := atproto.AdminTakeModerationAction(ctx, xrpcc, &atproto.AdminTakeModerationAction_Input{
-				Action:    "com.atproto.admin.defs#takedown",
-				Reason:    reason,
+			// TODO: reason can't be included under current schema, but may be possible soon
+			_ = reason
+			resp, err := atproto.AdminEmitModerationEvent(ctx, xrpcc, &atproto.AdminEmitModerationEvent_Input{
 				CreatedBy: adminUser,
-				Subject: &atproto.AdminTakeModerationAction_Input_Subject{
+				Event: &atproto.AdminEmitModerationEvent_Input_Event{
+					AdminDefs_ModEventTakedown: &atproto.AdminDefs_ModEventTakedown{},
+				},
+				Subject: &atproto.AdminEmitModerationEvent_Input_Subject{
 					AdminDefs_RepoRef: &atproto.AdminDefs_RepoRef{
 						Did: did,
 					},
@@ -686,8 +646,8 @@ var takeDownAccountCmd = &cli.Command{
 	},
 }
 
-var getModerationActionsCmd = &cli.Command{
-	Name: "get-moderation-actions",
+var queryModerationStatusesCmd = &cli.Command{
+	Name: "query-moderation-statuses",
 	Action: func(cctx *cli.Context) error {
 
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
@@ -711,7 +671,7 @@ var getModerationActionsCmd = &cli.Command{
 			did = resp
 		}
 
-		resp, err := atproto.AdminGetModerationActions(ctx, xrpcc, "", 100, did)
+		resp, err := atproto.AdminQueryModerationStatuses(ctx, xrpcc, "", "", nil, true, "", 100, "", "", "", "", "", "", "", "", false)
 		if err != nil {
 			return err
 		}
