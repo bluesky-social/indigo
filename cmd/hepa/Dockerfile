@@ -30,7 +30,7 @@ ENV TZ=Etc/UTC
 
 EXPOSE 2210
 
-CMD ["/hepa"]
+CMD ["/hepa", "run"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
 LABEL org.opencontainers.image.description="ATP Auto-Moderation Service (hepa)"
