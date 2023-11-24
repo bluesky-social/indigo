@@ -283,7 +283,9 @@ func Bigsky(cctx *cli.Context) error {
 
 	notifman := &notifs.NullNotifs{}
 
-	ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, repoman, true, cctx.Bool("spidering"), cctx.Bool("aggregation"))
+	rf := indexer.NewRepoFetcher(db, repoman)
+
+	ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, rf, true, cctx.Bool("spidering"), cctx.Bool("aggregation"))
 	if err != nil {
 		return err
 	}
@@ -335,7 +337,7 @@ func Bigsky(cctx *cli.Context) error {
 	}
 
 	log.Infow("constructing bgs")
-	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, hr, !cctx.Bool("crawl-insecure-ws"))
+	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, rf, hr, !cctx.Bool("crawl-insecure-ws"))
 	if err != nil {
 		return err
 	}

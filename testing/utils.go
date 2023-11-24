@@ -437,8 +437,9 @@ func SetupBGS(ctx context.Context, didr plc.PLCClient) (*TestBGS, error) {
 	diskpersist, err := events.NewDiskPersistence(filepath.Join(dir, "dp-primary"), filepath.Join(dir, "dp-archive"), maindb, opts)
 
 	evtman := events.NewEventManager(diskpersist)
+	rf := indexer.NewRepoFetcher(maindb, repoman)
 
-	ix, err := indexer.NewIndexer(maindb, notifman, evtman, didr, repoman, true, true, true)
+	ix, err := indexer.NewIndexer(maindb, notifman, evtman, didr, rf, true, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -451,7 +452,7 @@ func SetupBGS(ctx context.Context, didr plc.PLCClient) (*TestBGS, error) {
 
 	tr := &api.TestHandleResolver{}
 
-	b, err := bgs.NewBGS(maindb, ix, repoman, evtman, didr, nil, tr, false)
+	b, err := bgs.NewBGS(maindb, ix, repoman, evtman, didr, nil, rf, tr, false)
 	if err != nil {
 		return nil, err
 	}
