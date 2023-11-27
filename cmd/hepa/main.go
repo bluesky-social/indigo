@@ -134,6 +134,13 @@ var runCmd = &cli.Command{
 			Value:   ":3989",
 			EnvVars: []string{"HEPA_METRICS_LISTEN"},
 		},
+		&cli.StringFlag{
+			Name: "slack-webhook-url",
+			// eg: https://hooks.slack.com/services/X1234
+			Usage:    "full URL of slack webhook",
+			Required: true,
+			EnvVars:  []string{"SLACK_WEBHOOK_URL"},
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		ctx := context.Background()
@@ -152,15 +159,16 @@ var runCmd = &cli.Command{
 		srv, err := NewServer(
 			dir,
 			Config{
-				BGSHost:       cctx.String("atp-bgs-host"),
-				BskyHost:      cctx.String("atp-bsky-host"),
-				Logger:        logger,
-				ModHost:       cctx.String("atp-mod-host"),
-				ModAdminToken: cctx.String("mod-admin-token"),
-				ModUsername:   cctx.String("mod-handle"),
-				ModPassword:   cctx.String("mod-password"),
-				SetsFileJSON:  cctx.String("sets-json-path"),
-				RedisURL:      cctx.String("redis-url"),
+				BGSHost:         cctx.String("atp-bgs-host"),
+				BskyHost:        cctx.String("atp-bsky-host"),
+				Logger:          logger,
+				ModHost:         cctx.String("atp-mod-host"),
+				ModAdminToken:   cctx.String("mod-admin-token"),
+				ModUsername:     cctx.String("mod-handle"),
+				ModPassword:     cctx.String("mod-password"),
+				SetsFileJSON:    cctx.String("sets-json-path"),
+				RedisURL:        cctx.String("redis-url"),
+				SlackWebhookURL: cctx.String("slack-webhook-url"),
 			},
 		)
 		if err != nil {
