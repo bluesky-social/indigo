@@ -228,6 +228,13 @@ func (b *Backfiller) FlushBuffer(ctx context.Context, job Job) int {
 	})
 	if err != nil {
 		log.Error("failed to flush buffered ops", "error", err)
+		if errors.Is(err, ErrEventGap) {
+			if sserr := job.SetState(ctx, StateEnqueued); sserr != nil {
+				log.Error("failed to reset job state after failed buffer flush", "error", sserr)
+			}
+			// TODO: need to re-queue this job for later
+			return processed
+		}
 	}
 
 	// Mark the job as "complete"
