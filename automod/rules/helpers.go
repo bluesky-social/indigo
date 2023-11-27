@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"strings"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 )
@@ -31,6 +32,10 @@ func ExtractHashtags(post *appbsky.FeedPost) []string {
 		}
 	}
 	return dedupeStrings(tags)
+}
+
+func NormalizeHashtag(raw string) string {
+	return strings.ToLower(raw)
 }
 
 type PostFacet struct {

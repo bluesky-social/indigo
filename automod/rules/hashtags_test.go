@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBanHashtagPostRule(t *testing.T) {
+func TestBadHashtagPostRule(t *testing.T) {
 	assert := assert.New(t)
 
 	engine := engineFixture()
@@ -27,7 +27,7 @@ func TestBanHashtagPostRule(t *testing.T) {
 		Text: "some post blah",
 	}
 	evt1 := engine.NewRecordEvent(am1, path, cid1, &p1)
-	assert.NoError(BanHashtagsPostRule(&evt1, &p1))
+	assert.NoError(BadHashtagsPostRule(&evt1, &p1))
 	assert.Empty(evt1.RecordFlags)
 
 	p2 := appbsky.FeedPost{
@@ -35,6 +35,6 @@ func TestBanHashtagPostRule(t *testing.T) {
 		Tags: []string{"one", "slur"},
 	}
 	evt2 := engine.NewRecordEvent(am1, path, cid1, &p2)
-	assert.NoError(BanHashtagsPostRule(&evt2, &p2))
+	assert.NoError(BadHashtagsPostRule(&evt2, &p2))
 	assert.NotEmpty(evt2.RecordFlags)
 }
