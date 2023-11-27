@@ -1,6 +1,6 @@
 {
-    "banned-hashtags": [
+    "bad-hashtags": [
         "slur",
-        "anotherslur"
+        "deathtooutgroup"
     ]
 }

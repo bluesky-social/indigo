@@ -12,12 +12,12 @@ import (
 func engineFixture() automod.Engine {
 	rules := automod.RuleSet{
 		PostRules: []automod.PostRuleFunc{
-			BanHashtagsPostRule,
+			BadHashtagsPostRule,
 		},
 	}
 	sets := automod.NewMemSetStore()
-	sets.Sets["banned-hashtags"] = make(map[string]bool)
-	sets.Sets["banned-hashtags"]["slur"] = true
+	sets.Sets["bad-hashtags"] = make(map[string]bool)
+	sets.Sets["bad-hashtags"]["slur"] = true
 	dir := identity.NewMockDirectory()
 	id1 := identity.Identity{
 		DID:    syntax.DID("did:plc:abc111"),

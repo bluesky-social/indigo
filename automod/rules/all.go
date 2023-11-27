@@ -10,7 +10,7 @@ func DefaultRules() automod.RuleSet {
 			MisleadingURLPostRule,
 			MisleadingMentionPostRule,
 			ReplyCountPostRule,
-			BanHashtagsPostRule,
+			BadHashtagsPostRule,
 			AccountDemoPostRule,
 			AccountPrivateDemoPostRule,
 		},
