@@ -29,15 +29,16 @@ type Server struct {
 }
 
 type Config struct {
-	BGSHost       string
-	BskyHost      string
-	ModHost       string
-	ModAdminToken string
-	ModUsername   string
-	ModPassword   string
-	SetsFileJSON  string
-	RedisURL      string
-	Logger        *slog.Logger
+	BGSHost         string
+	BskyHost        string
+	ModHost         string
+	ModAdminToken   string
+	ModUsername     string
+	ModPassword     string
+	SetsFileJSON    string
+	RedisURL        string
+	SlackWebhookURL string
+	Logger          *slog.Logger
 }
 
 func NewServer(dir identity.Directory, config Config) (*Server, error) {
@@ -129,6 +130,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 			Client: util.RobustHTTPClient(),
 			Host:   config.BskyHost,
 		},
+		SlackWebhookURL: config.SlackWebhookURL,
 	}
 
 	s := &Server{
