@@ -25,13 +25,16 @@ import (
 type Job interface {
 	Repo() string
 	State() string
+	Rev() string
 	SetState(ctx context.Context, state string) error
+	SetRev(ctx context.Context, rev string) error
 
+	BufferOps(ctx context.Context, since *string, rev string, ops []*bufferedOp) (bool, error)
 	// FlushBufferedOps calls the given callback for each buffered operation
 	// Once done it clears the buffer and marks the job as "complete"
 	// Allowing the Job interface to abstract away the details of how buffered
 	// operations are stored and/or locked
-	FlushBufferedOps(ctx context.Context, cb func(kind, path string, rec *typegen.CBORMarshaler, cid *cid.Cid) error) error
+	FlushBufferedOps(ctx context.Context, cb func(kind, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error) error
 
 	ClearBufferedOps(ctx context.Context) error
 }
@@ -40,16 +43,16 @@ type Job interface {
 type Store interface {
 	// BufferOp buffers an operation for a job and returns true if the operation was buffered
 	// If the operation was not buffered, it returns false and an error (ErrJobNotFound or ErrJobComplete)
-	BufferOp(ctx context.Context, repo string, kind, path string, rec *typegen.CBORMarshaler, cid *cid.Cid) (bool, error)
 	GetJob(ctx context.Context, repo string) (Job, error)
 	GetNextEnqueuedJob(ctx context.Context) (Job, error)
+	UpdateRev(ctx context.Context, repo, rev string) error
 }
 
 // Backfiller is a struct which handles backfilling a repo
 type Backfiller struct {
 	Name               string
-	HandleCreateRecord func(ctx context.Context, repo string, path string, rec *typegen.CBORMarshaler, cid *cid.Cid) error
-	HandleUpdateRecord func(ctx context.Context, repo string, path string, rec *typegen.CBORMarshaler, cid *cid.Cid) error
+	HandleCreateRecord func(ctx context.Context, repo string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error
+	HandleUpdateRecord func(ctx context.Context, repo string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error
 	HandleDeleteRecord func(ctx context.Context, repo string, path string) error
 	Store              Store
 
@@ -109,8 +112,8 @@ func DefaultBackfillOptions() *BackfillOptions {
 func NewBackfiller(
 	name string,
 	store Store,
-	handleCreate func(ctx context.Context, repo string, path string, rec *typegen.CBORMarshaler, cid *cid.Cid) error,
-	handleUpdate func(ctx context.Context, repo string, path string, rec *typegen.CBORMarshaler, cid *cid.Cid) error,
+	handleCreate func(ctx context.Context, repo string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error,
+	handleUpdate func(ctx context.Context, repo string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error,
 	handleDelete func(ctx context.Context, repo string, path string) error,
 	opts *BackfillOptions,
 ) *Backfiller {
@@ -199,7 +202,7 @@ func (b *Backfiller) FlushBuffer(ctx context.Context, job Job) int {
 
 	// Flush buffered operations, clear the buffer, and mark the job as "complete"
 	// Clearning and marking are handled by the job interface
-	err := job.FlushBufferedOps(ctx, func(kind, path string, rec *typegen.CBORMarshaler, cid *cid.Cid) error {
+	err := job.FlushBufferedOps(ctx, func(kind, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error {
 		switch repomgr.EventKind(kind) {
 		case repomgr.EvtKindCreateRecord:
 			err := b.HandleCreateRecord(ctx, repo, path, rec, cid)
@@ -374,7 +377,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 					continue
 				}
 
-				err = b.HandleCreateRecord(ctx, repoDid, item.recordPath, &recM, &item.nodeCid)
+				err = b.HandleCreateRecord(ctx, repoDid, item.recordPath, recM, &item.nodeCid)
 				if err != nil {
 					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to handle create record: %w", err)}
 					continue
