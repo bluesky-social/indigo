@@ -1,14 +1,11 @@
 package backfill
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/repo"
 	"github.com/ipfs/go-cid"
 	typegen "github.com/whyrusleeping/cbor-gen"
 	"gorm.io/gorm"
@@ -122,71 +119,6 @@ func (s *Gormstore) EnqueueJob(repo string) error {
 	return nil
 }
 
-func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscribeRepos_Commit) error {
-	r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
-	if err != nil {
-		return fmt.Errorf("failed to read event repo: %w", err)
-	}
-
-	var ops []*bufferedOp
-	for _, op := range evt.Ops {
-		switch op.Action {
-		case "create", "update":
-			cc, rec, err := r.GetRecord(ctx, op.Path)
-			if err != nil {
-				return err
-			}
-
-			ops = append(ops, &bufferedOp{
-				kind: op.Action,
-				path: op.Path,
-				rec:  rec,
-				cid:  &cc,
-			})
-		case "delete":
-			ops = append(ops, &bufferedOp{
-				kind: op.Action,
-				path: op.Path,
-			})
-		default:
-			return fmt.Errorf("invalid op action: %q", op.Action)
-		}
-	}
-
-	buffered, err := bf.BufferOps(ctx, evt.Repo, evt.Since, evt.Rev, ops)
-	if err != nil {
-		return fmt.Errorf("buffer ops failed: %w", err)
-	}
-
-	if buffered {
-		return nil
-	}
-
-	for _, op := range ops {
-		switch op.kind {
-		case "create":
-			if err := bf.HandleCreateRecord(ctx, evt.Repo, op.path, op.rec, op.cid); err != nil {
-				return fmt.Errorf("create record failed: %w", err)
-			}
-		case "update":
-			if err := bf.HandleUpdateRecord(ctx, evt.Repo, op.path, op.rec, op.cid); err != nil {
-				return fmt.Errorf("update record failed: %w", err)
-			}
-		case "delete":
-			if err := bf.HandleDeleteRecord(ctx, evt.Repo, op.path); err != nil {
-				return fmt.Errorf("delete record failed: %w", err)
-			}
-		}
-	}
-
-	if err := bf.Store.UpdateRev(ctx, evt.Repo, evt.Rev); err != nil {
-		return fmt.Errorf("failed to update rev: %w", err)
-	}
-
-	return nil
-
-}
-
 func (j *Gormjob) BufferOps(ctx context.Context, since *string, rev string, ops []*bufferedOp) (bool, error) {
 	j.lk.Lock()
 	defer j.lk.Unlock()
@@ -202,24 +134,6 @@ func (j *Gormjob) BufferOps(ctx context.Context, since *string, rev string, ops 
 
 	j.bufferOps(&opSet{since: since, rev: rev, ops: ops})
 	return true, nil
-}
-
-func (bf *Backfiller) BufferOp(ctx context.Context, repo string, since *string, rev, kind, path string, rec typegen.CBORMarshaler, cid *cid.Cid) (bool, error) {
-	return bf.BufferOps(ctx, repo, since, rev, []*bufferedOp{&bufferedOp{
-		path: path,
-		kind: kind,
-		rec:  rec,
-		cid:  cid,
-	}})
-}
-
-func (bf *Backfiller) BufferOps(ctx context.Context, repo string, since *string, rev string, ops []*bufferedOp) (bool, error) {
-	j, err := bf.Store.GetJob(ctx, repo)
-	if err != nil {
-		return false, err
-	}
-
-	return j.BufferOps(ctx, since, rev, ops)
 }
 
 func (j *Gormjob) bufferOps(ops *opSet) {
@@ -242,7 +156,7 @@ func (s *Gormstore) getJob(ctx context.Context, repo string) (*Gormjob, error) {
 
 func (s *Gormstore) loadJob(ctx context.Context, repo string) (*Gormjob, error) {
 	var dbj GormDBJob
-	if err := s.db.Find(&dbj, "repo = ?").Error; err != nil {
+	if err := s.db.Find(&dbj, "repo = ?", repo).Error; err != nil {
 		return nil, err
 	}
 
@@ -359,6 +273,8 @@ func (j *Gormjob) SetState(ctx context.Context, state string) error {
 	return j.db.Save(j.dbj).Error
 }
 
+var ErrEventGap = fmt.Errorf("buffered event revs did not line up")
+
 func (j *Gormjob) FlushBufferedOps(ctx context.Context, fn func(kind, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error) error {
 	// TODO: this will block any events for this repo while this flush is ongoing, is that okay?
 	j.lk.Lock()
@@ -372,12 +288,12 @@ func (j *Gormjob) FlushBufferedOps(ctx context.Context, fn func(kind, path strin
 
 		if opset.since == nil {
 			// TODO: what does this mean?
-			panic("TODO")
+			return fmt.Errorf("nil since in event after backfill: %w", ErrEventGap)
 		}
 
 		if j.rev != *opset.since {
 			// we've got a discontinuity
-			panic("TODO")
+			return fmt.Errorf("event since did not match current rev (%s != %s): %w", *opset.since, j.rev, ErrEventGap)
 		}
 
 		for _, op := range opset.ops {
@@ -405,5 +321,10 @@ func (j *Gormjob) ClearBufferedOps(ctx context.Context) error {
 }
 
 func (s *Gormstore) UpdateRev(ctx context.Context, repo, rev string) error {
-	panic("NYI")
+	j, err := s.GetJob(ctx, repo)
+	if err != nil {
+		return err
+	}
+
+	return j.SetRev(ctx, rev)
 }

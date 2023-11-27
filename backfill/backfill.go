@@ -1,6 +1,7 @@
 package backfill
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	// Blank import to register types for CBORGEN
+	"github.com/bluesky-social/indigo/api/atproto"
 	_ "github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
@@ -405,6 +407,10 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 	close(recordResults)
 	resultWG.Wait()
 
+	if err := job.SetRev(ctx, r.SignedCommit().Rev); err != nil {
+		log.Error("failed to update rev after backfilling repo", "err", err)
+	}
+
 	// Process buffered operations, marking the job as "complete" when done
 	numProcessed := b.FlushBuffer(ctx, job)
 
@@ -413,4 +419,86 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 		"records_backfilled", numRecords,
 		"duration", time.Since(start),
 	)
+}
+
+func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscribeRepos_Commit) error {
+	r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
+	if err != nil {
+		return fmt.Errorf("failed to read event repo: %w", err)
+	}
+
+	var ops []*bufferedOp
+	for _, op := range evt.Ops {
+		switch op.Action {
+		case "create", "update":
+			cc, rec, err := r.GetRecord(ctx, op.Path)
+			if err != nil {
+				return err
+			}
+
+			ops = append(ops, &bufferedOp{
+				kind: op.Action,
+				path: op.Path,
+				rec:  rec,
+				cid:  &cc,
+			})
+		case "delete":
+			ops = append(ops, &bufferedOp{
+				kind: op.Action,
+				path: op.Path,
+			})
+		default:
+			return fmt.Errorf("invalid op action: %q", op.Action)
+		}
+	}
+
+	buffered, err := bf.BufferOps(ctx, evt.Repo, evt.Since, evt.Rev, ops)
+	if err != nil {
+		return fmt.Errorf("buffer ops failed: %w", err)
+	}
+
+	if buffered {
+		return nil
+	}
+
+	for _, op := range ops {
+		switch op.kind {
+		case "create":
+			if err := bf.HandleCreateRecord(ctx, evt.Repo, op.path, op.rec, op.cid); err != nil {
+				return fmt.Errorf("create record failed: %w", err)
+			}
+		case "update":
+			if err := bf.HandleUpdateRecord(ctx, evt.Repo, op.path, op.rec, op.cid); err != nil {
+				return fmt.Errorf("update record failed: %w", err)
+			}
+		case "delete":
+			if err := bf.HandleDeleteRecord(ctx, evt.Repo, op.path); err != nil {
+				return fmt.Errorf("delete record failed: %w", err)
+			}
+		}
+	}
+
+	if err := bf.Store.UpdateRev(ctx, evt.Repo, evt.Rev); err != nil {
+		return fmt.Errorf("failed to update rev: %w", err)
+	}
+
+	return nil
+}
+
+func (bf *Backfiller) BufferOp(ctx context.Context, repo string, since *string, rev, kind, path string, rec typegen.CBORMarshaler, cid *cid.Cid) (bool, error) {
+	return bf.BufferOps(ctx, repo, since, rev, []*bufferedOp{&bufferedOp{
+		path: path,
+		kind: kind,
+		rec:  rec,
+		cid:  cid,
+	}})
+}
+
+func (bf *Backfiller) BufferOps(ctx context.Context, repo string, since *string, rev string, ops []*bufferedOp) (bool, error) {
+	j, err := bf.Store.GetJob(ctx, repo)
+	if err != nil {
+		return false, err
+	}
+
+	return j.BufferOps(ctx, since, rev, ops)
 }
