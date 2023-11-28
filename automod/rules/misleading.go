@@ -45,7 +45,9 @@ func MisleadingURLPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) err
 
 			// for now just compare domains to handle the most obvious cases
 			// this public code will obviously get discovered and bypassed. this doesn't earn you any security cred!
-			if linkURL.Host != textURL.Host && linkURL.Host != "www."+linkURL.Host {
+			linkHost := strings.ToLower(linkURL.Host)
+			textHost := strings.ToLower(textURL.Host)
+			if textHost != linkHost && textHost != "www."+linkURL.Host {
 				evt.Logger.Warn("misleading mismatched domains", "linkHost", linkURL.Host, "textHost", textURL.Host, "text", facet.Text)
 				evt.AddRecordFlag("misleading")
 			}
