@@ -33,7 +33,7 @@ func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.
 	// similar to an HTTP server, we want to recover any panics from rule execution
 	defer func() {
 		if r := recover(); r != nil {
-			e.Logger.Error("automod event execution exception", "err", r)
+			e.Logger.Error("automod event execution exception", "err", r, "did", did, "type", t)
 		}
 	}()
 
@@ -73,7 +73,7 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 	// similar to an HTTP server, we want to recover any panics from rule execution
 	defer func() {
 		if r := recover(); r != nil {
-			e.Logger.Error("automod event execution exception", "err", r)
+			e.Logger.Error("automod event execution exception", "err", r, "did", did, "path", path)
 		}
 	}()
 
