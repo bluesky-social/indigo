@@ -851,7 +851,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		// skip the fast path for rebases or if the user is already in the slow path
-		if bgs.Index.Crawler.RepoInSlowPath(ctx, host, u.ID) {
+		if bgs.Index.Crawler.RepoInSlowPath(ctx, u.ID) {
 			rebasesCounter.WithLabelValues(host.Host).Add(1)
 			ai, err := bgs.Index.LookupUser(ctx, u.ID)
 			if err != nil {

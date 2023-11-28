@@ -203,3 +203,9 @@ func (j *Memjob) ClearBufferedOps(ctx context.Context) error {
 	j.updatedAt = time.Now()
 	return nil
 }
+
+func (j *Memjob) RetryCount() int {
+	j.lk.Lock()
+	defer j.lk.Unlock()
+	return 0
+}
