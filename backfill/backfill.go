@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	// Blank import to register types for CBORGEN
 	"github.com/bluesky-social/indigo/api/atproto"
+	// Blank import to register types for CBORGEN
 	_ "github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
@@ -30,6 +30,7 @@ type Job interface {
 	Rev() string
 	SetState(ctx context.Context, state string) error
 	SetRev(ctx context.Context, rev string) error
+	RetryCount() int
 
 	BufferOps(ctx context.Context, since *string, rev string, ops []*bufferedOp) (bool, error)
 	// FlushBufferedOps calls the given callback for each buffered operation
@@ -89,6 +90,9 @@ var ErrJobComplete = errors.New("job is complete")
 
 // ErrJobNotFound is returned when trying to buffer an op for a job that doesn't exist
 var ErrJobNotFound = errors.New("job not found")
+
+// ErrEventGap is returned when an event is received with a since that doesn't match the current rev
+var ErrEventGap = fmt.Errorf("buffered event revs did not line up")
 
 var tracer = otel.Tracer("backfiller")
 
@@ -266,6 +270,9 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 	repoDid := job.Repo()
 
 	log := slog.With("source", "backfiller_backfill_repo", "repo", repoDid)
+	if job.RetryCount() > 0 {
+		log = log.With("retry_count", job.RetryCount())
+	}
 	log.Info(fmt.Sprintf("processing backfill for %s", repoDid))
 
 	url := fmt.Sprintf("%s?did=%s", b.CheckoutPath, repoDid)
@@ -508,4 +515,11 @@ func (bf *Backfiller) BufferOps(ctx context.Context, repo string, since *string,
 	}
 
 	return j.BufferOps(ctx, since, rev, ops)
+}
+
+// MaxRetries is the maximum number of times to retry a backfill job
+var MaxRetries = 10
+
+func computeExponentialBackoff(attempt int) time.Duration {
+	return time.Duration(1<<uint(attempt)) * 10 * time.Second
 }

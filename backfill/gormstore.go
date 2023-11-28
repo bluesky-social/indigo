@@ -3,6 +3,7 @@ package backfill
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,13 +25,18 @@ type Gormjob struct {
 
 	createdAt time.Time
 	updatedAt time.Time
+
+	retryCount int
+	retryAfter *time.Time
 }
 
 type GormDBJob struct {
 	gorm.Model
-	Repo  string `gorm:"unique;index"`
-	State string `gorm:"index"`
-	Rev   string
+	Repo       string `gorm:"unique;index"`
+	State      string `gorm:"index"`
+	Rev        string
+	RetryCount int
+	RetryAfter *time.Time
 }
 
 // Gormstore is a gorm-backed implementation of the Backfill Store interface
@@ -75,6 +81,9 @@ func (s *Gormstore) LoadJobs(ctx context.Context) error {
 
 				dbj: dbj,
 				db:  s.db,
+
+				retryCount: dbj.RetryCount,
+				retryAfter: dbj.RetryAfter,
 			}
 			s.jobs[dbj.Repo] = j
 		}
@@ -169,6 +178,9 @@ func (s *Gormstore) loadJob(ctx context.Context, repo string) (*Gormjob, error) 
 
 			dbj: &dbj,
 			db:  s.db,
+
+			retryCount: dbj.RetryCount,
+			retryAfter: dbj.RetryAfter,
 		}
 		s.lk.Lock()
 		defer s.lk.Unlock()
@@ -228,7 +240,9 @@ func (s *Gormstore) GetNextEnqueuedJob(ctx context.Context) (Job, error) {
 	defer s.lk.RUnlock()
 
 	for _, j := range s.jobs {
-		if j.State() == StateEnqueued {
+		shouldRetry := strings.HasPrefix(j.State(), "failed") && j.retryAfter != nil && time.Now().After(*j.retryAfter)
+
+		if j.State() == StateEnqueued || shouldRetry {
 			return j, nil
 		}
 	}
@@ -268,12 +282,20 @@ func (j *Gormjob) SetState(ctx context.Context, state string) error {
 	j.state = state
 	j.updatedAt = time.Now()
 
+	if strings.HasPrefix(state, "failed") {
+		if j.retryCount < MaxRetries {
+			next := time.Now().Add(computeExponentialBackoff(j.retryCount))
+			j.retryAfter = &next
+			j.retryCount++
+		} else {
+			j.retryAfter = nil
+		}
+	}
+
 	// Persist the job to the database
 	j.dbj.State = state
 	return j.db.Save(j.dbj).Error
 }
-
-var ErrEventGap = fmt.Errorf("buffered event revs did not line up")
 
 func (j *Gormjob) FlushBufferedOps(ctx context.Context, fn func(kind, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error) error {
 	// TODO: this will block any events for this repo while this flush is ongoing, is that okay?
@@ -318,6 +340,12 @@ func (j *Gormjob) ClearBufferedOps(ctx context.Context) error {
 	j.bufferedOps = []*opSet{}
 	j.updatedAt = time.Now()
 	return nil
+}
+
+func (j *Gormjob) RetryCount() int {
+	j.lk.Lock()
+	defer j.lk.Unlock()
+	return j.retryCount
 }
 
 func (s *Gormstore) UpdateRev(ctx context.Context, repo, rev string) error {
