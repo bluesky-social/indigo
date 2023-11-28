@@ -50,6 +50,32 @@ func ParseDatetimeTime(raw string) (time.Time, error) {
 	return d.Time(), nil
 }
 
+// Similar to ParseDatetime, but more flexible about some parsing.
+//
+// Note that this may mutate the internal string, so a round-trip will fail. This is intended for working with legacy/broken records, not to be used in an ongoing way.
+func ParseDatetimeLenient(raw string) (Datetime, error) {
+	// fast path: it is a valid overall datetime
+	valid, err := ParseDatetime(raw)
+	if nil == err {
+		return valid, nil
+	}
+
+	if strings.HasSuffix(raw, "-00:00") {
+		return ParseDatetime(strings.Replace(raw, "-00:00", "+00:00", 1))
+	}
+
+	// try adding timezone if it is missing
+	var hasTimezoneRegex = regexp.MustCompile(`^.*(([+-]\d\d:?\d\d)|[a-zA-Z])$`)
+	if !hasTimezoneRegex.MatchString(raw) {
+		withTZ, err := ParseDatetime(raw + "Z")
+		if nil == err {
+			return withTZ, nil
+		}
+	}
+
+	return "", fmt.Errorf("Datetime could not be parsed, even leniently: %v", err)
+}
+
 // Parses the Datetime string in to a golang [time.Time].
 //
 // This method assumes that [ParseDatetime] was used to create the Datetime, which already verified parsing, and thus that [time.Parse] will always succeed. In the event of an error, zero/nil will be returned.
