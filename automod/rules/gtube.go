@@ -12,14 +12,14 @@ var gtubeString = "XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAI
 
 func GtubePostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
 	if strings.Contains(post.Text, gtubeString) {
-		evt.AddRecordLabel("gtube")
+		evt.AddRecordLabel("spam")
 	}
 	return nil
 }
 
 func GtubeProfileRule(evt *automod.RecordEvent, profile *appbsky.ActorProfile) error {
 	if profile.Description != nil && strings.Contains(*profile.Description, gtubeString) {
-		evt.AddRecordLabel("gtube")
+		evt.AddRecordLabel("spam")
 	}
 	return nil
 }

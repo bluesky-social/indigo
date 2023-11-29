@@ -120,13 +120,13 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
 		if e.Engine.SlackWebhookURL != "" {
 			msg := fmt.Sprintf("⚠️ Automod Account Action ⚠️\n")
-			msg += fmt.Sprintf("`%s` / `%s` / [bsky](https://bsky.app/profile/%s) / [ozone](https://admin.prod.bsky.dev/repositories/%s)\n",
+			msg += fmt.Sprintf("`%s` / `%s` / <https://bsky.app/profile/%s|bsky> / <https://admin.prod.bsky.dev/repositories/%s|ozone>\n",
 				e.Account.Identity.DID,
 				e.Account.Identity.Handle,
 				e.Account.Identity.DID,
 				e.Account.Identity.DID,
 			)
-			msg += slackBody(msg, newLabels, newFlags, newReports, newTakedown)
+			msg = slackBody(msg, newLabels, newFlags, newReports, newTakedown)
 			if err := e.Engine.SendSlackMsg(ctx, msg); err != nil {
 				e.Logger.Error("sending slack webhook", "err", err)
 			}
@@ -262,14 +262,14 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
 		if e.Engine.SlackWebhookURL != "" {
 			msg := fmt.Sprintf("⚠️ Automod Record Action ⚠️\n")
-			msg += fmt.Sprintf("`%s` / `%s` / [bsky](https://bsky.app/profile/%s) / [ozone](https://admin.prod.bsky.dev/repositories/%s)\n",
+			msg += fmt.Sprintf("`%s` / `%s` / <https://bsky.app/profile/%s|bsky> / <https://admin.prod.bsky.dev/repositories/%s|ozone>\n",
 				e.Account.Identity.DID,
 				e.Account.Identity.Handle,
 				e.Account.Identity.DID,
 				e.Account.Identity.DID,
 			)
-			msg += fmt.Sprintf("`at://%s/%s/%s`", e.Account.Identity.DID, e.Collection, e.RecordKey)
-			msg += slackBody(msg, newLabels, newFlags, newReports, newTakedown)
+			msg += fmt.Sprintf("`at://%s/%s/%s`\n", e.Account.Identity.DID, e.Collection, e.RecordKey)
+			msg = slackBody(msg, newLabels, newFlags, newReports, newTakedown)
 			if err := e.Engine.SendSlackMsg(ctx, msg); err != nil {
 				e.Logger.Error("sending slack webhook", "err", err)
 			}
