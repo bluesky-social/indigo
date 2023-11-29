@@ -81,3 +81,21 @@ func ExtractFacets(post *appbsky.FeedPost) ([]PostFacet, error) {
 	}
 	return out, nil
 }
+
+func ExtractPostBlobCIDs(post *appbsky.FeedPost) []string {
+	var out []string
+	if post.Embed.EmbedImages != nil {
+		for _, img := range post.Embed.EmbedImages.Images {
+			out = append(out, img.Image.Ref.String())
+		}
+	}
+	if post.Embed.EmbedRecordWithMedia != nil {
+		media := post.Embed.EmbedRecordWithMedia.Media
+		if media.EmbedImages != nil {
+			for _, img := range media.EmbedImages.Images {
+				out = append(out, img.Image.Ref.String())
+			}
+		}
+	}
+	return dedupeStrings(out)
+}
