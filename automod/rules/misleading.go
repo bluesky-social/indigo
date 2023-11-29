@@ -14,7 +14,8 @@ func MisleadingURLPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) err
 	facets, err := ExtractFacets(post)
 	if err != nil {
 		evt.Logger.Warn("invalid facets", "err", err)
-		evt.AddRecordFlag("invalid") // TODO: or some other "this record is corrupt" indicator?
+		// TODO: or some other "this record is corrupt" indicator?
+		//evt.AddRecordFlag("invalid")
 		return nil
 	}
 	for _, facet := range facets {
