@@ -137,8 +137,8 @@ var runCmd = &cli.Command{
 		&cli.StringFlag{
 			Name: "slack-webhook-url",
 			// eg: https://hooks.slack.com/services/X1234
-			Usage:    "full URL of slack webhook",
-			EnvVars:  []string{"SLACK_WEBHOOK_URL"},
+			Usage:   "full URL of slack webhook",
+			EnvVars: []string{"SLACK_WEBHOOK_URL"},
 		},
 	},
 	Action: func(cctx *cli.Context) error {
