@@ -104,17 +104,6 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 	if err := evt.PersistCounters(ctx); err != nil {
 		return err
 	}
-	// TODO: refactor this in to PersistActions? after mod api v2 merge
-	if e.SlackWebhookURL != "" && (len(evt.AccountLabels) > 0 || len(evt.RecordLabels) > 0) {
-		msg := fmt.Sprintf("⚠️ Automod Action ⚠️\n")
-		msg += fmt.Sprintf("DID: %s\n", am.Identity.DID)
-		msg += fmt.Sprintf("Account Labels: %s\n", evt.AccountLabels)
-		msg += fmt.Sprintf("Record Labels: %s\n", evt.RecordLabels)
-		if err := e.SendSlackMsg(ctx, msg); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
