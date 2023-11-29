@@ -2,6 +2,7 @@ package rules
 
 import (
 	"context"
+	"log/slog"
 	"net/url"
 	"strings"
 
@@ -10,46 +11,68 @@ import (
 	"github.com/bluesky-social/indigo/automod"
 )
 
+func isMisleadingURLFacet(facet PostFacet, logger *slog.Logger) bool {
+	linkURL, err := url.Parse(*facet.URL)
+	if err != nil {
+		logger.Warn("invalid link metadata URL", "url", facet.URL)
+		return false
+	}
+
+	// basic text string pre-cleanups
+	text := strings.ToLower(strings.TrimSpace(facet.Text))
+
+	// remove square brackets
+	if strings.HasPrefix(text, "[") && strings.HasSuffix(text, "]") {
+		text = text[1 : len(text)-1]
+	}
+
+	// truncated and not an obvious prefix hack (TODO: more special domains? regex?)
+	if strings.HasSuffix(text, "...") && !strings.HasSuffix(text, ".com...") && !strings.HasSuffix(text, ".org...") {
+		return false
+	}
+
+	// remove any other truncation suffix
+	text = strings.TrimSuffix(text, "...")
+
+	// if really not-a-domain, just skipp
+	if !strings.Contains(text, ".") {
+		return false
+	}
+
+	// try to fix any missing method in the text
+	if !strings.Contains(text, "://") {
+		text = "https://" + text
+	}
+
+	// try parsing as a full URL (with whitespace trimmed)
+	textURL, err := url.Parse(text)
+	if err != nil {
+		logger.Warn("invalid link text URL", "url", facet.Text)
+		return false
+	}
+
+	// for now just compare domains to handle the most obvious cases
+	// this public code will obviously get discovered and bypassed. this doesn't earn you any security cred!
+	linkHost := strings.TrimPrefix(strings.ToLower(linkURL.Host), "www.")
+	textHost := strings.TrimPrefix(strings.ToLower(textURL.Host), "www.")
+	if textHost != linkHost {
+		logger.Warn("misleading mismatched domains", "linkHost", linkURL.Host, "textHost", textURL.Host, "text", facet.Text)
+		return true
+	}
+	return false
+}
+
 func MisleadingURLPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
 	facets, err := ExtractFacets(post)
 	if err != nil {
 		evt.Logger.Warn("invalid facets", "err", err)
 		// TODO: or some other "this record is corrupt" indicator?
-		//evt.AddRecordFlag("invalid")
+		//evt.AddRecordFlag("broken-post")
 		return nil
 	}
 	for _, facet := range facets {
 		if facet.URL != nil {
-			linkURL, err := url.Parse(*facet.URL)
-			if err != nil {
-				evt.Logger.Warn("invalid link metadata URL", "url", facet.URL)
-				continue
-			}
-
-			// basic text string pre-cleanups
-			text := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(facet.Text), "..."))
-			// if really not a domain, just skipp
-			if !strings.Contains(text, ".") {
-				continue
-			}
-			// try to fix any missing method in the text
-			if !strings.Contains(text, "://") {
-				text = "https://" + text
-			}
-
-			// try parsing as a full URL (with whitespace trimmed)
-			textURL, err := url.Parse(text)
-			if err != nil {
-				evt.Logger.Warn("invalid link text URL", "url", facet.Text)
-				continue
-			}
-
-			// for now just compare domains to handle the most obvious cases
-			// this public code will obviously get discovered and bypassed. this doesn't earn you any security cred!
-			linkHost := strings.ToLower(linkURL.Host)
-			textHost := strings.ToLower(textURL.Host)
-			if textHost != linkHost && textHost != "www."+linkURL.Host && "www."+textHost != linkURL.Host {
-				evt.Logger.Warn("misleading mismatched domains", "linkHost", linkURL.Host, "textHost", textURL.Host, "text", facet.Text)
+			if isMisleadingURLFacet(facet, evt.Logger) {
 				evt.AddRecordFlag("misleading-link")
 			}
 		}
@@ -64,7 +87,7 @@ func MisleadingMentionPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost)
 	if err != nil {
 		evt.Logger.Warn("invalid facets", "err", err)
 		// TODO: or some other "this record is corrupt" indicator?
-		//evt.AddRecordFlag("invalid")
+		//evt.AddRecordFlag("broken-post")
 		return nil
 	}
 	for _, facet := range facets {
@@ -73,7 +96,7 @@ func MisleadingMentionPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost)
 			if txt[0] == '@' {
 				txt = txt[1:]
 			}
-			handle, err := syntax.ParseHandle(txt)
+			handle, err := syntax.ParseHandle(strings.ToLower(txt))
 			if err != nil {
 				evt.Logger.Warn("mention was not a valid handle", "text", txt)
 				continue
@@ -82,7 +105,7 @@ func MisleadingMentionPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost)
 			mentioned, err := evt.Engine.Directory.LookupHandle(ctx, handle)
 			if err != nil {
 				evt.Logger.Warn("could not resolve handle", "handle", handle)
-				evt.AddRecordFlag("misleading")
+				evt.AddRecordFlag("broken-mention")
 				break
 			}
 
