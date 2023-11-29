@@ -86,6 +86,7 @@ func (d *RedisDirectory) IsIdentityStale(e *IdentityEntry) bool {
 }
 
 func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*HandleEntry, error) {
+	h = h.Normalize()
 	ident, err := d.Inner.LookupHandle(ctx, h)
 	if err != nil {
 		he := HandleEntry{
@@ -314,6 +315,7 @@ func (d *RedisDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*id
 func (d *RedisDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error {
 	handle, err := a.AsHandle()
 	if nil == err { // if not an error, is a handle
+		handle = handle.Normalize()
 		return d.handleCache.Delete(ctx, handle.String())
 	}
 	did, err := a.AsDID()
