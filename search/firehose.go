@@ -12,12 +12,9 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/backfill"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/repomgr"
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/gorilla/websocket"
@@ -101,59 +98,9 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 				return nil
 			}
 
-			// Check if we've backfilled this repo, if not, we should enqueue it
-			job, err := s.bfs.GetJob(ctx, evt.Repo)
-			if job == nil && err == nil {
-				logEvt.Info("enqueueing backfill job for new repo")
-				if err := s.bfs.EnqueueJob(evt.Repo); err != nil {
-					logEvt.Warn("failed to enqueue backfill job", "err", err)
-				}
-			}
-
-			r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
-			if err != nil {
-				// TODO: handle this case (instead of return nil)
-				logEvt.Error("reading repo from car", "size_bytes", len(evt.Blocks), "err", err)
-				return nil
-			}
-
-			for _, op := range evt.Ops {
-				ek := repomgr.EventKind(op.Action)
-				logOp := logEvt.With("op_path", op.Path, "op_cid", op.Cid)
-				switch ek {
-				case repomgr.EvtKindCreateRecord, repomgr.EvtKindUpdateRecord:
-					rc, rec, err := r.GetRecord(ctx, op.Path)
-					if err != nil {
-						// TODO: handle this case (instead of return nil)
-						logOp.Error("fetching record from event CAR slice", "err", err)
-						return nil
-					}
-
-					if lexutil.LexLink(rc) != *op.Cid {
-						// TODO: handle this case (instead of return nil)
-						logOp.Error("mismatch in record and op cid", "record_cid", rc)
-						return nil
-					}
-
-					if strings.HasPrefix(op.Path, "app.bsky.feed.post") {
-						postsReceived.Inc()
-					} else if strings.HasPrefix(op.Path, "app.bsky.actor.profile") {
-						profilesReceived.Inc()
-					}
-
-					if err := s.handleOp(ctx, ek, evt.Seq, op.Path, evt.Repo, &rc, rec); err != nil {
-						// TODO: handle this case (instead of return nil)
-						logOp.Error("failed to handle event op", "err", err)
-						return nil
-					}
-
-				case repomgr.EvtKindDeleteRecord:
-					if err := s.handleOp(ctx, ek, evt.Seq, op.Path, evt.Repo, nil, nil); err != nil {
-						// TODO: handle this case (instead of return nil)
-						logOp.Error("failed to handle delete", "err", err)
-						return nil
-					}
-				}
+			// Pass events to the backfiller which will process or buffer as needed
+			if err := s.bf.HandleEvent(ctx, evt); err != nil {
+				logEvt.Error("failed to handle event", "err", err)
 			}
 
 			return nil
@@ -240,7 +187,7 @@ func (s *Server) discoverRepos() {
 	log.Info("finished repo discovery", "totalEnqueued", totalEnqueued, "totalSkipped", totalSkipped, "totalErrored", totalErrored)
 }
 
-func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, path string, recP *typegen.CBORMarshaler, rcid *cid.Cid) error {
+func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, path string, rec typegen.CBORMarshaler, rcid *cid.Cid) error {
 	// Since this gets called in a backfill job, we need to check if the path is a post or profile
 	if !strings.Contains(path, "app.bsky.feed.post") && !strings.Contains(path, "app.bsky.actor.profile") {
 		return nil
@@ -258,7 +205,6 @@ func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, path s
 	if ident == nil {
 		return fmt.Errorf("identity not found for did: %s", did.String())
 	}
-	rec := *recP
 
 	switch rec := rec.(type) {
 	case *bsky.FeedPost:
@@ -306,63 +252,6 @@ func (s *Server) handleDelete(ctx context.Context, rawDID, path string) error {
 		postsDeleted.Inc()
 	case strings.Contains(path, "app.bsky.actor.profile"):
 		// profilesDeleted.Inc()
-	}
-
-	return nil
-}
-
-func (s *Server) handleOp(ctx context.Context, op repomgr.EventKind, seq int64, path string, did string, rcid *cid.Cid, rec typegen.CBORMarshaler) error {
-	var err error
-	if !strings.Contains(path, "app.bsky.feed.post") && !strings.Contains(path, "app.bsky.actor.profile") {
-		return nil
-	}
-
-	if op == repomgr.EvtKindCreateRecord || op == repomgr.EvtKindUpdateRecord {
-		s.logger.Debug("processing create record op", "seq", seq, "did", did, "path", path)
-
-		// Try to buffer the op, if it fails, we need to create a backfill job
-		_, err := s.bfs.BufferOp(ctx, did, string(op), path, &rec, rcid)
-		if err == backfill.ErrJobNotFound {
-			s.logger.Debug("no backfill job found for repo, creating one", "did", did)
-
-			if err := s.bfs.EnqueueJob(did); err != nil {
-				return fmt.Errorf("enqueueing backfill job: %w", err)
-			}
-
-			// Try to buffer the op again so it gets picked up by the backfill job
-			_, err = s.bfs.BufferOp(ctx, did, string(op), path, &rec, rcid)
-			if err != nil {
-				return fmt.Errorf("buffering backfill op: %w", err)
-			}
-		} else if err == backfill.ErrJobComplete {
-			// Backfill is done for this repo so we can just index it now
-			err = s.handleCreateOrUpdate(ctx, did, path, &rec, rcid)
-		}
-	} else if op == repomgr.EvtKindDeleteRecord {
-		s.logger.Debug("processing delete record op", "seq", seq, "did", did, "path", path)
-
-		// Try to buffer the op, if it fails, we need to create a backfill job
-		_, err := s.bfs.BufferOp(ctx, did, string(op), path, &rec, rcid)
-		if err == backfill.ErrJobNotFound {
-			s.logger.Debug("no backfill job found for repo, creating one", "did", did)
-
-			if err := s.bfs.EnqueueJob(did); err != nil {
-				return fmt.Errorf("enqueueing backfill job: %w", err)
-			}
-
-			// Try to buffer the op again so it gets picked up by the backfill job
-			_, err = s.bfs.BufferOp(ctx, did, string(op), path, &rec, rcid)
-			if err != nil {
-				return fmt.Errorf("buffering backfill op: %w", err)
-			}
-		} else if err == backfill.ErrJobComplete {
-			// Backfill is done for this repo so we can delete imemdiately
-			err = s.handleDelete(ctx, did, path)
-		}
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to handle op: %w", err)
 	}
 
 	return nil
