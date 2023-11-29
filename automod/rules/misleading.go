@@ -48,9 +48,9 @@ func MisleadingURLPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) err
 			// this public code will obviously get discovered and bypassed. this doesn't earn you any security cred!
 			linkHost := strings.ToLower(linkURL.Host)
 			textHost := strings.ToLower(textURL.Host)
-			if textHost != linkHost && textHost != "www."+linkURL.Host {
+			if textHost != linkHost && textHost != "www."+linkURL.Host && "www."+textHost != linkURL.Host {
 				evt.Logger.Warn("misleading mismatched domains", "linkHost", linkURL.Host, "textHost", textURL.Host, "text", facet.Text)
-				evt.AddRecordFlag("misleading")
+				evt.AddRecordFlag("misleading-link")
 			}
 		}
 	}
@@ -63,7 +63,8 @@ func MisleadingMentionPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost)
 	facets, err := ExtractFacets(post)
 	if err != nil {
 		evt.Logger.Warn("invalid facets", "err", err)
-		evt.AddRecordFlag("invalid") // TODO: or some other "this record is corrupt" indicator?
+		// TODO: or some other "this record is corrupt" indicator?
+		//evt.AddRecordFlag("invalid")
 		return nil
 	}
 	for _, facet := range facets {
@@ -88,7 +89,7 @@ func MisleadingMentionPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost)
 			// TODO: check if mentioned DID was recently updated? might be a caching issue
 			if mentioned.DID.String() != *facet.DID {
 				evt.Logger.Warn("misleading mention", "text", txt, "did", facet.DID)
-				evt.AddRecordFlag("misleading")
+				evt.AddRecordFlag("misleading-mention")
 				continue
 			}
 		}
