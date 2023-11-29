@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
@@ -72,15 +73,74 @@ func (e *RepoEvent) ReportAccount(reason, comment string) {
 	e.AccountReports = append(e.AccountReports, ModReport{ReasonType: reason, Comment: comment})
 }
 
+func slackBody(msg string, newLabels, newFlags []string, newReports []ModReport, newTakedown bool) string {
+	if len(newLabels) > 0 {
+		msg += fmt.Sprintf("New Labels: `%s`\n", strings.Join(newLabels, ", "))
+	}
+	if len(newFlags) > 0 {
+		msg += fmt.Sprintf("New Flags: `%s`\n", strings.Join(newFlags, ", "))
+	}
+	for _, rep := range newReports {
+		msg += fmt.Sprintf("Report `%s`: %s\n", rep.ReasonType, rep.Comment)
+	}
+	if newTakedown {
+		msg += fmt.Sprintf("Takedown!\n")
+	}
+	return msg
+}
+
 func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
+
+	// de-dupe actions
+	newLabels := []string{}
+	for _, val := range dedupeStrings(e.AccountLabels) {
+		exists := false
+		for _, e := range e.Account.AccountNegLabels {
+			if val == e {
+				exists = true
+				break
+			}
+		}
+		for _, e := range e.Account.AccountLabels {
+			if val == e {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			newLabels = append(newLabels, val)
+		}
+	}
+	// TODO: persist and de-dupe flags? in mod service?
+	newFlags := dedupeStrings(e.AccountFlags)
+	// TODO: de-dupe reports based on history?
+	newReports := e.AccountReports
+	newTakedown := e.AccountTakedown && !e.Account.Takendown
+
+	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
+		if e.Engine.SlackWebhookURL != "" {
+			msg := fmt.Sprintf("⚠️ Automod Account Action ⚠️\n")
+			msg += fmt.Sprintf("`%s` / `%s` / [bsky](https://bsky.app/profile/%s) / [ozone](https://admin.prod.bsky.dev/repositories/%s)\n",
+				e.Account.Identity.DID,
+				e.Account.Identity.Handle,
+				e.Account.Identity.DID,
+				e.Account.Identity.DID,
+			)
+			msg += slackBody(msg, newLabels, newFlags, newReports, newTakedown)
+			if err := e.Engine.SendSlackMsg(ctx, msg); err != nil {
+				e.Logger.Error("sending slack webhook", "err", err)
+			}
+		}
+	}
+
 	if e.Engine.AdminClient == nil {
 		return nil
 	}
 	xrpcc := e.Engine.AdminClient
-	if len(e.AccountLabels) > 0 {
+	if len(newLabels) > 0 {
 		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
 			Action:          "com.atproto.admin.defs#flag",
-			CreateLabelVals: dedupeStrings(e.AccountLabels),
+			CreateLabelVals: newLabels,
 			Reason:          "automod",
 			CreatedBy:       xrpcc.Auth.Did,
 			Subject: &comatproto.AdminTakeModerationAction_Input_Subject{
@@ -94,7 +154,7 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		}
 	}
 	// TODO: AccountFlags
-	for _, mr := range e.AccountReports {
+	for _, mr := range newReports {
 		_, err := comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
 			ReasonType: &mr.ReasonType,
 			Reason:     &mr.Comment,
@@ -108,7 +168,7 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 			return err
 		}
 	}
-	if e.AccountTakedown {
+	if newTakedown {
 		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
 			Action:    "com.atproto.admin.defs#takedown",
 			Reason:    "automod",
@@ -185,6 +245,29 @@ func (e *RecordEvent) ReportRecord(reason, comment string) {
 }
 
 func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
+
+	// TODO: de-dupe actions
+	newLabels := dedupeStrings(e.RecordLabels)
+	newFlags := dedupeStrings(e.RecordFlags)
+	newReports := e.RecordReports
+	newTakedown := e.RecordTakedown
+
+	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
+		if e.Engine.SlackWebhookURL != "" {
+			msg := fmt.Sprintf("⚠️ Automod Record Action ⚠️\n")
+			msg += fmt.Sprintf("`%s` / `%s` / [bsky](https://bsky.app/profile/%s) / [ozone](https://admin.prod.bsky.dev/repositories/%s)\n",
+				e.Account.Identity.DID,
+				e.Account.Identity.Handle,
+				e.Account.Identity.DID,
+				e.Account.Identity.DID,
+			)
+			msg += fmt.Sprintf("`at://%s/%s/%s`", e.Account.Identity.DID, e.Collection, e.RecordKey)
+			msg += slackBody(msg, newLabels, newFlags, newReports, newTakedown)
+			if err := e.Engine.SendSlackMsg(ctx, msg); err != nil {
+				e.Logger.Error("sending slack webhook", "err", err)
+			}
+		}
+	}
 	if e.Engine.AdminClient == nil {
 		return nil
 	}
@@ -193,11 +276,11 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 		Uri: fmt.Sprintf("at://%s/%s/%s", e.Account.Identity.DID, e.Collection, e.RecordKey),
 	}
 	xrpcc := e.Engine.AdminClient
-	if len(e.RecordLabels) > 0 {
+	if len(newLabels) > 0 {
 		// TODO: this does an action, not just create labels; will update after event refactor
 		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
 			Action:          "com.atproto.admin.defs#flag",
-			CreateLabelVals: dedupeStrings(e.RecordLabels),
+			CreateLabelVals: newLabels,
 			Reason:          "automod",
 			CreatedBy:       xrpcc.Auth.Did,
 			Subject: &comatproto.AdminTakeModerationAction_Input_Subject{
@@ -208,8 +291,7 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 			return err
 		}
 	}
-	// TODO: AccountFlags
-	for _, mr := range e.RecordReports {
+	for _, mr := range newReports {
 		_, err := comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
 			ReasonType: &mr.ReasonType,
 			Reason:     &mr.Comment,
@@ -221,7 +303,7 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 			return err
 		}
 	}
-	if e.RecordTakedown {
+	if newTakedown {
 		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
 			Action:    "com.atproto.admin.defs#takedown",
 			Reason:    "automod",
