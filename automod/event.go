@@ -146,6 +146,7 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
 				AdminDefs_ModEventLabel: &comatproto.AdminDefs_ModEventLabel{
 					CreateLabelVals: newLabels,
+					NegateLabelVals: []string{},
 					Comment:         &comment,
 				},
 			},
@@ -298,6 +299,7 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
 				AdminDefs_ModEventLabel: &comatproto.AdminDefs_ModEventLabel{
 					CreateLabelVals: newLabels,
+					NegateLabelVals: []string{},
 					Comment:         &comment,
 				},
 			},
