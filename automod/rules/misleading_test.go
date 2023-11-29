@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"log/slog"
 	"testing"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
@@ -79,4 +80,72 @@ func TestMisleadingMentionPostRule(t *testing.T) {
 	evt1 := engine.NewRecordEvent(am1, path, cid1, &p1)
 	assert.NoError(MisleadingMentionPostRule(&evt1, &p1))
 	assert.NotEmpty(evt1.RecordFlags)
+}
+
+func pstr(raw string) *string {
+	return &raw
+}
+
+func TestIsMisleadingURL(t *testing.T) {
+	assert := assert.New(t)
+	logger := slog.Default()
+
+	fixtures := []struct {
+		facet PostFacet
+		out   bool
+	}{
+		{
+			facet: PostFacet{
+				Text: "https://atproto.com",
+				URL:  pstr("https://atproto.com"),
+			},
+			out: false,
+		},
+		{
+			facet: PostFacet{
+				Text: "https://atproto.com",
+				URL:  pstr("https://evil.com"),
+			},
+			out: true,
+		},
+		{
+			facet: PostFacet{
+				Text: "https://www.atproto.com",
+				URL:  pstr("https://atproto.com"),
+			},
+			out: false,
+		},
+		{
+			facet: PostFacet{
+				Text: "https://atproto.com",
+				URL:  pstr("https://www.atproto.com"),
+			},
+			out: false,
+		},
+		{
+			facet: PostFacet{
+				Text: "[example.com]",
+				URL:  pstr("https://www.example.com"),
+			},
+			out: false,
+		},
+		{
+			facet: PostFacet{
+				Text: "example.com...",
+				URL:  pstr("https://example.com.evil.com"),
+			},
+			out: true,
+		},
+		{
+			facet: PostFacet{
+				Text: "ATPROTO.com...",
+				URL:  pstr("https://atproto.com"),
+			},
+			out: false,
+		},
+	}
+
+	for _, fix := range fixtures {
+		assert.Equal(fix.out, isMisleadingURLFacet(fix.facet, logger))
+	}
 }
