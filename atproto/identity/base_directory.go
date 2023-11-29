@@ -33,6 +33,7 @@ type BaseDirectory struct {
 var _ Directory = (*BaseDirectory)(nil)
 
 func (d *BaseDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
+	h = h.Normalize()
 	did, err := d.ResolveHandle(ctx, h)
 	if err != nil {
 		return nil, err
