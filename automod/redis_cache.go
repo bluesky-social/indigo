@@ -53,11 +53,18 @@ func (s RedisCacheStore) Get(ctx context.Context, name, key string) (string, err
 }
 
 func (s RedisCacheStore) Set(ctx context.Context, name, key string, val string) error {
-	s.Data.Set(&cache.Item{
+	return s.Data.Set(&cache.Item{
 		Ctx:   ctx,
 		Key:   redisCacheKey(name, key),
 		Value: val,
 		TTL:   s.TTL,
 	})
-	return nil
+}
+
+func (s RedisCacheStore) Purge(ctx context.Context, name, key string) error {
+	err := s.Data.Delete(ctx, redisCacheKey(name, key))
+	if err == cache.ErrCacheMiss {
+		return nil
+	}
+	return err
 }

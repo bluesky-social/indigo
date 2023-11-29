@@ -136,6 +136,8 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 	if e.Engine.AdminClient == nil {
 		return nil
 	}
+
+	needsPurge := false
 	xrpcc := e.Engine.AdminClient
 	if len(newLabels) > 0 {
 		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
@@ -152,6 +154,7 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		needsPurge = true
 	}
 	// TODO: AccountFlags
 	for _, mr := range newReports {
@@ -182,6 +185,10 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		needsPurge = true
+	}
+	if needsPurge {
+		return e.Engine.PurgeAccountCaches(ctx, e.Account.Identity.DID)
 	}
 	return nil
 }
