@@ -13,6 +13,10 @@ func DefaultRules() automod.RuleSet {
 			BadHashtagsPostRule,
 			AccountDemoPostRule,
 			AccountPrivateDemoPostRule,
+			GtubePostRule,
+		},
+		ProfileRules: []automod.ProfileRuleFunc{
+			GtubeProfileRule,
 		},
 	}
 	return rules
