@@ -500,7 +500,7 @@ func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscrib
 }
 
 func (bf *Backfiller) BufferOp(ctx context.Context, repo string, since *string, rev, kind, path string, rec typegen.CBORMarshaler, cid *cid.Cid) (bool, error) {
-	return bf.BufferOps(ctx, repo, since, rev, []*bufferedOp{&bufferedOp{
+	return bf.BufferOps(ctx, repo, since, rev, []*bufferedOp{{
 		path: path,
 		kind: kind,
 		rec:  rec,
