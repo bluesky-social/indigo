@@ -140,12 +140,16 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 	needsPurge := false
 	xrpcc := e.Engine.AdminClient
 	if len(newLabels) > 0 {
-		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
-			Action:          "com.atproto.admin.defs#flag",
-			CreateLabelVals: newLabels,
-			Reason:          "automod",
-			CreatedBy:       xrpcc.Auth.Did,
-			Subject: &comatproto.AdminTakeModerationAction_Input_Subject{
+		comment := "automod"
+		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
+				AdminDefs_ModEventLabel: &comatproto.AdminDefs_ModEventLabel{
+					CreateLabelVals: newLabels,
+					Comment:         &comment,
+				},
+			},
+			Subject: &comatproto.AdminEmitModerationEvent_Input_Subject{
 				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
 					Did: e.Account.Identity.DID.String(),
 				},
@@ -172,11 +176,15 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		}
 	}
 	if newTakedown {
-		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
-			Action:    "com.atproto.admin.defs#takedown",
-			Reason:    "automod",
+		comment := "automod"
+		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
-			Subject: &comatproto.AdminTakeModerationAction_Input_Subject{
+			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
+				AdminDefs_ModEventTakedown: &comatproto.AdminDefs_ModEventTakedown{
+					Comment: &comment,
+				},
+			},
+			Subject: &comatproto.AdminEmitModerationEvent_Input_Subject{
 				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
 					Did: e.Account.Identity.DID.String(),
 				},
@@ -284,13 +292,16 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 	}
 	xrpcc := e.Engine.AdminClient
 	if len(newLabels) > 0 {
-		// TODO: this does an action, not just create labels; will update after event refactor
-		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
-			Action:          "com.atproto.admin.defs#flag",
-			CreateLabelVals: newLabels,
-			Reason:          "automod",
-			CreatedBy:       xrpcc.Auth.Did,
-			Subject: &comatproto.AdminTakeModerationAction_Input_Subject{
+		comment := "automod"
+		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
+				AdminDefs_ModEventLabel: &comatproto.AdminDefs_ModEventLabel{
+					CreateLabelVals: newLabels,
+					Comment:         &comment,
+				},
+			},
+			Subject: &comatproto.AdminEmitModerationEvent_Input_Subject{
 				RepoStrongRef: &strongRef,
 			},
 		})
@@ -311,11 +322,15 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 		}
 	}
 	if newTakedown {
-		_, err := comatproto.AdminTakeModerationAction(ctx, xrpcc, &comatproto.AdminTakeModerationAction_Input{
-			Action:    "com.atproto.admin.defs#takedown",
-			Reason:    "automod",
+		comment := "automod"
+		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
-			Subject: &comatproto.AdminTakeModerationAction_Input_Subject{
+			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
+				AdminDefs_ModEventTakedown: &comatproto.AdminDefs_ModEventTakedown{
+					Comment: &comment,
+				},
+			},
+			Subject: &comatproto.AdminEmitModerationEvent_Input_Subject{
 				RepoStrongRef: &strongRef,
 			},
 		})

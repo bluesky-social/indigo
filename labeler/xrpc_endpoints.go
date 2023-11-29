@@ -18,13 +18,6 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	// TODO: session create/refresh/delete?
 
 	// minimal moderation reporting/actioning
-	e.GET("/xrpc/com.atproto.admin.getModerationAction", s.HandleComAtprotoAdminGetModerationAction)
-	e.GET("/xrpc/com.atproto.admin.getModerationActions", s.HandleComAtprotoAdminGetModerationActions)
-	e.GET("/xrpc/com.atproto.admin.getModerationReport", s.HandleComAtprotoAdminGetModerationReport)
-	e.GET("/xrpc/com.atproto.admin.getModerationReports", s.HandleComAtprotoAdminGetModerationReports)
-	e.POST("/xrpc/com.atproto.admin.resolveModerationReports", s.HandleComAtprotoAdminResolveModerationReports)
-	e.POST("/xrpc/com.atproto.admin.reverseModerationAction", s.HandleComAtprotoAdminReverseModerationAction)
-	e.POST("/xrpc/com.atproto.admin.takeModerationAction", s.HandleComAtprotoAdminTakeModerationAction)
 	e.POST("/xrpc/com.atproto.report.create", s.HandleComAtprotoReportCreate)
 
 	// label-specific
@@ -93,50 +86,6 @@ func (s *Server) HandleComAtprotoLabelQueryLabels(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *Server) HandleComAtprotoAdminGetModerationAction(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetModerationAction")
-	defer span.End()
-
-	id, err := strconv.Atoi(c.QueryParam("id"))
-	if err != nil {
-		return err
-	}
-	var out *atproto.AdminDefs_ActionViewDetail
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminGetModerationAction(ctx context.Context,id int) (*atproto.AdminDefs_ActionViewDetail, error)
-	out, handleErr = s.handleComAtprotoAdminGetModerationAction(ctx, id)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoAdminGetModerationActions(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetModerationActions")
-	defer span.End()
-	before := c.QueryParam("before")
-
-	var limit int
-	if p := c.QueryParam("limit"); p != "" {
-		var err error
-		limit, err = strconv.Atoi(p)
-		if err != nil {
-			return err
-		}
-	} else {
-		limit = 50
-	}
-	subject := c.QueryParam("subject")
-	var out *atproto.AdminGetModerationActions_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminGetModerationActions(ctx context.Context,before string,limit int,subject string) (*atproto.AdminGetModerationActions_Output, error)
-	out, handleErr = s.handleComAtprotoAdminGetModerationActions(ctx, before, limit, subject)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
 func (s *Server) HandleComAtprotoAdminGetModerationReport(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetModerationReport")
 	defer span.End()
@@ -149,95 +98,6 @@ func (s *Server) HandleComAtprotoAdminGetModerationReport(c echo.Context) error 
 	var handleErr error
 	// func (s *Server) handleComAtprotoAdminGetModerationReport(ctx context.Context,id int) (*atproto.AdminDefs_ReportViewDetail, error)
 	out, handleErr = s.handleComAtprotoAdminGetModerationReport(ctx, id)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoAdminGetModerationReports(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetModerationReports")
-	defer span.End()
-	before := c.QueryParam("before")
-
-	var limit int
-	if p := c.QueryParam("limit"); p != "" {
-		var err error
-		limit, err = strconv.Atoi(p)
-		if err != nil {
-			return err
-		}
-	} else {
-		limit = 50
-	}
-
-	var resolved *bool
-	if p := c.QueryParam("resolved"); p != "" {
-		resolved_val, err := strconv.ParseBool(p)
-		if err != nil {
-			return err
-		}
-		resolved = &resolved_val
-	}
-	subject := c.QueryParam("subject")
-	var out *atproto.AdminGetModerationReports_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context,before string,limit int,resolved *bool,subject string) (*atproto.AdminGetModerationReports_Output, error)
-	out, handleErr = s.handleComAtprotoAdminGetModerationReports(ctx, before, limit, resolved, subject)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoAdminResolveModerationReports(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminResolveModerationReports")
-	defer span.End()
-
-	var body atproto.AdminResolveModerationReports_Input
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-	var out *atproto.AdminDefs_ActionView
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminResolveModerationReports(ctx context.Context,body *atproto.AdminResolveModerationReports_Input) (*atproto.AdminDefs_ActionView, error)
-	out, handleErr = s.handleComAtprotoAdminResolveModerationReports(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoAdminReverseModerationAction(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminReverseModerationAction")
-	defer span.End()
-
-	var body atproto.AdminReverseModerationAction_Input
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-	var out *atproto.AdminDefs_ActionView
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Context,body *atproto.AdminReverseModerationAction_Input) (*atproto.AdminDefs_ActionView, error)
-	out, handleErr = s.handleComAtprotoAdminReverseModerationAction(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoAdminTakeModerationAction(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminTakeModerationAction")
-	defer span.End()
-
-	var body atproto.AdminTakeModerationAction_Input
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-	var out *atproto.AdminDefs_ActionView
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context,body *atproto.AdminTakeModerationAction_Input) (*atproto.AdminDefs_ActionView, error)
-	out, handleErr = s.handleComAtprotoAdminTakeModerationAction(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}
