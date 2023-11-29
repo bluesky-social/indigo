@@ -11,7 +11,7 @@ func DefaultRules() automod.RuleSet {
 			MisleadingMentionPostRule,
 			ReplyCountPostRule,
 			BadHashtagsPostRule,
-			TooManyHashtagsPostRule,
+			//TooManyHashtagsPostRule,
 			AccountDemoPostRule,
 			AccountPrivateDemoPostRule,
 			GtubePostRule,
