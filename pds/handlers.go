@@ -619,20 +619,6 @@ func (s *Server) handleAppBskyActorGetProfiles(ctx context.Context, actors []str
 	panic("nyi")
 }
 
-func (s *Server) handleComAtprotoAdminGetModerationAction(ctx context.Context, id int) (*comatprototypes.AdminDefs_ActionViewDetail, error) {
-	panic("nyi")
-}
-func (s *Server) handleComAtprotoAdminGetModerationActions(ctx context.Context, before string, limit int, subject string) (*comatprototypes.AdminGetModerationActions_Output, error) {
-	panic("nyi")
-}
-func (s *Server) handleComAtprotoAdminGetModerationReport(ctx context.Context, id int) (*comatprototypes.AdminDefs_ReportViewDetail, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context, actionType string, actionedBy string, cursor string, ignoreSubjects []string, limit int, reporters []string, resolved *bool, reverse *bool, subject string) (*comatprototypes.AdminGetModerationReports_Output, error) {
-	panic("nyi")
-}
-
 func (s *Server) handleComAtprotoAdminGetRecord(ctx context.Context, cid string, uri string) (*comatprototypes.AdminDefs_RecordViewDetail, error) {
 	panic("nyi")
 }
@@ -640,16 +626,7 @@ func (s *Server) handleComAtprotoAdminGetRecord(ctx context.Context, cid string,
 func (s *Server) handleComAtprotoAdminGetRepo(ctx context.Context, did string) (*comatprototypes.AdminDefs_RepoViewDetail, error) {
 	panic("nyi")
 }
-func (s *Server) handleComAtprotoAdminResolveModerationReports(ctx context.Context, body *comatprototypes.AdminResolveModerationReports_Input) (*comatprototypes.AdminDefs_ActionView, error) {
-	panic("nyi")
-}
-func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Context, body *comatprototypes.AdminReverseModerationAction_Input) (*comatprototypes.AdminDefs_ActionView, error) {
-	panic("nyi")
-}
 func (s *Server) handleComAtprotoAdminSearchRepos(ctx context.Context, cursor string, limit int, q string, term string) (*comatprototypes.AdminSearchRepos_Output, error) {
-	panic("nyi")
-}
-func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context, body *comatprototypes.AdminTakeModerationAction_Input) (*comatprototypes.AdminDefs_ActionView, error) {
 	panic("nyi")
 }
 
@@ -812,10 +789,6 @@ func (s *Server) handleAppBskyUnspeccedGetPopularFeedGenerators(ctx context.Cont
 	panic("nyi")
 }
 func (s *Server) handleAppBskyUnspeccedGetTimelineSkeleton(ctx context.Context, cursor string, limit int) (*appbskytypes.UnspeccedGetTimelineSkeleton_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleComAtprotoAdminRebaseRepo(ctx context.Context, body *comatprototypes.AdminRebaseRepo_Input) error {
 	panic("nyi")
 }
 
