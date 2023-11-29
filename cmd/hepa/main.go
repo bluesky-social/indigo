@@ -138,7 +138,6 @@ var runCmd = &cli.Command{
 			Name: "slack-webhook-url",
 			// eg: https://hooks.slack.com/services/X1234
 			Usage:    "full URL of slack webhook",
-			Required: true,
 			EnvVars:  []string{"SLACK_WEBHOOK_URL"},
 		},
 	},
