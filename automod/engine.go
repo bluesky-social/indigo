@@ -63,6 +63,7 @@ func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.
 		return evt.Err
 	}
 	evt.CanonicalLogLine()
+	e.PurgeAccountCaches(ctx, am.Identity.DID)
 	if err := evt.PersistActions(ctx); err != nil {
 		return err
 	}
@@ -98,6 +99,10 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 		return evt.Err
 	}
 	evt.CanonicalLogLine()
+	// purge the account meta cache when profile is updated
+	if evt.Collection == "app.bsky.actor.profile" {
+		e.PurgeAccountCaches(ctx, am.Identity.DID)
+	}
 	if err := evt.PersistActions(ctx); err != nil {
 		return err
 	}
@@ -163,4 +168,10 @@ func (e *Engine) GetCount(name, val, period string) (int, error) {
 // checks if `val` is an element of set `name`
 func (e *Engine) InSet(name, val string) (bool, error) {
 	return e.Sets.InSet(context.TODO(), name, val)
+}
+
+// purge caches of any exiting metadata
+func (e *Engine) PurgeAccountCaches(ctx context.Context, did syntax.DID) error {
+	e.Directory.Purge(ctx, did.AtIdentifier())
+	return e.Cache.Purge(ctx, "acct", did.String())
 }
