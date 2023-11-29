@@ -2,5 +2,8 @@
     "bad-hashtags": [
         "slur",
         "deathtooutgroup"
+    ],
+    "bad-words": [
+    	"hardar"
     ]
 }

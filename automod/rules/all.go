@@ -11,12 +11,18 @@ func DefaultRules() automod.RuleSet {
 			MisleadingMentionPostRule,
 			ReplyCountPostRule,
 			BadHashtagsPostRule,
+			TooManyHashtagsPostRule,
 			AccountDemoPostRule,
 			AccountPrivateDemoPostRule,
 			GtubePostRule,
+			KeywordPostRule,
 		},
 		ProfileRules: []automod.ProfileRuleFunc{
 			GtubeProfileRule,
+			KeywordProfileRule,
+		},
+		IdentityRules: []automod.IdentityRuleFunc{
+			NoOpIdentityRule,
 		},
 	}
 	return rules
