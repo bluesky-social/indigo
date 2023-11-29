@@ -24,9 +24,12 @@ func TooManyHashtagsPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) e
 	for _, tag := range tags {
 		tagChars += len(tag)
 	}
-	if len(tags) >= 4 && (float64(tagChars)/float64(len(post.Text)) > 0.6) {
+	tagTextRatio := float64(tagChars)/float64(len(post.Text)
+	// if there is an image, allow some more tags
+	if len(tags) > 4 && tagTextRatio > 0.6 && post.Embed.EmbedImages == nil {
 		evt.AddRecordFlag("many-hashtags")
-		// TODO: consider reporting or labeling for spam
+	} else if len(tags) > 7 && tagTextRatio > 0.8 {
+		evt.AddRecordFlag("many-hashtags")
 	}
 	return nil
 }
