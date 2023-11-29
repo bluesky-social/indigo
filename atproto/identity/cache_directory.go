@@ -181,7 +181,7 @@ func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) (*Identi
 	if he != nil {
 		d.handleCache.Add(ident.Handle, *he)
 	}
-	return &entry, nil
+	return &entry, err
 }
 
 func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
