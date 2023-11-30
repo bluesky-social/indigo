@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"testing"
+	"time"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -39,6 +40,8 @@ func engineFixture() Engine {
 			simpleRule,
 		},
 	}
+	cache := NewMemCacheStore(10, time.Hour)
+	flags := NewMemFlagStore()
 	sets := NewMemSetStore()
 	sets.Sets["bad-hashtags"] = make(map[string]bool)
 	sets.Sets["bad-hashtags"]["slur"] = true
@@ -53,6 +56,8 @@ func engineFixture() Engine {
 		Directory: &dir,
 		Counters:  NewMemCountStore(),
 		Sets:      sets,
+		Flags:     flags,
+		Cache:     cache,
 		Rules:     rules,
 	}
 	return engine

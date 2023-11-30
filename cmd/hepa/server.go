@@ -88,6 +88,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 
 	var counters automod.CountStore
 	var cache automod.CacheStore
+	var flags automod.FlagStore
 	var rdb *redis.Client
 	if config.RedisURL != "" {
 		// generic client, for cursor state
@@ -113,9 +114,16 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 			return nil, err
 		}
 		cache = csh
+
+		flg, err := automod.NewRedisFlagStore(config.RedisURL)
+		if err != nil {
+			return nil, err
+		}
+		flags = flg
 	} else {
 		counters = automod.NewMemCountStore()
 		cache = automod.NewMemCacheStore(5_000, 30*time.Minute)
+		flags = automod.NewMemFlagStore()
 	}
 
 	engine := automod.Engine{
@@ -123,6 +131,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		Directory:   dir,
 		Counters:    counters,
 		Sets:        sets,
+		Flags:       flags,
 		Cache:       cache,
 		Rules:       rules.DefaultRules(),
 		AdminClient: xrpcc,
