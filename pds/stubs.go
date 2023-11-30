@@ -1091,18 +1091,11 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.admin.enableAccountInvites", s.HandleComAtprotoAdminEnableAccountInvites)
 	e.GET("/xrpc/com.atproto.admin.getAccountInfo", s.HandleComAtprotoAdminGetAccountInfo)
 	e.GET("/xrpc/com.atproto.admin.getInviteCodes", s.HandleComAtprotoAdminGetInviteCodes)
-	e.GET("/xrpc/com.atproto.admin.getModerationAction", s.HandleComAtprotoAdminGetModerationAction)
-	e.GET("/xrpc/com.atproto.admin.getModerationActions", s.HandleComAtprotoAdminGetModerationActions)
-	e.GET("/xrpc/com.atproto.admin.getModerationReport", s.HandleComAtprotoAdminGetModerationReport)
-	e.GET("/xrpc/com.atproto.admin.getModerationReports", s.HandleComAtprotoAdminGetModerationReports)
 	e.GET("/xrpc/com.atproto.admin.getRecord", s.HandleComAtprotoAdminGetRecord)
 	e.GET("/xrpc/com.atproto.admin.getRepo", s.HandleComAtprotoAdminGetRepo)
 	e.GET("/xrpc/com.atproto.admin.getSubjectStatus", s.HandleComAtprotoAdminGetSubjectStatus)
-	e.POST("/xrpc/com.atproto.admin.resolveModerationReports", s.HandleComAtprotoAdminResolveModerationReports)
-	e.POST("/xrpc/com.atproto.admin.reverseModerationAction", s.HandleComAtprotoAdminReverseModerationAction)
 	e.GET("/xrpc/com.atproto.admin.searchRepos", s.HandleComAtprotoAdminSearchRepos)
 	e.POST("/xrpc/com.atproto.admin.sendEmail", s.HandleComAtprotoAdminSendEmail)
-	e.POST("/xrpc/com.atproto.admin.takeModerationAction", s.HandleComAtprotoAdminTakeModerationAction)
 	e.POST("/xrpc/com.atproto.admin.updateAccountEmail", s.HandleComAtprotoAdminUpdateAccountEmail)
 	e.POST("/xrpc/com.atproto.admin.updateAccountHandle", s.HandleComAtprotoAdminUpdateAccountHandle)
 	e.POST("/xrpc/com.atproto.admin.updateSubjectStatus", s.HandleComAtprotoAdminUpdateSubjectStatus)
@@ -1245,118 +1238,6 @@ func (s *Server) HandleComAtprotoAdminGetInviteCodes(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *Server) HandleComAtprotoAdminGetModerationAction(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetModerationAction")
-	defer span.End()
-
-	id, err := strconv.Atoi(c.QueryParam("id"))
-	if err != nil {
-		return err
-	}
-	var out *comatprototypes.AdminDefs_ActionViewDetail
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminGetModerationAction(ctx context.Context,id int) (*comatprototypes.AdminDefs_ActionViewDetail, error)
-	out, handleErr = s.handleComAtprotoAdminGetModerationAction(ctx, id)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoAdminGetModerationActions(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetModerationActions")
-	defer span.End()
-	cursor := c.QueryParam("cursor")
-
-	var limit int
-	if p := c.QueryParam("limit"); p != "" {
-		var err error
-		limit, err = strconv.Atoi(p)
-		if err != nil {
-			return err
-		}
-	} else {
-		limit = 50
-	}
-	subject := c.QueryParam("subject")
-	var out *comatprototypes.AdminGetModerationActions_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminGetModerationActions(ctx context.Context,cursor string,limit int,subject string) (*comatprototypes.AdminGetModerationActions_Output, error)
-	out, handleErr = s.handleComAtprotoAdminGetModerationActions(ctx, cursor, limit, subject)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoAdminGetModerationReport(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetModerationReport")
-	defer span.End()
-
-	id, err := strconv.Atoi(c.QueryParam("id"))
-	if err != nil {
-		return err
-	}
-	var out *comatprototypes.AdminDefs_ReportViewDetail
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminGetModerationReport(ctx context.Context,id int) (*comatprototypes.AdminDefs_ReportViewDetail, error)
-	out, handleErr = s.handleComAtprotoAdminGetModerationReport(ctx, id)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoAdminGetModerationReports(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetModerationReports")
-	defer span.End()
-	actionType := c.QueryParam("actionType")
-	actionedBy := c.QueryParam("actionedBy")
-	cursor := c.QueryParam("cursor")
-
-	ignoreSubjects := c.QueryParams()["ignoreSubjects"]
-
-	var limit int
-	if p := c.QueryParam("limit"); p != "" {
-		var err error
-		limit, err = strconv.Atoi(p)
-		if err != nil {
-			return err
-		}
-	} else {
-		limit = 50
-	}
-
-	reporters := c.QueryParams()["reporters"]
-
-	var resolved *bool
-	if p := c.QueryParam("resolved"); p != "" {
-		resolved_val, err := strconv.ParseBool(p)
-		if err != nil {
-			return err
-		}
-		resolved = &resolved_val
-	}
-
-	var reverse *bool
-	if p := c.QueryParam("reverse"); p != "" {
-		reverse_val, err := strconv.ParseBool(p)
-		if err != nil {
-			return err
-		}
-		reverse = &reverse_val
-	}
-	subject := c.QueryParam("subject")
-	var out *comatprototypes.AdminGetModerationReports_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminGetModerationReports(ctx context.Context,actionType string,actionedBy string,cursor string,ignoreSubjects []string,limit int,reporters []string,resolved *bool,reverse *bool,subject string) (*comatprototypes.AdminGetModerationReports_Output, error)
-	out, handleErr = s.handleComAtprotoAdminGetModerationReports(ctx, actionType, actionedBy, cursor, ignoreSubjects, limit, reporters, resolved, reverse, subject)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
 func (s *Server) HandleComAtprotoAdminGetRecord(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetRecord")
 	defer span.End()
@@ -1402,42 +1283,6 @@ func (s *Server) HandleComAtprotoAdminGetSubjectStatus(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *Server) HandleComAtprotoAdminResolveModerationReports(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminResolveModerationReports")
-	defer span.End()
-
-	var body comatprototypes.AdminResolveModerationReports_Input
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-	var out *comatprototypes.AdminDefs_ActionView
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminResolveModerationReports(ctx context.Context,body *comatprototypes.AdminResolveModerationReports_Input) (*comatprototypes.AdminDefs_ActionView, error)
-	out, handleErr = s.handleComAtprotoAdminResolveModerationReports(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoAdminReverseModerationAction(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminReverseModerationAction")
-	defer span.End()
-
-	var body comatprototypes.AdminReverseModerationAction_Input
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-	var out *comatprototypes.AdminDefs_ActionView
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminReverseModerationAction(ctx context.Context,body *comatprototypes.AdminReverseModerationAction_Input) (*comatprototypes.AdminDefs_ActionView, error)
-	out, handleErr = s.handleComAtprotoAdminReverseModerationAction(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
 func (s *Server) HandleComAtprotoAdminSearchRepos(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminSearchRepos")
 	defer span.End()
@@ -1477,24 +1322,6 @@ func (s *Server) HandleComAtprotoAdminSendEmail(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleComAtprotoAdminSendEmail(ctx context.Context,body *comatprototypes.AdminSendEmail_Input) (*comatprototypes.AdminSendEmail_Output, error)
 	out, handleErr = s.handleComAtprotoAdminSendEmail(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoAdminTakeModerationAction(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminTakeModerationAction")
-	defer span.End()
-
-	var body comatprototypes.AdminTakeModerationAction_Input
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-	var out *comatprototypes.AdminDefs_ActionView
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminTakeModerationAction(ctx context.Context,body *comatprototypes.AdminTakeModerationAction_Input) (*comatprototypes.AdminDefs_ActionView, error)
-	out, handleErr = s.handleComAtprotoAdminTakeModerationAction(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}
