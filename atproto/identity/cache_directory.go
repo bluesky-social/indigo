@@ -181,7 +181,7 @@ func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) (*Identi
 	if he != nil {
 		d.handleCache.Add(ident.Handle, *he)
 	}
-	return &entry, nil
+	return &entry, err
 }
 
 func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
@@ -226,6 +226,7 @@ func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identi
 }
 
 func (d *CacheDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
+	h = h.Normalize()
 	did, err := d.ResolveHandle(ctx, h)
 	if err != nil {
 		return nil, err
@@ -260,6 +261,7 @@ func (d *CacheDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Id
 func (d *CacheDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error {
 	handle, err := a.AsHandle()
 	if nil == err { // if not an error, is a handle
+		handle = handle.Normalize()
 		d.handleCache.Remove(handle)
 		return nil
 	}
