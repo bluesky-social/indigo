@@ -23,7 +23,7 @@ func DefaultRules() automod.RuleSet {
 			KeywordProfileRule,
 		},
 		IdentityRules: []automod.IdentityRuleFunc{
-			NoOpIdentityRule,
+			NewAccountRule,
 		},
 	}
 	return rules
