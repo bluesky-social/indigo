@@ -328,14 +328,22 @@ func (t *basicSchema) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			for i := 0; i < int(extra); i++ {
-
 				{
-					sval, err := cbg.ReadString(cr)
-					if err != nil {
-						return err
-					}
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
 
-					t.Array[i] = string(sval)
+					{
+						sval, err := cbg.ReadString(cr)
+						if err != nil {
+							return err
+						}
+
+						t.Array[i] = string(sval)
+					}
 				}
 			}
 
@@ -593,14 +601,22 @@ func (t *basicSchemaInner) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			for i := 0; i < int(extra); i++ {
-
 				{
-					sval, err := cbg.ReadString(cr)
-					if err != nil {
-						return err
-					}
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
 
-					t.Arr[i] = string(sval)
+					{
+						sval, err := cbg.ReadString(cr)
+						if err != nil {
+							return err
+						}
+
+						t.Arr[i] = string(sval)
+					}
 				}
 			}
 
@@ -1172,14 +1188,22 @@ func (t *basicOldSchema) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			for i := 0; i < int(extra); i++ {
-
 				{
-					sval, err := cbg.ReadString(cr)
-					if err != nil {
-						return err
-					}
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
 
-					t.F[i] = string(sval)
+					{
+						sval, err := cbg.ReadString(cr)
+						if err != nil {
+							return err
+						}
+
+						t.F[i] = string(sval)
+					}
 				}
 			}
 
@@ -1423,14 +1447,22 @@ func (t *basicOldSchemaInner) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			for i := 0; i < int(extra); i++ {
-
 				{
-					sval, err := cbg.ReadString(cr)
-					if err != nil {
-						return err
-					}
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
 
-					t.K[i] = string(sval)
+					{
+						sval, err := cbg.ReadString(cr)
+						if err != nil {
+							return err
+						}
+
+						t.K[i] = string(sval)
+					}
 				}
 			}
 

@@ -30,6 +30,7 @@ func (d *MockDirectory) Insert(ident Identity) {
 }
 
 func (d *MockDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
+	h = h.Normalize()
 	did, ok := d.Handles[h]
 	if !ok {
 		return nil, ErrHandleNotFound
