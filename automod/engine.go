@@ -22,6 +22,7 @@ type Engine struct {
 	Counters    CountStore
 	Sets        SetStore
 	Cache       CacheStore
+	Flags       FlagStore
 	RelayClient *xrpc.Client
 	BskyClient  *xrpc.Client
 	// used to persist moderation actions in mod service (optional)
