@@ -67,6 +67,9 @@ func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.
 	if err := evt.PersistActions(ctx); err != nil {
 		return err
 	}
+	if err := evt.PersistCounters(ctx); err != nil {
+		return err
+	}
 	return nil
 }
 
