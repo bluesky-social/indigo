@@ -26,7 +26,7 @@ func KeywordProfileRule(evt *automod.RecordEvent, profile *appbsky.ActorProfile)
 }
 
 func ReplySingleKeywordPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
-	if post.Reply != nil {
+	if post.Reply != nil && !IsSelfThread(evt, post) {
 		tokens := ExtractTextTokensPost(post)
 		if len(tokens) == 1 && evt.InSet("bad-words", tokens[0]) {
 			evt.AddRecordFlag("reply-single-bad-word")

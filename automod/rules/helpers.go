@@ -7,6 +7,8 @@ import (
 	"unicode"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/automod"
 )
 
 func dedupeStrings(in []string) []string {
@@ -153,4 +155,25 @@ func ExtractTextURLsProfile(profile *appbsky.ActorProfile) []string {
 		s += " " + *profile.DisplayName
 	}
 	return ExtractTextURLs(s)
+}
+
+// checks if the post event is a reply post for which the author is replying to themselves, or author is the root author (OP)
+func IsSelfThread(evt *automod.RecordEvent, post *appbsky.FeedPost) bool {
+	if post.Reply == nil {
+		return false
+	}
+	did := evt.Account.Identity.DID.String()
+	parentURI, err := syntax.ParseATURI(post.Reply.Parent.Uri)
+	if err != nil {
+		return false
+	}
+	rootURI, err := syntax.ParseATURI(post.Reply.Root.Uri)
+	if err != nil {
+		return false
+	}
+
+	if parentURI.Authority().String() == did || rootURI.Authority().String() == did {
+		return true
+	}
+	return false
 }
