@@ -61,6 +61,18 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 			}
 			return nil
 		},
+		RepoMigrate: func(evt *comatproto.SyncSubscribeRepos_Migrate) error {
+			s.lastSeq = evt.Seq
+			did, err := syntax.ParseDID(evt.Did)
+			if err != nil {
+				s.logger.Error("bad DID in RepoMigrate event", "did", evt.Did, "seq", evt.Seq, "err", err)
+				return nil
+			}
+			if err := s.engine.ProcessIdentityEvent(ctx, "migrate", did); err != nil {
+				s.logger.Error("processing repo migrate failed", "did", evt.Did, "seq", evt.Seq, "err", err)
+			}
+			return nil
+		},
 		// TODO: other event callbacks as needed
 	}
 
