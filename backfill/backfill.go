@@ -49,6 +49,8 @@ type Store interface {
 	GetJob(ctx context.Context, repo string) (Job, error)
 	GetNextEnqueuedJob(ctx context.Context) (Job, error)
 	UpdateRev(ctx context.Context, repo, rev string) error
+
+	EnqueueJob(repo string) error
 }
 
 // Backfiller is a struct which handles backfilling a repo
@@ -511,7 +513,19 @@ func (bf *Backfiller) BufferOp(ctx context.Context, repo string, since *string, 
 func (bf *Backfiller) BufferOps(ctx context.Context, repo string, since *string, rev string, ops []*bufferedOp) (bool, error) {
 	j, err := bf.Store.GetJob(ctx, repo)
 	if err != nil {
-		return false, err
+		if !errors.Is(err, ErrJobNotFound) {
+			return false, err
+		}
+		if qerr := bf.Store.EnqueueJob(repo); qerr != nil {
+			return false, fmt.Errorf("failed to enqueue job for unknown repo: %w", qerr)
+		}
+
+		nj, err := bf.Store.GetJob(ctx, repo)
+		if err != nil {
+			return false, err
+		}
+
+		j = nj
 	}
 
 	return j.BufferOps(ctx, since, rev, ops)
