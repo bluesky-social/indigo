@@ -3,7 +3,6 @@ package labeler
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -161,129 +160,6 @@ func TestLabelMakerXRPCReportRecordBad(t *testing.T) {
 			assert.Equal(row.statusCode, recorder.Code)
 		}
 	}
-}
-
-func TestLabelMakerXRPCReportAction(t *testing.T) {
-	assert := assert.New(t)
-	e := echo.New()
-	lm := testLabelMaker(t)
-
-	// create report
-	reasonType := "spam"
-	reportReason := "I just don't like it!"
-	uri := "at://did:plc:123/com.example.record/bcd234"
-	cid := "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454"
-	report := comatproto.ModerationCreateReport_Input{
-		Reason:     &reportReason,
-		ReasonType: &reasonType,
-		Subject: &comatproto.ModerationCreateReport_Input_Subject{
-			RepoStrongRef: &comatproto.RepoStrongRef{
-				//com.atproto.repo.strongRef
-				Uri: uri,
-				Cid: cid,
-			},
-		},
-	}
-	reportOut := testCreateReport(t, e, lm, &report)
-	reportId := reportOut.Id
-
-	// create action
-	actionVerb := "acknowledge"
-	actionDid := "did:plc:ADMIN"
-	actionReason := "chaos reigns"
-	action := comatproto.AdminTakeModerationAction_Input{
-		Action:    actionVerb,
-		CreatedBy: actionDid,
-		Reason:    actionReason,
-		Subject: &comatproto.AdminTakeModerationAction_Input_Subject{
-			RepoStrongRef: &comatproto.RepoStrongRef{
-				//com.atproto.repo.strongRef
-				Uri: uri,
-				Cid: cid,
-			},
-		},
-		SubjectBlobCids: []string{
-			"abc",
-			"onetwothree",
-		},
-	}
-	actionOut := testCreateAction(t, e, lm, &action)
-	actionId := actionOut.Id
-
-	// resolve report with action
-	resolution := comatproto.AdminResolveModerationReports_Input{
-		ActionId:  actionId,
-		CreatedBy: actionDid,
-		ReportIds: []int64{reportId},
-	}
-	resolutionJSON, err := json.Marshal(resolution)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req := httptest.NewRequest(http.MethodPost, "/xrpc/com.atproto.report.resolveModerationReports", strings.NewReader(string(resolutionJSON)))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	recorder := httptest.NewRecorder()
-	c := e.NewContext(req, recorder)
-	assert.NoError(lm.HandleComAtprotoAdminResolveModerationReports(c))
-	var resolutionOut comatproto.AdminDefs_ActionView
-	if err := json.Unmarshal([]byte(recorder.Body.String()), &resolutionOut); err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println(recorder.Body.String())
-	assert.Equal(actionId, resolutionOut.Id)
-	assert.Equal(1, len(resolutionOut.ResolvedReportIds))
-	assert.Equal(reportId, resolutionOut.ResolvedReportIds[0])
-
-	// get report (should have action included)
-	reportOutDetail := testGetReport(t, e, lm, reportId)
-	assert.Equal(reportId, reportOutDetail.Id)
-	assert.Equal(1, len(reportOutDetail.ResolvedByActions))
-	assert.Equal(actionId, reportOutDetail.ResolvedByActions[0].Id)
-
-	// get action (should have report included)
-	actionOutDetail := testGetAction(t, e, lm, actionId)
-	assert.Equal(actionId, actionOutDetail.Id)
-	assert.Equal(1, len(actionOutDetail.ResolvedReports))
-	assert.Equal(reportId, actionOutDetail.ResolvedReports[0].Id)
-
-	// reverse action
-	reversalReason := "changed my mind"
-	reversal := comatproto.AdminReverseModerationAction_Input{
-		Id:        actionId,
-		CreatedBy: actionDid,
-		Reason:    reversalReason,
-	}
-	reversalJSON, err := json.Marshal(reversal)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req = httptest.NewRequest(http.MethodPost, "/xrpc/com.atproto.report.reverseModerationAction", strings.NewReader(string(reversalJSON)))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	recorder = httptest.NewRecorder()
-	c = e.NewContext(req, recorder)
-	assert.NoError(lm.HandleComAtprotoAdminReverseModerationAction(c))
-	var reversalOut comatproto.AdminDefs_ActionView
-	if err := json.Unmarshal([]byte(recorder.Body.String()), &reversalOut); err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(actionId, reversalOut.Id)
-	assert.Equal(1, len(reversalOut.ResolvedReportIds))
-	assert.Equal(reportId, reversalOut.ResolvedReportIds[0])
-	assert.Equal(reversal.Reason, reversalOut.Reversal.Reason)
-	assert.Equal(reversal.CreatedBy, reversalOut.Reversal.CreatedBy)
-	assert.NotNil(reversalOut.Reversal.CreatedAt)
-
-	// get report (should *not* have action included)
-	reportOutDetail = testGetReport(t, e, lm, reportId)
-	assert.Equal(reportId, reportOutDetail.Id)
-	assert.Equal(0, len(reportOutDetail.ResolvedByActions))
-
-	// get action (should still have report included)
-	actionOutDetail = testGetAction(t, e, lm, actionId)
-	assert.Equal(actionId, actionOutDetail.Id)
-	assert.Equal(1, len(actionOutDetail.ResolvedReports))
-	assert.Equal(reportId, actionOutDetail.ResolvedReports[0].Id)
-	assert.Equal(reversalOut.Reversal, actionOutDetail.Reversal)
 }
 
 func TestLabelMakerXRPCLabelQuery(t *testing.T) {

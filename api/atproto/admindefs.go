@@ -24,141 +24,6 @@ type AdminDefs_AccountView struct {
 	InvitesDisabled  *bool                    `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
 }
 
-// AdminDefs_ActionReversal is a "actionReversal" in the com.atproto.admin.defs schema.
-type AdminDefs_ActionReversal struct {
-	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
-	CreatedBy string `json:"createdBy" cborgen:"createdBy"`
-	Reason    string `json:"reason" cborgen:"reason"`
-}
-
-// AdminDefs_ActionView is a "actionView" in the com.atproto.admin.defs schema.
-type AdminDefs_ActionView struct {
-	Action          *string  `json:"action" cborgen:"action"`
-	CreateLabelVals []string `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
-	CreatedAt       string   `json:"createdAt" cborgen:"createdAt"`
-	CreatedBy       string   `json:"createdBy" cborgen:"createdBy"`
-	// durationInHours: Indicates how long this action is meant to be in effect before automatically expiring.
-	DurationInHours   *int64                        `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
-	Id                int64                         `json:"id" cborgen:"id"`
-	NegateLabelVals   []string                      `json:"negateLabelVals,omitempty" cborgen:"negateLabelVals,omitempty"`
-	Reason            string                        `json:"reason" cborgen:"reason"`
-	ResolvedReportIds []int64                       `json:"resolvedReportIds" cborgen:"resolvedReportIds"`
-	Reversal          *AdminDefs_ActionReversal     `json:"reversal,omitempty" cborgen:"reversal,omitempty"`
-	Subject           *AdminDefs_ActionView_Subject `json:"subject" cborgen:"subject"`
-	SubjectBlobCids   []string                      `json:"subjectBlobCids" cborgen:"subjectBlobCids"`
-}
-
-// AdminDefs_ActionViewCurrent is a "actionViewCurrent" in the com.atproto.admin.defs schema.
-type AdminDefs_ActionViewCurrent struct {
-	Action *string `json:"action" cborgen:"action"`
-	// durationInHours: Indicates how long this action is meant to be in effect before automatically expiring.
-	DurationInHours *int64 `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
-	Id              int64  `json:"id" cborgen:"id"`
-}
-
-// AdminDefs_ActionViewDetail is a "actionViewDetail" in the com.atproto.admin.defs schema.
-type AdminDefs_ActionViewDetail struct {
-	Action          *string  `json:"action" cborgen:"action"`
-	CreateLabelVals []string `json:"createLabelVals,omitempty" cborgen:"createLabelVals,omitempty"`
-	CreatedAt       string   `json:"createdAt" cborgen:"createdAt"`
-	CreatedBy       string   `json:"createdBy" cborgen:"createdBy"`
-	// durationInHours: Indicates how long this action is meant to be in effect before automatically expiring.
-	DurationInHours *int64                              `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
-	Id              int64                               `json:"id" cborgen:"id"`
-	NegateLabelVals []string                            `json:"negateLabelVals,omitempty" cborgen:"negateLabelVals,omitempty"`
-	Reason          string                              `json:"reason" cborgen:"reason"`
-	ResolvedReports []*AdminDefs_ReportView             `json:"resolvedReports" cborgen:"resolvedReports"`
-	Reversal        *AdminDefs_ActionReversal           `json:"reversal,omitempty" cborgen:"reversal,omitempty"`
-	Subject         *AdminDefs_ActionViewDetail_Subject `json:"subject" cborgen:"subject"`
-	SubjectBlobs    []*AdminDefs_BlobView               `json:"subjectBlobs" cborgen:"subjectBlobs"`
-}
-
-type AdminDefs_ActionViewDetail_Subject struct {
-	AdminDefs_RepoView           *AdminDefs_RepoView
-	AdminDefs_RepoViewNotFound   *AdminDefs_RepoViewNotFound
-	AdminDefs_RecordView         *AdminDefs_RecordView
-	AdminDefs_RecordViewNotFound *AdminDefs_RecordViewNotFound
-}
-
-func (t *AdminDefs_ActionViewDetail_Subject) MarshalJSON() ([]byte, error) {
-	if t.AdminDefs_RepoView != nil {
-		t.AdminDefs_RepoView.LexiconTypeID = "com.atproto.admin.defs#repoView"
-		return json.Marshal(t.AdminDefs_RepoView)
-	}
-	if t.AdminDefs_RepoViewNotFound != nil {
-		t.AdminDefs_RepoViewNotFound.LexiconTypeID = "com.atproto.admin.defs#repoViewNotFound"
-		return json.Marshal(t.AdminDefs_RepoViewNotFound)
-	}
-	if t.AdminDefs_RecordView != nil {
-		t.AdminDefs_RecordView.LexiconTypeID = "com.atproto.admin.defs#recordView"
-		return json.Marshal(t.AdminDefs_RecordView)
-	}
-	if t.AdminDefs_RecordViewNotFound != nil {
-		t.AdminDefs_RecordViewNotFound.LexiconTypeID = "com.atproto.admin.defs#recordViewNotFound"
-		return json.Marshal(t.AdminDefs_RecordViewNotFound)
-	}
-	return nil, fmt.Errorf("cannot marshal empty enum")
-}
-func (t *AdminDefs_ActionViewDetail_Subject) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
-	if err != nil {
-		return err
-	}
-
-	switch typ {
-	case "com.atproto.admin.defs#repoView":
-		t.AdminDefs_RepoView = new(AdminDefs_RepoView)
-		return json.Unmarshal(b, t.AdminDefs_RepoView)
-	case "com.atproto.admin.defs#repoViewNotFound":
-		t.AdminDefs_RepoViewNotFound = new(AdminDefs_RepoViewNotFound)
-		return json.Unmarshal(b, t.AdminDefs_RepoViewNotFound)
-	case "com.atproto.admin.defs#recordView":
-		t.AdminDefs_RecordView = new(AdminDefs_RecordView)
-		return json.Unmarshal(b, t.AdminDefs_RecordView)
-	case "com.atproto.admin.defs#recordViewNotFound":
-		t.AdminDefs_RecordViewNotFound = new(AdminDefs_RecordViewNotFound)
-		return json.Unmarshal(b, t.AdminDefs_RecordViewNotFound)
-
-	default:
-		return nil
-	}
-}
-
-type AdminDefs_ActionView_Subject struct {
-	AdminDefs_RepoRef *AdminDefs_RepoRef
-	RepoStrongRef     *RepoStrongRef
-}
-
-func (t *AdminDefs_ActionView_Subject) MarshalJSON() ([]byte, error) {
-	if t.AdminDefs_RepoRef != nil {
-		t.AdminDefs_RepoRef.LexiconTypeID = "com.atproto.admin.defs#repoRef"
-		return json.Marshal(t.AdminDefs_RepoRef)
-	}
-	if t.RepoStrongRef != nil {
-		t.RepoStrongRef.LexiconTypeID = "com.atproto.repo.strongRef"
-		return json.Marshal(t.RepoStrongRef)
-	}
-	return nil, fmt.Errorf("cannot marshal empty enum")
-}
-func (t *AdminDefs_ActionView_Subject) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
-	if err != nil {
-		return err
-	}
-
-	switch typ {
-	case "com.atproto.admin.defs#repoRef":
-		t.AdminDefs_RepoRef = new(AdminDefs_RepoRef)
-		return json.Unmarshal(b, t.AdminDefs_RepoRef)
-	case "com.atproto.repo.strongRef":
-		t.RepoStrongRef = new(RepoStrongRef)
-		return json.Unmarshal(b, t.RepoStrongRef)
-
-	default:
-		return nil
-	}
-}
-
 // AdminDefs_BlobView is a "blobView" in the com.atproto.admin.defs schema.
 type AdminDefs_BlobView struct {
 	Cid        string                      `json:"cid" cborgen:"cid"`
@@ -213,16 +78,404 @@ type AdminDefs_ImageDetails struct {
 	Width         int64  `json:"width" cborgen:"width"`
 }
 
+// AdminDefs_ModEventAcknowledge is a "modEventAcknowledge" in the com.atproto.admin.defs schema.
+//
+// RECORDTYPE: AdminDefs_ModEventAcknowledge
+type AdminDefs_ModEventAcknowledge struct {
+	LexiconTypeID string  `json:"$type,const=com.atproto.admin.defs#modEventAcknowledge" cborgen:"$type,const=com.atproto.admin.defs#modEventAcknowledge"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+}
+
+// AdminDefs_ModEventComment is a "modEventComment" in the com.atproto.admin.defs schema.
+//
+// # Add a comment to a subject
+//
+// RECORDTYPE: AdminDefs_ModEventComment
+type AdminDefs_ModEventComment struct {
+	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs#modEventComment" cborgen:"$type,const=com.atproto.admin.defs#modEventComment"`
+	Comment       string `json:"comment" cborgen:"comment"`
+	// sticky: Make the comment persistent on the subject
+	Sticky *bool `json:"sticky,omitempty" cborgen:"sticky,omitempty"`
+}
+
+// AdminDefs_ModEventEmail is a "modEventEmail" in the com.atproto.admin.defs schema.
+//
+// # Keep a log of outgoing email to a user
+//
+// RECORDTYPE: AdminDefs_ModEventEmail
+type AdminDefs_ModEventEmail struct {
+	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs#modEventEmail" cborgen:"$type,const=com.atproto.admin.defs#modEventEmail"`
+	// subjectLine: The subject line of the email sent to the user.
+	SubjectLine string `json:"subjectLine" cborgen:"subjectLine"`
+}
+
+// AdminDefs_ModEventEscalate is a "modEventEscalate" in the com.atproto.admin.defs schema.
+//
+// RECORDTYPE: AdminDefs_ModEventEscalate
+type AdminDefs_ModEventEscalate struct {
+	LexiconTypeID string  `json:"$type,const=com.atproto.admin.defs#modEventEscalate" cborgen:"$type,const=com.atproto.admin.defs#modEventEscalate"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+}
+
+// AdminDefs_ModEventLabel is a "modEventLabel" in the com.atproto.admin.defs schema.
+//
+// Apply/Negate labels on a subject
+//
+// RECORDTYPE: AdminDefs_ModEventLabel
+type AdminDefs_ModEventLabel struct {
+	LexiconTypeID   string   `json:"$type,const=com.atproto.admin.defs#modEventLabel" cborgen:"$type,const=com.atproto.admin.defs#modEventLabel"`
+	Comment         *string  `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	CreateLabelVals []string `json:"createLabelVals" cborgen:"createLabelVals"`
+	NegateLabelVals []string `json:"negateLabelVals" cborgen:"negateLabelVals"`
+}
+
+// AdminDefs_ModEventMute is a "modEventMute" in the com.atproto.admin.defs schema.
+//
+// # Mute incoming reports on a subject
+//
+// RECORDTYPE: AdminDefs_ModEventMute
+type AdminDefs_ModEventMute struct {
+	LexiconTypeID string  `json:"$type,const=com.atproto.admin.defs#modEventMute" cborgen:"$type,const=com.atproto.admin.defs#modEventMute"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	// durationInHours: Indicates how long the subject should remain muted.
+	DurationInHours int64 `json:"durationInHours" cborgen:"durationInHours"`
+}
+
+// AdminDefs_ModEventReport is a "modEventReport" in the com.atproto.admin.defs schema.
+//
+// # Report a subject
+//
+// RECORDTYPE: AdminDefs_ModEventReport
+type AdminDefs_ModEventReport struct {
+	LexiconTypeID string  `json:"$type,const=com.atproto.admin.defs#modEventReport" cborgen:"$type,const=com.atproto.admin.defs#modEventReport"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	ReportType    *string `json:"reportType" cborgen:"reportType"`
+}
+
+// AdminDefs_ModEventReverseTakedown is a "modEventReverseTakedown" in the com.atproto.admin.defs schema.
+//
+// # Revert take down action on a subject
+//
+// RECORDTYPE: AdminDefs_ModEventReverseTakedown
+type AdminDefs_ModEventReverseTakedown struct {
+	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs#modEventReverseTakedown" cborgen:"$type,const=com.atproto.admin.defs#modEventReverseTakedown"`
+	// comment: Describe reasoning behind the reversal.
+	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+}
+
+// AdminDefs_ModEventTakedown is a "modEventTakedown" in the com.atproto.admin.defs schema.
+//
+// # Take down a subject permanently or temporarily
+//
+// RECORDTYPE: AdminDefs_ModEventTakedown
+type AdminDefs_ModEventTakedown struct {
+	LexiconTypeID string  `json:"$type,const=com.atproto.admin.defs#modEventTakedown" cborgen:"$type,const=com.atproto.admin.defs#modEventTakedown"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	// durationInHours: Indicates how long the takedown should be in effect before automatically expiring.
+	DurationInHours *int64 `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
+}
+
+// AdminDefs_ModEventUnmute is a "modEventUnmute" in the com.atproto.admin.defs schema.
+//
+// # Unmute action on a subject
+//
+// RECORDTYPE: AdminDefs_ModEventUnmute
+type AdminDefs_ModEventUnmute struct {
+	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs#modEventUnmute" cborgen:"$type,const=com.atproto.admin.defs#modEventUnmute"`
+	// comment: Describe reasoning behind the reversal.
+	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+}
+
+// AdminDefs_ModEventView is a "modEventView" in the com.atproto.admin.defs schema.
+type AdminDefs_ModEventView struct {
+	CreatedAt       string                          `json:"createdAt" cborgen:"createdAt"`
+	CreatedBy       string                          `json:"createdBy" cborgen:"createdBy"`
+	CreatorHandle   *string                         `json:"creatorHandle,omitempty" cborgen:"creatorHandle,omitempty"`
+	Event           *AdminDefs_ModEventView_Event   `json:"event" cborgen:"event"`
+	Id              int64                           `json:"id" cborgen:"id"`
+	Subject         *AdminDefs_ModEventView_Subject `json:"subject" cborgen:"subject"`
+	SubjectBlobCids []string                        `json:"subjectBlobCids" cborgen:"subjectBlobCids"`
+	SubjectHandle   *string                         `json:"subjectHandle,omitempty" cborgen:"subjectHandle,omitempty"`
+}
+
+// AdminDefs_ModEventViewDetail is a "modEventViewDetail" in the com.atproto.admin.defs schema.
+type AdminDefs_ModEventViewDetail struct {
+	CreatedAt    string                                `json:"createdAt" cborgen:"createdAt"`
+	CreatedBy    string                                `json:"createdBy" cborgen:"createdBy"`
+	Event        *AdminDefs_ModEventViewDetail_Event   `json:"event" cborgen:"event"`
+	Id           int64                                 `json:"id" cborgen:"id"`
+	Subject      *AdminDefs_ModEventViewDetail_Subject `json:"subject" cborgen:"subject"`
+	SubjectBlobs []*AdminDefs_BlobView                 `json:"subjectBlobs" cborgen:"subjectBlobs"`
+}
+
+type AdminDefs_ModEventViewDetail_Event struct {
+	AdminDefs_ModEventTakedown        *AdminDefs_ModEventTakedown
+	AdminDefs_ModEventReverseTakedown *AdminDefs_ModEventReverseTakedown
+	AdminDefs_ModEventComment         *AdminDefs_ModEventComment
+	AdminDefs_ModEventReport          *AdminDefs_ModEventReport
+	AdminDefs_ModEventLabel           *AdminDefs_ModEventLabel
+	AdminDefs_ModEventAcknowledge     *AdminDefs_ModEventAcknowledge
+	AdminDefs_ModEventEscalate        *AdminDefs_ModEventEscalate
+	AdminDefs_ModEventMute            *AdminDefs_ModEventMute
+}
+
+func (t *AdminDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) {
+	if t.AdminDefs_ModEventTakedown != nil {
+		t.AdminDefs_ModEventTakedown.LexiconTypeID = "com.atproto.admin.defs#modEventTakedown"
+		return json.Marshal(t.AdminDefs_ModEventTakedown)
+	}
+	if t.AdminDefs_ModEventReverseTakedown != nil {
+		t.AdminDefs_ModEventReverseTakedown.LexiconTypeID = "com.atproto.admin.defs#modEventReverseTakedown"
+		return json.Marshal(t.AdminDefs_ModEventReverseTakedown)
+	}
+	if t.AdminDefs_ModEventComment != nil {
+		t.AdminDefs_ModEventComment.LexiconTypeID = "com.atproto.admin.defs#modEventComment"
+		return json.Marshal(t.AdminDefs_ModEventComment)
+	}
+	if t.AdminDefs_ModEventReport != nil {
+		t.AdminDefs_ModEventReport.LexiconTypeID = "com.atproto.admin.defs#modEventReport"
+		return json.Marshal(t.AdminDefs_ModEventReport)
+	}
+	if t.AdminDefs_ModEventLabel != nil {
+		t.AdminDefs_ModEventLabel.LexiconTypeID = "com.atproto.admin.defs#modEventLabel"
+		return json.Marshal(t.AdminDefs_ModEventLabel)
+	}
+	if t.AdminDefs_ModEventAcknowledge != nil {
+		t.AdminDefs_ModEventAcknowledge.LexiconTypeID = "com.atproto.admin.defs#modEventAcknowledge"
+		return json.Marshal(t.AdminDefs_ModEventAcknowledge)
+	}
+	if t.AdminDefs_ModEventEscalate != nil {
+		t.AdminDefs_ModEventEscalate.LexiconTypeID = "com.atproto.admin.defs#modEventEscalate"
+		return json.Marshal(t.AdminDefs_ModEventEscalate)
+	}
+	if t.AdminDefs_ModEventMute != nil {
+		t.AdminDefs_ModEventMute.LexiconTypeID = "com.atproto.admin.defs#modEventMute"
+		return json.Marshal(t.AdminDefs_ModEventMute)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *AdminDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "com.atproto.admin.defs#modEventTakedown":
+		t.AdminDefs_ModEventTakedown = new(AdminDefs_ModEventTakedown)
+		return json.Unmarshal(b, t.AdminDefs_ModEventTakedown)
+	case "com.atproto.admin.defs#modEventReverseTakedown":
+		t.AdminDefs_ModEventReverseTakedown = new(AdminDefs_ModEventReverseTakedown)
+		return json.Unmarshal(b, t.AdminDefs_ModEventReverseTakedown)
+	case "com.atproto.admin.defs#modEventComment":
+		t.AdminDefs_ModEventComment = new(AdminDefs_ModEventComment)
+		return json.Unmarshal(b, t.AdminDefs_ModEventComment)
+	case "com.atproto.admin.defs#modEventReport":
+		t.AdminDefs_ModEventReport = new(AdminDefs_ModEventReport)
+		return json.Unmarshal(b, t.AdminDefs_ModEventReport)
+	case "com.atproto.admin.defs#modEventLabel":
+		t.AdminDefs_ModEventLabel = new(AdminDefs_ModEventLabel)
+		return json.Unmarshal(b, t.AdminDefs_ModEventLabel)
+	case "com.atproto.admin.defs#modEventAcknowledge":
+		t.AdminDefs_ModEventAcknowledge = new(AdminDefs_ModEventAcknowledge)
+		return json.Unmarshal(b, t.AdminDefs_ModEventAcknowledge)
+	case "com.atproto.admin.defs#modEventEscalate":
+		t.AdminDefs_ModEventEscalate = new(AdminDefs_ModEventEscalate)
+		return json.Unmarshal(b, t.AdminDefs_ModEventEscalate)
+	case "com.atproto.admin.defs#modEventMute":
+		t.AdminDefs_ModEventMute = new(AdminDefs_ModEventMute)
+		return json.Unmarshal(b, t.AdminDefs_ModEventMute)
+
+	default:
+		return nil
+	}
+}
+
+type AdminDefs_ModEventViewDetail_Subject struct {
+	AdminDefs_RepoView           *AdminDefs_RepoView
+	AdminDefs_RepoViewNotFound   *AdminDefs_RepoViewNotFound
+	AdminDefs_RecordView         *AdminDefs_RecordView
+	AdminDefs_RecordViewNotFound *AdminDefs_RecordViewNotFound
+}
+
+func (t *AdminDefs_ModEventViewDetail_Subject) MarshalJSON() ([]byte, error) {
+	if t.AdminDefs_RepoView != nil {
+		t.AdminDefs_RepoView.LexiconTypeID = "com.atproto.admin.defs#repoView"
+		return json.Marshal(t.AdminDefs_RepoView)
+	}
+	if t.AdminDefs_RepoViewNotFound != nil {
+		t.AdminDefs_RepoViewNotFound.LexiconTypeID = "com.atproto.admin.defs#repoViewNotFound"
+		return json.Marshal(t.AdminDefs_RepoViewNotFound)
+	}
+	if t.AdminDefs_RecordView != nil {
+		t.AdminDefs_RecordView.LexiconTypeID = "com.atproto.admin.defs#recordView"
+		return json.Marshal(t.AdminDefs_RecordView)
+	}
+	if t.AdminDefs_RecordViewNotFound != nil {
+		t.AdminDefs_RecordViewNotFound.LexiconTypeID = "com.atproto.admin.defs#recordViewNotFound"
+		return json.Marshal(t.AdminDefs_RecordViewNotFound)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *AdminDefs_ModEventViewDetail_Subject) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "com.atproto.admin.defs#repoView":
+		t.AdminDefs_RepoView = new(AdminDefs_RepoView)
+		return json.Unmarshal(b, t.AdminDefs_RepoView)
+	case "com.atproto.admin.defs#repoViewNotFound":
+		t.AdminDefs_RepoViewNotFound = new(AdminDefs_RepoViewNotFound)
+		return json.Unmarshal(b, t.AdminDefs_RepoViewNotFound)
+	case "com.atproto.admin.defs#recordView":
+		t.AdminDefs_RecordView = new(AdminDefs_RecordView)
+		return json.Unmarshal(b, t.AdminDefs_RecordView)
+	case "com.atproto.admin.defs#recordViewNotFound":
+		t.AdminDefs_RecordViewNotFound = new(AdminDefs_RecordViewNotFound)
+		return json.Unmarshal(b, t.AdminDefs_RecordViewNotFound)
+
+	default:
+		return nil
+	}
+}
+
+type AdminDefs_ModEventView_Event struct {
+	AdminDefs_ModEventTakedown        *AdminDefs_ModEventTakedown
+	AdminDefs_ModEventReverseTakedown *AdminDefs_ModEventReverseTakedown
+	AdminDefs_ModEventComment         *AdminDefs_ModEventComment
+	AdminDefs_ModEventReport          *AdminDefs_ModEventReport
+	AdminDefs_ModEventLabel           *AdminDefs_ModEventLabel
+	AdminDefs_ModEventAcknowledge     *AdminDefs_ModEventAcknowledge
+	AdminDefs_ModEventEscalate        *AdminDefs_ModEventEscalate
+	AdminDefs_ModEventMute            *AdminDefs_ModEventMute
+	AdminDefs_ModEventEmail           *AdminDefs_ModEventEmail
+}
+
+func (t *AdminDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
+	if t.AdminDefs_ModEventTakedown != nil {
+		t.AdminDefs_ModEventTakedown.LexiconTypeID = "com.atproto.admin.defs#modEventTakedown"
+		return json.Marshal(t.AdminDefs_ModEventTakedown)
+	}
+	if t.AdminDefs_ModEventReverseTakedown != nil {
+		t.AdminDefs_ModEventReverseTakedown.LexiconTypeID = "com.atproto.admin.defs#modEventReverseTakedown"
+		return json.Marshal(t.AdminDefs_ModEventReverseTakedown)
+	}
+	if t.AdminDefs_ModEventComment != nil {
+		t.AdminDefs_ModEventComment.LexiconTypeID = "com.atproto.admin.defs#modEventComment"
+		return json.Marshal(t.AdminDefs_ModEventComment)
+	}
+	if t.AdminDefs_ModEventReport != nil {
+		t.AdminDefs_ModEventReport.LexiconTypeID = "com.atproto.admin.defs#modEventReport"
+		return json.Marshal(t.AdminDefs_ModEventReport)
+	}
+	if t.AdminDefs_ModEventLabel != nil {
+		t.AdminDefs_ModEventLabel.LexiconTypeID = "com.atproto.admin.defs#modEventLabel"
+		return json.Marshal(t.AdminDefs_ModEventLabel)
+	}
+	if t.AdminDefs_ModEventAcknowledge != nil {
+		t.AdminDefs_ModEventAcknowledge.LexiconTypeID = "com.atproto.admin.defs#modEventAcknowledge"
+		return json.Marshal(t.AdminDefs_ModEventAcknowledge)
+	}
+	if t.AdminDefs_ModEventEscalate != nil {
+		t.AdminDefs_ModEventEscalate.LexiconTypeID = "com.atproto.admin.defs#modEventEscalate"
+		return json.Marshal(t.AdminDefs_ModEventEscalate)
+	}
+	if t.AdminDefs_ModEventMute != nil {
+		t.AdminDefs_ModEventMute.LexiconTypeID = "com.atproto.admin.defs#modEventMute"
+		return json.Marshal(t.AdminDefs_ModEventMute)
+	}
+	if t.AdminDefs_ModEventEmail != nil {
+		t.AdminDefs_ModEventEmail.LexiconTypeID = "com.atproto.admin.defs#modEventEmail"
+		return json.Marshal(t.AdminDefs_ModEventEmail)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *AdminDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "com.atproto.admin.defs#modEventTakedown":
+		t.AdminDefs_ModEventTakedown = new(AdminDefs_ModEventTakedown)
+		return json.Unmarshal(b, t.AdminDefs_ModEventTakedown)
+	case "com.atproto.admin.defs#modEventReverseTakedown":
+		t.AdminDefs_ModEventReverseTakedown = new(AdminDefs_ModEventReverseTakedown)
+		return json.Unmarshal(b, t.AdminDefs_ModEventReverseTakedown)
+	case "com.atproto.admin.defs#modEventComment":
+		t.AdminDefs_ModEventComment = new(AdminDefs_ModEventComment)
+		return json.Unmarshal(b, t.AdminDefs_ModEventComment)
+	case "com.atproto.admin.defs#modEventReport":
+		t.AdminDefs_ModEventReport = new(AdminDefs_ModEventReport)
+		return json.Unmarshal(b, t.AdminDefs_ModEventReport)
+	case "com.atproto.admin.defs#modEventLabel":
+		t.AdminDefs_ModEventLabel = new(AdminDefs_ModEventLabel)
+		return json.Unmarshal(b, t.AdminDefs_ModEventLabel)
+	case "com.atproto.admin.defs#modEventAcknowledge":
+		t.AdminDefs_ModEventAcknowledge = new(AdminDefs_ModEventAcknowledge)
+		return json.Unmarshal(b, t.AdminDefs_ModEventAcknowledge)
+	case "com.atproto.admin.defs#modEventEscalate":
+		t.AdminDefs_ModEventEscalate = new(AdminDefs_ModEventEscalate)
+		return json.Unmarshal(b, t.AdminDefs_ModEventEscalate)
+	case "com.atproto.admin.defs#modEventMute":
+		t.AdminDefs_ModEventMute = new(AdminDefs_ModEventMute)
+		return json.Unmarshal(b, t.AdminDefs_ModEventMute)
+	case "com.atproto.admin.defs#modEventEmail":
+		t.AdminDefs_ModEventEmail = new(AdminDefs_ModEventEmail)
+		return json.Unmarshal(b, t.AdminDefs_ModEventEmail)
+
+	default:
+		return nil
+	}
+}
+
+type AdminDefs_ModEventView_Subject struct {
+	AdminDefs_RepoRef *AdminDefs_RepoRef
+	RepoStrongRef     *RepoStrongRef
+}
+
+func (t *AdminDefs_ModEventView_Subject) MarshalJSON() ([]byte, error) {
+	if t.AdminDefs_RepoRef != nil {
+		t.AdminDefs_RepoRef.LexiconTypeID = "com.atproto.admin.defs#repoRef"
+		return json.Marshal(t.AdminDefs_RepoRef)
+	}
+	if t.RepoStrongRef != nil {
+		t.RepoStrongRef.LexiconTypeID = "com.atproto.repo.strongRef"
+		return json.Marshal(t.RepoStrongRef)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *AdminDefs_ModEventView_Subject) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "com.atproto.admin.defs#repoRef":
+		t.AdminDefs_RepoRef = new(AdminDefs_RepoRef)
+		return json.Unmarshal(b, t.AdminDefs_RepoRef)
+	case "com.atproto.repo.strongRef":
+		t.RepoStrongRef = new(RepoStrongRef)
+		return json.Unmarshal(b, t.RepoStrongRef)
+
+	default:
+		return nil
+	}
+}
+
 // AdminDefs_Moderation is a "moderation" in the com.atproto.admin.defs schema.
 type AdminDefs_Moderation struct {
-	CurrentAction *AdminDefs_ActionViewCurrent `json:"currentAction,omitempty" cborgen:"currentAction,omitempty"`
+	SubjectStatus *AdminDefs_SubjectStatusView `json:"subjectStatus,omitempty" cborgen:"subjectStatus,omitempty"`
 }
 
 // AdminDefs_ModerationDetail is a "moderationDetail" in the com.atproto.admin.defs schema.
 type AdminDefs_ModerationDetail struct {
-	Actions       []*AdminDefs_ActionView      `json:"actions" cborgen:"actions"`
-	CurrentAction *AdminDefs_ActionViewCurrent `json:"currentAction,omitempty" cborgen:"currentAction,omitempty"`
-	Reports       []*AdminDefs_ReportView      `json:"reports" cborgen:"reports"`
+	SubjectStatus *AdminDefs_SubjectStatusView `json:"subjectStatus,omitempty" cborgen:"subjectStatus,omitempty"`
 }
 
 // AdminDefs_RecordView is a "recordView" in the com.atproto.admin.defs schema.
@@ -319,9 +572,9 @@ type AdminDefs_RepoViewNotFound struct {
 
 // AdminDefs_ReportView is a "reportView" in the com.atproto.admin.defs schema.
 type AdminDefs_ReportView struct {
+	Comment             *string                       `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	CreatedAt           string                        `json:"createdAt" cborgen:"createdAt"`
 	Id                  int64                         `json:"id" cborgen:"id"`
-	Reason              *string                       `json:"reason,omitempty" cborgen:"reason,omitempty"`
 	ReasonType          *string                       `json:"reasonType" cborgen:"reasonType"`
 	ReportedBy          string                        `json:"reportedBy" cborgen:"reportedBy"`
 	ResolvedByActionIds []int64                       `json:"resolvedByActionIds" cborgen:"resolvedByActionIds"`
@@ -331,13 +584,14 @@ type AdminDefs_ReportView struct {
 
 // AdminDefs_ReportViewDetail is a "reportViewDetail" in the com.atproto.admin.defs schema.
 type AdminDefs_ReportViewDetail struct {
+	Comment           *string                             `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	CreatedAt         string                              `json:"createdAt" cborgen:"createdAt"`
 	Id                int64                               `json:"id" cborgen:"id"`
-	Reason            *string                             `json:"reason,omitempty" cborgen:"reason,omitempty"`
 	ReasonType        *string                             `json:"reasonType" cborgen:"reasonType"`
 	ReportedBy        string                              `json:"reportedBy" cborgen:"reportedBy"`
-	ResolvedByActions []*AdminDefs_ActionView             `json:"resolvedByActions" cborgen:"resolvedByActions"`
+	ResolvedByActions []*AdminDefs_ModEventView           `json:"resolvedByActions" cborgen:"resolvedByActions"`
 	Subject           *AdminDefs_ReportViewDetail_Subject `json:"subject" cborgen:"subject"`
+	SubjectStatus     *AdminDefs_SubjectStatusView        `json:"subjectStatus,omitempty" cborgen:"subjectStatus,omitempty"`
 }
 
 type AdminDefs_ReportViewDetail_Subject struct {
@@ -430,6 +684,62 @@ func (t *AdminDefs_ReportView_Subject) UnmarshalJSON(b []byte) error {
 type AdminDefs_StatusAttr struct {
 	Applied bool    `json:"applied" cborgen:"applied"`
 	Ref     *string `json:"ref,omitempty" cborgen:"ref,omitempty"`
+}
+
+// AdminDefs_SubjectStatusView is a "subjectStatusView" in the com.atproto.admin.defs schema.
+type AdminDefs_SubjectStatusView struct {
+	// comment: Sticky comment on the subject.
+	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	// createdAt: Timestamp referencing the first moderation status impacting event was emitted on the subject
+	CreatedAt         string                               `json:"createdAt" cborgen:"createdAt"`
+	Id                int64                                `json:"id" cborgen:"id"`
+	LastReportedAt    *string                              `json:"lastReportedAt,omitempty" cborgen:"lastReportedAt,omitempty"`
+	LastReviewedAt    *string                              `json:"lastReviewedAt,omitempty" cborgen:"lastReviewedAt,omitempty"`
+	LastReviewedBy    *string                              `json:"lastReviewedBy,omitempty" cborgen:"lastReviewedBy,omitempty"`
+	MuteUntil         *string                              `json:"muteUntil,omitempty" cborgen:"muteUntil,omitempty"`
+	ReviewState       *string                              `json:"reviewState" cborgen:"reviewState"`
+	Subject           *AdminDefs_SubjectStatusView_Subject `json:"subject" cborgen:"subject"`
+	SubjectBlobCids   []string                             `json:"subjectBlobCids,omitempty" cborgen:"subjectBlobCids,omitempty"`
+	SubjectRepoHandle *string                              `json:"subjectRepoHandle,omitempty" cborgen:"subjectRepoHandle,omitempty"`
+	SuspendUntil      *string                              `json:"suspendUntil,omitempty" cborgen:"suspendUntil,omitempty"`
+	Takendown         *bool                                `json:"takendown,omitempty" cborgen:"takendown,omitempty"`
+	// updatedAt: Timestamp referencing when the last update was made to the moderation status of the subject
+	UpdatedAt string `json:"updatedAt" cborgen:"updatedAt"`
+}
+
+type AdminDefs_SubjectStatusView_Subject struct {
+	AdminDefs_RepoRef *AdminDefs_RepoRef
+	RepoStrongRef     *RepoStrongRef
+}
+
+func (t *AdminDefs_SubjectStatusView_Subject) MarshalJSON() ([]byte, error) {
+	if t.AdminDefs_RepoRef != nil {
+		t.AdminDefs_RepoRef.LexiconTypeID = "com.atproto.admin.defs#repoRef"
+		return json.Marshal(t.AdminDefs_RepoRef)
+	}
+	if t.RepoStrongRef != nil {
+		t.RepoStrongRef.LexiconTypeID = "com.atproto.repo.strongRef"
+		return json.Marshal(t.RepoStrongRef)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *AdminDefs_SubjectStatusView_Subject) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "com.atproto.admin.defs#repoRef":
+		t.AdminDefs_RepoRef = new(AdminDefs_RepoRef)
+		return json.Unmarshal(b, t.AdminDefs_RepoRef)
+	case "com.atproto.repo.strongRef":
+		t.RepoStrongRef = new(RepoStrongRef)
+		return json.Unmarshal(b, t.RepoStrongRef)
+
+	default:
+		return nil
+	}
 }
 
 // AdminDefs_VideoDetails is a "videoDetails" in the com.atproto.admin.defs schema.
