@@ -144,34 +144,32 @@ func pollNewReports(cctx *cli.Context) error {
 		xrpcc.Auth.AccessJwt = refresh.AccessJwt
 		xrpcc.Auth.RefreshJwt = refresh.RefreshJwt
 
-		// AdminGetModerationReports(ctx context.Context, c *xrpc.Client, actionType string, actionedBy string, cursor string, ignoreSubjects []string, limit int64, reporters []string, resolved bool, reverse bool, subject string) (*AdminGetModerationReports_Output, error)
-		resolved := false
+		// query just new reports (regardless of resolution state)
+		// AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, includeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string) (*AdminQueryModerationEvents_Output, error)
 		var limit int64 = 50
-		mrr, err := comatproto.AdminGetModerationReports(context.TODO(), xrpcc, "", "", "", nil, limit, nil, resolved, false, "")
+		me, err := comatproto.AdminQueryModerationEvents(context.TODO(), xrpcc, "", "", false, limit, "", "", []string{"com.atproto.admin.defs#modEventReport"})
 		if err != nil {
 			return err
 		}
 		// this works out to iterate from newest to oldest, which is the behavior we want (report only newest, then break)
-		for _, report := range mrr.Reports {
-			if len(report.ResolvedByActionIds) > 0 {
-				continue
-			}
-			createdAt, err := time.Parse(time.RFC3339, report.CreatedAt)
+		for _, evt := range me.Events {
+			report := evt.Event.AdminDefs_ModEventReport
+			// TODO: filter out based on subject state? similar to old "report.ResolvedByActionIds"
+			createdAt, err := time.Parse(time.RFC3339, evt.CreatedAt)
 			if err != nil {
 				return fmt.Errorf("invalid time format for 'createdAt': %w", err)
 			}
 			if createdAt.After(since) {
 				shortType := ""
-				if report.ReasonType != nil && strings.Contains(*report.ReasonType, "#") {
-					shortType = strings.SplitN(*report.ReasonType, "#", 2)[1]
+				if report.ReportType != nil && strings.Contains(*report.ReportType, "#") {
+					shortType = strings.SplitN(*report.ReportType, "#", 2)[1]
 				}
 				// ok, we found a "new" report, need to notify
-				msg := fmt.Sprintf("⚠️ New report at `%s` ⚠️\n", report.CreatedAt)
-				msg += fmt.Sprintf("report id: `%d`\t", report.Id)
-				msg += fmt.Sprintf("recent unresolved: `%d`\t", len(mrr.Reports))
+				msg := fmt.Sprintf("⚠️ New report at `%s` ⚠️\n", evt.CreatedAt)
+				msg += fmt.Sprintf("report id: `%d`\t", evt.Id)
 				msg += fmt.Sprintf("instance: `%s`\n", cctx.String("pds-host"))
 				msg += fmt.Sprintf("reasonType: `%s`\t", shortType)
-				msg += fmt.Sprintf("Admin: %s/reports/%d\n", cctx.String("admin-host"), report.Id)
+				msg += fmt.Sprintf("Admin: %s/reports/%d\n", cctx.String("admin-host"), evt.Id)
 				//msg += fmt.Sprintf("reportedByDid: `%s`\n", report.ReportedByDid)
 				log.Infof("found new report, notifying slack: %s", report)
 				err := sendSlackMsg(cctx, msg)
