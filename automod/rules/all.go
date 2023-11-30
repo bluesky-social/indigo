@@ -16,6 +16,7 @@ func DefaultRules() automod.RuleSet {
 			AccountPrivateDemoPostRule,
 			GtubePostRule,
 			KeywordPostRule,
+			ReplySingleKeywordPostRule,
 		},
 		ProfileRules: []automod.ProfileRuleFunc{
 			GtubeProfileRule,
