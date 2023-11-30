@@ -143,6 +143,13 @@ func TestIsMisleadingURL(t *testing.T) {
 			},
 			out: false,
 		},
+		{
+			facet: PostFacet{
+				Text: "1234.5678",
+				URL:  pstr("https://arxiv.org/abs/1234.5678"),
+			},
+			out: false,
+		},
 	}
 
 	for _, fix := range fixtures {

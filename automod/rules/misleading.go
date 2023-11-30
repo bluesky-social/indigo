@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/url"
 	"strings"
+	"unicode"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -34,9 +35,21 @@ func isMisleadingURLFacet(facet PostFacet, logger *slog.Logger) bool {
 	// remove any other truncation suffix
 	text = strings.TrimSuffix(text, "...")
 
+	if len(text) == 0 {
+		logger.Warn("empty facet text", "text", facet.Text)
+		return false
+	}
+
 	// if really not-a-domain, just skipp
 	if !strings.Contains(text, ".") {
 		return false
+	}
+
+	// hostnames can't start with a digit (eg, arxiv or DOI links)
+	for _, c := range text[0:1] {
+		if unicode.IsNumber(c) {
+			return false
+		}
 	}
 
 	// try to fix any missing method in the text
