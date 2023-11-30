@@ -54,6 +54,7 @@ func NewGormstore(db *gorm.DB) *Gormstore {
 }
 
 func (s *Gormstore) LoadJobs(ctx context.Context) error {
+	// TODO: get rid of this method, and just load on demand in GetNextEnqueuedJob
 	limit := 20_000
 	offset := 0
 	s.lk.Lock()
@@ -169,43 +170,8 @@ func (s *Gormstore) loadJob(ctx context.Context, repo string) (*Gormjob, error) 
 		return nil, err
 	}
 
-	if dbj.ID > 0 {
-		j := &Gormjob{
-			repo:      dbj.Repo,
-			state:     dbj.State,
-			createdAt: dbj.CreatedAt,
-			updatedAt: dbj.UpdatedAt,
-
-			dbj: &dbj,
-			db:  s.db,
-
-			retryCount: dbj.RetryCount,
-			retryAfter: dbj.RetryAfter,
-		}
-		s.lk.Lock()
-		defer s.lk.Unlock()
-		// would imply a race condition
-		exist, ok := s.jobs[repo]
-		if ok {
-			return exist, nil
-		}
-		s.jobs[repo] = j
-		return j, nil
-	}
-
-	dbj = GormDBJob{
-		Repo:  repo,
-		State: StateEnqueued,
-	}
-
-	if err := s.db.Create(&dbj).Error; err != nil {
-		// TODO: check for unique-constraint error vs other
-		jc := s.checkJobCache(ctx, repo)
-		if jc == nil {
-			return nil, fmt.Errorf("job cache missing after failed create: %w", err)
-		}
-
-		return jc, nil
+	if dbj.ID == 0 {
+		return nil, ErrJobNotFound
 	}
 
 	j := &Gormjob{
@@ -216,12 +182,19 @@ func (s *Gormstore) loadJob(ctx context.Context, repo string) (*Gormjob, error) 
 
 		dbj: &dbj,
 		db:  s.db,
+
+		retryCount: dbj.RetryCount,
+		retryAfter: dbj.RetryAfter,
 	}
 	s.lk.Lock()
 	defer s.lk.Unlock()
+	// would imply a race condition
+	exist, ok := s.jobs[repo]
+	if ok {
+		return exist, nil
+	}
 	s.jobs[repo] = j
 	return j, nil
-
 }
 
 func (s *Gormstore) checkJobCache(ctx context.Context, repo string) *Gormjob {
@@ -265,7 +238,11 @@ func (j *Gormjob) SetRev(ctx context.Context, r string) error {
 	defer j.lk.Unlock()
 
 	j.rev = r
-	return nil
+	j.updatedAt = time.Now()
+
+	// Persist the job to the database
+	j.dbj.Rev = r
+	return j.db.Save(j.dbj).Error
 }
 
 func (j *Gormjob) Rev() string {

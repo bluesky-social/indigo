@@ -766,6 +766,7 @@ var createInviteCmd = &cli.Command{
 		}
 
 		xrpcc.AdminToken = &adminKey
+
 		resp, err := comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
 			UseCount:    int64(count),
 			ForAccounts: usrdid,
