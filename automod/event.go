@@ -89,6 +89,11 @@ func slackBody(msg string, newLabels, newFlags []string, newReports []ModReport,
 	return msg
 }
 
+// Persists account-level moderation actions: new labels, new flags, new takedowns, and reports.
+//
+// If necessary, will "purge" identity and account caches, so that state updates will be picked up for subsequent events.
+//
+// TODO: de-dupe reports based on existing state, similar to other state
 func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 
 	// de-dupe actions
@@ -111,9 +116,19 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 			newLabels = append(newLabels, val)
 		}
 	}
-	// TODO: persist and de-dupe flags? in mod service?
-	newFlags := dedupeStrings(e.AccountFlags)
-	// TODO: de-dupe reports based on history?
+	newFlags := []string{}
+	for _, val := range dedupeStrings(e.AccountFlags) {
+		exists := false
+		for _, e := range e.Account.AccountFlags {
+			if val == e {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			newFlags = append(newFlags, val)
+		}
+	}
 	newReports := e.AccountReports
 	newTakedown := e.AccountTakedown && !e.Account.Takendown
 
@@ -161,7 +176,10 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		}
 		needsPurge = true
 	}
-	// TODO: AccountFlags
+	if len(newFlags) > 0 {
+		e.Engine.Flags.Add(ctx, e.Account.Identity.DID.String(), newFlags)
+		needsPurge = true
+	}
 	for _, mr := range newReports {
 		_, err := comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
 			ReasonType: &mr.ReasonType,
@@ -260,13 +278,17 @@ func (e *RecordEvent) ReportRecord(reason, comment string) {
 	e.RecordReports = append(e.RecordReports, ModReport{ReasonType: reason, Comment: comment})
 }
 
+// Persists some record-level state: labels, takedowns, reports.
+//
+// NOTE: this method currently does *not* persist record-level flags to any storage, and does not de-dupe most actions, on the assumption that the record is new (from firehose) and has no existing mod state.
 func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 
-	// TODO: de-dupe actions
+	// TODO: consider de-duping record-level actions? at least for updates and deletes.
 	newLabels := dedupeStrings(e.RecordLabels)
 	newFlags := dedupeStrings(e.RecordFlags)
 	newReports := e.RecordReports
 	newTakedown := e.RecordTakedown
+	atURI := fmt.Sprintf("at://%s/%s/%s", e.Account.Identity.DID, e.Collection, e.RecordKey)
 
 	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
 		if e.Engine.SlackWebhookURL != "" {
@@ -277,7 +299,7 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 				e.Account.Identity.DID,
 				e.Account.Identity.DID,
 			)
-			msg += fmt.Sprintf("`at://%s/%s/%s`\n", e.Account.Identity.DID, e.Collection, e.RecordKey)
+			msg += fmt.Sprintf("`%s`\n", atURI)
 			msg = slackBody(msg, newLabels, newFlags, newReports, newTakedown)
 			if err := e.Engine.SendSlackMsg(ctx, msg); err != nil {
 				e.Logger.Error("sending slack webhook", "err", err)
@@ -289,7 +311,7 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 	}
 	strongRef := comatproto.RepoStrongRef{
 		Cid: e.CID,
-		Uri: fmt.Sprintf("at://%s/%s/%s", e.Account.Identity.DID, e.Collection, e.RecordKey),
+		Uri: atURI,
 	}
 	xrpcc := e.Engine.AdminClient
 	if len(newLabels) > 0 {
@@ -310,6 +332,9 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+	}
+	if len(newFlags) > 0 {
+		e.Engine.Flags.Add(ctx, atURI, newFlags)
 	}
 	for _, mr := range newReports {
 		_, err := comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
