@@ -279,6 +279,10 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 
 	url := fmt.Sprintf("%s?did=%s", b.CheckoutPath, repoDid)
 
+	if job.Rev() != "" {
+		url = url + fmt.Sprintf("&since=%s", job.Rev())
+	}
+
 	// GET and CAR decode the body
 	client := &http.Client{
 		Transport: otelhttp.NewTransport(http.DefaultTransport),
