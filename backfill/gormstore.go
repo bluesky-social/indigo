@@ -2,6 +2,7 @@ package backfill
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -43,7 +44,11 @@ type GormDBJob struct {
 type Gormstore struct {
 	lk   sync.RWMutex
 	jobs map[string]*Gormjob
-	db   *gorm.DB
+
+	qlk       sync.Mutex
+	taskQueue []string
+
+	db *gorm.DB
 }
 
 func NewGormstore(db *gorm.DB) *Gormstore {
@@ -54,47 +59,54 @@ func NewGormstore(db *gorm.DB) *Gormstore {
 }
 
 func (s *Gormstore) LoadJobs(ctx context.Context) error {
-	// TODO: get rid of this method, and just load on demand in GetNextEnqueuedJob
-	limit := 20_000
-	offset := 0
-	s.lk.Lock()
-	defer s.lk.Unlock()
+	s.qlk.Lock()
+	defer s.qlk.Unlock()
+	return s.loadJobs(ctx, 20_000)
+}
 
-	for {
-		var dbjobs []*GormDBJob
-		// Load all jobs from the database
-		if err := s.db.Limit(limit).Offset(offset).Find(&dbjobs).Error; err != nil {
-			return err
-		}
-		if len(dbjobs) == 0 {
-			break
-		}
-		offset += len(dbjobs)
-
-		// Convert them to in-memory jobs
-		for i := range dbjobs {
-			dbj := dbjobs[i]
-			j := &Gormjob{
-				repo:      dbj.Repo,
-				state:     dbj.State,
-				createdAt: dbj.CreatedAt,
-				updatedAt: dbj.UpdatedAt,
-
-				dbj: dbj,
-				db:  s.db,
-
-				retryCount: dbj.RetryCount,
-				retryAfter: dbj.RetryAfter,
-			}
-			s.jobs[dbj.Repo] = j
-		}
+func (s *Gormstore) loadJobs(ctx context.Context, limit int) error {
+	var todo []string
+	if err := s.db.Model(GormDBJob{}).Limit(limit).Select("repo").
+		Where("state = 'enqueued' OR (state = 'failed' AND (retry_after = NULL OR retry_after < NOW()))").Scan(&todo).Error; err != nil {
+		return err
 	}
+
+	s.taskQueue = append(s.taskQueue, todo...)
 
 	return nil
 }
 
-func (s *Gormstore) EnqueueJob(repo string) error {
-	// Persist the job to the database
+func (s *Gormstore) GetOrCreateJob(ctx context.Context, repo, state string) (Job, error) {
+	j, err := s.getJob(ctx, repo)
+	if err == nil {
+		return j, nil
+	}
+
+	if !errors.Is(err, ErrJobNotFound) {
+		return nil, err
+	}
+
+	if err := s.createJobForRepo(repo, state); err != nil {
+		return nil, err
+	}
+
+	return s.getJob(ctx, repo)
+}
+
+func (s *Gormstore) EnqueueJob(ctx context.Context, repo string) error {
+	_, err := s.GetOrCreateJob(ctx, repo, StateEnqueued)
+	if err != nil {
+		return err
+	}
+
+	s.qlk.Lock()
+	s.taskQueue = append(s.taskQueue, repo)
+	s.qlk.Unlock()
+
+	return nil
+}
+
+func (s *Gormstore) createJobForRepo(repo, state string) error {
 	dbj := &GormDBJob{
 		Repo:  repo,
 		State: StateEnqueued,
@@ -119,7 +131,7 @@ func (s *Gormstore) EnqueueJob(repo string) error {
 		repo:      repo,
 		createdAt: time.Now(),
 		updatedAt: time.Now(),
-		state:     StateEnqueued,
+		state:     state,
 
 		dbj: dbj,
 		db:  s.db,
@@ -209,10 +221,27 @@ func (s *Gormstore) checkJobCache(ctx context.Context, repo string) *Gormjob {
 }
 
 func (s *Gormstore) GetNextEnqueuedJob(ctx context.Context) (Job, error) {
-	s.lk.RLock()
-	defer s.lk.RUnlock()
+	s.qlk.Lock()
+	defer s.qlk.Unlock()
+	if len(s.taskQueue) == 0 {
+		if err := s.loadJobs(ctx, 1000); err != nil {
+			return nil, err
+		}
 
-	for _, j := range s.jobs {
+		if len(s.taskQueue) == 0 {
+			return nil, nil
+		}
+	}
+
+	for len(s.taskQueue) > 0 {
+		first := s.taskQueue[0]
+		s.taskQueue = s.taskQueue[1:]
+
+		j, err := s.getJob(ctx, first)
+		if err != nil {
+			return nil, err
+		}
+
 		shouldRetry := strings.HasPrefix(j.State(), "failed") && j.retryAfter != nil && time.Now().After(*j.retryAfter)
 
 		if j.State() == StateEnqueued || shouldRetry {
