@@ -116,14 +116,10 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 	return nil
 }
 
-func (e *Engine) FetchAndProcessRecord(ctx context.Context, uri string) error {
+func (e *Engine) FetchAndProcessRecord(ctx context.Context, aturi syntax.ATURI) error {
 	// resolve URI, identity, and record
-	aturi, err := syntax.ParseATURI(uri)
-	if err != nil {
-		return fmt.Errorf("parsing AT-URI argument: %v", err)
-	}
 	if aturi.RecordKey() == "" {
-		return fmt.Errorf("need a full, not partial, AT-URI: %s", uri)
+		return fmt.Errorf("need a full, not partial, AT-URI: %s", aturi)
 	}
 	ident, err := e.Directory.Lookup(ctx, aturi.Authority())
 	if err != nil {
@@ -144,6 +140,39 @@ func (e *Engine) FetchAndProcessRecord(ctx context.Context, uri string) error {
 		return fmt.Errorf("expected a CID in getRecord response")
 	}
 	return e.ProcessRecord(ctx, ident.DID, aturi.Path(), *out.Cid, out.Value.Val)
+}
+
+func (e *Engine) FetchAndProcessRecent(ctx context.Context, atid syntax.AtIdentifier, limit int) error {
+
+	ident, err := e.Directory.Lookup(ctx, atid)
+	if err != nil {
+		return fmt.Errorf("failed to resolve AT identifier: %v", err)
+	}
+	pdsURL := ident.PDSEndpoint()
+	if pdsURL == "" {
+		return fmt.Errorf("could not resolve PDS endpoint for account: %s", ident.DID.String())
+	}
+	pdsClient := xrpc.Client{Host: ident.PDSEndpoint()}
+
+	resp, err := comatproto.RepoListRecords(ctx, &pdsClient, "app.bsky.feed.post", "", int64(limit), ident.DID.String(), false, "", "")
+	if err != nil {
+		return fmt.Errorf("failed to fetch record list: %v", err)
+	}
+
+	e.Logger.Info("got recent posts", "did", ident.DID.String(), "pds", pdsURL, "count", len(resp.Records))
+	// records are most-recent first; we want recent but oldest-first, so iterate backwards
+	for i := range resp.Records {
+		rec := resp.Records[len(resp.Records)-i-1]
+		aturi, err := syntax.ParseATURI(rec.Uri)
+		if err != nil {
+			return fmt.Errorf("parsing PDS record response: %v", err)
+		}
+		err = e.ProcessRecord(ctx, ident.DID, aturi.Path(), rec.Cid, rec.Value.Val)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (e *Engine) NewRecordEvent(am AccountMeta, path, recCID string, rec any) RecordEvent {
