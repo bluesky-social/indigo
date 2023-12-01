@@ -12,7 +12,7 @@ func DefaultRules() automod.RuleSet {
 			ReplyCountPostRule,
 			BadHashtagsPostRule,
 			//TooManyHashtagsPostRule,
-			AccountDemoPostRule,
+			//AccountDemoPostRule,
 			AccountPrivateDemoPostRule,
 			GtubePostRule,
 			KeywordPostRule,
