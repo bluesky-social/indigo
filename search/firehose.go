@@ -3,6 +3,7 @@ package search
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/backfill"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
 	"github.com/bluesky-social/indigo/repo"
@@ -158,7 +160,7 @@ func (s *Server) discoverRepos() {
 		errored := 0
 		for _, repo := range resp.Repos {
 			job, err := s.bfs.GetJob(ctx, repo.Did)
-			if job == nil && err == nil {
+			if job == nil && (err == nil || errors.Is(err, backfill.ErrJobNotFound)) {
 				log.Info("enqueuing backfill job for new repo", "did", repo.Did)
 				if err := s.bfs.EnqueueJob(ctx, repo.Did); err != nil {
 					log.Warn("failed to enqueue backfill job", "err", err)
