@@ -146,3 +146,44 @@ func TestPostToJson(t *testing.T) {
 
 	fmt.Println(string(outb))
 }
+
+// checks a corner-case with $type: "app.bsky.richtext.facet#link"
+func TestFeedPostRichtextLink(t *testing.T) {
+	assert := assert.New(t)
+	cidBuilder := cid.V1Builder{0x71, 0x12, 0}
+
+	// this is a app.bsky.feed.post with richtext link
+	inFile, err := os.Open("testdata/post_richtext_link.cbor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cborBytes, err := io.ReadAll(inFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println("=== typescript CBOR bytes (hex)")
+	fmt.Println(hex.EncodeToString(cborBytes))
+	origCID, err := cidBuilder.Sum(cborBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	recordCBOR := new(bytes.Buffer)
+	var recordOrig appbsky.FeedPost
+	var recordRepro appbsky.FeedPost
+	assert.NoError(recordOrig.UnmarshalCBOR(bytes.NewReader(cborBytes)))
+	assert.Equal("app.bsky.feed.post", recordOrig.LexiconTypeID)
+
+	recordJSON, err := json.Marshal(recordOrig)
+	fmt.Println(string(recordJSON))
+	assert.NoError(err)
+	assert.NoError(json.Unmarshal(recordJSON, &recordRepro))
+	assert.Equal(recordOrig, recordRepro)
+	assert.NoError(recordRepro.MarshalCBOR(recordCBOR))
+	fmt.Println("=== golang cbor-gen bytes (hex)")
+	fmt.Println(hex.EncodeToString(recordCBOR.Bytes()))
+	reproCID, err := cidBuilder.Sum(recordCBOR.Bytes())
+	assert.NoError(err)
+	assert.Equal(origCID.String(), reproCID.String())
+
+}
