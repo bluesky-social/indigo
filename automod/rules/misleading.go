@@ -80,7 +80,7 @@ func isMisleadingURLFacet(facet PostFacet, logger *slog.Logger) bool {
 
 func MisleadingURLPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
 	// TODO: make this an InSet() config?
-	if evt.Account.Handle == "nowbreezing.ntw.app" {
+	if evt.Account.Identity.Handle == "nowbreezing.ntw.app" {
 		return nil
 	}
 	facets, err := ExtractFacets(post)
