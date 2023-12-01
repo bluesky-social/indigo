@@ -20,19 +20,26 @@ type CounterRef struct {
 	Val  string
 }
 
+type CounterDistinctRef struct {
+	Name   string
+	Bucket string
+	Val    string
+}
+
 // base type for events specific to an account, usually derived from a repo event stream message (one such message may result in multiple `RepoEvent`)
 //
 // events are both containers for data about the event itself (similar to an HTTP request type); aggregate results and state (counters, mod actions) to be persisted after all rules are run; and act as an API for additional network reads and operations.
 type RepoEvent struct {
-	Engine            *Engine
-	Err               error
-	Logger            *slog.Logger
-	Account           AccountMeta
-	CounterIncrements []CounterRef
-	AccountLabels     []string
-	AccountFlags      []string
-	AccountReports    []ModReport
-	AccountTakedown   bool
+	Engine                    *Engine
+	Err                       error
+	Logger                    *slog.Logger
+	Account                   AccountMeta
+	CounterIncrements         []CounterRef
+	CounterDistinctIncrements []CounterDistinctRef // TODO: better variable names
+	AccountLabels             []string
+	AccountFlags              []string
+	AccountReports            []ModReport
+	AccountTakedown           bool
 }
 
 func (e *RepoEvent) GetCount(name, val, period string) int {
@@ -44,6 +51,23 @@ func (e *RepoEvent) GetCount(name, val, period string) int {
 	return v
 }
 
+func (e *RepoEvent) Increment(name, val string) {
+	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val})
+}
+
+func (e *RepoEvent) GetCountDistinct(name, bucket, period string) int {
+	v, err := e.Engine.GetCountDistinct(name, bucket, period)
+	if err != nil {
+		e.Err = err
+		return 0
+	}
+	return v
+}
+
+func (e *RepoEvent) IncrementDistinct(name, bucket, val string) {
+	e.CounterDistinctIncrements = append(e.CounterDistinctIncrements, CounterDistinctRef{Name: name, Bucket: bucket, Val: val})
+}
+
 func (e *RepoEvent) InSet(name, val string) bool {
 	v, err := e.Engine.InSet(name, val)
 	if err != nil {
@@ -51,10 +75,6 @@ func (e *RepoEvent) InSet(name, val string) bool {
 		return false
 	}
 	return v
-}
-
-func (e *RepoEvent) Increment(name, val string) {
-	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val})
 }
 
 func (e *RepoEvent) TakedownAccount() {
@@ -228,6 +248,12 @@ func (e *RepoEvent) PersistCounters(ctx context.Context) error {
 	// TODO: dedupe this array
 	for _, ref := range e.CounterIncrements {
 		err := e.Engine.Counters.Increment(ctx, ref.Name, ref.Val)
+		if err != nil {
+			return err
+		}
+	}
+	for _, ref := range e.CounterDistinctIncrements {
+		err := e.Engine.Counters.IncrementDistinct(ctx, ref.Name, ref.Bucket, ref.Val)
 		if err != nil {
 			return err
 		}

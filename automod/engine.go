@@ -253,6 +253,10 @@ func (e *Engine) GetCount(name, val, period string) (int, error) {
 	return e.Counters.GetCount(context.TODO(), name, val, period)
 }
 
+func (e *Engine) GetCountDistinct(name, bucket, period string) (int, error) {
+	return e.Counters.GetCountDistinct(context.TODO(), name, bucket, period)
+}
+
 // checks if `val` is an element of set `name`
 func (e *Engine) InSet(name, val string) (bool, error) {
 	return e.Sets.InSet(context.TODO(), name, val)
