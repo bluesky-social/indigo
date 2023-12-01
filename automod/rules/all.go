@@ -22,6 +22,12 @@ func DefaultRules() automod.RuleSet {
 			GtubeProfileRule,
 			KeywordProfileRule,
 		},
+		RecordRules: []automod.RecordRuleFunc{
+			InteractionChurnRule,
+		},
+		RecordDeleteRules: []automod.RecordDeleteRuleFunc{
+			DeleteInteractionRule,
+		},
 		IdentityRules: []automod.IdentityRuleFunc{
 			NewAccountRule,
 		},
