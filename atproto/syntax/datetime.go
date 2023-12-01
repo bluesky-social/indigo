@@ -63,6 +63,12 @@ func ParseDatetimeLenient(raw string) (Datetime, error) {
 	if strings.HasSuffix(raw, "-00:00") {
 		return ParseDatetime(strings.Replace(raw, "-00:00", "+00:00", 1))
 	}
+	if strings.HasSuffix(raw, "-0000") {
+		return ParseDatetime(strings.Replace(raw, "-0000", "+00:00", 1))
+	}
+	if strings.HasSuffix(raw, "+0000") {
+		return ParseDatetime(strings.Replace(raw, "+0000", "+00:00", 1))
+	}
 
 	// try adding timezone if it is missing
 	var hasTimezoneRegex = regexp.MustCompile(`^.*(([+-]\d\d:?\d\d)|[a-zA-Z])$`)
