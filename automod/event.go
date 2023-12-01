@@ -388,7 +388,15 @@ func (e *RecordEvent) CanonicalLogLine() {
 	)
 }
 
+type RecordDeleteEvent struct {
+	RepoEvent
+
+	Collection string
+	RecordKey  string
+}
+
 type IdentityRuleFunc = func(evt *IdentityEvent) error
 type RecordRuleFunc = func(evt *RecordEvent) error
 type PostRuleFunc = func(evt *RecordEvent, post *appbsky.FeedPost) error
 type ProfileRuleFunc = func(evt *RecordEvent, profile *appbsky.ActorProfile) error
+type RecordDeleteRuleFunc = func(evt *RecordDeleteEvent) error

@@ -116,6 +116,48 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 	return nil
 }
 
+func (e *Engine) ProcessRecordDelete(ctx context.Context, did syntax.DID, path string) error {
+	// similar to an HTTP server, we want to recover any panics from rule execution
+	defer func() {
+		if r := recover(); r != nil {
+			e.Logger.Error("automod event execution exception", "err", r, "did", did, "path", path)
+		}
+	}()
+
+	ident, err := e.Directory.LookupDID(ctx, did)
+	if err != nil {
+		return fmt.Errorf("resolving identity: %w", err)
+	}
+	if ident == nil {
+		return fmt.Errorf("identity not found for did: %s", did.String())
+	}
+
+	am, err := e.GetAccountMeta(ctx, ident)
+	if err != nil {
+		return err
+	}
+	evt := e.NewRecordDeleteEvent(*am, path)
+	e.Logger.Debug("processing record deletion", "did", ident.DID, "path", path)
+	if err := e.Rules.CallRecordDeleteRules(&evt); err != nil {
+		return err
+	}
+	if evt.Err != nil {
+		return evt.Err
+	}
+	evt.CanonicalLogLine()
+	// purge the account meta cache when profile is updated
+	if evt.Collection == "app.bsky.actor.profile" {
+		e.PurgeAccountCaches(ctx, am.Identity.DID)
+	}
+	if err := evt.PersistActions(ctx); err != nil {
+		return err
+	}
+	if err := evt.PersistCounters(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (e *Engine) FetchAndProcessRecord(ctx context.Context, aturi syntax.ATURI) error {
 	// resolve URI, identity, and record
 	if aturi.RecordKey() == "" {
@@ -191,6 +233,19 @@ func (e *Engine) NewRecordEvent(am AccountMeta, path, recCID string, rec any) Re
 		false,
 		[]ModReport{},
 		[]string{},
+	}
+}
+
+func (e *Engine) NewRecordDeleteEvent(am AccountMeta, path string) RecordDeleteEvent {
+	parts := strings.SplitN(path, "/", 2)
+	return RecordDeleteEvent{
+		RepoEvent{
+			Engine:  e,
+			Logger:  e.Logger.With("did", am.Identity.DID, "collection", parts[0], "rkey", parts[1]),
+			Account: am,
+		},
+		parts[0],
+		parts[1],
 	}
 }
 

@@ -133,6 +133,12 @@ func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubsc
 				logger.Error("engine failed to process record", "err", err)
 				continue
 			}
+		case repomgr.EvtKindDeleteRecord:
+			err = s.engine.ProcessRecordDelete(ctx, did, op.Path)
+			if err != nil {
+				logger.Error("engine failed to process record", "err", err)
+				continue
+			}
 		default:
 			// TODO: other event types: update, delete
 		}
