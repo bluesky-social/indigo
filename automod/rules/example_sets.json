@@ -4,6 +4,9 @@
         "deathtooutgroup"
     ],
     "bad-words": [
-    	"hardar"
+        "hardar"
+    ],
+    "promo-domain": [
+        "buy-crypto.example.com"
     ]
 }
