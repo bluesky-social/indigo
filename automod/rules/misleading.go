@@ -31,9 +31,12 @@ func isMisleadingURLFacet(facet PostFacet, logger *slog.Logger) bool {
 	if strings.HasSuffix(text, "...") && !strings.HasSuffix(text, ".com...") && !strings.HasSuffix(text, ".org...") {
 		return false
 	}
+	if strings.HasSuffix(text, "…") && !strings.HasSuffix(text, ".com…") && !strings.HasSuffix(text, ".org…") {
+		return false
+	}
 
 	// remove any other truncation suffix
-	text = strings.TrimSuffix(text, "...")
+	text = strings.TrimSuffix(strings.TrimSuffix(text, "..."), "…")
 
 	if len(text) == 0 {
 		logger.Warn("empty facet text", "text", facet.Text)
