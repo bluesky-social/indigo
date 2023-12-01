@@ -16,6 +16,7 @@ func InteractionChurnRule(evt *automod.RecordEvent) error {
 		deleted := evt.GetCount("unlike", did, automod.PeriodDay)
 		ratio := float64(deleted) / float64(created)
 		if created > interactionDailyThreshold && deleted > interactionDailyThreshold && ratio > 0.5 {
+			evt.Logger.Info("high-like-churn", "created-today", created, "deleted-today", deleted)
 			evt.AddAccountFlag("high-like-churn")
 		}
 	case "app.bsky.graph.follow":
@@ -24,6 +25,7 @@ func InteractionChurnRule(evt *automod.RecordEvent) error {
 		deleted := evt.GetCount("unfollow", did, automod.PeriodDay)
 		ratio := float64(deleted) / float64(created)
 		if created > interactionDailyThreshold && deleted > interactionDailyThreshold && ratio > 0.5 {
+			evt.Logger.Info("high-follow-churn", "created-today", created, "deleted-today", deleted)
 			evt.AddAccountFlag("high-follow-churn")
 		}
 	}
