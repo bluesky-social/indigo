@@ -150,6 +150,13 @@ func TestIsMisleadingURL(t *testing.T) {
 			},
 			out: false,
 		},
+		{
+			facet: PostFacet{
+				Text: "www.techdirt.com…",
+				URL:  pstr("https://www.techdirt.com/"),
+			},
+			out: false,
+		},
 	}
 
 	for _, fix := range fixtures {
