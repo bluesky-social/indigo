@@ -160,7 +160,7 @@ func (s *Server) discoverRepos() {
 			job, err := s.bfs.GetJob(ctx, repo.Did)
 			if job == nil && err == nil {
 				log.Info("enqueuing backfill job for new repo", "did", repo.Did)
-				if err := s.bfs.EnqueueJob(repo.Did); err != nil {
+				if err := s.bfs.EnqueueJob(ctx, repo.Did); err != nil {
 					log.Warn("failed to enqueue backfill job", "err", err)
 					errored++
 					continue

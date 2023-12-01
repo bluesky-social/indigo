@@ -453,7 +453,7 @@ func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscrib
 		case "create", "update":
 			cc, rec, err := r.GetRecord(ctx, op.Path)
 			if err != nil {
-				return err
+				return fmt.Errorf("getting record failed (%s,%s): %w", op.Action, op.Path, err)
 			}
 
 			ops = append(ops, &bufferedOp{

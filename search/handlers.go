@@ -171,7 +171,7 @@ func (s *Server) handleIndexRepos(e echo.Context) error {
 	for _, did := range dids {
 		job, err := s.bfs.GetJob(ctx, did)
 		if job == nil && err == nil {
-			err := s.bfs.EnqueueJob(did)
+			err := s.bfs.EnqueueJob(ctx, did)
 			if err != nil {
 				errs = append(errs, IndexError{
 					DID: did,
