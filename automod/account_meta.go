@@ -31,6 +31,7 @@ type AccountMeta struct {
 	Private          *AccountPrivate
 	AccountLabels    []string
 	AccountNegLabels []string
+	AccountFlags     []string
 	FollowersCount   int64
 	FollowsCount     int64
 	PostsCount       int64
@@ -82,6 +83,11 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 		}
 	}
 
+	flags, err := e.Flags.Get(ctx, ident.DID.String())
+	if err != nil {
+		return nil, err
+	}
+
 	am := AccountMeta{
 		Identity: ident,
 		Profile: ProfileSummary{
@@ -91,6 +97,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 		},
 		AccountLabels:    dedupeStrings(labels),
 		AccountNegLabels: dedupeStrings(negLabels),
+		AccountFlags:     flags,
 	}
 	if pv.PostsCount != nil {
 		am.PostsCount = *pv.PostsCount
