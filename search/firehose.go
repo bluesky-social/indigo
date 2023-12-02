@@ -3,7 +3,6 @@ package search
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -143,8 +142,7 @@ func (s *Server) discoverRepos() {
 	cursor := ""
 	limit := int64(500)
 
-	totalEnqueued := 0
-	totalSkipped := 0
+	total := 0
 	totalErrored := 0
 
 	for {
@@ -159,26 +157,15 @@ func (s *Server) discoverRepos() {
 		skipped := 0
 		errored := 0
 		for _, repo := range resp.Repos {
-			job, err := s.bfs.GetJob(ctx, repo.Did)
-			if job == nil && (err == nil || errors.Is(err, backfill.ErrJobNotFound)) {
-				log.Info("enqueuing backfill job for new repo", "did", repo.Did)
-				if err := s.bfs.EnqueueJob(ctx, repo.Did); err != nil {
-					log.Warn("failed to enqueue backfill job", "err", err)
-					errored++
-					continue
-				}
-				enqueued++
-			} else if err != nil {
-				log.Warn("failed to get backfill job", "did", repo.Did, "err", err)
+			_, err := s.bfs.GetOrCreateJob(ctx, repo.Did, backfill.StateEnqueued)
+			if err != nil {
+				log.Error("failed to get or create job", "did", repo.Did, "err", err)
 				errored++
-			} else {
-				skipped++
 			}
 		}
 		log.Info("enqueued repos", "enqueued", enqueued, "skipped", skipped, "errored", errored)
-		totalEnqueued += enqueued
-		totalSkipped += skipped
 		totalErrored += errored
+		total += len(resp.Repos)
 		if resp.Cursor != nil && *resp.Cursor != "" {
 			cursor = *resp.Cursor
 		} else {
@@ -186,7 +173,7 @@ func (s *Server) discoverRepos() {
 		}
 	}
 
-	log.Info("finished repo discovery", "totalEnqueued", totalEnqueued, "totalSkipped", totalSkipped, "totalErrored", totalErrored)
+	log.Info("finished repo discovery", "totalJobs", total, "totalErrored", totalErrored)
 }
 
 func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, path string, rec typegen.CBORMarshaler, rcid *cid.Cid) error {
