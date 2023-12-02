@@ -153,8 +153,6 @@ func (s *Server) discoverRepos() {
 			continue
 		}
 		log.Info("got repo page", "count", len(resp.Repos), "cursor", resp.Cursor)
-		enqueued := 0
-		skipped := 0
 		errored := 0
 		for _, repo := range resp.Repos {
 			_, err := s.bfs.GetOrCreateJob(ctx, repo.Did, backfill.StateEnqueued)
@@ -163,7 +161,7 @@ func (s *Server) discoverRepos() {
 				errored++
 			}
 		}
-		log.Info("enqueued repos", "enqueued", enqueued, "skipped", skipped, "errored", errored)
+		log.Info("enqueued repos", "total", len(resp.Repos), "errored", errored)
 		totalErrored += errored
 		total += len(resp.Repos)
 		if resp.Cursor != nil && *resp.Cursor != "" {
