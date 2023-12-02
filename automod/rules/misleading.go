@@ -43,7 +43,7 @@ func isMisleadingURLFacet(facet PostFacet, logger *slog.Logger) bool {
 		return false
 	}
 
-	// if really not-a-domain, just skipp
+	// if really not-a-domain, just skip
 	if !strings.Contains(text, ".") {
 		return false
 	}
