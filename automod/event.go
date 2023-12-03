@@ -120,7 +120,7 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 	newLabels := []string{}
 	for _, val := range dedupeStrings(e.AccountLabels) {
 		exists := false
-		for _, e := range e.Account.AccountNegLabels {
+		for _, e := range e.Account.AccountNegatedLabels {
 			if val == e {
 				exists = true
 				break

@@ -26,16 +26,16 @@ type AccountPrivate struct {
 
 // information about a repo/account/identity, always pre-populated and relevant to many rules
 type AccountMeta struct {
-	Identity         *identity.Identity
-	Profile          ProfileSummary
-	Private          *AccountPrivate
-	AccountLabels    []string
-	AccountNegLabels []string
-	AccountFlags     []string
-	FollowersCount   int64
-	FollowsCount     int64
-	PostsCount       int64
-	Takendown        bool
+	Identity             *identity.Identity
+	Profile              ProfileSummary
+	Private              *AccountPrivate
+	AccountLabels        []string
+	AccountNegatedLabels []string
+	AccountFlags         []string
+	FollowersCount       int64
+	FollowsCount         int64
+	PostsCount           int64
+	Takendown            bool
 }
 
 func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (*AccountMeta, error) {
@@ -95,9 +95,9 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 			Description: pv.Description,
 			DisplayName: pv.DisplayName,
 		},
-		AccountLabels:    dedupeStrings(labels),
-		AccountNegLabels: dedupeStrings(negLabels),
-		AccountFlags:     flags,
+		AccountLabels:        dedupeStrings(labels),
+		AccountNegatedLabels: dedupeStrings(negLabels),
+		AccountFlags:         flags,
 	}
 	if pv.PostsCount != nil {
 		am.PostsCount = *pv.PostsCount
