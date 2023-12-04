@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
 
 	"github.com/carlmjohnson/versioninfo"
@@ -95,6 +96,7 @@ func run(args []string) error {
 	app.Commands = []*cli.Command{
 		runCmd,
 		processRecordCmd,
+		processRecentCmd,
 	}
 
 	return app.Run(args)
@@ -134,6 +136,12 @@ var runCmd = &cli.Command{
 			Value:   ":3989",
 			EnvVars: []string{"HEPA_METRICS_LISTEN"},
 		},
+		&cli.StringFlag{
+			Name: "slack-webhook-url",
+			// eg: https://hooks.slack.com/services/X1234
+			Usage:   "full URL of slack webhook",
+			EnvVars: []string{"SLACK_WEBHOOK_URL"},
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		ctx := context.Background()
@@ -152,15 +160,16 @@ var runCmd = &cli.Command{
 		srv, err := NewServer(
 			dir,
 			Config{
-				BGSHost:       cctx.String("atp-bgs-host"),
-				BskyHost:      cctx.String("atp-bsky-host"),
-				Logger:        logger,
-				ModHost:       cctx.String("atp-mod-host"),
-				ModAdminToken: cctx.String("mod-admin-token"),
-				ModUsername:   cctx.String("mod-handle"),
-				ModPassword:   cctx.String("mod-password"),
-				SetsFileJSON:  cctx.String("sets-json-path"),
-				RedisURL:      cctx.String("redis-url"),
+				BGSHost:         cctx.String("atp-bgs-host"),
+				BskyHost:        cctx.String("atp-bsky-host"),
+				Logger:          logger,
+				ModHost:         cctx.String("atp-mod-host"),
+				ModAdminToken:   cctx.String("mod-admin-token"),
+				ModUsername:     cctx.String("mod-handle"),
+				ModPassword:     cctx.String("mod-password"),
+				SetsFileJSON:    cctx.String("sets-json-path"),
+				RedisURL:        cctx.String("redis-url"),
+				SlackWebhookURL: cctx.String("slack-webhook-url"),
 			},
 		)
 		if err != nil {
@@ -195,9 +204,13 @@ var processRecordCmd = &cli.Command{
 	ArgsUsage: `<at-uri>`,
 	Flags:     []cli.Flag{},
 	Action: func(cctx *cli.Context) error {
-		uri := cctx.Args().First()
-		if uri == "" {
+		uriArg := cctx.Args().First()
+		if uriArg == "" {
 			return fmt.Errorf("expected a single AT-URI argument")
+		}
+		aturi, err := syntax.ParseATURI(uriArg)
+		if err != nil {
+			return fmt.Errorf("not a valid AT-URI: %v", err)
 		}
 
 		ctx := context.Background()
@@ -229,6 +242,60 @@ var processRecordCmd = &cli.Command{
 			return err
 		}
 
-		return srv.engine.FetchAndProcessRecord(ctx, uri)
+		return srv.engine.FetchAndProcessRecord(ctx, aturi)
+	},
+}
+
+var processRecentCmd = &cli.Command{
+	Name:      "process-recent",
+	Usage:     "fetch and process recent posts for an account",
+	ArgsUsage: `<at-identifier>`,
+	Flags: []cli.Flag{
+		&cli.IntFlag{
+			Name:  "limit",
+			Usage: "how many post records to parse",
+			Value: 20,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		idArg := cctx.Args().First()
+		if idArg == "" {
+			return fmt.Errorf("expected a single AT identifier (handle or DID) argument")
+		}
+		atid, err := syntax.ParseAtIdentifier(idArg)
+		if err != nil {
+			return fmt.Errorf("not a valid handle or DID: %v", err)
+		}
+
+		ctx := context.Background()
+		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		}))
+		slog.SetDefault(logger)
+
+		dir, err := configDirectory(cctx)
+		if err != nil {
+			return err
+		}
+
+		srv, err := NewServer(
+			dir,
+			Config{
+				BGSHost:       cctx.String("atp-bgs-host"),
+				BskyHost:      cctx.String("atp-bsky-host"),
+				Logger:        logger,
+				ModHost:       cctx.String("atp-mod-host"),
+				ModAdminToken: cctx.String("mod-admin-token"),
+				ModUsername:   cctx.String("mod-handle"),
+				ModPassword:   cctx.String("mod-password"),
+				SetsFileJSON:  cctx.String("sets-json-path"),
+				RedisURL:      cctx.String("redis-url"),
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		return srv.engine.FetchAndProcessRecent(ctx, *atid, cctx.Int("limit"))
 	},
 }

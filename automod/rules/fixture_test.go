@@ -2,6 +2,7 @@ package rules
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -12,12 +13,14 @@ import (
 func engineFixture() automod.Engine {
 	rules := automod.RuleSet{
 		PostRules: []automod.PostRuleFunc{
-			BanHashtagsPostRule,
+			BadHashtagsPostRule,
 		},
 	}
+	flags := automod.NewMemFlagStore()
+	cache := automod.NewMemCacheStore(10, time.Hour)
 	sets := automod.NewMemSetStore()
-	sets.Sets["banned-hashtags"] = make(map[string]bool)
-	sets.Sets["banned-hashtags"]["slur"] = true
+	sets.Sets["bad-hashtags"] = make(map[string]bool)
+	sets.Sets["bad-hashtags"]["slur"] = true
 	dir := identity.NewMockDirectory()
 	id1 := identity.Identity{
 		DID:    syntax.DID("did:plc:abc111"),
@@ -37,6 +40,8 @@ func engineFixture() automod.Engine {
 		Directory:   &dir,
 		Counters:    automod.NewMemCountStore(),
 		Sets:        sets,
+		Flags:       flags,
+		Cache:       cache,
 		Rules:       rules,
 		AdminClient: &adminc,
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
@@ -19,19 +20,26 @@ type CounterRef struct {
 	Val  string
 }
 
+type CounterDistinctRef struct {
+	Name   string
+	Bucket string
+	Val    string
+}
+
 // base type for events specific to an account, usually derived from a repo event stream message (one such message may result in multiple `RepoEvent`)
 //
 // events are both containers for data about the event itself (similar to an HTTP request type); aggregate results and state (counters, mod actions) to be persisted after all rules are run; and act as an API for additional network reads and operations.
 type RepoEvent struct {
-	Engine            *Engine
-	Err               error
-	Logger            *slog.Logger
-	Account           AccountMeta
-	CounterIncrements []CounterRef
-	AccountLabels     []string
-	AccountFlags      []string
-	AccountReports    []ModReport
-	AccountTakedown   bool
+	Engine                    *Engine
+	Err                       error
+	Logger                    *slog.Logger
+	Account                   AccountMeta
+	CounterIncrements         []CounterRef
+	CounterDistinctIncrements []CounterDistinctRef // TODO: better variable names
+	AccountLabels             []string
+	AccountFlags              []string
+	AccountReports            []ModReport
+	AccountTakedown           bool
 }
 
 func (e *RepoEvent) GetCount(name, val, period string) int {
@@ -43,6 +51,23 @@ func (e *RepoEvent) GetCount(name, val, period string) int {
 	return v
 }
 
+func (e *RepoEvent) Increment(name, val string) {
+	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val})
+}
+
+func (e *RepoEvent) GetCountDistinct(name, bucket, period string) int {
+	v, err := e.Engine.GetCountDistinct(name, bucket, period)
+	if err != nil {
+		e.Err = err
+		return 0
+	}
+	return v
+}
+
+func (e *RepoEvent) IncrementDistinct(name, bucket, val string) {
+	e.CounterDistinctIncrements = append(e.CounterDistinctIncrements, CounterDistinctRef{Name: name, Bucket: bucket, Val: val})
+}
+
 func (e *RepoEvent) InSet(name, val string) bool {
 	v, err := e.Engine.InSet(name, val)
 	if err != nil {
@@ -50,10 +75,6 @@ func (e *RepoEvent) InSet(name, val string) bool {
 		return false
 	}
 	return v
-}
-
-func (e *RepoEvent) Increment(name, val string) {
-	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val})
 }
 
 func (e *RepoEvent) TakedownAccount() {
@@ -72,18 +93,95 @@ func (e *RepoEvent) ReportAccount(reason, comment string) {
 	e.AccountReports = append(e.AccountReports, ModReport{ReasonType: reason, Comment: comment})
 }
 
+func slackBody(msg string, newLabels, newFlags []string, newReports []ModReport, newTakedown bool) string {
+	if len(newLabels) > 0 {
+		msg += fmt.Sprintf("New Labels: `%s`\n", strings.Join(newLabels, ", "))
+	}
+	if len(newFlags) > 0 {
+		msg += fmt.Sprintf("New Flags: `%s`\n", strings.Join(newFlags, ", "))
+	}
+	for _, rep := range newReports {
+		msg += fmt.Sprintf("Report `%s`: %s\n", rep.ReasonType, rep.Comment)
+	}
+	if newTakedown {
+		msg += fmt.Sprintf("Takedown!\n")
+	}
+	return msg
+}
+
+// Persists account-level moderation actions: new labels, new flags, new takedowns, and reports.
+//
+// If necessary, will "purge" identity and account caches, so that state updates will be picked up for subsequent events.
+//
+// TODO: de-dupe reports based on existing state, similar to other state
 func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
+
+	// de-dupe actions
+	newLabels := []string{}
+	for _, val := range dedupeStrings(e.AccountLabels) {
+		exists := false
+		for _, e := range e.Account.AccountNegatedLabels {
+			if val == e {
+				exists = true
+				break
+			}
+		}
+		for _, e := range e.Account.AccountLabels {
+			if val == e {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			newLabels = append(newLabels, val)
+		}
+	}
+	newFlags := []string{}
+	for _, val := range dedupeStrings(e.AccountFlags) {
+		exists := false
+		for _, e := range e.Account.AccountFlags {
+			if val == e {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			newFlags = append(newFlags, val)
+		}
+	}
+	newReports := e.AccountReports
+	newTakedown := e.AccountTakedown && !e.Account.Takendown
+
+	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
+		if e.Engine.SlackWebhookURL != "" {
+			msg := fmt.Sprintf("⚠️ Automod Account Action ⚠️\n")
+			msg += fmt.Sprintf("`%s` / `%s` / <https://bsky.app/profile/%s|bsky> / <https://admin.prod.bsky.dev/repositories/%s|ozone>\n",
+				e.Account.Identity.DID,
+				e.Account.Identity.Handle,
+				e.Account.Identity.DID,
+				e.Account.Identity.DID,
+			)
+			msg = slackBody(msg, newLabels, newFlags, newReports, newTakedown)
+			if err := e.Engine.SendSlackMsg(ctx, msg); err != nil {
+				e.Logger.Error("sending slack webhook", "err", err)
+			}
+		}
+	}
+
 	if e.Engine.AdminClient == nil {
 		return nil
 	}
+
+	needsPurge := false
 	xrpcc := e.Engine.AdminClient
-	if len(e.AccountLabels) > 0 {
+	if len(newLabels) > 0 {
 		comment := "automod"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
 				AdminDefs_ModEventLabel: &comatproto.AdminDefs_ModEventLabel{
-					CreateLabelVals: dedupeStrings(e.AccountLabels),
+					CreateLabelVals: newLabels,
+					NegateLabelVals: []string{},
 					Comment:         &comment,
 				},
 			},
@@ -96,9 +194,13 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		needsPurge = true
 	}
-	// TODO: AccountFlags
-	for _, mr := range e.AccountReports {
+	if len(newFlags) > 0 {
+		e.Engine.Flags.Add(ctx, e.Account.Identity.DID.String(), newFlags)
+		needsPurge = true
+	}
+	for _, mr := range newReports {
 		_, err := comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
 			ReasonType: &mr.ReasonType,
 			Reason:     &mr.Comment,
@@ -112,7 +214,7 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 			return err
 		}
 	}
-	if e.AccountTakedown {
+	if newTakedown {
 		comment := "automod"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
@@ -130,6 +232,10 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		needsPurge = true
+	}
+	if needsPurge {
+		return e.Engine.PurgeAccountCaches(ctx, e.Account.Identity.DID)
 	}
 	return nil
 }
@@ -142,6 +248,12 @@ func (e *RepoEvent) PersistCounters(ctx context.Context) error {
 	// TODO: dedupe this array
 	for _, ref := range e.CounterIncrements {
 		err := e.Engine.Counters.Increment(ctx, ref.Name, ref.Val)
+		if err != nil {
+			return err
+		}
+	}
+	for _, ref := range e.CounterDistinctIncrements {
+		err := e.Engine.Counters.IncrementDistinct(ctx, ref.Name, ref.Bucket, ref.Val)
 		if err != nil {
 			return err
 		}
@@ -192,22 +304,50 @@ func (e *RecordEvent) ReportRecord(reason, comment string) {
 	e.RecordReports = append(e.RecordReports, ModReport{ReasonType: reason, Comment: comment})
 }
 
+// Persists some record-level state: labels, takedowns, reports.
+//
+// NOTE: this method currently does *not* persist record-level flags to any storage, and does not de-dupe most actions, on the assumption that the record is new (from firehose) and has no existing mod state.
 func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
+
+	// TODO: consider de-duping record-level actions? at least for updates and deletes.
+	newLabels := dedupeStrings(e.RecordLabels)
+	newFlags := dedupeStrings(e.RecordFlags)
+	newReports := e.RecordReports
+	newTakedown := e.RecordTakedown
+	atURI := fmt.Sprintf("at://%s/%s/%s", e.Account.Identity.DID, e.Collection, e.RecordKey)
+
+	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
+		if e.Engine.SlackWebhookURL != "" {
+			msg := fmt.Sprintf("⚠️ Automod Record Action ⚠️\n")
+			msg += fmt.Sprintf("`%s` / `%s` / <https://bsky.app/profile/%s|bsky> / <https://admin.prod.bsky.dev/repositories/%s|ozone>\n",
+				e.Account.Identity.DID,
+				e.Account.Identity.Handle,
+				e.Account.Identity.DID,
+				e.Account.Identity.DID,
+			)
+			msg += fmt.Sprintf("`%s`\n", atURI)
+			msg = slackBody(msg, newLabels, newFlags, newReports, newTakedown)
+			if err := e.Engine.SendSlackMsg(ctx, msg); err != nil {
+				e.Logger.Error("sending slack webhook", "err", err)
+			}
+		}
+	}
 	if e.Engine.AdminClient == nil {
 		return nil
 	}
 	strongRef := comatproto.RepoStrongRef{
 		Cid: e.CID,
-		Uri: fmt.Sprintf("at://%s/%s/%s", e.Account.Identity.DID, e.Collection, e.RecordKey),
+		Uri: atURI,
 	}
 	xrpcc := e.Engine.AdminClient
-	if len(e.RecordLabels) > 0 {
+	if len(newLabels) > 0 {
 		comment := "automod"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
 				AdminDefs_ModEventLabel: &comatproto.AdminDefs_ModEventLabel{
-					CreateLabelVals: dedupeStrings(e.RecordLabels),
+					CreateLabelVals: newLabels,
+					NegateLabelVals: []string{},
 					Comment:         &comment,
 				},
 			},
@@ -219,8 +359,10 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 			return err
 		}
 	}
-	// TODO: AccountFlags
-	for _, mr := range e.RecordReports {
+	if len(newFlags) > 0 {
+		e.Engine.Flags.Add(ctx, atURI, newFlags)
+	}
+	for _, mr := range newReports {
 		_, err := comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
 			ReasonType: &mr.ReasonType,
 			Reason:     &mr.Comment,
@@ -232,7 +374,7 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 			return err
 		}
 	}
-	if e.RecordTakedown {
+	if newTakedown {
 		comment := "automod"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
@@ -272,7 +414,15 @@ func (e *RecordEvent) CanonicalLogLine() {
 	)
 }
 
+type RecordDeleteEvent struct {
+	RepoEvent
+
+	Collection string
+	RecordKey  string
+}
+
 type IdentityRuleFunc = func(evt *IdentityEvent) error
 type RecordRuleFunc = func(evt *RecordEvent) error
 type PostRuleFunc = func(evt *RecordEvent, post *appbsky.FeedPost) error
 type ProfileRuleFunc = func(evt *RecordEvent, profile *appbsky.ActorProfile) error
+type RecordDeleteRuleFunc = func(evt *RecordDeleteEvent) error

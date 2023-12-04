@@ -10,6 +10,7 @@ import (
 type CacheStore interface {
 	Get(ctx context.Context, name, key string) (string, error)
 	Set(ctx context.Context, name, key string, val string) error
+	Purge(ctx context.Context, name, key string) error
 }
 
 type MemCacheStore struct {
@@ -32,5 +33,10 @@ func (s MemCacheStore) Get(ctx context.Context, name, key string) (string, error
 
 func (s MemCacheStore) Set(ctx context.Context, name, key string, val string) error {
 	s.Data.Add(name+"/"+key, val)
+	return nil
+}
+
+func (s MemCacheStore) Purge(ctx context.Context, name, key string) error {
+	s.Data.Remove(name + "/" + key)
 	return nil
 }
