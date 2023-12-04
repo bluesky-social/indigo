@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"testing"
+	"time"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -14,7 +15,7 @@ import (
 
 func simpleRule(evt *RecordEvent, post *appbsky.FeedPost) error {
 	for _, tag := range post.Tags {
-		if evt.InSet("banned-hashtags", tag) {
+		if evt.InSet("bad-hashtags", tag) {
 			evt.AddRecordLabel("bad-hashtag")
 			break
 		}
@@ -23,7 +24,7 @@ func simpleRule(evt *RecordEvent, post *appbsky.FeedPost) error {
 		for _, feat := range facet.Features {
 			if feat.RichtextFacet_Tag != nil {
 				tag := feat.RichtextFacet_Tag.Tag
-				if evt.InSet("banned-hashtags", tag) {
+				if evt.InSet("bad-hashtags", tag) {
 					evt.AddRecordLabel("bad-hashtag")
 					break
 				}
@@ -39,9 +40,11 @@ func engineFixture() Engine {
 			simpleRule,
 		},
 	}
+	cache := NewMemCacheStore(10, time.Hour)
+	flags := NewMemFlagStore()
 	sets := NewMemSetStore()
-	sets.Sets["banned-hashtags"] = make(map[string]bool)
-	sets.Sets["banned-hashtags"]["slur"] = true
+	sets.Sets["bad-hashtags"] = make(map[string]bool)
+	sets.Sets["bad-hashtags"]["slur"] = true
 	dir := identity.NewMockDirectory()
 	id1 := identity.Identity{
 		DID:    syntax.DID("did:plc:abc111"),
@@ -53,6 +56,8 @@ func engineFixture() Engine {
 		Directory: &dir,
 		Counters:  NewMemCountStore(),
 		Sets:      sets,
+		Flags:     flags,
+		Cache:     cache,
 		Rules:     rules,
 	}
 	return engine

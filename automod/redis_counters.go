@@ -8,6 +8,7 @@ import (
 )
 
 var redisCountPrefix string = "count/"
+var redisDistinctPrefix string = "distinct/"
 
 type RedisCountStore struct {
 	Client *redis.Client
@@ -58,6 +59,40 @@ func (s *RedisCountStore) Increment(ctx context.Context, name, val string) error
 
 	key = redisCountPrefix + PeriodBucket(name, val, PeriodTotal)
 	multi.Incr(ctx, key)
+	// no expiration for total
+
+	_, err := multi.Exec(ctx)
+	return err
+}
+
+func (s *RedisCountStore) GetCountDistinct(ctx context.Context, name, val, period string) (int, error) {
+	key := redisDistinctPrefix + PeriodBucket(name, val, period)
+	c, err := s.Client.PFCount(ctx, key).Result()
+	if err == redis.Nil {
+		return 0, nil
+	} else if err != nil {
+		return 0, err
+	}
+	return int(c), nil
+}
+
+func (s *RedisCountStore) IncrementDistinct(ctx context.Context, name, bucket, val string) error {
+
+	var key string
+
+	// increment multiple counters in a single redis round-trip
+	multi := s.Client.Pipeline()
+
+	key = redisDistinctPrefix + PeriodBucket(name, bucket, PeriodHour)
+	multi.PFAdd(ctx, key, val)
+	multi.Expire(ctx, key, 2*time.Hour)
+
+	key = redisDistinctPrefix + PeriodBucket(name, bucket, PeriodDay)
+	multi.PFAdd(ctx, key, val)
+	multi.Expire(ctx, key, 48*time.Hour)
+
+	key = redisDistinctPrefix + PeriodBucket(name, bucket, PeriodTotal)
+	multi.PFAdd(ctx, key, val)
 	// no expiration for total
 
 	_, err := multi.Exec(ctx)

@@ -7,10 +7,11 @@ import (
 )
 
 type RuleSet struct {
-	PostRules     []PostRuleFunc
-	ProfileRules  []ProfileRuleFunc
-	RecordRules   []RecordRuleFunc
-	IdentityRules []IdentityRuleFunc
+	PostRules         []PostRuleFunc
+	ProfileRules      []ProfileRuleFunc
+	RecordRules       []RecordRuleFunc
+	RecordDeleteRules []RecordDeleteRuleFunc
+	IdentityRules     []IdentityRuleFunc
 }
 
 func (r *RuleSet) CallRecordRules(evt *RecordEvent) error {
@@ -53,6 +54,19 @@ func (r *RuleSet) CallRecordRules(evt *RecordEvent) error {
 			if evt.Err != nil {
 				return evt.Err
 			}
+		}
+	}
+	return nil
+}
+
+func (r *RuleSet) CallRecordDeleteRules(evt *RecordDeleteEvent) error {
+	for _, f := range r.RecordDeleteRules {
+		err := f(evt)
+		if err != nil {
+			return err
+		}
+		if evt.Err != nil {
+			return evt.Err
 		}
 	}
 	return nil

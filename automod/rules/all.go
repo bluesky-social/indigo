@@ -10,9 +10,27 @@ func DefaultRules() automod.RuleSet {
 			MisleadingURLPostRule,
 			MisleadingMentionPostRule,
 			ReplyCountPostRule,
-			BanHashtagsPostRule,
-			AccountDemoPostRule,
+			BadHashtagsPostRule,
+			//TooManyHashtagsPostRule,
+			//AccountDemoPostRule,
 			AccountPrivateDemoPostRule,
+			GtubePostRule,
+			KeywordPostRule,
+			ReplySingleKeywordPostRule,
+			AggressivePromotionRule,
+		},
+		ProfileRules: []automod.ProfileRuleFunc{
+			GtubeProfileRule,
+			KeywordProfileRule,
+		},
+		RecordRules: []automod.RecordRuleFunc{
+			InteractionChurnRule,
+		},
+		RecordDeleteRules: []automod.RecordDeleteRuleFunc{
+			DeleteInteractionRule,
+		},
+		IdentityRules: []automod.IdentityRuleFunc{
+			NewAccountRule,
 		},
 	}
 	return rules
