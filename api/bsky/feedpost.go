@@ -67,16 +67,16 @@ func (t *FeedPost_Embed) UnmarshalJSON(b []byte) error {
 	}
 
 	switch typ {
-	case "app.bsky.embed.images":
+	case "app.bsky.embed.images", "app.bsky.embed.images#main":
 		t.EmbedImages = new(EmbedImages)
 		return json.Unmarshal(b, t.EmbedImages)
-	case "app.bsky.embed.external":
+	case "app.bsky.embed.external", "app.bsky.embed.external#main":
 		t.EmbedExternal = new(EmbedExternal)
 		return json.Unmarshal(b, t.EmbedExternal)
-	case "app.bsky.embed.record":
+	case "app.bsky.embed.record", "app.bsky.embed.record#main":
 		t.EmbedRecord = new(EmbedRecord)
 		return json.Unmarshal(b, t.EmbedRecord)
-	case "app.bsky.embed.recordWithMedia":
+	case "app.bsky.embed.recordWithMedia", "app.bsky.embed.recordWithMedia#main":
 		t.EmbedRecordWithMedia = new(EmbedRecordWithMedia)
 		return json.Unmarshal(b, t.EmbedRecordWithMedia)
 
@@ -112,16 +112,16 @@ func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
 	}
 
 	switch typ {
-	case "app.bsky.embed.images":
+	case "app.bsky.embed.images", "app.bsky.embed.images#main":
 		t.EmbedImages = new(EmbedImages)
 		return t.EmbedImages.UnmarshalCBOR(bytes.NewReader(b))
-	case "app.bsky.embed.external":
+	case "app.bsky.embed.external", "app.bsky.embed.external#main":
 		t.EmbedExternal = new(EmbedExternal)
 		return t.EmbedExternal.UnmarshalCBOR(bytes.NewReader(b))
-	case "app.bsky.embed.record":
+	case "app.bsky.embed.record", "app.bsky.embed.record#main":
 		t.EmbedRecord = new(EmbedRecord)
 		return t.EmbedRecord.UnmarshalCBOR(bytes.NewReader(b))
-	case "app.bsky.embed.recordWithMedia":
+	case "app.bsky.embed.recordWithMedia", "app.bsky.embed.recordWithMedia#main":
 		t.EmbedRecordWithMedia = new(EmbedRecordWithMedia)
 		return t.EmbedRecordWithMedia.UnmarshalCBOR(bytes.NewReader(b))
 

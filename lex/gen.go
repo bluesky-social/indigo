@@ -1422,7 +1422,12 @@ func (ts *TypeSchema) writeJsonUnmarshalerEnum(name string, w io.Writer) error {
 
 		vname, goname := ts.namesFromRef(e)
 
-		pf("\t\tcase \"%s\":\n", e)
+		if !strings.Contains(e, "#") {
+			// this is a 'main' record, also allow the 'main' to be explicit
+			pf("\t\tcase \"%s\",\"%s#main\":\n", e, e)
+		} else {
+			pf("\t\tcase \"%s\":\n", e)
+		}
 		pf("\t\t\tt.%s = new(%s)\n", vname, goname)
 		pf("\t\t\treturn json.Unmarshal(b, t.%s)\n", vname)
 	}
@@ -1479,7 +1484,12 @@ func (ts *TypeSchema) writeCborUnmarshalerEnum(name string, w io.Writer) error {
 
 		vname, goname := ts.namesFromRef(e)
 
-		pf("\t\tcase \"%s\":\n", e)
+		if !strings.Contains(e, "#") {
+			// this is a 'main' record, also allow the 'main' to be explicit
+			pf("\t\tcase \"%s\",\"%s#main\":\n", e, e)
+		} else {
+			pf("\t\tcase \"%s\":\n", e)
+		}
 		pf("\t\t\tt.%s = new(%s)\n", vname, goname)
 		pf("\t\t\treturn t.%s.UnmarshalCBOR(bytes.NewReader(b))\n", vname)
 	}

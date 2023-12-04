@@ -146,7 +146,7 @@ func (t *AdminEmitModerationEvent_Input_Subject) UnmarshalJSON(b []byte) error {
 	case "com.atproto.admin.defs#repoRef":
 		t.AdminDefs_RepoRef = new(AdminDefs_RepoRef)
 		return json.Unmarshal(b, t.AdminDefs_RepoRef)
-	case "com.atproto.repo.strongRef":
+	case "com.atproto.repo.strongRef", "com.atproto.repo.strongRef#main":
 		t.RepoStrongRef = new(RepoStrongRef)
 		return json.Unmarshal(b, t.RepoStrongRef)
 
