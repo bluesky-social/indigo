@@ -256,7 +256,7 @@ func (c *CrawlDispatcher) AddToCatchupQueue(ctx context.Context, host *models.PD
 	}
 }
 
-func (c *CrawlDispatcher) RepoInSlowPath(ctx context.Context, host *models.PDS, uid models.Uid) bool {
+func (c *CrawlDispatcher) RepoInSlowPath(ctx context.Context, uid models.Uid) bool {
 	c.maplk.Lock()
 	defer c.maplk.Unlock()
 	if _, ok := c.todo[uid]; ok {

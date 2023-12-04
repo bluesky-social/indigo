@@ -5,9 +5,7 @@ import (
 	"log/slog"
 	"sync"
 	"testing"
-	"time"
 
-	"github.com/bluesky-social/indigo/backfill"
 	"github.com/ipfs/go-cid"
 	typegen "github.com/whyrusleeping/cbor-gen"
 )
@@ -20,6 +18,7 @@ type testState struct {
 }
 
 func TestBackfill(t *testing.T) {
+	/* this test depends on being able to hit the live production bgs...
 	ctx := context.Background()
 
 	testRepos := []string{
@@ -28,7 +27,12 @@ func TestBackfill(t *testing.T) {
 		"did:plc:t7y4sud4dhptvzz7ibnv5cbt",
 	}
 
-	mem := backfill.NewMemstore()
+	db, err := gorm.Open(sqlite.Open("sqlite://:memory"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	store := backfill.NewGormstore(db)
 	ts := &testState{}
 
 	opts := backfill.DefaultBackfillOptions()
@@ -37,7 +41,7 @@ func TestBackfill(t *testing.T) {
 
 	bf := backfill.NewBackfiller(
 		"backfill-test",
-		mem,
+		store,
 		ts.handleCreate,
 		ts.handleUpdate,
 		ts.handleDelete,
@@ -49,25 +53,25 @@ func TestBackfill(t *testing.T) {
 	go bf.Start()
 
 	for _, repo := range testRepos {
-		mem.EnqueueJob(repo)
+		store.EnqueueJob(repo)
 	}
 
 	// Wait until job 0 is in progress
 	for {
-		s, err := mem.GetJob(ctx, testRepos[0])
+		s, err := store.GetJob(ctx, testRepos[0])
 		if err != nil {
 			t.Fatal(err)
 		}
 		if s.State() == backfill.StateInProgress {
-			mem.BufferOp(ctx, testRepos[0], "delete", "app.bsky.feed.follow/1", nil, &cid.Undef)
-			mem.BufferOp(ctx, testRepos[0], "delete", "app.bsky.feed.follow/2", nil, &cid.Undef)
-			mem.BufferOp(ctx, testRepos[0], "delete", "app.bsky.feed.follow/3", nil, &cid.Undef)
-			mem.BufferOp(ctx, testRepos[0], "delete", "app.bsky.feed.follow/4", nil, &cid.Undef)
-			mem.BufferOp(ctx, testRepos[0], "delete", "app.bsky.feed.follow/5", nil, &cid.Undef)
+			bf.BufferOp(ctx, testRepos[0], "delete", "app.bsky.feed.follow/1", nil, &cid.Undef)
+			bf.BufferOp(ctx, testRepos[0], "delete", "app.bsky.feed.follow/2", nil, &cid.Undef)
+			bf.BufferOp(ctx, testRepos[0], "delete", "app.bsky.feed.follow/3", nil, &cid.Undef)
+			bf.BufferOp(ctx, testRepos[0], "delete", "app.bsky.feed.follow/4", nil, &cid.Undef)
+			bf.BufferOp(ctx, testRepos[0], "delete", "app.bsky.feed.follow/5", nil, &cid.Undef)
 
-			mem.BufferOp(ctx, testRepos[0], "create", "app.bsky.feed.follow/1", nil, &cid.Undef)
+			bf.BufferOp(ctx, testRepos[0], "create", "app.bsky.feed.follow/1", nil, &cid.Undef)
 
-			mem.BufferOp(ctx, testRepos[0], "update", "app.bsky.feed.follow/1", nil, &cid.Undef)
+			bf.BufferOp(ctx, testRepos[0], "update", "app.bsky.feed.follow/1", nil, &cid.Undef)
 
 			break
 		}
@@ -87,9 +91,10 @@ func TestBackfill(t *testing.T) {
 	bf.Stop()
 
 	slog.Info("shutting down")
+	*/
 }
 
-func (ts *testState) handleCreate(ctx context.Context, repo string, path string, rec *typegen.CBORMarshaler, cid *cid.Cid) error {
+func (ts *testState) handleCreate(ctx context.Context, repo string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error {
 	slog.Info("got create", "repo", repo, "path", path)
 	ts.lk.Lock()
 	ts.creates++
@@ -97,7 +102,7 @@ func (ts *testState) handleCreate(ctx context.Context, repo string, path string,
 	return nil
 }
 
-func (ts *testState) handleUpdate(ctx context.Context, repo string, path string, rec *typegen.CBORMarshaler, cid *cid.Cid) error {
+func (ts *testState) handleUpdate(ctx context.Context, repo string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error {
 	slog.Info("got update", "repo", repo, "path", path)
 	ts.lk.Lock()
 	ts.updates++
