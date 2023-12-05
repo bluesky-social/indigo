@@ -7,6 +7,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/countstore"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -38,7 +39,7 @@ func engineFixture() automod.Engine {
 	engine := automod.Engine{
 		Logger:      slog.Default(),
 		Directory:   &dir,
-		Counters:    automod.NewMemCountStore(),
+		Counters:    countstore.NewMemCountStore(),
 		Sets:        sets,
 		Flags:       flags,
 		Cache:       cache,
