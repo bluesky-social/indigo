@@ -370,14 +370,22 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			for i := 0; i < int(extra); i++ {
-
 				{
-					sval, err := cbg.ReadString(cr)
-					if err != nil {
-						return err
-					}
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
 
-					t.Tags[i] = string(sval)
+					{
+						sval, err := cbg.ReadString(cr)
+						if err != nil {
+							return err
+						}
+
+						t.Tags[i] = string(sval)
+					}
 				}
 			}
 
@@ -444,14 +452,22 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			for i := 0; i < int(extra); i++ {
-
 				{
-					sval, err := cbg.ReadString(cr)
-					if err != nil {
-						return err
-					}
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
 
-					t.Langs[i] = string(sval)
+					{
+						sval, err := cbg.ReadString(cr)
+						if err != nil {
+							return err
+						}
+
+						t.Langs[i] = string(sval)
+					}
 				}
 			}
 
@@ -496,13 +512,32 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
 
-				var v RichtextFacet
-				if err := v.UnmarshalCBOR(cr); err != nil {
-					return err
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.Facets[i] = new(RichtextFacet)
+							if err := t.Facets[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.Facets[i] pointer: %w", err)
+							}
+						}
+
+					}
 				}
-
-				t.Facets[i] = &v
 			}
 
 			// t.Labels (bsky.FeedPost_Labels) (struct)
@@ -546,13 +581,32 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
 
-				var v FeedPost_Entity
-				if err := v.UnmarshalCBOR(cr); err != nil {
-					return err
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.Entities[i] = new(FeedPost_Entity)
+							if err := t.Entities[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.Entities[i] pointer: %w", err)
+							}
+						}
+
+					}
 				}
-
-				t.Entities[i] = &v
 			}
 
 			// t.CreatedAt (string) (string)
@@ -1319,13 +1373,32 @@ func (t *EmbedImages) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
 
-				var v EmbedImages_Image
-				if err := v.UnmarshalCBOR(cr); err != nil {
-					return err
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.Images[i] = new(EmbedImages_Image)
+							if err := t.Images[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.Images[i] pointer: %w", err)
+							}
+						}
+
+					}
 				}
-
-				t.Images[i] = &v
 			}
 
 		default:
@@ -2761,13 +2834,32 @@ func (t *RichtextFacet) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
 
-				var v RichtextFacet_Features_Elem
-				if err := v.UnmarshalCBOR(cr); err != nil {
-					return err
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.Features[i] = new(RichtextFacet_Features_Elem)
+							if err := t.Features[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.Features[i] pointer: %w", err)
+							}
+						}
+
+					}
 				}
-
-				t.Features[i] = &v
 			}
 
 		default:
@@ -4188,13 +4280,32 @@ func (t *GraphList) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
 
-				var v RichtextFacet
-				if err := v.UnmarshalCBOR(cr); err != nil {
-					return err
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.DescriptionFacets[i] = new(RichtextFacet)
+							if err := t.DescriptionFacets[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.DescriptionFacets[i] pointer: %w", err)
+							}
+						}
+
+					}
 				}
-
-				t.DescriptionFacets[i] = &v
 			}
 
 		default:
@@ -4779,13 +4890,32 @@ func (t *FeedGenerator) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
 
-				var v RichtextFacet
-				if err := v.UnmarshalCBOR(cr); err != nil {
-					return err
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.DescriptionFacets[i] = new(RichtextFacet)
+							if err := t.DescriptionFacets[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.DescriptionFacets[i] pointer: %w", err)
+							}
+						}
+
+					}
 				}
-
-				t.DescriptionFacets[i] = &v
 			}
 
 		default:

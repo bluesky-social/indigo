@@ -525,13 +525,32 @@ func (t *SyncSubscribeRepos_Commit) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
 
-				var v SyncSubscribeRepos_RepoOp
-				if err := v.UnmarshalCBOR(cr); err != nil {
-					return err
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.Ops[i] = new(SyncSubscribeRepos_RepoOp)
+							if err := t.Ops[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.Ops[i] pointer: %w", err)
+							}
+						}
+
+					}
 				}
-
-				t.Ops[i] = &v
 			}
 
 			// t.Rev (string) (string)
@@ -634,13 +653,22 @@ func (t *SyncSubscribeRepos_Commit) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
 
-				var v util.LexLink
-				if err := v.UnmarshalCBOR(cr); err != nil {
-					return err
+					{
+
+						if err := t.Blobs[i].UnmarshalCBOR(cr); err != nil {
+							return xerrors.Errorf("unmarshaling t.Blobs[i]: %w", err)
+						}
+
+					}
 				}
-
-				t.Blobs[i] = v
 			}
 
 			// t.Since (string) (string)
@@ -1802,13 +1830,32 @@ func (t *LabelDefs_SelfLabels) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
 
-				var v LabelDefs_SelfLabel
-				if err := v.UnmarshalCBOR(cr); err != nil {
-					return err
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.Values[i] = new(LabelDefs_SelfLabel)
+							if err := t.Values[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.Values[i] pointer: %w", err)
+							}
+						}
+
+					}
 				}
-
-				t.Values[i] = &v
 			}
 
 		default:
