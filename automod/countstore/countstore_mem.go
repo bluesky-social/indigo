@@ -47,10 +47,7 @@ func (s MemCountStore) GetCount(ctx context.Context, name, val, period string) (
 func (s MemCountStore) Increment(ctx context.Context, name, val string) error {
 	for _, p := range []string{PeriodTotal, PeriodDay, PeriodHour} {
 		k := PeriodBucket(name, val, p)
-		v, ok := s.Counts[k]
-		if !ok {
-			v = 0
-		}
+		v := s.Counts[k]
 		v = v + 1
 		s.Counts[k] = v
 	}
