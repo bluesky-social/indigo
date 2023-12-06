@@ -20,15 +20,20 @@ const (
 // See the `Period*` consts for the available period types.
 //
 // The "GetCount" and "Increment" methods perform actual counting.
-// The "*Distinct" methods store booleans for values, rather than incrementing;
-// fetching "GetCountDistinct" asks how many values have been seen at least once,
-// rather than how many times they've been seen.
+// The "*Distinct" methods have a different behavior:
+// "IncrementDistinct" marks a value as seen at least once,
+// and "GetCountDistinct" asks how _many_ values have been seen at least once.
+//
+// The exact implementation and precision of the "*Distinct" methods may vary:
+// in the MemCountStore implementation, it is precise (it's based on large maps);
+// in the RedisCountStore implementation, it uses the Redis "pfcount" feature,
+// which is based on a HyperLogLog datastructure which has probablistic properties
+// (see https://redis.io/commands/pfcount/ ).
 type CountStore interface {
 	GetCount(ctx context.Context, name, val, period string) (int, error)
 	Increment(ctx context.Context, name, val string) error
 	// TODO: batch increment method
 	GetCountDistinct(ctx context.Context, name, bucket, period string) (int, error)
-	// REVIEW: s/IncrementDistinct/MarkDistinct/ ?
 	IncrementDistinct(ctx context.Context, name, bucket, val string) error
 }
 
