@@ -78,10 +78,13 @@ var bgsListUpstreamsCmd = &cli.Command{
 }
 
 var bgsKickConnectionCmd = &cli.Command{
-	Name: "kick",
+	Name:      "kick",
+	Usage:     "tell Relay/BGS to drop the subscription connection",
+	ArgsUsage: "<host>",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
-			Name: "ban",
+			Name:  "ban",
+			Usage: "make the disconnect sticky",
 		},
 	},
 	Action: func(cctx *cli.Context) error {
@@ -166,7 +169,8 @@ var bgsListDomainBansCmd = &cli.Command{
 }
 
 var bgsBanDomainCmd = &cli.Command{
-	Name: "ban-domain",
+	Name:      "ban-domain",
+	ArgsUsage: "<domain>",
 	Action: func(cctx *cli.Context) error {
 		url := cctx.String("bgs") + "/admin/subs/banDomain"
 
@@ -213,7 +217,8 @@ var bgsBanDomainCmd = &cli.Command{
 }
 
 var bgsTakedownRepoCmd = &cli.Command{
-	Name: "take-down-repo",
+	Name:      "take-down-repo",
+	ArgsUsage: "<did>",
 	Action: func(cctx *cli.Context) error {
 		url := cctx.String("bgs") + "/admin/repo/takeDown"
 
@@ -260,7 +265,9 @@ var bgsTakedownRepoCmd = &cli.Command{
 }
 
 var bgsSetNewSubsEnabledCmd = &cli.Command{
-	Name: "set-accept-subs",
+	Name:      "set-accept-subs",
+	ArgsUsage: "<boolean>",
+	Usage:     "set configuration for whether new subscriptions are allowed",
 	Action: func(cctx *cli.Context) error {
 		url := cctx.String("bgs") + "/admin/subs/setEnabled"
 
@@ -305,7 +312,8 @@ var bgsSetNewSubsEnabledCmd = &cli.Command{
 }
 
 var bgsCompactRepo = &cli.Command{
-	Name: "compact-repo",
+	Name:      "compact-repo",
+	ArgsUsage: "<did>",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name: "fast",
@@ -427,7 +435,8 @@ var bgsCompactAll = &cli.Command{
 }
 
 var bgsResetRepo = &cli.Command{
-	Name: "reset-repo",
+	Name:      "reset-repo",
+	ArgsUsage: "<did>",
 	Action: func(cctx *cli.Context) error {
 		url := cctx.String("bgs") + "/admin/repo/reset"
 
