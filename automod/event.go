@@ -15,6 +15,10 @@ import (
 var (
 	// time period within which automod will not re-report an account for the same reasonType
 	ReportDupePeriod = 7 * 24 * time.Hour
+	// number of reports automod can file per day, for all subjects and types combined (circuit breaker)
+	QuotaModReportDay = 50
+	// number of takedowns automod can action per day, for all subjects combined (circuit breaker)
+	QuotaModTakedownDay = 10
 )
 
 type CounterRef struct {
@@ -203,6 +207,24 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		}
 	}
 	newTakedown := e.AccountTakedown && !e.Account.Takendown
+
+	// check "circuit breakers"
+	if len(newReports) > 0 {
+		if e.GetCount("automod-quota", "report", PeriodDay) >= QuotaModReportDay {
+			e.Logger.Warn("CIRCUIT BREAKER: automod reports")
+			newReports = []ModReport{}
+		} else {
+			e.Increment("automod-quota", "report")
+		}
+	}
+	if newTakedown {
+		if e.GetCount("automod-quota", "takedown", PeriodDay) >= QuotaModTakedownDay {
+			e.Logger.Warn("CIRCUIT BREAKER: automod takedowns")
+			newTakedown = false
+		} else {
+			e.Increment("automod-quota", "takedown")
+		}
+	}
 
 	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
 		if e.Engine.SlackWebhookURL != "" {
@@ -424,6 +446,24 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 	newReports := e.RecordReports
 	newTakedown := e.RecordTakedown
 	atURI := fmt.Sprintf("at://%s/%s/%s", e.Account.Identity.DID, e.Collection, e.RecordKey)
+
+	// check "circuit breakers"
+	if len(newReports) > 0 {
+		if e.GetCount("automod-quota", "report", PeriodDay) >= QuotaModReportDay {
+			e.Logger.Warn("CIRCUIT BREAKER: automod reports")
+			newReports = []ModReport{}
+		} else {
+			e.Increment("automod-quota", "report")
+		}
+	}
+	if newTakedown {
+		if e.GetCount("automod-quota", "takedown", PeriodDay) >= QuotaModTakedownDay {
+			e.Logger.Warn("CIRCUIT BREAKER: automod takedowns")
+			newTakedown = false
+		} else {
+			e.Increment("automod-quota", "takedown")
+		}
+	}
 
 	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
 		if e.Engine.SlackWebhookURL != "" {
