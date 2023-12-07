@@ -126,6 +126,11 @@ func (e *RepoEvent) AddAccountFlag(val string) {
 
 // Enqueues a moderation report to be filed against the account at the end of rule processing.
 func (e *RepoEvent) ReportAccount(reason, comment string) {
+	if comment == "" {
+		comment = "(automod)"
+	} else {
+		comment = "automod: " + comment
+	}
 	e.AccountReports = append(e.AccountReports, ModReport{ReasonType: reason, Comment: comment})
 }
 
@@ -400,6 +405,11 @@ func (e *RecordEvent) AddRecordFlag(val string) {
 
 // Enqueues a moderation report to be filed against the record at the end of rule processing.
 func (e *RecordEvent) ReportRecord(reason, comment string) {
+	if comment == "" {
+		comment = "(automod)"
+	} else {
+		comment = "automod: " + comment
+	}
 	e.RecordReports = append(e.RecordReports, ModReport{ReasonType: reason, Comment: comment})
 }
 
