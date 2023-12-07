@@ -16,8 +16,9 @@ type ModReport struct {
 }
 
 type CounterRef struct {
-	Name string
-	Val  string
+	Name   string
+	Val    string
+	Period *string
 }
 
 type CounterDistinctRef struct {
@@ -53,6 +54,10 @@ func (e *RepoEvent) GetCount(name, val, period string) int {
 
 func (e *RepoEvent) Increment(name, val string) {
 	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val})
+}
+
+func (e *RepoEvent) IncrementPeriod(name, val string, period string) {
+	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val, Period: &period})
 }
 
 func (e *RepoEvent) GetCountDistinct(name, bucket, period string) int {
@@ -247,9 +252,16 @@ func (e *RepoEvent) PersistActions(ctx context.Context) error {
 func (e *RepoEvent) PersistCounters(ctx context.Context) error {
 	// TODO: dedupe this array
 	for _, ref := range e.CounterIncrements {
-		err := e.Engine.Counters.Increment(ctx, ref.Name, ref.Val)
-		if err != nil {
-			return err
+		if ref.Period != nil {
+			err := e.Engine.Counters.IncrementPeriod(ctx, ref.Name, ref.Val, *ref.Period)
+			if err != nil {
+				return err
+			}
+		} else {
+			err := e.Engine.Counters.Increment(ctx, ref.Name, ref.Val)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	for _, ref := range e.CounterDistinctIncrements {
