@@ -9,6 +9,8 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
+
+	"github.com/spaolacci/murmur3"
 )
 
 func dedupeStrings(in []string) []string {
@@ -176,4 +178,12 @@ func IsSelfThread(evt *automod.RecordEvent, post *appbsky.FeedPost) bool {
 		return true
 	}
 	return false
+}
+
+// returns a fast, compact hash of a string
+//
+// current implementation uses murmur3, default seed, and hex encoding
+func HashOfString(s string) string {
+	val := murmur3.Sum64([]byte(s))
+	return fmt.Sprintf("%016x", val)
 }
