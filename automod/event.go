@@ -249,6 +249,7 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 	needsPurge := false
 	xrpcc := e.Engine.AdminClient
 	if len(newLabels) > 0 {
+		e.Logger.Info("labeling record", "newLabels", newLabels)
 		comment := "automod"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
@@ -320,6 +321,7 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		}
 	}
 	if newTakedown {
+		e.Logger.Warn("account-takedown")
 		comment := "automod"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
@@ -490,6 +492,7 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 	}
 	xrpcc := e.Engine.AdminClient
 	if len(newLabels) > 0 {
+		e.Logger.Info("labeling record", "newLabels", newLabels)
 		comment := "automod"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
@@ -512,6 +515,7 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 		e.Engine.Flags.Add(ctx, atURI, newFlags)
 	}
 	for _, mr := range newReports {
+		e.Logger.Info("reporting record", "reasonType", mr.ReasonType, "comment", mr.Comment)
 		_, err := comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
 			ReasonType: &mr.ReasonType,
 			Reason:     &mr.Comment,
@@ -524,6 +528,7 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 		}
 	}
 	if newTakedown {
+		e.Logger.Warn("record-takedown")
 		comment := "automod"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
