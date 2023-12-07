@@ -27,3 +27,24 @@ func ReplyCountPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error 
 	evt.IncrementDistinct("reply-to", did, parentURI.Authority().String())
 	return nil
 }
+
+var identicalReplyLimit = 5
+
+// Looks for accounts posting the exact same text multiple times. Does not currently count the number of distinct accounts replied to, just counts replies at all.
+//
+// There can be legitimate situations that trigger this rule, so in most situations should be a "report" not "label" action.
+func IdenticalReplyPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
+	if post.Reply == nil || IsSelfThread(evt, post) {
+		return nil
+	}
+
+	// use a specific period (IncrementPeriod()) to reduce the number of counters (one per unique post text)
+	period := automod.PeriodDay
+	bucket := evt.Account.Identity.DID.String() + "/" + HashOfString(post.Text)
+	if evt.GetCount("reply-text", bucket, period) >= identicalReplyLimit {
+		evt.AddAccountFlag("multi-identical-reply")
+	}
+
+	evt.IncrementPeriod("reply-text", bucket, period)
+	return nil
+}
