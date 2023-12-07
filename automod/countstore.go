@@ -16,6 +16,7 @@ const (
 type CountStore interface {
 	GetCount(ctx context.Context, name, val, period string) (int, error)
 	Increment(ctx context.Context, name, val string) error
+	IncrementPeriod(ctx context.Context, name, val, period string) error
 	// TODO: batch increment method
 	GetCountDistinct(ctx context.Context, name, bucket, period string) (int, error)
 	IncrementDistinct(ctx context.Context, name, bucket, val string) error
@@ -60,14 +61,19 @@ func (s MemCountStore) GetCount(ctx context.Context, name, val, period string) (
 
 func (s MemCountStore) Increment(ctx context.Context, name, val string) error {
 	for _, p := range []string{PeriodTotal, PeriodDay, PeriodHour} {
-		k := PeriodBucket(name, val, p)
-		v, ok := s.Counts[k]
-		if !ok {
-			v = 0
-		}
-		v = v + 1
-		s.Counts[k] = v
+		s.IncrementPeriod(ctx, name, val, p)
 	}
+	return nil
+}
+
+func (s MemCountStore) IncrementPeriod(ctx context.Context, name, val, period string) error {
+	k := PeriodBucket(name, val, period)
+	v, ok := s.Counts[k]
+	if !ok {
+		v = 0
+	}
+	v = v + 1
+	s.Counts[k] = v
 	return nil
 }
 

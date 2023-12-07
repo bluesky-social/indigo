@@ -65,6 +65,26 @@ func (s *RedisCountStore) Increment(ctx context.Context, name, val string) error
 	return err
 }
 
+// Variant of Increment() which only acts on a single specified time period. The intended us of this variant is to control the total number of counters persisted, by using a relatively short time period, for which the counters will expire.
+func (s *RedisCountStore) IncrementPeriod(ctx context.Context, name, val, period string) error {
+
+	// multiple ops in a single redis round-trip
+	multi := s.Client.Pipeline()
+
+	key := redisCountPrefix + PeriodBucket(name, val, period)
+	multi.Incr(ctx, key)
+
+	switch period {
+	case PeriodHour:
+		multi.Expire(ctx, key, 2*time.Hour)
+	case PeriodDay:
+		multi.Expire(ctx, key, 48*time.Hour)
+	}
+
+	_, err := multi.Exec(ctx)
+	return err
+}
+
 func (s *RedisCountStore) GetCountDistinct(ctx context.Context, name, val, period string) (int, error) {
 	key := redisDistinctPrefix + PeriodBucket(name, val, period)
 	c, err := s.Client.PFCount(ctx, key).Result()
