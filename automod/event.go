@@ -5,15 +5,17 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-type ModReport struct {
-	ReasonType string
-	Comment    string
-}
+var (
+	// time period within which automod will not re-report an account for the same reasonType
+	ReportDupePeriod = 7 * 24 * time.Hour
+)
 
 type CounterRef struct {
 	Name   string
@@ -147,7 +149,7 @@ func slackBody(msg string, newLabels, newFlags []string, newReports []ModReport,
 //
 // If necessary, will "purge" identity and account caches, so that state updates will be picked up for subsequent events.
 //
-// TODO: de-dupe reports based on existing state, similar to other state
+// Note that this method expects to run *before* counts are persisted (it accesses and updates some counts)
 func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 
 	// de-dupe actions
@@ -183,7 +185,18 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 			newFlags = append(newFlags, val)
 		}
 	}
-	newReports := e.AccountReports
+	// don't report the same account multiple times on the same day for the same reason. this is a quick check; we also query the mod service API just before creating the report.
+	newReports := []ModReport{}
+	for _, r := range e.AccountReports {
+		name := "automod-account-report-" + reasonShortName(r.ReasonType)
+		existing := e.GetCount(name, e.Account.Identity.DID.String(), PeriodDay)
+		if existing > 0 {
+			e.Logger.Debug("skipping account report due to counter", "existing", existing, "reason", reasonShortName(r.ReasonType))
+		} else {
+			newReports = append(newReports, r)
+			e.Increment(name, e.Account.Identity.DID.String())
+		}
+	}
 	newTakedown := e.AccountTakedown && !e.Account.Takendown
 
 	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
@@ -235,7 +248,38 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		needsPurge = true
 	}
 	for _, mr := range newReports {
-		_, err := comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
+		// before creating a report, query to see if automod has already reported this account in the past week for the same reason
+		// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
+		// AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, inc ludeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string)
+		resp, err := comatproto.AdminQueryModerationEvents(ctx, xrpcc, xrpcc.Auth.Did, "", false, 5, "", e.Account.Identity.DID.String(), []string{"com.atproto.admin.defs#modEventReport"})
+		if err != nil {
+			return err
+		}
+		existing := false
+		for _, modEvt := range resp.Events {
+			// defensively ensure that our query params worked correctly
+			if modEvt.Event.AdminDefs_ModEventReport == nil || modEvt.CreatedBy != xrpcc.Auth.Did || modEvt.Subject.AdminDefs_RepoRef == nil || modEvt.Subject.AdminDefs_RepoRef.Did != e.Account.Identity.DID.String() || (modEvt.Event.AdminDefs_ModEventReport.ReportType != nil && *modEvt.Event.AdminDefs_ModEventReport.ReportType != mr.ReasonType) {
+				continue
+			}
+			// igonre if older
+			created, err := syntax.ParseDatetime(modEvt.CreatedAt)
+			if err != nil {
+				return err
+			}
+			if time.Since(created.Time()) > ReportDupePeriod {
+				continue
+			}
+			// it's us!
+			existing = true
+			break
+		}
+		if existing {
+			e.Logger.Info("skipping duplicate account report due to API check")
+			break
+		}
+
+		e.Logger.Info("reporting account", "reasonType", mr.ReasonType, "comment", mr.Comment)
+		_, err = comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
 			ReasonType: &mr.ReasonType,
 			Reason:     &mr.Comment,
 			Subject: &comatproto.ModerationCreateReport_Input_Subject{
@@ -364,7 +408,7 @@ func (e *RecordEvent) ReportRecord(reason, comment string) {
 // NOTE: this method currently does *not* persist record-level flags to any storage, and does not de-dupe most actions, on the assumption that the record is new (from firehose) and has no existing mod state.
 func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 
-	// TODO: consider de-duping record-level actions? at least for updates and deletes.
+	// NOTE: record-level actions are *not* currently de-duplicated (aka, the same record could be labeled multiple times, or re-reported, etc)
 	newLabels := dedupeStrings(e.RecordLabels)
 	newFlags := dedupeStrings(e.RecordFlags)
 	newReports := e.RecordReports
