@@ -30,8 +30,8 @@ func NextTID() string {
 	t := uint64(time.Now().UnixMicro())
 
 	ltLock.Lock()
-	if lastTime == t {
-		t++
+	if lastTime >= t {
+		t = lastTime + 1
 	}
 
 	lastTime = t
