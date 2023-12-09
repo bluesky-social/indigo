@@ -173,11 +173,17 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		}
 	}
 
+	// flags don't require admin auth
+	needsPurge := false
+	if len(newFlags) > 0 {
+		e.Engine.Flags.Add(ctx, e.Account.Identity.DID.String(), newFlags)
+		needsPurge = true
+	}
+
 	if e.Engine.AdminClient == nil {
 		return nil
 	}
 
-	needsPurge := false
 	xrpcc := e.Engine.AdminClient
 	if len(newLabels) > 0 {
 		comment := "automod"
@@ -199,10 +205,6 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		needsPurge = true
-	}
-	if len(newFlags) > 0 {
-		e.Engine.Flags.Add(ctx, e.Account.Identity.DID.String(), newFlags)
 		needsPurge = true
 	}
 	for _, mr := range newReports {
@@ -344,9 +346,16 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 			}
 		}
 	}
+
+	// flags don't require admin auth
+	if len(newFlags) > 0 {
+		e.Engine.Flags.Add(ctx, atURI, newFlags)
+	}
+
 	if e.Engine.AdminClient == nil {
 		return nil
 	}
+
 	strongRef := comatproto.RepoStrongRef{
 		Cid: e.CID,
 		Uri: atURI,
@@ -370,9 +379,6 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-	}
-	if len(newFlags) > 0 {
-		e.Engine.Flags.Add(ctx, atURI, newFlags)
 	}
 	for _, mr := range newReports {
 		_, err := comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
