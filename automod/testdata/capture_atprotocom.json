@@ -1,0 +1,824 @@
+{
+  "capturedAt": "2023-12-09T05:45:35.662Z",
+  "accountMeta": {
+    "Identity": {
+      "DID": "did:plc:ewvi7nxzyoun6zhxrhs64oiz",
+      "Handle": "atproto.com",
+      "AlsoKnownAs": [
+        "at://atproto.com"
+      ],
+      "Services": {
+        "atproto_pds": {
+          "Type": "AtprotoPersonalDataServer",
+          "URL": "https://enoki.us-east.host.bsky.network"
+        }
+      },
+      "Keys": {
+        "atproto": {
+          "Type": "Multikey",
+          "PublicKeyMultibase": "zQ3shunBKsXixLxKtC5qeSG9E4J5RkGN57im31pcTzbNQnm5w"
+        }
+      },
+      "ParsedPublicKey": null
+    },
+    "Profile": {
+      "HasAvatar": true,
+      "Description": "Social networking technology created by Bluesky. \n\nDeveloper-focused account. Follow @bsky.app for general announcements!\n\nDocs: atproto.com\nCommunity: atproto.com/community\nDeveloper blog: https://atproto.com/blog",
+      "DisplayName": "AT Protocol Developers"
+    },
+    "Private": null,
+    "AccountLabels": null,
+    "AccountNegatedLabels": null,
+    "AccountFlags": [],
+    "FollowersCount": 47411,
+    "FollowsCount": 16,
+    "PostsCount": 86,
+    "Takendown": false
+  },
+  "postRecords": [
+    {
+      "cid": "bafyreih22okgdungwln2lwqt2kd4dd2ynzx3fyy3yefh5koocpizlngqfq",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kftldxbvq22p",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-12-06T00:21:07.723Z",
+        "embed": {
+          "$type": "app.bsky.embed.external",
+          "external": {
+            "description": "We’re preparing to launch a public web interface soon, and we’re excited for more people to see your custom feeds! Ahead of that, we want to make sure that your feeds will work smoothly to handle ...",
+            "thumb": {
+              "$type": "blob",
+              "ref": {
+                "$link": "bafkreicgt2g7a3dtocucsdzfka2vbtqa56yll2bmpge2gk7f26ry4nn7ky"
+              },
+              "mimeType": "image/jpeg",
+              "size": 350013
+            },
+            "title": "Expected feed generator behavior for the public web view · bluesky-social/atproto · Discussion #19...",
+            "uri": "https://github.com/bluesky-social/atproto/discussions/1933"
+          }
+        },
+        "langs": [
+          "en"
+        ],
+        "reply": {
+          "parent": {
+            "cid": "bafyreiheaai2dcnd676fwxbpoozzu7rzin4gwswls2bob6noi24t5okxcq",
+            "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kftlbujmfk24"
+          },
+          "root": {
+            "cid": "bafyreiheaai2dcnd676fwxbpoozzu7rzin4gwswls2bob6noi24t5okxcq",
+            "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kftlbujmfk24"
+          }
+        },
+        "text": "[for developers]\n\ntl;dr if your feed requires auth (e.g. likes, mutuals), return a 401 with an optional custom message. \n\nif your feed is experiencing too much traffic, return a 429.\n\nwe'll have fallbacks too in case a influx of traffic is making it difficult on your end 🙏 \n\nmore details:"
+      }
+    },
+    {
+      "cid": "bafyreiheaai2dcnd676fwxbpoozzu7rzin4gwswls2bob6noi24t5okxcq",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kftlbujmfk24",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-12-06T00:19:57.703Z",
+        "embed": {
+          "$type": "app.bsky.embed.external",
+          "external": {
+            "description": "We’re preparing to launch a public web interface soon, and we’re excited for more people to see your custom feeds! Ahead of that, we want to make sure that your feeds will work smoothly to handle ...",
+            "thumb": {
+              "$type": "blob",
+              "ref": {
+                "$link": "bafkreicgt2g7a3dtocucsdzfka2vbtqa56yll2bmpge2gk7f26ry4nn7ky"
+              },
+              "mimeType": "image/jpeg",
+              "size": 350013
+            },
+            "title": "Expected feed generator behavior for the public web view · bluesky-social/atproto · Discussion #19...",
+            "uri": "https://github.com/bluesky-social/atproto/discussions/1933"
+          }
+        },
+        "langs": [
+          "en"
+        ],
+        "text": "hey developers, we're excited for more people to see your custom feeds soon when we launch the public web interface! \n\nahead of that, we want to ensure that your feeds will work smoothly to handle both logged-out users and a potential increase in traffic. read some details on expected behavior here:"
+      }
+    },
+    {
+      "cid": "bafyreieyg5pi2anhktagcnlv5cuwcbumwpx2fko624pkk6fqskmhsq426a",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kfqkmk5kpv2o",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-12-04T19:30:03.024Z",
+        "embed": {
+          "$type": "app.bsky.embed.external",
+          "external": {
+            "description": "🕸 Bridges the IndieWeb to Mastodon and the fediverse via ActivityPub. - GitHub - snarfed/bridgy-fed: 🕸 Bridges the IndieWeb to Mastodon and the fediverse via ActivityPub.",
+            "thumb": {
+              "$type": "blob",
+              "ref": {
+                "$link": "bafkreidplhjcnrl2c74r3xs7nh7k7q3ny6ul7cgxr2fophblvdeky6t64e"
+              },
+              "mimeType": "image/jpeg",
+              "size": 347998
+            },
+            "title": "GitHub - snarfed/bridgy-fed: 🕸 Bridges the IndieWeb to Mastodon and the fediverse via ActivityPub...",
+            "uri": "https://github.com/snarfed/bridgy-fed"
+          }
+        },
+        "facets": [
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": "https://github.com/snarfed/bridgy-fed"
+              }
+            ],
+            "index": {
+              "byteEnd": 92,
+              "byteStart": 66
+            }
+          },
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#mention",
+                "did": "did:plc:fdme4gb7mu7zrie7peay7tst"
+              }
+            ],
+            "index": {
+              "byteEnd": 149,
+              "byteStart": 137
+            }
+          }
+        ],
+        "langs": [
+          "en"
+        ],
+        "reply": {
+          "parent": {
+            "cid": "bafyreifaidyl62p4snkdwsygviemsxyidi3cd7dxvjomh5644sovxhsppa",
+            "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kfqklhpalh2c"
+          },
+          "root": {
+            "cid": "bafyreibiimdwmsp5mqpm7utqcdmvo6fdqmofblp5obs3h7ub6652zyooci",
+            "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kfqkkjdkic2e"
+          }
+        },
+        "text": "Bridgy Fed is an open-source project — check out the code here: github.com/snarfed/brid...\n\nStay updated with the project by following @snarfed.org!"
+      }
+    },
+    {
+      "cid": "bafyreifaidyl62p4snkdwsygviemsxyidi3cd7dxvjomh5644sovxhsppa",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kfqklhpalh2c",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-12-04T19:29:26.790Z",
+        "embed": {
+          "$type": "app.bsky.embed.external",
+          "external": {
+            "description": "Bridgy Fed is a bridge between decentralized social networks that already has initial Bluesky support. The project will launch publicly when Bluesky launches federation early next year.",
+            "thumb": {
+              "$type": "blob",
+              "ref": {
+                "$link": "bafkreibjcz2ahvy6iwx2ofgmnbl7xevwo2k3e36op6lngvpnlgf6yyqbfq"
+              },
+              "mimeType": "image/jpeg",
+              "size": 736017
+            },
+            "title": "Featured Community Project: Bridgy Fed | AT Protocol",
+            "uri": "https://atproto.com/blog/feature-bridgyfed"
+          }
+        },
+        "facets": [
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": "https://atproto.com/blog/feature-bridgyfed"
+              }
+            ],
+            "index": {
+              "byteEnd": 265,
+              "byteStart": 238
+            }
+          }
+        ],
+        "langs": [
+          "en"
+        ],
+        "reply": {
+          "parent": {
+            "cid": "bafyreibiimdwmsp5mqpm7utqcdmvo6fdqmofblp5obs3h7ub6652zyooci",
+            "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kfqkkjdkic2e"
+          },
+          "root": {
+            "cid": "bafyreibiimdwmsp5mqpm7utqcdmvo6fdqmofblp5obs3h7ub6652zyooci",
+            "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kfqkkjdkic2e"
+          }
+        },
+        "text": "Bridgy Fed is a third-party tool that allows you to follow anyone on any other network, see their posts, reply or like or repost them, and those interactions flow across to their network and vice versa.\n\nRead more about the project here: atproto.com/blog/feature..."
+      }
+    },
+    {
+      "cid": "bafyreibiimdwmsp5mqpm7utqcdmvo6fdqmofblp5obs3h7ub6652zyooci",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kfqkkjdkic2e",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-12-04T19:28:55.054Z",
+        "embed": {
+          "$type": "app.bsky.embed.external",
+          "external": {
+            "description": "Bridgy Fed is a bridge between decentralized social networks that already has initial Bluesky support. The project will launch publicly when Bluesky launches federation early next year.",
+            "thumb": {
+              "$type": "blob",
+              "ref": {
+                "$link": "bafkreibjcz2ahvy6iwx2ofgmnbl7xevwo2k3e36op6lngvpnlgf6yyqbfq"
+              },
+              "mimeType": "image/jpeg",
+              "size": 736017
+            },
+            "title": "Featured Community Project: Bridgy Fed | AT Protocol",
+            "uri": "https://atproto.com/blog/feature-bridgyfed"
+          }
+        },
+        "facets": [
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#mention",
+                "did": "did:plc:fdme4gb7mu7zrie7peay7tst"
+              }
+            ],
+            "index": {
+              "byteEnd": 75,
+              "byteStart": 63
+            }
+          },
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": "https://atproto.com/blog/feature-bridgyfed"
+              }
+            ],
+            "index": {
+              "byteEnd": 259,
+              "byteStart": 232
+            }
+          }
+        ],
+        "langs": [
+          "en"
+        ],
+        "text": "Check out the latest featured community project: Bridgy Fed by @snarfed.org!\n\nBridgy Fed is a bridge between social networks that currently supports the IndieWeb and the Fediverse, with full Bluesky support coming soon.\n\nRead more: atproto.com/blog/feature..."
+      }
+    },
+    {
+      "cid": "bafyreidm5mpgmcnsyjmfnbpmi3m3n4673pp72ol2j4c5q7f6vobqwhqhx4",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kfdph62zey2f",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-11-29T16:51:54.613Z",
+        "embed": {
+          "$type": "app.bsky.embed.external",
+          "external": {
+            "description": "Open Core Summit is the world's largest community of COSS (commercial open source software) company builders, founders, investors and more.",
+            "thumb": {
+              "$type": "blob",
+              "ref": {
+                "$link": "bafkreifkvhuqfe5wuggwl4prdu7hojthfxue5dzqdselxrpgur5m3rbcdm"
+              },
+              "mimeType": "image/jpeg",
+              "size": 625220
+            },
+            "title": "Open Core Summit",
+            "uri": "https://opencoresummit.com/"
+          }
+        },
+        "facets": [
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": "https://opencoresummit.com/"
+              }
+            ],
+            "index": {
+              "byteEnd": 241,
+              "byteStart": 223
+            }
+          }
+        ],
+        "langs": [
+          "en"
+        ],
+        "text": "Developers, we'll be at Open Core Summit on Dec 6-7 in San Francisco! Stop by to say hi and pick up some swag. 👾\n\nHere's a discount code generated by Open Core Summit for FOSS builders to meet us there: opensourcefrens\n\nopencoresummit.com"
+      }
+    },
+    {
+      "cid": "bafyreidt2xwgu66lrwoob2zlz6uuppjbv2rl7y5wh7c2akrvj32epuvxw4",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kfdp7rlxtg27",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-11-29T16:47:46.702Z",
+        "embed": {
+          "$type": "app.bsky.embed.external",
+          "external": {
+            "description": "Get started with the atproto API.",
+            "thumb": {
+              "$type": "blob",
+              "ref": {
+                "$link": "bafkreieya7iitpu4okjtm7iexiwikj7t63ttlthad32ojsvjqhqbc3iwmi"
+              },
+              "mimeType": "image/jpeg",
+              "size": 518394
+            },
+            "title": "TypeScript Quick Start Guide | AT Protocol",
+            "uri": "https://atproto.com/community/quick-start"
+          }
+        },
+        "facets": [
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": "https://atproto.com/community/quick-start"
+              }
+            ],
+            "index": {
+              "byteEnd": 32,
+              "byteStart": 5
+            }
+          }
+        ],
+        "langs": [
+          "en"
+        ],
+        "reply": {
+          "parent": {
+            "cid": "bafyreibdypeqidcengvmqb7tisq46qmnaglkno4mozw4ktdyosmouzz2iy",
+            "uri": "at://did:plc:tp4brp6abnra3rvggvazeziq/app.bsky.feed.post/3kfdovnudaz2g"
+          },
+          "root": {
+            "cid": "bafyreibdypeqidcengvmqb7tisq46qmnaglkno4mozw4ktdyosmouzz2iy",
+            "uri": "at://did:plc:tp4brp6abnra3rvggvazeziq/app.bsky.feed.post/3kfdovnudaz2g"
+          }
+        },
+        "text": "yep! atproto.com/community/qu..."
+      }
+    },
+    {
+      "cid": "bafyreihac22tpufnn3rngrhgpixha7ffbbl27z4fny7owjejtjeqp37zxa",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kdrlsxkryo2f",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-11-09T18:33:48.645Z",
+        "langs": [
+          "en"
+        ],
+        "reply": {
+          "parent": {
+            "cid": "bafyreiefdhpdngbr3rbagqik6lubuwmc7ttripb3ugttvvd26zcnkmwaxa",
+            "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kdrlslade72m"
+          },
+          "root": {
+            "cid": "bafyreiefdhpdngbr3rbagqik6lubuwmc7ttripb3ugttvvd26zcnkmwaxa",
+            "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kdrlslade72m"
+          }
+        },
+        "text": "We explicitly built Bluesky and the AT Protocol with a simple and straightforward user experience in mind. 💪 \n\nThe technical updates here are a behind-the-scenes look into the plumbing, which is useful for devs who want to follow along and are building their own projects on this tech."
+      }
+    },
+    {
+      "cid": "bafyreiefdhpdngbr3rbagqik6lubuwmc7ttripb3ugttvvd26zcnkmwaxa",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kdrlslade72m",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-11-09T18:33:35.718Z",
+        "facets": [
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#mention",
+                "did": "did:plc:z72i7hdynmk6r22z27h6tvur"
+              }
+            ],
+            "index": {
+              "byteEnd": 218,
+              "byteStart": 209
+            }
+          }
+        ],
+        "langs": [
+          "en"
+        ],
+        "text": "Reminder: This is a developer-focused account, so if you see us using technical speak here, that's why!\n\nWe'll always make relevant info more accessible to all users, and if you haven't already, please follow @bsky.app for general announcements. 😊"
+      }
+    },
+    {
+      "cid": "bafyreiai3kukjoxw5s5amfq24eirqbv5zofsfmfw5zon7z5yfmbu57y3ge",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kdow6fj6la2l",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-11-08T17:01:10.489Z",
+        "embed": {
+          "$type": "app.bsky.embed.external",
+          "external": {
+            "description": "As part of our operational work in preparation for federation, we are starting to migrate PDS accounts away from the existing monolithic bsky.social instance to several *.*.host.bsky.network PDS in...",
+            "thumb": {
+              "$type": "blob",
+              "ref": {
+                "$link": "bafkreifphxg3k6bp3bzaw7b4qswm2hkewlqedkbl57rtcfq2d2c6bqeflu"
+              },
+              "mimeType": "image/jpeg",
+              "size": 382219
+            },
+            "title": "Migrating bsky.social to Multiple PDS Instances (Nov 2023) · bluesky-social/atproto · Discussion #...",
+            "uri": "https://github.com/bluesky-social/atproto/discussions/1832"
+          }
+        },
+        "facets": [
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": "https://github.com/bluesky-social/atproto/discussions/1832"
+              }
+            ],
+            "index": {
+              "byteEnd": 195,
+              "byteStart": 169
+            }
+          }
+        ],
+        "langs": [
+          "en"
+        ],
+        "text": "Devs: you might've already seen some chatter about migrating accounts to servers named after mushrooms... \n\nRead the technical details and how it might affect you here: github.com/bluesky-soci..."
+      }
+    },
+    {
+      "cid": "bafyreibs3iuez2urcyfwmwcceg5gilnvfz3svah7q4m5zd7rpiueodl5ra",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kdk7yc3pbz22",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-11-06T20:13:24.422Z",
+        "embed": {
+          "$type": "app.bsky.embed.external",
+          "external": {
+            "description": "How to download and parse repository data exports using Go.",
+            "thumb": {
+              "$type": "blob",
+              "ref": {
+                "$link": "bafkreiffvyhd4vqp7hef2zii6bs54zi4sw4z7g2zt5vx4j4ct5hrhewdyq"
+              },
+              "mimeType": "image/jpeg",
+              "size": 599519
+            },
+            "title": "Download and Parse Repository Exports | AT Protocol",
+            "uri": "https://atproto.com/blog/repo-export"
+          }
+        },
+        "langs": [
+          "en"
+        ],
+        "text": "📝Just published a new dev blog post: \n\nOne of the core principles of atproto is simple access to public data. A user’s data is stored in a repository, which can be efficiently exported all together as a CAR file (.car). \n\nThis post describes how to export and parse a data repository."
+      }
+    },
+    {
+      "cid": "bafyreiak2l4jmurdrhgaioo6owhbttgoyapxpg45afl4cgnlx2rhv4v2eq",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kd5uzahw5t2u",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-11-01T22:25:08.177Z",
+        "embed": {
+          "$type": "app.bsky.embed.record",
+          "record": {
+            "cid": "bafyreig6e5eynvb5bq7v4zpv7aiq6zmjz4gj2lhgr3kwkkbkriiofqlbmi",
+            "uri": "at://did:plc:wqowuobffl66jv3kpsvo7ak4/app.bsky.feed.post/3kd5tr4uex22v"
+          }
+        },
+        "langs": [
+          "en"
+        ],
+        "text": "do you subscribe to the For You custom feed and have opinions to share?\n\nthe third-party devs behind the feed are hosting a zoom for the next 4 hours to hear your thoughts! ⬇️"
+      }
+    },
+    {
+      "cid": "bafyreihrrsdswqqco2mn3bhm3d7wdtioaqz7gr3tj7ms6cvakz2obv3qha",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kblbjgnevy25",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-10-12T19:23:09.439Z",
+        "embed": {
+          "$type": "app.bsky.embed.record",
+          "record": {
+            "cid": "bafyreialpvpg4w32go46d4dp2da5pm5ypamml4bqymegizogh6tegkqxmu",
+            "uri": "at://did:plc:p2cp5gopk7mgjegy6wadk3ep/app.bsky.feed.post/3kbl67fqu4k2t"
+          }
+        },
+        "facets": [
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#mention",
+                "did": "did:plc:sq6aa2wa32tiiqrbub64vcja"
+              }
+            ],
+            "index": {
+              "byteEnd": 24,
+              "byteStart": 12
+            }
+          },
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": "https://github.com/mozzius/graysky"
+              }
+            ],
+            "index": {
+              "byteEnd": 132,
+              "byteStart": 106
+            }
+          },
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": "https://atproto.com/community/projects#clients"
+              }
+            ],
+            "index": {
+              "byteEnd": 297,
+              "byteStart": 270
+            }
+          }
+        ],
+        "langs": [
+          "en"
+        ],
+        "text": "congrats to @graysky.app, a third-party open-source bluesky client! 🔥\n\ncheck out the source code here: github.com/mozzius/gray...\n\nbecause the AT Protocol is open, third-party developers can create entirely separate frontends for the network. find more clients here: atproto.com/community/pr..."
+      }
+    },
+    {
+      "cid": "bafyreigc2hx7giirtsrotyeadf2tvmshonfcnwqtl7toom5te6rfcdgvgq",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kbj5lqxjs42w",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-10-11T23:07:33.183Z",
+        "embed": {
+          "$type": "app.bsky.embed.external",
+          "external": {
+            "description": "This post lays out the current AT Protocol development plan through the end of 2023",
+            "thumb": {
+              "$type": "blob",
+              "ref": {
+                "$link": "bafkreieya7iitpu4okjtm7iexiwikj7t63ttlthad32ojsvjqhqbc3iwmi"
+              },
+              "mimeType": "image/jpeg",
+              "size": 518394
+            },
+            "title": "2023 Protocol Roadmap | AT Protocol",
+            "uri": "https://atproto.com/blog/2023-protocol-roadmap"
+          }
+        },
+        "langs": [
+          "en"
+        ],
+        "text": "2023 Protocol Roadmap — just published on the dev blog! \n\nThis blog is written for developers already familiar with atproto concepts and terminology. We are pushing towards federation on the production network early next year (2024), if development continues as planned."
+      }
+    },
+    {
+      "cid": "bafyreigofn3o6fib6bmwlxlmj7kqudusrso4ghiy3oymx3jpv5ifr7prim",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kbj5ighpaw27",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-10-11T23:05:41.516Z",
+        "embed": {
+          "$type": "app.bsky.embed.external",
+          "external": {
+            "description": "A collection of example projects and scripts for atproto development. - GitHub - bluesky-social/cookbook: A collection of example projects and scripts for atproto development.",
+            "thumb": {
+              "$type": "blob",
+              "ref": {
+                "$link": "bafkreihamtttuw7j5tjj74l44h7xms6gf5ywaevysn7tktykrob2aurlmi"
+              },
+              "mimeType": "image/jpeg",
+              "size": 311389
+            },
+            "title": "GitHub - bluesky-social/cookbook: A collection of example projects and scripts for atproto developme...",
+            "uri": "https://github.com/bluesky-social/cookbook"
+          }
+        },
+        "facets": [
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": "https://github.com/bluesky-social/cookbook"
+              }
+            ],
+            "index": {
+              "byteEnd": 242,
+              "byteStart": 216
+            }
+          }
+        ],
+        "langs": [
+          "en"
+        ],
+        "reply": {
+          "parent": {
+            "cid": "bafyreigviq2nvak7ebhh7tyoi527k6d5li4ck7txxawckayf4wq47jg2y4",
+            "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kbj5haaqar2r"
+          },
+          "root": {
+            "cid": "bafyreigviq2nvak7ebhh7tyoi527k6d5li4ck7txxawckayf4wq47jg2y4",
+            "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kbj5haaqar2r"
+          }
+        },
+        "text": "We also have a new \"cookbook\" repo now that will be a home for example code snippets and starter kits. \n\nCurrently, you can find:\n• how to make a Bluesky post in Python\n• how to make a Bluesky bot in TypeScript\n\ngithub.com/bluesky-soci..."
+      }
+    },
+    {
+      "cid": "bafyreigviq2nvak7ebhh7tyoi527k6d5li4ck7txxawckayf4wq47jg2y4",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kbj5haaqar2r",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-10-11T23:05:01.389Z",
+        "embed": {
+          "$type": "app.bsky.embed.external",
+          "external": {
+            "description": "Pointers to what you can already build on atproto, and what you can expect soon.",
+            "thumb": {
+              "$type": "blob",
+              "ref": {
+                "$link": "bafkreieya7iitpu4okjtm7iexiwikj7t63ttlthad32ojsvjqhqbc3iwmi"
+              },
+              "mimeType": "image/jpeg",
+              "size": 518394
+            },
+            "title": "Building on the AT Protocol | AT Protocol",
+            "uri": "https://atproto.com/blog/building-on-atproto"
+          }
+        },
+        "facets": [
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": "https://atproto.com/blog/building-on-atproto"
+              }
+            ],
+            "index": {
+              "byteEnd": 217,
+              "byteStart": 190
+            }
+          }
+        ],
+        "langs": [
+          "en"
+        ],
+        "text": "Are you a developer looking for a way to get started with atproto dev? 👀\n\nRead our latest blog post with some pointers to what you can already built on the protocol, with starter code! \n\natproto.com/blog/buildin..."
+      }
+    },
+    {
+      "cid": "bafyreifitblocnnwzlhmcftromkauc3lprs37gvyjaewbfbp3d6hahybo4",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kbg4ksc3in2n",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-10-10T18:11:08.161Z",
+        "facets": [
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": "https://status.skyfeed.xyz/"
+              }
+            ],
+            "index": {
+              "byteEnd": 166,
+              "byteStart": 148
+            }
+          }
+        ],
+        "langs": [
+          "en"
+        ],
+        "reply": {
+          "parent": {
+            "cid": "bafyreihtpwbcoqpgq5iknqsmgo4jq6le3odkbzospye3q5jtgzj7q5oepa",
+            "uri": "at://did:plc:cipv3arp27zug6ugyk7fv76o/app.bsky.feed.post/3kbg45b6drf2s"
+          },
+          "root": {
+            "cid": "bafyreiduoaidw46xhv4kyffxizusembgrtuyse7yloenkjwk2ylc3jatyy",
+            "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kbg3t7ypo52j"
+          }
+        },
+        "text": "don't think so: DIDs themselves are not changing, and keys aren't changing, only the way public keys are encoded.\n\nyou can check skyfeed status at: status.skyfeed.xyz"
+      }
+    },
+    {
+      "cid": "bafyreiduoaidw46xhv4kyffxizusembgrtuyse7yloenkjwk2ylc3jatyy",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kbg3t7ypo52j",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-10-10T17:57:57.125Z",
+        "embed": {
+          "$type": "app.bsky.embed.record",
+          "record": {
+            "cid": "bafyreifzavcz43kc753s2hjwstzangmx7cce3cjpiaesdnt6ssxyxwm5ny",
+            "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kbdraubs7l2f"
+          }
+        },
+        "langs": [
+          "en"
+        ],
+        "text": "this change is rolling out to 'plc.directory' now!"
+      }
+    },
+    {
+      "cid": "bafyreifzavcz43kc753s2hjwstzangmx7cce3cjpiaesdnt6ssxyxwm5ny",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kbdraubs7l2f",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-10-09T19:43:24.015Z",
+        "embed": {
+          "$type": "app.bsky.embed.record",
+          "record": {
+            "cid": "bafyreibwh5d74t4xsuxjhg3sy4f2mlybcwtra53wfzst7foejhdv5c73zi",
+            "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kb4ce57t6d2h"
+          }
+        },
+        "langs": [
+          "en"
+        ],
+        "text": "reminder for developers: this DID document syntax change will be deployed tomorrow on the main 'plc.directory' server! \n\nfor most devs, this shouldn't require any/specific action on your end."
+      }
+    },
+    {
+      "cid": "bafyreibwh5d74t4xsuxjhg3sy4f2mlybcwtra53wfzst7foejhdv5c73zi",
+      "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kb4ce57t6d2h",
+      "value": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2023-10-06T20:28:09.688Z",
+        "embed": {
+          "$type": "app.bsky.embed.external",
+          "external": {
+            "description": "The Bluesky AppView now consumes from a Bluesky BGS, instead of directly from the PDS. Also, we'll be updating the DID document public key syntax.",
+            "thumb": {
+              "$type": "blob",
+              "ref": {
+                "$link": "bafkreieya7iitpu4okjtm7iexiwikj7t63ttlthad32ojsvjqhqbc3iwmi"
+              },
+              "mimeType": "image/jpeg",
+              "size": 518394
+            },
+            "title": "Bluesky BGS and DID Document Formatting Changes | AT Protocol",
+            "uri": "https://atproto.com/blog/bgs-and-did-doc"
+          }
+        },
+        "facets": [
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": "https://plc.directory"
+              }
+            ],
+            "index": {
+              "byteEnd": 182,
+              "byteStart": 169
+            }
+          },
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": "https://atproto.com/blog/bgs-and-did-doc"
+              }
+            ],
+            "index": {
+              "byteEnd": 279,
+              "byteStart": 252
+            }
+          }
+        ],
+        "langs": [
+          "en"
+        ],
+        "reply": {
+          "parent": {
+            "cid": "bafyreifovukaaagkr2n5bj4oqsqwswhd6ulqdfqfi7zdczgjiab2l3u5oa",
+            "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kb4ccsn2nq25"
+          },
+          "root": {
+            "cid": "bafyreiedct7s34kqdugycvv3juaujiz4tjwfpitxsqhbma7r6hqg2wigfq",
+            "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3kb4cbhzw742d"
+          }
+        },
+        "text": "• We also want to remind folks that we are planning to update the DID document public key syntax to “Multikey” format next week on the main network PLC directory (plc.directory). These changes are live now on the sandbox PLC directory.\n\nDetails: atproto.com/blog/bgs-and..."
+      }
+    }
+  ]
+}
