@@ -54,7 +54,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		return nil, fmt.Errorf("specified bgs host must include 'ws://' or 'wss://'")
 	}
 
-	// TODO: this isn't a very robust way to handle a peristent client
+	// TODO: this isn't a very robust way to handle a persistent client
 	var xrpcc *xrpc.Client
 	if config.ModAdminToken != "" {
 		xrpcc = &xrpc.Client{
