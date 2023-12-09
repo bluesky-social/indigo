@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 )
@@ -35,27 +36,34 @@ func (e *Engine) FetchAndProcessRecord(ctx context.Context, aturi syntax.ATURI) 
 	return e.ProcessRecord(ctx, ident.DID, aturi.Path(), *out.Cid, out.Value.Val)
 }
 
-func (e *Engine) FetchAndProcessRecent(ctx context.Context, atid syntax.AtIdentifier, limit int) error {
-
+func (e *Engine) FetchRecent(ctx context.Context, atid syntax.AtIdentifier, limit int) (*identity.Identity, []*comatproto.RepoListRecords_Record, error) {
 	ident, err := e.Directory.Lookup(ctx, atid)
 	if err != nil {
-		return fmt.Errorf("failed to resolve AT identifier: %v", err)
+		return nil, nil, fmt.Errorf("failed to resolve AT identifier: %v", err)
 	}
 	pdsURL := ident.PDSEndpoint()
 	if pdsURL == "" {
-		return fmt.Errorf("could not resolve PDS endpoint for account: %s", ident.DID.String())
+		return nil, nil, fmt.Errorf("could not resolve PDS endpoint for account: %s", ident.DID.String())
 	}
 	pdsClient := xrpc.Client{Host: ident.PDSEndpoint()}
 
 	resp, err := comatproto.RepoListRecords(ctx, &pdsClient, "app.bsky.feed.post", "", int64(limit), ident.DID.String(), false, "", "")
 	if err != nil {
-		return fmt.Errorf("failed to fetch record list: %v", err)
+		return nil, nil, fmt.Errorf("failed to fetch record list: %v", err)
 	}
-
 	e.Logger.Info("got recent posts", "did", ident.DID.String(), "pds", pdsURL, "count", len(resp.Records))
+	return ident, resp.Records, nil
+}
+
+func (e *Engine) FetchAndProcessRecent(ctx context.Context, atid syntax.AtIdentifier, limit int) error {
+
+	ident, records, err := e.FetchRecent(ctx, atid, limit)
+	if err != nil {
+		return err
+	}
 	// records are most-recent first; we want recent but oldest-first, so iterate backwards
-	for i := range resp.Records {
-		rec := resp.Records[len(resp.Records)-i-1]
+	for i := range records {
+		rec := records[len(records)-i-1]
 		aturi, err := syntax.ParseATURI(rec.Uri)
 		if err != nil {
 			return fmt.Errorf("parsing PDS record response: %v", err)
@@ -66,4 +74,40 @@ func (e *Engine) FetchAndProcessRecent(ctx context.Context, atid syntax.AtIdenti
 		}
 	}
 	return nil
+}
+
+type AccountCapture struct {
+	CapturedAt  syntax.Datetime                     `json:"capturedAt"`
+	AccountMeta AccountMeta                         `json:"accountMeta"`
+	PostRecords []comatproto.RepoListRecords_Record `json:"postRecords"`
+}
+
+func (e *Engine) CaptureRecent(ctx context.Context, atid syntax.AtIdentifier, limit int) (*AccountCapture, error) {
+	ident, records, err := e.FetchRecent(ctx, atid, limit)
+	if err != nil {
+		return nil, err
+	}
+	pr := []comatproto.RepoListRecords_Record{}
+	for _, r := range records {
+		if r != nil {
+			pr = append(pr, *r)
+		}
+	}
+
+	// clear any pre-parsed key, which would fail to marshal as JSON
+	ident.ParsedPublicKey = nil
+	am, err := e.GetAccountMeta(ctx, ident)
+	if err != nil {
+		return nil, err
+	}
+
+	// auto-clear sensitive PII (eg, account email)
+	am.Private = nil
+
+	ac := AccountCapture{
+		CapturedAt:  syntax.DatetimeNow(),
+		AccountMeta: *am,
+		PostRecords: pr,
+	}
+	return &ac, nil
 }
