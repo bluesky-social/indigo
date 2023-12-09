@@ -173,7 +173,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 
 		if ts.Input != nil {
 			if ts.Input.Schema == nil {
-				if ts.Input.Encoding != "application/cbor" && ts.Input.Encoding != "*/*" {
+				if ts.Input.Encoding != "application/cbor" && ts.Input.Encoding != "*/*" && ts.Input.Encoding != "application/vnd.ipld.car" {
 					panic(fmt.Sprintf("strange input type def in %s", s.ID))
 				}
 			} else {
@@ -1199,10 +1199,12 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 	case "boolean":
 		pf("type %s bool\n", name)
 	case "object":
-		if len(ts.Properties) == 0 {
-			pf("type %s interface{}\n", name)
-			return nil
-		}
+		/*
+			if len(ts.Properties) == 0 {
+				pf("type %s interface{}\n", name)
+				return nil
+			}
+		*/
 
 		if ts.needsType {
 			pf("//\n// RECORDTYPE: %s\n", name)

@@ -7,6 +7,7 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -19,13 +20,13 @@ type ServerCreateSession_Input struct {
 
 // ServerCreateSession_Output is the output of a com.atproto.server.createSession call.
 type ServerCreateSession_Output struct {
-	AccessJwt      string       `json:"accessJwt" cborgen:"accessJwt"`
-	Did            string       `json:"did" cborgen:"did"`
-	DidDoc         *interface{} `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
-	Email          *string      `json:"email,omitempty" cborgen:"email,omitempty"`
-	EmailConfirmed *bool        `json:"emailConfirmed,omitempty" cborgen:"emailConfirmed,omitempty"`
-	Handle         string       `json:"handle" cborgen:"handle"`
-	RefreshJwt     string       `json:"refreshJwt" cborgen:"refreshJwt"`
+	AccessJwt      string                   `json:"accessJwt" cborgen:"accessJwt"`
+	Did            string                   `json:"did" cborgen:"did"`
+	DidDoc         *util.LexiconTypeDecoder `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
+	Email          *string                  `json:"email,omitempty" cborgen:"email,omitempty"`
+	EmailConfirmed *bool                    `json:"emailConfirmed,omitempty" cborgen:"emailConfirmed,omitempty"`
+	Handle         string                   `json:"handle" cborgen:"handle"`
+	RefreshJwt     string                   `json:"refreshJwt" cborgen:"refreshJwt"`
 }
 
 // ServerCreateSession calls the XRPC method "com.atproto.server.createSession".
