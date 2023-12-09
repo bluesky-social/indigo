@@ -18,7 +18,10 @@ type SlackWebhookBody struct {
 func (e *Engine) SendSlackMsg(ctx context.Context, msg string) error {
 	// loosely based on: https://golangcode.com/send-slack-messages-without-a-library/
 
-	body, _ := json.Marshal(SlackWebhookBody{Text: msg})
+	body, err := json.Marshal(SlackWebhookBody{Text: msg})
+	if err != nil {
+		return err
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.SlackWebhookURL, bytes.NewBuffer(body))
 	if err != nil {
 		return err
@@ -35,7 +38,6 @@ func (e *Engine) SendSlackMsg(ctx context.Context, msg string) error {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(resp.Body)
 	if resp.StatusCode != 200 || buf.String() != "ok" {
-		// TODO: in some cases print body? eg, if short and text
 		return fmt.Errorf("failed slack webhook POST request. status=%d", resp.StatusCode)
 	}
 	return nil
