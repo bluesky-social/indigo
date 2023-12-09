@@ -14,7 +14,7 @@ import (
 func TestBadHashtagPostRule(t *testing.T) {
 	assert := assert.New(t)
 
-	engine := engineFixture()
+	engine := automod.EngineTestFixture()
 	am1 := automod.AccountMeta{
 		Identity: &identity.Identity{
 			DID:    syntax.DID("did:plc:abc111"),
