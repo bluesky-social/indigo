@@ -33,6 +33,7 @@ test-coverage.out
 /sonar-cli
 /stress
 /supercollider
+/hepa
 
 # Don't ignore this file itself, or other specific dotfiles
 !.gitignore

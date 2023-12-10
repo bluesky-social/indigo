@@ -4,6 +4,7 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
 // does not count "self-replies" (direct to self, or in own post thread)
@@ -13,7 +14,7 @@ func ReplyCountPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error 
 	}
 
 	did := evt.Account.Identity.DID.String()
-	if evt.GetCount("reply", did, automod.PeriodDay) > 3 {
+	if evt.GetCount("reply", did, countstore.PeriodDay) > 3 {
 		// TODO: disabled, too noisy for prod
 		//evt.AddAccountFlag("frequent-replier")
 	}

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
 // triggers on first identity event for an account (DID)
@@ -20,7 +21,7 @@ func NewAccountRule(evt *automod.IdentityEvent) error {
 	if age > 2*time.Hour {
 		return nil
 	}
-	exists := evt.GetCount("acct/exists", did, automod.PeriodTotal)
+	exists := evt.GetCount("acct/exists", did, countstore.PeriodTotal)
 	if exists == 0 {
 		evt.Logger.Info("new account")
 		evt.Increment("acct/exists", did)
@@ -31,7 +32,7 @@ func NewAccountRule(evt *automod.IdentityEvent) error {
 			return nil
 		}
 		pdsHost := strings.ToLower(pdsURL.Host)
-		existingAccounts := evt.GetCount("host/newacct", pdsHost, automod.PeriodTotal)
+		existingAccounts := evt.GetCount("host/newacct", pdsHost, countstore.PeriodTotal)
 		evt.Increment("host/newacct", pdsHost)
 
 		// new PDS host
