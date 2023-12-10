@@ -12,6 +12,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/countstore"
 	"github.com/bluesky-social/indigo/automod/rules"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -86,7 +87,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		}
 	}
 
-	var counters automod.CountStore
+	var counters countstore.CountStore
 	var cache automod.CacheStore
 	var flags automod.FlagStore
 	var rdb *redis.Client
@@ -103,7 +104,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 			return nil, err
 		}
 
-		cnt, err := automod.NewRedisCountStore(config.RedisURL)
+		cnt, err := countstore.NewRedisCountStore(config.RedisURL)
 		if err != nil {
 			return nil, err
 		}
@@ -121,7 +122,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		}
 		flags = flg
 	} else {
-		counters = automod.NewMemCountStore()
+		counters = countstore.NewMemCountStore()
 		cache = automod.NewMemCacheStore(5_000, 30*time.Minute)
 		flags = automod.NewMemFlagStore()
 	}
