@@ -7,8 +7,8 @@ import (
 func DefaultRules() automod.RuleSet {
 	rules := automod.RuleSet{
 		PostRules: []automod.PostRuleFunc{
-			MisleadingURLPostRule,
-			MisleadingMentionPostRule,
+			//MisleadingURLPostRule,
+			//MisleadingMentionPostRule,
 			ReplyCountPostRule,
 			BadHashtagsPostRule,
 			//TooManyHashtagsPostRule,
