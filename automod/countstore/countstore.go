@@ -24,11 +24,23 @@ const (
 // "IncrementDistinct" marks a value as seen at least once,
 // and "GetCountDistinct" asks how _many_ values have been seen at least once.
 //
+// Incrementing -- both the "Increment" and "IncrementDistinct" variants -- increases
+// a count in each supported period bucket size.
+// In other words, one call to CountStore.Increment causes three increments internally:
+// one to the count for the hour, one to the count for the day, and one to thte all-time count.
+//
 // The exact implementation and precision of the "*Distinct" methods may vary:
 // in the MemCountStore implementation, it is precise (it's based on large maps);
 // in the RedisCountStore implementation, it uses the Redis "pfcount" feature,
 // which is based on a HyperLogLog datastructure which has probablistic properties
 // (see https://redis.io/commands/pfcount/ ).
+//
+// Memory growth and availablity of information over time also varies by implementation.
+// The RedisCountStore implementation uses Redis's key expiration primitives;
+// only the all-time counts go without expiration.
+// The MemCountStore grows without bound (it's intended to be used in testing
+// and other non-production operations).
+//
 type CountStore interface {
 	GetCount(ctx context.Context, name, val, period string) (int, error)
 	Increment(ctx context.Context, name, val string) error
