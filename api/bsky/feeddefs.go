@@ -314,7 +314,6 @@ type FeedDefs_ThreadViewPost struct {
 	Parent        *FeedDefs_ThreadViewPost_Parent         `json:"parent,omitempty" cborgen:"parent,omitempty"`
 	Post          *FeedDefs_PostView                      `json:"post" cborgen:"post"`
 	Replies       []*FeedDefs_ThreadViewPost_Replies_Elem `json:"replies,omitempty" cborgen:"replies,omitempty"`
-	Viewer        *FeedDefs_ViewerThreadState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }
 
 type FeedDefs_ThreadViewPost_Parent struct {
@@ -413,11 +412,7 @@ type FeedDefs_ThreadgateView struct {
 
 // FeedDefs_ViewerState is a "viewerState" in the app.bsky.feed.defs schema.
 type FeedDefs_ViewerState struct {
-	Like   *string `json:"like,omitempty" cborgen:"like,omitempty"`
-	Repost *string `json:"repost,omitempty" cborgen:"repost,omitempty"`
-}
-
-// FeedDefs_ViewerThreadState is a "viewerThreadState" in the app.bsky.feed.defs schema.
-type FeedDefs_ViewerThreadState struct {
-	CanReply *bool `json:"canReply,omitempty" cborgen:"canReply,omitempty"`
+	Like          *string `json:"like,omitempty" cborgen:"like,omitempty"`
+	ReplyDisabled *bool   `json:"replyDisabled,omitempty" cborgen:"replyDisabled,omitempty"`
+	Repost        *string `json:"repost,omitempty" cborgen:"repost,omitempty"`
 }
