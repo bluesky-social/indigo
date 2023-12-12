@@ -7,16 +7,17 @@ package atproto
 import (
 	"context"
 
+	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // RepoDescribeRepo_Output is the output of a com.atproto.repo.describeRepo call.
 type RepoDescribeRepo_Output struct {
-	Collections     []string    `json:"collections" cborgen:"collections"`
-	Did             string      `json:"did" cborgen:"did"`
-	DidDoc          interface{} `json:"didDoc" cborgen:"didDoc"`
-	Handle          string      `json:"handle" cborgen:"handle"`
-	HandleIsCorrect bool        `json:"handleIsCorrect" cborgen:"handleIsCorrect"`
+	Collections     []string                 `json:"collections" cborgen:"collections"`
+	Did             string                   `json:"did" cborgen:"did"`
+	DidDoc          *util.LexiconTypeDecoder `json:"didDoc" cborgen:"didDoc"`
+	Handle          string                   `json:"handle" cborgen:"handle"`
+	HandleIsCorrect bool                     `json:"handleIsCorrect" cborgen:"handleIsCorrect"`
 }
 
 // RepoDescribeRepo calls the XRPC method "com.atproto.repo.describeRepo".
