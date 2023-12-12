@@ -470,10 +470,10 @@ var bgsResetRepo = &cli.Command{
 var bgsSetTrustedDomains = &cli.Command{
 	Name: "set-trusted-domain",
 	Action: func(cctx *cli.Context) error {
-		url := cctx.String("bgs") + "/admin/repo/reset"
+		url := cctx.String("bgs") + "/admin/pds/addTrustedDomain"
 
-		did := cctx.Args().First()
-		url += fmt.Sprintf("?did=%s", did)
+		domain := cctx.Args().First()
+		url += fmt.Sprintf("?domain=%s", domain)
 
 		req, err := http.NewRequest("POST", url, nil)
 		if err != nil {
