@@ -7,28 +7,27 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // ServerCreateAccount_Input is the input argument to a com.atproto.server.createAccount call.
 type ServerCreateAccount_Input struct {
-	Did         *string                  `json:"did,omitempty" cborgen:"did,omitempty"`
-	Email       *string                  `json:"email,omitempty" cborgen:"email,omitempty"`
-	Handle      string                   `json:"handle" cborgen:"handle"`
-	InviteCode  *string                  `json:"inviteCode,omitempty" cborgen:"inviteCode,omitempty"`
-	Password    *string                  `json:"password,omitempty" cborgen:"password,omitempty"`
-	PlcOp       *util.LexiconTypeDecoder `json:"plcOp,omitempty" cborgen:"plcOp,omitempty"`
-	RecoveryKey *string                  `json:"recoveryKey,omitempty" cborgen:"recoveryKey,omitempty"`
+	Did         *string      `json:"did,omitempty" cborgen:"did,omitempty"`
+	Email       *string      `json:"email,omitempty" cborgen:"email,omitempty"`
+	Handle      string       `json:"handle" cborgen:"handle"`
+	InviteCode  *string      `json:"inviteCode,omitempty" cborgen:"inviteCode,omitempty"`
+	Password    *string      `json:"password,omitempty" cborgen:"password,omitempty"`
+	PlcOp       *interface{} `json:"plcOp,omitempty" cborgen:"plcOp,omitempty"`
+	RecoveryKey *string      `json:"recoveryKey,omitempty" cborgen:"recoveryKey,omitempty"`
 }
 
 // ServerCreateAccount_Output is the output of a com.atproto.server.createAccount call.
 type ServerCreateAccount_Output struct {
-	AccessJwt  string                   `json:"accessJwt" cborgen:"accessJwt"`
-	Did        string                   `json:"did" cborgen:"did"`
-	DidDoc     *util.LexiconTypeDecoder `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
-	Handle     string                   `json:"handle" cborgen:"handle"`
-	RefreshJwt string                   `json:"refreshJwt" cborgen:"refreshJwt"`
+	AccessJwt  string       `json:"accessJwt" cborgen:"accessJwt"`
+	Did        string       `json:"did" cborgen:"did"`
+	DidDoc     *interface{} `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
+	Handle     string       `json:"handle" cborgen:"handle"`
+	RefreshJwt string       `json:"refreshJwt" cborgen:"refreshJwt"`
 }
 
 // ServerCreateAccount calls the XRPC method "com.atproto.server.createAccount".

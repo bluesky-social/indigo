@@ -1119,7 +1119,12 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 		// TODO: maybe do a native type?
 		return "string", nil
 	case "unknown":
-		return "*util.LexiconTypeDecoder", nil
+		// NOTE: sometimes a record, for which we want LexiconTypeDecoder, sometimes any object
+		if k == "didDoc" || k == "plcOp" {
+			return "interface{}", nil
+		} else {
+			return "*util.LexiconTypeDecoder", nil
+		}
 	case "union":
 		return "*" + name + "_" + strings.Title(k), nil
 	case "blob":
