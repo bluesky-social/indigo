@@ -29,6 +29,8 @@ type PrivateKeyExportable interface {
 	// The encoding format is curve-specific, and is generally "compact" for private keys.
 	// No ASN.1 or other enclosing structure is applied to the bytes.
 	Bytes() []byte
+
+	// NOTE: should Multibase() (string, error) be part of this interface? Probably.
 }
 
 // Common interface for all the supported atproto cryptographic systems.
