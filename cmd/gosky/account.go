@@ -191,7 +191,9 @@ var requestAccountDeletionCmd = &cli.Command{
 }
 
 var deleteAccountCmd = &cli.Command{
-	Name: "delete",
+	Name:      "delete",
+	Usage:     "permanently delete account",
+	ArgsUsage: "<token> <password>",
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
