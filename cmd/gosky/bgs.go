@@ -466,3 +466,44 @@ var bgsResetRepo = &cli.Command{
 		return nil
 	},
 }
+
+var bgsSetTrustedDomains = &cli.Command{
+	Name: "set-trusted-domain",
+	Action: func(cctx *cli.Context) error {
+		url := cctx.String("bgs") + "/admin/repo/reset"
+
+		did := cctx.Args().First()
+		url += fmt.Sprintf("?did=%s", did)
+
+		req, err := http.NewRequest("POST", url, nil)
+		if err != nil {
+			return err
+		}
+
+		auth := cctx.String("key")
+		req.Header.Set("Authorization", "Bearer "+auth)
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+
+		if resp.StatusCode != 200 {
+			var e xrpc.XRPCError
+			if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
+				return err
+			}
+
+			return &e
+		}
+
+		var out map[string]any
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			return err
+		}
+
+		fmt.Println(out)
+
+		return nil
+	},
+}
