@@ -413,15 +413,19 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS, s
 			continue
 		}
 
-		backoff = 0 // reset backoff on successful connection
 		log.Info("event subscription response code: ", res.StatusCode)
 
+		curCursor := cursor
 		if err := s.handleConnection(ctx, host, con, &cursor, sub); err != nil {
 			if errors.Is(err, ErrTimeoutShutdown) {
 				log.Infof("shutting down pds subscription to %s, no activity after %s", host.Host, EventsTimeout)
 				return
 			}
 			log.Warnf("connection to %q failed: %s", host.Host, err)
+		}
+
+		if cursor > curCursor {
+			backoff = 0
 		}
 	}
 }
