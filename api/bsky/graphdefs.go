@@ -7,6 +7,7 @@ package bsky
 // GraphDefs_ListItemView is a "listItemView" in the app.bsky.graph.defs schema.
 type GraphDefs_ListItemView struct {
 	Subject *ActorDefs_ProfileView `json:"subject" cborgen:"subject"`
+	Uri     string                 `json:"uri" cborgen:"uri"`
 }
 
 // GraphDefs_ListView is a "listView" in the app.bsky.graph.defs schema.
