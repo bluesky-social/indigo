@@ -202,6 +202,10 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 		}
 	}
 
+	resp := &comatprototypes.SyncListRepos_Output{
+		Repos: []*comatprototypes.SyncListRepos_Repo{},
+	}
+
 	users := []User{}
 	if err := s.db.Model(&User{}).Where("id > ? AND NOT tombstoned AND NOT taken_down", c).Order("id").Limit(limit).Find(&users).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -212,11 +216,8 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 	}
 
 	if len(users) == 0 {
-		return &comatprototypes.SyncListRepos_Output{}, nil
-	}
-
-	resp := &comatprototypes.SyncListRepos_Output{
-		Repos: []*comatprototypes.SyncListRepos_Repo{},
+		// resp.Repos is an explicit empty array, not just 'nil'
+		return resp, nil
 	}
 
 	for i := range users {
