@@ -55,6 +55,11 @@ type RepoEvent struct {
 	AccountTakedown bool
 }
 
+// Immediate fetches a count from the event's engine's countstore. Returns 0 by default (if counter has never been incremented).
+//
+// "name" is the counter namespace.
+// "val" is the specific counter with that namespace.
+// "period" is the time period bucke (one of the fixed "Period*" values)
 func (e *RepoEvent) GetCount(name, val, period string) int {
 	v, err := e.Engine.GetCount(name, val, period)
 	if err != nil {
@@ -64,14 +69,20 @@ func (e *RepoEvent) GetCount(name, val, period string) int {
 	return v
 }
 
+// Enqueues the named counter to be incremented at the end of all rule processing. Will automatically increment for all time periods.
+//
+// "name" is the counter namespace.
+// "val" is the specific counter with that namespace.
 func (e *RepoEvent) Increment(name, val string) {
 	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val})
 }
 
+// Enqueues the named counter to be incremented at the end of all rule processing. Will only increment the indicated time period bucket.
 func (e *RepoEvent) IncrementPeriod(name, val string, period string) {
 	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val, Period: &period})
 }
 
+// Immediate fetches an estimated (statistical) count of distinct string values in the indicated bucket and time period.
 func (e *RepoEvent) GetCountDistinct(name, bucket, period string) int {
 	v, err := e.Engine.GetCountDistinct(name, bucket, period)
 	if err != nil {
@@ -81,10 +92,12 @@ func (e *RepoEvent) GetCountDistinct(name, bucket, period string) int {
 	return v
 }
 
+// Enqueues the named "distinct value" counter based on the supplied string value ("val") to be incremented at the end of all rule processing. Will automatically increment for all time periods.
 func (e *RepoEvent) IncrementDistinct(name, bucket, val string) {
 	e.CounterDistinctIncrements = append(e.CounterDistinctIncrements, CounterDistinctRef{Name: name, Bucket: bucket, Val: val})
 }
 
+// Checks the Engine's setstore for whether the indicated "val" is a member of the "name" set.
 func (e *RepoEvent) InSet(name, val string) bool {
 	v, err := e.Engine.InSet(name, val)
 	if err != nil {
@@ -94,18 +107,22 @@ func (e *RepoEvent) InSet(name, val string) bool {
 	return v
 }
 
+// Enqueues the entire account to be taken down at the end of rule processing.
 func (e *RepoEvent) TakedownAccount() {
 	e.AccountTakedown = true
 }
 
+// Enqueues the provided label (string value) to be added to the account at the end of rule processing.
 func (e *RepoEvent) AddAccountLabel(val string) {
 	e.AccountLabels = append(e.AccountLabels, val)
 }
 
+// Enqueues the provided flag (string value) to be recorded (in the Engine's flagstore) at the end of rule processing.
 func (e *RepoEvent) AddAccountFlag(val string) {
 	e.AccountFlags = append(e.AccountFlags, val)
 }
 
+// Enqueues a moderation report to be filed against the account at the end of rule processing.
 func (e *RepoEvent) ReportAccount(reason, comment string) {
 	e.AccountReports = append(e.AccountReports, ModReport{ReasonType: reason, Comment: comment})
 }
@@ -322,18 +339,22 @@ type RecordEvent struct {
 	// TODO: commit metadata
 }
 
+// Enqueues the record to be taken down at the end of rule processing.
 func (e *RecordEvent) TakedownRecord() {
 	e.RecordTakedown = true
 }
 
+// Enqueues the provided label (string value) to be added to the record at the end of rule processing.
 func (e *RecordEvent) AddRecordLabel(val string) {
 	e.RecordLabels = append(e.RecordLabels, val)
 }
 
+// Enqueues the provided flag (string value) to be recorded (in the Engine's flagstore) at the end of rule processing.
 func (e *RecordEvent) AddRecordFlag(val string) {
 	e.RecordFlags = append(e.RecordFlags, val)
 }
 
+// Enqueues a moderation report to be filed against the record at the end of rule processing.
 func (e *RecordEvent) ReportRecord(reason, comment string) {
 	e.RecordReports = append(e.RecordReports, ModReport{ReasonType: reason, Comment: comment})
 }
