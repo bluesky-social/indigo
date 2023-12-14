@@ -131,10 +131,9 @@ func (e *RepoEvent) AddAccountFlag(val string) {
 // Enqueues a moderation report to be filed against the account at the end of rule processing.
 func (e *RepoEvent) ReportAccount(reason, comment string) {
 	if comment == "" {
-		comment = "(automod)"
-	} else {
-		comment = "automod: " + comment
+		comment = "(no comment)"
 	}
+	comment = "automod: " + comment
 	e.AccountReports = append(e.AccountReports, ModReport{ReasonType: reason, Comment: comment})
 }
 
