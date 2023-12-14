@@ -8,6 +8,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/automod/countstore"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -18,7 +19,7 @@ type Engine struct {
 	Logger      *slog.Logger
 	Directory   identity.Directory
 	Rules       RuleSet
-	Counters    CountStore
+	Counters    countstore.CountStore
 	Sets        SetStore
 	Cache       CacheStore
 	Flags       FlagStore

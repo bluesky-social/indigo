@@ -123,7 +123,7 @@ func (d *BaseDirectory) ResolveDIDPLC(ctx context.Context, did syntax.DID) (*DID
 		return nil, ErrDIDNotFound
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed did:web well-known fetch, HTTP status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("failed did:plc resolution, HTTP status: %d", resp.StatusCode)
 	}
 
 	var doc DIDDocument

@@ -27,22 +27,39 @@ type CounterDistinctRef struct {
 	Val    string
 }
 
-// base type for events specific to an account, usually derived from a repo event stream message (one such message may result in multiple `RepoEvent`)
+// Base type for events specific to an account, usually derived from a repo event stream message (one such message may result in multiple `RepoEvent`)
 //
-// events are both containers for data about the event itself (similar to an HTTP request type); aggregate results and state (counters, mod actions) to be persisted after all rules are run; and act as an API for additional network reads and operations.
+// Events are both containers for data about the event itself (similar to an HTTP request type); aggregate results and state (counters, mod actions) to be persisted after all rules are run; and act as an API for additional network reads and operations.
+//
+// Handling of moderation actions (such as labels, flags, and reports) are deferred until the end of all rule execution, then de-duplicated against any pre-existing actions on the account.
 type RepoEvent struct {
-	Engine                    *Engine
-	Err                       error
-	Logger                    *slog.Logger
-	Account                   AccountMeta
-	CounterIncrements         []CounterRef
+	// Back-reference to Engine that is processing this event. Pointer, but must not be nil.
+	Engine *Engine
+	// Any error encountered while processing the event can be stashed in this field and handled at the end of all processing.
+	Err error
+	// slog logger handle, with event-specific structured fields pre-populated. Pointer, but expected to not be nil.
+	Logger *slog.Logger
+	// Metadata for the account (identity) associated with this event (aka, the repo owner)
+	Account AccountMeta
+	// List of counters which should be incremented as part of processing this event. These are collected during rule execution and persisted in bulk at the end.
+	CounterIncrements []CounterRef
+	// Similar to "CounterIncrements", but for "distinct" style counters
 	CounterDistinctIncrements []CounterDistinctRef // TODO: better variable names
-	AccountLabels             []string
-	AccountFlags              []string
-	AccountReports            []ModReport
-	AccountTakedown           bool
+	// Label values which should be applied to the overall account, as a result of rule execution.
+	AccountLabels []string
+	// Moderation flags (similar to labels, but private) which should be applied to the overall account, as a result of rule execution.
+	AccountFlags []string
+	// Reports which should be filed against this account, as a result of rule execution.
+	AccountReports []ModReport
+	// If "true", indicates that a rule indicates that the entire account should have a takedown.
+	AccountTakedown bool
 }
 
+// Immediate fetches a count from the event's engine's countstore. Returns 0 by default (if counter has never been incremented).
+//
+// "name" is the counter namespace.
+// "val" is the specific counter with that namespace.
+// "period" is the time period bucke (one of the fixed "Period*" values)
 func (e *RepoEvent) GetCount(name, val, period string) int {
 	v, err := e.Engine.GetCount(name, val, period)
 	if err != nil {
@@ -52,14 +69,20 @@ func (e *RepoEvent) GetCount(name, val, period string) int {
 	return v
 }
 
+// Enqueues the named counter to be incremented at the end of all rule processing. Will automatically increment for all time periods.
+//
+// "name" is the counter namespace.
+// "val" is the specific counter with that namespace.
 func (e *RepoEvent) Increment(name, val string) {
 	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val})
 }
 
+// Enqueues the named counter to be incremented at the end of all rule processing. Will only increment the indicated time period bucket.
 func (e *RepoEvent) IncrementPeriod(name, val string, period string) {
 	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val, Period: &period})
 }
 
+// Immediate fetches an estimated (statistical) count of distinct string values in the indicated bucket and time period.
 func (e *RepoEvent) GetCountDistinct(name, bucket, period string) int {
 	v, err := e.Engine.GetCountDistinct(name, bucket, period)
 	if err != nil {
@@ -69,10 +92,12 @@ func (e *RepoEvent) GetCountDistinct(name, bucket, period string) int {
 	return v
 }
 
+// Enqueues the named "distinct value" counter based on the supplied string value ("val") to be incremented at the end of all rule processing. Will automatically increment for all time periods.
 func (e *RepoEvent) IncrementDistinct(name, bucket, val string) {
 	e.CounterDistinctIncrements = append(e.CounterDistinctIncrements, CounterDistinctRef{Name: name, Bucket: bucket, Val: val})
 }
 
+// Checks the Engine's setstore for whether the indicated "val" is a member of the "name" set.
 func (e *RepoEvent) InSet(name, val string) bool {
 	v, err := e.Engine.InSet(name, val)
 	if err != nil {
@@ -82,18 +107,22 @@ func (e *RepoEvent) InSet(name, val string) bool {
 	return v
 }
 
+// Enqueues the entire account to be taken down at the end of rule processing.
 func (e *RepoEvent) TakedownAccount() {
 	e.AccountTakedown = true
 }
 
+// Enqueues the provided label (string value) to be added to the account at the end of rule processing.
 func (e *RepoEvent) AddAccountLabel(val string) {
 	e.AccountLabels = append(e.AccountLabels, val)
 }
 
+// Enqueues the provided flag (string value) to be recorded (in the Engine's flagstore) at the end of rule processing.
 func (e *RepoEvent) AddAccountFlag(val string) {
 	e.AccountFlags = append(e.AccountFlags, val)
 }
 
+// Enqueues a moderation report to be filed against the account at the end of rule processing.
 func (e *RepoEvent) ReportAccount(reason, comment string) {
 	e.AccountReports = append(e.AccountReports, ModReport{ReasonType: reason, Comment: comment})
 }
@@ -284,36 +313,50 @@ func (e *RepoEvent) CanonicalLogLine() {
 	)
 }
 
+// Alias of RepoEvent
 type IdentityEvent struct {
 	RepoEvent
 }
 
+// Extends RepoEvent. Represents the creation of a single record in the given repository.
 type RecordEvent struct {
 	RepoEvent
 
-	Record         any
-	Collection     string
-	RecordKey      string
-	CID            string
-	RecordLabels   []string
+	// The un-marshalled record, as a go struct, from the api/atproto or api/bsky type packages.
+	Record any
+	// The "collection" part of the repo path for this record. Must be an NSID, though this isn't indicated by the type of this field.
+	Collection string
+	// The "record key" (rkey) part of repo path.
+	RecordKey string
+	// CID of the canonical CBOR version of the record, as matches the repo value.
+	CID string
+	// Same as "AccountLabels", but at record-level
+	RecordLabels []string
+	// Same as "AccountTakedown", but at record-level
 	RecordTakedown bool
-	RecordReports  []ModReport
-	RecordFlags    []string
+	// Same as "AccountReports", but at record-level
+	RecordReports []ModReport
+	// Same as "AccountFlags", but at record-level
+	RecordFlags []string
 	// TODO: commit metadata
 }
 
+// Enqueues the record to be taken down at the end of rule processing.
 func (e *RecordEvent) TakedownRecord() {
 	e.RecordTakedown = true
 }
 
+// Enqueues the provided label (string value) to be added to the record at the end of rule processing.
 func (e *RecordEvent) AddRecordLabel(val string) {
 	e.RecordLabels = append(e.RecordLabels, val)
 }
 
+// Enqueues the provided flag (string value) to be recorded (in the Engine's flagstore) at the end of rule processing.
 func (e *RecordEvent) AddRecordFlag(val string) {
 	e.RecordFlags = append(e.RecordFlags, val)
 }
 
+// Enqueues a moderation report to be filed against the record at the end of rule processing.
 func (e *RecordEvent) ReportRecord(reason, comment string) {
 	e.RecordReports = append(e.RecordReports, ModReport{ReasonType: reason, Comment: comment})
 }
@@ -432,6 +475,7 @@ func (e *RecordEvent) CanonicalLogLine() {
 	)
 }
 
+// Extends RepoEvent. Represents the deletion of a single record in the given repository.
 type RecordDeleteEvent struct {
 	RepoEvent
 

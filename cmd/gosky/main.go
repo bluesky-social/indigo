@@ -25,6 +25,7 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
+	"github.com/bluesky-social/indigo/xrpc"
 	"golang.org/x/time/rate"
 
 	"github.com/gorilla/websocket"
@@ -93,6 +94,7 @@ func run(args []string) {
 		listAllRecordsCmd,
 		readRepoStreamCmd,
 		parseRkey,
+		listLabelsCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -703,6 +705,56 @@ var parseRkey = &cli.Command{
 			fmt.Println(tid.Time().Unix())
 		default:
 			return cli.Exit(fmt.Errorf("unknown format: %s", cctx.String("format")), 127)
+		}
+		return nil
+	},
+}
+
+var listLabelsCmd = &cli.Command{
+	Name:  "list-labels",
+	Usage: "list labels",
+	Flags: []cli.Flag{
+		&cli.DurationFlag{
+			Name:  "since",
+			Value: time.Hour,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+
+		ctx := context.TODO()
+
+		delta := cctx.Duration("since")
+		since := time.Now().Add(-1 * delta).UnixMilli()
+
+		xrpcc := &xrpc.Client{
+			Host: "https://api.bsky.app",
+		}
+
+		for {
+			out, err := atproto.TempFetchLabels(ctx, xrpcc, 100, since)
+			if err != nil {
+				return err
+			}
+
+			for _, l := range out.Labels {
+				b, err := json.MarshalIndent(l, "", "  ")
+				if err != nil {
+					return err
+				}
+
+				fmt.Println(string(b))
+			}
+
+			if len(out.Labels) > 0 {
+				last := out.Labels[len(out.Labels)-1]
+				ts, err := util.ParseTimestamp(last.Cts)
+				if err != nil {
+					return fmt.Errorf("invalid cts: %w", err)
+				}
+				since = ts.UnixMilli()
+			} else {
+				break
+			}
 		}
 		return nil
 	},
