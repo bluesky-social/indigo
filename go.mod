@@ -153,7 +153,7 @@ require (
 	github.com/samber/lo v1.38.1 // indirect
 	github.com/scylladb/go-reflectx v1.0.1 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
-	github.com/spaolacci/murmur3 v1.1.0 // indirect
+	github.com/spaolacci/murmur3 v1.1.0
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect

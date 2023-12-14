@@ -53,3 +53,10 @@ func TestExtractURL(t *testing.T) {
 		assert.Equal(fix.out, ExtractTextURLs(fix.s))
 	}
 }
+
+func TestHashOfString(t *testing.T) {
+	assert := assert.New(t)
+
+	// hashing function should be consistent over time
+	assert.Equal("4e6f69c0e3d10992", HashOfString("dummy-value"))
+}
