@@ -7,6 +7,7 @@ import (
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
 // looks for new accounts, with a commercial or donation link in profile, which directly reply to several accounts
@@ -51,7 +52,7 @@ func AggressivePromotionRule(evt *automod.RecordEvent, post *appbsky.FeedPost) e
 	}
 
 	did := evt.Account.Identity.DID.String()
-	uniqueReplies := evt.GetCountDistinct("reply-to", did, automod.PeriodDay)
+	uniqueReplies := evt.GetCountDistinct("reply-to", did, countstore.PeriodDay)
 	if uniqueReplies >= 5 {
 		evt.AddAccountFlag("promo-multi-reply")
 	}

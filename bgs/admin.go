@@ -552,3 +552,18 @@ func (bgs *BGS) handleAdminResetRepo(e echo.Context) error {
 		"success": true,
 	})
 }
+
+func (bgs *BGS) handleAdminAddTrustedDomain(e echo.Context) error {
+	domain := e.QueryParam("domain")
+	if domain == "" {
+		return fmt.Errorf("must specify domain in query parameter")
+	}
+
+	if err := bgs.slurper.AddTrustedDomain(domain); err != nil {
+		return err
+	}
+
+	return e.JSON(200, map[string]any{
+		"success": true,
+	})
+}

@@ -461,7 +461,8 @@ var compareStreamsCmd = &cli.Command{
 }
 
 var debugFeedGenCmd = &cli.Command{
-	Name: "debug-feed",
+	Name:      "debug-feed",
+	ArgsUsage: "<at-uri>",
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
@@ -592,7 +593,8 @@ var debugFeedGenCmd = &cli.Command{
 	},
 }
 var debugFeedViewCmd = &cli.Command{
-	Name: "view-feed",
+	Name:  "view-feed",
+	Usage: "<at-uri>",
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
