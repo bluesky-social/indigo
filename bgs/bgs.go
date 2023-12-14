@@ -353,6 +353,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	admin.POST("/pds/changeCrawlRateLimit", bgs.handleAdminChangePDSCrawlLimit)
 	admin.POST("/pds/block", bgs.handleBlockPDS)
 	admin.POST("/pds/unblock", bgs.handleUnblockPDS)
+	admin.POST("/pds/addTrustedDomain", bgs.handleAdminAddTrustedDomain)
 
 	// Consumer-related Admin API
 	admin.GET("/consumers/list", bgs.handleAdminListConsumers)

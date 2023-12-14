@@ -441,6 +441,31 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 	)
 }
 
+const trust = true
+
+func (bf *Backfiller) getRecord(ctx context.Context, r *repo.Repo, op *atproto.SyncSubscribeRepos_RepoOp) (cid.Cid, typegen.CBORMarshaler, error) {
+	if trust {
+		if op.Cid == nil {
+			return cid.Undef, nil, fmt.Errorf("op had no cid set")
+		}
+
+		c := (cid.Cid)(*op.Cid)
+		blk, err := r.Blockstore().Get(ctx, c)
+		if err != nil {
+			return cid.Undef, nil, err
+		}
+
+		rec, err := lexutil.CborDecodeValue(blk.RawData())
+		if err != nil {
+			return cid.Undef, nil, fmt.Errorf("failed to decode value: %w", err)
+		}
+
+		return c, rec, nil
+	} else {
+		return r.GetRecord(ctx, op.Path)
+	}
+}
+
 func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscribeRepos_Commit) error {
 	r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
 	if err != nil {
@@ -451,7 +476,7 @@ func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscrib
 	for _, op := range evt.Ops {
 		switch op.Action {
 		case "create", "update":
-			cc, rec, err := r.GetRecord(ctx, op.Path)
+			cc, rec, err := bf.getRecord(ctx, r, op)
 			if err != nil {
 				return fmt.Errorf("getting record failed (%s,%s): %w", op.Action, op.Path, err)
 			}

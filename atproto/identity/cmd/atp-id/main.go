@@ -20,19 +20,22 @@ func main() {
 	}
 	app.Commands = []*cli.Command{
 		&cli.Command{
-			Name:   "lookup",
-			Usage:  "fully resolve an at-identifier (DID or handle)",
-			Action: runLookup,
+			Name:      "lookup",
+			Usage:     "fully resolve an at-identifier (DID or handle)",
+			ArgsUsage: "<at-identifier>",
+			Action:    runLookup,
 		},
 		&cli.Command{
-			Name:   "resolve-handle",
-			Usage:  "resolve a handle to DID",
-			Action: runResolveHandle,
+			Name:      "resolve-handle",
+			Usage:     "resolve a handle to DID",
+			ArgsUsage: "<handle>",
+			Action:    runResolveHandle,
 		},
 		&cli.Command{
-			Name:   "resolve-did",
-			Usage:  "resolve a DID to DID Document",
-			Action: runResolveDID,
+			Name:      "resolve-did",
+			Usage:     "resolve a DID to DID Document",
+			ArgsUsage: "<did>",
+			Action:    runResolveDID,
 		},
 	}
 	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})

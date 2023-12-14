@@ -1,4 +1,4 @@
-package automod
+package countstore
 
 import (
 	"context"
@@ -32,7 +32,7 @@ func NewRedisCountStore(redisURL string) (*RedisCountStore, error) {
 }
 
 func (s *RedisCountStore) GetCount(ctx context.Context, name, val, period string) (int, error) {
-	key := redisCountPrefix + PeriodBucket(name, val, period)
+	key := redisCountPrefix + periodBucket(name, val, period)
 	c, err := s.Client.Get(ctx, key).Int()
 	if err == redis.Nil {
 		return 0, nil
@@ -49,15 +49,15 @@ func (s *RedisCountStore) Increment(ctx context.Context, name, val string) error
 	// increment multiple counters in a single redis round-trip
 	multi := s.Client.Pipeline()
 
-	key = redisCountPrefix + PeriodBucket(name, val, PeriodHour)
+	key = redisCountPrefix + periodBucket(name, val, PeriodHour)
 	multi.Incr(ctx, key)
 	multi.Expire(ctx, key, 2*time.Hour)
 
-	key = redisCountPrefix + PeriodBucket(name, val, PeriodDay)
+	key = redisCountPrefix + periodBucket(name, val, PeriodDay)
 	multi.Incr(ctx, key)
 	multi.Expire(ctx, key, 48*time.Hour)
 
-	key = redisCountPrefix + PeriodBucket(name, val, PeriodTotal)
+	key = redisCountPrefix + periodBucket(name, val, PeriodTotal)
 	multi.Incr(ctx, key)
 	// no expiration for total
 
@@ -86,7 +86,7 @@ func (s *RedisCountStore) IncrementPeriod(ctx context.Context, name, val, period
 }
 
 func (s *RedisCountStore) GetCountDistinct(ctx context.Context, name, val, period string) (int, error) {
-	key := redisDistinctPrefix + PeriodBucket(name, val, period)
+	key := redisDistinctPrefix + periodBucket(name, val, period)
 	c, err := s.Client.PFCount(ctx, key).Result()
 	if err == redis.Nil {
 		return 0, nil
@@ -103,15 +103,15 @@ func (s *RedisCountStore) IncrementDistinct(ctx context.Context, name, bucket, v
 	// increment multiple counters in a single redis round-trip
 	multi := s.Client.Pipeline()
 
-	key = redisDistinctPrefix + PeriodBucket(name, bucket, PeriodHour)
+	key = redisDistinctPrefix + periodBucket(name, bucket, PeriodHour)
 	multi.PFAdd(ctx, key, val)
 	multi.Expire(ctx, key, 2*time.Hour)
 
-	key = redisDistinctPrefix + PeriodBucket(name, bucket, PeriodDay)
+	key = redisDistinctPrefix + periodBucket(name, bucket, PeriodDay)
 	multi.PFAdd(ctx, key, val)
 	multi.Expire(ctx, key, 48*time.Hour)
 
-	key = redisDistinctPrefix + PeriodBucket(name, bucket, PeriodTotal)
+	key = redisDistinctPrefix + periodBucket(name, bucket, PeriodTotal)
 	multi.PFAdd(ctx, key, val)
 	// no expiration for total
 
