@@ -2,6 +2,7 @@ package rules
 
 import (
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
 var interactionDailyThreshold = 500
@@ -12,8 +13,8 @@ func InteractionChurnRule(evt *automod.RecordEvent) error {
 	switch evt.Collection {
 	case "app.bsky.feed.like":
 		evt.Increment("like", did)
-		created := evt.GetCount("like", did, automod.PeriodDay)
-		deleted := evt.GetCount("unlike", did, automod.PeriodDay)
+		created := evt.GetCount("like", did, countstore.PeriodDay)
+		deleted := evt.GetCount("unlike", did, countstore.PeriodDay)
 		ratio := float64(deleted) / float64(created)
 		if created > interactionDailyThreshold && deleted > interactionDailyThreshold && ratio > 0.5 {
 			evt.Logger.Info("high-like-churn", "created-today", created, "deleted-today", deleted)
@@ -21,8 +22,8 @@ func InteractionChurnRule(evt *automod.RecordEvent) error {
 		}
 	case "app.bsky.graph.follow":
 		evt.Increment("follow", did)
-		created := evt.GetCount("follow", did, automod.PeriodDay)
-		deleted := evt.GetCount("unfollow", did, automod.PeriodDay)
+		created := evt.GetCount("follow", did, countstore.PeriodDay)
+		deleted := evt.GetCount("unfollow", did, countstore.PeriodDay)
 		ratio := float64(deleted) / float64(created)
 		if created > interactionDailyThreshold && deleted > interactionDailyThreshold && ratio > 0.5 {
 			evt.Logger.Info("high-follow-churn", "created-today", created, "deleted-today", deleted)

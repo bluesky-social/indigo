@@ -48,6 +48,7 @@ require (
 	github.com/polydawn/refmt v0.89.1-0.20221221234430-40501e09de1f
 	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/client_model v0.5.0
+	github.com/puzpuzpuz/xsync/v3 v3.0.2
 	github.com/redis/go-redis/v9 v9.3.0
 	github.com/rivo/uniseg v0.1.0
 	github.com/samber/slog-echo v1.8.0

@@ -719,13 +719,32 @@ func (t *SubscribeLabels_Labels) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
 
-				var v Label
-				if err := v.UnmarshalCBOR(cr); err != nil {
-					return err
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.Labels[i] = new(Label)
+							if err := t.Labels[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.Labels[i] pointer: %w", err)
+							}
+						}
+
+					}
 				}
-
-				t.Labels[i] = &v
 			}
 
 		default:

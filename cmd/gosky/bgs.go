@@ -78,10 +78,13 @@ var bgsListUpstreamsCmd = &cli.Command{
 }
 
 var bgsKickConnectionCmd = &cli.Command{
-	Name: "kick",
+	Name:      "kick",
+	Usage:     "tell Relay/BGS to drop the subscription connection",
+	ArgsUsage: "<host>",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
-			Name: "ban",
+			Name:  "ban",
+			Usage: "make the disconnect sticky",
 		},
 	},
 	Action: func(cctx *cli.Context) error {
@@ -166,7 +169,8 @@ var bgsListDomainBansCmd = &cli.Command{
 }
 
 var bgsBanDomainCmd = &cli.Command{
-	Name: "ban-domain",
+	Name:      "ban-domain",
+	ArgsUsage: "<domain>",
 	Action: func(cctx *cli.Context) error {
 		url := cctx.String("bgs") + "/admin/subs/banDomain"
 
@@ -213,7 +217,8 @@ var bgsBanDomainCmd = &cli.Command{
 }
 
 var bgsTakedownRepoCmd = &cli.Command{
-	Name: "take-down-repo",
+	Name:      "take-down-repo",
+	ArgsUsage: "<did>",
 	Action: func(cctx *cli.Context) error {
 		url := cctx.String("bgs") + "/admin/repo/takeDown"
 
@@ -260,7 +265,9 @@ var bgsTakedownRepoCmd = &cli.Command{
 }
 
 var bgsSetNewSubsEnabledCmd = &cli.Command{
-	Name: "set-accept-subs",
+	Name:      "set-accept-subs",
+	ArgsUsage: "<boolean>",
+	Usage:     "set configuration for whether new subscriptions are allowed",
 	Action: func(cctx *cli.Context) error {
 		url := cctx.String("bgs") + "/admin/subs/setEnabled"
 
@@ -305,7 +312,8 @@ var bgsSetNewSubsEnabledCmd = &cli.Command{
 }
 
 var bgsCompactRepo = &cli.Command{
-	Name: "compact-repo",
+	Name:      "compact-repo",
+	ArgsUsage: "<did>",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name: "fast",
@@ -427,12 +435,54 @@ var bgsCompactAll = &cli.Command{
 }
 
 var bgsResetRepo = &cli.Command{
-	Name: "reset-repo",
+	Name:      "reset-repo",
+	ArgsUsage: "<did>",
 	Action: func(cctx *cli.Context) error {
 		url := cctx.String("bgs") + "/admin/repo/reset"
 
 		did := cctx.Args().First()
 		url += fmt.Sprintf("?did=%s", did)
+
+		req, err := http.NewRequest("POST", url, nil)
+		if err != nil {
+			return err
+		}
+
+		auth := cctx.String("key")
+		req.Header.Set("Authorization", "Bearer "+auth)
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+
+		if resp.StatusCode != 200 {
+			var e xrpc.XRPCError
+			if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
+				return err
+			}
+
+			return &e
+		}
+
+		var out map[string]any
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			return err
+		}
+
+		fmt.Println(out)
+
+		return nil
+	},
+}
+
+var bgsSetTrustedDomains = &cli.Command{
+	Name: "set-trusted-domain",
+	Action: func(cctx *cli.Context) error {
+		url := cctx.String("bgs") + "/admin/pds/addTrustedDomain"
+
+		domain := cctx.Args().First()
+		url += fmt.Sprintf("?domain=%s", domain)
 
 		req, err := http.NewRequest("POST", url, nil)
 		if err != nil {

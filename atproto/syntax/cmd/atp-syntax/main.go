@@ -17,9 +17,10 @@ func main() {
 	}
 	app.Commands = []*cli.Command{
 		&cli.Command{
-			Name:   "parse-tid",
-			Usage:  "parse a TID and output timestamp",
-			Action: runParseTID,
+			Name:      "parse-tid",
+			Usage:     "parse a TID and output timestamp",
+			ArgsUsage: "<tid>",
+			Action:    runParseTID,
 		},
 	}
 	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})

@@ -44,13 +44,14 @@ var checkUserCmd = &cli.Command{
 	Name: "check-user",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
-			Name: "raw",
+			Name:  "raw",
+			Usage: "dump simple JSON response to stdout",
 		},
 		&cli.BoolFlag{
 			Name: "list-invited-dids",
 		},
 	},
-	ArgsUsage: `[handle]`,
+	ArgsUsage: `<did-or-handle>`,
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
@@ -398,7 +399,8 @@ var listReportsCmd = &cli.Command{
 }
 
 var disableInvitesCmd = &cli.Command{
-	Name: "disable-invites",
+	Name:      "disable-invites",
+	ArgsUsage: "<did-or-handle>",
 	Action: func(cctx *cli.Context) error {
 
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
@@ -439,7 +441,8 @@ var disableInvitesCmd = &cli.Command{
 }
 
 var enableInvitesCmd = &cli.Command{
-	Name: "enable-invites",
+	Name:      "enable-invites",
+	ArgsUsage: "<did-or-handle>",
 	Action: func(cctx *cli.Context) error {
 
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
@@ -489,7 +492,7 @@ var listInviteTreeCmd = &cli.Command{
 			Usage: "print account email for each DID",
 		},
 	},
-	ArgsUsage: `[handle]`,
+	ArgsUsage: `<did-or-handle>`,
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
@@ -647,7 +650,8 @@ var takeDownAccountCmd = &cli.Command{
 }
 
 var queryModerationStatusesCmd = &cli.Command{
-	Name: "query-moderation-statuses",
+	Name:      "query-moderation-statuses",
+	ArgsUsage: "<did-or-handle>",
 	Action: func(cctx *cli.Context) error {
 
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)

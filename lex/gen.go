@@ -173,7 +173,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 
 		if ts.Input != nil {
 			if ts.Input.Schema == nil {
-				if ts.Input.Encoding != "application/cbor" && ts.Input.Encoding != "*/*" {
+				if ts.Input.Encoding != "application/cbor" && ts.Input.Encoding != "*/*" && ts.Input.Encoding != "application/vnd.ipld.car" {
 					panic(fmt.Sprintf("strange input type def in %s", s.ID))
 				}
 			} else {
@@ -1119,7 +1119,12 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 		// TODO: maybe do a native type?
 		return "string", nil
 	case "unknown":
-		return "*util.LexiconTypeDecoder", nil
+		// NOTE: sometimes a record, for which we want LexiconTypeDecoder, sometimes any object
+		if k == "didDoc" || k == "plcOp" {
+			return "interface{}", nil
+		} else {
+			return "*util.LexiconTypeDecoder", nil
+		}
 	case "union":
 		return "*" + name + "_" + strings.Title(k), nil
 	case "blob":
@@ -1194,11 +1199,6 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 	case "boolean":
 		pf("type %s bool\n", name)
 	case "object":
-		if len(ts.Properties) == 0 {
-			pf("type %s interface{}\n", name)
-			return nil
-		}
-
 		if ts.needsType {
 			pf("//\n// RECORDTYPE: %s\n", name)
 		}
