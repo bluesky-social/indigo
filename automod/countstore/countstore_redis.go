@@ -71,7 +71,7 @@ func (s *RedisCountStore) IncrementPeriod(ctx context.Context, name, val, period
 	// multiple ops in a single redis round-trip
 	multi := s.Client.Pipeline()
 
-	key := redisCountPrefix + PeriodBucket(name, val, period)
+	key := redisCountPrefix + periodBucket(name, val, period)
 	multi.Incr(ctx, key)
 
 	switch period {
