@@ -28,6 +28,7 @@ const (
 // a count in each supported period bucket size.
 // In other words, one call to CountStore.Increment causes three increments internally:
 // one to the count for the hour, one to the count for the day, and one to thte all-time count.
+// The "IncrementPeriod" method allows only incrementing a single period bucket. Care must be taken to match the "GetCount" period with the incremented period when using this variant.
 //
 // The exact implementation and precision of the "*Distinct" methods may vary:
 // in the MemCountStore implementation, it is precise (it's based on large maps);
@@ -40,10 +41,10 @@ const (
 // only the all-time counts go without expiration.
 // The MemCountStore grows without bound (it's intended to be used in testing
 // and other non-production operations).
-//
 type CountStore interface {
 	GetCount(ctx context.Context, name, val, period string) (int, error)
 	Increment(ctx context.Context, name, val string) error
+	IncrementPeriod(ctx context.Context, name, val, period string) error
 	// TODO: batch increment method
 	GetCountDistinct(ctx context.Context, name, bucket, period string) (int, error)
 	IncrementDistinct(ctx context.Context, name, bucket, val string) error
