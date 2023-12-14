@@ -27,23 +27,24 @@ const (
 // Incrementing -- both the "Increment" and "IncrementDistinct" variants -- increases
 // a count in each supported period bucket size.
 // In other words, one call to CountStore.Increment causes three increments internally:
-// one to the count for the hour, one to the count for the day, and one to thte all-time count.
+// one to the count for the hour, one to the count for the day, and one to the all-time count.
+// The "IncrementPeriod" method allows only incrementing a single period bucket. Care must be taken to match the "GetCount" period with the incremented period when using this variant.
 //
 // The exact implementation and precision of the "*Distinct" methods may vary:
 // in the MemCountStore implementation, it is precise (it's based on large maps);
 // in the RedisCountStore implementation, it uses the Redis "pfcount" feature,
-// which is based on a HyperLogLog datastructure which has probablistic properties
+// which is based on a HyperLogLog datastructure which has probabilistic properties
 // (see https://redis.io/commands/pfcount/ ).
 //
-// Memory growth and availablity of information over time also varies by implementation.
+// Memory growth and availability of information over time also varies by implementation.
 // The RedisCountStore implementation uses Redis's key expiration primitives;
 // only the all-time counts go without expiration.
 // The MemCountStore grows without bound (it's intended to be used in testing
 // and other non-production operations).
-//
 type CountStore interface {
 	GetCount(ctx context.Context, name, val, period string) (int, error)
 	Increment(ctx context.Context, name, val string) error
+	IncrementPeriod(ctx context.Context, name, val, period string) error
 	// TODO: batch increment method
 	GetCountDistinct(ctx context.Context, name, bucket, period string) (int, error)
 	IncrementDistinct(ctx context.Context, name, bucket, val string) error
