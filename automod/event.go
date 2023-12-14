@@ -10,6 +10,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/xrpc"
 )
 
 var (
@@ -137,7 +138,14 @@ func (e *RepoEvent) ReportAccount(reason, comment string) {
 	e.AccountReports = append(e.AccountReports, ModReport{ReasonType: reason, Comment: comment})
 }
 
-func slackBody(msg string, newLabels, newFlags []string, newReports []ModReport, newTakedown bool) string {
+func slackBody(header string, acct AccountMeta, newLabels, newFlags []string, newReports []ModReport, newTakedown bool) string {
+	msg := header
+	msg += fmt.Sprintf("`%s` / `%s` / <https://bsky.app/profile/%s|bsky> / <https://admin.prod.bsky.dev/repositories/%s|ozone>\n",
+		acct.Identity.DID,
+		acct.Identity.Handle,
+		acct.Identity.DID,
+		acct.Identity.DID,
+	)
 	if len(newLabels) > 0 {
 		msg += fmt.Sprintf("New Labels: `%s`\n", strings.Join(newLabels, ", "))
 	}
@@ -153,24 +161,17 @@ func slackBody(msg string, newLabels, newFlags []string, newReports []ModReport,
 	return msg
 }
 
-// Persists account-level moderation actions: new labels, new flags, new takedowns, and reports.
-//
-// If necessary, will "purge" identity and account caches, so that state updates will be picked up for subsequent events.
-//
-// Note that this method expects to run *before* counts are persisted (it accesses and updates some counts)
-func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
-
-	// de-dupe actions
+func filterLabelActions(labels, existing, existingNegated []string) []string {
 	newLabels := []string{}
-	for _, val := range dedupeStrings(e.AccountLabels) {
+	for _, val := range dedupeStrings(labels) {
 		exists := false
-		for _, e := range e.Account.AccountNegatedLabels {
+		for _, e := range existingNegated {
 			if val == e {
 				exists = true
 				break
 			}
 		}
-		for _, e := range e.Account.AccountLabels {
+		for _, e := range existing {
 			if val == e {
 				exists = true
 				break
@@ -180,10 +181,14 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 			newLabels = append(newLabels, val)
 		}
 	}
+	return newLabels
+}
+
+func filterFlagActions(flags, existing []string) []string {
 	newFlags := []string{}
-	for _, val := range dedupeStrings(e.AccountFlags) {
+	for _, val := range dedupeStrings(flags) {
 		exists := false
-		for _, e := range e.Account.AccountFlags {
+		for _, e := range existing {
 			if val == e {
 				exists = true
 				break
@@ -193,60 +198,120 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 			newFlags = append(newFlags, val)
 		}
 	}
-	// don't report the same account multiple times on the same day for the same reason. this is a quick check; we also query the mod service API just before creating the report.
+	return newFlags
+}
+
+func circuitBreakReports(evt RepoEvent, reports []ModReport) []ModReport {
 	newReports := []ModReport{}
-	for _, r := range e.AccountReports {
+	for _, r := range reports {
 		name := "automod-account-report-" + reasonShortName(r.ReasonType)
-		existing := e.GetCount(name, e.Account.Identity.DID.String(), PeriodDay)
+		existing := evt.GetCount(name, evt.Account.Identity.DID.String(), PeriodDay)
 		if existing > 0 {
-			e.Logger.Debug("skipping account report due to counter", "existing", existing, "reason", reasonShortName(r.ReasonType))
+			evt.Logger.Debug("skipping account report due to counter", "existing", existing, "reason", reasonShortName(r.ReasonType))
 		} else {
 			newReports = append(newReports, r)
-			e.Increment(name, e.Account.Identity.DID.String())
+			evt.Increment(name, evt.Account.Identity.DID.String())
 		}
 	}
-	newTakedown := e.AccountTakedown && !e.Account.Takendown
-
-	// check "circuit breakers"
 	if len(newReports) > 0 {
-		if e.GetCount("automod-quota", "report", PeriodDay) >= QuotaModReportDay {
-			e.Logger.Warn("CIRCUIT BREAKER: automod reports")
+		if evt.GetCount("automod-quota", "report", PeriodDay) >= QuotaModReportDay {
+			evt.Logger.Warn("CIRCUIT BREAKER: automod reports")
 			newReports = []ModReport{}
 		} else {
-			e.Increment("automod-quota", "report")
+			evt.Increment("automod-quota", "report")
 		}
 	}
+	return newReports
+}
+
+func circuitBreakTakedown(evt RepoEvent, takedown bool) bool {
+	newTakedown := takedown
 	if newTakedown {
-		if e.GetCount("automod-quota", "takedown", PeriodDay) >= QuotaModTakedownDay {
-			e.Logger.Warn("CIRCUIT BREAKER: automod takedowns")
+		if evt.GetCount("automod-quota", "takedown", PeriodDay) >= QuotaModTakedownDay {
+			evt.Logger.Warn("CIRCUIT BREAKER: automod takedowns")
 			newTakedown = false
 		} else {
-			e.Increment("automod-quota", "takedown")
+			evt.Increment("automod-quota", "takedown")
+		}
+	}
+	return newTakedown
+}
+
+// creates a moderation report, but checks first if there was a similar recent one, and skips if so.
+//
+// Returns a bool indicating if a new report was created.
+func createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, evt RepoEvent, mr ModReport) (bool, error) {
+	// before creating a report, query to see if automod has already reported this account in the past week for the same reason
+	// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
+
+	// AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, inc ludeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string)
+	resp, err := comatproto.AdminQueryModerationEvents(ctx, xrpcc, xrpcc.Auth.Did, "", false, 5, "", evt.Account.Identity.DID.String(), []string{"com.atproto.admin.defs#modEventReport"})
+	if err != nil {
+		return false, err
+	}
+	for _, modEvt := range resp.Events {
+		// defensively ensure that our query params worked correctly
+		if modEvt.Event.AdminDefs_ModEventReport == nil || modEvt.CreatedBy != xrpcc.Auth.Did || modEvt.Subject.AdminDefs_RepoRef == nil || modEvt.Subject.AdminDefs_RepoRef.Did != evt.Account.Identity.DID.String() || (modEvt.Event.AdminDefs_ModEventReport.ReportType != nil && *modEvt.Event.AdminDefs_ModEventReport.ReportType != mr.ReasonType) {
+			continue
+		}
+		// igonre if older
+		created, err := syntax.ParseDatetime(modEvt.CreatedAt)
+		if err != nil {
+			return false, err
+		}
+		if time.Since(created.Time()) > ReportDupePeriod {
+			continue
+		}
+
+		// there is a recent report which is similar to this one
+		evt.Logger.Info("skipping duplicate account report due to API check")
+		return false, nil
+	}
+
+	evt.Logger.Info("reporting account", "reasonType", mr.ReasonType, "comment", mr.Comment)
+	_, err = comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
+		ReasonType: &mr.ReasonType,
+		Reason:     &mr.Comment,
+		Subject: &comatproto.ModerationCreateReport_Input_Subject{
+			AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
+				Did: evt.Account.Identity.DID.String(),
+			},
+		},
+	})
+	return true, nil
+}
+
+// Persists account-level moderation actions: new labels, new flags, new takedowns, and reports.
+//
+// If necessary, will "purge" identity and account caches, so that state updates will be picked up for subsequent events.
+//
+// Note that this method expects to run *before* counts are persisted (it accesses and updates some counts)
+func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
+
+	// de-dupe actions
+	newLabels := filterLabelActions(e.AccountLabels, e.Account.AccountLabels, e.Account.AccountNegatedLabels)
+	newFlags := filterFlagActions(e.AccountFlags, e.Account.AccountFlags)
+
+	// don't report the same account multiple times on the same day for the same reason. this is a quick check; we also query the mod service API just before creating the report.
+	newReports := circuitBreakReports(*e, e.AccountReports)
+	newTakedown := circuitBreakTakedown(*e, e.AccountTakedown && !e.Account.Takendown)
+
+	anyModActions := newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0
+	if anyModActions && e.Engine.SlackWebhookURL != "" {
+		msg := slackBody("⚠️ Automod Account Action ⚠️\n", e.Account, newLabels, newFlags, newReports, newTakedown)
+		if err := e.Engine.SendSlackMsg(ctx, msg); err != nil {
+			e.Logger.Error("sending slack webhook", "err", err)
 		}
 	}
 
-	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
-		if e.Engine.SlackWebhookURL != "" {
-			msg := fmt.Sprintf("⚠️ Automod Account Action ⚠️\n")
-			msg += fmt.Sprintf("`%s` / `%s` / <https://bsky.app/profile/%s|bsky> / <https://admin.prod.bsky.dev/repositories/%s|ozone>\n",
-				e.Account.Identity.DID,
-				e.Account.Identity.Handle,
-				e.Account.Identity.DID,
-				e.Account.Identity.DID,
-			)
-			msg = slackBody(msg, newLabels, newFlags, newReports, newTakedown)
-			if err := e.Engine.SendSlackMsg(ctx, msg); err != nil {
-				e.Logger.Error("sending slack webhook", "err", err)
-			}
-		}
-	}
-
+	// if we can't actually talk to service, bail out early
 	if e.Engine.AdminClient == nil {
 		return nil
 	}
 
 	needsPurge := false
 	xrpcc := e.Engine.AdminClient
+
 	if len(newLabels) > 0 {
 		e.Logger.Info("labeling record", "newLabels", newLabels)
 		comment := "automod"
@@ -270,55 +335,22 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		}
 		needsPurge = true
 	}
+
 	if len(newFlags) > 0 {
 		e.Engine.Flags.Add(ctx, e.Account.Identity.DID.String(), newFlags)
 		needsPurge = true
 	}
-	for _, mr := range newReports {
-		// before creating a report, query to see if automod has already reported this account in the past week for the same reason
-		// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
-		// AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, inc ludeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string)
-		resp, err := comatproto.AdminQueryModerationEvents(ctx, xrpcc, xrpcc.Auth.Did, "", false, 5, "", e.Account.Identity.DID.String(), []string{"com.atproto.admin.defs#modEventReport"})
-		if err != nil {
-			return err
-		}
-		existing := false
-		for _, modEvt := range resp.Events {
-			// defensively ensure that our query params worked correctly
-			if modEvt.Event.AdminDefs_ModEventReport == nil || modEvt.CreatedBy != xrpcc.Auth.Did || modEvt.Subject.AdminDefs_RepoRef == nil || modEvt.Subject.AdminDefs_RepoRef.Did != e.Account.Identity.DID.String() || (modEvt.Event.AdminDefs_ModEventReport.ReportType != nil && *modEvt.Event.AdminDefs_ModEventReport.ReportType != mr.ReasonType) {
-				continue
-			}
-			// igonre if older
-			created, err := syntax.ParseDatetime(modEvt.CreatedAt)
-			if err != nil {
-				return err
-			}
-			if time.Since(created.Time()) > ReportDupePeriod {
-				continue
-			}
-			// it's us!
-			existing = true
-			break
-		}
-		if existing {
-			e.Logger.Info("skipping duplicate account report due to API check")
-			break
-		}
 
-		e.Logger.Info("reporting account", "reasonType", mr.ReasonType, "comment", mr.Comment)
-		_, err = comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
-			ReasonType: &mr.ReasonType,
-			Reason:     &mr.Comment,
-			Subject: &comatproto.ModerationCreateReport_Input_Subject{
-				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
-					Did: e.Account.Identity.DID.String(),
-				},
-			},
-		})
+	for _, mr := range newReports {
+		created, err := createReportIfFresh(ctx, xrpcc, *e, mr)
 		if err != nil {
 			return err
+		}
+		if created {
+			needsPurge = true
 		}
 	}
+
 	if newTakedown {
 		e.Logger.Warn("account-takedown")
 		comment := "automod"
@@ -340,9 +372,11 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		}
 		needsPurge = true
 	}
+
 	if needsPurge {
 		return e.Engine.PurgeAccountCaches(ctx, e.Account.Identity.DID)
 	}
+
 	return nil
 }
 
@@ -468,15 +502,8 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 
 	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
 		if e.Engine.SlackWebhookURL != "" {
-			msg := fmt.Sprintf("⚠️ Automod Record Action ⚠️\n")
-			msg += fmt.Sprintf("`%s` / `%s` / <https://bsky.app/profile/%s|bsky> / <https://admin.prod.bsky.dev/repositories/%s|ozone>\n",
-				e.Account.Identity.DID,
-				e.Account.Identity.Handle,
-				e.Account.Identity.DID,
-				e.Account.Identity.DID,
-			)
+			msg := slackBody("⚠️ Automod Record Action ⚠️\n", e.Account, newLabels, newFlags, newReports, newTakedown)
 			msg += fmt.Sprintf("`%s`\n", atURI)
-			msg = slackBody(msg, newLabels, newFlags, newReports, newTakedown)
 			if err := e.Engine.SendSlackMsg(ctx, msg); err != nil {
 				e.Logger.Error("sending slack webhook", "err", err)
 			}
