@@ -27,20 +27,32 @@ type CounterDistinctRef struct {
 	Val    string
 }
 
-// base type for events specific to an account, usually derived from a repo event stream message (one such message may result in multiple `RepoEvent`)
+// Base type for events specific to an account, usually derived from a repo event stream message (one such message may result in multiple `RepoEvent`)
 //
-// events are both containers for data about the event itself (similar to an HTTP request type); aggregate results and state (counters, mod actions) to be persisted after all rules are run; and act as an API for additional network reads and operations.
+// Events are both containers for data about the event itself (similar to an HTTP request type); aggregate results and state (counters, mod actions) to be persisted after all rules are run; and act as an API for additional network reads and operations.
+//
+// Handling of moderation actions (such as labels, flags, and reports) are deferred until the end of all rule execution, then de-duplicated against any pre-existing actions on the account.
 type RepoEvent struct {
-	Engine                    *Engine
-	Err                       error
-	Logger                    *slog.Logger
-	Account                   AccountMeta
-	CounterIncrements         []CounterRef
+	// Back-reference to Engine that is processing this event. Pointer, but must not be nil.
+	Engine *Engine
+	// Any error encountered while processing the event can be stashed in this field and handled at the end of all processing.
+	Err error
+	// slog logger handle, with event-specific structured fields pre-populated. Pointer, but expected to not be nil.
+	Logger *slog.Logger
+	// Metadata for the account (identity) associated with this event (aka, the repo owner)
+	Account AccountMeta
+	// List of counters which should be incremented as part of processing this event. These are collected during rule execution and persisted in bulk at the end.
+	CounterIncrements []CounterRef
+	// Similar to "CounterIncrements", but for "distinct" style counters
 	CounterDistinctIncrements []CounterDistinctRef // TODO: better variable names
-	AccountLabels             []string
-	AccountFlags              []string
-	AccountReports            []ModReport
-	AccountTakedown           bool
+	// Label values which should be applied to the overall account, as a result of rule execution.
+	AccountLabels []string
+	// Moderation flags (similar to labels, but private) which should be applied to the overall account, as a result of rule execution.
+	AccountFlags []string
+	// Reports which should be filed against this account, as a result of rule execution.
+	AccountReports []ModReport
+	// If "true", indicates that a rule indicates that the entire account should have a takedown.
+	AccountTakedown bool
 }
 
 func (e *RepoEvent) GetCount(name, val, period string) int {
@@ -282,21 +294,31 @@ func (e *RepoEvent) CanonicalLogLine() {
 	)
 }
 
+// Alias of RepoEvent
 type IdentityEvent struct {
 	RepoEvent
 }
 
+// Extends RepoEvent. Represents the creation of a single record in the given repository.
 type RecordEvent struct {
 	RepoEvent
 
-	Record         any
-	Collection     string
-	RecordKey      string
-	CID            string
-	RecordLabels   []string
+	// The un-marshalled record, as a go struct, from the api/atproto or api/bsky type packages.
+	Record any
+	// The "collection" part of the repo path for this record. Must be an NSID, though this isn't indicated by the type of this field.
+	Collection string
+	// The "record key" (rkey) part of repo path.
+	RecordKey string
+	// CID of the canonical CBOR version of the record, as matches the repo value.
+	CID string
+	// Same as "AccountLabels", but at record-level
+	RecordLabels []string
+	// Same as "AccountTakedown", but at record-level
 	RecordTakedown bool
-	RecordReports  []ModReport
-	RecordFlags    []string
+	// Same as "AccountReports", but at record-level
+	RecordReports []ModReport
+	// Same as "AccountFlags", but at record-level
+	RecordFlags []string
 	// TODO: commit metadata
 }
 
@@ -426,6 +448,7 @@ func (e *RecordEvent) CanonicalLogLine() {
 	)
 }
 
+// Extends RepoEvent. Represents the deletion of a single record in the given repository.
 type RecordDeleteEvent struct {
 	RepoEvent
 
