@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -21,13 +22,13 @@ func testDirectoryLive(t *testing.T, d Directory) {
 
 	handle := syntax.Handle("atproto.com")
 	did := syntax.DID("did:plc:ewvi7nxzyoun6zhxrhs64oiz")
-	pds := "https://bsky.social"
+	pdsSuffix := "host.bsky.network"
 
 	resp, err := d.LookupHandle(ctx, handle)
 	assert.NoError(err)
 	assert.Equal(handle, resp.Handle)
 	assert.Equal(did, resp.DID)
-	assert.Equal(pds, resp.PDSEndpoint())
+	assert.True(strings.HasSuffix(resp.PDSEndpoint(), pdsSuffix))
 	dh, err := resp.DeclaredHandle()
 	assert.NoError(err)
 	assert.Equal(handle, dh)
@@ -39,7 +40,7 @@ func testDirectoryLive(t *testing.T, d Directory) {
 	assert.NoError(err)
 	assert.Equal(handle, resp.Handle)
 	assert.Equal(did, resp.DID)
-	assert.Equal(pds, resp.PDSEndpoint())
+	assert.True(strings.HasSuffix(resp.PDSEndpoint(), pdsSuffix))
 
 	_, err = d.LookupHandle(ctx, syntax.Handle("fake-dummy-no-resolve.atproto.com"))
 	assert.ErrorIs(err, ErrHandleNotFound)
@@ -135,5 +136,5 @@ func TestFallbackDNS(t *testing.T) {
 	dir.FallbackDNSServers = []string{"_"}
 	_, err = dir.LookupHandle(ctx, handle)
 	assert.Error(err)
-	assert.ErrorIs(err, ErrHandleNotFound)
+	assert.ErrorIs(err, ErrHandleResolutionFailed)
 }
