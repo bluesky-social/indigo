@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"regexp"
 	"strings"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
@@ -48,8 +47,6 @@ func (s *Server) deletePost(ctx context.Context, ident *identity.Identity, rkey 
 	return nil
 }
 
-var tidRegex = regexp.MustCompile(`^[234567abcdefghijklmnopqrstuvwxyz]{13}$`)
-
 func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *appbsky.FeedPost, path string, rcid cid.Cid) error {
 	ctx, span := tracer.Start(ctx, "indexPost")
 	defer span.End()
@@ -57,16 +54,19 @@ func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *a
 
 	log := s.logger.With("repo", ident.DID, "path", path, "op", "indexPost")
 	parts := strings.SplitN(path, "/", 3)
-	// TODO: replace with an atproto/syntax package type for TID
-	if len(parts) != 2 || !tidRegex.MatchString(parts[1]) {
-		log.Warn("skipping index post record with weird path/TID", "did", ident.DID, "path", path)
+	if len(parts) < 2 {
+		log.Warn("skipping post record with malformed path")
 		return nil
 	}
-	rkey := parts[1]
+	rkey, err := syntax.ParseTID(parts[1])
+	if err != nil {
+		log.Warn("skipping post record with non-TID rkey")
+		return nil
+	}
 
 	log = log.With("rkey", rkey)
 
-	doc := TransformPost(rec, ident, rkey, rcid.String())
+	doc := TransformPost(rec, ident, rkey.String(), rcid.String())
 	b, err := json.Marshal(doc)
 	if err != nil {
 		return err
