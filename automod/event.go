@@ -307,6 +307,11 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		}
 	}
 
+	// flags don't require admin auth
+	if len(newFlags) > 0 {
+		e.Engine.Flags.Add(ctx, e.Account.Identity.DID.String(), newFlags)
+	}
+
 	// if we can't actually talk to service, bail out early
 	if e.Engine.AdminClient == nil {
 		return nil
@@ -335,10 +340,6 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-	}
-
-	if len(newFlags) > 0 {
-		e.Engine.Flags.Add(ctx, e.Account.Identity.DID.String(), newFlags)
 	}
 
 	// reports are additionally de-duped when persisting the action, so track with a flag
@@ -493,9 +494,16 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 			}
 		}
 	}
+
+	// flags don't require admin auth
+	if len(newFlags) > 0 {
+		e.Engine.Flags.Add(ctx, atURI, newFlags)
+	}
+
 	if e.Engine.AdminClient == nil {
 		return nil
 	}
+
 	strongRef := comatproto.RepoStrongRef{
 		Cid: e.CID,
 		Uri: atURI,
@@ -521,9 +529,7 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 			return err
 		}
 	}
-	if len(newFlags) > 0 {
-		e.Engine.Flags.Add(ctx, atURI, newFlags)
-	}
+
 	for _, mr := range newReports {
 		e.Logger.Info("reporting record", "reasonType", mr.ReasonType, "comment", mr.Comment)
 		_, err := comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{

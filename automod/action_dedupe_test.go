@@ -19,7 +19,7 @@ func alwaysReportAccountRule(evt *RecordEvent) error {
 func TestAccountReportDedupe(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
-	engine := engineFixture()
+	engine := EngineTestFixture()
 	engine.Rules = RuleSet{
 		RecordRules: []RecordRuleFunc{
 			alwaysReportAccountRule,
