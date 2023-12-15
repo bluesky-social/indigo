@@ -161,7 +161,7 @@ func slackBody(header string, acct AccountMeta, newLabels, newFlags []string, ne
 	return msg
 }
 
-func filterLabelActions(labels, existing, existingNegated []string) []string {
+func dedupeLabelActions(labels, existing, existingNegated []string) []string {
 	newLabels := []string{}
 	for _, val := range dedupeStrings(labels) {
 		exists := false
@@ -184,7 +184,7 @@ func filterLabelActions(labels, existing, existingNegated []string) []string {
 	return newLabels
 }
 
-func filterFlagActions(flags, existing []string) []string {
+func dedupeFlagActions(flags, existing []string) []string {
 	newFlags := []string{}
 	for _, val := range dedupeStrings(flags) {
 		exists := false
@@ -201,43 +201,46 @@ func filterFlagActions(flags, existing []string) []string {
 	return newFlags
 }
 
-func circuitBreakReports(evt RepoEvent, reports []ModReport) []ModReport {
+func dedupeReportActions(evt *RepoEvent, reports []ModReport) []ModReport {
 	newReports := []ModReport{}
 	for _, r := range reports {
-		name := "automod-account-report-" + reasonShortName(r.ReasonType)
-		existing := evt.GetCount(name, evt.Account.Identity.DID.String(), PeriodDay)
+		counterName := "automod-account-report-" + reasonShortName(r.ReasonType)
+		existing := evt.GetCount(counterName, evt.Account.Identity.DID.String(), PeriodDay)
 		if existing > 0 {
 			evt.Logger.Debug("skipping account report due to counter", "existing", existing, "reason", reasonShortName(r.ReasonType))
 		} else {
+			evt.Increment(counterName, evt.Account.Identity.DID.String())
 			newReports = append(newReports, r)
-			evt.Increment(name, evt.Account.Identity.DID.String())
-		}
-	}
-	if len(newReports) > 0 {
-		if evt.GetCount("automod-quota", "report", PeriodDay) >= QuotaModReportDay {
-			evt.Logger.Warn("CIRCUIT BREAKER: automod reports")
-			newReports = []ModReport{}
-		} else {
-			evt.Increment("automod-quota", "report")
 		}
 	}
 	return newReports
 }
 
-func circuitBreakTakedown(evt RepoEvent, takedown bool) bool {
-	newTakedown := takedown
-	if newTakedown {
-		if evt.GetCount("automod-quota", "takedown", PeriodDay) >= QuotaModTakedownDay {
-			evt.Logger.Warn("CIRCUIT BREAKER: automod takedowns")
-			newTakedown = false
-		} else {
-			evt.Increment("automod-quota", "takedown")
-		}
+func circuitBreakReports(evt *RepoEvent, reports []ModReport) []ModReport {
+	if len(reports) == 0 {
+		return []ModReport{}
 	}
-	return newTakedown
+	if evt.GetCount("automod-quota", "report", PeriodDay) >= QuotaModReportDay {
+		evt.Logger.Warn("CIRCUIT BREAKER: automod reports")
+		return []ModReport{}
+	}
+	evt.Increment("automod-quota", "report")
+	return reports
 }
 
-// creates a moderation report, but checks first if there was a similar recent one, and skips if so.
+func circuitBreakTakedown(evt *RepoEvent, takedown bool) bool {
+	if !takedown {
+		return takedown
+	}
+	if evt.GetCount("automod-quota", "takedown", PeriodDay) >= QuotaModTakedownDay {
+		evt.Logger.Warn("CIRCUIT BREAKER: automod takedowns")
+		return false
+	}
+	evt.Increment("automod-quota", "takedown")
+	return takedown
+}
+
+// Creates a moderation report, but checks first if there was a similar recent one, and skips if so.
 //
 // Returns a bool indicating if a new report was created.
 func createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, evt RepoEvent, mr ModReport) (bool, error) {
@@ -289,12 +292,12 @@ func createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, evt RepoEvent,
 func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 
 	// de-dupe actions
-	newLabels := filterLabelActions(e.AccountLabels, e.Account.AccountLabels, e.Account.AccountNegatedLabels)
-	newFlags := filterFlagActions(e.AccountFlags, e.Account.AccountFlags)
+	newLabels := dedupeLabelActions(e.AccountLabels, e.Account.AccountLabels, e.Account.AccountNegatedLabels)
+	newFlags := dedupeFlagActions(e.AccountFlags, e.Account.AccountFlags)
 
 	// don't report the same account multiple times on the same day for the same reason. this is a quick check; we also query the mod service API just before creating the report.
-	newReports := circuitBreakReports(*e, e.AccountReports)
-	newTakedown := circuitBreakTakedown(*e, e.AccountTakedown && !e.Account.Takendown)
+	newReports := circuitBreakReports(e, dedupeReportActions(e, e.AccountReports))
+	newTakedown := circuitBreakTakedown(e, e.AccountTakedown && !e.Account.Takendown)
 
 	anyModActions := newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0
 	if anyModActions && e.Engine.SlackWebhookURL != "" {
@@ -309,7 +312,6 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		return nil
 	}
 
-	needsPurge := false
 	xrpcc := e.Engine.AdminClient
 
 	if len(newLabels) > 0 {
@@ -333,21 +335,21 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		needsPurge = true
 	}
 
 	if len(newFlags) > 0 {
 		e.Engine.Flags.Add(ctx, e.Account.Identity.DID.String(), newFlags)
-		needsPurge = true
 	}
 
+	// reports are additionally de-duped when persisting the action, so track with a flag
+	createdReports := false
 	for _, mr := range newReports {
 		created, err := createReportIfFresh(ctx, xrpcc, *e, mr)
 		if err != nil {
 			return err
 		}
 		if created {
-			needsPurge = true
+			createdReports = true
 		}
 	}
 
@@ -370,10 +372,10 @@ func (e *RepoEvent) PersistAccountActions(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		needsPurge = true
 	}
 
-	if needsPurge {
+	needCachePurge := newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || createdReports
+	if needCachePurge {
 		return e.Engine.PurgeAccountCaches(ctx, e.Account.Identity.DID)
 	}
 
@@ -478,27 +480,9 @@ func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 	// NOTE: record-level actions are *not* currently de-duplicated (aka, the same record could be labeled multiple times, or re-reported, etc)
 	newLabels := dedupeStrings(e.RecordLabels)
 	newFlags := dedupeStrings(e.RecordFlags)
-	newReports := e.RecordReports
-	newTakedown := e.RecordTakedown
+	newReports := circuitBreakReports(&e.RepoEvent, e.RecordReports)
+	newTakedown := circuitBreakTakedown(&e.RepoEvent, e.RecordTakedown)
 	atURI := fmt.Sprintf("at://%s/%s/%s", e.Account.Identity.DID, e.Collection, e.RecordKey)
-
-	// check "circuit breakers"
-	if len(newReports) > 0 {
-		if e.GetCount("automod-quota", "report", PeriodDay) >= QuotaModReportDay {
-			e.Logger.Warn("CIRCUIT BREAKER: automod reports")
-			newReports = []ModReport{}
-		} else {
-			e.Increment("automod-quota", "report")
-		}
-	}
-	if newTakedown {
-		if e.GetCount("automod-quota", "takedown", PeriodDay) >= QuotaModTakedownDay {
-			e.Logger.Warn("CIRCUIT BREAKER: automod takedowns")
-			newTakedown = false
-		} else {
-			e.Increment("automod-quota", "takedown")
-		}
-	}
 
 	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
 		if e.Engine.SlackWebhookURL != "" {
