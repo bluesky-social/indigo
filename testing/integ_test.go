@@ -170,7 +170,7 @@ func TestBGSMultiPDS(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	// we expect the bgs to learn about posts that it didnt directly see from
+	// we expect the bgs to learn about posts that it did not directly see from
 	// repos its already partially scraped, as long as its seen *something* after the missing post
 	// this is the 'catchup' process
 	ctx := context.Background()
@@ -233,7 +233,7 @@ func TestBGSMultiGap(t *testing.T) {
 
 	time.Sleep(time.Second * 2)
 
-	// we expect the bgs to learn about posts that it didnt directly see from
+	// we expect the bgs to learn about posts that it did not directly see from
 	// repos its already partially scraped, as long as its seen *something* after the missing post
 	// this is the 'catchup' process
 	_, err = b1.bgs.Index.GetPost(ctx, p2posts2[4].Uri)

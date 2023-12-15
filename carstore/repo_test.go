@@ -263,7 +263,7 @@ func checkRepo(t *testing.T, cs *CarStore, r io.Reader, expRecs []cid.Cid) {
 
 	if err := rep.ForEach(context.TODO(), "", func(k string, v cid.Cid) error {
 		if !set[v] {
-			return fmt.Errorf("have record we didnt expect")
+			return fmt.Errorf("have record we did not expect")
 		}
 
 		delete(set, v)
@@ -275,7 +275,7 @@ func checkRepo(t *testing.T, cs *CarStore, r io.Reader, expRecs []cid.Cid) {
 			fmt.Println("matched error")
 			bs, err := cs.ReadOnlySession(1)
 			if err != nil {
-				fmt.Println("couldnt read session: ", err)
+				fmt.Println("could not read session: ", err)
 			}
 
 			blk, err := bs.Get(context.TODO(), ierr.Cid)

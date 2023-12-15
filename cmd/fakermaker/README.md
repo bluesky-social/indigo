@@ -35,7 +35,7 @@ Then, from the top-level directory, run test commands:
     # create posts, including mentions and image uploads
     go run ./cmd/fakermaker/ gen-posts
 
-    # create more interations, such as likes, between accounts
+    # create more interactions, such as likes, between accounts
     go run ./cmd/fakermaker/ gen-interactions
 
     # lastly, read-only queries, including timelines, notifications, and post threads
