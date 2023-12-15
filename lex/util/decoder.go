@@ -34,7 +34,7 @@ func RegisterType(id string, val cbg.CBORMarshaler) {
 func NewFromType(typ string) (interface{}, error) {
 	t, ok := lexTypesMap[typ]
 	if !ok {
-		return nil, fmt.Errorf("unknown type: %q", typ)
+		return nil, fmt.Errorf("%w: %q", ErrUnrecognizedType, typ)
 	}
 	v := reflect.New(t)
 	return v.Interface(), nil
@@ -48,7 +48,7 @@ func JsonDecodeValue(b []byte) (any, error) {
 
 	t, ok := lexTypesMap[tstr]
 	if !ok {
-		return nil, fmt.Errorf("unrecognized type: %q", tstr)
+		return nil, fmt.Errorf("%w: %q", ErrUnrecognizedType, tstr)
 	}
 
 	val := reflect.New(t)
@@ -66,7 +66,7 @@ type CBOR interface {
 	cbg.CBORMarshaler
 }
 
-var ErrUnrecognizedType = fmt.Errorf("unrecognized type")
+var ErrUnrecognizedType = fmt.Errorf("unrecognized lexicon type")
 
 func CborDecodeValue(b []byte) (CBOR, error) {
 	tstr, err := CborTypeExtract(b)
@@ -76,7 +76,7 @@ func CborDecodeValue(b []byte) (CBOR, error) {
 
 	t, ok := lexTypesMap[tstr]
 	if !ok {
-		return nil, fmt.Errorf("handling %q: %w", tstr, ErrUnrecognizedType)
+		return nil, fmt.Errorf("%w: %q", ErrUnrecognizedType, tstr)
 	}
 
 	val := reflect.New(t)
