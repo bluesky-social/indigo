@@ -1290,7 +1290,7 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 			pf("}\n\n")
 		}
 	default:
-		return fmt.Errorf("%s has unrecognized type type %s", name, ts.Type)
+		return fmt.Errorf("%s has unrecognized type: %s", name, ts.Type)
 	}
 
 	return nil
@@ -1344,7 +1344,7 @@ func (ts *TypeSchema) writeTypeMethods(name string, w io.Writer) error {
 
 		return fmt.Errorf("%q unsupported for marshaling", name)
 	default:
-		return fmt.Errorf("%q has unrecognized type type %s", name, ts.Type)
+		return fmt.Errorf("%q has unrecognized type: %s", name, ts.Type)
 	}
 }
 
