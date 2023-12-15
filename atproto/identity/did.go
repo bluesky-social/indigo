@@ -79,22 +79,22 @@ func (d *BaseDirectory) ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DID
 	var dnsErr *net.DNSError
 	if errors.As(err, &dnsErr) {
 		if dnsErr.IsNotFound {
-			return nil, ErrDIDNotFound
+			return nil, fmt.Errorf("%w: DNS NXDOMAIN", ErrDIDNotFound)
 		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed HTTP fetch of did:web well-known document: %w", err)
+		return nil, fmt.Errorf("%w: did:web HTTP well-known fetch: %w", ErrDIDResolutionFailed, err)
 	}
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, ErrDIDNotFound
+		return nil, fmt.Errorf("%w: did:web HTTP status 404", ErrDIDNotFound)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed did:web well-known fetch, HTTP status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("%w: did:web HTTP status %d", ErrDIDResolutionFailed, resp.StatusCode)
 	}
 
 	var doc DIDDocument
 	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
-		return nil, fmt.Errorf("failed parse of did:web document JSON: %w", err)
+		return nil, fmt.Errorf("%w: JSON DID document parse: %w", ErrDIDResolutionFailed, err)
 	}
 	return &doc, nil
 }
@@ -117,18 +117,18 @@ func (d *BaseDirectory) ResolveDIDPLC(ctx context.Context, did syntax.DID) (*DID
 
 	resp, err := http.Get(plcURL + "/" + did.String())
 	if err != nil {
-		return nil, fmt.Errorf("failed did:plc directory resolution: %w", err)
+		return nil, fmt.Errorf("%w: PLC directory lookup: %w", ErrDIDResolutionFailed, err)
 	}
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, ErrDIDNotFound
+		return nil, fmt.Errorf("%w: PLC directory 404", ErrDIDNotFound)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed did:plc resolution, HTTP status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("%w: PLC directory status %d", ErrDIDResolutionFailed, resp.StatusCode)
 	}
 
 	var doc DIDDocument
 	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
-		return nil, fmt.Errorf("failed parse of did:plc document JSON: %w", err)
+		return nil, fmt.Errorf("%w: JSON DID document parse: %w", ErrDIDResolutionFailed, err)
 	}
 	return &doc, nil
 }
