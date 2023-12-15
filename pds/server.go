@@ -178,11 +178,11 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 	if peering.ID == 0 {
 		cfg, err := atproto.ServerDescribeServer(ctx, c)
 		if err != nil {
-			// TODO: failing this shouldnt halt our indexing
+			// TODO: failing this should not halt our indexing
 			return nil, fmt.Errorf("failed to check unrecognized pds: %w", err)
 		}
 
-		// since handles can be anything, checking against this list doesnt matter...
+		// since handles can be anything, checking against this list does not matter...
 		_ = cfg
 
 		// TODO: could check other things, a valid response is good enough for now

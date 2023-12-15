@@ -1,10 +1,10 @@
 # Palomar
 
-Palomar is a backend search service for atproto, specifically the `bsky.app` post and profile record types. It works by consuming a repo event stream ("firehose") and upating an OpenSearch cluster (fork of Elasticsearch) with docs.
+Palomar is a backend search service for atproto, specifically the `bsky.app` post and profile record types. It works by consuming a repo event stream ("firehose") and updating an OpenSearch cluster (fork of Elasticsearch) with docs.
 
 Almost all the code for this service is actually in the `search/` directory at the top of this repo.
 
-In September 2023, this service was substantially re-written. It no longer stores records in a local database, returns only "skelton" results (list of ATURIs or DIDs) via the HTTP API, and defines index mappings.
+In September 2023, this service was substantially re-written. It no longer stores records in a local database, returns only "skeleton" results (list of ATURIs or DIDs) via the HTTP API, and defines index mappings.
 
 
 ## Query String Syntax

@@ -5,7 +5,7 @@ import (
 	"regexp"
 )
 
-// Represents an arbitary URI in string format, as would pass Lexicon syntax validation.
+// Represents an arbitrary URI in string format, as would pass Lexicon syntax validation.
 //
 // The syntax is minimal and permissive, designed for fast verification and exact-string passthrough, not schema-specific parsing or validation. For example, will not validate AT-URI or DID strings.
 //
