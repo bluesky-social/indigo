@@ -1062,11 +1062,11 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		// TODO: the case of handling a new user on a new PDS probably requires more thought
 		cfg, err := atproto.ServerDescribeServer(ctx, c)
 		if err != nil {
-			// TODO: failing this shouldnt halt our indexing
+			// TODO: failing this shouldn't halt our indexing
 			return nil, fmt.Errorf("failed to check unrecognized pds: %w", err)
 		}
 
-		// since handles can be anything, checking against this list doesnt matter...
+		// since handles can be anything, checking against this list doesn't matter...
 		_ = cfg
 
 		// TODO: could check other things, a valid response is good enough for now

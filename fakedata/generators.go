@@ -295,10 +295,10 @@ func GenFollowsAndMutes(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *Accoun
 	var tgt *AccountContext
 
 	if maxFollows > len(catalog.Regulars) {
-		return fmt.Errorf("not enought regulars to pick maxFollowers from")
+		return fmt.Errorf("not enough regulars to pick maxFollowers from")
 	}
 	if maxMutes > len(catalog.Regulars) {
-		return fmt.Errorf("not enought regulars to pick maxMutes from")
+		return fmt.Errorf("not enough regulars to pick maxMutes from")
 	}
 
 	regCount := 0

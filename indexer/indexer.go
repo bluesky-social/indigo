@@ -471,7 +471,7 @@ func (ix *Indexer) handleRecordDeleteGraphFollow(ctx context.Context, evt *repom
 	}
 
 	if q.RowsAffected == 0 {
-		log.Warnw("attempted to delete follow we didnt have a record for", "user", evt.User, "rkey", op.Rkey)
+		log.Warnw("attempted to delete follow we did not have a record for", "user", evt.User, "rkey", op.Rkey)
 		return nil
 	}
 
@@ -622,7 +622,7 @@ func (ix *Indexer) handleRecordUpdate(ctx context.Context, evt *repomgr.RepoEven
 		newReply := rec.Reply != nil
 
 		if oldReply != newReply {
-			// the 'replyness' of the post was changed... thats weird
+			// the 'replyness' of the post was changed... that's weird
 			log.Errorf("need to properly handle case where reply-ness of posts is changed")
 			return nil
 		}

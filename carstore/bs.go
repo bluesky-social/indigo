@@ -1290,7 +1290,7 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid, skip
 		// Since we generally expect shards to start bigger and get smaller,
 		// and because we want to avoid compacting non-adjacent shards
 		// together, and because we want to avoid running a stat on every
-		// single shard (can be expensive for repos that havent been compacted
+		// single shard (can be expensive for repos that haven't been compacted
 		// in a while) we only skip a prefix of shard files that are over the
 		// threshold. this may end up not skipping some shards that are over
 		// the threshold if a below-threshold shard occurs before them, but
@@ -1375,7 +1375,7 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid, skip
 
 		// we could also just add the duplicates to the keep set for now and
 		// focus on compacting everything else. it leaves *some* dirty blocks
-		// still around but we're doing that anyways since compaction isnt a
+		// still around but we're doing that anyways since compaction isn't a
 		// perfect process
 
 		log.Debugw("repo has dirty dupes", "count", len(dupes), "uid", user, "staleRefs", len(staleRefs), "blockRefs", len(brefs))
@@ -1527,7 +1527,7 @@ func (cs *CarStore) deleteStaleRefs(ctx context.Context, uid models.Uid, brefs [
 		return err
 	}
 
-	// now create a new staleRef with all the refs we couldnt clear out
+	// now create a new staleRef with all the refs we couldn't clear out
 	if len(staleToKeep) > 0 {
 		if err := txn.Create(&staleRef{
 			Usr:  uid,

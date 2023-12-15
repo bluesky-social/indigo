@@ -206,7 +206,7 @@ func (i *Identity) PDSEndpoint() string {
 	return endpoint.URL
 }
 
-// Returns an atproto handle from the alsoKnownAs URI list for this identifier. Returns an error if there is no handle, or if an at:// URI failes to parse as a handle.
+// Returns an atproto handle from the alsoKnownAs URI list for this identifier. Returns an error if there is no handle, or if an at:// URI fails to parse as a handle.
 //
 // Note that this handle is *not* necessarily to be trusted, as it may not have been bi-directionally verified. The 'Handle' field on the 'Identity' should contain either a verified handle, or the special 'handle.invalid' indicator value.
 func (i *Identity) DeclaredHandle() (syntax.Handle, error) {

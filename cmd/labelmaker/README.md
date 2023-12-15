@@ -63,7 +63,7 @@ Then configure labelmaker with:
 
 SQRL is a moderation system built around a declarative rule language,
 application events, and cached counter values. It is the open source release of
-Smyt, a moderation system aquired and used by Twitter many years ago. See the
+Smyt, a moderation system acquired and used by Twitter many years ago. See the
 SQRL docs for more: <https://sqrl-lang.github.io/sqrl/index.html>
 
 A local SQRL moderation server can be queried by providing `--sqrl-url` (or the

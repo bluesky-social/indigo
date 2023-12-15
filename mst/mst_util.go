@@ -130,7 +130,7 @@ func serializeNodeData(entries []nodeEntry) (*nodeData, error) {
 		leaf := entries[i]
 
 		if !leaf.isLeaf() {
-			return nil, fmt.Errorf("Not a valid node: two subtrees next to eachother (%d, %d)", i, len(entries))
+			return nil, fmt.Errorf("Not a valid node: two subtrees next to each other (%d, %d)", i, len(entries))
 		}
 		i++
 
