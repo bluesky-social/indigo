@@ -70,7 +70,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 			Password:   config.ModPassword,
 		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("connecting to mod service: %v", err)
 		}
 		xrpcc.Auth.AccessJwt = auth.AccessJwt
 		xrpcc.Auth.RefreshJwt = auth.RefreshJwt
@@ -81,7 +81,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 	sets := automod.NewMemSetStore()
 	if config.SetsFileJSON != "" {
 		if err := sets.LoadFromFileJSON(config.SetsFileJSON); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("initializing in-process setstore: %v", err)
 		} else {
 			logger.Info("loaded set config from JSON", "path", config.SetsFileJSON)
 		}
@@ -95,30 +95,30 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		// generic client, for cursor state
 		opt, err := redis.ParseURL(config.RedisURL)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("parsing redis URL: %v", err)
 		}
 		rdb = redis.NewClient(opt)
 		// check redis connection
 		_, err = rdb.Ping(context.TODO()).Result()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("redis ping failed: %v", err)
 		}
 
 		cnt, err := countstore.NewRedisCountStore(config.RedisURL)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("initializing redis countstore: %v", err)
 		}
 		counters = cnt
 
 		csh, err := automod.NewRedisCacheStore(config.RedisURL, 30*time.Minute)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("initializing redis cachestore: %v", err)
 		}
 		cache = csh
 
 		flg, err := automod.NewRedisFlagStore(config.RedisURL)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("initializing redis flagstore: %v", err)
 		}
 		flags = flg
 	} else {

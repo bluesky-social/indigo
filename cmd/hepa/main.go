@@ -154,7 +154,7 @@ var runCmd = &cli.Command{
 
 		dir, err := configDirectory(cctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to configure identity directory: %v", err)
 		}
 
 		srv, err := NewServer(
@@ -173,7 +173,7 @@ var runCmd = &cli.Command{
 			},
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to construct server: %v", err)
 		}
 
 		// prometheus HTTP endpoint: /metrics
