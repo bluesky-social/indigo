@@ -25,7 +25,7 @@ func alwaysReportRecordRule(evt *RecordEvent) error {
 func TestTakedownCircuitBreaker(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
-	engine := engineFixture()
+	engine := EngineTestFixture()
 	dir := identity.NewMockDirectory()
 	engine.Directory = &dir
 	// note that this is a record-level action, not account-level
@@ -61,7 +61,7 @@ func TestTakedownCircuitBreaker(t *testing.T) {
 func TestReportCircuitBreaker(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
-	engine := engineFixture()
+	engine := EngineTestFixture()
 	dir := identity.NewMockDirectory()
 	engine.Directory = &dir
 	engine.Rules = RuleSet{
