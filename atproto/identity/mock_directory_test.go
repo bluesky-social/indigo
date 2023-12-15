@@ -29,9 +29,9 @@ func TestMockDirectory(t *testing.T) {
 
 	// first, empty directory
 	_, err = c.LookupHandle(ctx, syntax.Handle("handle.example.com"))
-	assert.Equal(ErrHandleNotFound, err)
+	assert.ErrorIs(err, ErrHandleNotFound)
 	_, err = c.LookupDID(ctx, syntax.DID("did:plc:abc123"))
-	assert.Equal(ErrDIDNotFound, err)
+	assert.ErrorIs(err, ErrDIDNotFound)
 
 	c.Insert(id1)
 	c.Insert(id2)
@@ -49,7 +49,7 @@ func TestMockDirectory(t *testing.T) {
 	assert.True(out.Handle.IsInvalidHandle())
 
 	_, err = c.LookupHandle(ctx, syntax.HandleInvalid)
-	assert.Equal(ErrHandleNotFound, err)
+	assert.ErrorIs(err, ErrHandleNotFound)
 	out, err = c.LookupDID(ctx, syntax.DID("did:plc:abc999"))
-	assert.Equal(ErrDIDNotFound, err)
+	assert.ErrorIs(err, ErrDIDNotFound)
 }
