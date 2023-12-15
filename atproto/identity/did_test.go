@@ -68,7 +68,7 @@ func TestDIDDocFeedGenParse(t *testing.T) {
 	assert.Equal([]string{}, id.AlsoKnownAs)
 	pk, err := id.PublicKey()
 	assert.Error(err)
-	assert.Equal(ErrKeyNotFound, err)
+	assert.ErrorIs(err, ErrKeyNotDeclared)
 	assert.Nil(pk)
 	assert.Equal("", id.PDSEndpoint())
 	hdl, err := id.DeclaredHandle()
