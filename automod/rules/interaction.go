@@ -5,7 +5,7 @@ import (
 	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
-var interactionDailyThreshold = 500
+var interactionDailyThreshold = 800
 
 // looks for accounts which do frequent interaction churn, such as follow-unfollow.
 func InteractionChurnRule(evt *automod.RecordEvent) error {
