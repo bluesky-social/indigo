@@ -17,14 +17,26 @@ import (
 	esapi "github.com/opensearch-project/opensearch-go/v2/opensearchapi"
 )
 
-func (s *Server) deletePost(ctx context.Context, ident *identity.Identity, rkey string) error {
+func (s *Server) deletePost(ctx context.Context, ident *identity.Identity, recordPath string) error {
 	ctx, span := tracer.Start(ctx, "deletePost")
 	defer span.End()
-	span.SetAttributes(attribute.String("repo", ident.DID.String()), attribute.String("rkey", rkey))
+	span.SetAttributes(attribute.String("repo", ident.DID.String()), attribute.String("path", recordPath))
 
-	log := s.logger.With("repo", ident.DID, "rkey", rkey, "op", "deletePost")
-	log.Info("deleting post from index")
+	logger := s.logger.With("repo", ident.DID, "path", recordPath, "op", "deletePost")
+
+	parts := strings.SplitN(recordPath, "/", 3)
+	if len(parts) < 2 {
+		logger.Warn("skipping post record with malformed path")
+		return nil
+	}
+	rkey, err := syntax.ParseTID(parts[1])
+	if err != nil {
+		logger.Warn("skipping post record with non-TID rkey")
+		return nil
+	}
+
 	docID := fmt.Sprintf("%s_%s", ident.DID.String(), rkey)
+	logger.Info("deleting post from index", "docID", docID)
 	req := esapi.DeleteRequest{
 		Index:      s.postIndex,
 		DocumentID: docID,
@@ -41,7 +53,7 @@ func (s *Server) deletePost(ctx context.Context, ident *identity.Identity, rkey 
 		return fmt.Errorf("failed to read indexing response: %w", err)
 	}
 	if res.IsError() {
-		log.Warn("opensearch indexing error", "status_code", res.StatusCode, "response", res, "body", string(body))
+		logger.Warn("opensearch indexing error", "status_code", res.StatusCode, "response", res, "body", string(body))
 		return fmt.Errorf("indexing error, code=%d", res.StatusCode)
 	}
 	return nil
