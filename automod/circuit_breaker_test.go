@@ -74,7 +74,7 @@ func TestReportCircuitBreaker(t *testing.T) {
 	cid1 := "cid123"
 	p1 := appbsky.FeedPost{Text: "some post blah"}
 
-	// generate double the quote of events; expect to only count the quote worth of actions
+	// generate double the quota of events; expect to only count the quota worth of actions
 	for i := 0; i < 2*QuotaModReportDay; i++ {
 		ident := identity.Identity{
 			DID:    syntax.DID(fmt.Sprintf("did:plc:abc%d", i)),
