@@ -1,7 +1,9 @@
 package search
 
 import (
+	"log/slog"
 	"strings"
+	"time"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -180,8 +182,13 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 		// there are some old bad timestamps out there!
 		dt, err := syntax.ParseDatetimeLenient(post.CreatedAt)
 		if nil == err { // *not* an error
-			s := dt.String()
-			doc.CreatedAt = &s
+			// not more than a few minutes in the future
+			if time.Since(dt.Time()) >= -1*5*time.Minute {
+				s := dt.String()
+				doc.CreatedAt = &s
+			} else {
+				slog.Warn("rejecting future post CreatedAt", "datetime", dt.String(), "did", ident.DID.String(), "rkey", rkey)
+			}
 		}
 	}
 
