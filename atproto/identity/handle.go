@@ -141,26 +141,22 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 				return "", fmt.Errorf("%w: DNS NXDOMAIN for %s", ErrHandleNotFound, handle)
 			}
 		}
-		slog.Info("HTTP request failed for well-known handle resolution", "handle", handle, "err", err)
-		return "", fmt.Errorf("%w: HTTP request error: %w", ErrHandleResolutionFailed, err)
+		return "", fmt.Errorf("%w: HTTP well-known request error: %w", ErrHandleResolutionFailed, err)
 	}
 	if resp.StatusCode == http.StatusNotFound {
 		return "", fmt.Errorf("%w: HTTP 404 for %s", ErrHandleNotFound, handle)
 	}
 	if resp.StatusCode != http.StatusOK {
-		slog.Info("non-success HTTP response for well-known handle resolution", "handle", handle, "status_code", resp.StatusCode)
-		return "", fmt.Errorf("%w: HTTP status %d for %s", ErrHandleResolutionFailed, resp.StatusCode, handle)
+		return "", fmt.Errorf("%w: HTTP well-known status %d for %s", ErrHandleResolutionFailed, resp.StatusCode, handle)
 	}
 
 	if resp.ContentLength > 2048 {
-		slog.Warn("too much data reading handle HTTP well-known response", "handle", handle)
-		return "", fmt.Errorf("%w: HTTP body too large for %s", ErrHandleResolutionFailed, handle)
+		return "", fmt.Errorf("%w: HTTP well-known body too large for %s", ErrHandleResolutionFailed, handle)
 	}
 
 	b, err := io.ReadAll(io.LimitReader(resp.Body, 2048))
 	if err != nil {
-		slog.Warn("error reading HTTP well-known response", "handle", handle, "err", err)
-		return "", fmt.Errorf("%w: HTTP read for %s: %w", ErrHandleResolutionFailed, handle, err)
+		return "", fmt.Errorf("%w: HTTP well-known body read for %s: %w", ErrHandleResolutionFailed, handle, err)
 	}
 	line := strings.TrimSpace(string(b))
 	return syntax.ParseDID(line)
