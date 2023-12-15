@@ -747,11 +747,11 @@ var listLabelsCmd = &cli.Command{
 
 			if len(out.Labels) > 0 {
 				last := out.Labels[len(out.Labels)-1]
-				ts, err := util.ParseTimestamp(last.Cts)
+				dt, err := syntax.ParseDatetime(last.Cts)
 				if err != nil {
 					return fmt.Errorf("invalid cts: %w", err)
 				}
-				since = ts.UnixMilli()
+				since = dt.Time().UnixMilli()
 			} else {
 				break
 			}
