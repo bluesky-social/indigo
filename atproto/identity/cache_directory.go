@@ -247,7 +247,7 @@ func (d *CacheDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Id
 		return nil, err
 	}
 	if declared != h {
-		return nil, fmt.Errorf("handle does not match that declared in DID document")
+		return nil, ErrHandleMismatch
 	}
 	return ident, nil
 }
