@@ -16,7 +16,7 @@ type PrivateKey interface {
 	PublicKey() (PublicKey, error)
 
 	// Hashes the raw bytes using SHA-256, then signs the digest bytes.
-	// Always returns a "low-S" signature (for elliptic curve systems where that is ambigious).
+	// Always returns a "low-S" signature (for elliptic curve systems where that is ambiguous).
 	HashAndSign(content []byte) ([]byte, error)
 }
 
@@ -37,7 +37,7 @@ type PrivateKeyExportable interface {
 type PublicKey interface {
 	Equal(other PublicKey) bool
 
-	// Compact byte serialization (for elliptic curve systems where encoding is ambigious).
+	// Compact byte serialization (for elliptic curve systems where encoding is ambiguous).
 	Bytes() []byte
 
 	// Hashes the raw bytes using SHA-256, then verifies the signature of the digest bytes.
@@ -52,7 +52,7 @@ type PublicKey interface {
 	DIDKey() string
 
 	// Non-compact byte serialization (for elliptic curve systems where
-	// encoding is ambigious)
+	// encoding is ambiguous)
 	//
 	// This is not used frequently, or directly in atproto, but some
 	// serializations and encodings require it.

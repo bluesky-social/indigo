@@ -162,7 +162,7 @@ func (dp *DiskPersistence) resumeLog() error {
 		return dp.initLogFile()
 	}
 
-	// 0 for the mode is fine since thats only used if O_CREAT is passed
+	// 0 for the mode is fine since that is only used if O_CREAT is passed
 	fi, err := os.OpenFile(filepath.Join(dp.primaryDir, lfr.Path), os.O_RDWR, 0)
 	if err != nil {
 		return err
@@ -455,7 +455,7 @@ func (dp *DiskPersistence) doPersist(ctx context.Context, j persistJob) error {
 		e.RepoTombstone.Seq = seq
 	default:
 		// only those three get peristed right now
-		// we shouldnt actually ever get here...
+		// we should not actually ever get here...
 		return nil
 	}
 

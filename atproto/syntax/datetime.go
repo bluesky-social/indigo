@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	// Prefered atproto Datetime string syntax, for use with [time.Format].
+	// Preferred atproto Datetime string syntax, for use with [time.Format].
 	//
 	// Note that *parsing* syntax is more flexible.
 	AtprotoDatetimeLayout = "2006-01-02T15:04:05.999Z"
@@ -94,7 +94,7 @@ func (d Datetime) Time() time.Time {
 	return ret
 }
 
-// Creates a new valid Datetime string matching the current time, in prefered syntax.
+// Creates a new valid Datetime string matching the current time, in preferred syntax.
 func DatetimeNow() Datetime {
 	t := time.Now().UTC()
 	return Datetime(t.Format(AtprotoDatetimeLayout))
