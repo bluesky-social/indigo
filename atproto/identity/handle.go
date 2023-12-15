@@ -20,7 +20,7 @@ func parseTXTResp(res []string) (syntax.DID, error) {
 			parts := strings.SplitN(s, "=", 2)
 			did, err := syntax.ParseDID(parts[1])
 			if err != nil {
-				return "", fmt.Errorf("invalid DID in handle DNS record: %w", err)
+				return "", fmt.Errorf("%w: invalid DID in handle DNS record: %w", ErrHandleResolutionFailed, err)
 			}
 			return did, nil
 		}
@@ -39,7 +39,7 @@ func (d *BaseDirectory) ResolveHandleDNS(ctx context.Context, handle syntax.Hand
 		}
 	}
 	if err != nil {
-		return "", fmt.Errorf("handle DNS resolution failed: %w", err)
+		return "", fmt.Errorf("%w: %w", ErrHandleResolutionFailed, err)
 	}
 	return parseTXTResp(res)
 }
@@ -56,7 +56,7 @@ func (d *BaseDirectory) ResolveHandleDNSAuthoritative(ctx context.Context, handl
 		}
 	}
 	if err != nil {
-		return "", fmt.Errorf("handle DNS resolution failed: %w", err)
+		return "", fmt.Errorf("%w: DNS error: %w", ErrHandleResolutionFailed, err)
 	}
 	if len(resNS) == 0 {
 		return "", ErrHandleNotFound
@@ -84,7 +84,7 @@ func (d *BaseDirectory) ResolveHandleDNSAuthoritative(ctx context.Context, handl
 		}
 	}
 	if err != nil {
-		return "", fmt.Errorf("handle DNS resolution failed: %w", err)
+		return "", fmt.Errorf("%w: DNS resolution failed: %w", ErrHandleResolutionFailed, err)
 	}
 	return parseTXTResp(res)
 }
@@ -113,7 +113,7 @@ func (d *BaseDirectory) ResolveHandleDNSFallback(ctx context.Context, handle syn
 			}
 		}
 		if err != nil {
-			retErr = err
+			retErr = fmt.Errorf("%w: %w", ErrHandleResolutionFailed, err)
 			continue
 		}
 		ret, err := parseTXTResp(res)
@@ -129,7 +129,7 @@ func (d *BaseDirectory) ResolveHandleDNSFallback(ctx context.Context, handle syn
 func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s/.well-known/atproto-did", handle), nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("constructing HTTP request for handle resolution: %w", err)
 	}
 
 	resp, err := d.HTTPClient.Do(req)
@@ -138,22 +138,29 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 		var dnsErr *net.DNSError
 		if errors.As(err, &dnsErr) {
 			if dnsErr.IsNotFound {
-				return "", ErrHandleNotFound
+				return "", fmt.Errorf("%w: DNS NXDOMAIN for %s", ErrHandleNotFound, handle)
 			}
 		}
-		return "", fmt.Errorf("failed to resolve handle (%s) through HTTP well-known route: %s", handle, err)
+		slog.Info("HTTP request failed for well-known handle resolution", "handle", handle, "err", err)
+		return "", fmt.Errorf("%w: HTTP request error: %w", ErrHandleResolutionFailed, err)
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return "", fmt.Errorf("%w: HTTP 404 for %s", ErrHandleNotFound, handle)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to resolve handle (%s) through HTTP well-known route: status=%d", handle, resp.StatusCode)
+		slog.Info("non-success HTTP response for well-known handle resolution", "handle", handle, "status_code", resp.StatusCode)
+		return "", fmt.Errorf("%w: HTTP status %d for %s", ErrHandleResolutionFailed, resp.StatusCode, handle)
 	}
 
 	if resp.ContentLength > 2048 {
-		return "", fmt.Errorf("HTTP well-known route returned too much data during handle resolution")
+		slog.Warn("too much data reading handle HTTP well-known response", "handle", handle)
+		return "", fmt.Errorf("%w: HTTP body too large for %s", ErrHandleResolutionFailed, handle)
 	}
 
 	b, err := io.ReadAll(io.LimitReader(resp.Body, 2048))
 	if err != nil {
-		return "", fmt.Errorf("HTTP well-known response fail to read: %w", err)
+		slog.Warn("error reading HTTP well-known response", "handle", handle, "err", err)
+		return "", fmt.Errorf("%w: HTTP read for %s: %w", ErrHandleResolutionFailed, handle, err)
 	}
 	line := strings.TrimSpace(string(b))
 	return syntax.ParseDID(line)
@@ -181,13 +188,13 @@ func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle)
 		triedAuthoritative := false
 		triedFallback := false
 		did, dnsErr = d.ResolveHandleDNS(ctx, handle)
-		if dnsErr == ErrHandleNotFound && d.TryAuthoritativeDNS {
+		if errors.Is(dnsErr, ErrHandleNotFound) && d.TryAuthoritativeDNS {
 			slog.Info("attempting authoritative handle DNS resolution", "handle", handle)
 			triedAuthoritative = true
 			// try harder with authoritative lookup
 			did, dnsErr = d.ResolveHandleDNSAuthoritative(ctx, handle)
 		}
-		if dnsErr == ErrHandleNotFound && len(d.FallbackDNSServers) > 0 {
+		if errors.Is(dnsErr, ErrHandleNotFound) && len(d.FallbackDNSServers) > 0 {
 			slog.Info("attempting fallback DNS resolution", "handle", handle)
 			triedFallback = true
 			// try harder with fallback lookup
@@ -209,10 +216,10 @@ func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle)
 	}
 
 	// return the most specific/helpful error
-	if dnsErr != ErrHandleNotFound {
+	if !errors.Is(dnsErr, ErrHandleNotFound) {
 		return "", dnsErr
 	}
-	if httpErr != ErrHandleNotFound {
+	if !errors.Is(httpErr, ErrHandleNotFound) {
 		return "", httpErr
 	}
 	return "", dnsErr

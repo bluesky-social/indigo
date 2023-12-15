@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -48,11 +49,11 @@ func (d *BaseDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Ide
 		return nil, err
 	}
 	if declared != h {
-		return nil, fmt.Errorf("handle does not match that declared in DID document")
+		return nil, ErrHandleMismatch
 	}
 	ident.Handle = declared
 
-	// optimistic caching of public key
+	// optimistic pre-parsing of public key
 	pk, err := ident.PublicKey()
 	if nil == err {
 		ident.ParsedPublicKey = pk
@@ -67,19 +68,27 @@ func (d *BaseDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identit
 	}
 	ident := ParseIdentity(doc)
 	declared, err := ident.DeclaredHandle()
-	if err != nil {
-		return nil, err
-	}
-	resolvedDID, err := d.ResolveHandle(ctx, declared)
-	if err != nil && err != ErrHandleNotFound {
-		return nil, err
-	} else if ErrHandleNotFound == err || resolvedDID != did {
+	if errors.Is(err, ErrHandleNotDeclared) {
 		ident.Handle = syntax.HandleInvalid
+	} else if err != nil {
+		return nil, err
 	} else {
-		ident.Handle = declared
+		// if a handle was declared, resolve it
+		resolvedDID, err := d.ResolveHandle(ctx, declared)
+		if err != nil {
+			if errors.Is(err, ErrHandleNotFound) || errors.Is(err, ErrHandleResolutionFailed) {
+				ident.Handle = syntax.HandleInvalid
+			} else {
+				return nil, err
+			}
+		} else if resolvedDID != did {
+			ident.Handle = syntax.HandleInvalid
+		} else {
+			ident.Handle = declared
+		}
 	}
 
-	// optimistic caching of public key
+	// optimistic pre-parsing of public key
 	pk, err := ident.PublicKey()
 	if nil == err {
 		ident.ParsedPublicKey = pk

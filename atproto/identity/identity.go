@@ -34,11 +34,17 @@ type Directory interface {
 	Purge(ctx context.Context, i syntax.AtIdentifier) error
 }
 
-// Indicates that resolution process completed successfully, but handle does not exist.
+// Indicates that handle resolution failed. A wrapped error may provide more context. This is only returned when looking up a handle, not when looking up a DID.
+var ErrHandleResolutionFailed = errors.New("handle resolution failed")
+
+// Indicates that resolution process completed successfully, but handle does not exist. This is only returned when looking up a handle, not when looking up a DID.
 var ErrHandleNotFound = errors.New("handle not found")
 
-// Indicates that handle and DID resolved, but handle points to a DID with a different handle. This is only returned when looking up a handle, not when looking up a DID.
-var ErrHandleNotValid = errors.New("handle resolves to DID with different handle")
+// Indicates that resolution process completed successfully, handle mapped to a different DID. This is only returned when looking up a handle, not when looking up a DID.
+var ErrHandleMismatch = errors.New("handle/DID mismatch")
+
+// Indicates that DID document did not include any handle ("alsoKnownAs"). This is only returned when looking up a handle, not when looking up a DID.
+var ErrHandleNotDeclared = errors.New("DID document did not declare a handle")
 
 // Handle top-level domain (TLD) is one of the special "Reserved" suffixes, and not allowed for atproto use
 var ErrHandleReservedTLD = errors.New("handle top-level domain is disallowed")
@@ -46,7 +52,10 @@ var ErrHandleReservedTLD = errors.New("handle top-level domain is disallowed")
 // Indicates that resolution process completed successfully, but the DID does not exist.
 var ErrDIDNotFound = errors.New("DID not found")
 
-var ErrKeyNotFound = errors.New("identity has no public repo signing key")
+// Indicates that DID resolution process failed. A wrapped error may provide more context.
+var ErrDIDResolutionFailed = errors.New("DID resolution failed")
+
+var ErrKeyNotDeclared = errors.New("identity has no public repo signing key")
 
 var DefaultPLCURL = "https://plc.directory"
 
@@ -160,7 +169,7 @@ func (i *Identity) PublicKey() (crypto.PublicKey, error) {
 	}
 	k, ok := i.Keys["atproto"]
 	if !ok {
-		return nil, ErrKeyNotFound
+		return nil, ErrKeyNotDeclared
 	}
 	switch k.Type {
 	case "Multikey":
@@ -215,5 +224,5 @@ func (i *Identity) DeclaredHandle() (syntax.Handle, error) {
 			return syntax.ParseHandle(u[5:])
 		}
 	}
-	return "", fmt.Errorf("DID document contains no atproto handle")
+	return "", ErrHandleNotDeclared
 }

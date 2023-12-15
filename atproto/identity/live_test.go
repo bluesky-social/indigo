@@ -42,13 +42,13 @@ func testDirectoryLive(t *testing.T, d Directory) {
 	assert.Equal(pds, resp.PDSEndpoint())
 
 	_, err = d.LookupHandle(ctx, syntax.Handle("fake-dummy-no-resolve.atproto.com"))
-	assert.Equal(ErrHandleNotFound, err)
+	assert.ErrorIs(err, ErrHandleNotFound)
 
 	_, err = d.LookupDID(ctx, syntax.DID("did:web:fake-dummy-no-resolve.atproto.com"))
-	assert.Equal(ErrDIDNotFound, err)
+	assert.ErrorIs(err, ErrDIDNotFound)
 
 	_, err = d.LookupDID(ctx, syntax.DID("did:plc:fake-dummy-no-resolve.atproto.com"))
-	assert.Equal(ErrDIDNotFound, err)
+	assert.ErrorIs(err, ErrDIDNotFound)
 
 	_, err = d.LookupHandle(ctx, syntax.HandleInvalid)
 	assert.Error(err)
@@ -129,11 +129,11 @@ func TestFallbackDNS(t *testing.T) {
 	// valid DNS server
 	_, err := dir.LookupHandle(ctx, handle)
 	assert.Error(err)
-	assert.Equal(ErrHandleNotFound, err)
+	assert.ErrorIs(err, ErrHandleNotFound)
 
 	// invalid DNS server syntax
 	dir.FallbackDNSServers = []string{"_"}
 	_, err = dir.LookupHandle(ctx, handle)
 	assert.Error(err)
-	assert.NotEqual(ErrHandleNotFound, err)
+	assert.ErrorIs(err, ErrHandleNotFound)
 }
