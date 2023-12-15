@@ -1,11 +1,13 @@
 package rules
 
 import (
+	"fmt"
+
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
-var interactionDailyThreshold = 500
+var interactionDailyThreshold = 800
 
 // looks for accounts which do frequent interaction churn, such as follow-unfollow.
 func InteractionChurnRule(evt *automod.RecordEvent) error {
@@ -19,6 +21,7 @@ func InteractionChurnRule(evt *automod.RecordEvent) error {
 		if created > interactionDailyThreshold && deleted > interactionDailyThreshold && ratio > 0.5 {
 			evt.Logger.Info("high-like-churn", "created-today", created, "deleted-today", deleted)
 			evt.AddAccountFlag("high-like-churn")
+			evt.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("interaction churn: %d likes, %d unlikes today (so far)", created, deleted))
 		}
 	case "app.bsky.graph.follow":
 		evt.Increment("follow", did)
@@ -28,6 +31,7 @@ func InteractionChurnRule(evt *automod.RecordEvent) error {
 		if created > interactionDailyThreshold && deleted > interactionDailyThreshold && ratio > 0.5 {
 			evt.Logger.Info("high-follow-churn", "created-today", created, "deleted-today", deleted)
 			evt.AddAccountFlag("high-follow-churn")
+			evt.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("interaction churn: %d follows, %d unfollows today (so far)", created, deleted))
 		}
 	}
 	return nil
