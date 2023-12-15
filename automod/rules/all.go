@@ -19,6 +19,7 @@ func DefaultRules() automod.RuleSet {
 			ReplySingleKeywordPostRule,
 			AggressivePromotionRule,
 			IdenticalReplyPostRule,
+			SpamMentionsRule,
 		},
 		ProfileRules: []automod.ProfileRuleFunc{
 			GtubeProfileRule,
