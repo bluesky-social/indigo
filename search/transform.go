@@ -2,11 +2,11 @@ package search
 
 import (
 	"strings"
-	"time"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/atproto/syntax"
+
 	"github.com/rivo/uniseg"
 )
 
@@ -80,7 +80,7 @@ func TransformProfile(profile *appbsky.ActorProfile, ident *identity.Identity, c
 		handle = ident.Handle.String()
 	}
 	return ProfileDoc{
-		DocIndexTs:  time.Now().UTC().Format(util.ISO8601),
+		DocIndexTs:  syntax.DatetimeNow().String(),
 		DID:         ident.DID.String(),
 		RecordCID:   cid,
 		Handle:      handle,
@@ -157,7 +157,7 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 	}
 
 	doc := PostDoc{
-		DocIndexTs:      time.Now().UTC().Format(util.ISO8601),
+		DocIndexTs:      syntax.DatetimeNow().String(),
 		DID:             ident.DID.String(),
 		RecordRkey:      rkey,
 		RecordCID:       cid,
@@ -177,7 +177,12 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 	}
 
 	if post.CreatedAt != "" {
-		doc.CreatedAt = &post.CreatedAt
+		// there are some old bad timestamps out there!
+		dt, err := syntax.ParseDatetimeLenient(post.CreatedAt)
+		if nil == err { // *not* an error
+			s := dt.String()
+			doc.CreatedAt = &s
+		}
 	}
 
 	return doc

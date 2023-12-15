@@ -66,12 +66,6 @@ func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *a
 
 	log = log.With("rkey", rkey)
 
-	_, err := syntax.ParseDatetimeLenient(rec.CreatedAt)
-	if err != nil {
-		log.Warn("post had invalid timestamp", "createdAt", rec.CreatedAt, "parseErr", err)
-		rec.CreatedAt = ""
-	}
-
 	doc := TransformPost(rec, ident, rkey, rcid.String())
 	b, err := json.Marshal(doc)
 	if err != nil {
