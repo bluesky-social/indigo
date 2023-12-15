@@ -20,9 +20,12 @@ func TestMemCountStoreBasics(t *testing.T) {
 	assert.Equal(0, c)
 	assert.NoError(cs.Increment(ctx, "test1", "val1"))
 	assert.NoError(cs.Increment(ctx, "test1", "val1"))
-	c, err = cs.GetCount(ctx, "test1", "val1", PeriodTotal)
-	assert.NoError(err)
-	assert.Equal(2, c)
+
+	for _, period := range []string{PeriodTotal, PeriodDay, PeriodHour} {
+		c, err = cs.GetCount(ctx, "test1", "val1", period)
+		assert.NoError(err)
+		assert.Equal(2, c)
+	}
 
 	c, err = cs.GetCountDistinct(ctx, "test2", "val2", PeriodTotal)
 	assert.NoError(err)
@@ -36,9 +39,12 @@ func TestMemCountStoreBasics(t *testing.T) {
 
 	assert.NoError(cs.IncrementDistinct(ctx, "test2", "val2", "two"))
 	assert.NoError(cs.IncrementDistinct(ctx, "test2", "val2", "three"))
-	c, err = cs.GetCountDistinct(ctx, "test2", "val2", PeriodTotal)
-	assert.NoError(err)
-	assert.Equal(3, c)
+
+	for _, period := range []string{PeriodTotal, PeriodDay, PeriodHour} {
+		c, err = cs.GetCountDistinct(ctx, "test2", "val2", period)
+		assert.NoError(err)
+		assert.Equal(3, c)
+	}
 }
 
 func TestMemCountStoreConcurrent(t *testing.T) {
