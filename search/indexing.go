@@ -12,7 +12,6 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel/attribute"
 
@@ -65,12 +64,6 @@ func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *a
 	rkey := parts[1]
 
 	log = log.With("rkey", rkey)
-
-	_, err := util.ParseTimestamp(rec.CreatedAt)
-	if err != nil {
-		log.Warn("post had invalid timestamp", "createdAt", rec.CreatedAt, "parseErr", err)
-		rec.CreatedAt = ""
-	}
 
 	doc := TransformPost(rec, ident, rkey, rcid.String())
 	b, err := json.Marshal(doc)
