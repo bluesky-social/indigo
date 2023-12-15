@@ -72,6 +72,10 @@ func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.
 	if err := evt.PersistCounters(ctx); err != nil {
 		return err
 	}
+	// check for any new errors during persist
+	if evt.Err != nil {
+		return evt.Err
+	}
 	return nil
 }
 
@@ -113,6 +117,10 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 	}
 	if err := evt.PersistCounters(ctx); err != nil {
 		return err
+	}
+	// check for any new errors during persist
+	if evt.Err != nil {
+		return evt.Err
 	}
 	return nil
 }
