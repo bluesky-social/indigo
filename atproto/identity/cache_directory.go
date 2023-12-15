@@ -90,7 +90,7 @@ func (d *CacheDirectory) IsIdentityStale(e *IdentityEntry) bool {
 	return false
 }
 
-func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*HandleEntry, error) {
+func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) HandleEntry {
 	ident, err := d.Inner.LookupHandle(ctx, h)
 	if err != nil {
 		he := HandleEntry{
@@ -99,7 +99,7 @@ func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*Ha
 			Err:     err,
 		}
 		d.handleCache.Add(h, he)
-		return &he, nil
+		return he
 	}
 
 	entry := IdentityEntry{
@@ -115,7 +115,7 @@ func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*Ha
 
 	d.identityCache.Add(ident.DID, entry)
 	d.handleCache.Add(ident.Handle, he)
-	return &he, nil
+	return he
 }
 
 func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
@@ -145,21 +145,24 @@ func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 		}
 	}
 
-	var did syntax.DID
 	// Update the Handle Entry from PLC and cache the result
-	newEntry, err := d.updateHandle(ctx, h)
-	if err == nil && newEntry != nil {
-		did = newEntry.DID
-	}
+	newEntry := d.updateHandle(ctx, h)
+
 	// Cleanup the coalesce map and close the results channel
 	d.handleLookupChans.Delete(h.String())
 	// Callers waiting will now get the result from the cache
 	close(res)
 
-	return did, err
+	if newEntry.Err != nil {
+		return "", newEntry.Err
+	}
+	if newEntry.DID != "" {
+		return newEntry.DID, nil
+	}
+	return "", fmt.Errorf("unexpected control-flow error")
 }
 
-func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) (*IdentityEntry, error) {
+func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) IdentityEntry {
 	ident, err := d.Inner.LookupDID(ctx, did)
 	// persist the identity lookup error, instead of processing it immediately
 	entry := IdentityEntry{
@@ -181,7 +184,7 @@ func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) (*Identi
 	if he != nil {
 		d.handleCache.Add(ident.Handle, *he)
 	}
-	return &entry, err
+	return entry
 }
 
 func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
@@ -211,18 +214,21 @@ func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identi
 		}
 	}
 
-	var doc *Identity
 	// Update the Identity Entry from PLC and cache the result
-	newEntry, err := d.updateDID(ctx, did)
-	if err == nil && newEntry != nil {
-		doc = newEntry.Identity
-	}
+	newEntry := d.updateDID(ctx, did)
+
 	// Cleanup the coalesce map and close the results channel
 	d.didLookupChans.Delete(did.String())
 	// Callers waiting will now get the result from the cache
 	close(res)
 
-	return doc, err
+	if newEntry.Err != nil {
+		return nil, newEntry.Err
+	}
+	if newEntry.Identity != nil {
+		return newEntry.Identity, nil
+	}
+	return nil, fmt.Errorf("unexpected control-flow error")
 }
 
 func (d *CacheDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
