@@ -174,7 +174,7 @@ func (j *Memjob) SetRev(ctx context.Context, rev string) error {
 	return nil
 }
 
-func (j *Memjob) FlushBufferedOps(ctx context.Context, fn func(kind, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error) error {
+func (j *Memjob) FlushBufferedOps(ctx context.Context, fn func(kind, rev, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error) error {
 	panic("TODO: copy what we end up doing from the gormstore")
 	/*
 		j.lk.Lock()

@@ -174,7 +174,7 @@ func (s *Server) discoverRepos() {
 	log.Info("finished repo discovery", "totalJobs", total, "totalErrored", totalErrored)
 }
 
-func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, path string, rec typegen.CBORMarshaler, rcid *cid.Cid) error {
+func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, rev string, path string, rec typegen.CBORMarshaler, rcid *cid.Cid) error {
 	// Since this gets called in a backfill job, we need to check if the path is a post or profile
 	if !strings.Contains(path, "app.bsky.feed.post") && !strings.Contains(path, "app.bsky.actor.profile") {
 		return nil
@@ -211,7 +211,7 @@ func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, path s
 	return nil
 }
 
-func (s *Server) handleDelete(ctx context.Context, rawDID, path string) error {
+func (s *Server) handleDelete(ctx context.Context, rawDID, rev, path string) error {
 	// Since this gets called in a backfill job, we need to check if the path is a post or profile
 	if !strings.Contains(path, "app.bsky.feed.post") && !strings.Contains(path, "app.bsky.actor.profile") {
 		return nil
