@@ -303,7 +303,7 @@ func (j *Gormjob) SetState(ctx context.Context, state string) error {
 	return j.db.Save(j.dbj).Error
 }
 
-func (j *Gormjob) FlushBufferedOps(ctx context.Context, fn func(kind, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error) error {
+func (j *Gormjob) FlushBufferedOps(ctx context.Context, fn func(kind, rev, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error) error {
 	// TODO: this will block any events for this repo while this flush is ongoing, is that okay?
 	j.lk.Lock()
 	defer j.lk.Unlock()
@@ -325,7 +325,7 @@ func (j *Gormjob) FlushBufferedOps(ctx context.Context, fn func(kind, path strin
 		}
 
 		for _, op := range opset.ops {
-			if err := fn(op.kind, op.path, op.rec, op.cid); err != nil {
+			if err := fn(op.kind, opset.rev, op.path, op.rec, op.cid); err != nil {
 				return err
 			}
 		}
