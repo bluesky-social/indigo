@@ -37,7 +37,7 @@ type Job interface {
 	// Once done it clears the buffer and marks the job as "complete"
 	// Allowing the Job interface to abstract away the details of how buffered
 	// operations are stored and/or locked
-	FlushBufferedOps(ctx context.Context, cb func(kind, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error) error
+	FlushBufferedOps(ctx context.Context, cb func(kind, rev, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error) error
 
 	ClearBufferedOps(ctx context.Context) error
 }
@@ -56,9 +56,9 @@ type Store interface {
 // Backfiller is a struct which handles backfilling a repo
 type Backfiller struct {
 	Name               string
-	HandleCreateRecord func(ctx context.Context, repo string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error
-	HandleUpdateRecord func(ctx context.Context, repo string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error
-	HandleDeleteRecord func(ctx context.Context, repo string, path string) error
+	HandleCreateRecord func(ctx context.Context, repo string, rev string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error
+	HandleUpdateRecord func(ctx context.Context, repo string, rev string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error
+	HandleDeleteRecord func(ctx context.Context, repo string, rev string, path string) error
 	Store              Store
 
 	// Number of backfills to process in parallel
@@ -120,9 +120,9 @@ func DefaultBackfillOptions() *BackfillOptions {
 func NewBackfiller(
 	name string,
 	store Store,
-	handleCreate func(ctx context.Context, repo string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error,
-	handleUpdate func(ctx context.Context, repo string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error,
-	handleDelete func(ctx context.Context, repo string, path string) error,
+	handleCreate func(ctx context.Context, repo string, rev string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error,
+	handleUpdate func(ctx context.Context, repo string, rev string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error,
+	handleDelete func(ctx context.Context, repo string, rev string, path string) error,
 	opts *BackfillOptions,
 ) *Backfiller {
 	if opts == nil {
@@ -210,20 +210,20 @@ func (b *Backfiller) FlushBuffer(ctx context.Context, job Job) int {
 
 	// Flush buffered operations, clear the buffer, and mark the job as "complete"
 	// Clearning and marking are handled by the job interface
-	err := job.FlushBufferedOps(ctx, func(kind, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error {
+	err := job.FlushBufferedOps(ctx, func(kind, rev, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error {
 		switch repomgr.EventKind(kind) {
 		case repomgr.EvtKindCreateRecord:
-			err := b.HandleCreateRecord(ctx, repo, path, rec, cid)
+			err := b.HandleCreateRecord(ctx, repo, rev, path, rec, cid)
 			if err != nil {
 				log.Error("failed to handle create record", "error", err)
 			}
 		case repomgr.EvtKindUpdateRecord:
-			err := b.HandleUpdateRecord(ctx, repo, path, rec, cid)
+			err := b.HandleUpdateRecord(ctx, repo, rev, path, rec, cid)
 			if err != nil {
 				log.Error("failed to handle update record", "error", err)
 			}
 		case repomgr.EvtKindDeleteRecord:
-			err := b.HandleDeleteRecord(ctx, repo, path)
+			err := b.HandleDeleteRecord(ctx, repo, rev, path)
 			if err != nil {
 				log.Error("failed to handle delete record", "error", err)
 			}
@@ -376,6 +376,8 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 		}
 	}()
 
+	rev := r.SignedCommit().Rev
+
 	// Consumer routines
 	for i := 0; i < numRoutines; i++ {
 		wg.Add(1)
@@ -399,7 +401,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 					continue
 				}
 
-				err = b.HandleCreateRecord(ctx, repoDid, item.recordPath, recM, &item.nodeCid)
+				err = b.HandleCreateRecord(ctx, repoDid, rev, item.recordPath, recM, &item.nodeCid)
 				if err != nil {
 					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to handle create record: %w", err)}
 					continue
@@ -509,15 +511,15 @@ func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscrib
 	for _, op := range ops {
 		switch op.kind {
 		case "create":
-			if err := bf.HandleCreateRecord(ctx, evt.Repo, op.path, op.rec, op.cid); err != nil {
+			if err := bf.HandleCreateRecord(ctx, evt.Repo, evt.Rev, op.path, op.rec, op.cid); err != nil {
 				return fmt.Errorf("create record failed: %w", err)
 			}
 		case "update":
-			if err := bf.HandleUpdateRecord(ctx, evt.Repo, op.path, op.rec, op.cid); err != nil {
+			if err := bf.HandleUpdateRecord(ctx, evt.Repo, evt.Rev, op.path, op.rec, op.cid); err != nil {
 				return fmt.Errorf("update record failed: %w", err)
 			}
 		case "delete":
-			if err := bf.HandleDeleteRecord(ctx, evt.Repo, op.path); err != nil {
+			if err := bf.HandleDeleteRecord(ctx, evt.Repo, evt.Rev, op.path); err != nil {
 				return fmt.Errorf("delete record failed: %w", err)
 			}
 		}
