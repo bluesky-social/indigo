@@ -1,6 +1,7 @@
 package automod
 
 import (
+	"context"
 	"fmt"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
@@ -14,10 +15,10 @@ type RuleSet struct {
 	IdentityRules     []IdentityRuleFunc
 }
 
-func (r *RuleSet) CallRecordRules(evt *RecordEvent) error {
+func (r *RuleSet) CallRecordRules(ctx context.Context, evt *RecordEvent) error {
 	// first the generic rules
 	for _, f := range r.RecordRules {
-		err := f(evt)
+		err := f(ctx, evt)
 		if err != nil {
 			return err
 		}
@@ -33,7 +34,7 @@ func (r *RuleSet) CallRecordRules(evt *RecordEvent) error {
 			return fmt.Errorf("mismatch between collection (%s) and type", evt.Collection)
 		}
 		for _, f := range r.PostRules {
-			err := f(evt, post)
+			err := f(ctx, evt, post)
 			if err != nil {
 				return err
 			}
@@ -47,7 +48,7 @@ func (r *RuleSet) CallRecordRules(evt *RecordEvent) error {
 			return fmt.Errorf("mismatch between collection (%s) and type", evt.Collection)
 		}
 		for _, f := range r.ProfileRules {
-			err := f(evt, profile)
+			err := f(ctx, evt, profile)
 			if err != nil {
 				return err
 			}
@@ -59,9 +60,9 @@ func (r *RuleSet) CallRecordRules(evt *RecordEvent) error {
 	return nil
 }
 
-func (r *RuleSet) CallRecordDeleteRules(evt *RecordDeleteEvent) error {
+func (r *RuleSet) CallRecordDeleteRules(ctx context.Context, evt *RecordDeleteEvent) error {
 	for _, f := range r.RecordDeleteRules {
-		err := f(evt)
+		err := f(ctx, evt)
 		if err != nil {
 			return err
 		}
@@ -72,9 +73,9 @@ func (r *RuleSet) CallRecordDeleteRules(evt *RecordDeleteEvent) error {
 	return nil
 }
 
-func (r *RuleSet) CallIdentityRules(evt *IdentityEvent) error {
+func (r *RuleSet) CallIdentityRules(ctx context.Context, evt *IdentityEvent) error {
 	for _, f := range r.IdentityRules {
-		err := f(evt)
+		err := f(ctx, evt)
 		if err != nil {
 			return err
 		}

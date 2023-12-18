@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"context"
 	"net/url"
 	"strings"
 	"time"
@@ -10,10 +11,12 @@ import (
 	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
+var _ automod.PostRuleFunc = AggressivePromotionRule
+
 // looks for new accounts, with a commercial or donation link in profile, which directly reply to several accounts
 //
 // this rule depends on ReplyCountPostRule() to set counts
-func AggressivePromotionRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
+func AggressivePromotionRule(ctx context.Context, evt *automod.RecordEvent, post *appbsky.FeedPost) error {
 	if evt.Account.Private == nil || evt.Account.Identity == nil {
 		return nil
 	}

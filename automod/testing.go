@@ -13,7 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-func simpleRule(evt *RecordEvent, post *appbsky.FeedPost) error {
+func simpleRule(ctx context.Context, evt *RecordEvent, post *appbsky.FeedPost) error {
 	for _, tag := range post.Tags {
 		if evt.InSet("bad-hashtags", tag) {
 			evt.AddRecordLabel("bad-hashtag")
@@ -100,7 +100,7 @@ func ProcessCaptureRules(e *Engine, capture AccountCapture) error {
 			Account: capture.AccountMeta,
 		},
 	}
-	if err := e.Rules.CallIdentityRules(&idevt); err != nil {
+	if err := e.Rules.CallIdentityRules(ctx, &idevt); err != nil {
 		return err
 	}
 	if idevt.Err != nil {
@@ -123,7 +123,7 @@ func ProcessCaptureRules(e *Engine, capture AccountCapture) error {
 		path := aturi.Collection().String() + "/" + aturi.RecordKey().String()
 		evt := e.NewRecordEvent(capture.AccountMeta, path, pr.Cid, pr.Value.Val)
 		e.Logger.Debug("processing record", "did", aturi.Authority(), "path", path)
-		if err := e.Rules.CallRecordRules(&evt); err != nil {
+		if err := e.Rules.CallRecordRules(ctx, &evt); err != nil {
 			return err
 		}
 		if evt.Err != nil {

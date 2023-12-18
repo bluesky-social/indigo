@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"context"
 	"net/url"
 	"strings"
 	"time"
@@ -9,8 +10,10 @@ import (
 	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
+var _ automod.IdentityRuleFunc = NewAccountRule
+
 // triggers on first identity event for an account (DID)
-func NewAccountRule(evt *automod.IdentityEvent) error {
+func NewAccountRule(ctx context.Context, evt *automod.IdentityEvent) error {
 	// need access to IndexedAt for this rule
 	if evt.Account.Private == nil || evt.Account.Identity == nil {
 		return nil

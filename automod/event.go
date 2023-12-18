@@ -592,8 +592,8 @@ type RecordDeleteEvent struct {
 	RecordKey  string
 }
 
-type IdentityRuleFunc = func(evt *IdentityEvent) error
-type RecordRuleFunc = func(evt *RecordEvent) error
-type PostRuleFunc = func(evt *RecordEvent, post *appbsky.FeedPost) error
-type ProfileRuleFunc = func(evt *RecordEvent, profile *appbsky.ActorProfile) error
-type RecordDeleteRuleFunc = func(evt *RecordDeleteEvent) error
+type IdentityRuleFunc = func(ctx context.Context, evt *IdentityEvent) error
+type RecordRuleFunc = func(ctx context.Context, evt *RecordEvent) error
+type PostRuleFunc = func(ctx context.Context, evt *RecordEvent, post *appbsky.FeedPost) error
+type ProfileRuleFunc = func(ctx context.Context, evt *RecordEvent, profile *appbsky.ActorProfile) error
+type RecordDeleteRuleFunc = func(ctx context.Context, evt *RecordDeleteEvent) error

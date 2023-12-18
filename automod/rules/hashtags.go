@@ -1,12 +1,19 @@
 package rules
 
 import (
+	"context"
+
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/automod"
 )
 
+var (
+	_ automod.PostRuleFunc = BadHashtagsPostRule
+	_ automod.PostRuleFunc = TooManyHashtagsPostRule
+)
+
 // looks for specific hashtags from known lists
-func BadHashtagsPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
+func BadHashtagsPostRule(ctx context.Context, evt *automod.RecordEvent, post *appbsky.FeedPost) error {
 	for _, tag := range ExtractHashtags(post) {
 		tag = NormalizeHashtag(tag)
 		if evt.InSet("bad-hashtags", tag) {
@@ -18,7 +25,7 @@ func BadHashtagsPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error
 }
 
 // if a post is "almost all" hashtags, it might be a form of search spam
-func TooManyHashtagsPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
+func TooManyHashtagsPostRule(ctx context.Context, evt *automod.RecordEvent, post *appbsky.FeedPost) error {
 	tags := ExtractHashtags(post)
 	tagChars := 0
 	for _, tag := range tags {

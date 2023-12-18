@@ -1,16 +1,22 @@
 package rules
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
+var (
+	_ automod.RecordRuleFunc       = InteractionChurnRule
+	_ automod.RecordDeleteRuleFunc = DeleteInteractionRule
+)
+
 var interactionDailyThreshold = 800
 
 // looks for accounts which do frequent interaction churn, such as follow-unfollow.
-func InteractionChurnRule(evt *automod.RecordEvent) error {
+func InteractionChurnRule(ctx context.Context, evt *automod.RecordEvent) error {
 	did := evt.Account.Identity.DID.String()
 	switch evt.Collection {
 	case "app.bsky.feed.like":
@@ -37,7 +43,7 @@ func InteractionChurnRule(evt *automod.RecordEvent) error {
 	return nil
 }
 
-func DeleteInteractionRule(evt *automod.RecordDeleteEvent) error {
+func DeleteInteractionRule(ctx context.Context, evt *automod.RecordDeleteEvent) error {
 	did := evt.Account.Identity.DID.String()
 	switch evt.Collection {
 	case "app.bsky.feed.like":

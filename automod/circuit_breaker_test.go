@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func alwaysTakedownRecordRule(evt *RecordEvent) error {
+func alwaysTakedownRecordRule(ctx context.Context, evt *RecordEvent) error {
 	evt.TakedownRecord()
 	return nil
 }
 
-func alwaysReportRecordRule(evt *RecordEvent) error {
+func alwaysReportRecordRule(ctx context.Context, evt *RecordEvent) error {
 	evt.ReportRecord(ReportReasonOther, "test report")
 	return nil
 }

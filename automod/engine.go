@@ -57,7 +57,7 @@ func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.
 			Account: *am,
 		},
 	}
-	if err := e.Rules.CallIdentityRules(&evt); err != nil {
+	if err := e.Rules.CallIdentityRules(ctx, &evt); err != nil {
 		return err
 	}
 	if evt.Err != nil {
@@ -100,7 +100,7 @@ func (e *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID
 	}
 	evt := e.NewRecordEvent(*am, path, recCID, rec)
 	e.Logger.Debug("processing record", "did", ident.DID, "path", path)
-	if err := e.Rules.CallRecordRules(&evt); err != nil {
+	if err := e.Rules.CallRecordRules(ctx, &evt); err != nil {
 		return err
 	}
 	if evt.Err != nil {
@@ -146,7 +146,7 @@ func (e *Engine) ProcessRecordDelete(ctx context.Context, did syntax.DID, path s
 	}
 	evt := e.NewRecordDeleteEvent(*am, path)
 	e.Logger.Debug("processing record deletion", "did", ident.DID, "path", path)
-	if err := e.Rules.CallRecordDeleteRules(&evt); err != nil {
+	if err := e.Rules.CallRecordDeleteRules(ctx, &evt); err != nil {
 		return err
 	}
 	if evt.Err != nil {

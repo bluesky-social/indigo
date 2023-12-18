@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"context"
 	"testing"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
@@ -12,6 +13,7 @@ import (
 )
 
 func TestBadHashtagPostRule(t *testing.T) {
+	ctx := context.Background()
 	assert := assert.New(t)
 
 	engine := automod.EngineTestFixture()
@@ -27,7 +29,7 @@ func TestBadHashtagPostRule(t *testing.T) {
 		Text: "some post blah",
 	}
 	evt1 := engine.NewRecordEvent(am1, path, cid1, &p1)
-	assert.NoError(BadHashtagsPostRule(&evt1, &p1))
+	assert.NoError(BadHashtagsPostRule(ctx, &evt1, &p1))
 	assert.Empty(evt1.RecordFlags)
 
 	p2 := appbsky.FeedPost{
@@ -35,6 +37,6 @@ func TestBadHashtagPostRule(t *testing.T) {
 		Tags: []string{"one", "slur"},
 	}
 	evt2 := engine.NewRecordEvent(am1, path, cid1, &p2)
-	assert.NoError(BadHashtagsPostRule(&evt2, &p2))
+	assert.NoError(BadHashtagsPostRule(ctx, &evt2, &p2))
 	assert.NotEmpty(evt2.RecordFlags)
 }

@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"context"
+
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/automod"
 )
@@ -10,7 +12,7 @@ var _ automod.PostRuleFunc = DistinctMentionsRule
 var mentionHourlyThreshold = 20
 
 // DistinctMentionsRule looks for accounts which mention an unusually large number of distinct accounts per period.
-func DistinctMentionsRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
+func DistinctMentionsRule(ctx context.Context, evt *automod.RecordEvent, post *appbsky.FeedPost) error {
 	did := evt.Account.Identity.DID.String()
 
 	// Increment counters for all new mentions in this post.

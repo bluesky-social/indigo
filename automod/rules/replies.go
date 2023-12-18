@@ -1,14 +1,21 @@
 package rules
 
 import (
+	"context"
+
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
+var (
+	_ automod.PostRuleFunc = ReplyCountPostRule
+	_ automod.PostRuleFunc = IdenticalReplyPostRule
+)
+
 // does not count "self-replies" (direct to self, or in own post thread)
-func ReplyCountPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
+func ReplyCountPostRule(ctx context.Context, evt *automod.RecordEvent, post *appbsky.FeedPost) error {
 	if post.Reply == nil || IsSelfThread(evt, post) {
 		return nil
 	}
@@ -34,7 +41,7 @@ var identicalReplyLimit = 5
 // Looks for accounts posting the exact same text multiple times. Does not currently count the number of distinct accounts replied to, just counts replies at all.
 //
 // There can be legitimate situations that trigger this rule, so in most situations should be a "report" not "label" action.
-func IdenticalReplyPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
+func IdenticalReplyPostRule(ctx context.Context, evt *automod.RecordEvent, post *appbsky.FeedPost) error {
 	if post.Reply == nil || IsSelfThread(evt, post) {
 		return nil
 	}

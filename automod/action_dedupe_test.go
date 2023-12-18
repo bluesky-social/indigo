@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func alwaysReportAccountRule(evt *RecordEvent) error {
+func alwaysReportAccountRule(ctx context.Context, evt *RecordEvent) error {
 	evt.ReportAccount(ReportReasonOther, "test report")
 	return nil
 }

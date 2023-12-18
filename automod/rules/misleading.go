@@ -12,6 +12,11 @@ import (
 	"github.com/bluesky-social/indigo/automod"
 )
 
+var (
+	_ automod.PostRuleFunc = MisleadingURLPostRule
+	_ automod.PostRuleFunc = MisleadingMentionPostRule
+)
+
 func isMisleadingURLFacet(facet PostFacet, logger *slog.Logger) bool {
 	linkURL, err := url.Parse(*facet.URL)
 	if err != nil {
@@ -78,7 +83,7 @@ func isMisleadingURLFacet(facet PostFacet, logger *slog.Logger) bool {
 	return false
 }
 
-func MisleadingURLPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
+func MisleadingURLPostRule(ctx context.Context, evt *automod.RecordEvent, post *appbsky.FeedPost) error {
 	// TODO: make this an InSet() config?
 	if evt.Account.Identity.Handle == "nowbreezing.ntw.app" {
 		return nil
@@ -100,9 +105,7 @@ func MisleadingURLPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) err
 	return nil
 }
 
-func MisleadingMentionPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
-	// TODO: do we really need to route context around? probably
-	ctx := context.TODO()
+func MisleadingMentionPostRule(ctx context.Context, evt *automod.RecordEvent, post *appbsky.FeedPost) error {
 	facets, err := ExtractFacets(post)
 	if err != nil {
 		evt.Logger.Warn("invalid facets", "err", err)
