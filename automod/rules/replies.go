@@ -39,6 +39,11 @@ func IdenticalReplyPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) er
 		return nil
 	}
 
+	// short reply? ignore it
+	if len(post.Text) <= 8 {
+		return nil
+	}
+
 	// use a specific period (IncrementPeriod()) to reduce the number of counters (one per unique post text)
 	period := automod.PeriodDay
 	bucket := evt.Account.Identity.DID.String() + "/" + HashOfString(post.Text)
