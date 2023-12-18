@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"unicode/utf8"
+
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
@@ -36,6 +38,11 @@ var identicalReplyLimit = 5
 // There can be legitimate situations that trigger this rule, so in most situations should be a "report" not "label" action.
 func IdenticalReplyPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
 	if post.Reply == nil || IsSelfThread(evt, post) {
+		return nil
+	}
+
+	// short reply? ignore it
+	if utf8.RuneCountInString(post.Text) <= 10 {
 		return nil
 	}
 
