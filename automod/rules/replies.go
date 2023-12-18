@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"unicode/utf8"
+
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
@@ -40,7 +42,7 @@ func IdenticalReplyPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) er
 	}
 
 	// short reply? ignore it
-	if len(post.Text) <= 8 {
+	if utf8.RuneCountInString(post.Text) <= 10 {
 		return nil
 	}
 
