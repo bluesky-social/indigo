@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"time"
 	"unicode/utf8"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
@@ -31,6 +32,7 @@ func ReplyCountPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error 
 	return nil
 }
 
+// triggers on the N+1 post, so 6th identical reply
 var identicalReplyLimit = 5
 
 // Looks for accounts posting the exact same text multiple times. Does not currently count the number of distinct accounts replied to, just counts replies at all.
@@ -41,18 +43,23 @@ func IdenticalReplyPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) er
 		return nil
 	}
 
-	// short reply? ignore it
+	// increment first. use a specific period (IncrementPeriod()) to reduce the number of counters (one per unique post text)
+	period := automod.PeriodDay
+	bucket := evt.Account.Identity.DID.String() + "/" + HashOfString(post.Text)
+	evt.IncrementPeriod("reply-text", bucket, period)
+
+	// don't action short replies, or accounts more than two weeks old
 	if utf8.RuneCountInString(post.Text) <= 10 {
 		return nil
 	}
+	age := time.Since(evt.Account.Private.IndexedAt)
+	if age > 2*7*24*time.Hour {
+		return nil
+	}
 
-	// use a specific period (IncrementPeriod()) to reduce the number of counters (one per unique post text)
-	period := automod.PeriodDay
-	bucket := evt.Account.Identity.DID.String() + "/" + HashOfString(post.Text)
 	if evt.GetCount("reply-text", bucket, period) >= identicalReplyLimit {
 		evt.AddAccountFlag("multi-identical-reply")
 	}
 
-	evt.IncrementPeriod("reply-text", bucket, period)
 	return nil
 }
