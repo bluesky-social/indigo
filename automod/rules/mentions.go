@@ -7,7 +7,7 @@ import (
 
 var _ automod.PostRuleFunc = DistinctMentionsRule
 
-var mentionHourlyThreshold = 20
+var mentionHourlyThreshold = 40
 
 // DistinctMentionsRule looks for accounts which mention an unusually large number of distinct accounts per period.
 func DistinctMentionsRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
