@@ -52,9 +52,11 @@ func IdenticalReplyPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) er
 	if utf8.RuneCountInString(post.Text) <= 10 {
 		return nil
 	}
-	age := time.Since(evt.Account.Private.IndexedAt)
-	if age > 2*7*24*time.Hour {
-		return nil
+	if evt.Account.Private != nil {
+		age := time.Since(evt.Account.Private.IndexedAt)
+		if age > 2*7*24*time.Hour {
+			return nil
+		}
 	}
 
 	if evt.GetCount("reply-text", bucket, period) >= identicalReplyLimit {
