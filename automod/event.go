@@ -281,6 +281,9 @@ func createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, evt RepoEvent,
 			},
 		},
 	})
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
