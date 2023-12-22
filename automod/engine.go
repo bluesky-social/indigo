@@ -28,6 +28,7 @@ type Engine struct {
 	// used to persist moderation actions in mod service (optional)
 	AdminClient     *xrpc.Client
 	SlackWebhookURL string
+	LogQuieter      bool
 }
 
 func (e *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.DID) error {

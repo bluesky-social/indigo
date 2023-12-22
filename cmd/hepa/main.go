@@ -144,6 +144,11 @@ var runCmd = &cli.Command{
 			Usage:   "full URL of slack webhook",
 			EnvVars: []string{"SLACK_WEBHOOK_URL"},
 		},
+		&cli.StringFlag{
+			Name:    "quieter",
+			Usage:   "log events to lower-level unless there is an action",
+			EnvVars: []string{"HEPA_QUIETER"},
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		ctx := context.Background()
@@ -172,6 +177,7 @@ var runCmd = &cli.Command{
 				SetsFileJSON:    cctx.String("sets-json-path"),
 				RedisURL:        cctx.String("redis-url"),
 				SlackWebhookURL: cctx.String("slack-webhook-url"),
+				LogQuieter:      cctx.Bool("quieter"),
 			},
 		)
 		if err != nil {

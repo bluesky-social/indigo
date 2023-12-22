@@ -40,6 +40,7 @@ type Config struct {
 	RedisURL        string
 	SlackWebhookURL string
 	Logger          *slog.Logger
+	LogQuieter      bool
 }
 
 func NewServer(dir identity.Directory, config Config) (*Server, error) {
@@ -141,6 +142,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 			Host:   config.BskyHost,
 		},
 		SlackWebhookURL: config.SlackWebhookURL,
+		LogQuieter:      config.LogQuieter,
 	}
 
 	s := &Server{

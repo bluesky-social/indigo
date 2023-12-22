@@ -414,8 +414,22 @@ func (e *RepoEvent) PersistCounters(ctx context.Context) error {
 	return nil
 }
 
+func (e *RepoEvent) AnyActions() bool {
+	if len(e.AccountLabels) > 0 || len(e.AccountFlags) > 0 || e.AccountTakedown || len(e.AccountReports) > 0 {
+		return true
+	}
+	return false
+}
+
 func (e *RepoEvent) CanonicalLogLine() {
-	e.Logger.Info("canonical-event-line",
+	level := slog.LevelInfo
+	if e.Engine.LogQuieter && !e.AnyActions() {
+		level = slog.LevelDebug
+	}
+	e.Logger.Log(
+		context.Background(),
+		level,
+		"canonical-event-line",
 		"accountLabels", e.AccountLabels,
 		"accountFlags", e.AccountFlags,
 		"accountTakedown", e.AccountTakedown,
@@ -574,8 +588,25 @@ func (e *RecordEvent) PersistActions(ctx context.Context) error {
 	return e.PersistRecordActions(ctx)
 }
 
+func (e *RecordEvent) AnyActions() bool {
+	if e.RepoEvent.AnyActions() {
+		return true
+	}
+	if len(e.RecordLabels) > 0 || len(e.RecordFlags) > 0 || e.RecordTakedown || len(e.RecordReports) > 0 {
+		return true
+	}
+	return false
+}
+
 func (e *RecordEvent) CanonicalLogLine() {
-	e.Logger.Info("canonical-event-line",
+	level := slog.LevelInfo
+	if e.Engine.LogQuieter && !e.AnyActions() {
+		level = slog.LevelDebug
+	}
+	e.Logger.Log(
+		context.Background(),
+		level,
+		"canonical-event-line",
 		"accountLabels", e.AccountLabels,
 		"accountFlags", e.AccountFlags,
 		"accountTakedown", e.AccountTakedown,
