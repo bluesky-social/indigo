@@ -11,6 +11,7 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/bluesky-social/indigo/automod/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -164,7 +165,7 @@ func slackBody(header string, acct AccountMeta, newLabels, newFlags []string, ne
 
 func dedupeLabelActions(labels, existing, existingNegated []string) []string {
 	newLabels := []string{}
-	for _, val := range dedupeStrings(labels) {
+	for _, val := range util.DedupeStrings(labels) {
 		exists := false
 		for _, e := range existingNegated {
 			if val == e {
@@ -187,7 +188,7 @@ func dedupeLabelActions(labels, existing, existingNegated []string) []string {
 
 func dedupeFlagActions(flags, existing []string) []string {
 	newFlags := []string{}
-	for _, val := range dedupeStrings(flags) {
+	for _, val := range util.DedupeStrings(flags) {
 		exists := false
 		for _, e := range existing {
 			if val == e {
@@ -483,8 +484,8 @@ func (e *RecordEvent) ReportRecord(reason, comment string) {
 func (e *RecordEvent) PersistRecordActions(ctx context.Context) error {
 
 	// NOTE: record-level actions are *not* currently de-duplicated (aka, the same record could be labeled multiple times, or re-reported, etc)
-	newLabels := dedupeStrings(e.RecordLabels)
-	newFlags := dedupeStrings(e.RecordFlags)
+	newLabels := util.DedupeStrings(e.RecordLabels)
+	newFlags := util.DedupeStrings(e.RecordFlags)
 	newReports := circuitBreakReports(&e.RepoEvent, e.RecordReports)
 	newTakedown := circuitBreakTakedown(&e.RepoEvent, e.RecordTakedown)
 	atURI := fmt.Sprintf("at://%s/%s/%s", e.Account.Identity.DID, e.Collection, e.RecordKey)

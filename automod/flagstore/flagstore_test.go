@@ -1,4 +1,4 @@
-package automod
+package flagstore
 
 import (
 	"context"
@@ -7,15 +7,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRedisFlagStoreBasics(t *testing.T) {
-	t.Skip("live test, need redis running locally")
+func TestFlagStoreBasics(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
 
-	fs, err := NewRedisFlagStore("redis://localhost:6379/0")
-	if err != nil {
-		t.Fail()
-	}
+	fs := NewMemFlagStore()
 
 	l, err := fs.Get(ctx, "test1")
 	assert.NoError(err)
@@ -27,9 +23,8 @@ func TestRedisFlagStoreBasics(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal(3, len(l))
 
-	assert.NoError(fs.Remove(ctx, "test1", []string{"red", "blue", "orange"}))
+	assert.NoError(fs.Remove(ctx, "test1", []string{"red", "blue"}))
 	l, err = fs.Get(ctx, "test1")
 	assert.NoError(err)
 	assert.Equal([]string{"green"}, l)
-	assert.NoError(fs.Remove(ctx, "test1", []string{"green"}))
 }
