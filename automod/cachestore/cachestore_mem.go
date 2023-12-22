@@ -1,4 +1,4 @@
-package automod
+package cachestore
 
 import (
 	"context"
@@ -6,12 +6,6 @@ import (
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
 )
-
-type CacheStore interface {
-	Get(ctx context.Context, name, key string) (string, error)
-	Set(ctx context.Context, name, key string, val string) error
-	Purge(ctx context.Context, name, key string) error
-}
 
 type MemCacheStore struct {
 	Data *expirable.LRU[string, string]

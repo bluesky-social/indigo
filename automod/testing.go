@@ -11,7 +11,10 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/automod/cachestore"
 	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/bluesky-social/indigo/automod/flagstore"
+	"github.com/bluesky-social/indigo/automod/setstore"
 )
 
 func simpleRule(evt *RecordEvent, post *appbsky.FeedPost) error {
@@ -41,9 +44,9 @@ func EngineTestFixture() Engine {
 			simpleRule,
 		},
 	}
-	cache := NewMemCacheStore(10, time.Hour)
-	flags := NewMemFlagStore()
-	sets := NewMemSetStore()
+	cache := cachestore.NewMemCacheStore(10, time.Hour)
+	flags := flagstore.NewMemFlagStore()
+	sets := setstore.NewMemSetStore()
 	sets.Sets["bad-hashtags"] = make(map[string]bool)
 	sets.Sets["bad-hashtags"]["slur"] = true
 	dir := identity.NewMockDirectory()

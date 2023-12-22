@@ -1,14 +1,10 @@
-package automod
+package flagstore
 
 import (
 	"context"
-)
 
-type FlagStore interface {
-	Get(ctx context.Context, key string) ([]string, error)
-	Add(ctx context.Context, key string, flags []string) error
-	Remove(ctx context.Context, key string, flags []string) error
-}
+	"github.com/bluesky-social/indigo/automod/util"
+)
 
 type MemFlagStore struct {
 	Data map[string][]string
@@ -36,7 +32,7 @@ func (s MemFlagStore) Add(ctx context.Context, key string, flags []string) error
 	for _, f := range flags {
 		v = append(v, f)
 	}
-	v = dedupeStrings(v)
+	v = util.DedupeStrings(v)
 	s.Data[key] = v
 	return nil
 }
