@@ -11,6 +11,7 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
 func simpleRule(evt *RecordEvent, post *appbsky.FeedPost) error {
@@ -54,7 +55,7 @@ func EngineTestFixture() Engine {
 	engine := Engine{
 		Logger:    slog.Default(),
 		Directory: &dir,
-		Counters:  NewMemCountStore(),
+		Counters:  countstore.NewMemCountStore(),
 		Sets:      sets,
 		Flags:     flags,
 		Cache:     cache,

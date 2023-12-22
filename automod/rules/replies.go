@@ -44,7 +44,7 @@ func IdenticalReplyPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) er
 	}
 
 	// increment first. use a specific period (IncrementPeriod()) to reduce the number of counters (one per unique post text)
-	period := automod.PeriodDay
+	period := countstore.PeriodDay
 	bucket := evt.Account.Identity.DID.String() + "/" + HashOfString(post.Text)
 	evt.IncrementPeriod("reply-text", bucket, period)
 

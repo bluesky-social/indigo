@@ -7,6 +7,7 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/automod/countstore"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -39,7 +40,7 @@ func TestAccountReportDedupe(t *testing.T) {
 		assert.NoError(engine.ProcessRecord(ctx, id1.DID, path, cid1, &p1))
 	}
 
-	reports, err := engine.GetCount("automod-quota", "report", PeriodDay)
+	reports, err := engine.GetCount("automod-quota", "report", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(1, reports)
 }
