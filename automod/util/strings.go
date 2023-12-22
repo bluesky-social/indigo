@@ -1,6 +1,6 @@
-package automod
+package util
 
-func dedupeStrings(in []string) []string {
+func DedupeStrings(in []string) []string {
 	var out []string
 	seen := make(map[string]bool)
 	for _, v := range in {

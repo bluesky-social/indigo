@@ -13,6 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/bluesky-social/indigo/automod/flagstore"
 	"github.com/bluesky-social/indigo/automod/rules"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -89,7 +90,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 
 	var counters countstore.CountStore
 	var cache automod.CacheStore
-	var flags automod.FlagStore
+	var flags flagstore.FlagStore
 	var rdb *redis.Client
 	if config.RedisURL != "" {
 		// generic client, for cursor state
@@ -116,7 +117,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		}
 		cache = csh
 
-		flg, err := automod.NewRedisFlagStore(config.RedisURL)
+		flg, err := flagstore.NewRedisFlagStore(config.RedisURL)
 		if err != nil {
 			return nil, fmt.Errorf("initializing redis flagstore: %v", err)
 		}
@@ -124,7 +125,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 	} else {
 		counters = countstore.NewMemCountStore()
 		cache = automod.NewMemCacheStore(5_000, 30*time.Minute)
-		flags = automod.NewMemFlagStore()
+		flags = flagstore.NewMemFlagStore()
 	}
 
 	engine := automod.Engine{

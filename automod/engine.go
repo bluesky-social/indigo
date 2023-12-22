@@ -9,6 +9,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/bluesky-social/indigo/automod/flagstore"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -22,7 +23,7 @@ type Engine struct {
 	Counters    countstore.CountStore
 	Sets        SetStore
 	Cache       CacheStore
-	Flags       FlagStore
+	Flags       flagstore.FlagStore
 	RelayClient *xrpc.Client
 	BskyClient  *xrpc.Client
 	// used to persist moderation actions in mod service (optional)
