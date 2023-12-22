@@ -8,6 +8,7 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/automod/countstore"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -49,11 +50,11 @@ func TestTakedownCircuitBreaker(t *testing.T) {
 		assert.NoError(engine.ProcessRecord(ctx, ident.DID, path, cid1, &p1))
 	}
 
-	takedowns, err := engine.GetCount("automod-quota", "takedown", PeriodDay)
+	takedowns, err := engine.GetCount("automod-quota", "takedown", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(QuotaModTakedownDay, takedowns)
 
-	reports, err := engine.GetCount("automod-quota", "report", PeriodDay)
+	reports, err := engine.GetCount("automod-quota", "report", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(0, reports)
 }
@@ -84,11 +85,11 @@ func TestReportCircuitBreaker(t *testing.T) {
 		assert.NoError(engine.ProcessRecord(ctx, ident.DID, path, cid1, &p1))
 	}
 
-	takedowns, err := engine.GetCount("automod-quota", "takedown", PeriodDay)
+	takedowns, err := engine.GetCount("automod-quota", "takedown", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(0, takedowns)
 
-	reports, err := engine.GetCount("automod-quota", "report", PeriodDay)
+	reports, err := engine.GetCount("automod-quota", "report", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(QuotaModReportDay, reports)
 }

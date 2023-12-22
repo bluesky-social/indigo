@@ -3,6 +3,7 @@ package rules
 import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
 var _ automod.PostRuleFunc = DistinctMentionsRule
@@ -30,7 +31,7 @@ func DistinctMentionsRule(evt *automod.RecordEvent, post *appbsky.FeedPost) erro
 	if !newMentions {
 		return nil
 	}
-	if mentionHourlyThreshold <= evt.GetCountDistinct("mentions", did, automod.PeriodHour) {
+	if mentionHourlyThreshold <= evt.GetCountDistinct("mentions", did, countstore.PeriodHour) {
 		evt.AddAccountFlag("high-distinct-mentions")
 	}
 
