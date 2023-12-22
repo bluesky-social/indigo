@@ -14,6 +14,7 @@ import (
 	"github.com/bluesky-social/indigo/automod/cachestore"
 	"github.com/bluesky-social/indigo/automod/countstore"
 	"github.com/bluesky-social/indigo/automod/flagstore"
+	"github.com/bluesky-social/indigo/automod/setstore"
 )
 
 func simpleRule(evt *RecordEvent, post *appbsky.FeedPost) error {
@@ -45,7 +46,7 @@ func EngineTestFixture() Engine {
 	}
 	cache := cachestore.NewMemCacheStore(10, time.Hour)
 	flags := flagstore.NewMemFlagStore()
-	sets := NewMemSetStore()
+	sets := setstore.NewMemSetStore()
 	sets.Sets["bad-hashtags"] = make(map[string]bool)
 	sets.Sets["bad-hashtags"]["slur"] = true
 	dir := identity.NewMockDirectory()

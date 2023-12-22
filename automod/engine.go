@@ -11,6 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/automod/cachestore"
 	"github.com/bluesky-social/indigo/automod/countstore"
 	"github.com/bluesky-social/indigo/automod/flagstore"
+	"github.com/bluesky-social/indigo/automod/setstore"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -22,7 +23,7 @@ type Engine struct {
 	Directory   identity.Directory
 	Rules       RuleSet
 	Counters    countstore.CountStore
-	Sets        SetStore
+	Sets        setstore.SetStore
 	Cache       cachestore.CacheStore
 	Flags       flagstore.FlagStore
 	RelayClient *xrpc.Client
