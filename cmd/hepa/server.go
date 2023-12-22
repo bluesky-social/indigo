@@ -16,6 +16,7 @@ import (
 	"github.com/bluesky-social/indigo/automod/countstore"
 	"github.com/bluesky-social/indigo/automod/flagstore"
 	"github.com/bluesky-social/indigo/automod/rules"
+	"github.com/bluesky-social/indigo/automod/setstore"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -80,7 +81,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		xrpcc.Auth.Handle = auth.Handle
 	}
 
-	sets := automod.NewMemSetStore()
+	sets := setstore.NewMemSetStore()
 	if config.SetsFileJSON != "" {
 		if err := sets.LoadFromFileJSON(config.SetsFileJSON); err != nil {
 			return nil, fmt.Errorf("initializing in-process setstore: %v", err)
