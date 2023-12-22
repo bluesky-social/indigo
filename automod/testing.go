@@ -11,6 +11,7 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/automod/cachestore"
 	"github.com/bluesky-social/indigo/automod/countstore"
 	"github.com/bluesky-social/indigo/automod/flagstore"
 )
@@ -42,7 +43,7 @@ func EngineTestFixture() Engine {
 			simpleRule,
 		},
 	}
-	cache := NewMemCacheStore(10, time.Hour)
+	cache := cachestore.NewMemCacheStore(10, time.Hour)
 	flags := flagstore.NewMemFlagStore()
 	sets := NewMemSetStore()
 	sets.Sets["bad-hashtags"] = make(map[string]bool)
