@@ -1,45 +1,19 @@
-package automod
+package engine
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/automod/event"
 	"github.com/bluesky-social/indigo/automod/util"
 )
 
-type ProfileSummary struct {
-	HasAvatar   bool
-	Description *string
-	DisplayName *string
-}
-
-type AccountPrivate struct {
-	Email          string
-	EmailConfirmed bool
-	IndexedAt      time.Time
-}
-
-// information about a repo/account/identity, always pre-populated and relevant to many rules
-type AccountMeta struct {
-	Identity             *identity.Identity
-	Profile              ProfileSummary
-	Private              *AccountPrivate
-	AccountLabels        []string
-	AccountNegatedLabels []string
-	AccountFlags         []string
-	FollowersCount       int64
-	FollowsCount         int64
-	PostsCount           int64
-	Takendown            bool
-}
-
-func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (*AccountMeta, error) {
+func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (*event.AccountMeta, error) {
 
 	// wipe parsed public key; it's a waste of space and can't serialize
 	ident.ParsedPublicKey = nil
@@ -47,9 +21,9 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 	// fallback in case client wasn't configured (eg, testing)
 	if e.BskyClient == nil {
 		e.Logger.Warn("skipping account meta hydration")
-		am := AccountMeta{
+		am := event.AccountMeta{
 			Identity: ident,
-			Profile:  ProfileSummary{},
+			Profile:  event.ProfileSummary{},
 		}
 		return &am, nil
 	}
@@ -59,7 +33,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 		return nil, err
 	}
 	if existing != "" {
-		var am AccountMeta
+		var am event.AccountMeta
 		err := json.Unmarshal([]byte(existing), &am)
 		if err != nil {
 			return nil, fmt.Errorf("parsing AccountMeta from cache: %v", err)
@@ -89,9 +63,9 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 		return nil, err
 	}
 
-	am := AccountMeta{
+	am := event.AccountMeta{
 		Identity: ident,
-		Profile: ProfileSummary{
+		Profile: event.ProfileSummary{
 			HasAvatar:   pv.Avatar != nil,
 			Description: pv.Description,
 			DisplayName: pv.DisplayName,
@@ -115,7 +89,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 		if err != nil {
 			return nil, err
 		}
-		ap := AccountPrivate{}
+		ap := event.AccountPrivate{}
 		if pv.Email != nil && *pv.Email != "" {
 			ap.Email = *pv.Email
 		}

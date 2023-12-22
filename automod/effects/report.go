@@ -1,4 +1,4 @@
-package automod
+package effects
 
 type ModReport struct {
 	ReasonType string
@@ -14,7 +14,7 @@ var (
 	ReportReasonOther      = "com.atproto.moderation.defs#reasonOther"
 )
 
-func reasonShortName(reason string) string {
+func ReasonShortName(reason string) string {
 	switch reason {
 	case ReportReasonSpam:
 		return "spam"
