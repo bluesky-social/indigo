@@ -10,6 +10,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/automod/countstore"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -205,7 +206,7 @@ func dedupeReportActions(evt *RepoEvent, reports []ModReport) []ModReport {
 	newReports := []ModReport{}
 	for _, r := range reports {
 		counterName := "automod-account-report-" + reasonShortName(r.ReasonType)
-		existing := evt.GetCount(counterName, evt.Account.Identity.DID.String(), PeriodDay)
+		existing := evt.GetCount(counterName, evt.Account.Identity.DID.String(), countstore.PeriodDay)
 		if existing > 0 {
 			evt.Logger.Debug("skipping account report due to counter", "existing", existing, "reason", reasonShortName(r.ReasonType))
 		} else {
@@ -220,7 +221,7 @@ func circuitBreakReports(evt *RepoEvent, reports []ModReport) []ModReport {
 	if len(reports) == 0 {
 		return []ModReport{}
 	}
-	if evt.GetCount("automod-quota", "report", PeriodDay) >= QuotaModReportDay {
+	if evt.GetCount("automod-quota", "report", countstore.PeriodDay) >= QuotaModReportDay {
 		evt.Logger.Warn("CIRCUIT BREAKER: automod reports")
 		return []ModReport{}
 	}
@@ -232,7 +233,7 @@ func circuitBreakTakedown(evt *RepoEvent, takedown bool) bool {
 	if !takedown {
 		return takedown
 	}
-	if evt.GetCount("automod-quota", "takedown", PeriodDay) >= QuotaModTakedownDay {
+	if evt.GetCount("automod-quota", "takedown", countstore.PeriodDay) >= QuotaModTakedownDay {
 		evt.Logger.Warn("CIRCUIT BREAKER: automod takedowns")
 		return false
 	}
