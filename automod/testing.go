@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/bluesky-social/indigo/automod/flagstore"
 )
 
 func simpleRule(evt *RecordEvent, post *appbsky.FeedPost) error {
@@ -42,7 +43,7 @@ func EngineTestFixture() Engine {
 		},
 	}
 	cache := NewMemCacheStore(10, time.Hour)
-	flags := NewMemFlagStore()
+	flags := flagstore.NewMemFlagStore()
 	sets := NewMemSetStore()
 	sets.Sets["bad-hashtags"] = make(map[string]bool)
 	sets.Sets["bad-hashtags"]["slur"] = true
