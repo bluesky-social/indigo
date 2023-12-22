@@ -1,4 +1,4 @@
-package automod
+package directory
 
 import (
 	"context"
