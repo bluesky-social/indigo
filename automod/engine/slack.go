@@ -1,4 +1,4 @@
-package automod
+package engine
 
 import (
 	"bytes"

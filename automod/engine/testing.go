@@ -1,4 +1,4 @@
-package automod
+package engine
 
 import (
 	"context"
@@ -13,11 +13,13 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod/cachestore"
 	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/bluesky-social/indigo/automod/effects"
+	"github.com/bluesky-social/indigo/automod/event"
 	"github.com/bluesky-social/indigo/automod/flagstore"
 	"github.com/bluesky-social/indigo/automod/setstore"
 )
 
-func simpleRule(evt *RecordEvent, post *appbsky.FeedPost) error {
+func simpleRule(evt *event.RecordEvent, post *appbsky.FeedPost) error {
 	for _, tag := range post.Tags {
 		if evt.InSet("bad-hashtags", tag) {
 			evt.AddRecordLabel("bad-hashtag")
@@ -89,32 +91,33 @@ func MustLoadCapture(capPath string) AccountCapture {
 // Test helper which processes all the records from a capture. Intentionally exported, for use in other packages.
 //
 // This method replaces any pre-existing directory on the engine with a mock directory.
-func ProcessCaptureRules(e *Engine, capture AccountCapture) error {
+func ProcessCaptureRules(eng *Engine, capture AccountCapture) error {
 	ctx := context.Background()
 
 	dir := identity.NewMockDirectory()
 	dir.Insert(*capture.AccountMeta.Identity)
-	e.Directory = &dir
+	eng.Directory = &dir
 
 	// initial identity rules
-	idevt := IdentityEvent{
-		RepoEvent{
-			Engine:  e,
-			Logger:  e.Logger.With("did", capture.AccountMeta.Identity.DID),
+	// REVIEW: this area should... use the real code path that does the same thing, if at all possible?  Currently this seems like great drift danger.
+	idevt := &event.IdentityEvent{
+		RepoEvent: event.RepoEvent{
 			Account: capture.AccountMeta,
 		},
 	}
-	if err := e.Rules.CallIdentityRules(&idevt); err != nil {
+	ideff := &effects.IdentityEffect{
+		RepoEffect: effects.RepoEffect{
+			Logger: eng.Logger.With("did", capture.AccountMeta.Identity.DID),
+		},
+	}
+	if err := eng.Rules.CallIdentityRules(idevt, ideff); err != nil {
 		return err
 	}
-	if idevt.Err != nil {
-		return idevt.Err
-	}
-	idevt.CanonicalLogLine()
-	if err := idevt.PersistActions(ctx); err != nil {
+	ideff.CanonicalLogLine()
+	if err := idevt.persistAccountEffects(ctx, evt, eff); err != nil {
 		return err
 	}
-	if err := idevt.PersistCounters(ctx); err != nil {
+	if err := idevt.persistCounters(ctx); err != nil {
 		return err
 	}
 
@@ -125,17 +128,15 @@ func ProcessCaptureRules(e *Engine, capture AccountCapture) error {
 			return err
 		}
 		path := aturi.Collection().String() + "/" + aturi.RecordKey().String()
-		evt := e.NewRecordEvent(capture.AccountMeta, path, pr.Cid, pr.Value.Val)
-		e.Logger.Debug("processing record", "did", aturi.Authority(), "path", path)
-		if err := e.Rules.CallRecordRules(&evt); err != nil {
+		evt, eff := eng.NewRecordProcessingContext(capture.AccountMeta, path, pr.Cid, pr.Value.Val)
+		// REVIEW: this area should... use the real code path that does the same thing, if at all possible?  Currently this seems like great drift danger.
+		eng.Logger.Debug("processing record", "did", aturi.Authority(), "path", path)
+		if err := eng.Rules.CallRecordRules(evt, eff); err != nil {
 			return err
 		}
-		if evt.Err != nil {
-			return evt.Err
-		}
-		evt.CanonicalLogLine()
+		eff.CanonicalLogLine()
 		// NOTE: not purging account meta when profile is updated
-		if err := evt.PersistActions(ctx); err != nil {
+		if err := eng.persistAccountEffects(ctx, evt, eff); err != nil {
 			return err
 		}
 		if err := evt.PersistCounters(ctx); err != nil {
