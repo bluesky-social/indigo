@@ -30,6 +30,7 @@ type NotificationListNotifications_Notification struct {
 type NotificationListNotifications_Output struct {
 	Cursor        *string                                       `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
 	Notifications []*NotificationListNotifications_Notification `json:"notifications" cborgen:"notifications"`
+	SeenAt        *string                                       `json:"seenAt,omitempty" cborgen:"seenAt,omitempty"`
 }
 
 // NotificationListNotifications calls the XRPC method "app.bsky.notification.listNotifications".

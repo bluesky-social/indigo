@@ -12,6 +12,8 @@ import (
 
 // AdminSendEmail_Input is the input argument to a com.atproto.admin.sendEmail call.
 type AdminSendEmail_Input struct {
+	// comment: Additional comment by the sender that won't be used in the email itself but helpful to provide more context for moderators/reviewers
+	Comment      *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	Content      string  `json:"content" cborgen:"content"`
 	RecipientDid string  `json:"recipientDid" cborgen:"recipientDid"`
 	SenderDid    string  `json:"senderDid" cborgen:"senderDid"`
