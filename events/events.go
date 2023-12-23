@@ -8,7 +8,6 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	label "github.com/bluesky-social/indigo/api/label"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -141,8 +140,8 @@ type XRPCStreamEvent struct {
 	RepoInfo      *comatproto.SyncSubscribeRepos_Info
 	RepoMigrate   *comatproto.SyncSubscribeRepos_Migrate
 	RepoTombstone *comatproto.SyncSubscribeRepos_Tombstone
-	LabelLabels   *label.SubscribeLabels_Labels
-	LabelInfo     *label.SubscribeLabels_Info
+	LabelLabels   *comatproto.LabelSubscribeLabels_Labels
+	LabelInfo     *comatproto.LabelSubscribeLabels_Info
 
 	// some private fields for internal routing perf
 	PrivUid         models.Uid `json:"-" cborgen:"-"`

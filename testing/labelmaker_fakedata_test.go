@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	label "github.com/bluesky-social/indigo/api/label"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
@@ -101,7 +101,7 @@ func labelEvents(t *testing.T, lm *labeler.Server, since int64) *EventStream {
 
 	go func() {
 		rsc := &events.RepoStreamCallbacks{
-			LabelLabels: func(evt *label.SubscribeLabels_Labels) error {
+			LabelLabels: func(evt *comatproto.LabelSubscribeLabels_Labels) error {
 				fmt.Println("received event: ", evt.Seq)
 				es.Lk.Lock()
 				es.Events = append(es.Events, &events.XRPCStreamEvent{LabelLabels: evt})
@@ -164,7 +164,7 @@ func TestLabelmakerBasic(t *testing.T) {
 	}
 
 	// no auth required
-	queryOut, err := label.QueryLabels(ctx, &xrpcc, "", 20, []string{}, []string{"*"})
+	queryOut, err := comatproto.LabelQueryLabels(ctx, &xrpcc, "", 20, []string{}, []string{"*"})
 	assert.NoError(err)
 	assert.Equal(0, len(queryOut.Labels))
 	assert.Nil(queryOut.Cursor)
