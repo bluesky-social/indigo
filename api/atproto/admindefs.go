@@ -105,6 +105,8 @@ type AdminDefs_ModEventComment struct {
 // RECORDTYPE: AdminDefs_ModEventEmail
 type AdminDefs_ModEventEmail struct {
 	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs#modEventEmail" cborgen:"$type,const=com.atproto.admin.defs#modEventEmail"`
+	// comment: Additional comment about the outgoing comm.
+	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	// subjectLine: The subject line of the email sent to the user.
 	SubjectLine string `json:"subjectLine" cborgen:"subjectLine"`
 }
