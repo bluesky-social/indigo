@@ -7,15 +7,15 @@ package atproto
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	//"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // TempTransferAccount_Input is the input argument to a com.atproto.temp.transferAccount call.
 type TempTransferAccount_Input struct {
-	Did    string                   `json:"did" cborgen:"did"`
-	Handle string                   `json:"handle" cborgen:"handle"`
-	PlcOp  *util.LexiconTypeDecoder `json:"plcOp" cborgen:"plcOp"`
+	Did    string `json:"did" cborgen:"did"`
+	Handle string `json:"handle" cborgen:"handle"`
+	//PlcOp  *util.LexiconTypeDecoder `json:"plcOp" cborgen:"plcOp"`
 }
 
 // TempTransferAccount_Output is the output of a com.atproto.temp.transferAccount call.
