@@ -175,10 +175,13 @@ func TestLabelMakerXRPCLabelQuery(t *testing.T) {
 	assert.Equal(0, len(out1.Labels))
 
 	// create a label, then query
+	neg := false
 	l3 := comatproto.LabelDefs_Label{
 		Uri: "at://did:plc:fake/com.example/abc234",
 		Val: "example",
 		Cts: "2023-03-15T22:16:18.408Z",
+		// TODO: temporary hack, should just be null
+		Neg: &neg,
 	}
 	lm.CommitLabels(ctx, []*comatproto.LabelDefs_Label{&l3}, false)
 	p3 := make(url.Values)
