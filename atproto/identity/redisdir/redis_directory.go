@@ -10,8 +10,6 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/go-redis/cache/v9"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -32,13 +30,13 @@ type RedisDirectory struct {
 	handleLookupChans sync.Map
 }
 
-type HandleEntry struct {
+type handleEntry struct {
 	Updated time.Time
 	DID     syntax.DID
 	Err     error
 }
 
-type IdentityEntry struct {
+type identityEntry struct {
 	Updated  time.Time
 	Identity *identity.Identity
 	Err      error
@@ -46,7 +44,12 @@ type IdentityEntry struct {
 
 var _ identity.Directory = (*RedisDirectory)(nil)
 
-func NewRedisDirectory(inner identity.Directory, redisURL string, hitTTL, errTTL time.Duration) (*RedisDirectory, error) {
+// Creates a new caching `identity.Directory` wrapper around an existing directory, using Redis and in-process LRU for caching.
+//
+// `redisURL` contains all the redis connection config options.
+// `hitTTL` and `errTTL` define how long successful and errored identity metadata should be cached (respectively). errTTL is expected to be shorted than hitTTL.
+// `lruSize` is the size of the in-process cache, for each of the handle and identity caches. 10000 is a reasonable default.
+func NewRedisDirectory(inner identity.Directory, redisURL string, hitTTL, errTTL time.Duration, lruSize int) (*RedisDirectory, error) {
 	opt, err := redis.ParseURL(redisURL)
 	if err != nil {
 		return nil, err
@@ -59,11 +62,11 @@ func NewRedisDirectory(inner identity.Directory, redisURL string, hitTTL, errTTL
 	}
 	handleCache := cache.New(&cache.Options{
 		Redis:      rdb,
-		LocalCache: cache.NewTinyLFU(10_000, hitTTL),
+		LocalCache: cache.NewTinyLFU(lruSize, hitTTL),
 	})
 	identityCache := cache.New(&cache.Options{
 		Redis:      rdb,
-		LocalCache: cache.NewTinyLFU(10_000, hitTTL),
+		LocalCache: cache.NewTinyLFU(lruSize, hitTTL),
 	})
 	return &RedisDirectory{
 		Inner:         inner,
@@ -74,25 +77,25 @@ func NewRedisDirectory(inner identity.Directory, redisURL string, hitTTL, errTTL
 	}, nil
 }
 
-func (d *RedisDirectory) IsHandleStale(e *HandleEntry) bool {
+func (d *RedisDirectory) isHandleStale(e *handleEntry) bool {
 	if e.Err != nil && time.Since(e.Updated) > d.ErrTTL {
 		return true
 	}
 	return false
 }
 
-func (d *RedisDirectory) IsIdentityStale(e *IdentityEntry) bool {
+func (d *RedisDirectory) isIdentityStale(e *identityEntry) bool {
 	if e.Err != nil && time.Since(e.Updated) > d.ErrTTL {
 		return true
 	}
 	return false
 }
 
-func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*HandleEntry, error) {
+func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*handleEntry, error) {
 	h = h.Normalize()
 	ident, err := d.Inner.LookupHandle(ctx, h)
 	if err != nil {
-		he := HandleEntry{
+		he := handleEntry{
 			Updated: time.Now(),
 			DID:     "",
 			Err:     err,
@@ -110,12 +113,12 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*Ha
 	}
 
 	ident.ParsedPublicKey = nil
-	entry := IdentityEntry{
+	entry := identityEntry{
 		Updated:  time.Now(),
 		Identity: ident,
 		Err:      nil,
 	}
-	he := HandleEntry{
+	he := handleEntry{
 		Updated: time.Now(),
 		DID:     ident.DID,
 		Err:     nil,
@@ -143,12 +146,12 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*Ha
 }
 
 func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
-	var entry HandleEntry
+	var entry handleEntry
 	err := d.handleCache.Get(ctx, redisDirPrefix+h.String(), &entry)
 	if err != nil && err != cache.ErrCacheMiss {
 		return "", err
 	}
-	if err != cache.ErrCacheMiss && !d.IsHandleStale(&entry) {
+	if err != cache.ErrCacheMiss && !d.isHandleStale(&entry) {
 		handleCacheHits.Inc()
 		return entry.DID, entry.Err
 	}
@@ -167,7 +170,7 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 			if err != nil && err != cache.ErrCacheMiss {
 				return "", err
 			}
-			if err != cache.ErrCacheMiss && !d.IsHandleStale(&entry) {
+			if err != cache.ErrCacheMiss && !d.isHandleStale(&entry) {
 				return entry.DID, entry.Err
 			}
 			return "", fmt.Errorf("identity not found in cache after coalesce returned")
@@ -190,22 +193,22 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 	return did, err
 }
 
-func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) (*IdentityEntry, error) {
+func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) (*identityEntry, error) {
 	ident, err := d.Inner.LookupDID(ctx, did)
 	// wipe parsed public key; it's a waste of space and can't serialize
 	if nil == err {
 		ident.ParsedPublicKey = nil
 	}
 	// persist the identity lookup error, instead of processing it immediately
-	entry := IdentityEntry{
+	entry := identityEntry{
 		Updated:  time.Now(),
 		Identity: ident,
 		Err:      err,
 	}
-	var he *HandleEntry
+	var he *handleEntry
 	// if *not* an error, then also update the handle cache
 	if nil == err && !ident.Handle.IsInvalidHandle() {
-		he = &HandleEntry{
+		he = &handleEntry{
 			Updated: time.Now(),
 			DID:     did,
 			Err:     nil,
@@ -236,12 +239,12 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) (*Identi
 }
 
 func (d *RedisDirectory) LookupDID(ctx context.Context, did syntax.DID) (*identity.Identity, error) {
-	var entry IdentityEntry
+	var entry identityEntry
 	err := d.identityCache.Get(ctx, redisDirPrefix+did.String(), &entry)
 	if err != nil && err != cache.ErrCacheMiss {
 		return nil, err
 	}
-	if err != cache.ErrCacheMiss && !d.IsIdentityStale(&entry) {
+	if err != cache.ErrCacheMiss && !d.isIdentityStale(&entry) {
 		identityCacheHits.Inc()
 		return entry.Identity, entry.Err
 	}
@@ -260,7 +263,7 @@ func (d *RedisDirectory) LookupDID(ctx context.Context, did syntax.DID) (*identi
 			if err != nil && err != cache.ErrCacheMiss {
 				return nil, err
 			}
-			if err != cache.ErrCacheMiss && !d.IsIdentityStale(&entry) {
+			if err != cache.ErrCacheMiss && !d.isIdentityStale(&entry) {
 				return entry.Identity, entry.Err
 			}
 			return nil, fmt.Errorf("identity not found in cache after coalesce returned")
@@ -327,33 +330,3 @@ func (d *RedisDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error
 	}
 	return fmt.Errorf("at-identifier neither a Handle nor a DID")
 }
-
-var handleCacheHits = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "atproto_redis_directory_handle_cache_hits",
-	Help: "Number of cache hits for ATProto handle lookups",
-})
-
-var handleCacheMisses = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "atproto_redis_directory_handle_cache_misses",
-	Help: "Number of cache misses for ATProto handle lookups",
-})
-
-var identityCacheHits = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "atproto_redis_directory_identity_cache_hits",
-	Help: "Number of cache hits for ATProto identity lookups",
-})
-
-var identityCacheMisses = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "atproto_redis_directory_identity_cache_misses",
-	Help: "Number of cache misses for ATProto identity lookups",
-})
-
-var identityRequestsCoalesced = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "atproto_redis_directory_identity_requests_coalesced",
-	Help: "Number of identity requests coalesced",
-})
-
-var handleRequestsCoalesced = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "atproto_redis_directory_handle_requests_coalesced",
-	Help: "Number of handle requests coalesced",
-})
