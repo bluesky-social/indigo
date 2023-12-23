@@ -6,7 +6,6 @@ import (
 	"github.com/bluesky-social/indigo/api"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
-	label "github.com/bluesky-social/indigo/api/label"
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/mst"
@@ -72,11 +71,10 @@ func main() {
 		atproto.SyncSubscribeRepos_Tombstone{},
 		atproto.LabelDefs_SelfLabels{},
 		atproto.LabelDefs_SelfLabel{},
+		atproto.LabelDefs_Label{},
+		atproto.LabelSubscribeLabels_Labels{},
+		atproto.LabelSubscribeLabels_Info{},
 	); err != nil {
-		panic(err)
-	}
-
-	if err := cbg.WriteMapEncodersToFile("api/label/cbor_gen.go", "label", label.Label{}, label.SubscribeLabels_Info{}, label.SubscribeLabels_Labels{}); err != nil {
 		panic(err)
 	}
 
