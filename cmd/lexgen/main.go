@@ -96,6 +96,10 @@ func main() {
 
 		var schemas []*lex.Schema
 		for _, arg := range paths {
+			if strings.HasSuffix(arg, "com/atproto/temp/importRepo.json") {
+				fmt.Printf("skipping schema: %s\n", arg)
+				continue
+			}
 			s, err := lex.ReadSchema(arg)
 			if err != nil {
 				return fmt.Errorf("failed to read file %q: %w", arg, err)
