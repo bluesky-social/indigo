@@ -1,4 +1,4 @@
-package automod
+package engine
 
 import (
 	"testing"
@@ -10,13 +10,13 @@ import (
 func TestNoOpCaptureReplyRule(t *testing.T) {
 	assert := assert.New(t)
 
-	engine := EngineTestFixture()
+	eng := EngineTestFixture()
 	capture := MustLoadCapture("testdata/capture_atprotocom.json")
-	assert.NoError(ProcessCaptureRules(&engine, capture))
-	c, err := engine.GetCount("automod-quota", "report", countstore.PeriodDay)
+	assert.NoError(ProcessCaptureRules(&eng, capture))
+	c, err := eng.GetCount("automod-quota", "report", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(0, c)
-	c, err = engine.GetCount("automod-quota", "takedown", countstore.PeriodDay)
+	c, err = eng.GetCount("automod-quota", "takedown", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(0, c)
 }
