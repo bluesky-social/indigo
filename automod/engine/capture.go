@@ -11,7 +11,7 @@ import (
 
 type AccountCapture struct {
 	CapturedAt  syntax.Datetime                     `json:"capturedAt"`
-	AccountMeta AccountMeta                   `json:"accountMeta"`
+	AccountMeta AccountMeta                         `json:"accountMeta"`
 	PostRecords []comatproto.RepoListRecords_Record `json:"postRecords"`
 }
 

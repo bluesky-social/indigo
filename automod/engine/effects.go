@@ -118,17 +118,3 @@ func (e *Effects) ReportRecord(reason, comment string) {
 func (e *Effects) TakedownRecord() {
 	e.RecordTakedown = true
 }
-
-// XXX: move to method on Engine, and use actually logger
-func (e *Effects) CanonicalLogLine() {
-	slog.Info("canonical-event-line",
-		"accountLabels", e.AccountLabels,
-		"accountFlags", e.AccountFlags,
-		"accountTakedown", e.AccountTakedown,
-		"accountReports", len(e.AccountReports),
-		"recordLabels", e.RecordLabels,
-		"recordFlags", e.RecordFlags,
-		"recordTakedown", e.RecordTakedown,
-		"recordReports", len(e.RecordReports),
-	)
-}

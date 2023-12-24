@@ -64,7 +64,7 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, t string, did synta
 	if err := eng.Rules.CallIdentityRules(evt, eff); err != nil {
 		return err
 	}
-	eff.CanonicalLogLine()
+	// XXX: eng.CanonicalLogLineAccount(c)
 	eng.PurgeAccountCaches(ctx, am.Identity.DID)
 	if err := eng.persistAccountEffects(ctx, &evt.RepoEvent, eff); err != nil {
 		return err
@@ -100,7 +100,7 @@ func (eng *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recC
 	if err := eng.Rules.CallRecordRules(evt, eff); err != nil {
 		return err
 	}
-	eff.CanonicalLogLine()
+	// XXX: eng.CanonicalLogLineRecord(c)
 	// purge the account meta cache when profile is updated
 	if evt.Collection == "app.bsky.actor.profile" {
 		eng.PurgeAccountCaches(ctx, am.Identity.DID)
@@ -139,7 +139,7 @@ func (eng *Engine) ProcessRecordDelete(ctx context.Context, did syntax.DID, path
 	if err := eng.Rules.CallRecordDeleteRules(evt, eff); err != nil {
 		return err
 	}
-	eff.CanonicalLogLine()
+	// XXX: eng.CanonicalLogLineRecord(c)
 	// purge the account meta cache when profile is updated
 	if evt.Collection == "app.bsky.actor.profile" {
 		eng.PurgeAccountCaches(ctx, am.Identity.DID)
@@ -208,4 +208,26 @@ func (e *Engine) InSet(name, val string) (bool, error) {
 func (e *Engine) PurgeAccountCaches(ctx context.Context, did syntax.DID) error {
 	e.Directory.Purge(ctx, did.AtIdentifier())
 	return e.Cache.Purge(ctx, "acct", did.String())
+}
+
+func (e *Engine) CanonicalLogLineAccount(c *AccountContext) {
+	c.Logger.Info("canonical-event-line",
+		"accountLabels", c.effects.AccountLabels,
+		"accountFlags", c.effects.AccountFlags,
+		"accountTakedown", c.effects.AccountTakedown,
+		"accountReports", len(c.effects.AccountReports),
+	)
+}
+
+func (e *Engine) CanonicalLogLineRecord(c *RecordContext) {
+	c.Logger.Info("canonical-event-line",
+		"accountLabels", c.effects.AccountLabels,
+		"accountFlags", c.effects.AccountFlags,
+		"accountTakedown", c.effects.AccountTakedown,
+		"accountReports", len(c.effects.AccountReports),
+		"recordLabels", c.effects.RecordLabels,
+		"recordFlags", c.effects.RecordFlags,
+		"recordTakedown", c.effects.RecordTakedown,
+		"recordReports", len(c.effects.RecordReports),
+	)
 }
