@@ -1,4 +1,4 @@
-package event
+package engine
 
 // Base type for events specific to an account, usually derived from a repo event stream message (one such message may result in multiple `RepoEvent`)
 //

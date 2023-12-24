@@ -10,8 +10,6 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod/cachestore"
 	"github.com/bluesky-social/indigo/automod/countstore"
-	"github.com/bluesky-social/indigo/automod/effects"
-	"github.com/bluesky-social/indigo/automod/event"
 	"github.com/bluesky-social/indigo/automod/flagstore"
 	"github.com/bluesky-social/indigo/automod/setstore"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -55,12 +53,12 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, t string, did synta
 	if err != nil {
 		return err
 	}
-	evt := &event.IdentityEvent{
-		RepoEvent: event.RepoEvent{
+	evt := &IdentityEvent{
+		RepoEvent: RepoEvent{
 			Account: *am,
 		},
 	}
-	eff := &effects.Effects{
+	eff := &Effects{
 		// XXX: Logger: eng.Logger.With("did", am.Identity.DID),
 	}
 	if err := eng.Rules.CallIdentityRules(evt, eff); err != nil {
@@ -160,35 +158,35 @@ func (eng *Engine) ProcessRecordDelete(ctx context.Context, did syntax.DID, path
 	return nil
 }
 
-func (e *Engine) NewRecordProcessingContext(am event.AccountMeta, path, recCID string, rec any) (*event.RecordEvent, *effects.Effects) {
+func (e *Engine) NewRecordProcessingContext(am AccountMeta, path, recCID string, rec any) (*RecordEvent, *Effects) {
 	// REVIEW: Only reason for this to be a method on the engine is because it's bifrucating the logger off from there.  Should we pinch that off?
 	parts := strings.SplitN(path, "/", 2)
-	return &event.RecordEvent{
-			RepoEvent: event.RepoEvent{
+	return &RecordEvent{
+			RepoEvent: RepoEvent{
 				Account: am,
 			},
 			Record:     rec,
 			Collection: parts[0],
 			RecordKey:  parts[1],
 			CID:        recCID,
-		}, &effects.Effects{
+		}, &Effects{
 			// XXX: Logger: e.Logger.With("did", am.Identity.DID, "collection", parts[0], "rkey", parts[1]),
 			RecordLabels:   []string{},
 			RecordFlags:    []string{},
-			RecordReports:  []effects.ModReport{},
+			RecordReports:  []ModReport{},
 			RecordTakedown: false,
 		}
 }
 
-func (e *Engine) NewRecordDeleteProcessingContext(am event.AccountMeta, path string) (*event.RecordDeleteEvent, *effects.Effects) {
+func (e *Engine) NewRecordDeleteProcessingContext(am AccountMeta, path string) (*RecordDeleteEvent, *Effects) {
 	parts := strings.SplitN(path, "/", 2)
-	return &event.RecordDeleteEvent{
-			RepoEvent: event.RepoEvent{
+	return &RecordDeleteEvent{
+			RepoEvent: RepoEvent{
 				Account: am,
 			},
 			Collection: parts[0],
 			RecordKey:  parts[1],
-		}, &effects.Effects{
+		}, &Effects{
 			// XXX: Logger: e.Logger.With("did", am.Identity.DID, "collection", parts[0], "rkey", parts[1]),
 		}
 }

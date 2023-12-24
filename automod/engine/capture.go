@@ -5,14 +5,13 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/automod/event"
 )
 
 // REVIEW: if this "capture" code can leave the engine package.  It seems likely.
 
 type AccountCapture struct {
 	CapturedAt  syntax.Datetime                     `json:"capturedAt"`
-	AccountMeta event.AccountMeta                   `json:"accountMeta"`
+	AccountMeta AccountMeta                   `json:"accountMeta"`
 	PostRecords []comatproto.RepoListRecords_Record `json:"postRecords"`
 }
 

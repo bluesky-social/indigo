@@ -13,15 +13,13 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod/cachestore"
 	"github.com/bluesky-social/indigo/automod/countstore"
-	"github.com/bluesky-social/indigo/automod/effects"
-	"github.com/bluesky-social/indigo/automod/event"
 	"github.com/bluesky-social/indigo/automod/flagstore"
 	"github.com/bluesky-social/indigo/automod/setstore"
 )
 
 var _ PostRuleFunc = simpleRule
 
-func simpleRule(evt *event.RecordEvent, eff *effects.Effects, post *appbsky.FeedPost) error {
+func simpleRule(evt *RecordEvent, eff *Effects, post *appbsky.FeedPost) error {
 	for _, tag := range post.Tags {
 		if evt.InSet("bad-hashtags", tag) {
 			eff.AddRecordLabel("bad-hashtag")
@@ -102,12 +100,12 @@ func ProcessCaptureRules(eng *Engine, capture AccountCapture) error {
 
 	// initial identity rules
 	// REVIEW: this area should... use the real code path that does the same thing, if at all possible?  Currently this seems like great drift danger.
-	idevt := &event.IdentityEvent{
-		RepoEvent: event.RepoEvent{
+	idevt := &IdentityEvent{
+		RepoEvent: RepoEvent{
 			Account: capture.AccountMeta,
 		},
 	}
-	ideff := &effects.Effects{
+	ideff := &Effects{
 		// XXX: Logger: eng.Logger.With("did", capture.AccountMeta.Identity.DID),
 	}
 	if err := eng.Rules.CallIdentityRules(idevt, ideff); err != nil {

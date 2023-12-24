@@ -9,11 +9,10 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/automod/event"
 	"github.com/bluesky-social/indigo/automod/util"
 )
 
-func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (*event.AccountMeta, error) {
+func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (*AccountMeta, error) {
 
 	// wipe parsed public key; it's a waste of space and can't serialize
 	ident.ParsedPublicKey = nil
@@ -21,9 +20,9 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 	// fallback in case client wasn't configured (eg, testing)
 	if e.BskyClient == nil {
 		e.Logger.Warn("skipping account meta hydration")
-		am := event.AccountMeta{
+		am := AccountMeta{
 			Identity: ident,
-			Profile:  event.ProfileSummary{},
+			Profile:  ProfileSummary{},
 		}
 		return &am, nil
 	}
@@ -33,7 +32,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 		return nil, err
 	}
 	if existing != "" {
-		var am event.AccountMeta
+		var am AccountMeta
 		err := json.Unmarshal([]byte(existing), &am)
 		if err != nil {
 			return nil, fmt.Errorf("parsing AccountMeta from cache: %v", err)
@@ -63,9 +62,9 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 		return nil, err
 	}
 
-	am := event.AccountMeta{
+	am := AccountMeta{
 		Identity: ident,
-		Profile: event.ProfileSummary{
+		Profile: ProfileSummary{
 			HasAvatar:   pv.Avatar != nil,
 			Description: pv.Description,
 			DisplayName: pv.DisplayName,
@@ -89,7 +88,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 		if err != nil {
 			return nil, err
 		}
-		ap := event.AccountPrivate{}
+		ap := AccountPrivate{}
 		if pv.Email != nil && *pv.Email != "" {
 			ap.Email = *pv.Email
 		}
