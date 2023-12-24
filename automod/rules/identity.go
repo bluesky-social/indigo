@@ -10,36 +10,36 @@ import (
 )
 
 // triggers on first identity event for an account (DID)
-func NewAccountRule(evt *automod.IdentityEvent) error {
+func NewAccountRule(c *automod.AccountContext) error {
 	// need access to IndexedAt for this rule
-	if evt.Account.Private == nil || evt.Account.Identity == nil {
+	if c.Account.Private == nil || c.Account.Identity == nil {
 		return nil
 	}
 
-	did := evt.Account.Identity.DID.String()
-	age := time.Since(evt.Account.Private.IndexedAt)
+	did := c.Account.Identity.DID.String()
+	age := time.Since(c.Account.Private.IndexedAt)
 	if age > 2*time.Hour {
 		return nil
 	}
-	exists := evt.GetCount("acct/exists", did, countstore.PeriodTotal)
+	exists := c.GetCount("acct/exists", did, countstore.PeriodTotal)
 	if exists == 0 {
-		evt.Logger.Info("new account")
-		evt.Increment("acct/exists", did)
+		c.Logger.Info("new account")
+		c.Increment("acct/exists", did)
 
-		pdsURL, err := url.Parse(evt.Account.Identity.PDSEndpoint())
+		pdsURL, err := url.Parse(c.Account.Identity.PDSEndpoint())
 		if err != nil {
-			evt.Logger.Warn("invalid PDS URL", "err", err, "endpoint", evt.Account.Identity.PDSEndpoint())
+			c.Logger.Warn("invalid PDS URL", "err", err, "endpoint", c.Account.Identity.PDSEndpoint())
 			return nil
 		}
 		pdsHost := strings.ToLower(pdsURL.Host)
-		existingAccounts := evt.GetCount("host/newacct", pdsHost, countstore.PeriodTotal)
-		evt.Increment("host/newacct", pdsHost)
+		existingAccounts := c.GetCount("host/newacct", pdsHost, countstore.PeriodTotal)
+		c.Increment("host/newacct", pdsHost)
 
 		// new PDS host
 		if existingAccounts == 0 {
-			evt.Logger.Info("new PDS instance", "host", pdsHost)
-			evt.Increment("host", "new")
-			evt.AddAccountFlag("host-first-account")
+			c.Logger.Info("new PDS instance", "host", pdsHost)
+			c.Increment("host", "new")
+			c.AddAccountFlag("host-first-account")
 		}
 	}
 	return nil
