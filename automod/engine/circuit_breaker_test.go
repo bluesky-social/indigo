@@ -1,4 +1,4 @@
-package automod
+package engine
 
 import (
 	"context"
@@ -13,24 +13,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func alwaysTakedownRecordRule(evt *RecordEvent) error {
-	evt.TakedownRecord()
+func alwaysTakedownRecordRule(c *RecordContext) error {
+	c.TakedownRecord()
 	return nil
 }
 
-func alwaysReportRecordRule(evt *RecordEvent) error {
-	evt.ReportRecord(ReportReasonOther, "test report")
+func alwaysReportRecordRule(c *RecordContext) error {
+	c.ReportRecord(ReportReasonOther, "test report")
 	return nil
 }
 
 func TestTakedownCircuitBreaker(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
-	engine := EngineTestFixture()
+	eng := EngineTestFixture()
 	dir := identity.NewMockDirectory()
-	engine.Directory = &dir
+	eng.Directory = &dir
 	// note that this is a record-level action, not account-level
-	engine.Rules = RuleSet{
+	eng.Rules = RuleSet{
 		RecordRules: []RecordRuleFunc{
 			alwaysTakedownRecordRule,
 		},
@@ -47,14 +47,14 @@ func TestTakedownCircuitBreaker(t *testing.T) {
 			Handle: syntax.Handle("handle.example.com"),
 		}
 		dir.Insert(ident)
-		assert.NoError(engine.ProcessRecord(ctx, ident.DID, path, cid1, &p1))
+		assert.NoError(eng.ProcessRecord(ctx, ident.DID, path, cid1, &p1))
 	}
 
-	takedowns, err := engine.GetCount("automod-quota", "takedown", countstore.PeriodDay)
+	takedowns, err := eng.GetCount("automod-quota", "takedown", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(QuotaModTakedownDay, takedowns)
 
-	reports, err := engine.GetCount("automod-quota", "report", countstore.PeriodDay)
+	reports, err := eng.GetCount("automod-quota", "report", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(0, reports)
 }
@@ -62,10 +62,10 @@ func TestTakedownCircuitBreaker(t *testing.T) {
 func TestReportCircuitBreaker(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
-	engine := EngineTestFixture()
+	eng := EngineTestFixture()
 	dir := identity.NewMockDirectory()
-	engine.Directory = &dir
-	engine.Rules = RuleSet{
+	eng.Directory = &dir
+	eng.Rules = RuleSet{
 		RecordRules: []RecordRuleFunc{
 			alwaysReportRecordRule,
 		},
@@ -82,14 +82,14 @@ func TestReportCircuitBreaker(t *testing.T) {
 			Handle: syntax.Handle("handle.example.com"),
 		}
 		dir.Insert(ident)
-		assert.NoError(engine.ProcessRecord(ctx, ident.DID, path, cid1, &p1))
+		assert.NoError(eng.ProcessRecord(ctx, ident.DID, path, cid1, &p1))
 	}
 
-	takedowns, err := engine.GetCount("automod-quota", "takedown", countstore.PeriodDay)
+	takedowns, err := eng.GetCount("automod-quota", "takedown", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(0, takedowns)
 
-	reports, err := engine.GetCount("automod-quota", "report", countstore.PeriodDay)
+	reports, err := eng.GetCount("automod-quota", "report", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(QuotaModReportDay, reports)
 }
