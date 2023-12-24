@@ -53,72 +53,80 @@ func dedupeFlagActions(flags, existing []string) []string {
 	return newFlags
 }
 
-// REVIEW: this does does both reads and then mutations of the planned effect, rather than just returning things, which neither the name nor signiture clearly suggests.
-func (eng *Engine) dedupeReportActions(evt *RepoEvent, eff *Effects, reports []ModReport) []ModReport {
+func (eng *Engine) dedupeReportActions(ctx context.Context, did syntax.DID, reports []ModReport) ([]ModReport, error) {
 	newReports := []ModReport{}
 	for _, r := range reports {
 		counterName := "automod-account-report-" + ReasonShortName(r.ReasonType)
-		existing, err := eng.GetCount(counterName, evt.Account.Identity.DID.String(), countstore.PeriodDay)
+		existing, err := eng.GetCount(counterName, did.String(), countstore.PeriodDay)
 		if err != nil {
-			panic(err) // XXX
+			return nil, fmt.Errorf("checking report de-dupe counts: %w", err)
 		}
 		if existing > 0 {
 			eng.Logger.Debug("skipping account report due to counter", "existing", existing, "reason", ReasonShortName(r.ReasonType))
 		} else {
-			eff.Increment(counterName, evt.Account.Identity.DID.String())
+			err = eng.Counters.Increment(ctx, counterName, did.String())
+			if err != nil {
+				return nil, fmt.Errorf("incrementing report de-dupe count: %w", err)
+			}
 			newReports = append(newReports, r)
 		}
 	}
-	return newReports
+	return newReports, nil
 }
 
-func (eng *Engine) circuitBreakReports(eff *Effects, reports []ModReport) []ModReport {
+func (eng *Engine) circuitBreakReports(ctx context.Context, reports []ModReport) ([]ModReport, error) {
 	if len(reports) == 0 {
-		return []ModReport{}
+		return []ModReport{}, nil
 	}
 	c, err := eng.GetCount("automod-quota", "report", countstore.PeriodDay)
 	if err != nil {
-		panic(err) // XXX
+		return nil, fmt.Errorf("checking report action quota: %w", err)
 	}
 	if c >= QuotaModReportDay {
 		eng.Logger.Warn("CIRCUIT BREAKER: automod reports")
-		return []ModReport{}
+		return []ModReport{}, nil
 	}
-	eff.Increment("automod-quota", "report") // REVIEW: should this increment just happen directly on the engine?  it's not part of the relatively pure rule application logic, and we just had to read the engine again for it, so, maybe?
-	return reports
+	err = eng.Counters.Increment(ctx, "automod-quota", "report")
+	if err != nil {
+		return nil, fmt.Errorf("incrementing report action quota: %w", err)
+	}
+	return reports, nil
 }
 
-func (eng *Engine) circuitBreakTakedown(eff *Effects, takedown bool) bool {
+func (eng *Engine) circuitBreakTakedown(ctx context.Context, takedown bool) (bool, error) {
 	if !takedown {
-		return takedown
+		return false, nil
 	}
 	c, err := eng.GetCount("automod-quota", "takedown", countstore.PeriodDay)
 	if err != nil {
-		panic(err) // XXX
+		return false, fmt.Errorf("checking takedown action quota: %w", err)
 	}
 	if c >= QuotaModTakedownDay {
 		eng.Logger.Warn("CIRCUIT BREAKER: automod takedowns")
-		return false
+		return false, nil
 	}
-	eff.Increment("automod-quota", "takedown") // REVIEW: same question as above about if this could just as apply directly to the engine state.
-	return takedown
+	err = eng.Counters.Increment(ctx, "automod-quota", "takedown")
+	if err != nil {
+		return false, fmt.Errorf("incrementing takedown action quota: %w", err)
+	}
+	return takedown, nil
 }
 
 // Creates a moderation report, but checks first if there was a similar recent one, and skips if so.
 //
 // Returns a bool indicating if a new report was created.
-func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, evt *RepoEvent, mr ModReport) (bool, error) {
+func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, did syntax.DID, mr ModReport) (bool, error) {
 	// before creating a report, query to see if automod has already reported this account in the past week for the same reason
 	// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
 
 	// AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, inc ludeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string)
-	resp, err := comatproto.AdminQueryModerationEvents(ctx, xrpcc, xrpcc.Auth.Did, "", false, 5, "", evt.Account.Identity.DID.String(), []string{"com.atproto.admin.defs#modEventReport"})
+	resp, err := comatproto.AdminQueryModerationEvents(ctx, xrpcc, xrpcc.Auth.Did, "", false, 5, "", did.String(), []string{"com.atproto.admin.defs#modEventReport"})
 	if err != nil {
 		return false, err
 	}
 	for _, modEvt := range resp.Events {
 		// defensively ensure that our query params worked correctly
-		if modEvt.Event.AdminDefs_ModEventReport == nil || modEvt.CreatedBy != xrpcc.Auth.Did || modEvt.Subject.AdminDefs_RepoRef == nil || modEvt.Subject.AdminDefs_RepoRef.Did != evt.Account.Identity.DID.String() || (modEvt.Event.AdminDefs_ModEventReport.ReportType != nil && *modEvt.Event.AdminDefs_ModEventReport.ReportType != mr.ReasonType) {
+		if modEvt.Event.AdminDefs_ModEventReport == nil || modEvt.CreatedBy != xrpcc.Auth.Did || modEvt.Subject.AdminDefs_RepoRef == nil || modEvt.Subject.AdminDefs_RepoRef.Did != did.String() || (modEvt.Event.AdminDefs_ModEventReport.ReportType != nil && *modEvt.Event.AdminDefs_ModEventReport.ReportType != mr.ReasonType) {
 			continue
 		}
 		// igonre if older
@@ -141,7 +149,7 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 		Reason:     &mr.Comment,
 		Subject: &comatproto.ModerationCreateReport_Input_Subject{
 			AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
-				Did: evt.Account.Identity.DID.String(),
+				Did: did.String(),
 			},
 		},
 	})

@@ -33,11 +33,11 @@ type Engine struct {
 	SlackWebhookURL string
 }
 
-func (eng *Engine) ProcessIdentityEvent(ctx context.Context, t string, did syntax.DID) error {
+func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syntax.DID) error {
 	// similar to an HTTP server, we want to recover any panics from rule execution
 	defer func() {
 		if r := recover(); r != nil {
-			eng.Logger.Error("automod event execution exception", "err", r, "did", did, "type", t)
+			eng.Logger.Error("automod event execution exception", "err", r, "did", did, "type", typ)
 		}
 	}()
 
@@ -53,28 +53,22 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, t string, did synta
 	if err != nil {
 		return err
 	}
-	evt := &IdentityEvent{
-		RepoEvent: RepoEvent{
-			Account: *am,
-		},
-	}
-	eff := &Effects{
-		// XXX: Logger: eng.Logger.With("did", am.Identity.DID),
-	}
-	if err := eng.Rules.CallIdentityRules(evt, eff); err != nil {
+	ac := NewAccountContext(ctx, eng, *am)
+	if err := eng.Rules.CallIdentityRules(&ac); err != nil {
 		return err
 	}
-	// XXX: eng.CanonicalLogLineAccount(c)
+	eng.CanonicalLogLineAccount(&ac)
 	eng.PurgeAccountCaches(ctx, am.Identity.DID)
-	if err := eng.persistAccountEffects(ctx, &evt.RepoEvent, eff); err != nil {
+	if err := eng.persistAccountModActions(&ac); err != nil {
 		return err
 	}
-	if err := eng.persistCounters(ctx, eff); err != nil {
+	if err := eng.persistCounters(ctx, &ac.effects); err != nil {
 		return err
 	}
 	return nil
 }
 
+// TODO: rename to "ProcessRecordOp", and push path parsing out to external code
 func (eng *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recCID string, rec any) error {
 	// similar to an HTTP server, we want to recover any panics from rule execution
 	defer func() {
@@ -83,6 +77,11 @@ func (eng *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recC
 		}
 	}()
 
+	collection, rkey, err := splitRepoPath(path)
+	if err != nil {
+		return err
+	}
+
 	ident, err := eng.Directory.LookupDID(ctx, did)
 	if err != nil {
 		return fmt.Errorf("resolving identity: %w", err)
@@ -95,20 +94,29 @@ func (eng *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recC
 	if err != nil {
 		return err
 	}
-	evt, eff := eng.NewRecordProcessingContext(*am, path, recCID, rec)
-	eng.Logger.Debug("processing record", "did", ident.DID, "path", path)
-	if err := eng.Rules.CallRecordRules(evt, eff); err != nil {
+	op := RecordOp{
+		// TODO: create vs update
+		Action:     CreateOp,
+		DID:        ident.DID.String(),
+		Collection: collection,
+		RecordKey:  rkey,
+		CID:        &recCID,
+		Value:      rec,
+	}
+	rc := NewRecordContext(ctx, eng, *am, op)
+	rc.Logger.Debug("processing record")
+	if err := eng.Rules.CallRecordRules(&rc); err != nil {
 		return err
 	}
-	// XXX: eng.CanonicalLogLineRecord(c)
+	eng.CanonicalLogLineRecord(&rc)
 	// purge the account meta cache when profile is updated
-	if evt.Collection == "app.bsky.actor.profile" {
+	if rc.RecordOp.Collection == "app.bsky.actor.profile" {
 		eng.PurgeAccountCaches(ctx, am.Identity.DID)
 	}
-	if err := eng.persistEffectss(ctx, evt, eff); err != nil {
+	if err := eng.persistRecordModActions(&rc); err != nil {
 		return err
 	}
-	if err := eng.persistCounters(ctx, eff); err != nil {
+	if err := eng.persistCounters(ctx, &rc.effects); err != nil {
 		return err
 	}
 	return nil
@@ -122,6 +130,11 @@ func (eng *Engine) ProcessRecordDelete(ctx context.Context, did syntax.DID, path
 		}
 	}()
 
+	collection, rkey, err := splitRepoPath(path)
+	if err != nil {
+		return err
+	}
+
 	ident, err := eng.Directory.LookupDID(ctx, did)
 	if err != nil {
 		return fmt.Errorf("resolving identity: %w", err)
@@ -134,61 +147,31 @@ func (eng *Engine) ProcessRecordDelete(ctx context.Context, did syntax.DID, path
 	if err != nil {
 		return err
 	}
-	evt, eff := eng.NewRecordDeleteProcessingContext(*am, path)
-	eng.Logger.Debug("processing record deletion", "did", ident.DID, "path", path)
-	if err := eng.Rules.CallRecordDeleteRules(evt, eff); err != nil {
+	op := RecordOp{
+		Action:     DeleteOp,
+		DID:        ident.DID.String(),
+		Collection: collection,
+		RecordKey:  rkey,
+		CID:        nil,
+		Value:      nil,
+	}
+	rc := NewRecordContext(ctx, eng, *am, op)
+	rc.Logger.Debug("processing record deletion")
+	if err := eng.Rules.CallRecordDeleteRules(&rc); err != nil {
 		return err
 	}
-	// XXX: eng.CanonicalLogLineRecord(c)
+	eng.CanonicalLogLineRecord(&rc)
 	// purge the account meta cache when profile is updated
-	if evt.Collection == "app.bsky.actor.profile" {
+	if rc.RecordOp.Collection == "app.bsky.actor.profile" {
 		eng.PurgeAccountCaches(ctx, am.Identity.DID)
 	}
-	/* XXX:
-	if err := eng.persistAccountEffects(ctx, evt, eff); err != nil {
+	if err := eng.persistRecordModActions(&rc); err != nil {
 		return err
 	}
-	if err := eng.persistRecordEffects(ctx, evt, eff); err != nil {
-		return err
-	}
-	*/
-	if err := eng.persistCounters(ctx, eff); err != nil {
+	if err := eng.persistCounters(ctx, &rc.effects); err != nil {
 		return err
 	}
 	return nil
-}
-
-func (e *Engine) NewRecordProcessingContext(am AccountMeta, path, recCID string, rec any) (*RecordEvent, *Effects) {
-	// REVIEW: Only reason for this to be a method on the engine is because it's bifrucating the logger off from there.  Should we pinch that off?
-	parts := strings.SplitN(path, "/", 2)
-	return &RecordEvent{
-			RepoEvent: RepoEvent{
-				Account: am,
-			},
-			Record:     rec,
-			Collection: parts[0],
-			RecordKey:  parts[1],
-			CID:        recCID,
-		}, &Effects{
-			// XXX: Logger: e.Logger.With("did", am.Identity.DID, "collection", parts[0], "rkey", parts[1]),
-			RecordLabels:   []string{},
-			RecordFlags:    []string{},
-			RecordReports:  []ModReport{},
-			RecordTakedown: false,
-		}
-}
-
-func (e *Engine) NewRecordDeleteProcessingContext(am AccountMeta, path string) (*RecordDeleteEvent, *Effects) {
-	parts := strings.SplitN(path, "/", 2)
-	return &RecordDeleteEvent{
-			RepoEvent: RepoEvent{
-				Account: am,
-			},
-			Collection: parts[0],
-			RecordKey:  parts[1],
-		}, &Effects{
-			// XXX: Logger: e.Logger.With("did", am.Identity.DID, "collection", parts[0], "rkey", parts[1]),
-		}
 }
 
 func (e *Engine) GetCount(name, val, period string) (int, error) {
@@ -230,4 +213,12 @@ func (e *Engine) CanonicalLogLineRecord(c *RecordContext) {
 		"recordTakedown", c.effects.RecordTakedown,
 		"recordReports", len(c.effects.RecordReports),
 	)
+}
+
+func splitRepoPath(path string) (string, string, error) {
+	parts := strings.SplitN(path, "/", 3)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid record path: %s", path)
+	}
+	return parts[0], parts[1], nil
 }

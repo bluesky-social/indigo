@@ -46,7 +46,7 @@ type RecordOp struct {
 	Collection string
 	RecordKey  string
 	CID        *string // TODO: cid.Cid?
-	Record     any
+	Value      any
 }
 
 // TODO: in the future *may* have an IdentityContext with an IdentityOp sub-field
@@ -83,6 +83,28 @@ func (c *BaseContext) InSet(name, val string) bool {
 		return false
 	}
 	return out
+}
+
+func NewAccountContext(ctx context.Context, eng *Engine, meta AccountMeta) AccountContext {
+	return AccountContext{
+		BaseContext: BaseContext{
+			Ctx:     ctx,
+			Err:     nil,
+			Logger:  eng.Logger.With("did", meta.Identity.DID),
+			engine:  eng,
+			effects: Effects{},
+		},
+		Account: meta,
+	}
+}
+
+func NewRecordContext(ctx context.Context, eng *Engine, meta AccountMeta, op RecordOp) RecordContext {
+	ac := NewAccountContext(ctx, eng, meta)
+	ac.BaseContext.Logger = ac.BaseContext.Logger.With("collection", op.Collection, "rkey", op.RecordKey)
+	return RecordContext{
+		AccountContext: ac,
+		RecordOp:       op,
+	}
 }
 
 // update effects (indirect)
