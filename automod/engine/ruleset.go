@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/automod/effects"
-	"github.com/bluesky-social/indigo/automod/event"
 )
 
 type RuleSet struct {
@@ -16,7 +14,7 @@ type RuleSet struct {
 	IdentityRules     []IdentityRuleFunc
 }
 
-func (r *RuleSet) CallRecordRules(evt *event.RecordEvent, eff *effects.Effects) error {
+func (r *RuleSet) CallRecordRules(evt *RecordEvent, eff *Effects) error {
 	// first the generic rules
 	for _, f := range r.RecordRules {
 		err := f(evt, eff)
@@ -52,7 +50,7 @@ func (r *RuleSet) CallRecordRules(evt *event.RecordEvent, eff *effects.Effects) 
 	return nil
 }
 
-func (r *RuleSet) CallRecordDeleteRules(evt *event.RecordDeleteEvent, eff *effects.Effects) error {
+func (r *RuleSet) CallRecordDeleteRules(evt *RecordDeleteEvent, eff *Effects) error {
 	for _, f := range r.RecordDeleteRules {
 		err := f(evt, eff)
 		if err != nil {
@@ -62,7 +60,7 @@ func (r *RuleSet) CallRecordDeleteRules(evt *event.RecordDeleteEvent, eff *effec
 	return nil
 }
 
-func (r *RuleSet) CallIdentityRules(evt *event.IdentityEvent, eff *effects.Effects) error {
+func (r *RuleSet) CallIdentityRules(evt *IdentityEvent, eff *Effects) error {
 	for _, f := range r.IdentityRules {
 		err := f(evt, eff)
 		if err != nil {

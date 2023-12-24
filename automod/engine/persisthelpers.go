@@ -9,8 +9,6 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod/countstore"
-	"github.com/bluesky-social/indigo/automod/effects"
-	"github.com/bluesky-social/indigo/automod/event"
 	"github.com/bluesky-social/indigo/automod/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
@@ -56,16 +54,16 @@ func dedupeFlagActions(flags, existing []string) []string {
 }
 
 // REVIEW: this does does both reads and then mutations of the planned effect, rather than just returning things, which neither the name nor signiture clearly suggests.
-func (eng *Engine) dedupeReportActions(evt *event.RepoEvent, eff *effects.Effects, reports []effects.ModReport) []effects.ModReport {
-	newReports := []effects.ModReport{}
+func (eng *Engine) dedupeReportActions(evt *RepoEvent, eff *Effects, reports []ModReport) []ModReport {
+	newReports := []ModReport{}
 	for _, r := range reports {
-		counterName := "automod-account-report-" + effects.ReasonShortName(r.ReasonType)
+		counterName := "automod-account-report-" + ReasonShortName(r.ReasonType)
 		existing, err := eng.GetCount(counterName, evt.Account.Identity.DID.String(), countstore.PeriodDay)
 		if err != nil {
 			panic(err) // XXX
 		}
 		if existing > 0 {
-			eng.Logger.Debug("skipping account report due to counter", "existing", existing, "reason", effects.ReasonShortName(r.ReasonType))
+			eng.Logger.Debug("skipping account report due to counter", "existing", existing, "reason", ReasonShortName(r.ReasonType))
 		} else {
 			eff.Increment(counterName, evt.Account.Identity.DID.String())
 			newReports = append(newReports, r)
@@ -74,23 +72,23 @@ func (eng *Engine) dedupeReportActions(evt *event.RepoEvent, eff *effects.Effect
 	return newReports
 }
 
-func (eng *Engine) circuitBreakReports(eff *effects.Effects, reports []effects.ModReport) []effects.ModReport {
+func (eng *Engine) circuitBreakReports(eff *Effects, reports []ModReport) []ModReport {
 	if len(reports) == 0 {
-		return []effects.ModReport{}
+		return []ModReport{}
 	}
 	c, err := eng.GetCount("automod-quota", "report", countstore.PeriodDay)
 	if err != nil {
 		panic(err) // XXX
 	}
-	if c >= effects.QuotaModReportDay {
+	if c >= QuotaModReportDay {
 		eng.Logger.Warn("CIRCUIT BREAKER: automod reports")
-		return []effects.ModReport{}
+		return []ModReport{}
 	}
 	eff.Increment("automod-quota", "report") // REVIEW: should this increment just happen directly on the engine?  it's not part of the relatively pure rule application logic, and we just had to read the engine again for it, so, maybe?
 	return reports
 }
 
-func (eng *Engine) circuitBreakTakedown(eff *effects.Effects, takedown bool) bool {
+func (eng *Engine) circuitBreakTakedown(eff *Effects, takedown bool) bool {
 	if !takedown {
 		return takedown
 	}
@@ -98,7 +96,7 @@ func (eng *Engine) circuitBreakTakedown(eff *effects.Effects, takedown bool) boo
 	if err != nil {
 		panic(err) // XXX
 	}
-	if c >= effects.QuotaModTakedownDay {
+	if c >= QuotaModTakedownDay {
 		eng.Logger.Warn("CIRCUIT BREAKER: automod takedowns")
 		return false
 	}
@@ -109,7 +107,7 @@ func (eng *Engine) circuitBreakTakedown(eff *effects.Effects, takedown bool) boo
 // Creates a moderation report, but checks first if there was a similar recent one, and skips if so.
 //
 // Returns a bool indicating if a new report was created.
-func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, evt *event.RepoEvent, mr effects.ModReport) (bool, error) {
+func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, evt *RepoEvent, mr ModReport) (bool, error) {
 	// before creating a report, query to see if automod has already reported this account in the past week for the same reason
 	// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
 
@@ -128,7 +126,7 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 		if err != nil {
 			return false, err
 		}
-		if time.Since(created.Time()) > effects.ReportDupePeriod {
+		if time.Since(created.Time()) > ReportDupePeriod {
 			continue
 		}
 
@@ -153,7 +151,7 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 	return true, nil
 }
 
-func slackBody(header string, acct event.AccountMeta, newLabels, newFlags []string, newReports []effects.ModReport, newTakedown bool) string {
+func slackBody(header string, acct AccountMeta, newLabels, newFlags []string, newReports []ModReport, newTakedown bool) string {
 	msg := header
 	msg += fmt.Sprintf("`%s` / `%s` / <https://bsky.app/profile/%s|bsky> / <https://admin.prod.bsky.dev/repositories/%s|ozone>\n",
 		acct.Identity.DID,

@@ -5,12 +5,10 @@ import (
 	"fmt"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/automod/effects"
-	"github.com/bluesky-social/indigo/automod/event"
 	"github.com/bluesky-social/indigo/automod/util"
 )
 
-func (eng *Engine) persistCounters(ctx context.Context, eff *effects.Effects) error {
+func (eng *Engine) persistCounters(ctx context.Context, eff *Effects) error {
 	// TODO: dedupe this array
 	for _, ref := range eff.CounterIncrements {
 		if ref.Period != nil {
@@ -39,7 +37,7 @@ func (eng *Engine) persistCounters(ctx context.Context, eff *effects.Effects) er
 // If necessary, will "purge" identity and account caches, so that state updates will be picked up for subsequent events.
 //
 // Note that this method expects to run *before* counts are persisted (it accesses and updates some counts)
-func (eng *Engine) persistAccountEffects(ctx context.Context, evt *event.RepoEvent, eff *effects.Effects) error {
+func (eng *Engine) persistAccountEffects(ctx context.Context, evt *RepoEvent, eff *Effects) error {
 
 	// de-dupe actions
 	newLabels := dedupeLabelActions(eff.AccountLabels, evt.Account.AccountLabels, evt.Account.AccountNegatedLabels)
@@ -136,7 +134,7 @@ func (eng *Engine) persistAccountEffects(ctx context.Context, evt *event.RepoEve
 // Persists some record-level state: labels, takedowns, reports.
 //
 // NOTE: this method currently does *not* persist record-level flags to any storage, and does not de-dupe most actions, on the assumption that the record is new (from firehose) and has no existing mod state.
-func (eng *Engine) persistEffectss(ctx context.Context, evt *event.RecordEvent, eff *effects.Effects) error {
+func (eng *Engine) persistEffectss(ctx context.Context, evt *RecordEvent, eff *Effects) error {
 	if err := eng.persistAccountEffects(ctx, &evt.RepoEvent, eff); err != nil {
 		return err
 	}

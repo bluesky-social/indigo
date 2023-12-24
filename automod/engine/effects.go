@@ -1,4 +1,4 @@
-package effects
+package engine
 
 import (
 	"log/slog"
