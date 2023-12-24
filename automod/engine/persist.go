@@ -37,19 +37,30 @@ func (eng *Engine) persistCounters(ctx context.Context, eff *Effects) error {
 // If necessary, will "purge" identity and account caches, so that state updates will be picked up for subsequent events.
 //
 // Note that this method expects to run *before* counts are persisted (it accesses and updates some counts)
-func (eng *Engine) persistAccountEffects(ctx context.Context, evt *RepoEvent, eff *Effects) error {
+func (eng *Engine) persistAccountModActions(c *AccountContext) error {
+	ctx := c.Ctx
 
 	// de-dupe actions
-	newLabels := dedupeLabelActions(eff.AccountLabels, evt.Account.AccountLabels, evt.Account.AccountNegatedLabels)
-	newFlags := dedupeFlagActions(eff.AccountFlags, evt.Account.AccountFlags)
+	newLabels := dedupeLabelActions(c.effects.AccountLabels, c.Account.AccountLabels, c.Account.AccountNegatedLabels)
+	newFlags := dedupeFlagActions(c.effects.AccountFlags, c.Account.AccountFlags)
 
 	// don't report the same account multiple times on the same day for the same reason. this is a quick check; we also query the mod service API just before creating the report.
-	newReports := eng.circuitBreakReports(eff, eng.dedupeReportActions(evt, eff, eff.AccountReports))
-	newTakedown := eng.circuitBreakTakedown(eff, eff.AccountTakedown && !evt.Account.Takendown)
+	partialReports, err := eng.dedupeReportActions(ctx, c.Account.Identity.DID, c.effects.AccountReports)
+	if err != nil {
+		return err
+	}
+	newReports, err := eng.circuitBreakReports(ctx, partialReports)
+	if err != nil {
+		return err
+	}
+	newTakedown, err := eng.circuitBreakTakedown(ctx, c.effects.AccountTakedown && !c.Account.Takendown)
+	if err != nil {
+		return err
+	}
 
 	anyModActions := newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0
 	if anyModActions && eng.SlackWebhookURL != "" {
-		msg := slackBody("⚠️ Automod Account Action ⚠️\n", evt.Account, newLabels, newFlags, newReports, newTakedown)
+		msg := slackBody("⚠️ Automod Account Action ⚠️\n", c.Account, newLabels, newFlags, newReports, newTakedown)
 		if err := eng.SendSlackMsg(ctx, msg); err != nil {
 			eng.Logger.Error("sending slack webhook", "err", err)
 		}
@@ -57,7 +68,7 @@ func (eng *Engine) persistAccountEffects(ctx context.Context, evt *RepoEvent, ef
 
 	// flags don't require admin auth
 	if len(newFlags) > 0 {
-		eng.Flags.Add(ctx, evt.Account.Identity.DID.String(), newFlags)
+		eng.Flags.Add(ctx, c.Account.Identity.DID.String(), newFlags)
 	}
 
 	// if we can't actually talk to service, bail out early
@@ -81,7 +92,7 @@ func (eng *Engine) persistAccountEffects(ctx context.Context, evt *RepoEvent, ef
 			},
 			Subject: &comatproto.AdminEmitModerationEvent_Input_Subject{
 				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
-					Did: evt.Account.Identity.DID.String(),
+					Did: c.Account.Identity.DID.String(),
 				},
 			},
 		})
@@ -93,7 +104,7 @@ func (eng *Engine) persistAccountEffects(ctx context.Context, evt *RepoEvent, ef
 	// reports are additionally de-duped when persisting the action, so track with a flag
 	createdReports := false
 	for _, mr := range newReports {
-		created, err := eng.createReportIfFresh(ctx, xrpcc, evt, mr)
+		created, err := eng.createReportIfFresh(ctx, xrpcc, c.Account.Identity.DID, mr)
 		if err != nil {
 			return err
 		}
@@ -114,7 +125,7 @@ func (eng *Engine) persistAccountEffects(ctx context.Context, evt *RepoEvent, ef
 			},
 			Subject: &comatproto.AdminEmitModerationEvent_Input_Subject{
 				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
-					Did: evt.Account.Identity.DID.String(),
+					Did: c.Account.Identity.DID.String(),
 				},
 			},
 		})
@@ -125,7 +136,7 @@ func (eng *Engine) persistAccountEffects(ctx context.Context, evt *RepoEvent, ef
 
 	needCachePurge := newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || createdReports
 	if needCachePurge {
-		return eng.PurgeAccountCaches(ctx, evt.Account.Identity.DID)
+		return eng.PurgeAccountCaches(ctx, c.Account.Identity.DID)
 	}
 
 	return nil
@@ -134,21 +145,28 @@ func (eng *Engine) persistAccountEffects(ctx context.Context, evt *RepoEvent, ef
 // Persists some record-level state: labels, takedowns, reports.
 //
 // NOTE: this method currently does *not* persist record-level flags to any storage, and does not de-dupe most actions, on the assumption that the record is new (from firehose) and has no existing mod state.
-func (eng *Engine) persistEffectss(ctx context.Context, evt *RecordEvent, eff *Effects) error {
-	if err := eng.persistAccountEffects(ctx, &evt.RepoEvent, eff); err != nil {
+func (eng *Engine) persistRecordModActions(c *RecordContext) error {
+	ctx := c.Ctx
+	if err := eng.persistAccountModActions(&c.AccountContext); err != nil {
 		return err
 	}
 
 	// NOTE: record-level actions are *not* currently de-duplicated (aka, the same record could be labeled multiple times, or re-reported, etc)
-	newLabels := util.DedupeStrings(eff.RecordLabels)
-	newFlags := util.DedupeStrings(eff.RecordFlags)
-	newReports := eng.circuitBreakReports(eff, eff.RecordReports)
-	newTakedown := eng.circuitBreakTakedown(eff, eff.RecordTakedown)
-	atURI := fmt.Sprintf("at://%s/%s/%s", evt.Account.Identity.DID, evt.Collection, evt.RecordKey)
+	newLabels := util.DedupeStrings(c.effects.RecordLabels)
+	newFlags := util.DedupeStrings(c.effects.RecordFlags)
+	newReports, err := eng.circuitBreakReports(ctx, c.effects.RecordReports)
+	if err != nil {
+		return err
+	}
+	newTakedown, err := eng.circuitBreakTakedown(ctx, c.effects.RecordTakedown)
+	if err != nil {
+		return err
+	}
+	atURI := fmt.Sprintf("at://%s/%s/%s", c.Account.Identity.DID, c.RecordOp.Collection, c.RecordOp.RecordKey)
 
 	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
 		if eng.SlackWebhookURL != "" {
-			msg := slackBody("⚠️ Automod Record Action ⚠️\n", evt.Account, newLabels, newFlags, newReports, newTakedown)
+			msg := slackBody("⚠️ Automod Record Action ⚠️\n", c.Account, newLabels, newFlags, newReports, newTakedown)
 			msg += fmt.Sprintf("`%s`\n", atURI)
 			if err := eng.SendSlackMsg(ctx, msg); err != nil {
 				eng.Logger.Error("sending slack webhook", "err", err)
@@ -161,14 +179,25 @@ func (eng *Engine) persistEffectss(ctx context.Context, evt *RecordEvent, eff *E
 		eng.Flags.Add(ctx, atURI, newFlags)
 	}
 
+	// exit early
+	if !newTakedown && len(newLabels) == 0 && len(newReports) == 0 {
+		return nil
+	}
+
 	if eng.AdminClient == nil {
 		return nil
 	}
 
+	if c.RecordOp.CID == nil {
+		eng.Logger.Warn("skipping record actions because CID is nil, can't construct strong ref")
+		return nil
+	}
+	cid := *c.RecordOp.CID
 	strongRef := comatproto.RepoStrongRef{
-		Cid: evt.CID,
+		Cid: cid,
 		Uri: atURI,
 	}
+
 	xrpcc := eng.AdminClient
 	if len(newLabels) > 0 {
 		eng.Logger.Info("labeling record", "newLabels", newLabels)

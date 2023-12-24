@@ -19,10 +19,10 @@ import (
 
 var _ PostRuleFunc = simpleRule
 
-func simpleRule(evt *RecordEvent, eff *Effects, post *appbsky.FeedPost) error {
+func simpleRule(c *RecordContext, post *appbsky.FeedPost) error {
 	for _, tag := range post.Tags {
-		if evt.InSet("bad-hashtags", tag) {
-			eff.AddRecordLabel("bad-hashtag")
+		if c.InSet("bad-hashtags", tag) {
+			c.AddRecordLabel("bad-hashtag")
 			break
 		}
 	}
@@ -30,8 +30,8 @@ func simpleRule(evt *RecordEvent, eff *Effects, post *appbsky.FeedPost) error {
 		for _, feat := range facet.Features {
 			if feat.RichtextFacet_Tag != nil {
 				tag := feat.RichtextFacet_Tag.Tag
-				if evt.InSet("bad-hashtags", tag) {
-					eff.AddRecordLabel("bad-hashtag")
+				if c.InSet("bad-hashtags", tag) {
+					c.AddRecordLabel("bad-hashtag")
 					break
 				}
 			}
@@ -100,22 +100,15 @@ func ProcessCaptureRules(eng *Engine, capture AccountCapture) error {
 
 	// initial identity rules
 	// REVIEW: this area should... use the real code path that does the same thing, if at all possible?  Currently this seems like great drift danger.
-	idevt := &IdentityEvent{
-		RepoEvent: RepoEvent{
-			Account: capture.AccountMeta,
-		},
-	}
-	ideff := &Effects{
-		// XXX: Logger: eng.Logger.With("did", capture.AccountMeta.Identity.DID),
-	}
-	if err := eng.Rules.CallIdentityRules(idevt, ideff); err != nil {
+	ac := NewAccountContext(ctx, eng, capture.AccountMeta)
+	if err := eng.Rules.CallIdentityRules(&ac); err != nil {
 		return err
 	}
-	ideff.CanonicalLogLine()
-	if err := idevt.persistAccountEffects(ctx, evt, eff); err != nil {
+	eng.CanonicalLogLineAccount(&ac)
+	if err := eng.persistAccountModActions(&ac); err != nil {
 		return err
 	}
-	if err := idevt.persistCounters(ctx); err != nil {
+	if err := eng.persistCounters(ctx, &ac.effects); err != nil {
 		return err
 	}
 
@@ -125,19 +118,25 @@ func ProcessCaptureRules(eng *Engine, capture AccountCapture) error {
 		if err != nil {
 			return err
 		}
-		path := aturi.Collection().String() + "/" + aturi.RecordKey().String()
-		evt, eff := eng.NewRecordProcessingContext(capture.AccountMeta, path, pr.Cid, pr.Value.Val)
-		// REVIEW: this area should... use the real code path that does the same thing, if at all possible?  Currently this seems like great drift danger.
-		eng.Logger.Debug("processing record", "did", aturi.Authority(), "path", path)
-		if err := eng.Rules.CallRecordRules(evt, eff); err != nil {
+		eng.Logger.Debug("processing record", "did", aturi.Authority())
+		op := RecordOp{
+			Action:     CreateOp,
+			DID:        aturi.Authority().String(),
+			Collection: aturi.Collection().String(),
+			RecordKey:  aturi.RecordKey().String(),
+			CID:        &pr.Cid,
+			Value:      pr.Value.Val,
+		}
+		rc := NewRecordContext(ctx, eng, capture.AccountMeta, op)
+		if err := eng.Rules.CallRecordRules(&rc); err != nil {
 			return err
 		}
-		eff.CanonicalLogLine()
+		eng.CanonicalLogLineRecord(&rc)
 		// NOTE: not purging account meta when profile is updated
-		if err := eng.persistAccountEffects(ctx, evt, eff); err != nil {
+		if err := eng.persistRecordModActions(&rc); err != nil {
 			return err
 		}
-		if err := evt.PersistCounters(ctx); err != nil {
+		if err := eng.persistCounters(ctx, &rc.effects); err != nil {
 			return err
 		}
 	}
