@@ -21,7 +21,7 @@ import (
 
 var _ PostRuleFunc = simpleRule
 
-func simpleRule(evt *event.RecordEvent, eff *effects.RecordEffect, post *appbsky.FeedPost) error {
+func simpleRule(evt *event.RecordEvent, eff *effects.Effects, post *appbsky.FeedPost) error {
 	for _, tag := range post.Tags {
 		if evt.InSet("bad-hashtags", tag) {
 			eff.AddRecordLabel("bad-hashtag")
@@ -107,10 +107,8 @@ func ProcessCaptureRules(eng *Engine, capture AccountCapture) error {
 			Account: capture.AccountMeta,
 		},
 	}
-	ideff := &effects.IdentityEffect{
-		RepoEffect: effects.RepoEffect{
-			Logger: eng.Logger.With("did", capture.AccountMeta.Identity.DID),
-		},
+	ideff := &effects.Effects{
+		// XXX: Logger: eng.Logger.With("did", capture.AccountMeta.Identity.DID),
 	}
 	if err := eng.Rules.CallIdentityRules(idevt, ideff); err != nil {
 		return err

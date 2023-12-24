@@ -1,5 +1,6 @@
 package effects
 
+// Simplified variant of input parameters for com.atproto.moderation.createReport, for internal tracking
 type ModReport struct {
 	ReasonType string
 	Comment    string

@@ -56,7 +56,7 @@ func dedupeFlagActions(flags, existing []string) []string {
 }
 
 // REVIEW: this does does both reads and then mutations of the planned effect, rather than just returning things, which neither the name nor signiture clearly suggests.
-func (eng *Engine) dedupeReportActions(evt *event.RepoEvent, eff *effects.RepoEffect, reports []effects.ModReport) []effects.ModReport {
+func (eng *Engine) dedupeReportActions(evt *event.RepoEvent, eff *effects.Effects, reports []effects.ModReport) []effects.ModReport {
 	newReports := []effects.ModReport{}
 	for _, r := range reports {
 		counterName := "automod-account-report-" + effects.ReasonShortName(r.ReasonType)
@@ -74,7 +74,7 @@ func (eng *Engine) dedupeReportActions(evt *event.RepoEvent, eff *effects.RepoEf
 	return newReports
 }
 
-func (eng *Engine) circuitBreakReports(eff *effects.RepoEffect, reports []effects.ModReport) []effects.ModReport {
+func (eng *Engine) circuitBreakReports(eff *effects.Effects, reports []effects.ModReport) []effects.ModReport {
 	if len(reports) == 0 {
 		return []effects.ModReport{}
 	}
@@ -90,7 +90,7 @@ func (eng *Engine) circuitBreakReports(eff *effects.RepoEffect, reports []effect
 	return reports
 }
 
-func (eng *Engine) circuitBreakTakedown(eff *effects.RepoEffect, takedown bool) bool {
+func (eng *Engine) circuitBreakTakedown(eff *effects.Effects, takedown bool) bool {
 	if !takedown {
 		return takedown
 	}
