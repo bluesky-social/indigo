@@ -13,22 +13,22 @@ import (
 // looks for new accounts, with a commercial or donation link in profile, which directly reply to several accounts
 //
 // this rule depends on ReplyCountPostRule() to set counts
-func AggressivePromotionRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
-	if evt.Account.Private == nil || evt.Account.Identity == nil {
+func AggressivePromotionRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+	if c.Account.Private == nil || c.Account.Identity == nil {
 		return nil
 	}
 	// TODO: helper for account age
-	age := time.Since(evt.Account.Private.IndexedAt)
+	age := time.Since(c.Account.Private.IndexedAt)
 	if age > 7*24*time.Hour {
 		return nil
 	}
-	if post.Reply == nil || IsSelfThread(evt, post) {
+	if post.Reply == nil || IsSelfThread(c, post) {
 		return nil
 	}
 
 	allURLs := ExtractTextURLs(post.Text)
-	if evt.Account.Profile.Description != nil {
-		profileURLs := ExtractTextURLs(*evt.Account.Profile.Description)
+	if c.Account.Profile.Description != nil {
+		profileURLs := ExtractTextURLs(*c.Account.Profile.Description)
 		allURLs = append(allURLs, profileURLs...)
 	}
 	hasPromo := false
@@ -38,11 +38,11 @@ func AggressivePromotionRule(evt *automod.RecordEvent, post *appbsky.FeedPost) e
 		}
 		u, err := url.Parse(s)
 		if err != nil {
-			evt.Logger.Warn("failed to parse URL", "url", s)
+			c.Logger.Warn("failed to parse URL", "url", s)
 			continue
 		}
 		host := strings.TrimPrefix(strings.ToLower(u.Host), "www.")
-		if evt.InSet("promo-domain", host) {
+		if c.InSet("promo-domain", host) {
 			hasPromo = true
 			break
 		}
@@ -51,10 +51,10 @@ func AggressivePromotionRule(evt *automod.RecordEvent, post *appbsky.FeedPost) e
 		return nil
 	}
 
-	did := evt.Account.Identity.DID.String()
-	uniqueReplies := evt.GetCountDistinct("reply-to", did, countstore.PeriodDay)
+	did := c.Account.Identity.DID.String()
+	uniqueReplies := c.GetCountDistinct("reply-to", did, countstore.PeriodDay)
 	if uniqueReplies >= 5 {
-		evt.AddAccountFlag("promo-multi-reply")
+		c.AddAccountFlag("promo-multi-reply")
 	}
 
 	return nil

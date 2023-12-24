@@ -28,7 +28,7 @@ func DefaultRules() automod.RuleSet {
 		RecordRules: []automod.RecordRuleFunc{
 			InteractionChurnRule,
 		},
-		RecordDeleteRules: []automod.RecordDeleteRuleFunc{
+		RecordDeleteRules: []automod.RecordRuleFunc{
 			DeleteInteractionRule,
 		},
 		IdentityRules: []automod.IdentityRuleFunc{

@@ -8,10 +8,10 @@ import (
 )
 
 // dummy rule. this leaks PII (account email) in logs and should never be used in real life
-func AccountPrivateDemoPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
-	if evt.Account.Private != nil {
-		if strings.HasSuffix(evt.Account.Private.Email, "@blueskyweb.xyz") {
-			evt.Logger.Info("hello dev!", "email", evt.Account.Private.Email)
+func AccountPrivateDemoPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+	if c.Account.Private != nil {
+		if strings.HasSuffix(c.Account.Private.Email, "@blueskyweb.xyz") {
+			c.Logger.Info("hello dev!", "email", c.Account.Private.Email)
 		}
 	}
 	return nil
