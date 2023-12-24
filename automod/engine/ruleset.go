@@ -16,7 +16,7 @@ type RuleSet struct {
 	IdentityRules     []IdentityRuleFunc
 }
 
-func (r *RuleSet) CallRecordRules(evt *event.RecordEvent, eff *effects.RecordEffect) error {
+func (r *RuleSet) CallRecordRules(evt *event.RecordEvent, eff *effects.Effects) error {
 	// first the generic rules
 	for _, f := range r.RecordRules {
 		err := f(evt, eff)
@@ -52,7 +52,7 @@ func (r *RuleSet) CallRecordRules(evt *event.RecordEvent, eff *effects.RecordEff
 	return nil
 }
 
-func (r *RuleSet) CallRecordDeleteRules(evt *event.RecordDeleteEvent, eff *effects.RecordDeleteEffect) error {
+func (r *RuleSet) CallRecordDeleteRules(evt *event.RecordDeleteEvent, eff *effects.Effects) error {
 	for _, f := range r.RecordDeleteRules {
 		err := f(evt, eff)
 		if err != nil {
@@ -62,7 +62,7 @@ func (r *RuleSet) CallRecordDeleteRules(evt *event.RecordDeleteEvent, eff *effec
 	return nil
 }
 
-func (r *RuleSet) CallIdentityRules(evt *event.IdentityEvent, eff *effects.IdentityEffect) error {
+func (r *RuleSet) CallIdentityRules(evt *event.IdentityEvent, eff *effects.Effects) error {
 	for _, f := range r.IdentityRules {
 		err := f(evt, eff)
 		if err != nil {

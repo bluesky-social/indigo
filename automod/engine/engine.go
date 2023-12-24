@@ -60,20 +60,18 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, t string, did synta
 			Account: *am,
 		},
 	}
-	eff := &effects.IdentityEffect{
-		RepoEffect: effects.RepoEffect{
-			Logger: eng.Logger.With("did", am.Identity.DID),
-		},
+	eff := &effects.Effects{
+		// XXX: Logger: eng.Logger.With("did", am.Identity.DID),
 	}
 	if err := eng.Rules.CallIdentityRules(evt, eff); err != nil {
 		return err
 	}
 	eff.CanonicalLogLine()
 	eng.PurgeAccountCaches(ctx, am.Identity.DID)
-	if err := eng.persistAccountEffects(ctx, &evt.RepoEvent, &eff.RepoEffect); err != nil {
+	if err := eng.persistAccountEffects(ctx, &evt.RepoEvent, eff); err != nil {
 		return err
 	}
-	if err := eng.persistCounters(ctx, &eff.RepoEffect); err != nil {
+	if err := eng.persistCounters(ctx, eff); err != nil {
 		return err
 	}
 	return nil
@@ -109,10 +107,10 @@ func (eng *Engine) ProcessRecord(ctx context.Context, did syntax.DID, path, recC
 	if evt.Collection == "app.bsky.actor.profile" {
 		eng.PurgeAccountCaches(ctx, am.Identity.DID)
 	}
-	if err := eng.persistRecordEffects(ctx, evt, eff); err != nil {
+	if err := eng.persistEffectss(ctx, evt, eff); err != nil {
 		return err
 	}
-	if err := eng.persistCounters(ctx, &eff.RepoEffect); err != nil {
+	if err := eng.persistCounters(ctx, eff); err != nil {
 		return err
 	}
 	return nil
@@ -148,16 +146,21 @@ func (eng *Engine) ProcessRecordDelete(ctx context.Context, did syntax.DID, path
 	if evt.Collection == "app.bsky.actor.profile" {
 		eng.PurgeAccountCaches(ctx, am.Identity.DID)
 	}
-	if err := eng.persistRecordDeleteEffects(ctx, evt, eff); err != nil {
+	/* XXX:
+	if err := eng.persistAccountEffects(ctx, evt, eff); err != nil {
 		return err
 	}
-	if err := eng.persistCounters(ctx, &eff.RepoEffect); err != nil {
+	if err := eng.persistRecordEffects(ctx, evt, eff); err != nil {
+		return err
+	}
+	*/
+	if err := eng.persistCounters(ctx, eff); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (e *Engine) NewRecordProcessingContext(am event.AccountMeta, path, recCID string, rec any) (*event.RecordEvent, *effects.RecordEffect) {
+func (e *Engine) NewRecordProcessingContext(am event.AccountMeta, path, recCID string, rec any) (*event.RecordEvent, *effects.Effects) {
 	// REVIEW: Only reason for this to be a method on the engine is because it's bifrucating the logger off from there.  Should we pinch that off?
 	parts := strings.SplitN(path, "/", 2)
 	return &event.RecordEvent{
@@ -168,10 +171,8 @@ func (e *Engine) NewRecordProcessingContext(am event.AccountMeta, path, recCID s
 			Collection: parts[0],
 			RecordKey:  parts[1],
 			CID:        recCID,
-		}, &effects.RecordEffect{
-			RepoEffect: effects.RepoEffect{
-				Logger: e.Logger.With("did", am.Identity.DID, "collection", parts[0], "rkey", parts[1]),
-			},
+		}, &effects.Effects{
+			// XXX: Logger: e.Logger.With("did", am.Identity.DID, "collection", parts[0], "rkey", parts[1]),
 			RecordLabels:   []string{},
 			RecordFlags:    []string{},
 			RecordReports:  []effects.ModReport{},
@@ -179,7 +180,7 @@ func (e *Engine) NewRecordProcessingContext(am event.AccountMeta, path, recCID s
 		}
 }
 
-func (e *Engine) NewRecordDeleteProcessingContext(am event.AccountMeta, path string) (*event.RecordDeleteEvent, *effects.RecordDeleteEffect) {
+func (e *Engine) NewRecordDeleteProcessingContext(am event.AccountMeta, path string) (*event.RecordDeleteEvent, *effects.Effects) {
 	parts := strings.SplitN(path, "/", 2)
 	return &event.RecordDeleteEvent{
 			RepoEvent: event.RepoEvent{
@@ -187,10 +188,8 @@ func (e *Engine) NewRecordDeleteProcessingContext(am event.AccountMeta, path str
 			},
 			Collection: parts[0],
 			RecordKey:  parts[1],
-		}, &effects.RecordDeleteEffect{
-			RepoEffect: effects.RepoEffect{
-				Logger: e.Logger.With("did", am.Identity.DID, "collection", parts[0], "rkey", parts[1]),
-			},
+		}, &effects.Effects{
+			// XXX: Logger: e.Logger.With("did", am.Identity.DID, "collection", parts[0], "rkey", parts[1]),
 		}
 }
 

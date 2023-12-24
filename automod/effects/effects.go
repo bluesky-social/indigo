@@ -26,13 +26,10 @@ type CounterDistinctRef struct {
 	Val    string
 }
 
-type RepoEffect struct {
-	// Any error encountered while processing the event can be stashed in this field and handled at the end of all processing.
-	//Err error // REVIEW: nothing seems to have actually used this.  If we keep it we should decide the methods that pile mutations into this struct don't return errors; two paths is bad.
-
-	// slog logger handle, with event-specific structured fields pre-populated. Pointer, but expected to not be nil.
-	Logger *slog.Logger
-
+// Mutable container for all the possible side-effects from rule execution.
+//
+// This single type tracks generic effects (eg, counter increments), account-level actions, and record-level actions (even for processing of account-level events which have no possible record-level effects).
+type Effects struct {
 	// List of counters which should be incremented as part of processing this event. These are collected during rule execution and persisted in bulk at the end.
 	CounterIncrements []CounterRef
 	// Similar to "CounterIncrements", but for "distinct" style counters
@@ -45,66 +42,6 @@ type RepoEffect struct {
 	AccountReports []ModReport
 	// If "true", indicates that a rule indicates that the entire account should have a takedown.
 	AccountTakedown bool
-}
-
-// Enqueues the named counter to be incremented at the end of all rule processing. Will automatically increment for all time periods.
-//
-// "name" is the counter namespace.
-// "val" is the specific counter with that namespace.
-func (e *RepoEffect) Increment(name, val string) {
-	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val})
-}
-
-// Enqueues the named counter to be incremented at the end of all rule processing. Will only increment the indicated time period bucket.
-func (e *RepoEffect) IncrementPeriod(name, val string, period string) {
-	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val, Period: &period})
-}
-
-// Enqueues the named "distinct value" counter based on the supplied string value ("val") to be incremented at the end of all rule processing. Will automatically increment for all time periods.
-func (e *RepoEffect) IncrementDistinct(name, bucket, val string) {
-	e.CounterDistinctIncrements = append(e.CounterDistinctIncrements, CounterDistinctRef{Name: name, Bucket: bucket, Val: val})
-}
-
-// Enqueues the provided label (string value) to be added to the account at the end of rule processing.
-func (e *RepoEffect) AddAccountLabel(val string) {
-	e.AccountLabels = append(e.AccountLabels, val)
-}
-
-// Enqueues the provided flag (string value) to be recorded (in the Engine's flagstore) at the end of rule processing.
-func (e *RepoEffect) AddAccountFlag(val string) {
-	e.AccountFlags = append(e.AccountFlags, val)
-}
-
-// Enqueues a moderation report to be filed against the account at the end of rule processing.
-func (e *RepoEffect) ReportAccount(reason, comment string) {
-	if comment == "" {
-		comment = "(no comment)"
-	}
-	comment = "automod: " + comment
-	e.AccountReports = append(e.AccountReports, ModReport{ReasonType: reason, Comment: comment})
-}
-
-// Enqueues the entire account to be taken down at the end of rule processing.
-func (e *RepoEffect) TakedownAccount() {
-	e.AccountTakedown = true
-}
-
-func (e *RepoEffect) CanonicalLogLine() {
-	e.Logger.Info("canonical-event-line",
-		"accountLabels", e.AccountLabels,
-		"accountFlags", e.AccountFlags,
-		"accountTakedown", e.AccountTakedown,
-		"accountReports", len(e.AccountReports),
-	)
-}
-
-type IdentityEffect struct {
-	RepoEffect
-}
-
-type RecordEffect struct {
-	RepoEffect
-
 	// Same as "AccountLabels", but at record-level
 	RecordLabels []string
 	// Same as "AccountFlags", but at record-level
@@ -113,21 +50,62 @@ type RecordEffect struct {
 	RecordReports []ModReport
 	// Same as "AccountTakedown", but at record-level
 	RecordTakedown bool
-	// TODO: commit metadata
+}
+
+// Enqueues the named counter to be incremented at the end of all rule processing. Will automatically increment for all time periods.
+//
+// "name" is the counter namespace.
+// "val" is the specific counter with that namespace.
+func (e *Effects) Increment(name, val string) {
+	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val})
+}
+
+// Enqueues the named counter to be incremented at the end of all rule processing. Will only increment the indicated time period bucket.
+func (e *Effects) IncrementPeriod(name, val string, period string) {
+	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val, Period: &period})
+}
+
+// Enqueues the named "distinct value" counter based on the supplied string value ("val") to be incremented at the end of all rule processing. Will automatically increment for all time periods.
+func (e *Effects) IncrementDistinct(name, bucket, val string) {
+	e.CounterDistinctIncrements = append(e.CounterDistinctIncrements, CounterDistinctRef{Name: name, Bucket: bucket, Val: val})
+}
+
+// Enqueues the provided label (string value) to be added to the account at the end of rule processing.
+func (e *Effects) AddAccountLabel(val string) {
+	e.AccountLabels = append(e.AccountLabels, val)
+}
+
+// Enqueues the provided flag (string value) to be recorded (in the Engine's flagstore) at the end of rule processing.
+func (e *Effects) AddAccountFlag(val string) {
+	e.AccountFlags = append(e.AccountFlags, val)
+}
+
+// Enqueues a moderation report to be filed against the account at the end of rule processing.
+func (e *Effects) ReportAccount(reason, comment string) {
+	if comment == "" {
+		comment = "(no comment)"
+	}
+	comment = "automod: " + comment
+	e.AccountReports = append(e.AccountReports, ModReport{ReasonType: reason, Comment: comment})
+}
+
+// Enqueues the entire account to be taken down at the end of rule processing.
+func (e *Effects) TakedownAccount() {
+	e.AccountTakedown = true
 }
 
 // Enqueues the provided label (string value) to be added to the record at the end of rule processing.
-func (e *RecordEffect) AddRecordLabel(val string) {
+func (e *Effects) AddRecordLabel(val string) {
 	e.RecordLabels = append(e.RecordLabels, val)
 }
 
 // Enqueues the provided flag (string value) to be recorded (in the Engine's flagstore) at the end of rule processing.
-func (e *RecordEffect) AddRecordFlag(val string) {
+func (e *Effects) AddRecordFlag(val string) {
 	e.RecordFlags = append(e.RecordFlags, val)
 }
 
 // Enqueues a moderation report to be filed against the record at the end of rule processing.
-func (e *RecordEffect) ReportRecord(reason, comment string) {
+func (e *Effects) ReportRecord(reason, comment string) {
 	if comment == "" {
 		comment = "(automod)"
 	} else {
@@ -137,12 +115,13 @@ func (e *RecordEffect) ReportRecord(reason, comment string) {
 }
 
 // Enqueues the record to be taken down at the end of rule processing.
-func (e *RecordEffect) TakedownRecord() {
+func (e *Effects) TakedownRecord() {
 	e.RecordTakedown = true
 }
 
-func (e *RecordEffect) CanonicalLogLine() {
-	e.Logger.Info("canonical-event-line",
+// XXX: move to method on Engine, and use actually logger
+func (e *Effects) CanonicalLogLine() {
+	slog.Info("canonical-event-line",
 		"accountLabels", e.AccountLabels,
 		"accountFlags", e.AccountFlags,
 		"accountTakedown", e.AccountTakedown,
@@ -152,8 +131,4 @@ func (e *RecordEffect) CanonicalLogLine() {
 		"recordTakedown", e.RecordTakedown,
 		"recordReports", len(e.RecordReports),
 	)
-}
-
-type RecordDeleteEffect struct {
-	RepoEffect
 }

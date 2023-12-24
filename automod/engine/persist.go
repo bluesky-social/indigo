@@ -10,7 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/automod/util"
 )
 
-func (eng *Engine) persistCounters(ctx context.Context, eff *effects.RepoEffect) error {
+func (eng *Engine) persistCounters(ctx context.Context, eff *effects.Effects) error {
 	// TODO: dedupe this array
 	for _, ref := range eff.CounterIncrements {
 		if ref.Period != nil {
@@ -39,7 +39,7 @@ func (eng *Engine) persistCounters(ctx context.Context, eff *effects.RepoEffect)
 // If necessary, will "purge" identity and account caches, so that state updates will be picked up for subsequent events.
 //
 // Note that this method expects to run *before* counts are persisted (it accesses and updates some counts)
-func (eng *Engine) persistAccountEffects(ctx context.Context, evt *event.RepoEvent, eff *effects.RepoEffect) error {
+func (eng *Engine) persistAccountEffects(ctx context.Context, evt *event.RepoEvent, eff *effects.Effects) error {
 
 	// de-dupe actions
 	newLabels := dedupeLabelActions(eff.AccountLabels, evt.Account.AccountLabels, evt.Account.AccountNegatedLabels)
@@ -136,16 +136,16 @@ func (eng *Engine) persistAccountEffects(ctx context.Context, evt *event.RepoEve
 // Persists some record-level state: labels, takedowns, reports.
 //
 // NOTE: this method currently does *not* persist record-level flags to any storage, and does not de-dupe most actions, on the assumption that the record is new (from firehose) and has no existing mod state.
-func (eng *Engine) persistRecordEffects(ctx context.Context, evt *event.RecordEvent, eff *effects.RecordEffect) error {
-	if err := eng.persistAccountEffects(ctx, &evt.RepoEvent, &eff.RepoEffect); err != nil {
+func (eng *Engine) persistEffectss(ctx context.Context, evt *event.RecordEvent, eff *effects.Effects) error {
+	if err := eng.persistAccountEffects(ctx, &evt.RepoEvent, eff); err != nil {
 		return err
 	}
 
 	// NOTE: record-level actions are *not* currently de-duplicated (aka, the same record could be labeled multiple times, or re-reported, etc)
 	newLabels := util.DedupeStrings(eff.RecordLabels)
 	newFlags := util.DedupeStrings(eff.RecordFlags)
-	newReports := eng.circuitBreakReports(&eff.RepoEffect, eff.RecordReports)
-	newTakedown := eng.circuitBreakTakedown(&eff.RepoEffect, eff.RecordTakedown)
+	newReports := eng.circuitBreakReports(eff, eff.RecordReports)
+	newTakedown := eng.circuitBreakTakedown(eff, eff.RecordTakedown)
 	atURI := fmt.Sprintf("at://%s/%s/%s", evt.Account.Identity.DID, evt.Collection, evt.RecordKey)
 
 	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
@@ -223,13 +223,6 @@ func (eng *Engine) persistRecordEffects(ctx context.Context, evt *event.RecordEv
 		if err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func (eng *Engine) persistRecordDeleteEffects(ctx context.Context, evt *event.RecordDeleteEvent, eff *effects.RecordDeleteEffect) error {
-	if err := eng.persistAccountEffects(ctx, &evt.RepoEvent, &eff.RepoEffect); err != nil {
-		return err
 	}
 	return nil
 }
