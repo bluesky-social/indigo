@@ -60,7 +60,10 @@ func (eng *Engine) dedupeReportActions(evt *event.RepoEvent, eff *effects.RepoEf
 	newReports := []effects.ModReport{}
 	for _, r := range reports {
 		counterName := "automod-account-report-" + effects.ReasonShortName(r.ReasonType)
-		existing := eng.GetCount(counterName, evt.Account.Identity.DID.String(), countstore.PeriodDay)
+		existing, err := eng.GetCount(counterName, evt.Account.Identity.DID.String(), countstore.PeriodDay)
+		if err != nil {
+			panic(err) // XXX
+		}
 		if existing > 0 {
 			eng.Logger.Debug("skipping account report due to counter", "existing", existing, "reason", effects.ReasonShortName(r.ReasonType))
 		} else {
@@ -75,7 +78,11 @@ func (eng *Engine) circuitBreakReports(eff *effects.RepoEffect, reports []effect
 	if len(reports) == 0 {
 		return []effects.ModReport{}
 	}
-	if eng.GetCount("automod-quota", "report", countstore.PeriodDay) >= effects.QuotaModReportDay {
+	c, err := eng.GetCount("automod-quota", "report", countstore.PeriodDay)
+	if err != nil {
+		panic(err) // XXX
+	}
+	if c >= effects.QuotaModReportDay {
 		eng.Logger.Warn("CIRCUIT BREAKER: automod reports")
 		return []effects.ModReport{}
 	}
@@ -87,7 +94,11 @@ func (eng *Engine) circuitBreakTakedown(eff *effects.RepoEffect, takedown bool) 
 	if !takedown {
 		return takedown
 	}
-	if eng.GetCount("automod-quota", "takedown", countstore.PeriodDay) >= effects.QuotaModTakedownDay {
+	c, err := eng.GetCount("automod-quota", "takedown", countstore.PeriodDay)
+	if err != nil {
+		panic(err) // XXX
+	}
+	if c >= effects.QuotaModTakedownDay {
 		eng.Logger.Warn("CIRCUIT BREAKER: automod takedowns")
 		return false
 	}

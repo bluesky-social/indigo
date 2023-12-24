@@ -19,10 +19,12 @@ import (
 	"github.com/bluesky-social/indigo/automod/setstore"
 )
 
-func simpleRule(evt *event.RecordEvent, post *appbsky.FeedPost) error {
+var _ PostRuleFunc = simpleRule
+
+func simpleRule(evt *event.RecordEvent, eff *effects.RecordEffect, post *appbsky.FeedPost) error {
 	for _, tag := range post.Tags {
 		if evt.InSet("bad-hashtags", tag) {
-			evt.AddRecordLabel("bad-hashtag")
+			eff.AddRecordLabel("bad-hashtag")
 			break
 		}
 	}
@@ -31,7 +33,7 @@ func simpleRule(evt *event.RecordEvent, post *appbsky.FeedPost) error {
 			if feat.RichtextFacet_Tag != nil {
 				tag := feat.RichtextFacet_Tag.Tag
 				if evt.InSet("bad-hashtags", tag) {
-					evt.AddRecordLabel("bad-hashtag")
+					eff.AddRecordLabel("bad-hashtag")
 					break
 				}
 			}
