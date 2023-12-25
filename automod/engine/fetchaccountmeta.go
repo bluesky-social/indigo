@@ -9,7 +9,6 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/automod/util"
 )
 
 func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (*AccountMeta, error) {
@@ -69,8 +68,8 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 			Description: pv.Description,
 			DisplayName: pv.DisplayName,
 		},
-		AccountLabels:        util.DedupeStrings(labels),
-		AccountNegatedLabels: util.DedupeStrings(negLabels),
+		AccountLabels:        dedupeStrings(labels),
+		AccountNegatedLabels: dedupeStrings(negLabels),
 		AccountFlags:         flags,
 	}
 	if pv.PostsCount != nil {

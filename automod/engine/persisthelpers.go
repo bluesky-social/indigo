@@ -9,13 +9,12 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod/countstore"
-	"github.com/bluesky-social/indigo/automod/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 func dedupeLabelActions(labels, existing, existingNegated []string) []string {
 	newLabels := []string{}
-	for _, val := range util.DedupeStrings(labels) {
+	for _, val := range dedupeStrings(labels) {
 		exists := false
 		for _, e := range existingNegated {
 			if val == e {
@@ -38,7 +37,7 @@ func dedupeLabelActions(labels, existing, existingNegated []string) []string {
 
 func dedupeFlagActions(flags, existing []string) []string {
 	newFlags := []string{}
-	for _, val := range util.DedupeStrings(flags) {
+	for _, val := range dedupeStrings(flags) {
 		exists := false
 		for _, e := range existing {
 			if val == e {
