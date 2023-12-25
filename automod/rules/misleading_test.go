@@ -53,10 +53,10 @@ func TestMisleadingURLPostRule(t *testing.T) {
 		CID:        &cid1,
 		Value:      p1,
 	}
-	evt1 := engine.NewRecordContext(ctx, &eng, am1, op)
-	assert.NoError(MisleadingURLPostRule(&evt1, &p1))
-	// XXX: test helper to access effects
-	//assert.NotEmpty(evt1.RecordFlags)
+	c1 := engine.NewRecordContext(ctx, &eng, am1, op)
+	assert.NoError(MisleadingURLPostRule(&c1, &p1))
+	eff1 := engine.ExtractEffects(&c1.BaseContext)
+	assert.NotEmpty(eff1.RecordFlags)
 }
 
 func TestMisleadingMentionPostRule(t *testing.T) {
@@ -98,10 +98,10 @@ func TestMisleadingMentionPostRule(t *testing.T) {
 		CID:        &cid1,
 		Value:      p1,
 	}
-	evt1 := engine.NewRecordContext(ctx, &eng, am1, op)
-	assert.NoError(MisleadingMentionPostRule(&evt1, &p1))
-	// XXX: test helper to access effects
-	//assert.NotEmpty(evt1.RecordFlags)
+	c1 := engine.NewRecordContext(ctx, &eng, am1, op)
+	assert.NoError(MisleadingMentionPostRule(&c1, &p1))
+	eff1 := engine.ExtractEffects(&c1.BaseContext)
+	assert.NotEmpty(eff1.RecordFlags)
 }
 
 func pstr(raw string) *string {
