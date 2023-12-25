@@ -3,6 +3,8 @@ package engine
 import (
 	"context"
 	"log/slog"
+
+	"github.com/bluesky-social/indigo/atproto/identity"
 )
 
 // The primary interface exposed to rules.
@@ -50,6 +52,11 @@ type RecordOp struct {
 }
 
 // TODO: in the future *may* have an IdentityContext with an IdentityOp sub-field
+
+// Access to engine's identity directory (without access to other engine fields)
+func (c *BaseContext) Directory() identity.Directory {
+	return c.engine.Directory
+}
 
 // request external state via engine (indirect)
 func (c *BaseContext) GetCount(name, val, period string) int {

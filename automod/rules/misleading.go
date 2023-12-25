@@ -122,8 +122,7 @@ func MisleadingMentionPostRule(c *automod.RecordContext, post *appbsky.FeedPost)
 				continue
 			}
 
-			/* XXX: need access to directory from engine
-			mentioned, err := c.Engine.Directory.LookupHandle(ctx, handle)
+			mentioned, err := c.Directory().LookupHandle(ctx, handle)
 			if err != nil {
 				c.Logger.Warn("could not resolve handle", "handle", handle)
 				c.AddRecordFlag("broken-mention")
@@ -136,10 +135,6 @@ func MisleadingMentionPostRule(c *automod.RecordContext, post *appbsky.FeedPost)
 				c.AddRecordFlag("misleading-mention")
 				continue
 			}
-			*/
-			// XXX
-			_ = ctx
-			_ = handle
 		}
 	}
 	return nil
