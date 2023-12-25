@@ -11,6 +11,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/automod/capture"
 	"github.com/bluesky-social/indigo/automod/directory"
 
 	"github.com/carlmjohnson/versioninfo"
@@ -250,7 +251,7 @@ var processRecordCmd = &cli.Command{
 			return err
 		}
 
-		return srv.engine.FetchAndProcessRecord(ctx, aturi)
+		return capture.FetchAndProcessRecord(ctx, srv.engine, aturi)
 	},
 }
 
@@ -281,7 +282,7 @@ var processRecentCmd = &cli.Command{
 			return err
 		}
 
-		return srv.engine.FetchAndProcessRecent(ctx, *atid, cctx.Int("limit"))
+		return capture.FetchAndProcessRecent(ctx, srv.engine, *atid, cctx.Int("limit"))
 	},
 }
 
@@ -312,12 +313,12 @@ var captureRecentCmd = &cli.Command{
 			return err
 		}
 
-		capture, err := srv.engine.CaptureRecent(ctx, *atid, cctx.Int("limit"))
+		cap, err := capture.CaptureRecent(ctx, srv.engine, *atid, cctx.Int("limit"))
 		if err != nil {
 			return err
 		}
 
-		outJSON, err := json.MarshalIndent(capture, "", "  ")
+		outJSON, err := json.MarshalIndent(cap, "", "  ")
 		if err != nil {
 			return err
 		}

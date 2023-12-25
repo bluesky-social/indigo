@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/capture"
 	"github.com/bluesky-social/indigo/automod/engine"
 
 	"github.com/stretchr/testify/assert"
@@ -21,9 +22,9 @@ func TestIdenticalReplyPostRule(t *testing.T) {
 		},
 	}
 
-	capture := engine.MustLoadCapture("testdata/capture_hackerdarkweb.json")
-	did := capture.AccountMeta.Identity.DID.String()
-	assert.NoError(engine.ProcessCaptureRules(&eng, capture))
+	cap := capture.MustLoadCapture("testdata/capture_hackerdarkweb.json")
+	did := cap.AccountMeta.Identity.DID.String()
+	assert.NoError(capture.ProcessCaptureRules(&eng, cap))
 	f, err := eng.Flags.Get(ctx, did)
 	assert.NoError(err)
 	assert.Equal([]string{"multi-identical-reply"}, f)

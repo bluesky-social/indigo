@@ -1,11 +1,7 @@
 package engine
 
 import (
-	"context"
-	"encoding/json"
-	"io"
 	"log/slog"
-	"os"
 	"time"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
@@ -67,64 +63,6 @@ func EngineTestFixture() Engine {
 		Rules:     rules,
 	}
 	return eng
-}
-
-func MustLoadCapture(capPath string) AccountCapture {
-	f, err := os.Open(capPath)
-	if err != nil {
-		panic(err)
-	}
-	defer func() { _ = f.Close() }()
-
-	raw, err := io.ReadAll(f)
-	if err != nil {
-		panic(err)
-	}
-
-	var capture AccountCapture
-	if err := json.Unmarshal(raw, &capture); err != nil {
-		panic(err)
-	}
-	return capture
-}
-
-// Test helper which processes all the records from a capture. Intentionally exported, for use in other packages.
-//
-// This method replaces any pre-existing directory on the engine with a mock directory.
-func ProcessCaptureRules(eng *Engine, capture AccountCapture) error {
-	ctx := context.Background()
-
-	did := capture.AccountMeta.Identity.DID
-	dir := identity.NewMockDirectory()
-	dir.Insert(*capture.AccountMeta.Identity)
-	eng.Directory = &dir
-
-	// initial identity rules
-	eng.ProcessIdentityEvent(ctx, "new", did)
-
-	// all the post rules
-	for _, pr := range capture.PostRecords {
-		aturi, err := syntax.ParseATURI(pr.Uri)
-		if err != nil {
-			return err
-		}
-		did, err := aturi.Authority().AsDID()
-		if err != nil {
-			return err
-		}
-		recCID := syntax.CID(pr.Cid)
-		eng.Logger.Debug("processing record", "did", did)
-		op := RecordOp{
-			Action:     CreateOp,
-			DID:        did,
-			Collection: aturi.Collection(),
-			RecordKey:  aturi.RecordKey(),
-			CID:        &recCID,
-			Value:      pr.Value.Val,
-		}
-		eng.ProcessRecordOp(ctx, op)
-	}
-	return nil
 }
 
 // Helper to access the private effects field from a context. Intended for use in test code, *not* from rules.
