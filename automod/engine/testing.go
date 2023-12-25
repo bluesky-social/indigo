@@ -57,7 +57,7 @@ func EngineTestFixture() Engine {
 		Handle: syntax.Handle("handle.example.com"),
 	}
 	dir.Insert(id1)
-	engine := Engine{
+	eng := Engine{
 		Logger:    slog.Default(),
 		Directory: &dir,
 		Counters:  countstore.NewMemCountStore(),
@@ -66,7 +66,7 @@ func EngineTestFixture() Engine {
 		Cache:     cache,
 		Rules:     rules,
 	}
-	return engine
+	return eng
 }
 
 func MustLoadCapture(capPath string) AccountCapture {
@@ -118,13 +118,18 @@ func ProcessCaptureRules(eng *Engine, capture AccountCapture) error {
 		if err != nil {
 			return err
 		}
-		eng.Logger.Debug("processing record", "did", aturi.Authority())
+		did, err := aturi.Authority().AsDID()
+		if err != nil {
+			return err
+		}
+		recCID := syntax.CID(pr.Cid)
+		eng.Logger.Debug("processing record", "did", did)
 		op := RecordOp{
 			Action:     CreateOp,
-			DID:        aturi.Authority().String(),
-			Collection: aturi.Collection().String(),
-			RecordKey:  aturi.RecordKey().String(),
-			CID:        &pr.Cid,
+			DID:        did,
+			Collection: aturi.Collection(),
+			RecordKey:  aturi.RecordKey(),
+			CID:        &recCID,
 			Value:      pr.Value.Val,
 		}
 		rc := NewRecordContext(ctx, eng, capture.AccountMeta, op)

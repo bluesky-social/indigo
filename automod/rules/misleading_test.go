@@ -25,8 +25,7 @@ func TestMisleadingURLPostRule(t *testing.T) {
 			Handle: syntax.Handle("handle.example.com"),
 		},
 	}
-	//path := "app.bsky.feed.post/abc123"
-	cid1 := "cid123"
+	cid1 := syntax.CID("cid123")
 	p1 := appbsky.FeedPost{
 		Text: "https://safe.com/ is very reputable",
 		Facets: []*appbsky.RichtextFacet{
@@ -47,9 +46,9 @@ func TestMisleadingURLPostRule(t *testing.T) {
 	}
 	op := engine.RecordOp{
 		Action:     engine.CreateOp,
-		DID:        am1.Identity.DID.String(),
-		Collection: "app.bsky.feed.post",
-		RecordKey:  "abc123",
+		DID:        am1.Identity.DID,
+		Collection: syntax.NSID("app.bsky.feed.post"),
+		RecordKey:  syntax.RecordKey("abc123"),
 		CID:        &cid1,
 		Value:      p1,
 	}
@@ -70,8 +69,7 @@ func TestMisleadingMentionPostRule(t *testing.T) {
 			Handle: syntax.Handle("handle.example.com"),
 		},
 	}
-	//path := "app.bsky.feed.post/abc123"
-	cid1 := "cid123"
+	cid1 := syntax.CID("cid123")
 	p1 := appbsky.FeedPost{
 		Text: "@handle.example.com is a friend",
 		Facets: []*appbsky.RichtextFacet{
@@ -92,9 +90,9 @@ func TestMisleadingMentionPostRule(t *testing.T) {
 	}
 	op := engine.RecordOp{
 		Action:     engine.CreateOp,
-		DID:        am1.Identity.DID.String(),
-		Collection: "app.bsky.feed.post",
-		RecordKey:  "abc123",
+		DID:        am1.Identity.DID,
+		Collection: syntax.NSID("app.bsky.feed.post"),
+		RecordKey:  syntax.RecordKey("abc123"),
 		CID:        &cid1,
 		Value:      p1,
 	}
