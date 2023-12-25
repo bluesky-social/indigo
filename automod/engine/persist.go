@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/automod/util"
 )
 
 func (eng *Engine) persistCounters(ctx context.Context, eff *Effects) error {
@@ -152,8 +151,8 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 
 	// NOTE: record-level actions are *not* currently de-duplicated (aka, the same record could be labeled multiple times, or re-reported, etc)
-	newLabels := util.DedupeStrings(c.effects.RecordLabels)
-	newFlags := util.DedupeStrings(c.effects.RecordFlags)
+	newLabels := dedupeStrings(c.effects.RecordLabels)
+	newFlags := dedupeStrings(c.effects.RecordFlags)
 	newReports, err := eng.circuitBreakReports(ctx, c.effects.RecordReports)
 	if err != nil {
 		return err
