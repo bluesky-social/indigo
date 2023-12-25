@@ -11,6 +11,7 @@ type RuleSet = engine.RuleSet
 
 type AccountContext = engine.AccountContext
 type RecordContext = engine.RecordContext
+type RecordOp = engine.RecordOp
 
 type IdentityRuleFunc = engine.IdentityRuleFunc
 type RecordRuleFunc = engine.RecordRuleFunc
@@ -28,4 +29,8 @@ var (
 	PeriodTotal = countstore.PeriodTotal
 	PeriodDay   = countstore.PeriodDay
 	PeriodHour  = countstore.PeriodHour
+
+	CreateOp = engine.CreateOp
+	UpdateOp = engine.UpdateOp
+	DeleteOp = engine.DeleteOp
 )

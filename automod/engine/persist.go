@@ -194,7 +194,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 	cid := *c.RecordOp.CID
 	strongRef := comatproto.RepoStrongRef{
-		Cid: cid,
+		Cid: cid.String(),
 		Uri: atURI,
 	}
 

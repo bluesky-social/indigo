@@ -33,7 +33,16 @@ func (e *Engine) FetchAndProcessRecord(ctx context.Context, aturi syntax.ATURI) 
 	if out.Cid == nil {
 		return fmt.Errorf("expected a CID in getRecord response")
 	}
-	return e.ProcessRecord(ctx, ident.DID, aturi.Path(), *out.Cid, out.Value.Val)
+	recCID := syntax.CID(*out.Cid)
+	op := RecordOp{
+		Action:     CreateOp,
+		DID:        ident.DID,
+		Collection: aturi.Collection(),
+		RecordKey:  aturi.RecordKey(),
+		CID:        &recCID,
+		Value:      out.Value.Val,
+	}
+	return e.ProcessRecordOp(ctx, op)
 }
 
 func (e *Engine) FetchRecent(ctx context.Context, atid syntax.AtIdentifier, limit int) (*identity.Identity, []*comatproto.RepoListRecords_Record, error) {
@@ -68,7 +77,16 @@ func (e *Engine) FetchAndProcessRecent(ctx context.Context, atid syntax.AtIdenti
 		if err != nil {
 			return fmt.Errorf("parsing PDS record response: %v", err)
 		}
-		err = e.ProcessRecord(ctx, ident.DID, aturi.Path(), rec.Cid, rec.Value.Val)
+		recCID := syntax.CID(rec.Cid)
+		op := RecordOp{
+			Action:     CreateOp,
+			DID:        ident.DID,
+			Collection: aturi.Collection(),
+			RecordKey:  aturi.RecordKey(),
+			CID:        &recCID,
+			Value:      rec.Value.Val,
+		}
+		err = e.ProcessRecordOp(ctx, op)
 		if err != nil {
 			return err
 		}

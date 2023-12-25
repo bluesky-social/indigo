@@ -23,7 +23,7 @@ func (r *RuleSet) CallRecordRules(c *RecordContext) error {
 		}
 	}
 	// then any record-type-specific rules
-	switch c.RecordOp.Collection {
+	switch c.RecordOp.Collection.String() {
 	case "app.bsky.feed.post":
 		post, ok := c.RecordOp.Value.(*appbsky.FeedPost)
 		if !ok {

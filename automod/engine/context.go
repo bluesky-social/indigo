@@ -2,9 +2,11 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
 // The primary interface exposed to rules.
@@ -44,11 +46,33 @@ type RecordOp struct {
 	// Indicates type of record mutation: create, update, or delete.
 	// The term "action" is copied from com.atproto.sync.subscribeRepos#repoOp
 	Action     string
-	DID        string // NOTE: redundant with account, but eases discoverability?
-	Collection string
-	RecordKey  string
-	CID        *string // TODO: cid.Cid?
-	Value      any
+	DID        syntax.DID
+	Collection syntax.NSID
+	RecordKey  syntax.RecordKey
+	CID        *syntax.CID
+	// NOTE: usually a *pointer*, not the value itself
+	Value any
+}
+
+// Checks that op has expected fields, based on the action type
+func (op *RecordOp) Validate() error {
+	switch op.Action {
+	case CreateOp, UpdateOp:
+		if op.Value == nil || op.CID == nil {
+			return fmt.Errorf("expected record create/update op to contain both value and CID")
+		}
+	case DeleteOp:
+		if op.Value != nil || op.CID != nil {
+			return fmt.Errorf("expected record delete op to be empty")
+		}
+	default:
+		return fmt.Errorf("unexpected record op action: %s", op.Action)
+	}
+	return nil
+}
+
+func (op *RecordOp) ATURI() syntax.ATURI {
+	return syntax.ATURI(fmt.Sprintf("at://%s/%s/%s", op.DID, op.Collection, op.RecordKey))
 }
 
 // TODO: in the future *may* have an IdentityContext with an IdentityOp sub-field

@@ -27,8 +27,8 @@ func TestAccountReportDedupe(t *testing.T) {
 		},
 	}
 
-	path := "app.bsky.feed.post/abc123"
-	cid1 := "cid123"
+	//path := "app.bsky.feed.post/abc123"
+	cid1 := syntax.CID("cid123")
 	p1 := appbsky.FeedPost{Text: "some post blah"}
 	id1 := identity.Identity{
 		DID:    syntax.DID("did:plc:abc111"),
@@ -36,8 +36,16 @@ func TestAccountReportDedupe(t *testing.T) {
 	}
 
 	// exact same event multiple times; should only report once
+	op := RecordOp{
+		Action:     CreateOp,
+		DID:        id1.DID,
+		Collection: "app.bsky.feed.post",
+		RecordKey:  "abc123",
+		CID:        &cid1,
+		Value:      &p1,
+	}
 	for i := 0; i < 5; i++ {
-		assert.NoError(eng.ProcessRecord(ctx, id1.DID, path, cid1, &p1))
+		assert.NoError(eng.ProcessRecordOp(ctx, op))
 	}
 
 	reports, err := eng.GetCount("automod-quota", "report", countstore.PeriodDay)
