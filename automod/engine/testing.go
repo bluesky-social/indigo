@@ -94,23 +94,13 @@ func MustLoadCapture(capPath string) AccountCapture {
 func ProcessCaptureRules(eng *Engine, capture AccountCapture) error {
 	ctx := context.Background()
 
+	did := capture.AccountMeta.Identity.DID
 	dir := identity.NewMockDirectory()
 	dir.Insert(*capture.AccountMeta.Identity)
 	eng.Directory = &dir
 
 	// initial identity rules
-	// REVIEW: this area should... use the real code path that does the same thing, if at all possible?  Currently this seems like great drift danger.
-	ac := NewAccountContext(ctx, eng, capture.AccountMeta)
-	if err := eng.Rules.CallIdentityRules(&ac); err != nil {
-		return err
-	}
-	eng.CanonicalLogLineAccount(&ac)
-	if err := eng.persistAccountModActions(&ac); err != nil {
-		return err
-	}
-	if err := eng.persistCounters(ctx, &ac.effects); err != nil {
-		return err
-	}
+	eng.ProcessIdentityEvent(ctx, "new", did)
 
 	// all the post rules
 	for _, pr := range capture.PostRecords {
@@ -132,18 +122,7 @@ func ProcessCaptureRules(eng *Engine, capture AccountCapture) error {
 			CID:        &recCID,
 			Value:      pr.Value.Val,
 		}
-		rc := NewRecordContext(ctx, eng, capture.AccountMeta, op)
-		if err := eng.Rules.CallRecordRules(&rc); err != nil {
-			return err
-		}
-		eng.CanonicalLogLineRecord(&rc)
-		// NOTE: not purging account meta when profile is updated
-		if err := eng.persistRecordModActions(&rc); err != nil {
-			return err
-		}
-		if err := eng.persistCounters(ctx, &rc.effects); err != nil {
-			return err
-		}
+		eng.ProcessRecordOp(ctx, op)
 	}
 	return nil
 }
