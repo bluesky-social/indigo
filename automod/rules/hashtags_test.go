@@ -37,18 +37,18 @@ func TestBadHashtagPostRule(t *testing.T) {
 		CID:        &cid1,
 		Value:      p1,
 	}
-	evt1 := engine.NewRecordContext(ctx, &eng, am1, op)
-	assert.NoError(BadHashtagsPostRule(&evt1, &p1))
-	// XXX: test helper to access effects
-	//assert.Empty(evt1.effects.RecordFlags)
+	c1 := engine.NewRecordContext(ctx, &eng, am1, op)
+	assert.NoError(BadHashtagsPostRule(&c1, &p1))
+	eff1 := engine.ExtractEffects(&c1.BaseContext)
+	assert.Empty(eff1.RecordFlags)
 
 	p2 := appbsky.FeedPost{
 		Text: "some post blah",
 		Tags: []string{"one", "slur"},
 	}
 	op.Value = p2
-	evt2 := engine.NewRecordContext(ctx, &eng, am1, op)
-	assert.NoError(BadHashtagsPostRule(&evt2, &p2))
-	// XXX: helper to access effects
-	//assert.NotEmpty(evt2.effects.RecordFlags)
+	c2 := engine.NewRecordContext(ctx, &eng, am1, op)
+	assert.NoError(BadHashtagsPostRule(&c2, &p2))
+	eff2 := engine.ExtractEffects(&c2.BaseContext)
+	assert.NotEmpty(eff2.RecordFlags)
 }
