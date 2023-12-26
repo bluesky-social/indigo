@@ -1,4 +1,4 @@
-// Automod component for caching arbitary data (as JSON strings) with a fixed TTL and purging.
+// Automod component for caching arbitrary data (as JSON strings) with a fixed TTL and purging.
 //
 // Includes an interface and implementations using redis and in-process memory.
 //
