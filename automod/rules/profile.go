@@ -6,9 +6,9 @@ import (
 )
 
 // this is a dummy rule to demonstrate accessing account metadata (eg, profile) from within post handler
-func AccountDemoPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
-	if evt.Account.Profile.Description != nil && len(post.Text) > 5 && *evt.Account.Profile.Description == post.Text {
-		evt.AddRecordFlag("own-profile-description")
+func AccountDemoPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+	if c.Account.Profile.Description != nil && len(post.Text) > 5 && *c.Account.Profile.Description == post.Text {
+		c.AddRecordFlag("own-profile-description")
 	}
 	return nil
 }

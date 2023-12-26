@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 
@@ -88,6 +90,23 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 	)
 }
 
+// TODO: move this to a "ParsePath" helper in syntax package?
+func splitRepoPath(path string) (syntax.NSID, syntax.RecordKey, error) {
+	parts := strings.SplitN(path, "/", 3)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid record path: %s", path)
+	}
+	collection, err := syntax.ParseNSID(parts[0])
+	if err != nil {
+		return "", "", err
+	}
+	rkey, err := syntax.ParseRecordKey(parts[1])
+	if err != nil {
+		return "", "", err
+	}
+	return collection, rkey, nil
+}
+
 // NOTE: for now, this function basically never errors, just logs and returns nil. Should think through error processing better.
 func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
 
@@ -113,6 +132,11 @@ func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubsc
 
 	for _, op := range evt.Ops {
 		logger = logger.With("eventKind", op.Action, "path", op.Path)
+		collection, rkey, err := splitRepoPath(op.Path)
+		if err != nil {
+			logger.Error("invalid path in repo op")
+			return nil
+		}
 
 		ek := repomgr.EventKind(op.Action)
 		switch ek {
@@ -127,14 +151,28 @@ func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubsc
 				logger.Error("mismatch between commit op CID and record block", "recordCID", rc, "opCID", op.Cid)
 				break
 			}
-
-			err = s.engine.ProcessRecord(ctx, did, op.Path, op.Cid.String(), rec)
+			recCID := syntax.CID(op.Cid.String())
+			err = s.engine.ProcessRecordOp(ctx, automod.RecordOp{
+				Action:     automod.CreateOp,
+				DID:        did,
+				Collection: collection,
+				RecordKey:  rkey,
+				CID:        &recCID,
+				Value:      rec,
+			})
 			if err != nil {
 				logger.Error("engine failed to process record", "err", err)
 				continue
 			}
 		case repomgr.EvtKindDeleteRecord:
-			err = s.engine.ProcessRecordDelete(ctx, did, op.Path)
+			err = s.engine.ProcessRecordOp(ctx, automod.RecordOp{
+				Action:     automod.DeleteOp,
+				DID:        did,
+				Collection: collection,
+				RecordKey:  rkey,
+				CID:        nil,
+				Value:      nil,
+			})
 			if err != nil {
 				logger.Error("engine failed to process record", "err", err)
 				continue

@@ -78,36 +78,36 @@ func isMisleadingURLFacet(facet PostFacet, logger *slog.Logger) bool {
 	return false
 }
 
-func MisleadingURLPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
+func MisleadingURLPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	// TODO: make this an InSet() config?
-	if evt.Account.Identity.Handle == "nowbreezing.ntw.app" {
+	if c.Account.Identity.Handle == "nowbreezing.ntw.app" {
 		return nil
 	}
 	facets, err := ExtractFacets(post)
 	if err != nil {
-		evt.Logger.Warn("invalid facets", "err", err)
+		c.Logger.Warn("invalid facets", "err", err)
 		// TODO: or some other "this record is corrupt" indicator?
-		//evt.AddRecordFlag("broken-post")
+		//c.AddRecordFlag("broken-post")
 		return nil
 	}
 	for _, facet := range facets {
 		if facet.URL != nil {
-			if isMisleadingURLFacet(facet, evt.Logger) {
-				evt.AddRecordFlag("misleading-link")
+			if isMisleadingURLFacet(facet, c.Logger) {
+				c.AddRecordFlag("misleading-link")
 			}
 		}
 	}
 	return nil
 }
 
-func MisleadingMentionPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
+func MisleadingMentionPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	// TODO: do we really need to route context around? probably
 	ctx := context.TODO()
 	facets, err := ExtractFacets(post)
 	if err != nil {
-		evt.Logger.Warn("invalid facets", "err", err)
+		c.Logger.Warn("invalid facets", "err", err)
 		// TODO: or some other "this record is corrupt" indicator?
-		//evt.AddRecordFlag("broken-post")
+		//c.AddRecordFlag("broken-post")
 		return nil
 	}
 	for _, facet := range facets {
@@ -118,21 +118,21 @@ func MisleadingMentionPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost)
 			}
 			handle, err := syntax.ParseHandle(strings.ToLower(txt))
 			if err != nil {
-				evt.Logger.Warn("mention was not a valid handle", "text", txt)
+				c.Logger.Warn("mention was not a valid handle", "text", txt)
 				continue
 			}
 
-			mentioned, err := evt.Engine.Directory.LookupHandle(ctx, handle)
+			mentioned, err := c.Directory().LookupHandle(ctx, handle)
 			if err != nil {
-				evt.Logger.Warn("could not resolve handle", "handle", handle)
-				evt.AddRecordFlag("broken-mention")
+				c.Logger.Warn("could not resolve handle", "handle", handle)
+				c.AddRecordFlag("broken-mention")
 				break
 			}
 
 			// TODO: check if mentioned DID was recently updated? might be a caching issue
 			if mentioned.DID.String() != *facet.DID {
-				evt.Logger.Warn("misleading mention", "text", txt, "did", facet.DID)
-				evt.AddRecordFlag("misleading-mention")
+				c.Logger.Warn("misleading mention", "text", txt, "did", facet.DID)
+				c.AddRecordFlag("misleading-mention")
 				continue
 			}
 		}

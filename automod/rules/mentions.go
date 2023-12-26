@@ -11,8 +11,8 @@ var _ automod.PostRuleFunc = DistinctMentionsRule
 var mentionHourlyThreshold = 40
 
 // DistinctMentionsRule looks for accounts which mention an unusually large number of distinct accounts per period.
-func DistinctMentionsRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
-	did := evt.Account.Identity.DID.String()
+func DistinctMentionsRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+	did := c.Account.Identity.DID.String()
 
 	// Increment counters for all new mentions in this post.
 	var newMentions bool
@@ -22,7 +22,7 @@ func DistinctMentionsRule(evt *automod.RecordEvent, post *appbsky.FeedPost) erro
 			if mention == nil {
 				continue
 			}
-			evt.IncrementDistinct("mentions", did, mention.Did)
+			c.IncrementDistinct("mentions", did, mention.Did)
 			newMentions = true
 		}
 	}
@@ -31,8 +31,8 @@ func DistinctMentionsRule(evt *automod.RecordEvent, post *appbsky.FeedPost) erro
 	if !newMentions {
 		return nil
 	}
-	if mentionHourlyThreshold <= evt.GetCountDistinct("mentions", did, countstore.PeriodHour) {
-		evt.AddAccountFlag("high-distinct-mentions")
+	if mentionHourlyThreshold <= c.GetCountDistinct("mentions", did, countstore.PeriodHour) {
+		c.AddAccountFlag("high-distinct-mentions")
 	}
 
 	return nil

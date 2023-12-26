@@ -10,40 +10,40 @@ import (
 var interactionDailyThreshold = 800
 
 // looks for accounts which do frequent interaction churn, such as follow-unfollow.
-func InteractionChurnRule(evt *automod.RecordEvent) error {
-	did := evt.Account.Identity.DID.String()
-	switch evt.Collection {
+func InteractionChurnRule(c *automod.RecordContext) error {
+	did := c.Account.Identity.DID.String()
+	switch c.RecordOp.Collection {
 	case "app.bsky.feed.like":
-		evt.Increment("like", did)
-		created := evt.GetCount("like", did, countstore.PeriodDay)
-		deleted := evt.GetCount("unlike", did, countstore.PeriodDay)
+		c.Increment("like", did)
+		created := c.GetCount("like", did, countstore.PeriodDay)
+		deleted := c.GetCount("unlike", did, countstore.PeriodDay)
 		ratio := float64(deleted) / float64(created)
 		if created > interactionDailyThreshold && deleted > interactionDailyThreshold && ratio > 0.5 {
-			evt.Logger.Info("high-like-churn", "created-today", created, "deleted-today", deleted)
-			evt.AddAccountFlag("high-like-churn")
-			evt.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("interaction churn: %d likes, %d unlikes today (so far)", created, deleted))
+			c.Logger.Info("high-like-churn", "created-today", created, "deleted-today", deleted)
+			c.AddAccountFlag("high-like-churn")
+			c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("interaction churn: %d likes, %d unlikes today (so far)", created, deleted))
 		}
 	case "app.bsky.graph.follow":
-		evt.Increment("follow", did)
-		created := evt.GetCount("follow", did, countstore.PeriodDay)
-		deleted := evt.GetCount("unfollow", did, countstore.PeriodDay)
+		c.Increment("follow", did)
+		created := c.GetCount("follow", did, countstore.PeriodDay)
+		deleted := c.GetCount("unfollow", did, countstore.PeriodDay)
 		ratio := float64(deleted) / float64(created)
 		if created > interactionDailyThreshold && deleted > interactionDailyThreshold && ratio > 0.5 {
-			evt.Logger.Info("high-follow-churn", "created-today", created, "deleted-today", deleted)
-			evt.AddAccountFlag("high-follow-churn")
-			evt.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("interaction churn: %d follows, %d unfollows today (so far)", created, deleted))
+			c.Logger.Info("high-follow-churn", "created-today", created, "deleted-today", deleted)
+			c.AddAccountFlag("high-follow-churn")
+			c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("interaction churn: %d follows, %d unfollows today (so far)", created, deleted))
 		}
 	}
 	return nil
 }
 
-func DeleteInteractionRule(evt *automod.RecordDeleteEvent) error {
-	did := evt.Account.Identity.DID.String()
-	switch evt.Collection {
+func DeleteInteractionRule(c *automod.RecordContext) error {
+	did := c.Account.Identity.DID.String()
+	switch c.RecordOp.Collection {
 	case "app.bsky.feed.like":
-		evt.Increment("unlike", did)
+		c.Increment("unlike", did)
 	case "app.bsky.graph.follow":
-		evt.Increment("unfollow", did)
+		c.Increment("unfollow", did)
 	}
 	return nil
 }

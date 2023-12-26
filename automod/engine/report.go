@@ -1,5 +1,6 @@
-package automod
+package engine
 
+// Simplified variant of input parameters for com.atproto.moderation.createReport, for internal tracking
 type ModReport struct {
 	ReasonType string
 	Comment    string
@@ -14,7 +15,7 @@ var (
 	ReportReasonOther      = "com.atproto.moderation.defs#reasonOther"
 )
 
-func reasonShortName(reason string) string {
+func ReasonShortName(reason string) string {
 	switch reason {
 	case ReportReasonSpam:
 		return "spam"

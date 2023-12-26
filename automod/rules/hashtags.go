@@ -6,11 +6,11 @@ import (
 )
 
 // looks for specific hashtags from known lists
-func BadHashtagsPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
+func BadHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	for _, tag := range ExtractHashtags(post) {
 		tag = NormalizeHashtag(tag)
-		if evt.InSet("bad-hashtags", tag) {
-			evt.AddRecordFlag("bad-hashtag")
+		if c.InSet("bad-hashtags", tag) {
+			c.AddRecordFlag("bad-hashtag")
 			break
 		}
 	}
@@ -18,7 +18,7 @@ func BadHashtagsPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error
 }
 
 // if a post is "almost all" hashtags, it might be a form of search spam
-func TooManyHashtagsPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
+func TooManyHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	tags := ExtractHashtags(post)
 	tagChars := 0
 	for _, tag := range tags {
@@ -27,9 +27,9 @@ func TooManyHashtagsPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) e
 	tagTextRatio := float64(tagChars) / float64(len(post.Text))
 	// if there is an image, allow some more tags
 	if len(tags) > 4 && tagTextRatio > 0.6 && post.Embed.EmbedImages == nil {
-		evt.AddRecordFlag("many-hashtags")
+		c.AddRecordFlag("many-hashtags")
 	} else if len(tags) > 7 && tagTextRatio > 0.8 {
-		evt.AddRecordFlag("many-hashtags")
+		c.AddRecordFlag("many-hashtags")
 	}
 	return nil
 }
