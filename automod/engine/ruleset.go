@@ -8,6 +8,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
+// Holds configuration of which rules of various types should be run, and helps dispatch events to those rules.
 type RuleSet struct {
 	PostRules         []PostRuleFunc
 	ProfileRules      []ProfileRuleFunc
@@ -17,6 +18,7 @@ type RuleSet struct {
 	BlobRules         []BlobRuleFunc
 }
 
+// Executes all the various record-related rules. Only dispatches execution, does no other de-dupe or pre/post processing.
 func (r *RuleSet) CallRecordRules(c *RecordContext) error {
 	// first the generic rules
 	for _, f := range r.RecordRules {
@@ -62,6 +64,7 @@ func (r *RuleSet) CallRecordRules(c *RecordContext) error {
 	return nil
 }
 
+// NOTE: this will probably be removed and merged in to `CallRecordRules`
 func (r *RuleSet) CallRecordDeleteRules(c *RecordContext) error {
 	for _, f := range r.RecordDeleteRules {
 		err := f(c)
@@ -72,6 +75,7 @@ func (r *RuleSet) CallRecordDeleteRules(c *RecordContext) error {
 	return nil
 }
 
+// Executes rules for identity update events.
 func (r *RuleSet) CallIdentityRules(c *AccountContext) error {
 	for _, f := range r.IdentityRules {
 		err := f(c)

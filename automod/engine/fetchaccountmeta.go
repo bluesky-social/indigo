@@ -11,6 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
+// Helper to hydrate metadata about an account from several sources: PDS (if access), mod service (if access), public identity resolution
 func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (*AccountMeta, error) {
 
 	// wipe parsed public key; it's a waste of space and can't serialize
