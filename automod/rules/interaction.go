@@ -9,6 +9,8 @@ import (
 
 var interactionDailyThreshold = 800
 
+var _ automod.RecordRuleFunc = InteractionChurnRule
+
 // looks for accounts which do frequent interaction churn, such as follow-unfollow.
 func InteractionChurnRule(c *automod.RecordContext) error {
 	did := c.Account.Identity.DID.String()
@@ -36,6 +38,8 @@ func InteractionChurnRule(c *automod.RecordContext) error {
 	}
 	return nil
 }
+
+var _ automod.RecordRuleFunc = DeleteInteractionRule
 
 func DeleteInteractionRule(c *automod.RecordContext) error {
 	did := c.Account.Identity.DID.String()
