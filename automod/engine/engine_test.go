@@ -1,4 +1,4 @@
-package automod
+package engine
 
 import (
 	"context"
@@ -15,21 +15,29 @@ func TestEngineBasics(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
 
-	engine := EngineTestFixture()
+	eng := EngineTestFixture()
 	id1 := identity.Identity{
 		DID:    syntax.DID("did:plc:abc111"),
 		Handle: syntax.Handle("handle.example.com"),
 	}
-	path := "app.bsky.feed.post/abc123"
-	cid1 := "cid123"
+	cid1 := syntax.CID("cid123")
 	p1 := appbsky.FeedPost{
 		Text: "some post blah",
 	}
-	assert.NoError(engine.ProcessRecord(ctx, id1.DID, path, cid1, &p1))
+	op := RecordOp{
+		Action:     CreateOp,
+		DID:        id1.DID,
+		Collection: syntax.NSID("app.bsky.feed.post"),
+		RecordKey:  syntax.RecordKey("abc123"),
+		CID:        &cid1,
+		Value:      &p1,
+	}
+	assert.NoError(eng.ProcessRecordOp(ctx, op))
 
 	p2 := appbsky.FeedPost{
 		Text: "some post blah",
 		Tags: []string{"one", "slur"},
 	}
-	assert.NoError(engine.ProcessRecord(ctx, id1.DID, path, cid1, &p2))
+	op.Value = &p2
+	assert.NoError(eng.ProcessRecordOp(ctx, op))
 }

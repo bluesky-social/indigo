@@ -1,6 +1,6 @@
-package util
+package engine
 
-func DedupeStrings(in []string) []string {
+func dedupeStrings(in []string) []string {
 	var out []string
 	seen := make(map[string]bool)
 	for _, v := range in {

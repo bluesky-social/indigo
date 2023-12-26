@@ -160,11 +160,11 @@ func ExtractTextURLsProfile(profile *appbsky.ActorProfile) []string {
 }
 
 // checks if the post event is a reply post for which the author is replying to themselves, or author is the root author (OP)
-func IsSelfThread(evt *automod.RecordEvent, post *appbsky.FeedPost) bool {
+func IsSelfThread(c *automod.RecordContext, post *appbsky.FeedPost) bool {
 	if post.Reply == nil {
 		return false
 	}
-	did := evt.Account.Identity.DID.String()
+	did := c.Account.Identity.DID.String()
 	parentURI, err := syntax.ParseATURI(post.Reply.Parent.Uri)
 	if err != nil {
 		return false

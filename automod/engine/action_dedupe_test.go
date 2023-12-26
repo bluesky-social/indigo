@@ -1,4 +1,4 @@
-package automod
+package engine
 
 import (
 	"context"
@@ -12,23 +12,23 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func alwaysReportAccountRule(evt *RecordEvent) error {
-	evt.ReportAccount(ReportReasonOther, "test report")
+func alwaysReportAccountRule(c *RecordContext) error {
+	c.ReportAccount(ReportReasonOther, "test report")
 	return nil
 }
 
 func TestAccountReportDedupe(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
-	engine := EngineTestFixture()
-	engine.Rules = RuleSet{
+	eng := EngineTestFixture()
+	eng.Rules = RuleSet{
 		RecordRules: []RecordRuleFunc{
 			alwaysReportAccountRule,
 		},
 	}
 
-	path := "app.bsky.feed.post/abc123"
-	cid1 := "cid123"
+	//path := "app.bsky.feed.post/abc123"
+	cid1 := syntax.CID("cid123")
 	p1 := appbsky.FeedPost{Text: "some post blah"}
 	id1 := identity.Identity{
 		DID:    syntax.DID("did:plc:abc111"),
@@ -36,11 +36,19 @@ func TestAccountReportDedupe(t *testing.T) {
 	}
 
 	// exact same event multiple times; should only report once
+	op := RecordOp{
+		Action:     CreateOp,
+		DID:        id1.DID,
+		Collection: "app.bsky.feed.post",
+		RecordKey:  "abc123",
+		CID:        &cid1,
+		Value:      &p1,
+	}
 	for i := 0; i < 5; i++ {
-		assert.NoError(engine.ProcessRecord(ctx, id1.DID, path, cid1, &p1))
+		assert.NoError(eng.ProcessRecordOp(ctx, op))
 	}
 
-	reports, err := engine.GetCount("automod-quota", "report", countstore.PeriodDay)
+	reports, err := eng.GetCount("automod-quota", "report", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(1, reports)
 }

@@ -11,24 +11,24 @@ import (
 )
 
 // does not count "self-replies" (direct to self, or in own post thread)
-func ReplyCountPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
-	if post.Reply == nil || IsSelfThread(evt, post) {
+func ReplyCountPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+	if post.Reply == nil || IsSelfThread(c, post) {
 		return nil
 	}
 
-	did := evt.Account.Identity.DID.String()
-	if evt.GetCount("reply", did, countstore.PeriodDay) > 3 {
+	did := c.Account.Identity.DID.String()
+	if c.GetCount("reply", did, countstore.PeriodDay) > 3 {
 		// TODO: disabled, too noisy for prod
-		//evt.AddAccountFlag("frequent-replier")
+		//c.AddAccountFlag("frequent-replier")
 	}
-	evt.Increment("reply", did)
+	c.Increment("reply", did)
 
 	parentURI, err := syntax.ParseATURI(post.Reply.Parent.Uri)
 	if err != nil {
-		evt.Logger.Warn("failed to parse reply AT-URI", "uri", post.Reply.Parent.Uri)
+		c.Logger.Warn("failed to parse reply AT-URI", "uri", post.Reply.Parent.Uri)
 		return nil
 	}
-	evt.IncrementDistinct("reply-to", did, parentURI.Authority().String())
+	c.IncrementDistinct("reply-to", did, parentURI.Authority().String())
 	return nil
 }
 
@@ -38,29 +38,29 @@ var identicalReplyLimit = 5
 // Looks for accounts posting the exact same text multiple times. Does not currently count the number of distinct accounts replied to, just counts replies at all.
 //
 // There can be legitimate situations that trigger this rule, so in most situations should be a "report" not "label" action.
-func IdenticalReplyPostRule(evt *automod.RecordEvent, post *appbsky.FeedPost) error {
-	if post.Reply == nil || IsSelfThread(evt, post) {
+func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+	if post.Reply == nil || IsSelfThread(c, post) {
 		return nil
 	}
 
 	// increment first. use a specific period (IncrementPeriod()) to reduce the number of counters (one per unique post text)
 	period := countstore.PeriodDay
-	bucket := evt.Account.Identity.DID.String() + "/" + HashOfString(post.Text)
-	evt.IncrementPeriod("reply-text", bucket, period)
+	bucket := c.Account.Identity.DID.String() + "/" + HashOfString(post.Text)
+	c.IncrementPeriod("reply-text", bucket, period)
 
 	// don't action short replies, or accounts more than two weeks old
 	if utf8.RuneCountInString(post.Text) <= 10 {
 		return nil
 	}
-	if evt.Account.Private != nil {
-		age := time.Since(evt.Account.Private.IndexedAt)
+	if c.Account.Private != nil {
+		age := time.Since(c.Account.Private.IndexedAt)
 		if age > 2*7*24*time.Hour {
 			return nil
 		}
 	}
 
-	if evt.GetCount("reply-text", bucket, period) >= identicalReplyLimit {
-		evt.AddAccountFlag("multi-identical-reply")
+	if c.GetCount("reply-text", bucket, period) >= identicalReplyLimit {
+		c.AddAccountFlag("multi-identical-reply")
 	}
 
 	return nil

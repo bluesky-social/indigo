@@ -1,43 +1,15 @@
-package automod
+package engine
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/automod/util"
 )
-
-type ProfileSummary struct {
-	HasAvatar   bool
-	Description *string
-	DisplayName *string
-}
-
-type AccountPrivate struct {
-	Email          string
-	EmailConfirmed bool
-	IndexedAt      time.Time
-}
-
-// information about a repo/account/identity, always pre-populated and relevant to many rules
-type AccountMeta struct {
-	Identity             *identity.Identity
-	Profile              ProfileSummary
-	Private              *AccountPrivate
-	AccountLabels        []string
-	AccountNegatedLabels []string
-	AccountFlags         []string
-	FollowersCount       int64
-	FollowsCount         int64
-	PostsCount           int64
-	Takendown            bool
-}
 
 func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (*AccountMeta, error) {
 
@@ -96,8 +68,8 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 			Description: pv.Description,
 			DisplayName: pv.DisplayName,
 		},
-		AccountLabels:        util.DedupeStrings(labels),
-		AccountNegatedLabels: util.DedupeStrings(negLabels),
+		AccountLabels:        dedupeStrings(labels),
+		AccountNegatedLabels: dedupeStrings(negLabels),
 		AccountFlags:         flags,
 	}
 	if pv.PostsCount != nil {
