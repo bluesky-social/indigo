@@ -78,6 +78,8 @@ func isMisleadingURLFacet(facet PostFacet, logger *slog.Logger) bool {
 	return false
 }
 
+var _ automod.PostRuleFunc = MisleadingURLPostRule
+
 func MisleadingURLPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	// TODO: make this an InSet() config?
 	if c.Account.Identity.Handle == "nowbreezing.ntw.app" {
@@ -99,6 +101,8 @@ func MisleadingURLPostRule(c *automod.RecordContext, post *appbsky.FeedPost) err
 	}
 	return nil
 }
+
+var _ automod.PostRuleFunc = MisleadingMentionPostRule
 
 func MisleadingMentionPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	// TODO: do we really need to route context around? probably

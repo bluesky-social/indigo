@@ -7,6 +7,8 @@ import (
 	"github.com/bluesky-social/indigo/automod"
 )
 
+var _ automod.PostRuleFunc = KeywordPostRule
+
 func KeywordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	for _, tok := range ExtractTextTokensPost(post) {
 		if c.InSet("bad-words", tok) {
@@ -18,6 +20,8 @@ func KeywordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	return nil
 }
 
+var _ automod.ProfileRuleFunc = KeywordProfileRule
+
 func KeywordProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile) error {
 	for _, tok := range ExtractTextTokensProfile(profile) {
 		if c.InSet("bad-words", tok) {
@@ -28,6 +32,8 @@ func KeywordProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile)
 	}
 	return nil
 }
+
+var _ automod.PostRuleFunc = ReplySingleKeywordPostRule
 
 func ReplySingleKeywordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	if post.Reply != nil && !IsSelfThread(c, post) {

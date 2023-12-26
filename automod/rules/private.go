@@ -7,6 +7,8 @@ import (
 	"github.com/bluesky-social/indigo/automod"
 )
 
+var _ automod.PostRuleFunc = AccountPrivateDemoPostRule
+
 // dummy rule. this leaks PII (account email) in logs and should never be used in real life
 func AccountPrivateDemoPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	if c.Account.Private != nil {

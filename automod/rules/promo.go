@@ -10,6 +10,8 @@ import (
 	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
+var _ automod.PostRuleFunc = AggressivePromotionRule
+
 // looks for new accounts, with a commercial or donation link in profile, which directly reply to several accounts
 //
 // this rule depends on ReplyCountPostRule() to set counts
