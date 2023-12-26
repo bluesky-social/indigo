@@ -193,6 +193,14 @@ var runCmd = &cli.Command{
 			}
 		}()
 
+		if srv.engine.AdminClient != nil {
+			go func() {
+				if err := srv.RunRefreshAdminClient(ctx); err != nil {
+					slog.Error("session refresh failed", "err", err)
+				}
+			}()
+		}
+
 		// the main service loop
 		if err := srv.RunConsumer(ctx); err != nil {
 			return fmt.Errorf("failure consuming and processing firehose: %w", err)
