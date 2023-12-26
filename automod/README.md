@@ -1,7 +1,7 @@
-`indigo/automod`
-================
+`indigo/automod`: rules engine for anti-spam and other moderation tasks
+=======================================================================
 
-This package (`github.com/bluesky-social/indigo/automod`) contains a "rules engine" to augment human moderators in the atproto network. Batches of rules are processed for novel "events" such as a new post or update of an account handle. Counters and other statistics are collected, which can drive subsequent rule invocations. The outcome of rules can be moderation events like "report account for human review" or "label post". A lot of what this package does is collect and maintain caches of relevant metadata about accounts and pieces of content, so that rules have efficient access to this information.
+automod is a "rules engine" framework, used to augment human moderators in the atproto network by proactively identifying patterns of behavior and content. Batches of rules are processed for novel "events" such as a new post or update of an account handle. Counters and other statistics are collected, which can drive subsequent rule invocations. The outcome of rules can be moderation events like "report account for human review" or "label post". Much of what this framework does is simply aggregating and maintaining caches of relevant metadata about accounts and pieces of content, so that rules have efficient access to this information.
 
 A primary design goal is to have a flexible framework to allow new rules to be written and deployed rapidly in response to new patterns of spam and abuse.
 
