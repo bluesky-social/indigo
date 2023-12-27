@@ -29,7 +29,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/gorilla/websocket"
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
@@ -188,11 +188,10 @@ var readRepoStreamCmd = &cli.Command{
 		hr := &api.ProdHandleResolver{}
 		resolveHandles := cctx.Bool("resolve-handles")
 
-		cache, _ := lru.New(10000)
+		cache, _ := lru.New[string, *cachedHandle](10000)
 		resolveDid := func(ctx context.Context, did string) (string, error) {
-			val, ok := cache.Get(did)
+			ch, ok := cache.Get(did)
 			if ok {
-				ch := val.(*cachedHandle)
 				if time.Now().Before(ch.Valid) {
 					return ch.Handle, nil
 				}

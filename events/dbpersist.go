@@ -13,7 +13,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/util"
-	lru "github.com/hashicorp/golang-lru"
+	arc "github.com/hashicorp/golang-lru/arc/v2"
 
 	cid "github.com/ipfs/go-cid"
 	"gorm.io/gorm"
@@ -61,8 +61,8 @@ type DbPersistence struct {
 	batchOptions Options
 	lastFlush    time.Time
 
-	uidCache *lru.ARCCache
-	didCache *lru.ARCCache
+	uidCache *arc.ARCCache[models.Uid, string]
+	didCache *arc.ARCCache[string, models.Uid]
 }
 
 type RepoEventRecord struct {
@@ -91,12 +91,12 @@ func NewDbPersistence(db *gorm.DB, cs *carstore.CarStore, options *Options) (*Db
 		options = DefaultOptions()
 	}
 
-	uidCache, err := lru.NewARC(options.UIDCacheSize)
+	uidCache, err := arc.NewARC[models.Uid, string](options.UIDCacheSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create uid cache: %w", err)
 	}
 
-	didCache, err := lru.NewARC(options.DIDCacheSize)
+	didCache, err := arc.NewARC[string, models.Uid](options.DIDCacheSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create did cache: %w", err)
 	}
@@ -432,7 +432,7 @@ func (p *DbPersistence) hydrateBatch(ctx context.Context, batch []*RepoEventReco
 
 func (p *DbPersistence) uidForDid(ctx context.Context, did string) (models.Uid, error) {
 	if uid, ok := p.didCache.Get(did); ok {
-		return uid.(models.Uid), nil
+		return uid, nil
 	}
 
 	var u models.ActorInfo
@@ -447,7 +447,7 @@ func (p *DbPersistence) uidForDid(ctx context.Context, did string) (models.Uid, 
 
 func (p *DbPersistence) didForUid(ctx context.Context, uid models.Uid) (string, error) {
 	if did, ok := p.uidCache.Get(uid); ok {
-		return did.(string), nil
+		return did, nil
 	}
 
 	var u models.ActorInfo
