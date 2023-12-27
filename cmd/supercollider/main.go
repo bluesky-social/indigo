@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -713,6 +715,19 @@ func (s *Server) DescribeServerHandler(c echo.Context) error {
 // HandleSubscribeRepos opens and manages a websocket connection for subscribing to repo events
 func (s *Server) HandleSubscribeRepos(c echo.Context) error {
 	s.Logger.Infof("new repo subscription from %s\n", c.Request().RemoteAddr)
+
+	var since int64
+	if sinceVal := c.QueryParam("cursor"); sinceVal != "" {
+		sval, err := strconv.ParseInt(sinceVal, 10, 64)
+		if err != nil {
+			return err
+		}
+		since = sval
+	}
+	if since != 0 {
+		return fmt.Errorf("client requested non-zero cursor, supercollider cannot do this")
+	}
+
 	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
 	if err != nil {
 		return err
@@ -762,6 +777,10 @@ func (s *Server) HandleSubscribeRepos(c echo.Context) error {
 		limiter.Wait(ctx)
 
 		if err := header.UnmarshalCBOR(f); err != nil {
+			if err == io.EOF {
+				log.Warnf("reached end of playback")
+				break
+			}
 			return fmt.Errorf("failed to read header: %w", err)
 		}
 		if err := obj.UnmarshalCBOR(f); err != nil {
@@ -778,4 +797,7 @@ func (s *Server) HandleSubscribeRepos(c echo.Context) error {
 		}
 		eventsSentCounter.Inc()
 	}
+
+	// just hang until someone kills the process, otherwise the consumer will reconnect
+	select {}
 }
