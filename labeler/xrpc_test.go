@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	label "github.com/bluesky-social/indigo/api/label"
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
@@ -176,12 +175,15 @@ func TestLabelMakerXRPCLabelQuery(t *testing.T) {
 	assert.Equal(0, len(out1.Labels))
 
 	// create a label, then query
-	l3 := label.Label{
+	neg := false
+	l3 := comatproto.LabelDefs_Label{
 		Uri: "at://did:plc:fake/com.example/abc234",
 		Val: "example",
 		Cts: "2023-03-15T22:16:18.408Z",
+		// TODO: temporary hack, should just be null
+		Neg: &neg,
 	}
-	lm.CommitLabels(ctx, []*label.Label{&l3}, false)
+	lm.CommitLabels(ctx, []*comatproto.LabelDefs_Label{&l3}, false)
 	p3 := make(url.Values)
 	p3.Set("uriPatterns", l3.Uri)
 	out3, err := testQueryLabels(t, e, lm, &p3)
