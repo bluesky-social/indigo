@@ -15,7 +15,7 @@ import (
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/models"
-	lru "github.com/hashicorp/golang-lru"
+	arc "github.com/hashicorp/golang-lru/arc/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -37,8 +37,8 @@ type DiskPersistence struct {
 
 	curSeq int64
 
-	uidCache *lru.ARCCache
-	didCache *lru.ARCCache
+	uidCache *arc.ARCCache[models.Uid, string] // TODO: unused
+	didCache *arc.ARCCache[string, models.Uid]
 
 	writers *sync.Pool
 	buffers *sync.Pool
@@ -93,12 +93,12 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 		opts = DefaultDiskPersistOptions()
 	}
 
-	uidCache, err := lru.NewARC(opts.UIDCacheSize)
+	uidCache, err := arc.NewARC[models.Uid, string](opts.UIDCacheSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create uid cache: %w", err)
 	}
 
-	didCache, err := lru.NewARC(opts.DIDCacheSize)
+	didCache, err := arc.NewARC[string, models.Uid](opts.DIDCacheSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create did cache: %w", err)
 	}
@@ -600,7 +600,7 @@ func (dp *DiskPersistence) writeHeader(ctx context.Context, flags uint32, kind u
 
 func (dp *DiskPersistence) uidForDid(ctx context.Context, did string) (models.Uid, error) {
 	if uid, ok := dp.didCache.Get(did); ok {
-		return uid.(models.Uid), nil
+		return uid, nil
 	}
 
 	var u models.ActorInfo
