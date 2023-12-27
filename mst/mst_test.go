@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"maps"
 	"math/rand"
 	"os"
 	"regexp"
@@ -18,7 +19,6 @@ import (
 	"github.com/ipld/go-car/v2"
 	"github.com/multiformats/go-multihash"
 	mh "github.com/multiformats/go-multihash"
-	"golang.org/x/exp/maps"
 )
 
 func randCid() cid.Cid {
