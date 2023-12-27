@@ -197,7 +197,7 @@ func dedupeStrings(in []string) []string {
 
 func parseProfileTags(p *appbsky.ActorProfile) []string {
 	// TODO: waiting for profile tag lexicon support
-	var ret []string = []string{}
+	var ret []string
 	if len(ret) == 0 {
 		return nil
 	}
@@ -205,7 +205,7 @@ func parseProfileTags(p *appbsky.ActorProfile) []string {
 }
 
 func parsePostTags(p *appbsky.FeedPost) []string {
-	var ret []string = []string{}
+	var ret []string
 	for _, facet := range p.Facets {
 		for _, feat := range facet.Features {
 			if feat.RichtextFacet_Tag != nil {
@@ -213,9 +213,7 @@ func parsePostTags(p *appbsky.FeedPost) []string {
 			}
 		}
 	}
-	for _, t := range p.Tags {
-		ret = append(ret, t)
-	}
+	ret = append(ret, p.Tags...)
 	if len(ret) == 0 {
 		return nil
 	}
@@ -223,7 +221,7 @@ func parsePostTags(p *appbsky.FeedPost) []string {
 }
 
 func parseEmojis(s string) []string {
-	var ret []string = []string{}
+	var ret []string
 	seen := make(map[string]bool)
 	gr := uniseg.NewGraphemes(s)
 	for gr.Next() {
@@ -231,7 +229,7 @@ func parseEmojis(s string) []string {
 		firstRune := gr.Runes()[0]
 		if (firstRune >= 0x1F000 && firstRune <= 0x1FFFF) || (firstRune >= 0x2600 && firstRune <= 0x26FF) {
 			emoji := gr.Str()
-			if seen[emoji] == false {
+			if !seen[emoji] {
 				ret = append(ret, emoji)
 				seen[emoji] = true
 			}

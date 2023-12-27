@@ -695,7 +695,7 @@ var debugFeedViewCmd = &cli.Command{
 					continue
 				}
 				text := fp.Text
-				text = strings.Replace(text, "\n", " ", -1)
+				text = strings.ReplaceAll(text, "\n", " ")
 				if len(text) > 70 {
 					text = text[:70] + "..."
 				}

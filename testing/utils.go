@@ -570,9 +570,7 @@ func (es *EventStream) All() []*events.XRPCStreamEvent {
 	es.Lk.Lock()
 	defer es.Lk.Unlock()
 	out := make([]*events.XRPCStreamEvent, len(es.Events))
-	for i, e := range es.Events {
-		out[i] = e
-	}
+	copy(out, es.Events)
 
 	return out
 }
