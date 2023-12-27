@@ -40,7 +40,6 @@ require (
 	github.com/lestrrat-go/jwx/v2 v2.0.12
 	github.com/lib/pq v1.10.9
 	github.com/minio/sha256-simd v1.0.1
-	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multihash v0.2.3
 	github.com/opensearch-project/opensearch-go/v2 v2.3.0

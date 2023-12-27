@@ -12,7 +12,6 @@ import (
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/xrpc"
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/urfave/cli/v2"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -54,7 +53,8 @@ type CliConfig struct {
 }
 
 func readGoskyConfig() (*CliConfig, error) {
-	d, err := homedir.Dir()
+	// TODO: use os.UserConfigDir()/gosky, falling back to os.UserHomeDir()/.gosky for backwards compatibility.
+	d, err := os.UserHomeDir()
 	if err != nil {
 		return nil, fmt.Errorf("cannot read Home directory")
 	}
