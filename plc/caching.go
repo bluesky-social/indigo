@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/did"
-	lru "github.com/hashicorp/golang-lru"
+	arc "github.com/hashicorp/golang-lru/arc/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -13,7 +13,7 @@ import (
 type CachingDidResolver struct {
 	res    did.Resolver
 	maxAge time.Duration
-	cache  *lru.ARCCache
+	cache  *arc.ARCCache[string, *cachedDoc]
 }
 
 type cachedDoc struct {
@@ -22,7 +22,7 @@ type cachedDoc struct {
 }
 
 func NewCachingDidResolver(res did.Resolver, maxAge time.Duration, size int) *CachingDidResolver {
-	c, err := lru.NewARC(size)
+	c, err := arc.NewARC[string, *cachedDoc](size)
 	if err != nil {
 		panic(err)
 	}
@@ -39,12 +39,11 @@ func (r *CachingDidResolver) FlushCacheFor(didstr string) {
 }
 
 func (r *CachingDidResolver) tryCache(did string) (*did.Document, bool) {
-	v, ok := r.cache.Get(did)
+	cd, ok := r.cache.Get(did)
 	if !ok {
 		return nil, false
 	}
 
-	cd := v.(*cachedDoc)
 	if time.Since(cd.cachedAt) > r.maxAge {
 		return nil, false
 	}
