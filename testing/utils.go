@@ -435,6 +435,9 @@ func SetupBGS(ctx context.Context, didr plc.PLCClient) (*TestBGS, error) {
 	opts := events.DefaultDiskPersistOptions()
 	opts.EventsPerFile = 10
 	diskpersist, err := events.NewDiskPersistence(filepath.Join(dir, "dp-primary"), filepath.Join(dir, "dp-archive"), maindb, opts)
+	if err != nil {
+		return nil, err
+	}
 
 	evtman := events.NewEventManager(diskpersist)
 	rf := indexer.NewRepoFetcher(maindb, repoman)

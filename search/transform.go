@@ -96,14 +96,6 @@ func TransformProfile(profile *appbsky.ActorProfile, ident *identity.Identity, c
 }
 
 func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid string) PostDoc {
-	altText := []string{}
-	if post.Embed != nil && post.Embed.EmbedImages != nil {
-		for _, img := range post.Embed.EmbedImages.Images {
-			if img.Alt != "" {
-				altText = append(altText, img.Alt)
-			}
-		}
-	}
 	var langCodeIso2 []string
 	for _, lang := range post.Langs {
 		// TODO: include an actual language code map to go from 3char to 2char

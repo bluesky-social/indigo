@@ -70,7 +70,9 @@ var carUnpackCmd = &cli.Command{
 		os.MkdirAll(filepath.Dir(commitPath), os.ModePerm)
 		if cctx.Bool("cbor") {
 			cborBytes := new(bytes.Buffer)
-			err = sc.MarshalCBOR(cborBytes)
+			if err := sc.MarshalCBOR(cborBytes); err != nil {
+				return err
+			}
 			if err := os.WriteFile(commitPath+".cbor", cborBytes.Bytes(), 0666); err != nil {
 				return err
 			}
@@ -100,7 +102,9 @@ var carUnpackCmd = &cli.Command{
 			}
 			if cctx.Bool("cbor") {
 				cborBytes := new(bytes.Buffer)
-				err = rec.MarshalCBOR(cborBytes)
+				if err := rec.MarshalCBOR(cborBytes); err != nil {
+					return err
+				}
 				if err := os.WriteFile(recPath+".cbor", cborBytes.Bytes(), 0666); err != nil {
 					return err
 				}

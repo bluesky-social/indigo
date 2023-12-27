@@ -943,7 +943,6 @@ func (cs *CarStore) ImportSlice(ctx context.Context, uid models.Uid, since *stri
 		return cid.Undef, nil, fmt.Errorf("new delta session failed: %w", err)
 	}
 
-	var cids []cid.Cid
 	for {
 		blk, err := carr.Next()
 		if err != nil {
@@ -952,9 +951,6 @@ func (cs *CarStore) ImportSlice(ctx context.Context, uid models.Uid, since *stri
 			}
 			return cid.Undef, nil, err
 		}
-
-		cids = append(cids, blk.Cid())
-
 		if err := ds.Put(ctx, blk); err != nil {
 			return cid.Undef, nil, err
 		}
