@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	label "github.com/bluesky-social/indigo/api/label"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/models"
 	util "github.com/bluesky-social/indigo/util"
@@ -15,7 +15,7 @@ import (
 )
 
 // Persist to database (and repo), and emit events.
-func (s *Server) CommitLabels(ctx context.Context, labels []*label.Label, negate bool) error {
+func (s *Server) CommitLabels(ctx context.Context, labels []*comatproto.LabelDefs_Label, negate bool) error {
 
 	now := time.Now()
 	nowStr := now.Format(util.ISO8601)
@@ -61,7 +61,7 @@ func (s *Server) CommitLabels(ctx context.Context, labels []*label.Label, negate
 	if len(labels) > 0 {
 		log.Infof("broadcasting labels: %s", labels)
 		lev := events.XRPCStreamEvent{
-			LabelLabels: &label.SubscribeLabels_Labels{
+			LabelLabels: &comatproto.LabelSubscribeLabels_Labels{
 				// NOTE(bnewbold): generic event handler code handles Seq field for us
 				Labels: labels,
 			},

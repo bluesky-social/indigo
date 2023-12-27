@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
-	label "github.com/bluesky-social/indigo/api/label"
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/labstack/echo/v4"
@@ -76,7 +75,7 @@ func (s *Server) HandleComAtprotoLabelQueryLabels(c echo.Context) error {
 	sources := c.QueryParams()["sources"]
 
 	uriPatterns := c.QueryParams()["uriPatterns"]
-	var out *label.QueryLabels_Output
+	var out *atproto.LabelQueryLabels_Output
 	var handleErr error
 	// func (s *Server) handleComAtprotoLabelQueryLabels(ctx context.Context,cursor string,limit int,sources []string,uriPatterns []string) (*comatprototypes.LabelQueryLabels_Output, error)
 	out, handleErr = s.handleComAtprotoLabelQueryLabels(ctx, cursor, limit, sources, uriPatterns)

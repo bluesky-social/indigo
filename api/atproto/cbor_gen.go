@@ -1961,3 +1961,655 @@ func (t *LabelDefs_SelfLabel) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
+func (t *LabelDefs_Label) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+	fieldCount := 6
+
+	if t.Cid == nil {
+		fieldCount--
+	}
+
+	if t.Neg == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+		return err
+	}
+
+	// t.Cid (string) (string)
+	if t.Cid != nil {
+
+		if len("cid") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"cid\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("cid"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("cid")); err != nil {
+			return err
+		}
+
+		if t.Cid == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.Cid) > cbg.MaxLength {
+				return xerrors.Errorf("Value in field t.Cid was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Cid))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.Cid)); err != nil {
+				return err
+			}
+		}
+	}
+
+	// t.Cts (string) (string)
+	if len("cts") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"cts\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("cts"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("cts")); err != nil {
+		return err
+	}
+
+	if len(t.Cts) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Cts was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Cts))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Cts)); err != nil {
+		return err
+	}
+
+	// t.Neg (bool) (bool)
+	if t.Neg != nil {
+
+		if len("neg") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"neg\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("neg"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("neg")); err != nil {
+			return err
+		}
+
+		if t.Neg == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if err := cbg.WriteBool(w, *t.Neg); err != nil {
+				return err
+			}
+		}
+	}
+
+	// t.Src (string) (string)
+	if len("src") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"src\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("src"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("src")); err != nil {
+		return err
+	}
+
+	if len(t.Src) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Src was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Src))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Src)); err != nil {
+		return err
+	}
+
+	// t.Uri (string) (string)
+	if len("uri") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"uri\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("uri"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("uri")); err != nil {
+		return err
+	}
+
+	if len(t.Uri) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Uri was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Uri))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Uri)); err != nil {
+		return err
+	}
+
+	// t.Val (string) (string)
+	if len("val") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"val\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("val"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("val")); err != nil {
+		return err
+	}
+
+	if len(t.Val) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Val was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Val))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Val)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *LabelDefs_Label) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = LabelDefs_Label{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("LabelDefs_Label: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.Cid (string) (string)
+		case "cid":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadString(cr)
+					if err != nil {
+						return err
+					}
+
+					t.Cid = (*string)(&sval)
+				}
+			}
+			// t.Cts (string) (string)
+		case "cts":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Cts = string(sval)
+			}
+			// t.Neg (bool) (bool)
+		case "neg":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					maj, extra, err = cr.ReadHeader()
+					if err != nil {
+						return err
+					}
+					if maj != cbg.MajOther {
+						return fmt.Errorf("booleans must be major type 7")
+					}
+
+					var val bool
+					switch extra {
+					case 20:
+						val = false
+					case 21:
+						val = true
+					default:
+						return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
+					}
+					t.Neg = &val
+				}
+			}
+			// t.Src (string) (string)
+		case "src":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Src = string(sval)
+			}
+			// t.Uri (string) (string)
+		case "uri":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Uri = string(sval)
+			}
+			// t.Val (string) (string)
+		case "val":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Val = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *LabelSubscribeLabels_Labels) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{162}); err != nil {
+		return err
+	}
+
+	// t.Seq (int64) (int64)
+	if len("seq") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"seq\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("seq"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("seq")); err != nil {
+		return err
+	}
+
+	if t.Seq >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Seq)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Seq-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.Labels ([]*atproto.LabelDefs_Label) (slice)
+	if len("labels") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"labels\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("labels"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("labels")); err != nil {
+		return err
+	}
+
+	if len(t.Labels) > cbg.MaxLength {
+		return xerrors.Errorf("Slice value in field t.Labels was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Labels))); err != nil {
+		return err
+	}
+	for _, v := range t.Labels {
+		if err := v.MarshalCBOR(cw); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *LabelSubscribeLabels_Labels) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = LabelSubscribeLabels_Labels{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("LabelSubscribeLabels_Labels: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.Seq (int64) (int64)
+		case "seq":
+			{
+				maj, extra, err := cr.ReadHeader()
+				var extraI int64
+				if err != nil {
+					return err
+				}
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.Seq = int64(extraI)
+			}
+			// t.Labels ([]*atproto.LabelDefs_Label) (slice)
+		case "labels":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > cbg.MaxLength {
+				return fmt.Errorf("t.Labels: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Labels = make([]*LabelDefs_Label, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
+
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.Labels[i] = new(LabelDefs_Label)
+							if err := t.Labels[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.Labels[i] pointer: %w", err)
+							}
+						}
+
+					}
+				}
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *LabelSubscribeLabels_Info) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+	fieldCount := 2
+
+	if t.Message == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+		return err
+	}
+
+	// t.Name (string) (string)
+	if len("name") > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"name\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("name"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("name")); err != nil {
+		return err
+	}
+
+	if len(t.Name) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Name was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Name))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Name)); err != nil {
+		return err
+	}
+
+	// t.Message (string) (string)
+	if t.Message != nil {
+
+		if len("message") > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"message\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("message"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("message")); err != nil {
+			return err
+		}
+
+		if t.Message == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.Message) > cbg.MaxLength {
+				return xerrors.Errorf("Value in field t.Message was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Message))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.Message)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (t *LabelSubscribeLabels_Info) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = LabelSubscribeLabels_Info{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("LabelSubscribeLabels_Info: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadString(cr)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.Name (string) (string)
+		case "name":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Name = string(sval)
+			}
+			// t.Message (string) (string)
+		case "message":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadString(cr)
+					if err != nil {
+						return err
+					}
+
+					t.Message = (*string)(&sval)
+				}
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
-	label "github.com/bluesky-social/indigo/api/label"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/util"
 
@@ -23,7 +22,7 @@ func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*atp
 	}, nil
 }
 
-func (s *Server) handleComAtprotoLabelQueryLabels(ctx context.Context, cursor string, limit int, sources, uriPatterns []string) (*label.QueryLabels_Output, error) {
+func (s *Server) handleComAtprotoLabelQueryLabels(ctx context.Context, cursor string, limit int, sources, uriPatterns []string) (*atproto.LabelQueryLabels_Output, error) {
 
 	if limit <= 0 {
 		limit = 20
@@ -77,22 +76,22 @@ func (s *Server) handleComAtprotoLabelQueryLabels(ctx context.Context, cursor st
 		nextCursor = strconv.FormatUint(labelRows[len(labelRows)-1].ID, 10)
 	}
 
-	labelObjs := []*label.Label{}
+	labelObjs := []*atproto.LabelDefs_Label{}
 	for _, row := range labelRows {
 		neg := false
 		if row.Neg != nil && *row.Neg == true {
 			neg = true
 		}
-		labelObjs = append(labelObjs, &label.Label{
+		labelObjs = append(labelObjs, &atproto.LabelDefs_Label{
 			Src: row.SourceDid,
 			Uri: row.Uri,
 			Cid: row.Cid,
 			Val: row.Val,
-			Neg: neg,
+			Neg: &neg,
 			Cts: row.CreatedAt.Format(util.ISO8601),
 		})
 	}
-	out := label.QueryLabels_Output{
+	out := atproto.LabelQueryLabels_Output{
 		Labels: labelObjs,
 	}
 	if nextCursor != "" {

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	label "github.com/bluesky-social/indigo/api/label"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/time/rate"
 
@@ -21,8 +20,8 @@ type RepoStreamCallbacks struct {
 	RepoInfo      func(evt *comatproto.SyncSubscribeRepos_Info) error
 	RepoMigrate   func(evt *comatproto.SyncSubscribeRepos_Migrate) error
 	RepoTombstone func(evt *comatproto.SyncSubscribeRepos_Tombstone) error
-	LabelLabels   func(evt *label.SubscribeLabels_Labels) error
-	LabelInfo     func(evt *label.SubscribeLabels_Info) error
+	LabelLabels   func(evt *comatproto.LabelSubscribeLabels_Labels) error
+	LabelInfo     func(evt *comatproto.LabelSubscribeLabels_Info) error
 	Error         func(evt *ErrorFrame) error
 }
 
@@ -235,7 +234,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler)
 					return err
 				}
 			case "#labebatch":
-				var evt label.SubscribeLabels_Labels
+				var evt comatproto.LabelSubscribeLabels_Labels
 				if err := evt.UnmarshalCBOR(r); err != nil {
 					return fmt.Errorf("reading Labels event: %w", err)
 				}
