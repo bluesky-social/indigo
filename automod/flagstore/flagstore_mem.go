@@ -52,7 +52,7 @@ func (s MemFlagStore) Remove(ctx context.Context, key string, flags []string) er
 		delete(m, f)
 	}
 	out := []string{}
-	for f, _ := range m {
+	for f := range m {
 		out = append(out, f)
 	}
 	s.Data[key] = out

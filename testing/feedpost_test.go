@@ -54,7 +54,7 @@ func TestFeedPostParse(t *testing.T) {
 				EmbedImages: &appbsky.EmbedImages{
 					LexiconTypeID: "app.bsky.embed.images",
 					Images: []*appbsky.EmbedImages_Image{
-						&appbsky.EmbedImages_Image{
+						{
 							Image: &lexutil.LexBlob{
 								//LexiconTypeID: "blob",
 								Ref:      lexutil.LexLink(cc), // 000155122090873DBDFF810882487CCF6127D8D62F241D6F4F919A73151DABA3078580C080

@@ -89,7 +89,7 @@ func (s *Memstore) BufferOp(ctx context.Context, repo string, since *string, rev
 	j.bufferedOps = append(j.bufferedOps, &opSet{
 		since: since,
 		rev:   rev,
-		ops: []*bufferedOp{&bufferedOp{
+		ops: []*bufferedOp{{
 			path: path,
 			kind: kind,
 			rec:  rec,

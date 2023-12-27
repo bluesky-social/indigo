@@ -249,7 +249,7 @@ func TestInteropIpldNestedSchema(t *testing.T) {
 	goObj := ipldNestedSchema{
 		A: ipldNestedSchemaInner{
 			B: []ipldNestedSchemaInnerInner{
-				ipldNestedSchemaInnerInner{
+				{
 					D: []LexLink{
 						LexLink(cidOne),
 						LexLink(cidTwo),

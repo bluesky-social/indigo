@@ -52,7 +52,7 @@ coverage-html: ## Generate test coverage report and open in browser
 .PHONY: lint
 lint: ## Verify code style and run static checks
 	go vet -asmdecl -assign -atomic -bools -buildtag -cgocall -copylocks -httpresponse -loopclosure -lostcancel -nilfunc -printf -shift -stdmethods -structtag -tests -unmarshal -unreachable -unsafeptr -unusedresult ./...
-	test -z $(gofmt -l ./...)
+	test -z $(gofmt -s -l ./...)
 
 .PHONY: fmt
 fmt: ## Run syntax re-formatting (modify in place)

@@ -31,7 +31,7 @@ func run(args []string) error {
 	}
 
 	app.Commands = []*cli.Command{
-		&cli.Command{
+		{
 			Name:   "serve",
 			Usage:  "run the server",
 			Action: serve,
@@ -58,7 +58,7 @@ func run(args []string) error {
 				},
 			},
 		},
-		&cli.Command{
+		{
 			Name:  "version",
 			Usage: "print version",
 			Action: func(cctx *cli.Context) error {

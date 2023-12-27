@@ -87,7 +87,7 @@ func run(args []string) error {
 		},
 	}
 	app.Commands = []*cli.Command{
-		&cli.Command{
+		{
 			Name:   "notify-reports",
 			Usage:  "watch for new moderation reports, notify in slack",
 			Action: pollNewReports,

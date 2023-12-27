@@ -16,7 +16,7 @@ func main() {
 		Usage: "informal debugging CLI tool for atproto syntax (identifiers)",
 	}
 	app.Commands = []*cli.Command{
-		&cli.Command{
+		{
 			Name:      "parse-tid",
 			Usage:     "parse a TID and output timestamp",
 			ArgsUsage: "<tid>",
