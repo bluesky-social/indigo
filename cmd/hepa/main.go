@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/identity/redisdir"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod/capture"
-	"github.com/bluesky-social/indigo/automod/directory"
 
 	"github.com/carlmjohnson/versioninfo"
 	_ "github.com/joho/godotenv/autoload"
@@ -117,7 +117,7 @@ func configDirectory(cctx *cli.Context) (identity.Directory, error) {
 	}
 	var dir identity.Directory
 	if cctx.String("redis-url") != "" {
-		rdir, err := directory.NewRedisDirectory(&baseDir, cctx.String("redis-url"), time.Hour*24, time.Minute*2)
+		rdir, err := redisdir.NewRedisDirectory(&baseDir, cctx.String("redis-url"), time.Hour*24, time.Minute*2, 10_000)
 		if err != nil {
 			return nil, err
 		}
