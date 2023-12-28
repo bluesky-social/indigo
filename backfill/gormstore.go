@@ -154,6 +154,11 @@ func (j *Gormjob) BufferOps(ctx context.Context, since *string, rev string, ops 
 		return false, fmt.Errorf("invalid job state: %q", j.state)
 	}
 
+	if j.rev >= rev {
+		// we've already accounted for this event
+		return false, ErrAlreadyProcessed
+	}
+
 	j.bufferOps(&opSet{since: since, rev: rev, ops: ops})
 	return true, nil
 }
@@ -317,6 +322,11 @@ func (j *Gormjob) FlushBufferedOps(ctx context.Context, fn func(kind, rev, path 
 		if opset.since == nil {
 			// TODO: what does this mean?
 			return fmt.Errorf("nil since in event after backfill: %w", ErrEventGap)
+		}
+
+		if j.rev > *opset.since {
+			// we've already accounted for this event
+			continue
 		}
 
 		if j.rev != *opset.since {
