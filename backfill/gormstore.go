@@ -154,6 +154,11 @@ func (j *Gormjob) BufferOps(ctx context.Context, since *string, rev string, ops 
 		return false, fmt.Errorf("invalid job state: %q", j.state)
 	}
 
+	if j.rev >= rev {
+		// we've already accounted for this event
+		return false, ErrAlreadyProcessed
+	}
+
 	j.bufferOps(&opSet{since: since, rev: rev, ops: ops})
 	return true, nil
 }
