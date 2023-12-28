@@ -10,6 +10,8 @@ import (
 	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
+var _ automod.PostRuleFunc = ReplyCountPostRule
+
 // does not count "self-replies" (direct to self, or in own post thread)
 func ReplyCountPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	if post.Reply == nil || IsSelfThread(c, post) {
@@ -34,6 +36,8 @@ func ReplyCountPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error 
 
 // triggers on the N+1 post, so 6th identical reply
 var identicalReplyLimit = 5
+
+var _ automod.PostRuleFunc = IdenticalReplyPostRule
 
 // Looks for accounts posting the exact same text multiple times. Does not currently count the number of distinct accounts replied to, just counts replies at all.
 //
