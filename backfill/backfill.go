@@ -96,6 +96,9 @@ var ErrJobNotFound = errors.New("job not found")
 // ErrEventGap is returned when an event is received with a since that doesn't match the current rev
 var ErrEventGap = fmt.Errorf("buffered event revs did not line up")
 
+// ErrAlreadyProcessed is returned when attempting to buffer an event that has already been accounted for (rev older than current)
+var ErrAlreadyProcessed = fmt.Errorf("event already accounted for")
+
 var tracer = otel.Tracer("backfiller")
 
 type BackfillOptions struct {
@@ -500,7 +503,7 @@ func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscrib
 	}
 
 	buffered, err := bf.BufferOps(ctx, evt.Repo, evt.Since, evt.Rev, ops)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrAlreadyProcessed) {
 		return fmt.Errorf("buffer ops failed: %w", err)
 	}
 
