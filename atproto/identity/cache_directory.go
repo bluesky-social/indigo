@@ -188,10 +188,15 @@ func (d *CacheDirectory) updateDID(ctx context.Context, did syntax.DID) Identity
 }
 
 func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
+	id, _, err := d.LookupDIDWithCacheState(ctx, did)
+	return id, err
+}
+
+func (d *CacheDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax.DID) (*Identity, bool, error) {
 	entry, ok := d.identityCache.Get(did)
 	if ok && !d.IsIdentityStale(&entry) {
 		identityCacheHits.Inc()
-		return entry.Identity, entry.Err
+		return entry.Identity, true, entry.Err
 	}
 	identityCacheMisses.Inc()
 
@@ -206,11 +211,11 @@ func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identi
 			// The result should now be in the cache
 			entry, ok := d.identityCache.Get(did)
 			if ok && !d.IsIdentityStale(&entry) {
-				return entry.Identity, entry.Err
+				return entry.Identity, false, entry.Err
 			}
-			return nil, fmt.Errorf("identity not found in cache after coalesce returned")
+			return nil, false, fmt.Errorf("identity not found in cache after coalesce returned")
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, false, ctx.Err()
 		}
 	}
 
@@ -223,33 +228,38 @@ func (d *CacheDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identi
 	close(res)
 
 	if newEntry.Err != nil {
-		return nil, newEntry.Err
+		return nil, false, newEntry.Err
 	}
 	if newEntry.Identity != nil {
-		return newEntry.Identity, nil
+		return newEntry.Identity, false, nil
 	}
-	return nil, fmt.Errorf("unexpected control-flow error")
+	return nil, false, fmt.Errorf("unexpected control-flow error")
 }
 
 func (d *CacheDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
+	ident, _, err := d.LookupHandleWithCacheState(ctx, h)
+	return ident, err
+}
+
+func (d *CacheDirectory) LookupHandleWithCacheState(ctx context.Context, h syntax.Handle) (*Identity, bool, error) {
 	h = h.Normalize()
 	did, err := d.ResolveHandle(ctx, h)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	ident, err := d.LookupDID(ctx, did)
+	ident, hit, err := d.LookupDIDWithCacheState(ctx, did)
 	if err != nil {
-		return nil, err
+		return nil, hit, err
 	}
 
 	declared, err := ident.DeclaredHandle()
 	if err != nil {
-		return nil, err
+		return nil, hit, err
 	}
 	if declared != h {
-		return nil, ErrHandleMismatch
+		return nil, hit, ErrHandleMismatch
 	}
-	return ident, nil
+	return ident, hit, nil
 }
 
 func (d *CacheDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Identity, error) {
