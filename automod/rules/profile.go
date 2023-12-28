@@ -5,6 +5,8 @@ import (
 	"github.com/bluesky-social/indigo/automod"
 )
 
+var _ automod.PostRuleFunc = AccountDemoPostRule
+
 // this is a dummy rule to demonstrate accessing account metadata (eg, profile) from within post handler
 func AccountDemoPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	if c.Account.Profile.Description != nil && len(post.Text) > 5 && *c.Account.Profile.Description == post.Text {

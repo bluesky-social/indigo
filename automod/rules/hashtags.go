@@ -5,6 +5,8 @@ import (
 	"github.com/bluesky-social/indigo/automod"
 )
 
+var _ automod.PostRuleFunc = BadHashtagsPostRule
+
 // looks for specific hashtags from known lists
 func BadHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	for _, tag := range ExtractHashtags(post) {
@@ -16,6 +18,8 @@ func BadHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error
 	}
 	return nil
 }
+
+var _ automod.PostRuleFunc = TooManyHashtagsPostRule
 
 // if a post is "almost all" hashtags, it might be a form of search spam
 func TooManyHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
