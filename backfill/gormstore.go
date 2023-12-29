@@ -154,7 +154,7 @@ func (j *Gormjob) BufferOps(ctx context.Context, since *string, rev string, ops 
 		return false, fmt.Errorf("invalid job state: %q", j.state)
 	}
 
-	if j.rev >= rev {
+	if j.rev >= rev || (since == nil && j.rev != "") {
 		// we've already accounted for this event
 		return false, ErrAlreadyProcessed
 	}
@@ -320,8 +320,11 @@ func (j *Gormjob) FlushBufferedOps(ctx context.Context, fn func(kind, rev, path 
 		}
 
 		if opset.since == nil {
-			// TODO: what does this mean?
-			return fmt.Errorf("nil since in event after backfill: %w", ErrEventGap)
+			// The first event for a repo may have a nil since
+			// We should process it only if the rev is empty, skip otherwise
+			if j.rev != "" {
+				continue
+			}
 		}
 
 		if j.rev > *opset.since {
