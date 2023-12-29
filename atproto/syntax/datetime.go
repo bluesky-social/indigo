@@ -21,11 +21,13 @@ const (
 // Syntax is specified at: https://atproto.com/specs/lexicon#datetime
 type Datetime string
 
+var datetimeRegex = regexp.MustCompile(`^[0-9]{4}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-6][0-9]:[0-6][0-9](.[0-9]{1,20})?(Z|([+-][0-2][0-9]:[0-5][0-9]))$`)
+
 func ParseDatetime(raw string) (Datetime, error) {
 	if len(raw) > 64 {
 		return "", fmt.Errorf("Datetime too long (max 64 chars)")
 	}
-	var datetimeRegex = regexp.MustCompile(`^[0-9]{4}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-6][0-9]:[0-6][0-9](.[0-9]{1,20})?(Z|([+-][0-2][0-9]:[0-5][0-9]))$`)
+
 	if !datetimeRegex.MatchString(raw) {
 		return "", fmt.Errorf("Datetime syntax didn't validate via regex")
 	}
@@ -53,6 +55,8 @@ func ParseDatetimeTime(raw string) (time.Time, error) {
 // Similar to ParseDatetime, but more flexible about some parsing.
 //
 // Note that this may mutate the internal string, so a round-trip will fail. This is intended for working with legacy/broken records, not to be used in an ongoing way.
+var hasTimezoneRegex = regexp.MustCompile(`^.*(([+-]\d\d:?\d\d)|[a-zA-Z])$`)
+
 func ParseDatetimeLenient(raw string) (Datetime, error) {
 	// fast path: it is a valid overall datetime
 	valid, err := ParseDatetime(raw)
@@ -71,7 +75,6 @@ func ParseDatetimeLenient(raw string) (Datetime, error) {
 	}
 
 	// try adding timezone if it is missing
-	var hasTimezoneRegex = regexp.MustCompile(`^.*(([+-]\d\d:?\d\d)|[a-zA-Z])$`)
 	if !hasTimezoneRegex.MatchString(raw) {
 		withTZ, err := ParseDatetime(raw + "Z")
 		if nil == err {

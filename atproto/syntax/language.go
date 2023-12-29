@@ -12,11 +12,12 @@ import (
 // The syntax is BCP-47. This is a partial/naive parsing implementation, designed for fast validation and exact-string passthrough with no normaliztion. For actually working with BCP-47 language specifiers in atproto code bases, we recommend the golang.org/x/text/language package.
 type Language string
 
+var langRegex = regexp.MustCompile(`^(i|[a-z]{2,3})(-[a-zA-Z0-9]+)*$`)
+
 func ParseLanguage(raw string) (Language, error) {
 	if len(raw) > 128 {
 		return "", fmt.Errorf("Language is too long (128 chars max)")
 	}
-	var langRegex = regexp.MustCompile(`^(i|[a-z]{2,3})(-[a-zA-Z0-9]+)*$`)
 	if !langRegex.MatchString(raw) {
 		return "", fmt.Errorf("Language syntax didn't validate via regex")
 	}
