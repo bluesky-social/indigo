@@ -13,6 +13,8 @@ import (
 // Always use [ParseCID] instead of wrapping strings directly, especially when working with network input.
 type CID string
 
+var cidRegex = regexp.MustCompile(`^[a-zA-Z0-9+=]{8,256}$`)
+
 func ParseCID(raw string) (CID, error) {
 	if len(raw) > 256 {
 		return "", fmt.Errorf("CID is too long (256 chars max)")
@@ -20,7 +22,7 @@ func ParseCID(raw string) (CID, error) {
 	if len(raw) < 8 {
 		return "", fmt.Errorf("CID is too short (8 chars min)")
 	}
-	var cidRegex = regexp.MustCompile(`^[a-zA-Z0-9+=]{8,256}$`)
+
 	if !cidRegex.MatchString(raw) {
 		return "", fmt.Errorf("CID syntax didn't validate via regex")
 	}
