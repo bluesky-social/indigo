@@ -24,11 +24,12 @@ func Base32Sort() *base32.Encoding {
 // Syntax specification: https://atproto.com/specs/record-key
 type TID string
 
+var tidRegex = regexp.MustCompile(`^[234567abcdefghij][234567abcdefghijklmnopqrstuvwxyz]{12}$`)
+
 func ParseTID(raw string) (TID, error) {
 	if len(raw) != 13 {
 		return "", fmt.Errorf("TID is wrong length (expected 13 chars)")
 	}
-	var tidRegex = regexp.MustCompile(`^[234567abcdefghij][234567abcdefghijklmnopqrstuvwxyz]{12}$`)
 	if !tidRegex.MatchString(raw) {
 		return "", fmt.Errorf("TID syntax didn't validate via regex")
 	}
