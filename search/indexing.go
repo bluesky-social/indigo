@@ -48,6 +48,8 @@ func (s *Server) deletePost(ctx context.Context, ident *identity.Identity, rkey 
 	return nil
 }
 
+var tidRegex = regexp.MustCompile(`^[234567abcdefghijklmnopqrstuvwxyz]{13}$`)
+
 func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *appbsky.FeedPost, path string, rcid cid.Cid) error {
 	ctx, span := tracer.Start(ctx, "indexPost")
 	defer span.End()
@@ -56,7 +58,6 @@ func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *a
 	log := s.logger.With("repo", ident.DID, "path", path, "op", "indexPost")
 	parts := strings.SplitN(path, "/", 3)
 	// TODO: replace with an atproto/syntax package type for TID
-	var tidRegex = regexp.MustCompile(`^[234567abcdefghijklmnopqrstuvwxyz]{13}$`)
 	if len(parts) != 2 || !tidRegex.MatchString(parts[1]) {
 		log.Warn("skipping index post record with weird path/TID", "did", ident.DID, "path", path)
 		return nil
