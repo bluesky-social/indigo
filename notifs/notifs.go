@@ -214,7 +214,7 @@ func (nm *DBNotifMan) hydrateNotificationRepost(ctx context.Context, nrec *Notif
 	rsub := "at://" + postAuthor.Did + "/app.bsky.feed.post/" + reposted.Rkey
 
 	return &appbskytypes.NotificationListNotifications_Notification{
-		Record:        &lexutil.LexiconTypeDecoder{rec},
+		Record:        &lexutil.LexiconTypeDecoder{Val: rec},
 		IsRead:        nrec.CreatedAt.Before(lastSeen),
 		IndexedAt:     nrec.CreatedAt.Format(time.RFC3339),
 		Uri:           "at://" + reposter.Did + "/app.bsky.feed.repost/" + repost.Rkey,
@@ -254,7 +254,7 @@ func (nm *DBNotifMan) hydrateNotificationReply(ctx context.Context, nrec *NotifR
 	rsub := "at://" + opAuthor.Did + "/app.bsky.feed.post/" + replyTo.Rkey
 
 	return &appbskytypes.NotificationListNotifications_Notification{
-		Record:        &lexutil.LexiconTypeDecoder{rec},
+		Record:        &lexutil.LexiconTypeDecoder{Val: rec},
 		IsRead:        nrec.CreatedAt.Before(lastSeen),
 		IndexedAt:     nrec.CreatedAt.Format(time.RFC3339),
 		Uri:           "at://" + author.Did + "/app.bsky.feed.post/" + fp.Rkey,
@@ -282,7 +282,7 @@ func (nm *DBNotifMan) hydrateNotificationFollow(ctx context.Context, nrec *Notif
 	}
 
 	return &appbskytypes.NotificationListNotifications_Notification{
-		Record:    &lexutil.LexiconTypeDecoder{rec},
+		Record:    &lexutil.LexiconTypeDecoder{Val: rec},
 		IsRead:    nrec.CreatedAt.Before(lastSeen),
 		IndexedAt: nrec.CreatedAt.Format(time.RFC3339),
 		Uri:       "at://" + follower.Did + "/app.bsky.graph.follow/" + frec.Rkey,

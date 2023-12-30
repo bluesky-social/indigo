@@ -544,7 +544,7 @@ var createFeedGeneratorCmd = &cli.Command{
 
 		ctx := context.TODO()
 
-		rec := &lexutil.LexiconTypeDecoder{&bsky.FeedGenerator{
+		rec := &lexutil.LexiconTypeDecoder{Val: &bsky.FeedGenerator{
 			CreatedAt:   time.Now().Format(util.ISO8601),
 			Description: desc,
 			Did:         did,
