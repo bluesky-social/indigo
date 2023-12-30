@@ -150,7 +150,7 @@ func TestPostToJson(t *testing.T) {
 // checks a corner-case with $type: "app.bsky.richtext.facet#link"
 func TestFeedPostRichtextLink(t *testing.T) {
 	assert := assert.New(t)
-	cidBuilder := cid.V1Builder{0x71, 0x12, 0}
+	cidBuilder := cid.V1Builder{Codec: 0x71, MhType: 0x12, MhLength: 0}
 
 	// this is a app.bsky.feed.post with richtext link
 	inFile, err := os.Open("testdata/post_richtext_link.cbor")
