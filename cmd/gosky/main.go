@@ -120,7 +120,7 @@ func cborToJson(data []byte) ([]byte, error) {
 	enc := rejson.NewEncoder(buf, rejson.EncodeOptions{})
 
 	dec := cbor.NewDecoder(cbor.DecodeOptions{}, bytes.NewReader(data))
-	err := shared.TokenPump{dec, enc}.Run()
+	err := shared.TokenPump{TokenSource: dec, TokenSink: enc}.Run()
 	if err != nil {
 		return nil, err
 	}
