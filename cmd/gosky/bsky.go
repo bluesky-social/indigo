@@ -53,7 +53,7 @@ var bskyFollowCmd = &cli.Command{
 		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.graph.follow",
 			Repo:       xrpcc.Auth.Did,
-			Record:     &lexutil.LexiconTypeDecoder{&follow},
+			Record:     &lexutil.LexiconTypeDecoder{Val: &follow},
 		})
 		if err != nil {
 			return err
@@ -111,7 +111,7 @@ var bskyPostCmd = &cli.Command{
 		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.feed.post",
 			Repo:       auth.Did,
-			Record: &lexutil.LexiconTypeDecoder{&appbsky.FeedPost{
+			Record: &lexutil.LexiconTypeDecoder{Val: &appbsky.FeedPost{
 				Text:      text,
 				CreatedAt: time.Now().Format(util.ISO8601),
 			}},

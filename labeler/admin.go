@@ -34,7 +34,7 @@ func (s *Server) hydrateRecordView(ctx context.Context, did string, uri, cid *st
 		Moderation: nil,
 		Repo:       repoView,
 		// TODO: replace with actual record (from proxied backend)
-		Value: &lexutil.LexiconTypeDecoder{&appbsky.FeedPost{}},
+		Value: &lexutil.LexiconTypeDecoder{Val: &appbsky.FeedPost{}},
 	}
 	if uri != nil {
 		recordView.Uri = *uri
