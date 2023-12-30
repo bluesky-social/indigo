@@ -199,7 +199,7 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, erro
 		return nil, err
 	}
 	if info.Path == "" {
-		return nil, ipld.ErrNotFound{k}
+		return nil, ipld.ErrNotFound{Cid: k}
 	}
 
 	if uv.prefetch {
@@ -581,7 +581,7 @@ func (ds *DeltaSession) DeleteBlock(ctx context.Context, c cid.Cid) error {
 	}
 
 	if _, ok := ds.blks[c]; !ok {
-		return ipld.ErrNotFound{c}
+		return ipld.ErrNotFound{Cid: c}
 	}
 
 	delete(ds.blks, c)
