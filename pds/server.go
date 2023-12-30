@@ -59,9 +59,6 @@ type Server struct {
 	plc plc.PLCClient
 }
 
-const UserActorDeclCid = "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u"
-const UserActorDeclType = "app.bsky.system.actorUser"
-
 // serverListenerBootTimeout is how long to wait for the requested server socket
 // to become available for use. This is an arbitrary timeout that should be safe
 // on any platform, but there's no great way to weave this timeout without
