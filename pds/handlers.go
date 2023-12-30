@@ -340,7 +340,7 @@ func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *
 		return nil, err
 	}
 
-	if err := s.repoman.InitNewActor(ctx, u.ID, u.Handle, u.Did, "", UserActorDeclCid, UserActorDeclType); err != nil {
+	if err := s.repoman.InitNewActor(ctx, u.ID, u.Handle, u.Did, "", "", ""); err != nil {
 		return nil, err
 	}
 

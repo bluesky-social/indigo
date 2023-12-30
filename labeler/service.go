@@ -20,7 +20,6 @@ import (
 	"github.com/bluesky-social/indigo/indexer"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/pds"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -102,7 +101,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, repoUser RepoConfig, plcURL, 
 	head, _ := s.repoman.GetRepoRoot(ctx, s.user.UserId)
 	if !head.Defined() {
 		log.Info("initializing labelmaker repo")
-		if err := s.repoman.InitNewActor(ctx, s.user.UserId, s.user.Handle, s.user.Did, "Label Maker", pds.UserActorDeclCid, pds.UserActorDeclType); err != nil {
+		if err := s.repoman.InitNewActor(ctx, s.user.UserId, s.user.Handle, s.user.Did, "Label Maker", "", ""); err != nil {
 			return nil, fmt.Errorf("creating labelmaker repo: %w", err)
 		}
 	} else {
