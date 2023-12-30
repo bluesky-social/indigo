@@ -313,9 +313,6 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 				return true
 			case "/xrpc/com.atproto.server.describeServer":
 				return true
-			case "/xrpc/app.bsky.actor.getProfile":
-				fmt.Println("TODO: currently not requiring auth on get profile endpoint")
-				return true
 			case "/xrpc/com.atproto.sync.getRepo":
 				fmt.Println("TODO: currently not requiring auth on get repo endpoint")
 				return true
@@ -353,7 +350,6 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 
 	e.Use(middleware.JWTWithConfig(cfg), s.userCheckMiddleware)
 	s.RegisterHandlersComAtproto(e)
-	s.RegisterHandlersAppBsky(e)
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
 	e.GET("/xrpc/_health", s.HandleHealthCheck)
 	e.GET("/.well-known/atproto-did", s.HandleResolveDid)
