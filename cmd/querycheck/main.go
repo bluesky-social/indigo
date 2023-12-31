@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"sync"
@@ -21,7 +22,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap"
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/urfave/cli/v2"
@@ -75,25 +75,19 @@ func Querycheck(cctx *cli.Context) error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
-	rawlog, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("failed to create logger: %+v\n", err)
-	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
 	defer func() {
-		log.Printf("main function teardown\n")
-		err := rawlog.Sync()
-		if err != nil {
-			log.Printf("failed to sync logger on teardown: %+v", err.Error())
-		}
+		logger.Info("main function teardown")
 	}()
 
-	log := rawlog.Sugar().With("source", "querycheck_main")
-
-	log.Info("starting querycheck")
+	logger = logger.With("source", "querycheck_main")
+	logger.Info("starting querycheck")
 
 	// Registers a tracer Provider globally if the exporter endpoint is set
 	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") != "" {
-		log.Info("initializing tracer...")
+		logger.Info("initializing tracer")
 		shutdown, err := tracing.InstallExportPipeline(ctx, "Querycheck", 1)
 		if err != nil {
 			log.Fatal(err)
@@ -153,9 +147,9 @@ func Querycheck(cctx *cli.Context) error {
 	// Start the metrics server
 	wg.Add(1)
 	go func() {
-		log.Infof("starting metrics server on port %d", cctx.Int("port"))
+		logger.Info("starting metrics serverd", "port", cctx.Int("port"))
 		if err := e.Start(fmt.Sprintf(":%d", cctx.Int("port"))); err != nil {
-			log.Errorf("failed to start metrics server: %+v\n", err)
+			logger.Error("failed to start metrics server", "err", err)
 		}
 		wg.Done()
 	}()
@@ -168,17 +162,17 @@ func Querycheck(cctx *cli.Context) error {
 		fmt.Println("shutting down on context done")
 	}
 
-	log.Info("shutting down, waiting for workers to clean up...")
+	logger.Info("shutting down, waiting for workers to clean up")
 
 	if err := e.Shutdown(ctx); err != nil {
-		log.Errorf("failed to shut down metrics server: %+v\n", err)
+		logger.Error("failed to shut down metrics server", "err", err)
 		wg.Done()
 	}
 
 	querychecker.Stop()
 
 	wg.Wait()
-	log.Info("shut down successfully")
+	logger.Info("shut down successfully")
 
 	return nil
 }
