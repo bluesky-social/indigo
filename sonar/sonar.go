@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
@@ -14,20 +15,18 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/goccy/go-json"
-	"github.com/labstack/gommon/log"
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
 	"go.opentelemetry.io/otel"
-	"go.uber.org/zap"
 )
 
 type Sonar struct {
 	SocketURL  string
 	Progress   *Progress
 	ProgMux    sync.Mutex
-	Logger     *zap.SugaredLogger
+	Logger     *slog.Logger
 	CursorFile string
 }
 
@@ -72,7 +71,7 @@ func (s *Sonar) ReadCursorFile() error {
 	return nil
 }
 
-func NewSonar(logger *zap.SugaredLogger, cursorFile string, socketURL string) (*Sonar, error) {
+func NewSonar(logger *slog.Logger, cursorFile string, socketURL string) (*Sonar, error) {
 	s := Sonar{
 		SocketURL: socketURL,
 		Progress: &Progress{
@@ -85,7 +84,7 @@ func NewSonar(logger *zap.SugaredLogger, cursorFile string, socketURL string) (*
 
 	// Check to see if the cursor file exists
 	if _, err := os.Stat(cursorFile); os.IsNotExist(err) {
-		logger.Infof("cursor file does not exist, creating %s", cursorFile)
+		logger.Info("cursor file does not exist, creating", "path", cursorFile)
 		// Create the cursor file
 		err := s.WriteCursorFile()
 		if err != nil {
@@ -95,7 +94,7 @@ func NewSonar(logger *zap.SugaredLogger, cursorFile string, socketURL string) (*
 		// Read the cursor file
 		err := s.ReadCursorFile()
 		if err != nil {
-			logger.Errorf("read cursor file, will start drinking from live: %+v", err.Error())
+			logger.Error("read cursor file, will start drinking from live", "err", err.Error())
 		}
 	}
 
@@ -120,7 +119,7 @@ func (s *Sonar) HandleStreamEvent(ctx context.Context, xe *events.XRPCStreamEven
 		// Parse time from the event time string
 		t, err := time.Parse(time.RFC3339, xe.RepoHandle.Time)
 		if err != nil {
-			log.Errorf("error parsing time: %+v", err)
+			s.Logger.Error("error parsing time", "err", err)
 			return nil
 		}
 		lastEvtCreatedAtGauge.WithLabelValues(s.SocketURL).Set(float64(t.UnixNano()))
@@ -139,7 +138,7 @@ func (s *Sonar) HandleStreamEvent(ctx context.Context, xe *events.XRPCStreamEven
 		// Parse time from the event time string
 		t, err := time.Parse(time.RFC3339, xe.RepoMigrate.Time)
 		if err != nil {
-			log.Errorf("error parsing time: %+v", err)
+			s.Logger.Error("error parsing time", "err", err)
 			return nil
 		}
 		lastEvtCreatedAtGauge.WithLabelValues(s.SocketURL).Set(float64(t.UnixNano()))
@@ -175,7 +174,7 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 
 	rr, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
 	if err != nil {
-		log.Errorf("failed to read repo from car: %+v", err)
+		s.Logger.Error("failed to read repo from car", "err", err)
 		return nil
 	}
 
@@ -187,7 +186,7 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 	// Parse time from the event time string
 	evtCreatedAt, err := time.Parse(time.RFC3339, evt.Time)
 	if err != nil {
-		log.Errorf("error parsing time: %+v", err)
+		s.Logger.Error("error parsing time", "err", err)
 		return nil
 	}
 
@@ -209,14 +208,14 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 			rc, rec, err := rr.GetRecord(ctx, op.Path)
 			if err != nil {
 				e := fmt.Errorf("getting record %s (%s) within seq %d for %s: %w", op.Path, *op.Cid, evt.Seq, evt.Repo, err)
-				log.Errorf("failed to get a record from the event: %+v", e)
+				s.Logger.Error("failed to get a record from the event", "err", e)
 				break
 			}
 
 			// Verify that the record cid matches the cid in the event
 			if lexutil.LexLink(rc) != *op.Cid {
 				e := fmt.Errorf("mismatch in record and op cid: %s != %s", rc, *op.Cid)
-				log.Errorf("failed to LexLink the record in the event: %+v", e)
+				s.Logger.Error("failed to LexLink the record in the event", "err", e)
 				break
 			}
 
@@ -255,10 +254,10 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 				recordsProcessedCounter.WithLabelValues("graph_listitem", s.SocketURL).Inc()
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
 			default:
-				log.Warnf("unknown record type: %+v", rec)
+				log.Warn("unknown record type", "rec", rec)
 			}
 			if parseError != nil {
-				log.Errorf("error parsing time: %+v", parseError)
+				s.Logger.Error("error parsing time", "err", parseError)
 				continue
 			}
 			if !recCreatedAt.IsZero() {
@@ -269,7 +268,7 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 
 		case repomgr.EvtKindDeleteRecord:
 		default:
-			log.Warnf("unknown event kind from op action: %+v", op.Action)
+			s.Logger.Warn("unknown event kind from op action", "action", op.Action)
 		}
 	}
 
