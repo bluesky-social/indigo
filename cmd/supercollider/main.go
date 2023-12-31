@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"os"
 	"os/signal"
@@ -49,7 +50,6 @@ import (
 
 	"github.com/carlmjohnson/versioninfo"
 	cbg "github.com/whyrusleeping/cbor-gen"
-	"go.uber.org/zap"
 )
 
 var eventsGeneratedCounter = promauto.NewCounter(prometheus.CounterOpts{
@@ -67,7 +67,7 @@ type Server struct {
 	Dids         []string
 	Host         string
 	EnableSSL    bool
-	Logger       *zap.SugaredLogger
+	Logger       *slog.Logger
 	EventControl chan string
 	MultibaseKey string
 	RepoManager  *repomgr.RepoManager
@@ -192,30 +192,25 @@ func Reload(cctx *cli.Context) error {
 		}
 	}()
 
-	rawlog, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("failed to create logger: %+v\n", err)
-	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
 	defer func() {
-		log.Printf("main function teardown\n")
-		err := rawlog.Sync()
-		if err != nil {
-			log.Printf("failed to sync logger on teardown: %+v", err.Error())
-		}
+		logger.Info("main function teardown")
 	}()
 
-	log := rawlog.Sugar().With("source", "supercollider_main")
+	logger = logger.With("source", "supercollider_main")
 
-	log.Info("Starting Supercollider in Reload Mode")
-	log.Infof("Generating %d total events and writing them to %s",
-		cctx.Int("total-events"), cctx.String("output-file"))
+	logger.Info("Starting Supercollider in Reload Mode")
+	logger.Info(fmt.Sprintf("Generating %d total events and writing them to %s",
+		cctx.Int("total-events"), cctx.String("output-file")))
 
 	em := events.NewEventManager(events.NewYoloPersister())
 
 	// Try to read the key from disk
 	keyBytes, err := os.ReadFile(cctx.String("key-file"))
 	if err != nil {
-		log.Warnf("failed to read key from disk, creating new key: %s", err.Error())
+		logger.Warn("failed to read key from disk, creating new key", "err", err.Error())
 	}
 
 	var privkey *godid.PrivKey
@@ -259,7 +254,7 @@ func Reload(cctx *cli.Context) error {
 
 	// Instantiate Server
 	s := &Server{
-		Logger:    log,
+		Logger:    logger,
 		EnableSSL: cctx.Bool("use-ssl"),
 		Host:      cctx.String("hostname"),
 
@@ -316,22 +311,22 @@ func Reload(cctx *cli.Context) error {
 		}
 		defer cancel()
 
-		log.Infof("writing events to %s", outFile)
+		logger.Info("writing events", "path", outFile)
 
 		header := events.EventHeader{Op: events.EvtKindMessage}
 		for {
 			select {
 			case <-ctx.Done():
-				log.Info("shutting down file writer")
+				logger.Info("shutting down file writer")
 				err = f.Sync()
 				if err != nil {
-					log.Errorf("failed to sync file: %+v\n", err)
+					logger.Error("failed to sync file", "err", err)
 				}
-				log.Info("file writer shutdown complete")
+				logger.Info("file writer shutdown complete")
 				return
 			case evt := <-evts:
 				if evt.Error != nil {
-					log.Errorf("error in event stream: %+v\n", evt.Error)
+					logger.Error("error in event stream", "err", evt.Error)
 					continue
 				}
 				var obj lexutil.CBOR
@@ -355,16 +350,16 @@ func Reload(cctx *cli.Context) error {
 					header.MsgType = "#tombstone"
 					obj = evt.RepoTombstone
 				default:
-					log.Errorf("unrecognized event kind")
+					logger.Error("unrecognized event kind")
 					continue
 				}
 
 				if err := header.MarshalCBOR(f); err != nil {
-					log.Errorf("failed to write header: %+v\n", err)
+					logger.Error("failed to write header", "err", err)
 				}
 
 				if err := obj.MarshalCBOR(f); err != nil {
-					log.Errorf("failed to write event: %+v\n", err)
+					logger.Error("failed to write event", "err", err)
 				}
 			}
 		}
@@ -384,13 +379,13 @@ func Reload(cctx *cli.Context) error {
 			err = e.Start(listenAddress)
 		}
 		if err != nil {
-			log.Errorf("failed to start server: %+v\n", err)
+			logger.Error("failed to start server", "err", err)
 		}
 	}()
 	<-ctx.Done()
-	log.Info("shutting down server...")
+	logger.Info("shutting down server...")
 	wg.Wait()
-	log.Info("server shutdown complete")
+	logger.Info("server shutdown complete")
 	return nil
 }
 
@@ -416,26 +411,21 @@ func Fire(cctx *cli.Context) error {
 		}
 	}()
 
-	rawlog, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("failed to create logger: %+v\n", err)
-	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+
 	defer func() {
-		log.Printf("main function teardown\n")
-		err := rawlog.Sync()
-		if err != nil {
-			log.Printf("failed to sync logger on teardown: %+v", err.Error())
-		}
+		logger.Info("main function teardown")
 	}()
 
-	log := rawlog.Sugar().With("source", "supercollider_main")
-
-	log.Info("Starting Supercollider in Fire Mode")
+	logger = logger.With("source", "supercollider_main")
+	logger.Info("Starting Supercollider in Fire Mode")
 
 	// Try to read the key from disk
 	keyBytes, err := os.ReadFile(cctx.String("key-file"))
 	if err != nil {
-		log.Warnf("failed to read key from disk, creating new key: %s", err.Error())
+		logger.Warn("failed to read key from disk, creating new key", "err", err.Error())
 	}
 
 	var privkey *godid.PrivKey
@@ -466,7 +456,7 @@ func Fire(cctx *cli.Context) error {
 
 	// Instantiate Server
 	s := &Server{
-		Logger:             log,
+		Logger:             logger,
 		EnableSSL:          cctx.Bool("use-ssl"),
 		Host:               cctx.String("hostname"),
 		MultibaseKey:       *vMethod.PublicKeyMultibase,
@@ -489,7 +479,7 @@ func Fire(cctx *cli.Context) error {
 			if err2 := ctx.JSON(err.Code, map[string]any{
 				"error": err.Message,
 			}); err2 != nil {
-				log.Errorf("Failed to write http error: %s", err2)
+				logger.Error("Failed to write http error", "err", err2)
 			}
 		default:
 			sendHeader := true
@@ -497,7 +487,7 @@ func Fire(cctx *cli.Context) error {
 				sendHeader = false
 			}
 
-			log.Warnf("HANDLER ERROR: (%s) %s", ctx.Path(), err)
+			logger.Warn("HANDLER ERROR", "path", ctx.Path(), "err", err)
 
 			if sendHeader {
 				ctx.Response().WriteHeader(500)
@@ -532,11 +522,11 @@ func Fire(cctx *cli.Context) error {
 			err = e.Start(listenAddress)
 		}
 		if err != nil {
-			log.Errorf("failed to start server: %+v\n", err)
+			logger.Error("failed to start server", "err", err)
 		}
 	}()
 	<-ctx.Done()
-	log.Info("shutting down server")
+	logger.Info("shutting down server")
 	return nil
 }
 
@@ -620,16 +610,16 @@ func (s *Server) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
 		},
 		PrivUid: evt.User,
 	}); err != nil {
-		s.Logger.Errorf("failed to add event: %+v\n", err)
+		s.Logger.Error("failed to add event", "err", err)
 	}
 }
 
 // EventGenerationLoop is the main loop for generating events
 func (s *Server) EventGenerationLoop(ctx context.Context, cancel context.CancelFunc) {
 	defer cancel()
-	s.Logger.Infof("starting event generation for %d events", s.TotalDesiredEvents)
+	s.Logger.Info(fmt.Sprintf("starting event generation for %d events", s.TotalDesiredEvents))
 
-	s.Logger.Infof("initializing %d fake users", len(s.Dids))
+	s.Logger.Info(fmt.Sprintf("initializing %d fake users", len(s.Dids)))
 	for i, did := range s.Dids {
 		uid := models.Uid(i + 1)
 		if err := s.RepoManager.InitNewActor(ctx, uid, strings.TrimPrefix(did, "did:web:"), did, "catdog", "", ""); err != nil {
@@ -637,7 +627,7 @@ func (s *Server) EventGenerationLoop(ctx context.Context, cancel context.CancelF
 		}
 	}
 
-	s.Logger.Infof("generating %d events", s.TotalDesiredEvents)
+	s.Logger.Info("generating events", "count", s.TotalDesiredEvents)
 
 	for i := 0; i < s.TotalDesiredEvents; i++ {
 		text := fake.SentencesN(3)
@@ -650,19 +640,19 @@ func (s *Server) EventGenerationLoop(ctx context.Context, cancel context.CancelF
 			Text:      text,
 		})
 		if err != nil {
-			s.Logger.Errorf("failed to create record: %+v\n", err)
+			s.Logger.Error("failed to create record", "err", err)
 		} else {
 			eventsGeneratedCounter.Inc()
 		}
 		select {
 		case <-ctx.Done():
-			s.Logger.Infof("shutting down event generation loop on context done")
+			s.Logger.Info("shutting down event generation loop on context done")
 			return
 		default:
 		}
 	}
 
-	s.Logger.Infof("event generation complete, shutting down")
+	s.Logger.Info("event generation complete, shutting down")
 	return
 }
 
@@ -712,7 +702,7 @@ func (s *Server) DescribeServerHandler(c echo.Context) error {
 
 // HandleSubscribeRepos opens and manages a websocket connection for subscribing to repo events
 func (s *Server) HandleSubscribeRepos(c echo.Context) error {
-	s.Logger.Infof("new repo subscription from %s\n", c.Request().RemoteAddr)
+	s.Logger.Info("new repo subscription", "remote", c.Request().RemoteAddr)
 	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
 	if err != nil {
 		return err
@@ -725,7 +715,7 @@ func (s *Server) HandleSubscribeRepos(c echo.Context) error {
 
 	f, err := os.Open(s.PlaybackFile)
 	if err != nil {
-		s.Logger.Errorf("failed to open playback file: %+v\n", err)
+		s.Logger.Error("failed to open playback file", "err", err)
 		return err
 	}
 	defer f.Close()
