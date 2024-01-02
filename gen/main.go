@@ -10,6 +10,8 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/atproto/data"
+
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -83,6 +85,10 @@ func main() {
 	}
 
 	if err := cbg.WriteMapEncodersToFile("events/cbor_gen.go", "events", events.EventHeader{}, events.ErrorFrame{}); err != nil {
+		panic(err)
+	}
+
+	if err := cbg.WriteMapEncodersToFile("atproto/data/cbor_gen.go", "data", data.GenericRecord{}, data.LegacyBlobSchema{}, data.BlobSchema{}); err != nil {
 		panic(err)
 	}
 }
