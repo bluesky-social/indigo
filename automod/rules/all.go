@@ -20,6 +20,7 @@ func DefaultRules() automod.RuleSet {
 			AggressivePromotionRule,
 			IdenticalReplyPostRule,
 			DistinctMentionsRule,
+			MisleadingLinkUnicodeReversalPostRule,
 		},
 		ProfileRules: []automod.ProfileRuleFunc{
 			GtubeProfileRule,
