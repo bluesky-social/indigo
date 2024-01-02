@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -18,7 +19,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "go.uber.org/automaxprocs"
-	"go.uber.org/zap"
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/urfave/cli/v2"
@@ -80,29 +80,22 @@ func Sonar(cctx *cli.Context) error {
 	// Trap SIGINT to trigger a shutdown.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-
-	rawlog, err := zap.NewProduction()
-	if err != nil {
-		log.Fatalf("failed to create logger: %+v", err)
-	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
 	defer func() {
-		log.Printf("main function teardown")
-		err := rawlog.Sync()
-		if err != nil {
-			log.Printf("failed to sync logger on teardown: %+v", err.Error())
-		}
+		logger.Info("main function teardown")
 	}()
 
-	log := rawlog.Sugar().With("source", "sonar_main")
-
-	log.Info("starting sonar")
+	logger = logger.With("source", "sonar_main")
+	logger.Info("starting sonar")
 
 	u, err := url.Parse(cctx.String("ws-url"))
 	if err != nil {
 		log.Fatalf("failed to parse ws-url: %+v", err)
 	}
 
-	s, err := sonar.NewSonar(log, cctx.String("cursor-file"), u.String())
+	s, err := sonar.NewSonar(logger, cctx.String("cursor-file"), u.String())
 	if err != nil {
 		log.Fatalf("failed to create sonar: %+v", err)
 	}
@@ -120,26 +113,22 @@ func Sonar(cctx *cli.Context) error {
 		wg.Add(1)
 		defer wg.Done()
 		ticker := time.NewTicker(5 * time.Second)
-		rawlog, err := zap.NewProduction()
-		if err != nil {
-			log.Fatalf("failed to create logger: %+v", err)
-		}
-		log := rawlog.Sugar().With("source", "cursor_file_manager")
+		logger := logger.With("source", "cursor_file_manager")
 
 		for {
 			select {
 			case <-ctx.Done():
-				log.Info("shutting down cursor file manager")
+				logger.Info("shutting down cursor file manager")
 				err := s.WriteCursorFile()
 				if err != nil {
-					log.Errorf("failed to write cursor file: %+v", err)
+					logger.Error("failed to write cursor file", "err", err)
 				}
-				log.Info("cursor file manager shut down successfully")
+				logger.Info("cursor file manager shut down successfully")
 				return
 			case <-ticker.C:
 				err := s.WriteCursorFile()
 				if err != nil {
-					log.Errorf("failed to write cursor file: %+v", err)
+					logger.Error("failed to write cursor file", "err", err)
 				}
 			}
 		}
@@ -152,26 +141,22 @@ func Sonar(cctx *cli.Context) error {
 		ticker := time.NewTicker(15 * time.Second)
 		lastSeq := int64(0)
 
-		rawlog, err := zap.NewProduction()
-		if err != nil {
-			log.Fatalf("failed to create logger: %+v", err)
-		}
-		log := rawlog.Sugar().With("source", "liveness_checker")
+		logger = logger.With("source", "liveness_checker")
 
 		for {
 			select {
 			case <-ctx.Done():
-				log.Info("shutting down liveness checker")
+				logger.Info("shutting down liveness checker")
 				return
 			case <-ticker.C:
 				s.ProgMux.Lock()
 				seq := s.Progress.LastSeq
 				s.ProgMux.Unlock()
 				if seq <= lastSeq {
-					log.Errorf("no new events in last 15 seconds, shutting down for docker to restart me")
+					logger.Error("no new events in last 15 seconds, shutting down for docker to restart me")
 					cancel()
 				} else {
-					log.Infof("last event sequence: %d", seq)
+					logger.Info("last event sequence", "seq", seq)
 					lastSeq = seq
 				}
 			}
@@ -190,30 +175,26 @@ func Sonar(cctx *cli.Context) error {
 	go func() {
 		wg.Add(1)
 		defer wg.Done()
-		rawlog, err := zap.NewProduction()
-		if err != nil {
-			log.Fatalf("failed to create logger: %+v", err)
-		}
-		log := rawlog.Sugar().With("source", "metrics_server")
+		logger = logger.With("source", "metrics_server")
 
-		log.Infof("metrics server listening on port %d", cctx.Int("port"))
+		logger.Info("metrics server listening", "port", cctx.Int("port"))
 
 		if err := metricServer.ListenAndServe(); err != http.ErrServerClosed {
 			log.Fatalf("failed to start metrics server: %+v", err)
 		}
-		log.Info("metrics server shut down successfully")
+		logger.Info("metrics server shut down successfully")
 	}()
 
 	if s.Progress.LastSeq >= 0 {
 		u.RawQuery = fmt.Sprintf("cursor=%d", s.Progress.LastSeq)
 	}
 
-	log.Infof("connecting to WebSocket at: %s", u.String())
+	logger.Info("connecting to WebSocket", "url", u.String())
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), http.Header{
 		"User-Agent": []string{"sonar/1.0"},
 	})
 	if err != nil {
-		log.Infof("failed to connect to websocket: %v", err)
+		logger.Info("failed to connect to websocket", "err", err)
 		return err
 	}
 	defer c.Close()
@@ -222,7 +203,7 @@ func Sonar(cctx *cli.Context) error {
 		wg.Add(1)
 		defer wg.Done()
 		err = events.HandleRepoStream(ctx, c, pool)
-		log.Infof("HandleRepoStream returned unexpectedly: %+v...", err)
+		logger.Info("HandleRepoStream returned unexpectedly", "err", err)
 		cancel()
 	}()
 
@@ -234,15 +215,15 @@ func Sonar(cctx *cli.Context) error {
 		fmt.Println("shutting down on context done")
 	}
 
-	log.Info("shutting down, waiting for workers to clean up...")
+	logger.Info("shutting down, waiting for workers to clean up")
 
 	if err := metricServer.Shutdown(ctx); err != nil {
-		log.Errorf("failed to shut down metrics server: %+v", err)
+		logger.Error("failed to shut down metrics server", "err", err)
 		wg.Done()
 	}
 
 	wg.Wait()
-	log.Info("shut down successfully")
+	logger.Info("shut down successfully")
 
 	return nil
 }

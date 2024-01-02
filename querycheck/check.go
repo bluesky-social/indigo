@@ -2,15 +2,16 @@ package querycheck
 
 import (
 	"context"
-	"log"
+	"fmt"
+	"log/slog"
 	"math"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.uber.org/zap"
 )
 
 var tracer = otel.Tracer("querycheck")
@@ -33,7 +34,7 @@ type Query struct {
 // Querychecker is a query checker meta object
 type Querychecker struct {
 	Queries []*Query
-	Logger  *zap.SugaredLogger
+	Logger  *slog.Logger
 
 	connectionURL string
 	lk            sync.RWMutex
@@ -41,15 +42,14 @@ type Querychecker struct {
 
 // NewQuerychecker creates a new querychecker
 func NewQuerychecker(ctx context.Context, connectionURL string) (*Querychecker, error) {
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		return nil, err
-	}
-	l := logger.Sugar().With("source", "querychecker_manager")
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	logger = logger.With("source", "querychecker_manager")
 
 	return &Querychecker{
 		connectionURL: connectionURL,
-		Logger:        l,
+		Logger:        logger,
 		Queries:       []*Query{},
 	}, nil
 }
@@ -167,26 +167,23 @@ func (q *Querychecker) Start() error {
 
 	for _, qu := range q.Queries {
 		go func(query *Query) {
-			rawlog, err := zap.NewDevelopment()
-			if err != nil {
-				log.Fatalf("failed to create logger: %+v\n", err)
-			}
-			log := rawlog.Sugar().With("source", "query_checker_routine", "query", query.Name)
+			log := q.Logger.With("source", "query_checker_routine", "query", query.Name)
 
-			log.Infof("query checker routine started for query: %s\n", query.Name)
-			log.Infof("Query: \n%s\n", query.Query)
+			log.Info("query checker routine started for query", "query", query.Name)
+			log.Info(fmt.Sprintf("Query: \n%s\n", query.Query))
 
 			// Check the query plan every CheckEvery duration
 			ticker := time.NewTicker(query.CheckEvery)
 			defer ticker.Stop()
 
+			var err error
 			query.LatestPlan, err = q.CheckQueryPlan(ctx, query.Query)
 			if err != nil {
-				log.Errorf("failed to check query plan: %+v\n", err)
+				log.Error("failed to check query plan", "err", err)
 			}
 
 			if query.LatestPlan != nil {
-				log.Infof("Initial plan:\n%+v\n", query.LatestPlan.String())
+				log.Info(fmt.Sprintf("Initial plan:\n%+v\n", query.LatestPlan.String()))
 				query.RecordPlanMetrics(*query.LatestPlan)
 				query.LastChecked = time.Now()
 			}
@@ -211,9 +208,9 @@ func (q *Querychecker) Start() error {
 
 					if err != nil || qp == nil {
 						if qp == nil {
-							log.Errorf("query plan is nil")
+							log.Error("query plan is nil")
 						}
-						log.Errorf("failed to check query plan: %+v\n", err)
+						log.Error("failed to check query plan", "err", err)
 						errorCounter.WithLabelValues(query.Name).Inc()
 						continue
 					}
@@ -231,7 +228,7 @@ func (q *Querychecker) Start() error {
 							sign = "-"
 						}
 
-						log.Infof("query plan has changed (%s%.03fms): \n%+v\n", sign, diff, qp.String())
+						log.Info("query plan has changed", "diff", fmt.Sprintf("%s%.03fms", sign, diff), "query_plan", qp.String())
 
 						query.lk.Lock()
 						query.PreviousPlan = query.LatestPlan
