@@ -6,7 +6,7 @@ import (
 
 var (
 	// time period within which automod will not re-report an account for the same reasonType
-	ReportDupePeriod = 7 * 24 * time.Hour
+	ReportDupePeriod = 1 * 24 * time.Hour
 	// number of reports automod can file per day, for all subjects and types combined (circuit breaker)
 	QuotaModReportDay = 50
 	// number of takedowns automod can action per day, for all subjects combined (circuit breaker)
