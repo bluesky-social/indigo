@@ -59,9 +59,6 @@ type Server struct {
 	plc plc.PLCClient
 }
 
-const UserActorDeclCid = "bafyreid27zk7lbis4zw5fz4podbvbs4fc5ivwji3dmrwa6zggnj4bnd57u"
-const UserActorDeclType = "app.bsky.system.actorUser"
-
 // serverListenerBootTimeout is how long to wait for the requested server socket
 // to become available for use. This is an arbitrary timeout that should be safe
 // on any platform, but there's no great way to weave this timeout without
@@ -316,9 +313,6 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 				return true
 			case "/xrpc/com.atproto.server.describeServer":
 				return true
-			case "/xrpc/app.bsky.actor.getProfile":
-				fmt.Println("TODO: currently not requiring auth on get profile endpoint")
-				return true
 			case "/xrpc/com.atproto.sync.getRepo":
 				fmt.Println("TODO: currently not requiring auth on get repo endpoint")
 				return true
@@ -356,7 +350,6 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 
 	e.Use(middleware.JWTWithConfig(cfg), s.userCheckMiddleware)
 	s.RegisterHandlersComAtproto(e)
-	s.RegisterHandlersAppBsky(e)
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
 	e.GET("/xrpc/_health", s.HandleHealthCheck)
 	e.GET("/.well-known/atproto-did", s.HandleResolveDid)

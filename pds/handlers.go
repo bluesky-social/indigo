@@ -6,274 +6,13 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
-	"time"
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/ipfs/go-cid"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
-
-func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string) (*appbskytypes.ActorDefs_ProfileViewDetailed, error) {
-	profile, err := s.feedgen.GetActorProfile(ctx, actor)
-	if err != nil {
-		return nil, err
-	}
-
-	return &appbskytypes.ActorDefs_ProfileViewDetailed{
-		Viewer:         nil, //*ActorGetProfile_MyState `json:"myState" cborgen:"myState"`
-		Did:            profile.Did,
-		Description:    nil,
-		PostsCount:     &profile.Posts,
-		FollowsCount:   &profile.Following,
-		Handle:         profile.Handle.String,
-		DisplayName:    &profile.DisplayName,
-		FollowersCount: &profile.Followers,
-	}, nil
-}
-
-func (s *Server) handleAppBskyActorGetSuggestions(ctx context.Context, cursor string, limit int) (*appbskytypes.ActorGetSuggestions_Output, error) {
-
-	var out appbskytypes.ActorGetSuggestions_Output
-	out.Actors = []*appbskytypes.ActorDefs_ProfileView{}
-	return &out, nil
-}
-
-func (s *Server) handleAppBskyFeedGetAuthorFeed(ctx context.Context, author string, before string, filter string, limit int) (*appbskytypes.FeedGetAuthorFeed_Output, error) {
-	_, err := s.getUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	target, err := s.lookupUser(ctx, author)
-	//target, err := s.lookupUserByHandle(ctx, author)
-	if err != nil {
-		return nil, err
-	}
-
-	feed, err := s.feedgen.GetAuthorFeed(ctx, target, before, limit)
-	if err != nil {
-		return nil, err
-	}
-
-	out := appbskytypes.FeedGetAuthorFeed_Output{
-		Feed: feed,
-	}
-
-	return &out, nil
-}
-
-func (s *Server) handleAppBskyFeedGetPostThread(ctx context.Context, depth int, parentHeight int, uri string) (*appbskytypes.FeedGetPostThread_Output, error) {
-	u, err := s.getUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	d := depth
-
-	pthread, err := s.feedgen.GetPostThread(ctx, uri, d)
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Println("TODO: replies")
-
-	var convertToOutputType func(thr *ThreadPost) (*appbskytypes.FeedDefs_ThreadViewPost, error)
-	convertToOutputType = func(thr *ThreadPost) (*appbskytypes.FeedDefs_ThreadViewPost, error) {
-		p := thr.Post
-
-		vs, err := s.feedgen.getPostViewerState(ctx, thr.PostID, u.ID, u.Did)
-		if err != nil {
-			return nil, err
-		}
-
-		p.Post.Viewer = vs
-
-		out := &appbskytypes.FeedDefs_ThreadViewPost{
-			Post: p.Post,
-		}
-
-		if thr.ParentUri != "" {
-			if thr.Parent == nil {
-				out.Parent = &appbskytypes.FeedDefs_ThreadViewPost_Parent{
-					FeedDefs_NotFoundPost: &appbskytypes.FeedDefs_NotFoundPost{
-						Uri:      thr.ParentUri,
-						NotFound: true,
-					},
-				}
-			} else {
-				othr, err := convertToOutputType(thr.Parent)
-				if err != nil {
-					return nil, err
-				}
-
-				out.Parent = &appbskytypes.FeedDefs_ThreadViewPost_Parent{
-					FeedDefs_ThreadViewPost: othr,
-				}
-			}
-		}
-
-		return out, nil
-	}
-
-	othr, err := convertToOutputType(pthread)
-	if err != nil {
-		return nil, err
-	}
-
-	out := appbskytypes.FeedGetPostThread_Output{
-		Thread: &appbskytypes.FeedGetPostThread_Output_Thread{
-			FeedDefs_ThreadViewPost: othr,
-			//FeedGetPostThread_NotFoundPost: &appbskytypes.FeedGetPostThread_NotFoundPost{},
-		},
-	}
-
-	return &out, nil
-}
-
-func (s *Server) handleAppBskyFeedGetRepostedBy(ctx context.Context, before string, cc string, limit int, uri string) (*appbskytypes.FeedGetRepostedBy_Output, error) {
-	panic("not yet implemented")
-}
-
-func (s *Server) handleAppBskyFeedGetTimeline(ctx context.Context, algorithm string, before string, limit int) (*appbskytypes.FeedGetTimeline_Output, error) {
-	u, err := s.getUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	tl, err := s.feedgen.GetTimeline(ctx, u, algorithm, before, limit)
-	if err != nil {
-		return nil, err
-	}
-
-	var out appbskytypes.FeedGetTimeline_Output
-	out.Feed = tl
-
-	return &out, nil
-}
-
-func (s *Server) handleAppBskyFeedGetLikes(ctx context.Context, cc string, cursor string, limit int, uri string) (*appbskytypes.FeedGetLikes_Output, error) {
-	// func (s *Server) handleAppBskyFeedGetLikes(ctx context.Context,cid string,cursor string,limit int,uri string) (*appbskytypes.FeedGetLikes_Output, error)
-	pcid, err := cid.Decode(cc)
-	if err != nil {
-		return nil, err
-	}
-
-	votes, err := s.feedgen.GetVotes(ctx, uri, pcid, limit, cursor)
-	if err != nil {
-		return nil, err
-	}
-
-	var out appbskytypes.FeedGetLikes_Output
-	out.Uri = uri
-	out.Likes = []*appbskytypes.FeedGetLikes_Like{}
-
-	for _, v := range votes {
-		out.Likes = append(out.Likes, &appbskytypes.FeedGetLikes_Like{
-			Actor:     s.actorBasicToView(ctx, v.Actor),
-			IndexedAt: v.IndexedAt.Format(time.RFC3339),
-			CreatedAt: v.CreatedAt,
-		})
-	}
-
-	return &out, nil
-}
-
-func (s *Server) handleAppBskyGraphGetFollowers(ctx context.Context, actor string, cursor string, limit int) (*appbskytypes.GraphGetFollowers_Output, error) {
-	panic("not yet implemented")
-}
-
-func (s *Server) handleAppBskyGraphGetFollows(ctx context.Context, actor string, cursor string, limit int) (*appbskytypes.GraphGetFollows_Output, error) {
-	follows, err := s.feedgen.GetFollows(ctx, actor, limit, cursor)
-	if err != nil {
-		return nil, err
-	}
-
-	ai, err := s.feedgen.GetActorProfile(ctx, actor)
-	if err != nil {
-		return nil, err
-	}
-
-	var out appbskytypes.GraphGetFollows_Output
-	out.Subject = s.actorBasicToView(ctx, ai.ActorRef())
-
-	out.Follows = []*appbskytypes.ActorDefs_ProfileView{}
-	for _, f := range follows {
-		out.Follows = append(out.Follows, &appbskytypes.ActorDefs_ProfileView{
-			Handle:      f.Subject.Handle,
-			DisplayName: f.Subject.DisplayName,
-			Did:         f.Subject.Did,
-		})
-	}
-
-	return &out, nil
-}
-
-func (s *Server) handleAppBskyGraphGetMutes(ctx context.Context, before string, limit int) (*appbskytypes.GraphGetMutes_Output, error) {
-	panic("not yet implemented")
-}
-
-func (s *Server) handleAppBskyGraphMuteActor(ctx context.Context, input *appbskytypes.GraphMuteActor_Input) error {
-	panic("not yet implemented")
-}
-
-func (s *Server) handleAppBskyGraphUnmuteActor(ctx context.Context, input *appbskytypes.GraphUnmuteActor_Input) error {
-	panic("not yet implemented")
-}
-
-func (s *Server) handleAppBskyNotificationGetUnreadCount(ctx context.Context, seenAt string) (*appbskytypes.NotificationGetUnreadCount_Output, error) {
-	u, err := s.getUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: use seenAt
-
-	count, err := s.notifman.GetCount(ctx, u.ID)
-	if err != nil {
-		return nil, fmt.Errorf("notification getCount: %w", err)
-	}
-
-	fmt.Println("notif count: ", u.Handle, count)
-	return &appbskytypes.NotificationGetUnreadCount_Output{
-		Count: count,
-	}, nil
-}
-
-func (s *Server) handleAppBskyNotificationListNotifications(ctx context.Context, cursor string, limit int, seenAt string) (*appbskytypes.NotificationListNotifications_Output, error) {
-	u, err := s.getUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: use seenAt
-	_ = seenAt
-
-	notifs, err := s.notifman.GetNotifications(ctx, u.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &appbskytypes.NotificationListNotifications_Output{
-		Notifications: notifs,
-	}, nil
-}
-
-func (s *Server) handleAppBskyNotificationUpdateSeen(ctx context.Context, input *appbskytypes.NotificationUpdateSeen_Input) error {
-	u, err := s.getUser(ctx)
-	if err != nil {
-		return err
-	}
-
-	seen, err := time.Parse(time.RFC3339, input.SeenAt)
-	if err != nil {
-		return fmt.Errorf("invalid time format for 'seenAt': %w", err)
-	}
-
-	return s.notifman.UpdateSeen(ctx, u.ID, seen)
-}
 
 func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *comatprototypes.ServerCreateAccount_Input) (*comatprototypes.ServerCreateAccount_Output, error) {
 	if body.Email == nil {
@@ -340,7 +79,7 @@ func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *
 		return nil, err
 	}
 
-	if err := s.repoman.InitNewActor(ctx, u.ID, u.Handle, u.Did, "", UserActorDeclCid, UserActorDeclType); err != nil {
+	if err := s.repoman.InitNewActor(ctx, u.ID, u.Handle, u.Did, "", "", ""); err != nil {
 		return nil, err
 	}
 
@@ -615,10 +354,6 @@ func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, si
 	return buf, nil
 }
 
-func (s *Server) handleAppBskyActorGetProfiles(ctx context.Context, actors []string) (*appbskytypes.ActorGetProfiles_Output, error) {
-	panic("nyi")
-}
-
 func (s *Server) handleComAtprotoAdminGetRecord(ctx context.Context, cid string, uri string) (*comatprototypes.AdminDefs_RecordViewDetail, error) {
 	panic("nyi")
 }
@@ -647,18 +382,6 @@ func (s *Server) handleComAtprotoSyncGetBlob(ctx context.Context, cid string, di
 }
 
 func (s *Server) handleComAtprotoSyncListBlobs(ctx context.Context, cursor string, did string, limit int, since string) (*comatprototypes.SyncListBlobs_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleAppBskyActorSearchActors(ctx context.Context, cursor string, limit int, q string, term string) (*appbskytypes.ActorSearchActors_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleAppBskyActorSearchActorsTypeahead(ctx context.Context, limit int, q string, term string) (*appbskytypes.ActorSearchActorsTypeahead_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleAppBskyUnspeccedGetPopular(ctx context.Context, cursor string, includeNsfw bool, limit int) (*appbskytypes.UnspeccedGetPopular_Output, error) {
 	panic("nyi")
 }
 
@@ -726,34 +449,6 @@ func (s *Server) handleComAtprotoServerListAppPasswords(ctx context.Context) (*c
 func (s *Server) handleComAtprotoServerRevokeAppPassword(ctx context.Context, body *comatprototypes.ServerRevokeAppPassword_Input) error {
 	panic("nyi")
 }
-func (s *Server) handleAppBskyActorGetPreferences(ctx context.Context) (*appbskytypes.ActorGetPreferences_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleAppBskyActorPutPreferences(ctx context.Context, body *appbskytypes.ActorPutPreferences_Input) error {
-	panic("nyi")
-}
-func (s *Server) handleAppBskyFeedGetPosts(ctx context.Context, uris []string) (*appbskytypes.FeedGetPosts_Output, error) {
-	panic("nyi")
-}
-func (s *Server) handleAppBskyGraphGetBlocks(ctx context.Context, cursor string, limit int) (*appbskytypes.GraphGetBlocks_Output, error) {
-	panic("nyi")
-}
-func (s *Server) handleAppBskyGraphGetList(ctx context.Context, cursor string, limit int, list string) (*appbskytypes.GraphGetList_Output, error) {
-	panic("nyi")
-}
-func (s *Server) handleAppBskyGraphGetListMutes(ctx context.Context, cursor string, limit int) (*appbskytypes.GraphGetListMutes_Output, error) {
-	panic("nyi")
-}
-func (s *Server) handleAppBskyGraphGetLists(ctx context.Context, actor string, cursor string, limit int) (*appbskytypes.GraphGetLists_Output, error) {
-	panic("nyi")
-}
-func (s *Server) handleAppBskyGraphMuteActorList(ctx context.Context, body *appbskytypes.GraphMuteActorList_Input) error {
-	panic("nyi")
-}
-func (s *Server) handleAppBskyGraphUnmuteActorList(ctx context.Context, body *appbskytypes.GraphUnmuteActorList_Input) error {
-	panic("nyi")
-}
 
 func (s *Server) handleComAtprotoAdminDisableAccountInvites(ctx context.Context, body *comatprototypes.AdminDisableAccountInvites_Input) error {
 	panic("nyi")
@@ -763,44 +458,7 @@ func (s *Server) handleComAtprotoAdminEnableAccountInvites(ctx context.Context, 
 	panic("nyi")
 }
 
-func (s *Server) handleAppBskyFeedDescribeFeedGenerator(ctx context.Context) (*appbskytypes.FeedDescribeFeedGenerator_Output, error) {
-	panic("nyi")
-}
-func (s *Server) handleAppBskyFeedGetActorFeeds(ctx context.Context, actor string, cursor string, limit int) (*appbskytypes.FeedGetActorFeeds_Output, error) {
-	panic("nyi")
-}
-func (s *Server) handleAppBskyFeedGetFeed(ctx context.Context, cursor string, feed string, limit int) (*appbskytypes.FeedGetFeed_Output, error) {
-	panic("nyi")
-}
-func (s *Server) handleAppBskyFeedGetFeedGenerator(ctx context.Context, feed string) (*appbskytypes.FeedGetFeedGenerator_Output, error) {
-	panic("nyi")
-}
-func (s *Server) handleAppBskyFeedGetFeedGenerators(ctx context.Context, feeds []string) (*appbskytypes.FeedGetFeedGenerators_Output, error) {
-	panic("nyi")
-}
-func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, cursor string, feed string, limit int) (*appbskytypes.FeedGetFeedSkeleton_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleAppBskyUnspeccedApplyLabels(ctx context.Context, body *appbskytypes.UnspeccedApplyLabels_Input) error {
-	panic("nyi")
-}
-func (s *Server) handleAppBskyUnspeccedGetPopularFeedGenerators(ctx context.Context, cursor string, limit int, query string) (*appbskytypes.UnspeccedGetPopularFeedGenerators_Output, error) {
-	panic("nyi")
-}
-func (s *Server) handleAppBskyUnspeccedGetTimelineSkeleton(ctx context.Context, cursor string, limit int) (*appbskytypes.UnspeccedGetTimelineSkeleton_Output, error) {
-	panic("nyi")
-}
-
 func (s *Server) handleComAtprotoAdminSendEmail(ctx context.Context, body *comatprototypes.AdminSendEmail_Input) (*comatprototypes.AdminSendEmail_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleAppBskyFeedGetActorLikes(ctx context.Context, actor string, cursor string, limit int) (*appbskytypes.FeedGetActorLikes_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleAppBskyNotificationRegisterPush(ctx context.Context, body *appbskytypes.NotificationRegisterPush_Input) error {
 	panic("nyi")
 }
 
@@ -812,32 +470,6 @@ func (s *Server) handleComAtprotoTempUpgradeRepoVersion(ctx context.Context, bod
 	panic("nyi")
 }
 
-func (s *Server) handleAppBskyFeedGetListFeed(ctx context.Context, cursor string, limit int, list string) (*appbskytypes.FeedGetListFeed_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleAppBskyFeedGetSuggestedFeeds(ctx context.Context, cursor string, limit int) (*appbskytypes.FeedGetSuggestedFeeds_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleAppBskyFeedSearchPosts(ctx context.Context, cursor string, limit int, q string) (*appbskytypes.FeedSearchPosts_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleAppBskyGraphGetListBlocks(ctx context.Context, cursor string, limit int) (*appbskytypes.GraphGetListBlocks_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleAppBskyGraphGetSuggestedFollowsByActor(ctx context.Context, actor string) (*appbskytypes.GraphGetSuggestedFollowsByActor_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleAppBskyUnspeccedSearchActorsSkeleton(ctx context.Context, cursor string, limit int, q string, typeahead *bool) (*appbskytypes.UnspeccedSearchActorsSkeleton_Output, error) {
-	panic("nyi")
-}
-func (s *Server) handleAppBskyUnspeccedSearchPostsSkeleton(ctx context.Context, cursor string, limit int, q string) (*appbskytypes.UnspeccedSearchPostsSkeleton_Output, error) {
-	panic("nyi")
-}
 func (s *Server) handleComAtprotoAdminGetAccountInfo(ctx context.Context, did string) (*comatprototypes.AdminDefs_AccountView, error) {
 	panic("nyi")
 }
