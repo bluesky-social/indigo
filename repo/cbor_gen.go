@@ -252,6 +252,7 @@ func (t *SignedCommit) UnmarshalCBOR(r io.Reader) (err error) {
 			if _, err := io.ReadFull(cr, t.Sig[:]); err != nil {
 				return err
 			}
+
 			// t.Data (cid.Cid) (struct)
 		case "data":
 

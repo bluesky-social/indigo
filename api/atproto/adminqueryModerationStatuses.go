@@ -18,6 +18,7 @@ type AdminQueryModerationStatuses_Output struct {
 
 // AdminQueryModerationStatuses calls the XRPC method "com.atproto.admin.queryModerationStatuses".
 //
+// appealed: Get subjects in unresolved appealed status
 // comment: Search subjects by keyword from comments
 // includeMuted: By default, we don't include muted subjects in the results. Set this to true to include them.
 // lastReviewedBy: Get all subject statuses that were reviewed by a specific moderator
@@ -27,10 +28,11 @@ type AdminQueryModerationStatuses_Output struct {
 // reviewedAfter: Search subjects reviewed after a given timestamp
 // reviewedBefore: Search subjects reviewed before a given timestamp
 // takendown: Get subjects that were taken down
-func AdminQueryModerationStatuses(ctx context.Context, c *xrpc.Client, comment string, cursor string, ignoreSubjects []string, includeMuted bool, lastReviewedBy string, limit int64, reportedAfter string, reportedBefore string, reviewState string, reviewedAfter string, reviewedBefore string, sortDirection string, sortField string, subject string, takendown bool) (*AdminQueryModerationStatuses_Output, error) {
+func AdminQueryModerationStatuses(ctx context.Context, c *xrpc.Client, appealed bool, comment string, cursor string, ignoreSubjects []string, includeMuted bool, lastReviewedBy string, limit int64, reportedAfter string, reportedBefore string, reviewState string, reviewedAfter string, reviewedBefore string, sortDirection string, sortField string, subject string, takendown bool) (*AdminQueryModerationStatuses_Output, error) {
 	var out AdminQueryModerationStatuses_Output
 
 	params := map[string]interface{}{
+		"appealed":       appealed,
 		"comment":        comment,
 		"cursor":         cursor,
 		"ignoreSubjects": ignoreSubjects,
