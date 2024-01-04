@@ -226,6 +226,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 		if err := v.MarshalCBOR(cw); err != nil {
 			return err
 		}
+
 	}
 
 	// t.Rev (string) (string)
@@ -358,6 +359,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 		if err := v.MarshalCBOR(cw); err != nil {
 			return err
 		}
+
 	}
 
 	// t.Since (string) (string)
@@ -414,6 +416,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 		if _, err := cw.Write(t.Blocks[:]); err != nil {
 			return err
 		}
+
 	}
 
 	// t.Commit (util.LexLink) (struct)
@@ -550,9 +553,9 @@ func (t *SyncSubscribeRepos_Commit) UnmarshalCBOR(r io.Reader) (err error) {
 						}
 
 					}
+
 				}
 			}
-
 			// t.Rev (string) (string)
 		case "rev":
 
@@ -668,9 +671,9 @@ func (t *SyncSubscribeRepos_Commit) UnmarshalCBOR(r io.Reader) (err error) {
 						}
 
 					}
+
 				}
 			}
-
 			// t.Since (string) (string)
 		case "since":
 
@@ -714,6 +717,7 @@ func (t *SyncSubscribeRepos_Commit) UnmarshalCBOR(r io.Reader) (err error) {
 			if _, err := io.ReadFull(cr, t.Blocks[:]); err != nil {
 				return err
 			}
+
 			// t.Commit (util.LexLink) (struct)
 		case "commit":
 
@@ -1749,13 +1753,23 @@ func (t *LabelDefs_SelfLabels) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("Slice value in field t.Values was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Values))); err != nil {
-		return err
-	}
-	for _, v := range t.Values {
-		if err := v.MarshalCBOR(cw); err != nil {
+	if t.Values == nil {
+		_, err := w.Write(cbg.CborNull)
+		if err != nil {
 			return err
 		}
+	} else {
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Values))); err != nil {
+			return err
+		}
+		for _, v := range t.Values {
+			if err := v.MarshalCBOR(cw); err != nil {
+				return err
+			}
+
+		}
+
 	}
 	return nil
 }
@@ -1812,49 +1826,61 @@ func (t *LabelDefs_SelfLabels) UnmarshalCBOR(r io.Reader) (err error) {
 			// t.Values ([]*atproto.LabelDefs_SelfLabel) (slice)
 		case "values":
 
-			maj, extra, err = cr.ReadHeader()
-			if err != nil {
-				return err
-			}
-
-			if extra > cbg.MaxLength {
-				return fmt.Errorf("t.Values: array too large (%d)", extra)
-			}
-
-			if maj != cbg.MajArray {
-				return fmt.Errorf("expected cbor array")
-			}
-
-			if extra > 0 {
-				t.Values = make([]*LabelDefs_SelfLabel, extra)
-			}
-
-			for i := 0; i < int(extra); i++ {
-				{
-					var maj byte
-					var extra uint64
-					var err error
-					_ = maj
-					_ = extra
-					_ = err
-
-					{
-
-						b, err := cr.ReadByte()
-						if err != nil {
-							return err
-						}
-						if b != cbg.CborNull[0] {
-							if err := cr.UnreadByte(); err != nil {
-								return err
-							}
-							t.Values[i] = new(LabelDefs_SelfLabel)
-							if err := t.Values[i].UnmarshalCBOR(cr); err != nil {
-								return xerrors.Errorf("unmarshaling t.Values[i] pointer: %w", err)
-							}
-						}
-
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
 					}
+
+					maj, extra, err = cr.ReadHeader()
+					if err != nil {
+						return err
+					}
+
+					if extra > cbg.MaxLength {
+						return fmt.Errorf("t.Values: array too large (%d)", extra)
+					}
+
+					if maj != cbg.MajArray {
+						return fmt.Errorf("expected cbor array")
+					}
+
+					t.Values = make([]*LabelDefs_SelfLabel, extra)
+
+					for i := 0; i < int(extra); i++ {
+						{
+							var maj byte
+							var extra uint64
+							var err error
+							_ = maj
+							_ = extra
+							_ = err
+
+							{
+
+								b, err := cr.ReadByte()
+								if err != nil {
+									return err
+								}
+								if b != cbg.CborNull[0] {
+									if err := cr.UnreadByte(); err != nil {
+										return err
+									}
+									t.Values[i] = new(LabelDefs_SelfLabel)
+									if err := t.Values[i].UnmarshalCBOR(cr); err != nil {
+										return xerrors.Errorf("unmarshaling t.Values[i] pointer: %w", err)
+									}
+								}
+
+							}
+
+						}
+					}
+
 				}
 			}
 
@@ -2335,6 +2361,7 @@ func (t *LabelSubscribeLabels_Labels) MarshalCBOR(w io.Writer) error {
 		if err := v.MarshalCBOR(cw); err != nil {
 			return err
 		}
+
 	}
 	return nil
 }
@@ -2449,6 +2476,7 @@ func (t *LabelSubscribeLabels_Labels) UnmarshalCBOR(r io.Reader) (err error) {
 						}
 
 					}
+
 				}
 			}
 

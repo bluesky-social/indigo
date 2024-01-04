@@ -675,7 +675,7 @@ var queryModerationStatusesCmd = &cli.Command{
 			did = resp
 		}
 
-		resp, err := atproto.AdminQueryModerationStatuses(ctx, xrpcc, "", "", nil, true, "", 100, "", "", "", "", "", "", "", "", false)
+		resp, err := atproto.AdminQueryModerationStatuses(ctx, xrpcc, false, "", "", nil, true, "", 100, "", "", "", "", "", "", "", "", false)
 		if err != nil {
 			return err
 		}
