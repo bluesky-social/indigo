@@ -88,14 +88,13 @@ func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since
 		return nil, fmt.Errorf("account was taken down")
 	}
 
-	// TODO: stream the response
-	buf := new(bytes.Buffer)
-	if err := s.repoman.ReadRepo(ctx, u.ID, since, buf); err != nil {
+	reader, writer := io.Pipe()
+	if err := s.repoman.ReadRepo(ctx, u.ID, since, writer); err != nil {
 		log.Errorw("failed to read repo into buffer", "err", err, "did", did)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to read repo into buffer")
 	}
 
-	return buf, nil
+	return reader, nil
 }
 
 func (s *BGS) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []string, did string) (io.Reader, error) {
