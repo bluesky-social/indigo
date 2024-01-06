@@ -1261,6 +1261,10 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 				cborOmit = ",omitempty"
 			}
 
+			if name == "LabelDefs_SelfLabels" && k == "values" {
+				cborOmit += ",preservenil"
+			}
+
 			if v.Description != "" {
 				pf("\t// %s: %s\n", k, v.Description)
 			}

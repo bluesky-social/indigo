@@ -110,6 +110,7 @@ func (t *basicSchema) MarshalCBOR(w io.Writer) error {
 		if _, err := cw.WriteString(string(v)); err != nil {
 			return err
 		}
+
 	}
 
 	// t.Absent (string) (string)
@@ -344,9 +345,9 @@ func (t *basicSchema) UnmarshalCBOR(r io.Reader) (err error) {
 
 						t.Array[i] = string(sval)
 					}
+
 				}
 			}
-
 			// t.Absent (string) (string)
 		case "absent":
 
@@ -477,6 +478,7 @@ func (t *basicSchemaInner) MarshalCBOR(w io.Writer) error {
 		if _, err := cw.WriteString(string(v)); err != nil {
 			return err
 		}
+
 	}
 
 	// t.Bool (bool) (bool)
@@ -617,9 +619,9 @@ func (t *basicSchemaInner) UnmarshalCBOR(r io.Reader) (err error) {
 
 						t.Arr[i] = string(sval)
 					}
+
 				}
 			}
-
 			// t.Bool (bool) (bool)
 		case "bool":
 
@@ -824,6 +826,7 @@ func (t *ipldSchema) UnmarshalCBOR(r io.Reader) (err error) {
 			if _, err := io.ReadFull(cr, t.B[:]); err != nil {
 				return err
 			}
+
 			// t.C (util.LexBlob) (struct)
 		case "c":
 
@@ -1012,6 +1015,7 @@ func (t *basicOldSchema) MarshalCBOR(w io.Writer) error {
 		if _, err := cw.WriteString(string(v)); err != nil {
 			return err
 		}
+
 	}
 
 	// t.G (util.basicOldSchemaInner) (struct)
@@ -1204,9 +1208,9 @@ func (t *basicOldSchema) UnmarshalCBOR(r io.Reader) (err error) {
 
 						t.F[i] = string(sval)
 					}
+
 				}
 			}
-
 			// t.G (util.basicOldSchemaInner) (struct)
 		case "g":
 
@@ -1329,6 +1333,7 @@ func (t *basicOldSchemaInner) MarshalCBOR(w io.Writer) error {
 		if _, err := cw.WriteString(string(v)); err != nil {
 			return err
 		}
+
 	}
 	return nil
 }
@@ -1463,6 +1468,7 @@ func (t *basicOldSchemaInner) UnmarshalCBOR(r io.Reader) (err error) {
 
 						t.K[i] = string(sval)
 					}
+
 				}
 			}
 
@@ -1525,6 +1531,7 @@ func (t *ipldOldSchema) MarshalCBOR(w io.Writer) error {
 	if _, err := cw.Write(t.B[:]); err != nil {
 		return err
 	}
+
 	return nil
 }
 
