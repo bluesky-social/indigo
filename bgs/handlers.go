@@ -70,30 +70,33 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 	return buf, nil
 }
 
-func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since string, writer io.Writer) (error) {
+func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since string) (io.Reader, error) {
 	u, err := s.lookupUserByDid(ctx, did)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return echo.NewHTTPError(http.StatusNotFound, "user not found")
+			return nil, echo.NewHTTPError(http.StatusNotFound, "user not found")
 		}
 		log.Errorw("failed to lookup user", "err", err, "did", did)
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
 	}
 
 	if u.Tombstoned {
-		return  fmt.Errorf("account was deleted")
+		return nil, fmt.Errorf("account was deleted")
 	}
 
 	if u.TakenDown {
-		return  fmt.Errorf("account was taken down")
+		return nil, fmt.Errorf("account was taken down")
 	}
 
+	// TODO: stream the response
+	buf := make([]byte, 0, 1024*1024*10) // 10MB buffer
+	writer := bytes.NewBuffer(buf)
 	if err := s.repoman.ReadRepo(ctx, u.ID, since, writer); err != nil {
 		log.Errorw("failed to read repo into buffer", "err", err, "did", did)
-		return  echo.NewHTTPError(http.StatusInternalServerError, "failed to read repo into buffer")
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to read repo into buffer")
 	}
 
-	return nil
+	return writer, nil
 }
 
 func (s *BGS) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []string, did string) (io.Reader, error) {

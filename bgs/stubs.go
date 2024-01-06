@@ -151,16 +151,14 @@ func (s *BGS) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid did: %s", did)})
 	}
 
-	c.Response().Header().Set("Content-Type", "application/vnd.ipld.car")
-
+	var out io.Reader
 	var handleErr error
-	handleErr = s.handleComAtprotoSyncGetRepo(ctx, did, since, c.Response().Writer)
+	out, handleErr = s.handleComAtprotoSyncGetRepo(ctx, did, since)
 	if handleErr != nil {
 		return handleErr
 	}
-	c.Response().Flush()
 
-	return nil
+	return c.Stream(200, "application/vnd.ipld.car", out)
 }
 
 func (s *BGS) HandleComAtprotoSyncListBlobs(c echo.Context) error {
