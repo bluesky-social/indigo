@@ -53,6 +53,7 @@ func (t *nodeData) MarshalCBOR(w io.Writer) error {
 		if err := v.MarshalCBOR(cw); err != nil {
 			return err
 		}
+
 	}
 
 	// t.Left (cid.Cid) (struct)
@@ -154,9 +155,9 @@ func (t *nodeData) UnmarshalCBOR(r io.Reader) (err error) {
 						}
 
 					}
+
 				}
 			}
-
 			// t.Left (cid.Cid) (struct)
 		case "l":
 
@@ -348,6 +349,7 @@ func (t *treeEntry) UnmarshalCBOR(r io.Reader) (err error) {
 			if _, err := io.ReadFull(cr, t.KeySuffix[:]); err != nil {
 				return err
 			}
+
 			// t.PrefixLen (int64) (int64)
 		case "p":
 			{

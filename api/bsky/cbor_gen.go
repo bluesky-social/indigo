@@ -93,6 +93,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 			if _, err := cw.WriteString(string(v)); err != nil {
 				return err
 			}
+
 		}
 	}
 
@@ -189,6 +190,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 			if _, err := cw.WriteString(string(v)); err != nil {
 				return err
 			}
+
 		}
 	}
 
@@ -236,6 +238,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 			if err := v.MarshalCBOR(cw); err != nil {
 				return err
 			}
+
 		}
 	}
 
@@ -283,6 +286,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 			if err := v.MarshalCBOR(cw); err != nil {
 				return err
 			}
+
 		}
 	}
 
@@ -386,9 +390,9 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 
 						t.Tags[i] = string(sval)
 					}
+
 				}
 			}
-
 			// t.Text (string) (string)
 		case "text":
 
@@ -468,9 +472,9 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 
 						t.Langs[i] = string(sval)
 					}
+
 				}
 			}
-
 			// t.Reply (bsky.FeedPost_ReplyRef) (struct)
 		case "reply":
 
@@ -537,9 +541,9 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 						}
 
 					}
+
 				}
 			}
-
 			// t.Labels (bsky.FeedPost_Labels) (struct)
 		case "labels":
 
@@ -606,9 +610,9 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 						}
 
 					}
+
 				}
 			}
-
 			// t.CreatedAt (string) (string)
 		case "createdAt":
 
@@ -1299,6 +1303,7 @@ func (t *EmbedImages) MarshalCBOR(w io.Writer) error {
 		if err := v.MarshalCBOR(cw); err != nil {
 			return err
 		}
+
 	}
 	return nil
 }
@@ -1398,6 +1403,7 @@ func (t *EmbedImages) UnmarshalCBOR(r io.Reader) (err error) {
 						}
 
 					}
+
 				}
 			}
 
@@ -2751,6 +2757,7 @@ func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
 		if err := v.MarshalCBOR(cw); err != nil {
 			return err
 		}
+
 	}
 	return nil
 }
@@ -2859,6 +2866,7 @@ func (t *RichtextFacet) UnmarshalCBOR(r io.Reader) (err error) {
 						}
 
 					}
+
 				}
 			}
 
@@ -4101,6 +4109,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 			if err := v.MarshalCBOR(cw); err != nil {
 				return err
 			}
+
 		}
 	}
 	return nil
@@ -4305,6 +4314,7 @@ func (t *GraphList) UnmarshalCBOR(r io.Reader) (err error) {
 						}
 
 					}
+
 				}
 			}
 
@@ -4721,6 +4731,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 			if err := v.MarshalCBOR(cw); err != nil {
 				return err
 			}
+
 		}
 	}
 	return nil
@@ -4915,6 +4926,7 @@ func (t *FeedGenerator) UnmarshalCBOR(r io.Reader) (err error) {
 						}
 
 					}
+
 				}
 			}
 
@@ -5326,6 +5338,7 @@ func (t *FeedThreadgate) MarshalCBOR(w io.Writer) error {
 			if err := v.MarshalCBOR(cw); err != nil {
 				return err
 			}
+
 		}
 	}
 
@@ -5460,9 +5473,9 @@ func (t *FeedThreadgate) UnmarshalCBOR(r io.Reader) (err error) {
 						}
 
 					}
+
 				}
 			}
-
 			// t.CreatedAt (string) (string)
 		case "createdAt":
 

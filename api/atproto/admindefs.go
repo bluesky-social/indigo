@@ -154,6 +154,17 @@ type AdminDefs_ModEventReport struct {
 	ReportType    *string `json:"reportType" cborgen:"reportType"`
 }
 
+// AdminDefs_ModEventResolveAppeal is a "modEventResolveAppeal" in the com.atproto.admin.defs schema.
+//
+// # Resolve appeal on a subject
+//
+// RECORDTYPE: AdminDefs_ModEventResolveAppeal
+type AdminDefs_ModEventResolveAppeal struct {
+	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs#modEventResolveAppeal" cborgen:"$type,const=com.atproto.admin.defs#modEventResolveAppeal"`
+	// comment: Describe resolution.
+	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+}
+
 // AdminDefs_ModEventReverseTakedown is a "modEventReverseTakedown" in the com.atproto.admin.defs schema.
 //
 // # Revert take down action on a subject
@@ -219,6 +230,7 @@ type AdminDefs_ModEventViewDetail_Event struct {
 	AdminDefs_ModEventAcknowledge     *AdminDefs_ModEventAcknowledge
 	AdminDefs_ModEventEscalate        *AdminDefs_ModEventEscalate
 	AdminDefs_ModEventMute            *AdminDefs_ModEventMute
+	AdminDefs_ModEventResolveAppeal   *AdminDefs_ModEventResolveAppeal
 }
 
 func (t *AdminDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) {
@@ -254,6 +266,10 @@ func (t *AdminDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) {
 		t.AdminDefs_ModEventMute.LexiconTypeID = "com.atproto.admin.defs#modEventMute"
 		return json.Marshal(t.AdminDefs_ModEventMute)
 	}
+	if t.AdminDefs_ModEventResolveAppeal != nil {
+		t.AdminDefs_ModEventResolveAppeal.LexiconTypeID = "com.atproto.admin.defs#modEventResolveAppeal"
+		return json.Marshal(t.AdminDefs_ModEventResolveAppeal)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *AdminDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error {
@@ -287,6 +303,9 @@ func (t *AdminDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error {
 	case "com.atproto.admin.defs#modEventMute":
 		t.AdminDefs_ModEventMute = new(AdminDefs_ModEventMute)
 		return json.Unmarshal(b, t.AdminDefs_ModEventMute)
+	case "com.atproto.admin.defs#modEventResolveAppeal":
+		t.AdminDefs_ModEventResolveAppeal = new(AdminDefs_ModEventResolveAppeal)
+		return json.Unmarshal(b, t.AdminDefs_ModEventResolveAppeal)
 
 	default:
 		return nil
@@ -690,11 +709,15 @@ type AdminDefs_StatusAttr struct {
 
 // AdminDefs_SubjectStatusView is a "subjectStatusView" in the com.atproto.admin.defs schema.
 type AdminDefs_SubjectStatusView struct {
+	// appealed: True indicates that the a previously taken moderator action was appealed against, by the author of the content. False indicates last appeal was resolved by moderators.
+	Appealed *bool `json:"appealed,omitempty" cborgen:"appealed,omitempty"`
 	// comment: Sticky comment on the subject.
 	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	// createdAt: Timestamp referencing the first moderation status impacting event was emitted on the subject
-	CreatedAt         string                               `json:"createdAt" cborgen:"createdAt"`
-	Id                int64                                `json:"id" cborgen:"id"`
+	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
+	Id        int64  `json:"id" cborgen:"id"`
+	// lastAppealedAt: Timestamp referencing when the author of the subject appealed a moderation action
+	LastAppealedAt    *string                              `json:"lastAppealedAt,omitempty" cborgen:"lastAppealedAt,omitempty"`
 	LastReportedAt    *string                              `json:"lastReportedAt,omitempty" cborgen:"lastReportedAt,omitempty"`
 	LastReviewedAt    *string                              `json:"lastReviewedAt,omitempty" cborgen:"lastReviewedAt,omitempty"`
 	LastReviewedBy    *string                              `json:"lastReviewedBy,omitempty" cborgen:"lastReviewedBy,omitempty"`
