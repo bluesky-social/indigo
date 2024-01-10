@@ -151,6 +151,10 @@ func (j *Gormjob) BufferOps(ctx context.Context, since *string, rev string, ops 
 	case StateInProgress, StateEnqueued:
 		// keep going and buffer the op
 	default:
+		if strings.HasPrefix(j.state, "failed") {
+			// Process immediately for now
+			return true, nil
+		}
 		return false, fmt.Errorf("invalid job state: %q", j.state)
 	}
 
