@@ -152,7 +152,11 @@ func (j *Gormjob) BufferOps(ctx context.Context, since *string, rev string, ops 
 		// keep going and buffer the op
 	default:
 		if strings.HasPrefix(j.state, "failed") {
-			// Process immediately for now
+			if j.retryCount >= MaxRetries {
+				// Process immediately since we're out of retries
+				return false, nil
+			}
+			// Don't buffer the op since it'll get caught in the next retry (hopefully)
 			return true, nil
 		}
 		return false, fmt.Errorf("invalid job state: %q", j.state)
