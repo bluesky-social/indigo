@@ -245,6 +245,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			Subject: &comatproto.AdminEmitModerationEvent_Input_Subject{
 				RepoStrongRef: &strongRef,
 			},
+			SubjectBlobCids: dedupeStrings(c.effects.BlobTakedowns),
 		})
 		if err != nil {
 			return err
