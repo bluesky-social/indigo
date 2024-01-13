@@ -44,6 +44,8 @@ type Config struct {
 	RedisURL        string
 	SlackWebhookURL string
 	HiveAPIToken    string
+	AbyssHost       string
+	AbyssPassword   string
 	Logger          *slog.Logger
 }
 
@@ -138,6 +140,12 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		logger.Info("configuring Hive AI image labeler")
 		hc := visual.NewHiveAILabeler(config.HiveAPIToken)
 		ruleset.BlobRules = append(ruleset.BlobRules, hc.HiveLabelBlobRule)
+	}
+
+	if config.AbyssHost != "" && config.AbyssPassword != "" {
+		logger.Info("configuring abyss abusive image scanning")
+		ac := visual.NewAbyssClient(config.AbyssHost, config.AbyssPassword)
+		ruleset.BlobRules = append(ruleset.BlobRules, ac.AbyssScanBlobRule)
 	}
 
 	engine := automod.Engine{
