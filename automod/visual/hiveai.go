@@ -159,7 +159,7 @@ func (resp *HiveAIResp) SummarizeLabels() []string {
 
 func (hal *HiveAILabeler) LabelBlob(ctx context.Context, blob lexutil.LexBlob, blobBytes []byte) ([]string, error) {
 
-	slog.Info("sending blob to thehive.ai", "cid", blob.Ref, "mimetype", blob.MimeType, "size", len(blobBytes))
+	slog.Info("sending blob to Hive AI", "cid", blob.Ref.String(), "mimetype", blob.MimeType, "size", len(blobBytes))
 
 	// generic HTTP form file upload, then parse the response JSON
 	body := &bytes.Buffer{}
@@ -185,8 +185,9 @@ func (hal *HiveAILabeler) LabelBlob(ctx context.Context, blob lexutil.LexBlob, b
 	req.Header.Set("Authorization", fmt.Sprintf("Token %s", hal.ApiToken))
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "labelmaker/"+versioninfo.Short())
+	req.Header.Set("User-Agent", "indigo-automod/"+versioninfo.Short())
 
+	req = req.WithContext(ctx)
 	res, err := hal.Client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HiveAI request failed: %v", err)
@@ -201,13 +202,10 @@ func (hal *HiveAILabeler) LabelBlob(ctx context.Context, blob lexutil.LexBlob, b
 		return nil, fmt.Errorf("failed to read HiveAI resp body: %v", err)
 	}
 
-	slog.Debug("HiveAI raw result", "cid", blob.Ref, "body", string(respBytes))
-
 	var respObj HiveAIResp
 	if err := json.Unmarshal(respBytes, &respObj); err != nil {
 		return nil, fmt.Errorf("failed to parse HiveAI resp JSON: %v", err)
 	}
-	respJson, _ := json.Marshal(respObj.Status[0].Response.Output[0])
-	slog.Info("HiveAI result", "cid", blob.Ref, "json", string(respJson))
+	slog.Info("hive-ai-response", "cid", blob.Ref.String(), "obj", respObj)
 	return respObj.SummarizeLabels(), nil
 }
