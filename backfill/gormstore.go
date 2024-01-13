@@ -67,7 +67,7 @@ func (s *Gormstore) LoadJobs(ctx context.Context) error {
 func (s *Gormstore) loadJobs(ctx context.Context, limit int) error {
 	var todo []string
 	if err := s.db.Model(GormDBJob{}).Limit(limit).Select("repo").
-		Where("state = 'enqueued' OR (state = 'failed' AND (retry_after = NULL OR retry_after < ?))", time.Now()).Scan(&todo).Error; err != nil {
+		Where("state = 'enqueued' OR (state like 'failed%' AND (retry_after = NULL OR retry_after < ?))", time.Now()).Scan(&todo).Error; err != nil {
 		return err
 	}
 
