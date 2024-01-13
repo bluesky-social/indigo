@@ -17,6 +17,7 @@ import (
 	"github.com/bluesky-social/indigo/automod/flagstore"
 	"github.com/bluesky-social/indigo/automod/rules"
 	"github.com/bluesky-social/indigo/automod/setstore"
+	"github.com/bluesky-social/indigo/automod/visual"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -42,6 +43,7 @@ type Config struct {
 	SetsFileJSON    string
 	RedisURL        string
 	SlackWebhookURL string
+	HiveAPIToken    string
 	Logger          *slog.Logger
 }
 
@@ -130,6 +132,14 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		flags = flagstore.NewMemFlagStore()
 	}
 
+	ruleset := rules.DefaultRules()
+
+	if config.HiveAPIToken != "" {
+		logger.Info("configuring Hive AI image labeler")
+		hc := visual.NewHiveAILabeler(config.HiveAPIToken)
+		ruleset.BlobRules = append(ruleset.BlobRules, hc.HiveLabelBlobRule)
+	}
+
 	engine := automod.Engine{
 		Logger:      logger,
 		Directory:   dir,
@@ -137,7 +147,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		Sets:        sets,
 		Flags:       flags,
 		Cache:       cache,
-		Rules:       rules.DefaultRules(),
+		Rules:       ruleset,
 		AdminClient: xrpcc,
 		BskyClient: &xrpc.Client{
 			Client: util.RobustHTTPClient(),
