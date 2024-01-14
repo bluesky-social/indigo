@@ -7,13 +7,12 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
-	typegen "github.com/whyrusleeping/cbor-gen"
 )
 
 type bufferedOp struct {
 	kind string
 	path string
-	rec  typegen.CBORMarshaler
+	rec  *[]byte
 	cid  *cid.Cid
 }
 
@@ -64,7 +63,7 @@ func (s *Memstore) EnqueueJob(repo string) error {
 	return nil
 }
 
-func (s *Memstore) BufferOp(ctx context.Context, repo string, since *string, rev, kind, path string, rec typegen.CBORMarshaler, cid *cid.Cid) (bool, error) {
+func (s *Memstore) BufferOp(ctx context.Context, repo string, since *string, rev, kind, path string, rec *[]byte, cid *cid.Cid) (bool, error) {
 	s.lk.Lock()
 
 	// If the job doesn't exist, we can't buffer an op for it
@@ -174,7 +173,7 @@ func (j *Memjob) SetRev(ctx context.Context, rev string) error {
 	return nil
 }
 
-func (j *Memjob) FlushBufferedOps(ctx context.Context, fn func(kind, rev, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error) error {
+func (j *Memjob) FlushBufferedOps(ctx context.Context, fn func(kind, rev, path string, rec *[]byte, cid *cid.Cid) error) error {
 	panic("TODO: copy what we end up doing from the gormstore")
 	/*
 		j.lk.Lock()

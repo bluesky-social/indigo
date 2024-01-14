@@ -334,6 +334,27 @@ func (r *Repo) GetRecord(ctx context.Context, rpath string) (cid.Cid, cbg.CBORMa
 	ctx, span := otel.Tracer("repo").Start(ctx, "GetRecord")
 	defer span.End()
 
+	cc, recB, err := r.GetRecordBytes(ctx, rpath)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	if recB == nil {
+		return cid.Undef, nil, fmt.Errorf("empty record bytes")
+	}
+
+	rec, err := lexutil.CborDecodeValue(*recB)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	return cc, rec, nil
+}
+
+func (r *Repo) GetRecordBytes(ctx context.Context, rpath string) (cid.Cid, *[]byte, error) {
+	ctx, span := otel.Tracer("repo").Start(ctx, "GetRecordBytes")
+	defer span.End()
+
 	mst, err := r.getMst(ctx)
 	if err != nil {
 		return cid.Undef, nil, fmt.Errorf("getting repo mst: %w", err)
@@ -349,12 +370,9 @@ func (r *Repo) GetRecord(ctx context.Context, rpath string) (cid.Cid, cbg.CBORMa
 		return cid.Undef, nil, err
 	}
 
-	rec, err := lexutil.CborDecodeValue(blk.RawData())
-	if err != nil {
-		return cid.Undef, nil, err
-	}
+	raw := blk.RawData()
 
-	return cc, rec, nil
+	return cc, &raw, nil
 }
 
 func (r *Repo) DiffSince(ctx context.Context, oldrepo cid.Cid) ([]*mst.DiffOp, error) {
