@@ -7,7 +7,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-func (hal *HiveAILabeler) HiveLabelBlobRule(c *automod.RecordContext, blob lexutil.LexBlob, data []byte) error {
+func (hal *HiveAIClient) HiveLabelBlobRule(c *automod.RecordContext, blob lexutil.LexBlob, data []byte) error {
 
 	if !strings.HasPrefix(blob.MimeType, "image/") {
 		return nil

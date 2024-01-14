@@ -138,7 +138,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 
 	if config.HiveAPIToken != "" {
 		logger.Info("configuring Hive AI image labeler")
-		hc := visual.NewHiveAILabeler(config.HiveAPIToken)
+		hc := visual.NewHiveAIClient(config.HiveAPIToken)
 		ruleset.BlobRules = append(ruleset.BlobRules, hc.HiveLabelBlobRule)
 	}
 
