@@ -334,22 +334,16 @@ func (r *Repo) GetRecord(ctx context.Context, rpath string) (cid.Cid, cbg.CBORMa
 	ctx, span := otel.Tracer("repo").Start(ctx, "GetRecord")
 	defer span.End()
 
-	mst, err := r.getMst(ctx)
-	if err != nil {
-		return cid.Undef, nil, fmt.Errorf("getting repo mst: %w", err)
-	}
-
-	cc, err := mst.Get(ctx, rpath)
-	if err != nil {
-		return cid.Undef, nil, fmt.Errorf("resolving rpath within mst: %w", err)
-	}
-
-	blk, err := r.bs.Get(ctx, cc)
+	cc, recB, err := r.GetRecordBytes(ctx, rpath)
 	if err != nil {
 		return cid.Undef, nil, err
 	}
 
-	rec, err := lexutil.CborDecodeValue(blk.RawData())
+	if recB == nil {
+		return cid.Undef, nil, fmt.Errorf("empty record bytes")
+	}
+
+	rec, err := lexutil.CborDecodeValue(*recB)
 	if err != nil {
 		return cid.Undef, nil, err
 	}
@@ -358,7 +352,7 @@ func (r *Repo) GetRecord(ctx context.Context, rpath string) (cid.Cid, cbg.CBORMa
 }
 
 func (r *Repo) GetRecordBytes(ctx context.Context, rpath string) (cid.Cid, *[]byte, error) {
-	ctx, span := otel.Tracer("repo").Start(ctx, "GetRecord")
+	ctx, span := otel.Tracer("repo").Start(ctx, "GetRecordBytes")
 	defer span.End()
 
 	mst, err := r.getMst(ctx)
