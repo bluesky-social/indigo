@@ -15,12 +15,13 @@ import (
 	"github.com/bluesky-social/indigo/backfill"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
+	typegen "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
-	typegen "github.com/whyrusleeping/cbor-gen"
 )
 
 func (s *Server) getLastCursor() (int64, error) {
@@ -174,7 +175,7 @@ func (s *Server) discoverRepos() {
 	log.Info("finished repo discovery", "totalJobs", total, "totalErrored", totalErrored)
 }
 
-func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, rev string, path string, rec typegen.CBORMarshaler, rcid *cid.Cid) error {
+func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, rev string, path string, recB *[]byte, rcid *cid.Cid) error {
 	// Since this gets called in a backfill job, we need to check if the path is a post or profile
 	if !strings.Contains(path, "app.bsky.feed.post") && !strings.Contains(path, "app.bsky.actor.profile") {
 		return nil
@@ -191,6 +192,17 @@ func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, rev st
 	}
 	if ident == nil {
 		return fmt.Errorf("identity not found for did: %s", did.String())
+	}
+
+	// CBOR Unmarshal the record
+	recCBOR, err := lexutil.CborDecodeValue(*recB)
+	if err != nil {
+		return fmt.Errorf("cbor decode: %w", err)
+	}
+
+	rec, ok := recCBOR.(typegen.CBORMarshaler)
+	if !ok {
+		return fmt.Errorf("failed to cast record to CBORMarshaler")
 	}
 
 	switch rec := rec.(type) {
