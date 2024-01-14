@@ -16,7 +16,7 @@ import (
 	"github.com/carlmjohnson/versioninfo"
 )
 
-type HiveAILabeler struct {
+type HiveAIClient struct {
 	Client   http.Client
 	ApiToken string
 }
@@ -44,8 +44,8 @@ type HiveAIResp_Class struct {
 	Score float64 `json:"score"`
 }
 
-func NewHiveAILabeler(token string) HiveAILabeler {
-	return HiveAILabeler{
+func NewHiveAIClient(token string) HiveAIClient {
+	return HiveAIClient{
 		Client:   *util.RobustHTTPClient(),
 		ApiToken: token,
 	}
@@ -157,7 +157,7 @@ func (resp *HiveAIResp) SummarizeLabels() []string {
 	return labels
 }
 
-func (hal *HiveAILabeler) LabelBlob(ctx context.Context, blob lexutil.LexBlob, blobBytes []byte) ([]string, error) {
+func (hal *HiveAIClient) LabelBlob(ctx context.Context, blob lexutil.LexBlob, blobBytes []byte) ([]string, error) {
 
 	slog.Info("sending blob to Hive AI", "cid", blob.Ref.String(), "mimetype", blob.MimeType, "size", len(blobBytes))
 
