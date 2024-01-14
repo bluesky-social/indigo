@@ -11,13 +11,9 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/api/atproto"
-	// Blank import to register types for CBORGEN
-	_ "github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/ipfs/go-cid"
-	typegen "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"golang.org/x/time/rate"
@@ -37,7 +33,7 @@ type Job interface {
 	// Once done it clears the buffer and marks the job as "complete"
 	// Allowing the Job interface to abstract away the details of how buffered
 	// operations are stored and/or locked
-	FlushBufferedOps(ctx context.Context, cb func(kind, rev, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error) error
+	FlushBufferedOps(ctx context.Context, cb func(kind, rev, path string, rec *[]byte, cid *cid.Cid) error) error
 
 	ClearBufferedOps(ctx context.Context) error
 }
@@ -56,8 +52,8 @@ type Store interface {
 // Backfiller is a struct which handles backfilling a repo
 type Backfiller struct {
 	Name               string
-	HandleCreateRecord func(ctx context.Context, repo string, rev string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error
-	HandleUpdateRecord func(ctx context.Context, repo string, rev string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error
+	HandleCreateRecord func(ctx context.Context, repo string, rev string, path string, rec *[]byte, cid *cid.Cid) error
+	HandleUpdateRecord func(ctx context.Context, repo string, rev string, path string, rec *[]byte, cid *cid.Cid) error
 	HandleDeleteRecord func(ctx context.Context, repo string, rev string, path string) error
 	Store              Store
 
@@ -123,8 +119,8 @@ func DefaultBackfillOptions() *BackfillOptions {
 func NewBackfiller(
 	name string,
 	store Store,
-	handleCreate func(ctx context.Context, repo string, rev string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error,
-	handleUpdate func(ctx context.Context, repo string, rev string, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error,
+	handleCreate func(ctx context.Context, repo string, rev string, path string, rec *[]byte, cid *cid.Cid) error,
+	handleUpdate func(ctx context.Context, repo string, rev string, path string, rec *[]byte, cid *cid.Cid) error,
 	handleDelete func(ctx context.Context, repo string, rev string, path string) error,
 	opts *BackfillOptions,
 ) *Backfiller {
@@ -213,7 +209,7 @@ func (b *Backfiller) FlushBuffer(ctx context.Context, job Job) int {
 
 	// Flush buffered operations, clear the buffer, and mark the job as "complete"
 	// Clearning and marking are handled by the job interface
-	err := job.FlushBufferedOps(ctx, func(kind, rev, path string, rec typegen.CBORMarshaler, cid *cid.Cid) error {
+	err := job.FlushBufferedOps(ctx, func(kind, rev, path string, rec *[]byte, cid *cid.Cid) error {
 		switch repomgr.EventKind(kind) {
 		case repomgr.EvtKindCreateRecord:
 			err := b.HandleCreateRecord(ctx, repo, rev, path, rec, cid)
@@ -392,19 +388,10 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to get blocks for record: %w", err)}
 					continue
 				}
-				rec, err := lexutil.CborDecodeValue(blk.RawData())
-				if err != nil {
-					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to decode record: %w", err)}
-					continue
-				}
 
-				recM, ok := rec.(typegen.CBORMarshaler)
-				if !ok {
-					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to cast record to CBORMarshaler")}
-					continue
-				}
+				raw := blk.RawData()
 
-				err = b.HandleCreateRecord(ctx, repoDid, rev, item.recordPath, recM, &item.nodeCid)
+				err = b.HandleCreateRecord(ctx, repoDid, rev, item.recordPath, &raw, &item.nodeCid)
 				if err != nil {
 					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to handle create record: %w", err)}
 					continue
@@ -448,7 +435,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 
 const trust = true
 
-func (bf *Backfiller) getRecord(ctx context.Context, r *repo.Repo, op *atproto.SyncSubscribeRepos_RepoOp) (cid.Cid, typegen.CBORMarshaler, error) {
+func (bf *Backfiller) getRecord(ctx context.Context, r *repo.Repo, op *atproto.SyncSubscribeRepos_RepoOp) (cid.Cid, *[]byte, error) {
 	if trust {
 		if op.Cid == nil {
 			return cid.Undef, nil, fmt.Errorf("op had no cid set")
@@ -460,14 +447,11 @@ func (bf *Backfiller) getRecord(ctx context.Context, r *repo.Repo, op *atproto.S
 			return cid.Undef, nil, err
 		}
 
-		rec, err := lexutil.CborDecodeValue(blk.RawData())
-		if err != nil {
-			return cid.Undef, nil, fmt.Errorf("failed to decode value: %w", err)
-		}
+		raw := blk.RawData()
 
-		return c, rec, nil
+		return c, &raw, nil
 	} else {
-		return r.GetRecord(ctx, op.Path)
+		return r.GetRecordBytes(ctx, op.Path)
 	}
 }
 
@@ -535,7 +519,7 @@ func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscrib
 	return nil
 }
 
-func (bf *Backfiller) BufferOp(ctx context.Context, repo string, since *string, rev, kind, path string, rec typegen.CBORMarshaler, cid *cid.Cid) (bool, error) {
+func (bf *Backfiller) BufferOp(ctx context.Context, repo string, since *string, rev, kind, path string, rec *[]byte, cid *cid.Cid) (bool, error) {
 	return bf.BufferOps(ctx, repo, since, rev, []*bufferedOp{{
 		path: path,
 		kind: kind,
