@@ -289,6 +289,13 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 	}
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
+		state := fmt.Sprintf("failed (create request: %s)", err.Error())
+		// Mark the job as "failed"
+		err := job.SetState(ctx, state)
+		if err != nil {
+			log.Error("failed to set job state", "error", err)
+		}
+
 		log.Error("failed to create request", "error", err)
 		return
 	}
@@ -303,6 +310,13 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 
 	resp, err := client.Do(req)
 	if err != nil {
+		state := fmt.Sprintf("failed (do request: %s)", err.Error())
+		// Mark the job as "failed"
+		err := job.SetState(ctx, state)
+		if err != nil {
+			log.Error("failed to set job state", "error", err)
+		}
+
 		log.Error("failed to send request", "error", err)
 		return
 	}
