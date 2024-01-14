@@ -357,6 +357,30 @@ func (r *Repo) GetRecord(ctx context.Context, rpath string) (cid.Cid, cbg.CBORMa
 	return cc, rec, nil
 }
 
+func (r *Repo) GetRecordBytes(ctx context.Context, rpath string) (cid.Cid, *[]byte, error) {
+	ctx, span := otel.Tracer("repo").Start(ctx, "GetRecord")
+	defer span.End()
+
+	mst, err := r.getMst(ctx)
+	if err != nil {
+		return cid.Undef, nil, fmt.Errorf("getting repo mst: %w", err)
+	}
+
+	cc, err := mst.Get(ctx, rpath)
+	if err != nil {
+		return cid.Undef, nil, fmt.Errorf("resolving rpath within mst: %w", err)
+	}
+
+	blk, err := r.bs.Get(ctx, cc)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	raw := blk.RawData()
+
+	return cc, &raw, nil
+}
+
 func (r *Repo) DiffSince(ctx context.Context, oldrepo cid.Cid) ([]*mst.DiffOp, error) {
 	ctx, span := otel.Tracer("repo").Start(ctx, "DiffSince")
 	defer span.End()
