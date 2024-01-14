@@ -108,6 +108,11 @@ func run(args []string) error {
 			Usage:   "admin auth password for abyss API",
 			EnvVars: []string{"ABYSS_PASSWORD"},
 		},
+		&cli.StringFlag{
+			Name:    "ruleset",
+			Usage:   "which ruleset config to use: default, no-blobs, only-blobs",
+			EnvVars: []string{"HEPA_RULESET"},
+		},
 	}
 
 	app.Commands = []*cli.Command{
@@ -191,6 +196,7 @@ var runCmd = &cli.Command{
 				HiveAPIToken:    cctx.String("hiveai-api-token"),
 				AbyssHost:       cctx.String("abyss-host"),
 				AbyssPassword:   cctx.String("abyss-password"),
+				RulesetName:     cctx.String("ruleset"),
 			},
 		)
 		if err != nil {
@@ -255,6 +261,7 @@ func configEphemeralServer(cctx *cli.Context) (*Server, error) {
 			HiveAPIToken:  cctx.String("hiveai-api-token"),
 			AbyssHost:     cctx.String("abyss-host"),
 			AbyssPassword: cctx.String("abyss-password"),
+			RulesetName:   cctx.String("ruleset"),
 		},
 	)
 }

@@ -46,6 +46,7 @@ type Config struct {
 	HiveAPIToken    string
 	AbyssHost       string
 	AbyssPassword   string
+	RulesetName     string
 	Logger          *slog.Logger
 }
 
@@ -134,18 +135,29 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		flags = flagstore.NewMemFlagStore()
 	}
 
-	ruleset := rules.DefaultRules()
-
+	extraBlobRules := []automod.BlobRuleFunc{}
 	if config.HiveAPIToken != "" {
 		logger.Info("configuring Hive AI image labeler")
 		hc := visual.NewHiveAIClient(config.HiveAPIToken)
-		ruleset.BlobRules = append(ruleset.BlobRules, hc.HiveLabelBlobRule)
+		extraBlobRules = append(extraBlobRules, hc.HiveLabelBlobRule)
 	}
 
 	if config.AbyssHost != "" && config.AbyssPassword != "" {
 		logger.Info("configuring abyss abusive image scanning")
 		ac := visual.NewAbyssClient(config.AbyssHost, config.AbyssPassword)
-		ruleset.BlobRules = append(ruleset.BlobRules, ac.AbyssScanBlobRule)
+		extraBlobRules = append(extraBlobRules, ac.AbyssScanBlobRule)
+	}
+
+	var ruleset automod.RuleSet
+	switch config.RulesetName {
+	case "", "default":
+		ruleset = rules.DefaultRules()
+		ruleset.BlobRules = append(ruleset.BlobRules, extraBlobRules...)
+	case "no-blobs":
+		ruleset = rules.DefaultRules()
+		ruleset.BlobRules = []automod.BlobRuleFunc{}
+	case "only-blobs":
+		ruleset.BlobRules = extraBlobRules
 	}
 
 	engine := automod.Engine{
