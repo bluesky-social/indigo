@@ -2,8 +2,10 @@ package engine
 
 import (
 	"fmt"
+	"sync"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 type RuleSet struct {
@@ -49,30 +51,14 @@ func (r *RuleSet) CallRecordRules(c *RecordContext) error {
 		}
 	}
 	// then blob rules, if any
-	if len(r.BlobRules) == 0 || c.RecordOp.Action != CreateOp {
+	if len(r.BlobRules) == 0 {
 		return nil
 	}
-	blobs, err := c.Blobs()
+	err := r.fetchAndProcessBlobs(c)
 	if err != nil {
-		// TODO: should this really return error, or just log?
 		return err
 	}
-	if len(blobs) == 0 {
-		return nil
-	}
-	// TODO: concurrency
-	for _, blob := range blobs {
-		data, err := fetchBlob(c, blob)
-		if err != nil {
-			return err
-		}
-		for _, f := range r.BlobRules {
-			err := f(c, blob, data)
-			if err != nil {
-				return err
-			}
-		}
-	}
+
 	return nil
 }
 
@@ -89,6 +75,76 @@ func (r *RuleSet) CallRecordDeleteRules(c *RecordContext) error {
 func (r *RuleSet) CallIdentityRules(c *AccountContext) error {
 	for _, f := range r.IdentityRules {
 		err := f(c)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// high-level helper for fetching and processing blobs concurrently
+func (r *RuleSet) fetchAndProcessBlobs(c *RecordContext) error {
+
+	blobs, err := c.Blobs()
+	if err != nil {
+		// TODO: should this really return error, or just log?
+		return err
+	}
+	if len(blobs) == 0 {
+		return nil
+	}
+
+	errChan := make(chan error, len(blobs))
+	var wg sync.WaitGroup
+	for _, blob := range blobs {
+		wg.Add(1)
+		go func(blob lexutil.LexBlob) {
+			defer wg.Done()
+			data, err := fetchBlob(c, blob)
+			if err != nil {
+				errChan <- err
+				return
+			}
+			err = r.processBlob(c, blob, data)
+			if err != nil {
+				errChan <- err
+				return
+			}
+		}(blob)
+
+	}
+	wg.Wait()
+	close(errChan)
+
+	// check for errors
+	for err := range errChan {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *RuleSet) processBlob(c *RecordContext, blob lexutil.LexBlob, data []byte) error {
+	errChan := make(chan error, len(r.BlobRules))
+	var wg sync.WaitGroup
+	for _, f := range r.BlobRules {
+		wg.Add(1)
+		go func(brf BlobRuleFunc) {
+			defer wg.Done()
+			err := brf(c, blob, data)
+			if err != nil {
+				errChan <- err
+				return
+			}
+		}(f)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	// check for errors
+	for err := range errChan {
 		if err != nil {
 			return err
 		}
