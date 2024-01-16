@@ -47,7 +47,7 @@ func (ac *AbyssClient) ScanBlob(ctx context.Context, blob lexutil.LexBlob, blobB
 
 	req.SetBasicAuth("admin", ac.Password)
 	req.Header.Add("Content-Type", blob.MimeType)
-	req.Header.Add("Content-Length", string(blob.Size))
+	req.Header.Add("Content-Length", fmt.Sprintf("%d", blob.Size))
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "indigo-automod/"+versioninfo.Short())
 
