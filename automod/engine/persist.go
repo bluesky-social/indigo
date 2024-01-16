@@ -61,7 +61,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	if anyModActions && eng.SlackWebhookURL != "" {
 		msg := slackBody("⚠️ Automod Account Action ⚠️\n", c.Account, newLabels, newFlags, newReports, newTakedown)
 		if err := eng.SendSlackMsg(ctx, msg); err != nil {
-			eng.Logger.Error("sending slack webhook", "err", err)
+			c.Logger.Error("sending slack webhook", "err", err)
 		}
 	}
 
@@ -78,7 +78,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	xrpcc := eng.AdminClient
 
 	if len(newLabels) > 0 {
-		eng.Logger.Info("labeling record", "newLabels", newLabels)
+		c.Logger.Info("labeling record", "newLabels", newLabels)
 		comment := "automod"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
@@ -113,7 +113,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	}
 
 	if newTakedown {
-		eng.Logger.Warn("account-takedown")
+		c.Logger.Warn("account-takedown")
 		comment := "automod"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
@@ -168,7 +168,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			msg := slackBody("⚠️ Automod Record Action ⚠️\n", c.Account, newLabels, newFlags, newReports, newTakedown)
 			msg += fmt.Sprintf("`%s`\n", atURI)
 			if err := eng.SendSlackMsg(ctx, msg); err != nil {
-				eng.Logger.Error("sending slack webhook", "err", err)
+				c.Logger.Error("sending slack webhook", "err", err)
 			}
 		}
 	}
@@ -188,7 +188,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 
 	if c.RecordOp.CID == nil {
-		eng.Logger.Warn("skipping record actions because CID is nil, can't construct strong ref")
+		c.Logger.Warn("skipping record actions because CID is nil, can't construct strong ref")
 		return nil
 	}
 	cid := *c.RecordOp.CID
@@ -199,7 +199,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 
 	xrpcc := eng.AdminClient
 	if len(newLabels) > 0 {
-		eng.Logger.Info("labeling record", "newLabels", newLabels)
+		c.Logger.Info("labeling record", "newLabels", newLabels)
 		comment := "automod"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
@@ -220,7 +220,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 
 	for _, mr := range newReports {
-		eng.Logger.Info("reporting record", "reasonType", mr.ReasonType, "comment", mr.Comment)
+		c.Logger.Info("reporting record", "reasonType", mr.ReasonType, "comment", mr.Comment)
 		_, err := comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
 			ReasonType: &mr.ReasonType,
 			Reason:     &mr.Comment,
@@ -233,7 +233,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		}
 	}
 	if newTakedown {
-		eng.Logger.Warn("record-takedown")
+		c.Logger.Warn("record-takedown")
 		comment := "automod"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
