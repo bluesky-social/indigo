@@ -158,6 +158,8 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		ruleset.BlobRules = []automod.BlobRuleFunc{}
 	case "only-blobs":
 		ruleset.BlobRules = extraBlobRules
+	default:
+		return nil, fmt.Errorf("unknown ruleset config: %s", config.RulesetName)
 	}
 
 	engine := automod.Engine{
