@@ -15,8 +15,8 @@ func DefaultRules() automod.RuleSet {
 			//AccountDemoPostRule,
 			AccountPrivateDemoPostRule,
 			GtubePostRule,
-			KeywordPostRule,
-			ReplySingleKeywordPostRule,
+			BadWordPostRule,
+			ReplySingleBadWordPostRule,
 			AggressivePromotionRule,
 			IdenticalReplyPostRule,
 			DistinctMentionsRule,
@@ -24,16 +24,18 @@ func DefaultRules() automod.RuleSet {
 		},
 		ProfileRules: []automod.ProfileRuleFunc{
 			GtubeProfileRule,
-			KeywordProfileRule,
+			BadWordProfileRule,
 		},
 		RecordRules: []automod.RecordRuleFunc{
 			InteractionChurnRule,
+			RecordKeyBadWordRecordRule,
 		},
 		RecordDeleteRules: []automod.RecordRuleFunc{
 			DeleteInteractionRule,
 		},
 		IdentityRules: []automod.IdentityRuleFunc{
 			NewAccountRule,
+			HandleBadWordIdentityRule,
 		},
 		BlobRules: []automod.BlobRuleFunc{
 			//BlobVerifyRule,
