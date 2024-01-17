@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -14,12 +15,9 @@ import (
 
 	"github.com/bluesky-social/indigo/did"
 	arc "github.com/hashicorp/golang-lru/arc/v2"
-	logging "github.com/ipfs/go-log"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	otel "go.opentelemetry.io/otel"
 )
-
-var log = logging.Logger("api")
 
 func ResolveDidToHandle(ctx context.Context, res did.Resolver, hr HandleResolver, udid string) (string, string, error) {
 	ctx, span := otel.Tracer("gosky").Start(ctx, "resolveDidToHandle")
@@ -248,12 +246,12 @@ func (tr *TestHandleResolver) ResolveHandleToDid(ctx context.Context, handle str
 
 		resp, err := c.Do(req)
 		if err != nil {
-			log.Warnf("failed to get did: %s", err)
+			slog.Warn("failed to resolve handle to DID", "handle", handle, "err", err)
 			continue
 		}
 
 		if resp.StatusCode != 200 {
-			log.Warnf("got non-200 status code while fetching did: %d", resp.StatusCode)
+			slog.Warn("got non-200 status code while resolving handle", "handle", handle, "statusCode", resp.StatusCode)
 			continue
 		}
 
