@@ -2,34 +2,32 @@ package util
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
-	logging "github.com/ipfs/go-log"
 )
 
-var log = logging.Logger("http")
-
-type LeveledZap struct {
-	inner *logging.ZapEventLogger
+type LeveledSlog struct {
+	inner *slog.Logger
 }
 
 // re-writes HTTP client ERROR to WARN level (because of retries)
-func (l LeveledZap) Error(msg string, keysAndValues ...interface{}) {
-	l.inner.Warnw(msg, keysAndValues...)
+func (l LeveledSlog) Error(msg string, keysAndValues ...interface{}) {
+	l.inner.Warn(msg, keysAndValues...)
 }
 
-func (l LeveledZap) Warn(msg string, keysAndValues ...interface{}) {
-	l.inner.Warnw(msg, keysAndValues...)
+func (l LeveledSlog) Warn(msg string, keysAndValues ...interface{}) {
+	l.inner.Warn(msg, keysAndValues...)
 }
 
-func (l LeveledZap) Info(msg string, keysAndValues ...interface{}) {
-	l.inner.Infow(msg, keysAndValues...)
+func (l LeveledSlog) Info(msg string, keysAndValues ...interface{}) {
+	l.inner.Info(msg, keysAndValues...)
 }
 
-func (l LeveledZap) Debug(msg string, keysAndValues ...interface{}) {
-	l.inner.Debugw(msg, keysAndValues...)
+func (l LeveledSlog) Debug(msg string, keysAndValues ...interface{}) {
+	l.inner.Debug(msg, keysAndValues...)
 }
 
 // Generates an HTTP client with decent general-purpose defaults around
@@ -45,11 +43,12 @@ func (l LeveledZap) Debug(msg string, keysAndValues ...interface{}) {
 // default.
 func RobustHTTPClient() *http.Client {
 
+	logger := LeveledSlog{inner: slog.Default().With("subsystem", "RobustHTTPClient")}
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 3
 	retryClient.RetryWaitMin = 1 * time.Second
 	retryClient.RetryWaitMax = 10 * time.Second
-	retryClient.Logger = retryablehttp.LeveledLogger(LeveledZap{log})
+	retryClient.Logger = retryablehttp.LeveledLogger(logger)
 	retryClient.CheckRetry = XRPCRetryPolicy
 	client := retryClient.StandardClient()
 	client.Timeout = 30 * time.Second
