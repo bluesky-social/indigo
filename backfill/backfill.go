@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
+	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
 )
 
@@ -149,7 +151,7 @@ func (b *Backfiller) Start() {
 	log := slog.With("source", "backfiller", "name", b.Name)
 	log.Info("starting backfill processor")
 
-	sem := make(chan struct{}, b.ParallelBackfills)
+	sem := semaphore.NewWeighted(int64(b.ParallelBackfills))
 
 	for {
 		select {
@@ -171,6 +173,8 @@ func (b *Backfiller) Start() {
 			continue
 		}
 
+		log := log.With("repo", job.Repo())
+
 		// Mark the backfill as "in progress"
 		err = job.SetState(ctx, StateInProgress)
 		if err != nil {
@@ -178,11 +182,26 @@ func (b *Backfiller) Start() {
 			continue
 		}
 
-		sem <- struct{}{}
+		sem.Acquire(ctx, 1)
 		go func(j Job) {
-			b.BackfillRepo(ctx, j)
+			defer sem.Release(1)
+			newState, err := b.BackfillRepo(ctx, j)
+			if err != nil {
+				log.Error("failed to backfill repo", "error", err)
+			}
+			if newState != "" {
+				if sserr := j.SetState(ctx, newState); sserr != nil {
+					log.Error("failed to set job state", "error", sserr)
+				}
+
+				if strings.HasPrefix(newState, "failed") {
+					// Clear buffered ops
+					if err := j.ClearBufferedOps(ctx); err != nil {
+						log.Error("failed to clear buffered ops", "error", err)
+					}
+				}
+			}
 			backfillJobsProcessed.WithLabelValues(b.Name).Inc()
-			<-sem
 		}(job)
 	}
 }
@@ -262,7 +281,7 @@ type recordResult struct {
 }
 
 // BackfillRepo backfills a repo
-func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
+func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) {
 	ctx, span := tracer.Start(ctx, "BackfillRepo")
 	defer span.End()
 
@@ -290,14 +309,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		state := fmt.Sprintf("failed (create request: %s)", err.Error())
-		// Mark the job as "failed"
-		err := job.SetState(ctx, state)
-		if err != nil {
-			log.Error("failed to set job state", "error", err)
-		}
-
-		log.Error("failed to create request", "error", err)
-		return
+		return state, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Accept", "application/vnd.ipld.car")
@@ -311,36 +323,18 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 	resp, err := client.Do(req)
 	if err != nil {
 		state := fmt.Sprintf("failed (do request: %s)", err.Error())
-		// Mark the job as "failed"
-		err := job.SetState(ctx, state)
-		if err != nil {
-			log.Error("failed to set job state", "error", err)
-		}
-
-		log.Error("failed to send request", "error", err)
-		return
+		return state, fmt.Errorf("failed to send request: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Info("failed to get repo", "status", resp.StatusCode)
 		reason := "unknown error"
 		if resp.StatusCode == http.StatusBadRequest {
 			reason = "repo not found"
+		} else {
+			reason = resp.Status
 		}
 		state := fmt.Sprintf("failed (%s)", reason)
-
-		// Mark the job as "failed"
-		err := job.SetState(ctx, state)
-		if err != nil {
-			log.Error("failed to set job state", "error", err)
-		}
-
-		// Clear buffered ops
-		err = job.ClearBufferedOps(ctx)
-		if err != nil {
-			log.Error("failed to clear buffered ops", "error", err)
-		}
-		return
+		return state, fmt.Errorf("failed to get repo: %s", reason)
 	}
 
 	instrumentedReader := instrumentedReader{
@@ -352,30 +346,14 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 
 	r, err := repo.ReadRepoFromCar(ctx, instrumentedReader)
 	if err != nil {
-		log.Error("failed to read repo from car", "error", err)
-
 		state := "failed (couldn't read repo CAR from response body)"
-
-		// Mark the job as "failed"
-		err := job.SetState(ctx, state)
-		if err != nil {
-			log.Error("failed to set job state", "error", err)
-		}
-
-		// Clear buffered ops
-		err = job.ClearBufferedOps(ctx)
-		if err != nil {
-			log.Error("failed to clear buffered ops", "error", err)
-		}
-		return
+		return state, fmt.Errorf("failed to read repo from car: %w", err)
 	}
 
 	numRecords := 0
 	numRoutines := b.ParallelRecordCreates
 	recordQueue := make(chan recordQueueItem, numRoutines)
 	recordResults := make(chan recordResult, numRoutines)
-
-	wg := sync.WaitGroup{}
 
 	// Producer routine
 	go func() {
@@ -385,13 +363,14 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 			recordQueue <- recordQueueItem{recordPath: recordPath, nodeCid: nodeCid}
 			return nil
 		}); err != nil {
-			log.Error("failed to iterated records in repo", "err", err)
+			log.Error("failed to iterate records in repo", "err", err)
 		}
 	}()
 
 	rev := r.SignedCommit().Rev
 
 	// Consumer routines
+	wg := sync.WaitGroup{}
 	for i := 0; i < numRoutines; i++ {
 		wg.Add(1)
 		go func() {
@@ -445,6 +424,8 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) {
 		"records_backfilled", numRecords,
 		"duration", time.Since(start),
 	)
+
+	return StateComplete, nil
 }
 
 const trust = true
