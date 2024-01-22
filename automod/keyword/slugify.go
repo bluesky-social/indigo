@@ -1,8 +1,8 @@
 package keyword
 
 import (
-	"strings"
 	"regexp"
+	"strings"
 )
 
 var nonSlugChars = regexp.MustCompile(`[^\pL\pN]+`)
