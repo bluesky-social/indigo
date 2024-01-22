@@ -24,7 +24,7 @@ func dedupeStrings(in []string) []string {
 	return out
 }
 
-func ExtractHashtags(post *appbsky.FeedPost) []string {
+func ExtractHashtagsPost(post *appbsky.FeedPost) []string {
 	var tags []string
 	for _, tag := range post.Tags {
 		tags = append(tags, tag)

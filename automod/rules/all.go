@@ -28,14 +28,15 @@ func DefaultRules() automod.RuleSet {
 		},
 		RecordRules: []automod.RecordRuleFunc{
 			InteractionChurnRule,
-			RecordKeyBadWordRecordRule,
+			BadWordRecordKeyRule,
+			BadWordOtherRecordRule,
 		},
 		RecordDeleteRules: []automod.RecordRuleFunc{
 			DeleteInteractionRule,
 		},
 		IdentityRules: []automod.IdentityRuleFunc{
 			NewAccountRule,
-			HandleBadWordIdentityRule,
+			BadWordHandleRule,
 		},
 		BlobRules: []automod.BlobRuleFunc{
 			//BlobVerifyRule,
