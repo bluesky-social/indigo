@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	recordEventTimeout   = 20 * time.Second
-	identityEventTimeout = 10 * time.Second
+	recordEventTimeout       = 20 * time.Second
+	identityEventTimeout     = 10 * time.Second
+	notificationEventTimeout = 5 * time.Second
 )
 
 // runtime for executing rules, managing state, and recording moderation actions.
@@ -133,6 +134,51 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 		return err
 	}
 	return nil
+}
+
+// returns a boolean indicating "block the event"
+func (eng *Engine) ProcessNotificationEvent(ctx context.Context, senderDID, recipientDID syntax.DID) (bool, error) {
+	// similar to an HTTP server, we want to recover any panics from rule execution
+	defer func() {
+		if r := recover(); r != nil {
+			eng.Logger.Error("automod event execution exception", "err", r, "sender", senderDID, "recipient", recipientDID)
+		}
+	}()
+	ctx, cancel := context.WithTimeout(ctx, notificationEventTimeout)
+	defer cancel()
+
+	senderIdent, err := eng.Directory.LookupDID(ctx, senderDID)
+	if err != nil {
+		return false, fmt.Errorf("resolving identity: %w", err)
+	}
+	if senderIdent == nil {
+		return false, fmt.Errorf("identity not found for sender DID: %s", senderDID.String())
+	}
+
+	recipientIdent, err := eng.Directory.LookupDID(ctx, recipientDID)
+	if err != nil {
+		return false, fmt.Errorf("resolving identity: %w", err)
+	}
+	if recipientIdent == nil {
+		return false, fmt.Errorf("identity not found for sender DID: %s", recipientDID.String())
+	}
+
+	senderMeta, err := eng.GetAccountMeta(ctx, senderIdent)
+	if err != nil {
+		return false, err
+	}
+	recipientMeta, err := eng.GetAccountMeta(ctx, recipientIdent)
+	if err != nil {
+		return false, err
+	}
+
+	nc := NewNotificationContext(ctx, eng, *senderMeta, *recipientMeta)
+	if err := eng.Rules.CallNotificationRules(&nc); err != nil {
+		return false, err
+	}
+	// TODO:
+	eng.CanonicalLogLineAccount(&nc.AccountContext)
+	return nc.effects.RejectEvent, nil
 }
 
 // Purge metadata caches for a specific account.

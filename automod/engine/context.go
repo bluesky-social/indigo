@@ -35,6 +35,13 @@ type RecordContext struct {
 	// TODO: could consider adding commit-level metadata here. probably nullable if so, commit-level metadata isn't always available. might be best to do a separate event/context type for that
 }
 
+type NotificationContext struct {
+	AccountContext
+
+	Recipient AccountMeta
+	// TODO: more context about the notification? "Reason", "Subject"
+}
+
 var (
 	CreateOp = "create"
 	UpdateOp = "update"
@@ -138,6 +145,14 @@ func NewRecordContext(ctx context.Context, eng *Engine, meta AccountMeta, op Rec
 	}
 }
 
+func NewNotificationContext(ctx context.Context, eng *Engine, sender, recipient AccountMeta) NotificationContext {
+	ac := NewAccountContext(ctx, eng, sender)
+	return NotificationContext{
+		AccountContext: ac,
+		Recipient:      recipient,
+	}
+}
+
 // update effects (indirect)
 func (c *BaseContext) Increment(name, val string) {
 	c.effects.Increment(name, val)
@@ -185,4 +200,8 @@ func (c *RecordContext) TakedownRecord() {
 
 func (c *RecordContext) TakedownBlob(cid string) {
 	c.effects.TakedownBlob(cid)
+}
+
+func (c *NotificationContext) Reject() {
+	c.effects.Reject()
 }
