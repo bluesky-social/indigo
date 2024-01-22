@@ -29,9 +29,9 @@ func TestMisleadingURLPostRule(t *testing.T) {
 	p1 := appbsky.FeedPost{
 		Text: "https://safe.com/ is very reputable",
 		Facets: []*appbsky.RichtextFacet{
-			&appbsky.RichtextFacet{
+			{
 				Features: []*appbsky.RichtextFacet_Features_Elem{
-					&appbsky.RichtextFacet_Features_Elem{
+					{
 						RichtextFacet_Link: &appbsky.RichtextFacet_Link{
 							Uri: "https://evil.com",
 						},
@@ -73,9 +73,9 @@ func TestMisleadingMentionPostRule(t *testing.T) {
 	p1 := appbsky.FeedPost{
 		Text: "@handle.example.com is a friend",
 		Facets: []*appbsky.RichtextFacet{
-			&appbsky.RichtextFacet{
+			{
 				Features: []*appbsky.RichtextFacet_Features_Elem{
-					&appbsky.RichtextFacet_Features_Elem{
+					{
 						RichtextFacet_Mention: &appbsky.RichtextFacet_Mention{
 							Did: "did:plc:abc222",
 						},

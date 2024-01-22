@@ -19,19 +19,19 @@ func main() {
 		Usage: "informal debugging CLI tool for atproto identities",
 	}
 	app.Commands = []*cli.Command{
-		&cli.Command{
+		{
 			Name:      "lookup",
 			Usage:     "fully resolve an at-identifier (DID or handle)",
 			ArgsUsage: "<at-identifier>",
 			Action:    runLookup,
 		},
-		&cli.Command{
+		{
 			Name:      "resolve-handle",
 			Usage:     "resolve a handle to DID",
 			ArgsUsage: "<handle>",
 			Action:    runResolveHandle,
 		},
-		&cli.Command{
+		{
 			Name:      "resolve-did",
 			Usage:     "resolve a DID to DID Document",
 			ArgsUsage: "<did>",

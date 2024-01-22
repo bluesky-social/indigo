@@ -16,7 +16,7 @@ func main() {
 		Usage: "informal debugging CLI tool for atproto key and cryptography",
 	}
 	app.Commands = []*cli.Command{
-		&cli.Command{
+		{
 			Name:  "generate",
 			Usage: "create a new private key",
 			Flags: []cli.Flag{

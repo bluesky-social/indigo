@@ -48,7 +48,7 @@ func (fd *FakeDid) GetDocument(ctx context.Context, udid string) (*did.Document,
 		//Authentication []interface{} `json:"authentication"`
 
 		VerificationMethod: []did.VerificationMethod{
-			did.VerificationMethod{
+			{
 				ID:                 "#signingKey",
 				Type:               rec.KeyType,
 				PublicKeyMultibase: &rec.PubKeyMbase,
@@ -57,7 +57,7 @@ func (fd *FakeDid) GetDocument(ctx context.Context, udid string) (*did.Document,
 		},
 
 		Service: []did.Service{
-			did.Service{
+			{
 				//ID:              "",
 				Type:            "pds",
 				ServiceEndpoint: "http://" + rec.Service,

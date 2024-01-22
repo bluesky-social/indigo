@@ -79,7 +79,7 @@ func (s *Server) handleComAtprotoLabelQueryLabels(ctx context.Context, cursor st
 	labelObjs := []*atproto.LabelDefs_Label{}
 	for _, row := range labelRows {
 		neg := false
-		if row.Neg != nil && *row.Neg == true {
+		if row.Neg != nil && *row.Neg {
 			neg = true
 		}
 		labelObjs = append(labelObjs, &atproto.LabelDefs_Label{

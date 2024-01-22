@@ -423,5 +423,5 @@ func (fg *FeedGenerator) GetFollows(ctx context.Context, user string, limit int,
 
 	}
 
-	return nil, nil
+	return out, nil
 }

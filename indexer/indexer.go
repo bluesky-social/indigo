@@ -765,7 +765,7 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user models.U
 		}
 
 		if err := ix.db.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{clause.Column{Name: "rkey"}, clause.Column{Name: "author"}},
+			Columns:   []clause.Column{{Name: "rkey"}, {Name: "author"}},
 			UpdateAll: true,
 		}).Create(&fp).Error; err != nil {
 			return err

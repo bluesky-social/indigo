@@ -102,7 +102,7 @@ func (sl *SQRLLabeler) LabelPost(ctx context.Context, post appbsky.FeedPost) ([]
 	if err != nil {
 		return nil, err
 	}
-	for name, _ := range resp.Rules {
+	for name := range resp.Rules {
 		if name == "TooMuchCrypto" {
 			labels = append(labels, "repo:crypto-shill")
 		}
@@ -120,7 +120,7 @@ func (sl *SQRLLabeler) LabelProfile(ctx context.Context, profile appbsky.ActorPr
 	if err != nil {
 		return nil, err
 	}
-	for name, _ := range resp.Rules {
+	for name := range resp.Rules {
 		if name == "TooMuchCrypto" {
 			labels = append(labels, "repo:crypto-shill")
 		}

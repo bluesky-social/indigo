@@ -57,6 +57,9 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 		Roots:   []cid.Cid{root},
 		Version: 1,
 	})
+	if err != nil {
+		return nil, err
+	}
 	if _, err := carstore.LdWrite(buf, hb); err != nil {
 		return nil, err
 	}
@@ -139,7 +142,7 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 
 	host = u.Host // potentially hostname:port
 
-	banned, err := s.domainIsBanned(ctx, host)
+	banned, err := s.domainIsBanned(ctx, host) // TODO: check error, what should the response be?
 	if banned {
 		return echo.NewHTTPError(http.StatusUnauthorized, "domain is banned")
 	}

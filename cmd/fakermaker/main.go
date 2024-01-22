@@ -56,7 +56,7 @@ func run(args []string) {
 		},
 	}
 	app.Commands = []*cli.Command{
-		&cli.Command{
+		{
 			Name:   "gen-accounts",
 			Usage:  "create accounts (DID, handle, profile)",
 			Action: genAccounts,
@@ -84,7 +84,7 @@ func run(args []string) {
 				},
 			},
 		},
-		&cli.Command{
+		{
 			Name:   "gen-profiles",
 			Usage:  "creates profile records for accounts",
 			Action: genProfiles,
@@ -106,7 +106,7 @@ func run(args []string) {
 				},
 			},
 		},
-		&cli.Command{
+		{
 			Name:   "gen-graph",
 			Usage:  "creates social graph (follows and mutes)",
 			Action: genGraph,
@@ -128,7 +128,7 @@ func run(args []string) {
 				},
 			},
 		},
-		&cli.Command{
+		{
 			Name:   "gen-posts",
 			Usage:  "creates posts for accounts",
 			Action: genPosts,
@@ -155,7 +155,7 @@ func run(args []string) {
 				},
 			},
 		},
-		&cli.Command{
+		{
 			Name:   "gen-interactions",
 			Usage:  "create interactions between accounts",
 			Action: genInteractions,
@@ -182,7 +182,7 @@ func run(args []string) {
 				},
 			},
 		},
-		&cli.Command{
+		{
 			Name:   "run-browsing",
 			Usage:  "creates read-only load on service (notifications, timeline, etc)",
 			Action: runBrowsing,
