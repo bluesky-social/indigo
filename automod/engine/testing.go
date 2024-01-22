@@ -47,6 +47,11 @@ func EngineTestFixture() Engine {
 	sets := setstore.NewMemSetStore()
 	sets.Sets["bad-hashtags"] = make(map[string]bool)
 	sets.Sets["bad-hashtags"]["slur"] = true
+	sets.Sets["bad-words"] = make(map[string]bool)
+	sets.Sets["bad-words"]["hardr"] = true
+	sets.Sets["bad-words"]["hardestr"] = true
+	sets.Sets["worst-words"] = make(map[string]bool)
+	sets.Sets["worst-words"]["hardestr"] = true
 	dir := identity.NewMockDirectory()
 	id1 := identity.Identity{
 		DID:    syntax.DID("did:plc:abc111"),
