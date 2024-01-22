@@ -16,6 +16,7 @@ func TestTokenizeText(t *testing.T) {
 		{text: "", out: []string{}},
 		{text: "Hello, โลก!", out: []string{"hello", "โลก"}},
 		{text: "Gdańsk", out: []string{"gdansk"}},
+		{text: " foo1;bar2,baz3...", out: []string{"foo1", "bar2", "baz3"}},
 	}
 
 	for _, fix := range fixtures {
@@ -28,7 +29,7 @@ func TestTokenizeIdentifier(t *testing.T) {
 
 	fixtures := []struct {
 		ident string
-		out  []string
+		out   []string
 	}{
 		{ident: "", out: []string{}},
 		{ident: "the-handle.example.com", out: []string{"the", "handle", "example", "com"}},
