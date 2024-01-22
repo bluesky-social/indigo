@@ -18,6 +18,7 @@ type RecordRuleFunc = engine.RecordRuleFunc
 type PostRuleFunc = engine.PostRuleFunc
 type ProfileRuleFunc = engine.ProfileRuleFunc
 type BlobRuleFunc = engine.BlobRuleFunc
+type NotificationRuleFunc = engine.NotificationRuleFunc
 
 var (
 	ReportReasonSpam       = engine.ReportReasonSpam

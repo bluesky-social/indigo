@@ -51,6 +51,8 @@ type Effects struct {
 	RecordTakedown bool
 	// Set of Blob CIDs to takedown (eg, purge from CDN) when doing a record takedown
 	BlobTakedowns []string
+	// If "true", indicates that a rule indicates that the action causing the event should be blocked or prevented
+	RejectEvent bool
 }
 
 // Enqueues the named counter to be incremented at the end of all rule processing. Will automatically increment for all time periods.
@@ -123,4 +125,8 @@ func (e *Effects) TakedownRecord() {
 // Enqueues the blob CID to be taken down (aka, CDN purge) as part of any record takedown
 func (e *Effects) TakedownBlob(cid string) {
 	e.BlobTakedowns = append(e.BlobTakedowns, cid)
+}
+
+func (e *Effects) Reject() {
+	e.RejectEvent = true
 }
