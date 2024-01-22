@@ -55,7 +55,7 @@ func ReplySingleBadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost
 			return nil
 		}
 		tok := tokens[0]
-		if c.InSet("worst-words", tok) || c.InSet("bad-words", tok)  {
+		if c.InSet("worst-words", tok) || c.InSet("bad-words", tok) {
 			c.AddRecordFlag("reply-single-bad-word")
 			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("single-bad-word reply: %s", tok))
 		}
