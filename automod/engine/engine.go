@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -13,6 +14,11 @@ import (
 	"github.com/bluesky-social/indigo/automod/flagstore"
 	"github.com/bluesky-social/indigo/automod/setstore"
 	"github.com/bluesky-social/indigo/xrpc"
+)
+
+const (
+	recordEventTimeout   = 20 * time.Second
+	identityEventTimeout = 10 * time.Second
 )
 
 // runtime for executing rules, managing state, and recording moderation actions.
@@ -40,6 +46,8 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syn
 			eng.Logger.Error("automod event execution exception", "err", r, "did", did, "type", typ)
 		}
 	}()
+	ctx, cancel := context.WithTimeout(ctx, identityEventTimeout)
+	defer cancel()
 
 	ident, err := eng.Directory.LookupDID(ctx, did)
 	if err != nil {
@@ -75,6 +83,8 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 			eng.Logger.Error("automod event execution exception", "err", r, "did", op.DID, "collection", op.Collection, "rkey", op.RecordKey)
 		}
 	}()
+	ctx, cancel := context.WithTimeout(ctx, recordEventTimeout)
+	defer cancel()
 
 	if err := op.Validate(); err != nil {
 		return fmt.Errorf("bad record op: %w", err)

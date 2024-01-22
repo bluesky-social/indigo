@@ -35,6 +35,9 @@ func DefaultRules() automod.RuleSet {
 		IdentityRules: []automod.IdentityRuleFunc{
 			NewAccountRule,
 		},
+		BlobRules: []automod.BlobRuleFunc{
+			//BlobVerifyRule,
+		},
 	}
 	return rules
 }
