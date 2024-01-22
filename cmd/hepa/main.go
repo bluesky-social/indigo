@@ -93,6 +93,26 @@ func run(args []string) error {
 			Usage:   "file path of JSON file containing static sets",
 			EnvVars: []string{"HEPA_SETS_JSON_PATH"},
 		},
+		&cli.StringFlag{
+			Name:    "hiveai-api-token",
+			Usage:   "API token for Hive AI image auto-labeling",
+			EnvVars: []string{"HIVEAI_API_TOKEN"},
+		},
+		&cli.StringFlag{
+			Name:    "abyss-host",
+			Usage:   "host for abusive image scanning API (scheme, host, port)",
+			EnvVars: []string{"ABYSS_HOST"},
+		},
+		&cli.StringFlag{
+			Name:    "abyss-password",
+			Usage:   "admin auth password for abyss API",
+			EnvVars: []string{"ABYSS_PASSWORD"},
+		},
+		&cli.StringFlag{
+			Name:    "ruleset",
+			Usage:   "which ruleset config to use: default, no-blobs, only-blobs",
+			EnvVars: []string{"HEPA_RULESET"},
+		},
 	}
 
 	app.Commands = []*cli.Command{
@@ -173,6 +193,10 @@ var runCmd = &cli.Command{
 				SetsFileJSON:    cctx.String("sets-json-path"),
 				RedisURL:        cctx.String("redis-url"),
 				SlackWebhookURL: cctx.String("slack-webhook-url"),
+				HiveAPIToken:    cctx.String("hiveai-api-token"),
+				AbyssHost:       cctx.String("abyss-host"),
+				AbyssPassword:   cctx.String("abyss-password"),
+				RulesetName:     cctx.String("ruleset"),
 			},
 		)
 		if err != nil {
@@ -234,6 +258,10 @@ func configEphemeralServer(cctx *cli.Context) (*Server, error) {
 			ModPassword:   cctx.String("mod-password"),
 			SetsFileJSON:  cctx.String("sets-json-path"),
 			RedisURL:      cctx.String("redis-url"),
+			HiveAPIToken:  cctx.String("hiveai-api-token"),
+			AbyssHost:     cctx.String("abyss-host"),
+			AbyssPassword: cctx.String("abyss-password"),
+			RulesetName:   cctx.String("ruleset"),
 		},
 	)
 }

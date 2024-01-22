@@ -17,6 +17,7 @@ import (
 	"github.com/bluesky-social/indigo/automod/flagstore"
 	"github.com/bluesky-social/indigo/automod/rules"
 	"github.com/bluesky-social/indigo/automod/setstore"
+	"github.com/bluesky-social/indigo/automod/visual"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -42,6 +43,10 @@ type Config struct {
 	SetsFileJSON    string
 	RedisURL        string
 	SlackWebhookURL string
+	HiveAPIToken    string
+	AbyssHost       string
+	AbyssPassword   string
+	RulesetName     string
 	Logger          *slog.Logger
 }
 
@@ -130,6 +135,33 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		flags = flagstore.NewMemFlagStore()
 	}
 
+	extraBlobRules := []automod.BlobRuleFunc{}
+	if config.HiveAPIToken != "" {
+		logger.Info("configuring Hive AI image labeler")
+		hc := visual.NewHiveAIClient(config.HiveAPIToken)
+		extraBlobRules = append(extraBlobRules, hc.HiveLabelBlobRule)
+	}
+
+	if config.AbyssHost != "" && config.AbyssPassword != "" {
+		logger.Info("configuring abyss abusive image scanning")
+		ac := visual.NewAbyssClient(config.AbyssHost, config.AbyssPassword)
+		extraBlobRules = append(extraBlobRules, ac.AbyssScanBlobRule)
+	}
+
+	var ruleset automod.RuleSet
+	switch config.RulesetName {
+	case "", "default":
+		ruleset = rules.DefaultRules()
+		ruleset.BlobRules = append(ruleset.BlobRules, extraBlobRules...)
+	case "no-blobs":
+		ruleset = rules.DefaultRules()
+		ruleset.BlobRules = []automod.BlobRuleFunc{}
+	case "only-blobs":
+		ruleset.BlobRules = extraBlobRules
+	default:
+		return nil, fmt.Errorf("unknown ruleset config: %s", config.RulesetName)
+	}
+
 	engine := automod.Engine{
 		Logger:      logger,
 		Directory:   dir,
@@ -137,7 +169,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		Sets:        sets,
 		Flags:       flags,
 		Cache:       cache,
-		Rules:       rules.DefaultRules(),
+		Rules:       ruleset,
 		AdminClient: xrpcc,
 		BskyClient: &xrpc.Client{
 			Client: util.RobustHTTPClient(),

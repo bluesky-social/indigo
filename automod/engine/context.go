@@ -182,3 +182,7 @@ func (c *RecordContext) ReportRecord(reason, comment string) {
 func (c *RecordContext) TakedownRecord() {
 	c.effects.TakedownRecord()
 }
+
+func (c *RecordContext) TakedownBlob(cid string) {
+	c.effects.TakedownBlob(cid)
+}
