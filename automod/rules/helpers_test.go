@@ -3,6 +3,7 @@ package rules
 import (
 	"testing"
 
+	"github.com/bluesky-social/indigo/automod/keyword"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,7 +29,7 @@ func TestTokenizeText(t *testing.T) {
 	}
 
 	for _, fix := range fixtures {
-		assert.Equal(fix.out, ExtractTextTokens(fix.s))
+		assert.Equal(fix.out, keyword.TokenizeText(fix.s))
 	}
 }
 
