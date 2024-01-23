@@ -48,7 +48,7 @@ func TestAccountReportDedupe(t *testing.T) {
 		assert.NoError(eng.ProcessRecordOp(ctx, op))
 	}
 
-	reports, err := eng.GetCount("automod-quota", "report", countstore.PeriodDay)
+	reports, err := eng.Counters.GetCount(ctx, "automod-quota", "report", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(1, reports)
 }
