@@ -9,7 +9,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// The primary interface exposed to rules.
+// The primary interface exposed to rules. All other contexts derive from this "base" struct.
 type BaseContext struct {
 	// Actual golang "context.Context", if needed for timeouts etc
 	Ctx context.Context
@@ -22,24 +22,19 @@ type BaseContext struct {
 	effects Effects
 }
 
+// Both a useful context on it's own (eg, for identity events), and extended by other context types.
 type AccountContext struct {
 	BaseContext
 
 	Account AccountMeta
 }
 
+// Represents a repository operation on a single record: create, update, delete, etc.
 type RecordContext struct {
 	AccountContext
 
 	RecordOp RecordOp
 	// TODO: could consider adding commit-level metadata here. probably nullable if so, commit-level metadata isn't always available. might be best to do a separate event/context type for that
-}
-
-type NotificationContext struct {
-	AccountContext
-
-	Recipient AccountMeta
-	// TODO: more context about the notification? "Reason", "Subject"
 }
 
 var (
@@ -59,6 +54,20 @@ type RecordOp struct {
 	CID        *syntax.CID
 	// NOTE: usually a *pointer*, not the value itself
 	Value any
+}
+
+// Originally intended for push notifications, but can also work for any inter-account notification.
+type NotificationContext struct {
+	AccountContext
+
+	Recipient    AccountMeta
+	Notification NotificationMeta
+	// TODO: more context about the notification? "Reason", "Subject"
+}
+
+type NotificationMeta struct {
+	Reason  string
+	Subject syntax.ATURI
 }
 
 // Checks that op has expected fields, based on the action type
@@ -145,11 +154,15 @@ func NewRecordContext(ctx context.Context, eng *Engine, meta AccountMeta, op Rec
 	}
 }
 
-func NewNotificationContext(ctx context.Context, eng *Engine, sender, recipient AccountMeta) NotificationContext {
+func NewNotificationContext(ctx context.Context, eng *Engine, sender, recipient AccountMeta, reason string, subject syntax.ATURI) NotificationContext {
 	ac := NewAccountContext(ctx, eng, sender)
 	return NotificationContext{
 		AccountContext: ac,
 		Recipient:      recipient,
+		Notification: NotificationMeta{
+			Reason:  reason,
+			Subject: subject,
+		},
 	}
 }
 

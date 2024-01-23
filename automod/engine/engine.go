@@ -137,7 +137,7 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 }
 
 // returns a boolean indicating "block the event"
-func (eng *Engine) ProcessNotificationEvent(ctx context.Context, senderDID, recipientDID syntax.DID) (bool, error) {
+func (eng *Engine) ProcessNotificationEvent(ctx context.Context, senderDID, recipientDID syntax.DID, reason string, subject syntax.ATURI) (bool, error) {
 	// similar to an HTTP server, we want to recover any panics from rule execution
 	defer func() {
 		if r := recover(); r != nil {
@@ -172,7 +172,7 @@ func (eng *Engine) ProcessNotificationEvent(ctx context.Context, senderDID, reci
 		return false, err
 	}
 
-	nc := NewNotificationContext(ctx, eng, *senderMeta, *recipientMeta)
+	nc := NewNotificationContext(ctx, eng, *senderMeta, *recipientMeta, reason, subject)
 	if err := eng.Rules.CallNotificationRules(&nc); err != nil {
 		return false, err
 	}
