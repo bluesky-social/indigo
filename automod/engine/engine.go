@@ -39,6 +39,9 @@ type Engine struct {
 	SlackWebhookURL string
 }
 
+// Entrypoint for external code pushing arbitrary identity events in to the engine.
+//
+// This method can be called concurrently, though cached state may end up inconsistent if multiple events for the same account (DID) are processed in parallel.
 func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syntax.DID) error {
 	// similar to an HTTP server, we want to recover any panics from rule execution
 	defer func() {
@@ -76,6 +79,9 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syn
 	return nil
 }
 
+// Entrypoint for external code pushing repository updates. A simple repo commit results in multiple calls.
+//
+// This method can be called concurrently, though cached state may end up inconsistent if multiple events for the same account (DID) are processed in parallel.
 func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 	// similar to an HTTP server, we want to recover any panics from rule execution
 	defer func() {
@@ -129,20 +135,7 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 	return nil
 }
 
-func (e *Engine) GetCount(name, val, period string) (int, error) {
-	return e.Counters.GetCount(context.TODO(), name, val, period)
-}
-
-func (e *Engine) GetCountDistinct(name, bucket, period string) (int, error) {
-	return e.Counters.GetCountDistinct(context.TODO(), name, bucket, period)
-}
-
-// checks if `val` is an element of set `name`
-func (e *Engine) InSet(name, val string) (bool, error) {
-	return e.Sets.InSet(context.TODO(), name, val)
-}
-
-// purge caches of any exiting metadata
+// Purge metadata caches for a specific account.
 func (e *Engine) PurgeAccountCaches(ctx context.Context, did syntax.DID) error {
 	e.Directory.Purge(ctx, did.AtIdentifier())
 	return e.Cache.Purge(ctx, "acct", did.String())

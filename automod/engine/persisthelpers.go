@@ -56,7 +56,7 @@ func (eng *Engine) dedupeReportActions(ctx context.Context, did syntax.DID, repo
 	newReports := []ModReport{}
 	for _, r := range reports {
 		counterName := "automod-account-report-" + ReasonShortName(r.ReasonType)
-		existing, err := eng.GetCount(counterName, did.String(), countstore.PeriodDay)
+		existing, err := eng.Counters.GetCount(ctx, counterName, did.String(), countstore.PeriodDay)
 		if err != nil {
 			return nil, fmt.Errorf("checking report de-dupe counts: %w", err)
 		}
@@ -77,7 +77,7 @@ func (eng *Engine) circuitBreakReports(ctx context.Context, reports []ModReport)
 	if len(reports) == 0 {
 		return []ModReport{}, nil
 	}
-	c, err := eng.GetCount("automod-quota", "report", countstore.PeriodDay)
+	c, err := eng.Counters.GetCount(ctx, "automod-quota", "report", countstore.PeriodDay)
 	if err != nil {
 		return nil, fmt.Errorf("checking report action quota: %w", err)
 	}
@@ -96,7 +96,7 @@ func (eng *Engine) circuitBreakTakedown(ctx context.Context, takedown bool) (boo
 	if !takedown {
 		return false, nil
 	}
-	c, err := eng.GetCount("automod-quota", "takedown", countstore.PeriodDay)
+	c, err := eng.Counters.GetCount(ctx, "automod-quota", "takedown", countstore.PeriodDay)
 	if err != nil {
 		return false, fmt.Errorf("checking takedown action quota: %w", err)
 	}
