@@ -176,8 +176,7 @@ func (eng *Engine) ProcessNotificationEvent(ctx context.Context, senderDID, reci
 	if err := eng.Rules.CallNotificationRules(&nc); err != nil {
 		return false, err
 	}
-	// TODO:
-	eng.CanonicalLogLineAccount(&nc.AccountContext)
+	eng.CanonicalLogLineNotification(&nc)
 	return nc.effects.RejectEvent, nil
 }
 
@@ -206,6 +205,16 @@ func (e *Engine) CanonicalLogLineRecord(c *RecordContext) {
 		"recordFlags", c.effects.RecordFlags,
 		"recordTakedown", c.effects.RecordTakedown,
 		"recordReports", len(c.effects.RecordReports),
+	)
+}
+
+func (e *Engine) CanonicalLogLineNotification(c *NotificationContext) {
+	c.Logger.Info("canonical-event-line",
+		"accountLabels", c.effects.AccountLabels,
+		"accountFlags", c.effects.AccountFlags,
+		"accountTakedown", c.effects.AccountTakedown,
+		"accountReports", len(c.effects.AccountReports),
+		"reject", c.effects.RejectEvent,
 	)
 }
 

@@ -62,7 +62,6 @@ type NotificationContext struct {
 
 	Recipient    AccountMeta
 	Notification NotificationMeta
-	// TODO: more context about the notification? "Reason", "Subject"
 }
 
 type NotificationMeta struct {
@@ -156,6 +155,7 @@ func NewRecordContext(ctx context.Context, eng *Engine, meta AccountMeta, op Rec
 
 func NewNotificationContext(ctx context.Context, eng *Engine, sender, recipient AccountMeta, reason string, subject syntax.ATURI) NotificationContext {
 	ac := NewAccountContext(ctx, eng, sender)
+	ac.BaseContext.Logger = ac.BaseContext.Logger.With("recipient", recipient.Identity.DID, "reason", reason, "subject", subject.String())
 	return NotificationContext{
 		AccountContext: ac,
 		Recipient:      recipient,
