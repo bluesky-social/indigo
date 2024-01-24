@@ -46,15 +46,15 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	// don't report the same account multiple times on the same day for the same reason. this is a quick check; we also query the mod service API just before creating the report.
 	partialReports, err := eng.dedupeReportActions(ctx, c.Account.Identity.DID, c.effects.AccountReports)
 	if err != nil {
-		return err
+		return fmt.Errorf("de-duplicating reports: %w", err)
 	}
 	newReports, err := eng.circuitBreakReports(ctx, partialReports)
 	if err != nil {
-		return err
+		return fmt.Errorf("circuit-breaking reports: %w", err)
 	}
 	newTakedown, err := eng.circuitBreakTakedown(ctx, c.effects.AccountTakedown && !c.Account.Takendown)
 	if err != nil {
-		return err
+		return fmt.Errorf("circuit-breaking takedowns: %w", err)
 	}
 
 	anyModActions := newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0
@@ -72,6 +72,9 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 
 	// if we can't actually talk to service, bail out early
 	if eng.AdminClient == nil {
+		if anyModActions {
+			c.Logger.Warn("not persisting actions, mod service client not configured")
+		}
 		return nil
 	}
 
@@ -96,7 +99,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 			},
 		})
 		if err != nil {
-			return err
+			c.Logger.Error("failed to create account labels", "err", err)
 		}
 	}
 
@@ -105,7 +108,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	for _, mr := range newReports {
 		created, err := eng.createReportIfFresh(ctx, xrpcc, c.Account.Identity.DID, mr)
 		if err != nil {
-			return err
+			c.Logger.Error("failed to create account report", "err", err)
 		}
 		if created {
 			createdReports = true
@@ -129,7 +132,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 			},
 		})
 		if err != nil {
-			return err
+			c.Logger.Error("failed to execute account takedown", "err", err)
 		}
 	}
 
@@ -155,11 +158,11 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	newFlags := dedupeStrings(c.effects.RecordFlags)
 	newReports, err := eng.circuitBreakReports(ctx, c.effects.RecordReports)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to circuit break reports: %w", err)
 	}
 	newTakedown, err := eng.circuitBreakTakedown(ctx, c.effects.RecordTakedown)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to circuit break takedowns: %w", err)
 	}
 	atURI := fmt.Sprintf("at://%s/%s/%s", c.Account.Identity.DID, c.RecordOp.Collection, c.RecordOp.RecordKey)
 
@@ -184,6 +187,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 
 	if eng.AdminClient == nil {
+		c.Logger.Warn("not persisting actions because mod service client not configured")
 		return nil
 	}
 
@@ -215,7 +219,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			},
 		})
 		if err != nil {
-			return err
+			c.Logger.Error("failed to create record label", "err", err)
 		}
 	}
 
@@ -229,7 +233,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			},
 		})
 		if err != nil {
-			return err
+			c.Logger.Error("failed to create record report", "err", err)
 		}
 	}
 	if newTakedown {
@@ -248,7 +252,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			SubjectBlobCids: dedupeStrings(c.effects.BlobTakedowns),
 		})
 		if err != nil {
-			return err
+			c.Logger.Error("failed to execute record takedown", "err", err)
 		}
 	}
 	return nil
