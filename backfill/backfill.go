@@ -157,9 +157,7 @@ func (b *Backfiller) Start() {
 		select {
 		case stopped := <-b.stop:
 			log.Info("stopping backfill processor")
-			for i := 0; i < b.ParallelBackfills; i++ {
-				sem <- struct{}{}
-			}
+			sem.Acquire(ctx, int64(b.ParallelBackfills))
 			close(stopped)
 			return
 		default:
