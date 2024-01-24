@@ -57,11 +57,11 @@ func TestTakedownCircuitBreaker(t *testing.T) {
 		assert.NoError(eng.ProcessRecordOp(ctx, op))
 	}
 
-	takedowns, err := eng.GetCount("automod-quota", "takedown", countstore.PeriodDay)
+	takedowns, err := eng.Counters.GetCount(ctx, "automod-quota", "takedown", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(QuotaModTakedownDay, takedowns)
 
-	reports, err := eng.GetCount("automod-quota", "report", countstore.PeriodDay)
+	reports, err := eng.Counters.GetCount(ctx, "automod-quota", "report", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(0, reports)
 }
@@ -99,11 +99,11 @@ func TestReportCircuitBreaker(t *testing.T) {
 		assert.NoError(eng.ProcessRecordOp(ctx, op))
 	}
 
-	takedowns, err := eng.GetCount("automod-quota", "takedown", countstore.PeriodDay)
+	takedowns, err := eng.Counters.GetCount(ctx, "automod-quota", "takedown", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(0, takedowns)
 
-	reports, err := eng.GetCount("automod-quota", "report", countstore.PeriodDay)
+	reports, err := eng.Counters.GetCount(ctx, "automod-quota", "report", countstore.PeriodDay)
 	assert.NoError(err)
 	assert.Equal(QuotaModReportDay, reports)
 }
