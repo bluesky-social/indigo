@@ -38,6 +38,9 @@ func DefaultRules() automod.RuleSet {
 		BlobRules: []automod.BlobRuleFunc{
 			//BlobVerifyRule,
 		},
+		NotificationRules: []automod.NotificationRuleFunc{
+			// none
+		},
 	}
 	return rules
 }

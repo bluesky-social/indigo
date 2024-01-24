@@ -9,7 +9,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// The primary interface exposed to rules.
+// The primary interface exposed to rules. All other contexts derive from this "base" struct.
 type BaseContext struct {
 	// Actual golang "context.Context", if needed for timeouts etc
 	Ctx context.Context
@@ -22,12 +22,14 @@ type BaseContext struct {
 	effects Effects
 }
 
+// Both a useful context on it's own (eg, for identity events), and extended by other context types.
 type AccountContext struct {
 	BaseContext
 
 	Account AccountMeta
 }
 
+// Represents a repository operation on a single record: create, update, delete, etc.
 type RecordContext struct {
 	AccountContext
 
@@ -52,6 +54,22 @@ type RecordOp struct {
 	CID        *syntax.CID
 	// NOTE: usually a *pointer*, not the value itself
 	Value any
+}
+
+// Originally intended for push notifications, but can also work for any inter-account notification.
+type NotificationContext struct {
+	AccountContext
+
+	Recipient    AccountMeta
+	Notification NotificationMeta
+}
+
+// Additional notification metadata, with fields aligning with the `app.bsky.notification.listNotifications` Lexicon schemas
+type NotificationMeta struct {
+	// Expected values are 'like', 'repost', 'follow', 'mention', 'reply', and 'quote'; arbitrary values may be added in the future.
+	Reason string
+	// The content (atproto record) which was the cause of this notification. Could be a post with a mention, or a like, follow, or repost record.
+	Subject syntax.ATURI
 }
 
 // Checks that op has expected fields, based on the action type
@@ -138,6 +156,19 @@ func NewRecordContext(ctx context.Context, eng *Engine, meta AccountMeta, op Rec
 	}
 }
 
+func NewNotificationContext(ctx context.Context, eng *Engine, sender, recipient AccountMeta, reason string, subject syntax.ATURI) NotificationContext {
+	ac := NewAccountContext(ctx, eng, sender)
+	ac.BaseContext.Logger = ac.BaseContext.Logger.With("recipient", recipient.Identity.DID, "reason", reason, "subject", subject.String())
+	return NotificationContext{
+		AccountContext: ac,
+		Recipient:      recipient,
+		Notification: NotificationMeta{
+			Reason:  reason,
+			Subject: subject,
+		},
+	}
+}
+
 // update effects (indirect)
 func (c *BaseContext) Increment(name, val string) {
 	c.effects.Increment(name, val)
@@ -185,4 +216,8 @@ func (c *RecordContext) TakedownRecord() {
 
 func (c *RecordContext) TakedownBlob(cid string) {
 	c.effects.TakedownBlob(cid)
+}
+
+func (c *NotificationContext) Reject() {
+	c.effects.Reject()
 }
