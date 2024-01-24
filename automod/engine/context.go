@@ -64,8 +64,11 @@ type NotificationContext struct {
 	Notification NotificationMeta
 }
 
+// Additional notification metadata, with fields aligning with the `app.bsky.notification.listNotifications` Lexicon schemas
 type NotificationMeta struct {
-	Reason  string
+	// Expected values are 'like', 'repost', 'follow', 'mention', 'reply', and 'quote'; arbitrary values may be added in the future.
+	Reason string
+	// The content (atproto record) which was the cause of this notification. Could be a post with a mention, or a like, follow, or repost record.
 	Subject syntax.ATURI
 }
 
