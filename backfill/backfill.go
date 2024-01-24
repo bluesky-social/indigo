@@ -140,7 +140,7 @@ func NewBackfiller(
 		NSIDFilter:            opts.NSIDFilter,
 		syncLimiter:           rate.NewLimiter(rate.Limit(opts.SyncRequestsPerSecond), 1),
 		CheckoutPath:          opts.CheckoutPath,
-		stop:                  make(chan chan struct{}),
+		stop:                  make(chan chan struct{}, 1),
 	}
 }
 
@@ -157,6 +157,7 @@ func (b *Backfiller) Start() {
 		select {
 		case stopped := <-b.stop:
 			log.Info("stopping backfill processor")
+			sem.Acquire(ctx, int64(b.ParallelBackfills))
 			close(stopped)
 			return
 		default:
@@ -207,13 +208,18 @@ func (b *Backfiller) Start() {
 }
 
 // Stop stops the backfill processor
-func (b *Backfiller) Stop() {
+func (b *Backfiller) Stop(ctx context.Context) error {
 	log := slog.With("source", "backfiller", "name", b.Name)
 	log.Info("stopping backfill processor")
 	stopped := make(chan struct{})
 	b.stop <- stopped
-	<-stopped
-	log.Info("backfill processor stopped")
+	select {
+	case <-stopped:
+		log.Info("backfill processor stopped")
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // FlushBuffer processes buffered operations for a job
