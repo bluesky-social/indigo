@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -216,12 +215,4 @@ func (e *Engine) CanonicalLogLineNotification(c *NotificationContext) {
 		"accountReports", len(c.effects.AccountReports),
 		"reject", c.effects.RejectEvent,
 	)
-}
-
-func splitRepoPath(path string) (string, string, error) {
-	parts := strings.SplitN(path, "/", 3)
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("invalid record path: %s", path)
-	}
-	return parts[0], parts[1], nil
 }
