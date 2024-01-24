@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"io"
 	"os"
 	"path/filepath"
@@ -583,17 +582,6 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 	pf("}\n\n")
 
 	return nil
-}
-
-func doTemplate(w io.Writer, info interface{}, templ string) error {
-	t := template.Must(template.New("").
-		Funcs(template.FuncMap{
-			"TODO": func(thing string) string {
-				return "//TODO: " + thing
-			},
-		}).Parse(templ))
-
-	return t.Execute(w, info)
 }
 
 func CreateHandlerStub(pkg string, impmap map[string]string, dir string, schemas []*Schema, handlers bool) error {
@@ -1352,24 +1340,6 @@ func (ts *TypeSchema) writeTypeMethods(name string, w io.Writer) error {
 	}
 }
 
-func forEachProp(t TypeSchema, cb func(k string, ts TypeSchema) error) error {
-	var keys []string
-	for k := range t.Properties {
-		keys = append(keys, k)
-	}
-
-	sort.Strings(keys)
-
-	for _, k := range keys {
-		subv := t.Properties[k]
-
-		if err := cb(k, *subv); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (ts *TypeSchema) writeJsonMarshalerObject(name string, w io.Writer) error {
 	return nil // no need for a special json marshaler right now
 }
@@ -1397,20 +1367,6 @@ func (s *TypeSchema) writeJsonUnmarshalerObject(name string, w io.Writer) error 
 	// TODO: would be nice to add some validation...
 	return nil
 	//pf("func (t *%s) UnmarshalJSON(b []byte) (error) {\n", name)
-}
-
-func (ts *TypeSchema) getTypeConstValueForType(ref string) (any, error) {
-	rr, err := ts.lookupRef(ref)
-	if err != nil {
-		return nil, err
-	}
-
-	reft, ok := rr.Properties["type"]
-	if !ok {
-		return nil, nil
-	}
-
-	return reft.Const, nil
 }
 
 func (ts *TypeSchema) writeJsonUnmarshalerEnum(name string, w io.Writer) error {
