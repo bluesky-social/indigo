@@ -16,6 +16,7 @@ type RuleSet struct {
 	RecordDeleteRules []RecordRuleFunc
 	IdentityRules     []IdentityRuleFunc
 	BlobRules         []BlobRuleFunc
+	NotificationRules []NotificationRuleFunc
 }
 
 // Executes all the various record-related rules. Only dispatches execution, does no other de-dupe or pre/post processing.
@@ -78,6 +79,16 @@ func (r *RuleSet) CallRecordDeleteRules(c *RecordContext) error {
 // Executes rules for identity update events.
 func (r *RuleSet) CallIdentityRules(c *AccountContext) error {
 	for _, f := range r.IdentityRules {
+		err := f(c)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *RuleSet) CallNotificationRules(c *NotificationContext) error {
+	for _, f := range r.NotificationRules {
 		err := f(c)
 		if err != nil {
 			return err
