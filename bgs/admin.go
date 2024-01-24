@@ -17,10 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-func (bgs *BGS) handleAdminBlockRepoStream(e echo.Context) error {
-	panic("TODO")
-}
-
 func (bgs *BGS) handleAdminSetSubsEnabled(e echo.Context) error {
 	enabled, err := strconv.ParseBool(e.QueryParam("enabled"))
 	if err != nil {
