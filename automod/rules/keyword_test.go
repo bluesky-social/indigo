@@ -81,7 +81,7 @@ func TestBadWordPostRule(t *testing.T) {
 	c1 := engine.NewRecordContext(ctx, &eng, am1, op)
 	assert.NoError(BadWordRecordKeyRule(&c1))
 	eff1 := engine.ExtractEffects(&c1.BaseContext)
-	assert.Equal([]string{"bad-word-record-key"}, eff1.RecordFlags)
+	assert.Equal([]string{"bad-word-recordkey"}, eff1.RecordFlags)
 
 	// token in body
 	p2 := appbsky.FeedPost{
@@ -98,5 +98,5 @@ func TestBadWordPostRule(t *testing.T) {
 	c2 := engine.NewRecordContext(ctx, &eng, am1, op2)
 	assert.NoError(BadWordPostRule(&c2, &p2))
 	eff2 := engine.ExtractEffects(&c2.BaseContext)
-	assert.Equal([]string{"bad-word"}, eff2.RecordFlags)
+	assert.Equal([]string{"bad-word-text"}, eff2.RecordFlags)
 }
