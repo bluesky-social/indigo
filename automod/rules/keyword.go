@@ -15,6 +15,13 @@ func BadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 		// used very frequently in a reclaimed context
 		if word != "" && word != "faggot" && word != "tranny" {
 			c.AddRecordFlag("bad-word-text")
+			break
+		}
+		// de-pluralize
+		tok = strings.TrimSuffix(tok, "s")
+		if c.InSet("worst-words", tok) {
+			c.AddRecordFlag("bad-word-text")
+			break
 		}
 	}
 	return nil
@@ -96,7 +103,7 @@ func BadWordOtherRecordRule(c *automod.RecordContext) error {
 		tokens := keyword.TokenizeText(name)
 		for _, tok := range tokens {
 			if c.InSet("bad-words", tok) {
-				c.AddRecordFlag("bad-word-text")
+				c.AddRecordFlag("bad-word-name")
 				break
 			}
 		}

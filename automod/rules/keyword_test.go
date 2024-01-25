@@ -74,7 +74,7 @@ func TestBadWordPostRule(t *testing.T) {
 		Action:     engine.CreateOp,
 		DID:        am1.Identity.DID,
 		Collection: syntax.NSID("app.bsky.feed.post"),
-		RecordKey:  syntax.RecordKey("fagg0t123"),
+		RecordKey:  syntax.RecordKey("fagg0t"),
 		CID:        &cid1,
 		Value:      p1,
 	}
