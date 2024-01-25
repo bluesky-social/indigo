@@ -278,7 +278,7 @@ func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatprot
 
 	var prev *models.DbCID
 	if evt.Prev != nil && evt.Prev.Defined() {
-		prev = &models.DbCID{cid.Cid(*evt.Prev)}
+		prev = &models.DbCID{CID: cid.Cid(*evt.Prev)}
 	}
 
 	var blobs []byte
@@ -296,7 +296,7 @@ func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatprot
 	}
 
 	rer := RepoEventRecord{
-		Commit: &models.DbCID{cid.Cid(evt.Commit)},
+		Commit: &models.DbCID{CID: cid.Cid(evt.Commit)},
 		Prev:   prev,
 		Repo:   uid,
 		Type:   "repo_append", // TODO: refactor to "#commit"? can "rebase" come through this path?

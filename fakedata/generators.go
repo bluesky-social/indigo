@@ -115,7 +115,7 @@ func GenProfile(xrpcc *xrpc.Client, acc *AccountContext, genAvatar, genBanner bo
 		Repo:       acc.Auth.Did,
 		Collection: "app.bsky.actor.profile",
 		Rkey:       "self",
-		Record: &lexutil.LexiconTypeDecoder{&appbsky.ActorProfile{
+		Record: &lexutil.LexiconTypeDecoder{Val: &appbsky.ActorProfile{
 			Description: &desc,
 			DisplayName: &name,
 			Avatar:      avatar,
@@ -201,7 +201,7 @@ func GenPosts(xrpcc *xrpc.Client, catalog *AccountCatalog, acc *AccountContext, 
 		if _, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.feed.post",
 			Repo:       acc.Auth.Did,
-			Record:     &lexutil.LexiconTypeDecoder{&post},
+			Record:     &lexutil.LexiconTypeDecoder{Val: &post},
 		}); err != nil {
 			return err
 		}
@@ -218,7 +218,7 @@ func CreateFollow(xrpcc *xrpc.Client, tgt *AccountContext) error {
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.graph.follow",
 		Repo:       xrpcc.Auth.Did,
-		Record:     &lexutil.LexiconTypeDecoder{follow},
+		Record:     &lexutil.LexiconTypeDecoder{Val: follow},
 	})
 	return err
 }
@@ -236,7 +236,7 @@ func CreateLike(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) err
 	_, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.like",
 		Repo:       xrpcc.Auth.Did,
-		Record:     &lexutil.LexiconTypeDecoder{&like},
+		Record:     &lexutil.LexiconTypeDecoder{Val: &like},
 	})
 	return err
 }
@@ -252,7 +252,7 @@ func CreateRepost(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) e
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.repost",
 		Repo:       xrpcc.Auth.Did,
-		Record:     &lexutil.LexiconTypeDecoder{repost},
+		Record:     &lexutil.LexiconTypeDecoder{Val: repost},
 	})
 	return err
 }
@@ -284,7 +284,7 @@ func CreateReply(xrpcc *xrpc.Client, viewPost *appbsky.FeedDefs_FeedViewPost) er
 	_, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.post",
 		Repo:       xrpcc.Auth.Did,
-		Record:     &lexutil.LexiconTypeDecoder{replyPost},
+		Record:     &lexutil.LexiconTypeDecoder{Val: replyPost},
 	})
 	return err
 }
