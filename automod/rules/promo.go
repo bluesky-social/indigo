@@ -57,6 +57,7 @@ func AggressivePromotionRule(c *automod.RecordContext, post *appbsky.FeedPost) e
 	uniqueReplies := c.GetCountDistinct("reply-to", did, countstore.PeriodDay)
 	if uniqueReplies >= 5 {
 		c.AddAccountFlag("promo-multi-reply")
+		c.Notify("slack")
 	}
 
 	return nil

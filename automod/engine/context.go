@@ -19,7 +19,7 @@ type BaseContext struct {
 	Logger *slog.Logger
 
 	engine  *Engine // NOTE: pointer, but expected never to be nil
-	effects Effects
+	effects *Effects
 }
 
 // Both a useful context on it's own (eg, for identity events), and extended by other context types.
@@ -141,7 +141,7 @@ func NewAccountContext(ctx context.Context, eng *Engine, meta AccountMeta) Accou
 			Err:     nil,
 			Logger:  eng.Logger.With("did", meta.Identity.DID),
 			engine:  eng,
-			effects: Effects{},
+			effects: &Effects{},
 		},
 		Account: meta,
 	}
@@ -180,6 +180,10 @@ func (c *BaseContext) IncrementDistinct(name, bucket, val string) {
 
 func (c *BaseContext) IncrementPeriod(name, val string, period string) {
 	c.effects.IncrementPeriod(name, val, period)
+}
+
+func (c *BaseContext) Notify(srv string) {
+	c.effects.Notify(srv)
 }
 
 func (c *AccountContext) AddAccountFlag(val string) {

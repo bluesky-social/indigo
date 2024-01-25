@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -143,9 +142,10 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 	}
 
 	eng.Logger.Info("reporting account", "reasonType", mr.ReasonType, "comment", mr.Comment)
+	comment := "[automod] " + mr.Comment
 	_, err = comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
 		ReasonType: &mr.ReasonType,
-		Reason:     &mr.Comment,
+		Reason:     &comment,
 		Subject: &comatproto.ModerationCreateReport_Input_Subject{
 			AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
 				Did: did.String(),
@@ -156,27 +156,4 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 		return false, err
 	}
 	return true, nil
-}
-
-func slackBody(header string, acct AccountMeta, newLabels, newFlags []string, newReports []ModReport, newTakedown bool) string {
-	msg := header
-	msg += fmt.Sprintf("`%s` / `%s` / <https://bsky.app/profile/%s|bsky> / <https://admin.prod.bsky.dev/repositories/%s|ozone>\n",
-		acct.Identity.DID,
-		acct.Identity.Handle,
-		acct.Identity.DID,
-		acct.Identity.DID,
-	)
-	if len(newLabels) > 0 {
-		msg += fmt.Sprintf("New Labels: `%s`\n", strings.Join(newLabels, ", "))
-	}
-	if len(newFlags) > 0 {
-		msg += fmt.Sprintf("New Flags: `%s`\n", strings.Join(newFlags, ", "))
-	}
-	for _, rep := range newReports {
-		msg += fmt.Sprintf("Report `%s`: %s\n", rep.ReasonType, rep.Comment)
-	}
-	if newTakedown {
-		msg += fmt.Sprintf("Takedown!\n")
-	}
-	return msg
 }

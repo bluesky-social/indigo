@@ -66,6 +66,6 @@ func EngineTestFixture() Engine {
 }
 
 // Helper to access the private effects field from a context. Intended for use in test code, *not* from rules.
-func ExtractEffects(c *BaseContext) Effects {
+func ExtractEffects(c *BaseContext) *Effects {
 	return c.effects
 }
