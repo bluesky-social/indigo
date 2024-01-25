@@ -140,7 +140,7 @@ func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubsc
 
 		ek := repomgr.EventKind(op.Action)
 		switch ek {
-		case repomgr.EvtKindCreateRecord:
+		case repomgr.EvtKindCreateRecord, repomgr.EvtKindUpdateRecord:
 			// read the record from blocks, and verify CID
 			rc, rec, err := rr.GetRecord(ctx, op.Path)
 			if err != nil {
@@ -151,9 +151,19 @@ func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubsc
 				logger.Error("mismatch between commit op CID and record block", "recordCID", rc, "opCID", op.Cid)
 				break
 			}
+			var action string
+			switch ek {
+			case repomgr.EvtKindCreateRecord:
+				action = automod.CreateOp
+			case repomgr.EvtKindUpdateRecord:
+				action = automod.UpdateOp
+			default:
+				logger.Error("impossible event kind", "kind", ek)
+				break
+			}
 			recCID := syntax.CID(op.Cid.String())
 			err = s.engine.ProcessRecordOp(ctx, automod.RecordOp{
-				Action:     automod.CreateOp,
+				Action:     action,
 				DID:        did,
 				Collection: collection,
 				RecordKey:  rkey,
