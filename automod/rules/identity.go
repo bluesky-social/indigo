@@ -42,6 +42,7 @@ func NewAccountRule(c *automod.AccountContext) error {
 			c.Logger.Info("new PDS instance", "host", pdsHost)
 			c.Increment("host", "new")
 			c.AddAccountFlag("host-first-account")
+			c.Notify("slack")
 		}
 	}
 	return nil
