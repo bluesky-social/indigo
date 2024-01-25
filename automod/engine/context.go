@@ -182,6 +182,10 @@ func (c *BaseContext) IncrementPeriod(name, val string, period string) {
 	c.effects.IncrementPeriod(name, val, period)
 }
 
+func (c *BaseContext) Notify(srv string) {
+	c.effects.Notify(srv)
+}
+
 func (c *AccountContext) AddAccountFlag(val string) {
 	c.effects.AddAccountFlag(val)
 }

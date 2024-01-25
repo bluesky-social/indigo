@@ -58,10 +58,11 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	}
 
 	anyModActions := newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0
-	if anyModActions && eng.SlackWebhookURL != "" {
-		msg := slackBody("⚠️ Automod Account Action ⚠️\n", c.Account, newLabels, newFlags, newReports, newTakedown)
-		if err := eng.SendSlackMsg(ctx, msg); err != nil {
-			c.Logger.Error("sending slack webhook", "err", err)
+	if anyModActions && eng.Notifier != nil {
+		for _, srv := range dedupeStrings(c.effects.NotifyServices) {
+			if err := eng.Notifier.SendAccount(ctx, srv, c); err != nil {
+				c.Logger.Error("failed to deliver notification", "service", srv, "err", err)
+			}
 		}
 	}
 
@@ -167,11 +168,11 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	atURI := fmt.Sprintf("at://%s/%s/%s", c.Account.Identity.DID, c.RecordOp.Collection, c.RecordOp.RecordKey)
 
 	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
-		if eng.SlackWebhookURL != "" {
-			msg := slackBody("⚠️ Automod Record Action ⚠️\n", c.Account, newLabels, newFlags, newReports, newTakedown)
-			msg += fmt.Sprintf("`%s`\n", atURI)
-			if err := eng.SendSlackMsg(ctx, msg); err != nil {
-				c.Logger.Error("sending slack webhook", "err", err)
+		if eng.Notifier != nil {
+			for _, srv := range dedupeStrings(c.effects.NotifyServices) {
+				if err := eng.Notifier.SendRecord(ctx, srv, c); err != nil {
+					c.Logger.Error("failed to deliver notification", "service", srv, "err", err)
+				}
 			}
 		}
 	}
