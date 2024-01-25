@@ -10,7 +10,7 @@ import (
 func BadHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	for _, tag := range ExtractHashtagsPost(post) {
 		tag = NormalizeHashtag(tag)
-		if c.InSet("bad-hashtags", tag) || c.InSet("bad-words", tag) || c.InSet("worst-words", tag) {
+		if c.InSet("bad-hashtags", tag) || c.InSet("bad-words", tag) {
 			c.AddRecordFlag("bad-hashtag")
 			c.Notify("slack")
 			break
