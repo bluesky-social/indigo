@@ -44,7 +44,7 @@ func BadWordProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile)
 	for _, tok := range ExtractTextTokensProfile(profile) {
 		// de-pluralize
 		tok = strings.TrimSuffix(tok, "s")
-		if c.InSet("bad-words", tok) {
+		if c.InSet("worst-words", tok) {
 			c.AddRecordFlag("bad-word")
 			break
 		}
@@ -62,7 +62,7 @@ func ReplySingleBadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost
 			return nil
 		}
 		tok := tokens[0]
-		if c.InSet("worst-words", tok) || c.InSet("bad-words", tok) {
+		if c.InSet("bad-words", tok) {
 			c.AddRecordFlag("reply-single-bad-word")
 			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("single-bad-word reply: %s", tok))
 		}
@@ -156,6 +156,7 @@ func BadWordHandleRule(c *automod.AccountContext) error {
 	word := keyword.SlugContainsExplicitSlur(keyword.Slugify(c.Account.Identity.Handle.String()))
 	if word != "" {
 		c.AddAccountFlag("bad-word-handle")
+		return nil
 	}
 
 	tokens := keyword.TokenizeIdentifier(c.Account.Identity.Handle.String())
