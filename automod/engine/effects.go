@@ -56,6 +56,8 @@ type Effects struct {
 	BlobTakedowns []string
 	// If "true", indicates that a rule indicates that the action causing the event should be blocked or prevented
 	RejectEvent bool
+	// Services, if any, which should blast out a notification about this even (eg, Slack)
+	NotifyServices []string
 }
 
 // Enqueues the named counter to be incremented at the end of all rule processing. Will automatically increment for all time periods.
@@ -183,6 +185,18 @@ func (e *Effects) TakedownBlob(cid string) {
 		}
 	}
 	e.BlobTakedowns = append(e.BlobTakedowns, cid)
+}
+
+// Records that the given service should be notified about this event
+func (e *Effects) Notify(srv string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for _, v := range e.NotifyServices {
+		if v == srv {
+			return
+		}
+	}
+	e.NotifyServices = append(e.NotifyServices, srv)
 }
 
 func (e *Effects) Reject() {
