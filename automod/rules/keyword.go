@@ -10,17 +10,11 @@ import (
 )
 
 func BadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	word := keyword.SlugContainsExplicitSlur(keyword.Slugify(post.Text))
-	if word != "" {
-		c.AddRecordFlag("bad-word-text")
-	}
-
 	for _, tok := range ExtractTextTokensPost(post) {
-		// de-pluralize
-		tok = strings.TrimSuffix(tok, "s")
-		if c.InSet("worst-words", tok) {
+		word := keyword.SlugIsExplicitSlur(tok)
+		// used very frequently in a reclaimed context
+		if word != "" && word != "faggot" && word != "tranny" {
 			c.AddRecordFlag("bad-word-text")
-			break
 		}
 	}
 	return nil
@@ -29,12 +23,6 @@ func BadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 var _ automod.PostRuleFunc = BadWordPostRule
 
 func BadWordProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile) error {
-	if profile.Description != nil {
-		word := keyword.SlugContainsExplicitSlur(keyword.Slugify(*profile.Description))
-		if word != "" {
-			c.AddRecordFlag("bad-word-description")
-		}
-	}
 	if profile.DisplayName != nil {
 		word := keyword.SlugContainsExplicitSlur(keyword.Slugify(*profile.DisplayName))
 		if word != "" {
@@ -62,7 +50,7 @@ func ReplySingleBadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost
 			return nil
 		}
 		tok := tokens[0]
-		if c.InSet("bad-words", tok) {
+		if c.InSet("bad-words", tok) || keyword.SlugIsExplicitSlur(tok) != "" {
 			c.AddRecordFlag("reply-single-bad-word")
 			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("single-bad-word reply: %s", tok))
 		}
@@ -121,6 +109,8 @@ func BadWordOtherRecordRule(c *automod.RecordContext) error {
 		}
 		tokens := keyword.TokenizeText(text)
 		for _, tok := range tokens {
+			// de-pluralize
+			tok = strings.TrimSuffix(tok, "s")
 			if c.InSet("worst-words", tok) {
 				c.AddRecordFlag("bad-word-text")
 				break
@@ -135,7 +125,7 @@ var _ automod.RecordRuleFunc = BadWordOtherRecordRule
 // scans the record-key for all records
 func BadWordRecordKeyRule(c *automod.RecordContext) error {
 	// check record key
-	word := keyword.SlugContainsExplicitSlur(keyword.Slugify(c.RecordOp.RecordKey.String()))
+	word := keyword.SlugIsExplicitSlur(keyword.Slugify(c.RecordOp.RecordKey.String()))
 	if word != "" {
 		c.AddRecordFlag("bad-word-recordkey")
 	}
@@ -173,6 +163,9 @@ func BadWordHandleRule(c *automod.AccountContext) error {
 var _ automod.IdentityRuleFunc = BadWordHandleRule
 
 func BadWordDIDRule(c *automod.AccountContext) error {
+	if c.Account.Identity.DID.Method() == "plc" {
+		return nil
+	}
 	word := keyword.SlugContainsExplicitSlur(keyword.Slugify(c.Account.Identity.DID.String()))
 	if word != "" {
 		c.AddAccountFlag("bad-word-did")
