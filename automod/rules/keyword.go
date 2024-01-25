@@ -15,12 +15,16 @@ func BadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 		// used very frequently in a reclaimed context
 		if word != "" && word != "faggot" && word != "tranny" {
 			c.AddRecordFlag("bad-word-text")
+			// TODO: c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad word in post text: %s", word))
+			c.Notify("slack")
 			break
 		}
 		// de-pluralize
 		tok = strings.TrimSuffix(tok, "s")
 		if c.InSet("worst-words", tok) {
 			c.AddRecordFlag("bad-word-text")
+			// TODO: c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad word in post text: %s", word))
+			c.Notify("slack")
 			break
 		}
 	}
@@ -34,6 +38,8 @@ func BadWordProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile)
 		word := keyword.SlugContainsExplicitSlur(keyword.Slugify(*profile.DisplayName))
 		if word != "" {
 			c.AddRecordFlag("bad-word-name")
+			// TODO: c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad word in display name: %s", word))
+			c.Notify("slack")
 		}
 	}
 	for _, tok := range ExtractTextTokensProfile(profile) {
@@ -41,6 +47,8 @@ func BadWordProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile)
 		tok = strings.TrimSuffix(tok, "s")
 		if c.InSet("worst-words", tok) {
 			c.AddRecordFlag("bad-word-text")
+			// TODO: c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad word in profile description: %s", word))
+			c.Notify("slack")
 			break
 		}
 	}
@@ -59,7 +67,8 @@ func ReplySingleBadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost
 		tok := tokens[0]
 		if c.InSet("bad-words", tok) || keyword.SlugIsExplicitSlur(tok) != "" {
 			c.AddRecordFlag("reply-single-bad-word")
-			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("single-bad-word reply: %s", tok))
+			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad single-word reply: %s", tok))
+			c.Notify("slack")
 		}
 	}
 	return nil
@@ -98,12 +107,16 @@ func BadWordOtherRecordRule(c *automod.RecordContext) error {
 		// check for explicit slurs or bad word tokens
 		word := keyword.SlugContainsExplicitSlur(keyword.Slugify(name))
 		if word != "" {
-			c.AddRecordFlag("bad-world-name")
+			c.AddRecordFlag("bad-word-name")
+			// TODO: c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad word in name: %s", tok))
+			c.Notify("slack")
 		}
 		tokens := keyword.TokenizeText(name)
 		for _, tok := range tokens {
 			if c.InSet("bad-words", tok) {
 				c.AddRecordFlag("bad-word-name")
+				// TODO: c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad word in name: %s", tok))
+				c.Notify("slack")
 				break
 			}
 		}
@@ -113,6 +126,8 @@ func BadWordOtherRecordRule(c *automod.RecordContext) error {
 		word := keyword.SlugContainsExplicitSlur(keyword.Slugify(text))
 		if word != "" {
 			c.AddRecordFlag("bad-word-text")
+			// TODO: c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad word in description: %s", word))
+			c.Notify("slack")
 		}
 		tokens := keyword.TokenizeText(text)
 		for _, tok := range tokens {
@@ -120,6 +135,8 @@ func BadWordOtherRecordRule(c *automod.RecordContext) error {
 			tok = strings.TrimSuffix(tok, "s")
 			if c.InSet("worst-words", tok) {
 				c.AddRecordFlag("bad-word-text")
+				// TODO: c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad word in description: %s", tok))
+				c.Notify("slack")
 				break
 			}
 		}
@@ -135,11 +152,15 @@ func BadWordRecordKeyRule(c *automod.RecordContext) error {
 	word := keyword.SlugIsExplicitSlur(keyword.Slugify(c.RecordOp.RecordKey.String()))
 	if word != "" {
 		c.AddRecordFlag("bad-word-recordkey")
+		// TODO: c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad word in record-key (URL): %s", word))
+		c.Notify("slack")
 	}
 	tokens := keyword.TokenizeIdentifier(c.RecordOp.RecordKey.String())
 	for _, tok := range tokens {
 		if c.InSet("bad-words", tok) {
 			c.AddRecordFlag("bad-word-recordkey")
+			// TODO: c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad word in record-key (URL): %s", tok))
+			c.Notify("slack")
 			break
 		}
 	}
@@ -153,6 +174,8 @@ func BadWordHandleRule(c *automod.AccountContext) error {
 	word := keyword.SlugContainsExplicitSlur(keyword.Slugify(c.Account.Identity.Handle.String()))
 	if word != "" {
 		c.AddAccountFlag("bad-word-handle")
+		// TODO: c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad word in handle (username): %s", word))
+		c.Notify("slack")
 		return nil
 	}
 
@@ -160,6 +183,8 @@ func BadWordHandleRule(c *automod.AccountContext) error {
 	for _, tok := range tokens {
 		if c.InSet("bad-words", tok) {
 			c.AddAccountFlag("bad-word-handle")
+			// TODO: c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad word in handle (username): %s", tok))
+			c.Notify("slack")
 			break
 		}
 	}
@@ -176,6 +201,8 @@ func BadWordDIDRule(c *automod.AccountContext) error {
 	word := keyword.SlugContainsExplicitSlur(keyword.Slugify(c.Account.Identity.DID.String()))
 	if word != "" {
 		c.AddAccountFlag("bad-word-did")
+		// TODO: c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad word in DID (account identifier): %s", word))
+		c.Notify("slack")
 		return nil
 	}
 
@@ -183,6 +210,8 @@ func BadWordDIDRule(c *automod.AccountContext) error {
 	for _, tok := range tokens {
 		if c.InSet("bad-words", tok) {
 			c.AddAccountFlag("bad-word-did")
+			// TODO: c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad word in DID (account identifier): %s", tok))
+			c.Notify("slack")
 			break
 		}
 	}
