@@ -15,6 +15,7 @@ var _ automod.PostRuleFunc = GtubePostRule
 func GtubePostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	if strings.Contains(post.Text, gtubeString) {
 		c.AddRecordLabel("spam")
+		c.Notify("slack")
 	}
 	return nil
 }
@@ -24,6 +25,7 @@ var _ automod.ProfileRuleFunc = GtubeProfileRule
 func GtubeProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile) error {
 	if profile.Description != nil && strings.Contains(*profile.Description, gtubeString) {
 		c.AddRecordLabel("spam")
+		c.Notify("slack")
 	}
 	return nil
 }

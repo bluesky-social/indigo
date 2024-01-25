@@ -65,6 +65,7 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 
 	if c.GetCount("reply-text", bucket, period) >= identicalReplyLimit {
 		c.AddAccountFlag("multi-identical-reply")
+		c.Notify("slack")
 	}
 
 	return nil

@@ -26,18 +26,19 @@ const (
 //
 // NOTE: careful when initializing: several fields must not be nil or zero, even though they are pointer type.
 type Engine struct {
-	Logger      *slog.Logger
-	Directory   identity.Directory
-	Rules       RuleSet
-	Counters    countstore.CountStore
-	Sets        setstore.SetStore
-	Cache       cachestore.CacheStore
-	Flags       flagstore.FlagStore
-	RelayClient *xrpc.Client
-	BskyClient  *xrpc.Client
+	Logger    *slog.Logger
+	Directory identity.Directory
+	Rules     RuleSet
+	Counters  countstore.CountStore
+	Sets      setstore.SetStore
+	Cache     cachestore.CacheStore
+	Flags     flagstore.FlagStore
+	// unlike the other sub-modules, this field (Notifier) may be nil
+	Notifier Notifier
+	// use to fetch public account metadata from AppView
+	BskyClient *xrpc.Client
 	// used to persist moderation actions in mod service (optional)
-	AdminClient     *xrpc.Client
-	SlackWebhookURL string
+	AdminClient *xrpc.Client
 }
 
 // Entrypoint for external code pushing arbitrary identity events in to the engine.
@@ -74,7 +75,7 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syn
 	if err := eng.persistAccountModActions(&ac); err != nil {
 		return fmt.Errorf("failed to persist actions for identity event: %w", err)
 	}
-	if err := eng.persistCounters(ctx, &ac.effects); err != nil {
+	if err := eng.persistCounters(ctx, ac.effects); err != nil {
 		return fmt.Errorf("failed to persist counters for identity event: %w", err)
 	}
 	return nil
@@ -130,7 +131,7 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 	if err := eng.persistRecordModActions(&rc); err != nil {
 		return fmt.Errorf("failed to persist actions for record event: %w", err)
 	}
-	if err := eng.persistCounters(ctx, &rc.effects); err != nil {
+	if err := eng.persistCounters(ctx, rc.effects); err != nil {
 		return fmt.Errorf("failed to persist counts for record event: %w", err)
 	}
 	return nil

@@ -33,6 +33,7 @@ func DistinctMentionsRule(c *automod.RecordContext, post *appbsky.FeedPost) erro
 	}
 	if mentionHourlyThreshold <= c.GetCountDistinct("mentions", did, countstore.PeriodHour) {
 		c.AddAccountFlag("high-distinct-mentions")
+		c.Notify("slack")
 	}
 
 	return nil

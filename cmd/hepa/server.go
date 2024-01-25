@@ -162,6 +162,12 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		return nil, fmt.Errorf("unknown ruleset config: %s", config.RulesetName)
 	}
 
+	var notifier automod.Notifier
+	if config.SlackWebhookURL != "" {
+		notifier = &automod.SlackNotifier{
+			SlackWebhookURL: config.SlackWebhookURL,
+		}
+	}
 	engine := automod.Engine{
 		Logger:      logger,
 		Directory:   dir,
@@ -170,12 +176,12 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		Flags:       flags,
 		Cache:       cache,
 		Rules:       ruleset,
+		Notifier:    notifier,
 		AdminClient: xrpcc,
 		BskyClient: &xrpc.Client{
 			Client: util.RobustHTTPClient(),
 			Host:   config.BskyHost,
 		},
-		SlackWebhookURL: config.SlackWebhookURL,
 	}
 
 	s := &Server{

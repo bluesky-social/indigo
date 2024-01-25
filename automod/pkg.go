@@ -9,6 +9,9 @@ type Engine = engine.Engine
 type AccountMeta = engine.AccountMeta
 type RuleSet = engine.RuleSet
 
+type Notifier = engine.Notifier
+type SlackNotifier = engine.SlackNotifier
+
 type AccountContext = engine.AccountContext
 type RecordContext = engine.RecordContext
 type RecordOp = engine.RecordOp

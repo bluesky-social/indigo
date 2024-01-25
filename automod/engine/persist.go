@@ -58,10 +58,11 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	}
 
 	anyModActions := newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0
-	if anyModActions && eng.SlackWebhookURL != "" {
-		msg := slackBody("⚠️ Automod Account Action ⚠️\n", c.Account, newLabels, newFlags, newReports, newTakedown)
-		if err := eng.SendSlackMsg(ctx, msg); err != nil {
-			c.Logger.Error("sending slack webhook", "err", err)
+	if anyModActions && eng.Notifier != nil {
+		for _, srv := range dedupeStrings(c.effects.NotifyServices) {
+			if err := eng.Notifier.SendAccount(ctx, srv, c); err != nil {
+				c.Logger.Error("failed to deliver notification", "service", srv, "err", err)
+			}
 		}
 	}
 
@@ -82,7 +83,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 
 	if len(newLabels) > 0 {
 		c.Logger.Info("labeling record", "newLabels", newLabels)
-		comment := "automod"
+		comment := "[automod]: auto-labeling account"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
@@ -117,7 +118,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 
 	if newTakedown {
 		c.Logger.Warn("account-takedown")
-		comment := "automod"
+		comment := "[automod]: auto account-takedown"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
@@ -167,11 +168,11 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	atURI := fmt.Sprintf("at://%s/%s/%s", c.Account.Identity.DID, c.RecordOp.Collection, c.RecordOp.RecordKey)
 
 	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
-		if eng.SlackWebhookURL != "" {
-			msg := slackBody("⚠️ Automod Record Action ⚠️\n", c.Account, newLabels, newFlags, newReports, newTakedown)
-			msg += fmt.Sprintf("`%s`\n", atURI)
-			if err := eng.SendSlackMsg(ctx, msg); err != nil {
-				c.Logger.Error("sending slack webhook", "err", err)
+		if eng.Notifier != nil {
+			for _, srv := range dedupeStrings(c.effects.NotifyServices) {
+				if err := eng.Notifier.SendRecord(ctx, srv, c); err != nil {
+					c.Logger.Error("failed to deliver notification", "service", srv, "err", err)
+				}
 			}
 		}
 	}
@@ -204,7 +205,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	xrpcc := eng.AdminClient
 	if len(newLabels) > 0 {
 		c.Logger.Info("labeling record", "newLabels", newLabels)
-		comment := "automod"
+		comment := "[automod]: auto-labeling record"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
@@ -225,9 +226,10 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 
 	for _, mr := range newReports {
 		c.Logger.Info("reporting record", "reasonType", mr.ReasonType, "comment", mr.Comment)
+		comment := "[automod] " + mr.Comment
 		_, err := comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
 			ReasonType: &mr.ReasonType,
-			Reason:     &mr.Comment,
+			Reason:     &comment,
 			Subject: &comatproto.ModerationCreateReport_Input_Subject{
 				RepoStrongRef: &strongRef,
 			},
@@ -238,7 +240,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 	if newTakedown {
 		c.Logger.Warn("record-takedown")
-		comment := "automod"
+		comment := "[automod]: automated record-takedown"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
