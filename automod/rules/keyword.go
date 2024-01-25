@@ -12,14 +12,14 @@ import (
 func BadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	word := keyword.SlugContainsExplicitSlur(keyword.Slugify(post.Text))
 	if word != "" {
-		c.AddRecordFlag("explicit-slur-text")
+		c.AddRecordFlag("bad-word-text")
 	}
 
 	for _, tok := range ExtractTextTokensPost(post) {
 		// de-pluralize
 		tok = strings.TrimSuffix(tok, "s")
 		if c.InSet("worst-words", tok) {
-			c.AddRecordFlag("bad-word")
+			c.AddRecordFlag("bad-word-text")
 			break
 		}
 	}
@@ -32,20 +32,20 @@ func BadWordProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile)
 	if profile.Description != nil {
 		word := keyword.SlugContainsExplicitSlur(keyword.Slugify(*profile.Description))
 		if word != "" {
-			c.AddRecordFlag("explicit-slur-description")
+			c.AddRecordFlag("bad-word-description")
 		}
 	}
 	if profile.DisplayName != nil {
 		word := keyword.SlugContainsExplicitSlur(keyword.Slugify(*profile.DisplayName))
 		if word != "" {
-			c.AddRecordFlag("explicit-slur-name")
+			c.AddRecordFlag("bad-word-name")
 		}
 	}
 	for _, tok := range ExtractTextTokensProfile(profile) {
 		// de-pluralize
 		tok = strings.TrimSuffix(tok, "s")
 		if c.InSet("worst-words", tok) {
-			c.AddRecordFlag("bad-word")
+			c.AddRecordFlag("bad-word-text")
 			break
 		}
 	}
@@ -103,7 +103,7 @@ func BadWordOtherRecordRule(c *automod.RecordContext) error {
 		// check for explicit slurs or bad word tokens
 		word := keyword.SlugContainsExplicitSlur(keyword.Slugify(name))
 		if word != "" {
-			c.AddRecordFlag("explicit-slur-name")
+			c.AddRecordFlag("bad-world-name")
 		}
 		tokens := keyword.TokenizeText(name)
 		for _, tok := range tokens {
@@ -117,7 +117,7 @@ func BadWordOtherRecordRule(c *automod.RecordContext) error {
 		// check for explicit slurs or worst word tokens
 		word := keyword.SlugContainsExplicitSlur(keyword.Slugify(text))
 		if word != "" {
-			c.AddRecordFlag("explicit-slur-text")
+			c.AddRecordFlag("bad-word-text")
 		}
 		tokens := keyword.TokenizeText(text)
 		for _, tok := range tokens {
@@ -137,12 +137,12 @@ func BadWordRecordKeyRule(c *automod.RecordContext) error {
 	// check record key
 	word := keyword.SlugContainsExplicitSlur(keyword.Slugify(c.RecordOp.RecordKey.String()))
 	if word != "" {
-		c.AddRecordFlag("bad-word-record-key")
+		c.AddRecordFlag("bad-word-recordkey")
 	}
 	tokens := keyword.TokenizeIdentifier(c.RecordOp.RecordKey.String())
 	for _, tok := range tokens {
 		if c.InSet("bad-words", tok) {
-			c.AddRecordFlag("bad-word-record-key")
+			c.AddRecordFlag("bad-word-recordkey")
 			break
 		}
 	}
