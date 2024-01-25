@@ -3,7 +3,6 @@ package pds
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -536,15 +535,6 @@ func (s *Server) userCheckMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func (s *Server) handleAuth(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		authstr := c.Request().Header.Get("Authorization")
-		_ = authstr
-
-		return nil
-	}
-}
-
 func (s *Server) getUser(ctx context.Context) (*User, error) {
 	u, ok := ctx.Value("user").(*User)
 	if !ok {
@@ -554,15 +544,6 @@ func (s *Server) getUser(ctx context.Context) (*User, error) {
 	//u.Did = ctx.Value("did").(string)
 
 	return u, nil
-}
-
-func convertRecordTo(from any, to any) error {
-	b, err := json.Marshal(from)
-	if err != nil {
-		return err
-	}
-
-	return json.Unmarshal(b, to)
 }
 
 func validateEmail(email string) error {
