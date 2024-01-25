@@ -35,8 +35,6 @@ type Engine struct {
 	Flags     flagstore.FlagStore
 	// unlike the other sub-modules, this field (Notifier) may be nil
 	Notifier Notifier
-	// TODO: unused; remove?
-	RelayClient *xrpc.Client
 	// use to fetch public account metadata from AppView
 	BskyClient *xrpc.Client
 	// used to persist moderation actions in mod service (optional)
