@@ -40,6 +40,7 @@ func (ac *AbyssClient) AbyssScanBlobRule(c *automod.RecordContext, blob lexutil.
 		c.TakedownRecord()
 		// purge blob as part of record takedown
 		c.TakedownBlob(blob.Ref.String())
+		c.ReportRecord(automod.ReportReasonViolation, "possible CSAM image match; post has been takendown while verifying.\nAccount should be reviewed for any other content")
 	}
 
 	return nil
