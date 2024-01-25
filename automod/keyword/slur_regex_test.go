@@ -10,9 +10,9 @@ func TestSlugContainsExplicitSlur(t *testing.T) {
 	assert := assert.New(t)
 
 	fixtures := []struct {
-		text string
+		text     string
 		contains string
-		is string
+		is       string
 	}{
 		{contains: "", is: "", text: ""},
 		{contains: "", is: "", text: "hello"},
