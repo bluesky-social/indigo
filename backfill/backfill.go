@@ -488,7 +488,10 @@ func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscrib
 	}
 
 	buffered, err := bf.BufferOps(ctx, evt.Repo, evt.Since, evt.Rev, ops)
-	if err != nil && !errors.Is(err, ErrAlreadyProcessed) {
+	if err != nil {
+		if errors.Is(err, ErrAlreadyProcessed) {
+			return nil
+		}
 		return fmt.Errorf("buffer ops failed: %w", err)
 	}
 
