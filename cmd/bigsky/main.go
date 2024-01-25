@@ -313,7 +313,7 @@ func Bigsky(cctx *cli.Context) error {
 
 	var blobstore blobs.BlobStore
 	if bsdir := cctx.String("disk-blob-store"); bsdir != "" {
-		blobstore = &blobs.DiskBlobStore{bsdir}
+		blobstore = &blobs.DiskBlobStore{Dir: bsdir}
 	}
 
 	prodHR, err := api.NewProdHandleResolver(100_000)

@@ -158,7 +158,7 @@ func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
 		Model(blockRef{}).
 		Select("path, block_refs.offset").
 		Joins("left join car_shards on block_refs.shard = car_shards.id").
-		Where("usr = ? AND cid = ?", uv.user, models.DbCID{k}).
+		Where("usr = ? AND cid = ?", uv.user, models.DbCID{CID: k}).
 		Count(&count).Error; err != nil {
 		return false, err
 	}
@@ -194,12 +194,12 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, erro
 		Model(blockRef{}).
 		Select("path, block_refs.offset").
 		Joins("left join car_shards on block_refs.shard = car_shards.id").
-		Where("usr = ? AND cid = ?", uv.user, models.DbCID{k}).
+		Where("usr = ? AND cid = ?", uv.user, models.DbCID{CID: k}).
 		Find(&info).Error; err != nil {
 		return nil, err
 	}
 	if info.Path == "" {
-		return nil, ipld.ErrNotFound{k}
+		return nil, ipld.ErrNotFound{Cid: k}
 	}
 
 	if uv.prefetch {
@@ -581,7 +581,7 @@ func (ds *DeltaSession) DeleteBlock(ctx context.Context, c cid.Cid) error {
 	}
 
 	if _, ok := ds.blks[c]; !ok {
-		return ipld.ErrNotFound{c}
+		return ipld.ErrNotFound{Cid: c}
 	}
 
 	delete(ds.blks, c)
@@ -712,7 +712,7 @@ func (cs *CarStore) writeNewShard(ctx context.Context, root cid.Cid, rev string,
 		// adding things to the db by map is the only way to get gorm to not
 		// add the 'returning' clause, which costs a lot of time
 		brefs = append(brefs, map[string]interface{}{
-			"cid":    models.DbCID{k},
+			"cid":    models.DbCID{CID: k},
 			"offset": offset,
 		})
 
@@ -725,7 +725,7 @@ func (cs *CarStore) writeNewShard(ctx context.Context, root cid.Cid, rev string,
 	}
 
 	shard := CarShard{
-		Root:      models.DbCID{root},
+		Root:      models.DbCID{CID: root},
 		DataStart: hnw,
 		Seq:       seq,
 		Path:      path,
@@ -1582,7 +1582,7 @@ func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compB
 				}
 
 				nbrefs = append(nbrefs, map[string]interface{}{
-					"cid":    models.DbCID{blk.Cid()},
+					"cid":    models.DbCID{CID: blk.Cid()},
 					"offset": offset,
 				})
 
@@ -1596,7 +1596,7 @@ func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compB
 	}
 
 	shard := CarShard{
-		Root:      models.DbCID{root},
+		Root:      models.DbCID{CID: root},
 		DataStart: hnw,
 		Seq:       lastsh.Seq,
 		Path:      path,
