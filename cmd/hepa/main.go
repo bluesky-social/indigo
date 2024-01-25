@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -113,6 +115,11 @@ func run(args []string) error {
 			Usage:   "which ruleset config to use: default, no-blobs, only-blobs",
 			EnvVars: []string{"HEPA_RULESET"},
 		},
+		&cli.StringFlag{
+			Name:    "log-level",
+			Usage:   "",
+			EnvVars: []string{"HEPA_LOG_LEVEL", "LOG_LEVEL"},
+		},
 	}
 
 	app.Commands = []*cli.Command{
@@ -149,6 +156,27 @@ func configDirectory(cctx *cli.Context) (identity.Directory, error) {
 	return dir, nil
 }
 
+func configLogger(cctx *cli.Context, writer io.Writer) *slog.Logger {
+	var level slog.Level
+	switch strings.ToLower(cctx.String("log-level")) {
+	case "error":
+		level = slog.LevelError
+	case "warn":
+		level = slog.LevelWarn
+	case "info":
+		level = slog.LevelInfo
+	case "debug":
+		level = slog.LevelDebug
+	default:
+		level = slog.LevelInfo
+	}
+	logger := slog.New(slog.NewJSONHandler(writer, &slog.HandlerOptions{
+		Level: level,
+	}))
+	slog.SetDefault(logger)
+	return logger
+}
+
 var runCmd = &cli.Command{
 	Name:  "run",
 	Usage: "run the hepa daemon",
@@ -168,11 +196,7 @@ var runCmd = &cli.Command{
 	},
 	Action: func(cctx *cli.Context) error {
 		ctx := context.Background()
-		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-			Level: slog.LevelInfo,
-		}))
-		slog.SetDefault(logger)
-
+		logger := configLogger(cctx, os.Stdout)
 		configOTEL("hepa")
 
 		dir, err := configDirectory(cctx)
@@ -236,10 +260,7 @@ var runCmd = &cli.Command{
 // for simple commands, not long-running daemons
 func configEphemeralServer(cctx *cli.Context) (*Server, error) {
 	// NOTE: using stderr not stdout because some commands print to stdout
-	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
-	slog.SetDefault(logger)
+	logger := configLogger(cctx, os.Stderr)
 
 	dir, err := configDirectory(cctx)
 	if err != nil {
