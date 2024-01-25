@@ -522,6 +522,9 @@ var createFeedGeneratorCmd = &cli.Command{
 		&cli.StringFlag{
 			Name: "display-name",
 		},
+		&cli.StringFlag{
+			Name: "avatar",
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
@@ -544,11 +547,22 @@ var createFeedGeneratorCmd = &cli.Command{
 
 		ctx := context.TODO()
 
+		var avatar *lexutil.LexBlob
+		if img := cctx.String("avatar"); img != "" {
+			b, err := uploadBlob(ctx, xrpcc, img)
+			if err != nil {
+				return err
+			}
+
+			avatar = b
+		}
+
 		rec := &lexutil.LexiconTypeDecoder{&bsky.FeedGenerator{
 			CreatedAt:   time.Now().Format(util.ISO8601),
 			Description: desc,
 			Did:         did,
 			DisplayName: name,
+			Avatar:      avatar,
 		}}
 
 		ex, err := atproto.RepoGetRecord(ctx, xrpcc, "", "app.bsky.feed.generator", xrpcc.Auth.Did, rkey)
@@ -581,6 +595,20 @@ var createFeedGeneratorCmd = &cli.Command{
 
 		return nil
 	},
+}
+
+func uploadBlob(ctx context.Context, xrpcc *xrpc.Client, fn string) (*lexutil.LexBlob, error) {
+	fi, err := os.Open(fn)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := atproto.RepoUploadBlob(ctx, xrpcc, fi)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.Blob, nil
 }
 
 var listAllRecordsCmd = &cli.Command{
