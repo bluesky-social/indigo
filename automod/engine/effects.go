@@ -86,6 +86,11 @@ func (e *Effects) IncrementDistinct(name, bucket, val string) {
 func (e *Effects) AddAccountLabel(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	for _, v := range e.AccountLabels {
+		if v == val {
+			return
+		}
+	}
 	e.AccountLabels = append(e.AccountLabels, val)
 }
 
@@ -93,6 +98,11 @@ func (e *Effects) AddAccountLabel(val string) {
 func (e *Effects) AddAccountFlag(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	for _, v := range e.AccountFlags {
+		if v == val {
+			return
+		}
+	}
 	e.AccountFlags = append(e.AccountFlags, val)
 }
 
@@ -104,6 +114,11 @@ func (e *Effects) ReportAccount(reason, comment string) {
 		comment = "(reporting without comment)"
 	}
 	comment = "[automod] " + comment
+	for _, v := range e.AccountReports {
+		if v.ReasonType == reason {
+			return
+		}
+	}
 	e.AccountReports = append(e.AccountReports, ModReport{ReasonType: reason, Comment: comment})
 }
 
@@ -116,6 +131,11 @@ func (e *Effects) TakedownAccount() {
 func (e *Effects) AddRecordLabel(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	for _, v := range e.RecordLabels {
+		if v == val {
+			return
+		}
+	}
 	e.RecordLabels = append(e.RecordLabels, val)
 }
 
@@ -123,6 +143,11 @@ func (e *Effects) AddRecordLabel(val string) {
 func (e *Effects) AddRecordFlag(val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	for _, v := range e.RecordFlags {
+		if v == val {
+			return
+		}
+	}
 	e.RecordFlags = append(e.RecordFlags, val)
 }
 
@@ -134,6 +159,11 @@ func (e *Effects) ReportRecord(reason, comment string) {
 		comment = "(reporting without comment)"
 	} else {
 		comment = "[automod] " + comment
+	}
+	for _, v := range e.RecordReports {
+		if v.ReasonType == reason {
+			return
+		}
 	}
 	e.RecordReports = append(e.RecordReports, ModReport{ReasonType: reason, Comment: comment})
 }
@@ -147,6 +177,11 @@ func (e *Effects) TakedownRecord() {
 func (e *Effects) TakedownBlob(cid string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	for _, v := range e.BlobTakedowns {
+		if v == cid {
+			return
+		}
+	}
 	e.BlobTakedowns = append(e.BlobTakedowns, cid)
 }
 
