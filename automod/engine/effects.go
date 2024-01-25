@@ -86,9 +86,9 @@ func (e *Effects) AddAccountFlag(val string) {
 // Enqueues a moderation report to be filed against the account at the end of rule processing.
 func (e *Effects) ReportAccount(reason, comment string) {
 	if comment == "" {
-		comment = "(no comment)"
+		comment = "(reporting without comment)"
 	}
-	comment = "automod: " + comment
+	comment = "[automod] " + comment
 	e.AccountReports = append(e.AccountReports, ModReport{ReasonType: reason, Comment: comment})
 }
 
@@ -110,9 +110,9 @@ func (e *Effects) AddRecordFlag(val string) {
 // Enqueues a moderation report to be filed against the record at the end of rule processing.
 func (e *Effects) ReportRecord(reason, comment string) {
 	if comment == "" {
-		comment = "(automod)"
+		comment = "(reporting without comment)"
 	} else {
-		comment = "automod: " + comment
+		comment = "[automod] " + comment
 	}
 	e.RecordReports = append(e.RecordReports, ModReport{ReasonType: reason, Comment: comment})
 }

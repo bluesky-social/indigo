@@ -82,7 +82,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 
 	if len(newLabels) > 0 {
 		c.Logger.Info("labeling record", "newLabels", newLabels)
-		comment := "automod"
+		comment := "[automod]: auto-labeling account"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
@@ -117,7 +117,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 
 	if newTakedown {
 		c.Logger.Warn("account-takedown")
-		comment := "automod"
+		comment := "[automod]: auto account-takedown"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
@@ -204,7 +204,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	xrpcc := eng.AdminClient
 	if len(newLabels) > 0 {
 		c.Logger.Info("labeling record", "newLabels", newLabels)
-		comment := "automod"
+		comment := "[automod]: auto-labeling record"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
@@ -225,9 +225,10 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 
 	for _, mr := range newReports {
 		c.Logger.Info("reporting record", "reasonType", mr.ReasonType, "comment", mr.Comment)
+		comment := "[automod] " + mr.Comment
 		_, err := comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
 			ReasonType: &mr.ReasonType,
-			Reason:     &mr.Comment,
+			Reason:     &comment,
 			Subject: &comatproto.ModerationCreateReport_Input_Subject{
 				RepoStrongRef: &strongRef,
 			},
@@ -238,7 +239,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 	if newTakedown {
 		c.Logger.Warn("record-takedown")
-		comment := "automod"
+		comment := "[automod]: automated record-takedown"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &comatproto.AdminEmitModerationEvent_Input_Event{

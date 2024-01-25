@@ -143,9 +143,10 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 	}
 
 	eng.Logger.Info("reporting account", "reasonType", mr.ReasonType, "comment", mr.Comment)
+	comment := "[automod] " + mr.Comment
 	_, err = comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
 		ReasonType: &mr.ReasonType,
-		Reason:     &mr.Comment,
+		Reason:     &comment,
 		Subject: &comatproto.ModerationCreateReport_Input_Subject{
 			AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
 				Did: did.String(),
