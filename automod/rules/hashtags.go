@@ -3,28 +3,31 @@ package rules
 import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/keyword"
 )
-
-var _ automod.PostRuleFunc = BadHashtagsPostRule
 
 // looks for specific hashtags from known lists
 func BadHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	for _, tag := range ExtractHashtags(post) {
+	for _, tag := range ExtractHashtagsPost(post) {
 		tag = NormalizeHashtag(tag)
-		if c.InSet("bad-hashtags", tag) {
+		if c.InSet("bad-hashtags", tag) || c.InSet("bad-words", tag) {
 			c.AddRecordFlag("bad-hashtag")
 			c.Notify("slack")
 			break
+		}
+		word := keyword.SlugContainsExplicitSlur(keyword.Slugify(tag))
+		if word != "" {
+			c.AddAccountFlag("bad-hashtag")
 		}
 	}
 	return nil
 }
 
-var _ automod.PostRuleFunc = TooManyHashtagsPostRule
+var _ automod.PostRuleFunc = BadHashtagsPostRule
 
 // if a post is "almost all" hashtags, it might be a form of search spam
 func TooManyHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	tags := ExtractHashtags(post)
+	tags := ExtractHashtagsPost(post)
 	tagChars := 0
 	for _, tag := range tags {
 		tagChars += len(tag)
@@ -40,3 +43,5 @@ func TooManyHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) e
 	}
 	return nil
 }
+
+var _ automod.PostRuleFunc = TooManyHashtagsPostRule

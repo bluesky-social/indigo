@@ -3,12 +3,11 @@ package rules
 import (
 	"fmt"
 	"regexp"
-	"strings"
-	"unicode"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/keyword"
 
 	"github.com/spaolacci/murmur3"
 )
@@ -25,7 +24,7 @@ func dedupeStrings(in []string) []string {
 	return out
 }
 
-func ExtractHashtags(post *appbsky.FeedPost) []string {
+func ExtractHashtagsPost(post *appbsky.FeedPost) []string {
 	var tags []string
 	for _, tag := range post.Tags {
 		tags = append(tags, tag)
@@ -41,7 +40,7 @@ func ExtractHashtags(post *appbsky.FeedPost) []string {
 }
 
 func NormalizeHashtag(raw string) string {
-	return strings.ToLower(raw)
+	return keyword.Slugify(raw)
 }
 
 type PostFacet struct {
@@ -117,17 +116,28 @@ func ExtractBlobCIDsProfile(profile *appbsky.ActorProfile) []string {
 	return dedupeStrings(out)
 }
 
-// NOTE: this function has not been optimiszed at all!
-func ExtractTextTokens(raw string) []string {
-	raw = strings.ToLower(raw)
-	f := func(c rune) bool {
-		return !unicode.IsLetter(c) && !unicode.IsNumber(c)
-	}
-	return strings.FieldsFunc(raw, f)
-}
-
 func ExtractTextTokensPost(post *appbsky.FeedPost) []string {
-	return ExtractTextTokens(post.Text)
+	s := post.Text
+	if post.Embed != nil {
+		if post.Embed.EmbedImages != nil {
+			for _, img := range post.Embed.EmbedImages.Images {
+				if img.Alt != "" {
+					s += " " + img.Alt
+				}
+			}
+		}
+		if post.Embed.EmbedRecordWithMedia != nil {
+			media := post.Embed.EmbedRecordWithMedia.Media
+			if media.EmbedImages != nil {
+				for _, img := range media.EmbedImages.Images {
+					if img.Alt != "" {
+						s += " " + img.Alt
+					}
+				}
+			}
+		}
+	}
+	return keyword.TokenizeText(s)
 }
 
 func ExtractTextTokensProfile(profile *appbsky.ActorProfile) []string {
@@ -138,7 +148,7 @@ func ExtractTextTokensProfile(profile *appbsky.ActorProfile) []string {
 	if profile.DisplayName != nil {
 		s += " " + *profile.DisplayName
 	}
-	return ExtractTextTokens(s)
+	return keyword.TokenizeText(s)
 }
 
 // based on: https://stackoverflow.com/a/48769624, with no trailing period allowed
