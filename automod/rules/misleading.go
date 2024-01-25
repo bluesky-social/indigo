@@ -96,6 +96,7 @@ func MisleadingURLPostRule(c *automod.RecordContext, post *appbsky.FeedPost) err
 		if facet.URL != nil {
 			if isMisleadingURLFacet(facet, c.Logger) {
 				c.AddRecordFlag("misleading-link")
+				c.Notify("slack")
 			}
 		}
 	}
@@ -130,6 +131,7 @@ func MisleadingMentionPostRule(c *automod.RecordContext, post *appbsky.FeedPost)
 			if err != nil {
 				c.Logger.Warn("could not resolve handle", "handle", handle)
 				c.AddRecordFlag("broken-mention")
+				c.Notify("slack")
 				break
 			}
 
@@ -137,6 +139,7 @@ func MisleadingMentionPostRule(c *automod.RecordContext, post *appbsky.FeedPost)
 			if mentioned.DID.String() != *facet.DID {
 				c.Logger.Warn("misleading mention", "text", txt, "did", facet.DID)
 				c.AddRecordFlag("misleading-mention")
+				c.Notify("slack")
 				continue
 			}
 		}

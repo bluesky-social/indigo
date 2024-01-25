@@ -13,6 +13,7 @@ func BadHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error
 		tag = NormalizeHashtag(tag)
 		if c.InSet("bad-hashtags", tag) {
 			c.AddRecordFlag("bad-hashtag")
+			c.Notify("slack")
 			break
 		}
 	}
@@ -32,8 +33,10 @@ func TooManyHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) e
 	// if there is an image, allow some more tags
 	if len(tags) > 4 && tagTextRatio > 0.6 && post.Embed.EmbedImages == nil {
 		c.AddRecordFlag("many-hashtags")
+		c.Notify("slack")
 	} else if len(tags) > 7 && tagTextRatio > 0.8 {
 		c.AddRecordFlag("many-hashtags")
+		c.Notify("slack")
 	}
 	return nil
 }
