@@ -118,19 +118,21 @@ func ExtractBlobCIDsProfile(profile *appbsky.ActorProfile) []string {
 
 func ExtractTextTokensPost(post *appbsky.FeedPost) []string {
 	s := post.Text
-	if post.Embed.EmbedImages != nil {
-		for _, img := range post.Embed.EmbedImages.Images {
-			if img.Alt != "" {
-				s += " " + img.Alt
-			}
-		}
-	}
-	if post.Embed.EmbedRecordWithMedia != nil {
-		media := post.Embed.EmbedRecordWithMedia.Media
-		if media.EmbedImages != nil {
-			for _, img := range media.EmbedImages.Images {
+	if post.Embed != nil {
+		if post.Embed.EmbedImages != nil {
+			for _, img := range post.Embed.EmbedImages.Images {
 				if img.Alt != "" {
 					s += " " + img.Alt
+				}
+			}
+		}
+		if post.Embed.EmbedRecordWithMedia != nil {
+			media := post.Embed.EmbedRecordWithMedia.Media
+			if media.EmbedImages != nil {
+				for _, img := range media.EmbedImages.Images {
+					if img.Alt != "" {
+						s += " " + img.Alt
+					}
 				}
 			}
 		}
