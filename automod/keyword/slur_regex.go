@@ -29,3 +29,14 @@ func SlugContainsExplicitSlur(raw string) string {
 	}
 	return ""
 }
+
+// Variant of `SlugContainsExplicitSlur` where the entire slug must match.
+func SlugIsExplicitSlur(raw string) string {
+	for word, r := range explicitSlurRegexes {
+		m := r.FindString(raw)
+		if m != "" && m == raw {
+			return word
+		}
+	}
+	return ""
+}

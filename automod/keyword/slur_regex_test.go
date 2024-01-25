@@ -11,33 +11,36 @@ func TestSlugContainsExplicitSlur(t *testing.T) {
 
 	fixtures := []struct {
 		text string
-		out  string
+		contains string
+		is string
 	}{
-		{out: "", text: ""},
-		{out: "", text: "hello"},
-		{out: "chink", text: "chink"},
-		{out: "faggot", text: "faggot"},
-		{out: "faggot", text: "f4gg0t"},
-		{out: "coon", text: "coon"},
-		{out: "coon", text: "coons"},
-		{out: "", text: "raccoon"},
-		{out: "", text: "racoon"},
-		{out: "", text: "tycoon"},
-		{out: "", text: "cocoon"},
-		{out: "kike", text: "kike"},
-		{out: "nigger", text: "nigger"},
-		{out: "nigger", text: "niggers"},
-		{out: "nigger", text: "n1gg4"},
-		{out: "nigger", text: "niggas"},
-		{out: "", text: "niggle"},
-		{out: "", text: "niggling"},
-		{out: "", text: "snigger"},
-		{out: "tranny", text: "tranny"},
-		{out: "tranny", text: "trannie"},
+		{contains: "", is: "", text: ""},
+		{contains: "", is: "", text: "hello"},
+		{contains: "chink", is: "chink", text: "chink"},
+		{contains: "faggot", is: "faggot", text: "faggot"},
+		{contains: "faggot", is: "faggot", text: "f4gg0t"},
+		{contains: "coon", is: "coon", text: "coon"},
+		{contains: "coon", is: "coon", text: "coons"},
+		{contains: "", is: "", text: "raccoon"},
+		{contains: "", is: "", text: "racoon"},
+		{contains: "", is: "", text: "tycoon"},
+		{contains: "", is: "", text: "cocoon"},
+		{contains: "kike", is: "kike", text: "kike"},
+		{contains: "nigger", is: "nigger", text: "nigger"},
+		{contains: "nigger", is: "nigger", text: "niggers"},
+		{contains: "nigger", is: "nigger", text: "n1gg4"},
+		{contains: "nigger", is: "nigger", text: "niggas"},
+		{contains: "", is: "", text: "niggle"},
+		{contains: "", is: "", text: "niggling"},
+		{contains: "", is: "", text: "snigger"},
+		{contains: "tranny", is: "tranny", text: "tranny"},
+		{contains: "tranny", is: "tranny", text: "trannie"},
+		{contains: "tranny", is: "", text: "blahtrannie"},
 	}
 
 	for _, fix := range fixtures {
-		assert.Equal(fix.out, SlugContainsExplicitSlur(fix.text))
+		assert.Equal(fix.contains, SlugContainsExplicitSlur(fix.text))
+		assert.Equal(fix.is, SlugIsExplicitSlur(fix.text))
 	}
 }
 
