@@ -159,7 +159,7 @@ func (resp *HiveAIResp) SummarizeLabels() []string {
 
 func (hal *HiveAIClient) LabelBlob(ctx context.Context, blob lexutil.LexBlob, blobBytes []byte) ([]string, error) {
 
-	slog.Info("sending blob to Hive AI", "cid", blob.Ref.String(), "mimetype", blob.MimeType, "size", len(blobBytes))
+	slog.Debug("sending blob to Hive AI", "cid", blob.Ref.String(), "mimetype", blob.MimeType, "size", len(blobBytes))
 
 	// generic HTTP form file upload, then parse the response JSON
 	body := &bytes.Buffer{}

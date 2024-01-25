@@ -31,7 +31,7 @@ func NewAbyssClient(host, password string) AbyssClient {
 
 func (ac *AbyssClient) ScanBlob(ctx context.Context, blob lexutil.LexBlob, blobBytes []byte, params map[string]string) (*AbyssScanResp, error) {
 
-	slog.Info("sending blob to abyss", "cid", blob.Ref.String(), "mimetype", blob.MimeType, "size", len(blobBytes))
+	slog.Debug("sending blob to abyss", "cid", blob.Ref.String(), "mimetype", blob.MimeType, "size", len(blobBytes))
 
 	body := bytes.NewBuffer(blobBytes)
 	req, err := http.NewRequest("POST", ac.Host+"/xrpc/com.atproto.unspecced.scanBlob", body)
