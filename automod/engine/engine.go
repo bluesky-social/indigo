@@ -54,6 +54,10 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syn
 	ctx, cancel := context.WithTimeout(ctx, identityEventTimeout)
 	defer cancel()
 
+	// first purge any caches; we need to re-resolve from scratch on identity updates
+	if err := eng.PurgeAccountCaches(ctx, did); err != nil {
+		eng.Logger.Error("failed to purge identity cache; identity rule may not run correctly", "err", err)
+	}
 	ident, err := eng.Directory.LookupDID(ctx, did)
 	if err != nil {
 		return fmt.Errorf("resolving identity: %w", err)
@@ -71,7 +75,6 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syn
 		return fmt.Errorf("rule execution failed: %w", err)
 	}
 	eng.CanonicalLogLineAccount(&ac)
-	eng.PurgeAccountCaches(ctx, am.Identity.DID)
 	if err := eng.persistAccountModActions(&ac); err != nil {
 		return fmt.Errorf("failed to persist actions for identity event: %w", err)
 	}
@@ -126,7 +129,9 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 	eng.CanonicalLogLineRecord(&rc)
 	// purge the account meta cache when profile is updated
 	if rc.RecordOp.Collection == "app.bsky.actor.profile" {
-		eng.PurgeAccountCaches(ctx, am.Identity.DID)
+		if err := eng.PurgeAccountCaches(ctx, op.DID); err != nil {
+			eng.Logger.Error("failed to purge identity cache", "err", err)
+		}
 	}
 	if err := eng.persistRecordModActions(&rc); err != nil {
 		return fmt.Errorf("failed to persist actions for record event: %w", err)
@@ -183,8 +188,13 @@ func (eng *Engine) ProcessNotificationEvent(ctx context.Context, senderDID, reci
 
 // Purge metadata caches for a specific account.
 func (e *Engine) PurgeAccountCaches(ctx context.Context, did syntax.DID) error {
-	e.Directory.Purge(ctx, did.AtIdentifier())
-	return e.Cache.Purge(ctx, "acct", did.String())
+	e.Logger.Debug("purging account caches", "did", did.String())
+	dirErr := e.Directory.Purge(ctx, did.AtIdentifier())
+	cacheErr := e.Cache.Purge(ctx, "acct", did.String())
+	if dirErr != nil {
+		return dirErr
+	}
+	return cacheErr
 }
 
 func (e *Engine) CanonicalLogLineAccount(c *AccountContext) {
