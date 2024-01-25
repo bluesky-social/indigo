@@ -37,6 +37,7 @@ func DefaultRules() automod.RuleSet {
 		IdentityRules: []automod.IdentityRuleFunc{
 			NewAccountRule,
 			BadWordHandleRule,
+			BadWordDIDRule,
 		},
 		BlobRules: []automod.BlobRuleFunc{
 			//BlobVerifyRule,
