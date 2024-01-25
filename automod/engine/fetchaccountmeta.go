@@ -14,12 +14,14 @@ import (
 // Helper to hydrate metadata about an account from several sources: PDS (if access), mod service (if access), public identity resolution
 func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (*AccountMeta, error) {
 
+	logger := e.Logger.With("did", ident.DID.String())
+
 	// wipe parsed public key; it's a waste of space and can't serialize
 	ident.ParsedPublicKey = nil
 
 	// fallback in case client wasn't configured (eg, testing)
 	if e.BskyClient == nil {
-		e.Logger.Warn("skipping account meta hydration")
+		logger.Warn("skipping account meta hydration")
 		am := AccountMeta{
 			Identity: ident,
 			Profile:  ProfileSummary{},
@@ -29,7 +31,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 
 	existing, err := e.Cache.Get(ctx, "acct", ident.DID.String())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed checking account meta cache: %w", err)
 	}
 	if existing != "" {
 		var am AccountMeta
@@ -41,10 +43,23 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 		return &am, nil
 	}
 
-	// fetch account metadata
+	flags, err := e.Flags.Get(ctx, ident.DID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed checking account flag cache: %w", err)
+	}
+
+	// fetch account metadata from AppView
 	pv, err := appbsky.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
 	if err != nil {
-		return nil, err
+		logger.Warn("account profile lookup failed", "err", err)
+		am := AccountMeta{
+			Identity: ident,
+			// Profile
+			// AccountLabels
+			// AccountNegatedLabels
+			AccountFlags: flags,
+		}
+		return &am, nil
 	}
 
 	var labels []string
@@ -55,11 +70,6 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 		} else {
 			labels = append(labels, lbl.Val)
 		}
-	}
-
-	flags, err := e.Flags.Get(ctx, ident.DID.String())
-	if err != nil {
-		return nil, err
 	}
 
 	am := AccountMeta{
@@ -86,21 +96,22 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 	if e.AdminClient != nil {
 		pv, err := comatproto.AdminGetAccountInfo(ctx, e.AdminClient, ident.DID.String())
 		if err != nil {
-			return nil, err
+			logger.Warn("failed to fetch private account metadata", "err", err)
+		} else {
+			ap := AccountPrivate{}
+			if pv.Email != nil && *pv.Email != "" {
+				ap.Email = *pv.Email
+			}
+			if pv.EmailConfirmedAt != nil && *pv.EmailConfirmedAt != "" {
+				ap.EmailConfirmed = true
+			}
+			ts, err := syntax.ParseDatetimeTime(pv.IndexedAt)
+			if err != nil {
+				return nil, fmt.Errorf("bad account IndexedAt: %w", err)
+			}
+			ap.IndexedAt = ts
+			am.Private = &ap
 		}
-		ap := AccountPrivate{}
-		if pv.Email != nil && *pv.Email != "" {
-			ap.Email = *pv.Email
-		}
-		if pv.EmailConfirmedAt != nil && *pv.EmailConfirmedAt != "" {
-			ap.EmailConfirmed = true
-		}
-		ts, err := syntax.ParseDatetimeTime(pv.IndexedAt)
-		if err != nil {
-			return nil, err
-		}
-		ap.IndexedAt = ts
-		am.Private = &ap
 	}
 
 	val, err := json.Marshal(&am)
@@ -109,7 +120,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 	}
 
 	if err := e.Cache.Set(ctx, "acct", ident.DID.String(), string(val)); err != nil {
-		return nil, err
+		logger.Error("writing to account meta cache failed", "err", err)
 	}
 	return &am, nil
 }
