@@ -25,7 +25,7 @@ func (r *RuleSet) CallRecordRules(c *RecordContext) error {
 	for _, f := range r.RecordRules {
 		err := f(c)
 		if err != nil {
-			return err
+			c.Logger.Error("record rule execution failed", "err", err)
 		}
 	}
 	// then any record-type-specific rules
@@ -38,7 +38,7 @@ func (r *RuleSet) CallRecordRules(c *RecordContext) error {
 		for _, f := range r.PostRules {
 			err := f(c, post)
 			if err != nil {
-				return err
+				c.Logger.Error("post rule execution failed", "err", err)
 			}
 		}
 	case "app.bsky.actor.profile":
@@ -49,7 +49,7 @@ func (r *RuleSet) CallRecordRules(c *RecordContext) error {
 		for _, f := range r.ProfileRules {
 			err := f(c, profile)
 			if err != nil {
-				return err
+				c.Logger.Error("profile rule execution failed", "err", err)
 			}
 		}
 	}
@@ -59,7 +59,7 @@ func (r *RuleSet) CallRecordRules(c *RecordContext) error {
 	}
 	err := r.fetchAndProcessBlobs(c)
 	if err != nil {
-		return err
+		c.Logger.Error("failed to fetch and process blobs", "err", err)
 	}
 
 	return nil
@@ -70,7 +70,7 @@ func (r *RuleSet) CallRecordDeleteRules(c *RecordContext) error {
 	for _, f := range r.RecordDeleteRules {
 		err := f(c)
 		if err != nil {
-			return err
+			c.Logger.Error("record delete rule execution failed", "err", err)
 		}
 	}
 	return nil
@@ -81,7 +81,7 @@ func (r *RuleSet) CallIdentityRules(c *AccountContext) error {
 	for _, f := range r.IdentityRules {
 		err := f(c)
 		if err != nil {
-			return err
+			c.Logger.Error("identity rule execution failed", "err", err)
 		}
 	}
 	return nil
@@ -91,7 +91,7 @@ func (r *RuleSet) CallNotificationRules(c *NotificationContext) error {
 	for _, f := range r.NotificationRules {
 		err := f(c)
 		if err != nil {
-			return err
+			c.Logger.Error("notification rule execution failed", "err", err)
 		}
 	}
 	return nil
@@ -102,8 +102,7 @@ func (r *RuleSet) fetchAndProcessBlobs(c *RecordContext) error {
 
 	blobs, err := c.Blobs()
 	if err != nil {
-		// TODO: should this really return error, or just log?
-		return err
+		return fmt.Errorf("failed to extract blobs from record: %w", err)
 	}
 	if len(blobs) == 0 {
 		return nil

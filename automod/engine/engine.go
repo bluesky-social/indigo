@@ -58,24 +58,24 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syn
 		return fmt.Errorf("resolving identity: %w", err)
 	}
 	if ident == nil {
-		return fmt.Errorf("identity not found for did: %s", did.String())
+		return fmt.Errorf("identity not found for DID: %s", did.String())
 	}
 
 	am, err := eng.GetAccountMeta(ctx, ident)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to fetch account metadata: %w", err)
 	}
 	ac := NewAccountContext(ctx, eng, *am)
 	if err := eng.Rules.CallIdentityRules(&ac); err != nil {
-		return err
+		return fmt.Errorf("rule execution failed: %w", err)
 	}
 	eng.CanonicalLogLineAccount(&ac)
 	eng.PurgeAccountCaches(ctx, am.Identity.DID)
 	if err := eng.persistAccountModActions(&ac); err != nil {
-		return err
+		return fmt.Errorf("failed to persist actions for identity event: %w", err)
 	}
 	if err := eng.persistCounters(ctx, &ac.effects); err != nil {
-		return err
+		return fmt.Errorf("failed to persist counters for identity event: %w", err)
 	}
 	return nil
 }
@@ -101,23 +101,23 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 		return fmt.Errorf("resolving identity: %w", err)
 	}
 	if ident == nil {
-		return fmt.Errorf("identity not found for did: %s", op.DID)
+		return fmt.Errorf("identity not found for DID: %s", op.DID)
 	}
 
 	am, err := eng.GetAccountMeta(ctx, ident)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to fetch account metadata: %w", err)
 	}
 	rc := NewRecordContext(ctx, eng, *am, op)
 	rc.Logger.Debug("processing record")
 	switch op.Action {
 	case CreateOp, UpdateOp:
 		if err := eng.Rules.CallRecordRules(&rc); err != nil {
-			return err
+			return fmt.Errorf("rule execution failed: %w", err)
 		}
 	case DeleteOp:
 		if err := eng.Rules.CallRecordDeleteRules(&rc); err != nil {
-			return err
+			return fmt.Errorf("rule execution failed: %w", err)
 		}
 	default:
 		return fmt.Errorf("unexpected op action: %s", op.Action)
@@ -128,10 +128,10 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 		eng.PurgeAccountCaches(ctx, am.Identity.DID)
 	}
 	if err := eng.persistRecordModActions(&rc); err != nil {
-		return err
+		return fmt.Errorf("failed to persist actions for record event: %w", err)
 	}
 	if err := eng.persistCounters(ctx, &rc.effects); err != nil {
-		return err
+		return fmt.Errorf("failed to persist counts for record event: %w", err)
 	}
 	return nil
 }
@@ -165,16 +165,16 @@ func (eng *Engine) ProcessNotificationEvent(ctx context.Context, senderDID, reci
 
 	senderMeta, err := eng.GetAccountMeta(ctx, senderIdent)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to fetch account metadata: %w", err)
 	}
 	recipientMeta, err := eng.GetAccountMeta(ctx, recipientIdent)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to fetch account metadata: %w", err)
 	}
 
 	nc := NewNotificationContext(ctx, eng, *senderMeta, *recipientMeta, reason, subject)
 	if err := eng.Rules.CallNotificationRules(&nc); err != nil {
-		return false, err
+		return false, fmt.Errorf("rule execution failed: %w", err)
 	}
 	eng.CanonicalLogLineNotification(&nc)
 	return nc.effects.RejectEvent, nil
