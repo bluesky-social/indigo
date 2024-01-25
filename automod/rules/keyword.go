@@ -171,3 +171,23 @@ func BadWordHandleRule(c *automod.AccountContext) error {
 }
 
 var _ automod.IdentityRuleFunc = BadWordHandleRule
+
+func BadWordDIDRule(c *automod.AccountContext) error {
+	word := keyword.SlugContainsExplicitSlur(keyword.Slugify(c.Account.Identity.DID.String()))
+	if word != "" {
+		c.AddAccountFlag("bad-word-did")
+		return nil
+	}
+
+	tokens := keyword.TokenizeIdentifier(c.Account.Identity.DID.String())
+	for _, tok := range tokens {
+		if c.InSet("bad-words", tok) {
+			c.AddAccountFlag("bad-word-did")
+			break
+		}
+	}
+
+	return nil
+}
+
+var _ automod.IdentityRuleFunc = BadWordDIDRule
