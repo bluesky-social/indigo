@@ -74,7 +74,7 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syn
 	if err := eng.persistAccountModActions(&ac); err != nil {
 		return fmt.Errorf("failed to persist actions for identity event: %w", err)
 	}
-	if err := eng.persistCounters(ctx, &ac.effects); err != nil {
+	if err := eng.persistCounters(ctx, ac.effects); err != nil {
 		return fmt.Errorf("failed to persist counters for identity event: %w", err)
 	}
 	return nil
@@ -130,7 +130,7 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 	if err := eng.persistRecordModActions(&rc); err != nil {
 		return fmt.Errorf("failed to persist actions for record event: %w", err)
 	}
-	if err := eng.persistCounters(ctx, &rc.effects); err != nil {
+	if err := eng.persistCounters(ctx, rc.effects); err != nil {
 		return fmt.Errorf("failed to persist counts for record event: %w", err)
 	}
 	return nil

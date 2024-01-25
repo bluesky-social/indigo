@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"sync"
 	"time"
 )
 
@@ -29,6 +30,8 @@ type CounterDistinctRef struct {
 //
 // This single type tracks generic effects (eg, counter increments), account-level actions, and record-level actions (even for processing of account-level events which have no possible record-level effects).
 type Effects struct {
+	// internal field for ensuring concurrent mutations are safe
+	mu sync.Mutex
 	// List of counters which should be incremented as part of processing this event. These are collected during rule execution and persisted in bulk at the end.
 	CounterIncrements []CounterRef
 	// Similar to "CounterIncrements", but for "distinct" style counters
@@ -60,31 +63,43 @@ type Effects struct {
 // "name" is the counter namespace.
 // "val" is the specific counter with that namespace.
 func (e *Effects) Increment(name, val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val})
 }
 
 // Enqueues the named counter to be incremented at the end of all rule processing. Will only increment the indicated time period bucket.
 func (e *Effects) IncrementPeriod(name, val string, period string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val, Period: &period})
 }
 
 // Enqueues the named "distinct value" counter based on the supplied string value ("val") to be incremented at the end of all rule processing. Will automatically increment for all time periods.
 func (e *Effects) IncrementDistinct(name, bucket, val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.CounterDistinctIncrements = append(e.CounterDistinctIncrements, CounterDistinctRef{Name: name, Bucket: bucket, Val: val})
 }
 
 // Enqueues the provided label (string value) to be added to the account at the end of rule processing.
 func (e *Effects) AddAccountLabel(val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.AccountLabels = append(e.AccountLabels, val)
 }
 
 // Enqueues the provided flag (string value) to be recorded (in the Engine's flagstore) at the end of rule processing.
 func (e *Effects) AddAccountFlag(val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.AccountFlags = append(e.AccountFlags, val)
 }
 
 // Enqueues a moderation report to be filed against the account at the end of rule processing.
 func (e *Effects) ReportAccount(reason, comment string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	if comment == "" {
 		comment = "(reporting without comment)"
 	}
@@ -99,16 +114,22 @@ func (e *Effects) TakedownAccount() {
 
 // Enqueues the provided label (string value) to be added to the record at the end of rule processing.
 func (e *Effects) AddRecordLabel(val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.RecordLabels = append(e.RecordLabels, val)
 }
 
 // Enqueues the provided flag (string value) to be recorded (in the Engine's flagstore) at the end of rule processing.
 func (e *Effects) AddRecordFlag(val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.RecordFlags = append(e.RecordFlags, val)
 }
 
 // Enqueues a moderation report to be filed against the record at the end of rule processing.
 func (e *Effects) ReportRecord(reason, comment string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	if comment == "" {
 		comment = "(reporting without comment)"
 	} else {
@@ -124,6 +145,8 @@ func (e *Effects) TakedownRecord() {
 
 // Enqueues the blob CID to be taken down (aka, CDN purge) as part of any record takedown
 func (e *Effects) TakedownBlob(cid string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.BlobTakedowns = append(e.BlobTakedowns, cid)
 }
 
