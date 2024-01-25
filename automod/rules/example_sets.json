@@ -1,10 +1,13 @@
 {
     "bad-hashtags": [
-        "slur",
         "deathtooutgroup"
     ],
     "bad-words": [
-        "hardar"
+        "hardar",
+        "veryhardar"
+    ],
+    "worst-words": [
+        "veryhardar"
     ],
     "promo-domain": [
         "buy-crypto.example.com"
