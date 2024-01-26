@@ -17,7 +17,7 @@ import (
 func (c *RecordContext) Blobs() ([]lexutil.LexBlob, error) {
 
 	if c.RecordOp.Action == DeleteOp {
-		return nil
+		return []lexutil.LexBlob{}, nil
 	}
 
 	var blobs []lexutil.LexBlob
