@@ -136,11 +136,13 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 	}
 
 	extraBlobRules := []automod.BlobRuleFunc{}
+	/* XXX: disable hive temporarily
 	if config.HiveAPIToken != "" {
 		logger.Info("configuring Hive AI image labeler")
 		hc := visual.NewHiveAIClient(config.HiveAPIToken)
 		extraBlobRules = append(extraBlobRules, hc.HiveLabelBlobRule)
 	}
+	*/
 
 	if config.AbyssHost != "" && config.AbyssPassword != "" {
 		logger.Info("configuring abyss abusive image scanning")
@@ -155,7 +157,9 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		ruleset.BlobRules = append(ruleset.BlobRules, extraBlobRules...)
 	case "no-blobs":
 		ruleset = rules.DefaultRules()
-		ruleset.BlobRules = []automod.BlobRuleFunc{}
+		// XXX: include some blob rules despite config, temporarily
+		//ruleset.BlobRules = []automod.BlobRuleFunc{}
+		ruleset.BlobRules = append(ruleset.BlobRules, extraBlobRules...)
 	case "only-blobs":
 		ruleset.BlobRules = extraBlobRules
 	default:
