@@ -23,7 +23,7 @@ func BadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 		tok = strings.TrimSuffix(tok, "s")
 		if c.InSet("worst-words", tok) {
 			c.AddRecordFlag("bad-word-text")
-			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("possible bad word in post text or alttext: %s", word))
+			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("possible bad word in post text or alttext: %s", tok))
 			c.Notify("slack")
 			break
 		}
