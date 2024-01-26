@@ -185,13 +185,13 @@ func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle)
 		triedFallback := false
 		did, dnsErr = d.ResolveHandleDNS(ctx, handle)
 		if errors.Is(dnsErr, ErrHandleNotFound) && d.TryAuthoritativeDNS {
-			slog.Info("attempting authoritative handle DNS resolution", "handle", handle)
+			slog.Debug("attempting authoritative handle DNS resolution", "handle", handle)
 			triedAuthoritative = true
 			// try harder with authoritative lookup
 			did, dnsErr = d.ResolveHandleDNSAuthoritative(ctx, handle)
 		}
 		if errors.Is(dnsErr, ErrHandleNotFound) && len(d.FallbackDNSServers) > 0 {
-			slog.Info("attempting fallback DNS resolution", "handle", handle)
+			slog.Debug("attempting fallback DNS resolution", "handle", handle)
 			triedFallback = true
 			// try harder with fallback lookup
 			did, dnsErr = d.ResolveHandleDNSFallback(ctx, handle)
