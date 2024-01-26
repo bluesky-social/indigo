@@ -115,7 +115,6 @@ func (e *Effects) ReportAccount(reason, comment string) {
 	if comment == "" {
 		comment = "(reporting without comment)"
 	}
-	comment = "[automod] " + comment
 	for _, v := range e.AccountReports {
 		if v.ReasonType == reason {
 			return
