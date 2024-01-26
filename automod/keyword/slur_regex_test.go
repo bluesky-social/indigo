@@ -60,6 +60,7 @@ func TestStringContainsExplicitSlur(t *testing.T) {
 		{out: "kike", text: "kike"},
 		{out: "nigger", text: "niggers"},
 		{out: "nigger", text: "niggers.bsky.social"},
+		{out: "nigger", text: "pumpkinniggah.bsky.social"},
 		{out: "tranny", text: "trannie"},
 	}
 
