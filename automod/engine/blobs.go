@@ -16,9 +16,8 @@ import (
 // NOTE: for consistency with other RecordContext methods, which don't usually return errors, maybe the error-returning version of this function should be a helper function, or definted on RecordOp, and the RecordContext version should return an empty array on error?
 func (c *RecordContext) Blobs() ([]lexutil.LexBlob, error) {
 
-	if c.RecordOp.Action != CreateOp {
-		// TODO: should this really error, or return empty array?
-		return nil, fmt.Errorf("expected record creation, got: %s", c.RecordOp.Action)
+	if c.RecordOp.Action == DeleteOp {
+		return nil
 	}
 
 	var blobs []lexutil.LexBlob
