@@ -130,6 +130,13 @@ func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubsc
 		return nil
 	}
 
+	// empty commit is a special case, temporarily, basically indicates "new account"
+	if len(evt.Ops) == 0 {
+		if err := s.engine.ProcessIdentityEvent(ctx, "create", did); err != nil {
+			s.logger.Error("processing handle update failed", "did", evt.Repo, "rev", evt.Rev, "seq", evt.Seq, "err", err)
+		}
+	}
+
 	for _, op := range evt.Ops {
 		logger = logger.With("eventKind", op.Action, "path", op.Path)
 		collection, rkey, err := splitRepoPath(op.Path)
