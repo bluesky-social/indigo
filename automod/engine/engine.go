@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	recordEventTimeout       = 20 * time.Second
+	recordEventTimeout       = 30 * time.Second
 	identityEventTimeout     = 10 * time.Second
 	notificationEventTimeout = 5 * time.Second
 )
