@@ -33,10 +33,10 @@ type Gormjob struct {
 type GormDBJob struct {
 	gorm.Model
 	Repo       string `gorm:"unique;index"`
-	State      string `gorm:"index"`
+	State      string `gorm:"index;index:state_retry_after,priority:1"`
 	Rev        string
 	RetryCount int
-	RetryAfter *time.Time
+	RetryAfter *time.Time `gorm:"index:state_retry_after,priority:2"`
 }
 
 // Gormstore is a gorm-backed implementation of the Backfill Store interface
