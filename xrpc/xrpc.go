@@ -122,7 +122,9 @@ func makeParams(p map[string]any) string {
 	params := url.Values{}
 	for k, v := range p {
 		if s, ok := v.([]string); ok {
-			params.Add(k, strings.Join(s, ","))
+			for _, v := range s {
+				params.Add(k, v)
+			}
 		} else {
 			params.Add(k, fmt.Sprint(v))
 		}
