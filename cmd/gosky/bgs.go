@@ -377,6 +377,9 @@ var bgsCompactAll = &cli.Command{
 		&cli.IntFlag{
 			Name: "limit",
 		},
+		&cli.IntFlag{
+			Name: "threshold",
+		},
 		&cli.BoolFlag{
 			Name: "fast",
 		},
@@ -399,6 +402,11 @@ var bgsCompactAll = &cli.Command{
 		if cctx.IsSet("limit") {
 			q.Add("limit", fmt.Sprint(cctx.Int("limit")))
 		}
+
+		if cctx.IsSet("threshold") {
+			q.Add("threshold", fmt.Sprint(cctx.Int("threshold")))
+		}
+
 		uu.RawQuery = q.Encode()
 
 		req, err := http.NewRequest("POST", uu.String(), nil)
