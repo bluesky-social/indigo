@@ -463,7 +463,17 @@ func (bgs *BGS) handleAdminCompactAllRepos(e echo.Context) error {
 		lim = v
 	}
 
-	err := bgs.compactor.EnqueueAllRepos(ctx, bgs, lim, 0, fast)
+	shardThresh := 20
+	if threshstr := e.QueryParam("threshold"); threshstr != "" {
+		v, err := strconv.Atoi(threshstr)
+		if err != nil {
+			return err
+		}
+
+		shardThresh = v
+	}
+
+	err := bgs.compactor.EnqueueAllRepos(ctx, bgs, lim, shardThresh, fast)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf("failed to enqueue all repos: %w", err))
 	}
