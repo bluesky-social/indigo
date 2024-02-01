@@ -36,7 +36,7 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Did (string) (string)
-	if len("did") > cbg.MaxLength {
+	if uint64(len("did")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"did\" was too long")
 	}
 
@@ -47,7 +47,7 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Did) > cbg.MaxLength {
+	if uint64(len(t.Did)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Did was too long")
 	}
 
@@ -61,7 +61,7 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 	// t.Rev (string) (string)
 	if t.Rev != "" {
 
-		if len("rev") > cbg.MaxLength {
+		if uint64(len("rev")) > cbg.MaxLength {
 			return xerrors.Errorf("Value in field \"rev\" was too long")
 		}
 
@@ -72,7 +72,7 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 
-		if len(t.Rev) > cbg.MaxLength {
+		if uint64(len(t.Rev)) > cbg.MaxLength {
 			return xerrors.Errorf("Value in field t.Rev was too long")
 		}
 
@@ -85,7 +85,7 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Sig ([]uint8) (slice)
-	if len("sig") > cbg.MaxLength {
+	if uint64(len("sig")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"sig\" was too long")
 	}
 
@@ -96,7 +96,7 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Sig) > cbg.ByteArrayMaxLen {
+	if uint64(len(t.Sig)) > cbg.ByteArrayMaxLen {
 		return xerrors.Errorf("Byte array in field t.Sig was too long")
 	}
 
@@ -104,12 +104,12 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if _, err := cw.Write(t.Sig[:]); err != nil {
+	if _, err := cw.Write(t.Sig); err != nil {
 		return err
 	}
 
 	// t.Data (cid.Cid) (struct)
-	if len("data") > cbg.MaxLength {
+	if uint64(len("data")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"data\" was too long")
 	}
 
@@ -125,7 +125,7 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Prev (cid.Cid) (struct)
-	if len("prev") > cbg.MaxLength {
+	if uint64(len("prev")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"prev\" was too long")
 	}
 
@@ -147,7 +147,7 @@ func (t *SignedCommit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Version (int64) (int64)
-	if len("version") > cbg.MaxLength {
+	if uint64(len("version")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"version\" was too long")
 	}
 
@@ -249,7 +249,7 @@ func (t *SignedCommit) UnmarshalCBOR(r io.Reader) (err error) {
 				t.Sig = make([]uint8, extra)
 			}
 
-			if _, err := io.ReadFull(cr, t.Sig[:]); err != nil {
+			if _, err := io.ReadFull(cr, t.Sig); err != nil {
 				return err
 			}
 
@@ -342,7 +342,7 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Did (string) (string)
-	if len("did") > cbg.MaxLength {
+	if uint64(len("did")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"did\" was too long")
 	}
 
@@ -353,7 +353,7 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Did) > cbg.MaxLength {
+	if uint64(len(t.Did)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Did was too long")
 	}
 
@@ -367,7 +367,7 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 	// t.Rev (string) (string)
 	if t.Rev != "" {
 
-		if len("rev") > cbg.MaxLength {
+		if uint64(len("rev")) > cbg.MaxLength {
 			return xerrors.Errorf("Value in field \"rev\" was too long")
 		}
 
@@ -378,7 +378,7 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 
-		if len(t.Rev) > cbg.MaxLength {
+		if uint64(len(t.Rev)) > cbg.MaxLength {
 			return xerrors.Errorf("Value in field t.Rev was too long")
 		}
 
@@ -391,7 +391,7 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Data (cid.Cid) (struct)
-	if len("data") > cbg.MaxLength {
+	if uint64(len("data")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"data\" was too long")
 	}
 
@@ -407,7 +407,7 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Prev (cid.Cid) (struct)
-	if len("prev") > cbg.MaxLength {
+	if uint64(len("prev")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"prev\" was too long")
 	}
 
@@ -429,7 +429,7 @@ func (t *UnsignedCommit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Version (int64) (int64)
-	if len("version") > cbg.MaxLength {
+	if uint64(len("version")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"version\" was too long")
 	}
 
