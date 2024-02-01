@@ -37,7 +37,7 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Cid (string) (string)
-	if len("cid") > cbg.MaxLength {
+	if uint64(len("cid")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"cid\" was too long")
 	}
 
@@ -48,7 +48,7 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Cid) > cbg.MaxLength {
+	if uint64(len(t.Cid)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Cid was too long")
 	}
 
@@ -60,7 +60,7 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Uri (string) (string)
-	if len("uri") > cbg.MaxLength {
+	if uint64(len("uri")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"uri\" was too long")
 	}
 
@@ -71,7 +71,7 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Uri) > cbg.MaxLength {
+	if uint64(len(t.Uri)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Uri was too long")
 	}
 
@@ -85,7 +85,7 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 	// t.LexiconTypeID (string) (string)
 	if t.LexiconTypeID != "" {
 
-		if len("$type") > cbg.MaxLength {
+		if uint64(len("$type")) > cbg.MaxLength {
 			return xerrors.Errorf("Value in field \"$type\" was too long")
 		}
 
@@ -204,7 +204,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Ops ([]*atproto.SyncSubscribeRepos_RepoOp) (slice)
-	if len("ops") > cbg.MaxLength {
+	if uint64(len("ops")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"ops\" was too long")
 	}
 
@@ -215,7 +215,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Ops) > cbg.MaxLength {
+	if uint64(len(t.Ops)) > cbg.MaxLength {
 		return xerrors.Errorf("Slice value in field t.Ops was too long")
 	}
 
@@ -230,7 +230,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Rev (string) (string)
-	if len("rev") > cbg.MaxLength {
+	if uint64(len("rev")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"rev\" was too long")
 	}
 
@@ -241,7 +241,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Rev) > cbg.MaxLength {
+	if uint64(len(t.Rev)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Rev was too long")
 	}
 
@@ -253,7 +253,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Seq (int64) (int64)
-	if len("seq") > cbg.MaxLength {
+	if uint64(len("seq")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"seq\" was too long")
 	}
 
@@ -275,7 +275,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Prev (util.LexLink) (struct)
-	if len("prev") > cbg.MaxLength {
+	if uint64(len("prev")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"prev\" was too long")
 	}
 
@@ -291,7 +291,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Repo (string) (string)
-	if len("repo") > cbg.MaxLength {
+	if uint64(len("repo")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"repo\" was too long")
 	}
 
@@ -302,7 +302,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Repo) > cbg.MaxLength {
+	if uint64(len(t.Repo)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Repo was too long")
 	}
 
@@ -314,7 +314,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Time (string) (string)
-	if len("time") > cbg.MaxLength {
+	if uint64(len("time")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"time\" was too long")
 	}
 
@@ -325,7 +325,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Time) > cbg.MaxLength {
+	if uint64(len(t.Time)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Time was too long")
 	}
 
@@ -337,7 +337,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Blobs ([]util.LexLink) (slice)
-	if len("blobs") > cbg.MaxLength {
+	if uint64(len("blobs")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"blobs\" was too long")
 	}
 
@@ -348,7 +348,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Blobs) > cbg.MaxLength {
+	if uint64(len(t.Blobs)) > cbg.MaxLength {
 		return xerrors.Errorf("Slice value in field t.Blobs was too long")
 	}
 
@@ -363,7 +363,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Since (string) (string)
-	if len("since") > cbg.MaxLength {
+	if uint64(len("since")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"since\" was too long")
 	}
 
@@ -379,7 +379,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	} else {
-		if len(*t.Since) > cbg.MaxLength {
+		if uint64(len(*t.Since)) > cbg.MaxLength {
 			return xerrors.Errorf("Value in field t.Since was too long")
 		}
 
@@ -394,7 +394,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	// t.Blocks (util.LexBytes) (slice)
 	if t.Blocks != nil {
 
-		if len("blocks") > cbg.MaxLength {
+		if uint64(len("blocks")) > cbg.MaxLength {
 			return xerrors.Errorf("Value in field \"blocks\" was too long")
 		}
 
@@ -405,7 +405,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 
-		if len(t.Blocks) > cbg.ByteArrayMaxLen {
+		if uint64(len(t.Blocks)) > cbg.ByteArrayMaxLen {
 			return xerrors.Errorf("Byte array in field t.Blocks was too long")
 		}
 
@@ -413,14 +413,14 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 
-		if _, err := cw.Write(t.Blocks[:]); err != nil {
+		if _, err := cw.Write(t.Blocks); err != nil {
 			return err
 		}
 
 	}
 
 	// t.Commit (util.LexLink) (struct)
-	if len("commit") > cbg.MaxLength {
+	if uint64(len("commit")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"commit\" was too long")
 	}
 
@@ -436,7 +436,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Rebase (bool) (bool)
-	if len("rebase") > cbg.MaxLength {
+	if uint64(len("rebase")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"rebase\" was too long")
 	}
 
@@ -452,7 +452,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.TooBig (bool) (bool)
-	if len("tooBig") > cbg.MaxLength {
+	if uint64(len("tooBig")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"tooBig\" was too long")
 	}
 
@@ -714,7 +714,7 @@ func (t *SyncSubscribeRepos_Commit) UnmarshalCBOR(r io.Reader) (err error) {
 				t.Blocks = make([]uint8, extra)
 			}
 
-			if _, err := io.ReadFull(cr, t.Blocks[:]); err != nil {
+			if _, err := io.ReadFull(cr, t.Blocks); err != nil {
 				return err
 			}
 
@@ -786,7 +786,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Did (string) (string)
-	if len("did") > cbg.MaxLength {
+	if uint64(len("did")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"did\" was too long")
 	}
 
@@ -797,7 +797,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Did) > cbg.MaxLength {
+	if uint64(len(t.Did)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Did was too long")
 	}
 
@@ -809,7 +809,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Seq (int64) (int64)
-	if len("seq") > cbg.MaxLength {
+	if uint64(len("seq")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"seq\" was too long")
 	}
 
@@ -831,7 +831,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Time (string) (string)
-	if len("time") > cbg.MaxLength {
+	if uint64(len("time")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"time\" was too long")
 	}
 
@@ -842,7 +842,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Time) > cbg.MaxLength {
+	if uint64(len(t.Time)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Time was too long")
 	}
 
@@ -854,7 +854,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Handle (string) (string)
-	if len("handle") > cbg.MaxLength {
+	if uint64(len("handle")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"handle\" was too long")
 	}
 
@@ -865,7 +865,7 @@ func (t *SyncSubscribeRepos_Handle) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Handle) > cbg.MaxLength {
+	if uint64(len(t.Handle)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Handle was too long")
 	}
 
@@ -1002,7 +1002,7 @@ func (t *SyncSubscribeRepos_Info) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Name (string) (string)
-	if len("name") > cbg.MaxLength {
+	if uint64(len("name")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"name\" was too long")
 	}
 
@@ -1013,7 +1013,7 @@ func (t *SyncSubscribeRepos_Info) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Name) > cbg.MaxLength {
+	if uint64(len(t.Name)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Name was too long")
 	}
 
@@ -1027,7 +1027,7 @@ func (t *SyncSubscribeRepos_Info) MarshalCBOR(w io.Writer) error {
 	// t.Message (string) (string)
 	if t.Message != nil {
 
-		if len("message") > cbg.MaxLength {
+		if uint64(len("message")) > cbg.MaxLength {
 			return xerrors.Errorf("Value in field \"message\" was too long")
 		}
 
@@ -1043,7 +1043,7 @@ func (t *SyncSubscribeRepos_Info) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.Message) > cbg.MaxLength {
+			if uint64(len(*t.Message)) > cbg.MaxLength {
 				return xerrors.Errorf("Value in field t.Message was too long")
 			}
 
@@ -1150,7 +1150,7 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Did (string) (string)
-	if len("did") > cbg.MaxLength {
+	if uint64(len("did")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"did\" was too long")
 	}
 
@@ -1161,7 +1161,7 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Did) > cbg.MaxLength {
+	if uint64(len(t.Did)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Did was too long")
 	}
 
@@ -1173,7 +1173,7 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Seq (int64) (int64)
-	if len("seq") > cbg.MaxLength {
+	if uint64(len("seq")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"seq\" was too long")
 	}
 
@@ -1195,7 +1195,7 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Time (string) (string)
-	if len("time") > cbg.MaxLength {
+	if uint64(len("time")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"time\" was too long")
 	}
 
@@ -1206,7 +1206,7 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Time) > cbg.MaxLength {
+	if uint64(len(t.Time)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Time was too long")
 	}
 
@@ -1218,7 +1218,7 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.MigrateTo (string) (string)
-	if len("migrateTo") > cbg.MaxLength {
+	if uint64(len("migrateTo")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"migrateTo\" was too long")
 	}
 
@@ -1234,7 +1234,7 @@ func (t *SyncSubscribeRepos_Migrate) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	} else {
-		if len(*t.MigrateTo) > cbg.MaxLength {
+		if uint64(len(*t.MigrateTo)) > cbg.MaxLength {
 			return xerrors.Errorf("Value in field t.MigrateTo was too long")
 		}
 
@@ -1377,7 +1377,7 @@ func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Cid (util.LexLink) (struct)
-	if len("cid") > cbg.MaxLength {
+	if uint64(len("cid")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"cid\" was too long")
 	}
 
@@ -1393,7 +1393,7 @@ func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Path (string) (string)
-	if len("path") > cbg.MaxLength {
+	if uint64(len("path")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"path\" was too long")
 	}
 
@@ -1404,7 +1404,7 @@ func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Path) > cbg.MaxLength {
+	if uint64(len(t.Path)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Path was too long")
 	}
 
@@ -1416,7 +1416,7 @@ func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Action (string) (string)
-	if len("action") > cbg.MaxLength {
+	if uint64(len("action")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"action\" was too long")
 	}
 
@@ -1427,7 +1427,7 @@ func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Action) > cbg.MaxLength {
+	if uint64(len(t.Action)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Action was too long")
 	}
 
@@ -1542,7 +1542,7 @@ func (t *SyncSubscribeRepos_Tombstone) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Did (string) (string)
-	if len("did") > cbg.MaxLength {
+	if uint64(len("did")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"did\" was too long")
 	}
 
@@ -1553,7 +1553,7 @@ func (t *SyncSubscribeRepos_Tombstone) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Did) > cbg.MaxLength {
+	if uint64(len(t.Did)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Did was too long")
 	}
 
@@ -1565,7 +1565,7 @@ func (t *SyncSubscribeRepos_Tombstone) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Seq (int64) (int64)
-	if len("seq") > cbg.MaxLength {
+	if uint64(len("seq")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"seq\" was too long")
 	}
 
@@ -1587,7 +1587,7 @@ func (t *SyncSubscribeRepos_Tombstone) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Time (string) (string)
-	if len("time") > cbg.MaxLength {
+	if uint64(len("time")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"time\" was too long")
 	}
 
@@ -1598,7 +1598,7 @@ func (t *SyncSubscribeRepos_Tombstone) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Time) > cbg.MaxLength {
+	if uint64(len(t.Time)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Time was too long")
 	}
 
@@ -1719,7 +1719,7 @@ func (t *LabelDefs_SelfLabels) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > cbg.MaxLength {
+	if uint64(len("$type")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -1738,7 +1738,7 @@ func (t *LabelDefs_SelfLabels) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Values ([]*atproto.LabelDefs_SelfLabel) (slice)
-	if len("values") > cbg.MaxLength {
+	if uint64(len("values")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"values\" was too long")
 	}
 
@@ -1749,7 +1749,7 @@ func (t *LabelDefs_SelfLabels) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Values) > cbg.MaxLength {
+	if uint64(len(t.Values)) > cbg.MaxLength {
 		return xerrors.Errorf("Slice value in field t.Values was too long")
 	}
 
@@ -1905,7 +1905,7 @@ func (t *LabelDefs_SelfLabel) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Val (string) (string)
-	if len("val") > cbg.MaxLength {
+	if uint64(len("val")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"val\" was too long")
 	}
 
@@ -1916,7 +1916,7 @@ func (t *LabelDefs_SelfLabel) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Val) > cbg.MaxLength {
+	if uint64(len(t.Val)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Val was too long")
 	}
 
@@ -2011,7 +2011,7 @@ func (t *LabelDefs_Label) MarshalCBOR(w io.Writer) error {
 	// t.Cid (string) (string)
 	if t.Cid != nil {
 
-		if len("cid") > cbg.MaxLength {
+		if uint64(len("cid")) > cbg.MaxLength {
 			return xerrors.Errorf("Value in field \"cid\" was too long")
 		}
 
@@ -2027,7 +2027,7 @@ func (t *LabelDefs_Label) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.Cid) > cbg.MaxLength {
+			if uint64(len(*t.Cid)) > cbg.MaxLength {
 				return xerrors.Errorf("Value in field t.Cid was too long")
 			}
 
@@ -2041,7 +2041,7 @@ func (t *LabelDefs_Label) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Cts (string) (string)
-	if len("cts") > cbg.MaxLength {
+	if uint64(len("cts")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"cts\" was too long")
 	}
 
@@ -2052,7 +2052,7 @@ func (t *LabelDefs_Label) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Cts) > cbg.MaxLength {
+	if uint64(len(t.Cts)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Cts was too long")
 	}
 
@@ -2066,7 +2066,7 @@ func (t *LabelDefs_Label) MarshalCBOR(w io.Writer) error {
 	// t.Neg (bool) (bool)
 	if t.Neg != nil {
 
-		if len("neg") > cbg.MaxLength {
+		if uint64(len("neg")) > cbg.MaxLength {
 			return xerrors.Errorf("Value in field \"neg\" was too long")
 		}
 
@@ -2089,7 +2089,7 @@ func (t *LabelDefs_Label) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Src (string) (string)
-	if len("src") > cbg.MaxLength {
+	if uint64(len("src")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"src\" was too long")
 	}
 
@@ -2100,7 +2100,7 @@ func (t *LabelDefs_Label) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Src) > cbg.MaxLength {
+	if uint64(len(t.Src)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Src was too long")
 	}
 
@@ -2112,7 +2112,7 @@ func (t *LabelDefs_Label) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Uri (string) (string)
-	if len("uri") > cbg.MaxLength {
+	if uint64(len("uri")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"uri\" was too long")
 	}
 
@@ -2123,7 +2123,7 @@ func (t *LabelDefs_Label) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Uri) > cbg.MaxLength {
+	if uint64(len(t.Uri)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Uri was too long")
 	}
 
@@ -2135,7 +2135,7 @@ func (t *LabelDefs_Label) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Val (string) (string)
-	if len("val") > cbg.MaxLength {
+	if uint64(len("val")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"val\" was too long")
 	}
 
@@ -2146,7 +2146,7 @@ func (t *LabelDefs_Label) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Val) > cbg.MaxLength {
+	if uint64(len(t.Val)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Val was too long")
 	}
 
@@ -2317,7 +2317,7 @@ func (t *LabelSubscribeLabels_Labels) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Seq (int64) (int64)
-	if len("seq") > cbg.MaxLength {
+	if uint64(len("seq")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"seq\" was too long")
 	}
 
@@ -2339,7 +2339,7 @@ func (t *LabelSubscribeLabels_Labels) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Labels ([]*atproto.LabelDefs_Label) (slice)
-	if len("labels") > cbg.MaxLength {
+	if uint64(len("labels")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"labels\" was too long")
 	}
 
@@ -2350,7 +2350,7 @@ func (t *LabelSubscribeLabels_Labels) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Labels) > cbg.MaxLength {
+	if uint64(len(t.Labels)) > cbg.MaxLength {
 		return xerrors.Errorf("Slice value in field t.Labels was too long")
 	}
 
@@ -2506,7 +2506,7 @@ func (t *LabelSubscribeLabels_Info) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Name (string) (string)
-	if len("name") > cbg.MaxLength {
+	if uint64(len("name")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"name\" was too long")
 	}
 
@@ -2517,7 +2517,7 @@ func (t *LabelSubscribeLabels_Info) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Name) > cbg.MaxLength {
+	if uint64(len(t.Name)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Name was too long")
 	}
 
@@ -2531,7 +2531,7 @@ func (t *LabelSubscribeLabels_Info) MarshalCBOR(w io.Writer) error {
 	// t.Message (string) (string)
 	if t.Message != nil {
 
-		if len("message") > cbg.MaxLength {
+		if uint64(len("message")) > cbg.MaxLength {
 			return xerrors.Errorf("Value in field \"message\" was too long")
 		}
 
@@ -2547,7 +2547,7 @@ func (t *LabelSubscribeLabels_Info) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.Message) > cbg.MaxLength {
+			if uint64(len(*t.Message)) > cbg.MaxLength {
 				return xerrors.Errorf("Value in field t.Message was too long")
 			}
 

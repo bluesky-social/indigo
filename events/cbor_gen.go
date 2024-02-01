@@ -31,7 +31,7 @@ func (t *EventHeader) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.MsgType (string) (string)
-	if len("t") > cbg.MaxLength {
+	if uint64(len("t")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"t\" was too long")
 	}
 
@@ -42,7 +42,7 @@ func (t *EventHeader) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.MsgType) > cbg.MaxLength {
+	if uint64(len(t.MsgType)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.MsgType was too long")
 	}
 
@@ -54,7 +54,7 @@ func (t *EventHeader) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Op (int64) (int64)
-	if len("op") > cbg.MaxLength {
+	if uint64(len("op")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"op\" was too long")
 	}
 
@@ -174,7 +174,7 @@ func (t *ErrorFrame) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Error (string) (string)
-	if len("error") > cbg.MaxLength {
+	if uint64(len("error")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"error\" was too long")
 	}
 
@@ -185,7 +185,7 @@ func (t *ErrorFrame) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Error) > cbg.MaxLength {
+	if uint64(len(t.Error)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Error was too long")
 	}
 
@@ -197,7 +197,7 @@ func (t *ErrorFrame) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Message (string) (string)
-	if len("message") > cbg.MaxLength {
+	if uint64(len("message")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"message\" was too long")
 	}
 
@@ -208,7 +208,7 @@ func (t *ErrorFrame) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Message) > cbg.MaxLength {
+	if uint64(len(t.Message)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Message was too long")
 	}
 
