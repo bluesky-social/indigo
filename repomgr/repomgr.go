@@ -1056,3 +1056,28 @@ func (rm *RepoManager) ResetRepo(ctx context.Context, uid models.Uid) error {
 
 	return rm.cs.WipeUserData(ctx, uid)
 }
+
+func (rm *RepoManager) VerifyRepo(ctx context.Context, uid models.Uid) error {
+	ses, err := rm.cs.ReadOnlySession(uid)
+	if err != nil {
+		return err
+	}
+
+	r, err := repo.OpenRepo(ctx, ses, ses.BaseCid())
+	if err != nil {
+		return err
+	}
+
+	if err := r.ForEach(ctx, "", func(k string, v cid.Cid) error {
+		_, err := ses.Get(ctx, v)
+		if err != nil {
+			return fmt.Errorf("failed to get record %s (%s): %w", k, v, err)
+		}
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
