@@ -144,6 +144,14 @@ func (s *Memstore) GetNextEnqueuedJob(ctx context.Context) (Job, error) {
 	return nil, nil
 }
 
+func (s *Memstore) PurgeRepo(ctx context.Context, repo string) error {
+	s.lk.RLock()
+	defer s.lk.RUnlock()
+
+	delete(s.jobs, repo)
+	return nil
+}
+
 func (j *Memjob) Repo() string {
 	return j.repo
 }

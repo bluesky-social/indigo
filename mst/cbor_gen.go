@@ -31,7 +31,7 @@ func (t *nodeData) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Entries ([]mst.treeEntry) (slice)
-	if len("e") > cbg.MaxLength {
+	if uint64(len("e")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"e\" was too long")
 	}
 
@@ -42,7 +42,7 @@ func (t *nodeData) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Entries) > cbg.MaxLength {
+	if uint64(len(t.Entries)) > cbg.MaxLength {
 		return xerrors.Errorf("Slice value in field t.Entries was too long")
 	}
 
@@ -57,7 +57,7 @@ func (t *nodeData) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Left (cid.Cid) (struct)
-	if len("l") > cbg.MaxLength {
+	if uint64(len("l")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"l\" was too long")
 	}
 
@@ -203,7 +203,7 @@ func (t *treeEntry) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.KeySuffix ([]uint8) (slice)
-	if len("k") > cbg.MaxLength {
+	if uint64(len("k")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"k\" was too long")
 	}
 
@@ -214,7 +214,7 @@ func (t *treeEntry) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.KeySuffix) > cbg.ByteArrayMaxLen {
+	if uint64(len(t.KeySuffix)) > cbg.ByteArrayMaxLen {
 		return xerrors.Errorf("Byte array in field t.KeySuffix was too long")
 	}
 
@@ -222,12 +222,12 @@ func (t *treeEntry) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if _, err := cw.Write(t.KeySuffix[:]); err != nil {
+	if _, err := cw.Write(t.KeySuffix); err != nil {
 		return err
 	}
 
 	// t.PrefixLen (int64) (int64)
-	if len("p") > cbg.MaxLength {
+	if uint64(len("p")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"p\" was too long")
 	}
 
@@ -249,7 +249,7 @@ func (t *treeEntry) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Tree (cid.Cid) (struct)
-	if len("t") > cbg.MaxLength {
+	if uint64(len("t")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"t\" was too long")
 	}
 
@@ -271,7 +271,7 @@ func (t *treeEntry) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Val (cid.Cid) (struct)
-	if len("v") > cbg.MaxLength {
+	if uint64(len("v")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"v\" was too long")
 	}
 
@@ -346,7 +346,7 @@ func (t *treeEntry) UnmarshalCBOR(r io.Reader) (err error) {
 				t.KeySuffix = make([]uint8, extra)
 			}
 
-			if _, err := io.ReadFull(cr, t.KeySuffix[:]); err != nil {
+			if _, err := io.ReadFull(cr, t.KeySuffix); err != nil {
 				return err
 			}
 

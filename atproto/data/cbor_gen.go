@@ -31,7 +31,7 @@ func (t *GenericRecord) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Type (string) (string)
-	if len("$type") > cbg.MaxLength {
+	if uint64(len("$type")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -42,7 +42,7 @@ func (t *GenericRecord) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Type) > cbg.MaxLength {
+	if uint64(len(t.Type)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Type was too long")
 	}
 
@@ -126,7 +126,7 @@ func (t *LegacyBlobSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Cid (string) (string)
-	if len("cid") > cbg.MaxLength {
+	if uint64(len("cid")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"cid\" was too long")
 	}
 
@@ -137,7 +137,7 @@ func (t *LegacyBlobSchema) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Cid) > cbg.MaxLength {
+	if uint64(len(t.Cid)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.Cid was too long")
 	}
 
@@ -149,7 +149,7 @@ func (t *LegacyBlobSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.MimeType (string) (string)
-	if len("mimeType") > cbg.MaxLength {
+	if uint64(len("mimeType")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"mimeType\" was too long")
 	}
 
@@ -160,7 +160,7 @@ func (t *LegacyBlobSchema) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.MimeType) > cbg.MaxLength {
+	if uint64(len(t.MimeType)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.MimeType was too long")
 	}
 
@@ -255,7 +255,7 @@ func (t *BlobSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Ref (data.CIDLink) (struct)
-	if len("ref") > cbg.MaxLength {
+	if uint64(len("ref")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"ref\" was too long")
 	}
 
@@ -271,7 +271,7 @@ func (t *BlobSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Size (int64) (int64)
-	if len("size") > cbg.MaxLength {
+	if uint64(len("size")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"size\" was too long")
 	}
 
@@ -293,7 +293,7 @@ func (t *BlobSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > cbg.MaxLength {
+	if uint64(len("$type")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -312,7 +312,7 @@ func (t *BlobSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.MimeType (string) (string)
-	if len("mimeType") > cbg.MaxLength {
+	if uint64(len("mimeType")) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field \"mimeType\" was too long")
 	}
 
@@ -323,7 +323,7 @@ func (t *BlobSchema) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.MimeType) > cbg.MaxLength {
+	if uint64(len(t.MimeType)) > cbg.MaxLength {
 		return xerrors.Errorf("Value in field t.MimeType was too long")
 	}
 
