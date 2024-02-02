@@ -559,6 +559,28 @@ func (bgs *BGS) handleAdminResetRepo(e echo.Context) error {
 	})
 }
 
+func (bgs *BGS) handleAdminVerifyRepo(e echo.Context) error {
+	ctx := e.Request().Context()
+
+	did := e.QueryParam("did")
+	if did == "" {
+		return fmt.Errorf("must pass a did")
+	}
+
+	ai, err := bgs.Index.LookupUserByDid(ctx, did)
+	if err != nil {
+		return fmt.Errorf("no such user: %w", err)
+	}
+
+	if err := bgs.repoman.VerifyRepo(ctx, ai.Uid); err != nil {
+		return err
+	}
+
+	return e.JSON(200, map[string]any{
+		"success": true,
+	})
+}
+
 func (bgs *BGS) handleAdminAddTrustedDomain(e echo.Context) error {
 	domain := e.QueryParam("domain")
 	if domain == "" {
