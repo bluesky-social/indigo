@@ -36,7 +36,7 @@ func TestMakeParams(t *testing.T) {
 			input: map[string]interface{}{
 				"key": []string{"value1", "value2", "value3"},
 			},
-			expected: "key=value1%2Cvalue2%2Cvalue3",
+			expected: "key=value1&key=value2&key=value3",
 		},
 		{
 			name: "Mixed values",
@@ -44,7 +44,7 @@ func TestMakeParams(t *testing.T) {
 				"key1": "value1",
 				"key2": []string{"value2", "value3"},
 			},
-			expected: "key1=value1&key2=value2%2Cvalue3",
+			expected: "key1=value1&key2=value2&key2=value3",
 		},
 	}
 
