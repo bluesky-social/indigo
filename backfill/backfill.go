@@ -49,6 +49,8 @@ type Store interface {
 	UpdateRev(ctx context.Context, repo, rev string) error
 
 	EnqueueJob(ctx context.Context, repo string) error
+
+	PurgeRepo(ctx context.Context, repo string) error
 }
 
 // Backfiller is a struct which handles backfilling a repo
