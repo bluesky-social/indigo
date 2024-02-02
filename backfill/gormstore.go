@@ -384,7 +384,7 @@ func (s *Gormstore) UpdateRev(ctx context.Context, repo, rev string) error {
 }
 
 func (s *Gormstore) PurgeRepo(ctx context.Context, repo string) error {
-	if err := s.db.Raw("DELETE FROM gorm_db_jobs WHERE repo = ?", repo).Error; err != nil {
+	if err := s.db.Exec("DELETE FROM gorm_db_jobs WHERE repo = ?", repo).Error; err != nil {
 		return err
 	}
 
