@@ -47,11 +47,6 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 		return nil
 	}
 
-	// increment first. use a specific period (IncrementPeriod()) to reduce the number of counters (one per unique post text)
-	period := countstore.PeriodDay
-	bucket := c.Account.Identity.DID.String() + "/" + HashOfString(post.Text)
-	c.IncrementPeriod("reply-text", bucket, period)
-
 	// don't action short replies, or accounts more than two weeks old
 	if utf8.RuneCountInString(post.Text) <= 10 {
 		return nil
@@ -63,8 +58,15 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 		}
 	}
 
-	if c.GetCount("reply-text", bucket, period) >= identicalReplyLimit {
+	// increment before read. use a specific period (IncrementPeriod()) to reduce the number of counters (one per unique post text)
+	period := countstore.PeriodDay
+	bucket := c.Account.Identity.DID.String() + "/" + HashOfString(post.Text)
+	c.IncrementPeriod("reply-text", bucket, period)
+
+	count := c.GetCount("reply-text", bucket, period)
+	if count >= identicalReplyLimit {
 		c.AddAccountFlag("multi-identical-reply")
+		//c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible spam (young account, %d identical reply-posts today)", tag))
 		c.Notify("slack")
 	}
 
