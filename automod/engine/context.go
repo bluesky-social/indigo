@@ -169,7 +169,20 @@ func NewNotificationContext(ctx context.Context, eng *Engine, sender, recipient 
 	}
 }
 
-// update effects (indirect)
+// fetch relationship metadata between this account and another account
+func (c *AccountContext) GetAccountRelationship(other syntax.DID) AccountRelationship {
+	rel, err := c.engine.GetAccountRelationship(c.Ctx, c.Account.Identity.DID, other)
+	if err != nil {
+		if nil == c.Err {
+			c.Err = err
+		}
+		return AccountRelationship{DID: other}
+	}
+	return *rel
+}
+
+// update effects (indirect) ======
+
 func (c *BaseContext) Increment(name, val string) {
 	c.effects.Increment(name, val)
 }
