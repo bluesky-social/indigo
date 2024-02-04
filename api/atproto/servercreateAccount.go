@@ -12,13 +12,15 @@ import (
 
 // ServerCreateAccount_Input is the input argument to a com.atproto.server.createAccount call.
 type ServerCreateAccount_Input struct {
-	Did         *string      `json:"did,omitempty" cborgen:"did,omitempty"`
-	Email       *string      `json:"email,omitempty" cborgen:"email,omitempty"`
-	Handle      string       `json:"handle" cborgen:"handle"`
-	InviteCode  *string      `json:"inviteCode,omitempty" cborgen:"inviteCode,omitempty"`
-	Password    *string      `json:"password,omitempty" cborgen:"password,omitempty"`
-	PlcOp       *interface{} `json:"plcOp,omitempty" cborgen:"plcOp,omitempty"`
-	RecoveryKey *string      `json:"recoveryKey,omitempty" cborgen:"recoveryKey,omitempty"`
+	Did               *string      `json:"did,omitempty" cborgen:"did,omitempty"`
+	Email             *string      `json:"email,omitempty" cborgen:"email,omitempty"`
+	Handle            string       `json:"handle" cborgen:"handle"`
+	InviteCode        *string      `json:"inviteCode,omitempty" cborgen:"inviteCode,omitempty"`
+	Password          *string      `json:"password,omitempty" cborgen:"password,omitempty"`
+	PlcOp             *interface{} `json:"plcOp,omitempty" cborgen:"plcOp,omitempty"`
+	RecoveryKey       *string      `json:"recoveryKey,omitempty" cborgen:"recoveryKey,omitempty"`
+	VerificationCode  *string      `json:"verificationCode,omitempty" cborgen:"verificationCode,omitempty"`
+	VerificationPhone *string      `json:"verificationPhone,omitempty" cborgen:"verificationPhone,omitempty"`
 }
 
 // ServerCreateAccount_Output is the output of a com.atproto.server.createAccount call.

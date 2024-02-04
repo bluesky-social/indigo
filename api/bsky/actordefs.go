@@ -48,6 +48,15 @@ type ActorDefs_FeedViewPref struct {
 	HideReposts *bool `json:"hideReposts,omitempty" cborgen:"hideReposts,omitempty"`
 }
 
+// ActorDefs_InterestsPref is a "interestsPref" in the app.bsky.actor.defs schema.
+//
+// RECORDTYPE: ActorDefs_InterestsPref
+type ActorDefs_InterestsPref struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs#interestsPref" cborgen:"$type,const=app.bsky.actor.defs#interestsPref"`
+	// tags: A list of tags which describe the account owner's interests gathered during onboarding.
+	Tags []string `json:"tags" cborgen:"tags"`
+}
+
 // ActorDefs_PersonalDetailsPref is a "personalDetailsPref" in the app.bsky.actor.defs schema.
 //
 // RECORDTYPE: ActorDefs_PersonalDetailsPref
@@ -64,6 +73,7 @@ type ActorDefs_Preferences_Elem struct {
 	ActorDefs_PersonalDetailsPref *ActorDefs_PersonalDetailsPref
 	ActorDefs_FeedViewPref        *ActorDefs_FeedViewPref
 	ActorDefs_ThreadViewPref      *ActorDefs_ThreadViewPref
+	ActorDefs_InterestsPref       *ActorDefs_InterestsPref
 }
 
 func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
@@ -90,6 +100,10 @@ func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
 	if t.ActorDefs_ThreadViewPref != nil {
 		t.ActorDefs_ThreadViewPref.LexiconTypeID = "app.bsky.actor.defs#threadViewPref"
 		return json.Marshal(t.ActorDefs_ThreadViewPref)
+	}
+	if t.ActorDefs_InterestsPref != nil {
+		t.ActorDefs_InterestsPref.LexiconTypeID = "app.bsky.actor.defs#interestsPref"
+		return json.Marshal(t.ActorDefs_InterestsPref)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -118,6 +132,9 @@ func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.actor.defs#threadViewPref":
 		t.ActorDefs_ThreadViewPref = new(ActorDefs_ThreadViewPref)
 		return json.Unmarshal(b, t.ActorDefs_ThreadViewPref)
+	case "app.bsky.actor.defs#interestsPref":
+		t.ActorDefs_InterestsPref = new(ActorDefs_InterestsPref)
+		return json.Unmarshal(b, t.ActorDefs_InterestsPref)
 
 	default:
 		return nil

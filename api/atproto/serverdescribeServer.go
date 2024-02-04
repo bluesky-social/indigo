@@ -18,9 +18,10 @@ type ServerDescribeServer_Links struct {
 
 // ServerDescribeServer_Output is the output of a com.atproto.server.describeServer call.
 type ServerDescribeServer_Output struct {
-	AvailableUserDomains []string                    `json:"availableUserDomains" cborgen:"availableUserDomains"`
-	InviteCodeRequired   *bool                       `json:"inviteCodeRequired,omitempty" cborgen:"inviteCodeRequired,omitempty"`
-	Links                *ServerDescribeServer_Links `json:"links,omitempty" cborgen:"links,omitempty"`
+	AvailableUserDomains      []string                    `json:"availableUserDomains" cborgen:"availableUserDomains"`
+	InviteCodeRequired        *bool                       `json:"inviteCodeRequired,omitempty" cborgen:"inviteCodeRequired,omitempty"`
+	Links                     *ServerDescribeServer_Links `json:"links,omitempty" cborgen:"links,omitempty"`
+	PhoneVerificationRequired *bool                       `json:"phoneVerificationRequired,omitempty" cborgen:"phoneVerificationRequired,omitempty"`
 }
 
 // ServerDescribeServer calls the XRPC method "com.atproto.server.describeServer".
