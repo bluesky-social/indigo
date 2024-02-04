@@ -72,3 +72,54 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 
 	return nil
 }
+
+var youngReplyAccountLimit = 6
+var _ automod.PostRuleFunc = YoungAccountDistinctRepliesRule
+
+func YoungAccountDistinctRepliesRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+	// only replies, and skip self-replies (eg, threads)
+	if post.Reply == nil || IsSelfThread(c, post) {
+		return nil
+	}
+
+	// don't action short replies, or accounts more than two weeks old
+	if utf8.RuneCountInString(post.Text) <= 10 {
+		return nil
+	}
+	if c.Account.Private != nil {
+		age := time.Since(c.Account.Private.IndexedAt)
+		if age > 2*7*24*time.Hour {
+			return nil
+		}
+	}
+
+	did := c.Account.Identity.DID.String()
+
+	parentURI, err := syntax.ParseATURI(post.Reply.Parent.Uri)
+	if err != nil {
+		c.Logger.Warn("failed to parse reply AT-URI", "uri", post.Reply.Parent.Uri)
+		return nil
+	}
+	otherDID, err := parentURI.Authority().AsDID()
+	if err != nil {
+		c.Logger.Warn("reply AT-URI authority not a DID", "uri", post.Reply.Parent.Uri)
+		return nil
+	}
+
+	// don't count if there is a follow-back relationship
+	rel := c.GetAccountRelationship(otherDID)
+	if rel.FollowedBy {
+		return nil
+	}
+
+	c.IncrementDistinct("young-reply-to", did, otherDID.String())
+	// NOTE: won't include the increment from this event
+	count := c.GetCountDistinct("young-reply-to", did, countstore.PeriodHour)
+	if count >= youngReplyAccountLimit {
+		c.AddAccountFlag("young-distinct-account-reply")
+		//c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible spam (young account, reply-posts to %d distinct accounts in past hour)", count))
+		c.Notify("slack")
+	}
+
+	return nil
+}

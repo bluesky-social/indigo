@@ -20,6 +20,7 @@ func DefaultRules() automod.RuleSet {
 			AggressivePromotionRule,
 			IdenticalReplyPostRule,
 			DistinctMentionsRule,
+			YoungAccountDistinctMentionsRule,
 			MisleadingLinkUnicodeReversalPostRule,
 		},
 		ProfileRules: []automod.ProfileRuleFunc{
