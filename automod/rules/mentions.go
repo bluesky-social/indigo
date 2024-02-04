@@ -88,7 +88,7 @@ func YoungAccountDistinctMentionsRule(c *automod.RecordContext, post *appbsky.Fe
 	}
 
 	count := c.GetCountDistinct("young-mention", did, countstore.PeriodHour) + newMentions
-	if count >= youngReplyAccountLimit {
+	if count >= youngMentionAccountLimit {
 		c.AddAccountFlag("young-distinct-account-mention")
 		//c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible spam (young account, mentioned %d distinct accounts in past hour)", count))
 		c.Notify("slack")
