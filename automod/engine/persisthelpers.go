@@ -51,18 +51,18 @@ func dedupeFlagActions(flags, existing []string) []string {
 	return newFlags
 }
 
-func (eng *Engine) dedupeReportActions(ctx context.Context, did syntax.DID, reports []ModReport) ([]ModReport, error) {
+func (eng *Engine) dedupeReportActions(ctx context.Context, subject string, reports []ModReport) ([]ModReport, error) {
 	newReports := []ModReport{}
 	for _, r := range reports {
 		counterName := "automod-account-report-" + ReasonShortName(r.ReasonType)
-		existing, err := eng.Counters.GetCount(ctx, counterName, did.String(), countstore.PeriodDay)
+		existing, err := eng.Counters.GetCount(ctx, counterName, subject, countstore.PeriodDay)
 		if err != nil {
 			return nil, fmt.Errorf("checking report de-dupe counts: %w", err)
 		}
 		if existing > 0 {
 			eng.Logger.Debug("skipping account report due to counter", "existing", existing, "reason", ReasonShortName(r.ReasonType))
 		} else {
-			err = eng.Counters.Increment(ctx, counterName, did.String())
+			err = eng.Counters.Increment(ctx, counterName, subject)
 			if err != nil {
 				return nil, fmt.Errorf("incrementing report de-dupe count: %w", err)
 			}
@@ -149,6 +149,57 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 		Subject: &comatproto.ModerationCreateReport_Input_Subject{
 			AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
 				Did: did.String(),
+			},
+		},
+	})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// Create a moderation report, but checks first if there was a similar recent one, and skips if so.
+//
+// Returns a bool indicating if a new report was created.
+//
+// TODO: merge this with createReportIfFresh()
+func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, uri syntax.ATURI, cid *syntax.CID, mr ModReport) (bool, error) {
+	// before creating a report, query to see if automod has already reported this account in the past week for the same reason
+	// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
+
+	// AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, inc ludeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string)
+	resp, err := comatproto.AdminQueryModerationEvents(ctx, xrpcc, xrpcc.Auth.Did, "", false, 5, "", uri.String(), []string{"com.atproto.admin.defs#modEventReport"})
+	if err != nil {
+		return false, err
+	}
+	for _, modEvt := range resp.Events {
+		// defensively ensure that our query params worked correctly
+		if modEvt.Event.AdminDefs_ModEventReport == nil || modEvt.CreatedBy != xrpcc.Auth.Did || modEvt.Subject.RepoStrongRef == nil || modEvt.Subject.RepoStrongRef.Uri != uri.String() || (modEvt.Event.AdminDefs_ModEventReport.ReportType != nil && *modEvt.Event.AdminDefs_ModEventReport.ReportType != mr.ReasonType) {
+			continue
+		}
+		// igonre if older
+		created, err := syntax.ParseDatetime(modEvt.CreatedAt)
+		if err != nil {
+			return false, err
+		}
+		if time.Since(created.Time()) > ReportDupePeriod {
+			continue
+		}
+
+		// there is a recent report which is similar to this one
+		eng.Logger.Info("skipping duplicate account report due to API check")
+		return false, nil
+	}
+
+	eng.Logger.Info("reporting account", "reasonType", mr.ReasonType, "comment", mr.Comment)
+	comment := "[automod] " + mr.Comment
+	_, err = comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
+		ReasonType: &mr.ReasonType,
+		Reason:     &comment,
+		Subject: &comatproto.ModerationCreateReport_Input_Subject{
+			RepoStrongRef: &comatproto.RepoStrongRef{
+				Uri: uri.String(),
+				Cid: cid.String(),
 			},
 		},
 	})
