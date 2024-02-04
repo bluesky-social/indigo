@@ -157,9 +157,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		ruleset.BlobRules = append(ruleset.BlobRules, extraBlobRules...)
 	case "no-blobs":
 		ruleset = rules.DefaultRules()
-		// XXX: include some blob rules despite config, temporarily
-		//ruleset.BlobRules = []automod.BlobRuleFunc{}
-		ruleset.BlobRules = append(ruleset.BlobRules, extraBlobRules...)
+		ruleset.BlobRules = []automod.BlobRuleFunc{}
 	case "only-blobs":
 		ruleset.BlobRules = extraBlobRules
 	default:
