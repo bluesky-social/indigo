@@ -43,3 +43,28 @@ type GraphDefs_ListViewerState struct {
 	Blocked *string `json:"blocked,omitempty" cborgen:"blocked,omitempty"`
 	Muted   *bool   `json:"muted,omitempty" cborgen:"muted,omitempty"`
 }
+
+// GraphDefs_NotFoundActor is a "notFoundActor" in the app.bsky.graph.defs schema.
+//
+// indicates that a handle or DID could not be resolved
+//
+// RECORDTYPE: GraphDefs_NotFoundActor
+type GraphDefs_NotFoundActor struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.graph.defs#notFoundActor" cborgen:"$type,const=app.bsky.graph.defs#notFoundActor"`
+	Actor         string `json:"actor" cborgen:"actor"`
+	NotFound      bool   `json:"notFound" cborgen:"notFound"`
+}
+
+// GraphDefs_Relationship is a "relationship" in the app.bsky.graph.defs schema.
+//
+// lists the bi-directional graph relationships between one actor (not indicated in the object), and the target actors (the DID included in the object)
+//
+// RECORDTYPE: GraphDefs_Relationship
+type GraphDefs_Relationship struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.graph.defs#relationship" cborgen:"$type,const=app.bsky.graph.defs#relationship"`
+	Did           string `json:"did" cborgen:"did"`
+	// followedBy: if the actor is followed by this DID, contains the AT-URI of the follow record
+	FollowedBy *string `json:"followedBy,omitempty" cborgen:"followedBy,omitempty"`
+	// following: if the actor follows this DID, this is the AT-URI of the follow record
+	Following *string `json:"following,omitempty" cborgen:"following,omitempty"`
+}

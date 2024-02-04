@@ -13,15 +13,16 @@ import (
 
 // AdminDefs_AccountView is a "accountView" in the com.atproto.admin.defs schema.
 type AdminDefs_AccountView struct {
-	Did              string                   `json:"did" cborgen:"did"`
-	Email            *string                  `json:"email,omitempty" cborgen:"email,omitempty"`
-	EmailConfirmedAt *string                  `json:"emailConfirmedAt,omitempty" cborgen:"emailConfirmedAt,omitempty"`
-	Handle           string                   `json:"handle" cborgen:"handle"`
-	IndexedAt        string                   `json:"indexedAt" cborgen:"indexedAt"`
-	InviteNote       *string                  `json:"inviteNote,omitempty" cborgen:"inviteNote,omitempty"`
-	InvitedBy        *ServerDefs_InviteCode   `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
-	Invites          []*ServerDefs_InviteCode `json:"invites,omitempty" cborgen:"invites,omitempty"`
-	InvitesDisabled  *bool                    `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
+	Did              string                     `json:"did" cborgen:"did"`
+	Email            *string                    `json:"email,omitempty" cborgen:"email,omitempty"`
+	EmailConfirmedAt *string                    `json:"emailConfirmedAt,omitempty" cborgen:"emailConfirmedAt,omitempty"`
+	Handle           string                     `json:"handle" cborgen:"handle"`
+	IndexedAt        string                     `json:"indexedAt" cborgen:"indexedAt"`
+	InviteNote       *string                    `json:"inviteNote,omitempty" cborgen:"inviteNote,omitempty"`
+	InvitedBy        *ServerDefs_InviteCode     `json:"invitedBy,omitempty" cborgen:"invitedBy,omitempty"`
+	Invites          []*ServerDefs_InviteCode   `json:"invites,omitempty" cborgen:"invites,omitempty"`
+	InvitesDisabled  *bool                      `json:"invitesDisabled,omitempty" cborgen:"invitesDisabled,omitempty"`
+	RelatedRecords   []*util.LexiconTypeDecoder `json:"relatedRecords,omitempty" cborgen:"relatedRecords,omitempty"`
 }
 
 // AdminDefs_BlobView is a "blobView" in the com.atproto.admin.defs schema.
@@ -67,6 +68,22 @@ func (t *AdminDefs_BlobView_Details) UnmarshalJSON(b []byte) error {
 	default:
 		return nil
 	}
+}
+
+// AdminDefs_CommunicationTemplateView is a "communicationTemplateView" in the com.atproto.admin.defs schema.
+type AdminDefs_CommunicationTemplateView struct {
+	// contentMarkdown: Subject of the message, used in emails.
+	ContentMarkdown string `json:"contentMarkdown" cborgen:"contentMarkdown"`
+	CreatedAt       string `json:"createdAt" cborgen:"createdAt"`
+	Disabled        bool   `json:"disabled" cborgen:"disabled"`
+	Id              string `json:"id" cborgen:"id"`
+	// lastUpdatedBy: DID of the user who last updated the template.
+	LastUpdatedBy string `json:"lastUpdatedBy" cborgen:"lastUpdatedBy"`
+	// name: Name of the template.
+	Name string `json:"name" cborgen:"name"`
+	// subject: Content of the template, can contain markdown and variable placeholders.
+	Subject   *string `json:"subject,omitempty" cborgen:"subject,omitempty"`
+	UpdatedAt string  `json:"updatedAt" cborgen:"updatedAt"`
 }
 
 // AdminDefs_ImageDetails is a "imageDetails" in the com.atproto.admin.defs schema.
