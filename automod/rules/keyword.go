@@ -16,7 +16,7 @@ func BadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 		if word != "" && word != "faggot" && word != "tranny" {
 			c.AddRecordFlag("bad-word-text")
 			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("possible bad word in post text or alttext: %s", word))
-			c.Notify("slack")
+			//c.Notify("slack")
 			break
 		}
 		// de-pluralize
@@ -24,7 +24,7 @@ func BadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 		if c.InSet("worst-words", tok) {
 			c.AddRecordFlag("bad-word-text")
 			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("possible bad word in post text or alttext: %s", tok))
-			c.Notify("slack")
+			//c.Notify("slack")
 			break
 		}
 	}
@@ -39,7 +39,7 @@ func BadWordProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile)
 		if word != "" {
 			c.AddRecordFlag("bad-word-name")
 			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("possible bad word in display name: %s", word))
-			c.Notify("slack")
+			//c.Notify("slack")
 		}
 	}
 	for _, tok := range ExtractTextTokensProfile(profile) {
@@ -48,7 +48,7 @@ func BadWordProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile)
 		if c.InSet("worst-words", tok) {
 			c.AddRecordFlag("bad-word-text")
 			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("possible bad word in profile description: %s", tok))
-			c.Notify("slack")
+			//c.Notify("slack")
 			break
 		}
 	}
@@ -68,7 +68,7 @@ func ReplySingleBadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost
 		if c.InSet("bad-words", tok) || keyword.SlugIsExplicitSlur(tok) != "" {
 			c.AddRecordFlag("reply-single-bad-word")
 			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad single-word reply: %s", tok))
-			c.Notify("slack")
+			//c.Notify("slack")
 		}
 	}
 	return nil
@@ -175,7 +175,7 @@ func BadWordHandleRule(c *automod.AccountContext) error {
 	if word != "" {
 		c.AddAccountFlag("bad-word-handle")
 		c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible bad word in handle (username): %s", word))
-		c.Notify("slack")
+		//c.Notify("slack")
 		return nil
 	}
 
@@ -184,7 +184,7 @@ func BadWordHandleRule(c *automod.AccountContext) error {
 		if c.InSet("bad-words", tok) {
 			c.AddAccountFlag("bad-word-handle")
 			c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible bad word in handle (username): %s", tok))
-			c.Notify("slack")
+			//c.Notify("slack")
 			break
 		}
 	}

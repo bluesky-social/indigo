@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"fmt"
+
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/keyword"
@@ -12,6 +14,7 @@ func BadHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error
 		tag = NormalizeHashtag(tag)
 		if c.InSet("bad-hashtags", tag) || c.InSet("bad-words", tag) {
 			c.AddRecordFlag("bad-hashtag")
+			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("possible bad word in hashtags: %s", tag))
 			c.Notify("slack")
 			break
 		}
