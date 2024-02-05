@@ -12,6 +12,10 @@ import (
 func BadHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	for _, tag := range ExtractHashtagsPost(post) {
 		tag = NormalizeHashtag(tag)
+		// skip some bad-word hashtags which frequently false-positive
+		if tag == "nazi" || tag == "hitler" {
+			continue
+		}
 		if c.InSet("bad-hashtags", tag) || c.InSet("bad-words", tag) {
 			c.AddRecordFlag("bad-hashtag")
 			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("possible bad word in hashtags: %s", tag))
@@ -21,6 +25,9 @@ func BadHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error
 		word := keyword.SlugContainsExplicitSlur(keyword.Slugify(tag))
 		if word != "" {
 			c.AddAccountFlag("bad-hashtag")
+			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("possible bad word in hashtags: %s", word))
+			c.Notify("slack")
+			break
 		}
 	}
 	return nil
