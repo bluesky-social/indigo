@@ -10,6 +10,7 @@ func DefaultRules() automod.RuleSet {
 			//MisleadingURLPostRule,
 			//MisleadingMentionPostRule,
 			ReplyCountPostRule,
+			YoungAccountDistinctRepliesRule,
 			BadHashtagsPostRule,
 			//TooManyHashtagsPostRule,
 			//AccountDemoPostRule,
@@ -20,6 +21,7 @@ func DefaultRules() automod.RuleSet {
 			AggressivePromotionRule,
 			IdenticalReplyPostRule,
 			DistinctMentionsRule,
+			YoungAccountDistinctMentionsRule,
 			MisleadingLinkUnicodeReversalPostRule,
 		},
 		ProfileRules: []automod.ProfileRuleFunc{
