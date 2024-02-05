@@ -44,7 +44,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	newFlags := dedupeFlagActions(c.effects.AccountFlags, c.Account.AccountFlags)
 
 	// don't report the same account multiple times on the same day for the same reason. this is a quick check; we also query the mod service API just before creating the report.
-	partialReports, err := eng.dedupeReportActions(ctx, c.Account.Identity.DID, c.effects.AccountReports)
+	partialReports, err := eng.dedupeReportActions(ctx, c.Account.Identity.DID.String(), c.effects.AccountReports)
 	if err != nil {
 		return fmt.Errorf("de-duplicating reports: %w", err)
 	}
@@ -154,10 +154,44 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		return err
 	}
 
-	// NOTE: record-level actions are *not* currently de-duplicated (aka, the same record could be labeled multiple times, or re-reported, etc)
+	atURI := c.RecordOp.ATURI().String()
 	newLabels := dedupeStrings(c.effects.RecordLabels)
+	if len(newLabels) > 0 && eng.AdminClient != nil {
+		rv, err := comatproto.AdminGetRecord(ctx, eng.AdminClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
+        if err != nil {
+            c.Logger.Warn("failed to fetch private record metadata", "err", err)
+        } else {
+        	var existingLabels []string
+        	var negLabels []string
+        	for _, lbl := range rv.Labels {
+        		if lbl.Neg != nil && *lbl.Neg == true {
+        			negLabels = append(negLabels, lbl.Val)
+        		} else {
+        			existingLabels = append(existingLabels, lbl.Val)
+        		}
+        	}
+        	existingLabels = dedupeStrings(existingLabels)
+        	negLabels = dedupeStrings(negLabels)
+			// fetch existing record labels
+			newLabels = dedupeLabelActions(newLabels, existingLabels, negLabels)
+        }
+	}
 	newFlags := dedupeStrings(c.effects.RecordFlags)
-	newReports, err := eng.circuitBreakReports(ctx, c.effects.RecordReports)
+	if len(newFlags) > 0 {
+		// fetch existing flags, and de-dupe
+		existingFlags, err := eng.Flags.Get(ctx, atURI)
+		if err != nil {
+			return fmt.Errorf("failed checking record flag cache: %w", err)
+		}
+		newFlags = dedupeFlagActions(newFlags, existingFlags)
+	}
+
+	// don't report the same record multiple times on the same day for the same reason. this is a quick check; we also query the mod service API just before creating the report.
+	partialReports, err := eng.dedupeReportActions(ctx, atURI, c.effects.RecordReports)
+	if err != nil {
+		return fmt.Errorf("de-duplicating reports: %w", err)
+	}
+	newReports, err := eng.circuitBreakReports(ctx, partialReports)
 	if err != nil {
 		return fmt.Errorf("failed to circuit break reports: %w", err)
 	}
@@ -165,7 +199,6 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	if err != nil {
 		return fmt.Errorf("failed to circuit break takedowns: %w", err)
 	}
-	atURI := fmt.Sprintf("at://%s/%s/%s", c.Account.Identity.DID, c.RecordOp.Collection, c.RecordOp.RecordKey)
 
 	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
 		if eng.Notifier != nil {
@@ -225,19 +258,12 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 
 	for _, mr := range newReports {
-		c.Logger.Info("reporting record", "reasonType", mr.ReasonType, "comment", mr.Comment)
-		comment := "[automod] " + mr.Comment
-		_, err := comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
-			ReasonType: &mr.ReasonType,
-			Reason:     &comment,
-			Subject: &comatproto.ModerationCreateReport_Input_Subject{
-				RepoStrongRef: &strongRef,
-			},
-		})
+		_, err := eng.createRecordReportIfFresh(ctx, xrpcc, c.RecordOp.ATURI(), c.RecordOp.CID, mr)
 		if err != nil {
 			c.Logger.Error("failed to create record report", "err", err)
 		}
 	}
+
 	if newTakedown {
 		c.Logger.Warn("record-takedown")
 		comment := "[automod]: automated record-takedown"
