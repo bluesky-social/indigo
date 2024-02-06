@@ -14,6 +14,7 @@ type SlackNotifier = engine.SlackNotifier
 
 type AccountContext = engine.AccountContext
 type RecordContext = engine.RecordContext
+type NotificationContext = engine.NotificationContext
 type RecordOp = engine.RecordOp
 
 type IdentityRuleFunc = engine.IdentityRuleFunc
