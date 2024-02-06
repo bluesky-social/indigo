@@ -149,7 +149,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 
 	if config.AbyssHost != "" && config.AbyssPassword != "" {
 		logger.Info("configuring abyss abusive image scanning")
-		ac := visual.NewAbyssClient(config.AbyssHost, config.AbyssPassword)
+		ac := visual.NewAbyssClient(config.AbyssHost, config.AbyssPassword, config.RatelimitBypass)
 		extraBlobRules = append(extraBlobRules, ac.AbyssScanBlobRule)
 	}
 
