@@ -136,7 +136,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 	}
 
 	extraBlobRules := []automod.BlobRuleFunc{}
-	if config.HiveAPIToken != "" {
+	if config.HiveAPIToken != "" && config.RulesetName != "no-hive" {
 		logger.Info("configuring Hive AI image labeler")
 		hc := visual.NewHiveAIClient(config.HiveAPIToken)
 		extraBlobRules = append(extraBlobRules, hc.HiveLabelBlobRule)
@@ -150,7 +150,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 
 	var ruleset automod.RuleSet
 	switch config.RulesetName {
-	case "", "default":
+	case "", "default", "no-hive":
 		ruleset = rules.DefaultRules()
 		ruleset.BlobRules = append(ruleset.BlobRules, extraBlobRules...)
 	case "no-blobs":
