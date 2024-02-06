@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -30,6 +31,11 @@ type Server struct {
 	logger  *slog.Logger
 	engine  *automod.Engine
 	rdb     *redis.Client
+
+	// lastSeq is the most recent event sequence number we've received and begun to handle.
+	// This number is periodically persisted to redis, if redis is present.
+	// The value is best-effort (the stream handling itself is concurrent, so event numbers may not be monotonic),
+	// but nonetheless, you must use atomics when updating or reading this (to avoid data races).
 	lastSeq int64
 }
 
@@ -222,10 +228,11 @@ func (s *Server) PersistCursor(ctx context.Context) error {
 	if s.rdb == nil {
 		return nil
 	}
-	if s.lastSeq <= 0 {
+	lastSeq := atomic.LoadInt64(&s.lastSeq)
+	if lastSeq <= 0 {
 		return nil
 	}
-	err := s.rdb.Set(ctx, cursorKey, s.lastSeq, 14*24*time.Hour).Err()
+	err := s.rdb.Set(ctx, cursorKey, lastSeq, 14*24*time.Hour).Err()
 	return err
 }
 
@@ -278,19 +285,21 @@ func (s *Server) RunPersistCursor(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			if s.lastSeq >= 1 {
-				s.logger.Info("persisting final cursor seq value", "seq", s.lastSeq)
+			lastSeq := atomic.LoadInt64(&s.lastSeq)
+			if lastSeq >= 1 {
+				s.logger.Info("persisting final cursor seq value", "seq", lastSeq)
 				err := s.PersistCursor(ctx)
 				if err != nil {
-					s.logger.Error("failed to persist cursor", "err", err, "seq", s.lastSeq)
+					s.logger.Error("failed to persist cursor", "err", err, "seq", lastSeq)
 				}
 			}
 			return nil
 		case <-ticker.C:
-			if s.lastSeq >= 1 {
+			lastSeq := atomic.LoadInt64(&s.lastSeq)
+			if lastSeq >= 1 {
 				err := s.PersistCursor(ctx)
 				if err != nil {
-					s.logger.Error("failed to persist cursor", "err", err, "seq", s.lastSeq)
+					s.logger.Error("failed to persist cursor", "err", err, "seq", lastSeq)
 				}
 			}
 		}
