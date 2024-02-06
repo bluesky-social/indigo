@@ -16,16 +16,18 @@ import (
 )
 
 type AbyssClient struct {
-	Client   http.Client
-	Host     string
-	Password string
+	Client          http.Client
+	Host            string
+	Password        string
+	RatelimitBypass string
 }
 
-func NewAbyssClient(host, password string) AbyssClient {
+func NewAbyssClient(host, password, ratelimitBypass string) AbyssClient {
 	return AbyssClient{
-		Client:   *util.RobustHTTPClient(),
-		Host:     host,
-		Password: password,
+		Client:          *util.RobustHTTPClient(),
+		Host:            host,
+		Password:        password,
+		RatelimitBypass: password,
 	}
 }
 
@@ -50,6 +52,9 @@ func (ac *AbyssClient) ScanBlob(ctx context.Context, blob lexutil.LexBlob, blobB
 	req.Header.Add("Content-Length", fmt.Sprintf("%d", blob.Size))
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "indigo-automod/"+versioninfo.Short())
+	if ac.RatelimitBypass != "" {
+		req.Header.Set("x-ratelimit-bypass", ac.RatelimitBypass)
+	}
 
 	req = req.WithContext(ctx)
 	res, err := ac.Client.Do(req)
