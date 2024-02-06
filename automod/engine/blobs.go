@@ -4,9 +4,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/util"
+
+	"github.com/carlmjohnson/versioninfo"
 )
 
 // Parses out any blobs from the enclosed record.
@@ -88,14 +92,30 @@ func (c *RecordContext) Blobs() ([]lexutil.LexBlob, error) {
 	return blobs, nil
 }
 
-func fetchBlob(c *RecordContext, blob lexutil.LexBlob) ([]byte, error) {
+func (c *RecordContext) fetchBlob(blob lexutil.LexBlob) ([]byte, error) {
 
 	var blobBytes []byte
 
-	// TODO: more robust way to write this?
-	xrpcURL := fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob?did=%s&cid=%s", c.Account.Identity.PDSEndpoint(), c.Account.Identity.DID, blob.Ref)
+	// TODO: better way to do this, eg a shared client?
+	client := util.RobustHTTPClient()
+	pdsEndpoint := c.Account.Identity.PDSEndpoint()
+	xrpcURL := fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob?did=%s&cid=%s", pdsEndpoint, c.Account.Identity.DID, blob.Ref)
 
-	resp, err := http.Get(xrpcURL)
+	req, err := http.NewRequest("GET", xrpcURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("User-Agent", "indigo-automod/"+versioninfo.Short())
+	// TODO: more robust PDS hostname check
+	if c.engine.BskyClient.Headers != nil && strings.HasSuffix(pdsEndpoint, ".bsky.network") {
+		val, ok := c.engine.BskyClient.Headers["x-ratelimit-bypass"]
+		if ok {
+			req.Header.Set("x-ratelimit-bypass", val)
+		}
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
