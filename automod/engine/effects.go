@@ -158,8 +158,6 @@ func (e *Effects) ReportRecord(reason, comment string) {
 	defer e.mu.Unlock()
 	if comment == "" {
 		comment = "(reporting without comment)"
-	} else {
-		comment = "[automod] " + comment
 	}
 	for _, v := range e.RecordReports {
 		if v.ReasonType == reason {

@@ -114,7 +114,7 @@ func (r *RuleSet) fetchAndProcessBlobs(c *RecordContext) error {
 		wg.Add(1)
 		go func(blob lexutil.LexBlob) {
 			defer wg.Done()
-			data, err := fetchBlob(c, blob)
+			data, err := c.fetchBlob(blob)
 			if err != nil {
 				errChan <- err
 				return
