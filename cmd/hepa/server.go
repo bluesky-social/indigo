@@ -47,6 +47,7 @@ type Config struct {
 	AbyssHost       string
 	AbyssPassword   string
 	RulesetName     string
+	RatelimitBypass string
 	Logger          *slog.Logger
 }
 
@@ -71,6 +72,10 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 			Host:       config.ModHost,
 			AdminToken: &config.ModAdminToken,
 			Auth:       &xrpc.AuthInfo{},
+		}
+		if config.RatelimitBypass != "" {
+			xrpcc.Headers = make(map[string]string)
+			xrpcc.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
 		}
 
 		auth, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
@@ -168,6 +173,15 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 			SlackWebhookURL: config.SlackWebhookURL,
 		}
 	}
+
+	bskyClient := xrpc.Client{
+		Client: util.RobustHTTPClient(),
+		Host:   config.BskyHost,
+	}
+	if config.RatelimitBypass != "" {
+		bskyClient.Headers = make(map[string]string)
+		bskyClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
+	}
 	engine := automod.Engine{
 		Logger:      logger,
 		Directory:   dir,
@@ -178,10 +192,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		Rules:       ruleset,
 		Notifier:    notifier,
 		AdminClient: xrpcc,
-		BskyClient: &xrpc.Client{
-			Client: util.RobustHTTPClient(),
-			Host:   config.BskyHost,
-		},
+		BskyClient:  &bskyClient,
 	}
 
 	s := &Server{

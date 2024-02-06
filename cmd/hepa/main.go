@@ -117,8 +117,13 @@ func run(args []string) error {
 		},
 		&cli.StringFlag{
 			Name:    "log-level",
-			Usage:   "",
+			Usage:   "log verbosity level (eg: warn, info, debug)",
 			EnvVars: []string{"HEPA_LOG_LEVEL", "LOG_LEVEL"},
+		},
+		&cli.StringFlag{
+			Name:    "ratelimit-bypass",
+			Usage:   "HTTP header to bypass ratelimits",
+			EnvVars: []string{"HEPA_RATELIMIT_BYPASS", "RATELIMIT_BYPASS"},
 		},
 	}
 
@@ -220,6 +225,7 @@ var runCmd = &cli.Command{
 				HiveAPIToken:    cctx.String("hiveai-api-token"),
 				AbyssHost:       cctx.String("abyss-host"),
 				AbyssPassword:   cctx.String("abyss-password"),
+				RatelimitBypass: cctx.String("ratelimit-bypass"),
 				RulesetName:     cctx.String("ruleset"),
 			},
 		)
@@ -270,19 +276,20 @@ func configEphemeralServer(cctx *cli.Context) (*Server, error) {
 	return NewServer(
 		dir,
 		Config{
-			BGSHost:       cctx.String("atp-bgs-host"),
-			BskyHost:      cctx.String("atp-bsky-host"),
-			Logger:        logger,
-			ModHost:       cctx.String("atp-mod-host"),
-			ModAdminToken: cctx.String("mod-admin-token"),
-			ModUsername:   cctx.String("mod-handle"),
-			ModPassword:   cctx.String("mod-password"),
-			SetsFileJSON:  cctx.String("sets-json-path"),
-			RedisURL:      cctx.String("redis-url"),
-			HiveAPIToken:  cctx.String("hiveai-api-token"),
-			AbyssHost:     cctx.String("abyss-host"),
-			AbyssPassword: cctx.String("abyss-password"),
-			RulesetName:   cctx.String("ruleset"),
+			BGSHost:         cctx.String("atp-bgs-host"),
+			BskyHost:        cctx.String("atp-bsky-host"),
+			Logger:          logger,
+			ModHost:         cctx.String("atp-mod-host"),
+			ModAdminToken:   cctx.String("mod-admin-token"),
+			ModUsername:     cctx.String("mod-handle"),
+			ModPassword:     cctx.String("mod-password"),
+			SetsFileJSON:    cctx.String("sets-json-path"),
+			RedisURL:        cctx.String("redis-url"),
+			HiveAPIToken:    cctx.String("hiveai-api-token"),
+			AbyssHost:       cctx.String("abyss-host"),
+			AbyssPassword:   cctx.String("abyss-password"),
+			RatelimitBypass: cctx.String("ratelimit-bypass"),
+			RulesetName:     cctx.String("ruleset"),
 		},
 	)
 }
