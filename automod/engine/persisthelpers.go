@@ -142,6 +142,7 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 	}
 
 	eng.Logger.Info("reporting account", "reasonType", mr.ReasonType, "comment", mr.Comment)
+	actionNewReportCount.WithLabelValues("account").Inc()
 	comment := "[automod] " + mr.Comment
 	_, err = comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
 		ReasonType: &mr.ReasonType,
@@ -191,7 +192,8 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 		return false, nil
 	}
 
-	eng.Logger.Info("reporting account", "reasonType", mr.ReasonType, "comment", mr.Comment)
+	eng.Logger.Info("reporting record", "reasonType", mr.ReasonType, "comment", mr.Comment)
+	actionNewReportCount.WithLabelValues("record").Inc()
 	comment := "[automod] " + mr.Comment
 	_, err = comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
 		ReasonType: &mr.ReasonType,
