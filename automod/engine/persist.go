@@ -68,6 +68,10 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 
 	// flags don't require admin auth
 	if len(newFlags) > 0 {
+		for _, val := range newFlags {
+			// note: WithLabelValues is a prometheus label, not an atproto label
+			actionNewFlagCount.WithLabelValues("record", val).Inc()
+		}
 		eng.Flags.Add(ctx, c.Account.Identity.DID.String(), newFlags)
 	}
 
@@ -83,6 +87,10 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 
 	if len(newLabels) > 0 {
 		c.Logger.Info("labeling record", "newLabels", newLabels)
+		for _, val := range newLabels {
+			// note: WithLabelValues is a prometheus label, not an atproto label
+			actionNewLabelCount.WithLabelValues("account", val).Inc()
+		}
 		comment := "[automod]: auto-labeling account"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
@@ -118,6 +126,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 
 	if newTakedown {
 		c.Logger.Warn("account-takedown")
+		actionNewTakedownCount.WithLabelValues("account").Inc()
 		comment := "[automod]: auto account-takedown"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
@@ -212,6 +221,10 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 
 	// flags don't require admin auth
 	if len(newFlags) > 0 {
+		for _, val := range newFlags {
+			// note: WithLabelValues is a prometheus label, not an atproto label
+			actionNewFlagCount.WithLabelValues("record", val).Inc()
+		}
 		eng.Flags.Add(ctx, atURI, newFlags)
 	}
 
@@ -238,6 +251,10 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	xrpcc := eng.AdminClient
 	if len(newLabels) > 0 {
 		c.Logger.Info("labeling record", "newLabels", newLabels)
+		for _, val := range newLabels {
+			// note: WithLabelValues is a prometheus label, not an atproto label
+			actionNewLabelCount.WithLabelValues("record", val).Inc()
+		}
 		comment := "[automod]: auto-labeling record"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
@@ -266,6 +283,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 
 	if newTakedown {
 		c.Logger.Warn("record-takedown")
+		actionNewTakedownCount.WithLabelValues("record").Inc()
 		comment := "[automod]: automated record-takedown"
 		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,

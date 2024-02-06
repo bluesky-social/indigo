@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
@@ -94,6 +95,12 @@ func (c *RecordContext) Blobs() ([]lexutil.LexBlob, error) {
 
 func (c *RecordContext) fetchBlob(blob lexutil.LexBlob) ([]byte, error) {
 
+	start := time.Now()
+	defer func() {
+		duration := time.Since(start)
+		blobDownloadDuration.Observe(duration.Seconds())
+	}()
+
 	var blobBytes []byte
 
 	// TODO: better way to do this, eg a shared client?
@@ -121,6 +128,7 @@ func (c *RecordContext) fetchBlob(blob lexutil.LexBlob) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
+	blobDownloadCount.WithLabelValues(fmt.Sprint(resp.StatusCode)).Inc()
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("failed to fetch blob from PDS. did=%s cid=%s statusCode=%d", c.Account.Identity.DID, blob.Ref, resp.StatusCode)
 	}
