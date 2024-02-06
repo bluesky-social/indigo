@@ -158,23 +158,23 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	newLabels := dedupeStrings(c.effects.RecordLabels)
 	if len(newLabels) > 0 && eng.AdminClient != nil {
 		rv, err := comatproto.AdminGetRecord(ctx, eng.AdminClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
-        if err != nil {
-            c.Logger.Warn("failed to fetch private record metadata", "err", err)
-        } else {
-        	var existingLabels []string
-        	var negLabels []string
-        	for _, lbl := range rv.Labels {
-        		if lbl.Neg != nil && *lbl.Neg == true {
-        			negLabels = append(negLabels, lbl.Val)
-        		} else {
-        			existingLabels = append(existingLabels, lbl.Val)
-        		}
-        	}
-        	existingLabels = dedupeStrings(existingLabels)
-        	negLabels = dedupeStrings(negLabels)
+		if err != nil {
+			c.Logger.Warn("failed to fetch private record metadata", "err", err)
+		} else {
+			var existingLabels []string
+			var negLabels []string
+			for _, lbl := range rv.Labels {
+				if lbl.Neg != nil && *lbl.Neg == true {
+					negLabels = append(negLabels, lbl.Val)
+				} else {
+					existingLabels = append(existingLabels, lbl.Val)
+				}
+			}
+			existingLabels = dedupeStrings(existingLabels)
+			negLabels = dedupeStrings(negLabels)
 			// fetch existing record labels
 			newLabels = dedupeLabelActions(newLabels, existingLabels, negLabels)
-        }
+		}
 	}
 	newFlags := dedupeStrings(c.effects.RecordFlags)
 	if len(newFlags) > 0 {
