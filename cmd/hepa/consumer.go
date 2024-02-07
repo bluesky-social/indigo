@@ -81,7 +81,7 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 	// start at higher parallelism (somewhat arbitrary)
 	return events.HandleRepoStream(
 		ctx, con, parallel.NewScheduler(
-			100,
+			200,
 			1000,
 			s.bgshost,
 			rsc.EventHandler,
