@@ -65,7 +65,6 @@ func (d *BaseDirectory) ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DID
 		return nil, fmt.Errorf("did:web hostname has disallowed TLD: %s", hostname)
 	}
 
-	// TODO: use a more robust client
 	// TODO: allow ctx to specify unsafe http:// resolution, for testing?
 
 	if d.DIDWebLimitFunc != nil {
@@ -74,7 +73,12 @@ func (d *BaseDirectory) ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DID
 		}
 	}
 
-	resp, err := http.Get("https://" + hostname + "/.well-known/did.json")
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://"+hostname+"/.well-known/did.json", nil)
+	if err != nil {
+		return nil, fmt.Errorf("constructing HTTP request for did:web resolution: %w", err)
+	}
+	resp, err := d.HTTPClient.Do(req)
+
 	// look for NXDOMAIN
 	var dnsErr *net.DNSError
 	if errors.As(err, &dnsErr) {
@@ -85,6 +89,7 @@ func (d *BaseDirectory) ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DID
 	if err != nil {
 		return nil, fmt.Errorf("%w: did:web HTTP well-known fetch: %w", ErrDIDResolutionFailed, err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("%w: did:web HTTP status 404", ErrDIDNotFound)
 	}
@@ -115,10 +120,15 @@ func (d *BaseDirectory) ResolveDIDPLC(ctx context.Context, did syntax.DID) (*DID
 		}
 	}
 
-	resp, err := http.Get(plcURL + "/" + did.String())
+	req, err := http.NewRequestWithContext(ctx, "GET", plcURL+"/"+did.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("constructing HTTP request for did:plc resolution: %w", err)
+	}
+	resp, err := d.HTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w: PLC directory lookup: %w", ErrDIDResolutionFailed, err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("%w: PLC directory 404", ErrDIDNotFound)
 	}
