@@ -40,6 +40,10 @@ var blockGetTotalCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "carstore get queries",
 }, []string{"usrskip", "cache"})
 
+var blockGetTotalCounterUsrskip = blockGetTotalCounter.WithLabelValues("true", "miss")
+var blockGetTotalCounterCached = blockGetTotalCounter.WithLabelValues("false", "hit")
+var blockGetTotalCounterNormal = blockGetTotalCounter.WithLabelValues("false", "miss")
+
 var log = logging.Logger("carstore")
 
 const MaxSliceLength = 2 << 20
@@ -183,7 +187,7 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, erro
 	if uv.cache != nil {
 		blk, ok := uv.cache[k]
 		if ok {
-			blockGetTotalCounter.WithLabelValues("false", "hit").Add(1)
+			blockGetTotalCounterCached.Add(1)
 			atomic.AddInt64(&CacheHits, 1)
 
 			return blk, nil
@@ -215,10 +219,10 @@ LIMIT 1;`, models.DbCID{CID: k}).Scan(&info).Error; err != nil {
 
 	prefetch := uv.prefetch
 	if info.Usr != uv.user {
-		blockGetTotalCounter.WithLabelValues("true", "miss").Add(1)
+		blockGetTotalCounterUsrskip.Add(1)
 		prefetch = false
 	} else {
-		blockGetTotalCounter.WithLabelValues("false", "miss").Add(1)
+		blockGetTotalCounterNormal.Add(1)
 	}
 
 	if prefetch {
