@@ -9,7 +9,6 @@ import (
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/util"
 
 	"github.com/carlmjohnson/versioninfo"
 )
@@ -103,8 +102,7 @@ func (c *RecordContext) fetchBlob(blob lexutil.LexBlob) ([]byte, error) {
 
 	var blobBytes []byte
 
-	// TODO: better way to do this, eg a shared client?
-	client := util.RobustHTTPClient()
+	// TODO: potential security issue here with malformed or "localhost" PDS endpoint
 	pdsEndpoint := c.Account.Identity.PDSEndpoint()
 	xrpcURL := fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob?did=%s&cid=%s", pdsEndpoint, c.Account.Identity.DID, blob.Ref)
 
@@ -114,12 +112,17 @@ func (c *RecordContext) fetchBlob(blob lexutil.LexBlob) ([]byte, error) {
 	}
 
 	req.Header.Set("User-Agent", "indigo-automod/"+versioninfo.Short())
-	// TODO: more robust PDS hostname check
+	// TODO: more robust PDS hostname check (eg, future trailing slash or partial path)
 	if c.engine.BskyClient.Headers != nil && strings.HasSuffix(pdsEndpoint, ".bsky.network") {
 		val, ok := c.engine.BskyClient.Headers["x-ratelimit-bypass"]
 		if ok {
 			req.Header.Set("x-ratelimit-bypass", val)
 		}
+	}
+
+	client := c.engine.PDSClient
+	if client == nil {
+		client = http.DefaultClient
 	}
 
 	resp, err := client.Do(req)
