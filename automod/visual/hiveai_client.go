@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"mime/multipart"
 	"net/http"
+	"time"
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
@@ -182,6 +183,12 @@ func (hal *HiveAIClient) LabelBlob(ctx context.Context, blob lexutil.LexBlob, bl
 		return nil, err
 	}
 
+	start := time.Now()
+	defer func() {
+		duration := time.Since(start)
+		hiveAPIDuration.Observe(duration.Seconds())
+	}()
+
 	req.Header.Set("Authorization", fmt.Sprintf("Token %s", hal.ApiToken))
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	req.Header.Set("Accept", "application/json")
@@ -193,6 +200,8 @@ func (hal *HiveAIClient) LabelBlob(ctx context.Context, blob lexutil.LexBlob, bl
 		return nil, fmt.Errorf("HiveAI request failed: %v", err)
 	}
 	defer res.Body.Close()
+
+	hiveAPICount.WithLabelValues(fmt.Sprint(res.StatusCode)).Inc()
 	if res.StatusCode != 200 {
 		return nil, fmt.Errorf("HiveAI request failed  statusCode=%d", res.StatusCode)
 	}

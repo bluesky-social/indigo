@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -48,11 +49,11 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
-			s.lastSeq = evt.Seq
+			atomic.StoreInt64(&s.lastSeq, evt.Seq)
 			return s.HandleRepoCommit(ctx, evt)
 		},
 		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-			s.lastSeq = evt.Seq
+			atomic.StoreInt64(&s.lastSeq, evt.Seq)
 			did, err := syntax.ParseDID(evt.Did)
 			if err != nil {
 				s.logger.Error("bad DID in RepoHandle event", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
@@ -64,7 +65,7 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 			return nil
 		},
 		RepoMigrate: func(evt *comatproto.SyncSubscribeRepos_Migrate) error {
-			s.lastSeq = evt.Seq
+			atomic.StoreInt64(&s.lastSeq, evt.Seq)
 			did, err := syntax.ParseDID(evt.Did)
 			if err != nil {
 				s.logger.Error("bad DID in RepoMigrate event", "did", evt.Did, "seq", evt.Seq, "err", err)

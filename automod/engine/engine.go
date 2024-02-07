@@ -44,10 +44,18 @@ type Engine struct {
 //
 // This method can be called concurrently, though cached state may end up inconsistent if multiple events for the same account (DID) are processed in parallel.
 func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syntax.DID) error {
+	eventProcessCount.WithLabelValues("identity").Inc()
+	start := time.Now()
+	defer func() {
+		duration := time.Since(start)
+		eventProcessDuration.WithLabelValues("identity").Observe(duration.Seconds())
+	}()
+
 	// similar to an HTTP server, we want to recover any panics from rule execution
 	defer func() {
 		if r := recover(); r != nil {
 			eng.Logger.Error("automod event execution exception", "err", r, "did", did, "type", typ)
+			eventErrorCount.WithLabelValues("identity").Inc()
 		}
 	}()
 	ctx, cancel := context.WithTimeout(ctx, identityEventTimeout)
@@ -59,25 +67,31 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syn
 	}
 	ident, err := eng.Directory.LookupDID(ctx, did)
 	if err != nil {
+		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("resolving identity: %w", err)
 	}
 	if ident == nil {
+		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("identity not found for DID: %s", did.String())
 	}
 
 	am, err := eng.GetAccountMeta(ctx, ident)
 	if err != nil {
+		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("failed to fetch account metadata: %w", err)
 	}
 	ac := NewAccountContext(ctx, eng, *am)
 	if err := eng.Rules.CallIdentityRules(&ac); err != nil {
+		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("rule execution failed: %w", err)
 	}
 	eng.CanonicalLogLineAccount(&ac)
 	if err := eng.persistAccountModActions(&ac); err != nil {
+		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("failed to persist actions for identity event: %w", err)
 	}
 	if err := eng.persistCounters(ctx, ac.effects); err != nil {
+		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("failed to persist counters for identity event: %w", err)
 	}
 	return nil
@@ -87,6 +101,13 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syn
 //
 // This method can be called concurrently, though cached state may end up inconsistent if multiple events for the same account (DID) are processed in parallel.
 func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
+	eventProcessCount.WithLabelValues("record").Inc()
+	start := time.Now()
+	defer func() {
+		duration := time.Since(start)
+		eventProcessDuration.WithLabelValues("record").Observe(duration.Seconds())
+	}()
+
 	// similar to an HTTP server, we want to recover any panics from rule execution
 	defer func() {
 		if r := recover(); r != nil {
@@ -97,18 +118,22 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 	defer cancel()
 
 	if err := op.Validate(); err != nil {
+		eventErrorCount.WithLabelValues("record").Inc()
 		return fmt.Errorf("bad record op: %w", err)
 	}
 	ident, err := eng.Directory.LookupDID(ctx, op.DID)
 	if err != nil {
+		eventErrorCount.WithLabelValues("record").Inc()
 		return fmt.Errorf("resolving identity: %w", err)
 	}
 	if ident == nil {
+		eventErrorCount.WithLabelValues("record").Inc()
 		return fmt.Errorf("identity not found for DID: %s", op.DID)
 	}
 
 	am, err := eng.GetAccountMeta(ctx, ident)
 	if err != nil {
+		eventErrorCount.WithLabelValues("record").Inc()
 		return fmt.Errorf("failed to fetch account metadata: %w", err)
 	}
 	rc := NewRecordContext(ctx, eng, *am, op)
@@ -116,13 +141,16 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 	switch op.Action {
 	case CreateOp, UpdateOp:
 		if err := eng.Rules.CallRecordRules(&rc); err != nil {
+			eventErrorCount.WithLabelValues("record").Inc()
 			return fmt.Errorf("rule execution failed: %w", err)
 		}
 	case DeleteOp:
 		if err := eng.Rules.CallRecordDeleteRules(&rc); err != nil {
+			eventErrorCount.WithLabelValues("record").Inc()
 			return fmt.Errorf("rule execution failed: %w", err)
 		}
 	default:
+		eventErrorCount.WithLabelValues("record").Inc()
 		return fmt.Errorf("unexpected op action: %s", op.Action)
 	}
 	eng.CanonicalLogLineRecord(&rc)
@@ -133,9 +161,11 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 		}
 	}
 	if err := eng.persistRecordModActions(&rc); err != nil {
+		eventErrorCount.WithLabelValues("record").Inc()
 		return fmt.Errorf("failed to persist actions for record event: %w", err)
 	}
 	if err := eng.persistCounters(ctx, rc.effects); err != nil {
+		eventErrorCount.WithLabelValues("record").Inc()
 		return fmt.Errorf("failed to persist counts for record event: %w", err)
 	}
 	return nil
@@ -143,6 +173,13 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 
 // returns a boolean indicating "block the event"
 func (eng *Engine) ProcessNotificationEvent(ctx context.Context, senderDID, recipientDID syntax.DID, reason string, subject syntax.ATURI) (bool, error) {
+	eventProcessCount.WithLabelValues("notif").Inc()
+	start := time.Now()
+	defer func() {
+		duration := time.Since(start)
+		eventProcessDuration.WithLabelValues("notif").Observe(duration.Seconds())
+	}()
+
 	// similar to an HTTP server, we want to recover any panics from rule execution
 	defer func() {
 		if r := recover(); r != nil {
@@ -154,31 +191,38 @@ func (eng *Engine) ProcessNotificationEvent(ctx context.Context, senderDID, reci
 
 	senderIdent, err := eng.Directory.LookupDID(ctx, senderDID)
 	if err != nil {
+		eventErrorCount.WithLabelValues("notif").Inc()
 		return false, fmt.Errorf("resolving identity: %w", err)
 	}
 	if senderIdent == nil {
+		eventErrorCount.WithLabelValues("notif").Inc()
 		return false, fmt.Errorf("identity not found for sender DID: %s", senderDID.String())
 	}
 
 	recipientIdent, err := eng.Directory.LookupDID(ctx, recipientDID)
 	if err != nil {
+		eventErrorCount.WithLabelValues("notif").Inc()
 		return false, fmt.Errorf("resolving identity: %w", err)
 	}
 	if recipientIdent == nil {
+		eventErrorCount.WithLabelValues("notif").Inc()
 		return false, fmt.Errorf("identity not found for sender DID: %s", recipientDID.String())
 	}
 
 	senderMeta, err := eng.GetAccountMeta(ctx, senderIdent)
 	if err != nil {
+		eventErrorCount.WithLabelValues("notif").Inc()
 		return false, fmt.Errorf("failed to fetch account metadata: %w", err)
 	}
 	recipientMeta, err := eng.GetAccountMeta(ctx, recipientIdent)
 	if err != nil {
+		eventErrorCount.WithLabelValues("notif").Inc()
 		return false, fmt.Errorf("failed to fetch account metadata: %w", err)
 	}
 
 	nc := NewNotificationContext(ctx, eng, *senderMeta, *recipientMeta, reason, subject)
 	if err := eng.Rules.CallNotificationRules(&nc); err != nil {
+		eventErrorCount.WithLabelValues("notif").Inc()
 		return false, fmt.Errorf("rule execution failed: %w", err)
 	}
 	eng.CanonicalLogLineNotification(&nc)
