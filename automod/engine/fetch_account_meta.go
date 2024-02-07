@@ -43,6 +43,9 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 		return &am, nil
 	}
 
+	// doing a "full" fetch from here on
+	accountMetaFetches.Inc()
+
 	flags, err := e.Flags.Get(ctx, ident.DID.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed checking account flag cache: %w", err)

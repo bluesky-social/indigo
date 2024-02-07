@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"time"
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
@@ -56,12 +57,20 @@ func (ac *AbyssClient) ScanBlob(ctx context.Context, blob lexutil.LexBlob, blobB
 		req.Header.Set("x-ratelimit-bypass", ac.RatelimitBypass)
 	}
 
+	start := time.Now()
+	defer func() {
+		duration := time.Since(start)
+		abyssAPIDuration.Observe(duration.Seconds())
+	}()
+
 	req = req.WithContext(ctx)
 	res, err := ac.Client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("abyss request failed: %v", err)
 	}
 	defer res.Body.Close()
+
+	abyssAPICount.WithLabelValues(fmt.Sprint(res.StatusCode)).Inc()
 	if res.StatusCode != 200 {
 		return nil, fmt.Errorf("abyss request failed statusCode=%d", res.StatusCode)
 	}
