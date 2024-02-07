@@ -45,6 +45,7 @@ func (eng *Engine) GetAccountRelationship(ctx context.Context, primary, other sy
 	}
 
 	// fetch account relationship from AppView
+	accountRelationshipFetches.Inc()
 	resp, err := appbsky.GraphGetRelationships(ctx, eng.BskyClient, primary.String(), []string{other.String()})
 	if err != nil || len(resp.Relationships) != 1 {
 		logger.Warn("account relationship lookup failed", "err", err)
