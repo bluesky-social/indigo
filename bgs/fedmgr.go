@@ -537,11 +537,11 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 	instrumentedRSC := events.NewInstrumentedRepoStreamCallbacks(limiter, rsc.EventHandler)
 
 	scalingSettings := autoscaling.AutoscaleSettings{
-		Concurrency:                 1,
-		MaxConcurrency:              360,
-		AutoscaleFrequency:          time.Second,
+		Concurrency:                 200,
+		MaxConcurrency:              500,
+		AutoscaleFrequency:          time.Second * 5,
 		ThroughputBucketCount:       60,
-		ThroughputBucketDuration:    time.Second,
+		ThroughputBucketDuration:    time.Second * 5,
 		MaximumBufferedItemsPerRepo: 100,
 	}
 
