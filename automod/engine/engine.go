@@ -40,7 +40,7 @@ type Engine struct {
 	// used to persist moderation actions in mod service (optional)
 	AdminClient *xrpc.Client
 	// used to fetch blobs from upstream PDS instances
-	PDSClient *http.Client
+	BlobClient *http.Client
 }
 
 // Entrypoint for external code pushing arbitrary identity events in to the engine.
