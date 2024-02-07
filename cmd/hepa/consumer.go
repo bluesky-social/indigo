@@ -11,7 +11,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
+	"github.com/bluesky-social/indigo/events/schedulers/parallel"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 
 	"github.com/bluesky-social/indigo/events"
@@ -79,12 +79,10 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 	}
 
 	// start at higher parallelism (somewhat arbitrary)
-	scaleSettings := autoscaling.DefaultAutoscaleSettings()
-	scaleSettings.Concurrency = 6
-	scaleSettings.MaxConcurrency = 240
 	return events.HandleRepoStream(
-		ctx, con, autoscaling.NewScheduler(
-			scaleSettings,
+		ctx, con, parallel.NewScheduler(
+			100,
+			1000,
 			s.bgshost,
 			rsc.EventHandler,
 		),
