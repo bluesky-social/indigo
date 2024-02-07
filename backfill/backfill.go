@@ -49,6 +49,7 @@ type Store interface {
 	UpdateRev(ctx context.Context, repo, rev string) error
 
 	EnqueueJob(ctx context.Context, repo string) error
+	EnqueueJobWithState(ctx context.Context, repo string, state string) error
 
 	PurgeRepo(ctx context.Context, repo string) error
 }
@@ -486,6 +487,13 @@ func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscrib
 			})
 		default:
 			return fmt.Errorf("invalid op action: %q", op.Action)
+		}
+	}
+
+	if evt.Prev == nil {
+		// The first event for a repo will have a nil prev, we can enqueue the repo as "complete" to avoid fetching the empty repo
+		if err := bf.Store.EnqueueJobWithState(ctx, evt.Repo, StateComplete); err != nil {
+			return fmt.Errorf("failed to enqueue job with state for repo %q: %w", evt.Repo, err)
 		}
 	}
 

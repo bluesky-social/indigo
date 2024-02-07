@@ -63,6 +63,24 @@ func (s *Memstore) EnqueueJob(repo string) error {
 	return nil
 }
 
+func (s *Memstore) EnqueueJobWithState(repo, state string) error {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+
+	if _, ok := s.jobs[repo]; ok {
+		return fmt.Errorf("job already exists for repo %s", repo)
+	}
+
+	j := &Memjob{
+		repo:      repo,
+		createdAt: time.Now(),
+		updatedAt: time.Now(),
+		state:     state,
+	}
+	s.jobs[repo] = j
+	return nil
+}
+
 func (s *Memstore) BufferOp(ctx context.Context, repo string, since *string, rev, kind, path string, rec *[]byte, cid *cid.Cid) (bool, error) {
 	s.lk.Lock()
 
