@@ -7,7 +7,9 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -235,6 +237,8 @@ var runCmd = &cli.Command{
 
 		// prometheus HTTP endpoint: /metrics
 		go func() {
+			runtime.SetBlockProfileRate(10)
+			runtime.SetMutexProfileFraction(10)
 			if err := srv.RunMetrics(cctx.String("metrics-listen")); err != nil {
 				slog.Error("failed to start metrics endpoint", "error", err)
 				panic(fmt.Errorf("failed to start metrics endpoint: %w", err))
