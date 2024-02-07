@@ -227,6 +227,30 @@ func (r *Repo) PutRecord(ctx context.Context, rpath string, rec CborMarshaler) (
 	return k, nil
 }
 
+func (r *Repo) UpdateRecord(ctx context.Context, rpath string, rec CborMarshaler) (cid.Cid, error) {
+	ctx, span := otel.Tracer("repo").Start(ctx, "UpdateRecord")
+	defer span.End()
+
+	r.dirty = true
+	t, err := r.getMst(ctx)
+	if err != nil {
+		return cid.Undef, fmt.Errorf("failed to get mst: %w", err)
+	}
+
+	k, err := r.cst.Put(ctx, rec)
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	nmst, err := t.Update(ctx, rpath, k)
+	if err != nil {
+		return cid.Undef, fmt.Errorf("mst.Add failed: %w", err)
+	}
+
+	r.mst = nmst
+	return k, nil
+}
+
 func (r *Repo) DeleteRecord(ctx context.Context, rpath string) error {
 	ctx, span := otel.Tracer("repo").Start(ctx, "DeleteRecord")
 	defer span.End()
