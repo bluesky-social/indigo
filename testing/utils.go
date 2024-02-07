@@ -452,7 +452,7 @@ func SetupBGS(ctx context.Context, didr plc.PLCClient) (*TestBGS, error) {
 
 	tr := &api.TestHandleResolver{}
 
-	b, err := bgs.NewBGS(maindb, ix, repoman, evtman, didr, nil, rf, tr, false)
+	b, err := bgs.NewBGS(maindb, ix, repoman, evtman, didr, nil, rf, tr, false, time.Hour*4)
 	if err != nil {
 		return nil, err
 	}
