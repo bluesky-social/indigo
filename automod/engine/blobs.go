@@ -120,7 +120,7 @@ func (c *RecordContext) fetchBlob(blob lexutil.LexBlob) ([]byte, error) {
 		}
 	}
 
-	client := c.engine.PDSClient
+	client := c.engine.BlobClient
 	if client == nil {
 		client = http.DefaultClient
 	}
