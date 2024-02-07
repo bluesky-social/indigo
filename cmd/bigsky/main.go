@@ -139,6 +139,12 @@ func run(args []string) {
 			EnvVars: []string{"MAX_METADB_CONNECTIONS"},
 			Value:   40,
 		},
+		&cli.DurationFlag{
+			Name:    "compact-interval",
+			EnvVars: []string{"BGS_COMPACT_INTERVAL"},
+			Value:   4 * time.Hour,
+			Usage:   "interval between compaction runs, set to 0 to disable scheduled compaction",
+		},
 	}
 
 	app.Action = Bigsky
@@ -337,7 +343,7 @@ func Bigsky(cctx *cli.Context) error {
 	}
 
 	log.Infow("constructing bgs")
-	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, rf, hr, !cctx.Bool("crawl-insecure-ws"))
+	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, rf, hr, !cctx.Bool("crawl-insecure-ws"), cctx.Duration("compact-interval"))
 	if err != nil {
 		return err
 	}
