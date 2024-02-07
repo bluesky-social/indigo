@@ -105,6 +105,19 @@ func (s *Gormstore) EnqueueJob(ctx context.Context, repo string) error {
 	return nil
 }
 
+func (s *Gormstore) EnqueueJobWithState(ctx context.Context, repo, state string) error {
+	_, err := s.GetOrCreateJob(ctx, repo, state)
+	if err != nil {
+		return err
+	}
+
+	s.qlk.Lock()
+	s.taskQueue = append(s.taskQueue, repo)
+	s.qlk.Unlock()
+
+	return nil
+}
+
 func (s *Gormstore) createJobForRepo(repo, state string) error {
 	dbj := &GormDBJob{
 		Repo:  repo,

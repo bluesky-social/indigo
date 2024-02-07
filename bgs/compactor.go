@@ -186,37 +186,31 @@ var errNoReposToCompact = fmt.Errorf("no repos to compact")
 func (c *Compactor) Start(bgs *BGS) {
 	log.Info("starting compactor")
 	go c.doWork(bgs)
-	go func() {
-		log.Infow("starting compactor requeue routine",
-			"interval", c.requeueInterval,
-			"limit", c.requeueLimit,
-			"shardCount", c.requeueShardCount,
-			"fast", c.requeueFast,
-		)
+	if c.requeueInterval > 0 {
+		go func() {
+			log.Infow("starting compactor requeue routine",
+				"interval", c.requeueInterval,
+				"limit", c.requeueLimit,
+				"shardCount", c.requeueShardCount,
+				"fast", c.requeueFast,
+			)
 
-		// Enqueue all repos on startup
-		ctx := context.Background()
-		ctx, span := otel.Tracer("compactor").Start(ctx, "RequeueRoutine")
-		if err := c.EnqueueAllRepos(ctx, bgs, c.requeueLimit, c.requeueShardCount, c.requeueFast); err != nil {
-			log.Errorw("failed to enqueue all repos", "err", err)
-		}
-		span.End()
-
-		t := time.NewTicker(c.requeueInterval)
-		for {
-			select {
-			case <-c.exit:
-				return
-			case <-t.C:
-				ctx := context.Background()
-				ctx, span := otel.Tracer("compactor").Start(ctx, "RequeueRoutine")
-				if err := c.EnqueueAllRepos(ctx, bgs, c.requeueLimit, c.requeueShardCount, c.requeueFast); err != nil {
-					log.Errorw("failed to enqueue all repos", "err", err)
+			t := time.NewTicker(c.requeueInterval)
+			for {
+				select {
+				case <-c.exit:
+					return
+				case <-t.C:
+					ctx := context.Background()
+					ctx, span := otel.Tracer("compactor").Start(ctx, "RequeueRoutine")
+					if err := c.EnqueueAllRepos(ctx, bgs, c.requeueLimit, c.requeueShardCount, c.requeueFast); err != nil {
+						log.Errorw("failed to enqueue all repos", "err", err)
+					}
+					span.End()
 				}
-				span.End()
 			}
-		}
-	}()
+		}()
+	}
 }
 
 // Shutdown shuts down the compactor
