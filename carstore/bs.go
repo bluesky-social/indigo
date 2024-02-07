@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/models"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	blockformat "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
@@ -32,6 +34,11 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
 )
+
+var blockGetTotalCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "carstore_block_get_total",
+	Help: "carstore get queries",
+}, []string{"usrskip", "cache"})
 
 var log = logging.Logger("carstore")
 
@@ -176,6 +183,7 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, erro
 	if uv.cache != nil {
 		blk, ok := uv.cache[k]
 		if ok {
+			blockGetTotalCounter.WithLabelValues("false", "hit").Add(1)
 			atomic.AddInt64(&CacheHits, 1)
 
 			return blk, nil
@@ -189,20 +197,31 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, erro
 	var info struct {
 		Path   string
 		Offset int64
+		Usr    models.Uid
 	}
-	if err := uv.cs.meta.
-		Model(blockRef{}).
-		Select("path, block_refs.offset").
-		Joins("left join car_shards on block_refs.shard = car_shards.id").
-		Where("usr = ? AND cid = ?", uv.user, models.DbCID{CID: k}).
-		Find(&info).Error; err != nil {
+	if err := uv.cs.meta.Raw(`SELECT
+  (select path from car_shards where id = block_refs.shard) as path,
+  block_refs.offset,
+  (select usr from car_shards where id = block_refs.shard) as usr
+FROM block_refs
+WHERE
+  block_refs.cid = ?
+LIMIT 1;`, models.DbCID{CID: k}).Scan(&info).Error; err != nil {
 		return nil, err
 	}
 	if info.Path == "" {
 		return nil, ipld.ErrNotFound{Cid: k}
 	}
 
-	if uv.prefetch {
+	prefetch := uv.prefetch
+	if info.Usr != uv.user {
+		blockGetTotalCounter.WithLabelValues("true", "miss").Add(1)
+		prefetch = false
+	} else {
+		blockGetTotalCounter.WithLabelValues("false", "miss").Add(1)
+	}
+
+	if prefetch {
 		return uv.prefetchRead(ctx, k, info.Path, info.Offset)
 	} else {
 		return uv.singleRead(ctx, k, info.Path, info.Offset)
