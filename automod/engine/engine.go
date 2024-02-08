@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -38,6 +39,8 @@ type Engine struct {
 	BskyClient *xrpc.Client
 	// used to persist moderation actions in mod service (optional)
 	AdminClient *xrpc.Client
+	// used to fetch blobs from upstream PDS instances
+	BlobClient *http.Client
 }
 
 // Entrypoint for external code pushing arbitrary identity events in to the engine.

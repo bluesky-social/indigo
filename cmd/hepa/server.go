@@ -188,6 +188,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		bskyClient.Headers = make(map[string]string)
 		bskyClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
 	}
+	blobClient := util.RobustHTTPClient()
 	engine := automod.Engine{
 		Logger:      logger,
 		Directory:   dir,
@@ -199,6 +200,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		Notifier:    notifier,
 		AdminClient: xrpcc,
 		BskyClient:  &bskyClient,
+		BlobClient:  blobClient,
 	}
 
 	s := &Server{
