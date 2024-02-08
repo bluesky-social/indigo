@@ -143,6 +143,7 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 		}
 		return "", fmt.Errorf("%w: HTTP well-known request error: %w", ErrHandleResolutionFailed, err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
 		return "", fmt.Errorf("%w: HTTP 404 for %s", ErrHandleNotFound, handle)
 	}
