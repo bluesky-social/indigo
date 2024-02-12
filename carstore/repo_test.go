@@ -45,7 +45,12 @@ func testCarStore() (*CarStore, func(), error) {
 		return nil, nil, err
 	}
 
-	cs, err := NewCarStore(db, sharddir)
+	pgb, err := NewPostgresBackend(db)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cs, err := NewCarStore(pgb, sharddir)
 	if err != nil {
 		return nil, nil, err
 	}

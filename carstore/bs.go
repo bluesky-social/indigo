@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -51,14 +50,30 @@ const MaxSliceLength = 2 << 20
 const BigShardThreshold = 2 << 20
 
 type CarStore struct {
-	meta    *gorm.DB
 	rootDir string
+
+	backend Backend
 
 	lscLk          sync.Mutex
 	lastShardCache map[models.Uid]*CarShard
 }
 
-func NewCarStore(meta *gorm.DB, root string) (*CarStore, error) {
+type Backend interface {
+	UserHasBlock(ctx context.Context, usr models.Uid, blk cid.Cid) (bool, error)
+	FindBlock(ctx context.Context, usr models.Uid, k cid.Cid) (string, int64, bool, error)
+	GetLastShard(ctx context.Context, user models.Uid) (*CarShard, error)
+	ReadUserCar(ctx context.Context, user models.Uid, sinceRev string, incremental bool, w io.Writer) error
+	PutShard(ctx context.Context, shard *CarShard, brefs []map[string]any, rmcids map[cid.Cid]bool) error
+	GetAllShards(ctx context.Context, usr models.Uid) ([]CarShard, error)
+	WipeUserData(ctx context.Context, user models.Uid) error
+	deleteShards(ctx context.Context, shs []*CarShard) error
+	GetCompactionTargets(ctx context.Context, shardCount int) ([]CompactionTarget, error)
+	GetBlockRefsForShards(ctx context.Context, shardIds []uint) ([]blockRef, error)
+	DeleteStaleRefs(ctx context.Context, uid models.Uid, brefs []blockRef, staleRefs []staleRef, removedShards map[uint]bool) error
+	GetStaleRefs(ctx context.Context, user models.Uid) ([]staleRef, error)
+}
+
+func NewCarStore(backend Backend, root string) (*CarStore, error) {
 	if _, err := os.Stat(root); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
@@ -68,15 +83,9 @@ func NewCarStore(meta *gorm.DB, root string) (*CarStore, error) {
 			return nil, err
 		}
 	}
-	if err := meta.AutoMigrate(&CarShard{}, &blockRef{}); err != nil {
-		return nil, err
-	}
-	if err := meta.AutoMigrate(&staleRef{}); err != nil {
-		return nil, err
-	}
 
 	return &CarStore{
-		meta:           meta,
+		backend:        backend,
 		rootDir:        root,
 		lastShardCache: make(map[models.Uid]*CarShard),
 	}, nil
@@ -164,17 +173,7 @@ func (uv *userView) HashOnRead(hor bool) {
 }
 
 func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
-	var count int64
-	if err := uv.cs.meta.
-		Model(blockRef{}).
-		Select("path, block_refs.offset").
-		Joins("left join car_shards on block_refs.shard = car_shards.id").
-		Where("usr = ? AND cid = ?", uv.user, models.DbCID{CID: k}).
-		Count(&count).Error; err != nil {
-		return false, err
-	}
-
-	return count > 0, nil
+	return uv.cs.backend.UserHasBlock(ctx, uv.user, k)
 }
 
 var CacheHits int64
@@ -195,30 +194,13 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, erro
 	}
 	atomic.AddInt64(&CacheMiss, 1)
 
-	// TODO: for now, im using a join to ensure we only query blocks from the
-	// correct user. maybe it makes sense to put the user in the blockRef
-	// directly? tradeoff of time vs space
-	var info struct {
-		Path   string
-		Offset int64
-		Usr    models.Uid
-	}
-	if err := uv.cs.meta.Raw(`SELECT
-  (select path from car_shards where id = block_refs.shard) as path,
-  block_refs.offset,
-  (select usr from car_shards where id = block_refs.shard) as usr
-FROM block_refs
-WHERE
-  block_refs.cid = ?
-LIMIT 1;`, models.DbCID{CID: k}).Scan(&info).Error; err != nil {
+	path, offset, prefetchOkay, err := uv.cs.backend.FindBlock(ctx, uv.user, k)
+	if err != nil {
 		return nil, err
-	}
-	if info.Path == "" {
-		return nil, ipld.ErrNotFound{Cid: k}
 	}
 
 	prefetch := uv.prefetch
-	if info.Usr != uv.user {
+	if !prefetchOkay {
 		blockGetTotalCounterUsrskip.Add(1)
 		prefetch = false
 	} else {
@@ -226,9 +208,9 @@ LIMIT 1;`, models.DbCID{CID: k}).Scan(&info).Error; err != nil {
 	}
 
 	if prefetch {
-		return uv.prefetchRead(ctx, k, info.Path, info.Offset)
+		return uv.prefetchRead(ctx, k, path, offset)
 	} else {
-		return uv.singleRead(ctx, k, info.Path, info.Offset)
+		return uv.singleRead(ctx, k, path, offset)
 	}
 }
 
@@ -388,18 +370,13 @@ func (cs *CarStore) getLastShard(ctx context.Context, user models.Uid) (*CarShar
 		return maybeLs, nil
 	}
 
-	var lastShard CarShard
-	// this is often slow (which is why we're caching it) but could be sped up with an extra index:
-	// CREATE INDEX idx_car_shards_usr_id ON car_shards (usr, seq DESC);
-	if err := cs.meta.WithContext(ctx).Model(CarShard{}).Limit(1).Order("seq desc").Find(&lastShard, "usr = ?", user).Error; err != nil {
-		//if err := cs.meta.Model(CarShard{}).Where("user = ?", user).Last(&lastShard).Error; err != nil {
-		//if err != gorm.ErrRecordNotFound {
+	lastShard, err := cs.backend.GetLastShard(ctx, user)
+	if err != nil {
 		return nil, err
-		//}
 	}
 
-	cs.putLastShardCache(&lastShard)
-	return &lastShard, nil
+	cs.putLastShardCache(lastShard)
+	return lastShard, nil
 }
 
 var ErrRepoBaseMismatch = fmt.Errorf("attempted a delta session on top of the wrong previous head")
@@ -454,47 +431,10 @@ func (cs *CarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev s
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ReadUserCar")
 	defer span.End()
 
-	var earlySeq int
-	if sinceRev != "" {
-		var untilShard CarShard
-		if err := cs.meta.Where("rev >= ? AND usr = ?", sinceRev, user).Order("rev").First(&untilShard).Error; err != nil {
-			return fmt.Errorf("finding early shard: %w", err)
-		}
-		earlySeq = untilShard.Seq
-	}
-
-	var shards []CarShard
-	if err := cs.meta.Order("seq desc").Where("usr = ? AND seq >= ?", user, earlySeq).Find(&shards).Error; err != nil {
-		return err
-	}
-
-	if !incremental && earlySeq > 0 {
-		// have to do it the ugly way
-		return fmt.Errorf("nyi")
-	}
-
-	if len(shards) == 0 {
-		return fmt.Errorf("no data found for user %d", user)
-	}
-
-	// fast path!
-	if err := car.WriteHeader(&car.CarHeader{
-		Roots:   []cid.Cid{shards[0].Root.CID},
-		Version: 1,
-	}, w); err != nil {
-		return err
-	}
-
-	for _, sh := range shards {
-		if err := cs.writeShardBlocks(ctx, &sh, w); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return cs.backend.ReadUserCar(ctx, user, sinceRev, incremental, w)
 }
 
-func (cs *CarStore) writeShardBlocks(ctx context.Context, sh *CarShard, w io.Writer) error {
+func writeShardBlocks(ctx context.Context, sh *CarShard, w io.Writer) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "writeShardBlocks")
 	defer span.End()
 
@@ -669,7 +609,7 @@ func (cs *CarStore) writeNewShardFile(ctx context.Context, user models.Uid, seq 
 	return fname, nil
 }
 
-func (cs *CarStore) deleteShardFile(ctx context.Context, sh *CarShard) error {
+func deleteShardFile(ctx context.Context, sh *CarShard) error {
 	return os.Remove(sh.Path)
 }
 
@@ -767,87 +707,14 @@ func (cs *CarStore) putShard(ctx context.Context, shard *CarShard, brefs []map[s
 	ctx, span := otel.Tracer("carstore").Start(ctx, "putShard")
 	defer span.End()
 
-	// TODO: there should be a way to create the shard and block_refs that
-	// reference it in the same query, would save a lot of time
-	tx := cs.meta.WithContext(ctx).Begin()
-
-	if err := tx.WithContext(ctx).Create(shard).Error; err != nil {
-		return fmt.Errorf("failed to create shard in DB tx: %w", err)
+	if err := cs.backend.PutShard(ctx, shard, brefs, rmcids); err != nil {
+		return err
 	}
 
 	if !nocache {
 		cs.putLastShardCache(shard)
 	}
 
-	for _, ref := range brefs {
-		ref["shard"] = shard.ID
-	}
-
-	if err := createBlockRefs(ctx, tx, brefs); err != nil {
-		return fmt.Errorf("failed to create block refs: %w", err)
-	}
-
-	if len(rmcids) > 0 {
-		cids := make([]cid.Cid, 0, len(rmcids))
-		for c := range rmcids {
-			cids = append(cids, c)
-		}
-
-		if err := tx.Create(&staleRef{
-			Cids: packCids(cids),
-			Usr:  shard.Usr,
-		}).Error; err != nil {
-			return err
-		}
-	}
-
-	err := tx.WithContext(ctx).Commit().Error
-	if err != nil {
-		return fmt.Errorf("failed to commit shard DB transaction: %w", err)
-	}
-
-	return nil
-}
-
-func createBlockRefs(ctx context.Context, tx *gorm.DB, brefs []map[string]any) error {
-	ctx, span := otel.Tracer("carstore").Start(ctx, "createBlockRefs")
-	defer span.End()
-
-	if err := createInBatches(ctx, tx, brefs, 2000); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func generateInsertQuery(data []map[string]any) (string, []any) {
-	placeholders := strings.Repeat("(?, ?, ?),", len(data))
-	placeholders = placeholders[:len(placeholders)-1] // trim trailing comma
-
-	query := "INSERT INTO block_refs (\"cid\", \"offset\", \"shard\") VALUES " + placeholders
-
-	values := make([]any, 0, 3*len(data))
-	for _, entry := range data {
-		values = append(values, entry["cid"], entry["offset"], entry["shard"])
-	}
-
-	return query, values
-}
-
-// Function to create in batches
-func createInBatches(ctx context.Context, tx *gorm.DB, data []map[string]any, batchSize int) error {
-	for i := 0; i < len(data); i += batchSize {
-		batch := data[i:]
-		if len(batch) > batchSize {
-			batch = batch[:batchSize]
-		}
-
-		query, values := generateInsertQuery(batch)
-
-		if err := tx.WithContext(ctx).Exec(query, values...).Error; err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -1027,8 +894,8 @@ type UserStat struct {
 }
 
 func (cs *CarStore) Stat(ctx context.Context, usr models.Uid) ([]UserStat, error) {
-	var shards []CarShard
-	if err := cs.meta.Order("seq asc").Find(&shards, "usr = ?", usr).Error; err != nil {
+	shards, err := cs.backend.GetAllShards(ctx, usr)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1045,70 +912,11 @@ func (cs *CarStore) Stat(ctx context.Context, usr models.Uid) ([]UserStat, error
 }
 
 func (cs *CarStore) WipeUserData(ctx context.Context, user models.Uid) error {
-	var shards []*CarShard
-	if err := cs.meta.Find(&shards, "usr = ?", user).Error; err != nil {
+	if err := cs.backend.WipeUserData(ctx, user); err != nil {
 		return err
 	}
 
-	if err := cs.deleteShards(ctx, shards); err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
-	}
-
 	cs.removeLastShardCache(user)
-
-	return nil
-}
-
-func (cs *CarStore) deleteShards(ctx context.Context, shs []*CarShard) error {
-	ctx, span := otel.Tracer("carstore").Start(ctx, "deleteShards")
-	defer span.End()
-
-	deleteSlice := func(ctx context.Context, subs []*CarShard) error {
-		var ids []uint
-		for _, sh := range subs {
-			ids = append(ids, sh.ID)
-		}
-
-		txn := cs.meta.Begin()
-
-		if err := txn.Delete(&CarShard{}, "id in (?)", ids).Error; err != nil {
-			return err
-		}
-
-		if err := txn.Delete(&blockRef{}, "shard in (?)", ids).Error; err != nil {
-			return err
-		}
-
-		if err := txn.Commit().Error; err != nil {
-			return err
-		}
-
-		var outErr error
-		for _, sh := range subs {
-			if err := cs.deleteShardFile(ctx, sh); err != nil {
-				if !os.IsNotExist(err) {
-					return err
-				}
-				outErr = err
-			}
-		}
-
-		return outErr
-	}
-
-	chunkSize := 10000
-	for i := 0; i < len(shs); i += chunkSize {
-		sl := shs[i:]
-		if len(sl) > chunkSize {
-			sl = sl[:chunkSize]
-		}
-
-		if err := deleteSlice(ctx, sl); err != nil {
-			return err
-		}
-	}
 
 	return nil
 }
@@ -1241,12 +1049,7 @@ func (cs *CarStore) GetCompactionTargets(ctx context.Context, shardCount int) ([
 	ctx, span := otel.Tracer("carstore").Start(ctx, "GetCompactionTargets")
 	defer span.End()
 
-	var targets []CompactionTarget
-	if err := cs.meta.Raw(`select usr, count(*) as num_shards from car_shards group by usr having count(*) > ? order by num_shards desc`, shardCount).Scan(&targets).Error; err != nil {
-		return nil, err
-	}
-
-	return targets, nil
+	return cs.backend.GetCompactionTargets(ctx, shardCount)
 }
 
 func (cs *CarStore) getBlockRefsForShards(ctx context.Context, shardIds []uint) ([]blockRef, error) {
@@ -1255,20 +1058,9 @@ func (cs *CarStore) getBlockRefsForShards(ctx context.Context, shardIds []uint) 
 
 	span.SetAttributes(attribute.Int("shards", len(shardIds)))
 
-	chunkSize := 10000
-	out := make([]blockRef, 0, len(shardIds))
-	for i := 0; i < len(shardIds); i += chunkSize {
-		sl := shardIds[i:]
-		if len(sl) > chunkSize {
-			sl = sl[:chunkSize]
-		}
-
-		var brefs []blockRef
-		if err := cs.meta.Raw(`select * from block_refs where shard in (?)`, sl).Scan(&brefs).Error; err != nil {
-			return nil, err
-		}
-
-		out = append(out, brefs...)
+	out, err := cs.backend.GetBlockRefsForShards(ctx, shardIds)
+	if err != nil {
+		return nil, err
 	}
 
 	span.SetAttributes(attribute.Int("refs", len(out)))
@@ -1300,8 +1092,8 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid, skip
 
 	span.SetAttributes(attribute.Int64("user", int64(user)))
 
-	var shards []CarShard
-	if err := cs.meta.WithContext(ctx).Find(&shards, "usr = ?", user).Error; err != nil {
+	shards, err := cs.backend.GetAllShards(ctx, user)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1354,10 +1146,7 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid, skip
 
 	span.SetAttributes(attribute.Int("blockRefs", len(brefs)))
 
-	var staleRefs []staleRef
-	if err := cs.meta.WithContext(ctx).Find(&staleRefs, "usr = ?", user).Error; err != nil {
-		return nil, err
-	}
+	staleRefs, err := cs.backend.GetStaleRefs(ctx, user)
 
 	span.SetAttributes(attribute.Int("staleRefs", len(staleRefs)))
 
@@ -1496,75 +1285,20 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid, skip
 		}
 
 		stats.ShardsDeleted += len(todelete)
-		if err := cs.deleteShards(ctx, todelete); err != nil {
+		if err := cs.backend.deleteShards(ctx, todelete); err != nil {
 			return nil, fmt.Errorf("deleting shards: %w", err)
 		}
 	}
 
 	// now we need to delete the staleRefs we successfully cleaned up
 	// we can safely delete a staleRef if all the shards that have blockRefs with matching stale refs were processed
-	if err := cs.deleteStaleRefs(ctx, user, brefs, staleRefs, removedShards); err != nil {
+	if err := cs.backend.DeleteStaleRefs(ctx, user, brefs, staleRefs, removedShards); err != nil {
 		return nil, err
 	}
 
 	stats.DupeCount = len(dupes)
 
 	return stats, nil
-}
-
-func (cs *CarStore) deleteStaleRefs(ctx context.Context, uid models.Uid, brefs []blockRef, staleRefs []staleRef, removedShards map[uint]bool) error {
-	ctx, span := otel.Tracer("carstore").Start(ctx, "deleteStaleRefs")
-	defer span.End()
-
-	brByCid := make(map[cid.Cid][]blockRef)
-	for _, br := range brefs {
-		brByCid[br.Cid.CID] = append(brByCid[br.Cid.CID], br)
-	}
-
-	var staleToKeep []cid.Cid
-	for _, sr := range staleRefs {
-		cids, err := sr.getCids()
-		if err != nil {
-			return fmt.Errorf("getCids on staleRef failed (%d): %w", sr.ID, err)
-		}
-
-		for _, c := range cids {
-			brs := brByCid[c]
-			del := true
-			for _, br := range brs {
-				if !removedShards[br.Shard] {
-					del = false
-					break
-				}
-			}
-
-			if !del {
-				staleToKeep = append(staleToKeep, c)
-			}
-		}
-	}
-
-	txn := cs.meta.Begin()
-
-	if err := txn.Delete(&staleRef{}, "usr = ?", uid).Error; err != nil {
-		return err
-	}
-
-	// now create a new staleRef with all the refs we couldn't clear out
-	if len(staleToKeep) > 0 {
-		if err := txn.Create(&staleRef{
-			Usr:  uid,
-			Cids: packCids(staleToKeep),
-		}).Error; err != nil {
-			return err
-		}
-	}
-
-	if err := txn.Commit().Error; err != nil {
-		return fmt.Errorf("failed to commit staleRef updates: %w", err)
-	}
-
-	return nil
 }
 
 func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compBucket, shardsById map[uint]CarShard, keep map[cid.Cid]bool) error {
@@ -1627,7 +1361,7 @@ func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compB
 		Rev:       lastsh.Rev,
 	}
 
-	if err := cs.putShard(ctx, &shard, nbrefs, nil, true); err != nil {
+	if err := cs.backend.PutShard(ctx, &shard, nbrefs, nil); err != nil {
 		// if writing the shard fails, we should also delete the file
 		_ = fi.Close()
 
