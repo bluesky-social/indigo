@@ -97,17 +97,19 @@ var checkUserCmd = &cli.Command{
 			}
 		} else {
 			var invby string
-			if fa := rep.InvitedBy.ForAccount; fa != "" {
-				if fa == "admin" {
-					invby = fa
-				} else {
-					handle, _, err := api.ResolveDidToHandle(ctx, plcc, phr, fa)
-					if err != nil {
-						fmt.Println("ERROR: failed to resolve inviter: ", err)
-						handle = fa
-					}
+			if rep.InvitedBy != nil {
+				if fa := rep.InvitedBy.ForAccount; fa != "" {
+					if fa == "admin" {
+						invby = fa
+					} else {
+						handle, _, err := api.ResolveDidToHandle(ctx, plcc, phr, fa)
+						if err != nil {
+							fmt.Println("ERROR: failed to resolve inviter: ", err)
+							handle = fa
+						}
 
-					invby = handle
+						invby = handle
+					}
 				}
 			}
 

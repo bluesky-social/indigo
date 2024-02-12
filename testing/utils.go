@@ -115,7 +115,12 @@ func SetupPDS(ctx context.Context, suffix string, plc plc.PLCClient) (*TestPDS, 
 		return nil, err
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	csb, err := carstore.NewPostgresBackend(cardb)
+	if err != nil {
+		return nil, err
+	}
+
+	cs, err := carstore.NewCarStore(csb, cspath)
 	if err != nil {
 		return nil, err
 	}
@@ -420,7 +425,12 @@ func SetupBGS(ctx context.Context, didr plc.PLCClient) (*TestBGS, error) {
 		return nil, err
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	csb, err := carstore.NewPostgresBackend(cardb)
+	if err != nil {
+		return nil, err
+	}
+
+	cs, err := carstore.NewCarStore(csb, cspath)
 	if err != nil {
 		return nil, err
 	}

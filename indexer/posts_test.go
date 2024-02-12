@@ -50,7 +50,12 @@ func testIndexer(t *testing.T) *testIx {
 		t.Fatal(err)
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	csb, err := carstore.NewPostgresBackend(cardb)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cs, err := carstore.NewCarStore(csb, cspath)
 	if err != nil {
 		t.Fatal(err)
 	}

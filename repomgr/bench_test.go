@@ -54,7 +54,12 @@ func BenchmarkRepoMgrCreates(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	csb, err := carstore.NewPostgresBackend(cardb)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	cs, err := carstore.NewCarStore(csb, cspath)
 	if err != nil {
 		b.Fatal(err)
 	}
