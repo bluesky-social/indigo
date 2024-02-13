@@ -7,14 +7,14 @@ import Notification, {
 import { RELAY_HOST } from "../../constants";
 
 import { useNavigate } from "react-router-dom";
-import ConfirmRepoTakedownModal from "./ConfirmRepoTakedownModal";
+import ConfirmNewPDSModal from "./ConfirmNewPDSModal";
 import {
   ShieldCheckIcon,
   ShieldExclamationIcon,
 } from "@heroicons/react/24/outline";
 
-const Repos: FC<{}> = () => {
-  const [repoToTakedown, setRepoToTakedown] = useState<string>("");
+const NewPDS: FC<{}> = () => {
+  const [pdsHost, setPDSHost] = useState<string>("");
 
   // Notification Management
   const [shouldShowNotification, setShouldShowNotification] =
@@ -26,8 +26,8 @@ const Repos: FC<{}> = () => {
 
   // Modal state management
   const [modalAction, setModalAction] = useState<{
-    repo: string;
-    type: "takedown" | "untakedown";
+    pds: string;
+    type: "add" | "remove";
   } | null>(null);
   const [modalConfirm, setModalConfirm] = useState<() => void>(() => { });
   const [modalCancel, setModalCancel] = useState<() => void>(() => { });
@@ -59,85 +59,100 @@ const Repos: FC<{}> = () => {
     }
   }, []);
 
-  const requestTakedownRepo = (repo: string) => {
-    fetch(`${RELAY_HOST}/admin/repo/takeDown`, {
+  const requestAddPDS = (pds: string) => {
+    fetch(`${RELAY_HOST}/admin/pds/requestCrawl`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${adminToken}`,
       },
       body: JSON.stringify({
-        did: repo,
+        hostname: pds,
       }),
     })
-      .then((res) => res.json())
       .then((res) => {
-        if (res.error) {
-          setAlertWithTimeout(
-            "failure",
-            `Failed to takedown repo: ${res.error}`,
-            true
-          );
+        if (res.status !== 200) {
+          try {
+            res.json().then((data) => {
+              if (data.error) {
+                setAlertWithTimeout(
+                  "failure",
+                  `Failed to add PDS: ${data.error}`,
+                  true
+                );
+              } else {
+                setAlertWithTimeout(
+                  "failure",
+                  `Failed to add PDS: ${res.statusText}`,
+                  true
+                );
+              }
+            });
+          }
+          catch (err) {
+            setAlertWithTimeout(
+              "failure",
+              `Failed to add PDS: ${err}`,
+              true
+            );
+          }
         } else {
-          setAlertWithTimeout(
-            "success",
-            `Successfully tookdown repo ${repo}`,
-            true
-          );
+          try {
+            res.json().then((data) => {
+              if (data.error) {
+                setAlertWithTimeout(
+                  "failure",
+                  `Failed to add PDS: ${data.error}`,
+                  true
+                );
+              } else {
+                setAlertWithTimeout(
+                  "success",
+                  `Successfully added PDS ${pds}`,
+                  true
+                );
+              }
+            });
+          } catch (err) {
+            setAlertWithTimeout(
+              "failure",
+              `Failed to add PDS: ${err}`,
+              true
+            );
+          }
         }
       })
       .catch((err) => {
-        setAlertWithTimeout("failure", `Failed to takedown repo: ${err}`, true);
+        setAlertWithTimeout("failure", `Failed to add PDS: ${err}`, true);
       });
   };
 
-  const requestUntakedownRepo = (repo: string) => {
-    fetch(`${RELAY_HOST}/admin/repo/reverseTakedown`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`,
-      },
-      body: JSON.stringify({
-        did: repo,
-      }),
-    })
-      .then((res) => res.json())
-
-      .then((res) => {
-        if (res.error !== 200) {
-          setAlertWithTimeout(
-            "failure",
-            `Failed to untakedown repo: ${res.error}`,
-            true
-          );
-        } else {
-          setAlertWithTimeout(
-            "success",
-            `Successfully untookdown repo ${repo}`,
-            true
-          );
-        }
-      })
-      .catch((err) => {
-        setAlertWithTimeout(
-          "failure",
-          `Failed to untakedown repo: ${err}`,
-          true
-        );
-      });
+  const requestRemovePDS = (pds: string) => {
+    setAlertWithTimeout(
+      "failure",
+      `Failed to remove PDS: ${pds} - Not implemented`,
+      true
+    );
   };
 
-  const handleTakedownRepo = (
-    repo: string,
-    type: "takedown" | "untakedown"
+  const handleAddPDS = (
+    pds: string,
+    type: "add" | "remove"
   ) => {
-    setModalAction({ repo: repo, type });
+    if (pds === "") {
+      setAlertWithTimeout("failure", "PDS Hostname cannot be empty", true);
+      return;
+    }
+
+    // Strip the protocol from the hostname
+    pds = pds.replace(/^https?:\/\//, "");
+
+    setModalAction({ pds: pds, type });
 
     setModalConfirm(() => {
       return () => {
-        if (type === "takedown") requestTakedownRepo(repo);
-        else requestUntakedownRepo(repo);
+        if (type === "add") requestAddPDS(pds);
+        else requestRemovePDS(pds);
 
         setModalAction(null);
       };
@@ -170,11 +185,10 @@ const Repos: FC<{}> = () => {
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-semibold leading-6 text-gray-900">
-            Repo Takedowns
+            Add a PDS
           </h1>
           <p className="mt-2 text-sm text-gray-700">
-            Takedown a repo to purge it from the Relay history and reject all
-            future events for it.
+            Add a PDS to the Relay and trigger crawling.
           </p>
         </div>
       </div>
@@ -184,53 +198,40 @@ const Repos: FC<{}> = () => {
             htmlFor="email"
             className="block text-sm font-medium leading-6 text-gray-900"
           >
-            Repo DID
+            PDS Hostname
           </label>
           <div className="mt-2 inline-flex flex-col sm:flex-row">
             <input
               type="text"
-              name="repo"
-              id="repo"
+              name="pds"
+              id="pds"
               className="block w-72 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-              placeholder="did:plc:abadperson"
-              value={repoToTakedown}
+              placeholder="hydnum.us-west.host.bsky.network"
+              value={pdsHost}
               onChange={(e) => {
-                setRepoToTakedown(e.target.value);
+                setPDSHost(e.target.value);
               }}
             />
             <div className="inline-flex mt-4 sm:mt-0">
               <button
                 type="button"
                 onClick={() => {
-                  handleTakedownRepo(repoToTakedown.trim(), "takedown");
+                  handleAddPDS(pdsHost.trim(), "add");
                 }}
-                className="ml-0 sm:ml-2 inline-flex whitespace-nowrap items-center gap-x-1.5 rounded-md bg-red-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
-              >
-                <ShieldExclamationIcon
-                  className="-ml-0.5 h-5 w-5"
-                  aria-hidden="true"
-                />
-                Takedown Repo
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleTakedownRepo(repoToTakedown.trim(), "untakedown");
-                }}
-                className="ml-2 inline-flex whitespace-nowrap items-center gap-x-1.5 rounded-md bg-green-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
+                className="ml-0 sm:ml-2 inline-flex whitespace-nowrap items-center gap-x-1.5 rounded-md bg-green-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
               >
                 <ShieldCheckIcon
                   className="-ml-0.5 h-5 w-5"
                   aria-hidden="true"
                 />
-                Untakedown Repo
+                Add PDS
               </button>
             </div>
           </div>
         </div>
       </div>
       {modalAction && (
-        <ConfirmRepoTakedownModal
+        <ConfirmNewPDSModal
           action={modalAction}
           onConfirm={modalConfirm}
           onCancel={modalCancel}
@@ -240,4 +241,4 @@ const Repos: FC<{}> = () => {
   );
 };
 
-export default Repos;
+export default NewPDS;

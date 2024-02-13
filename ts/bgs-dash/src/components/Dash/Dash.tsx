@@ -18,7 +18,7 @@ import Notification, {
   NotificationType,
 } from "../Notification/Notification";
 
-import { BGS_HOST } from "../../constants";
+import { RELAY_HOST } from "../../constants";
 import { PDS, PDSKey } from "../../models/pds";
 
 import { Switch } from "@headlessui/react";
@@ -93,11 +93,11 @@ const Dash: FC<{}> = () => {
   }, []);
 
   useEffect(() => {
-    document.title = "BGS Admin Dashboard";
+    document.title = "Relay Admin Dashboard";
   }, []);
 
   const refreshPDSList = () => {
-    fetch(`${BGS_HOST}/admin/pds/list`, {
+    fetch(`${RELAY_HOST}/admin/pds/list`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -127,7 +127,7 @@ const Dash: FC<{}> = () => {
   };
 
   const getSlurpsEnabled = () => {
-    fetch(`${BGS_HOST}/admin/subs/getEnabled`, {
+    fetch(`${RELAY_HOST}/admin/subs/getEnabled`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -157,7 +157,7 @@ const Dash: FC<{}> = () => {
 
   const requestSlurpsEnabledStateChange = (state: boolean) => {
     setCanToggleSlurps(false);
-    fetch(`${BGS_HOST}/admin/subs/setEnabled?enabled=${state}`, {
+    fetch(`${RELAY_HOST}/admin/subs/setEnabled?enabled=${state}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -192,7 +192,7 @@ const Dash: FC<{}> = () => {
   };
 
   const requestCrawlHost = (host: string) => {
-    fetch(`${BGS_HOST}/xrpc/com.atproto.sync.requestCrawl`, {
+    fetch(`${RELAY_HOST}/xrpc/com.atproto.sync.requestCrawl`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -216,7 +216,7 @@ const Dash: FC<{}> = () => {
 
   const requestDisconnectHost = (host: string, shouldBlock: boolean) => {
     fetch(
-      `${BGS_HOST}/admin/subs/killUpstream?host=${host}&block=${shouldBlock}`,
+      `${RELAY_HOST}/admin/subs/killUpstream?host=${host}&block=${shouldBlock}`,
       {
         method: "POST",
         headers: {
@@ -244,7 +244,7 @@ const Dash: FC<{}> = () => {
   };
 
   const requestBlockHost = (host: string) => {
-    fetch(`${BGS_HOST}/admin/pds/block?host=${host}`, {
+    fetch(`${RELAY_HOST}/admin/pds/block?host=${host}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -264,7 +264,7 @@ const Dash: FC<{}> = () => {
     });
   };
   const requestUnblockHost = (host: string) => {
-    fetch(`${BGS_HOST}/admin/pds/unblock?host=${host}`, {
+    fetch(`${RELAY_HOST}/admin/pds/unblock?host=${host}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -286,7 +286,7 @@ const Dash: FC<{}> = () => {
 
   const updateRateLimits = (pds: PDS) => {
     fetch(
-      `${BGS_HOST}/admin/pds/changeLimits`,
+      `${RELAY_HOST}/admin/pds/changeLimits`,
       {
         method: "POST",
         headers: {

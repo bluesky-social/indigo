@@ -14,6 +14,7 @@ import Logout from "./components/Logout/Logout";
 import Domains from "./components/Domains/Domains";
 import Repos from "./components/Repos/Repos";
 import Consumers from "./components/Consumers/Consumers";
+import NewPDS from "./components/NewPDS/NewPDS";
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
@@ -55,6 +56,20 @@ const routes: Route[] = [
       </RequireAuth>
     ),
     requrieAuth: true,
+  },
+  {
+    path: "/new_pds",
+    name: "New PDS",
+    element: (
+      <RequireAuth>
+        <Nav />
+        <main>
+          <div className="mx-auto max-w-7xl px-2 py-6 sm:px-6 lg:px-8">
+            <NewPDS />
+          </div>
+        </main>
+      </RequireAuth>
+    ),
   },
   {
     path: "/consumers",
@@ -101,6 +116,7 @@ const routes: Route[] = [
     ),
     requrieAuth: true,
   },
+
   {
     path: "/login",
     name: "Login",
@@ -151,14 +167,14 @@ function Nav() {
                   <img
                     className="h-8 w-8"
                     src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=500"
-                    alt="BGS Admin Dashboard"
+                    alt="Relay Admin Dashboard"
                   />
                 </div>
                 <div className="hidden md:block">
                   <div className="ml-10 flex items-baseline space-x-4">
                     {routes.map((item) =>
                       (isAuthed && item.hideIfAuth) ||
-                      (!isAuthed && item.requrieAuth) ? null : (
+                        (!isAuthed && item.requrieAuth) ? null : (
                         <NavLink
                           key={item.path}
                           to={item.path || "/"}
@@ -204,7 +220,7 @@ function Nav() {
             <div className="space-y-1 px-2 pb-3 pt-2 sm:px-3">
               {routes.map((item) =>
                 (isAuthed && item.hideIfAuth) ||
-                (!isAuthed && item.requrieAuth) ? null : (
+                  (!isAuthed && item.requrieAuth) ? null : (
                   <Disclosure.Button
                     key={item.path}
                     className={classNames(
