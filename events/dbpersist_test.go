@@ -301,7 +301,12 @@ func setupDBs(t testing.TB) (*gorm.DB, *gorm.DB, *carstore.CarStore, string, err
 		return nil, nil, nil, "", err
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	csb, err := carstore.NewPostgresBackend(cardb)
+	if err != nil {
+		return nil, nil, nil, "", err
+	}
+
+	cs, err := carstore.NewCarStore(csb, cspath)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}

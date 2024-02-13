@@ -29,7 +29,12 @@ func testCarStore(t *testing.T, db *gorm.DB) (*carstore.CarStore, func()) {
 		t.Fatal(err)
 	}
 
-	cs, err := carstore.NewCarStore(db, sharddir)
+	csb, err := carstore.NewPostgresBackend(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cs, err := carstore.NewCarStore(csb, sharddir)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -158,7 +158,12 @@ func run(args []string) {
 			}
 		}
 
-		cstore, err := carstore.NewCarStore(csdb, csdir)
+		csb, err := carstore.NewPostgresBackend(csdb)
+		if err != nil {
+			return err
+		}
+
+		cstore, err := carstore.NewCarStore(csb, csdir)
 		if err != nil {
 			return err
 		}

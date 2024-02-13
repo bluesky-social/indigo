@@ -50,7 +50,12 @@ func TestLoadNewRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	csb, err := carstore.NewPostgresBackend(cardb)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cs, err := carstore.NewCarStore(csb, cspath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +85,12 @@ func testCarstore(t *testing.T, dir string) *carstore.CarStore {
 		t.Fatal(err)
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	csb, err := carstore.NewPostgresBackend(cardb)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cs, err := carstore.NewCarStore(csb, cspath)
 	if err != nil {
 		t.Fatal(err)
 	}
