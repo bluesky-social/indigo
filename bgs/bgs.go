@@ -1070,6 +1070,11 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		// TODO: could check other things, a valid response is good enough for now
 		peering.Host = durl.Host
 		peering.SSL = (durl.Scheme == "https")
+		peering.CrawlRateLimit = float64(s.slurper.DefaultCrawlLimit)
+		peering.RepoLimit = s.slurper.DefaultPerSecondLimit
+		peering.HourlyEventLimit = s.slurper.DefaultPerHourLimit
+		peering.DailyEventLimit = s.slurper.DefaultPerDayLimit
+		peering.RepoLimit = s.slurper.DefaultRepoLimit
 
 		if s.ssl && !peering.SSL {
 			return nil, fmt.Errorf("did references non-ssl PDS, this is disallowed in prod: %q %q", did, svc.ServiceEndpoint)
