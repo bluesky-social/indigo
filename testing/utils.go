@@ -196,7 +196,7 @@ func (tp *TestPDS) BumpLimits(t *testing.T, b *TestBGS) {
 		t.Fatal(err)
 	}
 
-	req, err := http.NewRequest("POST", "http://"+b.Host()+"/pds/changeLimits", bytes.NewBuffer(reqBody))
+	req, err := http.NewRequest("POST", "http://"+b.Host()+"/admin/pds/changeLimits", bytes.NewBuffer(reqBody))
 	if err != nil {
 		t.Fatal(err)
 	}
