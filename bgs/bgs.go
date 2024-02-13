@@ -348,11 +348,11 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	admin.POST("/repo/verify", bgs.handleAdminVerifyRepo)
 
 	// PDS-related Admin API
+	admin.POST("/pds/requestCrawl", bgs.handleAdminRequestCrawl)
 	admin.GET("/pds/list", bgs.handleListPDSs)
 	admin.POST("/pds/resync", bgs.handleAdminPostResyncPDS)
 	admin.GET("/pds/resync", bgs.handleAdminGetResyncPDS)
-	admin.POST("/pds/changeIngestRateLimit", bgs.handleAdminChangePDSRateLimit)
-	admin.POST("/pds/changeCrawlRateLimit", bgs.handleAdminChangePDSCrawlLimit)
+	admin.POST("/pds/changeLimits", bgs.handleAdminChangePDSRateLimits)
 	admin.POST("/pds/block", bgs.handleBlockPDS)
 	admin.POST("/pds/unblock", bgs.handleUnblockPDS)
 	admin.POST("/pds/addTrustedDomain", bgs.handleAdminAddTrustedDomain)
@@ -1046,6 +1046,10 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 
 	if peering.Blocked {
 		return nil, fmt.Errorf("refusing to create user with blocked PDS")
+	}
+
+	if peering.RepoCount >= peering.RepoLimit {
+		return nil, fmt.Errorf("refusing to create user on PDS at max repo limit")
 	}
 
 	ban, err := s.domainIsBanned(ctx, durl.Host)
