@@ -74,6 +74,10 @@ cborgen: ## Run codegen tool for CBOR serialization
 .env:
 	if [ ! -f ".env" ]; then cp example.dev.env .env; fi
 
+.PHONY: run-postgres
+run-postgres: .env ## Runs a local postgres instance
+	docker compose -f cmd/bigsky/docker-compose.yml up -d
+
 .PHONY: run-dev-bgs
 run-dev-bgs: .env ## Runs 'bigsky' BGS for local dev
 	GOLOG_LOG_LEVEL=info go run ./cmd/bigsky --admin-key localdev 
