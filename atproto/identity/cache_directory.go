@@ -16,6 +16,7 @@ import (
 type CacheDirectory struct {
 	Inner             Directory
 	ErrTTL            time.Duration
+	InvalidHandleTTL  time.Duration
 	handleCache       *expirable.LRU[syntax.Handle, HandleEntry]
 	identityCache     *expirable.LRU[syntax.DID, IdentityEntry]
 	didLookupChans    sync.Map
@@ -67,12 +68,13 @@ var handleRequestsCoalesced = promauto.NewCounter(prometheus.CounterOpts{
 var _ Directory = (*CacheDirectory)(nil)
 
 // Capacity of zero means unlimited size. Similarly, ttl of zero means unlimited duration.
-func NewCacheDirectory(inner Directory, capacity int, hitTTL, errTTL time.Duration) CacheDirectory {
+func NewCacheDirectory(inner Directory, capacity int, hitTTL, errTTL time.Duration, invalidHandleTTL time.Duration) CacheDirectory {
 	return CacheDirectory{
-		ErrTTL:        errTTL,
-		Inner:         inner,
-		handleCache:   expirable.NewLRU[syntax.Handle, HandleEntry](capacity, nil, hitTTL),
-		identityCache: expirable.NewLRU[syntax.DID, IdentityEntry](capacity, nil, hitTTL),
+		ErrTTL:           errTTL,
+		InvalidHandleTTL: invalidHandleTTL,
+		Inner:            inner,
+		handleCache:      expirable.NewLRU[syntax.Handle, HandleEntry](capacity, nil, hitTTL),
+		identityCache:    expirable.NewLRU[syntax.DID, IdentityEntry](capacity, nil, hitTTL),
 	}
 }
 
@@ -85,6 +87,9 @@ func (d *CacheDirectory) IsHandleStale(e *HandleEntry) bool {
 
 func (d *CacheDirectory) IsIdentityStale(e *IdentityEntry) bool {
 	if e.Err != nil && time.Since(e.Updated) > d.ErrTTL {
+		return true
+	}
+	if e.Identity != nil && e.Identity.Handle.IsInvalidHandle() && time.Since(e.Updated) > d.InvalidHandleTTL {
 		return true
 	}
 	return false
