@@ -137,6 +137,7 @@ func TestLabelmakerBasic(t *testing.T) {
 	b1.Run(t)
 
 	p1.RequestScraping(t, b1)
+	p1.BumpLimits(t, b1)
 
 	l1 := testLabelMaker(t)
 	l1.AddKeywordLabeler(labeler.KeywordLabeler{Value: "definite-article", Keywords: []string{"the"}})
