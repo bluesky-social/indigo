@@ -264,7 +264,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	e.HideBanner = true
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"http://localhost:*", "https://bgs.bsky-sandbox.dev"},
+		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
@@ -1052,6 +1052,27 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		return nil, fmt.Errorf("refusing to create user on PDS at max repo limit")
 	}
 
+	// Increment the repo count for the PDS
+	res := s.db.Model(&models.PDS{}).Where("id = ? AND repo_count < repo_limit", peering.ID).Update("repo_count", gorm.Expr("repo_count + 1"))
+	if res.Error != nil {
+		return nil, fmt.Errorf("failed to increment repo count for pds: %w", res.Error)
+	}
+
+	if res.RowsAffected == 0 {
+		return nil, fmt.Errorf("refusing to create user on PDS at max repo limit")
+	}
+
+	successfullyCreated := false
+
+	// Release the count if we fail to create the user
+	defer func() {
+		if !successfullyCreated {
+			if err := s.db.Model(&models.PDS{}).Where("id = ?", peering.ID).Update("repo_count", gorm.Expr("repo_count - 1")).Error; err != nil {
+				log.Errorf("failed to decrement repo count for pds: %s", err)
+			}
+		}
+	}()
+
 	ban, err := s.domainIsBanned(ctx, durl.Host)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check pds ban status: %w", err)
@@ -1215,6 +1236,8 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	if err := s.db.Create(subj).Error; err != nil {
 		return nil, err
 	}
+
+	successfullyCreated = true
 
 	return subj, nil
 }
