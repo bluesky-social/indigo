@@ -1,6 +1,6 @@
 interface RateLimit {
-  MaxEventsPerSecond: number;
-  TokenCount: number;
+  Max: number;
+  WindowSeconds: number;
 }
 
 interface PDS {
@@ -16,9 +16,12 @@ interface PDS {
   Blocked: boolean;
   HasActiveConnection: boolean;
   EventsSeenSinceStartup?: number;
-  IngestRate: RateLimit;
   CrawlRate: RateLimit;
-  UserCount: number;
+  PerSecondEventRate: RateLimit;
+  PerHourEventRate: RateLimit;
+  PerDayEventRate: RateLimit;
+  RepoCount: number;
+  RepoLimit: number;
 }
 
 type PDSKey = keyof PDS;

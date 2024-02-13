@@ -146,7 +146,7 @@ func (s *Server) AddSQRLLabeler(url string) {
 func (s *Server) SubscribeBGS(ctx context.Context, bgsURL string, useWss bool) {
 	// subscribe our RepoEvent slurper to the BGS, to receive incoming records for labeler
 	log.Infof("subscribing to BGS: %s (SSL=%v)", bgsURL, useWss)
-	s.bgsSlurper.SubscribeToPds(ctx, bgsURL, useWss)
+	s.bgsSlurper.SubscribeToPds(ctx, bgsURL, useWss, false)
 }
 
 // efficiency predicate to quickly discard events we know that we shouldn't even bother parsing
