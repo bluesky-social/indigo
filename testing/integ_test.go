@@ -203,6 +203,7 @@ func TestBGSMultiGap(t *testing.T) {
 	b1.tr.TrialHosts = []string{p1.RawHost(), p2.RawHost()}
 
 	p1.RequestScraping(t, b1)
+	p1.BumpLimits(t, b1)
 	time.Sleep(time.Millisecond * 250)
 
 	users := []*TestUser{p1.MustNewUser(t, usernames[0]+".pdsuno")}
