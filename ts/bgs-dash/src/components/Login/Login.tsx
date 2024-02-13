@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BGS_HOST } from "../../constants";
+import { RELAY_HOST } from "../../constants";
 import Notification, { NotificationMeta } from "../Notification/Notification";
 
 export default function Login() {
@@ -20,7 +20,7 @@ export default function Login() {
 
     if (token) {
       // Try to make a request to the Admin API to verify the token
-      fetch(`${BGS_HOST}/admin/pds/list`, {
+      fetch(`${RELAY_HOST}/admin/pds/list`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -74,7 +74,7 @@ export default function Login() {
             )}
           </div>
           <h2 className=" text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
-            Login to the BGS Admin Dashboard
+            Login to the Relay Admin Dashboard
           </h2>
         </div>
 
