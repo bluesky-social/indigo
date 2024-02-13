@@ -181,8 +181,13 @@ func (tp *TestPDS) BumpLimits(t *testing.T, b *TestBGS) {
 		t.Fatal(err)
 	}
 
+	u, err := url.Parse(tp.HTTPHost())
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	limReqBody := bgs.RateLimitChangeRequest{
-		Host:      tp.RawHost(),
+		Host:      u.Host,
 		PerSecond: 5_000,
 		PerHour:   100_000,
 		PerDay:    1_000_000,
