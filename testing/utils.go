@@ -1,11 +1,13 @@
 package testing
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/base32"
+	"encoding/json"
 	"fmt"
 	mathrand "math/rand"
 	"net"
@@ -168,6 +170,50 @@ func (tp *TestPDS) RequestScraping(t *testing.T, b *TestBGS) {
 	c := &xrpc.Client{Host: "http://" + b.Host()}
 	if err := atproto.SyncRequestCrawl(context.TODO(), c, &atproto.SyncRequestCrawl_Input{Hostname: tp.RawHost()}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func (tp *TestPDS) BumpLimits(t *testing.T, b *TestBGS) {
+	t.Helper()
+
+	err := b.bgs.CreateAdminToken("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	limReqBody := bgs.RateLimitChangeRequest{
+		Host:      tp.RawHost(),
+		PerSecond: 5_000,
+		PerHour:   100_000,
+		PerDay:    1_000_000,
+		RepoLimit: 500_000,
+		CrawlRate: 50_000,
+	}
+
+	// JSON encode the request body
+	reqBody, err := json.Marshal(limReqBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("POST", "http://"+b.Host()+"/pds/changeLimits", bytes.NewBuffer(reqBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test")
+
+	// Send the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	// Check the response
+	if resp.StatusCode != http.StatusOK {
+		t.Fatal("expected 200 OK, got: ", resp.Status)
 	}
 }
 
