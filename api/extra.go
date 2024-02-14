@@ -77,14 +77,19 @@ type failCacheItem struct {
 
 type ProdHandleResolver struct {
 	client    *http.Client
+	resolver  *net.Resolver
 	ReqMod    func(*http.Request, string) error
 	FailCache *arc.ARCCache[string, *failCacheItem]
 }
 
-func NewProdHandleResolver(failureCacheSize int) (*ProdHandleResolver, error) {
+func NewProdHandleResolver(failureCacheSize int, resolveAddr string, forceUDP bool) (*ProdHandleResolver, error) {
 	failureCache, err := arc.NewARC[string, *failCacheItem](failureCacheSize)
 	if err != nil {
 		return nil, err
+	}
+
+	if resolveAddr == "" {
+		resolveAddr = "1.1.1.1:53"
 	}
 
 	c := http.Client{
@@ -92,9 +97,23 @@ func NewProdHandleResolver(failureCacheSize int) (*ProdHandleResolver, error) {
 		Timeout:   time.Second * 10,
 	}
 
+	r := &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{
+				Timeout: time.Second * 10,
+			}
+			if forceUDP {
+				network = "udp"
+			}
+			return d.DialContext(ctx, network, resolveAddr)
+		},
+	}
+
 	return &ProdHandleResolver{
 		FailCache: failureCache,
 		client:    &c,
+		resolver:  r,
 	}, nil
 }
 
@@ -212,7 +231,7 @@ func (dr *ProdHandleResolver) resolveWellKnown(ctx context.Context, handle strin
 }
 
 func (dr *ProdHandleResolver) resolveDNS(ctx context.Context, handle string) (string, error) {
-	res, err := net.LookupTXT("_atproto." + handle)
+	res, err := dr.resolver.LookupTXT(ctx, "_atproto."+handle)
 	if err != nil {
 		return "", fmt.Errorf("handle lookup failed: %w", err)
 	}
