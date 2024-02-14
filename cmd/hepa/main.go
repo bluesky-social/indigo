@@ -157,7 +157,7 @@ func configDirectory(cctx *cli.Context) (identity.Directory, error) {
 		}
 		dir = rdir
 	} else {
-		cdir := identity.NewCacheDirectory(&baseDir, 1_500_000, time.Hour*24, time.Minute*2)
+		cdir := identity.NewCacheDirectory(&baseDir, 1_500_000, time.Hour*24, time.Minute*2, time.Minute*5)
 		dir = &cdir
 	}
 	return dir, nil

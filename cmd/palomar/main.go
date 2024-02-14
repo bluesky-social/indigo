@@ -158,6 +158,12 @@ var runCmd = &cli.Command{
 			Value:   100,
 			EnvVars: []string{"PALOMAR_PLC_RATE_LIMIT"},
 		},
+		&cli.BoolFlag{
+			Name:    "discover-repos",
+			Usage:   "if true, discover repositories from the Relay",
+			EnvVars: []string{"PALOMAR_DISCOVER_REPOS"},
+			Value:   false,
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -220,7 +226,7 @@ var runCmd = &cli.Command{
 			TryAuthoritativeDNS:   true,
 			SkipDNSDomainSuffixes: []string{".bsky.social"},
 		}
-		dir := identity.NewCacheDirectory(&base, 1_500_000, time.Hour*24, time.Minute*2)
+		dir := identity.NewCacheDirectory(&base, 1_500_000, time.Hour*24, time.Minute*2, time.Minute*5)
 
 		srv, err := search.NewServer(
 			db,

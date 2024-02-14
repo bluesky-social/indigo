@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"regexp"
 	"strings"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
@@ -18,14 +17,26 @@ import (
 	esapi "github.com/opensearch-project/opensearch-go/v2/opensearchapi"
 )
 
-func (s *Server) deletePost(ctx context.Context, ident *identity.Identity, rkey string) error {
+func (s *Server) deletePost(ctx context.Context, ident *identity.Identity, recordPath string) error {
 	ctx, span := tracer.Start(ctx, "deletePost")
 	defer span.End()
-	span.SetAttributes(attribute.String("repo", ident.DID.String()), attribute.String("rkey", rkey))
+	span.SetAttributes(attribute.String("repo", ident.DID.String()), attribute.String("path", recordPath))
 
-	log := s.logger.With("repo", ident.DID, "rkey", rkey, "op", "deletePost")
-	log.Info("deleting post from index")
+	logger := s.logger.With("repo", ident.DID, "path", recordPath, "op", "deletePost")
+
+	parts := strings.SplitN(recordPath, "/", 3)
+	if len(parts) < 2 {
+		logger.Warn("skipping post record with malformed path")
+		return nil
+	}
+	rkey, err := syntax.ParseTID(parts[1])
+	if err != nil {
+		logger.Warn("skipping post record with non-TID rkey")
+		return nil
+	}
+
 	docID := fmt.Sprintf("%s_%s", ident.DID.String(), rkey)
+	logger.Info("deleting post from index", "docID", docID)
 	req := esapi.DeleteRequest{
 		Index:      s.postIndex,
 		DocumentID: docID,
@@ -42,13 +53,11 @@ func (s *Server) deletePost(ctx context.Context, ident *identity.Identity, rkey 
 		return fmt.Errorf("failed to read indexing response: %w", err)
 	}
 	if res.IsError() {
-		log.Warn("opensearch indexing error", "status_code", res.StatusCode, "response", res, "body", string(body))
+		logger.Warn("opensearch indexing error", "status_code", res.StatusCode, "response", res, "body", string(body))
 		return fmt.Errorf("indexing error, code=%d", res.StatusCode)
 	}
 	return nil
 }
-
-var tidRegex = regexp.MustCompile(`^[234567abcdefghijklmnopqrstuvwxyz]{13}$`)
 
 func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *appbsky.FeedPost, path string, rcid cid.Cid) error {
 	ctx, span := tracer.Start(ctx, "indexPost")
@@ -57,22 +66,19 @@ func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *a
 
 	log := s.logger.With("repo", ident.DID, "path", path, "op", "indexPost")
 	parts := strings.SplitN(path, "/", 3)
-	// TODO: replace with an atproto/syntax package type for TID
-	if len(parts) != 2 || !tidRegex.MatchString(parts[1]) {
-		log.Warn("skipping index post record with weird path/TID", "did", ident.DID, "path", path)
+	if len(parts) < 2 {
+		log.Warn("skipping post record with malformed path")
 		return nil
 	}
-	rkey := parts[1]
+	rkey, err := syntax.ParseTID(parts[1])
+	if err != nil {
+		log.Warn("skipping post record with non-TID rkey")
+		return nil
+	}
 
 	log = log.With("rkey", rkey)
 
-	_, err := syntax.ParseDatetimeLenient(rec.CreatedAt)
-	if err != nil {
-		log.Warn("post had invalid timestamp", "createdAt", rec.CreatedAt, "parseErr", err)
-		rec.CreatedAt = ""
-	}
-
-	doc := TransformPost(rec, ident, rkey, rcid.String())
+	doc := TransformPost(rec, ident, rkey.String(), rcid.String())
 	b, err := json.Marshal(doc)
 	if err != nil {
 		return err

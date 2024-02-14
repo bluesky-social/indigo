@@ -121,7 +121,7 @@ func (s *Gormstore) EnqueueJobWithState(ctx context.Context, repo, state string)
 func (s *Gormstore) createJobForRepo(repo, state string) error {
 	dbj := &GormDBJob{
 		Repo:  repo,
-		State: StateEnqueued,
+		State: state,
 	}
 	if err := s.db.Create(dbj).Error; err != nil {
 		if err == gorm.ErrDuplicatedKey {

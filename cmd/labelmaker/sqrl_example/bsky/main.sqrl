@@ -1,7 +1,0 @@
-
-LET EventData := input();
-LET EventType := jsonValue(EventData, "$.type");
-LET UserDid := jsonValue(EventData, "$.did");
-
-INCLUDE "post.sqrl" WHERE EventType = "post";
-INCLUDE "profile.sqrl" WHERE EventType = "profile";

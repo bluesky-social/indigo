@@ -52,7 +52,10 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 		return fmt.Errorf("loading backfill jobs: %w", err)
 	}
 	go s.bf.Start()
-	go s.discoverRepos()
+
+	if s.enableRepoDiscovery {
+		go s.discoverRepos()
+	}
 
 	d := websocket.DefaultDialer
 	u, err := url.Parse(s.bgshost)
