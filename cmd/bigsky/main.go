@@ -145,6 +145,15 @@ func run(args []string) {
 			Value:   4 * time.Hour,
 			Usage:   "interval between compaction runs, set to 0 to disable scheduled compaction",
 		},
+		&cli.StringFlag{
+			Name:    "resolve-address",
+			EnvVars: []string{"RESOLVE_ADDRESS"},
+			Value:   "1.1.1.1:53",
+		},
+		&cli.BoolFlag{
+			Name:    "force-dns-udp",
+			EnvVars: []string{"FORCE_DNS_UDP"},
+		},
 	}
 
 	app.Action = Bigsky
@@ -323,7 +332,7 @@ func Bigsky(cctx *cli.Context) error {
 		blobstore = &blobs.DiskBlobStore{Dir: bsdir}
 	}
 
-	prodHR, err := api.NewProdHandleResolver(100_000)
+	prodHR, err := api.NewProdHandleResolver(100_000, cctx.String("resolve-address"), cctx.Bool("force-dns-udp"))
 	if err != nil {
 		return fmt.Errorf("failed to set up handle resolver: %w", err)
 	}
