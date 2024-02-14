@@ -222,7 +222,7 @@ func (pgb *PgBackend) WipeUserData(ctx context.Context, user models.Uid) error {
 		return err
 	}
 
-	if err := pgb.deleteShards(ctx, shards); err != nil {
+	if err := pgb.DeleteShards(ctx, shards); err != nil {
 		if !os.IsNotExist(err) {
 			return err
 		}
@@ -231,7 +231,7 @@ func (pgb *PgBackend) WipeUserData(ctx context.Context, user models.Uid) error {
 	return nil
 }
 
-func (pgb *PgBackend) deleteShards(ctx context.Context, shs []*CarShard) error {
+func (pgb *PgBackend) DeleteShards(ctx context.Context, shs []*CarShard) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "deleteShards")
 	defer span.End()
 

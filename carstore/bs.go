@@ -66,7 +66,7 @@ type Backend interface {
 	PutShard(ctx context.Context, shard *CarShard, brefs []map[string]any, rmcids map[cid.Cid]bool) error
 	GetAllShards(ctx context.Context, usr models.Uid) ([]CarShard, error)
 	WipeUserData(ctx context.Context, user models.Uid) error
-	deleteShards(ctx context.Context, shs []*CarShard) error
+	DeleteShards(ctx context.Context, shs []*CarShard) error
 	GetCompactionTargets(ctx context.Context, shardCount int) ([]CompactionTarget, error)
 	GetBlockRefsForShards(ctx context.Context, shardIds []uint) ([]blockRef, error)
 	DeleteStaleRefs(ctx context.Context, uid models.Uid, brefs []blockRef, staleRefs []staleRef, removedShards map[uint]bool) error
@@ -1285,7 +1285,7 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid, skip
 		}
 
 		stats.ShardsDeleted += len(todelete)
-		if err := cs.backend.deleteShards(ctx, todelete); err != nil {
+		if err := cs.backend.DeleteShards(ctx, todelete); err != nil {
 			return nil, fmt.Errorf("deleting shards: %w", err)
 		}
 	}
