@@ -68,7 +68,7 @@ func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events
 	}
 
 	if crawl {
-		c, err := NewCrawlDispatcher(fetcher.FetchAndIndexRepo, 10)
+		c, err := NewCrawlDispatcher(fetcher.FetchAndIndexRepo, fetcher.MaxConcurrency)
 		if err != nil {
 			return nil, err
 		}

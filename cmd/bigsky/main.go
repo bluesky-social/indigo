@@ -154,6 +154,11 @@ func run(args []string) {
 			Name:    "force-dns-udp",
 			EnvVars: []string{"FORCE_DNS_UDP"},
 		},
+		&cli.IntFlag{
+			Name:    "max-fetch-concurrency",
+			Value:   100,
+			EnvVars: []string{"MAX_FETCH_CONCURRENCY"},
+		},
 	}
 
 	app.Action = Bigsky
@@ -298,7 +303,7 @@ func Bigsky(cctx *cli.Context) error {
 
 	notifman := &notifs.NullNotifs{}
 
-	rf := indexer.NewRepoFetcher(db, repoman)
+	rf := indexer.NewRepoFetcher(db, repoman, cctx.Int("max-fetch-concurrency"))
 
 	ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, rf, true, cctx.Bool("spidering"), cctx.Bool("aggregation"))
 	if err != nil {
