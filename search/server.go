@@ -168,6 +168,7 @@ func (s *Server) EnsureIndices(ctx context.Context) error {
 }
 
 type HealthStatus struct {
+	Service string `json:"service,const=palomar"`
 	Status  string `json:"status"`
 	Version string `json:"version"`
 	Message string `json:"msg,omitempty"`
@@ -202,6 +203,7 @@ func (s *Server) RunAPI(listen string) error {
 	}
 
 	e.Use(middleware.CORS())
+	e.GET("/", s.handleHealthCheck)
 	e.GET("/_health", s.handleHealthCheck)
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/xrpc/app.bsky.unspecced.searchPostsSkeleton", s.handleSearchPostsSkeleton)
