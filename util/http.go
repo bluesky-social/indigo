@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/go-retryablehttp"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type LeveledSlog struct {
@@ -45,6 +47,7 @@ func RobustHTTPClient() *http.Client {
 
 	logger := LeveledSlog{inner: slog.Default().With("subsystem", "RobustHTTPClient")}
 	retryClient := retryablehttp.NewClient()
+	retryClient.HTTPClient.Transport = otelhttp.NewTransport(cleanhttp.DefaultPooledTransport())
 	retryClient.RetryMax = 3
 	retryClient.RetryWaitMin = 1 * time.Second
 	retryClient.RetryWaitMax = 10 * time.Second
