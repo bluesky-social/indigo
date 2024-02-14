@@ -158,6 +158,12 @@ var runCmd = &cli.Command{
 			Value:   100,
 			EnvVars: []string{"PALOMAR_PLC_RATE_LIMIT"},
 		},
+		&cli.BoolFlag{
+			Name:    "discover-repos",
+			Usage:   "if true, discover repositories from the Relay",
+			EnvVars: []string{"PALOMAR_DISCOVER_REPOS"},
+			Value:   false,
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{

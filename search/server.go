@@ -37,6 +37,8 @@ type Server struct {
 
 	bfs *backfill.Gormstore
 	bf  *backfill.Backfiller
+
+	enableRepoDiscovery bool
 }
 
 type LastSeq struct {
@@ -51,6 +53,7 @@ type Config struct {
 	Logger              *slog.Logger
 	BGSSyncRateLimit    int
 	IndexMaxConcurrency int
+	DiscoverRepos       bool
 }
 
 func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Config) (*Server, error) {
@@ -76,14 +79,15 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 	}
 
 	s := &Server{
-		escli:        escli,
-		profileIndex: config.ProfileIndex,
-		postIndex:    config.PostIndex,
-		db:           db,
-		bgshost:      config.BGSHost, // NOTE: the original URL, not 'bgshttp'
-		bgsxrpc:      bgsxrpc,
-		dir:          dir,
-		logger:       logger,
+		escli:               escli,
+		profileIndex:        config.ProfileIndex,
+		postIndex:           config.PostIndex,
+		db:                  db,
+		bgshost:             config.BGSHost, // NOTE: the original URL, not 'bgshttp'
+		bgsxrpc:             bgsxrpc,
+		dir:                 dir,
+		logger:              logger,
+		enableRepoDiscovery: config.DiscoverRepos,
 	}
 
 	bfstore := backfill.NewGormstore(db)
