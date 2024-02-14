@@ -114,7 +114,7 @@ The `bsky.auth` file is the default place that `gosky` and other client commands
 
 ## Integrated Development
 
-Sometimes it is helpful to run a PLC, PDS, BGS, labelmaker, and other components, all locally on your laptop, across languages. This section describes one setup for this.
+Sometimes it is helpful to run a PLC, PDS, BGS, and other components, all locally on your laptop, across languages. This section describes one setup for this.
 
 First, you need PostgreSQL running locally. This could be via docker, or the following commands assume some kind of debian/ubuntu setup with a postgres server package installed and running.
 
@@ -139,10 +139,9 @@ Checkout the `atproto` repo in another terminal and run:
 
     make run-dev-pds
 
-In this repo (indigo), start a BGS and labelmaker, in two separate terminals:
+In this repo (indigo), start a BGS, in two separate terminals:
 
     make run-dev-bgs
-    make run-dev-labelmaker
 
 In a final terminal, run fakermaker to inject data into the system:
 
