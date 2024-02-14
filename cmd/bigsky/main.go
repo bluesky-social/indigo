@@ -298,7 +298,7 @@ func Bigsky(cctx *cli.Context) error {
 
 	rlskip := os.Getenv("BSKY_SOCIAL_RATE_LIMIT_SKIP")
 	ix.ApplyPDSClientSettings = func(c *xrpc.Client) {
-		if c.Host == "https://bsky.social" {
+		if strings.HasSuffix(c.Host, ".bsky.network") {
 			if c.Client == nil {
 				c.Client = util.RobustHTTPClient()
 			}
