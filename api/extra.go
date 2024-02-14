@@ -76,6 +76,7 @@ type failCacheItem struct {
 }
 
 type ProdHandleResolver struct {
+	client    *http.Client
 	ReqMod    func(*http.Request, string) error
 	FailCache *arc.ARCCache[string, *failCacheItem]
 }
@@ -86,8 +87,14 @@ func NewProdHandleResolver(failureCacheSize int) (*ProdHandleResolver, error) {
 		return nil, err
 	}
 
+	c := http.Client{
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
+		Timeout:   time.Second * 10,
+	}
+
 	return &ProdHandleResolver{
 		FailCache: failureCache,
+		client:    &c,
 	}, nil
 }
 
@@ -166,10 +173,6 @@ func (dr *ProdHandleResolver) ResolveHandleToDid(ctx context.Context, handle str
 }
 
 func (dr *ProdHandleResolver) resolveWellKnown(ctx context.Context, handle string) (string, error) {
-	c := http.Client{
-		Transport: otelhttp.NewTransport(http.DefaultTransport),
-	}
-
 	req, err := http.NewRequest("GET", fmt.Sprintf("https://%s/.well-known/atproto-did", handle), nil)
 	if err != nil {
 		return "", err
@@ -183,7 +186,7 @@ func (dr *ProdHandleResolver) resolveWellKnown(ctx context.Context, handle strin
 
 	req = req.WithContext(ctx)
 
-	resp, err := c.Do(req)
+	resp, err := dr.client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve handle (%s) through HTTP well-known route: %s", handle, err)
 	}
