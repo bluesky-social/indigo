@@ -310,6 +310,7 @@ func Bigsky(cctx *cli.Context) error {
 			}
 		}
 	}
+	rf.ApplyPDSClientSettings = ix.ApplyPDSClientSettings
 
 	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
 		if err := ix.HandleRepoEvent(ctx, evt); err != nil {
