@@ -2,8 +2,10 @@ package models
 
 import (
 	"database/sql"
+	"net/http"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"gorm.io/gorm"
 
 	bsky "github.com/bluesky-social/indigo/api/bsky"
@@ -122,14 +124,21 @@ type PDS struct {
 }
 
 func ClientForPds(pds *PDS) *xrpc.Client {
+	c := http.Client{
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
+		Timeout:   time.Minute * 5,
+	}
+
 	if pds.SSL {
 		return &xrpc.Client{
-			Host: "https://" + pds.Host,
+			Client: &c,
+			Host:   "https://" + pds.Host,
 		}
 	}
 
 	return &xrpc.Client{
-		Host: "http://" + pds.Host,
+		Client: &c,
+		Host:   "http://" + pds.Host,
 	}
 }
 
