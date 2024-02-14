@@ -10,7 +10,6 @@ import { useNavigate } from "react-router-dom";
 import ConfirmNewPDSModal from "./ConfirmNewPDSModal";
 import {
   ShieldCheckIcon,
-  ShieldExclamationIcon,
 } from "@heroicons/react/24/outline";
 
 const NewPDS: FC<{}> = () => {
