@@ -1,3 +1,0 @@
-bitcoin
-ethereum
-dogecoin

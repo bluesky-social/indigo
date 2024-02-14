@@ -23,7 +23,6 @@ build: ## Build all executables
 	go build ./cmd/lexgen
 	go build ./cmd/stress
 	go build ./cmd/fakermaker
-	go build ./cmd/labelmaker
 	go build ./cmd/hepa
 	go build ./cmd/supercollider
 	go build -o ./sonar-cli ./cmd/sonar 
@@ -91,10 +90,6 @@ build-bgs-image: ## Builds 'bigsky' BGS docker image
 run-bgs-image:
 	docker run -p 2470:2470 bigsky /bigsky --admin-key localdev
 # --crawl-insecure-ws 
-
-.PHONY: run-dev-labelmaker
-run-dev-labelmaker: .env ## Runs labelmaker for local dev
-	GOLOG_LOG_LEVEL=info go run ./cmd/labelmaker --subscribe-insecure-ws
 
 .PHONY: run-dev-search
 run-dev-search: .env ## Runs search daemon for local dev

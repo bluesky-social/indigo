@@ -82,6 +82,7 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 	// start at higher parallelism (somewhat arbitrary)
 	scaleSettings := autoscaling.DefaultAutoscaleSettings()
 	scaleSettings.Concurrency = 6
+	scaleSettings.MaxConcurrency = 240
 	return events.HandleRepoStream(
 		ctx, con, autoscaling.NewScheduler(
 			scaleSettings,

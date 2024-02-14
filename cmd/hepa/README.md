@@ -15,7 +15,7 @@ Current features and design decisions:
 - which rules are included configured at compile time
 - admin access to fetch private account metadata, and to persist moderation actions, is optional. it is possible for anybody to run a `hepa` instance
 
-This is not a "labeling service" per say, in that it pushes labels in to an existing moderation service, and doesn't provide API endpoints or label streams. see `labelmaker` for a self-contained labeling service.
+This is not a "labeling service" per say, in that it pushes labels in to an existing moderation service, and doesn't provide API endpoints or label streams.
 
 Performance is generally slow when first starting up, because account-level metadata is being fetched (and cached) for every firehose event. After the caches have "warmed up", events are processed faster.
 

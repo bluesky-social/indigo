@@ -37,6 +37,8 @@ type Server struct {
 
 	bfs *backfill.Gormstore
 	bf  *backfill.Backfiller
+
+	enableRepoDiscovery bool
 }
 
 type LastSeq struct {
@@ -51,6 +53,7 @@ type Config struct {
 	Logger              *slog.Logger
 	BGSSyncRateLimit    int
 	IndexMaxConcurrency int
+	DiscoverRepos       bool
 }
 
 func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Config) (*Server, error) {
@@ -76,14 +79,15 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 	}
 
 	s := &Server{
-		escli:        escli,
-		profileIndex: config.ProfileIndex,
-		postIndex:    config.PostIndex,
-		db:           db,
-		bgshost:      config.BGSHost, // NOTE: the original URL, not 'bgshttp'
-		bgsxrpc:      bgsxrpc,
-		dir:          dir,
-		logger:       logger,
+		escli:               escli,
+		profileIndex:        config.ProfileIndex,
+		postIndex:           config.PostIndex,
+		db:                  db,
+		bgshost:             config.BGSHost, // NOTE: the original URL, not 'bgshttp'
+		bgsxrpc:             bgsxrpc,
+		dir:                 dir,
+		logger:              logger,
+		enableRepoDiscovery: config.DiscoverRepos,
 	}
 
 	bfstore := backfill.NewGormstore(db)
@@ -164,6 +168,7 @@ func (s *Server) EnsureIndices(ctx context.Context) error {
 }
 
 type HealthStatus struct {
+	Service string `json:"service,const=palomar"`
 	Status  string `json:"status"`
 	Version string `json:"version"`
 	Message string `json:"msg,omitempty"`
@@ -198,6 +203,7 @@ func (s *Server) RunAPI(listen string) error {
 	}
 
 	e.Use(middleware.CORS())
+	e.GET("/", s.handleHealthCheck)
 	e.GET("/_health", s.handleHealthCheck)
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/xrpc/app.bsky.unspecced.searchPostsSkeleton", s.handleSearchPostsSkeleton)
