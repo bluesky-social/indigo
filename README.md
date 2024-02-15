@@ -1,8 +1,6 @@
-
 ![photo](https://static.bnewbold.net/tmp/indigo_serac.jpeg)
 
-indigo: atproto libraries and services in golang
-================================================
+# indigo: atproto libraries and services in golang
 
 Some Bluesky software is developed in Typescript, and lives in the [bluesky-social/atproto](https://github.com/bluesky-social/atproto) repository. Some is developed in Go, and lives here.
 
@@ -10,26 +8,25 @@ Some Bluesky software is developed in Typescript, and lives in the [bluesky-soci
 
 **Go Services:**
 
-* **bigsky** ([README](./cmd/bigsky/README.md)): "Big Graph Service" (BGS) reference implementation, running at `bsky.network`
-* **palomar** ([README](./cmd/palomar/README.md)): fulltext search service for <https://bsky.app>
+- **bigsky** ([README](./cmd/bigsky/README.md)): "Big Graph Service" (BGS) reference implementation, running at `bsky.network`
+- **palomar** ([README](./cmd/palomar/README.md)): fulltext search service for <https://bsky.app>
 
 **Go Packages:**
 
-> ⚠️  All the packages in this repository are under active development. Features and software interfaces have not stabilized and may break or be removed.
+> ⚠️ All the packages in this repository are under active development. Features and software interfaces have not stabilized and may break or be removed.
 
-| Package  | Docs |
-| -------- | ---- |
-| `api/atproto`: generated types for `com.atproto.*` Lexicons | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/api/atproto)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/api/atproto) |
-| `api/bsky`: generated types for `app.bsky.*` Lexicons | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/api/bsky)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/api/bsky) |
-| `atproto/crypto`: crytographic signing and key serialization | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/crypto)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/crypto) |
-| `atproto/identity`: DID and handle resolution | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/identity)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/identity) |
-| `atproto/syntax`: string types and parsers for identifiers | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/syntax)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/syntax) |
-| `mst`: Merkle Search Tree implementation | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/mst)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/mst) |
-| `repo`: account data storage | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/repo)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/repo) |
-| `xrpc`: HTTP API client | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/xrpc)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/xrpc) |
+| Package                                                      | Docs                                                                                                                                                                    |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `api/atproto`: generated types for `com.atproto.*` Lexicons  | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/api/atproto)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/api/atproto)           |
+| `api/bsky`: generated types for `app.bsky.*` Lexicons        | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/api/bsky)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/api/bsky)                 |
+| `atproto/crypto`: crytographic signing and key serialization | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/crypto)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/crypto)     |
+| `atproto/identity`: DID and handle resolution                | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/identity)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/identity) |
+| `atproto/syntax`: string types and parsers for identifiers   | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/atproto/syntax)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/atproto/syntax)     |
+| `mst`: Merkle Search Tree implementation                     | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/mst)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/mst)                           |
+| `repo`: account data storage                                 | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/repo)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/repo)                         |
+| `xrpc`: HTTP API client                                      | [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/bluesky-social/indigo/xrpc)](https://pkg.go.dev/mod/github.com/bluesky-social/indigo/xrpc)                         |
 
 The TypeScript reference implementation, including PDS and bsky AppView services, is at [bluesky-social/atproto](https://github.com/bluesky-social/atproto). Source code for the Bluesky Social client app (for web and mobile) can be found at [bluesky-social/social-app](https://github.com/bluesky-social/social-app).
-
 
 ## Development Quickstart
 
@@ -48,10 +45,9 @@ Individual commands can be run like:
 
 The [HACKING](./HACKING.md) file has a list of commands and packages in this repository and some other development tips.
 
-
 ## What is atproto?
 
-*not to be confused with the [AT command set](https://en.wikipedia.org/wiki/Hayes_command_set) or [Adenosine triphosphate](https://en.wikipedia.org/wiki/Adenosine_triphosphate)*
+_not to be confused with the [AT command set](https://en.wikipedia.org/wiki/Hayes_command_set) or [Adenosine triphosphate](https://en.wikipedia.org/wiki/Adenosine_triphosphate)_
 
 The Authenticated Transfer Protocol ("ATP" or "atproto") is a decentralized social media protocol, developed by [Bluesky PBC](https://bsky.social). Learn more at:
 
@@ -61,7 +57,6 @@ The Authenticated Transfer Protocol ("ATP" or "atproto") is a decentralized soci
 - [Blogpost on self-authenticating data structures](https://bsky.social/about/blog/3-6-2022-a-self-authenticating-social-protocol)
 
 The Bluesky Social application encompasses a set of schemas and APIs built in the overall AT Protocol framework. The namespace for these "Lexicons" is `app.bsky.*`.
-
 
 ## Contributions
 
@@ -88,7 +83,6 @@ The Bluesky Social application encompasses a set of schemas and APIs built in th
   - Introduce new unnecessary dependencies
 
 Remember, we serve a wide community of users. Our day-to-day involves us constantly asking "which top priority is our top priority." If you submit well-written PRs that solve problems concisely, that's an awesome contribution. Otherwise, as much as we'd love to accept your ideas and contributions, we really don't have the bandwidth.
-
 
 ## Are you a developer interested in building on atproto?
 
