@@ -2,7 +2,6 @@ package search
 
 import (
 	"context"
-	"encoding/csv"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -14,14 +13,13 @@ import (
 // ParseQuery takes a query string and pulls out some facet patterns ("from:handle.net") as filters
 func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string, []map[string]interface{}) {
 	var filters []map[string]interface{}
-	r := csv.NewReader(strings.NewReader(raw))
-	r.Comma = ' '
-	r.LazyQuotes = true
-	parts, err := r.Read()
-	if err != nil {
-		slog.Error("failed to parse query", "err", err)
-		return "*", nil
-	}
+	quoted := false
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		if r == '"' {
+			quoted = !quoted
+		}
+		return r == ' ' && !quoted
+	})
 
 	keep := make([]string, len(parts))
 	for _, p := range parts {
