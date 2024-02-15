@@ -8,20 +8,23 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-
-	"github.com/google/shlex"
 )
 
 // ParseQuery takes a query string and pulls out some facet patterns ("from:handle.net") as filters
 func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string, []map[string]interface{}) {
 	var filters []map[string]interface{}
-	parts, err := shlex.Split(raw)
-	if err != nil {
-		// pass-through if failed to parse
-		return raw, filters
-	}
+	quoted := false
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		if r == '"' {
+			quoted = !quoted
+		}
+		return r == ' ' && !quoted
+	})
+
 	keep := make([]string, len(parts))
 	for _, p := range parts {
+		p = strings.Trim(p, "\"")
+
 		if !strings.ContainsRune(p, ':') || strings.ContainsRune(p, ' ') {
 			// simple: quoted (whitespace), or just a token
 			keep = append(keep, p)
