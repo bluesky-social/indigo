@@ -24,6 +24,7 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 	keep := make([]string, len(parts))
 	for _, p := range parts {
 		p = strings.Trim(p, "\"")
+
 		if !strings.ContainsRune(p, ':') || strings.ContainsRune(p, ' ') {
 			// simple: quoted (whitespace), or just a token
 			keep = append(keep, p)
