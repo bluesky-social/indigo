@@ -1,4 +1,5 @@
 import {
+  MagnifyingGlassIcon,
   ShieldCheckIcon,
   ShieldExclamationIcon,
 } from "@heroicons/react/24/outline";
@@ -31,6 +32,7 @@ function classNames(...classes: string[]) {
 
 const Dash: FC<{}> = () => {
   const [pdsList, setPDSList] = useState<PDS[] | null>(null);
+  const [fullPDSList, setFullPDSList] = useState<PDS[] | null>(null);
   const [sortField, setSortField] = useState<PDSKey>("ID");
   const [sortOrder, setSortOrder] = useState<string>("asc");
 
@@ -64,6 +66,28 @@ const Dash: FC<{}> = () => {
     useState<PDS | null>(null);
   const [editingRepoLimit, setEditingRepoLimit] =
     useState<PDS | null>(null);
+
+  const [searchTerm, setSearchTerm] = useState<string | undefined>(undefined);
+
+  const filterPDSList = (list: PDS[]): PDS[] => {
+    // Filter the hostnames based on the search term
+    if (searchTerm) {
+      // Support RegEx search
+      try {
+        const regex = new RegExp(searchTerm, "i");
+        list = list.filter((pds) => {
+          return regex.test(pds.Host);
+        });
+      } catch (e) {
+        // If the regex is invalid, just do a normal search
+        list = list.filter((pds) => {
+          return pds.Host.toLowerCase().includes(searchTerm.toLowerCase());
+        });
+      }
+    }
+
+    return list;
+  };
 
   const [adminToken, setAdminToken] = useState<string>(
     localStorage.getItem("admin_route_token") || ""
@@ -114,7 +138,8 @@ const Dash: FC<{}> = () => {
           );
           return;
         }
-        const sortedList = sortPDSList(res);
+        setFullPDSList(res);
+        const sortedList = sortPDSList(filterPDSList(res));
         setPDSList(sortedList);
       })
       .catch((err) => {
@@ -369,8 +394,8 @@ const Dash: FC<{}> = () => {
     if (!pdsList) {
       return;
     }
-    setPDSList(sortPDSList(pdsList));
-  }, [sortOrder, sortField]);
+    setPDSList(sortPDSList(filterPDSList(fullPDSList!)));
+  }, [sortOrder, sortField, searchTerm]);
 
   useEffect(() => {
     refreshPDSList();
@@ -410,6 +435,7 @@ const Dash: FC<{}> = () => {
             A list of all PDS connections and their current status.
           </p>
         </div>
+
         <div className="inline-flex mt-5 sm:mt-0">
           <Switch.Group as="div" className="flex items-center justify-between">
             <span className="flex flex-grow flex-col mr-5">
@@ -449,6 +475,30 @@ const Dash: FC<{}> = () => {
               />
             </Switch>
           </Switch.Group>
+        </div>
+
+      </div>
+      <div className="flex flex-1 items-center justify-center py-2 lg:justify-start">
+        <div className="w-full max-w-lg lg:max-w-xs">
+          <label htmlFor="search" className="sr-only">
+            Search
+          </label>
+          <div className="relative">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+            </div>
+            <input
+              id="search"
+              name="search"
+              className="block w-full rounded-md border-0 bg-white py-1.5 pl-10 pr-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+              placeholder="Search"
+              type="search"
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+              }}
+              value={searchTerm || ""}
+            />
+          </div>
         </div>
       </div>
 
