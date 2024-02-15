@@ -139,8 +139,6 @@ const Dash: FC<{}> = () => {
           return;
         }
         setFullPDSList(res);
-        const sortedList = sortPDSList(filterPDSList(res));
-        setPDSList(sortedList);
       })
       .catch((err) => {
         setAlertWithTimeout(
@@ -391,11 +389,11 @@ const Dash: FC<{}> = () => {
   };
 
   useEffect(() => {
-    if (!pdsList) {
+    if (!fullPDSList) {
       return;
     }
     setPDSList(sortPDSList(filterPDSList(fullPDSList!)));
-  }, [sortOrder, sortField, searchTerm]);
+  }, [sortOrder, sortField, searchTerm, fullPDSList]);
 
   useEffect(() => {
     refreshPDSList();
