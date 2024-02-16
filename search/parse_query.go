@@ -60,7 +60,11 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 	out := ""
 	for _, p := range keep {
 		if strings.ContainsRune(p, ' ') {
-			out += fmt.Sprintf(" \"%s\"", p)
+			if out == "" {
+				out = fmt.Sprintf(`"%s"`, p)
+			} else {
+				out += " " + fmt.Sprintf(`"%s"`, p)
+			}
 		} else {
 			if out == "" {
 				out = p
