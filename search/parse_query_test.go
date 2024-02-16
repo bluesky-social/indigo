@@ -53,7 +53,7 @@ func TestParseQuery(t *testing.T) {
 
 	p6 := `from:known.example.com #cool_tag some other stuff`
 	q, tags, f := ParseQuery(ctx, &dir, p6)
-	assert.Equal(`#cool_tag some other stuff`, q)
+	assert.Equal(`some other stuff`, q)
 	assert.Equal(1, len(f))
 	assert.Equal([]string{"cool_tag"}, tags)
 }
