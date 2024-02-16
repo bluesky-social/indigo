@@ -11,7 +11,7 @@ import (
 )
 
 // ParseQuery takes a query string and pulls out some facet patterns ("from:handle.net") as filters
-func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string, []string, []map[string]interface{}) {
+func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string, []map[string]interface{}) {
 	var filters []map[string]interface{}
 	quoted := false
 	parts := strings.FieldsFunc(raw, func(r rune) bool {
@@ -21,16 +21,14 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 		return r == ' ' && !quoted
 	})
 
-	tags := []string{}
-
 	keep := make([]string, 0, len(parts))
 	for _, p := range parts {
 		p = strings.Trim(p, "\"")
 
 		if strings.HasPrefix(p, "#") && len(p) > 1 {
-			tags = append(tags, p[1:])
-			// for now, include tags in the query string
-			// keep = append(keep, p)
+			filters = append(filters, map[string]interface{}{
+				"term": map[string]interface{}{"tag": p[1:]},
+			})
 			continue
 		}
 		if strings.HasPrefix(p, "did:") {
@@ -77,8 +75,8 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 			}
 		}
 	}
-	if out == "" && (len(filters) >= 1 || len(tags) >= 1) {
+	if out == "" && len(filters) >= 1 {
 		out = "*"
 	}
-	return out, tags, filters
+	return out, filters
 }
