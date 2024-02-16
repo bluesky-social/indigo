@@ -30,7 +30,7 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 		if strings.HasPrefix(p, "#") && len(p) > 1 {
 			tags = append(tags, p[1:])
 			// for now, include tags in the query string
-			keep = append(keep, p)
+			// keep = append(keep, p)
 			continue
 		}
 		if strings.HasPrefix(p, "did:") {
