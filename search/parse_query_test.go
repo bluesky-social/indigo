@@ -22,32 +22,38 @@ func TestParseQuery(t *testing.T) {
 	var q string
 	var f []map[string]interface{}
 
-	q, f = ParseQuery(ctx, &dir, "")
+	q, _, f = ParseQuery(ctx, &dir, "")
 	assert.Equal("", q)
 	assert.Empty(f)
 
 	p1 := "some +test \"with phrase\" -ok"
-	q, f = ParseQuery(ctx, &dir, p1)
+	q, _, f = ParseQuery(ctx, &dir, p1)
 	assert.Equal(p1, q)
 	assert.Empty(f)
 
 	p2 := "missing from:missing.example.com"
-	q, f = ParseQuery(ctx, &dir, p2)
+	q, _, f = ParseQuery(ctx, &dir, p2)
 	assert.Equal("missing", q)
 	assert.Empty(f)
 
 	p3 := "known from:known.example.com"
-	q, f = ParseQuery(ctx, &dir, p3)
+	q, _, f = ParseQuery(ctx, &dir, p3)
 	assert.Equal("known", q)
 	assert.Equal(1, len(f))
 
 	p4 := "from:known.example.com"
-	q, f = ParseQuery(ctx, &dir, p4)
+	q, _, f = ParseQuery(ctx, &dir, p4)
 	assert.Equal("*", q)
 	assert.Equal(1, len(f))
 
 	p5 := `from:known.example.com "multi word phrase" coolio blorg`
-	q, f = ParseQuery(ctx, &dir, p5)
+	q, _, f = ParseQuery(ctx, &dir, p5)
 	assert.Equal(`"multi word phrase" coolio blorg`, q)
 	assert.Equal(1, len(f))
+
+	p6 := `from:known.example.com #cool_tag some other stuff`
+	q, tags, f := ParseQuery(ctx, &dir, p6)
+	assert.Equal(`#cool_tag some other stuff`, q)
+	assert.Equal(1, len(f))
+	assert.Equal([]string{"cool_tag"}, tags)
 }
