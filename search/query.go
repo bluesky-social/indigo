@@ -62,7 +62,7 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 	if err := checkParams(offset, size); err != nil {
 		return nil, err
 	}
-	queryStr, filters := ParseQuery(ctx, dir, q)
+	queryStr, tags, filters := ParseQuery(ctx, dir, q)
 	basic := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
 			"query":            queryStr,
@@ -73,10 +73,21 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 			"analyze_wildcard": false,
 		},
 	}
+
+	var shouldQueries []map[string]interface{}
+	for _, tag := range tags {
+		shouldQueries = append(shouldQueries, map[string]interface{}{
+			"match": map[string]interface{}{
+				"tag": tag,
+			},
+		})
+	}
+
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
 				"must":   basic,
+				"should": shouldQueries,
 				"filter": filters,
 			},
 		},
@@ -100,7 +111,7 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 		return nil, err
 	}
 
-	queryStr, filters := ParseQuery(ctx, dir, q)
+	queryStr, _, filters := ParseQuery(ctx, dir, q)
 	basic := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
 			"query":            queryStr,
