@@ -11,9 +11,7 @@ import (
 	"strings"
 	"time"
 
-	atproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
 	dto "github.com/prometheus/client_model/go"
 	"go.opentelemetry.io/otel"
@@ -618,21 +616,7 @@ func (bgs *BGS) handleAdminRequestCrawl(e echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "domain is banned")
 	}
 
-	clientHost := fmt.Sprintf("%s://%s", u.Scheme, host)
-
-	c := &xrpc.Client{
-		Host:   clientHost,
-		Client: http.DefaultClient, // not using the client that auto-retries
-	}
-
-	desc, err := atproto.ServerDescribeServer(ctx, c)
-	if err != nil {
-		errMsg := fmt.Sprintf("requested host (%s) failed to respond to describe request", clientHost)
-		return echo.NewHTTPError(http.StatusBadRequest, errMsg)
-	}
-
-	// Maybe we could do something with this response later
-	_ = desc
+	// Skip checking if the server is online for now
 
 	return bgs.slurper.SubscribeToPds(ctx, host, true, true) // Override Trusted Domain Check
 }
