@@ -54,6 +54,13 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 			})
 			continue
 		}
+		if strings.HasPrefix(p, "#") && len(p) > 1 {
+			filters = append(filters, map[string]interface{}{
+				"term": map[string]interface{}{"tags": p[1:]},
+			})
+			continue
+		}
+
 		keep = append(keep, p)
 	}
 
