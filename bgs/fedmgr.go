@@ -70,8 +70,8 @@ func DefaultSlurperOptions() *SlurperOptions {
 	return &SlurperOptions{
 		SSL:                   false,
 		DefaultPerSecondLimit: 50,
-		DefaultPerHourLimit:   500,
-		DefaultPerDayLimit:    2500,
+		DefaultPerHourLimit:   1500,
+		DefaultPerDayLimit:    10_000,
 		DefaultCrawlLimit:     rate.Limit(5),
 		DefaultRepoLimit:      50,
 	}
