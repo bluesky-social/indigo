@@ -40,6 +40,7 @@ func DefaultRules() automod.RuleSet {
 			NewAccountRule,
 			BadWordHandleRule,
 			BadWordDIDRule,
+			BanEvasionHandleRule,
 		},
 		BlobRules: []automod.BlobRuleFunc{
 			//BlobVerifyRule,
