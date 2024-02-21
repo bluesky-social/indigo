@@ -26,6 +26,9 @@ type FeedGetLikes_Output struct {
 }
 
 // FeedGetLikes calls the XRPC method "app.bsky.feed.getLikes".
+//
+// cid: CID of the subject record (aka, specific version of record), to filter likes.
+// uri: AT-URI of the subject (eg, a post record).
 func FeedGetLikes(ctx context.Context, c *xrpc.Client, cid string, cursor string, limit int64, uri string) (*FeedGetLikes_Output, error) {
 	var out FeedGetLikes_Output
 

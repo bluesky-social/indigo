@@ -12,12 +12,16 @@ import (
 
 // FeedGetFeedGenerator_Output is the output of a app.bsky.feed.getFeedGenerator call.
 type FeedGetFeedGenerator_Output struct {
-	IsOnline bool                    `json:"isOnline" cborgen:"isOnline"`
-	IsValid  bool                    `json:"isValid" cborgen:"isValid"`
-	View     *FeedDefs_GeneratorView `json:"view" cborgen:"view"`
+	// isOnline: Indicates whether the feed generator service has been online recently, or else seems to be inactive.
+	IsOnline bool `json:"isOnline" cborgen:"isOnline"`
+	// isValid: Indicates whether the feed generator service is compatible with the record declaration.
+	IsValid bool                    `json:"isValid" cborgen:"isValid"`
+	View    *FeedDefs_GeneratorView `json:"view" cborgen:"view"`
 }
 
 // FeedGetFeedGenerator calls the XRPC method "app.bsky.feed.getFeedGenerator".
+//
+// feed: AT-URI of the feed generator record.
 func FeedGetFeedGenerator(ctx context.Context, c *xrpc.Client, feed string) (*FeedGetFeedGenerator_Output, error) {
 	var out FeedGetFeedGenerator_Output
 

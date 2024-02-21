@@ -59,7 +59,8 @@ type EmbedRecord_ViewRecord struct {
 	IndexedAt     string                                `json:"indexedAt" cborgen:"indexedAt"`
 	Labels        []*comatprototypes.LabelDefs_Label    `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	Uri           string                                `json:"uri" cborgen:"uri"`
-	Value         *util.LexiconTypeDecoder              `json:"value" cborgen:"value"`
+	// value: The record data itself.
+	Value *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
 type EmbedRecord_ViewRecord_Embeds_Elem struct {

@@ -15,5 +15,6 @@ func init() {
 type GraphBlock struct {
 	LexiconTypeID string `json:"$type,const=app.bsky.graph.block" cborgen:"$type,const=app.bsky.graph.block"`
 	CreatedAt     string `json:"createdAt" cborgen:"createdAt"`
-	Subject       string `json:"subject" cborgen:"subject"`
+	// subject: DID of the account to be blocked.
+	Subject string `json:"subject" cborgen:"subject"`
 }

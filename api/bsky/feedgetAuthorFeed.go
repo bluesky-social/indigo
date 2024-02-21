@@ -17,6 +17,8 @@ type FeedGetAuthorFeed_Output struct {
 }
 
 // FeedGetAuthorFeed calls the XRPC method "app.bsky.feed.getAuthorFeed".
+//
+// filter: Combinations of post/repost types to include in response.
 func FeedGetAuthorFeed(ctx context.Context, c *xrpc.Client, actor string, cursor string, filter string, limit int64) (*FeedGetAuthorFeed_Output, error) {
 	var out FeedGetAuthorFeed_Output
 

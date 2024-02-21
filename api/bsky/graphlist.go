@@ -26,8 +26,10 @@ type GraphList struct {
 	Description       *string           `json:"description,omitempty" cborgen:"description,omitempty"`
 	DescriptionFacets []*RichtextFacet  `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
 	Labels            *GraphList_Labels `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	Name              string            `json:"name" cborgen:"name"`
-	Purpose           *string           `json:"purpose" cborgen:"purpose"`
+	// name: Display name for list; can not be empty.
+	Name string `json:"name" cborgen:"name"`
+	// purpose: Defines the purpose of the list (aka, moderation-oriented or curration-oriented)
+	Purpose *string `json:"purpose" cborgen:"purpose"`
 }
 
 type GraphList_Labels struct {

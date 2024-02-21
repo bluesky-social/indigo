@@ -18,6 +18,8 @@ type GraphGetList_Output struct {
 }
 
 // GraphGetList calls the XRPC method "app.bsky.graph.getList".
+//
+// list: Reference (AT-URI) of the list record to hydrate.
 func GraphGetList(ctx context.Context, c *xrpc.Client, cursor string, limit int64, list string) (*GraphGetList_Output, error) {
 	var out GraphGetList_Output
 

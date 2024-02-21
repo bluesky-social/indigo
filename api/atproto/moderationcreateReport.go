@@ -15,7 +15,9 @@ import (
 
 // ModerationCreateReport_Input is the input argument to a com.atproto.moderation.createReport call.
 type ModerationCreateReport_Input struct {
-	Reason     *string                               `json:"reason,omitempty" cborgen:"reason,omitempty"`
+	// reason: Additional context about the content and violation.
+	Reason *string `json:"reason,omitempty" cborgen:"reason,omitempty"`
+	// reasonType: Indicates the broad category of violation the report is for.
 	ReasonType *string                               `json:"reasonType" cborgen:"reasonType"`
 	Subject    *ModerationCreateReport_Input_Subject `json:"subject" cborgen:"subject"`
 }

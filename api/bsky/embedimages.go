@@ -27,6 +27,7 @@ type EmbedImages_AspectRatio struct {
 
 // EmbedImages_Image is a "image" in the app.bsky.embed.images schema.
 type EmbedImages_Image struct {
+	// alt: Alt text description of the image, for accessibility.
 	Alt         string                   `json:"alt" cborgen:"alt"`
 	AspectRatio *EmbedImages_AspectRatio `json:"aspectRatio,omitempty" cborgen:"aspectRatio,omitempty"`
 	Image       *util.LexBlob            `json:"image" cborgen:"image"`
@@ -42,8 +43,11 @@ type EmbedImages_View struct {
 
 // EmbedImages_ViewImage is a "viewImage" in the app.bsky.embed.images schema.
 type EmbedImages_ViewImage struct {
+	// alt: Alt text description of the image, for accessibility.
 	Alt         string                   `json:"alt" cborgen:"alt"`
 	AspectRatio *EmbedImages_AspectRatio `json:"aspectRatio,omitempty" cborgen:"aspectRatio,omitempty"`
-	Fullsize    string                   `json:"fullsize" cborgen:"fullsize"`
-	Thumb       string                   `json:"thumb" cborgen:"thumb"`
+	// fullsize: Fully-qualified URL where a large version of the image can be fetched. May or may not be the exact original blob. For example, CDN location provided by the App View.
+	Fullsize string `json:"fullsize" cborgen:"fullsize"`
+	// thumb: Fully-qualified URL where a thumbnail of the image can be fetched. For example, CDN location provided by the App View.
+	Thumb string `json:"thumb" cborgen:"thumb"`
 }

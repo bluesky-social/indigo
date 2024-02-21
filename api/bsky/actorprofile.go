@@ -20,14 +20,19 @@ func init() {
 } //
 // RECORDTYPE: ActorProfile
 type ActorProfile struct {
-	LexiconTypeID string               `json:"$type,const=app.bsky.actor.profile" cborgen:"$type,const=app.bsky.actor.profile"`
-	Avatar        *util.LexBlob        `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	Banner        *util.LexBlob        `json:"banner,omitempty" cborgen:"banner,omitempty"`
-	Description   *string              `json:"description,omitempty" cborgen:"description,omitempty"`
-	DisplayName   *string              `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
-	Labels        *ActorProfile_Labels `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	LexiconTypeID string `json:"$type,const=app.bsky.actor.profile" cborgen:"$type,const=app.bsky.actor.profile"`
+	// avatar: Small image to be displayed next to posts from account. AKA, 'profile picture'
+	Avatar *util.LexBlob `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	// banner: Larger horizontal image to display behind profile view.
+	Banner *util.LexBlob `json:"banner,omitempty" cborgen:"banner,omitempty"`
+	// description: Free-form profile description text.
+	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
+	DisplayName *string `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
+	// labels: Self-label values, specific to the Bluesky application, on the overall account.
+	Labels *ActorProfile_Labels `json:"labels,omitempty" cborgen:"labels,omitempty"`
 }
 
+// Self-label values, specific to the Bluesky application, on the overall account.
 type ActorProfile_Labels struct {
 	LabelDefs_SelfLabels *comatprototypes.LabelDefs_SelfLabels
 }

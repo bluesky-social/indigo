@@ -19,6 +19,9 @@ type FeedGetRepostedBy_Output struct {
 }
 
 // FeedGetRepostedBy calls the XRPC method "app.bsky.feed.getRepostedBy".
+//
+// cid: If supplied, filters to reposts of specific version (by CID) of the post record.
+// uri: Reference (AT-URI) of post record
 func FeedGetRepostedBy(ctx context.Context, c *xrpc.Client, cid string, cursor string, limit int64, uri string) (*FeedGetRepostedBy_Output, error) {
 	var out FeedGetRepostedBy_Output
 

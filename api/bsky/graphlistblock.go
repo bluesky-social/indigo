@@ -15,5 +15,6 @@ func init() {
 type GraphListblock struct {
 	LexiconTypeID string `json:"$type,const=app.bsky.graph.listblock" cborgen:"$type,const=app.bsky.graph.listblock"`
 	CreatedAt     string `json:"createdAt" cborgen:"createdAt"`
-	Subject       string `json:"subject" cborgen:"subject"`
+	// subject: Reference (AT-URI) to the mod list record.
+	Subject string `json:"subject" cborgen:"subject"`
 }

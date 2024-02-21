@@ -11,6 +11,8 @@ import (
 func init() {
 	util.RegisterType("app.bsky.embed.external#main", &EmbedExternal{})
 } // EmbedExternal is a "main" in the app.bsky.embed.external schema.
+// A representation of some externally linked content (eg, a URL and 'card'), embedded in a Bluesky record (eg, a post).
+//
 // RECORDTYPE: EmbedExternal
 type EmbedExternal struct {
 	LexiconTypeID string                  `json:"$type,const=app.bsky.embed.external" cborgen:"$type,const=app.bsky.embed.external"`
