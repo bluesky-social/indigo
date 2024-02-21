@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"bytes"
 	"context"
 	"log/slog"
 	"testing"
@@ -44,13 +45,16 @@ func TestMisleadingURLPostRule(t *testing.T) {
 			},
 		},
 	}
+	p1buf := new(bytes.Buffer)
+	assert.NoError(p1.MarshalCBOR(p1buf))
+	p1cbor := p1buf.Bytes()
 	op := engine.RecordOp{
 		Action:     engine.CreateOp,
 		DID:        am1.Identity.DID,
 		Collection: syntax.NSID("app.bsky.feed.post"),
 		RecordKey:  syntax.RecordKey("abc123"),
 		CID:        &cid1,
-		Value:      p1,
+		RecordCBOR: &p1cbor,
 	}
 	c1 := engine.NewRecordContext(ctx, &eng, am1, op)
 	assert.NoError(MisleadingURLPostRule(&c1, &p1))
@@ -88,13 +92,16 @@ func TestMisleadingMentionPostRule(t *testing.T) {
 			},
 		},
 	}
+	p1buf := new(bytes.Buffer)
+	assert.NoError(p1.MarshalCBOR(p1buf))
+	p1cbor := p1buf.Bytes()
 	op := engine.RecordOp{
 		Action:     engine.CreateOp,
 		DID:        am1.Identity.DID,
 		Collection: syntax.NSID("app.bsky.feed.post"),
 		RecordKey:  syntax.RecordKey("abc123"),
 		CID:        &cid1,
-		Value:      p1,
+		RecordCBOR: &p1cbor,
 	}
 	c1 := engine.NewRecordContext(ctx, &eng, am1, op)
 	assert.NoError(MisleadingMentionPostRule(&c1, &p1))

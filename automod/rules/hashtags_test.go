@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"bytes"
 	"context"
 	"testing"
 
@@ -28,13 +29,16 @@ func TestBadHashtagPostRule(t *testing.T) {
 	p1 := appbsky.FeedPost{
 		Text: "some post blah",
 	}
+	p1buf := new(bytes.Buffer)
+	assert.NoError(p1.MarshalCBOR(p1buf))
+	p1cbor := p1buf.Bytes()
 	op := engine.RecordOp{
 		Action:     engine.CreateOp,
 		DID:        am1.Identity.DID,
 		Collection: syntax.NSID("app.bsky.feed.post"),
 		RecordKey:  syntax.RecordKey("abc123"),
 		CID:        &cid1,
-		Value:      p1,
+		RecordCBOR: &p1cbor,
 	}
 	c1 := engine.NewRecordContext(ctx, &eng, am1, op)
 	assert.NoError(BadHashtagsPostRule(&c1, &p1))
@@ -45,7 +49,10 @@ func TestBadHashtagPostRule(t *testing.T) {
 		Text: "some post blah",
 		Tags: []string{"one", "slur"},
 	}
-	op.Value = p2
+	p2buf := new(bytes.Buffer)
+	assert.NoError(p2.MarshalCBOR(p2buf))
+	p2cbor := p2buf.Bytes()
+	op.RecordCBOR = &p2cbor
 	c2 := engine.NewRecordContext(ctx, &eng, am1, op)
 	assert.NoError(BadHashtagsPostRule(&c2, &p2))
 	eff2 := engine.ExtractEffects(&c2.BaseContext)
