@@ -43,8 +43,8 @@ func (mp *MemPersister) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 		e.RepoCommit.Seq = mp.seq
 	case e.RepoHandle != nil:
 		e.RepoHandle.Seq = mp.seq
-	case e.Identity != nil:
-		e.Identity.Seq = mp.seq
+	case e.RepoIdentity != nil:
+		e.RepoIdentity.Seq = mp.seq
 	case e.RepoMigrate != nil:
 		e.RepoMigrate.Seq = mp.seq
 	case e.RepoTombstone != nil:

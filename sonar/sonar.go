@@ -126,7 +126,7 @@ func (s *Sonar) HandleStreamEvent(ctx context.Context, xe *events.XRPCStreamEven
 		lastEvtProcessedAtGauge.WithLabelValues(s.SocketURL).Set(float64(now.UnixNano()))
 		lastEvtCreatedEvtProcessedGapGauge.WithLabelValues(s.SocketURL).Set(float64(now.Sub(t).Seconds()))
 		lastSeqGauge.WithLabelValues(s.SocketURL).Set(float64(xe.RepoHandle.Seq))
-	case xe.Identity != nil:
+	case xe.RepoIdentity != nil:
 		eventsProcessedCounter.WithLabelValues("identity", s.SocketURL).Inc()
 		now := time.Now()
 		s.ProgMux.Lock()

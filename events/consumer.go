@@ -36,8 +36,8 @@ func (rsc *RepoStreamCallbacks) EventHandler(ctx context.Context, xev *XRPCStrea
 		return rsc.RepoInfo(xev.RepoInfo)
 	case xev.RepoMigrate != nil && rsc.RepoMigrate != nil:
 		return rsc.RepoMigrate(xev.RepoMigrate)
-	case xev.Identity != nil && rsc.Identity != nil:
-		return rsc.Identity(xev.Identity)
+	case xev.RepoIdentity != nil && rsc.Identity != nil:
+		return rsc.Identity(xev.RepoIdentity)
 	case xev.RepoTombstone != nil && rsc.RepoTombstone != nil:
 		return rsc.RepoTombstone(xev.RepoTombstone)
 	case xev.LabelLabels != nil && rsc.LabelLabels != nil:
@@ -229,7 +229,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler)
 				lastSeq = evt.Seq
 
 				if err := sched.AddWork(ctx, evt.Did, &XRPCStreamEvent{
-					Identity: &evt,
+					RepoIdentity: &evt,
 				}); err != nil {
 					return err
 				}
