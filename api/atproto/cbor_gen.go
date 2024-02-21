@@ -992,7 +992,7 @@ func (t *SyncSubscribeRepos_Identity) MarshalCBOR(w io.Writer) error {
 
 	cw := cbg.NewCborWriter(w)
 
-	if _, err := cw.Write([]byte{162}); err != nil {
+	if _, err := cw.Write([]byte{163}); err != nil {
 		return err
 	}
 
@@ -1039,6 +1039,29 @@ func (t *SyncSubscribeRepos_Identity) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Seq-1)); err != nil {
 			return err
 		}
+	}
+
+	// t.Time (string) (string)
+	if uint64(len("time")) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field \"time\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("time"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("time")); err != nil {
+		return err
+	}
+
+	if uint64(len(t.Time)) > cbg.MaxLength {
+		return xerrors.Errorf("Value in field t.Time was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Time))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Time)); err != nil {
+		return err
 	}
 	return nil
 }
@@ -1117,6 +1140,17 @@ func (t *SyncSubscribeRepos_Identity) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Seq = int64(extraI)
+			}
+			// t.Time (string) (string)
+		case "time":
+
+			{
+				sval, err := cbg.ReadString(cr)
+				if err != nil {
+					return err
+				}
+
+				t.Time = string(sval)
 			}
 
 		default:
