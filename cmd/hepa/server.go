@@ -27,10 +27,11 @@ import (
 )
 
 type Server struct {
-	bgshost string
-	logger  *slog.Logger
-	engine  *automod.Engine
-	rdb     *redis.Client
+	bgshost             string
+	firehoseParallelism int
+	logger              *slog.Logger
+	engine              *automod.Engine
+	rdb                 *redis.Client
 
 	// lastSeq is the most recent event sequence number we've received and begun to handle.
 	// This number is periodically persisted to redis, if redis is present.
@@ -40,21 +41,22 @@ type Server struct {
 }
 
 type Config struct {
-	BGSHost         string
-	BskyHost        string
-	ModHost         string
-	ModAdminToken   string
-	ModUsername     string
-	ModPassword     string
-	SetsFileJSON    string
-	RedisURL        string
-	SlackWebhookURL string
-	HiveAPIToken    string
-	AbyssHost       string
-	AbyssPassword   string
-	RulesetName     string
-	RatelimitBypass string
-	Logger          *slog.Logger
+	BGSHost             string
+	BskyHost            string
+	ModHost             string
+	ModAdminToken       string
+	ModUsername         string
+	ModPassword         string
+	SetsFileJSON        string
+	RedisURL            string
+	SlackWebhookURL     string
+	HiveAPIToken        string
+	AbyssHost           string
+	AbyssPassword       string
+	RulesetName         string
+	RatelimitBypass     string
+	FirehoseParallelism int
+	Logger              *slog.Logger
 }
 
 func NewServer(dir identity.Directory, config Config) (*Server, error) {
@@ -204,10 +206,11 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 	}
 
 	s := &Server{
-		bgshost: config.BGSHost,
-		logger:  logger,
-		engine:  &engine,
-		rdb:     rdb,
+		bgshost:             config.BGSHost,
+		firehoseParallelism: config.FirehoseParallelism,
+		logger:              logger,
+		engine:              &engine,
+		rdb:                 rdb,
 	}
 
 	return s, nil
