@@ -7,9 +7,9 @@ import (
 	"net"
 	"time"
 
+	"github.com/RussellLuo/slidingwindow"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/prometheus/client_golang/prometheus"
-	"golang.org/x/time/rate"
 
 	"github.com/gorilla/websocket"
 )
@@ -49,19 +49,44 @@ func (rsc *RepoStreamCallbacks) EventHandler(ctx context.Context, xev *XRPCStrea
 }
 
 type InstrumentedRepoStreamCallbacks struct {
-	limiter *rate.Limiter
-	Next    func(ctx context.Context, xev *XRPCStreamEvent) error
+	limiters []*slidingwindow.Limiter
+	Next     func(ctx context.Context, xev *XRPCStreamEvent) error
 }
 
-func NewInstrumentedRepoStreamCallbacks(limiter *rate.Limiter, next func(ctx context.Context, xev *XRPCStreamEvent) error) *InstrumentedRepoStreamCallbacks {
+func NewInstrumentedRepoStreamCallbacks(limiters []*slidingwindow.Limiter, next func(ctx context.Context, xev *XRPCStreamEvent) error) *InstrumentedRepoStreamCallbacks {
 	return &InstrumentedRepoStreamCallbacks{
-		limiter: limiter,
-		Next:    next,
+		limiters: limiters,
+		Next:     next,
 	}
 }
 
+func waitForLimiter(ctx context.Context, lim *slidingwindow.Limiter) error {
+	if lim.Allow() {
+		return nil
+	}
+
+	// wait until the limiter is ready (check every 100ms)
+	t := time.NewTicker(100 * time.Millisecond)
+	defer t.Stop()
+
+	for !lim.Allow() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t.C:
+		}
+	}
+
+	return nil
+}
+
 func (rsc *InstrumentedRepoStreamCallbacks) EventHandler(ctx context.Context, xev *XRPCStreamEvent) error {
-	rsc.limiter.Wait(ctx)
+	// Wait on all limiters before calling the next handler
+	for _, lim := range rsc.limiters {
+		if err := waitForLimiter(ctx, lim); err != nil {
+			return err
+		}
+	}
 	return rsc.Next(ctx, xev)
 }
 

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RussellLuo/slidingwindow"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
@@ -32,10 +33,14 @@ type Slurper struct {
 	lk     sync.Mutex
 	active map[string]*activeSub
 
-	LimitMux          sync.RWMutex
-	Limiters          map[uint]*rate.Limiter
-	DefaultLimit      rate.Limit
+	LimitMux              sync.RWMutex
+	Limiters              map[uint]*Limiters
+	DefaultPerSecondLimit int64
+	DefaultPerHourLimit   int64
+	DefaultPerDayLimit    int64
+
 	DefaultCrawlLimit rate.Limit
+	DefaultRepoLimit  int64
 
 	newSubsDisabled bool
 	trustedDomains  []string
@@ -46,17 +51,29 @@ type Slurper struct {
 	ssl bool
 }
 
+type Limiters struct {
+	PerSecond *slidingwindow.Limiter
+	PerHour   *slidingwindow.Limiter
+	PerDay    *slidingwindow.Limiter
+}
+
 type SlurperOptions struct {
-	SSL                bool
-	DefaultIngestLimit rate.Limit
-	DefaultCrawlLimit  rate.Limit
+	SSL                   bool
+	DefaultPerSecondLimit int64
+	DefaultPerHourLimit   int64
+	DefaultPerDayLimit    int64
+	DefaultCrawlLimit     rate.Limit
+	DefaultRepoLimit      int64
 }
 
 func DefaultSlurperOptions() *SlurperOptions {
 	return &SlurperOptions{
-		SSL:                false,
-		DefaultIngestLimit: rate.Limit(50),
-		DefaultCrawlLimit:  rate.Limit(5),
+		SSL:                   false,
+		DefaultPerSecondLimit: 50,
+		DefaultPerHourLimit:   1500,
+		DefaultPerDayLimit:    10_000,
+		DefaultCrawlLimit:     rate.Limit(5),
+		DefaultRepoLimit:      10,
 	}
 }
 
@@ -73,15 +90,18 @@ func NewSlurper(db *gorm.DB, cb IndexCallback, opts *SlurperOptions) (*Slurper, 
 	}
 	db.AutoMigrate(&SlurpConfig{})
 	s := &Slurper{
-		cb:                cb,
-		db:                db,
-		active:            make(map[string]*activeSub),
-		Limiters:          make(map[uint]*rate.Limiter),
-		DefaultLimit:      opts.DefaultIngestLimit,
-		DefaultCrawlLimit: opts.DefaultCrawlLimit,
-		ssl:               opts.SSL,
-		shutdownChan:      make(chan bool),
-		shutdownResult:    make(chan []error),
+		cb:                    cb,
+		db:                    db,
+		active:                make(map[string]*activeSub),
+		Limiters:              make(map[uint]*Limiters),
+		DefaultPerSecondLimit: opts.DefaultPerSecondLimit,
+		DefaultPerHourLimit:   opts.DefaultPerHourLimit,
+		DefaultPerDayLimit:    opts.DefaultPerDayLimit,
+		DefaultCrawlLimit:     opts.DefaultCrawlLimit,
+		DefaultRepoLimit:      opts.DefaultRepoLimit,
+		ssl:                   opts.SSL,
+		shutdownChan:          make(chan bool),
+		shutdownResult:        make(chan []error),
 	}
 	if err := s.loadConfig(); err != nil {
 		return nil, err
@@ -123,28 +143,54 @@ func NewSlurper(db *gorm.DB, cb IndexCallback, opts *SlurperOptions) (*Slurper, 
 	return s, nil
 }
 
-func (s *Slurper) GetLimiter(pdsID uint) *rate.Limiter {
+func windowFunc() (slidingwindow.Window, slidingwindow.StopFunc) {
+	return slidingwindow.NewLocalWindow()
+}
+
+func (s *Slurper) GetLimiters(pdsID uint) *Limiters {
 	s.LimitMux.RLock()
 	defer s.LimitMux.RUnlock()
 	return s.Limiters[pdsID]
 }
 
-func (s *Slurper) GetOrCreateLimiter(pdsID uint, nlimit float64) *rate.Limiter {
+func (s *Slurper) GetOrCreateLimiters(pdsID uint, perSecLimit int64, perHourLimit int64, perDayLimit int64) *Limiters {
 	s.LimitMux.RLock()
 	defer s.LimitMux.RUnlock()
 	lim, ok := s.Limiters[pdsID]
 	if !ok {
-		lim = rate.NewLimiter(rate.Limit(nlimit), 1)
+		perSec, _ := slidingwindow.NewLimiter(time.Second, perSecLimit, windowFunc)
+		perHour, _ := slidingwindow.NewLimiter(time.Hour, perHourLimit, windowFunc)
+		perDay, _ := slidingwindow.NewLimiter(time.Hour*24, perDayLimit, windowFunc)
+		lim = &Limiters{
+			PerSecond: perSec,
+			PerHour:   perHour,
+			PerDay:    perDay,
+		}
 		s.Limiters[pdsID] = lim
 	}
 
 	return lim
 }
 
-func (s *Slurper) SetLimiter(pdsID uint, limiter *rate.Limiter) {
+func (s *Slurper) SetLimits(pdsID uint, perSecLimit int64, perHourLimit int64, perDayLimit int64) {
 	s.LimitMux.Lock()
 	defer s.LimitMux.Unlock()
-	s.Limiters[pdsID] = limiter
+	lim, ok := s.Limiters[pdsID]
+	if !ok {
+		perSec, _ := slidingwindow.NewLimiter(time.Second, perSecLimit, windowFunc)
+		perHour, _ := slidingwindow.NewLimiter(time.Hour, perHourLimit, windowFunc)
+		perDay, _ := slidingwindow.NewLimiter(time.Hour*24, perDayLimit, windowFunc)
+		lim = &Limiters{
+			PerSecond: perSec,
+			PerHour:   perHour,
+			PerDay:    perDay,
+		}
+		s.Limiters[pdsID] = lim
+	}
+
+	lim.PerSecond.SetLimit(perSecLimit)
+	lim.PerHour.SetLimit(perHourLimit)
+	lim.PerDay.SetLimit(perDayLimit)
 }
 
 // Shutdown shuts down the slurper
@@ -278,14 +324,10 @@ func (s *Slurper) canSlurpHost(host string) bool {
 	return !s.newSubsDisabled
 }
 
-func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) error {
+func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, overrideTrustList bool) error {
 	// TODO: for performance, lock on the hostname instead of global
 	s.lk.Lock()
 	defer s.lk.Unlock()
-
-	if !s.canSlurpHost(host) {
-		return ErrNewSubsDisabled
-	}
 
 	_, ok := s.active[host]
 	if ok {
@@ -302,13 +344,19 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) err
 	}
 
 	if peering.ID == 0 {
+		if !overrideTrustList && !s.canSlurpHost(host) {
+			return ErrNewSubsDisabled
+		}
 		// New PDS!
 		npds := models.PDS{
-			Host:           host,
-			SSL:            s.ssl,
-			Registered:     reg,
-			RateLimit:      float64(s.DefaultLimit),
-			CrawlRateLimit: float64(s.DefaultCrawlLimit),
+			Host:             host,
+			SSL:              s.ssl,
+			Registered:       reg,
+			RateLimit:        float64(s.DefaultPerSecondLimit),
+			HourlyEventLimit: s.DefaultPerHourLimit,
+			DailyEventLimit:  s.DefaultPerDayLimit,
+			CrawlRateLimit:   float64(s.DefaultCrawlLimit),
+			RepoLimit:        s.DefaultRepoLimit,
 		}
 		if err := s.db.Create(&npds).Error; err != nil {
 			return err
@@ -332,7 +380,7 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool) err
 	}
 	s.active[host] = &sub
 
-	s.GetOrCreateLimiter(peering.ID, peering.RateLimit)
+	s.GetOrCreateLimiters(peering.ID, int64(peering.RateLimit), peering.HourlyEventLimit, peering.DailyEventLimit)
 
 	go s.subscribeWithRedialer(ctx, &peering, &sub)
 
@@ -360,7 +408,7 @@ func (s *Slurper) RestartAll() error {
 		s.active[pds.Host] = &sub
 
 		// Check if we've already got a limiter for this PDS
-		s.GetOrCreateLimiter(pds.ID, pds.RateLimit)
+		s.GetOrCreateLimiters(pds.ID, int64(pds.RateLimit), pds.HourlyEventLimit, pds.DailyEventLimit)
 		go s.subscribeWithRedialer(ctx, &pds, &sub)
 	}
 
@@ -532,9 +580,15 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 	}
 
-	limiter := s.GetOrCreateLimiter(host.ID, host.RateLimit)
+	lims := s.GetOrCreateLimiters(host.ID, int64(host.RateLimit), host.HourlyEventLimit, host.DailyEventLimit)
 
-	instrumentedRSC := events.NewInstrumentedRepoStreamCallbacks(limiter, rsc.EventHandler)
+	limiters := []*slidingwindow.Limiter{
+		lims.PerSecond,
+		lims.PerHour,
+		lims.PerDay,
+	}
+
+	instrumentedRSC := events.NewInstrumentedRepoStreamCallbacks(limiters, rsc.EventHandler)
 
 	pool := parallel.NewScheduler(
 		100,

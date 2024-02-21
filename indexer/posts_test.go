@@ -61,7 +61,7 @@ func testIndexer(t *testing.T) *testIx {
 
 	didr := testPLC(t)
 
-	rf := NewRepoFetcher(maindb, repoman)
+	rf := NewRepoFetcher(maindb, repoman, 10)
 
 	ix, err := NewIndexer(maindb, notifman, evtman, didr, rf, false, true, true)
 	if err != nil {

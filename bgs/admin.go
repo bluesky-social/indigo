@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -92,15 +94,17 @@ func (bgs *BGS) handleAdminGetUpstreamConns(e echo.Context) error {
 }
 
 type rateLimit struct {
-	MaxEventsPerSecond float64 `json:"MaxEventsPerSecond"`
-	TokenCount         float64 `json:"TokenCount"`
+	Max           float64 `json:"Max"`
+	WindowSeconds float64 `json:"Window"`
 }
 
 type enrichedPDS struct {
 	models.PDS
 	HasActiveConnection    bool      `json:"HasActiveConnection"`
 	EventsSeenSinceStartup uint64    `json:"EventsSeenSinceStartup"`
-	IngestRate             rateLimit `json:"IngestRate"`
+	PerSecondEventRate     rateLimit `json:"PerSecondEventRate"`
+	PerHourEventRate       rateLimit `json:"PerHourEventRate"`
+	PerDayEventRate        rateLimit `json:"PerDayEventRate"`
 	CrawlRate              rateLimit `json:"CrawlRate"`
 	UserCount              int64     `json:"UserCount"`
 }
@@ -120,20 +124,6 @@ func (bgs *BGS) handleListPDSs(e echo.Context) error {
 
 	activePDSHosts := bgs.slurper.GetActiveList()
 
-	var userCounts []UserCount
-	if err := bgs.db.Model(&User{}).
-		Select("pds, count(*) as user_count").
-		Group("pds").
-		Find(&userCounts).Error; err != nil {
-		return err
-	}
-
-	// Create a map for fast lookup
-	userCountMap := make(map[uint]int64)
-	for _, count := range userCounts {
-		userCountMap[count.PDSID] = count.UserCount
-	}
-
 	for i, p := range pds {
 		enrichedPDSs[i].PDS = p
 		enrichedPDSs[i].HasActiveConnection = false
@@ -149,28 +139,26 @@ func (bgs *BGS) handleListPDSs(e echo.Context) error {
 			continue
 		}
 		enrichedPDSs[i].EventsSeenSinceStartup = uint64(m.Counter.GetValue())
-		enrichedPDSs[i].UserCount = userCountMap[p.ID]
 
-		// Get the ingest rate limit for this PDS
-		ingestRate := rateLimit{
-			MaxEventsPerSecond: p.RateLimit,
+		enrichedPDSs[i].PerSecondEventRate = rateLimit{
+			Max:           p.RateLimit,
+			WindowSeconds: 1,
 		}
 
-		limiter := bgs.slurper.GetLimiter(p.ID)
-		if limiter != nil {
-			ingestRate.TokenCount = limiter.Tokens()
+		enrichedPDSs[i].PerHourEventRate = rateLimit{
+			Max:           float64(p.HourlyEventLimit),
+			WindowSeconds: 3600,
 		}
 
-		enrichedPDSs[i].IngestRate = ingestRate
+		enrichedPDSs[i].PerDayEventRate = rateLimit{
+			Max:           float64(p.DailyEventLimit),
+			WindowSeconds: 86400,
+		}
 
 		// Get the crawl rate limit for this PDS
 		crawlRate := rateLimit{
-			MaxEventsPerSecond: p.CrawlRateLimit,
-		}
-
-		limiter = bgs.repoFetcher.GetLimiter(p.ID)
-		if limiter != nil {
-			crawlRate.TokenCount = limiter.Tokens()
+			Max:           p.CrawlRateLimit,
+			WindowSeconds: 1,
 		}
 
 		enrichedPDSs[i].CrawlRate = crawlRate
@@ -338,76 +326,46 @@ func (bgs *BGS) handleAdminUnbanDomain(c echo.Context) error {
 	})
 }
 
-func (bgs *BGS) handleAdminChangePDSRateLimit(e echo.Context) error {
-	host := strings.TrimSpace(e.QueryParam("host"))
-	if host == "" {
-		return &echo.HTTPError{
-			Code:    400,
-			Message: "must pass a valid host",
-		}
-	}
+type RateLimitChangeRequest struct {
+	Host      string `json:"host"`
+	PerSecond int64  `json:"per_second"`
+	PerHour   int64  `json:"per_hour"`
+	PerDay    int64  `json:"per_day"`
+	CrawlRate int64  `json:"crawl_rate"`
+	RepoLimit int64  `json:"repo_limit"`
+}
 
-	// Get the new rate limit
-	limit, err := strconv.ParseFloat(e.QueryParam("limit"), 64)
-	if err != nil {
-		return &echo.HTTPError{
-			Code:    400,
-			Message: "must pass a valid limit",
-		}
+func (bgs *BGS) handleAdminChangePDSRateLimits(e echo.Context) error {
+	var body RateLimitChangeRequest
+	if err := e.Bind(&body); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid body: %s", err))
 	}
 
 	// Get the PDS from the DB
 	var pds models.PDS
-	if err := bgs.db.Where("host = ?", host).First(&pds).Error; err != nil {
+	if err := bgs.db.Where("host = ?", body.Host).First(&pds).Error; err != nil {
 		return err
 	}
 
-	// Update the rate limit in the DB
-	if err := bgs.db.Model(&pds).Update("rate_limit", limit).Error; err != nil {
-		return err
+	// Update the rate limits in the DB
+	pds.RateLimit = float64(body.PerSecond)
+	pds.HourlyEventLimit = body.PerHour
+	pds.DailyEventLimit = body.PerDay
+	pds.CrawlRateLimit = float64(body.CrawlRate)
+	pds.RepoLimit = body.RepoLimit
+
+	if err := bgs.db.Save(&pds).Error; err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf("failed to save rate limit changes: %w", err))
 	}
 
 	// Update the rate limit in the limiter
-	limiter := bgs.slurper.GetOrCreateLimiter(pds.ID, limit)
-	limiter.SetLimit(rate.Limit(limit))
+	limits := bgs.slurper.GetOrCreateLimiters(pds.ID, body.PerSecond, body.PerHour, body.PerDay)
+	limits.PerSecond.SetLimit(body.PerSecond)
+	limits.PerHour.SetLimit(body.PerHour)
+	limits.PerDay.SetLimit(body.PerDay)
 
-	return e.JSON(200, map[string]any{
-		"success": "true",
-	})
-}
-
-func (bgs *BGS) handleAdminChangePDSCrawlLimit(e echo.Context) error {
-	host := strings.TrimSpace(e.QueryParam("host"))
-	if host == "" {
-		return &echo.HTTPError{
-			Code:    400,
-			Message: "must pass a valid host",
-		}
-	}
-
-	// Get the new crawl limit
-	limit, err := strconv.ParseFloat(e.QueryParam("limit"), 64)
-	if err != nil {
-		return &echo.HTTPError{
-			Code:    400,
-			Message: "must pass a valid limit",
-		}
-	}
-
-	// Get the PDS from the DB
-	var pds models.PDS
-	if err := bgs.db.Where("host = ?", host).First(&pds).Error; err != nil {
-		return err
-	}
-
-	// Update the crawl limit in the DB
-	if err := bgs.db.Model(&pds).Update("crawl_rate_limit", limit).Error; err != nil {
-		return err
-	}
-
-	// Update the crawl limit in the limiter
-	limiter := bgs.repoFetcher.GetOrCreateLimiter(pds.ID, limit)
-	limiter.SetLimit(rate.Limit(limit))
+	// Set the crawl rate limit
+	bgs.repoFetcher.GetOrCreateLimiter(pds.ID, float64(body.CrawlRate)).SetLimit(rate.Limit(body.CrawlRate))
 
 	return e.JSON(200, map[string]any{
 		"success": "true",
@@ -587,6 +545,15 @@ func (bgs *BGS) handleAdminAddTrustedDomain(e echo.Context) error {
 		return fmt.Errorf("must specify domain in query parameter")
 	}
 
+	// Check if the domain is already trusted
+	trustedDomains := bgs.slurper.GetTrustedDomains()
+	if slices.Contains(trustedDomains, domain) {
+		return &echo.HTTPError{
+			Code:    400,
+			Message: "domain is already trusted",
+		}
+	}
+
 	if err := bgs.slurper.AddTrustedDomain(domain); err != nil {
 		return err
 	}
@@ -594,4 +561,62 @@ func (bgs *BGS) handleAdminAddTrustedDomain(e echo.Context) error {
 	return e.JSON(200, map[string]any{
 		"success": true,
 	})
+}
+
+type AdminRequestCrawlRequest struct {
+	Hostname string `json:"hostname"`
+}
+
+func (bgs *BGS) handleAdminRequestCrawl(e echo.Context) error {
+	ctx := e.Request().Context()
+
+	var body AdminRequestCrawlRequest
+	if err := e.Bind(&body); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid body: %s", err))
+	}
+
+	host := body.Hostname
+	if host == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname")
+	}
+
+	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
+		if bgs.ssl {
+			host = "https://" + host
+		} else {
+			host = "http://" + host
+		}
+	}
+
+	u, err := url.Parse(host)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "failed to parse hostname")
+	}
+
+	if u.Scheme == "http" && bgs.ssl {
+		return echo.NewHTTPError(http.StatusBadRequest, "this server requires https")
+	}
+
+	if u.Scheme == "https" && !bgs.ssl {
+		return echo.NewHTTPError(http.StatusBadRequest, "this server does not support https")
+	}
+
+	if u.Path != "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname without path")
+	}
+
+	if u.Query().Encode() != "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname without query")
+	}
+
+	host = u.Host // potentially hostname:port
+
+	banned, err := bgs.domainIsBanned(ctx, host)
+	if banned {
+		return echo.NewHTTPError(http.StatusUnauthorized, "domain is banned")
+	}
+
+	// Skip checking if the server is online for now
+
+	return bgs.slurper.SubscribeToPds(ctx, host, true, true) // Override Trusted Domain Check
 }

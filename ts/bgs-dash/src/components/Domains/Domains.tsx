@@ -9,7 +9,7 @@ import Notification, {
   NotificationType,
 } from "../Notification/Notification";
 
-import { BGS_HOST } from "../../constants";
+import { RELAY_HOST } from "../../constants";
 
 import { useNavigate } from "react-router-dom";
 import ConfirmDomainBanModal from "./ConfirmDomainBanModal";
@@ -37,8 +37,8 @@ const Domains: FC<{}> = () => {
     domain: string;
     type: "ban" | "unban";
   } | null>(null);
-  const [modalConfirm, setModalConfirm] = useState<() => void>(() => {});
-  const [modalCancel, setModalCancel] = useState<() => void>(() => {});
+  const [modalConfirm, setModalConfirm] = useState<() => void>(() => { });
+  const [modalCancel, setModalCancel] = useState<() => void>(() => { });
 
   const [adminToken, setAdminToken] = useState<string>(
     localStorage.getItem("admin_route_token") || ""
@@ -68,11 +68,11 @@ const Domains: FC<{}> = () => {
   }, []);
 
   useEffect(() => {
-    document.title = "BGS Admin Dashboard";
+    document.title = "Relay Admin Dashboard";
   }, []);
 
   const refreshDomainBanList = () => {
-    fetch(`${BGS_HOST}/admin/subs/listDomainBans`, {
+    fetch(`${RELAY_HOST}/admin/subs/listDomainBans`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -102,7 +102,7 @@ const Domains: FC<{}> = () => {
   };
 
   const requestBanDomain = (domain: string) => {
-    fetch(`${BGS_HOST}/admin/subs/banDomain`, {
+    fetch(`${RELAY_HOST}/admin/subs/banDomain`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -135,7 +135,7 @@ const Domains: FC<{}> = () => {
   };
 
   const requestUnbanDomain = (domain: string) => {
-    fetch(`${BGS_HOST}/admin/subs/unbanDomain`, {
+    fetch(`${RELAY_HOST}/admin/subs/unbanDomain`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

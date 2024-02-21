@@ -1,5 +1,9 @@
-const BGS_HOST = `${window.location.protocol}//${window.location.hostname}:${
-  window.location.hostname === "localhost" ? "2470" : window.location.port
+const isDev =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "jaz1";
+
+const RELAY_HOST = `${window.location.protocol}//${window.location.hostname}:${
+  isDev ? "2470" : window.location.port
 }`;
 
-export { BGS_HOST };
+export { RELAY_HOST };

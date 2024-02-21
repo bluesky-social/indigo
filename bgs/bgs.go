@@ -264,7 +264,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	e.HideBanner = true
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"http://localhost:*", "https://bgs.bsky-sandbox.dev"},
+		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
@@ -348,11 +348,11 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	admin.POST("/repo/verify", bgs.handleAdminVerifyRepo)
 
 	// PDS-related Admin API
+	admin.POST("/pds/requestCrawl", bgs.handleAdminRequestCrawl)
 	admin.GET("/pds/list", bgs.handleListPDSs)
 	admin.POST("/pds/resync", bgs.handleAdminPostResyncPDS)
 	admin.GET("/pds/resync", bgs.handleAdminGetResyncPDS)
-	admin.POST("/pds/changeIngestRateLimit", bgs.handleAdminChangePDSRateLimit)
-	admin.POST("/pds/changeCrawlRateLimit", bgs.handleAdminChangePDSCrawlLimit)
+	admin.POST("/pds/changeLimits", bgs.handleAdminChangePDSRateLimits)
 	admin.POST("/pds/block", bgs.handleBlockPDS)
 	admin.POST("/pds/unblock", bgs.handleUnblockPDS)
 	admin.POST("/pds/addTrustedDomain", bgs.handleAdminAddTrustedDomain)
@@ -1044,10 +1044,6 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		return nil, err
 	}
 
-	if peering.Blocked {
-		return nil, fmt.Errorf("refusing to create user with blocked PDS")
-	}
-
 	ban, err := s.domainIsBanned(ctx, durl.Host)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check pds ban status: %w", err)
@@ -1074,6 +1070,11 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		// TODO: could check other things, a valid response is good enough for now
 		peering.Host = durl.Host
 		peering.SSL = (durl.Scheme == "https")
+		peering.CrawlRateLimit = float64(s.slurper.DefaultCrawlLimit)
+		peering.RepoLimit = s.slurper.DefaultPerSecondLimit
+		peering.HourlyEventLimit = s.slurper.DefaultPerHourLimit
+		peering.DailyEventLimit = s.slurper.DefaultPerDayLimit
+		peering.RepoLimit = s.slurper.DefaultRepoLimit
 
 		if s.ssl && !peering.SSL {
 			return nil, fmt.Errorf("did references non-ssl PDS, this is disallowed in prod: %q %q", did, svc.ServiceEndpoint)
@@ -1087,6 +1088,35 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	if peering.ID == 0 {
 		panic("somehow failed to create a pds entry?")
 	}
+
+	if peering.Blocked {
+		return nil, fmt.Errorf("refusing to create user with blocked PDS")
+	}
+
+	if peering.RepoCount >= peering.RepoLimit {
+		return nil, fmt.Errorf("refusing to create user on PDS at max repo limit for pds %q", peering.Host)
+	}
+
+	// Increment the repo count for the PDS
+	res := s.db.Model(&models.PDS{}).Where("id = ? AND repo_count < repo_limit", peering.ID).Update("repo_count", gorm.Expr("repo_count + 1"))
+	if res.Error != nil {
+		return nil, fmt.Errorf("failed to increment repo count for pds %q: %w", peering.Host, res.Error)
+	}
+
+	if res.RowsAffected == 0 {
+		return nil, fmt.Errorf("refusing to create user on PDS at max repo limit for pds %q", peering.Host)
+	}
+
+	successfullyCreated := false
+
+	// Release the count if we fail to create the user
+	defer func() {
+		if !successfullyCreated {
+			if err := s.db.Model(&models.PDS{}).Where("id = ?", peering.ID).Update("repo_count", gorm.Expr("repo_count - 1")).Error; err != nil {
+				log.Errorf("failed to decrement repo count for pds: %s", err)
+			}
+		}
+	}()
 
 	if len(doc.AlsoKnownAs) == 0 {
 		return nil, fmt.Errorf("user has no 'known as' field in their DID document")
@@ -1211,6 +1241,8 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	if err := s.db.Create(subj).Error; err != nil {
 		return nil, err
 	}
+
+	successfullyCreated = true
 
 	return subj, nil
 }

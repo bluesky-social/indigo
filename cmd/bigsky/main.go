@@ -145,6 +145,20 @@ func run(args []string) {
 			Value:   4 * time.Hour,
 			Usage:   "interval between compaction runs, set to 0 to disable scheduled compaction",
 		},
+		&cli.StringFlag{
+			Name:    "resolve-address",
+			EnvVars: []string{"RESOLVE_ADDRESS"},
+			Value:   "1.1.1.1:53",
+		},
+		&cli.BoolFlag{
+			Name:    "force-dns-udp",
+			EnvVars: []string{"FORCE_DNS_UDP"},
+		},
+		&cli.IntFlag{
+			Name:    "max-fetch-concurrency",
+			Value:   100,
+			EnvVars: []string{"MAX_FETCH_CONCURRENCY"},
+		},
 	}
 
 	app.Action = Bigsky
@@ -289,7 +303,7 @@ func Bigsky(cctx *cli.Context) error {
 
 	notifman := &notifs.NullNotifs{}
 
-	rf := indexer.NewRepoFetcher(db, repoman)
+	rf := indexer.NewRepoFetcher(db, repoman, cctx.Int("max-fetch-concurrency"))
 
 	ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, rf, true, cctx.Bool("spidering"), cctx.Bool("aggregation"))
 	if err != nil {
@@ -298,7 +312,7 @@ func Bigsky(cctx *cli.Context) error {
 
 	rlskip := os.Getenv("BSKY_SOCIAL_RATE_LIMIT_SKIP")
 	ix.ApplyPDSClientSettings = func(c *xrpc.Client) {
-		if c.Host == "https://bsky.social" {
+		if strings.HasSuffix(c.Host, ".bsky.network") {
 			if c.Client == nil {
 				c.Client = util.RobustHTTPClient()
 			}
@@ -310,6 +324,7 @@ func Bigsky(cctx *cli.Context) error {
 			}
 		}
 	}
+	rf.ApplyPDSClientSettings = ix.ApplyPDSClientSettings
 
 	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
 		if err := ix.HandleRepoEvent(ctx, evt); err != nil {
@@ -322,7 +337,7 @@ func Bigsky(cctx *cli.Context) error {
 		blobstore = &blobs.DiskBlobStore{Dir: bsdir}
 	}
 
-	prodHR, err := api.NewProdHandleResolver(100_000)
+	prodHR, err := api.NewProdHandleResolver(100_000, cctx.String("resolve-address"), cctx.Bool("force-dns-udp"))
 	if err != nil {
 		return fmt.Errorf("failed to set up handle resolver: %w", err)
 	}
