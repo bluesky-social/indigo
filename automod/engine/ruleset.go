@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 
@@ -31,23 +32,23 @@ func (r *RuleSet) CallRecordRules(c *RecordContext) error {
 	// then any record-type-specific rules
 	switch c.RecordOp.Collection.String() {
 	case "app.bsky.feed.post":
-		post, ok := c.RecordOp.Value.(*appbsky.FeedPost)
-		if !ok {
-			return fmt.Errorf("mismatch between collection (%s) and type", c.RecordOp.Collection)
+		var post appbsky.FeedPost
+		if err := post.UnmarshalCBOR(bytes.NewReader(*c.RecordOp.RecordCBOR)); err != nil {
+			return fmt.Errorf("failed to parse app.bsky.feed.post record: %v", err)
 		}
 		for _, f := range r.PostRules {
-			err := f(c, post)
+			err := f(c, &post)
 			if err != nil {
 				c.Logger.Error("post rule execution failed", "err", err)
 			}
 		}
 	case "app.bsky.actor.profile":
-		profile, ok := c.RecordOp.Value.(*appbsky.ActorProfile)
-		if !ok {
-			return fmt.Errorf("mismatch between collection (%s) and type", c.RecordOp.Collection)
+		var profile appbsky.ActorProfile
+		if err := profile.UnmarshalCBOR(bytes.NewReader(*c.RecordOp.RecordCBOR)); err != nil {
+			return fmt.Errorf("failed to parse app.bsky.actor.profile record: %v", err)
 		}
 		for _, f := range r.ProfileRules {
-			err := f(c, profile)
+			err := f(c, &profile)
 			if err != nil {
 				c.Logger.Error("profile rule execution failed", "err", err)
 			}

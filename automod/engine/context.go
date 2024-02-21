@@ -52,8 +52,7 @@ type RecordOp struct {
 	Collection syntax.NSID
 	RecordKey  syntax.RecordKey
 	CID        *syntax.CID
-	// NOTE: usually a *pointer*, not the value itself
-	Value any
+	RecordCBOR *[]byte
 }
 
 // Originally intended for push notifications, but can also work for any inter-account notification.
@@ -76,11 +75,11 @@ type NotificationMeta struct {
 func (op *RecordOp) Validate() error {
 	switch op.Action {
 	case CreateOp, UpdateOp:
-		if op.Value == nil || op.CID == nil {
+		if op.RecordCBOR == nil || op.CID == nil {
 			return fmt.Errorf("expected record create/update op to contain both value and CID")
 		}
 	case DeleteOp:
-		if op.Value != nil || op.CID != nil {
+		if op.RecordCBOR != nil || op.CID != nil {
 			return fmt.Errorf("expected record delete op to be empty")
 		}
 	default:
