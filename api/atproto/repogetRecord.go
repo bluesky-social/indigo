@@ -23,7 +23,7 @@ type RepoGetRecord_Output struct {
 // cid: The CID of the version of the record. If not specified, then return the most recent version.
 // collection: The NSID of the record collection.
 // repo: The handle or DID of the repo.
-// rkey: The key of the record.
+// rkey: The Record Key.
 func RepoGetRecord(ctx context.Context, c *xrpc.Client, cid string, collection string, repo string, rkey string) (*RepoGetRecord_Output, error) {
 	var out RepoGetRecord_Output
 

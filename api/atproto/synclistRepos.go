@@ -18,7 +18,8 @@ type SyncListRepos_Output struct {
 
 // SyncListRepos_Repo is a "repo" in the com.atproto.sync.listRepos schema.
 type SyncListRepos_Repo struct {
-	Did  string `json:"did" cborgen:"did"`
+	Did string `json:"did" cborgen:"did"`
+	// head: Current repo commit CID
 	Head string `json:"head" cborgen:"head"`
 	Rev  string `json:"rev" cborgen:"rev"`
 }

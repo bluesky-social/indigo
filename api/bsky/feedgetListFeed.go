@@ -17,6 +17,8 @@ type FeedGetListFeed_Output struct {
 }
 
 // FeedGetListFeed calls the XRPC method "app.bsky.feed.getListFeed".
+//
+// list: Reference (AT-URI) to the list record.
 func FeedGetListFeed(ctx context.Context, c *xrpc.Client, cursor string, limit int64, list string) (*FeedGetListFeed_Output, error) {
 	var out FeedGetListFeed_Output
 

@@ -17,6 +17,7 @@ import (
 type RepoStreamCallbacks struct {
 	RepoCommit    func(evt *comatproto.SyncSubscribeRepos_Commit) error
 	RepoHandle    func(evt *comatproto.SyncSubscribeRepos_Handle) error
+	Identity      func(evt *comatproto.SyncSubscribeRepos_Identity) error
 	RepoInfo      func(evt *comatproto.SyncSubscribeRepos_Info) error
 	RepoMigrate   func(evt *comatproto.SyncSubscribeRepos_Migrate) error
 	RepoTombstone func(evt *comatproto.SyncSubscribeRepos_Tombstone) error
@@ -35,6 +36,8 @@ func (rsc *RepoStreamCallbacks) EventHandler(ctx context.Context, xev *XRPCStrea
 		return rsc.RepoInfo(xev.RepoInfo)
 	case xev.RepoMigrate != nil && rsc.RepoMigrate != nil:
 		return rsc.RepoMigrate(xev.RepoMigrate)
+	case xev.Identity != nil && rsc.Identity != nil:
+		return rsc.Identity(xev.Identity)
 	case xev.RepoTombstone != nil && rsc.RepoTombstone != nil:
 		return rsc.RepoTombstone(xev.RepoTombstone)
 	case xev.LabelLabels != nil && rsc.LabelLabels != nil:
@@ -211,6 +214,22 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler)
 
 				if err := sched.AddWork(ctx, evt.Did, &XRPCStreamEvent{
 					RepoHandle: &evt,
+				}); err != nil {
+					return err
+				}
+			case "#identity":
+				var evt comatproto.SyncSubscribeRepos_Identity
+				if err := evt.UnmarshalCBOR(r); err != nil {
+					return err
+				}
+
+				if evt.Seq < lastSeq {
+					log.Errorf("Got events out of order from stream (seq = %d, prev = %d)", evt.Seq, lastSeq)
+				}
+				lastSeq = evt.Seq
+
+				if err := sched.AddWork(ctx, evt.Did, &XRPCStreamEvent{
+					Identity: &evt,
 				}); err != nil {
 					return err
 				}

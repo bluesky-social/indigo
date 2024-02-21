@@ -9,30 +9,49 @@ import (
 )
 
 // SyncSubscribeRepos_Commit is a "commit" in the com.atproto.sync.subscribeRepos schema.
+//
+// Represents an update of repository state. Note that empty commits are allowed, which include no repo data changes, but an update to rev and signature.
 type SyncSubscribeRepos_Commit struct {
 	Blobs []util.LexLink `json:"blobs" cborgen:"blobs"`
-	// blocks: CAR file containing relevant blocks.
-	Blocks util.LexBytes                `json:"blocks,omitempty" cborgen:"blocks,omitempty"`
+	// blocks: CAR file containing relevant blocks, as a diff since the previous repo state.
+	Blocks util.LexBytes `json:"blocks,omitempty" cborgen:"blocks,omitempty"`
+	// commit: Repo commit object CID.
 	Commit util.LexLink                 `json:"commit" cborgen:"commit"`
 	Ops    []*SyncSubscribeRepos_RepoOp `json:"ops" cborgen:"ops"`
-	Prev   *util.LexLink                `json:"prev" cborgen:"prev"`
-	Rebase bool                         `json:"rebase" cborgen:"rebase"`
-	Repo   string                       `json:"repo" cborgen:"repo"`
-	// rev: The rev of the emitted commit.
+	// prev: DEPRECATED -- unused. WARNING -- nullable and optional; stick with optional to ensure golang interoperability.
+	Prev *util.LexLink `json:"prev" cborgen:"prev"`
+	// rebase: DEPRECATED -- unused
+	Rebase bool `json:"rebase" cborgen:"rebase"`
+	// repo: The repo this event comes from.
+	Repo string `json:"repo" cborgen:"repo"`
+	// rev: The rev of the emitted commit. Note that this information is also in the commit object included in blocks, unless this is a tooBig event.
 	Rev string `json:"rev" cborgen:"rev"`
-	Seq int64  `json:"seq" cborgen:"seq"`
-	// since: The rev of the last emitted commit from this repo.
-	Since  *string `json:"since" cborgen:"since"`
-	Time   string  `json:"time" cborgen:"time"`
-	TooBig bool    `json:"tooBig" cborgen:"tooBig"`
+	// seq: The stream sequence number of this message.
+	Seq int64 `json:"seq" cborgen:"seq"`
+	// since: The rev of the last emitted commit from this repo (if any).
+	Since *string `json:"since" cborgen:"since"`
+	// time: Timestamp of when this message was originally broadcast.
+	Time string `json:"time" cborgen:"time"`
+	// tooBig: Indicates that this commit contained too many ops, or data size was too large. Consumers will need to make a separate request to get missing data.
+	TooBig bool `json:"tooBig" cborgen:"tooBig"`
 }
 
 // SyncSubscribeRepos_Handle is a "handle" in the com.atproto.sync.subscribeRepos schema.
+//
+// Represents an update of the account's handle, or transition to/from invalid state. NOTE: Will be deprecated in favor of #identity.
 type SyncSubscribeRepos_Handle struct {
 	Did    string `json:"did" cborgen:"did"`
 	Handle string `json:"handle" cborgen:"handle"`
 	Seq    int64  `json:"seq" cborgen:"seq"`
 	Time   string `json:"time" cborgen:"time"`
+}
+
+// SyncSubscribeRepos_Identity is a "identity" in the com.atproto.sync.subscribeRepos schema.
+//
+// Represents a change to an account's identity. Could be an updated handle, signing key, or pds hosting endpoint. Serves as a prod to all downstream services to refresh their identity cache.
+type SyncSubscribeRepos_Identity struct {
+	Did string `json:"did" cborgen:"did"`
+	Seq int64  `json:"seq" cborgen:"seq"`
 }
 
 // SyncSubscribeRepos_Info is a "info" in the com.atproto.sync.subscribeRepos schema.
@@ -42,6 +61,8 @@ type SyncSubscribeRepos_Info struct {
 }
 
 // SyncSubscribeRepos_Migrate is a "migrate" in the com.atproto.sync.subscribeRepos schema.
+//
+// Represents an account moving from one PDS instance to another. NOTE: not implemented; account migration uses #identity instead
 type SyncSubscribeRepos_Migrate struct {
 	Did       string  `json:"did" cborgen:"did"`
 	MigrateTo *string `json:"migrateTo" cborgen:"migrateTo"`
@@ -51,14 +72,17 @@ type SyncSubscribeRepos_Migrate struct {
 
 // SyncSubscribeRepos_RepoOp is a "repoOp" in the com.atproto.sync.subscribeRepos schema.
 //
-// A repo operation, ie a write of a single record. For creates and updates, CID is the record's CID as of this operation. For deletes, it's null.
+// A repo operation, ie a mutation of a single record.
 type SyncSubscribeRepos_RepoOp struct {
-	Action string        `json:"action" cborgen:"action"`
-	Cid    *util.LexLink `json:"cid" cborgen:"cid"`
-	Path   string        `json:"path" cborgen:"path"`
+	Action string `json:"action" cborgen:"action"`
+	// cid: For creates and updates, the new record CID. For deletions, null.
+	Cid  *util.LexLink `json:"cid" cborgen:"cid"`
+	Path string        `json:"path" cborgen:"path"`
 }
 
 // SyncSubscribeRepos_Tombstone is a "tombstone" in the com.atproto.sync.subscribeRepos schema.
+//
+// Indicates that an account has been deleted. NOTE: may be deprecated in favor of #identity or a future #account event
 type SyncSubscribeRepos_Tombstone struct {
 	Did  string `json:"did" cborgen:"did"`
 	Seq  int64  `json:"seq" cborgen:"seq"`

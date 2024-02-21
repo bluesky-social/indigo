@@ -55,6 +55,9 @@ func (t *GraphGetRelationships_Output_Relationships_Elem) UnmarshalJSON(b []byte
 }
 
 // GraphGetRelationships calls the XRPC method "app.bsky.graph.getRelationships".
+//
+// actor: Primary account requesting relationships for.
+// others: List of 'other' accounts to be related back to the primary.
 func GraphGetRelationships(ctx context.Context, c *xrpc.Client, actor string, others []string) (*GraphGetRelationships_Output, error) {
 	var out GraphGetRelationships_Output
 

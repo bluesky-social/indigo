@@ -118,7 +118,17 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 	// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
 
 	// AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, inc ludeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string)
-	resp, err := comatproto.AdminQueryModerationEvents(ctx, xrpcc, xrpcc.Auth.Did, "", false, 5, "", did.String(), []string{"com.atproto.admin.defs#modEventReport"})
+	resp, err := comatproto.AdminQueryModerationEvents(
+		ctx,
+		xrpcc,
+		xrpcc.Auth.Did,
+		"",
+		false,
+		5,
+		"",
+		did.String(),
+		[]string{"com.atproto.admin.defs#modEventReport"},
+	)
 	if err != nil {
 		return false, err
 	}

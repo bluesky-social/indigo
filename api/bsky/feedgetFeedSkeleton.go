@@ -17,6 +17,8 @@ type FeedGetFeedSkeleton_Output struct {
 }
 
 // FeedGetFeedSkeleton calls the XRPC method "app.bsky.feed.getFeedSkeleton".
+//
+// feed: Reference to feed generator record describing the specific feed being requested.
 func FeedGetFeedSkeleton(ctx context.Context, c *xrpc.Client, cursor string, feed string, limit int64) (*FeedGetFeedSkeleton_Output, error) {
 	var out FeedGetFeedSkeleton_Output
 

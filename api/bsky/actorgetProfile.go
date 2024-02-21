@@ -11,6 +11,8 @@ import (
 )
 
 // ActorGetProfile calls the XRPC method "app.bsky.actor.getProfile".
+//
+// actor: Handle or DID of account to fetch profile of.
 func ActorGetProfile(ctx context.Context, c *xrpc.Client, actor string) (*ActorDefs_ProfileViewDetailed, error) {
 	var out ActorDefs_ProfileViewDetailed
 

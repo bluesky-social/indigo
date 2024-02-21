@@ -12,13 +12,13 @@ import (
 
 // ServerReserveSigningKey_Input is the input argument to a com.atproto.server.reserveSigningKey call.
 type ServerReserveSigningKey_Input struct {
-	// did: The did to reserve a new did:key for
+	// did: The DID to reserve a key for.
 	Did *string `json:"did,omitempty" cborgen:"did,omitempty"`
 }
 
 // ServerReserveSigningKey_Output is the output of a com.atproto.server.reserveSigningKey call.
 type ServerReserveSigningKey_Output struct {
-	// signingKey: Public signing key in the form of a did:key.
+	// signingKey: The public key for the reserved signing key, in did:key serialization.
 	SigningKey string `json:"signingKey" cborgen:"signingKey"`
 }
 

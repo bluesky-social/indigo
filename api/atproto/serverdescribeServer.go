@@ -18,10 +18,15 @@ type ServerDescribeServer_Links struct {
 
 // ServerDescribeServer_Output is the output of a com.atproto.server.describeServer call.
 type ServerDescribeServer_Output struct {
-	AvailableUserDomains      []string                    `json:"availableUserDomains" cborgen:"availableUserDomains"`
-	InviteCodeRequired        *bool                       `json:"inviteCodeRequired,omitempty" cborgen:"inviteCodeRequired,omitempty"`
-	Links                     *ServerDescribeServer_Links `json:"links,omitempty" cborgen:"links,omitempty"`
-	PhoneVerificationRequired *bool                       `json:"phoneVerificationRequired,omitempty" cborgen:"phoneVerificationRequired,omitempty"`
+	// availableUserDomains: List of domain suffixes that can be used in account handles.
+	AvailableUserDomains []string `json:"availableUserDomains" cborgen:"availableUserDomains"`
+	Did                  string   `json:"did" cborgen:"did"`
+	// inviteCodeRequired: If true, an invite code must be supplied to create an account on this instance.
+	InviteCodeRequired *bool `json:"inviteCodeRequired,omitempty" cborgen:"inviteCodeRequired,omitempty"`
+	// links: URLs of service policy documents.
+	Links *ServerDescribeServer_Links `json:"links,omitempty" cborgen:"links,omitempty"`
+	// phoneVerificationRequired: If true, a phone verification token must be supplied to create an account on this instance.
+	PhoneVerificationRequired *bool `json:"phoneVerificationRequired,omitempty" cborgen:"phoneVerificationRequired,omitempty"`
 }
 
 // ServerDescribeServer calls the XRPC method "com.atproto.server.describeServer".
