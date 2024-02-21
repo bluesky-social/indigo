@@ -50,8 +50,9 @@ type SyncSubscribeRepos_Handle struct {
 //
 // Represents a change to an account's identity. Could be an updated handle, signing key, or pds hosting endpoint. Serves as a prod to all downstream services to refresh their identity cache.
 type SyncSubscribeRepos_Identity struct {
-	Did string `json:"did" cborgen:"did"`
-	Seq int64  `json:"seq" cborgen:"seq"`
+	Did  string `json:"did" cborgen:"did"`
+	Seq  int64  `json:"seq" cborgen:"seq"`
+	Time string `json:"time" cborgen:"time"`
 }
 
 // SyncSubscribeRepos_Info is a "info" in the com.atproto.sync.subscribeRepos schema.

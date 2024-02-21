@@ -946,8 +946,9 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		// Broadcast the identity event to all consumers
 		err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
 			Identity: &comatproto.SyncSubscribeRepos_Identity{
-				Did: env.Identity.Did,
-				Seq: env.Identity.Seq,
+				Did:  env.Identity.Did,
+				Seq:  env.Identity.Seq,
+				Time: env.Identity.Time,
 			},
 		})
 		if err != nil {
