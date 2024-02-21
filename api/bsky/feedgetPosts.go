@@ -16,6 +16,8 @@ type FeedGetPosts_Output struct {
 }
 
 // FeedGetPosts calls the XRPC method "app.bsky.feed.getPosts".
+//
+// uris: List of post AT-URIs to return hydrated views for.
 func FeedGetPosts(ctx context.Context, c *xrpc.Client, uris []string) (*FeedGetPosts_Output, error) {
 	var out FeedGetPosts_Output
 

@@ -469,7 +469,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 		inpvar = "input"
 		inpenc = s.Input.Encoding
 		switch s.Input.Encoding {
-		case EncodingCBOR, EncodingANY:
+		case EncodingCBOR, EncodingCAR, EncodingANY:
 			params = fmt.Sprintf("%s, input io.Reader", params)
 		case EncodingJSON:
 			params = fmt.Sprintf("%s, input *%s_Input", params, fname)

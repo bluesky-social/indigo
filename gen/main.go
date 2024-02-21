@@ -67,6 +67,7 @@ func main() {
 		atproto.RepoStrongRef{},
 		atproto.SyncSubscribeRepos_Commit{},
 		atproto.SyncSubscribeRepos_Handle{},
+		atproto.SyncSubscribeRepos_Identity{},
 		atproto.SyncSubscribeRepos_Info{},
 		atproto.SyncSubscribeRepos_Migrate{},
 		atproto.SyncSubscribeRepos_RepoOp{},

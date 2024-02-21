@@ -411,6 +411,8 @@ type FeedDefs_ThreadgateView struct {
 }
 
 // FeedDefs_ViewerState is a "viewerState" in the app.bsky.feed.defs schema.
+//
+// Metadata about the requesting account's relationship with the subject content. Only has meaningful content for authed requests.
 type FeedDefs_ViewerState struct {
 	Like          *string `json:"like,omitempty" cborgen:"like,omitempty"`
 	ReplyDisabled *bool   `json:"replyDisabled,omitempty" cborgen:"replyDisabled,omitempty"`

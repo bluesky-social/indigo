@@ -12,6 +12,7 @@ import (
 
 // IdentityUpdateHandle_Input is the input argument to a com.atproto.identity.updateHandle call.
 type IdentityUpdateHandle_Input struct {
+	// handle: The new handle.
 	Handle string `json:"handle" cborgen:"handle"`
 }
 

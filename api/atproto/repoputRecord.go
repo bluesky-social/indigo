@@ -17,15 +17,15 @@ type RepoPutRecord_Input struct {
 	Collection string `json:"collection" cborgen:"collection"`
 	// record: The record to write.
 	Record *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
-	// repo: The handle or DID of the repo.
+	// repo: The handle or DID of the repo (aka, current account).
 	Repo string `json:"repo" cborgen:"repo"`
-	// rkey: The key of the record.
+	// rkey: The Record Key.
 	Rkey string `json:"rkey" cborgen:"rkey"`
 	// swapCommit: Compare and swap with the previous commit by CID.
 	SwapCommit *string `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
-	// swapRecord: Compare and swap with the previous record by CID.
+	// swapRecord: Compare and swap with the previous record by CID. WARNING: nullable and optional field; may cause problems with golang implementation
 	SwapRecord *string `json:"swapRecord" cborgen:"swapRecord"`
-	// validate: Flag for validating the record.
+	// validate: Can be set to 'false' to skip Lexicon schema validation of record data.
 	Validate *bool `json:"validate,omitempty" cborgen:"validate,omitempty"`
 }
 

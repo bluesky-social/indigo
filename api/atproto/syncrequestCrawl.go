@@ -12,7 +12,7 @@ import (
 
 // SyncRequestCrawl_Input is the input argument to a com.atproto.sync.requestCrawl call.
 type SyncRequestCrawl_Input struct {
-	// hostname: Hostname of the service that is requesting to be crawled.
+	// hostname: Hostname of the current service (eg, PDS) that is requesting to be crawled.
 	Hostname string `json:"hostname" cborgen:"hostname"`
 }
 

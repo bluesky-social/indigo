@@ -17,6 +17,8 @@ type FeedGetTimeline_Output struct {
 }
 
 // FeedGetTimeline calls the XRPC method "app.bsky.feed.getTimeline".
+//
+// algorithm: Variant 'algorithm' for timeline. Implementation-specific. NOTE: most feed flexibility has been moved to feed generator mechanism.
 func FeedGetTimeline(ctx context.Context, c *xrpc.Client, algorithm string, cursor string, limit int64) (*FeedGetTimeline_Output, error) {
 	var out FeedGetTimeline_Output
 

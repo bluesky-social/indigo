@@ -29,6 +29,8 @@ func (yp *YoloPersister) Persist(ctx context.Context, e *XRPCStreamEvent) error 
 		e.RepoCommit.Seq = yp.seq
 	case e.RepoHandle != nil:
 		e.RepoHandle.Seq = yp.seq
+	case e.Identity != nil:
+		e.Identity.Seq = yp.seq
 	case e.RepoMigrate != nil:
 		e.RepoMigrate.Seq = yp.seq
 	case e.RepoTombstone != nil:

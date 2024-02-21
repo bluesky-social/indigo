@@ -15,6 +15,8 @@ import (
 )
 
 // RichtextFacet is a "main" in the app.bsky.richtext.facet schema.
+//
+// Annotation of a sub-string within rich text.
 type RichtextFacet struct {
 	Features []*RichtextFacet_Features_Elem `json:"features" cborgen:"features"`
 	Index    *RichtextFacet_ByteSlice       `json:"index" cborgen:"index"`
@@ -22,7 +24,7 @@ type RichtextFacet struct {
 
 // RichtextFacet_ByteSlice is a "byteSlice" in the app.bsky.richtext.facet schema.
 //
-// A text segment. Start is inclusive, end is exclusive. Indices are for utf8-encoded strings.
+// Specifies the sub-string range a facet feature applies to. Start index is inclusive, end index is exclusive. Indices are zero-indexed, counting bytes of the UTF-8 encoded text. NOTE: some languages, like Javascript, use UTF-16 or Unicode codepoints for string slice indexing; in these languages, convert to byte arrays before working with facets.
 type RichtextFacet_ByteSlice struct {
 	ByteEnd   int64 `json:"byteEnd" cborgen:"byteEnd"`
 	ByteStart int64 `json:"byteStart" cborgen:"byteStart"`
@@ -112,7 +114,7 @@ func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
 
 // RichtextFacet_Link is a "link" in the app.bsky.richtext.facet schema.
 //
-// A facet feature for links.
+// Facet feature for a URL. The text URL may have been simplified or truncated, but the facet reference should be a complete URL.
 //
 // RECORDTYPE: RichtextFacet_Link
 type RichtextFacet_Link struct {
@@ -122,7 +124,7 @@ type RichtextFacet_Link struct {
 
 // RichtextFacet_Mention is a "mention" in the app.bsky.richtext.facet schema.
 //
-// A facet feature for actor mentions.
+// Facet feature for mention of another account. The text is usually a handle, including a '@' prefix, but the facet reference is a DID.
 //
 // RECORDTYPE: RichtextFacet_Mention
 type RichtextFacet_Mention struct {
@@ -132,7 +134,7 @@ type RichtextFacet_Mention struct {
 
 // RichtextFacet_Tag is a "tag" in the app.bsky.richtext.facet schema.
 //
-// A hashtag.
+// Facet feature for a hashtag. The text usually includes a '#' prefix, but the facet reference should not (except in the case of 'double hash tags').
 //
 // RECORDTYPE: RichtextFacet_Tag
 type RichtextFacet_Tag struct {

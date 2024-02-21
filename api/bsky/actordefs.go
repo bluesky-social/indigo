@@ -186,6 +186,7 @@ type ActorDefs_SavedFeedsPref struct {
 	LexiconTypeID string   `json:"$type,const=app.bsky.actor.defs#savedFeedsPref" cborgen:"$type,const=app.bsky.actor.defs#savedFeedsPref"`
 	Pinned        []string `json:"pinned" cborgen:"pinned"`
 	Saved         []string `json:"saved" cborgen:"saved"`
+	TimelineIndex *int64   `json:"timelineIndex,omitempty" cborgen:"timelineIndex,omitempty"`
 }
 
 // ActorDefs_ThreadViewPref is a "threadViewPref" in the app.bsky.actor.defs schema.
@@ -200,6 +201,8 @@ type ActorDefs_ThreadViewPref struct {
 }
 
 // ActorDefs_ViewerState is a "viewerState" in the app.bsky.actor.defs schema.
+//
+// Metadata about the requesting account's relationship with the subject account. Only has meaningful content for authed requests.
 type ActorDefs_ViewerState struct {
 	BlockedBy      *bool                    `json:"blockedBy,omitempty" cborgen:"blockedBy,omitempty"`
 	Blocking       *string                  `json:"blocking,omitempty" cborgen:"blocking,omitempty"`

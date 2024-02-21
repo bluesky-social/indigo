@@ -932,6 +932,30 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		return nil
+	case env.Identity != nil:
+		log.Infow("bgs got identity event", "did", env.Identity.Did)
+		// Flush any cached DID documents for this user
+		bgs.didr.FlushCacheFor(env.Identity.Did)
+
+		// Refetch the DID doc and update our cached keys and handle etc.
+		_, err := bgs.createExternalUser(ctx, env.Identity.Did)
+		if err != nil {
+			return err
+		}
+
+		// Broadcast the identity event to all consumers
+		err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
+			Identity: &comatproto.SyncSubscribeRepos_Identity{
+				Did: env.Identity.Did,
+				Seq: env.Identity.Seq,
+			},
+		})
+		if err != nil {
+			log.Errorw("failed to broadcast Identity event", "error", err, "did", env.Identity.Did)
+			return fmt.Errorf("failed to broadcast Identity event: %w", err)
+		}
+
+		return nil
 	case env.RepoMigrate != nil:
 		if _, err := bgs.createExternalUser(ctx, env.RepoMigrate.Did); err != nil {
 			return err

@@ -20,18 +20,23 @@ func init() {
 } //
 // RECORDTYPE: FeedPost
 type FeedPost struct {
-	LexiconTypeID string          `json:"$type,const=app.bsky.feed.post" cborgen:"$type,const=app.bsky.feed.post"`
-	CreatedAt     string          `json:"createdAt" cborgen:"createdAt"`
-	Embed         *FeedPost_Embed `json:"embed,omitempty" cborgen:"embed,omitempty"`
-	// entities: Deprecated: replaced by app.bsky.richtext.facet.
+	LexiconTypeID string `json:"$type,const=app.bsky.feed.post" cborgen:"$type,const=app.bsky.feed.post"`
+	// createdAt: Client-declared timestamp when this post was originally created.
+	CreatedAt string          `json:"createdAt" cborgen:"createdAt"`
+	Embed     *FeedPost_Embed `json:"embed,omitempty" cborgen:"embed,omitempty"`
+	// entities: DEPRECATED: replaced by app.bsky.richtext.facet.
 	Entities []*FeedPost_Entity `json:"entities,omitempty" cborgen:"entities,omitempty"`
-	Facets   []*RichtextFacet   `json:"facets,omitempty" cborgen:"facets,omitempty"`
-	Labels   *FeedPost_Labels   `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	Langs    []string           `json:"langs,omitempty" cborgen:"langs,omitempty"`
-	Reply    *FeedPost_ReplyRef `json:"reply,omitempty" cborgen:"reply,omitempty"`
-	// tags: Additional non-inline tags describing this post.
+	// facets: Annotations of text (mentions, URLs, hashtags, etc)
+	Facets []*RichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
+	// labels: Self-label values for this post. Effectively content warnings.
+	Labels *FeedPost_Labels `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	// langs: Indicates human language of post primary text content.
+	Langs []string           `json:"langs,omitempty" cborgen:"langs,omitempty"`
+	Reply *FeedPost_ReplyRef `json:"reply,omitempty" cborgen:"reply,omitempty"`
+	// tags: Additional hashtags, in addition to any included in post text and facets.
 	Tags []string `json:"tags,omitempty" cborgen:"tags,omitempty"`
-	Text string   `json:"text" cborgen:"text"`
+	// text: The primary post content. May be an empty string, if there are embeds.
+	Text string `json:"text" cborgen:"text"`
 }
 
 type FeedPost_Embed struct {
@@ -140,6 +145,7 @@ type FeedPost_Entity struct {
 	Value string `json:"value" cborgen:"value"`
 }
 
+// Self-label values for this post. Effectively content warnings.
 type FeedPost_Labels struct {
 	LabelDefs_SelfLabels *comatprototypes.LabelDefs_SelfLabels
 }

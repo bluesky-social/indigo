@@ -126,6 +126,13 @@ func (s *Sonar) HandleStreamEvent(ctx context.Context, xe *events.XRPCStreamEven
 		lastEvtProcessedAtGauge.WithLabelValues(s.SocketURL).Set(float64(now.UnixNano()))
 		lastEvtCreatedEvtProcessedGapGauge.WithLabelValues(s.SocketURL).Set(float64(now.Sub(t).Seconds()))
 		lastSeqGauge.WithLabelValues(s.SocketURL).Set(float64(xe.RepoHandle.Seq))
+	case xe.Identity != nil:
+		eventsProcessedCounter.WithLabelValues("identity", s.SocketURL).Inc()
+		now := time.Now()
+		s.ProgMux.Lock()
+		s.Progress.LastSeq = xe.RepoHandle.Seq
+		s.Progress.LastSeqProcessedAt = now
+		s.ProgMux.Unlock()
 	case xe.RepoInfo != nil:
 		eventsProcessedCounter.WithLabelValues("repo_info", s.SocketURL).Inc()
 	case xe.RepoMigrate != nil:

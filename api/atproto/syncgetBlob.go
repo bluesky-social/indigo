@@ -14,7 +14,7 @@ import (
 // SyncGetBlob calls the XRPC method "com.atproto.sync.getBlob".
 //
 // cid: The CID of the blob to fetch
-// did: The DID of the repo.
+// did: The DID of the account.
 func SyncGetBlob(ctx context.Context, c *xrpc.Client, cid string, did string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 

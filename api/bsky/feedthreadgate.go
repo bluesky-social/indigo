@@ -22,7 +22,8 @@ type FeedThreadgate struct {
 	LexiconTypeID string                       `json:"$type,const=app.bsky.feed.threadgate" cborgen:"$type,const=app.bsky.feed.threadgate"`
 	Allow         []*FeedThreadgate_Allow_Elem `json:"allow,omitempty" cborgen:"allow,omitempty"`
 	CreatedAt     string                       `json:"createdAt" cborgen:"createdAt"`
-	Post          string                       `json:"post" cborgen:"post"`
+	// post: Reference (AT-URI) to the post record.
+	Post string `json:"post" cborgen:"post"`
 }
 
 type FeedThreadgate_Allow_Elem struct {

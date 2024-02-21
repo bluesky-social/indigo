@@ -17,6 +17,8 @@ type GraphGetLists_Output struct {
 }
 
 // GraphGetLists calls the XRPC method "app.bsky.graph.getLists".
+//
+// actor: The account (actor) to enumerate lists from.
 func GraphGetLists(ctx context.Context, c *xrpc.Client, actor string, cursor string, limit int64) (*GraphGetLists_Output, error) {
 	var out GraphGetLists_Output
 

@@ -15,7 +15,7 @@ import (
 
 // RepoApplyWrites_Create is a "create" in the com.atproto.repo.applyWrites schema.
 //
-// Create a new record.
+// Operation which creates a new record.
 //
 // RECORDTYPE: RepoApplyWrites_Create
 type RepoApplyWrites_Create struct {
@@ -27,7 +27,7 @@ type RepoApplyWrites_Create struct {
 
 // RepoApplyWrites_Delete is a "delete" in the com.atproto.repo.applyWrites schema.
 //
-// Delete an existing record.
+// Operation which deletes an existing record.
 //
 // RECORDTYPE: RepoApplyWrites_Delete
 type RepoApplyWrites_Delete struct {
@@ -38,10 +38,11 @@ type RepoApplyWrites_Delete struct {
 
 // RepoApplyWrites_Input is the input argument to a com.atproto.repo.applyWrites call.
 type RepoApplyWrites_Input struct {
-	// repo: The handle or DID of the repo.
-	Repo       string  `json:"repo" cborgen:"repo"`
+	// repo: The handle or DID of the repo (aka, current account).
+	Repo string `json:"repo" cborgen:"repo"`
+	// swapCommit: If provided, the entire operation will fail if the current repo commit CID does not match this value. Used to prevent conflicting repo mutations.
 	SwapCommit *string `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
-	// validate: Flag for validating the records.
+	// validate: Can be set to 'false' to skip Lexicon schema validation of record data, for all operations.
 	Validate *bool                                `json:"validate,omitempty" cborgen:"validate,omitempty"`
 	Writes   []*RepoApplyWrites_Input_Writes_Elem `json:"writes" cborgen:"writes"`
 }
@@ -91,7 +92,7 @@ func (t *RepoApplyWrites_Input_Writes_Elem) UnmarshalJSON(b []byte) error {
 
 // RepoApplyWrites_Update is a "update" in the com.atproto.repo.applyWrites schema.
 //
-// Update an existing record.
+// Operation which updates an existing record.
 //
 // RECORDTYPE: RepoApplyWrites_Update
 type RepoApplyWrites_Update struct {
