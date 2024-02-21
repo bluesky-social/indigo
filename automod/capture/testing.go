@@ -1,6 +1,7 @@
 package capture
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -55,6 +56,11 @@ func ProcessCaptureRules(eng *automod.Engine, capture AccountCapture) error {
 			return err
 		}
 		recCID := syntax.CID(pr.Cid)
+		recBuf := new(bytes.Buffer)
+		if err := pr.Value.Val.MarshalCBOR(recBuf); err != nil {
+			return err
+		}
+		recBytes := recBuf.Bytes()
 		eng.Logger.Debug("processing record", "did", did)
 		op := automod.RecordOp{
 			Action:     automod.CreateOp,
@@ -62,7 +68,7 @@ func ProcessCaptureRules(eng *automod.Engine, capture AccountCapture) error {
 			Collection: aturi.Collection(),
 			RecordKey:  aturi.RecordKey(),
 			CID:        &recCID,
-			Value:      pr.Value.Val,
+			RecordCBOR: &recBytes,
 		}
 		eng.ProcessRecordOp(ctx, op)
 	}
