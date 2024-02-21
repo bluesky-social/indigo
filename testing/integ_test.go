@@ -38,6 +38,7 @@ func TestBGSBasic(t *testing.T) {
 	b1.tr.TrialHosts = []string{p1.RawHost()}
 
 	p1.RequestScraping(t, b1)
+	p1.BumpLimits(t, b1)
 
 	time.Sleep(time.Millisecond * 50)
 
@@ -134,6 +135,7 @@ func TestBGSMultiPDS(t *testing.T) {
 	b1.tr.TrialHosts = []string{p1.RawHost(), p2.RawHost()}
 
 	p1.RequestScraping(t, b1)
+	p1.BumpLimits(t, b1)
 	time.Sleep(time.Millisecond * 100)
 
 	var users []*TestUser
@@ -163,6 +165,7 @@ func TestBGSMultiPDS(t *testing.T) {
 	time.Sleep(time.Second)
 
 	p2.RequestScraping(t, b1)
+	p2.BumpLimits(t, b1)
 	time.Sleep(time.Millisecond * 50)
 
 	// Now, the bgs will discover a gap, and have to catch up somehow
@@ -200,6 +203,7 @@ func TestBGSMultiGap(t *testing.T) {
 	b1.tr.TrialHosts = []string{p1.RawHost(), p2.RawHost()}
 
 	p1.RequestScraping(t, b1)
+	p1.BumpLimits(t, b1)
 	time.Sleep(time.Millisecond * 250)
 
 	users := []*TestUser{p1.MustNewUser(t, usernames[0]+".pdsuno")}
@@ -226,6 +230,7 @@ func TestBGSMultiGap(t *testing.T) {
 	time.Sleep(time.Second)
 
 	p2.RequestScraping(t, b1)
+	p2.BumpLimits(t, b1)
 	time.Sleep(time.Second * 2)
 
 	// Now, the bgs will discover a gap, and have to catch up somehow
@@ -256,6 +261,7 @@ func TestHandleChange(t *testing.T) {
 	b1.tr.TrialHosts = []string{p1.RawHost()}
 
 	p1.RequestScraping(t, b1)
+	p1.BumpLimits(t, b1)
 	time.Sleep(time.Millisecond * 50)
 
 	evts := b1.Events(t, -1)
@@ -294,6 +300,7 @@ func TestBGSTakedown(t *testing.T) {
 	b1.tr.TrialHosts = []string{p1.RawHost()}
 
 	p1.RequestScraping(t, b1)
+	p1.BumpLimits(t, b1)
 
 	time.Sleep(time.Millisecond * 50)
 	es1 := b1.Events(t, 0)
@@ -415,6 +422,7 @@ func TestBGSHandleEmptyEvent(t *testing.T) {
 	b1.tr.TrialHosts = []string{p1.RawHost()}
 
 	p1.RequestScraping(t, b1)
+	p1.BumpLimits(t, b1)
 
 	time.Sleep(time.Millisecond * 50)
 

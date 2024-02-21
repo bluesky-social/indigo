@@ -162,7 +162,7 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 	// Maybe we could do something with this response later
 	_ = desc
 
-	return s.slurper.SubscribeToPds(ctx, host, true)
+	return s.slurper.SubscribeToPds(ctx, host, true, false)
 }
 
 func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, body *comatprototypes.SyncNotifyOfUpdate_Input) error {

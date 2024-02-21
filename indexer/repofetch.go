@@ -17,12 +17,13 @@ import (
 	"gorm.io/gorm"
 )
 
-func NewRepoFetcher(db *gorm.DB, rm *repomgr.RepoManager) *RepoFetcher {
+func NewRepoFetcher(db *gorm.DB, rm *repomgr.RepoManager, maxConcurrency int) *RepoFetcher {
 	return &RepoFetcher{
 		repoman:                rm,
 		db:                     db,
 		Limiters:               make(map[uint]*rate.Limiter),
 		ApplyPDSClientSettings: func(*xrpc.Client) {},
+		MaxConcurrency:         maxConcurrency,
 	}
 }
 
@@ -32,6 +33,8 @@ type RepoFetcher struct {
 
 	Limiters map[uint]*rate.Limiter
 	LimitMux sync.RWMutex
+
+	MaxConcurrency int
 
 	ApplyPDSClientSettings func(*xrpc.Client)
 }

@@ -10,4 +10,6 @@ services:
         target: /var/lib/postgresql/data
     restart: always
     environment:
+      POSTGRES_USER: bgs
       POSTGRES_PASSWORD: 33pAstcHDMszLedQah2EVYNgnxbCP
+      POSTGRES_DB: bgs

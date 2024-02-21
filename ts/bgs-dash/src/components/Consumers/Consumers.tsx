@@ -5,7 +5,7 @@ import Notification, {
   NotificationType,
 } from "../Notification/Notification";
 
-import { BGS_HOST } from "../../constants";
+import { RELAY_HOST } from "../../constants";
 
 import { useNavigate } from "react-router-dom";
 import { Consumer, ConsumerKey, ConsumerResponse } from "../../models/consumer";
@@ -51,7 +51,7 @@ const Consumers: FC<{}> = () => {
   }, []);
 
   const refreshPDSList = () => {
-    fetch(`${BGS_HOST}/admin/consumers/list`, {
+    fetch(`${RELAY_HOST}/admin/consumers/list`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -152,7 +152,7 @@ const Consumers: FC<{}> = () => {
             Consumer Connections
           </h1>
           <p className="mt-2 text-sm text-gray-700">
-            A list of all websocket consumers actively connected to the BGS
+            A list of all websocket consumers actively connected to the Relay
           </p>
         </div>
       </div>
@@ -175,11 +175,10 @@ const Consumers: FC<{}> = () => {
                   >
                     ID
                     <span
-                      className={`ml-2 flex-none rounded text-gray-400 ${
-                        sortField === "ID"
-                          ? "group-hover:bg-gray-200"
-                          : "invisible group-hover:visible group-focus:visible"
-                      }`}
+                      className={`ml-2 flex-none rounded text-gray-400 ${sortField === "ID"
+                        ? "group-hover:bg-gray-200"
+                        : "invisible group-hover:visible group-focus:visible"
+                        }`}
                     >
                       {sortField === "ID" && sortOrder === "asc" ? (
                         <ChevronUpIcon className="h-5 w-5" aria-hidden="true" />
@@ -206,11 +205,10 @@ const Consumers: FC<{}> = () => {
                   >
                     Remote Address
                     <span
-                      className={`ml-2 flex-none rounded text-gray-400 ${
-                        sortField === "RemoteAddr"
-                          ? "group-hover:bg-gray-200"
-                          : "invisible group-hover:visible group-focus:visible"
-                      }`}
+                      className={`ml-2 flex-none rounded text-gray-400 ${sortField === "RemoteAddr"
+                        ? "group-hover:bg-gray-200"
+                        : "invisible group-hover:visible group-focus:visible"
+                        }`}
                     >
                       {sortField === "RemoteAddr" && sortOrder === "asc" ? (
                         <ChevronUpIcon className="h-5 w-5" aria-hidden="true" />
@@ -237,11 +235,10 @@ const Consumers: FC<{}> = () => {
                   >
                     User Agent
                     <span
-                      className={`ml-2 flex-none rounded text-gray-400 ${
-                        sortField === "UserAgent"
-                          ? "group-hover:bg-gray-200"
-                          : "invisible group-hover:visible group-focus:visible"
-                      }`}
+                      className={`ml-2 flex-none rounded text-gray-400 ${sortField === "UserAgent"
+                        ? "group-hover:bg-gray-200"
+                        : "invisible group-hover:visible group-focus:visible"
+                        }`}
                     >
                       {sortField === "UserAgent" && sortOrder === "asc" ? (
                         <ChevronUpIcon className="h-5 w-5" aria-hidden="true" />
@@ -268,11 +265,10 @@ const Consumers: FC<{}> = () => {
                   >
                     Events Consumed
                     <span
-                      className={`ml-2 flex-none rounded text-gray-400 ${
-                        sortField === "EventsConsumed"
-                          ? "group-hover:bg-gray-200"
-                          : "invisible group-hover:visible group-focus:visible"
-                      }`}
+                      className={`ml-2 flex-none rounded text-gray-400 ${sortField === "EventsConsumed"
+                        ? "group-hover:bg-gray-200"
+                        : "invisible group-hover:visible group-focus:visible"
+                        }`}
                     >
                       {sortField === "EventsConsumed" && sortOrder === "asc" ? (
                         <ChevronUpIcon className="h-5 w-5" aria-hidden="true" />
@@ -299,11 +295,10 @@ const Consumers: FC<{}> = () => {
                   >
                     Connected At
                     <span
-                      className={`ml-2 flex-none rounded text-gray-400 ${
-                        sortField === "ConnectedAt"
-                          ? "group-hover:bg-gray-200"
-                          : "invisible group-hover:visible group-focus:visible"
-                      }`}
+                      className={`ml-2 flex-none rounded text-gray-400 ${sortField === "ConnectedAt"
+                        ? "group-hover:bg-gray-200"
+                        : "invisible group-hover:visible group-focus:visible"
+                        }`}
                     >
                       {sortField === "ConnectedAt" && sortOrder === "asc" ? (
                         <ChevronUpIcon className="h-5 w-5" aria-hidden="true" />
