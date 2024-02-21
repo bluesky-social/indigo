@@ -12,6 +12,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 
@@ -79,15 +80,27 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 		// TODO: other event callbacks as needed
 	}
 
-	// start at higher parallelism (somewhat arbitrary)
-	return events.HandleRepoStream(
-		ctx, con, parallel.NewScheduler(
-			200,
+	var scheduler events.Scheduler
+	if s.firehoseParallelism > 0 {
+		// use a fixed-parallelism scheduler if configured
+		scheduler = parallel.NewScheduler(
+			s.firehoseParallelism,
 			1000,
 			s.bgshost,
 			rsc.EventHandler,
-		),
-	)
+		)
+		s.logger.Info("hepa scheduler configured", "scheduler", "parallel", "initial", s.firehoseParallelism)
+	} else {
+		// otherwise use auto-scaling scheduler
+		scaleSettings := autoscaling.DefaultAutoscaleSettings()
+		// start at higher parallelism (somewhat arbitrary)
+		scaleSettings.Concurrency = 4
+		scaleSettings.MaxConcurrency = 200
+		scheduler = autoscaling.NewScheduler(scaleSettings, s.bgshost, rsc.EventHandler)
+		s.logger.Info("hepa scheduler configured", "scheduler", "autoscaling", "initial", scaleSettings.Concurrency, "max", scaleSettings.MaxConcurrency)
+	}
+
+	return events.HandleRepoStream(ctx, con, scheduler)
 }
 
 // TODO: move this to a "ParsePath" helper in syntax package?
