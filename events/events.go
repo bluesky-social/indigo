@@ -137,6 +137,7 @@ type XRPCStreamEvent struct {
 	Error         *ErrorFrame
 	RepoCommit    *comatproto.SyncSubscribeRepos_Commit
 	RepoHandle    *comatproto.SyncSubscribeRepos_Handle
+	RepoIdentity  *comatproto.SyncSubscribeRepos_Identity
 	RepoInfo      *comatproto.SyncSubscribeRepos_Info
 	RepoMigrate   *comatproto.SyncSubscribeRepos_Migrate
 	RepoTombstone *comatproto.SyncSubscribeRepos_Tombstone
@@ -279,6 +280,8 @@ func sequenceForEvent(evt *XRPCStreamEvent) int64 {
 		return evt.RepoMigrate.Seq
 	case evt.RepoTombstone != nil:
 		return evt.RepoTombstone.Seq
+	case evt.RepoIdentity != nil:
+		return evt.RepoIdentity.Seq
 	case evt.RepoInfo != nil:
 		return -1
 	case evt.Error != nil:

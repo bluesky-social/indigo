@@ -15,6 +15,8 @@ func init() {
 type GraphListitem struct {
 	LexiconTypeID string `json:"$type,const=app.bsky.graph.listitem" cborgen:"$type,const=app.bsky.graph.listitem"`
 	CreatedAt     string `json:"createdAt" cborgen:"createdAt"`
-	List          string `json:"list" cborgen:"list"`
-	Subject       string `json:"subject" cborgen:"subject"`
+	// list: Reference (AT-URI) to the list record (app.bsky.graph.list).
+	List string `json:"list" cborgen:"list"`
+	// subject: The account which is included on the list.
+	Subject string `json:"subject" cborgen:"subject"`
 }

@@ -14,9 +14,9 @@ import (
 type RepoDeleteRecord_Input struct {
 	// collection: The NSID of the record collection.
 	Collection string `json:"collection" cborgen:"collection"`
-	// repo: The handle or DID of the repo.
+	// repo: The handle or DID of the repo (aka, current account).
 	Repo string `json:"repo" cborgen:"repo"`
-	// rkey: The key of the record.
+	// rkey: The Record Key.
 	Rkey string `json:"rkey" cborgen:"rkey"`
 	// swapCommit: Compare and swap with the previous commit by CID.
 	SwapCommit *string `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`

@@ -15,6 +15,7 @@ import (
 //
 // commit: An optional past commit CID.
 // did: The DID of the repo.
+// rkey: Record Key
 func SyncGetRecord(ctx context.Context, c *xrpc.Client, collection string, commit string, did string, rkey string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 

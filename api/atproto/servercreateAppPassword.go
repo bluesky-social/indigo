@@ -19,6 +19,7 @@ type ServerCreateAppPassword_AppPassword struct {
 
 // ServerCreateAppPassword_Input is the input argument to a com.atproto.server.createAppPassword call.
 type ServerCreateAppPassword_Input struct {
+	// name: A short name for the App Password, to help distinguish them.
 	Name string `json:"name" cborgen:"name"`
 }
 

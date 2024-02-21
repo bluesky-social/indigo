@@ -12,7 +12,7 @@ import (
 
 // SyncNotifyOfUpdate_Input is the input argument to a com.atproto.sync.notifyOfUpdate call.
 type SyncNotifyOfUpdate_Input struct {
-	// hostname: Hostname of the service that is notifying of update.
+	// hostname: Hostname of the current service (usually a PDS) that is notifying of update.
 	Hostname string `json:"hostname" cborgen:"hostname"`
 }
 

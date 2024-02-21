@@ -12,11 +12,14 @@ import (
 
 // RepoDescribeRepo_Output is the output of a com.atproto.repo.describeRepo call.
 type RepoDescribeRepo_Output struct {
-	Collections     []string    `json:"collections" cborgen:"collections"`
-	Did             string      `json:"did" cborgen:"did"`
-	DidDoc          interface{} `json:"didDoc" cborgen:"didDoc"`
-	Handle          string      `json:"handle" cborgen:"handle"`
-	HandleIsCorrect bool        `json:"handleIsCorrect" cborgen:"handleIsCorrect"`
+	// collections: List of all the collections (NSIDs) for which this repo contains at least one record.
+	Collections []string `json:"collections" cborgen:"collections"`
+	Did         string   `json:"did" cborgen:"did"`
+	// didDoc: The complete DID document for this account.
+	DidDoc interface{} `json:"didDoc" cborgen:"didDoc"`
+	Handle string      `json:"handle" cborgen:"handle"`
+	// handleIsCorrect: Indicates if handle is currently valid (resolves bi-directionally)
+	HandleIsCorrect bool `json:"handleIsCorrect" cborgen:"handleIsCorrect"`
 }
 
 // RepoDescribeRepo calls the XRPC method "com.atproto.repo.describeRepo".

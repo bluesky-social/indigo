@@ -14,7 +14,7 @@ import (
 // SyncGetRepo calls the XRPC method "com.atproto.sync.getRepo".
 //
 // did: The DID of the repo.
-// since: The revision of the repo to catch up from.
+// since: The revision ('rev') of the repo to create a diff from.
 func SyncGetRepo(ctx context.Context, c *xrpc.Client, did string, since string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
