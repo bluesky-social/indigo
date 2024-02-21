@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"testing"
 
@@ -24,13 +25,17 @@ func TestEngineBasics(t *testing.T) {
 	p1 := appbsky.FeedPost{
 		Text: "some post blah",
 	}
+	p1buf := new(bytes.Buffer)
+	assert.NoError(p1.MarshalCBOR(p1buf))
+	p1cbor := p1buf.Bytes()
+
 	op := RecordOp{
 		Action:     CreateOp,
 		DID:        id1.DID,
 		Collection: syntax.NSID("app.bsky.feed.post"),
 		RecordKey:  syntax.RecordKey("abc123"),
 		CID:        &cid1,
-		Value:      &p1,
+		RecordCBOR: &p1cbor,
 	}
 	assert.NoError(eng.ProcessRecordOp(ctx, op))
 
@@ -38,6 +43,9 @@ func TestEngineBasics(t *testing.T) {
 		Text: "some post blah",
 		Tags: []string{"one", "slur"},
 	}
-	op.Value = &p2
+	p2buf := new(bytes.Buffer)
+	assert.NoError(p2.MarshalCBOR(p2buf))
+	p2cbor := p2buf.Bytes()
+	op.RecordCBOR = &p2cbor
 	assert.NoError(eng.ProcessRecordOp(ctx, op))
 }
