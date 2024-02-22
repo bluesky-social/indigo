@@ -35,8 +35,8 @@ func ReplyCountPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error 
 	return nil
 }
 
-// triggers on the N+1 post, so 6th identical reply
-var identicalReplyLimit = 8
+// triggers on the N+1 post
+var identicalReplyLimit = 6
 
 var _ automod.PostRuleFunc = IdenticalReplyPostRule
 
