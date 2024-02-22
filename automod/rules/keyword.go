@@ -84,7 +84,7 @@ func BadWordOtherRecordRule(c *automod.RecordContext) error {
 	switch c.RecordOp.Collection.String() {
 	case "app.bsky.graph.list":
 		var list appbsky.GraphList
-		if err := list.UnmarshalCBOR(bytes.NewReader(*c.RecordOp.RecordCBOR)); err != nil {
+		if err := list.UnmarshalCBOR(bytes.NewReader(c.RecordOp.RecordCBOR)); err != nil {
 			return fmt.Errorf("failed to parse app.bsky.graph.list record: %v", err)
 		}
 		name += " " + list.Name
@@ -96,7 +96,7 @@ func BadWordOtherRecordRule(c *automod.RecordContext) error {
 		}
 	case "app.bsky.feed.generator":
 		var generator appbsky.FeedGenerator
-		if err := generator.UnmarshalCBOR(bytes.NewReader(*c.RecordOp.RecordCBOR)); err != nil {
+		if err := generator.UnmarshalCBOR(bytes.NewReader(c.RecordOp.RecordCBOR)); err != nil {
 			return fmt.Errorf("failed to parse app.bsky.feed.generator record: %v", err)
 		}
 		name += " " + generator.DisplayName

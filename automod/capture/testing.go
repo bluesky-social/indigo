@@ -68,7 +68,7 @@ func ProcessCaptureRules(eng *automod.Engine, capture AccountCapture) error {
 			Collection: aturi.Collection(),
 			RecordKey:  aturi.RecordKey(),
 			CID:        &recCID,
-			RecordCBOR: &recBytes,
+			RecordCBOR: recBytes,
 		}
 		eng.ProcessRecordOp(ctx, op)
 	}

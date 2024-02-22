@@ -80,7 +80,7 @@ func TestBadWordPostRule(t *testing.T) {
 		Collection: syntax.NSID("app.bsky.feed.post"),
 		RecordKey:  syntax.RecordKey("fagg0t"),
 		CID:        &cid1,
-		RecordCBOR: &p1cbor,
+		RecordCBOR: p1cbor,
 	}
 	c1 := engine.NewRecordContext(ctx, &eng, am1, op)
 	assert.NoError(BadWordRecordKeyRule(&c1))
@@ -100,7 +100,7 @@ func TestBadWordPostRule(t *testing.T) {
 		Collection: syntax.NSID("app.bsky.feed.post"),
 		RecordKey:  syntax.RecordKey("abc123"),
 		CID:        &cid1,
-		RecordCBOR: &p2cbor,
+		RecordCBOR: p2cbor,
 	}
 	c2 := engine.NewRecordContext(ctx, &eng, am1, op2)
 	assert.NoError(BadWordPostRule(&c2, &p2))

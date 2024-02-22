@@ -47,7 +47,7 @@ func FetchAndProcessRecord(ctx context.Context, eng *automod.Engine, aturi synta
 		Collection: aturi.Collection(),
 		RecordKey:  aturi.RecordKey(),
 		CID:        &recCID,
-		RecordCBOR: &recBytes,
+		RecordCBOR: recBytes,
 	}
 	return eng.ProcessRecordOp(ctx, op)
 }
@@ -96,7 +96,7 @@ func FetchAndProcessRecent(ctx context.Context, eng *automod.Engine, atid syntax
 			Collection: aturi.Collection(),
 			RecordKey:  aturi.RecordKey(),
 			CID:        &recCID,
-			RecordCBOR: &recBytes,
+			RecordCBOR: recBytes,
 		}
 		err = eng.ProcessRecordOp(ctx, op)
 		if err != nil {
