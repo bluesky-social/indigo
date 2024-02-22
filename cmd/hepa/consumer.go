@@ -65,15 +65,27 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 			}
 			return nil
 		},
-		RepoMigrate: func(evt *comatproto.SyncSubscribeRepos_Migrate) error {
+		Identity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
 			atomic.StoreInt64(&s.lastSeq, evt.Seq)
 			did, err := syntax.ParseDID(evt.Did)
 			if err != nil {
-				s.logger.Error("bad DID in RepoMigrate event", "did", evt.Did, "seq", evt.Seq, "err", err)
+				s.logger.Error("bad DID in RepoIdentity event", "did", evt.Did, "seq", evt.Seq, "err", err)
 				return nil
 			}
-			if err := s.engine.ProcessIdentityEvent(ctx, "migrate", did); err != nil {
-				s.logger.Error("processing repo migrate failed", "did", evt.Did, "seq", evt.Seq, "err", err)
+			if err := s.engine.ProcessIdentityEvent(ctx, "identity", did); err != nil {
+				s.logger.Error("processing repo identity failed", "did", evt.Did, "seq", evt.Seq, "err", err)
+			}
+			return nil
+		},
+		RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
+			atomic.StoreInt64(&s.lastSeq, evt.Seq)
+			did, err := syntax.ParseDID(evt.Did)
+			if err != nil {
+				s.logger.Error("bad DID in RepoTombstone event", "did", evt.Did, "seq", evt.Seq, "err", err)
+				return nil
+			}
+			if err := s.engine.ProcessIdentityEvent(ctx, "tombstone", did); err != nil {
+				s.logger.Error("processing repo tombstone failed", "did", evt.Did, "seq", evt.Seq, "err", err)
 			}
 			return nil
 		},
