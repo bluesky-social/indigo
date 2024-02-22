@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"fmt"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/automod"
@@ -55,8 +56,9 @@ func AggressivePromotionRule(c *automod.RecordContext, post *appbsky.FeedPost) e
 
 	did := c.Account.Identity.DID.String()
 	uniqueReplies := c.GetCountDistinct("reply-to", did, countstore.PeriodDay)
-	if uniqueReplies >= 5 {
+	if uniqueReplies >= 10 {
 		c.AddAccountFlag("promo-multi-reply")
+		c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible aggressive self-promotion"))
 		c.Notify("slack")
 	}
 
