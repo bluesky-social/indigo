@@ -79,7 +79,7 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 	return nil
 }
 
-var youngReplyAccountLimit = 6
+var youngReplyAccountLimit = 12
 var _ automod.PostRuleFunc = YoungAccountDistinctRepliesRule
 
 func YoungAccountDistinctRepliesRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
