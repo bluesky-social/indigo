@@ -3,6 +3,7 @@ package rules
 import (
 	"time"
 	"unicode/utf8"
+	"fmt"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -35,7 +36,7 @@ func ReplyCountPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error 
 }
 
 // triggers on the N+1 post, so 6th identical reply
-var identicalReplyLimit = 5
+var identicalReplyLimit = 8
 
 var _ automod.PostRuleFunc = IdenticalReplyPostRule
 
@@ -58,6 +59,11 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 		}
 	}
 
+	// don't count if there is a follow-back relationship
+	if ParentOrRootIsFollower(c, post) {
+		return nil
+	}
+
 	// increment before read. use a specific period (IncrementPeriod()) to reduce the number of counters (one per unique post text)
 	period := countstore.PeriodDay
 	bucket := c.Account.Identity.DID.String() + "/" + HashOfString(post.Text)
@@ -66,7 +72,7 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 	count := c.GetCount("reply-text", bucket, period)
 	if count >= identicalReplyLimit {
 		c.AddAccountFlag("multi-identical-reply")
-		//c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible spam (young account, %d identical reply-posts today)", tag))
+		c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible spam (young account, %d identical reply-posts today)", count))
 		c.Notify("slack")
 	}
 
@@ -93,31 +99,30 @@ func YoungAccountDistinctRepliesRule(c *automod.RecordContext, post *appbsky.Fee
 		}
 	}
 
-	did := c.Account.Identity.DID.String()
+	// don't count if there is a follow-back relationship
+	if ParentOrRootIsFollower(c, post) {
+		return nil
+	}
 
 	parentURI, err := syntax.ParseATURI(post.Reply.Parent.Uri)
 	if err != nil {
 		c.Logger.Warn("failed to parse reply AT-URI", "uri", post.Reply.Parent.Uri)
 		return nil
 	}
-	otherDID, err := parentURI.Authority().AsDID()
+	parentDID, err := parentURI.Authority().AsDID()
 	if err != nil {
 		c.Logger.Warn("reply AT-URI authority not a DID", "uri", post.Reply.Parent.Uri)
 		return nil
 	}
 
-	// don't count if there is a follow-back relationship
-	rel := c.GetAccountRelationship(otherDID)
-	if rel.FollowedBy {
-		return nil
-	}
+	did := c.Account.Identity.DID.String()
 
-	c.IncrementDistinct("young-reply-to", did, otherDID.String())
+	c.IncrementDistinct("young-reply-to", did, parentDID.String())
 	// NOTE: won't include the increment from this event
 	count := c.GetCountDistinct("young-reply-to", did, countstore.PeriodHour)
 	if count >= youngReplyAccountLimit {
 		c.AddAccountFlag("young-distinct-account-reply")
-		//c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible spam (young account, reply-posts to %d distinct accounts in past hour)", count))
+		c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible spam (young account, reply-posts to %d distinct accounts in past hour)", count))
 		c.Notify("slack")
 	}
 
