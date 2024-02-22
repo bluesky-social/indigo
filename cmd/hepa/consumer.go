@@ -161,8 +161,8 @@ func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubsc
 		ek := repomgr.EventKind(op.Action)
 		switch ek {
 		case repomgr.EvtKindCreateRecord, repomgr.EvtKindUpdateRecord:
-			// read the record from blocks, and verify CID
-			rc, rec, err := rr.GetRecord(ctx, op.Path)
+			// read the record bytes from blocks, and verify CID
+			rc, recCBOR, err := rr.GetRecordBytes(ctx, op.Path)
 			if err != nil {
 				logger.Error("reading record from event blocks (CAR)", "err", err)
 				break
@@ -188,7 +188,7 @@ func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubsc
 				Collection: collection,
 				RecordKey:  rkey,
 				CID:        &recCID,
-				Value:      rec,
+				RecordCBOR: *recCBOR,
 			})
 			if err != nil {
 				logger.Error("engine failed to process record", "err", err)
@@ -201,7 +201,7 @@ func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubsc
 				Collection: collection,
 				RecordKey:  rkey,
 				CID:        nil,
-				Value:      nil,
+				RecordCBOR: nil,
 			})
 			if err != nil {
 				logger.Error("engine failed to process record", "err", err)

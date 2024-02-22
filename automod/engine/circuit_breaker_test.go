@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
@@ -38,6 +39,9 @@ func TestTakedownCircuitBreaker(t *testing.T) {
 
 	cid1 := syntax.CID("cid123")
 	p1 := appbsky.FeedPost{Text: "some post blah"}
+	p1buf := new(bytes.Buffer)
+	assert.NoError(p1.MarshalCBOR(p1buf))
+	p1cbor := p1buf.Bytes()
 
 	// generate double the quote of events; expect to only count the quote worth of actions
 	for i := 0; i < 2*QuotaModTakedownDay; i++ {
@@ -52,7 +56,7 @@ func TestTakedownCircuitBreaker(t *testing.T) {
 			Collection: syntax.NSID("app.bsky.feed.post"),
 			RecordKey:  syntax.RecordKey("abc123"),
 			CID:        &cid1,
-			Value:      &p1,
+			RecordCBOR: p1cbor,
 		}
 		assert.NoError(eng.ProcessRecordOp(ctx, op))
 	}
@@ -80,6 +84,9 @@ func TestReportCircuitBreaker(t *testing.T) {
 
 	cid1 := syntax.CID("cid123")
 	p1 := appbsky.FeedPost{Text: "some post blah"}
+	p1buf := new(bytes.Buffer)
+	assert.NoError(p1.MarshalCBOR(p1buf))
+	p1cbor := p1buf.Bytes()
 
 	// generate double the quota of events; expect to only count the quota worth of actions
 	for i := 0; i < 2*QuotaModReportDay; i++ {
@@ -94,7 +101,7 @@ func TestReportCircuitBreaker(t *testing.T) {
 			Collection: syntax.NSID("app.bsky.feed.post"),
 			RecordKey:  syntax.RecordKey("abc123"),
 			CID:        &cid1,
-			Value:      &p1,
+			RecordCBOR: p1cbor,
 		}
 		assert.NoError(eng.ProcessRecordOp(ctx, op))
 	}

@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"testing"
 
@@ -30,6 +31,9 @@ func TestAccountReportDedupe(t *testing.T) {
 	//path := "app.bsky.feed.post/abc123"
 	cid1 := syntax.CID("cid123")
 	p1 := appbsky.FeedPost{Text: "some post blah"}
+	p1buf := new(bytes.Buffer)
+	assert.NoError(p1.MarshalCBOR(p1buf))
+	p1cbor := p1buf.Bytes()
 	id1 := identity.Identity{
 		DID:    syntax.DID("did:plc:abc111"),
 		Handle: syntax.Handle("handle.example.com"),
@@ -42,7 +46,7 @@ func TestAccountReportDedupe(t *testing.T) {
 		Collection: "app.bsky.feed.post",
 		RecordKey:  "abc123",
 		CID:        &cid1,
-		Value:      &p1,
+		RecordCBOR: p1cbor,
 	}
 	for i := 0; i < 5; i++ {
 		assert.NoError(eng.ProcessRecordOp(ctx, op))
