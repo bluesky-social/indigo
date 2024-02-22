@@ -5,6 +5,7 @@ import (
 	"regexp"
 )
 
+// Colons are not allowed in record keys, but for now we're allowing them in the regex
 var recordKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_:~.-]{1,512}$`)
 
 // String type which represents a syntaxtually valid RecordKey identifier, as could be included in an AT URI
