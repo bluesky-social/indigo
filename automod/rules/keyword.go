@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
@@ -82,9 +83,9 @@ func BadWordOtherRecordRule(c *automod.RecordContext) error {
 	text := ""
 	switch c.RecordOp.Collection.String() {
 	case "app.bsky.graph.list":
-		list, ok := c.RecordOp.Value.(*appbsky.GraphList)
-		if !ok {
-			return fmt.Errorf("mismatch between collection (%s) and type", c.RecordOp.Collection)
+		var list appbsky.GraphList
+		if err := list.UnmarshalCBOR(bytes.NewReader(c.RecordOp.RecordCBOR)); err != nil {
+			return fmt.Errorf("failed to parse app.bsky.graph.list record: %v", err)
 		}
 		name += " " + list.Name
 		if list.Description != nil {
@@ -94,9 +95,9 @@ func BadWordOtherRecordRule(c *automod.RecordContext) error {
 			text += " " + *list.Purpose
 		}
 	case "app.bsky.feed.generator":
-		generator, ok := c.RecordOp.Value.(*appbsky.FeedGenerator)
-		if !ok {
-			return fmt.Errorf("mismatch between collection (%s) and type", c.RecordOp.Collection)
+		var generator appbsky.FeedGenerator
+		if err := generator.UnmarshalCBOR(bytes.NewReader(c.RecordOp.RecordCBOR)); err != nil {
+			return fmt.Errorf("failed to parse app.bsky.feed.generator record: %v", err)
 		}
 		name += " " + generator.DisplayName
 		if generator.Description != nil {

@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"bytes"
 	"context"
 	"testing"
 
@@ -70,13 +71,16 @@ func TestBadWordPostRule(t *testing.T) {
 	p1 := appbsky.FeedPost{
 		Text: "some post blah",
 	}
+	p1buf := new(bytes.Buffer)
+	assert.NoError(p1.MarshalCBOR(p1buf))
+	p1cbor := p1buf.Bytes()
 	op := engine.RecordOp{
 		Action:     engine.CreateOp,
 		DID:        am1.Identity.DID,
 		Collection: syntax.NSID("app.bsky.feed.post"),
 		RecordKey:  syntax.RecordKey("fagg0t"),
 		CID:        &cid1,
-		Value:      p1,
+		RecordCBOR: p1cbor,
 	}
 	c1 := engine.NewRecordContext(ctx, &eng, am1, op)
 	assert.NoError(BadWordRecordKeyRule(&c1))
@@ -87,13 +91,16 @@ func TestBadWordPostRule(t *testing.T) {
 	p2 := appbsky.FeedPost{
 		Text: "some post hardestr blah",
 	}
+	p2buf := new(bytes.Buffer)
+	assert.NoError(p2.MarshalCBOR(p2buf))
+	p2cbor := p2buf.Bytes()
 	op2 := engine.RecordOp{
 		Action:     engine.CreateOp,
 		DID:        am1.Identity.DID,
 		Collection: syntax.NSID("app.bsky.feed.post"),
 		RecordKey:  syntax.RecordKey("abc123"),
 		CID:        &cid1,
-		Value:      p1,
+		RecordCBOR: p2cbor,
 	}
 	c2 := engine.NewRecordContext(ctx, &eng, am1, op2)
 	assert.NoError(BadWordPostRule(&c2, &p2))
