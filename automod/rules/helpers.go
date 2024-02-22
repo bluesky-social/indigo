@@ -197,3 +197,46 @@ func HashOfString(s string) string {
 	val := murmur3.Sum64([]byte(s))
 	return fmt.Sprintf("%016x", val)
 }
+
+func ParentOrRootIsFollower(c *automod.RecordContext, post *appbsky.FeedPost) bool {
+	if post.Reply == nil || IsSelfThread(c, post) {
+		return false
+	}
+
+	parentURI, err := syntax.ParseATURI(post.Reply.Parent.Uri)
+	if err != nil {
+		c.Logger.Warn("failed to parse reply AT-URI", "uri", post.Reply.Parent.Uri)
+		return false
+	}
+	parentDID, err := parentURI.Authority().AsDID()
+	if err != nil {
+		c.Logger.Warn("reply AT-URI authority not a DID", "uri", post.Reply.Parent.Uri)
+		return false
+	}
+
+	rel := c.GetAccountRelationship(parentDID)
+	if rel.FollowedBy {
+		return true
+	}
+
+	rootURI, err := syntax.ParseATURI(post.Reply.Root.Uri)
+	if err != nil {
+		c.Logger.Warn("failed to parse reply AT-URI", "uri", post.Reply.Root.Uri)
+		return false
+	}
+	rootDID, err := rootURI.Authority().AsDID()
+	if err != nil {
+		c.Logger.Warn("reply AT-URI authority not a DID", "uri", post.Reply.Root.Uri)
+		return false
+	}
+
+	if rootDID == parentDID {
+		return false
+	}
+
+	rel = c.GetAccountRelationship(rootDID)
+	if rel.FollowedBy {
+		return true
+	}
+	return false
+}
