@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"time"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
@@ -42,7 +43,7 @@ func DistinctMentionsRule(c *automod.RecordContext, post *appbsky.FeedPost) erro
 	return nil
 }
 
-var youngMentionAccountLimit = 6
+var youngMentionAccountLimit = 12
 var _ automod.PostRuleFunc = YoungAccountDistinctMentionsRule
 
 func YoungAccountDistinctMentionsRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
@@ -90,7 +91,7 @@ func YoungAccountDistinctMentionsRule(c *automod.RecordContext, post *appbsky.Fe
 	count := c.GetCountDistinct("young-mention", did, countstore.PeriodHour) + newMentions
 	if count >= youngMentionAccountLimit {
 		c.AddAccountFlag("young-distinct-account-mention")
-		//c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible spam (young account, mentioned %d distinct accounts in past hour)", count))
+		c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible spam (young account, mentioned %d distinct accounts in past hour)", count))
 		c.Notify("slack")
 	}
 

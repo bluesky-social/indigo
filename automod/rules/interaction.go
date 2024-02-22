@@ -13,6 +13,7 @@ var _ automod.RecordRuleFunc = InteractionChurnRule
 
 // looks for accounts which do frequent interaction churn, such as follow-unfollow.
 func InteractionChurnRule(c *automod.RecordContext) error {
+
 	did := c.Account.Identity.DID.String()
 	switch c.RecordOp.Collection {
 	case "app.bsky.feed.like":
@@ -35,6 +36,14 @@ func InteractionChurnRule(c *automod.RecordContext) error {
 			c.Logger.Info("high-follow-churn", "created-today", created, "deleted-today", deleted)
 			c.AddAccountFlag("high-follow-churn")
 			c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("interaction churn: %d follows, %d unfollows today (so far)", created, deleted))
+			c.Notify("slack")
+		}
+		// just generic bulk following
+		followRatio := float64(c.Account.FollowersCount) / float64(c.Account.FollowsCount)
+		if created > interactionDailyThreshold && c.Account.FollowsCount > 2000 && followRatio < 0.1 {
+			c.Logger.Info("bulk-follower", "created-today", created)
+			c.AddAccountFlag("bulk-follower")
+			//c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("many follows: %d follows today (so far)", created))
 			c.Notify("slack")
 		}
 	}
