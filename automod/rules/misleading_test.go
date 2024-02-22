@@ -54,7 +54,7 @@ func TestMisleadingURLPostRule(t *testing.T) {
 		Collection: syntax.NSID("app.bsky.feed.post"),
 		RecordKey:  syntax.RecordKey("abc123"),
 		CID:        &cid1,
-		RecordCBOR: &p1cbor,
+		RecordCBOR: p1cbor,
 	}
 	c1 := engine.NewRecordContext(ctx, &eng, am1, op)
 	assert.NoError(MisleadingURLPostRule(&c1, &p1))
@@ -101,7 +101,7 @@ func TestMisleadingMentionPostRule(t *testing.T) {
 		Collection: syntax.NSID("app.bsky.feed.post"),
 		RecordKey:  syntax.RecordKey("abc123"),
 		CID:        &cid1,
-		RecordCBOR: &p1cbor,
+		RecordCBOR: p1cbor,
 	}
 	c1 := engine.NewRecordContext(ctx, &eng, am1, op)
 	assert.NoError(MisleadingMentionPostRule(&c1, &p1))

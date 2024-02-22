@@ -46,7 +46,7 @@ func TestAccountReportDedupe(t *testing.T) {
 		Collection: "app.bsky.feed.post",
 		RecordKey:  "abc123",
 		CID:        &cid1,
-		RecordCBOR: &p1cbor,
+		RecordCBOR: p1cbor,
 	}
 	for i := 0; i < 5; i++ {
 		assert.NoError(eng.ProcessRecordOp(ctx, op))

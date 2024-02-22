@@ -33,7 +33,7 @@ func (r *RuleSet) CallRecordRules(c *RecordContext) error {
 	switch c.RecordOp.Collection.String() {
 	case "app.bsky.feed.post":
 		var post appbsky.FeedPost
-		if err := post.UnmarshalCBOR(bytes.NewReader(*c.RecordOp.RecordCBOR)); err != nil {
+		if err := post.UnmarshalCBOR(bytes.NewReader(c.RecordOp.RecordCBOR)); err != nil {
 			return fmt.Errorf("failed to parse app.bsky.feed.post record: %v", err)
 		}
 		for _, f := range r.PostRules {
@@ -44,7 +44,7 @@ func (r *RuleSet) CallRecordRules(c *RecordContext) error {
 		}
 	case "app.bsky.actor.profile":
 		var profile appbsky.ActorProfile
-		if err := profile.UnmarshalCBOR(bytes.NewReader(*c.RecordOp.RecordCBOR)); err != nil {
+		if err := profile.UnmarshalCBOR(bytes.NewReader(c.RecordOp.RecordCBOR)); err != nil {
 			return fmt.Errorf("failed to parse app.bsky.actor.profile record: %v", err)
 		}
 		for _, f := range r.ProfileRules {

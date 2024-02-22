@@ -188,7 +188,7 @@ func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubsc
 				Collection: collection,
 				RecordKey:  rkey,
 				CID:        &recCID,
-				RecordCBOR: recCBOR,
+				RecordCBOR: *recCBOR,
 			})
 			if err != nil {
 				logger.Error("engine failed to process record", "err", err)

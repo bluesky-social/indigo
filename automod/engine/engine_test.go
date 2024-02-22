@@ -35,7 +35,7 @@ func TestEngineBasics(t *testing.T) {
 		Collection: syntax.NSID("app.bsky.feed.post"),
 		RecordKey:  syntax.RecordKey("abc123"),
 		CID:        &cid1,
-		RecordCBOR: &p1cbor,
+		RecordCBOR: p1cbor,
 	}
 	assert.NoError(eng.ProcessRecordOp(ctx, op))
 
@@ -46,6 +46,6 @@ func TestEngineBasics(t *testing.T) {
 	p2buf := new(bytes.Buffer)
 	assert.NoError(p2.MarshalCBOR(p2buf))
 	p2cbor := p2buf.Bytes()
-	op.RecordCBOR = &p2cbor
+	op.RecordCBOR = p2cbor
 	assert.NoError(eng.ProcessRecordOp(ctx, op))
 }

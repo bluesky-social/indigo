@@ -38,7 +38,7 @@ func TestBadHashtagPostRule(t *testing.T) {
 		Collection: syntax.NSID("app.bsky.feed.post"),
 		RecordKey:  syntax.RecordKey("abc123"),
 		CID:        &cid1,
-		RecordCBOR: &p1cbor,
+		RecordCBOR: p1cbor,
 	}
 	c1 := engine.NewRecordContext(ctx, &eng, am1, op)
 	assert.NoError(BadHashtagsPostRule(&c1, &p1))
@@ -52,7 +52,7 @@ func TestBadHashtagPostRule(t *testing.T) {
 	p2buf := new(bytes.Buffer)
 	assert.NoError(p2.MarshalCBOR(p2buf))
 	p2cbor := p2buf.Bytes()
-	op.RecordCBOR = &p2cbor
+	op.RecordCBOR = p2cbor
 	c2 := engine.NewRecordContext(ctx, &eng, am1, op)
 	assert.NoError(BadHashtagsPostRule(&c2, &p2))
 	eff2 := engine.ExtractEffects(&c2.BaseContext)

@@ -56,7 +56,7 @@ func TestTakedownCircuitBreaker(t *testing.T) {
 			Collection: syntax.NSID("app.bsky.feed.post"),
 			RecordKey:  syntax.RecordKey("abc123"),
 			CID:        &cid1,
-			RecordCBOR: &p1cbor,
+			RecordCBOR: p1cbor,
 		}
 		assert.NoError(eng.ProcessRecordOp(ctx, op))
 	}
@@ -101,7 +101,7 @@ func TestReportCircuitBreaker(t *testing.T) {
 			Collection: syntax.NSID("app.bsky.feed.post"),
 			RecordKey:  syntax.RecordKey("abc123"),
 			CID:        &cid1,
-			RecordCBOR: &p1cbor,
+			RecordCBOR: p1cbor,
 		}
 		assert.NoError(eng.ProcessRecordOp(ctx, op))
 	}

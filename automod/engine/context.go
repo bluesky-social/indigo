@@ -52,7 +52,7 @@ type RecordOp struct {
 	Collection syntax.NSID
 	RecordKey  syntax.RecordKey
 	CID        *syntax.CID
-	RecordCBOR *[]byte
+	RecordCBOR []byte
 }
 
 // Originally intended for push notifications, but can also work for any inter-account notification.
