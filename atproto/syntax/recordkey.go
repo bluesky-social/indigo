@@ -5,7 +5,7 @@ import (
 	"regexp"
 )
 
-var recordKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_~.-]{1,512}$`)
+var recordKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_:~.-]{1,512}$`)
 
 // String type which represents a syntaxtually valid RecordKey identifier, as could be included in an AT URI
 //

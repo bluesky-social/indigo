@@ -2,7 +2,6 @@ package syntax
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"testing"
 
@@ -22,7 +21,7 @@ func TestInteropRecordKeysValid(t *testing.T) {
 		}
 		_, err := ParseRecordKey(line)
 		if err != nil {
-			fmt.Println("FAILED, GOOD: " + line)
+			t.Log("FAILED, GOOD: " + line)
 		}
 		assert.NoError(err)
 	}
@@ -42,7 +41,7 @@ func TestInteropRecordKeysInvalid(t *testing.T) {
 		}
 		_, err := ParseRecordKey(line)
 		if err == nil {
-			fmt.Println("FAILED, BAD: " + line)
+			t.Log("FAILED, BAD: " + line)
 		}
 		assert.Error(err)
 	}
