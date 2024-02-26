@@ -638,6 +638,9 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			case evt.RepoHandle != nil:
 				header.MsgType = "#handle"
 				obj = evt.RepoHandle
+			case evt.RepoIdentity != nil:
+				header.MsgType = "#identity"
+				obj = evt.RepoIdentity
 			case evt.RepoInfo != nil:
 				header.MsgType = "#info"
 				obj = evt.RepoInfo

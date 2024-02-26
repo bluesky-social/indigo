@@ -281,6 +281,8 @@ func TestHandleChange(t *testing.T) {
 	fmt.Println(initevt.RepoCommit)
 	hcevt := evts.Next()
 	fmt.Println(hcevt.RepoHandle)
+	idevt := evts.Next()
+	fmt.Println(idevt.RepoIdentity)
 }
 
 func TestBGSTakedown(t *testing.T) {
