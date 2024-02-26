@@ -1,10 +1,10 @@
 package rules
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 	"time"
-	"fmt"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/automod"
