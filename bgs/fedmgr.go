@@ -563,6 +563,21 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			log.Infow("info event", "name", info.Name, "message", info.Message, "host", host.Host)
 			return nil
 		},
+		RepoIdentity: func(ident *comatproto.SyncSubscribeRepos_Identity) error {
+			log.Infow("identity event", "did", ident.Did)
+			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+				RepoIdentity: ident,
+			}); err != nil {
+				log.Errorf("failed handling event from %q (%d): %s", host.Host, ident.Seq, err)
+			}
+			*lastCursor = ident.Seq
+
+			if err := s.updateCursor(sub, *lastCursor); err != nil {
+				return fmt.Errorf("updating cursor: %w", err)
+			}
+
+			return nil
+		},
 		// TODO: all the other event types (handle change, migration, etc)
 		Error: func(errf *events.ErrorFrame) error {
 			switch errf.Error {
