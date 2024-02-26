@@ -435,6 +435,45 @@ var getRecordCmd = &cli.Command{
 
 			fmt.Println(string(b))
 			return nil
+		} else if strings.HasPrefix(cctx.Args().First(), "https://bsky.app") {
+			xrpcc, err := cliutil.GetXrpcClient(cctx, false)
+			if err != nil {
+				return err
+			}
+
+			parts := strings.Split(cctx.Args().First(), "/")
+			if len(parts) < 4 {
+				return fmt.Errorf("invalid post url")
+			}
+			rkey := parts[len(parts)-1]
+			did := parts[len(parts)-3]
+
+			var collection string
+			switch parts[len(parts)-2] {
+			case "post":
+				collection = "app.bsky.feed.post"
+			case "profile":
+				collection = "app.bsky.actor.profile"
+				did = rkey
+				rkey = "self"
+			case "feed":
+				collection = "app.bsky.feed.generator"
+			default:
+				return fmt.Errorf("unrecognized link")
+			}
+
+			out, err := comatproto.RepoGetRecord(ctx, xrpcc, "", collection, did, rkey)
+			if err != nil {
+				return err
+			}
+
+			b, err := json.MarshalIndent(out.Value.Val, "", "  ")
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(b))
+			return nil
 		} else {
 			fb, err := os.ReadFile(rfi)
 			if err != nil {
