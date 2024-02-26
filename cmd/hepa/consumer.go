@@ -65,7 +65,7 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 			}
 			return nil
 		},
-		Identity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
+		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
 			atomic.StoreInt64(&s.lastSeq, evt.Seq)
 			did, err := syntax.ParseDID(evt.Did)
 			if err != nil {

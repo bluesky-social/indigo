@@ -17,7 +17,7 @@ import (
 type RepoStreamCallbacks struct {
 	RepoCommit    func(evt *comatproto.SyncSubscribeRepos_Commit) error
 	RepoHandle    func(evt *comatproto.SyncSubscribeRepos_Handle) error
-	Identity      func(evt *comatproto.SyncSubscribeRepos_Identity) error
+	RepoIdentity  func(evt *comatproto.SyncSubscribeRepos_Identity) error
 	RepoInfo      func(evt *comatproto.SyncSubscribeRepos_Info) error
 	RepoMigrate   func(evt *comatproto.SyncSubscribeRepos_Migrate) error
 	RepoTombstone func(evt *comatproto.SyncSubscribeRepos_Tombstone) error
@@ -36,8 +36,8 @@ func (rsc *RepoStreamCallbacks) EventHandler(ctx context.Context, xev *XRPCStrea
 		return rsc.RepoInfo(xev.RepoInfo)
 	case xev.RepoMigrate != nil && rsc.RepoMigrate != nil:
 		return rsc.RepoMigrate(xev.RepoMigrate)
-	case xev.RepoIdentity != nil && rsc.Identity != nil:
-		return rsc.Identity(xev.RepoIdentity)
+	case xev.RepoIdentity != nil && rsc.RepoIdentity != nil:
+		return rsc.RepoIdentity(xev.RepoIdentity)
 	case xev.RepoTombstone != nil && rsc.RepoTombstone != nil:
 		return rsc.RepoTombstone(xev.RepoTombstone)
 	case xev.LabelLabels != nil && rsc.LabelLabels != nil:
