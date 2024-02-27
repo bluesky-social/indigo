@@ -17,6 +17,7 @@ func BotLinkProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile)
 		for _, str := range botLinkStrings {
 			if strings.Contains(*profile.Description, str) {
 				c.AddAccountFlag("profile-bot-string")
+				c.AddAccountLabel("spam")
 				c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible bot based on link in profile: %s", str))
 				c.Notify("slack")
 			}
