@@ -50,4 +50,9 @@ func TestParseQuery(t *testing.T) {
 	q, f = ParseQuery(ctx, &dir, p5)
 	assert.Equal(`"multi word phrase" coolio blorg`, q)
 	assert.Equal(1, len(f))
+
+	p6 := `from:known.example.com #cool_tag some other stuff`
+	q, f = ParseQuery(ctx, &dir, p6)
+	assert.Equal(`some other stuff`, q)
+	assert.Equal(2, len(f))
 }

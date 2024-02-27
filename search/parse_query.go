@@ -21,13 +21,14 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 		return r == ' ' && !quoted
 	})
 
+	tags := []string{}
+
 	keep := make([]string, 0, len(parts))
 	for _, p := range parts {
 		p = strings.Trim(p, "\"")
 
-		if !strings.ContainsRune(p, ':') || strings.ContainsRune(p, ' ') {
-			// simple: quoted (whitespace), or just a token
-			keep = append(keep, p)
+		if strings.HasPrefix(p, "#") && len(p) > 1 {
+			tags = append(tags, p[1:])
 			continue
 		}
 		if strings.HasPrefix(p, "did:") {
@@ -54,7 +55,14 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 			})
 			continue
 		}
+
 		keep = append(keep, p)
+	}
+
+	if len(tags) > 0 {
+		filters = append(filters, map[string]interface{}{
+			"terms": map[string]interface{}{"tag": tags},
+		})
 	}
 
 	out := ""

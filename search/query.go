@@ -73,6 +73,7 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 			"analyze_wildcard": false,
 		},
 	}
+
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
