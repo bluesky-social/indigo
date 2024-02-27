@@ -165,6 +165,8 @@ func (p *DbPersistence) flushBatchLocked(ctx context.Context) error {
 			e.RepoCommit.Seq = int64(item.Seq)
 		case e.RepoHandle != nil:
 			e.RepoHandle.Seq = int64(item.Seq)
+		case e.RepoIdentity != nil:
+			e.RepoIdentity.Seq = int64(item.Seq)
 		case e.RepoTombstone != nil:
 			e.RepoTombstone.Seq = int64(item.Seq)
 		default:
@@ -211,6 +213,11 @@ func (p *DbPersistence) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 		if err != nil {
 			return err
 		}
+	case e.RepoIdentity != nil:
+		rer, err = p.RecordFromRepoIdentity(ctx, e.RepoIdentity)
+		if err != nil {
+			return err
+		}
 	case e.RepoTombstone != nil:
 		rer, err = p.RecordFromTombstone(ctx, e.RepoTombstone)
 		if err != nil {
@@ -246,6 +253,23 @@ func (p *DbPersistence) RecordFromHandleChange(ctx context.Context, evt *comatpr
 	}, nil
 }
 
+func (p *DbPersistence) RecordFromRepoIdentity(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Identity) (*RepoEventRecord, error) {
+	t, err := time.Parse(util.ISO8601, evt.Time)
+	if err != nil {
+		return nil, err
+	}
+
+	uid, err := p.uidForDid(ctx, evt.Did)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RepoEventRecord{
+		Repo: uid,
+		Type: "repo_identity",
+		Time: t,
+	}, nil
+}
 func (p *DbPersistence) RecordFromTombstone(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Tombstone) (*RepoEventRecord, error) {
 	t, err := time.Parse(util.ISO8601, evt.Time)
 	if err != nil {
@@ -396,6 +420,8 @@ func (p *DbPersistence) hydrateBatch(ctx context.Context, batch []*RepoEventReco
 				streamEvent, err = p.hydrateCommit(ctx, record)
 			case record.NewHandle != nil:
 				streamEvent, err = p.hydrateHandleChange(ctx, record)
+			case record.Type == "repo_identity":
+				streamEvent, err = p.hydrateIdentityEvent(ctx, record)
 			case record.Type == "repo_tombstone":
 				streamEvent, err = p.hydrateTombstone(ctx, record)
 			default:
@@ -475,6 +501,20 @@ func (p *DbPersistence) hydrateHandleChange(ctx context.Context, rer *RepoEventR
 			Did:    did,
 			Handle: *rer.NewHandle,
 			Time:   rer.Time.Format(util.ISO8601),
+		},
+	}, nil
+}
+
+func (p *DbPersistence) hydrateIdentityEvent(ctx context.Context, rer *RepoEventRecord) (*XRPCStreamEvent, error) {
+	did, err := p.didForUid(ctx, rer.Repo)
+	if err != nil {
+		return nil, err
+	}
+
+	return &XRPCStreamEvent{
+		RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
+			Did:  did,
+			Time: rer.Time.Format(util.ISO8601),
 		},
 	}, nil
 }
