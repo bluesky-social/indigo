@@ -490,8 +490,8 @@ func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscrib
 		}
 	}
 
-	if evt.Prev == nil {
-		// The first event for a repo will have a nil prev, we can enqueue the repo as "complete" to avoid fetching the empty repo
+	if evt.Since == nil {
+		// The first event for a repo will have a nil since, we can enqueue the repo as "complete" to avoid fetching the empty repo
 		if err := bf.Store.EnqueueJobWithState(ctx, evt.Repo, StateComplete); err != nil {
 			return fmt.Errorf("failed to enqueue job with state for repo %q: %w", evt.Repo, err)
 		}
