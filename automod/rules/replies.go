@@ -1,9 +1,9 @@
 package rules
 
 import (
+	"fmt"
 	"time"
 	"unicode/utf8"
-	"fmt"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
