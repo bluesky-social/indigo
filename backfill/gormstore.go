@@ -334,7 +334,7 @@ func (j *Gormjob) FlushBufferedOps(ctx context.Context, fn func(kind, rev, path 
 	defer j.lk.Unlock()
 
 	for _, opset := range j.bufferedOps {
-		if opset.rev < j.rev {
+		if opset.rev <= j.rev {
 			// stale events, skip
 			continue
 		}
