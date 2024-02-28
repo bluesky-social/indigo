@@ -87,7 +87,7 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 				}
 			}()
 			logEvt := s.logger.With("repo", evt.Repo, "rev", evt.Rev, "seq", evt.Seq)
-			if evt.TooBig && evt.Prev != nil {
+			if evt.TooBig && evt.Since != nil {
 				// TODO: handle this case (instead of return nil)
 				logEvt.Error("skipping non-genesis tooBig events for now")
 				return nil
