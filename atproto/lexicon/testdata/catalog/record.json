@@ -106,7 +106,7 @@
             },
             "enumString": {
                 "type": "string",
-                "knownValues": ["fish", "tree", "rock"]
+                "enum": ["fish", "tree", "rock"]
             },
             "knownString": {
                 "type": "string",
