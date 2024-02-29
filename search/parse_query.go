@@ -21,14 +21,19 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 		return r == ' ' && !quoted
 	})
 
-	tags := []string{}
-
 	keep := make([]string, 0, len(parts))
 	for _, p := range parts {
 		p = strings.Trim(p, "\"")
 
 		if strings.HasPrefix(p, "#") && len(p) > 1 {
-			tags = append(tags, strings.ToLower(p[1:]))
+			filters = append(filters, map[string]interface{}{
+				"term": map[string]interface{}{
+					"tag": map[string]interface{}{
+						"value":            strings.ToLower(p[1:]),
+						"case_insensitive": true,
+					},
+				},
+			})
 			continue
 		}
 		if strings.HasPrefix(p, "did:") {
@@ -57,12 +62,6 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 		}
 
 		keep = append(keep, p)
-	}
-
-	if len(tags) > 0 {
-		filters = append(filters, map[string]interface{}{
-			"terms": map[string]interface{}{"tag": tags},
-		})
 	}
 
 	out := ""
