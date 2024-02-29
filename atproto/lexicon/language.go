@@ -69,6 +69,81 @@ func (s *SchemaDef) CheckSchema() error {
 	}
 }
 
+// Helper to recurse down the definition tree and set full references on any sub-schemas which need to embed that metadata
+func (s *SchemaDef) SetBase(base string) {
+	switch v := s.Inner.(type) {
+	case SchemaRecord:
+		for i, val := range v.Record.Properties {
+			val.SetBase(base)
+			v.Record.Properties[i] = val
+		}
+		s.Inner = v
+	case SchemaQuery:
+		for i, val := range v.Parameters.Properties {
+			val.SetBase(base)
+			v.Parameters.Properties[i] = val
+		}
+		if v.Output != nil && v.Output.Schema != nil {
+			v.Output.Schema.SetBase(base)
+		}
+		s.Inner = v
+	case SchemaProcedure:
+		for i, val := range v.Parameters.Properties {
+			val.SetBase(base)
+			v.Parameters.Properties[i] = val
+		}
+		if v.Input != nil && v.Input.Schema != nil {
+			v.Input.Schema.SetBase(base)
+		}
+		if v.Output != nil && v.Output.Schema != nil {
+			v.Output.Schema.SetBase(base)
+		}
+		s.Inner = v
+	case SchemaSubscription:
+		for i, val := range v.Parameters.Properties {
+			val.SetBase(base)
+			v.Parameters.Properties[i] = val
+		}
+		if v.Message != nil {
+			v.Message.Schema.SetBase(base)
+		}
+		s.Inner = v
+	case SchemaArray:
+		v.Items.SetBase(base)
+		s.Inner = v
+	case SchemaObject:
+		for i, val := range v.Properties {
+			val.SetBase(base)
+			v.Properties[i] = val
+		}
+		s.Inner = v
+	case SchemaParams:
+		for i, val := range v.Properties {
+			val.SetBase(base)
+			v.Properties[i] = val
+		}
+		s.Inner = v
+	case SchemaRef:
+		// add fully-qualified name
+		if strings.HasPrefix(v.Ref, "#") {
+			v.fullRef = base + v.Ref
+		} else {
+			v.fullRef = v.Ref
+		}
+		s.Inner = v
+	case SchemaUnion:
+		// add fully-qualified name
+		for _, ref := range v.Refs {
+			if strings.HasPrefix(ref, "#") {
+				ref = base + ref
+			}
+			v.fullRefs = append(v.fullRefs, ref)
+		}
+		s.Inner = v
+	}
+	return
+}
+
 func (s SchemaDef) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.Inner)
 }
@@ -750,6 +825,9 @@ type SchemaToken struct {
 }
 
 func (s *SchemaToken) CheckSchema() error {
+	if s.fullName == "" {
+		return fmt.Errorf("expected fully-qualified token name")
+	}
 	return nil
 }
 
@@ -771,12 +849,17 @@ type SchemaRef struct {
 	Type        string  `json:"type,const=ref"`
 	Description *string `json:"description,omitempty"`
 	Ref         string  `json:"ref"`
+	// full path of reference
+	fullRef string
 }
 
 func (s *SchemaRef) CheckSchema() error {
 	// TODO: more validation of ref string?
 	if len(s.Ref) == 0 {
 		return fmt.Errorf("empty schema ref")
+	}
+	if len(s.fullRef) == 0 {
+		return fmt.Errorf("empty full schema ref")
 	}
 	return nil
 }
@@ -786,6 +869,8 @@ type SchemaUnion struct {
 	Description *string  `json:"description,omitempty"`
 	Refs        []string `json:"refs"`
 	Closed      *bool    `json:"closed,omitempty"`
+	// fully qualified
+	fullRefs []string
 }
 
 func (s *SchemaUnion) CheckSchema() error {
@@ -795,6 +880,9 @@ func (s *SchemaUnion) CheckSchema() error {
 		if len(ref) == 0 {
 			return fmt.Errorf("empty schema ref")
 		}
+	}
+	if len(s.fullRefs) != len(s.Refs) {
+		return fmt.Errorf("union refs were not expanded")
 	}
 	return nil
 }

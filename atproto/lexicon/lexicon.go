@@ -55,9 +55,6 @@ func (c *Catalog) AddSchemaFile(sf SchemaFile) error {
 		if _, ok := c.Schemas[name]; ok {
 			return fmt.Errorf("catalog already contained a schema with name: %s", name)
 		}
-		if err := def.CheckSchema(); err != nil {
-			return err
-		}
 		// "A file can have at most one definition with one of the "primary" types. Primary types should always have the name main. It is possible for main to describe a non-primary type."
 		switch s := def.Inner.(type) {
 		case SchemaRecord, SchemaQuery, SchemaProcedure, SchemaSubscription:
@@ -68,6 +65,10 @@ func (c *Catalog) AddSchemaFile(sf SchemaFile) error {
 			// add fully-qualified name to token
 			s.fullName = name
 			def.Inner = s
+		}
+		def.SetBase(base)
+		if err := def.CheckSchema(); err != nil {
+			return err
 		}
 		s := Schema{
 			ID:       name,
@@ -167,7 +168,7 @@ func (c *Catalog) validateData(def any, d any) error {
 		return v.Validate(d)
 	case SchemaRef:
 		// recurse
-		next, err := c.Resolve(v.Ref)
+		next, err := c.Resolve(v.fullRef)
 		if err != nil {
 			return err
 		}
@@ -218,7 +219,7 @@ func (c *Catalog) validateArray(s SchemaArray, arr []any) error {
 
 func (c *Catalog) validateUnion(s SchemaUnion, d any) error {
 	closed := s.Closed != nil && *s.Closed == true
-	for _, ref := range s.Refs {
+	for _, ref := range s.fullRefs {
 		def, err := c.Resolve(ref)
 		if err != nil {
 			// TODO: how to actually handle unknown defs?
