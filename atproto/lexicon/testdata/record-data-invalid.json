@@ -3,9 +3,68 @@
       "rkey": "demo",
       "data": { "$type": "example.lexicon.record" }
     },
+    { "name": "invalid null field",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "null": true } },
+    { "name": "invalid boolean field",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "boolean": "green"} },
+    { "name": "invalid integer field",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "integer": "green"} },
+    { "name": "invalid non-nullable string field",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "string": null } },
     { "name": "invalid string field",
       "rkey": "demo",
       "data": { "$type": "example.lexicon.record", "integer": 1, "string": 2 } },
+    { "name": "invalid bytes field",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "bytes": "green" } },
+    { "name": "invalid bytes: empty object",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "bytes": {}}},
+    { "name": "invalid bytes: wrong type",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "bytes": {
+        "bytes": "asdfasdfasdfasdf"
+    }}},
+    { "name": "invalid cid-link field",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "cid-link": "green" } },
+    { "name": "invalid blob field",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "blob": "green" } },
+    { "name": "invalid blob: wrong type",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "bytes": {
+            "type": "blob",
+            "size": 123,
+            "mimeType": false,
+            "ref": {
+                "$link": "bafyreiclp443lavogvhj3d2ob2cxbfuscni2k5jk7bebjzg7khl3esabwq"
+            }
+    }}},
+    { "name": "invalid array",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "array": 123 }
+    },
+    { "name": "invalid array element",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "array": [true, false] }
+    },
+    { "name": "invalid object",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "object": 123 }
+    },
+    { "name": "invalid token ref type",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "ref": 123 }
+    },
+    { "name": "invalid ref value",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "ref": "example.lexicon.record#wrongToken" }
+    },
     { "name": "invalid string format handle",
       "rkey": "demo",
       "data": { "$type": "example.lexicon.record", "integer": 1, "formats": { "handle": "123" } }
@@ -14,8 +73,104 @@
       "rkey": "demo",
       "data": { "$type": "example.lexicon.record", "integer": 1, "formats": { "did": "123" } }
     },
-    { "name": "invalid array element",
+    { "name": "invalid string format atidentifier",
       "rkey": "demo",
-      "data": { "$type": "example.lexicon.record", "integer": 1, "array": [true, false] }
+      "data": { "$type": "example.lexicon.record", "integer": 1, "formats": { "atidentifier": "123" } }
+    },
+    { "name": "invalid string format nsid",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "formats": { "nsid": "123" } }
+    },
+    { "name": "invalid string format aturi",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "formats": { "aturi": "123" } }
+    },
+    { "name": "invalid string format cid",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "formats": { "cid": "123" } }
+    },
+    { "name": "invalid string format datetime",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "formats": { "datetime": "123" } }
+    },
+    { "name": "invalid string format language",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "formats": { "language": "123" } }
+    },
+    { "name": "invalid string format uri",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "formats": { "uri": "123" } }
+    },
+    { "name": "wrong const value",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "constInteger": 41 }
+    },
+    { "name": "integer not in enum",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "enumInteger": 7 }
+    },
+    { "name": "out of integer range",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "rangeInteger": 9000 }
+    },
+    { "name": "string too short",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "lenString": "." }
+    },
+    { "name": "string too long",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "lenString": "abcdefg-abcdefg-abcdefg" }
+    },
+    { "name": "string too short (graphemes)",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "graphemeString": "👩‍👩‍👦‍👦👩‍👩‍👦‍👦" }
+    },
+    { "name": "string too long (graphemes)",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "graphemeString": "abcdefg-abcdefg-abcdefg" }
+    },
+    { "name": "out of enum string",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "enumString": "unexpected" }
+    },
+    { "name": "bytes too short",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "sizeBytes": { "$bytes": "b25l" }}
+    },
+    { "name": "bytes too long",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "sizeBytes": { "$bytes": "b25lb25lb25lb25lb25lb25lb25lb25lb25lb25lb25l" }}
+    },
+    { "name": "array too short",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "lenArray": [0]}
+    },
+    { "name": "array too long",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "lenArray": [0,0,0,0,0,0,0,0,0,0]}
+    },
+    { "name": "blob too large",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "sizeBlob": {
+            "$type": "blob",
+            "size": 12345,
+            "mimeType": "text/plain",
+            "ref": {
+                "$link": "bafyreiclp443lavogvhj3d2ob2cxbfuscni2k5jk7bebjzg7khl3esabwq"
+            }
+    }}},
+    { "name": "blob wrong type",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "acceptBlob": {
+            "$type": "blob",
+            "size": 12345,
+            "mimeType": "text/plain",
+            "ref": {
+                "$link": "bafyreiclp443lavogvhj3d2ob2cxbfuscni2k5jk7bebjzg7khl3esabwq"
+            }
+    }}},
+    { "name": "out of closed union",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "closedUnion": "other" }
     }
 ]
