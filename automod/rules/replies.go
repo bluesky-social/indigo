@@ -72,7 +72,7 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 	count := c.GetCount("reply-text", bucket, period)
 	if count >= identicalReplyLimit {
 		c.AddAccountFlag("multi-identical-reply")
-		c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible spam (young account, %d identical reply-posts today)", count))
+		c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible spam (new account, %d identical reply-posts today)", count))
 		c.Notify("slack")
 	}
 
@@ -121,8 +121,8 @@ func YoungAccountDistinctRepliesRule(c *automod.RecordContext, post *appbsky.Fee
 	// NOTE: won't include the increment from this event
 	count := c.GetCountDistinct("young-reply-to", did, countstore.PeriodHour)
 	if count >= youngReplyAccountLimit {
-		c.AddAccountFlag("young-distinct-account-reply")
-		c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible spam (young account, reply-posts to %d distinct accounts in past hour)", count))
+		c.AddAccountFlag("new-account-distinct-account-reply")
+		c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible spam (new account, reply-posts to %d distinct accounts in past hour)", count))
 		c.Notify("slack")
 	}
 

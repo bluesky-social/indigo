@@ -27,6 +27,7 @@ func DefaultRules() automod.RuleSet {
 		ProfileRules: []automod.ProfileRuleFunc{
 			GtubeProfileRule,
 			BadWordProfileRule,
+			BotLinkProfileRule,
 		},
 		RecordRules: []automod.RecordRuleFunc{
 			InteractionChurnRule,

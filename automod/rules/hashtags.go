@@ -19,14 +19,12 @@ func BadHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error
 		if c.InSet("bad-hashtags", tag) || c.InSet("bad-words", tag) {
 			c.AddRecordFlag("bad-hashtag")
 			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("possible bad word in hashtags: %s", tag))
-			c.Notify("slack")
 			break
 		}
 		word := keyword.SlugContainsExplicitSlur(keyword.Slugify(tag))
 		if word != "" {
 			c.AddAccountFlag("bad-hashtag")
 			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("possible bad word in hashtags: %s", word))
-			c.Notify("slack")
 			break
 		}
 	}
