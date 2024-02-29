@@ -30,6 +30,9 @@ type Schema struct {
 }
 
 func (c *Catalog) Resolve(name string) (*Schema, error) {
+	if name == "" {
+		return nil, fmt.Errorf("tried to resolve empty string name")
+	}
 	// default to #main if name doesn't have a fragment
 	if !strings.Contains(name, "#") {
 		name = name + "#main"
@@ -56,15 +59,15 @@ func (c *Catalog) AddSchemaFile(sf SchemaFile) error {
 			return err
 		}
 		// "A file can have at most one definition with one of the "primary" types. Primary types should always have the name main. It is possible for main to describe a non-primary type."
-		switch def.Inner.(type) {
+		switch s := def.Inner.(type) {
 		case SchemaRecord, SchemaQuery, SchemaProcedure, SchemaSubscription:
 			if frag != "main" {
 				return fmt.Errorf("record, query, procedure, and subscription types must be 'main', not: %s", frag)
 			}
 		case SchemaToken:
-			token := def.Inner.(SchemaToken)
-			token.Name = name
-			def.Inner = token
+			// add fully-qualified name to token
+			s.fullName = name
+			def.Inner = s
 		}
 		s := Schema{
 			ID:       name,
@@ -162,10 +165,7 @@ func (c *Catalog) validateData(def any, d any) error {
 		return c.validateObject(v, obj)
 	case SchemaBlob:
 		return v.Validate(d)
-	case SchemaParams:
-		return v.Validate(d)
 	case SchemaRef:
-		// XXX: relative refs (in-file)
 		// recurse
 		next, err := c.Resolve(v.Ref)
 		if err != nil {

@@ -742,16 +742,11 @@ func (s *SchemaParams) CheckSchema() error {
 	return nil
 }
 
-// XXX: implementation?
-func (s *SchemaParams) Validate(d any) error {
-	return nil
-}
-
 type SchemaToken struct {
 	Type        string  `json:"type,const=token"`
 	Description *string `json:"description,omitempty"`
 	// the fully-qualified identifier of this token
-	Name string
+	fullName string
 }
 
 func (s *SchemaToken) CheckSchema() error {
@@ -763,10 +758,10 @@ func (s *SchemaToken) Validate(d any) error {
 	if !ok {
 		return fmt.Errorf("expected a string for token, got: %s", reflect.TypeOf(d))
 	}
-	if s.Name == "" {
+	if s.fullName == "" {
 		return fmt.Errorf("token name was not populated at parse time")
 	}
-	if str != s.Name {
+	if str != s.fullName {
 		return fmt.Errorf("token name did not match expected: %s", str)
 	}
 	return nil
