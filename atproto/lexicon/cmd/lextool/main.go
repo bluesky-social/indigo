@@ -28,6 +28,16 @@ func main() {
 			Usage:  "try recursively loading all the schemas from a directory",
 			Action: runLoadDirectory,
 		},
+		&cli.Command{
+			Name:   "validate-record",
+			Usage:  "fetch from network, validate against catalog",
+			Action: runValidateRecord,
+		},
+		&cli.Command{
+			Name:   "validate-firehose",
+			Usage:  "subscribe to a firehose, validate every known record against catalog",
+			Action: runValidateFirehose,
+		},
 	}
 	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})
 	slog.SetDefault(slog.New(h))
