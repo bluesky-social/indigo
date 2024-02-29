@@ -43,8 +43,8 @@ func InteractionChurnRule(c *automod.RecordContext) error {
 		if created > interactionDailyThreshold && c.Account.FollowsCount > 2000 && followRatio < 0.1 {
 			c.Logger.Info("bulk-follower", "created-today", created)
 			c.AddAccountFlag("bulk-follower")
-			//c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("many follows: %d follows today (so far)", created))
-			c.Notify("slack")
+			c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("bulk following: %d follows today (so far)", created))
+			//c.Notify("slack")
 		}
 	}
 	return nil
