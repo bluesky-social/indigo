@@ -28,7 +28,7 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 		p = strings.Trim(p, "\"")
 
 		if strings.HasPrefix(p, "#") && len(p) > 1 {
-			tags = append(tags, p[1:])
+			tags = append(tags, strings.ToLower(p[1:]))
 			continue
 		}
 		if strings.HasPrefix(p, "did:") {
