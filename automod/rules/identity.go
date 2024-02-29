@@ -20,7 +20,7 @@ func NewAccountRule(c *automod.AccountContext) error {
 
 	did := c.Account.Identity.DID.String()
 	age := time.Since(c.Account.Private.IndexedAt)
-	if age > 2*time.Hour {
+	if age > 4*time.Hour {
 		return nil
 	}
 	exists := c.GetCount("acct/exists", did, countstore.PeriodTotal)

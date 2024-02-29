@@ -23,6 +23,7 @@ func DefaultRules() automod.RuleSet {
 			DistinctMentionsRule,
 			YoungAccountDistinctMentionsRule,
 			MisleadingLinkUnicodeReversalPostRule,
+			SimpleBotPostRule,
 		},
 		ProfileRules: []automod.ProfileRuleFunc{
 			GtubeProfileRule,
@@ -41,6 +42,7 @@ func DefaultRules() automod.RuleSet {
 			NewAccountRule,
 			BadWordHandleRule,
 			BadWordDIDRule,
+			NewAccountBotEmailRule,
 		},
 		BlobRules: []automod.BlobRuleFunc{
 			//BlobVerifyRule,
