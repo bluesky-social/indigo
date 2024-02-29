@@ -15,5 +15,4 @@ func acceptableMimeType(pattern, val string) bool {
 	} else {
 		return pattern == val
 	}
-	return false
 }
