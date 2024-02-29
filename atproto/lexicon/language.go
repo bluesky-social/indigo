@@ -8,6 +8,8 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+
+	"github.com/rivo/uniseg"
 )
 
 // Serialization helper for top-level Lexicon schema JSON objects (files)
@@ -419,12 +421,23 @@ func (s *SchemaInteger) Validate(d any) error {
 		return fmt.Errorf("expected an integer")
 	}
 	v := int(v64)
-	// TODO: enforce enum
 	if s.Const != nil && v != *s.Const {
 		return fmt.Errorf("integer val didn't match constant (%d): %d", *s.Const, v)
 	}
 	if (s.Minimum != nil && v < *s.Minimum) || (s.Maximum != nil && v > *s.Maximum) {
 		return fmt.Errorf("integer val outside specified range: %d", v)
+	}
+	if len(s.Enum) != 0 {
+		inEnum := false
+		for _, e := range s.Enum {
+			if e == v {
+				inEnum = true
+				break
+			}
+		}
+		if !inEnum {
+			return fmt.Errorf("integer val not in required enum: %d", v)
+		}
 	}
 	return nil
 }
@@ -476,7 +489,6 @@ func (s *SchemaString) Validate(d any) error {
 	if !ok {
 		return fmt.Errorf("expected a string: %v", reflect.TypeOf(d))
 	}
-	// TODO: enforce enum
 	if s.Const != nil && v != *s.Const {
 		return fmt.Errorf("string val didn't match constant (%s): %s", *s.Const, v)
 	}
@@ -484,7 +496,24 @@ func (s *SchemaString) Validate(d any) error {
 	if (s.MinLength != nil && len(v) < *s.MinLength) || (s.MaxLength != nil && len(v) > *s.MaxLength) {
 		return fmt.Errorf("string length outside specified range: %d", len(v))
 	}
-	// TODO: grapheme length
+	if len(s.Enum) != 0 {
+		inEnum := false
+		for _, e := range s.Enum {
+			if e == v {
+				inEnum = true
+				break
+			}
+		}
+		if !inEnum {
+			return fmt.Errorf("string val not in required enum: %s", v)
+		}
+	}
+	if s.MinGraphemes != nil || s.MaxGraphemes != nil {
+		lenG := uniseg.GraphemeClusterCount(v)
+		if (s.MinGraphemes != nil && lenG < *s.MinGraphemes) || (s.MaxGraphemes != nil && lenG > *s.MaxGraphemes) {
+			return fmt.Errorf("string length (graphemes) outside specified range: %d", lenG)
+		}
+	}
 	if s.Format != nil {
 		switch *s.Format {
 		case "at-identifier":
@@ -656,7 +685,18 @@ func (s *SchemaBlob) Validate(d any) error {
 	if !ok {
 		return fmt.Errorf("expected a blob")
 	}
-	// TODO: validate accept mimetype
+	if len(s.Accept) > 0 {
+		typeOk := false
+		for _, pat := range s.Accept {
+			if acceptableMimeType(pat, v.MimeType) {
+				typeOk = true
+				break
+			}
+		}
+		if !typeOk {
+			return fmt.Errorf("blob mimetype doesn't match accepted: %s", v.MimeType)
+		}
+	}
 	if s.MaxSize != nil && int(v.Size) > *s.MaxSize {
 		return fmt.Errorf("blob size too large: %d", v.Size)
 	}
@@ -702,6 +742,7 @@ func (s *SchemaParams) CheckSchema() error {
 	return nil
 }
 
+// XXX: implementation?
 func (s *SchemaParams) Validate(d any) error {
 	return nil
 }
@@ -709,9 +750,25 @@ func (s *SchemaParams) Validate(d any) error {
 type SchemaToken struct {
 	Type        string  `json:"type,const=token"`
 	Description *string `json:"description,omitempty"`
+	// the fully-qualified identifier of this token
+	Name string
 }
 
 func (s *SchemaToken) CheckSchema() error {
+	return nil
+}
+
+func (s *SchemaToken) Validate(d any) error {
+	str, ok := d.(string)
+	if !ok {
+		return fmt.Errorf("expected a string for token, got: %s", reflect.TypeOf(d))
+	}
+	if s.Name == "" {
+		return fmt.Errorf("token name was not populated at parse time")
+	}
+	if str != s.Name {
+		return fmt.Errorf("token name did not match expected: %s", str)
+	}
 	return nil
 }
 

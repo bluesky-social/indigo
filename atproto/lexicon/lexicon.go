@@ -61,6 +61,10 @@ func (c *Catalog) AddSchemaFile(sf SchemaFile) error {
 			if frag != "main" {
 				return fmt.Errorf("record, query, procedure, and subscription types must be 'main', not: %s", frag)
 			}
+		case SchemaToken:
+			token := def.Inner.(SchemaToken)
+			token.Name = name
+			def.Inner = token
 		}
 		s := Schema{
 			ID:       name,
@@ -169,18 +173,11 @@ func (c *Catalog) validateData(def any, d any) error {
 		}
 		return c.validateData(next.Def, d)
 	case SchemaUnion:
-		//return fmt.Errorf("XXX: union validation not implemented")
-		return nil
+		return c.validateUnion(v, d)
 	case SchemaUnknown:
 		return v.Validate(d)
 	case SchemaToken:
-		str, ok := d.(string)
-		if !ok {
-			return fmt.Errorf("expected a string for token, got: %s", reflect.TypeOf(d))
-		}
-		// XXX: token validation not implemented
-		_ = str
-		return nil
+		return v.Validate(d)
 	default:
 		return fmt.Errorf("unhandled schema type: %s", reflect.TypeOf(v))
 	}
@@ -216,5 +213,24 @@ func (c *Catalog) validateArray(s SchemaArray, arr []any) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (c *Catalog) validateUnion(s SchemaUnion, d any) error {
+	closed := s.Closed != nil && *s.Closed == true
+	for _, ref := range s.Refs {
+		def, err := c.Resolve(ref)
+		if err != nil {
+			// TODO: how to actually handle unknown defs?
+			return err
+		}
+		if err = c.validateData(def.Def, d); nil == err { // if success
+			return nil
+		}
+	}
+	if closed {
+		return fmt.Errorf("data did not match any variant of closed union")
+	}
+	// TODO: anything matches if an open union?
 	return nil
 }
