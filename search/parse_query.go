@@ -29,7 +29,7 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 			filters = append(filters, map[string]interface{}{
 				"term": map[string]interface{}{
 					"tag": map[string]interface{}{
-						"value":            strings.ToLower(p[1:]),
+						"value":            p[1:],
 						"case_insensitive": true,
 					},
 				},
