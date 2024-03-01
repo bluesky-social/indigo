@@ -55,4 +55,20 @@ func TestParseQuery(t *testing.T) {
 	q, f = ParseQuery(ctx, &dir, p6)
 	assert.Equal(`some other stuff`, q)
 	assert.Equal(2, len(f))
+
+	p7 := `https://bsky.app/profile/did:plc:q6gjnaw2blty4crticxkmujt/post/3kmmi33vc2l2w`
+	q, f = ParseQuery(ctx, &dir, p7)
+	assert.Equal(`*`, q)
+	assert.Equal(1, len(f))
+	assert.Equal([]map[string]interface{}{
+		{"term": map[string]interface{}{"embed_aturi": "at://did:plc:q6gjnaw2blty4crticxkmujt/app.bsky.feed.post/3kmmi33vc2l2w"}},
+	}, f)
+
+	p8 := `https://bsky.app/profile/known.example.com/post/3kmmi33vc2l2w`
+	q, f = ParseQuery(ctx, &dir, p8)
+	assert.Equal(`*`, q)
+	assert.Equal(1, len(f))
+	assert.Equal([]map[string]interface{}{
+		{"term": map[string]interface{}{"embed_aturi": "at://did:plc:abc222/app.bsky.feed.post/3kmmi33vc2l2w"}},
+	}, f)
 }
