@@ -28,7 +28,7 @@ RUN yarn build
 ### Run stage
 FROM alpine:3.18
 
-RUN apk add --no-cache --update dumb-init ca-certificates
+RUN apk add --no-cache --update dumb-init ca-certificates runit
 ENTRYPOINT ["dumb-init", "--"]
 
 WORKDIR /
