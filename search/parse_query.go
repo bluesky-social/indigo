@@ -43,7 +43,11 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 			continue
 		}
 		if strings.HasPrefix(p, "from:") && len(p) > 6 {
-			handle, err := syntax.ParseHandle(p[5:])
+			h := p[5:]
+			if h[0] == '@' {
+				h = h[1:]
+			}
+			handle, err := syntax.ParseHandle(h)
 			if err != nil {
 				keep = append(keep, p)
 				continue
