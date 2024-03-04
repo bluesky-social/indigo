@@ -147,7 +147,26 @@ func pollNewReports(cctx *cli.Context) error {
 		// query just new reports (regardless of resolution state)
 		// AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, includeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string) (*AdminQueryModerationEvents_Output, error)
 		var limit int64 = 50
-		me, err := comatproto.AdminQueryModerationEvents(context.TODO(), xrpcc, "", "", false, limit, "", "", []string{"com.atproto.admin.defs#modEventReport"})
+		me, err := comatproto.AdminQueryModerationEvents(
+			cctx.Context,
+			xrpcc,
+			nil,
+			nil,
+			"",
+			"",
+			"",
+			"",
+			"",
+			false,
+			true,
+			limit,
+			nil,
+			nil,
+			nil,
+			"",
+			"",
+			[]string{"com.atproto.admin.defs#modEventReport"},
+		)
 		if err != nil {
 			return err
 		}

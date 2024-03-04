@@ -193,6 +193,21 @@ type AdminDefs_ModEventReverseTakedown struct {
 	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 }
 
+// AdminDefs_ModEventTag is a "modEventTag" in the com.atproto.admin.defs schema.
+//
+// Add/Remove a tag on a subject
+//
+// RECORDTYPE: AdminDefs_ModEventTag
+type AdminDefs_ModEventTag struct {
+	LexiconTypeID string `json:"$type,const=com.atproto.admin.defs#modEventTag" cborgen:"$type,const=com.atproto.admin.defs#modEventTag"`
+	// add: Tags to be added to the subject. If already exists, won't be duplicated.
+	Add []string `json:"add" cborgen:"add"`
+	// comment: Additional comment about added/removed tags.
+	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	// remove: Tags to be removed to the subject. Ignores a tag If it doesn't exist, won't be duplicated.
+	Remove []string `json:"remove" cborgen:"remove"`
+}
+
 // AdminDefs_ModEventTakedown is a "modEventTakedown" in the com.atproto.admin.defs schema.
 //
 // # Take down a subject permanently or temporarily
@@ -247,6 +262,7 @@ type AdminDefs_ModEventViewDetail_Event struct {
 	AdminDefs_ModEventAcknowledge     *AdminDefs_ModEventAcknowledge
 	AdminDefs_ModEventEscalate        *AdminDefs_ModEventEscalate
 	AdminDefs_ModEventMute            *AdminDefs_ModEventMute
+	AdminDefs_ModEventEmail           *AdminDefs_ModEventEmail
 	AdminDefs_ModEventResolveAppeal   *AdminDefs_ModEventResolveAppeal
 }
 
@@ -282,6 +298,10 @@ func (t *AdminDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) {
 	if t.AdminDefs_ModEventMute != nil {
 		t.AdminDefs_ModEventMute.LexiconTypeID = "com.atproto.admin.defs#modEventMute"
 		return json.Marshal(t.AdminDefs_ModEventMute)
+	}
+	if t.AdminDefs_ModEventEmail != nil {
+		t.AdminDefs_ModEventEmail.LexiconTypeID = "com.atproto.admin.defs#modEventEmail"
+		return json.Marshal(t.AdminDefs_ModEventEmail)
 	}
 	if t.AdminDefs_ModEventResolveAppeal != nil {
 		t.AdminDefs_ModEventResolveAppeal.LexiconTypeID = "com.atproto.admin.defs#modEventResolveAppeal"
@@ -320,6 +340,9 @@ func (t *AdminDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error {
 	case "com.atproto.admin.defs#modEventMute":
 		t.AdminDefs_ModEventMute = new(AdminDefs_ModEventMute)
 		return json.Unmarshal(b, t.AdminDefs_ModEventMute)
+	case "com.atproto.admin.defs#modEventEmail":
+		t.AdminDefs_ModEventEmail = new(AdminDefs_ModEventEmail)
+		return json.Unmarshal(b, t.AdminDefs_ModEventEmail)
 	case "com.atproto.admin.defs#modEventResolveAppeal":
 		t.AdminDefs_ModEventResolveAppeal = new(AdminDefs_ModEventResolveAppeal)
 		return json.Unmarshal(b, t.AdminDefs_ModEventResolveAppeal)
@@ -390,6 +413,7 @@ type AdminDefs_ModEventView_Event struct {
 	AdminDefs_ModEventEscalate        *AdminDefs_ModEventEscalate
 	AdminDefs_ModEventMute            *AdminDefs_ModEventMute
 	AdminDefs_ModEventEmail           *AdminDefs_ModEventEmail
+	AdminDefs_ModEventResolveAppeal   *AdminDefs_ModEventResolveAppeal
 }
 
 func (t *AdminDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
@@ -429,6 +453,10 @@ func (t *AdminDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
 		t.AdminDefs_ModEventEmail.LexiconTypeID = "com.atproto.admin.defs#modEventEmail"
 		return json.Marshal(t.AdminDefs_ModEventEmail)
 	}
+	if t.AdminDefs_ModEventResolveAppeal != nil {
+		t.AdminDefs_ModEventResolveAppeal.LexiconTypeID = "com.atproto.admin.defs#modEventResolveAppeal"
+		return json.Marshal(t.AdminDefs_ModEventResolveAppeal)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *AdminDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
@@ -465,6 +493,9 @@ func (t *AdminDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
 	case "com.atproto.admin.defs#modEventEmail":
 		t.AdminDefs_ModEventEmail = new(AdminDefs_ModEventEmail)
 		return json.Unmarshal(b, t.AdminDefs_ModEventEmail)
+	case "com.atproto.admin.defs#modEventResolveAppeal":
+		t.AdminDefs_ModEventResolveAppeal = new(AdminDefs_ModEventResolveAppeal)
+		return json.Unmarshal(b, t.AdminDefs_ModEventResolveAppeal)
 
 	default:
 		return nil
@@ -744,6 +775,7 @@ type AdminDefs_SubjectStatusView struct {
 	SubjectBlobCids   []string                             `json:"subjectBlobCids,omitempty" cborgen:"subjectBlobCids,omitempty"`
 	SubjectRepoHandle *string                              `json:"subjectRepoHandle,omitempty" cborgen:"subjectRepoHandle,omitempty"`
 	SuspendUntil      *string                              `json:"suspendUntil,omitempty" cborgen:"suspendUntil,omitempty"`
+	Tags              []string                             `json:"tags,omitempty" cborgen:"tags,omitempty"`
 	Takendown         *bool                                `json:"takendown,omitempty" cborgen:"takendown,omitempty"`
 	// updatedAt: Timestamp referencing when the last update was made to the moderation status of the subject
 	UpdatedAt string `json:"updatedAt" cborgen:"updatedAt"`

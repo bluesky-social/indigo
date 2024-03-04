@@ -26,7 +26,9 @@ type ActorDefs_AdultContentPref struct {
 type ActorDefs_ContentLabelPref struct {
 	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs#contentLabelPref" cborgen:"$type,const=app.bsky.actor.defs#contentLabelPref"`
 	Label         string `json:"label" cborgen:"label"`
-	Visibility    string `json:"visibility" cborgen:"visibility"`
+	// labelerDid: Which labeler does this preference apply to? If undefined, applies globally.
+	LabelerDid *string `json:"labelerDid,omitempty" cborgen:"labelerDid,omitempty"`
+	Visibility string  `json:"visibility" cborgen:"visibility"`
 }
 
 // ActorDefs_FeedViewPref is a "feedViewPref" in the app.bsky.actor.defs schema.
@@ -48,6 +50,15 @@ type ActorDefs_FeedViewPref struct {
 	HideReposts *bool `json:"hideReposts,omitempty" cborgen:"hideReposts,omitempty"`
 }
 
+// ActorDefs_HiddenPostsPref is a "hiddenPostsPref" in the app.bsky.actor.defs schema.
+//
+// RECORDTYPE: ActorDefs_HiddenPostsPref
+type ActorDefs_HiddenPostsPref struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs#hiddenPostsPref" cborgen:"$type,const=app.bsky.actor.defs#hiddenPostsPref"`
+	// items: A list of URIs of posts the account owner has hidden.
+	Items []string `json:"items" cborgen:"items"`
+}
+
 // ActorDefs_InterestsPref is a "interestsPref" in the app.bsky.actor.defs schema.
 //
 // RECORDTYPE: ActorDefs_InterestsPref
@@ -55,6 +66,35 @@ type ActorDefs_InterestsPref struct {
 	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs#interestsPref" cborgen:"$type,const=app.bsky.actor.defs#interestsPref"`
 	// tags: A list of tags which describe the account owner's interests gathered during onboarding.
 	Tags []string `json:"tags" cborgen:"tags"`
+}
+
+// ActorDefs_ModPrefItem is a "modPrefItem" in the app.bsky.actor.defs schema.
+type ActorDefs_ModPrefItem struct {
+	Did string `json:"did" cborgen:"did"`
+}
+
+// ActorDefs_ModsPref is a "modsPref" in the app.bsky.actor.defs schema.
+type ActorDefs_ModsPref struct {
+	Mods []*ActorDefs_ModPrefItem `json:"mods" cborgen:"mods"`
+}
+
+// ActorDefs_MutedWord is a "mutedWord" in the app.bsky.actor.defs schema.
+//
+// A word that the account owner has muted.
+type ActorDefs_MutedWord struct {
+	// targets: The intended targets of the muted word.
+	Targets []*string `json:"targets" cborgen:"targets"`
+	// value: The muted word itself.
+	Value string `json:"value" cborgen:"value"`
+}
+
+// ActorDefs_MutedWordsPref is a "mutedWordsPref" in the app.bsky.actor.defs schema.
+//
+// RECORDTYPE: ActorDefs_MutedWordsPref
+type ActorDefs_MutedWordsPref struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs#mutedWordsPref" cborgen:"$type,const=app.bsky.actor.defs#mutedWordsPref"`
+	// items: A list of words the account owner has muted.
+	Items []*ActorDefs_MutedWord `json:"items" cborgen:"items"`
 }
 
 // ActorDefs_PersonalDetailsPref is a "personalDetailsPref" in the app.bsky.actor.defs schema.
@@ -74,6 +114,8 @@ type ActorDefs_Preferences_Elem struct {
 	ActorDefs_FeedViewPref        *ActorDefs_FeedViewPref
 	ActorDefs_ThreadViewPref      *ActorDefs_ThreadViewPref
 	ActorDefs_InterestsPref       *ActorDefs_InterestsPref
+	ActorDefs_MutedWordsPref      *ActorDefs_MutedWordsPref
+	ActorDefs_HiddenPostsPref     *ActorDefs_HiddenPostsPref
 }
 
 func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
@@ -105,6 +147,14 @@ func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
 		t.ActorDefs_InterestsPref.LexiconTypeID = "app.bsky.actor.defs#interestsPref"
 		return json.Marshal(t.ActorDefs_InterestsPref)
 	}
+	if t.ActorDefs_MutedWordsPref != nil {
+		t.ActorDefs_MutedWordsPref.LexiconTypeID = "app.bsky.actor.defs#mutedWordsPref"
+		return json.Marshal(t.ActorDefs_MutedWordsPref)
+	}
+	if t.ActorDefs_HiddenPostsPref != nil {
+		t.ActorDefs_HiddenPostsPref.LexiconTypeID = "app.bsky.actor.defs#hiddenPostsPref"
+		return json.Marshal(t.ActorDefs_HiddenPostsPref)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
@@ -135,10 +185,23 @@ func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.actor.defs#interestsPref":
 		t.ActorDefs_InterestsPref = new(ActorDefs_InterestsPref)
 		return json.Unmarshal(b, t.ActorDefs_InterestsPref)
+	case "app.bsky.actor.defs#mutedWordsPref":
+		t.ActorDefs_MutedWordsPref = new(ActorDefs_MutedWordsPref)
+		return json.Unmarshal(b, t.ActorDefs_MutedWordsPref)
+	case "app.bsky.actor.defs#hiddenPostsPref":
+		t.ActorDefs_HiddenPostsPref = new(ActorDefs_HiddenPostsPref)
+		return json.Unmarshal(b, t.ActorDefs_HiddenPostsPref)
 
 	default:
 		return nil
 	}
+}
+
+// ActorDefs_ProfileAssociated is a "profileAssociated" in the app.bsky.actor.defs schema.
+type ActorDefs_ProfileAssociated struct {
+	Feedgens *int64 `json:"feedgens,omitempty" cborgen:"feedgens,omitempty"`
+	Labeler  *bool  `json:"labeler,omitempty" cborgen:"labeler,omitempty"`
+	Lists    *int64 `json:"lists,omitempty" cborgen:"lists,omitempty"`
 }
 
 // ActorDefs_ProfileView is a "profileView" in the app.bsky.actor.defs schema.
@@ -165,6 +228,7 @@ type ActorDefs_ProfileViewBasic struct {
 
 // ActorDefs_ProfileViewDetailed is a "profileViewDetailed" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileViewDetailed struct {
+	Associated     *ActorDefs_ProfileAssociated       `json:"associated,omitempty" cborgen:"associated,omitempty"`
 	Avatar         *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	Banner         *string                            `json:"banner,omitempty" cborgen:"banner,omitempty"`
 	Description    *string                            `json:"description,omitempty" cborgen:"description,omitempty"`
