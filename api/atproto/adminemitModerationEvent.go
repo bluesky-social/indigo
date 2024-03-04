@@ -32,6 +32,7 @@ type AdminEmitModerationEvent_Input_Event struct {
 	AdminDefs_ModEventReverseTakedown *AdminDefs_ModEventReverseTakedown
 	AdminDefs_ModEventUnmute          *AdminDefs_ModEventUnmute
 	AdminDefs_ModEventEmail           *AdminDefs_ModEventEmail
+	AdminDefs_ModEventTag             *AdminDefs_ModEventTag
 }
 
 func (t *AdminEmitModerationEvent_Input_Event) MarshalJSON() ([]byte, error) {
@@ -75,6 +76,10 @@ func (t *AdminEmitModerationEvent_Input_Event) MarshalJSON() ([]byte, error) {
 		t.AdminDefs_ModEventEmail.LexiconTypeID = "com.atproto.admin.defs#modEventEmail"
 		return json.Marshal(t.AdminDefs_ModEventEmail)
 	}
+	if t.AdminDefs_ModEventTag != nil {
+		t.AdminDefs_ModEventTag.LexiconTypeID = "com.atproto.admin.defs#modEventTag"
+		return json.Marshal(t.AdminDefs_ModEventTag)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *AdminEmitModerationEvent_Input_Event) UnmarshalJSON(b []byte) error {
@@ -114,6 +119,9 @@ func (t *AdminEmitModerationEvent_Input_Event) UnmarshalJSON(b []byte) error {
 	case "com.atproto.admin.defs#modEventEmail":
 		t.AdminDefs_ModEventEmail = new(AdminDefs_ModEventEmail)
 		return json.Unmarshal(b, t.AdminDefs_ModEventEmail)
+	case "com.atproto.admin.defs#modEventTag":
+		t.AdminDefs_ModEventTag = new(AdminDefs_ModEventTag)
+		return json.Unmarshal(b, t.AdminDefs_ModEventTag)
 
 	default:
 		return nil

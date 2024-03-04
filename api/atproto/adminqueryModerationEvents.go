@@ -18,17 +18,34 @@ type AdminQueryModerationEvents_Output struct {
 
 // AdminQueryModerationEvents calls the XRPC method "com.atproto.admin.queryModerationEvents".
 //
+// addedLabels: If specified, only events where all of these labels were added are returned
+// addedTags: If specified, only events where all of these tags were added are returned
+// comment: If specified, only events with comments containing the keyword are returned
+// createdAfter: Retrieve events created after a given timestamp
+// createdBefore: Retrieve events created before a given timestamp
+// hasComment: If true, only events with comments are returned
 // includeAllUserRecords: If true, events on all record types (posts, lists, profile etc.) owned by the did are returned
+// removedLabels: If specified, only events where all of these labels were removed are returned
+// removedTags: If specified, only events where all of these tags were removed are returned
 // sortDirection: Sort direction for the events. Defaults to descending order of created at timestamp.
 // types: The types of events (fully qualified string in the format of com.atproto.admin#modEvent<name>) to filter by. If not specified, all events are returned.
-func AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, includeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string) (*AdminQueryModerationEvents_Output, error) {
+func AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, addedLabels []string, addedTags []string, comment string, createdAfter string, createdBefore string, createdBy string, cursor string, hasComment bool, includeAllUserRecords bool, limit int64, removedLabels []string, removedTags []string, reportTypes []string, sortDirection string, subject string, types []string) (*AdminQueryModerationEvents_Output, error) {
 	var out AdminQueryModerationEvents_Output
 
 	params := map[string]interface{}{
+		"addedLabels":           addedLabels,
+		"addedTags":             addedTags,
+		"comment":               comment,
+		"createdAfter":          createdAfter,
+		"createdBefore":         createdBefore,
 		"createdBy":             createdBy,
 		"cursor":                cursor,
+		"hasComment":            hasComment,
 		"includeAllUserRecords": includeAllUserRecords,
 		"limit":                 limit,
+		"removedLabels":         removedLabels,
+		"removedTags":           removedTags,
+		"reportTypes":           reportTypes,
 		"sortDirection":         sortDirection,
 		"subject":               subject,
 		"types":                 types,
