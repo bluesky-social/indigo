@@ -694,7 +694,26 @@ var queryModerationStatusesCmd = &cli.Command{
 			did = resp
 		}
 
-		resp, err := atproto.AdminQueryModerationStatuses(ctx, xrpcc, false, "", "", nil, true, "", 100, "", "", "", "", "", "", "", "", false)
+		resp, err := atproto.AdminQueryModerationEvents(
+			ctx,
+			xrpcc,
+			nil,
+			nil,
+			"",
+			"",
+			"",
+			"",
+			"",
+			false,
+			false,
+			100,
+			nil,
+			nil,
+			nil,
+			"",
+			"",
+			[]string{"com.atproto.admin.defs#modEventReport"},
+		)
 		if err != nil {
 			return err
 		}
