@@ -52,6 +52,8 @@ func main() {
 		bsky.FeedThreadgate_ListRule{},
 		bsky.FeedThreadgate_MentionRule{},
 		bsky.FeedThreadgate_FollowingRule{},
+		bsky.LabelerService{},
+		bsky.LabelerDefs_LabelerPolicies{},
 		/*bsky.EmbedImages_View{},
 		bsky.EmbedRecord_View{}, bsky.EmbedRecordWithMedia_View{},
 		bsky.EmbedExternal_View{}, bsky.EmbedImages_ViewImage{},
@@ -77,6 +79,8 @@ func main() {
 		atproto.LabelDefs_Label{},
 		atproto.LabelSubscribeLabels_Labels{},
 		atproto.LabelSubscribeLabels_Info{},
+		atproto.LabelDefs_LabelValueDefinition{},
+		atproto.LabelDefs_LabelValueDefinitionStrings{},
 	); err != nil {
 		panic(err)
 	}

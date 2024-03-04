@@ -22,6 +22,31 @@ type LabelDefs_Label struct {
 	Val string `json:"val" cborgen:"val"`
 }
 
+// LabelDefs_LabelValueDefinition is a "labelValueDefinition" in the com.atproto.label.defs schema.
+//
+// Declares a label value and its expected interpertations and behaviors.
+type LabelDefs_LabelValueDefinition struct {
+	// blurs: What should this label hide in the UI, if applied? 'content' hides all of the target; 'media' hides the images/video/audio; 'none' hides nothing.
+	Blurs string `json:"blurs" cborgen:"blurs"`
+	// identifier: The value of the label being defined. Must only include lowercase ascii and the '-' character ([a-z-]+).
+	Identifier string                                   `json:"identifier" cborgen:"identifier"`
+	Locales    []*LabelDefs_LabelValueDefinitionStrings `json:"locales" cborgen:"locales"`
+	// severity: How should a client visually convey this label? 'inform' means neutral and informational; 'alert' means negative and warning; 'none' means show nothing.
+	Severity string `json:"severity" cborgen:"severity"`
+}
+
+// LabelDefs_LabelValueDefinitionStrings is a "labelValueDefinitionStrings" in the com.atproto.label.defs schema.
+//
+// Strings which describe the label in the UI, localized into a specific language.
+type LabelDefs_LabelValueDefinitionStrings struct {
+	// description: A longer description of what the label means and why it might be applied.
+	Description string `json:"description" cborgen:"description"`
+	// lang: The code of the language these strings are written in.
+	Lang string `json:"lang" cborgen:"lang"`
+	// name: A short human-readable name for the label.
+	Name string `json:"name" cborgen:"name"`
+}
+
 // LabelDefs_SelfLabel is a "selfLabel" in the com.atproto.label.defs schema.
 //
 // Metadata tag on an atproto record, published by the author within the record. Note that schemas should use #selfLabels, not #selfLabel.
