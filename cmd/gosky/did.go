@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/api"
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util/cliutil"
 
 	cli "github.com/urfave/cli/v2"
@@ -34,16 +35,18 @@ var didGetCmd = &cli.Command{
 	Action: func(cctx *cli.Context) error {
 		s := cliutil.GetDidResolver(cctx)
 
+		ctx := context.TODO()
 		did := cctx.Args().First()
 
+		dir := identity.DefaultDirectory()
+
 		if cctx.Bool("handle") {
-			phr := &api.ProdHandleResolver{}
-			h, _, err := api.ResolveDidToHandle(context.TODO(), s, phr, did)
+			id, err := dir.LookupDID(ctx, syntax.DID(did))
 			if err != nil {
 				return err
 			}
 
-			fmt.Println(h)
+			fmt.Println(id.Handle)
 			return nil
 		}
 

@@ -13,6 +13,8 @@ import (
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	cli "github.com/urfave/cli/v2"
 )
@@ -58,22 +60,24 @@ var checkUserCmd = &cli.Command{
 			return err
 		}
 
+		dir := identity.DefaultDirectory()
 		ctx := context.Background()
 
-		phr := &api.ProdHandleResolver{}
-
-		did := cctx.Args().First()
-		if !strings.HasPrefix(did, "did:") {
-			rdid, err := phr.ResolveHandleToDid(ctx, cctx.Args().First())
-			if err != nil {
-				return fmt.Errorf("resolve handle %q: %w", cctx.Args().First(), err)
-			}
-
-			did = rdid
+		ident, err := syntax.ParseAtIdentifier(cctx.Args().First())
+		if err != nil {
+			return err
 		}
+
+		id, err := dir.Lookup(ctx, *ident)
+		if err != nil {
+			return fmt.Errorf("resolve identifier %q: %w", cctx.Args().First(), err)
+		}
+
+		did := id.DID.String()
 
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
+		xrpcc.Host = id.PDSEndpoint()
 
 		rep, err := atproto.AdminGetRepo(ctx, xrpcc, did)
 		if err != nil {
@@ -85,8 +89,6 @@ var checkUserCmd = &cli.Command{
 			return err
 		}
 
-		plcc := cliutil.GetDidResolver(cctx)
-
 		if cctx.Bool("raw") {
 			fmt.Println(string(b))
 		} else if cctx.Bool("list-invited-dids") {
@@ -97,17 +99,18 @@ var checkUserCmd = &cli.Command{
 			}
 		} else {
 			var invby string
-			if fa := rep.InvitedBy.ForAccount; fa != "" {
-				if fa == "admin" {
-					invby = fa
-				} else {
-					handle, _, err := api.ResolveDidToHandle(ctx, plcc, phr, fa)
-					if err != nil {
-						fmt.Println("ERROR: failed to resolve inviter: ", err)
-						handle = fa
-					}
+			if rep.InvitedBy != nil {
+				if fa := rep.InvitedBy.ForAccount; fa != "" {
+					if fa == "admin" {
+						invby = fa
+					} else {
+						id, err := dir.LookupDID(ctx, syntax.DID(fa))
+						if err != nil {
+							fmt.Println("ERROR: failed to resolve inviter: ", err)
+						}
 
-					invby = handle
+						invby = id.Handle.String()
+					}
 				}
 			}
 
