@@ -167,7 +167,22 @@ func (i *Identity) PublicKey() (crypto.PublicKey, error) {
 	if i.Keys == nil {
 		return nil, fmt.Errorf("identity has no atproto public key attached")
 	}
-	k, ok := i.Keys["atproto"]
+	return i.PublicKeyFor("atproto")
+}
+
+// Identifies and parses a specified service signing public key, specifically, out of any keys associated with this identity.
+//
+// Returns [ErrKeyNotFound] if there is no such key.
+//
+// Note that [crypto.PublicKey] is an interface, not a concrete type.
+func (i *Identity) PublicKeyFor(forKey string) (crypto.PublicKey, error) {
+	if i.ParsedPublicKey != nil {
+		return i.ParsedPublicKey, nil
+	}
+	if i.Keys == nil {
+		return nil, fmt.Errorf("identity has no atproto public key attached")
+	}
+	k, ok := i.Keys[forKey]
 	if !ok {
 		return nil, ErrKeyNotDeclared
 	}
