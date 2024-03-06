@@ -11,6 +11,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/util/labels"
 
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
@@ -29,6 +30,10 @@ func main() {
 	}
 
 	if err := cbg.WriteMapEncodersToFile("api/cbor_gen.go", "api", api.CreateOp{}); err != nil {
+		panic(err)
+	}
+
+	if err := cbg.WriteMapEncodersToFile("util/labels/cbor_gen.go", "labels", labels.UnsignedLabel{}, labels.SignedLabel{}); err != nil {
 		panic(err)
 	}
 
