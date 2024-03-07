@@ -55,7 +55,8 @@ var ErrDIDNotFound = errors.New("DID not found")
 // Indicates that DID resolution process failed. A wrapped error may provide more context.
 var ErrDIDResolutionFailed = errors.New("DID resolution failed")
 
-var ErrKeyNotDeclared = errors.New("identity has no public repo signing key")
+// Indicates that DID document did not include a public key with the specified ID
+var ErrKeyNotDeclared = errors.New("DID document did not declare a relevant public key")
 
 var DefaultPLCURL = "https://plc.directory"
 
@@ -152,28 +153,25 @@ func ParseIdentity(doc *DIDDocument) Identity {
 	}
 }
 
-// Identifies and parses the atproto repo signing public key, specifically, out of any keys associated with this identity.
+// Identifies and parses the atproto repo signing public key, specifically, out of any keys in this identity's DID document.
 //
 // Returns [ErrKeyNotFound] if there is no such key.
 //
 // Note that [crypto.PublicKey] is an interface, not a concrete type.
 func (i *Identity) PublicKey() (crypto.PublicKey, error) {
-	if i.Keys == nil {
-		return nil, fmt.Errorf("identity has no atproto public key attached")
-	}
-	return i.PublicKeyFor("atproto")
+	return i.GetPublicKey("atproto")
 }
 
-// Identifies and parses a specified service signing public key, specifically, out of any keys associated with this identity.
+// Identifies and parses a specified service signing public key out of any keys in this identity's DID document.
 //
 // Returns [ErrKeyNotFound] if there is no such key.
 //
 // Note that [crypto.PublicKey] is an interface, not a concrete type.
-func (i *Identity) PublicKeyFor(forKey string) (crypto.PublicKey, error) {
+func (i *Identity) GetPublicKey(id string) (crypto.PublicKey, error) {
 	if i.Keys == nil {
-		return nil, fmt.Errorf("identity has no atproto public key attached")
+		return nil, ErrKeyNotDeclared
 	}
-	k, ok := i.Keys[forKey]
+	k, ok := i.Keys[id]
 	if !ok {
 		return nil, ErrKeyNotDeclared
 	}
