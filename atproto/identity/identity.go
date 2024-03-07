@@ -55,7 +55,8 @@ var ErrDIDNotFound = errors.New("DID not found")
 // Indicates that DID resolution process failed. A wrapped error may provide more context.
 var ErrDIDResolutionFailed = errors.New("DID resolution failed")
 
-var ErrKeyNotDeclared = errors.New("identity has no public repo signing key")
+// Indicates that DID document did not include a public key with the specified ID
+var ErrKeyNotDeclared = errors.New("DID document did not declare a relevant public key")
 
 var DefaultPLCURL = "https://plc.directory"
 
@@ -91,9 +92,6 @@ type Identity struct {
 	AlsoKnownAs []string
 	Services    map[string]Service
 	Keys        map[string]Key
-
-	// If a valid atproto repo signing public key was parsed, it can be cached here. This is a nullable/optional field (crypto.PublicKey is an interface). Calling code should use [Identity.PublicKey] instead of accessing this member.
-	ParsedPublicKey crypto.PublicKey
 }
 
 type Key struct {
@@ -155,34 +153,25 @@ func ParseIdentity(doc *DIDDocument) Identity {
 	}
 }
 
-// Identifies and parses the atproto repo signing public key, specifically, out of any keys associated with this identity.
+// Identifies and parses the atproto repo signing public key, specifically, out of any keys in this identity's DID document.
 //
 // Returns [ErrKeyNotFound] if there is no such key.
 //
 // Note that [crypto.PublicKey] is an interface, not a concrete type.
 func (i *Identity) PublicKey() (crypto.PublicKey, error) {
-	if i.ParsedPublicKey != nil {
-		return i.ParsedPublicKey, nil
-	}
-	if i.Keys == nil {
-		return nil, fmt.Errorf("identity has no atproto public key attached")
-	}
-	return i.PublicKeyFor("atproto")
+	return i.GetPublicKey("atproto")
 }
 
-// Identifies and parses a specified service signing public key, specifically, out of any keys associated with this identity.
+// Identifies and parses a specified service signing public key out of any keys in this identity's DID document.
 //
 // Returns [ErrKeyNotFound] if there is no such key.
 //
 // Note that [crypto.PublicKey] is an interface, not a concrete type.
-func (i *Identity) PublicKeyFor(forKey string) (crypto.PublicKey, error) {
-	if i.ParsedPublicKey != nil {
-		return i.ParsedPublicKey, nil
-	}
+func (i *Identity) GetPublicKey(id string) (crypto.PublicKey, error) {
 	if i.Keys == nil {
-		return nil, fmt.Errorf("identity has no atproto public key attached")
+		return nil, ErrKeyNotDeclared
 	}
-	k, ok := i.Keys[forKey]
+	k, ok := i.Keys[id]
 	if !ok {
 		return nil, ErrKeyNotDeclared
 	}
@@ -212,14 +201,25 @@ func (i *Identity) PublicKeyFor(forKey string) (crypto.PublicKey, error) {
 	}
 }
 
-// The home PDS endpoint for this account, if one is included in identity metadata (returns empty string if not found).
+// The home PDS endpoint for this identity, if one is included in the DID document.
 //
-// The endpoint should be an HTTP URL with method, hostname, and optional port, and (usually) no path segments.
+// The endpoint should be an HTTP URL with method, hostname, and optional port. It may or may not include path segments.
+//
+// Returns an empty string if the serivce isn't found, or if the URL fails to parse.
 func (i *Identity) PDSEndpoint() string {
+	return i.GetServiceEndpoint("atproto_pds")
+}
+
+// Returns the service endpoint URL for specified service ID (the fragment part of identifier, not including the hash symbol).
+//
+// The endpoint should be an HTTP URL with method, hostname, and optional port. It may or may not include path segments.
+//
+// Returns an empty string if the serivce isn't found, or if the URL fails to parse.
+func (i *Identity) GetServiceEndpoint(id string) string {
 	if i.Services == nil {
 		return ""
 	}
-	endpoint, ok := i.Services["atproto_pds"]
+	endpoint, ok := i.Services[id]
 	if !ok {
 		return ""
 	}

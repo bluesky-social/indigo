@@ -16,9 +16,6 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 
 	logger := e.Logger.With("did", ident.DID.String())
 
-	// wipe parsed public key; it's a waste of space and can't serialize
-	ident.ParsedPublicKey = nil
-
 	// fallback in case client wasn't configured (eg, testing)
 	if e.BskyClient == nil {
 		logger.Warn("skipping account meta hydration")

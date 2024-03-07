@@ -18,8 +18,7 @@
           "Type": "Multikey",
           "PublicKeyMultibase": "zQ3sha9ULLgA6zyJmk1z2uDkpkSs4Ypou33RE8XuhwWtSHF75"
         }
-      },
-      "ParsedPublicKey": null
+      }
     },
     "Profile": {
       "HasAvatar": true,

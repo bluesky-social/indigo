@@ -26,8 +26,6 @@ func CaptureRecent(ctx context.Context, eng *automod.Engine, atid syntax.AtIdent
 		}
 	}
 
-	// clear any pre-parsed key, which would fail to marshal as JSON
-	ident.ParsedPublicKey = nil
 	am, err := eng.GetAccountMeta(ctx, ident)
 	if err != nil {
 		return nil, err
