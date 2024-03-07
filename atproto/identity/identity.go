@@ -201,14 +201,25 @@ func (i *Identity) GetPublicKey(id string) (crypto.PublicKey, error) {
 	}
 }
 
-// The home PDS endpoint for this account, if one is included in identity metadata (returns empty string if not found).
+// The home PDS endpoint for this identity, if one is included in the DID document.
 //
-// The endpoint should be an HTTP URL with method, hostname, and optional port, and (usually) no path segments.
+// The endpoint should be an HTTP URL with method, hostname, and optional port. It may or may not include path segments.
+//
+// Returns an empty string if the serivce isn't found, or if the URL fails to parse.
 func (i *Identity) PDSEndpoint() string {
+	return i.GetServiceEndpoint("atproto_pds")
+}
+
+// Returns the service endpoint URL for specified service ID (the fragment part of identifier, not including the hash symbol).
+//
+// The endpoint should be an HTTP URL with method, hostname, and optional port. It may or may not include path segments.
+//
+// Returns an empty string if the serivce isn't found, or if the URL fails to parse.
+func (i *Identity) GetServiceEndpoint(id string) string {
 	if i.Services == nil {
 		return ""
 	}
-	endpoint, ok := i.Services["atproto_pds"]
+	endpoint, ok := i.Services[id]
 	if !ok {
 		return ""
 	}
