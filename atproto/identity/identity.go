@@ -91,9 +91,6 @@ type Identity struct {
 	AlsoKnownAs []string
 	Services    map[string]Service
 	Keys        map[string]Key
-
-	// If a valid atproto repo signing public key was parsed, it can be cached here. This is a nullable/optional field (crypto.PublicKey is an interface). Calling code should use [Identity.PublicKey] instead of accessing this member.
-	ParsedPublicKey crypto.PublicKey
 }
 
 type Key struct {
@@ -161,9 +158,6 @@ func ParseIdentity(doc *DIDDocument) Identity {
 //
 // Note that [crypto.PublicKey] is an interface, not a concrete type.
 func (i *Identity) PublicKey() (crypto.PublicKey, error) {
-	if i.ParsedPublicKey != nil {
-		return i.ParsedPublicKey, nil
-	}
 	if i.Keys == nil {
 		return nil, fmt.Errorf("identity has no atproto public key attached")
 	}
@@ -176,9 +170,6 @@ func (i *Identity) PublicKey() (crypto.PublicKey, error) {
 //
 // Note that [crypto.PublicKey] is an interface, not a concrete type.
 func (i *Identity) PublicKeyFor(forKey string) (crypto.PublicKey, error) {
-	if i.ParsedPublicKey != nil {
-		return i.ParsedPublicKey, nil
-	}
 	if i.Keys == nil {
 		return nil, fmt.Errorf("identity has no atproto public key attached")
 	}
