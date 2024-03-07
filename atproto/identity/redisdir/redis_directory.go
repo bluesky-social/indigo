@@ -112,7 +112,6 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*ha
 		return &he, nil
 	}
 
-	ident.ParsedPublicKey = nil
 	entry := identityEntry{
 		Updated:  time.Now(),
 		Identity: ident,
@@ -195,10 +194,6 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 
 func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) (*identityEntry, error) {
 	ident, err := d.Inner.LookupDID(ctx, did)
-	// wipe parsed public key; it's a waste of space and can't serialize
-	if nil == err {
-		ident.ParsedPublicKey = nil
-	}
 	// persist the identity lookup error, instead of processing it immediately
 	entry := identityEntry{
 		Updated:  time.Now(),
