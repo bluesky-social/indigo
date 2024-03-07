@@ -53,11 +53,6 @@ func (d *BaseDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Ide
 	}
 	ident.Handle = declared
 
-	// optimistic pre-parsing of public key
-	pk, err := ident.PublicKey()
-	if nil == err {
-		ident.ParsedPublicKey = pk
-	}
 	return &ident, nil
 }
 
@@ -88,11 +83,6 @@ func (d *BaseDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identit
 		}
 	}
 
-	// optimistic pre-parsing of public key
-	pk, err := ident.PublicKey()
-	if nil == err {
-		ident.ParsedPublicKey = pk
-	}
 	return &ident, nil
 }
 
