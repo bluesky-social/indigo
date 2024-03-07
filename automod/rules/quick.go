@@ -9,7 +9,7 @@ import (
 	"github.com/bluesky-social/indigo/automod"
 )
 
-var botLinkStrings = []string{"ainna13762491", "LINK押して", "→ https://tiny.one/"}
+var botLinkStrings = []string{"ainna13762491", "LINK押して", "→ https://tiny", "⇒ http://tiny"}
 var botSpamTLDs = []string{".today", ".life"}
 var botSpamStrings = []string{"515-9719"}
 
