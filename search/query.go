@@ -9,9 +9,10 @@ import (
 	"log/slog"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
-	"go.opentelemetry.io/otel/attribute"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	es "github.com/opensearch-project/opensearch-go/v2"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type EsSearchHit struct {
@@ -73,7 +74,15 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 			"analyze_wildcard": false,
 		},
 	}
-
+	// filter out future posts (TODO: temporary hack)
+	now := syntax.DatetimeNow()
+	filters = append(filters, map[string]interface{}{
+		"range": map[string]interface{}{
+			"created_at": map[string]interface{}{
+				"lte": now,
+			},
+		},
+	})
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
