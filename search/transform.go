@@ -188,6 +188,8 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 				doc.CreatedAt = &s
 			} else {
 				slog.Warn("rejecting future post CreatedAt", "datetime", dt.String(), "did", ident.DID.String(), "rkey", rkey)
+				s := syntax.DatetimeNow().String()
+				doc.CreatedAt = &s
 			}
 		}
 	}
