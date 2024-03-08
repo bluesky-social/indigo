@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log/slog"
-	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -76,11 +75,11 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 		},
 	}
 	// filter out future posts (TODO: temporary hack)
-	today := syntax.DatetimeNow().Time().Format(time.DateOnly)
+	now := syntax.DatetimeNow()
 	filters = append(filters, map[string]interface{}{
 		"range": map[string]interface{}{
 			"created_at": map[string]interface{}{
-				"lte": today,
+				"lte": now,
 			},
 		},
 	})
