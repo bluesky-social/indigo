@@ -490,7 +490,7 @@ func SetupBGS(ctx context.Context, didr plc.PLCClient) (*TestBGS, error) {
 	evtman := events.NewEventManager(diskpersist)
 	rf := indexer.NewRepoFetcher(maindb, repoman, 10)
 
-	ix, err := indexer.NewIndexer(maindb, notifman, evtman, didr, rf, true, true, true)
+	ix, err := indexer.NewIndexer(maindb, notifman, evtman, didr, rf, true, true)
 	if err != nil {
 		return nil, err
 	}
