@@ -1242,6 +1242,11 @@ func (ts *TypeSchema) writeTypeDefinition(name string, w io.Writer) error {
 
 			jsonOmit, cborOmit := omit, omit
 
+			// Don't generate pointers to lexbytes, as it's already a pointer.
+			if ptr == "*" && tname == "util.LexBytes" {
+				ptr = ""
+			}
+
 			// TODO: hard-coded hacks for now, making this type (with underlying type []byte)
 			// be omitempty.
 			if ptr == "" && tname == "util.LexBytes" {
