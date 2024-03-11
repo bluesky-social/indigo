@@ -16,6 +16,8 @@ type LabelDefs_Label struct {
 	Cid *string `json:"cid,omitempty" cborgen:"cid,omitempty"`
 	// cts: Timestamp when this label was created.
 	Cts string `json:"cts" cborgen:"cts"`
+	// exp: Timestamp at which this label expires (no longer applies).
+	Exp *string `json:"exp,omitempty" cborgen:"exp,omitempty"`
 	// neg: If true, this is a negation label, overwriting a previous label.
 	Neg *bool `json:"neg,omitempty" cborgen:"neg,omitempty"`
 	// sig: Signature of dag-cbor encoded label.

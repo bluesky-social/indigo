@@ -14,7 +14,6 @@ require (
 	github.com/goccy/go-json v0.10.2
 	github.com/gocql/gocql v1.6.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
-	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/gorilla/websocket v1.5.1
 	github.com/hashicorp/go-retryablehttp v0.7.5
 	github.com/hashicorp/golang-lru/arc/v2 v2.0.6
@@ -53,7 +52,7 @@ require (
 	github.com/scylladb/gocqlx/v2 v2.8.1-0.20230309105046-dec046bd85e6
 	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli/v2 v2.25.7
-	github.com/whyrusleeping/cbor-gen v0.0.0-20240201211319-bf2168ca937c
+	github.com/whyrusleeping/cbor-gen v0.1.0
 	github.com/whyrusleeping/go-did v0.0.0-20230824162731-404d1707d5d6
 	gitlab.com/yawning/secp256k1-voi v0.0.0-20230925100816-f2616030848b
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.1
@@ -64,7 +63,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.21.0
 	go.opentelemetry.io/otel/trace v1.21.0
 	go.uber.org/automaxprocs v1.5.3
-	golang.org/x/crypto v0.17.0
+	golang.org/x/crypto v0.21.0
 	golang.org/x/sync v0.5.0
 	golang.org/x/text v0.14.0
 	golang.org/x/time v0.3.0
@@ -114,7 +113,7 @@ require (
 	github.com/google/uuid v1.4.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.1 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
-	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+	github.com/hashicorp/go-cleanhttp v0.5.2
 	github.com/ipfs/bbloom v0.0.4 // indirect
 	github.com/ipfs/go-blockservice v0.5.2 // indirect
 	github.com/ipfs/go-ipfs-ds-help v1.1.1 // indirect
@@ -131,7 +130,7 @@ require (
 	github.com/jbenet/goprocess v0.1.4 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/klauspost/cpuid/v2 v2.2.6 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.1 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/httprc v1.0.4 // indirect
@@ -166,8 +165,8 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/mod v0.14.0 // indirect
-	golang.org/x/net v0.18.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/net v0.21.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231120223509-83a465c0220f // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231120223509-83a465c0220f // indirect
 	google.golang.org/grpc v1.59.0 // indirect
