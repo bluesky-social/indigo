@@ -31,7 +31,7 @@ func (t *EventHeader) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.MsgType (string) (string)
-	if uint64(len("t")) > cbg.MaxLength {
+	if len("t") > 1000000 {
 		return xerrors.Errorf("Value in field \"t\" was too long")
 	}
 
@@ -42,7 +42,7 @@ func (t *EventHeader) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.MsgType)) > cbg.MaxLength {
+	if len(t.MsgType) > 1000000 {
 		return xerrors.Errorf("Value in field t.MsgType was too long")
 	}
 
@@ -54,7 +54,7 @@ func (t *EventHeader) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Op (int64) (int64)
-	if uint64(len("op")) > cbg.MaxLength {
+	if len("op") > 1000000 {
 		return xerrors.Errorf("Value in field \"op\" was too long")
 	}
 
@@ -74,6 +74,7 @@ func (t *EventHeader) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -106,7 +107,7 @@ func (t *EventHeader) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -119,7 +120,7 @@ func (t *EventHeader) UnmarshalCBOR(r io.Reader) (err error) {
 		case "t":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -130,10 +131,10 @@ func (t *EventHeader) UnmarshalCBOR(r io.Reader) (err error) {
 		case "op":
 			{
 				maj, extra, err := cr.ReadHeader()
-				var extraI int64
 				if err != nil {
 					return err
 				}
+				var extraI int64
 				switch maj {
 				case cbg.MajUnsignedInt:
 					extraI = int64(extra)
@@ -174,7 +175,7 @@ func (t *ErrorFrame) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Error (string) (string)
-	if uint64(len("error")) > cbg.MaxLength {
+	if len("error") > 1000000 {
 		return xerrors.Errorf("Value in field \"error\" was too long")
 	}
 
@@ -185,7 +186,7 @@ func (t *ErrorFrame) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Error)) > cbg.MaxLength {
+	if len(t.Error) > 1000000 {
 		return xerrors.Errorf("Value in field t.Error was too long")
 	}
 
@@ -197,7 +198,7 @@ func (t *ErrorFrame) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Message (string) (string)
-	if uint64(len("message")) > cbg.MaxLength {
+	if len("message") > 1000000 {
 		return xerrors.Errorf("Value in field \"message\" was too long")
 	}
 
@@ -208,7 +209,7 @@ func (t *ErrorFrame) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Message)) > cbg.MaxLength {
+	if len(t.Message) > 1000000 {
 		return xerrors.Errorf("Value in field t.Message was too long")
 	}
 
@@ -250,7 +251,7 @@ func (t *ErrorFrame) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -263,7 +264,7 @@ func (t *ErrorFrame) UnmarshalCBOR(r io.Reader) (err error) {
 		case "error":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -274,7 +275,7 @@ func (t *ErrorFrame) UnmarshalCBOR(r io.Reader) (err error) {
 		case "message":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
