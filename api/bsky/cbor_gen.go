@@ -64,7 +64,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	// t.Tags ([]string) (slice)
 	if t.Tags != nil {
 
-		if uint64(len("tags")) > cbg.MaxLength {
+		if len("tags") > 1000000 {
 			return xerrors.Errorf("Value in field \"tags\" was too long")
 		}
 
@@ -75,7 +75,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 
-		if uint64(len(t.Tags)) > cbg.MaxLength {
+		if len(t.Tags) > 8192 {
 			return xerrors.Errorf("Slice value in field t.Tags was too long")
 		}
 
@@ -83,7 +83,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 		for _, v := range t.Tags {
-			if uint64(len(v)) > cbg.MaxLength {
+			if len(v) > 1000000 {
 				return xerrors.Errorf("Value in field v was too long")
 			}
 
@@ -98,7 +98,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Text (string) (string)
-	if uint64(len("text")) > cbg.MaxLength {
+	if len("text") > 1000000 {
 		return xerrors.Errorf("Value in field \"text\" was too long")
 	}
 
@@ -109,7 +109,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Text)) > cbg.MaxLength {
+	if len(t.Text) > 1000000 {
 		return xerrors.Errorf("Value in field t.Text was too long")
 	}
 
@@ -121,7 +121,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -142,7 +142,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	// t.Embed (bsky.FeedPost_Embed) (struct)
 	if t.Embed != nil {
 
-		if uint64(len("embed")) > cbg.MaxLength {
+		if len("embed") > 1000000 {
 			return xerrors.Errorf("Value in field \"embed\" was too long")
 		}
 
@@ -161,7 +161,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	// t.Langs ([]string) (slice)
 	if t.Langs != nil {
 
-		if uint64(len("langs")) > cbg.MaxLength {
+		if len("langs") > 1000000 {
 			return xerrors.Errorf("Value in field \"langs\" was too long")
 		}
 
@@ -172,7 +172,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 
-		if uint64(len(t.Langs)) > cbg.MaxLength {
+		if len(t.Langs) > 8192 {
 			return xerrors.Errorf("Slice value in field t.Langs was too long")
 		}
 
@@ -180,7 +180,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 		for _, v := range t.Langs {
-			if uint64(len(v)) > cbg.MaxLength {
+			if len(v) > 1000000 {
 				return xerrors.Errorf("Value in field v was too long")
 			}
 
@@ -197,7 +197,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	// t.Reply (bsky.FeedPost_ReplyRef) (struct)
 	if t.Reply != nil {
 
-		if uint64(len("reply")) > cbg.MaxLength {
+		if len("reply") > 1000000 {
 			return xerrors.Errorf("Value in field \"reply\" was too long")
 		}
 
@@ -216,7 +216,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	// t.Facets ([]*bsky.RichtextFacet) (slice)
 	if t.Facets != nil {
 
-		if uint64(len("facets")) > cbg.MaxLength {
+		if len("facets") > 1000000 {
 			return xerrors.Errorf("Value in field \"facets\" was too long")
 		}
 
@@ -227,7 +227,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 
-		if uint64(len(t.Facets)) > cbg.MaxLength {
+		if len(t.Facets) > 8192 {
 			return xerrors.Errorf("Slice value in field t.Facets was too long")
 		}
 
@@ -245,7 +245,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	// t.Labels (bsky.FeedPost_Labels) (struct)
 	if t.Labels != nil {
 
-		if uint64(len("labels")) > cbg.MaxLength {
+		if len("labels") > 1000000 {
 			return xerrors.Errorf("Value in field \"labels\" was too long")
 		}
 
@@ -264,7 +264,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	// t.Entities ([]*bsky.FeedPost_Entity) (slice)
 	if t.Entities != nil {
 
-		if uint64(len("entities")) > cbg.MaxLength {
+		if len("entities") > 1000000 {
 			return xerrors.Errorf("Value in field \"entities\" was too long")
 		}
 
@@ -275,7 +275,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 
-		if uint64(len(t.Entities)) > cbg.MaxLength {
+		if len(t.Entities) > 8192 {
 			return xerrors.Errorf("Slice value in field t.Entities was too long")
 		}
 
@@ -291,7 +291,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if uint64(len("createdAt")) > cbg.MaxLength {
+	if len("createdAt") > 1000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -302,7 +302,7 @@ func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.CreatedAt)) > cbg.MaxLength {
+	if len(t.CreatedAt) > 1000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -344,7 +344,7 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -361,7 +361,7 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.MaxLength {
+			if extra > 8192 {
 				return fmt.Errorf("t.Tags: array too large (%d)", extra)
 			}
 
@@ -383,7 +383,7 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 					_ = err
 
 					{
-						sval, err := cbg.ReadString(cr)
+						sval, err := cbg.ReadStringWithMax(cr, 1000000)
 						if err != nil {
 							return err
 						}
@@ -397,7 +397,7 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 		case "text":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -408,7 +408,7 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -443,7 +443,7 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.MaxLength {
+			if extra > 8192 {
 				return fmt.Errorf("t.Langs: array too large (%d)", extra)
 			}
 
@@ -465,7 +465,7 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 					_ = err
 
 					{
-						sval, err := cbg.ReadString(cr)
+						sval, err := cbg.ReadStringWithMax(cr, 1000000)
 						if err != nil {
 							return err
 						}
@@ -503,7 +503,7 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.MaxLength {
+			if extra > 8192 {
 				return fmt.Errorf("t.Facets: array too large (%d)", extra)
 			}
 
@@ -572,7 +572,7 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.MaxLength {
+			if extra > 8192 {
 				return fmt.Errorf("t.Entities: array too large (%d)", extra)
 			}
 
@@ -617,7 +617,7 @@ func (t *FeedPost) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -646,7 +646,7 @@ func (t *FeedRepost) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -665,7 +665,7 @@ func (t *FeedRepost) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Subject (atproto.RepoStrongRef) (struct)
-	if uint64(len("subject")) > cbg.MaxLength {
+	if len("subject") > 1000000 {
 		return xerrors.Errorf("Value in field \"subject\" was too long")
 	}
 
@@ -681,7 +681,7 @@ func (t *FeedRepost) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if uint64(len("createdAt")) > cbg.MaxLength {
+	if len("createdAt") > 1000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -692,7 +692,7 @@ func (t *FeedRepost) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.CreatedAt)) > cbg.MaxLength {
+	if len(t.CreatedAt) > 1000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -734,7 +734,7 @@ func (t *FeedRepost) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -747,7 +747,7 @@ func (t *FeedRepost) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -778,7 +778,7 @@ func (t *FeedRepost) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -807,7 +807,7 @@ func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Type (string) (string)
-	if uint64(len("type")) > cbg.MaxLength {
+	if len("type") > 1000000 {
 		return xerrors.Errorf("Value in field \"type\" was too long")
 	}
 
@@ -818,7 +818,7 @@ func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Type)) > cbg.MaxLength {
+	if len(t.Type) > 1000000 {
 		return xerrors.Errorf("Value in field t.Type was too long")
 	}
 
@@ -830,7 +830,7 @@ func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Index (bsky.FeedPost_TextSlice) (struct)
-	if uint64(len("index")) > cbg.MaxLength {
+	if len("index") > 1000000 {
 		return xerrors.Errorf("Value in field \"index\" was too long")
 	}
 
@@ -846,7 +846,7 @@ func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Value (string) (string)
-	if uint64(len("value")) > cbg.MaxLength {
+	if len("value") > 1000000 {
 		return xerrors.Errorf("Value in field \"value\" was too long")
 	}
 
@@ -857,7 +857,7 @@ func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Value)) > cbg.MaxLength {
+	if len(t.Value) > 1000000 {
 		return xerrors.Errorf("Value in field t.Value was too long")
 	}
 
@@ -899,7 +899,7 @@ func (t *FeedPost_Entity) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -912,7 +912,7 @@ func (t *FeedPost_Entity) UnmarshalCBOR(r io.Reader) (err error) {
 		case "type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -943,7 +943,7 @@ func (t *FeedPost_Entity) UnmarshalCBOR(r io.Reader) (err error) {
 		case "value":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -972,7 +972,7 @@ func (t *FeedPost_ReplyRef) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Root (atproto.RepoStrongRef) (struct)
-	if uint64(len("root")) > cbg.MaxLength {
+	if len("root") > 1000000 {
 		return xerrors.Errorf("Value in field \"root\" was too long")
 	}
 
@@ -988,7 +988,7 @@ func (t *FeedPost_ReplyRef) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Parent (atproto.RepoStrongRef) (struct)
-	if uint64(len("parent")) > cbg.MaxLength {
+	if len("parent") > 1000000 {
 		return xerrors.Errorf("Value in field \"parent\" was too long")
 	}
 
@@ -1034,7 +1034,7 @@ func (t *FeedPost_ReplyRef) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -1105,7 +1105,7 @@ func (t *FeedPost_TextSlice) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.End (int64) (int64)
-	if uint64(len("end")) > cbg.MaxLength {
+	if len("end") > 1000000 {
 		return xerrors.Errorf("Value in field \"end\" was too long")
 	}
 
@@ -1127,7 +1127,7 @@ func (t *FeedPost_TextSlice) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Start (int64) (int64)
-	if uint64(len("start")) > cbg.MaxLength {
+	if len("start") > 1000000 {
 		return xerrors.Errorf("Value in field \"start\" was too long")
 	}
 
@@ -1147,6 +1147,7 @@ func (t *FeedPost_TextSlice) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -1179,7 +1180,7 @@ func (t *FeedPost_TextSlice) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -1192,10 +1193,10 @@ func (t *FeedPost_TextSlice) UnmarshalCBOR(r io.Reader) (err error) {
 		case "end":
 			{
 				maj, extra, err := cr.ReadHeader()
-				var extraI int64
 				if err != nil {
 					return err
 				}
+				var extraI int64
 				switch maj {
 				case cbg.MajUnsignedInt:
 					extraI = int64(extra)
@@ -1218,10 +1219,10 @@ func (t *FeedPost_TextSlice) UnmarshalCBOR(r io.Reader) (err error) {
 		case "start":
 			{
 				maj, extra, err := cr.ReadHeader()
-				var extraI int64
 				if err != nil {
 					return err
 				}
+				var extraI int64
 				switch maj {
 				case cbg.MajUnsignedInt:
 					extraI = int64(extra)
@@ -1262,7 +1263,7 @@ func (t *EmbedImages) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -1281,7 +1282,7 @@ func (t *EmbedImages) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Images ([]*bsky.EmbedImages_Image) (slice)
-	if uint64(len("images")) > cbg.MaxLength {
+	if len("images") > 1000000 {
 		return xerrors.Errorf("Value in field \"images\" was too long")
 	}
 
@@ -1292,7 +1293,7 @@ func (t *EmbedImages) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Images)) > cbg.MaxLength {
+	if len(t.Images) > 8192 {
 		return xerrors.Errorf("Slice value in field t.Images was too long")
 	}
 
@@ -1337,7 +1338,7 @@ func (t *EmbedImages) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -1350,7 +1351,7 @@ func (t *EmbedImages) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -1365,7 +1366,7 @@ func (t *EmbedImages) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.MaxLength {
+			if extra > 8192 {
 				return fmt.Errorf("t.Images: array too large (%d)", extra)
 			}
 
@@ -1428,7 +1429,7 @@ func (t *EmbedExternal) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -1447,7 +1448,7 @@ func (t *EmbedExternal) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.External (bsky.EmbedExternal_External) (struct)
-	if uint64(len("external")) > cbg.MaxLength {
+	if len("external") > 1000000 {
 		return xerrors.Errorf("Value in field \"external\" was too long")
 	}
 
@@ -1493,7 +1494,7 @@ func (t *EmbedExternal) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -1506,7 +1507,7 @@ func (t *EmbedExternal) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -1560,7 +1561,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Uri (string) (string)
-	if uint64(len("uri")) > cbg.MaxLength {
+	if len("uri") > 1000000 {
 		return xerrors.Errorf("Value in field \"uri\" was too long")
 	}
 
@@ -1571,7 +1572,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Uri)) > cbg.MaxLength {
+	if len(t.Uri) > 1000000 {
 		return xerrors.Errorf("Value in field t.Uri was too long")
 	}
 
@@ -1585,7 +1586,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 	// t.Thumb (util.LexBlob) (struct)
 	if t.Thumb != nil {
 
-		if uint64(len("thumb")) > cbg.MaxLength {
+		if len("thumb") > 1000000 {
 			return xerrors.Errorf("Value in field \"thumb\" was too long")
 		}
 
@@ -1602,7 +1603,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Title (string) (string)
-	if uint64(len("title")) > cbg.MaxLength {
+	if len("title") > 1000000 {
 		return xerrors.Errorf("Value in field \"title\" was too long")
 	}
 
@@ -1613,7 +1614,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Title)) > cbg.MaxLength {
+	if len(t.Title) > 1000000 {
 		return xerrors.Errorf("Value in field t.Title was too long")
 	}
 
@@ -1625,7 +1626,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Description (string) (string)
-	if uint64(len("description")) > cbg.MaxLength {
+	if len("description") > 1000000 {
 		return xerrors.Errorf("Value in field \"description\" was too long")
 	}
 
@@ -1636,7 +1637,7 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Description)) > cbg.MaxLength {
+	if len(t.Description) > 1000000 {
 		return xerrors.Errorf("Value in field t.Description was too long")
 	}
 
@@ -1678,7 +1679,7 @@ func (t *EmbedExternal_External) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -1691,7 +1692,7 @@ func (t *EmbedExternal_External) UnmarshalCBOR(r io.Reader) (err error) {
 		case "uri":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -1722,7 +1723,7 @@ func (t *EmbedExternal_External) UnmarshalCBOR(r io.Reader) (err error) {
 		case "title":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -1733,7 +1734,7 @@ func (t *EmbedExternal_External) UnmarshalCBOR(r io.Reader) (err error) {
 		case "description":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -1767,7 +1768,7 @@ func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Alt (string) (string)
-	if uint64(len("alt")) > cbg.MaxLength {
+	if len("alt") > 1000000 {
 		return xerrors.Errorf("Value in field \"alt\" was too long")
 	}
 
@@ -1778,7 +1779,7 @@ func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Alt)) > cbg.MaxLength {
+	if len(t.Alt) > 1000000 {
 		return xerrors.Errorf("Value in field t.Alt was too long")
 	}
 
@@ -1790,7 +1791,7 @@ func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Image (util.LexBlob) (struct)
-	if uint64(len("image")) > cbg.MaxLength {
+	if len("image") > 1000000 {
 		return xerrors.Errorf("Value in field \"image\" was too long")
 	}
 
@@ -1808,7 +1809,7 @@ func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {
 	// t.AspectRatio (bsky.EmbedImages_AspectRatio) (struct)
 	if t.AspectRatio != nil {
 
-		if uint64(len("aspectRatio")) > cbg.MaxLength {
+		if len("aspectRatio") > 1000000 {
 			return xerrors.Errorf("Value in field \"aspectRatio\" was too long")
 		}
 
@@ -1855,7 +1856,7 @@ func (t *EmbedImages_Image) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -1868,7 +1869,7 @@ func (t *EmbedImages_Image) UnmarshalCBOR(r io.Reader) (err error) {
 		case "alt":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -1937,7 +1938,7 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -1956,7 +1957,7 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Subject (string) (string)
-	if uint64(len("subject")) > cbg.MaxLength {
+	if len("subject") > 1000000 {
 		return xerrors.Errorf("Value in field \"subject\" was too long")
 	}
 
@@ -1967,7 +1968,7 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Subject)) > cbg.MaxLength {
+	if len(t.Subject) > 1000000 {
 		return xerrors.Errorf("Value in field t.Subject was too long")
 	}
 
@@ -1979,7 +1980,7 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if uint64(len("createdAt")) > cbg.MaxLength {
+	if len("createdAt") > 1000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -1990,7 +1991,7 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.CreatedAt)) > cbg.MaxLength {
+	if len(t.CreatedAt) > 1000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -2032,7 +2033,7 @@ func (t *GraphFollow) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -2045,7 +2046,7 @@ func (t *GraphFollow) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -2056,7 +2057,7 @@ func (t *GraphFollow) UnmarshalCBOR(r io.Reader) (err error) {
 		case "subject":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -2067,7 +2068,7 @@ func (t *GraphFollow) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -2117,7 +2118,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -2138,7 +2139,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	// t.Avatar (util.LexBlob) (struct)
 	if t.Avatar != nil {
 
-		if uint64(len("avatar")) > cbg.MaxLength {
+		if len("avatar") > 1000000 {
 			return xerrors.Errorf("Value in field \"avatar\" was too long")
 		}
 
@@ -2157,7 +2158,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	// t.Banner (util.LexBlob) (struct)
 	if t.Banner != nil {
 
-		if uint64(len("banner")) > cbg.MaxLength {
+		if len("banner") > 1000000 {
 			return xerrors.Errorf("Value in field \"banner\" was too long")
 		}
 
@@ -2176,7 +2177,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	// t.Labels (bsky.ActorProfile_Labels) (struct)
 	if t.Labels != nil {
 
-		if uint64(len("labels")) > cbg.MaxLength {
+		if len("labels") > 1000000 {
 			return xerrors.Errorf("Value in field \"labels\" was too long")
 		}
 
@@ -2195,7 +2196,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	// t.Description (string) (string)
 	if t.Description != nil {
 
-		if uint64(len("description")) > cbg.MaxLength {
+		if len("description") > 1000000 {
 			return xerrors.Errorf("Value in field \"description\" was too long")
 		}
 
@@ -2211,7 +2212,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if uint64(len(*t.Description)) > cbg.MaxLength {
+			if len(*t.Description) > 1000000 {
 				return xerrors.Errorf("Value in field t.Description was too long")
 			}
 
@@ -2227,7 +2228,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	// t.DisplayName (string) (string)
 	if t.DisplayName != nil {
 
-		if uint64(len("displayName")) > cbg.MaxLength {
+		if len("displayName") > 1000000 {
 			return xerrors.Errorf("Value in field \"displayName\" was too long")
 		}
 
@@ -2243,7 +2244,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if uint64(len(*t.DisplayName)) > cbg.MaxLength {
+			if len(*t.DisplayName) > 1000000 {
 				return xerrors.Errorf("Value in field t.DisplayName was too long")
 			}
 
@@ -2287,7 +2288,7 @@ func (t *ActorProfile) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -2300,7 +2301,7 @@ func (t *ActorProfile) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -2380,7 +2381,7 @@ func (t *ActorProfile) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadString(cr)
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
 					if err != nil {
 						return err
 					}
@@ -2401,7 +2402,7 @@ func (t *ActorProfile) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadString(cr)
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
 					if err != nil {
 						return err
 					}
@@ -2431,7 +2432,7 @@ func (t *EmbedRecord) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -2450,7 +2451,7 @@ func (t *EmbedRecord) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Record (atproto.RepoStrongRef) (struct)
-	if uint64(len("record")) > cbg.MaxLength {
+	if len("record") > 1000000 {
 		return xerrors.Errorf("Value in field \"record\" was too long")
 	}
 
@@ -2496,7 +2497,7 @@ func (t *EmbedRecord) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -2509,7 +2510,7 @@ func (t *EmbedRecord) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -2558,7 +2559,7 @@ func (t *FeedLike) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -2577,7 +2578,7 @@ func (t *FeedLike) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Subject (atproto.RepoStrongRef) (struct)
-	if uint64(len("subject")) > cbg.MaxLength {
+	if len("subject") > 1000000 {
 		return xerrors.Errorf("Value in field \"subject\" was too long")
 	}
 
@@ -2593,7 +2594,7 @@ func (t *FeedLike) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if uint64(len("createdAt")) > cbg.MaxLength {
+	if len("createdAt") > 1000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -2604,7 +2605,7 @@ func (t *FeedLike) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.CreatedAt)) > cbg.MaxLength {
+	if len(t.CreatedAt) > 1000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -2646,7 +2647,7 @@ func (t *FeedLike) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -2659,7 +2660,7 @@ func (t *FeedLike) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -2690,7 +2691,7 @@ func (t *FeedLike) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -2719,7 +2720,7 @@ func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Index (bsky.RichtextFacet_ByteSlice) (struct)
-	if uint64(len("index")) > cbg.MaxLength {
+	if len("index") > 1000000 {
 		return xerrors.Errorf("Value in field \"index\" was too long")
 	}
 
@@ -2735,7 +2736,7 @@ func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Features ([]*bsky.RichtextFacet_Features_Elem) (slice)
-	if uint64(len("features")) > cbg.MaxLength {
+	if len("features") > 1000000 {
 		return xerrors.Errorf("Value in field \"features\" was too long")
 	}
 
@@ -2746,7 +2747,7 @@ func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Features)) > cbg.MaxLength {
+	if len(t.Features) > 8192 {
 		return xerrors.Errorf("Slice value in field t.Features was too long")
 	}
 
@@ -2791,7 +2792,7 @@ func (t *RichtextFacet) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -2828,7 +2829,7 @@ func (t *RichtextFacet) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.MaxLength {
+			if extra > 8192 {
 				return fmt.Errorf("t.Features: array too large (%d)", extra)
 			}
 
@@ -2891,7 +2892,7 @@ func (t *RichtextFacet_ByteSlice) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.ByteEnd (int64) (int64)
-	if uint64(len("byteEnd")) > cbg.MaxLength {
+	if len("byteEnd") > 1000000 {
 		return xerrors.Errorf("Value in field \"byteEnd\" was too long")
 	}
 
@@ -2913,7 +2914,7 @@ func (t *RichtextFacet_ByteSlice) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.ByteStart (int64) (int64)
-	if uint64(len("byteStart")) > cbg.MaxLength {
+	if len("byteStart") > 1000000 {
 		return xerrors.Errorf("Value in field \"byteStart\" was too long")
 	}
 
@@ -2933,6 +2934,7 @@ func (t *RichtextFacet_ByteSlice) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -2965,7 +2967,7 @@ func (t *RichtextFacet_ByteSlice) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -2978,10 +2980,10 @@ func (t *RichtextFacet_ByteSlice) UnmarshalCBOR(r io.Reader) (err error) {
 		case "byteEnd":
 			{
 				maj, extra, err := cr.ReadHeader()
-				var extraI int64
 				if err != nil {
 					return err
 				}
+				var extraI int64
 				switch maj {
 				case cbg.MajUnsignedInt:
 					extraI = int64(extra)
@@ -3004,10 +3006,10 @@ func (t *RichtextFacet_ByteSlice) UnmarshalCBOR(r io.Reader) (err error) {
 		case "byteStart":
 			{
 				maj, extra, err := cr.ReadHeader()
-				var extraI int64
 				if err != nil {
 					return err
 				}
+				var extraI int64
 				switch maj {
 				case cbg.MajUnsignedInt:
 					extraI = int64(extra)
@@ -3048,7 +3050,7 @@ func (t *RichtextFacet_Link) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Uri (string) (string)
-	if uint64(len("uri")) > cbg.MaxLength {
+	if len("uri") > 1000000 {
 		return xerrors.Errorf("Value in field \"uri\" was too long")
 	}
 
@@ -3059,7 +3061,7 @@ func (t *RichtextFacet_Link) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Uri)) > cbg.MaxLength {
+	if len(t.Uri) > 1000000 {
 		return xerrors.Errorf("Value in field t.Uri was too long")
 	}
 
@@ -3071,7 +3073,7 @@ func (t *RichtextFacet_Link) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -3120,7 +3122,7 @@ func (t *RichtextFacet_Link) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -3133,7 +3135,7 @@ func (t *RichtextFacet_Link) UnmarshalCBOR(r io.Reader) (err error) {
 		case "uri":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -3144,7 +3146,7 @@ func (t *RichtextFacet_Link) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -3173,7 +3175,7 @@ func (t *RichtextFacet_Mention) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Did (string) (string)
-	if uint64(len("did")) > cbg.MaxLength {
+	if len("did") > 1000000 {
 		return xerrors.Errorf("Value in field \"did\" was too long")
 	}
 
@@ -3184,7 +3186,7 @@ func (t *RichtextFacet_Mention) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Did)) > cbg.MaxLength {
+	if len(t.Did) > 1000000 {
 		return xerrors.Errorf("Value in field t.Did was too long")
 	}
 
@@ -3196,7 +3198,7 @@ func (t *RichtextFacet_Mention) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -3245,7 +3247,7 @@ func (t *RichtextFacet_Mention) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -3258,7 +3260,7 @@ func (t *RichtextFacet_Mention) UnmarshalCBOR(r io.Reader) (err error) {
 		case "did":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -3269,7 +3271,7 @@ func (t *RichtextFacet_Mention) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -3298,7 +3300,7 @@ func (t *RichtextFacet_Tag) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Tag (string) (string)
-	if uint64(len("tag")) > cbg.MaxLength {
+	if len("tag") > 1000000 {
 		return xerrors.Errorf("Value in field \"tag\" was too long")
 	}
 
@@ -3309,7 +3311,7 @@ func (t *RichtextFacet_Tag) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Tag)) > cbg.MaxLength {
+	if len(t.Tag) > 1000000 {
 		return xerrors.Errorf("Value in field t.Tag was too long")
 	}
 
@@ -3321,7 +3323,7 @@ func (t *RichtextFacet_Tag) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -3370,7 +3372,7 @@ func (t *RichtextFacet_Tag) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -3383,7 +3385,7 @@ func (t *RichtextFacet_Tag) UnmarshalCBOR(r io.Reader) (err error) {
 		case "tag":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -3394,7 +3396,7 @@ func (t *RichtextFacet_Tag) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -3423,7 +3425,7 @@ func (t *EmbedRecordWithMedia) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -3442,7 +3444,7 @@ func (t *EmbedRecordWithMedia) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Media (bsky.EmbedRecordWithMedia_Media) (struct)
-	if uint64(len("media")) > cbg.MaxLength {
+	if len("media") > 1000000 {
 		return xerrors.Errorf("Value in field \"media\" was too long")
 	}
 
@@ -3458,7 +3460,7 @@ func (t *EmbedRecordWithMedia) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Record (bsky.EmbedRecord) (struct)
-	if uint64(len("record")) > cbg.MaxLength {
+	if len("record") > 1000000 {
 		return xerrors.Errorf("Value in field \"record\" was too long")
 	}
 
@@ -3504,7 +3506,7 @@ func (t *EmbedRecordWithMedia) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -3517,7 +3519,7 @@ func (t *EmbedRecordWithMedia) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -3586,7 +3588,7 @@ func (t *FeedDefs_NotFoundPost) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Uri (string) (string)
-	if uint64(len("uri")) > cbg.MaxLength {
+	if len("uri") > 1000000 {
 		return xerrors.Errorf("Value in field \"uri\" was too long")
 	}
 
@@ -3597,7 +3599,7 @@ func (t *FeedDefs_NotFoundPost) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Uri)) > cbg.MaxLength {
+	if len(t.Uri) > 1000000 {
 		return xerrors.Errorf("Value in field t.Uri was too long")
 	}
 
@@ -3609,7 +3611,7 @@ func (t *FeedDefs_NotFoundPost) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -3628,7 +3630,7 @@ func (t *FeedDefs_NotFoundPost) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.NotFound (bool) (bool)
-	if uint64(len("notFound")) > cbg.MaxLength {
+	if len("notFound") > 1000000 {
 		return xerrors.Errorf("Value in field \"notFound\" was too long")
 	}
 
@@ -3674,7 +3676,7 @@ func (t *FeedDefs_NotFoundPost) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -3687,7 +3689,7 @@ func (t *FeedDefs_NotFoundPost) UnmarshalCBOR(r io.Reader) (err error) {
 		case "uri":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -3698,7 +3700,7 @@ func (t *FeedDefs_NotFoundPost) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -3745,7 +3747,7 @@ func (t *GraphBlock) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -3764,7 +3766,7 @@ func (t *GraphBlock) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Subject (string) (string)
-	if uint64(len("subject")) > cbg.MaxLength {
+	if len("subject") > 1000000 {
 		return xerrors.Errorf("Value in field \"subject\" was too long")
 	}
 
@@ -3775,7 +3777,7 @@ func (t *GraphBlock) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Subject)) > cbg.MaxLength {
+	if len(t.Subject) > 1000000 {
 		return xerrors.Errorf("Value in field t.Subject was too long")
 	}
 
@@ -3787,7 +3789,7 @@ func (t *GraphBlock) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if uint64(len("createdAt")) > cbg.MaxLength {
+	if len("createdAt") > 1000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -3798,7 +3800,7 @@ func (t *GraphBlock) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.CreatedAt)) > cbg.MaxLength {
+	if len(t.CreatedAt) > 1000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -3840,7 +3842,7 @@ func (t *GraphBlock) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -3853,7 +3855,7 @@ func (t *GraphBlock) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -3864,7 +3866,7 @@ func (t *GraphBlock) UnmarshalCBOR(r io.Reader) (err error) {
 		case "subject":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -3875,7 +3877,7 @@ func (t *GraphBlock) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -3921,7 +3923,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Name (string) (string)
-	if uint64(len("name")) > cbg.MaxLength {
+	if len("name") > 1000000 {
 		return xerrors.Errorf("Value in field \"name\" was too long")
 	}
 
@@ -3932,7 +3934,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Name)) > cbg.MaxLength {
+	if len(t.Name) > 1000000 {
 		return xerrors.Errorf("Value in field t.Name was too long")
 	}
 
@@ -3944,7 +3946,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -3965,7 +3967,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 	// t.Avatar (util.LexBlob) (struct)
 	if t.Avatar != nil {
 
-		if uint64(len("avatar")) > cbg.MaxLength {
+		if len("avatar") > 1000000 {
 			return xerrors.Errorf("Value in field \"avatar\" was too long")
 		}
 
@@ -3984,7 +3986,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 	// t.Labels (bsky.GraphList_Labels) (struct)
 	if t.Labels != nil {
 
-		if uint64(len("labels")) > cbg.MaxLength {
+		if len("labels") > 1000000 {
 			return xerrors.Errorf("Value in field \"labels\" was too long")
 		}
 
@@ -4001,7 +4003,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Purpose (string) (string)
-	if uint64(len("purpose")) > cbg.MaxLength {
+	if len("purpose") > 1000000 {
 		return xerrors.Errorf("Value in field \"purpose\" was too long")
 	}
 
@@ -4017,7 +4019,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	} else {
-		if uint64(len(*t.Purpose)) > cbg.MaxLength {
+		if len(*t.Purpose) > 1000000 {
 			return xerrors.Errorf("Value in field t.Purpose was too long")
 		}
 
@@ -4030,7 +4032,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if uint64(len("createdAt")) > cbg.MaxLength {
+	if len("createdAt") > 1000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -4041,7 +4043,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.CreatedAt)) > cbg.MaxLength {
+	if len(t.CreatedAt) > 1000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -4055,7 +4057,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 	// t.Description (string) (string)
 	if t.Description != nil {
 
-		if uint64(len("description")) > cbg.MaxLength {
+		if len("description") > 1000000 {
 			return xerrors.Errorf("Value in field \"description\" was too long")
 		}
 
@@ -4071,7 +4073,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if uint64(len(*t.Description)) > cbg.MaxLength {
+			if len(*t.Description) > 1000000 {
 				return xerrors.Errorf("Value in field t.Description was too long")
 			}
 
@@ -4087,7 +4089,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 	// t.DescriptionFacets ([]*bsky.RichtextFacet) (slice)
 	if t.DescriptionFacets != nil {
 
-		if uint64(len("descriptionFacets")) > cbg.MaxLength {
+		if len("descriptionFacets") > 1000000 {
 			return xerrors.Errorf("Value in field \"descriptionFacets\" was too long")
 		}
 
@@ -4098,7 +4100,7 @@ func (t *GraphList) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 
-		if uint64(len(t.DescriptionFacets)) > cbg.MaxLength {
+		if len(t.DescriptionFacets) > 8192 {
 			return xerrors.Errorf("Slice value in field t.DescriptionFacets was too long")
 		}
 
@@ -4144,7 +4146,7 @@ func (t *GraphList) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -4157,7 +4159,7 @@ func (t *GraphList) UnmarshalCBOR(r io.Reader) (err error) {
 		case "name":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -4168,7 +4170,7 @@ func (t *GraphList) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -4228,7 +4230,7 @@ func (t *GraphList) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadString(cr)
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
 					if err != nil {
 						return err
 					}
@@ -4240,7 +4242,7 @@ func (t *GraphList) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -4260,7 +4262,7 @@ func (t *GraphList) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadString(cr)
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
 					if err != nil {
 						return err
 					}
@@ -4276,7 +4278,7 @@ func (t *GraphList) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.MaxLength {
+			if extra > 8192 {
 				return fmt.Errorf("t.DescriptionFacets: array too large (%d)", extra)
 			}
 
@@ -4339,7 +4341,7 @@ func (t *GraphListitem) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.List (string) (string)
-	if uint64(len("list")) > cbg.MaxLength {
+	if len("list") > 1000000 {
 		return xerrors.Errorf("Value in field \"list\" was too long")
 	}
 
@@ -4350,7 +4352,7 @@ func (t *GraphListitem) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.List)) > cbg.MaxLength {
+	if len(t.List) > 1000000 {
 		return xerrors.Errorf("Value in field t.List was too long")
 	}
 
@@ -4362,7 +4364,7 @@ func (t *GraphListitem) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -4381,7 +4383,7 @@ func (t *GraphListitem) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Subject (string) (string)
-	if uint64(len("subject")) > cbg.MaxLength {
+	if len("subject") > 1000000 {
 		return xerrors.Errorf("Value in field \"subject\" was too long")
 	}
 
@@ -4392,7 +4394,7 @@ func (t *GraphListitem) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Subject)) > cbg.MaxLength {
+	if len(t.Subject) > 1000000 {
 		return xerrors.Errorf("Value in field t.Subject was too long")
 	}
 
@@ -4404,7 +4406,7 @@ func (t *GraphListitem) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if uint64(len("createdAt")) > cbg.MaxLength {
+	if len("createdAt") > 1000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -4415,7 +4417,7 @@ func (t *GraphListitem) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.CreatedAt)) > cbg.MaxLength {
+	if len(t.CreatedAt) > 1000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -4457,7 +4459,7 @@ func (t *GraphListitem) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -4470,7 +4472,7 @@ func (t *GraphListitem) UnmarshalCBOR(r io.Reader) (err error) {
 		case "list":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -4481,7 +4483,7 @@ func (t *GraphListitem) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -4492,7 +4494,7 @@ func (t *GraphListitem) UnmarshalCBOR(r io.Reader) (err error) {
 		case "subject":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -4503,7 +4505,7 @@ func (t *GraphListitem) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -4549,7 +4551,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Did (string) (string)
-	if uint64(len("did")) > cbg.MaxLength {
+	if len("did") > 1000000 {
 		return xerrors.Errorf("Value in field \"did\" was too long")
 	}
 
@@ -4560,7 +4562,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Did)) > cbg.MaxLength {
+	if len(t.Did) > 1000000 {
 		return xerrors.Errorf("Value in field t.Did was too long")
 	}
 
@@ -4572,7 +4574,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -4593,7 +4595,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	// t.Avatar (util.LexBlob) (struct)
 	if t.Avatar != nil {
 
-		if uint64(len("avatar")) > cbg.MaxLength {
+		if len("avatar") > 1000000 {
 			return xerrors.Errorf("Value in field \"avatar\" was too long")
 		}
 
@@ -4612,7 +4614,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	// t.Labels (bsky.FeedGenerator_Labels) (struct)
 	if t.Labels != nil {
 
-		if uint64(len("labels")) > cbg.MaxLength {
+		if len("labels") > 1000000 {
 			return xerrors.Errorf("Value in field \"labels\" was too long")
 		}
 
@@ -4629,7 +4631,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if uint64(len("createdAt")) > cbg.MaxLength {
+	if len("createdAt") > 1000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -4640,7 +4642,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.CreatedAt)) > cbg.MaxLength {
+	if len(t.CreatedAt) > 1000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -4654,7 +4656,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	// t.Description (string) (string)
 	if t.Description != nil {
 
-		if uint64(len("description")) > cbg.MaxLength {
+		if len("description") > 1000000 {
 			return xerrors.Errorf("Value in field \"description\" was too long")
 		}
 
@@ -4670,7 +4672,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if uint64(len(*t.Description)) > cbg.MaxLength {
+			if len(*t.Description) > 1000000 {
 				return xerrors.Errorf("Value in field t.Description was too long")
 			}
 
@@ -4684,7 +4686,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.DisplayName (string) (string)
-	if uint64(len("displayName")) > cbg.MaxLength {
+	if len("displayName") > 1000000 {
 		return xerrors.Errorf("Value in field \"displayName\" was too long")
 	}
 
@@ -4695,7 +4697,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.DisplayName)) > cbg.MaxLength {
+	if len(t.DisplayName) > 1000000 {
 		return xerrors.Errorf("Value in field t.DisplayName was too long")
 	}
 
@@ -4709,7 +4711,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	// t.DescriptionFacets ([]*bsky.RichtextFacet) (slice)
 	if t.DescriptionFacets != nil {
 
-		if uint64(len("descriptionFacets")) > cbg.MaxLength {
+		if len("descriptionFacets") > 1000000 {
 			return xerrors.Errorf("Value in field \"descriptionFacets\" was too long")
 		}
 
@@ -4720,7 +4722,7 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 
-		if uint64(len(t.DescriptionFacets)) > cbg.MaxLength {
+		if len(t.DescriptionFacets) > 8192 {
 			return xerrors.Errorf("Slice value in field t.DescriptionFacets was too long")
 		}
 
@@ -4766,7 +4768,7 @@ func (t *FeedGenerator) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -4779,7 +4781,7 @@ func (t *FeedGenerator) UnmarshalCBOR(r io.Reader) (err error) {
 		case "did":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -4790,7 +4792,7 @@ func (t *FeedGenerator) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -4841,7 +4843,7 @@ func (t *FeedGenerator) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -4861,7 +4863,7 @@ func (t *FeedGenerator) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadString(cr)
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
 					if err != nil {
 						return err
 					}
@@ -4873,7 +4875,7 @@ func (t *FeedGenerator) UnmarshalCBOR(r io.Reader) (err error) {
 		case "displayName":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -4888,7 +4890,7 @@ func (t *FeedGenerator) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.MaxLength {
+			if extra > 8192 {
 				return fmt.Errorf("t.DescriptionFacets: array too large (%d)", extra)
 			}
 
@@ -4951,7 +4953,7 @@ func (t *GraphListblock) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -4970,7 +4972,7 @@ func (t *GraphListblock) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Subject (string) (string)
-	if uint64(len("subject")) > cbg.MaxLength {
+	if len("subject") > 1000000 {
 		return xerrors.Errorf("Value in field \"subject\" was too long")
 	}
 
@@ -4981,7 +4983,7 @@ func (t *GraphListblock) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Subject)) > cbg.MaxLength {
+	if len(t.Subject) > 1000000 {
 		return xerrors.Errorf("Value in field t.Subject was too long")
 	}
 
@@ -4993,7 +4995,7 @@ func (t *GraphListblock) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if uint64(len("createdAt")) > cbg.MaxLength {
+	if len("createdAt") > 1000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -5004,7 +5006,7 @@ func (t *GraphListblock) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.CreatedAt)) > cbg.MaxLength {
+	if len(t.CreatedAt) > 1000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -5046,7 +5048,7 @@ func (t *GraphListblock) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -5059,7 +5061,7 @@ func (t *GraphListblock) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -5070,7 +5072,7 @@ func (t *GraphListblock) UnmarshalCBOR(r io.Reader) (err error) {
 		case "subject":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -5081,7 +5083,7 @@ func (t *GraphListblock) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -5110,7 +5112,7 @@ func (t *EmbedImages_AspectRatio) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Width (int64) (int64)
-	if uint64(len("width")) > cbg.MaxLength {
+	if len("width") > 1000000 {
 		return xerrors.Errorf("Value in field \"width\" was too long")
 	}
 
@@ -5132,7 +5134,7 @@ func (t *EmbedImages_AspectRatio) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Height (int64) (int64)
-	if uint64(len("height")) > cbg.MaxLength {
+	if len("height") > 1000000 {
 		return xerrors.Errorf("Value in field \"height\" was too long")
 	}
 
@@ -5152,6 +5154,7 @@ func (t *EmbedImages_AspectRatio) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -5184,7 +5187,7 @@ func (t *EmbedImages_AspectRatio) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -5197,10 +5200,10 @@ func (t *EmbedImages_AspectRatio) UnmarshalCBOR(r io.Reader) (err error) {
 		case "width":
 			{
 				maj, extra, err := cr.ReadHeader()
-				var extraI int64
 				if err != nil {
 					return err
 				}
+				var extraI int64
 				switch maj {
 				case cbg.MajUnsignedInt:
 					extraI = int64(extra)
@@ -5223,10 +5226,10 @@ func (t *EmbedImages_AspectRatio) UnmarshalCBOR(r io.Reader) (err error) {
 		case "height":
 			{
 				maj, extra, err := cr.ReadHeader()
-				var extraI int64
 				if err != nil {
 					return err
 				}
+				var extraI int64
 				switch maj {
 				case cbg.MajUnsignedInt:
 					extraI = int64(extra)
@@ -5272,7 +5275,7 @@ func (t *FeedThreadgate) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Post (string) (string)
-	if uint64(len("post")) > cbg.MaxLength {
+	if len("post") > 1000000 {
 		return xerrors.Errorf("Value in field \"post\" was too long")
 	}
 
@@ -5283,7 +5286,7 @@ func (t *FeedThreadgate) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Post)) > cbg.MaxLength {
+	if len(t.Post) > 1000000 {
 		return xerrors.Errorf("Value in field t.Post was too long")
 	}
 
@@ -5295,7 +5298,7 @@ func (t *FeedThreadgate) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -5316,7 +5319,7 @@ func (t *FeedThreadgate) MarshalCBOR(w io.Writer) error {
 	// t.Allow ([]*bsky.FeedThreadgate_Allow_Elem) (slice)
 	if t.Allow != nil {
 
-		if uint64(len("allow")) > cbg.MaxLength {
+		if len("allow") > 1000000 {
 			return xerrors.Errorf("Value in field \"allow\" was too long")
 		}
 
@@ -5327,7 +5330,7 @@ func (t *FeedThreadgate) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 
-		if uint64(len(t.Allow)) > cbg.MaxLength {
+		if len(t.Allow) > 8192 {
 			return xerrors.Errorf("Slice value in field t.Allow was too long")
 		}
 
@@ -5343,7 +5346,7 @@ func (t *FeedThreadgate) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if uint64(len("createdAt")) > cbg.MaxLength {
+	if len("createdAt") > 1000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -5354,7 +5357,7 @@ func (t *FeedThreadgate) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.CreatedAt)) > cbg.MaxLength {
+	if len(t.CreatedAt) > 1000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -5396,7 +5399,7 @@ func (t *FeedThreadgate) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -5409,7 +5412,7 @@ func (t *FeedThreadgate) UnmarshalCBOR(r io.Reader) (err error) {
 		case "post":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -5420,7 +5423,7 @@ func (t *FeedThreadgate) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -5435,7 +5438,7 @@ func (t *FeedThreadgate) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.MaxLength {
+			if extra > 8192 {
 				return fmt.Errorf("t.Allow: array too large (%d)", extra)
 			}
 
@@ -5480,7 +5483,7 @@ func (t *FeedThreadgate) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -5509,7 +5512,7 @@ func (t *FeedThreadgate_ListRule) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.List (string) (string)
-	if uint64(len("list")) > cbg.MaxLength {
+	if len("list") > 1000000 {
 		return xerrors.Errorf("Value in field \"list\" was too long")
 	}
 
@@ -5520,7 +5523,7 @@ func (t *FeedThreadgate_ListRule) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.List)) > cbg.MaxLength {
+	if len(t.List) > 1000000 {
 		return xerrors.Errorf("Value in field t.List was too long")
 	}
 
@@ -5532,7 +5535,7 @@ func (t *FeedThreadgate_ListRule) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -5581,7 +5584,7 @@ func (t *FeedThreadgate_ListRule) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -5594,7 +5597,7 @@ func (t *FeedThreadgate_ListRule) UnmarshalCBOR(r io.Reader) (err error) {
 		case "list":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -5605,7 +5608,7 @@ func (t *FeedThreadgate_ListRule) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -5634,7 +5637,7 @@ func (t *FeedThreadgate_MentionRule) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -5683,7 +5686,7 @@ func (t *FeedThreadgate_MentionRule) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -5696,7 +5699,7 @@ func (t *FeedThreadgate_MentionRule) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -5725,7 +5728,7 @@ func (t *FeedThreadgate_FollowingRule) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -5774,7 +5777,7 @@ func (t *FeedThreadgate_FollowingRule) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -5787,7 +5790,7 @@ func (t *FeedThreadgate_FollowingRule) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -5821,7 +5824,7 @@ func (t *LabelerService) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if uint64(len("$type")) > cbg.MaxLength {
+	if len("$type") > 1000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -5842,7 +5845,7 @@ func (t *LabelerService) MarshalCBOR(w io.Writer) error {
 	// t.Labels (bsky.LabelerService_Labels) (struct)
 	if t.Labels != nil {
 
-		if uint64(len("labels")) > cbg.MaxLength {
+		if len("labels") > 1000000 {
 			return xerrors.Errorf("Value in field \"labels\" was too long")
 		}
 
@@ -5859,7 +5862,7 @@ func (t *LabelerService) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Policies (bsky.LabelerDefs_LabelerPolicies) (struct)
-	if uint64(len("policies")) > cbg.MaxLength {
+	if len("policies") > 1000000 {
 		return xerrors.Errorf("Value in field \"policies\" was too long")
 	}
 
@@ -5875,7 +5878,7 @@ func (t *LabelerService) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if uint64(len("createdAt")) > cbg.MaxLength {
+	if len("createdAt") > 1000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -5886,7 +5889,7 @@ func (t *LabelerService) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.CreatedAt)) > cbg.MaxLength {
+	if len(t.CreatedAt) > 1000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -5928,7 +5931,7 @@ func (t *LabelerService) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -5941,7 +5944,7 @@ func (t *LabelerService) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -5992,7 +5995,7 @@ func (t *LabelerService) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -6026,7 +6029,7 @@ func (t *LabelerDefs_LabelerPolicies) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LabelValues ([]*string) (slice)
-	if uint64(len("labelValues")) > cbg.MaxLength {
+	if len("labelValues") > 1000000 {
 		return xerrors.Errorf("Value in field \"labelValues\" was too long")
 	}
 
@@ -6037,7 +6040,7 @@ func (t *LabelerDefs_LabelerPolicies) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.LabelValues)) > cbg.MaxLength {
+	if len(t.LabelValues) > 8192 {
 		return xerrors.Errorf("Slice value in field t.LabelValues was too long")
 	}
 
@@ -6050,7 +6053,7 @@ func (t *LabelerDefs_LabelerPolicies) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if uint64(len(*v)) > cbg.MaxLength {
+			if len(*v) > 1000000 {
 				return xerrors.Errorf("Value in field v was too long")
 			}
 
@@ -6067,7 +6070,7 @@ func (t *LabelerDefs_LabelerPolicies) MarshalCBOR(w io.Writer) error {
 	// t.LabelValueDefinitions ([]*atproto.LabelDefs_LabelValueDefinition) (slice)
 	if t.LabelValueDefinitions != nil {
 
-		if uint64(len("labelValueDefinitions")) > cbg.MaxLength {
+		if len("labelValueDefinitions") > 1000000 {
 			return xerrors.Errorf("Value in field \"labelValueDefinitions\" was too long")
 		}
 
@@ -6078,7 +6081,7 @@ func (t *LabelerDefs_LabelerPolicies) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 
-		if uint64(len(t.LabelValueDefinitions)) > cbg.MaxLength {
+		if len(t.LabelValueDefinitions) > 8192 {
 			return xerrors.Errorf("Slice value in field t.LabelValueDefinitions was too long")
 		}
 
@@ -6124,7 +6127,7 @@ func (t *LabelerDefs_LabelerPolicies) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -6141,7 +6144,7 @@ func (t *LabelerDefs_LabelerPolicies) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.MaxLength {
+			if extra > 8192 {
 				return fmt.Errorf("t.LabelValues: array too large (%d)", extra)
 			}
 
@@ -6163,7 +6166,7 @@ func (t *LabelerDefs_LabelerPolicies) UnmarshalCBOR(r io.Reader) (err error) {
 					_ = err
 
 					{
-						sval, err := cbg.ReadString(cr)
+						sval, err := cbg.ReadStringWithMax(cr, 1000000)
 						if err != nil {
 							return err
 						}
@@ -6181,7 +6184,7 @@ func (t *LabelerDefs_LabelerPolicies) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.MaxLength {
+			if extra > 8192 {
 				return fmt.Errorf("t.LabelValueDefinitions: array too large (%d)", extra)
 			}
 

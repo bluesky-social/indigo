@@ -38,7 +38,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	// t.Sig (string) (string)
 	if t.Sig != "" {
 
-		if uint64(len("sig")) > cbg.MaxLength {
+		if len("sig") > 1000000 {
 			return xerrors.Errorf("Value in field \"sig\" was too long")
 		}
 
@@ -49,7 +49,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 
-		if uint64(len(t.Sig)) > cbg.MaxLength {
+		if len(t.Sig) > 1000000 {
 			return xerrors.Errorf("Value in field t.Sig was too long")
 		}
 
@@ -62,7 +62,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Prev (string) (string)
-	if uint64(len("prev")) > cbg.MaxLength {
+	if len("prev") > 1000000 {
 		return xerrors.Errorf("Value in field \"prev\" was too long")
 	}
 
@@ -78,7 +78,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	} else {
-		if uint64(len(*t.Prev)) > cbg.MaxLength {
+		if len(*t.Prev) > 1000000 {
 			return xerrors.Errorf("Value in field t.Prev was too long")
 		}
 
@@ -91,7 +91,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Type (string) (string)
-	if uint64(len("type")) > cbg.MaxLength {
+	if len("type") > 1000000 {
 		return xerrors.Errorf("Value in field \"type\" was too long")
 	}
 
@@ -102,7 +102,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Type)) > cbg.MaxLength {
+	if len(t.Type) > 1000000 {
 		return xerrors.Errorf("Value in field t.Type was too long")
 	}
 
@@ -114,7 +114,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Handle (string) (string)
-	if uint64(len("handle")) > cbg.MaxLength {
+	if len("handle") > 1000000 {
 		return xerrors.Errorf("Value in field \"handle\" was too long")
 	}
 
@@ -125,7 +125,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Handle)) > cbg.MaxLength {
+	if len(t.Handle) > 1000000 {
 		return xerrors.Errorf("Value in field t.Handle was too long")
 	}
 
@@ -137,7 +137,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Service (string) (string)
-	if uint64(len("service")) > cbg.MaxLength {
+	if len("service") > 1000000 {
 		return xerrors.Errorf("Value in field \"service\" was too long")
 	}
 
@@ -148,7 +148,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Service)) > cbg.MaxLength {
+	if len(t.Service) > 1000000 {
 		return xerrors.Errorf("Value in field t.Service was too long")
 	}
 
@@ -160,7 +160,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.SigningKey (string) (string)
-	if uint64(len("signingKey")) > cbg.MaxLength {
+	if len("signingKey") > 1000000 {
 		return xerrors.Errorf("Value in field \"signingKey\" was too long")
 	}
 
@@ -171,7 +171,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.SigningKey)) > cbg.MaxLength {
+	if len(t.SigningKey) > 1000000 {
 		return xerrors.Errorf("Value in field t.SigningKey was too long")
 	}
 
@@ -183,7 +183,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.RecoveryKey (string) (string)
-	if uint64(len("recoveryKey")) > cbg.MaxLength {
+	if len("recoveryKey") > 1000000 {
 		return xerrors.Errorf("Value in field \"recoveryKey\" was too long")
 	}
 
@@ -194,7 +194,7 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.RecoveryKey)) > cbg.MaxLength {
+	if len(t.RecoveryKey) > 1000000 {
 		return xerrors.Errorf("Value in field t.RecoveryKey was too long")
 	}
 
@@ -236,7 +236,7 @@ func (t *CreateOp) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
 			if err != nil {
 				return err
 			}
@@ -249,7 +249,7 @@ func (t *CreateOp) UnmarshalCBOR(r io.Reader) (err error) {
 		case "sig":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -269,7 +269,7 @@ func (t *CreateOp) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadString(cr)
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
 					if err != nil {
 						return err
 					}
@@ -281,7 +281,7 @@ func (t *CreateOp) UnmarshalCBOR(r io.Reader) (err error) {
 		case "type":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -292,7 +292,7 @@ func (t *CreateOp) UnmarshalCBOR(r io.Reader) (err error) {
 		case "handle":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -303,7 +303,7 @@ func (t *CreateOp) UnmarshalCBOR(r io.Reader) (err error) {
 		case "service":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -314,7 +314,7 @@ func (t *CreateOp) UnmarshalCBOR(r io.Reader) (err error) {
 		case "signingKey":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
@@ -325,7 +325,7 @@ func (t *CreateOp) UnmarshalCBOR(r io.Reader) (err error) {
 		case "recoveryKey":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
 				if err != nil {
 					return err
 				}
