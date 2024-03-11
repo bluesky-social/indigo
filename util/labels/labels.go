@@ -9,17 +9,21 @@ import (
 // UnsignedLabel is a label without the signature so we can validate it
 type UnsignedLabel struct {
 	// cid: Optionally, CID specifying the specific version of 'uri' resource this label applies to.
-	CID *string `json:"cid,omitempty" cborgen:"cid,omitempty"`
+	Cid *string `json:"cid,omitempty" cborgen:"cid,omitempty"`
 	// cts: Timestamp when this label was created.
-	CTS string `json:"cts" cborgen:"cts"`
+	Cts string `json:"cts" cborgen:"cts"`
+	// exp: Timestamp at which this label expires (no longer applies).
+	Exp *string `json:"exp,omitempty" cborgen:"exp,omitempty"`
 	// neg: If true, this is a negation label, overwriting a previous label.
 	Neg *bool `json:"neg,omitempty" cborgen:"neg,omitempty"`
 	// src: DID of the actor who created this label.
 	Src string `json:"src" cborgen:"src"`
 	// uri: AT URI of the record, repository (account), or other resource that this label applies to.
-	URI string `json:"uri" cborgen:"uri"`
+	Uri string `json:"uri" cborgen:"uri"`
 	// val: The short string name of the value or type of this label.
 	Val string `json:"val" cborgen:"val"`
+	// ver: The AT Protocol version of the label object.
+	Ver *int64 `json:"ver,omitempty" cborgen:"ver,omitempty"`
 }
 
 // SignedLabel is a label with a signature, this type is generated via lexgen but aliased here for convenience
