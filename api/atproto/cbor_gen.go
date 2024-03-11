@@ -2171,13 +2171,17 @@ func (t *LabelDefs_Label) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 6
+	fieldCount := 7
 
 	if t.Cid == nil {
 		fieldCount--
 	}
 
 	if t.Neg == nil {
+		fieldCount--
+	}
+
+	if t.Sig == nil {
 		fieldCount--
 	}
 
@@ -2263,6 +2267,34 @@ func (t *LabelDefs_Label) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		}
+	}
+
+	// t.Sig (util.LexBytes) (slice)
+	if t.Sig != nil {
+
+		if uint64(len("sig")) > cbg.MaxLength {
+			return xerrors.Errorf("Value in field \"sig\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("sig"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("sig")); err != nil {
+			return err
+		}
+
+		if uint64(len(t.Sig)) > cbg.ByteArrayMaxLen {
+			return xerrors.Errorf("Byte array in field t.Sig was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajByteString, uint64(len(t.Sig))); err != nil {
+			return err
+		}
+
+		if _, err := cw.Write(t.Sig); err != nil {
+			return err
+		}
+
 	}
 
 	// t.Src (string) (string)
@@ -2439,6 +2471,29 @@ func (t *LabelDefs_Label) UnmarshalCBOR(r io.Reader) (err error) {
 					t.Neg = &val
 				}
 			}
+			// t.Sig (util.LexBytes) (slice)
+		case "sig":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > cbg.ByteArrayMaxLen {
+				return fmt.Errorf("t.Sig: byte array too large (%d)", extra)
+			}
+			if maj != cbg.MajByteString {
+				return fmt.Errorf("expected byte array")
+			}
+
+			if extra > 0 {
+				t.Sig = make([]uint8, extra)
+			}
+
+			if _, err := io.ReadFull(cr, t.Sig); err != nil {
+				return err
+			}
+
 			// t.Src (string) (string)
 		case "src":
 

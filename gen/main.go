@@ -21,23 +21,28 @@ func main() {
 	for _, typ := range mst.CBORTypes() {
 		typVals = append(typVals, reflect.New(typ).Elem().Interface())
 	}
-	if err := cbg.WriteMapEncodersToFile("mst/cbor_gen.go", "mst", typVals...); err != nil {
+
+	genCfg := cbg.Gen{
+		MaxStringLength: 1_000_000,
+	}
+
+	if err := genCfg.WriteMapEncodersToFile("mst/cbor_gen.go", "mst", typVals...); err != nil {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("repo/cbor_gen.go", "repo", repo.SignedCommit{}, repo.UnsignedCommit{}); err != nil {
+	if err := genCfg.WriteMapEncodersToFile("repo/cbor_gen.go", "repo", repo.SignedCommit{}, repo.UnsignedCommit{}); err != nil {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("api/cbor_gen.go", "api", api.CreateOp{}); err != nil {
+	if err := genCfg.WriteMapEncodersToFile("api/cbor_gen.go", "api", api.CreateOp{}); err != nil {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("util/labels/cbor_gen.go", "labels", labels.UnsignedLabel{}); err != nil {
+	if err := genCfg.WriteMapEncodersToFile("util/labels/cbor_gen.go", "labels", labels.UnsignedLabel{}); err != nil {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("api/bsky/cbor_gen.go", "bsky",
+	if err := genCfg.WriteMapEncodersToFile("api/bsky/cbor_gen.go", "bsky",
 		bsky.FeedPost{}, bsky.FeedRepost{}, bsky.FeedPost_Entity{},
 		bsky.FeedPost_ReplyRef{}, bsky.FeedPost_TextSlice{}, bsky.EmbedImages{},
 		bsky.EmbedExternal{}, bsky.EmbedExternal_External{},
@@ -70,7 +75,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("api/atproto/cbor_gen.go", "atproto",
+	if err := genCfg.WriteMapEncodersToFile("api/atproto/cbor_gen.go", "atproto",
 		atproto.RepoStrongRef{},
 		atproto.SyncSubscribeRepos_Commit{},
 		atproto.SyncSubscribeRepos_Handle{},
@@ -90,15 +95,15 @@ func main() {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("lex/util/cbor_gen.go", "util", lexutil.CborChecker{}, lexutil.LegacyBlob{}, lexutil.BlobSchema{}); err != nil {
+	if err := genCfg.WriteMapEncodersToFile("lex/util/cbor_gen.go", "util", lexutil.CborChecker{}, lexutil.LegacyBlob{}, lexutil.BlobSchema{}); err != nil {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("events/cbor_gen.go", "events", events.EventHeader{}, events.ErrorFrame{}); err != nil {
+	if err := genCfg.WriteMapEncodersToFile("events/cbor_gen.go", "events", events.EventHeader{}, events.ErrorFrame{}); err != nil {
 		panic(err)
 	}
 
-	if err := cbg.WriteMapEncodersToFile("atproto/data/cbor_gen.go", "data", data.GenericRecord{}, data.LegacyBlobSchema{}, data.BlobSchema{}); err != nil {
+	if err := genCfg.WriteMapEncodersToFile("atproto/data/cbor_gen.go", "data", data.GenericRecord{}, data.LegacyBlobSchema{}, data.BlobSchema{}); err != nil {
 		panic(err)
 	}
 }
