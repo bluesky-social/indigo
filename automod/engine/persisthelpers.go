@@ -6,6 +6,7 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	toolsozone "github.com/bluesky-social/indigo/api/ozone"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod/countstore"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -117,8 +118,8 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 	// before creating a report, query to see if automod has already reported this account in the past week for the same reason
 	// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
 
-	// AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, inc ludeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string)
-	resp, err := comatproto.AdminQueryModerationEvents(
+	// ModerationQueryEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, inc ludeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string)
+	resp, err := toolsozone.ModerationQueryEvents(
 		ctx,
 		xrpcc,
 		nil,
@@ -136,7 +137,7 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 		nil,
 		"",
 		did.String(),
-		[]string{"com.atproto.admin.defs#modEventReport"},
+		[]string{"tools.ozone.moderation.defs#modEventReport"},
 	)
 
 	if err != nil {
@@ -144,7 +145,7 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 	}
 	for _, modEvt := range resp.Events {
 		// defensively ensure that our query params worked correctly
-		if modEvt.Event.AdminDefs_ModEventReport == nil || modEvt.CreatedBy != xrpcc.Auth.Did || modEvt.Subject.AdminDefs_RepoRef == nil || modEvt.Subject.AdminDefs_RepoRef.Did != did.String() || (modEvt.Event.AdminDefs_ModEventReport.ReportType != nil && *modEvt.Event.AdminDefs_ModEventReport.ReportType != mr.ReasonType) {
+		if modEvt.Event.ModerationDefs_ModEventReport == nil || modEvt.CreatedBy != xrpcc.Auth.Did || modEvt.Subject.AdminDefs_RepoRef == nil || modEvt.Subject.AdminDefs_RepoRef.Did != did.String() || (modEvt.Event.ModerationDefs_ModEventReport.ReportType != nil && *modEvt.Event.ModerationDefs_ModEventReport.ReportType != mr.ReasonType) {
 			continue
 		}
 		// igonre if older
@@ -188,8 +189,8 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 	// before creating a report, query to see if automod has already reported this account in the past week for the same reason
 	// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
 
-	// AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, inc ludeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string)
-	resp, err := comatproto.AdminQueryModerationEvents(
+	// ModerationQueryEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, inc ludeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string)
+	resp, err := toolsozone.ModerationQueryEvents(
 		ctx,
 		xrpcc,
 		nil,
@@ -207,14 +208,14 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 		nil,
 		"",
 		uri.String(),
-		[]string{"com.atproto.admin.defs#modEventReport"},
+		[]string{"tools.ozone.moderation.defs#modEventReport"},
 	)
 	if err != nil {
 		return false, err
 	}
 	for _, modEvt := range resp.Events {
 		// defensively ensure that our query params worked correctly
-		if modEvt.Event.AdminDefs_ModEventReport == nil || modEvt.CreatedBy != xrpcc.Auth.Did || modEvt.Subject.RepoStrongRef == nil || modEvt.Subject.RepoStrongRef.Uri != uri.String() || (modEvt.Event.AdminDefs_ModEventReport.ReportType != nil && *modEvt.Event.AdminDefs_ModEventReport.ReportType != mr.ReasonType) {
+		if modEvt.Event.ModerationDefs_ModEventReport == nil || modEvt.CreatedBy != xrpcc.Auth.Did || modEvt.Subject.RepoStrongRef == nil || modEvt.Subject.RepoStrongRef.Uri != uri.String() || (modEvt.Event.ModerationDefs_ModEventReport.ReportType != nil && *modEvt.Event.ModerationDefs_ModEventReport.ReportType != mr.ReasonType) {
 			continue
 		}
 		// igonre if older
