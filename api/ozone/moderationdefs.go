@@ -86,6 +86,16 @@ type ModerationDefs_ModEventComment struct {
 	Sticky *bool `json:"sticky,omitempty" cborgen:"sticky,omitempty"`
 }
 
+// ModerationDefs_ModEventDivert is a "modEventDivert" in the tools.ozone.moderation.defs schema.
+//
+// Divert a record's blobs to a 3rd party service for further scanning/tagging
+//
+// RECORDTYPE: ModerationDefs_ModEventDivert
+type ModerationDefs_ModEventDivert struct {
+	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#modEventDivert" cborgen:"$type,const=tools.ozone.moderation.defs#modEventDivert"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+}
+
 // ModerationDefs_ModEventEmail is a "modEventEmail" in the tools.ozone.moderation.defs schema.
 //
 // # Keep a log of outgoing email to a user
@@ -237,6 +247,7 @@ type ModerationDefs_ModEventViewDetail_Event struct {
 	ModerationDefs_ModEventMute            *ModerationDefs_ModEventMute
 	ModerationDefs_ModEventEmail           *ModerationDefs_ModEventEmail
 	ModerationDefs_ModEventResolveAppeal   *ModerationDefs_ModEventResolveAppeal
+	ModerationDefs_ModEventDivert          *ModerationDefs_ModEventDivert
 }
 
 func (t *ModerationDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) {
@@ -280,6 +291,10 @@ func (t *ModerationDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) 
 		t.ModerationDefs_ModEventResolveAppeal.LexiconTypeID = "tools.ozone.moderation.defs#modEventResolveAppeal"
 		return json.Marshal(t.ModerationDefs_ModEventResolveAppeal)
 	}
+	if t.ModerationDefs_ModEventDivert != nil {
+		t.ModerationDefs_ModEventDivert.LexiconTypeID = "tools.ozone.moderation.defs#modEventDivert"
+		return json.Marshal(t.ModerationDefs_ModEventDivert)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ModerationDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error {
@@ -319,6 +334,9 @@ func (t *ModerationDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error 
 	case "tools.ozone.moderation.defs#modEventResolveAppeal":
 		t.ModerationDefs_ModEventResolveAppeal = new(ModerationDefs_ModEventResolveAppeal)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventResolveAppeal)
+	case "tools.ozone.moderation.defs#modEventDivert":
+		t.ModerationDefs_ModEventDivert = new(ModerationDefs_ModEventDivert)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventDivert)
 
 	default:
 		return nil
@@ -387,6 +405,7 @@ type ModerationDefs_ModEventView_Event struct {
 	ModerationDefs_ModEventMute            *ModerationDefs_ModEventMute
 	ModerationDefs_ModEventEmail           *ModerationDefs_ModEventEmail
 	ModerationDefs_ModEventResolveAppeal   *ModerationDefs_ModEventResolveAppeal
+	ModerationDefs_ModEventDivert          *ModerationDefs_ModEventDivert
 }
 
 func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
@@ -430,6 +449,10 @@ func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
 		t.ModerationDefs_ModEventResolveAppeal.LexiconTypeID = "tools.ozone.moderation.defs#modEventResolveAppeal"
 		return json.Marshal(t.ModerationDefs_ModEventResolveAppeal)
 	}
+	if t.ModerationDefs_ModEventDivert != nil {
+		t.ModerationDefs_ModEventDivert.LexiconTypeID = "tools.ozone.moderation.defs#modEventDivert"
+		return json.Marshal(t.ModerationDefs_ModEventDivert)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
@@ -469,6 +492,9 @@ func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#modEventResolveAppeal":
 		t.ModerationDefs_ModEventResolveAppeal = new(ModerationDefs_ModEventResolveAppeal)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventResolveAppeal)
+	case "tools.ozone.moderation.defs#modEventDivert":
+		t.ModerationDefs_ModEventDivert = new(ModerationDefs_ModEventDivert)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventDivert)
 
 	default:
 		return nil
