@@ -36,7 +36,7 @@ func (t *basicSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Bool (bool) (bool)
-	if uint64(len("bool")) > cbg.MaxLength {
+	if len("bool") > 8192 {
 		return xerrors.Errorf("Value in field \"bool\" was too long")
 	}
 
@@ -52,7 +52,7 @@ func (t *basicSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Null (string) (string)
-	if uint64(len("null")) > cbg.MaxLength {
+	if len("null") > 8192 {
 		return xerrors.Errorf("Value in field \"null\" was too long")
 	}
 
@@ -68,7 +68,7 @@ func (t *basicSchema) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	} else {
-		if uint64(len(*t.Null)) > cbg.MaxLength {
+		if len(*t.Null) > 8192 {
 			return xerrors.Errorf("Value in field t.Null was too long")
 		}
 
@@ -81,7 +81,7 @@ func (t *basicSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Array ([]string) (slice)
-	if uint64(len("array")) > cbg.MaxLength {
+	if len("array") > 8192 {
 		return xerrors.Errorf("Value in field \"array\" was too long")
 	}
 
@@ -92,7 +92,7 @@ func (t *basicSchema) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Array)) > cbg.MaxLength {
+	if len(t.Array) > 8192 {
 		return xerrors.Errorf("Slice value in field t.Array was too long")
 	}
 
@@ -100,7 +100,7 @@ func (t *basicSchema) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	for _, v := range t.Array {
-		if uint64(len(v)) > cbg.MaxLength {
+		if len(v) > 8192 {
 			return xerrors.Errorf("Value in field v was too long")
 		}
 
@@ -116,7 +116,7 @@ func (t *basicSchema) MarshalCBOR(w io.Writer) error {
 	// t.Absent (string) (string)
 	if t.Absent != nil {
 
-		if uint64(len("absent")) > cbg.MaxLength {
+		if len("absent") > 8192 {
 			return xerrors.Errorf("Value in field \"absent\" was too long")
 		}
 
@@ -132,7 +132,7 @@ func (t *basicSchema) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if uint64(len(*t.Absent)) > cbg.MaxLength {
+			if len(*t.Absent) > 8192 {
 				return xerrors.Errorf("Value in field t.Absent was too long")
 			}
 
@@ -146,7 +146,7 @@ func (t *basicSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Object (util.basicSchemaInner) (struct)
-	if uint64(len("object")) > cbg.MaxLength {
+	if len("object") > 8192 {
 		return xerrors.Errorf("Value in field \"object\" was too long")
 	}
 
@@ -162,7 +162,7 @@ func (t *basicSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.String (string) (string)
-	if uint64(len("string")) > cbg.MaxLength {
+	if len("string") > 8192 {
 		return xerrors.Errorf("Value in field \"string\" was too long")
 	}
 
@@ -173,7 +173,7 @@ func (t *basicSchema) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.String)) > cbg.MaxLength {
+	if len(t.String) > 8192 {
 		return xerrors.Errorf("Value in field t.String was too long")
 	}
 
@@ -185,7 +185,7 @@ func (t *basicSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Integer (int64) (int64)
-	if uint64(len("integer")) > cbg.MaxLength {
+	if len("integer") > 8192 {
 		return xerrors.Errorf("Value in field \"integer\" was too long")
 	}
 
@@ -207,7 +207,7 @@ func (t *basicSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Unicode (string) (string)
-	if uint64(len("unicode")) > cbg.MaxLength {
+	if len("unicode") > 8192 {
 		return xerrors.Errorf("Value in field \"unicode\" was too long")
 	}
 
@@ -218,7 +218,7 @@ func (t *basicSchema) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Unicode)) > cbg.MaxLength {
+	if len(t.Unicode) > 8192 {
 		return xerrors.Errorf("Value in field t.Unicode was too long")
 	}
 
@@ -260,7 +260,7 @@ func (t *basicSchema) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 8192)
 			if err != nil {
 				return err
 			}
@@ -300,7 +300,7 @@ func (t *basicSchema) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadString(cr)
+					sval, err := cbg.ReadStringWithMax(cr, 8192)
 					if err != nil {
 						return err
 					}
@@ -316,7 +316,7 @@ func (t *basicSchema) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.MaxLength {
+			if extra > 8192 {
 				return fmt.Errorf("t.Array: array too large (%d)", extra)
 			}
 
@@ -338,7 +338,7 @@ func (t *basicSchema) UnmarshalCBOR(r io.Reader) (err error) {
 					_ = err
 
 					{
-						sval, err := cbg.ReadString(cr)
+						sval, err := cbg.ReadStringWithMax(cr, 8192)
 						if err != nil {
 							return err
 						}
@@ -361,7 +361,7 @@ func (t *basicSchema) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadString(cr)
+					sval, err := cbg.ReadStringWithMax(cr, 8192)
 					if err != nil {
 						return err
 					}
@@ -383,7 +383,7 @@ func (t *basicSchema) UnmarshalCBOR(r io.Reader) (err error) {
 		case "string":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 8192)
 				if err != nil {
 					return err
 				}
@@ -394,10 +394,10 @@ func (t *basicSchema) UnmarshalCBOR(r io.Reader) (err error) {
 		case "integer":
 			{
 				maj, extra, err := cr.ReadHeader()
-				var extraI int64
 				if err != nil {
 					return err
 				}
+				var extraI int64
 				switch maj {
 				case cbg.MajUnsignedInt:
 					extraI = int64(extra)
@@ -420,7 +420,7 @@ func (t *basicSchema) UnmarshalCBOR(r io.Reader) (err error) {
 		case "unicode":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 8192)
 				if err != nil {
 					return err
 				}
@@ -449,7 +449,7 @@ func (t *basicSchemaInner) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Arr ([]string) (slice)
-	if uint64(len("arr")) > cbg.MaxLength {
+	if len("arr") > 8192 {
 		return xerrors.Errorf("Value in field \"arr\" was too long")
 	}
 
@@ -460,7 +460,7 @@ func (t *basicSchemaInner) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.Arr)) > cbg.MaxLength {
+	if len(t.Arr) > 8192 {
 		return xerrors.Errorf("Slice value in field t.Arr was too long")
 	}
 
@@ -468,7 +468,7 @@ func (t *basicSchemaInner) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	for _, v := range t.Arr {
-		if uint64(len(v)) > cbg.MaxLength {
+		if len(v) > 8192 {
 			return xerrors.Errorf("Value in field v was too long")
 		}
 
@@ -482,7 +482,7 @@ func (t *basicSchemaInner) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Bool (bool) (bool)
-	if uint64(len("bool")) > cbg.MaxLength {
+	if len("bool") > 8192 {
 		return xerrors.Errorf("Value in field \"bool\" was too long")
 	}
 
@@ -498,7 +498,7 @@ func (t *basicSchemaInner) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Number (int64) (int64)
-	if uint64(len("number")) > cbg.MaxLength {
+	if len("number") > 8192 {
 		return xerrors.Errorf("Value in field \"number\" was too long")
 	}
 
@@ -520,7 +520,7 @@ func (t *basicSchemaInner) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.String (string) (string)
-	if uint64(len("string")) > cbg.MaxLength {
+	if len("string") > 8192 {
 		return xerrors.Errorf("Value in field \"string\" was too long")
 	}
 
@@ -531,7 +531,7 @@ func (t *basicSchemaInner) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.String)) > cbg.MaxLength {
+	if len(t.String) > 8192 {
 		return xerrors.Errorf("Value in field t.String was too long")
 	}
 
@@ -573,7 +573,7 @@ func (t *basicSchemaInner) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 8192)
 			if err != nil {
 				return err
 			}
@@ -590,7 +590,7 @@ func (t *basicSchemaInner) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.MaxLength {
+			if extra > 8192 {
 				return fmt.Errorf("t.Arr: array too large (%d)", extra)
 			}
 
@@ -612,7 +612,7 @@ func (t *basicSchemaInner) UnmarshalCBOR(r io.Reader) (err error) {
 					_ = err
 
 					{
-						sval, err := cbg.ReadString(cr)
+						sval, err := cbg.ReadStringWithMax(cr, 8192)
 						if err != nil {
 							return err
 						}
@@ -644,10 +644,10 @@ func (t *basicSchemaInner) UnmarshalCBOR(r io.Reader) (err error) {
 		case "number":
 			{
 				maj, extra, err := cr.ReadHeader()
-				var extraI int64
 				if err != nil {
 					return err
 				}
+				var extraI int64
 				switch maj {
 				case cbg.MajUnsignedInt:
 					extraI = int64(extra)
@@ -670,7 +670,7 @@ func (t *basicSchemaInner) UnmarshalCBOR(r io.Reader) (err error) {
 		case "string":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 8192)
 				if err != nil {
 					return err
 				}
@@ -699,7 +699,7 @@ func (t *ipldSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.A (util.LexLink) (struct)
-	if uint64(len("a")) > cbg.MaxLength {
+	if len("a") > 8192 {
 		return xerrors.Errorf("Value in field \"a\" was too long")
 	}
 
@@ -715,7 +715,7 @@ func (t *ipldSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.B (util.LexBytes) (slice)
-	if uint64(len("b")) > cbg.MaxLength {
+	if len("b") > 8192 {
 		return xerrors.Errorf("Value in field \"b\" was too long")
 	}
 
@@ -726,7 +726,7 @@ func (t *ipldSchema) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.B)) > cbg.ByteArrayMaxLen {
+	if len(t.B) > 2097152 {
 		return xerrors.Errorf("Byte array in field t.B was too long")
 	}
 
@@ -739,7 +739,7 @@ func (t *ipldSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.C (util.LexBlob) (struct)
-	if uint64(len("c")) > cbg.MaxLength {
+	if len("c") > 8192 {
 		return xerrors.Errorf("Value in field \"c\" was too long")
 	}
 
@@ -785,7 +785,7 @@ func (t *ipldSchema) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 8192)
 			if err != nil {
 				return err
 			}
@@ -812,7 +812,7 @@ func (t *ipldSchema) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.ByteArrayMaxLen {
+			if extra > 2097152 {
 				return fmt.Errorf("t.B: byte array too large (%d)", extra)
 			}
 			if maj != cbg.MajByteString {
@@ -864,7 +864,7 @@ func (t *basicOldSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.A (string) (string)
-	if uint64(len("a")) > cbg.MaxLength {
+	if len("a") > 8192 {
 		return xerrors.Errorf("Value in field \"a\" was too long")
 	}
 
@@ -875,7 +875,7 @@ func (t *basicOldSchema) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.A)) > cbg.MaxLength {
+	if len(t.A) > 8192 {
 		return xerrors.Errorf("Value in field t.A was too long")
 	}
 
@@ -887,7 +887,7 @@ func (t *basicOldSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.B (int64) (int64)
-	if uint64(len("b")) > cbg.MaxLength {
+	if len("b") > 8192 {
 		return xerrors.Errorf("Value in field \"b\" was too long")
 	}
 
@@ -909,7 +909,7 @@ func (t *basicOldSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.C (bool) (bool)
-	if uint64(len("c")) > cbg.MaxLength {
+	if len("c") > 8192 {
 		return xerrors.Errorf("Value in field \"c\" was too long")
 	}
 
@@ -927,7 +927,7 @@ func (t *basicOldSchema) MarshalCBOR(w io.Writer) error {
 	// t.D (string) (string)
 	if t.D != nil {
 
-		if uint64(len("d")) > cbg.MaxLength {
+		if len("d") > 8192 {
 			return xerrors.Errorf("Value in field \"d\" was too long")
 		}
 
@@ -943,7 +943,7 @@ func (t *basicOldSchema) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if uint64(len(*t.D)) > cbg.MaxLength {
+			if len(*t.D) > 8192 {
 				return xerrors.Errorf("Value in field t.D was too long")
 			}
 
@@ -957,7 +957,7 @@ func (t *basicOldSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.E (string) (string)
-	if uint64(len("e")) > cbg.MaxLength {
+	if len("e") > 8192 {
 		return xerrors.Errorf("Value in field \"e\" was too long")
 	}
 
@@ -973,7 +973,7 @@ func (t *basicOldSchema) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	} else {
-		if uint64(len(*t.E)) > cbg.MaxLength {
+		if len(*t.E) > 8192 {
 			return xerrors.Errorf("Value in field t.E was too long")
 		}
 
@@ -986,7 +986,7 @@ func (t *basicOldSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.F ([]string) (slice)
-	if uint64(len("f")) > cbg.MaxLength {
+	if len("f") > 8192 {
 		return xerrors.Errorf("Value in field \"f\" was too long")
 	}
 
@@ -997,7 +997,7 @@ func (t *basicOldSchema) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.F)) > cbg.MaxLength {
+	if len(t.F) > 8192 {
 		return xerrors.Errorf("Slice value in field t.F was too long")
 	}
 
@@ -1005,7 +1005,7 @@ func (t *basicOldSchema) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	for _, v := range t.F {
-		if uint64(len(v)) > cbg.MaxLength {
+		if len(v) > 8192 {
 			return xerrors.Errorf("Value in field v was too long")
 		}
 
@@ -1019,7 +1019,7 @@ func (t *basicOldSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.G (util.basicOldSchemaInner) (struct)
-	if uint64(len("g")) > cbg.MaxLength {
+	if len("g") > 8192 {
 		return xerrors.Errorf("Value in field \"g\" was too long")
 	}
 
@@ -1065,7 +1065,7 @@ func (t *basicOldSchema) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 8192)
 			if err != nil {
 				return err
 			}
@@ -1078,7 +1078,7 @@ func (t *basicOldSchema) UnmarshalCBOR(r io.Reader) (err error) {
 		case "a":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 8192)
 				if err != nil {
 					return err
 				}
@@ -1089,10 +1089,10 @@ func (t *basicOldSchema) UnmarshalCBOR(r io.Reader) (err error) {
 		case "b":
 			{
 				maj, extra, err := cr.ReadHeader()
-				var extraI int64
 				if err != nil {
 					return err
 				}
+				var extraI int64
 				switch maj {
 				case cbg.MajUnsignedInt:
 					extraI = int64(extra)
@@ -1142,7 +1142,7 @@ func (t *basicOldSchema) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadString(cr)
+					sval, err := cbg.ReadStringWithMax(cr, 8192)
 					if err != nil {
 						return err
 					}
@@ -1163,7 +1163,7 @@ func (t *basicOldSchema) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadString(cr)
+					sval, err := cbg.ReadStringWithMax(cr, 8192)
 					if err != nil {
 						return err
 					}
@@ -1179,7 +1179,7 @@ func (t *basicOldSchema) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.MaxLength {
+			if extra > 8192 {
 				return fmt.Errorf("t.F: array too large (%d)", extra)
 			}
 
@@ -1201,7 +1201,7 @@ func (t *basicOldSchema) UnmarshalCBOR(r io.Reader) (err error) {
 					_ = err
 
 					{
-						sval, err := cbg.ReadString(cr)
+						sval, err := cbg.ReadStringWithMax(cr, 8192)
 						if err != nil {
 							return err
 						}
@@ -1243,7 +1243,7 @@ func (t *basicOldSchemaInner) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.H (string) (string)
-	if uint64(len("h")) > cbg.MaxLength {
+	if len("h") > 8192 {
 		return xerrors.Errorf("Value in field \"h\" was too long")
 	}
 
@@ -1254,7 +1254,7 @@ func (t *basicOldSchemaInner) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.H)) > cbg.MaxLength {
+	if len(t.H) > 8192 {
 		return xerrors.Errorf("Value in field t.H was too long")
 	}
 
@@ -1266,7 +1266,7 @@ func (t *basicOldSchemaInner) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.I (int64) (int64)
-	if uint64(len("i")) > cbg.MaxLength {
+	if len("i") > 8192 {
 		return xerrors.Errorf("Value in field \"i\" was too long")
 	}
 
@@ -1288,7 +1288,7 @@ func (t *basicOldSchemaInner) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.J (bool) (bool)
-	if uint64(len("j")) > cbg.MaxLength {
+	if len("j") > 8192 {
 		return xerrors.Errorf("Value in field \"j\" was too long")
 	}
 
@@ -1304,7 +1304,7 @@ func (t *basicOldSchemaInner) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.K ([]string) (slice)
-	if uint64(len("k")) > cbg.MaxLength {
+	if len("k") > 8192 {
 		return xerrors.Errorf("Value in field \"k\" was too long")
 	}
 
@@ -1315,7 +1315,7 @@ func (t *basicOldSchemaInner) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.K)) > cbg.MaxLength {
+	if len(t.K) > 8192 {
 		return xerrors.Errorf("Slice value in field t.K was too long")
 	}
 
@@ -1323,7 +1323,7 @@ func (t *basicOldSchemaInner) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	for _, v := range t.K {
-		if uint64(len(v)) > cbg.MaxLength {
+		if len(v) > 8192 {
 			return xerrors.Errorf("Value in field v was too long")
 		}
 
@@ -1367,7 +1367,7 @@ func (t *basicOldSchemaInner) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 8192)
 			if err != nil {
 				return err
 			}
@@ -1380,7 +1380,7 @@ func (t *basicOldSchemaInner) UnmarshalCBOR(r io.Reader) (err error) {
 		case "h":
 
 			{
-				sval, err := cbg.ReadString(cr)
+				sval, err := cbg.ReadStringWithMax(cr, 8192)
 				if err != nil {
 					return err
 				}
@@ -1391,10 +1391,10 @@ func (t *basicOldSchemaInner) UnmarshalCBOR(r io.Reader) (err error) {
 		case "i":
 			{
 				maj, extra, err := cr.ReadHeader()
-				var extraI int64
 				if err != nil {
 					return err
 				}
+				var extraI int64
 				switch maj {
 				case cbg.MajUnsignedInt:
 					extraI = int64(extra)
@@ -1439,7 +1439,7 @@ func (t *basicOldSchemaInner) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.MaxLength {
+			if extra > 8192 {
 				return fmt.Errorf("t.K: array too large (%d)", extra)
 			}
 
@@ -1461,7 +1461,7 @@ func (t *basicOldSchemaInner) UnmarshalCBOR(r io.Reader) (err error) {
 					_ = err
 
 					{
-						sval, err := cbg.ReadString(cr)
+						sval, err := cbg.ReadStringWithMax(cr, 8192)
 						if err != nil {
 							return err
 						}
@@ -1493,7 +1493,7 @@ func (t *ipldOldSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.A (util.LexLink) (struct)
-	if uint64(len("a")) > cbg.MaxLength {
+	if len("a") > 8192 {
 		return xerrors.Errorf("Value in field \"a\" was too long")
 	}
 
@@ -1509,7 +1509,7 @@ func (t *ipldOldSchema) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.B (util.LexBytes) (slice)
-	if uint64(len("b")) > cbg.MaxLength {
+	if len("b") > 8192 {
 		return xerrors.Errorf("Value in field \"b\" was too long")
 	}
 
@@ -1520,7 +1520,7 @@ func (t *ipldOldSchema) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if uint64(len(t.B)) > cbg.ByteArrayMaxLen {
+	if len(t.B) > 2097152 {
 		return xerrors.Errorf("Byte array in field t.B was too long")
 	}
 
@@ -1564,7 +1564,7 @@ func (t *ipldOldSchema) UnmarshalCBOR(r io.Reader) (err error) {
 	for i := uint64(0); i < n; i++ {
 
 		{
-			sval, err := cbg.ReadString(cr)
+			sval, err := cbg.ReadStringWithMax(cr, 8192)
 			if err != nil {
 				return err
 			}
@@ -1591,7 +1591,7 @@ func (t *ipldOldSchema) UnmarshalCBOR(r io.Reader) (err error) {
 				return err
 			}
 
-			if extra > cbg.ByteArrayMaxLen {
+			if extra > 2097152 {
 				return fmt.Errorf("t.B: byte array too large (%d)", extra)
 			}
 			if maj != cbg.MajByteString {
