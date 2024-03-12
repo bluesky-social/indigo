@@ -14,6 +14,7 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	toolsozone "github.com/bluesky-social/indigo/api/ozone"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -145,9 +146,9 @@ func pollNewReports(cctx *cli.Context) error {
 		xrpcc.Auth.RefreshJwt = refresh.RefreshJwt
 
 		// query just new reports (regardless of resolution state)
-		// AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, includeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string) (*AdminQueryModerationEvents_Output, error)
+		// ModerationQueryEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, includeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string) (*ModerationQueryEvents_Output, error)
 		var limit int64 = 50
-		me, err := comatproto.AdminQueryModerationEvents(
+		me, err := toolsozone.ModerationQueryEvents(
 			cctx.Context,
 			xrpcc,
 			nil,
@@ -165,14 +166,14 @@ func pollNewReports(cctx *cli.Context) error {
 			nil,
 			"",
 			"",
-			[]string{"com.atproto.admin.defs#modEventReport"},
+			[]string{"tools.ozone.moderation.defs#modEventReport"},
 		)
 		if err != nil {
 			return err
 		}
 		// this works out to iterate from newest to oldest, which is the behavior we want (report only newest, then break)
 		for _, evt := range me.Events {
-			report := evt.Event.AdminDefs_ModEventReport
+			report := evt.Event.ModerationDefs_ModEventReport
 			// TODO: filter out based on subject state? similar to old "report.ResolvedByActionIds"
 			createdAt, err := time.Parse(time.RFC3339, evt.CreatedAt)
 			if err != nil {
