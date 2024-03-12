@@ -316,10 +316,6 @@ func (s *Server) handleComAtprotoSyncGetCheckout(ctx context.Context, did string
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoSyncGetCommitPath(ctx context.Context, did string, earliest string, latest string) (*comatprototypes.SyncGetCommitPath_Output, error) {
-	panic("not yet implemented")
-}
-
 func (s *Server) handleComAtprotoSyncGetHead(ctx context.Context, did string) (*comatprototypes.SyncGetHead_Output, error) {
 	user, err := s.lookupUserByDid(ctx, did)
 	if err != nil {
@@ -352,17 +348,6 @@ func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, si
 	}
 
 	return buf, nil
-}
-
-func (s *Server) handleComAtprotoAdminGetRecord(ctx context.Context, cid string, uri string) (*comatprototypes.AdminDefs_RecordViewDetail, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleComAtprotoAdminGetRepo(ctx context.Context, did string) (*comatprototypes.AdminDefs_RepoViewDetail, error) {
-	panic("nyi")
-}
-func (s *Server) handleComAtprotoAdminSearchRepos(ctx context.Context, cursor string, limit int, q string, term string) (*comatprototypes.AdminSearchRepos_Output, error) {
-	panic("nyi")
 }
 
 func (s *Server) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []string, did string) (io.Reader, error) {
@@ -463,10 +448,6 @@ func (s *Server) handleComAtprotoAdminSendEmail(ctx context.Context, body *comat
 }
 
 func (s *Server) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatprototypes.SyncGetLatestCommit_Output, error) {
-	panic("nyi")
-}
-
-func (s *Server) handleComAtprotoTempUpgradeRepoVersion(ctx context.Context, body *comatprototypes.TempUpgradeRepoVersion_Input) error {
 	panic("nyi")
 }
 
