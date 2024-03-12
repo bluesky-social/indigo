@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	toolsozone "github.com/bluesky-social/indigo/api/ozone"
 )
 
 func (eng *Engine) persistCounters(ctx context.Context, eff *Effects) error {
@@ -92,16 +93,16 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 			actionNewLabelCount.WithLabelValues("account", val).Inc()
 		}
 		comment := "[automod]: auto-labeling account"
-		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
-			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
-				AdminDefs_ModEventLabel: &comatproto.AdminDefs_ModEventLabel{
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventLabel: &toolsozone.ModerationDefs_ModEventLabel{
 					CreateLabelVals: newLabels,
 					NegateLabelVals: []string{},
 					Comment:         &comment,
 				},
 			},
-			Subject: &comatproto.AdminEmitModerationEvent_Input_Subject{
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
 				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
 					Did: c.Account.Identity.DID.String(),
 				},
@@ -128,14 +129,14 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 		c.Logger.Warn("account-takedown")
 		actionNewTakedownCount.WithLabelValues("account").Inc()
 		comment := "[automod]: auto account-takedown"
-		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
-			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
-				AdminDefs_ModEventTakedown: &comatproto.AdminDefs_ModEventTakedown{
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventTakedown: &toolsozone.ModerationDefs_ModEventTakedown{
 					Comment: &comment,
 				},
 			},
-			Subject: &comatproto.AdminEmitModerationEvent_Input_Subject{
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
 				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
 					Did: c.Account.Identity.DID.String(),
 				},
@@ -166,7 +167,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	atURI := c.RecordOp.ATURI().String()
 	newLabels := dedupeStrings(c.effects.RecordLabels)
 	if len(newLabels) > 0 && eng.AdminClient != nil {
-		rv, err := comatproto.AdminGetRecord(ctx, eng.AdminClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
+		rv, err := toolsozone.ModerationGetRecord(ctx, eng.AdminClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
 		if err != nil {
 			c.Logger.Warn("failed to fetch private record metadata", "err", err)
 		} else {
@@ -256,16 +257,16 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			actionNewLabelCount.WithLabelValues("record", val).Inc()
 		}
 		comment := "[automod]: auto-labeling record"
-		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
-			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
-				AdminDefs_ModEventLabel: &comatproto.AdminDefs_ModEventLabel{
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventLabel: &toolsozone.ModerationDefs_ModEventLabel{
 					CreateLabelVals: newLabels,
 					NegateLabelVals: []string{},
 					Comment:         &comment,
 				},
 			},
-			Subject: &comatproto.AdminEmitModerationEvent_Input_Subject{
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
 				RepoStrongRef: &strongRef,
 			},
 		})
@@ -285,14 +286,14 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		c.Logger.Warn("record-takedown")
 		actionNewTakedownCount.WithLabelValues("record").Inc()
 		comment := "[automod]: automated record-takedown"
-		_, err := comatproto.AdminEmitModerationEvent(ctx, xrpcc, &comatproto.AdminEmitModerationEvent_Input{
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
 			CreatedBy: xrpcc.Auth.Did,
-			Event: &comatproto.AdminEmitModerationEvent_Input_Event{
-				AdminDefs_ModEventTakedown: &comatproto.AdminDefs_ModEventTakedown{
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventTakedown: &toolsozone.ModerationDefs_ModEventTakedown{
 					Comment: &comment,
 				},
 			},
-			Subject: &comatproto.AdminEmitModerationEvent_Input_Subject{
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
 				RepoStrongRef: &strongRef,
 			},
 			SubjectBlobCids: dedupeStrings(c.effects.BlobTakedowns),

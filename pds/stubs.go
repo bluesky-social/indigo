@@ -15,10 +15,7 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.admin.enableAccountInvites", s.HandleComAtprotoAdminEnableAccountInvites)
 	e.GET("/xrpc/com.atproto.admin.getAccountInfo", s.HandleComAtprotoAdminGetAccountInfo)
 	e.GET("/xrpc/com.atproto.admin.getInviteCodes", s.HandleComAtprotoAdminGetInviteCodes)
-	e.GET("/xrpc/com.atproto.admin.getRecord", s.HandleComAtprotoAdminGetRecord)
-	e.GET("/xrpc/com.atproto.admin.getRepo", s.HandleComAtprotoAdminGetRepo)
 	e.GET("/xrpc/com.atproto.admin.getSubjectStatus", s.HandleComAtprotoAdminGetSubjectStatus)
-	e.GET("/xrpc/com.atproto.admin.searchRepos", s.HandleComAtprotoAdminSearchRepos)
 	e.POST("/xrpc/com.atproto.admin.sendEmail", s.HandleComAtprotoAdminSendEmail)
 	e.POST("/xrpc/com.atproto.admin.updateAccountEmail", s.HandleComAtprotoAdminUpdateAccountEmail)
 	e.POST("/xrpc/com.atproto.admin.updateAccountHandle", s.HandleComAtprotoAdminUpdateAccountHandle)
@@ -162,35 +159,6 @@ func (s *Server) HandleComAtprotoAdminGetInviteCodes(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *Server) HandleComAtprotoAdminGetRecord(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetRecord")
-	defer span.End()
-	cid := c.QueryParam("cid")
-	uri := c.QueryParam("uri")
-	var out *comatprototypes.AdminDefs_RecordViewDetail
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminGetRecord(ctx context.Context,cid string,uri string) (*comatprototypes.AdminDefs_RecordViewDetail, error)
-	out, handleErr = s.handleComAtprotoAdminGetRecord(ctx, cid, uri)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoAdminGetRepo(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetRepo")
-	defer span.End()
-	did := c.QueryParam("did")
-	var out *comatprototypes.AdminDefs_RepoViewDetail
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminGetRepo(ctx context.Context,did string) (*comatprototypes.AdminDefs_RepoViewDetail, error)
-	out, handleErr = s.handleComAtprotoAdminGetRepo(ctx, did)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
 func (s *Server) HandleComAtprotoAdminGetSubjectStatus(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetSubjectStatus")
 	defer span.End()
@@ -201,33 +169,6 @@ func (s *Server) HandleComAtprotoAdminGetSubjectStatus(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleComAtprotoAdminGetSubjectStatus(ctx context.Context,blob string,did string,uri string) (*comatprototypes.AdminGetSubjectStatus_Output, error)
 	out, handleErr = s.handleComAtprotoAdminGetSubjectStatus(ctx, blob, did, uri)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandleComAtprotoAdminSearchRepos(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminSearchRepos")
-	defer span.End()
-	cursor := c.QueryParam("cursor")
-
-	var limit int
-	if p := c.QueryParam("limit"); p != "" {
-		var err error
-		limit, err = strconv.Atoi(p)
-		if err != nil {
-			return err
-		}
-	} else {
-		limit = 50
-	}
-	q := c.QueryParam("q")
-	term := c.QueryParam("term")
-	var out *comatprototypes.AdminSearchRepos_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminSearchRepos(ctx context.Context,cursor string,limit int,q string,term string) (*comatprototypes.AdminSearchRepos_Output, error)
-	out, handleErr = s.handleComAtprotoAdminSearchRepos(ctx, cursor, limit, q, term)
 	if handleErr != nil {
 		return handleErr
 	}
