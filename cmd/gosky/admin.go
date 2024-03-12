@@ -13,6 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	toolsozone "github.com/bluesky-social/indigo/api/ozone"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util/cliutil"
@@ -79,7 +80,7 @@ var checkUserCmd = &cli.Command{
 		xrpcc.AdminToken = &adminKey
 		xrpcc.Host = id.PDSEndpoint()
 
-		rep, err := atproto.AdminGetRepo(ctx, xrpcc, did)
+		rep, err := toolsozone.ModerationGetRepo(ctx, xrpcc, did)
 		if err != nil {
 			return fmt.Errorf("getRepo %s: %w", did, err)
 		}
@@ -125,7 +126,7 @@ var checkUserCmd = &cli.Command{
 				fmt.Println("INVITES DISABLED")
 			}
 
-			var invited []*atproto.AdminDefs_RepoViewDetail
+			var invited []*toolsozone.ModerationDefs_RepoViewDetail
 			var lk sync.Mutex
 			var wg sync.WaitGroup
 			var used int
@@ -140,7 +141,7 @@ var checkUserCmd = &cli.Command{
 					wg.Add(1)
 					go func(did string) {
 						defer wg.Done()
-						repo, err := atproto.AdminGetRepo(ctx, xrpcc, did)
+						repo, err := toolsozone.ModerationGetRepo(ctx, xrpcc, did)
 						if err != nil {
 							fmt.Println("ERROR: ", err)
 							return
@@ -246,7 +247,7 @@ var buildInviteTreeCmd = &cli.Command{
 				return u, nil
 			}
 
-			repo, err := atproto.AdminGetRepo(ctx, xrpcc, did)
+			repo, err := toolsozone.ModerationGetRepo(ctx, xrpcc, did)
 			if err != nil {
 				return nil, err
 			}
@@ -260,7 +261,7 @@ var buildInviteTreeCmd = &cli.Command{
 					if ok {
 						invby = invu.Handle
 					} else {
-						invrepo, err := atproto.AdminGetRepo(ctx, xrpcc, fa)
+						invrepo, err := toolsozone.ModerationGetRepo(ctx, xrpcc, fa)
 						if err != nil {
 							return nil, fmt.Errorf("resolving inviter (%q): %w", fa, err)
 						}
@@ -385,7 +386,7 @@ var listReportsCmd = &cli.Command{
 
 		// fetch recent moderation reports
 		// AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, includeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string) (*AdminQueryModerationEvents_Output, error)
-		resp, err := atproto.AdminQueryModerationEvents(
+		resp, err := toolsozone.ModerationQueryEvents(
 			ctx,
 			xrpcc,
 			nil,
@@ -403,7 +404,7 @@ var listReportsCmd = &cli.Command{
 			nil,
 			"",
 			"",
-			[]string{"com.atproto.admin.defs#modEventReport"},
+			[]string{"tools.ozone.moderation.defs#modEventReport"},
 		)
 		if err != nil {
 			return err
@@ -560,7 +561,7 @@ var listInviteTreeCmd = &cli.Command{
 				}
 			}
 
-			rep, err := atproto.AdminGetRepo(ctx, xrpcc, next)
+			rep, err := toolsozone.ModerationGetRepo(ctx, xrpcc, next)
 			if err != nil {
 				fmt.Printf("Failed to getRepo for DID %s: %s\n", next, err.Error())
 				continue
@@ -643,14 +644,14 @@ var takeDownAccountCmd = &cli.Command{
 				adminUser = resp
 			}
 
-			resp, err := atproto.AdminEmitModerationEvent(ctx, xrpcc, &atproto.AdminEmitModerationEvent_Input{
+			resp, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
 				CreatedBy: adminUser,
-				Event: &atproto.AdminEmitModerationEvent_Input_Event{
-					AdminDefs_ModEventTakedown: &atproto.AdminDefs_ModEventTakedown{
+				Event: &toolsozone.ModerationEmitEvent_Input_Event{
+					ModerationDefs_ModEventTakedown: &toolsozone.ModerationDefs_ModEventTakedown{
 						Comment: &reason,
 					},
 				},
-				Subject: &atproto.AdminEmitModerationEvent_Input_Subject{
+				Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
 					AdminDefs_RepoRef: &atproto.AdminDefs_RepoRef{
 						Did: did,
 					},
@@ -697,7 +698,7 @@ var queryModerationStatusesCmd = &cli.Command{
 			did = resp
 		}
 
-		resp, err := atproto.AdminQueryModerationEvents(
+		resp, err := toolsozone.ModerationQueryEvents(
 			ctx,
 			xrpcc,
 			nil,
@@ -715,7 +716,7 @@ var queryModerationStatusesCmd = &cli.Command{
 			nil,
 			"",
 			"",
-			[]string{"com.atproto.admin.defs#modEventReport"},
+			[]string{"tools.ozone.moderation.defs#modEventReport"},
 		)
 		if err != nil {
 			return err
