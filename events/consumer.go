@@ -277,7 +277,7 @@ func HandleRepoStream(ctx context.Context, con *websocket.Conn, sched Scheduler)
 				}); err != nil {
 					return err
 				}
-			case "#labebatch":
+			case "#labels":
 				var evt comatproto.LabelSubscribeLabels_Labels
 				if err := evt.UnmarshalCBOR(r); err != nil {
 					return fmt.Errorf("reading Labels event: %w", err)
