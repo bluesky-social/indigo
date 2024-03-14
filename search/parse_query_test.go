@@ -55,4 +55,9 @@ func TestParseQuery(t *testing.T) {
 	q, f = ParseQuery(ctx, &dir, p6)
 	assert.Equal(`some other stuff`, q)
 	assert.Equal(2, len(f))
+
+	p7 := "known from:@known.example.com"
+	q, f = ParseQuery(ctx, &dir, p7)
+	assert.Equal("known", q)
+	assert.Equal(1, len(f))
 }
