@@ -43,7 +43,6 @@ type Server struct {
 	db             *gorm.DB
 	cs             *carstore.CarStore
 	repoman        *repomgr.RepoManager
-	feedgen        *FeedGenerator
 	notifman       notifs.NotificationManager
 	indexer        *indexer.Indexer
 	events         *events.EventManager
@@ -78,7 +77,7 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, serkey *did.PrivKey, handleSu
 
 	rf := indexer.NewRepoFetcher(db, repoman, 10)
 
-	ix, err := indexer.NewIndexer(db, notifman, evtman, didr, rf, false, true, true)
+	ix, err := indexer.NewIndexer(db, notifman, evtman, didr, rf, false, true)
 	if err != nil {
 		return nil, err
 	}
@@ -106,13 +105,6 @@ func NewServer(db *gorm.DB, cs *carstore.CarStore, serkey *did.PrivKey, handleSu
 
 	//ix.SendRemoteFollow = s.sendRemoteFollow
 	ix.CreateExternalUser = s.createExternalUser
-
-	feedgen, err := NewFeedGenerator(db, ix, s.readRecordFunc)
-	if err != nil {
-		return nil, err
-	}
-
-	s.feedgen = feedgen
 
 	return s, nil
 }
