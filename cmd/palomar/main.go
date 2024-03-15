@@ -164,6 +164,10 @@ var runCmd = &cli.Command{
 			EnvVars: []string{"PALOMAR_DISCOVER_REPOS"},
 			Value:   false,
 		},
+		&cli.StringFlag{
+			Name:    "pagerank-file",
+			EnvVars: []string{"PAGERANK_FILE"},
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -258,6 +262,11 @@ var runCmd = &cli.Command{
 
 		if cctx.Bool("readonly") {
 			select {}
+		} else if cctx.String("pagerank-file") != "" {
+			ctx := context.Background()
+			if err := srv.UpdatePageranks(ctx, cctx.String("pagerank-file")); err != nil {
+				return fmt.Errorf("failed to update pageranks: %w", err)
+			}
 		} else {
 			ctx := context.Background()
 			if err := srv.EnsureIndices(ctx); err != nil {

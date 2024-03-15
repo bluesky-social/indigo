@@ -152,6 +152,53 @@ func (s *Server) indexProfile(ctx context.Context, ident *identity.Identity, rec
 	return nil
 }
 
+func (s *Server) updateProfilePagerank(ctx context.Context, did syntax.DID, rank float64) error {
+	ctx, span := tracer.Start(ctx, "updateProfilePagerank")
+	defer span.End()
+	span.SetAttributes(attribute.String("repo", did.String()))
+
+	log := s.logger.With("repo", did.String(), "op", "updateProfilePagerank")
+
+	log.Info("updating profile pagerank")
+
+	b, err := json.Marshal(map[string]any{
+		"script": map[string]any{
+			"source": "ctx._source.pagerank = params.pagerank",
+			"lang":   "painless",
+			"params": map[string]any{
+				"pagerank": rank,
+			},
+		},
+	})
+	if err != nil {
+		log.Warn("failed to marshal update script", "err", err)
+		return err
+	}
+
+	req := esapi.UpdateRequest{
+		Index:      s.profileIndex,
+		DocumentID: did.String(),
+		Body:       bytes.NewReader(b),
+	}
+
+	res, err := req.Do(ctx, s.escli)
+	if err != nil {
+		log.Warn("failed to send indexing request", "err", err)
+		return fmt.Errorf("failed to send indexing request: %w", err)
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Warn("failed to read indexing response", "err", err)
+		return fmt.Errorf("failed to read indexing response: %w", err)
+	}
+	if res.IsError() {
+		log.Warn("opensearch indexing error", "status_code", res.StatusCode, "response", res, "body", string(body))
+		return fmt.Errorf("indexing error, code=%d", res.StatusCode)
+	}
+	return nil
+}
+
 func (s *Server) updateUserHandle(ctx context.Context, did syntax.DID, handle string) error {
 	ctx, span := tracer.Start(ctx, "updateUserHandle")
 	defer span.End()
