@@ -152,6 +152,65 @@ func (s *Server) indexProfile(ctx context.Context, ident *identity.Identity, rec
 	return nil
 }
 
+// updateProfilePagranks uses the OpenSearch bulk API to update the pageranks for the given DIDs
+func (s *Server) updateProfilePageranks(ctx context.Context, dids []syntax.DID, ranks []float64) error {
+	ctx, span := tracer.Start(ctx, "updateProfilePageranks")
+	defer span.End()
+	span.SetAttributes(attribute.Int("num_profiles", len(dids)))
+
+	log := s.logger.With("op", "updateProfilePageranks")
+
+	log.Info("updating profile pageranks")
+
+	if len(dids) != len(ranks) {
+		return fmt.Errorf("number of DIDs and ranks must be equal")
+	}
+
+	var buf bytes.Buffer
+	for i, did := range dids {
+		updateScript := map[string]any{
+			"script": map[string]any{
+				"source": "ctx._source.pagerank = params.pagerank",
+				"lang":   "painless",
+				"params": map[string]any{
+					"pagerank": ranks[i],
+				},
+			},
+		}
+		updateScriptJSON, err := json.Marshal(updateScript)
+		if err != nil {
+			log.Warn("failed to marshal update script", "err", err)
+			return err
+		}
+
+		updateMetaJSON := []byte(fmt.Sprintf(`{"update":{"_id":"%s"}}%s`, did.String(), "\n"))
+		updateScriptJSON = append(updateScriptJSON, "\n"...)
+
+		buf.Grow(len(updateMetaJSON) + len(updateScriptJSON))
+		buf.Write(updateMetaJSON)
+		buf.Write(updateScriptJSON)
+	}
+
+	res, err := s.escli.Bulk(bytes.NewReader(buf.Bytes()), s.escli.Bulk.WithIndex(s.profileIndex))
+	if err != nil {
+		log.Warn("failed to send bulk indexing request", "err", err)
+		return fmt.Errorf("failed to send bulk indexing request: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			log.Warn("failed to read bulk indexing response", "err", err)
+			return fmt.Errorf("failed to read bulk indexing response: %w", err)
+		}
+		log.Warn("opensearch bulk indexing error", "status_code", res.StatusCode, "response", res, "body", string(body))
+		return fmt.Errorf("bulk indexing error, code=%d", res.StatusCode)
+	}
+
+	return nil
+}
+
 func (s *Server) updateProfilePagerank(ctx context.Context, did syntax.DID, rank float64) error {
 	ctx, span := tracer.Start(ctx, "updateProfilePagerank")
 	defer span.End()

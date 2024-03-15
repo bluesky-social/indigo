@@ -32,7 +32,7 @@ func (s *Server) UpdatePageranks(ctx context.Context, pagerankFile string) error
 	linesRead := 0
 	workers := int64(20)
 
-	queue := make(chan pagerankJob, 1000)
+	queue := make(chan []pagerankJob, workers)
 	wg := &sync.WaitGroup{}
 
 	// Start worker goroutines to process the pagerank jobs
@@ -40,13 +40,22 @@ func (s *Server) UpdatePageranks(ctx context.Context, pagerankFile string) error
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for job := range queue {
-				if err := s.updateProfilePagerank(ctx, job.did, job.rank); err != nil {
-					s.logger.Error("failed to update pagerank", "did", job.did, "rank", job.rank, "error", err)
+			for jobChunk := range queue {
+				dids := make([]syntax.DID, len(jobChunk))
+				ranks := make([]float64, len(jobChunk))
+				for i, job := range jobChunk {
+					dids[i] = job.did
+					ranks[i] = job.rank
+				}
+				if err := s.updateProfilePageranks(ctx, dids, ranks); err != nil {
+					s.logger.Error("failed to update pageranks", "err", err)
 				}
 			}
 		}()
 	}
+
+	var jobs []pagerankJob
+	batchSize := 1000
 
 	// Iterate over each line in the file
 	for scanner.Scan() {
@@ -73,8 +82,19 @@ func (s *Server) UpdatePageranks(ctx context.Context, pagerankFile string) error
 			return fmt.Errorf("invalid pagerank value: %s", parts[1])
 		}
 
-		// Add the pagerank to the queue
-		queue <- pagerankJob{did, rank}
+		// Add the pagerank job to the batch
+		jobs = append(jobs, pagerankJob{did, rank})
+
+		// If the batch size is reached, send the jobs to the queue
+		if len(jobs) == batchSize {
+			queue <- jobs
+			jobs = nil
+		}
+	}
+
+	// Send any remaining jobs to the queue
+	if len(jobs) > 0 {
+		queue <- jobs
 	}
 
 	// Close the queue and wait for all workers to finish
