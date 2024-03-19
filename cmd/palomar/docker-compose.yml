@@ -12,7 +12,7 @@ services:
       - "discovery.type=single-node"
       - "cluster.name=opensearch-palomar"
       - "plugins.security.disabled=true"
-      - bootstrap.memory_lock=true # Disable JVM heap memory swapping
+      - "bootstrap.memory_lock=true" # Disable JVM heap memory swapping
       - "OPENSEARCH_JAVA_OPTS=-Xms4096m -Xmx4096m" # Set min and max JVM heap sizes to at least 50% of system RAM
     ulimits:
       memlock:
@@ -72,5 +72,14 @@ services:
       - type: bind
         source: ../../data
         target: /data
+  opensearch-dashboards:
+    build:
+      context: ../../
+      dockerfile: cmd/palomar/Dockerfile.opensearch-dashboards
+    container_name: opensearch-dashboards
+    ports:
+      - 5601:5601
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
 networks:
   default:
