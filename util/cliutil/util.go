@@ -164,6 +164,7 @@ func SetupDatabase(dburl string, maxConnections int) (*gorm.DB, error) {
 	// NOTE(bnewbold): might also handle file:// as sqlite, but let's keep it
 	// explicit for now
 
+	isSqlite := false
 	openConns := maxConnections
 	if strings.HasPrefix(dburl, "sqlite://") {
 		sqliteSuffix := dburl[len("sqlite://"):]
@@ -174,6 +175,7 @@ func SetupDatabase(dburl string, maxConnections int) (*gorm.DB, error) {
 		}
 		dial = sqlite.Open(sqliteSuffix)
 		openConns = 1
+		isSqlite = true
 	} else if strings.HasPrefix(dburl, "sqlite=") {
 		sqliteSuffix := dburl[len("sqlite="):]
 		// if this isn't ":memory:", ensure that directory exists (eg, if db
@@ -183,6 +185,7 @@ func SetupDatabase(dburl string, maxConnections int) (*gorm.DB, error) {
 		}
 		dial = sqlite.Open(sqliteSuffix)
 		openConns = 1
+		isSqlite = true
 	} else if strings.HasPrefix(dburl, "postgresql://") || strings.HasPrefix(dburl, "postgres://") {
 		// can pass entire URL, with prefix, to gorm driver
 		dial = postgres.Open(dburl)
@@ -210,6 +213,16 @@ func SetupDatabase(dburl string, maxConnections int) (*gorm.DB, error) {
 	sqldb.SetMaxIdleConns(80)
 	sqldb.SetMaxOpenConns(openConns)
 	sqldb.SetConnMaxIdleTime(time.Hour)
+
+	if isSqlite {
+		// Set pragmas for sqlite
+		if err := db.Exec("PRAGMA journal_mode=WAL;").Error; err != nil {
+			return nil, err
+		}
+		if err := db.Exec("PRAGMA synchronous=normal;").Error; err != nil {
+			return nil, err
+		}
+	}
 
 	return db, nil
 }

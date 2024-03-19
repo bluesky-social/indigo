@@ -1,0 +1,76 @@
+version: "3.9"
+services:
+  opensearch:
+    container_name: opensearch
+    build:
+      context: ../../
+      dockerfile: cmd/palomar/Dockerfile.opensearch
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    environment:
+      - "discovery.type=single-node"
+      - "cluster.name=opensearch-palomar"
+      - "plugins.security.disabled=true"
+      - bootstrap.memory_lock=true # Disable JVM heap memory swapping
+      - "OPENSEARCH_JAVA_OPTS=-Xms4096m -Xmx4096m" # Set min and max JVM heap sizes to at least 50% of system RAM
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - type: bind
+        source: ../../data/opensearch
+        target: /usr/share/opensearch/data
+  indexer:
+    container_name: indexer
+    build:
+      context: ../../
+      dockerfile: cmd/palomar/Dockerfile
+    environment:
+      - "GOLOG_LOG_LEVEL=info"
+      - "ATP_PLC_HOST=https://plc.directory"
+      - "ATP_BGS_HOST=wss://bsky.network"
+      - "ELASTIC_HOSTS=http://opensearch:9200"
+      - "ES_INSECURE_SSL=true"
+      - "ENVIRONMENT=dev"
+      - "ES_POST_INDEX=palomar_post_dev"
+      - "ES_PROFILE_INDEX=palomar_profile_dev"
+      - "PALOMAR_DISCOVER_REPOS=false"
+      - "PALOMAR_BGS_SYNC_RATE_LIMIT=5"
+      - "PALOMAR_INDEX_MAX_CONCURRENCY=5"
+      - "DATABASE_URL=sqlite:///data/palomar/search.db"
+    depends_on:
+      - opensearch
+    volumes:
+      - type: bind
+        source: ../../data
+        target: /data
+  api:
+    container_name: api
+    build:
+      context: ../../
+      dockerfile: cmd/palomar/Dockerfile
+    ports:
+      - "3999:3999"
+      - "3998:3998"
+    environment:
+      - "GOLOG_LOG_LEVEL=info"
+      - "ATP_PLC_HOST=https://plc.directory"
+      - "ATP_BGS_HOST=wss://bsky.network"
+      - "ELASTIC_HOSTS=http://opensearch:9200"
+      - "ES_INSECURE_SSL=true"
+      - "ENVIRONMENT=dev"
+      - "ES_POST_INDEX=palomar_post_dev"
+      - "ES_PROFILE_INDEX=palomar_profile_dev"
+      - "DATABASE_URL=sqlite:///data/palomar/search.db"
+      - "PALOMAR_READONLY=true"
+    volumes:
+      - type: bind
+        source: ../../data
+        target: /data
+networks:
+  default:
