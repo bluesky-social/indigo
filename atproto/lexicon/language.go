@@ -559,7 +559,8 @@ func (s *SchemaString) CheckSchema() error {
 	return nil
 }
 
-func (s *SchemaString) Validate(d any) error {
+// lenient mode is only for datetimes, and hopefully will be deprecated soon
+func (s *SchemaString) Validate(d any, lenient bool) error {
 	v, ok := d.(string)
 	if !ok {
 		return fmt.Errorf("expected a string: %v", reflect.TypeOf(d))
@@ -604,8 +605,14 @@ func (s *SchemaString) Validate(d any) error {
 				return err
 			}
 		case "datetime":
-			if _, err := syntax.ParseDatetime(v); err != nil {
-				return err
+			if lenient {
+				if _, err := syntax.ParseDatetimeLenient(v); err != nil {
+					return err
+				}
+			} else {
+				if _, err := syntax.ParseDatetime(v); err != nil {
+					return err
+				}
 			}
 		case "did":
 			if _, err := syntax.ParseDID(v); err != nil {
@@ -755,10 +762,14 @@ func (s *SchemaBlob) CheckSchema() error {
 	return nil
 }
 
-func (s *SchemaBlob) Validate(d any) error {
+// lenient flag allows legacy blobs (if true)
+func (s *SchemaBlob) Validate(d any, lenient bool) error {
 	v, ok := d.(data.Blob)
 	if !ok {
 		return fmt.Errorf("expected a blob")
+	}
+	if !lenient && v.Size < 0 {
+		return fmt.Errorf("legacy blobs not allowed")
 	}
 	if len(s.Accept) > 0 {
 		typeOk := false
