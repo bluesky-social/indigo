@@ -18,7 +18,7 @@ type pagerankJob struct {
 }
 
 // UpdatePageranks updates the pageranks for the DIDs in the Serch Index from a CSV file.
-func (s *Server) UpdatePageranks(ctx context.Context, pagerankFile string) error {
+func (idx *Indexer) UpdatePageranks(ctx context.Context, pagerankFile string) error {
 	// Open the pagerank CSV file and read the pageranks into a map
 	f, err := os.Open(pagerankFile)
 	if err != nil {
@@ -47,8 +47,8 @@ func (s *Server) UpdatePageranks(ctx context.Context, pagerankFile string) error
 					dids[i] = job.did
 					ranks[i] = job.rank
 				}
-				if err := s.updateProfilePageranks(ctx, dids, ranks); err != nil {
-					s.logger.Error("failed to update pageranks", "err", err)
+				if err := idx.updateProfilePageranks(ctx, dids, ranks); err != nil {
+					idx.logger.Error("failed to update pageranks", "err", err)
 				}
 			}
 		}()
@@ -63,7 +63,7 @@ func (s *Server) UpdatePageranks(ctx context.Context, pagerankFile string) error
 
 		linesRead++
 		if linesRead%1000 == 0 {
-			s.logger.Info("processed pagerank lines", "lines", linesRead)
+			idx.logger.Info("processed pagerank lines", "lines", linesRead)
 		}
 
 		// Split the line into DID and rank
@@ -106,7 +106,7 @@ func (s *Server) UpdatePageranks(ctx context.Context, pagerankFile string) error
 		return fmt.Errorf("error reading pagerank file: %w", err)
 	}
 
-	s.logger.Info("finished processing pagerank file", "lines", linesRead)
+	idx.logger.Info("finished processing pagerank file", "lines", linesRead)
 
 	return nil
 }

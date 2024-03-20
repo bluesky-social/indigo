@@ -175,6 +175,8 @@ var runCmd = &cli.Command{
 		}))
 		slog.SetDefault(logger)
 
+		readonly := cctx.Bool("readonly")
+
 		// Enable OTLP HTTP exporter
 		// For relevant environment variables:
 		// https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace#readme-environment-variables
@@ -210,17 +212,11 @@ var runCmd = &cli.Command{
 			otel.SetTracerProvider(tp)
 		}
 
-		db, err := cliutil.SetupDatabase(cctx.String("database-url"), cctx.Int("max-metadb-connections"))
-		if err != nil {
-			return err
-		}
-
 		escli, err := createEsClient(cctx)
 		if err != nil {
 			return fmt.Errorf("failed to get elasticsearch: %w", err)
 		}
 
-		// TODO: replace this with "bingo" resolver
 		base := identity.BaseDirectory{
 			PLCURL: cctx.String("atp-plc-host"),
 			HTTPClient: http.Client{
@@ -232,22 +228,40 @@ var runCmd = &cli.Command{
 		}
 		dir := identity.NewCacheDirectory(&base, 1_500_000, time.Hour*24, time.Minute*2, time.Minute*5)
 
-		srv, err := search.NewServer(
-			db,
-			escli,
-			&dir,
-			search.Config{
-				BGSHost:             cctx.String("atp-bgs-host"),
+		apiConfig := search.ServerConfig{
+			Logger:       logger,
+			ProfileIndex: cctx.String("es-profile-index"),
+			PostIndex:    cctx.String("es-post-index"),
+		}
+
+		srv, err := search.NewServer(escli, &dir, apiConfig)
+		if err != nil {
+			return err
+		}
+
+		// Configure the indexer if we're not in readonly mode
+		if !readonly {
+			db, err := cliutil.SetupDatabase(cctx.String("database-url"), cctx.Int("max-metadb-connections"))
+			if err != nil {
+				return fmt.Errorf("failed to set up database: %w", err)
+			}
+
+			indexerConfig := search.IndexerConfig{
+				RelayHost:           cctx.String("atp-bgs-host"),
 				ProfileIndex:        cctx.String("es-profile-index"),
 				PostIndex:           cctx.String("es-post-index"),
 				Logger:              logger,
-				BGSSyncRateLimit:    cctx.Int("bgs-sync-rate-limit"),
+				RelaySyncRateLimit:  cctx.Int("bgs-sync-rate-limit"),
 				IndexMaxConcurrency: cctx.Int("index-max-concurrency"),
 				DiscoverRepos:       cctx.Bool("discover-repos"),
-			},
-		)
-		if err != nil {
-			return err
+			}
+
+			idx, err := search.NewIndexer(db, escli, &dir, indexerConfig)
+			if err != nil {
+				return fmt.Errorf("failed to set up indexer: %w", err)
+			}
+
+			srv.Indexer = idx
 		}
 
 		go func() {
@@ -261,19 +275,22 @@ var runCmd = &cli.Command{
 			srv.RunAPI(cctx.String("bind"))
 		}()
 
-		if cctx.Bool("readonly") {
+		// If we're in readonly mode, just block forever
+		if readonly {
 			select {}
-		} else if cctx.String("pagerank-file") != "" {
+		} else if cctx.String("pagerank-file") != "" && srv.Indexer != nil {
+			// If we're not in readonly mode, and we have a pagerank file, update pageranks
 			ctx := context.Background()
-			if err := srv.UpdatePageranks(ctx, cctx.String("pagerank-file")); err != nil {
+			if err := srv.Indexer.UpdatePageranks(ctx, cctx.String("pagerank-file")); err != nil {
 				return fmt.Errorf("failed to update pageranks: %w", err)
 			}
-		} else {
+		} else if srv.Indexer != nil {
+			// Otherwise, just run the indexer
 			ctx := context.Background()
-			if err := srv.EnsureIndices(ctx); err != nil {
+			if err := srv.Indexer.EnsureIndices(ctx); err != nil {
 				return fmt.Errorf("failed to create opensearch indices: %w", err)
 			}
-			if err := srv.RunIndexer(ctx); err != nil {
+			if err := srv.Indexer.RunIndexer(ctx); err != nil {
 				return fmt.Errorf("failed to run indexer: %w", err)
 			}
 		}

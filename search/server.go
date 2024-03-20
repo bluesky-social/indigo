@@ -2,19 +2,11 @@ package search
 
 import (
 	"context"
-	_ "embed"
-	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"os"
-	"strings"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/backfill"
-	"github.com/bluesky-social/indigo/xrpc"
-	"github.com/ipfs/go-cid"
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/labstack/echo/v4"
@@ -23,58 +15,31 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	slogecho "github.com/samber/slog-echo"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
-	gorm "gorm.io/gorm"
 )
-
-type Server struct {
-	escli        *es.Client
-	postIndex    string
-	profileIndex string
-	db           *gorm.DB
-	bgshost      string
-	bgsxrpc      *xrpc.Client
-	dir          identity.Directory
-	echo         *echo.Echo
-	logger       *slog.Logger
-
-	bfs *backfill.Gormstore
-	bf  *backfill.Backfiller
-
-	enableRepoDiscovery bool
-
-	profileQueue chan *ProfileIndexJob
-	postQueue    chan *PostIndexJob
-}
-
-type ProfileIndexJob struct {
-	ident  *identity.Identity
-	record *appbsky.ActorProfile
-	rcid   cid.Cid
-}
-
-type PostIndexJob struct {
-	ident  *identity.Identity
-	record *appbsky.FeedPost
-	rcid   cid.Cid
-	rkey   string
-}
 
 type LastSeq struct {
 	ID  uint `gorm:"primarykey"`
 	Seq int64
 }
 
-type Config struct {
-	BGSHost             string
-	ProfileIndex        string
-	PostIndex           string
-	Logger              *slog.Logger
-	BGSSyncRateLimit    int
-	IndexMaxConcurrency int
-	DiscoverRepos       bool
+type ServerConfig struct {
+	Logger       *slog.Logger
+	ProfileIndex string
+	PostIndex    string
 }
 
-func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Config) (*Server, error) {
+type Server struct {
+	escli        *es.Client
+	postIndex    string
+	profileIndex string
+	dir          identity.Directory
+	echo         *echo.Echo
+	logger       *slog.Logger
+
+	Indexer *Indexer
+}
+
+func NewServer(escli *es.Client, dir identity.Directory, config ServerConfig) (*Server, error) {
 	logger := config.Logger
 	if logger == nil {
 		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -82,110 +47,13 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 		}))
 	}
 
-	logger.Info("running database migrations")
-	db.AutoMigrate(&LastSeq{})
-	db.AutoMigrate(&backfill.GormDBJob{})
-
-	bgsws := config.BGSHost
-	if !strings.HasPrefix(bgsws, "ws") {
-		return nil, fmt.Errorf("specified bgs host must include 'ws://' or 'wss://'")
-	}
-
-	bgshttp := strings.Replace(bgsws, "ws", "http", 1)
-	bgsxrpc := &xrpc.Client{
-		Host: bgshttp,
-	}
-
-	s := &Server{
-		escli:               escli,
-		profileIndex:        config.ProfileIndex,
-		postIndex:           config.PostIndex,
-		db:                  db,
-		bgshost:             config.BGSHost, // NOTE: the original URL, not 'bgshttp'
-		bgsxrpc:             bgsxrpc,
-		dir:                 dir,
-		logger:              logger,
-		enableRepoDiscovery: config.DiscoverRepos,
-
-		profileQueue: make(chan *ProfileIndexJob, 1000),
-		postQueue:    make(chan *PostIndexJob, 1000),
-	}
-
-	bfstore := backfill.NewGormstore(db)
-	opts := backfill.DefaultBackfillOptions()
-	if config.BGSSyncRateLimit > 0 {
-		opts.SyncRequestsPerSecond = config.BGSSyncRateLimit
-		opts.ParallelBackfills = 2 * config.BGSSyncRateLimit
-	} else {
-		opts.SyncRequestsPerSecond = 8
-	}
-	opts.CheckoutPath = fmt.Sprintf("%s/xrpc/com.atproto.sync.getRepo", bgshttp)
-	if config.IndexMaxConcurrency > 0 {
-		opts.ParallelRecordCreates = config.IndexMaxConcurrency
-	} else {
-		opts.ParallelRecordCreates = 20
-	}
-	opts.NSIDFilter = "app.bsky."
-	bf := backfill.NewBackfiller(
-		"search",
-		bfstore,
-		s.handleCreateOrUpdate,
-		s.handleCreateOrUpdate,
-		s.handleDelete,
-		opts,
-	)
-
-	s.bfs = bfstore
-	s.bf = bf
-
-	return s, nil
-}
-
-//go:embed post_schema.json
-var palomarPostSchemaJSON string
-
-//go:embed profile_schema.json
-var palomarProfileSchemaJSON string
-
-func (s *Server) EnsureIndices(ctx context.Context) error {
-
-	indices := []struct {
-		Name       string
-		SchemaJSON string
-	}{
-		{Name: s.postIndex, SchemaJSON: palomarPostSchemaJSON},
-		{Name: s.profileIndex, SchemaJSON: palomarProfileSchemaJSON},
-	}
-	for _, idx := range indices {
-		resp, err := s.escli.Indices.Exists([]string{idx.Name})
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		io.ReadAll(resp.Body)
-		if resp.IsError() && resp.StatusCode != 404 {
-			return fmt.Errorf("failed to check index existence")
-		}
-		if resp.StatusCode == 404 {
-			s.logger.Warn("creating opensearch index", "index", idx.Name)
-			if len(idx.SchemaJSON) < 2 {
-				return fmt.Errorf("empty schema file (go:embed failed)")
-			}
-			buf := strings.NewReader(idx.SchemaJSON)
-			resp, err := s.escli.Indices.Create(
-				idx.Name,
-				s.escli.Indices.Create.WithBody(buf))
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			io.ReadAll(resp.Body)
-			if resp.IsError() {
-				return fmt.Errorf("failed to create index")
-			}
-		}
-	}
-	return nil
+	return &Server{
+		escli:        escli,
+		postIndex:    config.PostIndex,
+		profileIndex: config.ProfileIndex,
+		dir:          dir,
+		logger:       logger,
+	}, nil
 }
 
 type HealthStatus struct {
@@ -195,16 +63,17 @@ type HealthStatus struct {
 	Message string `json:"msg,omitempty"`
 }
 
-func (s *Server) handleHealthCheck(c echo.Context) error {
-	if err := s.db.Exec("SELECT 1").Error; err != nil {
-		s.logger.Error("healthcheck can't connect to database", "err", err)
-		return c.JSON(500, HealthStatus{Status: "error", Version: versioninfo.Short(), Message: "can't connect to database"})
+func (a *Server) handleHealthCheck(c echo.Context) error {
+	if a.Indexer != nil {
+		if err := a.Indexer.db.Exec("SELECT 1").Error; err != nil {
+			a.logger.Error("healthcheck can't connect to database", "err", err)
+			return c.JSON(500, HealthStatus{Status: "error", Version: versioninfo.Short(), Message: "can't connect to database"})
+		}
 	}
 	return c.JSON(200, HealthStatus{Status: "ok", Version: versioninfo.Short()})
 }
 
 func (s *Server) RunAPI(listen string) error {
-
 	s.logger.Info("Configuring HTTP server")
 	e := echo.New()
 	e.HideBanner = true
@@ -229,7 +98,6 @@ func (s *Server) RunAPI(listen string) error {
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/xrpc/app.bsky.unspecced.searchPostsSkeleton", s.handleSearchPostsSkeleton)
 	e.GET("/xrpc/app.bsky.unspecced.searchActorsSkeleton", s.handleSearchActorsSkeleton)
-	e.GET("/xrpc/app.bsky.unspecced.indexRepos", s.handleIndexRepos)
 	s.echo = e
 
 	s.logger.Info("starting search API daemon", "bind", listen)
