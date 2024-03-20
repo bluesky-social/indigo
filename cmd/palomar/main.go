@@ -243,6 +243,7 @@ var runCmd = &cli.Command{
 				Logger:              logger,
 				BGSSyncRateLimit:    cctx.Int("bgs-sync-rate-limit"),
 				IndexMaxConcurrency: cctx.Int("index-max-concurrency"),
+				DiscoverRepos:       cctx.Bool("discover-repos"),
 			},
 		)
 		if err != nil {

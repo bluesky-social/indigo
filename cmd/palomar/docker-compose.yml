@@ -39,9 +39,9 @@ services:
       - "ENVIRONMENT=dev"
       - "ES_POST_INDEX=palomar_post_dev"
       - "ES_PROFILE_INDEX=palomar_profile_dev"
-      - "PALOMAR_DISCOVER_REPOS=false"
-      - "PALOMAR_BGS_SYNC_RATE_LIMIT=5"
-      - "PALOMAR_INDEX_MAX_CONCURRENCY=5"
+      - "PALOMAR_DISCOVER_REPOS=true"
+      - "PALOMAR_BGS_SYNC_RATE_LIMIT=20"
+      - "PALOMAR_INDEX_MAX_CONCURRENCY=20"
       - "DATABASE_URL=sqlite:///data/palomar/search.db"
     depends_on:
       - opensearch
