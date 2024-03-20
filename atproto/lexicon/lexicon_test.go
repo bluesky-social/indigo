@@ -9,7 +9,7 @@ import (
 func TestBasicCatalog(t *testing.T) {
 	assert := assert.New(t)
 
-	cat := NewCatalog()
+	cat := NewBaseCatalog()
 	if err := cat.LoadDirectory("testdata/catalog"); err != nil {
 		t.Fatal(err)
 	}
@@ -18,7 +18,8 @@ func TestBasicCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.NoError(cat.validateData(
+	assert.NoError(validateData(
+		&cat,
 		def.Def,
 		map[string]any{
 			"cid": "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
@@ -30,7 +31,8 @@ func TestBasicCatalog(t *testing.T) {
 		},
 	))
 
-	assert.Error(cat.validateData(
+	assert.Error(validateData(
+		&cat,
 		def.Def,
 		map[string]any{
 			"cid": "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",

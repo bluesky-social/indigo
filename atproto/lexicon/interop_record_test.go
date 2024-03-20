@@ -21,7 +21,7 @@ type RecordFixture struct {
 func TestInteropRecordValid(t *testing.T) {
 	assert := assert.New(t)
 
-	cat := NewCatalog()
+	cat := NewBaseCatalog()
 	if err := cat.LoadDirectory("testdata/catalog"); err != nil {
 		t.Fatal(err)
 	}
@@ -49,14 +49,14 @@ func TestInteropRecordValid(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.NoError(cat.ValidateRecord(d, "example.lexicon.record"))
+		assert.NoError(ValidateRecord(&cat, d, "example.lexicon.record"))
 	}
 }
 
 func TestInteropRecordInvalid(t *testing.T) {
 	assert := assert.New(t)
 
-	cat := NewCatalog()
+	cat := NewBaseCatalog()
 	if err := cat.LoadDirectory("testdata/catalog"); err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestInteropRecordInvalid(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = cat.ValidateRecord(d, "example.lexicon.record")
+		err = ValidateRecord(&cat, d, "example.lexicon.record")
 		if err == nil {
 			fmt.Println("   FAIL")
 		}
