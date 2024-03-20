@@ -1,0 +1,10 @@
+[
+{
+    "name": "minimal",
+    "lexicon": {
+        "lexicon": 1,
+        "id": "example.lexicon",
+        "defs": { "demo": { "type": "integer" } }
+    }
+}
+]

@@ -111,6 +111,18 @@ func parseMap(obj map[string]any) (any, error) {
 			return nil, fmt.Errorf("$type field must contain a non-empty string")
 		}
 	}
+	// legacy blob type
+	if len(obj) == 2 {
+		if _, ok := obj["mimeType"]; ok {
+			if _, ok := obj["cid"]; ok {
+				b, err := parseLegacyBlob(obj)
+				if err != nil {
+					return nil, err
+				}
+				return *b, nil
+			}
+		}
+	}
 	out := make(map[string]any, len(obj))
 	for k, val := range obj {
 		if len(k) > MAX_OBJECT_KEY_LEN {
@@ -210,6 +222,30 @@ func parseBlob(obj map[string]any) (*Blob, error) {
 		Size:     size,
 		MimeType: mimeType,
 		Ref:      ref,
+	}, nil
+}
+
+func parseLegacyBlob(obj map[string]any) (*Blob, error) {
+	if len(obj) != 2 {
+		return nil, fmt.Errorf("legacy blobs expected to have 2 fields")
+	}
+	var err error
+	mimeType, ok := obj["mimeType"].(string)
+	if !ok {
+		return nil, fmt.Errorf("blob 'mimeType' missing or not a string")
+	}
+	cidStr, ok := obj["cid"]
+	if !ok {
+		return nil, fmt.Errorf("blob 'cid' missing")
+	}
+	c, err := cid.Parse(cidStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid CID: %w", err)
+	}
+	return &Blob{
+		Size:     -1,
+		MimeType: mimeType,
+		Ref:      CIDLink(c),
 	}, nil
 }
 
