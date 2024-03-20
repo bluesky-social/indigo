@@ -65,10 +65,13 @@ func runValidateRecord(cctx *cli.Context) error {
 	}
 
 	body, err := data.UnmarshalJSON(respBytes)
-	record := body["value"].(map[string]any)
+	record, ok := body["value"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("fetched record was not an object")
+	}
 
 	slog.Info("validating", "did", ident.DID.String(), "collection", aturi.Collection().String(), "rkey", aturi.RecordKey().String())
-	err = lexicon.ValidateRecord(&cat, record, aturi.Collection().String())
+	err = lexicon.ValidateRecordLenient(&cat, record, aturi.Collection().String())
 	if err != nil {
 		return err
 	}

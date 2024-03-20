@@ -29,6 +29,7 @@ func TestBasicCatalog(t *testing.T) {
 			"uri": "at://did:plc:asdf123/com.atproto.feed.post/asdf123",
 			"val": "test-label",
 		},
+		false,
 	))
 
 	assert.Error(validateData(
@@ -41,5 +42,6 @@ func TestBasicCatalog(t *testing.T) {
 			"uri": "at://did:plc:asdf123/com.atproto.feed.post/asdf123",
 			"val": "test-label",
 		},
+		false,
 	))
 }
