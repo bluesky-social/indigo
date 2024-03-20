@@ -10,9 +10,11 @@ import (
 	"os"
 	"strings"
 
+	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/backfill"
 	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/ipfs/go-cid"
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/labstack/echo/v4"
@@ -39,6 +41,22 @@ type Server struct {
 	bf  *backfill.Backfiller
 
 	enableRepoDiscovery bool
+
+	profileQueue chan *ProfileIndexJob
+	postQueue    chan *PostIndexJob
+}
+
+type ProfileIndexJob struct {
+	ident  *identity.Identity
+	record *appbsky.ActorProfile
+	rcid   cid.Cid
+}
+
+type PostIndexJob struct {
+	ident  *identity.Identity
+	record *appbsky.FeedPost
+	rcid   cid.Cid
+	rkey   string
 }
 
 type LastSeq struct {
@@ -88,6 +106,9 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 		dir:                 dir,
 		logger:              logger,
 		enableRepoDiscovery: config.DiscoverRepos,
+
+		profileQueue: make(chan *ProfileIndexJob, 1000),
+		postQueue:    make(chan *PostIndexJob, 1000),
 	}
 
 	bfstore := backfill.NewGormstore(db)

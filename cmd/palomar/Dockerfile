@@ -6,13 +6,17 @@
 FROM golang:1.21-alpine3.18 AS build-env
 RUN apk add --no-cache build-base make git
 
-ADD . /dockerbuild
+COPY go.mod go.sum /dockerbuild/
 WORKDIR /dockerbuild
+
+RUN go mod download
+
+COPY . /dockerbuild
 
 # timezone data for alpine builds
 ENV GOEXPERIMENT=loopvar
 RUN GIT_VERSION=$(git describe --tags --long --always) && \
-    go build -tags timetzdata -o /palomar ./cmd/palomar
+    go build -v -tags timetzdata -o /palomar ./cmd/palomar
 
 ### Run stage
 FROM alpine:3.18

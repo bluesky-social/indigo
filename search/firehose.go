@@ -47,6 +47,10 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 		return fmt.Errorf("get last cursor: %w", err)
 	}
 
+	// Start the indexer batch workers
+	go s.runPostIndexer(ctx)
+	go s.runProfileIndexer(ctx)
+
 	err = s.bfs.LoadJobs(ctx)
 	if err != nil {
 		return fmt.Errorf("loading backfill jobs: %w", err)
@@ -179,6 +183,7 @@ func (s *Server) discoverRepos() {
 }
 
 func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, rev string, path string, recB *[]byte, rcid *cid.Cid) error {
+	logger := s.logger.With("func", "handleCreateOrUpdate", "did", rawDID, "rev", rev, "path", path)
 	// Since this gets called in a backfill job, we need to check if the path is a post or profile
 	if !strings.Contains(path, "app.bsky.feed.post") && !strings.Contains(path, "app.bsky.actor.profile") {
 		return nil
@@ -208,18 +213,43 @@ func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, rev st
 		return fmt.Errorf("failed to cast record to CBORMarshaler")
 	}
 
+	parts := strings.SplitN(path, "/", 3)
+	if len(parts) < 2 {
+		logger.Warn("skipping post record with malformed path")
+		return nil
+	}
+
 	switch rec := rec.(type) {
 	case *bsky.FeedPost:
-		if err := s.indexPost(ctx, ident, rec, path, *rcid); err != nil {
-			postsFailed.Inc()
-			return fmt.Errorf("indexing post for %s: %w", did.String(), err)
+		rkey, err := syntax.ParseTID(parts[1])
+		if err != nil {
+			logger.Warn("skipping post record with non-TID rkey")
+			return nil
 		}
+
+		job := PostIndexJob{
+			ident:  ident,
+			record: rec,
+			rcid:   *rcid,
+			rkey:   rkey.String(),
+		}
+
+		// Send the job to the bulk indexer
+		s.postQueue <- &job
 		postsIndexed.Inc()
 	case *bsky.ActorProfile:
-		if err := s.indexProfile(ctx, ident, rec, path, *rcid); err != nil {
-			profilesFailed.Inc()
-			return fmt.Errorf("indexing profile for %s: %w", did.String(), err)
+		if parts[1] != "self" {
+			return nil
 		}
+
+		job := ProfileIndexJob{
+			ident:  ident,
+			record: rec,
+			rcid:   *rcid,
+		}
+
+		// Send the job to the bulk indexer
+		s.profileQueue <- &job
 		profilesIndexed.Inc()
 	default:
 	}
@@ -260,6 +290,8 @@ func (s *Server) handleDelete(ctx context.Context, rawDID, rev, path string) err
 }
 
 func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
+	logger := s.logger.With("func", "processTooBigCommit", "repo", evt.Repo, "rev", evt.Rev, "seq", evt.Seq)
+
 	repodata, err := comatproto.SyncGetRepo(ctx, s.bgsxrpc, evt.Repo, "")
 	if err != nil {
 		return err
@@ -292,15 +324,42 @@ func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSu
 				return nil
 			}
 
+			parts := strings.SplitN(k, "/", 3)
+			if len(parts) < 2 {
+				logger.Warn("skipping post record with malformed path")
+				return nil
+			}
+
 			switch rec := rec.(type) {
 			case *bsky.FeedPost:
-				if err := s.indexPost(ctx, ident, rec, k, rcid); err != nil {
-					return fmt.Errorf("indexing post: %w", err)
+				rkey, err := syntax.ParseTID(parts[1])
+				if err != nil {
+					logger.Warn("skipping post record with non-TID rkey")
+					return nil
 				}
+
+				job := PostIndexJob{
+					ident:  ident,
+					record: rec,
+					rcid:   rcid,
+					rkey:   rkey.String(),
+				}
+
+				// Send the job to the bulk indexer
+				s.postQueue <- &job
 			case *bsky.ActorProfile:
-				if err := s.indexProfile(ctx, ident, rec, k, rcid); err != nil {
-					return fmt.Errorf("indexing profile: %w", err)
+				if parts[1] != "self" {
+					return nil
 				}
+
+				job := ProfileIndexJob{
+					ident:  ident,
+					record: rec,
+					rcid:   rcid,
+				}
+
+				// Send the job to the bulk indexer
+				s.profileQueue <- &job
 			default:
 			}
 

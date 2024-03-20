@@ -7,15 +7,82 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel/attribute"
 
 	esapi "github.com/opensearch-project/opensearch-go/v2/opensearchapi"
 )
+
+func (s *Server) runPostIndexer(ctx context.Context) {
+	ctx, span := tracer.Start(ctx, "runPostIndexer")
+	defer span.End()
+
+	// Batch up to 1000 posts at a time, or every 5 seconds
+	tick := time.NewTicker(5 * time.Second)
+	defer tick.Stop()
+
+	var posts []*PostIndexJob
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+			if len(posts) > 0 {
+				err := s.indexPosts(ctx, posts)
+				if err != nil {
+					s.logger.Error("failed to index posts", "err", err)
+				}
+				posts = posts[:0]
+			}
+		case job := <-s.postQueue:
+			posts = append(posts, job)
+			if len(posts) >= 1000 {
+				err := s.indexPosts(ctx, posts)
+				if err != nil {
+					s.logger.Error("failed to index posts", "err", err)
+				}
+				posts = posts[:0]
+			}
+		}
+	}
+}
+
+func (s *Server) runProfileIndexer(ctx context.Context) {
+	ctx, span := tracer.Start(ctx, "runProfileIndexer")
+	defer span.End()
+
+	// Batch up to 1000 profiles at a time, or every 5 seconds
+	tick := time.NewTicker(5 * time.Second)
+	defer tick.Stop()
+
+	var profiles []*ProfileIndexJob
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+			if len(profiles) > 0 {
+				err := s.indexProfiles(ctx, profiles)
+				if err != nil {
+					s.logger.Error("failed to index profiles", "err", err)
+				}
+				profiles = profiles[:0]
+			}
+		case job := <-s.profileQueue:
+			profiles = append(profiles, job)
+			if len(profiles) >= 1000 {
+				err := s.indexProfiles(ctx, profiles)
+				if err != nil {
+					s.logger.Error("failed to index profiles", "err", err)
+				}
+				profiles = profiles[:0]
+			}
+		}
+	}
+}
 
 func (s *Server) deletePost(ctx context.Context, ident *identity.Identity, recordPath string) error {
 	ctx, span := tracer.Start(ctx, "deletePost")
@@ -59,96 +126,104 @@ func (s *Server) deletePost(ctx context.Context, ident *identity.Identity, recor
 	return nil
 }
 
-func (s *Server) indexPost(ctx context.Context, ident *identity.Identity, rec *appbsky.FeedPost, path string, rcid cid.Cid) error {
-	ctx, span := tracer.Start(ctx, "indexPost")
+func (s *Server) indexPosts(ctx context.Context, jobs []*PostIndexJob) error {
+	ctx, span := tracer.Start(ctx, "indexPosts")
 	defer span.End()
-	span.SetAttributes(attribute.String("repo", ident.DID.String()), attribute.String("path", path))
+	span.SetAttributes(attribute.Int("num_posts", len(jobs)))
 
-	log := s.logger.With("repo", ident.DID, "path", path, "op", "indexPost")
-	parts := strings.SplitN(path, "/", 3)
-	if len(parts) < 2 {
-		log.Warn("skipping post record with malformed path")
-		return nil
+	log := s.logger.With("op", "indexPosts")
+	start := time.Now()
+
+	var buf bytes.Buffer
+	for i := range jobs {
+		job := jobs[i]
+		doc := TransformPost(job.record, job.ident, job.rkey, job.rcid.String())
+		docBytes, err := json.Marshal(doc)
+		if err != nil {
+			log.Warn("failed to marshal post", "err", err)
+			return err
+		}
+
+		indexScript := []byte(fmt.Sprintf(`{"index":{"_id":"%s"}}%s`, doc.DocId(), "\n"))
+		docBytes = append(docBytes, "\n"...)
+
+		buf.Grow(len(indexScript) + len(docBytes))
+		buf.Write(indexScript)
+		buf.Write(docBytes)
 	}
-	rkey, err := syntax.ParseTID(parts[1])
+
+	log.Info("indexing posts", "num_posts", len(jobs))
+
+	res, err := s.escli.Bulk(bytes.NewReader(buf.Bytes()), s.escli.Bulk.WithIndex(s.postIndex))
 	if err != nil {
-		log.Warn("skipping post record with non-TID rkey")
-		return nil
-	}
-
-	log = log.With("rkey", rkey)
-
-	doc := TransformPost(rec, ident, rkey.String(), rcid.String())
-	b, err := json.Marshal(doc)
-	if err != nil {
-		return err
-	}
-
-	log.Debug("indexing post")
-	req := esapi.IndexRequest{
-		Index:      s.postIndex,
-		DocumentID: doc.DocId(),
-		Body:       bytes.NewReader(b),
-	}
-
-	res, err := req.Do(ctx, s.escli)
-	if err != nil {
-		log.Warn("failed to send indexing request", "err", err)
-		return fmt.Errorf("failed to send indexing request: %w", err)
+		log.Warn("failed to send bulk indexing request", "err", err)
+		return fmt.Errorf("failed to send bulk indexing request: %w", err)
 	}
 	defer res.Body.Close()
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		log.Warn("failed to read indexing response", "err", err)
-		return fmt.Errorf("failed to read indexing response: %w", err)
-	}
+
 	if res.IsError() {
-		log.Warn("opensearch indexing error", "status_code", res.StatusCode, "response", res, "body", string(body))
-		return fmt.Errorf("indexing error, code=%d", res.StatusCode)
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			log.Warn("failed to read bulk indexing response", "err", err)
+			return fmt.Errorf("failed to read bulk indexing response: %w", err)
+		}
+		log.Warn("opensearch bulk indexing error", "status_code", res.StatusCode, "response", res, "body", string(body))
+		return fmt.Errorf("bulk indexing error, code=%d", res.StatusCode)
 	}
+
+	log.Info("indexed posts", "num_posts", len(jobs), "duration", time.Since(start))
+
 	return nil
 }
 
-func (s *Server) indexProfile(ctx context.Context, ident *identity.Identity, rec *appbsky.ActorProfile, path string, rcid cid.Cid) error {
-	ctx, span := tracer.Start(ctx, "indexProfile")
+func (s *Server) indexProfiles(ctx context.Context, jobs []*ProfileIndexJob) error {
+	ctx, span := tracer.Start(ctx, "indexProfiles")
 	defer span.End()
-	span.SetAttributes(attribute.String("repo", ident.DID.String()), attribute.String("path", path))
+	span.SetAttributes(attribute.Int("num_profiles", len(jobs)))
 
-	log := s.logger.With("repo", ident.DID, "path", path, "op", "indexProfile")
-	parts := strings.SplitN(path, "/", 3)
-	if len(parts) != 2 || parts[1] != "self" {
-		log.Warn("skipping indexing non-canonical profile record", "did", ident.DID, "path", path)
-		return nil
+	log := s.logger.With("op", "indexProfiles")
+	start := time.Now()
+
+	var buf bytes.Buffer
+	for i := range jobs {
+		job := jobs[i]
+
+		doc := TransformProfile(job.record, job.ident, job.rcid.String())
+		docBytes, err := json.Marshal(doc)
+		if err != nil {
+			log.Warn("failed to marshal profile", "err", err)
+			return err
+		}
+
+		indexScript := []byte(fmt.Sprintf(`{"index":{"_id":"%s"}}%s`, job.ident.DID.String(), "\n"))
+		docBytes = append(docBytes, "\n"...)
+
+		buf.Grow(len(indexScript) + len(docBytes))
+		buf.Write(indexScript)
+		buf.Write(docBytes)
 	}
 
-	log.Info("indexing profile", "handle", ident.Handle)
+	log.Info("indexing profiles", "num_profiles", len(jobs))
 
-	doc := TransformProfile(rec, ident, rcid.String())
-	b, err := json.Marshal(doc)
+	res, err := s.escli.Bulk(bytes.NewReader(buf.Bytes()), s.escli.Bulk.WithIndex(s.profileIndex))
 	if err != nil {
-		return err
-	}
-	req := esapi.IndexRequest{
-		Index:      s.profileIndex,
-		DocumentID: ident.DID.String(),
-		Body:       bytes.NewReader(b),
-	}
-
-	res, err := req.Do(ctx, s.escli)
-	if err != nil {
-		log.Warn("failed to send indexing request", "err", err)
-		return fmt.Errorf("failed to send indexing request: %w", err)
+		log.Warn("failed to send bulk indexing request", "err", err)
+		return fmt.Errorf("failed to send bulk indexing request: %w", err)
 	}
 	defer res.Body.Close()
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		log.Warn("failed to read indexing response", "err", err)
-		return fmt.Errorf("failed to read indexing response: %w", err)
-	}
+
 	if res.IsError() {
-		log.Warn("opensearch indexing error", "status_code", res.StatusCode, "response", res, "body", string(body))
-		return fmt.Errorf("indexing error, code=%d", res.StatusCode)
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			log.Warn("failed to read bulk indexing response", "err", err)
+			return fmt.Errorf("failed to read bulk indexing response: %w", err)
+		}
+		log.Warn("opensearch bulk indexing error", "status_code", res.StatusCode, "response", res, "body", string(body))
+		return fmt.Errorf("bulk indexing error, code=%d", res.StatusCode)
 	}
+
+	log.Info("indexed profiles", "num_profiles", len(jobs), "duration", time.Since(start))
+
 	return nil
 }
 
@@ -208,53 +283,6 @@ func (s *Server) updateProfilePageranks(ctx context.Context, dids []syntax.DID, 
 		return fmt.Errorf("bulk indexing error, code=%d", res.StatusCode)
 	}
 
-	return nil
-}
-
-func (s *Server) updateProfilePagerank(ctx context.Context, did syntax.DID, rank float64) error {
-	ctx, span := tracer.Start(ctx, "updateProfilePagerank")
-	defer span.End()
-	span.SetAttributes(attribute.String("repo", did.String()))
-
-	log := s.logger.With("repo", did.String(), "op", "updateProfilePagerank")
-
-	log.Info("updating profile pagerank")
-
-	b, err := json.Marshal(map[string]any{
-		"script": map[string]any{
-			"source": "ctx._source.pagerank = params.pagerank",
-			"lang":   "painless",
-			"params": map[string]any{
-				"pagerank": rank,
-			},
-		},
-	})
-	if err != nil {
-		log.Warn("failed to marshal update script", "err", err)
-		return err
-	}
-
-	req := esapi.UpdateRequest{
-		Index:      s.profileIndex,
-		DocumentID: did.String(),
-		Body:       bytes.NewReader(b),
-	}
-
-	res, err := req.Do(ctx, s.escli)
-	if err != nil {
-		log.Warn("failed to send indexing request", "err", err)
-		return fmt.Errorf("failed to send indexing request: %w", err)
-	}
-	defer res.Body.Close()
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		log.Warn("failed to read indexing response", "err", err)
-		return fmt.Errorf("failed to read indexing response: %w", err)
-	}
-	if res.IsError() {
-		log.Warn("opensearch indexing error", "status_code", res.StatusCode, "response", res, "body", string(body))
-		return fmt.Errorf("indexing error, code=%d", res.StatusCode)
-	}
 	return nil
 }
 
