@@ -1,27 +1,9 @@
 package lexicon
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"reflect"
-	"strings"
 )
-
-// An aggregation of lexicon schemas, and methods for validating generic data against those schemas.
-type Catalog struct {
-	// TODO: not safe zero value; hide this field? seems aggressive
-	Schemas map[string]Schema
-}
-
-func NewCatalog() Catalog {
-	return Catalog{
-		Schemas: make(map[string]Schema),
-	}
-}
 
 type Schema struct {
 	ID       string
@@ -29,115 +11,27 @@ type Schema struct {
 	Def      any
 }
 
-func (c *Catalog) Resolve(name string) (*Schema, error) {
-	if name == "" {
-		return nil, fmt.Errorf("tried to resolve empty string name")
-	}
-	// default to #main if name doesn't have a fragment
-	if !strings.Contains(name, "#") {
-		name = name + "#main"
-	}
-	s, ok := c.Schemas[name]
-	if !ok {
-		return nil, fmt.Errorf("schema not found in catalog: %s", name)
-	}
-	return &s, nil
-}
-
-func (c *Catalog) AddSchemaFile(sf SchemaFile) error {
-	base := sf.ID
-	for frag, def := range sf.Defs {
-		if len(frag) == 0 || strings.Contains(frag, "#") || strings.Contains(frag, ".") {
-			// TODO: more validation here?
-			return fmt.Errorf("schema name invalid: %s", frag)
-		}
-		name := base + "#" + frag
-		if _, ok := c.Schemas[name]; ok {
-			return fmt.Errorf("catalog already contained a schema with name: %s", name)
-		}
-		// "A file can have at most one definition with one of the "primary" types. Primary types should always have the name main. It is possible for main to describe a non-primary type."
-		switch s := def.Inner.(type) {
-		case SchemaRecord, SchemaQuery, SchemaProcedure, SchemaSubscription:
-			if frag != "main" {
-				return fmt.Errorf("record, query, procedure, and subscription types must be 'main', not: %s", frag)
-			}
-		case SchemaToken:
-			// add fully-qualified name to token
-			s.fullName = name
-			def.Inner = s
-		}
-		def.SetBase(base)
-		if err := def.CheckSchema(); err != nil {
-			return err
-		}
-		s := Schema{
-			ID:       name,
-			Revision: sf.Revision,
-			Def:      def.Inner,
-		}
-		c.Schemas[name] = s
-	}
-	return nil
-}
-
-func (c *Catalog) LoadDirectory(dirPath string) error {
-	return filepath.WalkDir(dirPath, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		if !strings.HasSuffix(p, ".json") {
-			return nil
-		}
-		// TODO: logging
-		fmt.Println(p)
-		f, err := os.Open(p)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = f.Close() }()
-
-		b, err := io.ReadAll(f)
-		if err != nil {
-			return err
-		}
-
-		var sf SchemaFile
-		if err = json.Unmarshal(b, &sf); err != nil {
-			return err
-		}
-		if err = c.AddSchemaFile(sf); err != nil {
-			return err
-		}
-		return nil
-	})
-}
-
-// TODO: rkey? is nsid always known?
-// TODO: nsid as syntax.NSID
-func (c *Catalog) ValidateRecord(raw any, id string) error {
-	def, err := c.Resolve(id)
+func ValidateRecord(cat Catalog, recordData any, ref string) error {
+	def, err := cat.Resolve(ref)
 	if err != nil {
 		return err
 	}
 	s, ok := def.Def.(SchemaRecord)
 	if !ok {
-		return fmt.Errorf("schema is not of record type: %s", id)
+		return fmt.Errorf("schema is not of record type: %s", ref)
 	}
-	d, ok := raw.(map[string]any)
+	d, ok := recordData.(map[string]any)
 	if !ok {
 		return fmt.Errorf("record data is not object type")
 	}
 	t, ok := d["$type"]
-	if !ok || t != id {
+	if !ok || t != ref {
 		return fmt.Errorf("record data missing $type, or didn't match expected NSID")
 	}
-	return c.validateObject(s.Record, d)
+	return validateObject(cat, s.Record, d)
 }
 
-func (c *Catalog) validateData(def any, d any) error {
+func validateData(cat Catalog, def any, d any) error {
 	// TODO:
 	switch v := def.(type) {
 	case SchemaNull:
@@ -157,24 +51,24 @@ func (c *Catalog) validateData(def any, d any) error {
 		if !ok {
 			return fmt.Errorf("expected an array, got: %s", reflect.TypeOf(d))
 		}
-		return c.validateArray(v, arr)
+		return validateArray(cat, v, arr)
 	case SchemaObject:
 		obj, ok := d.(map[string]any)
 		if !ok {
 			return fmt.Errorf("expected an object, got: %s", reflect.TypeOf(d))
 		}
-		return c.validateObject(v, obj)
+		return validateObject(cat, v, obj)
 	case SchemaBlob:
 		return v.Validate(d)
 	case SchemaRef:
 		// recurse
-		next, err := c.Resolve(v.fullRef)
+		next, err := cat.Resolve(v.fullRef)
 		if err != nil {
 			return err
 		}
-		return c.validateData(next.Def, d)
+		return validateData(cat, next.Def, d)
 	case SchemaUnion:
-		return c.validateUnion(v, d)
+		return validateUnion(cat, v, d)
 	case SchemaUnknown:
 		return v.Validate(d)
 	case SchemaToken:
@@ -184,7 +78,7 @@ func (c *Catalog) validateData(def any, d any) error {
 	}
 }
 
-func (c *Catalog) validateObject(s SchemaObject, d map[string]any) error {
+func validateObject(cat Catalog, s SchemaObject, d map[string]any) error {
 	for _, k := range s.Required {
 		if _, ok := d[k]; !ok {
 			return fmt.Errorf("required field missing: %s", k)
@@ -195,7 +89,7 @@ func (c *Catalog) validateObject(s SchemaObject, d map[string]any) error {
 			if v == nil && s.IsNullable(k) {
 				continue
 			}
-			err := c.validateData(def.Inner, v)
+			err := validateData(cat, def.Inner, v)
 			if err != nil {
 				return err
 			}
@@ -204,12 +98,12 @@ func (c *Catalog) validateObject(s SchemaObject, d map[string]any) error {
 	return nil
 }
 
-func (c *Catalog) validateArray(s SchemaArray, arr []any) error {
+func validateArray(cat Catalog, s SchemaArray, arr []any) error {
 	if (s.MinLength != nil && len(arr) < *s.MinLength) || (s.MaxLength != nil && len(arr) > *s.MaxLength) {
 		return fmt.Errorf("array length out of bounds: %d", len(arr))
 	}
 	for _, v := range arr {
-		err := c.validateData(s.Items.Inner, v)
+		err := validateData(cat, s.Items.Inner, v)
 		if err != nil {
 			return err
 		}
@@ -217,15 +111,15 @@ func (c *Catalog) validateArray(s SchemaArray, arr []any) error {
 	return nil
 }
 
-func (c *Catalog) validateUnion(s SchemaUnion, d any) error {
+func validateUnion(cat Catalog, s SchemaUnion, d any) error {
 	closed := s.Closed != nil && *s.Closed == true
 	for _, ref := range s.fullRefs {
-		def, err := c.Resolve(ref)
+		def, err := cat.Resolve(ref)
 		if err != nil {
 			// TODO: how to actually handle unknown defs?
 			return err
 		}
-		if err = c.validateData(def.Def, d); nil == err { // if success
+		if err = validateData(cat, def.Def, d); nil == err { // if success
 			return nil
 		}
 	}

@@ -79,7 +79,7 @@ func runLoadDirectory(cctx *cli.Context) error {
 		return fmt.Errorf("need to provide directory path as an argument")
 	}
 
-	c := lexicon.NewCatalog()
+	c := lexicon.NewBaseCatalog()
 	err := c.LoadDirectory(p)
 	if err != nil {
 		return err

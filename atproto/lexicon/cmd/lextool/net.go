@@ -26,8 +26,8 @@ func runValidateRecord(cctx *cli.Context) error {
 		return fmt.Errorf("need to provide directory path as an argument")
 	}
 
-	c := lexicon.NewCatalog()
-	err := c.LoadDirectory(p)
+	cat := lexicon.NewBaseCatalog()
+	err := cat.LoadDirectory(p)
 	if err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func runValidateRecord(cctx *cli.Context) error {
 	record := body["value"].(map[string]any)
 
 	slog.Info("validating", "did", ident.DID.String(), "collection", aturi.Collection().String(), "rkey", aturi.RecordKey().String())
-	err = c.ValidateRecord(record, aturi.Collection().String())
+	err = lexicon.ValidateRecord(&cat, record, aturi.Collection().String())
 	if err != nil {
 		return err
 	}
@@ -82,8 +82,8 @@ func runValidateFirehose(cctx *cli.Context) error {
 		return fmt.Errorf("need to provide directory path as an argument")
 	}
 
-	c := lexicon.NewCatalog()
-	err := c.LoadDirectory(p)
+	cat := lexicon.NewBaseCatalog()
+	err := cat.LoadDirectory(p)
 	if err != nil {
 		return err
 	}
