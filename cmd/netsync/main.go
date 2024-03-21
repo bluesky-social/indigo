@@ -447,6 +447,9 @@ func (s *NetsyncState) worker(id int) error {
 				return nil
 			}
 
+			// Wait for rate limiter
+			s.limiter.Wait(ctx)
+
 			// Clone repo
 			cloneState, err := s.cloneRepo(ctx, repo)
 			if err != nil {
@@ -494,8 +497,6 @@ func (s *NetsyncState) cloneRepo(ctx context.Context, did string) (cloneState st
 	if s.magicHeaderKey != "" && s.magicHeaderVal != "" {
 		req.Header.Set(s.magicHeaderKey, s.magicHeaderVal)
 	}
-
-	s.limiter.Wait(ctx)
 
 	resp, err := s.client.Do(req)
 	if err != nil {
