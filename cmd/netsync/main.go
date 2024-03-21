@@ -1,20 +1,27 @@
 package main
 
 import (
+	"archive/tar"
 	"bufio"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	logging "github.com/ipfs/go-log"
+	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/repo"
+	"github.com/ipfs/go-cid"
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -25,8 +32,6 @@ import (
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/urfave/cli/v2"
 )
-
-var log = logging.Logger("netsync")
 
 func main() {
 	app := cli.App{
@@ -69,7 +74,7 @@ func main() {
 		&cli.StringFlag{
 			Name:  "checkout-path",
 			Usage: "path to checkout endpoint",
-			Value: "https://bgs.bsky.social/xrpc/com.atproto.sync.getRepo",
+			Value: "https://bsky.network/xrpc/com.atproto.sync.getRepo",
 		},
 		&cli.StringFlag{
 			Name:    "magic-header-key",
@@ -114,42 +119,6 @@ func main() {
 				return state.Save()
 			},
 		},
-		{
-			Name:   "playback",
-			Usage:  "playback the contents of a netsync output directory",
-			Action: Playback,
-			Flags: []cli.Flag{
-				&cli.StringSliceFlag{
-					Name:    "scylla-nodes",
-					Usage:   "list of scylla nodes to connect to",
-					EnvVars: []string{"SCYLLA_NODES"},
-				},
-			},
-		},
-		{
-			Name:   "query",
-			Usage:  "run a test query against scylla",
-			Action: Query,
-			Flags: []cli.Flag{
-				&cli.StringSliceFlag{
-					Name:    "scylla-nodes",
-					Usage:   "list of scylla nodes to connect to",
-					EnvVars: []string{"SCYLLA_NODES"},
-				},
-			},
-		},
-		{
-			Name:   "getPostsForUser",
-			Usage:  "run a test query against scylla",
-			Action: GetPostsForUser,
-			Flags: []cli.Flag{
-				&cli.StringSliceFlag{
-					Name:    "scylla-nodes",
-					Usage:   "list of scylla nodes to connect to",
-					EnvVars: []string{"SCYLLA_NODES"},
-				},
-			},
-		},
 	}
 
 	app.Action = Netsync
@@ -175,6 +144,8 @@ type NetsyncState struct {
 	outDir         string
 	magicHeaderKey string
 	magicHeaderVal string
+
+	logger *slog.Logger
 
 	lk          sync.RWMutex
 	wg          sync.WaitGroup
@@ -294,6 +265,10 @@ func Netsync(cctx *cli.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	logLevel := slog.LevelInfo
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel, AddSource: true}))
+	slog.SetDefault(slog.New(logger.Handler()))
+
 	state := &NetsyncState{
 		StatePath:    cctx.String("state-file"),
 		CheckoutPath: cctx.String("checkout-path"),
@@ -309,10 +284,12 @@ func Netsync(cctx *cli.Context) error {
 		client: &http.Client{
 			Timeout: 180 * time.Second,
 		},
+
+		logger: logger,
 	}
 
 	if state.magicHeaderKey != "" && state.magicHeaderVal != "" {
-		log.Info("using magic header")
+		logger.Info("using magic header")
 	}
 
 	// Create out dir
@@ -356,7 +333,7 @@ func Netsync(cctx *cli.Context) error {
 			}
 		}
 	} else {
-		log.Info("Resuming from state file")
+		logger.Info("Resuming from state file")
 	}
 
 	// Start metrics server
@@ -372,9 +349,10 @@ func Netsync(cctx *cli.Context) error {
 		state.wg.Add(1)
 		defer state.wg.Done()
 		if err := metricsServer.ListenAndServe(); err != http.ErrServerClosed {
-			log.Fatalf("failed to start metrics server: %+v", err)
+			logger.Error("failed to start metrics server", "err", err)
+			os.Exit(1)
 		}
-		log.Info("metrics server shut down successfully")
+		logger.Info("metrics server shut down successfully")
 	}()
 
 	// Start workers
@@ -384,7 +362,7 @@ func Netsync(cctx *cli.Context) error {
 			defer state.wg.Done()
 			err := state.worker(id)
 			if err != nil {
-				log.Errorw("worker failed", "err", err)
+				logger.Error("worker failed", "err", err)
 			}
 		}(i)
 	}
@@ -399,17 +377,17 @@ func Netsync(cctx *cli.Context) error {
 			case <-ctx.Done():
 				err := state.Save()
 				if err != nil {
-					log.Errorw("failed to save state", "err", err)
+					logger.Error("failed to save state", "err", err)
 				}
 				return
 			case <-t.C:
 				err := state.Save()
 				if err != nil {
-					log.Errorw("failed to save state", "err", err)
+					logger.Error("failed to save state", "err", err)
 				}
 				state.lk.RLock()
 				if len(state.EnqueuedRepos) == 0 {
-					log.Info("no more repos to clone, shutting down")
+					logger.Info("no more repos to clone, shutting down")
 					close(state.exit)
 					return
 				}
@@ -419,7 +397,7 @@ func Netsync(cctx *cli.Context) error {
 	}()
 
 	// Trap SIGINT to trigger a shutdown.
-	log.Info("listening for signals")
+	logger.Info("listening for signals")
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
@@ -427,34 +405,34 @@ func Netsync(cctx *cli.Context) error {
 	case sig := <-signals:
 		cancel()
 		close(state.exit)
-		log.Infof("shutting down on signal: %+v", sig)
+		logger.Info("shutting down on signal", "signal", sig)
 	case <-ctx.Done():
 		cancel()
 		close(state.exit)
-		log.Info("shutting down on context done")
+		logger.Info("shutting down on context done")
 	case <-state.exit:
 		cancel()
-		log.Info("shutting down on exit signal")
+		logger.Info("shutting down on exit signal")
 	}
 
-	log.Info("shutting down, waiting for workers to clean up...")
+	logger.Info("shutting down, waiting for workers to clean up...")
 
 	if err := metricsServer.Shutdown(ctx); err != nil {
-		log.Errorf("failed to shut down metrics server: %+v", err)
+		logger.Error("failed to shut down metrics server", "err", err)
 	}
 
 	state.wg.Wait()
 
-	log.Info("shut down successfully")
+	logger.Info("shut down successfully")
 
 	return nil
 
 }
 
 func (s *NetsyncState) worker(id int) error {
-	log := log.With("worker", id)
-	log.Infow("starting worker")
-	defer log.Infow("worker stopped")
+	log := s.logger.With("worker", id)
+	log.Info("starting worker")
+	defer log.Info("worker stopped")
 	for {
 		select {
 		case <-s.exit:
@@ -475,12 +453,12 @@ func (s *NetsyncState) worker(id int) error {
 			// Clone repo
 			cloneState, err := s.cloneRepo(ctx, repo)
 			if err != nil {
-				log.Errorw("failed to clone repo", "repo", repo, "err", err)
+				log.Error("failed to clone repo", "repo", repo, "err", err)
 			}
 
 			// Update state
 			s.Finish(repo, cloneState)
-			log.Infow("worker finished", "repo", repo, "status", cloneState)
+			log.Info("worker finished", "repo", repo, "status", cloneState)
 		}
 	}
 }
@@ -495,9 +473,9 @@ var bytesProcessed = promauto.NewCounter(prometheus.CounterOpts{
 	Help: "Number of bytes processed",
 })
 
-func (s *NetsyncState) cloneRepo(ctx context.Context, repo string) (cloneState string, err error) {
-	log := log.With("repo", repo, "source", "cloneRepo")
-	log.Infow("cloning repo")
+func (s *NetsyncState) cloneRepo(ctx context.Context, did string) (cloneState string, err error) {
+	log := s.logger.With("repo", did, "source", "cloneRepo")
+	log.Info("cloning repo")
 
 	start := time.Now()
 	defer func() {
@@ -505,7 +483,7 @@ func (s *NetsyncState) cloneRepo(ctx context.Context, repo string) (cloneState s
 		repoCloneDuration.WithLabelValues(cloneState).Observe(duration.Seconds())
 	}()
 
-	var url = fmt.Sprintf("%s?did=%s", s.CheckoutPath, repo)
+	var url = fmt.Sprintf("%s?did=%s", s.CheckoutPath, did)
 
 	// Clone repo
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -538,24 +516,99 @@ func (s *NetsyncState) cloneRepo(ctx context.Context, repo string) (cloneState s
 	defer instrumentedReader.Close()
 
 	// Write to file
-	outPath := fmt.Sprintf("%s/%s", s.outDir, repo)
-	outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY, 0644)
+	outPath, err := filepath.Abs(fmt.Sprintf("%s/%s.tar.gz", s.outDir, did))
+	if err != nil {
+		cloneState = "failed (file.abs)"
+		return cloneState, fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	tarFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		cloneState = "failed (file.open)"
 		return cloneState, fmt.Errorf("failed to open file: %w", err)
 	}
+	defer tarFile.Close()
 
-	_, err = io.Copy(outFile, instrumentedReader)
+	gzipWriter := gzip.NewWriter(tarFile)
+	defer gzipWriter.Close()
+
+	tarWriter := tar.NewWriter(gzipWriter)
+	defer tarWriter.Close()
+
+	numRecords := 0
+	collectionsSeen := make(map[string]struct{})
+
+	r, err := repo.ReadRepoFromCar(ctx, instrumentedReader)
 	if err != nil {
-		cloneState = "failed (file.copy)"
-		return cloneState, fmt.Errorf("failed to copy file: %w", err)
+		log.Error("Error reading repo", "err", err)
+		return "failed (read-repo)", fmt.Errorf("Failed to read repo from CAR: %w", err)
 	}
 
-	err = outFile.Close()
+	err = r.ForEach(ctx, "", func(path string, nodeCid cid.Cid) error {
+		log := log.With("path", path, "nodeCid", nodeCid)
+
+		recordCid, rec, err := r.GetRecordBytes(ctx, path)
+		if err != nil {
+			log.Error("Error getting record", "err", err)
+			return nil
+		}
+
+		// Verify that the record CID matches the node CID
+		if recordCid != nodeCid {
+			log.Error("Mismatch in record and node CID", "recordCID", recordCid, "nodeCID", nodeCid)
+			return nil
+		}
+
+		parts := strings.Split(path, "/")
+		if len(parts) != 2 {
+			log.Error("Path does not have 2 parts", "path", path)
+			return nil
+		}
+
+		collection := parts[0]
+		rkey := parts[1]
+
+		numRecords++
+		if _, ok := collectionsSeen[collection]; !ok {
+			collectionsSeen[collection] = struct{}{}
+		}
+
+		asCbor, err := data.UnmarshalCBOR(*rec)
+		if err != nil {
+			log.Error("Error unmarshalling record", "err", err)
+			return fmt.Errorf("Failed to unmarshal record: %w", err)
+		}
+
+		recJSON, err := json.Marshal(asCbor)
+		if err != nil {
+			log.Error("Error marshalling record to JSON", "err", err)
+			return fmt.Errorf("Failed to marshal record to JSON: %w", err)
+		}
+
+		// Write the record directly to the tar.gz file
+		hdr := &tar.Header{
+			Name: fmt.Sprintf("%s/%s.json", collection, rkey),
+			Mode: 0600,
+			Size: int64(len(recJSON)),
+		}
+		if err := tarWriter.WriteHeader(hdr); err != nil {
+			log.Error("Error writing tar header", "err", err)
+			return err
+		}
+		if _, err := tarWriter.Write(recJSON); err != nil {
+			log.Error("Error writing record to tar file", "err", err)
+			return err
+		}
+
+		return nil
+	})
 	if err != nil {
-		cloneState = "failed (file.close)"
-		return cloneState, fmt.Errorf("failed to close file: %w", err)
+		log.Error("Error during ForEach", "err", err)
+		return "failed (for-each)", fmt.Errorf("Error during ForEach: %w", err)
 	}
+
+	log.Info("checkout complete", "numRecords", numRecords, "numCollections", len(collectionsSeen))
+
 	cloneState = "success"
 	return cloneState, nil
 }
