@@ -53,7 +53,7 @@ func run(args []string) error {
 			Name:    "admin-host",
 			Usage:   "method, hostname, and port of admin interface (eg, Ozone), for direct links",
 			Value:   "http://localhost:3000",
-			EnvVars: []string{"ATP_ADMIN_HOST", "ATP_REDSKY_HOST"},
+			EnvVars: []string{"ATP_ADMIN_HOST"},
 		},
 		&cli.StringFlag{
 			Name:     "handle",
