@@ -19,7 +19,7 @@ var rebasesProcessedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 var recordsProcessedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "sonar_records_processed_total",
 	Help: "The total number of records processed by Sonar",
-}, []string{"record_type", "socket_url"})
+}, []string{"action", "socket_url", "record_type"})
 
 var quoteRepostsProcessedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "sonar_quote_reposts_processed_total",

@@ -226,43 +226,51 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 				break
 			}
 
+			labelValues := []string{op.Action, s.SocketURL}
+
 			var recCreatedAt time.Time
 			var parseError error
 
 			// Unpack the record and process it
 			switch rec := rec.(type) {
 			case *bsky.FeedPost:
-				recordsProcessedCounter.WithLabelValues("feed_post", s.SocketURL).Inc()
+				labelValues = append(labelValues, "feed_post")
 				if rec.Embed != nil && rec.Embed.EmbedRecord != nil && rec.Embed.EmbedRecord.Record != nil {
 					quoteRepostsProcessedCounter.WithLabelValues(s.SocketURL).Inc()
 				}
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
 			case *bsky.FeedLike:
-				recordsProcessedCounter.WithLabelValues("feed_like", s.SocketURL).Inc()
+				labelValues = append(labelValues, "feed_like")
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
 			case *bsky.FeedRepost:
-				recordsProcessedCounter.WithLabelValues("feed_repost", s.SocketURL).Inc()
+				labelValues = append(labelValues, "feed_repost")
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
 			case *bsky.GraphBlock:
-				recordsProcessedCounter.WithLabelValues("graph_block", s.SocketURL).Inc()
+				labelValues = append(labelValues, "graph_block")
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
 			case *bsky.GraphFollow:
-				recordsProcessedCounter.WithLabelValues("graph_follow", s.SocketURL).Inc()
+				labelValues = append(labelValues, "graph_follow")
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
 			case *bsky.ActorProfile:
-				recordsProcessedCounter.WithLabelValues("actor_profile", s.SocketURL).Inc()
+				labelValues = append(labelValues, "actor_profile")
 			case *bsky.FeedGenerator:
-				recordsProcessedCounter.WithLabelValues("feed_generator", s.SocketURL).Inc()
+				labelValues = append(labelValues, "feed_generator")
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
 			case *bsky.GraphList:
-				recordsProcessedCounter.WithLabelValues("graph_list", s.SocketURL).Inc()
+				labelValues = append(labelValues, "graph_list")
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
 			case *bsky.GraphListitem:
-				recordsProcessedCounter.WithLabelValues("graph_listitem", s.SocketURL).Inc()
+				labelValues = append(labelValues, "graph_listitem")
 				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
+			case *bsky.FeedThreadgate:
+				labelValues = append(labelValues, "feed_threadgate")
+				recCreatedAt, parseError = dateparse.ParseAny(rec.CreatedAt)
+			case *bsky.LabelerService:
+				labelValues = append(labelValues, "labeler_service")
 			default:
 				log.Warn("unknown record type", "rec", rec)
 			}
+			recordsProcessedCounter.WithLabelValues(labelValues...).Inc()
 			if parseError != nil {
 				s.Logger.Error("error parsing time", "err", parseError)
 				continue
