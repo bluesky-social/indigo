@@ -270,6 +270,11 @@ func (s *Sonar) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubscr
 			default:
 				log.Warn("unknown record type", "rec", rec)
 			}
+
+			if len(labelValues) == 2 {
+				labelValues = append(labelValues, "unknown")
+			}
+
 			recordsProcessedCounter.WithLabelValues(labelValues...).Inc()
 			if parseError != nil {
 				s.Logger.Error("error parsing time", "err", parseError)
