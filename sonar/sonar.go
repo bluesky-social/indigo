@@ -154,6 +154,8 @@ func (s *Sonar) HandleStreamEvent(ctx context.Context, xe *events.XRPCStreamEven
 		lastSeqGauge.WithLabelValues(s.SocketURL).Set(float64(xe.RepoHandle.Seq))
 	case xe.RepoTombstone != nil:
 		eventsProcessedCounter.WithLabelValues("repo_tombstone", s.SocketURL).Inc()
+	case xe.RepoIdentity != nil:
+		eventsProcessedCounter.WithLabelValues("identity", s.SocketURL).Inc()
 	case xe.LabelInfo != nil:
 		eventsProcessedCounter.WithLabelValues("label_info", s.SocketURL).Inc()
 	case xe.LabelLabels != nil:
