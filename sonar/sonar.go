@@ -130,7 +130,7 @@ func (s *Sonar) HandleStreamEvent(ctx context.Context, xe *events.XRPCStreamEven
 		eventsProcessedCounter.WithLabelValues("identity", s.SocketURL).Inc()
 		now := time.Now()
 		s.ProgMux.Lock()
-		s.Progress.LastSeq = xe.RepoHandle.Seq
+		s.Progress.LastSeq = xe.RepoIdentity.Seq
 		s.Progress.LastSeqProcessedAt = now
 		s.ProgMux.Unlock()
 	case xe.RepoInfo != nil:
