@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
+	"github.com/bluesky-social/indigo/events/schedulers/sequential"
 	"github.com/bluesky-social/indigo/sonar"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -35,7 +35,7 @@ func main() {
 		&cli.StringFlag{
 			Name:  "ws-url",
 			Usage: "full websocket path to the ATProto SubscribeRepos XRPC endpoint",
-			Value: "wss://bsky.social/xrpc/com.atproto.sync.subscribeRepos",
+			Value: "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
 		},
 		&cli.StringFlag{
 			Name:  "log-level",
@@ -46,11 +46,6 @@ func main() {
 			Name:  "port",
 			Usage: "listen port for metrics server",
 			Value: 8345,
-		},
-		&cli.IntFlag{
-			Name:  "worker-count",
-			Usage: "number of workers to process events",
-			Value: 10,
 		},
 		&cli.IntFlag{
 			Name:  "max-queue-size",
@@ -102,11 +97,7 @@ func Sonar(cctx *cli.Context) error {
 
 	wg := sync.WaitGroup{}
 
-	scalingSettings := autoscaling.DefaultAutoscaleSettings()
-	scalingSettings.MaxConcurrency = cctx.Int("worker-count")
-	scalingSettings.AutoscaleFrequency = time.Second
-
-	pool := autoscaling.NewScheduler(scalingSettings, u.Host, s.HandleStreamEvent)
+	pool := sequential.NewScheduler(u.Host, s.HandleStreamEvent)
 
 	// Start a goroutine to manage the cursor file, saving the current cursor every 5 seconds.
 	go func() {
@@ -191,7 +182,7 @@ func Sonar(cctx *cli.Context) error {
 
 	logger.Info("connecting to WebSocket", "url", u.String())
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), http.Header{
-		"User-Agent": []string{"sonar/1.0"},
+		"User-Agent": []string{"sonar/1.1"},
 	})
 	if err != nil {
 		logger.Info("failed to connect to websocket", "err", err)
