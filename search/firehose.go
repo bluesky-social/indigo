@@ -24,41 +24,45 @@ import (
 	"github.com/ipfs/go-cid"
 )
 
-func (s *Server) getLastCursor() (int64, error) {
+func (idx *Indexer) getLastCursor() (int64, error) {
 	var lastSeq LastSeq
-	if err := s.db.Find(&lastSeq).Error; err != nil {
+	if err := idx.db.Find(&lastSeq).Error; err != nil {
 		return 0, err
 	}
 
 	if lastSeq.ID == 0 {
-		return 0, s.db.Create(&lastSeq).Error
+		return 0, idx.db.Create(&lastSeq).Error
 	}
 
 	return lastSeq.Seq, nil
 }
 
-func (s *Server) updateLastCursor(curs int64) error {
-	return s.db.Model(LastSeq{}).Where("id = 1").Update("seq", curs).Error
+func (idx *Indexer) updateLastCursor(curs int64) error {
+	return idx.db.Model(LastSeq{}).Where("id = 1").Update("seq", curs).Error
 }
 
-func (s *Server) RunIndexer(ctx context.Context) error {
-	cur, err := s.getLastCursor()
+func (idx *Indexer) RunIndexer(ctx context.Context) error {
+	cur, err := idx.getLastCursor()
 	if err != nil {
 		return fmt.Errorf("get last cursor: %w", err)
 	}
 
-	err = s.bfs.LoadJobs(ctx)
+	// Start the indexer batch workers
+	go idx.runPostIndexer(ctx)
+	go idx.runProfileIndexer(ctx)
+
+	err = idx.bfs.LoadJobs(ctx)
 	if err != nil {
 		return fmt.Errorf("loading backfill jobs: %w", err)
 	}
-	go s.bf.Start()
+	go idx.bf.Start()
 
-	if s.enableRepoDiscovery {
-		go s.discoverRepos()
+	if idx.enableRepoDiscovery {
+		go idx.discoverRepos()
 	}
 
 	d := websocket.DefaultDialer
-	u, err := url.Parse(s.bgshost)
+	u, err := url.Parse(idx.relayhost)
 	if err != nil {
 		return fmt.Errorf("invalid bgshost URI: %w", err)
 	}
@@ -81,12 +85,12 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 
 			defer func() {
 				if evt.Seq%50 == 0 {
-					if err := s.updateLastCursor(evt.Seq); err != nil {
-						s.logger.Error("failed to persist cursor", "err", err)
+					if err := idx.updateLastCursor(evt.Seq); err != nil {
+						idx.logger.Error("failed to persist cursor", "err", err)
 					}
 				}
 			}()
-			logEvt := s.logger.With("repo", evt.Repo, "rev", evt.Rev, "seq", evt.Seq)
+			logEvt := idx.logger.With("repo", evt.Repo, "rev", evt.Rev, "seq", evt.Seq)
 			if evt.TooBig && evt.Since != nil {
 				// TODO: handle this case (instead of return nil)
 				logEvt.Error("skipping non-genesis tooBig events for now")
@@ -94,7 +98,7 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 			}
 
 			if evt.TooBig {
-				if err := s.processTooBigCommit(ctx, evt); err != nil {
+				if err := idx.processTooBigCommit(ctx, evt); err != nil {
 					// TODO: handle this case (instead of return nil)
 					logEvt.Error("failed to process tooBig event", "err", err)
 					return nil
@@ -104,7 +108,7 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 			}
 
 			// Pass events to the backfiller which will process or buffer as needed
-			if err := s.bf.HandleEvent(ctx, evt); err != nil {
+			if err := idx.bf.HandleEvent(ctx, evt); err != nil {
 				logEvt.Error("failed to handle event", "err", err)
 			}
 
@@ -118,12 +122,12 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 
 			did, err := syntax.ParseDID(evt.Did)
 			if err != nil {
-				s.logger.Error("bad DID in RepoHandle event", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
+				idx.logger.Error("bad DID in RepoHandle event", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
 				return nil
 			}
-			if err := s.updateUserHandle(ctx, did, evt.Handle); err != nil {
+			if err := idx.updateUserHandle(ctx, did, evt.Handle); err != nil {
 				// TODO: handle this case (instead of return nil)
-				s.logger.Error("failed to update user handle", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
+				idx.logger.Error("failed to update user handle", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
 			}
 			return nil
 		},
@@ -132,15 +136,15 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 	return events.HandleRepoStream(
 		ctx, con, autoscaling.NewScheduler(
 			autoscaling.DefaultAutoscaleSettings(),
-			s.bgshost,
+			idx.relayhost,
 			rsc.EventHandler,
 		),
 	)
 }
 
-func (s *Server) discoverRepos() {
+func (idx *Indexer) discoverRepos() {
 	ctx := context.Background()
-	log := s.logger.With("func", "discoverRepos")
+	log := idx.logger.With("func", "discoverRepos")
 	log.Info("starting repo discovery")
 
 	cursor := ""
@@ -150,7 +154,7 @@ func (s *Server) discoverRepos() {
 	totalErrored := 0
 
 	for {
-		resp, err := comatproto.SyncListRepos(ctx, s.bgsxrpc, cursor, limit)
+		resp, err := comatproto.SyncListRepos(ctx, idx.relayXRPC, cursor, limit)
 		if err != nil {
 			log.Error("failed to list repos", "err", err)
 			time.Sleep(5 * time.Second)
@@ -159,7 +163,7 @@ func (s *Server) discoverRepos() {
 		log.Info("got repo page", "count", len(resp.Repos), "cursor", resp.Cursor)
 		errored := 0
 		for _, repo := range resp.Repos {
-			_, err := s.bfs.GetOrCreateJob(ctx, repo.Did, backfill.StateEnqueued)
+			_, err := idx.bfs.GetOrCreateJob(ctx, repo.Did, backfill.StateEnqueued)
 			if err != nil {
 				log.Error("failed to get or create job", "did", repo.Did, "err", err)
 				errored++
@@ -178,7 +182,8 @@ func (s *Server) discoverRepos() {
 	log.Info("finished repo discovery", "totalJobs", total, "totalErrored", totalErrored)
 }
 
-func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, rev string, path string, recB *[]byte, rcid *cid.Cid) error {
+func (idx *Indexer) handleCreateOrUpdate(ctx context.Context, rawDID string, rev string, path string, recB *[]byte, rcid *cid.Cid) error {
+	logger := idx.logger.With("func", "handleCreateOrUpdate", "did", rawDID, "rev", rev, "path", path)
 	// Since this gets called in a backfill job, we need to check if the path is a post or profile
 	if !strings.Contains(path, "app.bsky.feed.post") && !strings.Contains(path, "app.bsky.actor.profile") {
 		return nil
@@ -189,7 +194,7 @@ func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, rev st
 		return fmt.Errorf("bad DID syntax in event: %w", err)
 	}
 
-	ident, err := s.dir.LookupDID(ctx, did)
+	ident, err := idx.dir.LookupDID(ctx, did)
 	if err != nil {
 		return fmt.Errorf("resolving identity: %w", err)
 	}
@@ -208,25 +213,50 @@ func (s *Server) handleCreateOrUpdate(ctx context.Context, rawDID string, rev st
 		return fmt.Errorf("failed to cast record to CBORMarshaler")
 	}
 
+	parts := strings.SplitN(path, "/", 3)
+	if len(parts) < 2 {
+		logger.Warn("skipping post record with malformed path")
+		return nil
+	}
+
 	switch rec := rec.(type) {
 	case *bsky.FeedPost:
-		if err := s.indexPost(ctx, ident, rec, path, *rcid); err != nil {
-			postsFailed.Inc()
-			return fmt.Errorf("indexing post for %s: %w", did.String(), err)
+		rkey, err := syntax.ParseTID(parts[1])
+		if err != nil {
+			logger.Warn("skipping post record with non-TID rkey")
+			return nil
 		}
+
+		job := PostIndexJob{
+			ident:  ident,
+			record: rec,
+			rcid:   *rcid,
+			rkey:   rkey.String(),
+		}
+
+		// Send the job to the bulk indexer
+		idx.postQueue <- &job
 		postsIndexed.Inc()
 	case *bsky.ActorProfile:
-		if err := s.indexProfile(ctx, ident, rec, path, *rcid); err != nil {
-			profilesFailed.Inc()
-			return fmt.Errorf("indexing profile for %s: %w", did.String(), err)
+		if parts[1] != "self" {
+			return nil
 		}
+
+		job := ProfileIndexJob{
+			ident:  ident,
+			record: rec,
+			rcid:   *rcid,
+		}
+
+		// Send the job to the bulk indexer
+		idx.profileQueue <- &job
 		profilesIndexed.Inc()
 	default:
 	}
 	return nil
 }
 
-func (s *Server) handleDelete(ctx context.Context, rawDID, rev, path string) error {
+func (idx *Indexer) handleDelete(ctx context.Context, rawDID, rev, path string) error {
 	// Since this gets called in a backfill job, we need to check if the path is a post or profile
 	if !strings.Contains(path, "app.bsky.feed.post") && !strings.Contains(path, "app.bsky.actor.profile") {
 		return nil
@@ -237,7 +267,7 @@ func (s *Server) handleDelete(ctx context.Context, rawDID, rev, path string) err
 		return fmt.Errorf("invalid DID in event: %w", err)
 	}
 
-	ident, err := s.dir.LookupDID(ctx, did)
+	ident, err := idx.dir.LookupDID(ctx, did)
 	if err != nil {
 		return err
 	}
@@ -248,7 +278,7 @@ func (s *Server) handleDelete(ctx context.Context, rawDID, rev, path string) err
 	switch {
 	// TODO: handle profile deletes, its an edge case, but worth doing still
 	case strings.Contains(path, "app.bsky.feed.post"):
-		if err := s.deletePost(ctx, ident, path); err != nil {
+		if err := idx.deletePost(ctx, ident, path); err != nil {
 			return err
 		}
 		postsDeleted.Inc()
@@ -259,8 +289,10 @@ func (s *Server) handleDelete(ctx context.Context, rawDID, rev, path string) err
 	return nil
 }
 
-func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
-	repodata, err := comatproto.SyncGetRepo(ctx, s.bgsxrpc, evt.Repo, "")
+func (idx *Indexer) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
+	logger := idx.logger.With("func", "processTooBigCommit", "repo", evt.Repo, "rev", evt.Rev, "seq", evt.Seq)
+
+	repodata, err := comatproto.SyncGetRepo(ctx, idx.relayXRPC, evt.Repo, "")
 	if err != nil {
 		return err
 	}
@@ -275,7 +307,7 @@ func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSu
 		return fmt.Errorf("bad DID in repo event: %w", err)
 	}
 
-	ident, err := s.dir.LookupDID(ctx, did)
+	ident, err := idx.dir.LookupDID(ctx, did)
 	if err != nil {
 		return err
 	}
@@ -288,19 +320,46 @@ func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSu
 			rcid, rec, err := r.GetRecord(ctx, k)
 			if err != nil {
 				// TODO: handle this case (instead of return nil)
-				s.logger.Error("failed to get record from repo checkout", "path", k, "err", err)
+				idx.logger.Error("failed to get record from repo checkout", "path", k, "err", err)
+				return nil
+			}
+
+			parts := strings.SplitN(k, "/", 3)
+			if len(parts) < 2 {
+				logger.Warn("skipping post record with malformed path")
 				return nil
 			}
 
 			switch rec := rec.(type) {
 			case *bsky.FeedPost:
-				if err := s.indexPost(ctx, ident, rec, k, rcid); err != nil {
-					return fmt.Errorf("indexing post: %w", err)
+				rkey, err := syntax.ParseTID(parts[1])
+				if err != nil {
+					logger.Warn("skipping post record with non-TID rkey")
+					return nil
 				}
+
+				job := PostIndexJob{
+					ident:  ident,
+					record: rec,
+					rcid:   rcid,
+					rkey:   rkey.String(),
+				}
+
+				// Send the job to the bulk indexer
+				idx.postQueue <- &job
 			case *bsky.ActorProfile:
-				if err := s.indexProfile(ctx, ident, rec, k, rcid); err != nil {
-					return fmt.Errorf("indexing profile: %w", err)
+				if parts[1] != "self" {
+					return nil
 				}
+
+				job := ProfileIndexJob{
+					ident:  ident,
+					record: rec,
+					rcid:   rcid,
+				}
+
+				// Send the job to the bulk indexer
+				idx.profileQueue <- &job
 			default:
 			}
 

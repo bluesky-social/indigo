@@ -122,6 +122,12 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 		},
 	}
 
+	sort := map[string]interface{}{
+		"pagerank": map[string]interface{}{
+			"order": "desc",
+		},
+	}
+
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
@@ -137,6 +143,7 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 		},
 		"size": size,
 		"from": offset,
+		"sort": sort,
 	}
 
 	return doSearch(ctx, escli, index, query)
@@ -148,6 +155,12 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 
 	if err := checkParams(0, size); err != nil {
 		return nil, err
+	}
+
+	sort := map[string]interface{}{
+		"pagerank": map[string]interface{}{
+			"order": "desc",
+		},
 	}
 
 	query := map[string]interface{}{
@@ -166,6 +179,7 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 			},
 		},
 		"size": size,
+		"sort": sort,
 	}
 
 	return doSearch(ctx, escli, index, query)
