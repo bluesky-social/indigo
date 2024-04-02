@@ -97,6 +97,7 @@ func (s *Server) RunAPI(listen string) error {
 	e.GET("/_health", s.handleHealthCheck)
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/xrpc/app.bsky.unspecced.searchPostsSkeleton", s.handleSearchPostsSkeleton)
+	e.GET("/xrpc/app.bsky.unspecced.structuredSearchPostsSkeleton", s.handleStructuredSearchPostsSkeleton)
 	e.GET("/xrpc/app.bsky.unspecced.searchActorsSkeleton", s.handleSearchActorsSkeleton)
 	s.echo = e
 

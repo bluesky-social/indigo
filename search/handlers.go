@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -97,6 +98,87 @@ func (s *Server) handleSearchPostsSkeleton(e echo.Context) error {
 	return e.JSON(200, out)
 }
 
+func (s *Server) handleStructuredSearchPostsSkeleton(e echo.Context) error {
+	ctx, span := tracer.Start(e.Request().Context(), "handleStructuredSearchPostsSkeleton")
+	defer span.End()
+
+	query := SearchQuery{}
+
+	span.SetAttributes(attribute.String("query", e.QueryParam("q")))
+
+	q := strings.TrimSpace(e.QueryParam("q"))
+	if q == "" {
+		return e.JSON(400, map[string]any{
+			"error": "must pass non-empty search query",
+		})
+	}
+	query.Query = q
+
+	offset, limit, err := parseCursorLimit(e)
+	if err != nil {
+		span.SetAttributes(attribute.String("error", fmt.Sprintf("invalid cursor/limit: %s", err)))
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	span.SetAttributes(attribute.Int("offset", offset), attribute.Int("limit", limit))
+
+	query.Offset = offset
+	query.Size = limit
+
+	langs := e.Request().URL.Query()["langs"]
+	if len(langs) > 0 {
+		query.Langs = langs
+	}
+
+	actors := e.Request().URL.Query()["actors"]
+	if len(actors) > 0 {
+		query.Actors = actors
+	}
+
+	tags := e.Request().URL.Query()["tags"]
+	if len(tags) > 0 {
+		query.Tags = tags
+	}
+
+	from := e.Request().URL.Query().Get("from")
+	if from != "" {
+		// Parse as unix milliseconds
+		asInt, err := strconv.ParseInt(from, 10, 64)
+		if err != nil {
+			span.SetAttributes(attribute.String("error", fmt.Sprintf("failed to parse 'from' timestamp: %s", err)))
+			span.SetStatus(codes.Error, err.Error())
+			return fmt.Errorf("failed to parse 'from' timestamp: %w", err)
+		}
+		t := time.Unix(0, asInt*int64(time.Millisecond))
+		query.From = &t
+	}
+
+	to := e.Request().URL.Query().Get("to")
+	if to != "" {
+		// Parse as unix milliseconds
+		asInt, err := strconv.ParseInt(to, 10, 64)
+		if err != nil {
+			span.SetAttributes(attribute.String("error", fmt.Sprintf("failed to parse 'to' timestamp: %s", err)))
+			span.SetStatus(codes.Error, err.Error())
+			return fmt.Errorf("failed to parse 'to' timestamp: %w", err)
+		}
+		t := time.Unix(0, asInt*int64(time.Millisecond))
+		query.To = &t
+	}
+
+	out, err := s.StructuredSearchPosts(ctx, query)
+	if err != nil {
+		span.SetAttributes(attribute.String("error", fmt.Sprintf("failed to SearchPosts: %s", err)))
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	span.SetAttributes(attribute.Int("posts.length", len(out.Posts)))
+
+	return e.JSON(200, out)
+}
+
 func (s *Server) handleSearchActorsSkeleton(e echo.Context) error {
 	ctx, span := tracer.Start(e.Request().Context(), "handleSearchActorsSkeleton")
 	defer span.End()
@@ -138,6 +220,53 @@ func (s *Server) handleSearchActorsSkeleton(e echo.Context) error {
 	span.SetAttributes(attribute.Int("actors.length", len(out.Actors)))
 
 	return e.JSON(200, out)
+}
+
+func (s *Server) StructuredSearchPosts(ctx context.Context, q SearchQuery) (*appbsky.UnspeccedSearchPostsSkeleton_Output, error) {
+	ctx, span := tracer.Start(ctx, "SearchPosts")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("query", q.Query),
+		attribute.Int("offset", q.Offset),
+		attribute.Int("size", q.Size),
+		attribute.StringSlice("actors", q.Actors),
+		attribute.StringSlice("tags", q.Tags),
+		attribute.StringSlice("langs", q.Langs),
+	)
+
+	resp, err := DoStructuredSearchPosts(ctx, s.dir, s.escli, s.postIndex, q)
+	if err != nil {
+		return nil, err
+	}
+
+	posts := []*appbsky.UnspeccedDefs_SkeletonSearchPost{}
+	for _, r := range resp.Hits.Hits {
+		var doc PostDoc
+		if err := json.Unmarshal(r.Source, &doc); err != nil {
+			return nil, fmt.Errorf("decoding post doc from search response: %w", err)
+		}
+
+		did, err := syntax.ParseDID(doc.DID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid DID in indexed document: %w", err)
+		}
+
+		posts = append(posts, &appbsky.UnspeccedDefs_SkeletonSearchPost{
+			Uri: fmt.Sprintf("https://bsky.app/profile/%s/post/%s", did, doc.RecordRkey),
+		})
+	}
+
+	out := appbsky.UnspeccedSearchPostsSkeleton_Output{Posts: posts}
+	if len(posts) == q.Size && (q.Offset+q.Size) < 10000 {
+		s := fmt.Sprintf("%d", q.Offset+q.Size)
+		out.Cursor = &s
+	}
+	if resp.Hits.Total.Relation == "eq" {
+		i := int64(resp.Hits.Total.Value)
+		out.HitsTotal = &i
+	}
+	return &out, nil
 }
 
 func (s *Server) SearchPosts(ctx context.Context, q string, offset, size int) (*appbsky.UnspeccedSearchPostsSkeleton_Output, error) {

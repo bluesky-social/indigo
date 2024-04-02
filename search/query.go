@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log/slog"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -49,11 +50,109 @@ type PostSearchResult struct {
 	Post any        `json:"post"`
 }
 
+type SearchQuery struct {
+	Query  string     `json:"query"`
+	Offset int        `json:"offset"`
+	Size   int        `json:"size"`
+	From   *time.Time `json:"from"`
+	To     *time.Time `json:"to"`
+	Actors []string   `json:"actors"`
+	Tags   []string   `json:"tags"`
+	Langs  []string   `json:"langs"`
+}
+
 func checkParams(offset, size int) error {
 	if offset+size > 10000 || size > 250 || offset > 10000 || offset < 0 || size < 0 {
 		return fmt.Errorf("disallowed size/offset parameters")
 	}
 	return nil
+}
+
+func DoStructuredSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client, index string, q SearchQuery) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "DoStructuredSearchPosts")
+	defer span.End()
+
+	if err := checkParams(q.Offset, q.Size); err != nil {
+		return nil, err
+	}
+
+	queryStr, filters := ParseQuery(ctx, dir, q.Query)
+	basic := map[string]interface{}{
+		"simple_query_string": map[string]interface{}{
+			"query":            queryStr,
+			"fields":           []string{"everything"},
+			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
+			"default_operator": "and",
+			"lenient":          true,
+			"analyze_wildcard": false,
+		},
+	}
+
+	now := syntax.DatetimeNow()
+	createdAtRange := map[string]interface{}{
+		"lte": now,
+	}
+
+	if q.From != nil {
+		createdAtRange["gte"] = syntax.Datetime(q.From.Format(syntax.AtprotoDatetimeLayout))
+	}
+
+	if q.To != nil {
+		createdAtRange["lte"] = syntax.Datetime(q.To.Format(syntax.AtprotoDatetimeLayout))
+	}
+
+	timeRangeFilter := map[string]interface{}{
+		"range": map[string]interface{}{
+			"created_at": createdAtRange,
+		},
+	}
+
+	filters = append(filters, timeRangeFilter)
+
+	if len(q.Actors) > 0 {
+		actorFilter := map[string]interface{}{
+			"terms": map[string]interface{}{
+				"did": q.Actors,
+			},
+		}
+		filters = append(filters, actorFilter)
+	}
+
+	if len(q.Tags) > 0 {
+		tagFilter := map[string]interface{}{
+			"terms": map[string]interface{}{
+				"tag": q.Tags,
+			},
+		}
+		filters = append(filters, tagFilter)
+	}
+
+	if len(q.Langs) > 0 {
+		langFilter := map[string]interface{}{
+			"terms": map[string]interface{}{
+				"lang": q.Langs,
+			},
+		}
+		filters = append(filters, langFilter)
+	}
+
+	query := map[string]interface{}{
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must":   basic,
+				"filter": filters,
+			},
+		},
+		"sort": map[string]any{
+			"created_at": map[string]any{
+				"order": "desc",
+			},
+		},
+		"size": q.Size,
+		"from": q.Offset,
+	}
+
+	return doSearch(ctx, escli, index, query)
 }
 
 func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
