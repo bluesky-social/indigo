@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	api "github.com/bluesky-social/indigo/api"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util/cliutil"
 
 	cli "github.com/urfave/cli/v2"
@@ -32,13 +33,13 @@ var resolveHandleCmd = &cli.Command{
 		}
 		handle := args[0]
 
-		phr := &api.ProdHandleResolver{}
-		out, err := phr.ResolveHandleToDid(ctx, handle)
+		dir := identity.DefaultDirectory()
+		resp, err := dir.LookupHandle(ctx, syntax.Handle(handle))
 		if err != nil {
-			return err
+			return fmt.Errorf("resolving %q: %w", handle, err)
 		}
 
-		fmt.Println(out)
+		fmt.Println(resp.DID)
 
 		return nil
 	},
