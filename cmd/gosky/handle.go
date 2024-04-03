@@ -31,15 +31,20 @@ var resolveHandleCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		handle := args[0]
 
-		dir := identity.DefaultDirectory()
-		resp, err := dir.LookupHandle(ctx, syntax.Handle(handle))
+		h, err := syntax.ParseHandle(args[0])
 		if err != nil {
-			return fmt.Errorf("resolving %q: %w", handle, err)
+			return fmt.Errorf("resolving %q: %w", args[0], err)
 		}
 
-		fmt.Println(resp.DID)
+		dir := identity.DefaultDirectory()
+
+		res, err := dir.LookupHandle(ctx, h)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(res.DID)
 
 		return nil
 	},
