@@ -9,8 +9,6 @@ import (
 	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
-var _ automod.IdentityRuleFunc = NewAccountRule
-
 // triggers on first identity event for an account (DID)
 func NewAccountRule(c *automod.AccountContext) error {
 	// need access to IndexedAt for this rule
@@ -47,3 +45,19 @@ func NewAccountRule(c *automod.AccountContext) error {
 	}
 	return nil
 }
+
+var _ automod.IdentityRuleFunc = NewAccountRule
+
+func CelebSpamIdentityRule(c *automod.AccountContext) error {
+
+	hdl := c.Account.Identity.Handle.String()
+	if strings.Contains(hdl, "elon") && strings.Contains(hdl, "musk") {
+		c.AddAccountFlag("handle-elon-musk")
+		c.ReportAccount(automod.ReportReasonSpam, "possible Elon Musk impersonator")
+		return nil
+	}
+
+	return nil
+}
+
+var _ automod.IdentityRuleFunc = CelebSpamIdentityRule

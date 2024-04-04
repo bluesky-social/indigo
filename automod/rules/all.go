@@ -29,6 +29,7 @@ func DefaultRules() automod.RuleSet {
 			GtubeProfileRule,
 			BadWordProfileRule,
 			BotLinkProfileRule,
+			CelebSpamProfileRule,
 		},
 		RecordRules: []automod.RecordRuleFunc{
 			InteractionChurnRule,
@@ -43,6 +44,7 @@ func DefaultRules() automod.RuleSet {
 			BadWordHandleRule,
 			BadWordDIDRule,
 			NewAccountBotEmailRule,
+			CelebSpamIdentityRule,
 		},
 		BlobRules: []automod.BlobRuleFunc{
 			//BlobVerifyRule,
