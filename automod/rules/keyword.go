@@ -11,10 +11,16 @@ import (
 )
 
 func BadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+	isJapanese := false
+	for _, lang := range post.Langs {
+		if lang == "ja" || strings.HasPrefix(lang, "ja-") {
+			isJapanese = true
+		}
+	}
 	for _, tok := range ExtractTextTokensPost(post) {
 		word := keyword.SlugIsExplicitSlur(tok)
 		// used very frequently in a reclaimed context
-		if word != "" && word != "faggot" && word != "tranny" {
+		if word != "" && word != "faggot" && word != "tranny" && word != "coon" && !(word == "kike" && isJapanese) {
 			c.AddRecordFlag("bad-word-text")
 			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("possible bad word in post text or alttext: %s", word))
 			//c.Notify("slack")
@@ -23,6 +29,11 @@ func BadWordPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 		// de-pluralize
 		tok = strings.TrimSuffix(tok, "s")
 		if c.InSet("worst-words", tok) {
+			// skip this specific term, if used in a Japanese language post
+			if isJapanese && tok == "kike" {
+				continue
+			}
+
 			c.AddRecordFlag("bad-word-text")
 			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("possible bad word in post text or alttext: %s", tok))
 			//c.Notify("slack")
