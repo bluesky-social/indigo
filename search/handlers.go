@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -102,7 +103,7 @@ func (s *Server) handleStructuredSearchPostsSkeleton(e echo.Context) error {
 	ctx, span := tracer.Start(e.Request().Context(), "handleStructuredSearchPostsSkeleton")
 	defer span.End()
 
-	query := SearchQuery{}
+	query := PostSearchQuery{}
 
 	span.SetAttributes(attribute.String("query", e.QueryParam("q")))
 
@@ -222,7 +223,58 @@ func (s *Server) handleSearchActorsSkeleton(e echo.Context) error {
 	return e.JSON(200, out)
 }
 
-func (s *Server) StructuredSearchPosts(ctx context.Context, q SearchQuery) (*appbsky.UnspeccedSearchPostsSkeleton_Output, error) {
+func (s *Server) handleStructuredSearchActorsSkeleton(e echo.Context) error {
+	ctx, span := tracer.Start(e.Request().Context(), "handleStructuredSearchActorsSkeleton")
+	defer span.End()
+
+	query := ActorSearchQuery{}
+
+	span.SetAttributes(attribute.String("query", e.QueryParam("q")))
+
+	q := strings.TrimSpace(e.QueryParam("q"))
+	if q == "" {
+		return e.JSON(400, map[string]any{
+			"error": "must pass non-empty search query",
+		})
+	}
+	query.Query = q
+
+	offset, limit, err := parseCursorLimit(e)
+	if err != nil {
+		span.SetAttributes(attribute.String("error", fmt.Sprintf("invalid cursor/limit: %s", err)))
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	span.SetAttributes(attribute.Int("offset", offset), attribute.Int("limit", limit))
+
+	query.Offset = offset
+	query.Size = limit
+
+	typeahead := false
+	if q := strings.TrimSpace(e.QueryParam("typeahead")); q == "true" || q == "1" || q == "y" {
+		typeahead = true
+	}
+	query.Typeahead = typeahead
+
+	following := e.Request().URL.Query()["following"]
+	if len(following) > 0 {
+		query.Following = following
+	}
+
+	out, err := s.StructuredSearchProfiles(ctx, query)
+	if err != nil {
+		span.SetAttributes(attribute.String("error", fmt.Sprintf("failed to SearchProfiles: %s", err)))
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	span.SetAttributes(attribute.Int("actors.length", len(out.Actors)))
+
+	return e.JSON(200, out)
+}
+
+func (s *Server) StructuredSearchPosts(ctx context.Context, q PostSearchQuery) (*appbsky.UnspeccedSearchPostsSkeleton_Output, error) {
 	ctx, span := tracer.Start(ctx, "SearchPosts")
 	defer span.End()
 
@@ -355,6 +407,143 @@ func (s *Server) SearchProfiles(ctx context.Context, q string, typeahead bool, o
 	out := appbsky.UnspeccedSearchActorsSkeleton_Output{Actors: actors}
 	if len(actors) == size && (offset+size) < 10000 {
 		s := fmt.Sprintf("%d", offset+size)
+		out.Cursor = &s
+	}
+	if resp.Hits.Total.Relation == "eq" {
+		i := int64(resp.Hits.Total.Value)
+		out.HitsTotal = &i
+	}
+	return &out, nil
+}
+
+func (s *Server) StructuredSearchProfiles(ctx context.Context, q ActorSearchQuery) (*appbsky.UnspeccedSearchActorsSkeleton_Output, error) {
+	ctx, span := tracer.Start(ctx, "StructuredSearchProfiles")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("query", q.Query),
+		attribute.Bool("typeahead", q.Typeahead),
+		attribute.Int("offset", q.Offset),
+		attribute.Int("size", q.Size),
+	)
+
+	var resp *EsSearchResponse
+	var err error
+
+	// Stash the following list and clear it out to conduct the global search first
+	var following []string
+	following = append(following, q.Following...)
+	q.Following = nil
+
+	if q.Typeahead {
+		resp, err = DoSearchProfilesTypeahead(ctx, s.escli, s.profileIndex, q.Query, q.Size)
+	} else {
+		resp, err = DoStructuredSearchProfiles(ctx, s.dir, s.escli, s.profileIndex, q)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	followingBoost := 0.1
+
+	// If we have a following list, conduct a second search to filter the results
+	if len(following) > 0 {
+		q.Following = following
+		personalizedResp, err := DoStructuredSearchProfiles(ctx, s.dir, s.escli, s.profileIndex, q)
+		if err != nil {
+			return nil, err
+		}
+
+		// Insert the personalized results into the global results, deduping as we go and maintaining score-order
+		followingSeen := map[string]struct{}{}
+		for _, r := range personalizedResp.Hits.Hits {
+			var doc ProfileDoc
+			if err := json.Unmarshal(r.Source, &doc); err != nil {
+				return nil, fmt.Errorf("decoding profile doc from search response: %w", err)
+			}
+
+			did, err := syntax.ParseDID(doc.DID)
+			if err != nil {
+				return nil, fmt.Errorf("invalid DID in indexed document: %w", err)
+			}
+
+			if _, ok := followingSeen[did.String()]; ok {
+				continue
+			}
+
+			followingSeen[did.String()] = struct{}{}
+
+			// Insert the profile into the global results
+			resp.Hits.Hits = append(resp.Hits.Hits, r)
+		}
+
+		// Walk the combined results and boost the scores of the personalized results and dedupe
+		seen := map[string]struct{}{}
+		deduped := []EsSearchHit{}
+		for _, r := range resp.Hits.Hits {
+			var doc ProfileDoc
+			if err := json.Unmarshal(r.Source, &doc); err != nil {
+				return nil, fmt.Errorf("decoding profile doc from search response: %w", err)
+			}
+
+			did, err := syntax.ParseDID(doc.DID)
+			if err != nil {
+				return nil, fmt.Errorf("invalid DID in indexed document: %w", err)
+			}
+
+			// Boost the score of the personalized results
+			if _, ok := followingSeen[did.String()]; ok {
+				r.Score += followingBoost
+			}
+
+			// Dedupe the results
+			if _, ok := seen[did.String()]; ok {
+				continue
+			}
+
+			seen[did.String()] = struct{}{}
+			deduped = append(deduped, r)
+		}
+
+		// Sort the results by score
+		slices.SortFunc(deduped, func(a, b EsSearchHit) int {
+			if a.Score < b.Score {
+				return 1
+			}
+			if a.Score > b.Score {
+				return -1
+			}
+			return 0
+		})
+
+		// Trim the results to the requested size
+		if len(deduped) > q.Size {
+			deduped = deduped[:q.Size]
+		}
+
+		resp.Hits.Hits = deduped
+	}
+
+	actors := []*appbsky.UnspeccedDefs_SkeletonSearchActor{}
+	for _, r := range resp.Hits.Hits {
+		var doc ProfileDoc
+		if err := json.Unmarshal(r.Source, &doc); err != nil {
+			return nil, fmt.Errorf("decoding profile doc from search response: %w", err)
+		}
+
+		did, err := syntax.ParseDID(doc.DID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid DID in indexed document: %w", err)
+		}
+
+		actors = append(actors, &appbsky.UnspeccedDefs_SkeletonSearchActor{
+			Did: did.String(),
+		})
+	}
+
+	out := appbsky.UnspeccedSearchActorsSkeleton_Output{Actors: actors}
+	if len(actors) == q.Size && (q.Offset+q.Size) < 10000 {
+		s := fmt.Sprintf("%d", q.Offset+q.Size)
 		out.Cursor = &s
 	}
 	if resp.Hits.Total.Relation == "eq" {

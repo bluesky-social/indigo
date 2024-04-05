@@ -99,6 +99,7 @@ func (s *Server) RunAPI(listen string) error {
 	e.GET("/xrpc/app.bsky.unspecced.searchPostsSkeleton", s.handleSearchPostsSkeleton)
 	e.GET("/xrpc/app.bsky.unspecced.structuredSearchPostsSkeleton", s.handleStructuredSearchPostsSkeleton)
 	e.GET("/xrpc/app.bsky.unspecced.searchActorsSkeleton", s.handleSearchActorsSkeleton)
+	e.GET("/xrpc/app.bsky.unspecced.structuredSearchActorsSkeleton", s.handleStructuredSearchActorsSkeleton)
 	s.echo = e
 
 	s.logger.Info("starting search API daemon", "bind", listen)

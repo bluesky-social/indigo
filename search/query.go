@@ -50,7 +50,7 @@ type PostSearchResult struct {
 	Post any        `json:"post"`
 }
 
-type SearchQuery struct {
+type PostSearchQuery struct {
 	Query  string     `json:"query"`
 	Offset int        `json:"offset"`
 	Size   int        `json:"size"`
@@ -61,6 +61,14 @@ type SearchQuery struct {
 	Langs  []string   `json:"langs"`
 }
 
+type ActorSearchQuery struct {
+	Query     string   `json:"query"`
+	Following []string `json:"following"`
+	Offset    int      `json:"offset"`
+	Size      int      `json:"size"`
+	Typeahead bool     `json:"typeahead"`
+}
+
 func checkParams(offset, size int) error {
 	if offset+size > 10000 || size > 250 || offset > 10000 || offset < 0 || size < 0 {
 		return fmt.Errorf("disallowed size/offset parameters")
@@ -68,7 +76,7 @@ func checkParams(offset, size int) error {
 	return nil
 }
 
-func DoStructuredSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client, index string, q SearchQuery) (*EsSearchResponse, error) {
+func DoStructuredSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client, index string, q PostSearchQuery) (*EsSearchResponse, error) {
 	ctx, span := tracer.Start(ctx, "DoStructuredSearchPosts")
 	defer span.End()
 
@@ -245,6 +253,61 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 		"sort": sort,
 	}
 
+	return doSearch(ctx, escli, index, query)
+}
+
+func DoStructuredSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Client, index string, q ActorSearchQuery) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "DoSearchProfiles")
+	defer span.End()
+
+	if err := checkParams(q.Offset, q.Size); err != nil {
+		return nil, err
+	}
+
+	queryStr, filters := ParseQuery(ctx, dir, q.Query)
+	basic := map[string]interface{}{
+		"simple_query_string": map[string]interface{}{
+			"query":            queryStr,
+			"fields":           []string{"everything"},
+			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
+			"default_operator": "and",
+			"lenient":          true,
+			"analyze_wildcard": false,
+		},
+	}
+
+	sort := map[string]interface{}{
+		"pagerank": map[string]interface{}{
+			"order": "desc",
+		},
+	}
+
+	if len(q.Following) > 0 {
+		followingFilter := map[string]interface{}{
+			"terms": map[string]interface{}{
+				"did": q.Following,
+			},
+		}
+		filters = append(filters, followingFilter)
+	}
+
+	query := map[string]interface{}{
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": basic,
+				"should": []interface{}{
+					map[string]interface{}{"term": map[string]interface{}{"has_avatar": true}},
+					map[string]interface{}{"term": map[string]interface{}{"has_banner": true}},
+				},
+				"minimum_should_match": 0,
+				"filter":               filters,
+				"boost":                0.5,
+			},
+		},
+		"size": q.Size,
+		"from": q.Offset,
+		"sort": sort,
+	}
 	return doSearch(ctx, escli, index, query)
 }
 
