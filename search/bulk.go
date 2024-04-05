@@ -210,10 +210,101 @@ func (idx *Indexer) BulkIndexPosts(ctx context.Context, postsFile string) error 
 
 	// Check for any scanner errors
 	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error reading pagerank file: %w", err)
+		return fmt.Errorf("error reading csv file: %w", err)
 	}
 
-	idx.logger.Info("finished processing pagerank file", "lines", linesRead)
+	idx.logger.Info("finished processing csv file", "lines", linesRead)
+
+	return nil
+}
+
+// BulkIndexProfiles indexes profiles from a CSV file.
+func (idx *Indexer) BulkIndexProfiles(ctx context.Context, profilesFile string) error {
+	f, err := os.Open(profilesFile)
+	if err != nil {
+		return fmt.Errorf("failed to open csv file: %w", err)
+	}
+	defer f.Close()
+
+	// Create a scanner to read the file line by line
+	scanner := bufio.NewScanner(f)
+
+	linesRead := 0
+	logger := idx.logger.With("source", "bulk_index_profiles")
+
+	// Iterate over each line in the file
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		linesRead++
+		if linesRead%1000 == 0 {
+			idx.logger.Info("processed csv lines", "lines", linesRead)
+		}
+
+		// CSV is formatted as
+		// actor_did,taken_down(time or null),cid,raw(profile JSON as hex)
+		parts := strings.Split(line, ",")
+		if len(parts) != 4 {
+			logger.Error("invalid csv line", "line", line)
+			continue
+		}
+
+		did, err := syntax.ParseDID(parts[0])
+		if err != nil {
+			logger.Error("invalid DID", "did", parts[0])
+			continue
+		}
+
+		isTakenDown := false
+		if parts[1] != "" && parts[1] != "null" {
+			isTakenDown = true
+		}
+
+		if isTakenDown {
+			continue
+		}
+
+		cid, err := cid.Parse(parts[2])
+		if err != nil {
+			logger.Error("invalid CID", "cid", parts[4])
+			continue
+		}
+
+		raw, err := hex.DecodeString(parts[3])
+		if err != nil {
+			logger.Error("invalid raw profile", "raw", parts[5])
+			continue
+		}
+
+		profile := appbsky.ActorProfile{}
+		if err := json.Unmarshal(raw, &profile); err != nil {
+			logger.Error("failed to unmarshal profile", "err", err, "did", did)
+			continue
+		}
+
+		// Lookup the identity for the actor
+		ident, err := idx.dir.LookupDID(ctx, did)
+		if err != nil {
+			logger.Error("failed to lookup identity", "err", err, "did", did)
+			continue
+		}
+
+		job := ProfileIndexJob{
+			ident:  ident,
+			rcid:   cid,
+			record: &profile,
+		}
+
+		// Send the job to the profile queue
+		idx.profileQueue <- &job
+	}
+
+	// Check for any scanner errors
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error reading csv file: %w", err)
+	}
+
+	idx.logger.Info("finished processing csv file", "lines", linesRead)
 
 	return nil
 }

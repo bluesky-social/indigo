@@ -172,6 +172,10 @@ var runCmd = &cli.Command{
 			Name:    "bulk-posts-file",
 			EnvVars: []string{"BULK_POSTS_FILE"},
 		},
+		&cli.StringFlag{
+			Name:    "bulk-profiles-file",
+			EnvVars: []string{"BULK_PROFILES_FILE"},
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -293,6 +297,12 @@ var runCmd = &cli.Command{
 			ctx := context.Background()
 			if err := srv.Indexer.BulkIndexPosts(ctx, cctx.String("bulk-posts-file")); err != nil {
 				return fmt.Errorf("failed to bulk index posts: %w", err)
+			}
+		} else if cctx.String("bulk-profiles-file") != "" && srv.Indexer != nil {
+			// If we're not in readonly mode, and we have a bulk profiles file, index profiles
+			ctx := context.Background()
+			if err := srv.Indexer.BulkIndexProfiles(ctx, cctx.String("bulk-profiles-file")); err != nil {
+				return fmt.Errorf("failed to bulk index profiles: %w", err)
 			}
 		} else if srv.Indexer != nil {
 			// Otherwise, just run the indexer
