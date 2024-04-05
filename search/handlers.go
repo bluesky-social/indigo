@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
@@ -427,32 +428,52 @@ func (s *Server) StructuredSearchProfiles(ctx context.Context, q ActorSearchQuer
 		attribute.Int("size", q.Size),
 	)
 
-	var resp *EsSearchResponse
-	var err error
+	var globalResp *EsSearchResponse
+	var personalizedResp *EsSearchResponse
+	var globalErr error
+	var personalizedErr error
 
-	// Stash the following list and clear it out to conduct the global search first
-	var following []string
-	following = append(following, q.Following...)
-	q.Following = nil
+	wg := sync.WaitGroup{}
 
-	if q.Typeahead {
-		resp, err = DoSearchProfilesTypeahead(ctx, s.escli, s.profileIndex, q.Query, q.Size)
-	} else {
-		resp, err = DoStructuredSearchProfiles(ctx, s.dir, s.escli, s.profileIndex, q)
-	}
-	if err != nil {
-		return nil, err
-	}
+	wg.Add(1)
+	// Conduct the global search
+	go func(myQ ActorSearchQuery) {
+		defer wg.Done()
+		// Clear out the following list to conduct the global search
+		myQ.Following = nil
 
-	followingBoost := 0.1
+		if myQ.Typeahead {
+			globalResp, globalErr = DoStructuredSearchProfilesTypeahead(ctx, s.escli, s.profileIndex, myQ)
+		} else {
+			globalResp, globalErr = DoStructuredSearchProfiles(ctx, s.dir, s.escli, s.profileIndex, myQ)
+		}
+	}(q)
 
 	// If we have a following list, conduct a second search to filter the results
-	if len(following) > 0 {
-		q.Following = following
-		personalizedResp, err := DoStructuredSearchProfiles(ctx, s.dir, s.escli, s.profileIndex, q)
-		if err != nil {
-			return nil, err
+	if len(q.Following) > 0 {
+		wg.Add(1)
+		go func(myQ ActorSearchQuery) {
+			defer wg.Done()
+			if myQ.Typeahead {
+				personalizedResp, personalizedErr = DoStructuredSearchProfilesTypeahead(ctx, s.escli, s.profileIndex, myQ)
+			} else {
+				personalizedResp, personalizedErr = DoStructuredSearchProfiles(ctx, s.dir, s.escli, s.profileIndex, myQ)
+			}
+		}(q)
+	}
+
+	wg.Wait()
+
+	if globalErr != nil {
+		return nil, globalErr
+	}
+
+	if len(q.Following) > 0 {
+		if personalizedErr != nil {
+			return nil, personalizedErr
 		}
+
+		followingBoost := 0.1
 
 		// Insert the personalized results into the global results, deduping as we go and maintaining score-order
 		followingSeen := map[string]struct{}{}
@@ -474,13 +495,13 @@ func (s *Server) StructuredSearchProfiles(ctx context.Context, q ActorSearchQuer
 			followingSeen[did.String()] = struct{}{}
 
 			// Insert the profile into the global results
-			resp.Hits.Hits = append(resp.Hits.Hits, r)
+			globalResp.Hits.Hits = append(globalResp.Hits.Hits, r)
 		}
 
 		// Walk the combined results and boost the scores of the personalized results and dedupe
 		seen := map[string]struct{}{}
 		deduped := []EsSearchHit{}
-		for _, r := range resp.Hits.Hits {
+		for _, r := range globalResp.Hits.Hits {
 			var doc ProfileDoc
 			if err := json.Unmarshal(r.Source, &doc); err != nil {
 				return nil, fmt.Errorf("decoding profile doc from search response: %w", err)
@@ -521,11 +542,11 @@ func (s *Server) StructuredSearchProfiles(ctx context.Context, q ActorSearchQuer
 			deduped = deduped[:q.Size]
 		}
 
-		resp.Hits.Hits = deduped
+		globalResp.Hits.Hits = deduped
 	}
 
 	actors := []*appbsky.UnspeccedDefs_SkeletonSearchActor{}
-	for _, r := range resp.Hits.Hits {
+	for _, r := range globalResp.Hits.Hits {
 		var doc ProfileDoc
 		if err := json.Unmarshal(r.Source, &doc); err != nil {
 			return nil, fmt.Errorf("decoding profile doc from search response: %w", err)
@@ -546,8 +567,8 @@ func (s *Server) StructuredSearchProfiles(ctx context.Context, q ActorSearchQuer
 		s := fmt.Sprintf("%d", q.Offset+q.Size)
 		out.Cursor = &s
 	}
-	if resp.Hits.Total.Relation == "eq" {
-		i := int64(resp.Hits.Total.Value)
+	if globalResp.Hits.Total.Relation == "eq" {
+		i := int64(globalResp.Hits.Total.Value)
 		out.HitsTotal = &i
 	}
 	return &out, nil

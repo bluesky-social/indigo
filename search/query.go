@@ -257,8 +257,16 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 }
 
 func DoStructuredSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Client, index string, q ActorSearchQuery) (*EsSearchResponse, error) {
-	ctx, span := tracer.Start(ctx, "DoSearchProfiles")
+	ctx, span := tracer.Start(ctx, "DoStructuredSearchProfiles")
 	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("index", index),
+		attribute.String("query", q.Query),
+		attribute.Int("offset", q.Offset),
+		attribute.Int("size", q.Size),
+		attribute.Int("following", len(q.Following)),
+	)
 
 	if err := checkParams(q.Offset, q.Size); err != nil {
 		return nil, err
@@ -344,6 +352,64 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 		"sort": sort,
 	}
 
+	return doSearch(ctx, escli, index, query)
+}
+
+func DoStructuredSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index string, q ActorSearchQuery) (*EsSearchResponse, error) {
+	ctx, span := tracer.Start(ctx, "DoStructuredSearchProfilesTypeahead")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("index", index),
+		attribute.String("query", q.Query),
+		attribute.Int("offset", q.Offset),
+		attribute.Int("size", q.Size),
+		attribute.Int("following", len(q.Following)),
+	)
+
+	if err := checkParams(q.Offset, q.Size); err != nil {
+		return nil, err
+	}
+
+	var filters []map[string]interface{}
+
+	sort := map[string]interface{}{
+		"pagerank": map[string]interface{}{
+			"order": "desc",
+		},
+	}
+
+	if len(q.Following) > 0 {
+		followingFilter := map[string]interface{}{
+			"terms": map[string]interface{}{
+				"did": q.Following,
+			},
+		}
+		filters = append(filters, followingFilter)
+	}
+
+	query := map[string]interface{}{
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": map[string]interface{}{
+					"multi_match": map[string]interface{}{
+						"query":    q.Query,
+						"type":     "bool_prefix",
+						"operator": "and",
+						"fields": []string{
+							"typeahead",
+							"typeahead._2gram",
+							"typeahead._3gram",
+						},
+					},
+				},
+				"filter": filters,
+			},
+		},
+		"size": q.Size,
+		"from": q.Offset,
+		"sort": sort,
+	}
 	return doSearch(ctx, escli, index, query)
 }
 
