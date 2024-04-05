@@ -168,6 +168,10 @@ var runCmd = &cli.Command{
 			Name:    "pagerank-file",
 			EnvVars: []string{"PAGERANK_FILE"},
 		},
+		&cli.StringFlag{
+			Name:    "bulk-posts-file",
+			EnvVars: []string{"BULK_POSTS_FILE"},
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -283,6 +287,12 @@ var runCmd = &cli.Command{
 			ctx := context.Background()
 			if err := srv.Indexer.UpdatePageranks(ctx, cctx.String("pagerank-file")); err != nil {
 				return fmt.Errorf("failed to update pageranks: %w", err)
+			}
+		} else if cctx.String("bulk-posts-file") != "" && srv.Indexer != nil {
+			// If we're not in readonly mode, and we have a bulk posts file, index posts
+			ctx := context.Background()
+			if err := srv.Indexer.BulkIndexPosts(ctx, cctx.String("bulk-posts-file")); err != nil {
+				return fmt.Errorf("failed to bulk index posts: %w", err)
 			}
 		} else if srv.Indexer != nil {
 			// Otherwise, just run the indexer

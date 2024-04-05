@@ -3,13 +3,17 @@ package search
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 
+	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/ipfs/go-cid"
 )
 
 type pagerankJob struct {
@@ -100,6 +104,109 @@ func (idx *Indexer) UpdatePageranks(ctx context.Context, pagerankFile string) er
 	// Close the queue and wait for all workers to finish
 	close(queue)
 	wg.Wait()
+
+	// Check for any scanner errors
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error reading pagerank file: %w", err)
+	}
+
+	idx.logger.Info("finished processing pagerank file", "lines", linesRead)
+
+	return nil
+}
+
+// BulkIndexPosts indexes posts from a CSV file.
+func (idx *Indexer) BulkIndexPosts(ctx context.Context, postsFile string) error {
+	f, err := os.Open(postsFile)
+	if err != nil {
+		return fmt.Errorf("failed to open csv file: %w", err)
+	}
+	defer f.Close()
+
+	// Create a scanner to read the file line by line
+	scanner := bufio.NewScanner(f)
+
+	linesRead := 0
+	logger := idx.logger.With("source", "bulk_index_posts")
+
+	// Iterate over each line in the file
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		linesRead++
+		if linesRead%1000 == 0 {
+			idx.logger.Info("processed csv lines", "lines", linesRead)
+		}
+
+		// CSV is formatted as
+		// actor_did,rkey,taken_down(time or null),violates_threadgate(False or null),cid,raw(post JSON as hex)
+		parts := strings.Split(line, ",")
+		if len(parts) != 6 {
+			logger.Error("invalid csv line", "line", line)
+			continue
+		}
+
+		did, err := syntax.ParseDID(parts[0])
+		if err != nil {
+			logger.Error("invalid DID", "did", parts[0])
+			continue
+		}
+
+		rkey, err := syntax.ParseRecordKey(parts[1])
+		if err != nil {
+			logger.Error("invalid rkey", "rkey", parts[1])
+			continue
+		}
+
+		isTakenDown := false
+		if parts[2] != "" && parts[2] != "null" {
+			isTakenDown = true
+		}
+
+		violatesThreadgate := false
+		if parts[3] != "" && parts[3] != "False" {
+			violatesThreadgate = true
+		}
+
+		if isTakenDown || violatesThreadgate {
+			continue
+		}
+
+		cid, err := cid.Parse(parts[4])
+		if err != nil {
+			logger.Error("invalid CID", "cid", parts[4])
+			continue
+		}
+
+		raw, err := hex.DecodeString(parts[5])
+		if err != nil {
+			logger.Error("invalid raw post", "raw", parts[5])
+			continue
+		}
+
+		post := appbsky.FeedPost{}
+		if err := json.Unmarshal(raw, &post); err != nil {
+			logger.Error("failed to unmarshal post", "err", err, "did", did, "rkey", rkey)
+			continue
+		}
+
+		// Lookup the profile for the identity for the actor
+		ident, err := idx.dir.LookupDID(ctx, did)
+		if err != nil {
+			logger.Error("failed to lookup identity", "err", err, "did", did)
+			continue
+		}
+
+		job := PostIndexJob{
+			ident:  ident,
+			rkey:   rkey.String(),
+			rcid:   cid,
+			record: &post,
+		}
+
+		// Send the job to the post queue
+		idx.postQueue <- &job
+	}
 
 	// Check for any scanner errors
 	if err := scanner.Err(); err != nil {
