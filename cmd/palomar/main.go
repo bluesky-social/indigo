@@ -65,7 +65,7 @@ func run(args []string) error {
 		&cli.StringFlag{
 			Name:    "elastic-password",
 			Usage:   "elasticsearch password",
-			Value:   "admin",
+			Value:   "0penSearch-Pal0mar",
 			EnvVars: []string{"ES_PASSWORD", "ELASTIC_PASSWORD"},
 		},
 		&cli.StringFlag{
