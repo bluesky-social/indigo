@@ -20,6 +20,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel/attribute"
+	"golang.org/x/time/rate"
 	gorm "gorm.io/gorm"
 
 	es "github.com/opensearch-project/opensearch-go/v2"
@@ -42,6 +43,7 @@ type Indexer struct {
 
 	enableRepoDiscovery bool
 
+	indexLimiter *rate.Limiter
 	profileQueue chan *ProfileIndexJob
 	postQueue    chan *PostIndexJob
 }
@@ -54,6 +56,7 @@ type IndexerConfig struct {
 	RelaySyncRateLimit  int
 	IndexMaxConcurrency int
 	DiscoverRepos       bool
+	IndexingRateLimit   int
 }
 
 type ProfileIndexJob struct {
@@ -92,6 +95,8 @@ func NewIndexer(db *gorm.DB, escli *es.Client, dir identity.Directory, config In
 		Host: relayHTTP,
 	}
 
+	limiter := rate.NewLimiter(rate.Limit(config.IndexingRateLimit), 1)
+
 	idx := &Indexer{
 		escli:               escli,
 		profileIndex:        config.ProfileIndex,
@@ -103,6 +108,7 @@ func NewIndexer(db *gorm.DB, escli *es.Client, dir identity.Directory, config In
 		logger:              logger,
 		enableRepoDiscovery: config.DiscoverRepos,
 
+		indexLimiter: limiter,
 		profileQueue: make(chan *ProfileIndexJob, 1000),
 		postQueue:    make(chan *PostIndexJob, 1000),
 	}
@@ -200,7 +206,12 @@ func (idx *Indexer) runPostIndexer(ctx context.Context) {
 			return
 		case <-tick.C:
 			if len(posts) > 0 {
-				err := idx.indexPosts(ctx, posts)
+				err := idx.indexLimiter.WaitN(ctx, len(posts))
+				if err != nil {
+					idx.logger.Error("failed to wait for rate limiter", "err", err)
+					continue
+				}
+				err = idx.indexPosts(ctx, posts)
 				if err != nil {
 					idx.logger.Error("failed to index posts", "err", err)
 				}
@@ -209,7 +220,12 @@ func (idx *Indexer) runPostIndexer(ctx context.Context) {
 		case job := <-idx.postQueue:
 			posts = append(posts, job)
 			if len(posts) >= 1000 {
-				err := idx.indexPosts(ctx, posts)
+				err := idx.indexLimiter.WaitN(ctx, len(posts))
+				if err != nil {
+					idx.logger.Error("failed to wait for rate limiter", "err", err)
+					continue
+				}
+				err = idx.indexPosts(ctx, posts)
 				if err != nil {
 					idx.logger.Error("failed to index posts", "err", err)
 				}
@@ -234,7 +250,12 @@ func (idx *Indexer) runProfileIndexer(ctx context.Context) {
 			return
 		case <-tick.C:
 			if len(profiles) > 0 {
-				err := idx.indexProfiles(ctx, profiles)
+				err := idx.indexLimiter.WaitN(ctx, len(profiles))
+				if err != nil {
+					idx.logger.Error("failed to wait for rate limiter", "err", err)
+					continue
+				}
+				err = idx.indexProfiles(ctx, profiles)
 				if err != nil {
 					idx.logger.Error("failed to index profiles", "err", err)
 				}
@@ -243,7 +264,12 @@ func (idx *Indexer) runProfileIndexer(ctx context.Context) {
 		case job := <-idx.profileQueue:
 			profiles = append(profiles, job)
 			if len(profiles) >= 1000 {
-				err := idx.indexProfiles(ctx, profiles)
+				err := idx.indexLimiter.WaitN(ctx, len(profiles))
+				if err != nil {
+					idx.logger.Error("failed to wait for rate limiter", "err", err)
+					continue
+				}
+				err = idx.indexProfiles(ctx, profiles)
 				if err != nil {
 					idx.logger.Error("failed to index profiles", "err", err)
 				}
@@ -279,6 +305,11 @@ func (idx *Indexer) deletePost(ctx context.Context, ident *identity.Identity, re
 		Refresh:    "true",
 	}
 
+	err = idx.indexLimiter.Wait(ctx)
+	if err != nil {
+		logger.Warn("failed to wait for rate limiter", "err", err)
+		return err
+	}
 	res, err := req.Do(ctx, idx.escli)
 	if err != nil {
 		return fmt.Errorf("failed to delete post: %w", err)
@@ -502,6 +533,11 @@ func (idx *Indexer) updateUserHandle(ctx context.Context, did syntax.DID, handle
 		Body:       bytes.NewReader(b),
 	}
 
+	err = idx.indexLimiter.Wait(ctx)
+	if err != nil {
+		log.Warn("failed to wait for rate limiter", "err", err)
+		return err
+	}
 	res, err := req.Do(ctx, idx.escli)
 	if err != nil {
 		log.Warn("failed to send indexing request", "err", err)

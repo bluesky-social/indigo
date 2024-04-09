@@ -262,6 +262,7 @@ var runCmd = &cli.Command{
 				RelaySyncRateLimit:  cctx.Int("bgs-sync-rate-limit"),
 				IndexMaxConcurrency: cctx.Int("index-max-concurrency"),
 				DiscoverRepos:       cctx.Bool("discover-repos"),
+				IndexingRateLimit:   50_000, // 50k per second
 			}
 
 			idx, err := search.NewIndexer(db, escli, &dir, indexerConfig)
