@@ -6,11 +6,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/ipfs/go-cid"
 )
 
 type bufferedOp struct {
-	kind string
+	kind repomgr.EventKind
 	path string
 	rec  *[]byte
 	cid  *cid.Cid
@@ -81,7 +82,7 @@ func (s *Memstore) EnqueueJobWithState(repo, state string) error {
 	return nil
 }
 
-func (s *Memstore) BufferOp(ctx context.Context, repo string, since *string, rev, kind, path string, rec *[]byte, cid *cid.Cid) (bool, error) {
+func (s *Memstore) BufferOp(ctx context.Context, repo string, since *string, rev string, kind repomgr.EventKind, path string, rec *[]byte, cid *cid.Cid) (bool, error) {
 	s.lk.Lock()
 
 	// If the job doesn't exist, we can't buffer an op for it
@@ -199,7 +200,7 @@ func (j *Memjob) SetRev(ctx context.Context, rev string) error {
 	return nil
 }
 
-func (j *Memjob) FlushBufferedOps(ctx context.Context, fn func(kind, rev, path string, rec *[]byte, cid *cid.Cid) error) error {
+func (j *Memjob) FlushBufferedOps(ctx context.Context, fn func(kind repomgr.EventKind, rev, path string, rec *[]byte, cid *cid.Cid) error) error {
 	panic("TODO: copy what we end up doing from the gormstore")
 	/*
 		j.lk.Lock()
