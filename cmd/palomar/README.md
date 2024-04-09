@@ -19,7 +19,7 @@ Currently only a simple query string syntax is supported. Double-quotes can surr
 
 Palomar uses environment variables for configuration.
 
-- `ATP_BGS_HOST`: URL of firehose to subscribe to, either global BGS or individual PDS (default: `wss://bsky.social`)
+- `ATP_RELAY_HOST`: URL of firehose to subscribe to, either global Relay or individual PDS (default: `wss://bsky.network`)
 - `ATP_PLC_HOST`: PLC directory for identity lookups (default: `https://plc.directory`)
 - `DATABASE_URL`: connection string for database to persist firehose cursor subscription state
 - `PALOMAR_BIND`: IP/port to have HTTP API listen on (default: `:3999`)

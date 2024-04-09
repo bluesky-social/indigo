@@ -58,9 +58,9 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 	}
 
 	d := websocket.DefaultDialer
-	u, err := url.Parse(s.bgshost)
+	u, err := url.Parse(s.relayHost)
 	if err != nil {
-		return fmt.Errorf("invalid bgshost URI: %w", err)
+		return fmt.Errorf("invalid relayHost URI: %w", err)
 	}
 	u.Path = "xrpc/com.atproto.sync.subscribeRepos"
 	if cur != 0 {
@@ -132,7 +132,7 @@ func (s *Server) RunIndexer(ctx context.Context) error {
 	return events.HandleRepoStream(
 		ctx, con, autoscaling.NewScheduler(
 			autoscaling.DefaultAutoscaleSettings(),
-			s.bgshost,
+			s.relayHost,
 			rsc.EventHandler,
 		),
 	)
@@ -150,7 +150,7 @@ func (s *Server) discoverRepos() {
 	totalErrored := 0
 
 	for {
-		resp, err := comatproto.SyncListRepos(ctx, s.bgsxrpc, cursor, limit)
+		resp, err := comatproto.SyncListRepos(ctx, s.relayClient, cursor, limit)
 		if err != nil {
 			log.Error("failed to list repos", "err", err)
 			time.Sleep(5 * time.Second)
@@ -260,7 +260,7 @@ func (s *Server) handleDelete(ctx context.Context, rawDID, rev, path string) err
 }
 
 func (s *Server) processTooBigCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
-	repodata, err := comatproto.SyncGetRepo(ctx, s.bgsxrpc, evt.Repo, "")
+	repodata, err := comatproto.SyncGetRepo(ctx, s.relayClient, evt.Repo, "")
 	if err != nil {
 		return err
 	}

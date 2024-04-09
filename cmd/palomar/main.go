@@ -87,10 +87,10 @@ func run(args []string) error {
 			EnvVars: []string{"ES_PROFILE_INDEX"},
 		},
 		&cli.StringFlag{
-			Name:    "atp-bgs-host",
-			Usage:   "hostname and port of BGS to subscribe to",
-			Value:   "wss://bsky.social",
-			EnvVars: []string{"ATP_BGS_HOST"},
+			Name:    "atp-relay-host",
+			Usage:   "hostname and port of Relay to subscribe to",
+			Value:   "wss://bsky.network",
+			EnvVars: []string{"ATP_RELAY_HOST", "ATP_BGS_HOST"},
 		},
 		&cli.StringFlag{
 			Name:    "atp-plc-host",
@@ -141,10 +141,10 @@ var runCmd = &cli.Command{
 			EnvVars: []string{"PALOMAR_METRICS_LISTEN"},
 		},
 		&cli.IntFlag{
-			Name:    "bgs-sync-rate-limit",
-			Usage:   "max repo sync (checkout) requests per second to upstream (BGS)",
+			Name:    "relay-sync-rate-limit",
+			Usage:   "max repo sync (checkout) requests per second to upstream (Relay)",
 			Value:   8,
-			EnvVars: []string{"PALOMAR_BGS_SYNC_RATE_LIMIT"},
+			EnvVars: []string{"PALOMAR_RELAY_SYNC_RATE_LIMIT", "PALOMAR_BGS_SYNC_RATE_LIMIT"},
 		},
 		&cli.IntFlag{
 			Name:    "index-max-concurrency",
@@ -233,11 +233,11 @@ var runCmd = &cli.Command{
 			escli,
 			&dir,
 			search.Config{
-				BGSHost:             cctx.String("atp-bgs-host"),
+				RelayHost:           cctx.String("atp-relay-host"),
 				ProfileIndex:        cctx.String("es-profile-index"),
 				PostIndex:           cctx.String("es-post-index"),
 				Logger:              logger,
-				BGSSyncRateLimit:    cctx.Int("bgs-sync-rate-limit"),
+				RelaySyncRateLimit:  cctx.Int("relay-sync-rate-limit"),
 				IndexMaxConcurrency: cctx.Int("index-max-concurrency"),
 			},
 		)
