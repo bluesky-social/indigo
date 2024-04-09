@@ -23,16 +23,16 @@ func init() {
 	log.SetAllLoggers(log.LevelInfo)
 }
 
-func TestBGSBasic(t *testing.T) {
+func TestRelayBasic(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping BGS test in 'short' test mode")
+		t.Skip("skipping Relay test in 'short' test mode")
 	}
 	assert := assert.New(t)
 	didr := TestPLC(t)
 	p1 := MustSetupPDS(t, ".tpds", didr)
 	p1.Run(t)
 
-	b1 := MustSetupBGS(t, didr)
+	b1 := MustSetupRelay(t, didr)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost()}
@@ -114,9 +114,9 @@ func socialSim(t *testing.T, users []*TestUser, postiter, likeiter int) []*atpro
 	return posts
 }
 
-func TestBGSMultiPDS(t *testing.T) {
+func TestRelayMultiPDS(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping BGS test in 'short' test mode")
+		t.Skip("skipping Relay test in 'short' test mode")
 	}
 	//t.Skip("test too sleepy to run in CI for now")
 
@@ -129,7 +129,7 @@ func TestBGSMultiPDS(t *testing.T) {
 	p2 := MustSetupPDS(t, ".pdsdos", didr)
 	p2.Run(t)
 
-	b1 := MustSetupBGS(t, didr)
+	b1 := MustSetupRelay(t, didr)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost(), p2.RawHost()}
@@ -158,7 +158,7 @@ func TestBGSMultiPDS(t *testing.T) {
 
 	users[0].Reply(t, p2posts[0], p2posts[0], "what a wonderful life")
 
-	// now if we make posts on pds 2, the bgs will not hear about those new posts
+	// now if we make posts on pds 2, the relay will not hear about those new posts
 
 	p2posts2 := socialSim(t, users2, 10, 10)
 
@@ -168,12 +168,12 @@ func TestBGSMultiPDS(t *testing.T) {
 	p2.BumpLimits(t, b1)
 	time.Sleep(time.Millisecond * 50)
 
-	// Now, the bgs will discover a gap, and have to catch up somehow
+	// Now, the relay will discover a gap, and have to catch up somehow
 	socialSim(t, users2, 1, 0)
 
 	time.Sleep(time.Second)
 
-	// we expect the bgs to learn about posts that it did not directly see from
+	// we expect the relay to learn about posts that it did not directly see from
 	// repos its already partially scraped, as long as its seen *something* after the missing post
 	// this is the 'catchup' process
 	ctx := context.Background()
@@ -183,9 +183,9 @@ func TestBGSMultiPDS(t *testing.T) {
 	}
 }
 
-func TestBGSMultiGap(t *testing.T) {
+func TestRelayMultiGap(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping BGS test in 'short' test mode")
+		t.Skip("skipping Relay test in 'short' test mode")
 	}
 	//t.Skip("test too sleepy to run in CI for now")
 	assert := assert.New(t)
@@ -197,7 +197,7 @@ func TestBGSMultiGap(t *testing.T) {
 	p2 := MustSetupPDS(t, ".pdsdos", didr)
 	p2.Run(t)
 
-	b1 := MustSetupBGS(t, didr)
+	b1 := MustSetupRelay(t, didr)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost(), p2.RawHost()}
@@ -223,7 +223,7 @@ func TestBGSMultiGap(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// now if we make posts on pds 2, the bgs will not hear about those new posts
+	// now if we make posts on pds 2, the relay will not hear about those new posts
 
 	p2posts2 := socialSim(t, users2, 10, 0)
 
@@ -233,12 +233,12 @@ func TestBGSMultiGap(t *testing.T) {
 	p2.BumpLimits(t, b1)
 	time.Sleep(time.Second * 2)
 
-	// Now, the bgs will discover a gap, and have to catch up somehow
+	// Now, the relay will discover a gap, and have to catch up somehow
 	socialSim(t, users2, 1, 0)
 
 	time.Sleep(time.Second * 2)
 
-	// we expect the bgs to learn about posts that it did not directly see from
+	// we expect the relay to learn about posts that it did not directly see from
 	// repos its already partially scraped, as long as its seen *something* after the missing post
 	// this is the 'catchup' process
 	_, err = b1.bgs.Index.GetPost(ctx, p2posts2[4].Uri)
@@ -255,7 +255,7 @@ func TestHandleChange(t *testing.T) {
 	p1 := MustSetupPDS(t, ".pdsuno", didr)
 	p1.Run(t)
 
-	b1 := MustSetupBGS(t, didr)
+	b1 := MustSetupRelay(t, didr)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost()}
@@ -268,7 +268,7 @@ func TestHandleChange(t *testing.T) {
 
 	u := p1.MustNewUser(t, usernames[0]+".pdsuno")
 
-	// if the handle changes before the bgs processes the first event, things
+	// if the handle changes before the relay processes the first event, things
 	// get a little weird
 	time.Sleep(time.Millisecond * 50)
 	//socialSim(t, []*testUser{u}, 10, 0)
@@ -285,9 +285,9 @@ func TestHandleChange(t *testing.T) {
 	fmt.Println(idevt.RepoIdentity)
 }
 
-func TestBGSTakedown(t *testing.T) {
+func TestRelayTakedown(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping BGS test in 'short' test mode")
+		t.Skip("skipping Relay test in 'short' test mode")
 	}
 	assert := assert.New(t)
 	_ = assert
@@ -296,7 +296,7 @@ func TestBGSTakedown(t *testing.T) {
 	p1 := MustSetupPDS(t, ".tpds", didr)
 	p1.Run(t)
 
-	b1 := MustSetupBGS(t, didr)
+	b1 := MustSetupRelay(t, didr)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost()}
@@ -371,11 +371,11 @@ func commitFromSlice(t *testing.T, slice []byte, rcid cid.Cid) *repo.SignedCommi
 
 func TestDomainBans(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping BGS test in 'short' test mode")
+		t.Skip("skipping Relay test in 'short' test mode")
 	}
 	didr := TestPLC(t)
 
-	b1 := MustSetupBGS(t, didr)
+	b1 := MustSetupRelay(t, didr)
 	b1.Run(t)
 
 	b1.BanDomain(t, "foo.com")
@@ -409,16 +409,16 @@ func TestDomainBans(t *testing.T) {
 	}
 }
 
-func TestBGSHandleEmptyEvent(t *testing.T) {
+func TestRelayHandleEmptyEvent(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping BGS test in 'short' test mode")
+		t.Skip("skipping Relay test in 'short' test mode")
 	}
 	assert := assert.New(t)
 	didr := TestPLC(t)
 	p1 := MustSetupPDS(t, ".tpds", didr)
 	p1.Run(t)
 
-	b1 := MustSetupBGS(t, didr)
+	b1 := MustSetupRelay(t, didr)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost()}

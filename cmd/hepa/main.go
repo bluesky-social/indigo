@@ -41,10 +41,10 @@ func run(args []string) error {
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:    "atp-bgs-host",
-			Usage:   "hostname and port of BGS to subscribe to",
+			Name:    "atp-relay-host",
+			Usage:   "hostname and port of Relay to subscribe to",
 			Value:   "wss://bsky.network",
-			EnvVars: []string{"ATP_BGS_HOST"},
+			EnvVars: []string{"ATP_RELAY_HOST", "ATP_BGS_HOST"},
 		},
 		&cli.StringFlag{
 			Name:    "atp-plc-host",
@@ -219,7 +219,7 @@ var runCmd = &cli.Command{
 		srv, err := NewServer(
 			dir,
 			Config{
-				BGSHost:             cctx.String("atp-bgs-host"),
+				RelayHost:           cctx.String("atp-relay-host"),
 				BskyHost:            cctx.String("atp-bsky-host"),
 				Logger:              logger,
 				ModHost:             cctx.String("atp-mod-host"),
@@ -286,7 +286,7 @@ func configEphemeralServer(cctx *cli.Context) (*Server, error) {
 	return NewServer(
 		dir,
 		Config{
-			BGSHost:             cctx.String("atp-bgs-host"),
+			RelayHost:           cctx.String("atp-relay-host"),
 			BskyHost:            cctx.String("atp-bsky-host"),
 			Logger:              logger,
 			ModHost:             cctx.String("atp-mod-host"),

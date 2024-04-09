@@ -164,7 +164,7 @@ func (tp *TestPDS) Run(t *testing.T) {
 	}
 }
 
-func (tp *TestPDS) RequestScraping(t *testing.T, b *TestBGS) {
+func (tp *TestPDS) RequestScraping(t *testing.T, b *TestRelay) {
 	t.Helper()
 
 	c := &xrpc.Client{Host: "http://" + b.Host()}
@@ -173,7 +173,7 @@ func (tp *TestPDS) RequestScraping(t *testing.T, b *TestBGS) {
 	}
 }
 
-func (tp *TestPDS) BumpLimits(t *testing.T, b *TestBGS) {
+func (tp *TestPDS) BumpLimits(t *testing.T, b *TestRelay) {
 	t.Helper()
 
 	err := b.bgs.CreateAdminToken("test")
@@ -413,24 +413,24 @@ func TestPLC(t *testing.T) *plc.FakeDid {
 	return plc.NewFakeDid(db)
 }
 
-type TestBGS struct {
+type TestRelay struct {
 	bgs *bgs.BGS
 	tr  *api.TestHandleResolver
 	db  *gorm.DB
 
-	// listener is owned by by the BGS structure and should be closed by
-	// shutting down the BGS.
+	// listener is owned by by the Relay structure and should be closed by
+	// shutting down the Relay.
 	listener net.Listener
 }
 
-func (t *TestBGS) Host() string {
+func (t *TestRelay) Host() string {
 	return t.listener.Addr().String()
 }
 
-func MustSetupBGS(t *testing.T, didr plc.PLCClient) *TestBGS {
+func MustSetupRelay(t *testing.T, didr plc.PLCClient) *TestRelay {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	tbgs, err := SetupBGS(ctx, didr)
+	tbgs, err := SetupRelay(ctx, didr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -438,7 +438,7 @@ func MustSetupBGS(t *testing.T, didr plc.PLCClient) *TestBGS {
 	return tbgs
 }
 
-func SetupBGS(ctx context.Context, didr plc.PLCClient) (*TestBGS, error) {
+func SetupRelay(ctx context.Context, didr plc.PLCClient) (*TestRelay, error) {
 	dir, err := os.MkdirTemp("", "integtest")
 	if err != nil {
 		return nil, err
@@ -485,9 +485,9 @@ func SetupBGS(ctx context.Context, didr plc.PLCClient) (*TestBGS, error) {
 
 	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
 		if err := ix.HandleRepoEvent(ctx, evt); err != nil {
-			fmt.Println("test bgs failed to handle repo event", err)
+			fmt.Println("test relay failed to handle repo event", err)
 		}
-	}, true) // TODO: actually want this to be false, but some tests use this to confirm the BGS has seen certain records
+	}, true) // TODO: actually want this to be false, but some tests use this to confirm the Relay has seen certain records
 
 	tr := &api.TestHandleResolver{}
 
@@ -502,7 +502,7 @@ func SetupBGS(ctx context.Context, didr plc.PLCClient) (*TestBGS, error) {
 		return nil, err
 	}
 
-	return &TestBGS{
+	return &TestRelay{
 		db:       maindb,
 		bgs:      b,
 		tr:       tr,
@@ -510,7 +510,7 @@ func SetupBGS(ctx context.Context, didr plc.PLCClient) (*TestBGS, error) {
 	}, nil
 }
 
-func (b *TestBGS) Run(t *testing.T) {
+func (b *TestRelay) Run(t *testing.T) {
 	go func() {
 		if err := b.bgs.StartWithListener(b.listener); err != nil {
 			fmt.Println(err)
@@ -519,7 +519,7 @@ func (b *TestBGS) Run(t *testing.T) {
 	time.Sleep(time.Millisecond * 10)
 }
 
-func (b *TestBGS) BanDomain(t *testing.T, d string) {
+func (b *TestRelay) BanDomain(t *testing.T, d string) {
 	t.Helper()
 
 	if err := b.db.Create(&models.DomainBan{
@@ -537,7 +537,7 @@ type EventStream struct {
 	Cur int
 }
 
-func (b *TestBGS) Events(t *testing.T, since int64) *EventStream {
+func (b *TestRelay) Events(t *testing.T, since int64) *EventStream {
 	d := websocket.Dialer{}
 	h := http.Header{}
 

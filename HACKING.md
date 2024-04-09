@@ -3,7 +3,7 @@
 
 Run with, eg, `go run ./cmd/bigsky`):
 
-- `cmd/bigsky`: BGS+indexer daemon
+- `cmd/bigsky`: Relay+indexer daemon
 - `cmd/palomar`: search indexer and query servcie (OpenSearch)
 - `cmd/gosky`: client CLI for talking to a PDS
 - `cmd/lexgen`: codegen tool for lexicons (Lexicon JSON to Go package)
@@ -25,7 +25,7 @@ Packages:
 - `atproto/syntax`: string types and parsers for identifiers, datetimes, etc
 - `atproto/identity`: DID and handle resolution
 - `automod`: moderation and anti-spam rules engine
-- `bgs`: server implementation for crawling, etc
+- `bgs`: relay server implementation for crawling, etc
 - `carstore`: library for storing repo data in CAR files on disk, plus a metadata SQL db
 - `events`: types, codegen CBOR helpers, and persistence for event feeds
 - `indexer`: aggregator, handling like counts etc in SQL database
@@ -45,7 +45,8 @@ Packages:
 
 ## Jargon
 
-- BGS: Big Graph Service (or Server), which centrals crawls/consumes content from "all" PDSs and re-broadcasts as a firehose
+- Relay: service which crawls/consumes content from "all" PDSs and re-broadcasts as a firehose
+- BGS: Big Graph Service, previous name for what is now "Relay"
 - PDS: Personal Data Server (or Service), which stores user atproto repositories and acts as a user agent in the network
 - CLI: Command Line Tool
 - CBOR: a binary serialization format, smilar to JSON
@@ -89,12 +90,12 @@ When debugging websocket streams, the `websocat` tool (rust) can be helpful. CBO
     # consume repo events from PDS
     websocat ws://localhost:4989/events
 
-    # consume repo events from BGS
+    # consume repo events from Relay
     websocat ws://localhost:2470/events
 
-Send the BGS a ding-dong:
+Send the Relay a ding-dong:
 
-    # tell BGS to consume from PDS
+    # tell Relay to consume from PDS
     http --json post localhost:2470/add-target host="localhost:4989"
 
 Set the log level to be more verbose, using an env variable:
@@ -114,7 +115,7 @@ The `bsky.auth` file is the default place that `gosky` and other client commands
 
 ## Integrated Development
 
-Sometimes it is helpful to run a PLC, PDS, BGS, and other components, all locally on your laptop, across languages. This section describes one setup for this.
+Sometimes it is helpful to run a PLC, PDS, Relay, and other components, all locally on your laptop, across languages. This section describes one setup for this.
 
 First, you need PostgreSQL running locally. This could be via docker, or the following commands assume some kind of debian/ubuntu setup with a postgres server package installed and running.
 
@@ -139,9 +140,9 @@ Checkout the `atproto` repo in another terminal and run:
 
     make run-dev-pds
 
-In this repo (indigo), start a BGS, in two separate terminals:
+In this repo (indigo), start a Relay, in two separate terminals:
 
-    make run-dev-bgs
+    make run-dev-relay
 
 In a final terminal, run fakermaker to inject data into the system:
 
