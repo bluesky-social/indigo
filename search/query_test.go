@@ -1,3 +1,5 @@
+//go:build localsearch
+
 package search
 
 import (
