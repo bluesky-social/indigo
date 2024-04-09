@@ -168,7 +168,7 @@ func (s *Gormstore) createJobForRepo(repo, state string) error {
 	return nil
 }
 
-func (j *Gormjob) BufferOps(ctx context.Context, since *string, rev string, ops []*bufferedOp) (bool, error) {
+func (j *Gormjob) BufferOps(ctx context.Context, since *string, rev string, ops []*BufferedOp) (bool, error) {
 	j.lk.Lock()
 	defer j.lk.Unlock()
 
@@ -373,7 +373,7 @@ func (j *Gormjob) FlushBufferedOps(ctx context.Context, fn func(kind repomgr.Eve
 		}
 
 		for _, op := range opset.ops {
-			if err := fn(op.kind, opset.rev, op.path, op.rec, op.cid); err != nil {
+			if err := fn(op.Kind, opset.rev, op.Path, op.Record, op.Cid); err != nil {
 				return err
 			}
 		}
