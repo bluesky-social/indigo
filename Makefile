@@ -78,6 +78,11 @@ cborgen: ## Run codegen tool for CBOR serialization
 run-postgres: .env ## Runs a local postgres instance
 	docker compose -f cmd/bigsky/docker-compose.yml up -d
 
+.PHONY: run-dev-opensearch
+run-dev-opensearch: .env ## Runs a local opensearch instance
+	docker build -f cmd/palomar/Dockerfile.opensearch . -t opensearch-palomar
+	docker run -p 9200:9200 -p 9600:9600 -e "discovery.type=single-node" -e "plugins.security.disabled=true" -e "OPENSEARCH_INITIAL_ADMIN_PASSWORD=0penSearch-Pal0mar" opensearch-palomar
+
 .PHONY: run-dev-relay
 run-dev-relay: .env ## Runs 'bigsky' Relay for local dev
 	GOLOG_LOG_LEVEL=info go run ./cmd/bigsky --admin-key localdev 
