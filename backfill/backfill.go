@@ -30,7 +30,10 @@ type Job interface {
 	SetRev(ctx context.Context, rev string) error
 	RetryCount() int
 
-	BufferOps(ctx context.Context, since *string, rev string, ops []*bufferedOp) (bool, error)
+	// BufferOps buffers the given operations and returns true if the operations
+	// were buffered.
+	// The given operations move the repo from since to rev.
+	BufferOps(ctx context.Context, since *string, rev string, ops []*BufferedOp) (bool, error)
 	// FlushBufferedOps calls the given callback for each buffered operation
 	// Once done it clears the buffer and marks the job as "complete"
 	// Allowing the Job interface to abstract away the details of how buffered
@@ -465,7 +468,7 @@ func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscrib
 		return fmt.Errorf("failed to read event repo: %w", err)
 	}
 
-	var ops []*bufferedOp
+	var ops []*BufferedOp
 	for _, op := range evt.Ops {
 		kind := repomgr.EventKind(op.Action)
 		switch kind {
@@ -474,17 +477,16 @@ func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscrib
 			if err != nil {
 				return fmt.Errorf("getting record failed (%s,%s): %w", op.Action, op.Path, err)
 			}
-
-			ops = append(ops, &bufferedOp{
-				kind: kind,
-				path: op.Path,
-				rec:  rec,
-				cid:  &cc,
+			ops = append(ops, &BufferedOp{
+				Kind:   kind,
+				Path:   op.Path,
+				Record: rec,
+				Cid:    &cc,
 			})
 		case repomgr.EvtKindDeleteRecord:
-			ops = append(ops, &bufferedOp{
-				kind: kind,
-				path: op.Path,
+			ops = append(ops, &BufferedOp{
+				Kind: kind,
+				Path: op.Path,
 			})
 		default:
 			return fmt.Errorf("invalid op action: %q", op.Action)
@@ -511,17 +513,17 @@ func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscrib
 	}
 
 	for _, op := range ops {
-		switch op.kind {
+		switch op.Kind {
 		case repomgr.EvtKindCreateRecord:
-			if err := bf.HandleCreateRecord(ctx, evt.Repo, evt.Rev, op.path, op.rec, op.cid); err != nil {
+			if err := bf.HandleCreateRecord(ctx, evt.Repo, evt.Rev, op.Path, op.Record, op.Cid); err != nil {
 				return fmt.Errorf("create record failed: %w", err)
 			}
 		case repomgr.EvtKindUpdateRecord:
-			if err := bf.HandleUpdateRecord(ctx, evt.Repo, evt.Rev, op.path, op.rec, op.cid); err != nil {
+			if err := bf.HandleUpdateRecord(ctx, evt.Repo, evt.Rev, op.Path, op.Record, op.Cid); err != nil {
 				return fmt.Errorf("update record failed: %w", err)
 			}
 		case repomgr.EvtKindDeleteRecord:
-			if err := bf.HandleDeleteRecord(ctx, evt.Repo, evt.Rev, op.path); err != nil {
+			if err := bf.HandleDeleteRecord(ctx, evt.Repo, evt.Rev, op.Path); err != nil {
 				return fmt.Errorf("delete record failed: %w", err)
 			}
 		}
@@ -535,15 +537,15 @@ func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscrib
 }
 
 func (bf *Backfiller) BufferOp(ctx context.Context, repo string, since *string, rev string, kind repomgr.EventKind, path string, rec *[]byte, cid *cid.Cid) (bool, error) {
-	return bf.BufferOps(ctx, repo, since, rev, []*bufferedOp{{
-		path: path,
-		kind: kind,
-		rec:  rec,
-		cid:  cid,
+	return bf.BufferOps(ctx, repo, since, rev, []*BufferedOp{{
+		Path:   path,
+		Kind:   kind,
+		Record: rec,
+		Cid:    cid,
 	}})
 }
 
-func (bf *Backfiller) BufferOps(ctx context.Context, repo string, since *string, rev string, ops []*bufferedOp) (bool, error) {
+func (bf *Backfiller) BufferOps(ctx context.Context, repo string, since *string, rev string, ops []*BufferedOp) (bool, error) {
 	j, err := bf.Store.GetJob(ctx, repo)
 	if err != nil {
 		if !errors.Is(err, ErrJobNotFound) {
