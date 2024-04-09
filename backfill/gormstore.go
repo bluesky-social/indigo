@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/ipfs/go-cid"
 	"gorm.io/gorm"
 )
@@ -328,7 +329,7 @@ func (j *Gormjob) SetState(ctx context.Context, state string) error {
 	return j.db.Save(j.dbj).Error
 }
 
-func (j *Gormjob) FlushBufferedOps(ctx context.Context, fn func(kind, rev, path string, rec *[]byte, cid *cid.Cid) error) error {
+func (j *Gormjob) FlushBufferedOps(ctx context.Context, fn func(kind repomgr.EventKind, rev, path string, rec *[]byte, cid *cid.Cid) error) error {
 	// TODO: this will block any events for this repo while this flush is ongoing, is that okay?
 	j.lk.Lock()
 	defer j.lk.Unlock()
