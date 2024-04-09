@@ -153,6 +153,12 @@ var runCmd = &cli.Command{
 			EnvVars: []string{"PALOMAR_INDEX_MAX_CONCURRENCY"},
 		},
 		&cli.IntFlag{
+			Name:    "indexing-rate-limit",
+			Usage:   "max number of documents per second to index",
+			Value:   50_000,
+			EnvVars: []string{"PALOMAR_INDEXING_RATE_LIMIT"},
+		},
+		&cli.IntFlag{
 			Name:    "plc-rate-limit",
 			Usage:   "max number of requests per second to PLC registry",
 			Value:   100,
@@ -262,7 +268,7 @@ var runCmd = &cli.Command{
 				RelaySyncRateLimit:  cctx.Int("bgs-sync-rate-limit"),
 				IndexMaxConcurrency: cctx.Int("index-max-concurrency"),
 				DiscoverRepos:       cctx.Bool("discover-repos"),
-				IndexingRateLimit:   50_000, // 50k per second
+				IndexingRateLimit:   cctx.Int("indexing-rate-limit"),
 			}
 
 			idx, err := search.NewIndexer(db, escli, &dir, indexerConfig)
