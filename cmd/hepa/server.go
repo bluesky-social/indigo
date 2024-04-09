@@ -27,7 +27,7 @@ import (
 )
 
 type Server struct {
-	bgshost             string
+	relayHost           string
 	firehoseParallelism int
 	logger              *slog.Logger
 	engine              *automod.Engine
@@ -41,7 +41,7 @@ type Server struct {
 }
 
 type Config struct {
-	BGSHost             string
+	RelayHost           string
 	BskyHost            string
 	ModHost             string
 	ModAdminToken       string
@@ -67,9 +67,9 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		}))
 	}
 
-	bgsws := config.BGSHost
-	if !strings.HasPrefix(bgsws, "ws") {
-		return nil, fmt.Errorf("specified bgs host must include 'ws://' or 'wss://'")
+	relayws := config.RelayHost
+	if !strings.HasPrefix(relayws, "ws") {
+		return nil, fmt.Errorf("specified relay host must include 'ws://' or 'wss://'")
 	}
 
 	// TODO: this isn't a very robust way to handle a persistent client
@@ -206,7 +206,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 	}
 
 	s := &Server{
-		bgshost:             config.BGSHost,
+		relayHost:           config.RelayHost,
 		firehoseParallelism: config.FirehoseParallelism,
 		logger:              logger,
 		engine:              &engine,
