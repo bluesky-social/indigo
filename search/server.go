@@ -29,8 +29,8 @@ type Server struct {
 	postIndex    string
 	profileIndex string
 	db           *gorm.DB
-	bgshost      string
-	bgsxrpc      *xrpc.Client
+	relayHost    string
+	relayClient  *xrpc.Client
 	dir          identity.Directory
 	echo         *echo.Echo
 	logger       *slog.Logger
@@ -47,11 +47,11 @@ type LastSeq struct {
 }
 
 type Config struct {
-	BGSHost             string
+	RelayHost           string
 	ProfileIndex        string
 	PostIndex           string
 	Logger              *slog.Logger
-	BGSSyncRateLimit    int
+	RelaySyncRateLimit  int
 	IndexMaxConcurrency int
 	DiscoverRepos       bool
 }
@@ -68,14 +68,14 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 	db.AutoMigrate(&LastSeq{})
 	db.AutoMigrate(&backfill.GormDBJob{})
 
-	bgsws := config.BGSHost
-	if !strings.HasPrefix(bgsws, "ws") {
-		return nil, fmt.Errorf("specified bgs host must include 'ws://' or 'wss://'")
+	relayws := config.RelayHost
+	if !strings.HasPrefix(relayws, "ws") {
+		return nil, fmt.Errorf("specified relay host must include 'ws://' or 'wss://'")
 	}
 
-	bgshttp := strings.Replace(bgsws, "ws", "http", 1)
-	bgsxrpc := &xrpc.Client{
-		Host: bgshttp,
+	relayhttp := strings.Replace(relayws, "ws", "http", 1)
+	relayClient := &xrpc.Client{
+		Host: relayhttp,
 	}
 
 	s := &Server{
@@ -83,8 +83,8 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 		profileIndex:        config.ProfileIndex,
 		postIndex:           config.PostIndex,
 		db:                  db,
-		bgshost:             config.BGSHost, // NOTE: the original URL, not 'bgshttp'
-		bgsxrpc:             bgsxrpc,
+		relayHost:           config.RelayHost, // NOTE: the original URL, not 'relayhttp'
+		relayClient:         relayClient,
 		dir:                 dir,
 		logger:              logger,
 		enableRepoDiscovery: config.DiscoverRepos,
@@ -92,13 +92,13 @@ func NewServer(db *gorm.DB, escli *es.Client, dir identity.Directory, config Con
 
 	bfstore := backfill.NewGormstore(db)
 	opts := backfill.DefaultBackfillOptions()
-	if config.BGSSyncRateLimit > 0 {
-		opts.SyncRequestsPerSecond = config.BGSSyncRateLimit
-		opts.ParallelBackfills = 2 * config.BGSSyncRateLimit
+	if config.RelaySyncRateLimit > 0 {
+		opts.SyncRequestsPerSecond = config.RelaySyncRateLimit
+		opts.ParallelBackfills = 2 * config.RelaySyncRateLimit
 	} else {
 		opts.SyncRequestsPerSecond = 8
 	}
-	opts.CheckoutPath = fmt.Sprintf("%s/xrpc/com.atproto.sync.getRepo", bgshttp)
+	opts.CheckoutPath = fmt.Sprintf("%s/xrpc/com.atproto.sync.getRepo", relayhttp)
 	if config.IndexMaxConcurrency > 0 {
 		opts.ParallelRecordCreates = config.IndexMaxConcurrency
 	} else {
