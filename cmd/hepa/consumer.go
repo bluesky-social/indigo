@@ -32,15 +32,15 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 	}
 
 	dialer := websocket.DefaultDialer
-	u, err := url.Parse(s.bgshost)
+	u, err := url.Parse(s.relayHost)
 	if err != nil {
-		return fmt.Errorf("invalid bgshost URI: %w", err)
+		return fmt.Errorf("invalid relayHost URI: %w", err)
 	}
 	u.Path = "xrpc/com.atproto.sync.subscribeRepos"
 	if cur != 0 {
 		u.RawQuery = fmt.Sprintf("cursor=%d", cur)
 	}
-	s.logger.Info("subscribing to repo event stream", "upstream", s.bgshost, "cursor", cur)
+	s.logger.Info("subscribing to repo event stream", "upstream", s.relayHost, "cursor", cur)
 	con, _, err := dialer.Dial(u.String(), http.Header{
 		"User-Agent": []string{fmt.Sprintf("hepa/%s", versioninfo.Short())},
 	})
@@ -98,7 +98,7 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 		scheduler = parallel.NewScheduler(
 			s.firehoseParallelism,
 			1000,
-			s.bgshost,
+			s.relayHost,
 			rsc.EventHandler,
 		)
 		s.logger.Info("hepa scheduler configured", "scheduler", "parallel", "initial", s.firehoseParallelism)
@@ -108,7 +108,7 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 		// start at higher parallelism (somewhat arbitrary)
 		scaleSettings.Concurrency = 4
 		scaleSettings.MaxConcurrency = 200
-		scheduler = autoscaling.NewScheduler(scaleSettings, s.bgshost, rsc.EventHandler)
+		scheduler = autoscaling.NewScheduler(scaleSettings, s.relayHost, rsc.EventHandler)
 		s.logger.Info("hepa scheduler configured", "scheduler", "autoscaling", "initial", scaleSettings.Concurrency, "max", scaleSettings.MaxConcurrency)
 	}
 

@@ -78,17 +78,17 @@ cborgen: ## Run codegen tool for CBOR serialization
 run-postgres: .env ## Runs a local postgres instance
 	docker compose -f cmd/bigsky/docker-compose.yml up -d
 
-.PHONY: run-dev-bgs
-run-dev-bgs: .env ## Runs 'bigsky' BGS for local dev
+.PHONY: run-dev-relay
+run-dev-relay: .env ## Runs 'bigsky' Relay for local dev
 	GOLOG_LOG_LEVEL=info go run ./cmd/bigsky --admin-key localdev 
 # --crawl-insecure-ws 
 
-.PHONY: build-bgs-image
-build-bgs-image: ## Builds 'bigsky' BGS docker image
+.PHONY: build-relay-image
+build-relay-image: ## Builds 'bigsky' Relay docker image
 	docker build -t bigsky -f cmd/bigsky/Dockerfile .
 
-.PHONY: run-bgs-image
-run-bgs-image:
+.PHONY: run-relay-image
+run-relay-image:
 	docker run -p 2470:2470 bigsky /bigsky --admin-key localdev
 # --crawl-insecure-ws 
 
