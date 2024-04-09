@@ -1,6 +1,6 @@
 
-bigsky: A Big Graph Server (BGS)
-================================
+bigsky: Big Graph Server (BGS), aka Relay
+=========================================
 
 ## Database Setup
 

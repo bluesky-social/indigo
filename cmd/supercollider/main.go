@@ -86,7 +86,7 @@ func main() {
 
 	app := cli.App{
 		Name:    "supercollider",
-		Usage:   "atproto event noise-maker for BGS load testing",
+		Usage:   "atproto event noise-maker for Relay load testing",
 		Version: versioninfo.Short(),
 	}
 
