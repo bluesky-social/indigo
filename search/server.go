@@ -158,9 +158,13 @@ func (s *Server) EnsureIndices(ctx context.Context) error {
 				return err
 			}
 			defer resp.Body.Close()
-			io.ReadAll(resp.Body)
+			errBytes, err := io.ReadAll(resp.Body)
 			if resp.IsError() {
+				s.logger.Error("failed to create index", "index", idx.Name, "response", string(errBytes))
 				return fmt.Errorf("failed to create index")
+			}
+			if err != nil {
+				return err
 			}
 		}
 	}
