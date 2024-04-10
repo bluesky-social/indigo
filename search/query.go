@@ -64,10 +64,14 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 		return nil, err
 	}
 	queryStr, filters := ParseQuery(ctx, dir, q)
+	idx := "everything"
+	if containsJapanese(queryStr) {
+		idx = "everything_ja"
+	}
 	basic := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
 			"query":            queryStr,
-			"fields":           []string{"everything"},
+			"fields":           []string{idx},
 			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
 			"default_operator": "and",
 			"lenient":          true,

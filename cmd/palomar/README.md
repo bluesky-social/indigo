@@ -19,7 +19,7 @@ Currently only a simple query string syntax is supported. Double-quotes can surr
 
 Palomar uses environment variables for configuration.
 
-- `ATP_BGS_HOST`: URL of firehose to subscribe to, either global BGS or individual PDS (default: `wss://bsky.social`)
+- `ATP_RELAY_HOST`: URL of firehose to subscribe to, either global Relay or individual PDS (default: `wss://bsky.network`)
 - `ATP_PLC_HOST`: PLC directory for identity lookups (default: `https://plc.directory`)
 - `DATABASE_URL`: connection string for database to persist firehose cursor subscription state
 - `PALOMAR_BIND`: IP/port to have HTTP API listen on (default: `:3999`)
@@ -64,10 +64,12 @@ Response:
 
 ## Development Quickstart
 
-Run an ephemeral opensearch instance on local port 9200, with SSL disabled, and the `analysis-icu` plugin installed, using docker:
+Run an ephemeral opensearch instance on local port 9200, with SSL disabled, and the `analysis-icu` and `analysis-kuromoji` plugins installed, using docker:
 
     docker build -f Dockerfile.opensearch . -t opensearch-palomar
-    docker run -p 9200:9200 -p 9600:9600 -e "discovery.type=single-node" -e "plugins.security.disabled=true" opensearch-palomar
+
+	# in any non-development system, obviously change this default password
+    docker run -p 9200:9200 -p 9600:9600 -e "discovery.type=single-node" -e "plugins.security.disabled=true" -e OPENSEARCH_INITIAL_ADMIN_PASSWORD=0penSearch-Pal0mar opensearch-palomar
 
 See [README.opensearch.md]() for more Opensearch operational tips.
 

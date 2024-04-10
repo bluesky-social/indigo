@@ -43,6 +43,10 @@ test-short: ## Run tests, skipping slower integration tests
 test-interop: ## Run tests, including local interop (requires services running)
 	go clean -testcache && go test -tags=localinterop ./...
 
+.PHONY: test-search
+test-search: ## Run tests, including local search indexing (requires services running)
+	go clean -testcache && go test -tags=localsearch ./...
+
 .PHONY: coverage-html
 coverage-html: ## Generate test coverage report and open in browser
 	go test ./... -coverpkg=./... -coverprofile=test-coverage.out
@@ -77,6 +81,11 @@ cborgen: ## Run codegen tool for CBOR serialization
 .PHONY: run-postgres
 run-postgres: .env ## Runs a local postgres instance
 	docker compose -f cmd/bigsky/docker-compose.yml up -d
+
+.PHONY: run-dev-opensearch
+run-dev-opensearch: .env ## Runs a local opensearch instance
+	docker build -f cmd/palomar/Dockerfile.opensearch . -t opensearch-palomar
+	docker run -p 9200:9200 -p 9600:9600 -e "discovery.type=single-node" -e "plugins.security.disabled=true" -e "OPENSEARCH_INITIAL_ADMIN_PASSWORD=0penSearch-Pal0mar" opensearch-palomar
 
 .PHONY: run-dev-relay
 run-dev-relay: .env ## Runs 'bigsky' Relay for local dev
