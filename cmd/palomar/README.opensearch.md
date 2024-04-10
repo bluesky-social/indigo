@@ -1,14 +1,16 @@
 
 # Basic OpenSearch Operations
 
-We use OpenSearch version 2.5+, with the `analysis-icu` plugin. This is included automatically on the AWS hosted version of Opensearch, otherwise you need to install:
+We use OpenSearch version 2.13+, with the `analysis-icu` and `analysis-kuromoji` plugins. These are included automatically on the AWS hosted version of Opensearch, otherwise you need to install:
 
     sudo /usr/share/opensearch/bin/opensearch-plugin install analysis-icu
+    sudo /usr/share/opensearch/bin/opensearch-plugin install analysis-kuromoji
     sudo service opensearch restart
 
 If you are trying to use Elasticsearch 7.10 instead of OpenSearch, you can install the plugin with:
 
     sudo /usr/share/elasticsearch/bin/elasticsearch-plugin install analysis-icu
+    sudo /usr/share/elasticsearch/bin/elasticsearch-plugin install analysis-kuromoji
     sudo service elasticsearch restart
 
 ## Local Development
