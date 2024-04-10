@@ -51,22 +51,26 @@ type PostSearchResult struct {
 }
 
 type PostSearchQuery struct {
-	Query  string     `json:"query"`
-	Offset int        `json:"offset"`
-	Size   int        `json:"size"`
-	From   *time.Time `json:"from"`
-	To     *time.Time `json:"to"`
-	Actors []string   `json:"actors"`
-	Tags   []string   `json:"tags"`
-	Langs  []string   `json:"langs"`
+	Query    string           `json:"q"`
+	Sort     string           `json:"sort"`
+	Author   *syntax.DID      `json:"author"`
+	Since    *syntax.Datetime `json:"since"`
+	Until    *syntax.Datetime `json:"until"`
+	Mentions *syntax.DID      `json:"mentions"`
+	Lang     *syntax.Language `json:"lang"`
+	Domain   string           `json:"domain"`
+	URL      string           `json:"url"`
+	Tag      string           `json:"tag"`
+	Offset   int              `json:"offset"`
+	Size     int              `json:"size"`
 }
 
 type ActorSearchQuery struct {
-	Query     string   `json:"query"`
-	Following []string `json:"following"`
-	Offset    int      `json:"offset"`
-	Size      int      `json:"size"`
-	Typeahead bool     `json:"typeahead"`
+	Query     string      `json:"q"`
+	Typeahead bool        `json:"typeahead"`
+	Account   *syntax.DID `json:"account"`
+	Offset    int         `json:"offset"`
+	Size      int         `json:"size"`
 }
 
 func checkParams(offset, size int) error {
