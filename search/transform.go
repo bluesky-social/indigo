@@ -167,8 +167,10 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 	}
 
 	var domains []string
-	for _, raw := range urls {
-		u, err := url.Parse(raw)
+	for i, raw := range urls {
+		clean := NormalizeLossyURL(raw)
+		urls[i] = clean
+		u, err := url.Parse(clean)
 		if nil == err {
 			domains = append(domains, u.Hostname())
 		}

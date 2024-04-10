@@ -123,7 +123,7 @@ func (p *PostSearchParams) Filters() []map[string]interface{} {
 
 	if p.URL != "" {
 		filters = append(filters, map[string]interface{}{
-			"term": map[string]interface{}{"url": p.URL},
+			"term": map[string]interface{}{"url": NormalizeLossyURL(p.URL)},
 		})
 	}
 
