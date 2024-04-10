@@ -52,6 +52,8 @@
         "img_alt_text":   { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
         "self_label":     { "type": "keyword", "normalizer": "default" },
 
+        "url":            { "type": "keyword", "normalizer": "default" },
+        "domain":         { "type": "keyword", "normalizer": "default" },
         "tag":            { "type": "keyword", "normalizer": "default" },
         "emoji":          { "type": "keyword", "normalizer": "caseSensitive" },
 
@@ -59,6 +61,7 @@
         "has_banner":     { "type": "boolean" },
 
         "pagerank":       { "type": "float" },
+        "followersFuzzy": { "type": "int" },
 
         "typeahead":      { "type": "search_as_you_type", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" },
         "everything":     { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" }
