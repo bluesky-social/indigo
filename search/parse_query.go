@@ -2,7 +2,6 @@ package search
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"strings"
 
@@ -11,8 +10,7 @@ import (
 )
 
 // ParseQuery takes a query string and pulls out some facet patterns ("from:handle.net") as filters
-func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string, []map[string]interface{}) {
-	var filters []map[string]interface{}
+func ParsePostQuery(ctx context.Context, dir identity.Directory, raw string) PostSearchParams {
 	quoted := false
 	parts := strings.FieldsFunc(raw, func(r rune) bool {
 		if r == '"' {
@@ -21,33 +19,25 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 		return r == ' ' && !quoted
 	})
 
+	params := PostSearchParams{}
+
 	keep := make([]string, 0, len(parts))
 	for _, p := range parts {
-		p = strings.Trim(p, "\"")
+		// pass-through quoted, either phrase or single token
+		if strings.HasPrefix(p, "\"") {
+			keep = append(keep, p)
+			continue
+		}
 
+		// tags (array)
 		if strings.HasPrefix(p, "#") && len(p) > 1 {
-			filters = append(filters, map[string]interface{}{
-				"term": map[string]interface{}{
-					"tag": map[string]interface{}{
-						"value":            p[1:],
-						"case_insensitive": true,
-					},
-				},
-			})
+			params.Tags = append(params.Tags, p[1:])
 			continue
 		}
-		if strings.HasPrefix(p, "did:") {
-			filters = append(filters, map[string]interface{}{
-				"term": map[string]interface{}{"did": p},
-			})
-			continue
-		}
-		if strings.HasPrefix(p, "from:") && len(p) > 6 {
-			h := p[5:]
-			if h[0] == '@' {
-				h = h[1:]
-			}
-			handle, err := syntax.ParseHandle(h)
+
+		// handle (mention)
+		if strings.HasPrefix(p, "@") && len(p) > 1 {
+			handle, err := syntax.ParseHandle(p[1:])
 			if err != nil {
 				keep = append(keep, p)
 				continue
@@ -59,9 +49,64 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 				}
 				continue
 			}
-			filters = append(filters, map[string]interface{}{
-				"term": map[string]interface{}{"did": id.DID.String()},
-			})
+			params.Mentions = &id.DID
+			continue
+		}
+
+		tokParts := strings.SplitN(p, ":", 2)
+		if len(tokParts) == 1 {
+			keep = append(keep, p)
+			continue
+		}
+
+		switch tokParts[0] {
+		case "did":
+			// TODO: not really clear what to do here; treating like a mention doesn't really make sense?
+		case "from", "to", "mentions":
+			raw := tokParts[1]
+			if strings.HasPrefix(raw, "@") && len(raw) > 1 {
+				raw = raw[1:]
+			}
+			handle, err := syntax.ParseHandle(raw)
+			if err != nil {
+				continue
+			}
+			id, err := dir.LookupHandle(ctx, handle)
+			if err != nil {
+				if err != identity.ErrHandleNotFound {
+					slog.Error("failed to resolve handle", "err", err)
+				}
+				continue
+			}
+			if tokParts[0] == "from" {
+				params.Author = &id.DID
+			} else {
+				params.Mentions = &id.DID
+			}
+			continue
+		case "http", "https":
+			params.URL = p
+			continue
+		case "domain":
+			params.Domain = tokParts[1]
+			continue
+		case "lang":
+			lang, err := syntax.ParseLanguage(tokParts[1])
+			if nil == err {
+				params.Lang = &lang
+			}
+			continue
+		case "since", "until":
+			// TODO: special-case handle dates?
+			dt, err := syntax.ParseDatetimeLenient(tokParts[1])
+			if err != nil {
+				continue
+			}
+			if tokParts[0] == "since" {
+				params.Since = &dt
+			} else {
+				params.Until = &dt
+			}
 			continue
 		}
 
@@ -70,22 +115,15 @@ func ParseQuery(ctx context.Context, dir identity.Directory, raw string) (string
 
 	out := ""
 	for _, p := range keep {
-		if strings.ContainsRune(p, ' ') {
-			if out == "" {
-				out = fmt.Sprintf(`"%s"`, p)
-			} else {
-				out += " " + fmt.Sprintf(`"%s"`, p)
-			}
+		if out == "" {
+			out = p
 		} else {
-			if out == "" {
-				out = p
-			} else {
-				out += " " + p
-			}
+			out += " " + p
 		}
 	}
-	if out == "" && len(filters) >= 1 {
+	if out == "" {
 		out = "*"
 	}
-	return out, filters
+	params.Query = out
+	return params
 }

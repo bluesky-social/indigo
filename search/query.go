@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log/slog"
-	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -50,7 +49,7 @@ type PostSearchResult struct {
 	Post any        `json:"post"`
 }
 
-type PostSearchQuery struct {
+type PostSearchParams struct {
 	Query    string           `json:"q"`
 	Sort     string           `json:"sort"`
 	Author   *syntax.DID      `json:"author"`
@@ -60,17 +59,92 @@ type PostSearchQuery struct {
 	Lang     *syntax.Language `json:"lang"`
 	Domain   string           `json:"domain"`
 	URL      string           `json:"url"`
-	Tag      string           `json:"tag"`
+	Tags     []string         `json:"tag"`
 	Offset   int              `json:"offset"`
 	Size     int              `json:"size"`
 }
 
-type ActorSearchQuery struct {
+type ActorSearchParams struct {
 	Query     string      `json:"q"`
 	Typeahead bool        `json:"typeahead"`
 	Account   *syntax.DID `json:"account"`
 	Offset    int         `json:"offset"`
 	Size      int         `json:"size"`
+}
+
+func (p *PostSearchParams) Filters() []map[string]interface{} {
+	var filters []map[string]interface{}
+
+	if p.Author != nil {
+		filters = append(filters, map[string]interface{}{
+			"term": map[string]interface{}{"did": p.Author.String()},
+		})
+	}
+
+	if p.Mentions != nil {
+		filters = append(filters, map[string]interface{}{
+			"term": map[string]interface{}{"mention_did": p.Mentions.String()},
+		})
+	}
+
+	if p.Lang != nil {
+		// TODO: extracting just the 2-char code would be good
+		filters = append(filters, map[string]interface{}{
+			"term": map[string]interface{}{"lang_code_iso2": p.Lang.String()},
+		})
+	}
+
+	if p.Since != nil {
+		filters = append(filters, map[string]interface{}{
+			"range": map[string]interface{}{
+				"created_at": map[string]interface{}{
+					"gte": p.Since.String(),
+				},
+			},
+		})
+	}
+
+	if p.Until != nil {
+		filters = append(filters, map[string]interface{}{
+			"range": map[string]interface{}{
+				"created_at": map[string]interface{}{
+					"lt": p.Until.String(),
+				},
+			},
+		})
+	}
+
+	if p.Lang != nil {
+		// TODO: extracting just the 2-char code would be good
+		filters = append(filters, map[string]interface{}{
+			"term": map[string]interface{}{"lang_code_iso2": p.Lang.String()},
+		})
+	}
+
+	if p.URL != "" {
+		filters = append(filters, map[string]interface{}{
+			"term": map[string]interface{}{"url": p.URL},
+		})
+	}
+
+	if p.Domain != "" {
+		filters = append(filters, map[string]interface{}{
+			"term": map[string]interface{}{"domain": p.Domain},
+		})
+	}
+
+	for _, tag := range p.Tags {
+		filters = append(filters, map[string]interface{}{
+			"term": map[string]interface{}{
+				"tag": map[string]interface{}{
+					"value":            tag,
+					"case_insensitive": true,
+				},
+			},
+		})
+	}
+
+	return filters
 }
 
 func checkParams(offset, size int) error {
@@ -87,14 +161,14 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 	if err := checkParams(offset, size); err != nil {
 		return nil, err
 	}
-	queryStr, filters := ParseQuery(ctx, dir, q)
+	params := ParsePostQuery(ctx, dir, q)
 	idx := "everything"
-	if containsJapanese(queryStr) {
+	if containsJapanese(params.Query) {
 		idx = "everything_ja"
 	}
 	basic := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
-			"query":            queryStr,
+			"query":            params.Query,
 			"fields":           []string{idx},
 			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
 			"default_operator": "and",
@@ -102,6 +176,7 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 			"analyze_wildcard": false,
 		},
 	}
+	filters := params.Filters()
 	// filter out future posts (TODO: temporary hack)
 	now := syntax.DatetimeNow()
 	filters = append(filters, map[string]interface{}{
@@ -138,10 +213,11 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 		return nil, err
 	}
 
-	queryStr, filters := ParseQuery(ctx, dir, q)
+	// TODO: have a ParseProfileQuery function?
+	params := ParsePostQuery(ctx, dir, q)
 	basic := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
-			"query":            queryStr,
+			"query":            params.Query,
 			"fields":           []string{"everything"},
 			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
 			"default_operator": "and",
@@ -159,7 +235,7 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 					map[string]interface{}{"term": map[string]interface{}{"has_banner": true}},
 				},
 				"minimum_should_match": 0,
-				"filter":               filters,
+				"filter":               params.Filters(),
 				"boost":                0.5,
 			},
 		},
