@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log/slog"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -47,6 +48,25 @@ type PostSearchResult struct {
 	Cid  string     `json:"cid"`
 	User UserResult `json:"user"`
 	Post any        `json:"post"`
+}
+
+type PostSearchQuery struct {
+	Query  string     `json:"query"`
+	Offset int        `json:"offset"`
+	Size   int        `json:"size"`
+	From   *time.Time `json:"from"`
+	To     *time.Time `json:"to"`
+	Actors []string   `json:"actors"`
+	Tags   []string   `json:"tags"`
+	Langs  []string   `json:"langs"`
+}
+
+type ActorSearchQuery struct {
+	Query     string   `json:"query"`
+	Following []string `json:"following"`
+	Offset    int      `json:"offset"`
+	Size      int      `json:"size"`
+	Typeahead bool     `json:"typeahead"`
 }
 
 func checkParams(offset, size int) error {
