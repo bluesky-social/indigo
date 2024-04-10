@@ -91,7 +91,7 @@
         "tag":            { "type": "keyword", "normalizer": "default" },
         "emoji":          { "type": "keyword", "normalizer": "caseSensitive" },
 
-        "likesFuzzy":     { "type": "int" },
+        "likesFuzzy":     { "type": "integer" },
 
         "everything":     { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" },
         "everything_ja":  { "type": "text", "analyzer": "textJapanese", "search_analyzer": "textJapaneseSearch" },

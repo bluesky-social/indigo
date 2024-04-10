@@ -61,7 +61,7 @@
         "has_banner":     { "type": "boolean" },
 
         "pagerank":       { "type": "float" },
-        "followersFuzzy": { "type": "int" },
+        "followersFuzzy": { "type": "integer" },
 
         "typeahead":      { "type": "search_as_you_type", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" },
         "everything":     { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" }
