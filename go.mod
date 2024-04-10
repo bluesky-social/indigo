@@ -74,6 +74,7 @@ require (
 )
 
 require (
+	github.com/PuerkitoBio/purell v1.2.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/go-redis/redis v6.15.9+incompatible // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
