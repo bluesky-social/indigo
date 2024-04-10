@@ -37,7 +37,7 @@ type PostDoc struct {
 	RecordCID         string   `json:"record_cid"`
 	CreatedAt         *string  `json:"created_at,omitempty"`
 	Text              string   `json:"text"`
-	TextJA            string   `json:"text_ja,omitempty"`
+	TextJA            *string  `json:"text_ja,omitempty"`
 	LangCode          []string `json:"lang_code,omitempty"`
 	LangCodeIso2      []string `json:"lang_code_iso2,omitempty"`
 	MentionDID        []string `json:"mention_did,omitempty"`
@@ -196,7 +196,7 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 	}
 
 	if containsJapanese(post.Text) {
-		doc.TextJA = post.Text
+		doc.TextJA = &post.Text
 	}
 
 	if post.CreatedAt != "" {
