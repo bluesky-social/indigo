@@ -11,7 +11,7 @@
   			"embed": {
     			"$type": "app.bsky.embed.external",
     			"external": {
-      			"uri": "https://bsky.app",
+      			"uri": "https://www.bsky.app:443/index.html",
       			"title": "Bluesky Social",
       			"description": "See what's next.",
       			"thumb": {
@@ -70,7 +70,7 @@
       			"features": [
         			{
           			"$type": "app.bsky.richtext.facet#link",
-          			"uri": "https://en.wikipedia.org/wiki/CBOR"
+          			"uri": "https://en.wikipedia.org/wiki/CBOR?utm_campaign=123"
         			}
       			]
     			},
