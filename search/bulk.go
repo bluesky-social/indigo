@@ -23,7 +23,7 @@ type pagerankJob struct {
 	rank float64
 }
 
-// BulkIndexPageranks updates the pageranks for the DIDs in the Serch Index from a CSV file.
+// BulkIndexPageranks updates the pageranks for the DIDs in the Search Index from a CSV file.
 func (idx *Indexer) BulkIndexPageranks(ctx context.Context, pagerankFile string) error {
 	f, err := os.Open(pagerankFile)
 	if err != nil {
