@@ -102,7 +102,7 @@ func TransformProfile(profile *appbsky.ActorProfile, ident *identity.Identity, c
 	}
 }
 
-func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid string) PostDoc {
+func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) PostDoc {
 	altText := []string{}
 	if post.Embed != nil && post.Embed.EmbedImages != nil {
 		for _, img := range post.Embed.EmbedImages.Images {
@@ -145,7 +145,7 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 	if post.Embed != nil && post.Embed.EmbedRecordWithMedia != nil {
 		embedATURI = &post.Embed.EmbedRecordWithMedia.Record.Record.Uri
 	}
-	var embedImgCount int = 0
+	var embedImgCount int
 	var embedImgAltText []string
 	var embedImgAltTextJA []string
 	if post.Embed != nil && post.Embed.EmbedImages != nil {
@@ -178,7 +178,7 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 
 	doc := PostDoc{
 		DocIndexTs:        syntax.DatetimeNow().String(),
-		DID:               ident.DID.String(),
+		DID:               did.String(),
 		RecordRkey:        rkey,
 		RecordCID:         cid,
 		Text:              post.Text,
@@ -210,7 +210,7 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 				s := dt.String()
 				doc.CreatedAt = &s
 			} else {
-				slog.Warn("rejecting future post CreatedAt", "datetime", dt.String(), "did", ident.DID.String(), "rkey", rkey)
+				slog.Warn("rejecting future post CreatedAt", "datetime", dt.String(), "did", did.String(), "rkey", rkey)
 				s := syntax.DatetimeNow().String()
 				doc.CreatedAt = &s
 			}
