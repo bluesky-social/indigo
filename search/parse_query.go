@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -97,10 +98,17 @@ func ParsePostQuery(ctx context.Context, dir identity.Directory, raw string) Pos
 			}
 			continue
 		case "since", "until":
-			// TODO: special-case handle dates?
-			dt, err := syntax.ParseDatetimeLenient(tokParts[1])
-			if err != nil {
-				continue
+			var dt syntax.Datetime
+			// first try just date
+			date, err := time.Parse(time.DateOnly, tokParts[1])
+			if nil == err {
+				dt = syntax.Datetime(date.Format(syntax.AtprotoDatetimeLayout))
+			} else {
+				// fallback to formal atproto datetime format
+				dt, err = syntax.ParseDatetimeLenient(tokParts[1])
+				if err != nil {
+					continue
+				}
 			}
 			if tokParts[0] == "since" {
 				params.Since = &dt
