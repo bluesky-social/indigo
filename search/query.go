@@ -213,11 +213,9 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 		return nil, err
 	}
 
-	// TODO: have a ParseProfileQuery function?
-	params := ParsePostQuery(ctx, dir, q)
 	basic := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
-			"query":            params.Query,
+			"query":            q,
 			"fields":           []string{"everything"},
 			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
 			"default_operator": "and",
@@ -235,7 +233,6 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 					map[string]interface{}{"term": map[string]interface{}{"has_banner": true}},
 				},
 				"minimum_should_match": 0,
-				"filter":               params.Filters(),
 				"boost":                0.5,
 			},
 		},
