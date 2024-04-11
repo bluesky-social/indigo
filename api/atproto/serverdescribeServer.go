@@ -10,6 +10,11 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
+// ServerDescribeServer_Contact is a "contact" in the com.atproto.server.describeServer schema.
+type ServerDescribeServer_Contact struct {
+	Email *string `json:"email,omitempty" cborgen:"email,omitempty"`
+}
+
 // ServerDescribeServer_Links is a "links" in the com.atproto.server.describeServer schema.
 type ServerDescribeServer_Links struct {
 	PrivacyPolicy  *string `json:"privacyPolicy,omitempty" cborgen:"privacyPolicy,omitempty"`
@@ -20,7 +25,9 @@ type ServerDescribeServer_Links struct {
 type ServerDescribeServer_Output struct {
 	// availableUserDomains: List of domain suffixes that can be used in account handles.
 	AvailableUserDomains []string `json:"availableUserDomains" cborgen:"availableUserDomains"`
-	Did                  string   `json:"did" cborgen:"did"`
+	// contact: Contact information
+	Contact *ServerDescribeServer_Contact `json:"contact,omitempty" cborgen:"contact,omitempty"`
+	Did     string                        `json:"did" cborgen:"did"`
 	// inviteCodeRequired: If true, an invite code must be supplied to create an account on this instance.
 	InviteCodeRequired *bool `json:"inviteCodeRequired,omitempty" cborgen:"inviteCodeRequired,omitempty"`
 	// links: URLs of service policy documents.
