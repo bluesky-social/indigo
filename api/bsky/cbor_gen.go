@@ -4528,7 +4528,11 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 8
+	fieldCount := 9
+
+	if t.AcceptsInteractions == nil {
+		fieldCount--
+	}
 
 	if t.Avatar == nil {
 		fieldCount--
@@ -4736,6 +4740,31 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 
 		}
 	}
+
+	// t.AcceptsInteractions (bool) (bool)
+	if t.AcceptsInteractions != nil {
+
+		if len("acceptsInteractions") > 1000000 {
+			return xerrors.Errorf("Value in field \"acceptsInteractions\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("acceptsInteractions"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("acceptsInteractions")); err != nil {
+			return err
+		}
+
+		if t.AcceptsInteractions == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if err := cbg.WriteBool(w, *t.AcceptsInteractions); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -4929,6 +4958,39 @@ func (t *FeedGenerator) UnmarshalCBOR(r io.Reader) (err error) {
 
 					}
 
+				}
+			}
+			// t.AcceptsInteractions (bool) (bool)
+		case "acceptsInteractions":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					maj, extra, err = cr.ReadHeader()
+					if err != nil {
+						return err
+					}
+					if maj != cbg.MajOther {
+						return fmt.Errorf("booleans must be major type 7")
+					}
+
+					var val bool
+					switch extra {
+					case 20:
+						val = false
+					case 21:
+						val = true
+					default:
+						return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
+					}
+					t.AcceptsInteractions = &val
 				}
 			}
 
@@ -6171,7 +6233,7 @@ func (t *LabelerDefs_LabelerPolicies) UnmarshalCBOR(r io.Reader) (err error) {
 							return err
 						}
 
-						t.LabelValues[i] = &sval
+						t.LabelValues[i] = string(sval)
 					}
 
 				}
