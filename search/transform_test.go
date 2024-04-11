@@ -108,7 +108,7 @@ func testPostFixture(t *testing.T, row postFixture) {
 		Handle: syntax.Handle(row.Handle),
 		DID:    syntax.DID(row.DID),
 	}
-	doc := TransformPost(row.PostRecord, &repo, row.Rkey, row.Cid)
+	doc := TransformPost(row.PostRecord, repo.DID, row.Rkey, row.Cid)
 	doc.DocIndexTs = "2006-01-02T15:04:05.000Z"
 	assert.Equal(row.PostDoc, doc)
 	assert.Equal(row.DocId, doc.DocId())
