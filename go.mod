@@ -4,6 +4,7 @@ go 1.22
 
 require (
 	contrib.go.opencensus.io/exporter/prometheus v0.4.2
+	github.com/PuerkitoBio/purell v1.2.1
 	github.com/RussellLuo/slidingwindow v0.0.0-20200528002341-535bb99d338b
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/brianvoe/gofakeit/v6 v6.25.0
@@ -41,6 +42,7 @@ require (
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multihash v0.2.3
 	github.com/opensearch-project/opensearch-go/v2 v2.3.0
+	github.com/orandin/slog-gorm v1.3.2
 	github.com/polydawn/refmt v0.89.1-0.20221221234430-40501e09de1f
 	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/client_model v0.5.0
@@ -48,7 +50,7 @@ require (
 	github.com/redis/go-redis/v9 v9.3.0
 	github.com/rivo/uniseg v0.1.0
 	github.com/samber/slog-echo v1.8.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	github.com/urfave/cli/v2 v2.25.7
 	github.com/whyrusleeping/cbor-gen v0.1.1-0.20240311221002-68b9f235c302
 	github.com/whyrusleeping/go-did v0.0.0-20230824162731-404d1707d5d6
@@ -69,12 +71,11 @@ require (
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028
 	gorm.io/driver/postgres v1.5.0
 	gorm.io/driver/sqlite v1.5.4
-	gorm.io/gorm v1.25.5
+	gorm.io/gorm v1.25.9
 	gorm.io/plugin/opentelemetry v0.1.3
 )
 
 require (
-	github.com/PuerkitoBio/purell v1.2.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/go-redis/redis v6.15.9+incompatible // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect

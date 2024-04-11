@@ -103,7 +103,7 @@ func (p *PostSearchParams) Update(other *PostSearchParams) {
 	}
 }
 
-// turns search params in to actual elasticsearch/opensearch filter DSL
+// Filters turns search params in to actual elasticsearch/opensearch filter DSL
 func (p *PostSearchParams) Filters() []map[string]interface{} {
 	var filters []map[string]interface{}
 
@@ -187,6 +187,25 @@ func (p *PostSearchParams) Filters() []map[string]interface{} {
 	return filters
 }
 
+// Filters turns search params in to actual elasticsearch/opensearch filter DSL
+func (p *ActorSearchParams) Filters() []map[string]interface{} {
+	var filters []map[string]interface{}
+
+	if p.Follows != nil && len(p.Follows) > 0 {
+		follows := make([]string, len(p.Follows))
+		for i, did := range p.Follows {
+			follows[i] = did.String()
+		}
+		filters = append(filters, map[string]interface{}{
+			"terms": map[string]interface{}{
+				"did": follows,
+			},
+		})
+	}
+
+	return filters
+}
+
 func checkParams(offset, size int) error {
 	if offset+size > 10000 || size > 250 || offset > 10000 || offset < 0 || size < 0 {
 		return fmt.Errorf("disallowed size/offset parameters")
@@ -254,6 +273,8 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 		return nil, err
 	}
 
+	filters := params.Filters()
+
 	basic := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
 			"query":            params.Query,
@@ -281,6 +302,10 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 		"from": params.Offset,
 	}
 
+	if len(filters) > 0 {
+		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["filter"] = filters
+	}
+
 	return doSearch(ctx, escli, index, query)
 }
 
@@ -292,22 +317,31 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index stri
 		return nil, err
 	}
 
+	filters := params.Filters()
+
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
-			"multi_match": map[string]interface{}{
-				"query":    params.Query,
-				"type":     "bool_prefix",
-				"operator": "and",
-				"fields": []string{
-					// adding handle here improves relevency but may be too expensive in prod
-					//"handle^2",
-					"typeahead",
-					"typeahead._2gram",
-					"typeahead._3gram",
+			"bool": map[string]interface{}{
+				"must": map[string]interface{}{
+					"multi_match": map[string]interface{}{
+						"query":    params.Query,
+						"type":     "bool_prefix",
+						"operator": "and",
+						"fields": []string{
+							"typeahead",
+							"typeahead._2gram",
+							"typeahead._3gram",
+						},
+					},
 				},
 			},
 		},
 		"size": params.Size,
+		"from": params.Offset,
+	}
+
+	if len(filters) > 0 {
+		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["filter"] = filters
 	}
 
 	return doSearch(ctx, escli, index, query)
