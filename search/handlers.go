@@ -185,9 +185,9 @@ func (s *Server) handleSearchPostsSkeleton(e echo.Context) error {
 		params.Lang = &l
 	}
 	// TODO: could be multiple tag params; guess we should "bind"?
-	tagStr := e.QueryParam("tag")
-	if tagStr != "" {
-		params.Tags = []string{tagStr}
+	tags := e.Request().URL.Query()["tags"]
+	if len(tags) > 0 {
+		params.Tags = tags
 	}
 
 	offset, limit, err := parseCursorLimit(e)
