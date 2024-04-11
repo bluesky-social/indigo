@@ -60,16 +60,18 @@ type PostSearchParams struct {
 	Domain   string           `json:"domain"`
 	URL      string           `json:"url"`
 	Tags     []string         `json:"tag"`
+	Viewer   *syntax.DID      `json:"viewer"`
 	Offset   int              `json:"offset"`
 	Size     int              `json:"size"`
 }
 
 type ActorSearchParams struct {
-	Query     string      `json:"q"`
-	Typeahead bool        `json:"typeahead"`
-	Viewer    *syntax.DID `json:"viewer"`
-	Offset    int         `json:"offset"`
-	Size      int         `json:"size"`
+	Query     string       `json:"q"`
+	Typeahead bool         `json:"typeahead"`
+	Follows   []syntax.DID `json:"follows"`
+	Viewer    *syntax.DID  `json:"viewer"`
+	Offset    int          `json:"offset"`
+	Size      int          `json:"size"`
 }
 
 // Merges params from another param object in to this one. Intended to meld parsed query with HTTP query params, so not all functionality is supported, and priority is with the "current" object
@@ -192,14 +194,15 @@ func checkParams(offset, size int) error {
 	return nil
 }
 
-func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
+func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client, index string, params *PostSearchParams) (*EsSearchResponse, error) {
 	ctx, span := tracer.Start(ctx, "DoSearchPosts")
 	defer span.End()
 
-	if err := checkParams(offset, size); err != nil {
+	if err := checkParams(params.Offset, params.Size); err != nil {
 		return nil, err
 	}
-	params := ParsePostQuery(ctx, dir, q)
+	queryStringParams := ParsePostQuery(ctx, dir, params.Query)
+	params.Update(&queryStringParams)
 	idx := "everything"
 	if containsJapanese(params.Query) {
 		idx = "everything_ja"
@@ -236,24 +239,24 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 				"order": "desc",
 			},
 		},
-		"size": size,
-		"from": offset,
+		"size": params.Size,
+		"from": params.Offset,
 	}
 
 	return doSearch(ctx, escli, index, query)
 }
 
-func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
+func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Client, index string, params *ActorSearchParams) (*EsSearchResponse, error) {
 	ctx, span := tracer.Start(ctx, "DoSearchProfiles")
 	defer span.End()
 
-	if err := checkParams(offset, size); err != nil {
+	if err := checkParams(params.Offset, params.Size); err != nil {
 		return nil, err
 	}
 
 	basic := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
-			"query":            q,
+			"query":            params.Query,
 			"fields":           []string{"everything"},
 			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
 			"default_operator": "and",
@@ -274,25 +277,25 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 				"boost":                0.5,
 			},
 		},
-		"size": size,
-		"from": offset,
+		"size": params.Size,
+		"from": params.Offset,
 	}
 
 	return doSearch(ctx, escli, index, query)
 }
 
-func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q string, size int) (*EsSearchResponse, error) {
+func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index string, params *ActorSearchParams) (*EsSearchResponse, error) {
 	ctx, span := tracer.Start(ctx, "DoSearchProfilesTypeahead")
 	defer span.End()
 
-	if err := checkParams(0, size); err != nil {
+	if err := checkParams(0, params.Size); err != nil {
 		return nil, err
 	}
 
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"multi_match": map[string]interface{}{
-				"query":    q,
+				"query":    params.Query,
 				"type":     "bool_prefix",
 				"operator": "and",
 				"fields": []string{
@@ -304,7 +307,7 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 				},
 			},
 		},
-		"size": size,
+		"size": params.Size,
 	}
 
 	return doSearch(ctx, escli, index, query)
