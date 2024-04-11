@@ -200,3 +200,211 @@ func TestJapaneseRegressions(t *testing.T) {
 	}
 	assert.Equal(1, len(res.Hits.Hits))
 }
+
+func TestParsedQuery(t *testing.T) {
+	assert := assert.New(t)
+	ctx := context.Background()
+	escli := testEsClient(t)
+	dir := identity.NewMockDirectory()
+	srv := testServer(ctx, t, escli, &dir)
+	ident := identity.Identity{
+		DID:    syntax.DID("did:plc:abc111"),
+		Handle: syntax.Handle("handle.example.com"),
+	}
+	other := identity.Identity{
+		DID:    syntax.DID("did:plc:abc222"),
+		Handle: syntax.Handle("other.example.com"),
+	}
+	dir.Insert(ident)
+	dir.Insert(other)
+
+	res, err := DoSearchPosts(ctx, &dir, escli, testPostIndex, "english", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(0, len(res.Hits.Hits))
+
+	p1 := appbsky.FeedPost{Text: "basic english post", CreatedAt: "2024-01-02T03:04:05.006Z"}
+	assert.NoError(srv.indexPost(ctx, &ident, &p1, "app.bsky.feed.post/3kpnillluoh2y", cid.Undef))
+	p2 := appbsky.FeedPost{Text: "another english post", CreatedAt: "2024-01-02T03:04:05.006Z"}
+	assert.NoError(srv.indexPost(ctx, &ident, &p2, "app.bsky.feed.post/3kpnilllu2222", cid.Undef))
+	p3 := appbsky.FeedPost{
+		Text:      "#cat post with hashtag",
+		CreatedAt: "2024-01-02T03:04:05.006Z",
+		Facets: []*appbsky.RichtextFacet{
+			&appbsky.RichtextFacet{
+				Features: []*appbsky.RichtextFacet_Features_Elem{
+					&appbsky.RichtextFacet_Features_Elem{
+						RichtextFacet_Tag: &appbsky.RichtextFacet_Tag{
+							Tag: "trick",
+						},
+					},
+				},
+				Index: &appbsky.RichtextFacet_ByteSlice{
+					ByteStart: 0,
+					ByteEnd:   4,
+				},
+			},
+		},
+	}
+	assert.NoError(srv.indexPost(ctx, &ident, &p3, "app.bsky.feed.post/3kpnilllu3333", cid.Undef))
+	p4 := appbsky.FeedPost{
+		Text:      "@other.example.com post with mention",
+		CreatedAt: "2024-01-02T03:04:05.006Z",
+		Facets: []*appbsky.RichtextFacet{
+			&appbsky.RichtextFacet{
+				Features: []*appbsky.RichtextFacet_Features_Elem{
+					&appbsky.RichtextFacet_Features_Elem{
+						RichtextFacet_Mention: &appbsky.RichtextFacet_Mention{
+							Did: "did:plc:abc222",
+						},
+					},
+				},
+				Index: &appbsky.RichtextFacet_ByteSlice{
+					ByteStart: 0,
+					ByteEnd:   18,
+				},
+			},
+		},
+	}
+	assert.NoError(srv.indexPost(ctx, &ident, &p4, "app.bsky.feed.post/3kpnilllu4444", cid.Undef))
+	p5 := appbsky.FeedPost{
+		Text:      "https://bsky.app... post with hashtag #cat",
+		CreatedAt: "2024-01-02T03:04:05.006Z",
+		Facets: []*appbsky.RichtextFacet{
+			&appbsky.RichtextFacet{
+				Features: []*appbsky.RichtextFacet_Features_Elem{
+					&appbsky.RichtextFacet_Features_Elem{
+						RichtextFacet_Link: &appbsky.RichtextFacet_Link{
+							Uri: "htTPS://www.en.wikipedia.org/wiki/CBOR?q=3&a=1&utm_campaign=123",
+						},
+					},
+				},
+				Index: &appbsky.RichtextFacet_ByteSlice{
+					ByteStart: 0,
+					ByteEnd:   19,
+				},
+			},
+		},
+	}
+	assert.NoError(srv.indexPost(ctx, &ident, &p5, "app.bsky.feed.post/3kpnilllu5555", cid.Undef))
+	p6 := appbsky.FeedPost{
+		Text:      "post with lang (deutsch)",
+		CreatedAt: "2024-01-02T03:04:05.006Z",
+		Langs:     []string{"ja", "de-DE"},
+	}
+	assert.NoError(srv.indexPost(ctx, &ident, &p6, "app.bsky.feed.post/3kpnilllu6666", cid.Undef))
+	p7 := appbsky.FeedPost{Text: "post with old date", CreatedAt: "2020-05-03T03:04:05.006Z"}
+	assert.NoError(srv.indexPost(ctx, &ident, &p7, "app.bsky.feed.post/3kpnilllu7777", cid.Undef))
+
+	_, err = srv.escli.Indices.Refresh()
+	assert.NoError(err)
+
+	// expect all to be indexed
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "*", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(7, len(res.Hits.Hits))
+
+	// check that english matches both
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "english", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(2, len(res.Hits.Hits))
+
+	// phrase only matches one
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "\"basic english\"", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(1, len(res.Hits.Hits))
+
+	// posts-by
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "from:handle.example.com", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(7, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "from:@handle.example.com", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(7, len(res.Hits.Hits))
+
+	// hashtag query
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "post #trick", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(1, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "post #Trick", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(1, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "post #trick #allMustMatch", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(0, len(res.Hits.Hits))
+
+	// mention query
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "@other.example.com", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(1, len(res.Hits.Hits))
+
+	// URL and domain queries
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "https://en.wikipedia.org/wiki/CBOR?a=1&q=3", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(1, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "\"https://en.wikipedia.org/wiki/CBOR?a=1&q=3\"", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(0, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "https://en.wikipedia.org/wiki/CBOR", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(0, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "domain:en.wikipedia.org", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(1, len(res.Hits.Hits))
+
+	// lang filter
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "lang:de", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(1, len(res.Hits.Hits))
+
+	// date range filters
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "since:2023-01-01T00:00:00Z", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(6, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "since:2023-01-01", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(6, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "until:2023-01-01", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(1, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "until:asdf", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(7, len(res.Hits.Hits))
+}

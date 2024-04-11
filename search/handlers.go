@@ -76,6 +76,120 @@ func (s *Server) handleSearchPostsSkeleton(e echo.Context) error {
 		})
 	}
 
+	params := PostSearchParams{
+		Query: q,
+		// TODO: parse/validate the sort options here?
+		Sort:   e.QueryParam("sort"),
+		Domain: e.QueryParam("domain"),
+		URL:    e.QueryParam("url"),
+	}
+
+	viewerStr := e.QueryParam("viewer")
+	if viewerStr != "" {
+		d, err := syntax.ParseDID(viewerStr)
+		if err != nil {
+			return e.JSON(400, map[string]any{
+				"error":   "BadRequest",
+				"message": fmt.Sprintf("invalid DID for 'viewer': %s", err),
+			})
+		}
+		params.Viewer = &d
+	}
+	authorStr := e.QueryParam("author")
+	if authorStr != "" {
+		atid, err := syntax.ParseAtIdentifier(authorStr)
+		if err != nil {
+			return &echo.HTTPError{
+				Code:    400,
+				Message: fmt.Sprintf("invalid DID for 'author': %s", err),
+			}
+		}
+		if atid.IsHandle() {
+			ident, err := s.dir.Lookup(context.TODO(), *atid)
+			if err != nil {
+				return e.JSON(400, map[string]any{
+					"error":   "BadRequest",
+					"message": fmt.Sprintf("invalid Handle for 'author': %s", err),
+				})
+			}
+			params.Author = &ident.DID
+		} else {
+			d, err := atid.AsDID()
+			if err != nil {
+				return err
+			}
+			params.Author = &d
+		}
+	}
+
+	mentionsStr := e.QueryParam("mentions")
+	if mentionsStr != "" {
+		atid, err := syntax.ParseAtIdentifier(mentionsStr)
+		if err != nil {
+			return &echo.HTTPError{
+				Code:    400,
+				Message: fmt.Sprintf("invalid DID for 'mentions': %s", err),
+			}
+		}
+		if atid.IsHandle() {
+			ident, err := s.dir.Lookup(context.TODO(), *atid)
+			if err != nil {
+				return e.JSON(400, map[string]any{
+					"error":   "BadRequest",
+					"message": fmt.Sprintf("invalid Handle for 'mentions': %s", err),
+				})
+			}
+			params.Mentions = &ident.DID
+		} else {
+			d, err := atid.AsDID()
+			if err != nil {
+				return err
+			}
+			params.Mentions = &d
+		}
+	}
+
+	sinceStr := e.QueryParam("since")
+	if sinceStr != "" {
+		dt, err := syntax.ParseDatetime(sinceStr)
+		if err != nil {
+			return e.JSON(400, map[string]any{
+				"error":   "BadRequest",
+				"message": fmt.Sprintf("invalid Datetime for 'since': %s", err),
+			})
+		}
+		params.Since = &dt
+	}
+
+	untilStr := e.QueryParam("until")
+	if untilStr != "" {
+		dt, err := syntax.ParseDatetime(untilStr)
+		if err != nil {
+			return e.JSON(400, map[string]any{
+				"error":   "BadRequest",
+				"message": fmt.Sprintf("invalid Datetime for 'until': %s", err),
+			})
+		}
+		params.Until = &dt
+	}
+
+	langStr := e.QueryParam("lang")
+	if langStr != "" {
+		l, err := syntax.ParseLanguage(langStr)
+		if err != nil {
+			return e.JSON(400, map[string]any{
+				"error":   "BadRequest",
+				"message": fmt.Sprintf("invalid Language for 'lang': %s", err),
+			})
+		}
+		params.Lang = &l
+	}
+	// TODO: could be multiple tag params; guess we should "bind"?
+	tags := e.Request().URL.Query()["tags"]
+	if len(tags) > 0 {
+		params.Tags = tags
+	}
+
 	offset, limit, err := parseCursorLimit(e)
 	if err != nil {
 		span.SetAttributes(attribute.String("error", fmt.Sprintf("invalid cursor/limit: %s", err)))
@@ -83,9 +197,11 @@ func (s *Server) handleSearchPostsSkeleton(e echo.Context) error {
 		return err
 	}
 
+	params.Offset = offset
+	params.Size = limit
 	span.SetAttributes(attribute.Int("offset", offset), attribute.Int("limit", limit))
 
-	out, err := s.SearchPosts(ctx, q, offset, limit)
+	out, err := s.SearchPosts(ctx, &params)
 	if err != nil {
 		span.SetAttributes(attribute.String("error", fmt.Sprintf("failed to SearchPosts: %s", err)))
 		span.SetStatus(codes.Error, err.Error())
@@ -106,7 +222,8 @@ func (s *Server) handleSearchActorsSkeleton(e echo.Context) error {
 	q := strings.TrimSpace(e.QueryParam("q"))
 	if q == "" {
 		return e.JSON(400, map[string]any{
-			"error": "must pass non-empty search query",
+			"error":   "BadRequest",
+			"message": "must pass non-empty search query",
 		})
 	}
 
@@ -122,13 +239,32 @@ func (s *Server) handleSearchActorsSkeleton(e echo.Context) error {
 		typeahead = true
 	}
 
+	params := ActorSearchParams{
+		Query:     q,
+		Typeahead: typeahead,
+		Offset:    offset,
+		Size:      limit,
+	}
+
+	viewerStr := e.QueryParam("viewer")
+	if viewerStr != "" {
+		d, err := syntax.ParseDID(viewerStr)
+		if err != nil {
+			return e.JSON(400, map[string]any{
+				"error":   "BadRequest",
+				"message": fmt.Sprintf("invalid DID for 'viewer': %s", err),
+			})
+		}
+		params.Viewer = &d
+	}
+
 	span.SetAttributes(
 		attribute.Int("offset", offset),
 		attribute.Int("limit", limit),
 		attribute.Bool("typeahead", typeahead),
 	)
 
-	out, err := s.SearchProfiles(ctx, q, typeahead, offset, limit)
+	out, err := s.SearchProfiles(ctx, &params)
 	if err != nil {
 		span.SetAttributes(attribute.String("error", fmt.Sprintf("failed to SearchProfiles: %s", err)))
 		span.SetStatus(codes.Error, err.Error())
@@ -193,11 +329,11 @@ func (s *Server) handleIndexRepos(e echo.Context) error {
 	})
 }
 
-func (s *Server) SearchPosts(ctx context.Context, q string, offset, size int) (*appbsky.UnspeccedSearchPostsSkeleton_Output, error) {
+func (s *Server) SearchPosts(ctx context.Context, params *PostSearchParams) (*appbsky.UnspeccedSearchPostsSkeleton_Output, error) {
 	ctx, span := tracer.Start(ctx, "SearchPosts")
 	defer span.End()
 
-	resp, err := DoSearchPosts(ctx, s.dir, s.escli, s.postIndex, q, offset, size)
+	resp, err := DoSearchPosts(ctx, s.dir, s.escli, s.postIndex, params)
 	if err != nil {
 		return nil, err
 	}
@@ -220,8 +356,8 @@ func (s *Server) SearchPosts(ctx context.Context, q string, offset, size int) (*
 	}
 
 	out := appbsky.UnspeccedSearchPostsSkeleton_Output{Posts: posts}
-	if len(posts) == size && (offset+size) < 10000 {
-		s := fmt.Sprintf("%d", offset+size)
+	if len(posts) == params.Size && (params.Offset+params.Size) < 10000 {
+		s := fmt.Sprintf("%d", params.Offset+params.Size)
 		out.Cursor = &s
 	}
 	if resp.Hits.Total.Relation == "eq" {
@@ -231,16 +367,16 @@ func (s *Server) SearchPosts(ctx context.Context, q string, offset, size int) (*
 	return &out, nil
 }
 
-func (s *Server) SearchProfiles(ctx context.Context, q string, typeahead bool, offset, size int) (*appbsky.UnspeccedSearchActorsSkeleton_Output, error) {
+func (s *Server) SearchProfiles(ctx context.Context, params *ActorSearchParams) (*appbsky.UnspeccedSearchActorsSkeleton_Output, error) {
 	ctx, span := tracer.Start(ctx, "SearchProfiles")
 	defer span.End()
 
 	var resp *EsSearchResponse
 	var err error
-	if typeahead {
-		resp, err = DoSearchProfilesTypeahead(ctx, s.escli, s.profileIndex, q, size)
+	if params.Typeahead {
+		resp, err = DoSearchProfilesTypeahead(ctx, s.escli, s.profileIndex, params)
 	} else {
-		resp, err = DoSearchProfiles(ctx, s.dir, s.escli, s.profileIndex, q, offset, size)
+		resp, err = DoSearchProfiles(ctx, s.dir, s.escli, s.profileIndex, params)
 	}
 	if err != nil {
 		return nil, err
@@ -264,8 +400,8 @@ func (s *Server) SearchProfiles(ctx context.Context, q string, typeahead bool, o
 	}
 
 	out := appbsky.UnspeccedSearchActorsSkeleton_Output{Actors: actors}
-	if len(actors) == size && (offset+size) < 10000 {
-		s := fmt.Sprintf("%d", offset+size)
+	if len(actors) == params.Size && (params.Offset+params.Size) < 10000 {
+		s := fmt.Sprintf("%d", params.Offset+params.Size)
 		out.Cursor = &s
 	}
 	if resp.Hits.Total.Relation == "eq" {

@@ -23,7 +23,8 @@ type UnspeccedSearchActorsSkeleton_Output struct {
 // cursor: Optional pagination mechanism; may not necessarily allow scrolling through entire result set.
 // q: Search query string; syntax, phrase, boolean, and faceting is unspecified, but Lucene query syntax is recommended. For typeahead search, only simple term match is supported, not full syntax.
 // typeahead: If true, acts as fast/simple 'typeahead' query.
-func UnspeccedSearchActorsSkeleton(ctx context.Context, c *xrpc.Client, cursor string, limit int64, q string, typeahead bool) (*UnspeccedSearchActorsSkeleton_Output, error) {
+// viewer: DID of the account making the request (not included for public/unauthenticated queries). Used to boost followed accounts in ranking.
+func UnspeccedSearchActorsSkeleton(ctx context.Context, c *xrpc.Client, cursor string, limit int64, q string, typeahead bool, viewer string) (*UnspeccedSearchActorsSkeleton_Output, error) {
 	var out UnspeccedSearchActorsSkeleton_Output
 
 	params := map[string]interface{}{
@@ -31,6 +32,7 @@ func UnspeccedSearchActorsSkeleton(ctx context.Context, c *xrpc.Client, cursor s
 		"limit":     limit,
 		"q":         q,
 		"typeahead": typeahead,
+		"viewer":    viewer,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.searchActorsSkeleton", params, nil, &out); err != nil {
 		return nil, err

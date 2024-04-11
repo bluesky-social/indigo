@@ -329,9 +329,11 @@ var searchPostCmd = &cli.Command{
 			identity.DefaultDirectory(), // TODO: parse PLC arg
 			escli,
 			cctx.String("es-post-index"),
-			strings.Join(cctx.Args().Slice(), " "),
-			0,
-			20,
+			&search.PostSearchParams{
+				Query:  strings.Join(cctx.Args().Slice(), " "),
+				Offset: 0,
+				Size:   20,
+			},
 		)
 		if err != nil {
 			return err
@@ -359,8 +361,10 @@ var searchProfileCmd = &cli.Command{
 				context.Background(),
 				escli,
 				cctx.String("es-profile-index"),
-				strings.Join(cctx.Args().Slice(), " "),
-				10,
+				&search.ActorSearchParams{
+					Query: strings.Join(cctx.Args().Slice(), " "),
+					Size:  10,
+				},
 			)
 			if err != nil {
 				return err
@@ -372,9 +376,11 @@ var searchProfileCmd = &cli.Command{
 				identity.DefaultDirectory(), // TODO: parse PLC arg
 				escli,
 				cctx.String("es-profile-index"),
-				strings.Join(cctx.Args().Slice(), " "),
-				0,
-				20,
+				&search.ActorSearchParams{
+					Query:  strings.Join(cctx.Args().Slice(), " "),
+					Offset: 0,
+					Size:   20,
+				},
 			)
 			if err != nil {
 				return err

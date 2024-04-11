@@ -49,6 +49,144 @@ type PostSearchResult struct {
 	Post any        `json:"post"`
 }
 
+type PostSearchParams struct {
+	Query    string           `json:"q"`
+	Sort     string           `json:"sort"`
+	Author   *syntax.DID      `json:"author"`
+	Since    *syntax.Datetime `json:"since"`
+	Until    *syntax.Datetime `json:"until"`
+	Mentions *syntax.DID      `json:"mentions"`
+	Lang     *syntax.Language `json:"lang"`
+	Domain   string           `json:"domain"`
+	URL      string           `json:"url"`
+	Tags     []string         `json:"tag"`
+	Viewer   *syntax.DID      `json:"viewer"`
+	Offset   int              `json:"offset"`
+	Size     int              `json:"size"`
+}
+
+type ActorSearchParams struct {
+	Query     string       `json:"q"`
+	Typeahead bool         `json:"typeahead"`
+	Follows   []syntax.DID `json:"follows"`
+	Viewer    *syntax.DID  `json:"viewer"`
+	Offset    int          `json:"offset"`
+	Size      int          `json:"size"`
+}
+
+// Merges params from another param object in to this one. Intended to meld parsed query with HTTP query params, so not all functionality is supported, and priority is with the "current" object
+func (p *PostSearchParams) Update(other *PostSearchParams) {
+	p.Query = other.Query
+	if p.Author == nil {
+		p.Author = other.Author
+	}
+	if p.Since == nil {
+		p.Since = other.Since
+	}
+	if p.Until == nil {
+		p.Until = other.Until
+	}
+	if p.Mentions == nil {
+		p.Mentions = other.Mentions
+	}
+	if p.Lang == nil {
+		p.Lang = other.Lang
+	}
+	if p.Domain == "" {
+		p.Domain = other.Domain
+	}
+	if p.URL == "" {
+		p.URL = other.URL
+	}
+	if len(p.Tags) == 0 {
+		p.Tags = other.Tags
+	}
+}
+
+// turns search params in to actual elasticsearch/opensearch filter DSL
+func (p *PostSearchParams) Filters() []map[string]interface{} {
+	var filters []map[string]interface{}
+
+	if p.Author != nil {
+		filters = append(filters, map[string]interface{}{
+			"term": map[string]interface{}{"did": map[string]interface{}{
+				"value":            p.Author.String(),
+				"case_insensitive": true,
+			}},
+		})
+	}
+
+	if p.Mentions != nil {
+		filters = append(filters, map[string]interface{}{
+			"term": map[string]interface{}{"mention_did": map[string]interface{}{
+				"value":            p.Mentions.String(),
+				"case_insensitive": true,
+			}},
+		})
+	}
+
+	if p.Lang != nil {
+		// TODO: extracting just the 2-char code would be good
+		filters = append(filters, map[string]interface{}{
+			"term": map[string]interface{}{"lang_code_iso2": map[string]interface{}{
+				"value":            p.Lang.String(),
+				"case_insensitive": true,
+			}},
+		})
+	}
+
+	if p.Since != nil {
+		filters = append(filters, map[string]interface{}{
+			"range": map[string]interface{}{
+				"created_at": map[string]interface{}{
+					"gte": p.Since.String(),
+				},
+			},
+		})
+	}
+
+	if p.Until != nil {
+		filters = append(filters, map[string]interface{}{
+			"range": map[string]interface{}{
+				"created_at": map[string]interface{}{
+					"lt": p.Until.String(),
+				},
+			},
+		})
+	}
+
+	if p.URL != "" {
+		filters = append(filters, map[string]interface{}{
+			"term": map[string]interface{}{"url": map[string]interface{}{
+				"value":            NormalizeLossyURL(p.URL),
+				"case_insensitive": true,
+			}},
+		})
+	}
+
+	if p.Domain != "" {
+		filters = append(filters, map[string]interface{}{
+			"term": map[string]interface{}{"domain": map[string]interface{}{
+				"value":            p.Domain,
+				"case_insensitive": true,
+			}},
+		})
+	}
+
+	for _, tag := range p.Tags {
+		filters = append(filters, map[string]interface{}{
+			"term": map[string]interface{}{
+				"tag": map[string]interface{}{
+					"value":            tag,
+					"case_insensitive": true,
+				},
+			},
+		})
+	}
+
+	return filters
+}
+
 func checkParams(offset, size int) error {
 	if offset+size > 10000 || size > 250 || offset > 10000 || offset < 0 || size < 0 {
 		return fmt.Errorf("disallowed size/offset parameters")
@@ -56,21 +194,22 @@ func checkParams(offset, size int) error {
 	return nil
 }
 
-func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
+func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client, index string, params *PostSearchParams) (*EsSearchResponse, error) {
 	ctx, span := tracer.Start(ctx, "DoSearchPosts")
 	defer span.End()
 
-	if err := checkParams(offset, size); err != nil {
+	if err := checkParams(params.Offset, params.Size); err != nil {
 		return nil, err
 	}
-	queryStr, filters := ParseQuery(ctx, dir, q)
+	queryStringParams := ParsePostQuery(ctx, dir, params.Query, params.Viewer)
+	params.Update(&queryStringParams)
 	idx := "everything"
-	if containsJapanese(queryStr) {
+	if containsJapanese(params.Query) {
 		idx = "everything_ja"
 	}
 	basic := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
-			"query":            queryStr,
+			"query":            params.Query,
 			"fields":           []string{idx},
 			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
 			"default_operator": "and",
@@ -78,6 +217,7 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 			"analyze_wildcard": false,
 		},
 	}
+	filters := params.Filters()
 	// filter out future posts (TODO: temporary hack)
 	now := syntax.DatetimeNow()
 	filters = append(filters, map[string]interface{}{
@@ -99,25 +239,24 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 				"order": "desc",
 			},
 		},
-		"size": size,
-		"from": offset,
+		"size": params.Size,
+		"from": params.Offset,
 	}
 
 	return doSearch(ctx, escli, index, query)
 }
 
-func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Client, index, q string, offset, size int) (*EsSearchResponse, error) {
+func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Client, index string, params *ActorSearchParams) (*EsSearchResponse, error) {
 	ctx, span := tracer.Start(ctx, "DoSearchProfiles")
 	defer span.End()
 
-	if err := checkParams(offset, size); err != nil {
+	if err := checkParams(params.Offset, params.Size); err != nil {
 		return nil, err
 	}
 
-	queryStr, filters := ParseQuery(ctx, dir, q)
 	basic := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
-			"query":            queryStr,
+			"query":            params.Query,
 			"fields":           []string{"everything"},
 			"flags":            "AND|NOT|OR|PHRASE|PRECEDENCE|WHITESPACE",
 			"default_operator": "and",
@@ -135,29 +274,28 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 					map[string]interface{}{"term": map[string]interface{}{"has_banner": true}},
 				},
 				"minimum_should_match": 0,
-				"filter":               filters,
 				"boost":                0.5,
 			},
 		},
-		"size": size,
-		"from": offset,
+		"size": params.Size,
+		"from": params.Offset,
 	}
 
 	return doSearch(ctx, escli, index, query)
 }
 
-func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q string, size int) (*EsSearchResponse, error) {
+func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index string, params *ActorSearchParams) (*EsSearchResponse, error) {
 	ctx, span := tracer.Start(ctx, "DoSearchProfilesTypeahead")
 	defer span.End()
 
-	if err := checkParams(0, size); err != nil {
+	if err := checkParams(0, params.Size); err != nil {
 		return nil, err
 	}
 
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"multi_match": map[string]interface{}{
-				"query":    q,
+				"query":    params.Query,
 				"type":     "bool_prefix",
 				"operator": "and",
 				"fields": []string{
@@ -169,7 +307,7 @@ func DoSearchProfilesTypeahead(ctx context.Context, escli *es.Client, index, q s
 				},
 			},
 		},
-		"size": size,
+		"size": params.Size,
 	}
 
 	return doSearch(ctx, escli, index, query)
