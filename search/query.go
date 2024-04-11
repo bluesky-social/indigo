@@ -72,6 +72,36 @@ type ActorSearchParams struct {
 	Size      int         `json:"size"`
 }
 
+// Merges params from another param object in to this one. Intended to meld parsed query with HTTP query params, so not all functionality is supported, and priority is with the "current" object
+func (p *PostSearchParams) Update(other *PostSearchParams) {
+	p.Query = other.Query
+	if p.Author == nil {
+		p.Author = other.Author
+	}
+	if p.Since == nil {
+		p.Since = other.Since
+	}
+	if p.Until == nil {
+		p.Until = other.Until
+	}
+	if p.Mentions == nil {
+		p.Mentions = other.Mentions
+	}
+	if p.Lang == nil {
+		p.Lang = other.Lang
+	}
+	if p.Domain == "" {
+		p.Domain = other.Domain
+	}
+	if p.URL == "" {
+		p.URL = other.URL
+	}
+	if len(p.Tags) == 0 {
+		p.Tags = other.Tags
+	}
+}
+
+// turns search params in to actual elasticsearch/opensearch filter DSL
 func (p *PostSearchParams) Filters() []map[string]interface{} {
 	var filters []map[string]interface{}
 
