@@ -11,7 +11,7 @@ import (
 )
 
 // ParseQuery takes a query string and pulls out some facet patterns ("from:handle.net") as filters
-func ParsePostQuery(ctx context.Context, dir identity.Directory, raw string) PostSearchParams {
+func ParsePostQuery(ctx context.Context, dir identity.Directory, raw string, viewer *syntax.DID) PostSearchParams {
 	quoted := false
 	parts := strings.FieldsFunc(raw, func(r rune) bool {
 		if r == '"' {
@@ -65,6 +65,14 @@ func ParsePostQuery(ctx context.Context, dir identity.Directory, raw string) Pos
 			// TODO: not really clear what to do here; treating like a mention doesn't really make sense?
 		case "from", "to", "mentions":
 			raw := tokParts[1]
+			if raw == "me" {
+				if viewer != nil && tokParts[0] == "from" {
+					params.Author = viewer
+				} else if viewer != nil {
+					params.Mentions = viewer
+				}
+				continue
+			}
 			if strings.HasPrefix(raw, "@") && len(raw) > 1 {
 				raw = raw[1:]
 			}

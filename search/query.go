@@ -201,7 +201,7 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 	if err := checkParams(params.Offset, params.Size); err != nil {
 		return nil, err
 	}
-	queryStringParams := ParsePostQuery(ctx, dir, params.Query)
+	queryStringParams := ParsePostQuery(ctx, dir, params.Query, params.Viewer)
 	params.Update(&queryStringParams)
 	idx := "everything"
 	if containsJapanese(params.Query) {
