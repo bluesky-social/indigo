@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -317,20 +319,132 @@ func (s *Server) SearchPosts(ctx context.Context, params *PostSearchParams) (*ap
 func (s *Server) SearchProfiles(ctx context.Context, params *ActorSearchParams) (*appbsky.UnspeccedSearchActorsSkeleton_Output, error) {
 	ctx, span := tracer.Start(ctx, "SearchProfiles")
 	defer span.End()
+	span.SetAttributes(
+		attribute.String("query", params.Query),
+		attribute.Bool("typeahead", params.Typeahead),
+		attribute.Int("offset", params.Offset),
+		attribute.Int("size", params.Size),
+	)
 
-	var resp *EsSearchResponse
-	var err error
-	if params.Typeahead {
-		resp, err = DoSearchProfilesTypeahead(ctx, s.escli, s.profileIndex, params)
-	} else {
-		resp, err = DoSearchProfiles(ctx, s.dir, s.escli, s.profileIndex, params)
+	var globalResp *EsSearchResponse
+	var personalizedResp *EsSearchResponse
+	var globalErr error
+	var personalizedErr error
+
+	wg := sync.WaitGroup{}
+
+	wg.Add(1)
+	// Conduct the global search
+	go func(myQ ActorSearchParams) {
+		defer wg.Done()
+		// Clear out the following list to conduct the global search
+		myQ.Follows = nil
+
+		if myQ.Typeahead {
+			globalResp, globalErr = DoSearchProfilesTypeahead(ctx, s.escli, s.profileIndex, &myQ)
+		} else {
+			globalResp, globalErr = DoSearchProfiles(ctx, s.dir, s.escli, s.profileIndex, &myQ)
+		}
+	}(*params)
+
+	// If we have a following list, conduct a second search to filter the results
+	if len(params.Follows) > 0 {
+		wg.Add(1)
+		go func(myQ ActorSearchParams) {
+			defer wg.Done()
+			if myQ.Typeahead {
+				personalizedResp, personalizedErr = DoSearchProfilesTypeahead(ctx, s.escli, s.profileIndex, &myQ)
+			} else {
+				personalizedResp, personalizedErr = DoSearchProfiles(ctx, s.dir, s.escli, s.profileIndex, &myQ)
+			}
+		}(*params)
 	}
-	if err != nil {
-		return nil, err
+
+	wg.Wait()
+
+	if globalErr != nil {
+		return nil, globalErr
+	}
+
+	if len(params.Follows) > 0 {
+		if personalizedErr != nil {
+			return nil, personalizedErr
+		}
+
+		followingBoost := 0.1
+
+		// Insert the personalized results into the global results, deduping as we go and maintaining score-order
+		followingSeen := map[string]struct{}{}
+		for _, r := range personalizedResp.Hits.Hits {
+			var doc ProfileDoc
+			if err := json.Unmarshal(r.Source, &doc); err != nil {
+				return nil, fmt.Errorf("decoding profile doc from search response: %w", err)
+			}
+
+			did, err := syntax.ParseDID(doc.DID)
+			if err != nil {
+				return nil, fmt.Errorf("invalid DID in indexed document: %w", err)
+			}
+
+			if _, ok := followingSeen[did.String()]; ok {
+				continue
+			}
+
+			followingSeen[did.String()] = struct{}{}
+
+			// Insert the profile into the global results
+			globalResp.Hits.Hits = append(globalResp.Hits.Hits, r)
+		}
+
+		// Walk the combined results and boost the scores of the personalized results and dedupe
+		seen := map[string]struct{}{}
+		deduped := []EsSearchHit{}
+		for _, r := range globalResp.Hits.Hits {
+			var doc ProfileDoc
+			if err := json.Unmarshal(r.Source, &doc); err != nil {
+				return nil, fmt.Errorf("decoding profile doc from search response: %w", err)
+			}
+
+			did, err := syntax.ParseDID(doc.DID)
+			if err != nil {
+				return nil, fmt.Errorf("invalid DID in indexed document: %w", err)
+			}
+
+			// Boost the score of the personalized results
+			if _, ok := followingSeen[did.String()]; ok {
+				r.Score += followingBoost
+			}
+
+			// Dedupe the results
+			if _, ok := seen[did.String()]; ok {
+				continue
+			}
+
+			seen[did.String()] = struct{}{}
+			deduped = append(deduped, r)
+		}
+
+		// Sort the results by score
+		slices.SortFunc(deduped, func(a, b EsSearchHit) int {
+			if a.Score < b.Score {
+				return 1
+			}
+			if a.Score > b.Score {
+				return -1
+			}
+			return 0
+		})
+
+		// Trim the results to the requested size
+		if len(deduped) > params.Size {
+			deduped = deduped[:params.Size]
+		}
+
+		globalResp.Hits.Hits = deduped
 	}
 
 	actors := []*appbsky.UnspeccedDefs_SkeletonSearchActor{}
-	for _, r := range resp.Hits.Hits {
+	for _, r := range globalResp.Hits.Hits {
 		var doc ProfileDoc
 		if err := json.Unmarshal(r.Source, &doc); err != nil {
 			return nil, fmt.Errorf("decoding profile doc from search response: %w", err)
@@ -351,8 +465,8 @@ func (s *Server) SearchProfiles(ctx context.Context, params *ActorSearchParams) 
 		s := fmt.Sprintf("%d", params.Offset+params.Size)
 		out.Cursor = &s
 	}
-	if resp.Hits.Total.Relation == "eq" {
-		i := int64(resp.Hits.Total.Value)
+	if globalResp.Hits.Total.Relation == "eq" {
+		i := int64(globalResp.Hits.Total.Value)
 		out.HitsTotal = &i
 	}
 	return &out, nil
