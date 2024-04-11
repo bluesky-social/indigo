@@ -67,7 +67,7 @@ type PostSearchParams struct {
 type ActorSearchParams struct {
 	Query     string      `json:"q"`
 	Typeahead bool        `json:"typeahead"`
-	Account   *syntax.DID `json:"account"`
+	Viewer    *syntax.DID `json:"viewer"`
 	Offset    int         `json:"offset"`
 	Size      int         `json:"size"`
 }
