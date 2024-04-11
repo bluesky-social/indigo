@@ -36,8 +36,12 @@ type LabelDefs_Label struct {
 //
 // Declares a label value and its expected interpertations and behaviors.
 type LabelDefs_LabelValueDefinition struct {
+	// adultOnly: Does the user need to have adult content enabled in order to configure this label?
+	AdultOnly *bool `json:"adultOnly,omitempty" cborgen:"adultOnly,omitempty"`
 	// blurs: What should this label hide in the UI, if applied? 'content' hides all of the target; 'media' hides the images/video/audio; 'none' hides nothing.
 	Blurs string `json:"blurs" cborgen:"blurs"`
+	// defaultSetting: The default setting for this label.
+	DefaultSetting *string `json:"defaultSetting,omitempty" cborgen:"defaultSetting,omitempty"`
 	// identifier: The value of the label being defined. Must only include lowercase ascii and the '-' character ([a-z-]+).
 	Identifier string                                   `json:"identifier" cborgen:"identifier"`
 	Locales    []*LabelDefs_LabelValueDefinitionStrings `json:"locales" cborgen:"locales"`
