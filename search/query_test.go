@@ -339,6 +339,16 @@ func TestParsedQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Equal(1, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "post #Trick", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(1, len(res.Hits.Hits))
+	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "post #trick #allMustMatch", 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(0, len(res.Hits.Hits))
 
 	// mention query
 	res, err = DoSearchPosts(ctx, &dir, escli, testPostIndex, "@other.example.com", 0, 20)

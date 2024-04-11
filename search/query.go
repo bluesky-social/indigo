@@ -107,20 +107,29 @@ func (p *PostSearchParams) Filters() []map[string]interface{} {
 
 	if p.Author != nil {
 		filters = append(filters, map[string]interface{}{
-			"term": map[string]interface{}{"did": p.Author.String()},
+			"term": map[string]interface{}{"did": map[string]interface{}{
+				"value":            p.Author.String(),
+				"case_insensitive": true,
+			}},
 		})
 	}
 
 	if p.Mentions != nil {
 		filters = append(filters, map[string]interface{}{
-			"term": map[string]interface{}{"mention_did": p.Mentions.String()},
+			"term": map[string]interface{}{"mention_did": map[string]interface{}{
+				"value":            p.Mentions.String(),
+				"case_insensitive": true,
+			}},
 		})
 	}
 
 	if p.Lang != nil {
 		// TODO: extracting just the 2-char code would be good
 		filters = append(filters, map[string]interface{}{
-			"term": map[string]interface{}{"lang_code_iso2": p.Lang.String()},
+			"term": map[string]interface{}{"lang_code_iso2": map[string]interface{}{
+				"value":            p.Lang.String(),
+				"case_insensitive": true,
+			}},
 		})
 	}
 
@@ -144,22 +153,21 @@ func (p *PostSearchParams) Filters() []map[string]interface{} {
 		})
 	}
 
-	if p.Lang != nil {
-		// TODO: extracting just the 2-char code would be good
-		filters = append(filters, map[string]interface{}{
-			"term": map[string]interface{}{"lang_code_iso2": p.Lang.String()},
-		})
-	}
-
 	if p.URL != "" {
 		filters = append(filters, map[string]interface{}{
-			"term": map[string]interface{}{"url": NormalizeLossyURL(p.URL)},
+			"term": map[string]interface{}{"url": map[string]interface{}{
+				"value":            NormalizeLossyURL(p.URL),
+				"case_insensitive": true,
+			}},
 		})
 	}
 
 	if p.Domain != "" {
 		filters = append(filters, map[string]interface{}{
-			"term": map[string]interface{}{"domain": p.Domain},
+			"term": map[string]interface{}{"domain": map[string]interface{}{
+				"value":            p.Domain,
+				"case_insensitive": true,
+			}},
 		})
 	}
 
