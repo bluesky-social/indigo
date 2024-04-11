@@ -42,6 +42,9 @@ func NormalizeLossyURL(raw string) string {
 
 	// remove tracking params
 	u, err := url.Parse(clean)
+	if err != nil {
+		return clean
+	}
 	if u.RawQuery == "" {
 		return clean
 	}
