@@ -2,6 +2,7 @@ package search
 
 import (
 	"log/slog"
+	"net/url"
 	"strings"
 	"time"
 
@@ -21,6 +22,8 @@ type ProfileDoc struct {
 	Description *string  `json:"description,omitempty"`
 	ImgAltText  []string `json:"img_alt_text,omitempty"`
 	SelfLabel   []string `json:"self_label,omitempty"`
+	URL         []string `json:"url,omitempty"`
+	Domain      []string `json:"domain,omitempty"`
 	Tag         []string `json:"tag,omitempty"`
 	Emoji       []string `json:"emoji,omitempty"`
 	HasAvatar   bool     `json:"has_avatar"`
@@ -38,14 +41,14 @@ type PostDoc struct {
 	LangCode          []string `json:"lang_code,omitempty"`
 	LangCodeIso2      []string `json:"lang_code_iso2,omitempty"`
 	MentionDID        []string `json:"mention_did,omitempty"`
-	LinkURL           []string `json:"link_url,omitempty"`
-	EmbedURL          *string  `json:"embed_url,omitempty"`
 	EmbedATURI        *string  `json:"embed_aturi,omitempty"`
 	ReplyRootATURI    *string  `json:"reply_root_aturi,omitempty"`
 	EmbedImgCount     int      `json:"embed_img_count"`
 	EmbedImgAltText   []string `json:"embed_img_alt_text,omitempty"`
 	EmbedImgAltTextJA []string `json:"embed_img_alt_text_ja,omitempty"`
 	SelfLabel         []string `json:"self_label,omitempty"`
+	URL               []string `json:"url,omitempty"`
+	Domain            []string `json:"domain,omitempty"`
 	Tag               []string `json:"tag,omitempty"`
 	Emoji             []string `json:"emoji,omitempty"`
 }
@@ -117,14 +120,14 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 		}
 	}
 	var mentionDIDs []string
-	var linkURLs []string
+	var urls []string
 	for _, facet := range post.Facets {
 		for _, feat := range facet.Features {
 			if feat.RichtextFacet_Mention != nil {
 				mentionDIDs = append(mentionDIDs, feat.RichtextFacet_Mention.Did)
 			}
 			if feat.RichtextFacet_Link != nil {
-				linkURLs = append(linkURLs, feat.RichtextFacet_Link.Uri)
+				urls = append(urls, feat.RichtextFacet_Link.Uri)
 			}
 		}
 	}
@@ -132,9 +135,8 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 	if post.Reply != nil {
 		replyRootATURI = &(post.Reply.Root.Uri)
 	}
-	var embedURL *string
 	if post.Embed != nil && post.Embed.EmbedExternal != nil {
-		embedURL = &post.Embed.EmbedExternal.External.Uri
+		urls = append(urls, post.Embed.EmbedExternal.External.Uri)
 	}
 	var embedATURI *string
 	if post.Embed != nil && post.Embed.EmbedRecord != nil {
@@ -164,6 +166,16 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 		}
 	}
 
+	var domains []string
+	for i, raw := range urls {
+		clean := NormalizeLossyURL(raw)
+		urls[i] = clean
+		u, err := url.Parse(clean)
+		if nil == err {
+			domains = append(domains, u.Hostname())
+		}
+	}
+
 	doc := PostDoc{
 		DocIndexTs:        syntax.DatetimeNow().String(),
 		DID:               ident.DID.String(),
@@ -173,14 +185,14 @@ func TransformPost(post *appbsky.FeedPost, ident *identity.Identity, rkey, cid s
 		LangCode:          post.Langs,
 		LangCodeIso2:      langCodeIso2,
 		MentionDID:        mentionDIDs,
-		LinkURL:           linkURLs,
-		EmbedURL:          embedURL,
 		EmbedATURI:        embedATURI,
 		ReplyRootATURI:    replyRootATURI,
 		EmbedImgCount:     embedImgCount,
 		EmbedImgAltText:   embedImgAltText,
 		EmbedImgAltTextJA: embedImgAltTextJA,
 		SelfLabel:         selfLabels,
+		URL:               urls,
+		Domain:            domains,
 		Tag:               parsePostTags(post),
 		Emoji:             parseEmojis(post.Text),
 	}
