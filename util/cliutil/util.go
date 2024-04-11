@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/xrpc"
+	slogGorm "github.com/orandin/slog-gorm"
 	"github.com/urfave/cli/v2"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -197,9 +198,12 @@ func SetupDatabase(dburl string, maxConnections int) (*gorm.DB, error) {
 		return nil, fmt.Errorf("unsupported or unrecognized DATABASE_URL value: %s", dburl)
 	}
 
+	gormLogger := slogGorm.New()
+
 	db, err := gorm.Open(dial, &gorm.Config{
 		SkipDefaultTransaction: true,
 		TranslateError:         true,
+		Logger:                 gormLogger,
 	})
 	if err != nil {
 		return nil, err
