@@ -35,9 +35,11 @@ type Engine struct {
 	Flags     flagstore.FlagStore
 	// unlike the other sub-modules, this field (Notifier) may be nil
 	Notifier Notifier
-	// use to fetch public account metadata from AppView
+	// use to fetch public account metadata from AppView; no auth
 	BskyClient *xrpc.Client
-	// used to persist moderation actions in mod service (optional)
+	// used to persist moderation actions in ozone moderation service; optional, admin auth
+	OzoneClient *xrpc.Client
+	// used to fetch private account metadata from PDS or entryway; optional, admin auth
 	AdminClient *xrpc.Client
 	// used to fetch blobs from upstream PDS instances
 	BlobClient *http.Client
