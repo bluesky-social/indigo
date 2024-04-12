@@ -13,7 +13,7 @@ import (
 
 // SyncGetRecord calls the XRPC method "com.atproto.sync.getRecord".
 //
-// commit: An optional past commit CID.
+// commit: DEPRECATED: referenced a repo commit by CID, and retrieved record as of that commit
 // did: The DID of the repo.
 // rkey: Record Key
 func SyncGetRecord(ctx context.Context, c *xrpc.Client, collection string, commit string, did string, rkey string) ([]byte, error) {
