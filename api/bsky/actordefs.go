@@ -255,6 +255,11 @@ type ActorDefs_SavedFeedsPref struct {
 	TimelineIndex *int64   `json:"timelineIndex,omitempty" cborgen:"timelineIndex,omitempty"`
 }
 
+// ActorDefs_SkeletonActor is a "skeletonActor" in the app.bsky.actor.defs schema.
+type ActorDefs_SkeletonActor struct {
+	Did string `json:"did" cborgen:"did"`
+}
+
 // ActorDefs_ThreadViewPref is a "threadViewPref" in the app.bsky.actor.defs schema.
 //
 // RECORDTYPE: ActorDefs_ThreadViewPref
