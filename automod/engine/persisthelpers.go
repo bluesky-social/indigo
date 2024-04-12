@@ -165,10 +165,15 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 	eng.Logger.Info("reporting account", "reasonType", mr.ReasonType, "comment", mr.Comment)
 	actionNewReportCount.WithLabelValues("account").Inc()
 	comment := "[automod] " + mr.Comment
-	_, err = comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
-		ReasonType: &mr.ReasonType,
-		Reason:     &comment,
-		Subject: &comatproto.ModerationCreateReport_Input_Subject{
+	_, err = toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+		CreatedBy: xrpcc.Auth.Did,
+		Event: &toolsozone.ModerationEmitEvent_Input_Event{
+			ModerationDefs_ModEventReport: &toolsozone.ModerationDefs_ModEventReport{
+				Comment:    &comment,
+				ReportType: &mr.ReasonType,
+			},
+		},
+		Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
 			AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
 				Did: did.String(),
 			},
@@ -235,10 +240,15 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 	eng.Logger.Info("reporting record", "reasonType", mr.ReasonType, "comment", mr.Comment)
 	actionNewReportCount.WithLabelValues("record").Inc()
 	comment := "[automod] " + mr.Comment
-	_, err = comatproto.ModerationCreateReport(ctx, xrpcc, &comatproto.ModerationCreateReport_Input{
-		ReasonType: &mr.ReasonType,
-		Reason:     &comment,
-		Subject: &comatproto.ModerationCreateReport_Input_Subject{
+	_, err = toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+		CreatedBy: xrpcc.Auth.Did,
+		Event: &toolsozone.ModerationEmitEvent_Input_Event{
+			ModerationDefs_ModEventReport: &toolsozone.ModerationDefs_ModEventReport{
+				Comment:    &comment,
+				ReportType: &mr.ReasonType,
+			},
+		},
+		Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
 			RepoStrongRef: &comatproto.RepoStrongRef{
 				Uri: uri.String(),
 				Cid: cid.String(),
