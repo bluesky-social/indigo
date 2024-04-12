@@ -3009,8 +3009,17 @@ func (t *LabelDefs_LabelValueDefinition) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 6
 
-	if _, err := cw.Write([]byte{164}); err != nil {
+	if t.AdultOnly == nil {
+		fieldCount--
+	}
+
+	if t.DefaultSetting == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -3086,6 +3095,31 @@ func (t *LabelDefs_LabelValueDefinition) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.AdultOnly (bool) (bool)
+	if t.AdultOnly != nil {
+
+		if len("adultOnly") > 1000000 {
+			return xerrors.Errorf("Value in field \"adultOnly\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("adultOnly"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("adultOnly")); err != nil {
+			return err
+		}
+
+		if t.AdultOnly == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if err := cbg.WriteBool(w, *t.AdultOnly); err != nil {
+				return err
+			}
+		}
+	}
+
 	// t.Identifier (string) (string)
 	if len("identifier") > 1000000 {
 		return xerrors.Errorf("Value in field \"identifier\" was too long")
@@ -3107,6 +3141,38 @@ func (t *LabelDefs_LabelValueDefinition) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := cw.WriteString(string(t.Identifier)); err != nil {
 		return err
+	}
+
+	// t.DefaultSetting (string) (string)
+	if t.DefaultSetting != nil {
+
+		if len("defaultSetting") > 1000000 {
+			return xerrors.Errorf("Value in field \"defaultSetting\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("defaultSetting"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("defaultSetting")); err != nil {
+			return err
+		}
+
+		if t.DefaultSetting == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.DefaultSetting) > 1000000 {
+				return xerrors.Errorf("Value in field t.DefaultSetting was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.DefaultSetting))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.DefaultSetting)); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -3220,6 +3286,39 @@ func (t *LabelDefs_LabelValueDefinition) UnmarshalCBOR(r io.Reader) (err error) 
 
 				t.Severity = string(sval)
 			}
+			// t.AdultOnly (bool) (bool)
+		case "adultOnly":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					maj, extra, err = cr.ReadHeader()
+					if err != nil {
+						return err
+					}
+					if maj != cbg.MajOther {
+						return fmt.Errorf("booleans must be major type 7")
+					}
+
+					var val bool
+					switch extra {
+					case 20:
+						val = false
+					case 21:
+						val = true
+					default:
+						return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
+					}
+					t.AdultOnly = &val
+				}
+			}
 			// t.Identifier (string) (string)
 		case "identifier":
 
@@ -3230,6 +3329,27 @@ func (t *LabelDefs_LabelValueDefinition) UnmarshalCBOR(r io.Reader) (err error) 
 				}
 
 				t.Identifier = string(sval)
+			}
+			// t.DefaultSetting (string) (string)
+		case "defaultSetting":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.DefaultSetting = (*string)(&sval)
+				}
 			}
 
 		default:

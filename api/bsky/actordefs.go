@@ -68,14 +68,14 @@ type ActorDefs_InterestsPref struct {
 	Tags []string `json:"tags" cborgen:"tags"`
 }
 
-// ActorDefs_ModPrefItem is a "modPrefItem" in the app.bsky.actor.defs schema.
-type ActorDefs_ModPrefItem struct {
+// ActorDefs_LabelerPrefItem is a "labelerPrefItem" in the app.bsky.actor.defs schema.
+type ActorDefs_LabelerPrefItem struct {
 	Did string `json:"did" cborgen:"did"`
 }
 
-// ActorDefs_ModsPref is a "modsPref" in the app.bsky.actor.defs schema.
-type ActorDefs_ModsPref struct {
-	Mods []*ActorDefs_ModPrefItem `json:"mods" cborgen:"mods"`
+// ActorDefs_LabelersPref is a "labelersPref" in the app.bsky.actor.defs schema.
+type ActorDefs_LabelersPref struct {
+	Labelers []*ActorDefs_LabelerPrefItem `json:"labelers" cborgen:"labelers"`
 }
 
 // ActorDefs_MutedWord is a "mutedWord" in the app.bsky.actor.defs schema.
@@ -206,6 +206,7 @@ type ActorDefs_ProfileAssociated struct {
 
 // ActorDefs_ProfileView is a "profileView" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileView struct {
+	Associated  *ActorDefs_ProfileAssociated       `json:"associated,omitempty" cborgen:"associated,omitempty"`
 	Avatar      *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	Description *string                            `json:"description,omitempty" cborgen:"description,omitempty"`
 	Did         string                             `json:"did" cborgen:"did"`
@@ -218,6 +219,7 @@ type ActorDefs_ProfileView struct {
 
 // ActorDefs_ProfileViewBasic is a "profileViewBasic" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileViewBasic struct {
+	Associated  *ActorDefs_ProfileAssociated       `json:"associated,omitempty" cborgen:"associated,omitempty"`
 	Avatar      *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	Did         string                             `json:"did" cborgen:"did"`
 	DisplayName *string                            `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
@@ -251,6 +253,11 @@ type ActorDefs_SavedFeedsPref struct {
 	Pinned        []string `json:"pinned" cborgen:"pinned"`
 	Saved         []string `json:"saved" cborgen:"saved"`
 	TimelineIndex *int64   `json:"timelineIndex,omitempty" cborgen:"timelineIndex,omitempty"`
+}
+
+// ActorDefs_SkeletonActor is a "skeletonActor" in the app.bsky.actor.defs schema.
+type ActorDefs_SkeletonActor struct {
+	Did string `json:"did" cborgen:"did"`
 }
 
 // ActorDefs_ThreadViewPref is a "threadViewPref" in the app.bsky.actor.defs schema.
