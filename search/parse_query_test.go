@@ -86,5 +86,13 @@ func TestParseQuery(t *testing.T) {
 	}
 	assert.Equal(1, len(p.Filters()))
 
+	q9 := "did:plc:abc222"
+	p = ParsePostQuery(ctx, &dir, q9, nil)
+	assert.Equal("*", p.Query)
+	assert.Equal(1, len(p.Filters()))
+	if p.Author != nil {
+		assert.Equal("did:plc:abc222", p.Author.String())
+	}
+
 	// TODO: more parsing tests: bare handles, to:, since:, until:, URL, domain:, lang
 }
