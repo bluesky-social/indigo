@@ -62,7 +62,13 @@ func ParsePostQuery(ctx context.Context, dir identity.Directory, raw string, vie
 
 		switch tokParts[0] {
 		case "did":
-			// TODO: not really clear what to do here; treating like a mention doesn't really make sense?
+			// Used as a hack for `from:me` when suppplied by the client
+			did, err := syntax.ParseDID(p)
+			if err != nil {
+				continue
+			}
+			params.Author = &did
+			continue
 		case "from", "to", "mentions":
 			raw := tokParts[1]
 			if raw == "me" {
