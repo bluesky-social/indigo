@@ -53,16 +53,37 @@ func run(args []string) error {
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
 		&cli.StringFlag{
-			Name:    "atp-mod-host",
-			Usage:   "method, hostname, and port of moderation service",
-			Value:   "https://api.bsky.app",
-			EnvVars: []string{"ATP_MOD_HOST"},
+			Name:    "atp-bsky-host",
+			Usage:   "method, hostname, and port of bsky API (appview) service. does not use auth",
+			Value:   "https://public.api.bsky.app",
+			EnvVars: []string{"ATP_BSKY_HOST"},
 		},
 		&cli.StringFlag{
-			Name:    "atp-bsky-host",
-			Usage:   "method, hostname, and port of bsky API (appview) service",
-			Value:   "https://api.bsky.app",
-			EnvVars: []string{"ATP_BSKY_HOST"},
+			Name:    "atp-ozone-host",
+			Usage:   "method, hostname, and port of ozone instance. requires ozone-admin-token as well",
+			Value:   "https://mod.bsky.app",
+			EnvVars: []string{"ATP_OZONE_HOST", "ATP_MOD_HOST"},
+		},
+		&cli.StringFlag{
+			Name:    "ozone-did",
+			Usage:   "DID of account to attribute ozone actions to",
+			EnvVars: []string{"HEPA_OZONE_DID"},
+		},
+		&cli.StringFlag{
+			Name:    "ozone-admin-token",
+			Usage:   "admin authentication password for mod service",
+			EnvVars: []string{"HEPA_OZONE_AUTH_ADMIN_TOKEN", "HEPA_MOD_AUTH_ADMIN_TOKEN"},
+		},
+		&cli.StringFlag{
+			Name:    "atp-pds-host",
+			Usage:   "method, hostname, and port of PDS (or entryway) for admin account info; uses admin auth",
+			Value:   "https://bsky.social",
+			EnvVars: []string{"ATP_PDS_HOST"},
+		},
+		&cli.StringFlag{
+			Name:    "pds-admin-token",
+			Usage:   "admin authentication password for PDS (or entryway)",
+			EnvVars: []string{"HEPA_PDS_AUTH_ADMIN_TOKEN"},
 		},
 		&cli.StringFlag{
 			Name:  "redis-url",
@@ -70,21 +91,6 @@ func run(args []string) error {
 			// redis://<user>:<pass>@localhost:6379/<db>
 			// redis://localhost:6379/0
 			EnvVars: []string{"HEPA_REDIS_URL"},
-		},
-		&cli.StringFlag{
-			Name:    "mod-handle",
-			Usage:   "for mod service login",
-			EnvVars: []string{"HEPA_MOD_AUTH_HANDLE"},
-		},
-		&cli.StringFlag{
-			Name:    "mod-password",
-			Usage:   "for mod service login",
-			EnvVars: []string{"HEPA_MOD_AUTH_PASSWORD"},
-		},
-		&cli.StringFlag{
-			Name:    "mod-admin-token",
-			Usage:   "admin authentication password for mod service",
-			EnvVars: []string{"HEPA_MOD_AUTH_ADMIN_TOKEN"},
 		},
 		&cli.IntFlag{
 			Name:    "plc-rate-limit",
@@ -219,13 +225,14 @@ var runCmd = &cli.Command{
 		srv, err := NewServer(
 			dir,
 			Config{
+				Logger:              logger,
 				RelayHost:           cctx.String("atp-relay-host"),
 				BskyHost:            cctx.String("atp-bsky-host"),
-				Logger:              logger,
-				ModHost:             cctx.String("atp-mod-host"),
-				ModAdminToken:       cctx.String("mod-admin-token"),
-				ModUsername:         cctx.String("mod-handle"),
-				ModPassword:         cctx.String("mod-password"),
+				OzoneHost:           cctx.String("atp-ozone-host"),
+				OzoneDID:            cctx.String("ozone-did"),
+				OzoneAdminToken:     cctx.String("ozone-admin-token"),
+				PDSHost:             cctx.String("atp-pds-host"),
+				PDSAdminToken:       cctx.String("pds-admin-token"),
 				SetsFileJSON:        cctx.String("sets-json-path"),
 				RedisURL:            cctx.String("redis-url"),
 				SlackWebhookURL:     cctx.String("slack-webhook-url"),
@@ -257,14 +264,6 @@ var runCmd = &cli.Command{
 			}
 		}()
 
-		if srv.engine.AdminClient != nil {
-			go func() {
-				if err := srv.RunRefreshAdminClient(ctx); err != nil {
-					slog.Error("session refresh failed", "err", err)
-				}
-			}()
-		}
-
 		// the main service loop
 		if err := srv.RunConsumer(ctx); err != nil {
 			return fmt.Errorf("failure consuming and processing firehose: %w", err)
@@ -286,13 +285,14 @@ func configEphemeralServer(cctx *cli.Context) (*Server, error) {
 	return NewServer(
 		dir,
 		Config{
+			Logger:              logger,
 			RelayHost:           cctx.String("atp-relay-host"),
 			BskyHost:            cctx.String("atp-bsky-host"),
-			Logger:              logger,
-			ModHost:             cctx.String("atp-mod-host"),
-			ModAdminToken:       cctx.String("mod-admin-token"),
-			ModUsername:         cctx.String("mod-handle"),
-			ModPassword:         cctx.String("mod-password"),
+			OzoneHost:           cctx.String("atp-ozone-host"),
+			OzoneDID:            cctx.String("ozone-did"),
+			OzoneAdminToken:     cctx.String("ozone-admin-token"),
+			PDSHost:             cctx.String("atp-pds-host"),
+			PDSAdminToken:       cctx.String("pds-admin-token"),
 			SetsFileJSON:        cctx.String("sets-json-path"),
 			RedisURL:            cctx.String("redis-url"),
 			HiveAPIToken:        cctx.String("hiveai-api-token"),

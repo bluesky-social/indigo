@@ -77,14 +77,14 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	}
 
 	// if we can't actually talk to service, bail out early
-	if eng.AdminClient == nil {
+	if eng.OzoneClient == nil {
 		if anyModActions {
 			c.Logger.Warn("not persisting actions, mod service client not configured")
 		}
 		return nil
 	}
 
-	xrpcc := eng.AdminClient
+	xrpcc := eng.OzoneClient
 
 	if len(newLabels) > 0 {
 		c.Logger.Info("labeling record", "newLabels", newLabels)
@@ -166,8 +166,8 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 
 	atURI := c.RecordOp.ATURI().String()
 	newLabels := dedupeStrings(c.effects.RecordLabels)
-	if len(newLabels) > 0 && eng.AdminClient != nil {
-		rv, err := toolsozone.ModerationGetRecord(ctx, eng.AdminClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
+	if len(newLabels) > 0 && eng.OzoneClient != nil {
+		rv, err := toolsozone.ModerationGetRecord(ctx, eng.OzoneClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
 		if err != nil {
 			c.Logger.Warn("failed to fetch private record metadata", "err", err)
 		} else {
@@ -234,7 +234,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		return nil
 	}
 
-	if eng.AdminClient == nil {
+	if eng.OzoneClient == nil {
 		c.Logger.Warn("not persisting actions because mod service client not configured")
 		return nil
 	}
@@ -249,7 +249,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		Uri: atURI,
 	}
 
-	xrpcc := eng.AdminClient
+	xrpcc := eng.OzoneClient
 	if len(newLabels) > 0 {
 		c.Logger.Info("labeling record", "newLabels", newLabels)
 		for _, val := range newLabels {
