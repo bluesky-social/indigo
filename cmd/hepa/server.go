@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/cachestore"
 	"github.com/bluesky-social/indigo/automod/countstore"
@@ -41,12 +41,14 @@ type Server struct {
 }
 
 type Config struct {
+	Logger              *slog.Logger
 	RelayHost           string
 	BskyHost            string
-	ModHost             string
-	ModAdminToken       string
-	ModUsername         string
-	ModPassword         string
+	OzoneHost           string
+	OzoneDID            string
+	OzoneAdminToken     string
+	PDSHost             string
+	PDSAdminToken       string
 	SetsFileJSON        string
 	RedisURL            string
 	SlackWebhookURL     string
@@ -56,7 +58,6 @@ type Config struct {
 	RulesetName         string
 	RatelimitBypass     string
 	FirehoseParallelism int
-	Logger              *slog.Logger
 }
 
 func NewServer(dir identity.Directory, config Config) (*Server, error) {
@@ -72,31 +73,43 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		return nil, fmt.Errorf("specified relay host must include 'ws://' or 'wss://'")
 	}
 
-	// TODO: this isn't a very robust way to handle a persistent client
-	var xrpcc *xrpc.Client
-	if config.ModAdminToken != "" {
-		xrpcc = &xrpc.Client{
+	var ozoneClient *xrpc.Client
+	if config.OzoneAdminToken != "" && config.OzoneDID != "" {
+		ozoneClient = &xrpc.Client{
 			Client:     util.RobustHTTPClient(),
-			Host:       config.ModHost,
-			AdminToken: &config.ModAdminToken,
+			Host:       config.OzoneHost,
+			AdminToken: &config.OzoneAdminToken,
 			Auth:       &xrpc.AuthInfo{},
 		}
 		if config.RatelimitBypass != "" {
-			xrpcc.Headers = make(map[string]string)
-			xrpcc.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
+			ozoneClient.Headers = make(map[string]string)
+			ozoneClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
 		}
-
-		auth, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
-			Identifier: config.ModUsername,
-			Password:   config.ModPassword,
-		})
+		od, err := syntax.ParseDID(config.OzoneDID)
 		if err != nil {
-			return nil, fmt.Errorf("connecting to mod service: %v", err)
+			return nil, fmt.Errorf("ozone account DID supplied was not valid: %v", err)
 		}
-		xrpcc.Auth.AccessJwt = auth.AccessJwt
-		xrpcc.Auth.RefreshJwt = auth.RefreshJwt
-		xrpcc.Auth.Did = auth.Did
-		xrpcc.Auth.Handle = auth.Handle
+		ozoneClient.Auth.Did = od.String()
+		logger.Info("configured ozone admin client", "did", od.String(), "host", config.OzoneHost)
+	} else {
+		logger.Info("did not configure ozone client")
+	}
+
+	var adminClient *xrpc.Client
+	if config.PDSAdminToken != "" {
+		adminClient = &xrpc.Client{
+			Client:     util.RobustHTTPClient(),
+			Host:       config.PDSHost,
+			AdminToken: &config.PDSAdminToken,
+			Auth:       &xrpc.AuthInfo{},
+		}
+		if config.RatelimitBypass != "" {
+			adminClient.Headers = make(map[string]string)
+			adminClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
+		}
+		logger.Info("configured PDS admin client", "host", config.PDSHost)
+	} else {
+		logger.Info("did not configure PDS admin client")
 	}
 
 	sets := setstore.NewMemSetStore()
@@ -200,8 +213,9 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		Cache:       cache,
 		Rules:       ruleset,
 		Notifier:    notifier,
-		AdminClient: xrpcc,
 		BskyClient:  &bskyClient,
+		OzoneClient: ozoneClient,
+		AdminClient: adminClient,
 		BlobClient:  blobClient,
 	}
 
@@ -250,44 +264,6 @@ func (s *Server) PersistCursor(ctx context.Context) error {
 	}
 	err := s.rdb.Set(ctx, cursorKey, lastSeq, 14*24*time.Hour).Err()
 	return err
-}
-
-// Periodically refreshes the engine's admin XRPC client JWT auth token.
-//
-// Expects to be run in a goroutine, and to be the only running code which touches the auth fields (aka, there is no locking).
-// TODO: this is a hack until we have an XRPC client which handles these details automatically.
-func (s *Server) RunRefreshAdminClient(ctx context.Context) error {
-	if s.engine.AdminClient == nil {
-		return nil
-	}
-	ac := s.engine.AdminClient
-	ticker := time.NewTicker(1 * time.Hour)
-	for {
-		select {
-		case <-ticker.C:
-			// uses a temporary xrpc client instead of the existing one because we need to put refreshJwt in the position of accessJwt, and that would cause an error for any concurrent requests
-			tmpClient := xrpc.Client{
-				Host: ac.Host,
-				Auth: &xrpc.AuthInfo{
-					Did:        ac.Auth.Did,
-					Handle:     ac.Auth.Handle,
-					AccessJwt:  ac.Auth.RefreshJwt,
-					RefreshJwt: ac.Auth.RefreshJwt,
-				},
-			}
-			refresh, err := comatproto.ServerRefreshSession(ctx, &tmpClient)
-			if err != nil {
-				// don't return an error, just log, and attempt again on the next tick
-				s.logger.Error("failed to refresh admin client session", "err", err, "host", ac.Host)
-			} else {
-				s.engine.AdminClient.Auth.RefreshJwt = refresh.RefreshJwt
-				s.engine.AdminClient.Auth.AccessJwt = refresh.AccessJwt
-				s.logger.Info("refreshed admin client session")
-			}
-		case <-ctx.Done():
-			return nil
-		}
-	}
 }
 
 // this method runs in a loop, persisting the current cursor state every 5 seconds
