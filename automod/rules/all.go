@@ -24,6 +24,7 @@ func DefaultRules() automod.RuleSet {
 			YoungAccountDistinctMentionsRule,
 			MisleadingLinkUnicodeReversalPostRule,
 			SimpleBotPostRule,
+			HarassmentTargetInteractionPostRule,
 		},
 		ProfileRules: []automod.ProfileRuleFunc{
 			GtubeProfileRule,
