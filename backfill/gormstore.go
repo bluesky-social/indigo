@@ -34,10 +34,10 @@ type Gormjob struct {
 type GormDBJob struct {
 	gorm.Model
 	Repo       string `gorm:"unique;index"`
-	State      string `gorm:"index;index:failed_job_idx,where:state like 'failed%'"`
+	State      string `gorm:"index:enqueued_job_idx,where:state = 'enqueued';index:retryable_job_idx,where:state like 'failed%'"`
 	Rev        string
 	RetryCount int
-	RetryAfter *time.Time `gorm:"index"`
+	RetryAfter *time.Time `gorm:"index:retryable_job_idx,sort:desc"`
 }
 
 // Gormstore is a gorm-backed implementation of the Backfill Store interface
@@ -66,9 +66,23 @@ func (s *Gormstore) LoadJobs(ctx context.Context) error {
 
 func (s *Gormstore) loadJobs(ctx context.Context, limit int) error {
 	var todo []string
-	if err := s.db.Model(GormDBJob{}).Limit(limit).Select("repo").
-		Where("state = 'enqueued' OR (state like 'failed%' AND (retry_after = NULL OR retry_after < ?))", time.Now()).Scan(&todo).Error; err != nil {
+	if err := s.db.Raw(
+		`SELECT repo FROM gorm_db_jobs INDEXED BY enqueued_job_idx WHERE state  = 'enqueued' LIMIT ?`,
+		limit,
+	).Scan(&todo).Error; err != nil {
 		return err
+	}
+
+	if len(todo) < limit {
+		var moreTodo []string
+		if err := s.db.Raw(
+			`SELECT repo FROM gorm_db_jobs INDEXED BY retryable_job_idx WHERE state like 'failed%' AND (retry_after = NULL OR retry_after < ?) LIMIT ?`,
+			time.Now(),
+			limit-len(todo),
+		).Scan(&moreTodo).Error; err != nil {
+			return err
+		}
+		todo = append(todo, moreTodo...)
 	}
 
 	s.taskQueue = append(s.taskQueue, todo...)
@@ -296,7 +310,7 @@ func (j *Gormjob) SetRev(ctx context.Context, r string) error {
 	j.updatedAt = time.Now()
 
 	// Persist the job to the database
-	j.dbj.Rev = r
+
 	return j.db.Save(j.dbj).Error
 }
 
