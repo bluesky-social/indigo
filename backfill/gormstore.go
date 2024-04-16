@@ -69,6 +69,7 @@ func (s *Gormstore) loadJobs(ctx context.Context, limit int) error {
 
 	if err := s.db.Raw(
 		`SELECT repo FROM gorm_db_jobs WHERE state = 'enqueued' OR (state like 'failed%' AND (retry_after = NULL OR retry_after < ?)) LIMIT ?`,
+		time.Now(), limit,
 	).Scan(&todo).Error; err != nil {
 		return err
 	}
