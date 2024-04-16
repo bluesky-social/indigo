@@ -34,7 +34,7 @@ type Gormjob struct {
 type GormDBJob struct {
 	gorm.Model
 	Repo       string `gorm:"unique;index"`
-	State      string `gorm:"index:enqueued_job_idx,where: state = 'enqueued';index:retryable_job_idx,where:state like 'failed%'"`
+	State      string `gorm:"index:enqueued_job_idx,where:state = 'enqueued';index:retryable_job_idx,where:state like 'failed%'"`
 	Rev        string
 	RetryCount int
 	RetryAfter *time.Time `gorm:"index:retryable_job_idx,sort:desc"`
@@ -66,18 +66,22 @@ func (s *Gormstore) LoadJobs(ctx context.Context) error {
 
 func (s *Gormstore) loadJobs(ctx context.Context, limit int) error {
 	var todo []string
-	if err := s.db.Model(GormDBJob{}).Limit(limit).Select("repo").
-		Where("state = ?", StateEnqueued).Scan(&todo).Error; err != nil {
+	if err := s.db.Raw(
+		`SELECT repo FROM gorm_db_jobs INDEXED BY enqueued_job_idx WHERE state  = 'enqueued' LIMIT ?`,
+		limit,
+	).Scan(&todo).Error; err != nil {
 		return err
 	}
 
 	if len(todo) < limit {
 		var moreTodo []string
-		if err := s.db.Model(GormDBJob{}).Limit(limit-len(todo)).Select("repo").
-			Where("state like 'failed%' AND (retry_after = NULL OR retry_after < ?)", time.Now()).Scan(&moreTodo).Error; err != nil {
+		if err := s.db.Raw(
+			`SELECT repo FROM gorm_db_jobs INDEXED BY retryable_job_idx WHERE state like 'failed%' AND (retry_after = NULL OR retry_after < ?) LIMIT ?`,
+			time.Now(),
+			limit-len(todo),
+		).Scan(&moreTodo).Error; err != nil {
 			return err
 		}
-
 		todo = append(todo, moreTodo...)
 	}
 
