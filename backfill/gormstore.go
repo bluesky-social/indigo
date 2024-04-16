@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -65,21 +66,32 @@ func (s *Gormstore) LoadJobs(ctx context.Context) error {
 }
 
 func (s *Gormstore) loadJobs(ctx context.Context, limit int) error {
+	db, err := s.db.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get db connection: %w", err)
+	}
+	driverType := reflect.TypeOf(db.Driver()).String()
+
+	enqueuedIndexClause := ""
+	retryableIndexClause := ""
+
+	// If the DB is a SQLite DB, we can use INDEXED BY to speed up the query
+	if strings.Contains(driverType, "sqlite3") {
+		enqueuedIndexClause = "INDEXED BY enqueued_job_idx"
+		retryableIndexClause = "INDEXED BY retryable_job_idx"
+	}
+
+	enqueuedSelect := fmt.Sprintf(`SELECT repo FROM gorm_db_jobs %s WHERE state  = 'enqueued' LIMIT ?`, enqueuedIndexClause)
+	retryableSelect := fmt.Sprintf(`SELECT repo FROM gorm_db_jobs %s WHERE state like 'failed%%' AND (retry_after = NULL OR retry_after < ?) LIMIT ?`, retryableIndexClause)
+
 	var todo []string
-	if err := s.db.Raw(
-		`SELECT repo FROM gorm_db_jobs INDEXED BY enqueued_job_idx WHERE state  = 'enqueued' LIMIT ?`,
-		limit,
-	).Scan(&todo).Error; err != nil {
+	if err := s.db.Raw(enqueuedSelect, limit).Scan(&todo).Error; err != nil {
 		return err
 	}
 
 	if len(todo) < limit {
 		var moreTodo []string
-		if err := s.db.Raw(
-			`SELECT repo FROM gorm_db_jobs INDEXED BY retryable_job_idx WHERE state like 'failed%' AND (retry_after = NULL OR retry_after < ?) LIMIT ?`,
-			time.Now(),
-			limit-len(todo),
-		).Scan(&moreTodo).Error; err != nil {
+		if err := s.db.Raw(retryableSelect, time.Now(), limit-len(todo)).Scan(&moreTodo).Error; err != nil {
 			return err
 		}
 		todo = append(todo, moreTodo...)
