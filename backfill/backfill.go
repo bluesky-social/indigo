@@ -35,7 +35,7 @@ type Job interface {
 	// Once done it clears the buffer and marks the job as "complete"
 	// Allowing the Job interface to abstract away the details of how buffered
 	// operations are stored and/or locked
-	FlushBufferedOps(ctx context.Context, cb func(kind, rev, path string, rec *[]byte, cid *cid.Cid) error) error
+	FlushBufferedOps(ctx context.Context, cb func(kind repomgr.EventKind, rev, path string, rec *[]byte, cid *cid.Cid) error) error
 
 	ClearBufferedOps(ctx context.Context) error
 }
@@ -236,9 +236,9 @@ func (b *Backfiller) FlushBuffer(ctx context.Context, job Job) int {
 	repo := job.Repo()
 
 	// Flush buffered operations, clear the buffer, and mark the job as "complete"
-	// Clearning and marking are handled by the job interface
-	err := job.FlushBufferedOps(ctx, func(kind, rev, path string, rec *[]byte, cid *cid.Cid) error {
-		switch repomgr.EventKind(kind) {
+	// Clearing and marking are handled by the job interface
+	err := job.FlushBufferedOps(ctx, func(kind repomgr.EventKind, rev, path string, rec *[]byte, cid *cid.Cid) error {
+		switch kind {
 		case repomgr.EvtKindCreateRecord:
 			err := b.HandleCreateRecord(ctx, repo, rev, path, rec, cid)
 			if err != nil {
@@ -467,22 +467,23 @@ func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscrib
 
 	var ops []*bufferedOp
 	for _, op := range evt.Ops {
-		switch op.Action {
-		case "create", "update":
+		kind := repomgr.EventKind(op.Action)
+		switch kind {
+		case repomgr.EvtKindCreateRecord, repomgr.EvtKindUpdateRecord:
 			cc, rec, err := bf.getRecord(ctx, r, op)
 			if err != nil {
 				return fmt.Errorf("getting record failed (%s,%s): %w", op.Action, op.Path, err)
 			}
 
 			ops = append(ops, &bufferedOp{
-				kind: op.Action,
+				kind: kind,
 				path: op.Path,
 				rec:  rec,
 				cid:  &cc,
 			})
-		case "delete":
+		case repomgr.EvtKindDeleteRecord:
 			ops = append(ops, &bufferedOp{
-				kind: op.Action,
+				kind: kind,
 				path: op.Path,
 			})
 		default:
@@ -511,15 +512,15 @@ func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscrib
 
 	for _, op := range ops {
 		switch op.kind {
-		case "create":
+		case repomgr.EvtKindCreateRecord:
 			if err := bf.HandleCreateRecord(ctx, evt.Repo, evt.Rev, op.path, op.rec, op.cid); err != nil {
 				return fmt.Errorf("create record failed: %w", err)
 			}
-		case "update":
+		case repomgr.EvtKindUpdateRecord:
 			if err := bf.HandleUpdateRecord(ctx, evt.Repo, evt.Rev, op.path, op.rec, op.cid); err != nil {
 				return fmt.Errorf("update record failed: %w", err)
 			}
-		case "delete":
+		case repomgr.EvtKindDeleteRecord:
 			if err := bf.HandleDeleteRecord(ctx, evt.Repo, evt.Rev, op.path); err != nil {
 				return fmt.Errorf("delete record failed: %w", err)
 			}
@@ -533,7 +534,7 @@ func (bf *Backfiller) HandleEvent(ctx context.Context, evt *atproto.SyncSubscrib
 	return nil
 }
 
-func (bf *Backfiller) BufferOp(ctx context.Context, repo string, since *string, rev, kind, path string, rec *[]byte, cid *cid.Cid) (bool, error) {
+func (bf *Backfiller) BufferOp(ctx context.Context, repo string, since *string, rev string, kind repomgr.EventKind, path string, rec *[]byte, cid *cid.Cid) (bool, error) {
 	return bf.BufferOps(ctx, repo, since, rev, []*bufferedOp{{
 		path: path,
 		kind: kind,
