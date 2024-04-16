@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -66,17 +65,11 @@ func (s *Gormstore) LoadJobs(ctx context.Context) error {
 }
 
 func (s *Gormstore) loadJobs(ctx context.Context, limit int) error {
-	db, err := s.db.DB()
-	if err != nil {
-		return fmt.Errorf("failed to get db connection: %w", err)
-	}
-	driverType := reflect.TypeOf(db.Driver()).String()
-
 	enqueuedIndexClause := ""
 	retryableIndexClause := ""
 
 	// If the DB is a SQLite DB, we can use INDEXED BY to speed up the query
-	if strings.Contains(driverType, "sqlite3") {
+	if s.db.Dialector.Name() == "sqlite" {
 		enqueuedIndexClause = "INDEXED BY enqueued_job_idx"
 		retryableIndexClause = "INDEXED BY retryable_job_idx"
 	}
