@@ -306,9 +306,8 @@ func (j *Gormjob) SetRev(ctx context.Context, r string) error {
 	j.updatedAt = time.Now()
 
 	// Persist the job to the database
-	err := j.db.Model(GormDBJob{}).Where("repo = ?", j.repo).Update("rev", r).Error
 
-	return err
+	return j.db.Save(j.dbj).Error
 }
 
 func (j *Gormjob) Rev() string {
