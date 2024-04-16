@@ -107,7 +107,7 @@ func (s *Server) handleSearchPostsSkeleton(e echo.Context) error {
 			}
 		}
 		if atid.IsHandle() {
-			ident, err := s.dir.Lookup(context.TODO(), *atid)
+			ident, err := s.dir.Lookup(e.Request().Context(), *atid)
 			if err != nil {
 				return e.JSON(400, map[string]any{
 					"error":   "BadRequest",
@@ -134,7 +134,7 @@ func (s *Server) handleSearchPostsSkeleton(e echo.Context) error {
 			}
 		}
 		if atid.IsHandle() {
-			ident, err := s.dir.Lookup(context.TODO(), *atid)
+			ident, err := s.dir.Lookup(e.Request().Context(), *atid)
 			if err != nil {
 				return e.JSON(400, map[string]any{
 					"error":   "BadRequest",
