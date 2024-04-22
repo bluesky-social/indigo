@@ -42,6 +42,8 @@ type Slurper struct {
 	DefaultCrawlLimit rate.Limit
 	DefaultRepoLimit  int64
 
+	NewPDSPerDayLimiter *slidingwindow.Limiter
+
 	newSubsDisabled bool
 	trustedDomains  []string
 
@@ -222,14 +224,17 @@ func (s *Slurper) loadConfig() error {
 	s.newSubsDisabled = sc.NewSubsDisabled
 	s.trustedDomains = sc.TrustedDomains
 
+	s.NewPDSPerDayLimiter, _ = slidingwindow.NewLimiter(time.Hour*24, sc.NewPDSPerDayLimit, windowFunc)
+
 	return nil
 }
 
 type SlurpConfig struct {
 	gorm.Model
 
-	NewSubsDisabled bool
-	TrustedDomains  pq.StringArray `gorm:"type:text[]"`
+	NewSubsDisabled   bool
+	TrustedDomains    pq.StringArray `gorm:"type:text[]"`
+	NewPDSPerDayLimit int64
 }
 
 func (s *Slurper) SetNewSubsDisabled(dis bool) error {
@@ -248,6 +253,24 @@ func (s *Slurper) GetNewSubsDisabledState() bool {
 	s.lk.Lock()
 	defer s.lk.Unlock()
 	return s.newSubsDisabled
+}
+
+func (s *Slurper) SetNewPDSPerDayLimit(limit int64) error {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+
+	if err := s.db.Model(SlurpConfig{}).Where("id = 1").Update("new_pds_per_day_limit", limit).Error; err != nil {
+		return err
+	}
+
+	s.NewPDSPerDayLimiter.SetLimit(limit)
+	return nil
+}
+
+func (s *Slurper) GetNewPDSPerDayLimit() int64 {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+	return s.NewPDSPerDayLimiter.Limit()
 }
 
 func (s *Slurper) AddTrustedDomain(domain string) error {
@@ -306,6 +329,11 @@ var ErrNewSubsDisabled = fmt.Errorf("new subscriptions temporarily disabled")
 // Checks whether a host is allowed to be subscribed to
 // must be called with the slurper lock held
 func (s *Slurper) canSlurpHost(host string) bool {
+	// Check if we're over the limit for new PDSs today
+	if !s.NewPDSPerDayLimiter.Allow() {
+		return false
+	}
+
 	// Check if the host is a trusted domain
 	for _, d := range s.trustedDomains {
 		// If the domain starts with a *., it's a wildcard
@@ -324,7 +352,7 @@ func (s *Slurper) canSlurpHost(host string) bool {
 	return !s.newSubsDisabled
 }
 
-func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, overrideTrustList bool) error {
+func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adminOverride bool) error {
 	// TODO: for performance, lock on the hostname instead of global
 	s.lk.Lock()
 	defer s.lk.Unlock()
@@ -344,7 +372,7 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, ove
 	}
 
 	if peering.ID == 0 {
-		if !overrideTrustList && !s.canSlurpHost(host) {
+		if !adminOverride && !s.canSlurpHost(host) {
 			return ErrNewSubsDisabled
 		}
 		// New PDS!

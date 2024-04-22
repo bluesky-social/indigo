@@ -14,6 +14,7 @@ services:
       - "plugins.security.disabled=true"
       - "bootstrap.memory_lock=true" # Disable JVM heap memory swapping
       - "OPENSEARCH_JAVA_OPTS=-Xms4096m -Xmx4096m" # Set min and max JVM heap sizes to at least 50% of system RAM
+      - "OPENSEARCH_INITIAL_ADMIN_PASSWORD=0penSearch-Pal0mar"
     ulimits:
       memlock:
         soft: -1
@@ -43,8 +44,13 @@ services:
       - "PALOMAR_BGS_SYNC_RATE_LIMIT=20"
       - "PALOMAR_INDEX_MAX_CONCURRENCY=5"
       - "DATABASE_URL=sqlite:///data/palomar/search.db"
+      - "PALOMAR_BIND=:3997"
+      - "PALOMAR_METRICS_LISTEN=:3996"
     depends_on:
       - opensearch
+    ports:
+      - "3997:3997"
+      - "3996:3996"
     volumes:
       - type: bind
         source: ../../data
