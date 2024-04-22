@@ -69,7 +69,7 @@ require (
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.15.0
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028
-	gorm.io/driver/postgres v1.5.0
+	gorm.io/driver/postgres v1.5.7
 	gorm.io/driver/sqlite v1.5.5
 	gorm.io/gorm v1.25.9
 	gorm.io/plugin/opentelemetry v0.1.3
