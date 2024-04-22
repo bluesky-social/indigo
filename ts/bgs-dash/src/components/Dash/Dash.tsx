@@ -39,6 +39,8 @@ const Dash: FC<{}> = () => {
   // Slurp Toggle Management
   const [slurpsEnabled, setSlurpsEnabled] = useState<boolean>(true);
   const [canToggleSlurps, setCanToggleSlurps] = useState<boolean>(true);
+  const [newPDSLimit, setNewPDSLimit] = useState<number>(0);
+  const [canSetNewPDSLimit, setCanSetNewPDSLimit] = useState<boolean>(true);
 
   // Notification Management
   const [shouldShowNotification, setShouldShowNotification] =
@@ -213,6 +215,72 @@ const Dash: FC<{}> = () => {
         );
       });
   };
+
+  const getNewPDSRateLimit = () => {
+    fetch(`${RELAY_HOST}/admin/subs/perDayLimit`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((res) => {
+        if ("error" in res) {
+          setAlertWithTimeout(
+            "failure",
+            `Failed to fetch New PDS rate limit: ${res.error}`,
+            true
+          );
+          return;
+        }
+        setNewPDSLimit(res.limit);
+      })
+      .catch((err) => {
+        setAlertWithTimeout(
+          "failure",
+          `Failed to fetch New PDS rate limit: ${err}`,
+          true
+        );
+      });
+  }
+
+  const setNewPDSRateLimit = (limit: number) => {
+    setCanSetNewPDSLimit(false);
+    fetch(`${RELAY_HOST}/admin/subs/setPerDayLimit?limit=${limit}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+
+    })
+      .then((res) => {
+        setCanSetNewPDSLimit(true);
+        if (res.status !== 200) {
+          setAlertWithTimeout(
+            "failure",
+            `Failed to set New PDS rate limit: ${res.status}`,
+            true
+          );
+          return;
+        }
+        setAlertWithTimeout(
+          "success",
+          `Successfully set New PDS rate limit to ${limit} / day`,
+          true
+        );
+        setNewPDSLimit(limit);
+      })
+      .catch((err) => {
+        setCanSetNewPDSLimit(true);
+        setAlertWithTimeout(
+          "failure",
+          `Failed to set New PDS rate limit: ${err}`,
+          true
+        );
+      });
+  }
 
   const requestCrawlHost = (host: string) => {
     fetch(`${RELAY_HOST}/xrpc/com.atproto.sync.requestCrawl`, {
@@ -398,10 +466,12 @@ const Dash: FC<{}> = () => {
   useEffect(() => {
     refreshPDSList();
     getSlurpsEnabled();
+    getNewPDSRateLimit();
     // Refresh stats every 10 seconds
     const interval = setInterval(() => {
       refreshPDSList();
       getSlurpsEnabled();
+      getNewPDSRateLimit();
     }, 10 * 1000);
 
     return () => clearInterval(interval);
@@ -424,6 +494,7 @@ const Dash: FC<{}> = () => {
       ) : (
         <></>
       )}
+      <div></div>
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-semibold leading-6 text-gray-900">
@@ -433,46 +504,80 @@ const Dash: FC<{}> = () => {
             A list of all PDS connections and their current status.
           </p>
         </div>
-
-        <div className="inline-flex mt-5 sm:mt-0">
-          <Switch.Group as="div" className="flex items-center justify-between">
-            <span className="flex flex-grow flex-col mr-5">
-              <Switch.Label as="span" className="text-gray-900" passive>
-                {slurpsEnabled ? (
-                  <ShieldCheckIcon
-                    className="h-5 w-5 mr-2 mb-1 inline-block"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <ShieldExclamationIcon
-                    className="h-5 w-5 mr-2 mb-1 inline-block"
-                    aria-hidden="true"
-                  />
-                )}
-                <span className="text-md font-medium leading-6">
-                  New Connections {slurpsEnabled ? "Enabled" : "Disabled"}
-                </span>
-              </Switch.Label>
-            </span>
-            <Switch
-              checked={slurpsEnabled}
-              onChange={requestSlurpsEnabledStateChange}
-              disabled={!canToggleSlurps}
-              className={classNames(
-                slurpsEnabled ? "bg-green-600" : "bg-red-400",
-                canToggleSlurps ? "cursor-pointer" : "cursor-not-allowed",
-                "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2"
-              )}
-            >
-              <span
-                aria-hidden="true"
+        <div className="flex flex-col mt-5">
+          <div className="inline-flex mt-5 sm:mt-0 flex-col">
+            <Switch.Group as="div" className="flex items-center justify-between">
+              <span className="flex flex-grow flex-col mr-5">
+                <Switch.Label as="span" className="text-gray-900" passive>
+                  {slurpsEnabled ? (
+                    <ShieldCheckIcon
+                      className="h-5 w-5 mr-2 mb-1 inline-block"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <ShieldExclamationIcon
+                      className="h-5 w-5 mr-2 mb-1 inline-block"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span className="text-md font-medium leading-6">
+                    New Connections {slurpsEnabled ? "Enabled" : "Disabled"}
+                  </span>
+                </Switch.Label>
+              </span>
+              <Switch
+                checked={slurpsEnabled}
+                onChange={requestSlurpsEnabledStateChange}
+                disabled={!canToggleSlurps}
                 className={classNames(
-                  slurpsEnabled ? "translate-x-5" : "translate-x-0",
-                  "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                  slurpsEnabled ? "bg-green-600" : "bg-red-400",
+                  canToggleSlurps ? "cursor-pointer" : "cursor-not-allowed",
+                  "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2"
                 )}
-              />
-            </Switch>
-          </Switch.Group>
+              >
+                <span
+                  aria-hidden="true"
+                  className={classNames(
+                    slurpsEnabled ? "translate-x-5" : "translate-x-0",
+                    "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                  )}
+                />
+              </Switch>
+            </Switch.Group>
+          </div>
+          <div className="ml-4">
+            <div className="mt-2 flex rounded-md shadow-sm">
+              <div className="relative flex flex-grow items-stretch focus-within:z-10">
+                <input
+                  type="number"
+                  id="new-pds-rate-limit"
+                  name="new-pds-rate-limit"
+                  // Hides the up/down arrows on number inputs
+                  className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none block w-full rounded-none rounded-l-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                  value={newPDSLimit}
+                  aria-describedby="rate-limit"
+                  onChange={(e) => {
+                    setNewPDSLimit(parseInt(e.target.value));
+                  }}
+                />
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                  <span className="text-gray-500 sm:text-sm" id="price-currency">
+                    PDS / Day
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="relative -ml-px inline-flex items-center gap-x-1.5 rounded-r-md px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                disabled={!canSetNewPDSLimit}
+                onClick={() => {
+                  setNewPDSRateLimit(newPDSLimit);
+                }}
+              >
+                Update
+              </button>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -1186,14 +1291,16 @@ const Dash: FC<{}> = () => {
           </table>
         </div>
       </div>
-      {modalAction && (
-        <ConfirmModal
-          action={modalAction}
-          onConfirm={modalConfirm}
-          onCancel={modalCancel}
-        />
-      )}
-    </div>
+      {
+        modalAction && (
+          <ConfirmModal
+            action={modalAction}
+            onConfirm={modalConfirm}
+            onCancel={modalCancel}
+          />
+        )
+      }
+    </div >
   );
 };
 
