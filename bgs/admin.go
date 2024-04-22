@@ -37,6 +37,33 @@ func (bgs *BGS) handleAdminGetSubsEnabled(e echo.Context) error {
 	})
 }
 
+func (bgs *BGS) handleAdminGetNewPDSPerDayRateLimit(e echo.Context) error {
+	limit := bgs.slurper.GetNewPDSPerDayLimit()
+	return e.JSON(200, map[string]int64{
+		"limit": limit,
+	})
+}
+
+func (bgs *BGS) handleAdminSetNewPDSPerDayRateLimit(e echo.Context) error {
+	limit, err := strconv.ParseInt(e.QueryParam("limit"), 10, 64)
+	if err != nil {
+		return &echo.HTTPError{
+			Code:    400,
+			Message: fmt.Errorf("failed to parse limit: %w", err).Error(),
+		}
+	}
+
+	err = bgs.slurper.SetNewPDSPerDayLimit(limit)
+	if err != nil {
+		return &echo.HTTPError{
+			Code:    500,
+			Message: fmt.Errorf("failed to set new PDS per day rate limit: %w", err).Error(),
+		}
+	}
+
+	return nil
+}
+
 func (bgs *BGS) handleAdminTakeDownRepo(e echo.Context) error {
 	ctx := e.Request().Context()
 
