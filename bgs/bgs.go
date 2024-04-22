@@ -331,8 +331,10 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	// Slurper-related Admin API
 	admin.GET("/subs/getUpstreamConns", bgs.handleAdminGetUpstreamConns)
 	admin.GET("/subs/getEnabled", bgs.handleAdminGetSubsEnabled)
+	admin.GET("/subs/perDayLimit", bgs.handleAdminGetNewPDSPerDayRateLimit)
 	admin.POST("/subs/setEnabled", bgs.handleAdminSetSubsEnabled)
 	admin.POST("/subs/killUpstream", bgs.handleAdminKillUpstreamConn)
+	admin.POST("/subs/setPerDayLimit", bgs.handleAdminSetNewPDSPerDayRateLimit)
 
 	// Domain-related Admin API
 	admin.GET("/subs/listDomainBans", bgs.handleAdminListDomainBans)
