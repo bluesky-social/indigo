@@ -167,6 +167,29 @@ func (tp *TestPDS) Run(t *testing.T) {
 func (tp *TestPDS) RequestScraping(t *testing.T, b *TestRelay) {
 	t.Helper()
 
+	err := b.bgs.CreateAdminToken("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("POST", "http://"+b.Host()+"/admin/subs/setPerDayLimit?limit=500", nil)
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test")
+
+	// Send the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	// Check the response
+	if resp.StatusCode != http.StatusOK {
+		t.Fatal("expected 200 OK, got: ", resp.Status)
+	}
+
 	c := &xrpc.Client{Host: "http://" + b.Host()}
 	if err := atproto.SyncRequestCrawl(context.TODO(), c, &atproto.SyncRequestCrawl_Input{Hostname: tp.RawHost()}); err != nil {
 		t.Fatal(err)
