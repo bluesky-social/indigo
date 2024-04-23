@@ -43,6 +43,9 @@ type PublicKey interface {
 	// Hashes the raw bytes using SHA-256, then verifies the signature of the digest bytes.
 	HashAndVerify(content, sig []byte) error
 
+	// Same as HashAndVerify(), only does not require "low-S" signature. Used for, eg, JWT validation.
+	HashAndVerifyLenient(content, sig []byte) error
+
 	// String serialization of the key bytes using common parameters:
 	// compressed byte serialization; multicode varint code prefix; base58btc
 	// string encoding ("z" prefix)
