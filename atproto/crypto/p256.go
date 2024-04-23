@@ -226,6 +226,27 @@ func (k *PublicKeyP256) HashAndVerify(content, sig []byte) error {
 	return nil
 }
 
+// Same as HashAndVerify(), only does not require "low-S" signature.
+//
+// Used for, eg, JWT validation.
+func (k *PublicKeyP256) HashAndVerifyLenient(content, sig []byte) error {
+	hash := sha256.Sum256(content)
+	// parseP256Sig
+	if len(sig) != 64 {
+		return fmt.Errorf("crypto: P-256 signatures must be 64 bytes, got len=%d", len(sig))
+	}
+	r := big.NewInt(0)
+	s := big.NewInt(0)
+	r.SetBytes(sig[:32])
+	s.SetBytes(sig[32:])
+
+	if !ecdsa.Verify(&k.pubP256, hash[:], r, s) {
+		return ErrInvalidSignature
+	}
+
+	return nil
+}
+
 // Multibase string encoding of the public key, including a multicodec indicator and compressed curve bytes serialization
 func (k *PublicKeyP256) Multibase() string {
 	kbytes := k.Bytes()
