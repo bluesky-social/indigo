@@ -36,6 +36,15 @@ var k256Options = &secp256k1secec.ECDSAOptions{
 	RejectMalleable: true,
 }
 
+var k256LenientOptions = &secp256k1secec.ECDSAOptions{
+	// Used to *verify* digest, not to re-hash
+	Hash: crypto.SHA256,
+	// Use `[R | S]` encoding.
+	Encoding: secp256k1secec.EncodingCompact,
+	// Allows (eg, for JWT validation)
+	RejectMalleable: false,
+}
+
 // Creates a secure new cryptographic key from scratch, with the indicated curve type.
 func GeneratePrivateKeyK256() (*PrivateKeyK256, error) {
 	key, err := secp256k1secec.GenerateKey()
@@ -182,6 +191,17 @@ func (k *PublicKeyK256) Bytes() []byte {
 func (k *PublicKeyK256) HashAndVerify(content, sig []byte) error {
 	hash := sha256.Sum256(content)
 	if !k.pubK256.Verify(hash[:], sig, k256Options) {
+		return ErrInvalidSignature
+	}
+	return nil
+}
+
+// Same as HashAndVerify(), only does not require "low-S" signature.
+//
+// Used for, eg, JWT validation.
+func (k *PublicKeyK256) HashAndVerifyLenient(content, sig []byte) error {
+	hash := sha256.Sum256(content)
+	if !k.pubK256.Verify(hash[:], sig, k256LenientOptions) {
 		return ErrInvalidSignature
 	}
 	return nil
