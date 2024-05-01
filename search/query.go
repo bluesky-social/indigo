@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log/slog"
+	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -275,7 +276,7 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 
 	filters := params.Filters()
 
-	basic := map[string]interface{}{
+	fulltext := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
 			"query":            params.Query,
 			"fields":           []string{"everything"},
@@ -285,11 +286,38 @@ func DoSearchProfiles(ctx context.Context, dir identity.Directory, escli *es.Cli
 			"analyze_wildcard": false,
 		},
 	}
+	primary := fulltext
+
+	// if the query string is just a single token (after parsing out filter
+	// syntax), then have the primary query be an "OR" of the basic fulltext
+	// query and the typeahead query
+	if len(strings.Split(params.Query, " ")) == 1 {
+		typeahead := map[string]interface{}{
+			"multi_match": map[string]interface{}{
+				"query":    params.Query,
+				"type":     "bool_prefix",
+				"operator": "and",
+				"fields": []string{
+					"typeahead",
+					"typeahead._2gram",
+					"typeahead._3gram",
+				},
+			},
+		}
+		primary = map[string]interface{}{
+			"bool": map[string]interface{}{
+				"should": []interface{}{
+					fulltext,
+					typeahead,
+				},
+			},
+		}
+	}
 
 	query := map[string]interface{}{
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
-				"must": basic,
+				"must": primary,
 				"should": []interface{}{
 					map[string]interface{}{"term": map[string]interface{}{"has_avatar": true}},
 					map[string]interface{}{"term": map[string]interface{}{"has_banner": true}},
