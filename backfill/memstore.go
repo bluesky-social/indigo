@@ -10,17 +10,22 @@ import (
 	"github.com/ipfs/go-cid"
 )
 
-type bufferedOp struct {
-	kind repomgr.EventKind
-	path string
-	rec  *[]byte
-	cid  *cid.Cid
+// A BufferedOp is an operation buffered while a repo is being backfilled.
+type BufferedOp struct {
+	// Kind describes the type of operation.
+	Kind repomgr.EventKind
+	// Path contains the path the operation applies to.
+	Path string
+	// Record contains the serialized record for create and update operations.
+	Record *[]byte
+	// Cid is the CID of the record.
+	Cid *cid.Cid
 }
 
 type opSet struct {
 	since *string
 	rev   string
-	ops   []*bufferedOp
+	ops   []*BufferedOp
 }
 
 type Memjob struct {
@@ -107,18 +112,18 @@ func (s *Memstore) BufferOp(ctx context.Context, repo string, since *string, rev
 	j.bufferedOps = append(j.bufferedOps, &opSet{
 		since: since,
 		rev:   rev,
-		ops: []*bufferedOp{&bufferedOp{
-			path: path,
-			kind: kind,
-			rec:  rec,
-			cid:  cid,
+		ops: []*BufferedOp{&BufferedOp{
+			Path:   path,
+			Kind:   kind,
+			Record: rec,
+			Cid:    cid,
 		}},
 	})
 	j.updatedAt = time.Now()
 	return true, nil
 }
 
-func (j *Memjob) BufferOps(ctx context.Context, since *string, rev string, ops []*bufferedOp) (bool, error) {
+func (j *Memjob) BufferOps(ctx context.Context, since *string, rev string, ops []*BufferedOp) (bool, error) {
 	j.lk.Lock()
 	defer j.lk.Unlock()
 
@@ -208,13 +213,13 @@ func (j *Memjob) FlushBufferedOps(ctx context.Context, fn func(kind repomgr.Even
 
 		for _, opset := range j.bufferedOps {
 			for _, op := range opset.ops {
-				if err := fn(op.kind, op.path, op.rec, op.cid); err != nil {
+				if err := fn(op.Kind, op.Path, op.Record, op.Cid); err != nil {
 					return err
 				}
 			}
 		}
 
-		j.bufferedOps = map[string][]*bufferedOp{}
+		j.bufferedOps = map[string][]*BufferedOp{}
 		j.state = StateComplete
 
 		return nil
