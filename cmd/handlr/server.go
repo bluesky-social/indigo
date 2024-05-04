@@ -34,6 +34,7 @@ func (hr *HTTPResolver) Run(bind string) error {
 }
 
 func (hr *HTTPResolver) parseDomain(domain string) (syntax.Handle, error) {
+	domain = strings.ToLower(domain)
 	if !strings.HasPrefix(domain, "_atproto.") {
 		return "", fmt.Errorf("missing _atproto prefix")
 	}
