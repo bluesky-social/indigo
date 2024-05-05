@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
+	"io/fs"
 	"sync"
 
 	"github.com/bluesky-social/indigo/api/atproto"
@@ -150,7 +150,7 @@ func (rf *RepoFetcher) FetchAndIndexRepo(ctx context.Context, job *crawlWork) er
 	if err := rf.repoman.ImportNewRepo(ctx, ai.Uid, ai.Did, bytes.NewReader(repo), &rev); err != nil {
 		span.RecordError(err)
 
-		if ipld.IsNotFound(err) || errors.Is(err, io.EOF) || os.IsNotExist(err) {
+		if ipld.IsNotFound(err) || errors.Is(err, io.EOF) || errors.Is(err, fs.ErrNotExist) {
 			log.Errorw("partial repo fetch was missing data", "did", ai.Did, "pds", pds.Host, "rev", rev)
 			repo, err := rf.fetchRepo(ctx, c, &pds, ai.Did, "")
 			if err != nil {
