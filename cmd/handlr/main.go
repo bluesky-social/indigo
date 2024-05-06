@@ -42,7 +42,7 @@ func run(args []string) error {
 		},
 		&cli.StringFlag{
 			Name:    "domain-suffix",
-			Usage:   "domain suffix to filter against",
+			Usage:   "domain suffix to filter handles (don't include trailing period)",
 			EnvVars: []string{"HANDLR_DOMAIN_SUFFIX"},
 		},
 		&cli.IntFlag{

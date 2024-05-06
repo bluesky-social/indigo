@@ -40,9 +40,6 @@ func (hr *HTTPResolver) parseDomain(domain string) (syntax.Handle, error) {
 	}
 	domain = strings.TrimPrefix(domain, "_atproto.")
 	domain = strings.TrimSuffix(domain, ".")
-	if hr.suffix != "" && !strings.HasSuffix(domain, hr.suffix) {
-		return "", fmt.Errorf("does not have required suffix: %s", hr.suffix)
-	}
 	return syntax.ParseHandle(domain)
 }
 
@@ -91,21 +88,27 @@ func (hr *HTTPResolver) resolveHandle(hdl syntax.Handle) (syntax.DID, error) {
 }
 
 func (hr *HTTPResolver) handleTXT(w dns.ResponseWriter, r *dns.Msg) {
-	//fmt.Printf("%s", r)
 	msg := dns.Msg{}
 	msg.SetReply(r)
 	if len(r.Question) == 0 {
 		w.WriteMsg(&msg)
 		return
 	}
-	// TODO: what about multiple questions?
+	// there is at most one question: tps://datatracker.ietf.org/doc/draft-ietf-dnsop-qdcount-is-one/
 	switch r.Question[0].Qtype {
 	case dns.TypeTXT:
-		msg.Authoritative = true // TODO: configurable?
+		msg.Authoritative = true
 		domain := msg.Question[0].Name
 		hdl, err := hr.parseDomain(domain)
 		slog.Debug("DNS TXT request", "domain", domain, "handle", hdl, "parseErr", err)
 		if err != nil {
+			w.WriteMsg(&msg)
+			return
+		}
+		if hr.suffix != "" && !strings.HasSuffix(hdl.String(), hr.suffix) {
+			// handle falls outside the configured domain-suffix
+			slog.Info("refusing to resolve handle outside suffix", "handle", hdl)
+			msg.SetRcode(r, dns.RcodeRefused)
 			w.WriteMsg(&msg)
 			return
 		}
@@ -117,8 +120,11 @@ func (hr *HTTPResolver) handleTXT(w dns.ResponseWriter, r *dns.Msg) {
 			return
 		}
 		if did == "" {
-			// not found: NXDOMAIN
-			msg.SetRcode(r, dns.RcodeNameError)
+			// handle not found.
+			// not an NXDOMAIN, because there might be a valid handle which is a sub-domain
+			// return "NODATA", which NOERROR and no answer section
+			// TODO: should return an Authority section here
+			msg.SetRcode(r, dns.RcodeSuccess)
 			w.WriteMsg(&msg)
 			return
 		}
