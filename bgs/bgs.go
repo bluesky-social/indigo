@@ -1449,14 +1449,13 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 
 	// Check repo revs against our local copy and enqueue crawls for any that are out of date
 	for _, r := range repos {
+		if err := sem.Acquire(ctx, 1); err != nil {
+			log.Errorw("failed to acquire semaphore", "error", err)
+			results <- revCheckResult{err: err}
+			continue
+		}
 		go func(r comatproto.SyncListRepos_Repo) {
-			if err := sem.Acquire(ctx, 1); err != nil {
-				log.Errorw("failed to acquire semaphore", "error", err)
-				results <- revCheckResult{err: err}
-				return
-			}
 			defer sem.Release(1)
-
 			log := log.With("did", r.Did, "remote_rev", r.Rev)
 			// Fetches the user if we have it, otherwise automatically enqueues it for crawling
 			ai, err := bgs.Index.GetUserOrMissing(ctx, r.Did)
