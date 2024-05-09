@@ -1,249 +1,344 @@
 [
 	{
 		"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
-  		"handle": "handle.example.com",
+		"handle": "handle.example.com",
 		"rkey": "3k4duaz5vfs2b",
 		"cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
 		"PostRecord": {
-  			"$type": "app.bsky.feed.post",
-  			"text": "post which embeds an external URL as a card",
-  			"createdAt": "2023-08-07T05:46:14.423045Z",
-  			"embed": {
-    			"$type": "app.bsky.embed.external",
-    			"external": {
-      			"uri": "https://www.bsky.app:443/index.html",
-      			"title": "Bluesky Social",
-      			"description": "See what's next.",
-      			"thumb": {
-        			"$type": "blob",
-        			"ref": {
-          			"$link": "bafkreiash5eihfku2jg4skhyh5kes7j5d5fd6xxloaytdywcvb3r3zrzhu"
-        			},
-        			"mimeType": "image/png",
-        			"size": 23527
-      			}
-    			}
-  			}
+			"$type": "app.bsky.feed.post",
+			"text": "post which embeds an external URL as a card",
+			"createdAt": "2023-08-07T05:46:14.423045Z",
+			"embed": {
+				"$type": "app.bsky.embed.external",
+				"external": {
+					"uri": "https://www.bsky.app:443/index.html",
+					"title": "Bluesky Social",
+					"description": "See what's next.",
+					"thumb": {
+						"$type": "blob",
+						"ref": {
+							"$link": "bafkreiash5eihfku2jg4skhyh5kes7j5d5fd6xxloaytdywcvb3r3zrzhu"
+						},
+						"mimeType": "image/png",
+						"size": 23527
+					}
+				}
+			}
 		},
 		"doc_id": "did:plc:u5cwb2mwiv2bfq53cjufe6yn_3k4duaz5vfs2b",
 		"PostDoc": {
-            "doc_index_ts": "2006-01-02T15:04:05.000Z",
-  			"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
-  			"handle": "handle.example.com",
-  			"record_rkey": "3k4duaz5vfs2b",
-  			"record_cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
-  			"created_at": "2023-08-07T05:46:14.423045Z",
-  			"text": "post which embeds an external URL as a card",
-  			"url": ["https://bsky.app"],
-  			"domain": ["bsky.app"],
-  			"embed_img_count": 0
+			"doc_index_ts": "2006-01-02T15:04:05.000Z",
+			"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
+			"handle": "handle.example.com",
+			"record_rkey": "3k4duaz5vfs2b",
+			"record_cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
+			"created_at": "2023-08-07T05:46:14.423045Z",
+			"text": "post which embeds an external URL as a card",
+			"url": [
+				"https://bsky.app"
+			],
+			"domain": [
+				"bsky.app"
+			],
+			"embed_img_count": 0
 		}
 	},
 	{
 		"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
-  		"handle": "handle.example.com",
+		"handle": "handle.example.com",
 		"rkey": "3k4duaz5vfs2b",
 		"cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
 		"PostRecord": {
-  			"$type": "app.bsky.feed.post",
-  			"text": "longer example with #some #hashtags, emoji \u2620 \ud83d\ude42 \ud83c\udf85\ud83c\udfff, flags \ud83c\uddf8\ud83c\udde8 ",
-  			"createdAt": "2023-08-07T05:46:14.423045Z",
-  			"langs": ["th", "en-US"],
-  			"facets": [
-    			{
-      			"index": {
-        			"byteStart": 23,
-        			"byteEnd": 35
-      			},
-      			"features": [
-        			{
-          			"$type": "app.bsky.richtext.facet#mention",
-          			"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"
-        			}
-      			]
-    			},
-    			{
-      			"index": {
-        			"byteStart": 74,
-        			"byteEnd": 108
-      			},
-      			"features": [
-        			{
-          			"$type": "app.bsky.richtext.facet#link",
-          			"uri": "https://en.wikipedia.org/wiki/CBOR?utm_campaign=123"
-        			}
-      			]
-    			},
-    			{
-      			"index": {
-        			"byteStart": 21,
-        			"byteEnd": 25
-      			},
-      			"features": [
-        			{
-          			"$type": "app.bsky.richtext.facet#tag",
-          			"tag": "some"
-        			}
-      			]
-    			}
-  			],
-            "labels": {
-                "$type": "com.atproto.label.defs#selfLabels",
-                "values": [
-                    {"val": "nudity"}
-                ]
-            },
-  			"reply": {
-    			"root": {
-      			"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k43tv4rft22g",
-      			"cid": "bafyreig2fjxi3rptqdgylg7e5hmjl6mcke7rn2b6cugzlqq3i4zu6rq52q"
-    			},
-    			"parent": {
-      			"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k43tv4rft22g",
-      			"cid": "bafyreig2fjxi3rptqdgylg7e5hmjl6mcke7rn2b6cugzlqq3i4zu6rq52q"
-    			}
-  			},
-  			"embed": {
-    			"$type": "app.bsky.embed.record",
-    			"record": {
-      			"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k44deefqdk2g",
-      			"cid": "bafyreiecx6dujwoeqpdzl27w67z4h46hyklk3an4i4cvvmioaqb2qbyo5u"
-    			}
-  			},
-            "tags": [
-                "thing"
-            ]
+			"$type": "app.bsky.feed.post",
+			"text": "longer example with #some #hashtags, emoji \u2620 \ud83d\ude42 \ud83c\udf85\ud83c\udfff, flags \ud83c\uddf8\ud83c\udde8 ",
+			"createdAt": "2023-08-07T05:46:14.423045Z",
+			"langs": [
+				"th",
+				"en-US"
+			],
+			"facets": [
+				{
+					"index": {
+						"byteStart": 23,
+						"byteEnd": 35
+					},
+					"features": [
+						{
+							"$type": "app.bsky.richtext.facet#mention",
+							"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"
+						}
+					]
+				},
+				{
+					"index": {
+						"byteStart": 74,
+						"byteEnd": 108
+					},
+					"features": [
+						{
+							"$type": "app.bsky.richtext.facet#link",
+							"uri": "https://en.wikipedia.org/wiki/CBOR?utm_campaign=123"
+						}
+					]
+				},
+				{
+					"index": {
+						"byteStart": 21,
+						"byteEnd": 25
+					},
+					"features": [
+						{
+							"$type": "app.bsky.richtext.facet#tag",
+							"tag": "some"
+						}
+					]
+				}
+			],
+			"labels": {
+				"$type": "com.atproto.label.defs#selfLabels",
+				"values": [
+					{
+						"val": "nudity"
+					}
+				]
+			},
+			"reply": {
+				"root": {
+					"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k43tv4rft22g",
+					"cid": "bafyreig2fjxi3rptqdgylg7e5hmjl6mcke7rn2b6cugzlqq3i4zu6rq52q"
+				},
+				"parent": {
+					"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k43tv4rft22g",
+					"cid": "bafyreig2fjxi3rptqdgylg7e5hmjl6mcke7rn2b6cugzlqq3i4zu6rq52q"
+				}
+			},
+			"embed": {
+				"$type": "app.bsky.embed.record",
+				"record": {
+					"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k44deefqdk2g",
+					"cid": "bafyreiecx6dujwoeqpdzl27w67z4h46hyklk3an4i4cvvmioaqb2qbyo5u"
+				}
+			},
+			"tags": [
+				"thing"
+			]
 		},
 		"doc_id": "did:plc:u5cwb2mwiv2bfq53cjufe6yn_3k4duaz5vfs2b",
 		"PostDoc": {
-            "doc_index_ts": "2006-01-02T15:04:05.000Z",
-  			"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
-  			"handle": "handle.example.com",
-  			"record_rkey": "3k4duaz5vfs2b",
-  			"record_cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
-  			"created_at": "2023-08-07T05:46:14.423045Z",
-  			"text": "longer example with #some #hashtags, emoji \u2620 \ud83d\ude42 \ud83c\udf85\ud83c\udfff, flags \ud83c\uddf8\ud83c\udde8 ",
-  			"reply_root_aturi": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k43tv4rft22g",
-  			"mention_did": [ "did:plc:ewvi7nxzyoun6zhxrhs64oiz" ],
-  			"embed_aturi": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k44deefqdk2g",
-  			"lang_code": ["th", "en-US"],
-  			"lang_code_iso2": ["th", "en"],
-            "self_label": ["nudity"],
-  			"url": [ "https://en.wikipedia.org/wiki/CBOR" ],
-  			"domain": [ "en.wikipedia.org" ],
-  			"tag": ["some", "thing"],
-  			"emoji": ["\u2620", "\ud83d\ude42", "\ud83c\udf85\ud83c\udfff", "\ud83c\uddf8\ud83c\udde8"],
-  			"embed_img_count": 0
+			"doc_index_ts": "2006-01-02T15:04:05.000Z",
+			"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
+			"handle": "handle.example.com",
+			"record_rkey": "3k4duaz5vfs2b",
+			"record_cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
+			"created_at": "2023-08-07T05:46:14.423045Z",
+			"text": "longer example with #some #hashtags, emoji \u2620 \ud83d\ude42 \ud83c\udf85\ud83c\udfff, flags \ud83c\uddf8\ud83c\udde8 ",
+			"reply_root_aturi": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k43tv4rft22g",
+			"mention_did": [
+				"did:plc:ewvi7nxzyoun6zhxrhs64oiz"
+			],
+			"embed_aturi": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k44deefqdk2g",
+			"lang_code": [
+				"th",
+				"en-US"
+			],
+			"lang_code_iso2": [
+				"th",
+				"en"
+			],
+			"self_label": [
+				"nudity"
+			],
+			"url": [
+				"https://en.wikipedia.org/wiki/CBOR"
+			],
+			"domain": [
+				"en.wikipedia.org"
+			],
+			"tag": [
+				"some",
+				"thing"
+			],
+			"emoji": [
+				"\u2620",
+				"\ud83d\ude42",
+				"\ud83c\udf85\ud83c\udfff",
+				"\ud83c\uddf8\ud83c\udde8"
+			],
+			"embed_img_count": 0
 		}
 	},
 	{
 		"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
-  		"handle": "handle.example.com",
+		"handle": "handle.example.com",
 		"rkey": "3k4duaz5vfs2b",
 		"cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
 		"PostRecord": {
-  			"$type": "app.bsky.feed.post",
-  			"text": "",
-  			"createdAt": "2023-08-07T05:46:14.423045Z",
-  			"embed": {
-    			"$type": "app.bsky.embed.images",
-    			"images": [
-      			{
-        			"alt": "brief alt text description of the first image",
-        			"image": {
-          			"$type": "blob",
-          			"ref": {
-            			"$link": "bafkreibabalobzn6cd366ukcsjycp4yymjymgfxcv6xczmlgpemzkz3cfa"
-          			},
-          			"mimeType": "image/webp",
-          			"size": 760898
-        			}
-      			},
-      			{
-        			"alt": "brief alt text description of the second image",
-        			"image": {
-          			"$type": "blob",
-          			"ref": {
-            			"$link": "bafkreif3fouono2i3fmm5moqypwskh3yjtp7snd5hfq5pr453oggygyrte"
-          			},
-          			"mimeType": "image/png",
-          			"size": 13208
-        			}
-      			}
-    			]
-  			}
+			"$type": "app.bsky.feed.post",
+			"text": "",
+			"createdAt": "2023-08-07T05:46:14.423045Z",
+			"embed": {
+				"$type": "app.bsky.embed.images",
+				"images": [
+					{
+						"alt": "brief alt text description of the first image",
+						"image": {
+							"$type": "blob",
+							"ref": {
+								"$link": "bafkreibabalobzn6cd366ukcsjycp4yymjymgfxcv6xczmlgpemzkz3cfa"
+							},
+							"mimeType": "image/webp",
+							"size": 760898
+						}
+					},
+					{
+						"alt": "brief alt text description of the second image",
+						"image": {
+							"$type": "blob",
+							"ref": {
+								"$link": "bafkreif3fouono2i3fmm5moqypwskh3yjtp7snd5hfq5pr453oggygyrte"
+							},
+							"mimeType": "image/png",
+							"size": 13208
+						}
+					}
+				]
+			}
 		},
 		"doc_id": "did:plc:u5cwb2mwiv2bfq53cjufe6yn_3k4duaz5vfs2b",
 		"PostDoc": {
-            "doc_index_ts": "2006-01-02T15:04:05.000Z",
-  			"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
-  			"handle": "handle.example.com",
-  			"record_rkey": "3k4duaz5vfs2b",
-  			"record_cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
-  			"created_at": "2023-08-07T05:46:14.423045Z",
-  			"text": "",
-  			"embed_img_alt_text": [
-  				"brief alt text description of the first image",
-  				"brief alt text description of the second image"
-  			],
-  			"embed_img_count": 2
+			"doc_index_ts": "2006-01-02T15:04:05.000Z",
+			"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
+			"handle": "handle.example.com",
+			"record_rkey": "3k4duaz5vfs2b",
+			"record_cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
+			"created_at": "2023-08-07T05:46:14.423045Z",
+			"text": "",
+			"embed_img_alt_text": [
+				"brief alt text description of the first image",
+				"brief alt text description of the second image"
+			],
+			"embed_img_count": 2
 		}
 	},
 	{
 		"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
-  		"handle": "handle.example.com",
+		"handle": "handle.example.com",
 		"rkey": "3k4duaz5vfs2b",
 		"cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
 		"PostRecord": {
-  			"$type": "app.bsky.feed.post",
-  			"text": "学校から帰って熱いお風呂に入ったら力一杯がんばる",
-  			"createdAt": "2023-08-07T05:46:14.423045Z",
-  			"embed": {
-    			"$type": "app.bsky.embed.images",
-    			"images": [
-      			{
-        			"alt": "brief alt text description of the first image ハリー・ポッター",
-        			"image": {
-          			"$type": "blob",
-          			"ref": {
-            			"$link": "bafkreibabalobzn6cd366ukcsjycp4yymjymgfxcv6xczmlgpemzkz3cfa"
-          			},
-          			"mimeType": "image/webp",
-          			"size": 760898
-        			}
-      			},
-      			{
-        			"alt": "brief alt text description of the second image",
-        			"image": {
-          			"$type": "blob",
-          			"ref": {
-            			"$link": "bafkreif3fouono2i3fmm5moqypwskh3yjtp7snd5hfq5pr453oggygyrte"
-          			},
-          			"mimeType": "image/png",
-          			"size": 13208
-        			}
-      			}
-    			]
-  			}
+			"$type": "app.bsky.feed.post",
+			"text": "学校から帰って熱いお風呂に入ったら力一杯がんばる",
+			"createdAt": "2023-08-07T05:46:14.423045Z",
+			"embed": {
+				"$type": "app.bsky.embed.images",
+				"images": [
+					{
+						"alt": "brief alt text description of the first image ハリー・ポッター",
+						"image": {
+							"$type": "blob",
+							"ref": {
+								"$link": "bafkreibabalobzn6cd366ukcsjycp4yymjymgfxcv6xczmlgpemzkz3cfa"
+							},
+							"mimeType": "image/webp",
+							"size": 760898
+						}
+					},
+					{
+						"alt": "brief alt text description of the second image",
+						"image": {
+							"$type": "blob",
+							"ref": {
+								"$link": "bafkreif3fouono2i3fmm5moqypwskh3yjtp7snd5hfq5pr453oggygyrte"
+							},
+							"mimeType": "image/png",
+							"size": 13208
+						}
+					}
+				]
+			}
 		},
 		"doc_id": "did:plc:u5cwb2mwiv2bfq53cjufe6yn_3k4duaz5vfs2b",
 		"PostDoc": {
-            "doc_index_ts": "2006-01-02T15:04:05.000Z",
-  			"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
-  			"handle": "handle.example.com",
-  			"record_rkey": "3k4duaz5vfs2b",
-  			"record_cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
-  			"created_at": "2023-08-07T05:46:14.423045Z",
-  			"text": "学校から帰って熱いお風呂に入ったら力一杯がんばる",
-  			"text_ja": "学校から帰って熱いお風呂に入ったら力一杯がんばる",
-  			"embed_img_alt_text": [
-  				"brief alt text description of the first image ハリー・ポッター",
-  				"brief alt text description of the second image"
-  			],
-  			"embed_img_alt_text_ja": [
-  				"brief alt text description of the first image ハリー・ポッター"
-  			],
-  			"embed_img_count": 2
+			"doc_index_ts": "2006-01-02T15:04:05.000Z",
+			"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
+			"handle": "handle.example.com",
+			"record_rkey": "3k4duaz5vfs2b",
+			"record_cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
+			"created_at": "2023-08-07T05:46:14.423045Z",
+			"text": "学校から帰って熱いお風呂に入ったら力一杯がんばる",
+			"text_ja": "学校から帰って熱いお風呂に入ったら力一杯がんばる",
+			"embed_img_alt_text": [
+				"brief alt text description of the first image ハリー・ポッター",
+				"brief alt text description of the second image"
+			],
+			"embed_img_alt_text_ja": [
+				"brief alt text description of the first image ハリー・ポッター"
+			],
+			"embed_img_count": 2
+		}
+	},
+	{
+		"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
+		"handle": "handle.example.com",
+		"rkey": "3k4duaz5vfs2d",
+		"cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
+		"PostRecord": {
+			"$type": "app.bsky.feed.post",
+			"text": "",
+			"createdAt": "2023-08-07T05:46:14.423045Z",
+			"embed": {
+				"$type": "app.bsky.embed.recordWithMedia",
+				"media": {
+					"$type": "app.bsky.embed.images",
+					"images": [
+						{
+							"alt": "brief alt text description of the first image",
+							"image": {
+								"$type": "blob",
+								"ref": {
+									"$link": "bafkreibabalobzn6cd366ukcsjycp4yymjymgfxcv6xczmlgpemzkz3cfa"
+								},
+								"mimeType": "image/webp",
+								"size": 760898
+							}
+						},
+						{
+							"alt": "brief alt text description of the second image",
+							"image": {
+								"$type": "blob",
+								"ref": {
+									"$link": "bafkreif3fouono2i3fmm5moqypwskh3yjtp7snd5hfq5pr453oggygyrte"
+								},
+								"mimeType": "image/png",
+								"size": 13208
+							}
+						}
+					]
+				},
+				"record": {
+					"$type": "app.bsky.embed.record",
+					"record": {
+						"cid": "bafyreiecx6dujwoeqpdzl27w67z4h46hyklk3an4i4cvvmioaqb2qbyo5u",
+						"uri": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k44deefqdk2g"
+					}
+				}
+			}
+		},
+		"doc_id": "did:plc:u5cwb2mwiv2bfq53cjufe6yn_3k4duaz5vfs2d",
+		"PostDoc": {
+			"doc_index_ts": "2006-01-02T15:04:05.000Z",
+			"did": "did:plc:u5cwb2mwiv2bfq53cjufe6yn",
+			"handle": "handle.example.com",
+			"record_rkey": "3k4duaz5vfs2d",
+			"record_cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
+			"created_at": "2023-08-07T05:46:14.423045Z",
+			"text": "",
+			"embed_img_alt_text": [
+				"brief alt text description of the first image",
+				"brief alt text description of the second image"
+			],
+			"embed_img_count": 2,
+			"embed_aturi": "at://did:plc:u5cwb2mwiv2bfq53cjufe6yn/app.bsky.feed.post/3k44deefqdk2g"
 		}
 	}
 ]
