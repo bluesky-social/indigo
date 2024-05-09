@@ -159,6 +159,23 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 			}
 		}
 	}
+
+	if post.Embed != nil &&
+		post.Embed.EmbedRecordWithMedia != nil &&
+		post.Embed.EmbedRecordWithMedia.Media != nil &&
+		post.Embed.EmbedRecordWithMedia.Media.EmbedImages != nil &&
+		len(post.Embed.EmbedRecordWithMedia.Media.EmbedImages.Images) > 0 {
+		embedImgCount += len(post.Embed.EmbedRecordWithMedia.Media.EmbedImages.Images)
+		for _, img := range post.Embed.EmbedRecordWithMedia.Media.EmbedImages.Images {
+			if img.Alt != "" {
+				embedImgAltText = append(embedImgAltText, img.Alt)
+				if containsJapanese(img.Alt) {
+					embedImgAltTextJA = append(embedImgAltTextJA, img.Alt)
+				}
+			}
+		}
+	}
+
 	var selfLabels []string
 	if post.Labels != nil && post.Labels.LabelDefs_SelfLabels != nil {
 		for _, le := range post.Labels.LabelDefs_SelfLabels.Values {
