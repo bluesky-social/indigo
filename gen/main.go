@@ -6,6 +6,7 @@ import (
 	"github.com/bluesky-social/indigo/api"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
+	chat "github.com/bluesky-social/indigo/api/chat"
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
@@ -71,6 +72,12 @@ func main() {
 		bsky.FeedDefs_ThreadViewPost{}, bsky.EmbedRecord_ViewRecord{},
 		bsky.FeedDefs_PostView{}, bsky.ActorDefs_ProfileViewBasic{},
 		*/
+	); err != nil {
+		panic(err)
+	}
+
+	if err := genCfg.WriteMapEncodersToFile("api/chat/cbor_gen.go", "chat",
+		chat.ActorDeclaration{},
 	); err != nil {
 		panic(err)
 	}

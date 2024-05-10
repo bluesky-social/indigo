@@ -70,6 +70,7 @@ lexgen: ## Run codegen tool for lexicons (lexicon JSON to Go packages)
 	go run ./cmd/lexgen/ --package bsky --prefix app.bsky --outdir api/bsky $(LEXDIR)
 	go run ./cmd/lexgen/ --package atproto --prefix com.atproto --outdir api/atproto $(LEXDIR)
 	go run ./cmd/lexgen/ --package ozone --prefix tools.ozone --outdir api/ozone $(LEXDIR)
+	go run ./cmd/lexgen/ --package chat --prefix chat.bsky --outdir api/chat $(LEXDIR)
 
 .PHONY: cborgen
 cborgen: ## Run codegen tool for CBOR serialization
