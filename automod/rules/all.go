@@ -26,6 +26,7 @@ func DefaultRules() automod.RuleSet {
 			SimpleBotPostRule,
 			HarassmentTargetInteractionPostRule,
 			HarassmentTrivialPostRule,
+			NostrSpamPostRule,
 		},
 		ProfileRules: []automod.ProfileRuleFunc{
 			GtubeProfileRule,
