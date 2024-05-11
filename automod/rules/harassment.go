@@ -7,6 +7,7 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
 var _ automod.PostRuleFunc = HarassmentTargetInteractionPostRule
@@ -56,6 +57,37 @@ func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky
 			c.Notify("slack")
 			return nil
 		}
+	}
+	return nil
+}
+
+var _ automod.PostRuleFunc = HarassmentTrivialPostRule
+
+// looks for new accounts, which frequently post the same type of content
+func HarassmentTrivialPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+	if c.Account.Private == nil || c.Account.Identity == nil {
+		return nil
+	}
+	// TODO: helper for account age; and use public info for this (not private)
+	age := time.Since(c.Account.Private.IndexedAt)
+	if age > 7*24*time.Hour {
+		return nil
+	}
+
+	// only posts with dumb pattern
+	if post.Text != "F" {
+		return nil
+	}
+
+	did := c.Account.Identity.DID.String()
+	c.Increment("trivial-harassing", did)
+	count := c.GetCount("trivial-harassing", did, countstore.PeriodDay)
+
+	if count > 5 {
+		//c.AddRecordFlag("trivial-harassing-post")
+		c.ReportAccount(automod.ReportReasonOther, fmt.Sprintf("possible targetted harassment (also labeled; remove label if this isn't harassment!)"))
+		c.AddAccountLabel("!hide")
+		c.Notify("slack")
 	}
 	return nil
 }
