@@ -25,12 +25,12 @@ func FetchAndProcessRecord(ctx context.Context, eng *automod.Engine, aturi synta
 	if pdsURL == "" {
 		return fmt.Errorf("could not resolve PDS endpoint for AT-URI account: %s", ident.DID.String())
 	}
-	pdsClient := xrpc.Client{Host: ident.PDSEndpoint()}
+	pdsClient := xrpc.Client{Host: pdsURL}
 
 	eng.Logger.Info("fetching record", "did", ident.DID.String(), "collection", aturi.Collection().String(), "rkey", aturi.RecordKey().String())
 	out, err := comatproto.RepoGetRecord(ctx, &pdsClient, "", aturi.Collection().String(), ident.DID.String(), aturi.RecordKey().String())
 	if err != nil {
-		return fmt.Errorf("fetching record from Relay (%s): %v", aturi, err)
+		return fmt.Errorf("fetching record from PDS (%s): %v", aturi, err)
 	}
 	if out.Cid == nil {
 		return fmt.Errorf("expected a CID in getRecord response")
@@ -61,7 +61,7 @@ func FetchRecent(ctx context.Context, eng *automod.Engine, atid syntax.AtIdentif
 	if pdsURL == "" {
 		return nil, nil, fmt.Errorf("could not resolve PDS endpoint for account: %s", ident.DID.String())
 	}
-	pdsClient := xrpc.Client{Host: ident.PDSEndpoint()}
+	pdsClient := xrpc.Client{Host: pdsURL}
 
 	resp, err := comatproto.RepoListRecords(ctx, &pdsClient, "app.bsky.feed.post", "", int64(limit), ident.DID.String(), false, "", "")
 	if err != nil {
