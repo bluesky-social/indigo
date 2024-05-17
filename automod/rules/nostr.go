@@ -41,7 +41,7 @@ func NostrSpamPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	}
 
 	// only accounts with empty profile (for now)
-	if c.Account.Profile.HasAvatar || c.Account.Profile.Description != nil {
+	if c.Account.Profile.HasAvatar {
 		return nil
 	}
 
