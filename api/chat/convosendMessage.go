@@ -12,8 +12,8 @@ import (
 
 // ConvoSendMessage_Input is the input argument to a chat.bsky.convo.sendMessage call.
 type ConvoSendMessage_Input struct {
-	ConvoId string             `json:"convoId" cborgen:"convoId"`
-	Message *ConvoDefs_Message `json:"message" cborgen:"message"`
+	ConvoId string                  `json:"convoId" cborgen:"convoId"`
+	Message *ConvoDefs_MessageInput `json:"message" cborgen:"message"`
 }
 
 // ConvoSendMessage calls the XRPC method "chat.bsky.convo.sendMessage".

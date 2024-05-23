@@ -12,8 +12,8 @@ import (
 
 // ConvoSendMessageBatch_BatchItem is a "batchItem" in the chat.bsky.convo.sendMessageBatch schema.
 type ConvoSendMessageBatch_BatchItem struct {
-	ConvoId string             `json:"convoId" cborgen:"convoId"`
-	Message *ConvoDefs_Message `json:"message" cborgen:"message"`
+	ConvoId string                  `json:"convoId" cborgen:"convoId"`
+	Message *ConvoDefs_MessageInput `json:"message" cborgen:"message"`
 }
 
 // ConvoSendMessageBatch_Input is the input argument to a chat.bsky.convo.sendMessageBatch call.
