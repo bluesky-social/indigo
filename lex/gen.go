@@ -17,10 +17,11 @@ import (
 )
 
 const (
-	EncodingCBOR = "application/cbor"
-	EncodingJSON = "application/json"
-	EncodingCAR  = "application/vnd.ipld.car"
-	EncodingANY  = "*/*"
+	EncodingCBOR  = "application/cbor"
+	EncodingJSON  = "application/json"
+	EncodingJSONL = "application/jsonl"
+	EncodingCAR   = "application/vnd.ipld.car"
+	EncodingANY   = "*/*"
 )
 
 type Schema struct {
@@ -182,7 +183,7 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 
 		if ts.Output != nil {
 			if ts.Output.Schema == nil {
-				if ts.Output.Encoding != "application/cbor" && ts.Output.Encoding != "application/vnd.ipld.car" && ts.Output.Encoding != "*/*" {
+				if ts.Output.Encoding != "application/cbor" && ts.Output.Encoding != "application/vnd.ipld.car" && ts.Output.Encoding != "*/*" && ts.Output.Encoding != "application/jsonl" {
 					panic(fmt.Sprintf("strange output type def in %s", s.ID))
 				}
 			} else {
@@ -497,7 +498,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 	out := "error"
 	if s.Output != nil {
 		switch s.Output.Encoding {
-		case EncodingCBOR, EncodingCAR, EncodingANY:
+		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingJSONL:
 			out = "([]byte, error)"
 		case EncodingJSON:
 			outname := fname + "_Output"
@@ -530,7 +531,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 	outRet := "nil"
 	if s.Output != nil {
 		switch s.Output.Encoding {
-		case EncodingCBOR, EncodingCAR, EncodingANY:
+		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingJSONL:
 			pf("buf := new(bytes.Buffer)\n")
 			outvar = "buf"
 			errRet = "nil, err"
@@ -994,7 +995,7 @@ if err := c.Bind(&body); err != nil {
 			}
 			pf("var out *%s.%s\n", impname, outname)
 			returndef = fmt.Sprintf("(*%s.%s, error)", impname, outname)
-		case EncodingCBOR, EncodingCAR, EncodingANY:
+		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingJSONL:
 			assign = "out, handleErr"
 			pf("var out io.Reader\n")
 			returndef = "(io.Reader, error)"
@@ -1017,6 +1018,8 @@ if err := c.Bind(&body); err != nil {
 			pf("return c.Stream(200, \"application/octet-stream\", out)\n}\n\n")
 		case EncodingCAR:
 			pf("return c.Stream(200, \"application/vnd.ipld.car\", out)\n}\n\n")
+		case EncodingJSONL:
+			pf("return c.Stream(200, \"application/jsonl\", out)\n}\n\n")
 		default:
 			return fmt.Errorf("unrecognized output encoding (RPC output handler return): %q", s.Output.Encoding)
 		}

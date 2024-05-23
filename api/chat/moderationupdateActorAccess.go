@@ -12,8 +12,9 @@ import (
 
 // ModerationUpdateActorAccess_Input is the input argument to a chat.bsky.moderation.updateActorAccess call.
 type ModerationUpdateActorAccess_Input struct {
-	Actor       string `json:"actor" cborgen:"actor"`
-	AllowAccess bool   `json:"allowAccess" cborgen:"allowAccess"`
+	Actor       string  `json:"actor" cborgen:"actor"`
+	AllowAccess bool    `json:"allowAccess" cborgen:"allowAccess"`
+	Ref         *string `json:"ref,omitempty" cborgen:"ref,omitempty"`
 }
 
 // ModerationUpdateActorAccess calls the XRPC method "chat.bsky.moderation.updateActorAccess".
