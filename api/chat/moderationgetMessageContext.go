@@ -54,12 +54,15 @@ func (t *ModerationGetMessageContext_Output_Messages_Elem) UnmarshalJSON(b []byt
 }
 
 // ModerationGetMessageContext calls the XRPC method "chat.bsky.moderation.getMessageContext".
-func ModerationGetMessageContext(ctx context.Context, c *xrpc.Client, after int64, before int64, messageId string) (*ModerationGetMessageContext_Output, error) {
+//
+// convoId: Conversation that the message is from. NOTE: this field will eventually be required.
+func ModerationGetMessageContext(ctx context.Context, c *xrpc.Client, after int64, before int64, convoId string, messageId string) (*ModerationGetMessageContext_Output, error) {
 	var out ModerationGetMessageContext_Output
 
 	params := map[string]interface{}{
 		"after":     after,
 		"before":    before,
+		"convoId":   convoId,
 		"messageId": messageId,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "chat.bsky.moderation.getMessageContext", params, nil, &out); err != nil {

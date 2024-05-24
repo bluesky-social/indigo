@@ -14,12 +14,12 @@ import (
 
 // ConvoDefs_ConvoView is a "convoView" in the chat.bsky.convo.defs schema.
 type ConvoDefs_ConvoView struct {
-	Id          string                                     `json:"id" cborgen:"id"`
-	LastMessage *ConvoDefs_ConvoView_LastMessage           `json:"lastMessage,omitempty" cborgen:"lastMessage,omitempty"`
-	Members     []*appbskytypes.ActorDefs_ProfileViewBasic `json:"members" cborgen:"members"`
-	Muted       bool                                       `json:"muted" cborgen:"muted"`
-	Rev         string                                     `json:"rev" cborgen:"rev"`
-	UnreadCount int64                                      `json:"unreadCount" cborgen:"unreadCount"`
+	Id          string                           `json:"id" cborgen:"id"`
+	LastMessage *ConvoDefs_ConvoView_LastMessage `json:"lastMessage,omitempty" cborgen:"lastMessage,omitempty"`
+	Members     []*ActorDefs_ProfileViewBasic    `json:"members" cborgen:"members"`
+	Muted       bool                             `json:"muted" cborgen:"muted"`
+	Rev         string                           `json:"rev" cborgen:"rev"`
+	UnreadCount int64                            `json:"unreadCount" cborgen:"unreadCount"`
 }
 
 type ConvoDefs_ConvoView_LastMessage struct {
@@ -64,7 +64,7 @@ type ConvoDefs_DeletedMessageView struct {
 	LexiconTypeID string                       `json:"$type,const=chat.bsky.convo.defs#deletedMessageView" cborgen:"$type,const=chat.bsky.convo.defs#deletedMessageView"`
 	Id            string                       `json:"id" cborgen:"id"`
 	Rev           string                       `json:"rev" cborgen:"rev"`
-	Sender        *ConvoDefs_MessageViewSender `json:"sender,omitempty" cborgen:"sender,omitempty"`
+	Sender        *ConvoDefs_MessageViewSender `json:"sender" cborgen:"sender"`
 	SentAt        string                       `json:"sentAt" cborgen:"sentAt"`
 }
 
@@ -176,17 +176,44 @@ type ConvoDefs_LogLeaveConvo struct {
 	Rev           string `json:"rev" cborgen:"rev"`
 }
 
-// ConvoDefs_Message is a "message" in the chat.bsky.convo.defs schema.
-type ConvoDefs_Message struct {
-	Embed *ConvoDefs_Message_Embed `json:"embed,omitempty" cborgen:"embed,omitempty"`
+// ConvoDefs_MessageInput is the input argument to a chat.bsky.convo.defs call.
+type ConvoDefs_MessageInput struct {
+	Embed *ConvoDefs_MessageInput_Embed `json:"embed,omitempty" cborgen:"embed,omitempty"`
 	// facets: Annotations of text (mentions, URLs, hashtags, etc)
 	Facets []*appbskytypes.RichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
-	Id     *string                       `json:"id,omitempty" cborgen:"id,omitempty"`
 	Text   string                        `json:"text" cborgen:"text"`
+}
+
+type ConvoDefs_MessageInput_Embed struct {
+	EmbedRecord *appbskytypes.EmbedRecord
+}
+
+func (t *ConvoDefs_MessageInput_Embed) MarshalJSON() ([]byte, error) {
+	if t.EmbedRecord != nil {
+		t.EmbedRecord.LexiconTypeID = "app.bsky.embed.record"
+		return json.Marshal(t.EmbedRecord)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *ConvoDefs_MessageInput_Embed) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "app.bsky.embed.record":
+		t.EmbedRecord = new(appbskytypes.EmbedRecord)
+		return json.Unmarshal(b, t.EmbedRecord)
+
+	default:
+		return nil
+	}
 }
 
 // ConvoDefs_MessageRef is a "messageRef" in the chat.bsky.convo.defs schema.
 type ConvoDefs_MessageRef struct {
+	ConvoId   string `json:"convoId" cborgen:"convoId"`
 	Did       string `json:"did" cborgen:"did"`
 	MessageId string `json:"messageId" cborgen:"messageId"`
 }
@@ -201,7 +228,7 @@ type ConvoDefs_MessageView struct {
 	Facets []*appbskytypes.RichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
 	Id     string                        `json:"id" cborgen:"id"`
 	Rev    string                        `json:"rev" cborgen:"rev"`
-	Sender *ConvoDefs_MessageViewSender  `json:"sender,omitempty" cborgen:"sender,omitempty"`
+	Sender *ConvoDefs_MessageViewSender  `json:"sender" cborgen:"sender"`
 	SentAt string                        `json:"sentAt" cborgen:"sentAt"`
 	Text   string                        `json:"text" cborgen:"text"`
 }
@@ -223,33 +250,6 @@ func (t *ConvoDefs_MessageView_Embed) MarshalJSON() ([]byte, error) {
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ConvoDefs_MessageView_Embed) UnmarshalJSON(b []byte) error {
-	typ, err := util.TypeExtract(b)
-	if err != nil {
-		return err
-	}
-
-	switch typ {
-	case "app.bsky.embed.record":
-		t.EmbedRecord = new(appbskytypes.EmbedRecord)
-		return json.Unmarshal(b, t.EmbedRecord)
-
-	default:
-		return nil
-	}
-}
-
-type ConvoDefs_Message_Embed struct {
-	EmbedRecord *appbskytypes.EmbedRecord
-}
-
-func (t *ConvoDefs_Message_Embed) MarshalJSON() ([]byte, error) {
-	if t.EmbedRecord != nil {
-		t.EmbedRecord.LexiconTypeID = "app.bsky.embed.record"
-		return json.Marshal(t.EmbedRecord)
-	}
-	return nil, fmt.Errorf("cannot marshal empty enum")
-}
-func (t *ConvoDefs_Message_Embed) UnmarshalJSON(b []byte) error {
 	typ, err := util.TypeExtract(b)
 	if err != nil {
 		return err
