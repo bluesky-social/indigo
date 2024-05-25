@@ -33,7 +33,7 @@ func pollNewReports(cctx *cli.Context) error {
 		Auth:   &xrpc.AuthInfo{Handle: cctx.String("handle")},
 	}
 
-	auth, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
+	auth, err := comatproto.ServerCreateSession(ctx, xrpcc, &comatproto.ServerCreateSession_Input{
 		Identifier: xrpcc.Auth.Handle,
 		Password:   cctx.String("password"),
 	})
@@ -60,7 +60,7 @@ func pollNewReports(cctx *cli.Context) error {
 	for {
 		// refresh session
 		xrpcc.Auth.AccessJwt = xrpcc.Auth.RefreshJwt
-		refresh, err := comatproto.ServerRefreshSession(context.TODO(), xrpcc)
+		refresh, err := comatproto.ServerRefreshSession(ctx, xrpcc)
 		if err != nil {
 			return err
 		}
