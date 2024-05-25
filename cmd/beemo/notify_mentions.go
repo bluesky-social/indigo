@@ -42,6 +42,9 @@ func (mc *MentionChecker) ProcessPost(ctx context.Context, did syntax.DID, rkey 
 						return err
 					}
 					msg := fmt.Sprintf("Mention of `@%s` by `@%s` (<https://bsky.app/profile/%s/post/%s|post link>):\n```%s```", targetIdent.Handle, authorIdent.Handle, did, rkey, post.Text)
+					if post.Embed.EmbedImages != nil || post.Embed.EmbedRecordWithMedia != nil || post.Embed.EmbedRecord != nil || post.Embed.EmbedExternal != nil {
+						msg += "\n(post also contains an embed/quote/media)"
+					}
 					return sendSlackMsg(ctx, msg, mc.slackWebhookURL)
 				}
 			}
