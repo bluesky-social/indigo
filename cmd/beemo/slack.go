@@ -36,7 +36,6 @@ func sendSlackMsg(ctx context.Context, msg, webhookURL string) error {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(resp.Body)
 	if resp.StatusCode != 200 || buf.String() != "ok" {
-		// TODO: in some cases print body? eg, if short and text
 		return fmt.Errorf("failed slack webhook POST request. status=%d", resp.StatusCode)
 	}
 	return nil

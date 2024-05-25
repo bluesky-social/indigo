@@ -60,7 +60,6 @@ func notifyMentions(cctx *cli.Context) error {
 
 	mentionDIDs := []syntax.DID{}
 	for _, raw := range strings.Split(cctx.String("mention-dids"), ",") {
-		fmt.Println(raw)
 		did, err := syntax.ParseDID(raw)
 		if err != nil {
 			return err
