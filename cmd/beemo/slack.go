@@ -2,13 +2,12 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/bluesky-social/indigo/util"
-
-	"github.com/urfave/cli/v2"
 )
 
 type SlackWebhookBody struct {
@@ -17,12 +16,11 @@ type SlackWebhookBody struct {
 
 // sends a simple slack message to a channel via "incoming webhook"
 // The slack incoming webhook must be already configured in the slack workplace.
-func sendSlackMsg(cctx *cli.Context, msg string) error {
+func sendSlackMsg(ctx context.Context, msg, webhookURL string) error {
 	// loosely based on: https://golangcode.com/send-slack-messages-without-a-library/
 
-	webhookUrl := cctx.String("slack-webhook-url")
 	body, _ := json.Marshal(SlackWebhookBody{Text: msg})
-	req, err := http.NewRequest(http.MethodPost, webhookUrl, bytes.NewBuffer(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhookURL, bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}

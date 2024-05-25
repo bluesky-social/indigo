@@ -4,21 +4,22 @@
 package main
 
 import (
+	"io"
+	"log/slog"
 	"os"
+	"strings"
 
 	_ "github.com/joho/godotenv/autoload"
 	_ "go.uber.org/automaxprocs"
 
 	"github.com/carlmjohnson/versioninfo"
-	logging "github.com/ipfs/go-log"
 	"github.com/urfave/cli/v2"
 )
 
-var log = logging.Logger("beemo")
-
 func main() {
 	if err := run(os.Args); err != nil {
-		log.Fatal(err)
+		slog.Error("exiting", "err", err)
+		os.Exit(-1)
 	}
 }
 
@@ -32,34 +33,9 @@ func run(args []string) error {
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:    "pds-host",
-			Usage:   "method, hostname, and port of PDS instance",
-			Value:   "http://localhost:4849",
-			EnvVars: []string{"ATP_PDS_HOST"},
-		},
-		&cli.StringFlag{
-			Name:    "admin-host",
-			Usage:   "method, hostname, and port of admin interface (eg, Ozone), for direct links",
-			Value:   "http://localhost:3000",
-			EnvVars: []string{"ATP_ADMIN_HOST"},
-		},
-		&cli.StringFlag{
-			Name:     "handle",
-			Usage:    "for PDS login",
-			Required: true,
-			EnvVars:  []string{"ATP_AUTH_HANDLE"},
-		},
-		&cli.StringFlag{
-			Name:     "password",
-			Usage:    "for PDS login",
-			Required: true,
-			EnvVars:  []string{"ATP_AUTH_PASSWORD"},
-		},
-		&cli.StringFlag{
-			Name:     "admin-password",
-			Usage:    "admin authentication password for PDS",
-			Required: true,
-			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
+			Name:    "log-level",
+			Usage:   "log verbosity level (eg: warn, info, debug)",
+			EnvVars: []string{"BEEMO_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"},
 		},
 		&cli.StringFlag{
 			Name: "slack-webhook-url",
@@ -68,20 +44,91 @@ func run(args []string) error {
 			Required: true,
 			EnvVars:  []string{"SLACK_WEBHOOK_URL"},
 		},
-		&cli.IntFlag{
-			Name:    "poll-period",
-			Usage:   "API poll period in seconds",
-			Value:   30,
-			EnvVars: []string{"POLL_PERIOD"},
-		},
 	}
 	app.Commands = []*cli.Command{
 		&cli.Command{
 			Name:   "notify-reports",
 			Usage:  "watch for new moderation reports, notify in slack",
 			Action: pollNewReports,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "pds-host",
+					Usage:   "method, hostname, and port of PDS instance",
+					Value:   "http://localhost:4849",
+					EnvVars: []string{"ATP_PDS_HOST"},
+				},
+				&cli.StringFlag{
+					Name:    "admin-host",
+					Usage:   "method, hostname, and port of admin interface (eg, Ozone), for direct links",
+					Value:   "http://localhost:3000",
+					EnvVars: []string{"ATP_ADMIN_HOST"},
+				},
+				&cli.IntFlag{
+					Name:    "poll-period",
+					Usage:   "API poll period in seconds",
+					Value:   30,
+					EnvVars: []string{"POLL_PERIOD"},
+				},
+				&cli.StringFlag{
+					Name:     "handle",
+					Usage:    "for PDS login",
+					Required: true,
+					EnvVars:  []string{"ATP_AUTH_HANDLE"},
+				},
+				&cli.StringFlag{
+					Name:     "password",
+					Usage:    "for PDS login",
+					Required: true,
+					EnvVars:  []string{"ATP_AUTH_PASSWORD"},
+				},
+				&cli.StringFlag{
+					Name:     "admin-password",
+					Usage:    "admin authentication password for PDS",
+					Required: true,
+					EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
+				},
+			},
+		},
+		&cli.Command{
+			Name:   "notify-mentions",
+			Usage:  "watch firehose for posts mentioning specific accounts",
+			Action: notifyMentions,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "relay-host",
+					Usage:   "method, hostname, and port of Relay instance (websocket)",
+					Value:   "wss://bsky.network",
+					EnvVars: []string{"ATP_RELAY_HOST"},
+				},
+				&cli.StringFlag{
+					Name:     "mention-dids",
+					Usage:    "DIDs to look for in mentions (comma-separated)",
+					Required: true,
+					EnvVars:  []string{"BEEMO_MENTION_DIDS"},
+				},
+			},
 		},
 	}
 	return app.Run(args)
 }
 
+func configLogger(cctx *cli.Context, writer io.Writer) *slog.Logger {
+	var level slog.Level
+	switch strings.ToLower(cctx.String("log-level")) {
+	case "error":
+		level = slog.LevelError
+	case "warn":
+		level = slog.LevelWarn
+	case "info":
+		level = slog.LevelInfo
+	case "debug":
+		level = slog.LevelDebug
+	default:
+		level = slog.LevelInfo
+	}
+	logger := slog.New(slog.NewJSONHandler(writer, &slog.HandlerOptions{
+		Level: level,
+	}))
+	slog.SetDefault(logger)
+	return logger
+}

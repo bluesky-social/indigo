@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -15,6 +16,10 @@ import (
 )
 
 func pollNewReports(cctx *cli.Context) error {
+	ctx := context.Background()
+	logger := configLogger(cctx, os.Stdout)
+	slackWebhookURL := cctx.String("slack-webhook-url")
+
 	// record last-seen report timestamp
 	since := time.Now()
 	// NOTE: uncomment this for testing
@@ -44,10 +49,10 @@ func pollNewReports(cctx *cli.Context) error {
 	if len(adminToken) > 0 {
 		xrpcc.AdminToken = &adminToken
 	}
-	log.Infof("report polling bot starting up...")
+	logger.Info("report polling bot starting up...")
 	// can flip this bool to false to prevent spamming slack channel on startup
 	if true {
-		err := sendSlackMsg(cctx, fmt.Sprintf("restarted bot, monitoring for reports since `%s`...", since.Format(time.RFC3339)))
+		err := sendSlackMsg(ctx, fmt.Sprintf("restarted bot, monitoring for reports since `%s`...", since.Format(time.RFC3339)), slackWebhookURL)
 		if err != nil {
 			return err
 		}
@@ -108,18 +113,18 @@ func pollNewReports(cctx *cli.Context) error {
 				msg += fmt.Sprintf("reasonType: `%s`\t", shortType)
 				msg += fmt.Sprintf("Admin: %s/reports/%d\n", cctx.String("admin-host"), evt.Id)
 				//msg += fmt.Sprintf("reportedByDid: `%s`\n", report.ReportedByDid)
-				log.Infof("found new report, notifying slack: %s", report)
-				err := sendSlackMsg(cctx, msg)
+				logger.Info("found new report, notifying slack", "report", report)
+				err := sendSlackMsg(ctx, msg, slackWebhookURL)
 				if err != nil {
 					return fmt.Errorf("failed to send slack message: %w", err)
 				}
 				since = createdAt
 				break
 			} else {
-				log.Debugf("skipping report: %s", report)
+				logger.Debug("skipping report", "report", report)
 			}
 		}
-		log.Infof("... sleeping for %s", period)
+		logger.Info("... sleeping", "period", period)
 		time.Sleep(period)
 	}
 }
