@@ -25,7 +25,6 @@ import (
 
 func (s *Server) RunConsumer(ctx context.Context) error {
 
-	// TODO: persist cursor in a database or local disk
 	cur, err := s.ReadLastCursor(ctx)
 	if err != nil {
 		return err
@@ -89,7 +88,6 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 			}
 			return nil
 		},
-		// TODO: other event callbacks as needed
 	}
 
 	var scheduler events.Scheduler
@@ -220,7 +218,7 @@ func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubsc
 				continue
 			}
 		default:
-			// TODO: other event types: update, delete
+			// TODO: should this be an error?
 		}
 	}
 
