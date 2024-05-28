@@ -971,9 +971,10 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		// Broadcast the identity event to all consumers
 		err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
 			RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
-				Did:  env.RepoIdentity.Did,
-				Seq:  env.RepoIdentity.Seq,
-				Time: env.RepoIdentity.Time,
+				Did:    env.RepoIdentity.Did,
+				Seq:    env.RepoIdentity.Seq,
+				Time:   env.RepoIdentity.Time,
+				Handle: env.RepoIdentity.Handle,
 			},
 		})
 		if err != nil {
@@ -1029,14 +1030,26 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return fmt.Errorf("failed to update account status: %w", err)
 		}
 
+		shouldBeActive := env.RepoAccount.Active
+		status := env.RepoAccount.Status
+		u, err := bgs.lookupUserByDid(ctx, env.RepoAccount.Did)
+		if err != nil {
+			return fmt.Errorf("failed to look up user by did: %w", err)
+		}
+
+		if u.TakenDown {
+			shouldBeActive = false
+			status = &events.AccountStatusTakendown
+		}
+
 		// Broadcast the account event to all consumers
 		err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
 			RepoAccount: &comatproto.SyncSubscribeRepos_Account{
 				Did:    env.RepoAccount.Did,
 				Seq:    env.RepoAccount.Seq,
 				Time:   env.RepoAccount.Time,
-				Active: env.RepoAccount.Active,
-				Status: env.RepoAccount.Status,
+				Active: shouldBeActive,
+				Status: status,
 			},
 		})
 		if err != nil {
