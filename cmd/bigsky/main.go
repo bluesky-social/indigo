@@ -154,7 +154,7 @@ func run(args []string) error {
 			EnvVars: []string{"MAX_FETCH_CONCURRENCY"},
 		},
 		&cli.StringFlag{
-			Name:    "environment",
+			Name:    "env",
 			EnvVars: []string{"ENVIRONMENT"},
 			Usage:   "declared hosting environment (prod, qa, etc); used in metrics",
 		},
@@ -175,6 +175,10 @@ func run(args []string) error {
 
 func setupOTEL(cctx *cli.Context) error {
 
+	env := cctx.String("env")
+	if env == "" {
+		env = "dev"
+	}
 	if cctx.Bool("jaeger") {
 		url := "http://localhost:14268/api/traces"
 		exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(url)))
@@ -188,7 +192,8 @@ func setupOTEL(cctx *cli.Context) error {
 			tracesdk.WithResource(resource.NewWithAttributes(
 				semconv.SchemaURL,
 				semconv.ServiceNameKey.String("bgs"),
-				attribute.String("environment", "test"),
+				attribute.String("env", env),         // DataDog
+				attribute.String("environment", env), // Others
 				attribute.Int64("ID", 1),
 			)),
 		)
@@ -201,7 +206,7 @@ func setupOTEL(cctx *cli.Context) error {
 	// https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace#readme-environment-variables
 	// At a minimum, you need to set
 	// OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-	if ep := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); ep != "" {
+	if ep := cctx.String("otel-exporter-otlp-endpoint"); ep != "" {
 		log.Infow("setting up trace exporter", "endpoint", ep)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -223,8 +228,8 @@ func setupOTEL(cctx *cli.Context) error {
 			tracesdk.WithResource(resource.NewWithAttributes(
 				semconv.SchemaURL,
 				semconv.ServiceNameKey.String("bgs"),
-				attribute.String("env", os.Getenv("ENVIRONMENT")),         // DataDog
-				attribute.String("environment", os.Getenv("ENVIRONMENT")), // Others
+				attribute.String("env", env),         // DataDog
+				attribute.String("environment", env), // Others
 				attribute.Int64("ID", 1),
 			)),
 		)
@@ -325,7 +330,7 @@ func runBigsky(cctx *cli.Context) error {
 		return err
 	}
 
-	rlskip := os.Getenv("BSKY_SOCIAL_RATE_LIMIT_SKIP")
+	rlskip := cctx.String("bsky-social-rate-limit-skip")
 	ix.ApplyPDSClientSettings = func(c *xrpc.Client) {
 		if strings.HasSuffix(c.Host, ".bsky.network") {
 			if c.Client == nil {
