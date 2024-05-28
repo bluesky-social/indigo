@@ -12,6 +12,7 @@ import (
 
 // ServerCreateSession_Input is the input argument to a com.atproto.server.createSession call.
 type ServerCreateSession_Input struct {
+	AuthFactorToken *string `json:"authFactorToken,omitempty" cborgen:"authFactorToken,omitempty"`
 	// identifier: Handle or other identifier supported by the server for the authenticating user.
 	Identifier string `json:"identifier" cborgen:"identifier"`
 	Password   string `json:"password" cborgen:"password"`
@@ -19,13 +20,14 @@ type ServerCreateSession_Input struct {
 
 // ServerCreateSession_Output is the output of a com.atproto.server.createSession call.
 type ServerCreateSession_Output struct {
-	AccessJwt      string       `json:"accessJwt" cborgen:"accessJwt"`
-	Did            string       `json:"did" cborgen:"did"`
-	DidDoc         *interface{} `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
-	Email          *string      `json:"email,omitempty" cborgen:"email,omitempty"`
-	EmailConfirmed *bool        `json:"emailConfirmed,omitempty" cborgen:"emailConfirmed,omitempty"`
-	Handle         string       `json:"handle" cborgen:"handle"`
-	RefreshJwt     string       `json:"refreshJwt" cborgen:"refreshJwt"`
+	AccessJwt       string       `json:"accessJwt" cborgen:"accessJwt"`
+	Did             string       `json:"did" cborgen:"did"`
+	DidDoc          *interface{} `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
+	Email           *string      `json:"email,omitempty" cborgen:"email,omitempty"`
+	EmailAuthFactor *bool        `json:"emailAuthFactor,omitempty" cborgen:"emailAuthFactor,omitempty"`
+	EmailConfirmed  *bool        `json:"emailConfirmed,omitempty" cborgen:"emailConfirmed,omitempty"`
+	Handle          string       `json:"handle" cborgen:"handle"`
+	RefreshJwt      string       `json:"refreshJwt" cborgen:"refreshJwt"`
 }
 
 // ServerCreateSession calls the XRPC method "com.atproto.server.createSession".

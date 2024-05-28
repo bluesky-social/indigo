@@ -12,11 +12,12 @@ import (
 
 // ServerGetSession_Output is the output of a com.atproto.server.getSession call.
 type ServerGetSession_Output struct {
-	Did            string       `json:"did" cborgen:"did"`
-	DidDoc         *interface{} `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
-	Email          *string      `json:"email,omitempty" cborgen:"email,omitempty"`
-	EmailConfirmed *bool        `json:"emailConfirmed,omitempty" cborgen:"emailConfirmed,omitempty"`
-	Handle         string       `json:"handle" cborgen:"handle"`
+	Did             string       `json:"did" cborgen:"did"`
+	DidDoc          *interface{} `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
+	Email           *string      `json:"email,omitempty" cborgen:"email,omitempty"`
+	EmailAuthFactor *bool        `json:"emailAuthFactor,omitempty" cborgen:"emailAuthFactor,omitempty"`
+	EmailConfirmed  *bool        `json:"emailConfirmed,omitempty" cborgen:"emailConfirmed,omitempty"`
+	Handle          string       `json:"handle" cborgen:"handle"`
 }
 
 // ServerGetSession calls the XRPC method "com.atproto.server.getSession".

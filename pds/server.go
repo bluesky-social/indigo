@@ -641,6 +641,9 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		case evt.RepoIdentity != nil:
 			header.MsgType = "#identity"
 			obj = evt.RepoIdentity
+		case evt.RepoAccount != nil:
+			header.MsgType = "#account"
+			obj = evt.RepoAccount
 		case evt.RepoInfo != nil:
 			header.MsgType = "#info"
 			obj = evt.RepoInfo

@@ -133,6 +133,14 @@ type EventHeader struct {
 	MsgType string `cborgen:"t"`
 }
 
+var (
+	AccountStatusActive      = "active"
+	AccountStatusTakendown   = "takendown"
+	AccountStatusSuspended   = "suspended"
+	AccountStatusDeleted     = "deleted"
+	AccountStatusDeactivated = "deactivated"
+)
+
 type XRPCStreamEvent struct {
 	Error         *ErrorFrame
 	RepoCommit    *comatproto.SyncSubscribeRepos_Commit
@@ -141,6 +149,7 @@ type XRPCStreamEvent struct {
 	RepoInfo      *comatproto.SyncSubscribeRepos_Info
 	RepoMigrate   *comatproto.SyncSubscribeRepos_Migrate
 	RepoTombstone *comatproto.SyncSubscribeRepos_Tombstone
+	RepoAccount   *comatproto.SyncSubscribeRepos_Account
 	LabelLabels   *comatproto.LabelSubscribeLabels_Labels
 	LabelInfo     *comatproto.LabelSubscribeLabels_Info
 
