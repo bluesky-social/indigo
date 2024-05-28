@@ -46,6 +46,7 @@ import (
 )
 
 var log = logging.Logger("bgs")
+var tracer = otel.Tracer("bgs")
 
 // serverListenerBootTimeout is how long to wait for the requested server socket
 // to become available for use. This is an arbitrary timeout that should be safe
@@ -431,7 +432,7 @@ func (bgs *BGS) CreateAdminToken(tok string) error {
 
 func (bgs *BGS) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(e echo.Context) error {
-		ctx, span := otel.Tracer("bgs").Start(e.Request().Context(), "checkAdminAuth")
+		ctx, span := tracer.Start(e.Request().Context(), "checkAdminAuth")
 		defer span.End()
 
 		e.SetRequest(e.Request().WithContext(ctx))
@@ -472,6 +473,13 @@ type User struct {
 	// and no data about this user will be served.
 	TakenDown  bool
 	Tombstoned bool
+
+	// SuspendedByPDS accounts shouldn't be served or processed until we get a revert account event
+	SuspendedByPDS bool
+	// DeactivatedByPDS accounts shouldn't be served or processed until we get a revert account event
+	DeactivatedByPDS bool
+	// TakenDownByPDS is set to true if the user in question has been taken down by their PDS and not by the relay administrator
+	TakenDownByPDS bool
 }
 
 type addTargetBody struct {
@@ -643,6 +651,9 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			case evt.RepoIdentity != nil:
 				header.MsgType = "#identity"
 				obj = evt.RepoIdentity
+			case evt.RepoAccount != nil:
+				header.MsgType = "#account"
+				obj = evt.RepoAccount
 			case evt.RepoInfo != nil:
 				header.MsgType = "#info"
 				obj = evt.RepoInfo
@@ -747,7 +758,7 @@ func (s *BGS) findDomainBan(ctx context.Context, host string) (bool, error) {
 }
 
 func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) {
-	ctx, span := otel.Tracer("bgs").Start(ctx, "lookupUserByDid")
+	ctx, span := tracer.Start(ctx, "lookupUserByDid")
 	defer span.End()
 
 	var u User
@@ -763,7 +774,7 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 }
 
 func (bgs *BGS) lookupUserByUID(ctx context.Context, uid models.Uid) (*User, error) {
-	ctx, span := otel.Tracer("bgs").Start(ctx, "lookupUserByUID")
+	ctx, span := tracer.Start(ctx, "lookupUserByUID")
 	defer span.End()
 
 	var u User
@@ -787,7 +798,7 @@ func stringLink(lnk *lexutil.LexLink) string {
 }
 
 func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *events.XRPCStreamEvent) error {
-	ctx, span := otel.Tracer("bgs").Start(ctx, "handleFedEvent")
+	ctx, span := tracer.Start(ctx, "handleFedEvent")
 	defer span.End()
 
 	start := time.Now()
@@ -819,8 +830,16 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			u.Did = evt.Repo
 		}
 
-		if u.TakenDown {
-			log.Debugw("dropping event from taken down user", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
+		if u.TakenDown || u.TakenDownByPDS {
+			span.SetAttributes(attribute.Bool("taken_down_by_pds", u.TakenDownByPDS))
+			span.SetAttributes(attribute.Bool("taken_down_by_relay_admin", u.TakenDown))
+			log.Debugw("dropping commit event from taken down user", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
+			return nil
+		}
+
+		if u.SuspendedByPDS {
+			span.SetAttributes(attribute.Bool("suspended_by_pds", true))
+			log.Debugw("dropping commit event from suspended user", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
 			return nil
 		}
 
@@ -844,6 +863,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		if u.Tombstoned {
+			span.SetAttributes(attribute.Bool("tombstoned", true))
 			// we've checked the authority of the users PDS, so reinstate the account
 			if err := bgs.db.Model(&User{}).Where("id = ?", u.ID).UpdateColumn("tombstoned", false).Error; err != nil {
 				return fmt.Errorf("failed to un-tombstone a user: %w", err)
@@ -962,6 +982,69 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		return nil
+	case env.RepoAccount != nil:
+		span.SetAttributes(
+			attribute.String("did", env.RepoAccount.Did),
+			attribute.Int64("seq", env.RepoAccount.Seq),
+			attribute.Bool("active", env.RepoAccount.Active),
+		)
+
+		if env.RepoAccount.Status != nil {
+			span.SetAttributes(attribute.String("repo_status", *env.RepoAccount.Status))
+		}
+
+		log.Infow("bgs got account event", "did", env.RepoAccount.Did)
+		// Flush any cached DID documents for this user
+		bgs.didr.FlushCacheFor(env.RepoAccount.Did)
+
+		// Refetch the DID doc to make sure the PDS is still authoritative
+		ai, err := bgs.createExternalUser(ctx, env.RepoAccount.Did)
+		if err != nil {
+			span.RecordError(err)
+			return err
+		}
+
+		// Check if the PDS is still authoritative
+		// if not we don't want to be propagating this account event
+		if ai.PDS != host.ID {
+			log.Errorw("account event from non-authoritative pds",
+				"seq", env.RepoAccount.Seq,
+				"did", env.RepoAccount.Did,
+				"event_from", host.Host,
+				"did_doc_declared_pds", ai.PDS,
+				"account_evt", env.RepoAccount,
+			)
+			return fmt.Errorf("event from non-authoritative pds")
+		}
+
+		// Process the account status change
+		repoStatus := events.AccountStatusActive
+		if !env.RepoAccount.Active && env.RepoAccount.Status != nil {
+			repoStatus = *env.RepoAccount.Status
+		}
+
+		err = bgs.UpdateAccountStatus(ctx, env.RepoAccount.Did, repoStatus)
+		if err != nil {
+			span.RecordError(err)
+			return fmt.Errorf("failed to update account status: %w", err)
+		}
+
+		// Broadcast the account event to all consumers
+		err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
+			RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+				Did:    env.RepoAccount.Did,
+				Seq:    env.RepoAccount.Seq,
+				Time:   env.RepoAccount.Time,
+				Active: env.RepoAccount.Active,
+				Status: env.RepoAccount.Status,
+			},
+		})
+		if err != nil {
+			log.Errorw("failed to broadcast Account event", "error", err, "did", env.RepoAccount.Did)
+			return fmt.Errorf("failed to broadcast Account event: %w", err)
+		}
+
+		return nil
 	case env.RepoMigrate != nil:
 		if _, err := bgs.createExternalUser(ctx, env.RepoMigrate.Did); err != nil {
 			return err
@@ -1042,7 +1125,7 @@ func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user models.Ui
 
 // TODO: rename? This also updates users, and 'external' is an old phrasing
 func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.ActorInfo, error) {
-	ctx, span := otel.Tracer("bgs").Start(ctx, "createExternalUser")
+	ctx, span := tracer.Start(ctx, "createExternalUser")
 	defer span.End()
 
 	externalUserCreationAttempts.Inc()
@@ -1277,6 +1360,72 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 	return subj, nil
 }
 
+func (bgs *BGS) UpdateAccountStatus(ctx context.Context, did string, status string) error {
+	ctx, span := tracer.Start(ctx, "UpdateAccountStatus")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("did", did),
+		attribute.String("status", status),
+	)
+
+	u, err := bgs.lookupUserByDid(ctx, did)
+	if err != nil {
+		return err
+	}
+
+	switch status {
+	case events.AccountStatusActive:
+		// Unset the PDS-specific status flags
+		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).UpdateColumns(map[string]any{
+			"suspended_by_pds":   false,
+			"taken_down_by_pds":  false,
+			"deactivated_by_pds": false,
+		}).Error; err != nil {
+			return fmt.Errorf("failed to clear PDS takedown statuss for user: %w", err)
+		}
+	case events.AccountStatusDeactivated:
+		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("deactivated_by_pds", true).Error; err != nil {
+			return fmt.Errorf("failed to set user deactivation status: %w", err)
+		}
+	case events.AccountStatusSuspended:
+		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("suspended_by_pds", true).Error; err != nil {
+			return fmt.Errorf("failed to set user suspension status: %w", err)
+		}
+	case events.AccountStatusTakendown:
+		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("taken_down_by_pds", true).Error; err != nil {
+			return fmt.Errorf("failed to set user takedown status: %w", err)
+		}
+
+		if err := bgs.db.Model(&models.ActorInfo{}).Where("uid = ?", u.ID).UpdateColumns(map[string]any{
+			"handle": nil,
+		}).Error; err != nil {
+			return err
+		}
+	case events.AccountStatusDeleted:
+		if err := bgs.db.Model(&User{}).Where("id = ?", u.ID).UpdateColumns(map[string]any{
+			"tombstoned": true,
+			"handle":     nil,
+		}).Error; err != nil {
+			return err
+		}
+
+		if err := bgs.db.Model(&models.ActorInfo{}).Where("uid = ?", u.ID).UpdateColumns(map[string]any{
+			"handle": nil,
+		}).Error; err != nil {
+			return err
+		}
+
+		// delete data from carstore
+		if err := bgs.repoman.TakeDownRepo(ctx, u.ID); err != nil {
+			// don't let a failure here prevent us from propagating this event
+			log.Errorf("failed to delete user data from carstore: %s", err)
+		}
+	}
+
+	return nil
+}
+
 func (bgs *BGS) TakeDownRepo(ctx context.Context, did string) error {
 	u, err := bgs.lookupUserByDid(ctx, did)
 	if err != nil {
@@ -1373,7 +1522,7 @@ func (bgs *BGS) CompleteResync(resync PDSResync) {
 }
 
 func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
-	ctx, span := otel.Tracer("bgs").Start(ctx, "ResyncPDS")
+	ctx, span := tracer.Start(ctx, "ResyncPDS")
 	defer span.End()
 	log := log.With("pds", pds.Host, "source", "resync_pds")
 	resync, found := bgs.LoadOrStoreResync(pds)

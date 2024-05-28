@@ -12,7 +12,8 @@ import (
 
 // ServerUpdateEmail_Input is the input argument to a com.atproto.server.updateEmail call.
 type ServerUpdateEmail_Input struct {
-	Email string `json:"email" cborgen:"email"`
+	Email           string `json:"email" cborgen:"email"`
+	EmailAuthFactor *bool  `json:"emailAuthFactor,omitempty" cborgen:"emailAuthFactor,omitempty"`
 	// token: Requires a token from com.atproto.sever.requestEmailUpdate if the account's email has been confirmed.
 	Token *string `json:"token,omitempty" cborgen:"token,omitempty"`
 }

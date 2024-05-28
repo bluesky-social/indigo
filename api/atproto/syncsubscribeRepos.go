@@ -8,6 +8,19 @@ import (
 	"github.com/bluesky-social/indigo/lex/util"
 )
 
+// SyncSubscribeRepos_Account is a "account" in the com.atproto.sync.subscribeRepos schema.
+//
+// Represents a change to an account's status on a host (eg, PDS or Relay). The semantics of this event are that the status is at the host which emitted the event, not necessarily that at the currently active PDS. Eg, a Relay takedown would emit a takedown with active=false, even if the PDS is still active.
+type SyncSubscribeRepos_Account struct {
+	// active: Indicates that the account has a repository which can be fetched from the host that emitted this event.
+	Active bool   `json:"active" cborgen:"active"`
+	Did    string `json:"did" cborgen:"did"`
+	Seq    int64  `json:"seq" cborgen:"seq"`
+	// status: If active=false, this optional field indicates a reason for why the account is not active.
+	Status *string `json:"status,omitempty" cborgen:"status,omitempty"`
+	Time   string  `json:"time" cborgen:"time"`
+}
+
 // SyncSubscribeRepos_Commit is a "commit" in the com.atproto.sync.subscribeRepos schema.
 //
 // Represents an update of repository state. Note that empty commits are allowed, which include no repo data changes, but an update to rev and signature.
@@ -38,7 +51,7 @@ type SyncSubscribeRepos_Commit struct {
 
 // SyncSubscribeRepos_Handle is a "handle" in the com.atproto.sync.subscribeRepos schema.
 //
-// Represents an update of the account's handle, or transition to/from invalid state. NOTE: Will be deprecated in favor of #identity.
+// DEPRECATED -- Use #identity event instead
 type SyncSubscribeRepos_Handle struct {
 	Did    string `json:"did" cborgen:"did"`
 	Handle string `json:"handle" cborgen:"handle"`
@@ -50,9 +63,11 @@ type SyncSubscribeRepos_Handle struct {
 //
 // Represents a change to an account's identity. Could be an updated handle, signing key, or pds hosting endpoint. Serves as a prod to all downstream services to refresh their identity cache.
 type SyncSubscribeRepos_Identity struct {
-	Did  string `json:"did" cborgen:"did"`
-	Seq  int64  `json:"seq" cborgen:"seq"`
-	Time string `json:"time" cborgen:"time"`
+	Did string `json:"did" cborgen:"did"`
+	// handle: The current handle for the account, or 'handle.invalid' if validation fails. This field is optional, might have been validated or passed-through from an upstream source. Semantics and behaviors for PDS vs Relay may evolve in the future; see atproto specs for more details.
+	Handle *string `json:"handle,omitempty" cborgen:"handle,omitempty"`
+	Seq    int64   `json:"seq" cborgen:"seq"`
+	Time   string  `json:"time" cborgen:"time"`
 }
 
 // SyncSubscribeRepos_Info is a "info" in the com.atproto.sync.subscribeRepos schema.
@@ -63,7 +78,7 @@ type SyncSubscribeRepos_Info struct {
 
 // SyncSubscribeRepos_Migrate is a "migrate" in the com.atproto.sync.subscribeRepos schema.
 //
-// Represents an account moving from one PDS instance to another. NOTE: not implemented; account migration uses #identity instead
+// DEPRECATED -- Use #account event instead
 type SyncSubscribeRepos_Migrate struct {
 	Did       string  `json:"did" cborgen:"did"`
 	MigrateTo *string `json:"migrateTo" cborgen:"migrateTo"`
@@ -83,7 +98,7 @@ type SyncSubscribeRepos_RepoOp struct {
 
 // SyncSubscribeRepos_Tombstone is a "tombstone" in the com.atproto.sync.subscribeRepos schema.
 //
-// Indicates that an account has been deleted. NOTE: may be deprecated in favor of #identity or a future #account event
+// DEPRECATED -- Use #account event instead
 type SyncSubscribeRepos_Tombstone struct {
 	Did  string `json:"did" cborgen:"did"`
 	Seq  int64  `json:"seq" cborgen:"seq"`

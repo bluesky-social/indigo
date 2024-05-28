@@ -606,6 +606,21 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 
 			return nil
 		},
+		RepoAccount: func(acct *comatproto.SyncSubscribeRepos_Account) error {
+			log.Infow("account event", "did", acct.Did, "status", acct.Status)
+			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+				RepoAccount: acct,
+			}); err != nil {
+				log.Errorf("failed handling event from %q (%d): %s", host.Host, acct.Seq, err)
+			}
+			*lastCursor = acct.Seq
+
+			if err := s.updateCursor(sub, *lastCursor); err != nil {
+				return fmt.Errorf("updating cursor: %w", err)
+			}
+
+			return nil
+		},
 		// TODO: all the other event types (handle change, migration, etc)
 		Error: func(errf *events.ErrorFrame) error {
 			switch errf.Error {

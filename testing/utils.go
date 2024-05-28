@@ -612,6 +612,13 @@ func (b *TestRelay) Events(t *testing.T, since int64) *EventStream {
 				es.Lk.Unlock()
 				return nil
 			},
+			RepoAccount: func(evt *atproto.SyncSubscribeRepos_Account) error {
+				fmt.Println("received account event: ", evt.Seq, evt.Did)
+				es.Lk.Lock()
+				es.Events = append(es.Events, &events.XRPCStreamEvent{RepoAccount: evt})
+				es.Lk.Unlock()
+				return nil
+			},
 		}
 		seqScheduler := sequential.NewScheduler("test", rsc.EventHandler)
 		if err := events.HandleRepoStream(ctx, con, seqScheduler); err != nil {
