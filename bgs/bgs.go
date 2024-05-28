@@ -474,12 +474,8 @@ type User struct {
 	TakenDown  bool
 	Tombstoned bool
 
-	// SuspendedByPDS accounts shouldn't be served or processed until we get a revert account event
-	SuspendedByPDS bool
-	// DeactivatedByPDS accounts shouldn't be served or processed until we get a revert account event
-	DeactivatedByPDS bool
-	// TakenDownByPDS is set to true if the user in question has been taken down by their PDS and not by the relay administrator
-	TakenDownByPDS bool
+	// UpstreamStatus is the state of the user as reported by the upstream PDS
+	UpstreamStatus string
 }
 
 type addTargetBody struct {
@@ -830,16 +826,21 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			u.Did = evt.Repo
 		}
 
-		if u.TakenDown || u.TakenDownByPDS {
-			span.SetAttributes(attribute.Bool("taken_down_by_pds", u.TakenDownByPDS))
+		span.SetAttributes(attribute.String("upstream_status", u.UpstreamStatus))
+
+		if u.TakenDown || u.UpstreamStatus == events.AccountStatusTakendown {
 			span.SetAttributes(attribute.Bool("taken_down_by_relay_admin", u.TakenDown))
 			log.Debugw("dropping commit event from taken down user", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
 			return nil
 		}
 
-		if u.SuspendedByPDS {
-			span.SetAttributes(attribute.Bool("suspended_by_pds", true))
+		if u.UpstreamStatus == events.AccountStatusSuspended {
 			log.Debugw("dropping commit event from suspended user", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
+			return nil
+		}
+
+		if u.UpstreamStatus == events.AccountStatusDeactivated {
+			log.Debugw("dropping commit event from deactivated user", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
 			return nil
 		}
 
@@ -1390,24 +1391,20 @@ func (bgs *BGS) UpdateAccountStatus(ctx context.Context, did string, status stri
 	switch status {
 	case events.AccountStatusActive:
 		// Unset the PDS-specific status flags
-		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).UpdateColumns(map[string]any{
-			"suspended_by_pds":   false,
-			"taken_down_by_pds":  false,
-			"deactivated_by_pds": false,
-		}).Error; err != nil {
-			return fmt.Errorf("failed to clear PDS takedown statuss for user: %w", err)
+		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusActive).Error; err != nil {
+			return fmt.Errorf("failed to set user active status: %w", err)
 		}
 	case events.AccountStatusDeactivated:
-		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("deactivated_by_pds", true).Error; err != nil {
+		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusDeactivated).Error; err != nil {
 			return fmt.Errorf("failed to set user deactivation status: %w", err)
 		}
 	case events.AccountStatusSuspended:
-		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("suspended_by_pds", true).Error; err != nil {
+		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusSuspended).Error; err != nil {
 			return fmt.Errorf("failed to set user suspension status: %w", err)
 		}
 	case events.AccountStatusTakendown:
-		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("taken_down_by_pds", true).Error; err != nil {
-			return fmt.Errorf("failed to set user takedown status: %w", err)
+		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusTakendown).Error; err != nil {
+			return fmt.Errorf("failed to set user taken down status: %w", err)
 		}
 
 		if err := bgs.db.Model(&models.ActorInfo{}).Where("uid = ?", u.ID).UpdateColumns(map[string]any{
@@ -1417,8 +1414,9 @@ func (bgs *BGS) UpdateAccountStatus(ctx context.Context, did string, status stri
 		}
 	case events.AccountStatusDeleted:
 		if err := bgs.db.Model(&User{}).Where("id = ?", u.ID).UpdateColumns(map[string]any{
-			"tombstoned": true,
-			"handle":     nil,
+			"tombstoned":      true,
+			"handle":          nil,
+			"upstream_status": events.AccountStatusDeleted,
 		}).Error; err != nil {
 			return err
 		}
