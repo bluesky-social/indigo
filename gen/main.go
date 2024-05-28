@@ -87,6 +87,7 @@ func main() {
 		atproto.SyncSubscribeRepos_Commit{},
 		atproto.SyncSubscribeRepos_Handle{},
 		atproto.SyncSubscribeRepos_Identity{},
+		atproto.SyncSubscribeRepos_Account{},
 		atproto.SyncSubscribeRepos_Info{},
 		atproto.SyncSubscribeRepos_Migrate{},
 		atproto.SyncSubscribeRepos_RepoOp{},

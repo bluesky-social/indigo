@@ -6233,7 +6233,7 @@ func (t *LabelerDefs_LabelerPolicies) UnmarshalCBOR(r io.Reader) (err error) {
 							return err
 						}
 
-						t.LabelValues[i] = string(sval)
+						t.LabelValues[i] = &sval
 					}
 
 				}
