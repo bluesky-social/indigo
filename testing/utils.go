@@ -298,6 +298,74 @@ func (tp *TestPDS) NewUser(handle string) (*TestUser, error) {
 	}, nil
 }
 
+func (tp *TestPDS) TakedownRepo(t *testing.T, did string) {
+	req, err := http.NewRequest("GET", tp.HTTPHost()+"/takedownRepo?did="+did, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatal("expected 200 OK, got: ", resp.Status)
+	}
+}
+
+func (tp *TestPDS) SuspendRepo(t *testing.T, did string) {
+	req, err := http.NewRequest("GET", tp.HTTPHost()+"/suspendRepo?did="+did, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatal("expected 200 OK, got: ", resp.Status)
+	}
+}
+
+func (tp *TestPDS) DeactivateRepo(t *testing.T, did string) {
+	req, err := http.NewRequest("GET", tp.HTTPHost()+"/deactivateRepo?did="+did, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatal("expected 200 OK, got: ", resp.Status)
+	}
+}
+
+func (tp *TestPDS) ReactivateRepo(t *testing.T, did string) {
+	req, err := http.NewRequest("GET", tp.HTTPHost()+"/reactivateRepo?did="+did, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatal("expected 200 OK, got: ", resp.Status)
+	}
+}
+
 func (u *TestUser) Reply(t *testing.T, replyto, root *atproto.RepoStrongRef, body string) string {
 	t.Helper()
 
@@ -609,6 +677,13 @@ func (b *TestRelay) Events(t *testing.T, since int64) *EventStream {
 				fmt.Println("received identity event: ", evt.Seq, evt.Did)
 				es.Lk.Lock()
 				es.Events = append(es.Events, &events.XRPCStreamEvent{RepoIdentity: evt})
+				es.Lk.Unlock()
+				return nil
+			},
+			RepoAccount: func(evt *atproto.SyncSubscribeRepos_Account) error {
+				fmt.Println("received account event: ", evt.Seq, evt.Did)
+				es.Lk.Lock()
+				es.Events = append(es.Events, &events.XRPCStreamEvent{RepoAccount: evt})
 				es.Lk.Unlock()
 				return nil
 			},

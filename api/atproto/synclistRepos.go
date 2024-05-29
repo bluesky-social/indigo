@@ -18,10 +18,13 @@ type SyncListRepos_Output struct {
 
 // SyncListRepos_Repo is a "repo" in the com.atproto.sync.listRepos schema.
 type SyncListRepos_Repo struct {
-	Did string `json:"did" cborgen:"did"`
+	Active *bool  `json:"active,omitempty" cborgen:"active,omitempty"`
+	Did    string `json:"did" cborgen:"did"`
 	// head: Current repo commit CID
 	Head string `json:"head" cborgen:"head"`
 	Rev  string `json:"rev" cborgen:"rev"`
+	// status: If active=false, this optional field indicates a possible reason for why the account is not active. If active=false and no status is supplied, then the host makes no claim for why the repository is no longer being hosted.
+	Status *string `json:"status,omitempty" cborgen:"status,omitempty"`
 }
 
 // SyncListRepos calls the XRPC method "com.atproto.sync.listRepos".
