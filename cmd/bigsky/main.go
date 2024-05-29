@@ -12,7 +12,6 @@ import (
 
 	"github.com/bluesky-social/indigo/api"
 	libbgs "github.com/bluesky-social/indigo/bgs"
-	"github.com/bluesky-social/indigo/blobs"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
@@ -113,9 +112,6 @@ func run(args []string) {
 			Name:    "metrics-listen",
 			Value:   ":2471",
 			EnvVars: []string{"BGS_METRICS_LISTEN"},
-		},
-		&cli.StringFlag{
-			Name: "disk-blob-store",
 		},
 		&cli.StringFlag{
 			Name:  "disk-persister-dir",
@@ -332,11 +328,6 @@ func Bigsky(cctx *cli.Context) error {
 		}
 	}, false)
 
-	var blobstore blobs.BlobStore
-	if bsdir := cctx.String("disk-blob-store"); bsdir != "" {
-		blobstore = &blobs.DiskBlobStore{Dir: bsdir}
-	}
-
 	prodHR, err := api.NewProdHandleResolver(100_000, cctx.String("resolve-address"), cctx.Bool("force-dns-udp"))
 	if err != nil {
 		return fmt.Errorf("failed to set up handle resolver: %w", err)
@@ -358,7 +349,7 @@ func Bigsky(cctx *cli.Context) error {
 	}
 
 	log.Infow("constructing bgs")
-	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, blobstore, rf, hr, !cctx.Bool("crawl-insecure-ws"), cctx.Duration("compact-interval"))
+	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, rf, hr, !cctx.Bool("crawl-insecure-ws"), cctx.Duration("compact-interval"))
 	if err != nil {
 		return err
 	}

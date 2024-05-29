@@ -13,7 +13,6 @@ import (
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/blobs"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/mst"
 	"gorm.io/gorm"
@@ -168,27 +167,6 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, body *comatprototypes.SyncNotifyOfUpdate_Input) error {
 	// TODO:
 	return nil
-}
-
-func (s *BGS) handleComAtprotoSyncGetBlob(ctx context.Context, cid string, did string) (io.Reader, error) {
-	if s.blobs == nil {
-		return nil, echo.NewHTTPError(http.StatusNotFound, "blobs not enabled on this server")
-	}
-
-	b, err := s.blobs.GetBlob(ctx, cid, did)
-	if err != nil {
-		if errors.Is(err, blobs.NotFoundErr) {
-			return nil, echo.NewHTTPError(http.StatusNotFound, "blob not found")
-		}
-		log.Errorw("failed to get blob", "err", err, "cid", cid, "did", did)
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to get blob")
-	}
-
-	return bytes.NewReader(b), nil
-}
-
-func (s *BGS) handleComAtprotoSyncListBlobs(ctx context.Context, cursor string, did string, limit int, since string) (*comatprototypes.SyncListBlobs_Output, error) {
-	return nil, fmt.Errorf("NYI")
 }
 
 func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, limit int) (*comatprototypes.SyncListRepos_Output, error) {

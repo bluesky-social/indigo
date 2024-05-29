@@ -514,7 +514,7 @@ func SetupRelay(ctx context.Context, didr plc.PLCClient) (*TestRelay, error) {
 
 	tr := &api.TestHandleResolver{}
 
-	b, err := bgs.NewBGS(maindb, ix, repoman, evtman, didr, nil, rf, tr, false, time.Hour*4)
+	b, err := bgs.NewBGS(maindb, ix, repoman, evtman, didr, rf, tr, false, time.Hour*4)
 	if err != nil {
 		return nil, err
 	}
