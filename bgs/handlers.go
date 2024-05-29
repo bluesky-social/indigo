@@ -15,6 +15,7 @@ import (
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/blobs"
 	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/mst"
 	"gorm.io/gorm"
 
@@ -40,7 +41,19 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 	}
 
 	if u.TakenDown {
-		return nil, fmt.Errorf("account was taken down")
+		return nil, fmt.Errorf("account was taken down by the Relay")
+	}
+
+	if u.UpstreamStatus == events.AccountStatusTakendown {
+		return nil, fmt.Errorf("account was taken down by its PDS")
+	}
+
+	if u.UpstreamStatus == events.AccountStatusDeactivated {
+		return nil, fmt.Errorf("account is temporarily deactivated")
+	}
+
+	if u.UpstreamStatus == events.AccountStatusSuspended {
+		return nil, fmt.Errorf("account is suspended by its PDS")
 	}
 
 	root, blocks, err := s.repoman.GetRecordProof(ctx, u.ID, collection, rkey)
@@ -85,7 +98,19 @@ func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since
 	}
 
 	if u.TakenDown {
-		return nil, fmt.Errorf("account was taken down")
+		return nil, fmt.Errorf("account was taken down by the Relay")
+	}
+
+	if u.UpstreamStatus == events.AccountStatusTakendown {
+		return nil, fmt.Errorf("account was taken down by its PDS")
+	}
+
+	if u.UpstreamStatus == events.AccountStatusDeactivated {
+		return nil, fmt.Errorf("account is temporarily deactivated")
+	}
+
+	if u.UpstreamStatus == events.AccountStatusSuspended {
+		return nil, fmt.Errorf("account is suspended by its PDS")
 	}
 
 	// TODO: stream the response
@@ -207,7 +232,11 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 	}
 
 	users := []User{}
-	if err := s.db.Model(&User{}).Where("id > ? AND NOT tombstoned AND NOT taken_down", c).Order("id").Limit(limit).Find(&users).Error; err != nil {
+
+	q := fmt.Sprintf("id > ? AND NOT tombstoned AND NOT taken_down AND upstream_status != '%s' AND upstream_status != '%s' AND upstream_status != '%s'",
+		events.AccountStatusDeactivated, events.AccountStatusSuspended, events.AccountStatusTakendown)
+
+	if err := s.db.Model(&User{}).Where(q, c).Order("id").Limit(limit).Find(&users).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return &comatprototypes.SyncListRepos_Output{}, nil
 		}
@@ -256,7 +285,19 @@ func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did strin
 	}
 
 	if u.TakenDown {
-		return nil, fmt.Errorf("account was taken down")
+		return nil, fmt.Errorf("account was taken down by the Relay")
+	}
+
+	if u.UpstreamStatus == events.AccountStatusTakendown {
+		return nil, fmt.Errorf("account was taken down by its PDS")
+	}
+
+	if u.UpstreamStatus == events.AccountStatusDeactivated {
+		return nil, fmt.Errorf("account is temporarily deactivated")
+	}
+
+	if u.UpstreamStatus == events.AccountStatusSuspended {
+		return nil, fmt.Errorf("account is suspended by its PDS")
 	}
 
 	root, err := s.repoman.GetRepoRoot(ctx, u.ID)

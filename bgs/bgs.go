@@ -475,7 +475,7 @@ type User struct {
 	Tombstoned bool
 
 	// UpstreamStatus is the state of the user as reported by the upstream PDS
-	UpstreamStatus string
+	UpstreamStatus string `gorm:"index"`
 }
 
 type addTargetBody struct {
