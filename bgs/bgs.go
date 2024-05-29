@@ -19,7 +19,6 @@ import (
 	"github.com/bluesky-social/indigo/api"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/blobs"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/events"
@@ -62,8 +61,7 @@ type BGS struct {
 	didr        did.Resolver
 	repoFetcher *indexer.RepoFetcher
 
-	blobs blobs.BlobStore
-	hr    api.HandleResolver
+	hr api.HandleResolver
 
 	// TODO: work on doing away with this flag in favor of more pluggable
 	// pieces that abstract the need for explicit ssl checks
@@ -107,7 +105,7 @@ type SocketConsumer struct {
 	EventsSent  promclient.Counter
 }
 
-func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, blobs blobs.BlobStore, rf *indexer.RepoFetcher, hr api.HandleResolver, ssl bool, compactInterval time.Duration) (*BGS, error) {
+func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, rf *indexer.RepoFetcher, hr api.HandleResolver, ssl bool, compactInterval time.Duration) (*BGS, error) {
 	db.AutoMigrate(User{})
 	db.AutoMigrate(AuthToken{})
 	db.AutoMigrate(models.PDS{})
@@ -122,7 +120,6 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		repoman: repoman,
 		events:  evtman,
 		didr:    didr,
-		blobs:   blobs,
 		ssl:     ssl,
 
 		consumersLk: sync.RWMutex{},
@@ -894,17 +891,6 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return fmt.Errorf("handle user event failed: %w", err)
 		}
 
-		// sync blobs
-		if len(evt.Blobs) > 0 {
-			var blobStrs []string
-			for _, b := range evt.Blobs {
-				blobStrs = append(blobStrs, b.String())
-			}
-			if err := bgs.syncUserBlobs(ctx, host, u.ID, blobStrs); err != nil {
-				return err
-			}
-		}
-
 		return nil
 	case env.RepoHandle != nil:
 		log.Infow("bgs got repo handle event", "did", env.RepoHandle.Did, "handle", env.RepoHandle.Handle)
@@ -1011,33 +997,6 @@ func (bgs *BGS) handleRepoTombstone(ctx context.Context, pds *models.PDS, evt *a
 	return bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoTombstone: evt,
 	})
-}
-
-func (s *BGS) syncUserBlobs(ctx context.Context, pds *models.PDS, user models.Uid, blobs []string) error {
-	if s.blobs == nil {
-		log.Debugf("blob syncing disabled")
-		return nil
-	}
-
-	did, err := s.Index.DidForUser(ctx, user)
-	if err != nil {
-		return err
-	}
-
-	for _, b := range blobs {
-		c := models.ClientForPds(pds)
-		s.Index.ApplyPDSClientSettings(c)
-		blob, err := atproto.SyncGetBlob(ctx, c, b, did)
-		if err != nil {
-			return fmt.Errorf("fetching blob (%s, %s): %w", did, b, err)
-		}
-
-		if err := s.blobs.PutBlob(ctx, b, did, blob); err != nil {
-			return fmt.Errorf("storing blob (%s, %s): %w", did, b, err)
-		}
-	}
-
-	return nil
 }
 
 // TODO: rename? This also updates users, and 'external' is an old phrasing
