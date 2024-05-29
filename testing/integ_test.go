@@ -11,6 +11,7 @@ import (
 	"time"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
@@ -283,6 +284,110 @@ func TestHandleChange(t *testing.T) {
 	fmt.Println(hcevt.RepoHandle)
 	idevt := evts.Next()
 	fmt.Println(idevt.RepoIdentity)
+}
+
+func TestAccountEvent(t *testing.T) {
+	assert := assert.New(t)
+	_ = assert
+	didr := TestPLC(t)
+	p1 := MustSetupPDS(t, ".pdsuno", didr)
+	p1.Run(t)
+
+	b1 := MustSetupRelay(t, didr)
+	b1.Run(t)
+
+	b1.tr.TrialHosts = []string{p1.RawHost()}
+
+	p1.RequestScraping(t, b1)
+	p1.BumpLimits(t, b1)
+	time.Sleep(time.Millisecond * 50)
+
+	evts := b1.Events(t, -1)
+
+	u := p1.MustNewUser(t, usernames[0]+".pdsuno")
+
+	// if the handle changes before the relay processes the first event, things
+	// get a little weird
+	time.Sleep(time.Millisecond * 50)
+	//socialSim(t, []*testUser{u}, 10, 0)
+
+	p1.TakedownRepo(t, u.DID())
+	p1.ReactivateRepo(t, u.DID())
+	p1.DeactivateRepo(t, u.DID())
+	p1.ReactivateRepo(t, u.DID())
+	p1.SuspendRepo(t, u.DID())
+	p1.ReactivateRepo(t, u.DID())
+
+	time.Sleep(time.Millisecond * 100)
+
+	initevt := evts.Next()
+	fmt.Println(initevt.RepoCommit)
+
+	// Takedown
+	acevt := evts.Next()
+	fmt.Println(acevt.RepoAccount)
+	assert.Equal(acevt.RepoAccount.Did, u.DID())
+	assert.Equal(acevt.RepoAccount.Active, false)
+	assert.Equal(*acevt.RepoAccount.Status, events.AccountStatusTakendown)
+
+	// Reactivate
+	acevt = evts.Next()
+	fmt.Println(acevt.RepoAccount)
+	assert.Equal(acevt.RepoAccount.Did, u.DID())
+	assert.Equal(acevt.RepoAccount.Active, true)
+	assert.Equal(*acevt.RepoAccount.Status, events.AccountStatusActive)
+
+	// Deactivate
+	acevt = evts.Next()
+	fmt.Println(acevt.RepoAccount)
+	assert.Equal(acevt.RepoAccount.Did, u.DID())
+	assert.Equal(acevt.RepoAccount.Active, false)
+	assert.Equal(*acevt.RepoAccount.Status, events.AccountStatusDeactivated)
+
+	// Reactivate
+	acevt = evts.Next()
+	fmt.Println(acevt.RepoAccount)
+	assert.Equal(acevt.RepoAccount.Did, u.DID())
+	assert.Equal(acevt.RepoAccount.Active, true)
+	assert.Equal(*acevt.RepoAccount.Status, events.AccountStatusActive)
+
+	// Suspend
+	acevt = evts.Next()
+	fmt.Println(acevt.RepoAccount)
+	assert.Equal(acevt.RepoAccount.Did, u.DID())
+	assert.Equal(acevt.RepoAccount.Active, false)
+	assert.Equal(*acevt.RepoAccount.Status, events.AccountStatusSuspended)
+
+	// Reactivate
+	acevt = evts.Next()
+	fmt.Println(acevt.RepoAccount)
+	assert.Equal(acevt.RepoAccount.Did, u.DID())
+	assert.Equal(acevt.RepoAccount.Active, true)
+	assert.Equal(*acevt.RepoAccount.Status, events.AccountStatusActive)
+
+	// Takedown at Relay level, then emit active event and make sure relay overrides it
+	b1.bgs.TakeDownRepo(context.TODO(), u.DID())
+	p1.ReactivateRepo(t, u.DID())
+
+	time.Sleep(time.Millisecond * 20)
+
+	acevt = evts.Next()
+	fmt.Println(acevt.RepoAccount)
+	assert.Equal(acevt.RepoAccount.Did, u.DID())
+	assert.Equal(acevt.RepoAccount.Active, false)
+	assert.Equal(*acevt.RepoAccount.Status, events.AccountStatusTakendown)
+
+	// Reactivate at Relay level, then emit an active account event and make sure relay passes it through
+	b1.bgs.ReverseTakedown(context.TODO(), u.DID())
+	p1.ReactivateRepo(t, u.DID())
+
+	time.Sleep(time.Millisecond * 20)
+
+	acevt = evts.Next()
+	fmt.Println(acevt.RepoAccount)
+	assert.Equal(acevt.RepoAccount.Did, u.DID())
+	assert.Equal(acevt.RepoAccount.Active, true)
+	assert.Equal(*acevt.RepoAccount.Status, events.AccountStatusActive)
 }
 
 func TestRelayTakedown(t *testing.T) {
