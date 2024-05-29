@@ -326,6 +326,14 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 				return true
 			case "/.well-known/atproto-did":
 				return true
+			case "/takedownRepo":
+				return true
+			case "/suspendRepo":
+				return true
+			case "/deactivateRepo":
+				return true
+			case "/reactivateRepo":
+				return true
 			default:
 				return false
 			}
@@ -347,8 +355,65 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 		ctx.Response().WriteHeader(500)
 	}
 
+	e.GET("/takedownRepo", func(c echo.Context) error {
+		ctx := c.Request().Context()
+		did := c.QueryParam("did")
+		if did == "" {
+			return fmt.Errorf("missing did")
+		}
+
+		if err := s.TakedownRepo(ctx, did); err != nil {
+			return err
+		}
+
+		return c.String(200, "ok")
+	})
+
+	e.GET("/suspendRepo", func(c echo.Context) error {
+		ctx := c.Request().Context()
+		did := c.QueryParam("did")
+		if did == "" {
+			return fmt.Errorf("missing did")
+		}
+
+		if err := s.SuspendRepo(ctx, did); err != nil {
+			return err
+		}
+
+		return c.String(200, "ok")
+	})
+
+	e.GET("/deactivateRepo", func(c echo.Context) error {
+		ctx := c.Request().Context()
+		did := c.QueryParam("did")
+		if did == "" {
+			return fmt.Errorf("missing did")
+		}
+
+		if err := s.DeactivateRepo(ctx, did); err != nil {
+			return err
+		}
+
+		return c.String(200, "ok")
+	})
+
+	e.GET("/reactivateRepo", func(c echo.Context) error {
+		ctx := c.Request().Context()
+		did := c.QueryParam("did")
+		if did == "" {
+			return fmt.Errorf("missing did")
+		}
+
+		if err := s.ReactivateRepo(ctx, did); err != nil {
+			return err
+		}
+
+		return c.String(200, "ok")
+	})
+
 	e.Use(middleware.JWTWithConfig(cfg), s.userCheckMiddleware)
 	s.RegisterHandlersComAtproto(e)
+
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
 	e.GET("/xrpc/_health", s.HandleHealthCheck)
 	e.GET("/.well-known/atproto-did", s.HandleResolveDid)
@@ -641,6 +706,9 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		case evt.RepoIdentity != nil:
 			header.MsgType = "#identity"
 			obj = evt.RepoIdentity
+		case evt.RepoAccount != nil:
+			header.MsgType = "#account"
+			obj = evt.RepoAccount
 		case evt.RepoInfo != nil:
 			header.MsgType = "#info"
 			obj = evt.RepoInfo
@@ -709,6 +777,70 @@ func (s *Server) UpdateUserHandle(ctx context.Context, u *User, handle string) e
 		RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
 			Did:  u.Did,
 			Time: time.Now().Format(util.ISO8601),
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to push event: %s", err)
+	}
+
+	return nil
+}
+
+func (s *Server) TakedownRepo(ctx context.Context, did string) error {
+	// Push an Account event
+	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
+		RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+			Did:    did,
+			Active: false,
+			Status: &events.AccountStatusTakendown,
+			Time:   time.Now().Format(util.ISO8601),
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to push event: %s", err)
+	}
+
+	return nil
+}
+
+func (s *Server) SuspendRepo(ctx context.Context, did string) error {
+	// Push an Account event
+	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
+		RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+			Did:    did,
+			Active: false,
+			Status: &events.AccountStatusSuspended,
+			Time:   time.Now().Format(util.ISO8601),
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to push event: %s", err)
+	}
+
+	return nil
+}
+
+func (s *Server) DeactivateRepo(ctx context.Context, did string) error {
+	// Push an Account event
+	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
+		RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+			Did:    did,
+			Active: false,
+			Status: &events.AccountStatusDeactivated,
+			Time:   time.Now().Format(util.ISO8601),
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to push event: %s", err)
+	}
+
+	return nil
+}
+
+func (s *Server) ReactivateRepo(ctx context.Context, did string) error {
+	// Push an Account event
+	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
+		RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+			Did:    did,
+			Active: true,
+			Status: &events.AccountStatusActive,
+			Time:   time.Now().Format(util.ISO8601),
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to push event: %s", err)
