@@ -305,6 +305,36 @@ var readRepoStreamCmd = &cli.Command{
 				return nil
 
 			},
+			RepoIdentity: func(identity *comatproto.SyncSubscribeRepos_Identity) error {
+				if jsonfmt {
+					b, err := json.Marshal(identity)
+					if err != nil {
+						return err
+					}
+					fmt.Println(string(b))
+				} else {
+					fmt.Printf("(%d) RepoIdentity: %s\n", identity.Seq, identity.Did)
+				}
+
+				return nil
+			},
+			RepoAccount: func(acct *comatproto.SyncSubscribeRepos_Account) error {
+				if jsonfmt {
+					b, err := json.Marshal(acct)
+					if err != nil {
+						return err
+					}
+					fmt.Println(string(b))
+				} else {
+					status := ""
+					if acct.Status != nil {
+						status = *acct.Status
+					}
+					fmt.Printf("(%d) RepoAccount: %s %v %s\n", acct.Seq, acct.Did, acct.Active, status)
+				}
+
+				return nil
+			},
 			RepoInfo: func(info *comatproto.SyncSubscribeRepos_Info) error {
 				if jsonfmt {
 					b, err := json.Marshal(info)
