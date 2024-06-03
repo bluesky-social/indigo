@@ -551,7 +551,7 @@ func (cs *CarStore) iterateShardBlocks(ctx context.Context, sh *CarShard, cb fun
 
 	rr, err := car.NewCarReader(fi)
 	if err != nil {
-		return err
+		return fmt.Errorf("opening shard car: %w", err)
 	}
 
 	for {
@@ -1479,7 +1479,7 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid, skip
 		}
 
 		if err := cs.compactBucket(ctx, user, b, shardsById, keep); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("compact bucket: %w", err)
 		}
 
 		stats.NewShards++
@@ -1504,7 +1504,7 @@ func (cs *CarStore) CompactUserShards(ctx context.Context, user models.Uid, skip
 	// now we need to delete the staleRefs we successfully cleaned up
 	// we can safely delete a staleRef if all the shards that have blockRefs with matching stale refs were processed
 	if err := cs.deleteStaleRefs(ctx, user, brefs, staleRefs, removedShards); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("delete stale refs: %w", err)
 	}
 
 	stats.DupeCount = len(dupes)
@@ -1577,7 +1577,7 @@ func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compB
 	lastsh := shardsById[last.ID]
 	fi, path, err := cs.openNewCompactedShardFile(ctx, user, last.Seq)
 	if err != nil {
-		return err
+		return fmt.Errorf("opening new file: %w", err)
 	}
 
 	defer fi.Close()
@@ -1614,7 +1614,9 @@ func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compB
 			}
 			return nil
 		}); err != nil {
-			return err
+			// If we ever fail to iterate a shard file because its
+			// corrupted, just log an error and skip the shard
+			log.Errorw("iterating blocks in shard", "shard", s.ID, "err", err)
 		}
 	}
 
