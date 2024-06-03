@@ -1616,7 +1616,7 @@ func (cs *CarStore) compactBucket(ctx context.Context, user models.Uid, b *compB
 		}); err != nil {
 			// If we ever fail to iterate a shard file because its
 			// corrupted, just log an error and skip the shard
-			log.Errorw("iterating blocks in shard", "shard", s.ID, "err", err)
+			log.Errorw("iterating blocks in shard", "shard", s.ID, "err", err, "uid", user)
 		}
 	}
 
