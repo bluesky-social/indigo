@@ -1278,6 +1278,10 @@ func (cs *CarStore) getBlockRefsForShards(ctx context.Context, shardIds []uint) 
 func shardSize(sh *CarShard) (int64, error) {
 	st, err := os.Stat(sh.Path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			log.Warnw("missing shard, return size of zero", "path", sh.Path, "shard", sh.ID)
+			return 0, nil
+		}
 		return 0, fmt.Errorf("stat %q: %w", sh.Path, err)
 	}
 
