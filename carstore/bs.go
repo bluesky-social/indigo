@@ -1085,17 +1085,16 @@ func (cs *CarStore) deleteShards(ctx context.Context, shs []*CarShard) error {
 			return err
 		}
 
-		var outErr error
 		for _, sh := range subs {
 			if err := cs.deleteShardFile(ctx, sh); err != nil {
 				if !os.IsNotExist(err) {
 					return err
 				}
-				outErr = err
+				log.Warnw("shard file we tried to delete did not exist", "shard", sh.ID, "path", sh.Path)
 			}
 		}
 
-		return outErr
+		return nil
 	}
 
 	chunkSize := 10000
