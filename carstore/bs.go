@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -32,6 +33,7 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -1196,31 +1198,6 @@ func (cb *compBucket) isEmpty() bool {
 	return len(cb.shards) == 0
 }
 
-func (cs *CarStore) copyShardBlocksFiltered(ctx context.Context, sh *CarShard, w io.Writer, keep map[cid.Cid]bool) error {
-	fi, err := os.Open(sh.Path)
-	if err != nil {
-		return err
-	}
-	defer fi.Close()
-
-	rr, err := car.NewCarReader(fi)
-	if err != nil {
-		return err
-	}
-
-	for {
-		blk, err := rr.Next()
-		if err != nil {
-			return err
-		}
-
-		if keep[blk.Cid()] {
-			_, err := LdWrite(w, blk.Cid().Bytes(), blk.RawData())
-			return err
-		}
-	}
-}
-
 func (cs *CarStore) openNewCompactedShardFile(ctx context.Context, user models.Uid, seq int) (*os.File, string, error) {
 	// TODO: some overwrite protections
 	fi, err := os.CreateTemp(cs.rootDir, fnameForShard(user, seq))
@@ -1262,17 +1239,37 @@ func (cs *CarStore) getBlockRefsForShards(ctx context.Context, shardIds []uint) 
 			sl = sl[:chunkSize]
 		}
 
-		var brefs []blockRef
-		if err := cs.meta.Raw(`select * from block_refs where shard in (?)`, sl).Scan(&brefs).Error; err != nil {
-			return nil, err
+		if err := blockRefsForShards(ctx, cs.meta, sl, &out); err != nil {
+			return nil, fmt.Errorf("getting block refs: %w", err)
 		}
-
-		out = append(out, brefs...)
 	}
 
 	span.SetAttributes(attribute.Int("refs", len(out)))
 
 	return out, nil
+}
+
+func blockRefsForShards(ctx context.Context, db *gorm.DB, shards []uint, obuf *[]blockRef) error {
+	// Check the database driver
+	switch db.Dialector.(type) {
+	case *postgres.Dialector:
+		// TODO: maybe theres a builtin way of doing this? I couldnt find it
+		sb := new(strings.Builder)
+		for i, v := range shards {
+			sb.WriteByte('(')
+			sb.WriteString(strconv.Itoa(int(v)))
+			sb.WriteByte(')')
+			if i != len(shards)-1 {
+				sb.WriteByte(',')
+			}
+		}
+
+		q := fmt.Sprintf(`SELECT block_refs.* FROM block_refs INNER JOIN (VALUES %s) AS vals(v) ON block_refs.shard = v`, sb.String())
+		return db.Raw(q).Scan(obuf).Error
+	default:
+		return db.Raw(`SELECT * FROM block_refs WHERE shard IN (?)`, shards).Scan(obuf).Error
+	}
+
 }
 
 func shardSize(sh *CarShard) (int64, error) {
