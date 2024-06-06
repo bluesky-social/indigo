@@ -1099,7 +1099,7 @@ func (cs *CarStore) deleteShards(ctx context.Context, shs []*CarShard) error {
 		return nil
 	}
 
-	chunkSize := 10000
+	chunkSize := 2000
 	for i := 0; i < len(shs); i += chunkSize {
 		sl := shs[i:]
 		if len(sl) > chunkSize {
@@ -1231,7 +1231,7 @@ func (cs *CarStore) getBlockRefsForShards(ctx context.Context, shardIds []uint) 
 
 	span.SetAttributes(attribute.Int("shards", len(shardIds)))
 
-	chunkSize := 10000
+	chunkSize := 2000
 	out := make([]blockRef, 0, len(shardIds))
 	for i := 0; i < len(shardIds); i += chunkSize {
 		sl := shardIds[i:]
@@ -1249,27 +1249,29 @@ func (cs *CarStore) getBlockRefsForShards(ctx context.Context, shardIds []uint) 
 	return out, nil
 }
 
+func valuesStatementForShards(shards []uint) string {
+	sb := new(strings.Builder)
+	for i, v := range shards {
+		sb.WriteByte('(')
+		sb.WriteString(strconv.Itoa(int(v)))
+		sb.WriteByte(')')
+		if i != len(shards)-1 {
+			sb.WriteByte(',')
+		}
+	}
+	return sb.String()
+}
+
 func blockRefsForShards(ctx context.Context, db *gorm.DB, shards []uint, obuf *[]blockRef) error {
 	// Check the database driver
 	switch db.Dialector.(type) {
 	case *postgres.Dialector:
-		// TODO: maybe theres a builtin way of doing this? I couldnt find it
-		sb := new(strings.Builder)
-		for i, v := range shards {
-			sb.WriteByte('(')
-			sb.WriteString(strconv.Itoa(int(v)))
-			sb.WriteByte(')')
-			if i != len(shards)-1 {
-				sb.WriteByte(',')
-			}
-		}
-
-		q := fmt.Sprintf(`SELECT block_refs.* FROM block_refs INNER JOIN (VALUES %s) AS vals(v) ON block_refs.shard = v`, sb.String())
+		sval := valuesStatementForShards(shards)
+		q := fmt.Sprintf(`SELECT block_refs.* FROM block_refs INNER JOIN (VALUES %s) AS vals(v) ON block_refs.shard = v`, sval)
 		return db.Raw(q).Scan(obuf).Error
 	default:
 		return db.Raw(`SELECT * FROM block_refs WHERE shard IN (?)`, shards).Scan(obuf).Error
 	}
-
 }
 
 func shardSize(sh *CarShard) (int64, error) {
