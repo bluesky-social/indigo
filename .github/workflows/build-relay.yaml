@@ -1,17 +1,10 @@
-# This workfow shows how to build a Docker image, tag and push it to DigitalOcean Container Registry, and
-# deploy the application on a DIgitalOcean Kubernetes cluster. For description to the entire worklow, 
-# see www.digitalocean.com/docs/kubernetes/how-to/deploy-using-github-actions.
-
 name: Build relay
 
 # Controls when the action will run.
 on: workflow_dispatch
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel.
 jobs:
-  # This workflow contains a single job called "build".
   build:
-    # The type of runner that the job will run on.
     runs-on: ubuntu-latest
     
     # Steps represent a sequence of tasks that will be executed as part of the job
@@ -33,6 +26,5 @@ jobs:
 
         docker build -t $IMAGE_NAME -f $DOCKERFILE .
         echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-        echo what docker tag $REPO_NAME/$PACKAGE_NAME$TAG $REPO_NAME/$PACKAGE_NAME:latest
         docker tag $IMAGE_NAME ghcr.io/$REPO_NAME/$PACKAGE_NAME:latest
         docker push $IMAGE_NAME
