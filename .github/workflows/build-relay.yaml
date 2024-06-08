@@ -13,6 +13,9 @@ jobs:
   build:
     # The type of runner that the job will run on.
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -33,6 +36,5 @@ jobs:
 
         docker build -t $IMAGE_NAME -f $DOCKERFILE .
         echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-        echo what docker tag $REPO_NAME/$PACKAGE_NAME$TAG $REPO_NAME/$PACKAGE_NAME:latest
         docker tag $IMAGE_NAME ghcr.io/$REPO_NAME/$PACKAGE_NAME:latest
         docker push $IMAGE_NAME
