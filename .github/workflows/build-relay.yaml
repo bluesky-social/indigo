@@ -6,9 +6,6 @@ on: workflow_dispatch
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
