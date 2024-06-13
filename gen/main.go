@@ -63,6 +63,8 @@ func main() {
 		bsky.FeedThreadgate_ListRule{},
 		bsky.FeedThreadgate_MentionRule{},
 		bsky.FeedThreadgate_FollowingRule{},
+		bsky.GraphStarterpack_FeedItem{},
+		bsky.GraphStarterpack{},
 		bsky.LabelerService{},
 		bsky.LabelerDefs_LabelerPolicies{},
 		/*bsky.EmbedImages_View{},
