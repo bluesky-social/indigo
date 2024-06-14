@@ -2091,7 +2091,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 6
+	fieldCount := 8
 
 	if t.Avatar == nil {
 		fieldCount--
@@ -2101,11 +2101,19 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 		fieldCount--
 	}
 
+	if t.CreatedAt == nil {
+		fieldCount--
+	}
+
 	if t.Description == nil {
 		fieldCount--
 	}
 
 	if t.DisplayName == nil {
+		fieldCount--
+	}
+
+	if t.JoinedViaStarterPack == nil {
 		fieldCount--
 	}
 
@@ -2193,6 +2201,38 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
+	// t.CreatedAt (string) (string)
+	if t.CreatedAt != nil {
+
+		if len("createdAt") > 1000000 {
+			return xerrors.Errorf("Value in field \"createdAt\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("createdAt")); err != nil {
+			return err
+		}
+
+		if t.CreatedAt == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.CreatedAt) > 1000000 {
+				return xerrors.Errorf("Value in field t.CreatedAt was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.CreatedAt))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.CreatedAt)); err != nil {
+				return err
+			}
+		}
+	}
+
 	// t.Description (string) (string)
 	if t.Description != nil {
 
@@ -2254,6 +2294,25 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 			if _, err := cw.WriteString(string(*t.DisplayName)); err != nil {
 				return err
 			}
+		}
+	}
+
+	// t.JoinedViaStarterPack (atproto.RepoStrongRef) (struct)
+	if t.JoinedViaStarterPack != nil {
+
+		if len("joinedViaStarterPack") > 1000000 {
+			return xerrors.Errorf("Value in field \"joinedViaStarterPack\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("joinedViaStarterPack"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("joinedViaStarterPack")); err != nil {
+			return err
+		}
+
+		if err := t.JoinedViaStarterPack.MarshalCBOR(cw); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -2368,6 +2427,27 @@ func (t *ActorProfile) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 			}
+			// t.CreatedAt (string) (string)
+		case "createdAt":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.CreatedAt = (*string)(&sval)
+				}
+			}
 			// t.Description (string) (string)
 		case "description":
 
@@ -2409,6 +2489,26 @@ func (t *ActorProfile) UnmarshalCBOR(r io.Reader) (err error) {
 
 					t.DisplayName = (*string)(&sval)
 				}
+			}
+			// t.JoinedViaStarterPack (atproto.RepoStrongRef) (struct)
+		case "joinedViaStarterPack":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.JoinedViaStarterPack = new(atproto.RepoStrongRef)
+					if err := t.JoinedViaStarterPack.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.JoinedViaStarterPack pointer: %w", err)
+					}
+				}
+
 			}
 
 		default:
@@ -6743,7 +6843,7 @@ func (t *LabelerDefs_LabelerPolicies) UnmarshalCBOR(r io.Reader) (err error) {
 							return err
 						}
 
-						t.LabelValues[i] = &(sval)
+						t.LabelValues[i] = &sval
 					}
 
 				}

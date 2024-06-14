@@ -24,10 +24,12 @@ type ActorProfile struct {
 	// avatar: Small image to be displayed next to posts from account. AKA, 'profile picture'
 	Avatar *util.LexBlob `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	// banner: Larger horizontal image to display behind profile view.
-	Banner *util.LexBlob `json:"banner,omitempty" cborgen:"banner,omitempty"`
+	Banner    *util.LexBlob `json:"banner,omitempty" cborgen:"banner,omitempty"`
+	CreatedAt *string       `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
 	// description: Free-form profile description text.
-	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
-	DisplayName *string `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
+	Description          *string                        `json:"description,omitempty" cborgen:"description,omitempty"`
+	DisplayName          *string                        `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
+	JoinedViaStarterPack *comatprototypes.RepoStrongRef `json:"joinedViaStarterPack,omitempty" cborgen:"joinedViaStarterPack,omitempty"`
 	// labels: Self-label values, specific to the Bluesky application, on the overall account.
 	Labels *ActorProfile_Labels `json:"labels,omitempty" cborgen:"labels,omitempty"`
 }
