@@ -51,6 +51,12 @@ func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky
 			continue
 		}
 		if c.InSet("harassment-target-dids", did) {
+			// ignore if the target account follows the new account
+			rel := c.GetAccountRelationship(syntax.DID(did))
+			if rel.FollowedBy {
+				return nil
+			}
+
 			//c.AddRecordFlag("interaction-harassed-target")
 			c.ReportAccount(automod.ReportReasonOther, fmt.Sprintf("possible harassment of known target account: %s (also labeled; remove label if this isn't harassment)", did))
 			c.AddAccountLabel("!hide")
