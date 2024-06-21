@@ -96,10 +96,6 @@ func run(args []string) {
 			Usage: "when connecting to PDS instances, use ws:// instead of wss://",
 		},
 		&cli.BoolFlag{
-			Name:  "aggregation",
-			Value: false,
-		},
-		&cli.BoolFlag{
 			Name:    "spidering",
 			Value:   true,
 			EnvVars: []string{"BGS_SPIDERING"},
@@ -301,7 +297,7 @@ func Bigsky(cctx *cli.Context) error {
 
 	rf := indexer.NewRepoFetcher(db, repoman, cctx.Int("max-fetch-concurrency"))
 
-	ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, rf, true, cctx.Bool("spidering"), cctx.Bool("aggregation"))
+	ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, rf, true, cctx.Bool("spidering"))
 	if err != nil {
 		return err
 	}
