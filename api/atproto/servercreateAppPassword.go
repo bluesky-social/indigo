@@ -12,15 +12,18 @@ import (
 
 // ServerCreateAppPassword_AppPassword is a "appPassword" in the com.atproto.server.createAppPassword schema.
 type ServerCreateAppPassword_AppPassword struct {
-	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
-	Name      string `json:"name" cborgen:"name"`
-	Password  string `json:"password" cborgen:"password"`
+	CreatedAt  string `json:"createdAt" cborgen:"createdAt"`
+	Name       string `json:"name" cborgen:"name"`
+	Password   string `json:"password" cborgen:"password"`
+	Privileged *bool  `json:"privileged,omitempty" cborgen:"privileged,omitempty"`
 }
 
 // ServerCreateAppPassword_Input is the input argument to a com.atproto.server.createAppPassword call.
 type ServerCreateAppPassword_Input struct {
 	// name: A short name for the App Password, to help distinguish them.
 	Name string `json:"name" cborgen:"name"`
+	// privileged: If an app password has 'privileged' access to possibly sensitive account state. Meant for use with trusted clients.
+	Privileged *bool `json:"privileged,omitempty" cborgen:"privileged,omitempty"`
 }
 
 // ServerCreateAppPassword calls the XRPC method "com.atproto.server.createAppPassword".
