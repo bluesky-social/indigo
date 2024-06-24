@@ -187,8 +187,10 @@ type FeedDefs_ReasonRepost struct {
 
 // FeedDefs_ReplyRef is a "replyRef" in the app.bsky.feed.defs schema.
 type FeedDefs_ReplyRef struct {
-	Parent *FeedDefs_ReplyRef_Parent `json:"parent" cborgen:"parent"`
-	Root   *FeedDefs_ReplyRef_Root   `json:"root" cborgen:"root"`
+	// grandparentAuthor: When parent is a reply to another post, this is the author of that post.
+	GrandparentAuthor *ActorDefs_ProfileViewBasic `json:"grandparentAuthor,omitempty" cborgen:"grandparentAuthor,omitempty"`
+	Parent            *FeedDefs_ReplyRef_Parent   `json:"parent" cborgen:"parent"`
+	Root              *FeedDefs_ReplyRef_Root     `json:"root" cborgen:"root"`
 }
 
 type FeedDefs_ReplyRef_Parent struct {
@@ -431,4 +433,5 @@ type FeedDefs_ViewerState struct {
 	Like          *string `json:"like,omitempty" cborgen:"like,omitempty"`
 	ReplyDisabled *bool   `json:"replyDisabled,omitempty" cborgen:"replyDisabled,omitempty"`
 	Repost        *string `json:"repost,omitempty" cborgen:"repost,omitempty"`
+	ThreadMuted   *bool   `json:"threadMuted,omitempty" cborgen:"threadMuted,omitempty"`
 }

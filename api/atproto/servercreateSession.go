@@ -21,6 +21,7 @@ type ServerCreateSession_Input struct {
 // ServerCreateSession_Output is the output of a com.atproto.server.createSession call.
 type ServerCreateSession_Output struct {
 	AccessJwt       string       `json:"accessJwt" cborgen:"accessJwt"`
+	Active          *bool        `json:"active,omitempty" cborgen:"active,omitempty"`
 	Did             string       `json:"did" cborgen:"did"`
 	DidDoc          *interface{} `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
 	Email           *string      `json:"email,omitempty" cborgen:"email,omitempty"`
@@ -28,6 +29,8 @@ type ServerCreateSession_Output struct {
 	EmailConfirmed  *bool        `json:"emailConfirmed,omitempty" cborgen:"emailConfirmed,omitempty"`
 	Handle          string       `json:"handle" cborgen:"handle"`
 	RefreshJwt      string       `json:"refreshJwt" cborgen:"refreshJwt"`
+	// status: If active=false, this optional field indicates a possible reason for why the account is not active. If active=false and no status is supplied, then the host makes no claim for why the repository is no longer being hosted.
+	Status *string `json:"status,omitempty" cborgen:"status,omitempty"`
 }
 
 // ServerCreateSession calls the XRPC method "com.atproto.server.createSession".

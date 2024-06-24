@@ -10,6 +10,7 @@ import (
 
 // AdminDefs_AccountView is a "accountView" in the com.atproto.admin.defs schema.
 type AdminDefs_AccountView struct {
+	DeactivatedAt    *string                    `json:"deactivatedAt,omitempty" cborgen:"deactivatedAt,omitempty"`
 	Did              string                     `json:"did" cborgen:"did"`
 	Email            *string                    `json:"email,omitempty" cborgen:"email,omitempty"`
 	EmailConfirmedAt *string                    `json:"emailConfirmedAt,omitempty" cborgen:"emailConfirmedAt,omitempty"`
