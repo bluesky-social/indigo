@@ -323,6 +323,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	e.GET("/xrpc/com.atproto.sync.getLatestCommit", bgs.HandleComAtprotoSyncGetLatestCommit)
 	e.GET("/xrpc/com.atproto.sync.notifyOfUpdate", bgs.HandleComAtprotoSyncNotifyOfUpdate)
 	e.GET("/xrpc/_health", bgs.HandleHealthCheck)
+	e.GET("/_health", bgs.HandleHealthCheck)
 
 	admin := e.Group("/admin", bgs.checkAdminAuth)
 
