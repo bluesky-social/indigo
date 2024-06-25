@@ -97,6 +97,12 @@ run-dev-relay: .env ## Runs 'bigsky' Relay for local dev
 build-relay-image: ## Builds 'bigsky' Relay docker image
 	docker build -t bigsky -f cmd/bigsky/Dockerfile .
 
+.PHONY: build-relay-ui
+build-relay-ui: ## Build Relay dash web app
+	cd ts/bgs-dash; yarn install --frozen-lockfile; yarn build
+	mkdir -p public
+	cp -r ts/bgs-dash/dist/* public/
+
 .PHONY: run-relay-image
 run-relay-image:
 	docker run -p 2470:2470 bigsky /bigsky --admin-key localdev
