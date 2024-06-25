@@ -246,7 +246,7 @@ func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp
 	case *bsky.FeedGenerator:
 		return nil
 	default:
-		log.Warnf("unrecognized record type: %T", op.Record)
+		log.Warnw("unrecognized record type (crawling references)", "record", op.Record, "collection", op.Collection)
 		return nil
 	}
 }
@@ -531,7 +531,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 	case *bsky.ActorProfile:
 		log.Debugf("TODO: got actor profile record creation, need to do something with this")
 	default:
-		return nil, fmt.Errorf("unrecognized record type: %T", rec)
+		return nil, fmt.Errorf("unrecognized record type (creation): %s", op.Collection)
 	}
 
 	return out, nil
@@ -689,7 +689,7 @@ func (ix *Indexer) handleRecordUpdate(ctx context.Context, evt *repomgr.RepoEven
 	case *bsky.ActorProfile:
 		log.Debugf("TODO: got actor profile record update, need to do something with this")
 	default:
-		return fmt.Errorf("unrecognized record type: %T", rec)
+		return fmt.Errorf("unrecognized record type (update): %s", op.Collection)
 	}
 
 	return nil
