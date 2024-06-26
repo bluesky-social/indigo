@@ -99,7 +99,7 @@ func run(args []string) error {
 		},
 		&cli.BoolFlag{
 			Name:    "spidering",
-			Value:   true,
+			Value:   false,
 			EnvVars: []string{"RELAY_SPIDERING", "BGS_SPIDERING"},
 		},
 		&cli.StringFlag{
@@ -155,6 +155,7 @@ func run(args []string) error {
 		},
 		&cli.StringFlag{
 			Name:    "env",
+			Value:   "dev",
 			EnvVars: []string{"ENVIRONMENT"},
 			Usage:   "declared hosting environment (prod, qa, etc); used in metrics",
 		},
