@@ -12,8 +12,9 @@ import (
 
 // ServerListAppPasswords_AppPassword is a "appPassword" in the com.atproto.server.listAppPasswords schema.
 type ServerListAppPasswords_AppPassword struct {
-	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
-	Name      string `json:"name" cborgen:"name"`
+	CreatedAt  string `json:"createdAt" cborgen:"createdAt"`
+	Name       string `json:"name" cborgen:"name"`
+	Privileged *bool  `json:"privileged,omitempty" cborgen:"privileged,omitempty"`
 }
 
 // ServerListAppPasswords_Output is the output of a com.atproto.server.listAppPasswords call.

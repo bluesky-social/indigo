@@ -68,6 +68,14 @@ type ActorDefs_InterestsPref struct {
 	Tags []string `json:"tags" cborgen:"tags"`
 }
 
+// ActorDefs_KnownFollowers is a "knownFollowers" in the app.bsky.actor.defs schema.
+//
+// The subject's followers whom you also follow
+type ActorDefs_KnownFollowers struct {
+	Count     int64                         `json:"count" cborgen:"count"`
+	Followers []*ActorDefs_ProfileViewBasic `json:"followers" cborgen:"followers"`
+}
+
 // ActorDefs_LabelerPrefItem is a "labelerPrefItem" in the app.bsky.actor.defs schema.
 type ActorDefs_LabelerPrefItem struct {
 	Did string `json:"did" cborgen:"did"`
@@ -110,6 +118,7 @@ type ActorDefs_Preferences_Elem struct {
 	ActorDefs_AdultContentPref    *ActorDefs_AdultContentPref
 	ActorDefs_ContentLabelPref    *ActorDefs_ContentLabelPref
 	ActorDefs_SavedFeedsPref      *ActorDefs_SavedFeedsPref
+	ActorDefs_SavedFeedsPrefV2    *ActorDefs_SavedFeedsPrefV2
 	ActorDefs_PersonalDetailsPref *ActorDefs_PersonalDetailsPref
 	ActorDefs_FeedViewPref        *ActorDefs_FeedViewPref
 	ActorDefs_ThreadViewPref      *ActorDefs_ThreadViewPref
@@ -130,6 +139,10 @@ func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
 	if t.ActorDefs_SavedFeedsPref != nil {
 		t.ActorDefs_SavedFeedsPref.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPref"
 		return json.Marshal(t.ActorDefs_SavedFeedsPref)
+	}
+	if t.ActorDefs_SavedFeedsPrefV2 != nil {
+		t.ActorDefs_SavedFeedsPrefV2.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPrefV2"
+		return json.Marshal(t.ActorDefs_SavedFeedsPrefV2)
 	}
 	if t.ActorDefs_PersonalDetailsPref != nil {
 		t.ActorDefs_PersonalDetailsPref.LexiconTypeID = "app.bsky.actor.defs#personalDetailsPref"
@@ -173,6 +186,9 @@ func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.actor.defs#savedFeedsPref":
 		t.ActorDefs_SavedFeedsPref = new(ActorDefs_SavedFeedsPref)
 		return json.Unmarshal(b, t.ActorDefs_SavedFeedsPref)
+	case "app.bsky.actor.defs#savedFeedsPrefV2":
+		t.ActorDefs_SavedFeedsPrefV2 = new(ActorDefs_SavedFeedsPrefV2)
+		return json.Unmarshal(b, t.ActorDefs_SavedFeedsPrefV2)
 	case "app.bsky.actor.defs#personalDetailsPref":
 		t.ActorDefs_PersonalDetailsPref = new(ActorDefs_PersonalDetailsPref)
 		return json.Unmarshal(b, t.ActorDefs_PersonalDetailsPref)
@@ -199,15 +215,23 @@ func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
 
 // ActorDefs_ProfileAssociated is a "profileAssociated" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileAssociated struct {
-	Feedgens *int64 `json:"feedgens,omitempty" cborgen:"feedgens,omitempty"`
-	Labeler  *bool  `json:"labeler,omitempty" cborgen:"labeler,omitempty"`
-	Lists    *int64 `json:"lists,omitempty" cborgen:"lists,omitempty"`
+	Chat         *ActorDefs_ProfileAssociatedChat `json:"chat,omitempty" cborgen:"chat,omitempty"`
+	Feedgens     *int64                           `json:"feedgens,omitempty" cborgen:"feedgens,omitempty"`
+	Labeler      *bool                            `json:"labeler,omitempty" cborgen:"labeler,omitempty"`
+	Lists        *int64                           `json:"lists,omitempty" cborgen:"lists,omitempty"`
+	StarterPacks *int64                           `json:"starterPacks,omitempty" cborgen:"starterPacks,omitempty"`
+}
+
+// ActorDefs_ProfileAssociatedChat is a "profileAssociatedChat" in the app.bsky.actor.defs schema.
+type ActorDefs_ProfileAssociatedChat struct {
+	AllowIncoming string `json:"allowIncoming" cborgen:"allowIncoming"`
 }
 
 // ActorDefs_ProfileView is a "profileView" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileView struct {
 	Associated  *ActorDefs_ProfileAssociated       `json:"associated,omitempty" cborgen:"associated,omitempty"`
 	Avatar      *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	CreatedAt   *string                            `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
 	Description *string                            `json:"description,omitempty" cborgen:"description,omitempty"`
 	Did         string                             `json:"did" cborgen:"did"`
 	DisplayName *string                            `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
@@ -221,6 +245,7 @@ type ActorDefs_ProfileView struct {
 type ActorDefs_ProfileViewBasic struct {
 	Associated  *ActorDefs_ProfileAssociated       `json:"associated,omitempty" cborgen:"associated,omitempty"`
 	Avatar      *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	CreatedAt   *string                            `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
 	Did         string                             `json:"did" cborgen:"did"`
 	DisplayName *string                            `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
 	Handle      string                             `json:"handle" cborgen:"handle"`
@@ -230,19 +255,29 @@ type ActorDefs_ProfileViewBasic struct {
 
 // ActorDefs_ProfileViewDetailed is a "profileViewDetailed" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileViewDetailed struct {
-	Associated     *ActorDefs_ProfileAssociated       `json:"associated,omitempty" cborgen:"associated,omitempty"`
-	Avatar         *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
-	Banner         *string                            `json:"banner,omitempty" cborgen:"banner,omitempty"`
-	Description    *string                            `json:"description,omitempty" cborgen:"description,omitempty"`
-	Did            string                             `json:"did" cborgen:"did"`
-	DisplayName    *string                            `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
-	FollowersCount *int64                             `json:"followersCount,omitempty" cborgen:"followersCount,omitempty"`
-	FollowsCount   *int64                             `json:"followsCount,omitempty" cborgen:"followsCount,omitempty"`
-	Handle         string                             `json:"handle" cborgen:"handle"`
-	IndexedAt      *string                            `json:"indexedAt,omitempty" cborgen:"indexedAt,omitempty"`
-	Labels         []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	PostsCount     *int64                             `json:"postsCount,omitempty" cborgen:"postsCount,omitempty"`
-	Viewer         *ActorDefs_ViewerState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+	Associated           *ActorDefs_ProfileAssociated       `json:"associated,omitempty" cborgen:"associated,omitempty"`
+	Avatar               *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	Banner               *string                            `json:"banner,omitempty" cborgen:"banner,omitempty"`
+	CreatedAt            *string                            `json:"createdAt,omitempty" cborgen:"createdAt,omitempty"`
+	Description          *string                            `json:"description,omitempty" cborgen:"description,omitempty"`
+	Did                  string                             `json:"did" cborgen:"did"`
+	DisplayName          *string                            `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
+	FollowersCount       *int64                             `json:"followersCount,omitempty" cborgen:"followersCount,omitempty"`
+	FollowsCount         *int64                             `json:"followsCount,omitempty" cborgen:"followsCount,omitempty"`
+	Handle               string                             `json:"handle" cborgen:"handle"`
+	IndexedAt            *string                            `json:"indexedAt,omitempty" cborgen:"indexedAt,omitempty"`
+	JoinedViaStarterPack *GraphDefs_StarterPackViewBasic    `json:"joinedViaStarterPack,omitempty" cborgen:"joinedViaStarterPack,omitempty"`
+	Labels               []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	PostsCount           *int64                             `json:"postsCount,omitempty" cborgen:"postsCount,omitempty"`
+	Viewer               *ActorDefs_ViewerState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
+}
+
+// ActorDefs_SavedFeed is a "savedFeed" in the app.bsky.actor.defs schema.
+type ActorDefs_SavedFeed struct {
+	Id     string `json:"id" cborgen:"id"`
+	Pinned bool   `json:"pinned" cborgen:"pinned"`
+	Type   string `json:"type" cborgen:"type"`
+	Value  string `json:"value" cborgen:"value"`
 }
 
 // ActorDefs_SavedFeedsPref is a "savedFeedsPref" in the app.bsky.actor.defs schema.
@@ -255,9 +290,12 @@ type ActorDefs_SavedFeedsPref struct {
 	TimelineIndex *int64   `json:"timelineIndex,omitempty" cborgen:"timelineIndex,omitempty"`
 }
 
-// ActorDefs_SkeletonActor is a "skeletonActor" in the app.bsky.actor.defs schema.
-type ActorDefs_SkeletonActor struct {
-	Did string `json:"did" cborgen:"did"`
+// ActorDefs_SavedFeedsPrefV2 is a "savedFeedsPrefV2" in the app.bsky.actor.defs schema.
+//
+// RECORDTYPE: ActorDefs_SavedFeedsPrefV2
+type ActorDefs_SavedFeedsPrefV2 struct {
+	LexiconTypeID string                 `json:"$type,const=app.bsky.actor.defs#savedFeedsPrefV2" cborgen:"$type,const=app.bsky.actor.defs#savedFeedsPrefV2"`
+	Items         []*ActorDefs_SavedFeed `json:"items" cborgen:"items"`
 }
 
 // ActorDefs_ThreadViewPref is a "threadViewPref" in the app.bsky.actor.defs schema.
@@ -275,11 +313,12 @@ type ActorDefs_ThreadViewPref struct {
 //
 // Metadata about the requesting account's relationship with the subject account. Only has meaningful content for authed requests.
 type ActorDefs_ViewerState struct {
-	BlockedBy      *bool                    `json:"blockedBy,omitempty" cborgen:"blockedBy,omitempty"`
-	Blocking       *string                  `json:"blocking,omitempty" cborgen:"blocking,omitempty"`
-	BlockingByList *GraphDefs_ListViewBasic `json:"blockingByList,omitempty" cborgen:"blockingByList,omitempty"`
-	FollowedBy     *string                  `json:"followedBy,omitempty" cborgen:"followedBy,omitempty"`
-	Following      *string                  `json:"following,omitempty" cborgen:"following,omitempty"`
-	Muted          *bool                    `json:"muted,omitempty" cborgen:"muted,omitempty"`
-	MutedByList    *GraphDefs_ListViewBasic `json:"mutedByList,omitempty" cborgen:"mutedByList,omitempty"`
+	BlockedBy      *bool                     `json:"blockedBy,omitempty" cborgen:"blockedBy,omitempty"`
+	Blocking       *string                   `json:"blocking,omitempty" cborgen:"blocking,omitempty"`
+	BlockingByList *GraphDefs_ListViewBasic  `json:"blockingByList,omitempty" cborgen:"blockingByList,omitempty"`
+	FollowedBy     *string                   `json:"followedBy,omitempty" cborgen:"followedBy,omitempty"`
+	Following      *string                   `json:"following,omitempty" cborgen:"following,omitempty"`
+	KnownFollowers *ActorDefs_KnownFollowers `json:"knownFollowers,omitempty" cborgen:"knownFollowers,omitempty"`
+	Muted          *bool                     `json:"muted,omitempty" cborgen:"muted,omitempty"`
+	MutedByList    *GraphDefs_ListViewBasic  `json:"mutedByList,omitempty" cborgen:"mutedByList,omitempty"`
 }

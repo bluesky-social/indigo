@@ -19,15 +19,13 @@ type ActorSearchActorsTypeahead_Output struct {
 //
 // q: Search query prefix; not a full query string.
 // term: DEPRECATED: use 'q' instead.
-// viewer: DID of the account making the request (not included for public/unauthenticated queries). Used to boost followed accounts in ranking.
-func ActorSearchActorsTypeahead(ctx context.Context, c *xrpc.Client, limit int64, q string, term string, viewer string) (*ActorSearchActorsTypeahead_Output, error) {
+func ActorSearchActorsTypeahead(ctx context.Context, c *xrpc.Client, limit int64, q string, term string) (*ActorSearchActorsTypeahead_Output, error) {
 	var out ActorSearchActorsTypeahead_Output
 
 	params := map[string]interface{}{
-		"limit":  limit,
-		"q":      q,
-		"term":   term,
-		"viewer": viewer,
+		"limit": limit,
+		"q":     q,
+		"term":  term,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.actor.searchActorsTypeahead", params, nil, &out); err != nil {
 		return nil, err
