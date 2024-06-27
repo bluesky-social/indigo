@@ -15,8 +15,9 @@ import (
 
 // AdminGetSubjectStatus_Output is the output of a com.atproto.admin.getSubjectStatus call.
 type AdminGetSubjectStatus_Output struct {
-	Subject  *AdminGetSubjectStatus_Output_Subject `json:"subject" cborgen:"subject"`
-	Takedown *AdminDefs_StatusAttr                 `json:"takedown,omitempty" cborgen:"takedown,omitempty"`
+	Deactivated *AdminDefs_StatusAttr                 `json:"deactivated,omitempty" cborgen:"deactivated,omitempty"`
+	Subject     *AdminGetSubjectStatus_Output_Subject `json:"subject" cborgen:"subject"`
+	Takedown    *AdminDefs_StatusAttr                 `json:"takedown,omitempty" cborgen:"takedown,omitempty"`
 }
 
 type AdminGetSubjectStatus_Output_Subject struct {

@@ -15,8 +15,9 @@ import (
 
 // AdminUpdateSubjectStatus_Input is the input argument to a com.atproto.admin.updateSubjectStatus call.
 type AdminUpdateSubjectStatus_Input struct {
-	Subject  *AdminUpdateSubjectStatus_Input_Subject `json:"subject" cborgen:"subject"`
-	Takedown *AdminDefs_StatusAttr                   `json:"takedown,omitempty" cborgen:"takedown,omitempty"`
+	Deactivated *AdminDefs_StatusAttr                   `json:"deactivated,omitempty" cborgen:"deactivated,omitempty"`
+	Subject     *AdminUpdateSubjectStatus_Input_Subject `json:"subject" cborgen:"subject"`
+	Takedown    *AdminDefs_StatusAttr                   `json:"takedown,omitempty" cborgen:"takedown,omitempty"`
 }
 
 type AdminUpdateSubjectStatus_Input_Subject struct {
