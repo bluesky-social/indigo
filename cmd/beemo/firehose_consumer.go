@@ -12,7 +12,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/events/schedulers/autoscaling"
+	"github.com/bluesky-social/indigo/events/schedulers/parallel"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 
 	"github.com/bluesky-social/indigo/events"
@@ -47,10 +47,15 @@ func RunFirehoseConsumer(ctx context.Context, logger *slog.Logger, relayHost str
 	}
 
 	var scheduler events.Scheduler
-	// use auto-scaling scheduler
-	scaleSettings := autoscaling.DefaultAutoscaleSettings()
-	scheduler = autoscaling.NewScheduler(scaleSettings, relayHost, rsc.EventHandler)
-	logger.Info("beemo firehose scheduler configured", "scheduler", "autoscaling", "initial", scaleSettings.Concurrency, "max", scaleSettings.MaxConcurrency)
+	// use parallel scheduler
+	parallelism := 4
+	scheduler = parallel.NewScheduler(
+		parallelism,
+		1000,
+		relayHost,
+		rsc.EventHandler,
+	)
+	logger.Info("beemo firehose scheduler configured", "scheduler", "parallel", "workers", parallelism)
 
 	return events.HandleRepoStream(ctx, con, scheduler)
 }
