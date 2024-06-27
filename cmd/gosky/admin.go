@@ -29,6 +29,10 @@ var adminCmd = &cli.Command{
 			EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
 			Required: true,
 		},
+		&cli.StringFlag{
+			Name:  "admin-endpoint",
+			Value: "https://mod.bsky.app",
+		},
 	},
 	Subcommands: []*cli.Command{
 		buildInviteTreeCmd,
@@ -78,7 +82,7 @@ var checkUserCmd = &cli.Command{
 
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
-		xrpcc.Host = id.PDSEndpoint()
+		xrpcc.Host = cctx.String("admin-endpoint")
 
 		rep, err := toolsozone.ModerationGetRepo(ctx, xrpcc, did)
 		if err != nil {
@@ -623,25 +627,25 @@ var takeDownAccountCmd = &cli.Command{
 
 		for _, did := range cctx.Args().Slice() {
 			if !strings.HasPrefix(did, "did:") {
-				phr := &api.ProdHandleResolver{}
-				resp, err := phr.ResolveHandleToDid(ctx, did)
+				dir := identity.DefaultDirectory()
+				resp, err := dir.LookupHandle(ctx, syntax.Handle(did))
 				if err != nil {
 					return err
 				}
 
-				did = resp
+				did = resp.DID.String()
 			}
 
 			reason := cctx.String("reason")
 			adminUser := cctx.String("admin-user")
 			if !strings.HasPrefix(adminUser, "did:") {
-				phr := &api.ProdHandleResolver{}
-				resp, err := phr.ResolveHandleToDid(ctx, adminUser)
+				dir := identity.DefaultDirectory()
+				resp, err := dir.LookupHandle(ctx, syntax.Handle(adminUser))
 				if err != nil {
 					return err
 				}
 
-				adminUser = resp
+				adminUser = resp.DID.String()
 			}
 
 			resp, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
