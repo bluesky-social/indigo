@@ -46,3 +46,6 @@ sonar_cursor.json
 out/
 state.json
 netsync-out/
+
+# Relay dash output
+/public/
