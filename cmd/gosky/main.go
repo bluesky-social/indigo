@@ -765,7 +765,7 @@ var listLabelsCmd = &cli.Command{
 		since := time.Now().Add(-1 * delta).UnixMilli()
 
 		xrpcc := &xrpc.Client{
-			Host: "https://api.bsky.app",
+			Host: "https://mod.bsky.app",
 		}
 
 		for {
