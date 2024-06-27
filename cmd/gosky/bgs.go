@@ -22,7 +22,7 @@ var bgsAdminCmd = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name:  "bgs",
-			Value: "https://bgs.bsky-sandbox.dev",
+			Value: "http://localhost:2470",
 		},
 	},
 	Subcommands: []*cli.Command{
