@@ -317,11 +317,19 @@ func (d *RedisDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error
 	handle, err := a.AsHandle()
 	if nil == err { // if not an error, is a handle
 		handle = handle.Normalize()
-		return d.handleCache.Delete(ctx, handle.String())
+		err = d.handleCache.Delete(ctx, handle.String())
+		if err == cache.ErrCacheMiss {
+			return nil
+		}
+		return err
 	}
 	did, err := a.AsDID()
 	if nil == err { // if not an error, is a DID
-		return d.identityCache.Delete(ctx, did.String())
+		err = d.identityCache.Delete(ctx, did.String())
+		if err == cache.ErrCacheMiss {
+			return nil
+		}
+		return err
 	}
 	return fmt.Errorf("at-identifier neither a Handle nor a DID")
 }
