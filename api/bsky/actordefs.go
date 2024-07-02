@@ -20,6 +20,25 @@ type ActorDefs_AdultContentPref struct {
 	Enabled       bool   `json:"enabled" cborgen:"enabled"`
 }
 
+// ActorDefs_BskyAppProgressGuide is a "bskyAppProgressGuide" in the app.bsky.actor.defs schema.
+//
+// If set, an active progress guide. Once completed, can be set to undefined. Should have unspecced fields tracking progress.
+type ActorDefs_BskyAppProgressGuide struct {
+	Guide string `json:"guide" cborgen:"guide"`
+}
+
+// ActorDefs_BskyAppStatePref is a "bskyAppStatePref" in the app.bsky.actor.defs schema.
+//
+// A grab bag of state that's specific to the bsky.app program. Third-party apps shouldn't use this.
+//
+// RECORDTYPE: ActorDefs_BskyAppStatePref
+type ActorDefs_BskyAppStatePref struct {
+	LexiconTypeID       string                          `json:"$type,const=app.bsky.actor.defs#bskyAppStatePref" cborgen:"$type,const=app.bsky.actor.defs#bskyAppStatePref"`
+	ActiveProgressGuide *ActorDefs_BskyAppProgressGuide `json:"activeProgressGuide,omitempty" cborgen:"activeProgressGuide,omitempty"`
+	// queuedNudges: An array of tokens which identify nudges (modals, popups, tours, highlight dots) that should be shown to the user.
+	QueuedNudges []string `json:"queuedNudges,omitempty" cborgen:"queuedNudges,omitempty"`
+}
+
 // ActorDefs_ContentLabelPref is a "contentLabelPref" in the app.bsky.actor.defs schema.
 //
 // RECORDTYPE: ActorDefs_ContentLabelPref
@@ -82,8 +101,11 @@ type ActorDefs_LabelerPrefItem struct {
 }
 
 // ActorDefs_LabelersPref is a "labelersPref" in the app.bsky.actor.defs schema.
+//
+// RECORDTYPE: ActorDefs_LabelersPref
 type ActorDefs_LabelersPref struct {
-	Labelers []*ActorDefs_LabelerPrefItem `json:"labelers" cborgen:"labelers"`
+	LexiconTypeID string                       `json:"$type,const=app.bsky.actor.defs#labelersPref" cborgen:"$type,const=app.bsky.actor.defs#labelersPref"`
+	Labelers      []*ActorDefs_LabelerPrefItem `json:"labelers" cborgen:"labelers"`
 }
 
 // ActorDefs_MutedWord is a "mutedWord" in the app.bsky.actor.defs schema.
@@ -125,6 +147,8 @@ type ActorDefs_Preferences_Elem struct {
 	ActorDefs_InterestsPref       *ActorDefs_InterestsPref
 	ActorDefs_MutedWordsPref      *ActorDefs_MutedWordsPref
 	ActorDefs_HiddenPostsPref     *ActorDefs_HiddenPostsPref
+	ActorDefs_BskyAppStatePref    *ActorDefs_BskyAppStatePref
+	ActorDefs_LabelersPref        *ActorDefs_LabelersPref
 }
 
 func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
@@ -168,6 +192,14 @@ func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
 		t.ActorDefs_HiddenPostsPref.LexiconTypeID = "app.bsky.actor.defs#hiddenPostsPref"
 		return json.Marshal(t.ActorDefs_HiddenPostsPref)
 	}
+	if t.ActorDefs_BskyAppStatePref != nil {
+		t.ActorDefs_BskyAppStatePref.LexiconTypeID = "app.bsky.actor.defs#bskyAppStatePref"
+		return json.Marshal(t.ActorDefs_BskyAppStatePref)
+	}
+	if t.ActorDefs_LabelersPref != nil {
+		t.ActorDefs_LabelersPref.LexiconTypeID = "app.bsky.actor.defs#labelersPref"
+		return json.Marshal(t.ActorDefs_LabelersPref)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
@@ -207,6 +239,12 @@ func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.actor.defs#hiddenPostsPref":
 		t.ActorDefs_HiddenPostsPref = new(ActorDefs_HiddenPostsPref)
 		return json.Unmarshal(b, t.ActorDefs_HiddenPostsPref)
+	case "app.bsky.actor.defs#bskyAppStatePref":
+		t.ActorDefs_BskyAppStatePref = new(ActorDefs_BskyAppStatePref)
+		return json.Unmarshal(b, t.ActorDefs_BskyAppStatePref)
+	case "app.bsky.actor.defs#labelersPref":
+		t.ActorDefs_LabelersPref = new(ActorDefs_LabelersPref)
+		return json.Unmarshal(b, t.ActorDefs_LabelersPref)
 
 	default:
 		return nil
