@@ -1616,8 +1616,10 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 				log.Errorw("failed to enqueue crawl for repo during resync", "error", err, "uid", res.ai.Uid, "did", res.ai.Did)
 			}
 		}
-		if i%100_000 == 0 {
-			log.Warnw("checked revs during resync", "num_repos_checked", i, "num_repos_to_crawl", numReposToResync, "took", time.Now().Sub(resync.StatusChangedAt))
+		if i%100 == 0 {
+			if i%10_000 == 0 {
+				log.Warnw("checked revs during resync", "num_repos_checked", i, "num_repos_to_crawl", numReposToResync, "took", time.Now().Sub(resync.StatusChangedAt))
+			}
 			resync.NumReposChecked = i
 			resync.NumReposToResync = numReposToResync
 			bgs.UpdateResync(resync)
