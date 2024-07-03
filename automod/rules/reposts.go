@@ -29,7 +29,8 @@ func TooManyRepostRule(c *automod.RecordContext) error {
 	case "app.bsky.feed.repost":
 		c.Increment("repost", did)
 		repostCount := c.GetCount("repost", did, countstore.PeriodDay)
-		postCount := c.GetCount("post", did, countstore.PeriodDay)
+		// +1 to avoid potential divide by 0 issue
+		postCount := c.GetCount("post", did, countstore.PeriodDay) + 1
 		ratio := float64(repostCount) / float64(postCount)
 		if repostCount > repostDailyThreshold && ratio > 0.8 {
 			c.Logger.Info("high-repost-count", "reposted-today", repostCount, "posted-today", postCount)
