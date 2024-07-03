@@ -343,6 +343,9 @@ func runBigsky(cctx *cli.Context) error {
 					"x-ratelimit-bypass": rlskip,
 				}
 			}
+		} else {
+			// Generic PDS timeout
+			c.Client.Timeout = time.Minute * 1
 		}
 	}
 	rf.ApplyPDSClientSettings = ix.ApplyPDSClientSettings
