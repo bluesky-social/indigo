@@ -7,7 +7,9 @@ import (
 	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
-var repostDailyThreshold = 500
+var dailyRepostThresholdWithoutPost = 20
+var dailyRepostThresholdWithLowPost = 100
+var dailyPostThresholdWithHighRepost = 5
 
 var _ automod.RecordRuleFunc = TooManyRepostRule
 
@@ -29,10 +31,10 @@ func TooManyRepostRule(c *automod.RecordContext) error {
 	case "app.bsky.feed.repost":
 		c.Increment("repost", did)
 		// +1 to avoid potential divide by 0 issue
-		repostCount := c.GetCount("repost", did, countstore.PeriodDay) + 1
-		postCount := c.GetCount("post", did, countstore.PeriodDay) + 1
-		ratio := float64(repostCount) / float64(postCount)
-		if repostCount > repostDailyThreshold && ratio > 0.8 {
+		repostCount := c.GetCount("repost", did, countstore.PeriodDay)
+		postCount := c.GetCount("post", did, countstore.PeriodDay)
+		highRepost := (repostCount >= dailyRepostThresholdWithoutPost && postCount < 1) || (repostCount >= dailyRepostThresholdWithLowPost && postCount < dailyPostThresholdWithHighRepost)
+		if highRepost {
 			c.Logger.Info("high-repost-count", "reposted-today", repostCount, "posted-today", postCount)
 			c.AddAccountFlag("high-repost-count")
 			// c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("too many reposts: %d reposts, %d posts today (so far)", repostCount, postCount))
