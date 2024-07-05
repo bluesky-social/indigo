@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/automod"
@@ -23,6 +24,12 @@ func TooManyRepostRule(c *automod.RecordContext) error {
 		if age > 30*24*time.Hour {
 			return nil
 		}
+	}
+
+	// Special case for newsmast bridge feeds
+	handle := c.Account.Identity.Handle.String()
+	if strings.HasSuffix(handle, "newsmast.community.ap.brid.gy") {
+		return nil
 	}
 
 	switch c.RecordOp.Collection {
