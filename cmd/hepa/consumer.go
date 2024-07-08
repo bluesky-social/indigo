@@ -52,18 +52,6 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 			atomic.StoreInt64(&s.lastSeq, evt.Seq)
 			return s.HandleRepoCommit(ctx, evt)
 		},
-		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-			atomic.StoreInt64(&s.lastSeq, evt.Seq)
-			did, err := syntax.ParseDID(evt.Did)
-			if err != nil {
-				s.logger.Error("bad DID in RepoHandle event", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
-				return nil
-			}
-			if err := s.engine.ProcessIdentityEvent(ctx, "handle", did); err != nil {
-				s.logger.Error("processing handle update failed", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
-			}
-			return nil
-		},
 		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
 			atomic.StoreInt64(&s.lastSeq, evt.Seq)
 			did, err := syntax.ParseDID(evt.Did)
@@ -76,6 +64,32 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 			}
 			return nil
 		},
+		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
+			atomic.StoreInt64(&s.lastSeq, evt.Seq)
+			did, err := syntax.ParseDID(evt.Did)
+			if err != nil {
+				s.logger.Error("bad DID in RepoAccount event", "did", evt.Did, "seq", evt.Seq, "err", err)
+				return nil
+			}
+			if err := s.engine.ProcessIdentityEvent(ctx, "account", did); err != nil {
+				s.logger.Error("processing repo account failed", "did", evt.Did, "seq", evt.Seq, "err", err)
+			}
+			return nil
+		},
+		// TODO: deprecated
+		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
+			atomic.StoreInt64(&s.lastSeq, evt.Seq)
+			did, err := syntax.ParseDID(evt.Did)
+			if err != nil {
+				s.logger.Error("bad DID in RepoHandle event", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
+				return nil
+			}
+			if err := s.engine.ProcessIdentityEvent(ctx, "handle", did); err != nil {
+				s.logger.Error("processing handle update failed", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
+			}
+			return nil
+		},
+		// TODO: deprecated
 		RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
 			atomic.StoreInt64(&s.lastSeq, evt.Seq)
 			did, err := syntax.ParseDID(evt.Did)

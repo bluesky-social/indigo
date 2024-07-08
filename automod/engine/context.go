@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	toolsozone "github.com/bluesky-social/indigo/api/ozone"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
@@ -37,6 +38,20 @@ type RecordContext struct {
 	// TODO: could consider adding commit-level metadata here. probably nullable if so, commit-level metadata isn't always available. might be best to do a separate event/context type for that
 }
 
+type OzoneEventContext struct {
+	BaseContext
+
+	Event OzoneEvent
+
+	// Moderator team member (for ozone internal events) or account that created a report or appeal
+	CreatorAccount AccountMeta
+
+	SubjectAccount AccountMeta
+
+	// If the subject of the event is a record, this is the record metadata
+	SubjectRecord *RecordMeta
+}
+
 var (
 	CreateOp = "create"
 	UpdateOp = "update"
@@ -53,6 +68,26 @@ type RecordOp struct {
 	RecordKey  syntax.RecordKey
 	CID        *syntax.CID
 	RecordCBOR []byte
+}
+
+// Immutable
+type RecordMeta struct {
+	DID        syntax.DID
+	Collection syntax.NSID
+	RecordKey  syntax.RecordKey
+	CID        *syntax.CID
+	// TODO: RecordCBOR []byte? optional?
+}
+
+type OzoneEvent struct {
+	EventType  string
+	EventID    int64
+	CreatedAt  syntax.Datetime
+	CreatedBy  syntax.DID
+	SubjectDID syntax.DID
+	SubjectURI *syntax.ATURI
+	// TODO: SubjectBlobs []syntax.CID
+	Event toolsozone.ModerationDefs_ModEventView_Event
 }
 
 // Originally intended for push notifications, but can also work for any inter-account notification.

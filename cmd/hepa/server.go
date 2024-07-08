@@ -236,6 +236,7 @@ func (s *Server) RunMetrics(listen string) error {
 }
 
 var cursorKey = "hepa/seq"
+var ozoneCursorKey = "hepa/ozoneTimestamp"
 
 func (s *Server) ReadLastCursor(ctx context.Context) (int64, error) {
 	// if redis isn't configured, just skip
@@ -248,9 +249,27 @@ func (s *Server) ReadLastCursor(ctx context.Context) (int64, error) {
 	if err == redis.Nil {
 		s.logger.Info("no pre-existing cursor in redis")
 		return 0, nil
+	} else if err != nil {
+		return 0, err
 	}
 	s.logger.Info("successfully found prior subscription cursor seq in redis", "seq", val)
-	return val, err
+	return val, nil
+}
+
+func (s *Server) ReadLastOzoneCursor(ctx context.Context) (string, error) {
+	// if redis isn't configured, just skip
+	if s.rdb == nil {
+		s.logger.Info("redis not configured, skipping ozone cursor read")
+		return "", nil
+	}
+
+	val := s.rdb.Get(ctx, ozoneCursorKey).String()
+	if val == "" {
+		s.logger.Info("no pre-existing ozone cursor in redis")
+		return "", nil
+	}
+	s.logger.Info("successfully found prior ozone offset timestamp in redis", "timestamp", val)
+	return val, nil
 }
 
 func (s *Server) PersistCursor(ctx context.Context) error {
