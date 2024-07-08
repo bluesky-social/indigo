@@ -111,6 +111,8 @@ Some notable configuration env vars to set:
 - `RESOLVE_ADDRESS`: DNS server to use
 - `FORCE_DNS_UDP`: recommend "true"
 - `BGS_COMPACT_INTERVAL`: to control CAR compaction scheduling. for example, "8h" (every 8 hours). Set to "0" to disable automatic compaction.
+- `MAX_CARSTORE_CONNECTIONS` and `MAX_METADB_CONNECTIONS`: number of concurrent SQL database connections
+- `MAX_FETCH_CONCURRENCY`: how many outbound CAR backfill requests to make in parallel
 
 There is a health check endpoint at `/xrpc/_health`. Prometheus metrics are exposed by default on port 2471, path `/metrics`. The service logs fairly verbosely to stderr; use `GOLOG_LOG_LEVEL` to control log volume.
 
@@ -142,4 +144,9 @@ Once you have a set of PDS hosts, you can put the bare hostnames (not URLs: no `
 Just consuming from the firehose for a few hours will only backfill accounts with activity during that period. This is fine to get the backfill process started, but eventually you'll want to do full "resync" of all the repositories on the PDS host to the most recent repo rev version. To enqueue that for all the PDS instances:
 
     # start sync/backfill of all accounts
+	cat hosts.txt | parallel -j1 ./sync_pds.sh {}
+
+Lastly, can monitor progress of any ongoing re-syncs:
+
+    # check sync progress for all hosts
 	cat hosts.txt | parallel -j1 ./sync_pds.sh {}

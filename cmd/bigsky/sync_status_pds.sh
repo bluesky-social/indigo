@@ -19,6 +19,6 @@ if test -z "$1"; then
     exit -1
 fi
 
-echo "POST resync $1"
-http --ignore-stdin post https://${RELAY_HOST}/admin/pds/resync Authorization:"Bearer ${RELAY_ADMIN_KEY}" \
+echo "GET resync $1"
+http --ignore-stdin --pretty all get https://${RELAY_HOST}/admin/pds/resync Authorization:"Bearer ${RELAY_ADMIN_KEY}" \
 	host==$1

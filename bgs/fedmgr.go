@@ -41,6 +41,8 @@ type Slurper struct {
 
 	DefaultCrawlLimit rate.Limit
 	DefaultRepoLimit  int64
+	ConcurrencyPerPDS int64
+	MaxQueuePerPDS    int64
 
 	NewPDSPerDayLimiter *slidingwindow.Limiter
 
@@ -66,6 +68,8 @@ type SlurperOptions struct {
 	DefaultPerDayLimit    int64
 	DefaultCrawlLimit     rate.Limit
 	DefaultRepoLimit      int64
+	ConcurrencyPerPDS     int64
+	MaxQueuePerPDS        int64
 }
 
 func DefaultSlurperOptions() *SlurperOptions {
@@ -76,6 +80,8 @@ func DefaultSlurperOptions() *SlurperOptions {
 		DefaultPerDayLimit:    20_000,
 		DefaultCrawlLimit:     rate.Limit(5),
 		DefaultRepoLimit:      100,
+		ConcurrencyPerPDS:     100,
+		MaxQueuePerPDS:        1_000,
 	}
 }
 
@@ -101,6 +107,8 @@ func NewSlurper(db *gorm.DB, cb IndexCallback, opts *SlurperOptions) (*Slurper, 
 		DefaultPerDayLimit:    opts.DefaultPerDayLimit,
 		DefaultCrawlLimit:     opts.DefaultCrawlLimit,
 		DefaultRepoLimit:      opts.DefaultRepoLimit,
+		ConcurrencyPerPDS:     opts.ConcurrencyPerPDS,
+		MaxQueuePerPDS:        opts.MaxQueuePerPDS,
 		ssl:                   opts.SSL,
 		shutdownChan:          make(chan bool),
 		shutdownResult:        make(chan []error),
