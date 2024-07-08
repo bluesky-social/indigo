@@ -106,7 +106,29 @@ type SocketConsumer struct {
 	EventsSent  promclient.Counter
 }
 
-func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, rf *indexer.RepoFetcher, hr api.HandleResolver, ssl bool, compactInterval time.Duration) (*BGS, error) {
+type BGSConfig struct {
+	SSL               bool
+	CompactInterval   time.Duration
+	DefaultRepoLimit  int64
+	ConcurrencyPerPDS int64
+	MaxQueuePerPDS    int64
+}
+
+func DefaultBGSConfig() *BGSConfig {
+	return &BGSConfig{
+		SSL:               true,
+		CompactInterval:   4 * time.Hour,
+		DefaultRepoLimit:  100,
+		ConcurrencyPerPDS: 100,
+		MaxQueuePerPDS:    1_000,
+	}
+}
+
+func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, rf *indexer.RepoFetcher, hr api.HandleResolver, config *BGSConfig) (*BGS, error) {
+
+	if config == nil {
+		config = DefaultBGSConfig()
+	}
 	db.AutoMigrate(User{})
 	db.AutoMigrate(AuthToken{})
 	db.AutoMigrate(models.PDS{})
@@ -121,7 +143,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		repoman: repoman,
 		events:  evtman,
 		didr:    didr,
-		ssl:     ssl,
+		ssl:     config.SSL,
 
 		consumersLk: sync.RWMutex{},
 		consumers:   make(map[uint64]*SocketConsumer),
@@ -131,7 +153,10 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 
 	ix.CreateExternalUser = bgs.createExternalUser
 	slOpts := DefaultSlurperOptions()
-	slOpts.SSL = ssl
+	slOpts.SSL = config.SSL
+	slOpts.DefaultRepoLimit = config.DefaultRepoLimit
+	slOpts.ConcurrencyPerPDS = config.ConcurrencyPerPDS
+	slOpts.MaxQueuePerPDS = config.MaxQueuePerPDS
 	s, err := NewSlurper(db, bgs.handleFedEvent, slOpts)
 	if err != nil {
 		return nil, err
@@ -144,7 +169,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	}
 
 	compactor := NewCompactor(nil)
-	compactor.requeueInterval = compactInterval
+	compactor.requeueInterval = config.CompactInterval
 	compactor.Start(bgs)
 	bgs.compactor = compactor
 
@@ -1158,7 +1183,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		peering.Host = durl.Host
 		peering.SSL = (durl.Scheme == "https")
 		peering.CrawlRateLimit = float64(s.slurper.DefaultCrawlLimit)
-		peering.RepoLimit = s.slurper.DefaultPerSecondLimit
+		peering.RateLimit = float64(s.slurper.DefaultPerSecondLimit)
 		peering.HourlyEventLimit = s.slurper.DefaultPerHourLimit
 		peering.DailyEventLimit = s.slurper.DefaultPerDayLimit
 		peering.RepoLimit = s.slurper.DefaultRepoLimit
@@ -1616,8 +1641,10 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 				log.Errorw("failed to enqueue crawl for repo during resync", "error", err, "uid", res.ai.Uid, "did", res.ai.Did)
 			}
 		}
-		if i%100_000 == 0 {
-			log.Warnw("checked revs during resync", "num_repos_checked", i, "num_repos_to_crawl", numReposToResync, "took", time.Now().Sub(resync.StatusChangedAt))
+		if i%100 == 0 {
+			if i%10_000 == 0 {
+				log.Warnw("checked revs during resync", "num_repos_checked", i, "num_repos_to_crawl", numReposToResync, "took", time.Now().Sub(resync.StatusChangedAt))
+			}
 			resync.NumReposChecked = i
 			resync.NumReposToResync = numReposToResync
 			bgs.UpdateResync(resync)

@@ -168,6 +168,21 @@ func run(args []string) error {
 			EnvVars: []string{"BSKY_SOCIAL_RATE_LIMIT_SKIP"},
 			Usage:   "ratelimit bypass secret token for *.bsky.social domains",
 		},
+		&cli.IntFlag{
+			Name:    "default-repo-limit",
+			Value:   100,
+			EnvVars: []string{"RELAY_DEFAULT_REPO_LIMIT"},
+		},
+		&cli.IntFlag{
+			Name:    "concurrency-per-pds",
+			EnvVars: []string{"RELAY_CONCURRENCY_PER_PDS"},
+			Value:   100,
+		},
+		&cli.IntFlag{
+			Name:    "max-queue-per-pds",
+			EnvVars: []string{"RELAY_MAX_QUEUE_PER_PDS"},
+			Value:   1_000,
+		},
 	}
 
 	app.Action = runBigsky
@@ -377,7 +392,13 @@ func runBigsky(cctx *cli.Context) error {
 	}
 
 	log.Infow("constructing bgs")
-	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, rf, hr, !cctx.Bool("crawl-insecure-ws"), cctx.Duration("compact-interval"))
+	bgsConfig := libbgs.DefaultBGSConfig()
+	bgsConfig.SSL = !cctx.Bool("crawl-insecure-ws")
+	bgsConfig.CompactInterval = cctx.Duration("compact-interval")
+	bgsConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
+	bgsConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
+	bgsConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
+	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, rf, hr, bgsConfig)
 	if err != nil {
 		return err
 	}
