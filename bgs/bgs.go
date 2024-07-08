@@ -1179,7 +1179,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		peering.Host = durl.Host
 		peering.SSL = (durl.Scheme == "https")
 		peering.CrawlRateLimit = float64(s.slurper.DefaultCrawlLimit)
-		peering.RepoLimit = s.slurper.DefaultPerSecondLimit
+		peering.RateLimit = float64(s.slurper.DefaultPerSecondLimit)
 		peering.HourlyEventLimit = s.slurper.DefaultPerHourLimit
 		peering.DailyEventLimit = s.slurper.DefaultPerDayLimit
 		peering.RepoLimit = s.slurper.DefaultRepoLimit
