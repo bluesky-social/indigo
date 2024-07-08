@@ -1,0 +1,198 @@
+package engine
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	toolsozone "github.com/bluesky-social/indigo/api/ozone"
+	"github.com/bluesky-social/indigo/atproto/syntax"
+)
+
+func NewOzoneEventContext(ctx context.Context, eng *Engine, eventView *toolsozone.ModerationDefs_ModEventView) (*OzoneEventContext, error) {
+
+	if eventView.Event == nil {
+		return nil, fmt.Errorf("unhandled ozone event type")
+	}
+
+	eventType := ""
+	if eventView.Event.ModerationDefs_ModEventTakedown != nil {
+		eventType = "takedown"
+	} else if eventView.Event.ModerationDefs_ModEventReverseTakedown != nil {
+		eventType = "reverseTakedown"
+	} else if eventView.Event.ModerationDefs_ModEventComment != nil {
+		eventType = "comment"
+	} else if eventView.Event.ModerationDefs_ModEventReport != nil {
+		eventType = "report"
+	} else if eventView.Event.ModerationDefs_ModEventLabel != nil {
+		eventType = "label"
+	} else if eventView.Event.ModerationDefs_ModEventAcknowledge != nil {
+		eventType = "acknowledge"
+	} else if eventView.Event.ModerationDefs_ModEventEscalate != nil {
+		eventType = "escalate"
+	} else if eventView.Event.ModerationDefs_ModEventMute != nil {
+		eventType = "mute"
+	} else if eventView.Event.ModerationDefs_ModEventEmail != nil {
+		eventType = "email"
+	} else if eventView.Event.ModerationDefs_ModEventResolveAppeal != nil {
+		eventType = "resolveAppeal"
+	} else if eventView.Event.ModerationDefs_ModEventDivert != nil {
+		eventType = "divert"
+	} else {
+		return nil, fmt.Errorf("unhandled ozone event type")
+	}
+
+	creatorDID, err := syntax.ParseDID(eventView.CreatedBy)
+	if err != nil {
+		return nil, err
+	}
+
+	var subjectDID syntax.DID
+	var subjectURI *syntax.ATURI
+	var recordMeta *RecordMeta
+	if eventView.Subject == nil {
+		return nil, fmt.Errorf("empty ozone event subject")
+	} else if eventView.Subject.AdminDefs_RepoRef != nil {
+		subjectDID, err = syntax.ParseDID(eventView.Subject.AdminDefs_RepoRef.Did)
+		if err != nil {
+			return nil, err
+		}
+	} else if eventView.Subject.RepoStrongRef != nil {
+		u, err := syntax.ParseATURI(eventView.Subject.RepoStrongRef.Uri)
+		if err != nil {
+			return nil, err
+		}
+		subjectURI := &u
+		subjectDID, err = subjectURI.Authority().AsDID()
+		if err != nil {
+			return nil, err
+		}
+		cidVal, err := syntax.ParseCID(eventView.Subject.RepoStrongRef.Cid)
+		if err != nil {
+			return nil, err
+		}
+		recordMeta = &RecordMeta{
+			DID:        subjectDID,
+			Collection: subjectURI.Collection(),
+			RecordKey:  subjectURI.RecordKey(),
+			CID:        &cidVal,
+		}
+	} else {
+		return nil, fmt.Errorf("empty ozone event subject")
+	}
+
+	createdAt, err := syntax.ParseDatetime(eventView.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	evt := OzoneEvent{
+		EventType:  eventType,
+		EventID:    eventView.Id,
+		CreatedAt:  createdAt,
+		CreatedBy:  creatorDID,
+		SubjectDID: subjectDID,
+		SubjectURI: subjectURI,
+		// TODO: SubjectBlobs []syntax.CID
+		Event: *eventView.Event,
+	}
+
+	creatorIdent, err := eng.Directory.LookupDID(ctx, evt.CreatedBy)
+	if err != nil {
+		return nil, err
+	}
+	if creatorIdent == nil {
+		return nil, fmt.Errorf("identity not found for DID: %s", evt.CreatedBy)
+	}
+	creatorMeta, err := eng.GetAccountMeta(ctx, creatorIdent)
+	if err != nil {
+		return nil, err
+	}
+
+	subjectIdent, err := eng.Directory.LookupDID(ctx, evt.SubjectDID)
+	if err != nil {
+		return nil, err
+	}
+	if subjectIdent == nil {
+		return nil, fmt.Errorf("identity not found for DID: %s", evt.SubjectDID)
+	}
+	accountMeta, err := eng.GetAccountMeta(ctx, subjectIdent)
+	if err != nil {
+		return nil, err
+	}
+
+	return &OzoneEventContext{
+		BaseContext: BaseContext{
+			Ctx:     ctx,
+			Err:     nil,
+			Logger:  eng.Logger.With("eventID", evt.EventID, "ozoneEventType", evt.EventType, "creatorDID", evt.CreatedBy, "subjectDID", evt.SubjectDID),
+			engine:  eng,
+			effects: &Effects{},
+		},
+		Event:          evt,
+		CreatorAccount: *creatorMeta,
+		SubjectAccount: *accountMeta,
+		SubjectRecord:  recordMeta,
+	}, nil
+}
+
+// Entrypoint for external code pushing ozone events.
+//
+// This method can be called concurrently, though cached state may end up inconsistent if multiple events for the same account (DID) are processed in parallel.
+func (eng *Engine) ProcessOzoneEvent(ctx context.Context, eventView *toolsozone.ModerationDefs_ModEventView) error {
+	eventProcessCount.WithLabelValues("ozone").Inc()
+	start := time.Now()
+	defer func() {
+		duration := time.Since(start)
+		eventProcessDuration.WithLabelValues("ozone").Observe(duration.Seconds())
+	}()
+
+	// similar to an HTTP server, we want to recover any panics from rule execution
+	defer func() {
+		if r := recover(); r != nil {
+			eng.Logger.Error("automod ozone event execution exception", "err", r, "eventID", eventView.Id, "createdAt", eventView.CreatedAt)
+		}
+	}()
+	ctx, cancel := context.WithTimeout(ctx, recordEventTimeout)
+	defer cancel()
+
+	ec, err := NewOzoneEventContext(ctx, eng, eventView)
+	if err != nil {
+		eventErrorCount.WithLabelValues("ozoneEvent").Inc()
+		return fmt.Errorf("failed to hydrate ozone event context: %w", err)
+	}
+
+	ec.Logger.Debug("processing ozone event")
+
+	if err := eng.Rules.CallOzoneEventRules(ec); err != nil {
+		eventErrorCount.WithLabelValues("ozoneEvent").Inc()
+		return fmt.Errorf("ozone rule execution failed: %w", err)
+	}
+
+	eng.CanonicalLogLineOzoneEvent(ec)
+
+	/* XXX
+	if err := eng.persistRecordModActions(&rc); err != nil {
+		eventErrorCount.WithLabelValues("ozoneEvent").Inc()
+		return fmt.Errorf("failed to persist actions for record event: %w", err)
+	}
+	if err := eng.persistCounters(ctx, rc.effects); err != nil {
+		eventErrorCount.WithLabelValues("ozoneEvent").Inc()
+		return fmt.Errorf("failed to persist counts for record event: %w", err)
+	}
+	*/
+	return nil
+}
+
+func (e *Engine) CanonicalLogLineOzoneEvent(c *OzoneEventContext) {
+	c.Logger.Info("canonical-event-line",
+		"accountLabels", c.effects.AccountLabels,
+		"accountFlags", c.effects.AccountFlags,
+		"accountTakedown", c.effects.AccountTakedown,
+		"accountReports", len(c.effects.AccountReports),
+		"recordLabels", c.effects.RecordLabels,
+		"recordFlags", c.effects.RecordFlags,
+		"recordTakedown", c.effects.RecordTakedown,
+		"recordReports", len(c.effects.RecordReports),
+	)
+}
