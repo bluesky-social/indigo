@@ -114,8 +114,8 @@ type BGSConfig struct {
 	MaxQueuePerPDS    int64
 }
 
-func DefaultBGSConfig() BGSConfig {
-	return BGSConfig{
+func DefaultBGSConfig() *BGSConfig {
+	return &BGSConfig{
 		SSL:               true,
 		CompactInterval:   4 * time.Hour,
 		DefaultRepoLimit:  100,
@@ -124,7 +124,11 @@ func DefaultBGSConfig() BGSConfig {
 	}
 }
 
-func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, rf *indexer.RepoFetcher, hr api.HandleResolver, config BGSConfig) (*BGS, error) {
+func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, rf *indexer.RepoFetcher, hr api.HandleResolver, config *BGSConfig) (*BGS, error) {
+
+	if config == nil {
+		config = DefaultBGSConfig()
+	}
 	db.AutoMigrate(User{})
 	db.AutoMigrate(AuthToken{})
 	db.AutoMigrate(models.PDS{})
