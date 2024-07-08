@@ -106,7 +106,25 @@ type SocketConsumer struct {
 	EventsSent  promclient.Counter
 }
 
-func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, rf *indexer.RepoFetcher, hr api.HandleResolver, ssl bool, compactInterval time.Duration) (*BGS, error) {
+type BGSConfig struct {
+	SSL               bool
+	CompactInterval   time.Duration
+	DefaultRepoLimit  int64
+	ConcurrencyPerPDS int64
+	MaxQueuePerPDS    int64
+}
+
+func DefaultBGSConfig() BGSConfig {
+	return BGSConfig{
+		SSL:               true,
+		CompactInterval:   4 * time.Hour,
+		DefaultRepoLimit:  100,
+		ConcurrencyPerPDS: 100,
+		MaxQueuePerPDS:    1_000,
+	}
+}
+
+func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, rf *indexer.RepoFetcher, hr api.HandleResolver, config BGSConfig) (*BGS, error) {
 	db.AutoMigrate(User{})
 	db.AutoMigrate(AuthToken{})
 	db.AutoMigrate(models.PDS{})
@@ -121,7 +139,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		repoman: repoman,
 		events:  evtman,
 		didr:    didr,
-		ssl:     ssl,
+		ssl:     config.SSL,
 
 		consumersLk: sync.RWMutex{},
 		consumers:   make(map[uint64]*SocketConsumer),
@@ -131,7 +149,10 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 
 	ix.CreateExternalUser = bgs.createExternalUser
 	slOpts := DefaultSlurperOptions()
-	slOpts.SSL = ssl
+	slOpts.SSL = config.SSL
+	slOpts.DefaultRepoLimit = config.DefaultRepoLimit
+	slOpts.ConcurrencyPerPDS = config.ConcurrencyPerPDS
+	slOpts.MaxQueuePerPDS = config.MaxQueuePerPDS
 	s, err := NewSlurper(db, bgs.handleFedEvent, slOpts)
 	if err != nil {
 		return nil, err
@@ -144,7 +165,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	}
 
 	compactor := NewCompactor(nil)
-	compactor.requeueInterval = compactInterval
+	compactor.requeueInterval = config.CompactInterval
 	compactor.Start(bgs)
 	bgs.compactor = compactor
 
