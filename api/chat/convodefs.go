@@ -239,13 +239,13 @@ type ConvoDefs_MessageViewSender struct {
 }
 
 type ConvoDefs_MessageView_Embed struct {
-	EmbedRecord *appbskytypes.EmbedRecord
+	EmbedRecord_View *appbskytypes.EmbedRecord_View
 }
 
 func (t *ConvoDefs_MessageView_Embed) MarshalJSON() ([]byte, error) {
-	if t.EmbedRecord != nil {
-		t.EmbedRecord.LexiconTypeID = "app.bsky.embed.record"
-		return json.Marshal(t.EmbedRecord)
+	if t.EmbedRecord_View != nil {
+		t.EmbedRecord_View.LexiconTypeID = "app.bsky.embed.record#view"
+		return json.Marshal(t.EmbedRecord_View)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -256,9 +256,9 @@ func (t *ConvoDefs_MessageView_Embed) UnmarshalJSON(b []byte) error {
 	}
 
 	switch typ {
-	case "app.bsky.embed.record":
-		t.EmbedRecord = new(appbskytypes.EmbedRecord)
-		return json.Unmarshal(b, t.EmbedRecord)
+	case "app.bsky.embed.record#view":
+		t.EmbedRecord_View = new(appbskytypes.EmbedRecord_View)
+		return json.Unmarshal(b, t.EmbedRecord_View)
 
 	default:
 		return nil
