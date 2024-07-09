@@ -32,12 +32,20 @@ func NewOzoneEventContext(ctx context.Context, eng *Engine, eventView *toolsozon
 		eventType = "escalate"
 	} else if eventView.Event.ModerationDefs_ModEventMute != nil {
 		eventType = "mute"
+	} else if eventView.Event.ModerationDefs_ModEventUnmute != nil {
+		eventType = "unmute"
+	} else if eventView.Event.ModerationDefs_ModEventMuteReporter != nil {
+		eventType = "muteReporter"
+	} else if eventView.Event.ModerationDefs_ModEventUnmuteReporter != nil {
+		eventType = "unmuteReporter"
 	} else if eventView.Event.ModerationDefs_ModEventEmail != nil {
 		eventType = "email"
 	} else if eventView.Event.ModerationDefs_ModEventResolveAppeal != nil {
 		eventType = "resolveAppeal"
 	} else if eventView.Event.ModerationDefs_ModEventDivert != nil {
 		eventType = "divert"
+	} else if eventView.Event.ModerationDefs_ModEventTag != nil {
+		eventType = "tag"
 	} else {
 		return nil, fmt.Errorf("unhandled ozone event type")
 	}
@@ -177,16 +185,22 @@ func (eng *Engine) ProcessOzoneEvent(ctx context.Context, eventView *toolsozone.
 
 	eng.CanonicalLogLineOzoneEvent(ec)
 
-	/* XXX
-	if err := eng.persistRecordModActions(&rc); err != nil {
-		eventErrorCount.WithLabelValues("ozoneEvent").Inc()
-		return fmt.Errorf("failed to persist actions for record event: %w", err)
+	// some ozone events should result in account meta cache flushes
+	if (ec.Event.EventType == "takedown" || ec.Event.EventType == "reverseTakedown" || ec.Event.EventType == "label" || ec.Event.EventType == "tag") && ec.SubjectRecord == nil {
+		if err := eng.PurgeAccountCaches(ctx, ec.Event.SubjectDID); err != nil {
+			eng.Logger.Error("failed to purge identity cache", "err", err, "did", ec.Event.SubjectDID)
+		}
 	}
-	if err := eng.persistCounters(ctx, rc.effects); err != nil {
+	/* XXX:
+	if err := eng.persistRecordModActions(ec); err != nil {
 		eventErrorCount.WithLabelValues("ozoneEvent").Inc()
-		return fmt.Errorf("failed to persist counts for record event: %w", err)
+		return fmt.Errorf("failed to persist actions for ozone event: %w", err)
 	}
 	*/
+	if err := eng.persistCounters(ctx, ec.effects); err != nil {
+		eventErrorCount.WithLabelValues("ozoneEvent").Inc()
+		return fmt.Errorf("failed to persist counts for ozone event: %w", err)
+	}
 	return nil
 }
 
