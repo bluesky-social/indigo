@@ -38,6 +38,9 @@ type Server struct {
 	// The value is best-effort (the stream handling itself is concurrent, so event numbers may not be monotonic),
 	// but nonetheless, you must use atomics when updating or reading this (to avoid data races).
 	lastSeq int64
+
+	// same as lastSeq, but for Ozone timestamp cursor. the value is a string.
+	lastOzoneCursor atomic.Value
 }
 
 type Config struct {
@@ -263,12 +266,14 @@ func (s *Server) ReadLastOzoneCursor(ctx context.Context) (string, error) {
 		return "", nil
 	}
 
-	val := s.rdb.Get(ctx, ozoneCursorKey).String()
-	if val == "" {
+	val, err := s.rdb.Get(ctx, ozoneCursorKey).Result()
+	if err == redis.Nil || val == "" {
 		s.logger.Info("no pre-existing ozone cursor in redis")
 		return "", nil
+	} else if err != nil {
+		return "", err
 	}
-	s.logger.Info("successfully found prior ozone offset timestamp in redis", "timestamp", val)
+	s.logger.Info("successfully found prior ozone offset timestamp in redis", "cursor", val)
 	return val, nil
 }
 
@@ -282,6 +287,19 @@ func (s *Server) PersistCursor(ctx context.Context) error {
 		return nil
 	}
 	err := s.rdb.Set(ctx, cursorKey, lastSeq, 14*24*time.Hour).Err()
+	return err
+}
+
+func (s *Server) PersistOzoneCursor(ctx context.Context) error {
+	// if redis isn't configured, just skip
+	if s.rdb == nil {
+		return nil
+	}
+	lastCursor := s.lastOzoneCursor.Load()
+	if lastCursor == nil || lastCursor == "" {
+		return nil
+	}
+	err := s.rdb.Set(ctx, ozoneCursorKey, lastCursor, 14*24*time.Hour).Err()
 	return err
 }
 
@@ -311,6 +329,38 @@ func (s *Server) RunPersistCursor(ctx context.Context) error {
 				err := s.PersistCursor(ctx)
 				if err != nil {
 					s.logger.Error("failed to persist cursor", "err", err, "seq", lastSeq)
+				}
+			}
+		}
+	}
+}
+
+// this method runs in a loop, persisting the current cursor state every 5 seconds
+func (s *Server) RunPersistOzoneCursor(ctx context.Context) error {
+
+	// if redis isn't configured, just skip
+	if s.rdb == nil {
+		return nil
+	}
+	ticker := time.NewTicker(5 * time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			lastCursor := s.lastOzoneCursor.Load()
+			if lastCursor != nil && lastCursor != "" {
+				s.logger.Info("persisting final ozone cursor timestamp", "cursor", lastCursor)
+				err := s.PersistOzoneCursor(ctx)
+				if err != nil {
+					s.logger.Error("failed to persist ozone cursor", "err", err, "cursor", lastCursor)
+				}
+			}
+			return nil
+		case <-ticker.C:
+			lastCursor := s.lastOzoneCursor.Load()
+			if lastCursor != nil && lastCursor != "" {
+				err := s.PersistOzoneCursor(ctx)
+				if err != nil {
+					s.logger.Error("failed to persist ozone cursor", "err", err, "cursor", lastCursor)
 				}
 			}
 		}

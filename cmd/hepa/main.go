@@ -264,7 +264,22 @@ var runCmd = &cli.Command{
 			}
 		}()
 
-		// the main service loop
+		// ozone event consumer (if configured)
+		if srv.engine.OzoneClient != nil {
+			go func() {
+				if err := srv.RunOzoneConsumer(ctx); err != nil {
+					slog.Error("ozone consumer failed", "err", err)
+				}
+			}()
+
+			go func() {
+				if err := srv.RunPersistOzoneCursor(ctx); err != nil {
+					slog.Error("ozone cursor routine failed", "err", err)
+				}
+			}()
+		}
+
+		// firehose event consumer (main processor)
 		if err := srv.RunConsumer(ctx); err != nil {
 			return fmt.Errorf("failure consuming and processing firehose: %w", err)
 		}
