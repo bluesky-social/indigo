@@ -30,8 +30,10 @@ type ModerationEmitEvent_Input_Event struct {
 	ModerationDefs_ModEventLabel           *ModerationDefs_ModEventLabel
 	ModerationDefs_ModEventReport          *ModerationDefs_ModEventReport
 	ModerationDefs_ModEventMute            *ModerationDefs_ModEventMute
-	ModerationDefs_ModEventReverseTakedown *ModerationDefs_ModEventReverseTakedown
 	ModerationDefs_ModEventUnmute          *ModerationDefs_ModEventUnmute
+	ModerationDefs_ModEventMuteReporter    *ModerationDefs_ModEventMuteReporter
+	ModerationDefs_ModEventUnmuteReporter  *ModerationDefs_ModEventUnmuteReporter
+	ModerationDefs_ModEventReverseTakedown *ModerationDefs_ModEventReverseTakedown
 	ModerationDefs_ModEventEmail           *ModerationDefs_ModEventEmail
 	ModerationDefs_ModEventTag             *ModerationDefs_ModEventTag
 }
@@ -65,13 +67,21 @@ func (t *ModerationEmitEvent_Input_Event) MarshalJSON() ([]byte, error) {
 		t.ModerationDefs_ModEventMute.LexiconTypeID = "tools.ozone.moderation.defs#modEventMute"
 		return json.Marshal(t.ModerationDefs_ModEventMute)
 	}
-	if t.ModerationDefs_ModEventReverseTakedown != nil {
-		t.ModerationDefs_ModEventReverseTakedown.LexiconTypeID = "tools.ozone.moderation.defs#modEventReverseTakedown"
-		return json.Marshal(t.ModerationDefs_ModEventReverseTakedown)
-	}
 	if t.ModerationDefs_ModEventUnmute != nil {
 		t.ModerationDefs_ModEventUnmute.LexiconTypeID = "tools.ozone.moderation.defs#modEventUnmute"
 		return json.Marshal(t.ModerationDefs_ModEventUnmute)
+	}
+	if t.ModerationDefs_ModEventMuteReporter != nil {
+		t.ModerationDefs_ModEventMuteReporter.LexiconTypeID = "tools.ozone.moderation.defs#modEventMuteReporter"
+		return json.Marshal(t.ModerationDefs_ModEventMuteReporter)
+	}
+	if t.ModerationDefs_ModEventUnmuteReporter != nil {
+		t.ModerationDefs_ModEventUnmuteReporter.LexiconTypeID = "tools.ozone.moderation.defs#modEventUnmuteReporter"
+		return json.Marshal(t.ModerationDefs_ModEventUnmuteReporter)
+	}
+	if t.ModerationDefs_ModEventReverseTakedown != nil {
+		t.ModerationDefs_ModEventReverseTakedown.LexiconTypeID = "tools.ozone.moderation.defs#modEventReverseTakedown"
+		return json.Marshal(t.ModerationDefs_ModEventReverseTakedown)
 	}
 	if t.ModerationDefs_ModEventEmail != nil {
 		t.ModerationDefs_ModEventEmail.LexiconTypeID = "tools.ozone.moderation.defs#modEventEmail"
@@ -111,12 +121,18 @@ func (t *ModerationEmitEvent_Input_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#modEventMute":
 		t.ModerationDefs_ModEventMute = new(ModerationDefs_ModEventMute)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventMute)
-	case "tools.ozone.moderation.defs#modEventReverseTakedown":
-		t.ModerationDefs_ModEventReverseTakedown = new(ModerationDefs_ModEventReverseTakedown)
-		return json.Unmarshal(b, t.ModerationDefs_ModEventReverseTakedown)
 	case "tools.ozone.moderation.defs#modEventUnmute":
 		t.ModerationDefs_ModEventUnmute = new(ModerationDefs_ModEventUnmute)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventUnmute)
+	case "tools.ozone.moderation.defs#modEventMuteReporter":
+		t.ModerationDefs_ModEventMuteReporter = new(ModerationDefs_ModEventMuteReporter)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventMuteReporter)
+	case "tools.ozone.moderation.defs#modEventUnmuteReporter":
+		t.ModerationDefs_ModEventUnmuteReporter = new(ModerationDefs_ModEventUnmuteReporter)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventUnmuteReporter)
+	case "tools.ozone.moderation.defs#modEventReverseTakedown":
+		t.ModerationDefs_ModEventReverseTakedown = new(ModerationDefs_ModEventReverseTakedown)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventReverseTakedown)
 	case "tools.ozone.moderation.defs#modEventEmail":
 		t.ModerationDefs_ModEventEmail = new(ModerationDefs_ModEventEmail)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventEmail)

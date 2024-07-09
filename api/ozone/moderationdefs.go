@@ -143,6 +143,18 @@ type ModerationDefs_ModEventMute struct {
 	DurationInHours int64 `json:"durationInHours" cborgen:"durationInHours"`
 }
 
+// ModerationDefs_ModEventMuteReporter is a "modEventMuteReporter" in the tools.ozone.moderation.defs schema.
+//
+// # Mute incoming reports from an account
+//
+// RECORDTYPE: ModerationDefs_ModEventMuteReporter
+type ModerationDefs_ModEventMuteReporter struct {
+	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#modEventMuteReporter" cborgen:"$type,const=tools.ozone.moderation.defs#modEventMuteReporter"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	// durationInHours: Indicates how long the account should remain muted.
+	DurationInHours int64 `json:"durationInHours" cborgen:"durationInHours"`
+}
+
 // ModerationDefs_ModEventReport is a "modEventReport" in the tools.ozone.moderation.defs schema.
 //
 // # Report a subject
@@ -151,7 +163,9 @@ type ModerationDefs_ModEventMute struct {
 type ModerationDefs_ModEventReport struct {
 	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#modEventReport" cborgen:"$type,const=tools.ozone.moderation.defs#modEventReport"`
 	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
-	ReportType    *string `json:"reportType" cborgen:"reportType"`
+	// isReporterMuted: Set to true if the reporter was muted from reporting at the time of the event. These reports won't impact the reviewState of the subject.
+	IsReporterMuted *bool   `json:"isReporterMuted,omitempty" cborgen:"isReporterMuted,omitempty"`
+	ReportType      *string `json:"reportType" cborgen:"reportType"`
 }
 
 // ModerationDefs_ModEventResolveAppeal is a "modEventResolveAppeal" in the tools.ozone.moderation.defs schema.
@@ -214,6 +228,17 @@ type ModerationDefs_ModEventUnmute struct {
 	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 }
 
+// ModerationDefs_ModEventUnmuteReporter is a "modEventUnmuteReporter" in the tools.ozone.moderation.defs schema.
+//
+// # Unmute incoming reports from an account
+//
+// RECORDTYPE: ModerationDefs_ModEventUnmuteReporter
+type ModerationDefs_ModEventUnmuteReporter struct {
+	LexiconTypeID string `json:"$type,const=tools.ozone.moderation.defs#modEventUnmuteReporter" cborgen:"$type,const=tools.ozone.moderation.defs#modEventUnmuteReporter"`
+	// comment: Describe reasoning behind the reversal.
+	Comment *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+}
+
 // ModerationDefs_ModEventView is a "modEventView" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_ModEventView struct {
 	CreatedAt       string                               `json:"createdAt" cborgen:"createdAt"`
@@ -245,9 +270,13 @@ type ModerationDefs_ModEventViewDetail_Event struct {
 	ModerationDefs_ModEventAcknowledge     *ModerationDefs_ModEventAcknowledge
 	ModerationDefs_ModEventEscalate        *ModerationDefs_ModEventEscalate
 	ModerationDefs_ModEventMute            *ModerationDefs_ModEventMute
+	ModerationDefs_ModEventUnmute          *ModerationDefs_ModEventUnmute
+	ModerationDefs_ModEventMuteReporter    *ModerationDefs_ModEventMuteReporter
+	ModerationDefs_ModEventUnmuteReporter  *ModerationDefs_ModEventUnmuteReporter
 	ModerationDefs_ModEventEmail           *ModerationDefs_ModEventEmail
 	ModerationDefs_ModEventResolveAppeal   *ModerationDefs_ModEventResolveAppeal
 	ModerationDefs_ModEventDivert          *ModerationDefs_ModEventDivert
+	ModerationDefs_ModEventTag             *ModerationDefs_ModEventTag
 }
 
 func (t *ModerationDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) {
@@ -283,6 +312,18 @@ func (t *ModerationDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) 
 		t.ModerationDefs_ModEventMute.LexiconTypeID = "tools.ozone.moderation.defs#modEventMute"
 		return json.Marshal(t.ModerationDefs_ModEventMute)
 	}
+	if t.ModerationDefs_ModEventUnmute != nil {
+		t.ModerationDefs_ModEventUnmute.LexiconTypeID = "tools.ozone.moderation.defs#modEventUnmute"
+		return json.Marshal(t.ModerationDefs_ModEventUnmute)
+	}
+	if t.ModerationDefs_ModEventMuteReporter != nil {
+		t.ModerationDefs_ModEventMuteReporter.LexiconTypeID = "tools.ozone.moderation.defs#modEventMuteReporter"
+		return json.Marshal(t.ModerationDefs_ModEventMuteReporter)
+	}
+	if t.ModerationDefs_ModEventUnmuteReporter != nil {
+		t.ModerationDefs_ModEventUnmuteReporter.LexiconTypeID = "tools.ozone.moderation.defs#modEventUnmuteReporter"
+		return json.Marshal(t.ModerationDefs_ModEventUnmuteReporter)
+	}
 	if t.ModerationDefs_ModEventEmail != nil {
 		t.ModerationDefs_ModEventEmail.LexiconTypeID = "tools.ozone.moderation.defs#modEventEmail"
 		return json.Marshal(t.ModerationDefs_ModEventEmail)
@@ -294,6 +335,10 @@ func (t *ModerationDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) 
 	if t.ModerationDefs_ModEventDivert != nil {
 		t.ModerationDefs_ModEventDivert.LexiconTypeID = "tools.ozone.moderation.defs#modEventDivert"
 		return json.Marshal(t.ModerationDefs_ModEventDivert)
+	}
+	if t.ModerationDefs_ModEventTag != nil {
+		t.ModerationDefs_ModEventTag.LexiconTypeID = "tools.ozone.moderation.defs#modEventTag"
+		return json.Marshal(t.ModerationDefs_ModEventTag)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -328,6 +373,15 @@ func (t *ModerationDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error 
 	case "tools.ozone.moderation.defs#modEventMute":
 		t.ModerationDefs_ModEventMute = new(ModerationDefs_ModEventMute)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventMute)
+	case "tools.ozone.moderation.defs#modEventUnmute":
+		t.ModerationDefs_ModEventUnmute = new(ModerationDefs_ModEventUnmute)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventUnmute)
+	case "tools.ozone.moderation.defs#modEventMuteReporter":
+		t.ModerationDefs_ModEventMuteReporter = new(ModerationDefs_ModEventMuteReporter)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventMuteReporter)
+	case "tools.ozone.moderation.defs#modEventUnmuteReporter":
+		t.ModerationDefs_ModEventUnmuteReporter = new(ModerationDefs_ModEventUnmuteReporter)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventUnmuteReporter)
 	case "tools.ozone.moderation.defs#modEventEmail":
 		t.ModerationDefs_ModEventEmail = new(ModerationDefs_ModEventEmail)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventEmail)
@@ -337,6 +391,9 @@ func (t *ModerationDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error 
 	case "tools.ozone.moderation.defs#modEventDivert":
 		t.ModerationDefs_ModEventDivert = new(ModerationDefs_ModEventDivert)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventDivert)
+	case "tools.ozone.moderation.defs#modEventTag":
+		t.ModerationDefs_ModEventTag = new(ModerationDefs_ModEventTag)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventTag)
 
 	default:
 		return nil
@@ -403,9 +460,13 @@ type ModerationDefs_ModEventView_Event struct {
 	ModerationDefs_ModEventAcknowledge     *ModerationDefs_ModEventAcknowledge
 	ModerationDefs_ModEventEscalate        *ModerationDefs_ModEventEscalate
 	ModerationDefs_ModEventMute            *ModerationDefs_ModEventMute
+	ModerationDefs_ModEventUnmute          *ModerationDefs_ModEventUnmute
+	ModerationDefs_ModEventMuteReporter    *ModerationDefs_ModEventMuteReporter
+	ModerationDefs_ModEventUnmuteReporter  *ModerationDefs_ModEventUnmuteReporter
 	ModerationDefs_ModEventEmail           *ModerationDefs_ModEventEmail
 	ModerationDefs_ModEventResolveAppeal   *ModerationDefs_ModEventResolveAppeal
 	ModerationDefs_ModEventDivert          *ModerationDefs_ModEventDivert
+	ModerationDefs_ModEventTag             *ModerationDefs_ModEventTag
 }
 
 func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
@@ -441,6 +502,18 @@ func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
 		t.ModerationDefs_ModEventMute.LexiconTypeID = "tools.ozone.moderation.defs#modEventMute"
 		return json.Marshal(t.ModerationDefs_ModEventMute)
 	}
+	if t.ModerationDefs_ModEventUnmute != nil {
+		t.ModerationDefs_ModEventUnmute.LexiconTypeID = "tools.ozone.moderation.defs#modEventUnmute"
+		return json.Marshal(t.ModerationDefs_ModEventUnmute)
+	}
+	if t.ModerationDefs_ModEventMuteReporter != nil {
+		t.ModerationDefs_ModEventMuteReporter.LexiconTypeID = "tools.ozone.moderation.defs#modEventMuteReporter"
+		return json.Marshal(t.ModerationDefs_ModEventMuteReporter)
+	}
+	if t.ModerationDefs_ModEventUnmuteReporter != nil {
+		t.ModerationDefs_ModEventUnmuteReporter.LexiconTypeID = "tools.ozone.moderation.defs#modEventUnmuteReporter"
+		return json.Marshal(t.ModerationDefs_ModEventUnmuteReporter)
+	}
 	if t.ModerationDefs_ModEventEmail != nil {
 		t.ModerationDefs_ModEventEmail.LexiconTypeID = "tools.ozone.moderation.defs#modEventEmail"
 		return json.Marshal(t.ModerationDefs_ModEventEmail)
@@ -452,6 +525,10 @@ func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
 	if t.ModerationDefs_ModEventDivert != nil {
 		t.ModerationDefs_ModEventDivert.LexiconTypeID = "tools.ozone.moderation.defs#modEventDivert"
 		return json.Marshal(t.ModerationDefs_ModEventDivert)
+	}
+	if t.ModerationDefs_ModEventTag != nil {
+		t.ModerationDefs_ModEventTag.LexiconTypeID = "tools.ozone.moderation.defs#modEventTag"
+		return json.Marshal(t.ModerationDefs_ModEventTag)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -486,6 +563,15 @@ func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#modEventMute":
 		t.ModerationDefs_ModEventMute = new(ModerationDefs_ModEventMute)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventMute)
+	case "tools.ozone.moderation.defs#modEventUnmute":
+		t.ModerationDefs_ModEventUnmute = new(ModerationDefs_ModEventUnmute)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventUnmute)
+	case "tools.ozone.moderation.defs#modEventMuteReporter":
+		t.ModerationDefs_ModEventMuteReporter = new(ModerationDefs_ModEventMuteReporter)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventMuteReporter)
+	case "tools.ozone.moderation.defs#modEventUnmuteReporter":
+		t.ModerationDefs_ModEventUnmuteReporter = new(ModerationDefs_ModEventUnmuteReporter)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventUnmuteReporter)
 	case "tools.ozone.moderation.defs#modEventEmail":
 		t.ModerationDefs_ModEventEmail = new(ModerationDefs_ModEventEmail)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventEmail)
@@ -495,6 +581,9 @@ func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#modEventDivert":
 		t.ModerationDefs_ModEventDivert = new(ModerationDefs_ModEventDivert)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventDivert)
+	case "tools.ozone.moderation.defs#modEventTag":
+		t.ModerationDefs_ModEventTag = new(ModerationDefs_ModEventTag)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventTag)
 
 	default:
 		return nil
@@ -585,6 +674,7 @@ type ModerationDefs_RecordViewNotFound struct {
 // RECORDTYPE: ModerationDefs_RepoView
 type ModerationDefs_RepoView struct {
 	LexiconTypeID   string                                 `json:"$type,const=tools.ozone.moderation.defs#repoView" cborgen:"$type,const=tools.ozone.moderation.defs#repoView"`
+	DeactivatedAt   *string                                `json:"deactivatedAt,omitempty" cborgen:"deactivatedAt,omitempty"`
 	Did             string                                 `json:"did" cborgen:"did"`
 	Email           *string                                `json:"email,omitempty" cborgen:"email,omitempty"`
 	Handle          string                                 `json:"handle" cborgen:"handle"`
@@ -598,6 +688,7 @@ type ModerationDefs_RepoView struct {
 
 // ModerationDefs_RepoViewDetail is a "repoViewDetail" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_RepoViewDetail struct {
+	DeactivatedAt    *string                                  `json:"deactivatedAt,omitempty" cborgen:"deactivatedAt,omitempty"`
 	Did              string                                   `json:"did" cborgen:"did"`
 	Email            *string                                  `json:"email,omitempty" cborgen:"email,omitempty"`
 	EmailConfirmedAt *string                                  `json:"emailConfirmedAt,omitempty" cborgen:"emailConfirmedAt,omitempty"`
@@ -630,18 +721,19 @@ type ModerationDefs_SubjectStatusView struct {
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
 	Id        int64  `json:"id" cborgen:"id"`
 	// lastAppealedAt: Timestamp referencing when the author of the subject appealed a moderation action
-	LastAppealedAt    *string                                   `json:"lastAppealedAt,omitempty" cborgen:"lastAppealedAt,omitempty"`
-	LastReportedAt    *string                                   `json:"lastReportedAt,omitempty" cborgen:"lastReportedAt,omitempty"`
-	LastReviewedAt    *string                                   `json:"lastReviewedAt,omitempty" cborgen:"lastReviewedAt,omitempty"`
-	LastReviewedBy    *string                                   `json:"lastReviewedBy,omitempty" cborgen:"lastReviewedBy,omitempty"`
-	MuteUntil         *string                                   `json:"muteUntil,omitempty" cborgen:"muteUntil,omitempty"`
-	ReviewState       *string                                   `json:"reviewState" cborgen:"reviewState"`
-	Subject           *ModerationDefs_SubjectStatusView_Subject `json:"subject" cborgen:"subject"`
-	SubjectBlobCids   []string                                  `json:"subjectBlobCids,omitempty" cborgen:"subjectBlobCids,omitempty"`
-	SubjectRepoHandle *string                                   `json:"subjectRepoHandle,omitempty" cborgen:"subjectRepoHandle,omitempty"`
-	SuspendUntil      *string                                   `json:"suspendUntil,omitempty" cborgen:"suspendUntil,omitempty"`
-	Tags              []string                                  `json:"tags,omitempty" cborgen:"tags,omitempty"`
-	Takendown         *bool                                     `json:"takendown,omitempty" cborgen:"takendown,omitempty"`
+	LastAppealedAt     *string                                   `json:"lastAppealedAt,omitempty" cborgen:"lastAppealedAt,omitempty"`
+	LastReportedAt     *string                                   `json:"lastReportedAt,omitempty" cborgen:"lastReportedAt,omitempty"`
+	LastReviewedAt     *string                                   `json:"lastReviewedAt,omitempty" cborgen:"lastReviewedAt,omitempty"`
+	LastReviewedBy     *string                                   `json:"lastReviewedBy,omitempty" cborgen:"lastReviewedBy,omitempty"`
+	MuteReportingUntil *string                                   `json:"muteReportingUntil,omitempty" cborgen:"muteReportingUntil,omitempty"`
+	MuteUntil          *string                                   `json:"muteUntil,omitempty" cborgen:"muteUntil,omitempty"`
+	ReviewState        *string                                   `json:"reviewState" cborgen:"reviewState"`
+	Subject            *ModerationDefs_SubjectStatusView_Subject `json:"subject" cborgen:"subject"`
+	SubjectBlobCids    []string                                  `json:"subjectBlobCids,omitempty" cborgen:"subjectBlobCids,omitempty"`
+	SubjectRepoHandle  *string                                   `json:"subjectRepoHandle,omitempty" cborgen:"subjectRepoHandle,omitempty"`
+	SuspendUntil       *string                                   `json:"suspendUntil,omitempty" cborgen:"suspendUntil,omitempty"`
+	Tags               []string                                  `json:"tags,omitempty" cborgen:"tags,omitempty"`
+	Takendown          *bool                                     `json:"takendown,omitempty" cborgen:"takendown,omitempty"`
 	// updatedAt: Timestamp referencing when the last update was made to the moderation status of the subject
 	UpdatedAt string `json:"updatedAt" cborgen:"updatedAt"`
 }
