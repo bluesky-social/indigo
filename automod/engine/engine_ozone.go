@@ -12,7 +12,7 @@ import (
 func NewOzoneEventContext(ctx context.Context, eng *Engine, eventView *toolsozone.ModerationDefs_ModEventView) (*OzoneEventContext, error) {
 
 	if eventView.Event == nil {
-		return nil, fmt.Errorf("unhandled ozone event type")
+		return nil, fmt.Errorf("nil ozone event type")
 	}
 
 	eventType := ""
@@ -160,6 +160,12 @@ func (eng *Engine) ProcessOzoneEvent(ctx context.Context, eventView *toolsozone.
 	if err != nil {
 		eventErrorCount.WithLabelValues("ozoneEvent").Inc()
 		return fmt.Errorf("failed to hydrate ozone event context: %w", err)
+	}
+
+	// if this is a "self-event", created by automod itself, skip it to prevent a loop
+	if ec.Event.CreatedBy.String() == eng.OzoneClient.Auth.Did {
+		ec.Logger.Debug("skipping ozone self-event")
+		return nil
 	}
 
 	ec.Logger.Debug("processing ozone event")

@@ -19,7 +19,7 @@ func (s *Server) RunOzoneConsumer(ctx context.Context) error {
 	if cur == "" {
 		cur = syntax.DatetimeNow().String()
 	}
-	since, err := time.Parse(time.RFC3339, cur)
+	since, err := syntax.ParseDatetime(cur)
 	if err != nil {
 		return err
 	}
@@ -29,7 +29,6 @@ func (s *Server) RunOzoneConsumer(ctx context.Context) error {
 	period := time.Second * 5
 
 	for {
-
 		//func ModerationQueryEvents(ctx context.Context, c *xrpc.Client, addedLabels []string, addedTags []string, comment string, createdAfter string, createdBefore string, createdBy string, cursor string, hasComment bool, includeAllUserRecords bool, limit int64, removedLabels []string, removedTags []string, reportTypes []string, sortDirection string, subject string, types []string) (*ModerationQueryEvents_Output, error) {
 		me, err := toolsozone.ModerationQueryEvents(
 			ctx,
@@ -52,27 +51,36 @@ func (s *Server) RunOzoneConsumer(ctx context.Context) error {
 			nil,   // types: The types of events (fully qualified string in the format of tools.ozone.moderation.defs#modEvent<name>) to filter by. If not specified, all events are returned.
 		)
 		if err != nil {
-			return err
+			s.logger.Warn("ozone query events failed; sleeping then will retrying", "err", err, "period", period.String())
+			time.Sleep(period)
+			continue
 		}
 
+		// track if the response contained anything new
+		anyNewEvents := false
 		for _, evt := range me.Events {
-			createdAt, err := time.Parse(time.RFC3339, evt.CreatedAt)
+			createdAt, err := syntax.ParseDatetime(evt.CreatedAt)
 			if err != nil {
-				return fmt.Errorf("invalid time format for 'createdAt': %w", err)
+				return fmt.Errorf("invalid time format for ozone 'createdAt': %w", err)
 			}
-			// TODO: is there a race condition here?
-			if !createdAt.After(since) {
-				s.logger.Error("out of order ozone event", "event", evt)
+			// skip if the timestamp is the exact same
+			if createdAt == since {
 				continue
+			}
+			anyNewEvents = true
+			// TODO: is there a race condition here?
+			if !createdAt.Time().After(since.Time()) {
+				s.logger.Error("out of order ozone event", "createdAt", createdAt, "since", since)
+				return fmt.Errorf("out of order ozone event")
 			}
 			if err = s.HandleOzoneEvent(ctx, evt); err != nil {
 				s.logger.Error("failed to process ozone event", "event", evt)
-				continue
 			}
 			since = createdAt
+			s.lastOzoneCursor.Store(since.String())
 		}
-		if len(me.Events) == 0 {
-			s.logger.Info("... ozone poller sleeping", "period", period)
+		if !anyNewEvents {
+			s.logger.Debug("... ozone poller sleeping", "period", period.String())
 			time.Sleep(period)
 		}
 	}
