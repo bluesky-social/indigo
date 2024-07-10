@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -44,7 +45,7 @@ func TooManyRepostRule(c *automod.RecordContext) error {
 		if highRepost {
 			c.Logger.Info("high-repost-count", "reposted-today", repostCount, "posted-today", postCount)
 			c.AddAccountFlag("high-repost-count")
-			// c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("too many reposts: %d reposts, %d posts today (so far)", repostCount, postCount))
+			c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("too many reposts: %d reposts, %d posts today (so far)", repostCount, postCount))
 			c.Notify("slack")
 		}
 	}
