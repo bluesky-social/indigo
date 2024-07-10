@@ -38,15 +38,16 @@ type RecordContext struct {
 	// TODO: could consider adding commit-level metadata here. probably nullable if so, commit-level metadata isn't always available. might be best to do a separate event/context type for that
 }
 
+// Represents an ozone event on a subject account.
+//
+// TODO: for ozone events with a record subject (not account subject), should we extend RecordContext instead?
 type OzoneEventContext struct {
-	BaseContext
+	AccountContext
 
 	Event OzoneEvent
 
 	// Moderator team member (for ozone internal events) or account that created a report or appeal
 	CreatorAccount AccountMeta
-
-	SubjectAccount AccountMeta
 
 	// If the subject of the event is a record, this is the record metadata
 	SubjectRecord *RecordMeta
@@ -213,6 +214,28 @@ func (c *AccountContext) GetAccountRelationship(other syntax.DID) AccountRelatio
 		return AccountRelationship{DID: other}
 	}
 	return *rel
+}
+
+// fetch account metadata for the given DID. if there is any problem with lookup, returns nil.
+//
+// TODO: should this take an AtIdentifier instead?
+func (c *BaseContext) GetAccountMeta(did syntax.DID) *AccountMeta {
+
+	ident, err := c.engine.Directory.LookupDID(c.Ctx, did)
+	if err != nil {
+		if nil == c.Err {
+			c.Err = err
+		}
+		return nil
+	}
+	am, err := c.engine.GetAccountMeta(c.Ctx, ident)
+	if err != nil {
+		if nil == c.Err {
+			c.Err = err
+		}
+		return nil
+	}
+	return am
 }
 
 // update effects (indirect) ======

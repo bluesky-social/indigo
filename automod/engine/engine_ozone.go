@@ -130,16 +130,18 @@ func NewOzoneEventContext(ctx context.Context, eng *Engine, eventView *toolsozon
 	}
 
 	return &OzoneEventContext{
-		BaseContext: BaseContext{
-			Ctx:     ctx,
-			Err:     nil,
-			Logger:  eng.Logger.With("eventID", evt.EventID, "ozoneEventType", evt.EventType, "creatorDID", evt.CreatedBy, "subjectDID", evt.SubjectDID),
-			engine:  eng,
-			effects: &Effects{},
+		AccountContext: AccountContext{
+			BaseContext: BaseContext{
+				Ctx:     ctx,
+				Err:     nil,
+				Logger:  eng.Logger.With("eventID", evt.EventID, "ozoneEventType", evt.EventType, "creatorDID", evt.CreatedBy, "subjectDID", evt.SubjectDID),
+				engine:  eng,
+				effects: &Effects{},
+			},
+			Account: *accountMeta,
 		},
 		Event:          evt,
 		CreatorAccount: *creatorMeta,
-		SubjectAccount: *accountMeta,
 		SubjectRecord:  recordMeta,
 	}, nil
 }
@@ -191,12 +193,10 @@ func (eng *Engine) ProcessOzoneEvent(ctx context.Context, eventView *toolsozone.
 			eng.Logger.Error("failed to purge identity cache", "err", err, "did", ec.Event.SubjectDID)
 		}
 	}
-	/* XXX:
-	if err := eng.persistRecordModActions(ec); err != nil {
+	if err := eng.persistAccountModActions(&ec.AccountContext); err != nil {
 		eventErrorCount.WithLabelValues("ozoneEvent").Inc()
 		return fmt.Errorf("failed to persist actions for ozone event: %w", err)
 	}
-	*/
 	if err := eng.persistCounters(ctx, ec.effects); err != nil {
 		eventErrorCount.WithLabelValues("ozoneEvent").Inc()
 		return fmt.Errorf("failed to persist counts for ozone event: %w", err)

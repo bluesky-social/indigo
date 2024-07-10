@@ -14,6 +14,7 @@ type SlackNotifier = engine.SlackNotifier
 
 type AccountContext = engine.AccountContext
 type RecordContext = engine.RecordContext
+type OzoneEventContext = engine.OzoneEventContext
 type NotificationContext = engine.NotificationContext
 type RecordOp = engine.RecordOp
 
@@ -23,6 +24,7 @@ type PostRuleFunc = engine.PostRuleFunc
 type ProfileRuleFunc = engine.ProfileRuleFunc
 type BlobRuleFunc = engine.BlobRuleFunc
 type NotificationRuleFunc = engine.NotificationRuleFunc
+type OzoneEventRuleFunc = engine.OzoneEventRuleFunc
 
 var (
 	ReportReasonSpam       = engine.ReportReasonSpam
