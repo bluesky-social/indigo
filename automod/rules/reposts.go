@@ -29,7 +29,7 @@ func TooManyRepostRule(c *automod.RecordContext) error {
 
 	// Special case for newsmast bridge feeds
 	handle := c.Account.Identity.Handle.String()
-	if strings.HasSuffix(handle, "newsmast.community.ap.brid.gy") {
+	if strings.HasSuffix(handle, ".ap.brid.gy") {
 		return nil
 	}
 
