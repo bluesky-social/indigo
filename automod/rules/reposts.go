@@ -9,7 +9,7 @@ import (
 	"github.com/bluesky-social/indigo/automod/countstore"
 )
 
-var dailyRepostThresholdWithoutPost = 20
+var dailyRepostThresholdWithoutPost = 30
 var dailyRepostThresholdWithLowPost = 100
 var dailyPostThresholdWithHighRepost = 5
 
