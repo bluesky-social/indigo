@@ -18,6 +18,7 @@ type RuleSet struct {
 	IdentityRules     []IdentityRuleFunc
 	BlobRules         []BlobRuleFunc
 	NotificationRules []NotificationRuleFunc
+	OzoneEventRules   []OzoneEventRuleFunc
 }
 
 // Executes all the various record-related rules. Only dispatches execution, does no other de-dupe or pre/post processing.
@@ -93,6 +94,16 @@ func (r *RuleSet) CallNotificationRules(c *NotificationContext) error {
 		err := f(c)
 		if err != nil {
 			c.Logger.Error("notification rule execution failed", "err", err)
+		}
+	}
+	return nil
+}
+
+func (r *RuleSet) CallOzoneEventRules(c *OzoneEventContext) error {
+	for _, f := range r.OzoneEventRules {
+		err := f(c)
+		if err != nil {
+			c.Logger.Error("ozone event rule execution failed", "err", err)
 		}
 	}
 	return nil

@@ -46,23 +46,47 @@ func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky
 	}
 
 	interactionDIDs = dedupeStrings(interactionDIDs)
-	for _, did := range interactionDIDs {
-		if did == c.Account.Identity.DID.String() {
+	for _, d := range interactionDIDs {
+		did, err := syntax.ParseDID(d)
+		if err != nil {
+			c.Logger.Warn("invalid DID in record", "did", d)
 			continue
 		}
-		if c.InSet("harassment-target-dids", did) {
-			// ignore if the target account follows the new account
-			rel := c.GetAccountRelationship(syntax.DID(did))
-			if rel.FollowedBy {
-				return nil
-			}
-
-			//c.AddRecordFlag("interaction-harassed-target")
-			c.ReportAccount(automod.ReportReasonOther, fmt.Sprintf("possible harassment of known target account: %s (also labeled; remove label if this isn't harassment)", did))
-			c.AddAccountLabel("!hide")
-			c.Notify("slack")
-			return nil
+		if did == c.Account.Identity.DID {
+			continue
 		}
+		targetIsProtected := false
+		if c.InSet("harassment-target-dids", did.String()) {
+			targetIsProtected = true
+		} else {
+			// check if the target account has a harassment protection tag in Ozone
+			targetAccount := c.GetAccountMeta(did)
+			if targetAccount == nil {
+				continue
+			}
+			for _, t := range targetAccount.Private.AccountTags {
+				if t == "harassment-protection" {
+					targetIsProtected = true
+					break
+				}
+			}
+		}
+
+		if !targetIsProtected {
+			continue
+		}
+
+		// ignore if the target account follows the new account
+		rel := c.GetAccountRelationship(syntax.DID(did))
+		if rel.FollowedBy {
+			continue
+		}
+
+		//c.AddRecordFlag("interaction-harassed-target")
+		c.ReportAccount(automod.ReportReasonOther, fmt.Sprintf("possible harassment of known target account: %s (also labeled; remove label if this isn't harassment)", did))
+		c.AddAccountLabel("!hide")
+		c.Notify("slack")
+		return nil
 	}
 	return nil
 }
@@ -94,6 +118,26 @@ func HarassmentTrivialPostRule(c *automod.RecordContext, post *appbsky.FeedPost)
 		c.ReportAccount(automod.ReportReasonOther, fmt.Sprintf("possible targetted harassment (also labeled; remove label if this isn't harassment!)"))
 		c.AddAccountLabel("!hide")
 		c.Notify("slack")
+	}
+	return nil
+}
+
+var _ automod.OzoneEventRuleFunc = HarassmentProtectionOzoneEventRule
+
+// looks for new harassment protection tags on accounts, and logs them
+func HarassmentProtectionOzoneEventRule(c *automod.OzoneEventContext) error {
+	if c.Event.EventType != "tag" || c.Event.Event.ModerationDefs_ModEventTag == nil {
+		return nil
+	}
+
+	for _, t := range c.Event.Event.ModerationDefs_ModEventTag.Add {
+		if t == "harassment-protection" {
+			c.Logger.Info("adding harassment protection to account", "ozoneComment", c.Event.Event.ModerationDefs_ModEventTag.Comment, "did", c.Account.Identity.DID, "handle", c.Account.Identity.Handle)
+			// to make slack message clearer; bluring flags and tags is a bit weird
+			c.AddAccountFlag("harassment-protection")
+			//c.Notify("slack")
+			break
+		}
 	}
 	return nil
 }

@@ -15,13 +15,14 @@ type RedisCountStore struct {
 }
 
 func NewRedisCountStore(redisURL string) (*RedisCountStore, error) {
+	ctx := context.Background()
 	opt, err := redis.ParseURL(redisURL)
 	if err != nil {
 		return nil, err
 	}
 	rdb := redis.NewClient(opt)
 	// check redis connection
-	_, err = rdb.Ping(context.TODO()).Result()
+	_, err = rdb.Ping(ctx).Result()
 	if err != nil {
 		return nil, err
 	}

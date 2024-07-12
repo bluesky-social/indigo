@@ -22,13 +22,14 @@ type ModerationQueryStatuses_Output struct {
 // comment: Search subjects by keyword from comments
 // includeMuted: By default, we don't include muted subjects in the results. Set this to true to include them.
 // lastReviewedBy: Get all subject statuses that were reviewed by a specific moderator
+// onlyMuted: When set to true, only muted subjects and reporters will be returned.
 // reportedAfter: Search subjects reported after a given timestamp
 // reportedBefore: Search subjects reported before a given timestamp
 // reviewState: Specify when fetching subjects in a certain state
 // reviewedAfter: Search subjects reviewed after a given timestamp
 // reviewedBefore: Search subjects reviewed before a given timestamp
 // takendown: Get subjects that were taken down
-func ModerationQueryStatuses(ctx context.Context, c *xrpc.Client, appealed bool, comment string, cursor string, excludeTags []string, ignoreSubjects []string, includeMuted bool, lastReviewedBy string, limit int64, reportedAfter string, reportedBefore string, reviewState string, reviewedAfter string, reviewedBefore string, sortDirection string, sortField string, subject string, tags []string, takendown bool) (*ModerationQueryStatuses_Output, error) {
+func ModerationQueryStatuses(ctx context.Context, c *xrpc.Client, appealed bool, comment string, cursor string, excludeTags []string, ignoreSubjects []string, includeMuted bool, lastReviewedBy string, limit int64, onlyMuted bool, reportedAfter string, reportedBefore string, reviewState string, reviewedAfter string, reviewedBefore string, sortDirection string, sortField string, subject string, tags []string, takendown bool) (*ModerationQueryStatuses_Output, error) {
 	var out ModerationQueryStatuses_Output
 
 	params := map[string]interface{}{
@@ -40,6 +41,7 @@ func ModerationQueryStatuses(ctx context.Context, c *xrpc.Client, appealed bool,
 		"includeMuted":   includeMuted,
 		"lastReviewedBy": lastReviewedBy,
 		"limit":          limit,
+		"onlyMuted":      onlyMuted,
 		"reportedAfter":  reportedAfter,
 		"reportedBefore": reportedBefore,
 		"reviewState":    reviewState,
