@@ -18,6 +18,9 @@ type AccountMeta struct {
 	FollowsCount         int64
 	PostsCount           int64
 	Takendown            bool
+	Deactivated          bool
+	// best effort public interpretation of account creation timestamp. not always available, and may be inaccurate/inconsistent for now.
+	CreatedAt *time.Time
 }
 
 type ProfileSummary struct {
@@ -30,4 +33,5 @@ type AccountPrivate struct {
 	Email          string
 	EmailConfirmed bool
 	IndexedAt      time.Time
+	AccountTags    []string
 }

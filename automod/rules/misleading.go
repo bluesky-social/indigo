@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"context"
 	"log/slog"
 	"net/url"
 	"strings"
@@ -106,8 +105,6 @@ func MisleadingURLPostRule(c *automod.RecordContext, post *appbsky.FeedPost) err
 var _ automod.PostRuleFunc = MisleadingMentionPostRule
 
 func MisleadingMentionPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	// TODO: do we really need to route context around? probably
-	ctx := context.TODO()
 	facets, err := ExtractFacets(post)
 	if err != nil {
 		c.Logger.Warn("invalid facets", "err", err)
@@ -127,7 +124,7 @@ func MisleadingMentionPostRule(c *automod.RecordContext, post *appbsky.FeedPost)
 				continue
 			}
 
-			mentioned, err := c.Directory().LookupHandle(ctx, handle)
+			mentioned, err := c.Directory().LookupHandle(c.Ctx, handle)
 			if err != nil {
 				c.Logger.Warn("could not resolve handle", "handle", handle)
 				c.AddRecordFlag("broken-mention")

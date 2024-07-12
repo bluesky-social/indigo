@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	toolsozone "github.com/bluesky-social/indigo/api/ozone"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
@@ -37,6 +38,21 @@ type RecordContext struct {
 	// TODO: could consider adding commit-level metadata here. probably nullable if so, commit-level metadata isn't always available. might be best to do a separate event/context type for that
 }
 
+// Represents an ozone event on a subject account.
+//
+// TODO: for ozone events with a record subject (not account subject), should we extend RecordContext instead?
+type OzoneEventContext struct {
+	AccountContext
+
+	Event OzoneEvent
+
+	// Moderator team member (for ozone internal events) or account that created a report or appeal
+	CreatorAccount AccountMeta
+
+	// If the subject of the event is a record, this is the record metadata
+	SubjectRecord *RecordMeta
+}
+
 var (
 	CreateOp = "create"
 	UpdateOp = "update"
@@ -53,6 +69,26 @@ type RecordOp struct {
 	RecordKey  syntax.RecordKey
 	CID        *syntax.CID
 	RecordCBOR []byte
+}
+
+// Immutable
+type RecordMeta struct {
+	DID        syntax.DID
+	Collection syntax.NSID
+	RecordKey  syntax.RecordKey
+	CID        *syntax.CID
+	// TODO: RecordCBOR []byte? optional?
+}
+
+type OzoneEvent struct {
+	EventType  string
+	EventID    int64
+	CreatedAt  syntax.Datetime
+	CreatedBy  syntax.DID
+	SubjectDID syntax.DID
+	SubjectURI *syntax.ATURI
+	// TODO: SubjectBlobs []syntax.CID
+	Event toolsozone.ModerationDefs_ModEventView_Event
 }
 
 // Originally intended for push notifications, but can also work for any inter-account notification.
@@ -178,6 +214,28 @@ func (c *AccountContext) GetAccountRelationship(other syntax.DID) AccountRelatio
 		return AccountRelationship{DID: other}
 	}
 	return *rel
+}
+
+// fetch account metadata for the given DID. if there is any problem with lookup, returns nil.
+//
+// TODO: should this take an AtIdentifier instead?
+func (c *BaseContext) GetAccountMeta(did syntax.DID) *AccountMeta {
+
+	ident, err := c.engine.Directory.LookupDID(c.Ctx, did)
+	if err != nil {
+		if nil == c.Err {
+			c.Err = err
+		}
+		return nil
+	}
+	am, err := c.engine.GetAccountMeta(c.Ctx, ident)
+	if err != nil {
+		if nil == c.Err {
+			c.Err = err
+		}
+		return nil
+	}
+	return am
 }
 
 // update effects (indirect) ======

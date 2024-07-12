@@ -56,6 +56,9 @@ func DefaultRules() automod.RuleSet {
 		NotificationRules: []automod.NotificationRuleFunc{
 			// none
 		},
+		OzoneEventRules: []automod.OzoneEventRuleFunc{
+			HarassmentProtectionOzoneEventRule,
+		},
 	}
 	return rules
 }
