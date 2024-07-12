@@ -38,6 +38,7 @@ func DefaultRules() automod.RuleSet {
 			InteractionChurnRule,
 			BadWordRecordKeyRule,
 			BadWordOtherRecordRule,
+			TooManyRepostRule,
 		},
 		RecordDeleteRules: []automod.RecordRuleFunc{
 			DeleteInteractionRule,
