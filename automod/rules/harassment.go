@@ -60,7 +60,7 @@ func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky
 
 			//c.AddRecordFlag("interaction-harassed-target")
 			c.ReportAccount(automod.ReportReasonOther, fmt.Sprintf("possible harassment of known target account: %s (also labeled; remove label if this isn't harassment)", did))
-			c.AddAccountLabel("!hide")
+			//c.AddAccountLabel("!hide")
 			c.Notify("slack")
 			return nil
 		}
