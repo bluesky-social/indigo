@@ -19,7 +19,8 @@ func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky
 	}
 	// TODO: helper for account age; and use public info for this (not private)
 	age := time.Since(c.Account.Private.IndexedAt)
-	if age > 7*24*time.Hour {
+	// HACK: broken/nil time.Time
+	if age > 7*24*time.Hour && age < 10*365*24*time.Hour {
 		return nil
 	}
 
