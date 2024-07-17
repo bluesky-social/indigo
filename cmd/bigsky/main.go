@@ -348,10 +348,10 @@ func runBigsky(cctx *cli.Context) error {
 
 	rlskip := cctx.String("bsky-social-rate-limit-skip")
 	ix.ApplyPDSClientSettings = func(c *xrpc.Client) {
+		if c.Client == nil {
+			c.Client = util.RobustHTTPClient()
+		}
 		if strings.HasSuffix(c.Host, ".bsky.network") {
-			if c.Client == nil {
-				c.Client = util.RobustHTTPClient()
-			}
 			c.Client.Timeout = time.Minute * 30
 			if rlskip != "" {
 				c.Headers = map[string]string{
@@ -359,9 +359,6 @@ func runBigsky(cctx *cli.Context) error {
 				}
 			}
 		} else {
-			if c.Client == nil {
-				c.Client = util.RobustHTTPClient()
-			}
 			// Generic PDS timeout
 			c.Client.Timeout = time.Minute * 1
 		}
