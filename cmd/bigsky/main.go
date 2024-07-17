@@ -359,6 +359,9 @@ func runBigsky(cctx *cli.Context) error {
 				}
 			}
 		} else {
+			if c.Client == nil {
+				c.Client = util.RobustHTTPClient()
+			}
 			// Generic PDS timeout
 			c.Client.Timeout = time.Minute * 1
 		}
