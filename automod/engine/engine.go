@@ -95,6 +95,10 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syn
 		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("failed to persist actions for identity event: %w", err)
 	}
+	if err := eng.persistOzoneAccountEvent(&ac, typ); err != nil {
+		eventErrorCount.WithLabelValues("identity").Inc()
+		return fmt.Errorf("failed to persist ozone sync for identity event: %w", err)
+	}
 	if err := eng.persistCounters(ctx, ac.effects); err != nil {
 		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("failed to persist counters for identity event: %w", err)
