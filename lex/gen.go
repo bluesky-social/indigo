@@ -25,6 +25,7 @@ const (
 )
 
 type Schema struct {
+	path   string
 	prefix string
 
 	Lexicon int                    `json:"lexicon"`
@@ -50,9 +51,9 @@ type InputType struct {
 }
 
 type TypeSchema struct {
-	prefix    string
-	id        string
-	defName   string
+	prefix    string // prefix of a major package being processed, e.g. com.atproto
+	id        string // parent Schema.ID
+	defName   string // parent Schema.Defs[defName] points to this *TypeSchema
 	defMap    map[string]*ExtDef
 	needsCbor bool
 	needsType bool
@@ -149,7 +150,6 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 		if ts.Type == "ref" {
 			refname := ts.Ref
 			if strings.HasPrefix(refname, "#") {
-				fmt.Println("Foo")
 				refname = s.ID + ts.Ref
 			}
 
@@ -222,11 +222,14 @@ func ReadSchema(f string) (*Schema, error) {
 	if err := json.NewDecoder(fi).Decode(&s); err != nil {
 		return nil, err
 	}
+	s.path = f
 
 	return &s, nil
 }
 
-func BuildExtDefMap(ss []*Schema, prefixes []string) map[string]*ExtDef {
+// Build total map of all types defined inside schemas.
+// Return map from fully qualified type name to its *TypeSchema
+func BuildExtDefMap(ss []*Schema) map[string]*ExtDef {
 	out := make(map[string]*ExtDef)
 	for _, s := range ss {
 		for k, d := range s.Defs {
@@ -235,9 +238,9 @@ func BuildExtDefMap(ss []*Schema, prefixes []string) map[string]*ExtDef {
 			d.defName = k
 
 			var pref string
-			for _, p := range prefixes {
-				if strings.HasPrefix(s.ID, p) {
-					pref = p
+			for _, pkg := range Packages {
+				if strings.HasPrefix(s.ID, pkg.Prefix) {
+					pref = pkg.Prefix
 					break
 				}
 			}
@@ -300,7 +303,7 @@ func printerf(w io.Writer) func(format string, args ...any) {
 	}
 }
 
-func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *Schema, defmap map[string]*ExtDef, imports map[string]string) error {
+func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *Schema, defmap map[string]*ExtDef) error {
 	buf := new(bytes.Buffer)
 	pf := printerf(buf)
 
@@ -324,7 +327,7 @@ func GenCodeForSchema(pkg string, prefix string, fname string, reqcode bool, s *
 	pf("\tcbg \"github.com/whyrusleeping/cbor-gen\"\n")
 	pf("\t\"github.com/bluesky-social/indigo/xrpc\"\n")
 	pf("\t\"github.com/bluesky-social/indigo/lex/util\"\n")
-	for k, v := range imports {
+	for k, v := range prefixToGoImport {
 		if k != prefix {
 			pf("\t%s %q\n", importNameForPrefix(k), v)
 		}
@@ -1468,5 +1471,53 @@ func (ts *TypeSchema) writeCborUnmarshalerEnum(name string, w io.Writer) error {
 	pf("\t}\n")
 	pf("}\n\n")
 
+	return nil
+}
+
+type Package struct {
+	GoPackage string
+	Prefix    string
+	Outdir    string
+}
+
+var Packages []Package = []Package{
+	Package{"bsky", "app.bsky", "api/bsky"},
+	Package{"atproto", "com.atproto", "api/atproto"},
+	Package{"chat", "chat.bsky", "api/chat"},
+	Package{"ozone", "tools.ozone", "api/ozone"},
+}
+
+var prefixToGoImport map[string]string
+
+func init() {
+	prefixToGoImport = map[string]string{
+		"app.bsky":    "github.com/bluesky-social/indigo/api/bsky",
+		"chat.bsky":   "github.com/bluesky-social/indigo/api/chat",
+		"com.atproto": "github.com/bluesky-social/indigo/api/atproto",
+		"tools.ozone": "github.com/bluesky-social/indigo/api/ozone",
+	}
+}
+
+func Run(schemas []*Schema) error {
+	defmap := BuildExtDefMap(schemas)
+
+	for _, pkg := range Packages {
+		prefix := pkg.Prefix
+		FixRecordReferences(schemas, defmap, prefix)
+	}
+
+	for _, pkg := range Packages {
+		for _, s := range schemas {
+			if !strings.HasPrefix(s.ID, pkg.Prefix) {
+				continue
+			}
+
+			fname := filepath.Join(pkg.Outdir, s.Name()+".go")
+
+			if err := GenCodeForSchema(pkg.GoPackage, pkg.Prefix, fname, true, s, defmap); err != nil {
+				return fmt.Errorf("failed to process schema %q: %w", s.path, err)
+			}
+		}
+	}
 	return nil
 }
