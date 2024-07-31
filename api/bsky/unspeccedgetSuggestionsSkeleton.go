@@ -18,14 +18,16 @@ type UnspeccedGetSuggestionsSkeleton_Output struct {
 
 // UnspeccedGetSuggestionsSkeleton calls the XRPC method "app.bsky.unspecced.getSuggestionsSkeleton".
 //
+// relativeToDid: DID of the account to get suggestions relative to. If not provided, suggestions will be based on the viewer.
 // viewer: DID of the account making the request (not included for public/unauthenticated queries). Used to boost followed accounts in ranking.
-func UnspeccedGetSuggestionsSkeleton(ctx context.Context, c *xrpc.Client, cursor string, limit int64, viewer string) (*UnspeccedGetSuggestionsSkeleton_Output, error) {
+func UnspeccedGetSuggestionsSkeleton(ctx context.Context, c *xrpc.Client, cursor string, limit int64, relativeToDid string, viewer string) (*UnspeccedGetSuggestionsSkeleton_Output, error) {
 	var out UnspeccedGetSuggestionsSkeleton_Output
 
 	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
-		"viewer": viewer,
+		"cursor":        cursor,
+		"limit":         limit,
+		"relativeToDid": relativeToDid,
+		"viewer":        viewer,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.unspecced.getSuggestionsSkeleton", params, nil, &out); err != nil {
 		return nil, err

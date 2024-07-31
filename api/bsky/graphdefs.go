@@ -94,7 +94,10 @@ type GraphDefs_StarterPackView struct {
 }
 
 // GraphDefs_StarterPackViewBasic is a "starterPackViewBasic" in the app.bsky.graph.defs schema.
+//
+// RECORDTYPE: GraphDefs_StarterPackViewBasic
 type GraphDefs_StarterPackViewBasic struct {
+	LexiconTypeID      string                             `json:"$type,const=app.bsky.graph.defs#starterPackViewBasic" cborgen:"$type,const=app.bsky.graph.defs#starterPackViewBasic"`
 	Cid                string                             `json:"cid" cborgen:"cid"`
 	Creator            *ActorDefs_ProfileViewBasic        `json:"creator" cborgen:"creator"`
 	IndexedAt          string                             `json:"indexedAt" cborgen:"indexedAt"`
