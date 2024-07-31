@@ -112,6 +112,7 @@ type BGSConfig struct {
 	DefaultRepoLimit  int64
 	ConcurrencyPerPDS int64
 	MaxQueuePerPDS    int64
+	InitialNewPDSPerDayLimit int64
 }
 
 func DefaultBGSConfig() *BGSConfig {
@@ -121,6 +122,7 @@ func DefaultBGSConfig() *BGSConfig {
 		DefaultRepoLimit:  100,
 		ConcurrencyPerPDS: 100,
 		MaxQueuePerPDS:    1_000,
+	        InitialNewPDSPerDayLimit: 10,
 	}
 }
 
@@ -157,6 +159,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	slOpts.DefaultRepoLimit = config.DefaultRepoLimit
 	slOpts.ConcurrencyPerPDS = config.ConcurrencyPerPDS
 	slOpts.MaxQueuePerPDS = config.MaxQueuePerPDS
+	slOpts.DefaultNewPDSPerDayLimit = config.InitialNewPDSPerDayLimit
 	s, err := NewSlurper(db, bgs.handleFedEvent, slOpts)
 	if err != nil {
 		return nil, err

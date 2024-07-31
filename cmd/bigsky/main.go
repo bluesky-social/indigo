@@ -183,6 +183,12 @@ func run(args []string) error {
 			EnvVars: []string{"RELAY_MAX_QUEUE_PER_PDS"},
 			Value:   1_000,
 		},
+		&cli.Int64Flag{
+			Name:    "newpds-perday-limit",
+			EnvVars: []string{"RELAY_NEWPDS_PERDAY_LIMIT"},
+			Value:   10,
+			Usage:   "initial value for NewPDSPerDayLimit",
+		},
 	}
 
 	app.Action = runBigsky
@@ -398,6 +404,7 @@ func runBigsky(cctx *cli.Context) error {
 	bgsConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
 	bgsConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
 	bgsConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
+	bgsConfig.InitialNewPDSPerDayLimit = cctx.Int64("newpds-perday-limit")
 	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, rf, hr, bgsConfig)
 	if err != nil {
 		return err
