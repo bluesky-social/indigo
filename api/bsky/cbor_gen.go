@@ -6838,12 +6838,22 @@ func (t *LabelerDefs_LabelerPolicies) UnmarshalCBOR(r io.Reader) (err error) {
 					_ = err
 
 					{
-						sval, err := cbg.ReadStringWithMax(cr, 1000000)
+						b, err := cr.ReadByte()
 						if err != nil {
 							return err
 						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
 
-						t.LabelValues[i] = &sval
+							sval, err := cbg.ReadStringWithMax(cr, 1000000)
+							if err != nil {
+								return err
+							}
+
+							t.LabelValues[i] = (*string)(&sval)
+						}
 					}
 
 				}
