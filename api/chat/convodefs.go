@@ -212,10 +212,13 @@ func (t *ConvoDefs_MessageInput_Embed) UnmarshalJSON(b []byte) error {
 }
 
 // ConvoDefs_MessageRef is a "messageRef" in the chat.bsky.convo.defs schema.
+//
+// RECORDTYPE: ConvoDefs_MessageRef
 type ConvoDefs_MessageRef struct {
-	ConvoId   string `json:"convoId" cborgen:"convoId"`
-	Did       string `json:"did" cborgen:"did"`
-	MessageId string `json:"messageId" cborgen:"messageId"`
+	LexiconTypeID string `json:"$type,const=chat.bsky.convo.defs#messageRef" cborgen:"$type,const=chat.bsky.convo.defs#messageRef"`
+	ConvoId       string `json:"convoId" cborgen:"convoId"`
+	Did           string `json:"did" cborgen:"did"`
+	MessageId     string `json:"messageId" cborgen:"messageId"`
 }
 
 // ConvoDefs_MessageView is a "messageView" in the chat.bsky.convo.defs schema.

@@ -16,11 +16,12 @@ type NotificationGetUnreadCount_Output struct {
 }
 
 // NotificationGetUnreadCount calls the XRPC method "app.bsky.notification.getUnreadCount".
-func NotificationGetUnreadCount(ctx context.Context, c *xrpc.Client, seenAt string) (*NotificationGetUnreadCount_Output, error) {
+func NotificationGetUnreadCount(ctx context.Context, c *xrpc.Client, priority bool, seenAt string) (*NotificationGetUnreadCount_Output, error) {
 	var out NotificationGetUnreadCount_Output
 
 	params := map[string]interface{}{
-		"seenAt": seenAt,
+		"priority": priority,
+		"seenAt":   seenAt,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.notification.getUnreadCount", params, nil, &out); err != nil {
 		return nil, err

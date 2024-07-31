@@ -118,12 +118,13 @@ func (t *EmbedRecord_ViewRecord_Embeds_Elem) UnmarshalJSON(b []byte) error {
 }
 
 type EmbedRecord_View_Record struct {
-	EmbedRecord_ViewRecord   *EmbedRecord_ViewRecord
-	EmbedRecord_ViewNotFound *EmbedRecord_ViewNotFound
-	EmbedRecord_ViewBlocked  *EmbedRecord_ViewBlocked
-	FeedDefs_GeneratorView   *FeedDefs_GeneratorView
-	GraphDefs_ListView       *GraphDefs_ListView
-	LabelerDefs_LabelerView  *LabelerDefs_LabelerView
+	EmbedRecord_ViewRecord         *EmbedRecord_ViewRecord
+	EmbedRecord_ViewNotFound       *EmbedRecord_ViewNotFound
+	EmbedRecord_ViewBlocked        *EmbedRecord_ViewBlocked
+	FeedDefs_GeneratorView         *FeedDefs_GeneratorView
+	GraphDefs_ListView             *GraphDefs_ListView
+	LabelerDefs_LabelerView        *LabelerDefs_LabelerView
+	GraphDefs_StarterPackViewBasic *GraphDefs_StarterPackViewBasic
 }
 
 func (t *EmbedRecord_View_Record) MarshalJSON() ([]byte, error) {
@@ -150,6 +151,10 @@ func (t *EmbedRecord_View_Record) MarshalJSON() ([]byte, error) {
 	if t.LabelerDefs_LabelerView != nil {
 		t.LabelerDefs_LabelerView.LexiconTypeID = "app.bsky.labeler.defs#labelerView"
 		return json.Marshal(t.LabelerDefs_LabelerView)
+	}
+	if t.GraphDefs_StarterPackViewBasic != nil {
+		t.GraphDefs_StarterPackViewBasic.LexiconTypeID = "app.bsky.graph.defs#starterPackViewBasic"
+		return json.Marshal(t.GraphDefs_StarterPackViewBasic)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -178,6 +183,9 @@ func (t *EmbedRecord_View_Record) UnmarshalJSON(b []byte) error {
 	case "app.bsky.labeler.defs#labelerView":
 		t.LabelerDefs_LabelerView = new(LabelerDefs_LabelerView)
 		return json.Unmarshal(b, t.LabelerDefs_LabelerView)
+	case "app.bsky.graph.defs#starterPackViewBasic":
+		t.GraphDefs_StarterPackViewBasic = new(GraphDefs_StarterPackViewBasic)
+		return json.Unmarshal(b, t.GraphDefs_StarterPackViewBasic)
 
 	default:
 		return nil
