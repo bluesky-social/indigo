@@ -52,7 +52,7 @@ require (
 	github.com/samber/slog-echo v1.8.0
 	github.com/stretchr/testify v1.9.0
 	github.com/urfave/cli/v2 v2.25.7
-	github.com/whyrusleeping/cbor-gen v0.1.1-0.20240311221002-68b9f235c302
+	github.com/whyrusleeping/cbor-gen v0.1.3-0.20240731173018-74d74643234c
 	github.com/whyrusleeping/go-did v0.0.0-20230824162731-404d1707d5d6
 	gitlab.com/yawning/secp256k1-voi v0.0.0-20230925100816-f2616030848b
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.1
