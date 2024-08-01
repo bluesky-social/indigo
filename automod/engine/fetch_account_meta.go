@@ -15,7 +15,7 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-var NewAccountRetryDuration = 3 * 1000 * time.Millisecond
+var newAccountRetryDuration = 3 * 1000 * time.Millisecond
 
 // Helper to hydrate metadata about an account from several sources: PDS (if access), mod service (if access), public identity resolution
 func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (*AccountMeta, error) {
@@ -64,12 +64,12 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 	// most common cause of this is a race between automod and ozone/appview for new accounts. just sleep a couple seconds and retry!
 	var xrpcError *xrpc.Error
 	if err != nil && errors.As(err, &xrpcError) && (xrpcError.StatusCode == 400 || xrpcError.StatusCode == 404) {
-		logger.Info("account profile lookup initially failed, will retry", "err", err, "sleepDuration", NewAccountRetryDuration)
-		time.Sleep(NewAccountRetryDuration)
+		logger.Info("account profile lookup initially failed (from bsky appview), will retry", "err", err, "sleepDuration", NewAccountRetryDuration)
+		time.Sleep(newAccountRetryDuration)
 		pv, err = appbsky.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
 	}
 	if err != nil {
-		logger.Warn("account profile lookup failed", "err", err)
+		logger.Warn("account profile lookup failed (from bsky appviewk)", "err", err)
 		return &am, nil
 	}
 
@@ -164,6 +164,10 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 	// copy private indexedAt account metadata to createdAt if there wasn't a createdAt
 	if am.CreatedAt == nil && am.Private != nil {
 		am.CreatedAt = &am.Private.IndexedAt
+	}
+
+	if (e.AdminClient != nil || e.OzoneClient != nil) && am.CreatedAt == nil {
+		logger.Warn("account missing createdAt time from both public and private sources")
 	}
 
 	val, err := json.Marshal(&am)
