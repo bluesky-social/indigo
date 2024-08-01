@@ -14,12 +14,7 @@ var _ automod.PostRuleFunc = HarassmentTargetInteractionPostRule
 
 // looks for new accounts, which interact with frequently-harassed accounts, and report them for review
 func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if c.Account.Private == nil || c.Account.Identity == nil {
-		return nil
-	}
-	// TODO: helper for account age; and use public info for this (not private)
-	age := time.Since(c.Account.Private.IndexedAt)
-	if age > 7*24*time.Hour {
+	if c.Account.Identity == nil || !AccountIsYoungerThan(&c.AccountContext, 7*24*time.Hour) {
 		return nil
 	}
 
@@ -95,12 +90,7 @@ var _ automod.PostRuleFunc = HarassmentTrivialPostRule
 
 // looks for new accounts, which frequently post the same type of content
 func HarassmentTrivialPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if c.Account.Private == nil || c.Account.Identity == nil {
-		return nil
-	}
-	// TODO: helper for account age; and use public info for this (not private)
-	age := time.Since(c.Account.Private.IndexedAt)
-	if age > 7*24*time.Hour {
+	if c.Account.Identity == nil || !AccountIsYoungerThan(&c.AccountContext, 7*24*time.Hour) {
 		return nil
 	}
 
