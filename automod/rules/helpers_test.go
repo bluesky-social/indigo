@@ -82,27 +82,36 @@ func TestAccountIsYoungerThan(t *testing.T) {
 		Account: am,
 	}
 	assert.False(AccountIsYoungerThan(&ac, time.Hour))
+	assert.False(AccountIsOlderThan(&ac, time.Hour))
 
 	ac.Account.CreatedAt = &now
 	assert.True(AccountIsYoungerThan(&ac, time.Hour))
+	assert.False(AccountIsOlderThan(&ac, time.Hour))
 
 	yesterday := time.Now().Add(-1 * time.Hour * 24)
 	ac.Account.CreatedAt = &yesterday
 	assert.False(AccountIsYoungerThan(&ac, time.Hour))
+	assert.True(AccountIsOlderThan(&ac, time.Hour))
 
 	old := time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC)
 	ac.Account.CreatedAt = &old
 	assert.False(AccountIsYoungerThan(&ac, time.Hour))
 	assert.False(AccountIsYoungerThan(&ac, time.Hour*24*365*100))
+	assert.False(AccountIsOlderThan(&ac, time.Hour))
+	assert.False(AccountIsOlderThan(&ac, time.Hour*24*365*100))
 
 	future := time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC)
 	ac.Account.CreatedAt = &future
 	assert.False(AccountIsYoungerThan(&ac, time.Hour))
+	assert.False(AccountIsOlderThan(&ac, time.Hour))
 
 	ac.Account.CreatedAt = nil
 	ac.Account.Private = &automod.AccountPrivate{
 		Email:     "account@example.com",
-		IndexedAt: time.Now(),
+		IndexedAt: yesterday,
 	}
-	assert.True(AccountIsYoungerThan(&ac, time.Hour))
+	assert.True(AccountIsYoungerThan(&ac, 48*time.Hour))
+	assert.False(AccountIsYoungerThan(&ac, time.Hour))
+	assert.True(AccountIsOlderThan(&ac, time.Hour))
+	assert.False(AccountIsOlderThan(&ac, 48*time.Hour))
 }
