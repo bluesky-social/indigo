@@ -7,6 +7,8 @@ import (
 
 type Engine = engine.Engine
 type AccountMeta = engine.AccountMeta
+type ProfileSummary = engine.ProfileSummary
+type AccountPrivate = engine.AccountPrivate
 type RuleSet = engine.RuleSet
 
 type Notifier = engine.Notifier
