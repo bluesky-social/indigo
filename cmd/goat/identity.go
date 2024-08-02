@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -35,6 +36,12 @@ func runResolve(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(acc)
+
+	b, err := json.MarshalIndent(acc, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(string(b))
 	return nil
 }
