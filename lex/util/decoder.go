@@ -158,3 +158,12 @@ func TestTypesHaveCBORGen(t *testing.T) {
 		}
 	}
 }
+
+// returns a copy of map from RegisterType
+func AllLexTypes() map[string]reflect.Type {
+	out := make(map[string]reflect.Type, len(lexTypesMap))
+	for k, v := range lexTypesMap {
+		out[k] = v
+	}
+	return out
+}
