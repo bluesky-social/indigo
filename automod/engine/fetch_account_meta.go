@@ -69,7 +69,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 		pv, err = appbsky.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
 	}
 	if err != nil {
-		logger.Warn("account profile lookup failed (from bsky appviewk)", "err", err)
+		logger.Warn("account profile lookup failed (from bsky appview)", "err", err)
 		return &am, nil
 	}
 
