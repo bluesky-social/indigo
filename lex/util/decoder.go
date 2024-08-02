@@ -17,7 +17,7 @@ func init() {
 	RegisterType("blob", &LexBlob{})
 }
 
-func RegisterType(id string, val cbg.CBORMarshaler) {
+func RegisterType(id string, val any) {
 	t := reflect.TypeOf(val)
 
 	if t.Kind() == reflect.Pointer {
