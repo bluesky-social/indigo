@@ -1,10 +1,7 @@
 package util
 
 import (
-	"reflect"
 	"testing"
-
-	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func TestLTDMarshal(t *testing.T) {
@@ -38,19 +35,5 @@ func TestNewFromType(t *testing.T) {
 	_, err = NewFromType("bogus.type")
 	if err == nil {
 		t.Fatal("expect bogus generation to fail")
-	}
-}
-
-func TestTypesHaveCBORGen(t *testing.T) {
-	for name, rt := range lexTypesMap {
-		v := reflect.New(rt).Interface()
-		_, typeOk := v.(cbg.CBORMarshaler)
-		if !typeOk {
-			t.Errorf("%s %T is not CBORMarshaler", name, v)
-		}
-		_, typeOk = v.(cbg.CBORUnmarshaler)
-		if !typeOk {
-			t.Errorf("%s %T is not CBORUnmarshaler", name, v)
-		}
 	}
 }
