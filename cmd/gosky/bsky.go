@@ -28,6 +28,7 @@ var bskyCmd = &cli.Command{
 		bskyDeletePostCmd,
 		bskyActorGetSuggestionsCmd,
 		bskyNotificationsCmd,
+		bskyGetProfileCmd,
 	},
 }
 
@@ -347,6 +348,38 @@ var bskyNotificationsCmd = &cli.Command{
 
 			fmt.Println(string(b))
 		}
+
+		return nil
+	},
+}
+
+var bskyGetProfileCmd = &cli.Command{
+	Name:  "get-profile",
+	Usage: "print of profile for account",
+	Action: func(cctx *cli.Context) error {
+		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
+		if err != nil {
+			return err
+		}
+
+		ctx := context.TODO()
+
+		author := cctx.Args().First()
+		if author == "" {
+			author = xrpcc.Auth.Did
+		}
+
+		resp, err := appbsky.ActorGetProfile(ctx, xrpcc, author)
+		if err != nil {
+			return err
+		}
+
+		r, err := json.Marshal(resp)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(string(r))
 
 		return nil
 	},
