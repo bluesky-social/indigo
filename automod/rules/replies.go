@@ -52,11 +52,8 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 	if utf8.RuneCountInString(post.Text) <= 10 {
 		return nil
 	}
-	if c.Account.Private != nil {
-		age := time.Since(c.Account.Private.IndexedAt)
-		if age > 2*7*24*time.Hour {
-			return nil
-		}
+	if AccountIsOlderThan(&c.AccountContext, 14*24*time.Hour) {
+		return nil
 	}
 
 	// don't count if there is a follow-back relationship
@@ -92,11 +89,8 @@ func YoungAccountDistinctRepliesRule(c *automod.RecordContext, post *appbsky.Fee
 	if utf8.RuneCountInString(post.Text) <= 10 {
 		return nil
 	}
-	if c.Account.Private != nil {
-		age := time.Since(c.Account.Private.IndexedAt)
-		if age > 2*7*24*time.Hour {
-			return nil
-		}
+	if AccountIsOlderThan(&c.AccountContext, 14*24*time.Hour) {
+		return nil
 	}
 
 	// don't count if there is a follow-back relationship

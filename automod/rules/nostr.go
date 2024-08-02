@@ -13,17 +13,8 @@ var _ automod.PostRuleFunc = NostrSpamPostRule
 
 // looks for new accounts, which frequently post the same type of content
 func NostrSpamPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if c.Account.Identity == nil {
+	if c.Account.Identity == nil || !AccountIsYoungerThan(&c.AccountContext, 2*24*time.Hour) {
 		return nil
-	}
-
-	// often don't have private metadata for these accounts right after creation
-	if c.Account.Private != nil {
-		// TODO: helper for account age; and use public info for this (not private)
-		age := time.Since(c.Account.Private.IndexedAt)
-		if age > 2*24*time.Hour {
-			return nil
-		}
 	}
 
 	// is this a bridged nostr account? if not, bail out

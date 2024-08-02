@@ -3,14 +3,19 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/xrpc"
 )
+
+var newAccountRetryDuration = 3 * 1000 * time.Millisecond
 
 // Helper to hydrate metadata about an account from several sources: PDS (if access), mod service (if access), public identity resolution
 func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (*AccountMeta, error) {
@@ -56,8 +61,15 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 
 	// fetch account metadata from AppView
 	pv, err := appbsky.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
+	// most common cause of this is a race between automod and ozone/appview for new accounts. just sleep a couple seconds and retry!
+	var xrpcError *xrpc.Error
+	if err != nil && errors.As(err, &xrpcError) && (xrpcError.StatusCode == 400 || xrpcError.StatusCode == 404) {
+		logger.Info("account profile lookup initially failed (from bsky appview), will retry", "err", err, "sleepDuration", newAccountRetryDuration)
+		time.Sleep(newAccountRetryDuration)
+		pv, err = appbsky.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
+	}
 	if err != nil {
-		logger.Warn("account profile lookup failed", "err", err)
+		logger.Warn("account profile lookup failed (from bsky appview)", "err", err)
 		return &am, nil
 	}
 
@@ -110,11 +122,8 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 			if rd.EmailConfirmedAt != nil && *rd.EmailConfirmedAt != "" {
 				ap.EmailConfirmed = true
 			}
-			ts, err := syntax.ParseDatetimeTime(rd.IndexedAt)
-			if err != nil {
-				return nil, fmt.Errorf("bad account IndexedAt: %w", err)
-			}
-			ap.IndexedAt = ts
+			// TODO: ozone doesn't really return good account "created at", just just leave that field nil
+			ap.IndexedAt = nil
 			if rd.DeactivatedAt != nil {
 				am.Deactivated = true
 			}
@@ -126,8 +135,9 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 			}
 			am.Private = &ap
 		}
-	} else if e.AdminClient != nil {
-		// fall back to PDS/entryway fetching; less metadata available
+	}
+	// fall back to PDS/entryway fetching; less metadata available
+	if am.Private == nil && e.AdminClient != nil {
 		pv, err := comatproto.AdminGetAccountInfo(ctx, e.AdminClient, ident.DID.String())
 		if err != nil {
 			logger.Warn("failed to fetch private account metadata from PDS/entryway", "err", err)
@@ -141,11 +151,18 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 			}
 			ts, err := syntax.ParseDatetimeTime(pv.IndexedAt)
 			if err != nil {
-				return nil, fmt.Errorf("bad account IndexedAt: %w", err)
+				return nil, fmt.Errorf("bad entryway account IndexedAt: %w", err)
 			}
-			ap.IndexedAt = ts
+			ap.IndexedAt = &ts
 			am.Private = &ap
+			if am.CreatedAt == nil {
+				am.CreatedAt = &ts
+			}
 		}
+	}
+
+	if am.CreatedAt == nil {
+		logger.Warn("account metadata missing CreatedAt time")
 	}
 
 	val, err := json.Marshal(&am)

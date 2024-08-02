@@ -17,12 +17,7 @@ var _ automod.PostRuleFunc = AggressivePromotionRule
 //
 // this rule depends on ReplyCountPostRule() to set counts
 func AggressivePromotionRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if c.Account.Private == nil || c.Account.Identity == nil {
-		return nil
-	}
-	// TODO: helper for account age
-	age := time.Since(c.Account.Private.IndexedAt)
-	if age > 7*24*time.Hour {
+	if c.Account.Identity == nil || !AccountIsYoungerThan(&c.AccountContext, 7*24*time.Hour) {
 		return nil
 	}
 	if post.Reply == nil || IsSelfThread(c, post) {

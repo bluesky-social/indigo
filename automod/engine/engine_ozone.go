@@ -110,7 +110,7 @@ func NewOzoneEventContext(ctx context.Context, eng *Engine, eventView *toolsozon
 		return nil, err
 	}
 	if creatorIdent == nil {
-		return nil, fmt.Errorf("identity not found for DID: %s", evt.CreatedBy)
+		return nil, fmt.Errorf("identity not found for creator DID: %s", evt.CreatedBy)
 	}
 	creatorMeta, err := eng.GetAccountMeta(ctx, creatorIdent)
 	if err != nil {
@@ -122,7 +122,7 @@ func NewOzoneEventContext(ctx context.Context, eng *Engine, eventView *toolsozon
 		return nil, err
 	}
 	if subjectIdent == nil {
-		return nil, fmt.Errorf("identity not found for DID: %s", evt.SubjectDID)
+		return nil, fmt.Errorf("identity not found for subject DID: %s", evt.SubjectDID)
 	}
 	accountMeta, err := eng.GetAccountMeta(ctx, subjectIdent)
 	if err != nil {

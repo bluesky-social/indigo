@@ -11,16 +11,11 @@ import (
 
 // triggers on first identity event for an account (DID)
 func NewAccountRule(c *automod.AccountContext) error {
-	// need access to IndexedAt for this rule
-	if c.Account.Private == nil || c.Account.Identity == nil {
+	if c.Account.Identity == nil || !AccountIsYoungerThan(c, 4*time.Hour) {
 		return nil
 	}
 
 	did := c.Account.Identity.DID.String()
-	age := time.Since(c.Account.Private.IndexedAt)
-	if age > 4*time.Hour {
-		return nil
-	}
 	exists := c.GetCount("acct/exists", did, countstore.PeriodTotal)
 	if exists == 0 {
 		c.Logger.Info("new account")
