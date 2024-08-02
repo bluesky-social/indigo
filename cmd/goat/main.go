@@ -12,7 +12,7 @@ import (
 
 func main() {
 	if err := run(os.Args); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v", err)
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(-1)
 	}
 }
@@ -54,7 +54,7 @@ func run(args []string) error {
 	app.Commands = []*cli.Command{
 		cmdGet,
 		cmdResolve,
-		//cmdAccount,
+		cmdPLC,
 	}
 	return app.Run(args)
 }

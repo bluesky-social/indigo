@@ -31,6 +31,9 @@ func fetchRecord(ctx context.Context, ident identity.Identity, aturi syntax.ATUR
 	}
 
 	body, err := data.UnmarshalJSON(respBytes)
+	if err != nil {
+		return nil, err
+	}
 	record, ok := body["value"].(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("fetched record was not an object")
