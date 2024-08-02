@@ -108,7 +108,7 @@ func TestAccountIsYoungerThan(t *testing.T) {
 	ac.Account.CreatedAt = nil
 	ac.Account.Private = &automod.AccountPrivate{
 		Email:     "account@example.com",
-		IndexedAt: yesterday,
+		IndexedAt: &yesterday,
 	}
 	assert.True(AccountIsYoungerThan(&ac, 48*time.Hour))
 	assert.False(AccountIsYoungerThan(&ac, time.Hour))

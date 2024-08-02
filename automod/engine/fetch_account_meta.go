@@ -122,11 +122,8 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 			if rd.EmailConfirmedAt != nil && *rd.EmailConfirmedAt != "" {
 				ap.EmailConfirmed = true
 			}
-			ts, err := syntax.ParseDatetimeTime(rd.IndexedAt)
-			if err != nil {
-				return nil, fmt.Errorf("bad account IndexedAt: %w", err)
-			}
-			ap.IndexedAt = ts
+			// TODO: ozone doesn't really return good account "created at", just just leave that field nil
+			ap.IndexedAt = nil
 			if rd.DeactivatedAt != nil {
 				am.Deactivated = true
 			}
@@ -154,20 +151,18 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 			}
 			ts, err := syntax.ParseDatetimeTime(pv.IndexedAt)
 			if err != nil {
-				return nil, fmt.Errorf("bad account IndexedAt: %w", err)
+				return nil, fmt.Errorf("bad entryway account IndexedAt: %w", err)
 			}
-			ap.IndexedAt = ts
+			ap.IndexedAt = &ts
 			am.Private = &ap
+			if am.CreatedAt == nil {
+				am.CreatedAt = &ts
+			}
 		}
 	}
 
-	// copy private indexedAt account metadata to createdAt if there wasn't a createdAt
-	if am.CreatedAt == nil && am.Private != nil {
-		am.CreatedAt = &am.Private.IndexedAt
-	}
-
-	if (e.AdminClient != nil || e.OzoneClient != nil) && am.CreatedAt == nil {
-		logger.Warn("account missing createdAt time from both public and private sources")
+	if am.CreatedAt == nil {
+		logger.Warn("account metadata missing CreatedAt time")
 	}
 
 	val, err := json.Marshal(&am)

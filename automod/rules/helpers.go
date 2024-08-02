@@ -263,24 +263,23 @@ func plausibleAccountCreation(when *time.Time) bool {
 
 // checks if account was created recently, based on either public or private account metadata. if metadata isn't available at all, or seems bogus, returns 'false'
 func AccountIsYoungerThan(c *automod.AccountContext, age time.Duration) bool {
-	// trust private account metadata more
-	if c.Account.Private != nil && plausibleAccountCreation(&c.Account.Private.IndexedAt) {
-		return time.Since(c.Account.Private.IndexedAt) < age
-	}
+	// TODO: consider swapping priority order here (and below)
 	if c.Account.CreatedAt != nil && plausibleAccountCreation(c.Account.CreatedAt) {
 		return time.Since(*c.Account.CreatedAt) < age
+	}
+	if c.Account.Private != nil && plausibleAccountCreation(c.Account.Private.IndexedAt) {
+		return time.Since(*c.Account.Private.IndexedAt) < age
 	}
 	return false
 }
 
 // checks if account was *not* created recently, based on either public or private account metadata. if metadata isn't available at all, or seems bogus, returns 'false'
 func AccountIsOlderThan(c *automod.AccountContext, age time.Duration) bool {
-	// trust private account metadata more
-	if c.Account.Private != nil && plausibleAccountCreation(&c.Account.Private.IndexedAt) {
-		return time.Since(c.Account.Private.IndexedAt) >= age
-	}
 	if c.Account.CreatedAt != nil && plausibleAccountCreation(c.Account.CreatedAt) {
 		return time.Since(*c.Account.CreatedAt) >= age
+	}
+	if c.Account.Private != nil && plausibleAccountCreation(c.Account.Private.IndexedAt) {
+		return time.Since(*c.Account.Private.IndexedAt) >= age
 	}
 	return false
 }

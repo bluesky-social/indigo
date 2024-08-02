@@ -79,8 +79,8 @@ func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky
 
 		//c.AddRecordFlag("interaction-harassed-target")
 		var privCreatedAt *time.Time
-		if c.Account.Private != nil {
-			privCreatedAt = &c.Account.Private.IndexedAt
+		if c.Account.Private != nil && c.Account.Private.IndexedAt != nil {
+			privCreatedAt = c.Account.Private.IndexedAt
 		}
 		c.Logger.Warn("possible harassment", "targetDID", did, "author", c.Account.Identity.DID, "accountCreated", c.Account.CreatedAt, "privateAccountCreated", privCreatedAt)
 		c.ReportAccount(automod.ReportReasonOther, fmt.Sprintf("possible harassment of known target account: %s (also labeled; remove label if this isn't harassment)", did))
