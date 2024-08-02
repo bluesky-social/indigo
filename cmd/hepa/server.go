@@ -147,7 +147,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		}
 		counters = cnt
 
-		csh, err := cachestore.NewRedisCacheStore(config.RedisURL, 30*time.Minute)
+		csh, err := cachestore.NewRedisCacheStore(config.RedisURL, 6*time.Hour)
 		if err != nil {
 			return nil, fmt.Errorf("initializing redis cachestore: %v", err)
 		}
@@ -160,7 +160,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		flags = flg
 	} else {
 		counters = countstore.NewMemCountStore()
-		cache = cachestore.NewMemCacheStore(5_000, 30*time.Minute)
+		cache = cachestore.NewMemCacheStore(5_000, 1*time.Hour)
 		flags = flagstore.NewMemFlagStore()
 	}
 
