@@ -92,7 +92,7 @@ type FeedDefs_GeneratorViewerState struct {
 // FeedDefs_Interaction is a "interaction" in the app.bsky.feed.defs schema.
 type FeedDefs_Interaction struct {
 	Event *string `json:"event,omitempty" cborgen:"event,omitempty"`
-	// feedContext: Context on a feed item that was orginally supplied by the feed generator on getFeedSkeleton.
+	// feedContext: Context on a feed item that was originally supplied by the feed generator on getFeedSkeleton.
 	FeedContext *string `json:"feedContext,omitempty" cborgen:"feedContext,omitempty"`
 	Item        *string `json:"item,omitempty" cborgen:"item,omitempty"`
 }
