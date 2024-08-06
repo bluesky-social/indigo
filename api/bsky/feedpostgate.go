@@ -5,7 +5,13 @@ package bsky
 // schema: app.bsky.feed.postgate
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+
 	"github.com/bluesky-social/indigo/lex/util"
+	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
@@ -18,5 +24,139 @@ type FeedPostgate struct {
 	// detachedQuotes: List of detached quote post URIs.
 	DetachedQuotes []string `json:"detachedQuotes,omitempty" cborgen:"detachedQuotes,omitempty"`
 	// post: Reference (AT-URI) to the post record.
-	Post string `json:"post" cborgen:"post"`
+	Post           string                              `json:"post" cborgen:"post"`
+	QuotepostRules []*FeedPostgate_QuotepostRules_Elem `json:"quotepostRules,omitempty" cborgen:"quotepostRules,omitempty"`
+}
+
+// FeedPostgate_DisableRule is a "disableRule" in the app.bsky.feed.postgate schema.
+//
+// Disable quoteposts entirely.
+//
+// RECORDTYPE: FeedPostgate_DisableRule
+type FeedPostgate_DisableRule struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.feed.postgate#disableRule" cborgen:"$type,const=app.bsky.feed.postgate#disableRule"`
+}
+
+// FeedPostgate_FollowingRule is a "followingRule" in the app.bsky.feed.postgate schema.
+//
+// Allow quoteposts from actors you follow.
+//
+// RECORDTYPE: FeedPostgate_FollowingRule
+type FeedPostgate_FollowingRule struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.feed.postgate#followingRule" cborgen:"$type,const=app.bsky.feed.postgate#followingRule"`
+}
+
+// FeedPostgate_ListRule is a "listRule" in the app.bsky.feed.postgate schema.
+//
+// Allow quoteposts from actors on a list.
+//
+// RECORDTYPE: FeedPostgate_ListRule
+type FeedPostgate_ListRule struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.feed.postgate#listRule" cborgen:"$type,const=app.bsky.feed.postgate#listRule"`
+	List          string `json:"list" cborgen:"list"`
+}
+
+// FeedPostgate_MentionRule is a "mentionRule" in the app.bsky.feed.postgate schema.
+//
+// Allow quoteposts from actors mentioned in your post.
+//
+// RECORDTYPE: FeedPostgate_MentionRule
+type FeedPostgate_MentionRule struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.feed.postgate#mentionRule" cborgen:"$type,const=app.bsky.feed.postgate#mentionRule"`
+}
+
+type FeedPostgate_QuotepostRules_Elem struct {
+	FeedPostgate_DisableRule   *FeedPostgate_DisableRule
+	FeedPostgate_MentionRule   *FeedPostgate_MentionRule
+	FeedPostgate_FollowingRule *FeedPostgate_FollowingRule
+	FeedPostgate_ListRule      *FeedPostgate_ListRule
+}
+
+func (t *FeedPostgate_QuotepostRules_Elem) MarshalJSON() ([]byte, error) {
+	if t.FeedPostgate_DisableRule != nil {
+		t.FeedPostgate_DisableRule.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
+		return json.Marshal(t.FeedPostgate_DisableRule)
+	}
+	if t.FeedPostgate_MentionRule != nil {
+		t.FeedPostgate_MentionRule.LexiconTypeID = "app.bsky.feed.postgate#mentionRule"
+		return json.Marshal(t.FeedPostgate_MentionRule)
+	}
+	if t.FeedPostgate_FollowingRule != nil {
+		t.FeedPostgate_FollowingRule.LexiconTypeID = "app.bsky.feed.postgate#followingRule"
+		return json.Marshal(t.FeedPostgate_FollowingRule)
+	}
+	if t.FeedPostgate_ListRule != nil {
+		t.FeedPostgate_ListRule.LexiconTypeID = "app.bsky.feed.postgate#listRule"
+		return json.Marshal(t.FeedPostgate_ListRule)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *FeedPostgate_QuotepostRules_Elem) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "app.bsky.feed.postgate#disableRule":
+		t.FeedPostgate_DisableRule = new(FeedPostgate_DisableRule)
+		return json.Unmarshal(b, t.FeedPostgate_DisableRule)
+	case "app.bsky.feed.postgate#mentionRule":
+		t.FeedPostgate_MentionRule = new(FeedPostgate_MentionRule)
+		return json.Unmarshal(b, t.FeedPostgate_MentionRule)
+	case "app.bsky.feed.postgate#followingRule":
+		t.FeedPostgate_FollowingRule = new(FeedPostgate_FollowingRule)
+		return json.Unmarshal(b, t.FeedPostgate_FollowingRule)
+	case "app.bsky.feed.postgate#listRule":
+		t.FeedPostgate_ListRule = new(FeedPostgate_ListRule)
+		return json.Unmarshal(b, t.FeedPostgate_ListRule)
+
+	default:
+		return nil
+	}
+}
+
+func (t *FeedPostgate_QuotepostRules_Elem) MarshalCBOR(w io.Writer) error {
+
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if t.FeedPostgate_DisableRule != nil {
+		return t.FeedPostgate_DisableRule.MarshalCBOR(w)
+	}
+	if t.FeedPostgate_MentionRule != nil {
+		return t.FeedPostgate_MentionRule.MarshalCBOR(w)
+	}
+	if t.FeedPostgate_FollowingRule != nil {
+		return t.FeedPostgate_FollowingRule.MarshalCBOR(w)
+	}
+	if t.FeedPostgate_ListRule != nil {
+		return t.FeedPostgate_ListRule.MarshalCBOR(w)
+	}
+	return fmt.Errorf("cannot cbor marshal empty enum")
+}
+func (t *FeedPostgate_QuotepostRules_Elem) UnmarshalCBOR(r io.Reader) error {
+	typ, b, err := util.CborTypeExtractReader(r)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "app.bsky.feed.postgate#disableRule":
+		t.FeedPostgate_DisableRule = new(FeedPostgate_DisableRule)
+		return t.FeedPostgate_DisableRule.UnmarshalCBOR(bytes.NewReader(b))
+	case "app.bsky.feed.postgate#mentionRule":
+		t.FeedPostgate_MentionRule = new(FeedPostgate_MentionRule)
+		return t.FeedPostgate_MentionRule.UnmarshalCBOR(bytes.NewReader(b))
+	case "app.bsky.feed.postgate#followingRule":
+		t.FeedPostgate_FollowingRule = new(FeedPostgate_FollowingRule)
+		return t.FeedPostgate_FollowingRule.UnmarshalCBOR(bytes.NewReader(b))
+	case "app.bsky.feed.postgate#listRule":
+		t.FeedPostgate_ListRule = new(FeedPostgate_ListRule)
+		return t.FeedPostgate_ListRule.UnmarshalCBOR(bytes.NewReader(b))
+
+	default:
+		return nil
+	}
 }
