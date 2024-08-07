@@ -117,10 +117,20 @@ func (t *EmbedRecord_ViewRecord_Embeds_Elem) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// EmbedRecord_ViewRemoved is a "viewRemoved" in the app.bsky.embed.record schema.
+//
+// RECORDTYPE: EmbedRecord_ViewRemoved
+type EmbedRecord_ViewRemoved struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.embed.record#viewRemoved" cborgen:"$type,const=app.bsky.embed.record#viewRemoved"`
+	Removed       bool   `json:"removed" cborgen:"removed"`
+	Uri           string `json:"uri" cborgen:"uri"`
+}
+
 type EmbedRecord_View_Record struct {
 	EmbedRecord_ViewRecord         *EmbedRecord_ViewRecord
 	EmbedRecord_ViewNotFound       *EmbedRecord_ViewNotFound
 	EmbedRecord_ViewBlocked        *EmbedRecord_ViewBlocked
+	EmbedRecord_ViewRemoved        *EmbedRecord_ViewRemoved
 	FeedDefs_GeneratorView         *FeedDefs_GeneratorView
 	GraphDefs_ListView             *GraphDefs_ListView
 	LabelerDefs_LabelerView        *LabelerDefs_LabelerView
@@ -139,6 +149,10 @@ func (t *EmbedRecord_View_Record) MarshalJSON() ([]byte, error) {
 	if t.EmbedRecord_ViewBlocked != nil {
 		t.EmbedRecord_ViewBlocked.LexiconTypeID = "app.bsky.embed.record#viewBlocked"
 		return json.Marshal(t.EmbedRecord_ViewBlocked)
+	}
+	if t.EmbedRecord_ViewRemoved != nil {
+		t.EmbedRecord_ViewRemoved.LexiconTypeID = "app.bsky.embed.record#viewRemoved"
+		return json.Marshal(t.EmbedRecord_ViewRemoved)
 	}
 	if t.FeedDefs_GeneratorView != nil {
 		t.FeedDefs_GeneratorView.LexiconTypeID = "app.bsky.feed.defs#generatorView"
@@ -174,6 +188,9 @@ func (t *EmbedRecord_View_Record) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.record#viewBlocked":
 		t.EmbedRecord_ViewBlocked = new(EmbedRecord_ViewBlocked)
 		return json.Unmarshal(b, t.EmbedRecord_ViewBlocked)
+	case "app.bsky.embed.record#viewRemoved":
+		t.EmbedRecord_ViewRemoved = new(EmbedRecord_ViewRemoved)
+		return json.Unmarshal(b, t.EmbedRecord_ViewRemoved)
 	case "app.bsky.feed.defs#generatorView":
 		t.FeedDefs_GeneratorView = new(FeedDefs_GeneratorView)
 		return json.Unmarshal(b, t.FeedDefs_GeneratorView)

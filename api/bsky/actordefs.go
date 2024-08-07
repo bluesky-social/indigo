@@ -112,6 +112,11 @@ type ActorDefs_LabelersPref struct {
 //
 // A word that the account owner has muted.
 type ActorDefs_MutedWord struct {
+	// actorTarget: Groups of users to apply the muted word to. If undefined, applies to all users.
+	ActorTarget *string `json:"actorTarget,omitempty" cborgen:"actorTarget,omitempty"`
+	// expiresAt: The date and time at which the muted word will expire and no longer be applied.
+	ExpiresAt *string `json:"expiresAt,omitempty" cborgen:"expiresAt,omitempty"`
+	Id        *string `json:"id,omitempty" cborgen:"id,omitempty"`
 	// targets: The intended targets of the muted word.
 	Targets []*string `json:"targets" cborgen:"targets"`
 	// value: The muted word itself.
