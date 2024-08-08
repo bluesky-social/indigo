@@ -25,7 +25,7 @@ build: ## Build all executables
 	go build ./cmd/fakermaker
 	go build ./cmd/hepa
 	go build ./cmd/supercollider
-	go build -o ./sonar-cli ./cmd/sonar 
+	go build -o ./sonar-cli ./cmd/sonar
 	go build ./cmd/palomar
 
 .PHONY: all
@@ -67,7 +67,7 @@ check: ## Compile everything, checking syntax (does not output binaries)
 
 .PHONY: lexgen
 lexgen: ## Run codegen tool for lexicons (lexicon JSON to Go packages)
-	go run ./cmd/lexgen/ $(LEXDIR)
+	go run ./cmd/lexgen/ --build-file cmd/lexgen/bsky.json $(LEXDIR)
 
 .PHONY: cborgen
 cborgen: ## Run codegen tool for CBOR serialization
@@ -87,8 +87,8 @@ run-dev-opensearch: .env ## Runs a local opensearch instance
 
 .PHONY: run-dev-relay
 run-dev-relay: .env ## Runs 'bigsky' Relay for local dev
-	GOLOG_LOG_LEVEL=info go run ./cmd/bigsky --admin-key localdev 
-# --crawl-insecure-ws 
+	GOLOG_LOG_LEVEL=info go run ./cmd/bigsky --admin-key localdev
+# --crawl-insecure-ws
 
 .PHONY: build-relay-image
 build-relay-image: ## Builds 'bigsky' Relay docker image
@@ -103,7 +103,7 @@ build-relay-ui: ## Build Relay dash web app
 .PHONY: run-relay-image
 run-relay-image:
 	docker run -p 2470:2470 bigsky /bigsky --admin-key localdev
-# --crawl-insecure-ws 
+# --crawl-insecure-ws
 
 .PHONY: run-dev-search
 run-dev-search: .env ## Runs search daemon for local dev
