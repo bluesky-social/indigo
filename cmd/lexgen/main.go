@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -79,6 +80,14 @@ func main() {
 			Name:  "package",
 			Value: "schemagen",
 		},
+		&cli.StringFlag{
+			Name:  "build",
+			Value: "",
+		},
+		&cli.StringFlag{
+			Name:  "build-file",
+			Value: "",
+		},
 	}
 	app.Action = func(cctx *cli.Context) error {
 		paths, err := expandArgs(cctx.Args().Slice())
@@ -100,13 +109,43 @@ func main() {
 			schemas = append(schemas, s)
 		}
 
+		buildLiteral := cctx.String("build")
+		buildPath := cctx.String("build-file")
+		var packages []lex.Package
+		if buildLiteral != "" {
+			if buildPath != "" {
+				return errors.New("must not set both --build and --build-file")
+			}
+			packages, err = lex.ParsePackages([]byte(buildLiteral))
+			if err != nil {
+				return fmt.Errorf("--build error, %w", err)
+			}
+			if len(packages) == 0 {
+				return errors.New("--build must specify at least one Package{}")
+			}
+		} else if buildPath != "" {
+			blob, err := os.ReadFile(buildPath)
+			if err != nil {
+				return fmt.Errorf("--build-file error, %w", err)
+			}
+			packages, err = lex.ParsePackages(blob)
+			if err != nil {
+				return fmt.Errorf("--build-file error, %w", err)
+			}
+			if len(packages) == 0 {
+				return errors.New("--build-file must specify at least one Package{}")
+			}
+		} else {
+			return errors.New("need exactly one of --build or --build-file")
+		}
+
 		if cctx.Bool("gen-server") {
 			pkgname := cctx.String("package")
 			outdir := cctx.String("outdir")
 			if outdir == "" {
 				return fmt.Errorf("must specify output directory (--outdir)")
 			}
-			defmap := lex.BuildExtDefMap(schemas)
+			defmap := lex.BuildExtDefMap(schemas, packages)
 			_ = defmap
 
 			paths := cctx.StringSlice("types-import")
@@ -123,7 +162,7 @@ func main() {
 			}
 
 		} else {
-			return lex.Run(schemas)
+			return lex.Run(schemas, packages)
 		}
 
 		return nil
