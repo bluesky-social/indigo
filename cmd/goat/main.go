@@ -31,6 +31,7 @@ func run(args []string) error {
 		cmdBlob,
 		cmdAccount,
 		cmdPLC,
+		cmdBsky,
 	}
 	return app.Run(args)
 }

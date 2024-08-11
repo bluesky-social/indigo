@@ -33,7 +33,7 @@ var cmdAccount = &cli.Command{
 					EnvVars:  []string{"ATP_AUTH_USERNAME"},
 				},
 				&cli.StringFlag{
-					Name:     "password",
+					Name:     "app-password",
 					Aliases:  []string{"p"},
 					Required: true,
 					Usage:    "password (app password recommended)",
@@ -80,7 +80,7 @@ func runAccountLogin(cctx *cli.Context) error {
 		return err
 	}
 
-	_, err = refreshAuthSession(ctx, *username, cctx.String("password"))
+	_, err = refreshAuthSession(ctx, *username, cctx.String("app-password"))
 	return err
 }
 
