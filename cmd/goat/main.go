@@ -57,6 +57,8 @@ func run(args []string) error {
 		cmdPLC,
 		cmdLogin,
 		cmdStatus,
+		cmdRepo,
+		cmdBlob,
 	}
 	return app.Run(args)
 }

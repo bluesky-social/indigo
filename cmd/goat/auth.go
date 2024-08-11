@@ -70,7 +70,8 @@ func loadAuthClient(ctx context.Context) (*xrpc.Client, error) {
 	client := xrpc.Client{
 		Host: sess.PDS,
 		Auth: &xrpc.AuthInfo{
-			Did:        sess.DID.String(),
+			Did: sess.DID.String(),
+			// NOTE: using refresh in access location for "refreshSession" call
 			AccessJwt:  sess.RefreshToken,
 			RefreshJwt: sess.RefreshToken,
 		},
@@ -78,7 +79,17 @@ func loadAuthClient(ctx context.Context) (*xrpc.Client, error) {
 	resp, err := comatproto.ServerRefreshSession(ctx, &client)
 	if err != nil {
 		// TODO: if failure, try creating a new session from password
-		return nil, err
+		fmt.Println("trying to refresh auth from password...")
+		as, err := refreshAuthSession(ctx, sess.DID.AtIdentifier(), sess.Password)
+		if err != nil {
+			return nil, err
+		}
+		client.Auth.AccessJwt = as.RefreshToken
+		client.Auth.RefreshJwt = as.RefreshToken
+		resp, err = comatproto.ServerRefreshSession(ctx, &client)
+		if err != nil {
+			return nil, err
+		}
 	}
 	client.Auth.AccessJwt = resp.AccessJwt
 	client.Auth.RefreshJwt = resp.RefreshJwt
@@ -116,19 +127,20 @@ func runLogin(cctx *cli.Context) error {
 		return err
 	}
 
-	return refreshAuthSession(ctx, *username, cctx.String("password"))
+	_, err = refreshAuthSession(ctx, *username, cctx.String("password"))
+	return err
 }
 
-func refreshAuthSession(ctx context.Context, username syntax.AtIdentifier, password string) error {
+func refreshAuthSession(ctx context.Context, username syntax.AtIdentifier, password string) (*AuthSession, error) {
 	dir := identity.DefaultDirectory()
 	ident, err := dir.Lookup(ctx, username)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	pdsURL := ident.PDSEndpoint()
 	if pdsURL == "" {
-		return fmt.Errorf("empty PDS URL")
+		return nil, fmt.Errorf("empty PDS URL")
 	}
 
 	client := xrpc.Client{
@@ -139,7 +151,7 @@ func refreshAuthSession(ctx context.Context, username syntax.AtIdentifier, passw
 		Password:   password,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// XXX: check account status?
@@ -151,5 +163,8 @@ func refreshAuthSession(ctx context.Context, username syntax.AtIdentifier, passw
 		PDS:          pdsURL,
 		RefreshToken: sess.RefreshJwt,
 	}
-	return persistAuthSession(&authSession)
+	if err = persistAuthSession(&authSession); err != nil {
+		return nil, err
+	}
+	return &authSession, nil
 }
