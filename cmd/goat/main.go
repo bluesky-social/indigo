@@ -25,13 +25,15 @@ func run(args []string) error {
 		Version: versioninfo.Short(),
 	}
 	app.Commands = []*cli.Command{
-		cmdGet,
+		cmdRecordGet,
+		cmdRecordList,
 		cmdResolve,
 		cmdRepo,
 		cmdBlob,
 		cmdAccount,
 		cmdPLC,
 		cmdBsky,
+		cmdRecord,
 	}
 	return app.Run(args)
 }
