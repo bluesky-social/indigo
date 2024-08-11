@@ -14,7 +14,6 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/adrg/xdg"
-	"github.com/urfave/cli/v2"
 )
 
 var ErrNoAuthSession = errors.New("no auth session found")
@@ -97,40 +96,6 @@ func loadAuthClient(ctx context.Context) (*xrpc.Client, error) {
 	return &client, nil
 }
 
-var cmdLogin = &cli.Command{
-	Name:  "login",
-	Usage: "create session with PDS instance",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "username",
-			Aliases:  []string{"u"},
-			Required: true,
-			Usage:    "account identifier (handle or DID)",
-			EnvVars:  []string{"ATP_AUTH_USERNAME"},
-		},
-		&cli.StringFlag{
-			Name:     "password",
-			Aliases:  []string{"p"},
-			Required: true,
-			Usage:    "password (app password recommended)",
-			EnvVars:  []string{"ATP_AUTH_PASSWORD"},
-		},
-	},
-	Action: runLogin,
-}
-
-func runLogin(cctx *cli.Context) error {
-	ctx := context.Background()
-
-	username, err := syntax.ParseAtIdentifier(cctx.String("username"))
-	if err != nil {
-		return err
-	}
-
-	_, err = refreshAuthSession(ctx, *username, cctx.String("password"))
-	return err
-}
-
 func refreshAuthSession(ctx context.Context, username syntax.AtIdentifier, password string) (*AuthSession, error) {
 	dir := identity.DefaultDirectory()
 	ident, err := dir.Lookup(ctx, username)
@@ -167,4 +132,14 @@ func refreshAuthSession(ctx context.Context, username syntax.AtIdentifier, passw
 		return nil, err
 	}
 	return &authSession, nil
+}
+
+func wipeAuthSession() error {
+
+	fPath, err := xdg.SearchStateFile("goat/auth-session.json")
+	if err != nil {
+		fmt.Printf("no auth session found (already logged out)")
+		return nil
+	}
+	return os.Remove(fPath)
 }

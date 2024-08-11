@@ -17,33 +17,6 @@ func main() {
 	}
 }
 
-var authFlags = []cli.Flag{
-	&cli.StringFlag{
-		Name:    "pds-host",
-		Usage:   "method, hostname, and port of PDS instance",
-		Value:   "http://localhost:4849",
-		EnvVars: []string{"ATP_PDS_HOST"},
-	},
-	&cli.StringFlag{
-		Name:     "admin-password",
-		Usage:    "admin authentication password for PDS",
-		Required: true,
-		EnvVars:  []string{"ATP_AUTH_ADMIN_PASSWORD"},
-	},
-	&cli.StringFlag{
-		Name:     "handle",
-		Usage:    "for PDS login",
-		Required: true,
-		EnvVars:  []string{"ATP_AUTH_HANDLE"},
-	},
-	&cli.StringFlag{
-		Name:     "password",
-		Usage:    "for PDS login",
-		Required: true,
-		EnvVars:  []string{"ATP_AUTH_PASSWORD"},
-	},
-}
-
 func run(args []string) error {
 
 	app := cli.App{
@@ -54,11 +27,10 @@ func run(args []string) error {
 	app.Commands = []*cli.Command{
 		cmdGet,
 		cmdResolve,
-		cmdPLC,
-		cmdLogin,
-		cmdStatus,
 		cmdRepo,
 		cmdBlob,
+		cmdAccount,
+		cmdPLC,
 	}
 	return app.Run(args)
 }
