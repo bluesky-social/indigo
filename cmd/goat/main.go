@@ -55,6 +55,8 @@ func run(args []string) error {
 		cmdGet,
 		cmdResolve,
 		cmdPLC,
+		cmdLogin,
+		cmdStatus,
 	}
 	return app.Run(args)
 }
