@@ -34,6 +34,7 @@ func run(args []string) error {
 		cmdPLC,
 		cmdBsky,
 		cmdRecord,
+		cmdSyntax,
 	}
 	return app.Run(args)
 }
