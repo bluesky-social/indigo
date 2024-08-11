@@ -43,7 +43,7 @@ func runPLCHistory(cctx *cli.Context) error {
 	plcURL := cctx.String("plc-directory")
 	s := cctx.Args().First()
 	if s == "" {
-		return fmt.Errorf("need to provide identifier as an argument")
+		return fmt.Errorf("need to provide account identifier as an argument")
 	}
 
 	dir := identity.BaseDirectory{

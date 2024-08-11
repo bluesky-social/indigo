@@ -19,6 +19,7 @@ func runStatus(cctx *cli.Context) error {
 
 	client, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
+		return fmt.Errorf("auth required, but not logged in")
 	} else if err != nil {
 		return err
 	}

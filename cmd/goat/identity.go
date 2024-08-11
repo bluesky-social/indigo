@@ -23,7 +23,7 @@ func runResolve(cctx *cli.Context) error {
 	ctx := context.Background()
 	s := cctx.Args().First()
 	if s == "" {
-		return fmt.Errorf("need to provide identifier as an argument")
+		return fmt.Errorf("need to provide account identifier as an argument")
 	}
 
 	id, err := syntax.ParseAtIdentifier(s)
