@@ -37,6 +37,7 @@ func runResolve(cctx *cli.Context) error {
 		return err
 	}
 
+	// TODO: actually print DID doc instead of JSON version of identity
 	b, err := json.MarshalIndent(acc, "", "  ")
 	if err != nil {
 		return err

@@ -10,7 +10,6 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
-	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -46,11 +45,11 @@ var cmdRepo = &cli.Command{
 			Action:    runRepoList,
 		},
 		&cli.Command{
-			Name:      "info",
+			Name:      "inspect",
 			Usage:     "show commit metadata from CAR file",
 			ArgsUsage: `<car-file>`,
 			Flags:     []cli.Flag{},
-			Action:    runRepoInfo,
+			Action:    runRepoInspect,
 		},
 		&cli.Command{
 			Name:      "unpack",
@@ -66,16 +65,6 @@ var cmdRepo = &cli.Command{
 			Action: runRepoUnpack,
 		},
 	},
-}
-
-func resolveIdent(ctx context.Context, arg string) (*identity.Identity, error) {
-	id, err := syntax.ParseAtIdentifier(arg)
-	if err != nil {
-		return nil, err
-	}
-
-	dir := identity.DefaultDirectory()
-	return dir.Lookup(ctx, *id)
 }
 
 func runRepoExport(cctx *cli.Context) error {
@@ -142,7 +131,7 @@ func runRepoList(cctx *cli.Context) error {
 	return nil
 }
 
-func runRepoInfo(cctx *cli.Context) error {
+func runRepoInspect(cctx *cli.Context) error {
 	ctx := context.Background()
 	carPath := cctx.Args().First()
 	if carPath == "" {
