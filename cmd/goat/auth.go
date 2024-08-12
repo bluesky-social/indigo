@@ -119,7 +119,7 @@ func refreshAuthSession(ctx context.Context, username syntax.AtIdentifier, passw
 		return nil, err
 	}
 
-	// XXX: check account status?
+	// TODO: check account status?
 	// TODO: warn if email isn't verified?
 
 	authSession := AuthSession{
