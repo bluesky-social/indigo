@@ -21,7 +21,7 @@ func run(args []string) error {
 
 	app := cli.App{
 		Name:    "goat",
-		Usage:   "golang atproto CLI tool",
+		Usage:   "Go AT protocol CLI tool",
 		Version: versioninfo.Short(),
 	}
 	app.Commands = []*cli.Command{

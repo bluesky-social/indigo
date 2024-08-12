@@ -1,4 +1,3 @@
-
 `goat`: Go AT protocol CLI tool
 ===============================
 
@@ -11,6 +10,14 @@ If you have the Go toolchain installed and configured correctly, you can directl
 
 ```bash
 go install github.com/bluesky-social/indigo/cmd/goat@latest
+```
+
+A more manual way to install is:
+
+```bash
+git clone https://github.com/bluesky-social/indigo
+go build ./cmd/goat
+sudo cp goat /usr/local/bin
 ```
 
 The intention is to also provide a Homebrew "cask" and Debian/Ubuntu packages.
