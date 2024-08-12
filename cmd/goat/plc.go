@@ -127,6 +127,9 @@ func runPLCDump(cctx *cli.Context) error {
 	tailMode := cctx.Bool("tail")
 
 	cursor := cctx.String("cursor")
+	if cursor == "now" {
+		cursor = syntax.DatetimeNow().String()
+	}
 	var lastCursor string
 
 	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/export", plcURL), nil)
@@ -165,9 +168,6 @@ func runPLCDump(cctx *cli.Context) error {
 			break
 		}
 		for _, l := range lines {
-			if cursor == lastCursor {
-				continue
-			}
 			if len(l) < 2 {
 				break
 			}
@@ -181,6 +181,9 @@ func runPLCDump(cctx *cli.Context) error {
 			if !ok {
 				return fmt.Errorf("missing createdAt in PLC op log")
 			}
+			if cursor == lastCursor {
+				continue
+			}
 
 			b, err := json.Marshal(op)
 			if err != nil {
@@ -188,7 +191,7 @@ func runPLCDump(cctx *cli.Context) error {
 			}
 			fmt.Println(string(b))
 		}
-		if cursor == lastCursor {
+		if cursor != "" && cursor == lastCursor {
 			if tailMode {
 				time.Sleep(5 * time.Second)
 				continue
