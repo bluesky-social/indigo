@@ -294,7 +294,7 @@ func runRecordUpdate(cctx *cli.Context) error {
 
 	rkey := cctx.String("rkey")
 
-	// NOTE: need to fetch exisiting record CID to perform swap. this is optional in theory, but golang can't deal with "optional" and "nullable", so we always need to set this (?)
+	// NOTE: need to fetch existing record CID to perform swap. this is optional in theory, but golang can't deal with "optional" and "nullable", so we always need to set this (?)
 	existing, err := comatproto.RepoGetRecord(ctx, xrpcc, "", nsid, xrpcc.Auth.Did, rkey)
 	if err != nil {
 		return err

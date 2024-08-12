@@ -26,19 +26,48 @@ func runResolve(cctx *cli.Context) error {
 		return fmt.Errorf("need to provide account identifier as an argument")
 	}
 
-	id, err := syntax.ParseAtIdentifier(s)
+	atid, err := syntax.ParseAtIdentifier(s)
 	if err != nil {
 		return err
 	}
+	dir := identity.BaseDirectory{}
+	var doc *identity.DIDDocument
 
-	dir := identity.DefaultDirectory()
-	acc, err := dir.Lookup(ctx, *id)
-	if err != nil {
-		return err
+	if atid.IsDID() {
+		did, err := atid.AsDID()
+		if err != nil {
+			return err
+		}
+		doc, err = dir.ResolveDID(ctx, did)
+		if err != nil {
+			return err
+		}
+	} else {
+		handle, err := atid.AsHandle()
+		if err != nil {
+			return err
+		}
+		did, err := dir.ResolveHandle(ctx, handle)
+		if err != nil {
+			return err
+		}
+		doc, err = dir.ResolveDID(ctx, did)
+		if err != nil {
+			return err
+		}
+
+		ident := identity.ParseIdentity(doc)
+		decl, err := ident.DeclaredHandle()
+		if err != nil {
+			return err
+		}
+		if handle != decl {
+			return fmt.Errorf("invalid handle")
+		}
 	}
 
 	// TODO: actually print DID doc instead of JSON version of identity
-	b, err := json.MarshalIndent(acc, "", "  ")
+	b, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
 		return err
 	}
