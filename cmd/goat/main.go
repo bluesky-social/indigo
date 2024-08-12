@@ -27,6 +27,7 @@ func run(args []string) error {
 	app.Commands = []*cli.Command{
 		cmdRecordGet,
 		cmdRecordList,
+		cmdFirehose,
 		cmdResolve,
 		cmdRepo,
 		cmdBlob,
@@ -35,6 +36,7 @@ func run(args []string) error {
 		cmdBsky,
 		cmdRecord,
 		cmdSyntax,
+		cmdCrypto,
 	}
 	return app.Run(args)
 }
