@@ -218,7 +218,7 @@ func (s *Server) handleComAtprotoRepoPutRecord(ctx context.Context, input *comat
 	panic("not yet implemented")
 }
 
-func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*comatprototypes.ServerDescribeServer_Output, error) {
+func (s *Server) handleComAtprotoServerDescribeServer(_ context.Context) (*comatprototypes.ServerDescribeServer_Output, error) {
 	invcode := false
 	return &comatprototypes.ServerDescribeServer_Output{
 		InviteCodeRequired: &invcode,
@@ -226,6 +226,7 @@ func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*com
 			s.handleSuffix,
 		},
 		Links: &comatprototypes.ServerDescribeServer_Links{},
+		Did:   fmt.Sprintf("did:web:%s", s.serviceUrl),
 	}, nil
 }
 
