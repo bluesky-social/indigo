@@ -87,10 +87,78 @@ func (eng *Engine) RerouteIdentityEventToOzone(c context.Context, e *comatproto.
 	return nil
 }
 
+// For the given subject, checks if there is already an event of the given type within the 5 minutes.
+func (eng *Engine) IsDuplicatingEvent(ctx context.Context, event toolsozone.ModerationEmitEvent_Input_Event, subject toolsozone.ModerationEmitEvent_Input_Subject) (bool, error) {
+	if eng.OzoneClient == nil {
+		eng.Logger.Warn("can not check if event is duplicate, mod service client not configured")
+		return false, nil
+	}
+
+	eventType := ""
+	if event.ModerationDefs_AccountEvent != nil {
+		eventType = event.ModerationDefs_AccountEvent.LexiconTypeID
+	} else if event.ModerationDefs_IdentityEvent != nil {
+		eventType = event.ModerationDefs_IdentityEvent.LexiconTypeID
+	} else if event.ModerationDefs_RecordEvent != nil {
+		eventType = event.ModerationDefs_RecordEvent.LexiconTypeID
+	}
+
+	eventSubject := ""
+	if subject.AdminDefs_RepoRef != nil {
+		eventSubject = subject.AdminDefs_RepoRef.Did
+	} else if subject.RepoStrongRef != nil {
+		eventSubject = subject.RepoStrongRef.Uri
+	}
+
+	xrpcc := eng.OzoneClient
+	resp, err := toolsozone.ModerationQueryEvents(
+		ctx,
+		xrpcc,
+		nil,
+		nil,
+		"",
+		time.Now().Add(-time.Minute*5).Format(time.RFC3339),
+		"",
+		"",
+		"",
+		false,
+		false,
+		1,
+		nil,
+		nil,
+		nil,
+		"",
+		eventSubject,
+		[]string{eventType},
+	)
+
+	if err != nil {
+		eng.Logger.Error("failed to query events", "err", err)
+		return false, err
+	}
+
+	if len(resp.Events) > 0 {
+		return true, nil
+	}
+
+	return false, nil
+}
+
 func (eng *Engine) RerouteEventToOzone(ctx context.Context, event toolsozone.ModerationEmitEvent_Input_Event, subject toolsozone.ModerationEmitEvent_Input_Subject) error {
 	// if we can't actually talk to service, bail out early
 	if eng.OzoneClient == nil {
 		eng.Logger.Warn("not persisting ozone account event, mod service client not configured")
+		return nil
+	}
+
+	isDuplicate, duplicateCheckError := eng.IsDuplicatingEvent(ctx, event, subject)
+	if duplicateCheckError != nil {
+		eng.Logger.Error("failed to check if event is duplicate", "err", duplicateCheckError)
+		return duplicateCheckError
+	}
+
+	if isDuplicate {
+		eng.Logger.Info("event was already emitted, not emitting again")
 		return nil
 	}
 
