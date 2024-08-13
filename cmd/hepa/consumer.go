@@ -62,6 +62,9 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 			if err := s.engine.ProcessIdentityEvent(ctx, "identity", did); err != nil {
 				s.logger.Error("processing repo identity failed", "did", evt.Did, "seq", evt.Seq, "err", err)
 			}
+			if err := s.engine.RerouteIdentityEventToOzone(ctx, evt); err != nil {
+				s.logger.Error("rerouting identity event to ozone failed", "did", evt.Did, "seq", evt.Seq, "err", err)
+			}
 			return nil
 		},
 		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
@@ -73,6 +76,9 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 			}
 			if err := s.engine.ProcessIdentityEvent(ctx, "account", did); err != nil {
 				s.logger.Error("processing repo account failed", "did", evt.Did, "seq", evt.Seq, "err", err)
+			}
+			if err := s.engine.RerouteAccountEventToOzone(ctx, evt); err != nil {
+				s.logger.Error("rerouting account event to ozone failed", "did", evt.Did, "seq", evt.Seq, "err", err)
 			}
 			return nil
 		},
@@ -99,6 +105,9 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 			}
 			if err := s.engine.ProcessIdentityEvent(ctx, "tombstone", did); err != nil {
 				s.logger.Error("processing repo tombstone failed", "did", evt.Did, "seq", evt.Seq, "err", err)
+			}
+			if err := s.engine.RerouteTombstoneEventToOzone(ctx, evt); err != nil {
+				s.logger.Error("rerouting tombstone event to ozone failed", "did", evt.Did, "seq", evt.Seq, "err", err)
 			}
 			return nil
 		},

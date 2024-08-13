@@ -6,7 +6,6 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
-	"github.com/davecgh/go-spew/spew"
 )
 
 func (eng *Engine) persistCounters(ctx context.Context, eff *Effects) error {
@@ -151,74 +150,6 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	needCachePurge := newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || createdReports
 	if needCachePurge {
 		return eng.PurgeAccountCaches(ctx, c.Account.Identity.DID)
-	}
-
-	return nil
-}
-
-func (eng *Engine) persistOzoneAccountEvent(c *AccountContext, typ string) error {
-	ctx := c.Ctx
-
-	c.Logger.Info("ozone account event handle", "typ", typ)
-	comment := "[automod]: account event"
-	var event toolsozone.ModerationEmitEvent_Input_Event
-	spew.Dump(c.Account)
-
-	// @TODO: Add duplicate check here so that the same event is not emitted more than once
-
-	// @TODO: Inside of each of these blocks we would define a different type of event, for now, these are just comment events
-	if typ == "handle" {
-		comment = "[automod]: handle update"
-		event = toolsozone.ModerationEmitEvent_Input_Event{
-			ModerationDefs_ModEventComment: &toolsozone.ModerationDefs_ModEventComment{
-				Comment: comment,
-			},
-		}
-	} else if typ == "tombstone" {
-		comment = "[automod]: account deleted"
-		event = toolsozone.ModerationEmitEvent_Input_Event{
-			ModerationDefs_ModEventComment: &toolsozone.ModerationDefs_ModEventComment{
-				Comment: comment,
-			},
-		}
-	} else if typ == "account" {
-		// @TODO: Could there be other reasons for this event to fire? if so, we should be able to discard those and only handle activation/reactivation
-		if c.Account.Deactivated {
-			comment = "[automod]: account deactivated"
-		} else {
-			comment = "[automod]: account re-activated"
-		}
-
-		event = toolsozone.ModerationEmitEvent_Input_Event{
-			ModerationDefs_ModEventComment: &toolsozone.ModerationDefs_ModEventComment{
-				Comment: comment,
-			},
-		}
-	} else {
-		// Silently ignoring unknown event types
-		return nil
-	}
-
-	c.Logger.Info("comment for account event", "comment", comment)
-
-	// if we can't actually talk to service, bail out early
-	if eng.OzoneClient == nil {
-		c.Logger.Warn("not persisting ozone account event, mod service client not configured")
-		return nil
-	}
-
-	xrpcc := eng.OzoneClient
-	_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
-		CreatedBy: xrpcc.Auth.Did,
-		Event:     &event,
-		Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
-			AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
-				Did: c.Account.Identity.DID.String(),
-			},
-		},
-	})
-	if err != nil {
-		c.Logger.Error("failed to send account event", "err", err)
 	}
 
 	return nil

@@ -95,10 +95,6 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syn
 		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("failed to persist actions for identity event: %w", err)
 	}
-	if err := eng.persistOzoneAccountEvent(&ac, typ); err != nil {
-		eventErrorCount.WithLabelValues("identity").Inc()
-		return fmt.Errorf("failed to persist ozone sync for identity event: %w", err)
-	}
 	if err := eng.persistCounters(ctx, ac.effects); err != nil {
 		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("failed to persist counters for identity event: %w", err)
@@ -163,6 +159,7 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 		return fmt.Errorf("unexpected op action: %s", op.Action)
 	}
 	eng.CanonicalLogLineRecord(&rc)
+	eng.RerouteRecordOpToOzone(ctx, &op)
 	// purge the account meta cache when profile is updated
 	if rc.RecordOp.Collection == "app.bsky.actor.profile" {
 		if err := eng.PurgeAccountCaches(ctx, op.DID); err != nil {
