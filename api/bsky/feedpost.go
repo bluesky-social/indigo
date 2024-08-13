@@ -41,6 +41,7 @@ type FeedPost struct {
 
 type FeedPost_Embed struct {
 	EmbedImages          *EmbedImages
+	EmbedVideo           *EmbedVideo
 	EmbedExternal        *EmbedExternal
 	EmbedRecord          *EmbedRecord
 	EmbedRecordWithMedia *EmbedRecordWithMedia
@@ -50,6 +51,10 @@ func (t *FeedPost_Embed) MarshalJSON() ([]byte, error) {
 	if t.EmbedImages != nil {
 		t.EmbedImages.LexiconTypeID = "app.bsky.embed.images"
 		return json.Marshal(t.EmbedImages)
+	}
+	if t.EmbedVideo != nil {
+		t.EmbedVideo.LexiconTypeID = "app.bsky.embed.video"
+		return json.Marshal(t.EmbedVideo)
 	}
 	if t.EmbedExternal != nil {
 		t.EmbedExternal.LexiconTypeID = "app.bsky.embed.external"
@@ -75,6 +80,9 @@ func (t *FeedPost_Embed) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.images":
 		t.EmbedImages = new(EmbedImages)
 		return json.Unmarshal(b, t.EmbedImages)
+	case "app.bsky.embed.video":
+		t.EmbedVideo = new(EmbedVideo)
+		return json.Unmarshal(b, t.EmbedVideo)
 	case "app.bsky.embed.external":
 		t.EmbedExternal = new(EmbedExternal)
 		return json.Unmarshal(b, t.EmbedExternal)
@@ -99,6 +107,9 @@ func (t *FeedPost_Embed) MarshalCBOR(w io.Writer) error {
 	if t.EmbedImages != nil {
 		return t.EmbedImages.MarshalCBOR(w)
 	}
+	if t.EmbedVideo != nil {
+		return t.EmbedVideo.MarshalCBOR(w)
+	}
 	if t.EmbedExternal != nil {
 		return t.EmbedExternal.MarshalCBOR(w)
 	}
@@ -120,6 +131,9 @@ func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.embed.images":
 		t.EmbedImages = new(EmbedImages)
 		return t.EmbedImages.UnmarshalCBOR(bytes.NewReader(b))
+	case "app.bsky.embed.video":
+		t.EmbedVideo = new(EmbedVideo)
+		return t.EmbedVideo.UnmarshalCBOR(bytes.NewReader(b))
 	case "app.bsky.embed.external":
 		t.EmbedExternal = new(EmbedExternal)
 		return t.EmbedExternal.UnmarshalCBOR(bytes.NewReader(b))
