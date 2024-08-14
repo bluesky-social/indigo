@@ -550,7 +550,7 @@ func (s *SchemaString) CheckSchema() error {
 	}
 	if s.Format != nil {
 		switch *s.Format {
-		case "at-identifier", "at-uri", "cid", "datetime", "did", "handle", "nsid", "uri", "language":
+		case "at-identifier", "at-uri", "cid", "datetime", "did", "handle", "nsid", "uri", "language", "tid", "record-key":
 			// pass
 		default:
 			return fmt.Errorf("unknown string format: %s", *s.Format)
@@ -632,6 +632,14 @@ func (s *SchemaString) Validate(d any, lenient bool) error {
 			}
 		case "language":
 			if _, err := syntax.ParseLanguage(v); err != nil {
+				return err
+			}
+		case "tid":
+			if _, err := syntax.ParseTID(v); err != nil {
+				return err
+			}
+		case "record-key":
+			if _, err := syntax.ParseRecordKey(v); err != nil {
 				return err
 			}
 		}

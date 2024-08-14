@@ -190,6 +190,16 @@
                 "type": "string",
                 "format": "uri",
                 "description": "a generic URI field"
+            },
+            "tid": {
+                "type": "string",
+                "format": "tid",
+                "description": "a generic TID field"
+            },
+            "recordkey": {
+                "type": "string",
+                "format": "record-key",
+                "description": "a generic record-key field"
             }
         }
     },

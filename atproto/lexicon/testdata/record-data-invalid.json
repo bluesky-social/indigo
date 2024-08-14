@@ -101,6 +101,14 @@
       "rkey": "demo",
       "data": { "$type": "example.lexicon.record", "integer": 1, "formats": { "uri": "123" } }
     },
+    { "name": "invalid string format tid",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "formats": { "tid": "000" } }
+    },
+    { "name": "invalid string format recordkey",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "formats": { "recordkey": "." } }
+    },
     { "name": "wrong const value",
       "rkey": "demo",
       "data": { "$type": "example.lexicon.record", "integer": 1, "constInteger": 41 }
