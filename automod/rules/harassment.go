@@ -14,12 +14,7 @@ var _ automod.PostRuleFunc = HarassmentTargetInteractionPostRule
 
 // looks for new accounts, which interact with frequently-harassed accounts, and report them for review
 func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if c.Account.Private == nil || c.Account.Identity == nil {
-		return nil
-	}
-	// TODO: helper for account age; and use public info for this (not private)
-	age := time.Since(c.Account.Private.IndexedAt)
-	if age > 7*24*time.Hour {
+	if c.Account.Identity == nil || !AccountIsYoungerThan(&c.AccountContext, 24*time.Hour) {
 		return nil
 	}
 
@@ -40,8 +35,25 @@ func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky
 		}
 		interactionDIDs = append(interactionDIDs, parentURI.Authority().String())
 	}
-	// TODO: quote-posts; any other interactions?
+	// quote posts
+	if post.Embed != nil && post.Embed.EmbedRecord != nil && post.Embed.EmbedRecord.Record != nil {
+		uri, err := syntax.ParseATURI(post.Embed.EmbedRecord.Record.Uri)
+		if err != nil {
+			c.Logger.Warn("invalid AT-URI in post embed record (quote-post)", "uri", post.Embed.EmbedRecord.Record.Uri)
+		} else {
+			interactionDIDs = append(interactionDIDs, uri.Authority().String())
+		}
+	}
 	if len(interactionDIDs) == 0 {
+		return nil
+	}
+
+	// more than a handful of followers or posts from author account? skip
+	if c.Account.FollowersCount > 10 || c.Account.PostsCount > 10 {
+		return nil
+	}
+	postCount := c.GetCount("post", c.Account.Identity.DID.String(), countstore.PeriodTotal)
+	if postCount > 20 {
 		return nil
 	}
 
@@ -83,6 +95,11 @@ func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky
 		}
 
 		//c.AddRecordFlag("interaction-harassed-target")
+		var privCreatedAt *time.Time
+		if c.Account.Private != nil && c.Account.Private.IndexedAt != nil {
+			privCreatedAt = c.Account.Private.IndexedAt
+		}
+		c.Logger.Warn("possible harassment", "targetDID", did, "author", c.Account.Identity.DID, "accountCreated", c.Account.CreatedAt, "privateAccountCreated", privCreatedAt)
 		c.ReportAccount(automod.ReportReasonOther, fmt.Sprintf("possible harassment of known target account: %s (also labeled; remove label if this isn't harassment)", did))
 		c.AddAccountLabel("!hide")
 		c.Notify("slack")
@@ -95,12 +112,7 @@ var _ automod.PostRuleFunc = HarassmentTrivialPostRule
 
 // looks for new accounts, which frequently post the same type of content
 func HarassmentTrivialPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if c.Account.Private == nil || c.Account.Identity == nil {
-		return nil
-	}
-	// TODO: helper for account age; and use public info for this (not private)
-	age := time.Since(c.Account.Private.IndexedAt)
-	if age > 7*24*time.Hour {
+	if c.Account.Identity == nil || !AccountIsYoungerThan(&c.AccountContext, 7*24*time.Hour) {
 		return nil
 	}
 

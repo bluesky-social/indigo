@@ -17,15 +17,12 @@ var _ automod.RecordRuleFunc = TooManyRepostRule
 
 // looks for accounts which do frequent reposts
 func TooManyRepostRule(c *automod.RecordContext) error {
+	// Don't bother checking reposts from accounts older than 30 days
+	if c.Account.Identity == nil || !AccountIsYoungerThan(&c.AccountContext, 30*24*time.Hour) {
+		return nil
+	}
 
 	did := c.Account.Identity.DID.String()
-	// Don't bother checking reposts from accounts older than 30 days
-	if c.Account.Private != nil {
-		age := time.Since(c.Account.Private.IndexedAt)
-		if age > 30*24*time.Hour {
-			return nil
-		}
-	}
 
 	// Special case for newsmast bridge feeds
 	handle := c.Account.Identity.Handle.String()
