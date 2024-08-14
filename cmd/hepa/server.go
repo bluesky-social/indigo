@@ -41,6 +41,9 @@ type Server struct {
 
 	// same as lastSeq, but for Ozone timestamp cursor. the value is a string.
 	lastOzoneCursor atomic.Value
+
+	// dictates if firehose events should be rerouted to configured destinations
+	rerouteEvents bool
 }
 
 type Config struct {
@@ -61,6 +64,7 @@ type Config struct {
 	RulesetName         string
 	RatelimitBypass     string
 	FirehoseParallelism int
+	RerouteEvents       bool
 }
 
 func NewServer(dir identity.Directory, config Config) (*Server, error) {
@@ -228,6 +232,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		logger:              logger,
 		engine:              &engine,
 		rdb:                 rdb,
+		rerouteEvents:       config.RerouteEvents,
 	}
 
 	return s, nil

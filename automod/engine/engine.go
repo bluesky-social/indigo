@@ -159,7 +159,6 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 		return fmt.Errorf("unexpected op action: %s", op.Action)
 	}
 	eng.CanonicalLogLineRecord(&rc)
-	eng.RerouteRecordOpToOzone(ctx, &op)
 	// purge the account meta cache when profile is updated
 	if rc.RecordOp.Collection == "app.bsky.actor.profile" {
 		if err := eng.PurgeAccountCaches(ctx, op.DID); err != nil {
