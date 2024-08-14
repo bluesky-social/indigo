@@ -170,7 +170,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		rv, err := toolsozone.ModerationGetRecord(ctx, eng.OzoneClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
 		if err != nil {
 			// NOTE: there is a frequent 4xx error here from Ozone because this record has not been indexed yet
-			c.Logger.Warn("failed to fetch private record metadata", "err", err)
+			c.Logger.Warn("failed to fetch private record metadata from Ozone", "err", err)
 		} else {
 			var existingLabels []string
 			var negLabels []string
