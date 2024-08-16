@@ -205,15 +205,17 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 		}
 	}
 
-	resp := &comatprototypes.SyncListRepos_Output{
-		Repos: []*comatprototypes.SyncListRepos_Repo{},
+	// Validate input params
+	if c < 0 || limit > 1000 {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid cursor or limit")
 	}
 
-	users := []User{}
-
+	// Filter out tombstoned, taken down, and deactivated accounts
 	q := fmt.Sprintf("id > ? AND NOT tombstoned AND NOT taken_down AND upstream_status != '%s' AND upstream_status != '%s' AND upstream_status != '%s'",
 		events.AccountStatusDeactivated, events.AccountStatusSuspended, events.AccountStatusTakendown)
 
+	// Load the users
+	users := []User{}
 	if err := s.db.Model(&User{}).Where(q, c).Order("id").Limit(limit).Find(&users).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return &comatprototypes.SyncListRepos_Output{}, nil
@@ -224,9 +226,16 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 
 	if len(users) == 0 {
 		// resp.Repos is an explicit empty array, not just 'nil'
-		return resp, nil
+		return &comatprototypes.SyncListRepos_Output{
+			Repos: []*comatprototypes.SyncListRepos_Repo{},
+		}, nil
 	}
 
+	resp := &comatprototypes.SyncListRepos_Output{
+		Repos: make([]*comatprototypes.SyncListRepos_Repo, len(users)),
+	}
+
+	// Fetch the repo roots for each user
 	for i := range users {
 		user := users[i]
 
@@ -236,15 +245,17 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get repo root for (%s): %v", user.Did, err.Error()))
 		}
 
-		resp.Repos = append(resp.Repos, &comatprototypes.SyncListRepos_Repo{
+		resp.Repos[i] = &comatprototypes.SyncListRepos_Repo{
 			Did:  user.Did,
 			Head: root.String(),
-		})
+		}
 	}
 
-	c += int64(len(users))
-	cursor = strconv.FormatInt(c, 10)
-	resp.Cursor = &cursor
+	// If this is not the last page, set the cursor
+	if len(users) < limit {
+		nextCursor := fmt.Sprintf("%d", users[len(users)-1].ID)
+		resp.Cursor = &nextCursor
+	}
 
 	return resp, nil
 }
