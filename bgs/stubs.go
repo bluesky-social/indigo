@@ -136,22 +136,29 @@ func (s *BGS) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 func (s *BGS) HandleComAtprotoSyncListRepos(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncListRepos")
 	defer span.End()
-	cursor := c.QueryParam("cursor")
 
-	var limit int
-	if p := c.QueryParam("limit"); p != "" {
-		var err error
-		limit, err = strconv.Atoi(p)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid limit: %s", p)})
+	cursorQuery := c.QueryParam("cursor")
+	limitQuery := c.QueryParam("limit")
+
+	var err error
+
+	limit := 500
+	if limitQuery != "" {
+		limit, err = strconv.Atoi(limitQuery)
+		if err != nil || limit < 1 || limit > 1000 {
+			return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid limit: %s", limitQuery)})
 		}
-	} else {
-		limit = 500
 	}
-	var out *comatprototypes.SyncListRepos_Output
-	var handleErr error
-	// func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context,cursor string,limit int) (*comatprototypes.SyncListRepos_Output, error)
-	out, handleErr = s.handleComAtprotoSyncListRepos(ctx, cursor, limit)
+
+	cursor := int64(0)
+	if cursorQuery != "" {
+		cursor, err = strconv.ParseInt(cursorQuery, 10, 64)
+		if err != nil || cursor < 0 {
+			return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid cursor: %s", cursorQuery)})
+		}
+	}
+
+	out, handleErr := s.handleComAtprotoSyncListRepos(ctx, cursor, limit)
 	if handleErr != nil {
 		return handleErr
 	}
