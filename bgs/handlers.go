@@ -236,7 +236,7 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, l
 	}
 
 	// If this is not the last page, set the cursor
-	if len(users) < limit {
+	if len(users) < limit && len(users) > 1 {
 		nextCursor := fmt.Sprintf("%d", users[len(users)-1].ID)
 		resp.Cursor = &nextCursor
 	}
