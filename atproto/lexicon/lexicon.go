@@ -5,24 +5,27 @@ import (
 	"reflect"
 )
 
+type ValidateFlags int
+
+const (
+	AllowLegacyBlob = 1 << iota
+	AllowLenientDatetime
+	StrictRecursiveValidation
+)
+
+var LenientMode ValidateFlags = AllowLegacyBlob | AllowLenientDatetime
+
 type Schema struct {
 	ID       string
 	Revision *int
 	Def      any
 }
 
-func ValidateRecord(cat Catalog, recordData any, ref string) error {
-	return validateRecordConfig(cat, recordData, ref, false)
+func ValidateRecord(cat Catalog, recordData any, ref string, flags ValidateFlags) error {
+	return validateRecordConfig(cat, recordData, ref, flags)
 }
 
-// Variation of ValidateRecord which allows "legacy" blob format, and flexible string datetimes.
-//
-// Hope is to deprecate this lenient variation in the near future!
-func ValidateRecordLenient(cat Catalog, recordData any, ref string) error {
-	return validateRecordConfig(cat, recordData, ref, true)
-}
-
-func validateRecordConfig(cat Catalog, recordData any, ref string, lenient bool) error {
+func validateRecordConfig(cat Catalog, recordData any, ref string, flags ValidateFlags) error {
 	def, err := cat.Resolve(ref)
 	if err != nil {
 		return err
@@ -39,10 +42,10 @@ func validateRecordConfig(cat Catalog, recordData any, ref string, lenient bool)
 	if !ok || t != ref {
 		return fmt.Errorf("record data missing $type, or didn't match expected NSID")
 	}
-	return validateObject(cat, s.Record, d, lenient)
+	return validateObject(cat, s.Record, d, flags)
 }
 
-func validateData(cat Catalog, def any, d any, lenient bool) error {
+func validateData(cat Catalog, def any, d any, flags ValidateFlags) error {
 	// TODO:
 	switch v := def.(type) {
 	case SchemaNull:
@@ -52,7 +55,7 @@ func validateData(cat Catalog, def any, d any, lenient bool) error {
 	case SchemaInteger:
 		return v.Validate(d)
 	case SchemaString:
-		return v.Validate(d, lenient)
+		return v.Validate(d, flags)
 	case SchemaBytes:
 		return v.Validate(d)
 	case SchemaCIDLink:
@@ -62,24 +65,24 @@ func validateData(cat Catalog, def any, d any, lenient bool) error {
 		if !ok {
 			return fmt.Errorf("expected an array, got: %s", reflect.TypeOf(d))
 		}
-		return validateArray(cat, v, arr, lenient)
+		return validateArray(cat, v, arr, flags)
 	case SchemaObject:
 		obj, ok := d.(map[string]any)
 		if !ok {
 			return fmt.Errorf("expected an object, got: %s", reflect.TypeOf(d))
 		}
-		return validateObject(cat, v, obj, lenient)
+		return validateObject(cat, v, obj, flags)
 	case SchemaBlob:
-		return v.Validate(d, lenient)
+		return v.Validate(d, flags)
 	case SchemaRef:
 		// recurse
 		next, err := cat.Resolve(v.fullRef)
 		if err != nil {
 			return err
 		}
-		return validateData(cat, next.Def, d, lenient)
+		return validateData(cat, next.Def, d, flags)
 	case SchemaUnion:
-		return validateUnion(cat, v, d, lenient)
+		return validateUnion(cat, v, d, flags)
 	case SchemaUnknown:
 		return v.Validate(d)
 	case SchemaToken:
@@ -89,7 +92,7 @@ func validateData(cat Catalog, def any, d any, lenient bool) error {
 	}
 }
 
-func validateObject(cat Catalog, s SchemaObject, d map[string]any, lenient bool) error {
+func validateObject(cat Catalog, s SchemaObject, d map[string]any, flags ValidateFlags) error {
 	for _, k := range s.Required {
 		if _, ok := d[k]; !ok {
 			return fmt.Errorf("required field missing: %s", k)
@@ -100,7 +103,7 @@ func validateObject(cat Catalog, s SchemaObject, d map[string]any, lenient bool)
 			if v == nil && s.IsNullable(k) {
 				continue
 			}
-			err := validateData(cat, def.Inner, v, lenient)
+			err := validateData(cat, def.Inner, v, flags)
 			if err != nil {
 				return err
 			}
@@ -109,12 +112,12 @@ func validateObject(cat Catalog, s SchemaObject, d map[string]any, lenient bool)
 	return nil
 }
 
-func validateArray(cat Catalog, s SchemaArray, arr []any, lenient bool) error {
+func validateArray(cat Catalog, s SchemaArray, arr []any, flags ValidateFlags) error {
 	if (s.MinLength != nil && len(arr) < *s.MinLength) || (s.MaxLength != nil && len(arr) > *s.MaxLength) {
 		return fmt.Errorf("array length out of bounds: %d", len(arr))
 	}
 	for _, v := range arr {
-		err := validateData(cat, s.Items.Inner, v, lenient)
+		err := validateData(cat, s.Items.Inner, v, flags)
 		if err != nil {
 			return err
 		}
@@ -122,7 +125,7 @@ func validateArray(cat Catalog, s SchemaArray, arr []any, lenient bool) error {
 	return nil
 }
 
-func validateUnion(cat Catalog, s SchemaUnion, d any, lenient bool) error {
+func validateUnion(cat Catalog, s SchemaUnion, d any, flags ValidateFlags) error {
 	closed := s.Closed != nil && *s.Closed == true
 	for _, ref := range s.fullRefs {
 		def, err := cat.Resolve(ref)
@@ -130,7 +133,7 @@ func validateUnion(cat Catalog, s SchemaUnion, d any, lenient bool) error {
 			// TODO: how to actually handle unknown defs?
 			return err
 		}
-		if err = validateData(cat, def.Def, d, lenient); nil == err { // if success
+		if err = validateData(cat, def.Def, d, flags); nil == err { // if success
 			return nil
 		}
 	}
