@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
@@ -194,27 +193,14 @@ func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, body *coma
 	return nil
 }
 
-func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, limit int) (*comatprototypes.SyncListRepos_Output, error) {
-	// Use UIDs for the cursor
-	var err error
-	c := int64(0)
-	if cursor != "" {
-		c, err = strconv.ParseInt(cursor, 10, 64)
-		if err != nil {
-			return nil, echo.NewHTTPError(http.StatusBadRequest, "couldn't parse your cursor as an integer")
-		}
-	}
-
-	resp := &comatprototypes.SyncListRepos_Output{
-		Repos: []*comatprototypes.SyncListRepos_Repo{},
-	}
-
-	users := []User{}
-
+func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, limit int) (*comatprototypes.SyncListRepos_Output, error) {
+	// Filter out tombstoned, taken down, and deactivated accounts
 	q := fmt.Sprintf("id > ? AND NOT tombstoned AND NOT taken_down AND upstream_status != '%s' AND upstream_status != '%s' AND upstream_status != '%s'",
 		events.AccountStatusDeactivated, events.AccountStatusSuspended, events.AccountStatusTakendown)
 
-	if err := s.db.Model(&User{}).Where(q, c).Order("id").Limit(limit).Find(&users).Error; err != nil {
+	// Load the users
+	users := []*User{}
+	if err := s.db.Model(&User{}).Where(q, cursor).Order("id").Limit(limit).Find(&users).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return &comatprototypes.SyncListRepos_Output{}, nil
 		}
@@ -224,9 +210,16 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 
 	if len(users) == 0 {
 		// resp.Repos is an explicit empty array, not just 'nil'
-		return resp, nil
+		return &comatprototypes.SyncListRepos_Output{
+			Repos: []*comatprototypes.SyncListRepos_Repo{},
+		}, nil
 	}
 
+	resp := &comatprototypes.SyncListRepos_Output{
+		Repos: make([]*comatprototypes.SyncListRepos_Repo, len(users)),
+	}
+
+	// Fetch the repo roots for each user
 	for i := range users {
 		user := users[i]
 
@@ -236,15 +229,17 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, 
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get repo root for (%s): %v", user.Did, err.Error()))
 		}
 
-		resp.Repos = append(resp.Repos, &comatprototypes.SyncListRepos_Repo{
+		resp.Repos[i] = &comatprototypes.SyncListRepos_Repo{
 			Did:  user.Did,
 			Head: root.String(),
-		})
+		}
 	}
 
-	c += int64(len(users))
-	cursor = strconv.FormatInt(c, 10)
-	resp.Cursor = &cursor
+	// If this is not the last page, set the cursor
+	if len(users) < limit && len(users) > 1 {
+		nextCursor := fmt.Sprintf("%d", users[len(users)-1].ID)
+		resp.Cursor = &nextCursor
+	}
 
 	return resp, nil
 }
