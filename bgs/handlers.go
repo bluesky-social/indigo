@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
@@ -194,29 +193,14 @@ func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, body *coma
 	return nil
 }
 
-func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, limit int) (*comatprototypes.SyncListRepos_Output, error) {
-	// Use UIDs for the cursor
-	var err error
-	c := int64(0)
-	if cursor != "" {
-		c, err = strconv.ParseInt(cursor, 10, 64)
-		if err != nil {
-			return nil, echo.NewHTTPError(http.StatusBadRequest, "couldn't parse your cursor as an integer")
-		}
-	}
-
-	// Validate input params
-	if c < 0 || limit > 1000 {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid cursor or limit")
-	}
-
+func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, limit int) (*comatprototypes.SyncListRepos_Output, error) {
 	// Filter out tombstoned, taken down, and deactivated accounts
 	q := fmt.Sprintf("id > ? AND NOT tombstoned AND NOT taken_down AND upstream_status != '%s' AND upstream_status != '%s' AND upstream_status != '%s'",
 		events.AccountStatusDeactivated, events.AccountStatusSuspended, events.AccountStatusTakendown)
 
 	// Load the users
-	users := []User{}
-	if err := s.db.Model(&User{}).Where(q, c).Order("id").Limit(limit).Find(&users).Error; err != nil {
+	users := []*User{}
+	if err := s.db.Model(&User{}).Where(q, cursor).Order("id").Limit(limit).Find(&users).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return &comatprototypes.SyncListRepos_Output{}, nil
 		}
