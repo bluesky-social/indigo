@@ -39,6 +39,15 @@ type EmbedRecord_ViewBlocked struct {
 	Uri           string                  `json:"uri" cborgen:"uri"`
 }
 
+// EmbedRecord_ViewDetached is a "viewDetached" in the app.bsky.embed.record schema.
+//
+// RECORDTYPE: EmbedRecord_ViewDetached
+type EmbedRecord_ViewDetached struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.embed.record#viewDetached" cborgen:"$type,const=app.bsky.embed.record#viewDetached"`
+	Detached      bool   `json:"detached" cborgen:"detached"`
+	Uri           string `json:"uri" cborgen:"uri"`
+}
+
 // EmbedRecord_ViewNotFound is a "viewNotFound" in the app.bsky.embed.record schema.
 //
 // RECORDTYPE: EmbedRecord_ViewNotFound
@@ -129,6 +138,7 @@ type EmbedRecord_View_Record struct {
 	EmbedRecord_ViewRecord         *EmbedRecord_ViewRecord
 	EmbedRecord_ViewNotFound       *EmbedRecord_ViewNotFound
 	EmbedRecord_ViewBlocked        *EmbedRecord_ViewBlocked
+	EmbedRecord_ViewDetached       *EmbedRecord_ViewDetached
 	FeedDefs_GeneratorView         *FeedDefs_GeneratorView
 	GraphDefs_ListView             *GraphDefs_ListView
 	LabelerDefs_LabelerView        *LabelerDefs_LabelerView
@@ -147,6 +157,10 @@ func (t *EmbedRecord_View_Record) MarshalJSON() ([]byte, error) {
 	if t.EmbedRecord_ViewBlocked != nil {
 		t.EmbedRecord_ViewBlocked.LexiconTypeID = "app.bsky.embed.record#viewBlocked"
 		return json.Marshal(t.EmbedRecord_ViewBlocked)
+	}
+	if t.EmbedRecord_ViewDetached != nil {
+		t.EmbedRecord_ViewDetached.LexiconTypeID = "app.bsky.embed.record#viewDetached"
+		return json.Marshal(t.EmbedRecord_ViewDetached)
 	}
 	if t.FeedDefs_GeneratorView != nil {
 		t.FeedDefs_GeneratorView.LexiconTypeID = "app.bsky.feed.defs#generatorView"
@@ -182,6 +196,9 @@ func (t *EmbedRecord_View_Record) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.record#viewBlocked":
 		t.EmbedRecord_ViewBlocked = new(EmbedRecord_ViewBlocked)
 		return json.Unmarshal(b, t.EmbedRecord_ViewBlocked)
+	case "app.bsky.embed.record#viewDetached":
+		t.EmbedRecord_ViewDetached = new(EmbedRecord_ViewDetached)
+		return json.Unmarshal(b, t.EmbedRecord_ViewDetached)
 	case "app.bsky.feed.defs#generatorView":
 		t.FeedDefs_GeneratorView = new(FeedDefs_GeneratorView)
 		return json.Unmarshal(b, t.FeedDefs_GeneratorView)

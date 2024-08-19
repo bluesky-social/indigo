@@ -68,6 +68,8 @@ func main() {
 		bsky.LabelerService{},
 		bsky.LabelerDefs_LabelerPolicies{},
 		bsky.EmbedVideo{}, bsky.EmbedVideo_Caption{},
+		bsky.FeedPostgate{},
+		bsky.FeedPostgate_DisableRule{},
 		/*bsky.EmbedImages_View{},
 		bsky.EmbedRecord_View{}, bsky.EmbedRecordWithMedia_View{},
 		bsky.EmbedExternal_View{}, bsky.EmbedImages_ViewImage{},

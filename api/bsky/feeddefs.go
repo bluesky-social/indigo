@@ -438,8 +438,9 @@ type FeedDefs_ThreadgateView struct {
 //
 // Metadata about the requesting account's relationship with the subject content. Only has meaningful content for authed requests.
 type FeedDefs_ViewerState struct {
-	Like          *string `json:"like,omitempty" cborgen:"like,omitempty"`
-	ReplyDisabled *bool   `json:"replyDisabled,omitempty" cborgen:"replyDisabled,omitempty"`
-	Repost        *string `json:"repost,omitempty" cborgen:"repost,omitempty"`
-	ThreadMuted   *bool   `json:"threadMuted,omitempty" cborgen:"threadMuted,omitempty"`
+	EmbeddingDisabled *bool   `json:"embeddingDisabled,omitempty" cborgen:"embeddingDisabled,omitempty"`
+	Like              *string `json:"like,omitempty" cborgen:"like,omitempty"`
+	ReplyDisabled     *bool   `json:"replyDisabled,omitempty" cborgen:"replyDisabled,omitempty"`
+	Repost            *string `json:"repost,omitempty" cborgen:"repost,omitempty"`
+	ThreadMuted       *bool   `json:"threadMuted,omitempty" cborgen:"threadMuted,omitempty"`
 }
