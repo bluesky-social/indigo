@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"testing"
 
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
@@ -17,7 +18,7 @@ func init() {
 	RegisterType("blob", &LexBlob{})
 }
 
-func RegisterType(id string, val cbg.CBORMarshaler) {
+func RegisterType(id string, val any) {
 	t := reflect.TypeOf(val)
 
 	if t.Kind() == reflect.Pointer {
@@ -140,4 +141,29 @@ func (ltd *LexiconTypeDecoder) MarshalJSON() ([]byte, error) {
 	v.Elem().FieldByName("LexiconTypeID").SetString(cval)
 
 	return json.Marshal(ltd.Val)
+}
+
+// This test function should be called from each package which calls RegisterType
+func TestTypesHaveCBORGen(t *testing.T) {
+	for name, rt := range lexTypesMap {
+		t.Logf("%s %s", name, rt.Name())
+		v := reflect.New(rt).Interface()
+		_, typeOk := v.(cbg.CBORMarshaler)
+		if !typeOk {
+			t.Errorf("%s %T is not CBORMarshaler", name, v)
+		}
+		_, typeOk = v.(cbg.CBORUnmarshaler)
+		if !typeOk {
+			t.Errorf("%s %T is not CBORUnmarshaler", name, v)
+		}
+	}
+}
+
+// returns a copy of map from RegisterType
+func AllLexTypes() map[string]reflect.Type {
+	out := make(map[string]reflect.Type, len(lexTypesMap))
+	for k, v := range lexTypesMap {
+		out[k] = v
+	}
+	return out
 }

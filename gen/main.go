@@ -2,6 +2,7 @@ package main
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/bluesky-social/indigo/api"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
@@ -43,29 +44,43 @@ func main() {
 		panic(err)
 	}
 
-	if err := genCfg.WriteMapEncodersToFile("api/bsky/cbor_gen.go", "bsky",
-		bsky.FeedPost{}, bsky.FeedRepost{}, bsky.FeedPost_Entity{},
-		bsky.FeedPost_ReplyRef{}, bsky.FeedPost_TextSlice{}, bsky.EmbedImages{},
-		bsky.EmbedExternal{}, bsky.EmbedExternal_External{},
-		bsky.EmbedImages_Image{}, bsky.GraphFollow{}, bsky.ActorProfile{},
-		bsky.EmbedRecord{}, bsky.FeedLike{}, bsky.RichtextFacet{},
+	// many of these are atomatically included through lex/util.RegisterType
+	// but other sub-objects still need to be manually registered.
+	// TODO: automate addition of (some) inner objects?
+	bskyTypes := []any{
+		// bsky.FeedPost{},
+		// bsky.FeedRepost{},
+		bsky.FeedPost_Entity{},
+		bsky.FeedPost_ReplyRef{},
+		bsky.FeedPost_TextSlice{},
+		// bsky.EmbedImages{},
+		// bsky.EmbedExternal{},
+		bsky.EmbedExternal_External{},
+		bsky.EmbedImages_Image{},
+		// bsky.GraphFollow{},
+		// bsky.ActorProfile{},
+		// bsky.EmbedRecord{},
+		// bsky.FeedLike{},
+		bsky.RichtextFacet{},
 		bsky.RichtextFacet_ByteSlice{},
-		bsky.RichtextFacet_Link{}, bsky.RichtextFacet_Mention{}, bsky.RichtextFacet_Tag{},
-		bsky.EmbedRecordWithMedia{},
+		bsky.RichtextFacet_Link{},
+		bsky.RichtextFacet_Mention{},
+		bsky.RichtextFacet_Tag{},
+		// bsky.EmbedRecordWithMedia{},
 		bsky.FeedDefs_NotFoundPost{},
-		bsky.GraphBlock{},
-		bsky.GraphList{},
-		bsky.GraphListitem{},
-		bsky.FeedGenerator{},
-		bsky.GraphListblock{},
+		// bsky.GraphBlock{},
+		// bsky.GraphList{},
+		// bsky.GraphListitem{},
+		// bsky.FeedGenerator{},
+		// bsky.GraphListblock{},
 		bsky.EmbedImages_AspectRatio{},
-		bsky.FeedThreadgate{},
+		// bsky.FeedThreadgate{},
 		bsky.FeedThreadgate_ListRule{},
 		bsky.FeedThreadgate_MentionRule{},
 		bsky.FeedThreadgate_FollowingRule{},
 		bsky.GraphStarterpack_FeedItem{},
-		bsky.GraphStarterpack{},
-		bsky.LabelerService{},
+		// bsky.GraphStarterpack{},
+		// bsky.LabelerService{},
 		bsky.LabelerDefs_LabelerPolicies{},
 		/*bsky.EmbedImages_View{},
 		bsky.EmbedRecord_View{}, bsky.EmbedRecordWithMedia_View{},
@@ -74,7 +89,16 @@ func main() {
 		bsky.FeedDefs_ThreadViewPost{}, bsky.EmbedRecord_ViewRecord{},
 		bsky.FeedDefs_PostView{}, bsky.ActorDefs_ProfileViewBasic{},
 		*/
-	); err != nil {
+	}
+	for name, rt := range lexutil.AllLexTypes() {
+		if strings.HasPrefix(name, "app.bsky.") {
+			bskyTypes = append(bskyTypes, reflect.New(rt).Interface())
+		}
+	}
+	bskyGenCfg := genCfg
+	bskyGenCfg.SortTypeNames = true
+
+	if err := bskyGenCfg.WriteMapEncodersToFile("api/bsky/cbor_gen.go", "bsky", bskyTypes...); err != nil {
 		panic(err)
 	}
 
