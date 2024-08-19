@@ -17,20 +17,12 @@ type EmbedImages struct {
 	Images        []*EmbedImages_Image `json:"images" cborgen:"images"`
 }
 
-// EmbedImages_AspectRatio is a "aspectRatio" in the app.bsky.embed.images schema.
-//
-// width:height represents an aspect ratio. It may be approximate, and may not correspond to absolute dimensions in any given unit.
-type EmbedImages_AspectRatio struct {
-	Height int64 `json:"height" cborgen:"height"`
-	Width  int64 `json:"width" cborgen:"width"`
-}
-
 // EmbedImages_Image is a "image" in the app.bsky.embed.images schema.
 type EmbedImages_Image struct {
 	// alt: Alt text description of the image, for accessibility.
-	Alt         string                   `json:"alt" cborgen:"alt"`
-	AspectRatio *EmbedImages_AspectRatio `json:"aspectRatio,omitempty" cborgen:"aspectRatio,omitempty"`
-	Image       *util.LexBlob            `json:"image" cborgen:"image"`
+	Alt         string                 `json:"alt" cborgen:"alt"`
+	AspectRatio *EmbedDefs_AspectRatio `json:"aspectRatio,omitempty" cborgen:"aspectRatio,omitempty"`
+	Image       *util.LexBlob          `json:"image" cborgen:"image"`
 }
 
 // EmbedImages_View is a "view" in the app.bsky.embed.images schema.
@@ -44,8 +36,8 @@ type EmbedImages_View struct {
 // EmbedImages_ViewImage is a "viewImage" in the app.bsky.embed.images schema.
 type EmbedImages_ViewImage struct {
 	// alt: Alt text description of the image, for accessibility.
-	Alt         string                   `json:"alt" cborgen:"alt"`
-	AspectRatio *EmbedImages_AspectRatio `json:"aspectRatio,omitempty" cborgen:"aspectRatio,omitempty"`
+	Alt         string                 `json:"alt" cborgen:"alt"`
+	AspectRatio *EmbedDefs_AspectRatio `json:"aspectRatio,omitempty" cborgen:"aspectRatio,omitempty"`
 	// fullsize: Fully-qualified URL where a large version of the image can be fetched. May or may not be the exact original blob. For example, CDN location provided by the App View.
 	Fullsize string `json:"fullsize" cborgen:"fullsize"`
 	// thumb: Fully-qualified URL where a thumbnail of the image can be fetched. For example, CDN location provided by the App View.

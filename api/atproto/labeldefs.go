@@ -34,7 +34,7 @@ type LabelDefs_Label struct {
 
 // LabelDefs_LabelValueDefinition is a "labelValueDefinition" in the com.atproto.label.defs schema.
 //
-// Declares a label value and its expected interpertations and behaviors.
+// Declares a label value and its expected interpretations and behaviors.
 type LabelDefs_LabelValueDefinition struct {
 	// adultOnly: Does the user need to have adult content enabled in order to configure this label?
 	AdultOnly *bool `json:"adultOnly,omitempty" cborgen:"adultOnly,omitempty"`
