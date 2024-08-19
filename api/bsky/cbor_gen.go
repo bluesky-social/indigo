@@ -1806,7 +1806,7 @@ func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.AspectRatio (bsky.EmbedImages_AspectRatio) (struct)
+	// t.AspectRatio (bsky.EmbedDefs_AspectRatio) (struct)
 	if t.AspectRatio != nil {
 
 		if len("aspectRatio") > 1000000 {
@@ -1896,7 +1896,7 @@ func (t *EmbedImages_Image) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 			}
-			// t.AspectRatio (bsky.EmbedImages_AspectRatio) (struct)
+			// t.AspectRatio (bsky.EmbedDefs_AspectRatio) (struct)
 		case "aspectRatio":
 
 			{
@@ -1909,7 +1909,7 @@ func (t *EmbedImages_Image) UnmarshalCBOR(r io.Reader) (err error) {
 					if err := cr.UnreadByte(); err != nil {
 						return err
 					}
-					t.AspectRatio = new(EmbedImages_AspectRatio)
+					t.AspectRatio = new(EmbedDefs_AspectRatio)
 					if err := t.AspectRatio.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.AspectRatio pointer: %w", err)
 					}
@@ -5261,7 +5261,7 @@ func (t *GraphListblock) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *EmbedImages_AspectRatio) MarshalCBOR(w io.Writer) error {
+func (t *EmbedDefs_AspectRatio) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -5320,8 +5320,8 @@ func (t *EmbedImages_AspectRatio) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *EmbedImages_AspectRatio) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = EmbedImages_AspectRatio{}
+func (t *EmbedDefs_AspectRatio) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = EmbedDefs_AspectRatio{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -5340,7 +5340,7 @@ func (t *EmbedImages_AspectRatio) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("EmbedImages_AspectRatio: map struct too large (%d)", extra)
+		return fmt.Errorf("EmbedDefs_AspectRatio: map struct too large (%d)", extra)
 	}
 
 	var name string
@@ -6906,6 +6906,447 @@ func (t *LabelerDefs_LabelerPolicies) UnmarshalCBOR(r io.Reader) (err error) {
 					}
 
 				}
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *EmbedVideo) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+	fieldCount := 5
+
+	if t.Alt == nil {
+		fieldCount--
+	}
+
+	if t.AspectRatio == nil {
+		fieldCount--
+	}
+
+	if t.Captions == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+		return err
+	}
+
+	// t.Alt (string) (string)
+	if t.Alt != nil {
+
+		if len("alt") > 1000000 {
+			return xerrors.Errorf("Value in field \"alt\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("alt"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("alt")); err != nil {
+			return err
+		}
+
+		if t.Alt == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.Alt) > 1000000 {
+				return xerrors.Errorf("Value in field t.Alt was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Alt))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.Alt)); err != nil {
+				return err
+			}
+		}
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > 1000000 {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("app.bsky.embed.video"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("app.bsky.embed.video")); err != nil {
+		return err
+	}
+
+	// t.Video (util.LexBlob) (struct)
+	if len("video") > 1000000 {
+		return xerrors.Errorf("Value in field \"video\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("video"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("video")); err != nil {
+		return err
+	}
+
+	if err := t.Video.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.Captions ([]*bsky.EmbedVideo_Caption) (slice)
+	if t.Captions != nil {
+
+		if len("captions") > 1000000 {
+			return xerrors.Errorf("Value in field \"captions\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("captions"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("captions")); err != nil {
+			return err
+		}
+
+		if len(t.Captions) > 8192 {
+			return xerrors.Errorf("Slice value in field t.Captions was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Captions))); err != nil {
+			return err
+		}
+		for _, v := range t.Captions {
+			if err := v.MarshalCBOR(cw); err != nil {
+				return err
+			}
+
+		}
+	}
+
+	// t.AspectRatio (bsky.EmbedDefs_AspectRatio) (struct)
+	if t.AspectRatio != nil {
+
+		if len("aspectRatio") > 1000000 {
+			return xerrors.Errorf("Value in field \"aspectRatio\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("aspectRatio"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("aspectRatio")); err != nil {
+			return err
+		}
+
+		if err := t.AspectRatio.MarshalCBOR(cw); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *EmbedVideo) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = EmbedVideo{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("EmbedVideo: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.Alt (string) (string)
+		case "alt":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.Alt = (*string)(&sval)
+				}
+			}
+			// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Video (util.LexBlob) (struct)
+		case "video":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Video = new(util.LexBlob)
+					if err := t.Video.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Video pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Captions ([]*bsky.EmbedVideo_Caption) (slice)
+		case "captions":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > 8192 {
+				return fmt.Errorf("t.Captions: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Captions = make([]*EmbedVideo_Caption, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
+
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.Captions[i] = new(EmbedVideo_Caption)
+							if err := t.Captions[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.Captions[i] pointer: %w", err)
+							}
+						}
+
+					}
+
+				}
+			}
+			// t.AspectRatio (bsky.EmbedDefs_AspectRatio) (struct)
+		case "aspectRatio":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.AspectRatio = new(EmbedDefs_AspectRatio)
+					if err := t.AspectRatio.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.AspectRatio pointer: %w", err)
+					}
+				}
+
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			cbg.ScanForLinks(r, func(cid.Cid) {})
+		}
+	}
+
+	return nil
+}
+func (t *EmbedVideo_Caption) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{162}); err != nil {
+		return err
+	}
+
+	// t.File (util.LexBlob) (struct)
+	if len("file") > 1000000 {
+		return xerrors.Errorf("Value in field \"file\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("file"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("file")); err != nil {
+		return err
+	}
+
+	if err := t.File.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.Lang (string) (string)
+	if len("lang") > 1000000 {
+		return xerrors.Errorf("Value in field \"lang\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("lang"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("lang")); err != nil {
+		return err
+	}
+
+	if len(t.Lang) > 1000000 {
+		return xerrors.Errorf("Value in field t.Lang was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Lang))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Lang)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *EmbedVideo_Caption) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = EmbedVideo_Caption{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("EmbedVideo_Caption: map struct too large (%d)", extra)
+	}
+
+	var name string
+	n := extra
+
+	for i := uint64(0); i < n; i++ {
+
+		{
+			sval, err := cbg.ReadStringWithMax(cr, 1000000)
+			if err != nil {
+				return err
+			}
+
+			name = string(sval)
+		}
+
+		switch name {
+		// t.File (util.LexBlob) (struct)
+		case "file":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.File = new(util.LexBlob)
+					if err := t.File.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.File pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Lang (string) (string)
+		case "lang":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.Lang = string(sval)
 			}
 
 		default:

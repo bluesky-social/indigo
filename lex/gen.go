@@ -21,6 +21,7 @@ const (
 	EncodingJSON  = "application/json"
 	EncodingJSONL = "application/jsonl"
 	EncodingCAR   = "application/vnd.ipld.car"
+	EncodingMP4   = "video/mp4"
 	EncodingANY   = "*/*"
 )
 
@@ -173,7 +174,10 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 
 		if ts.Input != nil {
 			if ts.Input.Schema == nil {
-				if ts.Input.Encoding != "application/cbor" && ts.Input.Encoding != "*/*" && ts.Input.Encoding != "application/vnd.ipld.car" {
+				if ts.Input.Encoding != EncodingCBOR &&
+					ts.Input.Encoding != EncodingANY &&
+					ts.Input.Encoding != EncodingCAR &&
+					ts.Input.Encoding != EncodingMP4 {
 					panic(fmt.Sprintf("strange input type def in %s", s.ID))
 				}
 			} else {
@@ -183,7 +187,11 @@ func (s *Schema) AllTypes(prefix string, defMap map[string]*ExtDef) []outputType
 
 		if ts.Output != nil {
 			if ts.Output.Schema == nil {
-				if ts.Output.Encoding != "application/cbor" && ts.Output.Encoding != "application/vnd.ipld.car" && ts.Output.Encoding != "*/*" && ts.Output.Encoding != "application/jsonl" {
+				if ts.Output.Encoding != EncodingCBOR &&
+					ts.Output.Encoding != EncodingCAR &&
+					ts.Output.Encoding != EncodingANY &&
+					ts.Output.Encoding != EncodingJSONL &&
+					ts.Output.Encoding != EncodingMP4 {
 					panic(fmt.Sprintf("strange output type def in %s", s.ID))
 				}
 			} else {
@@ -479,7 +487,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 		inpvar = "input"
 		inpenc = s.Input.Encoding
 		switch s.Input.Encoding {
-		case EncodingCBOR, EncodingCAR, EncodingANY:
+		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingMP4:
 			params = fmt.Sprintf("%s, input io.Reader", params)
 		case EncodingJSON:
 			params = fmt.Sprintf("%s, input *%s_Input", params, fname)
@@ -507,7 +515,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 	out := "error"
 	if s.Output != nil {
 		switch s.Output.Encoding {
-		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingJSONL:
+		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingJSONL, EncodingMP4:
 			out = "([]byte, error)"
 		case EncodingJSON:
 			outname := fname + "_Output"
@@ -540,7 +548,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 	outRet := "nil"
 	if s.Output != nil {
 		switch s.Output.Encoding {
-		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingJSONL:
+		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingJSONL, EncodingMP4:
 			pf("buf := new(bytes.Buffer)\n")
 			outvar = "buf"
 			errRet = "nil, err"
@@ -983,7 +991,10 @@ if err := c.Bind(&body); err != nil {
 				pf("contentType := c.Request().Header.Get(\"Content-Type\")\n")
 				paramtypes = append(paramtypes, "r io.Reader", "contentType string")
 				params = append(params, "body", "contentType")
-
+			case EncodingMP4:
+				pf("body := c.Request().Body\n")
+				paramtypes = append(paramtypes, "r io.Reader")
+				params = append(params, "body")
 			default:
 				return fmt.Errorf("unrecognized input encoding: %q", s.Input.Encoding)
 			}
@@ -1004,7 +1015,7 @@ if err := c.Bind(&body); err != nil {
 			}
 			pf("var out *%s.%s\n", impname, outname)
 			returndef = fmt.Sprintf("(*%s.%s, error)", impname, outname)
-		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingJSONL:
+		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingJSONL, EncodingMP4:
 			assign = "out, handleErr"
 			pf("var out io.Reader\n")
 			returndef = "(io.Reader, error)"
@@ -1029,6 +1040,8 @@ if err := c.Bind(&body); err != nil {
 			pf("return c.Stream(200, \"application/vnd.ipld.car\", out)\n}\n\n")
 		case EncodingJSONL:
 			pf("return c.Stream(200, \"application/jsonl\", out)\n}\n\n")
+		case EncodingMP4:
+			pf("return c.Stream(200, \"video/mp4\", out)\n}\n\n")
 		default:
 			return fmt.Errorf("unrecognized output encoding (RPC output handler return): %q", s.Output.Encoding)
 		}
