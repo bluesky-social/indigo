@@ -3,14 +3,22 @@ package visual
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"mime/multipart"
 	"net/http"
+	"sync"
 	"time"
 )
+
+const failureThresh = 10
 
 type PreScreenClient struct {
 	Host  string
 	Token string
+
+	breakerEOL time.Time
+	breakerLk  sync.Mutex
+	failures   int
 
 	c *http.Client
 }
@@ -27,8 +35,52 @@ func NewPreScreenClient(host, token string) *PreScreenClient {
 	}
 }
 
+func (c *PreScreenClient) available() bool {
+	c.breakerLk.Lock()
+	defer c.breakerLk.Unlock()
+	if c.breakerEOL.IsZero() {
+		return true
+	}
+
+	if time.Now().After(c.breakerEOL) {
+		c.breakerEOL = time.Time{}
+		return true
+	}
+
+	return false
+}
+
+func (c *PreScreenClient) recordCallResult(success bool) {
+	c.breakerLk.Lock()
+	defer c.breakerLk.Unlock()
+	if !c.breakerEOL.IsZero() {
+		return
+	}
+
+	if success {
+		c.failures = 0
+	} else {
+		c.failures++
+		if c.failures > failureThresh {
+			c.breakerEOL = time.Now().Add(time.Minute)
+			c.failures = 0
+		}
+	}
+}
+
 func (c *PreScreenClient) PreScreenImage(blob []byte) (string, error) {
-	return c.checkImage(blob)
+	if !c.available() {
+		return "", fmt.Errorf("pre-screening temporarily unavailable")
+	}
+
+	res, err := c.checkImage(blob)
+	if err != nil {
+		c.recordCallResult(false)
+		return "", err
+	}
+
+	c.recordCallResult(true)
+	return res, nil
 }
 
 type PreScreenResult struct {
