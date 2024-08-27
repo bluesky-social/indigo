@@ -61,6 +61,8 @@ type Config struct {
 	RulesetName         string
 	RatelimitBypass     string
 	FirehoseParallelism int
+	PreScreenHost       string
+	PreScreenToken      string
 }
 
 func NewServer(dir identity.Directory, config Config) (*Server, error) {
@@ -169,6 +171,11 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		logger.Info("configuring Hive AI image labeler")
 		hc := visual.NewHiveAIClient(config.HiveAPIToken)
 		extraBlobRules = append(extraBlobRules, hc.HiveLabelBlobRule)
+
+		if config.PreScreenHost != "" {
+			psc := visual.NewPreScreenClient(config.PreScreenHost, config.PreScreenToken)
+			hc.PreScreenClient = psc
+		}
 	}
 
 	if config.AbyssHost != "" && config.AbyssPassword != "" {

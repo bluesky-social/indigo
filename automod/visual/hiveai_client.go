@@ -20,6 +20,8 @@ import (
 type HiveAIClient struct {
 	Client   http.Client
 	ApiToken string
+
+	PreScreenClient *PreScreenClient
 }
 
 // schema: https://docs.thehive.ai/reference/classification
