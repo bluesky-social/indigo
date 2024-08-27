@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -155,7 +154,7 @@ func (srv *Server) WebRepoCollection(c echo.Context) error {
 
 	cursor := c.QueryParam("cursor")
 	// collection string, cursor string, limit int64, repo string, reverse bool, rkeyEnd string, rkeyStart string
-	resp, err := comatproto.RepoListRecords(ctx, &xrpcc, collection.String(), cursor, 100, ident.DID.String(), false, "", "")
+	resp, err := RepoListRecords(ctx, &xrpcc, collection.String(), cursor, 100, ident.DID.String(), false, "", "")
 	if err != nil {
 		return err
 	}
@@ -208,31 +207,24 @@ func (srv *Server) WebRepoRecord(c echo.Context) error {
 	info["collection"] = collection
 	info["rkey"] = rkey
 
-	pdsURL := ident.PDSEndpoint()
+	xrpcc := xrpc.Client{
+		Host: ident.PDSEndpoint(),
+	}
+	resp, err := RepoGetRecord(ctx, &xrpcc, "", collection.String(), ident.DID.String(), rkey.String())
+	if err != nil {
+		return err
+	}
 
-	//slog.Debug("fetching record", "did", ident.DID.String(), "collection", aturi.Collection().String(), "rkey", aturi.RecordKey().String())
-	url := fmt.Sprintf("%s/xrpc/com.atproto.repo.getRecord?repo=%s&collection=%s&rkey=%s",
-		pdsURL, ident.DID, collection, rkey)
-	resp, err := http.Get(url)
+	if nil == resp.Value {
+		return fmt.Errorf("empty record in response")
+	}
+
+	record, err := data.UnmarshalJSON(*resp.Value)
 	if err != nil {
-		return err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("fetch failed")
-	}
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	body, err := data.UnmarshalJSON(respBytes)
-	if err != nil {
-		return err
-	}
-	record, ok := body["value"].(map[string]any)
-	if !ok {
-		return fmt.Errorf("fetched record was not an object")
+		return fmt.Errorf("fetched record was invalid data: %w", err)
 	}
 	info["record"] = record
+
 	b, err := json.MarshalIndent(record, "", "  ")
 	if err != nil {
 		return err
