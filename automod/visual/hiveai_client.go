@@ -60,13 +60,13 @@ func summarizeSimpleLabels(cl []HiveAIResp_Class) []string {
 
 	for _, cls := range cl {
 		if cls.Class == "very_bloody" && cls.Score >= 0.90 {
-			labels = append(labels, "gore")
+			labels = append(labels, "graphic-media")
 		}
 		if cls.Class == "human_corpse" && cls.Score >= 0.90 {
-			labels = append(labels, "corpse")
+			labels = append(labels, "graphic-media")
 		}
 		if cls.Class == "hanging" && cls.Score >= 0.90 {
-			labels = append(labels, "corpse")
+			labels = append(labels, "graphic-media")
 		}
 		if cls.Class == "yes_self_harm" && cls.Score >= 0.96 {
 			labels = append(labels, "self-harm")
