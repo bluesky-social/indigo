@@ -13,6 +13,8 @@
 		body > footer { position: absolute; bottom: 0px; padding: 2em; background-color: var(--pico-muted-border-color); }
 		thead th { font-weight: bold; }
 		main article { margin: 2.5rem 0; padding: 2rem; }
+		code { background: none; }
+		td { padding: 0; }
 	</style>
 	<meta name="generator" name="astrolabe">
   <title>{% block head_title %}astrolabe{% endblock %}</title>
@@ -32,15 +34,7 @@
 
 <main class="container">
 	{% block main_content %}Base Template{% endblock %}
-	<br>
-	<br>
-	<br>
 </main>
 
-<footer class="container-fluid">
-	<div class="container">
-    <small>Developed by <a href="https://blueskyweb.xyz">Bluesky PBC</a> for <a href="https://atproto.com">atproto</a></small>
-  </div>
-</footer>
 </body>
 </html>
