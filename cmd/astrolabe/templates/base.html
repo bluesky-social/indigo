@@ -23,7 +23,7 @@
   	<li><a href="/"><strong>astrolabe</strong></a></li>
   </ul>
 	<form action="/query" method="get" style="width: 80%;">
-  	<input type="text" name="q" placeholder="at://..." style="margin: 0.5em;">
+  	<input type="text" name="q" placeholder="at://..." {% if uri %}value="{{ uri }}"{% endif %} style="margin: 0.5em;">
 	</form>
   <ul>
     <li><a href="https://github.com/bluesky-social/indigo">Code</a></li>

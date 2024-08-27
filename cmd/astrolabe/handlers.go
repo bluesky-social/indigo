@@ -80,6 +80,7 @@ func (srv *Server) WebAccount(c echo.Context) error {
 	}
 	info["atid"] = atid
 	info["ident"] = ident
+	info["uri"] = atid
 	return c.Render(http.StatusOK, "account.html", info)
 }
 
@@ -101,6 +102,7 @@ func (srv *Server) WebRepo(c echo.Context) error {
 	}
 	info["atid"] = atid
 	info["ident"] = ident
+	info["uri"] = fmt.Sprintf("at://%s", atid)
 
 	// create a new API client to connect to the account's PDS
 	xrpcc := xrpc.Client{
@@ -143,6 +145,7 @@ func (srv *Server) WebRepoCollection(c echo.Context) error {
 	info["atid"] = atid
 	info["ident"] = ident
 	info["collection"] = collection
+	info["uri"] = fmt.Sprintf("at://%s/%s", atid, collection)
 
 	// create a new API client to connect to the account's PDS
 	xrpcc := xrpc.Client{
@@ -206,6 +209,7 @@ func (srv *Server) WebRepoRecord(c echo.Context) error {
 	info["ident"] = ident
 	info["collection"] = collection
 	info["rkey"] = rkey
+	info["uri"] = fmt.Sprintf("at://%s/%s/%s", atid, collection, rkey)
 
 	xrpcc := xrpc.Client{
 		Host: ident.PDSEndpoint(),
