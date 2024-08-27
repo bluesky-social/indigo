@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"errors"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
@@ -142,16 +143,21 @@ type GenericStatus struct {
 
 func (srv *Server) errorHandler(err error, c echo.Context) {
 	code := http.StatusInternalServerError
+	var errorMessage string
 	if he, ok := err.(*echo.HTTPError); ok {
 		code = he.Code
+		errorMessage = fmt.Sprintf("%s", he.Message)
 	}
 	if code >= 500 {
 		slog.Warn("astrolabe-http-internal-error", "err", err)
 	}
 	data := pongo2.Context{
-		"statusCode": code,
+		"statusCode":   code,
+		"errorMessage": errorMessage,
 	}
-	c.Render(code, "error.html", data)
+	if !c.Response().Committed {
+		c.Render(code, "error.html", data)
+	}
 }
 
 func (srv *Server) ServeHTTP(rw http.ResponseWriter, req *http.Request) {

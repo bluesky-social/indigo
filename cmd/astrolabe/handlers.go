@@ -212,7 +212,7 @@ func (srv *Server) WebRepoRecord(c echo.Context) error {
 	}
 	resp, err := RepoGetRecord(ctx, &xrpcc, "", collection.String(), ident.DID.String(), rkey.String())
 	if err != nil {
-		return err
+		return echo.NewHTTPError(400, fmt.Sprintf("failed to load record: %s", err))
 	}
 
 	if nil == resp.Value {
