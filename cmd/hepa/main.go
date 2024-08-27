@@ -138,6 +138,16 @@ func run(args []string) error {
 			Usage:   "force a fixed number of parallel firehose workers. default (or 0) for auto-scaling; 200 works for a large instance",
 			EnvVars: []string{"HEPA_FIREHOSE_PARALLELISM"},
 		},
+		&cli.StringFlag{
+			Name:    "prescreen-host",
+			Usage:   "hostname of prescreen server",
+			EnvVars: []string{"HEPA_PRESCREEN_HOST"},
+		},
+		&cli.StringFlag{
+			Name:    "prescreen-token",
+			Usage:   "secret token for prescreen server",
+			EnvVars: []string{"HEPA_PRESCREEN_TOKEN"},
+		},
 	}
 
 	app.Commands = []*cli.Command{
@@ -242,6 +252,8 @@ var runCmd = &cli.Command{
 				RatelimitBypass:     cctx.String("ratelimit-bypass"),
 				RulesetName:         cctx.String("ruleset"),
 				FirehoseParallelism: cctx.Int("firehose-parallelism"),
+				PreScreenHost:       cctx.String("prescreen-host"),
+				PreScreenToken:      cctx.String("prescreen-token"),
 			},
 		)
 		if err != nil {
@@ -316,6 +328,8 @@ func configEphemeralServer(cctx *cli.Context) (*Server, error) {
 			RatelimitBypass:     cctx.String("ratelimit-bypass"),
 			RulesetName:         cctx.String("ruleset"),
 			FirehoseParallelism: cctx.Int("firehose-parallelism"),
+			PreScreenHost:       cctx.String("prescreen-host"),
+			PreScreenToken:      cctx.String("prescreen-token"),
 		},
 	)
 }
