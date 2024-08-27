@@ -2,6 +2,7 @@ package visual
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"mime/multipart"
@@ -68,12 +69,12 @@ func (c *PreScreenClient) recordCallResult(success bool) {
 	}
 }
 
-func (c *PreScreenClient) PreScreenImage(blob []byte) (string, error) {
+func (c *PreScreenClient) PreScreenImage(ctx context.Context, blob []byte) (string, error) {
 	if !c.available() {
 		return "", fmt.Errorf("pre-screening temporarily unavailable")
 	}
 
-	res, err := c.checkImage(blob)
+	res, err := c.checkImage(ctx, blob)
 	if err != nil {
 		c.recordCallResult(false)
 		return "", err
@@ -87,7 +88,7 @@ type PreScreenResult struct {
 	Result string `json:"result"`
 }
 
-func (c *PreScreenClient) checkImage(data []byte) (string, error) {
+func (c *PreScreenClient) checkImage(ctx context.Context, data []byte) (string, error) {
 	url := c.Host + "/predict"
 
 	body := new(bytes.Buffer)
@@ -108,6 +109,8 @@ func (c *PreScreenClient) checkImage(data []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	req = req.WithContext(ctx)
 
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	req.Header.Set("Authorization", "Bearer "+c.Token)
