@@ -34,6 +34,8 @@ func (hal *HiveAIClient) HiveLabelBlobRule(c *automod.RecordContext, blob lexuti
 		} else {
 			c.Logger.Info("prescreen-safe-success", "uri", c.RecordOp.ATURI())
 		}
+	} else {
+		c.Logger.Info("prescreen-nsfw", "uri", c.RecordOp.ATURI())
 	}
 
 	for _, l := range labels {
