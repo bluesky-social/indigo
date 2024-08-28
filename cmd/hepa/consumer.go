@@ -54,71 +54,20 @@ func (s *Server) RunConsumer(ctx context.Context) error {
 		},
 		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
 			atomic.StoreInt64(&s.lastSeq, evt.Seq)
-			did, err := syntax.ParseDID(evt.Did)
-			if err != nil {
-				s.logger.Error("bad DID in RepoIdentity event", "did", evt.Did, "seq", evt.Seq, "err", err)
-				return nil
-			}
-			if err := s.engine.ProcessIdentityEvent(ctx, "identity", did); err != nil {
+			if err := s.engine.ProcessIdentityEvent(ctx, *evt); err != nil {
 				s.logger.Error("processing repo identity failed", "did", evt.Did, "seq", evt.Seq, "err", err)
 			}
-
-			if s.rerouteEvents {
-				if err := s.engine.RerouteIdentityEventToOzone(ctx, evt); err != nil {
-					s.logger.Error("rerouting identity event to ozone failed", "did", evt.Did, "seq", evt.Seq, "err", err)
-				}
-			}
-
 			return nil
 		},
 		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
 			atomic.StoreInt64(&s.lastSeq, evt.Seq)
-			did, err := syntax.ParseDID(evt.Did)
-			if err != nil {
-				s.logger.Error("bad DID in RepoAccount event", "did", evt.Did, "seq", evt.Seq, "err", err)
-				return nil
-			}
-			if err := s.engine.ProcessIdentityEvent(ctx, "account", did); err != nil {
+			if err := s.engine.ProcessAccountEvent(ctx, *evt); err != nil {
 				s.logger.Error("processing repo account failed", "did", evt.Did, "seq", evt.Seq, "err", err)
 			}
-			if s.rerouteEvents {
-				if err := s.engine.RerouteAccountEventToOzone(ctx, evt); err != nil {
-					s.logger.Error("rerouting account event to ozone failed", "did", evt.Did, "seq", evt.Seq, "err", err)
-				}
-			}
 			return nil
 		},
-		// TODO: deprecated
-		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-			atomic.StoreInt64(&s.lastSeq, evt.Seq)
-			did, err := syntax.ParseDID(evt.Did)
-			if err != nil {
-				s.logger.Error("bad DID in RepoHandle event", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
-				return nil
-			}
-			if err := s.engine.ProcessIdentityEvent(ctx, "handle", did); err != nil {
-				s.logger.Error("processing handle update failed", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
-			}
-			return nil
-		},
-		// TODO: deprecated
-		RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
-			atomic.StoreInt64(&s.lastSeq, evt.Seq)
-			did, err := syntax.ParseDID(evt.Did)
-			if err != nil {
-				s.logger.Error("bad DID in RepoTombstone event", "did", evt.Did, "seq", evt.Seq, "err", err)
-				return nil
-			}
-			if err := s.engine.ProcessIdentityEvent(ctx, "tombstone", did); err != nil {
-				s.logger.Error("processing repo tombstone failed", "did", evt.Did, "seq", evt.Seq, "err", err)
-			}
-			if s.rerouteEvents {
-				if err := s.engine.RerouteTombstoneEventToOzone(ctx, evt); err != nil {
-					s.logger.Error("rerouting tombstone event to ozone failed", "did", evt.Did, "seq", evt.Seq, "err", err)
-				}
-			}
-			return nil
-		},
+		// NOTE: no longer process #handle events
+		// NOTE: no longer process #tombstone events
 	}
 
 	var scheduler events.Scheduler
@@ -184,13 +133,6 @@ func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubsc
 		return nil
 	}
 
-	// empty commit is a special case, temporarily, basically indicates "new account"
-	if len(evt.Ops) == 0 {
-		if err := s.engine.ProcessIdentityEvent(ctx, "create", did); err != nil {
-			s.logger.Error("processing handle update failed", "did", evt.Repo, "rev", evt.Rev, "seq", evt.Seq, "err", err)
-		}
-	}
-
 	for _, op := range evt.Ops {
 		logger = logger.With("eventKind", op.Action, "path", op.Path)
 		collection, rkey, err := splitRepoPath(op.Path)
@@ -236,11 +178,6 @@ func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubsc
 				logger.Error("engine failed to process record", "err", err)
 				continue
 			}
-			if s.rerouteEvents {
-				if err := s.engine.RerouteRecordOpToOzone(ctx, &op); err != nil {
-					logger.Error("rerouting record create/update event to ozone failed", "err", err)
-				}
-			}
 		case repomgr.EvtKindDeleteRecord:
 			op := automod.RecordOp{
 				Action:     automod.DeleteOp,
@@ -254,11 +191,6 @@ func (s *Server) HandleRepoCommit(ctx context.Context, evt *comatproto.SyncSubsc
 			if err != nil {
 				logger.Error("engine failed to process record", "err", err)
 				continue
-			}
-			if s.rerouteEvents {
-				if err := s.engine.RerouteRecordOpToOzone(ctx, &op); err != nil {
-					logger.Error("rerouting record delete event to ozone failed", "err", err)
-				}
 			}
 		default:
 			// TODO: should this be an error?

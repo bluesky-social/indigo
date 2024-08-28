@@ -10,7 +10,7 @@ import (
 
 func (eng *Engine) RerouteAccountEventToOzone(c context.Context, e *comatproto.SyncSubscribeRepos_Account) error {
 	comment := "[automod]: Account status event"
-	eng.RerouteEventToOzone(c, toolsozone.ModerationEmitEvent_Input_Event{
+	eng.rerouteEventToOzone(c, toolsozone.ModerationEmitEvent_Input_Event{
 		ModerationDefs_AccountEvent: &toolsozone.ModerationDefs_AccountEvent{
 			Comment:   &comment,
 			Timestamp: e.Time,
@@ -25,10 +25,11 @@ func (eng *Engine) RerouteAccountEventToOzone(c context.Context, e *comatproto.S
 	return nil
 }
 
+/*
 func (eng *Engine) RerouteTombstoneEventToOzone(c context.Context, e *comatproto.SyncSubscribeRepos_Tombstone) error {
 	comment := "[automod]: Tombstone event"
 	tombstone := true
-	eng.RerouteEventToOzone(c, toolsozone.ModerationEmitEvent_Input_Event{
+	eng.rerouteEventToOzone(c, toolsozone.ModerationEmitEvent_Input_Event{
 		ModerationDefs_IdentityEvent: &toolsozone.ModerationDefs_IdentityEvent{
 			Comment: &comment,
 			// @TODO: These don't seem to exist in the Identity event?
@@ -44,21 +45,22 @@ func (eng *Engine) RerouteTombstoneEventToOzone(c context.Context, e *comatproto
 	})
 	return nil
 }
+*/
 
-func (eng *Engine) RerouteRecordOpToOzone(c context.Context, e *RecordOp) error {
+func (eng *Engine) RerouteRecordOpToOzone(c *RecordContext) error {
 	comment := "[automod]: Record event"
 
-	eng.RerouteEventToOzone(c, toolsozone.ModerationEmitEvent_Input_Event{
+	eng.rerouteEventToOzone(c.Ctx, toolsozone.ModerationEmitEvent_Input_Event{
 		ModerationDefs_RecordEvent: &toolsozone.ModerationDefs_RecordEvent{
 			Comment:   &comment,
-			Op:        e.Action,
+			Op:        c.RecordOp.Action,
 			Timestamp: time.Now().Format(time.RFC3339),
 		},
 	}, toolsozone.ModerationEmitEvent_Input_Subject{
 		RepoStrongRef: &comatproto.RepoStrongRef{
 			LexiconTypeID: "com.atproto.repo.strongRef",
-			Uri:           e.ATURI().String(),
-			Cid:           e.CID.String(),
+			Uri:           c.RecordOp.ATURI().String(),
+			Cid:           c.RecordOp.CID.String(),
 		},
 	})
 
@@ -69,7 +71,7 @@ func (eng *Engine) RerouteIdentityEventToOzone(c context.Context, e *comatproto.
 	comment := "[automod]: Identity event"
 	tombstone := false
 
-	eng.RerouteEventToOzone(c, toolsozone.ModerationEmitEvent_Input_Event{
+	eng.rerouteEventToOzone(c, toolsozone.ModerationEmitEvent_Input_Event{
 		ModerationDefs_IdentityEvent: &toolsozone.ModerationDefs_IdentityEvent{
 			Comment: &comment,
 			Handle:  e.Handle,
@@ -144,7 +146,7 @@ func (eng *Engine) IsDuplicatingEvent(ctx context.Context, event toolsozone.Mode
 	return false, nil
 }
 
-func (eng *Engine) RerouteEventToOzone(ctx context.Context, event toolsozone.ModerationEmitEvent_Input_Event, subject toolsozone.ModerationEmitEvent_Input_Subject) error {
+func (eng *Engine) rerouteEventToOzone(ctx context.Context, event toolsozone.ModerationEmitEvent_Input_Event, subject toolsozone.ModerationEmitEvent_Input_Subject) error {
 	// if we can't actually talk to service, bail out early
 	if eng.OzoneClient == nil {
 		eng.Logger.Warn("not persisting ozone account event, mod service client not configured")

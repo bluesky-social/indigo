@@ -39,6 +39,7 @@ func DefaultRules() automod.RuleSet {
 			BadWordRecordKeyRule,
 			BadWordOtherRecordRule,
 			TooManyRepostRule,
+			OzoneRecordHistoryPersistRule,
 		},
 		RecordDeleteRules: []automod.RecordRuleFunc{
 			DeleteInteractionRule,
