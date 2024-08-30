@@ -26,15 +26,17 @@ type EventManager struct {
 	subs   []*Subscriber
 	subsLk sync.Mutex
 
-	bufferSize int
+	bufferSize          int
+	crossoverBufferSize int
 
 	persister EventPersistence
 }
 
 func NewEventManager(persister EventPersistence) *EventManager {
 	em := &EventManager{
-		bufferSize: 2048,
-		persister:  persister,
+		bufferSize:          16 << 10,
+		crossoverBufferSize: 128,
+		persister:           persister,
 	}
 
 	persister.SetEventBroadcaster(em.broadcastEvent)
@@ -206,7 +208,7 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 		return sub.outgoing, sub.cleanup, nil
 	}
 
-	out := make(chan *XRPCStreamEvent, em.bufferSize)
+	out := make(chan *XRPCStreamEvent, em.crossoverBufferSize)
 
 	go func() {
 		lastSeq := *since
