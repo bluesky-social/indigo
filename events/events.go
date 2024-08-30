@@ -33,7 +33,7 @@ type EventManager struct {
 
 func NewEventManager(persister EventPersistence) *EventManager {
 	em := &EventManager{
-		bufferSize: 512,
+		bufferSize: 2048,
 		persister:  persister,
 	}
 
