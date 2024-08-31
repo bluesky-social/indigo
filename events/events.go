@@ -76,6 +76,12 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 			case s.outgoing <- evt:
 			case <-s.done:
 			default:
+				// filter out all future messages that would be
+				// sent to this subscriber, but wait for it to
+				// actually be removed by the correct bit of
+				// code
+				s.filter = func(*XRPCStreamEvent) bool { return false }
+
 				log.Warnw("dropping slow consumer due to event overflow", "bufferSize", len(s.outgoing), "ident", s.ident)
 				go func(torem *Subscriber) {
 					torem.lk.Lock()
@@ -93,7 +99,6 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 					torem.lk.Unlock()
 					torem.cleanup()
 				}(s)
-				return
 			}
 			s.broadcastCounter.Inc()
 		}
