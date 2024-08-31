@@ -91,6 +91,7 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 					torem.lk.Unlock()
 					torem.cleanup()
 				}(s)
+				return
 			}
 			s.broadcastCounter.Inc()
 		}
