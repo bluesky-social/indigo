@@ -15,13 +15,14 @@ func (hal *HiveAIClient) HiveLabelBlobRule(c *automod.RecordContext, blob lexuti
 		return nil
 	}
 
-	var psclabel string
+	var prescreenResult string
 	if hal.PreScreenClient != nil {
 		val, err := hal.PreScreenClient.PreScreenImage(c.Ctx, data)
 		if err != nil {
 			c.Logger.Info("prescreen-request-error", "err", err)
 		} else {
-			psclabel = val
+			prescreenResult = val
+			c.Logger.Info("prescreen-request", "uri", c.RecordOp.ATURI(), "result", prescreenResult)
 		}
 	}
 
@@ -31,14 +32,12 @@ func (hal *HiveAIClient) HiveLabelBlobRule(c *automod.RecordContext, blob lexuti
 	}
 
 	if hal.PreScreenClient != nil {
-		if psclabel == "sfw" {
+		if prescreenResult == "sfw" {
 			if len(labels) > 0 {
-				c.Logger.Info("prescreen-safe-failure", "uri", c.RecordOp.ATURI())
+				c.Logger.Info("prescreen-safe-failure", "uri", c.RecordOp.ATURI(), "labels", labels, "result", prescreenResult)
 			} else {
 				c.Logger.Info("prescreen-safe-success", "uri", c.RecordOp.ATURI())
 			}
-		} else {
-			c.Logger.Info("prescreen-nsfw", "uri", c.RecordOp.ATURI())
 		}
 	}
 
