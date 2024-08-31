@@ -100,7 +100,7 @@ func summarizeSexualLabels(cl []HiveAIResp_Class) string {
 	}
 
 	// first check if porn...
-	for _, pornClass := range []string{"yes_sexual_activity", "animal_genitalia_and_human", "yes_realistic_nsfw"} {
+	for _, pornClass := range []string{"yes_sexual_activity", "animal_genitalia_and_human"} {
 		if scores[pornClass] >= threshold {
 			return "porn"
 		}
@@ -117,31 +117,26 @@ func summarizeSexualLabels(cl []HiveAIResp_Class) string {
 		}
 	}
 
-	// then check for sexual suggestive (which may include nudity)...
-	for _, sexualClass := range []string{"yes_sexual_intent", "yes_sex_toy"} {
-		if scores[sexualClass] >= threshold {
-			return "sexual"
+	// then check for sexual suggestive: intent/NSFW in combination with underwear / sex toy / etc...
+	if scores["yes_sexual_intent"] >= threshold || scores["yes_realistic_nsfw"] >= threshold {
+		for _, underwearClass := range []string{"yes_male_underwear", "yes_female_underwear", "yes_sex_toy", "yes_male_nudity", "yes_female_nudity", "yes_undressed"} {
+			if scores[underwearClass] >= threshold {
+				return "sexual"
+			}
 		}
 	}
+
+	// special case for bondage examples
 	if scores["yes_undressed"] >= threshold {
-		// special case for bondage examples
 		if scores["yes_sex_toy"] > 0.75 {
 			return "sexual"
 		}
 	}
 
-	// then non-sexual nudity...
+	// then finally non-sexual nudity...
 	for _, nudityClass := range []string{"yes_male_nudity", "yes_female_nudity", "yes_undressed"} {
 		if scores[nudityClass] >= threshold {
 			return "nudity"
-		}
-	}
-
-	// then finally flag remaining "underwear" images in to sexually suggestive
-	// (after non-sexual content already labeled above)
-	for _, underwearClass := range []string{"yes_male_underwear", "yes_female_underwear"} {
-		if scores[underwearClass] >= threshold {
-			return "sexual"
 		}
 	}
 
