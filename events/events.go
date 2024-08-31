@@ -26,15 +26,17 @@ type EventManager struct {
 	subs   []*Subscriber
 	subsLk sync.Mutex
 
-	bufferSize int
+	bufferSize          int
+	crossoverBufferSize int
 
 	persister EventPersistence
 }
 
 func NewEventManager(persister EventPersistence) *EventManager {
 	em := &EventManager{
-		bufferSize: 32 << 10,
-		persister:  persister,
+		bufferSize:          16 << 10,
+		crossoverBufferSize: 512,
+		persister:           persister,
 	}
 
 	persister.SetEventBroadcaster(em.broadcastEvent)
@@ -74,6 +76,12 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 			case s.outgoing <- evt:
 			case <-s.done:
 			default:
+				// filter out all future messages that would be
+				// sent to this subscriber, but wait for it to
+				// actually be removed by the correct bit of
+				// code
+				s.filter = func(*XRPCStreamEvent) bool { return false }
+
 				log.Warnw("dropping slow consumer due to event overflow", "bufferSize", len(s.outgoing), "ident", s.ident)
 				go func(torem *Subscriber) {
 					torem.lk.Lock()
@@ -206,7 +214,7 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 		return sub.outgoing, sub.cleanup, nil
 	}
 
-	out := make(chan *XRPCStreamEvent, em.bufferSize)
+	out := make(chan *XRPCStreamEvent, em.crossoverBufferSize)
 
 	go func() {
 		lastSeq := *since
