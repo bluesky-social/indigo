@@ -36,7 +36,9 @@ func ReplyCountPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error 
 }
 
 // triggers on the N+1 post
-var identicalReplyLimit = 6
+//var identicalReplyLimit = 6
+// TODO: bumping temporarily
+var identicalReplyLimit = 20
 
 var _ automod.PostRuleFunc = IdenticalReplyPostRule
 
@@ -76,7 +78,9 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 	return nil
 }
 
-var youngReplyAccountLimit = 12
+// TODO: bumping temporarily
+//var youngReplyAccountLimit = 12
+var youngReplyAccountLimit = 30
 var _ automod.PostRuleFunc = YoungAccountDistinctRepliesRule
 
 func YoungAccountDistinctRepliesRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
