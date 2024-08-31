@@ -30,14 +30,16 @@ func (hal *HiveAIClient) HiveLabelBlobRule(c *automod.RecordContext, blob lexuti
 		return err
 	}
 
-	if psclabel == "sfw" {
-		if len(labels) > 0 {
-			c.Logger.Info("prescreen-safe-failure", "uri", c.RecordOp.ATURI())
+	if hal.PreScreenClient != nil {
+		if psclabel == "sfw" {
+			if len(labels) > 0 {
+				c.Logger.Info("prescreen-safe-failure", "uri", c.RecordOp.ATURI())
+			} else {
+				c.Logger.Info("prescreen-safe-success", "uri", c.RecordOp.ATURI())
+			}
 		} else {
-			c.Logger.Info("prescreen-safe-success", "uri", c.RecordOp.ATURI())
+			c.Logger.Info("prescreen-nsfw", "uri", c.RecordOp.ATURI())
 		}
-	} else {
-		c.Logger.Info("prescreen-nsfw", "uri", c.RecordOp.ATURI())
 	}
 
 	for _, l := range labels {
