@@ -39,6 +39,7 @@ import (
 	promclient "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
+	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
@@ -686,11 +687,12 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 				return fmt.Errorf("unrecognized event kind")
 			}
 
-			if err := header.MarshalCBOR(wc); err != nil {
+			cborWriter := cbg.NewCborWriter(wc)
+			if err := header.MarshalCBOR(cborWriter); err != nil {
 				return fmt.Errorf("failed to write header: %w", err)
 			}
 
-			if err := obj.MarshalCBOR(wc); err != nil {
+			if err := obj.MarshalCBOR(cborWriter); err != nil {
 				return fmt.Errorf("failed to write event: %w", err)
 			}
 
