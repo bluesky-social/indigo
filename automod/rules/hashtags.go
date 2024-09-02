@@ -10,6 +10,11 @@ import (
 
 // looks for specific hashtags from known lists
 func BadHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+	// In cases where we have a soft signaling hashtag that are problematic in combination with other hashtags
+	// we'd want to check the record contains the combination before taking any action
+	potentiallyBadHashtags := []string{}
+	potentiallyBadHashtagCombo := []string{}
+
 	for _, tag := range ExtractHashtagsPost(post) {
 		tag = NormalizeHashtag(tag)
 		// skip some bad-word hashtags which frequently false-positive
@@ -19,6 +24,16 @@ func BadHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error
 		if c.InSet("bad-hashtags", tag) || c.InSet("bad-words", tag) {
 			c.AddRecordFlag("bad-hashtag")
 			c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("possible bad word in hashtags: %s", tag))
+
+			if c.InSet("potentially-bad-hashtags", tag) {
+				potentiallyBadHashtags = append(potentiallyBadHashtags, tag)
+				break
+			}
+			if c.InSet("potentially-bad-hashtag-combos", tag) {
+				potentiallyBadHashtagCombo = append(potentiallyBadHashtagCombo, tag)
+				break
+			}
+
 			break
 		}
 		word := keyword.SlugContainsExplicitSlur(keyword.Slugify(tag))
@@ -28,6 +43,13 @@ func BadHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error
 			break
 		}
 	}
+
+	if len(potentiallyBadHashtagCombo) > 0 && len(potentiallyBadHashtags) > 0 {
+		c.AddRecordFlag("bad-hashtag-combo")
+		c.ReportRecord(automod.ReportReasonRude, fmt.Sprintf("bad hashtag combo: %s %s. account will be taken down", potentiallyBadHashtagCombo, potentiallyBadHashtags))
+		c.TakedownAccount()
+	}
+
 	return nil
 }
 
