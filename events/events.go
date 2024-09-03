@@ -65,11 +65,15 @@ func (em *EventManager) Shutdown(ctx context.Context) error {
 }
 
 func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
+	// the main thing we do is send it out, so MarshalCBOR once
+	if err := evt.Preserialize(); err != nil {
+		log.Errorf("broadcast serialize failed, %s", err)
+		// serialize isn't going to go better later, this event is cursed
+		return
+	}
+
 	em.subsLk.Lock()
 	defer em.subsLk.Unlock()
-
-	// the main thing we do is send it out, so MarshalCBOR once
-	evt.Preserialize()
 
 	// TODO: for a larger fanout we should probably have dedicated goroutines
 	// for subsets of the subscriber set, and tiered channels to distribute
@@ -216,13 +220,17 @@ func (evt *XRPCStreamEvent) Serialize(wc io.Writer) error {
 }
 
 // serialize content into Preserialized cache
-func (evt *XRPCStreamEvent) Preserialize() {
+func (evt *XRPCStreamEvent) Preserialize() error {
 	if evt.Preserialized != nil {
-		return
+		return nil
 	}
 	var buf bytes.Buffer
-	evt.Serialize(&buf)
+	err := evt.Serialize(&buf)
+	if err != nil {
+		return err
+	}
 	evt.Preserialized = buf.Bytes()
+	return nil
 }
 
 type ErrorFrame struct {
