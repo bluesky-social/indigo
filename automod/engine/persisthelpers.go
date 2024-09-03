@@ -111,6 +111,25 @@ func (eng *Engine) circuitBreakTakedown(ctx context.Context, takedown bool) (boo
 	return takedown, nil
 }
 
+func (eng *Engine) circuitBreakResolveAppeal(ctx context.Context, resolveAppeal bool) (bool, error) {
+	if !resolveAppeal {
+		return false, nil
+	}
+	c, err := eng.Counters.GetCount(ctx, "automod-quota", "resolveAppeal", countstore.PeriodDay)
+	if err != nil {
+		return false, fmt.Errorf("checking resolve appeal action quota: %w", err)
+	}
+	if c >= QuotaModResolveAppealDay {
+		eng.Logger.Warn("CIRCUIT BREAKER: automod appeal resolution")
+		return false, nil
+	}
+	err = eng.Counters.Increment(ctx, "automod-quota", "resolveAppeal")
+	if err != nil {
+		return false, fmt.Errorf("incrementing resolve appeal action quota: %w", err)
+	}
+	return resolveAppeal, nil
+}
+
 // Creates a moderation report, but checks first if there was a similar recent one, and skips if so.
 //
 // Returns a bool indicating if a new report was created.

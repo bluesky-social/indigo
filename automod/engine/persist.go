@@ -211,7 +211,12 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		return fmt.Errorf("failed to circuit break takedowns: %w", err)
 	}
 
-	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
+	resolveAppeal, err := eng.circuitBreakResolveAppeal(ctx, c.effects.RecordAppealResolve)
+	if err != nil {
+		return fmt.Errorf("failed to circuit break resolve appeal: %w", err)
+	}
+
+	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 || resolveAppeal {
 		if eng.Notifier != nil {
 			for _, srv := range dedupeStrings(c.effects.NotifyServices) {
 				if err := eng.Notifier.SendRecord(ctx, srv, c); err != nil {
@@ -231,7 +236,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 
 	// exit early
-	if !newTakedown && len(newLabels) == 0 && len(newReports) == 0 {
+	if !newTakedown && len(newLabels) == 0 && len(newReports) == 0 && !resolveAppeal {
 		return nil
 	}
 
@@ -301,6 +306,26 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		})
 		if err != nil {
 			c.Logger.Error("failed to execute record takedown", "err", err)
+		}
+	}
+
+	if resolveAppeal {
+		c.Logger.Warn("record-resolve-appeal")
+		actionNewTakedownCount.WithLabelValues("record").Inc()
+		comment := "[automod]: automated appeal resolution due to content deletion"
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventResolveAppeal: &toolsozone.ModerationDefs_ModEventResolveAppeal{
+					Comment: &comment,
+				},
+			},
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
+				RepoStrongRef: &strongRef,
+			},
+		})
+		if err != nil {
+			c.Logger.Error("failed to execute appeal resolve", "err", err)
 		}
 	}
 	return nil

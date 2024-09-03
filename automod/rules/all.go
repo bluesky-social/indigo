@@ -42,6 +42,7 @@ func DefaultRules() automod.RuleSet {
 		},
 		RecordDeleteRules: []automod.RecordRuleFunc{
 			DeleteInteractionRule,
+			ResolveAppealOnDeleteRule,
 		},
 		IdentityRules: []automod.IdentityRuleFunc{
 			NewAccountRule,

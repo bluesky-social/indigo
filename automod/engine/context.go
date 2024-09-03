@@ -288,6 +288,10 @@ func (c *RecordContext) TakedownRecord() {
 	c.effects.TakedownRecord()
 }
 
+func (c *RecordContext) ResolveRecordAppeal() {
+	c.effects.ResolveRecordAppeal()
+}
+
 func (c *RecordContext) TakedownBlob(cid string) {
 	c.effects.TakedownBlob(cid)
 }

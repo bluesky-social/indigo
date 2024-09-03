@@ -12,6 +12,8 @@ var (
 	QuotaModReportDay = 2000
 	// number of takedowns automod can action per day, for all subjects combined (circuit breaker)
 	QuotaModTakedownDay = 200
+	// number of appeal resolutions automod can action per day, for all subjects combined (circuit breaker)
+	QuotaModResolveAppealDay = 200
 )
 
 type CounterRef struct {
@@ -58,6 +60,8 @@ type Effects struct {
 	RejectEvent bool
 	// Services, if any, which should blast out a notification about this even (eg, Slack)
 	NotifyServices []string
+	// If "true", indicates that a rule indicates that any appeal on the record should be resolved
+	RecordAppealResolve bool
 }
 
 // Enqueues the named counter to be incremented at the end of all rule processing. Will automatically increment for all time periods.
@@ -170,6 +174,11 @@ func (e *Effects) ReportRecord(reason, comment string) {
 // Enqueues the record to be taken down at the end of rule processing.
 func (e *Effects) TakedownRecord() {
 	e.RecordTakedown = true
+}
+
+// Enqueues the record's appeals to be resolved at the end of rule processing.
+func (e *Effects) ResolveRecordAppeal() {
+	e.RecordAppealResolve = true
 }
 
 // Enqueues the blob CID to be taken down (aka, CDN purge) as part of any record takedown
