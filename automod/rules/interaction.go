@@ -25,6 +25,7 @@ func InteractionChurnRule(c *automod.RecordContext) error {
 			c.Logger.Info("high-like-churn", "created-today", created, "deleted-today", deleted)
 			c.AddAccountFlag("high-like-churn")
 			c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("interaction churn: %d likes, %d unlikes today (so far)", created, deleted))
+			c.EscalateAccount()
 			c.Notify("slack")
 		}
 	case "app.bsky.graph.follow":
@@ -36,6 +37,7 @@ func InteractionChurnRule(c *automod.RecordContext) error {
 			c.Logger.Info("high-follow-churn", "created-today", created, "deleted-today", deleted)
 			c.AddAccountFlag("high-follow-churn")
 			c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("interaction churn: %d follows, %d unfollows today (so far)", created, deleted))
+			c.EscalateAccount()
 			c.Notify("slack")
 		}
 		// just generic bulk following

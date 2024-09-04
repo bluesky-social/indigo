@@ -92,6 +92,25 @@ func (eng *Engine) circuitBreakReports(ctx context.Context, reports []ModReport)
 	return reports, nil
 }
 
+func (eng *Engine) circuitBreakEscalation(ctx context.Context, escalate bool) (bool, error) {
+	if !escalate {
+		return false, nil
+	}
+	c, err := eng.Counters.GetCount(ctx, "automod-quota", "escalate", countstore.PeriodDay)
+	if err != nil {
+		return false, fmt.Errorf("checking escalate action quota: %w", err)
+	}
+	if c >= QuotaModEscalationDay {
+		eng.Logger.Warn("CIRCUIT BREAKER: automod escalation")
+		return false, nil
+	}
+	err = eng.Counters.Increment(ctx, "automod-quota", "escalate")
+	if err != nil {
+		return false, fmt.Errorf("incrementing escalate action quota: %w", err)
+	}
+	return escalate, nil
+}
+
 func (eng *Engine) circuitBreakTakedown(ctx context.Context, takedown bool) (bool, error) {
 	if !takedown {
 		return false, nil
