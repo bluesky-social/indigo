@@ -57,8 +57,13 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	if err != nil {
 		return fmt.Errorf("circuit-breaking takedowns: %w", err)
 	}
+	// @TODO: do we want to check if the account is already escalated?
+	newEscalation, err := eng.circuitBreakEscalation(ctx, c.effects.AccountEscalate)
+	if err != nil {
+		return fmt.Errorf("circuit-breaking escalation: %w", err)
+	}
 
-	anyModActions := newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0
+	anyModActions := newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 || newEscalation
 	if anyModActions && eng.Notifier != nil {
 		for _, srv := range dedupeStrings(c.effects.NotifyServices) {
 			if err := eng.Notifier.SendAccount(ctx, srv, c); err != nil {
@@ -144,6 +149,27 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 		})
 		if err != nil {
 			c.Logger.Error("failed to execute account takedown", "err", err)
+		}
+	} else if newEscalation {
+		// we don't want to escalate if there is a takedown
+		c.Logger.Warn("account-escalate")
+		actionNewEscalationCount.WithLabelValues("account").Inc()
+		comment := "[automod]: auto account-escalation"
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventEscalate: &toolsozone.ModerationDefs_ModEventEscalate{
+					Comment: &comment,
+				},
+			},
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
+				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
+					Did: c.Account.Identity.DID.String(),
+				},
+			},
+		})
+		if err != nil {
+			c.Logger.Error("failed to execute account escalation", "err", err)
 		}
 	}
 

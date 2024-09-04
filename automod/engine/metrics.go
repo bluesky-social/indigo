@@ -40,6 +40,11 @@ var actionNewTakedownCount = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "Number of new flags persisted",
 }, []string{"type"})
 
+var actionNewEscalationCount = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "automod_new_action_escalations",
+	Help: "Number of new flags persisted",
+}, []string{"type"})
+
 var accountMetaFetches = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "automod_account_meta_fetches",
 	Help: "Number of account metadata reads (API calls)",

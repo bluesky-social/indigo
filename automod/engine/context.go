@@ -268,6 +268,10 @@ func (c *AccountContext) ReportAccount(reason, comment string) {
 	c.effects.ReportAccount(reason, comment)
 }
 
+func (c *AccountContext) EscalateAccount() {
+	c.effects.EscalateAccount()
+}
+
 func (c *AccountContext) TakedownAccount() {
 	c.effects.TakedownAccount()
 }
