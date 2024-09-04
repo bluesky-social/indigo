@@ -2,7 +2,9 @@ package bgs
 
 import (
 	"context"
+	crypto_rand "crypto/rand"
 	"fmt"
+	"math/rand/v2"
 	"sync"
 	"time"
 
@@ -22,6 +24,7 @@ type uniQueue struct {
 	q       []queueItem
 	members map[models.Uid]struct{}
 	lk      sync.Mutex
+	rnd     *rand.Rand
 }
 
 // Append appends a uid to the end of the queue if it doesn't already exist
@@ -82,20 +85,50 @@ func (q *uniQueue) Remove(uid models.Uid) {
 }
 
 // Pop pops the first item off the front of the queue
-func (q *uniQueue) Pop() (*queueItem, bool) {
+func (q *uniQueue) Pop() (item queueItem, ok bool) {
 	q.lk.Lock()
 	defer q.lk.Unlock()
 
 	if len(q.q) == 0 {
-		return nil, false
+		ok = false
+		return
 	}
 
-	item := q.q[0]
+	item = q.q[0]
 	q.q = q.q[1:]
 	delete(q.members, item.uid)
 
 	compactionQueueDepth.Dec()
-	return &item, true
+	ok = true
+	return
+}
+
+// PopRandom pops a random item off the of the queue
+// Note: this disrupts the sorted order of the queue and in-order is no longer quite in-order. The randomly popped element is replaced with the last element.
+func (q *uniQueue) PopRandom() (item queueItem, ok bool) {
+	q.lk.Lock()
+	defer q.lk.Unlock()
+
+	if len(q.q) == 0 {
+		ok = false
+		return
+	}
+
+	if len(q.q) == 1 {
+		item = q.q[0]
+		q.q = nil
+	} else {
+		pos := q.rnd.IntN(len(q.q))
+		item = q.q[pos]
+		last := len(q.q) - 1
+		q.q[pos] = q.q[last]
+		q.q = q.q[:last]
+	}
+	delete(q.members, item.uid)
+
+	compactionQueueDepth.Dec()
+	ok = true
+	return
 }
 
 type CompactorState struct {
@@ -144,6 +177,13 @@ func DefaultCompactorOptions() *CompactorOptions {
 	}
 }
 
+func newRandFromRoot() *rand.Rand {
+	var seed [32]byte
+	crypto_rand.Read(seed[:])
+	chacha := rand.NewChaCha8(seed)
+	return rand.New(chacha)
+}
+
 func NewCompactor(opts *CompactorOptions) *Compactor {
 	if opts == nil {
 		opts = DefaultCompactorOptions()
@@ -152,6 +192,7 @@ func NewCompactor(opts *CompactorOptions) *Compactor {
 	return &Compactor{
 		q: &uniQueue{
 			members: make(map[models.Uid]struct{}),
+			rnd:     newRandFromRoot(),
 		},
 		exit:              make(chan struct{}),
 		requeueInterval:   opts.RequeueInterval,
@@ -173,8 +214,12 @@ var errNoReposToCompact = fmt.Errorf("no repos to compact")
 func (c *Compactor) Start(bgs *BGS) {
 	log.Info("starting compactor")
 	c.wg.Add(c.numWorkers)
-	for _ = range c.numWorkers {
-		go c.doWork(bgs, &c.wg)
+	for i := range c.numWorkers {
+		strategy := NextInOrder
+		if i%2 != 0 {
+			strategy = NextRandom
+		}
+		go c.doWork(bgs, &c.wg, strategy)
 	}
 	if c.requeueInterval > 0 {
 		go func() {
@@ -211,7 +256,7 @@ func (c *Compactor) Shutdown() {
 	log.Info("compactor stopped")
 }
 
-func (c *Compactor) doWork(bgs *BGS, wg *sync.WaitGroup) {
+func (c *Compactor) doWork(bgs *BGS, wg *sync.WaitGroup, strategy NextStrategy) {
 	defer wg.Done()
 	for {
 		select {
@@ -223,7 +268,7 @@ func (c *Compactor) doWork(bgs *BGS, wg *sync.WaitGroup) {
 
 		ctx := context.Background()
 		start := time.Now()
-		state, err := c.compactNext(ctx, bgs)
+		state, err := c.compactNext(ctx, bgs, strategy)
 		if err != nil {
 			if err == errNoReposToCompact {
 				log.Debug("no repos to compact, waiting and retrying")
@@ -252,12 +297,26 @@ func (c *Compactor) doWork(bgs *BGS, wg *sync.WaitGroup) {
 	}
 }
 
-func (c *Compactor) compactNext(ctx context.Context, bgs *BGS) (state CompactorState, err error) {
+type NextStrategy int
+
+const (
+	NextInOrder NextStrategy = iota
+	NextRandom
+)
+
+func (c *Compactor) compactNext(ctx context.Context, bgs *BGS, strategy NextStrategy) (state CompactorState, err error) {
 	ctx, span := otel.Tracer("compactor").Start(ctx, "CompactNext")
 	defer span.End()
 
-	item, ok := c.q.Pop()
-	if !ok || item == nil {
+	var item queueItem
+	var ok bool
+	switch strategy {
+	case NextRandom:
+		item, ok = c.q.PopRandom()
+	default:
+		item, ok = c.q.Pop()
+	}
+	if !ok {
 		err = errNoReposToCompact
 		return
 	}
