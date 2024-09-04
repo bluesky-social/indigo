@@ -105,17 +105,25 @@ type CompactorState struct {
 	stats     *carstore.CompactionStats
 }
 
+func (cstate *CompactorState) set(uid models.Uid, did, status string, stats *carstore.CompactionStats) {
+	cstate.latestUID = uid
+	cstate.latestDID = did
+	cstate.status = status
+	cstate.stats = stats
+}
+
 // Compactor is a compactor daemon that compacts repos in the background
 type Compactor struct {
 	q                 *uniQueue
-	state             *CompactorState
 	stateLk           sync.RWMutex
 	exit              chan struct{}
-	exited            chan struct{}
 	requeueInterval   time.Duration
 	requeueLimit      int
 	requeueShardCount int
 	requeueFast       bool
+
+	numWorkers int
+	wg         sync.WaitGroup
 }
 
 type CompactorOptions struct {
@@ -123,6 +131,7 @@ type CompactorOptions struct {
 	RequeueLimit      int
 	RequeueShardCount int
 	RequeueFast       bool
+	NumWorkers        int
 }
 
 func DefaultCompactorOptions() *CompactorOptions {
@@ -131,6 +140,7 @@ func DefaultCompactorOptions() *CompactorOptions {
 		RequeueLimit:      0,
 		RequeueShardCount: 50,
 		RequeueFast:       true,
+		NumWorkers:        2,
 	}
 }
 
@@ -143,13 +153,12 @@ func NewCompactor(opts *CompactorOptions) *Compactor {
 		q: &uniQueue{
 			members: make(map[models.Uid]struct{}),
 		},
-		state:             &CompactorState{},
 		exit:              make(chan struct{}),
-		exited:            make(chan struct{}),
 		requeueInterval:   opts.RequeueInterval,
 		requeueLimit:      opts.RequeueLimit,
 		requeueFast:       opts.RequeueFast,
 		requeueShardCount: opts.RequeueShardCount,
+		numWorkers:        opts.NumWorkers,
 	}
 }
 
@@ -158,34 +167,15 @@ type compactionStats struct {
 	Targets   []carstore.CompactionTarget
 }
 
-func (c *Compactor) SetState(uid models.Uid, did, status string, stats *carstore.CompactionStats) {
-	c.stateLk.Lock()
-	defer c.stateLk.Unlock()
-
-	c.state.latestUID = uid
-	c.state.latestDID = did
-	c.state.status = status
-	c.state.stats = stats
-}
-
-func (c *Compactor) GetState() *CompactorState {
-	c.stateLk.RLock()
-	defer c.stateLk.RUnlock()
-
-	return &CompactorState{
-		latestUID: c.state.latestUID,
-		latestDID: c.state.latestDID,
-		status:    c.state.status,
-		stats:     c.state.stats,
-	}
-}
-
 var errNoReposToCompact = fmt.Errorf("no repos to compact")
 
 // Start starts the compactor
 func (c *Compactor) Start(bgs *BGS) {
 	log.Info("starting compactor")
-	go c.doWork(bgs)
+	c.wg.Add(c.numWorkers)
+	for _ = range c.numWorkers {
+		go c.doWork(bgs, &c.wg)
+	}
 	if c.requeueInterval > 0 {
 		go func() {
 			log.Infow("starting compactor requeue routine",
@@ -217,16 +207,16 @@ func (c *Compactor) Start(bgs *BGS) {
 func (c *Compactor) Shutdown() {
 	log.Info("stopping compactor")
 	close(c.exit)
-	<-c.exited
+	c.wg.Wait()
 	log.Info("compactor stopped")
 }
 
-func (c *Compactor) doWork(bgs *BGS) {
+func (c *Compactor) doWork(bgs *BGS, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for {
 		select {
 		case <-c.exit:
 			log.Info("compactor worker exiting, no more active compactions running")
-			close(c.exited)
 			return
 		default:
 		}
@@ -240,7 +230,6 @@ func (c *Compactor) doWork(bgs *BGS) {
 				time.Sleep(time.Second * 5)
 				continue
 			}
-			state = c.GetState()
 			log.Errorw("failed to compact repo",
 				"err", err,
 				"uid", state.latestUID,
@@ -263,34 +252,37 @@ func (c *Compactor) doWork(bgs *BGS) {
 	}
 }
 
-func (c *Compactor) compactNext(ctx context.Context, bgs *BGS) (*CompactorState, error) {
+func (c *Compactor) compactNext(ctx context.Context, bgs *BGS) (state CompactorState, err error) {
 	ctx, span := otel.Tracer("compactor").Start(ctx, "CompactNext")
 	defer span.End()
 
 	item, ok := c.q.Pop()
 	if !ok || item == nil {
-		return nil, errNoReposToCompact
+		err = errNoReposToCompact
+		return
 	}
 
-	c.SetState(item.uid, "unknown", "getting_user", nil)
+	state.set(item.uid, "unknown", "getting_user", nil)
 
 	user, err := bgs.lookupUserByUID(ctx, item.uid)
 	if err != nil {
 		span.RecordError(err)
-		c.SetState(item.uid, "unknown", "failed_getting_user", nil)
-		return nil, fmt.Errorf("failed to get user %d: %w", item.uid, err)
+		state.set(item.uid, "unknown", "failed_getting_user", nil)
+		err = fmt.Errorf("failed to get user %d: %w", item.uid, err)
+		return
 	}
 
 	span.SetAttributes(attribute.String("repo", user.Did), attribute.Int("uid", int(item.uid)))
 
-	c.SetState(item.uid, user.Did, "compacting", nil)
+	state.set(item.uid, user.Did, "compacting", nil)
 
 	start := time.Now()
 	st, err := bgs.repoman.CarStore().CompactUserShards(ctx, item.uid, item.fast)
 	if err != nil {
 		span.RecordError(err)
-		c.SetState(item.uid, user.Did, "failed_compacting", nil)
-		return nil, fmt.Errorf("failed to compact shards for user %d: %w", item.uid, err)
+		state.set(item.uid, user.Did, "failed_compacting", nil)
+		err = fmt.Errorf("failed to compact shards for user %d: %w", item.uid, err)
+		return
 	}
 	compactionDuration.Observe(time.Since(start).Seconds())
 
@@ -302,9 +294,10 @@ func (c *Compactor) compactNext(ctx context.Context, bgs *BGS) (*CompactorState,
 		attribute.Int("refs", st.TotalRefs),
 	)
 
-	c.SetState(item.uid, user.Did, "done", st)
+	state.set(item.uid, user.Did, "done", st)
 
-	return c.GetState(), nil
+	err = nil
+	return
 }
 
 func (c *Compactor) EnqueueRepo(ctx context.Context, user User, fast bool) {
