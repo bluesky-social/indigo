@@ -68,3 +68,28 @@ func NewAccountBotEmailRule(c *automod.AccountContext) error {
 	}
 	return nil
 }
+
+var _ automod.PostRuleFunc = TrivialSpamPostRule
+
+// looks for new accounts, which frequently post the same type of content
+func TrivialSpamPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+	if c.Account.Identity == nil || !AccountIsYoungerThan(&c.AccountContext, 8*24*time.Hour) {
+		return nil
+	}
+
+	// only posts with dumb patterns (for now)
+	txt := strings.ToLower(post.Text)
+	if !c.InSet("trivial-spam-text", txt) {
+		return nil
+	}
+
+	// only accounts with empty profile (for now)
+	if c.Account.Profile.HasAvatar {
+		return nil
+	}
+
+	c.ReportAccount(automod.ReportReasonOther, fmt.Sprintf("trivial spam account (also labeled; remove label if this isn't spam!)"))
+	c.AddAccountLabel("!hide")
+	c.Notify("slack")
+	return nil
+}
