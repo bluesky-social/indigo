@@ -42,7 +42,6 @@ func InteractionChurnRule(c *automod.RecordContext) error {
 			return nil
 		}
 		// just generic bulk following
-		followRatio := float64(c.Account.FollowersCount) / float64(c.Account.FollowsCount)
 		if created > followsDailyThreshold {
 			c.Logger.Info("bulk-follower", "created-today", created)
 			c.AddAccountFlag("bulk-follower")
