@@ -93,10 +93,8 @@ func IdenticalReplyPostSameParentRule(c *automod.RecordContext, post *appbsky.Fe
 		return nil
 	}
 
-	createdAt := c.Account.CreatedAt
 	postCount := c.Account.PostsCount
-
-	if time.Since(*createdAt) >= identicalReplySameParentMaxAge || postCount >= identicalReplySameParentMaxPosts {
+	if AccountIsOlderThan(&c.AccountContext, identicalReplySameParentMaxAge) || postCount >= identicalReplySameParentMaxPosts {
 		return nil
 	}
 
