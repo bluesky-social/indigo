@@ -43,6 +43,7 @@ var identicalReplyActionLimit = 75
 var identicalReplySameParentLimit = 3
 var identicalReplySameParentMaxPosts int64 = 50
 var multiIdenticalReplyFlag = "multi-identical-reply"
+var multiIdenticalReplyLabeledFlag = "multi-identical-reply-labeled"
 var multiIdenticalReplySamePostFlag = "multi-identical-reply-same-post"
 
 var _ automod.PostRuleFunc = IdenticalReplyPostRule
@@ -60,20 +61,24 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 		return nil
 	}
 
-	isLessThanDayOld := AccountIsYoungerThan(&c.AccountContext, 24*time.Hour)
-	if !isLessThanDayOld && utf8.RuneCountInString(post.Text) <= 10 {
-		return nil
-	}
-
 	// don't count if there is a follow-back relationship
 	if ParentOrRootIsFollower(c, post) {
 		return nil
 	}
 
-	// skip accounts that have already been flagged by one of the below rules
+	isLessThanDayOld := AccountIsYoungerThan(&c.AccountContext, 24*time.Hour)
+	runeCount := utf8.RuneCountInString(post.Text)
+	hasImage := post.Embed.EmbedImages != nil || post.Embed.EmbedRecordWithMedia.Media.EmbedImages != nil
+
+	// skip accounts that are over a day old, are not long posts, and do not have images
+	if !isLessThanDayOld && !hasImage && runeCount <= 10 {
+		return nil
+	}
+
+	// skip accounts that have already been flagged by one of the "labeled" rules
 	accountFlags := c.Account.AccountFlags
 	for _, flag := range accountFlags {
-		if flag == multiIdenticalReplyFlag || flag == multiIdenticalReplySamePostFlag {
+		if flag == multiIdenticalReplyLabeledFlag || flag == multiIdenticalReplySamePostFlag {
 			return nil
 		}
 	}
@@ -102,12 +107,17 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 	c.IncrementPeriod("reply-text", bucket, period)
 
 	count := c.GetCount("reply-text", bucket, period)
+
+	// regardless of rune count, report account for possible spam
 	if count >= identicalReplyLimit {
 		c.AddAccountFlag(multiIdenticalReplyFlag)
 		c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible spam (new account, %d identical reply-posts today)", count))
 		c.Notify("slack")
 	}
-	if count >= identicalReplyActionLimit && utf8.RuneCountInString(post.Text) > 100 {
+
+	// action accounts that have exceeded the limit and are either longer posts or have at least one image
+	if count >= identicalReplyActionLimit && (hasImage || runeCount > 25) {
+		c.AddAccountFlag(multiIdenticalReplyLabeledFlag)
 		c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("likely spam/harassment (new account, %d identical reply-posts today), actioned (remove label urgently if account is ok)", count))
 		c.AddAccountLabel("!warn")
 		c.Notify("slack")
