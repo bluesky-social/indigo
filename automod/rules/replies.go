@@ -39,6 +39,7 @@ func ReplyCountPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error 
 // var identicalReplyLimit = 6
 // TODO: bumping temporarily
 var identicalReplyLimit = 20
+var identicalReplyActionLimit = 75
 
 var _ automod.PostRuleFunc = IdenticalReplyPostRule
 
@@ -71,7 +72,12 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 	count := c.GetCount("reply-text", bucket, period)
 	if count >= identicalReplyLimit {
 		c.AddAccountFlag("multi-identical-reply")
-		c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("possible spam (new account, %d identical reply-posts today)", count))
+		c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible spam (new account, %d identical reply-posts today)", count))
+		c.Notify("slack")
+	}
+	if count >= identicalReplyActionLimit && utf8.RuneCountInString(post.Text) > 100 {
+		c.ReportAccount(automod.ReportReasonRude, fmt.Sprintf("likely spam/harassment (new account, %d identical reply-posts today), actioned (remove label urgently if account is ok)", count))
+		c.AddAccountLabel("!warn")
 		c.Notify("slack")
 	}
 
