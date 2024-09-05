@@ -78,6 +78,41 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 	return nil
 }
 
+// Similar to above rule but only counts replies to the same post. More aggressively applies a spam label to new accounts that are less than a day old.
+var identicalReplySameParentLimit = 3
+var identicalReplySameParentMaxAge = 24 * time.Hour
+var identicalReplySameParentMaxPosts int64 = 50
+var _ automod.PostRuleFunc = IdenticalReplyPostSameParentRule
+
+func IdenticalReplyPostSameParentRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
+	if post.Reply == nil || IsSelfThread(c, post) {
+		return nil
+	}
+
+	if ParentOrRootIsFollower(c, post) {
+		return nil
+	}
+
+	postCount := c.Account.PostsCount
+	if AccountIsOlderThan(&c.AccountContext, identicalReplySameParentMaxAge) || postCount >= identicalReplySameParentMaxPosts {
+		return nil
+	}
+
+	period := countstore.PeriodHour
+	bucket := c.Account.Identity.DID.String() + "/" + post.Reply.Parent.Uri + "/" + HashOfString(post.Text)
+	c.IncrementPeriod("reply-text-same-post", bucket, period)
+
+	count := c.GetCount("reply-text-same-post", bucket, period)
+	if count >= identicalReplySameParentLimit {
+		c.AddAccountFlag("multi-identical-reply-same-post")
+		c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible spam (%d identical reply-posts to same post today)", count))
+		c.AddAccountLabel("spam")
+		c.Notify("slack")
+	}
+
+	return nil
+}
+
 // TODO: bumping temporarily
 // var youngReplyAccountLimit = 12
 var youngReplyAccountLimit = 30
