@@ -2,7 +2,6 @@ package bgs
 
 import (
 	"context"
-	crypto_rand "crypto/rand"
 	"fmt"
 	"math/rand/v2"
 	"sync"
@@ -24,7 +23,6 @@ type uniQueue struct {
 	q       []queueItem
 	members map[models.Uid]struct{}
 	lk      sync.Mutex
-	rnd     *rand.Rand
 }
 
 // Append appends a uid to the end of the queue if it doesn't already exist
@@ -116,7 +114,7 @@ func (q *uniQueue) PopRandom() (queueItem, bool) {
 		item = q.q[0]
 		q.q = nil
 	} else {
-		pos := q.rnd.IntN(len(q.q))
+		pos := rand.IntN(len(q.q))
 		item = q.q[pos]
 		last := len(q.q) - 1
 		q.q[pos] = q.q[last]
@@ -174,13 +172,6 @@ func DefaultCompactorOptions() *CompactorOptions {
 	}
 }
 
-func newRandFromRoot() *rand.Rand {
-	var seed [32]byte
-	crypto_rand.Read(seed[:])
-	chacha := rand.NewChaCha8(seed)
-	return rand.New(chacha)
-}
-
 func NewCompactor(opts *CompactorOptions) *Compactor {
 	if opts == nil {
 		opts = DefaultCompactorOptions()
@@ -189,7 +180,6 @@ func NewCompactor(opts *CompactorOptions) *Compactor {
 	return &Compactor{
 		q: &uniQueue{
 			members: make(map[models.Uid]struct{}),
-			rnd:     newRandFromRoot(),
 		},
 		exit:              make(chan struct{}),
 		requeueInterval:   opts.RequeueInterval,
@@ -301,7 +291,7 @@ const (
 	NextRandom
 )
 
-func (c *Compactor) compactNext(ctx context.Context, bgs *BGS, strategy NextStrategy) (state CompactorState, err error) {
+func (c *Compactor) compactNext(ctx context.Context, bgs *BGS, strategy NextStrategy) (CompactorState, error) {
 	ctx, span := otel.Tracer("compactor").Start(ctx, "CompactNext")
 	defer span.End()
 
@@ -314,31 +304,34 @@ func (c *Compactor) compactNext(ctx context.Context, bgs *BGS, strategy NextStra
 		item, ok = c.q.Pop()
 	}
 	if !ok {
-		err = errNoReposToCompact
-		return
+		return CompactorState{}, errNoReposToCompact
 	}
 
-	state.set(item.uid, "unknown", "getting_user", nil)
+	state := CompactorState{
+		latestUID: item.uid,
+		latestDID: "unknown",
+		status:    "getting_user",
+	}
 
 	user, err := bgs.lookupUserByUID(ctx, item.uid)
 	if err != nil {
 		span.RecordError(err)
-		state.set(item.uid, "unknown", "failed_getting_user", nil)
-		err = fmt.Errorf("failed to get user %d: %w", item.uid, err)
-		return
+		state.status = "failed_getting_user"
+		err := fmt.Errorf("failed to get user %d: %w", item.uid, err)
+		return state, err
 	}
 
 	span.SetAttributes(attribute.String("repo", user.Did), attribute.Int("uid", int(item.uid)))
 
-	state.set(item.uid, user.Did, "compacting", nil)
+	state.latestDID = user.Did
 
 	start := time.Now()
 	st, err := bgs.repoman.CarStore().CompactUserShards(ctx, item.uid, item.fast)
 	if err != nil {
 		span.RecordError(err)
-		state.set(item.uid, user.Did, "failed_compacting", nil)
-		err = fmt.Errorf("failed to compact shards for user %d: %w", item.uid, err)
-		return
+		state.status = "failed_compacting"
+		err := fmt.Errorf("failed to compact shards for user %d: %w", item.uid, err)
+		return state, err
 	}
 	compactionDuration.Observe(time.Since(start).Seconds())
 
@@ -350,10 +343,10 @@ func (c *Compactor) compactNext(ctx context.Context, bgs *BGS, strategy NextStra
 		attribute.Int("refs", st.TotalRefs),
 	)
 
-	state.set(item.uid, user.Did, "done", st)
+	state.status = "done"
+	state.stats = st
 
-	err = nil
-	return
+	return state, nil
 }
 
 func (c *Compactor) EnqueueRepo(ctx context.Context, user User, fast bool) {
