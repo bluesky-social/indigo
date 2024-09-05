@@ -20,6 +20,7 @@ func DefaultRules() automod.RuleSet {
 			ReplySingleBadWordPostRule,
 			AggressivePromotionRule,
 			IdenticalReplyPostRule,
+			IdenticalReplyPostSameParentRule,
 			DistinctMentionsRule,
 			YoungAccountDistinctMentionsRule,
 			MisleadingLinkUnicodeReversalPostRule,
