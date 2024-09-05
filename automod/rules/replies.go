@@ -98,7 +98,7 @@ func IdenticalReplyPostSameParentRule(c *automod.RecordContext, post *appbsky.Fe
 		return nil
 	}
 
-	period := countstore.PeriodDay
+	period := countstore.PeriodHour
 	bucket := c.Account.Identity.DID.String() + "/" + post.Reply.Parent.Uri + "/" + HashOfString(post.Text)
 	c.IncrementPeriod("reply-text-same-post", bucket, period)
 
