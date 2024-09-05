@@ -216,7 +216,7 @@ func (c *Compactor) Start(bgs *BGS) {
 		if i%2 != 0 {
 			strategy = NextRandom
 		}
-		go c.doWork(bgs, &c.wg, strategy)
+		go c.doWork(bgs, strategy)
 	}
 	if c.requeueInterval > 0 {
 		go func() {
@@ -253,8 +253,8 @@ func (c *Compactor) Shutdown() {
 	log.Info("compactor stopped")
 }
 
-func (c *Compactor) doWork(bgs *BGS, wg *sync.WaitGroup, strategy NextStrategy) {
-	defer wg.Done()
+func (c *Compactor) doWork(bgs *BGS, strategy NextStrategy) {
+	defer c.wg.Done()
 	for {
 		select {
 		case <-c.exit:
