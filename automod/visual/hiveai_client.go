@@ -140,7 +140,9 @@ func summarizeSexualLabels(cl []HiveAIResp_Class) string {
 	// then finally flag remaining "underwear" images in to sexually suggestive
 	// (after non-sexual content already labeled above)
 	for _, underwearClass := range []string{"yes_male_underwear", "yes_female_underwear"} {
-		if scores[underwearClass] >= threshold {
+		// TODO: experimenting with higher threshhold during traffic spike
+		//if scores[underwearClass] >= threshold {
+		if scores[underwearClass] >= 0.98 {
 			return "sexual"
 		}
 	}
