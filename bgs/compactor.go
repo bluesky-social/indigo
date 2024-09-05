@@ -85,35 +85,33 @@ func (q *uniQueue) Remove(uid models.Uid) {
 }
 
 // Pop pops the first item off the front of the queue
-func (q *uniQueue) Pop() (item queueItem, ok bool) {
+func (q *uniQueue) Pop() (queueItem, bool) {
 	q.lk.Lock()
 	defer q.lk.Unlock()
 
 	if len(q.q) == 0 {
-		ok = false
-		return
+		return queueItem{}, false
 	}
 
-	item = q.q[0]
+	item := q.q[0]
 	q.q = q.q[1:]
 	delete(q.members, item.uid)
 
 	compactionQueueDepth.Dec()
-	ok = true
-	return
+	return item, true
 }
 
 // PopRandom pops a random item off the of the queue
 // Note: this disrupts the sorted order of the queue and in-order is no longer quite in-order. The randomly popped element is replaced with the last element.
-func (q *uniQueue) PopRandom() (item queueItem, ok bool) {
+func (q *uniQueue) PopRandom() (queueItem, bool) {
 	q.lk.Lock()
 	defer q.lk.Unlock()
 
 	if len(q.q) == 0 {
-		ok = false
-		return
+		return queueItem{}, false
 	}
 
+	var item queueItem
 	if len(q.q) == 1 {
 		item = q.q[0]
 		q.q = nil
@@ -127,8 +125,7 @@ func (q *uniQueue) PopRandom() (item queueItem, ok bool) {
 	delete(q.members, item.uid)
 
 	compactionQueueDepth.Dec()
-	ok = true
-	return
+	return item, true
 }
 
 type CompactorState struct {
