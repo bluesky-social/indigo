@@ -86,7 +86,7 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 
 // TODO: bumping temporarily
 // var youngReplyAccountLimit = 12
-var youngReplyAccountLimit = 30
+var youngReplyAccountLimit = 200
 var _ automod.PostRuleFunc = YoungAccountDistinctRepliesRule
 
 func YoungAccountDistinctRepliesRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
