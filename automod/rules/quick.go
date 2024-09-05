@@ -23,7 +23,14 @@ func BotLinkProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile)
 				c.AddAccountLabel("spam")
 				c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible bot based on link in profile: %s", str))
 				c.Notify("slack")
+				return nil
 			}
+		}
+		if strings.Contains(*profile.Description, "🏈🍕🌀") {
+			c.AddAccountFlag("profile-bot-string")
+			c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible bot based on string in profile"))
+			c.Notify("slack")
+			return nil
 		}
 	}
 	return nil
@@ -38,6 +45,7 @@ func SimpleBotPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 			c.AddAccountFlag("post-bot-string")
 			c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible bot based on string in post: %s", str))
 			c.Notify("slack")
+			return nil
 		}
 	}
 	return nil
@@ -55,6 +63,7 @@ func NewAccountBotEmailRule(c *automod.AccountContext) error {
 			c.AddAccountFlag("new-suspicious-email")
 			c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible bot based on email domain TLD: %s", tld))
 			c.Notify("slack")
+			return nil
 		}
 	}
 	return nil
