@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block head_title %}Error {{ statusCode }} - astrolabe{% endblock %}
+
+{% block main_content %}
+<br>
+<center>
+  <h1 style="font-size: 8em;">{{ statusCode }}</h1>
+  <h2 style="font-size: 3em;">Error!</h2>
+  {% if errorMessage %}
+  <p><code>{{ errorMessage }}</code></p>
+  {% endif %}
+</center>
+{% endblock %}

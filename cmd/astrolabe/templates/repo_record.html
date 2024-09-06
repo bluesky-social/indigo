@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block main_content %}
+<h2 style="font-family: monospace;">at://{{ atid }}/{{ collection }}/{{ rkey }}</h2>
+<p><a href="/at/{{ atid }}/{{ collection }}">Back to Collection</a>
+
+{% if recordJSON %}
+<h4>Record JSON</h4>
+<pre style="padding: 1em;">{{ recordJSON }}</pre>
+{% endif %}
+
+{% endblock %}
