@@ -34,4 +34,7 @@ type AccountPrivate struct {
 	EmailConfirmed bool
 	IndexedAt      *time.Time
 	AccountTags    []string
+	// ReviewState will be one of "open", "escalated", "closed", "none", or "" (unknown)
+	ReviewState string
+	Appealed    bool
 }
