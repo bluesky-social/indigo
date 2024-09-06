@@ -166,6 +166,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		flags = flagstore.NewMemFlagStore()
 	}
 
+	// IMPORTANT: reminder that these are the indigo-edition rules, not production rules
 	extraBlobRules := []automod.BlobRuleFunc{}
 	if config.HiveAPIToken != "" && config.RulesetName != "no-hive" {
 		logger.Info("configuring Hive AI image labeler")
