@@ -138,13 +138,13 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 				if rd.Moderation.SubjectStatus.ReviewState != nil {
 					switch *rd.Moderation.SubjectStatus.ReviewState {
 					case "#reviewOpen":
-						ap.ReviewState = "open"
+						ap.ReviewState = ReviewStateOpen
 					case "#reviewEscalated":
-						ap.ReviewState = "escalated"
+						ap.ReviewState = ReviewStateEscalated
 					case "#reviewClosed":
-						ap.ReviewState = "closed"
+						ap.ReviewState = ReviewStateClosed
 					case "#reviewNonde":
-						ap.ReviewState = "none"
+						ap.ReviewState = ReviewStateNone
 					}
 				}
 			}
