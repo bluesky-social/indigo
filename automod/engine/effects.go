@@ -12,6 +12,8 @@ var (
 	QuotaModReportDay = 2000
 	// number of takedowns automod can action per day, for all subjects combined (circuit breaker)
 	QuotaModTakedownDay = 200
+	// number of misc actions automod can do per day, for all subjects combined (circuit breaker)
+	QuotaModActionDay = 1000
 )
 
 type CounterRef struct {
@@ -42,8 +44,12 @@ type Effects struct {
 	AccountFlags []string
 	// Reports which should be filed against this account, as a result of rule execution.
 	AccountReports []ModReport
-	// If "true", indicates that a rule indicates that the entire account should have a takedown.
+	// If "true", a rule decided that the entire account should have a takedown.
 	AccountTakedown bool
+	// If "true", a rule decided that the reported account should be escalated.
+	AccountEscalate bool
+	// If "true", a rule decided that the reports on account should be resolved as acknowledged.
+	AccountAcknowledge bool
 	// Same as "AccountLabels", but at record-level
 	RecordLabels []string
 	// Same as "AccountFlags", but at record-level
@@ -126,6 +132,16 @@ func (e *Effects) ReportAccount(reason, comment string) {
 // Enqueues the entire account to be taken down at the end of rule processing.
 func (e *Effects) TakedownAccount() {
 	e.AccountTakedown = true
+}
+
+// Enqueues the account to be "escalated" for mod review at the end of rule processing.
+func (e *Effects) EscalateAccount() {
+	e.AccountEscalate = true
+}
+
+// Enqueues reports on account to be "acknowledged" (closed) at the end of rule processing.
+func (e *Effects) AcknowledgeAccount() {
+	e.AccountAcknowledge = true
 }
 
 // Enqueues the provided label (string value) to be added to the record at the end of rule processing.
