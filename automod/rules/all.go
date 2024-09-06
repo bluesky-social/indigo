@@ -4,6 +4,7 @@ import (
 	"github.com/bluesky-social/indigo/automod"
 )
 
+// IMPORTANT: reminder that these are the indigo-edition rules, not production rules
 func DefaultRules() automod.RuleSet {
 	rules := automod.RuleSet{
 		PostRules: []automod.PostRuleFunc{
