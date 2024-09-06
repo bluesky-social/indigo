@@ -35,6 +35,23 @@ func dedupeLabelActions(labels, existing, existingNegated []string) []string {
 	return newLabels
 }
 
+func dedupeTagActions(tags, existing []string) []string {
+	newTags := []string{}
+	for _, val := range dedupeStrings(tags) {
+		exists := false
+		for _, e := range existing {
+			if val == e {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			newTags = append(newTags, val)
+		}
+	}
+	return newTags
+}
+
 func dedupeFlagActions(flags, existing []string) []string {
 	newFlags := []string{}
 	for _, val := range dedupeStrings(flags) {
