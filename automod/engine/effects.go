@@ -12,8 +12,8 @@ var (
 	QuotaModReportDay = 2000
 	// number of takedowns automod can action per day, for all subjects combined (circuit breaker)
 	QuotaModTakedownDay = 200
-	// number of escalations automod can action per day, for all subjects combined (circuit breaker)
-	QuotaModEscalationDay = 1000
+	// number of misc actions automod can do per day, for all subjects combined (circuit breaker)
+	QuotaModActionDay = 1000
 )
 
 type CounterRef struct {
@@ -44,10 +44,12 @@ type Effects struct {
 	AccountFlags []string
 	// Reports which should be filed against this account, as a result of rule execution.
 	AccountReports []ModReport
-	// If "true", indicates that a rule indicates that the entire account should have a takedown.
+	// If "true", a rule decided that the entire account should have a takedown.
 	AccountTakedown bool
-	// If "true", indicates that a rule indicates that the reported account should be escalated.
+	// If "true", a rule decided that the reported account should be escalated.
 	AccountEscalate bool
+	// If "true", a rule decided that the reports on account should be resolved as acknowledged.
+	AccountAcknowledge bool
 	// Same as "AccountLabels", but at record-level
 	RecordLabels []string
 	// Same as "AccountFlags", but at record-level
@@ -56,6 +58,10 @@ type Effects struct {
 	RecordReports []ModReport
 	// Same as "AccountTakedown", but at record-level
 	RecordTakedown bool
+	// Same as "AccountEscalate", but at record-level
+	RecordEscalate bool
+	// Same as "AccountAcknowledge", but at record-level
+	RecordAcknowledge bool
 	// Set of Blob CIDs to takedown (eg, purge from CDN) when doing a record takedown
 	BlobTakedowns []string
 	// If "true", indicates that a rule indicates that the action causing the event should be blocked or prevented
@@ -132,9 +138,14 @@ func (e *Effects) TakedownAccount() {
 	e.AccountTakedown = true
 }
 
-// Enqueues the entire account to be taken down at the end of rule processing.
+// Enqueues the account to be "escalated" for mod review at the end of rule processing.
 func (e *Effects) EscalateAccount() {
 	e.AccountEscalate = true
+}
+
+// Enqueues reports on account to be "acknowledged" (closed) at the end of rule processing.
+func (e *Effects) AcknowledgeAccount() {
+	e.AccountAcknowledge = true
 }
 
 // Enqueues the provided label (string value) to be added to the record at the end of rule processing.
@@ -179,6 +190,16 @@ func (e *Effects) ReportRecord(reason, comment string) {
 // Enqueues the record to be taken down at the end of rule processing.
 func (e *Effects) TakedownRecord() {
 	e.RecordTakedown = true
+}
+
+// Enqueues the record to be "escalated" for mod review at the end of rule processing.
+func (e *Effects) EscalateRecord() {
+	e.RecordEscalate = true
+}
+
+// Enqueues the record to be "escalated" for mod review at the end of rule processing.
+func (e *Effects) AcknowledgeRecord() {
+	e.RecordAcknowledge = true
 }
 
 // Enqueues the blob CID to be taken down (aka, CDN purge) as part of any record takedown
