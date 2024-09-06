@@ -268,12 +268,16 @@ func (c *AccountContext) ReportAccount(reason, comment string) {
 	c.effects.ReportAccount(reason, comment)
 }
 
+func (c *AccountContext) TakedownAccount() {
+	c.effects.TakedownAccount()
+}
+
 func (c *AccountContext) EscalateAccount() {
 	c.effects.EscalateAccount()
 }
 
-func (c *AccountContext) TakedownAccount() {
-	c.effects.TakedownAccount()
+func (c *AccountContext) AcknowledgeAccount() {
+	c.effects.AcknowledgeAccount()
 }
 
 func (c *RecordContext) AddRecordFlag(val string) {
@@ -290,6 +294,14 @@ func (c *RecordContext) ReportRecord(reason, comment string) {
 
 func (c *RecordContext) TakedownRecord() {
 	c.effects.TakedownRecord()
+}
+
+func (c *RecordContext) EscalateRecord() {
+	c.effects.EscalateRecord()
+}
+
+func (c *RecordContext) AcknowledgeRecord() {
+	c.effects.AcknowledgeRecord()
 }
 
 func (c *RecordContext) TakedownBlob(cid string) {
