@@ -31,7 +31,7 @@ func (srv *Server) WebQuery(c echo.Context) error {
 	}
 	if strings.HasPrefix(q, "at://") {
 		if strings.HasSuffix(q, "/") {
-			q = q[0:len(q)-1]
+			q = q[0 : len(q)-1]
 		}
 
 		aturi, err := syntax.ParseATURI(q)
