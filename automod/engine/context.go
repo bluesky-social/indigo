@@ -271,6 +271,10 @@ func (c *AccountContext) AddAccountLabel(val string) {
 	c.effects.AddAccountLabel(val)
 }
 
+func (c *AccountContext) AddAccountTag(val string) {
+	c.effects.AddAccountTag(val)
+}
+
 func (c *AccountContext) ReportAccount(reason, comment string) {
 	c.effects.ReportAccount(reason, comment)
 }
@@ -293,6 +297,10 @@ func (c *RecordContext) AddRecordFlag(val string) {
 
 func (c *RecordContext) AddRecordLabel(val string) {
 	c.effects.AddRecordLabel(val)
+}
+
+func (c *RecordContext) AddRecordTag(val string) {
+	c.effects.AddRecordTag(val)
 }
 
 func (c *RecordContext) ReportRecord(reason, comment string) {
