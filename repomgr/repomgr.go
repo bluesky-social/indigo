@@ -576,7 +576,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 
 	}
 
-	var evtops []RepoOp
+	evtops := make([]RepoOp, 0, len(ops))
 
 	for _, op := range ops {
 		parts := strings.SplitN(op.Path, "/", 2)
@@ -679,7 +679,7 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user models.Uid, writes [
 		return err
 	}
 
-	var ops []RepoOp
+	ops := make([]RepoOp, 0, len(writes))
 	for _, w := range writes {
 		switch {
 		case w.RepoApplyWrites_Create != nil:
@@ -826,7 +826,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 			return fmt.Errorf("diff trees (curhead: %s): %w", curhead, err)
 		}
 
-		var ops []RepoOp
+		ops := make([]RepoOp, 0, len(diffops))
 		for _, op := range diffops {
 			repoOpsImported.Inc()
 			out, err := processOp(ctx, bs, op, rm.hydrateRecords)

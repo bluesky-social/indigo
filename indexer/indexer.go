@@ -86,7 +86,7 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 
 	log.Debugw("Handling Repo Event!", "uid", evt.User)
 
-	var outops []*comatproto.SyncSubscribeRepos_RepoOp
+	outops := make([]*comatproto.SyncSubscribeRepos_RepoOp, 0, len(evt.Ops))
 	for _, op := range evt.Ops {
 		link := (*lexutil.LexLink)(op.RecCid)
 		outops = append(outops, &comatproto.SyncSubscribeRepos_RepoOp{

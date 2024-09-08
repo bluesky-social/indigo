@@ -586,7 +586,7 @@ func initSpeedyRepoMan(key *godid.PrivKey) (*repomgr.RepoManager, *godid.PrivKey
 
 // HandleRepoEvent is the callback for the RepoManager
 func (s *Server) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
-	var outops []*comatproto.SyncSubscribeRepos_RepoOp
+	outops := make([]*comatproto.SyncSubscribeRepos_RepoOp, 0, len(evt.Ops))
 	for _, op := range evt.Ops {
 		link := (*lexutil.LexLink)(op.RecCid)
 		outops = append(outops, &comatproto.SyncSubscribeRepos_RepoOp{
@@ -596,8 +596,6 @@ func (s *Server) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
 		})
 	}
 
-	toobig := false
-
 	if err := s.Events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoCommit: &comatproto.SyncSubscribeRepos_Commit{
 			Repo:   s.Dids[evt.User-1],
@@ -606,7 +604,7 @@ func (s *Server) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
 			Commit: lexutil.LexLink(evt.NewRoot),
 			Time:   time.Now().Format(util.ISO8601),
 			Ops:    outops,
-			TooBig: toobig,
+			TooBig: false,
 		},
 		PrivUid: evt.User,
 	}); err != nil {
