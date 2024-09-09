@@ -292,6 +292,10 @@ func (c *RecordContext) TakedownBlob(cid string) {
 	c.effects.TakedownBlob(cid)
 }
 
+func (c *RecordContext) PersistRecordOzoneEvent() {
+	c.effects.PersistRecordOzoneEvent()
+}
+
 func (c *NotificationContext) Reject() {
 	c.effects.Reject()
 }

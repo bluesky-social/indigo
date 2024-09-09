@@ -6,6 +6,7 @@ import (
 )
 
 type IdentityRuleFunc = func(c *AccountContext) error
+type AccountRuleFunc = func(c *AccountContext) error
 type RecordRuleFunc = func(c *RecordContext) error
 type PostRuleFunc = func(c *RecordContext, post *appbsky.FeedPost) error
 type ProfileRuleFunc = func(c *RecordContext, profile *appbsky.ActorProfile) error
