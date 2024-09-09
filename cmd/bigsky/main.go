@@ -183,6 +183,11 @@ func run(args []string) error {
 			EnvVars: []string{"RELAY_MAX_QUEUE_PER_PDS"},
 			Value:   1_000,
 		},
+		&cli.IntFlag{
+			Name:    "did-cache-size",
+			EnvVars: []string{"RELAY_DID_CACHE_SIZE"},
+			Value:   5_000_000,
+		},
 	}
 
 	app.Action = runBigsky
@@ -312,7 +317,7 @@ func runBigsky(cctx *cli.Context) error {
 	}
 	mr.AddHandler("web", &webr)
 
-	cachedidr := plc.NewCachingDidResolver(mr, time.Hour*24, 500_000)
+	cachedidr := plc.NewCachingDidResolver(mr, time.Hour*24, cctx.Int("did-cache-size"))
 
 	kmgr := indexer.NewKeyManager(cachedidr, nil)
 

@@ -3,40 +3,31 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
 
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/xrpc"
 )
 
 func fetchRecord(ctx context.Context, ident identity.Identity, aturi syntax.ATURI) (any, error) {
-	pdsURL := ident.PDSEndpoint()
 
 	slog.Debug("fetching record", "did", ident.DID.String(), "collection", aturi.Collection().String(), "rkey", aturi.RecordKey().String())
-	url := fmt.Sprintf("%s/xrpc/com.atproto.repo.getRecord?repo=%s&collection=%s&rkey=%s",
-		pdsURL, ident.DID, aturi.Collection(), aturi.RecordKey())
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
+	xrpcc := xrpc.Client{
+		Host: ident.PDSEndpoint(),
 	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fetch failed")
-	}
-	respBytes, err := io.ReadAll(resp.Body)
+	resp, err := RepoGetRecord(ctx, &xrpcc, "", aturi.Collection().String(), ident.DID.String(), aturi.RecordKey().String())
 	if err != nil {
 		return nil, err
 	}
 
-	body, err := data.UnmarshalJSON(respBytes)
-	if err != nil {
-		return nil, err
+	if nil == resp.Value {
+		return nil, fmt.Errorf("empty record in response")
 	}
-	record, ok := body["value"].(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("fetched record was not an object")
+	record, err := data.UnmarshalJSON(*resp.Value)
+	if err != nil {
+		return nil, fmt.Errorf("fetched record was invalid data: %w", err)
 	}
 	return record, nil
 }
