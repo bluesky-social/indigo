@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block main_content %}
+<h2 style="font-family: monospace;">{{ atid }}</h2>
+
+<table>
+  <tbody>
+    <tr><td>DID</td>
+        <td><code>{{ ident.DID }}</code></td>
+    <tr><td>Handle</td>
+        <td><code>{{ ident.Handle }}</code></td>
+    <tr><td>PDS</td>
+        <td><code>{{ ident.PDSEndpoint() }}</code></td>
+  </tbody>
+</table>
+
+<p><a href="/at/{{ atid }}">Repo Index</a>
+<p><a href="{{ ident.PDSEndpoint() }}/xrpc/com.atproto.sync.getRepo?did={{ ident.DID }}">Repo CAR Export</a>
+
+{% if didDocJSON %}
+<h4>DID Document</h4>
+<pre style="padding: 1em;">{{ didDocJSON }}</pre>
+{% endif %}
+{% endblock %}

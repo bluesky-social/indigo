@@ -1,17 +1,21 @@
 package events
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/prometheus/client_golang/prometheus"
 
 	logging "github.com/ipfs/go-log"
+	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
 )
 
@@ -61,6 +65,13 @@ func (em *EventManager) Shutdown(ctx context.Context) error {
 }
 
 func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
+	// the main thing we do is send it out, so MarshalCBOR once
+	if err := evt.Preserialize(); err != nil {
+		log.Errorf("broadcast serialize failed, %s", err)
+		// serialize isn't going to go better later, this event is cursed
+		return
+	}
+
 	em.subsLk.Lock()
 	defer em.subsLk.Unlock()
 
@@ -165,6 +176,61 @@ type XRPCStreamEvent struct {
 	PrivUid         models.Uid `json:"-" cborgen:"-"`
 	PrivPdsId       uint       `json:"-" cborgen:"-"`
 	PrivRelevantPds []uint     `json:"-" cborgen:"-"`
+	Preserialized   []byte     `json:"-" cborgen:"-"`
+}
+
+func (evt *XRPCStreamEvent) Serialize(wc io.Writer) error {
+	header := EventHeader{Op: EvtKindMessage}
+	var obj lexutil.CBOR
+
+	switch {
+	case evt.Error != nil:
+		header.Op = EvtKindErrorFrame
+		obj = evt.Error
+	case evt.RepoCommit != nil:
+		header.MsgType = "#commit"
+		obj = evt.RepoCommit
+	case evt.RepoHandle != nil:
+		header.MsgType = "#handle"
+		obj = evt.RepoHandle
+	case evt.RepoIdentity != nil:
+		header.MsgType = "#identity"
+		obj = evt.RepoIdentity
+	case evt.RepoAccount != nil:
+		header.MsgType = "#account"
+		obj = evt.RepoAccount
+	case evt.RepoInfo != nil:
+		header.MsgType = "#info"
+		obj = evt.RepoInfo
+	case evt.RepoMigrate != nil:
+		header.MsgType = "#migrate"
+		obj = evt.RepoMigrate
+	case evt.RepoTombstone != nil:
+		header.MsgType = "#tombstone"
+		obj = evt.RepoTombstone
+	default:
+		return fmt.Errorf("unrecognized event kind")
+	}
+
+	cborWriter := cbg.NewCborWriter(wc)
+	if err := header.MarshalCBOR(cborWriter); err != nil {
+		return fmt.Errorf("failed to write header: %w", err)
+	}
+	return obj.MarshalCBOR(cborWriter)
+}
+
+// serialize content into Preserialized cache
+func (evt *XRPCStreamEvent) Preserialize() error {
+	if evt.Preserialized != nil {
+		return nil
+	}
+	var buf bytes.Buffer
+	err := evt.Serialize(&buf)
+	if err != nil {
+		return err
+	}
+	evt.Preserialized = buf.Bytes()
+	return nil
 }
 
 type ErrorFrame struct {
