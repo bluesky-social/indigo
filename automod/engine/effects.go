@@ -46,6 +46,8 @@ type Effects struct {
 	AccountReports []ModReport
 	// If "true", indicates that a rule indicates that the entire account should have a takedown.
 	AccountTakedown bool
+	// If "true", indicates that a rule indicates that appeals on the account should be resolved.
+	AccountAppealResolve bool
 	// Same as "AccountLabels", but at record-level
 	RecordLabels []string
 	// Same as "AccountFlags", but at record-level
@@ -132,6 +134,11 @@ func (e *Effects) TakedownAccount() {
 	e.AccountTakedown = true
 }
 
+// Enqueues the accounts's appeals to be resolved at the end of rule processing.
+func (e *Effects) ResolveAccountAppeal() {
+	e.AccountAppealResolve = true
+}
+
 // Enqueues the provided label (string value) to be added to the record at the end of rule processing.
 func (e *Effects) AddRecordLabel(val string) {
 	e.mu.Lock()
@@ -154,6 +161,17 @@ func (e *Effects) AddRecordFlag(val string) {
 		}
 	}
 	e.RecordFlags = append(e.RecordFlags, val)
+}
+
+// Enqueues the provided flag (string value) to be removed (in the Engine's flagstore) at the end of rule processing.
+func (e *Effects) RemoveRecordFlag(val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for i, v := range e.RecordFlags {
+		if v == val {
+			e.RecordFlags = append(e.RecordFlags[:i], e.RecordFlags[i+1:]...)
+		}
+	}
 }
 
 // Enqueues a moderation report to be filed against the record at the end of rule processing.

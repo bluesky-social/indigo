@@ -272,6 +272,10 @@ func (c *AccountContext) TakedownAccount() {
 	c.effects.TakedownAccount()
 }
 
+func (c *AccountContext) ResolveAccountAppeal() {
+	c.effects.ResolveAccountAppeal()
+}
+
 func (c *RecordContext) AddRecordFlag(val string) {
 	c.effects.AddRecordFlag(val)
 }
