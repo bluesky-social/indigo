@@ -6,6 +6,7 @@ require (
 	contrib.go.opencensus.io/exporter/prometheus v0.4.2
 	github.com/PuerkitoBio/purell v1.2.1
 	github.com/RussellLuo/slidingwindow v0.0.0-20200528002341-535bb99d338b
+	github.com/adrg/xdg v0.5.0
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/brianvoe/gofakeit/v6 v6.25.0
 	github.com/carlmjohnson/versioninfo v0.22.5
@@ -52,7 +53,7 @@ require (
 	github.com/samber/slog-echo v1.8.0
 	github.com/stretchr/testify v1.9.0
 	github.com/urfave/cli/v2 v2.25.7
-	github.com/whyrusleeping/cbor-gen v0.1.3-0.20240731173018-74d74643234c
+	github.com/whyrusleeping/cbor-gen v0.1.3-0.20240904181319-8dc02b38228c
 	github.com/whyrusleeping/go-did v0.0.0-20230824162731-404d1707d5d6
 	gitlab.com/yawning/secp256k1-voi v0.0.0-20230925100816-f2616030848b
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.1
@@ -163,7 +164,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.21.0 // indirect
-	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/sys v0.22.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231120223509-83a465c0220f // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231120223509-83a465c0220f // indirect
 	google.golang.org/grpc v1.59.0 // indirect

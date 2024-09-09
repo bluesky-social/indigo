@@ -65,6 +65,8 @@ type Config struct {
 	RatelimitBypass     string
 	FirehoseParallelism int
 	RerouteEvents       bool
+	PreScreenHost       string
+	PreScreenToken      string
 }
 
 func NewServer(dir identity.Directory, config Config) (*Server, error) {
@@ -151,7 +153,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		}
 		counters = cnt
 
-		csh, err := cachestore.NewRedisCacheStore(config.RedisURL, 30*time.Minute)
+		csh, err := cachestore.NewRedisCacheStore(config.RedisURL, 6*time.Hour)
 		if err != nil {
 			return nil, fmt.Errorf("initializing redis cachestore: %v", err)
 		}
@@ -164,15 +166,21 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		flags = flg
 	} else {
 		counters = countstore.NewMemCountStore()
-		cache = cachestore.NewMemCacheStore(5_000, 30*time.Minute)
+		cache = cachestore.NewMemCacheStore(5_000, 1*time.Hour)
 		flags = flagstore.NewMemFlagStore()
 	}
 
+	// IMPORTANT: reminder that these are the indigo-edition rules, not production rules
 	extraBlobRules := []automod.BlobRuleFunc{}
 	if config.HiveAPIToken != "" && config.RulesetName != "no-hive" {
 		logger.Info("configuring Hive AI image labeler")
 		hc := visual.NewHiveAIClient(config.HiveAPIToken)
 		extraBlobRules = append(extraBlobRules, hc.HiveLabelBlobRule)
+
+		if config.PreScreenHost != "" {
+			psc := visual.NewPreScreenClient(config.PreScreenHost, config.PreScreenToken)
+			hc.PreScreenClient = psc
+		}
 	}
 
 	if config.AbyssHost != "" && config.AbyssPassword != "" {

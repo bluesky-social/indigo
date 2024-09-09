@@ -640,7 +640,6 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 
 	logger.Infow("new consumer", "cursor", since)
 
-	header := events.EventHeader{Op: events.EvtKindMessage}
 	for {
 		select {
 		case evt, ok := <-evts:
@@ -655,42 +654,12 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 				return err
 			}
 
-			var obj lexutil.CBOR
-
-			switch {
-			case evt.Error != nil:
-				header.Op = events.EvtKindErrorFrame
-				obj = evt.Error
-			case evt.RepoCommit != nil:
-				header.MsgType = "#commit"
-				obj = evt.RepoCommit
-			case evt.RepoHandle != nil:
-				header.MsgType = "#handle"
-				obj = evt.RepoHandle
-			case evt.RepoIdentity != nil:
-				header.MsgType = "#identity"
-				obj = evt.RepoIdentity
-			case evt.RepoAccount != nil:
-				header.MsgType = "#account"
-				obj = evt.RepoAccount
-			case evt.RepoInfo != nil:
-				header.MsgType = "#info"
-				obj = evt.RepoInfo
-			case evt.RepoMigrate != nil:
-				header.MsgType = "#migrate"
-				obj = evt.RepoMigrate
-			case evt.RepoTombstone != nil:
-				header.MsgType = "#tombstone"
-				obj = evt.RepoTombstone
-			default:
-				return fmt.Errorf("unrecognized event kind")
+			if evt.Preserialized != nil {
+				_, err = wc.Write(evt.Preserialized)
+			} else {
+				err = evt.Serialize(wc)
 			}
-
-			if err := header.MarshalCBOR(wc); err != nil {
-				return fmt.Errorf("failed to write header: %w", err)
-			}
-
-			if err := obj.MarshalCBOR(wc); err != nil {
+			if err != nil {
 				return fmt.Errorf("failed to write event: %w", err)
 			}
 

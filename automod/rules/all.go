@@ -4,6 +4,7 @@ import (
 	"github.com/bluesky-social/indigo/automod"
 )
 
+// IMPORTANT: reminder that these are the indigo-edition rules, not production rules
 func DefaultRules() automod.RuleSet {
 	rules := automod.RuleSet{
 		PostRules: []automod.PostRuleFunc{
@@ -20,6 +21,7 @@ func DefaultRules() automod.RuleSet {
 			ReplySingleBadWordPostRule,
 			AggressivePromotionRule,
 			IdenticalReplyPostRule,
+			//IdenticalReplyPostSameParentRule,
 			DistinctMentionsRule,
 			YoungAccountDistinctMentionsRule,
 			MisleadingLinkUnicodeReversalPostRule,
@@ -27,6 +29,7 @@ func DefaultRules() automod.RuleSet {
 			HarassmentTargetInteractionPostRule,
 			HarassmentTrivialPostRule,
 			NostrSpamPostRule,
+			TrivialSpamPostRule,
 		},
 		ProfileRules: []automod.ProfileRuleFunc{
 			GtubeProfileRule,

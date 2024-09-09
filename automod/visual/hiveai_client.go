@@ -20,6 +20,8 @@ import (
 type HiveAIClient struct {
 	Client   http.Client
 	ApiToken string
+
+	PreScreenClient *PreScreenClient
 }
 
 // schema: https://docs.thehive.ai/reference/classification
@@ -60,13 +62,13 @@ func summarizeSimpleLabels(cl []HiveAIResp_Class) []string {
 
 	for _, cls := range cl {
 		if cls.Class == "very_bloody" && cls.Score >= 0.90 {
-			labels = append(labels, "gore")
+			labels = append(labels, "graphic-media")
 		}
 		if cls.Class == "human_corpse" && cls.Score >= 0.90 {
-			labels = append(labels, "corpse")
+			labels = append(labels, "graphic-media")
 		}
 		if cls.Class == "hanging" && cls.Score >= 0.90 {
-			labels = append(labels, "corpse")
+			labels = append(labels, "graphic-media")
 		}
 		if cls.Class == "yes_self_harm" && cls.Score >= 0.96 {
 			labels = append(labels, "self-harm")
@@ -138,7 +140,9 @@ func summarizeSexualLabels(cl []HiveAIResp_Class) string {
 	// then finally flag remaining "underwear" images in to sexually suggestive
 	// (after non-sexual content already labeled above)
 	for _, underwearClass := range []string{"yes_male_underwear", "yes_female_underwear"} {
-		if scores[underwearClass] >= threshold {
+		// TODO: experimenting with higher threshhold during traffic spike
+		//if scores[underwearClass] >= threshold {
+		if scores[underwearClass] >= 0.98 {
 			return "sexual"
 		}
 	}

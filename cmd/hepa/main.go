@@ -143,6 +143,16 @@ func run(args []string) error {
 			Usage:   "Attempt to reroute firehose events to all configured destinations (for now, only Ozone).",
 			EnvVars: []string{"HEPA_REROUTE_EVENTS"},
 		},
+		&cli.StringFlag{
+			Name:    "prescreen-host",
+			Usage:   "hostname of prescreen server",
+			EnvVars: []string{"HEPA_PRESCREEN_HOST"},
+		},
+		&cli.StringFlag{
+			Name:    "prescreen-token",
+			Usage:   "secret token for prescreen server",
+			EnvVars: []string{"HEPA_PRESCREEN_TOKEN"},
+		},
 	}
 
 	app.Commands = []*cli.Command{
@@ -248,6 +258,8 @@ var runCmd = &cli.Command{
 				RulesetName:         cctx.String("ruleset"),
 				FirehoseParallelism: cctx.Int("firehose-parallelism"),
 				RerouteEvents:       cctx.Bool("reroute-events"),
+				PreScreenHost:       cctx.String("prescreen-host"),
+				PreScreenToken:      cctx.String("prescreen-token"),
 			},
 		)
 		if err != nil {
@@ -323,6 +335,8 @@ func configEphemeralServer(cctx *cli.Context) (*Server, error) {
 			RulesetName:         cctx.String("ruleset"),
 			FirehoseParallelism: cctx.Int("firehose-parallelism"),
 			RerouteEvents:       cctx.Bool("reroute-events"),
+			PreScreenHost:       cctx.String("prescreen-host"),
+			PreScreenToken:      cctx.String("prescreen-token"),
 		},
 	)
 }

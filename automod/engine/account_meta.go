@@ -32,6 +32,6 @@ type ProfileSummary struct {
 type AccountPrivate struct {
 	Email          string
 	EmailConfirmed bool
-	IndexedAt      time.Time
+	IndexedAt      *time.Time
 	AccountTags    []string
 }
