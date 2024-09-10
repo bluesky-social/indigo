@@ -58,6 +58,8 @@ type CarStore struct {
 
 	lscLk          sync.Mutex
 	lastShardCache map[models.Uid]*CarShard
+
+	globalCache map[cid.Cid]blockformat.Block
 }
 
 func NewCarStore(meta *gorm.DB, root string) (*CarStore, error) {
@@ -81,6 +83,7 @@ func NewCarStore(meta *gorm.DB, root string) (*CarStore, error) {
 		meta:           meta,
 		rootDir:        root,
 		lastShardCache: make(map[models.Uid]*CarShard),
+		globalCache:    make(map[cid.Cid]blockformat.Block),
 	}, nil
 }
 
@@ -149,6 +152,10 @@ func unpackCids(b []byte) ([]cid.Cid, error) {
 	}
 
 	return out, nil
+}
+
+func (cs *CarStore) SetGlobalCacheEntry(k cid.Cid, v blockformat.Block) {
+	cs.globalCache[k] = v
 }
 
 type userView struct {
@@ -619,11 +626,21 @@ func (ds *DeltaSession) Get(ctx context.Context, c cid.Cid) (blockformat.Block, 
 		return b, nil
 	}
 
+	gcb, ok := ds.cs.globalCache[c]
+	if ok {
+		return gcb, nil
+	}
+
 	return ds.base.Get(ctx, c)
 }
 
 func (ds *DeltaSession) Has(ctx context.Context, c cid.Cid) (bool, error) {
 	_, ok := ds.blks[c]
+	if ok {
+		return true, nil
+	}
+
+	_, ok = ds.cs.globalCache[c]
 	if ok {
 		return true, nil
 	}
@@ -639,6 +656,11 @@ func (ds *DeltaSession) GetSize(ctx context.Context, c cid.Cid) (int, error) {
 	b, ok := ds.blks[c]
 	if ok {
 		return len(b.RawData()), nil
+	}
+
+	gcb, ok := ds.cs.globalCache[c]
+	if ok {
+		return len(gcb.RawData()), nil
 	}
 
 	return ds.base.GetSize(ctx, c)
