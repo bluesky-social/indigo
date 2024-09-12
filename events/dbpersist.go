@@ -51,7 +51,7 @@ func DefaultOptions() *Options {
 type DbPersistence struct {
 	db *gorm.DB
 
-	cs *carstore.CarStore
+	cs carstore.CarStore
 
 	lk sync.Mutex
 
@@ -86,7 +86,7 @@ type RepoEventRecord struct {
 	Ops []byte
 }
 
-func NewDbPersistence(db *gorm.DB, cs *carstore.CarStore, options *Options) (*DbPersistence, error) {
+func NewDbPersistence(db *gorm.DB, cs carstore.CarStore, options *Options) (*DbPersistence, error) {
 	if err := db.AutoMigrate(&RepoEventRecord{}); err != nil {
 		return nil, err
 	}

@@ -33,7 +33,7 @@ import (
 
 var log = logging.Logger("repomgr")
 
-func NewRepoManager(cs *carstore.CarStore, kmgr KeyManager) *RepoManager {
+func NewRepoManager(cs carstore.CarStore, kmgr KeyManager) *RepoManager {
 
 	return &RepoManager{
 		cs:        cs,
@@ -53,7 +53,7 @@ func (rm *RepoManager) SetEventHandler(cb func(context.Context, *RepoEvent), hyd
 }
 
 type RepoManager struct {
-	cs   *carstore.CarStore
+	cs   carstore.CarStore
 	kmgr KeyManager
 
 	lklk      sync.Mutex
@@ -140,7 +140,7 @@ func (rm *RepoManager) lockUser(ctx context.Context, user models.Uid) func() {
 	}
 }
 
-func (rm *RepoManager) CarStore() *carstore.CarStore {
+func (rm *RepoManager) CarStore() carstore.CarStore {
 	return rm.cs
 }
 

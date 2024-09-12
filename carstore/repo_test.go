@@ -24,7 +24,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func testCarStore() (*CarStore, func(), error) {
+func testCarStore() (CarStore, func(), error) {
 	tempdir, err := os.MkdirTemp("", "msttest-")
 	if err != nil {
 		return nil, nil, err
@@ -250,7 +250,7 @@ func TestRepeatedCompactions(t *testing.T) {
 	checkRepo(t, cs, buf, recs)
 }
 
-func checkRepo(t *testing.T, cs *CarStore, r io.Reader, expRecs []cid.Cid) {
+func checkRepo(t *testing.T, cs CarStore, r io.Reader, expRecs []cid.Cid) {
 	t.Helper()
 	rep, err := repo.ReadRepoFromCar(context.TODO(), r)
 	if err != nil {
