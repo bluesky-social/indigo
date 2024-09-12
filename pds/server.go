@@ -41,7 +41,7 @@ var log = logging.Logger("pds")
 
 type Server struct {
 	db             *gorm.DB
-	cs             *carstore.CarStore
+	cs             carstore.CarStore
 	repoman        *repomgr.RepoManager
 	feedgen        *FeedGenerator
 	notifman       notifs.NotificationManager
@@ -65,7 +65,7 @@ type Server struct {
 // NewServer.
 const serverListenerBootTimeout = 5 * time.Second
 
-func NewServer(db *gorm.DB, cs *carstore.CarStore, serkey *did.PrivKey, handleSuffix, serviceUrl string, didr plc.PLCClient, jwtkey []byte) (*Server, error) {
+func NewServer(db *gorm.DB, cs carstore.CarStore, serkey *did.PrivKey, handleSuffix, serviceUrl string, didr plc.PLCClient, jwtkey []byte) (*Server, error) {
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&Peering{})
 
