@@ -268,7 +268,7 @@ func BenchmarkPlayback(b *testing.B) {
 	}
 }
 
-func setupDBs(t testing.TB) (*gorm.DB, *gorm.DB, *carstore.CarStore, string, error) {
+func setupDBs(t testing.TB) (*gorm.DB, *gorm.DB, carstore.CarStore, string, error) {
 	dir, err := os.MkdirTemp("", "integtest")
 	if err != nil {
 		return nil, nil, nil, "", err
