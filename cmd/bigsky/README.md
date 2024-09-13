@@ -56,7 +56,7 @@ Wipe all local data:
     # careful! double-check this destructive command
     rm -rf ./data/bigsky/*
 
-There is a basic web dashboard, though it will not be included unless built and copied to a local directory `./public/`. Run `make build-relay-ui`, and then when running the daemon the dashboard will be available at: <http://localhost:2470/admin/>. Paste in the admin key, eg `localdev`.
+There is a basic web dashboard, though it will not be included unless built and copied to a local directory `./public/`. Run `make build-relay-ui`, and then when running the daemon the dashboard will be available at: <http://localhost:2470/dash/>. Paste in the admin key, eg `localdev`.
 
 The local admin routes can also be accessed by passing the admin key as a bearer token, for example:
 
