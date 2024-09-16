@@ -106,6 +106,12 @@ func run(args []string) error {
 					Required: true,
 					EnvVars:  []string{"BEEMO_MENTION_DIDS"},
 				},
+				&cli.IntFlag{
+					Name:    "minimum-words",
+					Usage:   "minimum length of post text (word count; zero for no minimum)",
+					Value:   0,
+					EnvVars: []string{"BEEMO_MINIMUM_WORDS"},
+				},
 			},
 		},
 	}
