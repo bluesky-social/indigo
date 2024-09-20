@@ -19,10 +19,18 @@ type MentionChecker struct {
 	mentionDIDs     []syntax.DID
 	logger          *slog.Logger
 	directory       identity.Directory
+	minimumWords    int
 }
 
 func (mc *MentionChecker) ProcessPost(ctx context.Context, did syntax.DID, rkey syntax.RecordKey, post appbsky.FeedPost) error {
 	mc.logger.Debug("processing post record", "did", did, "rkey", rkey)
+
+	if mc.minimumWords > 0 {
+		words := strings.Split(post.Text, " ")
+		if len(words) < mc.minimumWords {
+			return nil
+		}
+	}
 
 	for _, facet := range post.Facets {
 		for _, feature := range facet.Features {
@@ -57,6 +65,7 @@ func notifyMentions(cctx *cli.Context) error {
 	ctx := context.Background()
 	logger := configLogger(cctx, os.Stdout)
 	relayHost := cctx.String("relay-host")
+	minimumWords := cctx.Int("minimum-words")
 
 	mentionDIDs := []syntax.DID{}
 	for _, raw := range strings.Split(cctx.String("mention-dids"), ",") {
@@ -72,6 +81,7 @@ func notifyMentions(cctx *cli.Context) error {
 		mentionDIDs:     mentionDIDs,
 		logger:          logger,
 		directory:       identity.DefaultDirectory(),
+		minimumWords:    minimumWords,
 	}
 
 	logger.Info("beemo mention checker starting up...", "relayHost", relayHost, "mentionDIDs", mentionDIDs)
