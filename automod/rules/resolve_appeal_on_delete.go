@@ -50,10 +50,9 @@ func MarkAppealOzoneEventRule(c *automod.OzoneEventContext) error {
 	}
 
 	if isAppealEvent {
-		c.Increment("appealed", counterKey)
+		c.Increment("appeal", counterKey)
 	} else {
-		// @TODO: We should reset the appeal counter here but there doesn't seem to be an api for it
-		// c.Reset("appealed", counterKey)
+		c.ResetCounter("appeal", counterKey)
 	}
 
 	return nil
