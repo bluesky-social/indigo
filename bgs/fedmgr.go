@@ -481,12 +481,12 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS, s
 		url := fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", protocol, host.Host, cursor)
 		con, res, err := d.DialContext(ctx, url, nil)
 		if err != nil {
-			log.Warnw("dialing failed", "host", host.Host, "err", err, "backoff", backoff)
+			log.Warnw("dialing failed", "pdsHost", host.Host, "err", err, "backoff", backoff)
 			time.Sleep(sleepForBackoff(backoff))
 			backoff++
 
 			if backoff > 15 {
-				log.Warnw("pds does not appear to be online, disabling for now", "host", host.Host)
+				log.Warnw("pds does not appear to be online, disabling for now", "pdsHost", host.Host)
 				if err := s.db.Model(&models.PDS{}).Where("id = ?", host.ID).Update("registered", false).Error; err != nil {
 					log.Errorf("failed to unregister failing pds: %w", err)
 				}
@@ -536,7 +536,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
-			log.Debugw("got remote repo event", "host", host.Host, "repo", evt.Repo, "seq", evt.Seq)
+			log.Debugw("got remote repo event", "pdsHost", host.Host, "repo", evt.Repo, "seq", evt.Seq)
 			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
 				RepoCommit: evt,
 			}); err != nil {
@@ -551,7 +551,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			return nil
 		},
 		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-			log.Infow("got remote handle update event", "host", host.Host, "did", evt.Did, "handle", evt.Handle)
+			log.Infow("got remote handle update event", "pdsHost", host.Host, "did", evt.Did, "handle", evt.Handle)
 			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
 				RepoHandle: evt,
 			}); err != nil {
@@ -566,7 +566,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			return nil
 		},
 		RepoMigrate: func(evt *comatproto.SyncSubscribeRepos_Migrate) error {
-			log.Infow("got remote repo migrate event", "host", host.Host, "did", evt.Did, "migrateTo", evt.MigrateTo)
+			log.Infow("got remote repo migrate event", "pdsHost", host.Host, "did", evt.Did, "migrateTo", evt.MigrateTo)
 			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
 				RepoMigrate: evt,
 			}); err != nil {
@@ -581,7 +581,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			return nil
 		},
 		RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
-			log.Infow("got remote repo tombstone event", "host", host.Host, "did", evt.Did)
+			log.Infow("got remote repo tombstone event", "pdsHost", host.Host, "did", evt.Did)
 			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
 				RepoTombstone: evt,
 			}); err != nil {
@@ -596,7 +596,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			return nil
 		},
 		RepoInfo: func(info *comatproto.SyncSubscribeRepos_Info) error {
-			log.Infow("info event", "name", info.Name, "message", info.Message, "host", host.Host)
+			log.Infow("info event", "name", info.Name, "message", info.Message, "pdsHost", host.Host)
 			return nil
 		},
 		RepoIdentity: func(ident *comatproto.SyncSubscribeRepos_Identity) error {

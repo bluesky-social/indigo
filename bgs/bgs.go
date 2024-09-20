@@ -800,7 +800,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	case env.RepoCommit != nil:
 		repoCommitsReceivedCounter.WithLabelValues(host.Host).Add(1)
 		evt := env.RepoCommit
-		log.Debugw("bgs got repo append event", "seq", evt.Seq, "host", host.Host, "repo", evt.Repo)
+		log.Debugw("bgs got repo append event", "seq", evt.Seq, "pdsHost", host.Host, "repo", evt.Repo)
 		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -822,17 +822,17 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		if u.TakenDown || u.UpstreamStatus == events.AccountStatusTakendown {
 			span.SetAttributes(attribute.Bool("taken_down_by_relay_admin", u.TakenDown))
-			log.Debugw("dropping commit event from taken down user", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
+			log.Debugw("dropping commit event from taken down user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 			return nil
 		}
 
 		if u.UpstreamStatus == events.AccountStatusSuspended {
-			log.Debugw("dropping commit event from suspended user", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
+			log.Debugw("dropping commit event from suspended user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 			return nil
 		}
 
 		if u.UpstreamStatus == events.AccountStatusDeactivated {
-			log.Debugw("dropping commit event from deactivated user", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
+			log.Debugw("dropping commit event from deactivated user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 			return nil
 		}
 
@@ -891,7 +891,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.Since, evt.Rev, evt.Blocks, evt.Ops); err != nil {
-			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
+			log.Warnw("failed handling event", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
 
 			if errors.Is(err, carstore.ErrRepoBaseMismatch) || ipld.IsNotFound(err) {
 				ai, lerr := bgs.Index.LookupUser(ctx, u.ID)

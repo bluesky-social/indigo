@@ -17,7 +17,7 @@ func (srv *Server) reqHandle(c echo.Context) syntax.Handle {
 	host = strings.SplitN(host, ":", 2)[0]
 	handle, err := syntax.ParseHandle(host)
 	if err != nil {
-		slog.Warn("host is not a valid handle, fallback to default", "host", host)
+		slog.Warn("host is not a valid handle, fallback to default", "hostname", host)
 		handle = srv.defaultHandle
 	}
 	return handle
