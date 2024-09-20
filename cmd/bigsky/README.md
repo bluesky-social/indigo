@@ -56,7 +56,7 @@ Wipe all local data:
     # careful! double-check this destructive command
     rm -rf ./data/bigsky/*
 
-There is a basic web dashboard, though it will not be included unless built and copied to a local directory `./public/`. Run `make build-relay-ui`, and then when running the daemon the dashboard will be available at: <http://localhost:2470/admin/>. Paste in the admin key, eg `localdev`.
+There is a basic web dashboard, though it will not be included unless built and copied to a local directory `./public/`. Run `make build-relay-ui`, and then when running the daemon the dashboard will be available at: <http://localhost:2470/dash/>. Paste in the admin key, eg `localdev`.
 
 The local admin routes can also be accessed by passing the admin key as a bearer token, for example:
 
@@ -150,3 +150,190 @@ Lastly, can monitor progress of any ongoing re-syncs:
 
     # check sync progress for all hosts
 	cat hosts.txt | parallel -j1 ./sync_pds.sh {}
+
+
+## Admin API
+
+The relay has a number of admin HTTP API endpoints. Given a relay setup listening on port 2470 and with a reasonably secure admin secret:
+
+```
+RELAY_ADMIN_PASSWORD=$(openssl rand --hex 16)
+bigsky  --api-listen :2470 --admin-key ${RELAY_ADMIN_PASSWORD} ...
+```
+
+One can, for example, begin compaction of all repos
+
+```
+curl -H 'Authorization: Bearer '${RELAY_ADMIN_PASSWORD} -H 'Content-Type: application/x-www-form-urlencoded' --data '' http://127.0.0.1:2470/admin/repo/compactAll
+```
+
+### /admin/subs/getUpstreamConns
+
+Return list of PDS host names in json array of strings: ["host", ...]
+
+### /admin/subs/perDayLimit
+
+Return `{"limit": int}` for the number of new PDS subscriptions that the relay may start in a rolling 24 hour window.
+
+### /admin/subs/setPerDayLimit
+
+POST with `?limit={int}` to set the number of new PDS subscriptions that the relay may start in a rolling 24 hour window.
+
+### /admin/subs/setEnabled
+
+POST with param `?enabled=true` or `?enabled=false` to enable or disable PDS-requested new-PDS crawling.
+
+### /admin/subs/getEnabled
+
+Return `{"enabled": bool}` if non-admin new PDS crawl requests are enabled
+
+### /admin/subs/killUpstream
+
+POST with `?host={pds host name}` to disconnect from their firehose.
+
+Optionally add `&block=true` to prevent connecting to them in the future.
+
+### /admin/subs/listDomainBans
+
+Return `{"banned_domains": ["host name", ...]}`
+
+### /admin/subs/banDomain
+
+POST `{"Domain": "host name"}` to ban a domain
+
+### /admin/subs/unbanDomain
+
+POST `{"Domain": "host name"}` to un-ban a domain
+
+### /admin/repo/takeDown
+
+POST `{"did": "did:..."}` to take-down a bad repo; deletes all local data for the repo
+
+### /admin/repo/reverseTakedown
+
+POST `?did={did:...}` to reverse a repo take-down
+
+### /admin/repo/compact
+
+POST `?did={did:...}` to compact a repo. Optionally `&fast=true`. HTTP blocks until the compaction finishes.
+
+### /admin/repo/compactAll
+
+POST to begin compaction of all repos. Optional query params:
+
+ * `fast=true`
+ * `limit={int}` maximum number of repos to compact (biggest first) (default 50)
+ * `threhsold={int}` minimum number of shard files a repo must have on disk to merit compaction (default 20)
+
+### /admin/repo/reset
+
+POST `?did={did:...}` deletes all local data for the repo
+
+### /admin/repo/verify
+
+POST  `?did={did:...}` checks that all repo data is accessible. HTTP blocks until done.
+
+### /admin/pds/requestCrawl
+
+POST `{"hostname":"pds host"}` to start crawling a PDS
+
+### /admin/pds/list
+
+GET returns JSON list of records
+```json
+[{
+  "Host": string,
+  "Did": string,
+  "SSL": bool,
+  "Cursor": int,
+  "Registered": bool,
+  "Blocked": bool,
+  "RateLimit": float,
+  "CrawlRateLimit": float,
+  "RepoCount": int,
+  "RepoLimit": int,
+  "HourlyEventLimit": int,
+  "DailyEventLimit": int,
+
+  "HasActiveConnection": bool,
+  "EventsSeenSinceStartup": int,
+  "PerSecondEventRate": {"Max": float, "Window": float seconds},
+  "PerHourEventRate": {"Max": float, "Window": float seconds},
+  "PerDayEventRate": {"Max": float, "Window": float seconds},
+  "CrawlRate": {"Max": float, "Window": float seconds},
+  "UserCount": int,
+}, ...]
+```
+
+### /admin/pds/resync
+
+POST `?host={host}` to start a resync of a PDS
+
+GET `?host={host}` to get status of a PDS resync, return
+
+```json
+{"resync": {
+  "pds": {
+    "Host": string,
+    "Did": string,
+    "SSL": bool,
+    "Cursor": int,
+    "Registered": bool,
+    "Blocked": bool,
+    "RateLimit": float,
+    "CrawlRateLimit": float,
+    "RepoCount": int,
+    "RepoLimit": int,
+    "HourlyEventLimit": int,
+    "DailyEventLimit": int,
+  },
+  "numRepoPages": int,
+  "numRepos": int,
+  "numReposChecked": int,
+  "numReposToResync": int,
+  "status": string,
+  "statusChangedAt": time,
+}}
+```
+
+### /admin/pds/changeLimits
+
+POST to set the limits for a PDS. body:
+
+```json
+{
+  "host": string,
+  "per_second": int,
+  "per_hour": int,
+  "per_day": int,
+  "crawl_rate": int,
+  "repo_limit": int,
+}
+```
+
+### /admin/pds/block
+
+POST `?host={host}` to block a PDS
+
+### /admin/pds/unblock
+
+POST `?host={host}` to un-block a PDS
+
+
+### /admin/pds/addTrustedDomain
+
+POST `?domain={}` to make a domain trusted
+
+### /admin/consumers/list
+
+GET returns list json of clients currently reading from the relay firehose
+
+```json
+[{
+  "id": int,
+  "remote_addr": string,
+  "user_agent": string,
+  "events_consumed": int,
+  "connected_at": time,
+}, ...]
+```
