@@ -62,6 +62,7 @@ func DefaultRules() automod.RuleSet {
 		},
 		OzoneEventRules: []automod.OzoneEventRuleFunc{
 			HarassmentProtectionOzoneEventRule,
+			MarkAppealOzoneEventRule,
 		},
 	}
 	return rules
