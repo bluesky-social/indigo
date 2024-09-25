@@ -33,8 +33,9 @@ type RedisDirectory struct {
 
 type handleEntry struct {
 	Updated time.Time
-	DID     syntax.DID
-	Err     error
+	// needs to be pointer type, because unmarshalling empty string would be an error
+	DID *syntax.DID
+	Err error
 }
 
 type identityEntry struct {
@@ -102,7 +103,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 	if err != nil {
 		he := handleEntry{
 			Updated: time.Now(),
-			DID:     "",
+			DID:     nil,
 			Err:     err,
 		}
 		err = d.handleCache.Set(&cache.Item{
@@ -112,7 +113,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 			TTL:   d.ErrTTL,
 		})
 		if err != nil {
-			he.DID = ""
+			he.DID = nil
 			he.Err = err
 			return he
 		}
@@ -126,7 +127,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 	}
 	he := handleEntry{
 		Updated: time.Now(),
-		DID:     ident.DID,
+		DID:     &ident.DID,
 		Err:     nil,
 	}
 
@@ -137,7 +138,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 		TTL:   d.HitTTL,
 	})
 	if err != nil {
-		he.DID = ""
+		he.DID = nil
 		he.Err = err
 		return he
 	}
@@ -148,7 +149,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 		TTL:   d.HitTTL,
 	})
 	if err != nil {
-		he.DID = ""
+		he.DID = nil
 		he.Err = err
 		return he
 	}
@@ -199,8 +200,8 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 	if newEntry.Err != nil {
 		return "", newEntry.Err
 	}
-	if newEntry.DID != "" {
-		return newEntry.DID, nil
+	if newEntry.DID != nil {
+		return *newEntry.DID, nil
 	}
 	return "", fmt.Errorf("unexpected control-flow error")
 }
@@ -218,7 +219,7 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) identity
 	if nil == err && !ident.Handle.IsInvalidHandle() {
 		he = &handleEntry{
 			Updated: time.Now(),
-			DID:     did,
+			DID:     &did,
 			Err:     nil,
 		}
 	}
