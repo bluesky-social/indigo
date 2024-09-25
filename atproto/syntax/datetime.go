@@ -24,6 +24,9 @@ type Datetime string
 var datetimeRegex = regexp.MustCompile(`^[0-9]{4}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-6][0-9]:[0-6][0-9](.[0-9]{1,20})?(Z|([+-][0-2][0-9]:[0-5][0-9]))$`)
 
 func ParseDatetime(raw string) (Datetime, error) {
+	if raw == "" {
+		return "", fmt.Errorf("expected datetime, got empty string")
+	}
 	if len(raw) > 64 {
 		return "", fmt.Errorf("Datetime too long (max 64 chars)")
 	}

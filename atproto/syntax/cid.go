@@ -16,6 +16,9 @@ type CID string
 var cidRegex = regexp.MustCompile(`^[a-zA-Z0-9+=]{8,256}$`)
 
 func ParseCID(raw string) (CID, error) {
+	if raw == "" {
+		return "", fmt.Errorf("expected CID, got empty string")
+	}
 	if len(raw) > 256 {
 		return "", fmt.Errorf("CID is too long (256 chars max)")
 	}

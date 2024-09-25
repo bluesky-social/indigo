@@ -27,6 +27,9 @@ type TID string
 var tidRegex = regexp.MustCompile(`^[234567abcdefghij][234567abcdefghijklmnopqrstuvwxyz]{12}$`)
 
 func ParseTID(raw string) (TID, error) {
+	if raw == "" {
+		return "", fmt.Errorf("expected TID, got empty string")
+	}
 	if len(raw) != 13 {
 		return "", fmt.Errorf("TID is wrong length (expected 13 chars)")
 	}

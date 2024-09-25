@@ -15,6 +15,9 @@ var recordKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_~.:-]{1,512}$`)
 type RecordKey string
 
 func ParseRecordKey(raw string) (RecordKey, error) {
+	if raw == "" {
+		return "", fmt.Errorf("expected record key, got empty string")
+	}
 	if len(raw) > 512 {
 		return "", fmt.Errorf("recordkey is too long (512 chars max)")
 	}
