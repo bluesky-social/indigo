@@ -92,6 +92,9 @@ func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) Hand
 }
 
 func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
+	if h.IsInvalidHandle() {
+		return "", fmt.Errorf("invalid handle")
+	}
 	entry, ok := d.handleCache.Get(h)
 	if ok && !d.IsHandleStale(&entry) {
 		handleCacheHits.Inc()

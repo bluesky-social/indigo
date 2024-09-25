@@ -157,6 +157,9 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 }
 
 func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
+	if h.IsInvalidHandle() {
+		return "", fmt.Errorf("invalid handle")
+	}
 	var entry handleEntry
 	err := d.handleCache.Get(ctx, redisDirPrefix+h.String(), &entry)
 	if err != nil && err != cache.ErrCacheMiss {
