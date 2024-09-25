@@ -13,6 +13,9 @@ import (
 type URI string
 
 func ParseURI(raw string) (URI, error) {
+	if raw == "" {
+		return "", fmt.Errorf("expected URI, got empty string")
+	}
 	if len(raw) > 8192 {
 		return "", fmt.Errorf("URI is too long (8192 chars max)")
 	}

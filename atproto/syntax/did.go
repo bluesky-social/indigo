@@ -16,6 +16,9 @@ type DID string
 var didRegex = regexp.MustCompile(`^did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]$`)
 
 func ParseDID(raw string) (DID, error) {
+	if raw == "" {
+		return "", fmt.Errorf("expected DID, got empty string")
+	}
 	if len(raw) > 2*1024 {
 		return "", fmt.Errorf("DID is too long (2048 chars max)")
 	}

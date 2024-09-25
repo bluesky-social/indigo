@@ -15,6 +15,9 @@ type Language string
 var langRegex = regexp.MustCompile(`^(i|[a-z]{2,3})(-[a-zA-Z0-9]+)*$`)
 
 func ParseLanguage(raw string) (Language, error) {
+	if raw == "" {
+		return "", fmt.Errorf("expected language code, got empty string")
+	}
 	if len(raw) > 128 {
 		return "", fmt.Errorf("Language is too long (128 chars max)")
 	}

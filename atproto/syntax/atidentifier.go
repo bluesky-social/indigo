@@ -10,6 +10,9 @@ type AtIdentifier struct {
 }
 
 func ParseAtIdentifier(raw string) (*AtIdentifier, error) {
+	if raw == "" {
+		return nil, fmt.Errorf("expected AT account identifier, got empty string")
+	}
 	if strings.HasPrefix(raw, "did:") {
 		did, err := ParseDID(raw)
 		if err != nil {

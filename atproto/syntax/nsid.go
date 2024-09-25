@@ -16,6 +16,9 @@ var nsidRegex = regexp.MustCompile(`^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.
 type NSID string
 
 func ParseNSID(raw string) (NSID, error) {
+	if raw == "" {
+		return "", fmt.Errorf("expected NSID, got empty string")
+	}
 	if len(raw) > 317 {
 		return "", fmt.Errorf("NSID is too long (317 chars max)")
 	}
