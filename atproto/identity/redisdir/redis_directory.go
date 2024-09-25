@@ -114,7 +114,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 		})
 		if err != nil {
 			he.DID = nil
-			he.Err = err
+			he.Err = fmt.Errorf("identity cache write: %w", err)
 			return he
 		}
 		return he
@@ -139,7 +139,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 	})
 	if err != nil {
 		he.DID = nil
-		he.Err = err
+		he.Err = fmt.Errorf("identity cache write: %w", err)
 		return he
 	}
 	err = d.handleCache.Set(&cache.Item{
@@ -150,7 +150,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 	})
 	if err != nil {
 		he.DID = nil
-		he.Err = err
+		he.Err = fmt.Errorf("identity cache write: %w", err)
 		return he
 	}
 	return he
@@ -160,7 +160,7 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 	var entry handleEntry
 	err := d.handleCache.Get(ctx, redisDirPrefix+h.String(), &entry)
 	if err != nil && err != cache.ErrCacheMiss {
-		return "", err
+		return "", fmt.Errorf("identity cache read: %w", err)
 	}
 	if err != cache.ErrCacheMiss && !d.isHandleStale(&entry) {
 		handleCacheHits.Inc()
@@ -179,7 +179,7 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 			// The result should now be in the cache
 			err := d.handleCache.Get(ctx, redisDirPrefix+h.String(), entry)
 			if err != nil && err != cache.ErrCacheMiss {
-				return "", err
+				return "", fmt.Errorf("identity cache read: %w", err)
 			}
 			if err != cache.ErrCacheMiss && !d.isHandleStale(&entry) {
 				return entry.DID, entry.Err
@@ -232,7 +232,7 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) identity
 	})
 	if err != nil {
 		entry.Identity = nil
-		entry.Err = err
+		entry.Err = fmt.Errorf("identity cache write: %v", err)
 		return entry
 	}
 	if he != nil {
@@ -244,7 +244,7 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) identity
 		})
 		if err != nil {
 			entry.Identity = nil
-			entry.Err = err
+			entry.Err = fmt.Errorf("identity cache write: %v", err)
 			return entry
 		}
 	}
@@ -260,7 +260,7 @@ func (d *RedisDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax
 	var entry identityEntry
 	err := d.identityCache.Get(ctx, redisDirPrefix+did.String(), &entry)
 	if err != nil && err != cache.ErrCacheMiss {
-		return nil, false, err
+		return nil, false, fmt.Errorf("identity cache read: %v", err)
 	}
 	if err != cache.ErrCacheMiss && !d.isIdentityStale(&entry) {
 		identityCacheHits.Inc()
@@ -279,7 +279,7 @@ func (d *RedisDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax
 			// The result should now be in the cache
 			err = d.identityCache.Get(ctx, redisDirPrefix+did.String(), &entry)
 			if err != nil && err != cache.ErrCacheMiss {
-				return nil, false, err
+				return nil, false, fmt.Errorf("identity cache read: %v", err)
 			}
 			if err != cache.ErrCacheMiss && !d.isIdentityStale(&entry) {
 				return entry.Identity, false, entry.Err
