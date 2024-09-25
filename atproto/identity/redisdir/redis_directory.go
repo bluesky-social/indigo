@@ -162,9 +162,15 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 	if err != nil && err != cache.ErrCacheMiss {
 		return "", fmt.Errorf("identity cache read: %w", err)
 	}
-	if err != cache.ErrCacheMiss && !d.isHandleStale(&entry) {
+	if nil == err && !d.isHandleStale(&entry) {
 		handleCacheHits.Inc()
-		return entry.DID, entry.Err
+		if entry.Err != nil {
+			return "", entry.Err
+		} else if entry.DID != nil {
+			return *entry.DID, nil
+		} else {
+			return "", fmt.Errorf("code flow error in redis identity directory")
+		}
 	}
 	handleCacheMisses.Inc()
 
@@ -181,8 +187,14 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 			if err != nil && err != cache.ErrCacheMiss {
 				return "", fmt.Errorf("identity cache read: %w", err)
 			}
-			if err != cache.ErrCacheMiss && !d.isHandleStale(&entry) {
-				return entry.DID, entry.Err
+			if nil == err && !d.isHandleStale(&entry) {
+				if entry.Err != nil {
+					return "", entry.Err
+				} else if entry.DID != nil {
+					return *entry.DID, nil
+				} else {
+					return "", fmt.Errorf("code flow error in redis identity directory")
+				}
 			}
 			return "", fmt.Errorf("identity not found in cache after coalesce returned")
 		case <-ctx.Done():
@@ -192,6 +204,7 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 
 	// Update the Handle Entry from PLC and cache the result
 	newEntry := d.updateHandle(ctx, h)
+
 	// Cleanup the coalesce map and close the results channel
 	d.handleLookupChans.Delete(h.String())
 	// Callers waiting will now get the result from the cache
@@ -262,7 +275,7 @@ func (d *RedisDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax
 	if err != nil && err != cache.ErrCacheMiss {
 		return nil, false, fmt.Errorf("identity cache read: %v", err)
 	}
-	if err != cache.ErrCacheMiss && !d.isIdentityStale(&entry) {
+	if nil == err && !d.isIdentityStale(&entry) {
 		identityCacheHits.Inc()
 		return entry.Identity, true, entry.Err
 	}
@@ -281,7 +294,7 @@ func (d *RedisDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax
 			if err != nil && err != cache.ErrCacheMiss {
 				return nil, false, fmt.Errorf("identity cache read: %v", err)
 			}
-			if err != cache.ErrCacheMiss && !d.isIdentityStale(&entry) {
+			if nil == err && !d.isIdentityStale(&entry) {
 				return entry.Identity, false, entry.Err
 			}
 			return nil, false, fmt.Errorf("identity not found in cache after coalesce returned")
@@ -292,6 +305,7 @@ func (d *RedisDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax
 
 	// Update the Identity Entry from PLC and cache the result
 	newEntry := d.updateDID(ctx, did)
+
 	// Cleanup the coalesce map and close the results channel
 	d.didLookupChans.Delete(did.String())
 	// Callers waiting will now get the result from the cache
@@ -331,7 +345,6 @@ func (d *RedisDirectory) LookupHandleWithCacheState(ctx context.Context, h synta
 	}
 	return ident, hit, nil
 }
-
 
 func (d *RedisDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*identity.Identity, error) {
 	handle, err := a.AsHandle()
