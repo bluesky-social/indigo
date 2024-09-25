@@ -168,6 +168,10 @@ func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle)
 	var dnsErr error
 	var did syntax.DID
 
+	if handle.IsInvalidHandle() {
+		return "", fmt.Errorf("invalid handle")
+	}
+
 	if !handle.AllowedTLD() {
 		return "", ErrHandleReservedTLD
 	}
