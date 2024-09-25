@@ -68,7 +68,7 @@ var handleRequestsCoalesced = promauto.NewCounter(prometheus.CounterOpts{
 var _ Directory = (*CacheDirectory)(nil)
 
 // Capacity of zero means unlimited size. Similarly, ttl of zero means unlimited duration.
-func NewCacheDirectory(inner Directory, capacity int, hitTTL, errTTL time.Duration, invalidHandleTTL time.Duration) CacheDirectory {
+func NewCacheDirectory(inner Directory, capacity int, hitTTL, errTTL, invalidHandleTTL time.Duration) CacheDirectory {
 	return CacheDirectory{
 		ErrTTL:           errTTL,
 		InvalidHandleTTL: invalidHandleTTL,
