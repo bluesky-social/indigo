@@ -20,9 +20,10 @@ var redisDirPrefix string = "dir/"
 //
 // Includes an in-process LRU cache as well (provided by the redis client library), for hot key (identities).
 type RedisDirectory struct {
-	Inner  identity.Directory
-	ErrTTL time.Duration
-	HitTTL time.Duration
+	Inner            identity.Directory
+	ErrTTL           time.Duration
+	HitTTL           time.Duration
+	InvalidHandleTTL time.Duration
 
 	handleCache       *cache.Cache
 	identityCache     *cache.Cache
@@ -49,7 +50,7 @@ var _ identity.Directory = (*RedisDirectory)(nil)
 // `redisURL` contains all the redis connection config options.
 // `hitTTL` and `errTTL` define how long successful and errored identity metadata should be cached (respectively). errTTL is expected to be shorted than hitTTL.
 // `lruSize` is the size of the in-process cache, for each of the handle and identity caches. 10000 is a reasonable default.
-func NewRedisDirectory(inner identity.Directory, redisURL string, hitTTL, errTTL time.Duration, lruSize int) (*RedisDirectory, error) {
+func NewRedisDirectory(inner identity.Directory, redisURL string, hitTTL, errTTL, invalidHandleTTL time.Duration, lruSize int) (*RedisDirectory, error) {
 	opt, err := redis.ParseURL(redisURL)
 	if err != nil {
 		return nil, err
@@ -69,11 +70,12 @@ func NewRedisDirectory(inner identity.Directory, redisURL string, hitTTL, errTTL
 		LocalCache: cache.NewTinyLFU(lruSize, hitTTL),
 	})
 	return &RedisDirectory{
-		Inner:         inner,
-		ErrTTL:        errTTL,
-		HitTTL:        hitTTL,
-		handleCache:   handleCache,
-		identityCache: identityCache,
+		Inner:            inner,
+		ErrTTL:           errTTL,
+		HitTTL:           hitTTL,
+		InvalidHandleTTL: invalidHandleTTL,
+		handleCache:      handleCache,
+		identityCache:    identityCache,
 	}, nil
 }
 
@@ -86,6 +88,9 @@ func (d *RedisDirectory) isHandleStale(e *handleEntry) bool {
 
 func (d *RedisDirectory) isIdentityStale(e *identityEntry) bool {
 	if e.Err != nil && time.Since(e.Updated) > d.ErrTTL {
+		return true
+	}
+	if e.Identity != nil && e.Identity.Handle.IsInvalidHandle() && time.Since(e.Updated) > d.InvalidHandleTTL {
 		return true
 	}
 	return false
