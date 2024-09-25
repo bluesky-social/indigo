@@ -116,6 +116,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 			he.Err = err
 			return he
 		}
+		return he
 	}
 
 	entry := identityEntry{
