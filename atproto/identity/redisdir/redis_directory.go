@@ -96,7 +96,7 @@ func (d *RedisDirectory) isIdentityStale(e *identityEntry) bool {
 	return false
 }
 
-func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*handleEntry, error) {
+func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) handleEntry {
 	h = h.Normalize()
 	ident, err := d.Inner.LookupHandle(ctx, h)
 	if err != nil {
@@ -112,9 +112,10 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*ha
 			TTL:   d.ErrTTL,
 		})
 		if err != nil {
-			return nil, err
+			he.DID = ""
+			he.Err = err
+			return he
 		}
-		return &he, nil
 	}
 
 	entry := identityEntry{
@@ -135,7 +136,9 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*ha
 		TTL:   d.HitTTL,
 	})
 	if err != nil {
-		return nil, err
+		he.DID = ""
+		he.Err = err
+		return he
 	}
 	err = d.handleCache.Set(&cache.Item{
 		Ctx:   ctx,
@@ -144,9 +147,11 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) (*ha
 		TTL:   d.HitTTL,
 	})
 	if err != nil {
-		return nil, err
+		he.DID = ""
+		he.Err = err
+		return he
 	}
-	return &he, nil
+	return he
 }
 
 func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
@@ -183,21 +188,23 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 		}
 	}
 
-	var did syntax.DID
 	// Update the Handle Entry from PLC and cache the result
-	newEntry, err := d.updateHandle(ctx, h)
-	if err == nil && newEntry != nil {
-		did = newEntry.DID
-	}
+	newEntry := d.updateHandle(ctx, h)
 	// Cleanup the coalesce map and close the results channel
 	d.handleLookupChans.Delete(h.String())
 	// Callers waiting will now get the result from the cache
 	close(res)
 
-	return did, err
+	if newEntry.Err != nil {
+		return "", newEntry.Err
+	}
+	if newEntry.DID != "" {
+		return newEntry.DID, nil
+	}
+	return "", fmt.Errorf("unexpected control-flow error")
 }
 
-func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) (*identityEntry, error) {
+func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) identityEntry {
 	ident, err := d.Inner.LookupDID(ctx, did)
 	// persist the identity lookup error, instead of processing it immediately
 	entry := identityEntry{
@@ -222,7 +229,9 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) (*identi
 		TTL:   d.HitTTL,
 	})
 	if err != nil {
-		return nil, err
+		entry.Identity = nil
+		entry.Err = err
+		return entry
 	}
 	if he != nil {
 		err = d.handleCache.Set(&cache.Item{
@@ -232,10 +241,12 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) (*identi
 			TTL:   d.HitTTL,
 		})
 		if err != nil {
-			return nil, err
+			entry.Identity = nil
+			entry.Err = err
+			return entry
 		}
 	}
-	return &entry, nil
+	return entry
 }
 
 func (d *RedisDirectory) LookupDID(ctx context.Context, did syntax.DID) (*identity.Identity, error) {
