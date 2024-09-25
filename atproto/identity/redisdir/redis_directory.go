@@ -348,7 +348,7 @@ func (d *RedisDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error
 	handle, err := a.AsHandle()
 	if nil == err { // if not an error, is a handle
 		handle = handle.Normalize()
-		err = d.handleCache.Delete(ctx, handle.String())
+		err = d.handleCache.Delete(ctx, redisDirPrefix+handle.String())
 		if err == cache.ErrCacheMiss {
 			return nil
 		}
@@ -356,7 +356,7 @@ func (d *RedisDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error
 	}
 	did, err := a.AsDID()
 	if nil == err { // if not an error, is a DID
-		err = d.identityCache.Delete(ctx, did.String())
+		err = d.identityCache.Delete(ctx, redisDirPrefix+did.String())
 		if err == cache.ErrCacheMiss {
 			return nil
 		}
