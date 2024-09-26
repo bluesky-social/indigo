@@ -1,7 +1,7 @@
 package syntax
 
 import (
-	"fmt"
+	"errors"
 	"regexp"
 	"strings"
 )
@@ -16,11 +16,14 @@ type DID string
 var didRegex = regexp.MustCompile(`^did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]$`)
 
 func ParseDID(raw string) (DID, error) {
+	if raw == "" {
+		return "", errors.New("expected DID, got empty string")
+	}
 	if len(raw) > 2*1024 {
-		return "", fmt.Errorf("DID is too long (2048 chars max)")
+		return "", errors.New("DID is too long (2048 chars max)")
 	}
 	if !didRegex.MatchString(raw) {
-		return "", fmt.Errorf("DID syntax didn't validate via regex")
+		return "", errors.New("DID syntax didn't validate via regex")
 	}
 	return DID(raw), nil
 }

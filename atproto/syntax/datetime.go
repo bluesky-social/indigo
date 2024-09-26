@@ -1,6 +1,7 @@
 package syntax
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -24,15 +25,18 @@ type Datetime string
 var datetimeRegex = regexp.MustCompile(`^[0-9]{4}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-6][0-9]:[0-6][0-9](.[0-9]{1,20})?(Z|([+-][0-2][0-9]:[0-5][0-9]))$`)
 
 func ParseDatetime(raw string) (Datetime, error) {
+	if raw == "" {
+		return "", errors.New("expected datetime, got empty string")
+	}
 	if len(raw) > 64 {
-		return "", fmt.Errorf("Datetime too long (max 64 chars)")
+		return "", errors.New("Datetime too long (max 64 chars)")
 	}
 
 	if !datetimeRegex.MatchString(raw) {
-		return "", fmt.Errorf("Datetime syntax didn't validate via regex")
+		return "", errors.New("Datetime syntax didn't validate via regex")
 	}
 	if strings.HasSuffix(raw, "-00:00") {
-		return "", fmt.Errorf("Datetime can't use '-00:00' for UTC timezone, must use '+00:00', per ISO-8601")
+		return "", errors.New("Datetime can't use '-00:00' for UTC timezone, must use '+00:00', per ISO-8601")
 	}
 	// ensure that the datetime actually parses using golang time lib
 	_, err := time.Parse(time.RFC3339Nano, raw)
