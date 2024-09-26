@@ -76,10 +76,12 @@ func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky
 			if targetAccount == nil {
 				continue
 			}
-			for _, t := range targetAccount.Private.AccountTags {
-				if t == "harassment-protection" {
-					targetIsProtected = true
-					break
+			if targetAccount.Private != nil {
+				for _, t := range targetAccount.Private.AccountTags {
+					if t == "harassment-protection" {
+						targetIsProtected = true
+						break
+					}
 				}
 			}
 		}
