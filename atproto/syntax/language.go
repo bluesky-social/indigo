@@ -1,7 +1,7 @@
 package syntax
 
 import (
-	"fmt"
+	"errors"
 	"regexp"
 )
 
@@ -16,13 +16,13 @@ var langRegex = regexp.MustCompile(`^(i|[a-z]{2,3})(-[a-zA-Z0-9]+)*$`)
 
 func ParseLanguage(raw string) (Language, error) {
 	if raw == "" {
-		return "", fmt.Errorf("expected language code, got empty string")
+		return "", errors.New("expected language code, got empty string")
 	}
 	if len(raw) > 128 {
-		return "", fmt.Errorf("Language is too long (128 chars max)")
+		return "", errors.New("Language is too long (128 chars max)")
 	}
 	if !langRegex.MatchString(raw) {
-		return "", fmt.Errorf("Language syntax didn't validate via regex")
+		return "", errors.New("Language syntax didn't validate via regex")
 	}
 	return Language(raw), nil
 }
