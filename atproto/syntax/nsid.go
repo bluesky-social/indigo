@@ -1,7 +1,7 @@
 package syntax
 
 import (
-	"fmt"
+	"errors"
 	"regexp"
 	"strings"
 )
@@ -17,13 +17,13 @@ type NSID string
 
 func ParseNSID(raw string) (NSID, error) {
 	if raw == "" {
-		return "", fmt.Errorf("expected NSID, got empty string")
+		return "", errors.New("expected NSID, got empty string")
 	}
 	if len(raw) > 317 {
-		return "", fmt.Errorf("NSID is too long (317 chars max)")
+		return "", errors.New("NSID is too long (317 chars max)")
 	}
 	if !nsidRegex.MatchString(raw) {
-		return "", fmt.Errorf("NSID syntax didn't validate via regex")
+		return "", errors.New("NSID syntax didn't validate via regex")
 	}
 	return NSID(raw), nil
 }

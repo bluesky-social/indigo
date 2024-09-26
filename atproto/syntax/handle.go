@@ -1,6 +1,7 @@
 package syntax
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -22,10 +23,10 @@ type Handle string
 
 func ParseHandle(raw string) (Handle, error) {
 	if raw == "" {
-		return "", fmt.Errorf("expected handle, got empty string")
+		return "", errors.New("expected handle, got empty string")
 	}
 	if len(raw) > 253 {
-		return "", fmt.Errorf("handle is too long (253 chars max)")
+		return "", errors.New("handle is too long (253 chars max)")
 	}
 	if !handleRegex.MatchString(raw) {
 		return "", fmt.Errorf("handle syntax didn't validate via regex: %s", raw)

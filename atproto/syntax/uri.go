@@ -1,7 +1,7 @@
 package syntax
 
 import (
-	"fmt"
+	"errors"
 	"regexp"
 )
 
@@ -14,14 +14,14 @@ type URI string
 
 func ParseURI(raw string) (URI, error) {
 	if raw == "" {
-		return "", fmt.Errorf("expected URI, got empty string")
+		return "", errors.New("expected URI, got empty string")
 	}
 	if len(raw) > 8192 {
-		return "", fmt.Errorf("URI is too long (8192 chars max)")
+		return "", errors.New("URI is too long (8192 chars max)")
 	}
 	var uriRegex = regexp.MustCompile(`^[a-z][a-z.-]{0,80}:[[:graph:]]+$`)
 	if !uriRegex.MatchString(raw) {
-		return "", fmt.Errorf("URI syntax didn't validate via regex")
+		return "", errors.New("URI syntax didn't validate via regex")
 	}
 	return URI(raw), nil
 }

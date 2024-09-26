@@ -2,7 +2,7 @@ package syntax
 
 import (
 	"encoding/base32"
-	"fmt"
+	"errors"
 	"regexp"
 	"strings"
 	"sync"
@@ -28,13 +28,13 @@ var tidRegex = regexp.MustCompile(`^[234567abcdefghij][234567abcdefghijklmnopqrs
 
 func ParseTID(raw string) (TID, error) {
 	if raw == "" {
-		return "", fmt.Errorf("expected TID, got empty string")
+		return "", errors.New("expected TID, got empty string")
 	}
 	if len(raw) != 13 {
-		return "", fmt.Errorf("TID is wrong length (expected 13 chars)")
+		return "", errors.New("TID is wrong length (expected 13 chars)")
 	}
 	if !tidRegex.MatchString(raw) {
-		return "", fmt.Errorf("TID syntax didn't validate via regex")
+		return "", errors.New("TID syntax didn't validate via regex")
 	}
 	return TID(raw), nil
 }

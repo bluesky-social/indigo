@@ -1,7 +1,7 @@
 package syntax
 
 import (
-	"fmt"
+	"errors"
 	"regexp"
 )
 
@@ -16,16 +16,16 @@ type RecordKey string
 
 func ParseRecordKey(raw string) (RecordKey, error) {
 	if raw == "" {
-		return "", fmt.Errorf("expected record key, got empty string")
+		return "", errors.New("expected record key, got empty string")
 	}
 	if len(raw) > 512 {
-		return "", fmt.Errorf("recordkey is too long (512 chars max)")
+		return "", errors.New("recordkey is too long (512 chars max)")
 	}
 	if raw == "" || raw == "." || raw == ".." {
-		return "", fmt.Errorf("recordkey can not be empty, '.', or '..'")
+		return "", errors.New("recordkey can not be empty, '.', or '..'")
 	}
 	if !recordKeyRegex.MatchString(raw) {
-		return "", fmt.Errorf("recordkey syntax didn't validate via regex")
+		return "", errors.New("recordkey syntax didn't validate via regex")
 	}
 	return RecordKey(raw), nil
 }
