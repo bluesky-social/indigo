@@ -2,6 +2,7 @@ package redisdir
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -160,7 +161,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 
 func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
 	if h.IsInvalidHandle() {
-		return "", fmt.Errorf("invalid handle")
+		return "", errors.New("invalid handle")
 	}
 	var entry handleEntry
 	err := d.handleCache.Get(ctx, redisDirPrefix+h.String(), &entry)
@@ -174,7 +175,7 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 		} else if entry.DID != nil {
 			return *entry.DID, nil
 		} else {
-			return "", fmt.Errorf("code flow error in redis identity directory")
+			return "", errors.New("code flow error in redis identity directory")
 		}
 	}
 	handleCacheMisses.Inc()
@@ -198,10 +199,10 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 				} else if entry.DID != nil {
 					return *entry.DID, nil
 				} else {
-					return "", fmt.Errorf("code flow error in redis identity directory")
+					return "", errors.New("code flow error in redis identity directory")
 				}
 			}
-			return "", fmt.Errorf("identity not found in cache after coalesce returned")
+			return "", errors.New("identity not found in cache after coalesce returned")
 		case <-ctx.Done():
 			return "", ctx.Err()
 		}
@@ -221,7 +222,7 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 	if newEntry.DID != nil {
 		return *newEntry.DID, nil
 	}
-	return "", fmt.Errorf("unexpected control-flow error")
+	return "", errors.New("unexpected control-flow error")
 }
 
 func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) identityEntry {
@@ -302,7 +303,7 @@ func (d *RedisDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax
 			if err == nil && !d.isIdentityStale(&entry) { // if no error...
 				return entry.Identity, false, entry.Err
 			}
-			return nil, false, fmt.Errorf("identity not found in cache after coalesce returned")
+			return nil, false, errors.New("identity not found in cache after coalesce returned")
 		case <-ctx.Done():
 			return nil, false, ctx.Err()
 		}
@@ -322,7 +323,7 @@ func (d *RedisDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax
 	if newEntry.Identity != nil {
 		return newEntry.Identity, false, nil
 	}
-	return nil, false, fmt.Errorf("unexpected control-flow error")
+	return nil, false, errors.New("unexpected control-flow error")
 }
 
 func (d *RedisDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*identity.Identity, error) {
@@ -360,7 +361,7 @@ func (d *RedisDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*id
 	if err == nil { // if not an error, is a DID
 		return d.LookupDID(ctx, did)
 	}
-	return nil, fmt.Errorf("at-identifier neither a Handle nor a DID")
+	return nil, errors.New("at-identifier neither a Handle nor a DID")
 }
 
 func (d *RedisDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error {
@@ -381,5 +382,5 @@ func (d *RedisDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error
 		}
 		return err
 	}
-	return fmt.Errorf("at-identifier neither a Handle nor a DID")
+	return errors.New("at-identifier neither a Handle nor a DID")
 }
