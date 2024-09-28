@@ -167,7 +167,7 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 	if err != nil && err != cache.ErrCacheMiss {
 		return "", fmt.Errorf("identity cache read: %w", err)
 	}
-	if nil == err && !d.isHandleStale(&entry) {
+	if err == nil && !d.isHandleStale(&entry) { // if no error...
 		handleCacheHits.Inc()
 		if entry.Err != nil {
 			return "", entry.Err
@@ -192,7 +192,7 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 			if err != nil && err != cache.ErrCacheMiss {
 				return "", fmt.Errorf("identity cache read: %w", err)
 			}
-			if nil == err && !d.isHandleStale(&entry) {
+			if err == nil && !d.isHandleStale(&entry) { // if no error...
 				if entry.Err != nil {
 					return "", entry.Err
 				} else if entry.DID != nil {
@@ -234,7 +234,7 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) identity
 	}
 	var he *handleEntry
 	// if *not* an error, then also update the handle cache
-	if nil == err && !ident.Handle.IsInvalidHandle() {
+	if err == nil && !ident.Handle.IsInvalidHandle() {
 		he = &handleEntry{
 			Updated: time.Now(),
 			DID:     &did,
@@ -280,7 +280,7 @@ func (d *RedisDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax
 	if err != nil && err != cache.ErrCacheMiss {
 		return nil, false, fmt.Errorf("identity cache read: %v", err)
 	}
-	if nil == err && !d.isIdentityStale(&entry) {
+	if err == nil && !d.isIdentityStale(&entry) { // if no error...
 		identityCacheHits.Inc()
 		return entry.Identity, true, entry.Err
 	}
@@ -299,7 +299,7 @@ func (d *RedisDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax
 			if err != nil && err != cache.ErrCacheMiss {
 				return nil, false, fmt.Errorf("identity cache read: %v", err)
 			}
-			if nil == err && !d.isIdentityStale(&entry) {
+			if err == nil && !d.isIdentityStale(&entry) { // if no error...
 				return entry.Identity, false, entry.Err
 			}
 			return nil, false, fmt.Errorf("identity not found in cache after coalesce returned")
@@ -353,11 +353,11 @@ func (d *RedisDirectory) LookupHandleWithCacheState(ctx context.Context, h synta
 
 func (d *RedisDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*identity.Identity, error) {
 	handle, err := a.AsHandle()
-	if nil == err { // if not an error, is a handle
+	if err == nil { // if not an error, is a handle
 		return d.LookupHandle(ctx, handle)
 	}
 	did, err := a.AsDID()
-	if nil == err { // if not an error, is a DID
+	if err == nil { // if not an error, is a DID
 		return d.LookupDID(ctx, did)
 	}
 	return nil, fmt.Errorf("at-identifier neither a Handle nor a DID")
@@ -365,7 +365,7 @@ func (d *RedisDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*id
 
 func (d *RedisDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error {
 	handle, err := a.AsHandle()
-	if nil == err { // if not an error, is a handle
+	if err == nil { // if not an error, is a handle
 		handle = handle.Normalize()
 		err = d.handleCache.Delete(ctx, redisDirPrefix+handle.String())
 		if err == cache.ErrCacheMiss {
@@ -374,7 +374,7 @@ func (d *RedisDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error
 		return err
 	}
 	did, err := a.AsDID()
-	if nil == err { // if not an error, is a DID
+	if err == nil { // if not an error, is a DID
 		err = d.identityCache.Delete(ctx, redisDirPrefix+did.String())
 		if err == cache.ErrCacheMiss {
 			return nil
