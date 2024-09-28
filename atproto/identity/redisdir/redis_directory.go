@@ -51,6 +51,8 @@ var _ identity.Directory = (*RedisDirectory)(nil)
 // `redisURL` contains all the redis connection config options.
 // `hitTTL` and `errTTL` define how long successful and errored identity metadata should be cached (respectively). errTTL is expected to be shorted than hitTTL.
 // `lruSize` is the size of the in-process cache, for each of the handle and identity caches. 10000 is a reasonable default.
+//
+// NOTE: Errors returned may be inconsistent with the base directory, or between calls. This is because cached errors are serialized/deserialized and that may break equality checks.
 func NewRedisDirectory(inner identity.Directory, redisURL string, hitTTL, errTTL, invalidHandleTTL time.Duration, lruSize int) (*RedisDirectory, error) {
 	opt, err := redis.ParseURL(redisURL)
 	if err != nil {
