@@ -12,24 +12,37 @@ import (
 )
 
 var (
-	puncChars     = regexp.MustCompile(`[[:punct:]]+`)
-	nonTokenChars = regexp.MustCompile(`[^\pL\pN\s]+`)
+	puncChars                    = regexp.MustCompile(`[[:punct:]]+`)
+	nonTokenChars                = regexp.MustCompile(`[^\pL\pN\s]+`)
+	nonTokenCharsSkipCensorChars = regexp.MustCompile(`[^\pL\pN\s#*_-]`)
 )
 
 // Splits free-form text in to tokens, including lower-case, unicode normalization, and some unicode folding.
 //
 // The intent is for this to work similarly to an NLP tokenizer, as might be used in a fulltext search engine, and enable fast matching to a list of known tokens. It might eventually even do stemming, removing pluralization (trailing "s" for English), etc.
-func TokenizeText(text string) []string {
+func tokenizeText(text string, nonTokenCharsRegex *regexp.Regexp) []string {
 	// this function needs to be re-defined in every function call to prevent a race condition
 	normFunc := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
-	split := strings.ToLower(nonTokenChars.ReplaceAllString(text, " "))
-	bare := strings.ToLower(nonTokenChars.ReplaceAllString(split, ""))
+	split := strings.ToLower(nonTokenCharsRegex.ReplaceAllString(text, " "))
+	bare := strings.ToLower(nonTokenCharsRegex.ReplaceAllString(split, ""))
 	norm, _, err := transform.String(normFunc, bare)
 	if err != nil {
 		slog.Warn("unicode normalization error", "err", err)
 		norm = bare
 	}
 	return strings.Fields(norm)
+}
+
+func TokenizeText(text string) []string {
+	return tokenizeText(text, nonTokenChars)
+}
+
+func TokenizeTextSkippingCensorChars(text string) []string {
+	return tokenizeText(text, nonTokenCharsSkipCensorChars)
+}
+
+func TokenizeTextWithCustomNonTokenRegex(text string, regex *regexp.Regexp) []string {
+	return tokenizeText(text, regex)
 }
 
 func splitIdentRune(c rune) bool {
