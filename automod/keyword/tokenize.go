@@ -20,7 +20,7 @@ var (
 // Splits free-form text in to tokens, including lower-case, unicode normalization, and some unicode folding.
 //
 // The intent is for this to work similarly to an NLP tokenizer, as might be used in a fulltext search engine, and enable fast matching to a list of known tokens. It might eventually even do stemming, removing pluralization (trailing "s" for English), etc.
-func tokenizeText(text string, nonTokenCharsRegex *regexp.Regexp) []string {
+func TokenizeTextWithRegex(text string, nonTokenCharsRegex *regexp.Regexp) []string {
 	// this function needs to be re-defined in every function call to prevent a race condition
 	normFunc := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	split := strings.ToLower(nonTokenCharsRegex.ReplaceAllString(text, " "))
@@ -34,15 +34,11 @@ func tokenizeText(text string, nonTokenCharsRegex *regexp.Regexp) []string {
 }
 
 func TokenizeText(text string) []string {
-	return tokenizeText(text, nonTokenChars)
+	return TokenizeTextWithRegex(text, nonTokenChars)
 }
 
 func TokenizeTextSkippingCensorChars(text string) []string {
-	return tokenizeText(text, nonTokenCharsSkipCensorChars)
-}
-
-func TokenizeTextWithRegex(text string, nonTokenCharsRegex *regexp.Regexp) []string {
-	return tokenizeText(text, nonTokenCharsRegex)
+	return TokenizeTextWithRegex(text, nonTokenCharsSkipCensorChars)
 }
 
 func splitIdentRune(c rune) bool {
