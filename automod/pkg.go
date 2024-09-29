@@ -6,6 +6,7 @@ import (
 )
 
 type Engine = engine.Engine
+type EngineConfig = engine.EngineConfig
 type AccountMeta = engine.AccountMeta
 type ProfileSummary = engine.ProfileSummary
 type AccountPrivate = engine.AccountPrivate
@@ -21,6 +22,7 @@ type NotificationContext = engine.NotificationContext
 type RecordOp = engine.RecordOp
 
 type IdentityRuleFunc = engine.IdentityRuleFunc
+type AccountRuleFunc = engine.AccountRuleFunc
 type RecordRuleFunc = engine.RecordRuleFunc
 type PostRuleFunc = engine.PostRuleFunc
 type ProfileRuleFunc = engine.ProfileRuleFunc

@@ -13,6 +13,20 @@ import (
 	"github.com/bluesky-social/indigo/lex/util"
 )
 
+// ModerationDefs_AccountEvent is a "accountEvent" in the tools.ozone.moderation.defs schema.
+//
+// Logs account status related events on a repo subject. Normally captured by automod from the firehose and emitted to ozone for historical tracking.
+//
+// RECORDTYPE: ModerationDefs_AccountEvent
+type ModerationDefs_AccountEvent struct {
+	LexiconTypeID string `json:"$type,const=tools.ozone.moderation.defs#accountEvent" cborgen:"$type,const=tools.ozone.moderation.defs#accountEvent"`
+	// active: Indicates that the account has a repository which can be fetched from the host that emitted this event.
+	Active    *bool   `json:"active,omitempty" cborgen:"active,omitempty"`
+	Comment   *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	Status    string  `json:"status" cborgen:"status"`
+	Timestamp string  `json:"timestamp" cborgen:"timestamp"`
+}
+
 // ModerationDefs_BlobView is a "blobView" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_BlobView struct {
 	Cid        string                           `json:"cid" cborgen:"cid"`
@@ -56,6 +70,20 @@ func (t *ModerationDefs_BlobView_Details) UnmarshalJSON(b []byte) error {
 	default:
 		return nil
 	}
+}
+
+// ModerationDefs_IdentityEvent is a "identityEvent" in the tools.ozone.moderation.defs schema.
+//
+// Logs identity related events on a repo subject. Normally captured by automod from the firehose and emitted to ozone for historical tracking.
+//
+// RECORDTYPE: ModerationDefs_IdentityEvent
+type ModerationDefs_IdentityEvent struct {
+	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#identityEvent" cborgen:"$type,const=tools.ozone.moderation.defs#identityEvent"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	Handle        *string `json:"handle,omitempty" cborgen:"handle,omitempty"`
+	PdsHost       *string `json:"pdsHost,omitempty" cborgen:"pdsHost,omitempty"`
+	Timestamp     string  `json:"timestamp" cborgen:"timestamp"`
+	Tombstone     *bool   `json:"tombstone,omitempty" cborgen:"tombstone,omitempty"`
 }
 
 // ModerationDefs_ImageDetails is a "imageDetails" in the tools.ozone.moderation.defs schema.
@@ -278,6 +306,9 @@ type ModerationDefs_ModEventViewDetail_Event struct {
 	ModerationDefs_ModEventResolveAppeal   *ModerationDefs_ModEventResolveAppeal
 	ModerationDefs_ModEventDivert          *ModerationDefs_ModEventDivert
 	ModerationDefs_ModEventTag             *ModerationDefs_ModEventTag
+	ModerationDefs_AccountEvent            *ModerationDefs_AccountEvent
+	ModerationDefs_IdentityEvent           *ModerationDefs_IdentityEvent
+	ModerationDefs_RecordEvent             *ModerationDefs_RecordEvent
 }
 
 func (t *ModerationDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) {
@@ -341,6 +372,18 @@ func (t *ModerationDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) 
 		t.ModerationDefs_ModEventTag.LexiconTypeID = "tools.ozone.moderation.defs#modEventTag"
 		return json.Marshal(t.ModerationDefs_ModEventTag)
 	}
+	if t.ModerationDefs_AccountEvent != nil {
+		t.ModerationDefs_AccountEvent.LexiconTypeID = "tools.ozone.moderation.defs#accountEvent"
+		return json.Marshal(t.ModerationDefs_AccountEvent)
+	}
+	if t.ModerationDefs_IdentityEvent != nil {
+		t.ModerationDefs_IdentityEvent.LexiconTypeID = "tools.ozone.moderation.defs#identityEvent"
+		return json.Marshal(t.ModerationDefs_IdentityEvent)
+	}
+	if t.ModerationDefs_RecordEvent != nil {
+		t.ModerationDefs_RecordEvent.LexiconTypeID = "tools.ozone.moderation.defs#recordEvent"
+		return json.Marshal(t.ModerationDefs_RecordEvent)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ModerationDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error {
@@ -395,6 +438,15 @@ func (t *ModerationDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error 
 	case "tools.ozone.moderation.defs#modEventTag":
 		t.ModerationDefs_ModEventTag = new(ModerationDefs_ModEventTag)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventTag)
+	case "tools.ozone.moderation.defs#accountEvent":
+		t.ModerationDefs_AccountEvent = new(ModerationDefs_AccountEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AccountEvent)
+	case "tools.ozone.moderation.defs#identityEvent":
+		t.ModerationDefs_IdentityEvent = new(ModerationDefs_IdentityEvent)
+		return json.Unmarshal(b, t.ModerationDefs_IdentityEvent)
+	case "tools.ozone.moderation.defs#recordEvent":
+		t.ModerationDefs_RecordEvent = new(ModerationDefs_RecordEvent)
+		return json.Unmarshal(b, t.ModerationDefs_RecordEvent)
 
 	default:
 		return nil
@@ -468,6 +520,9 @@ type ModerationDefs_ModEventView_Event struct {
 	ModerationDefs_ModEventResolveAppeal   *ModerationDefs_ModEventResolveAppeal
 	ModerationDefs_ModEventDivert          *ModerationDefs_ModEventDivert
 	ModerationDefs_ModEventTag             *ModerationDefs_ModEventTag
+	ModerationDefs_AccountEvent            *ModerationDefs_AccountEvent
+	ModerationDefs_IdentityEvent           *ModerationDefs_IdentityEvent
+	ModerationDefs_RecordEvent             *ModerationDefs_RecordEvent
 }
 
 func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
@@ -531,6 +586,18 @@ func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
 		t.ModerationDefs_ModEventTag.LexiconTypeID = "tools.ozone.moderation.defs#modEventTag"
 		return json.Marshal(t.ModerationDefs_ModEventTag)
 	}
+	if t.ModerationDefs_AccountEvent != nil {
+		t.ModerationDefs_AccountEvent.LexiconTypeID = "tools.ozone.moderation.defs#accountEvent"
+		return json.Marshal(t.ModerationDefs_AccountEvent)
+	}
+	if t.ModerationDefs_IdentityEvent != nil {
+		t.ModerationDefs_IdentityEvent.LexiconTypeID = "tools.ozone.moderation.defs#identityEvent"
+		return json.Marshal(t.ModerationDefs_IdentityEvent)
+	}
+	if t.ModerationDefs_RecordEvent != nil {
+		t.ModerationDefs_RecordEvent.LexiconTypeID = "tools.ozone.moderation.defs#recordEvent"
+		return json.Marshal(t.ModerationDefs_RecordEvent)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
@@ -585,6 +652,15 @@ func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#modEventTag":
 		t.ModerationDefs_ModEventTag = new(ModerationDefs_ModEventTag)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventTag)
+	case "tools.ozone.moderation.defs#accountEvent":
+		t.ModerationDefs_AccountEvent = new(ModerationDefs_AccountEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AccountEvent)
+	case "tools.ozone.moderation.defs#identityEvent":
+		t.ModerationDefs_IdentityEvent = new(ModerationDefs_IdentityEvent)
+		return json.Unmarshal(b, t.ModerationDefs_IdentityEvent)
+	case "tools.ozone.moderation.defs#recordEvent":
+		t.ModerationDefs_RecordEvent = new(ModerationDefs_RecordEvent)
+		return json.Unmarshal(b, t.ModerationDefs_RecordEvent)
 
 	default:
 		return nil
@@ -642,6 +718,19 @@ type ModerationDefs_Moderation struct {
 // ModerationDefs_ModerationDetail is a "moderationDetail" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_ModerationDetail struct {
 	SubjectStatus *ModerationDefs_SubjectStatusView `json:"subjectStatus,omitempty" cborgen:"subjectStatus,omitempty"`
+}
+
+// ModerationDefs_RecordEvent is a "recordEvent" in the tools.ozone.moderation.defs schema.
+//
+// Logs lifecycle event on a record subject. Normally captured by automod from the firehose and emitted to ozone for historical tracking.
+//
+// RECORDTYPE: ModerationDefs_RecordEvent
+type ModerationDefs_RecordEvent struct {
+	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#recordEvent" cborgen:"$type,const=tools.ozone.moderation.defs#recordEvent"`
+	Cid           *string `json:"cid,omitempty" cborgen:"cid,omitempty"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	Op            string  `json:"op" cborgen:"op"`
+	Timestamp     string  `json:"timestamp" cborgen:"timestamp"`
 }
 
 // ModerationDefs_RecordView is a "recordView" in the tools.ozone.moderation.defs schema.

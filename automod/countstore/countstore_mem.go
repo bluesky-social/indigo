@@ -40,6 +40,12 @@ func (s MemCountStore) Increment(ctx context.Context, name, val string) error {
 	return nil
 }
 
+func (s *MemCountStore) Reset(ctx context.Context, name, val string) error {
+	key := periodBucket(name, val, PeriodTotal)
+	s.Counts.Delete(key)
+	return nil
+}
+
 func (s MemCountStore) IncrementPeriod(ctx context.Context, name, val, period string) error {
 	k := periodBucket(name, val, period)
 	s.Counts.Compute(k, func(oldVal int, _ bool) (int, bool) {

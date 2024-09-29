@@ -34,6 +34,7 @@ type Effects struct {
 	mu sync.Mutex
 	// List of counters which should be incremented as part of processing this event. These are collected during rule execution and persisted in bulk at the end.
 	CounterIncrements []CounterRef
+	CounterResets     []CounterRef
 	// Similar to "CounterIncrements", but for "distinct" style counters
 	CounterDistinctIncrements []CounterDistinctRef // TODO: better variable names
 	// Label values which should be applied to the overall account, as a result of rule execution.
@@ -58,6 +59,8 @@ type Effects struct {
 	RejectEvent bool
 	// Services, if any, which should blast out a notification about this even (eg, Slack)
 	NotifyServices []string
+	// If "true", and Ozone event history is configured/enable, then sent a mod event to ozone backend for this event
+	PersistOzoneRecordEvent bool
 }
 
 // Enqueues the named counter to be incremented at the end of all rule processing. Will automatically increment for all time periods.
@@ -75,6 +78,16 @@ func (e *Effects) IncrementPeriod(name, val string, period string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.CounterIncrements = append(e.CounterIncrements, CounterRef{Name: name, Val: val, Period: &period})
+}
+
+// Enqueues the named counter to be reset at the end of all rule processing.
+//
+// "name" is the counter namespace.
+// "val" is the specific counter with that namespace.
+func (e *Effects) ResetCounter(name, val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.CounterResets = append(e.CounterResets, CounterRef{Name: name, Val: val})
 }
 
 // Enqueues the named "distinct value" counter based on the supplied string value ("val") to be incremented at the end of all rule processing. Will automatically increment for all time periods.
@@ -198,4 +211,9 @@ func (e *Effects) Notify(srv string) {
 
 func (e *Effects) Reject() {
 	e.RejectEvent = true
+}
+
+// Marks that this subject should be recorded in ozone history
+func (e *Effects) PersistRecordOzoneEvent() {
+	e.PersistOzoneRecordEvent = true
 }
