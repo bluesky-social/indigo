@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -48,10 +49,15 @@ var cmdAccount = &cli.Command{
 			Action: runAccountLogout,
 		},
 		&cli.Command{
-			Name:      "status",
-			Usage:     "show account status at PDS",
+			Name:      "lookup",
+			Usage:     "show basic account status for any account",
 			ArgsUsage: `<at-identifier>`,
-			Action:    runAccountStatus,
+			Action:    runAccountLookup,
+		},
+		&cli.Command{
+			Name:   "status",
+			Usage:  "show current account status at PDS",
+			Action: runAccountStatus,
 		},
 		cmdAccountMigrate,
 	},
@@ -89,7 +95,7 @@ func runAccountLogout(cctx *cli.Context) error {
 	return wipeAuthSession()
 }
 
-func runAccountStatus(cctx *cli.Context) error {
+func runAccountLookup(cctx *cli.Context) error {
 	ctx := context.Background()
 	username := cctx.Args().First()
 	if username == "" {
@@ -121,5 +127,29 @@ func runAccountStatus(cctx *cli.Context) error {
 	if status.Rev != nil {
 		fmt.Printf("Repo Rev: %s\n", *status.Rev)
 	}
+	return nil
+}
+
+func runAccountStatus(cctx *cli.Context) error {
+	ctx := context.Background()
+
+	client, err := loadAuthClient(ctx)
+	if err == ErrNoAuthSession {
+		return fmt.Errorf("auth required, but not logged in")
+	} else if err != nil {
+		return err
+	}
+
+	status, err := comatproto.ServerCheckAccountStatus(ctx, client)
+	if err != nil {
+		return fmt.Errorf("failed checking account status: %w", err)
+	}
+
+	b, err := json.MarshalIndent(status, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(b))
+
 	return nil
 }
