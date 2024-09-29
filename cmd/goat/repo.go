@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -35,6 +36,12 @@ var cmdRepo = &cli.Command{
 				},
 			},
 			Action: runRepoExport,
+		},
+		&cli.Command{
+			Name:      "import",
+			Usage:     "upload CAR file for current account",
+			ArgsUsage: `<path>`,
+			Action: runRepoImport,
 		},
 		&cli.Command{
 			Name:      "ls",
@@ -102,6 +109,34 @@ func runRepoExport(cctx *cli.Context) error {
 		return err
 	}
 	return os.WriteFile(carPath, repoBytes, 0666)
+}
+
+func runRepoImport(cctx *cli.Context) error {
+	ctx := context.Background()
+
+	carPath := cctx.Args().First()
+	if carPath == "" {
+		return fmt.Errorf("need to provide CAR file path as an argument")
+	}
+
+	xrpcc, err := loadAuthClient(ctx)
+	if err == ErrNoAuthSession {
+		return fmt.Errorf("auth required, but not logged in")
+	} else if err != nil {
+		return err
+	}
+
+	fileBytes, err := os.ReadFile(carPath)
+	if err != nil {
+		return err
+	}
+
+	err = comatproto.RepoImportRepo(ctx, xrpcc, bytes.NewReader(fileBytes))
+	if err != nil {
+		return fmt.Errorf("failed to import repo: %w", err)
+	}
+
+	return nil
 }
 
 func runRepoList(cctx *cli.Context) error {
