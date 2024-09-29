@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -34,6 +36,12 @@ var cmdAccount = &cli.Command{
 					Required: true,
 					Usage:    "password (app password recommended)",
 					EnvVars:  []string{"ATP_AUTH_PASSWORD"},
+				},
+				&cli.StringFlag{
+					Name:     "pds-host",
+					Usage:    "URL of the PDS to create account on (overrides DID doc)",
+					Required: true,
+					EnvVars:  []string{"ATP_PDS_HOST"},
 				},
 			},
 			Action: runAccountLogin,
@@ -81,7 +89,7 @@ func runAccountLogin(cctx *cli.Context) error {
 		return err
 	}
 
-	_, err = refreshAuthSession(ctx, *username, cctx.String("app-password"))
+	_, err = refreshAuthSession(ctx, *username, cctx.String("app-password"), cctx.String("pds-host"))
 	return err
 }
 
