@@ -44,8 +44,18 @@ var cmdAccount = &cli.Command{
 			Action: runAccountLogout,
 		},
 		&cli.Command{
+			Name:   "activate",
+			Usage:  "(re)activate current account",
+			Action: runAccountActivate,
+		},
+		&cli.Command{
+			Name:   "deactivate",
+			Usage:  "deactivate current account",
+			Action: runAccountDeactivate,
+		},
+		&cli.Command{
 			Name:      "lookup",
-			Usage:     "show basic account status for any account",
+			Usage:     "show basic account hosting status for any account",
 			ArgsUsage: `<at-identifier>`,
 			Action:    runAccountLookup,
 		},
@@ -53,6 +63,11 @@ var cmdAccount = &cli.Command{
 			Name:   "status",
 			Usage:  "show current account status at PDS",
 			Action: runAccountStatus,
+		},
+		&cli.Command{
+			Name:   "missing-blobs",
+			Usage:  "list any missing blobs for current account",
+			Action: runAccountMissingBlobs,
 		},
 		cmdAccountMigrate,
 	},
@@ -129,6 +144,70 @@ func runAccountStatus(cctx *cli.Context) error {
 		return err
 	}
 	fmt.Println(string(b))
+
+	return nil
+}
+
+func runAccountMissingBlobs(cctx *cli.Context) error {
+	ctx := context.Background()
+
+	client, err := loadAuthClient(ctx)
+	if err == ErrNoAuthSession {
+		return fmt.Errorf("auth required, but not logged in")
+	} else if err != nil {
+		return err
+	}
+
+	cursor := ""
+	for {
+		resp, err := comatproto.RepoListMissingBlobs(ctx, client, cursor, 500)
+		if err != nil {
+			return err
+		}
+		for _, missing := range resp.Blobs {
+			fmt.Printf("%s\t%s\n", missing.Cid, missing.RecordUri)
+		}
+		if resp.Cursor != nil && *resp.Cursor != "" {
+			cursor = *resp.Cursor
+		} else {
+			break
+		}
+	}
+	return nil
+}
+
+func runAccountActivate(cctx *cli.Context) error {
+	ctx := context.Background()
+
+	client, err := loadAuthClient(ctx)
+	if err == ErrNoAuthSession {
+		return fmt.Errorf("auth required, but not logged in")
+	} else if err != nil {
+		return err
+	}
+
+	err = comatproto.ServerActivateAccount(ctx, client)
+	if err != nil {
+		return fmt.Errorf("failed activating account: %w", err)
+	}
+
+	return nil
+}
+
+func runAccountDeactivate(cctx *cli.Context) error {
+	ctx := context.Background()
+
+	client, err := loadAuthClient(ctx)
+	if err == ErrNoAuthSession {
+		return fmt.Errorf("auth required, but not logged in")
+	} else if err != nil {
+		return err
+	}
+
+	err = comatproto.ServerDeactivateAccount(ctx, client, &comatproto.ServerDeactivateAccount_Input{})
+	if err != nil {
+		return fmt.Errorf("failed deactivating account: %w", err)
+	}
 
 	return nil
 }
