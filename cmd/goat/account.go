@@ -53,6 +53,7 @@ var cmdAccount = &cli.Command{
 			ArgsUsage: `<at-identifier>`,
 			Action:    runAccountStatus,
 		},
+		cmdAccountMigrate,
 	},
 }
 
