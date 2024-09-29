@@ -41,8 +41,8 @@ func TokenizeTextSkippingCensorChars(text string) []string {
 	return tokenizeText(text, nonTokenCharsSkipCensorChars)
 }
 
-func TokenizeTextWithCustomNonTokenRegex(text string, regex *regexp.Regexp) []string {
-	return tokenizeText(text, regex)
+func TokenizeTextWithRegex(text string, nonTokenCharsRegex *regexp.Regexp) []string {
+	return tokenizeText(text, nonTokenCharsRegex)
 }
 
 func splitIdentRune(c rune) bool {

@@ -67,7 +67,7 @@ func TestTokenizeTextWithCustomRegex(t *testing.T) {
 
 	regex := regexp.MustCompile(`[^\pL\pN\s&]`)
 	for _, fix := range fixtures {
-		assert.Equal(fix.out, TokenizeTextWithCustomNonTokenRegex(fix.text, regex))
+		assert.Equal(fix.out, TokenizeTextWithRegex(fix.text, regex))
 	}
 }
 
