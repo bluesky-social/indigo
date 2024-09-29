@@ -79,7 +79,7 @@ func loadAuthClient(ctx context.Context) (*xrpc.Client, error) {
 	if err != nil {
 		// TODO: if failure, try creating a new session from password
 		fmt.Println("trying to refresh auth from password...")
-		as, err := refreshAuthSession(ctx, sess.DID.AtIdentifier(), sess.Password)
+		as, err := refreshAuthSession(ctx, sess.DID.AtIdentifier(), sess.Password, sess.PDS)
 		if err != nil {
 			return nil, err
 		}
@@ -96,23 +96,32 @@ func loadAuthClient(ctx context.Context) (*xrpc.Client, error) {
 	return &client, nil
 }
 
-func refreshAuthSession(ctx context.Context, username syntax.AtIdentifier, password string) (*AuthSession, error) {
-	dir := identity.DefaultDirectory()
-	ident, err := dir.Lookup(ctx, username)
-	if err != nil {
-		return nil, err
+func refreshAuthSession(ctx context.Context, username syntax.AtIdentifier, password, pdsURL string) (*AuthSession, error) {
+
+	var did syntax.DID
+	if pdsURL == "" {
+		dir := identity.DefaultDirectory()
+		ident, err := dir.Lookup(ctx, username)
+		if err != nil {
+			return nil, err
+		}
+
+		pdsURL := ident.PDSEndpoint()
+		if pdsURL == "" {
+			return nil, fmt.Errorf("empty PDS URL")
+		}
+		did = ident.DID
 	}
 
-	pdsURL := ident.PDSEndpoint()
-	if pdsURL == "" {
-		return nil, fmt.Errorf("empty PDS URL")
+	if did == "" && username.IsDID() {
+		did, _ = username.AsDID()
 	}
 
 	client := xrpc.Client{
 		Host: pdsURL,
 	}
 	sess, err := comatproto.ServerCreateSession(ctx, &client, &comatproto.ServerCreateSession_Input{
-		Identifier: ident.DID.String(),
+		Identifier: username.String(),
 		Password:   password,
 	})
 	if err != nil {
@@ -121,9 +130,18 @@ func refreshAuthSession(ctx context.Context, username syntax.AtIdentifier, passw
 
 	// TODO: check account status?
 	// TODO: warn if email isn't verified?
+	// TODO: check that sess.Did matches username
+	if did == "" {
+		did, err = syntax.ParseDID(sess.Did)
+		if err != nil {
+			return nil, err
+		}
+	} else if sess.Did != did.String() {
+		return nil, fmt.Errorf("session DID didn't match expected: %s != %s", sess.Did, did)
+	}
 
 	authSession := AuthSession{
-		DID:          ident.DID,
+		DID:          did,
 		Password:     password,
 		PDS:          pdsURL,
 		RefreshToken: sess.RefreshJwt,
