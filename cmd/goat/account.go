@@ -18,11 +18,6 @@ var cmdAccount = &cli.Command{
 	Flags: []cli.Flag{},
 	Subcommands: []*cli.Command{
 		&cli.Command{
-			Name:   "check",
-			Usage:  "verifies current auth session is functional",
-			Action: runAccountCheck,
-		},
-		&cli.Command{
 			Name:  "login",
 			Usage: "create session with PDS instance",
 			Flags: []cli.Flag{
@@ -61,22 +56,6 @@ var cmdAccount = &cli.Command{
 		},
 		cmdAccountMigrate,
 	},
-}
-
-func runAccountCheck(cctx *cli.Context) error {
-	ctx := context.Background()
-
-	client, err := loadAuthClient(ctx)
-	if err == ErrNoAuthSession {
-		return fmt.Errorf("auth required, but not logged in")
-	} else if err != nil {
-		return err
-	}
-	// TODO: more explicit check?
-	fmt.Printf("DID: %s\n", client.Auth.Did)
-	fmt.Printf("PDS: %s\n", client.Host)
-
-	return nil
 }
 
 func runAccountLogin(cctx *cli.Context) error {
