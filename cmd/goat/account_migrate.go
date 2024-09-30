@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"strings"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"time"
@@ -20,6 +22,12 @@ var cmdAccountMigrate = &cli.Command{
 	Usage: "move account to a new PDS. requires full auth.",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
+			Name:     "pds-host",
+			Usage:    "URL of the new PDS to create account on",
+			Required: true,
+			EnvVars:  []string{"ATP_PDS_HOST"},
+		},
+		&cli.StringFlag{
 			Name:     "new-handle",
 			Required: true,
 			Usage:    "handle on new PDS",
@@ -30,6 +38,20 @@ var cmdAccountMigrate = &cli.Command{
 			Required: true,
 			Usage:    "password on new PDS",
 			EnvVars:  []string{"NEW_ACCOUNT_PASSWORD"},
+		},
+		&cli.StringFlag{
+			Name:     "plc-token",
+			Required: true,
+			Usage:    "token from old PDS authorizing token signature",
+			EnvVars:  []string{"PLC_SIGN_TOKEN"},
+		},
+		&cli.StringFlag{
+			Name:  "invite-code",
+			Usage: "invite code for account signup",
+		},
+		&cli.StringFlag{
+			Name:  "new-email",
+			Usage: "email address for new account",
 		},
 	},
 	Action: runAccountMigrate,
@@ -47,15 +69,26 @@ func runAccountMigrate(cctx *cli.Context) error {
 	}
 	did := oldClient.Auth.Did
 
-	// connect to new host to discover service DID
-	newHostURL := "XXX"
-	newHandle := "XXX"
-	newPassword := "XXX"
-	newEmail := "XXX"
-	inviteCode := "XXX"
+	newHostURL := cctx.String("pds-host")
+	if !strings.Contains(newHostURL, "://") {
+		return fmt.Errorf("PDS host is not a url: %s", newHostURL)
+	}
+	newHandle := cctx.String("new-handle")
+	_, err = syntax.ParseHandle(newHandle)
+	if err != nil {
+		return err
+	}
+	newPassword := cctx.String("new-password")
+	plcToken := cctx.String("plc-token")
+	inviteCode := cctx.String("invite-code")
+	newEmail := cctx.String("new-email")
+
+
 	newClient := xrpc.Client{
 		Host: newHostURL,
 	}
+
+	// connect to new host to discover service DID
 	newHostDesc, err := comatproto.ServerDescribeServer(ctx, &newClient)
 	if err != nil {
 		return fmt.Errorf("failed connecting to new host: %w", err)
@@ -64,10 +97,10 @@ func runAccountMigrate(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	slog.Info("new host", "did", newHostDID, "url", newHostURL)
+	slog.Info("new host", "serviceDID", newHostDID, "url", newHostURL)
 
 	// 1. Create New Account
-	slog.Info("creating account on new host", "handle", newHandle)
+	slog.Info("creating account on new host", "handle", newHandle, "host", newHostURL)
 
 	// get service auth token from old host
 	// args: (ctx, client, aud string, exp int64, lxm string)
@@ -78,20 +111,35 @@ func runAccountMigrate(cctx *cli.Context) error {
 	}
 
 	// then create the new account
-	// XXX: "Authorization  Bearer <createAuthResp.Token>"
-	_ = createAuthResp
-	createAccountResp, err := comatproto.ServerCreateAccount(ctx, &newClient, &comatproto.ServerCreateAccount_Input{
+	createParams := comatproto.ServerCreateAccount_Input{
 		Did:        &did,
-		Email:      &newEmail,
 		Handle:     newHandle,
-		InviteCode: &inviteCode,
 		Password:   &newPassword,
-	})
-	if err != nil {
-		return fmt.Errorf("failed getting service auth token from old host: %w", err)
 	}
-	// TODO: validate response?
-	_ = createAccountResp
+	if newEmail != "" {
+		createParams.Email = &newEmail
+	}
+	if inviteCode != "" {
+		createParams.InviteCode = &inviteCode
+	}
+
+	// use service auth for access token, temporarily
+	newClient.Auth = &xrpc.AuthInfo{
+		Did: did,
+		Handle: newHandle,
+		AccessJwt: createAuthResp.Token,
+		RefreshJwt: createAuthResp.Token,
+	}
+	createAccountResp, err := comatproto.ServerCreateAccount(ctx, &newClient, &createParams)
+	if err != nil {
+		return fmt.Errorf("failed creating new account: %w", err)
+	}
+
+	if createAccountResp.Did != did {
+		return fmt.Errorf("new account DID not a match: %s != %s", createAccountResp.Did, did)
+	}
+	newClient.Auth.AccessJwt = createAccountResp.AccessJwt
+	newClient.Auth.RefreshJwt = createAccountResp.RefreshJwt
 
 	// login client on the new host
 	sess, err := comatproto.ServerCreateSession(ctx, &newClient, &comatproto.ServerCreateSession_Input{
@@ -120,7 +168,7 @@ func runAccountMigrate(cctx *cli.Context) error {
 	}
 
 	slog.Info("migrating preferences")
-	// TODO: service proxy header
+	// TODO: service proxy header for app.bsky?
 	prefResp, err := appbsky.ActorGetPreferences(ctx, oldClient)
 	if err != nil {
 		return fmt.Errorf("failed fetching old preferences: %w", err)
@@ -169,32 +217,29 @@ func runAccountMigrate(cctx *cli.Context) error {
 	// TODO: support did:web etc
 	slog.Info("updating identity to new host")
 
-	credsResp, err := comatproto.IdentityGetRecommendedDidCredentials(ctx, &newClient)
+	credsResp, err := IdentityGetRecommendedDidCredentials(ctx, &newClient)
 	if err != nil {
 		return fmt.Errorf("failed fetching new credentials: %w", err)
 	}
+	credsBytes, err := json.Marshal(credsResp)
+	if err != nil {
+		return nil
+	}
+
+	var unsignedOp IdentitySignPlcOperation_Input
+	if err = json.Unmarshal(credsBytes, &unsignedOp); err != nil {
+		return fmt.Errorf("failed parsing PLC op: %w", err)
+	}
+	unsignedOp.Token = &plcToken
 
 	// TODO: add some safety checks here around rotation key set intersection?
 
-	err = comatproto.IdentityRequestPlcOperationSignature(ctx, oldClient)
-	if err != nil {
-		return fmt.Errorf("failed requesting PLC operation token: %w", err)
-	}
-
-	plcAuthToken := "XXX"
-	signedPlcOpResp, err := comatproto.IdentitySignPlcOperation(ctx, oldClient, &comatproto.IdentitySignPlcOperation_Input{
-		// XXX: not just pass-through
-		AlsoKnownAs:         credsResp.AlsoKnownAs,
-		RotationKeys:        credsResp.RotationKeys,
-		Services:            credsResp.Services,
-		Token:               &plcAuthToken,
-		VerificationMethods: credsResp.VerificationMethods,
-	})
+	signedPlcOpResp, err := IdentitySignPlcOperation(ctx, oldClient, &unsignedOp)
 	if err != nil {
 		return fmt.Errorf("failed requesting PLC operation signature: %w", err)
 	}
 
-	err = comatproto.IdentitySubmitPlcOperation(ctx, &newClient, &comatproto.IdentitySubmitPlcOperation_Input{
+	err = IdentitySubmitPlcOperation(ctx, &newClient, &IdentitySubmitPlcOperation_Input{
 		Operation: signedPlcOpResp.Operation,
 	})
 	if err != nil {
@@ -208,7 +253,7 @@ func runAccountMigrate(cctx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed activating new host: %w", err)
 	}
-	err = comatproto.ServerDeactivateAccount(ctx, oldClient, nil)
+	err = comatproto.ServerDeactivateAccount(ctx, oldClient, &comatproto.ServerDeactivateAccount_Input{})
 	if err != nil {
 		return fmt.Errorf("failed deactivating old host: %w", err)
 	}
