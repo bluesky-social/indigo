@@ -38,10 +38,9 @@ var cmdAccount = &cli.Command{
 					EnvVars:  []string{"ATP_AUTH_PASSWORD"},
 				},
 				&cli.StringFlag{
-					Name:     "pds-host",
-					Usage:    "URL of the PDS to create account on (overrides DID doc)",
-					Required: true,
-					EnvVars:  []string{"ATP_PDS_HOST"},
+					Name:    "pds-host",
+					Usage:   "URL of the PDS to create account on (overrides DID doc)",
+					EnvVars: []string{"ATP_PDS_HOST"},
 				},
 			},
 			Action: runAccountLogin,
@@ -152,6 +151,7 @@ var cmdAccount = &cli.Command{
 			Action: runAccountCreate,
 		},
 		cmdAccountMigrate,
+		cmdAccountPlc,
 	},
 }
 
@@ -414,7 +414,7 @@ func runAccountCreate(cctx *cli.Context) error {
 	raw = cctx.String("service-auth")
 	if raw != "" && params.Did != nil {
 		xrpcc.Auth = &xrpc.AuthInfo{
-			Did: *params.Did,
+			Did:       *params.Did,
 			AccessJwt: raw,
 		}
 	}

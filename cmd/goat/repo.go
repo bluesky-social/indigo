@@ -41,7 +41,7 @@ var cmdRepo = &cli.Command{
 			Name:      "import",
 			Usage:     "upload CAR file for current account",
 			ArgsUsage: `<path>`,
-			Action: runRepoImport,
+			Action:    runRepoImport,
 		},
 		&cli.Command{
 			Name:      "ls",

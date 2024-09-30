@@ -21,7 +21,7 @@ var cmdPds = &cli.Command{
 			Name:      "describe",
 			Usage:     "shows info about a PDS info",
 			ArgsUsage: `<url>`,
-			Action: runPdsDescribe,
+			Action:    runPdsDescribe,
 		},
 	},
 }
@@ -30,7 +30,7 @@ func runPdsDescribe(cctx *cli.Context) error {
 	ctx := context.Background()
 
 	pdsHost := cctx.Args().First()
-	if pdsHost== "" {
+	if pdsHost == "" {
 		return fmt.Errorf("need to provide new handle as argument")
 	}
 	if !strings.Contains(pdsHost, "://") {
