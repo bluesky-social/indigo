@@ -106,7 +106,7 @@ func refreshAuthSession(ctx context.Context, username syntax.AtIdentifier, passw
 			return nil, err
 		}
 
-		pdsURL := ident.PDSEndpoint()
+		pdsURL = ident.PDSEndpoint()
 		if pdsURL == "" {
 			return nil, fmt.Errorf("empty PDS URL")
 		}

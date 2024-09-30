@@ -128,6 +128,9 @@ func runAccountMigrate(cctx *cli.Context) error {
 	err = appbsky.ActorPutPreferences(ctx, &newClient, &appbsky.ActorPutPreferences_Input{
 		Preferences: prefResp.Preferences,
 	})
+	if err != nil {
+		return fmt.Errorf("failed importing preferences: %w", err)
+	}
 
 	slog.Info("migrating blobs")
 	blobCursor := ""
