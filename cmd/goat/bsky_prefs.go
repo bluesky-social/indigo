@@ -40,7 +40,7 @@ func runBskyPrefsExport(cctx *cli.Context) error {
 		return err
 	}
 
-	// TODO: does this crash with unsupported preference types?
+	// TODO: does indigo API code crash with unsupported preference '$type'? Eg "Lexicon decoder" with unsupported type.
 	resp, err := appbsky.ActorGetPreferences(ctx, xrpcc)
 	if err != nil {
 		return fmt.Errorf("failed fetching old preferences: %w", err)
@@ -80,7 +80,7 @@ func runBskyPrefsImport(cctx *cli.Context) error {
 		return err
 	}
 
-	// TODO: does this clobber unsupported preference types?
+	// WARNING: might clobber off-Lexicon or new-Lexicon data fields (which don't round-trip deserialization)
 	err = appbsky.ActorPutPreferences(ctx, xrpcc, &appbsky.ActorPutPreferences_Input{
 		Preferences: prefsArray,
 	})
