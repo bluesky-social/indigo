@@ -2,11 +2,11 @@ package main
 
 import (
 	"bytes"
-	"strings"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -58,7 +58,7 @@ var cmdAccountMigrate = &cli.Command{
 }
 
 func runAccountMigrate(cctx *cli.Context) error {
-	// TODO: this could check rev / commit before and after
+	// NOTE: this could check rev / commit before and after and ensure last-minute content additions get lost
 	ctx := context.Background()
 
 	oldClient, err := loadAuthClient(ctx)
@@ -82,7 +82,6 @@ func runAccountMigrate(cctx *cli.Context) error {
 	plcToken := cctx.String("plc-token")
 	inviteCode := cctx.String("invite-code")
 	newEmail := cctx.String("new-email")
-
 
 	newClient := xrpc.Client{
 		Host: newHostURL,
@@ -112,9 +111,9 @@ func runAccountMigrate(cctx *cli.Context) error {
 
 	// then create the new account
 	createParams := comatproto.ServerCreateAccount_Input{
-		Did:        &did,
-		Handle:     newHandle,
-		Password:   &newPassword,
+		Did:      &did,
+		Handle:   newHandle,
+		Password: &newPassword,
 	}
 	if newEmail != "" {
 		createParams.Email = &newEmail
@@ -125,9 +124,9 @@ func runAccountMigrate(cctx *cli.Context) error {
 
 	// use service auth for access token, temporarily
 	newClient.Auth = &xrpc.AuthInfo{
-		Did: did,
-		Handle: newHandle,
-		AccessJwt: createAuthResp.Token,
+		Did:        did,
+		Handle:     newHandle,
+		AccessJwt:  createAuthResp.Token,
 		RefreshJwt: createAuthResp.Token,
 	}
 	createAccountResp, err := comatproto.ServerCreateAccount(ctx, &newClient, &createParams)
@@ -156,7 +155,6 @@ func runAccountMigrate(cctx *cli.Context) error {
 	}
 
 	// 2. Migrate Data
-
 	slog.Info("migrating repo")
 	repoBytes, err := comatproto.SyncGetRepo(ctx, oldClient, did, "")
 	if err != nil {
@@ -168,7 +166,7 @@ func runAccountMigrate(cctx *cli.Context) error {
 	}
 
 	slog.Info("migrating preferences")
-	// TODO: service proxy header for app.bsky?
+	// TODO: service proxy header for AppView?
 	prefResp, err := appbsky.ActorGetPreferences(ctx, oldClient)
 	if err != nil {
 		return fmt.Errorf("failed fetching old preferences: %w", err)
@@ -197,7 +195,7 @@ func runAccountMigrate(cctx *cli.Context) error {
 			if err != nil {
 				slog.Warn("failed uploading blob", "cid", blobCID, "err", err, "size", len(blobBytes))
 			}
-			slog.Info("transfered blob", "cid", blobCID, "size", len(blobBytes))
+			slog.Info("transferred blob", "cid", blobCID, "size", len(blobBytes))
 		}
 		if listResp.Cursor == nil || *listResp.Cursor == "" {
 			break
@@ -206,7 +204,7 @@ func runAccountMigrate(cctx *cli.Context) error {
 	}
 
 	// display migration status
-	// TODO: should this loop? with a delay?
+	// NOTE: this could check between the old PDS and new PDS, polling in a loop showing progress until all records have been indexed
 	statusResp, err := comatproto.ServerCheckAccountStatus(ctx, &newClient)
 	if err != nil {
 		return fmt.Errorf("failed checking account status: %w", err)
@@ -214,7 +212,7 @@ func runAccountMigrate(cctx *cli.Context) error {
 	slog.Info("account migration status", "status", statusResp)
 
 	// 3. Migrate Identity
-	// TODO: support did:web etc
+	// NOTE: to work with did:web or non-PDS-managed did:plc, need to do manual migraiton process
 	slog.Info("updating identity to new host")
 
 	credsResp, err := IdentityGetRecommendedDidCredentials(ctx, &newClient)
@@ -232,7 +230,7 @@ func runAccountMigrate(cctx *cli.Context) error {
 	}
 	unsignedOp.Token = &plcToken
 
-	// TODO: add some safety checks here around rotation key set intersection?
+	// NOTE: could add additional sanity checks here that any extra rotation keys were retained, and that old alsoKnownAs and service entries are retained? The stakes aren't super high for the later, as PLC has the full history. PLC and the new PDS already implement some basic sanity checks.
 
 	signedPlcOpResp, err := IdentitySignPlcOperation(ctx, oldClient, &unsignedOp)
 	if err != nil {
