@@ -119,7 +119,7 @@ func DefaultBackfillOptions() *BackfillOptions {
 		ParallelRecordCreates: 100,
 		NSIDFilter:            "",
 		SyncRequestsPerSecond: 2,
-		CheckoutPath:          "https://bsky.social/xrpc/com.atproto.sync.getRepo",
+		CheckoutPath:          "https://bsky.network/xrpc/com.atproto.sync.getRepo",
 	}
 }
 
