@@ -37,7 +37,7 @@
       "data": { "$type": "example.lexicon.record", "integer": 1, "blob": "green" } },
     { "name": "invalid blob: wrong type",
       "rkey": "demo",
-      "data": { "$type": "example.lexicon.record", "integer": 1, "bytes": {
+      "data": { "$type": "example.lexicon.record", "integer": 1, "blob": {
             "type": "blob",
             "size": 123,
             "mimeType": false,
