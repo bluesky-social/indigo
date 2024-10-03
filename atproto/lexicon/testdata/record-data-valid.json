@@ -86,7 +86,10 @@
                     "$link": "bafyreiclp443lavogvhj3d2ob2cxbfuscni2k5jk7bebjzg7khl3esabwq"
                 }
             },
-            "closedUnion": "example.lexicon.record#demoToken"
+            "closedUnion": {
+                "$type": "example.lexicon.record#demoObject",
+                "a": 1
+            }
         }
     },
     {
