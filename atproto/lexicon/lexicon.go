@@ -46,7 +46,6 @@ func validateRecordConfig(cat Catalog, recordData any, ref string, flags Validat
 }
 
 func validateData(cat Catalog, def any, d any, flags ValidateFlags) error {
-	// TODO:
 	switch v := def.(type) {
 	case SchemaNull:
 		return v.Validate(d)
@@ -127,19 +126,40 @@ func validateArray(cat Catalog, s SchemaArray, arr []any, flags ValidateFlags) e
 
 func validateUnion(cat Catalog, s SchemaUnion, d any, flags ValidateFlags) error {
 	closed := s.Closed != nil && *s.Closed == true
+
+	obj, ok := d.(map[string]any)
+	if !ok {
+		return fmt.Errorf("union data is not object type")
+	}
+	typeVal, ok := obj["$type"]
+	if !ok {
+		return fmt.Errorf("union data must have $type")
+	}
+	t, ok := typeVal.(string)
+	if !ok {
+		return fmt.Errorf("union data must have string $type")
+	}
+
 	for _, ref := range s.fullRefs {
+		if ref != t {
+			continue
+		}
 		def, err := cat.Resolve(ref)
 		if err != nil {
-			// TODO: how to actually handle unknown defs?
-			return err
+			return fmt.Errorf("could not resolve known union variant $type: %s", ref)
 		}
-		if err = validateData(cat, def.Def, d, flags); nil == err { // if success
-			return nil
-		}
+		return validateData(cat, def.Def, d, flags)
 	}
 	if closed {
-		return fmt.Errorf("data did not match any variant of closed union")
+		return fmt.Errorf("data did not match any variant of closed union: %s", t)
 	}
-	// TODO: anything matches if an open union?
-	return nil
+
+	// eagerly attempt validation of the open union type
+	def, err := cat.Resolve(t)
+	if err != nil {
+		// NOTE: not currently failing on unknown $type. might add a flag to fail here in the future
+		return fmt.Errorf("could not resolve known union variant $type: %s", t)
+		//return nil
+	}
+	return validateData(cat, def.Def, d, flags)
 }
