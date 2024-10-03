@@ -180,5 +180,24 @@
     { "name": "out of closed union",
       "rkey": "demo",
       "data": { "$type": "example.lexicon.record", "integer": 1, "closedUnion": "other" }
+    },
+    { "name": "unknown wrong type (bool)",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "unknown": false }
+    },
+    { "name": "unknown wrong type (bytes)",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "unknown": { "$bytes": "123" } }
+    },
+    { "name": "unknown wrong type (blob)",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "unknown": {
+            "$type": "blob",
+            "mimeType": "text/plain",
+            "size": 12345,
+            "ref": {
+                "$link": "bafyreiclp443lavogvhj3d2ob2cxbfuscni2k5jk7bebjzg7khl3esabwq"
+            }
+      }}
     }
 ]

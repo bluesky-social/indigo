@@ -914,5 +914,9 @@ func (s *SchemaUnknown) CheckSchema() error {
 }
 
 func (s *SchemaUnknown) Validate(d any) error {
+	_, ok := d.(map[string]any)
+	if !ok {
+		return fmt.Errorf("'unknown' data must an object")
+	}
 	return nil
 }
