@@ -53,9 +53,13 @@
       "rkey": "demo",
       "data": { "$type": "example.lexicon.record", "integer": 1, "array": [true, false] }
     },
-    { "name": "invalid object",
+    { "name": "object wrong data type",
       "rkey": "demo",
       "data": { "$type": "example.lexicon.record", "integer": 1, "object": 123 }
+    },
+    { "name": "object nested wrong data type",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "object": {"a": "not-a-number" } }
     },
     { "name": "invalid token ref type",
       "rkey": "demo",
@@ -177,9 +181,25 @@
                 "$link": "bafyreiclp443lavogvhj3d2ob2cxbfuscni2k5jk7bebjzg7khl3esabwq"
             }
     }}},
+    { "name": "open union wrong data type",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "union": 123 }
+    },
+    { "name": "open union missing $type",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "union": {"a": 1, "b": 2 } }
+    },
     { "name": "out of closed union",
       "rkey": "demo",
-      "data": { "$type": "example.lexicon.record", "integer": 1, "closedUnion": "other" }
+      "data": { "$type": "example.lexicon.record", "integer": 1, "closedUnion": { "$type": "example.unknown-lexicon.blah", "a": 1 } }
+    },
+    { "name": "union inner invalid",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "closedUnion": { "$type": "example.lexicon.record#demoObjectTwo", "a": 1 } }
+    },
+    { "name": "union inner invalid",
+      "rkey": "demo",
+      "data": { "$type": "example.lexicon.record", "integer": 1, "union": { "$type": "example.lexicon.record#demoObject", "a": "not-a-number" } }
     },
     { "name": "unknown wrong type (bool)",
       "rkey": "demo",
