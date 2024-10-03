@@ -88,5 +88,18 @@
             },
             "closedUnion": "example.lexicon.record#demoToken"
         }
+    },
+    {
+        "name": "unknown as a type",
+        "rkey": "demo",
+        "data": {
+            "$type": "example.lexicon.record",
+            "integer": 1,
+            "unknown": {
+                "$type": "example.lexicon.record#demoObject",
+                "a": 1,
+                "b": 2
+            }
+        }
     }
 ]
