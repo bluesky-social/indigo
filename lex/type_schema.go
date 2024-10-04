@@ -3,6 +3,7 @@ package lex
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 )
 
@@ -538,9 +539,11 @@ func (s *TypeSchema) typeNameForField(name, k string, v TypeSchema) (string, err
 		// TODO: maybe do a native type?
 		return "string", nil
 	case "unknown":
-		// NOTE: sometimes a record, for which we want LexiconTypeDecoder, sometimes any object
-		if k == "didDoc" || k == "plcOp" {
-			return "interface{}", nil
+		if v.needsCbor {
+			slog.Warn("'unknown' field type in CBOR lexicon schema", "ref", v.id)
+		}
+		if !v.needsCbor && v.prefix == "com.atproto" {
+			return "*json.RawMessage", nil
 		} else {
 			return "*util.LexiconTypeDecoder", nil
 		}
