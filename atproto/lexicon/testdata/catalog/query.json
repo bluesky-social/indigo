@@ -1,0 +1,70 @@
+{
+  "lexicon": 1,
+  "id": "example.lexicon.query",
+  "revision": 1,
+  "description": "exersizes many lexicon features for the query type",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "a query type",
+      "parameters": {
+          "type": "params",
+          "description": "a params type",
+          "required": ["string"],
+          "properties": {
+            "boolean": {
+                "type": "boolean",
+                "description": "field of type boolean"
+            },
+            "integer": {
+                "type": "integer",
+                "description": "field of type integer"
+            },
+            "string": {
+                "type": "string",
+                "description": "field of type string"
+            },
+            "handle": {
+                "type": "string",
+                "format": "handle",
+                "description": "field of type string, format handle"
+            },
+            "unknown": {
+                "type": "unknown",
+                "description": "field of type unknown"
+            },
+            "array": {
+                "type": "array",
+                "description": "field of type array",
+                "items": { "type": "integer" }
+            }
+          }
+      },
+      "output": {
+        "description": "output body type",
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "properties": {
+              "a": {
+                  "type": "integer"
+              },
+              "b": {
+                  "type": "integer"
+              }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "DemoError",
+          "description": "demo error value"
+        },
+        {
+          "name": "AnotherDemoError",
+          "description": "another demo error value"
+        }
+      ]
+    }
+  }
+}
