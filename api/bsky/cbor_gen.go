@@ -2091,7 +2091,7 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 8
+	fieldCount := 9
 
 	if t.Avatar == nil {
 		fieldCount--
@@ -2118,6 +2118,10 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	}
 
 	if t.Labels == nil {
+		fieldCount--
+	}
+
+	if t.PinnedPost == nil {
 		fieldCount--
 	}
 
@@ -2230,6 +2234,25 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 			if _, err := cw.WriteString(string(*t.CreatedAt)); err != nil {
 				return err
 			}
+		}
+	}
+
+	// t.PinnedPost (atproto.RepoStrongRef) (struct)
+	if t.PinnedPost != nil {
+
+		if len("pinnedPost") > 1000000 {
+			return xerrors.Errorf("Value in field \"pinnedPost\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("pinnedPost"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("pinnedPost")); err != nil {
+			return err
+		}
+
+		if err := t.PinnedPost.MarshalCBOR(cw); err != nil {
+			return err
 		}
 	}
 
@@ -2447,6 +2470,26 @@ func (t *ActorProfile) UnmarshalCBOR(r io.Reader) (err error) {
 
 					t.CreatedAt = (*string)(&sval)
 				}
+			}
+			// t.PinnedPost (atproto.RepoStrongRef) (struct)
+		case "pinnedPost":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.PinnedPost = new(atproto.RepoStrongRef)
+					if err := t.PinnedPost.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.PinnedPost pointer: %w", err)
+					}
+				}
+
 			}
 			// t.Description (string) (string)
 		case "description":

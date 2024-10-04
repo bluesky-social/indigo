@@ -23,14 +23,16 @@ type RepoCreateRecord_Input struct {
 	Rkey *string `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
 	// swapCommit: Compare and swap with the previous commit by CID.
 	SwapCommit *string `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
-	// validate: Can be set to 'false' to skip Lexicon schema validation of record data.
+	// validate: Can be set to 'false' to skip Lexicon schema validation of record data, 'true' to require it, or leave unset to validate only for known Lexicons.
 	Validate *bool `json:"validate,omitempty" cborgen:"validate,omitempty"`
 }
 
 // RepoCreateRecord_Output is the output of a com.atproto.repo.createRecord call.
 type RepoCreateRecord_Output struct {
-	Cid string `json:"cid" cborgen:"cid"`
-	Uri string `json:"uri" cborgen:"uri"`
+	Cid              string               `json:"cid" cborgen:"cid"`
+	Commit           *RepoDefs_CommitMeta `json:"commit,omitempty" cborgen:"commit,omitempty"`
+	Uri              string               `json:"uri" cborgen:"uri"`
+	ValidationStatus *string              `json:"validationStatus,omitempty" cborgen:"validationStatus,omitempty"`
 }
 
 // RepoCreateRecord calls the XRPC method "com.atproto.repo.createRecord".
