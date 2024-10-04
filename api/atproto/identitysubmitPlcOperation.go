@@ -6,14 +6,14 @@ package atproto
 
 import (
 	"context"
+	"encoding/json"
 
-	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // IdentitySubmitPlcOperation_Input is the input argument to a com.atproto.identity.submitPlcOperation call.
 type IdentitySubmitPlcOperation_Input struct {
-	Operation *util.LexiconTypeDecoder `json:"operation" cborgen:"operation"`
+	Operation *json.RawMessage `json:"operation" cborgen:"operation"`
 }
 
 // IdentitySubmitPlcOperation calls the XRPC method "com.atproto.identity.submitPlcOperation".

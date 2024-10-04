@@ -6,25 +6,25 @@ package atproto
 
 import (
 	"context"
+	"encoding/json"
 
-	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // IdentitySignPlcOperation_Input is the input argument to a com.atproto.identity.signPlcOperation call.
 type IdentitySignPlcOperation_Input struct {
-	AlsoKnownAs  []string                 `json:"alsoKnownAs,omitempty" cborgen:"alsoKnownAs,omitempty"`
-	RotationKeys []string                 `json:"rotationKeys,omitempty" cborgen:"rotationKeys,omitempty"`
-	Services     *util.LexiconTypeDecoder `json:"services,omitempty" cborgen:"services,omitempty"`
+	AlsoKnownAs  []string         `json:"alsoKnownAs,omitempty" cborgen:"alsoKnownAs,omitempty"`
+	RotationKeys []string         `json:"rotationKeys,omitempty" cborgen:"rotationKeys,omitempty"`
+	Services     *json.RawMessage `json:"services,omitempty" cborgen:"services,omitempty"`
 	// token: A token received through com.atproto.identity.requestPlcOperationSignature
-	Token               *string                  `json:"token,omitempty" cborgen:"token,omitempty"`
-	VerificationMethods *util.LexiconTypeDecoder `json:"verificationMethods,omitempty" cborgen:"verificationMethods,omitempty"`
+	Token               *string          `json:"token,omitempty" cborgen:"token,omitempty"`
+	VerificationMethods *json.RawMessage `json:"verificationMethods,omitempty" cborgen:"verificationMethods,omitempty"`
 }
 
 // IdentitySignPlcOperation_Output is the output of a com.atproto.identity.signPlcOperation call.
 type IdentitySignPlcOperation_Output struct {
 	// operation: A signed DID PLC operation.
-	Operation *util.LexiconTypeDecoder `json:"operation" cborgen:"operation"`
+	Operation *json.RawMessage `json:"operation" cborgen:"operation"`
 }
 
 // IdentitySignPlcOperation calls the XRPC method "com.atproto.identity.signPlcOperation".
