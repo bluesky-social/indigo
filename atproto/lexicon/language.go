@@ -12,7 +12,7 @@ import (
 	"github.com/rivo/uniseg"
 )
 
-// Serialization helper for top-level Lexicon schema JSON objects (files)
+// Serialization helper type for top-level Lexicon schema JSON objects (files)
 type SchemaFile struct {
 	Lexicon     int                  `json:"lexicon,const=1"`
 	ID          string               `json:"id"`
@@ -26,6 +26,7 @@ type SchemaDef struct {
 	Inner any
 }
 
+// Checks that the schema definition itself is valid (recursively).
 func (s *SchemaDef) CheckSchema() error {
 	switch v := s.Inner.(type) {
 	case SchemaRecord:

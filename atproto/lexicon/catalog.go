@@ -5,20 +5,24 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-// An aggregation of lexicon schemas, and methods for validating generic data against those schemas.
+// Interface type for a resolver or container of lexicon schemas, and methods for validating generic data against those schemas.
 type Catalog interface {
+	// Looks up a schema refrence (NSID string with optional fragment) to a Schema object.
 	Resolve(ref string) (*Schema, error)
 }
 
+// Trivial in-memory Lexicon Catalog implementation.
 type BaseCatalog struct {
 	schemas map[string]Schema
 }
 
+// Creates a new empty BaseCatalog
 func NewBaseCatalog() BaseCatalog {
 	return BaseCatalog{
 		schemas: make(map[string]Schema),
@@ -40,6 +44,7 @@ func (c *BaseCatalog) Resolve(ref string) (*Schema, error) {
 	return &s, nil
 }
 
+// Inserts a schema loaded from a JSON file in to the catalog.
 func (c *BaseCatalog) AddSchemaFile(sf SchemaFile) error {
 	base := sf.ID
 	for frag, def := range sf.Defs {
@@ -76,6 +81,7 @@ func (c *BaseCatalog) AddSchemaFile(sf SchemaFile) error {
 	return nil
 }
 
+// Recursively loads all '.json' files from a directory in to the catalog.
 func (c *BaseCatalog) LoadDirectory(dirPath string) error {
 	return filepath.WalkDir(dirPath, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -87,8 +93,7 @@ func (c *BaseCatalog) LoadDirectory(dirPath string) error {
 		if !strings.HasSuffix(p, ".json") {
 			return nil
 		}
-		// TODO: logging
-		fmt.Println(p)
+		slog.Debug("loading Lexicon schema file", "path", p)
 		f, err := os.Open(p)
 		if err != nil {
 			return err
