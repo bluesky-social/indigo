@@ -24,11 +24,17 @@ type RepoDeleteRecord_Input struct {
 	SwapRecord *string `json:"swapRecord,omitempty" cborgen:"swapRecord,omitempty"`
 }
 
+// RepoDeleteRecord_Output is the output of a com.atproto.repo.deleteRecord call.
+type RepoDeleteRecord_Output struct {
+	Commit *RepoDefs_CommitMeta `json:"commit,omitempty" cborgen:"commit,omitempty"`
+}
+
 // RepoDeleteRecord calls the XRPC method "com.atproto.repo.deleteRecord".
-func RepoDeleteRecord(ctx context.Context, c *xrpc.Client, input *RepoDeleteRecord_Input) error {
-	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", nil, input, nil); err != nil {
-		return err
+func RepoDeleteRecord(ctx context.Context, c *xrpc.Client, input *RepoDeleteRecord_Input) (*RepoDeleteRecord_Output, error) {
+	var out RepoDeleteRecord_Output
+	if err := c.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", nil, input, &out); err != nil {
+		return nil, err
 	}
 
-	return nil
+	return &out, nil
 }

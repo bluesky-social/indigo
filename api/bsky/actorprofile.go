@@ -31,7 +31,8 @@ type ActorProfile struct {
 	DisplayName          *string                        `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
 	JoinedViaStarterPack *comatprototypes.RepoStrongRef `json:"joinedViaStarterPack,omitempty" cborgen:"joinedViaStarterPack,omitempty"`
 	// labels: Self-label values, specific to the Bluesky application, on the overall account.
-	Labels *ActorProfile_Labels `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Labels     *ActorProfile_Labels           `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	PinnedPost *comatprototypes.RepoStrongRef `json:"pinnedPost,omitempty" cborgen:"pinnedPost,omitempty"`
 }
 
 // Self-label values, specific to the Bluesky application, on the overall account.

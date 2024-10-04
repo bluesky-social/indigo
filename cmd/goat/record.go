@@ -343,7 +343,7 @@ func runRecordDelete(cctx *cli.Context) error {
 		return err
 	}
 
-	err = comatproto.RepoDeleteRecord(ctx, xrpcc, &comatproto.RepoDeleteRecord_Input{
+	_, err = comatproto.RepoDeleteRecord(ctx, xrpcc, &comatproto.RepoDeleteRecord_Input{
 		Collection: collection.String(),
 		Repo:       xrpcc.Auth.Did,
 		Rkey:       rkey.String(),
