@@ -68,6 +68,7 @@ type EmbedRecord_ViewRecord struct {
 	IndexedAt     string                                `json:"indexedAt" cborgen:"indexedAt"`
 	Labels        []*comatprototypes.LabelDefs_Label    `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	LikeCount     *int64                                `json:"likeCount,omitempty" cborgen:"likeCount,omitempty"`
+	QuoteCount    *int64                                `json:"quoteCount,omitempty" cborgen:"quoteCount,omitempty"`
 	ReplyCount    *int64                                `json:"replyCount,omitempty" cborgen:"replyCount,omitempty"`
 	RepostCount   *int64                                `json:"repostCount,omitempty" cborgen:"repostCount,omitempty"`
 	Uri           string                                `json:"uri" cborgen:"uri"`
