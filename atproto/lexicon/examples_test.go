@@ -6,7 +6,7 @@ import (
 	atdata "github.com/bluesky-social/indigo/atproto/data"
 )
 
-func ExampleRecordValidate() {
+func ExampleValidateRecord() {
 
 	// First load Lexicon schema JSON files from local disk.
 	cat := NewBaseCatalog()
