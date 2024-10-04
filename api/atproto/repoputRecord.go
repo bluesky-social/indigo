@@ -25,14 +25,16 @@ type RepoPutRecord_Input struct {
 	SwapCommit *string `json:"swapCommit,omitempty" cborgen:"swapCommit,omitempty"`
 	// swapRecord: Compare and swap with the previous record by CID. WARNING: nullable and optional field; may cause problems with golang implementation
 	SwapRecord *string `json:"swapRecord" cborgen:"swapRecord"`
-	// validate: Can be set to 'false' to skip Lexicon schema validation of record data.
+	// validate: Can be set to 'false' to skip Lexicon schema validation of record data, 'true' to require it, or leave unset to validate only for known Lexicons.
 	Validate *bool `json:"validate,omitempty" cborgen:"validate,omitempty"`
 }
 
 // RepoPutRecord_Output is the output of a com.atproto.repo.putRecord call.
 type RepoPutRecord_Output struct {
-	Cid string `json:"cid" cborgen:"cid"`
-	Uri string `json:"uri" cborgen:"uri"`
+	Cid              string               `json:"cid" cborgen:"cid"`
+	Commit           *RepoDefs_CommitMeta `json:"commit,omitempty" cborgen:"commit,omitempty"`
+	Uri              string               `json:"uri" cborgen:"uri"`
+	ValidationStatus *string              `json:"validationStatus,omitempty" cborgen:"validationStatus,omitempty"`
 }
 
 // RepoPutRecord calls the XRPC method "com.atproto.repo.putRecord".

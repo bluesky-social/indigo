@@ -11,6 +11,8 @@ type CommunicationDefs_TemplateView struct {
 	CreatedAt       string `json:"createdAt" cborgen:"createdAt"`
 	Disabled        bool   `json:"disabled" cborgen:"disabled"`
 	Id              string `json:"id" cborgen:"id"`
+	// lang: Message language.
+	Lang *string `json:"lang,omitempty" cborgen:"lang,omitempty"`
 	// lastUpdatedBy: DID of the user who last updated the template.
 	LastUpdatedBy string `json:"lastUpdatedBy" cborgen:"lastUpdatedBy"`
 	// name: Name of the template.
