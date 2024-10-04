@@ -5,22 +5,33 @@ import (
 	"reflect"
 )
 
+// Boolean flags tweaking how Lexicon validation rules are interpreted.
 type ValidateFlags int
 
 const (
+	// Flag which allows legacy "blob" data to pass validation.
 	AllowLegacyBlob = 1 << iota
+	// Flag which loosens "datetime" string syntax validation. String must still be an ISO datetime, but might be missing timezone (for example)
 	AllowLenientDatetime
+	// Flag which requires validation of nested data in open unions. By default nested union types are only validated optimistically (if the type is known in catatalog) for unlisted types. This flag will result in a validation error if the Lexicon can't be resolved from the catalog.
 	StrictRecursiveValidation
 )
 
+// Combination of agument flags for less formal validation. Recommended for, eg, working with old/legacy data from 2023.
 var LenientMode ValidateFlags = AllowLegacyBlob | AllowLenientDatetime
 
+// Represents a Lexicon schema definition
 type Schema struct {
 	ID       string
 	Revision *int
 	Def      any
 }
 
+// Checks Lexicon schema (fetched from the catalog) for the given record, with optional flags tweaking default validation rules.
+//
+// 'recordData' is typed as 'any', but is expected to be 'map[string]any'
+// 'ref' is a reference to the schema type, as an NSID with optional fragment. For records, the '$type' must match 'ref'
+// 'flags' are parameters tweaking Lexicon validation rules. Zero value is default.
 func ValidateRecord(cat Catalog, recordData any, ref string, flags ValidateFlags) error {
 	return validateRecordConfig(cat, recordData, ref, flags)
 }
@@ -155,11 +166,14 @@ func validateUnion(cat Catalog, s SchemaUnion, d any, flags ValidateFlags) error
 	}
 
 	// eagerly attempt validation of the open union type
+	// TODO: validate reference as NSID with optional fragment
 	def, err := cat.Resolve(t)
 	if err != nil {
-		// NOTE: not currently failing on unknown $type. might add a flag to fail here in the future
-		return fmt.Errorf("could not resolve known union variant $type: %s", t)
-		//return nil
+		if flags&StrictRecursiveValidation != 0 {
+			return fmt.Errorf("could not strictly validate open union variant $type: %s", t)
+		}
+		// by default, ignore validation of unknown open union data
+		return nil
 	}
 	return validateData(cat, def.Def, d, flags)
 }
