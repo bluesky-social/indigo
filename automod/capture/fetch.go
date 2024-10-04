@@ -9,6 +9,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -36,8 +37,12 @@ func FetchAndProcessRecord(ctx context.Context, eng *automod.Engine, aturi synta
 		return fmt.Errorf("expected a CID in getRecord response")
 	}
 	recCID := syntax.CID(*out.Cid)
+	var ltd lexutil.LexiconTypeDecoder
+	if err = ltd.UnmarshalJSON(*out.Value); err != nil {
+		return err
+	}
 	recBuf := new(bytes.Buffer)
-	if err := out.Value.Val.MarshalCBOR(recBuf); err != nil {
+	if err := ltd.Val.MarshalCBOR(recBuf); err != nil {
 		return err
 	}
 	recBytes := recBuf.Bytes()
@@ -85,8 +90,12 @@ func FetchAndProcessRecent(ctx context.Context, eng *automod.Engine, atid syntax
 			return fmt.Errorf("parsing PDS record response: %v", err)
 		}
 		recCID := syntax.CID(rec.Cid)
+		var ltd lexutil.LexiconTypeDecoder
+		if err = ltd.UnmarshalJSON(*rec.Value); err != nil {
+			return err
+		}
 		recBuf := new(bytes.Buffer)
-		if err := rec.Value.Val.MarshalCBOR(recBuf); err != nil {
+		if err := ltd.Val.MarshalCBOR(recBuf); err != nil {
 			return err
 		}
 		recBytes := recBuf.Bytes()
