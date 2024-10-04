@@ -6,18 +6,19 @@ package atproto
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // ServerRefreshSession_Output is the output of a com.atproto.server.refreshSession call.
 type ServerRefreshSession_Output struct {
-	AccessJwt  string       `json:"accessJwt" cborgen:"accessJwt"`
-	Active     *bool        `json:"active,omitempty" cborgen:"active,omitempty"`
-	Did        string       `json:"did" cborgen:"did"`
-	DidDoc     *interface{} `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
-	Handle     string       `json:"handle" cborgen:"handle"`
-	RefreshJwt string       `json:"refreshJwt" cborgen:"refreshJwt"`
+	AccessJwt  string           `json:"accessJwt" cborgen:"accessJwt"`
+	Active     *bool            `json:"active,omitempty" cborgen:"active,omitempty"`
+	Did        string           `json:"did" cborgen:"did"`
+	DidDoc     *json.RawMessage `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
+	Handle     string           `json:"handle" cborgen:"handle"`
+	RefreshJwt string           `json:"refreshJwt" cborgen:"refreshJwt"`
 	// status: Hosting status of the account. If not specified, then assume 'active'.
 	Status *string `json:"status,omitempty" cborgen:"status,omitempty"`
 }

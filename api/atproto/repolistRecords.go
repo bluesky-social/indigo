@@ -6,8 +6,8 @@ package atproto
 
 import (
 	"context"
+	"encoding/json"
 
-	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -19,9 +19,9 @@ type RepoListRecords_Output struct {
 
 // RepoListRecords_Record is a "record" in the com.atproto.repo.listRecords schema.
 type RepoListRecords_Record struct {
-	Cid   string                   `json:"cid" cborgen:"cid"`
-	Uri   string                   `json:"uri" cborgen:"uri"`
-	Value *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
+	Cid   string           `json:"cid" cborgen:"cid"`
+	Uri   string           `json:"uri" cborgen:"uri"`
+	Value *json.RawMessage `json:"value" cborgen:"value"`
 }
 
 // RepoListRecords calls the XRPC method "com.atproto.repo.listRecords".
