@@ -172,7 +172,7 @@ func configDirectory(cctx *cli.Context) (identity.Directory, error) {
 	}
 	var dir identity.Directory
 	if cctx.String("redis-url") != "" {
-		rdir, err := redisdir.NewRedisDirectory(&baseDir, cctx.String("redis-url"), time.Hour*24, time.Minute*2, 10_000)
+		rdir, err := redisdir.NewRedisDirectory(&baseDir, cctx.String("redis-url"), time.Hour*24, time.Minute*2, time.Minute*5, 10_000)
 		if err != nil {
 			return nil, err
 		}
