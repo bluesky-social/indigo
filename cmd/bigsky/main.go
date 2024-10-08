@@ -188,6 +188,11 @@ func run(args []string) error {
 			EnvVars: []string{"RELAY_DID_CACHE_SIZE"},
 			Value:   5_000_000,
 		},
+		&cli.StringFlag{
+			Name:    "repo-filter-shards",
+			EnvVars: []string{"RELAY_REPO_FILTER_SHARDS"},
+			Value:   "",
+		},
 	}
 
 	app.Action = runBigsky
@@ -403,6 +408,7 @@ func runBigsky(cctx *cli.Context) error {
 	bgsConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
 	bgsConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
 	bgsConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
+	bgsConfig.RepoFilterShards = cctx.String("repo-filter-shards")
 	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, rf, hr, bgsConfig)
 	if err != nil {
 		return err
