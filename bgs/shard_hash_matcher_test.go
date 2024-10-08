@@ -68,3 +68,16 @@ func TestHeirarchicalBitMap(t *testing.T) {
 		})
 	}
 }
+
+func TestShardHashMatcher(t *testing.T) {
+	shm, err := NewShardHashMatcher("0f", 1024)
+	if err != nil {
+		t.Fatalf("constructor err, %s", err.Error())
+	}
+	if shm.basis != 1024 {
+		t.Fatalf("basis lost, %v", shm.basis)
+	}
+	if shm.mask != 0x3ff {
+		t.Fatalf("mask wrong, %x", shm.mask)
+	}
+}

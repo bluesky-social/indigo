@@ -3,12 +3,9 @@ package bgs
 import (
 	"context"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash"
-	"hash/fnv"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -540,60 +537,6 @@ func (bgs *BGS) cleanupConsumer(id uint64) {
 	delete(bgs.consumers, id)
 }
 
-func isPowerOfTwo(x int) bool {
-	val := 1
-	for {
-		if val == x {
-			return true
-		}
-		if val > x {
-			return false
-		}
-		nval := val << 1
-		if nval < val {
-			return false
-		}
-		val = nval
-	}
-}
-
-var ErrBadShardLength = errors.New("shards decoded byte length must be a power of 2")
-
-func parseShardsStr(shards string) ([]byte, error) {
-	if len(shards) == 0 {
-		return nil, nil
-	}
-	xb, err := hex.DecodeString(shards)
-	if err != nil {
-		return nil, fmt.Errorf("bad shards, %w", err)
-	}
-	if !isPowerOfTwo(len(xb)) {
-		return nil, ErrBadShardLength
-	}
-	return xb, nil
-}
-
-func hasBit(bitmap []byte, bit int) bool {
-	byteIndex := bit / 8
-	bitIndex := bit % 8
-	return (bitmap[byteIndex] & (0x80 >> bitIndex)) != 0
-}
-
-const basisMask = 0x07ff
-
-// TODO: runtime configurable
-const bitmapBasis = 1024
-
-// for some bitmap with power-of-two bits,
-func heirarchicalBitMap(bitmap []byte, basis, bit int) bool {
-	bitmapNBits := len(bitmap) * 8
-	for basis > bitmapNBits {
-		basis /= 2
-		bit /= 2
-	}
-	return hasBit(bitmap, bit)
-}
-
 func (bgs *BGS) EventsHandler(c echo.Context) error {
 	var since *int64
 	if sinceVal := c.QueryParam("cursor"); sinceVal != "" {
@@ -608,13 +551,9 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 	// TODO: if this relay only carries some shards, check here and return error if a requested shard is not present on this relay
 	// shards is hex encoding of a bitmap
 	// shards []byte may be nil, or must be power-of-two length
-	shards, err := parseShardsStr(c.QueryParam("shards"))
-	var hasher hash.Hash32
+	shardFilter, err := NewShardHashMatcher(c.QueryParam("shards"), 1024)
 	if err != nil {
 		return err
-	}
-	if shards != nil {
-		hasher = fnv.New32a()
 	}
 
 	ctx, cancel := context.WithCancel(c.Request().Context())
@@ -718,15 +657,12 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 				return nil
 			}
 
-			if shards != nil {
+			if shardFilter != nil {
 				repo := evt.Repo()
 				if repo == "" {
 					// ok, pass along all general messages not tied to a specific repo
 				} else {
-					hasher.Reset()
-					hasher.Write([]byte(repo))
-					repoHash := int(hasher.Sum32() & basisMask)
-					if !heirarchicalBitMap(shards, bitmapBasis, repoHash) {
+					if !shardFilter.Match([]byte(repo)) {
 						// skip this event
 						eventsSkippedCounter.Inc()
 						continue
