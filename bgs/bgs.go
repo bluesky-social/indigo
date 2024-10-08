@@ -87,6 +87,8 @@ type BGS struct {
 
 	// Management of Compaction
 	compactor *Compactor
+
+	repoShardFilter *ShardHashMatcher
 }
 
 type PDSResync struct {
@@ -112,6 +114,7 @@ type BGSConfig struct {
 	DefaultRepoLimit  int64
 	ConcurrencyPerPDS int64
 	MaxQueuePerPDS    int64
+	RepoFilterShards  string
 }
 
 func DefaultBGSConfig() *BGSConfig {
@@ -121,8 +124,11 @@ func DefaultBGSConfig() *BGSConfig {
 		DefaultRepoLimit:  100,
 		ConcurrencyPerPDS: 100,
 		MaxQueuePerPDS:    1_000,
+		RepoFilterShards:  "",
 	}
 }
+
+const shardFilterBasis = 1024
 
 func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, rf *indexer.RepoFetcher, hr api.HandleResolver, config *BGSConfig) (*BGS, error) {
 
@@ -133,6 +139,11 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	db.AutoMigrate(AuthToken{})
 	db.AutoMigrate(models.PDS{})
 	db.AutoMigrate(models.DomainBan{})
+
+	repoShardFilter, err := NewShardHashMatcher(config.RepoFilterShards, shardFilterBasis)
+	if err != nil {
+		return nil, err
+	}
 
 	bgs := &BGS{
 		Index:       ix,
@@ -149,6 +160,8 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		consumers:   make(map[uint64]*SocketConsumer),
 
 		pdsResyncs: make(map[uint]*PDSResync),
+
+		repoShardFilter: repoShardFilter,
 	}
 
 	ix.CreateExternalUser = bgs.createExternalUser
@@ -551,7 +564,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 	// TODO: if this relay only carries some shards, check here and return error if a requested shard is not present on this relay
 	// shards is hex encoding of a bitmap
 	// shards []byte may be nil, or must be power-of-two length
-	shardFilter, err := NewShardHashMatcher(c.QueryParam("shards"), 1024)
+	shardFilter, err := NewShardHashMatcher(c.QueryParam("shards"), shardFilterBasis)
 	if err != nil {
 		return err
 	}
@@ -817,6 +830,17 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	}()
 
 	eventsReceivedCounter.WithLabelValues(host.Host).Add(1)
+
+	if bgs.repoShardFilter != nil {
+		repo := env.Repo()
+		if repo != "" {
+			if !bgs.repoShardFilter.Match([]byte(repo)) {
+				// drop this event
+				// TODO: counter.Inc()
+				return nil
+			}
+		}
+	}
 
 	switch {
 	case env.RepoCommit != nil:
