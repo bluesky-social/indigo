@@ -233,6 +233,30 @@ func (evt *XRPCStreamEvent) Preserialize() error {
 	return nil
 }
 
+// Return the repo Did if present, or ""
+func (evt *XRPCStreamEvent) Repo() string {
+	switch {
+	case evt.Error != nil:
+		return ""
+	case evt.RepoAccount != nil:
+		return evt.RepoAccount.Did
+	case evt.RepoCommit != nil:
+		return evt.RepoCommit.Repo
+	case evt.RepoHandle != nil:
+		return evt.RepoHandle.Did
+	case evt.RepoIdentity != nil:
+		return evt.RepoIdentity.Did
+	case evt.RepoInfo != nil:
+		return ""
+	case evt.RepoMigrate != nil:
+		return evt.RepoMigrate.Did
+	case evt.RepoTombstone != nil:
+		return evt.RepoTombstone.Did
+	default:
+		return ""
+	}
+}
+
 type ErrorFrame struct {
 	Error   string `cborgen:"error"`
 	Message string `cborgen:"message"`

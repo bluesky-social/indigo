@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
+	"hash/fnv"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -547,6 +549,30 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		since = &sval
 	}
 
+	modStr := c.QueryParam("mod")
+	offsetStr := c.QueryParam("offset")
+	var mod uint32
+	var offset uint32
+	var hasher hash.Hash32
+	if modStr != "" {
+		if offsetStr == "" {
+			return errors.New("mod without offset")
+		}
+		mod64, err := strconv.ParseUint(modStr, 10, 32)
+		if err != nil {
+			return fmt.Errorf("bad mod, %w", err)
+		}
+		offset64, err := strconv.ParseUint(offsetStr, 10, 32)
+		if err != nil {
+			return fmt.Errorf("bad offset, %w", err)
+		}
+		mod = uint32(mod64)
+		offset = uint32(offset64)
+		hasher = fnv.New32a()
+	} else if offsetStr != "" {
+		return errors.New("offset without mod")
+	}
+
 	ctx, cancel := context.WithCancel(c.Request().Context())
 	defer cancel()
 
@@ -646,6 +672,22 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			if !ok {
 				logger.Error("event stream closed unexpectedly")
 				return nil
+			}
+
+			if mod != 0 {
+				repo := evt.Repo()
+				if repo == "" {
+					// ok, pass along all general messages not tied to a specific repo
+				} else {
+					hasher.Reset()
+					hasher.Write([]byte(repo))
+					repoHash := hasher.Sum32()
+					if (repoHash % mod) != offset {
+						// skip this event
+						eventsSkippedCounter.Inc()
+						continue
+					}
+				}
 			}
 
 			wc, err := conn.NextWriter(websocket.BinaryMessage)
