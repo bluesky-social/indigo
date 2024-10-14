@@ -6,8 +6,8 @@ package atproto
 
 import (
 	"context"
+	"encoding/json"
 
-	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -15,9 +15,9 @@ import (
 type IdentityGetRecommendedDidCredentials_Output struct {
 	AlsoKnownAs []string `json:"alsoKnownAs,omitempty" cborgen:"alsoKnownAs,omitempty"`
 	// rotationKeys: Recommended rotation keys for PLC dids. Should be undefined (or ignored) for did:webs.
-	RotationKeys        []string                 `json:"rotationKeys,omitempty" cborgen:"rotationKeys,omitempty"`
-	Services            *util.LexiconTypeDecoder `json:"services,omitempty" cborgen:"services,omitempty"`
-	VerificationMethods *util.LexiconTypeDecoder `json:"verificationMethods,omitempty" cborgen:"verificationMethods,omitempty"`
+	RotationKeys        []string         `json:"rotationKeys,omitempty" cborgen:"rotationKeys,omitempty"`
+	Services            *json.RawMessage `json:"services,omitempty" cborgen:"services,omitempty"`
+	VerificationMethods *json.RawMessage `json:"verificationMethods,omitempty" cborgen:"verificationMethods,omitempty"`
 }
 
 // IdentityGetRecommendedDidCredentials calls the XRPC method "com.atproto.identity.getRecommendedDidCredentials".

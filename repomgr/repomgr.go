@@ -692,7 +692,11 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user models.Uid, writes [
 			}
 
 			nsid := c.Collection + "/" + rkey
-			cc, err := r.PutRecord(ctx, nsid, c.Value.Val)
+			var ltd lexutil.LexiconTypeDecoder
+			if err = ltd.UnmarshalJSON(*c.Value); err != nil {
+				return err
+			}
+			cc, err := r.PutRecord(ctx, nsid, ltd.Val)
 			if err != nil {
 				return err
 			}
@@ -705,14 +709,18 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user models.Uid, writes [
 			}
 
 			if rm.hydrateRecords {
-				op.Record = c.Value.Val
+				op.Record = ltd.Val
 			}
 
 			ops = append(ops, op)
 		case w.RepoApplyWrites_Update != nil:
 			u := w.RepoApplyWrites_Update
 
-			cc, err := r.PutRecord(ctx, u.Collection+"/"+u.Rkey, u.Value.Val)
+			var ltd lexutil.LexiconTypeDecoder
+			if err = ltd.UnmarshalJSON(*u.Value); err != nil {
+				return err
+			}
+			cc, err := r.PutRecord(ctx, u.Collection+"/"+u.Rkey, ltd.Val)
 			if err != nil {
 				return err
 			}
@@ -725,7 +733,7 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user models.Uid, writes [
 			}
 
 			if rm.hydrateRecords {
-				op.Record = u.Value.Val
+				op.Record = ltd.Val
 			}
 
 			ops = append(ops, op)

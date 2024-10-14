@@ -6,8 +6,8 @@ package atproto
 
 import (
 	"context"
+	"encoding/json"
 
-	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
@@ -16,7 +16,7 @@ type RepoCreateRecord_Input struct {
 	// collection: The NSID of the record collection.
 	Collection string `json:"collection" cborgen:"collection"`
 	// record: The record itself. Must contain a $type field.
-	Record *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
+	Record *json.RawMessage `json:"record" cborgen:"record"`
 	// repo: The handle or DID of the repo (aka, current account).
 	Repo string `json:"repo" cborgen:"repo"`
 	// rkey: The Record Key.

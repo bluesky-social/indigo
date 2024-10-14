@@ -19,10 +19,10 @@ import (
 //
 // RECORDTYPE: RepoApplyWrites_Create
 type RepoApplyWrites_Create struct {
-	LexiconTypeID string                   `json:"$type,const=com.atproto.repo.applyWrites#create" cborgen:"$type,const=com.atproto.repo.applyWrites#create"`
-	Collection    string                   `json:"collection" cborgen:"collection"`
-	Rkey          *string                  `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
-	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
+	LexiconTypeID string           `json:"$type,const=com.atproto.repo.applyWrites#create" cborgen:"$type,const=com.atproto.repo.applyWrites#create"`
+	Collection    string           `json:"collection" cborgen:"collection"`
+	Rkey          *string          `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
+	Value         *json.RawMessage `json:"value" cborgen:"value"`
 }
 
 // RepoApplyWrites_CreateResult is a "createResult" in the com.atproto.repo.applyWrites schema.
@@ -162,10 +162,10 @@ func (t *RepoApplyWrites_Output_Results_Elem) UnmarshalJSON(b []byte) error {
 //
 // RECORDTYPE: RepoApplyWrites_Update
 type RepoApplyWrites_Update struct {
-	LexiconTypeID string                   `json:"$type,const=com.atproto.repo.applyWrites#update" cborgen:"$type,const=com.atproto.repo.applyWrites#update"`
-	Collection    string                   `json:"collection" cborgen:"collection"`
-	Rkey          string                   `json:"rkey" cborgen:"rkey"`
-	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
+	LexiconTypeID string           `json:"$type,const=com.atproto.repo.applyWrites#update" cborgen:"$type,const=com.atproto.repo.applyWrites#update"`
+	Collection    string           `json:"collection" cborgen:"collection"`
+	Rkey          string           `json:"rkey" cborgen:"rkey"`
+	Value         *json.RawMessage `json:"value" cborgen:"value"`
 }
 
 // RepoApplyWrites_UpdateResult is a "updateResult" in the com.atproto.repo.applyWrites schema.

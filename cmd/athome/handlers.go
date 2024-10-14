@@ -142,7 +142,8 @@ func (srv *Server) WebRepoRSS(c echo.Context) error {
 		if err != nil {
 			return err
 		}
-		rec := p.Post.Record.Val.(*appbsky.FeedPost)
+
+		rec := p.Post.Record
 		// only top-level posts in RSS
 		if rec.Reply != nil {
 			continue
