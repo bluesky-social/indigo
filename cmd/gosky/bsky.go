@@ -178,7 +178,7 @@ var bskyGetFeedCmd = &cli.Command{
 				author = xrpcc.Auth.Did
 			}
 
-			tl, err := appbsky.FeedGetAuthorFeed(ctx, xrpcc, author, "", "", 99)
+			tl, err := appbsky.FeedGetAuthorFeed(ctx, xrpcc, author, "", "", false, 99)
 			if err != nil {
 				return err
 			}
@@ -314,11 +314,12 @@ var bskyDeletePostCmd = &cli.Command{
 			rkey = parts[1]
 		}
 
-		return comatproto.RepoDeleteRecord(context.TODO(), xrpcc, &comatproto.RepoDeleteRecord_Input{
+		_, err = comatproto.RepoDeleteRecord(context.TODO(), xrpcc, &comatproto.RepoDeleteRecord_Input{
 			Repo:       xrpcc.Auth.Did,
 			Collection: schema,
 			Rkey:       rkey,
 		})
+		return err
 	},
 }
 

@@ -15,7 +15,8 @@ import (
 
 // FeedGetPostThread_Output is the output of a app.bsky.feed.getPostThread call.
 type FeedGetPostThread_Output struct {
-	Thread *FeedGetPostThread_Output_Thread `json:"thread" cborgen:"thread"`
+	Thread     *FeedGetPostThread_Output_Thread `json:"thread" cborgen:"thread"`
+	Threadgate *FeedDefs_ThreadgateView         `json:"threadgate,omitempty" cborgen:"threadgate,omitempty"`
 }
 
 type FeedGetPostThread_Output_Thread struct {

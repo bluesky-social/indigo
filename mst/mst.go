@@ -113,7 +113,7 @@ func CBORTypes() []reflect.Type {
 // MST tree node as gets serialized to CBOR. Note that the CBOR fields are all
 // single-character.
 type nodeData struct {
-	Left    *cid.Cid    `cborgen:"l"` // [optional] pointer to lower-level subtree to the "left" of this path/key
+	Left    *cid.Cid    `cborgen:"l"` // [nullable] pointer to lower-level subtree to the "left" of this path/key
 	Entries []treeEntry `cborgen:"e"` // ordered list of entries at this node
 }
 
@@ -122,7 +122,7 @@ type treeEntry struct {
 	PrefixLen int64    `cborgen:"p"` // count of characters shared with previous path/key in tree
 	KeySuffix []byte   `cborgen:"k"` // remaining part of path/key (appended to "previous key")
 	Val       cid.Cid  `cborgen:"v"` // CID pointer at this path/key
-	Tree      *cid.Cid `cborgen:"t"` // [optional] pointer to lower-level subtree to the "right" of this path/key entry
+	Tree      *cid.Cid `cborgen:"t"` // [nullable] pointer to lower-level subtree to the "right" of this path/key entry
 }
 
 // MerkleSearchTree represents an MST tree node (NodeData type). It can be in

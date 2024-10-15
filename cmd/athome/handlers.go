@@ -17,7 +17,7 @@ func (srv *Server) reqHandle(c echo.Context) syntax.Handle {
 	host = strings.SplitN(host, ":", 2)[0]
 	handle, err := syntax.ParseHandle(host)
 	if err != nil {
-		slog.Warn("host is not a valid handle, fallback to default", "host", host)
+		slog.Warn("host is not a valid handle, fallback to default", "hostname", host)
 		handle = srv.defaultHandle
 	}
 	return handle
@@ -85,7 +85,7 @@ func (srv *Server) WebProfile(c echo.Context) error {
 	did := pv.Did
 	data["did"] = did
 
-	af, err := appbsky.FeedGetAuthorFeed(ctx, srv.xrpcc, handle.String(), "", "posts_no_replies", 100)
+	af, err := appbsky.FeedGetAuthorFeed(ctx, srv.xrpcc, handle.String(), "", "posts_no_replies", false, 100)
 	if err != nil {
 		slog.Warn("failed to fetch author feed", "handle", handle, "err", err)
 		// TODO: show some error?
@@ -126,7 +126,7 @@ func (srv *Server) WebRepoRSS(c echo.Context) error {
 		//return err
 	}
 
-	af, err := appbsky.FeedGetAuthorFeed(ctx, srv.xrpcc, handle.String(), "", "posts_no_replies", 30)
+	af, err := appbsky.FeedGetAuthorFeed(ctx, srv.xrpcc, handle.String(), "", "posts_no_replies", false, 30)
 	if err != nil {
 		slog.Warn("failed to fetch author feed", "handle", handle, "err", err)
 		return err

@@ -640,7 +640,6 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 
 	logger.Infow("new consumer", "cursor", since)
 
-	header := events.EventHeader{Op: events.EvtKindMessage}
 	for {
 		select {
 		case evt, ok := <-evts:
@@ -655,42 +654,12 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 				return err
 			}
 
-			var obj lexutil.CBOR
-
-			switch {
-			case evt.Error != nil:
-				header.Op = events.EvtKindErrorFrame
-				obj = evt.Error
-			case evt.RepoCommit != nil:
-				header.MsgType = "#commit"
-				obj = evt.RepoCommit
-			case evt.RepoHandle != nil:
-				header.MsgType = "#handle"
-				obj = evt.RepoHandle
-			case evt.RepoIdentity != nil:
-				header.MsgType = "#identity"
-				obj = evt.RepoIdentity
-			case evt.RepoAccount != nil:
-				header.MsgType = "#account"
-				obj = evt.RepoAccount
-			case evt.RepoInfo != nil:
-				header.MsgType = "#info"
-				obj = evt.RepoInfo
-			case evt.RepoMigrate != nil:
-				header.MsgType = "#migrate"
-				obj = evt.RepoMigrate
-			case evt.RepoTombstone != nil:
-				header.MsgType = "#tombstone"
-				obj = evt.RepoTombstone
-			default:
-				return fmt.Errorf("unrecognized event kind")
+			if evt.Preserialized != nil {
+				_, err = wc.Write(evt.Preserialized)
+			} else {
+				err = evt.Serialize(wc)
 			}
-
-			if err := header.MarshalCBOR(wc); err != nil {
-				return fmt.Errorf("failed to write header: %w", err)
-			}
-
-			if err := obj.MarshalCBOR(wc); err != nil {
+			if err != nil {
 				return fmt.Errorf("failed to write event: %w", err)
 			}
 
@@ -831,7 +800,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 	case env.RepoCommit != nil:
 		repoCommitsReceivedCounter.WithLabelValues(host.Host).Add(1)
 		evt := env.RepoCommit
-		log.Debugw("bgs got repo append event", "seq", evt.Seq, "host", host.Host, "repo", evt.Repo)
+		log.Debugw("bgs got repo append event", "seq", evt.Seq, "pdsHost", host.Host, "repo", evt.Repo)
 		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -853,17 +822,17 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		if u.TakenDown || u.UpstreamStatus == events.AccountStatusTakendown {
 			span.SetAttributes(attribute.Bool("taken_down_by_relay_admin", u.TakenDown))
-			log.Debugw("dropping commit event from taken down user", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
+			log.Debugw("dropping commit event from taken down user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 			return nil
 		}
 
 		if u.UpstreamStatus == events.AccountStatusSuspended {
-			log.Debugw("dropping commit event from suspended user", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
+			log.Debugw("dropping commit event from suspended user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 			return nil
 		}
 
 		if u.UpstreamStatus == events.AccountStatusDeactivated {
-			log.Debugw("dropping commit event from deactivated user", "did", evt.Repo, "seq", evt.Seq, "host", host.Host)
+			log.Debugw("dropping commit event from deactivated user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 			return nil
 		}
 
@@ -922,7 +891,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		}
 
 		if err := bgs.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.Since, evt.Rev, evt.Blocks, evt.Ops); err != nil {
-			log.Warnw("failed handling event", "err", err, "host", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
+			log.Warnw("failed handling event", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
 
 			if errors.Is(err, carstore.ErrRepoBaseMismatch) || ipld.IsNotFound(err) {
 				ai, lerr := bgs.Index.LookupUser(ctx, u.ID)

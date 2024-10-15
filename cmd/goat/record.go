@@ -180,7 +180,7 @@ func runRecordList(cctx *cli.Context) error {
 		cursor := ""
 		for {
 			// collection string, cursor string, limit int64, repo string, reverse bool, rkeyEnd string, rkeyStart string
-			resp, err := comatproto.RepoListRecords(ctx, &xrpcc, nsid, cursor, 100, ident.DID.String(), false, "", "")
+			resp, err := RepoListRecords(ctx, &xrpcc, nsid, cursor, 100, ident.DID.String(), false, "", "")
 			if err != nil {
 				return err
 			}
@@ -295,7 +295,7 @@ func runRecordUpdate(cctx *cli.Context) error {
 	rkey := cctx.String("rkey")
 
 	// NOTE: need to fetch existing record CID to perform swap. this is optional in theory, but golang can't deal with "optional" and "nullable", so we always need to set this (?)
-	existing, err := comatproto.RepoGetRecord(ctx, xrpcc, "", nsid, xrpcc.Auth.Did, rkey)
+	existing, err := RepoGetRecord(ctx, xrpcc, "", nsid, xrpcc.Auth.Did, rkey)
 	if err != nil {
 		return err
 	}
@@ -343,7 +343,7 @@ func runRecordDelete(cctx *cli.Context) error {
 		return err
 	}
 
-	err = comatproto.RepoDeleteRecord(ctx, xrpcc, &comatproto.RepoDeleteRecord_Input{
+	_, err = comatproto.RepoDeleteRecord(ctx, xrpcc, &comatproto.RepoDeleteRecord_Input{
 		Collection: collection.String(),
 		Repo:       xrpcc.Auth.Did,
 		Rkey:       rkey.String(),
