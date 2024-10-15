@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block main_content %}
+<h2 style="font-family: monospace;">at://{{ atid }}/{{ collection }}</h2>
+
+<h4>Index</h4>
+<table>
+  <tbody>
+    <tr><td><code><a href="/at/{{ atid }}">..</a></code></td>
+    {% for uri in recordURIs %}
+    <tr><td><code><a href="/at/{{ atid }}/{{ collection }}/{{ uri.RecordKey() }}">{{ collection }}/{{ uri.RecordKey() }}</a></code></td>
+    {% endfor %}
+    {% if cursor != "" %}
+    <tr><td><code><a href="/at/{{ atid }}/{{ collection }}?cursor={{ cursor }}">[more]</a></code></td>
+    {% endif %}
+  </tbody>
+</table>
+
+{% endblock %}

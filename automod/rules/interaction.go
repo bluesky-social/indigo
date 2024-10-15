@@ -8,6 +8,7 @@ import (
 )
 
 var interactionDailyThreshold = 800
+var followsDailyThreshold = 3000
 
 var _ automod.RecordRuleFunc = InteractionChurnRule
 
@@ -27,6 +28,7 @@ func InteractionChurnRule(c *automod.RecordContext) error {
 			c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("interaction churn: %d likes, %d unlikes today (so far)", created, deleted))
 			c.EscalateAccount()
 			c.Notify("slack")
+			return nil
 		}
 	case "app.bsky.graph.follow":
 		c.Increment("follow", did)
@@ -39,14 +41,15 @@ func InteractionChurnRule(c *automod.RecordContext) error {
 			c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("interaction churn: %d follows, %d unfollows today (so far)", created, deleted))
 			c.EscalateAccount()
 			c.Notify("slack")
+			return nil
 		}
 		// just generic bulk following
-		followRatio := float64(c.Account.FollowersCount) / float64(c.Account.FollowsCount)
-		if created > interactionDailyThreshold && c.Account.FollowsCount > 2000 && followRatio < 0.2 {
+		if created > followsDailyThreshold {
 			c.Logger.Info("bulk-follower", "created-today", created)
 			c.AddAccountFlag("bulk-follower")
 			c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("bulk following: %d follows today (so far)", created))
-			//c.Notify("slack")
+			c.Notify("slack")
+			return nil
 		}
 	}
 	return nil

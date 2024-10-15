@@ -33,19 +33,22 @@ func main() {
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:  "ws-url",
-			Usage: "full websocket path to the ATProto SubscribeRepos XRPC endpoint",
-			Value: "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
+			Name:    "ws-url",
+			Usage:   "full websocket path to the ATProto SubscribeRepos XRPC endpoint",
+			Value:   "wss://bsky.network/xrpc/com.atproto.sync.subscribeRepos",
+			EnvVars: []string{"SONAR_WS_URL"},
 		},
 		&cli.StringFlag{
-			Name:  "log-level",
-			Usage: "log level",
-			Value: "info",
+			Name:    "log-level",
+			Usage:   "log level",
+			Value:   "info",
+			EnvVars: []string{"SONAR_LOG_LEVEL"},
 		},
 		&cli.IntFlag{
-			Name:  "port",
-			Usage: "listen port for metrics server",
-			Value: 8345,
+			Name:    "port",
+			Usage:   "listen port for metrics server",
+			Value:   8345,
+			EnvVars: []string{"SONAR_PORT"},
 		},
 		&cli.IntFlag{
 			Name:  "max-queue-size",
@@ -53,9 +56,10 @@ func main() {
 			Value: 10,
 		},
 		&cli.StringFlag{
-			Name:  "cursor-file",
-			Usage: "path to cursor file",
-			Value: "sonar_cursor.json",
+			Name:    "cursor-file",
+			Usage:   "path to cursor file",
+			Value:   "sonar_cursor.json",
+			EnvVars: []string{"SONAR_CURSOR_FILE"},
 		},
 	}
 

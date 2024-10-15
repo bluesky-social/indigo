@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block main_content %}
+<h2 style="font-family: monospace;">at://{{ atid }}</h2>
+
+<h4>Index</h4>
+<table>
+  <tbody>
+      <tr><td><code><a href="/account/{{ atid }}">..</a></code></td>
+    {% for collection in collections %}
+    <tr><td><code><a href="/at/{{ atid }}/{{ collection }}">{{ collection }}/</a></code></td>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

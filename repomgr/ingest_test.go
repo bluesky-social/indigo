@@ -69,7 +69,7 @@ func TestLoadNewRepo(t *testing.T) {
 	}
 }
 
-func testCarstore(t *testing.T, dir string) *carstore.CarStore {
+func testCarstore(t *testing.T, dir string) carstore.CarStore {
 	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.sqlite")))
 	if err != nil {
 		t.Fatal(err)
@@ -151,7 +151,7 @@ func TestIngestWithGap(t *testing.T) {
 	}
 }
 
-func doPost(t *testing.T, cs *carstore.CarStore, did string, prev *string, postid int) ([]byte, cid.Cid, string, string) {
+func doPost(t *testing.T, cs carstore.CarStore, did string, prev *string, postid int) ([]byte, cid.Cid, string, string) {
 	ctx := context.TODO()
 	ds, err := cs.NewDeltaSession(ctx, 1, prev)
 	if err != nil {

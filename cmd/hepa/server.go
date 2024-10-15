@@ -95,7 +95,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 			return nil, fmt.Errorf("ozone account DID supplied was not valid: %v", err)
 		}
 		ozoneClient.Auth.Did = od.String()
-		logger.Info("configured ozone admin client", "did", od.String(), "host", config.OzoneHost)
+		logger.Info("configured ozone admin client", "did", od.String(), "ozoneHost", config.OzoneHost)
 	} else {
 		logger.Info("did not configure ozone client")
 	}
@@ -112,7 +112,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 			adminClient.Headers = make(map[string]string)
 			adminClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
 		}
-		logger.Info("configured PDS admin client", "host", config.PDSHost)
+		logger.Info("configured PDS admin client", "pdsHost", config.PDSHost)
 	} else {
 		logger.Info("did not configure PDS admin client")
 	}
@@ -166,6 +166,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		flags = flagstore.NewMemFlagStore()
 	}
 
+	// IMPORTANT: reminder that these are the indigo-edition rules, not production rules
 	extraBlobRules := []automod.BlobRuleFunc{}
 	if config.HiveAPIToken != "" && config.RulesetName != "no-hive" {
 		logger.Info("configuring Hive AI image labeler")

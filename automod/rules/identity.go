@@ -32,7 +32,7 @@ func NewAccountRule(c *automod.AccountContext) error {
 
 		// new PDS host
 		if existingAccounts == 0 {
-			c.Logger.Info("new PDS instance", "host", pdsHost)
+			c.Logger.Info("new PDS instance", "pdsHost", pdsHost)
 			c.Increment("host", "new")
 			c.AddAccountFlag("host-first-account")
 			c.Notify("slack")

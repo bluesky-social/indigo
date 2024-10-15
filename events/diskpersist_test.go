@@ -187,7 +187,7 @@ func BenchmarkDiskPersist(b *testing.B) {
 
 }
 
-func runPersisterBenchmark(b *testing.B, cs *carstore.CarStore, db *gorm.DB, p events.EventPersistence) {
+func runPersisterBenchmark(b *testing.B, cs carstore.CarStore, db *gorm.DB, p events.EventPersistence) {
 	ctx := context.Background()
 
 	db.AutoMigrate(&pds.User{})
@@ -302,7 +302,7 @@ func TestDiskPersister(t *testing.T) {
 	runEventManagerTest(t, cs, db, dp)
 }
 
-func runEventManagerTest(t *testing.T, cs *carstore.CarStore, db *gorm.DB, p events.EventPersistence) {
+func runEventManagerTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p events.EventPersistence) {
 	ctx := context.Background()
 
 	db.AutoMigrate(&pds.User{})
@@ -370,6 +370,9 @@ func runEventManagerTest(t *testing.T, cs *carstore.CarStore, db *gorm.DB, p eve
 	outEvtCount := 0
 	p.Playback(ctx, 0, func(evt *events.XRPCStreamEvent) error {
 		// Check that the contents of the output events match the input events
+		// Clear cache, don't care if one has it and not the other
+		inEvts[outEvtCount].Preserialized = nil
+		evt.Preserialized = nil
 		if !reflect.DeepEqual(inEvts[outEvtCount], evt) {
 			t.Logf("%v", inEvts[outEvtCount].RepoCommit)
 			t.Logf("%v", evt.RepoCommit)
@@ -406,7 +409,7 @@ func TestDiskPersisterTakedowns(t *testing.T) {
 	runTakedownTest(t, cs, db, dp)
 }
 
-func runTakedownTest(t *testing.T, cs *carstore.CarStore, db *gorm.DB, p events.EventPersistence) {
+func runTakedownTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p events.EventPersistence) {
 	ctx := context.TODO()
 
 	db.AutoMigrate(&pds.User{})
