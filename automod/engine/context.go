@@ -272,6 +272,14 @@ func (c *AccountContext) TakedownAccount() {
 	c.effects.TakedownAccount()
 }
 
+func (c *AccountContext) EscalateAccount() {
+	c.effects.EscalateAccount()
+}
+
+func (c *AccountContext) AcknowledgeAccount() {
+	c.effects.AcknowledgeAccount()
+}
+
 func (c *RecordContext) AddRecordFlag(val string) {
 	c.effects.AddRecordFlag(val)
 }
@@ -286,6 +294,14 @@ func (c *RecordContext) ReportRecord(reason, comment string) {
 
 func (c *RecordContext) TakedownRecord() {
 	c.effects.TakedownRecord()
+}
+
+func (c *RecordContext) EscalateRecord() {
+	c.effects.EscalateRecord()
+}
+
+func (c *RecordContext) AcknowledgeRecord() {
+	c.effects.AcknowledgeRecord()
 }
 
 func (c *RecordContext) TakedownBlob(cid string) {

@@ -111,6 +111,26 @@ func (eng *Engine) circuitBreakTakedown(ctx context.Context, takedown bool) (boo
 	return takedown, nil
 }
 
+// Combined circuit breaker for miscellaneous mod actions like: escalate, acknowledge
+func (eng *Engine) circuitBreakModAction(ctx context.Context, action bool) (bool, error) {
+	if !action {
+		return false, nil
+	}
+	c, err := eng.Counters.GetCount(ctx, "automod-quota", "mod-action", countstore.PeriodDay)
+	if err != nil {
+		return false, fmt.Errorf("checking mod action quota: %w", err)
+	}
+	if c >= QuotaModActionDay {
+		eng.Logger.Warn("CIRCUIT BREAKER: automod action")
+		return false, nil
+	}
+	err = eng.Counters.Increment(ctx, "automod-quota", "mod-action")
+	if err != nil {
+		return false, fmt.Errorf("incrementing mod action quota: %w", err)
+	}
+	return action, nil
+}
+
 // Creates a moderation report, but checks first if there was a similar recent one, and skips if so.
 //
 // Returns a bool indicating if a new report was created.
