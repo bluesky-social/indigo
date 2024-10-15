@@ -35,6 +35,8 @@ type ActorDefs_BskyAppProgressGuide struct {
 type ActorDefs_BskyAppStatePref struct {
 	LexiconTypeID       string                          `json:"$type,const=app.bsky.actor.defs#bskyAppStatePref" cborgen:"$type,const=app.bsky.actor.defs#bskyAppStatePref"`
 	ActiveProgressGuide *ActorDefs_BskyAppProgressGuide `json:"activeProgressGuide,omitempty" cborgen:"activeProgressGuide,omitempty"`
+	// nuxs: Storage for NUXs the user has encountered.
+	Nuxs []*ActorDefs_Nux `json:"nuxs,omitempty" cborgen:"nuxs,omitempty"`
 	// queuedNudges: An array of tokens which identify nudges (modals, popups, tours, highlight dots) that should be shown to the user.
 	QueuedNudges []string `json:"queuedNudges,omitempty" cborgen:"queuedNudges,omitempty"`
 }
@@ -130,6 +132,18 @@ type ActorDefs_MutedWordsPref struct {
 	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs#mutedWordsPref" cborgen:"$type,const=app.bsky.actor.defs#mutedWordsPref"`
 	// items: A list of words the account owner has muted.
 	Items []*ActorDefs_MutedWord `json:"items" cborgen:"items"`
+}
+
+// ActorDefs_Nux is a "nux" in the app.bsky.actor.defs schema.
+//
+// A new user experiences (NUX) storage object
+type ActorDefs_Nux struct {
+	Completed bool `json:"completed" cborgen:"completed"`
+	// data: Arbitrary data for the NUX. The structure is defined by the NUX itself. Limited to 300 characters.
+	Data *string `json:"data,omitempty" cborgen:"data,omitempty"`
+	// expiresAt: The date and time at which the NUX will expire and should be considered completed.
+	ExpiresAt *string `json:"expiresAt,omitempty" cborgen:"expiresAt,omitempty"`
+	Id        string  `json:"id" cborgen:"id"`
 }
 
 // ActorDefs_PersonalDetailsPref is a "personalDetailsPref" in the app.bsky.actor.defs schema.
@@ -311,6 +325,7 @@ type ActorDefs_ProfileViewDetailed struct {
 	IndexedAt            *string                            `json:"indexedAt,omitempty" cborgen:"indexedAt,omitempty"`
 	JoinedViaStarterPack *GraphDefs_StarterPackViewBasic    `json:"joinedViaStarterPack,omitempty" cborgen:"joinedViaStarterPack,omitempty"`
 	Labels               []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	PinnedPost           *comatprototypes.RepoStrongRef     `json:"pinnedPost,omitempty" cborgen:"pinnedPost,omitempty"`
 	PostsCount           *int64                             `json:"postsCount,omitempty" cborgen:"postsCount,omitempty"`
 	Viewer               *ActorDefs_ViewerState             `json:"viewer,omitempty" cborgen:"viewer,omitempty"`
 }

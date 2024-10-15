@@ -23,6 +23,7 @@ var cmdBsky = &cli.Command{
 			ArgsUsage: `<text>`,
 			Action:    runBskyPost,
 		},
+		cmdBskyPrefs,
 	},
 }
 

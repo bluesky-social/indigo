@@ -39,12 +39,17 @@ type FeedDefs_FeedViewPost struct {
 
 type FeedDefs_FeedViewPost_Reason struct {
 	FeedDefs_ReasonRepost *FeedDefs_ReasonRepost
+	FeedDefs_ReasonPin    *FeedDefs_ReasonPin
 }
 
 func (t *FeedDefs_FeedViewPost_Reason) MarshalJSON() ([]byte, error) {
 	if t.FeedDefs_ReasonRepost != nil {
 		t.FeedDefs_ReasonRepost.LexiconTypeID = "app.bsky.feed.defs#reasonRepost"
 		return json.Marshal(t.FeedDefs_ReasonRepost)
+	}
+	if t.FeedDefs_ReasonPin != nil {
+		t.FeedDefs_ReasonPin.LexiconTypeID = "app.bsky.feed.defs#reasonPin"
+		return json.Marshal(t.FeedDefs_ReasonPin)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -58,6 +63,9 @@ func (t *FeedDefs_FeedViewPost_Reason) UnmarshalJSON(b []byte) error {
 	case "app.bsky.feed.defs#reasonRepost":
 		t.FeedDefs_ReasonRepost = new(FeedDefs_ReasonRepost)
 		return json.Unmarshal(b, t.FeedDefs_ReasonRepost)
+	case "app.bsky.feed.defs#reasonPin":
+		t.FeedDefs_ReasonPin = new(FeedDefs_ReasonPin)
+		return json.Unmarshal(b, t.FeedDefs_ReasonPin)
 
 	default:
 		return nil
@@ -117,6 +125,7 @@ type FeedDefs_PostView struct {
 	IndexedAt     string                             `json:"indexedAt" cborgen:"indexedAt"`
 	Labels        []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
 	LikeCount     *int64                             `json:"likeCount,omitempty" cborgen:"likeCount,omitempty"`
+	QuoteCount    *int64                             `json:"quoteCount,omitempty" cborgen:"quoteCount,omitempty"`
 	Record        *util.LexiconTypeDecoder           `json:"record" cborgen:"record"`
 	ReplyCount    *int64                             `json:"replyCount,omitempty" cborgen:"replyCount,omitempty"`
 	RepostCount   *int64                             `json:"repostCount,omitempty" cborgen:"repostCount,omitempty"`
@@ -182,6 +191,13 @@ func (t *FeedDefs_PostView_Embed) UnmarshalJSON(b []byte) error {
 	default:
 		return nil
 	}
+}
+
+// FeedDefs_ReasonPin is a "reasonPin" in the app.bsky.feed.defs schema.
+//
+// RECORDTYPE: FeedDefs_ReasonPin
+type FeedDefs_ReasonPin struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.feed.defs#reasonPin" cborgen:"$type,const=app.bsky.feed.defs#reasonPin"`
 }
 
 // FeedDefs_ReasonRepost is a "reasonRepost" in the app.bsky.feed.defs schema.
@@ -297,12 +313,17 @@ type FeedDefs_SkeletonFeedPost struct {
 
 type FeedDefs_SkeletonFeedPost_Reason struct {
 	FeedDefs_SkeletonReasonRepost *FeedDefs_SkeletonReasonRepost
+	FeedDefs_SkeletonReasonPin    *FeedDefs_SkeletonReasonPin
 }
 
 func (t *FeedDefs_SkeletonFeedPost_Reason) MarshalJSON() ([]byte, error) {
 	if t.FeedDefs_SkeletonReasonRepost != nil {
 		t.FeedDefs_SkeletonReasonRepost.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonRepost"
 		return json.Marshal(t.FeedDefs_SkeletonReasonRepost)
+	}
+	if t.FeedDefs_SkeletonReasonPin != nil {
+		t.FeedDefs_SkeletonReasonPin.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonPin"
+		return json.Marshal(t.FeedDefs_SkeletonReasonPin)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -316,10 +337,20 @@ func (t *FeedDefs_SkeletonFeedPost_Reason) UnmarshalJSON(b []byte) error {
 	case "app.bsky.feed.defs#skeletonReasonRepost":
 		t.FeedDefs_SkeletonReasonRepost = new(FeedDefs_SkeletonReasonRepost)
 		return json.Unmarshal(b, t.FeedDefs_SkeletonReasonRepost)
+	case "app.bsky.feed.defs#skeletonReasonPin":
+		t.FeedDefs_SkeletonReasonPin = new(FeedDefs_SkeletonReasonPin)
+		return json.Unmarshal(b, t.FeedDefs_SkeletonReasonPin)
 
 	default:
 		return nil
 	}
+}
+
+// FeedDefs_SkeletonReasonPin is a "skeletonReasonPin" in the app.bsky.feed.defs schema.
+//
+// RECORDTYPE: FeedDefs_SkeletonReasonPin
+type FeedDefs_SkeletonReasonPin struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.feed.defs#skeletonReasonPin" cborgen:"$type,const=app.bsky.feed.defs#skeletonReasonPin"`
 }
 
 // FeedDefs_SkeletonReasonRepost is a "skeletonReasonRepost" in the app.bsky.feed.defs schema.
@@ -440,6 +471,7 @@ type FeedDefs_ThreadgateView struct {
 type FeedDefs_ViewerState struct {
 	EmbeddingDisabled *bool   `json:"embeddingDisabled,omitempty" cborgen:"embeddingDisabled,omitempty"`
 	Like              *string `json:"like,omitempty" cborgen:"like,omitempty"`
+	Pinned            *bool   `json:"pinned,omitempty" cborgen:"pinned,omitempty"`
 	ReplyDisabled     *bool   `json:"replyDisabled,omitempty" cborgen:"replyDisabled,omitempty"`
 	Repost            *string `json:"repost,omitempty" cborgen:"repost,omitempty"`
 	ThreadMuted       *bool   `json:"threadMuted,omitempty" cborgen:"threadMuted,omitempty"`

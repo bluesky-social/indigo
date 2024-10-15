@@ -212,8 +212,10 @@ type ModerationDefs_ModEventTag struct {
 //
 // RECORDTYPE: ModerationDefs_ModEventTakedown
 type ModerationDefs_ModEventTakedown struct {
-	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#modEventTakedown" cborgen:"$type,const=tools.ozone.moderation.defs#modEventTakedown"`
-	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	LexiconTypeID string `json:"$type,const=tools.ozone.moderation.defs#modEventTakedown" cborgen:"$type,const=tools.ozone.moderation.defs#modEventTakedown"`
+	// acknowledgeAccountSubjects: If true, all other reports on content authored by this account will be resolved (acknowledged).
+	AcknowledgeAccountSubjects *bool   `json:"acknowledgeAccountSubjects,omitempty" cborgen:"acknowledgeAccountSubjects,omitempty"`
+	Comment                    *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	// durationInHours: Indicates how long the takedown should be in effect before automatically expiring.
 	DurationInHours *int64 `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
 }
@@ -659,15 +661,18 @@ type ModerationDefs_RecordView struct {
 }
 
 // ModerationDefs_RecordViewDetail is a "recordViewDetail" in the tools.ozone.moderation.defs schema.
+//
+// RECORDTYPE: ModerationDefs_RecordViewDetail
 type ModerationDefs_RecordViewDetail struct {
-	Blobs      []*ModerationDefs_BlobView         `json:"blobs" cborgen:"blobs"`
-	Cid        string                             `json:"cid" cborgen:"cid"`
-	IndexedAt  string                             `json:"indexedAt" cborgen:"indexedAt"`
-	Labels     []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
-	Moderation *ModerationDefs_ModerationDetail   `json:"moderation" cborgen:"moderation"`
-	Repo       *ModerationDefs_RepoView           `json:"repo" cborgen:"repo"`
-	Uri        string                             `json:"uri" cborgen:"uri"`
-	Value      *util.LexiconTypeDecoder           `json:"value" cborgen:"value"`
+	LexiconTypeID string                             `json:"$type,const=tools.ozone.moderation.defs#recordViewDetail" cborgen:"$type,const=tools.ozone.moderation.defs#recordViewDetail"`
+	Blobs         []*ModerationDefs_BlobView         `json:"blobs" cborgen:"blobs"`
+	Cid           string                             `json:"cid" cborgen:"cid"`
+	IndexedAt     string                             `json:"indexedAt" cborgen:"indexedAt"`
+	Labels        []*comatprototypes.LabelDefs_Label `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Moderation    *ModerationDefs_ModerationDetail   `json:"moderation" cborgen:"moderation"`
+	Repo          *ModerationDefs_RepoView           `json:"repo" cborgen:"repo"`
+	Uri           string                             `json:"uri" cborgen:"uri"`
+	Value         *util.LexiconTypeDecoder           `json:"value" cborgen:"value"`
 }
 
 // ModerationDefs_RecordViewNotFound is a "recordViewNotFound" in the tools.ozone.moderation.defs schema.
@@ -696,7 +701,10 @@ type ModerationDefs_RepoView struct {
 }
 
 // ModerationDefs_RepoViewDetail is a "repoViewDetail" in the tools.ozone.moderation.defs schema.
+//
+// RECORDTYPE: ModerationDefs_RepoViewDetail
 type ModerationDefs_RepoViewDetail struct {
+	LexiconTypeID    string                                   `json:"$type,const=tools.ozone.moderation.defs#repoViewDetail" cborgen:"$type,const=tools.ozone.moderation.defs#repoViewDetail"`
 	DeactivatedAt    *string                                  `json:"deactivatedAt,omitempty" cborgen:"deactivatedAt,omitempty"`
 	Did              string                                   `json:"did" cborgen:"did"`
 	Email            *string                                  `json:"email,omitempty" cborgen:"email,omitempty"`

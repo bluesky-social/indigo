@@ -12,6 +12,8 @@ import (
 
 // GraphGetSuggestedFollowsByActor_Output is the output of a app.bsky.graph.getSuggestedFollowsByActor call.
 type GraphGetSuggestedFollowsByActor_Output struct {
+	// isFallback: If true, response has fallen-back to generic results, and is not scoped using relativeToDid
+	IsFallback  *bool                    `json:"isFallback,omitempty" cborgen:"isFallback,omitempty"`
 	Suggestions []*ActorDefs_ProfileView `json:"suggestions" cborgen:"suggestions"`
 }
 

@@ -1,0 +1,78 @@
+{
+  "lexicon": 1,
+  "id": "com.atproto.label.defs",
+  "defs": {
+    "label": {
+      "description": "Metadata tag on an atproto resource (eg, repo or record)",
+      "properties": {
+        "cid": {
+          "description": "optionally, CID specifying the specific version of 'uri' resource this label applies to",
+          "format": "cid",
+          "type": "string"
+        },
+        "cts": {
+          "description": "timestamp when this label was created",
+          "format": "datetime",
+          "type": "string"
+        },
+        "neg": {
+          "description": "if true, this is a negation label, overwriting a previous label",
+          "type": "boolean"
+        },
+        "src": {
+          "description": "DID of the actor who created this label",
+          "format": "did",
+          "type": "string"
+        },
+        "uri": {
+          "description": "AT URI of the record, repository (account), or other resource which this label applies to",
+          "format": "uri",
+          "type": "string"
+        },
+        "val": {
+          "description": "the short string name of the value or type of this label",
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
+      "required": [
+        "src",
+        "uri",
+        "val",
+        "cts"
+      ],
+      "type": "object"
+    },
+    "selfLabel": {
+      "description": "Metadata tag on an atproto record, published by the author within the record. Note -- schemas should use #selfLabels, not #selfLabel.",
+      "properties": {
+        "val": {
+          "description": "the short string name of the value or type of this label",
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
+      "required": [
+        "val"
+      ],
+      "type": "object"
+    },
+    "selfLabels": {
+      "description": "Metadata tags on an atproto record, published by the author within the record.",
+      "properties": {
+        "values": {
+          "items": {
+            "ref": "#selfLabel",
+            "type": "ref"
+          },
+          "maxLength": 10,
+          "type": "array"
+        }
+      },
+      "required": [
+        "values"
+      ],
+      "type": "object"
+    }
+  }
+}
