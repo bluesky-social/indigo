@@ -61,6 +61,7 @@ type Config struct {
 	RulesetName         string
 	RatelimitBypass     string
 	FirehoseParallelism int
+	RerouteEvents       bool
 	PreScreenHost       string
 	PreScreenToken      string
 }
@@ -228,6 +229,9 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		OzoneClient: ozoneClient,
 		AdminClient: adminClient,
 		BlobClient:  blobClient,
+		Config: automod.EngineConfig{
+			PersistSubjectHistoryOzone: config.RerouteEvents,
+		},
 	}
 
 	s := &Server{

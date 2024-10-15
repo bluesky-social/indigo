@@ -16,6 +16,7 @@ type RuleSet struct {
 	RecordRules       []RecordRuleFunc
 	RecordDeleteRules []RecordRuleFunc
 	IdentityRules     []IdentityRuleFunc
+	AccountRules      []AccountRuleFunc
 	BlobRules         []BlobRuleFunc
 	NotificationRules []NotificationRuleFunc
 	OzoneEventRules   []OzoneEventRuleFunc
@@ -84,6 +85,17 @@ func (r *RuleSet) CallIdentityRules(c *AccountContext) error {
 		err := f(c)
 		if err != nil {
 			c.Logger.Error("identity rule execution failed", "err", err)
+		}
+	}
+	return nil
+}
+
+// Executes rules for account update events.
+func (r *RuleSet) CallAccountRules(c *AccountContext) error {
+	for _, f := range r.AccountRules {
+		err := f(c)
+		if err != nil {
+			c.Logger.Error("account rule execution failed", "err", err)
 		}
 	}
 	return nil
