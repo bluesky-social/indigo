@@ -277,10 +277,18 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	if err != nil {
 		return fmt.Errorf("failed to circuit break takedowns: %w", err)
 	}
-	// TODO: record escalation
-	// TODO: record acknowledge
+	// @TODO: should we check for existing escalation? there doesn't seem to be an existing flag for this at record level
+	newEscalation, err := eng.circuitBreakModAction(ctx, c.effects.RecordEscalate)
+	if err != nil {
+		return fmt.Errorf("circuit-breaking escalation: %w", err)
+	}
+	// @TODO: should we check if the subject is already acked? there doesn't seem to be an existing flag for this at record level
+	newAcknowledge, err := eng.circuitBreakModAction(ctx, c.effects.RecordAcknowledge)
+	if err != nil {
+		return fmt.Errorf("circuit-breaking acknowledge: %w", err)
+	}
 
-	if newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
+	if newEscalation || newAcknowledge || newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
 		if eng.Notifier != nil {
 			for _, srv := range dedupeStrings(c.effects.NotifyServices) {
 				if err := eng.Notifier.SendRecord(ctx, srv, c); err != nil {
@@ -300,7 +308,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 
 	// exit early
-	if !newTakedown && len(newLabels) == 0 && len(newReports) == 0 {
+	if !newAcknowledge && !newEscalation && !newTakedown && len(newLabels) == 0 && len(newReports) == 0 {
 		return nil
 	}
 
@@ -370,6 +378,46 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		})
 		if err != nil {
 			c.Logger.Error("failed to execute record takedown", "err", err)
+		}
+	}
+
+	if newEscalation {
+		c.Logger.Warn("record-escalation")
+		actionNewEscalationCount.WithLabelValues("record").Inc()
+		comment := "[automod]: automated record-escalation"
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventEscalate: &toolsozone.ModerationDefs_ModEventEscalate{
+					Comment: &comment,
+				},
+			},
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
+				RepoStrongRef: &strongRef,
+			},
+		})
+		if err != nil {
+			c.Logger.Error("failed to execute record escalation", "err", err)
+		}
+	}
+
+	if newAcknowledge {
+		c.Logger.Warn("record-acknowledge")
+		actionNewAcknowledgeCount.WithLabelValues("record").Inc()
+		comment := "[automod]: automated record-acknowledge"
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventAcknowledge: &toolsozone.ModerationDefs_ModEventAcknowledge{
+					Comment: &comment,
+				},
+			},
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
+				RepoStrongRef: &strongRef,
+			},
+		})
+		if err != nil {
+			c.Logger.Error("failed to execute record acknowledge", "err", err)
 		}
 	}
 	return nil
