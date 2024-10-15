@@ -28,6 +28,7 @@ func BadHashtagsPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error
 			break
 		}
 	}
+
 	return nil
 }
 
