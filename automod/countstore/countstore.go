@@ -48,7 +48,6 @@ type CountStore interface {
 	// TODO: batch increment method
 	GetCountDistinct(ctx context.Context, name, bucket, period string) (int, error)
 	IncrementDistinct(ctx context.Context, name, bucket, val string) error
-	Reset(ctx context.Context, name, val string) error
 }
 
 func periodBucket(name, val, period string) string {
