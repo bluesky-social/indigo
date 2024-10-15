@@ -212,7 +212,7 @@ func (e *Engine) CanonicalLogLineOzoneEvent(c *OzoneEventContext) {
 		"accountReports", len(c.effects.AccountReports),
 		"recordLabels", c.effects.RecordLabels,
 		"recordFlags", c.effects.RecordFlags,
-		"RecordAppealResolve", c.effects.RecordAppealResolve,
+		"recordAppealResolve", c.effects.RecordAppealResolve,
 		"recordTakedown", c.effects.RecordTakedown,
 		"recordReports", len(c.effects.RecordReports),
 	)
