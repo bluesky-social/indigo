@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -49,8 +48,11 @@ const MaxSliceLength = 2 << 20
 const BigShardThreshold = 2 << 20
 
 type CarStore interface {
+	// TODO: not really part of general interface
 	CompactUserShards(ctx context.Context, user models.Uid, skipBigShards bool) (*CompactionStats, error)
+	// TODO: not really part of general interface
 	GetCompactionTargets(ctx context.Context, shardCount int) ([]CompactionTarget, error)
+
 	GetUserRepoHead(ctx context.Context, user models.Uid) (cid.Cid, error)
 	GetUserRepoRev(ctx context.Context, user models.Uid) (string, error)
 	ImportSlice(ctx context.Context, uid models.Uid, since *string, carslice []byte) (cid.Cid, *DeltaSession, error)
@@ -65,8 +67,9 @@ type FileCarStore struct {
 	meta    *CarStoreGormMeta
 	rootDir string
 
-	lscLk          sync.Mutex
-	lastShardCache map[models.Uid]*CarShard
+	lastShardCache lastShardCache
+	//lscLk          sync.Mutex
+	//lastShardCache map[models.Uid]*CarShard
 }
 
 func NewCarStore(meta *gorm.DB, root string) (CarStore, error) {
@@ -86,15 +89,25 @@ func NewCarStore(meta *gorm.DB, root string) (CarStore, error) {
 		return nil, err
 	}
 
-	return &FileCarStore{
-		meta:           &CarStoreGormMeta{meta: meta},
-		rootDir:        root,
-		lastShardCache: make(map[models.Uid]*CarShard),
-	}, nil
+	gormMeta := &CarStoreGormMeta{meta: meta}
+	out := &FileCarStore{
+		meta:    gormMeta,
+		rootDir: root,
+		lastShardCache: lastShardCache{
+			source: gormMeta,
+		},
+	}
+	out.lastShardCache.Init()
+	return out, nil
+}
+
+type userViewSource interface {
+	HasUidCid(ctx context.Context, user models.Uid, k cid.Cid) (bool, error)
+	LookupBlockRef(ctx context.Context, k cid.Cid) (path string, offset int64, user models.Uid, err error)
 }
 
 type userView struct {
-	cs   *FileCarStore
+	cs   userViewSource // TODO: interface-ify, used for .meta.HasUidCid and .meta.LookupBlockRef
 	user models.Uid
 
 	cache    map[cid.Cid]blockformat.Block
@@ -108,7 +121,7 @@ func (uv *userView) HashOnRead(hor bool) {
 }
 
 func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
-	return uv.cs.meta.HasUidCid(ctx, uv.user, k)
+	return uv.cs.HasUidCid(ctx, uv.user, k)
 }
 
 var CacheHits int64
@@ -129,7 +142,7 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, erro
 	}
 	atomic.AddInt64(&CacheMiss, 1)
 
-	path, offset, user, err := uv.cs.meta.LookupBlockRef(ctx, k)
+	path, offset, user, err := uv.cs.LookupBlockRef(ctx, k)
 	if err != nil {
 		return nil, err
 	}
@@ -269,52 +282,25 @@ type DeltaSession struct {
 	baseCid  cid.Cid
 	seq      int
 	readonly bool
-	cs       *FileCarStore
-	lastRev  string
+	//	cs       *FileCarStore // TODO: this is only needed for CloseWithRoot to write back delta session modifications, interface-ify
+	cs      shardWriter
+	lastRev string
 }
 
 func (cs *FileCarStore) checkLastShardCache(user models.Uid) *CarShard {
-	cs.lscLk.Lock()
-	defer cs.lscLk.Unlock()
-
-	ls, ok := cs.lastShardCache[user]
-	if ok {
-		return ls
-	}
-
-	return nil
+	return cs.lastShardCache.check(user)
 }
 
 func (cs *FileCarStore) removeLastShardCache(user models.Uid) {
-	cs.lscLk.Lock()
-	defer cs.lscLk.Unlock()
-
-	delete(cs.lastShardCache, user)
+	cs.lastShardCache.remove(user)
 }
 
 func (cs *FileCarStore) putLastShardCache(ls *CarShard) {
-	cs.lscLk.Lock()
-	defer cs.lscLk.Unlock()
-
-	cs.lastShardCache[ls.Usr] = ls
+	cs.lastShardCache.put(ls)
 }
 
 func (cs *FileCarStore) getLastShard(ctx context.Context, user models.Uid) (*CarShard, error) {
-	ctx, span := otel.Tracer("carstore").Start(ctx, "getLastShard")
-	defer span.End()
-
-	maybeLs := cs.checkLastShardCache(user)
-	if maybeLs != nil {
-		return maybeLs, nil
-	}
-
-	lastShard, err := cs.meta.GetLastShard(ctx, user)
-	if err != nil {
-		return nil, err
-	}
-
-	cs.putLastShardCache(lastShard)
-	return lastShard, nil
+	return cs.lastShardCache.get(ctx, user)
 }
 
 var ErrRepoBaseMismatch = fmt.Errorf("attempted a delta session on top of the wrong previous head")
@@ -339,7 +325,7 @@ func (cs *FileCarStore) NewDeltaSession(ctx context.Context, user models.Uid, si
 		blks:  make(map[cid.Cid]blockformat.Block),
 		base: &userView{
 			user:     user,
-			cs:       cs,
+			cs:       cs.meta,
 			prefetch: true,
 			cache:    make(map[cid.Cid]blockformat.Block),
 		},
@@ -355,7 +341,7 @@ func (cs *FileCarStore) ReadOnlySession(user models.Uid) (*DeltaSession, error) 
 	return &DeltaSession{
 		base: &userView{
 			user:     user,
-			cs:       cs,
+			cs:       cs.meta,
 			prefetch: false,
 			cache:    make(map[cid.Cid]blockformat.Block),
 		},
@@ -598,6 +584,10 @@ func WriteCarHeader(w io.Writer, root cid.Cid) (int64, error) {
 	}
 
 	return hnw, nil
+}
+
+type shardWriter interface {
+	writeNewShard(ctx context.Context, root cid.Cid, rev string, user models.Uid, seq int, blks map[cid.Cid]blockformat.Block, rmcids map[cid.Cid]bool) ([]byte, error)
 }
 
 func (cs *FileCarStore) writeNewShard(ctx context.Context, root cid.Cid, rev string, user models.Uid, seq int, blks map[cid.Cid]blockformat.Block, rmcids map[cid.Cid]bool) ([]byte, error) {
