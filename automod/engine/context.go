@@ -169,6 +169,13 @@ func (c *BaseContext) InSet(name, val string) bool {
 	return out
 }
 
+// Returns a pointer to the underlying automod engine. This usually should NOT be used in rules.
+//
+// This is an escape hatch for hacking on the system before features get fully integerated in to the content API surface. The Engine API is not stable.
+func (c *BaseContext) InternalEngine() *Engine {
+	return c.engine
+}
+
 func NewAccountContext(ctx context.Context, eng *Engine, meta AccountMeta) AccountContext {
 	return AccountContext{
 		BaseContext: BaseContext{
