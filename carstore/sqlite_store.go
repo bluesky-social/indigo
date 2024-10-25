@@ -36,6 +36,76 @@ func (sqs *SQLiteStore) Open(path string) error {
 
 // writeNewShard needed for DeltaSession.CloseWithRoot
 func (sqs *SQLiteStore) writeNewShard(ctx context.Context, root cid.Cid, rev string, user models.Uid, seq int, blks map[cid.Cid]blockformat.Block, rmcids map[cid.Cid]bool) ([]byte, error) {
+	// write a bunch of (uid,cid,block)
+
+	insertStatement, err := sqs.db.PrepareContext(ctx, "INSERT INTO blocks (uid, cid, block) VALUES (?, ?, ?)")
+	if err != nil {
+		return nil, err
+	}
+	for cid, block := range blks {
+		_, err = insertStatement.Exec(user, cid, block.RawData())
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	buf := new(bytes.Buffer)
+	hnw, err := WriteCarHeader(buf, root)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write car header: %w", err)
+	}
+
+	// TODO: writing these blocks in map traversal order is bad, I believe the
+	// optimal ordering will be something like reverse-write-order, but random
+	// is definitely not it
+
+	offset := hnw
+	//brefs := make([]*blockRef, 0, len(ds.blks))
+	brefs := make([]map[string]interface{}, 0, len(blks))
+	for k, blk := range blks {
+		nw, err := LdWrite(buf, k.Bytes(), blk.RawData())
+		if err != nil {
+			return nil, fmt.Errorf("failed to write block: %w", err)
+		}
+
+		/*
+			brefs = append(brefs, &blockRef{
+				Cid:    k.String(),
+				Offset: offset,
+				Shard:  shard.ID,
+			})
+		*/
+		// adding things to the db by map is the only way to get gorm to not
+		// add the 'returning' clause, which costs a lot of time
+		brefs = append(brefs, map[string]interface{}{
+			"cid":    models.DbCID{CID: k},
+			"offset": offset,
+		})
+
+		offset += nw
+	}
+
+	path, err := cs.writeNewShardFile(ctx, user, seq, buf.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to write shard file: %w", err)
+	}
+
+	shard := CarShard{
+		Root:      models.DbCID{CID: root},
+		DataStart: hnw,
+		Seq:       seq,
+		Path:      path,
+		Usr:       user,
+		Rev:       rev,
+	}
+
+	if err := cs.putShard(ctx, &shard, brefs, rmcids); err != nil {
+		return nil, err
+	}
+
+	sqs.lastShardCache.put(&shard)
+
+	return buf.Bytes(), nil
 	//TODO implement me
 	panic("implement me")
 }
@@ -138,8 +208,17 @@ func (sqs *SQLiteStore) NewDeltaSession(ctx context.Context, user models.Uid, si
 }
 
 func (sqs *SQLiteStore) ReadOnlySession(user models.Uid) (*DeltaSession, error) {
-	//TODO implement me
-	panic("implement me")
+	return &DeltaSession{
+		base: &userView{
+			user:     user,
+			cs:       sqs,
+			prefetch: false,
+			cache:    make(map[cid.Cid]blockformat.Block),
+		},
+		readonly: true,
+		user:     user,
+		cs:       sqs,
+	}, nil
 }
 
 func (sqs *SQLiteStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev string, incremental bool, w io.Writer) error {
@@ -173,6 +252,6 @@ func (sqs *SQLiteStore) CarStore() CarStore {
 	return sqs
 }
 
-func (sqs *SQLiteStore) Close() {
-	sqs.db.Close()
+func (sqs *SQLiteStore) Close() error {
+	return sqs.db.Close()
 }
