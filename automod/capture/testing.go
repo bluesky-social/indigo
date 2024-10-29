@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
@@ -38,12 +39,19 @@ func ProcessCaptureRules(eng *automod.Engine, capture AccountCapture) error {
 	ctx := context.Background()
 
 	did := capture.AccountMeta.Identity.DID
+	handle := capture.AccountMeta.Identity.Handle.String()
 	dir := identity.NewMockDirectory()
 	dir.Insert(*capture.AccountMeta.Identity)
 	eng.Directory = &dir
 
 	// initial identity rules
-	eng.ProcessIdentityEvent(ctx, "new", did)
+	identEvent := comatproto.SyncSubscribeRepos_Identity{
+		Did:    did.String(),
+		Handle: &handle,
+		Seq:    12345,
+		Time:   syntax.DatetimeNow().String(),
+	}
+	eng.ProcessIdentityEvent(ctx, identEvent)
 
 	// all the post rules
 	for _, pr := range capture.PostRecords {
