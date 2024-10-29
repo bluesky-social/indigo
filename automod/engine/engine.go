@@ -43,6 +43,14 @@ type Engine struct {
 	AdminClient *xrpc.Client
 	// used to fetch blobs from upstream PDS instances
 	BlobClient *http.Client
+
+	// internal configuration
+	Config EngineConfig
+}
+
+type EngineConfig struct {
+	// if enabled, account metadata is not hydrated for every event by default
+	SkipAccountMeta bool
 }
 
 // Entrypoint for external code pushing arbitrary identity events in to the engine.
@@ -80,10 +88,18 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syn
 		return fmt.Errorf("identity not found for DID: %s", did.String())
 	}
 
-	am, err := eng.GetAccountMeta(ctx, ident)
-	if err != nil {
-		eventErrorCount.WithLabelValues("identity").Inc()
-		return fmt.Errorf("failed to fetch account metadata: %w", err)
+	var am *AccountMeta
+	if !eng.Config.SkipAccountMeta {
+		am, err = eng.GetAccountMeta(ctx, ident)
+		if err != nil {
+			eventErrorCount.WithLabelValues("identity").Inc()
+			return fmt.Errorf("failed to fetch account metadata: %w", err)
+		}
+	} else {
+		am = &AccountMeta{
+			Identity: ident,
+			Profile:  ProfileSummary{},
+		}
 	}
 	ac := NewAccountContext(ctx, eng, *am)
 	if err := eng.Rules.CallIdentityRules(&ac); err != nil {
@@ -136,10 +152,18 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 		return fmt.Errorf("identity not found for DID: %s", op.DID)
 	}
 
-	am, err := eng.GetAccountMeta(ctx, ident)
-	if err != nil {
-		eventErrorCount.WithLabelValues("record").Inc()
-		return fmt.Errorf("failed to fetch account metadata: %w", err)
+	var am *AccountMeta
+	if !eng.Config.SkipAccountMeta {
+		am, err = eng.GetAccountMeta(ctx, ident)
+		if err != nil {
+			eventErrorCount.WithLabelValues("identity").Inc()
+			return fmt.Errorf("failed to fetch account metadata: %w", err)
+		}
+	} else {
+		am = &AccountMeta{
+			Identity: ident,
+			Profile:  ProfileSummary{},
+		}
 	}
 	rc := NewRecordContext(ctx, eng, *am, op)
 	rc.Logger.Debug("processing record")
