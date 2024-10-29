@@ -75,6 +75,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 
 	am.Profile = ProfileSummary{
 		HasAvatar:   pv.Avatar != nil,
+		Avatar:      pv.Avatar,
 		Description: pv.Description,
 		DisplayName: pv.DisplayName,
 	}
