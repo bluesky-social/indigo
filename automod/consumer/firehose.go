@@ -80,54 +80,20 @@ func (fc *FirehoseConsumer) Run(ctx context.Context) error {
 		},
 		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
 			atomic.StoreInt64(&fc.lastSeq, evt.Seq)
-			did, err := syntax.ParseDID(evt.Did)
-			if err != nil {
-				fc.Logger.Error("bad DID in RepoIdentity event", "did", evt.Did, "seq", evt.Seq, "err", err)
-				return nil
-			}
-			if err := fc.Engine.ProcessIdentityEvent(ctx, "identity", did); err != nil {
+			if err := fc.Engine.ProcessIdentityEvent(ctx, *evt); err != nil {
 				fc.Logger.Error("processing repo identity failed", "did", evt.Did, "seq", evt.Seq, "err", err)
 			}
 			return nil
 		},
 		RepoAccount: func(evt *comatproto.SyncSubscribeRepos_Account) error {
 			atomic.StoreInt64(&fc.lastSeq, evt.Seq)
-			did, err := syntax.ParseDID(evt.Did)
-			if err != nil {
-				fc.Logger.Error("bad DID in RepoAccount event", "did", evt.Did, "seq", evt.Seq, "err", err)
-				return nil
-			}
-			if err := fc.Engine.ProcessIdentityEvent(ctx, "account", did); err != nil {
+			if err := fc.Engine.ProcessAccountEvent(ctx, *evt); err != nil {
 				fc.Logger.Error("processing repo account failed", "did", evt.Did, "seq", evt.Seq, "err", err)
 			}
 			return nil
 		},
-		// TODO: deprecated
-		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-			atomic.StoreInt64(&fc.lastSeq, evt.Seq)
-			did, err := syntax.ParseDID(evt.Did)
-			if err != nil {
-				fc.Logger.Error("bad DID in RepoHandle event", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
-				return nil
-			}
-			if err := fc.Engine.ProcessIdentityEvent(ctx, "handle", did); err != nil {
-				fc.Logger.Error("processing handle update failed", "did", evt.Did, "handle", evt.Handle, "seq", evt.Seq, "err", err)
-			}
-			return nil
-		},
-		// TODO: deprecated
-		RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
-			atomic.StoreInt64(&fc.lastSeq, evt.Seq)
-			did, err := syntax.ParseDID(evt.Did)
-			if err != nil {
-				fc.Logger.Error("bad DID in RepoTombstone event", "did", evt.Did, "seq", evt.Seq, "err", err)
-				return nil
-			}
-			if err := fc.Engine.ProcessIdentityEvent(ctx, "tombstone", did); err != nil {
-				fc.Logger.Error("processing repo tombstone failed", "did", evt.Did, "seq", evt.Seq, "err", err)
-			}
-			return nil
-		},
+		// NOTE: no longer process #handle events
+		// NOTE: no longer process #tombstone events
 	}
 
 	var scheduler events.Scheduler
@@ -176,13 +142,6 @@ func (fc *FirehoseConsumer) HandleRepoCommit(ctx context.Context, evt *comatprot
 		return nil
 	}
 
-	// empty commit is a special case, temporarily, basically indicates "new account"
-	if len(evt.Ops) == 0 {
-		if err := fc.Engine.ProcessIdentityEvent(ctx, "create", did); err != nil {
-			fc.Logger.Error("processing handle update failed", "did", evt.Repo, "rev", evt.Rev, "seq", evt.Seq, "err", err)
-		}
-	}
-
 	for _, op := range evt.Ops {
 		logger = logger.With("eventKind", op.Action, "path", op.Path)
 		collection, rkey, err := splitRepoPath(op.Path)
@@ -215,27 +174,29 @@ func (fc *FirehoseConsumer) HandleRepoCommit(ctx context.Context, evt *comatprot
 				break
 			}
 			recCID := syntax.CID(op.Cid.String())
-			err = fc.Engine.ProcessRecordOp(ctx, automod.RecordOp{
+			op := automod.RecordOp{
 				Action:     action,
 				DID:        did,
 				Collection: collection,
 				RecordKey:  rkey,
 				CID:        &recCID,
 				RecordCBOR: *recCBOR,
-			})
+			}
+			err = fc.Engine.ProcessRecordOp(ctx, op)
 			if err != nil {
 				logger.Error("engine failed to process record", "err", err)
 				continue
 			}
 		case repomgr.EvtKindDeleteRecord:
-			err = fc.Engine.ProcessRecordOp(ctx, automod.RecordOp{
+			op := automod.RecordOp{
 				Action:     automod.DeleteOp,
 				DID:        did,
 				Collection: collection,
 				RecordKey:  rkey,
 				CID:        nil,
 				RecordCBOR: nil,
-			})
+			}
+			err = fc.Engine.ProcessRecordOp(ctx, op)
 			if err != nil {
 				logger.Error("engine failed to process record", "err", err)
 				continue
