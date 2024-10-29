@@ -283,3 +283,60 @@ func AccountIsOlderThan(c *automod.AccountContext, age time.Duration) bool {
 	}
 	return false
 }
+
+func ParentOrRootIsDid(post *appbsky.FeedPost, did string) bool {
+	if post.Reply == nil {
+		return false
+	}
+
+	rootUri, err := syntax.ParseATURI(post.Reply.Root.Uri)
+	if err != nil || !rootUri.Authority().IsDID() {
+		return false
+	}
+
+	parentUri, err := syntax.ParseATURI(post.Reply.Parent.Uri)
+	if err != nil || !parentUri.Authority().IsDID() {
+		return false
+	}
+
+	return rootUri.Authority().String() == did || parentUri.Authority().String() == did
+}
+
+func ParentOrRootIsAnyDid(post *appbsky.FeedPost, dids []string) bool {
+	if post.Reply == nil {
+		return false
+	}
+
+	for _, did := range dids {
+		if ParentOrRootIsDid(post, did) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func PostMentionsDid(post *appbsky.FeedPost, did string) bool {
+	facets, err := ExtractFacets(post)
+	if err != nil {
+		return false
+	}
+
+	for _, facet := range facets {
+		if facet.DID != nil && *facet.DID == did {
+			return true
+		}
+	}
+
+	return false
+}
+
+func PostMentionsAnyDid(post *appbsky.FeedPost, dids []string) bool {
+	for _, did := range dids {
+		if PostMentionsDid(post, did) {
+			return true
+		}
+	}
+
+	return false
+}
