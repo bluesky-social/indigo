@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -16,6 +18,25 @@ import (
 )
 
 var newAccountRetryDuration = 3 * 1000 * time.Millisecond
+
+// get the cid from a bluesky cdn url
+func CidFromCdnUrl(str *string) *string {
+	if str == nil {
+		return nil
+	}
+
+	u, err := url.Parse(*str)
+	if err != nil || u.Host != "cdn.bsky.app" {
+		return nil
+	}
+
+	parts := strings.Split(u.Path, "/")
+	if len(parts) != 6 {
+		return nil
+	}
+
+	return &strings.Split(parts[5], "@")[0]
+}
 
 // Helper to hydrate metadata about an account from several sources: PDS (if access), mod service (if access), public identity resolution
 func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (*AccountMeta, error) {
@@ -75,7 +96,8 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 
 	am.Profile = ProfileSummary{
 		HasAvatar:   pv.Avatar != nil,
-		Avatar:      pv.Avatar,
+		AvatarCid:   cidFromCdnUrl(pv.Avatar),
+		BannerCid:   cidFromCdnUrl(pv.Banner),
 		Description: pv.Description,
 		DisplayName: pv.DisplayName,
 	}
