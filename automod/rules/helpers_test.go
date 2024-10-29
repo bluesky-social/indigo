@@ -169,17 +169,17 @@ func TestParentOrRootIsDid(t *testing.T) {
 		},
 	}
 
-	assert.True(ParentOrRootIsDid(post1, "did:plc:abc123"))
-	assert.False(ParentOrRootIsDid(post1, "did:plc:321abc"))
+	assert.True(PostParentOrRootIsDid(post1, "did:plc:abc123"))
+	assert.False(PostParentOrRootIsDid(post1, "did:plc:321abc"))
 
-	assert.True(ParentOrRootIsDid(post2, "did:plc:abc123"))
-	assert.True(ParentOrRootIsDid(post2, "did:plc:321abc"))
+	assert.True(PostParentOrRootIsDid(post2, "did:plc:abc123"))
+	assert.True(PostParentOrRootIsDid(post2, "did:plc:321abc"))
 
-	assert.True(ParentOrRootIsDid(post3, "did:plc:abc123"))
-	assert.True(ParentOrRootIsDid(post3, "did:plc:321abc"))
+	assert.True(PostParentOrRootIsDid(post3, "did:plc:abc123"))
+	assert.True(PostParentOrRootIsDid(post3, "did:plc:321abc"))
 
-	assert.False(ParentOrRootIsDid(post4, "did:plc:abc123"))
-	assert.True(ParentOrRootIsDid(post4, "did:plc:321abc"))
+	assert.False(PostParentOrRootIsDid(post4, "did:plc:abc123"))
+	assert.True(PostParentOrRootIsDid(post4, "did:plc:321abc"))
 
 	didList1 := []string{
 		"did:plc:cba321",
@@ -193,8 +193,8 @@ func TestParentOrRootIsDid(t *testing.T) {
 		"did:plc:123abc",
 	}
 
-	assert.True(ParentOrRootIsAnyDid(post1, didList1))
-	assert.False(ParentOrRootIsAnyDid(post1, didList2))
+	assert.True(PostParentOrRootIsAnyDid(post1, didList1))
+	assert.False(PostParentOrRootIsAnyDid(post1, didList2))
 }
 
 func TestPostMentionsDid(t *testing.T) {

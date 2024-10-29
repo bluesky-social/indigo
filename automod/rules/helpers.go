@@ -284,7 +284,7 @@ func AccountIsOlderThan(c *automod.AccountContext, age time.Duration) bool {
 	return false
 }
 
-func ParentOrRootIsDid(post *appbsky.FeedPost, did string) bool {
+func PostParentOrRootIsDid(post *appbsky.FeedPost, did string) bool {
 	if post.Reply == nil {
 		return false
 	}
@@ -302,13 +302,13 @@ func ParentOrRootIsDid(post *appbsky.FeedPost, did string) bool {
 	return rootUri.Authority().String() == did || parentUri.Authority().String() == did
 }
 
-func ParentOrRootIsAnyDid(post *appbsky.FeedPost, dids []string) bool {
+func PostParentOrRootIsAnyDid(post *appbsky.FeedPost, dids []string) bool {
 	if post.Reply == nil {
 		return false
 	}
 
 	for _, did := range dids {
-		if ParentOrRootIsDid(post, did) {
+		if PostParentOrRootIsDid(post, did) {
 			return true
 		}
 	}
