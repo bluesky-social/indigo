@@ -55,26 +55,27 @@ func (oc *OzoneConsumer) Run(ctx context.Context) error {
 	period := time.Second * 5
 
 	for {
-		//func ModerationQueryEvents(ctx context.Context, c *xrpc.Client, addedLabels []string, addedTags []string, comment string, createdAfter string, createdBefore string, createdBy string, cursor string, hasComment bool, includeAllUserRecords bool, limit int64, removedLabels []string, removedTags []string, reportTypes []string, sortDirection string, subject string, types []string) (*ModerationQueryEvents_Output, error) {
 		me, err := toolsozone.ModerationQueryEvents(
 			ctx,
 			oc.OzoneClient,
-			nil,            // addedLabels: If specified, only events where all of these labels were added are returned
-			nil,            // addedTags: If specified, only events where all of these tags were added are returned
-			"",             // comment: If specified, only events with comments containing the keyword are returned
-			since.String(), // createdAfter: Retrieve events created after a given timestamp
-			"",             // createdBefore: Retrieve events created before a given timestamp
-			"",             // createdBy
-			"",             // cursor
-			false,          // hasComment: If true, only events with comments are returned
-			true,           // includeAllUserRecords: If true, events on all record types (posts, lists, profile etc.) owned by the did are returned
-			limit,
-			nil,   // removedLabels: If specified, only events where all of these labels were removed are returned
-			nil,   // removedTags
-			nil,   // reportTypes
-			"asc", // sortDirection: Sort direction for the events. Defaults to descending order of created at timestamp.
-			"",    // subject
-			nil,   // types: The types of events (fully qualified string in the format of tools.ozone.moderation.defs#modEvent<name>) to filter by. If not specified, all events are returned.
+			nil,            // addedLabels []string
+			nil,            // addedTags []string
+			nil,            // collections []string
+			"",             // comment string
+			since.String(), // createdAfter string
+			"",             // createdBefore string
+			"",             // createdBy string
+			"",             // cursor string
+			false,          // hasComment bool
+			true,           // includeAllUserRecords bool
+			limit,          // limit int64
+			nil,            // removedLabels []string
+			nil,            // removedTags []string
+			nil,            // reportTypes []string
+			"asc",          // sortDirection string
+			"",             // subject string
+			"",             // subjectType string
+			nil,            // types []string
 		)
 		if err != nil {
 			oc.Logger.Warn("ozone query events failed; sleeping then will retrying", "err", err, "period", period.String())
