@@ -25,6 +25,11 @@ var actionNewLabelCount = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "Number of new labels persisted",
 }, []string{"type", "val"})
 
+var actionNewTagCount = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "automod_new_action_tags",
+	Help: "Number of new tags persisted",
+}, []string{"type", "val"})
+
 var actionNewFlagCount = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "automod_new_action_flags",
 	Help: "Number of new flags persisted",
