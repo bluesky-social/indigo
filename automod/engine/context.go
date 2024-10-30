@@ -279,6 +279,14 @@ func (c *AccountContext) TakedownAccount() {
 	c.effects.TakedownAccount()
 }
 
+func (c *AccountContext) EscalateAccount() {
+	c.effects.EscalateAccount()
+}
+
+func (c *AccountContext) AcknowledgeAccount() {
+	c.effects.AcknowledgeAccount()
+}
+
 func (c *RecordContext) AddRecordFlag(val string) {
 	c.effects.AddRecordFlag(val)
 }
