@@ -1,4 +1,4 @@
-package rules
+package helpers
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ import (
 	"github.com/spaolacci/murmur3"
 )
 
-func dedupeStrings(in []string) []string {
+func DedupeStrings(in []string) []string {
 	var out []string
 	seen := make(map[string]bool)
 	for _, v := range in {
@@ -37,7 +37,7 @@ func ExtractHashtagsPost(post *appbsky.FeedPost) []string {
 			}
 		}
 	}
-	return dedupeStrings(tags)
+	return DedupeStrings(tags)
 }
 
 func NormalizeHashtag(raw string) string {
@@ -103,7 +103,7 @@ func ExtractPostBlobCIDsPost(post *appbsky.FeedPost) []string {
 			}
 		}
 	}
-	return dedupeStrings(out)
+	return DedupeStrings(out)
 }
 
 func ExtractBlobCIDsProfile(profile *appbsky.ActorProfile) []string {
@@ -114,7 +114,7 @@ func ExtractBlobCIDsProfile(profile *appbsky.ActorProfile) []string {
 	if profile.Banner != nil {
 		out = append(out, profile.Banner.Ref.String())
 	}
-	return dedupeStrings(out)
+	return DedupeStrings(out)
 }
 
 func ExtractTextTokensPost(post *appbsky.FeedPost) []string {
