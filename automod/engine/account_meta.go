@@ -6,6 +6,13 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 )
 
+var (
+	ReviewStateEscalated = "escalated"
+	ReviewStateOpen      = "open"
+	ReviewStateClosed    = "closed"
+	ReviewStateNone      = "none"
+)
+
 // information about a repo/account/identity, always pre-populated and relevant to many rules
 type AccountMeta struct {
 	Identity             *identity.Identity
@@ -34,4 +41,7 @@ type AccountPrivate struct {
 	EmailConfirmed bool
 	IndexedAt      *time.Time
 	AccountTags    []string
+	// ReviewState will be one of ReviewStateEscalated, ReviewStateOpen, ReviewStateClosed, ReviewStateNone, or "" (unknown)
+	ReviewState string
+	Appealed    bool
 }

@@ -57,8 +57,28 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	if err != nil {
 		return fmt.Errorf("circuit-breaking takedowns: %w", err)
 	}
+	newEscalation := c.effects.AccountEscalate
+	if c.Account.Private != nil && c.Account.Private.ReviewState == ReviewStateEscalated {
+		// de-dupe account escalation
+		newEscalation = false
+	} else {
+		newEscalation, err = eng.circuitBreakModAction(ctx, newEscalation)
+		if err != nil {
+			return fmt.Errorf("circuit-breaking escalation: %w", err)
+		}
+	}
+	newAcknowledge := c.effects.AccountAcknowledge
+	if c.Account.Private != nil && (c.Account.Private.ReviewState == "closed" || c.Account.Private.ReviewState == "none") {
+		// de-dupe account escalation
+		newAcknowledge = false
+	} else {
+		newAcknowledge, err = eng.circuitBreakModAction(ctx, newAcknowledge)
+		if err != nil {
+			return fmt.Errorf("circuit-breaking acknowledge: %w", err)
+		}
+	}
 
-	anyModActions := newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0
+	anyModActions := newTakedown || newEscalation || newAcknowledge || len(newLabels) > 0 || len(newFlags) > 0 || len(newReports) > 0
 	if anyModActions && eng.Notifier != nil {
 		for _, srv := range dedupeStrings(c.effects.NotifyServices) {
 			if err := eng.Notifier.SendAccount(ctx, srv, c); err != nil {
@@ -145,9 +165,56 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 		if err != nil {
 			c.Logger.Error("failed to execute account takedown", "err", err)
 		}
+
+		// we don't want to escalate if there is a takedown
+		newEscalation = false
 	}
 
-	needCachePurge := newTakedown || len(newLabels) > 0 || len(newFlags) > 0 || createdReports
+	if newEscalation {
+		c.Logger.Warn("account-escalate")
+		actionNewEscalationCount.WithLabelValues("account").Inc()
+		comment := "[automod]: auto account-escalation"
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventEscalate: &toolsozone.ModerationDefs_ModEventEscalate{
+					Comment: &comment,
+				},
+			},
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
+				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
+					Did: c.Account.Identity.DID.String(),
+				},
+			},
+		})
+		if err != nil {
+			c.Logger.Error("failed to execute account escalation", "err", err)
+		}
+	}
+
+	if newAcknowledge {
+		c.Logger.Warn("account-acknowledge")
+		actionNewAcknowledgeCount.WithLabelValues("account").Inc()
+		comment := "[automod]: auto account-acknowledge"
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventAcknowledge: &toolsozone.ModerationDefs_ModEventAcknowledge{
+					Comment: &comment,
+				},
+			},
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
+				AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
+					Did: c.Account.Identity.DID.String(),
+				},
+			},
+		})
+		if err != nil {
+			c.Logger.Error("failed to execute account acknowledge", "err", err)
+		}
+	}
+
+	needCachePurge := newTakedown || newEscalation || newAcknowledge || len(newLabels) > 0 || len(newFlags) > 0 || createdReports
 	if needCachePurge {
 		return eng.PurgeAccountCaches(ctx, c.Account.Identity.DID)
 	}
@@ -303,5 +370,6 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			c.Logger.Error("failed to execute record takedown", "err", err)
 		}
 	}
+
 	return nil
 }
