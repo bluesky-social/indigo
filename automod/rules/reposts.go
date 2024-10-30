@@ -7,6 +7,7 @@ import (
 
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/bluesky-social/indigo/automod/helpers"
 )
 
 var dailyRepostThresholdWithoutPost = 30
@@ -18,7 +19,7 @@ var _ automod.RecordRuleFunc = TooManyRepostRule
 // looks for accounts which do frequent reposts
 func TooManyRepostRule(c *automod.RecordContext) error {
 	// Don't bother checking reposts from accounts older than 30 days
-	if c.Account.Identity == nil || !AccountIsYoungerThan(&c.AccountContext, 30*24*time.Hour) {
+	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(&c.AccountContext, 30*24*time.Hour) {
 		return nil
 	}
 
