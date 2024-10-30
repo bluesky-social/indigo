@@ -1,4 +1,4 @@
-package rules
+package helpers
 
 import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
