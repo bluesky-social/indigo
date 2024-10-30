@@ -9,6 +9,7 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/bluesky-social/indigo/automod/helpers"
 )
 
 var _ automod.PostRuleFunc = AggressivePromotionRule
@@ -17,16 +18,16 @@ var _ automod.PostRuleFunc = AggressivePromotionRule
 //
 // this rule depends on ReplyCountPostRule() to set counts
 func AggressivePromotionRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if c.Account.Identity == nil || !AccountIsYoungerThan(&c.AccountContext, 7*24*time.Hour) {
+	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(&c.AccountContext, 7*24*time.Hour) {
 		return nil
 	}
-	if post.Reply == nil || IsSelfThread(c, post) {
+	if post.Reply == nil || helpers.IsSelfThread(c, post) {
 		return nil
 	}
 
-	allURLs := ExtractTextURLs(post.Text)
+	allURLs := helpers.ExtractTextURLs(post.Text)
 	if c.Account.Profile.Description != nil {
-		profileURLs := ExtractTextURLs(*c.Account.Profile.Description)
+		profileURLs := helpers.ExtractTextURLs(*c.Account.Profile.Description)
 		allURLs = append(allURLs, profileURLs...)
 	}
 	hasPromo := false
