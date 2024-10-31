@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod/cachestore"
@@ -43,12 +44,20 @@ type Engine struct {
 	AdminClient *xrpc.Client
 	// used to fetch blobs from upstream PDS instances
 	BlobClient *http.Client
+
+	// internal configuration
+	Config EngineConfig
 }
 
-// Entrypoint for external code pushing arbitrary identity events in to the engine.
+type EngineConfig struct {
+	// if enabled, account metadata is not hydrated for every event by default
+	SkipAccountMeta bool
+}
+
+// Entrypoint for external code pushing #identity events in to the engine.
 //
 // This method can be called concurrently, though cached state may end up inconsistent if multiple events for the same account (DID) are processed in parallel.
-func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syntax.DID) error {
+func (eng *Engine) ProcessIdentityEvent(ctx context.Context, evt comatproto.SyncSubscribeRepos_Identity) error {
 	eventProcessCount.WithLabelValues("identity").Inc()
 	start := time.Now()
 	defer func() {
@@ -56,10 +65,15 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syn
 		eventProcessDuration.WithLabelValues("identity").Observe(duration.Seconds())
 	}()
 
+	did, err := syntax.ParseDID(evt.Did)
+	if err != nil {
+		return fmt.Errorf("bad DID in repo #identity event (%s): %w", evt.Did, err)
+	}
+
 	// similar to an HTTP server, we want to recover any panics from rule execution
 	defer func() {
 		if r := recover(); r != nil {
-			eng.Logger.Error("automod event execution exception", "err", r, "did", did, "type", typ)
+			eng.Logger.Error("automod event execution exception", "err", r, "did", did, "type", "identity")
 			eventErrorCount.WithLabelValues("identity").Inc()
 		}
 	}()
@@ -70,6 +84,7 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syn
 	if err := eng.PurgeAccountCaches(ctx, did); err != nil {
 		eng.Logger.Error("failed to purge identity cache; identity rule may not run correctly", "err", err)
 	}
+	// TODO(bnewbold): if it was a tombstone, this might fail
 	ident, err := eng.Directory.LookupDID(ctx, did)
 	if err != nil {
 		eventErrorCount.WithLabelValues("identity").Inc()
@@ -80,10 +95,18 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syn
 		return fmt.Errorf("identity not found for DID: %s", did.String())
 	}
 
-	am, err := eng.GetAccountMeta(ctx, ident)
-	if err != nil {
-		eventErrorCount.WithLabelValues("identity").Inc()
-		return fmt.Errorf("failed to fetch account metadata: %w", err)
+	var am *AccountMeta
+	if !eng.Config.SkipAccountMeta {
+		am, err = eng.GetAccountMeta(ctx, ident)
+		if err != nil {
+			eventErrorCount.WithLabelValues("identity").Inc()
+			return fmt.Errorf("failed to fetch account metadata: %w", err)
+		}
+	} else {
+		am = &AccountMeta{
+			Identity: ident,
+			Profile:  ProfileSummary{},
+		}
 	}
 	ac := NewAccountContext(ctx, eng, *am)
 	if err := eng.Rules.CallIdentityRules(&ac); err != nil {
@@ -98,6 +121,77 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, typ string, did syn
 	if err := eng.persistCounters(ctx, ac.effects); err != nil {
 		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("failed to persist counters for identity event: %w", err)
+	}
+	return nil
+}
+
+// Entrypoint for external code pushing #account events in to the engine.
+//
+// This method can be called concurrently, though cached state may end up inconsistent if multiple events for the same account (DID) are processed in parallel.
+func (eng *Engine) ProcessAccountEvent(ctx context.Context, evt comatproto.SyncSubscribeRepos_Account) error {
+	eventProcessCount.WithLabelValues("account").Inc()
+	start := time.Now()
+	defer func() {
+		duration := time.Since(start)
+		eventProcessDuration.WithLabelValues("account").Observe(duration.Seconds())
+	}()
+
+	did, err := syntax.ParseDID(evt.Did)
+	if err != nil {
+		return fmt.Errorf("bad DID in repo #account event (%s): %w", evt.Did, err)
+	}
+
+	// similar to an HTTP server, we want to recover any panics from rule execution
+	defer func() {
+		if r := recover(); r != nil {
+			eng.Logger.Error("automod event execution exception", "err", r, "did", did, "type", "account")
+			eventErrorCount.WithLabelValues("account").Inc()
+		}
+	}()
+	ctx, cancel := context.WithTimeout(ctx, identityEventTimeout)
+	defer cancel()
+
+	// first purge any caches; we need to re-resolve from scratch on account updates
+	if err := eng.PurgeAccountCaches(ctx, did); err != nil {
+		eng.Logger.Error("failed to purge account cache; account rule may not run correctly", "err", err)
+	}
+	// TODO(bnewbold): if it was a tombstone, this might fail
+	ident, err := eng.Directory.LookupDID(ctx, did)
+	if err != nil {
+		eventErrorCount.WithLabelValues("account").Inc()
+		return fmt.Errorf("resolving identity: %w", err)
+	}
+	if ident == nil {
+		eventErrorCount.WithLabelValues("account").Inc()
+		return fmt.Errorf("identity not found for DID: %s", did.String())
+	}
+
+	var am *AccountMeta
+	if !eng.Config.SkipAccountMeta {
+		am, err = eng.GetAccountMeta(ctx, ident)
+		if err != nil {
+			eventErrorCount.WithLabelValues("identity").Inc()
+			return fmt.Errorf("failed to fetch account metadata: %w", err)
+		}
+	} else {
+		am = &AccountMeta{
+			Identity: ident,
+			Profile:  ProfileSummary{},
+		}
+	}
+	ac := NewAccountContext(ctx, eng, *am)
+	if err := eng.Rules.CallAccountRules(&ac); err != nil {
+		eventErrorCount.WithLabelValues("account").Inc()
+		return fmt.Errorf("rule execution failed: %w", err)
+	}
+	eng.CanonicalLogLineAccount(&ac)
+	if err := eng.persistAccountModActions(&ac); err != nil {
+		eventErrorCount.WithLabelValues("account").Inc()
+		return fmt.Errorf("failed to persist actions for account event: %w", err)
+	}
+	if err := eng.persistCounters(ctx, ac.effects); err != nil {
+		eventErrorCount.WithLabelValues("account").Inc()
+		return fmt.Errorf("failed to persist counters for account event: %w", err)
 	}
 	return nil
 }
@@ -136,10 +230,18 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 		return fmt.Errorf("identity not found for DID: %s", op.DID)
 	}
 
-	am, err := eng.GetAccountMeta(ctx, ident)
-	if err != nil {
-		eventErrorCount.WithLabelValues("record").Inc()
-		return fmt.Errorf("failed to fetch account metadata: %w", err)
+	var am *AccountMeta
+	if !eng.Config.SkipAccountMeta {
+		am, err = eng.GetAccountMeta(ctx, ident)
+		if err != nil {
+			eventErrorCount.WithLabelValues("identity").Inc()
+			return fmt.Errorf("failed to fetch account metadata: %w", err)
+		}
+	} else {
+		am = &AccountMeta{
+			Identity: ident,
+			Profile:  ProfileSummary{},
+		}
 	}
 	rc := NewRecordContext(ctx, eng, *am, op)
 	rc.Logger.Debug("processing record")

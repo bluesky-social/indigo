@@ -25,6 +25,11 @@ var actionNewLabelCount = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "Number of new labels persisted",
 }, []string{"type", "val"})
 
+var actionNewTagCount = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "automod_new_action_tags",
+	Help: "Number of new tags persisted",
+}, []string{"type", "val"})
+
 var actionNewFlagCount = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "automod_new_action_flags",
 	Help: "Number of new flags persisted",
@@ -37,7 +42,17 @@ var actionNewReportCount = promauto.NewCounterVec(prometheus.CounterOpts{
 
 var actionNewTakedownCount = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "automod_new_action_takedowns",
-	Help: "Number of new flags persisted",
+	Help: "Number of new takedowns",
+}, []string{"type"})
+
+var actionNewEscalationCount = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "automod_new_action_escalations",
+	Help: "Number of new subject escalations",
+}, []string{"type"})
+
+var actionNewAcknowledgeCount = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "automod_new_action_acknowledges",
+	Help: "Number of new subjects acknowledged",
 }, []string{"type"})
 
 var accountMetaFetches = promauto.NewCounter(prometheus.CounterOpts{

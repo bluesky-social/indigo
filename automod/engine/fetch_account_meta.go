@@ -24,7 +24,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 
 	// fallback in case client wasn't configured (eg, testing)
 	if e.BskyClient == nil {
-		logger.Warn("skipping account meta hydration")
+		logger.Debug("skipping account meta hydration")
 		am := AccountMeta{
 			Identity: ident,
 			Profile:  ProfileSummary{},
@@ -64,7 +64,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 	// most common cause of this is a race between automod and ozone/appview for new accounts. just sleep a couple seconds and retry!
 	var xrpcError *xrpc.Error
 	if err != nil && errors.As(err, &xrpcError) && (xrpcError.StatusCode == 400 || xrpcError.StatusCode == 404) {
-		logger.Info("account profile lookup initially failed (from bsky appview), will retry", "err", err, "sleepDuration", newAccountRetryDuration)
+		logger.Debug("account profile lookup initially failed (from bsky appview), will retry", "err", err, "sleepDuration", newAccountRetryDuration)
 		time.Sleep(newAccountRetryDuration)
 		pv, err = appbsky.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
 	}
@@ -131,7 +131,22 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 				if rd.Moderation.SubjectStatus.Takendown != nil && *rd.Moderation.SubjectStatus.Takendown == true {
 					am.Takendown = true
 				}
+				if rd.Moderation.SubjectStatus.Appealed != nil && *rd.Moderation.SubjectStatus.Appealed == true {
+					ap.Appealed = true
+				}
 				ap.AccountTags = dedupeStrings(rd.Moderation.SubjectStatus.Tags)
+				if rd.Moderation.SubjectStatus.ReviewState != nil {
+					switch *rd.Moderation.SubjectStatus.ReviewState {
+					case "#reviewOpen":
+						ap.ReviewState = ReviewStateOpen
+					case "#reviewEscalated":
+						ap.ReviewState = ReviewStateEscalated
+					case "#reviewClosed":
+						ap.ReviewState = ReviewStateClosed
+					case "#reviewNonde":
+						ap.ReviewState = ReviewStateNone
+					}
+				}
 			}
 			am.Private = &ap
 		}

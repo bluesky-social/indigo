@@ -9,9 +9,10 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/helpers"
 )
 
-func isMisleadingURLFacet(facet PostFacet, logger *slog.Logger) bool {
+func isMisleadingURLFacet(facet helpers.PostFacet, logger *slog.Logger) bool {
 	linkURL, err := url.Parse(*facet.URL)
 	if err != nil {
 		logger.Warn("invalid link metadata URL", "url", facet.URL)
@@ -84,7 +85,7 @@ func MisleadingURLPostRule(c *automod.RecordContext, post *appbsky.FeedPost) err
 	if c.Account.Identity.Handle == "nowbreezing.ntw.app" {
 		return nil
 	}
-	facets, err := ExtractFacets(post)
+	facets, err := helpers.ExtractFacets(post)
 	if err != nil {
 		c.Logger.Warn("invalid facets", "err", err)
 		// TODO: or some other "this record is corrupt" indicator?
@@ -105,7 +106,7 @@ func MisleadingURLPostRule(c *automod.RecordContext, post *appbsky.FeedPost) err
 var _ automod.PostRuleFunc = MisleadingMentionPostRule
 
 func MisleadingMentionPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	facets, err := ExtractFacets(post)
+	facets, err := helpers.ExtractFacets(post)
 	if err != nil {
 		c.Logger.Warn("invalid facets", "err", err)
 		// TODO: or some other "this record is corrupt" indicator?
