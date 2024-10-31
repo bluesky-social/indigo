@@ -188,6 +188,12 @@ func run(args []string) error {
 			EnvVars: []string{"RELAY_DID_CACHE_SIZE"},
 			Value:   5_000_000,
 		},
+		&cli.DurationFlag{
+			Name:    "event-playback-ttl",
+			Usage:   "time to live for event playback buffering (only applies to disk persister)",
+			EnvVars: []string{"RELAY_EVENT_PLAYBACK_TTL"},
+			Value:   72 * time.Hour,
+		},
 	}
 
 	app.Action = runBigsky
@@ -327,7 +333,10 @@ func runBigsky(cctx *cli.Context) error {
 
 	if dpd := cctx.String("disk-persister-dir"); dpd != "" {
 		log.Infow("setting up disk persister")
-		dp, err := events.NewDiskPersistence(dpd, "", db, events.DefaultDiskPersistOptions())
+
+		pOpts := events.DefaultDiskPersistOptions()
+		pOpts.Retention = cctx.Duration("event-playback-ttl")
+		dp, err := events.NewDiskPersistence(dpd, "", db, pOpts)
 		if err != nil {
 			return fmt.Errorf("setting up disk persister: %w", err)
 		}
