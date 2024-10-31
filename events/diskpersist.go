@@ -81,8 +81,8 @@ type DiskPersistOptions struct {
 func DefaultDiskPersistOptions() *DiskPersistOptions {
 	return &DiskPersistOptions{
 		EventsPerFile:   10_000,
-		UIDCacheSize:    100_000,
-		DIDCacheSize:    100_000,
+		UIDCacheSize:    1_000_000,
+		DIDCacheSize:    1_000_000,
 		WriteBufferSize: 50,
 		Retention:       time.Hour * 24 * 3, // 3 days
 	}
