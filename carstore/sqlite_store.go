@@ -79,7 +79,12 @@ func (sqs *SQLiteStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 	}
 	offset := hnw
 
-	insertStatement, err := sqs.db.PrepareContext(ctx, "INSERT INTO blocks (uid, cid, rev, root, block) VALUES (?, ?, ?, ?, ?) ON CONFLICT (uid,cid) DO UPDATE SET rev=excluded.rev, root=excluded.root, block=excluded.block")
+	tx, err := sqs.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("bad block insert tx, %w", err)
+	}
+	defer tx.Rollback()
+	insertStatement, err := tx.PrepareContext(ctx, "INSERT INTO blocks (uid, cid, rev, root, block) VALUES (?, ?, ?, ?, ?) ON CONFLICT (uid,cid) DO UPDATE SET rev=excluded.rev, root=excluded.root, block=excluded.block")
 	if err != nil {
 		return nil, fmt.Errorf("bad block insert sql, %w", err)
 	}
@@ -104,6 +109,10 @@ func (sqs *SQLiteStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 		}
 		sqs.log.Debug("put block", "uid", user, "cid", bcid, "size", len(blockbytes))
 	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, fmt.Errorf("bad block insert commit, %w", err)
+	}
 
 	shard := CarShard{
 		Root:      models.DbCID{CID: root},
@@ -124,7 +133,12 @@ var ErrNothingThere = errors.New("nothing to read)")
 // What we actually seem to need from this: last {Rev, Root.CID}
 func (sqs *SQLiteStore) GetLastShard(ctx context.Context, uid models.Uid) (*CarShard, error) {
 	sqGetLastShard.Inc()
-	qstmt, err := sqs.db.PrepareContext(ctx, "SELECT rev, root FROM blocks WHERE uid = ? ORDER BY rev DESC LIMIT 1")
+	tx, err := sqs.db.BeginTx(ctx, &txReadOnly)
+	if err != nil {
+		return nil, fmt.Errorf("bad last shard tx, %w", err)
+	}
+	defer tx.Rollback()
+	qstmt, err := tx.PrepareContext(ctx, "SELECT rev, root FROM blocks WHERE uid = ? ORDER BY rev DESC LIMIT 1")
 	if err != nil {
 		return nil, fmt.Errorf("bad last shard sql, %w", err)
 	}
@@ -335,13 +349,21 @@ func (sqs *SQLiteStore) Stat(ctx context.Context, usr models.Uid) ([]UserStat, e
 }
 
 func (sqs *SQLiteStore) WipeUserData(ctx context.Context, user models.Uid) error {
-	deleteResult, err := sqs.db.ExecContext(ctx, "DELETE FROM blocks WHERE uid = ?", user)
+	tx, err := sqs.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("wipe tx, %w", err)
+	}
+	defer tx.Rollback()
+	deleteResult, err := tx.ExecContext(ctx, "DELETE FROM blocks WHERE uid = ?", user)
 	nrows, ierr := deleteResult.RowsAffected()
 	if ierr == nil {
 		sqRowsDeleted.Add(float64(nrows))
 	}
 	if err == nil {
 		err = ierr
+	}
+	if err == nil {
+		err = tx.Commit()
 	}
 	return err
 }
@@ -419,7 +441,12 @@ func (sqs *SQLiteStore) getBlock(ctx context.Context, user models.Uid, bcid cid.
 func (sqs *SQLiteStore) getBlockSize(ctx context.Context, user models.Uid, bcid cid.Cid) (int64, error) {
 	// TODO: this is pretty cacheable? invalidate (uid,*) on WipeUserData
 	sqGetBlockSize.Inc()
-	qstmt, err := sqs.db.PrepareContext(ctx, "SELECT length(block) FROM blocks WHERE uid = ? AND cid = ? LIMIT 1")
+	tx, err := sqs.db.BeginTx(ctx, &txReadOnly)
+	if err != nil {
+		return 0, fmt.Errorf("getbs tx, %w", err)
+	}
+	defer tx.Rollback()
+	qstmt, err := tx.PrepareContext(ctx, "SELECT length(block) FROM blocks WHERE uid = ? AND cid = ? LIMIT 1")
 	if err != nil {
 		return 0, fmt.Errorf("getbs sql, %w", err)
 	}
