@@ -358,7 +358,7 @@ func (cs *FileCarStore) ReadOnlySession(user models.Uid) (*DeltaSession, error) 
 }
 
 // TODO: incremental is only ever called true, remove the param
-func (cs *FileCarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev string, incremental bool, w io.Writer) error {
+func (cs *FileCarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev string, incremental bool, shardOut io.Writer) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ReadUserCar")
 	defer span.End()
 
@@ -390,12 +390,12 @@ func (cs *FileCarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceR
 	if err := car.WriteHeader(&car.CarHeader{
 		Roots:   []cid.Cid{shards[0].Root.CID},
 		Version: 1,
-	}, w); err != nil {
+	}, shardOut); err != nil {
 		return err
 	}
 
 	for _, sh := range shards {
-		if err := cs.writeShardBlocks(ctx, &sh, w); err != nil {
+		if err := cs.writeShardBlocks(ctx, &sh, shardOut); err != nil {
 			return err
 		}
 	}
@@ -405,7 +405,7 @@ func (cs *FileCarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceR
 
 // inner loop part of ReadUserCar
 // copy shard blocks from disk to Writer
-func (cs *FileCarStore) writeShardBlocks(ctx context.Context, sh *CarShard, w io.Writer) error {
+func (cs *FileCarStore) writeShardBlocks(ctx context.Context, sh *CarShard, shardOut io.Writer) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "writeShardBlocks")
 	defer span.End()
 
@@ -420,7 +420,7 @@ func (cs *FileCarStore) writeShardBlocks(ctx context.Context, sh *CarShard, w io
 		return err
 	}
 
-	_, err = io.Copy(w, fi)
+	_, err = io.Copy(shardOut, fi)
 	if err != nil {
 		return err
 	}

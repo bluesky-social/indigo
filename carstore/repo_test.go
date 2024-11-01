@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -24,7 +25,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func testCarStore() (CarStore, func(), error) {
+func testCarStore(t testing.TB) (CarStore, func(), error) {
 	tempdir, err := os.MkdirTemp("", "msttest-")
 	if err != nil {
 		return nil, nil, err
@@ -55,8 +56,9 @@ func testCarStore() (CarStore, func(), error) {
 	}, nil
 }
 
-func testSqliteCarStore() (CarStore, func(), error) {
+func testSqliteCarStore(t testing.TB) (CarStore, func(), error) {
 	sqs := &SQLiteStore{}
+	sqs.log = slogForTest(t)
 	err := sqs.Open(":memory:")
 	if err != nil {
 		return nil, nil, err
@@ -64,7 +66,7 @@ func testSqliteCarStore() (CarStore, func(), error) {
 	return sqs, func() {}, nil
 }
 
-type testFactory func() (CarStore, func(), error)
+type testFactory func(t testing.TB) (CarStore, func(), error)
 
 var backends = map[string]testFactory{
 	"cartore": testCarStore,
@@ -95,7 +97,7 @@ func TestBasicOperation(ot *testing.T) {
 	for fname, tf := range backends {
 		ot.Run(fname, func(t *testing.T) {
 
-			cs, cleanup, err := tf()
+			cs, cleanup, err := tf(t)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -178,7 +180,7 @@ func TestBasicOperation(ot *testing.T) {
 func TestRepeatedCompactions(t *testing.T) {
 	ctx := context.TODO()
 
-	cs, cleanup, err := testCarStore()
+	cs, cleanup, err := testCarStore(t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -339,13 +341,13 @@ func setupRepo(ctx context.Context, bs blockstore.Blockstore, mkprofile bool) (c
 func BenchmarkRepoWritesCarstore(b *testing.B) {
 	ctx := context.TODO()
 
-	cs, cleanup, err := testCarStore()
+	cs, cleanup, err := testCarStore(b)
 	innerBenchmarkRepoWritesCarstore(b, ctx, cs, cleanup, err)
 }
 func BenchmarkRepoWritesSqliteCarstore(b *testing.B) {
 	ctx := context.TODO()
 
-	cs, cleanup, err := testSqliteCarStore()
+	cs, cleanup, err := testSqliteCarStore(b)
 	innerBenchmarkRepoWritesCarstore(b, ctx, cs, cleanup, err)
 }
 func innerBenchmarkRepoWritesCarstore(b *testing.B, ctx context.Context, cs CarStore, cleanup func(), err error) {
@@ -489,7 +491,7 @@ func TestDuplicateBlockAcrossShards(ot *testing.T) {
 	for fname, tf := range backends {
 		ot.Run(fname, func(t *testing.T) {
 
-			cs, cleanup, err := tf()
+			cs, cleanup, err := tf(t)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -615,4 +617,20 @@ func TestDuplicateBlockAcrossShards(ot *testing.T) {
 			checkRepo(t, cs, buf, recs)
 		})
 	}
+}
+
+type testWriter struct {
+	t testing.TB
+}
+
+func (tw testWriter) Write(p []byte) (n int, err error) {
+	tw.t.Log(string(p))
+	return len(p), nil
+}
+
+func slogForTest(t testing.TB) *slog.Logger {
+	hopts := slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}
+	return slog.New(slog.NewTextHandler(&testWriter{t}, &hopts))
 }

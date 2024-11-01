@@ -6,6 +6,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+
 	"github.com/bluesky-social/indigo/models"
 	blockformat "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
@@ -17,36 +20,56 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.opentelemetry.io/otel"
-	"io"
-	"log/slog"
 )
 
-//var log = logging.Logger("sqstore")
+// var log = logging.Logger("sqstore")
 
 type SQLiteStore struct {
-	db *sql.DB
+	dbPath string
+	db     *sql.DB
+
+	log *slog.Logger
 
 	lastShardCache lastShardCache
 }
 
 func (sqs *SQLiteStore) Open(path string) error {
+	if sqs.log == nil {
+		sqs.log = slog.Default()
+	}
+	sqs.log.Debug("open db", "path", path)
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return fmt.Errorf("%s: sqlite could not open, %w", path, err)
 	}
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS blocks (uid int, cid blob, rev varchar, root varchar, block blob, PRIMARY KEY(uid,cid))")
-	if err != nil {
-		return fmt.Errorf("%s: create table blocks..., %w", path, err)
-	}
 	sqs.db = db
+	sqs.dbPath = path
+	err = sqs.createTables()
+	if err != nil {
+		return fmt.Errorf("%s: sqlite could not create tables, %w", path, err)
+	}
 	sqs.lastShardCache.source = sqs
 	sqs.lastShardCache.Init()
 	return nil
 }
 
+func (sqs *SQLiteStore) createTables() error {
+	tx, err := sqs.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS blocks (uid int, cid blob, rev varchar, root blob, block blob, PRIMARY KEY(uid,cid));")
+	if err != nil {
+		return fmt.Errorf("%s: create table blocks..., %w", sqs.dbPath, err)
+	}
+	return tx.Commit()
+}
+
 // writeNewShard needed for DeltaSession.CloseWithRoot
 func (sqs *SQLiteStore) writeNewShard(ctx context.Context, root cid.Cid, rev string, user models.Uid, seq int, blks map[cid.Cid]blockformat.Block, rmcids map[cid.Cid]bool) ([]byte, error) {
 	sqWriteNewShard.Inc()
+	sqs.log.Debug("write shard", "uid", user, "root", root, "rev", rev, "nblocks", len(blks))
 	// TODO: trace span here
 	// this is "write many blocks", "write one block" is above in putBlock(). keep them in sync.
 	buf := new(bytes.Buffer)
@@ -56,7 +79,7 @@ func (sqs *SQLiteStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 	}
 	offset := hnw
 
-	insertStatement, err := sqs.db.PrepareContext(ctx, "INSERT INTO blocks (uid, cid, rev, root, block) VALUES (?, ?, ?, ?, ?)")
+	insertStatement, err := sqs.db.PrepareContext(ctx, "INSERT INTO blocks (uid, cid, rev, root, block) VALUES (?, ?, ?, ?, ?) ON CONFLICT (uid,cid) DO UPDATE SET rev=excluded.rev, root=excluded.root, block=excluded.block")
 	if err != nil {
 		return nil, fmt.Errorf("bad block insert sql, %w", err)
 	}
@@ -74,10 +97,12 @@ func (sqs *SQLiteStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 
 		// TODO: better databases have an insert-many option for a prepared statement
 		dbcid := models.DbCID{CID: bcid}
-		_, err = insertStatement.ExecContext(ctx, user, dbcid, rev, dbroot, block.RawData())
+		blockbytes := block.RawData()
+		_, err = insertStatement.ExecContext(ctx, user, dbcid, rev, dbroot, blockbytes)
 		if err != nil {
 			return nil, fmt.Errorf("(uid,cid) block store failed, %w", err)
 		}
+		sqs.log.Debug("put block", "uid", user, "cid", bcid, "size", len(blockbytes))
 	}
 
 	shard := CarShard{
@@ -123,12 +148,12 @@ func (sqs *SQLiteStore) GetLastShard(ctx context.Context, uid models.Uid) (*CarS
 }
 
 func (sqs *SQLiteStore) CompactUserShards(ctx context.Context, user models.Uid, skipBigShards bool) (*CompactionStats, error) {
-	slog.Warn("TODO: don't call compaction")
+	sqs.log.Warn("TODO: don't call compaction")
 	return nil, nil
 }
 
 func (sqs *SQLiteStore) GetCompactionTargets(ctx context.Context, shardCount int) ([]CompactionTarget, error) {
-	slog.Warn("TODO: don't call compaction targets")
+	sqs.log.Warn("TODO: don't call compaction targets")
 	return nil, nil
 }
 
@@ -245,18 +270,67 @@ func (sqs *SQLiteStore) ReadOnlySession(user models.Uid) (*DeltaSession, error) 
 	}, nil
 }
 
+type cartmp struct {
+	xcid  cid.Cid
+	rev   string
+	root  string
+	block []byte
+}
+
 // ReadUserCar
 // incremental is only ever called true
-func (sqs *SQLiteStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev string, incremental bool, w io.Writer) error {
-	//TODO implement me
-	// TODO: get help understanding what PDS does for this
-	panic("implement me")
+func (sqs *SQLiteStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev string, incremental bool, shardOut io.Writer) error {
+	sqGetCar.Inc()
+
+	tx, err := sqs.db.BeginTx(ctx, &txReadOnly)
+	if err != nil {
+		return fmt.Errorf("rcar tx, %w", err)
+	}
+	defer tx.Rollback()
+	qstmt, err := tx.PrepareContext(ctx, "SELECT cid,rev,root,block FROM blocks WHERE uid = ? AND rev > ? ORDER BY rev DESC")
+	if err != nil {
+		return fmt.Errorf("rcar sql, %w", err)
+	}
+	defer qstmt.Close()
+	rows, err := qstmt.QueryContext(ctx, user, sinceRev)
+	if err != nil {
+		return fmt.Errorf("rcar err, %w", err)
+	}
+	nblocks := 0
+	first := true
+	for rows.Next() {
+		var xcid models.DbCID
+		var xrev string
+		var xroot models.DbCID
+		var xblock []byte
+		err = rows.Scan(&xcid, &xrev, &xroot, &xblock)
+		if err != nil {
+			return fmt.Errorf("rcar bad scan, %w", err)
+		}
+		if first {
+			if err := car.WriteHeader(&car.CarHeader{
+				Roots:   []cid.Cid{xroot.CID},
+				Version: 1,
+			}, shardOut); err != nil {
+				return fmt.Errorf("rcar bad header, %w", err)
+			}
+			first = false
+		}
+		nblocks++
+		_, err := LdWrite(shardOut, xcid.CID.Bytes(), xblock)
+		if err != nil {
+			return fmt.Errorf("rcar bad write, %w", err)
+		}
+	}
+	sqs.log.Debug("read car", "nblocks", nblocks, "since", sinceRev)
+	sqs.log.Error("TODO is this right?")
+	return nil
 }
 
 // Stat is only used in a debugging admin handler
 // don't bother implementing it (for now?)
 func (sqs *SQLiteStore) Stat(ctx context.Context, usr models.Uid) ([]UserStat, error) {
-	slog.Warn("Stat debugging method not implemented for sqlite store")
+	sqs.log.Warn("Stat debugging method not implemented for sqlite store")
 	return nil, nil
 }
 
@@ -272,11 +346,18 @@ func (sqs *SQLiteStore) WipeUserData(ctx context.Context, user models.Uid) error
 	return err
 }
 
+var txReadOnly = sql.TxOptions{ReadOnly: true}
+
 // HasUidCid needed for NewDeltaSession userView
 func (sqs *SQLiteStore) HasUidCid(ctx context.Context, user models.Uid, bcid cid.Cid) (bool, error) {
 	// TODO: this is pretty cacheable? invalidate (uid,*) on WipeUserData
 	sqHas.Inc()
-	qstmt, err := sqs.db.PrepareContext(ctx, "SELECT rev, root FROM blocks WHERE uid = ? AND cid = ? LIMIT 1")
+	tx, err := sqs.db.BeginTx(ctx, &txReadOnly)
+	if err != nil {
+		return false, fmt.Errorf("hasUC tx, %w", err)
+	}
+	defer tx.Rollback()
+	qstmt, err := tx.PrepareContext(ctx, "SELECT rev, root FROM blocks WHERE uid = ? AND cid = ? LIMIT 1")
 	if err != nil {
 		return false, fmt.Errorf("hasUC sql, %w", err)
 	}
@@ -308,14 +389,19 @@ func (sqs *SQLiteStore) Close() error {
 func (sqs *SQLiteStore) getBlock(ctx context.Context, user models.Uid, bcid cid.Cid) (blockformat.Block, error) {
 	// TODO: this is pretty cacheable? invalidate (uid,*) on WipeUserData
 	sqGetBlock.Inc()
-	qstmt, err := sqs.db.PrepareContext(ctx, "SELECT block FROM blocks WHERE uid = ? AND cid = ? LIMIT 1")
-	defer qstmt.Close()
+	tx, err := sqs.db.BeginTx(ctx, &txReadOnly)
 	if err != nil {
-		return nil, fmt.Errorf("hasUC sql, %w", err)
+		return nil, fmt.Errorf("getb tx, %w", err)
 	}
+	defer tx.Rollback()
+	qstmt, err := tx.PrepareContext(ctx, "SELECT block FROM blocks WHERE uid = ? AND cid = ? LIMIT 1")
+	if err != nil {
+		return nil, fmt.Errorf("getb sql, %w", err)
+	}
+	defer qstmt.Close()
 	rows, err := qstmt.QueryContext(ctx, user, models.DbCID{bcid})
 	if err != nil {
-		return nil, fmt.Errorf("hasUC err, %w", err)
+		return nil, fmt.Errorf("getb err, %w", err)
 	}
 	if rows.Next() {
 		//var rev string
@@ -323,7 +409,7 @@ func (sqs *SQLiteStore) getBlock(ctx context.Context, user models.Uid, bcid cid.
 		var blockb []byte
 		err = rows.Scan(&blockb)
 		if err != nil {
-			return nil, fmt.Errorf("hasUC bad scan, %w", err)
+			return nil, fmt.Errorf("getb bad scan, %w", err)
 		}
 		return blocks.NewBlock(blockb), nil
 	}
@@ -335,18 +421,18 @@ func (sqs *SQLiteStore) getBlockSize(ctx context.Context, user models.Uid, bcid 
 	sqGetBlockSize.Inc()
 	qstmt, err := sqs.db.PrepareContext(ctx, "SELECT length(block) FROM blocks WHERE uid = ? AND cid = ? LIMIT 1")
 	if err != nil {
-		return 0, fmt.Errorf("hasUC sql, %w", err)
+		return 0, fmt.Errorf("getbs sql, %w", err)
 	}
 	defer qstmt.Close()
 	rows, err := qstmt.QueryContext(ctx, user, models.DbCID{bcid})
 	if err != nil {
-		return 0, fmt.Errorf("hasUC err, %w", err)
+		return 0, fmt.Errorf("getbs err, %w", err)
 	}
 	if rows.Next() {
 		var out int64
 		err = rows.Scan(&out)
 		if err != nil {
-			return 0, fmt.Errorf("hasUC bad scan, %w", err)
+			return 0, fmt.Errorf("getbs bad scan, %w", err)
 		}
 		return out, nil
 	}
@@ -390,6 +476,11 @@ var sqGetBlock = promauto.NewCounter(prometheus.CounterOpts{
 var sqGetBlockSize = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "bgs_sq_get_block_size",
 	Help: "get block size sqlite backend",
+})
+
+var sqGetCar = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "bgs_sq_get_car",
+	Help: "get block sqlite backend",
 })
 
 var sqHas = promauto.NewCounter(prometheus.CounterOpts{
