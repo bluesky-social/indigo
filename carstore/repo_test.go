@@ -55,6 +55,22 @@ func testCarStore() (CarStore, func(), error) {
 	}, nil
 }
 
+func testSqliteCarStore() (CarStore, func(), error) {
+	sqs := &SQLiteStore{}
+	err := sqs.Open(":memory:")
+	if err != nil {
+		return nil, nil, err
+	}
+	return sqs, func() {}, nil
+}
+
+type testFactory func() (CarStore, func(), error)
+
+var backends = map[string]testFactory{
+	"cartore": testCarStore,
+	"sqlite":  testSqliteCarStore,
+}
+
 func testFlatfsBs() (blockstore.Blockstore, func(), error) {
 	tempdir, err := os.MkdirTemp("", "msttest-")
 	if err != nil {
@@ -73,85 +89,90 @@ func testFlatfsBs() (blockstore.Blockstore, func(), error) {
 	}, nil
 }
 
-func TestBasicOperation(t *testing.T) {
+func TestBasicOperation(ot *testing.T) {
 	ctx := context.TODO()
 
-	cs, cleanup, err := testCarStore()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cleanup()
+	for fname, tf := range backends {
+		ot.Run(fname, func(t *testing.T) {
 
-	ds, err := cs.NewDeltaSession(ctx, 1, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+			cs, cleanup, err := tf()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer cleanup()
 
-	ncid, rev, err := setupRepo(ctx, ds, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+			ds, err := cs.NewDeltaSession(ctx, 1, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	if _, err := ds.CloseWithRoot(ctx, ncid, rev); err != nil {
-		t.Fatal(err)
-	}
+			ncid, rev, err := setupRepo(ctx, ds, false)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	var recs []cid.Cid
-	head := ncid
-	for i := 0; i < 10; i++ {
-		ds, err := cs.NewDeltaSession(ctx, 1, &rev)
-		if err != nil {
-			t.Fatal(err)
-		}
+			if _, err := ds.CloseWithRoot(ctx, ncid, rev); err != nil {
+				t.Fatal(err)
+			}
 
-		rr, err := repo.OpenRepo(ctx, ds, head)
-		if err != nil {
-			t.Fatal(err)
-		}
+			var recs []cid.Cid
+			head := ncid
+			for i := 0; i < 10; i++ {
+				ds, err := cs.NewDeltaSession(ctx, 1, &rev)
+				if err != nil {
+					t.Fatal(err)
+				}
 
-		rc, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
-			Text: fmt.Sprintf("hey look its a tweet %d", time.Now().UnixNano()),
+				rr, err := repo.OpenRepo(ctx, ds, head)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				rc, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
+					Text: fmt.Sprintf("hey look its a tweet %d", time.Now().UnixNano()),
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				recs = append(recs, rc)
+
+				kmgr := &util.FakeKeyManager{}
+				nroot, nrev, err := rr.Commit(ctx, kmgr.SignForUser)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				rev = nrev
+
+				if err := ds.CalcDiff(ctx, nil); err != nil {
+					t.Fatal(err)
+				}
+
+				if _, err := ds.CloseWithRoot(ctx, nroot, rev); err != nil {
+					t.Fatal(err)
+				}
+
+				head = nroot
+			}
+
+			buf := new(bytes.Buffer)
+			if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
+				t.Fatal(err)
+			}
+			checkRepo(t, cs, buf, recs)
+
+			if _, err := cs.CompactUserShards(ctx, 1, false); err != nil {
+				t.Fatal(err)
+			}
+
+			buf = new(bytes.Buffer)
+			if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
+				t.Fatal(err)
+			}
+			checkRepo(t, cs, buf, recs)
 		})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		recs = append(recs, rc)
-
-		kmgr := &util.FakeKeyManager{}
-		nroot, nrev, err := rr.Commit(ctx, kmgr.SignForUser)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		rev = nrev
-
-		if err := ds.CalcDiff(ctx, nil); err != nil {
-			t.Fatal(err)
-		}
-
-		if _, err := ds.CloseWithRoot(ctx, nroot, rev); err != nil {
-			t.Fatal(err)
-		}
-
-		head = nroot
 	}
-
-	buf := new(bytes.Buffer)
-	if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
-		t.Fatal(err)
-	}
-	checkRepo(t, cs, buf, recs)
-
-	if _, err := cs.CompactUserShards(ctx, 1, false); err != nil {
-		t.Fatal(err)
-	}
-
-	buf = new(bytes.Buffer)
-	if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
-		t.Fatal(err)
-	}
-	checkRepo(t, cs, buf, recs)
 }
 
 func TestRepeatedCompactions(t *testing.T) {
@@ -319,6 +340,15 @@ func BenchmarkRepoWritesCarstore(b *testing.B) {
 	ctx := context.TODO()
 
 	cs, cleanup, err := testCarStore()
+	innerBenchmarkRepoWritesCarstore(b, ctx, cs, cleanup, err)
+}
+func BenchmarkRepoWritesSqliteCarstore(b *testing.B) {
+	ctx := context.TODO()
+
+	cs, cleanup, err := testSqliteCarStore()
+	innerBenchmarkRepoWritesCarstore(b, ctx, cs, cleanup, err)
+}
+func innerBenchmarkRepoWritesCarstore(b *testing.B, ctx context.Context, cs CarStore, cleanup func(), err error) {
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -453,131 +483,136 @@ func BenchmarkRepoWritesSqlite(b *testing.B) {
 	}
 }
 
-func TestDuplicateBlockAcrossShards(t *testing.T) {
+func TestDuplicateBlockAcrossShards(ot *testing.T) {
 	ctx := context.TODO()
 
-	cs, cleanup, err := testCarStore()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cleanup()
+	for fname, tf := range backends {
+		ot.Run(fname, func(t *testing.T) {
 
-	ds1, err := cs.NewDeltaSession(ctx, 1, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+			cs, cleanup, err := tf()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer cleanup()
 
-	ds2, err := cs.NewDeltaSession(ctx, 2, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+			ds1, err := cs.NewDeltaSession(ctx, 1, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	ds3, err := cs.NewDeltaSession(ctx, 3, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+			ds2, err := cs.NewDeltaSession(ctx, 2, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	var cids []cid.Cid
-	var revs []string
-	for _, ds := range []*DeltaSession{ds1, ds2, ds3} {
-		ncid, rev, err := setupRepo(ctx, ds, true)
-		if err != nil {
-			t.Fatal(err)
-		}
+			ds3, err := cs.NewDeltaSession(ctx, 3, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		if _, err := ds.CloseWithRoot(ctx, ncid, rev); err != nil {
-			t.Fatal(err)
-		}
-		cids = append(cids, ncid)
-		revs = append(revs, rev)
-	}
+			var cids []cid.Cid
+			var revs []string
+			for _, ds := range []*DeltaSession{ds1, ds2, ds3} {
+				ncid, rev, err := setupRepo(ctx, ds, true)
+				if err != nil {
+					t.Fatal(err)
+				}
 
-	var recs []cid.Cid
-	head := cids[1]
-	rev := revs[1]
-	for i := 0; i < 10; i++ {
-		ds, err := cs.NewDeltaSession(ctx, 2, &rev)
-		if err != nil {
-			t.Fatal(err)
-		}
+				if _, err := ds.CloseWithRoot(ctx, ncid, rev); err != nil {
+					t.Fatal(err)
+				}
+				cids = append(cids, ncid)
+				revs = append(revs, rev)
+			}
 
-		rr, err := repo.OpenRepo(ctx, ds, head)
-		if err != nil {
-			t.Fatal(err)
-		}
+			var recs []cid.Cid
+			head := cids[1]
+			rev := revs[1]
+			for i := 0; i < 10; i++ {
+				ds, err := cs.NewDeltaSession(ctx, 2, &rev)
+				if err != nil {
+					t.Fatal(err)
+				}
 
-		rc, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
-			Text: fmt.Sprintf("hey look its a tweet %d", time.Now().UnixNano()),
+				rr, err := repo.OpenRepo(ctx, ds, head)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				rc, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
+					Text: fmt.Sprintf("hey look its a tweet %d", time.Now().UnixNano()),
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				recs = append(recs, rc)
+
+				kmgr := &util.FakeKeyManager{}
+				nroot, nrev, err := rr.Commit(ctx, kmgr.SignForUser)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				rev = nrev
+
+				if err := ds.CalcDiff(ctx, nil); err != nil {
+					t.Fatal(err)
+				}
+
+				if _, err := ds.CloseWithRoot(ctx, nroot, rev); err != nil {
+					t.Fatal(err)
+				}
+
+				head = nroot
+			}
+
+			// explicitly update the profile object
+			{
+				ds, err := cs.NewDeltaSession(ctx, 2, &rev)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				rr, err := repo.OpenRepo(ctx, ds, head)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				desc := "this is so unique"
+				rc, err := rr.UpdateRecord(ctx, "app.bsky.actor.profile/self", &appbsky.ActorProfile{
+					Description: &desc,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				recs = append(recs, rc)
+
+				kmgr := &util.FakeKeyManager{}
+				nroot, nrev, err := rr.Commit(ctx, kmgr.SignForUser)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				rev = nrev
+
+				if err := ds.CalcDiff(ctx, nil); err != nil {
+					t.Fatal(err)
+				}
+
+				if _, err := ds.CloseWithRoot(ctx, nroot, rev); err != nil {
+					t.Fatal(err)
+				}
+
+				head = nroot
+			}
+
+			buf := new(bytes.Buffer)
+			if err := cs.ReadUserCar(ctx, 2, "", true, buf); err != nil {
+				t.Fatal(err)
+			}
+			checkRepo(t, cs, buf, recs)
 		})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		recs = append(recs, rc)
-
-		kmgr := &util.FakeKeyManager{}
-		nroot, nrev, err := rr.Commit(ctx, kmgr.SignForUser)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		rev = nrev
-
-		if err := ds.CalcDiff(ctx, nil); err != nil {
-			t.Fatal(err)
-		}
-
-		if _, err := ds.CloseWithRoot(ctx, nroot, rev); err != nil {
-			t.Fatal(err)
-		}
-
-		head = nroot
 	}
-
-	// explicitly update the profile object
-	{
-		ds, err := cs.NewDeltaSession(ctx, 2, &rev)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		rr, err := repo.OpenRepo(ctx, ds, head)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		desc := "this is so unique"
-		rc, err := rr.UpdateRecord(ctx, "app.bsky.actor.profile/self", &appbsky.ActorProfile{
-			Description: &desc,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		recs = append(recs, rc)
-
-		kmgr := &util.FakeKeyManager{}
-		nroot, nrev, err := rr.Commit(ctx, kmgr.SignForUser)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		rev = nrev
-
-		if err := ds.CalcDiff(ctx, nil); err != nil {
-			t.Fatal(err)
-		}
-
-		if _, err := ds.CloseWithRoot(ctx, nroot, rev); err != nil {
-			t.Fatal(err)
-		}
-
-		head = nroot
-	}
-
-	buf := new(bytes.Buffer)
-	if err := cs.ReadUserCar(ctx, 2, "", true, buf); err != nil {
-		t.Fatal(err)
-	}
-	checkRepo(t, cs, buf, recs)
 }

@@ -68,8 +68,6 @@ type FileCarStore struct {
 	rootDir string
 
 	lastShardCache lastShardCache
-	//lscLk          sync.Mutex
-	//lastShardCache map[models.Uid]*CarShard
 }
 
 func NewCarStore(meta *gorm.DB, root string) (CarStore, error) {
@@ -273,11 +271,19 @@ func (uv *userView) GetSize(ctx context.Context, k cid.Cid) (int, error) {
 	return len(blk.RawData()), nil
 }
 
+// subset of blockstore.Blockstore that we actually use here
+type minBlockstore interface {
+	Get(ctx context.Context, bcid cid.Cid) (blockformat.Block, error)
+	Has(ctx context.Context, bcid cid.Cid) (bool, error)
+	GetSize(ctx context.Context, bcid cid.Cid) (int, error)
+}
+
 type DeltaSession struct {
-	fresh    blockstore.Blockstore
-	blks     map[cid.Cid]blockformat.Block
-	rmcids   map[cid.Cid]bool
-	base     blockstore.Blockstore
+	fresh  blockstore.Blockstore
+	blks   map[cid.Cid]blockformat.Block
+	rmcids map[cid.Cid]bool
+	//base     blockstore.Blockstore
+	base     minBlockstore
 	user     models.Uid
 	baseCid  cid.Cid
 	seq      int
@@ -365,7 +371,6 @@ func (cs *FileCarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceR
 		}
 	}
 
-	// TODO: Why does ReadUserCar want shards seq DESC but CompactUserShards wants seq ASC ?
 	shards, err := cs.meta.GetUserShardsDesc(ctx, user, earlySeq)
 	if err != nil {
 		return err
@@ -587,6 +592,7 @@ func WriteCarHeader(w io.Writer, root cid.Cid) (int64, error) {
 }
 
 type shardWriter interface {
+	// writeNewShard stores blocks in `blks` arg and creates a new shard to propagate out to our firehose
 	writeNewShard(ctx context.Context, root cid.Cid, rev string, user models.Uid, seq int, blks map[cid.Cid]blockformat.Block, rmcids map[cid.Cid]bool) ([]byte, error)
 }
 

@@ -42,6 +42,9 @@ func (lsc *lastShardCache) remove(user models.Uid) {
 }
 
 func (lsc *lastShardCache) put(ls *CarShard) {
+	if ls == nil {
+		return
+	}
 	lsc.lscLk.Lock()
 	defer lsc.lscLk.Unlock()
 
