@@ -63,6 +63,10 @@ func (sqs *SQLiteStore) createTables() error {
 	if err != nil {
 		return fmt.Errorf("%s: create table blocks..., %w", sqs.dbPath, err)
 	}
+	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS blocx_by_rev ON blocks (uid, rev DESC)")
+	if err != nil {
+		return fmt.Errorf("%s: create blocks by rev index, %w", sqs.dbPath, err)
+	}
 	return tx.Commit()
 }
 
