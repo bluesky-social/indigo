@@ -11,6 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 func MustLoadCapture(capPath string) AccountCapture {
@@ -65,7 +66,11 @@ func ProcessCaptureRules(eng *automod.Engine, capture AccountCapture) error {
 		}
 		recCID := syntax.CID(pr.Cid)
 		recBuf := new(bytes.Buffer)
-		if err := pr.Value.Val.MarshalCBOR(recBuf); err != nil {
+		var ltd lexutil.LexiconTypeDecoder
+		if err = ltd.UnmarshalJSON(*pr.Value); err != nil {
+			return err
+		}
+		if err := ltd.Val.MarshalCBOR(recBuf); err != nil {
 			return err
 		}
 		recBytes := recBuf.Bytes()

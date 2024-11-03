@@ -6,16 +6,16 @@ package atproto
 
 import (
 	"context"
+	"encoding/json"
 
-	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 // RepoGetRecord_Output is the output of a com.atproto.repo.getRecord call.
 type RepoGetRecord_Output struct {
-	Cid   *string                  `json:"cid,omitempty" cborgen:"cid,omitempty"`
-	Uri   string                   `json:"uri" cborgen:"uri"`
-	Value *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
+	Cid   *string          `json:"cid,omitempty" cborgen:"cid,omitempty"`
+	Uri   string           `json:"uri" cborgen:"uri"`
+	Value *json.RawMessage `json:"value" cborgen:"value"`
 }
 
 // RepoGetRecord calls the XRPC method "com.atproto.repo.getRecord".

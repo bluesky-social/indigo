@@ -6,6 +6,7 @@ package atproto
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
@@ -21,7 +22,7 @@ type ServerCreateAccount_Input struct {
 	// password: Initial account password. May need to meet instance-specific password strength requirements.
 	Password *string `json:"password,omitempty" cborgen:"password,omitempty"`
 	// plcOp: A signed DID PLC operation to be submitted as part of importing an existing account to this instance. NOTE: this optional field may be updated when full account migration is implemented.
-	PlcOp *interface{} `json:"plcOp,omitempty" cborgen:"plcOp,omitempty"`
+	PlcOp *json.RawMessage `json:"plcOp,omitempty" cborgen:"plcOp,omitempty"`
 	// recoveryKey: DID PLC rotation key (aka, recovery key) to be included in PLC creation operation.
 	RecoveryKey       *string `json:"recoveryKey,omitempty" cborgen:"recoveryKey,omitempty"`
 	VerificationCode  *string `json:"verificationCode,omitempty" cborgen:"verificationCode,omitempty"`
@@ -36,9 +37,9 @@ type ServerCreateAccount_Output struct {
 	// did: The DID of the new account.
 	Did string `json:"did" cborgen:"did"`
 	// didDoc: Complete DID document.
-	DidDoc     *interface{} `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
-	Handle     string       `json:"handle" cborgen:"handle"`
-	RefreshJwt string       `json:"refreshJwt" cborgen:"refreshJwt"`
+	DidDoc     *json.RawMessage `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
+	Handle     string           `json:"handle" cborgen:"handle"`
+	RefreshJwt string           `json:"refreshJwt" cborgen:"refreshJwt"`
 }
 
 // ServerCreateAccount calls the XRPC method "com.atproto.server.createAccount".

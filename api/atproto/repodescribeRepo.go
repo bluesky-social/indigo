@@ -6,6 +6,7 @@ package atproto
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/bluesky-social/indigo/xrpc"
 )
@@ -16,8 +17,8 @@ type RepoDescribeRepo_Output struct {
 	Collections []string `json:"collections" cborgen:"collections"`
 	Did         string   `json:"did" cborgen:"did"`
 	// didDoc: The complete DID document for this account.
-	DidDoc interface{} `json:"didDoc" cborgen:"didDoc"`
-	Handle string      `json:"handle" cborgen:"handle"`
+	DidDoc *json.RawMessage `json:"didDoc" cborgen:"didDoc"`
+	Handle string           `json:"handle" cborgen:"handle"`
 	// handleIsCorrect: Indicates if handle is currently valid (resolves bi-directionally)
 	HandleIsCorrect bool `json:"handleIsCorrect" cborgen:"handleIsCorrect"`
 }
