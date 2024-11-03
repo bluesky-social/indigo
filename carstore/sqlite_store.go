@@ -74,7 +74,8 @@ func (sqs *SQLiteStore) createTables() error {
 func (sqs *SQLiteStore) writeNewShard(ctx context.Context, root cid.Cid, rev string, user models.Uid, seq int, blks map[cid.Cid]blockformat.Block, rmcids map[cid.Cid]bool) ([]byte, error) {
 	sqWriteNewShard.Inc()
 	sqs.log.Debug("write shard", "uid", user, "root", root, "rev", rev, "nblocks", len(blks))
-	// TODO: trace span here
+	ctx, span := otel.Tracer("carstore").Start(ctx, "writeNewShard")
+	defer span.End()
 	// this is "write many blocks", "write one block" is above in putBlock(). keep them in sync.
 	buf := new(bytes.Buffer)
 	hnw, err := WriteCarHeader(buf, root)
@@ -299,6 +300,8 @@ type cartmp struct {
 // incremental is only ever called true
 func (sqs *SQLiteStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev string, incremental bool, shardOut io.Writer) error {
 	sqGetCar.Inc()
+	ctx, span := otel.Tracer("carstore").Start(ctx, "ReadUserCar")
+	defer span.End()
 
 	tx, err := sqs.db.BeginTx(ctx, &txReadOnly)
 	if err != nil {
@@ -353,6 +356,8 @@ func (sqs *SQLiteStore) Stat(ctx context.Context, usr models.Uid) ([]UserStat, e
 }
 
 func (sqs *SQLiteStore) WipeUserData(ctx context.Context, user models.Uid) error {
+	ctx, span := otel.Tracer("carstore").Start(ctx, "WipeUserData")
+	defer span.End()
 	tx, err := sqs.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("wipe tx, %w", err)
