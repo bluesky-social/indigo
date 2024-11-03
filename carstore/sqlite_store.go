@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"path/filepath"
 
 	"github.com/bluesky-social/indigo/models"
 	blockformat "github.com/ipfs/go-block-format"
@@ -31,6 +32,16 @@ type SQLiteStore struct {
 	log *slog.Logger
 
 	lastShardCache lastShardCache
+}
+
+func NewSqliteStore(csdir string) (*SQLiteStore, error) {
+	dbpath := filepath.Join(csdir, "db.sqlite3")
+	out := new(SQLiteStore)
+	err := out.Open(dbpath)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (sqs *SQLiteStore) Open(path string) error {

@@ -194,6 +194,11 @@ func run(args []string) error {
 			EnvVars: []string{"RELAY_EVENT_PLAYBACK_TTL"},
 			Value:   72 * time.Hour,
 		},
+		&cli.BoolFlag{
+			Name:  "ex-sqlite-carstore",
+			Usage: "enable experimental sqlite carstore",
+			Value: false,
+		},
 	}
 
 	app.Action = runBigsky
@@ -307,7 +312,14 @@ func runBigsky(cctx *cli.Context) error {
 	}
 
 	os.MkdirAll(filepath.Dir(csdir), os.ModePerm)
-	cstore, err := carstore.NewCarStore(csdb, csdir)
+
+	var cstore carstore.CarStore
+	if cctx.Bool("ex-sqlite-carstore") {
+		cstore, err = carstore.NewSqliteStore(csdir)
+	} else {
+		// make standard FileCarStore
+		cstore, err = carstore.NewCarStore(csdb, csdir)
+	}
 	if err != nil {
 		return err
 	}
