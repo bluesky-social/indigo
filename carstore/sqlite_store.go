@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
 
 	"github.com/bluesky-social/indigo/models"
@@ -34,7 +35,24 @@ type SQLiteStore struct {
 	lastShardCache lastShardCache
 }
 
+func ensureDir(path string) error {
+	fi, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return os.MkdirAll(path, 0755)
+		}
+		return err
+	}
+	if fi.IsDir() {
+		return nil
+	}
+	return fmt.Errorf("%s exists but is not a directory", path)
+}
+
 func NewSqliteStore(csdir string) (*SQLiteStore, error) {
+	if err := ensureDir(csdir); err != nil {
+		return nil, err
+	}
 	dbpath := filepath.Join(csdir, "db.sqlite3")
 	out := new(SQLiteStore)
 	err := out.Open(dbpath)
