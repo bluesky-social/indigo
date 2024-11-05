@@ -150,6 +150,13 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 					}
 				}
 			}
+			if rd.ThreatSignatures != nil || len(rd.ThreatSignatures) > 0 {
+				asigs := make([]AbuseSignature, len(rd.ThreatSignatures))
+				for i, sig := range rd.ThreatSignatures {
+					asigs[i] = AbuseSignature{Property: sig.Property, Value: sig.Value}
+				}
+				ap.AbuseSignatures = asigs
+			}
 			am.Private = &ap
 		}
 	}

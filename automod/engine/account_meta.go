@@ -38,12 +38,19 @@ type ProfileSummary struct {
 	DisplayName *string
 }
 
+// opaque fingerprints for correlating abusive accounts
+type AbuseSignature struct {
+	Property string
+	Value    string
+}
+
 type AccountPrivate struct {
 	Email          string
 	EmailConfirmed bool
 	IndexedAt      *time.Time
 	AccountTags    []string
 	// ReviewState will be one of ReviewStateEscalated, ReviewStateOpen, ReviewStateClosed, ReviewStateNone, or "" (unknown)
-	ReviewState string
-	Appealed    bool
+	ReviewState     string
+	Appealed        bool
+	AbuseSignatures []AbuseSignature
 }
