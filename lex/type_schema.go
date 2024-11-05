@@ -50,7 +50,7 @@ type TypeSchema struct {
 	Maximum any `json:"maximum"`
 }
 
-func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
+func (s *TypeSchema) WriteRPC(w io.Writer, typename, inputname string) error {
 	pf := printerf(w)
 	fname := typename
 
@@ -65,7 +65,7 @@ func (s *TypeSchema) WriteRPC(w io.Writer, typename string) error {
 		case EncodingCBOR, EncodingCAR, EncodingANY, EncodingMP4:
 			params = fmt.Sprintf("%s, input io.Reader", params)
 		case EncodingJSON:
-			params = fmt.Sprintf("%s, input *%s_Input", params, fname)
+			params = fmt.Sprintf("%s, input *%s", params, inputname)
 
 		default:
 			return fmt.Errorf("unsupported input encoding (RPC input): %q", s.Input.Encoding)
