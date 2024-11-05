@@ -285,7 +285,11 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			existingLabels = dedupeStrings(existingLabels)
 			negLabels = dedupeStrings(negLabels)
 			newLabels = dedupeLabelActions(newLabels, existingLabels, negLabels)
-			newTags = dedupeTagActions(newTags, rv.Moderation.SubjectStatus.Tags)
+			existingTags := []string{}
+			if rv.Moderation != nil && rv.Moderation.SubjectStatus != nil && rv.Moderation.SubjectStatus.Tags != nil {
+				existingTags = rv.Moderation.SubjectStatus.Tags
+			}
+			newTags = dedupeTagActions(newTags, existingTags)
 		}
 	}
 
@@ -389,7 +393,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			CreatedBy: xrpcc.Auth.Did,
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventTag: &toolsozone.ModerationDefs_ModEventTag{
-					Add:     newLabels,
+					Add:     newTags,
 					Remove:  []string{},
 					Comment: &comment,
 				},

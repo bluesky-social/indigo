@@ -153,7 +153,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 				for i, sig := range rd.ThreatSignatures {
 					asigs[i] = AbuseSignature{Property: sig.Property, Value: sig.Value}
 				}
-				am.Private.AbuseSignatures = asigs
+				ap.AbuseSignatures = asigs
 			}
 			am.Private = &ap
 		}
