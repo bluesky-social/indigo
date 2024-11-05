@@ -351,6 +351,7 @@ func (e *Engine) CanonicalLogLineAccount(c *AccountContext) {
 	c.Logger.Info("canonical-event-line",
 		"accountLabels", c.effects.AccountLabels,
 		"accountFlags", c.effects.AccountFlags,
+		"accountTags", c.effects.AccountTags,
 		"accountTakedown", c.effects.AccountTakedown,
 		"accountReports", len(c.effects.AccountReports),
 	)
@@ -360,10 +361,12 @@ func (e *Engine) CanonicalLogLineRecord(c *RecordContext) {
 	c.Logger.Info("canonical-event-line",
 		"accountLabels", c.effects.AccountLabels,
 		"accountFlags", c.effects.AccountFlags,
+		"accountTags", c.effects.AccountTags,
 		"accountTakedown", c.effects.AccountTakedown,
 		"accountReports", len(c.effects.AccountReports),
 		"recordLabels", c.effects.RecordLabels,
 		"recordFlags", c.effects.RecordFlags,
+		"recordTags", c.effects.RecordTags,
 		"recordTakedown", c.effects.RecordTakedown,
 		"recordReports", len(c.effects.RecordReports),
 	)
@@ -373,6 +376,7 @@ func (e *Engine) CanonicalLogLineNotification(c *NotificationContext) {
 	c.Logger.Info("canonical-event-line",
 		"accountLabels", c.effects.AccountLabels,
 		"accountFlags", c.effects.AccountFlags,
+		"accountTags", c.effects.AccountTags,
 		"accountTakedown", c.effects.AccountTakedown,
 		"accountReports", len(c.effects.AccountReports),
 		"reject", c.effects.RejectEvent,
