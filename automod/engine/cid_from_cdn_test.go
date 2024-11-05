@@ -37,6 +37,6 @@ func TestCidFromCdnUrl(t *testing.T) {
 	}
 
 	for _, fix := range fixtures {
-		assert.Equal(fix.cid, CidFromCdnUrl(&fix.url))
+		assert.Equal(fix.cid, cidFromCdnUrl(&fix.url))
 	}
 }
