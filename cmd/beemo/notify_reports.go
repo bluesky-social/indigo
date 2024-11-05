@@ -68,27 +68,28 @@ func pollNewReports(cctx *cli.Context) error {
 		xrpcc.Auth.RefreshJwt = refresh.RefreshJwt
 
 		// query just new reports (regardless of resolution state)
-		// ModerationQueryEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, includeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string) (*ModerationQueryEvents_Output, error)
 		var limit int64 = 50
 		me, err := toolsozone.ModerationQueryEvents(
 			cctx.Context,
 			xrpcc,
-			nil,
-			nil,
-			"",
-			"",
-			"",
-			"",
-			"",
-			false,
-			true,
-			limit,
-			nil,
-			nil,
-			nil,
-			"",
-			"",
-			[]string{"tools.ozone.moderation.defs#modEventReport"},
+			nil,   // addedLabels []string
+			nil,   // addedTags []string
+			nil,   // collections []string
+			"",    // comment string
+			"",    // createdAfter string
+			"",    // createdBefore string
+			"",    // createdBy string
+			"",    // cursor string
+			false, // hasComment bool
+			true,  // includeAllUserRecords bool
+			limit, // limit int64
+			nil,   // removedLabels []string
+			nil,   // removedTags []string
+			nil,   // reportTypes []string
+			"",    // sortDirection string
+			"",    // subject string
+			"",    // subjectType string
+			[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
 		)
 		if err != nil {
 			return err

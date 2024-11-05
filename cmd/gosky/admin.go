@@ -389,26 +389,27 @@ var listReportsCmd = &cli.Command{
 		xrpcc.AdminToken = &adminKey
 
 		// fetch recent moderation reports
-		// AdminQueryModerationEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, includeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string) (*AdminQueryModerationEvents_Output, error)
 		resp, err := toolsozone.ModerationQueryEvents(
 			ctx,
 			xrpcc,
-			nil,
-			nil,
-			"",
-			"",
-			"",
-			"",
-			"",
-			false,
-			false,
-			100,
-			nil,
-			nil,
-			nil,
-			"",
-			"",
-			[]string{"tools.ozone.moderation.defs#modEventReport"},
+			nil,   // addedLabels []string
+			nil,   // addedTags []string
+			nil,   // collections []string
+			"",    // comment string
+			"",    // createdAfter string
+			"",    // createdBefore string
+			"",    // createdBy string
+			"",    // cursor string
+			false, // hasComment bool
+			false, // includeAllUserRecords bool
+			100,   // limit int64
+			nil,   // removedLabels []string
+			nil,   // removedTags []string
+			nil,   // reportTypes []string
+			"",    // sortDirection string
+			"",    // subject string
+			"",    // subjectType string
+			[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
 		)
 		if err != nil {
 			return err
@@ -705,22 +706,24 @@ var queryModerationStatusesCmd = &cli.Command{
 		resp, err := toolsozone.ModerationQueryEvents(
 			ctx,
 			xrpcc,
-			nil,
-			nil,
-			"",
-			"",
-			"",
-			"",
-			"",
-			false,
-			false,
-			100,
-			nil,
-			nil,
-			nil,
-			"",
-			"",
-			[]string{"tools.ozone.moderation.defs#modEventReport"},
+			nil,   // addedLabels []string
+			nil,   // addedTags []string
+			nil,   // collections []string
+			"",    // comment string
+			"",    // createdAfter string
+			"",    // createdBefore string
+			"",    // createdBy string
+			"",    // cursor string
+			false, // hasComment bool
+			false, // includeAllUserRecords bool
+			100,   // limit int64
+			nil,   // removedLabels []string
+			nil,   // removedTags []string
+			nil,   // reportTypes []string
+			"",    // sortDirection string
+			"",    // subject string
+			"",    // subjectType string
+			[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
 		)
 		if err != nil {
 			return err
