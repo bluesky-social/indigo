@@ -155,26 +155,27 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 	// before creating a report, query to see if automod has already reported this account in the past week for the same reason
 	// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
 
-	// ModerationQueryEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, inc ludeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string)
 	resp, err := toolsozone.ModerationQueryEvents(
 		ctx,
 		xrpcc,
-		nil,
-		nil,
-		"",
-		"",
-		"",
-		xrpcc.Auth.Did,
-		"",
-		false,
-		false,
-		5,
-		nil,
-		nil,
-		nil,
-		"",
-		did.String(),
-		[]string{"tools.ozone.moderation.defs#modEventReport"},
+		nil,            // addedLabels []string
+		nil,            // addedTags []string
+		nil,            // collections []string
+		"",             // comment string
+		"",             // createdAfter string
+		"",             // createdBefore string
+		xrpcc.Auth.Did, // createdBy string
+		"",             // cursor string
+		false,          // hasComment bool
+		false,          // includeAllUserRecords bool
+		5,              // limit int64
+		nil,            // removedLabels []string
+		nil,            // removedTags []string
+		nil,            // reportTypes []string
+		"",             // sortDirection string
+		did.String(),   // subject string
+		"",             // subjectType string
+		[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
 	)
 
 	if err != nil {
@@ -231,26 +232,27 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 	// before creating a report, query to see if automod has already reported this account in the past week for the same reason
 	// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
 
-	// ModerationQueryEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, inc ludeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string)
 	resp, err := toolsozone.ModerationQueryEvents(
 		ctx,
 		xrpcc,
-		nil,
-		nil,
-		"",
-		"",
-		"",
-		xrpcc.Auth.Did,
-		"",
-		false,
-		false,
-		5,
-		nil,
-		nil,
-		nil,
-		"",
-		uri.String(),
-		[]string{"tools.ozone.moderation.defs#modEventReport"},
+		nil,            // addedLabels []string
+		nil,            // addedTags []string
+		nil,            // collections []string
+		"",             // comment string
+		"",             // createdAfter string
+		"",             // createdBefore string
+		xrpcc.Auth.Did, // createdBy string
+		"",             // cursor string
+		false,          // hasComment bool
+		false,          // includeAllUserRecords bool
+		5,              // limit int64
+		nil,            // removedLabels []string
+		nil,            // removedTags []string
+		nil,            // reportTypes []string
+		"",             // sortDirection string
+		uri.String(),   // subject string
+		"",             // subjectType string
+		[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
 	)
 	if err != nil {
 		return false, err
