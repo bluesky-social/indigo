@@ -32,6 +32,8 @@ type AccountMeta struct {
 
 type ProfileSummary struct {
 	HasAvatar   bool
+	AvatarCid   *string
+	BannerCid   *string
 	Description *string
 	DisplayName *string
 }
