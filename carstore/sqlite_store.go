@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"go.opentelemetry.io/otel/attribute"
 	"io"
 	"log/slog"
 	"os"
@@ -125,6 +126,8 @@ func (sqs *SQLiteStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 	defer insertStatement.Close()
 
 	dbroot := models.DbCID{root}
+
+	span.SetAttributes(attribute.Int("blocks", len(blks)))
 
 	for bcid, block := range blks {
 		// build shard for output firehose
