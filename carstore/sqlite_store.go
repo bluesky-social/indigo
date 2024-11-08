@@ -125,7 +125,7 @@ func (sqs *SQLiteStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 	}
 	defer insertStatement.Close()
 
-	dbroot := models.DbCID{root}
+	dbroot := models.DbCID{CID: root}
 
 	span.SetAttributes(attribute.Int("blocks", len(blks)))
 
@@ -382,7 +382,6 @@ func (sqs *SQLiteStore) ReadUserCar(ctx context.Context, user models.Uid, sinceR
 		}
 	}
 	sqs.log.Debug("read car", "nblocks", nblocks, "since", sinceRev)
-	sqs.log.Error("TODO is this right?")
 	return nil
 }
 
@@ -431,7 +430,7 @@ func (sqs *SQLiteStore) HasUidCid(ctx context.Context, user models.Uid, bcid cid
 		return false, fmt.Errorf("hasUC sql, %w", err)
 	}
 	defer qstmt.Close()
-	rows, err := qstmt.QueryContext(ctx, user, models.DbCID{bcid})
+	rows, err := qstmt.QueryContext(ctx, user, models.DbCID{CID: bcid})
 	if err != nil {
 		return false, fmt.Errorf("hasUC err, %w", err)
 	}
@@ -468,7 +467,7 @@ func (sqs *SQLiteStore) getBlock(ctx context.Context, user models.Uid, bcid cid.
 		return nil, fmt.Errorf("getb sql, %w", err)
 	}
 	defer qstmt.Close()
-	rows, err := qstmt.QueryContext(ctx, user, models.DbCID{bcid})
+	rows, err := qstmt.QueryContext(ctx, user, models.DbCID{CID: bcid})
 	if err != nil {
 		return nil, fmt.Errorf("getb err, %w", err)
 	}
@@ -498,7 +497,7 @@ func (sqs *SQLiteStore) getBlockSize(ctx context.Context, user models.Uid, bcid 
 		return 0, fmt.Errorf("getbs sql, %w", err)
 	}
 	defer qstmt.Close()
-	rows, err := qstmt.QueryContext(ctx, user, models.DbCID{bcid})
+	rows, err := qstmt.QueryContext(ctx, user, models.DbCID{CID: bcid})
 	if err != nil {
 		return 0, fmt.Errorf("getbs err, %w", err)
 	}
@@ -513,8 +512,14 @@ func (sqs *SQLiteStore) getBlockSize(ctx context.Context, user models.Uid, bcid 
 	return 0, nil
 }
 
+type sqliteUserViewInner interface {
+	HasUidCid(ctx context.Context, user models.Uid, bcid cid.Cid) (bool, error)
+	getBlock(ctx context.Context, user models.Uid, bcid cid.Cid) (blockformat.Block, error)
+	getBlockSize(ctx context.Context, user models.Uid, bcid cid.Cid) (int64, error)
+}
+
 type sqliteUserView struct {
-	sqs *SQLiteStore
+	sqs sqliteUserViewInner
 	uid models.Uid
 }
 
