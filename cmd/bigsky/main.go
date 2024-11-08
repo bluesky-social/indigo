@@ -85,7 +85,7 @@ func run(args []string) error {
 			Name:    "data-dir",
 			Usage:   "path of directory for CAR files and other data",
 			Value:   "data/bigsky",
-			EnvVars: []string{"DATA_DIR"},
+			EnvVars: []string{"RELAY_DATA_DIR", "DATA_DIR"},
 		},
 		&cli.StringFlag{
 			Name:    "plc-host",
@@ -112,8 +112,9 @@ func run(args []string) error {
 			EnvVars: []string{"RELAY_METRICS_LISTEN", "BGS_METRICS_LISTEN"},
 		},
 		&cli.StringFlag{
-			Name:  "disk-persister-dir",
-			Usage: "set directory for disk persister (implicitly enables disk persister)",
+			Name:    "disk-persister-dir",
+			Usage:   "set directory for disk persister (implicitly enables disk persister)",
+			EnvVars: []string{"RELAY_PERSISTER_DIR"},
 		},
 		&cli.StringFlag{
 			Name:    "admin-key",
