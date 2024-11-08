@@ -45,10 +45,14 @@ func NewScyllaStore(addrs []string, keyspace string) (*ScyllaStore, error) {
 	out := new(ScyllaStore)
 	out.scyllaAddrs = addrs
 	out.keyspace = keyspace
+	err := out.Open()
+	if err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
-func (sqs *ScyllaStore) Open(path string) error {
+func (sqs *ScyllaStore) Open() error {
 	if sqs.log == nil {
 		sqs.log = slog.Default()
 	}
@@ -108,7 +112,7 @@ func (sqs *ScyllaStore) Open(path string) error {
 
 	err = sqs.createTables()
 	if err != nil {
-		return fmt.Errorf("%s: scylla could not create tables, %w", path, err)
+		return fmt.Errorf("scylla could not create tables, %w", err)
 	}
 	sqs.lastShardCache.source = sqs
 	sqs.lastShardCache.Init()

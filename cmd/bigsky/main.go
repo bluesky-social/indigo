@@ -199,6 +199,11 @@ func run(args []string) error {
 			Usage: "enable experimental sqlite carstore",
 			Value: false,
 		},
+		&cli.StringSliceFlag{
+			Name:  "ex-scylla-carstore",
+			Usage: "scylla server addresses for storage backend, probably comma separated, urfave/cli is unclear",
+			Value: &cli.StringSlice{},
+		},
 	}
 
 	app.Action = runBigsky
@@ -314,7 +319,10 @@ func runBigsky(cctx *cli.Context) error {
 	os.MkdirAll(filepath.Dir(csdir), os.ModePerm)
 
 	var cstore carstore.CarStore
-	if cctx.Bool("ex-sqlite-carstore") {
+	scyllaAddrs := cctx.StringSlice("ex-scylla-carstore")
+	if len(scyllaAddrs) != 0 {
+		cstore, err = carstore.NewScyllaStore(scyllaAddrs, "cs")
+	} else if cctx.Bool("ex-sqlite-carstore") {
 		cstore, err = carstore.NewSqliteStore(csdir)
 	} else {
 		// make standard FileCarStore
