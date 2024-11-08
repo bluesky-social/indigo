@@ -264,9 +264,10 @@ var runCmd = &cli.Command{
 		// ozone event consumer (if configured)
 		if srv.Engine.OzoneClient != nil {
 			oc := consumer.OzoneConsumer{
-				Engine:      srv.Engine,
 				Logger:      logger.With("subsystem", "ozone-consumer"),
 				RedisClient: srv.RedisClient,
+				OzoneClient: srv.Engine.OzoneClient,
+				Engine:      srv.Engine,
 			}
 
 			go func() {
