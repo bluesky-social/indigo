@@ -121,7 +121,12 @@ func (sqs *ScyllaStore) Open() error {
 
 var createTableTexts = []string{
 	`CREATE TABLE IF NOT EXISTS blocks (uid bigint, cid blob, rev varchar, root blob, block blob, PRIMARY KEY((uid,cid)))`,
-	`CREATE INDEX IF NOT EXISTS block_by_rev ON blocks (uid, rev)`,
+	//`CREATE INDEX IF NOT EXISTS block_by_rev ON blocks (uid, rev)`,
+	`CREATE MATERIALIZED VIEW IF NOT EXISTS blocks_by_uidrev
+AS SELECT uid, rev, cid, root
+FROM blocks
+WHERE uid IS NOT NULL AND rev IS NOT NULL AND cid IS NOT NULL
+PRIMARY KEY ((uid), rev, cid) WITH CLUSTERING ORDER BY (rev DESC)`,
 }
 
 func (sqs *ScyllaStore) createTables() error {
@@ -193,7 +198,7 @@ func (sqs *ScyllaStore) GetLastShard(ctx context.Context, uid models.Uid) (*CarS
 	scGetLastShard.Inc()
 	var rev string
 	var rootb models.DbCID
-	err := sqs.ReadSession.Query(`SELECT rev, root FROM blocks WHERE uid = ? ORDER BY rev DESC LIMIT 1`, uid).Scan(&rev, &rootb)
+	err := sqs.ReadSession.Query(`SELECT rev, root FROM blocks_by_uidrev WHERE uid = ? ORDER BY rev DESC LIMIT 1`, uid).Scan(&rev, &rootb)
 	if err != nil {
 		return nil, fmt.Errorf("last shard err, %w", err)
 	}
@@ -337,38 +342,44 @@ func (sqs *ScyllaStore) ReadUserCar(ctx context.Context, user models.Uid, sinceR
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ReadUserCar")
 	defer span.End()
 
-	rows := sqs.ReadSession.Query(`SELECT cid,rev,root,block FROM blocks WHERE uid = ? AND rev > ? ORDER BY rev DESC`, user, sinceRev).Iter()
+	cidchan := make(chan models.DbCID, 100)
+
+	go func() {
+		defer close(cidchan)
+		cids := sqs.ReadSession.Query(`SELECT cid FROM blocks_by_uidrev WHERE uid = ? AND rev > ? ORDER BY rev DESC`, user, sinceRev).Iter()
+		for {
+			var xcid models.DbCID
+			ok := cids.Scan(&xcid)
+			if !ok {
+				break
+			}
+			cidchan <- xcid
+		}
+	}()
 	nblocks := 0
 	first := true
-	for {
-		var xcid models.DbCID
+	for xcid := range cidchan {
 		var xrev string
 		var xroot models.DbCID
 		var xblock []byte
-		ok := rows.Scan(&xcid, &xrev, &xroot, &xblock)
-		if !ok {
-			break
+		err := sqs.ReadSession.Query("SELECT rev, root, block FROM blocks WHERE uid = ? AND cid = ? LIMIT 1", user, xcid).Scan(&xrev, &xroot, &xblock)
+		if err != nil {
+			return fmt.Errorf("rcar bad read, %w", err)
 		}
 		if first {
 			if err := car.WriteHeader(&car.CarHeader{
 				Roots:   []cid.Cid{xroot.CID},
 				Version: 1,
 			}, shardOut); err != nil {
-				rows.Close()
 				return fmt.Errorf("rcar bad header, %w", err)
 			}
 			first = false
 		}
 		nblocks++
-		_, err := LdWrite(shardOut, xcid.CID.Bytes(), xblock)
+		_, err = LdWrite(shardOut, xcid.CID.Bytes(), xblock)
 		if err != nil {
-			rows.Close()
 			return fmt.Errorf("rcar bad write, %w", err)
 		}
-	}
-	err := rows.Close()
-	if err != nil {
-		return fmt.Errorf("rcar bad read, %w", err)
 	}
 	sqs.log.Debug("read car", "nblocks", nblocks, "since", sinceRev)
 	return nil
@@ -385,6 +396,7 @@ func (sqs *ScyllaStore) WipeUserData(ctx context.Context, user models.Uid) error
 	ctx, span := otel.Tracer("carstore").Start(ctx, "WipeUserData")
 	defer span.End()
 	err := sqs.WriteSession.Query("DELETE FROM blocks WHERE uid = ?", user).Exec()
+	scUsersWiped.Inc()
 	return err
 }
 
@@ -433,8 +445,8 @@ func (sqs *ScyllaStore) getBlockSize(ctx context.Context, user models.Uid, bcid 
 	return out, nil
 }
 
-var scRowsDeleted = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "bgs_sc_rows_deleted",
+var scUsersWiped = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "bgs_sc_users_wiped",
 	Help: "User rows deleted in sclite backend",
 })
 
