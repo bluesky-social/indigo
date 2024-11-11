@@ -153,7 +153,7 @@ func (sqs *ScyllaStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 	}
 	offset := hnw
 
-	dbroot := models.DbCID{CID: root}
+	dbroot := root.Bytes()
 
 	span.SetAttributes(attribute.Int("blocks", len(blks)))
 
@@ -166,7 +166,7 @@ func (sqs *ScyllaStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 		offset += nw
 
 		// TODO: better databases have an insert-many option for a prepared statement - BUT scylla BATCH doesn't apply if the batch crosses partition keys
-		dbcid := models.DbCID{CID: bcid}
+		dbcid := bcid.Bytes()
 		blockbytes := block.RawData()
 		// TODO: how good is the cql auto-prepare interning?
 		err = sqs.WriteSession.Query(
@@ -197,7 +197,7 @@ func (sqs *ScyllaStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 func (sqs *ScyllaStore) GetLastShard(ctx context.Context, uid models.Uid) (*CarShard, error) {
 	scGetLastShard.Inc()
 	var rev string
-	var rootb models.DbCID
+	var rootb []byte
 	err := sqs.ReadSession.Query(`SELECT rev, root FROM blocks_by_uidrev WHERE uid = ? ORDER BY rev DESC LIMIT 1`, uid).Scan(&rev, &rootb)
 	if errors.Is(err, gocql.ErrNotFound) {
 		return nil, nil
@@ -205,8 +205,12 @@ func (sqs *ScyllaStore) GetLastShard(ctx context.Context, uid models.Uid) (*CarS
 	if err != nil {
 		return nil, fmt.Errorf("last shard err, %w", err)
 	}
+	xcid, cidErr := cid.Cast(rootb)
+	if cidErr != nil {
+		return nil, fmt.Errorf("last shard bad cid, %w", cidErr)
+	}
 	return &CarShard{
-		Root: rootb,
+		Root: models.DbCID{CID: xcid},
 		Rev:  rev,
 	}, nil
 }
@@ -345,16 +349,22 @@ func (sqs *ScyllaStore) ReadUserCar(ctx context.Context, user models.Uid, sinceR
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ReadUserCar")
 	defer span.End()
 
-	cidchan := make(chan models.DbCID, 100)
+	cidchan := make(chan cid.Cid, 100)
 
 	go func() {
 		defer close(cidchan)
 		cids := sqs.ReadSession.Query(`SELECT cid FROM blocks_by_uidrev WHERE uid = ? AND rev > ? ORDER BY rev DESC`, user, sinceRev).Iter()
+		defer cids.Close()
 		for {
-			var xcid models.DbCID
-			ok := cids.Scan(&xcid)
+			var cidb []byte
+			ok := cids.Scan(&cidb)
 			if !ok {
 				break
+			}
+			xcid, cidErr := cid.Cast(cidb)
+			if cidErr != nil {
+				sqs.log.Warn("ReadUserCar bad cid", "err", cidErr)
+				continue
 			}
 			cidchan <- xcid
 		}
@@ -363,15 +373,19 @@ func (sqs *ScyllaStore) ReadUserCar(ctx context.Context, user models.Uid, sinceR
 	first := true
 	for xcid := range cidchan {
 		var xrev string
-		var xroot models.DbCID
+		var xroot []byte
 		var xblock []byte
-		err := sqs.ReadSession.Query("SELECT rev, root, block FROM blocks WHERE uid = ? AND cid = ? LIMIT 1", user, xcid).Scan(&xrev, &xroot, &xblock)
+		err := sqs.ReadSession.Query("SELECT rev, root, block FROM blocks WHERE uid = ? AND cid = ? LIMIT 1", user, xcid.Bytes()).Scan(&xrev, &xroot, &xblock)
 		if err != nil {
 			return fmt.Errorf("rcar bad read, %w", err)
 		}
 		if first {
+			rootCid, cidErr := cid.Cast(xroot)
+			if cidErr != nil {
+				return fmt.Errorf("rcar bad rootcid, %w", err)
+			}
 			if err := car.WriteHeader(&car.CarHeader{
-				Roots:   []cid.Cid{xroot.CID},
+				Roots:   []cid.Cid{rootCid},
 				Version: 1,
 			}, shardOut); err != nil {
 				return fmt.Errorf("rcar bad header, %w", err)
@@ -379,7 +393,7 @@ func (sqs *ScyllaStore) ReadUserCar(ctx context.Context, user models.Uid, sinceR
 			first = false
 		}
 		nblocks++
-		_, err = LdWrite(shardOut, xcid.CID.Bytes(), xblock)
+		_, err = LdWrite(shardOut, xcid.Bytes(), xblock)
 		if err != nil {
 			return fmt.Errorf("rcar bad write, %w", err)
 		}
@@ -408,8 +422,8 @@ func (sqs *ScyllaStore) HasUidCid(ctx context.Context, user models.Uid, bcid cid
 	// TODO: this is pretty cacheable? invalidate (uid,*) on WipeUserData
 	scHas.Inc()
 	var rev string
-	var rootb models.DbCID
-	err := sqs.ReadSession.Query(`SELECT rev, root FROM blocks WHERE uid = ? AND cid = ? LIMIT 1`, user, models.DbCID{CID: bcid}).Scan(&rev, rootb)
+	var rootb []byte
+	err := sqs.ReadSession.Query(`SELECT rev, root FROM blocks WHERE uid = ? AND cid = ? LIMIT 1`, user, bcid.Bytes()).Scan(&rev, &rootb)
 	if err != nil {
 		return false, fmt.Errorf("hasUC bad scan, %w", err)
 	}
@@ -430,7 +444,7 @@ func (sqs *ScyllaStore) getBlock(ctx context.Context, user models.Uid, bcid cid.
 	// TODO: this is pretty cacheable? invalidate (uid,*) on WipeUserData
 	scGetBlock.Inc()
 	var blockb []byte
-	err := sqs.ReadSession.Query("SELECT block FROM blocks WHERE uid = ? AND cid = ? LIMIT 1", user, models.DbCID{CID: bcid}).Scan(&blockb)
+	err := sqs.ReadSession.Query("SELECT block FROM blocks WHERE uid = ? AND cid = ? LIMIT 1", user, bcid.Bytes()).Scan(&blockb)
 	if err != nil {
 		return nil, fmt.Errorf("getb err, %w", err)
 	}
@@ -441,7 +455,7 @@ func (sqs *ScyllaStore) getBlockSize(ctx context.Context, user models.Uid, bcid 
 	// TODO: this is pretty cacheable? invalidate (uid,*) on WipeUserData
 	scGetBlockSize.Inc()
 	var out int64
-	err := sqs.ReadSession.Query("SELECT length(block) FROM blocks WHERE uid = ? AND cid = ? LIMIT 1", user, models.DbCID{CID: bcid}).Scan(&out)
+	err := sqs.ReadSession.Query("SELECT length(block) FROM blocks WHERE uid = ? AND cid = ? LIMIT 1", user, bcid.Bytes()).Scan(&out)
 	if err != nil {
 		return 0, fmt.Errorf("getbs err, %w", err)
 	}
