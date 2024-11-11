@@ -199,6 +199,9 @@ func (sqs *ScyllaStore) GetLastShard(ctx context.Context, uid models.Uid) (*CarS
 	var rev string
 	var rootb models.DbCID
 	err := sqs.ReadSession.Query(`SELECT rev, root FROM blocks_by_uidrev WHERE uid = ? ORDER BY rev DESC LIMIT 1`, uid).Scan(&rev, &rootb)
+	if errors.Is(err, gocql.ErrNotFound) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("last shard err, %w", err)
 	}
