@@ -143,6 +143,7 @@ func (sqs *ScyllaStore) createTables() error {
 func (sqs *ScyllaStore) writeNewShard(ctx context.Context, root cid.Cid, rev string, user models.Uid, seq int, blks map[cid.Cid]blockformat.Block, rmcids map[cid.Cid]bool) ([]byte, error) {
 	scWriteNewShard.Inc()
 	sqs.log.Debug("write shard", "uid", user, "root", root, "rev", rev, "nblocks", len(blks))
+	start := time.Now()
 	ctx, span := otel.Tracer("carstore").Start(ctx, "writeNewShard")
 	defer span.End()
 	// this is "write many blocks", "write one block" is above in putBlock(). keep them in sync.
@@ -189,6 +190,8 @@ func (sqs *ScyllaStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 
 	sqs.lastShardCache.put(&shard)
 
+	dt := time.Since(start).Seconds()
+	scWriteTimes.Observe(dt)
 	return buf.Bytes(), nil
 }
 
@@ -348,6 +351,7 @@ func (sqs *ScyllaStore) ReadUserCar(ctx context.Context, user models.Uid, sinceR
 	scGetCar.Inc()
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ReadUserCar")
 	defer span.End()
+	start := time.Now()
 
 	cidchan := make(chan cid.Cid, 100)
 
@@ -398,7 +402,9 @@ func (sqs *ScyllaStore) ReadUserCar(ctx context.Context, user models.Uid, sinceR
 			return fmt.Errorf("rcar bad write, %w", err)
 		}
 	}
+	span.SetAttributes(attribute.Int("blocks", nblocks))
 	sqs.log.Debug("read car", "nblocks", nblocks, "since", sinceRev)
+	scReadCarTimes.Observe(time.Since(start).Seconds())
 	return nil
 }
 
@@ -480,11 +486,14 @@ func (sqs *ScyllaStore) Close() error {
 func (sqs *ScyllaStore) getBlock(ctx context.Context, user models.Uid, bcid cid.Cid) (blockformat.Block, error) {
 	// TODO: this is pretty cacheable? invalidate (uid,*) on WipeUserData
 	scGetBlock.Inc()
+	start := time.Now()
 	var blockb []byte
 	err := sqs.ReadSession.Query("SELECT block FROM blocks WHERE uid = ? AND cid = ? LIMIT 1", user, bcid.Bytes()).Scan(&blockb)
 	if err != nil {
 		return nil, fmt.Errorf("getb err, %w", err)
 	}
+	dt := time.Since(start)
+	scGetTimes.Observe(dt.Seconds())
 	return blocks.NewBlock(blockb), nil
 }
 
@@ -538,6 +547,33 @@ var scWriteNewShard = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "bgs_sc_write_shard",
 	Help: "write shard blocks scylla backend",
 })
+
+var timeBuckets []float64
+var scWriteTimes prometheus.Histogram
+var scGetTimes prometheus.Histogram
+var scReadCarTimes prometheus.Histogram
+
+func init() {
+	timeBuckets = make([]float64, 0, 20)
+	timeBuckets[0] = 0.000_0100
+	i := 0
+	for timeBuckets[i] < 1 && len(timeBuckets) < 20 {
+		timeBuckets = append(timeBuckets, timeBuckets[i]*2)
+		i++
+	}
+	scWriteTimes = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "bgs_sc_write_times",
+		Buckets: timeBuckets,
+	})
+	scGetTimes = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "bgs_sc_get_times",
+		Buckets: timeBuckets,
+	})
+	scReadCarTimes = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "bgs_sc_readcar_times",
+		Buckets: timeBuckets,
+	})
+}
 
 // TODO: copied from tango, re-unify?
 // ExponentialBackoffRetryPolicy sleeps between attempts
