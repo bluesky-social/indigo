@@ -412,9 +412,46 @@ func (sqs *ScyllaStore) Stat(ctx context.Context, usr models.Uid) ([]UserStat, e
 func (sqs *ScyllaStore) WipeUserData(ctx context.Context, user models.Uid) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "WipeUserData")
 	defer span.End()
-	err := sqs.WriteSession.Query("DELETE FROM blocks WHERE uid = ?", user).Exec()
+
+	// LOL, can't do this if primary key is (uid,cid) because that's hashed with no scan!
+	//err := sqs.WriteSession.Query("DELETE FROM blocks WHERE uid = ?", user).Exec()
+
+	cidchan := make(chan cid.Cid, 100)
+
+	go func() {
+		defer close(cidchan)
+		cids := sqs.ReadSession.Query(`SELECT cid FROM blocks_by_uidrev WHERE uid = ?`, user).Iter()
+		defer cids.Close()
+		for {
+			var cidb []byte
+			ok := cids.Scan(&cidb)
+			if !ok {
+				break
+			}
+			xcid, cidErr := cid.Cast(cidb)
+			if cidErr != nil {
+				sqs.log.Warn("ReadUserCar bad cid", "err", cidErr)
+				continue
+			}
+			cidchan <- xcid
+		}
+	}()
+	nblocks := 0
+	errcount := 0
+	for xcid := range cidchan {
+		err := sqs.ReadSession.Query("DELETE FROM blocks WHERE uid = ? AND cid = ?", user, xcid.Bytes()).Exec()
+		if err != nil {
+			sqs.log.Warn("ReadUserCar bad delete, %w", err)
+			errcount++
+			if errcount > 10 {
+				return err
+			}
+		}
+		nblocks++
+	}
 	scUsersWiped.Inc()
-	return err
+	scBlocksDeleted.Add(float64(nblocks))
+	return nil
 }
 
 // HasUidCid needed for NewDeltaSession userView
@@ -464,37 +501,42 @@ func (sqs *ScyllaStore) getBlockSize(ctx context.Context, user models.Uid, bcid 
 
 var scUsersWiped = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "bgs_sc_users_wiped",
-	Help: "User rows deleted in sclite backend",
+	Help: "User rows deleted in scylla backend",
+})
+
+var scBlocksDeleted = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "bgs_sc_blocks_deleted",
+	Help: "User blocks deleted in scylla backend",
 })
 
 var scGetBlock = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "bgs_sc_get_block",
-	Help: "get block sclite backend",
+	Help: "get block scylla backend",
 })
 
 var scGetBlockSize = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "bgs_sc_get_block_size",
-	Help: "get block size sclite backend",
+	Help: "get block size scylla backend",
 })
 
 var scGetCar = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "bgs_sc_get_car",
-	Help: "get block sclite backend",
+	Help: "get block scylla backend",
 })
 
 var scHas = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "bgs_sc_has",
-	Help: "check block presence sclite backend",
+	Help: "check block presence scylla backend",
 })
 
 var scGetLastShard = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "bgs_sc_get_last_shard",
-	Help: "get last shard sclite backend",
+	Help: "get last shard scylla backend",
 })
 
 var scWriteNewShard = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "bgs_sc_write_shard",
-	Help: "write shard blocks sclite backend",
+	Help: "write shard blocks scylla backend",
 })
 
 // TODO: copied from tango, re-unify?
