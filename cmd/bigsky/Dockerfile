@@ -2,7 +2,7 @@
 #
 #   podman build -f ./cmd/bigsky/Dockerfile -t bigsky .
 
-FROM golang:1.23.3-alpine3.19 AS custom-go
+FROM golang:1.23.3-bookworm AS custom-go
 RUN apk add --no-cache build-base make git
 
 # Git config
@@ -40,7 +40,7 @@ RUN GIT_VERSION=$(git describe --tags --long --always) && \
     /export/go build -tags timetzdata -o /bigsky ./cmd/bigsky
 
 ### Build Frontend stage
-FROM node:18-alpine as web-builder
+FROM node:18-alpine AS web-builder
 
 WORKDIR /app
 
