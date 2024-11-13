@@ -24,7 +24,7 @@ func GetDidResolver(cctx *cli.Context) did.Resolver {
 	mr.AddHandler("plc", &api.PLCServer{
 		Host: cctx.String("plc"),
 	})
-	mr.AddHandler("web", &did.WebResolver{})
+	mr.AddHandler("web", did.NewWebResolver(nil, false))
 
 	return mr
 }

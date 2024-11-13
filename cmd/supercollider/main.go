@@ -571,9 +571,7 @@ func initSpeedyRepoMan(key *godid.PrivKey) (*repomgr.RepoManager, *godid.PrivKey
 	}
 
 	mr := did.NewMultiResolver()
-	mr.AddHandler("web", &did.WebResolver{
-		Insecure: true,
-	})
+	mr.AddHandler("web", did.NewWebResolver(nil, true))
 
 	cachedidr := plc.NewCachingDidResolver(mr, time.Minute*5, 1000)
 

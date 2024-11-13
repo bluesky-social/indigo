@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/whyrusleeping/go-did"
@@ -14,7 +15,24 @@ import (
 
 type WebResolver struct {
 	Insecure bool
+	Client   *http.Client
 	// TODO: cache? maybe at a different layer
+}
+
+func NewWebResolver(resolveTimeout *time.Duration, insecure bool) *WebResolver {
+	if resolveTimeout == nil {
+		t := 5 * time.Second
+		resolveTimeout = &t
+	}
+
+	client := http.Client{
+		Timeout: *resolveTimeout,
+	}
+
+	return &WebResolver{
+		Client:   &client,
+		Insecure: insecure,
+	}
 }
 
 func (wr *WebResolver) GetDocument(ctx context.Context, didstr string) (*Document, error) {
@@ -36,7 +54,11 @@ func (wr *WebResolver) GetDocument(ctx context.Context, didstr string) (*Documen
 		proto = "http"
 	}
 
-	resp, err := http.Get(proto + "://" + val + "/.well-known/did.json")
+	target := proto + "://" + val + "/.well-known/did.json"
+
+	req, err := http.NewRequestWithContext(ctx, "GET", target, nil)
+
+	resp, err := wr.Client.Do(req)
 	if err != nil {
 		return nil, err
 	}

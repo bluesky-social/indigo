@@ -318,11 +318,8 @@ func runBigsky(cctx *cli.Context) error {
 	didr := &api.PLCServer{Host: cctx.String("plc-host")}
 	mr.AddHandler("plc", didr)
 
-	webr := did.WebResolver{}
-	if cctx.Bool("crawl-insecure-ws") {
-		webr.Insecure = true
-	}
-	mr.AddHandler("web", &webr)
+	webr := did.NewWebResolver(nil, cctx.Bool("crawl-insecure-ws"))
+	mr.AddHandler("web", webr)
 
 	cachedidr := plc.NewCachingDidResolver(mr, time.Hour*24, cctx.Int("did-cache-size"))
 
