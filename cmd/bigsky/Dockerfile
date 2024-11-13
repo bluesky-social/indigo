@@ -3,7 +3,7 @@
 #   podman build -f ./cmd/bigsky/Dockerfile -t bigsky .
 
 FROM golang:1.23.3-bookworm AS custom-go
-RUN apk add --no-cache build-base make git
+RUN apt update && apt install -y build-essential make git
 
 # Git config
 RUN git config --global user.email "automated_action_runner@github"
