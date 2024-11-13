@@ -882,7 +882,7 @@ var debugCompareReposCmd = &cli.Command{
 
 			rep1, err = repo.ReadRepoFromCar(ctx, bytes.NewReader(repo1bytes))
 			if err != nil {
-				logger.Fatalf("reading repo: %s", err)
+				logger.Fatalf("reading repo (got %d bytes): %s", len(repo1bytes), err)
 				return
 			}
 		}()
@@ -899,7 +899,7 @@ var debugCompareReposCmd = &cli.Command{
 
 			rep2, err = repo.ReadRepoFromCar(ctx, bytes.NewReader(repo2bytes))
 			if err != nil {
-				logger.Fatalf("reading repo: %s", err)
+				logger.Fatalf("reading repo (god %d bytes): %s", len(repo2bytes), err)
 				return
 			}
 		}()
