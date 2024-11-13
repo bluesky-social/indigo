@@ -6,18 +6,26 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/whyrusleeping/go-did"
 	"go.opentelemetry.io/otel"
 )
 
+var webDidDefaultTimeout = 5 * time.Second
+
 type WebResolver struct {
 	Insecure bool
 	// TODO: cache? maybe at a different layer
+
+	client http.Client
 }
 
 func (wr *WebResolver) GetDocument(ctx context.Context, didstr string) (*Document, error) {
+	if wr.client.Timeout == 0 {
+		wr.client.Timeout = webDidDefaultTimeout
+	}
 	ctx, span := otel.Tracer("did").Start(ctx, "didWebGetDocument")
 	defer span.End()
 
@@ -36,7 +44,7 @@ func (wr *WebResolver) GetDocument(ctx context.Context, didstr string) (*Documen
 		proto = "http"
 	}
 
-	resp, err := http.Get(proto + "://" + val + "/.well-known/did.json")
+	resp, err := wr.client.Get(proto + "://" + val + "/.well-known/did.json")
 	if err != nil {
 		return nil, err
 	}
