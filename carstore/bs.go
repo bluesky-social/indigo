@@ -18,7 +18,6 @@ import (
 
 	blockformat "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	ipld "github.com/ipfs/go-ipld-format"
@@ -99,13 +98,16 @@ func NewCarStore(meta *gorm.DB, root string) (CarStore, error) {
 	return out, nil
 }
 
+// userView needs these things to get into the underlying block store
+// implemented by CarStoreGormMeta
 type userViewSource interface {
 	HasUidCid(ctx context.Context, user models.Uid, k cid.Cid) (bool, error)
 	LookupBlockRef(ctx context.Context, k cid.Cid) (path string, offset int64, user models.Uid, err error)
 }
 
+// wrapper into a block store that keeps track of which user we are working on behalf of
 type userView struct {
-	cs   userViewSource // TODO: interface-ify, used for .meta.HasUidCid and .meta.LookupBlockRef
+	cs   userViewSource
 	user models.Uid
 
 	cache    map[cid.Cid]blockformat.Block
@@ -279,18 +281,15 @@ type minBlockstore interface {
 }
 
 type DeltaSession struct {
-	fresh  blockstore.Blockstore
-	blks   map[cid.Cid]blockformat.Block
-	rmcids map[cid.Cid]bool
-	//base     blockstore.Blockstore
+	blks     map[cid.Cid]blockformat.Block
+	rmcids   map[cid.Cid]bool
 	base     minBlockstore
 	user     models.Uid
 	baseCid  cid.Cid
 	seq      int
 	readonly bool
-	//	cs       *FileCarStore // TODO: this is only needed for CloseWithRoot to write back delta session modifications, interface-ify
-	cs      shardWriter
-	lastRev string
+	cs       shardWriter
+	lastRev  string
 }
 
 func (cs *FileCarStore) checkLastShardCache(user models.Uid) *CarShard {
@@ -327,8 +326,7 @@ func (cs *FileCarStore) NewDeltaSession(ctx context.Context, user models.Uid, si
 	}
 
 	return &DeltaSession{
-		fresh: blockstore.NewBlockstore(datastore.NewMapDatastore()),
-		blks:  make(map[cid.Cid]blockformat.Block),
+		blks: make(map[cid.Cid]blockformat.Block),
 		base: &userView{
 			user:     user,
 			cs:       cs.meta,
@@ -591,6 +589,7 @@ func WriteCarHeader(w io.Writer, root cid.Cid) (int64, error) {
 	return hnw, nil
 }
 
+// shardWriter.writeNewShard called from inside DeltaSession.CloseWithRoot
 type shardWriter interface {
 	// writeNewShard stores blocks in `blks` arg and creates a new shard to propagate out to our firehose
 	writeNewShard(ctx context.Context, root cid.Cid, rev string, user models.Uid, seq int, blks map[cid.Cid]blockformat.Block, rmcids map[cid.Cid]bool) ([]byte, error)

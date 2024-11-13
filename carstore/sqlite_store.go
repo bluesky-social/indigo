@@ -15,8 +15,6 @@ import (
 	"github.com/bluesky-social/indigo/models"
 	blockformat "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipfs/go-libipfs/blocks"
 	"github.com/ipld/go-car"
 	_ "github.com/mattn/go-sqlite3"
@@ -301,8 +299,7 @@ func (sqs *SQLiteStore) NewDeltaSession(ctx context.Context, user models.Uid, si
 	}
 
 	return &DeltaSession{
-		fresh: blockstore.NewBlockstore(datastore.NewMapDatastore()),
-		blks:  make(map[cid.Cid]blockformat.Block),
+		blks: make(map[cid.Cid]blockformat.Block),
 		base: &sqliteUserView{
 			uid: user,
 			sqs: sqs,
@@ -518,6 +515,7 @@ type sqliteUserViewInner interface {
 	getBlockSize(ctx context.Context, user models.Uid, bcid cid.Cid) (int64, error)
 }
 
+// TODO: rename, used by both sqlite and scylla
 type sqliteUserView struct {
 	sqs sqliteUserViewInner
 	uid models.Uid

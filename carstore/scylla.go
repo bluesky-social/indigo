@@ -9,8 +9,6 @@ import (
 	"github.com/gocql/gocql"
 	blockformat "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipfs/go-libipfs/blocks"
 	"github.com/ipld/go-car"
 	_ "github.com/mattn/go-sqlite3"
@@ -24,8 +22,6 @@ import (
 	"math/rand/v2"
 	"time"
 )
-
-// var log = logging.Logger("sqstore")
 
 type ScyllaStore struct {
 	WriteSession *gocql.Session
@@ -121,6 +117,7 @@ func (sqs *ScyllaStore) Open() error {
 
 var createTableTexts = []string{
 	`CREATE TABLE IF NOT EXISTS blocks (uid bigint, cid blob, rev varchar, root blob, block blob, PRIMARY KEY((uid,cid)))`,
+	// This is the INDEX I wish we could use, but scylla can't do it so we MATERIALIZED VIEW instead
 	//`CREATE INDEX IF NOT EXISTS block_by_rev ON blocks (uid, rev)`,
 	`CREATE MATERIALIZED VIEW IF NOT EXISTS blocks_by_uidrev
 AS SELECT uid, rev, cid, root
@@ -146,7 +143,6 @@ func (sqs *ScyllaStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 	start := time.Now()
 	ctx, span := otel.Tracer("carstore").Start(ctx, "writeNewShard")
 	defer span.End()
-	// this is "write many blocks", "write one block" is above in putBlock(). keep them in sync.
 	buf := new(bytes.Buffer)
 	hnw, err := WriteCarHeader(buf, root)
 	if err != nil {
@@ -166,10 +162,10 @@ func (sqs *ScyllaStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 		}
 		offset += nw
 
-		// TODO: better databases have an insert-many option for a prepared statement - BUT scylla BATCH doesn't apply if the batch crosses partition keys
+		// TODO: scylla BATCH doesn't apply if the batch crosses partition keys; BUT, we may be able to send many blocks concurrently?
 		dbcid := bcid.Bytes()
 		blockbytes := block.RawData()
-		// TODO: how good is the cql auto-prepare interning?
+		// we're relying on cql auto-prepare, no 'PreparedStatement'
 		err = sqs.WriteSession.Query(
 			`INSERT INTO blocks (uid, cid, rev, root, block) VALUES (?, ?, ?, ?, ?)`,
 			user, dbcid, rev, dbroot, blockbytes,
@@ -319,8 +315,7 @@ func (sqs *ScyllaStore) NewDeltaSession(ctx context.Context, user models.Uid, si
 	}
 
 	return &DeltaSession{
-		fresh: blockstore.NewBlockstore(datastore.NewMapDatastore()),
-		blks:  make(map[cid.Cid]blockformat.Block),
+		blks: make(map[cid.Cid]blockformat.Block),
 		base: &sqliteUserView{
 			uid: user,
 			sqs: sqs,
