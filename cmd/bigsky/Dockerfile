@@ -20,8 +20,10 @@ RUN git checkout go1.23.3
 # Cherry pick the CL
 RUN git fetch https://go.googlesource.com/go refs/changes/97/564197/1 && git cherry-pick FETCH_HEAD
 
+WORKDIR /gosource/src
+
 # Build go
-RUN ./src/all.bash
+RUN ./all.bash
 
 # Copy the artifacts to /export
 RUN mkdir -p /export
