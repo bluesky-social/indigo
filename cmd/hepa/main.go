@@ -261,34 +261,13 @@ var runCmd = &cli.Command{
 			return fmt.Errorf("failed to construct server: %v", err)
 		}
 
-		// firehose event consumer
-		relayHost := cctx.String("atp-relay-host")
-		if relayHost != "" {
-			fc := consumer.FirehoseConsumer{
-				Engine:      srv.Engine,
-				Logger:      logger.With("subsystem", "firehose-consumer"),
-				Host:        cctx.String("atp-relay-host"),
-				Parallelism: cctx.Int("firehose-parallelism"),
-				RedisClient: srv.RedisClient,
-			}
-
-			go func() {
-				if err := fc.RunPersistCursor(ctx); err != nil {
-					slog.Error("cursor routine failed", "err", err)
-				}
-			}()
-
-			if err := fc.Run(ctx); err != nil {
-				return fmt.Errorf("failure consuming and processing firehose: %w", err)
-			}
-		}
-
 		// ozone event consumer (if configured)
 		if srv.Engine.OzoneClient != nil {
 			oc := consumer.OzoneConsumer{
-				Engine:      srv.Engine,
 				Logger:      logger.With("subsystem", "ozone-consumer"),
 				RedisClient: srv.RedisClient,
+				OzoneClient: srv.Engine.OzoneClient,
+				Engine:      srv.Engine,
 			}
 
 			go func() {
@@ -313,6 +292,28 @@ var runCmd = &cli.Command{
 				panic(fmt.Errorf("failed to start metrics endpoint: %w", err))
 			}
 		}()
+
+		// firehose event consumer (note this is actually mandatory)
+		relayHost := cctx.String("atp-relay-host")
+		if relayHost != "" {
+			fc := consumer.FirehoseConsumer{
+				Engine:      srv.Engine,
+				Logger:      logger.With("subsystem", "firehose-consumer"),
+				Host:        cctx.String("atp-relay-host"),
+				Parallelism: cctx.Int("firehose-parallelism"),
+				RedisClient: srv.RedisClient,
+			}
+
+			go func() {
+				if err := fc.RunPersistCursor(ctx); err != nil {
+					slog.Error("cursor routine failed", "err", err)
+				}
+			}()
+
+			if err := fc.Run(ctx); err != nil {
+				return fmt.Errorf("failure consuming and processing firehose: %w", err)
+			}
+		}
 
 		return nil
 	},

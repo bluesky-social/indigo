@@ -75,6 +75,8 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 
 	am.Profile = ProfileSummary{
 		HasAvatar:   pv.Avatar != nil,
+		AvatarCid:   cidFromCdnUrl(pv.Avatar),
+		BannerCid:   cidFromCdnUrl(pv.Banner),
 		Description: pv.Description,
 		DisplayName: pv.DisplayName,
 	}
@@ -147,6 +149,13 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 						ap.ReviewState = ReviewStateNone
 					}
 				}
+			}
+			if rd.ThreatSignatures != nil || len(rd.ThreatSignatures) > 0 {
+				asigs := make([]AbuseSignature, len(rd.ThreatSignatures))
+				for i, sig := range rd.ThreatSignatures {
+					asigs[i] = AbuseSignature{Property: sig.Property, Value: sig.Value}
+				}
+				ap.AbuseSignatures = asigs
 			}
 			am.Private = &ap
 		}
