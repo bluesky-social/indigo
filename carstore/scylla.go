@@ -554,7 +554,7 @@ var scGetTimes prometheus.Histogram
 var scReadCarTimes prometheus.Histogram
 
 func init() {
-	timeBuckets = make([]float64, 0, 20)
+	timeBuckets = make([]float64, 1, 20)
 	timeBuckets[0] = 0.000_0100
 	i := 0
 	for timeBuckets[i] < 1 && len(timeBuckets) < 20 {
