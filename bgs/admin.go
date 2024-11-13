@@ -647,3 +647,114 @@ func (bgs *BGS) handleAdminRequestCrawl(e echo.Context) error {
 
 	return bgs.slurper.SubscribeToPds(ctx, host, true, true) // Override Trusted Domain Check
 }
+
+// Whoooo are the users in your neighborhood?
+type ApiKey struct {
+	// ApiKey goes in header: `Authorization: Bearer {}`
+	ApiKey string `json:"key"`
+	// Priority; more is more (unkeyed == 0)
+	Priority int32 `json:"prio"`
+}
+
+// set by
+type ApiKeySet struct {
+	Keys []ApiKey `json:"keys"`
+}
+
+// ApiKeys is the in-memory version
+type ApiKeys struct {
+	Keys map[string]ApiKey `json:"keys"`
+}
+
+func NewApiKeys() *ApiKeys {
+	out := new(ApiKeys)
+	out.Keys = make(map[string]ApiKey)
+	return out
+}
+
+func (ak *ApiKeys) Clone() *ApiKeys {
+	if ak == nil {
+		return NewApiKeys()
+	}
+	out := new(ApiKeys)
+	out.Keys = make(map[string]ApiKey, len(ak.Keys))
+	for k, v := range ak.Keys {
+		out.Keys[k] = v
+	}
+	return out
+}
+
+// handleAdminSetApiKeys handles POST /admin/api/keys
+// ?reset=t to clear all keys first
+func (bgs *BGS) handleAdminSetApiKeys(e echo.Context) error {
+	var body ApiKeySet
+	if err := e.Bind(&body); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid body: %s", err))
+	}
+	reset := e.QueryParam("reset")
+	var prevAk *ApiKeys
+	var ak *ApiKeys
+	done := false
+	for !done {
+		if reset == "t" {
+			// start with empty api key set, use only what is uploaded on this POST
+			ak = NewApiKeys()
+		} else if reset == "" {
+			prevAk = bgs.apiKeys.Load()
+			if prevAk == nil {
+				ak = NewApiKeys()
+			} else {
+				ak = prevAk.Clone()
+			}
+			// ok
+		} else {
+			return echo.NewHTTPError(http.StatusBadRequest, "nonsense reset")
+		}
+		for _, nak := range body.Keys {
+			ak.Keys[nak.ApiKey] = nak
+		}
+		if reset == "t" {
+			// don't compare-and-set, just clobber
+			bgs.apiKeys.Store(ak)
+			done = true
+		} else {
+			done = bgs.apiKeys.CompareAndSwap(prevAk, ak)
+		}
+	}
+	return e.JSON(200, map[string]any{
+		"success": true,
+	})
+}
+
+// handleAdminGetApiKeys handles GET /admin/api/keys
+func (bgs *BGS) handleAdminGetApiKeys(e echo.Context) error {
+	var out ApiKeySet
+	prevAk := bgs.apiKeys.Load()
+	if prevAk != nil {
+		out.Keys = make([]ApiKey, 0, len(prevAk.Keys))
+		for _, ak := range prevAk.Keys {
+			out.Keys = append(out.Keys, ak)
+		}
+	}
+	return e.JSON(200, out)
+}
+
+func (bgs *BGS) handleAdminSetApiPriority(e echo.Context) error {
+	levelStr := e.QueryParam("level")
+	if levelStr == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "must pass level")
+	}
+	level, err := strconv.ParseInt(levelStr, 10, 32)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid level")
+	}
+	bgs.minApiKeyLevel.Store(int32(level))
+	select {
+	case bgs.minLevelEvents <- int32(level):
+	default:
+		log.Warn("minLevelEvents is full")
+	}
+	return e.JSON(200, map[string]any{
+		"success": true,
+	})
+}

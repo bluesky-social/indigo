@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"contrib.go.opencensus.io/exporter/prometheus"
@@ -87,6 +88,10 @@ type BGS struct {
 
 	// Management of Compaction
 	compactor *Compactor
+
+	apiKeys        atomic.Pointer[ApiKeys]
+	minApiKeyLevel atomic.Int32
+	minLevelEvents chan int32
 }
 
 type PDSResync struct {
@@ -102,8 +107,10 @@ type PDSResync struct {
 type SocketConsumer struct {
 	UserAgent   string
 	RemoteAddr  string
+	AuthKey     string
 	ConnectedAt time.Time
 	EventsSent  promclient.Counter
+	Cancel      func()
 }
 
 type BGSConfig struct {
@@ -149,7 +156,13 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		consumers:   make(map[uint64]*SocketConsumer),
 
 		pdsResyncs: make(map[uint]*PDSResync),
+
+		minLevelEvents: make(chan int32, 100),
 	}
+
+	bgs.minApiKeyLevel.Store(0)
+
+	go bgs.priorityChangeThread()
 
 	ix.CreateExternalUser = bgs.createExternalUser
 	slOpts := DefaultSlurperOptions()
@@ -338,15 +351,18 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 
 	// TODO: this API is temporary until we formalize what we want here
 
-	e.GET("/xrpc/com.atproto.sync.subscribeRepos", bgs.EventsHandler)
-	e.GET("/xrpc/com.atproto.sync.getRecord", bgs.HandleComAtprotoSyncGetRecord)
-	e.GET("/xrpc/com.atproto.sync.getRepo", bgs.HandleComAtprotoSyncGetRepo)
-	e.GET("/xrpc/com.atproto.sync.getBlocks", bgs.HandleComAtprotoSyncGetBlocks)
-	e.GET("/xrpc/com.atproto.sync.requestCrawl", bgs.HandleComAtprotoSyncRequestCrawl)
-	e.POST("/xrpc/com.atproto.sync.requestCrawl", bgs.HandleComAtprotoSyncRequestCrawl)
-	e.GET("/xrpc/com.atproto.sync.listRepos", bgs.HandleComAtprotoSyncListRepos)
-	e.GET("/xrpc/com.atproto.sync.getLatestCommit", bgs.HandleComAtprotoSyncGetLatestCommit)
-	e.GET("/xrpc/com.atproto.sync.notifyOfUpdate", bgs.HandleComAtprotoSyncNotifyOfUpdate)
+	// These apis check for API key (mostly in case of traffic shedding)
+	e.GET("/xrpc/com.atproto.sync.subscribeRepos", bgs.EventsHandler, bgs.checkApiKey)
+	e.GET("/xrpc/com.atproto.sync.getRecord", bgs.HandleComAtprotoSyncGetRecord, bgs.checkApiKey)
+	e.GET("/xrpc/com.atproto.sync.getRepo", bgs.HandleComAtprotoSyncGetRepo, bgs.checkApiKey)
+	e.GET("/xrpc/com.atproto.sync.getBlocks", bgs.HandleComAtprotoSyncGetBlocks, bgs.checkApiKey)
+	e.GET("/xrpc/com.atproto.sync.requestCrawl", bgs.HandleComAtprotoSyncRequestCrawl, bgs.checkApiKey)
+	e.POST("/xrpc/com.atproto.sync.requestCrawl", bgs.HandleComAtprotoSyncRequestCrawl, bgs.checkApiKey)
+	e.GET("/xrpc/com.atproto.sync.listRepos", bgs.HandleComAtprotoSyncListRepos, bgs.checkApiKey)
+	e.GET("/xrpc/com.atproto.sync.getLatestCommit", bgs.HandleComAtprotoSyncGetLatestCommit, bgs.checkApiKey)
+	e.GET("/xrpc/com.atproto.sync.notifyOfUpdate", bgs.HandleComAtprotoSyncNotifyOfUpdate, bgs.checkApiKey)
+
+	// These don't need to check any API key
 	e.GET("/xrpc/_health", bgs.HandleHealthCheck)
 	e.GET("/_health", bgs.HandleHealthCheck)
 	e.GET("/", bgs.HandleHomeMessage)
@@ -386,6 +402,9 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 
 	// Consumer-related Admin API
 	admin.GET("/consumers/list", bgs.handleAdminListConsumers)
+
+	admin.POST("/api/keys", bgs.handleAdminSetApiKeys)
+	admin.GET("/api/keys", bgs.handleAdminGetApiKeys)
 
 	// In order to support booting on random ports in tests, we need to tell the
 	// Echo instance it's already got a port, and then use its StartServer
@@ -471,6 +490,42 @@ func (bgs *BGS) CreateAdminToken(tok string) error {
 	}).Error
 }
 
+func getBearerAuthorization(c echo.Context) string {
+	authAll := c.Request().Header.Get("Authorization")
+	if authAll == "" {
+		return ""
+	}
+	if strings.HasPrefix(authAll, "Bearer ") {
+		return authAll[7:]
+	}
+	return authAll
+}
+
+// middleware to check an incoming connection for API key and current API Key Priority Level
+func (bgs *BGS) checkApiKey(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		auth := getBearerAuthorization(c)
+		keyLevel := int32(0)
+		if auth != "" {
+			known := bgs.apiKeys.Load()
+			if known == nil || len(known.Keys) == 0 {
+				// no auth configured, allow
+				return next(c)
+			}
+			ak, found := known.Keys[auth]
+			if found {
+				keyLevel = ak.Priority
+			}
+		}
+		if bgs.minApiKeyLevel.Load() > keyLevel {
+			// TODO: nicer message about capacity?
+			return c.JSONBlob(http.StatusUnauthorized, []byte("{}"))
+		}
+		return next(c)
+	}
+}
+
+// middleware to check /admin access key
 func (bgs *BGS) checkAdminAuth(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(e echo.Context) error {
 		ctx, span := tracer.Start(e.Request().Context(), "checkAdminAuth")
@@ -539,23 +594,66 @@ func (bgs *BGS) cleanupConsumer(id uint64) {
 	bgs.consumersLk.Lock()
 	defer bgs.consumersLk.Unlock()
 
-	c := bgs.consumers[id]
+	sc, found := bgs.consumers[id]
+	if found {
+		bgs.cleanupConsumerInner(id, sc)
+	}
+}
 
+// assumes bgs.consumersLk is held
+func (bgs *BGS) cleanupConsumerInner(id uint64, sc *SocketConsumer) {
 	var m = &dto.Metric{}
-	if err := c.EventsSent.Write(m); err != nil {
+	if err := sc.EventsSent.Write(m); err != nil {
 		log.Errorf("failed to get sent counter: %s", err)
 	}
 
 	log.Infow("consumer disconnected",
 		"consumer_id", id,
-		"remote_addr", c.RemoteAddr,
-		"user_agent", c.UserAgent,
+		"remote_addr", sc.RemoteAddr,
+		"user_agent", sc.UserAgent,
 		"events_sent", m.Counter.GetValue())
 
 	delete(bgs.consumers, id)
 }
 
+func (bgs *BGS) priorityChangeThread() {
+	// TODO: add a context.Context into BGS ? listen for .Done here?
+	for newLevel := range bgs.minLevelEvents {
+		bgs.filterConsumers(newLevel)
+	}
+}
+func (bgs *BGS) filterConsumers(priority int32) {
+	apiKeys := bgs.apiKeys.Load()
+	if apiKeys == nil || len(apiKeys.Keys) == 0 {
+		// allow everything
+		return
+	}
+
+	bgs.consumersLk.Lock()
+	defer bgs.consumersLk.Unlock()
+
+	var todel []uint64
+	for id, sc := range bgs.consumers {
+		consumerPriority := int32(0)
+		consumerKey, found := apiKeys.Keys[sc.AuthKey]
+		if found {
+			consumerPriority = consumerKey.Priority
+		}
+		if consumerPriority < priority {
+			todel = append(todel, id)
+		}
+	}
+	for _, id := range todel {
+		sc := bgs.consumers[id]
+		sc.Cancel()
+		bgs.cleanupConsumerInner(id, sc)
+	}
+}
+
 func (bgs *BGS) EventsHandler(c echo.Context) error {
+	// get auth key to put into ongoing feed handler in case we need to cancel it due to traffic shedding priority change
+	auth := getBearerAuthorization(c)
+
 	var since *int64
 	if sinceVal := c.QueryParam("cursor"); sinceVal != "" {
 		sval, err := strconv.ParseInt(sinceVal, 10, 64)
@@ -643,6 +741,8 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		RemoteAddr:  c.RealIP(),
 		UserAgent:   c.Request().UserAgent(),
 		ConnectedAt: time.Now(),
+		AuthKey:     auth,
+		Cancel:      cancel,
 	}
 	sentCounter := eventsSentCounter.WithLabelValues(consumer.RemoteAddr, consumer.UserAgent)
 	consumer.EventsSent = sentCounter
