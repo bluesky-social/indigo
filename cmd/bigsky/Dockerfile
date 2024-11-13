@@ -5,6 +5,10 @@
 FROM golang:1.23.3-alpine3.19 AS custom-go
 RUN apk add --no-cache build-base make git
 
+# Git config
+RUN git config --global user.email "automated_action_runner@github"
+RUN git config --global user.name "automated_action_runner"
+
 # Clone go source
 RUN git clone https://go.googlesource.com/go /gosource
 
