@@ -195,6 +195,11 @@ func run(args []string) error {
 			EnvVars: []string{"RELAY_EVENT_PLAYBACK_TTL"},
 			Value:   72 * time.Hour,
 		},
+		&cli.IntFlag{
+			Name:    "num-compaction-workers",
+			EnvVars: []string{"RELAY_NUM_COMPACTION_WORKERS"},
+			Value:   2,
+		},
 	}
 
 	app.Action = runBigsky
@@ -413,6 +418,7 @@ func runBigsky(cctx *cli.Context) error {
 	bgsConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
 	bgsConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
 	bgsConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
+	bgsConfig.NumCompactionWorkers = cctx.Int("num-compaction-workers")
 	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, rf, hr, bgsConfig)
 	if err != nil {
 		return err
