@@ -12,6 +12,9 @@ import (
 type PebblePersist struct {
 	broadcast func(*XRPCStreamEvent)
 	db        *pebble.DB
+
+	prevSeq      int64
+	prevSeqExtra uint32
 }
 
 func NewPebblePersistance(path string) (*PebblePersist, error) {
@@ -32,16 +35,25 @@ func (pp *PebblePersist) Persist(ctx context.Context, e *XRPCStreamEvent) error 
 	blob := e.Preserialized
 
 	seq := e.Sequence()
+	log.Infof("persist %d", seq)
+
 	if seq < 0 {
-		// drop event
-		// TODO: persist with longer key? {prev 8 byte key}{int32 extra counter}
+		// persist with longer key {prev 8 byte key}{int32 extra counter}
+		pp.prevSeqExtra++
+		var key [12]byte
+		binary.BigEndian.PutUint64(key[:8], uint64(pp.prevSeq))
+		binary.BigEndian.PutUint32(key[8:], pp.prevSeqExtra)
+
+		err = pp.db.Set(key[:], blob, pebble.Sync)
 		return nil
+	} else {
+		pp.prevSeq = seq
+		pp.prevSeqExtra = 0
+		var key [8]byte
+		binary.BigEndian.PutUint64(key[:], uint64(seq))
+
+		err = pp.db.Set(key[:], blob, pebble.Sync)
 	}
-
-	var key [8]byte
-	binary.BigEndian.PutUint64(key[:], uint64(seq))
-
-	err = pp.db.Set(key[:], blob, pebble.Sync)
 
 	return err
 }
