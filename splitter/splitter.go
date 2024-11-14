@@ -16,7 +16,6 @@ import (
 	"github.com/bluesky-social/indigo/bgs"
 	events "github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/gorilla/websocket"
 	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
@@ -43,7 +42,7 @@ type Splitter struct {
 }
 
 func NewSplitter(host string) *Splitter {
-	erb := NewEventRingBuffer(20_000, 1000)
+	erb := NewEventRingBuffer(20_000, 10_000)
 
 	em := events.NewEventManager(erb)
 	return &Splitter{
@@ -255,52 +254,34 @@ func (s *Splitter) EventsHandler(c echo.Context) error {
 		"consumer_id", consumerID,
 	)
 
-	header := events.EventHeader{Op: events.EvtKindMessage}
 	for {
 		select {
-		case evt := <-evts:
+		case evt, ok := <-evts:
+			if !ok {
+				log.Error("event stream closed unexpectedly")
+				return nil
+			}
+
 			wc, err := conn.NextWriter(websocket.BinaryMessage)
 			if err != nil {
 				log.Errorf("failed to get next writer: %s", err)
 				return err
 			}
 
-			var obj lexutil.CBOR
-
-			switch {
-			case evt.Error != nil:
-				header.Op = events.EvtKindErrorFrame
-				obj = evt.Error
-			case evt.RepoCommit != nil:
-				header.MsgType = "#commit"
-				obj = evt.RepoCommit
-			case evt.RepoHandle != nil:
-				header.MsgType = "#handle"
-				obj = evt.RepoHandle
-			case evt.RepoInfo != nil:
-				header.MsgType = "#info"
-				obj = evt.RepoInfo
-			case evt.RepoMigrate != nil:
-				header.MsgType = "#migrate"
-				obj = evt.RepoMigrate
-			case evt.RepoTombstone != nil:
-				header.MsgType = "#tombstone"
-				obj = evt.RepoTombstone
-			default:
-				return fmt.Errorf("unrecognized event kind")
+			if evt.Preserialized != nil {
+				_, err = wc.Write(evt.Preserialized)
+			} else {
+				err = evt.Serialize(wc)
 			}
-
-			if err := header.MarshalCBOR(wc); err != nil {
-				return fmt.Errorf("failed to write header: %w", err)
-			}
-
-			if err := obj.MarshalCBOR(wc); err != nil {
+			if err != nil {
 				return fmt.Errorf("failed to write event: %w", err)
 			}
 
 			if err := wc.Close(); err != nil {
-				return fmt.Errorf("failed to flush-close our event write: %w", err)
+				log.Warnf("failed to flush-close our event write: %s", err)
+				return nil
 			}
+
 			lastWriteLk.Lock()
 			lastWrite = time.Now()
 			lastWriteLk.Unlock()
