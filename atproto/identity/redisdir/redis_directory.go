@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -116,9 +117,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 			TTL:   d.ErrTTL,
 		})
 		if err != nil {
-			he.DID = nil
-			he.Err = fmt.Errorf("identity cache write failed: %w", err)
-			return he
+			slog.Error("identity cache write failed", "cache", "handle", "err", err)
 		}
 		return he
 	}
@@ -141,9 +140,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 		TTL:   d.HitTTL,
 	})
 	if err != nil {
-		he.DID = nil
-		he.Err = fmt.Errorf("identity cache write failed: %w", err)
-		return he
+		slog.Error("identity cache write failed", "cache", "did", "did", ident.DID, "err", err)
 	}
 	err = d.handleCache.Set(&cache.Item{
 		Ctx:   ctx,
@@ -152,9 +149,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 		TTL:   d.HitTTL,
 	})
 	if err != nil {
-		he.DID = nil
-		he.Err = fmt.Errorf("identity cache write failed: %w", err)
-		return he
+		slog.Error("identity cache write failed", "cache", "handle", "did", ident.DID, "err", err)
 	}
 	return he
 }
@@ -250,9 +245,7 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) identity
 		TTL:   d.HitTTL,
 	})
 	if err != nil {
-		entry.Identity = nil
-		entry.Err = fmt.Errorf("identity cache write failed: %w", err)
-		return entry
+		slog.Error("identity cache write failed", "cache", "did", "did", did, "err", err)
 	}
 	if he != nil {
 		err = d.handleCache.Set(&cache.Item{
@@ -262,9 +255,7 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) identity
 			TTL:   d.HitTTL,
 		})
 		if err != nil {
-			entry.Identity = nil
-			entry.Err = fmt.Errorf("identity cache write failed: %w", err)
-			return entry
+			slog.Error("identity cache write failed", "cache", "handle", "did", did, "err", err)
 		}
 	}
 	return entry
