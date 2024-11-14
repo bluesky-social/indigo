@@ -219,6 +219,8 @@ func (evt *XRPCStreamEvent) Serialize(wc io.Writer) error {
 	return obj.MarshalCBOR(cborWriter)
 }
 
+var ErrNoSeq = errors.New("event has no sequence number")
+
 // serialize content into Preserialized cache
 func (evt *XRPCStreamEvent) Preserialize() error {
 	if evt.Preserialized != nil {
@@ -352,6 +354,10 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 }
 
 func sequenceForEvent(evt *XRPCStreamEvent) int64 {
+	return evt.Sequence()
+}
+
+func (evt *XRPCStreamEvent) Sequence() int64 {
 	switch {
 	case evt == nil:
 		return -1
