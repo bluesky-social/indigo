@@ -30,6 +30,7 @@ var log = logging.Logger("splitter")
 type Splitter struct {
 	Host   string
 	erb    *EventRingBuffer
+	pp     *events.PebblePersist
 	events *events.EventManager
 
 	// cursor storage
@@ -41,7 +42,7 @@ type Splitter struct {
 	consumers      map[uint64]*SocketConsumer
 }
 
-func NewSplitter(host string) *Splitter {
+func NewMemSplitter(host string) *Splitter {
 	erb := NewEventRingBuffer(20_000, 10_000)
 
 	em := events.NewEventManager(erb)
@@ -52,6 +53,21 @@ func NewSplitter(host string) *Splitter {
 		events:     em,
 		consumers:  make(map[uint64]*SocketConsumer),
 	}
+}
+func NewDiskSplitter(host, path string) (*Splitter, error) {
+	pp, err := events.NewPebblePersistance(path)
+	if err != nil {
+		return nil, err
+	}
+
+	em := events.NewEventManager(pp)
+	return &Splitter{
+		cursorFile: "cursor-file",
+		Host:       host,
+		pp:         pp,
+		events:     em,
+		consumers:  make(map[uint64]*SocketConsumer),
+	}, nil
 }
 
 func (s *Splitter) Start(addr string) error {
