@@ -53,6 +53,11 @@ func run(args []string) {
 			Value: "bsky.network",
 		},
 		&cli.StringFlag{
+			Name:  "persist-db",
+			Value: "",
+			Usage: "path to persistence db",
+		},
+		&cli.StringFlag{
 			Name:  "api-listen",
 			Value: ":2480",
 		},
@@ -110,7 +115,21 @@ func Splitter(cctx *cli.Context) error {
 		otel.SetTracerProvider(tp)
 	}
 
-	spl := splitter.NewSplitter(cctx.String("splitter-host"))
+	persistPath := cctx.String("persist-db")
+	upstreamHost := cctx.String("splitter-host")
+	var spl *splitter.Splitter
+	var err error
+	if persistPath != "" {
+		log.Infof("building splitter with storage at: %s", persistPath)
+		spl, err = splitter.NewDiskSplitter(upstreamHost, persistPath)
+		if err != nil {
+			log.Fatalw("failed to create splitter", "path", persistPath, "error", err)
+			return err
+		}
+	} else {
+		log.Info("building in-memory splitter")
+		spl = splitter.NewMemSplitter(upstreamHost)
+	}
 
 	// set up metrics endpoint
 	go func() {
