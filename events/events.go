@@ -290,7 +290,7 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 			case <-done:
 				return ErrPlaybackShutdown
 			case out <- e:
-				seq := sequenceForEvent(e)
+				seq := SequenceForEvent(e)
 				if seq > 0 {
 					lastSeq = seq
 				}
@@ -315,8 +315,8 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 
 		// run playback again to get us to the events that have started buffering
 		if err := em.persister.Playback(ctx, lastSeq, func(e *XRPCStreamEvent) error {
-			seq := sequenceForEvent(e)
-			if seq > sequenceForEvent(first) {
+			seq := SequenceForEvent(e)
+			if seq > SequenceForEvent(first) {
 				return ErrCaughtUp
 			}
 
@@ -351,7 +351,7 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 	return out, sub.cleanup, nil
 }
 
-func sequenceForEvent(evt *XRPCStreamEvent) int64 {
+func SequenceForEvent(evt *XRPCStreamEvent) int64 {
 	switch {
 	case evt == nil:
 		return -1
