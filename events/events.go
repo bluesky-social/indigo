@@ -219,6 +219,76 @@ func (evt *XRPCStreamEvent) Serialize(wc io.Writer) error {
 	return obj.MarshalCBOR(cborWriter)
 }
 
+func (xevt *XRPCStreamEvent) Deserialize(r io.Reader) error {
+	var header EventHeader
+	if err := header.UnmarshalCBOR(r); err != nil {
+		return fmt.Errorf("reading header: %w", err)
+	}
+	switch header.Op {
+	case EvtKindMessage:
+		switch header.MsgType {
+		case "#commit":
+			var evt comatproto.SyncSubscribeRepos_Commit
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return fmt.Errorf("reading repoCommit event: %w", err)
+			}
+			xevt.RepoCommit = &evt
+		case "#handle":
+			var evt comatproto.SyncSubscribeRepos_Handle
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return err
+			}
+			xevt.RepoHandle = &evt
+		case "#identity":
+			var evt comatproto.SyncSubscribeRepos_Identity
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return err
+			}
+			xevt.RepoIdentity = &evt
+		case "#account":
+			var evt comatproto.SyncSubscribeRepos_Account
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return err
+			}
+			xevt.RepoAccount = &evt
+		case "#info":
+			// TODO: this might also be a LabelInfo (as opposed to RepoInfo)
+			var evt comatproto.SyncSubscribeRepos_Info
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return err
+			}
+			xevt.RepoInfo = &evt
+		case "#migrate":
+			var evt comatproto.SyncSubscribeRepos_Migrate
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return err
+			}
+			xevt.RepoMigrate = &evt
+		case "#tombstone":
+			var evt comatproto.SyncSubscribeRepos_Tombstone
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return err
+			}
+			xevt.RepoTombstone = &evt
+		case "#labels":
+			var evt comatproto.LabelSubscribeLabels_Labels
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return fmt.Errorf("reading Labels event: %w", err)
+			}
+			xevt.LabelLabels = &evt
+		}
+	case EvtKindErrorFrame:
+		var errframe ErrorFrame
+		if err := errframe.UnmarshalCBOR(r); err != nil {
+			return err
+		}
+		xevt.Error = &errframe
+	default:
+		return fmt.Errorf("unrecognized event stream type: %d", header.Op)
+	}
+	return nil
+}
+
 var ErrNoSeq = errors.New("event has no sequence number")
 
 // serialize content into Preserialized cache
