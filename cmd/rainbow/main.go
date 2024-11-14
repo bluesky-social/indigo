@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/splitter"
-	"github.com/bluesky-social/indigo/util/version"
+	"github.com/carlmjohnson/versioninfo"
 	_ "go.uber.org/automaxprocs"
 
 	_ "net/http/pprof"
@@ -40,7 +40,7 @@ func run(args []string) {
 	app := cli.App{
 		Name:    "splitter",
 		Usage:   "firehose proxy",
-		Version: version.Version,
+		Version: versioninfo.Short(),
 	}
 
 	app.Flags = []cli.Flag{
