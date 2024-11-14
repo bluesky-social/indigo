@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/cockroachdb/pebble"
+	"time"
 )
 
 type PebblePersist struct {
@@ -15,6 +16,8 @@ type PebblePersist struct {
 
 	prevSeq      int64
 	prevSeqExtra uint32
+
+	cancel func()
 }
 
 func NewPebblePersistance(path string) (*PebblePersist, error) {
@@ -35,22 +38,24 @@ func (pp *PebblePersist) Persist(ctx context.Context, e *XRPCStreamEvent) error 
 	blob := e.Preserialized
 
 	seq := e.Sequence()
-	log.Infof("persist %d", seq)
+	nowMillis := uint64(time.Now().UnixMilli())
 
 	if seq < 0 {
-		// persist with longer key {prev 8 byte key}{int32 extra counter}
+		// persist with longer key {prev 8 byte key}{time}{int32 extra counter}
 		pp.prevSeqExtra++
-		var key [12]byte
+		var key [20]byte
 		binary.BigEndian.PutUint64(key[:8], uint64(pp.prevSeq))
-		binary.BigEndian.PutUint32(key[8:], pp.prevSeqExtra)
+		binary.BigEndian.PutUint64(key[8:16], nowMillis)
+		binary.BigEndian.PutUint32(key[16:], pp.prevSeqExtra)
 
 		err = pp.db.Set(key[:], blob, pebble.Sync)
 		return nil
 	} else {
 		pp.prevSeq = seq
 		pp.prevSeqExtra = 0
-		var key [8]byte
-		binary.BigEndian.PutUint64(key[:], uint64(seq))
+		var key [16]byte
+		binary.BigEndian.PutUint64(key[:8], uint64(seq))
+		binary.BigEndian.PutUint64(key[8:16], nowMillis)
 
 		err = pp.db.Set(key[:], blob, pebble.Sync)
 	}
@@ -105,6 +110,9 @@ func (pp *PebblePersist) Flush(context.Context) error {
 	return pp.db.Flush()
 }
 func (pp *PebblePersist) Shutdown(context.Context) error {
+	if pp.cancel != nil {
+		pp.cancel()
+	}
 	err := pp.db.Close()
 	pp.db = nil
 	return err
@@ -125,4 +133,50 @@ func (pp *PebblePersist) GetLast(ctx context.Context) (*XRPCStreamEvent, error) 
 	}
 	evt, err := eventFromPebbleIter(iter)
 	return evt, nil
+}
+
+// example;
+// ```
+// pp := NewPebblePersistance("/tmp/foo.pebble")
+// go pp.GCThread(context.TODO(), 48 * time.Hour, 5 * time.Minute)
+// ```
+func (pp *PebblePersist) GCThread(ctx context.Context, retention, gcPeriod time.Duration) {
+	ctx, cancel := context.WithCancel(ctx)
+	pp.cancel = cancel
+	ticker := time.NewTicker(gcPeriod)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			pp.GarbageCollect(ctx, retention)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+func (pp *PebblePersist) GarbageCollect(ctx context.Context, retention time.Duration) error {
+	nowMillis := time.Now().UnixMilli()
+	expired := uint64(nowMillis - retention.Milliseconds())
+	iter, err := pp.db.NewIterWithContext(ctx, &pebble.IterOptions{})
+	if err != nil {
+		return err
+	}
+	defer iter.Close()
+	todel := make(chan []byte, 100)
+	go func() {
+		for xkey := range todel {
+			pp.db.Delete(xkey, nil)
+		}
+	}()
+	defer close(todel)
+	for iter.First(); iter.Valid(); iter.Next() {
+		keyblob := iter.Key()
+		keyTime := binary.BigEndian.Uint64(keyblob[8:16])
+		if keyTime < expired {
+			todel <- bytes.Clone(keyblob)
+		} else {
+			break
+		}
+	}
+	return nil
 }
