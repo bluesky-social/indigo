@@ -405,6 +405,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 
 	admin.POST("/api/keys", bgs.handleAdminSetApiKeys)
 	admin.GET("/api/keys", bgs.handleAdminGetApiKeys)
+	admin.POST("/api/priority", bgs.handleAdminSetApiPriority)
 
 	// In order to support booting on random ports in tests, we need to tell the
 	// Echo instance it's already got a port, and then use its StartServer
