@@ -72,6 +72,12 @@ func run(args []string) {
 			EnvVars: []string{"SPLITTER_PERSIST_HOURS"},
 			Usage:   "hours to buffer (float, may be fractional)",
 		},
+		&cli.Int64Flag{
+			Name:    "persist-bytes",
+			Value:   1_000_000_000,
+			Usage:   "max bytes target for event cache",
+			EnvVars: []string{"SPLITTER_PERSIST_BYTES"},
+		},
 	}
 
 	app.Action = Splitter
@@ -127,7 +133,11 @@ func Splitter(cctx *cli.Context) error {
 	var err error
 	if persistPath != "" {
 		log.Infof("building splitter with storage at: %s", persistPath)
-		spl, err = splitter.NewDiskSplitter(upstreamHost, persistPath, cctx.Float64("persist-hours"))
+		spl, err = splitter.NewDiskSplitter(
+			upstreamHost,
+			persistPath,
+			cctx.Float64("persist-hours"),
+			cctx.Int64("persist-bytes"))
 		if err != nil {
 			log.Fatalw("failed to create splitter", "path", persistPath, "error", err)
 			return err
