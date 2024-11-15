@@ -151,7 +151,9 @@ func (pp *PebblePersist) GCThread(ctx context.Context, retention, gcPeriod time.
 		select {
 		case <-ticker.C:
 			err := pp.GarbageCollect(ctx, retention)
-			log.Error("GC err", "err", err)
+			if err != nil {
+				log.Errorw("GC err", "err", err)
+			}
 		case <-ctx.Done():
 			return
 		}
