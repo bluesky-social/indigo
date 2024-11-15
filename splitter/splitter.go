@@ -399,7 +399,7 @@ func (s *Splitter) handleConnection(ctx context.Context, host string, con *webso
 	defer cancel()
 
 	sched := sequential.NewScheduler("splitter", func(ctx context.Context, evt *events.XRPCStreamEvent) error {
-		seq := sequenceForEvent(evt)
+		seq := events.SequenceForEvent(evt)
 		if seq < 0 {
 			// ignore info events and other unsupported types
 			return nil
@@ -418,24 +418,8 @@ func (s *Splitter) handleConnection(ctx context.Context, host string, con *webso
 		*lastCursor = seq
 		return nil
 	})
-	return events.HandleRepoStream(ctx, con, sched)
-}
 
-func sequenceForEvent(evt *events.XRPCStreamEvent) int64 {
-	switch {
-	case evt.RepoCommit != nil:
-		return evt.RepoCommit.Seq
-	case evt.RepoHandle != nil:
-		return evt.RepoHandle.Seq
-	case evt.RepoMigrate != nil:
-		return evt.RepoMigrate.Seq
-	case evt.RepoTombstone != nil:
-		return evt.RepoTombstone.Seq
-	case evt.RepoInfo != nil:
-		return -1
-	default:
-		return -1
-	}
+	return events.HandleRepoStream(ctx, con, sched)
 }
 
 func (s *Splitter) getLastCursor() (int64, error) {

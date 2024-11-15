@@ -96,7 +96,7 @@ func (er *EventRingBuffer) playbackRound(ctx context.Context, since int64, cb fu
 	for ; i >= 0; i-- {
 		c := chunks[i]
 		evts := c.events()
-		if since > sequenceForEvent(evts[len(evts)-1]) {
+		if since > events.SequenceForEvent(evts[len(evts)-1]) {
 			i++
 			break
 		}
@@ -112,7 +112,7 @@ func (er *EventRingBuffer) playbackRound(ctx context.Context, since int64, cb fu
 		for nread < len(evts) {
 			for _, e := range evts[nread:] {
 				nread++
-				seq := sequenceForEvent(e)
+				seq := events.SequenceForEvent(e)
 				if seq <= since {
 					continue
 				}
