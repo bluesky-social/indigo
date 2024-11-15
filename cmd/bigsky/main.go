@@ -323,7 +323,9 @@ func runBigsky(cctx *cli.Context) error {
 	}
 
 	for _, csd := range csdirs {
-		os.MkdirAll(filepath.Dir(csd), os.ModePerm)
+		if err := os.MkdirAll(filepath.Dir(csd), os.ModePerm); err != nil {
+			return err
+		}
 	}
 
 	cstore, err := carstore.NewCarStore(csdb, csdirs)

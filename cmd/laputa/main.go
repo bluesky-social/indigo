@@ -158,7 +158,7 @@ func run(args []string) {
 			}
 		}
 
-		cstore, err := carstore.NewCarStore(csdb, csdir)
+		cstore, err := carstore.NewCarStore(csdb, []string{csdir})
 		if err != nil {
 			return err
 		}
