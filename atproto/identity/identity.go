@@ -74,7 +74,7 @@ func DefaultDirectory() Directory {
 		},
 		Resolver: net.Resolver{
 			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-				d := net.Dialer{Timeout: time.Second * 5}
+				d := net.Dialer{Timeout: time.Second * 3}
 				return d.DialContext(ctx, network, address)
 			},
 		},
