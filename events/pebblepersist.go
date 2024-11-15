@@ -196,6 +196,7 @@ func (pp *PebblePersist) GarbageCollect(ctx context.Context, retention time.Dura
 			break
 		}
 	}
+	sizeBefore, _ := pp.db.EstimateDiskUsage(nil, nil)
 	if seq == -1 {
 		// nothing to delete
 		return nil
@@ -203,5 +204,10 @@ func (pp *PebblePersist) GarbageCollect(ctx context.Context, retention time.Dura
 	var key [16]byte
 	setKeySeqMillis(key[:], seq, lastKeyTime)
 	err = pp.db.DeleteRange(zeroKey[:], key[:], pebble.Sync)
-	return err
+	if err != nil {
+		return err
+	}
+	sizeAfter, _ := pp.db.EstimateDiskUsage(nil, nil)
+	log.Infow("pebble gc", "before", sizeBefore, "after", sizeAfter)
+	return nil
 }
