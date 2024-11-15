@@ -14,8 +14,8 @@ func (eng *Engine) RerouteAccountEventToOzone(c context.Context, e *comatproto.S
 		ModerationDefs_AccountEvent: &toolsozone.ModerationDefs_AccountEvent{
 			Comment:   &comment,
 			Timestamp: e.Time,
-			Status:    *e.Status,
-			Active:    &e.Active,
+			Status:    e.Status,
+			Active:    e.Active,
 		},
 	}, toolsozone.ModerationEmitEvent_Input_Subject{
 		AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
@@ -118,6 +118,7 @@ func (eng *Engine) IsDuplicatingEvent(ctx context.Context, event toolsozone.Mode
 		xrpcc,
 		nil,
 		nil,
+		[]string{},
 		"",
 		time.Now().Add(-time.Minute*5).Format(time.RFC3339),
 		"",
@@ -131,6 +132,7 @@ func (eng *Engine) IsDuplicatingEvent(ctx context.Context, event toolsozone.Mode
 		nil,
 		"",
 		eventSubject,
+		"",
 		[]string{eventType},
 	)
 
