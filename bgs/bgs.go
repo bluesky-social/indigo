@@ -107,20 +107,22 @@ type SocketConsumer struct {
 }
 
 type BGSConfig struct {
-	SSL               bool
-	CompactInterval   time.Duration
-	DefaultRepoLimit  int64
-	ConcurrencyPerPDS int64
-	MaxQueuePerPDS    int64
+	SSL                  bool
+	CompactInterval      time.Duration
+	DefaultRepoLimit     int64
+	ConcurrencyPerPDS    int64
+	MaxQueuePerPDS       int64
+	NumCompactionWorkers int
 }
 
 func DefaultBGSConfig() *BGSConfig {
 	return &BGSConfig{
-		SSL:               true,
-		CompactInterval:   4 * time.Hour,
-		DefaultRepoLimit:  100,
-		ConcurrencyPerPDS: 100,
-		MaxQueuePerPDS:    1_000,
+		SSL:                  true,
+		CompactInterval:      4 * time.Hour,
+		DefaultRepoLimit:     100,
+		ConcurrencyPerPDS:    100,
+		MaxQueuePerPDS:       1_000,
+		NumCompactionWorkers: 2,
 	}
 }
 
@@ -168,7 +170,9 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		return nil, err
 	}
 
-	compactor := NewCompactor(nil)
+	cOpts := DefaultCompactorOptions()
+	cOpts.NumWorkers = config.NumCompactionWorkers
+	compactor := NewCompactor(cOpts)
 	compactor.requeueInterval = config.CompactInterval
 	compactor.Start(bgs)
 	bgs.compactor = compactor
