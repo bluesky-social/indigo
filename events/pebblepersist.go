@@ -129,17 +129,20 @@ func (pp *PebblePersist) SetEventBroadcaster(broadcast func(*XRPCStreamEvent)) {
 	pp.broadcast = broadcast
 }
 
-func (pp *PebblePersist) GetLast(ctx context.Context) (*XRPCStreamEvent, error) {
+func (pp *PebblePersist) GetLast(ctx context.Context) (seq, millis int64, evt *XRPCStreamEvent, err error) {
 	iter, err := pp.db.NewIterWithContext(ctx, &pebble.IterOptions{})
 	if err != nil {
-		return nil, err
+		return 0, 0, nil, err
 	}
 	ok := iter.Last()
 	if !ok {
-		return nil, nil
+		return 0, 0, nil, nil
 	}
-	evt, err := eventFromPebbleIter(iter)
-	return evt, nil
+	evt, err = eventFromPebbleIter(iter)
+	keyblob := iter.Key()
+	seq = int64(binary.BigEndian.Uint64(keyblob[:8]))
+	millis = int64(binary.BigEndian.Uint64(keyblob[8:16]))
+	return seq, millis, evt, nil
 }
 
 // example;

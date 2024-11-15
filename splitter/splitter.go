@@ -413,6 +413,7 @@ func (s *Splitter) handleConnection(ctx context.Context, host string, con *webso
 		}
 
 		if seq%5000 == 0 {
+			// TODO: don't need this after we move to getting seq from pebble
 			if err := s.writeCursor(seq); err != nil {
 				log.Errorf("write cursor failed: %s", err)
 			}
@@ -426,6 +427,16 @@ func (s *Splitter) handleConnection(ctx context.Context, host string, con *webso
 }
 
 func (s *Splitter) getLastCursor() (int64, error) {
+	if s.pp != nil {
+		seq, millis, _, err := s.pp.GetLast(context.Background())
+		if err == nil {
+			log.Debugw("got last cursor from pebble", "seq", seq, "millis", millis)
+			return seq, nil
+		} else {
+			log.Errorw("pebble seq fail", "err", err)
+		}
+	}
+
 	fi, err := os.Open(s.cursorFile)
 	if err != nil {
 		if os.IsNotExist(err) {
