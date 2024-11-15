@@ -30,6 +30,11 @@ func NewPebblePersistance(path string) (*PebblePersist, error) {
 	return pp, nil
 }
 
+func setKeySeqMillis(key []byte, seq, millis int64) {
+	binary.BigEndian.PutUint64(key[:8], uint64(seq))
+	binary.BigEndian.PutUint64(key[8:16], uint64(millis))
+}
+
 func (pp *PebblePersist) Persist(ctx context.Context, e *XRPCStreamEvent) error {
 	err := e.Preserialize()
 	if err != nil {
@@ -38,24 +43,21 @@ func (pp *PebblePersist) Persist(ctx context.Context, e *XRPCStreamEvent) error 
 	blob := e.Preserialized
 
 	seq := e.Sequence()
-	nowMillis := uint64(time.Now().UnixMilli())
+	nowMillis := time.Now().UnixMilli()
 
 	if seq < 0 {
 		// persist with longer key {prev 8 byte key}{time}{int32 extra counter}
 		pp.prevSeqExtra++
 		var key [20]byte
-		binary.BigEndian.PutUint64(key[:8], uint64(pp.prevSeq))
-		binary.BigEndian.PutUint64(key[8:16], nowMillis)
+		setKeySeqMillis(key[:], seq, nowMillis)
 		binary.BigEndian.PutUint32(key[16:], pp.prevSeqExtra)
 
 		err = pp.db.Set(key[:], blob, pebble.Sync)
-		return nil
 	} else {
 		pp.prevSeq = seq
 		pp.prevSeqExtra = 0
 		var key [16]byte
-		binary.BigEndian.PutUint64(key[:8], uint64(seq))
-		binary.BigEndian.PutUint64(key[8:16], nowMillis)
+		setKeySeqMillis(key[:], seq, nowMillis)
 
 		err = pp.db.Set(key[:], blob, pebble.Sync)
 	}
@@ -138,7 +140,7 @@ func (pp *PebblePersist) GetLast(ctx context.Context) (*XRPCStreamEvent, error) 
 // example;
 // ```
 // pp := NewPebblePersistance("/tmp/foo.pebble")
-// go pp.GCThread(context.TODO(), 48 * time.Hour, 5 * time.Minute)
+// go pp.GCThread(context.Background(), 48 * time.Hour, 5 * time.Minute)
 // ```
 func (pp *PebblePersist) GCThread(ctx context.Context, retention, gcPeriod time.Duration) {
 	ctx, cancel := context.WithCancel(ctx)
@@ -148,35 +150,48 @@ func (pp *PebblePersist) GCThread(ctx context.Context, retention, gcPeriod time.
 	for {
 		select {
 		case <-ticker.C:
-			pp.GarbageCollect(ctx, retention)
+			err := pp.GarbageCollect(ctx, retention)
+			log.Error("GC err", "err", err)
 		case <-ctx.Done():
 			return
 		}
 	}
 }
+
+var zeroKey [16]byte
+
+func init() {
+	setKeySeqMillis(zeroKey[:], 0, 0)
+}
+
 func (pp *PebblePersist) GarbageCollect(ctx context.Context, retention time.Duration) error {
 	nowMillis := time.Now().UnixMilli()
-	expired := uint64(nowMillis - retention.Milliseconds())
+	expired := nowMillis - retention.Milliseconds()
 	iter, err := pp.db.NewIterWithContext(ctx, &pebble.IterOptions{})
 	if err != nil {
 		return err
 	}
 	defer iter.Close()
-	todel := make(chan []byte, 100)
-	go func() {
-		for xkey := range todel {
-			pp.db.Delete(xkey, nil)
-		}
-	}()
-	defer close(todel)
+	// scan keys to find last expired, then delete range
+	var seq int64 = int64(-1)
+	var lastKeyTime int64
 	for iter.First(); iter.Valid(); iter.Next() {
 		keyblob := iter.Key()
-		keyTime := binary.BigEndian.Uint64(keyblob[8:16])
-		if keyTime < expired {
-			todel <- bytes.Clone(keyblob)
+
+		keyTime := int64(binary.BigEndian.Uint64(keyblob[8:16]))
+		if keyTime <= expired {
+			lastKeyTime = keyTime
+			seq = int64(binary.BigEndian.Uint64(keyblob[:8]))
 		} else {
 			break
 		}
 	}
-	return nil
+	if seq == -1 {
+		// nothing to delete
+		return nil
+	}
+	var key [16]byte
+	setKeySeqMillis(key[:], seq, lastKeyTime)
+	err = pp.db.DeleteRange(zeroKey[:], key[:], pebble.Sync)
+	return err
 }
