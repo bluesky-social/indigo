@@ -9,13 +9,14 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/bluesky-social/indigo/automod/helpers"
 )
 
 var _ automod.PostRuleFunc = ReplyCountPostRule
 
 // does not count "self-replies" (direct to self, or in own post thread)
 func ReplyCountPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if post.Reply == nil || IsSelfThread(c, post) {
+	if post.Reply == nil || helpers.IsSelfThread(c, post) {
 		return nil
 	}
 
@@ -47,7 +48,7 @@ var _ automod.PostRuleFunc = IdenticalReplyPostRule
 //
 // There can be legitimate situations that trigger this rule, so in most situations should be a "report" not "label" action.
 func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if post.Reply == nil || IsSelfThread(c, post) {
+	if post.Reply == nil || helpers.IsSelfThread(c, post) {
 		return nil
 	}
 
@@ -55,18 +56,18 @@ func IdenticalReplyPostRule(c *automod.RecordContext, post *appbsky.FeedPost) er
 	if utf8.RuneCountInString(post.Text) <= 10 {
 		return nil
 	}
-	if AccountIsOlderThan(&c.AccountContext, 14*24*time.Hour) {
+	if helpers.AccountIsOlderThan(&c.AccountContext, 14*24*time.Hour) {
 		return nil
 	}
 
 	// don't count if there is a follow-back relationship
-	if ParentOrRootIsFollower(c, post) {
+	if helpers.ParentOrRootIsFollower(c, post) {
 		return nil
 	}
 
 	// increment before read. use a specific period (IncrementPeriod()) to reduce the number of counters (one per unique post text)
 	period := countstore.PeriodDay
-	bucket := c.Account.Identity.DID.String() + "/" + HashOfString(post.Text)
+	bucket := c.Account.Identity.DID.String() + "/" + helpers.HashOfString(post.Text)
 	c.IncrementPeriod("reply-text", bucket, period)
 
 	count := c.GetCount("reply-text", bucket, period)
@@ -91,21 +92,21 @@ var identicalReplySameParentMaxPosts int64 = 50
 var _ automod.PostRuleFunc = IdenticalReplyPostSameParentRule
 
 func IdenticalReplyPostSameParentRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if post.Reply == nil || IsSelfThread(c, post) {
+	if post.Reply == nil || helpers.IsSelfThread(c, post) {
 		return nil
 	}
 
-	if ParentOrRootIsFollower(c, post) {
+	if helpers.ParentOrRootIsFollower(c, post) {
 		return nil
 	}
 
 	postCount := c.Account.PostsCount
-	if AccountIsOlderThan(&c.AccountContext, identicalReplySameParentMaxAge) || postCount >= identicalReplySameParentMaxPosts {
+	if helpers.AccountIsOlderThan(&c.AccountContext, identicalReplySameParentMaxAge) || postCount >= identicalReplySameParentMaxPosts {
 		return nil
 	}
 
 	period := countstore.PeriodHour
-	bucket := c.Account.Identity.DID.String() + "/" + post.Reply.Parent.Uri + "/" + HashOfString(post.Text)
+	bucket := c.Account.Identity.DID.String() + "/" + post.Reply.Parent.Uri + "/" + helpers.HashOfString(post.Text)
 	c.IncrementPeriod("reply-text-same-post", bucket, period)
 
 	count := c.GetCount("reply-text-same-post", bucket, period)
@@ -126,7 +127,7 @@ var _ automod.PostRuleFunc = YoungAccountDistinctRepliesRule
 
 func YoungAccountDistinctRepliesRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 	// only replies, and skip self-replies (eg, threads)
-	if post.Reply == nil || IsSelfThread(c, post) {
+	if post.Reply == nil || helpers.IsSelfThread(c, post) {
 		return nil
 	}
 
@@ -134,12 +135,12 @@ func YoungAccountDistinctRepliesRule(c *automod.RecordContext, post *appbsky.Fee
 	if utf8.RuneCountInString(post.Text) <= 10 {
 		return nil
 	}
-	if AccountIsOlderThan(&c.AccountContext, 14*24*time.Hour) {
+	if helpers.AccountIsOlderThan(&c.AccountContext, 14*24*time.Hour) {
 		return nil
 	}
 
 	// don't count if there is a follow-back relationship
-	if ParentOrRootIsFollower(c, post) {
+	if helpers.ParentOrRootIsFollower(c, post) {
 		return nil
 	}
 

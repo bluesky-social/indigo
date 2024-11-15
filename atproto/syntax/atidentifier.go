@@ -1,7 +1,7 @@
 package syntax
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 )
 
@@ -10,6 +10,9 @@ type AtIdentifier struct {
 }
 
 func ParseAtIdentifier(raw string) (*AtIdentifier, error) {
+	if raw == "" {
+		return nil, errors.New("expected AT account identifier, got empty string")
+	}
 	if strings.HasPrefix(raw, "did:") {
 		did, err := ParseDID(raw)
 		if err != nil {
@@ -34,7 +37,7 @@ func (n AtIdentifier) AsHandle() (Handle, error) {
 	if ok {
 		return handle, nil
 	}
-	return "", fmt.Errorf("AT Identifier is not a Handle")
+	return "", errors.New("AT Identifier is not a Handle")
 }
 
 func (n AtIdentifier) IsDID() bool {
@@ -47,7 +50,7 @@ func (n AtIdentifier) AsDID() (DID, error) {
 	if ok {
 		return did, nil
 	}
-	return "", fmt.Errorf("AT Identifier is not a DID")
+	return "", errors.New("AT Identifier is not a DID")
 }
 
 func (n AtIdentifier) Normalize() AtIdentifier {

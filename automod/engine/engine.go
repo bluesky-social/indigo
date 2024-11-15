@@ -23,17 +23,11 @@ const (
 	notificationEventTimeout = 5 * time.Second
 )
 
-type EngineConfig struct {
-	// if true, sent firehose identity and account events to ozone backend as events
-	PersistSubjectHistoryOzone bool
-}
-
 // runtime for executing rules, managing state, and recording moderation actions.
 //
 // NOTE: careful when initializing: several fields must not be nil or zero, even though they are pointer type.
 type Engine struct {
 	Logger    *slog.Logger
-	Config    EngineConfig
 	Directory identity.Directory
 	Rules     RuleSet
 	Counters  countstore.CountStore
@@ -50,6 +44,16 @@ type Engine struct {
 	AdminClient *xrpc.Client
 	// used to fetch blobs from upstream PDS instances
 	BlobClient *http.Client
+
+	// internal configuration
+	Config EngineConfig
+}
+
+type EngineConfig struct {
+	// if enabled, account metadata is not hydrated for every event by default
+	SkipAccountMeta bool
+	// if true, sent firehose identity and account events to ozone backend as events
+	PersistSubjectHistoryOzone bool
 }
 
 // Entrypoint for external code pushing #identity events in to the engine.
@@ -93,10 +97,18 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, evt comatproto.Sync
 		return fmt.Errorf("identity not found for DID: %s", did.String())
 	}
 
-	am, err := eng.GetAccountMeta(ctx, ident)
-	if err != nil {
-		eventErrorCount.WithLabelValues("identity").Inc()
-		return fmt.Errorf("failed to fetch account metadata: %w", err)
+	var am *AccountMeta
+	if !eng.Config.SkipAccountMeta {
+		am, err = eng.GetAccountMeta(ctx, ident)
+		if err != nil {
+			eventErrorCount.WithLabelValues("identity").Inc()
+			return fmt.Errorf("failed to fetch account metadata: %w", err)
+		}
+	} else {
+		am = &AccountMeta{
+			Identity: ident,
+			Profile:  ProfileSummary{},
+		}
 	}
 	ac := NewAccountContext(ctx, eng, *am)
 	if err := eng.Rules.CallIdentityRules(&ac); err != nil {
@@ -161,10 +173,18 @@ func (eng *Engine) ProcessAccountEvent(ctx context.Context, evt comatproto.SyncS
 		return fmt.Errorf("identity not found for DID: %s", did.String())
 	}
 
-	am, err := eng.GetAccountMeta(ctx, ident)
-	if err != nil {
-		eventErrorCount.WithLabelValues("account").Inc()
-		return fmt.Errorf("failed to fetch account metadata: %w", err)
+	var am *AccountMeta
+	if !eng.Config.SkipAccountMeta {
+		am, err = eng.GetAccountMeta(ctx, ident)
+		if err != nil {
+			eventErrorCount.WithLabelValues("identity").Inc()
+			return fmt.Errorf("failed to fetch account metadata: %w", err)
+		}
+	} else {
+		am = &AccountMeta{
+			Identity: ident,
+			Profile:  ProfileSummary{},
+		}
 	}
 	ac := NewAccountContext(ctx, eng, *am)
 	if err := eng.Rules.CallAccountRules(&ac); err != nil {
@@ -222,10 +242,18 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 		return fmt.Errorf("identity not found for DID: %s", op.DID)
 	}
 
-	am, err := eng.GetAccountMeta(ctx, ident)
-	if err != nil {
-		eventErrorCount.WithLabelValues("record").Inc()
-		return fmt.Errorf("failed to fetch account metadata: %w", err)
+	var am *AccountMeta
+	if !eng.Config.SkipAccountMeta {
+		am, err = eng.GetAccountMeta(ctx, ident)
+		if err != nil {
+			eventErrorCount.WithLabelValues("identity").Inc()
+			return fmt.Errorf("failed to fetch account metadata: %w", err)
+		}
+	} else {
+		am = &AccountMeta{
+			Identity: ident,
+			Profile:  ProfileSummary{},
+		}
 	}
 	rc := NewRecordContext(ctx, eng, *am, op)
 	rc.Logger.Debug("processing record")
@@ -340,6 +368,7 @@ func (e *Engine) CanonicalLogLineAccount(c *AccountContext) {
 	c.Logger.Info("canonical-event-line",
 		"accountLabels", c.effects.AccountLabels,
 		"accountFlags", c.effects.AccountFlags,
+		"accountTags", c.effects.AccountTags,
 		"accountTakedown", c.effects.AccountTakedown,
 		"accountReports", len(c.effects.AccountReports),
 	)
@@ -349,10 +378,12 @@ func (e *Engine) CanonicalLogLineRecord(c *RecordContext) {
 	c.Logger.Info("canonical-event-line",
 		"accountLabels", c.effects.AccountLabels,
 		"accountFlags", c.effects.AccountFlags,
+		"accountTags", c.effects.AccountTags,
 		"accountTakedown", c.effects.AccountTakedown,
 		"accountReports", len(c.effects.AccountReports),
 		"recordLabels", c.effects.RecordLabels,
 		"recordFlags", c.effects.RecordFlags,
+		"recordTags", c.effects.RecordTags,
 		"recordTakedown", c.effects.RecordTakedown,
 		"recordReports", len(c.effects.RecordReports),
 	)
@@ -362,6 +393,7 @@ func (e *Engine) CanonicalLogLineNotification(c *NotificationContext) {
 	c.Logger.Info("canonical-event-line",
 		"accountLabels", c.effects.AccountLabels,
 		"accountFlags", c.effects.AccountFlags,
+		"accountTags", c.effects.AccountTags,
 		"accountTakedown", c.effects.AccountTakedown,
 		"accountReports", len(c.effects.AccountReports),
 		"reject", c.effects.RejectEvent,

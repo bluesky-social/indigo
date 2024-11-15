@@ -17,6 +17,8 @@ type CommunicationUpdateTemplate_Input struct {
 	Disabled        *bool   `json:"disabled,omitempty" cborgen:"disabled,omitempty"`
 	// id: ID of the template to be updated.
 	Id string `json:"id" cborgen:"id"`
+	// lang: Message language.
+	Lang *string `json:"lang,omitempty" cborgen:"lang,omitempty"`
 	// name: Name of the template.
 	Name *string `json:"name,omitempty" cborgen:"name,omitempty"`
 	// subject: Subject of the message, used in emails.

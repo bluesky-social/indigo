@@ -34,6 +34,7 @@ type ModerationEmitEvent_Input_Event struct {
 	ModerationDefs_ModEventMuteReporter    *ModerationDefs_ModEventMuteReporter
 	ModerationDefs_ModEventUnmuteReporter  *ModerationDefs_ModEventUnmuteReporter
 	ModerationDefs_ModEventReverseTakedown *ModerationDefs_ModEventReverseTakedown
+	ModerationDefs_ModEventResolveAppeal   *ModerationDefs_ModEventResolveAppeal
 	ModerationDefs_ModEventEmail           *ModerationDefs_ModEventEmail
 	ModerationDefs_ModEventTag             *ModerationDefs_ModEventTag
 	ModerationDefs_AccountEvent            *ModerationDefs_AccountEvent
@@ -85,6 +86,10 @@ func (t *ModerationEmitEvent_Input_Event) MarshalJSON() ([]byte, error) {
 	if t.ModerationDefs_ModEventReverseTakedown != nil {
 		t.ModerationDefs_ModEventReverseTakedown.LexiconTypeID = "tools.ozone.moderation.defs#modEventReverseTakedown"
 		return json.Marshal(t.ModerationDefs_ModEventReverseTakedown)
+	}
+	if t.ModerationDefs_ModEventResolveAppeal != nil {
+		t.ModerationDefs_ModEventResolveAppeal.LexiconTypeID = "tools.ozone.moderation.defs#modEventResolveAppeal"
+		return json.Marshal(t.ModerationDefs_ModEventResolveAppeal)
 	}
 	if t.ModerationDefs_ModEventEmail != nil {
 		t.ModerationDefs_ModEventEmail.LexiconTypeID = "tools.ozone.moderation.defs#modEventEmail"
@@ -148,6 +153,9 @@ func (t *ModerationEmitEvent_Input_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#modEventReverseTakedown":
 		t.ModerationDefs_ModEventReverseTakedown = new(ModerationDefs_ModEventReverseTakedown)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventReverseTakedown)
+	case "tools.ozone.moderation.defs#modEventResolveAppeal":
+		t.ModerationDefs_ModEventResolveAppeal = new(ModerationDefs_ModEventResolveAppeal)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventResolveAppeal)
 	case "tools.ozone.moderation.defs#modEventEmail":
 		t.ModerationDefs_ModEventEmail = new(ModerationDefs_ModEventEmail)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventEmail)

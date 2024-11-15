@@ -12,6 +12,8 @@ var (
 	QuotaModReportDay = 2000
 	// number of takedowns automod can action per day, for all subjects combined (circuit breaker)
 	QuotaModTakedownDay = 200
+	// number of misc actions automod can do per day, for all subjects combined (circuit breaker)
+	QuotaModActionDay = 1000
 )
 
 type CounterRef struct {
@@ -38,14 +40,22 @@ type Effects struct {
 	CounterDistinctIncrements []CounterDistinctRef // TODO: better variable names
 	// Label values which should be applied to the overall account, as a result of rule execution.
 	AccountLabels []string
-	// Moderation flags (similar to labels, but private) which should be applied to the overall account, as a result of rule execution.
+	// Moderation tags (similar to labels, but private) which should be applied to the overall account, as a result of rule execution.
+	AccountTags []string
+	// automod flags (metadata) which should be applied to the account as a result of rule execution.
 	AccountFlags []string
 	// Reports which should be filed against this account, as a result of rule execution.
 	AccountReports []ModReport
-	// If "true", indicates that a rule indicates that the entire account should have a takedown.
+	// If "true", a rule decided that the entire account should have a takedown.
 	AccountTakedown bool
+	// If "true", a rule decided that the reported account should be escalated.
+	AccountEscalate bool
+	// If "true", a rule decided that the reports on account should be resolved as acknowledged.
+	AccountAcknowledge bool
 	// Same as "AccountLabels", but at record-level
 	RecordLabels []string
+	// Same as "AccountTags", but at record-level
+	RecordTags []string
 	// Same as "AccountFlags", but at record-level
 	RecordFlags []string
 	// Same as "AccountReports", but at record-level
@@ -98,6 +108,18 @@ func (e *Effects) AddAccountLabel(val string) {
 	e.AccountLabels = append(e.AccountLabels, val)
 }
 
+// Enqueues the provided label (string value) to be added to the account at the end of rule processing.
+func (e *Effects) AddAccountTag(val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for _, v := range e.AccountTags {
+		if v == val {
+			return
+		}
+	}
+	e.AccountTags = append(e.AccountTags, val)
+}
+
 // Enqueues the provided flag (string value) to be recorded (in the Engine's flagstore) at the end of rule processing.
 func (e *Effects) AddAccountFlag(val string) {
 	e.mu.Lock()
@@ -130,6 +152,16 @@ func (e *Effects) TakedownAccount() {
 	e.AccountTakedown = true
 }
 
+// Enqueues the account to be "escalated" for mod review at the end of rule processing.
+func (e *Effects) EscalateAccount() {
+	e.AccountEscalate = true
+}
+
+// Enqueues reports on account to be "acknowledged" (closed) at the end of rule processing.
+func (e *Effects) AcknowledgeAccount() {
+	e.AccountAcknowledge = true
+}
+
 // Enqueues the provided label (string value) to be added to the record at the end of rule processing.
 func (e *Effects) AddRecordLabel(val string) {
 	e.mu.Lock()
@@ -140,6 +172,18 @@ func (e *Effects) AddRecordLabel(val string) {
 		}
 	}
 	e.RecordLabels = append(e.RecordLabels, val)
+}
+
+// Enqueues the provided tag (string value) to be added to the record at the end of rule processing.
+func (e *Effects) AddRecordTag(val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for _, v := range e.RecordTags {
+		if v == val {
+			return
+		}
+	}
+	e.RecordTags = append(e.RecordTags, val)
 }
 
 // Enqueues the provided flag (string value) to be recorded (in the Engine's flagstore) at the end of rule processing.

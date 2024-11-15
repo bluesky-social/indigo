@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -27,25 +26,17 @@ import (
 )
 
 type Server struct {
-	relayHost           string
-	firehoseParallelism int
+	Engine      *automod.Engine
+	RedisClient *redis.Client
+
+	relayHost           string // DEPRECATED
+	firehoseParallelism int    // DEPRECATED
 	logger              *slog.Logger
-	engine              *automod.Engine
-	rdb                 *redis.Client
-
-	// lastSeq is the most recent event sequence number we've received and begun to handle.
-	// This number is periodically persisted to redis, if redis is present.
-	// The value is best-effort (the stream handling itself is concurrent, so event numbers may not be monotonic),
-	// but nonetheless, you must use atomics when updating or reading this (to avoid data races).
-	lastSeq int64
-
-	// same as lastSeq, but for Ozone timestamp cursor. the value is a string.
-	lastOzoneCursor atomic.Value
 }
 
 type Config struct {
 	Logger              *slog.Logger
-	RelayHost           string
+	RelayHost           string // DEPRECATED
 	BskyHost            string
 	OzoneHost           string
 	OzoneDID            string
@@ -60,7 +51,7 @@ type Config struct {
 	AbyssPassword       string
 	RulesetName         string
 	RatelimitBypass     string
-	FirehoseParallelism int
+	FirehoseParallelism int // DEPRECATED
 	RerouteEvents       bool
 	PreScreenHost       string
 	PreScreenToken      string
@@ -238,8 +229,8 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		relayHost:           config.RelayHost,
 		firehoseParallelism: config.FirehoseParallelism,
 		logger:              logger,
-		engine:              &engine,
-		rdb:                 rdb,
+		Engine:              &engine,
+		RedisClient:         rdb,
 	}
 
 	return s, nil
@@ -248,133 +239,4 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 func (s *Server) RunMetrics(listen string) error {
 	http.Handle("/metrics", promhttp.Handler())
 	return http.ListenAndServe(listen, nil)
-}
-
-var cursorKey = "hepa/seq"
-var ozoneCursorKey = "hepa/ozoneTimestamp"
-
-func (s *Server) ReadLastCursor(ctx context.Context) (int64, error) {
-	// if redis isn't configured, just skip
-	if s.rdb == nil {
-		s.logger.Info("redis not configured, skipping cursor read")
-		return 0, nil
-	}
-
-	val, err := s.rdb.Get(ctx, cursorKey).Int64()
-	if err == redis.Nil {
-		s.logger.Info("no pre-existing cursor in redis")
-		return 0, nil
-	} else if err != nil {
-		return 0, err
-	}
-	s.logger.Info("successfully found prior subscription cursor seq in redis", "seq", val)
-	return val, nil
-}
-
-func (s *Server) ReadLastOzoneCursor(ctx context.Context) (string, error) {
-	// if redis isn't configured, just skip
-	if s.rdb == nil {
-		s.logger.Info("redis not configured, skipping ozone cursor read")
-		return "", nil
-	}
-
-	val, err := s.rdb.Get(ctx, ozoneCursorKey).Result()
-	if err == redis.Nil || val == "" {
-		s.logger.Info("no pre-existing ozone cursor in redis")
-		return "", nil
-	} else if err != nil {
-		return "", err
-	}
-	s.logger.Info("successfully found prior ozone offset timestamp in redis", "cursor", val)
-	return val, nil
-}
-
-func (s *Server) PersistCursor(ctx context.Context) error {
-	// if redis isn't configured, just skip
-	if s.rdb == nil {
-		return nil
-	}
-	lastSeq := atomic.LoadInt64(&s.lastSeq)
-	if lastSeq <= 0 {
-		return nil
-	}
-	err := s.rdb.Set(ctx, cursorKey, lastSeq, 14*24*time.Hour).Err()
-	return err
-}
-
-func (s *Server) PersistOzoneCursor(ctx context.Context) error {
-	// if redis isn't configured, just skip
-	if s.rdb == nil {
-		return nil
-	}
-	lastCursor := s.lastOzoneCursor.Load()
-	if lastCursor == nil || lastCursor == "" {
-		return nil
-	}
-	err := s.rdb.Set(ctx, ozoneCursorKey, lastCursor, 14*24*time.Hour).Err()
-	return err
-}
-
-// this method runs in a loop, persisting the current cursor state every 5 seconds
-func (s *Server) RunPersistCursor(ctx context.Context) error {
-
-	// if redis isn't configured, just skip
-	if s.rdb == nil {
-		return nil
-	}
-	ticker := time.NewTicker(5 * time.Second)
-	for {
-		select {
-		case <-ctx.Done():
-			lastSeq := atomic.LoadInt64(&s.lastSeq)
-			if lastSeq >= 1 {
-				s.logger.Info("persisting final cursor seq value", "seq", lastSeq)
-				err := s.PersistCursor(ctx)
-				if err != nil {
-					s.logger.Error("failed to persist cursor", "err", err, "seq", lastSeq)
-				}
-			}
-			return nil
-		case <-ticker.C:
-			lastSeq := atomic.LoadInt64(&s.lastSeq)
-			if lastSeq >= 1 {
-				err := s.PersistCursor(ctx)
-				if err != nil {
-					s.logger.Error("failed to persist cursor", "err", err, "seq", lastSeq)
-				}
-			}
-		}
-	}
-}
-
-// this method runs in a loop, persisting the current cursor state every 5 seconds
-func (s *Server) RunPersistOzoneCursor(ctx context.Context) error {
-
-	// if redis isn't configured, just skip
-	if s.rdb == nil {
-		return nil
-	}
-	ticker := time.NewTicker(5 * time.Second)
-	for {
-		select {
-		case <-ctx.Done():
-			lastCursor := s.lastOzoneCursor.Load()
-			if lastCursor != nil && lastCursor != "" {
-				s.logger.Info("persisting final ozone cursor timestamp", "cursor", lastCursor)
-				err := s.PersistOzoneCursor(ctx)
-				if err != nil {
-					s.logger.Error("failed to persist ozone cursor", "err", err, "cursor", lastCursor)
-				}
-			}
-			return nil
-		case <-ticker.C:
-			lastCursor := s.lastOzoneCursor.Load()
-			if lastCursor != nil && lastCursor != "" {
-				err := s.PersistOzoneCursor(ctx)
-				if err != nil {
-					s.logger.Error("failed to persist ozone cursor", "err", err, "cursor", lastCursor)
-				}
-			}
-		}
-	}
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/urfave/cli/v2"
@@ -231,9 +230,8 @@ func runRecordCreate(cctx *cli.Context) error {
 		return err
 	}
 
-	// TODO: replace this with something that allows arbitrary Lexicons, instead of needing registered types
-	var recordVal lexutil.LexiconTypeDecoder
-	if err = recordVal.UnmarshalJSON(recordBytes); err != nil {
+	recordVal, err := data.UnmarshalJSON(recordBytes)
+	if err != nil {
 		return err
 	}
 
@@ -248,10 +246,10 @@ func runRecordCreate(cctx *cli.Context) error {
 	}
 	validate := !cctx.Bool("no-validate")
 
-	resp, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
+	resp, err := RepoCreateRecord(ctx, xrpcc, &RepoCreateRecord_Input{
 		Collection: nsid,
 		Repo:       xrpcc.Auth.Did,
-		Record:     &recordVal,
+		Record:     recordVal,
 		Rkey:       rkey,
 		Validate:   &validate,
 	})
@@ -300,18 +298,17 @@ func runRecordUpdate(cctx *cli.Context) error {
 		return err
 	}
 
-	// TODO: replace this with something that allows arbitrary Lexicons, instead of needing registered types
-	var recordVal lexutil.LexiconTypeDecoder
-	if err = recordVal.UnmarshalJSON(recordBytes); err != nil {
+	recordVal, err := data.UnmarshalJSON(recordBytes)
+	if err != nil {
 		return err
 	}
 
 	validate := !cctx.Bool("no-validate")
 
-	resp, err := comatproto.RepoPutRecord(ctx, xrpcc, &comatproto.RepoPutRecord_Input{
+	resp, err := RepoPutRecord(ctx, xrpcc, &RepoPutRecord_Input{
 		Collection: nsid,
 		Repo:       xrpcc.Auth.Did,
-		Record:     &recordVal,
+		Record:     recordVal,
 		Rkey:       rkey,
 		Validate:   &validate,
 		SwapRecord: existing.Cid,
@@ -343,7 +340,7 @@ func runRecordDelete(cctx *cli.Context) error {
 		return err
 	}
 
-	err = comatproto.RepoDeleteRecord(ctx, xrpcc, &comatproto.RepoDeleteRecord_Input{
+	_, err = comatproto.RepoDeleteRecord(ctx, xrpcc, &comatproto.RepoDeleteRecord_Input{
 		Collection: collection.String(),
 		Repo:       xrpcc.Auth.Did,
 		Rkey:       rkey.String(),

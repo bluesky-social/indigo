@@ -17,6 +17,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity/redisdir"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod/capture"
+	"github.com/bluesky-social/indigo/automod/consumer"
 
 	"github.com/carlmjohnson/versioninfo"
 	_ "github.com/joho/godotenv/autoload"
@@ -177,7 +178,7 @@ func configDirectory(cctx *cli.Context) (identity.Directory, error) {
 	}
 	var dir identity.Directory
 	if cctx.String("redis-url") != "" {
-		rdir, err := redisdir.NewRedisDirectory(&baseDir, cctx.String("redis-url"), time.Hour*24, time.Minute*2, 10_000)
+		rdir, err := redisdir.NewRedisDirectory(&baseDir, cctx.String("redis-url"), time.Hour*24, time.Minute*2, time.Minute*5, 10_000)
 		if err != nil {
 			return nil, err
 		}
@@ -241,7 +242,7 @@ var runCmd = &cli.Command{
 			dir,
 			Config{
 				Logger:              logger,
-				RelayHost:           cctx.String("atp-relay-host"),
+				RelayHost:           cctx.String("atp-relay-host"), // DEPRECATED
 				BskyHost:            cctx.String("atp-bsky-host"),
 				OzoneHost:           cctx.String("atp-ozone-host"),
 				OzoneDID:            cctx.String("ozone-did"),
@@ -256,7 +257,7 @@ var runCmd = &cli.Command{
 				AbyssPassword:       cctx.String("abyss-password"),
 				RatelimitBypass:     cctx.String("ratelimit-bypass"),
 				RulesetName:         cctx.String("ruleset"),
-				FirehoseParallelism: cctx.Int("firehose-parallelism"),
+				FirehoseParallelism: cctx.Int("firehose-parallelism"), // DEPRECATED
 				RerouteEvents:       cctx.Bool("reroute-events"),
 				PreScreenHost:       cctx.String("prescreen-host"),
 				PreScreenToken:      cctx.String("prescreen-token"),
@@ -264,6 +265,28 @@ var runCmd = &cli.Command{
 		)
 		if err != nil {
 			return fmt.Errorf("failed to construct server: %v", err)
+		}
+
+		// ozone event consumer (if configured)
+		if srv.Engine.OzoneClient != nil {
+			oc := consumer.OzoneConsumer{
+				Logger:      logger.With("subsystem", "ozone-consumer"),
+				RedisClient: srv.RedisClient,
+				OzoneClient: srv.Engine.OzoneClient,
+				Engine:      srv.Engine,
+			}
+
+			go func() {
+				if err := oc.Run(ctx); err != nil {
+					slog.Error("ozone consumer failed", "err", err)
+				}
+			}()
+
+			go func() {
+				if err := oc.RunPersistCursor(ctx); err != nil {
+					slog.Error("ozone cursor routine failed", "err", err)
+				}
+			}()
 		}
 
 		// prometheus HTTP endpoint: /metrics
@@ -276,31 +299,28 @@ var runCmd = &cli.Command{
 			}
 		}()
 
-		go func() {
-			if err := srv.RunPersistCursor(ctx); err != nil {
-				slog.Error("cursor routine failed", "err", err)
+		// firehose event consumer (note this is actually mandatory)
+		relayHost := cctx.String("atp-relay-host")
+		if relayHost != "" {
+			fc := consumer.FirehoseConsumer{
+				Engine:      srv.Engine,
+				Logger:      logger.With("subsystem", "firehose-consumer"),
+				Host:        cctx.String("atp-relay-host"),
+				Parallelism: cctx.Int("firehose-parallelism"),
+				RedisClient: srv.RedisClient,
 			}
-		}()
 
-		// ozone event consumer (if configured)
-		if srv.engine.OzoneClient != nil {
 			go func() {
-				if err := srv.RunOzoneConsumer(ctx); err != nil {
-					slog.Error("ozone consumer failed", "err", err)
+				if err := fc.RunPersistCursor(ctx); err != nil {
+					slog.Error("cursor routine failed", "err", err)
 				}
 			}()
 
-			go func() {
-				if err := srv.RunPersistOzoneCursor(ctx); err != nil {
-					slog.Error("ozone cursor routine failed", "err", err)
-				}
-			}()
+			if err := fc.Run(ctx); err != nil {
+				return fmt.Errorf("failure consuming and processing firehose: %w", err)
+			}
 		}
 
-		// firehose event consumer (main processor)
-		if err := srv.RunConsumer(ctx); err != nil {
-			return fmt.Errorf("failure consuming and processing firehose: %w", err)
-		}
 		return nil
 	},
 }
@@ -362,7 +382,7 @@ var processRecordCmd = &cli.Command{
 			return err
 		}
 
-		return capture.FetchAndProcessRecord(ctx, srv.engine, aturi)
+		return capture.FetchAndProcessRecord(ctx, srv.Engine, aturi)
 	},
 }
 
@@ -393,7 +413,7 @@ var processRecentCmd = &cli.Command{
 			return err
 		}
 
-		return capture.FetchAndProcessRecent(ctx, srv.engine, *atid, cctx.Int("limit"))
+		return capture.FetchAndProcessRecent(ctx, srv.Engine, *atid, cctx.Int("limit"))
 	},
 }
 
@@ -424,7 +444,7 @@ var captureRecentCmd = &cli.Command{
 			return err
 		}
 
-		cap, err := capture.CaptureRecent(ctx, srv.engine, *atid, cctx.Int("limit"))
+		cap, err := capture.CaptureRecent(ctx, srv.Engine, *atid, cctx.Int("limit"))
 		if err != nil {
 			return err
 		}

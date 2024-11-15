@@ -16,6 +16,8 @@ type CommunicationCreateTemplate_Input struct {
 	ContentMarkdown string `json:"contentMarkdown" cborgen:"contentMarkdown"`
 	// createdBy: DID of the user who is creating the template.
 	CreatedBy *string `json:"createdBy,omitempty" cborgen:"createdBy,omitempty"`
+	// lang: Message language.
+	Lang *string `json:"lang,omitempty" cborgen:"lang,omitempty"`
 	// name: Name of the template.
 	Name string `json:"name" cborgen:"name"`
 	// subject: Subject of the message, used in emails.

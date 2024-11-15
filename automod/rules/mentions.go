@@ -8,6 +8,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/bluesky-social/indigo/automod/helpers"
 )
 
 var _ automod.PostRuleFunc = DistinctMentionsRule
@@ -47,7 +48,7 @@ var youngMentionAccountLimit = 12
 var _ automod.PostRuleFunc = YoungAccountDistinctMentionsRule
 
 func YoungAccountDistinctMentionsRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if c.Account.Identity == nil || !AccountIsYoungerThan(&c.AccountContext, 14*24*time.Hour) {
+	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(&c.AccountContext, 14*24*time.Hour) {
 		return nil
 	}
 

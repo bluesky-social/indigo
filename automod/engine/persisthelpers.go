@@ -35,6 +35,23 @@ func dedupeLabelActions(labels, existing, existingNegated []string) []string {
 	return newLabels
 }
 
+func dedupeTagActions(tags, existing []string) []string {
+	newTags := []string{}
+	for _, val := range dedupeStrings(tags) {
+		exists := false
+		for _, e := range existing {
+			if val == e {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			newTags = append(newTags, val)
+		}
+	}
+	return newTags
+}
+
 func dedupeFlagActions(flags, existing []string) []string {
 	newFlags := []string{}
 	for _, val := range dedupeStrings(flags) {
@@ -111,6 +128,26 @@ func (eng *Engine) circuitBreakTakedown(ctx context.Context, takedown bool) (boo
 	return takedown, nil
 }
 
+// Combined circuit breaker for miscellaneous mod actions like: escalate, acknowledge
+func (eng *Engine) circuitBreakModAction(ctx context.Context, action bool) (bool, error) {
+	if !action {
+		return false, nil
+	}
+	c, err := eng.Counters.GetCount(ctx, "automod-quota", "mod-action", countstore.PeriodDay)
+	if err != nil {
+		return false, fmt.Errorf("checking mod action quota: %w", err)
+	}
+	if c >= QuotaModActionDay {
+		eng.Logger.Warn("CIRCUIT BREAKER: automod action")
+		return false, nil
+	}
+	err = eng.Counters.Increment(ctx, "automod-quota", "mod-action")
+	if err != nil {
+		return false, fmt.Errorf("incrementing mod action quota: %w", err)
+	}
+	return action, nil
+}
+
 // Creates a moderation report, but checks first if there was a similar recent one, and skips if so.
 //
 // Returns a bool indicating if a new report was created.
@@ -118,26 +155,27 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 	// before creating a report, query to see if automod has already reported this account in the past week for the same reason
 	// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
 
-	// ModerationQueryEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, inc ludeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string)
 	resp, err := toolsozone.ModerationQueryEvents(
 		ctx,
 		xrpcc,
-		nil,
-		nil,
-		"",
-		"",
-		"",
-		xrpcc.Auth.Did,
-		"",
-		false,
-		false,
-		5,
-		nil,
-		nil,
-		nil,
-		"",
-		did.String(),
-		[]string{"tools.ozone.moderation.defs#modEventReport"},
+		nil,            // addedLabels []string
+		nil,            // addedTags []string
+		nil,            // collections []string
+		"",             // comment string
+		"",             // createdAfter string
+		"",             // createdBefore string
+		xrpcc.Auth.Did, // createdBy string
+		"",             // cursor string
+		false,          // hasComment bool
+		false,          // includeAllUserRecords bool
+		5,              // limit int64
+		nil,            // removedLabels []string
+		nil,            // removedTags []string
+		nil,            // reportTypes []string
+		"",             // sortDirection string
+		did.String(),   // subject string
+		"",             // subjectType string
+		[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
 	)
 
 	if err != nil {
@@ -194,26 +232,27 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 	// before creating a report, query to see if automod has already reported this account in the past week for the same reason
 	// NOTE: this is running in an inner loop (if there are multiple reports), which is a bit inefficient, but seems acceptable
 
-	// ModerationQueryEvents(ctx context.Context, c *xrpc.Client, createdBy string, cursor string, inc ludeAllUserRecords bool, limit int64, sortDirection string, subject string, types []string)
 	resp, err := toolsozone.ModerationQueryEvents(
 		ctx,
 		xrpcc,
-		nil,
-		nil,
-		"",
-		"",
-		"",
-		xrpcc.Auth.Did,
-		"",
-		false,
-		false,
-		5,
-		nil,
-		nil,
-		nil,
-		"",
-		uri.String(),
-		[]string{"tools.ozone.moderation.defs#modEventReport"},
+		nil,            // addedLabels []string
+		nil,            // addedTags []string
+		nil,            // collections []string
+		"",             // comment string
+		"",             // createdAfter string
+		"",             // createdBefore string
+		xrpcc.Auth.Did, // createdBy string
+		"",             // cursor string
+		false,          // hasComment bool
+		false,          // includeAllUserRecords bool
+		5,              // limit int64
+		nil,            // removedLabels []string
+		nil,            // removedTags []string
+		nil,            // reportTypes []string
+		"",             // sortDirection string
+		uri.String(),   // subject string
+		"",             // subjectType string
+		[]string{"tools.ozone.moderation.defs#modEventReport"}, // types []string
 	)
 	if err != nil {
 		return false, err

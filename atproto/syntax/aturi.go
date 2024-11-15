@@ -1,6 +1,7 @@
 package syntax
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -17,11 +18,11 @@ type ATURI string
 
 func ParseATURI(raw string) (ATURI, error) {
 	if len(raw) > 8192 {
-		return "", fmt.Errorf("ATURI is too long (8192 chars max)")
+		return "", errors.New("ATURI is too long (8192 chars max)")
 	}
 	parts := aturiRegex.FindStringSubmatch(raw)
 	if parts == nil || len(parts) < 2 || parts[0] == "" {
-		return "", fmt.Errorf("AT-URI syntax didn't validate via regex")
+		return "", errors.New("AT-URI syntax didn't validate via regex")
 	}
 	// verify authority as either a DID or NSID
 	_, err := ParseAtIdentifier(parts[1])

@@ -8,18 +8,19 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/bluesky-social/indigo/automod/helpers"
 )
 
 var _ automod.PostRuleFunc = HarassmentTargetInteractionPostRule
 
 // looks for new accounts, which interact with frequently-harassed accounts, and report them for review
 func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if c.Account.Identity == nil || !AccountIsYoungerThan(&c.AccountContext, 24*time.Hour) {
+	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(&c.AccountContext, 24*time.Hour) {
 		return nil
 	}
 
 	var interactionDIDs []string
-	facets, err := ExtractFacets(post)
+	facets, err := helpers.ExtractFacets(post)
 	if err != nil {
 		return err
 	}
@@ -28,7 +29,7 @@ func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky
 			interactionDIDs = append(interactionDIDs, *pf.DID)
 		}
 	}
-	if post.Reply != nil && !IsSelfThread(c, post) {
+	if post.Reply != nil && !helpers.IsSelfThread(c, post) {
 		parentURI, err := syntax.ParseATURI(post.Reply.Parent.Uri)
 		if err != nil {
 			return err
@@ -57,7 +58,7 @@ func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky
 		return nil
 	}
 
-	interactionDIDs = dedupeStrings(interactionDIDs)
+	interactionDIDs = helpers.DedupeStrings(interactionDIDs)
 	for _, d := range interactionDIDs {
 		did, err := syntax.ParseDID(d)
 		if err != nil {
@@ -76,10 +77,12 @@ func HarassmentTargetInteractionPostRule(c *automod.RecordContext, post *appbsky
 			if targetAccount == nil {
 				continue
 			}
-			for _, t := range targetAccount.Private.AccountTags {
-				if t == "harassment-protection" {
-					targetIsProtected = true
-					break
+			if targetAccount.Private != nil {
+				for _, t := range targetAccount.Private.AccountTags {
+					if t == "harassment-protection" {
+						targetIsProtected = true
+						break
+					}
 				}
 			}
 		}
@@ -112,7 +115,7 @@ var _ automod.PostRuleFunc = HarassmentTrivialPostRule
 
 // looks for new accounts, which frequently post the same type of content
 func HarassmentTrivialPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if c.Account.Identity == nil || !AccountIsYoungerThan(&c.AccountContext, 7*24*time.Hour) {
+	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(&c.AccountContext, 7*24*time.Hour) {
 		return nil
 	}
 
