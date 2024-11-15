@@ -269,6 +269,8 @@ func (s *Splitter) EventsHandler(c echo.Context) error {
 		"cursor", since,
 		"consumer_id", consumerID,
 	)
+	activeClientGauge.Inc()
+	defer activeClientGauge.Dec()
 
 	for {
 		select {
