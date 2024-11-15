@@ -62,6 +62,11 @@ func (pp *PebblePersist) Persist(ctx context.Context, e *XRPCStreamEvent) error 
 		err = pp.db.Set(key[:], blob, pebble.Sync)
 	}
 
+	if err != nil {
+		return err
+	}
+	pp.broadcast(e)
+
 	return err
 }
 
