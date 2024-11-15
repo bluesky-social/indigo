@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
+	"time"
+
 	"github.com/bluesky-social/indigo/models"
 	"github.com/cockroachdb/pebble"
-	"time"
 )
 
 type PebblePersist struct {
@@ -18,15 +20,41 @@ type PebblePersist struct {
 	prevSeqExtra uint32
 
 	cancel func()
+
+	options PebblePersistOptions
 }
 
-func NewPebblePersistance(path string) (*PebblePersist, error) {
+type PebblePersistOptions struct {
+	// Throw away posts older than some time ago
+	PersistDuration time.Duration
+
+	// Throw away old posts every so often
+	GCPeriod time.Duration
+
+	// MaxBytes is what we _try_ to keep disk usage under
+	MaxBytes uint64
+}
+
+var DefaultPebblePersistOptions = PebblePersistOptions{
+	PersistDuration: time.Minute * 20,
+	GCPeriod:        time.Minute * 5,
+	MaxBytes:        1024 * 1024 * 1024, // 1 GiB
+}
+
+// Create a new EventPersistence which stores data in pebbledb
+// nil opts is ok
+func NewPebblePersistance(path string, opts *PebblePersistOptions) (*PebblePersist, error) {
 	db, err := pebble.Open(path, &pebble.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	pp := new(PebblePersist)
 	pp.db = db
+	if opts == nil {
+		pp.options = DefaultPebblePersistOptions
+	} else {
+		pp.options = *opts
+	}
 	return pp, nil
 }
 
@@ -150,15 +178,15 @@ func (pp *PebblePersist) GetLast(ctx context.Context) (seq, millis int64, evt *X
 // pp := NewPebblePersistance("/tmp/foo.pebble")
 // go pp.GCThread(context.Background(), 48 * time.Hour, 5 * time.Minute)
 // ```
-func (pp *PebblePersist) GCThread(ctx context.Context, retention, gcPeriod time.Duration) {
+func (pp *PebblePersist) GCThread(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	pp.cancel = cancel
-	ticker := time.NewTicker(gcPeriod)
+	ticker := time.NewTicker(pp.options.GCPeriod)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			err := pp.GarbageCollect(ctx, retention)
+			err := pp.GarbageCollect(ctx)
 			if err != nil {
 				log.Errorw("GC err", "err", err)
 			}
@@ -169,14 +197,18 @@ func (pp *PebblePersist) GCThread(ctx context.Context, retention, gcPeriod time.
 }
 
 var zeroKey [16]byte
+var ffffKey [16]byte
 
 func init() {
 	setKeySeqMillis(zeroKey[:], 0, 0)
+	for i := range ffffKey {
+		ffffKey[i] = 0xff
+	}
 }
 
-func (pp *PebblePersist) GarbageCollect(ctx context.Context, retention time.Duration) error {
+func (pp *PebblePersist) GarbageCollect(ctx context.Context) error {
 	nowMillis := time.Now().UnixMilli()
-	expired := nowMillis - retention.Milliseconds()
+	expired := nowMillis - pp.options.PersistDuration.Milliseconds()
 	iter, err := pp.db.NewIterWithContext(ctx, &pebble.IterOptions{})
 	if err != nil {
 		return err
@@ -196,18 +228,20 @@ func (pp *PebblePersist) GarbageCollect(ctx context.Context, retention time.Dura
 			break
 		}
 	}
-	sizeBefore, _ := pp.db.EstimateDiskUsage(nil, nil)
+	sizeBefore, _ := pp.db.EstimateDiskUsage(zeroKey[:], ffffKey[:])
 	if seq == -1 {
 		// nothing to delete
+		log.Infow("pebble gc nop", "size", sizeBefore)
 		return nil
 	}
 	var key [16]byte
 	setKeySeqMillis(key[:], seq, lastKeyTime)
+	log.Infow("pebble gc start", "to", hex.EncodeToString(key[:]))
 	err = pp.db.DeleteRange(zeroKey[:], key[:], pebble.Sync)
 	if err != nil {
 		return err
 	}
-	sizeAfter, _ := pp.db.EstimateDiskUsage(nil, nil)
+	sizeAfter, _ := pp.db.EstimateDiskUsage(zeroKey[:], ffffKey[:])
 	log.Infow("pebble gc", "before", sizeBefore, "after", sizeAfter)
 	return nil
 }
