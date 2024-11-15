@@ -54,12 +54,13 @@ func NewMemSplitter(host string) *Splitter {
 		consumers:  make(map[uint64]*SocketConsumer),
 	}
 }
-func NewDiskSplitter(host, path string) (*Splitter, error) {
+func NewDiskSplitter(host, path string, persistHours float64) (*Splitter, error) {
 	pp, err := events.NewPebblePersistance(path)
 	if err != nil {
 		return nil, err
 	}
 
+	go pp.GCThread(context.Background(), time.Duration(float64(time.Hour)*persistHours), 5*time.Minute)
 	em := events.NewEventManager(pp)
 	return &Splitter{
 		cursorFile: "cursor-file",
