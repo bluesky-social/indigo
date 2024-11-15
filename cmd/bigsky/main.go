@@ -206,7 +206,7 @@ func run(args []string) error {
 			Value: false,
 		},
 		&cli.StringSliceFlag{
-			Name:  "ex-scylla-carstore",
+			Name:  "scylla-carstore",
 			Usage: "scylla server addresses for storage backend, probably comma separated, urfave/cli is unclear",
 			Value: &cli.StringSlice{},
 		},
@@ -325,7 +325,7 @@ func runBigsky(cctx *cli.Context) error {
 	os.MkdirAll(filepath.Dir(csdir), os.ModePerm)
 
 	var cstore carstore.CarStore
-	scyllaAddrs := cctx.StringSlice("ex-scylla-carstore")
+	scyllaAddrs := cctx.StringSlice("scylla-carstore")
 	if len(scyllaAddrs) != 0 {
 		cstore, err = carstore.NewScyllaStore(scyllaAddrs, "cs")
 	} else if cctx.Bool("ex-sqlite-carstore") {
