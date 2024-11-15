@@ -66,6 +66,11 @@ func DefaultDirectory() Directory {
 		PLCURL: DefaultPLCURL,
 		HTTPClient: http.Client{
 			Timeout: time.Second * 15,
+			Transport: &http.Transport{
+				// would want this around 100ms for services doing lots of handle resolution. Impacts PLC connections as well, but not too bad.
+				IdleConnTimeout: time.Millisecond * 1000,
+				MaxIdleConns:    100,
+			},
 		},
 		Resolver: net.Resolver{
 			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
