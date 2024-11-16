@@ -272,7 +272,8 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	atURI := c.RecordOp.ATURI().String()
 	newLabels := dedupeStrings(c.effects.RecordLabels)
 	newTags := dedupeStrings(c.effects.RecordTags)
-	if (len(newLabels) > 0 || len(newTags) > 0) && eng.OzoneClient != nil {
+	resolveAppeal := c.effects.RecordAppealResolve
+	if (len(newLabels) > 0 || len(newTags) > 0 || resolveAppeal) && eng.OzoneClient != nil {
 		// fetch existing record labels, tags, etc
 		rv, err := toolsozone.ModerationGetRecord(ctx, eng.OzoneClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
 		if err != nil {
@@ -296,6 +297,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 				existingTags = rv.Moderation.SubjectStatus.Tags
 			}
 			newTags = dedupeTagActions(newTags, existingTags)
+			resolveAppeal = resolveAppeal && *rv.Moderation.SubjectStatus.Appealed
 		}
 	}
 
@@ -323,7 +325,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		return fmt.Errorf("failed to circuit break takedowns: %w", err)
 	}
 
-	resolveAppeal, err := eng.circuitBreakModAction(ctx, c.effects.RecordAppealResolve)
+	resolveAppeal, err = eng.circuitBreakModAction(ctx, resolveAppeal)
 	if err != nil {
 		return fmt.Errorf("failed to circuit break resolve appeal: %w", err)
 	}
@@ -444,6 +446,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		if err != nil {
 			c.Logger.Error("failed to execute record takedown", "err", err)
 		}
+		resolveAppeal = false
 	}
 
 	if resolveAppeal {
