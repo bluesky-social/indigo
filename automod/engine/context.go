@@ -169,6 +169,13 @@ func (c *BaseContext) InSet(name, val string) bool {
 	return out
 }
 
+// Returns a pointer to the underlying automod engine. This usually should NOT be used in rules.
+//
+// This is an escape hatch for hacking on the system before features get fully integerated in to the content API surface. The Engine API is not stable.
+func (c *BaseContext) InternalEngine() *Engine {
+	return c.engine
+}
+
 func NewAccountContext(ctx context.Context, eng *Engine, meta AccountMeta) AccountContext {
 	return AccountContext{
 		BaseContext: BaseContext{
@@ -267,6 +274,10 @@ func (c *AccountContext) AddAccountLabel(val string) {
 	c.effects.AddAccountLabel(val)
 }
 
+func (c *AccountContext) AddAccountTag(val string) {
+	c.effects.AddAccountTag(val)
+}
+
 func (c *AccountContext) ReportAccount(reason, comment string) {
 	c.effects.ReportAccount(reason, comment)
 }
@@ -279,12 +290,24 @@ func (c *AccountContext) ResolveAccountAppeal() {
 	c.effects.ResolveAccountAppeal()
 }
 
+func (c *AccountContext) EscalateAccount() {
+	c.effects.EscalateAccount()
+}
+
+func (c *AccountContext) AcknowledgeAccount() {
+	c.effects.AcknowledgeAccount()
+}
+
 func (c *RecordContext) AddRecordFlag(val string) {
 	c.effects.AddRecordFlag(val)
 }
 
 func (c *RecordContext) AddRecordLabel(val string) {
 	c.effects.AddRecordLabel(val)
+}
+
+func (c *RecordContext) AddRecordTag(val string) {
+	c.effects.AddRecordTag(val)
 }
 
 func (c *RecordContext) ReportRecord(reason, comment string) {
