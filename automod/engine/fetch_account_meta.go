@@ -24,7 +24,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 
 	// fallback in case client wasn't configured (eg, testing)
 	if e.BskyClient == nil {
-		logger.Warn("skipping account meta hydration")
+		logger.Debug("skipping account meta hydration")
 		am := AccountMeta{
 			Identity: ident,
 			Profile:  ProfileSummary{},
@@ -64,7 +64,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 	// most common cause of this is a race between automod and ozone/appview for new accounts. just sleep a couple seconds and retry!
 	var xrpcError *xrpc.Error
 	if err != nil && errors.As(err, &xrpcError) && (xrpcError.StatusCode == 400 || xrpcError.StatusCode == 404) {
-		logger.Info("account profile lookup initially failed (from bsky appview), will retry", "err", err, "sleepDuration", newAccountRetryDuration)
+		logger.Debug("account profile lookup initially failed (from bsky appview), will retry", "err", err, "sleepDuration", newAccountRetryDuration)
 		time.Sleep(newAccountRetryDuration)
 		pv, err = appbsky.ActorGetProfile(ctx, e.BskyClient, ident.DID.String())
 	}
@@ -75,6 +75,8 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 
 	am.Profile = ProfileSummary{
 		HasAvatar:   pv.Avatar != nil,
+		AvatarCid:   cidFromCdnUrl(pv.Avatar),
+		BannerCid:   cidFromCdnUrl(pv.Banner),
 		Description: pv.Description,
 		DisplayName: pv.DisplayName,
 	}
@@ -147,6 +149,13 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 						ap.ReviewState = ReviewStateNone
 					}
 				}
+			}
+			if rd.ThreatSignatures != nil || len(rd.ThreatSignatures) > 0 {
+				asigs := make([]AbuseSignature, len(rd.ThreatSignatures))
+				for i, sig := range rd.ThreatSignatures {
+					asigs[i] = AbuseSignature{Property: sig.Property, Value: sig.Value}
+				}
+				ap.AbuseSignatures = asigs
 			}
 			am.Private = &ap
 		}

@@ -1,29 +1,13 @@
-package rules
+package helpers
 
 import (
 	"fmt"
-	"regexp"
-	"time"
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/keyword"
-
-	"github.com/spaolacci/murmur3"
 )
-
-func dedupeStrings(in []string) []string {
-	var out []string
-	seen := make(map[string]bool)
-	for _, v := range in {
-		if !seen[v] {
-			out = append(out, v)
-			seen[v] = true
-		}
-	}
-	return out
-}
 
 func ExtractHashtagsPost(post *appbsky.FeedPost) []string {
 	var tags []string
@@ -37,7 +21,7 @@ func ExtractHashtagsPost(post *appbsky.FeedPost) []string {
 			}
 		}
 	}
-	return dedupeStrings(tags)
+	return DedupeStrings(tags)
 }
 
 func NormalizeHashtag(raw string) string {
@@ -103,7 +87,7 @@ func ExtractPostBlobCIDsPost(post *appbsky.FeedPost) []string {
 			}
 		}
 	}
-	return dedupeStrings(out)
+	return DedupeStrings(out)
 }
 
 func ExtractBlobCIDsProfile(profile *appbsky.ActorProfile) []string {
@@ -114,7 +98,7 @@ func ExtractBlobCIDsProfile(profile *appbsky.ActorProfile) []string {
 	if profile.Banner != nil {
 		out = append(out, profile.Banner.Ref.String())
 	}
-	return dedupeStrings(out)
+	return DedupeStrings(out)
 }
 
 func ExtractTextTokensPost(post *appbsky.FeedPost) []string {
@@ -152,13 +136,6 @@ func ExtractTextTokensProfile(profile *appbsky.ActorProfile) []string {
 	return keyword.TokenizeText(s)
 }
 
-// based on: https://stackoverflow.com/a/48769624, with no trailing period allowed
-var urlRegex = regexp.MustCompile(`(?:(?:https?|ftp):\/\/)?[\w/\-?=%.]+\.[\w/\-&?=%.]*[\w/\-&?=%]+`)
-
-func ExtractTextURLs(raw string) []string {
-	return urlRegex.FindAllString(raw, -1)
-}
-
 func ExtractTextURLsProfile(profile *appbsky.ActorProfile) []string {
 	s := ""
 	if profile.Description != nil {
@@ -189,14 +166,6 @@ func IsSelfThread(c *automod.RecordContext, post *appbsky.FeedPost) bool {
 		return true
 	}
 	return false
-}
-
-// returns a fast, compact hash of a string
-//
-// current implementation uses murmur3, default seed, and hex encoding
-func HashOfString(s string) string {
-	val := murmur3.Sum64([]byte(s))
-	return fmt.Sprintf("%016x", val)
 }
 
 func ParentOrRootIsFollower(c *automod.RecordContext, post *appbsky.FeedPost) bool {
@@ -242,44 +211,59 @@ func ParentOrRootIsFollower(c *automod.RecordContext, post *appbsky.FeedPost) bo
 	return false
 }
 
-// no accounts exist before this time
-var atprotoAccountEpoch = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+func PostParentOrRootIsDid(post *appbsky.FeedPost, did string) bool {
+	if post.Reply == nil {
+		return false
+	}
 
-// returns true if account creation timestamp is plausible: not-nil, not in distant past, not in the future
-func plausibleAccountCreation(when *time.Time) bool {
-	if when == nil {
+	rootUri, err := syntax.ParseATURI(post.Reply.Root.Uri)
+	if err != nil || !rootUri.Authority().IsDID() {
 		return false
 	}
-	// this is mostly to check for misconfigurations or null values (eg, UNIX epoch zero means "unknown" not actually 1970)
-	if !when.After(atprotoAccountEpoch) {
+
+	parentUri, err := syntax.ParseATURI(post.Reply.Parent.Uri)
+	if err != nil || !parentUri.Authority().IsDID() {
 		return false
 	}
-	// a timestamp in the future would also indicate some misconfiguration
-	if when.After(time.Now().Add(time.Hour)) {
-		return false
-	}
-	return true
+
+	return rootUri.Authority().String() == did || parentUri.Authority().String() == did
 }
 
-// checks if account was created recently, based on either public or private account metadata. if metadata isn't available at all, or seems bogus, returns 'false'
-func AccountIsYoungerThan(c *automod.AccountContext, age time.Duration) bool {
-	// TODO: consider swapping priority order here (and below)
-	if c.Account.CreatedAt != nil && plausibleAccountCreation(c.Account.CreatedAt) {
-		return time.Since(*c.Account.CreatedAt) < age
+func PostParentOrRootIsAnyDid(post *appbsky.FeedPost, dids []string) bool {
+	if post.Reply == nil {
+		return false
 	}
-	if c.Account.Private != nil && plausibleAccountCreation(c.Account.Private.IndexedAt) {
-		return time.Since(*c.Account.Private.IndexedAt) < age
+
+	for _, did := range dids {
+		if PostParentOrRootIsDid(post, did) {
+			return true
+		}
 	}
+
 	return false
 }
 
-// checks if account was *not* created recently, based on either public or private account metadata. if metadata isn't available at all, or seems bogus, returns 'false'
-func AccountIsOlderThan(c *automod.AccountContext, age time.Duration) bool {
-	if c.Account.CreatedAt != nil && plausibleAccountCreation(c.Account.CreatedAt) {
-		return time.Since(*c.Account.CreatedAt) >= age
+func PostMentionsDid(post *appbsky.FeedPost, did string) bool {
+	facets, err := ExtractFacets(post)
+	if err != nil {
+		return false
 	}
-	if c.Account.Private != nil && plausibleAccountCreation(c.Account.Private.IndexedAt) {
-		return time.Since(*c.Account.Private.IndexedAt) >= age
+
+	for _, facet := range facets {
+		if facet.DID != nil && *facet.DID == did {
+			return true
+		}
 	}
+
+	return false
+}
+
+func PostMentionsAnyDid(post *appbsky.FeedPost, dids []string) bool {
+	for _, did := range dids {
+		if PostMentionsDid(post, did) {
+			return true
+		}
+	}
+
 	return false
 }

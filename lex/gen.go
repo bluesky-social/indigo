@@ -232,9 +232,16 @@ func writeMethods(typename string, ts *TypeSchema, w io.Writer) error {
 	case "record":
 		return nil
 	case "query":
-		return ts.WriteRPC(w, typename)
+		return ts.WriteRPC(w, typename, fmt.Sprintf("%s_Input", typename))
 	case "procedure":
-		return ts.WriteRPC(w, typename)
+		if ts.Input == nil || ts.Input.Schema == nil || ts.Input.Schema.Type == "object" {
+			return ts.WriteRPC(w, typename, fmt.Sprintf("%s_Input", typename))
+		} else if ts.Input.Schema.Type == "ref" {
+			inputname, _ := ts.namesFromRef(ts.Input.Schema.Ref)
+			return ts.WriteRPC(w, typename, inputname)
+		} else {
+			return fmt.Errorf("unhandled input type: %s", ts.Input.Schema.Type)
+		}
 	case "object", "string":
 		return nil
 	case "subscription":

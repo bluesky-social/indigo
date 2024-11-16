@@ -10,7 +10,6 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 
@@ -167,11 +166,11 @@ func runAccountMigrate(cctx *cli.Context) error {
 
 	slog.Info("migrating preferences")
 	// TODO: service proxy header for AppView?
-	prefResp, err := appbsky.ActorGetPreferences(ctx, oldClient)
+	prefResp, err := ActorGetPreferences(ctx, oldClient)
 	if err != nil {
 		return fmt.Errorf("failed fetching old preferences: %w", err)
 	}
-	err = appbsky.ActorPutPreferences(ctx, &newClient, &appbsky.ActorPutPreferences_Input{
+	err = ActorPutPreferences(ctx, &newClient, &ActorPutPreferences_Input{
 		Preferences: prefResp.Preferences,
 	})
 	if err != nil {

@@ -85,7 +85,7 @@ func run(args []string) error {
 			Name:    "data-dir",
 			Usage:   "path of directory for CAR files and other data",
 			Value:   "data/bigsky",
-			EnvVars: []string{"DATA_DIR"},
+			EnvVars: []string{"RELAY_DATA_DIR", "DATA_DIR"},
 		},
 		&cli.StringFlag{
 			Name:    "plc-host",
@@ -112,8 +112,9 @@ func run(args []string) error {
 			EnvVars: []string{"RELAY_METRICS_LISTEN", "BGS_METRICS_LISTEN"},
 		},
 		&cli.StringFlag{
-			Name:  "disk-persister-dir",
-			Usage: "set directory for disk persister (implicitly enables disk persister)",
+			Name:    "disk-persister-dir",
+			Usage:   "set directory for disk persister (implicitly enables disk persister)",
+			EnvVars: []string{"RELAY_PERSISTER_DIR"},
 		},
 		&cli.StringFlag{
 			Name:    "admin-key",
@@ -187,6 +188,17 @@ func run(args []string) error {
 			Name:    "did-cache-size",
 			EnvVars: []string{"RELAY_DID_CACHE_SIZE"},
 			Value:   5_000_000,
+		},
+		&cli.DurationFlag{
+			Name:    "event-playback-ttl",
+			Usage:   "time to live for event playback buffering (only applies to disk persister)",
+			EnvVars: []string{"RELAY_EVENT_PLAYBACK_TTL"},
+			Value:   72 * time.Hour,
+		},
+		&cli.IntFlag{
+			Name:    "num-compaction-workers",
+			EnvVars: []string{"RELAY_NUM_COMPACTION_WORKERS"},
+			Value:   2,
 		},
 	}
 
@@ -327,7 +339,10 @@ func runBigsky(cctx *cli.Context) error {
 
 	if dpd := cctx.String("disk-persister-dir"); dpd != "" {
 		log.Infow("setting up disk persister")
-		dp, err := events.NewDiskPersistence(dpd, "", db, events.DefaultDiskPersistOptions())
+
+		pOpts := events.DefaultDiskPersistOptions()
+		pOpts.Retention = cctx.Duration("event-playback-ttl")
+		dp, err := events.NewDiskPersistence(dpd, "", db, pOpts)
 		if err != nil {
 			return fmt.Errorf("setting up disk persister: %w", err)
 		}
@@ -403,6 +418,7 @@ func runBigsky(cctx *cli.Context) error {
 	bgsConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
 	bgsConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
 	bgsConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
+	bgsConfig.NumCompactionWorkers = cctx.Int("num-compaction-workers")
 	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, rf, hr, bgsConfig)
 	if err != nil {
 		return err

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/automod"
-	"github.com/bluesky-social/indigo/automod/rules"
+	"github.com/bluesky-social/indigo/automod/helpers"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
@@ -43,7 +43,7 @@ func (hal *HiveAIClient) HiveLabelBlobRule(c *automod.RecordContext, blob lexuti
 
 	for _, l := range labels {
 		// NOTE: experimenting with profile reporting for new accounts
-		if l == "sexual" && c.RecordOp.Collection.String() == "app.bsky.actor.profile" && rules.AccountIsYoungerThan(&c.AccountContext, 2*24*time.Hour) {
+		if l == "sexual" && c.RecordOp.Collection.String() == "app.bsky.actor.profile" && helpers.AccountIsYoungerThan(&c.AccountContext, 2*24*time.Hour) {
 			c.ReportRecord(automod.ReportReasonSexual, "possible sexual profile (not labeled yet)")
 			c.Logger.Info("skipping record label", "label", l, "reason", "sexual-profile-experiment")
 		} else {

@@ -107,20 +107,22 @@ type SocketConsumer struct {
 }
 
 type BGSConfig struct {
-	SSL               bool
-	CompactInterval   time.Duration
-	DefaultRepoLimit  int64
-	ConcurrencyPerPDS int64
-	MaxQueuePerPDS    int64
+	SSL                  bool
+	CompactInterval      time.Duration
+	DefaultRepoLimit     int64
+	ConcurrencyPerPDS    int64
+	MaxQueuePerPDS       int64
+	NumCompactionWorkers int
 }
 
 func DefaultBGSConfig() *BGSConfig {
 	return &BGSConfig{
-		SSL:               true,
-		CompactInterval:   4 * time.Hour,
-		DefaultRepoLimit:  100,
-		ConcurrencyPerPDS: 100,
-		MaxQueuePerPDS:    1_000,
+		SSL:                  true,
+		CompactInterval:      4 * time.Hour,
+		DefaultRepoLimit:     100,
+		ConcurrencyPerPDS:    100,
+		MaxQueuePerPDS:       1_000,
+		NumCompactionWorkers: 2,
 	}
 }
 
@@ -168,7 +170,9 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		return nil, err
 	}
 
-	compactor := NewCompactor(nil)
+	cOpts := DefaultCompactorOptions()
+	cOpts.NumWorkers = config.NumCompactionWorkers
+	compactor := NewCompactor(cOpts)
 	compactor.requeueInterval = config.CompactInterval
 	compactor.Start(bgs)
 	bgs.compactor = compactor
@@ -349,6 +353,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	e.GET("/xrpc/com.atproto.sync.notifyOfUpdate", bgs.HandleComAtprotoSyncNotifyOfUpdate)
 	e.GET("/xrpc/_health", bgs.HandleHealthCheck)
 	e.GET("/_health", bgs.HandleHealthCheck)
+	e.GET("/", bgs.HandleHomeMessage)
 
 	admin := e.Group("/admin", bgs.checkAdminAuth)
 
@@ -418,6 +423,23 @@ func (bgs *BGS) HandleHealthCheck(c echo.Context) error {
 	} else {
 		return c.JSON(200, HealthStatus{Status: "ok"})
 	}
+}
+
+var homeMessage string = `
+d8888b. d888888b  d888b  .d8888. db   dD db    db
+88  '8D   '88'   88' Y8b 88'  YP 88 ,8P' '8b  d8'
+88oooY'    88    88      '8bo.   88,8P    '8bd8'
+88~~~b.    88    88  ooo   'Y8b. 88'8b      88
+88   8D   .88.   88. ~8~ db   8D 88 '88.    88
+Y8888P' Y888888P  Y888P  '8888Y' YP   YD    YP
+
+This is an atproto [https://atproto.com] relay instance, running the 'bigsky' codebase [https://github.com/bluesky-social/indigo]
+
+The firehose WebSocket path is at:  /xrpc/com.atproto.sync.subscribeRepos
+`
+
+func (bgs *BGS) HandleHomeMessage(c echo.Context) error {
+	return c.String(http.StatusOK, homeMessage)
 }
 
 type AuthToken struct {
