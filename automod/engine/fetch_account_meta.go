@@ -145,7 +145,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 						ap.ReviewState = ReviewStateEscalated
 					case "#reviewClosed":
 						ap.ReviewState = ReviewStateClosed
-					case "#reviewNonde":
+					case "#reviewNone":
 						ap.ReviewState = ReviewStateNone
 					}
 				}
