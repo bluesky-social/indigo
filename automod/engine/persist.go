@@ -295,7 +295,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			}
 			newTags = dedupeTagActions(newTags, existingTags)
 			newEscalation = newEscalation && hasSubjectStatus && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewEscalate"
-			newAcknowledge = newAcknowledge && hasSubjectStatus && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewNone"
+			newAcknowledge = newAcknowledge && hasSubjectStatus && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewNone" && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewClosed"
 		}
 	}
 
@@ -447,6 +447,9 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		if err != nil {
 			c.Logger.Error("failed to execute record takedown", "err", err)
 		}
+
+		// we don't want to escalate if there is a takedown
+		newEscalation = false
 	}
 
 	if newEscalation {
