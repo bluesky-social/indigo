@@ -528,7 +528,7 @@ type User struct {
 	Tombstoned bool
 
 	// UpstreamStatus is the state of the user as reported by the upstream PDS
-	UpstreamStatusT string `gorm:"index"`
+	UpstreamStatus string `gorm:"index"`
 
 	lk sync.Mutex
 }
@@ -560,13 +560,13 @@ func (u *User) GetTombstoned() bool {
 func (u *User) SetUpstreamStatus(v string) {
 	u.lk.Lock()
 	defer u.lk.Unlock()
-	u.UpstreamStatusT = v
+	u.UpstreamStatus = v
 }
 
 func (u *User) GetUpstreamStatus() string {
 	u.lk.Lock()
 	defer u.lk.Unlock()
-	return u.UpstreamStatusT
+	return u.UpstreamStatus
 }
 
 type addTargetBody struct {
