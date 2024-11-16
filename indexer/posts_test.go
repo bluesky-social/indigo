@@ -50,7 +50,7 @@ func testIndexer(t *testing.T) *testIx {
 		t.Fatal(err)
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	cs, err := carstore.NewCarStore(cardb, []string{cspath})
 	if err != nil {
 		t.Fatal(err)
 	}
