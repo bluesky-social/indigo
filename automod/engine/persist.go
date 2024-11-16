@@ -266,7 +266,10 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	atURI := c.RecordOp.ATURI().String()
 	newLabels := dedupeStrings(c.effects.RecordLabels)
 	newTags := dedupeStrings(c.effects.RecordTags)
-	if (len(newLabels) > 0 || len(newTags) > 0) && eng.OzoneClient != nil {
+	newEscalation := c.effects.RecordEscalate
+	newAcknowledge := c.effects.RecordAcknowledge
+
+	if (newEscalation || newAcknowledge || len(newLabels) > 0 || len(newTags) > 0) && eng.OzoneClient != nil {
 		// fetch existing record labels, tags, etc
 		rv, err := toolsozone.ModerationGetRecord(ctx, eng.OzoneClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
 		if err != nil {
@@ -286,10 +289,13 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			negLabels = dedupeStrings(negLabels)
 			newLabels = dedupeLabelActions(newLabels, existingLabels, negLabels)
 			existingTags := []string{}
-			if rv.Moderation != nil && rv.Moderation.SubjectStatus != nil && rv.Moderation.SubjectStatus.Tags != nil {
+			hasSubjectStatus := rv.Moderation != nil && rv.Moderation.SubjectStatus != nil
+			if hasSubjectStatus && rv.Moderation.SubjectStatus.Tags != nil {
 				existingTags = rv.Moderation.SubjectStatus.Tags
 			}
 			newTags = dedupeTagActions(newTags, existingTags)
+			newEscalation = newEscalation && hasSubjectStatus && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewEscalate"
+			newAcknowledge = newAcknowledge && hasSubjectStatus && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewNone"
 		}
 	}
 
@@ -316,13 +322,11 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	if err != nil {
 		return fmt.Errorf("failed to circuit break takedowns: %w", err)
 	}
-	// @TODO: should we check for existing escalation? there doesn't seem to be an existing flag for this at record level
-	newEscalation, err := eng.circuitBreakModAction(ctx, c.effects.RecordEscalate)
+	newEscalation, err = eng.circuitBreakModAction(ctx, newEscalation)
 	if err != nil {
 		return fmt.Errorf("circuit-breaking escalation: %w", err)
 	}
-	// @TODO: should we check if the subject is already acked? there doesn't seem to be an existing flag for this at record level
-	newAcknowledge, err := eng.circuitBreakModAction(ctx, c.effects.RecordAcknowledge)
+	newAcknowledge, err = eng.circuitBreakModAction(ctx, newAcknowledge)
 	if err != nil {
 		return fmt.Errorf("circuit-breaking acknowledge: %w", err)
 	}
