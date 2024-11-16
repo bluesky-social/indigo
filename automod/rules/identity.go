@@ -7,11 +7,12 @@ import (
 
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/countstore"
+	"github.com/bluesky-social/indigo/automod/helpers"
 )
 
 // triggers on first identity event for an account (DID)
 func NewAccountRule(c *automod.AccountContext) error {
-	if c.Account.Identity == nil || !AccountIsYoungerThan(c, 4*time.Hour) {
+	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(c, 4*time.Hour) {
 		return nil
 	}
 

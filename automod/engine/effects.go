@@ -40,7 +40,9 @@ type Effects struct {
 	CounterDistinctIncrements []CounterDistinctRef // TODO: better variable names
 	// Label values which should be applied to the overall account, as a result of rule execution.
 	AccountLabels []string
-	// Moderation flags (similar to labels, but private) which should be applied to the overall account, as a result of rule execution.
+	// Moderation tags (similar to labels, but private) which should be applied to the overall account, as a result of rule execution.
+	AccountTags []string
+	// automod flags (metadata) which should be applied to the account as a result of rule execution.
 	AccountFlags []string
 	// Reports which should be filed against this account, as a result of rule execution.
 	AccountReports []ModReport
@@ -52,6 +54,8 @@ type Effects struct {
 	AccountAcknowledge bool
 	// Same as "AccountLabels", but at record-level
 	RecordLabels []string
+	// Same as "AccountTags", but at record-level
+	RecordTags []string
 	// Same as "AccountFlags", but at record-level
 	RecordFlags []string
 	// Same as "AccountReports", but at record-level
@@ -106,6 +110,18 @@ func (e *Effects) AddAccountLabel(val string) {
 	e.AccountLabels = append(e.AccountLabels, val)
 }
 
+// Enqueues the provided label (string value) to be added to the account at the end of rule processing.
+func (e *Effects) AddAccountTag(val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for _, v := range e.AccountTags {
+		if v == val {
+			return
+		}
+	}
+	e.AccountTags = append(e.AccountTags, val)
+}
+
 // Enqueues the provided flag (string value) to be recorded (in the Engine's flagstore) at the end of rule processing.
 func (e *Effects) AddAccountFlag(val string) {
 	e.mu.Lock()
@@ -158,6 +174,18 @@ func (e *Effects) AddRecordLabel(val string) {
 		}
 	}
 	e.RecordLabels = append(e.RecordLabels, val)
+}
+
+// Enqueues the provided tag (string value) to be added to the record at the end of rule processing.
+func (e *Effects) AddRecordTag(val string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for _, v := range e.RecordTags {
+		if v == val {
+			return
+		}
+	}
+	e.RecordTags = append(e.RecordTags, val)
 }
 
 // Enqueues the provided flag (string value) to be recorded (in the Engine's flagstore) at the end of rule processing.

@@ -6,6 +6,7 @@ import (
 )
 
 type Engine = engine.Engine
+type EngineConfig = engine.EngineConfig
 type AccountMeta = engine.AccountMeta
 type ProfileSummary = engine.ProfileSummary
 type AccountPrivate = engine.AccountPrivate

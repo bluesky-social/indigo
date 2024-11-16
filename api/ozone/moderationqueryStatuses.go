@@ -19,8 +19,9 @@ type ModerationQueryStatuses_Output struct {
 // ModerationQueryStatuses calls the XRPC method "tools.ozone.moderation.queryStatuses".
 //
 // appealed: Get subjects in unresolved appealed status
+// collections: If specified, subjects belonging to the given collections will be returned. When subjectType is set to 'account', this will be ignored.
 // comment: Search subjects by keyword from comments
-// includeAllUserRecords: All subjects belonging to the account specified in the 'subject' param will be returned.
+// includeAllUserRecords: All subjects, or subjects from given 'collections' param, belonging to the account specified in the 'subject' param will be returned.
 // includeMuted: By default, we don't include muted subjects in the results. Set this to true to include them.
 // lastReviewedBy: Get all subject statuses that were reviewed by a specific moderator
 // onlyMuted: When set to true, only muted subjects and reporters will be returned.
@@ -30,12 +31,14 @@ type ModerationQueryStatuses_Output struct {
 // reviewedAfter: Search subjects reviewed after a given timestamp
 // reviewedBefore: Search subjects reviewed before a given timestamp
 // subject: The subject to get the status for.
+// subjectType: If specified, subjects of the given type (account or record) will be returned. When this is set to 'account' the 'collections' parameter will be ignored. When includeAllUserRecords or subject is set, this will be ignored.
 // takendown: Get subjects that were taken down
-func ModerationQueryStatuses(ctx context.Context, c *xrpc.Client, appealed bool, comment string, cursor string, excludeTags []string, ignoreSubjects []string, includeAllUserRecords bool, includeMuted bool, lastReviewedBy string, limit int64, onlyMuted bool, reportedAfter string, reportedBefore string, reviewState string, reviewedAfter string, reviewedBefore string, sortDirection string, sortField string, subject string, tags []string, takendown bool) (*ModerationQueryStatuses_Output, error) {
+func ModerationQueryStatuses(ctx context.Context, c *xrpc.Client, appealed bool, collections []string, comment string, cursor string, excludeTags []string, ignoreSubjects []string, includeAllUserRecords bool, includeMuted bool, lastReviewedBy string, limit int64, onlyMuted bool, reportedAfter string, reportedBefore string, reviewState string, reviewedAfter string, reviewedBefore string, sortDirection string, sortField string, subject string, subjectType string, tags []string, takendown bool) (*ModerationQueryStatuses_Output, error) {
 	var out ModerationQueryStatuses_Output
 
 	params := map[string]interface{}{
 		"appealed":              appealed,
+		"collections":           collections,
 		"comment":               comment,
 		"cursor":                cursor,
 		"excludeTags":           excludeTags,
@@ -53,6 +56,7 @@ func ModerationQueryStatuses(ctx context.Context, c *xrpc.Client, appealed bool,
 		"sortDirection":         sortDirection,
 		"sortField":             sortField,
 		"subject":               subject,
+		"subjectType":           subjectType,
 		"tags":                  tags,
 		"takendown":             takendown,
 	}

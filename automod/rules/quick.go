@@ -7,6 +7,7 @@ import (
 
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/automod"
+	"github.com/bluesky-social/indigo/automod/helpers"
 )
 
 var botLinkStrings = []string{"ainna13762491", "LINK押して", "→ https://tiny", "⇒ http://tiny"}
@@ -54,7 +55,7 @@ func SimpleBotPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 var _ automod.IdentityRuleFunc = NewAccountBotEmailRule
 
 func NewAccountBotEmailRule(c *automod.AccountContext) error {
-	if c.Account.Identity == nil || !AccountIsYoungerThan(c, 1*time.Hour) {
+	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(c, 1*time.Hour) {
 		return nil
 	}
 
@@ -73,7 +74,7 @@ var _ automod.PostRuleFunc = TrivialSpamPostRule
 
 // looks for new accounts, which frequently post the same type of content
 func TrivialSpamPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
-	if c.Account.Identity == nil || !AccountIsYoungerThan(&c.AccountContext, 8*24*time.Hour) {
+	if c.Account.Identity == nil || !helpers.AccountIsYoungerThan(&c.AccountContext, 8*24*time.Hour) {
 		return nil
 	}
 
