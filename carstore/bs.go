@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -56,7 +57,7 @@ type CarStore interface {
 	ImportSlice(ctx context.Context, uid models.Uid, since *string, carslice []byte) (cid.Cid, *DeltaSession, error)
 	NewDeltaSession(ctx context.Context, user models.Uid, since *string) (*DeltaSession, error)
 	ReadOnlySession(user models.Uid) (*DeltaSession, error)
-	ReadUserCar(ctx context.Context, user models.Uid, sinceRev string, incremental bool, w io.Writer) error
+	ReadUserCar(ctx context.Context, user models.Uid, sinceRev string, incremental bool, w io.Writer, maxBytes int64) error
 	Stat(ctx context.Context, usr models.Uid) ([]UserStat, error)
 	WipeUserData(ctx context.Context, user models.Uid) error
 }
@@ -366,9 +367,13 @@ func (cs *FileCarStore) ReadOnlySession(user models.Uid) (*DeltaSession, error) 
 }
 
 // TODO: incremental is only ever called true, remove the param
-func (cs *FileCarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev string, incremental bool, w io.Writer) error {
+func (cs *FileCarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev string, incremental bool, w io.Writer, maxBytes int64) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ReadUserCar")
 	defer span.End()
+
+	if maxBytes == -1 {
+		maxBytes = math.MaxInt64 - 1
+	}
 
 	var earlySeq int
 	if sinceRev != "" {
@@ -403,10 +408,13 @@ func (cs *FileCarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceR
 		return err
 	}
 
+	var nr int64
 	for _, sh := range shards {
-		if err := cs.writeShardBlocks(ctx, &sh, w); err != nil {
+		n, err := cs.writeShardBlocks(ctx, &sh, w, maxBytes-nr)
+		if err != nil {
 			return err
 		}
+		nr += n
 	}
 
 	return nil
@@ -414,27 +422,33 @@ func (cs *FileCarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceR
 
 // inner loop part of ReadUserCar
 // copy shard blocks from disk to Writer
-func (cs *FileCarStore) writeShardBlocks(ctx context.Context, sh *CarShard, w io.Writer) error {
+func (cs *FileCarStore) writeShardBlocks(ctx context.Context, sh *CarShard, w io.Writer, maxBytes int64) (int64, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "writeShardBlocks")
 	defer span.End()
 
 	fi, err := os.Open(sh.Path)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer fi.Close()
 
 	_, err = fi.Seek(sh.DataStart, io.SeekStart)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	_, err = io.Copy(w, fi)
+	limr := io.LimitReader(fi, maxBytes+1)
+
+	n, err := io.Copy(w, limr)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	if n == maxBytes+1 {
+		return n, fmt.Errorf("read too many bytes in shard: %d - %d - %d", sh.Usr, sh.ID, sh.Seq)
+	}
+
+	return n, nil
 }
 
 // inner loop part of compactBucket

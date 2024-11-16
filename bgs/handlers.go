@@ -113,7 +113,7 @@ func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since
 
 	// TODO: stream the response
 	buf := new(bytes.Buffer)
-	if err := s.repoman.ReadRepo(ctx, u.ID, since, buf); err != nil {
+	if err := s.repoman.ReadRepo(ctx, u.ID, since, buf, 2<<30); err != nil {
 		log.Errorw("failed to read repo into buffer", "err", err, "did", did)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to read repo into buffer")
 	}

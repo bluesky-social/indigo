@@ -142,7 +142,7 @@ func TestIngestWithGap(t *testing.T) {
 	}
 
 	buf := new(bytes.Buffer)
-	if err := cs2.ReadUserCar(ctx, 1, "", true, buf); err != nil {
+	if err := cs2.ReadUserCar(ctx, 1, "", true, buf, -1); err != nil {
 		t.Fatal(err)
 	}
 

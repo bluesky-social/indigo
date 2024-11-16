@@ -343,7 +343,7 @@ func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, si
 	}
 
 	buf := new(bytes.Buffer)
-	if err := s.repoman.ReadRepo(ctx, targetUser.ID, since, buf); err != nil {
+	if err := s.repoman.ReadRepo(ctx, targetUser.ID, since, buf, -1); err != nil {
 		return nil, err
 	}
 

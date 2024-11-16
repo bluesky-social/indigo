@@ -417,8 +417,8 @@ func (rm *RepoManager) GetRepoRev(ctx context.Context, user models.Uid) (string,
 	return rm.cs.GetUserRepoRev(ctx, user)
 }
 
-func (rm *RepoManager) ReadRepo(ctx context.Context, user models.Uid, since string, w io.Writer) error {
-	return rm.cs.ReadUserCar(ctx, user, since, true, w)
+func (rm *RepoManager) ReadRepo(ctx context.Context, user models.Uid, since string, w io.Writer, maxBytes int64) error {
+	return rm.cs.ReadUserCar(ctx, user, since, true, w, maxBytes)
 }
 
 func (rm *RepoManager) GetRecord(ctx context.Context, user models.Uid, collection string, rkey string, maybeCid cid.Cid) (cid.Cid, cbg.CBORMarshaler, error) {

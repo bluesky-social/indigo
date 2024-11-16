@@ -138,7 +138,7 @@ func TestBasicOperation(t *testing.T) {
 	}
 
 	buf := new(bytes.Buffer)
-	if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
+	if err := cs.ReadUserCar(ctx, 1, "", true, buf, -1); err != nil {
 		t.Fatal(err)
 	}
 	checkRepo(t, cs, buf, recs)
@@ -148,7 +148,7 @@ func TestBasicOperation(t *testing.T) {
 	}
 
 	buf = new(bytes.Buffer)
-	if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
+	if err := cs.ReadUserCar(ctx, 1, "", true, buf, -1); err != nil {
 		t.Fatal(err)
 	}
 	checkRepo(t, cs, buf, recs)
@@ -237,14 +237,14 @@ func TestRepeatedCompactions(t *testing.T) {
 		fmt.Printf("%#v\n", st)
 
 		buf := new(bytes.Buffer)
-		if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
+		if err := cs.ReadUserCar(ctx, 1, "", true, buf, -1); err != nil {
 			t.Fatal(err)
 		}
 		checkRepo(t, cs, buf, recs)
 	}
 
 	buf := new(bytes.Buffer)
-	if err := cs.ReadUserCar(ctx, 1, "", true, buf); err != nil {
+	if err := cs.ReadUserCar(ctx, 1, "", true, buf, -1); err != nil {
 		t.Fatal(err)
 	}
 	checkRepo(t, cs, buf, recs)
@@ -576,7 +576,7 @@ func TestDuplicateBlockAcrossShards(t *testing.T) {
 	}
 
 	buf := new(bytes.Buffer)
-	if err := cs.ReadUserCar(ctx, 2, "", true, buf); err != nil {
+	if err := cs.ReadUserCar(ctx, 2, "", true, buf, -1); err != nil {
 		t.Fatal(err)
 	}
 	checkRepo(t, cs, buf, recs)

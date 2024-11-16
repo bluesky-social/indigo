@@ -650,7 +650,7 @@ func (p *DbPersistence) hydrateCommit(ctx context.Context, rer *RepoEventRecord)
 func (p *DbPersistence) readCarSlice(ctx context.Context, rer *RepoEventRecord) ([]byte, error) {
 
 	buf := new(bytes.Buffer)
-	if err := p.cs.ReadUserCar(ctx, rer.Repo, rer.Rev, true, buf); err != nil {
+	if err := p.cs.ReadUserCar(ctx, rer.Repo, rer.Rev, true, buf, -1); err != nil {
 		return nil, err
 	}
 
