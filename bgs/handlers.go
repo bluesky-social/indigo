@@ -34,23 +34,24 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
 	}
 
-	if u.Tombstoned {
+	if u.GetTombstoned() {
 		return nil, fmt.Errorf("account was deleted")
 	}
 
-	if u.TakenDown {
+	if u.GetTakenDown() {
 		return nil, fmt.Errorf("account was taken down by the Relay")
 	}
 
-	if u.UpstreamStatus == events.AccountStatusTakendown {
+	ustatus := u.GetUpstreamStatus()
+	if ustatus == events.AccountStatusTakendown {
 		return nil, fmt.Errorf("account was taken down by its PDS")
 	}
 
-	if u.UpstreamStatus == events.AccountStatusDeactivated {
+	if ustatus == events.AccountStatusDeactivated {
 		return nil, fmt.Errorf("account is temporarily deactivated")
 	}
 
-	if u.UpstreamStatus == events.AccountStatusSuspended {
+	if ustatus == events.AccountStatusSuspended {
 		return nil, fmt.Errorf("account is suspended by its PDS")
 	}
 
@@ -91,23 +92,24 @@ func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
 	}
 
-	if u.Tombstoned {
+	if u.GetTombstoned() {
 		return nil, fmt.Errorf("account was deleted")
 	}
 
-	if u.TakenDown {
+	if u.GetTakenDown() {
 		return nil, fmt.Errorf("account was taken down by the Relay")
 	}
 
-	if u.UpstreamStatus == events.AccountStatusTakendown {
+	ustatus := u.GetUpstreamStatus()
+	if ustatus == events.AccountStatusTakendown {
 		return nil, fmt.Errorf("account was taken down by its PDS")
 	}
 
-	if u.UpstreamStatus == events.AccountStatusDeactivated {
+	if ustatus == events.AccountStatusDeactivated {
 		return nil, fmt.Errorf("account is temporarily deactivated")
 	}
 
-	if u.UpstreamStatus == events.AccountStatusSuspended {
+	if ustatus == events.AccountStatusSuspended {
 		return nil, fmt.Errorf("account is suspended by its PDS")
 	}
 
@@ -253,23 +255,24 @@ func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did strin
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
 	}
 
-	if u.Tombstoned {
+	if u.GetTombstoned() {
 		return nil, fmt.Errorf("account was deleted")
 	}
 
-	if u.TakenDown {
+	if u.GetTakenDown() {
 		return nil, fmt.Errorf("account was taken down by the Relay")
 	}
 
-	if u.UpstreamStatus == events.AccountStatusTakendown {
+	ustatus := u.GetUpstreamStatus()
+	if ustatus == events.AccountStatusTakendown {
 		return nil, fmt.Errorf("account was taken down by its PDS")
 	}
 
-	if u.UpstreamStatus == events.AccountStatusDeactivated {
+	if ustatus == events.AccountStatusDeactivated {
 		return nil, fmt.Errorf("account is temporarily deactivated")
 	}
 
-	if u.UpstreamStatus == events.AccountStatusSuspended {
+	if ustatus == events.AccountStatusSuspended {
 		return nil, fmt.Errorf("account is suspended by its PDS")
 	}
 
