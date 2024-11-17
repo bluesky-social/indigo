@@ -8,7 +8,9 @@ import (
 
 func TestPebblePersist(t *testing.T) {
 	factory := func(tempPath string, db *gorm.DB) (EventPersistence, error) {
-		return NewPebblePersistance(filepath.Join(tempPath, "pebble.db"), nil)
+		opts := DefaultPebblePersistOptions
+		opts.DbPath = filepath.Join(tempPath, "pebble.db")
+		return NewPebblePersistance(&opts)
 	}
 	testPersister(t, factory)
 }

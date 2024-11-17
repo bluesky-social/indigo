@@ -28,39 +28,81 @@ import (
 var log = logging.Logger("splitter")
 
 type Splitter struct {
-	Host   string
 	erb    *EventRingBuffer
 	pp     *events.PebblePersist
 	events *events.EventManager
-
-	// cursor storage
-	cursorFile string
 
 	// Management of Socket Consumers
 	consumersLk    sync.RWMutex
 	nextConsumerID uint64
 	consumers      map[uint64]*SocketConsumer
+
+	conf SplitterConfig
+}
+
+type SplitterConfig struct {
+	UpstreamHost  string
+	CursorFile    string
+	PebbleOptions *events.PebblePersistOptions
 }
 
 func NewMemSplitter(host string) *Splitter {
+	conf := SplitterConfig{
+		UpstreamHost: host,
+		CursorFile:   "cursor-file",
+	}
+
 	erb := NewEventRingBuffer(20_000, 10_000)
 
 	em := events.NewEventManager(erb)
 	return &Splitter{
-		cursorFile: "cursor-file",
-		Host:       host,
-		erb:        erb,
-		events:     em,
-		consumers:  make(map[uint64]*SocketConsumer),
+		conf:      conf,
+		erb:       erb,
+		events:    em,
+		consumers: make(map[uint64]*SocketConsumer),
+	}
+}
+func NewSplitter(conf SplitterConfig) (*Splitter, error) {
+	if conf.PebbleOptions == nil {
+		// mem splitter
+		erb := NewEventRingBuffer(20_000, 10_000)
+
+		em := events.NewEventManager(erb)
+		return &Splitter{
+			conf:      conf,
+			erb:       erb,
+			events:    em,
+			consumers: make(map[uint64]*SocketConsumer),
+		}, nil
+	} else {
+		pp, err := events.NewPebblePersistance(conf.PebbleOptions)
+		if err != nil {
+			return nil, err
+		}
+
+		go pp.GCThread(context.Background())
+		em := events.NewEventManager(pp)
+		return &Splitter{
+			conf:      conf,
+			pp:        pp,
+			events:    em,
+			consumers: make(map[uint64]*SocketConsumer),
+		}, nil
 	}
 }
 func NewDiskSplitter(host, path string, persistHours float64, maxBytes int64) (*Splitter, error) {
 	ppopts := events.PebblePersistOptions{
+		DbPath:          path,
 		PersistDuration: time.Duration(float64(time.Hour) * persistHours),
 		GCPeriod:        5 * time.Minute,
 		MaxBytes:        uint64(maxBytes),
 	}
-	pp, err := events.NewPebblePersistance(path, &ppopts)
+	conf := SplitterConfig{
+		UpstreamHost:  host,
+		CursorFile:    "cursor-file",
+		PebbleOptions: &ppopts,
+	}
+	pp, err := events.NewPebblePersistance(&ppopts)
 	if err != nil {
 		return nil, err
 	}
@@ -68,11 +110,10 @@ func NewDiskSplitter(host, path string, persistHours float64, maxBytes int64) (*
 	go pp.GCThread(context.Background())
 	em := events.NewEventManager(pp)
 	return &Splitter{
-		cursorFile: "cursor-file",
-		Host:       host,
-		pp:         pp,
-		events:     em,
-		consumers:  make(map[uint64]*SocketConsumer),
+		conf:      conf,
+		pp:        pp,
+		events:    em,
+		consumers: make(map[uint64]*SocketConsumer),
 	}, nil
 }
 
@@ -86,7 +127,7 @@ func (s *Splitter) Start(addr string) error {
 		return fmt.Errorf("loading cursor failed: %w", err)
 	}
 
-	go s.subscribeWithRedialer(context.Background(), s.Host, curs)
+	go s.subscribeWithRedialer(context.Background(), s.conf.UpstreamHost, curs)
 
 	li, err := lc.Listen(ctx, "tcp", addr)
 	if err != nil {
@@ -442,7 +483,7 @@ func (s *Splitter) getLastCursor() (int64, error) {
 		}
 	}
 
-	fi, err := os.Open(s.cursorFile)
+	fi, err := os.Open(s.conf.CursorFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return 0, nil
@@ -464,5 +505,5 @@ func (s *Splitter) getLastCursor() (int64, error) {
 }
 
 func (s *Splitter) writeCursor(curs int64) error {
-	return os.WriteFile(s.cursorFile, []byte(fmt.Sprint(curs)), 0664)
+	return os.WriteFile(s.conf.CursorFile, []byte(fmt.Sprint(curs)), 0664)
 }

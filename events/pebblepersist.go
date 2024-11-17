@@ -25,6 +25,9 @@ type PebblePersist struct {
 }
 
 type PebblePersistOptions struct {
+	// path where pebble will create a directory full of files
+	DbPath string
+
 	// Throw away posts older than some time ago
 	PersistDuration time.Duration
 
@@ -43,18 +46,17 @@ var DefaultPebblePersistOptions = PebblePersistOptions{
 
 // Create a new EventPersistence which stores data in pebbledb
 // nil opts is ok
-func NewPebblePersistance(path string, opts *PebblePersistOptions) (*PebblePersist, error) {
-	db, err := pebble.Open(path, &pebble.Options{})
+func NewPebblePersistance(opts *PebblePersistOptions) (*PebblePersist, error) {
+	if opts == nil {
+		opts = &DefaultPebblePersistOptions
+	}
+	db, err := pebble.Open(opts.DbPath, &pebble.Options{})
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return nil, fmt.Errorf("%s: %w", opts.DbPath, err)
 	}
 	pp := new(PebblePersist)
+	pp.options = *opts
 	pp.db = db
-	if opts == nil {
-		pp.options = DefaultPebblePersistOptions
-	} else {
-		pp.options = *opts
-	}
 	return pp, nil
 }
 

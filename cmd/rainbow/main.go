@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/bluesky-social/indigo/events"
 	"os"
 	"os/signal"
 	"syscall"
@@ -56,6 +57,11 @@ func run(args []string) {
 			Name:  "persist-db",
 			Value: "",
 			Usage: "path to persistence db",
+		},
+		&cli.StringFlag{
+			Name:  "cursor-file",
+			Value: "",
+			Usage: "write upstream cursor number to this file",
 		},
 		&cli.StringFlag{
 			Name:  "api-listen",
@@ -133,18 +139,29 @@ func Splitter(cctx *cli.Context) error {
 	var err error
 	if persistPath != "" {
 		log.Infof("building splitter with storage at: %s", persistPath)
-		spl, err = splitter.NewDiskSplitter(
-			upstreamHost,
-			persistPath,
-			cctx.Float64("persist-hours"),
-			cctx.Int64("persist-bytes"))
-		if err != nil {
-			log.Fatalw("failed to create splitter", "path", persistPath, "error", err)
-			return err
+		ppopts := events.PebblePersistOptions{
+			DbPath:          persistPath,
+			PersistDuration: time.Duration(float64(time.Hour) * cctx.Float64("persist-hours")),
+			GCPeriod:        5 * time.Minute,
+			MaxBytes:        uint64(cctx.Int64("persist-bytes")),
 		}
+		conf := splitter.SplitterConfig{
+			UpstreamHost:  upstreamHost,
+			CursorFile:    cctx.String("cursor-file"),
+			PebbleOptions: &ppopts,
+		}
+		spl, err = splitter.NewSplitter(conf)
 	} else {
 		log.Info("building in-memory splitter")
-		spl = splitter.NewMemSplitter(upstreamHost)
+		conf := splitter.SplitterConfig{
+			UpstreamHost: upstreamHost,
+			CursorFile:   cctx.String("cursor-file"),
+		}
+		spl, err = splitter.NewSplitter(conf)
+	}
+	if err != nil {
+		log.Fatalw("failed to create splitter", "path", persistPath, "error", err)
+		return err
 	}
 
 	// set up metrics endpoint
