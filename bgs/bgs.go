@@ -876,14 +876,19 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		repoCommitsReceivedCounter.WithLabelValues(host.Host).Add(1)
 		evt := env.RepoCommit
 		log.Debugw("bgs got repo append event", "seq", evt.Seq, "pdsHost", host.Host, "repo", evt.Repo)
+
+		s := time.Now()
 		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
+		userLookupDuration.Observe(time.Since(s).Seconds())
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return fmt.Errorf("looking up event user: %w", err)
 			}
 
 			newUsersDiscovered.Inc()
+			start := time.Now()
 			subj, err := bgs.createExternalUser(ctx, evt.Repo)
+			newUserDiscoveryDuration.Observe(time.Since(start).Seconds())
 			if err != nil {
 				return fmt.Errorf("fed event create external user: %w", err)
 			}
