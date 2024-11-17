@@ -8,6 +8,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"time"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
@@ -538,6 +539,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 	unlock := rm.lockUser(ctx, uid)
 	defer unlock()
 
+	start := time.Now()
 	root, ds, err := rm.cs.ImportSlice(ctx, uid, since, carslice)
 	if err != nil {
 		return fmt.Errorf("importing external carslice: %w", err)
@@ -551,6 +553,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 	if err := rm.CheckRepoSig(ctx, r, did); err != nil {
 		return err
 	}
+	openAndSigCheckDuration.Observe(time.Since(start).Seconds())
 
 	var skipcids map[cid.Cid]bool
 	if ds.BaseCid().Defined() {
@@ -571,10 +574,11 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		}
 	}
 
+	start = time.Now()
 	if err := ds.CalcDiff(ctx, skipcids); err != nil {
 		return fmt.Errorf("failed while calculating mst diff (since=%v): %w", since, err)
-
 	}
+	calcDiffDuration.Observe(time.Since(start).Seconds())
 
 	evtops := make([]RepoOp, 0, len(ops))
 
@@ -631,10 +635,12 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		}
 	}
 
+	start = time.Now()
 	rslice, err := ds.CloseWithRoot(ctx, root, nrev)
 	if err != nil {
 		return fmt.Errorf("close with root: %w", err)
 	}
+	writeCarSliceDuration.Observe(time.Since(start).Seconds())
 
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
