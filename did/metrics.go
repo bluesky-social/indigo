@@ -11,7 +11,7 @@ var mrResolvedDidsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 }, []string{"resolver"})
 
 var mrResolveDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-	Name:    "indigo_multiresolver_resolve_duration",
+	Name:    "indigo_multiresolver_resolve_duration_seconds",
 	Help:    "A histogram of resolve latencies",
 	Buckets: prometheus.ExponentialBuckets(0.001, 2, 15),
 }, []string{"resolver"})
