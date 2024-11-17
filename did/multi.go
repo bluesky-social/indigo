@@ -45,9 +45,6 @@ func (mr *MultiResolver) FlushCacheFor(didstr string) {
 
 func (mr *MultiResolver) GetDocument(ctx context.Context, didstr string) (*did.Document, error) {
 	s := time.Now()
-	defer func() {
-		mrResolveDuration.WithLabelValues(didstr).Observe(time.Since(s).Seconds())
-	}()
 
 	pdid, err := did.ParseDID(didstr)
 	if err != nil {
@@ -55,6 +52,9 @@ func (mr *MultiResolver) GetDocument(ctx context.Context, didstr string) (*did.D
 	}
 
 	method := pdid.Protocol()
+	defer func() {
+		mrResolveDuration.WithLabelValues(method).Observe(time.Since(s).Seconds())
+	}()
 
 	res, ok := mr.handlers[method]
 	if !ok {
