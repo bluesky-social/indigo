@@ -243,5 +243,12 @@ func (pp *PebblePersist) GarbageCollect(ctx context.Context) error {
 	}
 	sizeAfter, _ := pp.db.EstimateDiskUsage(zeroKey[:], ffffKey[:])
 	log.Infow("pebble gc", "before", sizeBefore, "after", sizeAfter)
+	start := time.Now()
+	err = pp.db.Compact(zeroKey[:], key[:], true)
+	if err != nil {
+		log.Warnw("pebble gc compact", "err", err)
+	}
+	dt := time.Since(start)
+	log.Infow("pebble gc compact ok", "dt", dt)
 	return nil
 }
