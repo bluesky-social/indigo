@@ -645,10 +645,12 @@ func (cs *FileCarStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 		offset += nw
 	}
 
+	start := time.Now()
 	path, err := cs.writeNewShardFile(ctx, user, seq, buf.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("failed to write shard file: %w", err)
 	}
+	writeShardFileDuration.Observe(time.Since(start).Seconds())
 
 	shard := CarShard{
 		Root:      models.DbCID{CID: root},
@@ -659,9 +661,11 @@ func (cs *FileCarStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 		Rev:       rev,
 	}
 
+	start = time.Now()
 	if err := cs.putShard(ctx, &shard, brefs, rmcids, false); err != nil {
 		return nil, err
 	}
+	writeShardMetadataDuration.Observe(time.Since(start).Seconds())
 
 	return buf.Bytes(), nil
 }
