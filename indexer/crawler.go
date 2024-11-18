@@ -276,6 +276,7 @@ func (c *CrawlDispatcher) enheapJob(crawlJob *crawlWork) {
 	if has {
 		if !pdsJobs.alreadyEnheaped {
 			heap.Push(c, crawlJob)
+			c.repoSyncCond.Signal()
 			pdsJobs.alreadyEnheaped = true
 		}
 		if pdsJobs == crawlJob {
@@ -300,6 +301,7 @@ func (c *CrawlDispatcher) enheapJob(crawlJob *crawlWork) {
 	}
 	if !crawlJob.alreadyEnheaped {
 		heap.Push(c, crawlJob)
+		c.repoSyncCond.Signal()
 		crawlJob.alreadyEnheaped = true
 	}
 }
