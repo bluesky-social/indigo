@@ -2,6 +2,7 @@ package splitter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -425,7 +426,12 @@ func (s *Splitter) subscribeWithRedialer(ctx context.Context, host string, curso
 			"User-Agent": []string{"bgs-rainbow-v0"},
 		}
 
-		url := fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", protocol, host, cursor)
+		var url string
+		if cursor < 0 {
+			url = fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeRepos", protocol, host)
+		} else {
+			url = fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", protocol, host, cursor)
+		}
 		con, res, err := d.DialContext(ctx, url, header)
 		if err != nil {
 			log.Warnw("dialing failed", "host", host, "err", err, "backoff", backoff)
@@ -478,6 +484,8 @@ func (s *Splitter) getLastCursor() (int64, error) {
 		if err == nil {
 			log.Debugw("got last cursor from pebble", "seq", seq, "millis", millis)
 			return seq, nil
+		} else if errors.Is(err, events.ErrNoLast) {
+			log.Info("pebble no last")
 		} else {
 			log.Errorw("pebble seq fail", "err", err)
 		}
@@ -486,19 +494,19 @@ func (s *Splitter) getLastCursor() (int64, error) {
 	fi, err := os.Open(s.conf.CursorFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return 0, nil
+			return -1, nil
 		}
-		return 0, err
+		return -1, err
 	}
 
 	b, err := io.ReadAll(fi)
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 
 	v, err := strconv.ParseInt(string(b), 10, 64)
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 
 	return v, nil

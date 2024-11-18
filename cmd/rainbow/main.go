@@ -80,8 +80,8 @@ func run(args []string) {
 		},
 		&cli.Int64Flag{
 			Name:    "persist-bytes",
-			Value:   1_000_000_000,
-			Usage:   "max bytes target for event cache",
+			Value:   0,
+			Usage:   "max bytes target for event cache, 0 to disable size target trimming",
 			EnvVars: []string{"SPLITTER_PERSIST_BYTES"},
 		},
 	}
