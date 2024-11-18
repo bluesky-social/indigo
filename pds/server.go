@@ -21,6 +21,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/notifs"
+	pdsdata "github.com/bluesky-social/indigo/pds/data"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
@@ -456,18 +457,7 @@ func (s *Server) HandleResolveDid(c echo.Context) error {
 	return c.String(200, u.Did)
 }
 
-type User struct {
-	ID          models.Uid `gorm:"primarykey"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	DeletedAt   gorm.DeletedAt `gorm:"index"`
-	Handle      string         `gorm:"uniqueIndex"`
-	Password    string
-	RecoveryKey string
-	Email       string
-	Did         string `gorm:"uniqueIndex"`
-	PDS         uint
-}
+type User = pdsdata.User
 
 type RefreshToken struct {
 	gorm.Model
@@ -636,12 +626,7 @@ func (s *Server) invalidateToken(ctx context.Context, u *User, tok *jwt.Token) e
 	panic("nyi")
 }
 
-type Peering struct {
-	gorm.Model
-	Host     string
-	Did      string
-	Approved bool
-}
+type Peering = pdsdata.Peering
 
 func (s *Server) EventsHandler(c echo.Context) error {
 	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
