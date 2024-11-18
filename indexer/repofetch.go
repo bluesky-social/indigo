@@ -126,11 +126,13 @@ func (rf *RepoFetcher) FetchAndIndexRepo(ctx context.Context, job *crawlWork) er
 
 	var pds models.PDS
 	if err := rf.db.First(&pds, "id = ?", ai.PDS).Error; err != nil {
+		catchupEventsFailed.WithLabelValues("nopds").Inc()
 		return fmt.Errorf("expected to find pds record (%d) in db for crawling one of their users: %w", ai.PDS, err)
 	}
 
 	rev, err := rf.repoman.GetRepoRev(ctx, ai.Uid)
 	if err != nil && !isNotFound(err) {
+		catchupEventsFailed.WithLabelValues("noroot").Inc()
 		return fmt.Errorf("failed to get repo root: %w", err)
 	}
 

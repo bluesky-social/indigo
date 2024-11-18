@@ -34,3 +34,8 @@ var catchupEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "indexer_catchup_events_processed",
 	Help: "Number of catchup events processed",
 })
+
+var catchupEventsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "indexer_catchup_events_failed",
+	Help: "Number of catchup events processed",
+}, []string{"err"})

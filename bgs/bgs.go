@@ -860,6 +860,7 @@ func stringLink(lnk *lexutil.LexLink) string {
 	return lnk.String()
 }
 
+// called from fedmgr.go Slurper.handleConnection() through .cb
 func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *events.XRPCStreamEvent) error {
 	ctx, span := tracer.Start(ctx, "handleFedEvent")
 	defer span.End()
