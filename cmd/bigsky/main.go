@@ -200,6 +200,11 @@ func run(args []string) error {
 			EnvVars: []string{"RELAY_NUM_COMPACTION_WORKERS"},
 			Value:   2,
 		},
+		&cli.StringSliceFlag{
+			Name:    "carstore-shard-dirs",
+			Usage:   "specify list of shard directories for carstore storage, overrides default storage within datadir",
+			EnvVars: []string{"RELAY_CARSTORE_SHARD_DIRS"},
+		},
 		&cli.BoolFlag{
 			Name:  "ex-sqlite-carstore",
 			Usage: "enable experimental sqlite carstore",
@@ -322,7 +327,16 @@ func runBigsky(cctx *cli.Context) error {
 		}
 	}
 
-	os.MkdirAll(filepath.Dir(csdir), os.ModePerm)
+	csdirs := []string{csdir}
+	if paramDirs := cctx.StringSlice("carstore-shard-dirs"); len(paramDirs) > 0 {
+		csdirs = paramDirs
+	}
+
+	for _, csd := range csdirs {
+		if err := os.MkdirAll(filepath.Dir(csd), os.ModePerm); err != nil {
+			return err
+		}
+	}
 
 	var cstore carstore.CarStore
 	scyllaAddrs := cctx.StringSlice("scylla-carstore")
@@ -332,8 +346,9 @@ func runBigsky(cctx *cli.Context) error {
 		cstore, err = carstore.NewSqliteStore(csdir)
 	} else {
 		// make standard FileCarStore
-		cstore, err = carstore.NewCarStore(csdb, csdir)
+		cstore, err = carstore.NewCarStore(csdb, csdirs)
 	}
+
 	if err != nil {
 		return err
 	}

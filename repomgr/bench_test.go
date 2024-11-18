@@ -54,7 +54,7 @@ func BenchmarkRepoMgrCreates(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	cs, err := carstore.NewCarStore(cardb, []string{cspath})
 	if err != nil {
 		b.Fatal(err)
 	}

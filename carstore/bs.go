@@ -63,20 +63,22 @@ type CarStore interface {
 }
 
 type FileCarStore struct {
-	meta    *CarStoreGormMeta
-	rootDir string
+	meta     *CarStoreGormMeta
+	rootDirs []string
 
 	lastShardCache lastShardCache
 }
 
-func NewCarStore(meta *gorm.DB, root string) (CarStore, error) {
-	if _, err := os.Stat(root); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
+func NewCarStore(meta *gorm.DB, roots []string) (CarStore, error) {
+	for _, root := range roots {
+		if _, err := os.Stat(root); err != nil {
+			if !os.IsNotExist(err) {
+				return nil, err
+			}
 
-		if err := os.Mkdir(root, 0775); err != nil {
-			return nil, err
+			if err := os.Mkdir(root, 0775); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := meta.AutoMigrate(&CarShard{}, &blockRef{}); err != nil {
@@ -88,8 +90,8 @@ func NewCarStore(meta *gorm.DB, root string) (CarStore, error) {
 
 	gormMeta := &CarStoreGormMeta{meta: meta}
 	out := &FileCarStore{
-		meta:    gormMeta,
-		rootDir: root,
+		meta:     gormMeta,
+		rootDirs: roots,
 		lastShardCache: lastShardCache{
 			source: gormMeta,
 		},
@@ -530,9 +532,14 @@ func (ds *DeltaSession) GetSize(ctx context.Context, c cid.Cid) (int, error) {
 func fnameForShard(user models.Uid, seq int) string {
 	return fmt.Sprintf("sh-%d-%d", user, seq)
 }
+
+func (cs *FileCarStore) dirForUser(user models.Uid) string {
+	return cs.rootDirs[int(user)%len(cs.rootDirs)]
+}
+
 func (cs *FileCarStore) openNewShardFile(ctx context.Context, user models.Uid, seq int) (*os.File, string, error) {
 	// TODO: some overwrite protections
-	fname := filepath.Join(cs.rootDir, fnameForShard(user, seq))
+	fname := filepath.Join(cs.dirForUser(user), fnameForShard(user, seq))
 	fi, err := os.Create(fname)
 	if err != nil {
 		return nil, "", err
@@ -546,7 +553,7 @@ func (cs *FileCarStore) writeNewShardFile(ctx context.Context, user models.Uid, 
 	defer span.End()
 
 	// TODO: some overwrite protections
-	fname := filepath.Join(cs.rootDir, fnameForShard(user, seq))
+	fname := filepath.Join(cs.dirForUser(user), fnameForShard(user, seq))
 	if err := os.WriteFile(fname, data, 0664); err != nil {
 		return "", err
 	}
@@ -633,10 +640,12 @@ func (cs *FileCarStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 		offset += nw
 	}
 
+	start := time.Now()
 	path, err := cs.writeNewShardFile(ctx, user, seq, buf.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("failed to write shard file: %w", err)
 	}
+	writeShardFileDuration.Observe(time.Since(start).Seconds())
 
 	shard := CarShard{
 		Root:      models.DbCID{CID: root},
@@ -647,9 +656,11 @@ func (cs *FileCarStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 		Rev:       rev,
 	}
 
+	start = time.Now()
 	if err := cs.putShard(ctx, &shard, brefs, rmcids, false); err != nil {
 		return nil, err
 	}
+	writeShardMetadataDuration.Observe(time.Since(start).Seconds())
 
 	return buf.Bytes(), nil
 }
@@ -977,7 +988,7 @@ func (cs *FileCarStore) openNewCompactedShardFile(ctx context.Context, user mode
 	// TODO: some overwrite protections
 	// NOTE CreateTemp is used for creating a non-colliding file, but we keep it and don't delete it so don't think of it as "temporary".
 	// This creates "sh-%d-%d%s" with some random stuff in the last position
-	fi, err := os.CreateTemp(cs.rootDir, fnameForShard(user, seq))
+	fi, err := os.CreateTemp(cs.dirForUser(user), fnameForShard(user, seq))
 	if err != nil {
 		return nil, "", err
 	}
