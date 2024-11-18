@@ -30,6 +30,8 @@ type CrawlDispatcher struct {
 	concurrency int
 
 	repoSyncHeap []*crawlWork
+	// map [pdsID] *crawlWork pending jobs for that PDS, head of linked list on .nextInPds
+	repoSyncPds  map[uint]*crawlWork
 	repoSyncLock sync.Mutex
 	repoSyncCond sync.Cond
 }
@@ -53,6 +55,7 @@ func NewCrawlDispatcher(repoFetcher CrawlRepoFetcher, concurrency int) (*CrawlDi
 		concurrency: concurrency,
 		todo:        make(map[models.Uid]*crawlWork),
 		inProgress:  make(map[models.Uid]*crawlWork),
+		repoSyncPds: make(map[uint]*crawlWork),
 	}
 	out.repoSyncCond.L = &out.repoSyncLock
 	return out, nil
@@ -84,7 +87,9 @@ type crawlWork struct {
 	// next items are processed after the crawl
 	next []*catchupJob
 
-	eligibleTime time.Time
+	eligibleTime    time.Time
+	nextInPds       *crawlWork
+	alreadyEnheaped bool
 }
 
 func (c *CrawlDispatcher) mainLoop() {
@@ -192,12 +197,18 @@ func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
 func (c *CrawlDispatcher) fetchWorker() {
 	for {
 		job := c.nextJob()
+		nextInPds := job.nextInPds
+		job.nextInPds = nil
 		if err := c.repoFetcher.FetchAndIndexRepo(context.TODO(), job); err != nil {
 			log.Errorf("failed to perform repo crawl of %q: %s", job.act.Did, err)
 		}
 
 		// TODO: do we still just do this if it errors?
 		c.complete <- job.act.Uid
+
+		if nextInPds != nil {
+			c.enheapJob(nextInPds)
+		}
 	}
 }
 
@@ -261,18 +272,67 @@ func (c *CrawlDispatcher) RepoInSlowPath(ctx context.Context, uid models.Uid) bo
 func (c *CrawlDispatcher) enheapJob(crawlJob *crawlWork) {
 	c.repoSyncLock.Lock()
 	defer c.repoSyncLock.Unlock()
-	heap.Push(c, crawlJob)
+	pdsJobs, has := c.repoSyncPds[crawlJob.act.PDS]
+	if has {
+		if !pdsJobs.alreadyEnheaped {
+			heap.Push(c, crawlJob)
+			pdsJobs.alreadyEnheaped = true
+		}
+		if pdsJobs == crawlJob {
+			// this _should_ be true if nextInPds was already there when we called .nextJob()
+			return
+		}
+		for pdsJobs.nextInPds != nil {
+			pdsJobs = pdsJobs.nextInPds
+			if pdsJobs == crawlJob {
+				// we re-enheap something later? weird but okay?
+				return
+			}
+		}
+		if crawlJob.nextInPds != nil {
+			log.Errorf("CrawlDispatcher internal: attempting to enheap crawlWork which somehow got nextInPds work?, pds %d, dropping?", crawlJob.act.PDS)
+			return
+		}
+		pdsJobs.nextInPds = crawlJob
+		return
+	} else {
+		c.repoSyncPds[crawlJob.act.PDS] = crawlJob
+	}
+	if !crawlJob.alreadyEnheaped {
+		heap.Push(c, crawlJob)
+		crawlJob.alreadyEnheaped = true
+	}
 }
 
-// return next available crawlJob based on eligibleTime; block until some available
+// nextJob returns next available crawlJob based on eligibleTime; block until some available.
+// The caller of .nextJob() should .enheapJob(crawlJob.nextInPds) if any after executing crawlJob's work
+//
+// There's a tiny race where .nextJob() could return the only work for a PDS,
+// outside event could .enheapJob() a next one for that PDS,
+// get enheaped as available immediately because the rate limiter hasn't ticked the work done from .nextJob() above,
+// and then the worker trying to execute the next enheaped work for the PDS would execute immediately but Sleep() to wait for the rate limiter.
+// We will call this 'not too bad', 'good enough for now'. -- bolson 2024-11
 func (c *CrawlDispatcher) nextJob() *crawlWork {
 	c.repoSyncLock.Lock()
 	defer c.repoSyncLock.Unlock()
+retry:
 	for len(c.repoSyncHeap) == 0 {
 		c.repoSyncCond.Wait()
 	}
-	thing := heap.Pop(c)
-	return thing.(*crawlWork)
+	x := heap.Pop(c)
+	crawlJob := x.(*crawlWork)
+	if crawlJob.nextInPds != nil {
+		prev := c.repoSyncPds[crawlJob.act.PDS]
+		if prev != crawlJob {
+			log.Errorf("CrawlDispatcher internal: pds %d next is not next in eligible heap, dropping all PDS work", crawlJob.act.PDS)
+			delete(c.repoSyncPds, crawlJob.act.PDS)
+			goto retry
+		}
+		c.repoSyncPds[crawlJob.act.PDS] = crawlJob.nextInPds
+	} else {
+		delete(c.repoSyncPds, crawlJob.act.PDS)
+	}
+	return crawlJob
 }
 
 // part of container/heap.Interface and sort.Interface
