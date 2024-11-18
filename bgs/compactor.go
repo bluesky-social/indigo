@@ -349,7 +349,7 @@ func (c *Compactor) compactNext(ctx context.Context, bgs *BGS, strategy NextStra
 	return state, nil
 }
 
-func (c *Compactor) EnqueueRepo(ctx context.Context, user User, fast bool) {
+func (c *Compactor) EnqueueRepo(ctx context.Context, user *User, fast bool) {
 	ctx, span := otel.Tracer("compactor").Start(ctx, "EnqueueRepo")
 	defer span.End()
 	log.Infow("enqueueing compaction for repo", "repo", user.Did, "uid", user.ID, "fast", fast)

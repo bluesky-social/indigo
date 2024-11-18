@@ -27,6 +27,7 @@ import (
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/xrpc"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
 
@@ -87,6 +88,9 @@ type BGS struct {
 
 	// Management of Compaction
 	compactor *Compactor
+
+	// User cache
+	userCache *lru.Cache[string, *User]
 }
 
 type PDSResync struct {
@@ -136,6 +140,8 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	db.AutoMigrate(models.PDS{})
 	db.AutoMigrate(models.DomainBan{})
 
+	uc, _ := lru.New[string, *User](1_000_000)
+
 	bgs := &BGS{
 		Index:       ix,
 		db:          db,
@@ -151,6 +157,8 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		consumers:   make(map[uint64]*SocketConsumer),
 
 		pdsResyncs: make(map[uint]*PDSResync),
+
+		userCache: uc,
 	}
 
 	ix.CreateExternalUser = bgs.createExternalUser
@@ -521,6 +529,44 @@ type User struct {
 
 	// UpstreamStatus is the state of the user as reported by the upstream PDS
 	UpstreamStatus string `gorm:"index"`
+
+	lk sync.Mutex
+}
+
+func (u *User) SetTakenDown(v bool) {
+	u.lk.Lock()
+	defer u.lk.Unlock()
+	u.TakenDown = v
+}
+
+func (u *User) GetTakenDown() bool {
+	u.lk.Lock()
+	defer u.lk.Unlock()
+	return u.TakenDown
+}
+
+func (u *User) SetTombstoned(v bool) {
+	u.lk.Lock()
+	defer u.lk.Unlock()
+	u.Tombstoned = v
+}
+
+func (u *User) GetTombstoned() bool {
+	u.lk.Lock()
+	defer u.lk.Unlock()
+	return u.Tombstoned
+}
+
+func (u *User) SetUpstreamStatus(v string) {
+	u.lk.Lock()
+	defer u.lk.Unlock()
+	u.UpstreamStatus = v
+}
+
+func (u *User) GetUpstreamStatus() string {
+	u.lk.Lock()
+	defer u.lk.Unlock()
+	return u.UpstreamStatus
 }
 
 type addTargetBody struct {
@@ -771,6 +817,11 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 	ctx, span := tracer.Start(ctx, "lookupUserByDid")
 	defer span.End()
 
+	cu, ok := bgs.userCache.Get(did)
+	if ok {
+		return cu, nil
+	}
+
 	var u User
 	if err := bgs.db.Find(&u, "did = ?", did).Error; err != nil {
 		return nil, err
@@ -779,6 +830,8 @@ func (bgs *BGS) lookupUserByDid(ctx context.Context, did string) (*User, error) 
 	if u.ID == 0 {
 		return nil, gorm.ErrRecordNotFound
 	}
+
+	bgs.userCache.Add(did, &u)
 
 	return &u, nil
 }
@@ -823,14 +876,19 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		repoCommitsReceivedCounter.WithLabelValues(host.Host).Add(1)
 		evt := env.RepoCommit
 		log.Debugw("bgs got repo append event", "seq", evt.Seq, "pdsHost", host.Host, "repo", evt.Repo)
+
+		s := time.Now()
 		u, err := bgs.lookupUserByDid(ctx, evt.Repo)
+		userLookupDuration.Observe(time.Since(s).Seconds())
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return fmt.Errorf("looking up event user: %w", err)
 			}
 
 			newUsersDiscovered.Inc()
+			start := time.Now()
 			subj, err := bgs.createExternalUser(ctx, evt.Repo)
+			newUserDiscoveryDuration.Observe(time.Since(start).Seconds())
 			if err != nil {
 				return fmt.Errorf("fed event create external user: %w", err)
 			}
@@ -840,20 +898,21 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			u.Did = evt.Repo
 		}
 
-		span.SetAttributes(attribute.String("upstream_status", u.UpstreamStatus))
+		ustatus := u.GetUpstreamStatus()
+		span.SetAttributes(attribute.String("upstream_status", ustatus))
 
-		if u.TakenDown || u.UpstreamStatus == events.AccountStatusTakendown {
-			span.SetAttributes(attribute.Bool("taken_down_by_relay_admin", u.TakenDown))
+		if u.GetTakenDown() || ustatus == events.AccountStatusTakendown {
+			span.SetAttributes(attribute.Bool("taken_down_by_relay_admin", u.GetTakenDown()))
 			log.Debugw("dropping commit event from taken down user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 			return nil
 		}
 
-		if u.UpstreamStatus == events.AccountStatusSuspended {
+		if ustatus == events.AccountStatusSuspended {
 			log.Debugw("dropping commit event from suspended user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 			return nil
 		}
 
-		if u.UpstreamStatus == events.AccountStatusDeactivated {
+		if ustatus == events.AccountStatusDeactivated {
 			log.Debugw("dropping commit event from deactivated user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
 			return nil
 		}
@@ -877,12 +936,13 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			}
 		}
 
-		if u.Tombstoned {
+		if u.GetTombstoned() {
 			span.SetAttributes(attribute.Bool("tombstoned", true))
 			// we've checked the authority of the users PDS, so reinstate the account
 			if err := bgs.db.Model(&User{}).Where("id = ?", u.ID).UpdateColumn("tombstoned", false).Error; err != nil {
 				return fmt.Errorf("failed to un-tombstone a user: %w", err)
 			}
+			u.SetTombstoned(false)
 
 			ai, err := bgs.Index.LookupUser(ctx, u.ID)
 			if err != nil {
@@ -1041,7 +1101,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return fmt.Errorf("failed to look up user by did: %w", err)
 		}
 
-		if u.TakenDown {
+		if u.GetTakenDown() {
 			shouldBeActive = false
 			status = &events.AccountStatusTakendown
 		}
@@ -1370,18 +1430,22 @@ func (bgs *BGS) UpdateAccountStatus(ctx context.Context, did string, status stri
 		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusActive).Error; err != nil {
 			return fmt.Errorf("failed to set user active status: %w", err)
 		}
+		u.SetUpstreamStatus(events.AccountStatusActive)
 	case events.AccountStatusDeactivated:
 		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusDeactivated).Error; err != nil {
 			return fmt.Errorf("failed to set user deactivation status: %w", err)
 		}
+		u.SetUpstreamStatus(events.AccountStatusDeactivated)
 	case events.AccountStatusSuspended:
 		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusSuspended).Error; err != nil {
 			return fmt.Errorf("failed to set user suspension status: %w", err)
 		}
+		u.SetUpstreamStatus(events.AccountStatusSuspended)
 	case events.AccountStatusTakendown:
 		if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("upstream_status", events.AccountStatusTakendown).Error; err != nil {
 			return fmt.Errorf("failed to set user taken down status: %w", err)
 		}
+		u.SetUpstreamStatus(events.AccountStatusTakendown)
 
 		if err := bgs.db.Model(&models.ActorInfo{}).Where("uid = ?", u.ID).UpdateColumns(map[string]any{
 			"handle": nil,
@@ -1396,6 +1460,7 @@ func (bgs *BGS) UpdateAccountStatus(ctx context.Context, did string, status stri
 		}).Error; err != nil {
 			return err
 		}
+		u.SetUpstreamStatus(events.AccountStatusDeleted)
 
 		if err := bgs.db.Model(&models.ActorInfo{}).Where("uid = ?", u.ID).UpdateColumns(map[string]any{
 			"handle": nil,
@@ -1422,6 +1487,7 @@ func (bgs *BGS) TakeDownRepo(ctx context.Context, did string) error {
 	if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("taken_down", true).Error; err != nil {
 		return err
 	}
+	u.SetTakenDown(true)
 
 	if err := bgs.repoman.TakeDownRepo(ctx, u.ID); err != nil {
 		return err
@@ -1443,6 +1509,7 @@ func (bgs *BGS) ReverseTakedown(ctx context.Context, did string) error {
 	if err := bgs.db.Model(User{}).Where("id = ?", u.ID).Update("taken_down", false).Error; err != nil {
 		return err
 	}
+	u.SetTakenDown(false)
 
 	return nil
 }
