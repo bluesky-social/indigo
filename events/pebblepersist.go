@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -159,6 +160,8 @@ func (pp *PebblePersist) SetEventBroadcaster(broadcast func(*XRPCStreamEvent)) {
 	pp.broadcast = broadcast
 }
 
+var ErrNoLast = errors.New("no last event")
+
 func (pp *PebblePersist) GetLast(ctx context.Context) (seq, millis int64, evt *XRPCStreamEvent, err error) {
 	iter, err := pp.db.NewIterWithContext(ctx, &pebble.IterOptions{})
 	if err != nil {
@@ -166,7 +169,7 @@ func (pp *PebblePersist) GetLast(ctx context.Context) (seq, millis int64, evt *X
 	}
 	ok := iter.Last()
 	if !ok {
-		return 0, 0, nil, nil
+		return 0, 0, nil, ErrNoLast
 	}
 	evt, err = eventFromPebbleIter(iter)
 	keyblob := iter.Key()
@@ -230,6 +233,9 @@ func (pp *PebblePersist) GarbageCollect(ctx context.Context) error {
 			break
 		}
 	}
+
+	// TODO: use pp.options.MaxBytes
+
 	sizeBefore, _ := pp.db.EstimateDiskUsage(zeroKey[:], ffffKey[:])
 	if seq == -1 {
 		// nothing to delete
