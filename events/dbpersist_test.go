@@ -300,7 +300,7 @@ func setupDBs(t testing.TB) (*gorm.DB, *gorm.DB, carstore.CarStore, string, erro
 		return nil, nil, nil, "", err
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	cs, err := carstore.NewCarStore(cardb, []string{cspath})
 	if err != nil {
 		return nil, nil, nil, "", err
 	}

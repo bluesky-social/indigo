@@ -565,7 +565,7 @@ func initSpeedyRepoMan(key *godid.PrivKey) (*repomgr.RepoManager, *godid.PrivKey
 		return nil, nil, err
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	cs, err := carstore.NewCarStore(cardb, []string{cspath})
 	if err != nil {
 		return nil, nil, err
 	}

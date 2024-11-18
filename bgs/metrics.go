@@ -81,6 +81,18 @@ var resSz = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Buckets: prometheus.ExponentialBuckets(100, 10, 8),
 }, []string{"code", "method", "path"})
 
+var userLookupDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+	Name:    "relay_user_lookup_duration",
+	Help:    "A histogram of user lookup latencies",
+	Buckets: prometheus.ExponentialBuckets(0.001, 2, 15),
+})
+
+var newUserDiscoveryDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+	Name:    "relay_new_user_discovery_duration",
+	Help:    "A histogram of new user discovery latencies",
+	Buckets: prometheus.ExponentialBuckets(0.001, 2, 15),
+})
+
 // MetricsMiddleware defines handler function for metrics middleware
 func MetricsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
