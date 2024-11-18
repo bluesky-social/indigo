@@ -5,10 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"io/fs"
-	"sync"
-
 	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/repomgr"
@@ -18,6 +14,9 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"golang.org/x/time/rate"
 	"gorm.io/gorm"
+	"io"
+	"io/fs"
+	"sync"
 )
 
 func NewRepoFetcher(db *gorm.DB, rm *repomgr.RepoManager, maxConcurrency int) *RepoFetcher {
@@ -55,6 +54,26 @@ func (rf *RepoFetcher) GetOrCreateLimiter(pdsID uint, pdsrate float64) *rate.Lim
 
 	lim, ok := rf.Limiters[pdsID]
 	if !ok {
+		lim = rate.NewLimiter(rate.Limit(pdsrate), 1)
+		rf.Limiters[pdsID] = lim
+	}
+
+	return lim
+}
+
+// GetOrCreateLimiterLazy is GetOrCreateLimiter with a lazy fetch of PDS from database if needed
+func (rf *RepoFetcher) GetOrCreateLimiterLazy(pdsID uint) *rate.Limiter {
+	rf.LimitMux.RLock()
+	defer rf.LimitMux.RUnlock()
+
+	lim, ok := rf.Limiters[pdsID]
+	if !ok {
+		// TODO: single source from DefaultCrawlLimit from Slurper or its config source
+		pdsrate := float64(5)
+		var pds models.PDS
+		if err := rf.db.First(&pds, "id = ?", pdsID).Error; err == nil {
+			pdsrate = pds.CrawlRateLimit
+		}
 		lim = rate.NewLimiter(rate.Limit(pdsrate), 1)
 		rf.Limiters[pdsID] = lim
 	}

@@ -1,9 +1,12 @@
 package indexer
 
 import (
+	"container/heap"
 	"context"
 	"fmt"
+	"golang.org/x/time/rate"
 	"sync"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/models"
@@ -14,8 +17,6 @@ import (
 type CrawlDispatcher struct {
 	ingest chan *models.ActorInfo
 
-	repoSync chan *crawlWork
-
 	catchup chan *crawlWork
 
 	complete chan models.Uid
@@ -24,26 +25,37 @@ type CrawlDispatcher struct {
 	todo       map[models.Uid]*crawlWork
 	inProgress map[models.Uid]*crawlWork
 
-	doRepoCrawl func(context.Context, *crawlWork) error
+	repoFetcher CrawlRepoFetcher
 
 	concurrency int
+
+	repoSyncHeap []*crawlWork
+	repoSyncLock sync.Mutex
+	repoSyncCond sync.Cond
 }
 
-func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurrency int) (*CrawlDispatcher, error) {
+// this is what we need of RepoFetcher, made interface so it can be passed in without dependency
+type CrawlRepoFetcher interface {
+	FetchAndIndexRepo(ctx context.Context, job *crawlWork) error
+	GetOrCreateLimiterLazy(pdsID uint) *rate.Limiter
+}
+
+func NewCrawlDispatcher(repoFetcher CrawlRepoFetcher, concurrency int) (*CrawlDispatcher, error) {
 	if concurrency < 1 {
 		return nil, fmt.Errorf("must specify a non-zero positive integer for crawl dispatcher concurrency")
 	}
 
-	return &CrawlDispatcher{
+	out := &CrawlDispatcher{
 		ingest:      make(chan *models.ActorInfo),
-		repoSync:    make(chan *crawlWork),
 		complete:    make(chan models.Uid),
 		catchup:     make(chan *crawlWork),
-		doRepoCrawl: repoFn,
+		repoFetcher: repoFetcher,
 		concurrency: concurrency,
 		todo:        make(map[models.Uid]*crawlWork),
 		inProgress:  make(map[models.Uid]*crawlWork),
-	}, nil
+	}
+	out.repoSyncCond.L = &out.repoSyncLock
+	return out, nil
 }
 
 func (c *CrawlDispatcher) Run() {
@@ -71,49 +83,20 @@ type crawlWork struct {
 	// for events that come in while this actor is being processed
 	// next items are processed after the crawl
 	next []*catchupJob
+
+	eligibleTime time.Time
 }
 
 func (c *CrawlDispatcher) mainLoop() {
-	var nextDispatchedJob *crawlWork
-	var jobsAwaitingDispatch []*crawlWork
-
-	// dispatchQueue represents the repoSync worker channel to which we dispatch crawl work
-	var dispatchQueue chan *crawlWork
-
 	for {
+		var crawlJob *crawlWork = nil
 		select {
 		case actorToCrawl := <-c.ingest:
 			// TODO: max buffer size
-			crawlJob := c.enqueueJobForActor(actorToCrawl)
-			if crawlJob == nil {
-				break
-			}
-
-			if nextDispatchedJob == nil {
-				nextDispatchedJob = crawlJob
-				dispatchQueue = c.repoSync
-			} else {
-				jobsAwaitingDispatch = append(jobsAwaitingDispatch, crawlJob)
-			}
-		case dispatchQueue <- nextDispatchedJob:
-			c.dequeueJob(nextDispatchedJob)
-
-			if len(jobsAwaitingDispatch) > 0 {
-				nextDispatchedJob = jobsAwaitingDispatch[0]
-				jobsAwaitingDispatch = jobsAwaitingDispatch[1:]
-			} else {
-				nextDispatchedJob = nil
-				dispatchQueue = nil
-			}
-		case catchupJob := <-c.catchup:
+			crawlJob = c.enqueueJobForActor(actorToCrawl)
+		case crawlJob = <-c.catchup:
 			// CatchupJobs are for processing events that come in while a crawl is in progress
 			// They are lower priority than new crawls so we only add them to the queue if there isn't already a job in progress
-			if nextDispatchedJob == nil {
-				nextDispatchedJob = catchupJob
-				dispatchQueue = c.repoSync
-			} else {
-				jobsAwaitingDispatch = append(jobsAwaitingDispatch, catchupJob)
-			}
 		case uid := <-c.complete:
 			c.maplk.Lock()
 
@@ -130,14 +113,20 @@ func (c *CrawlDispatcher) mainLoop() {
 				job.initScrape = false
 				job.catchup = job.next
 				job.next = nil
-				if nextDispatchedJob == nil {
-					nextDispatchedJob = job
-					dispatchQueue = c.repoSync
-				} else {
-					jobsAwaitingDispatch = append(jobsAwaitingDispatch, job)
-				}
+				crawlJob = job
 			}
 			c.maplk.Unlock()
+		}
+		if crawlJob != nil {
+			pdsID := crawlJob.act.PDS
+			limiter := c.repoFetcher.GetOrCreateLimiterLazy(pdsID)
+			now := time.Now()
+			wouldDelay := limiter.ReserveN(now, 1).DelayFrom(now)
+			crawlJob.eligibleTime = now.Add(wouldDelay)
+			// put crawl job on heap sorted by eligible time
+			c.enheapJob(crawlJob)
+			c.dequeueJob(crawlJob)
+			crawlJob = nil
 		}
 	}
 }
@@ -202,15 +191,13 @@ func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
 
 func (c *CrawlDispatcher) fetchWorker() {
 	for {
-		select {
-		case job := <-c.repoSync:
-			if err := c.doRepoCrawl(context.TODO(), job); err != nil {
-				log.Errorf("failed to perform repo crawl of %q: %s", job.act.Did, err)
-			}
-
-			// TODO: do we still just do this if it errors?
-			c.complete <- job.act.Uid
+		job := c.nextJob()
+		if err := c.repoFetcher.FetchAndIndexRepo(context.TODO(), job); err != nil {
+			log.Errorf("failed to perform repo crawl of %q: %s", job.act.Did, err)
 		}
+
+		// TODO: do we still just do this if it errors?
+		c.complete <- job.act.Uid
 	}
 }
 
@@ -268,4 +255,57 @@ func (c *CrawlDispatcher) RepoInSlowPath(ctx context.Context, uid models.Uid) bo
 	}
 
 	return false
+}
+
+// priority-queue for crawlJob based on eligibleTime
+func (c *CrawlDispatcher) enheapJob(crawlJob *crawlWork) {
+	c.repoSyncLock.Lock()
+	defer c.repoSyncLock.Unlock()
+	heap.Push(c, crawlJob)
+}
+
+// return next available crawlJob based on eligibleTime; block until some available
+func (c *CrawlDispatcher) nextJob() *crawlWork {
+	c.repoSyncLock.Lock()
+	defer c.repoSyncLock.Unlock()
+	for len(c.repoSyncHeap) == 0 {
+		c.repoSyncCond.Wait()
+	}
+	thing := heap.Pop(c)
+	return thing.(*crawlWork)
+}
+
+// part of container/heap.Interface and sort.Interface
+// c.repoSyncLock MUST ALREADY BE HELD BEFORE HEAP OPERATIONS
+func (c *CrawlDispatcher) Len() int {
+	return len(c.repoSyncHeap)
+}
+
+// part of container/heap.Interface and sort.Interface
+// c.repoSyncLock MUST ALREADY BE HELD BEFORE HEAP OPERATIONS
+func (c *CrawlDispatcher) Less(i, j int) bool {
+	return c.repoSyncHeap[i].eligibleTime.Before(c.repoSyncHeap[j].eligibleTime)
+}
+
+// part of container/heap.Interface and sort.Interface
+// c.repoSyncLock MUST ALREADY BE HELD BEFORE HEAP OPERATIONS
+func (c *CrawlDispatcher) Swap(i, j int) {
+	t := c.repoSyncHeap[i]
+	c.repoSyncHeap[i] = c.repoSyncHeap[j]
+	c.repoSyncHeap[j] = t
+}
+
+// part of container/heap.Interface
+// c.repoSyncLock MUST ALREADY BE HELD BEFORE HEAP OPERATIONS
+func (c *CrawlDispatcher) Push(x any) {
+	c.repoSyncHeap = append(c.repoSyncHeap, x.(*crawlWork))
+}
+
+// part of container/heap.Interface
+// c.repoSyncLock MUST ALREADY BE HELD BEFORE HEAP OPERATIONS
+func (c *CrawlDispatcher) Pop() any {
+	heaplen := len(c.repoSyncHeap)
+	out := c.repoSyncHeap[heaplen-1]
+	c.repoSyncHeap = c.repoSyncHeap[:heaplen-1]
+	return out
 }
