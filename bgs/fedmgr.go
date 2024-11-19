@@ -468,6 +468,11 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS, s
 		protocol = "wss"
 	}
 
+	// Special case `.host.bsky.network` PDSs to rewind cursor by 200 events to smooth over unclean shutdowns
+	if strings.HasSuffix(host.Host, ".host.bsky.network") && host.Cursor > 200 {
+		host.Cursor -= 200
+	}
+
 	cursor := host.Cursor
 
 	var backoff int
