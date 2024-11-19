@@ -96,7 +96,7 @@ func NewCarStore(meta *gorm.DB, roots []string) (CarStore, error) {
 }
 
 type userView struct {
-	cs   *FileCarStore
+	cs   CarStore
 	user models.Uid
 
 	cache    map[cid.Cid]blockformat.Block
@@ -110,13 +110,24 @@ func (uv *userView) HashOnRead(hor bool) {
 }
 
 func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
-	return uv.cs.meta.HasUidCid(ctx, uv.user, k)
+	_, have := uv.cache[k]
+	if have {
+		return have, nil
+	}
+
+	fcd, ok := uv.cs.(*FileCarStore)
+	if !ok {
+		return false, nil
+	}
+
+	return fcd.meta.HasUidCid(ctx, uv.user, k)
 }
 
 var CacheHits int64
 var CacheMiss int64
 
 func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, error) {
+
 	if !k.Defined() {
 		return nil, fmt.Errorf("attempted to 'get' undefined cid")
 	}
@@ -131,7 +142,12 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, erro
 	}
 	atomic.AddInt64(&CacheMiss, 1)
 
-	path, offset, user, err := uv.cs.meta.LookupBlockRef(ctx, k)
+	fcd, ok := uv.cs.(*FileCarStore)
+	if !ok {
+		return nil, ipld.ErrNotFound{Cid: k}
+	}
+
+	path, offset, user, err := fcd.meta.LookupBlockRef(ctx, k)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +287,7 @@ type DeltaSession struct {
 	baseCid  cid.Cid
 	seq      int
 	readonly bool
-	cs       *FileCarStore
+	cs       CarStore
 	lastRev  string
 }
 
@@ -586,7 +602,14 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid, rev str
 		return nil, fmt.Errorf("cannot write to readonly deltaSession")
 	}
 
-	return ds.cs.writeNewShard(ctx, root, rev, ds.user, ds.seq, ds.blks, ds.rmcids)
+	switch ocs := ds.cs.(type) {
+	case *FileCarStore:
+		return ocs.writeNewShard(ctx, root, rev, ds.user, ds.seq, ds.blks, ds.rmcids)
+	case *NonArchivalCarstore:
+		return nil, ocs.updateLastCommit(ctx, ds.user, rev, root)
+	default:
+		return nil, fmt.Errorf("unsupported carstore type")
+	}
 }
 
 func WriteCarHeader(w io.Writer, root cid.Cid) (int64, error) {

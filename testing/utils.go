@@ -550,7 +550,13 @@ func SetupRelay(ctx context.Context, didr plc.PLCClient) (*TestRelay, error) {
 		return nil, err
 	}
 
-	cs, err := carstore.NewCarStore(cardb, []string{cspath})
+	/*
+		cs, err := carstore.NewCarStore(cardb, []string{cspath})
+		if err != nil {
+			return nil, err
+		}
+	*/
+	cs, err := carstore.NewNonArchivalCarstore(cardb)
 	if err != nil {
 		return nil, err
 	}

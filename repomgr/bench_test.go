@@ -54,12 +54,19 @@ func BenchmarkRepoMgrCreates(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	cs, err := carstore.NewCarStore(cardb, []string{cspath})
+	/*
+		cs, err := carstore.NewCarStore(cardb, []string{cspath})
+		if err != nil {
+			b.Fatal(err)
+		}
+	*/
+	cs, err := carstore.NewNonArchivalCarstore(cardb)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	repoman := NewRepoManager(cs, &util.FakeKeyManager{})
+	repoman.noArchive = true
 
 	ctx := context.TODO()
 	if err := repoman.InitNewActor(ctx, 1, "hello.world", "did:foo:bar", "catdog", "", ""); err != nil {

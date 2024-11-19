@@ -36,10 +36,16 @@ var log = logging.Logger("repomgr")
 
 func NewRepoManager(cs carstore.CarStore, kmgr KeyManager) *RepoManager {
 
+	var noArchive bool
+	if _, ok := cs.(*carstore.NonArchivalCarstore); ok {
+		noArchive = true
+	}
+
 	return &RepoManager{
 		cs:        cs,
 		userLocks: make(map[models.Uid]*userLock),
 		kmgr:      kmgr,
+		noArchive: noArchive,
 	}
 }
 
@@ -62,6 +68,8 @@ type RepoManager struct {
 
 	events         func(context.Context, *RepoEvent)
 	hydrateRecords bool
+
+	noArchive bool
 }
 
 type ActorInfo struct {
@@ -529,6 +537,90 @@ func (rm *RepoManager) CheckRepoSig(ctx context.Context, r *repo.Repo, expdid st
 }
 
 func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid models.Uid, did string, since *string, nrev string, carslice []byte, ops []*atproto.SyncSubscribeRepos_RepoOp) error {
+	if rm.noArchive {
+		return rm.handleExternalUserEventNoArchive(ctx, pdsid, uid, did, since, nrev, carslice, ops)
+	} else {
+		return rm.handleExternalUserEventArchive(ctx, pdsid, uid, did, since, nrev, carslice, ops)
+	}
+}
+
+func (rm *RepoManager) handleExternalUserEventNoArchive(ctx context.Context, pdsid uint, uid models.Uid, did string, since *string, nrev string, carslice []byte, ops []*atproto.SyncSubscribeRepos_RepoOp) error {
+	ctx, span := otel.Tracer("repoman").Start(ctx, "HandleExternalUserEvent")
+	defer span.End()
+
+	span.SetAttributes(attribute.Int64("uid", int64(uid)))
+
+	log.Debugw("HandleExternalUserEvent", "pds", pdsid, "uid", uid, "since", since, "nrev", nrev)
+
+	unlock := rm.lockUser(ctx, uid)
+	defer unlock()
+
+	start := time.Now()
+	root, ds, err := rm.cs.ImportSlice(ctx, uid, since, carslice)
+	if err != nil {
+		return fmt.Errorf("importing external carslice: %w", err)
+	}
+
+	r, err := repo.OpenRepo(ctx, ds, root)
+	if err != nil {
+		return fmt.Errorf("opening external user repo (%d, root=%s): %w", uid, root, err)
+	}
+
+	if err := rm.CheckRepoSig(ctx, r, did); err != nil {
+		return fmt.Errorf("check repo sig: %w", err)
+	}
+	openAndSigCheckDuration.Observe(time.Since(start).Seconds())
+
+	evtops := make([]RepoOp, 0, len(ops))
+	for _, op := range ops {
+		parts := strings.SplitN(op.Path, "/", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid rpath in mst diff, must have collection and rkey")
+		}
+
+		switch EventKind(op.Action) {
+		case EvtKindCreateRecord:
+			evtops = append(evtops, RepoOp{
+				Kind:       EvtKindCreateRecord,
+				Collection: parts[0],
+				Rkey:       parts[1],
+				RecCid:     (*cid.Cid)(op.Cid),
+			})
+		case EvtKindUpdateRecord:
+			evtops = append(evtops, RepoOp{
+				Kind:       EvtKindUpdateRecord,
+				Collection: parts[0],
+				Rkey:       parts[1],
+				RecCid:     (*cid.Cid)(op.Cid),
+			})
+		case EvtKindDeleteRecord:
+			evtops = append(evtops, RepoOp{
+				Kind:       EvtKindDeleteRecord,
+				Collection: parts[0],
+				Rkey:       parts[1],
+			})
+		default:
+			return fmt.Errorf("unrecognized external user event kind: %q", op.Action)
+		}
+	}
+
+	if rm.events != nil {
+		rm.events(ctx, &RepoEvent{
+			User: uid,
+			//OldRoot:   prev,
+			NewRoot:   root,
+			Rev:       nrev,
+			Since:     since,
+			Ops:       evtops,
+			RepoSlice: carslice,
+			PDS:       pdsid,
+		})
+	}
+
+	return nil
+}
+
+func (rm *RepoManager) handleExternalUserEventArchive(ctx context.Context, pdsid uint, uid models.Uid, did string, since *string, nrev string, carslice []byte, ops []*atproto.SyncSubscribeRepos_RepoOp) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "HandleExternalUserEvent")
 	defer span.End()
 

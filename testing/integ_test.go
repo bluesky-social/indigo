@@ -549,6 +549,7 @@ func TestRelayHandleEmptyEvent(t *testing.T) {
 	}
 
 	e2 := evts.Next()
+	fmt.Println(e2.RepoCommit.Ops)
 	assert.Equal(len(e2.RepoCommit.Ops), 0)
 	assert.Equal(e2.RepoCommit.Repo, bob.DID())
 }
