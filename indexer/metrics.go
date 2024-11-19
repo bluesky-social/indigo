@@ -25,10 +25,10 @@ var reposFetched = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "Number of repos fetched",
 }, []string{"status"})
 
-var catchupEventsEnqueued = promauto.NewCounter(prometheus.CounterOpts{
+var catchupEventsEnqueued = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "indexer_catchup_events_enqueued",
 	Help: "Number of catchup events enqueued",
-})
+}, []string{"how"})
 
 var catchupEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "indexer_catchup_events_processed",

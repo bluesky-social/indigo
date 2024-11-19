@@ -167,13 +167,13 @@ func (c *CrawlDispatcher) dequeueJob(job *crawlWork) {
 }
 
 func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
-	catchupEventsEnqueued.Inc()
 	c.maplk.Lock()
 	defer c.maplk.Unlock()
 
 	// If the actor crawl is enqueued, we can append to the catchup queue which gets emptied during the crawl
 	job, ok := c.todo[catchup.user.Uid]
 	if ok {
+		catchupEventsEnqueued.WithLabelValues("todo").Inc()
 		job.catchup = append(job.catchup, catchup)
 		return nil
 	}
@@ -181,10 +181,12 @@ func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
 	// If the actor crawl is in progress, we can append to the nextr queue which gets emptied after the crawl
 	job, ok = c.inProgress[catchup.user.Uid]
 	if ok {
+		catchupEventsEnqueued.WithLabelValues("prog").Inc()
 		job.next = append(job.next, catchup)
 		return nil
 	}
 
+	catchupEventsEnqueued.WithLabelValues("new").Inc()
 	// Otherwise, we need to create a new crawl job for this actor and enqueue it
 	cw := &crawlWork{
 		act:     catchup.user,
@@ -270,6 +272,9 @@ func (c *CrawlDispatcher) RepoInSlowPath(ctx context.Context, uid models.Uid) bo
 
 // priority-queue for crawlJob based on eligibleTime
 func (c *CrawlDispatcher) enheapJob(crawlJob *crawlWork) {
+	if crawlJob.alreadyEnheaped {
+		log.Errorf("CrawlDispatcher pds %d uid %d trying to enheap alreadyEnheaped", crawlJob.alreadyEnheaped, crawlJob.act.Uid)
+	}
 	c.repoSyncLock.Lock()
 	defer c.repoSyncLock.Unlock()
 	pdsJobs, has := c.repoSyncPds[crawlJob.act.PDS]
@@ -289,10 +294,6 @@ func (c *CrawlDispatcher) enheapJob(crawlJob *crawlWork) {
 				// we re-enheap something later? weird but okay?
 				return
 			}
-		}
-		if crawlJob.nextInPds != nil {
-			log.Errorf("CrawlDispatcher internal: attempting to enheap crawlWork which somehow got nextInPds work?, pds %d, dropping?", crawlJob.act.PDS)
-			return
 		}
 		pdsJobs.nextInPds = crawlJob
 		return
@@ -317,7 +318,7 @@ func (c *CrawlDispatcher) enheapJob(crawlJob *crawlWork) {
 func (c *CrawlDispatcher) nextJob() *crawlWork {
 	c.repoSyncLock.Lock()
 	defer c.repoSyncLock.Unlock()
-retry:
+	//retry:
 	for len(c.repoSyncHeap) == 0 {
 		c.repoSyncCond.Wait()
 	}
@@ -327,13 +328,14 @@ retry:
 		prev := c.repoSyncPds[crawlJob.act.PDS]
 		if prev != crawlJob {
 			log.Errorf("CrawlDispatcher internal: pds %d next is not next in eligible heap, dropping all PDS work", crawlJob.act.PDS)
-			delete(c.repoSyncPds, crawlJob.act.PDS)
-			goto retry
+			//delete(c.repoSyncPds, crawlJob.act.PDS)
+			//goto retry
 		}
-		c.repoSyncPds[crawlJob.act.PDS] = crawlJob.nextInPds
-	} else {
-		delete(c.repoSyncPds, crawlJob.act.PDS)
-	}
+		//c.repoSyncPds[crawlJob.act.PDS] = crawlJob.nextInPds
+	} // else {
+	delete(c.repoSyncPds, crawlJob.act.PDS)
+	//}
+	crawlJob.alreadyEnheaped = false
 	return crawlJob
 }
 
