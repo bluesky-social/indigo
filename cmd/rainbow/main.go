@@ -3,19 +3,18 @@ package main
 import (
 	"context"
 	"github.com/bluesky-social/indigo/events"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/bluesky-social/indigo/splitter"
-	"github.com/carlmjohnson/versioninfo"
-	_ "go.uber.org/automaxprocs"
-
-	_ "net/http/pprof"
 
 	_ "github.com/joho/godotenv/autoload"
+	_ "go.uber.org/automaxprocs"
 
+	"github.com/carlmjohnson/versioninfo"
 	logging "github.com/ipfs/go-log"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
