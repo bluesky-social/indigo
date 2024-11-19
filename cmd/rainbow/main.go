@@ -45,12 +45,14 @@ func run(args []string) {
 
 	app.Flags = []cli.Flag{
 		&cli.BoolFlag{
-			Name:  "crawl-insecure-ws",
-			Usage: "when connecting to PDS instances, use ws:// instead of wss://",
+			Name:    "crawl-insecure-ws",
+			Usage:   "when connecting to PDS instances, use ws:// instead of wss://",
+			EnvVars: []string{"RAINBOW_INSECURE_CRAWL"},
 		},
 		&cli.StringFlag{
-			Name:  "splitter-host",
-			Value: "bsky.network",
+			Name:    "splitter-host",
+			Value:   "bsky.network",
+			EnvVars: []string{"ATP_RELAY_HOST", "RAINBOW_RELAY_HOST"},
 		},
 		&cli.StringFlag{
 			Name:  "persist-db",
@@ -63,13 +65,14 @@ func run(args []string) {
 			Usage: "write upstream cursor number to this file",
 		},
 		&cli.StringFlag{
-			Name:  "api-listen",
-			Value: ":2480",
+			Name:    "api-listen",
+			Value:   ":2480",
+			EnvVars: []string{"RAINBOW_API_LISTEN"},
 		},
 		&cli.StringFlag{
 			Name:    "metrics-listen",
 			Value:   ":2481",
-			EnvVars: []string{"SPLITTER_METRICS_LISTEN"},
+			EnvVars: []string{"RAINBOW_METRICS_LISTEN", "SPLITTER_METRICS_LISTEN"},
 		},
 		&cli.Float64Flag{
 			Name:    "persist-hours",
@@ -81,7 +84,7 @@ func run(args []string) {
 			Name:    "persist-bytes",
 			Value:   0,
 			Usage:   "max bytes target for event cache, 0 to disable size target trimming",
-			EnvVars: []string{"SPLITTER_PERSIST_BYTES"},
+			EnvVars: []string{"RAINBOW_PERSIST_BYTES", "SPLITTER_PERSIST_BYTES"},
 		},
 	}
 
