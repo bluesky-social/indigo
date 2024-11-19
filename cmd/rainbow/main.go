@@ -3,19 +3,18 @@ package main
 import (
 	"context"
 	"github.com/bluesky-social/indigo/events"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/bluesky-social/indigo/splitter"
-	"github.com/carlmjohnson/versioninfo"
-	_ "go.uber.org/automaxprocs"
-
-	_ "net/http/pprof"
 
 	_ "github.com/joho/godotenv/autoload"
+	_ "go.uber.org/automaxprocs"
 
+	"github.com/carlmjohnson/versioninfo"
 	logging "github.com/ipfs/go-log"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
@@ -26,7 +25,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
-var log = logging.Logger("splitter")
+var log = logging.Logger("rainbow")
 
 func init() {
 	// control log level using, eg, GOLOG_LOG_LEVEL=debug
@@ -39,50 +38,55 @@ func main() {
 
 func run(args []string) {
 	app := cli.App{
-		Name:    "splitter",
-		Usage:   "firehose proxy",
+		Name:    "rainbow",
+		Usage:   "atproto firehose fan-out daemon",
 		Version: versioninfo.Short(),
 	}
 
 	app.Flags = []cli.Flag{
 		&cli.BoolFlag{
-			Name:  "crawl-insecure-ws",
-			Usage: "when connecting to PDS instances, use ws:// instead of wss://",
+			Name:    "crawl-insecure-ws",
+			Usage:   "when connecting to PDS instances, use ws:// instead of wss://",
+			EnvVars: []string{"RAINBOW_INSECURE_CRAWL"},
 		},
 		&cli.StringFlag{
-			Name:  "splitter-host",
-			Value: "bsky.network",
+			Name:    "splitter-host",
+			Value:   "bsky.network",
+			EnvVars: []string{"ATP_RELAY_HOST", "RAINBOW_RELAY_HOST"},
 		},
 		&cli.StringFlag{
-			Name:  "persist-db",
-			Value: "",
-			Usage: "path to persistence db",
+			Name:    "persist-db",
+			Value:   "./rainbow.db",
+			Usage:   "path to persistence db",
+			EnvVars: []string{"RAINBOW_DB_PATH"},
 		},
 		&cli.StringFlag{
-			Name:  "cursor-file",
-			Value: "",
-			Usage: "write upstream cursor number to this file",
+			Name:    "cursor-file",
+			Value:   "./rainbow-cursor",
+			Usage:   "write upstream cursor number to this file",
+			EnvVars: []string{"RAINBOW_CURSOR_PATH"},
 		},
 		&cli.StringFlag{
-			Name:  "api-listen",
-			Value: ":2480",
+			Name:    "api-listen",
+			Value:   ":2480",
+			EnvVars: []string{"RAINBOW_API_LISTEN"},
 		},
 		&cli.StringFlag{
 			Name:    "metrics-listen",
 			Value:   ":2481",
-			EnvVars: []string{"SPLITTER_METRICS_LISTEN"},
+			EnvVars: []string{"RAINBOW_METRICS_LISTEN", "SPLITTER_METRICS_LISTEN"},
 		},
 		&cli.Float64Flag{
 			Name:    "persist-hours",
-			Value:   24 * 7,
-			EnvVars: []string{"SPLITTER_PERSIST_HOURS"},
+			Value:   24 * 3,
+			EnvVars: []string{"RAINBOW_PERSIST_HOURS", "SPLITTER_PERSIST_HOURS"},
 			Usage:   "hours to buffer (float, may be fractional)",
 		},
 		&cli.Int64Flag{
 			Name:    "persist-bytes",
 			Value:   0,
 			Usage:   "max bytes target for event cache, 0 to disable size target trimming",
-			EnvVars: []string{"SPLITTER_PERSIST_BYTES"},
+			EnvVars: []string{"RAINBOW_PERSIST_BYTES", "SPLITTER_PERSIST_BYTES"},
 		},
 	}
 

@@ -196,10 +196,11 @@ func (s *Splitter) StartWithListener(listen net.Listener) error {
 		}
 	}
 
-	// TODO: this API is temporary until we formalize what we want here
-
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
+
 	e.GET("/xrpc/_health", s.HandleHealthCheck)
+	e.GET("/_health", s.HandleHealthCheck)
+	e.GET("/", s.HandleHomeMessage)
 
 	// In order to support booting on random ports in tests, we need to tell the
 	// Echo instance it's already got a port, and then use its StartServer
@@ -216,6 +217,21 @@ type HealthStatus struct {
 
 func (s *Splitter) HandleHealthCheck(c echo.Context) error {
 	return c.JSON(200, HealthStatus{Status: "ok"})
+}
+
+var homeMessage string = `
+          _      _
+ _ _ __ _(_)_ _ | |__  _____ __ __
+| '_/ _' | | ' \| '_ \/ _ \ V  V /
+|_| \__,_|_|_||_|_.__/\___/\_/\_/
+
+This is an atproto [https://atproto.com] firehose fanout service, running the 'rainbow' codebase [https://github.com/bluesky-social/indigo]
+
+The firehose WebSocket path is at:  /xrpc/com.atproto.sync.subscribeRepos
+`
+
+func (s *Splitter) HandleHomeMessage(c echo.Context) error {
+	return c.String(http.StatusOK, homeMessage)
 }
 
 func (s *Splitter) EventsHandler(c echo.Context) error {
