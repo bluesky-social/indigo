@@ -3,6 +3,7 @@ package bgs
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -186,6 +187,23 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 
 	// Maybe we could do something with this response later
 	_ = desc
+
+	if s.nextCrawler != nil {
+		pu := s.nextCrawler.JoinPath("/xrpc/com.atproto.sync.requestCrawl")
+		blob, err := json.Marshal(body)
+		if err != nil {
+			log.Warnw("could not forward requestCrawl, json err", "err", err)
+		} else {
+			go func() {
+				response, err := s.httpClient.Post(pu.String(), "application/json", bytes.NewReader(blob))
+				if err != nil {
+					log.Warnw("requestCrawl forward failed", "err", err)
+				} else if response.StatusCode != http.StatusOK {
+					log.Warnw("requestCrawl forward failed", "status", response.Status)
+				}
+			}()
+		}
+	}
 
 	return s.slurper.SubscribeToPds(ctx, host, true, false)
 }
