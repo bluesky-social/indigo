@@ -98,7 +98,12 @@ func (eng *Engine) circuitBreakReports(ctx context.Context, reports []ModReport)
 	if err != nil {
 		return nil, fmt.Errorf("checking report action quota: %w", err)
 	}
-	if c >= QuotaModReportDay {
+
+	quotaModReportDay := eng.Config.QuotaModReportDay
+	if quotaModReportDay == 0 {
+		quotaModReportDay = 10000
+	}
+	if c >= quotaModReportDay {
 		eng.Logger.Warn("CIRCUIT BREAKER: automod reports")
 		return []ModReport{}, nil
 	}
@@ -117,7 +122,11 @@ func (eng *Engine) circuitBreakTakedown(ctx context.Context, takedown bool) (boo
 	if err != nil {
 		return false, fmt.Errorf("checking takedown action quota: %w", err)
 	}
-	if c >= QuotaModTakedownDay {
+	quotaModTakedownDay := eng.Config.QuotaModTakedownDay
+	if quotaModTakedownDay == 0 {
+		quotaModTakedownDay = 200
+	}
+	if c >= quotaModTakedownDay {
 		eng.Logger.Warn("CIRCUIT BREAKER: automod takedowns")
 		return false, nil
 	}
@@ -137,7 +146,11 @@ func (eng *Engine) circuitBreakModAction(ctx context.Context, action bool) (bool
 	if err != nil {
 		return false, fmt.Errorf("checking mod action quota: %w", err)
 	}
-	if c >= QuotaModActionDay {
+	quotaModActionDay := eng.Config.QuotaModActionDay
+	if quotaModActionDay == 0 {
+		quotaModActionDay = 2000
+	}
+	if c >= quotaModActionDay {
 		eng.Logger.Warn("CIRCUIT BREAKER: automod action")
 		return false, nil
 	}
@@ -191,7 +204,11 @@ func (eng *Engine) createReportIfFresh(ctx context.Context, xrpcc *xrpc.Client, 
 		if err != nil {
 			return false, err
 		}
-		if time.Since(created.Time()) > ReportDupePeriod {
+		reportDupePeriod := eng.Config.ReportDupePeriod
+		if reportDupePeriod == 0 {
+			reportDupePeriod = 1 * 24 * time.Hour
+		}
+		if time.Since(created.Time()) > reportDupePeriod {
 			continue
 		}
 
@@ -267,7 +284,11 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 		if err != nil {
 			return false, err
 		}
-		if time.Since(created.Time()) > ReportDupePeriod {
+		reportDupePeriod := eng.Config.ReportDupePeriod
+		if reportDupePeriod == 0 {
+			reportDupePeriod = 1 * 24 * time.Hour
+		}
+		if time.Since(created.Time()) > reportDupePeriod {
 			continue
 		}
 
