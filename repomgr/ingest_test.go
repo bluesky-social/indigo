@@ -80,7 +80,14 @@ func testCarstore(t *testing.T, dir string) carstore.CarStore {
 		t.Fatal(err)
 	}
 
-	cs, err := carstore.NewCarStore(cardb, []string{cspath})
+	/*
+		cs, err := carstore.NewCarStore(cardb, []string{cspath})
+		if err != nil {
+			t.Fatal(err)
+		}
+	*/
+
+	cs, err := carstore.NewNonArchivalCarstore(cardb)
 	if err != nil {
 		t.Fatal(err)
 	}
