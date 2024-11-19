@@ -555,11 +555,13 @@ func SetupRelay(ctx context.Context, didr plc.PLCClient) (*TestRelay, error) {
 		if err != nil {
 			return nil, err
 		}
-	*/
+		//*/
+	//*
 	cs, err := carstore.NewNonArchivalCarstore(cardb)
 	if err != nil {
 		return nil, err
 	}
+	//*/
 
 	//kmgr := indexer.NewKeyManager(didr, nil)
 	kmgr := &bsutil.FakeKeyManager{}
