@@ -78,8 +78,8 @@ func run(args []string) {
 		},
 		&cli.Float64Flag{
 			Name:    "persist-hours",
-			Value:   24 * 7,
-			EnvVars: []string{"SPLITTER_PERSIST_HOURS"},
+			Value:   24 * 3,
+			EnvVars: []string{"RAINBOW_PERSIST_HOURS", "SPLITTER_PERSIST_HOURS"},
 			Usage:   "hours to buffer (float, may be fractional)",
 		},
 		&cli.Int64Flag{
