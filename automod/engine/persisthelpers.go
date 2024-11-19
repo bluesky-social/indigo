@@ -284,7 +284,11 @@ func (eng *Engine) createRecordReportIfFresh(ctx context.Context, xrpcc *xrpc.Cl
 		if err != nil {
 			return false, err
 		}
-		if time.Since(created.Time()) > eng.Config.ReportDupePeriod {
+		reportDupePeriod := eng.Config.ReportDupePeriod
+		if reportDupePeriod == 0 {
+			reportDupePeriod = 1 * 24 * time.Hour
+		}
+		if time.Since(created.Time()) > reportDupePeriod {
 			continue
 		}
 
