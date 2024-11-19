@@ -173,13 +173,13 @@ func (c *CrawlDispatcher) dequeueJob(job *crawlWork) {
 }
 
 func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
-	catchupEventsEnqueued.Inc()
 	c.maplk.Lock()
 	defer c.maplk.Unlock()
 
 	// If the actor crawl is enqueued, we can append to the catchup queue which gets emptied during the crawl
 	job, ok := c.todo[catchup.user.Uid]
 	if ok {
+		catchupEventsEnqueued.WithLabelValues("todo").Inc()
 		job.catchup = append(job.catchup, catchup)
 		return nil
 	}
@@ -187,10 +187,12 @@ func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
 	// If the actor crawl is in progress, we can append to the nextr queue which gets emptied after the crawl
 	job, ok = c.inProgress[catchup.user.Uid]
 	if ok {
+		catchupEventsEnqueued.WithLabelValues("prog").Inc()
 		job.next = append(job.next, catchup)
 		return nil
 	}
 
+	catchupEventsEnqueued.WithLabelValues("new").Inc()
 	// Otherwise, we need to create a new crawl job for this actor and enqueue it
 	cw := &crawlWork{
 		act:     catchup.user,
