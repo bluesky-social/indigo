@@ -541,6 +541,7 @@ func TestRelayHandleEmptyEvent(t *testing.T) {
 	e1 := evts.Next()
 	assert.NotNil(e1.RepoCommit)
 	assert.Equal(e1.RepoCommit.Repo, bob.DID())
+	fmt.Println(e1.RepoCommit.Ops[0])
 
 	ctx := context.TODO()
 	rm := p1.server.Repoman()
@@ -549,7 +550,7 @@ func TestRelayHandleEmptyEvent(t *testing.T) {
 	}
 
 	e2 := evts.Next()
-	fmt.Println(e2.RepoCommit.Ops)
+	//fmt.Println(e2.RepoCommit.Ops[0])
 	assert.Equal(len(e2.RepoCommit.Ops), 0)
 	assert.Equal(e2.RepoCommit.Repo, bob.DID())
 }
