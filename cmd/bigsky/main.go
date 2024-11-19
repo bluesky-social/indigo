@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -204,6 +205,11 @@ func run(args []string) error {
 			Name:    "carstore-shard-dirs",
 			Usage:   "specify list of shard directories for carstore storage, overrides default storage within datadir",
 			EnvVars: []string{"RELAY_CARSTORE_SHARD_DIRS"},
+		},
+		&cli.StringFlag{
+			Name:    "next-crawler",
+			Usage:   "forward POST requestCrawl to this url, should be machine root url and not xrpc/requestCrawl",
+			EnvVars: []string{"RELAY_NEXT_CRAWLER"},
 		},
 	}
 
@@ -434,6 +440,14 @@ func runBigsky(cctx *cli.Context) error {
 	bgsConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
 	bgsConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
 	bgsConfig.NumCompactionWorkers = cctx.Int("num-compaction-workers")
+	nextCrawler := cctx.String("next-crawler")
+	if nextCrawler != "" {
+		xu, err := url.Parse(nextCrawler)
+		if err != nil {
+			return fmt.Errorf("failed to parse next-crawler url: %w", err)
+		}
+		bgsConfig.NextCrawler = xu
+	}
 	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, rf, hr, bgsConfig)
 	if err != nil {
 		return err
