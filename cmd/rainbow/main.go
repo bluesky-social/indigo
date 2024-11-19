@@ -55,14 +55,16 @@ func run(args []string) {
 			EnvVars: []string{"ATP_RELAY_HOST", "RAINBOW_RELAY_HOST"},
 		},
 		&cli.StringFlag{
-			Name:  "persist-db",
-			Value: "",
-			Usage: "path to persistence db",
+			Name:    "persist-db",
+			Value:   "./rainbow.db",
+			Usage:   "path to persistence db",
+			EnvVars: []string{"RAINBOW_DB_PATH"},
 		},
 		&cli.StringFlag{
-			Name:  "cursor-file",
-			Value: "",
-			Usage: "write upstream cursor number to this file",
+			Name:    "cursor-file",
+			Value:   "./rainbow-cursor",
+			Usage:   "write upstream cursor number to this file",
+			EnvVars: []string{"RAINBOW_CURSOR_PATH"},
 		},
 		&cli.StringFlag{
 			Name:    "api-listen",
