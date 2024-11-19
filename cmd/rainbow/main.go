@@ -25,7 +25,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
-var log = logging.Logger("splitter")
+var log = logging.Logger("rainbow")
 
 func init() {
 	// control log level using, eg, GOLOG_LOG_LEVEL=debug
@@ -38,8 +38,8 @@ func main() {
 
 func run(args []string) {
 	app := cli.App{
-		Name:    "splitter",
-		Usage:   "firehose proxy",
+		Name:    "rainbow",
+		Usage:   "atproto firehose fan-out daemon",
 		Version: versioninfo.Short(),
 	}
 
