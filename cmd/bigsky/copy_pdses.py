@@ -37,6 +37,8 @@ class relay:
         url = urllib.parse.urljoin(self.rooturl, '/admin/pds/changeLimits')
         plimits = dict(limits)
         plimits["host"] = host
+        pheaders = dict(self.headers)
+        pheaders['Content-Type'] = 'application/json'
         response = self.session.post(url, headers=pheaders, data=json.dumps(plimits))
         if response.status_code != 200:
             logger.error("%s %s : %d %r", url, host, response.status_code, response.text)
@@ -57,7 +59,7 @@ class relay:
 
     def block(self, host):
         url = urllib.parse.urljoin(self.rooturl, '/admin/pds/block')
-        response = self.session.post(url, headers=pheaders, data='', params={"host":host})
+        response = self.session.post(url, headers=self.headers, data='', params={"host":host})
         if response.status_code != 200:
             logger.error("%s %s : %d %r", url, host, response.status_code, response.text)
             return False
@@ -65,7 +67,7 @@ class relay:
 
     def unblock(self, host):
         url = urllib.parse.urljoin(self.rooturl, '/admin/pds/unblock')
-        response = self.session.post(url, headers=pheaders, data='', params={"host":host})
+        response = self.session.post(url, headers=self.headers, data='', params={"host":host})
         if response.status_code != 200:
             logger.error("%s %s : %d %r", url, host, response.status_code, response.text)
             return False
