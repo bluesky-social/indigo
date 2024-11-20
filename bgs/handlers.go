@@ -202,6 +202,7 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 					} else if response.StatusCode != http.StatusOK {
 						log.Warnw("requestCrawl forward failed", "status", response.Status)
 					}
+					log.Infow("requestCrawl forward successful", "host", rpu, "status", response.Status)
 				}
 			}(blob)
 		}
