@@ -92,9 +92,9 @@ type BGS struct {
 	// User cache
 	userCache *lru.Cache[string, *User]
 
-	// nextCrawler gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
-	nextCrawler *url.URL
-	httpClient  http.Client
+	// nextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
+	nextCrawlers []*url.URL
+	httpClient   http.Client
 }
 
 type PDSResync struct {
@@ -122,8 +122,8 @@ type BGSConfig struct {
 	MaxQueuePerPDS       int64
 	NumCompactionWorkers int
 
-	// NextCrawler gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
-	NextCrawler *url.URL
+	// NextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
+	NextCrawlers []*url.URL
 }
 
 func DefaultBGSConfig() *BGSConfig {
