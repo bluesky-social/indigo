@@ -449,6 +449,7 @@ func runBigsky(cctx *cli.Context) error {
 			if err != nil {
 				return fmt.Errorf("failed to parse next-crawler url: %w", err)
 			}
+			log.Infow("configuring relay for requestCrawl", "host", nextCrawlerUrls[i])
 		}
 		bgsConfig.NextCrawlers = nextCrawlerUrls
 	}
