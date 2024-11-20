@@ -192,6 +192,8 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	compactor.Start(bgs)
 	bgs.compactor = compactor
 
+	bgs.httpClient.Timeout = time.Second * 5
+
 	return bgs, nil
 }
 
