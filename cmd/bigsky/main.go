@@ -206,9 +206,9 @@ func run(args []string) error {
 			Usage:   "specify list of shard directories for carstore storage, overrides default storage within datadir",
 			EnvVars: []string{"RELAY_CARSTORE_SHARD_DIRS"},
 		},
-		&cli.StringFlag{
+		&cli.StringSliceFlag{
 			Name:    "next-crawler",
-			Usage:   "forward POST requestCrawl to this url, should be machine root url and not xrpc/requestCrawl",
+			Usage:   "forward POST requestCrawl to this url, should be machine root url and not xrpc/requestCrawl, comma separated list",
 			EnvVars: []string{"RELAY_NEXT_CRAWLER"},
 		},
 	}
@@ -440,13 +440,17 @@ func runBigsky(cctx *cli.Context) error {
 	bgsConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
 	bgsConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
 	bgsConfig.NumCompactionWorkers = cctx.Int("num-compaction-workers")
-	nextCrawler := cctx.String("next-crawler")
-	if nextCrawler != "" {
-		xu, err := url.Parse(nextCrawler)
-		if err != nil {
-			return fmt.Errorf("failed to parse next-crawler url: %w", err)
+	nextCrawlers := cctx.StringSlice("next-crawler")
+	if len(nextCrawlers) != 0 {
+		nextCrawlerUrls := make([]*url.URL, len(nextCrawlers))
+		for i, tu := range nextCrawlers {
+			var err error
+			nextCrawlerUrls[i], err = url.Parse(tu)
+			if err != nil {
+				return fmt.Errorf("failed to parse next-crawler url: %w", err)
+			}
 		}
-		bgsConfig.NextCrawler = xu
+		bgsConfig.NextCrawlers = nextCrawlerUrls
 	}
 	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, rf, hr, bgsConfig)
 	if err != nil {
