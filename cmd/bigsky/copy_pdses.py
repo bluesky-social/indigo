@@ -210,7 +210,8 @@ def main():
         if args.dry_run:
             logger.info("requestCrawl %s", host)
         else:
-            r2.crawl(host)
+            if r2.crawl(host):
+                logger.debug("requestCrawl %s OK", host)
     logger.info("%d in dest but not source", len(dnots))
     for k2 in dnots:
         logger.debug("%s", k2)
