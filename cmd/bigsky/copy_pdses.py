@@ -20,13 +20,18 @@ class relay:
         self.headers = headers or dict()
         self.session = session or requests.Session()
 
-    def crawlAndSetLimits(self, host, limits):
-        "host string, limits dict"
+    def crawl(self, host):
         pheaders = dict(self.headers)
         pheaders['Content-Type'] = 'application/json'
         url = urllib.parse.urljoin(self.rooturl, '/admin/pds/requestCrawl')
         response = self.session.post(url, headers=pheaders, data=json.dumps({"hostname": host}))
         if response.status_code != 200:
+            return False
+        return True
+
+    def crawlAndSetLimits(self, host, limits):
+        "host string, limits dict"
+        if not self.crawl(host):
             logger.error("%s %s : %d %r", url, host, response.status_code, response.text)
             return
         if limits is None:
@@ -47,11 +52,7 @@ class relay:
 
     def crawlAndBlock(self, host):
         "make relay aware of PDS, and block it"
-        pheaders = dict(self.headers)
-        pheaders['Content-Type'] = 'application/json'
-        url = urllib.parse.urljoin(self.rooturl, '/admin/pds/requestCrawl')
-        response = self.session.post(url, headers=pheaders, data=json.dumps({"hostname": host}))
-        if response.status_code != 200:
+        if not self.crawl(host):
             logger.error("%s %s : %d %r", url, host, response.status_code, response.text)
             return
         if self.block(host):
@@ -155,6 +156,7 @@ def main():
     dnots = []
     diflim = []
     difblock = []
+    recrawl = []
 
     for k1, v1 in source.items():
         v2 = dests.get(k1)
@@ -163,10 +165,14 @@ def main():
             continue
         lim1 = makeLimits(v1)
         lim2 = makeLimits(v2)
-        if not de(lim1, lim2):
-            diflim.append(lim1)
         if v1["Blocked"] != v2["Blocked"]:
             difblock.append((k1,v1["Blocked"]))
+        if v1["Blocked"]:
+            continue
+        if not de(lim1, lim2):
+            diflim.append(lim1)
+        if v1["HasActiveConnection"] and not v2["HasActiveConnection"]:
+            recrawl.append(k1)
     for k2 in dests.keys():
         if k2 not in source:
             dnots.append(k2)
@@ -184,11 +190,13 @@ def main():
                 sys.stdout.write("crawl and limit: {}\n".format(json.dumps(limits)))
             else:
                 r2.crawlAndSetLimits(rec["Host"], limits)
+    logger.debug("adjust limits: %d", len(diflim))
     for limits in diflim:
         if args.dry_run:
             sys.stdout.write("set limits: {}\n".format(json.dumps(limits)))
         else:
             r2.setLimits(limits["host"], limits)
+    logger.debug("adjust block status: %d", len(difblock))
     for host, blocked in difblock:
         if args.dry_run:
             sys.stdout.write("{} block={}\n".format(host, blocked))
@@ -197,6 +205,12 @@ def main():
                 r2.block(host)
             else:
                 r2.unblock(host)
+    logger.debug("restart requestCrawl: %d", len(recrawl))
+    for host in recrawl:
+        if args.dry_run:
+            logger.info("requestCrawl %s", host)
+        else:
+            r2.crawl(host)
     logger.info("%d in dest but not source", len(dnots))
     for k2 in dnots:
         logger.debug("%s", k2)
