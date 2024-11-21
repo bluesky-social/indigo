@@ -118,7 +118,8 @@ func eventFromPebbleIter(iter *pebble.Iterator) (*XRPCStreamEvent, error) {
 
 func (pp *PebblePersist) Playback(ctx context.Context, since int64, cb func(*XRPCStreamEvent) error) error {
 	var key [8]byte
-	binary.BigEndian.PutUint64(key[:], uint64(since))
+	// Add 1 to the cursor because IterOptions.LowerBound is inclusive.
+	binary.BigEndian.PutUint64(key[:], uint64(since+1))
 
 	iter, err := pp.db.NewIterWithContext(ctx, &pebble.IterOptions{LowerBound: key[:]})
 	if err != nil {
