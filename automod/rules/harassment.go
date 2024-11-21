@@ -130,7 +130,7 @@ func HarassmentTrivialPostRule(c *automod.RecordContext, post *appbsky.FeedPost)
 
 	if count > 5 {
 		//c.AddRecordFlag("trivial-harassing-post")
-		c.ReportAccount(automod.ReportReasonOther, fmt.Sprintf("possible targetted harassment (also labeled; remove label if this isn't harassment!)"))
+		c.ReportAccount(automod.ReportReasonOther, "possible targetted harassment (also labeled; remove label if this isn't harassment!)")
 		c.AddAccountLabel("!hide")
 		c.Notify("slack")
 	}
