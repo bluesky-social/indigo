@@ -892,6 +892,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		userLookupDuration.Observe(time.Since(s).Seconds())
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				repoCommitsResultCounter.WithLabelValues(host.Host, "nou").Inc()
 				return fmt.Errorf("looking up event user: %w", err)
 			}
 
@@ -900,6 +901,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			subj, err := bgs.createExternalUser(ctx, evt.Repo)
 			newUserDiscoveryDuration.Observe(time.Since(start).Seconds())
 			if err != nil {
+				repoCommitsResultCounter.WithLabelValues(host.Host, "uerr").Inc()
 				return fmt.Errorf("fed event create external user: %w", err)
 			}
 
@@ -914,20 +916,24 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 		if u.GetTakenDown() || ustatus == events.AccountStatusTakendown {
 			span.SetAttributes(attribute.Bool("taken_down_by_relay_admin", u.GetTakenDown()))
 			log.Debugw("dropping commit event from taken down user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
+			repoCommitsResultCounter.WithLabelValues(host.Host, "tdu").Inc()
 			return nil
 		}
 
 		if ustatus == events.AccountStatusSuspended {
 			log.Debugw("dropping commit event from suspended user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
+			repoCommitsResultCounter.WithLabelValues(host.Host, "susu").Inc()
 			return nil
 		}
 
 		if ustatus == events.AccountStatusDeactivated {
 			log.Debugw("dropping commit event from deactivated user", "did", evt.Repo, "seq", evt.Seq, "pdsHost", host.Host)
+			repoCommitsResultCounter.WithLabelValues(host.Host, "du").Inc()
 			return nil
 		}
 
 		if evt.Rebase {
+			repoCommitsResultCounter.WithLabelValues(host.Host, "rebase").Inc()
 			return fmt.Errorf("rebase was true in event seq:%d,host:%s", evt.Seq, host.Host)
 		}
 
@@ -938,10 +944,12 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 			subj, err := bgs.createExternalUser(ctx, evt.Repo)
 			if err != nil {
+				repoCommitsResultCounter.WithLabelValues(host.Host, "uerr2").Inc()
 				return err
 			}
 
 			if subj.PDS != host.ID {
+				repoCommitsResultCounter.WithLabelValues(host.Host, "noauth").Inc()
 				return fmt.Errorf("event from non-authoritative pds")
 			}
 		}
@@ -950,16 +958,19 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			span.SetAttributes(attribute.Bool("tombstoned", true))
 			// we've checked the authority of the users PDS, so reinstate the account
 			if err := bgs.db.Model(&User{}).Where("id = ?", u.ID).UpdateColumn("tombstoned", false).Error; err != nil {
+				repoCommitsResultCounter.WithLabelValues(host.Host, "tomb").Inc()
 				return fmt.Errorf("failed to un-tombstone a user: %w", err)
 			}
 			u.SetTombstoned(false)
 
 			ai, err := bgs.Index.LookupUser(ctx, u.ID)
 			if err != nil {
+				repoCommitsResultCounter.WithLabelValues(host.Host, "nou2").Inc()
 				return fmt.Errorf("failed to look up user (tombstone recover): %w", err)
 			}
 
 			// Now a simple re-crawl should suffice to bring the user back online
+			repoCommitsResultCounter.WithLabelValues(host.Host, "catchupt").Inc()
 			return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
 		}
 
@@ -968,6 +979,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			rebasesCounter.WithLabelValues(host.Host).Add(1)
 			ai, err := bgs.Index.LookupUser(ctx, u.ID)
 			if err != nil {
+				repoCommitsResultCounter.WithLabelValues(host.Host, "nou3").Inc()
 				return fmt.Errorf("failed to look up user (slow path): %w", err)
 			}
 
@@ -979,6 +991,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			// processor coming off of the pds stream, we should investigate
 			// whether or not we even need this 'slow path' logic, as it makes
 			// accounting for which events have been processed much harder
+			repoCommitsResultCounter.WithLabelValues(host.Host, "catchup").Inc()
 			return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
 		}
 
@@ -988,16 +1001,19 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 				ai, lerr := bgs.Index.LookupUser(ctx, u.ID)
 				if lerr != nil {
 					log.Warnw("failed handling event, no user", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
+					repoCommitsResultCounter.WithLabelValues(host.Host, "nou4").Inc()
 					return fmt.Errorf("failed to look up user %s (%d) (err case: %s): %w", u.Did, u.ID, err, lerr)
 				}
 
 				span.SetAttributes(attribute.Bool("catchup_queue", true))
 
 				log.Infow("failed handling event, catchup", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
+				repoCommitsResultCounter.WithLabelValues(host.Host, "catchup2").Inc()
 				return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
 			}
 
 			log.Warnw("failed handling event", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
+			repoCommitsResultCounter.WithLabelValues(host.Host, "err").Inc()
 			return fmt.Errorf("handle user event failed: %w", err)
 		}
 
