@@ -91,6 +91,10 @@ type BGS struct {
 
 	// User cache
 	userCache *lru.Cache[string, *User]
+
+	// nextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
+	nextCrawlers []*url.URL
+	httpClient   http.Client
 }
 
 type PDSResync struct {
@@ -117,6 +121,9 @@ type BGSConfig struct {
 	ConcurrencyPerPDS    int64
 	MaxQueuePerPDS       int64
 	NumCompactionWorkers int
+
+	// NextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
+	NextCrawlers []*url.URL
 }
 
 func DefaultBGSConfig() *BGSConfig {
@@ -184,6 +191,9 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	compactor.requeueInterval = config.CompactInterval
 	compactor.Start(bgs)
 	bgs.compactor = compactor
+
+	bgs.nextCrawlers = config.NextCrawlers
+	bgs.httpClient.Timeout = time.Second * 5
 
 	return bgs, nil
 }
