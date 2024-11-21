@@ -1017,6 +1017,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return fmt.Errorf("handle user event failed: %w", err)
 		}
 
+		repoCommitsResultCounter.WithLabelValues(host.Host, "ok").Inc()
 		return nil
 	case env.RepoHandle != nil:
 		log.Infow("bgs got repo handle event", "did", env.RepoHandle.Did, "handle", env.RepoHandle.Handle)
