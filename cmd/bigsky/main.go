@@ -401,7 +401,10 @@ func runBigsky(cctx *cli.Context) error {
 
 	rf := indexer.NewRepoFetcher(db, repoman, cctx.Int("max-fetch-concurrency"))
 
-	ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, rf, true, cctx.Bool("spidering"), false)
+	ctx, ctxCancel := context.WithCancel(context.Background())
+	defer ctxCancel()
+
+	ix, err := indexer.NewIndexer(ctx, db, notifman, evtman, cachedidr, rf, true, false, cctx.Bool("spidering"))
 	if err != nil {
 		return err
 	}
