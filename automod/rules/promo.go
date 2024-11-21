@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"fmt"
 	"net/url"
 	"strings"
 	"time"
