@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -116,9 +117,12 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 			TTL:   d.ErrTTL,
 		})
 		if err != nil {
-			he.DID = nil
-			he.Err = fmt.Errorf("identity cache write: %w", err)
-			return he
+			/*
+				he.DID = nil
+				he.Err = fmt.Errorf("identity cache write: %w", err)
+				return he
+			*/
+			slog.Error("identity cache write", "cache", "handle", "err", err)
 		}
 		return he
 	}
@@ -141,9 +145,12 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 		TTL:   d.HitTTL,
 	})
 	if err != nil {
-		he.DID = nil
-		he.Err = fmt.Errorf("identity cache write: %w", err)
-		return he
+		/*
+			he.DID = nil
+			he.Err = fmt.Errorf("identity cache write: %w", err)
+			return he
+		*/
+		slog.Error("identity cache write", "cache", "did", "did", ident.DID, "err", err)
 	}
 	err = d.handleCache.Set(&cache.Item{
 		Ctx:   ctx,
@@ -152,9 +159,12 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 		TTL:   d.HitTTL,
 	})
 	if err != nil {
-		he.DID = nil
-		he.Err = fmt.Errorf("identity cache write: %w", err)
-		return he
+		/*
+			he.DID = nil
+			he.Err = fmt.Errorf("identity cache write: %w", err)
+			return he
+		*/
+		slog.Error("identity cache write", "cache", "handle", "did", ident.DID, "err", err)
 	}
 	return he
 }
@@ -250,9 +260,12 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) identity
 		TTL:   d.HitTTL,
 	})
 	if err != nil {
-		entry.Identity = nil
-		entry.Err = fmt.Errorf("identity cache write: %v", err)
-		return entry
+		/*
+			entry.Identity = nil
+			entry.Err = fmt.Errorf("identity cache write: %v", err)
+			return entry
+		*/
+		slog.Error("identity cache write", "cache", "did", "did", did, "err", err)
 	}
 	if he != nil {
 		err = d.handleCache.Set(&cache.Item{
@@ -262,9 +275,12 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) identity
 			TTL:   d.HitTTL,
 		})
 		if err != nil {
-			entry.Identity = nil
-			entry.Err = fmt.Errorf("identity cache write: %v", err)
-			return entry
+			/*
+				entry.Identity = nil
+				entry.Err = fmt.Errorf("identity cache write: %v", err)
+				return entry
+			*/
+			slog.Error("identity cache write", "cache", "handle", "did", did, "err", err)
 		}
 	}
 	return entry
