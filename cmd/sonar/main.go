@@ -104,8 +104,8 @@ func Sonar(cctx *cli.Context) error {
 	pool := sequential.NewScheduler(u.Host, s.HandleStreamEvent)
 
 	// Start a goroutine to manage the cursor file, saving the current cursor every 5 seconds.
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
 		defer wg.Done()
 		ticker := time.NewTicker(5 * time.Second)
 		logger := logger.With("source", "cursor_file_manager")
@@ -130,8 +130,8 @@ func Sonar(cctx *cli.Context) error {
 	}()
 
 	// Start a goroutine to manage the liveness checker, shutting down if no events are received for 15 seconds
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
 		defer wg.Done()
 		ticker := time.NewTicker(15 * time.Second)
 		lastSeq := int64(0)
@@ -167,8 +167,8 @@ func Sonar(cctx *cli.Context) error {
 	}
 
 	// Startup metrics server
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
 		defer wg.Done()
 		logger = logger.With("source", "metrics_server")
 
@@ -194,8 +194,8 @@ func Sonar(cctx *cli.Context) error {
 	}
 	defer c.Close()
 
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
 		defer wg.Done()
 		err = events.HandleRepoStream(ctx, c, pool)
 		logger.Info("HandleRepoStream returned unexpectedly", "err", err)

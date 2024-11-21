@@ -345,8 +345,8 @@ func Netsync(cctx *cli.Context) error {
 		Handler: mux,
 	}
 
+	state.wg.Add(1)
 	go func() {
-		state.wg.Add(1)
 		defer state.wg.Done()
 		if err := metricsServer.ListenAndServe(); err != http.ErrServerClosed {
 			logger.Error("failed to start metrics server", "err", err)
@@ -368,8 +368,8 @@ func Netsync(cctx *cli.Context) error {
 	}
 
 	// Check for empty queue
+	state.wg.Add(1)
 	go func() {
-		state.wg.Add(1)
 		defer state.wg.Done()
 		t := time.NewTicker(30 * time.Second)
 		for {
