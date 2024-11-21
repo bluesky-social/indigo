@@ -28,7 +28,7 @@ var repoCommitsReceivedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 }, []string{"pds"})
 
 var repoCommitsResultCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "repo_commits_resurt_counter",
+	Name: "repo_commits_result_counter",
 	Help: "The results of commit events received",
 }, []string{"pds", "status"})
 
