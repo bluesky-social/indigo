@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/models"
@@ -29,12 +30,12 @@ type CrawlDispatcher struct {
 	concurrency int
 }
 
-func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurrency int) (*CrawlDispatcher, error) {
+func NewCrawlDispatcher(ctx context.Context, repoFn func(context.Context, *crawlWork) error, concurrency int) (*CrawlDispatcher, error) {
 	if concurrency < 1 {
 		return nil, fmt.Errorf("must specify a non-zero positive integer for crawl dispatcher concurrency")
 	}
 
-	return &CrawlDispatcher{
+	out := &CrawlDispatcher{
 		ingest:      make(chan *models.ActorInfo),
 		repoSync:    make(chan *crawlWork),
 		complete:    make(chan models.Uid),
@@ -43,7 +44,10 @@ func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurre
 		concurrency: concurrency,
 		todo:        make(map[models.Uid]*crawlWork),
 		inProgress:  make(map[models.Uid]*crawlWork),
-	}, nil
+	}
+	go out.CatchupRepoGaugePoller(ctx)
+
+	return out, nil
 }
 
 func (c *CrawlDispatcher) Run() {
@@ -270,4 +274,23 @@ func (c *CrawlDispatcher) RepoInSlowPath(ctx context.Context, uid models.Uid) bo
 	}
 
 	return false
+}
+
+func (c *CrawlDispatcher) countReposInSlowPath() int {
+	c.maplk.Lock()
+	defer c.maplk.Unlock()
+	return len(c.inProgress) + len(c.todo)
+}
+
+func (c *CrawlDispatcher) CatchupRepoGaugePoller(ctx context.Context) {
+	done := ctx.Done()
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-done:
+		case <-ticker.C:
+			catchupReposGauge.Set(float64(c.countReposInSlowPath()))
+		}
+	}
 }

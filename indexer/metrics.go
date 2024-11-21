@@ -39,3 +39,8 @@ var catchupEventsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "indexer_catchup_events_failed",
 	Help: "Number of catchup events processed",
 }, []string{"err"})
+
+var catchupReposGauge = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "indexer_catchup_repos",
+	Help: "Number of repos waiting on catchup",
+})
