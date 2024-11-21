@@ -8,6 +8,7 @@ require (
 	github.com/RussellLuo/slidingwindow v0.0.0-20200528002341-535bb99d338b
 	github.com/adrg/xdg v0.5.0
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
+	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
 	github.com/brianvoe/gofakeit/v6 v6.25.0
 	github.com/carlmjohnson/versioninfo v0.22.5
 	github.com/cockroachdb/pebble v1.1.2
