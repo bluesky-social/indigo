@@ -47,7 +47,7 @@ type Indexer struct {
 	ApplyPDSClientSettings func(*xrpc.Client)
 }
 
-func NewIndexer(ctx context.Context, db *gorm.DB, notifman notifs.NotificationManager, evtman *events.EventManager, didr did.Resolver, fetcher *RepoFetcher, crawl, aggregate, spider bool) (*Indexer, error) {
+func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events.EventManager, didr did.Resolver, fetcher *RepoFetcher, crawl, aggregate, spider bool) (*Indexer, error) {
 	db.AutoMigrate(&models.FeedPost{})
 	db.AutoMigrate(&models.ActorInfo{})
 	db.AutoMigrate(&models.FollowRecord{})
@@ -68,7 +68,7 @@ func NewIndexer(ctx context.Context, db *gorm.DB, notifman notifs.NotificationMa
 	}
 
 	if crawl {
-		c, err := NewCrawlDispatcher(ctx, fetcher.FetchAndIndexRepo, fetcher.MaxConcurrency)
+		c, err := NewCrawlDispatcher(fetcher.FetchAndIndexRepo, fetcher.MaxConcurrency)
 		if err != nil {
 			return nil, err
 		}
@@ -78,6 +78,10 @@ func NewIndexer(ctx context.Context, db *gorm.DB, notifman notifs.NotificationMa
 	}
 
 	return ix, nil
+}
+
+func (ix *Indexer) Shutdown() {
+	ix.Crawler.Shutdown()
 }
 
 func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) error {
