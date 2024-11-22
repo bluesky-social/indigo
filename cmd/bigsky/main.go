@@ -401,13 +401,11 @@ func runBigsky(cctx *cli.Context) error {
 
 	rf := indexer.NewRepoFetcher(db, repoman, cctx.Int("max-fetch-concurrency"))
 
-	ctx, ctxCancel := context.WithCancel(context.Background())
-	defer ctxCancel()
-
-	ix, err := indexer.NewIndexer(ctx, db, notifman, evtman, cachedidr, rf, true, false, cctx.Bool("spidering"))
+	ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, rf, true, false, cctx.Bool("spidering"))
 	if err != nil {
 		return err
 	}
+	defer ix.Shutdown()
 
 	rlskip := cctx.String("bsky-social-rate-limit-skip")
 	ix.ApplyPDSClientSettings = func(c *xrpc.Client) {
