@@ -37,6 +37,11 @@ var eventsSentCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "The total number of events sent to consumers",
 }, []string{"remote_addr", "user_agent"})
 
+var eventsSkippedCounter = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "events_skip_counter",
+	Help: "The total number of events NOT sent to consumers",
+})
+
 var externalUserCreationAttempts = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "bgs_external_user_creation_attempts",
 	Help: "The total number of external users created",
