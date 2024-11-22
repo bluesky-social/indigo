@@ -63,7 +63,7 @@ func testIndexer(t *testing.T) *testIx {
 
 	rf := NewRepoFetcher(maindb, repoman, 10)
 
-	ix, err := NewIndexer(context.Background(), maindb, notifman, evtman, didr, rf, false, true, true)
+	ix, err := NewIndexer(maindb, notifman, evtman, didr, rf, false, true, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,6 +81,7 @@ func (ix *testIx) Cleanup() {
 	if ix.dir != "" {
 		_ = os.RemoveAll(ix.dir)
 	}
+	ix.ix.Shutdown()
 }
 
 // TODO: dedupe this out into some testing utility package

@@ -28,9 +28,11 @@ type CrawlDispatcher struct {
 	doRepoCrawl func(context.Context, *crawlWork) error
 
 	concurrency int
+
+	done chan struct{}
 }
 
-func NewCrawlDispatcher(ctx context.Context, repoFn func(context.Context, *crawlWork) error, concurrency int) (*CrawlDispatcher, error) {
+func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurrency int) (*CrawlDispatcher, error) {
 	if concurrency < 1 {
 		return nil, fmt.Errorf("must specify a non-zero positive integer for crawl dispatcher concurrency")
 	}
@@ -44,8 +46,9 @@ func NewCrawlDispatcher(ctx context.Context, repoFn func(context.Context, *crawl
 		concurrency: concurrency,
 		todo:        make(map[models.Uid]*crawlWork),
 		inProgress:  make(map[models.Uid]*crawlWork),
+		done:        make(chan struct{}),
 	}
-	go out.CatchupRepoGaugePoller(ctx)
+	go out.CatchupRepoGaugePoller()
 
 	return out, nil
 }
@@ -56,6 +59,10 @@ func (c *CrawlDispatcher) Run() {
 	for i := 0; i < c.concurrency; i++ {
 		go c.fetchWorker()
 	}
+}
+
+func (c *CrawlDispatcher) Shutdown() {
+	close(c.done)
 }
 
 type catchupJob struct {
@@ -282,13 +289,12 @@ func (c *CrawlDispatcher) countReposInSlowPath() int {
 	return len(c.inProgress) + len(c.todo)
 }
 
-func (c *CrawlDispatcher) CatchupRepoGaugePoller(ctx context.Context) {
-	done := ctx.Done()
+func (c *CrawlDispatcher) CatchupRepoGaugePoller() {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
-		case <-done:
+		case <-c.done:
 		case <-ticker.C:
 			catchupReposGauge.Set(float64(c.countReposInSlowPath()))
 		}
