@@ -2,9 +2,36 @@
 #
 #   podman build -f ./cmd/bigsky/Dockerfile -t bigsky .
 
+FROM golang:1.23.3-bookworm AS custom-go
+RUN apt update && apt install -y build-essential make git
+
+# Git config
+RUN git config --global user.email "automated_action_runner@github"
+RUN git config --global user.name "automated_action_runner"
+
+# Clone go source
+RUN git clone https://go.googlesource.com/go /gosource
+
+WORKDIR /gosource
+
+# Checkout go version 1.23.3
+RUN git checkout go1.23.3
+
+# Cherry pick the CL
+RUN git fetch https://go.googlesource.com/go refs/changes/97/564197/1 && git cherry-pick FETCH_HEAD
+
+WORKDIR /gosource/src
+
+# Build go
+RUN ./all.bash
+
+# Copy the artifacts to /export
+RUN mkdir -p /export
+RUN cp /gosource/bin/go /export/go
+
+
 ### Compile stage
-FROM golang:1.22-alpine3.19 AS build-env
-RUN apk add --no-cache build-base make git
+FROM custom-go AS build-env
 
 ADD . /dockerbuild
 WORKDIR /dockerbuild
@@ -12,10 +39,10 @@ WORKDIR /dockerbuild
 # timezone data for alpine builds
 ENV GOEXPERIMENT=loopvar
 RUN GIT_VERSION=$(git describe --tags --long --always) && \
-    go build -tags timetzdata -o /bigsky ./cmd/bigsky
+    /export/go build -tags timetzdata -o /bigsky ./cmd/bigsky
 
 ### Build Frontend stage
-FROM node:18-alpine as web-builder
+FROM node:18-alpine AS web-builder
 
 WORKDIR /app
 
