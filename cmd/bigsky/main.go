@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -189,6 +190,10 @@ func run(args []string) error {
 			EnvVars: []string{"RELAY_DID_CACHE_SIZE"},
 			Value:   5_000_000,
 		},
+		&cli.StringSliceFlag{
+			Name:    "did-memcached",
+			EnvVars: []string{"RELAY_DID_MEMCACHED"},
+		},
 		&cli.DurationFlag{
 			Name:    "event-playback-ttl",
 			Usage:   "time to live for event playback buffering (only applies to disk persister)",
@@ -204,6 +209,11 @@ func run(args []string) error {
 			Name:    "carstore-shard-dirs",
 			Usage:   "specify list of shard directories for carstore storage, overrides default storage within datadir",
 			EnvVars: []string{"RELAY_CARSTORE_SHARD_DIRS"},
+		},
+		&cli.StringSliceFlag{
+			Name:    "next-crawler",
+			Usage:   "forward POST requestCrawl to this url, should be machine root url and not xrpc/requestCrawl, comma separated list",
+			EnvVars: []string{"RELAY_NEXT_CRAWLER"},
 		},
 		&cli.BoolFlag{
 			Name:  "ex-sqlite-carstore",
@@ -353,18 +363,33 @@ func runBigsky(cctx *cli.Context) error {
 		return err
 	}
 
-	mr := did.NewMultiResolver()
+	// DID RESOLUTION
+	// 1. the outside world, PLCSerever or Web
+	// 2. (maybe memcached)
+	// 3. in-process cache
+	var cachedidr did.Resolver
+	{
+		mr := did.NewMultiResolver()
 
-	didr := &api.PLCServer{Host: cctx.String("plc-host")}
-	mr.AddHandler("plc", didr)
+		didr := &api.PLCServer{Host: cctx.String("plc-host")}
+		mr.AddHandler("plc", didr)
 
-	webr := did.WebResolver{}
-	if cctx.Bool("crawl-insecure-ws") {
-		webr.Insecure = true
+		webr := did.WebResolver{}
+		if cctx.Bool("crawl-insecure-ws") {
+			webr.Insecure = true
+		}
+		mr.AddHandler("web", &webr)
+
+		var prevResolver did.Resolver
+		memcachedServers := cctx.StringSlice("did-memcached")
+		if len(memcachedServers) > 0 {
+			prevResolver = plc.NewMemcachedDidResolver(mr, time.Hour*24, memcachedServers)
+		} else {
+			prevResolver = mr
+		}
+
+		cachedidr = plc.NewCachingDidResolver(prevResolver, time.Hour*24, cctx.Int("did-cache-size"))
 	}
-	mr.AddHandler("web", &webr)
-
-	cachedidr := plc.NewCachingDidResolver(mr, time.Hour*24, cctx.Int("did-cache-size"))
 
 	kmgr := indexer.NewKeyManager(cachedidr, nil)
 
@@ -454,6 +479,19 @@ func runBigsky(cctx *cli.Context) error {
 	bgsConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
 	bgsConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
 	bgsConfig.NumCompactionWorkers = cctx.Int("num-compaction-workers")
+	nextCrawlers := cctx.StringSlice("next-crawler")
+	if len(nextCrawlers) != 0 {
+		nextCrawlerUrls := make([]*url.URL, len(nextCrawlers))
+		for i, tu := range nextCrawlers {
+			var err error
+			nextCrawlerUrls[i], err = url.Parse(tu)
+			if err != nil {
+				return fmt.Errorf("failed to parse next-crawler url: %w", err)
+			}
+			log.Infow("configuring relay for requestCrawl", "host", nextCrawlerUrls[i])
+		}
+		bgsConfig.NextCrawlers = nextCrawlerUrls
+	}
 	bgs, err := libbgs.NewBGS(db, ix, repoman, evtman, cachedidr, rf, hr, bgsConfig)
 	if err != nil {
 		return err
