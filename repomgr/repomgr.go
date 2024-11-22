@@ -578,32 +578,6 @@ func (rm *RepoManager) handleExternalUserEventNoArchive(ctx context.Context, pds
 			return fmt.Errorf("invalid rpath in mst diff, must have collection and rkey")
 		}
 
-		/*
-			switch EventKind(op.Action) {
-			case EvtKindCreateRecord:
-				evtops = append(evtops, RepoOp{
-					Kind:       EvtKindCreateRecord,
-					Collection: parts[0],
-					Rkey:       parts[1],
-					RecCid:     (*cid.Cid)(op.Cid),
-				})
-			case EvtKindUpdateRecord:
-				evtops = append(evtops, RepoOp{
-					Kind:       EvtKindUpdateRecord,
-					Collection: parts[0],
-					Rkey:       parts[1],
-					RecCid:     (*cid.Cid)(op.Cid),
-				})
-			case EvtKindDeleteRecord:
-				evtops = append(evtops, RepoOp{
-					Kind:       EvtKindDeleteRecord,
-					Collection: parts[0],
-					Rkey:       parts[1],
-				})
-			default:
-				return fmt.Errorf("unrecognized external user event kind: %q", op.Action)
-			}
-		*/
 		switch EventKind(op.Action) {
 		case EvtKindCreateRecord:
 			rop := RepoOp{
