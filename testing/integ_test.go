@@ -406,6 +406,14 @@ func TestAccountEvent(t *testing.T) {
 }
 
 func TestRelayTakedown(t *testing.T) {
+	testRelayTakedown(t, true)
+}
+
+func TestRelayTakedownNonArchive(t *testing.T) {
+	testRelayTakedown(t, false)
+}
+
+func testRelayTakedown(t *testing.T, archive bool) {
 	if testing.Short() {
 		t.Skip("skipping Relay test in 'short' test mode")
 	}
