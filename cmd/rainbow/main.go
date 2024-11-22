@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"github.com/bluesky-social/indigo/events"
 	"log/slog"
 	_ "net/http/pprof"
 	"os"
@@ -10,12 +9,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/splitter"
 
-	_ "github.com/joho/godotenv/autoload"
-	_ "go.uber.org/automaxprocs"
-
 	"github.com/carlmjohnson/versioninfo"
+	_ "github.com/joho/godotenv/autoload"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -23,6 +21,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	_ "go.uber.org/automaxprocs"
 )
 
 var log = slog.Default().With("system", "rainbow")
@@ -88,6 +87,11 @@ func run(args []string) {
 			Usage:   "max bytes target for event cache, 0 to disable size target trimming",
 			EnvVars: []string{"RAINBOW_PERSIST_BYTES", "SPLITTER_PERSIST_BYTES"},
 		},
+		&cli.StringSliceFlag{
+			Name:    "next-crawler",
+			Usage:   "forward POST requestCrawl to this url, should be machine root url and not xrpc/requestCrawl, comma separated list",
+			EnvVars: []string{"RELAY_NEXT_CRAWLER"},
+		},
 	}
 
 	// TODO: slog.SetDefault and set module `var log *slog.Logger` based on flags and env
@@ -143,6 +147,8 @@ func Splitter(cctx *cli.Context) error {
 
 	persistPath := cctx.String("persist-db")
 	upstreamHost := cctx.String("splitter-host")
+	nextCrawlers := cctx.StringSlice("next-crawler")
+
 	var spl *splitter.Splitter
 	var err error
 	if persistPath != "" {
@@ -158,14 +164,14 @@ func Splitter(cctx *cli.Context) error {
 			CursorFile:    cctx.String("cursor-file"),
 			PebbleOptions: &ppopts,
 		}
-		spl, err = splitter.NewSplitter(conf)
+		spl, err = splitter.NewSplitter(conf, nextCrawlers)
 	} else {
 		log.Info("building in-memory splitter")
 		conf := splitter.SplitterConfig{
 			UpstreamHost: upstreamHost,
 			CursorFile:   cctx.String("cursor-file"),
 		}
-		spl, err = splitter.NewSplitter(conf)
+		spl, err = splitter.NewSplitter(conf, nextCrawlers)
 	}
 	if err != nil {
 		log.Error("failed to create splitter", "path", persistPath, "error", err)
