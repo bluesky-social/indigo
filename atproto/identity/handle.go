@@ -204,8 +204,10 @@ func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle)
 		elapsed := time.Since(start)
 		slog.Debug("resolve handle DNS", "handle", handle, "err", dnsErr, "did", did, "authoritative", triedAuthoritative, "fallback", triedFallback, "duration_ms", elapsed.Milliseconds())
 		if nil == dnsErr { // if *not* an error
+			lookupDuration.WithLabelValues("dns_handle", "success").Observe(time.Since(start).Seconds())
 			return did, nil
 		}
+		lookupDuration.WithLabelValues("dns_handle", "error").Observe(time.Since(start).Seconds())
 	}
 
 	start := time.Now()
@@ -213,8 +215,10 @@ func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle)
 	elapsed := time.Since(start)
 	slog.Debug("resolve handle HTTP well-known", "handle", handle, "err", httpErr, "did", did, "duration_ms", elapsed.Milliseconds())
 	if nil == httpErr { // if *not* an error
+		lookupDuration.WithLabelValues("well_known_handle", "success").Observe(time.Since(start).Seconds())
 		return did, nil
 	}
+	lookupDuration.WithLabelValues("well_known_handle", "error").Observe(time.Since(start).Seconds())
 
 	// return the most specific/helpful error
 	if !errors.Is(dnsErr, ErrHandleNotFound) {

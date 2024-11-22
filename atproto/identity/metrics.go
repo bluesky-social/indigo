@@ -34,3 +34,9 @@ var handleRequestsCoalesced = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "atproto_directory_handle_requests_coalesced",
 	Help: "Number of handle requests coalesced",
 })
+
+var lookupDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "atproto_directory_lookup_duration_seconds",
+	Help:    "Duration of DNS lookups",
+	Buckets: prometheus.DefBuckets,
+}, []string{"type", "status"})
