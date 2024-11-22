@@ -197,7 +197,10 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 				for _, rpu := range s.nextCrawlers {
 					pu := rpu.JoinPath("/xrpc/com.atproto.sync.requestCrawl")
 					response, err := s.httpClient.Post(pu.String(), "application/json", bytes.NewReader(bodyBlob))
-					if err != nil {
+					if response != nil && response.Body != nil {
+						response.Body.Close()
+					}
+					if err != nil || response == nil {
 						log.Warnw("requestCrawl forward failed", "host", rpu, "err", err)
 					} else if response.StatusCode != http.StatusOK {
 						log.Warnw("requestCrawl forward failed", "host", rpu, "status", response.Status)
