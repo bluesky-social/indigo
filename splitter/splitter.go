@@ -200,7 +200,7 @@ func (s *Splitter) StartWithListener(listen net.Listener) error {
 
 	// TODO: this API is temporary until we formalize what we want here
 
-	e.GET("/xrpc/com.atproto.sync.requestCrawl", s.RequestCrawlHandler)
+	e.POST("/xrpc/com.atproto.sync.requestCrawl", s.RequestCrawlHandler)
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
 	e.GET("/xrpc/_health", s.HandleHealthCheck)
 
