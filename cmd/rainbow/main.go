@@ -2,21 +2,17 @@ package main
 
 import (
 	"context"
-	"github.com/bluesky-social/indigo/events"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/splitter"
 	"github.com/carlmjohnson/versioninfo"
-	_ "go.uber.org/automaxprocs"
-
-	_ "net/http/pprof"
-
-	_ "github.com/joho/godotenv/autoload"
-
 	logging "github.com/ipfs/go-log"
+	_ "github.com/joho/godotenv/autoload"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -24,6 +20,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	_ "go.uber.org/automaxprocs"
 )
 
 var log = logging.Logger("splitter")
@@ -84,6 +81,11 @@ func run(args []string) {
 			Usage:   "max bytes target for event cache, 0 to disable size target trimming",
 			EnvVars: []string{"SPLITTER_PERSIST_BYTES"},
 		},
+		&cli.StringSliceFlag{
+			Name:    "next-crawler",
+			Usage:   "forward POST requestCrawl to this url, should be machine root url and not xrpc/requestCrawl, comma separated list",
+			EnvVars: []string{"RELAY_NEXT_CRAWLER"},
+		},
 	}
 
 	app.Action = Splitter
@@ -135,6 +137,8 @@ func Splitter(cctx *cli.Context) error {
 
 	persistPath := cctx.String("persist-db")
 	upstreamHost := cctx.String("splitter-host")
+	nextCrawlers := cctx.StringSlice("next-crawler")
+
 	var spl *splitter.Splitter
 	var err error
 	if persistPath != "" {
@@ -150,14 +154,14 @@ func Splitter(cctx *cli.Context) error {
 			CursorFile:    cctx.String("cursor-file"),
 			PebbleOptions: &ppopts,
 		}
-		spl, err = splitter.NewSplitter(conf)
+		spl, err = splitter.NewSplitter(conf, nextCrawlers)
 	} else {
 		log.Info("building in-memory splitter")
 		conf := splitter.SplitterConfig{
 			UpstreamHost: upstreamHost,
 			CursorFile:   cctx.String("cursor-file"),
 		}
-		spl, err = splitter.NewSplitter(conf)
+		spl, err = splitter.NewSplitter(conf, nextCrawlers)
 	}
 	if err != nil {
 		log.Fatalw("failed to create splitter", "path", persistPath, "error", err)

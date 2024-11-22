@@ -34,3 +34,8 @@ var catchupEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "indexer_catchup_events_processed",
 	Help: "Number of catchup events processed",
 })
+
+var usersAddedToCatchupQueue = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "indexer_users_added_to_catchup_queue",
+	Help: "Number of users added to catchup queue",
+})
