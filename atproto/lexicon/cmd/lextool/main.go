@@ -38,6 +38,11 @@ func main() {
 			Usage:  "subscribe to a firehose, validate every known record against catalog",
 			Action: runValidateFirehose,
 		},
+		&cli.Command{
+			Name:   "resolve",
+			Usage:  "resolves an NSID to a lexicon schema",
+			Action: runResolve,
+		},
 	}
 	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})
 	slog.SetDefault(slog.New(h))
@@ -86,5 +91,25 @@ func runLoadDirectory(cctx *cli.Context) error {
 	}
 
 	fmt.Println("success!")
+	return nil
+}
+
+func runResolve(cctx *cli.Context) error {
+	ref := cctx.Args().First()
+	if ref == "" {
+		return fmt.Errorf("need to provide NSID as an argument")
+	}
+
+	c := lexicon.NewResolvingCatalog()
+	schema, err := c.Resolve(ref)
+	if err != nil {
+		return err
+	}
+
+	out, err := json.MarshalIndent(schema, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(out))
 	return nil
 }
