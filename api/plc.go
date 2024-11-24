@@ -59,13 +59,18 @@ func (s *PLCServer) FlushCacheFor(did string) {
 }
 
 type CreateOp struct {
-	Type        string  `json:"type" cborgen:"type"`
-	SigningKey  string  `json:"signingKey" cborgen:"signingKey"`
-	RecoveryKey string  `json:"recoveryKey" cborgen:"recoveryKey"`
-	Handle      string  `json:"handle" cborgen:"handle"`
-	Service     string  `json:"service" cborgen:"service"`
-	Prev        *string `json:"prev" cborgen:"prev"`
-	Sig         string  `json:"sig" cborgen:"sig,omitempty"`
+	Type                string                       `json:"type" cborgen:"type"`
+	RotationKeys        []string                     `json:"rotationKeys" cborgen:"rotationKeys"`
+	VerificationMethods map[string]string            `json:"verificationMethods" cborgen:"verificationMethods"`
+	AlsoKnownAs         []string                     `json:"alsoKnownAs" cborgen:"alsoKnownAs"`
+	Services            map[string]ATProtoPDSService `json:"services" cborgen:"services"`
+	Prev                *string                      `json:"prev" cborgen:"prev"`
+	Sig                 string                       `json:"sig" cborgen:"sig,omitempty"`
+}
+
+type ATProtoPDSService struct {
+	Type     string `json:"type" cborgen:"type"`
+	Endpoint string `json:"endpoint" cborgen:"endpoint"`
 }
 
 func (s *PLCServer) CreateDID(ctx context.Context, sigkey *did.PrivKey, recovery string, handle string, service string) (string, error) {
@@ -74,11 +79,22 @@ func (s *PLCServer) CreateDID(ctx context.Context, sigkey *did.PrivKey, recovery
 	}
 
 	op := CreateOp{
-		Type:        "create",
-		SigningKey:  sigkey.Public().DID(),
-		RecoveryKey: recovery,
-		Handle:      handle,
-		Service:     service,
+		Type: "plc_operation",
+		RotationKeys: []string{
+			sigkey.Public().DID(),
+		},
+		VerificationMethods: map[string]string{
+			"atproto": sigkey.Public().DID(),
+		},
+		AlsoKnownAs: []string{
+			"at://" + handle,
+		},
+		Services: map[string]ATProtoPDSService{
+			"atproto_pds": {
+				Type:     "AtprotoPersonalDataServer",
+				Endpoint: "https://" + service,
+			},
+		},
 	}
 
 	buf := new(bytes.Buffer)

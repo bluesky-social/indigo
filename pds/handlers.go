@@ -225,6 +225,7 @@ func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*com
 		AvailableUserDomains: []string{
 			s.handleSuffix,
 		},
+		Did:   "did:web:pds-laputa.dev.ellie.fm",
 		Links: &comatprototypes.ServerDescribeServer_Links{},
 	}, nil
 }
@@ -246,11 +247,20 @@ func (s *Server) handleComAtprotoServerCreateSession(ctx context.Context, body *
 		return nil, err
 	}
 
+	status := "true"
+	didDoc, err := s.plc.GetDocument(ctx, u.Did)
+	if err != nil {
+		return nil, err
+	}
+	genericDoc := interface{}(didDoc)
+
 	return &comatprototypes.ServerCreateSession_Output{
 		Handle:     body.Identifier,
 		Did:        u.Did,
 		AccessJwt:  tok.AccessJwt,
 		RefreshJwt: tok.RefreshJwt,
+		Status:     &status,
+		DidDoc:     &genericDoc,
 	}, nil
 }
 
@@ -263,10 +273,20 @@ func (s *Server) handleComAtprotoServerGetSession(ctx context.Context) (*comatpr
 	if err != nil {
 		return nil, err
 	}
+	didDoc, err := s.plc.GetDocument(ctx, u.Did)
+	if err != nil {
+		return nil, err
+	}
 
+	email := "foo@bar.com"
+	genericDoc := interface{}(didDoc)
+	active := true
 	return &comatprototypes.ServerGetSession_Output{
 		Handle: u.Handle,
 		Did:    u.Did,
+		Email:  &email,
+		DidDoc: &genericDoc,
+		Active: &active,
 	}, nil
 }
 
@@ -305,7 +325,6 @@ func (s *Server) handleComAtprotoServerRefreshSession(ctx context.Context) (*com
 		AccessJwt:  outTok.AccessJwt,
 		RefreshJwt: outTok.RefreshJwt,
 	}, nil
-
 }
 
 func (s *Server) handleComAtprotoSyncUpdateRepo(ctx context.Context, r io.Reader) error {
@@ -388,7 +407,25 @@ func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, bod
 }
 
 func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo string) (*comatprototypes.RepoDescribeRepo_Output, error) {
-	panic("nyi")
+	var user User
+	if err := s.db.Model(&User{}).
+		Where("did = ? OR handle = ?", repo, repo).
+		Find(&user).Error; err != nil {
+		return nil, err
+	}
+
+	didDoc, err := s.plc.GetDocument(ctx, user.Did)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &comatprototypes.RepoDescribeRepo_Output{
+		Handle:          user.Handle,
+		Did:             user.Did,
+		DidDoc:          didDoc,
+		HandleIsCorrect: true,
+	}
+	return resp, nil
 }
 
 func (s *Server) handleComAtprotoAdminDisableInviteCodes(ctx context.Context, body *comatprototypes.AdminDisableInviteCodes_Input) error {
@@ -454,6 +491,7 @@ func (s *Server) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did st
 func (s *Server) handleComAtprotoAdminGetAccountInfo(ctx context.Context, did string) (*comatprototypes.AdminDefs_AccountView, error) {
 	panic("nyi")
 }
+
 func (s *Server) handleComAtprotoAdminGetSubjectStatus(ctx context.Context, blob string, did string, uri string) (*comatprototypes.AdminGetSubjectStatus_Output, error) {
 	panic("nyi")
 }
@@ -461,21 +499,27 @@ func (s *Server) handleComAtprotoAdminGetSubjectStatus(ctx context.Context, blob
 func (s *Server) handleComAtprotoAdminUpdateSubjectStatus(ctx context.Context, body *comatprototypes.AdminUpdateSubjectStatus_Input) (*comatprototypes.AdminUpdateSubjectStatus_Output, error) {
 	panic("nyi")
 }
+
 func (s *Server) handleComAtprotoServerConfirmEmail(ctx context.Context, body *comatprototypes.ServerConfirmEmail_Input) error {
 	panic("nyi")
 }
+
 func (s *Server) handleComAtprotoServerRequestEmailConfirmation(ctx context.Context) error {
 	panic("nyi")
 }
+
 func (s *Server) handleComAtprotoServerRequestEmailUpdate(ctx context.Context) (*comatprototypes.ServerRequestEmailUpdate_Output, error) {
 	panic("nyi")
 }
+
 func (s *Server) handleComAtprotoServerReserveSigningKey(ctx context.Context, body *comatprototypes.ServerReserveSigningKey_Input) (*comatprototypes.ServerReserveSigningKey_Output, error) {
 	panic("nyi")
 }
+
 func (s *Server) handleComAtprotoServerUpdateEmail(ctx context.Context, body *comatprototypes.ServerUpdateEmail_Input) error {
 	panic("nyi")
 }
+
 func (s *Server) handleComAtprotoTempFetchLabels(ctx context.Context, limit int, since *int) (*comatprototypes.TempFetchLabels_Output, error) {
 	panic("nyi")
 }

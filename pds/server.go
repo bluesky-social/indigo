@@ -2,9 +2,11 @@ package pds
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/mail"
@@ -105,7 +107,7 @@ func NewServer(db *gorm.DB, cs carstore.CarStore, serkey *did.PrivKey, handleSuf
 		}
 	}, true)
 
-	//ix.SendRemoteFollow = s.sendRemoteFollow
+	// ix.SendRemoteFollow = s.sendRemoteFollow
 	ix.CreateExternalUser = s.createExternalUser
 
 	feedgen, err := NewFeedGenerator(db, ix, s.readRecordFunc)
@@ -248,7 +250,7 @@ func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent
 		Blocks: evt.RepoSlice,
 		Repo:   did,
 		Time:   time.Now().Format(bsutil.ISO8601),
-		//PrivUid: evt.User,
+		// PrivUid: evt.User,
 	}
 
 	for _, op := range evt.Ops {
@@ -296,6 +298,7 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 		Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
 	}))
 
+	e.Use(middleware.CORS())
 	cfg := middleware.JWTConfig{
 		Skipper: func(c echo.Context) bool {
 			switch c.Path() {
@@ -315,6 +318,8 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 				return true
 			case "/xrpc/com.atproto.sync.getRepo":
 				fmt.Println("TODO: currently not requiring auth on get repo endpoint")
+				return true
+			case "/xrpc/com.atproto.repo.describeRepo":
 				return true
 			case "/xrpc/com.atproto.peering.follow", "/events":
 				auth := c.Request().Header.Get("Authorization")
@@ -419,6 +424,17 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 	e.GET("/xrpc/_health", s.HandleHealthCheck)
 	e.GET("/.well-known/atproto-did", s.HandleResolveDid)
 
+	e.GET("/xrpc/app.bsky.actor.getPreferences", func(c echo.Context) error {
+		c.Response().WriteHeader(200)
+		c.Response().Write([]byte("{\"preferences\": []}"))
+		return nil
+	})
+	e.GET("/xrpc/app.bsky.labeler.getServices", s.HandleAppViewProxy)
+	e.GET("/xrpc/app.bsky.actor.getProfiles", s.HandleAppViewProxy)
+	e.GET("/xrpc/app.bsky.actor.getProfile", s.HandleAppViewProxy)
+	e.GET("/xrpc/app.bsky.notification.listNotifications", s.HandleAppViewProxy)
+	e.GET("/xrpc/chat.bsky.convo.listConvos", s.HandleAppViewProxy)
+
 	// In order to support booting on random ports in tests, we need to tell the
 	// Echo instance it's already got a port, and then use its StartServer
 	// method to re-use that listener.
@@ -430,6 +446,69 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 type HealthStatus struct {
 	Status  string `json:"status"`
 	Message string `json:"msg,omitempty"`
+}
+type StandardClaims struct {
+	Audience  string `json:"aud,omitempty"`
+	ExpiresAt int64  `json:"exp,omitempty"`
+	Issuer    string `json:"iss,omitempty"`
+	Lexicon   string `json:"lxm,omitempty"`
+}
+
+func (s StandardClaims) Valid() error {
+	return nil
+}
+
+func (s *Server) HandleAppViewProxy(c echo.Context) error {
+	lexicon := strings.TrimPrefix(c.Path(), "/xrpc/")
+
+	ctx := c.Request().Context()
+	did := ctx.Value("did").(string)
+
+	tok := gojwt.New(gojwt.SigningMethodES256)
+	tok.Claims = StandardClaims{
+		Issuer:    did,
+		Audience:  "did:web:api.bsky.app",
+		Lexicon:   lexicon,
+		ExpiresAt: time.Now().Unix() + (60 * 60 * 24),
+	}
+
+	key := s.signingKey.Raw.(*ecdsa.PrivateKey)
+	sig, err := tok.SignedString(key)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, "https://api.bsky.app"+c.Path()+"?"+c.QueryString(), nil)
+	// req, err := http.NewRequest(http.MethodGet, "https://httpbin.org/get", nil)
+	if err != nil {
+		return err
+	}
+
+	req.Close = true
+
+	req.Header = map[string][]string{
+		"Authorization": {
+			"Bearer " + string(sig),
+		},
+		"Accept": {
+			"*/*",
+		},
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	c.Response().WriteHeader(resp.StatusCode)
+	c.Response().Write(b)
+
+	return nil
 }
 
 func (s *Server) HandleHealthCheck(c echo.Context) error {
@@ -596,7 +675,7 @@ func (s *Server) getUser(ctx context.Context) (*User, error) {
 		return nil, fmt.Errorf("auth required")
 	}
 
-	//u.Did = ctx.Value("did").(string)
+	// u.Did = ctx.Value("did").(string)
 
 	return u, nil
 }

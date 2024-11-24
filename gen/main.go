@@ -39,6 +39,10 @@ func main() {
 		panic(err)
 	}
 
+	if err := genCfg.WriteMapEncodersToFile("api/atproto_pds.go", "api", api.ATProtoPDSService{}); err != nil {
+		panic(err)
+	}
+
 	if err := genCfg.WriteMapEncodersToFile("util/labels/cbor_gen.go", "labels", labels.UnsignedLabel{}); err != nil {
 		panic(err)
 	}

@@ -113,96 +113,171 @@ func (t *CreateOp) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Handle (string) (string)
-	if len("handle") > 1000000 {
-		return xerrors.Errorf("Value in field \"handle\" was too long")
+	// t.Services (map[string]api.ATProtoPDSService) (map)
+	if len("services") > 1000000 {
+		return xerrors.Errorf("Value in field \"services\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("handle"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("services"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("handle")); err != nil {
-		return err
-	}
-
-	if len(t.Handle) > 1000000 {
-		return xerrors.Errorf("Value in field t.Handle was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Handle))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string(t.Handle)); err != nil {
+	if _, err := cw.WriteString(string("services")); err != nil {
 		return err
 	}
 
-	// t.Service (string) (string)
-	if len("service") > 1000000 {
-		return xerrors.Errorf("Value in field \"service\" was too long")
+	{
+		if len(t.Services) > 4096 {
+			return xerrors.Errorf("cannot marshal t.Services map too large")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajMap, uint64(len(t.Services))); err != nil {
+			return err
+		}
+
+		keys := make([]string, 0, len(t.Services))
+		for k := range t.Services {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			v := t.Services[k]
+
+			if len(k) > 1000000 {
+				return xerrors.Errorf("Value in field k was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(k))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(k)); err != nil {
+				return err
+			}
+
+			if err := v.MarshalCBOR(cw); err != nil {
+				return err
+			}
+
+		}
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("service"))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string("service")); err != nil {
-		return err
+	// t.AlsoKnownAs ([]string) (slice)
+	if len("alsoKnownAs") > 1000000 {
+		return xerrors.Errorf("Value in field \"alsoKnownAs\" was too long")
 	}
 
-	if len(t.Service) > 1000000 {
-		return xerrors.Errorf("Value in field t.Service was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Service))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("alsoKnownAs"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string(t.Service)); err != nil {
-		return err
-	}
-
-	// t.SigningKey (string) (string)
-	if len("signingKey") > 1000000 {
-		return xerrors.Errorf("Value in field \"signingKey\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("signingKey"))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string("signingKey")); err != nil {
-		return err
-	}
-
-	if len(t.SigningKey) > 1000000 {
-		return xerrors.Errorf("Value in field t.SigningKey was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.SigningKey))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string(t.SigningKey)); err != nil {
-		return err
-	}
-
-	// t.RecoveryKey (string) (string)
-	if len("recoveryKey") > 1000000 {
-		return xerrors.Errorf("Value in field \"recoveryKey\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("recoveryKey"))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string("recoveryKey")); err != nil {
+	if _, err := cw.WriteString(string("alsoKnownAs")); err != nil {
 		return err
 	}
 
-	if len(t.RecoveryKey) > 1000000 {
-		return xerrors.Errorf("Value in field t.RecoveryKey was too long")
+	if len(t.AlsoKnownAs) > 8192 {
+		return xerrors.Errorf("Slice value in field t.AlsoKnownAs was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.RecoveryKey))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.AlsoKnownAs))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string(t.RecoveryKey)); err != nil {
+	for _, v := range t.AlsoKnownAs {
+		if len(v) > 1000000 {
+			return xerrors.Errorf("Value in field v was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(v))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string(v)); err != nil {
+			return err
+		}
+
+	}
+
+	// t.RotationKeys ([]string) (slice)
+	if len("rotationKeys") > 1000000 {
+		return xerrors.Errorf("Value in field \"rotationKeys\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("rotationKeys"))); err != nil {
 		return err
+	}
+	if _, err := cw.WriteString(string("rotationKeys")); err != nil {
+		return err
+	}
+
+	if len(t.RotationKeys) > 8192 {
+		return xerrors.Errorf("Slice value in field t.RotationKeys was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.RotationKeys))); err != nil {
+		return err
+	}
+	for _, v := range t.RotationKeys {
+		if len(v) > 1000000 {
+			return xerrors.Errorf("Value in field v was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(v))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string(v)); err != nil {
+			return err
+		}
+
+	}
+
+	// t.VerificationMethods (map[string]string) (map)
+	if len("verificationMethods") > 1000000 {
+		return xerrors.Errorf("Value in field \"verificationMethods\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("verificationMethods"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("verificationMethods")); err != nil {
+		return err
+	}
+
+	{
+		if len(t.VerificationMethods) > 4096 {
+			return xerrors.Errorf("cannot marshal t.VerificationMethods map too large")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajMap, uint64(len(t.VerificationMethods))); err != nil {
+			return err
+		}
+
+		keys := make([]string, 0, len(t.VerificationMethods))
+		for k := range t.VerificationMethods {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			v := t.VerificationMethods[k]
+
+			if len(k) > 1000000 {
+				return xerrors.Errorf("Value in field k was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(k))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(k)); err != nil {
+				return err
+			}
+
+			if len(v) > 1000000 {
+				return xerrors.Errorf("Value in field v was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(v))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(v)); err != nil {
+				return err
+			}
+
+		}
 	}
 	return nil
 }
@@ -232,7 +307,7 @@ func (t *CreateOp) UnmarshalCBOR(r io.Reader) (err error) {
 
 	n := extra
 
-	nameBuf := make([]byte, 11)
+	nameBuf := make([]byte, 19)
 	for i := uint64(0); i < n; i++ {
 		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
 		if err != nil {
@@ -291,49 +366,170 @@ func (t *CreateOp) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Type = string(sval)
 			}
-			// t.Handle (string) (string)
-		case "handle":
+			// t.Services (map[string]api.ATProtoPDSService) (map)
+		case "services":
 
-			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
-				if err != nil {
-					return err
-				}
-
-				t.Handle = string(sval)
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
 			}
-			// t.Service (string) (string)
-		case "service":
-
-			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
-				if err != nil {
-					return err
-				}
-
-				t.Service = string(sval)
+			if maj != cbg.MajMap {
+				return fmt.Errorf("expected a map (major type 5)")
 			}
-			// t.SigningKey (string) (string)
-		case "signingKey":
-
-			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
-				if err != nil {
-					return err
-				}
-
-				t.SigningKey = string(sval)
+			if extra > 4096 {
+				return fmt.Errorf("t.Services: map too large")
 			}
-			// t.RecoveryKey (string) (string)
-		case "recoveryKey":
 
-			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
-				if err != nil {
-					return err
+			t.Services = make(map[string]ATProtoPDSService, extra)
+
+			for i, l := 0, int(extra); i < l; i++ {
+
+				var k string
+
+				{
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					k = string(sval)
 				}
 
-				t.RecoveryKey = string(sval)
+				var v ATProtoPDSService
+
+				{
+
+					if err := v.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling v: %w", err)
+					}
+
+				}
+
+				t.Services[k] = v
+
+			}
+			// t.AlsoKnownAs ([]string) (slice)
+		case "alsoKnownAs":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > 8192 {
+				return fmt.Errorf("t.AlsoKnownAs: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.AlsoKnownAs = make([]string, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
+
+					{
+						sval, err := cbg.ReadStringWithMax(cr, 1000000)
+						if err != nil {
+							return err
+						}
+
+						t.AlsoKnownAs[i] = string(sval)
+					}
+
+				}
+			}
+			// t.RotationKeys ([]string) (slice)
+		case "rotationKeys":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > 8192 {
+				return fmt.Errorf("t.RotationKeys: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.RotationKeys = make([]string, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
+
+					{
+						sval, err := cbg.ReadStringWithMax(cr, 1000000)
+						if err != nil {
+							return err
+						}
+
+						t.RotationKeys[i] = string(sval)
+					}
+
+				}
+			}
+			// t.VerificationMethods (map[string]string) (map)
+		case "verificationMethods":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+			if maj != cbg.MajMap {
+				return fmt.Errorf("expected a map (major type 5)")
+			}
+			if extra > 4096 {
+				return fmt.Errorf("t.VerificationMethods: map too large")
+			}
+
+			t.VerificationMethods = make(map[string]string, extra)
+
+			for i, l := 0, int(extra); i < l; i++ {
+
+				var k string
+
+				{
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					k = string(sval)
+				}
+
+				var v string
+
+				{
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					v = string(sval)
+				}
+
+				t.VerificationMethods[k] = v
+
 			}
 
 		default:
