@@ -27,8 +27,10 @@ import (
 
 var log = logging.Logger("indexer")
 
-const MaxEventSliceLength = 1000000
-const MaxOpsSliceLength = 200
+const (
+	MaxEventSliceLength = 1000000
+	MaxOpsSliceLength   = 200
+)
 
 type Indexer struct {
 	db *gorm.DB
@@ -181,6 +183,7 @@ func (ix *Indexer) crawlAtUriRef(ctx context.Context, uri string) error {
 	}
 	return nil
 }
+
 func (ix *Indexer) crawlRecordReferences(ctx context.Context, op *repomgr.RepoOp) error {
 	ctx, span := otel.Tracer("indexer").Start(ctx, "crawlRecordReferences")
 	defer span.End()
@@ -276,7 +279,7 @@ func (ix *Indexer) createMissingUserRecord(ctx context.Context, did string) (*mo
 
 	ai, err := ix.CreateExternalUser(ctx, did)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create external user: %v", err)
 	}
 
 	if err := ix.addUserToCrawler(ctx, ai); err != nil {
@@ -765,7 +768,7 @@ func (ix *Indexer) handleRecordCreateFeedPost(ctx context.Context, user models.U
 		}
 
 		if err := ix.db.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{clause.Column{Name: "rkey"}, clause.Column{Name: "author"}},
+			Columns:   []clause.Column{{Name: "rkey"}, {Name: "author"}},
 			UpdateAll: true,
 		}).Create(&fp).Error; err != nil {
 			return err

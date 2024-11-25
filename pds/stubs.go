@@ -399,9 +399,12 @@ func (s *Server) HandleComAtprotoRepoGetRecord(c echo.Context) error {
 	var out *comatprototypes.RepoGetRecord_Output
 	var handleErr error
 	// func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context,cid string,collection string,repo string,rkey string) (*comatprototypes.RepoGetRecord_Output, error)
-	out, handleErr = s.handleComAtprotoRepoGetRecord(ctx, cid, collection, repo, rkey)
+	out, handleErr = s.handleComAtprotoRepoGetRecord(c, ctx, cid, collection, repo, rkey)
 	if handleErr != nil {
 		return handleErr
+	}
+	if out == nil {
+		return nil
 	}
 	return c.JSON(200, out)
 }

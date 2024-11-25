@@ -11,6 +11,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/ipfs/go-cid"
+	"github.com/labstack/echo/v4"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
@@ -182,10 +183,10 @@ func (s *Server) handleComAtprotoRepoDeleteRecord(ctx context.Context, input *co
 	return s.repoman.DeleteRecord(ctx, u.ID, input.Collection, input.Rkey)
 }
 
-func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, collection string, repo string, rkey string) (*comatprototypes.RepoGetRecord_Output, error) {
+func (s *Server) handleComAtprotoRepoGetRecord(ec echo.Context, ctx context.Context, c string, collection string, repo string, rkey string) (*comatprototypes.RepoGetRecord_Output, error) {
 	targetUser, err := s.lookupUser(ctx, repo)
 	if err != nil {
-		return nil, err
+		return nil, s.HandleAppViewProxy(ec)
 	}
 
 	var maybeCid cid.Cid
@@ -221,12 +222,10 @@ func (s *Server) handleComAtprotoRepoPutRecord(ctx context.Context, input *comat
 func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*comatprototypes.ServerDescribeServer_Output, error) {
 	invcode := false
 	return &comatprototypes.ServerDescribeServer_Output{
-		InviteCodeRequired: &invcode,
-		AvailableUserDomains: []string{
-			s.handleSuffix,
-		},
-		Did:   "did:web:pds-laputa.dev.ellie.fm",
-		Links: &comatprototypes.ServerDescribeServer_Links{},
+		InviteCodeRequired:   &invcode,
+		AvailableUserDomains: []string{},
+		Did:                  "did:web:" + s.serviceUrl,
+		Links:                &comatprototypes.ServerDescribeServer_Links{},
 	}, nil
 }
 
@@ -419,7 +418,12 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 		return nil, err
 	}
 
+	s.repoman.ReadRepo()
+
 	resp := &comatprototypes.RepoDescribeRepo_Output{
+		Collections: []string{
+			""
+		},
 		Handle:          user.Handle,
 		Did:             user.Did,
 		DidDoc:          didDoc,
@@ -449,7 +453,40 @@ func (s *Server) handleComAtprotoServerGetAccountInviteCodes(ctx context.Context
 }
 
 func (s *Server) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, limit int) (*comatprototypes.SyncListRepos_Output, error) {
-	panic("nyi")
+	repos := []*comatprototypes.SyncListRepos_Repo{}
+
+	var users []User
+
+	if err := s.db.Model(&User{}).Find(&users).Error; err != nil {
+		return nil, err
+	}
+
+	for _, user := range users {
+		active := true
+		rev, err := s.repoman.GetRepoRev(ctx, user.ID)
+		if err != nil {
+			return nil, err
+		}
+		head, err := s.repoman.GetRepoRoot(ctx, user.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		repo := &comatprototypes.SyncListRepos_Repo{
+			Active: &active,
+			Did:    user.Did,
+			Head:   head.String(),
+			Rev:    rev,
+		}
+
+		repos = append(repos, repo)
+	}
+
+	resp := &comatprototypes.SyncListRepos_Output{
+		Repos: repos,
+	}
+
+	return resp, nil
 }
 
 func (s *Server) handleComAtprotoAdminUpdateAccountEmail(ctx context.Context, body *comatprototypes.AdminUpdateAccountEmail_Input) error {

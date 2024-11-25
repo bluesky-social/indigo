@@ -16,7 +16,6 @@ import (
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
@@ -172,7 +171,9 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 		return nil, err
 	}
 
-	c := &xrpc.Client{Host: svc.ServiceEndpoint}
+	c := &xrpc.Client{
+		Host: svc.ServiceEndpoint,
+	}
 
 	if peering.ID == 0 {
 		cfg, err := atproto.ServerDescribeServer(ctx, c)
@@ -202,14 +203,14 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 		handle = hurl.Host
 	}
 
-	profile, err := bsky.ActorGetProfile(ctx, c, did)
-	if err != nil {
-		return nil, err
-	}
+	// profile, err := bsky.ActorGetProfile(ctx, c, did)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	if handle != profile.Handle {
-		return nil, fmt.Errorf("mismatch in handle between did document and pds profile (%s != %s)", handle, profile.Handle)
-	}
+	// if handle != profile.Handle {
+	// 	return nil, fmt.Errorf("mismatch in handle between did document and pds profile (%s != %s)", handle, profile.Handle)
+	// }
 
 	// TODO: request this users info from their server to fill out our data...
 	u := User{
@@ -225,12 +226,12 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 	// okay cool, its a user on a server we are peered with
 	// lets make a local record of that user for the future
 	subj := &models.ActorInfo{
-		Uid:         u.ID,
-		Handle:      sql.NullString{String: handle, Valid: true},
-		DisplayName: *profile.DisplayName,
-		Did:         did,
-		Type:        "",
-		PDS:         peering.ID,
+		Uid:    u.ID,
+		Handle: sql.NullString{String: handle, Valid: true},
+		// DisplayName: *profile.DisplayName,
+		Did:  did,
+		Type: "",
+		PDS:  peering.ID,
 	}
 	if err := s.db.Create(subj).Error; err != nil {
 		return nil, err
@@ -302,6 +303,8 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 	cfg := middleware.JWTConfig{
 		Skipper: func(c echo.Context) bool {
 			switch c.Path() {
+			case "/":
+				return true
 			case "/xrpc/_health":
 				return true
 			case "/xrpc/com.atproto.sync.subscribeRepos":
@@ -320,6 +323,8 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 				fmt.Println("TODO: currently not requiring auth on get repo endpoint")
 				return true
 			case "/xrpc/com.atproto.repo.describeRepo":
+				return true
+			case "/xrpc/com.atproto.sync.listRepos":
 				return true
 			case "/xrpc/com.atproto.peering.follow", "/events":
 				auth := c.Request().Header.Get("Authorization")
@@ -420,11 +425,17 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 	e.Use(middleware.JWTWithConfig(cfg), s.userCheckMiddleware)
 	s.RegisterHandlersComAtproto(e)
 
+	e.GET("/", func(c echo.Context) error {
+		c.Response().WriteHeader(200)
+		c.Response().Write([]byte("This is an experimental PDS server."))
+		return nil
+	})
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
 	e.GET("/xrpc/_health", s.HandleHealthCheck)
 	e.GET("/.well-known/atproto-did", s.HandleResolveDid)
 
 	e.GET("/xrpc/app.bsky.actor.getPreferences", func(c echo.Context) error {
+		c.Response().Header().Add("Content-Type", "application/json")
 		c.Response().WriteHeader(200)
 		c.Response().Write([]byte("{\"preferences\": []}"))
 		return nil
@@ -433,7 +444,32 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 	e.GET("/xrpc/app.bsky.actor.getProfiles", s.HandleAppViewProxy)
 	e.GET("/xrpc/app.bsky.actor.getProfile", s.HandleAppViewProxy)
 	e.GET("/xrpc/app.bsky.notification.listNotifications", s.HandleAppViewProxy)
-	e.GET("/xrpc/chat.bsky.convo.listConvos", s.HandleAppViewProxy)
+	e.GET("/xrpc/app.bsky.graph.getLists", s.HandleAppViewProxy)
+	e.GET("/xrpc/chat.bsky.convo.listConvos", func(c echo.Context) error {
+		c.Response().Header().Add("Content-Type", "application/json")
+		c.Response().WriteHeader(200)
+		c.Response().Write([]byte("{\"convos\": []}"))
+		return nil
+	})
+	e.GET("/xrpc/chat.bsky.convo.getLog", func(c echo.Context) error {
+		c.Response().Header().Add("Content-Type", "application/json")
+		c.Response().WriteHeader(200)
+		c.Response().Write([]byte("{\"logs\": []}"))
+		return nil
+	})
+	e.GET("/xrpc/app.bsky.graph.getActorStarterPacks", s.HandleAppViewProxy)
+	e.POST("/xrpc/app.bsky.actor.putPreferences", func(c echo.Context) error {
+		c.Response().Header().Add("Content-Type", "application/json")
+		c.Response().WriteHeader(200)
+		c.Response().Write([]byte("{\"preferences\": {}}"))
+		return nil
+	})
+	e.GET("/xrpc/app.bsky.feed.getAuthorFeed", s.HandleAppViewProxy)
+	e.GET("/xrpc/app.bsky.feed.getTimeline", s.HandleAppViewProxy)
+	e.GET("/xrpc/app.bsky.feed.getFeed", s.HandleAppViewProxy)
+	e.GET("/xrpc/app.bsky.feed.getPost", s.HandleAppViewProxy)
+	e.GET("/xrpc/app.bsky.feed.getPosts", s.HandleAppViewProxy)
+	e.GET("/xrpc/app.bsky.feed.getPostThread", s.HandleAppViewProxy)
 
 	// In order to support booting on random ports in tests, we need to tell the
 	// Echo instance it's already got a port, and then use its StartServer
@@ -478,22 +514,21 @@ func (s *Server) HandleAppViewProxy(c echo.Context) error {
 		return err
 	}
 
-	req, err := http.NewRequest(http.MethodGet, "https://api.bsky.app"+c.Path()+"?"+c.QueryString(), nil)
+	req, err := http.NewRequest(c.Request().Method, "https://api.bsky.app"+c.Path()+"?"+c.QueryString(), nil)
 	// req, err := http.NewRequest(http.MethodGet, "https://httpbin.org/get", nil)
 	if err != nil {
 		return err
 	}
 
+	if c.Request().Method == http.MethodPost {
+		req.Body = c.Request().Body
+		req.Header.Add("Content-Type", "application/json")
+	}
+
 	req.Close = true
 
-	req.Header = map[string][]string{
-		"Authorization": {
-			"Bearer " + string(sig),
-		},
-		"Accept": {
-			"*/*",
-		},
-	}
+	req.Header.Add("Authorization", "Bearer "+string(sig))
+	req.Header.Add("Accept", "*/*")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -505,6 +540,7 @@ func (s *Server) HandleAppViewProxy(c echo.Context) error {
 		return err
 	}
 
+	c.Response().Header().Add("Content-Type", "application/json")
 	c.Response().WriteHeader(resp.StatusCode)
 	c.Response().Write(b)
 
@@ -526,6 +562,10 @@ func (s *Server) HandleResolveDid(c echo.Context) error {
 	handle := c.Request().Host
 	if hh := c.Request().Header.Get("Host"); hh != "" {
 		handle = hh
+	}
+
+	if handle == s.serviceUrl {
+		return c.String(200, "did:web:"+s.serviceUrl)
 	}
 
 	u, err := s.lookupUserByHandle(ctx, handle)
@@ -726,6 +766,7 @@ func (s *Server) EventsHandler(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	ident := c.RealIP() + "-" + c.Request().UserAgent()
+	log.Infof("New firehose client: %s", ident)
 
 	evts, cancel, err := s.events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool {
 		if !s.enforcePeering {
