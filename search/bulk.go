@@ -18,11 +18,6 @@ import (
 	"github.com/ipfs/go-cid"
 )
 
-type pagerankJob struct {
-	did  syntax.DID
-	rank float64
-}
-
 // BulkIndexPageranks updates the pageranks for the DIDs in the Search Index from a CSV file.
 func (idx *Indexer) BulkIndexPageranks(ctx context.Context, pagerankFile string) error {
 	f, err := os.Open(pagerankFile)

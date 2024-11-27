@@ -4,27 +4,24 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"maps"
 	"math/rand"
-	"os"
 	"regexp"
 	"sort"
 	"testing"
 
-	"github.com/bluesky-social/indigo/util"
 	cid "github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	"github.com/ipld/go-car/v2"
 	"github.com/multiformats/go-multihash"
-	mh "github.com/multiformats/go-multihash"
+
+	"github.com/bluesky-social/indigo/util"
 )
 
 func randCid() cid.Cid {
 	buf := make([]byte, 32)
 	rand.Read(buf)
-	c, err := cid.NewPrefixV1(cid.Raw, mh.SHA2_256).Sum(buf)
+	c, err := cid.NewPrefixV1(cid.Raw, multihash.SHA2_256).Sum(buf)
 	if err != nil {
 		panic(err)
 	}
@@ -111,44 +108,6 @@ func assertValues(t *testing.T, mst *MerkleSearchTree, vals map[string]cid.Cid) 
 	} else {
 		t.Fatalf("different number of values than expected: %d != %d", len(vals), len(out))
 	}
-}
-
-func mustCid(t *testing.T, s string) cid.Cid {
-	t.Helper()
-	c, err := cid.Decode(s)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return c
-
-}
-
-func loadCar(bs blockstore.Blockstore, fname string) error {
-	fi, err := os.Open(fname)
-	if err != nil {
-		return err
-	}
-	defer fi.Close()
-	br, err := car.NewBlockReader(fi)
-	if err != nil {
-		return err
-	}
-
-	for {
-		blk, err := br.Next()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-
-		if err := bs.Put(context.TODO(), blk); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 /*

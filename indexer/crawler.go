@@ -201,16 +201,14 @@ func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
 }
 
 func (c *CrawlDispatcher) fetchWorker() {
-	for {
-		select {
-		case job := <-c.repoSync:
-			if err := c.doRepoCrawl(context.TODO(), job); err != nil {
-				log.Errorf("failed to perform repo crawl of %q: %s", job.act.Did, err)
-			}
-
-			// TODO: do we still just do this if it errors?
-			c.complete <- job.act.Uid
+	// TODO: plumb a context object into this function and use select{} to multiplex its Done channel with c.repoSync
+	for job := range c.repoSync {
+		if err := c.doRepoCrawl(context.TODO(), job); err != nil {
+			log.Errorf("failed to perform repo crawl of %q: %s", job.act.Did, err)
 		}
+
+		// TODO: do we still just do this if it errors?
+		c.complete <- job.act.Uid
 	}
 }
 

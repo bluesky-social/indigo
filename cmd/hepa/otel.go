@@ -15,8 +15,6 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
-var tracer = otel.Tracer("hepa")
-
 // Enable OTLP HTTP exporter
 // For relevant environment variables:
 // https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace#readme-environment-variables

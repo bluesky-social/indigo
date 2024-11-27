@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -12,10 +13,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/bluesky-social/indigo/models"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	blockformat "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
@@ -27,10 +24,14 @@ import (
 	logging "github.com/ipfs/go-log"
 	car "github.com/ipld/go-car"
 	carutil "github.com/ipld/go-car/util"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
+
+	"github.com/bluesky-social/indigo/models"
 )
 
 var blockGetTotalCounter = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -548,17 +549,6 @@ func (cs *FileCarStore) dirForUser(user models.Uid) string {
 	return cs.rootDirs[int(user)%len(cs.rootDirs)]
 }
 
-func (cs *FileCarStore) openNewShardFile(ctx context.Context, user models.Uid, seq int) (*os.File, string, error) {
-	// TODO: some overwrite protections
-	fname := filepath.Join(cs.dirForUser(user), fnameForShard(user, seq))
-	fi, err := os.Create(fname)
-	if err != nil {
-		return nil, "", err
-	}
-
-	return fi, fname, nil
-}
-
 func (cs *FileCarStore) writeNewShardFile(ctx context.Context, user models.Uid, seq int, data []byte) (string, error) {
 	_, span := otel.Tracer("carstore").Start(ctx, "writeNewShardFile")
 	defer span.End()
@@ -768,17 +758,14 @@ func (cs *FileCarStore) ImportSlice(ctx context.Context, uid models.Uid, since *
 		return cid.Undef, nil, fmt.Errorf("new delta session failed: %w", err)
 	}
 
-	var cids []cid.Cid
 	for {
 		blk, err := carr.Next()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return cid.Undef, nil, err
 		}
-
-		cids = append(cids, blk.Cid())
 
 		if err := ds.Put(ctx, blk); err != nil {
 			return cid.Undef, nil, err

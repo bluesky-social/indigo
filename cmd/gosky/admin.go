@@ -10,14 +10,14 @@ import (
 	"sync"
 	"time"
 
+	cli "github.com/urfave/cli/v2"
+
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/api/atproto"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util/cliutil"
-	cli "github.com/urfave/cli/v2"
 )
 
 var adminCmd = &cli.Command{
@@ -244,8 +244,7 @@ var buildInviteTreeCmd = &cli.Command{
 			Handle: "admin",
 		}
 
-		var getUser func(did string) (*userInviteInfo, error)
-		getUser = func(did string) (*userInviteInfo, error) {
+		getUser := func(did string) (*userInviteInfo, error) {
 			u, ok := users[did]
 			if ok {
 				return u, nil
@@ -290,7 +289,6 @@ var buildInviteTreeCmd = &cli.Command{
 
 			return u, nil
 		}
-		_ = getUser
 
 		initmap := make(map[string]*basicInvInfo)
 		var initlist []*basicInvInfo
@@ -695,12 +693,9 @@ var queryModerationStatusesCmd = &cli.Command{
 		did := cctx.Args().First()
 		if !strings.HasPrefix(did, "did:") {
 			phr := &api.ProdHandleResolver{}
-			resp, err := phr.ResolveHandleToDid(ctx, did)
-			if err != nil {
+			if _, err := phr.ResolveHandleToDid(ctx, did); err != nil {
 				return err
 			}
-
-			did = resp
 		}
 
 		resp, err := toolsozone.ModerationQueryEvents(
@@ -776,7 +771,7 @@ var createInviteCmd = &cli.Command{
 
 			for i, d := range dids {
 				if !strings.HasPrefix(d, "did:plc:") {
-					out, err := phr.ResolveHandleToDid(context.TODO(), d)
+					out, err := phr.ResolveHandleToDid(cctx.Context, d)
 					if err != nil {
 						return fmt.Errorf("failed to resolve %q: %w", d, err)
 					}
@@ -791,7 +786,7 @@ var createInviteCmd = &cli.Command{
 					slice = slice[:500]
 				}
 
-				_, err = comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
+				_, err = atproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &atproto.ServerCreateInviteCodes_Input{
 					UseCount:    int64(count),
 					ForAccounts: slice,
 					CodeCount:   int64(num),
@@ -820,7 +815,7 @@ var createInviteCmd = &cli.Command{
 
 		xrpcc.AdminToken = &adminKey
 
-		resp, err := comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
+		resp, err := atproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &atproto.ServerCreateInviteCodes_Input{
 			UseCount:    int64(count),
 			ForAccounts: usrdid,
 			CodeCount:   int64(num),

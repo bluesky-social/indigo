@@ -10,10 +10,7 @@ import (
 )
 
 func ExtractHashtagsPost(post *appbsky.FeedPost) []string {
-	var tags []string
-	for _, tag := range post.Tags {
-		tags = append(tags, tag)
-	}
+	tags := append([]string{}, post.Tags...)
 	for _, facet := range post.Facets {
 		for _, feat := range facet.Features {
 			if feat.RichtextFacet_Tag != nil {
@@ -205,10 +202,7 @@ func ParentOrRootIsFollower(c *automod.RecordContext, post *appbsky.FeedPost) bo
 	}
 
 	rel = c.GetAccountRelationship(rootDID)
-	if rel.FollowedBy {
-		return true
-	}
-	return false
+	return rel.FollowedBy
 }
 
 func PostParentOrRootIsDid(post *appbsky.FeedPost, did string) bool {

@@ -223,7 +223,7 @@ func (s *TypeSchema) WriteHandlerStub(w io.Writer, fname, shortname, impname str
 			}
 			returndef = fmt.Sprintf("(*%s.%s, error)", impname, outname)
 		case "application/cbor", "application/vnd.ipld.car", "*/*":
-			returndef = fmt.Sprintf("(io.Reader, error)")
+			returndef = "(io.Reader, error)"
 		default:
 			return fmt.Errorf("unrecognized output encoding (handler stub): %q", s.Output.Encoding)
 		}

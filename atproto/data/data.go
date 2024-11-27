@@ -67,16 +67,12 @@ func extractBlobsAtom(atom any) []Blob {
 	case []any:
 		for _, el := range v {
 			down := extractBlobsAtom(el)
-			for _, d := range down {
-				out = append(out, d)
-			}
+			out = append(out, down...)
 		}
 	case map[string]any:
 		for _, val := range v {
 			down := extractBlobsAtom(val)
-			for _, d := range down {
-				out = append(out, d)
-			}
+			out = append(out, down...)
 		}
 	default:
 	}

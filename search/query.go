@@ -192,7 +192,7 @@ func (p *PostSearchParams) Filters() []map[string]interface{} {
 func (p *ActorSearchParams) Filters() []map[string]interface{} {
 	var filters []map[string]interface{}
 
-	if p.Follows != nil && len(p.Follows) > 0 {
+	if len(p.Follows) > 0 {
 		follows := make([]string, len(p.Follows))
 		for i, did := range p.Follows {
 			follows[i] = did.String()

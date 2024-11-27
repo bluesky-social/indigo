@@ -103,15 +103,8 @@ func TransformProfile(profile *appbsky.ActorProfile, ident *identity.Identity, c
 }
 
 func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) PostDoc {
-	altText := []string{}
-	if post.Embed != nil && post.Embed.EmbedImages != nil {
-		for _, img := range post.Embed.EmbedImages.Images {
-			if img.Alt != "" {
-				altText = append(altText, img.Alt)
-			}
-		}
-	}
 	var langCodeIso2 []string
+
 	for _, lang := range post.Langs {
 		// TODO: include an actual language code map to go from 3char to 2char
 		prefix := strings.SplitN(lang, "-", 2)[0]
@@ -119,8 +112,8 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 			langCodeIso2 = append(langCodeIso2, strings.ToLower(prefix))
 		}
 	}
-	var mentionDIDs []string
-	var urls []string
+
+	var mentionDIDs, urls []string
 	for _, facet := range post.Facets {
 		for _, feat := range facet.Features {
 			if feat.RichtextFacet_Mention != nil {
@@ -267,9 +260,7 @@ func parsePostTags(p *appbsky.FeedPost) []string {
 			}
 		}
 	}
-	for _, t := range p.Tags {
-		ret = append(ret, t)
-	}
+	ret = append(ret, p.Tags...)
 	if len(ret) == 0 {
 		return nil
 	}
@@ -285,7 +276,7 @@ func parseEmojis(s string) []string {
 		firstRune := gr.Runes()[0]
 		if (firstRune >= 0x1F000 && firstRune <= 0x1FFFF) || (firstRune >= 0x2600 && firstRune <= 0x26FF) {
 			emoji := gr.Str()
-			if seen[emoji] == false {
+			if !seen[emoji] {
 				ret = append(ret, emoji)
 				seen[emoji] = true
 			}

@@ -193,7 +193,7 @@ func (gfc *GoatFirehoseConsumer) handleCommitEvent(ctx context.Context, evt *com
 					break
 				}
 			}
-			if keep == true {
+			if keep {
 				break
 			}
 		}
@@ -244,7 +244,7 @@ func (gfc *GoatFirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *
 					break
 				}
 			}
-			if keep == false {
+			if !keep {
 				continue
 			}
 		}
@@ -277,7 +277,6 @@ func (gfc *GoatFirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *
 				out["action"] = "update"
 			default:
 				logger.Error("impossible event kind", "kind", ek)
-				break
 			}
 			d, err := data.UnmarshalCBOR(*recCBOR)
 			if err != nil {

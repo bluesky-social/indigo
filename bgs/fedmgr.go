@@ -408,7 +408,7 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adm
 		}
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	sub := activeSub{
 		pds:    &peering,
 		ctx:    ctx,

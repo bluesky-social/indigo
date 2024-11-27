@@ -171,7 +171,6 @@ func (fc *FirehoseConsumer) HandleRepoCommit(ctx context.Context, evt *comatprot
 				action = automod.UpdateOp
 			default:
 				logger.Error("impossible event kind", "kind", ek)
-				break
 			}
 			recCID := syntax.CID(op.Cid.String())
 			op := automod.RecordOp{

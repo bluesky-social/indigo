@@ -30,9 +30,7 @@ func (srv *Server) WebQuery(c echo.Context) error {
 		return c.Redirect(http.StatusFound, "/")
 	}
 	if strings.HasPrefix(q, "at://") {
-		if strings.HasSuffix(q, "/") {
-			q = q[0 : len(q)-1]
-		}
+		q = strings.TrimSuffix(q, "/")
 
 		aturi, err := syntax.ParseATURI(q)
 		if err != nil {
@@ -64,7 +62,7 @@ func (srv *Server) WebAccount(c echo.Context) error {
 
 	atid, err := syntax.ParseAtIdentifier(c.Param("atid"))
 	if err != nil {
-		return echo.NewHTTPError(404, fmt.Sprintf("failed to parse handle or DID"))
+		return echo.NewHTTPError(404, "failed to parse handle or DID")
 	}
 
 	ident, err := srv.dir.Lookup(ctx, *atid)
@@ -96,7 +94,7 @@ func (srv *Server) WebRepo(c echo.Context) error {
 
 	atid, err := syntax.ParseAtIdentifier(c.Param("atid"))
 	if err != nil {
-		return echo.NewHTTPError(400, fmt.Sprintf("failed to parse handle or DID"))
+		return echo.NewHTTPError(400, "failed to parse handle or DID")
 	}
 
 	ident, err := srv.dir.Lookup(ctx, *atid)
@@ -133,12 +131,12 @@ func (srv *Server) WebRepoCollection(c echo.Context) error {
 
 	atid, err := syntax.ParseAtIdentifier(c.Param("atid"))
 	if err != nil {
-		return echo.NewHTTPError(400, fmt.Sprintf("failed to parse handle or DID"))
+		return echo.NewHTTPError(400, "failed to parse handle or DID")
 	}
 
 	collection, err := syntax.ParseNSID(c.Param("collection"))
 	if err != nil {
-		return echo.NewHTTPError(400, fmt.Sprintf("failed to parse collection NSID"))
+		return echo.NewHTTPError(400, "failed to parse collection NSID")
 	}
 
 	ident, err := srv.dir.Lookup(ctx, *atid)
@@ -191,17 +189,17 @@ func (srv *Server) WebRepoRecord(c echo.Context) error {
 
 	atid, err := syntax.ParseAtIdentifier(c.Param("atid"))
 	if err != nil {
-		return echo.NewHTTPError(400, fmt.Sprintf("failed to parse handle or DID"))
+		return echo.NewHTTPError(400, "failed to parse handle or DID")
 	}
 
 	collection, err := syntax.ParseNSID(c.Param("collection"))
 	if err != nil {
-		return echo.NewHTTPError(400, fmt.Sprintf("failed to parse collection NSID"))
+		return echo.NewHTTPError(400, "failed to parse collection NSID")
 	}
 
 	rkey, err := syntax.ParseRecordKey(c.Param("rkey"))
 	if err != nil {
-		return echo.NewHTTPError(400, fmt.Sprintf("failed to parse record key"))
+		return echo.NewHTTPError(400, "failed to parse record key")
 	}
 
 	ident, err := srv.dir.Lookup(ctx, *atid)

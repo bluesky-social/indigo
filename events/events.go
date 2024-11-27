@@ -48,17 +48,7 @@ func NewEventManager(persister EventPersistence) *EventManager {
 	return em
 }
 
-const (
-	opSubscribe = iota
-	opUnsubscribe
-	opSend
-)
-
-type Operation struct {
-	op  int
-	sub *Subscriber
-	evt *XRPCStreamEvent
-}
+type Operation struct{}
 
 func (em *EventManager) Shutdown(ctx context.Context) error {
 	return em.persister.Shutdown(ctx)

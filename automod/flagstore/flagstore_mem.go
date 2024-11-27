@@ -23,13 +23,8 @@ func (s MemFlagStore) Get(ctx context.Context, key string) ([]string, error) {
 }
 
 func (s MemFlagStore) Add(ctx context.Context, key string, flags []string) error {
-	v, ok := s.Data[key]
-	if !ok {
-		v = []string{}
-	}
-	for _, f := range flags {
-		v = append(v, f)
-	}
+	v, _ := s.Data[key]
+	v = append(v, flags...)
 	v = dedupeStrings(v)
 	s.Data[key] = v
 	return nil
@@ -51,8 +46,8 @@ func (s MemFlagStore) Remove(ctx context.Context, key string, flags []string) er
 	for _, f := range flags {
 		delete(m, f)
 	}
-	out := []string{}
-	for f, _ := range m {
+	var out []string
+	for f := range m {
 		out = append(out, f)
 	}
 	s.Data[key] = out

@@ -136,7 +136,7 @@ func validateArray(cat Catalog, s SchemaArray, arr []any, flags ValidateFlags) e
 }
 
 func validateUnion(cat Catalog, s SchemaUnion, d any, flags ValidateFlags) error {
-	closed := s.Closed != nil && *s.Closed == true
+	closed := s.Closed != nil && *s.Closed
 
 	obj, ok := d.(map[string]any)
 	if !ok {

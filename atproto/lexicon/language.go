@@ -142,7 +142,6 @@ func (s *SchemaDef) SetBase(base string) {
 		}
 		s.Inner = v
 	}
-	return
 }
 
 func (s SchemaDef) MarshalJSON() ([]byte, error) {

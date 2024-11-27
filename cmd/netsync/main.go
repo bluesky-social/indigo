@@ -345,8 +345,8 @@ func Netsync(cctx *cli.Context) error {
 		Handler: mux,
 	}
 
+	state.wg.Add(1)
 	go func() {
-		state.wg.Add(1)
 		defer state.wg.Done()
 		if err := metricsServer.ListenAndServe(); err != http.ErrServerClosed {
 			logger.Error("failed to start metrics server", "err", err)
@@ -368,8 +368,8 @@ func Netsync(cctx *cli.Context) error {
 	}
 
 	// Check for empty queue
+	state.wg.Add(1)
 	go func() {
-		state.wg.Add(1)
 		defer state.wg.Done()
 		t := time.NewTicker(30 * time.Second)
 		for {
@@ -541,7 +541,7 @@ func (s *NetsyncState) cloneRepo(ctx context.Context, did string) (cloneState st
 	r, err := repo.ReadRepoFromCar(ctx, instrumentedReader)
 	if err != nil {
 		log.Error("Error reading repo", "err", err)
-		return "failed (read-repo)", fmt.Errorf("Failed to read repo from CAR: %w", err)
+		return "failed (read-repo)", fmt.Errorf("failed to read repo from CAR: %w", err)
 	}
 
 	err = r.ForEach(ctx, "", func(path string, nodeCid cid.Cid) error {
@@ -576,13 +576,13 @@ func (s *NetsyncState) cloneRepo(ctx context.Context, did string) (cloneState st
 		asCbor, err := data.UnmarshalCBOR(*rec)
 		if err != nil {
 			log.Error("Error unmarshalling record", "err", err)
-			return fmt.Errorf("Failed to unmarshal record: %w", err)
+			return fmt.Errorf("failed to unmarshal record: %w", err)
 		}
 
 		recJSON, err := json.Marshal(asCbor)
 		if err != nil {
 			log.Error("Error marshalling record to JSON", "err", err)
-			return fmt.Errorf("Failed to marshal record to JSON: %w", err)
+			return fmt.Errorf("failed to marshal record to JSON: %w", err)
 		}
 
 		// Write the record directly to the tar.gz file
@@ -604,7 +604,7 @@ func (s *NetsyncState) cloneRepo(ctx context.Context, did string) (cloneState st
 	})
 	if err != nil {
 		log.Error("Error during ForEach", "err", err)
-		return "failed (for-each)", fmt.Errorf("Error during ForEach: %w", err)
+		return "failed (for-each)", fmt.Errorf("error during ForEach: %w", err)
 	}
 
 	log.Info("checkout complete", "numRecords", numRecords, "numCollections", len(collectionsSeen))

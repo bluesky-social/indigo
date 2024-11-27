@@ -386,7 +386,6 @@ func printHits(resp *search.EsSearchResponse) {
 		b, _ := json.Marshal(hit.Source)
 		fmt.Println(string(b))
 	}
-	return
 }
 
 var searchPostCmd = &cli.Command{

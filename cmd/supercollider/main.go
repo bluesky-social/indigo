@@ -7,6 +7,8 @@ import (
 	"log"
 	"log/slog"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -15,41 +17,36 @@ import (
 	"syscall"
 	"time"
 
-	"net/http"
-	_ "net/http/pprof"
-
-	"github.com/bluesky-social/indigo/api/atproto"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/did"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/indexer"
-	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/plc"
+	"github.com/carlmjohnson/versioninfo"
 	petname "github.com/dustinkirkland/golang-petname"
+	"github.com/gorilla/websocket"
 	"github.com/icrowley/fake"
 	"github.com/labstack/echo-contrib/pprof"
-	"github.com/urfave/cli/v2"
-	godid "github.com/whyrusleeping/go-did"
-	"golang.org/x/crypto/acme/autocert"
-	"golang.org/x/time/rate"
-
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/util"
-	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/urfave/cli/v2"
+	cbg "github.com/whyrusleeping/cbor-gen"
+	godid "github.com/whyrusleeping/go-did"
 	_ "go.uber.org/automaxprocs"
+	"golang.org/x/crypto/acme/autocert"
+	"golang.org/x/time/rate"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/carlmjohnson/versioninfo"
-	cbg "github.com/whyrusleeping/cbor-gen"
+	"github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/did"
+	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/indexer"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/models"
+	"github.com/bluesky-social/indigo/plc"
+	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/util"
 )
 
 var eventsGeneratedCounter = promauto.NewCounter(prometheus.CounterOpts{
@@ -164,7 +161,7 @@ func main() {
 		},
 	}
 
-	err := app.Run(os.Args)
+	err := app.RunContext(ctx, os.Args)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -586,10 +583,10 @@ func initSpeedyRepoMan(key *godid.PrivKey) (*repomgr.RepoManager, *godid.PrivKey
 
 // HandleRepoEvent is the callback for the RepoManager
 func (s *Server) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
-	outops := make([]*comatproto.SyncSubscribeRepos_RepoOp, 0, len(evt.Ops))
+	outops := make([]*atproto.SyncSubscribeRepos_RepoOp, 0, len(evt.Ops))
 	for _, op := range evt.Ops {
 		link := (*lexutil.LexLink)(op.RecCid)
-		outops = append(outops, &comatproto.SyncSubscribeRepos_RepoOp{
+		outops = append(outops, &atproto.SyncSubscribeRepos_RepoOp{
 			Path:   op.Collection + "/" + op.Rkey,
 			Action: string(op.Kind),
 			Cid:    link,
@@ -597,7 +594,7 @@ func (s *Server) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
 	}
 
 	if err := s.Events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoCommit: &comatproto.SyncSubscribeRepos_Commit{
+		RepoCommit: &atproto.SyncSubscribeRepos_Commit{
 			Repo:   s.Dids[evt.User-1],
 			Prev:   (*lexutil.LexLink)(evt.OldRoot),
 			Blocks: evt.RepoSlice,
@@ -651,7 +648,6 @@ func (s *Server) EventGenerationLoop(ctx context.Context, cancel context.CancelF
 	}
 
 	s.Logger.Info("event generation complete, shutting down")
-	return
 }
 
 // ATProto Handlers for DID Web

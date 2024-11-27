@@ -3,13 +3,11 @@ package sequential
 import (
 	"context"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers"
-	logging "github.com/ipfs/go-log"
-	"github.com/prometheus/client_golang/prometheus"
 )
-
-var log = logging.Logger("sequential-scheduler")
 
 // Scheduler is a sequential scheduler that will run work on a single worker
 type Scheduler struct {
