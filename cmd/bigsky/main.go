@@ -256,7 +256,7 @@ func setupOTEL(cctx *cli.Context) error {
 	// OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 	if ep := cctx.String("otel-exporter-otlp-endpoint"); ep != "" {
 		log.Infow("setting up trace exporter", "endpoint", ep)
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(cctx.Context)
 		defer cancel()
 
 		exp, err := otlptracehttp.New(ctx)
@@ -264,7 +264,7 @@ func setupOTEL(cctx *cli.Context) error {
 			log.Fatalw("failed to create trace exporter", "error", err)
 		}
 		defer func() {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			ctx, cancel := context.WithTimeout(ctx, time.Second)
 			defer cancel()
 			if err := exp.Shutdown(ctx); err != nil {
 				log.Errorw("failed to shutdown trace exporter", "error", err)

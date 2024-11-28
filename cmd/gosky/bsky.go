@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,9 +8,9 @@ import (
 	"time"
 
 	"github.com/bobg/errors"
-	cli "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
@@ -52,7 +51,7 @@ var bskyFollowCmd = &cli.Command{
 			Subject:       user,
 		}
 
-		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
+		resp, err := atproto.RepoCreateRecord(cctx.Context, xrpcc, &atproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.graph.follow",
 			Repo:       xrpcc.Auth.Did,
 			Record:     &lexutil.LexiconTypeDecoder{Val: &follow},
@@ -82,7 +81,7 @@ var bskyListFollowsCmd = &cli.Command{
 			user = xrpcc.Auth.Did
 		}
 
-		ctx := context.TODO()
+		ctx := cctx.Context
 		resp, err := bsky.GraphGetFollows(ctx, xrpcc, user, "", 100)
 		if err != nil {
 			return err
@@ -110,7 +109,7 @@ var bskyPostCmd = &cli.Command{
 
 		text := strings.Join(cctx.Args().Slice(), " ")
 
-		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
+		resp, err := atproto.RepoCreateRecord(cctx.Context, xrpcc, &atproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.feed.post",
 			Repo:       auth.Did,
 			Record: &lexutil.LexiconTypeDecoder{Val: &bsky.FeedPost{
@@ -168,7 +167,7 @@ var bskyGetFeedCmd = &cli.Command{
 			return err
 		}
 
-		ctx := context.TODO()
+		ctx := cctx.Context
 
 		raw := cctx.Bool("raw")
 
@@ -256,19 +255,19 @@ var bskyLikeCmd = &cli.Command{
 		did := parts[2]
 
 		fmt.Println(did, collection, rkey)
-		ctx := context.TODO()
-		resp, err := comatproto.RepoGetRecord(ctx, xrpcc, "", collection, did, rkey)
+		ctx := cctx.Context
+		resp, err := atproto.RepoGetRecord(ctx, xrpcc, "", collection, did, rkey)
 		if err != nil {
 			return fmt.Errorf("getting record: %w", err)
 		}
 
-		out, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
+		out, err := atproto.RepoCreateRecord(ctx, xrpcc, &atproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.feed.like",
 			Repo:       xrpcc.Auth.Did,
 			Record: &lexutil.LexiconTypeDecoder{
 				Val: &bsky.FeedLike{
 					CreatedAt: time.Now().Format(util.ISO8601),
-					Subject:   &comatproto.RepoStrongRef{Uri: resp.Uri, Cid: *resp.Cid},
+					Subject:   &atproto.RepoStrongRef{Uri: resp.Uri, Cid: *resp.Cid},
 				},
 			},
 		})
@@ -303,7 +302,7 @@ var bskyDeletePostCmd = &cli.Command{
 			rkey = parts[1]
 		}
 
-		_, err = comatproto.RepoDeleteRecord(context.TODO(), xrpcc, &comatproto.RepoDeleteRecord_Input{
+		_, err = atproto.RepoDeleteRecord(cctx.Context, xrpcc, &atproto.RepoDeleteRecord_Input{
 			Repo:       xrpcc.Auth.Did,
 			Collection: schema,
 			Rkey:       rkey,

@@ -150,7 +150,7 @@ var readRepoStreamCmd = &cli.Command{
 	},
 	ArgsUsage: `[<repo> [cursor]]`,
 	Action: func(cctx *cli.Context) error {
-		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT)
+		ctx, stop := signal.NotifyContext(cctx.Context, syscall.SIGINT)
 		defer stop()
 
 		arg := cctx.Args().First()
@@ -394,7 +394,7 @@ var getRecordCmd = &cli.Command{
 	},
 	ArgsUsage: `<rpath>`,
 	Action: func(cctx *cli.Context) error {
-		ctx := context.Background()
+		ctx := cctx.Context
 		rfi := cctx.String("repo")
 
 		var repob []byte
@@ -578,7 +578,7 @@ var createFeedGeneratorCmd = &cli.Command{
 			desc = &d
 		}
 
-		ctx := context.TODO()
+		ctx := cctx.Context
 
 		rec := &lexutil.LexiconTypeDecoder{Val: &bsky.FeedGenerator{
 			CreatedAt:   time.Now().Format(util.ISO8601),
@@ -637,7 +637,7 @@ var listAllRecordsCmd = &cli.Command{
 	Action: func(cctx *cli.Context) error {
 
 		arg := cctx.Args().First()
-		ctx := context.TODO()
+		ctx := cctx.Context
 
 		var repob []byte
 		if strings.HasPrefix(arg, "did:") {
@@ -756,7 +756,7 @@ var listLabelsCmd = &cli.Command{
 	},
 	Action: func(cctx *cli.Context) error {
 
-		ctx := context.TODO()
+		ctx := cctx.Context
 
 		delta := cctx.Duration("since")
 		since := time.Now().Add(-1 * delta).UnixMilli()

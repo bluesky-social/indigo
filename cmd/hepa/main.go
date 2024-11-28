@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -248,7 +247,7 @@ var runCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-		ctx := context.Background()
+		ctx := cctx.Context
 		logger := configLogger(cctx, os.Stdout)
 		configOTEL("hepa")
 
@@ -388,7 +387,7 @@ var processRecordCmd = &cli.Command{
 	ArgsUsage: `<at-uri>`,
 	Flags:     []cli.Flag{},
 	Action: func(cctx *cli.Context) error {
-		ctx := context.Background()
+		ctx := cctx.Context
 		uriArg := cctx.Args().First()
 		if uriArg == "" {
 			return fmt.Errorf("expected a single AT-URI argument")
@@ -419,7 +418,7 @@ var processRecentCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-		ctx := context.Background()
+		ctx := cctx.Context
 		idArg := cctx.Args().First()
 		if idArg == "" {
 			return fmt.Errorf("expected a single AT identifier (handle or DID) argument")
@@ -450,7 +449,7 @@ var captureRecentCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-		ctx := context.Background()
+		ctx := cctx.Context
 		idArg := cctx.Args().First()
 		if idArg == "" {
 			return fmt.Errorf("expected a single AT identifier (handle or DID) argument")

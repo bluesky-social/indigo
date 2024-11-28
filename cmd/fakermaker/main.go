@@ -1,17 +1,15 @@
-// Tool to generate fake accounts, content, and interactions.
-// Intended for development and benchmarking. Similar to 'stress' and could
-// merge at some point.
-
+// Command fakermaker is a tool to generate fake accounts, content, and interactions.
+// Intended for development and benchmarking.
+// Similar to 'stress' and could merge at some point.
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"runtime"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/fakedata"
 	"github.com/bluesky-social/indigo/util/cliutil"
 
@@ -223,7 +221,7 @@ func genAccounts(cctx *cli.Context) error {
 
 	var inviteCode *string = nil
 	if cctx.Bool("use-invite-code") {
-		resp, err := comatproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &comatproto.ServerCreateInviteCodes_Input{
+		resp, err := atproto.ServerCreateInviteCodes(cctx.Context, xrpcc, &atproto.ServerCreateInviteCodes_Input{
 			UseCount:    int64(countTotal),
 			ForAccounts: nil,
 			CodeCount:   1,

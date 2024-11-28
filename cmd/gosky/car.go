@@ -2,16 +2,17 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bobg/errors"
-	"github.com/ipfs/go-cid"
-	cli "github.com/urfave/cli/v2"
 	"os"
 	"path/filepath"
+
+	"github.com/bobg/errors"
+	"github.com/ipfs/go-cid"
+	"github.com/urfave/cli/v2"
+
+	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/repo"
 )
 
 var carCmd = &cli.Command{
@@ -37,7 +38,7 @@ var carUnpackCmd = &cli.Command{
 	},
 	ArgsUsage: `<car-file>`,
 	Action: func(cctx *cli.Context) error {
-		ctx := context.Background()
+		ctx := cctx.Context
 		arg := cctx.Args().First()
 		if arg == "" {
 			return fmt.Errorf("CAR file path arg is required")

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,10 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/urfave/cli/v2"
+
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-
-	"github.com/urfave/cli/v2"
 )
 
 var cmdPLC = &cli.Command{
@@ -39,7 +38,7 @@ var cmdPLCHistory = &cli.Command{
 }
 
 func runPLCHistory(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	plcURL := cctx.String("plc-directory")
 	s := cctx.Args().First()
 	if s == "" {
@@ -121,7 +120,7 @@ var cmdPLCDump = &cli.Command{
 }
 
 func runPLCDump(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	plcURL := cctx.String("plc-directory")
 	client := http.DefaultClient
 	tailMode := cctx.Bool("tail")

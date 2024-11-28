@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -180,7 +179,7 @@ var genRepoCmd = &cli.Command{
 
 		membs := blockstore.NewBlockstore(datastore.NewMapDatastore())
 
-		ctx := context.Background()
+		ctx := cctx.Context
 
 		r := repo.NewRepo(ctx, "did:plc:foobar", membs)
 

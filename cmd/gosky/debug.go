@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +13,12 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/gorilla/websocket"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-libipfs/blocks"
+	"github.com/ipld/go-car/v2"
+	"github.com/urfave/cli/v2"
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
@@ -28,12 +33,6 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
-
-	"github.com/gorilla/websocket"
-	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-libipfs/blocks"
-	"github.com/ipld/go-car/v2"
-	cli "github.com/urfave/cli/v2"
 )
 
 var debugCmd = &cli.Command{
@@ -81,7 +80,7 @@ var inspectEventCmd = &cli.Command{
 
 		var match *atproto.SyncSubscribeRepos_Commit
 
-		ctx := context.TODO()
+		ctx := cctx.Context
 		rsc := &events.RepoStreamCallbacks{
 			RepoCommit: func(evt *atproto.SyncSubscribeRepos_Commit) error {
 				n := int64(n)
@@ -197,7 +196,7 @@ var debugStreamCmd = &cli.Command{
 		infos := make(map[string]*eventInfo)
 
 		var lastSeq int64 = -1
-		ctx := context.TODO()
+		ctx := cctx.Context
 		rsc := &events.RepoStreamCallbacks{
 			RepoCommit: func(evt *atproto.SyncSubscribeRepos_Commit) error {
 
@@ -376,7 +375,7 @@ var compareStreamsCmd = &cli.Command{
 					log.Fatalf("Dial failure on url%d: %s", i+1, err)
 				}
 
-				ctx := context.TODO()
+				ctx := cctx.Context
 				rsc := &events.RepoStreamCallbacks{
 					RepoCommit: func(evt *atproto.SyncSubscribeRepos_Commit) error {
 						eventChans[i] <- evt
@@ -460,7 +459,7 @@ var debugFeedGenCmd = &cli.Command{
 			return err
 		}
 
-		ctx := context.TODO()
+		ctx := cctx.Context
 
 		out, err := atproto.RepoGetRecord(ctx, xrpcc, "", puri.Collection, puri.Did, puri.Rkey)
 		if err != nil {
@@ -592,7 +591,7 @@ var debugFeedViewCmd = &cli.Command{
 			return err
 		}
 
-		ctx := context.TODO()
+		ctx := cctx.Context
 
 		out, err := atproto.RepoGetRecord(ctx, xrpcc, "", puri.Collection, puri.Did, puri.Rkey)
 		if err != nil {
@@ -772,7 +771,7 @@ var debugGetRepoCmd = &cli.Command{
 			return err
 		}
 
-		ctx := context.TODO()
+		ctx := cctx.Context
 
 		repobytes, err := atproto.SyncGetRepo(ctx, xrpcc, cctx.Args().First(), "")
 		if err != nil {

@@ -12,7 +12,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bobg/errors"
+	"github.com/carlmjohnson/versioninfo"
 	_ "github.com/joho/godotenv/autoload"
+	es "github.com/opensearch-project/opensearch-go/v2"
+	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -24,10 +28,6 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/search"
 	"github.com/bluesky-social/indigo/util/cliutil"
-
-	"github.com/carlmjohnson/versioninfo"
-	es "github.com/opensearch-project/opensearch-go/v2"
-	cli "github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -217,7 +217,7 @@ var runCmd = &cli.Command{
 		// OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 		if ep := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); ep != "" {
 			slog.Info("setting up trace exporter", "endpoint", ep)
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(cctx.Context)
 			defer cancel()
 
 			exp, err := otlptracehttp.New(ctx)
@@ -225,7 +225,7 @@ var runCmd = &cli.Command{
 				log.Fatal("failed to create trace exporter", "error", err)
 			}
 			defer func() {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				ctx, cancel := context.WithTimeout(cctx.Context, time.Second)
 				defer cancel()
 				if err := exp.Shutdown(ctx); err != nil {
 					slog.Error("failed to shutdown trace exporter", "error", err)
@@ -309,36 +309,36 @@ var runCmd = &cli.Command{
 			srv.RunAPI(cctx.String("bind"))
 		}()
 
-		// If we're in readonly mode, just block forever
-		if readonly {
-			select {}
-		} else if cctx.String("pagerank-file") != "" && srv.Indexer != nil {
+		ctx := cctx.Context
+
+		switch {
+		case readonly:
+			// If we're in readonly mode, just block forever (or until the context is canceled)
+			<-ctx.Done()
+			return ctx.Err()
+
+		case cctx.String("pagerank-file") != "" && srv.Indexer != nil:
 			// If we're not in readonly mode, and we have a pagerank file, update pageranks
-			ctx := context.Background()
-			if err := srv.Indexer.BulkIndexPageranks(ctx, cctx.String("pagerank-file")); err != nil {
-				return fmt.Errorf("failed to update pageranks: %w", err)
-			}
-		} else if cctx.String("bulk-posts-file") != "" && srv.Indexer != nil {
+			err := srv.Indexer.BulkIndexPageranks(ctx, cctx.String("pagerank-file"))
+			return errors.Wrap(err, "failed to update pageranks")
+
+		case cctx.String("bulk-posts-file") != "" && srv.Indexer != nil:
 			// If we're not in readonly mode, and we have a bulk posts file, index posts
-			ctx := context.Background()
-			if err := srv.Indexer.BulkIndexPosts(ctx, cctx.String("bulk-posts-file")); err != nil {
-				return fmt.Errorf("failed to bulk index posts: %w", err)
-			}
-		} else if cctx.String("bulk-profiles-file") != "" && srv.Indexer != nil {
+			err := srv.Indexer.BulkIndexPosts(ctx, cctx.String("bulk-posts-file"))
+			return errors.Wrap(err, "failed to bulk index posts")
+
+		case cctx.String("bulk-profiles-file") != "" && srv.Indexer != nil:
 			// If we're not in readonly mode, and we have a bulk profiles file, index profiles
-			ctx := context.Background()
-			if err := srv.Indexer.BulkIndexProfiles(ctx, cctx.String("bulk-profiles-file")); err != nil {
-				return fmt.Errorf("failed to bulk index profiles: %w", err)
-			}
-		} else if srv.Indexer != nil {
+			err := srv.Indexer.BulkIndexProfiles(ctx, cctx.String("bulk-profiles-file"))
+			return errors.Wrap(err, "failed to bulk index profiles")
+
+		case srv.Indexer != nil:
 			// Otherwise, just run the indexer
-			ctx := context.Background()
 			if err := srv.Indexer.EnsureIndices(ctx); err != nil {
-				return fmt.Errorf("failed to create opensearch indices: %w", err)
+				return errors.Wrap(err, "failed to create opensearch indices")
 			}
-			if err := srv.Indexer.RunIndexer(ctx); err != nil {
-				return fmt.Errorf("failed to run indexer: %w", err)
-			}
+			err := srv.Indexer.RunIndexer(ctx)
+			return errors.Wrap(err, "failed to run indexer")
 		}
 
 		return nil
@@ -397,7 +397,7 @@ var searchPostCmd = &cli.Command{
 			return err
 		}
 		res, err := search.DoSearchPosts(
-			context.Background(),
+			cctx.Context,
 			identity.DefaultDirectory(), // TODO: parse PLC arg
 			escli,
 			cctx.String("es-post-index"),
@@ -430,7 +430,7 @@ var searchProfileCmd = &cli.Command{
 		}
 		if cctx.Bool("typeahead") {
 			res, err := search.DoSearchProfilesTypeahead(
-				context.Background(),
+				cctx.Context,
 				escli,
 				cctx.String("es-profile-index"),
 				&search.ActorSearchParams{
@@ -444,7 +444,7 @@ var searchProfileCmd = &cli.Command{
 			printHits(res)
 		} else {
 			res, err := search.DoSearchProfiles(
-				context.Background(),
+				cctx.Context,
 				identity.DefaultDirectory(), // TODO: parse PLC arg
 				escli,
 				cctx.String("es-profile-index"),

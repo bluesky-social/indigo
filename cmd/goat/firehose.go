@@ -67,7 +67,7 @@ type GoatFirehoseConsumer struct {
 }
 
 func runFirehose(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
 

@@ -1,21 +1,22 @@
 package main
 
 import (
-	"context"
 	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+
+	"github.com/bobg/errors"
+	"github.com/urfave/cli/v2"
+
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/lexicon"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bobg/errors"
-	"github.com/urfave/cli/v2"
-	"io"
-	"log/slog"
-	"net/http"
 )
 
 func runValidateRecord(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	args := cctx.Args().Slice()
 	if len(args) != 2 {
 		return fmt.Errorf("expected two args (catalog path and AT-URI)")

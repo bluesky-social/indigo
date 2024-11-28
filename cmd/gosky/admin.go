@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	cli "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
 
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/api/atproto"
@@ -66,7 +65,7 @@ var checkUserCmd = &cli.Command{
 		}
 
 		dir := identity.DefaultDirectory()
-		ctx := context.Background()
+		ctx := cctx.Context
 
 		ident, err := syntax.ParseAtIdentifier(cctx.Args().First())
 		if err != nil {
@@ -193,7 +192,7 @@ var buildInviteTreeCmd = &cli.Command{
 			return err
 		}
 
-		ctx := context.Background()
+		ctx := cctx.Context
 
 		adminKey := cctx.String("admin-password")
 
@@ -381,7 +380,7 @@ var listReportsCmd = &cli.Command{
 			return err
 		}
 
-		ctx := context.Background()
+		ctx := cctx.Context
 
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
@@ -434,7 +433,7 @@ var disableInvitesCmd = &cli.Command{
 			return err
 		}
 
-		ctx := context.Background()
+		ctx := cctx.Context
 
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
@@ -476,7 +475,7 @@ var enableInvitesCmd = &cli.Command{
 			return err
 		}
 
-		ctx := context.Background()
+		ctx := cctx.Context
 
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
@@ -525,7 +524,7 @@ var listInviteTreeCmd = &cli.Command{
 			return err
 		}
 
-		ctx := context.Background()
+		ctx := cctx.Context
 
 		phr := &api.ProdHandleResolver{}
 
@@ -619,7 +618,7 @@ var takeDownAccountCmd = &cli.Command{
 			return err
 		}
 
-		ctx := context.Background()
+		ctx := cctx.Context
 
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
@@ -685,7 +684,7 @@ var queryModerationStatusesCmd = &cli.Command{
 			return err
 		}
 
-		ctx := context.Background()
+		ctx := cctx.Context
 
 		adminKey := cctx.String("admin-password")
 		xrpcc.AdminToken = &adminKey
@@ -786,7 +785,7 @@ var createInviteCmd = &cli.Command{
 					slice = slice[:500]
 				}
 
-				_, err = atproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &atproto.ServerCreateInviteCodes_Input{
+				_, err = atproto.ServerCreateInviteCodes(cctx.Context, xrpcc, &atproto.ServerCreateInviteCodes_Input{
 					UseCount:    int64(count),
 					ForAccounts: slice,
 					CodeCount:   int64(num),
@@ -802,7 +801,7 @@ var createInviteCmd = &cli.Command{
 		var usrdid []string
 		if forUser := cctx.Args().Get(0); forUser != "" {
 			if !strings.HasPrefix(forUser, "did:") {
-				resp, err := phr.ResolveHandleToDid(context.TODO(), forUser)
+				resp, err := phr.ResolveHandleToDid(cctx.Context, forUser)
 				if err != nil {
 					return fmt.Errorf("resolving handle: %w", err)
 				}
@@ -815,7 +814,7 @@ var createInviteCmd = &cli.Command{
 
 		xrpcc.AdminToken = &adminKey
 
-		resp, err := atproto.ServerCreateInviteCodes(context.TODO(), xrpcc, &atproto.ServerCreateInviteCodes_Input{
+		resp, err := atproto.ServerCreateInviteCodes(cctx.Context, xrpcc, &atproto.ServerCreateInviteCodes_Input{
 			UseCount:    int64(count),
 			ForAccounts: usrdid,
 			CodeCount:   int64(num),

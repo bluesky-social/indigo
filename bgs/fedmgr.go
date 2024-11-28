@@ -542,7 +542,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 			log.Debugw("got remote repo event", "pdsHost", host.Host, "repo", evt.Repo, "seq", evt.Seq)
-			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+			if err := s.cb(ctx, host, &events.XRPCStreamEvent{
 				RepoCommit: evt,
 			}); err != nil {
 				log.Errorf("failed handling event from %q (%d): %s", host.Host, evt.Seq, err)
@@ -557,7 +557,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
 			log.Infow("got remote handle update event", "pdsHost", host.Host, "did", evt.Did, "handle", evt.Handle)
-			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+			if err := s.cb(ctx, host, &events.XRPCStreamEvent{
 				RepoHandle: evt,
 			}); err != nil {
 				log.Errorf("failed handling event from %q (%d): %s", host.Host, evt.Seq, err)
@@ -572,7 +572,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 		RepoMigrate: func(evt *comatproto.SyncSubscribeRepos_Migrate) error {
 			log.Infow("got remote repo migrate event", "pdsHost", host.Host, "did", evt.Did, "migrateTo", evt.MigrateTo)
-			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+			if err := s.cb(ctx, host, &events.XRPCStreamEvent{
 				RepoMigrate: evt,
 			}); err != nil {
 				log.Errorf("failed handling event from %q (%d): %s", host.Host, evt.Seq, err)
@@ -587,7 +587,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 		RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
 			log.Infow("got remote repo tombstone event", "pdsHost", host.Host, "did", evt.Did)
-			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+			if err := s.cb(ctx, host, &events.XRPCStreamEvent{
 				RepoTombstone: evt,
 			}); err != nil {
 				log.Errorf("failed handling event from %q (%d): %s", host.Host, evt.Seq, err)
@@ -606,7 +606,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 		RepoIdentity: func(ident *comatproto.SyncSubscribeRepos_Identity) error {
 			log.Infow("identity event", "did", ident.Did)
-			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+			if err := s.cb(ctx, host, &events.XRPCStreamEvent{
 				RepoIdentity: ident,
 			}); err != nil {
 				log.Errorf("failed handling event from %q (%d): %s", host.Host, ident.Seq, err)
@@ -621,7 +621,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		},
 		RepoAccount: func(acct *comatproto.SyncSubscribeRepos_Account) error {
 			log.Infow("account event", "did", acct.Did, "status", acct.Status)
-			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
+			if err := s.cb(ctx, host, &events.XRPCStreamEvent{
 				RepoAccount: acct,
 			}); err != nil {
 				log.Errorf("failed handling event from %q (%d): %s", host.Host, acct.Seq, err)

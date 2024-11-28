@@ -1,14 +1,13 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-
 	"github.com/urfave/cli/v2"
+
+	"github.com/bluesky-social/indigo/api/atproto"
 )
 
 var cmdAccountPlc = &cli.Command{
@@ -47,7 +46,7 @@ var cmdAccountPlc = &cli.Command{
 }
 
 func runAccountPlcRecommended(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	xrpcc, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -71,7 +70,7 @@ func runAccountPlcRecommended(cctx *cli.Context) error {
 }
 
 func runAccountPlcRequestToken(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	xrpcc, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -80,7 +79,7 @@ func runAccountPlcRequestToken(cctx *cli.Context) error {
 		return err
 	}
 
-	err = comatproto.IdentityRequestPlcOperationSignature(ctx, xrpcc)
+	err = atproto.IdentityRequestPlcOperationSignature(ctx, xrpcc)
 	if err != nil {
 		return err
 	}
@@ -90,7 +89,7 @@ func runAccountPlcRequestToken(cctx *cli.Context) error {
 }
 
 func runAccountPlcSign(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	opPath := cctx.Args().First()
 	if opPath == "" {
@@ -134,7 +133,7 @@ func runAccountPlcSign(cctx *cli.Context) error {
 }
 
 func runAccountPlcSubmit(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	opPath := cctx.Args().First()
 	if opPath == "" {

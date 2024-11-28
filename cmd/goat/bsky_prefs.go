@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -29,7 +28,7 @@ var cmdBskyPrefs = &cli.Command{
 }
 
 func runBskyPrefsExport(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	xrpcc, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -54,7 +53,7 @@ func runBskyPrefsExport(cctx *cli.Context) error {
 }
 
 func runBskyPrefsImport(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	prefsPath := cctx.Args().First()
 	if prefsPath == "" {
 		return fmt.Errorf("need to provide file path as an argument")

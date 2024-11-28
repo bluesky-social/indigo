@@ -32,7 +32,7 @@ func configOTEL(serviceName string) {
 			log.Fatal("failed to create trace exporter", "error", err)
 		}
 		defer func() {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			ctx, cancel := context.WithTimeout(ctx, time.Second)
 			defer cancel()
 			if err := exp.Shutdown(ctx); err != nil {
 				slog.Error("failed to shutdown trace exporter", "error", err)
