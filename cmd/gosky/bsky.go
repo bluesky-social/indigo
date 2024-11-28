@@ -4,16 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/bobg/errors"
+	cli "github.com/urfave/cli/v2"
+
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
-
-	cli "github.com/urfave/cli/v2"
 )
 
 var bskyCmd = &cli.Command{
@@ -44,7 +46,7 @@ var bskyFollowCmd = &cli.Command{
 
 		user := cctx.Args().First()
 
-		follow := appbsky.GraphFollow{
+		follow := bsky.GraphFollow{
 			LexiconTypeID: "app.bsky.graph.follow",
 			CreatedAt:     time.Now().Format(time.RFC3339),
 			Subject:       user,
@@ -81,7 +83,7 @@ var bskyListFollowsCmd = &cli.Command{
 		}
 
 		ctx := context.TODO()
-		resp, err := appbsky.GraphGetFollows(ctx, xrpcc, user, "", 100)
+		resp, err := bsky.GraphGetFollows(ctx, xrpcc, user, "", 100)
 		if err != nil {
 			return err
 		}
@@ -111,7 +113,7 @@ var bskyPostCmd = &cli.Command{
 		resp, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.feed.post",
 			Repo:       auth.Did,
-			Record: &lexutil.LexiconTypeDecoder{Val: &appbsky.FeedPost{
+			Record: &lexutil.LexiconTypeDecoder{Val: &bsky.FeedPost{
 				Text:      text,
 				CreatedAt: time.Now().Format(util.ISO8601),
 			}},
@@ -127,9 +129,9 @@ var bskyPostCmd = &cli.Command{
 	},
 }
 
-func prettyPrintPost(p *appbsky.FeedDefs_FeedViewPost, uris bool) {
+func prettyPrintPost(p *bsky.FeedDefs_FeedViewPost, uris bool) {
 	fmt.Println(strings.Repeat("-", 60))
-	rec := p.Post.Record.Val.(*appbsky.FeedPost)
+	rec := p.Post.Record.Val.(*bsky.FeedPost)
 	fmt.Printf("%s (%s)", p.Post.Author.Handle, rec.CreatedAt)
 	if uris {
 		fmt.Println(" -- ", p.Post.Uri)
@@ -178,7 +180,7 @@ var bskyGetFeedCmd = &cli.Command{
 				author = xrpcc.Auth.Did
 			}
 
-			tl, err := appbsky.FeedGetAuthorFeed(ctx, xrpcc, author, "", "", false, 99)
+			tl, err := bsky.FeedGetAuthorFeed(ctx, xrpcc, author, "", "", false, 99)
 			if err != nil {
 				return err
 			}
@@ -193,7 +195,7 @@ var bskyGetFeedCmd = &cli.Command{
 			}
 		} else {
 			algo := "reverse-chronological"
-			tl, err := appbsky.FeedGetTimeline(ctx, xrpcc, algo, "", int64(cctx.Int("count")))
+			tl, err := bsky.FeedGetTimeline(ctx, xrpcc, algo, "", int64(cctx.Int("count")))
 			if err != nil {
 				return err
 			}
@@ -219,30 +221,17 @@ var bskyActorGetSuggestionsCmd = &cli.Command{
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "in GetXrpcClient")
 		}
 
-		ctx := context.TODO()
-
-		author := cctx.Args().First()
-		if author == "" {
-			author = xrpcc.Auth.Did
-		}
-
-		resp, err := appbsky.ActorGetSuggestions(ctx, xrpcc, "", 100)
+		resp, err := bsky.ActorGetSuggestions(cctx.Context, xrpcc, "", 100)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "in ActorGetSuggestions")
 		}
 
-		b, err := json.MarshalIndent(resp.Actors, "", "  ")
-		if err != nil {
-			return err
-		}
-
-		fmt.Println(string(b))
-
-		return nil
-
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(resp.Actors)
 	},
 }
 
@@ -277,7 +266,7 @@ var bskyLikeCmd = &cli.Command{
 			Collection: "app.bsky.feed.like",
 			Repo:       xrpcc.Auth.Did,
 			Record: &lexutil.LexiconTypeDecoder{
-				Val: &appbsky.FeedLike{
+				Val: &bsky.FeedLike{
 					CreatedAt: time.Now().Format(util.ISO8601),
 					Subject:   &comatproto.RepoStrongRef{Uri: resp.Uri, Cid: *resp.Cid},
 				},
@@ -328,14 +317,12 @@ var bskyNotificationsCmd = &cli.Command{
 	Usage: "fetch bsky notifications (requires auth)",
 	Flags: []cli.Flag{},
 	Action: func(cctx *cli.Context) error {
-		ctx := context.TODO()
-
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
 		if err != nil {
 			return err
 		}
 
-		notifs, err := appbsky.NotificationListNotifications(ctx, xrpcc, "", 50, false, "")
+		notifs, err := bsky.NotificationListNotifications(cctx.Context, xrpcc, "", 50, false, "")
 		if err != nil {
 			return err
 		}

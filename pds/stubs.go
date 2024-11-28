@@ -1,12 +1,12 @@
 package pds
 
 import (
-	"io"
 	"strconv"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
+
+	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 )
 
 func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
@@ -76,13 +76,8 @@ func (s *Server) HandleComAtprotoAdminDisableAccountInvites(c echo.Context) erro
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminDisableAccountInvites(ctx context.Context,body *comatprototypes.AdminDisableAccountInvites_Input) error
-	handleErr = s.handleComAtprotoAdminDisableAccountInvites(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoAdminDisableAccountInvites(ctx, &body)
 }
 
 func (s *Server) HandleComAtprotoAdminDisableInviteCodes(c echo.Context) error {
@@ -93,13 +88,8 @@ func (s *Server) HandleComAtprotoAdminDisableInviteCodes(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminDisableInviteCodes(ctx context.Context,body *comatprototypes.AdminDisableInviteCodes_Input) error
-	handleErr = s.handleComAtprotoAdminDisableInviteCodes(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoAdminDisableInviteCodes(ctx, &body)
 }
 
 func (s *Server) HandleComAtprotoAdminEnableAccountInvites(c echo.Context) error {
@@ -110,25 +100,18 @@ func (s *Server) HandleComAtprotoAdminEnableAccountInvites(c echo.Context) error
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminEnableAccountInvites(ctx context.Context,body *comatprototypes.AdminEnableAccountInvites_Input) error
-	handleErr = s.handleComAtprotoAdminEnableAccountInvites(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoAdminEnableAccountInvites(ctx, &body)
 }
 
 func (s *Server) HandleComAtprotoAdminGetAccountInfo(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetAccountInfo")
 	defer span.End()
 	did := c.QueryParam("did")
-	var out *comatprototypes.AdminDefs_AccountView
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminGetAccountInfo(ctx context.Context,did string) (*comatprototypes.AdminDefs_AccountView, error)
-	out, handleErr = s.handleComAtprotoAdminGetAccountInfo(ctx, did)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoAdminGetAccountInfo(ctx, did)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -149,12 +132,10 @@ func (s *Server) HandleComAtprotoAdminGetInviteCodes(c echo.Context) error {
 		limit = 100
 	}
 	sort := c.QueryParam("sort")
-	var out *comatprototypes.AdminGetInviteCodes_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminGetInviteCodes(ctx context.Context,cursor string,limit int,sort string) (*comatprototypes.AdminGetInviteCodes_Output, error)
-	out, handleErr = s.handleComAtprotoAdminGetInviteCodes(ctx, cursor, limit, sort)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoAdminGetInviteCodes(ctx, cursor, limit, sort)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -162,15 +143,16 @@ func (s *Server) HandleComAtprotoAdminGetInviteCodes(c echo.Context) error {
 func (s *Server) HandleComAtprotoAdminGetSubjectStatus(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoAdminGetSubjectStatus")
 	defer span.End()
-	blob := c.QueryParam("blob")
-	did := c.QueryParam("did")
-	uri := c.QueryParam("uri")
-	var out *comatprototypes.AdminGetSubjectStatus_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminGetSubjectStatus(ctx context.Context,blob string,did string,uri string) (*comatprototypes.AdminGetSubjectStatus_Output, error)
-	out, handleErr = s.handleComAtprotoAdminGetSubjectStatus(ctx, blob, did, uri)
-	if handleErr != nil {
-		return handleErr
+
+	var (
+		blob = c.QueryParam("blob")
+		did  = c.QueryParam("did")
+		uri  = c.QueryParam("uri")
+	)
+
+	out, err := s.handleComAtprotoAdminGetSubjectStatus(ctx, blob, did, uri)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -183,12 +165,10 @@ func (s *Server) HandleComAtprotoAdminSendEmail(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var out *comatprototypes.AdminSendEmail_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminSendEmail(ctx context.Context,body *comatprototypes.AdminSendEmail_Input) (*comatprototypes.AdminSendEmail_Output, error)
-	out, handleErr = s.handleComAtprotoAdminSendEmail(ctx, &body)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoAdminSendEmail(ctx, &body)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -201,13 +181,8 @@ func (s *Server) HandleComAtprotoAdminUpdateAccountEmail(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminUpdateAccountEmail(ctx context.Context,body *comatprototypes.AdminUpdateAccountEmail_Input) error
-	handleErr = s.handleComAtprotoAdminUpdateAccountEmail(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoAdminUpdateAccountEmail(ctx, &body)
 }
 
 func (s *Server) HandleComAtprotoAdminUpdateAccountHandle(c echo.Context) error {
@@ -218,13 +193,8 @@ func (s *Server) HandleComAtprotoAdminUpdateAccountHandle(c echo.Context) error 
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminUpdateAccountHandle(ctx context.Context,body *comatprototypes.AdminUpdateAccountHandle_Input) error
-	handleErr = s.handleComAtprotoAdminUpdateAccountHandle(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoAdminUpdateAccountHandle(ctx, &body)
 }
 
 func (s *Server) HandleComAtprotoAdminUpdateSubjectStatus(c echo.Context) error {
@@ -235,12 +205,10 @@ func (s *Server) HandleComAtprotoAdminUpdateSubjectStatus(c echo.Context) error 
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var out *comatprototypes.AdminUpdateSubjectStatus_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoAdminUpdateSubjectStatus(ctx context.Context,body *comatprototypes.AdminUpdateSubjectStatus_Input) (*comatprototypes.AdminUpdateSubjectStatus_Output, error)
-	out, handleErr = s.handleComAtprotoAdminUpdateSubjectStatus(ctx, &body)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoAdminUpdateSubjectStatus(ctx, &body)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -249,12 +217,10 @@ func (s *Server) HandleComAtprotoIdentityResolveHandle(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoIdentityResolveHandle")
 	defer span.End()
 	handle := c.QueryParam("handle")
-	var out *comatprototypes.IdentityResolveHandle_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context,handle string) (*comatprototypes.IdentityResolveHandle_Output, error)
-	out, handleErr = s.handleComAtprotoIdentityResolveHandle(ctx, handle)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoIdentityResolveHandle(ctx, handle)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -267,13 +233,8 @@ func (s *Server) HandleComAtprotoIdentityUpdateHandle(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoIdentityUpdateHandle(ctx context.Context,body *comatprototypes.IdentityUpdateHandle_Input) error
-	handleErr = s.handleComAtprotoIdentityUpdateHandle(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoIdentityUpdateHandle(ctx, &body)
 }
 
 func (s *Server) HandleComAtprotoLabelQueryLabels(c echo.Context) error {
@@ -292,15 +253,14 @@ func (s *Server) HandleComAtprotoLabelQueryLabels(c echo.Context) error {
 		limit = 50
 	}
 
-	sources := c.QueryParams()["sources"]
+	var (
+		sources     = c.QueryParams()["sources"]
+		uriPatterns = c.QueryParams()["uriPatterns"]
+	)
 
-	uriPatterns := c.QueryParams()["uriPatterns"]
-	var out *comatprototypes.LabelQueryLabels_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoLabelQueryLabels(ctx context.Context,cursor string,limit int,sources []string,uriPatterns []string) (*comatprototypes.LabelQueryLabels_Output, error)
-	out, handleErr = s.handleComAtprotoLabelQueryLabels(ctx, cursor, limit, sources, uriPatterns)
-	if handleErr != nil {
-		return handleErr
+	out, err := s.handleComAtprotoLabelQueryLabels(ctx, cursor, limit, sources, uriPatterns)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -313,12 +273,10 @@ func (s *Server) HandleComAtprotoModerationCreateReport(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var out *comatprototypes.ModerationCreateReport_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context,body *comatprototypes.ModerationCreateReport_Input) (*comatprototypes.ModerationCreateReport_Output, error)
-	out, handleErr = s.handleComAtprotoModerationCreateReport(ctx, &body)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoModerationCreateReport(ctx, &body)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -331,13 +289,8 @@ func (s *Server) HandleComAtprotoRepoApplyWrites(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoRepoApplyWrites(ctx context.Context,body *comatprototypes.RepoApplyWrites_Input) error
-	handleErr = s.handleComAtprotoRepoApplyWrites(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoRepoApplyWrites(ctx, &body)
 }
 
 func (s *Server) HandleComAtprotoRepoCreateRecord(c echo.Context) error {
@@ -348,12 +301,10 @@ func (s *Server) HandleComAtprotoRepoCreateRecord(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var out *comatprototypes.RepoCreateRecord_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoRepoCreateRecord(ctx context.Context,body *comatprototypes.RepoCreateRecord_Input) (*comatprototypes.RepoCreateRecord_Output, error)
-	out, handleErr = s.handleComAtprotoRepoCreateRecord(ctx, &body)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoRepoCreateRecord(ctx, &body)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -366,25 +317,18 @@ func (s *Server) HandleComAtprotoRepoDeleteRecord(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoRepoDeleteRecord(ctx context.Context,body *comatprototypes.RepoDeleteRecord_Input) error
-	handleErr = s.handleComAtprotoRepoDeleteRecord(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoRepoDeleteRecord(ctx, &body)
 }
 
 func (s *Server) HandleComAtprotoRepoDescribeRepo(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoDescribeRepo")
 	defer span.End()
 	repo := c.QueryParam("repo")
-	var out *comatprototypes.RepoDescribeRepo_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context,repo string) (*comatprototypes.RepoDescribeRepo_Output, error)
-	out, handleErr = s.handleComAtprotoRepoDescribeRepo(ctx, repo)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoRepoDescribeRepo(ctx, repo)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -392,16 +336,17 @@ func (s *Server) HandleComAtprotoRepoDescribeRepo(c echo.Context) error {
 func (s *Server) HandleComAtprotoRepoGetRecord(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoGetRecord")
 	defer span.End()
-	cid := c.QueryParam("cid")
-	collection := c.QueryParam("collection")
-	repo := c.QueryParam("repo")
-	rkey := c.QueryParam("rkey")
-	var out *comatprototypes.RepoGetRecord_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context,cid string,collection string,repo string,rkey string) (*comatprototypes.RepoGetRecord_Output, error)
-	out, handleErr = s.handleComAtprotoRepoGetRecord(ctx, cid, collection, repo, rkey)
-	if handleErr != nil {
-		return handleErr
+
+	var (
+		cid        = c.QueryParam("cid")
+		collection = c.QueryParam("collection")
+		repo       = c.QueryParam("repo")
+		rkey       = c.QueryParam("rkey")
+	)
+
+	out, err := s.handleComAtprotoRepoGetRecord(ctx, cid, collection, repo, rkey)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -434,12 +379,10 @@ func (s *Server) HandleComAtprotoRepoListRecords(c echo.Context) error {
 	}
 	rkeyEnd := c.QueryParam("rkeyEnd")
 	rkeyStart := c.QueryParam("rkeyStart")
-	var out *comatprototypes.RepoListRecords_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context,collection string,cursor string,limit int,repo string,reverse *bool,rkeyEnd string,rkeyStart string) (*comatprototypes.RepoListRecords_Output, error)
-	out, handleErr = s.handleComAtprotoRepoListRecords(ctx, collection, cursor, limit, repo, reverse, rkeyEnd, rkeyStart)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoRepoListRecords(ctx, collection, cursor, limit, repo, reverse, rkeyEnd, rkeyStart)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -452,12 +395,10 @@ func (s *Server) HandleComAtprotoRepoPutRecord(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var out *comatprototypes.RepoPutRecord_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoRepoPutRecord(ctx context.Context,body *comatprototypes.RepoPutRecord_Input) (*comatprototypes.RepoPutRecord_Output, error)
-	out, handleErr = s.handleComAtprotoRepoPutRecord(ctx, &body)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoRepoPutRecord(ctx, &body)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -467,12 +408,10 @@ func (s *Server) HandleComAtprotoRepoUploadBlob(c echo.Context) error {
 	defer span.End()
 	body := c.Request().Body
 	contentType := c.Request().Header.Get("Content-Type")
-	var out *comatprototypes.RepoUploadBlob_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoRepoUploadBlob(ctx context.Context,r io.Reader,contentType string) (*comatprototypes.RepoUploadBlob_Output, error)
-	out, handleErr = s.handleComAtprotoRepoUploadBlob(ctx, body, contentType)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoRepoUploadBlob(ctx, body, contentType)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -485,13 +424,8 @@ func (s *Server) HandleComAtprotoServerConfirmEmail(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerConfirmEmail(ctx context.Context,body *comatprototypes.ServerConfirmEmail_Input) error
-	handleErr = s.handleComAtprotoServerConfirmEmail(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoServerConfirmEmail(ctx, &body)
 }
 
 func (s *Server) HandleComAtprotoServerCreateAccount(c echo.Context) error {
@@ -502,12 +436,10 @@ func (s *Server) HandleComAtprotoServerCreateAccount(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var out *comatprototypes.ServerCreateAccount_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context,body *comatprototypes.ServerCreateAccount_Input) (*comatprototypes.ServerCreateAccount_Output, error)
-	out, handleErr = s.handleComAtprotoServerCreateAccount(ctx, &body)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoServerCreateAccount(ctx, &body)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -520,12 +452,10 @@ func (s *Server) HandleComAtprotoServerCreateAppPassword(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var out *comatprototypes.ServerCreateAppPassword_AppPassword
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerCreateAppPassword(ctx context.Context,body *comatprototypes.ServerCreateAppPassword_Input) (*comatprototypes.ServerCreateAppPassword_AppPassword, error)
-	out, handleErr = s.handleComAtprotoServerCreateAppPassword(ctx, &body)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoServerCreateAppPassword(ctx, &body)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -538,12 +468,10 @@ func (s *Server) HandleComAtprotoServerCreateInviteCode(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var out *comatprototypes.ServerCreateInviteCode_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerCreateInviteCode(ctx context.Context,body *comatprototypes.ServerCreateInviteCode_Input) (*comatprototypes.ServerCreateInviteCode_Output, error)
-	out, handleErr = s.handleComAtprotoServerCreateInviteCode(ctx, &body)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoServerCreateInviteCode(ctx, &body)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -556,12 +484,10 @@ func (s *Server) HandleComAtprotoServerCreateInviteCodes(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var out *comatprototypes.ServerCreateInviteCodes_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerCreateInviteCodes(ctx context.Context,body *comatprototypes.ServerCreateInviteCodes_Input) (*comatprototypes.ServerCreateInviteCodes_Output, error)
-	out, handleErr = s.handleComAtprotoServerCreateInviteCodes(ctx, &body)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoServerCreateInviteCodes(ctx, &body)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -574,12 +500,10 @@ func (s *Server) HandleComAtprotoServerCreateSession(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var out *comatprototypes.ServerCreateSession_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerCreateSession(ctx context.Context,body *comatprototypes.ServerCreateSession_Input) (*comatprototypes.ServerCreateSession_Output, error)
-	out, handleErr = s.handleComAtprotoServerCreateSession(ctx, &body)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoServerCreateSession(ctx, &body)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -592,36 +516,24 @@ func (s *Server) HandleComAtprotoServerDeleteAccount(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerDeleteAccount(ctx context.Context,body *comatprototypes.ServerDeleteAccount_Input) error
-	handleErr = s.handleComAtprotoServerDeleteAccount(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoServerDeleteAccount(ctx, &body)
 }
 
 func (s *Server) HandleComAtprotoServerDeleteSession(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerDeleteSession")
 	defer span.End()
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerDeleteSession(ctx context.Context) error
-	handleErr = s.handleComAtprotoServerDeleteSession(ctx)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoServerDeleteSession(ctx)
 }
 
 func (s *Server) HandleComAtprotoServerDescribeServer(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerDescribeServer")
 	defer span.End()
-	var out *comatprototypes.ServerDescribeServer_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*comatprototypes.ServerDescribeServer_Output, error)
-	out, handleErr = s.handleComAtprotoServerDescribeServer(ctx)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoServerDescribeServer(ctx)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -651,12 +563,10 @@ func (s *Server) HandleComAtprotoServerGetAccountInviteCodes(c echo.Context) err
 	} else {
 		includeUsed = true
 	}
-	var out *comatprototypes.ServerGetAccountInviteCodes_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerGetAccountInviteCodes(ctx context.Context,createAvailable bool,includeUsed bool) (*comatprototypes.ServerGetAccountInviteCodes_Output, error)
-	out, handleErr = s.handleComAtprotoServerGetAccountInviteCodes(ctx, createAvailable, includeUsed)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoServerGetAccountInviteCodes(ctx, createAvailable, includeUsed)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -664,12 +574,10 @@ func (s *Server) HandleComAtprotoServerGetAccountInviteCodes(c echo.Context) err
 func (s *Server) HandleComAtprotoServerGetSession(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerGetSession")
 	defer span.End()
-	var out *comatprototypes.ServerGetSession_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerGetSession(ctx context.Context) (*comatprototypes.ServerGetSession_Output, error)
-	out, handleErr = s.handleComAtprotoServerGetSession(ctx)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoServerGetSession(ctx)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -677,12 +585,10 @@ func (s *Server) HandleComAtprotoServerGetSession(c echo.Context) error {
 func (s *Server) HandleComAtprotoServerListAppPasswords(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerListAppPasswords")
 	defer span.End()
-	var out *comatprototypes.ServerListAppPasswords_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerListAppPasswords(ctx context.Context) (*comatprototypes.ServerListAppPasswords_Output, error)
-	out, handleErr = s.handleComAtprotoServerListAppPasswords(ctx)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoServerListAppPasswords(ctx)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -690,12 +596,10 @@ func (s *Server) HandleComAtprotoServerListAppPasswords(c echo.Context) error {
 func (s *Server) HandleComAtprotoServerRefreshSession(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerRefreshSession")
 	defer span.End()
-	var out *comatprototypes.ServerRefreshSession_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerRefreshSession(ctx context.Context) (*comatprototypes.ServerRefreshSession_Output, error)
-	out, handleErr = s.handleComAtprotoServerRefreshSession(ctx)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoServerRefreshSession(ctx)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -703,36 +607,24 @@ func (s *Server) HandleComAtprotoServerRefreshSession(c echo.Context) error {
 func (s *Server) HandleComAtprotoServerRequestAccountDelete(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerRequestAccountDelete")
 	defer span.End()
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerRequestAccountDelete(ctx context.Context) error
-	handleErr = s.handleComAtprotoServerRequestAccountDelete(ctx)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoServerRequestAccountDelete(ctx)
 }
 
 func (s *Server) HandleComAtprotoServerRequestEmailConfirmation(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerRequestEmailConfirmation")
 	defer span.End()
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerRequestEmailConfirmation(ctx context.Context) error
-	handleErr = s.handleComAtprotoServerRequestEmailConfirmation(ctx)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoServerRequestEmailConfirmation(ctx)
 }
 
 func (s *Server) HandleComAtprotoServerRequestEmailUpdate(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerRequestEmailUpdate")
 	defer span.End()
-	var out *comatprototypes.ServerRequestEmailUpdate_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerRequestEmailUpdate(ctx context.Context) (*comatprototypes.ServerRequestEmailUpdate_Output, error)
-	out, handleErr = s.handleComAtprotoServerRequestEmailUpdate(ctx)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoServerRequestEmailUpdate(ctx)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -745,13 +637,8 @@ func (s *Server) HandleComAtprotoServerRequestPasswordReset(c echo.Context) erro
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerRequestPasswordReset(ctx context.Context,body *comatprototypes.ServerRequestPasswordReset_Input) error
-	handleErr = s.handleComAtprotoServerRequestPasswordReset(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoServerRequestPasswordReset(ctx, &body)
 }
 
 func (s *Server) HandleComAtprotoServerReserveSigningKey(c echo.Context) error {
@@ -762,12 +649,10 @@ func (s *Server) HandleComAtprotoServerReserveSigningKey(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var out *comatprototypes.ServerReserveSigningKey_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerReserveSigningKey(ctx context.Context,body *comatprototypes.ServerReserveSigningKey_Input) (*comatprototypes.ServerReserveSigningKey_Output, error)
-	out, handleErr = s.handleComAtprotoServerReserveSigningKey(ctx, &body)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoServerReserveSigningKey(ctx, &body)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -780,13 +665,8 @@ func (s *Server) HandleComAtprotoServerResetPassword(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerResetPassword(ctx context.Context,body *comatprototypes.ServerResetPassword_Input) error
-	handleErr = s.handleComAtprotoServerResetPassword(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoServerResetPassword(ctx, &body)
 }
 
 func (s *Server) HandleComAtprotoServerRevokeAppPassword(c echo.Context) error {
@@ -797,13 +677,8 @@ func (s *Server) HandleComAtprotoServerRevokeAppPassword(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerRevokeAppPassword(ctx context.Context,body *comatprototypes.ServerRevokeAppPassword_Input) error
-	handleErr = s.handleComAtprotoServerRevokeAppPassword(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoServerRevokeAppPassword(ctx, &body)
 }
 
 func (s *Server) HandleComAtprotoServerUpdateEmail(c echo.Context) error {
@@ -814,13 +689,8 @@ func (s *Server) HandleComAtprotoServerUpdateEmail(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoServerUpdateEmail(ctx context.Context,body *comatprototypes.ServerUpdateEmail_Input) error
-	handleErr = s.handleComAtprotoServerUpdateEmail(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoServerUpdateEmail(ctx, &body)
 }
 
 func (s *Server) HandleComAtprotoSyncGetBlob(c echo.Context) error {
@@ -828,12 +698,10 @@ func (s *Server) HandleComAtprotoSyncGetBlob(c echo.Context) error {
 	defer span.End()
 	cid := c.QueryParam("cid")
 	did := c.QueryParam("did")
-	var out io.Reader
-	var handleErr error
-	// func (s *Server) handleComAtprotoSyncGetBlob(ctx context.Context,cid string,did string) (io.Reader, error)
-	out, handleErr = s.handleComAtprotoSyncGetBlob(ctx, cid, did)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoSyncGetBlob(ctx, cid, did)
+	if err != nil {
+		return err
 	}
 	return c.Stream(200, "application/octet-stream", out)
 }
@@ -842,14 +710,14 @@ func (s *Server) HandleComAtprotoSyncGetBlocks(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetBlocks")
 	defer span.End()
 
-	cids := c.QueryParams()["cids"]
-	did := c.QueryParam("did")
-	var out io.Reader
-	var handleErr error
-	// func (s *Server) handleComAtprotoSyncGetBlocks(ctx context.Context,cids []string,did string) (io.Reader, error)
-	out, handleErr = s.handleComAtprotoSyncGetBlocks(ctx, cids, did)
-	if handleErr != nil {
-		return handleErr
+	var (
+		cids = c.QueryParams()["cids"]
+		did  = c.QueryParam("did")
+	)
+
+	out, err := s.handleComAtprotoSyncGetBlocks(ctx, cids, did)
+	if err != nil {
+		return err
 	}
 	return c.Stream(200, "application/vnd.ipld.car", out)
 }
@@ -858,12 +726,10 @@ func (s *Server) HandleComAtprotoSyncGetCheckout(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetCheckout")
 	defer span.End()
 	did := c.QueryParam("did")
-	var out io.Reader
-	var handleErr error
-	// func (s *Server) handleComAtprotoSyncGetCheckout(ctx context.Context,did string) (io.Reader, error)
-	out, handleErr = s.handleComAtprotoSyncGetCheckout(ctx, did)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoSyncGetCheckout(ctx, did)
+	if err != nil {
+		return err
 	}
 	return c.Stream(200, "application/vnd.ipld.car", out)
 }
@@ -872,12 +738,10 @@ func (s *Server) HandleComAtprotoSyncGetHead(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetHead")
 	defer span.End()
 	did := c.QueryParam("did")
-	var out *comatprototypes.SyncGetHead_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoSyncGetHead(ctx context.Context,did string) (*comatprototypes.SyncGetHead_Output, error)
-	out, handleErr = s.handleComAtprotoSyncGetHead(ctx, did)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoSyncGetHead(ctx, did)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -886,12 +750,10 @@ func (s *Server) HandleComAtprotoSyncGetLatestCommit(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetLatestCommit")
 	defer span.End()
 	did := c.QueryParam("did")
-	var out *comatprototypes.SyncGetLatestCommit_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoSyncGetLatestCommit(ctx context.Context,did string) (*comatprototypes.SyncGetLatestCommit_Output, error)
-	out, handleErr = s.handleComAtprotoSyncGetLatestCommit(ctx, did)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoSyncGetLatestCommit(ctx, did)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -903,12 +765,10 @@ func (s *Server) HandleComAtprotoSyncGetRecord(c echo.Context) error {
 	commit := c.QueryParam("commit")
 	did := c.QueryParam("did")
 	rkey := c.QueryParam("rkey")
-	var out io.Reader
-	var handleErr error
-	// func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context,collection string,commit string,did string,rkey string) (io.Reader, error)
-	out, handleErr = s.handleComAtprotoSyncGetRecord(ctx, collection, commit, did, rkey)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoSyncGetRecord(ctx, collection, commit, did, rkey)
+	if err != nil {
+		return err
 	}
 	return c.Stream(200, "application/vnd.ipld.car", out)
 }
@@ -918,12 +778,10 @@ func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	defer span.End()
 	did := c.QueryParam("did")
 	since := c.QueryParam("since")
-	var out io.Reader
-	var handleErr error
-	// func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context,did string,since string) (io.Reader, error)
-	out, handleErr = s.handleComAtprotoSyncGetRepo(ctx, did, since)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoSyncGetRepo(ctx, did, since)
+	if err != nil {
+		return err
 	}
 	return c.Stream(200, "application/vnd.ipld.car", out)
 }
@@ -945,12 +803,10 @@ func (s *Server) HandleComAtprotoSyncListBlobs(c echo.Context) error {
 		limit = 500
 	}
 	since := c.QueryParam("since")
-	var out *comatprototypes.SyncListBlobs_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoSyncListBlobs(ctx context.Context,cursor string,did string,limit int,since string) (*comatprototypes.SyncListBlobs_Output, error)
-	out, handleErr = s.handleComAtprotoSyncListBlobs(ctx, cursor, did, limit, since)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoSyncListBlobs(ctx, cursor, did, limit, since)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -970,12 +826,10 @@ func (s *Server) HandleComAtprotoSyncListRepos(c echo.Context) error {
 	} else {
 		limit = 500
 	}
-	var out *comatprototypes.SyncListRepos_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoSyncListRepos(ctx context.Context,cursor string,limit int) (*comatprototypes.SyncListRepos_Output, error)
-	out, handleErr = s.handleComAtprotoSyncListRepos(ctx, cursor, limit)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoSyncListRepos(ctx, cursor, limit)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }
@@ -988,13 +842,8 @@ func (s *Server) HandleComAtprotoSyncNotifyOfUpdate(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context,body *comatprototypes.SyncNotifyOfUpdate_Input) error
-	handleErr = s.handleComAtprotoSyncNotifyOfUpdate(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoSyncNotifyOfUpdate(ctx, &body)
 }
 
 func (s *Server) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
@@ -1005,13 +854,8 @@ func (s *Server) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var handleErr error
-	// func (s *Server) handleComAtprotoSyncRequestCrawl(ctx context.Context,body *comatprototypes.SyncRequestCrawl_Input) error
-	handleErr = s.handleComAtprotoSyncRequestCrawl(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoSyncRequestCrawl(ctx, &body)
 }
 
 func (s *Server) HandleComAtprotoTempFetchLabels(c echo.Context) error {
@@ -1031,18 +875,16 @@ func (s *Server) HandleComAtprotoTempFetchLabels(c echo.Context) error {
 
 	var since *int
 	if p := c.QueryParam("since"); p != "" {
-		since_val, err := strconv.Atoi(p)
+		sinceVal, err := strconv.Atoi(p)
 		if err != nil {
 			return err
 		}
-		since = &since_val
+		since = &sinceVal
 	}
-	var out *comatprototypes.TempFetchLabels_Output
-	var handleErr error
-	// func (s *Server) handleComAtprotoTempFetchLabels(ctx context.Context,limit int,since *int) (*comatprototypes.TempFetchLabels_Output, error)
-	out, handleErr = s.handleComAtprotoTempFetchLabels(ctx, limit, since)
-	if handleErr != nil {
-		return handleErr
+
+	out, err := s.handleComAtprotoTempFetchLabels(ctx, limit, since)
+	if err != nil {
+		return err
 	}
 	return c.JSON(200, out)
 }

@@ -23,7 +23,7 @@ func (s MemFlagStore) Get(ctx context.Context, key string) ([]string, error) {
 }
 
 func (s MemFlagStore) Add(ctx context.Context, key string, flags []string) error {
-	v, _ := s.Data[key]
+	v := s.Data[key]
 	v = append(v, flags...)
 	v = dedupeStrings(v)
 	s.Data[key] = v

@@ -334,24 +334,16 @@ var compareStreamsCmd = &cli.Command{
 				return nil, nil
 			}
 
-			for i, ev := range slice {
-				if ev.Commit == event.Commit {
-					if pll(ev.Prev) != pll(event.Prev) {
-						// same commit different prev??
-						return nil, fmt.Errorf("matched event with same commit but different prev: (%d) %d - %d", n, ev.Seq, event.Seq)
-					}
+			ev := slice[0]
+			if ev.Commit == event.Commit {
+				if pll(ev.Prev) != pll(event.Prev) {
+					// same commit different prev??
+					return nil, fmt.Errorf("matched event with same commit but different prev: (%d) %d - %d", n, ev.Seq, event.Seq)
 				}
-
-				if i != 0 {
-					fmt.Printf("detected skipped event: %d (%d)\n", slice[0].Seq, i)
-				}
-
-				slice = slice[i+1:]
-				buf[event.Repo] = slice
-				return ev, nil
 			}
 
-			return nil, fmt.Errorf("did not find matching event despite having events in buffer")
+			buf[event.Repo] = slice[1:]
+			return ev, nil
 		}
 
 		printCurrentDelta := func() {

@@ -103,11 +103,6 @@ var syncGetRootCmd = &cli.Command{
 			return err
 		}
 
-		carPath := cctx.Args().Get(1)
-		if carPath == "" {
-			carPath = ident.DID.String() + ".car"
-		}
-
 		xrpcc.Host = ident.PDSEndpoint()
 		if xrpcc.Host == "" {
 			return fmt.Errorf("no PDS endpoint for identity")
