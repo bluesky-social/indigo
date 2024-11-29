@@ -182,7 +182,7 @@ func (r *Repo) CreateRecord(ctx context.Context, nsid string, rec CborMarshaler)
 	defer span.End()
 
 	r.dirty = true
-	t, err := r.getMst(ctx)
+	t, err := r.GetMst(ctx)
 	if err != nil {
 		return cid.Undef, "", fmt.Errorf("failed to get mst: %w", err)
 	}
@@ -208,7 +208,7 @@ func (r *Repo) PutRecord(ctx context.Context, rpath string, rec CborMarshaler) (
 	defer span.End()
 
 	r.dirty = true
-	t, err := r.getMst(ctx)
+	t, err := r.GetMst(ctx)
 	if err != nil {
 		return cid.Undef, fmt.Errorf("failed to get mst: %w", err)
 	}
@@ -232,7 +232,7 @@ func (r *Repo) UpdateRecord(ctx context.Context, rpath string, rec CborMarshaler
 	defer span.End()
 
 	r.dirty = true
-	t, err := r.getMst(ctx)
+	t, err := r.GetMst(ctx)
 	if err != nil {
 		return cid.Undef, fmt.Errorf("failed to get mst: %w", err)
 	}
@@ -256,7 +256,7 @@ func (r *Repo) DeleteRecord(ctx context.Context, rpath string) error {
 	defer span.End()
 
 	r.dirty = true
-	t, err := r.getMst(ctx)
+	t, err := r.GetMst(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get mst: %w", err)
 	}
@@ -281,7 +281,7 @@ func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, 
 	ctx, span := otel.Tracer("repo").Start(ctx, "Commit")
 	defer span.End()
 
-	t, err := r.getMst(ctx)
+	t, err := r.GetMst(ctx)
 	if err != nil {
 		return cid.Undef, "", err
 	}
@@ -327,7 +327,7 @@ func (r *Repo) Commit(ctx context.Context, signer func(context.Context, string, 
 	return nsccid, nsc.Rev, nil
 }
 
-func (r *Repo) getMst(ctx context.Context) (*mst.MerkleSearchTree, error) {
+func (r *Repo) GetMst(ctx context.Context) (*mst.MerkleSearchTree, error) {
 	if r.mst != nil {
 		return r.mst, nil
 	}
@@ -379,7 +379,7 @@ func (r *Repo) GetRecordBytes(ctx context.Context, rpath string) (cid.Cid, *[]by
 	ctx, span := otel.Tracer("repo").Start(ctx, "GetRecordBytes")
 	defer span.End()
 
-	mst, err := r.getMst(ctx)
+	mst, err := r.GetMst(ctx)
 	if err != nil {
 		return cid.Undef, nil, fmt.Errorf("getting repo mst: %w", err)
 	}
@@ -410,7 +410,7 @@ func (r *Repo) DiffSince(ctx context.Context, oldrepo cid.Cid) ([]*mst.DiffOp, e
 			return nil, err
 		}
 
-		oldmst, err := otherRepo.getMst(ctx)
+		oldmst, err := otherRepo.GetMst(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -422,7 +422,7 @@ func (r *Repo) DiffSince(ctx context.Context, oldrepo cid.Cid) ([]*mst.DiffOp, e
 		oldTree = oldptr
 	}
 
-	curmst, err := r.getMst(ctx)
+	curmst, err := r.GetMst(ctx)
 	if err != nil {
 		return nil, err
 	}

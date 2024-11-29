@@ -6,10 +6,15 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
+	"strings"
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/carstore"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
+	"github.com/bluesky-social/indigo/repo"
 	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -47,28 +52,24 @@ func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *
 		recoveryKey = *body.RecoveryKey
 	}
 
-	u := User{
-		Handle:      body.Handle,
-		Password:    *body.Password,
-		RecoveryKey: recoveryKey,
-		Email:       *body.Email,
-	}
-	if err := s.db.Create(&u).Error; err != nil {
-		return nil, err
-	}
-
-	if recoveryKey == "" {
-		recoveryKey = s.signingKey.Public().DID()
-	}
-
 	d, err := s.plc.CreateDID(ctx, s.signingKey, recoveryKey, body.Handle, s.serviceUrl)
 	if err != nil {
 		return nil, fmt.Errorf("create did: %w", err)
 	}
 
-	u.Did = d
-	if err := s.db.Save(&u).Error; err != nil {
+	u := User{
+		Handle:      body.Handle,
+		Password:    *body.Password,
+		RecoveryKey: recoveryKey,
+		Email:       *body.Email,
+		Did:         d,
+	}
+	if err := s.db.Model(&User{}).Create(&u).Error; err != nil {
 		return nil, err
+	}
+
+	if recoveryKey == "" {
+		recoveryKey = s.signingKey.Public().DID()
 	}
 
 	ai := &models.ActorInfo{
@@ -200,7 +201,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ec echo.Context, ctx context.Cont
 
 	reccid, rec, err := s.repoman.GetRecord(ctx, targetUser.ID, collection, rkey, maybeCid)
 	if err != nil {
-		return nil, fmt.Errorf("repoman GetRecord: %w", err)
+		return nil, err
 	}
 
 	ccstr := reccid.String()
@@ -211,8 +212,58 @@ func (s *Server) handleComAtprotoRepoGetRecord(ec echo.Context, ctx context.Cont
 	}, nil
 }
 
-func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection string, cursor string, limit int, repo string, reverse *bool, rkeyEnd string, rkeyStart string) (*comatprototypes.RepoListRecords_Output, error) {
-	panic("not yet implemented")
+func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection string, cursor string, limit int, repoId string, reverse *bool, rkeyEnd string, rkeyStart string) (*comatprototypes.RepoListRecords_Output, error) {
+	var user User
+	if err := s.db.Model(&User{}).
+		Where("did = ? OR handle = ?", repoId, repoId).
+		Find(&user).Error; err != nil {
+		return nil, err
+	}
+
+	head, err := s.repoman.GetRepoRoot(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	ds, err := s.repoman.CarStore().ReadOnlySession(user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	repo, err := repo.OpenRepo(ctx, ds, head)
+	if err != nil {
+		return nil, err
+	}
+
+	var records []*comatprototypes.RepoListRecords_Record
+
+	if err := repo.ForEach(ctx, collection, func(k string, v cid.Cid) error {
+		_, val, err := repo.GetRecord(ctx, k)
+		if err != nil {
+			return err
+		}
+
+		if !strings.HasPrefix(k, collection) {
+			return nil
+		}
+
+		record := &comatprototypes.RepoListRecords_Record{
+			Cid: v.String(),
+			Uri: "at://" + repoId + "/" + k,
+			Value: &lexutil.LexiconTypeDecoder{
+				Val: val,
+			},
+		}
+
+		records = append(records, record)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return &comatprototypes.RepoListRecords_Output{
+		Records: records,
+	}, nil
 }
 
 func (s *Server) handleComAtprotoRepoPutRecord(ctx context.Context, input *comatprototypes.RepoPutRecord_Input) (*comatprototypes.RepoPutRecord_Output, error) {
@@ -223,7 +274,7 @@ func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*com
 	invcode := false
 	return &comatprototypes.ServerDescribeServer_Output{
 		InviteCodeRequired:   &invcode,
-		AvailableUserDomains: []string{},
+		AvailableUserDomains: []string{"dev.ellie.fm"},
 		Did:                  "did:web:" + s.serviceUrl,
 		Links:                &comatprototypes.ServerDescribeServer_Links{},
 	}, nil
@@ -350,8 +401,80 @@ func (s *Server) handleComAtprotoSyncGetHead(ctx context.Context, did string) (*
 	}, nil
 }
 
-func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context, collection string, commit string, did string, rkey string) (io.Reader, error) {
-	panic("not yet implemented")
+func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context, repoId string, collection string, commit string, did string, rkey string) (io.Reader, error) {
+	var user User
+	if err := s.db.Model(&User{}).
+		Where("did = ?", did).
+		Find(&user).Error; err != nil {
+		return nil, err
+	}
+
+	ds, err := s.repoman.CarStore().ReadOnlySession(user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	head, err := s.repoman.CarStore().GetUserRepoHead(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := repo.OpenRepo(ctx, ds, head)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := bytes.NewBuffer(nil)
+
+	if _, err := carstore.WriteCarHeader(buf, head); err != nil {
+		return nil, err
+	}
+
+	block, err := r.Blockstore().Get(ctx, head)
+	if err != nil {
+		return nil, err
+	}
+
+	carstore.LdWrite(buf, head.Bytes(), block.RawData())
+
+	mst, err := r.GetMst(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	cids, err := mst.CidsForPath(ctx, collection+"/"+rkey)
+	if err != nil {
+		return nil, err
+	}
+
+	uniqCids := make(map[cid.Cid]bool)
+	for _, cid := range cids {
+		uniqCids[cid] = true
+	}
+
+	for cid := range maps.Keys(uniqCids) {
+		block, err := r.Blockstore().Get(ctx, cid)
+		if err != nil {
+			return buf, err
+		}
+
+		if _, err := carstore.LdWrite(buf, cid.Bytes(), block.RawData()); err != nil {
+			return buf, err
+		}
+	}
+
+	c, _ := mst.Get(ctx, collection+"/"+rkey)
+
+	block, err = r.Blockstore().Get(ctx, c)
+	if err != nil {
+		return buf, err
+	}
+
+	if _, err := carstore.LdWrite(buf, c.Bytes(), block.RawData()); err != nil {
+		return buf, err
+	}
+
+	return buf, nil
 }
 
 func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since string) (io.Reader, error) {
@@ -389,9 +512,9 @@ func (s *Server) handleComAtprotoSyncListBlobs(ctx context.Context, cursor strin
 }
 
 func (s *Server) handleComAtprotoIdentityUpdateHandle(ctx context.Context, body *comatprototypes.IdentityUpdateHandle_Input) error {
-	if err := s.validateHandle(body.Handle); err != nil {
-		return err
-	}
+	// if err := s.validateHandle(body.Handle); err != nil {
+	// 	return err
+	// }
 
 	u, err := s.getUser(ctx)
 	if err != nil {
@@ -405,10 +528,10 @@ func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, bod
 	panic("nyi")
 }
 
-func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo string) (*comatprototypes.RepoDescribeRepo_Output, error) {
+func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repoId string) (*comatprototypes.RepoDescribeRepo_Output, error) {
 	var user User
 	if err := s.db.Model(&User{}).
-		Where("did = ? OR handle = ?", repo, repo).
+		Where("did = ? OR handle = ?", repoId, repoId).
 		Find(&user).Error; err != nil {
 		return nil, err
 	}
@@ -418,12 +541,38 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 		return nil, err
 	}
 
-	s.repoman.ReadRepo()
+	head, err := s.repoman.GetRepoRoot(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	ds, err := s.repoman.CarStore().ReadOnlySession(user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	repo, err := repo.OpenRepo(ctx, ds, head)
+	if err != nil {
+		return nil, err
+	}
+
+	collectionTypes := make(map[string]bool)
+
+	if err := repo.ForEach(ctx, "", func(k string, v cid.Cid) error {
+		parts := strings.Split(k, "/")
+		if len(parts) < 1 {
+			return fmt.Errorf("malformed key type")
+		}
+
+		collectionTypes[parts[0]] = true
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
 
 	resp := &comatprototypes.RepoDescribeRepo_Output{
-		Collections: []string{
-			""
-		},
+		Collections:     slices.Sorted(maps.Keys(collectionTypes)),
 		Handle:          user.Handle,
 		Did:             user.Did,
 		DidDoc:          didDoc,
@@ -522,7 +671,26 @@ func (s *Server) handleComAtprotoAdminSendEmail(ctx context.Context, body *comat
 }
 
 func (s *Server) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatprototypes.SyncGetLatestCommit_Output, error) {
-	panic("nyi")
+	var user User
+	if err := s.db.Model(&User{}).
+		Where("did = ?", did).
+		Find(&user).Error; err != nil {
+		return nil, err
+	}
+
+	rev, err := s.repoman.GetRepoRev(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	head, err := s.repoman.GetRepoRoot(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &comatprototypes.SyncGetLatestCommit_Output{
+		Cid: head.String(),
+		Rev: rev,
+	}, nil
 }
 
 func (s *Server) handleComAtprotoAdminGetAccountInfo(ctx context.Context, did string) (*comatprototypes.AdminDefs_AccountView, error) {

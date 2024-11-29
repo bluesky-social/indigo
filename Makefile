@@ -87,7 +87,7 @@ run-dev-opensearch: .env ## Runs a local opensearch instance
 
 .PHONY: run-dev-relay
 run-dev-relay: .env ## Runs 'bigsky' Relay for local dev
-	GOLOG_LOG_LEVEL=info go run ./cmd/bigsky --admin-key localdev
+	GOLOG_LOG_LEVEL=debug go run ./cmd/bigsky --admin-key localdev
 # --crawl-insecure-ws
 
 .PHONY: build-relay-image

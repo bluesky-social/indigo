@@ -322,7 +322,6 @@ func (mst *MerkleSearchTree) attemptGetLayer(ctx context.Context) (int, error) {
 // "Adds a new leaf for the given key/value pair. Throws if a leaf with that key already exists"
 // Typescript: MST.add(key, value, knownZeros?) -> MST
 func (mst *MerkleSearchTree) Add(ctx context.Context, key string, val cid.Cid, knownZeros int) (*MerkleSearchTree, error) {
-
 	// NOTE(bnewbold): this is inefficient (recurses), but matches TS implementation
 	err := ensureValidMstKey(key)
 	if err != nil {
@@ -515,7 +514,6 @@ func (mst *MerkleSearchTree) Get(ctx context.Context, k string) (cid.Cid, error)
 // "Edits the value at the given key. Throws if the given key does not exist"
 // Typescript: MST.update(key, value) -> MST
 func (mst *MerkleSearchTree) Update(ctx context.Context, k string, val cid.Cid) (*MerkleSearchTree, error) {
-
 	// NOTE(bnewbold): this is inefficient (recurses), but matches TS implementation
 	err := ensureValidMstKey(k)
 	if err != nil {
@@ -921,7 +919,7 @@ func (mst *MerkleSearchTree) findGtOrEqualLeafIndex(ctx context.Context, key str
 	}
 
 	for i, e := range entries {
-		//if e.isLeaf() && bytes.Compare(e.Key, key) > 0 {
+		// if e.isLeaf() && bytes.Compare(e.Key, key) > 0 {
 		if e.isLeaf() && e.Key >= key {
 			return i, nil
 		}
@@ -968,6 +966,45 @@ func (mst *MerkleSearchTree) WalkLeavesFrom(ctx context.Context, from string, cb
 		}
 	}
 	return nil
+}
+
+func (mst *MerkleSearchTree) CidsForPath(ctx context.Context, key string) ([]cid.Cid, error) {
+	c, err := mst.GetPointer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	cids := []cid.Cid{c}
+	index, err := mst.findGtOrEqualLeafIndex(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+
+	entry, err := mst.atIndex(index)
+	if err != nil {
+		return nil, err
+	}
+
+	if entry.isLeaf() && entry.Key == key {
+		cids = append(cids, entry.Val)
+		return cids, nil
+	}
+
+	prev, err := mst.atIndex(index - 1)
+	if err != nil {
+		return nil, err
+	}
+
+	if prev.isTree() {
+		paths, err := prev.Tree.CidsForPath(ctx, key)
+		if err != nil {
+			return nil, err
+		}
+
+		cids = append(cids, paths...)
+	}
+
+	return cids, nil
 }
 
 // TODO: Typescript: MST.list(count?, after?, before?) -> Leaf[]

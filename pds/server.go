@@ -326,6 +326,12 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 				return true
 			case "/xrpc/com.atproto.sync.listRepos":
 				return true
+			case "/xrpc/com.atproto.repo.listRecords":
+				return true
+			case "/xrpc/com.atproto.repo.getRecord":
+				return true
+			case "/xrpc/com.atproto.sync.getRecord":
+				return true
 			case "/xrpc/com.atproto.peering.follow", "/events":
 				auth := c.Request().Header.Get("Authorization")
 
@@ -433,6 +439,13 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
 	e.GET("/xrpc/_health", s.HandleHealthCheck)
 	e.GET("/.well-known/atproto-did", s.HandleResolveDid)
+	// e.GET("/.well-known/did.json", func(c echo.Context) error {
+	// 	c.Response().Header().Add("Content-Type", "application/json")
+	// 	c.Response().WriteHeader(200)
+	// 	c.Response().Write([]byte("{\"preferences\": []}"))
+
+	// 	return nil
+	// })
 
 	e.GET("/xrpc/app.bsky.actor.getPreferences", func(c echo.Context) error {
 		c.Response().Header().Add("Content-Type", "application/json")
@@ -470,6 +483,9 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 	e.GET("/xrpc/app.bsky.feed.getPost", s.HandleAppViewProxy)
 	e.GET("/xrpc/app.bsky.feed.getPosts", s.HandleAppViewProxy)
 	e.GET("/xrpc/app.bsky.feed.getPostThread", s.HandleAppViewProxy)
+	e.GET("/xrpc/app.bsky.actor.searchActors", s.HandleAppViewProxy)
+	e.GET("/xrpc/app.bsky.actor.searchActorsTypeahead", s.HandleAppViewProxy)
+	e.GET("/xrpc/app.bsky.feed.searchPosts", s.HandleAppViewProxy)
 
 	// In order to support booting on random ports in tests, we need to tell the
 	// Echo instance it's already got a port, and then use its StartServer
@@ -498,14 +514,25 @@ func (s *Server) HandleAppViewProxy(c echo.Context) error {
 	lexicon := strings.TrimPrefix(c.Path(), "/xrpc/")
 
 	ctx := c.Request().Context()
-	did := ctx.Value("did").(string)
 
 	tok := gojwt.New(gojwt.SigningMethodES256)
 	tok.Claims = StandardClaims{
-		Issuer:    did,
+		Issuer:    "did:web:" + s.serviceUrl,
 		Audience:  "did:web:api.bsky.app",
 		Lexicon:   lexicon,
 		ExpiresAt: time.Now().Unix() + (60 * 60 * 24),
+	}
+
+	if didRaw := ctx.Value("did"); didRaw != nil {
+		did, ok := didRaw.(string)
+		if ok {
+			tok.Claims = StandardClaims{
+				Issuer:    did,
+				Audience:  "did:web:api.bsky.app",
+				Lexicon:   lexicon,
+				ExpiresAt: time.Now().Unix() + (60 * 60 * 24),
+			}
+		}
 	}
 
 	key := s.signingKey.Raw.(*ecdsa.PrivateKey)
@@ -766,6 +793,7 @@ func (s *Server) EventsHandler(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	ident := c.RealIP() + "-" + c.Request().UserAgent()
+
 	log.Infof("New firehose client: %s", ident)
 
 	evts, cancel, err := s.events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool {
@@ -795,6 +823,7 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		if err != nil {
 			return err
 		}
+		defer wc.Close()
 
 		var obj lexutil.CBOR
 
@@ -828,15 +857,12 @@ func (s *Server) EventsHandler(c echo.Context) error {
 		}
 
 		if err := header.MarshalCBOR(wc); err != nil {
-			return fmt.Errorf("failed to write header: %w", err)
+			continue
 		}
 
 		if err := obj.MarshalCBOR(wc); err != nil {
-			return fmt.Errorf("failed to write event: %w", err)
-		}
-
-		if err := wc.Close(); err != nil {
-			return fmt.Errorf("failed to flush-close our event write: %w", err)
+			continue
+			// return fmt.Errorf("failed to write event: %w", err)
 		}
 	}
 
@@ -847,7 +873,7 @@ func (s *Server) UpdateUserHandle(ctx context.Context, u *User, handle string) e
 	if u.Handle == handle {
 		// no change? move on
 		log.Warnw("attempted to change handle to current handle", "did", u.Did, "handle", handle)
-		return nil
+		// return nil
 	}
 
 	_, err := s.indexer.LookupUserByHandle(ctx, handle)
@@ -855,9 +881,9 @@ func (s *Server) UpdateUserHandle(ctx context.Context, u *User, handle string) e
 		return fmt.Errorf("handle %q is already in use", handle)
 	}
 
-	if err := s.plc.UpdateUserHandle(ctx, u.Did, handle); err != nil {
-		return fmt.Errorf("failed to update users handle on plc: %w", err)
-	}
+	// if err := s.plc.UpdateUserHandle(ctx, u.Did, handle); err != nil {
+	// 	return fmt.Errorf("failed to update users handle on plc: %w", err)
+	// }
 
 	if err := s.db.Model(models.ActorInfo{}).Where("uid = ?", u.ID).UpdateColumn("handle", handle).Error; err != nil {
 		return fmt.Errorf("failed to update handle: %w", err)
@@ -868,9 +894,9 @@ func (s *Server) UpdateUserHandle(ctx context.Context, u *User, handle string) e
 	}
 
 	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
+		RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
 			Did:    u.Did,
-			Handle: handle,
+			Handle: &handle,
 			Time:   time.Now().Format(util.ISO8601),
 		},
 	}); err != nil {

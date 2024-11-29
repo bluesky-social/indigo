@@ -35,7 +35,6 @@ import (
 var log = logging.Logger("repomgr")
 
 func NewRepoManager(cs carstore.CarStore, kmgr KeyManager) *RepoManager {
-
 	return &RepoManager{
 		cs:        cs,
 		userLocks: make(map[models.Uid]*userLock),
@@ -340,7 +339,6 @@ func (rm *RepoManager) DeleteRecord(ctx context.Context, user models.Uid, collec
 	}
 
 	return nil
-
 }
 
 func (rm *RepoManager) InitNewActor(ctx context.Context, user models.Uid, handle, did, displayname string, declcid, actortype string) error {
@@ -645,7 +643,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
 			User: uid,
-			//OldRoot:   prev,
+			// OldRoot:   prev,
 			NewRoot:   root,
 			Rev:       nrev,
 			Since:     since,
@@ -774,8 +772,8 @@ func (rm *RepoManager) BatchWrite(ctx context.Context, user models.Uid, writes [
 			NewRoot:   nroot,
 			RepoSlice: rslice,
 			Rev:       nrev,
-			Since:     &rev,
-			Ops:       ops,
+			// Since:     &rev,
+			Ops: ops,
 		})
 	}
 
@@ -853,7 +851,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 		if rm.events != nil {
 			rm.events(ctx, &RepoEvent{
 				User: user,
-				//OldRoot:   oldroot,
+				// OldRoot:   oldroot,
 				NewRoot:   root,
 				Rev:       scom.Rev,
 				Since:     &currev,

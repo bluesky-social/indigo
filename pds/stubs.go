@@ -902,6 +902,7 @@ func (s *Server) HandleComAtprotoSyncGetLatestCommit(c echo.Context) error {
 func (s *Server) HandleComAtprotoSyncGetRecord(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetRecord")
 	defer span.End()
+	repo := c.QueryParam("repo")
 	collection := c.QueryParam("collection")
 	commit := c.QueryParam("commit")
 	did := c.QueryParam("did")
@@ -909,7 +910,7 @@ func (s *Server) HandleComAtprotoSyncGetRecord(c echo.Context) error {
 	var out io.Reader
 	var handleErr error
 	// func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context,collection string,commit string,did string,rkey string) (io.Reader, error)
-	out, handleErr = s.handleComAtprotoSyncGetRecord(ctx, collection, commit, did, rkey)
+	out, handleErr = s.handleComAtprotoSyncGetRecord(ctx, repo, collection, commit, did, rkey)
 	if handleErr != nil {
 		return handleErr
 	}
