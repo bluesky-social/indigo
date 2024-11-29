@@ -74,8 +74,8 @@ type Backfiller struct {
 	ParallelRecordCreates int
 	// Prefix match for records to backfill i.e. app.bsky.feed.app/
 	// If empty, all records will be backfilled
-	NSIDFilter   string
-	CheckoutPath string
+	NSIDFilter string
+	RelayHost  string
 
 	syncLimiter *rate.Limiter
 
@@ -115,7 +115,7 @@ type BackfillOptions struct {
 	ParallelRecordCreates int
 	NSIDFilter            string
 	SyncRequestsPerSecond int
-	CheckoutPath          string
+	RelayHost             string
 }
 
 func DefaultBackfillOptions() *BackfillOptions {
@@ -124,7 +124,7 @@ func DefaultBackfillOptions() *BackfillOptions {
 		ParallelRecordCreates: 100,
 		NSIDFilter:            "",
 		SyncRequestsPerSecond: 2,
-		CheckoutPath:          "https://bsky.network/xrpc/com.atproto.sync.getRepo",
+		RelayHost:             "https://bsky.network",
 	}
 }
 
@@ -150,10 +150,9 @@ func NewBackfiller(
 		ParallelRecordCreates: opts.ParallelRecordCreates,
 		NSIDFilter:            opts.NSIDFilter,
 		syncLimiter:           rate.NewLimiter(rate.Limit(opts.SyncRequestsPerSecond), 1),
-		CheckoutPath:          opts.CheckoutPath,
+		RelayHost:             opts.RelayHost,
 		stop:                  make(chan chan struct{}, 1),
-		// TODO: update to configure directory so it skips handle resolution
-		Directory: identity.DefaultDirectory(),
+		Directory:             identity.DefaultDirectory(),
 	}
 }
 
@@ -301,7 +300,7 @@ type recordResult struct {
 
 // Fetches a repo CAR file over HTTP from the indicated host. If successful, parses the CAR and returns repo.Repo
 func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (*repo.Repo, error) {
-	url := fmt.Sprintf("%s?did=%s", b.CheckoutPath, did)
+	url := fmt.Sprintf("%s/xrpc/com.atproto.sync.getRepo?did=%s", host, did)
 
 	if since != "" {
 		url = url + fmt.Sprintf("&since=%s", since)
@@ -370,11 +369,9 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 	log.Info(fmt.Sprintf("processing backfill for %s", repoDID))
 
 	// first try with Relay endpoint
-	// XXX: configurable relay host
-	relayHost := "https://bsky.network"
-	r, err := b.fetchRepo(ctx, repoDID, job.Rev(), relayHost)
+	r, err := b.fetchRepo(ctx, repoDID, job.Rev(), b.RelayHost)
 	if err != nil {
-		slog.Warn("repo CAR fetch from relay failed", "did", repoDID, "since", job.Rev(), "relayHost", relayHost, "err", err)
+		slog.Warn("repo CAR fetch from relay failed", "did", repoDID, "since", job.Rev(), "relayHost", b.RelayHost, "err", err)
 		// fallback to direct PDS fetch
 		ident, err := b.Directory.LookupDID(ctx, syntax.DID(repoDID))
 		if err != nil {
