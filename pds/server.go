@@ -817,53 +817,60 @@ func (s *Server) EventsHandler(c echo.Context) error {
 	}
 	defer cancel()
 
-	header := events.EventHeader{Op: events.EvtKindMessage}
 	for evt := range evts {
-		wc, err := conn.NextWriter(websocket.BinaryMessage)
-		if err != nil {
-			return err
+		if err := s.WriteEvent(conn, evt); err != nil {
+			log.Errorf("failed to write event: %v", err)
 		}
-		defer wc.Close()
+	}
 
-		var obj lexutil.CBOR
+	return nil
+}
 
-		switch {
-		case evt.Error != nil:
-			header.Op = events.EvtKindErrorFrame
-			obj = evt.Error
-		case evt.RepoCommit != nil:
-			header.MsgType = "#commit"
-			obj = evt.RepoCommit
-		case evt.RepoHandle != nil:
-			header.MsgType = "#handle"
-			obj = evt.RepoHandle
-		case evt.RepoIdentity != nil:
-			header.MsgType = "#identity"
-			obj = evt.RepoIdentity
-		case evt.RepoAccount != nil:
-			header.MsgType = "#account"
-			obj = evt.RepoAccount
-		case evt.RepoInfo != nil:
-			header.MsgType = "#info"
-			obj = evt.RepoInfo
-		case evt.RepoMigrate != nil:
-			header.MsgType = "#migrate"
-			obj = evt.RepoMigrate
-		case evt.RepoTombstone != nil:
-			header.MsgType = "#tombstone"
-			obj = evt.RepoTombstone
-		default:
-			return fmt.Errorf("unrecognized event kind")
-		}
+func (s *Server) WriteEvent(conn *websocket.Conn, evt *events.XRPCStreamEvent) error {
+	wc, err := conn.NextWriter(websocket.BinaryMessage)
+	if err != nil {
+		return err
+	}
+	defer wc.Close()
 
-		if err := header.MarshalCBOR(wc); err != nil {
-			continue
-		}
+	header := events.EventHeader{Op: events.EvtKindMessage}
+	var obj lexutil.CBOR
 
-		if err := obj.MarshalCBOR(wc); err != nil {
-			continue
-			// return fmt.Errorf("failed to write event: %w", err)
-		}
+	switch {
+	case evt.Error != nil:
+		header.Op = events.EvtKindErrorFrame
+		obj = evt.Error
+	case evt.RepoCommit != nil:
+		header.MsgType = "#commit"
+		obj = evt.RepoCommit
+	case evt.RepoHandle != nil:
+		header.MsgType = "#handle"
+		obj = evt.RepoHandle
+	case evt.RepoIdentity != nil:
+		header.MsgType = "#identity"
+		obj = evt.RepoIdentity
+	case evt.RepoAccount != nil:
+		header.MsgType = "#account"
+		obj = evt.RepoAccount
+	case evt.RepoInfo != nil:
+		header.MsgType = "#info"
+		obj = evt.RepoInfo
+	case evt.RepoMigrate != nil:
+		header.MsgType = "#migrate"
+		obj = evt.RepoMigrate
+	case evt.RepoTombstone != nil:
+		header.MsgType = "#tombstone"
+		obj = evt.RepoTombstone
+	default:
+		return fmt.Errorf("unrecognized event kind")
+	}
+
+	if err := header.MarshalCBOR(wc); err != nil {
+		return err
+	}
+
+	if err := obj.MarshalCBOR(wc); err != nil {
+		return err
 	}
 
 	return nil

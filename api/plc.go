@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/labstack/gommon/log"
 	did "github.com/whyrusleeping/go-did"
 	otel "go.opentelemetry.io/otel"
 )
@@ -82,6 +83,7 @@ func (s *PLCServer) CreateDID(ctx context.Context, sigkey *did.PrivKey, recovery
 		Type: "plc_operation",
 		RotationKeys: []string{
 			sigkey.Public().DID(),
+			recovery,
 		},
 		VerificationMethods: map[string]string{
 			"atproto": sigkey.Public().DID(),
@@ -118,6 +120,8 @@ func (s *PLCServer) CreateDID(ctx context.Context, sigkey *did.PrivKey, recovery
 	if err != nil {
 		return "", err
 	}
+
+	log.Infof("DID: %v, body: %v", opdid, string(body))
 
 	req, err := http.NewRequest("POST", s.Host+"/"+url.QueryEscape(opdid), bytes.NewReader(body))
 	if err != nil {

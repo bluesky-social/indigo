@@ -9,12 +9,15 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"time"
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -52,6 +55,10 @@ func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *
 		recoveryKey = *body.RecoveryKey
 	}
 
+	// if recoveryKey == "" {
+	// 	recoveryKey = s.signingKey.Public().DID()
+	// }
+
 	d, err := s.plc.CreateDID(ctx, s.signingKey, recoveryKey, body.Handle, s.serviceUrl)
 	if err != nil {
 		return nil, fmt.Errorf("create did: %w", err)
@@ -68,10 +75,6 @@ func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *
 		return nil, err
 	}
 
-	if recoveryKey == "" {
-		recoveryKey = s.signingKey.Public().DID()
-	}
-
 	ai := &models.ActorInfo{
 		Uid:    u.ID,
 		Did:    d,
@@ -82,6 +85,16 @@ func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *
 	}
 
 	if err := s.repoman.InitNewActor(ctx, u.ID, u.Handle, u.Did, "", "", ""); err != nil {
+		return nil, err
+	}
+
+	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
+		RepoAccount: &comatprototypes.SyncSubscribeRepos_Account{
+			Active: true,
+			Did:    d,
+			Time:   time.Now().Format(util.ISO8601),
+		},
+	}); err != nil {
 		return nil, err
 	}
 
