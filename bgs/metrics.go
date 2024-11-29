@@ -47,6 +47,11 @@ var externalUserCreationAttempts = promauto.NewCounter(prometheus.CounterOpts{
 	Help: "The total number of external users created",
 })
 
+var connectedInbound = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "bgs_connected_inbound",
+	Help: "Number of inbound firehoses we are consuming",
+})
+
 var compactionDuration = promauto.NewHistogram(prometheus.HistogramOpts{
 	Name:    "compaction_duration",
 	Help:    "A histogram of compaction latencies",
