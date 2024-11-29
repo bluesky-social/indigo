@@ -22,6 +22,12 @@ func main() {
 			ArgsUsage: "<tid>",
 			Action:    runParseTID,
 		},
+		&cli.Command{
+			Name:      "parse-did",
+			Usage:     "parse a DID",
+			ArgsUsage: "<did>",
+			Action:    runParseDID,
+		},
 	}
 	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})
 	slog.SetDefault(slog.New(h))
@@ -40,6 +46,21 @@ func runParseTID(cctx *cli.Context) error {
 	}
 	fmt.Printf("TID: %s\n", tid)
 	fmt.Printf("Time: %s\n", tid.Time())
+
+	return nil
+}
+
+func runParseDID(cctx *cli.Context) error {
+	s := cctx.Args().First()
+	if s == "" {
+		return fmt.Errorf("need to provide identifier as an argument")
+	}
+
+	did, err := syntax.ParseDID(s)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s\n", did)
 
 	return nil
 }
