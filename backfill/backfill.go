@@ -12,8 +12,11 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
+
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
@@ -80,6 +83,8 @@ type Backfiller struct {
 	magicHeaderVal string
 
 	stop chan chan struct{}
+
+	Directory identity.Directory
 }
 
 var (
@@ -147,6 +152,8 @@ func NewBackfiller(
 		syncLimiter:           rate.NewLimiter(rate.Limit(opts.SyncRequestsPerSecond), 1),
 		CheckoutPath:          opts.CheckoutPath,
 		stop:                  make(chan chan struct{}, 1),
+		// TODO: update to configure directory so it skips handle resolution
+		Directory: identity.DefaultDirectory(),
 	}
 }
 
@@ -292,25 +299,12 @@ type recordResult struct {
 	err        error
 }
 
-// BackfillRepo backfills a repo
-func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) {
-	ctx, span := tracer.Start(ctx, "BackfillRepo")
-	defer span.End()
+// Fetches a repo CAR file over HTTP from the indicated host. If successful, parses the CAR and returns repo.Repo
+func (b *Backfiller) fetchRepo(ctx context.Context, did, since, host string) (*repo.Repo, error) {
+	url := fmt.Sprintf("%s?did=%s", b.CheckoutPath, did)
 
-	start := time.Now()
-
-	repoDid := job.Repo()
-
-	log := slog.With("source", "backfiller_backfill_repo", "repo", repoDid)
-	if job.RetryCount() > 0 {
-		log = log.With("retry_count", job.RetryCount())
-	}
-	log.Info(fmt.Sprintf("processing backfill for %s", repoDid))
-
-	url := fmt.Sprintf("%s?did=%s", b.CheckoutPath, repoDid)
-
-	if job.Rev() != "" {
-		url = url + fmt.Sprintf("&since=%s", job.Rev())
+	if since != "" {
+		url = url + fmt.Sprintf("&since=%s", since)
 	}
 
 	// GET and CAR decode the body
@@ -320,8 +314,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 	}
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		state := fmt.Sprintf("failed (create request: %s)", err.Error())
-		return state, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Accept", "application/vnd.ipld.car")
@@ -334,8 +327,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 
 	resp, err := client.Do(req)
 	if err != nil {
-		state := fmt.Sprintf("failed (do request: %s)", err.Error())
-		return state, fmt.Errorf("failed to send request: %w", err)
+		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -345,8 +337,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 		} else {
 			reason = resp.Status
 		}
-		state := fmt.Sprintf("failed (%s)", reason)
-		return state, fmt.Errorf("failed to get repo: %s", reason)
+		return nil, fmt.Errorf("failed to get repo: %s", reason)
 	}
 
 	instrumentedReader := instrumentedReader{
@@ -356,10 +347,48 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 
 	defer instrumentedReader.Close()
 
-	r, err := repo.ReadRepoFromCar(ctx, instrumentedReader)
+	repo, err := repo.ReadRepoFromCar(ctx, instrumentedReader)
 	if err != nil {
-		state := "failed (couldn't read repo CAR from response body)"
-		return state, fmt.Errorf("failed to read repo from car: %w", err)
+		return nil, fmt.Errorf("failed to parse repo from CAR file: %w", err)
+	}
+	return repo, nil
+}
+
+// BackfillRepo backfills a repo
+func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) {
+	ctx, span := tracer.Start(ctx, "BackfillRepo")
+	defer span.End()
+
+	start := time.Now()
+
+	repoDID := job.Repo()
+
+	log := slog.With("source", "backfiller_backfill_repo", "repo", repoDID)
+	if job.RetryCount() > 0 {
+		log = log.With("retry_count", job.RetryCount())
+	}
+	log.Info(fmt.Sprintf("processing backfill for %s", repoDID))
+
+	// first try with Relay endpoint
+	// XXX: configurable relay host
+	relayHost := "https://bsky.network"
+	r, err := b.fetchRepo(ctx, repoDID, job.Rev(), relayHost)
+	if err != nil {
+		slog.Warn("repo CAR fetch from relay failed", "did", repoDID, "since", job.Rev(), "relayHost", relayHost, "err", err)
+		// fallback to direct PDS fetch
+		ident, err := b.Directory.LookupDID(ctx, syntax.DID(repoDID))
+		if err != nil {
+			return "failed resolving DID to PDS repo", fmt.Errorf("resolving DID for PDS repo fetch: %w", err)
+		}
+		pdsHost := ident.PDSEndpoint()
+		if pdsHost == "" {
+			return "DID document missing PDS endpoint", fmt.Errorf("no PDS endpoint for DID: %s", repoDID)
+		}
+		r, err = b.fetchRepo(ctx, repoDID, job.Rev(), pdsHost)
+		if err != nil {
+			slog.Warn("repo CAR fetch from PDS failed", "did", repoDID, "since", job.Rev(), "pdsHost", pdsHost, "err", err)
+			return "repo CAR fetch from PDS failed", err
+		}
 	}
 
 	numRecords := 0
@@ -396,7 +425,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 
 				raw := blk.RawData()
 
-				err = b.HandleCreateRecord(ctx, repoDid, rev, item.recordPath, &raw, &item.nodeCid)
+				err = b.HandleCreateRecord(ctx, repoDID, rev, item.recordPath, &raw, &item.nodeCid)
 				if err != nil {
 					recordResults <- recordResult{recordPath: item.recordPath, err: fmt.Errorf("failed to handle create record: %w", err)}
 					continue
