@@ -81,7 +81,9 @@ func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events
 }
 
 func (ix *Indexer) Shutdown() {
-	ix.Crawler.Shutdown()
+	if ix.Crawler != nil {
+		ix.Crawler.Shutdown()
+	}
 }
 
 func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) error {
