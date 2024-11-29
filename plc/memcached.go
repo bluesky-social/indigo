@@ -74,10 +74,10 @@ func (r *MemcachedDidResolver) GetDocument(ctx context.Context, didstr string) (
 	doc, ok := r.tryCache(didstr)
 	if ok {
 		span.SetAttributes(attribute.Bool("cache", true))
-		cacheHitsTotal.Inc()
+		memcacheHitsTotal.Inc()
 		return doc, nil
 	}
-	cacheMissesTotal.Inc()
+	memcacheMissesTotal.Inc()
 	span.SetAttributes(attribute.Bool("cache", false))
 
 	doc, err := r.res.GetDocument(ctx, didstr)
