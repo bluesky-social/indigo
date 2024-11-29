@@ -386,6 +386,7 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 			slog.Warn("repo CAR fetch from PDS failed", "did", repoDID, "since", job.Rev(), "pdsHost", pdsHost, "err", err)
 			return "repo CAR fetch from PDS failed", err
 		}
+		slog.Info("repo CAR fetch from PDS successful", "did", repoDID, "since", job.Rev(), "pdsHost", pdsHost, "err", err)
 	}
 
 	numRecords := 0
