@@ -4,6 +4,7 @@
 #
 # python3 resync_pdses.py --admin-key hunter2 --url http://myrelay:2470 host_per_line.txt
 
+import csv
 import json
 import sys
 import urllib.parse
@@ -49,6 +50,7 @@ class relay:
             return
         if limits is None:
             sys.stderr.write(f"requestCrawl {host} OK\n")
+            return
         url = urllib.parse.urljoin(self.rooturl, '/admin/pds/changeLimits')
         plimits = dict(limits)
         plimits["host"] = host
@@ -58,10 +60,38 @@ class relay:
             return
         sys.stderr.write(f"requestCrawl + changeLimits {host} OK\n")
 
+
+def fromtext(args, relaySession, fin, limits):
+    for line in fin:
+        if not line:
+            continue
+        line = line.strip()
+        if not line:
+            continue
+        if line[0] == '#':
+            continue
+        host = line
+        if args.crawl:
+            relaySession.crawlAndSetLimits(host, limits)
+        elif args.resync:
+            relaySession.resync(host)
+
+def fromcsv(args, relaySession, fin, limits):
+    reader = csv.DictReader(fin)
+    for row in reader:
+        host = row.get('host') or row.get('hostname')
+        if not host:
+            raise Exception("no host in: " + repr(list(keys(row))))
+        if args.crawl:
+            relaySession.crawlAndSetLimits(host, limits)
+        elif args.resync:
+            relaySession.resync(host)
+
 def main():
     import argparse
     ap = argparse.ArgumentParser()
-    ap.add_argument('input', default='-', help='host per line text file to read, - for stdin')
+    ap.add_argument('input', default='-', help='host per line text file to read, - for stdin (default), detects .csv in filename')
+    ap.add_argument('--csv', action='store_true', default=False, help='treat stdin as csv')
     ap.add_argument('--admin-key', default=None, help='relay auth bearer token', required=True)
     ap.add_argument('--url', default=None, help='base url to POST /admin/pds/resync', required=True)
     ap.add_argument('--resync', default=False, action='store_true', help='resync selected PDSes')
@@ -92,24 +122,11 @@ def main():
         fin = sys.stdin
     else:
         fin = open(args.input, 'rt')
-    for line in fin:
-        if not line:
-            continue
-        line = line.strip()
-        if not line:
-            continue
-        if line[0] == '#':
-            continue
-        host = line
-        if args.crawl:
-            relaySession.crawlAndSetLimits(host, limits)
-        elif args.resync:
-            relaySession.resync(host)
-        # response = sess.post(url, params={"host": line}, headers=headers)
-        # if response.status_code != 200:
-        #     sys.stderr.write(f"{url}?host={line} : ({response.status_code}) ({response.text!r})\n")
-        # else:
-        #     sys.stderr.write(f"{url}?host={line} : OK\n")
+    if args.csv or args.input.endswith('.csv'):
+        fromcsv(args, relaySession, fin, limits)
+    else:
+        fromtext(args, relaySession, fin, limits)
+
 
 if __name__ == '__main__':
     main()
