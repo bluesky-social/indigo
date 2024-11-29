@@ -441,6 +441,8 @@ func (evt *XRPCStreamEvent) Sequence() int64 {
 		return evt.RepoTombstone.Seq
 	case evt.RepoIdentity != nil:
 		return evt.RepoIdentity.Seq
+	case evt.RepoAccount != nil:
+		return evt.RepoAccount.Seq
 	case evt.RepoInfo != nil:
 		return -1
 	case evt.Error != nil:
