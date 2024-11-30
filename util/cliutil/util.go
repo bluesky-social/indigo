@@ -2,10 +2,14 @@ package cliutil
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -229,4 +233,175 @@ func SetupDatabase(dburl string, maxConnections int) (*gorm.DB, error) {
 	}
 
 	return db, nil
+}
+
+type LogOptions struct {
+	LogRotateBytes int64
+	LogPath        string
+	LogFormat      string
+	LogLevel       string
+}
+
+// SetupSlog integrates passed in options and env vars.
+//
+// passing default cliutil.LogOptions{} is ok.
+//
+// GOLOG_LOG_LEVEL=info|debug|warn|error
+//
+// GOLOG_LOG_FMT=text|json
+//
+// GOLOG_FILE=path (or "-" or "" for stdout), %T gets UnixMilli; if a path with '/', {prefix}/current becomes a link to active log file
+//
+// GOLOG_ROTATE_BYTES=int maximum size of log chunk before rotating
+//
+// (env vars derived from ipfs logging library)
+func SetupSlog(options LogOptions) (*slog.Logger, error) {
+	var hopts slog.HandlerOptions
+	hopts.Level = slog.LevelInfo
+	hopts.AddSource = true
+	if options.LogLevel == "" {
+		options.LogLevel = os.Getenv("GOLOG_LOG_LEVEL")
+	}
+	if options.LogLevel == "" {
+		hopts.Level = slog.LevelInfo
+		options.LogLevel = "info"
+	} else {
+		level := strings.ToLower(options.LogLevel)
+		switch level {
+		case "debug":
+			hopts.Level = slog.LevelDebug
+		case "info":
+			hopts.Level = slog.LevelInfo
+		case "warn":
+			hopts.Level = slog.LevelWarn
+		case "error":
+			hopts.Level = slog.LevelError
+		default:
+			return nil, fmt.Errorf("unknown log level: %#v", options.LogLevel)
+		}
+	}
+	if options.LogFormat == "" {
+		options.LogFormat = os.Getenv("GOLOG_LOG_FMT")
+	}
+	if options.LogFormat == "" {
+		options.LogFormat = "text"
+	} else {
+		format := strings.ToLower(options.LogFormat)
+		if format == "json" || format == "text" {
+			// ok
+		} else {
+			return nil, fmt.Errorf("invalid log format: %#v", options.LogFormat)
+		}
+		options.LogFormat = format
+	}
+
+	if options.LogPath == "" {
+		options.LogPath = os.Getenv("GOLOG_FILE")
+	}
+	if options.LogRotateBytes == 0 {
+		rotateBytesStr := os.Getenv("GOLOG_ROTATE_BYTES")
+		if rotateBytesStr != "" {
+			rotateBytes, err := strconv.ParseInt(rotateBytesStr, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid GOLOG_ROTATE_BYTES value: %w", err)
+			}
+			options.LogRotateBytes = rotateBytes
+		}
+	}
+	var out io.Writer
+	if (options.LogPath == "") || (options.LogPath == "-") {
+		out = os.Stdout
+	} else if options.LogRotateBytes != 0 {
+		out = &logRotateWriter{
+			rotateBytes:     options.LogRotateBytes,
+			outPathTemplate: options.LogPath,
+		}
+	} else {
+		var err error
+		out, err = os.Create(options.LogPath)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", options.LogPath, err)
+		}
+	}
+	var handler slog.Handler
+	switch options.LogFormat {
+	case "text":
+		handler = slog.NewTextHandler(out, &hopts)
+	case "json":
+		handler = slog.NewJSONHandler(out, &hopts)
+	default:
+		return nil, fmt.Errorf("unknown log format: %#v", options.LogFormat)
+	}
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+	return logger, nil
+}
+
+type logRotateWriter struct {
+	currentWriter io.WriteCloser
+
+	// how much has been written to current log file
+	currentBytes int64
+
+	// e.g. path/to/logs/foo%T
+	currentPath string
+
+	// e.g. path/to/logs/current
+	currentPathCurrent string
+
+	rotateBytes int64
+
+	outPathTemplate string
+}
+
+func (w *logRotateWriter) Write(p []byte) (n int, err error) {
+	var earlyWeakErrors []error
+	if int64(len(p))+w.currentBytes > w.rotateBytes {
+		// next write would be over the limit
+		if w.currentWriter != nil {
+			err := w.currentWriter.Close()
+			if err != nil {
+				earlyWeakErrors = append(earlyWeakErrors, err)
+			}
+			w.currentWriter = nil
+			w.currentBytes = 0
+			w.currentPath = ""
+			if w.currentPathCurrent != "" {
+				err = os.Remove(w.currentPathCurrent) // not really an error until something else goes wrong
+				if err != nil {
+					earlyWeakErrors = append(earlyWeakErrors, err)
+				}
+				w.currentPathCurrent = ""
+			}
+		}
+	}
+	if w.currentWriter == nil {
+		// start new log file
+		nowMillis := time.Now().UnixMilli()
+		nows := strconv.FormatInt(nowMillis, 10)
+		w.currentPath = strings.Replace(w.outPathTemplate, "%T", nows, -1)
+		var err error
+		w.currentWriter, err = os.Create(w.currentPath)
+		if err != nil {
+			earlyWeakErrors = append(earlyWeakErrors, err)
+			return 0, errors.Join(earlyWeakErrors...)
+		}
+		dirpart, _ := filepath.Split(w.currentPath)
+		if dirpart != "" {
+			w.currentPathCurrent = filepath.Join(dirpart, "current")
+			err = os.Link(w.currentPath, w.currentPathCurrent)
+			if err != nil {
+				earlyWeakErrors = append(earlyWeakErrors, err)
+				return 0, errors.Join(earlyWeakErrors...)
+			}
+		}
+	}
+	var wrote int
+	wrote, err = w.currentWriter.Write(p)
+	w.currentBytes += int64(wrote)
+	if err != nil {
+		earlyWeakErrors = append(earlyWeakErrors, err)
+		return wrote, errors.Join(earlyWeakErrors...)
+	}
+	return wrote, nil
 }
