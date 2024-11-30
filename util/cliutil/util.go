@@ -389,10 +389,21 @@ func (w *logRotateWriter) Write(p []byte) (n int, err error) {
 		dirpart, _ := filepath.Split(w.currentPath)
 		if dirpart != "" {
 			w.currentPathCurrent = filepath.Join(dirpart, "current")
+			fi, err := os.Stat(w.currentPathCurrent)
+			if err == nil && fi.Mode().IsRegular() {
+				// move aside unknown "current" from a previous run
+				err = os.Rename(w.currentPathCurrent, w.currentPathCurrent+"_"+nows)
+				if err != nil {
+					// not crucial if we can't move aside "current"
+					// TODO: log warning ... but not from inside log writer?
+					earlyWeakErrors = append(earlyWeakErrors, err)
+				}
+			}
 			err = os.Link(w.currentPath, w.currentPathCurrent)
 			if err != nil {
+				// not crucial if we can't make "current" link
+				// TODO: log warning ... but not from inside log writer?
 				earlyWeakErrors = append(earlyWeakErrors, err)
-				return 0, errors.Join(earlyWeakErrors...)
 			}
 		}
 	}
