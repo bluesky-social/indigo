@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	did "github.com/whyrusleeping/go-did"
 	"go.opentelemetry.io/otel"
@@ -12,6 +13,8 @@ type KeyManager struct {
 	didr DidResolver
 
 	signingKey *did.PrivKey
+
+	log *slog.Logger
 }
 
 type DidResolver interface {
@@ -36,7 +39,7 @@ func (km *KeyManager) VerifyUserSignature(ctx context.Context, did string, sig [
 
 	err = k.Verify(msg, sig)
 	if err != nil {
-		log.Warnw("signature failed to verify", "err", err, "did", did, "pubKey", k, "sigBytes", sig, "msgBytes", msg)
+		km.log.Warn("signature failed to verify", "err", err, "did", did, "pubKey", k, "sigBytes", sig, "msgBytes", msg)
 	}
 	return err
 }

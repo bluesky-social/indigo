@@ -197,7 +197,7 @@ func Sonar(cctx *cli.Context) error {
 	go func() {
 		wg.Add(1)
 		defer wg.Done()
-		err = events.HandleRepoStream(ctx, c, pool)
+		err = events.HandleRepoStream(ctx, c, pool, logger)
 		logger.Info("HandleRepoStream returned unexpectedly", "err", err)
 		cancel()
 	}()
