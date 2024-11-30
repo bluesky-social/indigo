@@ -229,8 +229,8 @@ func setupOTEL(cctx *cli.Context) error {
 		env = "dev"
 	}
 	if cctx.Bool("jaeger") {
-		url := "http://localhost:14268/api/traces"
-		exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(url)))
+		jaegerUrl := "http://localhost:14268/api/traces"
+		exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(jaegerUrl)))
 		if err != nil {
 			return err
 		}
@@ -294,7 +294,10 @@ func runBigsky(cctx *cli.Context) error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
-	// TODO: set slog default from param/env
+	_, err := cliutil.SetupSlog(cliutil.LogOptions{})
+	if err != nil {
+		return err
+	}
 
 	// start observability/tracing (OTEL and jaeger)
 	if err := setupOTEL(cctx); err != nil {

@@ -81,7 +81,12 @@ func run(args []string) {
 		},
 	}
 
-	// TODO: slog.SetDefault from param/env
+	_, err := cliutil.SetupSlog(cliutil.LogOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "logging setup error: %s\n", err.Error())
+		os.Exit(1)
+		return
+	}
 
 	app.Commands = []*cli.Command{
 		accountCmd,
