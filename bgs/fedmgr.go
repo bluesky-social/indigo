@@ -478,6 +478,10 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS, s
 
 	cursor := host.Cursor
 
+	connectedInbound.Inc()
+	defer connectedInbound.Dec()
+	// TODO:? maybe keep a gauge of 'in retry backoff' sources?
+
 	var backoff int
 	for {
 		select {
