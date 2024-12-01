@@ -13,9 +13,9 @@ import (
 	"testing"
 
 	"github.com/bluesky-social/indigo/util"
+	"github.com/ipfs/boxo/blockstore"
 	cid "github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car/v2"
 	"github.com/multiformats/go-multihash"
 	mh "github.com/multiformats/go-multihash"

@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/util"
+	"github.com/ipfs/boxo/blockstore"
 	cid "github.com/ipfs/go-cid"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 )
 
 type DiffOp struct {

@@ -31,9 +31,9 @@ import (
 
 	"github.com/gorilla/websocket"
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/ipfs/boxo/blockstore"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car"
 
 	_ "github.com/joho/godotenv/autoload"

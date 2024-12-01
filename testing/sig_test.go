@@ -10,8 +10,8 @@ import (
 
 	"github.com/bluesky-social/indigo/repo"
 
+	"github.com/ipfs/boxo/blockstore"
 	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/stretchr/testify/assert"
 	"github.com/whyrusleeping/go-did"
 	secp "gitlab.com/yawning/secp256k1-voi"

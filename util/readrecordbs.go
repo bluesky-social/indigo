@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ipfs/boxo/blockstore"
 	blockformat "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 )
 
 type LoggingBstore struct {
