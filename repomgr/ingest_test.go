@@ -50,7 +50,7 @@ func TestLoadNewRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	cs, err := carstore.NewCarStore(cardb, []string{cspath})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func testCarstore(t *testing.T, dir string) carstore.CarStore {
 		t.Fatal(err)
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	cs, err := carstore.NewCarStore(cardb, []string{cspath})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,14 +208,14 @@ func TestDuplicateRecord(t *testing.T) {
 	}
 
 	p1, _, err := repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
-		Text: fmt.Sprintf("hello friend"),
+		Text: "hello friend",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	p2, _, err := repoman.CreateRecord(ctx, 1, "app.bsky.feed.post", &bsky.FeedPost{
-		Text: fmt.Sprintf("hello friend"),
+		Text: "hello friend",
 	})
 	if err != nil {
 		t.Fatal(err)

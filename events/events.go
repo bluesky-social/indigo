@@ -219,6 +219,78 @@ func (evt *XRPCStreamEvent) Serialize(wc io.Writer) error {
 	return obj.MarshalCBOR(cborWriter)
 }
 
+func (xevt *XRPCStreamEvent) Deserialize(r io.Reader) error {
+	var header EventHeader
+	if err := header.UnmarshalCBOR(r); err != nil {
+		return fmt.Errorf("reading header: %w", err)
+	}
+	switch header.Op {
+	case EvtKindMessage:
+		switch header.MsgType {
+		case "#commit":
+			var evt comatproto.SyncSubscribeRepos_Commit
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return fmt.Errorf("reading repoCommit event: %w", err)
+			}
+			xevt.RepoCommit = &evt
+		case "#handle":
+			var evt comatproto.SyncSubscribeRepos_Handle
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return err
+			}
+			xevt.RepoHandle = &evt
+		case "#identity":
+			var evt comatproto.SyncSubscribeRepos_Identity
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return err
+			}
+			xevt.RepoIdentity = &evt
+		case "#account":
+			var evt comatproto.SyncSubscribeRepos_Account
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return err
+			}
+			xevt.RepoAccount = &evt
+		case "#info":
+			// TODO: this might also be a LabelInfo (as opposed to RepoInfo)
+			var evt comatproto.SyncSubscribeRepos_Info
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return err
+			}
+			xevt.RepoInfo = &evt
+		case "#migrate":
+			var evt comatproto.SyncSubscribeRepos_Migrate
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return err
+			}
+			xevt.RepoMigrate = &evt
+		case "#tombstone":
+			var evt comatproto.SyncSubscribeRepos_Tombstone
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return err
+			}
+			xevt.RepoTombstone = &evt
+		case "#labels":
+			var evt comatproto.LabelSubscribeLabels_Labels
+			if err := evt.UnmarshalCBOR(r); err != nil {
+				return fmt.Errorf("reading Labels event: %w", err)
+			}
+			xevt.LabelLabels = &evt
+		}
+	case EvtKindErrorFrame:
+		var errframe ErrorFrame
+		if err := errframe.UnmarshalCBOR(r); err != nil {
+			return err
+		}
+		xevt.Error = &errframe
+	default:
+		return fmt.Errorf("unrecognized event stream type: %d", header.Op)
+	}
+	return nil
+}
+
+var ErrNoSeq = errors.New("event has no sequence number")
+
 // serialize content into Preserialized cache
 func (evt *XRPCStreamEvent) Preserialize() error {
 	if evt.Preserialized != nil {
@@ -290,7 +362,7 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 			case <-done:
 				return ErrPlaybackShutdown
 			case out <- e:
-				seq := sequenceForEvent(e)
+				seq := SequenceForEvent(e)
 				if seq > 0 {
 					lastSeq = seq
 				}
@@ -315,8 +387,8 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 
 		// run playback again to get us to the events that have started buffering
 		if err := em.persister.Playback(ctx, lastSeq, func(e *XRPCStreamEvent) error {
-			seq := sequenceForEvent(e)
-			if seq > sequenceForEvent(first) {
+			seq := SequenceForEvent(e)
+			if seq > SequenceForEvent(first) {
 				return ErrCaughtUp
 			}
 
@@ -351,7 +423,11 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 	return out, sub.cleanup, nil
 }
 
-func sequenceForEvent(evt *XRPCStreamEvent) int64 {
+func SequenceForEvent(evt *XRPCStreamEvent) int64 {
+	return evt.Sequence()
+}
+
+func (evt *XRPCStreamEvent) Sequence() int64 {
 	switch {
 	case evt == nil:
 		return -1
@@ -365,6 +441,8 @@ func sequenceForEvent(evt *XRPCStreamEvent) int64 {
 		return evt.RepoTombstone.Seq
 	case evt.RepoIdentity != nil:
 		return evt.RepoIdentity.Seq
+	case evt.RepoAccount != nil:
+		return evt.RepoAccount.Seq
 	case evt.RepoInfo != nil:
 		return -1
 	case evt.Error != nil:

@@ -55,6 +55,10 @@ type Config struct {
 	RerouteEvents       bool
 	PreScreenHost       string
 	PreScreenToken      string
+	ReportDupePeriod    time.Duration
+	QuotaModReportDay   int
+	QuotaModTakedownDay int
+	QuotaModActionDay   int
 }
 
 func NewServer(dir identity.Directory, config Config) (*Server, error) {
@@ -222,6 +226,10 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		BlobClient:  blobClient,
 		Config: automod.EngineConfig{
 			PersistSubjectHistoryOzone: config.RerouteEvents,
+			ReportDupePeriod:           config.ReportDupePeriod,
+			QuotaModReportDay:          config.QuotaModReportDay,
+			QuotaModTakedownDay:        config.QuotaModTakedownDay,
+			QuotaModActionDay:          config.QuotaModActionDay,
 		},
 	}
 

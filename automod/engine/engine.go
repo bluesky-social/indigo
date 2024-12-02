@@ -54,6 +54,14 @@ type EngineConfig struct {
 	SkipAccountMeta bool
 	// if true, sent firehose identity and account events to ozone backend as events
 	PersistSubjectHistoryOzone bool
+	// time period within which automod will not re-report an account for the same reasonType
+	ReportDupePeriod time.Duration
+	// number of reports automod can file per day, for all subjects and types combined (circuit breaker)
+	QuotaModReportDay int
+	// number of takedowns automod can action per day, for all subjects combined (circuit breaker)
+	QuotaModTakedownDay int
+	// number of misc actions automod can do per day, for all subjects combined (circuit breaker)
+	QuotaModActionDay int
 }
 
 // Entrypoint for external code pushing #identity events in to the engine.

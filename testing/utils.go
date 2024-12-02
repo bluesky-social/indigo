@@ -117,7 +117,7 @@ func SetupPDS(ctx context.Context, suffix string, plc plc.PLCClient) (*TestPDS, 
 		return nil, err
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	cs, err := carstore.NewCarStore(cardb, []string{cspath})
 	if err != nil {
 		return nil, err
 	}
@@ -550,7 +550,7 @@ func SetupRelay(ctx context.Context, didr plc.PLCClient) (*TestRelay, error) {
 		return nil, err
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	cs, err := carstore.NewCarStore(cardb, []string{cspath})
 	if err != nil {
 		return nil, err
 	}
