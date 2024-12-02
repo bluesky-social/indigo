@@ -260,23 +260,24 @@ type LogOptions struct {
 //
 // passing default cliutil.LogOptions{} is ok.
 //
-// GOLOG_LOG_LEVEL=info|debug|warn|error
+// BSKYLOG_LOG_LEVEL=info|debug|warn|error
 //
-// GOLOG_LOG_FMT=text|json
+// BSKYLOG_LOG_FMT=text|json
 //
-// GOLOG_FILE=path (or "-" or "" for stdout), %T gets UnixMilli; if a path with '/', {prefix}/current becomes a link to active log file
+// BSKYLOG_FILE=path (or "-" or "" for stdout), %T gets UnixMilli; if a path with '/', {prefix}/current becomes a link to active log file
 //
-// GOLOG_ROTATE_BYTES=int maximum size of log chunk before rotating
+// BSKYLOG_ROTATE_BYTES=int maximum size of log chunk before rotating
 //
-// GOLOG_ROTATE_KEEP=int keep N olg logs (not including current)
+// BSKYLOG_ROTATE_KEEP=int keep N olg logs (not including current)
 //
 // (env vars derived from ipfs logging library)
 func SetupSlog(options LogOptions) (*slog.Logger, error) {
+	fmt.Fprintf(os.Stderr, "SetupSlog\n")
 	var hopts slog.HandlerOptions
 	hopts.Level = slog.LevelInfo
 	hopts.AddSource = true
 	if options.LogLevel == "" {
-		options.LogLevel = os.Getenv("GOLOG_LOG_LEVEL")
+		options.LogLevel = os.Getenv("BSKYLOG_LOG_LEVEL")
 	}
 	if options.LogLevel == "" {
 		hopts.Level = slog.LevelInfo
@@ -297,7 +298,7 @@ func SetupSlog(options LogOptions) (*slog.Logger, error) {
 		}
 	}
 	if options.LogFormat == "" {
-		options.LogFormat = os.Getenv("GOLOG_LOG_FMT")
+		options.LogFormat = os.Getenv("BSKYLOG_LOG_FMT")
 	}
 	if options.LogFormat == "" {
 		options.LogFormat = "text"
@@ -312,25 +313,25 @@ func SetupSlog(options LogOptions) (*slog.Logger, error) {
 	}
 
 	if options.LogPath == "" {
-		options.LogPath = os.Getenv("GOLOG_FILE")
+		options.LogPath = os.Getenv("BSKYLOG_FILE")
 	}
 	if options.LogRotateBytes == 0 {
-		rotateBytesStr := os.Getenv("GOLOG_ROTATE_BYTES")
+		rotateBytesStr := os.Getenv("BSKYLOG_ROTATE_BYTES")
 		if rotateBytesStr != "" {
 			rotateBytes, err := strconv.ParseInt(rotateBytesStr, 10, 64)
 			if err != nil {
-				return nil, fmt.Errorf("invalid GOLOG_ROTATE_BYTES value: %w", err)
+				return nil, fmt.Errorf("invalid BSKYLOG_ROTATE_BYTES value: %w", err)
 			}
 			options.LogRotateBytes = rotateBytes
 		}
 	}
 	if options.KeepOld == 0 {
 		keepOldUnset := true
-		keepOldStr := os.Getenv("GOLOG_ROTATE_KEEP")
+		keepOldStr := os.Getenv("BSKYLOG_ROTATE_KEEP")
 		if keepOldStr != "" {
 			keepOld, err := strconv.ParseInt(keepOldStr, 10, 64)
 			if err != nil {
-				return nil, fmt.Errorf("invalid GOLOG_ROTATE_KEEP value: %w", err)
+				return nil, fmt.Errorf("invalid BSKYLOG_ROTATE_KEEP value: %w", err)
 			}
 			keepOldUnset = false
 			options.KeepOld = int(keepOld)
@@ -339,6 +340,8 @@ func SetupSlog(options LogOptions) (*slog.Logger, error) {
 			options.KeepOld = 2
 		}
 	}
+	logaround := make(chan string, 100)
+	go logbouncer(logaround)
 	var out io.Writer
 	if (options.LogPath == "") || (options.LogPath == "-") {
 		out = os.Stdout
@@ -347,6 +350,7 @@ func SetupSlog(options LogOptions) (*slog.Logger, error) {
 			rotateBytes:     options.LogRotateBytes,
 			outPathTemplate: options.LogPath,
 			keep:            options.KeepOld,
+			logaround:       logaround,
 		}
 	} else {
 		var err error
@@ -354,6 +358,7 @@ func SetupSlog(options LogOptions) (*slog.Logger, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", options.LogPath, err)
 		}
+		fmt.Fprintf(os.Stderr, "SetupSlog create %#v\n", options.LogPath)
 	}
 	var handler slog.Handler
 	switch options.LogFormat {
@@ -366,6 +371,12 @@ func SetupSlog(options LogOptions) (*slog.Logger, error) {
 	}
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
+	templateDirPart, _ := filepath.Split(options.LogPath)
+	ents, _ := os.ReadDir(templateDirPart)
+	for _, ent := range ents {
+		fmt.Fprintf(os.Stdout, "%s\n", filepath.Join(templateDirPart, ent.Name()))
+	}
+	SetIpfsWriter(out, options.LogFormat, options.LogLevel)
 	return logger, nil
 }
 
@@ -387,6 +398,21 @@ type logRotateWriter struct {
 
 	// keep the most recent N log files (not including current)
 	keep int
+
+	// write strings to this from inside the log system, a task outside the log system hands them to slog.Info()
+	logaround chan<- string
+}
+
+func logbouncer(out <-chan string) {
+	var logger *slog.Logger
+	for line := range out {
+		fmt.Fprintf(os.Stderr, "ll %s\n", line)
+		if logger == nil {
+			// lazy to make sure it crops up after slog Default has been set
+			logger = slog.Default().With("system", "logging")
+		}
+		logger.Info(line)
+	}
 }
 
 var currentMatcher = regexp.MustCompile("current_\\d+")
@@ -401,7 +427,7 @@ func (w *logRotateWriter) cleanOldLogs() {
 	// find old logs
 	templateDirPart, templateNamePart := filepath.Split(w.outPathTemplate)
 	if dirpart != templateDirPart {
-		fmt.Fprintf(os.Stderr, "current dir part %#v != template dir part %#v\n", w.currentPath, w.outPathTemplate)
+		w.logaround <- fmt.Sprintf("current dir part %#v != template dir part %#v\n", w.currentPath, w.outPathTemplate)
 		return
 	}
 	// build a regexp that is string literal parts with \d+ replacing the UnixMilli part
@@ -418,12 +444,12 @@ func (w *logRotateWriter) cleanOldLogs() {
 	}
 	tmre, err := regexp.Compile(sb.String())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to compile old log template regexp: %#v\n", err)
+		w.logaround <- fmt.Sprintf("failed to compile old log template regexp: %#v\n", err)
 		return
 	}
 	dir, err := os.ReadDir(dirpart)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to read old log template dir: %#v\n", err)
+		w.logaround <- fmt.Sprintf("failed to read old log template dir: %#v\n", err)
 		return
 	}
 	var found []fs.FileInfo
@@ -450,7 +476,7 @@ func (w *logRotateWriter) cleanOldLogs() {
 		fullpath := filepath.Join(dirpart, fi.Name())
 		err = os.Remove(fullpath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to rm old log: %#v\n", err)
+			w.logaround <- fmt.Sprintf("failed to rm old log: %#v\n", err)
 			// but keep going
 		}
 		// maybe it would be safe to debug-log old log removal from within the logging infrastructure?
@@ -489,6 +515,7 @@ func (w *logRotateWriter) openNewLog(earlyWeakErrors []error) (badErr error, wea
 		earlyWeakErrors = append(earlyWeakErrors, err)
 		return errors.Join(earlyWeakErrors...), nil
 	}
+	w.logaround <- fmt.Sprintf("new log file %#v", w.currentPath)
 	w.cleanOldLogs()
 	dirpart, _ := filepath.Split(w.currentPath)
 	if dirpart != "" {
@@ -534,6 +561,9 @@ func (w *logRotateWriter) Write(p []byte) (n int, err error) {
 	if err != nil {
 		earlyWeakErrors = append(earlyWeakErrors, err)
 		return wrote, errors.Join(earlyWeakErrors...)
+	}
+	if earlyWeakErrors != nil {
+		w.logaround <- fmt.Sprintf("ok, but: %s", errors.Join(earlyWeakErrors...).Error())
 	}
 	return wrote, nil
 }
