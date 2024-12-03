@@ -27,6 +27,11 @@ var repoCommitsReceivedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "The total number of events received",
 }, []string{"pds"})
 
+var repoCommitsResultCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "repo_commits_result_counter",
+	Help: "The results of commit events received",
+}, []string{"pds", "status"})
+
 var rebasesCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "event_rebases",
 	Help: "The total number of rebase events received",
@@ -40,6 +45,11 @@ var eventsSentCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 var externalUserCreationAttempts = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "bgs_external_user_creation_attempts",
 	Help: "The total number of external users created",
+})
+
+var connectedInbound = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "bgs_connected_inbound",
+	Help: "Number of inbound firehoses we are consuming",
 })
 
 var compactionDuration = promauto.NewHistogram(prometheus.HistogramOpts{

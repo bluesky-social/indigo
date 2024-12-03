@@ -79,6 +79,12 @@ func NewIndexer(db *gorm.DB, notifman notifs.NotificationManager, evtman *events
 	return ix, nil
 }
 
+func (ix *Indexer) Shutdown() {
+	if ix.Crawler != nil {
+		ix.Crawler.Shutdown()
+	}
+}
+
 func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) error {
 	ctx, span := otel.Tracer("indexer").Start(ctx, "HandleRepoEvent")
 	defer span.End()
