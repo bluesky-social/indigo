@@ -606,7 +606,11 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid, rev str
 	case *FileCarStore:
 		return ocs.writeNewShard(ctx, root, rev, ds.user, ds.seq, ds.blks, ds.rmcids)
 	case *NonArchivalCarstore:
-		return nil, ocs.updateLastCommit(ctx, ds.user, rev, root)
+		slice, err := blocksToCar(ctx, root, rev, ds.blks)
+		if err != nil {
+			return nil, err
+		}
+		return slice, ocs.updateLastCommit(ctx, ds.user, rev, root)
 	default:
 		return nil, fmt.Errorf("unsupported carstore type")
 	}
@@ -628,6 +632,23 @@ func WriteCarHeader(w io.Writer, root cid.Cid) (int64, error) {
 	}
 
 	return hnw, nil
+}
+
+func blocksToCar(ctx context.Context, root cid.Cid, rev string, blks map[cid.Cid]blockformat.Block) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	_, err := WriteCarHeader(buf, root)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write car header: %w", err)
+	}
+
+	for k, blk := range blks {
+		_, err := LdWrite(buf, k.Bytes(), blk.RawData())
+		if err != nil {
+			return nil, fmt.Errorf("failed to write block: %w", err)
+		}
+	}
+
+	return buf.Bytes(), nil
 }
 
 func (cs *FileCarStore) writeNewShard(ctx context.Context, root cid.Cid, rev string, user models.Uid, seq int, blks map[cid.Cid]blockformat.Block, rmcids map[cid.Cid]bool) ([]byte, error) {
