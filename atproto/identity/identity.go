@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -62,8 +63,13 @@ var DefaultPLCURL = "https://plc.directory"
 
 // Returns a reasonable Directory implementation for applications
 func DefaultDirectory() Directory {
+	url := DefaultPLCURL
+	envPlc := os.Getenv("ATP_PLC_HOST")
+	if envPlc != "" {
+		url = envPlc
+	}
 	base := BaseDirectory{
-		PLCURL: DefaultPLCURL,
+		PLCURL: url,
 		HTTPClient: http.Client{
 			Timeout: time.Second * 10,
 			Transport: &http.Transport{
