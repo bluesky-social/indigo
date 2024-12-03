@@ -19,7 +19,8 @@ type AccountCatalog struct {
 }
 
 func (ac *AccountCatalog) Combined() []AccountContext {
-	combined := append([]AccountContext{}, ac.Celebs...)
+	var combined []AccountContext
+	combined = append(combined, ac.Celebs...)
 	combined = append(combined, ac.Regulars...)
 	return combined
 }
