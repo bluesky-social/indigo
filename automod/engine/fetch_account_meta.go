@@ -147,6 +147,8 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 						ap.ReviewState = ReviewStateClosed
 					case "tools.ozone.moderation.defs#reviewNone":
 						ap.ReviewState = ReviewStateNone
+					default:
+						logger.Warn("unexpected ozone moderation review state", "state", rd.Moderation.SubjectStatus.ReviewState, "did", ident.DID)
 					}
 				}
 			}
