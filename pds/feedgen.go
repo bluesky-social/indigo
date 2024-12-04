@@ -3,6 +3,7 @@ package pds
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
@@ -22,13 +23,16 @@ type FeedGenerator struct {
 	ix *indexer.Indexer
 
 	readRecord ReadRecordFunc
+
+	log *slog.Logger
 }
 
-func NewFeedGenerator(db *gorm.DB, ix *indexer.Indexer, readRecord ReadRecordFunc) (*FeedGenerator, error) {
+func NewFeedGenerator(db *gorm.DB, ix *indexer.Indexer, readRecord ReadRecordFunc, log *slog.Logger) (*FeedGenerator, error) {
 	return &FeedGenerator{
 		db:         db,
 		ix:         ix,
 		readRecord: readRecord,
+		log:        log,
 	}, nil
 }
 
@@ -355,7 +359,7 @@ func (fg *FeedGenerator) hydrateVote(ctx context.Context, v *models.VoteRecord) 
 
 func (fg *FeedGenerator) GetVotes(ctx context.Context, uri string, pcid cid.Cid, limit int, before string) ([]*HydratedVote, error) {
 	if before != "" {
-		log.Warn("not respecting 'before' yet")
+		fg.log.Warn("not respecting 'before' yet")
 	}
 
 	p, err := fg.ix.GetPost(ctx, uri)
