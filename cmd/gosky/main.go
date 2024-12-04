@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -39,14 +40,13 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 
 	"github.com/carlmjohnson/versioninfo"
-	logging "github.com/ipfs/go-log"
 	"github.com/polydawn/refmt/cbor"
 	rejson "github.com/polydawn/refmt/json"
 	"github.com/polydawn/refmt/shared"
 	cli "github.com/urfave/cli/v2"
 )
 
-var log = logging.Logger("gosky")
+var log = slog.Default().With("system", "gosky")
 
 func main() {
 	run(os.Args)
@@ -80,6 +80,9 @@ func run(args []string) {
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
 	}
+
+	// TODO: slog.SetDefault from param/env
+
 	app.Commands = []*cli.Command{
 		accountCmd,
 		adminCmd,
@@ -339,7 +342,7 @@ var readRepoStreamCmd = &cli.Command{
 			},
 		}
 		seqScheduler := sequential.NewScheduler(con.RemoteAddr().String(), rsc.EventHandler)
-		return events.HandleRepoStream(ctx, con, seqScheduler)
+		return events.HandleRepoStream(ctx, con, seqScheduler, log)
 	},
 }
 
