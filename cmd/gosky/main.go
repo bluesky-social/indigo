@@ -19,6 +19,7 @@ import (
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
@@ -465,6 +466,18 @@ var getRecordCmd = &cli.Command{
 				return fmt.Errorf("unrecognized link")
 			}
 
+			atid, err := syntax.ParseAtIdentifier(did)
+			if err != nil {
+				return err
+			}
+
+			resp, err := identity.DefaultDirectory().Lookup(ctx, *atid)
+			if err != nil {
+				return err
+			}
+
+			xrpcc.Host = resp.PDSEndpoint()
+
 			out, err := comatproto.RepoGetRecord(ctx, xrpcc, "", collection, did, rkey)
 			if err != nil {
 				return err
@@ -493,7 +506,7 @@ var getRecordCmd = &cli.Command{
 
 		rc, rec, err := rr.GetRecord(ctx, cctx.Args().First())
 		if err != nil {
-			return err
+			return fmt.Errorf("get record failed: %w", err)
 		}
 
 		if cctx.Bool("raw") {

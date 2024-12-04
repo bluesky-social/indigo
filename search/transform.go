@@ -267,9 +267,7 @@ func parsePostTags(p *appbsky.FeedPost) []string {
 			}
 		}
 	}
-	for _, t := range p.Tags {
-		ret = append(ret, t)
-	}
+	ret = append(ret, p.Tags...)
 	if len(ret) == 0 {
 		return nil
 	}

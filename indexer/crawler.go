@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/models"
@@ -30,6 +31,8 @@ type CrawlDispatcher struct {
 	concurrency int
 
 	log *slog.Logger
+
+	done chan struct{}
 }
 
 func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurrency int, log *slog.Logger) (*CrawlDispatcher, error) {
@@ -37,7 +40,7 @@ func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurre
 		return nil, fmt.Errorf("must specify a non-zero positive integer for crawl dispatcher concurrency")
 	}
 
-	return &CrawlDispatcher{
+	out := &CrawlDispatcher{
 		ingest:      make(chan *models.ActorInfo),
 		repoSync:    make(chan *crawlWork),
 		complete:    make(chan models.Uid),
@@ -47,7 +50,11 @@ func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurre
 		todo:        make(map[models.Uid]*crawlWork),
 		inProgress:  make(map[models.Uid]*crawlWork),
 		log:         log,
-	}, nil
+		done:        make(chan struct{}),
+	}
+	go out.CatchupRepoGaugePoller()
+
+	return out, nil
 }
 
 func (c *CrawlDispatcher) Run() {
@@ -56,6 +63,10 @@ func (c *CrawlDispatcher) Run() {
 	for i := 0; i < c.concurrency; i++ {
 		go c.fetchWorker()
 	}
+}
+
+func (c *CrawlDispatcher) Shutdown() {
+	close(c.done)
 }
 
 type catchupJob struct {
@@ -177,13 +188,13 @@ func (c *CrawlDispatcher) dequeueJob(job *crawlWork) {
 }
 
 func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
-	catchupEventsEnqueued.Inc()
 	c.maplk.Lock()
 	defer c.maplk.Unlock()
 
 	// If the actor crawl is enqueued, we can append to the catchup queue which gets emptied during the crawl
 	job, ok := c.todo[catchup.user.Uid]
 	if ok {
+		catchupEventsEnqueued.WithLabelValues("todo").Inc()
 		job.catchup = append(job.catchup, catchup)
 		return nil
 	}
@@ -191,10 +202,12 @@ func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
 	// If the actor crawl is in progress, we can append to the nextr queue which gets emptied after the crawl
 	job, ok = c.inProgress[catchup.user.Uid]
 	if ok {
+		catchupEventsEnqueued.WithLabelValues("prog").Inc()
 		job.next = append(job.next, catchup)
 		return nil
 	}
 
+	catchupEventsEnqueued.WithLabelValues("new").Inc()
 	// Otherwise, we need to create a new crawl job for this actor and enqueue it
 	cw := &crawlWork{
 		act:     catchup.user,
@@ -272,4 +285,22 @@ func (c *CrawlDispatcher) RepoInSlowPath(ctx context.Context, uid models.Uid) bo
 	}
 
 	return false
+}
+
+func (c *CrawlDispatcher) countReposInSlowPath() int {
+	c.maplk.Lock()
+	defer c.maplk.Unlock()
+	return len(c.inProgress) + len(c.todo)
+}
+
+func (c *CrawlDispatcher) CatchupRepoGaugePoller() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-c.done:
+		case <-ticker.C:
+			catchupReposGauge.Set(float64(c.countReposInSlowPath()))
+		}
+	}
 }

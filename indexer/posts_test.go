@@ -81,6 +81,7 @@ func (ix *testIx) Cleanup() {
 	if ix.dir != "" {
 		_ = os.RemoveAll(ix.dir)
 	}
+	ix.ix.Shutdown()
 }
 
 // TODO: dedupe this out into some testing utility package
