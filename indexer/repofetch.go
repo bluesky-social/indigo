@@ -50,8 +50,8 @@ func (rf *RepoFetcher) GetLimiter(pdsID uint) *rate.Limiter {
 }
 
 func (rf *RepoFetcher) GetOrCreateLimiter(pdsID uint, pdsrate float64) *rate.Limiter {
-	rf.LimitMux.RLock()
-	defer rf.LimitMux.RUnlock()
+	rf.LimitMux.Lock()
+	defer rf.LimitMux.Unlock()
 
 	lim, ok := rf.Limiters[pdsID]
 	if !ok {
