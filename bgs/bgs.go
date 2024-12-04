@@ -1184,6 +1184,7 @@ func (bgs *BGS) handleRepoTombstone(ctx context.Context, pds *models.PDS, evt *a
 	}).Error; err != nil {
 		return err
 	}
+	u.SetTombstoned(true)
 
 	if err := bgs.db.Model(&models.ActorInfo{}).Where("uid = ?", u.ID).UpdateColumns(map[string]any{
 		"handle": nil,
@@ -1412,6 +1413,8 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 			if err := s.db.Create(&u).Error; err != nil {
 				return nil, fmt.Errorf("failed to create user after handle conflict: %w", err)
 			}
+
+			s.userCache.Remove(did)
 		} else {
 			return nil, fmt.Errorf("failed to create other pds user: %w", err)
 		}
