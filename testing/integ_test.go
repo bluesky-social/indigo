@@ -15,14 +15,9 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-log/v2"
 	car "github.com/ipld/go-car"
 	"github.com/stretchr/testify/assert"
 )
-
-func init() {
-	log.SetAllLoggers(log.LevelInfo)
-}
 
 func TestRelayBasic(t *testing.T) {
 	if testing.Short() {
