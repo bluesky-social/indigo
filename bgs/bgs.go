@@ -11,7 +11,6 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -343,7 +342,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 				sendHeader = false
 			}
 
-			bgs.log.Warn("HANDLER ERROR: (%s) %s", ctx.Path(), err)
+			bgs.log.Warn("HANDLER ERROR", "path", ctx.Path(), "err", err)
 
 			if strings.HasPrefix(ctx.Path(), "/admin/") {
 				ctx.JSON(500, map[string]any{
@@ -654,7 +653,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 				}
 
 				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
-					bgs.log.Warn("failed to ping client: %s", err)
+					bgs.log.Warn("failed to ping client", "err", err)
 					cancel()
 					return
 				}
@@ -679,7 +678,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		for {
 			_, _, err := conn.ReadMessage()
 			if err != nil {
-				bgs.log.Warn("failed to read message from client: %s", err)
+				bgs.log.Warn("failed to read message from client", "err", err)
 				cancel()
 				return
 			}
