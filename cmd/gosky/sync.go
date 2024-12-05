@@ -65,7 +65,7 @@ var syncGetRepoCmd = &cli.Command{
 			xrpcc.Host = h
 		}
 
-		log.Infof("downloading from %s to: %s", xrpcc.Host, carPath)
+		log.Info("downloading", "from", xrpcc.Host, "to", carPath)
 		repoBytes, err := atproto.SyncGetRepo(ctx, xrpcc, ident.DID.String(), "")
 		if err != nil {
 			return err

@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -29,10 +30,12 @@ type CrawlDispatcher struct {
 
 	concurrency int
 
+	log *slog.Logger
+
 	done chan struct{}
 }
 
-func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurrency int) (*CrawlDispatcher, error) {
+func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurrency int, log *slog.Logger) (*CrawlDispatcher, error) {
 	if concurrency < 1 {
 		return nil, fmt.Errorf("must specify a non-zero positive integer for crawl dispatcher concurrency")
 	}
@@ -46,6 +49,7 @@ func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurre
 		concurrency: concurrency,
 		todo:        make(map[models.Uid]*crawlWork),
 		inProgress:  make(map[models.Uid]*crawlWork),
+		log:         log,
 		done:        make(chan struct{}),
 	}
 	go out.CatchupRepoGaugePoller()
@@ -217,7 +221,7 @@ func (c *CrawlDispatcher) fetchWorker() {
 	// TODO: plumb a context object into this function and use select{} to multiplex its Done channel with c.repoSync
 	for job := range c.repoSync {
 		if err := c.doRepoCrawl(context.TODO(), job); err != nil {
-			log.Errorf("failed to perform repo crawl of %q: %s", job.act.Did, err)
+			c.log.Error("failed to perform repo crawl", "did", job.act.Did, "err", err)
 		}
 
 		// TODO: do we still just do this if it errors?

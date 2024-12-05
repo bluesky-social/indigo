@@ -307,7 +307,7 @@ func (dp *DiskPersistence) flushRoutine() {
 			dp.lk.Lock()
 			if err := dp.flushLog(ctx); err != nil {
 				// TODO: this happening is quite bad. Need a recovery strategy
-				log.Errorf("failed to flush disk log: %s", err)
+				log.Error("failed to flush disk log", "err", err)
 			}
 			dp.lk.Unlock()
 		}
@@ -349,7 +349,7 @@ func (dp *DiskPersistence) garbageCollectRoutine() {
 		case <-t.C:
 			if errs := dp.garbageCollect(ctx); len(errs) > 0 {
 				for _, err := range errs {
-					log.Errorf("garbage collection error: %s", err)
+					log.Error("garbage collection error", "err", err)
 				}
 			}
 		}
@@ -425,7 +425,7 @@ func (dp *DiskPersistence) garbageCollect(ctx context.Context) []error {
 	refsGarbageCollected.WithLabelValues().Add(float64(refsDeleted))
 	filesGarbageCollected.WithLabelValues().Add(float64(filesDeleted))
 
-	log.Infow("garbage collection complete",
+	log.Info("garbage collection complete",
 		"filesDeleted", filesDeleted,
 		"refsDeleted", refsDeleted,
 		"oldRefsFound", oldRefsFound,
@@ -668,7 +668,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 			return nil, err
 		}
 		if since > lastSeq {
-			log.Errorw("playback cursor is greater than last seq of file checked",
+			log.Error("playback cursor is greater than last seq of file checked",
 				"since", since,
 				"lastSeq", lastSeq,
 				"filename", fn,
@@ -750,7 +750,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 				return nil, err
 			}
 		default:
-			log.Warnw("unrecognized event kind coming from log file", "seq", h.Seq, "kind", h.Kind)
+			log.Warn("unrecognized event kind coming from log file", "seq", h.Seq, "kind", h.Kind)
 			return nil, fmt.Errorf("halting on unrecognized event kind")
 		}
 	}

@@ -197,7 +197,7 @@ func (c *Compactor) Start(bgs *BGS) {
 	}
 	if c.requeueInterval > 0 {
 		go func() {
-			log.Infow("starting compactor requeue routine",
+			log.Info("starting compactor requeue routine",
 				"interval", c.requeueInterval,
 				"limit", c.requeueLimit,
 				"shardCount", c.requeueShardCount,
@@ -213,7 +213,7 @@ func (c *Compactor) Start(bgs *BGS) {
 					ctx := context.Background()
 					ctx, span := otel.Tracer("compactor").Start(ctx, "RequeueRoutine")
 					if err := c.EnqueueAllRepos(ctx, bgs, c.requeueLimit, c.requeueShardCount, c.requeueFast); err != nil {
-						log.Errorw("failed to enqueue all repos", "err", err)
+						log.Error("failed to enqueue all repos", "err", err)
 					}
 					span.End()
 				}
@@ -249,7 +249,7 @@ func (c *Compactor) doWork(bgs *BGS, strategy NextStrategy) {
 				time.Sleep(time.Second * 5)
 				continue
 			}
-			log.Errorw("failed to compact repo",
+			log.Error("failed to compact repo",
 				"err", err,
 				"uid", state.latestUID,
 				"repo", state.latestDID,
@@ -260,7 +260,7 @@ func (c *Compactor) doWork(bgs *BGS, strategy NextStrategy) {
 			// Pause for a bit to avoid spamming failed compactions
 			time.Sleep(time.Millisecond * 100)
 		} else {
-			log.Infow("compacted repo",
+			log.Info("compacted repo",
 				"uid", state.latestUID,
 				"repo", state.latestDID,
 				"status", state.status,
@@ -339,7 +339,7 @@ func (c *Compactor) compactNext(ctx context.Context, bgs *BGS, strategy NextStra
 func (c *Compactor) EnqueueRepo(ctx context.Context, user *User, fast bool) {
 	ctx, span := otel.Tracer("compactor").Start(ctx, "EnqueueRepo")
 	defer span.End()
-	log.Infow("enqueueing compaction for repo", "repo", user.Did, "uid", user.ID, "fast", fast)
+	log.Info("enqueueing compaction for repo", "repo", user.Did, "uid", user.ID, "fast", fast)
 	c.q.Append(user.ID, fast)
 }
 
@@ -383,7 +383,7 @@ func (c *Compactor) EnqueueAllRepos(ctx context.Context, bgs *BGS, lim int, shar
 		c.q.Append(r.Usr, fast)
 	}
 
-	log.Infow("done enqueueing all repos", "repos_enqueued", len(repos))
+	log.Info("done enqueueing all repos", "repos_enqueued", len(repos))
 
 	return nil
 }

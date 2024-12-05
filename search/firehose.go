@@ -137,6 +137,7 @@ func (idx *Indexer) RunIndexer(ctx context.Context) error {
 			idx.relayhost,
 			rsc.EventHandler,
 		),
+		idx.logger,
 	)
 }
 

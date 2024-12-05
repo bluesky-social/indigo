@@ -8,17 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ipfs/go-log/v2"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/xrpc"
 )
-
-func init() {
-	log.SetAllLoggers(log.LevelInfo)
-}
 
 func TestRelayBasic(t *testing.T) {
 	if testing.Short() {

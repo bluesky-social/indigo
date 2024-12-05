@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -21,7 +22,6 @@ import (
 	cbor "github.com/ipfs/go-ipld-cbor"
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/ipfs/go-libipfs/blocks"
-	logging "github.com/ipfs/go-log"
 	car "github.com/ipld/go-car"
 	carutil "github.com/ipld/go-car/util"
 	"github.com/prometheus/client_golang/prometheus"
@@ -42,8 +42,6 @@ var blockGetTotalCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 var blockGetTotalCounterUsrskip = blockGetTotalCounter.WithLabelValues("true", "miss")
 var blockGetTotalCounterCached = blockGetTotalCounter.WithLabelValues("false", "hit")
 var blockGetTotalCounterNormal = blockGetTotalCounter.WithLabelValues("false", "miss")
-
-var log = logging.Logger("carstore")
 
 const MaxSliceLength = 2 << 20
 
@@ -68,6 +66,8 @@ type FileCarStore struct {
 
 	lscLk          sync.Mutex
 	lastShardCache map[models.Uid]*CarShard
+
+	log *slog.Logger
 }
 
 func NewCarStore(meta *gorm.DB, roots []string) (CarStore, error) {
@@ -93,6 +93,7 @@ func NewCarStore(meta *gorm.DB, roots []string) (CarStore, error) {
 		meta:           &CarStoreGormMeta{meta: meta},
 		rootDirs:       roots,
 		lastShardCache: make(map[models.Uid]*CarShard),
+		log:            slog.Default().With("system", "carstore"),
 	}, nil
 }
 
@@ -870,7 +871,7 @@ func (cs *FileCarStore) deleteShards(ctx context.Context, shs []CarShard) error 
 				if !os.IsNotExist(err) {
 					return err
 				}
-				log.Warnw("shard file we tried to delete did not exist", "shard", sh.ID, "path", sh.Path)
+				cs.log.Warn("shard file we tried to delete did not exist", "shard", sh.ID, "path", sh.Path)
 			}
 		}
 
@@ -1021,7 +1022,7 @@ func shardSize(sh *CarShard) (int64, error) {
 	st, err := os.Stat(sh.Path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Warnw("missing shard, return size of zero", "path", sh.Path, "shard", sh.ID)
+			slog.Warn("missing shard, return size of zero", "path", sh.Path, "shard", sh.ID, "system", "carstore")
 			return 0, nil
 		}
 		return 0, fmt.Errorf("stat %q: %w", sh.Path, err)
@@ -1142,7 +1143,7 @@ func (cs *FileCarStore) CompactUserShards(ctx context.Context, user models.Uid, 
 		// still around but we're doing that anyways since compaction isn't a
 		// perfect process
 
-		log.Debugw("repo has dirty dupes", "count", len(dupes), "uid", user, "staleRefs", len(staleRefs), "blockRefs", len(brefs))
+		cs.log.Debug("repo has dirty dupes", "count", len(dupes), "uid", user, "staleRefs", len(staleRefs), "blockRefs", len(brefs))
 
 		//return nil, fmt.Errorf("WIP: not currently handling this case")
 	}
@@ -1337,7 +1338,7 @@ func (cs *FileCarStore) compactBucket(ctx context.Context, user models.Uid, b *c
 		}); err != nil {
 			// If we ever fail to iterate a shard file because its
 			// corrupted, just log an error and skip the shard
-			log.Errorw("iterating blocks in shard", "shard", s.ID, "err", err, "uid", user)
+			cs.log.Error("iterating blocks in shard", "shard", s.ID, "err", err, "uid", user)
 		}
 	}
 
@@ -1355,7 +1356,7 @@ func (cs *FileCarStore) compactBucket(ctx context.Context, user models.Uid, b *c
 		_ = fi.Close()
 
 		if err2 := os.Remove(fi.Name()); err2 != nil {
-			log.Errorf("failed to remove shard file (%s) after failed db transaction: %w", fi.Name(), err2)
+			cs.log.Error("failed to remove shard file after failed db transaction", "path", fi.Name(), "err", err2)
 		}
 
 		return err

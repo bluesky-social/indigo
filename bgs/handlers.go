@@ -30,7 +30,7 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "user not found")
 		}
-		log.Errorw("failed to lookup user", "err", err, "did", did)
+		log.Error("failed to lookup user", "err", err, "did", did)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
 	}
 
@@ -60,7 +60,7 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 		if errors.Is(err, mst.ErrNotFound) {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "record not found in repo")
 		}
-		log.Errorw("failed to get record from repo", "err", err, "did", did, "collection", collection, "rkey", rkey)
+		log.Error("failed to get record from repo", "err", err, "did", did, "collection", collection, "rkey", rkey)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to get record from repo")
 	}
 
@@ -91,7 +91,7 @@ func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, echo.NewHTTPError(http.StatusNotFound, "user not found")
 		}
-		log.Errorw("failed to lookup user", "err", err, "did", did)
+		log.Error("failed to lookup user", "err", err, "did", did)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to lookup user")
 	}
 
@@ -119,7 +119,7 @@ func (s *BGS) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since
 	// TODO: stream the response
 	buf := new(bytes.Buffer)
 	if err := s.repoman.ReadRepo(ctx, u.ID, since, buf); err != nil {
-		log.Errorw("failed to read repo into buffer", "err", err, "did", did)
+		log.Error("failed to read repo into buffer", "err", err, "did", did)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to read repo into buffer")
 	}
 
@@ -175,7 +175,7 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *atprot
 		return echo.NewHTTPError(http.StatusUnauthorized, "domain is banned")
 	}
 
-	log.Warnf("TODO: better host validation for crawl requests")
+	log.Warn("TODO: better host validation for crawl requests")
 
 	clientHost := fmt.Sprintf("%s://%s", u.Scheme, host)
 
@@ -196,7 +196,7 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *atprot
 	if len(s.nextCrawlers) != 0 {
 		blob, err := json.Marshal(body)
 		if err != nil {
-			log.Warnw("could not forward requestCrawl, json err", "err", err)
+			log.Warn("could not forward requestCrawl, json err", "err", err)
 		} else {
 			go func(bodyBlob []byte) {
 				for _, rpu := range s.nextCrawlers {
@@ -206,11 +206,11 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *atprot
 						response.Body.Close()
 					}
 					if err != nil || response == nil {
-						log.Warnw("requestCrawl forward failed", "host", rpu, "err", err)
+						log.Warn("requestCrawl forward failed", "host", rpu, "err", err)
 					} else if response.StatusCode != http.StatusOK {
-						log.Warnw("requestCrawl forward failed", "host", rpu, "status", response.Status)
+						log.Warn("requestCrawl forward failed", "host", rpu, "status", response.Status)
 					} else {
-						log.Infow("requestCrawl forward successful", "host", rpu)
+						log.Info("requestCrawl forward successful", "host", rpu)
 					}
 				}
 			}(blob)
@@ -236,7 +236,7 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, l
 		if err == gorm.ErrRecordNotFound {
 			return &atproto.SyncListRepos_Output{}, nil
 		}
-		log.Errorw("failed to query users", "err", err)
+		log.Error("failed to query users", "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to query users")
 	}
 
@@ -257,7 +257,7 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, l
 
 		root, err := s.repoman.GetRepoRoot(ctx, user.ID)
 		if err != nil {
-			log.Errorw("failed to get repo root", "err", err, "did", user.Did)
+			log.Error("failed to get repo root", "err", err, "did", user.Did)
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get repo root for (%s): %v", user.Did, err.Error()))
 		}
 
@@ -308,13 +308,13 @@ func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did strin
 
 	root, err := s.repoman.GetRepoRoot(ctx, u.ID)
 	if err != nil {
-		log.Errorw("failed to get repo root", "err", err, "did", u.Did)
+		log.Error("failed to get repo root", "err", err, "did", u.Did)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to get repo root")
 	}
 
 	rev, err := s.repoman.GetRepoRev(ctx, u.ID)
 	if err != nil {
-		log.Errorw("failed to get repo rev", "err", err, "did", u.Did)
+		log.Error("failed to get repo rev", "err", err, "did", u.Did)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to get repo rev")
 	}
 

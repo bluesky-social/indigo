@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -14,12 +15,11 @@ import (
 	"github.com/bluesky-social/indigo/models"
 	"github.com/prometheus/client_golang/prometheus"
 
-	logging "github.com/ipfs/go-log"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
 )
 
-var log = logging.Logger("events")
+var log = slog.Default().With("system", "events")
 
 type Scheduler interface {
 	AddWork(ctx context.Context, repo string, val *XRPCStreamEvent) error
@@ -34,6 +34,8 @@ type EventManager struct {
 	crossoverBufferSize int
 
 	persister EventPersistence
+
+	log *slog.Logger
 }
 
 func NewEventManager(persister EventPersistence) *EventManager {
@@ -41,6 +43,7 @@ func NewEventManager(persister EventPersistence) *EventManager {
 		bufferSize:          16 << 10,
 		crossoverBufferSize: 512,
 		persister:           persister,
+		log:                 slog.Default().With("system", "events"),
 	}
 
 	persister.SetEventBroadcaster(em.broadcastEvent)
@@ -57,7 +60,7 @@ func (em *EventManager) Shutdown(ctx context.Context) error {
 func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 	// the main thing we do is send it out, so MarshalCBOR once
 	if err := evt.Preserialize(); err != nil {
-		log.Errorf("broadcast serialize failed, %s", err)
+		em.log.Error("broadcast serialize failed", "err", err)
 		// serialize isn't going to go better later, this event is cursed
 		return
 	}
@@ -83,7 +86,7 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 				// code
 				s.filter = func(*XRPCStreamEvent) bool { return false }
 
-				log.Warnw("dropping slow consumer due to event overflow", "bufferSize", len(s.outgoing), "ident", s.ident)
+				em.log.Warn("dropping slow consumer due to event overflow", "bufferSize", len(s.outgoing), "ident", s.ident)
 				go func(torem *Subscriber) {
 					torem.lk.Lock()
 					if !torem.cleanedUp {
@@ -94,7 +97,7 @@ func (em *EventManager) broadcastEvent(evt *XRPCStreamEvent) {
 							},
 						}:
 						case <-time.After(time.Second * 5):
-							log.Warnw("failed to send error frame to backed up consumer", "ident", torem.ident)
+							em.log.Warn("failed to send error frame to backed up consumer", "ident", torem.ident)
 						}
 					}
 					torem.lk.Unlock()
@@ -111,7 +114,7 @@ func (em *EventManager) persistAndSendEvent(ctx context.Context, evt *XRPCStream
 	// accept a uid. The lookup inside the persister is notably expensive (despite
 	// being an lru cache?)
 	if err := em.persister.Persist(ctx, evt); err != nil {
-		log.Errorf("failed to persist outbound event: %s", err)
+		em.log.Error("failed to persist outbound event", "err", err)
 	}
 }
 
@@ -360,9 +363,9 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 			}
 		}); err != nil {
 			if errors.Is(err, ErrPlaybackShutdown) {
-				log.Warnf("events playback: %s", err)
+				em.log.Warn("events playback", "err", err)
 			} else {
-				log.Errorf("events playback: %s", err)
+				em.log.Error("events playback", "err", err)
 			}
 
 			// TODO: send an error frame or something?
@@ -390,7 +393,7 @@ func (em *EventManager) Subscribe(ctx context.Context, ident string, filter func
 			}
 		}); err != nil {
 			if !errors.Is(err, ErrCaughtUp) {
-				log.Errorf("events playback: %s", err)
+				em.log.Error("events playback", "err", err)
 
 				// TODO: send an error frame or something?
 				close(out)

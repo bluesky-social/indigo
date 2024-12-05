@@ -131,7 +131,7 @@ func (p *DbPersistence) batchFlusher() {
 
 		if needsFlush {
 			if err := p.Flush(context.Background()); err != nil {
-				log.Errorf("failed to flush batch: %s", err)
+				log.Error("failed to flush batch", "err", err)
 			}
 		}
 	}
@@ -323,7 +323,7 @@ func (p *DbPersistence) RecordFromTombstone(ctx context.Context, evt *comatproto
 func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) (*RepoEventRecord, error) {
 	// TODO: hack hack hack
 	if len(evt.Ops) > 8192 {
-		log.Errorf("(VERY BAD) truncating ops field in outgoing event (len = %d)", len(evt.Ops))
+		log.Error("(VERY BAD) truncating ops field in outgoing event", "len", len(evt.Ops))
 		evt.Ops = evt.Ops[:8192]
 	}
 

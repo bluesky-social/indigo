@@ -68,7 +68,7 @@ func ReadAccountCatalog(path string) (*AccountCatalog, error) {
 			return nil, fmt.Errorf("account index didn't match: %d != %d (%s)", i, u.Index, u.AccountType)
 		}
 	}
-	log.Infof("loaded account catalog: regular=%d celebrity=%d", len(catalog.Regulars), len(catalog.Celebs))
+	log.Info("loaded account catalog", "regular", len(catalog.Regulars), "celebrity", len(catalog.Celebs))
 	return catalog, nil
 }
 

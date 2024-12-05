@@ -199,7 +199,7 @@ func (pp *PebblePersist) GCThread(ctx context.Context) {
 		case <-ticker.C:
 			err := pp.GarbageCollect(ctx)
 			if err != nil {
-				log.Errorw("GC err", "err", err)
+				log.Error("GC err", "err", err)
 			}
 		case <-ctx.Done():
 			return
@@ -245,24 +245,24 @@ func (pp *PebblePersist) GarbageCollect(ctx context.Context) error {
 	sizeBefore, _ := pp.db.EstimateDiskUsage(zeroKey[:], ffffKey[:])
 	if seq == -1 {
 		// nothing to delete
-		log.Infow("pebble gc nop", "size", sizeBefore)
+		log.Info("pebble gc nop", "size", sizeBefore)
 		return nil
 	}
 	var key [16]byte
 	setKeySeqMillis(key[:], seq, lastKeyTime)
-	log.Infow("pebble gc start", "to", hex.EncodeToString(key[:]))
+	log.Info("pebble gc start", "to", hex.EncodeToString(key[:]))
 	err = pp.db.DeleteRange(zeroKey[:], key[:], pebble.Sync)
 	if err != nil {
 		return err
 	}
 	sizeAfter, _ := pp.db.EstimateDiskUsage(zeroKey[:], ffffKey[:])
-	log.Infow("pebble gc", "before", sizeBefore, "after", sizeAfter)
+	log.Info("pebble gc", "before", sizeBefore, "after", sizeAfter)
 	start := time.Now()
 	err = pp.db.Compact(zeroKey[:], key[:], true)
 	if err != nil {
-		log.Warnw("pebble gc compact", "err", err)
+		log.Warn("pebble gc compact", "err", err)
 	}
 	dt := time.Since(start)
-	log.Infow("pebble gc compact ok", "dt", dt)
+	log.Info("pebble gc compact ok", "dt", dt)
 	return nil
 }
