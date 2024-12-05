@@ -256,6 +256,16 @@ type LogOptions struct {
 	KeepOld int
 }
 
+func firstenv(env_var_names ...string) string {
+	for _, env_var_name := range env_var_names {
+		val := os.Getenv(env_var_name)
+		if val != "" {
+			return val
+		}
+	}
+	return ""
+}
+
 // SetupSlog integrates passed in options and env vars.
 //
 // passing default cliutil.LogOptions{} is ok.
@@ -270,14 +280,16 @@ type LogOptions struct {
 //
 // BSKYLOG_ROTATE_KEEP=int keep N olg logs (not including current)
 //
-// (env vars derived from ipfs logging library)
+// The env vars were derived from ipfs logging library, and also respond to some GOLOG_ vars from that library,
+// but BSKYLOG_ variables are preferred because imported code still using the ipfs log library may misbehave
+// if some GOLOG values are set, especially GOLOG_FILE.
 func SetupSlog(options LogOptions) (*slog.Logger, error) {
 	fmt.Fprintf(os.Stderr, "SetupSlog\n")
 	var hopts slog.HandlerOptions
 	hopts.Level = slog.LevelInfo
 	hopts.AddSource = true
 	if options.LogLevel == "" {
-		options.LogLevel = os.Getenv("BSKYLOG_LOG_LEVEL")
+		options.LogLevel = firstenv("BSKYLOG_LOG_LEVEL", "GOLOG_LOG_LEVEL")
 	}
 	if options.LogLevel == "" {
 		hopts.Level = slog.LevelInfo
@@ -298,7 +310,7 @@ func SetupSlog(options LogOptions) (*slog.Logger, error) {
 		}
 	}
 	if options.LogFormat == "" {
-		options.LogFormat = os.Getenv("BSKYLOG_LOG_FMT")
+		options.LogFormat = firstenv("BSKYLOG_LOG_FMT", "GOLOG_LOG_FMT")
 	}
 	if options.LogFormat == "" {
 		options.LogFormat = "text"
@@ -313,10 +325,10 @@ func SetupSlog(options LogOptions) (*slog.Logger, error) {
 	}
 
 	if options.LogPath == "" {
-		options.LogPath = os.Getenv("BSKYLOG_FILE")
+		options.LogPath = firstenv("BSKYLOG_FILE", "GOLOG_FILE")
 	}
 	if options.LogRotateBytes == 0 {
-		rotateBytesStr := os.Getenv("BSKYLOG_ROTATE_BYTES")
+		rotateBytesStr := os.Getenv("BSKYLOG_ROTATE_BYTES") // no GOLOG equivalent
 		if rotateBytesStr != "" {
 			rotateBytes, err := strconv.ParseInt(rotateBytesStr, 10, 64)
 			if err != nil {
@@ -327,7 +339,7 @@ func SetupSlog(options LogOptions) (*slog.Logger, error) {
 	}
 	if options.KeepOld == 0 {
 		keepOldUnset := true
-		keepOldStr := os.Getenv("BSKYLOG_ROTATE_KEEP")
+		keepOldStr := os.Getenv("BSKYLOG_ROTATE_KEEP") // no GOLOG equivalent
 		if keepOldStr != "" {
 			keepOld, err := strconv.ParseInt(keepOldStr, 10, 64)
 			if err != nil {
