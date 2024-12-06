@@ -506,7 +506,7 @@ func (bgs *BGS) handleAdminPostResyncPDS(e echo.Context) error {
 		ctx := context.Background()
 		err := bgs.ResyncPDS(ctx, pds)
 		if err != nil {
-			log.Errorw("failed to resync PDS", "err", err, "pds", pds.Host)
+			log.Error("failed to resync PDS", "err", err, "pds", pds.Host)
 		}
 	}()
 

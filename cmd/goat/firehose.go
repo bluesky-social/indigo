@@ -130,7 +130,7 @@ func runFirehose(cctx *cli.Context) error {
 		rsc.EventHandler,
 	)
 	slog.Info("starting firehose consumer", "relayHost", relayHost)
-	return events.HandleRepoStream(ctx, con, scheduler)
+	return events.HandleRepoStream(ctx, con, scheduler, nil)
 }
 
 // TODO: move this to a "ParsePath" helper in syntax package?

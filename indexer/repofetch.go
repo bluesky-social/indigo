@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"sync"
 
 	"github.com/bluesky-social/indigo/api/atproto"
@@ -27,6 +28,7 @@ func NewRepoFetcher(db *gorm.DB, rm *repomgr.RepoManager, maxConcurrency int) *R
 		Limiters:               make(map[uint]*rate.Limiter),
 		ApplyPDSClientSettings: func(*xrpc.Client) {},
 		MaxConcurrency:         maxConcurrency,
+		log:                    slog.Default().With("system", "indexer"),
 	}
 }
 
@@ -40,6 +42,8 @@ type RepoFetcher struct {
 	MaxConcurrency int
 
 	ApplyPDSClientSettings func(*xrpc.Client)
+
+	log *slog.Logger
 }
 
 func (rf *RepoFetcher) GetLimiter(pdsID uint) *rate.Limiter {
@@ -50,8 +54,8 @@ func (rf *RepoFetcher) GetLimiter(pdsID uint) *rate.Limiter {
 }
 
 func (rf *RepoFetcher) GetOrCreateLimiter(pdsID uint, pdsrate float64) *rate.Limiter {
-	rf.LimitMux.RLock()
-	defer rf.LimitMux.RUnlock()
+	rf.LimitMux.Lock()
+	defer rf.LimitMux.Unlock()
 
 	lim, ok := rf.Limiters[pdsID]
 	if !ok {
@@ -84,7 +88,7 @@ func (rf *RepoFetcher) fetchRepo(ctx context.Context, c *xrpc.Client, pds *model
 	// Wait to prevent DOSing the PDS when connecting to a new stream with lots of active repos
 	limiter.Wait(ctx)
 
-	log.Debugw("SyncGetRepo", "did", did, "since", rev)
+	rf.log.Debug("SyncGetRepo", "did", did, "since", rev)
 	// TODO: max size on these? A malicious PDS could just send us a petabyte sized repo here and kill us
 	repo, err := atproto.SyncGetRepo(ctx, c, did, rev)
 	if err != nil {
@@ -107,11 +111,13 @@ func (rf *RepoFetcher) FetchAndIndexRepo(ctx context.Context, job *crawlWork) er
 
 	var pds models.PDS
 	if err := rf.db.First(&pds, "id = ?", ai.PDS).Error; err != nil {
+		catchupEventsFailed.WithLabelValues("nopds").Inc()
 		return fmt.Errorf("expected to find pds record (%d) in db for crawling one of their users: %w", ai.PDS, err)
 	}
 
 	rev, err := rf.repoman.GetRepoRev(ctx, ai.Uid)
 	if err != nil && !isNotFound(err) {
+		catchupEventsFailed.WithLabelValues("noroot").Inc()
 		return fmt.Errorf("failed to get repo root: %w", err)
 	}
 
@@ -123,7 +129,7 @@ func (rf *RepoFetcher) FetchAndIndexRepo(ctx context.Context, job *crawlWork) er
 			for i, j := range job.catchup {
 				catchupEventsProcessed.Inc()
 				if err := rf.repoman.HandleExternalUserEvent(ctx, pds.ID, ai.Uid, ai.Did, j.evt.Since, j.evt.Rev, j.evt.Blocks, j.evt.Ops); err != nil {
-					log.Errorw("buffered event catchup failed", "error", err, "did", ai.Did, "i", i, "jobCount", len(job.catchup), "seq", j.evt.Seq)
+					rf.log.Error("buffered event catchup failed", "error", err, "did", ai.Did, "i", i, "jobCount", len(job.catchup), "seq", j.evt.Seq)
 					resync = true // fall back to a repo sync
 					break
 				}
@@ -151,7 +157,7 @@ func (rf *RepoFetcher) FetchAndIndexRepo(ctx context.Context, job *crawlWork) er
 		span.RecordError(err)
 
 		if ipld.IsNotFound(err) || errors.Is(err, io.EOF) || errors.Is(err, fs.ErrNotExist) {
-			log.Errorw("partial repo fetch was missing data", "did", ai.Did, "pds", pds.Host, "rev", rev)
+			rf.log.Error("partial repo fetch was missing data", "did", ai.Did, "pds", pds.Host, "rev", rev)
 			repo, err := rf.fetchRepo(ctx, c, &pds, ai.Did, "")
 			if err != nil {
 				return err

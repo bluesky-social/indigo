@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
@@ -30,7 +31,6 @@ import (
 	_ "go.uber.org/automaxprocs"
 
 	"github.com/carlmjohnson/versioninfo"
-	logging "github.com/ipfs/go-log"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -42,7 +42,7 @@ import (
 	"gorm.io/plugin/opentelemetry/tracing"
 )
 
-var log = logging.Logger("bigsky")
+var log = slog.Default().With("system", "bigsky")
 
 func init() {
 	// control log level using, eg, GOLOG_LOG_LEVEL=debug
@@ -51,7 +51,8 @@ func init() {
 
 func main() {
 	if err := run(os.Args); err != nil {
-		log.Fatal(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 }
 
@@ -238,8 +239,8 @@ func setupOTEL(cctx *cli.Context) error {
 		env = "dev"
 	}
 	if cctx.Bool("jaeger") {
-		url := "http://localhost:14268/api/traces"
-		exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(url)))
+		jaegerUrl := "http://localhost:14268/api/traces"
+		exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(jaegerUrl)))
 		if err != nil {
 			return err
 		}
@@ -265,19 +266,20 @@ func setupOTEL(cctx *cli.Context) error {
 	// At a minimum, you need to set
 	// OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 	if ep := cctx.String("otel-exporter-otlp-endpoint"); ep != "" {
-		log.Infow("setting up trace exporter", "endpoint", ep)
+		slog.Info("setting up trace exporter", "endpoint", ep)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
 		exp, err := otlptracehttp.New(ctx)
 		if err != nil {
-			log.Fatalw("failed to create trace exporter", "error", err)
+			slog.Error("failed to create trace exporter", "error", err)
+			os.Exit(1)
 		}
 		defer func() {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 			if err := exp.Shutdown(ctx); err != nil {
-				log.Errorw("failed to shutdown trace exporter", "error", err)
+				slog.Error("failed to shutdown trace exporter", "error", err)
 			}
 		}()
 
@@ -302,6 +304,11 @@ func runBigsky(cctx *cli.Context) error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
+	_, err := cliutil.SetupSlog(cliutil.LogOptions{})
+	if err != nil {
+		return err
+	}
+
 	// start observability/tracing (OTEL and jaeger)
 	if err := setupOTEL(cctx); err != nil {
 		return err
@@ -314,14 +321,14 @@ func runBigsky(cctx *cli.Context) error {
 		return err
 	}
 
-	log.Infow("setting up main database")
+	slog.Info("setting up main database")
 	dburl := cctx.String("db-url")
 	db, err := cliutil.SetupDatabase(dburl, cctx.Int("max-metadb-connections"))
 	if err != nil {
 		return err
 	}
 
-	log.Infow("setting up carstore database")
+	slog.Info("setting up carstore database")
 	csdburl := cctx.String("carstore-db-url")
 	csdb, err := cliutil.SetupDatabase(csdburl, cctx.Int("max-carstore-connections"))
 	if err != nil {
@@ -398,7 +405,7 @@ func runBigsky(cctx *cli.Context) error {
 	var persister events.EventPersistence
 
 	if dpd := cctx.String("disk-persister-dir"); dpd != "" {
-		log.Infow("setting up disk persister")
+		slog.Info("setting up disk persister")
 
 		pOpts := events.DefaultDiskPersistOptions()
 		pOpts.Retention = cctx.Duration("event-playback-ttl")
@@ -421,10 +428,11 @@ func runBigsky(cctx *cli.Context) error {
 
 	rf := indexer.NewRepoFetcher(db, repoman, cctx.Int("max-fetch-concurrency"))
 
-	ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, rf, true, cctx.Bool("spidering"), false)
+	ix, err := indexer.NewIndexer(db, notifman, evtman, cachedidr, rf, true, false, cctx.Bool("spidering"))
 	if err != nil {
 		return err
 	}
+	defer ix.Shutdown()
 
 	rlskip := cctx.String("bsky-social-rate-limit-skip")
 	ix.ApplyPDSClientSettings = func(c *xrpc.Client) {
@@ -447,7 +455,7 @@ func runBigsky(cctx *cli.Context) error {
 
 	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
 		if err := ix.HandleRepoEvent(ctx, evt); err != nil {
-			log.Errorw("failed to handle repo event", "err", err)
+			slog.Error("failed to handle repo event", "err", err)
 		}
 	}, false)
 
@@ -471,7 +479,7 @@ func runBigsky(cctx *cli.Context) error {
 		}
 	}
 
-	log.Infow("constructing bgs")
+	slog.Info("constructing bgs")
 	bgsConfig := libbgs.DefaultBGSConfig()
 	bgsConfig.SSL = !cctx.Bool("crawl-insecure-ws")
 	bgsConfig.CompactInterval = cctx.Duration("compact-interval")
@@ -488,7 +496,7 @@ func runBigsky(cctx *cli.Context) error {
 			if err != nil {
 				return fmt.Errorf("failed to parse next-crawler url: %w", err)
 			}
-			log.Infow("configuring relay for requestCrawl", "host", nextCrawlerUrls[i])
+			slog.Info("configuring relay for requestCrawl", "host", nextCrawlerUrls[i])
 		}
 		bgsConfig.NextCrawlers = nextCrawlerUrls
 	}
@@ -506,7 +514,8 @@ func runBigsky(cctx *cli.Context) error {
 	// set up metrics endpoint
 	go func() {
 		if err := bgs.StartMetrics(cctx.String("metrics-listen")); err != nil {
-			log.Fatalf("failed to start metrics endpoint: %s", err)
+			log.Error("failed to start metrics endpoint", "err", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -517,22 +526,22 @@ func runBigsky(cctx *cli.Context) error {
 		bgsErr <- err
 	}()
 
-	log.Infow("startup complete")
+	slog.Info("startup complete")
 	select {
 	case <-signals:
 		log.Info("received shutdown signal")
 		errs := bgs.Shutdown()
 		for err := range errs {
-			log.Errorw("error during BGS shutdown", "err", err)
+			slog.Error("error during BGS shutdown", "err", err)
 		}
 	case err := <-bgsErr:
 		if err != nil {
-			log.Errorw("error during BGS startup", "err", err)
+			slog.Error("error during BGS startup", "err", err)
 		}
 		log.Info("shutting down")
 		errs := bgs.Shutdown()
 		for err := range errs {
-			log.Errorw("error during BGS shutdown", "err", err)
+			slog.Error("error during BGS shutdown", "err", err)
 		}
 	}
 

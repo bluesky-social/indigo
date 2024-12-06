@@ -16,14 +16,9 @@ import (
 	pds "github.com/bluesky-social/indigo/pds/data"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
-	logging "github.com/ipfs/go-log/v2"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
-
-func init() {
-	logging.SetAllLoggers(logging.LevelDebug)
-}
 
 func BenchmarkDBPersist(b *testing.B) {
 	ctx := context.Background()

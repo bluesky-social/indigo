@@ -14,8 +14,30 @@ import (
 type DID string
 
 var didRegex = regexp.MustCompile(`^did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]$`)
+var plcChars = ""
+
+func isASCIIAlphaNum(c rune) bool {
+	if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
+		return true
+	}
+	return false
+}
 
 func ParseDID(raw string) (DID, error) {
+	// fast-path for did:plc, avoiding regex
+	if len(raw) == 32 && strings.HasPrefix(raw, "did:plc:") {
+		// NOTE: this doesn't really check base32, just broader alphanumberic. might pass invalid PLC DIDs, but they still have overall valid DID syntax
+		isPlc := true
+		for _, c := range raw[8:32] {
+			if !isASCIIAlphaNum(c) {
+				isPlc = false
+				break
+			}
+		}
+		if isPlc {
+			return DID(raw), nil
+		}
+	}
 	if raw == "" {
 		return "", errors.New("expected DID, got empty string")
 	}

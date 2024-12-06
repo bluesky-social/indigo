@@ -693,7 +693,7 @@ func (b *TestRelay) Events(t *testing.T, since int64) *EventStream {
 			},
 		}
 		seqScheduler := sequential.NewScheduler("test", rsc.EventHandler)
-		if err := events.HandleRepoStream(ctx, con, seqScheduler); err != nil {
+		if err := events.HandleRepoStream(ctx, con, seqScheduler, nil); err != nil {
 			fmt.Println(err)
 		}
 	}()
