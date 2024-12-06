@@ -216,6 +216,16 @@ func run(args []string) error {
 			Usage:   "forward POST requestCrawl to this url, should be machine root url and not xrpc/requestCrawl, comma separated list",
 			EnvVars: []string{"RELAY_NEXT_CRAWLER"},
 		},
+		&cli.BoolFlag{
+			Name:  "ex-sqlite-carstore",
+			Usage: "enable experimental sqlite carstore",
+			Value: false,
+		},
+		&cli.StringSliceFlag{
+			Name:  "scylla-carstore",
+			Usage: "scylla server addresses for storage backend, probably comma separated, urfave/cli is unclear",
+			Value: &cli.StringSlice{},
+		},
 	}
 
 	app.Action = runBigsky
@@ -345,7 +355,17 @@ func runBigsky(cctx *cli.Context) error {
 		}
 	}
 
-	cstore, err := carstore.NewCarStore(csdb, csdirs)
+	var cstore carstore.CarStore
+	scyllaAddrs := cctx.StringSlice("scylla-carstore")
+	if len(scyllaAddrs) != 0 {
+		cstore, err = carstore.NewScyllaStore(scyllaAddrs, "cs")
+	} else if cctx.Bool("ex-sqlite-carstore") {
+		cstore, err = carstore.NewSqliteStore(csdir)
+	} else {
+		// make standard FileCarStore
+		cstore, err = carstore.NewCarStore(csdb, csdirs)
+	}
+
 	if err != nil {
 		return err
 	}
