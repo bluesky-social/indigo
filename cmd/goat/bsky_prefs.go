@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bluesky-social/indigo/api/agnostic"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -39,7 +41,7 @@ func runBskyPrefsExport(cctx *cli.Context) error {
 	}
 
 	// TODO: does indigo API code crash with unsupported preference '$type'? Eg "Lexicon decoder" with unsupported type.
-	resp, err := ActorGetPreferences(ctx, xrpcc)
+	resp, err := agnostic.ActorGetPreferences(ctx, xrpcc)
 	if err != nil {
 		return fmt.Errorf("failed fetching old preferences: %w", err)
 	}
@@ -77,7 +79,7 @@ func runBskyPrefsImport(cctx *cli.Context) error {
 		return err
 	}
 
-	err = ActorPutPreferences(ctx, xrpcc, &ActorPutPreferences_Input{
+	err = agnostic.ActorPutPreferences(ctx, xrpcc, &agnostic.ActorPutPreferences_Input{
 		Preferences: prefsArray,
 	})
 	if err != nil {
