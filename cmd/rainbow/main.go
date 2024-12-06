@@ -91,7 +91,7 @@ func run(args []string) {
 	}
 
 	// TODO: slog.SetDefault and set module `var log *slog.Logger` based on flags and env
-	
+
 	app.Action = Splitter
 	err := app.Run(os.Args)
 	if err != nil {
