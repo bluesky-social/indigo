@@ -1,15 +1,14 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/xrpc"
-
 	"github.com/urfave/cli/v2"
+
+	"github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/xrpc"
 )
 
 var cmdPds = &cli.Command{
@@ -27,7 +26,7 @@ var cmdPds = &cli.Command{
 }
 
 func runPdsDescribe(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	pdsHost := cctx.Args().First()
 	if pdsHost == "" {
@@ -40,7 +39,7 @@ func runPdsDescribe(cctx *cli.Context) error {
 		Host: pdsHost,
 	}
 
-	resp, err := comatproto.ServerDescribeServer(ctx, &client)
+	resp, err := atproto.ServerDescribeServer(ctx, &client)
 	if err != nil {
 		return err
 	}

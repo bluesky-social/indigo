@@ -79,7 +79,6 @@ func (idx *Indexer) RunIndexer(ctx context.Context) error {
 
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
-			ctx := context.Background()
 			ctx, span := tracer.Start(ctx, "RepoCommit")
 			defer span.End()
 
@@ -116,7 +115,6 @@ func (idx *Indexer) RunIndexer(ctx context.Context) error {
 
 		},
 		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-			ctx := context.Background()
 			ctx, span := tracer.Start(ctx, "RepoHandle")
 			defer span.End()
 

@@ -58,11 +58,6 @@ type persistJob struct {
 	Buffer *bytes.Buffer // so we can put it back in the pool when we're done
 }
 
-type jobResult struct {
-	Err error
-	Seq int64
-}
-
 const (
 	EvtFlagTakedown = 1 << iota
 	EvtFlagRebased
@@ -597,25 +592,6 @@ func readHeader(r io.Reader, scratch []byte) (*evtHeader, error) {
 	}, nil
 }
 
-func (dp *DiskPersistence) writeHeader(ctx context.Context, flags uint32, kind uint32, l uint32, usr uint64, seq int64) error {
-	binary.LittleEndian.PutUint32(dp.scratch, flags)
-	binary.LittleEndian.PutUint32(dp.scratch[4:], kind)
-	binary.LittleEndian.PutUint32(dp.scratch[8:], l)
-	binary.LittleEndian.PutUint64(dp.scratch[12:], usr)
-	binary.LittleEndian.PutUint64(dp.scratch[20:], uint64(seq))
-
-	nw, err := dp.logfi.Write(dp.scratch)
-	if err != nil {
-		return err
-	}
-
-	if nw != headerSize {
-		return fmt.Errorf("only wrote %d bytes for header", nw)
-	}
-
-	return nil
-}
-
 func (dp *DiskPersistence) uidForDid(ctx context.Context, did string) (models.Uid, error) {
 	if uid, ok := dp.didCache.Get(did); ok {
 		return uid, nil
@@ -677,11 +653,7 @@ func (dp *DiskPersistence) PlaybackLogfiles(ctx context.Context, since int64, cb
 }
 
 func postDoNotEmit(flags uint32) bool {
-	if flags&(EvtFlagRebased|EvtFlagTakedown) != 0 {
-		return true
-	}
-
-	return false
+	return flags&(EvtFlagRebased|EvtFlagTakedown) != 0
 }
 
 func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn string, cb func(*XRPCStreamEvent) error) (*int64, error) {

@@ -50,6 +50,6 @@ func TestMockDirectory(t *testing.T) {
 
 	_, err = c.LookupHandle(ctx, syntax.HandleInvalid)
 	assert.ErrorIs(err, ErrHandleNotFound)
-	out, err = c.LookupDID(ctx, syntax.DID("did:plc:abc999"))
+	_, err = c.LookupDID(ctx, syntax.DID("did:plc:abc999"))
 	assert.ErrorIs(err, ErrDIDNotFound)
 }

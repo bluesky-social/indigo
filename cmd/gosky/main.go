@@ -15,9 +15,22 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/carlmjohnson/versioninfo"
+	"github.com/gorilla/websocket"
+	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	"github.com/ipld/go-car"
+	_ "github.com/joho/godotenv/autoload"
+	"github.com/polydawn/refmt/cbor"
+	rejson "github.com/polydawn/refmt/json"
+	"github.com/polydawn/refmt/shared"
+	cli "github.com/urfave/cli/v2"
+	"golang.org/x/time/rate"
+
 	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/api/atproto"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -28,22 +41,6 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
-	"golang.org/x/time/rate"
-
-	"github.com/gorilla/websocket"
-	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	"github.com/ipld/go-car"
-
-	_ "github.com/joho/godotenv/autoload"
-
-	"github.com/carlmjohnson/versioninfo"
-	"github.com/polydawn/refmt/cbor"
-	rejson "github.com/polydawn/refmt/json"
-	"github.com/polydawn/refmt/shared"
-	cli "github.com/urfave/cli/v2"
 )
 
 var log = slog.Default().With("system", "gosky")
@@ -162,7 +159,7 @@ var readRepoStreamCmd = &cli.Command{
 	},
 	ArgsUsage: `[<repo> [cursor]]`,
 	Action: func(cctx *cli.Context) error {
-		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT)
+		ctx, stop := signal.NotifyContext(cctx.Context, syscall.SIGINT)
 		defer stop()
 
 		arg := cctx.Args().First()
@@ -224,7 +221,7 @@ var readRepoStreamCmd = &cli.Command{
 		}
 
 		rsc := &events.RepoStreamCallbacks{
-			RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
+			RepoCommit: func(evt *atproto.SyncSubscribeRepos_Commit) error {
 				if limiter != nil {
 					limiter.Wait(ctx)
 				}
@@ -287,7 +284,7 @@ var readRepoStreamCmd = &cli.Command{
 
 				return nil
 			},
-			RepoMigrate: func(migrate *comatproto.SyncSubscribeRepos_Migrate) error {
+			RepoMigrate: func(migrate *atproto.SyncSubscribeRepos_Migrate) error {
 				if jsonfmt {
 					b, err := json.Marshal(migrate)
 					if err != nil {
@@ -300,7 +297,7 @@ var readRepoStreamCmd = &cli.Command{
 
 				return nil
 			},
-			RepoHandle: func(handle *comatproto.SyncSubscribeRepos_Handle) error {
+			RepoHandle: func(handle *atproto.SyncSubscribeRepos_Handle) error {
 				if jsonfmt {
 					b, err := json.Marshal(handle)
 					if err != nil {
@@ -314,7 +311,7 @@ var readRepoStreamCmd = &cli.Command{
 				return nil
 
 			},
-			RepoInfo: func(info *comatproto.SyncSubscribeRepos_Info) error {
+			RepoInfo: func(info *atproto.SyncSubscribeRepos_Info) error {
 				if jsonfmt {
 					b, err := json.Marshal(info)
 					if err != nil {
@@ -327,7 +324,7 @@ var readRepoStreamCmd = &cli.Command{
 
 				return nil
 			},
-			RepoTombstone: func(tomb *comatproto.SyncSubscribeRepos_Tombstone) error {
+			RepoTombstone: func(tomb *atproto.SyncSubscribeRepos_Tombstone) error {
 				if jsonfmt {
 					b, err := json.Marshal(tomb)
 					if err != nil {
@@ -406,7 +403,7 @@ var getRecordCmd = &cli.Command{
 	},
 	ArgsUsage: `<rpath>`,
 	Action: func(cctx *cli.Context) error {
-		ctx := context.Background()
+		ctx := cctx.Context
 		rfi := cctx.String("repo")
 
 		var repob []byte
@@ -416,7 +413,7 @@ var getRecordCmd = &cli.Command{
 				return err
 			}
 
-			rrb, err := comatproto.SyncGetRepo(ctx, xrpcc, rfi, "")
+			rrb, err := atproto.SyncGetRepo(ctx, xrpcc, rfi, "")
 			if err != nil {
 				return err
 			}
@@ -432,7 +429,7 @@ var getRecordCmd = &cli.Command{
 				return err
 			}
 
-			out, err := comatproto.RepoGetRecord(ctx, xrpcc, "", puri.Collection, puri.Did, puri.Rkey)
+			out, err := atproto.RepoGetRecord(ctx, xrpcc, "", puri.Collection, puri.Did, puri.Rkey)
 			if err != nil {
 				return err
 			}
@@ -483,7 +480,7 @@ var getRecordCmd = &cli.Command{
 
 			xrpcc.Host = resp.PDSEndpoint()
 
-			out, err := comatproto.RepoGetRecord(ctx, xrpcc, "", collection, did, rkey)
+			out, err := atproto.RepoGetRecord(ctx, xrpcc, "", collection, did, rkey)
 			if err != nil {
 				return err
 			}
@@ -602,7 +599,7 @@ var createFeedGeneratorCmd = &cli.Command{
 			desc = &d
 		}
 
-		ctx := context.TODO()
+		ctx := cctx.Context
 
 		rec := &lexutil.LexiconTypeDecoder{Val: &bsky.FeedGenerator{
 			CreatedAt:   time.Now().Format(util.ISO8601),
@@ -661,7 +658,7 @@ var listAllRecordsCmd = &cli.Command{
 	Action: func(cctx *cli.Context) error {
 
 		arg := cctx.Args().First()
-		ctx := context.TODO()
+		ctx := cctx.Context
 
 		var repob []byte
 		if strings.HasPrefix(arg, "did:") {
@@ -674,7 +671,7 @@ var listAllRecordsCmd = &cli.Command{
 				arg = xrpcc.Auth.Did
 			}
 
-			rrb, err := comatproto.SyncGetRepo(ctx, xrpcc, arg, "")
+			rrb, err := atproto.SyncGetRepo(ctx, xrpcc, arg, "")
 			if err != nil {
 				return err
 			}
@@ -780,7 +777,7 @@ var listLabelsCmd = &cli.Command{
 	},
 	Action: func(cctx *cli.Context) error {
 
-		ctx := context.TODO()
+		ctx := cctx.Context
 
 		delta := cctx.Duration("since")
 		since := time.Now().Add(-1 * delta).UnixMilli()

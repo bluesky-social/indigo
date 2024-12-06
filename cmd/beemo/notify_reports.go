@@ -1,22 +1,21 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/urfave/cli/v2"
+
+	"github.com/bluesky-social/indigo/api/atproto"
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
-
-	"github.com/urfave/cli/v2"
 )
 
 func pollNewReports(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	logger := configLogger(cctx, os.Stdout)
 	slackWebhookURL := cctx.String("slack-webhook-url")
 
@@ -33,7 +32,7 @@ func pollNewReports(cctx *cli.Context) error {
 		Auth:   &xrpc.AuthInfo{Handle: cctx.String("handle")},
 	}
 
-	auth, err := comatproto.ServerCreateSession(ctx, xrpcc, &comatproto.ServerCreateSession_Input{
+	auth, err := atproto.ServerCreateSession(ctx, xrpcc, &atproto.ServerCreateSession_Input{
 		Identifier: xrpcc.Auth.Handle,
 		Password:   cctx.String("password"),
 	})
@@ -60,7 +59,7 @@ func pollNewReports(cctx *cli.Context) error {
 	for {
 		// refresh session
 		xrpcc.Auth.AccessJwt = xrpcc.Auth.RefreshJwt
-		refresh, err := comatproto.ServerRefreshSession(ctx, xrpcc)
+		refresh, err := atproto.ServerRefreshSession(ctx, xrpcc)
 		if err != nil {
 			return err
 		}

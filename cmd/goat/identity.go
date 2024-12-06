@@ -1,14 +1,13 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/urfave/cli/v2"
+
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-
-	"github.com/urfave/cli/v2"
 )
 
 var cmdResolve = &cli.Command{
@@ -20,7 +19,7 @@ var cmdResolve = &cli.Command{
 }
 
 func runResolve(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	s := cctx.Args().First()
 	if s == "" {
 		return fmt.Errorf("need to provide account identifier as an argument")

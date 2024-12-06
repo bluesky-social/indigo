@@ -93,7 +93,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 	var labels []string
 	var negLabels []string
 	for _, lbl := range pv.Labels {
-		if lbl.Neg != nil && *lbl.Neg == true {
+		if lbl.Neg != nil && *lbl.Neg {
 			negLabels = append(negLabels, lbl.Val)
 		} else {
 			labels = append(labels, lbl.Val)
@@ -130,10 +130,10 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 				am.Deactivated = true
 			}
 			if rd.Moderation != nil && rd.Moderation.SubjectStatus != nil {
-				if rd.Moderation.SubjectStatus.Takendown != nil && *rd.Moderation.SubjectStatus.Takendown == true {
+				if rd.Moderation.SubjectStatus.Takendown != nil && *rd.Moderation.SubjectStatus.Takendown {
 					am.Takendown = true
 				}
-				if rd.Moderation.SubjectStatus.Appealed != nil && *rd.Moderation.SubjectStatus.Appealed == true {
+				if rd.Moderation.SubjectStatus.Appealed != nil && *rd.Moderation.SubjectStatus.Appealed {
 					ap.Appealed = true
 				}
 				ap.AccountTags = dedupeStrings(rd.Moderation.SubjectStatus.Tags)

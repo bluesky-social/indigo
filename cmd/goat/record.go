@@ -1,18 +1,17 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/urfave/cli/v2"
+
+	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
-
-	"github.com/urfave/cli/v2"
 )
 
 var cmdRecord = &cli.Command{
@@ -109,7 +108,7 @@ var cmdRecordList = &cli.Command{
 }
 
 func runRecordGet(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	dir := identity.DefaultDirectory()
 
 	uriArg := cctx.Args().First()
@@ -141,7 +140,7 @@ func runRecordGet(cctx *cli.Context) error {
 }
 
 func runRecordList(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	username := cctx.Args().First()
 	if username == "" {
 		return fmt.Errorf("need to provide username as an argument")
@@ -159,7 +158,7 @@ func runRecordList(cctx *cli.Context) error {
 		return fmt.Errorf("no PDS endpoint for identity")
 	}
 
-	desc, err := comatproto.RepoDescribeRepo(ctx, &xrpcc, ident.DID.String())
+	desc, err := atproto.RepoDescribeRepo(ctx, &xrpcc, ident.DID.String())
 	if err != nil {
 		return err
 	}
@@ -202,7 +201,7 @@ func runRecordList(cctx *cli.Context) error {
 }
 
 func runRecordCreate(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	recordPath := cctx.Args().First()
 	if recordPath == "" {
 		return fmt.Errorf("need to provide file path as an argument")
@@ -262,7 +261,7 @@ func runRecordCreate(cctx *cli.Context) error {
 }
 
 func runRecordUpdate(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	recordPath := cctx.Args().First()
 	if recordPath == "" {
 		return fmt.Errorf("need to provide file path as an argument")
@@ -322,7 +321,7 @@ func runRecordUpdate(cctx *cli.Context) error {
 }
 
 func runRecordDelete(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	xrpcc, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -340,7 +339,7 @@ func runRecordDelete(cctx *cli.Context) error {
 		return err
 	}
 
-	_, err = comatproto.RepoDeleteRecord(ctx, xrpcc, &comatproto.RepoDeleteRecord_Input{
+	_, err = atproto.RepoDeleteRecord(ctx, xrpcc, &atproto.RepoDeleteRecord_Input{
 		Collection: collection.String(),
 		Repo:       xrpcc.Auth.Did,
 		Rkey:       rkey.String(),

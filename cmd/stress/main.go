@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -9,25 +8,23 @@ import (
 	"sync"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/carlmjohnson/versioninfo"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	cbor "github.com/ipfs/go-ipld-cbor"
+	"github.com/ipld/go-car"
+	_ "github.com/joho/godotenv/autoload"
+	cli "github.com/urfave/cli/v2"
+
+	"github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/testing"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
-
-	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	cbor "github.com/ipfs/go-ipld-cbor"
-
-	_ "github.com/joho/godotenv/autoload"
-
-	"github.com/carlmjohnson/versioninfo"
-	"github.com/ipld/go-car"
-	cli "github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -79,10 +76,12 @@ var postingCmd = &cli.Command{
 			return err
 		}
 
-		count := cctx.Int("count")
-		concurrent := cctx.Int("concurrent")
-		quiet := cctx.Bool("quiet")
-		ctx := context.TODO()
+		var (
+			count      = cctx.Int("count")
+			concurrent = cctx.Int("concurrent")
+			quiet      = cctx.Bool("quiet")
+			ctx        = cctx.Context
+		)
 
 		buf := make([]byte, 6)
 		rand.Read(buf)
@@ -93,7 +92,7 @@ var postingCmd = &cli.Command{
 			invite = &inv
 		}
 
-		cfg, err := comatproto.ServerDescribeServer(ctx, xrpcc)
+		cfg, err := atproto.ServerDescribeServer(ctx, xrpcc)
 		if err != nil {
 			return err
 		}
@@ -103,7 +102,7 @@ var postingCmd = &cli.Command{
 
 		email := fmt.Sprintf("user-%s@test.com", id)
 		pass := "password"
-		resp, err := comatproto.ServerCreateAccount(ctx, xrpcc, &comatproto.ServerCreateAccount_Input{
+		resp, err := atproto.ServerCreateAccount(ctx, xrpcc, &atproto.ServerCreateAccount_Input{
 			Email:      &email,
 			Handle:     "user-" + id + domain,
 			Password:   &pass,
@@ -129,10 +128,10 @@ var postingCmd = &cli.Command{
 					buf := make([]byte, 100)
 					rand.Read(buf)
 
-					res, err := comatproto.RepoCreateRecord(context.TODO(), xrpcc, &comatproto.RepoCreateRecord_Input{
+					res, err := atproto.RepoCreateRecord(ctx, xrpcc, &atproto.RepoCreateRecord_Input{
 						Collection: "app.bsky.feed.post",
 						Repo:       xrpcc.Auth.Did,
-						Record: &lexutil.LexiconTypeDecoder{Val: &appbsky.FeedPost{
+						Record: &lexutil.LexiconTypeDecoder{Val: &bsky.FeedPost{
 							Text:      hex.EncodeToString(buf),
 							CreatedAt: time.Now().Format(time.RFC3339),
 						}},
@@ -180,7 +179,7 @@ var genRepoCmd = &cli.Command{
 
 		membs := blockstore.NewBlockstore(datastore.NewMapDatastore())
 
-		ctx := context.Background()
+		ctx := cctx.Context
 
 		r := repo.NewRepo(ctx, "did:plc:foobar", membs)
 

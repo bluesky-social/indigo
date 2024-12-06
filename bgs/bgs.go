@@ -11,29 +11,13 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"contrib.go.opencensus.io/exporter/prometheus"
-	"github.com/bluesky-social/indigo/api"
-	atproto "github.com/bluesky-social/indigo/api/atproto"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/did"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/indexer"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/bluesky-social/indigo/xrpc"
-	lru "github.com/hashicorp/golang-lru/v2"
-	"golang.org/x/sync/semaphore"
-	"golang.org/x/time/rate"
-
 	"github.com/gorilla/websocket"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/ipfs/go-cid"
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/labstack/echo/v4"
@@ -43,7 +27,20 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"golang.org/x/sync/semaphore"
+	"golang.org/x/time/rate"
 	"gorm.io/gorm"
+
+	"github.com/bluesky-social/indigo/api"
+	atproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/did"
+	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/indexer"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/models"
+	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/bluesky-social/indigo/xrpc"
 )
 
 var tracer = otel.Tracer("bgs")
@@ -68,8 +65,6 @@ type BGS struct {
 	// TODO: work on doing away with this flag in favor of more pluggable
 	// pieces that abstract the need for explicit ssl checks
 	ssl bool
-
-	crawlOnly bool
 
 	// TODO: at some point we will want to lock specific DIDs, this lock as is
 	// is overly broad, but i dont expect it to be a bottleneck for now
@@ -347,7 +342,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 				sendHeader = false
 			}
 
-			bgs.log.Warn("HANDLER ERROR: (%s) %s", ctx.Path(), err)
+			bgs.log.Warn("HANDLER ERROR", "path", ctx.Path(), "err", err)
 
 			if strings.HasPrefix(ctx.Path(), "/admin/") {
 				ctx.JSON(500, map[string]any{
@@ -583,10 +578,6 @@ func (u *User) GetUpstreamStatus() string {
 	return u.UpstreamStatus
 }
 
-type addTargetBody struct {
-	Host string `json:"host"`
-}
-
 func (bgs *BGS) registerConsumer(c *SocketConsumer) uint64 {
 	bgs.consumersLk.Lock()
 	defer bgs.consumersLk.Unlock()
@@ -662,7 +653,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 				}
 
 				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
-					bgs.log.Warn("failed to ping client: %s", err)
+					bgs.log.Warn("failed to ping client", "err", err)
 					cancel()
 					return
 				}
@@ -687,7 +678,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		for {
 			_, _, err := conn.ReadMessage()
 			if err != nil {
-				bgs.log.Warn("failed to read message from client: %s", err)
+				bgs.log.Warn("failed to read message from client", "err", err)
 				cancel()
 				return
 			}
@@ -758,26 +749,6 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			return nil
 		}
 	}
-}
-
-func prometheusHandler() http.Handler {
-	// Prometheus globals are exposed as interfaces, but the prometheus
-	// OpenCensus exporter expects a concrete *Registry. The concrete type of
-	// the globals are actually *Registry, so we downcast them, staying
-	// defensive in case things change under the hood.
-	registry, ok := promclient.DefaultRegisterer.(*promclient.Registry)
-	if !ok {
-		slog.Warn("failed to export default prometheus registry; some metrics will be unavailable; unexpected type", "type", reflect.TypeOf(promclient.DefaultRegisterer))
-	}
-	exporter, err := prometheus.NewExporter(prometheus.Options{
-		Registry:  registry,
-		Namespace: "bigsky",
-	})
-	if err != nil {
-		slog.Error("could not create the prometheus stats exporter", "err", err, "system", "bgs")
-	}
-
-	return exporter
 }
 
 // domainIsBanned checks if the given host is banned, starting with the host
@@ -1042,7 +1013,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		// Broadcast the handle update to all consumers
 		err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
-			RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
+			RepoHandle: &atproto.SyncSubscribeRepos_Handle{
 				Did:    env.RepoHandle.Did,
 				Handle: env.RepoHandle.Handle,
 				Time:   env.RepoHandle.Time,
@@ -1067,7 +1038,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		// Broadcast the identity event to all consumers
 		err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
-			RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
+			RepoIdentity: &atproto.SyncSubscribeRepos_Identity{
 				Did:    env.RepoIdentity.Did,
 				Seq:    env.RepoIdentity.Seq,
 				Time:   env.RepoIdentity.Time,
@@ -1141,7 +1112,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 
 		// Broadcast the account event to all consumers
 		err = bgs.events.AddEvent(ctx, &events.XRPCStreamEvent{
-			RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+			RepoAccount: &atproto.SyncSubscribeRepos_Account{
 				Did:    env.RepoAccount.Did,
 				Seq:    env.RepoAccount.Seq,
 				Time:   env.RepoAccount.Time,
@@ -1547,11 +1518,6 @@ func (bgs *BGS) ReverseTakedown(ctx context.Context, did string) error {
 	return nil
 }
 
-type revCheckResult struct {
-	ai  *models.ActorInfo
-	err error
-}
-
 func (bgs *BGS) LoadOrStoreResync(pds models.PDS) (PDSResync, bool) {
 	bgs.pdsResyncsLk.Lock()
 	defer bgs.pdsResyncsLk.Unlock()
@@ -1635,7 +1601,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 	cursor := ""
 	limit := int64(500)
 
-	repos := []comatproto.SyncListRepos_Repo{}
+	repos := []atproto.SyncListRepos_Repo{}
 
 	pages := 0
 
@@ -1652,7 +1618,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 			log.Error("failed to wait for rate limiter", "error", err)
 			return fmt.Errorf("failed to wait for rate limiter: %w", err)
 		}
-		repoList, err := comatproto.SyncListRepos(ctx, &xrpcc, cursor, limit)
+		repoList, err := atproto.SyncListRepos(ctx, &xrpcc, cursor, limit)
 		if err != nil {
 			log.Error("failed to list repos", "error", err)
 			return fmt.Errorf("failed to list repos: %w", err)
@@ -1688,7 +1654,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 			log.Error("failed to acquire semaphore", "error", err)
 			continue
 		}
-		go func(r comatproto.SyncListRepos_Repo) {
+		go func(r atproto.SyncListRepos_Repo) {
 			defer sem.Release(1)
 			log := bgs.log.With("did", r.Did, "remote_rev", r.Rev)
 			// Fetches the user if we have it, otherwise automatically enqueues it for crawling
@@ -1719,7 +1685,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 		}(r)
 		if i%100 == 0 {
 			if i%10_000 == 0 {
-				log.Warn("checked revs during resync", "num_repos_checked", i, "num_repos_to_crawl", -1, "took", time.Now().Sub(resync.StatusChangedAt))
+				log.Warn("checked revs during resync", "num_repos_checked", i, "num_repos_to_crawl", -1, "took", time.Since(resync.StatusChangedAt))
 			}
 			resync.NumReposChecked = i
 			bgs.UpdateResync(resync)
@@ -1729,7 +1695,7 @@ func (bgs *BGS) ResyncPDS(ctx context.Context, pds models.PDS) error {
 	resync.NumReposChecked = len(repos)
 	bgs.UpdateResync(resync)
 
-	bgs.log.Warn("enqueued all crawls, exiting resync", "took", time.Now().Sub(start), "num_repos_to_crawl", -1)
+	bgs.log.Warn("enqueued all crawls, exiting resync", "took", time.Since(start), "num_repos_to_crawl", -1)
 
 	return nil
 }

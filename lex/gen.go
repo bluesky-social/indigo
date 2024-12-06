@@ -89,7 +89,7 @@ func FixRecordReferences(schemas []*Schema, defmap map[string]*ExtDef, prefix st
 						r = s.ID + r
 					}
 
-					if _, known := defmap[r]; known != true {
+					if _, known := defmap[r]; !known {
 						panic(fmt.Sprintf("reference to unknown record type: %s", r))
 					}
 

@@ -1,15 +1,14 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/urfave/cli/v2"
+
+	"github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
-
-	"github.com/urfave/cli/v2"
 )
 
 var cmdBsky = &cli.Command{
@@ -28,7 +27,7 @@ var cmdBsky = &cli.Command{
 }
 
 func runBskyPost(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	text := cctx.Args().First()
 	if text == "" {
 		return fmt.Errorf("need to provide post text as argument")
@@ -41,11 +40,11 @@ func runBskyPost(cctx *cli.Context) error {
 		return err
 	}
 
-	post := appbsky.FeedPost{
+	post := bsky.FeedPost{
 		Text:      text,
 		CreatedAt: syntax.DatetimeNow().String(),
 	}
-	resp, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
+	resp, err := atproto.RepoCreateRecord(ctx, xrpcc, &atproto.RepoCreateRecord_Input{
 		Collection: "app.bsky.feed.post",
 		Repo:       xrpcc.Auth.Did,
 		Record:     &lexutil.LexiconTypeDecoder{Val: &post},

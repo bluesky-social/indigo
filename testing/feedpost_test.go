@@ -9,13 +9,12 @@ import (
 	"os"
 	"testing"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	bsky "github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/ipfs/go-cid"
-
 	"github.com/stretchr/testify/assert"
+
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/api/bsky"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 func TestFeedPostParse(t *testing.T) {
@@ -27,7 +26,7 @@ func TestFeedPostParse(t *testing.T) {
 	cborBytes, err := io.ReadAll(inFile)
 	assert.NoError(err)
 
-	var fp appbsky.FeedPost
+	var fp bsky.FeedPost
 	assert.NoError(fp.UnmarshalCBOR(bytes.NewReader(cborBytes)))
 
 	assert.Equal("app.bsky.feed.post", fp.LexiconTypeID)
@@ -48,13 +47,13 @@ func TestFeedPostParse(t *testing.T) {
 	}
 
 	assert.Equal(
-		&appbsky.EmbedRecordWithMedia{
+		&bsky.EmbedRecordWithMedia{
 			LexiconTypeID: "app.bsky.embed.recordWithMedia",
-			Media: &appbsky.EmbedRecordWithMedia_Media{
-				EmbedImages: &appbsky.EmbedImages{
+			Media: &bsky.EmbedRecordWithMedia_Media{
+				EmbedImages: &bsky.EmbedImages{
 					LexiconTypeID: "app.bsky.embed.images",
-					Images: []*appbsky.EmbedImages_Image{
-						&appbsky.EmbedImages_Image{
+					Images: []*bsky.EmbedImages_Image{
+						&bsky.EmbedImages_Image{
 							Image: &lexutil.LexBlob{
 								//LexiconTypeID: "blob",
 								Ref:      lexutil.LexLink(cc), // 000155122090873DBDFF810882487CCF6127D8D62F241D6F4F919A73151DABA3078580C080
@@ -65,7 +64,7 @@ func TestFeedPostParse(t *testing.T) {
 					},
 				},
 			},
-			Record: &appbsky.EmbedRecord{
+			Record: &bsky.EmbedRecord{
 				LexiconTypeID: "app.bsky.embed.record",
 				Record: &comatproto.RepoStrongRef{
 					Cid: "bafyreiaku7udekkiijxcuue3sn6esz7qijqj637rigz4xqdw57fk5houji",
@@ -169,8 +168,8 @@ func TestFeedPostRichtextLink(t *testing.T) {
 	}
 
 	recordCBOR := new(bytes.Buffer)
-	var recordOrig appbsky.FeedPost
-	var recordRepro appbsky.FeedPost
+	var recordOrig bsky.FeedPost
+	var recordRepro bsky.FeedPost
 	assert.NoError(recordOrig.UnmarshalCBOR(bytes.NewReader(cborBytes)))
 	assert.Equal("app.bsky.feed.post", recordOrig.LexiconTypeID)
 

@@ -2,15 +2,14 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"log/slog"
 	"os"
 
+	"github.com/urfave/cli/v2"
+
 	"github.com/bluesky-social/indigo/automod/keyword"
 	"github.com/bluesky-social/indigo/automod/setstore"
-
-	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -64,7 +63,7 @@ func runFuzzy(cctx *cli.Context) error {
 }
 
 func runTokens(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	sets := setstore.NewMemSetStore()
 	if err := sets.LoadFromFileJSON(cctx.String("json-set-file")); err != nil {
 		return err

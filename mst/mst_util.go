@@ -130,7 +130,7 @@ func serializeNodeData(entries []nodeEntry) (*nodeData, error) {
 		leaf := entries[i]
 
 		if !leaf.isLeaf() {
-			return nil, fmt.Errorf("Not a valid node: two subtrees next to each other (%d, %d)", i, len(entries))
+			return nil, fmt.Errorf("not a valid node: two subtrees next to each other (%d, %d)", i, len(entries))
 		}
 		i++
 
@@ -234,7 +234,7 @@ func isValidMstKey(s string) bool {
 // Typescript: ensureValidMstKey(str)
 func ensureValidMstKey(s string) error {
 	if !isValidMstKey(s) {
-		return fmt.Errorf("Not a valid MST key: %s", s)
+		return fmt.Errorf("not a valid MST key: %s", s)
 	}
 	return nil
 }

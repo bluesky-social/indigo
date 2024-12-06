@@ -71,9 +71,7 @@ var disallowedTlds = map[string]bool{
 	"internal": true,
 }
 
-func (wr *WebResolver) FlushCacheFor(did string) {
-	return
-}
+func (wr *WebResolver) FlushCacheFor(did string) {}
 
 func checkValidDidWeb(val string) error {
 	// no ports or ipv6

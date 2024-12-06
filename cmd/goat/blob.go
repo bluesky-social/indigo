@@ -2,15 +2,14 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/xrpc"
-
 	"github.com/urfave/cli/v2"
+
+	"github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/xrpc"
 )
 
 var cmdBlob = &cli.Command{
@@ -63,7 +62,7 @@ var cmdBlob = &cli.Command{
 }
 
 func runBlobExport(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	username := cctx.Args().First()
 	if username == "" {
 		return fmt.Errorf("need to provide username as an argument")
@@ -91,7 +90,7 @@ func runBlobExport(cctx *cli.Context) error {
 
 	cursor := ""
 	for {
-		resp, err := comatproto.SyncListBlobs(ctx, &xrpcc, cursor, ident.DID.String(), 500, "")
+		resp, err := atproto.SyncListBlobs(ctx, &xrpcc, cursor, ident.DID.String(), 500, "")
 		if err != nil {
 			return err
 		}
@@ -101,7 +100,7 @@ func runBlobExport(cctx *cli.Context) error {
 				fmt.Printf("%s\texists\n", blobPath)
 				continue
 			}
-			blobBytes, err := comatproto.SyncGetBlob(ctx, &xrpcc, cidStr, ident.DID.String())
+			blobBytes, err := atproto.SyncGetBlob(ctx, &xrpcc, cidStr, ident.DID.String())
 			if err != nil {
 				return err
 			}
@@ -120,7 +119,7 @@ func runBlobExport(cctx *cli.Context) error {
 }
 
 func runBlobList(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	username := cctx.Args().First()
 	if username == "" {
 		return fmt.Errorf("need to provide username as an argument")
@@ -140,7 +139,7 @@ func runBlobList(cctx *cli.Context) error {
 
 	cursor := ""
 	for {
-		resp, err := comatproto.SyncListBlobs(ctx, &xrpcc, cursor, ident.DID.String(), 500, "")
+		resp, err := atproto.SyncListBlobs(ctx, &xrpcc, cursor, ident.DID.String(), 500, "")
 		if err != nil {
 			return err
 		}
@@ -157,7 +156,7 @@ func runBlobList(cctx *cli.Context) error {
 }
 
 func runBlobDownload(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	username := cctx.Args().First()
 	if username == "" {
 		return fmt.Errorf("need to provide username as an argument")
@@ -189,7 +188,7 @@ func runBlobDownload(cctx *cli.Context) error {
 	if _, err := os.Stat(blobPath); err == nil {
 		return fmt.Errorf("file exists: %s", blobPath)
 	}
-	blobBytes, err := comatproto.SyncGetBlob(ctx, &xrpcc, blobCID, ident.DID.String())
+	blobBytes, err := atproto.SyncGetBlob(ctx, &xrpcc, blobCID, ident.DID.String())
 	if err != nil {
 		return err
 	}
@@ -197,7 +196,7 @@ func runBlobDownload(cctx *cli.Context) error {
 }
 
 func runBlobUpload(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	blobPath := cctx.Args().First()
 	if blobPath == "" {
 		return fmt.Errorf("need to provide file path as an argument")
@@ -215,7 +214,7 @@ func runBlobUpload(cctx *cli.Context) error {
 		return err
 	}
 
-	resp, err := comatproto.RepoUploadBlob(ctx, xrpcc, bytes.NewReader(fileBytes))
+	resp, err := atproto.RepoUploadBlob(ctx, xrpcc, bytes.NewReader(fileBytes))
 	if err != nil {
 		return err
 	}

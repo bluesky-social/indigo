@@ -1,15 +1,14 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
+
+	"github.com/urfave/cli/v2"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util/cliutil"
-
-	cli "github.com/urfave/cli/v2"
 )
 
 var didCmd = &cli.Command{
@@ -35,7 +34,7 @@ var didGetCmd = &cli.Command{
 	Action: func(cctx *cli.Context) error {
 		s := cliutil.GetDidResolver(cctx)
 
-		ctx := context.TODO()
+		ctx := cctx.Context
 		did := cctx.Args().First()
 
 		dir := identity.DefaultDirectory()
@@ -50,7 +49,7 @@ var didGetCmd = &cli.Command{
 			return nil
 		}
 
-		doc, err := s.GetDocument(context.TODO(), did)
+		doc, err := s.GetDocument(cctx.Context, did)
 		if err != nil {
 			return err
 		}
@@ -94,7 +93,7 @@ var didCreateCmd = &cli.Command{
 
 		fmt.Println("KEYDID: ", sigkey.Public().DID())
 
-		ndid, err := s.CreateDID(context.TODO(), sigkey, recoverydid, handle, service)
+		ndid, err := s.CreateDID(cctx.Context, sigkey, recoverydid, handle, service)
 		if err != nil {
 			return err
 		}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,8 +14,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gorilla/websocket"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-libipfs/blocks"
+	"github.com/ipld/go-car/v2"
+	"github.com/urfave/cli/v2"
+
 	"github.com/bluesky-social/indigo/api/atproto"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -29,12 +33,6 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/util/cliutil"
 	"github.com/bluesky-social/indigo/xrpc"
-
-	"github.com/gorilla/websocket"
-	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-libipfs/blocks"
-	"github.com/ipld/go-car/v2"
-	cli "github.com/urfave/cli/v2"
 )
 
 var debugCmd = &cli.Command{
@@ -80,11 +78,11 @@ var inspectEventCmd = &cli.Command{
 
 		var errFoundIt = fmt.Errorf("gotem")
 
-		var match *comatproto.SyncSubscribeRepos_Commit
+		var match *atproto.SyncSubscribeRepos_Commit
 
-		ctx := context.TODO()
+		ctx := cctx.Context
 		rsc := &events.RepoStreamCallbacks{
-			RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
+			RepoCommit: func(evt *atproto.SyncSubscribeRepos_Commit) error {
 				n := int64(n)
 				if evt.Seq == n {
 					match = evt
@@ -96,7 +94,7 @@ var inspectEventCmd = &cli.Command{
 
 				return nil
 			},
-			RepoInfo: func(evt *comatproto.SyncSubscribeRepos_Info) error {
+			RepoInfo: func(evt *atproto.SyncSubscribeRepos_Info) error {
 				return nil
 			},
 			// TODO: all the other Repo* event types
@@ -168,14 +166,6 @@ type eventInfo struct {
 	LastRev string
 }
 
-func cidStr(c *lexutil.LexLink) string {
-	if c == nil {
-		return "<nil>"
-	}
-
-	return c.String()
-}
-
 var debugStreamCmd = &cli.Command{
 	Name: "debug-stream",
 	Flags: []cli.Flag{
@@ -206,9 +196,9 @@ var debugStreamCmd = &cli.Command{
 		infos := make(map[string]*eventInfo)
 
 		var lastSeq int64 = -1
-		ctx := context.TODO()
+		ctx := cctx.Context
 		rsc := &events.RepoStreamCallbacks{
-			RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
+			RepoCommit: func(evt *atproto.SyncSubscribeRepos_Commit) error {
 
 				fmt.Printf("\rChecking seq: %d      ", evt.Seq)
 				if lastSeq > 0 && evt.Seq != lastSeq+1 {
@@ -259,7 +249,7 @@ var debugStreamCmd = &cli.Command{
 
 				return nil
 			},
-			RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
+			RepoHandle: func(evt *atproto.SyncSubscribeRepos_Handle) error {
 				fmt.Printf("\rChecking seq: %d      ", evt.Seq)
 				if lastSeq > 0 && evt.Seq != lastSeq+1 {
 					fmt.Println("Gap in sequence numbers: ", lastSeq, evt.Seq)
@@ -267,7 +257,7 @@ var debugStreamCmd = &cli.Command{
 				lastSeq = evt.Seq
 				return nil
 			},
-			RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
+			RepoTombstone: func(evt *atproto.SyncSubscribeRepos_Tombstone) error {
 				fmt.Printf("\rChecking seq: %d      ", evt.Seq)
 				if lastSeq > 0 && evt.Seq != lastSeq+1 {
 					fmt.Println("Gap in sequence numbers: ", lastSeq, evt.Seq)
@@ -275,7 +265,7 @@ var debugStreamCmd = &cli.Command{
 				lastSeq = evt.Seq
 				return nil
 			},
-			RepoInfo: func(evt *comatproto.SyncSubscribeRepos_Info) error {
+			RepoInfo: func(evt *atproto.SyncSubscribeRepos_Info) error {
 				return nil
 			},
 			// TODO: all the other Repo* event types
@@ -315,17 +305,17 @@ var compareStreamsCmd = &cli.Command{
 
 		d := websocket.DefaultDialer
 
-		eventChans := []chan *comatproto.SyncSubscribeRepos_Commit{
-			make(chan *comatproto.SyncSubscribeRepos_Commit, 2),
-			make(chan *comatproto.SyncSubscribeRepos_Commit, 2),
+		eventChans := []chan *atproto.SyncSubscribeRepos_Commit{
+			make(chan *atproto.SyncSubscribeRepos_Commit, 2),
+			make(chan *atproto.SyncSubscribeRepos_Commit, 2),
 		}
 
-		buffers := []map[string][]*comatproto.SyncSubscribeRepos_Commit{
-			make(map[string][]*comatproto.SyncSubscribeRepos_Commit),
-			make(map[string][]*comatproto.SyncSubscribeRepos_Commit),
+		buffers := []map[string][]*atproto.SyncSubscribeRepos_Commit{
+			make(map[string][]*atproto.SyncSubscribeRepos_Commit),
+			make(map[string][]*atproto.SyncSubscribeRepos_Commit),
 		}
 
-		addToBuffer := func(n int, event *comatproto.SyncSubscribeRepos_Commit) {
+		addToBuffer := func(n int, event *atproto.SyncSubscribeRepos_Commit) {
 			buffers[n][event.Repo] = append(buffers[n][event.Repo], event)
 		}
 
@@ -336,31 +326,23 @@ var compareStreamsCmd = &cli.Command{
 			return ll.String()
 		}
 
-		findMatchAndRemove := func(n int, event *comatproto.SyncSubscribeRepos_Commit) (*comatproto.SyncSubscribeRepos_Commit, error) {
+		findMatchAndRemove := func(n int, event *atproto.SyncSubscribeRepos_Commit) (*atproto.SyncSubscribeRepos_Commit, error) {
 			buf := buffers[n]
 			slice, ok := buf[event.Repo]
 			if !ok || len(slice) == 0 {
 				return nil, nil
 			}
 
-			for i, ev := range slice {
-				if ev.Commit == event.Commit {
-					if pll(ev.Prev) != pll(event.Prev) {
-						// same commit different prev??
-						return nil, fmt.Errorf("matched event with same commit but different prev: (%d) %d - %d", n, ev.Seq, event.Seq)
-					}
+			ev := slice[0]
+			if ev.Commit == event.Commit {
+				if pll(ev.Prev) != pll(event.Prev) {
+					// same commit different prev??
+					return nil, fmt.Errorf("matched event with same commit but different prev: (%d) %d - %d", n, ev.Seq, event.Seq)
 				}
-
-				if i != 0 {
-					fmt.Printf("detected skipped event: %d (%d)\n", slice[0].Seq, i)
-				}
-
-				slice = slice[i+1:]
-				buf[event.Repo] = slice
-				return ev, nil
 			}
 
-			return nil, fmt.Errorf("did not find matching event despite having events in buffer")
+			buf[event.Repo] = slice[1:]
+			return ev, nil
 		}
 
 		printCurrentDelta := func() {
@@ -394,9 +376,9 @@ var compareStreamsCmd = &cli.Command{
 					os.Exit(1)
 				}
 
-				ctx := context.TODO()
+				ctx := cctx.Context
 				rsc := &events.RepoStreamCallbacks{
-					RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
+					RepoCommit: func(evt *atproto.SyncSubscribeRepos_Commit) error {
 						eventChans[i] <- evt
 						return nil
 					},
@@ -479,7 +461,7 @@ var debugFeedGenCmd = &cli.Command{
 			return err
 		}
 
-		ctx := context.TODO()
+		ctx := cctx.Context
 
 		out, err := atproto.RepoGetRecord(ctx, xrpcc, "", puri.Collection, puri.Did, puri.Rkey)
 		if err != nil {
@@ -514,7 +496,7 @@ var debugFeedGenCmd = &cli.Command{
 		}
 
 		if ss == nil {
-			return fmt.Errorf("No '#bsky_fg' service entry found in feedgens DID document")
+			return fmt.Errorf("no '#bsky_fg' service entry found in feedgens DID document")
 		}
 
 		fmt.Println("Service endpoint is: ", ss.ServiceEndpoint)
@@ -611,7 +593,7 @@ var debugFeedViewCmd = &cli.Command{
 			return err
 		}
 
-		ctx := context.TODO()
+		ctx := cctx.Context
 
 		out, err := atproto.RepoGetRecord(ctx, xrpcc, "", puri.Collection, puri.Did, puri.Rkey)
 		if err != nil {
@@ -638,7 +620,7 @@ var debugFeedViewCmd = &cli.Command{
 		}
 
 		if ss == nil {
-			return fmt.Errorf("No '#bsky_fg' service entry found in feedgens DID document")
+			return fmt.Errorf("no '#bsky_fg' service entry found in feedgens DID document")
 		}
 
 		fgclient := &xrpc.Client{
@@ -791,9 +773,9 @@ var debugGetRepoCmd = &cli.Command{
 			return err
 		}
 
-		ctx := context.TODO()
+		ctx := cctx.Context
 
-		repobytes, err := comatproto.SyncGetRepo(ctx, xrpcc, cctx.Args().First(), "")
+		repobytes, err := atproto.SyncGetRepo(ctx, xrpcc, cctx.Args().First(), "")
 		if err != nil {
 			return fmt.Errorf("getting repo: %w", err)
 		}
@@ -876,7 +858,7 @@ var debugCompareReposCmd = &cli.Command{
 		go func() {
 			defer wg.Done()
 			logger := log.With("host", cctx.String("host-1"))
-			repo1bytes, err := comatproto.SyncGetRepo(ctx, &xrpc1, did.String(), "")
+			repo1bytes, err := atproto.SyncGetRepo(ctx, &xrpc1, did.String(), "")
 			if err != nil {
 				logger.Error("getting repo", "err", err)
 				os.Exit(1)
@@ -895,7 +877,7 @@ var debugCompareReposCmd = &cli.Command{
 		go func() {
 			defer wg.Done()
 			logger := log.With("host", cctx.String("host-2"))
-			repo2bytes, err := comatproto.SyncGetRepo(ctx, &xrpc2, did.String(), "")
+			repo2bytes, err := atproto.SyncGetRepo(ctx, &xrpc2, did.String(), "")
 			if err != nil {
 				logger.Error("getting repo", "err", err)
 				os.Exit(1)

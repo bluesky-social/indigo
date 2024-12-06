@@ -2,18 +2,17 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/urfave/cli/v2"
+
+	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
-
-	"github.com/urfave/cli/v2"
 )
 
 var cmdAccountMigrate = &cli.Command{
@@ -58,7 +57,7 @@ var cmdAccountMigrate = &cli.Command{
 
 func runAccountMigrate(cctx *cli.Context) error {
 	// NOTE: this could check rev / commit before and after and ensure last-minute content additions get lost
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	oldClient, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -87,7 +86,7 @@ func runAccountMigrate(cctx *cli.Context) error {
 	}
 
 	// connect to new host to discover service DID
-	newHostDesc, err := comatproto.ServerDescribeServer(ctx, &newClient)
+	newHostDesc, err := atproto.ServerDescribeServer(ctx, &newClient)
 	if err != nil {
 		return fmt.Errorf("failed connecting to new host: %w", err)
 	}
@@ -103,13 +102,13 @@ func runAccountMigrate(cctx *cli.Context) error {
 	// get service auth token from old host
 	// args: (ctx, client, aud string, exp int64, lxm string)
 	expTimestamp := time.Now().Unix() + 60
-	createAuthResp, err := comatproto.ServerGetServiceAuth(ctx, oldClient, newHostDID.String(), expTimestamp, "com.atproto.server.createAccount")
+	createAuthResp, err := atproto.ServerGetServiceAuth(ctx, oldClient, newHostDID.String(), expTimestamp, "com.atproto.server.createAccount")
 	if err != nil {
 		return fmt.Errorf("failed getting service auth token from old host: %w", err)
 	}
 
 	// then create the new account
-	createParams := comatproto.ServerCreateAccount_Input{
+	createParams := atproto.ServerCreateAccount_Input{
 		Did:      &did,
 		Handle:   newHandle,
 		Password: &newPassword,
@@ -128,7 +127,7 @@ func runAccountMigrate(cctx *cli.Context) error {
 		AccessJwt:  createAuthResp.Token,
 		RefreshJwt: createAuthResp.Token,
 	}
-	createAccountResp, err := comatproto.ServerCreateAccount(ctx, &newClient, &createParams)
+	createAccountResp, err := atproto.ServerCreateAccount(ctx, &newClient, &createParams)
 	if err != nil {
 		return fmt.Errorf("failed creating new account: %w", err)
 	}
@@ -140,7 +139,7 @@ func runAccountMigrate(cctx *cli.Context) error {
 	newClient.Auth.RefreshJwt = createAccountResp.RefreshJwt
 
 	// login client on the new host
-	sess, err := comatproto.ServerCreateSession(ctx, &newClient, &comatproto.ServerCreateSession_Input{
+	sess, err := atproto.ServerCreateSession(ctx, &newClient, &atproto.ServerCreateSession_Input{
 		Identifier: did,
 		Password:   newPassword,
 	})
@@ -155,11 +154,11 @@ func runAccountMigrate(cctx *cli.Context) error {
 
 	// 2. Migrate Data
 	slog.Info("migrating repo")
-	repoBytes, err := comatproto.SyncGetRepo(ctx, oldClient, did, "")
+	repoBytes, err := atproto.SyncGetRepo(ctx, oldClient, did, "")
 	if err != nil {
 		return fmt.Errorf("failed exporting repo: %w", err)
 	}
-	err = comatproto.RepoImportRepo(ctx, &newClient, bytes.NewReader(repoBytes))
+	err = atproto.RepoImportRepo(ctx, &newClient, bytes.NewReader(repoBytes))
 	if err != nil {
 		return fmt.Errorf("failed importing repo: %w", err)
 	}
@@ -180,17 +179,17 @@ func runAccountMigrate(cctx *cli.Context) error {
 	slog.Info("migrating blobs")
 	blobCursor := ""
 	for {
-		listResp, err := comatproto.SyncListBlobs(ctx, oldClient, blobCursor, did, 100, "")
+		listResp, err := atproto.SyncListBlobs(ctx, oldClient, blobCursor, did, 100, "")
 		if err != nil {
 			return fmt.Errorf("failed listing blobs: %w", err)
 		}
 		for _, blobCID := range listResp.Cids {
-			blobBytes, err := comatproto.SyncGetBlob(ctx, oldClient, blobCID, did)
+			blobBytes, err := atproto.SyncGetBlob(ctx, oldClient, blobCID, did)
 			if err != nil {
 				slog.Warn("failed downloading blob", "cid", blobCID, "err", err)
 				continue
 			}
-			_, err = comatproto.RepoUploadBlob(ctx, &newClient, bytes.NewReader(blobBytes))
+			_, err = atproto.RepoUploadBlob(ctx, &newClient, bytes.NewReader(blobBytes))
 			if err != nil {
 				slog.Warn("failed uploading blob", "cid", blobCID, "err", err, "size", len(blobBytes))
 			}
@@ -204,7 +203,7 @@ func runAccountMigrate(cctx *cli.Context) error {
 
 	// display migration status
 	// NOTE: this could check between the old PDS and new PDS, polling in a loop showing progress until all records have been indexed
-	statusResp, err := comatproto.ServerCheckAccountStatus(ctx, &newClient)
+	statusResp, err := atproto.ServerCheckAccountStatus(ctx, &newClient)
 	if err != nil {
 		return fmt.Errorf("failed checking account status: %w", err)
 	}
@@ -246,11 +245,11 @@ func runAccountMigrate(cctx *cli.Context) error {
 	// 4. Finalize Migration
 	slog.Info("activating new account")
 
-	err = comatproto.ServerActivateAccount(ctx, &newClient)
+	err = atproto.ServerActivateAccount(ctx, &newClient)
 	if err != nil {
 		return fmt.Errorf("failed activating new host: %w", err)
 	}
-	err = comatproto.ServerDeactivateAccount(ctx, oldClient, &comatproto.ServerDeactivateAccount_Input{})
+	err = atproto.ServerDeactivateAccount(ctx, oldClient, &atproto.ServerDeactivateAccount_Input{})
 	if err != nil {
 		return fmt.Errorf("failed deactivating old host: %w", err)
 	}

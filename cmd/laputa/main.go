@@ -4,16 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/bluesky-social/indigo/api"
-	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/pds"
-	"github.com/bluesky-social/indigo/plc"
-	"github.com/bluesky-social/indigo/util/cliutil"
-
-	_ "github.com/joho/godotenv/autoload"
-	_ "go.uber.org/automaxprocs"
-
 	"github.com/carlmjohnson/versioninfo"
+	_ "github.com/joho/godotenv/autoload"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -21,7 +13,14 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	_ "go.uber.org/automaxprocs"
 	"gorm.io/plugin/opentelemetry/tracing"
+
+	"github.com/bluesky-social/indigo/api"
+	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/pds"
+	"github.com/bluesky-social/indigo/plc"
+	"github.com/bluesky-social/indigo/util/cliutil"
 )
 
 func main() {

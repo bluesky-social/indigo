@@ -5,11 +5,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-var backfillJobsEnqueued = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "backfill_jobs_enqueued_total",
-	Help: "The total number of backfill jobs enqueued",
-}, []string{"backfiller_name"})
-
 var backfillJobsProcessed = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "backfill_jobs_processed_total",
 	Help: "The total number of backfill jobs processed",

@@ -257,7 +257,7 @@ func setupOTEL(cctx *cli.Context) error {
 	// OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 	if ep := cctx.String("otel-exporter-otlp-endpoint"); ep != "" {
 		slog.Info("setting up trace exporter", "endpoint", ep)
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(cctx.Context)
 		defer cancel()
 
 		exp, err := otlptracehttp.New(ctx)
@@ -266,7 +266,7 @@ func setupOTEL(cctx *cli.Context) error {
 			os.Exit(1)
 		}
 		defer func() {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			ctx, cancel := context.WithTimeout(ctx, time.Second)
 			defer cancel()
 			if err := exp.Shutdown(ctx); err != nil {
 				slog.Error("failed to shutdown trace exporter", "error", err)

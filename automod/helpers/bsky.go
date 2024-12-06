@@ -203,10 +203,7 @@ func ParentOrRootIsFollower(c *automod.RecordContext, post *appbsky.FeedPost) bo
 	}
 
 	rel = c.GetAccountRelationship(rootDID)
-	if rel.FollowedBy {
-		return true
-	}
-	return false
+	return rel.FollowedBy
 }
 
 func PostParentOrRootIsDid(post *appbsky.FeedPost, did string) bool {

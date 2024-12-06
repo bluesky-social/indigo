@@ -1,16 +1,15 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 
+	"github.com/urfave/cli/v2"
+
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-
-	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -44,7 +43,7 @@ func main() {
 }
 
 func runLookup(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	s := cctx.Args().First()
 	if s == "" {
 		return fmt.Errorf("need to provide identifier as an argument")
@@ -66,7 +65,7 @@ func runLookup(cctx *cli.Context) error {
 }
 
 func runResolveHandle(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	s := cctx.Args().First()
 	if s == "" {
 		return fmt.Errorf("need to provide handle as an argument")
@@ -88,7 +87,7 @@ func runResolveHandle(cctx *cli.Context) error {
 }
 
 func runResolveDID(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	s := cctx.Args().First()
 	if s == "" {
 		fmt.Println("need to provide DID as an argument")

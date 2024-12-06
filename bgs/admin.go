@@ -155,7 +155,7 @@ func (bgs *BGS) handleListPDSs(e echo.Context) error {
 		enrichedPDSs[i].PDS = p
 		enrichedPDSs[i].HasActiveConnection = false
 		for _, host := range activePDSHosts {
-			if strings.ToLower(host) == strings.ToLower(p.Host) {
+			if strings.EqualFold(host, p.Host) {
 				enrichedPDSs[i].HasActiveConnection = true
 				break
 			}
@@ -639,6 +639,9 @@ func (bgs *BGS) handleAdminRequestCrawl(e echo.Context) error {
 	host = u.Host // potentially hostname:port
 
 	banned, err := bgs.domainIsBanned(ctx, host)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to check if domain is banned (%s)", err))
+	}
 	if banned {
 		return echo.NewHTTPError(http.StatusUnauthorized, "domain is banned")
 	}

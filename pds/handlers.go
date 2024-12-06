@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/ipfs/go-cid"
+
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
-	"github.com/ipfs/go-cid"
-	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
 func (s *Server) handleComAtprotoServerCreateAccount(ctx context.Context, body *comatprototypes.ServerCreateAccount_Input) (*comatprototypes.ServerCreateAccount_Output, error) {
@@ -276,8 +276,8 @@ func (s *Server) handleComAtprotoServerRefreshSession(ctx context.Context) (*com
 		return nil, err
 	}
 
-	scope, ok := ctx.Value("authScope").(string)
-	if !ok {
+	scope := getAuthScope(ctx)
+	if scope == "" {
 		return nil, fmt.Errorf("scope not present in refresh token")
 	}
 
@@ -285,8 +285,8 @@ func (s *Server) handleComAtprotoServerRefreshSession(ctx context.Context) (*com
 		return nil, fmt.Errorf("auth token did not have refresh scope")
 	}
 
-	tok, ok := ctx.Value("token").(*jwt.Token)
-	if !ok {
+	tok := getToken(ctx)
+	if tok == nil {
 		return nil, fmt.Errorf("internal auth error: token not set post auth check")
 	}
 
@@ -306,10 +306,6 @@ func (s *Server) handleComAtprotoServerRefreshSession(ctx context.Context) (*com
 		RefreshJwt: outTok.RefreshJwt,
 	}, nil
 
-}
-
-func (s *Server) handleComAtprotoSyncUpdateRepo(ctx context.Context, r io.Reader) error {
-	panic("not yet implemented")
 }
 
 func (s *Server) handleComAtprotoSyncGetCheckout(ctx context.Context, did string) (io.Reader, error) {

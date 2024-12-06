@@ -866,7 +866,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("process new repo (current rev: %s): %w:", currev, err)
+		return fmt.Errorf("process new repo (current rev: %s): %w", currev, err)
 	}
 
 	return nil
@@ -1025,8 +1025,6 @@ func (rm *RepoManager) walkTree(ctx context.Context, skip map[cid.Cid]bool, root
 
 		links = append(links, c)
 		skip[c] = true
-
-		return
 	}); err != nil {
 		return nil, err
 	}

@@ -27,6 +27,9 @@ func TestBlobParse(t *testing.T) {
 		}
 	}`
 	cidOne, err := cid.Decode("bafyreidfayvfuwqa7qlnopdjiqrxzs6blmoeu4rujcjtnci5beludirz2a")
+	if err != nil {
+		t.Fatal(err)
+	}
 	goObj := blobSchema{
 		A: "abc",
 		B: LexBlob{

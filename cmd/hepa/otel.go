@@ -15,8 +15,6 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
-var tracer = otel.Tracer("hepa")
-
 // Enable OTLP HTTP exporter
 // For relevant environment variables:
 // https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace#readme-environment-variables
@@ -34,7 +32,7 @@ func configOTEL(serviceName string) {
 			log.Fatal("failed to create trace exporter", "error", err)
 		}
 		defer func() {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			ctx, cancel := context.WithTimeout(ctx, time.Second)
 			defer cancel()
 			if err := exp.Shutdown(ctx); err != nil {
 				slog.Error("failed to shutdown trace exporter", "error", err)

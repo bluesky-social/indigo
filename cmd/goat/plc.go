@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,10 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bobg/errors"
+	"github.com/urfave/cli/v2"
+
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-
-	"github.com/urfave/cli/v2"
 )
 
 var cmdPLC = &cli.Command{
@@ -39,7 +39,7 @@ var cmdPLCHistory = &cli.Command{
 }
 
 func runPLCHistory(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	plcURL := cctx.String("plc-directory")
 	s := cctx.Args().First()
 	if s == "" {
@@ -52,22 +52,23 @@ func runPLCHistory(cctx *cli.Context) error {
 
 	id, err := syntax.ParseAtIdentifier(s)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "in ParseAtIdentifier")
 	}
+
 	var did syntax.DID
 	if id.IsDID() {
 		did, err = id.AsDID()
 		if err != nil {
-			return err
+			return errors.Wrap(err, "in AsDID")
 		}
 	} else {
 		hdl, err := id.AsHandle()
 		if err != nil {
-			return err
+			return errors.Wrap(err, "in AsHandle")
 		}
 		did, err = dir.ResolveHandle(ctx, hdl)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "in ResolveHandle")
 		}
 	}
 
@@ -78,27 +79,27 @@ func runPLCHistory(cctx *cli.Context) error {
 	url := fmt.Sprintf("%s/%s/log", plcURL, did)
 	resp, err := http.Get(url)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "in HTTP request")
 	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("PLC HTTP request failed")
-	}
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
+		return fmt.Errorf("PLC HTTP request failed (status %d: %s)", resp.StatusCode, resp.Status)
 	}
 
-	// parse JSON and reformat for printing
-	var oplog []map[string]interface{}
-	err = json.Unmarshal(respBytes, &oplog)
-	if err != nil {
-		return err
+	var (
+		oplog []map[string]any
+		dec   = json.NewDecoder(resp.Body)
+	)
+
+	if err := dec.Decode(&oplog); err != nil {
+		return errors.Wrap(err, "decoding JSON")
 	}
 
 	for _, op := range oplog {
 		b, err := json.MarshalIndent(op, "", "  ")
 		if err != nil {
-			return err
+			return errors.Wrap(err, "remarshaling JSON")
 		}
 		fmt.Println(string(b))
 	}
@@ -121,7 +122,7 @@ var cmdPLCDump = &cli.Command{
 }
 
 func runPLCDump(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	plcURL := cctx.String("plc-directory")
 	client := http.DefaultClient
 	tailMode := cctx.Bool("tail")

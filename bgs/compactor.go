@@ -133,17 +133,9 @@ type CompactorState struct {
 	stats     *carstore.CompactionStats
 }
 
-func (cstate *CompactorState) set(uid models.Uid, did, status string, stats *carstore.CompactionStats) {
-	cstate.latestUID = uid
-	cstate.latestDID = did
-	cstate.status = status
-	cstate.stats = stats
-}
-
 // Compactor is a compactor daemon that compacts repos in the background
 type Compactor struct {
 	q                 *uniQueue
-	stateLk           sync.RWMutex
 	exit              chan struct{}
 	requeueInterval   time.Duration
 	requeueLimit      int
@@ -188,11 +180,6 @@ func NewCompactor(opts *CompactorOptions) *Compactor {
 		requeueShardCount: opts.RequeueShardCount,
 		numWorkers:        opts.NumWorkers,
 	}
-}
-
-type compactionStats struct {
-	Completed map[models.Uid]*carstore.CompactionStats
-	Targets   []carstore.CompactionTarget
 }
 
 var errNoReposToCompact = fmt.Errorf("no repos to compact")

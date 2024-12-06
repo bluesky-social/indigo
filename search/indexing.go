@@ -12,19 +12,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ipfs/go-cid"
+	es "github.com/opensearch-project/opensearch-go/v2"
+	esapi "github.com/opensearch-project/opensearch-go/v2/opensearchapi"
+	"go.opentelemetry.io/otel/attribute"
+	"golang.org/x/time/rate"
+	gorm "gorm.io/gorm"
+
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/backfill"
 	"github.com/bluesky-social/indigo/xrpc"
-	"github.com/ipfs/go-cid"
-	"github.com/labstack/echo/v4"
-	"go.opentelemetry.io/otel/attribute"
-	"golang.org/x/time/rate"
-	gorm "gorm.io/gorm"
-
-	es "github.com/opensearch-project/opensearch-go/v2"
-	esapi "github.com/opensearch-project/opensearch-go/v2/opensearchapi"
 )
 
 type Indexer struct {
@@ -35,7 +34,6 @@ type Indexer struct {
 	relayhost    string
 	relayXRPC    *xrpc.Client
 	dir          identity.Directory
-	echo         *echo.Echo
 	logger       *slog.Logger
 
 	bfs *backfill.Gormstore

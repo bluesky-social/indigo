@@ -276,7 +276,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			var existingLabels []string
 			var negLabels []string
 			for _, lbl := range rv.Labels {
-				if lbl.Neg != nil && *lbl.Neg == true {
+				if lbl.Neg != nil && *lbl.Neg {
 					negLabels = append(negLabels, lbl.Val)
 				} else {
 					existingLabels = append(existingLabels, lbl.Val)

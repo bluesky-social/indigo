@@ -184,7 +184,7 @@ func (fg *FeedGenerator) getPostViewerState(ctx context.Context, item uint, view
 }
 
 func (fg *FeedGenerator) GetTimeline(ctx context.Context, user *User, algo string, before string, limit int) ([]*bsky.FeedDefs_FeedViewPost, error) {
-	ctx, span := otel.Tracer("feedgen").Start(context.Background(), "GetTimeline")
+	ctx, span := otel.Tracer("feedgen").Start(ctx, "GetTimeline")
 	defer span.End()
 
 	// TODO: this query is just a temporary hack...
@@ -243,7 +243,7 @@ func (fg *FeedGenerator) personalizeFeed(ctx context.Context, feed []*bsky.FeedD
 }
 
 func (fg *FeedGenerator) GetAuthorFeed(ctx context.Context, user *User, before string, limit int) ([]*bsky.FeedDefs_FeedViewPost, error) {
-	ctx, span := otel.Tracer("feedgen").Start(context.Background(), "GetAuthorFeed")
+	ctx, span := otel.Tracer("feedgen").Start(ctx, "GetAuthorFeed")
 	defer span.End()
 
 	// for memory efficiency, should probably return the actual type that goes out to the user...
@@ -411,7 +411,7 @@ func (fg *FeedGenerator) GetFollows(ctx context.Context, user string, limit int,
 		return nil, err
 	}
 
-	out := []*FollowInfo{}
+	var out []*FollowInfo
 	for _, f := range follows {
 		fai, err := fg.getActorRefInfo(ctx, f.Target)
 		if err != nil {
@@ -427,5 +427,5 @@ func (fg *FeedGenerator) GetFollows(ctx context.Context, user string, limit int,
 
 	}
 
-	return nil, nil
+	return out, nil
 }

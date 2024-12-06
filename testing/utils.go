@@ -19,6 +19,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bobg/errors"
+	"github.com/ipfs/go-cid"
+	"github.com/multiformats/go-multihash"
+	"github.com/whyrusleeping/go-did"
+
 	"github.com/bluesky-social/indigo/api"
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
@@ -36,9 +41,6 @@ import (
 	"github.com/bluesky-social/indigo/repomgr"
 	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
-	"github.com/ipfs/go-cid"
-	"github.com/multiformats/go-multihash"
-	"github.com/whyrusleeping/go-did"
 
 	"net/url"
 
@@ -50,7 +52,6 @@ import (
 type TestPDS struct {
 	dir    string
 	server *pds.Server
-	plc    *api.PLCServer
 
 	listener net.Listener
 
@@ -173,6 +174,9 @@ func (tp *TestPDS) RequestScraping(t *testing.T, b *TestRelay) {
 	}
 
 	req, err := http.NewRequest("POST", "http://"+b.Host()+"/admin/subs/setPerDayLimit?limit=500", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer test")
@@ -565,6 +569,9 @@ func SetupRelay(ctx context.Context, didr plc.PLCClient) (*TestRelay, error) {
 	opts := events.DefaultDiskPersistOptions()
 	opts.EventsPerFile = 10
 	diskpersist, err := events.NewDiskPersistence(filepath.Join(dir, "dp-primary"), filepath.Join(dir, "dp-archive"), maindb, opts)
+	if err != nil {
+		return nil, errors.Wrap(err, "in NewDiskPersistence")
+	}
 
 	evtman := events.NewEventManager(diskpersist)
 	rf := indexer.NewRepoFetcher(maindb, repoman, 10)
@@ -715,10 +722,9 @@ func (es *EventStream) Next() *events.XRPCStreamEvent {
 func (es *EventStream) All() []*events.XRPCStreamEvent {
 	es.Lk.Lock()
 	defer es.Lk.Unlock()
+
 	out := make([]*events.XRPCStreamEvent, len(es.Events))
-	for i, e := range es.Events {
-		out[i] = e
-	}
+	copy(out, es.Events)
 
 	return out
 }
