@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/bluesky-social/indigo/api/agnostic"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	_ "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/data"
@@ -161,7 +162,7 @@ func (srv *Server) WebRepoCollection(c echo.Context) error {
 
 	cursor := c.QueryParam("cursor")
 	// collection string, cursor string, limit int64, repo string, reverse bool, rkeyEnd string, rkeyStart string
-	resp, err := RepoListRecords(ctx, &xrpcc, collection.String(), cursor, 100, ident.DID.String(), false, "", "")
+	resp, err := agnostic.RepoListRecords(ctx, &xrpcc, collection.String(), cursor, 100, ident.DID.String(), false, "", "")
 	if err != nil {
 		return err
 	}
@@ -218,7 +219,7 @@ func (srv *Server) WebRepoRecord(c echo.Context) error {
 	xrpcc := xrpc.Client{
 		Host: ident.PDSEndpoint(),
 	}
-	resp, err := RepoGetRecord(ctx, &xrpcc, "", collection.String(), ident.DID.String(), rkey.String())
+	resp, err := agnostic.RepoGetRecord(ctx, &xrpcc, "", collection.String(), ident.DID.String(), rkey.String())
 	if err != nil {
 		return echo.NewHTTPError(400, fmt.Sprintf("failed to load record: %s", err))
 	}

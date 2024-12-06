@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluesky-social/indigo/api/agnostic"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -166,11 +167,11 @@ func runAccountMigrate(cctx *cli.Context) error {
 
 	slog.Info("migrating preferences")
 	// TODO: service proxy header for AppView?
-	prefResp, err := ActorGetPreferences(ctx, oldClient)
+	prefResp, err := agnostic.ActorGetPreferences(ctx, oldClient)
 	if err != nil {
 		return fmt.Errorf("failed fetching old preferences: %w", err)
 	}
-	err = ActorPutPreferences(ctx, &newClient, &ActorPutPreferences_Input{
+	err = agnostic.ActorPutPreferences(ctx, &newClient, &agnostic.ActorPutPreferences_Input{
 		Preferences: prefResp.Preferences,
 	})
 	if err != nil {
@@ -214,7 +215,7 @@ func runAccountMigrate(cctx *cli.Context) error {
 	// NOTE: to work with did:web or non-PDS-managed did:plc, need to do manual migraiton process
 	slog.Info("updating identity to new host")
 
-	credsResp, err := IdentityGetRecommendedDidCredentials(ctx, &newClient)
+	credsResp, err := agnostic.IdentityGetRecommendedDidCredentials(ctx, &newClient)
 	if err != nil {
 		return fmt.Errorf("failed fetching new credentials: %w", err)
 	}
@@ -223,7 +224,7 @@ func runAccountMigrate(cctx *cli.Context) error {
 		return nil
 	}
 
-	var unsignedOp IdentitySignPlcOperation_Input
+	var unsignedOp agnostic.IdentitySignPlcOperation_Input
 	if err = json.Unmarshal(credsBytes, &unsignedOp); err != nil {
 		return fmt.Errorf("failed parsing PLC op: %w", err)
 	}
@@ -231,12 +232,12 @@ func runAccountMigrate(cctx *cli.Context) error {
 
 	// NOTE: could add additional sanity checks here that any extra rotation keys were retained, and that old alsoKnownAs and service entries are retained? The stakes aren't super high for the later, as PLC has the full history. PLC and the new PDS already implement some basic sanity checks.
 
-	signedPlcOpResp, err := IdentitySignPlcOperation(ctx, oldClient, &unsignedOp)
+	signedPlcOpResp, err := agnostic.IdentitySignPlcOperation(ctx, oldClient, &unsignedOp)
 	if err != nil {
 		return fmt.Errorf("failed requesting PLC operation signature: %w", err)
 	}
 
-	err = IdentitySubmitPlcOperation(ctx, &newClient, &IdentitySubmitPlcOperation_Input{
+	err = agnostic.IdentitySubmitPlcOperation(ctx, &newClient, &agnostic.IdentitySubmitPlcOperation_Input{
 		Operation: signedPlcOpResp.Operation,
 	})
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bluesky-social/indigo/api/agnostic"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -179,7 +180,7 @@ func runRecordList(cctx *cli.Context) error {
 		cursor := ""
 		for {
 			// collection string, cursor string, limit int64, repo string, reverse bool, rkeyEnd string, rkeyStart string
-			resp, err := RepoListRecords(ctx, &xrpcc, nsid, cursor, 100, ident.DID.String(), false, "", "")
+			resp, err := agnostic.RepoListRecords(ctx, &xrpcc, nsid, cursor, 100, ident.DID.String(), false, "", "")
 			if err != nil {
 				return err
 			}
@@ -246,7 +247,7 @@ func runRecordCreate(cctx *cli.Context) error {
 	}
 	validate := !cctx.Bool("no-validate")
 
-	resp, err := RepoCreateRecord(ctx, xrpcc, &RepoCreateRecord_Input{
+	resp, err := agnostic.RepoCreateRecord(ctx, xrpcc, &agnostic.RepoCreateRecord_Input{
 		Collection: nsid,
 		Repo:       xrpcc.Auth.Did,
 		Record:     recordVal,
@@ -293,7 +294,7 @@ func runRecordUpdate(cctx *cli.Context) error {
 	rkey := cctx.String("rkey")
 
 	// NOTE: need to fetch existing record CID to perform swap. this is optional in theory, but golang can't deal with "optional" and "nullable", so we always need to set this (?)
-	existing, err := RepoGetRecord(ctx, xrpcc, "", nsid, xrpcc.Auth.Did, rkey)
+	existing, err := agnostic.RepoGetRecord(ctx, xrpcc, "", nsid, xrpcc.Auth.Did, rkey)
 	if err != nil {
 		return err
 	}
@@ -305,7 +306,7 @@ func runRecordUpdate(cctx *cli.Context) error {
 
 	validate := !cctx.Bool("no-validate")
 
-	resp, err := RepoPutRecord(ctx, xrpcc, &RepoPutRecord_Input{
+	resp, err := agnostic.RepoPutRecord(ctx, xrpcc, &agnostic.RepoPutRecord_Input{
 		Collection: nsid,
 		Repo:       xrpcc.Auth.Did,
 		Record:     recordVal,
