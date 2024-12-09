@@ -250,7 +250,6 @@ func (c *BaseContext) GetAccountMeta(did syntax.DID) *AccountMeta {
 func (c *BaseContext) Increment(name, val string) {
 	c.effects.Increment(name, val)
 }
-
 func (c *BaseContext) IncrementDistinct(name, bucket, val string) {
 	c.effects.IncrementDistinct(name, bucket, val)
 }
@@ -313,6 +312,10 @@ func (c *RecordContext) TakedownRecord() {
 
 func (c *RecordContext) TakedownBlob(cid string) {
 	c.effects.TakedownBlob(cid)
+}
+
+func (c *RecordContext) PersistRecordOzoneEvent() {
+	c.effects.PersistRecordOzoneEvent()
 }
 
 func (c *NotificationContext) Reject() {

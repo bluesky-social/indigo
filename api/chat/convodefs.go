@@ -18,6 +18,7 @@ type ConvoDefs_ConvoView struct {
 	LastMessage *ConvoDefs_ConvoView_LastMessage `json:"lastMessage,omitempty" cborgen:"lastMessage,omitempty"`
 	Members     []*ActorDefs_ProfileViewBasic    `json:"members" cborgen:"members"`
 	Muted       bool                             `json:"muted" cborgen:"muted"`
+	Opened      *bool                            `json:"opened,omitempty" cborgen:"opened,omitempty"`
 	Rev         string                           `json:"rev" cborgen:"rev"`
 	UnreadCount int64                            `json:"unreadCount" cborgen:"unreadCount"`
 }
