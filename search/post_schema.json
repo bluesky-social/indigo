@@ -48,6 +48,28 @@
                         "kuromoji_stemmer",
                         "lowercase"
                     ]
+                },
+                "textKorean": {
+                    "type": "custom",
+                    "tokenizer": "nori_tokenizer",
+                    "char_filter": [ "icu_normalizer" ],
+                    "filter": [
+                        "nori_part_of_speech",
+                        "nori_readingform",
+                        "cjk_width",
+                        "lowercase"
+                    ]
+                },
+                "textKoreanSearch": {
+                    "type": "custom",
+                    "tokenizer": "nori_tokenizer",
+                    "char_filter": [ "icu_normalizer" ],
+                    "filter": [
+                        "nori_part_of_speech",
+                        "nori_readingform",
+                        "cjk_width",
+                        "lowercase"
+                    ]
                 }
             },
             "normalizer": {
@@ -76,6 +98,7 @@
         "created_at":     { "type": "date" },
         "text":           { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
         "text_ja":        { "type": "text", "analyzer": "textJapanese", "search_analyzer": "textJapaneseSearch", "copy_to": "everything_ja" },
+        "text_ko":        { "type": "text", "analyzer": "textKorean", "search_analyzer": "textKoreanSearch", "copy_to": "everything_ko" },
         "lang_code":      { "type": "keyword", "normalizer": "default" },
         "lang_code_iso2": { "type": "keyword", "normalizer": "default" },
         "mention_did":    { "type": "keyword", "normalizer": "default" },
@@ -84,6 +107,7 @@
         "embed_img_count": { "type": "integer" },
         "embed_img_alt_text": { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch", "copy_to": "everything" },
         "embed_img_alt_text_ja": { "type": "text", "analyzer": "textJapanese", "search_analyzer": "textJapaneseSearch", "copy_to": "everything_ja" },
+        "embed_img_alt_text_ko": { "type": "text", "analyzer": "textKorean", "search_analyzer": "textKoreanSearch", "copy_to": "everything_ko" },
         "self_label":     { "type": "keyword", "normalizer": "default" },
 
         "url":            { "type": "keyword", "normalizer": "default" },
@@ -95,6 +119,7 @@
 
         "everything":     { "type": "text", "analyzer": "textIcu", "search_analyzer": "textIcuSearch" },
         "everything_ja":  { "type": "text", "analyzer": "textJapanese", "search_analyzer": "textJapaneseSearch" },
+        "everything_ko":  { "type": "text", "analyzer": "textKorean", "search_analyzer": "textKoreanSearch" },
 
         "lang":           { "type": "alias", "path": "lang_code_iso2" }
     }

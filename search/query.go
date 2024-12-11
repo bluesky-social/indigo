@@ -227,6 +227,9 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 	if containsJapanese(params.Query) {
 		idx = "everything_ja"
 	}
+	if containsKorean(params.Query) {
+		idx = "everything_ko"
+	}
 	basic := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
 			"query":            params.Query,
