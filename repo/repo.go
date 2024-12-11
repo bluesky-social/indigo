@@ -80,7 +80,7 @@ func IngestRepo(ctx context.Context, bs blockstore.Blockstore, r io.Reader) (cid
 
 	br, err := car.NewBlockReader(r)
 	if err != nil {
-		return cid.Undef, err
+		return cid.Undef, fmt.Errorf("IngestRepo:NewBlockReader: %w", err)
 	}
 
 	for {
@@ -89,11 +89,11 @@ func IngestRepo(ctx context.Context, bs blockstore.Blockstore, r io.Reader) (cid
 			if err == io.EOF {
 				break
 			}
-			return cid.Undef, err
+			return cid.Undef, fmt.Errorf("IngestRepo:Next: %w", err)
 		}
 
 		if err := bs.Put(ctx, blk); err != nil {
-			return cid.Undef, err
+			return cid.Undef, fmt.Errorf("IngestRepo:Put: %w", err)
 		}
 	}
 
@@ -104,7 +104,7 @@ func ReadRepoFromCar(ctx context.Context, r io.Reader) (*Repo, error) {
 	bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
 	root, err := IngestRepo(ctx, bs, r)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ReadRepoFromCar:IngestRepo: %w", err)
 	}
 
 	return OpenRepo(ctx, bs, root)
