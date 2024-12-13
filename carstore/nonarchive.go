@@ -100,7 +100,7 @@ func (cs *NonArchivalCarstore) updateLastCommit(ctx context.Context, uid models.
 	cri := &commitRefInfo{
 		Uid:  uid,
 		Rev:  rev,
-		Root: models.DbCID{cid},
+		Root: models.DbCID{CID: cid},
 	}
 
 	if err := cs.db.Clauses(clause.OnConflict{
