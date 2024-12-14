@@ -52,6 +52,8 @@ type Engine struct {
 type EngineConfig struct {
 	// if enabled, account metadata is not hydrated for every event by default
 	SkipAccountMeta bool
+	// if true, sent firehose identity and account events to ozone backend as events
+	PersistSubjectHistoryOzone bool
 	// time period within which automod will not re-report an account for the same reasonType
 	ReportDupePeriod time.Duration
 	// number of reports automod can file per day, for all subjects and types combined (circuit breaker)
@@ -122,6 +124,11 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, evt comatproto.Sync
 		return fmt.Errorf("rule execution failed: %w", err)
 	}
 	eng.CanonicalLogLineAccount(&ac)
+	if eng.Config.PersistSubjectHistoryOzone {
+		if err := eng.RerouteIdentityEventToOzone(ctx, &evt); err != nil {
+			return fmt.Errorf("failed to persist identity event to ozone history: %w", err)
+		}
+	}
 	if err := eng.persistAccountModActions(&ac); err != nil {
 		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("failed to persist actions for identity event: %w", err)
@@ -193,6 +200,11 @@ func (eng *Engine) ProcessAccountEvent(ctx context.Context, evt comatproto.SyncS
 		return fmt.Errorf("rule execution failed: %w", err)
 	}
 	eng.CanonicalLogLineAccount(&ac)
+	if eng.Config.PersistSubjectHistoryOzone {
+		if err := eng.RerouteAccountEventToOzone(ctx, &evt); err != nil {
+			return fmt.Errorf("failed to persist account event to ozone history: %w", err)
+		}
+	}
 	if err := eng.persistAccountModActions(&ac); err != nil {
 		eventErrorCount.WithLabelValues("account").Inc()
 		return fmt.Errorf("failed to persist actions for account event: %w", err)
@@ -282,6 +294,11 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 	if err := eng.persistCounters(ctx, rc.effects); err != nil {
 		eventErrorCount.WithLabelValues("record").Inc()
 		return fmt.Errorf("failed to persist counts for record event: %w", err)
+	}
+	if eng.Config.PersistSubjectHistoryOzone {
+		if err := eng.RerouteRecordOpToOzone(&rc); err != nil {
+			return fmt.Errorf("failed to persist account event to ozone history: %w", err)
+		}
 	}
 	return nil
 }
