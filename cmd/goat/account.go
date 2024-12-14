@@ -38,6 +38,12 @@ var cmdAccount = &cli.Command{
 					EnvVars:  []string{"ATP_AUTH_PASSWORD"},
 				},
 				&cli.StringFlag{
+					Name:    "auth-factor-token",
+					Aliases: []string{"t"},
+					Usage:   "token required if password is used and 2fa is required",
+					EnvVars: []string{"ATP_AUTH_TOKEN"},
+				},
+				&cli.StringFlag{
 					Name:    "pds-host",
 					Usage:   "URL of the PDS to create account on (overrides DID doc)",
 					EnvVars: []string{"ATP_PDS_HOST"},
@@ -163,7 +169,7 @@ func runAccountLogin(cctx *cli.Context) error {
 		return err
 	}
 
-	_, err = refreshAuthSession(ctx, *username, cctx.String("app-password"), cctx.String("pds-host"))
+	_, err = refreshAuthSession(ctx, *username, cctx.String("app-password"), cctx.String("auth-factor-token"), cctx.String("pds-host"))
 	return err
 }
 
