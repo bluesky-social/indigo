@@ -1,22 +1,18 @@
 package testing
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"strings"
 	"testing"
 	"time"
 
-	atproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/xrpc"
-	"github.com/ipfs/go-cid"
-	car "github.com/ipld/go-car"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/xrpc"
 )
 
 func TestRelayBasic(t *testing.T) {
@@ -439,34 +435,6 @@ func TestRelayTakedown(t *testing.T) {
 
 	last := es2.Next()
 	assert.Equal(alice.did, last.RepoCommit.Repo)
-}
-
-func jsonPrint(v any) {
-	b, _ := json.Marshal(v)
-	fmt.Println(string(b))
-}
-
-func commitFromSlice(t *testing.T, slice []byte, rcid cid.Cid) *repo.SignedCommit {
-	carr, err := car.NewCarReader(bytes.NewReader(slice))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for {
-		blk, err := carr.Next()
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if blk.Cid() == rcid {
-
-			var sc repo.SignedCommit
-			if err := sc.UnmarshalCBOR(bytes.NewReader(blk.RawData())); err != nil {
-				t.Fatal(err)
-			}
-			return &sc
-		}
-	}
 }
 
 func TestDomainBans(t *testing.T) {

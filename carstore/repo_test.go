@@ -11,10 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
-	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/util"
 	sqlbs "github.com/ipfs/go-bs-sqlite3"
 	"github.com/ipfs/go-cid"
 	flatfs "github.com/ipfs/go-ds-flatfs"
@@ -22,6 +18,10 @@ import (
 	ipld "github.com/ipfs/go-ipld-format"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+
+	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/util"
 )
 
 func testCarStore() (CarStore, func(), error) {
@@ -114,7 +114,7 @@ func TestBasicOperation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		rc, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
+		rc, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
 			Text: fmt.Sprintf("hey look its a tweet %d", time.Now().UnixNano()),
 		})
 		if err != nil {
@@ -204,7 +204,7 @@ func TestRepeatedCompactions(t *testing.T) {
 				}
 				recs = recs[:len(recs)-1]
 			} else {
-				rc, tid, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
+				rc, tid, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
 					Text: fmt.Sprintf("hey look its a tweet %d", time.Now().UnixNano()),
 				})
 				if err != nil {
@@ -356,7 +356,7 @@ func BenchmarkRepoWritesCarstore(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		if _, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
+		if _, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
 			Text: fmt.Sprintf("hey look its a tweet %s", time.Now()),
 		}); err != nil {
 			b.Fatal(err)
@@ -404,7 +404,7 @@ func BenchmarkRepoWritesFlatfs(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		if _, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
+		if _, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
 			Text: fmt.Sprintf("hey look its a tweet %s", time.Now()),
 		}); err != nil {
 			b.Fatal(err)
@@ -442,7 +442,7 @@ func BenchmarkRepoWritesSqlite(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		if _, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
+		if _, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
 			Text: fmt.Sprintf("hey look its a tweet %s", time.Now()),
 		}); err != nil {
 			b.Fatal(err)
@@ -511,7 +511,7 @@ func TestDuplicateBlockAcrossShards(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		rc, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &appbsky.FeedPost{
+		rc, _, err := rr.CreateRecord(ctx, "app.bsky.feed.post", &bsky.FeedPost{
 			Text: fmt.Sprintf("hey look its a tweet %d", time.Now().UnixNano()),
 		})
 		if err != nil {
@@ -552,7 +552,7 @@ func TestDuplicateBlockAcrossShards(t *testing.T) {
 		}
 
 		desc := "this is so unique"
-		rc, err := rr.UpdateRecord(ctx, "app.bsky.actor.profile/self", &appbsky.ActorProfile{
+		rc, err := rr.UpdateRecord(ctx, "app.bsky.actor.profile/self", &bsky.ActorProfile{
 			Description: &desc,
 		})
 		if err != nil {
@@ -576,8 +576,6 @@ func TestDuplicateBlockAcrossShards(t *testing.T) {
 		if _, err := ds.CloseWithRoot(ctx, nroot, rev); err != nil {
 			t.Fatal(err)
 		}
-
-		head = nroot
 	}
 
 	buf := new(bytes.Buffer)

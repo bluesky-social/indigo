@@ -12,7 +12,6 @@ import (
 )
 
 var (
-	puncChars                    = regexp.MustCompile(`[[:punct:]]+`)
 	nonTokenChars                = regexp.MustCompile(`[^\pL\pN\s]+`)
 	nonTokenCharsSkipCensorChars = regexp.MustCompile(`[^\pL\pN\s#*_-]`)
 )

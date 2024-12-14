@@ -53,11 +53,6 @@ var lastEvtCreatedAtGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Help: "The timestamp of the last event created",
 }, []string{"socket_url"})
 
-var lastRecordCreatedAtGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-	Name: "sonar_last_record_created_at",
-	Help: "The timestamp of the last record processed",
-}, []string{"socket_url"})
-
 var lastEvtCreatedRecordCreatedGapGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "sonar_last_evt_created_record_created_gap",
 	Help: "The gap between the last event's event timestamp and it's record timestamp",

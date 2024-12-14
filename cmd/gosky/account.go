@@ -2,15 +2,14 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/util/cliutil"
+	"github.com/urfave/cli/v2"
 
-	cli "github.com/urfave/cli/v2"
+	"github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/util/cliutil"
 )
 
 var accountCmd = &cli.Command{
@@ -40,7 +39,7 @@ var createSessionCmd = &cli.Command{
 		}
 		handle, password := args[0], args[1]
 
-		ses, err := comatproto.ServerCreateSession(context.TODO(), xrpcc, &comatproto.ServerCreateSession_Input{
+		ses, err := atproto.ServerCreateSession(cctx.Context, xrpcc, &atproto.ServerCreateSession_Input{
 			Identifier: handle,
 			Password:   password,
 		})
@@ -78,7 +77,7 @@ var newAccountCmd = &cli.Command{
 			invite = &inv
 		}
 
-		acc, err := comatproto.ServerCreateAccount(context.TODO(), xrpcc, &comatproto.ServerCreateAccount_Input{
+		acc, err := atproto.ServerCreateAccount(cctx.Context, xrpcc, &atproto.ServerCreateAccount_Input{
 			Email:      &email,
 			Handle:     handle,
 			InviteCode: invite,
@@ -102,7 +101,7 @@ var resetPasswordCmd = &cli.Command{
 	Name:      "reset-password",
 	ArgsUsage: `<email>`,
 	Action: func(cctx *cli.Context) error {
-		ctx := context.TODO()
+		ctx := cctx.Context
 
 		xrpcc, err := cliutil.GetXrpcClient(cctx, false)
 		if err != nil {
@@ -115,7 +114,7 @@ var resetPasswordCmd = &cli.Command{
 		}
 		email := args[0]
 
-		err = comatproto.ServerRequestPasswordReset(ctx, xrpcc, &comatproto.ServerRequestPasswordReset_Input{
+		err = atproto.ServerRequestPasswordReset(ctx, xrpcc, &atproto.ServerRequestPasswordReset_Input{
 			Email: email,
 		})
 		if err != nil {
@@ -131,7 +130,7 @@ var resetPasswordCmd = &cli.Command{
 		inp.Scan()
 		npass := inp.Text()
 
-		if err := comatproto.ServerResetPassword(ctx, xrpcc, &comatproto.ServerResetPassword_Input{
+		if err := atproto.ServerResetPassword(ctx, xrpcc, &atproto.ServerResetPassword_Input{
 			Password: npass,
 			Token:    code,
 		}); err != nil {
@@ -154,8 +153,8 @@ var refreshAuthTokenCmd = &cli.Command{
 		a := xrpcc.Auth
 		a.AccessJwt = a.RefreshJwt
 
-		ctx := context.TODO()
-		nauth, err := comatproto.ServerRefreshSession(ctx, xrpcc)
+		ctx := cctx.Context
+		nauth, err := atproto.ServerRefreshSession(ctx, xrpcc)
 		if err != nil {
 			return err
 		}
@@ -181,7 +180,7 @@ var requestAccountDeletionCmd = &cli.Command{
 			return err
 		}
 
-		err = comatproto.ServerRequestAccountDelete(cctx.Context, xrpcc)
+		err = atproto.ServerRequestAccountDelete(cctx.Context, xrpcc)
 		if err != nil {
 			return err
 		}
@@ -203,7 +202,7 @@ var deleteAccountCmd = &cli.Command{
 		token := cctx.Args().First()
 		password := cctx.Args().Get(1)
 
-		err = comatproto.ServerDeleteAccount(cctx.Context, xrpcc, &comatproto.ServerDeleteAccount_Input{
+		err = atproto.ServerDeleteAccount(cctx.Context, xrpcc, &atproto.ServerDeleteAccount_Input{
 			Did:      xrpcc.Auth.Did,
 			Token:    token,
 			Password: password,

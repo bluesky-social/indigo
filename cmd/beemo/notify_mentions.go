@@ -62,7 +62,7 @@ func (mc *MentionChecker) ProcessPost(ctx context.Context, did syntax.DID, rkey 
 }
 
 func notifyMentions(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	logger := configLogger(cctx, os.Stdout)
 	relayHost := cctx.String("relay-host")
 	minimumWords := cctx.Int("minimum-words")

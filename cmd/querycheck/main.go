@@ -5,26 +5,22 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 
-	"net/http"
-	_ "net/http/pprof"
+	"github.com/carlmjohnson/versioninfo"
+	"github.com/labstack/echo-contrib/pprof"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/urfave/cli/v2"
 
 	"github.com/bluesky-social/indigo/querycheck"
 	"github.com/bluesky-social/indigo/util/tracing"
-	"github.com/labstack/echo-contrib/pprof"
-	"github.com/labstack/echo/v4"
-
-	"github.com/labstack/echo/v4/middleware"
-
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.opentelemetry.io/otel/trace"
-
-	"github.com/carlmjohnson/versioninfo"
-	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -62,8 +58,6 @@ func main() {
 		log.Fatal(err)
 	}
 }
-
-var tracer trace.Tracer
 
 // Querycheck is the main function for querycheck
 func Querycheck(cctx *cli.Context) error {

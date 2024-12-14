@@ -5,12 +5,13 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"time"
 
-	"github.com/bluesky-social/indigo/models"
+	"github.com/bobg/errors"
 	"github.com/cockroachdb/pebble"
+
+	"github.com/bluesky-social/indigo/models"
 )
 
 type PebblePersist struct {
@@ -165,13 +166,18 @@ var ErrNoLast = errors.New("no last event")
 func (pp *PebblePersist) GetLast(ctx context.Context) (seq, millis int64, evt *XRPCStreamEvent, err error) {
 	iter, err := pp.db.NewIterWithContext(ctx, &pebble.IterOptions{})
 	if err != nil {
-		return 0, 0, nil, err
+		return 0, 0, nil, errors.Wrap(err, "in NewIterWithContext")
 	}
 	ok := iter.Last()
 	if !ok {
 		return 0, 0, nil, ErrNoLast
 	}
+
 	evt, err = eventFromPebbleIter(iter)
+	if err != nil {
+		return 0, 0, nil, errors.Wrap(err, "in eventFromPebbleIter")
+	}
+
 	keyblob := iter.Key()
 	seq = int64(binary.BigEndian.Uint64(keyblob[:8]))
 	millis = int64(binary.BigEndian.Uint64(keyblob[8:16]))

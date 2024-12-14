@@ -11,18 +11,17 @@ import (
 	"net/url"
 	"strings"
 
-	atproto "github.com/bluesky-social/indigo/api/atproto"
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/mst"
-	"gorm.io/gorm"
-
-	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/ipld/go-car"
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
+
+	atproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/mst"
+	"github.com/bluesky-social/indigo/xrpc"
 )
 
 func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection string, did string, rkey string) (io.Reader, error) {
@@ -70,6 +69,9 @@ func (s *BGS) handleComAtprotoSyncGetRecord(ctx context.Context, collection stri
 		Roots:   []cid.Cid{root},
 		Version: 1,
 	})
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to dump car header (%s)", err))
+	}
 	if _, err := carstore.LdWrite(buf, hb); err != nil {
 		return nil, err
 	}
@@ -128,7 +130,7 @@ func (s *BGS) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []string, 
 	return nil, fmt.Errorf("NYI")
 }
 
-func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatprototypes.SyncRequestCrawl_Input) error {
+func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *atproto.SyncRequestCrawl_Input) error {
 	host := body.Hostname
 	if host == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname")
@@ -144,7 +146,7 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 
 	u, err := url.Parse(host)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "failed to parse hostname")
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to parse hostname (%s)", err))
 	}
 
 	if u.Scheme == "http" && s.ssl {
@@ -166,6 +168,9 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 	host = u.Host // potentially hostname:port
 
 	banned, err := s.domainIsBanned(ctx, host)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to check if domain is banned (%s)", err))
+	}
 	if banned {
 		return echo.NewHTTPError(http.StatusUnauthorized, "domain is banned")
 	}
@@ -215,21 +220,21 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 	return s.slurper.SubscribeToPds(ctx, host, true, false)
 }
 
-func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, body *comatprototypes.SyncNotifyOfUpdate_Input) error {
+func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, body *atproto.SyncNotifyOfUpdate_Input) error {
 	// TODO:
 	return nil
 }
 
-func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, limit int) (*comatprototypes.SyncListRepos_Output, error) {
+func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, limit int) (*atproto.SyncListRepos_Output, error) {
 	// Filter out tombstoned, taken down, and deactivated accounts
 	q := fmt.Sprintf("id > ? AND NOT tombstoned AND NOT taken_down AND (upstream_status is NULL OR (upstream_status != '%s' AND upstream_status != '%s' AND upstream_status != '%s'))",
 		events.AccountStatusDeactivated, events.AccountStatusSuspended, events.AccountStatusTakendown)
 
 	// Load the users
-	users := []*User{}
+	var users []*User
 	if err := s.db.Model(&User{}).Where(q, cursor).Order("id").Limit(limit).Find(&users).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return &comatprototypes.SyncListRepos_Output{}, nil
+			return &atproto.SyncListRepos_Output{}, nil
 		}
 		log.Error("failed to query users", "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to query users")
@@ -237,13 +242,13 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, l
 
 	if len(users) == 0 {
 		// resp.Repos is an explicit empty array, not just 'nil'
-		return &comatprototypes.SyncListRepos_Output{
-			Repos: []*comatprototypes.SyncListRepos_Repo{},
+		return &atproto.SyncListRepos_Output{
+			Repos: []*atproto.SyncListRepos_Repo{},
 		}, nil
 	}
 
-	resp := &comatprototypes.SyncListRepos_Output{
-		Repos: make([]*comatprototypes.SyncListRepos_Repo, len(users)),
+	resp := &atproto.SyncListRepos_Output{
+		Repos: make([]*atproto.SyncListRepos_Repo, len(users)),
 	}
 
 	// Fetch the repo roots for each user
@@ -256,7 +261,7 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, l
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get repo root for (%s): %v", user.Did, err.Error()))
 		}
 
-		resp.Repos[i] = &comatprototypes.SyncListRepos_Repo{
+		resp.Repos[i] = &atproto.SyncListRepos_Repo{
 			Did:  user.Did,
 			Head: root.String(),
 		}
@@ -271,7 +276,7 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, l
 	return resp, nil
 }
 
-func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatprototypes.SyncGetLatestCommit_Output, error) {
+func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*atproto.SyncGetLatestCommit_Output, error) {
 	u, err := s.lookupUserByDid(ctx, did)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -313,7 +318,7 @@ func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did strin
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to get repo rev")
 	}
 
-	return &comatprototypes.SyncGetLatestCommit_Output{
+	return &atproto.SyncGetLatestCommit_Output{
 		Cid: root.String(),
 		Rev: rev,
 	}, nil

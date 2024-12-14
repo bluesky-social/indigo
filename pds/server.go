@@ -13,8 +13,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt"
+	"github.com/gorilla/websocket"
+	"github.com/ipfs/go-cid"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"github.com/whyrusleeping/go-did"
+	"gorm.io/gorm"
+
 	"github.com/bluesky-social/indigo/api/atproto"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
@@ -26,16 +33,7 @@ import (
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
-	bsutil "github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
-	gojwt "github.com/golang-jwt/jwt"
-	"github.com/gorilla/websocket"
-	"github.com/ipfs/go-cid"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"github.com/lestrrat-go/jwx/v2/jwt"
-	"github.com/whyrusleeping/go-did"
-	"gorm.io/gorm"
 )
 
 type Server struct {
@@ -122,32 +120,6 @@ func NewServer(db *gorm.DB, cs carstore.CarStore, serkey *did.PrivKey, handleSuf
 
 func (s *Server) Shutdown(ctx context.Context) error {
 	return s.echo.Shutdown(ctx)
-}
-
-func (s *Server) handleFedEvent(ctx context.Context, host *Peering, env *events.XRPCStreamEvent) error {
-	fmt.Printf("[%s] got fed event from %q\n", s.serviceUrl, host.Host)
-	switch {
-	case env.RepoCommit != nil:
-		evt := env.RepoCommit
-		u, err := s.lookupUserByDid(ctx, evt.Repo)
-		if err != nil {
-			if !errors.Is(err, gorm.ErrRecordNotFound) {
-				return fmt.Errorf("looking up event user: %w", err)
-			}
-
-			subj, err := s.createExternalUser(ctx, evt.Repo)
-			if err != nil {
-				return err
-			}
-
-			u = new(User)
-			u.ID = subj.Uid
-		}
-
-		return s.repoman.HandleExternalUserEvent(ctx, host.ID, u.ID, u.Did, evt.Since, evt.Rev, evt.Blocks, evt.Ops)
-	default:
-		return fmt.Errorf("invalid fed event")
-	}
 }
 
 func (s *Server) createExternalUser(ctx context.Context, did string) (*models.ActorInfo, error) {
@@ -239,31 +211,6 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 	return subj, nil
 }
 
-func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent) (*comatproto.SyncSubscribeRepos_Commit, error) {
-	did, err := s.indexer.DidForUser(ctx, evt.User)
-	if err != nil {
-		return nil, err
-	}
-
-	out := &comatproto.SyncSubscribeRepos_Commit{
-		Prev:   (*lexutil.LexLink)(evt.OldRoot),
-		Blocks: evt.RepoSlice,
-		Repo:   did,
-		Time:   time.Now().Format(bsutil.ISO8601),
-		//PrivUid: evt.User,
-	}
-
-	for _, op := range evt.Ops {
-		out.Ops = append(out.Ops, &comatproto.SyncSubscribeRepos_RepoOp{
-			Path:   op.Collection + "/" + op.Rkey,
-			Action: string(op.Kind),
-			Cid:    (*lexutil.LexLink)(op.RecCid),
-		})
-	}
-
-	return out, nil
-}
-
 func (s *Server) readRecordFunc(ctx context.Context, user models.Uid, c cid.Cid) (lexutil.CBOR, error) {
 	bs, err := s.cs.ReadOnlySession(user)
 	if err != nil {
@@ -323,8 +270,8 @@ func (s *Server) RunAPIWithListener(listen net.Listener) error {
 
 				did := c.Request().Header.Get("DID")
 				ctx := c.Request().Context()
-				ctx = context.WithValue(ctx, "did", did)
-				ctx = context.WithValue(ctx, "auth", auth)
+				ctx = withDID(ctx, did)
+				ctx = withAuth(ctx, auth)
 				c.SetRequest(c.Request().WithContext(ctx))
 				return true
 			case "/.well-known/atproto-did":
@@ -475,8 +422,8 @@ func toTime(i interface{}) (time.Time, error) {
 	return time.Unix(int64(ival), 0), nil
 }
 
-func (s *Server) checkTokenValidity(user *gojwt.Token) (string, string, error) {
-	claims, ok := user.Claims.(gojwt.MapClaims)
+func (s *Server) checkTokenValidity(user *jwt.Token) (string, string, error) {
+	claims, ok := user.Claims.(jwt.MapClaims)
 	if !ok {
 		return "", "", fmt.Errorf("invalid token claims map")
 	}
@@ -565,15 +512,15 @@ func (s *Server) lookupUserByHandle(ctx context.Context, handle string) (*User, 
 
 func (s *Server) userCheckMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		ctx := c.Request().Context()
+		req := c.Request()
+		ctx := req.Context()
 
-		user, ok := c.Get("user").(*gojwt.Token)
-		if !ok {
+		token := getToken(ctx)
+		if token == nil {
 			return next(c)
 		}
-		ctx = context.WithValue(ctx, "token", user)
 
-		scope, did, err := s.checkTokenValidity(user)
+		scope, did, err := s.checkTokenValidity(token)
 		if err != nil {
 			return fmt.Errorf("invalid token: %w", err)
 		}
@@ -583,22 +530,20 @@ func (s *Server) userCheckMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return err
 		}
 
-		ctx = context.WithValue(ctx, "authScope", scope)
-		ctx = context.WithValue(ctx, "user", u)
-		ctx = context.WithValue(ctx, "did", did)
+		ctx = withAuthScope(ctx, scope)
+		ctx = withUser(ctx, u)
+		ctx = withDID(ctx, did)
 
-		c.SetRequest(c.Request().WithContext(ctx))
+		c.SetRequest(req.WithContext(ctx))
 		return next(c)
 	}
 }
 
 func (s *Server) getUser(ctx context.Context) (*User, error) {
-	u, ok := ctx.Value("user").(*User)
-	if !ok {
+	u := getUser(ctx)
+	if u == nil {
 		return nil, fmt.Errorf("auth required")
 	}
-
-	//u.Did = ctx.Value("did").(string)
 
 	return u, nil
 }
@@ -750,7 +695,7 @@ func (s *Server) UpdateUserHandle(ctx context.Context, u *User, handle string) e
 	}
 
 	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoHandle: &comatproto.SyncSubscribeRepos_Handle{
+		RepoHandle: &atproto.SyncSubscribeRepos_Handle{
 			Did:    u.Did,
 			Handle: handle,
 			Time:   time.Now().Format(util.ISO8601),
@@ -761,7 +706,7 @@ func (s *Server) UpdateUserHandle(ctx context.Context, u *User, handle string) e
 
 	// Also push an Identity event
 	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoIdentity: &comatproto.SyncSubscribeRepos_Identity{
+		RepoIdentity: &atproto.SyncSubscribeRepos_Identity{
 			Did:  u.Did,
 			Time: time.Now().Format(util.ISO8601),
 		},
@@ -775,7 +720,7 @@ func (s *Server) UpdateUserHandle(ctx context.Context, u *User, handle string) e
 func (s *Server) TakedownRepo(ctx context.Context, did string) error {
 	// Push an Account event
 	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+		RepoAccount: &atproto.SyncSubscribeRepos_Account{
 			Did:    did,
 			Active: false,
 			Status: &events.AccountStatusTakendown,
@@ -791,7 +736,7 @@ func (s *Server) TakedownRepo(ctx context.Context, did string) error {
 func (s *Server) SuspendRepo(ctx context.Context, did string) error {
 	// Push an Account event
 	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+		RepoAccount: &atproto.SyncSubscribeRepos_Account{
 			Did:    did,
 			Active: false,
 			Status: &events.AccountStatusSuspended,
@@ -807,7 +752,7 @@ func (s *Server) SuspendRepo(ctx context.Context, did string) error {
 func (s *Server) DeactivateRepo(ctx context.Context, did string) error {
 	// Push an Account event
 	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+		RepoAccount: &atproto.SyncSubscribeRepos_Account{
 			Did:    did,
 			Active: false,
 			Status: &events.AccountStatusDeactivated,
@@ -823,7 +768,7 @@ func (s *Server) DeactivateRepo(ctx context.Context, did string) error {
 func (s *Server) ReactivateRepo(ctx context.Context, did string) error {
 	// Push an Account event
 	if err := s.events.AddEvent(ctx, &events.XRPCStreamEvent{
-		RepoAccount: &comatproto.SyncSubscribeRepos_Account{
+		RepoAccount: &atproto.SyncSubscribeRepos_Account{
 			Did:    did,
 			Active: true,
 			Status: &events.AccountStatusActive,

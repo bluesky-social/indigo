@@ -66,9 +66,7 @@ func (fd *FakeDid) GetDocument(ctx context.Context, udid string) (*did.Document,
 	}, nil
 }
 
-func (fd *FakeDid) FlushCacheFor(did string) {
-	return
-}
+func (fd *FakeDid) FlushCacheFor(did string) {}
 
 func (fd *FakeDid) CreateDID(ctx context.Context, sigkey *did.PrivKey, recovery string, handle string, service string) (string, error) {
 	buf := make([]byte, 8)

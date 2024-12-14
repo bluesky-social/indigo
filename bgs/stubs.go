@@ -173,13 +173,8 @@ func (s *BGS) HandleComAtprotoSyncNotifyOfUpdate(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid body: %s", err)})
 	}
-	var handleErr error
-	// func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context,body *comatprototypes.SyncNotifyOfUpdate_Input) error
-	handleErr = s.handleComAtprotoSyncNotifyOfUpdate(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoSyncNotifyOfUpdate(ctx, &body)
 }
 
 func (s *BGS) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
@@ -190,11 +185,6 @@ func (s *BGS) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid body: %s", err)})
 	}
-	var handleErr error
-	// func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context,body *comatprototypes.SyncRequestCrawl_Input) error
-	handleErr = s.handleComAtprotoSyncRequestCrawl(ctx, &body)
-	if handleErr != nil {
-		return handleErr
-	}
-	return nil
+
+	return s.handleComAtprotoSyncRequestCrawl(ctx, &body)
 }

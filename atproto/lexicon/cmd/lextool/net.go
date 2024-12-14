@@ -1,22 +1,22 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 
+	"github.com/bobg/errors"
+	"github.com/urfave/cli/v2"
+
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/lexicon"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-
-	"github.com/urfave/cli/v2"
 )
 
 func runValidateRecord(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	args := cctx.Args().Slice()
 	if len(args) != 2 {
 		return fmt.Errorf("expected two args (catalog path and AT-URI)")
@@ -29,12 +29,12 @@ func runValidateRecord(cctx *cli.Context) error {
 	cat := lexicon.NewBaseCatalog()
 	err := cat.LoadDirectory(p)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "in LoadDirectory")
 	}
 
 	aturi, err := syntax.ParseATURI(args[1])
 	if err != nil {
-		return err
+		return errors.Wrap(err, "in ParseATURI")
 	}
 	if aturi.RecordKey() == "" {
 		return fmt.Errorf("need a full, not partial, AT-URI: %s", aturi)
@@ -54,17 +54,24 @@ func runValidateRecord(cctx *cli.Context) error {
 		pdsURL, ident.DID, aturi.Collection(), aturi.RecordKey())
 	resp, err := http.Get(url)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "in http.Get")
 	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("fetch failed")
 	}
+
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "in ReadAll")
 	}
 
 	body, err := data.UnmarshalJSON(respBytes)
+	if err != nil {
+		return errors.Wrap(err, "in UnmarshalJSON")
+	}
+
 	record, ok := body["value"].(map[string]any)
 	if !ok {
 		return fmt.Errorf("fetched record was not an object")
@@ -73,7 +80,7 @@ func runValidateRecord(cctx *cli.Context) error {
 	slog.Info("validating", "did", ident.DID.String(), "collection", aturi.Collection().String(), "rkey", aturi.RecordKey().String())
 	err = lexicon.ValidateRecord(&cat, record, aturi.Collection().String(), lexicon.LenientMode)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "in ValidateRecord")
 	}
 	fmt.Println("success!")
 	return nil

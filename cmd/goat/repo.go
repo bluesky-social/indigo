@@ -2,21 +2,20 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/ipfs/go-cid"
+	"github.com/urfave/cli/v2"
+
+	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/xrpc"
-
-	"github.com/ipfs/go-cid"
-	"github.com/urfave/cli/v2"
 )
 
 var cmdRepo = &cli.Command{
@@ -75,7 +74,7 @@ var cmdRepo = &cli.Command{
 }
 
 func runRepoExport(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	username := cctx.Args().First()
 	if username == "" {
 		return fmt.Errorf("need to provide username as an argument")
@@ -104,7 +103,7 @@ func runRepoExport(cctx *cli.Context) error {
 		return fmt.Errorf("file already exists: %s", carPath)
 	}
 	fmt.Printf("downloading from %s to: %s\n", xrpcc.Host, carPath)
-	repoBytes, err := comatproto.SyncGetRepo(ctx, &xrpcc, ident.DID.String(), "")
+	repoBytes, err := atproto.SyncGetRepo(ctx, &xrpcc, ident.DID.String(), "")
 	if err != nil {
 		return err
 	}
@@ -112,7 +111,7 @@ func runRepoExport(cctx *cli.Context) error {
 }
 
 func runRepoImport(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	carPath := cctx.Args().First()
 	if carPath == "" {
@@ -131,7 +130,7 @@ func runRepoImport(cctx *cli.Context) error {
 		return err
 	}
 
-	err = comatproto.RepoImportRepo(ctx, xrpcc, bytes.NewReader(fileBytes))
+	err = atproto.RepoImportRepo(ctx, xrpcc, bytes.NewReader(fileBytes))
 	if err != nil {
 		return fmt.Errorf("failed to import repo: %w", err)
 	}
@@ -140,7 +139,7 @@ func runRepoImport(cctx *cli.Context) error {
 }
 
 func runRepoList(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	carPath := cctx.Args().First()
 	if carPath == "" {
 		return fmt.Errorf("need to provide path to CAR file as argument")
@@ -167,7 +166,7 @@ func runRepoList(cctx *cli.Context) error {
 }
 
 func runRepoInspect(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	carPath := cctx.Args().First()
 	if carPath == "" {
 		return fmt.Errorf("need to provide path to CAR file as argument")
@@ -195,7 +194,7 @@ func runRepoInspect(cctx *cli.Context) error {
 }
 
 func runRepoUnpack(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	carPath := cctx.Args().First()
 	if carPath == "" {
 		return fmt.Errorf("need to provide path to CAR file as argument")

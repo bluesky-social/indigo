@@ -2,17 +2,17 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/bobg/errors"
+	"github.com/ipfs/go-cid"
+	"github.com/urfave/cli/v2"
+
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/repo"
-
-	"github.com/ipfs/go-cid"
-	cli "github.com/urfave/cli/v2"
 )
 
 var carCmd = &cli.Command{
@@ -38,7 +38,7 @@ var carUnpackCmd = &cli.Command{
 	},
 	ArgsUsage: `<car-file>`,
 	Action: func(cctx *cli.Context) error {
-		ctx := context.Background()
+		ctx := cctx.Context
 		arg := cctx.Args().First()
 		if arg == "" {
 			return fmt.Errorf("CAR file path arg is required")
@@ -70,56 +70,48 @@ var carUnpackCmd = &cli.Command{
 		os.MkdirAll(filepath.Dir(commitPath), os.ModePerm)
 		if cctx.Bool("cbor") {
 			cborBytes := new(bytes.Buffer)
-			err = sc.MarshalCBOR(cborBytes)
-			if err := os.WriteFile(commitPath+".cbor", cborBytes.Bytes(), 0666); err != nil {
-				return err
+			if err := sc.MarshalCBOR(cborBytes); err != nil {
+				return errors.Wrap(err, "in MarshalCBOR")
 			}
-		} else {
-			recJson, err := json.MarshalIndent(sc, "", "  ")
-			if err != nil {
-				return err
-			}
-			if err := os.WriteFile(commitPath+".json", recJson, 0666); err != nil {
-				return err
-			}
+			err := os.WriteFile(commitPath+".cbor", cborBytes.Bytes(), 0666)
+			return errors.Wrap(err, "in WriteFile")
 		}
 
-		err = r.ForEach(ctx, "", func(k string, v cid.Cid) error {
+		recJson, err := json.MarshalIndent(sc, "", "  ")
+		if err != nil {
+			return errors.Wrap(err, "in MarshalIndent")
+		}
+		if err := os.WriteFile(commitPath+".json", recJson, 0666); err != nil {
+			return errors.Wrap(err, "in WriteFile")
+		}
 
+		return r.ForEach(ctx, "", func(k string, v cid.Cid) error {
 			_, rec, err := r.GetRecord(ctx, k)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "getting record %s", k)
 			}
 			log.Debug("processing record", "rec", k)
 
 			// TODO: check if path is safe more carefully
 			recPath := topDir + "/" + k
-			os.MkdirAll(filepath.Dir(recPath), os.ModePerm)
-			if err != nil {
-				return err
+			if err := os.MkdirAll(filepath.Dir(recPath), os.ModePerm); err != nil {
+				return errors.Wrap(err, "in MkdirAll")
 			}
 			if cctx.Bool("cbor") {
 				cborBytes := new(bytes.Buffer)
-				err = rec.MarshalCBOR(cborBytes)
-				if err := os.WriteFile(recPath+".cbor", cborBytes.Bytes(), 0666); err != nil {
-					return err
+				if err := rec.MarshalCBOR(cborBytes); err != nil {
+					return errors.Wrap(err, "in MarshalCBOR")
 				}
-			} else {
-				recJson, err := json.MarshalIndent(rec, "", "  ")
-				if err != nil {
-					return err
-				}
-				if err := os.WriteFile(recPath+".json", recJson, 0666); err != nil {
-					return err
-				}
+				err := os.WriteFile(recPath+".cbor", cborBytes.Bytes(), 0666)
+				return errors.Wrap(err, "in WriteFile")
 			}
 
-			return nil
+			recJson, err := json.MarshalIndent(rec, "", "  ")
+			if err != nil {
+				return errors.Wrap(err, "in MarshalIndent")
+			}
+			err = os.WriteFile(recPath+".json", recJson, 0666)
+			return errors.Wrap(err, "in WriteFile")
 		})
-		if err != nil {
-			return err
-		}
-
-		return nil
 	},
 }

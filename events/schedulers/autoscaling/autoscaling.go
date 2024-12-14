@@ -165,7 +165,6 @@ type consumerTask struct {
 	repo   string
 	val    *events.XRPCStreamEvent
 	signal string
-	wg     *sync.WaitGroup
 }
 
 func (p *Scheduler) AddWork(ctx context.Context, repo string, val *events.XRPCStreamEvent) error {

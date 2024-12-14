@@ -1,16 +1,15 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	cli "github.com/urfave/cli/v2"
+
+	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util/cliutil"
-
-	cli "github.com/urfave/cli/v2"
 )
 
 var syncCmd = &cli.Command{
@@ -33,7 +32,7 @@ var syncGetRepoCmd = &cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
-		ctx := context.Background()
+		ctx := cctx.Context
 		arg := cctx.Args().First()
 		if arg == "" {
 			return fmt.Errorf("at-identifier arg is required")
@@ -67,7 +66,7 @@ var syncGetRepoCmd = &cli.Command{
 		}
 
 		log.Info("downloading", "from", xrpcc.Host, "to", carPath)
-		repoBytes, err := comatproto.SyncGetRepo(ctx, xrpcc, ident.DID.String(), "")
+		repoBytes, err := atproto.SyncGetRepo(ctx, xrpcc, ident.DID.String(), "")
 		if err != nil {
 			return err
 		}
@@ -90,7 +89,7 @@ var syncGetRootCmd = &cli.Command{
 			return err
 		}
 
-		ctx := context.TODO()
+		ctx := cctx.Context
 
 		atid, err := syntax.ParseAtIdentifier(cctx.Args().First())
 		if err != nil {
@@ -103,17 +102,12 @@ var syncGetRootCmd = &cli.Command{
 			return err
 		}
 
-		carPath := cctx.Args().Get(1)
-		if carPath == "" {
-			carPath = ident.DID.String() + ".car"
-		}
-
 		xrpcc.Host = ident.PDSEndpoint()
 		if xrpcc.Host == "" {
 			return fmt.Errorf("no PDS endpoint for identity")
 		}
 
-		root, err := comatproto.SyncGetHead(ctx, xrpcc, cctx.Args().First())
+		root, err := atproto.SyncGetHead(ctx, xrpcc, cctx.Args().First())
 		if err != nil {
 			return err
 		}
@@ -134,7 +128,7 @@ var syncListReposCmd = &cli.Command{
 
 		var curs string
 		for {
-			out, err := comatproto.SyncListRepos(context.TODO(), xrpcc, curs, 1000)
+			out, err := atproto.SyncListRepos(cctx.Context, xrpcc, curs, 1000)
 			if err != nil {
 				return err
 			}

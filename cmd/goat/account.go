@@ -1,17 +1,16 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/urfave/cli/v2"
+
+	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
-
-	"github.com/urfave/cli/v2"
 )
 
 var cmdAccount = &cli.Command{
@@ -156,7 +155,7 @@ var cmdAccount = &cli.Command{
 }
 
 func runAccountLogin(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	username, err := syntax.ParseAtIdentifier(cctx.String("username"))
 	if err != nil {
@@ -172,7 +171,7 @@ func runAccountLogout(cctx *cli.Context) error {
 }
 
 func runAccountLookup(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 	username := cctx.Args().First()
 	if username == "" {
 		return fmt.Errorf("need to provide username as an argument")
@@ -190,7 +189,7 @@ func runAccountLookup(cctx *cli.Context) error {
 		return fmt.Errorf("no PDS endpoint for identity")
 	}
 
-	status, err := comatproto.SyncGetRepoStatus(ctx, &xrpcc, ident.DID.String())
+	status, err := atproto.SyncGetRepoStatus(ctx, &xrpcc, ident.DID.String())
 	if err != nil {
 		return err
 	}
@@ -207,7 +206,7 @@ func runAccountLookup(cctx *cli.Context) error {
 }
 
 func runAccountStatus(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	client, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -216,7 +215,7 @@ func runAccountStatus(cctx *cli.Context) error {
 		return err
 	}
 
-	status, err := comatproto.ServerCheckAccountStatus(ctx, client)
+	status, err := atproto.ServerCheckAccountStatus(ctx, client)
 	if err != nil {
 		return fmt.Errorf("failed checking account status: %w", err)
 	}
@@ -233,7 +232,7 @@ func runAccountStatus(cctx *cli.Context) error {
 }
 
 func runAccountMissingBlobs(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	client, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -244,7 +243,7 @@ func runAccountMissingBlobs(cctx *cli.Context) error {
 
 	cursor := ""
 	for {
-		resp, err := comatproto.RepoListMissingBlobs(ctx, client, cursor, 500)
+		resp, err := atproto.RepoListMissingBlobs(ctx, client, cursor, 500)
 		if err != nil {
 			return err
 		}
@@ -261,7 +260,7 @@ func runAccountMissingBlobs(cctx *cli.Context) error {
 }
 
 func runAccountActivate(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	client, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -270,7 +269,7 @@ func runAccountActivate(cctx *cli.Context) error {
 		return err
 	}
 
-	err = comatproto.ServerActivateAccount(ctx, client)
+	err = atproto.ServerActivateAccount(ctx, client)
 	if err != nil {
 		return fmt.Errorf("failed activating account: %w", err)
 	}
@@ -279,7 +278,7 @@ func runAccountActivate(cctx *cli.Context) error {
 }
 
 func runAccountDeactivate(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	client, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -288,7 +287,7 @@ func runAccountDeactivate(cctx *cli.Context) error {
 		return err
 	}
 
-	err = comatproto.ServerDeactivateAccount(ctx, client, &comatproto.ServerDeactivateAccount_Input{})
+	err = atproto.ServerDeactivateAccount(ctx, client, &atproto.ServerDeactivateAccount_Input{})
 	if err != nil {
 		return fmt.Errorf("failed deactivating account: %w", err)
 	}
@@ -297,7 +296,7 @@ func runAccountDeactivate(cctx *cli.Context) error {
 }
 
 func runAccountUpdateHandle(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	raw := cctx.Args().First()
 	if raw == "" {
@@ -315,7 +314,7 @@ func runAccountUpdateHandle(cctx *cli.Context) error {
 		return err
 	}
 
-	err = comatproto.IdentityUpdateHandle(ctx, client, &comatproto.IdentityUpdateHandle_Input{
+	err = atproto.IdentityUpdateHandle(ctx, client, &atproto.IdentityUpdateHandle_Input{
 		Handle: handle.String(),
 	})
 	if err != nil {
@@ -326,7 +325,7 @@ func runAccountUpdateHandle(cctx *cli.Context) error {
 }
 
 func runAccountServiceAuth(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	client, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -353,7 +352,7 @@ func runAccountServiceAuth(cctx *cli.Context) error {
 	durSec := cctx.Int("duration-sec")
 	expTimestamp := time.Now().Unix() + int64(durSec)
 
-	resp, err := comatproto.ServerGetServiceAuth(ctx, client, aud, expTimestamp, lxm)
+	resp, err := atproto.ServerGetServiceAuth(ctx, client, aud, expTimestamp, lxm)
 	if err != nil {
 		return fmt.Errorf("failed updating handle: %w", err)
 	}
@@ -364,7 +363,7 @@ func runAccountServiceAuth(cctx *cli.Context) error {
 }
 
 func runAccountCreate(cctx *cli.Context) error {
-	ctx := context.Background()
+	ctx := cctx.Context
 
 	// validate args
 	pdsHost := cctx.String("pds-host")
@@ -377,7 +376,7 @@ func runAccountCreate(cctx *cli.Context) error {
 		return err
 	}
 	password := cctx.String("password")
-	params := &comatproto.ServerCreateAccount_Input{
+	params := &atproto.ServerCreateAccount_Input{
 		Handle:   handle,
 		Password: &password,
 	}
@@ -419,7 +418,7 @@ func runAccountCreate(cctx *cli.Context) error {
 		}
 	}
 
-	resp, err := comatproto.ServerCreateAccount(ctx, &xrpcc, params)
+	resp, err := atproto.ServerCreateAccount(ctx, &xrpcc, params)
 	if err != nil {
 		return fmt.Errorf("failed to create account: %w", err)
 	}

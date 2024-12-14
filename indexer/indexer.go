@@ -2,7 +2,6 @@ package indexer
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -346,39 +345,8 @@ func (ix *Indexer) LookupUserByHandle(ctx context.Context, handle string) (*mode
 	return &ai, nil
 }
 
-func (ix *Indexer) handleInitActor(ctx context.Context, evt *repomgr.RepoEvent, op *repomgr.RepoOp) error {
-	ai := op.ActorInfo
-
-	if err := ix.db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "uid"}},
-		UpdateAll: true,
-	}).Create(&models.ActorInfo{
-		Uid:         evt.User,
-		Handle:      sql.NullString{String: ai.Handle, Valid: true},
-		Did:         ai.Did,
-		DisplayName: ai.DisplayName,
-		Type:        ai.Type,
-		PDS:         evt.PDS,
-	}).Error; err != nil {
-		return fmt.Errorf("initializing new actor info: %w", err)
-	}
-
-	if err := ix.db.Create(&models.FollowRecord{
-		Follower: evt.User,
-		Target:   evt.User,
-	}).Error; err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func isNotFound(err error) bool {
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return true
-	}
-
-	return false
+	return errors.Is(err, gorm.ErrRecordNotFound)
 }
 
 func (ix *Indexer) GetPost(ctx context.Context, uri string) (*models.FeedPost, error) {

@@ -30,9 +30,7 @@ func (srv *Server) WebQuery(c echo.Context) error {
 		return c.Redirect(http.StatusFound, "/")
 	}
 	if strings.HasPrefix(q, "at://") {
-		if strings.HasSuffix(q, "/") {
-			q = q[0 : len(q)-1]
-		}
+		q = strings.TrimSuffix(q, "/")
 
 		aturi, err := syntax.ParseATURI(q)
 		if err != nil {
