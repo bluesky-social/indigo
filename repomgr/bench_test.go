@@ -54,6 +54,7 @@ func BenchmarkRepoMgrCreates(b *testing.B) {
 		b.Fatal(err)
 	}
 
+	// TODO: constructor for 'either type'
 	/*
 		cs, err := carstore.NewCarStore(cardb, []string{cspath})
 		if err != nil {

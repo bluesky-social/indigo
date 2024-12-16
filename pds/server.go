@@ -201,17 +201,6 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 		handle = hurl.Host
 	}
 
-	/*
-		profile, err := bsky.ActorGetProfile(ctx, c, did)
-		if err != nil {
-			return nil, err
-		}
-
-		if handle != profile.Handle {
-			return nil, fmt.Errorf("mismatch in handle between did document and pds profile (%s != %s)", handle, profile.Handle)
-		}
-	*/
-
 	// TODO: request this users info from their server to fill out our data...
 	u := User{
 		Handle: handle,
