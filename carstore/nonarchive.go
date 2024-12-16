@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"sync"
 
 	"github.com/bluesky-social/indigo/models"
@@ -23,6 +24,8 @@ type NonArchivalCarstore struct {
 
 	lk              sync.Mutex
 	lastCommitCache map[models.Uid]*commitRefInfo
+
+	log *slog.Logger
 }
 
 func NewNonArchivalCarstore(db *gorm.DB) (*NonArchivalCarstore, error) {
@@ -33,6 +36,7 @@ func NewNonArchivalCarstore(db *gorm.DB) (*NonArchivalCarstore, error) {
 	return &NonArchivalCarstore{
 		db:              db,
 		lastCommitCache: make(map[models.Uid]*commitRefInfo),
+		log:             slog.Default().With("system", "carstorena"),
 	}, nil
 }
 
@@ -127,7 +131,7 @@ func (cs *NonArchivalCarstore) NewDeltaSession(ctx context.Context, user models.
 	}
 
 	if since != nil && *since != lastShard.Rev {
-		log.Warn("revision mismatch: %s != %s: %s", *since, lastShard.Rev, ErrRepoBaseMismatch)
+		cs.log.Warn("revision mismatch: %s != %s: %s", *since, lastShard.Rev, ErrRepoBaseMismatch)
 	}
 
 	return &DeltaSession{
