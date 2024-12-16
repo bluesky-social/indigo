@@ -69,7 +69,7 @@ func TestLoadNewRepo(t *testing.T) {
 	}
 }
 
-func testCarstore(t *testing.T, dir string) carstore.CarStore {
+func testCarstore(t *testing.T, dir string, archive bool) carstore.CarStore {
 	cardb, err := gorm.Open(sqlite.Open(filepath.Join(dir, "car.sqlite")))
 	if err != nil {
 		t.Fatal(err)
@@ -80,12 +80,20 @@ func testCarstore(t *testing.T, dir string) carstore.CarStore {
 		t.Fatal(err)
 	}
 
-	cs, err := carstore.NewCarStore(cardb, []string{cspath})
-	if err != nil {
-		t.Fatal(err)
-	}
+	if archive {
+		cs, err := carstore.NewCarStore(cardb, []string{cspath})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return cs
+	} else {
+		cs, err := carstore.NewNonArchivalCarstore(cardb)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	return cs
+		return cs
+	}
 }
 
 func TestIngestWithGap(t *testing.T) {
@@ -106,7 +114,7 @@ func TestIngestWithGap(t *testing.T) {
 		Uid: 1,
 	})
 
-	cs := testCarstore(t, dir)
+	cs := testCarstore(t, dir, true)
 
 	repoman := NewRepoManager(cs, &util.FakeKeyManager{})
 
@@ -114,7 +122,7 @@ func TestIngestWithGap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cs2 := testCarstore(t, dir2)
+	cs2 := testCarstore(t, dir2, true)
 
 	var since *string
 	ctx := context.TODO()
@@ -198,7 +206,7 @@ func TestDuplicateRecord(t *testing.T) {
 		Uid: 1,
 	})
 
-	cs := testCarstore(t, dir)
+	cs := testCarstore(t, dir, true)
 
 	repoman := NewRepoManager(cs, &util.FakeKeyManager{})
 

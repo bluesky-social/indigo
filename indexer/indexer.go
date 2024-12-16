@@ -538,6 +538,7 @@ func (ix *Indexer) handleRecordCreate(ctx context.Context, evt *repomgr.RepoEven
 	case *bsky.ActorProfile:
 		ix.log.Debug("TODO: got actor profile record creation, need to do something with this")
 	default:
+		ix.log.Warn("unrecognized record", "record", op.Record, "collection", op.Collection)
 		return nil, fmt.Errorf("unrecognized record type (creation): %s", op.Collection)
 	}
 
