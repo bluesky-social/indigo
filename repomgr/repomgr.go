@@ -550,7 +550,7 @@ func (rm *RepoManager) handleExternalUserEventNoArchive(ctx context.Context, pds
 
 	span.SetAttributes(attribute.Int64("uid", int64(uid)))
 
-	log.Debugw("HandleExternalUserEvent", "pds", pdsid, "uid", uid, "since", since, "nrev", nrev)
+	rm.log.Debug("HandleExternalUserEvent", "pds", pdsid, "uid", uid, "since", since, "nrev", nrev)
 
 	unlock := rm.lockUser(ctx, uid)
 	defer unlock()
