@@ -1,4 +1,4 @@
-// Copied from indigo:api/atproto/actorgetPreferences.go
+// Copied from indigo:api/bsky/actorgetPreferences.go
 
 package agnostic
 

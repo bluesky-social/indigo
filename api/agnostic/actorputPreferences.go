@@ -1,4 +1,4 @@
-// Copied from indigo:api/atproto/actorputPreferences.go
+// Copied from indigo:api/bsky/actorputPreferences.go
 
 package agnostic
 
