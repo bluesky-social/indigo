@@ -40,7 +40,7 @@ var cmdAccount = &cli.Command{
 				&cli.StringFlag{
 					Name:    "auth-factor-token",
 					Usage:   "token required if password is used and 2fa is required",
-					EnvVars: []string{"ATP_AUTH_2FA_TOKEN"},
+					EnvVars: []string{"ATP_AUTH_FACTOR_TOKEN"},
 				},
 				&cli.StringFlag{
 					Name:    "pds-host",
