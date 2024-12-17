@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/mattn/go-isatty"
 	"github.com/urfave/cli/v2"
 )
 
@@ -96,12 +98,13 @@ func runXRPC(cctx *cli.Context) error {
 	}
 	
 	var input []byte
-	if procedureFlag {
+	if !isatty.IsTerminal(os.Stdin.Fd()) {
 		input, err = io.ReadAll(os.Stdin)
 		if err != nil {
 			return fmt.Errorf("could not read input: %w", err)
 		}
 	}
+	inputReader := bytes.NewBuffer(input)
 
 	var rpcType xrpc.XRPCRequestType
 	if procedureFlag {
@@ -111,7 +114,7 @@ func runXRPC(cctx *cli.Context) error {
 	}
 
 	var output any
-	err = xrpcc.Do(ctx, rpcType, inpenc, nsid, paramMap, input, &output)
+	err = xrpcc.Do(ctx, rpcType, inpenc, nsid, paramMap, inputReader, &output)
 	if err != nil {
 		return err
 	}
