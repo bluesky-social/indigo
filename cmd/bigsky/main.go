@@ -216,6 +216,11 @@ func run(args []string) error {
 			Usage:   "forward POST requestCrawl to this url, should be machine root url and not xrpc/requestCrawl, comma separated list",
 			EnvVars: []string{"RELAY_NEXT_CRAWLER"},
 		},
+		&cli.BoolFlag{
+			Name:    "non-archival",
+			EnvVars: []string{"RELAY_NON_ARCHIVAL"},
+			Value:   false,
+		},
 	}
 
 	app.Action = runBigsky
@@ -345,9 +350,22 @@ func runBigsky(cctx *cli.Context) error {
 		}
 	}
 
-	cstore, err := carstore.NewCarStore(csdb, csdirs)
-	if err != nil {
-		return err
+	var cstore carstore.CarStore
+
+	if cctx.Bool("non-archival") {
+		cs, err := carstore.NewNonArchivalCarstore(csdb)
+		if err != nil {
+			return err
+		}
+
+		cstore = cs
+	} else {
+		cs, err := carstore.NewCarStore(csdb, csdirs)
+		if err != nil {
+			return err
+		}
+
+		cstore = cs
 	}
 
 	// DID RESOLUTION

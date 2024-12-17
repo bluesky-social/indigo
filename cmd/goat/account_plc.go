@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bluesky-social/indigo/api/agnostic"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 
 	"github.com/urfave/cli/v2"
@@ -56,7 +57,7 @@ func runAccountPlcRecommended(cctx *cli.Context) error {
 		return err
 	}
 
-	resp, err := IdentityGetRecommendedDidCredentials(ctx, xrpcc)
+	resp, err := agnostic.IdentityGetRecommendedDidCredentials(ctx, xrpcc)
 	if err != nil {
 		return err
 	}
@@ -109,7 +110,7 @@ func runAccountPlcSign(cctx *cli.Context) error {
 		return err
 	}
 
-	var body IdentitySignPlcOperation_Input
+	var body agnostic.IdentitySignPlcOperation_Input
 	if err = json.Unmarshal(fileBytes, &body); err != nil {
 		return fmt.Errorf("failed decoding PLC op JSON: %w", err)
 	}
@@ -119,7 +120,7 @@ func runAccountPlcSign(cctx *cli.Context) error {
 		body.Token = &token
 	}
 
-	resp, err := IdentitySignPlcOperation(ctx, xrpcc, &body)
+	resp, err := agnostic.IdentitySignPlcOperation(ctx, xrpcc, &body)
 	if err != nil {
 		return err
 	}
@@ -158,7 +159,7 @@ func runAccountPlcSubmit(cctx *cli.Context) error {
 		return fmt.Errorf("failed decoding PLC op JSON: %w", err)
 	}
 
-	err = IdentitySubmitPlcOperation(ctx, xrpcc, &IdentitySubmitPlcOperation_Input{
+	err = agnostic.IdentitySubmitPlcOperation(ctx, xrpcc, &agnostic.IdentitySubmitPlcOperation_Input{
 		Operation: &op,
 	})
 	if err != nil {
