@@ -44,7 +44,7 @@ func TestTakedownCircuitBreaker(t *testing.T) {
 	p1cbor := p1buf.Bytes()
 
 	// generate double the quote of events; expect to only count the quote worth of actions
-	for i := 0; i < 2*QuotaModTakedownDay; i++ {
+	for i := 0; i < 2*eng.Config.QuotaModTakedownDay; i++ {
 		ident := identity.Identity{
 			DID:    syntax.DID(fmt.Sprintf("did:plc:abc%d", i)),
 			Handle: syntax.Handle("handle.example.com"),
@@ -63,7 +63,7 @@ func TestTakedownCircuitBreaker(t *testing.T) {
 
 	takedowns, err := eng.Counters.GetCount(ctx, "automod-quota", "takedown", countstore.PeriodDay)
 	assert.NoError(err)
-	assert.Equal(QuotaModTakedownDay, takedowns)
+	assert.Equal(eng.Config.QuotaModTakedownDay, takedowns)
 
 	reports, err := eng.Counters.GetCount(ctx, "automod-quota", "report", countstore.PeriodDay)
 	assert.NoError(err)
@@ -89,7 +89,7 @@ func TestReportCircuitBreaker(t *testing.T) {
 	p1cbor := p1buf.Bytes()
 
 	// generate double the quota of events; expect to only count the quota worth of actions
-	for i := 0; i < 2*QuotaModReportDay; i++ {
+	for i := 0; i < 2*eng.Config.QuotaModReportDay; i++ {
 		ident := identity.Identity{
 			DID:    syntax.DID(fmt.Sprintf("did:plc:abc%d", i)),
 			Handle: syntax.Handle("handle.example.com"),
@@ -112,5 +112,5 @@ func TestReportCircuitBreaker(t *testing.T) {
 
 	reports, err := eng.Counters.GetCount(ctx, "automod-quota", "report", countstore.PeriodDay)
 	assert.NoError(err)
-	assert.Equal(QuotaModReportDay, reports)
+	assert.Equal(eng.Config.QuotaModReportDay, reports)
 }

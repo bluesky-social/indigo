@@ -14,6 +14,7 @@ Run with, eg, `go run ./cmd/bigsky`):
 - `cmd/supercollider`: event stream load generation tool
 - `cmd/sonar`: event stream monitoring tool
 - `cmd/hepa`: auto-moderation rule engine service
+- `cmd/rainbow`: firehose fanout service
 - `gen`: dev tool to run CBOR type codegen
 
 Packages:

@@ -64,7 +64,7 @@ var carUnpackCmd = &cli.Command{
 		if topDir == "" {
 			topDir = did.String()
 		}
-		log.Infof("writing output to: %s", topDir)
+		log.Info("writing output", "topDir", topDir)
 
 		commitPath := topDir + "/_commit"
 		os.MkdirAll(filepath.Dir(commitPath), os.ModePerm)
@@ -90,7 +90,7 @@ var carUnpackCmd = &cli.Command{
 			if err != nil {
 				return err
 			}
-			log.Debugf("processing record: %s", k)
+			log.Debug("processing record", "rec", k)
 
 			// TODO: check if path is safe more carefully
 			recPath := topDir + "/" + k

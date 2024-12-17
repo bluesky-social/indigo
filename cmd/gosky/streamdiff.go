@@ -58,9 +58,9 @@ var streamCompareCmd = &cli.Command{
 				},
 			}
 			seqScheduler := sequential.NewScheduler("streamA", rsc.EventHandler)
-			err = events.HandleRepoStream(ctx, cona, seqScheduler)
+			err = events.HandleRepoStream(ctx, cona, seqScheduler, log)
 			if err != nil {
-				log.Errorf("stream A failed: %s", err)
+				log.Error("stream A failed", "err", err)
 			}
 		}()
 
@@ -82,9 +82,9 @@ var streamCompareCmd = &cli.Command{
 			}
 
 			seqScheduler := sequential.NewScheduler("streamB", rsc.EventHandler)
-			err = events.HandleRepoStream(ctx, conb, seqScheduler)
+			err = events.HandleRepoStream(ctx, conb, seqScheduler, log)
 			if err != nil {
-				log.Errorf("stream B failed: %s", err)
+				log.Error("stream B failed", "err", err)
 			}
 		}()
 

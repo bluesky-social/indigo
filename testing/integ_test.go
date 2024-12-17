@@ -15,16 +15,21 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-log/v2"
 	car "github.com/ipld/go-car"
 	"github.com/stretchr/testify/assert"
 )
 
-func init() {
-	log.SetAllLoggers(log.LevelInfo)
+func TestRelayBasic(t *testing.T) {
+	t.Helper()
+	testRelayBasic(t, true)
 }
 
-func TestRelayBasic(t *testing.T) {
+func TestRelayBasicNonArchive(t *testing.T) {
+	t.Helper()
+	testRelayBasic(t, false)
+}
+
+func testRelayBasic(t *testing.T, archive bool) {
 	if testing.Short() {
 		t.Skip("skipping Relay test in 'short' test mode")
 	}
@@ -33,7 +38,7 @@ func TestRelayBasic(t *testing.T) {
 	p1 := MustSetupPDS(t, ".tpds", didr)
 	p1.Run(t)
 
-	b1 := MustSetupRelay(t, didr)
+	b1 := MustSetupRelay(t, didr, archive)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost()}
@@ -116,6 +121,16 @@ func socialSim(t *testing.T, users []*TestUser, postiter, likeiter int) []*atpro
 }
 
 func TestRelayMultiPDS(t *testing.T) {
+	t.Helper()
+	testRelayMultiPDS(t, true)
+}
+
+func TestRelayMultiPDSNonArchive(t *testing.T) {
+	t.Helper()
+	testRelayMultiPDS(t, false)
+}
+
+func testRelayMultiPDS(t *testing.T, archive bool) {
 	if testing.Short() {
 		t.Skip("skipping Relay test in 'short' test mode")
 	}
@@ -130,7 +145,7 @@ func TestRelayMultiPDS(t *testing.T) {
 	p2 := MustSetupPDS(t, ".pdsdos", didr)
 	p2.Run(t)
 
-	b1 := MustSetupRelay(t, didr)
+	b1 := MustSetupRelay(t, didr, archive)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost(), p2.RawHost()}
@@ -198,7 +213,7 @@ func TestRelayMultiGap(t *testing.T) {
 	p2 := MustSetupPDS(t, ".pdsdos", didr)
 	p2.Run(t)
 
-	b1 := MustSetupRelay(t, didr)
+	b1 := MustSetupRelay(t, didr, true)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost(), p2.RawHost()}
@@ -256,7 +271,7 @@ func TestHandleChange(t *testing.T) {
 	p1 := MustSetupPDS(t, ".pdsuno", didr)
 	p1.Run(t)
 
-	b1 := MustSetupRelay(t, didr)
+	b1 := MustSetupRelay(t, didr, true)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost()}
@@ -293,7 +308,7 @@ func TestAccountEvent(t *testing.T) {
 	p1 := MustSetupPDS(t, ".pdsuno", didr)
 	p1.Run(t)
 
-	b1 := MustSetupRelay(t, didr)
+	b1 := MustSetupRelay(t, didr, true)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost()}
@@ -391,6 +406,14 @@ func TestAccountEvent(t *testing.T) {
 }
 
 func TestRelayTakedown(t *testing.T) {
+	testRelayTakedown(t, true)
+}
+
+func TestRelayTakedownNonArchive(t *testing.T) {
+	testRelayTakedown(t, false)
+}
+
+func testRelayTakedown(t *testing.T, archive bool) {
 	if testing.Short() {
 		t.Skip("skipping Relay test in 'short' test mode")
 	}
@@ -401,7 +424,7 @@ func TestRelayTakedown(t *testing.T) {
 	p1 := MustSetupPDS(t, ".tpds", didr)
 	p1.Run(t)
 
-	b1 := MustSetupRelay(t, didr)
+	b1 := MustSetupRelay(t, didr, true)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost()}
@@ -480,7 +503,7 @@ func TestDomainBans(t *testing.T) {
 	}
 	didr := TestPLC(t)
 
-	b1 := MustSetupRelay(t, didr)
+	b1 := MustSetupRelay(t, didr, true)
 	b1.Run(t)
 
 	b1.BanDomain(t, "foo.com")
@@ -523,7 +546,7 @@ func TestRelayHandleEmptyEvent(t *testing.T) {
 	p1 := MustSetupPDS(t, ".tpds", didr)
 	p1.Run(t)
 
-	b1 := MustSetupRelay(t, didr)
+	b1 := MustSetupRelay(t, didr, true)
 	b1.Run(t)
 
 	b1.tr.TrialHosts = []string{p1.RawHost()}
@@ -541,6 +564,7 @@ func TestRelayHandleEmptyEvent(t *testing.T) {
 	e1 := evts.Next()
 	assert.NotNil(e1.RepoCommit)
 	assert.Equal(e1.RepoCommit.Repo, bob.DID())
+	fmt.Println(e1.RepoCommit.Ops[0])
 
 	ctx := context.TODO()
 	rm := p1.server.Repoman()
@@ -549,6 +573,7 @@ func TestRelayHandleEmptyEvent(t *testing.T) {
 	}
 
 	e2 := evts.Next()
+	//fmt.Println(e2.RepoCommit.Ops[0])
 	assert.Equal(len(e2.RepoCommit.Ops), 0)
 	assert.Equal(e2.RepoCommit.Repo, bob.DID())
 }

@@ -20,12 +20,8 @@ type AccountCatalog struct {
 
 func (ac *AccountCatalog) Combined() []AccountContext {
 	var combined []AccountContext
-	for _, c := range ac.Celebs {
-		combined = append(combined, c)
-	}
-	for _, r := range ac.Regulars {
-		combined = append(combined, r)
-	}
+	combined = append(combined, ac.Celebs...)
+	combined = append(combined, ac.Regulars...)
 	return combined
 }
 
@@ -72,7 +68,7 @@ func ReadAccountCatalog(path string) (*AccountCatalog, error) {
 			return nil, fmt.Errorf("account index didn't match: %d != %d (%s)", i, u.Index, u.AccountType)
 		}
 	}
-	log.Infof("loaded account catalog: regular=%d celebrity=%d", len(catalog.Regulars), len(catalog.Celebs))
+	log.Info("loaded account catalog", "regular", len(catalog.Regulars), "celebrity", len(catalog.Celebs))
 	return catalog, nil
 }
 

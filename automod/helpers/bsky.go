@@ -11,9 +11,7 @@ import (
 
 func ExtractHashtagsPost(post *appbsky.FeedPost) []string {
 	var tags []string
-	for _, tag := range post.Tags {
-		tags = append(tags, tag)
-	}
+	tags = append(tags, post.Tags...)
 	for _, facet := range post.Facets {
 		for _, feat := range facet.Features {
 			if feat.RichtextFacet_Tag != nil {

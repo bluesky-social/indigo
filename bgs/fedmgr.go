@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"strings"
 	"sync"
@@ -21,6 +22,8 @@ import (
 	pq "github.com/lib/pq"
 	"gorm.io/gorm"
 )
+
+var log = slog.Default().With("system", "bgs")
 
 type IndexCallback func(context.Context, *models.PDS, *events.XRPCStreamEvent) error
 
@@ -129,7 +132,7 @@ func NewSlurper(db *gorm.DB, cb IndexCallback, opts *SlurperOptions) (*Slurper, 
 				var errs []error
 				if errs = s.flushCursors(ctx); len(errs) > 0 {
 					for _, err := range errs {
-						log.Errorf("failed to flush cursors on shutdown: %s", err)
+						log.Error("failed to flush cursors on shutdown", "err", err)
 					}
 				}
 				log.Info("done flushing PDS cursors on shutdown")
@@ -142,7 +145,7 @@ func NewSlurper(db *gorm.DB, cb IndexCallback, opts *SlurperOptions) (*Slurper, 
 				defer span.End()
 				if errs := s.flushCursors(ctx); len(errs) > 0 {
 					for _, err := range errs {
-						log.Errorf("failed to flush cursors: %s", err)
+						log.Error("failed to flush cursors", "err", err)
 					}
 				}
 				log.Debug("done flushing PDS cursors")
@@ -210,7 +213,7 @@ func (s *Slurper) Shutdown() []error {
 	errs := <-s.shutdownResult
 	if len(errs) > 0 {
 		for _, err := range errs {
-			log.Errorf("shutdown error: %s", err)
+			log.Error("shutdown error", "err", err)
 		}
 	}
 	log.Info("slurper shutdown complete")
@@ -468,7 +471,16 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS, s
 		protocol = "wss"
 	}
 
+	// Special case `.host.bsky.network` PDSs to rewind cursor by 200 events to smooth over unclean shutdowns
+	if strings.HasSuffix(host.Host, ".host.bsky.network") && host.Cursor > 200 {
+		host.Cursor -= 200
+	}
+
 	cursor := host.Cursor
+
+	connectedInbound.Inc()
+	defer connectedInbound.Dec()
+	// TODO:? maybe keep a gauge of 'in retry backoff' sources?
 
 	var backoff int
 	for {
@@ -481,14 +493,14 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS, s
 		url := fmt.Sprintf("%s://%s/xrpc/com.atproto.sync.subscribeRepos?cursor=%d", protocol, host.Host, cursor)
 		con, res, err := d.DialContext(ctx, url, nil)
 		if err != nil {
-			log.Warnw("dialing failed", "pdsHost", host.Host, "err", err, "backoff", backoff)
+			log.Warn("dialing failed", "pdsHost", host.Host, "err", err, "backoff", backoff)
 			time.Sleep(sleepForBackoff(backoff))
 			backoff++
 
 			if backoff > 15 {
-				log.Warnw("pds does not appear to be online, disabling for now", "pdsHost", host.Host)
+				log.Warn("pds does not appear to be online, disabling for now", "pdsHost", host.Host)
 				if err := s.db.Model(&models.PDS{}).Where("id = ?", host.ID).Update("registered", false).Error; err != nil {
-					log.Errorf("failed to unregister failing pds: %w", err)
+					log.Error("failed to unregister failing pds", "err", err)
 				}
 
 				return
@@ -497,15 +509,15 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS, s
 			continue
 		}
 
-		log.Info("event subscription response code: ", res.StatusCode)
+		log.Info("event subscription response", "code", res.StatusCode)
 
 		curCursor := cursor
 		if err := s.handleConnection(ctx, host, con, &cursor, sub); err != nil {
 			if errors.Is(err, ErrTimeoutShutdown) {
-				log.Infof("shutting down pds subscription to %s, no activity after %s", host.Host, EventsTimeout)
+				log.Info("shutting down pds subscription after timeout", "host", host.Host, "time", EventsTimeout)
 				return
 			}
-			log.Warnf("connection to %q failed: %s", host.Host, err)
+			log.Warn("connection to failed", "host", host.Host, "err", err)
 		}
 
 		if cursor > curCursor {
@@ -536,11 +548,11 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
-			log.Debugw("got remote repo event", "pdsHost", host.Host, "repo", evt.Repo, "seq", evt.Seq)
+			log.Debug("got remote repo event", "pdsHost", host.Host, "repo", evt.Repo, "seq", evt.Seq)
 			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
 				RepoCommit: evt,
 			}); err != nil {
-				log.Errorf("failed handling event from %q (%d): %s", host.Host, evt.Seq, err)
+				log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
 			}
 			*lastCursor = evt.Seq
 
@@ -551,11 +563,11 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			return nil
 		},
 		RepoHandle: func(evt *comatproto.SyncSubscribeRepos_Handle) error {
-			log.Infow("got remote handle update event", "pdsHost", host.Host, "did", evt.Did, "handle", evt.Handle)
+			log.Info("got remote handle update event", "pdsHost", host.Host, "did", evt.Did, "handle", evt.Handle)
 			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
 				RepoHandle: evt,
 			}); err != nil {
-				log.Errorf("failed handling event from %q (%d): %s", host.Host, evt.Seq, err)
+				log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
 			}
 			*lastCursor = evt.Seq
 
@@ -566,11 +578,11 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			return nil
 		},
 		RepoMigrate: func(evt *comatproto.SyncSubscribeRepos_Migrate) error {
-			log.Infow("got remote repo migrate event", "pdsHost", host.Host, "did", evt.Did, "migrateTo", evt.MigrateTo)
+			log.Info("got remote repo migrate event", "pdsHost", host.Host, "did", evt.Did, "migrateTo", evt.MigrateTo)
 			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
 				RepoMigrate: evt,
 			}); err != nil {
-				log.Errorf("failed handling event from %q (%d): %s", host.Host, evt.Seq, err)
+				log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
 			}
 			*lastCursor = evt.Seq
 
@@ -581,11 +593,11 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			return nil
 		},
 		RepoTombstone: func(evt *comatproto.SyncSubscribeRepos_Tombstone) error {
-			log.Infow("got remote repo tombstone event", "pdsHost", host.Host, "did", evt.Did)
+			log.Info("got remote repo tombstone event", "pdsHost", host.Host, "did", evt.Did)
 			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
 				RepoTombstone: evt,
 			}); err != nil {
-				log.Errorf("failed handling event from %q (%d): %s", host.Host, evt.Seq, err)
+				log.Error("failed handling event", "host", host.Host, "seq", evt.Seq, "err", err)
 			}
 			*lastCursor = evt.Seq
 
@@ -596,15 +608,15 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			return nil
 		},
 		RepoInfo: func(info *comatproto.SyncSubscribeRepos_Info) error {
-			log.Infow("info event", "name", info.Name, "message", info.Message, "pdsHost", host.Host)
+			log.Info("info event", "name", info.Name, "message", info.Message, "pdsHost", host.Host)
 			return nil
 		},
 		RepoIdentity: func(ident *comatproto.SyncSubscribeRepos_Identity) error {
-			log.Infow("identity event", "did", ident.Did)
+			log.Info("identity event", "did", ident.Did)
 			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
 				RepoIdentity: ident,
 			}); err != nil {
-				log.Errorf("failed handling event from %q (%d): %s", host.Host, ident.Seq, err)
+				log.Error("failed handling event", "host", host.Host, "seq", ident.Seq, "err", err)
 			}
 			*lastCursor = ident.Seq
 
@@ -615,11 +627,11 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 			return nil
 		},
 		RepoAccount: func(acct *comatproto.SyncSubscribeRepos_Account) error {
-			log.Infow("account event", "did", acct.Did, "status", acct.Status)
+			log.Info("account event", "did", acct.Did, "status", acct.Status)
 			if err := s.cb(context.TODO(), host, &events.XRPCStreamEvent{
 				RepoAccount: acct,
 			}); err != nil {
-				log.Errorf("failed handling event from %q (%d): %s", host.Host, acct.Seq, err)
+				log.Error("failed handling event", "host", host.Host, "seq", acct.Seq, "err", err)
 			}
 			*lastCursor = acct.Seq
 
@@ -662,7 +674,7 @@ func (s *Slurper) handleConnection(ctx context.Context, host *models.PDS, con *w
 		con.RemoteAddr().String(),
 		instrumentedRSC.EventHandler,
 	)
-	return events.HandleRepoStream(ctx, con, pool)
+	return events.HandleRepoStream(ctx, con, pool, nil)
 }
 
 func (s *Slurper) updateCursor(sub *activeSub, curs int64) error {

@@ -30,8 +30,13 @@ func testCarStore() (CarStore, func(), error) {
 		return nil, nil, err
 	}
 
-	sharddir := filepath.Join(tempdir, "shards")
-	if err := os.MkdirAll(sharddir, 0775); err != nil {
+	sharddir1 := filepath.Join(tempdir, "shards1")
+	if err := os.MkdirAll(sharddir1, 0775); err != nil {
+		return nil, nil, err
+	}
+
+	sharddir2 := filepath.Join(tempdir, "shards2")
+	if err := os.MkdirAll(sharddir2, 0775); err != nil {
 		return nil, nil, err
 	}
 
@@ -45,7 +50,7 @@ func testCarStore() (CarStore, func(), error) {
 		return nil, nil, err
 	}
 
-	cs, err := NewCarStore(db, sharddir)
+	cs, err := NewCarStore(db, []string{sharddir1, sharddir2})
 	if err != nil {
 		return nil, nil, err
 	}

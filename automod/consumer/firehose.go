@@ -116,7 +116,7 @@ func (fc *FirehoseConsumer) Run(ctx context.Context) error {
 		fc.Logger.Info("hepa scheduler configured", "scheduler", "autoscaling", "initial", scaleSettings.Concurrency, "max", scaleSettings.MaxConcurrency)
 	}
 
-	return events.HandleRepoStream(ctx, con, scheduler)
+	return events.HandleRepoStream(ctx, con, scheduler, fc.Logger)
 }
 
 // NOTE: for now, this function basically never errors, just logs and returns nil. Should think through error processing better.

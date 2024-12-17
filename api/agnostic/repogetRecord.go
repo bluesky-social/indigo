@@ -1,6 +1,6 @@
 // Copied from indigo:api/atproto/repolistRecords.go
 
-package main
+package agnostic
 
 // schema: com.atproto.repo.getRecord
 

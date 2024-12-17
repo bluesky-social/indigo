@@ -1,6 +1,6 @@
-// Copied from indigo:api/atproto/actorputPreferences.go
+// Copied from indigo:api/bsky/actorputPreferences.go
 
-package main
+package agnostic
 
 // schema: app.bsky.actor.putPreferences
 

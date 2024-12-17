@@ -130,7 +130,7 @@ func NewIndexer(db *gorm.DB, escli *es.Client, dir identity.Directory, config In
 		opts.SyncRequestsPerSecond = 8
 	}
 
-	opts.CheckoutPath = fmt.Sprintf("%s/xrpc/com.atproto.sync.getRepo", relayHTTP)
+	opts.RelayHost = relayHTTP
 	if config.IndexMaxConcurrency > 0 {
 		opts.ParallelRecordCreates = config.IndexMaxConcurrency
 	} else {
@@ -145,6 +145,8 @@ func NewIndexer(db *gorm.DB, escli *es.Client, dir identity.Directory, config In
 		idx.handleDelete,
 		opts,
 	)
+	// reuse identity directory (for efficient caching)
+	bf.Directory = dir
 
 	idx.bfs = bfstore
 	idx.bf = bf

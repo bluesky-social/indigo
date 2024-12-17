@@ -25,10 +25,10 @@ var reposFetched = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "Number of repos fetched",
 }, []string{"status"})
 
-var catchupEventsEnqueued = promauto.NewCounter(prometheus.CounterOpts{
+var catchupEventsEnqueued = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "indexer_catchup_events_enqueued",
 	Help: "Number of catchup events enqueued",
-})
+}, []string{"how"})
 
 var catchupEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "indexer_catchup_events_processed",
@@ -38,4 +38,14 @@ var catchupEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 var usersAddedToCatchupQueue = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "indexer_users_added_to_catchup_queue",
 	Help: "Number of users added to catchup queue",
+})
+
+var catchupEventsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "indexer_catchup_events_failed",
+	Help: "Number of catchup events processed",
+}, []string{"err"})
+
+var catchupReposGauge = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "indexer_catchup_repos",
+	Help: "Number of repos waiting on catchup",
 })

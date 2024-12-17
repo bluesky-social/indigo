@@ -39,7 +39,7 @@ func parseCursorLimit(e echo.Context) (int, int, error) {
 	if offset > 10000 {
 		return 0, 0, &echo.HTTPError{
 			Code:    400,
-			Message: fmt.Sprintf("invalid value for 'cursor' (can't paginate so deep)"),
+			Message: "invalid value for 'cursor' (can't paginate so deep)",
 		}
 	}
 

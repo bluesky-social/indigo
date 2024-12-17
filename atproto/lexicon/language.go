@@ -296,7 +296,7 @@ type SchemaRecord struct {
 
 func (s *SchemaRecord) CheckSchema() error {
 	switch s.Key {
-	case "tid", "any":
+	case "tid", "nsid", "any":
 		// pass
 	default:
 		if !strings.HasPrefix(s.Key, "literal:") {

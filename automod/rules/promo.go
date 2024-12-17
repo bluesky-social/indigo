@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -54,7 +53,7 @@ func AggressivePromotionRule(c *automod.RecordContext, post *appbsky.FeedPost) e
 	uniqueReplies := c.GetCountDistinct("reply-to", did, countstore.PeriodDay)
 	if uniqueReplies >= 10 {
 		c.AddAccountFlag("promo-multi-reply")
-		c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible aggressive self-promotion"))
+		c.ReportAccount(automod.ReportReasonSpam, "possible aggressive self-promotion")
 		c.Notify("slack")
 	}
 

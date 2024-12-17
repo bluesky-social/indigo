@@ -57,7 +57,7 @@ func RunFirehoseConsumer(ctx context.Context, logger *slog.Logger, relayHost str
 	)
 	logger.Info("beemo firehose scheduler configured", "scheduler", "parallel", "workers", parallelism)
 
-	return events.HandleRepoStream(ctx, con, scheduler)
+	return events.HandleRepoStream(ctx, con, scheduler, logger)
 }
 
 // TODO: move this to a "ParsePath" helper in syntax package?

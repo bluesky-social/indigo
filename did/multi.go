@@ -3,6 +3,7 @@ package did
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/whyrusleeping/go-did"
 )
@@ -43,12 +44,17 @@ func (mr *MultiResolver) FlushCacheFor(didstr string) {
 }
 
 func (mr *MultiResolver) GetDocument(ctx context.Context, didstr string) (*did.Document, error) {
+	s := time.Now()
+
 	pdid, err := did.ParseDID(didstr)
 	if err != nil {
 		return nil, err
 	}
 
 	method := pdid.Protocol()
+	defer func() {
+		mrResolveDuration.WithLabelValues(method).Observe(time.Since(s).Seconds())
+	}()
 
 	res, ok := mr.handlers[method]
 	if !ok {

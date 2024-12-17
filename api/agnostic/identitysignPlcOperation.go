@@ -1,6 +1,6 @@
 // Copied from indigo:api/atproto/identitysignPlcOperation.go
 
-package main
+package agnostic
 
 // schema: com.atproto.identity.signPlcOperation
 

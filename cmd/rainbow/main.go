@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -10,8 +11,8 @@ import (
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/splitter"
+
 	"github.com/carlmjohnson/versioninfo"
-	logging "github.com/ipfs/go-log"
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
@@ -23,11 +24,11 @@ import (
 	_ "go.uber.org/automaxprocs"
 )
 
-var log = logging.Logger("splitter")
+var log = slog.Default().With("system", "rainbow")
 
 func init() {
 	// control log level using, eg, GOLOG_LOG_LEVEL=debug
-	logging.SetAllLoggers(logging.LevelDebug)
+	//logging.SetAllLoggers(logging.LevelDebug)
 }
 
 func main() {
@@ -36,50 +37,55 @@ func main() {
 
 func run(args []string) {
 	app := cli.App{
-		Name:    "splitter",
-		Usage:   "firehose proxy",
+		Name:    "rainbow",
+		Usage:   "atproto firehose fan-out daemon",
 		Version: versioninfo.Short(),
 	}
 
 	app.Flags = []cli.Flag{
 		&cli.BoolFlag{
-			Name:  "crawl-insecure-ws",
-			Usage: "when connecting to PDS instances, use ws:// instead of wss://",
+			Name:    "crawl-insecure-ws",
+			Usage:   "when connecting to PDS instances, use ws:// instead of wss://",
+			EnvVars: []string{"RAINBOW_INSECURE_CRAWL"},
 		},
 		&cli.StringFlag{
-			Name:  "splitter-host",
-			Value: "bsky.network",
+			Name:    "splitter-host",
+			Value:   "bsky.network",
+			EnvVars: []string{"ATP_RELAY_HOST", "RAINBOW_RELAY_HOST"},
 		},
 		&cli.StringFlag{
-			Name:  "persist-db",
-			Value: "",
-			Usage: "path to persistence db",
+			Name:    "persist-db",
+			Value:   "./rainbow.db",
+			Usage:   "path to persistence db",
+			EnvVars: []string{"RAINBOW_DB_PATH"},
 		},
 		&cli.StringFlag{
-			Name:  "cursor-file",
-			Value: "",
-			Usage: "write upstream cursor number to this file",
+			Name:    "cursor-file",
+			Value:   "./rainbow-cursor",
+			Usage:   "write upstream cursor number to this file",
+			EnvVars: []string{"RAINBOW_CURSOR_PATH"},
 		},
 		&cli.StringFlag{
-			Name:  "api-listen",
-			Value: ":2480",
+			Name:    "api-listen",
+			Value:   ":2480",
+			EnvVars: []string{"RAINBOW_API_LISTEN"},
 		},
 		&cli.StringFlag{
 			Name:    "metrics-listen",
 			Value:   ":2481",
-			EnvVars: []string{"SPLITTER_METRICS_LISTEN"},
+			EnvVars: []string{"RAINBOW_METRICS_LISTEN", "SPLITTER_METRICS_LISTEN"},
 		},
 		&cli.Float64Flag{
 			Name:    "persist-hours",
-			Value:   24 * 7,
-			EnvVars: []string{"SPLITTER_PERSIST_HOURS"},
+			Value:   24 * 3,
+			EnvVars: []string{"RAINBOW_PERSIST_HOURS", "SPLITTER_PERSIST_HOURS"},
 			Usage:   "hours to buffer (float, may be fractional)",
 		},
 		&cli.Int64Flag{
 			Name:    "persist-bytes",
 			Value:   0,
 			Usage:   "max bytes target for event cache, 0 to disable size target trimming",
-			EnvVars: []string{"SPLITTER_PERSIST_BYTES"},
+			EnvVars: []string{"RAINBOW_PERSIST_BYTES", "SPLITTER_PERSIST_BYTES"},
 		},
 		&cli.StringSliceFlag{
 			Name:    "next-crawler",
@@ -88,10 +94,13 @@ func run(args []string) {
 		},
 	}
 
+	// TODO: slog.SetDefault and set module `var log *slog.Logger` based on flags and env
+
 	app.Action = Splitter
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err.Error())
+		os.Exit(1)
 	}
 }
 
@@ -106,19 +115,20 @@ func Splitter(cctx *cli.Context) error {
 	// At a minimum, you need to set
 	// OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 	if ep := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); ep != "" {
-		log.Infow("setting up trace exporter", "endpoint", ep)
+		log.Info("setting up trace exporter", "endpoint", ep)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
 		exp, err := otlptracehttp.New(ctx)
 		if err != nil {
-			log.Fatalw("failed to create trace exporter", "error", err)
+			log.Error("failed to create trace exporter", "error", err)
+			os.Exit(1)
 		}
 		defer func() {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 			if err := exp.Shutdown(ctx); err != nil {
-				log.Errorw("failed to shutdown trace exporter", "error", err)
+				log.Error("failed to shutdown trace exporter", "error", err)
 			}
 		}()
 
@@ -142,7 +152,7 @@ func Splitter(cctx *cli.Context) error {
 	var spl *splitter.Splitter
 	var err error
 	if persistPath != "" {
-		log.Infof("building splitter with storage at: %s", persistPath)
+		log.Info("building splitter with storage at", "path", persistPath)
 		ppopts := events.PebblePersistOptions{
 			DbPath:          persistPath,
 			PersistDuration: time.Duration(float64(time.Hour) * cctx.Float64("persist-hours")),
@@ -164,14 +174,16 @@ func Splitter(cctx *cli.Context) error {
 		spl, err = splitter.NewSplitter(conf, nextCrawlers)
 	}
 	if err != nil {
-		log.Fatalw("failed to create splitter", "path", persistPath, "error", err)
+		log.Error("failed to create splitter", "path", persistPath, "error", err)
+		os.Exit(1)
 		return err
 	}
 
 	// set up metrics endpoint
 	go func() {
 		if err := spl.StartMetrics(cctx.String("metrics-listen")); err != nil {
-			log.Fatalf("failed to start metrics endpoint: %s", err)
+			log.Error("failed to start metrics endpoint", "err", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -182,20 +194,20 @@ func Splitter(cctx *cli.Context) error {
 		runErr <- err
 	}()
 
-	log.Infow("startup complete")
+	log.Info("startup complete")
 	select {
 	case <-signals:
 		log.Info("received shutdown signal")
 		if err := spl.Shutdown(); err != nil {
-			log.Errorw("error during Splitter shutdown", "err", err)
+			log.Error("error during Splitter shutdown", "err", err)
 		}
 	case err := <-runErr:
 		if err != nil {
-			log.Errorw("error during Splitter startup", "err", err)
+			log.Error("error during Splitter startup", "err", err)
 		}
 		log.Info("shutting down")
 		if err := spl.Shutdown(); err != nil {
-			log.Errorw("error during Splitter shutdown", "err", err)
+			log.Error("error during Splitter shutdown", "err", err)
 		}
 	}
 

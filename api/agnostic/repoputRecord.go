@@ -1,6 +1,6 @@
 // Copied from indigo:api/atproto/repoputRecords.go
 
-package main
+package agnostic
 
 // schema: com.atproto.repo.putRecord
 

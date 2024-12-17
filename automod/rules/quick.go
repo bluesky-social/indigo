@@ -29,7 +29,7 @@ func BotLinkProfileRule(c *automod.RecordContext, profile *appbsky.ActorProfile)
 		}
 		if strings.Contains(*profile.Description, "🏈🍕🌀") {
 			c.AddAccountFlag("profile-bot-string")
-			c.ReportAccount(automod.ReportReasonSpam, fmt.Sprintf("possible bot based on string in profile"))
+			c.ReportAccount(automod.ReportReasonSpam, "possible bot based on string in profile")
 			c.Notify("slack")
 			return nil
 		}
@@ -89,7 +89,7 @@ func TrivialSpamPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error
 		return nil
 	}
 
-	c.ReportAccount(automod.ReportReasonOther, fmt.Sprintf("trivial spam account (also labeled; remove label if this isn't spam!)"))
+	c.ReportAccount(automod.ReportReasonOther, "trivial spam account (also labeled; remove label if this isn't spam!)")
 	c.AddAccountLabel("!hide")
 	c.Notify("slack")
 	return nil

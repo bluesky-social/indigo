@@ -106,7 +106,7 @@ var inspectEventCmd = &cli.Command{
 		}
 
 		seqScheduler := sequential.NewScheduler("debug-inspect-event", rsc.EventHandler)
-		err = events.HandleRepoStream(ctx, con, seqScheduler)
+		err = events.HandleRepoStream(ctx, con, seqScheduler, nil)
 		if err != errFoundIt {
 			return err
 		}
@@ -284,7 +284,7 @@ var debugStreamCmd = &cli.Command{
 			},
 		}
 		seqScheduler := sequential.NewScheduler("debug-stream", rsc.EventHandler)
-		err = events.HandleRepoStream(ctx, con, seqScheduler)
+		err = events.HandleRepoStream(ctx, con, seqScheduler, nil)
 		if err != nil {
 			return err
 		}
@@ -390,7 +390,8 @@ var compareStreamsCmd = &cli.Command{
 			go func(i int, url string) {
 				con, _, err := d.Dial(url, http.Header{})
 				if err != nil {
-					log.Fatalf("Dial failure on url%d: %s", i+1, err)
+					log.Error("Dial failure", "i", i, "url", url, "err", err)
+					os.Exit(1)
 				}
 
 				ctx := context.TODO()
@@ -405,8 +406,9 @@ var compareStreamsCmd = &cli.Command{
 					},
 				}
 				seqScheduler := sequential.NewScheduler(fmt.Sprintf("debug-stream-%d", i+1), rsc.EventHandler)
-				if err := events.HandleRepoStream(ctx, con, seqScheduler); err != nil {
-					log.Fatalf("HandleRepoStream failure on url%d: %s", i+1, err)
+				if err := events.HandleRepoStream(ctx, con, seqScheduler, nil); err != nil {
+					log.Error("HandleRepoStream failure", "i", i, "url", url, "err", err)
+					os.Exit(1)
 				}
 			}(i, url)
 		}
@@ -876,13 +878,15 @@ var debugCompareReposCmd = &cli.Command{
 			logger := log.With("host", cctx.String("host-1"))
 			repo1bytes, err := comatproto.SyncGetRepo(ctx, &xrpc1, did.String(), "")
 			if err != nil {
-				logger.Fatalf("getting repo: %s", err)
+				logger.Error("getting repo", "err", err)
+				os.Exit(1)
 				return
 			}
 
 			rep1, err = repo.ReadRepoFromCar(ctx, bytes.NewReader(repo1bytes))
 			if err != nil {
-				logger.Fatalf("reading repo: %s", err)
+				logger.Error("reading repo", "err", err)
+				os.Exit(1)
 				return
 			}
 		}()
@@ -893,13 +897,15 @@ var debugCompareReposCmd = &cli.Command{
 			logger := log.With("host", cctx.String("host-2"))
 			repo2bytes, err := comatproto.SyncGetRepo(ctx, &xrpc2, did.String(), "")
 			if err != nil {
-				logger.Fatalf("getting repo: %s", err)
+				logger.Error("getting repo", "err", err)
+				os.Exit(1)
 				return
 			}
 
 			rep2, err = repo.ReadRepoFromCar(ctx, bytes.NewReader(repo2bytes))
 			if err != nil {
-				logger.Fatalf("reading repo: %s", err)
+				logger.Error("reading repo", "err", err)
+				os.Exit(1)
 				return
 			}
 		}()

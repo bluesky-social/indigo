@@ -16,14 +16,9 @@ import (
 	pds "github.com/bluesky-social/indigo/pds/data"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
-	logging "github.com/ipfs/go-log/v2"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
-
-func init() {
-	logging.SetAllLoggers(logging.LevelDebug)
-}
 
 func BenchmarkDBPersist(b *testing.B) {
 	ctx := context.Background()
@@ -300,7 +295,7 @@ func setupDBs(t testing.TB) (*gorm.DB, *gorm.DB, carstore.CarStore, string, erro
 		return nil, nil, nil, "", err
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	cs, err := carstore.NewCarStore(cardb, []string{cspath})
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
