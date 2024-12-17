@@ -14,7 +14,6 @@ import (
 	_ "go.uber.org/automaxprocs"
 
 	"github.com/carlmjohnson/versioninfo"
-	logging "github.com/ipfs/go-log"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -24,8 +23,6 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"gorm.io/plugin/opentelemetry/tracing"
 )
-
-var log = logging.Logger("laputa")
 
 func main() {
 	run(os.Args)
@@ -158,7 +155,7 @@ func run(args []string) {
 			}
 		}
 
-		cstore, err := carstore.NewCarStore(csdb, csdir)
+		cstore, err := carstore.NewCarStore(csdb, []string{csdir})
 		if err != nil {
 			return err
 		}

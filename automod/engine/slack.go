@@ -86,7 +86,7 @@ func slackBody(header string, acct AccountMeta, newLabels, newFlags []string, ne
 		msg += fmt.Sprintf("Report `%s`: %s\n", rep.ReasonType, rep.Comment)
 	}
 	if newTakedown {
-		msg += fmt.Sprintf("Takedown!\n")
+		msg += "Takedown!\n"
 	}
 	return msg
 }

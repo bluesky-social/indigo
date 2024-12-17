@@ -14,3 +14,13 @@ var cacheMissesTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "plc_cache_misses_total",
 	Help: "Total number of cache misses",
 })
+
+var memcacheHitsTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "plc_memcache_hits_total",
+	Help: "Total number of cache hits",
+})
+
+var memcacheMissesTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "plc_memcache_misses_total",
+	Help: "Total number of cache misses",
+})

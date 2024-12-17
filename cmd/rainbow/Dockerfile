@@ -39,5 +39,5 @@ ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/usr/bin/rainbow"]
 
 LABEL org.opencontainers.image.source=https://github.com/bluesky-social/indigo
-LABEL org.opencontainers.image.description="bsky.app rainbow"
+LABEL org.opencontainers.image.description="rainbow atproto firehose fanout service"
 LABEL org.opencontainers.image.licenses=MIT

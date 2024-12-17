@@ -8,6 +8,7 @@ require (
 	github.com/RussellLuo/slidingwindow v0.0.0-20200528002341-535bb99d338b
 	github.com/adrg/xdg v0.5.0
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
+	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
 	github.com/brianvoe/gofakeit/v6 v6.25.0
 	github.com/carlmjohnson/versioninfo v0.22.5
 	github.com/cockroachdb/pebble v1.1.2
@@ -30,8 +31,6 @@ require (
 	github.com/ipfs/go-ipld-cbor v0.1.0
 	github.com/ipfs/go-ipld-format v0.6.0
 	github.com/ipfs/go-libipfs v0.7.0
-	github.com/ipfs/go-log v1.0.5
-	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/ipld/go-car v0.6.1-0.20230509095817-92d28eb23ba4
 	github.com/ipld/go-car/v2 v2.13.1
 	github.com/jackc/pgx/v5 v5.5.0
@@ -89,6 +88,8 @@ require (
 	github.com/go-redis/redis v6.15.9+incompatible // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
+	github.com/ipfs/go-log v1.0.5 // indirect
+	github.com/ipfs/go-log/v2 v2.5.1 // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/klauspost/compress v1.17.3 // indirect
 	github.com/kr/pretty v0.3.1 // indirect

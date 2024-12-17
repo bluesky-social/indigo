@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math/rand"
 	"net"
 	"net/http"
@@ -25,15 +26,12 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/gorilla/websocket"
-	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	promclient "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 )
-
-var log = logging.Logger("splitter")
 
 type Splitter struct {
 	erb    *EventRingBuffer
@@ -49,6 +47,8 @@ type Splitter struct {
 
 	httpC        *http.Client
 	nextCrawlers []*url.URL
+
+	log *slog.Logger
 }
 
 type SplitterConfig struct {
@@ -76,11 +76,13 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 		consumers:    make(map[uint64]*SocketConsumer),
 		httpC:        util.RobustHTTPClient(),
 		nextCrawlers: nextCrawlerURLs,
+		log:          slog.Default().With("system", "splitter"),
 	}
 
 	if conf.PebbleOptions == nil {
 		// mem splitter
 		erb := NewEventRingBuffer(20_000, 10_000)
+		s.erb = erb
 		s.events = events.NewEventManager(erb)
 	} else {
 		pp, err := events.NewPebblePersistance(conf.PebbleOptions)
@@ -88,6 +90,7 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 			return nil, err
 		}
 		go pp.GCThread(context.Background())
+		s.pp = pp
 		s.events = events.NewEventManager(pp)
 	}
 
@@ -117,6 +120,7 @@ func NewDiskSplitter(host, path string, persistHours float64, maxBytes int64) (*
 		pp:        pp,
 		events:    em,
 		consumers: make(map[uint64]*SocketConsumer),
+		log:       slog.Default().With("system", "splitter"),
 	}, nil
 }
 
@@ -175,7 +179,7 @@ func (s *Splitter) StartWithListener(listen net.Listener) error {
 			if err2 := ctx.JSON(err.Code, map[string]any{
 				"error": err.Message,
 			}); err2 != nil {
-				log.Errorf("Failed to write http error: %s", err2)
+				s.log.Error("Failed to write http error", "err", err2)
 			}
 		default:
 			sendHeader := true
@@ -183,7 +187,7 @@ func (s *Splitter) StartWithListener(listen net.Listener) error {
 				sendHeader = false
 			}
 
-			log.Warnf("HANDLER ERROR: (%s) %s", ctx.Path(), err)
+			s.log.Warn("HANDLER ERROR", "path", ctx.Path(), "err", err)
 
 			if strings.HasPrefix(ctx.Path(), "/admin/") {
 				ctx.JSON(500, map[string]any{
@@ -202,7 +206,10 @@ func (s *Splitter) StartWithListener(listen net.Listener) error {
 
 	e.POST("/xrpc/com.atproto.sync.requestCrawl", s.RequestCrawlHandler)
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
+
 	e.GET("/xrpc/_health", s.HandleHealthCheck)
+	e.GET("/_health", s.HandleHealthCheck)
+	e.GET("/", s.HandleHomeMessage)
 
 	// In order to support booting on random ports in tests, we need to tell the
 	// Echo instance it's already got a port, and then use its StartServer
@@ -306,6 +313,21 @@ func (s *Splitter) RequestCrawlHandler(c echo.Context) error {
 	return c.JSON(200, HealthStatus{Status: "ok"})
 }
 
+var homeMessage string = `
+          _      _
+ _ _ __ _(_)_ _ | |__  _____ __ __
+| '_/ _' | | ' \| '_ \/ _ \ V  V /
+|_| \__,_|_|_||_|_.__/\___/\_/\_/
+
+This is an atproto [https://atproto.com] firehose fanout service, running the 'rainbow' codebase [https://github.com/bluesky-social/indigo]
+
+The firehose WebSocket path is at:  /xrpc/com.atproto.sync.subscribeRepos
+`
+
+func (s *Splitter) HandleHomeMessage(c echo.Context) error {
+	return c.String(http.StatusOK, homeMessage)
+}
+
 func (s *Splitter) EventsHandler(c echo.Context) error {
 	var since *int64
 	if sinceVal := c.QueryParam("cursor"); sinceVal != "" {
@@ -347,7 +369,7 @@ func (s *Splitter) EventsHandler(c echo.Context) error {
 				}
 
 				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
-					log.Errorf("failed to ping client: %s", err)
+					s.log.Error("failed to ping client", "err", err)
 					cancel()
 					return
 				}
@@ -372,7 +394,7 @@ func (s *Splitter) EventsHandler(c echo.Context) error {
 		for {
 			_, _, err := conn.ReadMessage()
 			if err != nil {
-				log.Errorf("failed to read message from client: %s", err)
+				s.log.Error("failed to read message from client", "err", err)
 				cancel()
 				return
 			}
@@ -399,7 +421,7 @@ func (s *Splitter) EventsHandler(c echo.Context) error {
 	consumerID := s.registerConsumer(&consumer)
 	defer s.cleanupConsumer(consumerID)
 
-	log.Infow("new consumer",
+	s.log.Info("new consumer",
 		"remote_addr", consumer.RemoteAddr,
 		"user_agent", consumer.UserAgent,
 		"cursor", since,
@@ -412,13 +434,13 @@ func (s *Splitter) EventsHandler(c echo.Context) error {
 		select {
 		case evt, ok := <-evts:
 			if !ok {
-				log.Error("event stream closed unexpectedly")
+				s.log.Error("event stream closed unexpectedly")
 				return nil
 			}
 
 			wc, err := conn.NextWriter(websocket.BinaryMessage)
 			if err != nil {
-				log.Errorf("failed to get next writer: %s", err)
+				s.log.Error("failed to get next writer", "err", err)
 				return err
 			}
 
@@ -432,7 +454,7 @@ func (s *Splitter) EventsHandler(c echo.Context) error {
 			}
 
 			if err := wc.Close(); err != nil {
-				log.Warnf("failed to flush-close our event write: %s", err)
+				s.log.Warn("failed to flush-close our event write", "err", err)
 				return nil
 			}
 
@@ -473,10 +495,10 @@ func (s *Splitter) cleanupConsumer(id uint64) {
 
 	var m = &dto.Metric{}
 	if err := c.EventsSent.Write(m); err != nil {
-		log.Errorf("failed to get sent counter: %s", err)
+		s.log.Error("failed to get sent counter", "err", err)
 	}
 
-	log.Infow("consumer disconnected",
+	s.log.Info("consumer disconnected",
 		"consumer_id", id,
 		"remote_addr", c.RemoteAddr,
 		"user_agent", c.UserAgent,
@@ -522,17 +544,17 @@ func (s *Splitter) subscribeWithRedialer(ctx context.Context, host string, curso
 		}
 		con, res, err := d.DialContext(ctx, url, header)
 		if err != nil {
-			log.Warnw("dialing failed", "host", host, "err", err, "backoff", backoff)
+			s.log.Warn("dialing failed", "host", host, "err", err, "backoff", backoff)
 			time.Sleep(sleepForBackoff(backoff))
 			backoff++
 
 			continue
 		}
 
-		log.Info("event subscription response code: ", res.StatusCode)
+		s.log.Info("event subscription response", "code", res.StatusCode)
 
 		if err := s.handleConnection(ctx, host, con, &cursor); err != nil {
-			log.Warnf("connection to %q failed: %s", host, err)
+			s.log.Warn("connection failed", "host", host, "err", err)
 		}
 	}
 }
@@ -555,7 +577,7 @@ func (s *Splitter) handleConnection(ctx context.Context, host string, con *webso
 		if seq%5000 == 0 {
 			// TODO: don't need this after we move to getting seq from pebble
 			if err := s.writeCursor(seq); err != nil {
-				log.Errorf("write cursor failed: %s", err)
+				s.log.Error("write cursor failed", "err", err)
 			}
 		}
 
@@ -563,19 +585,19 @@ func (s *Splitter) handleConnection(ctx context.Context, host string, con *webso
 		return nil
 	})
 
-	return events.HandleRepoStream(ctx, con, sched)
+	return events.HandleRepoStream(ctx, con, sched, nil)
 }
 
 func (s *Splitter) getLastCursor() (int64, error) {
 	if s.pp != nil {
 		seq, millis, _, err := s.pp.GetLast(context.Background())
 		if err == nil {
-			log.Debugw("got last cursor from pebble", "seq", seq, "millis", millis)
+			s.log.Debug("got last cursor from pebble", "seq", seq, "millis", millis)
 			return seq, nil
 		} else if errors.Is(err, events.ErrNoLast) {
-			log.Info("pebble no last")
+			s.log.Info("pebble no last")
 		} else {
-			log.Errorw("pebble seq fail", "err", err)
+			s.log.Error("pebble seq fail", "err", err)
 		}
 	}
 
