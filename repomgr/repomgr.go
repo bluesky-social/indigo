@@ -912,6 +912,9 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 		return err
 	}
 
+	if rev != nil && *rev == "" {
+		rev = nil
+	}
 	if rev == nil {
 		// if 'rev' is nil, this implies a fresh sync.
 		// in this case, ignore any existing blocks we have and treat this like a clean import.
