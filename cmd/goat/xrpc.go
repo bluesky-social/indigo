@@ -18,6 +18,7 @@ import (
 var cmdXRPC = &cli.Command{
 	Name: "xrpc",
 	Usage: "use an XRPC endpoint",
+	Description: "Execute an XRPC query or procedure via your PDS. Procedure inputs should be provided via standard input (i.e. a pipe, or redirection with <).",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name: "proxy",
