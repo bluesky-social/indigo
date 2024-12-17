@@ -15,7 +15,6 @@ import (
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
@@ -202,15 +201,6 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 		handle = hurl.Host
 	}
 
-	profile, err := bsky.ActorGetProfile(ctx, c, did)
-	if err != nil {
-		return nil, err
-	}
-
-	if handle != profile.Handle {
-		return nil, fmt.Errorf("mismatch in handle between did document and pds profile (%s != %s)", handle, profile.Handle)
-	}
-
 	// TODO: request this users info from their server to fill out our data...
 	u := User{
 		Handle: handle,
@@ -227,7 +217,7 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 	subj := &models.ActorInfo{
 		Uid:         u.ID,
 		Handle:      sql.NullString{String: handle, Valid: true},
-		DisplayName: *profile.DisplayName,
+		DisplayName: "missing display name",
 		Did:         did,
 		Type:        "",
 		PDS:         peering.ID,

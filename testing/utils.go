@@ -518,10 +518,10 @@ func (t *TestRelay) Host() string {
 	return t.listener.Addr().String()
 }
 
-func MustSetupRelay(t *testing.T, didr plc.PLCClient) *TestRelay {
+func MustSetupRelay(t *testing.T, didr plc.PLCClient, archive bool) *TestRelay {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	tbgs, err := SetupRelay(ctx, didr)
+	tbgs, err := SetupRelay(ctx, didr, archive)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -529,7 +529,7 @@ func MustSetupRelay(t *testing.T, didr plc.PLCClient) *TestRelay {
 	return tbgs
 }
 
-func SetupRelay(ctx context.Context, didr plc.PLCClient) (*TestRelay, error) {
+func SetupRelay(ctx context.Context, didr plc.PLCClient, archive bool) (*TestRelay, error) {
 	dir, err := os.MkdirTemp("", "integtest")
 	if err != nil {
 		return nil, err
@@ -550,9 +550,19 @@ func SetupRelay(ctx context.Context, didr plc.PLCClient) (*TestRelay, error) {
 		return nil, err
 	}
 
-	cs, err := carstore.NewCarStore(cardb, []string{cspath})
-	if err != nil {
-		return nil, err
+	var cs carstore.CarStore
+	if archive {
+		arccs, err := carstore.NewCarStore(cardb, []string{cspath})
+		if err != nil {
+			return nil, err
+		}
+		cs = arccs
+	} else {
+		nacs, err := carstore.NewNonArchivalCarstore(cardb)
+		if err != nil {
+			return nil, err
+		}
+		cs = nacs
 	}
 
 	//kmgr := indexer.NewKeyManager(didr, nil)
