@@ -39,9 +39,8 @@ var cmdAccount = &cli.Command{
 				},
 				&cli.StringFlag{
 					Name:    "auth-factor-token",
-					Aliases: []string{"t"},
 					Usage:   "token required if password is used and 2fa is required",
-					EnvVars: []string{"ATP_AUTH_TOKEN"},
+					EnvVars: []string{"ATP_AUTH_2FA_TOKEN"},
 				},
 				&cli.StringFlag{
 					Name:    "pds-host",
@@ -169,7 +168,7 @@ func runAccountLogin(cctx *cli.Context) error {
 		return err
 	}
 
-	_, err = refreshAuthSession(ctx, *username, cctx.String("app-password"), cctx.String("auth-factor-token"), cctx.String("pds-host"))
+	_, err = refreshAuthSession(ctx, *username, cctx.String("app-password"), cctx.String("pds-host"), cctx.String("auth-factor-token"))
 	return err
 }
 
