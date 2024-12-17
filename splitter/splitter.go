@@ -78,6 +78,7 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 		log:          log,
 		httpC:        util.RobustHTTPClient(),
 		nextCrawlers: nextCrawlerURLs,
+		log:          log,
 	}
 
 	if conf.PebbleOptions == nil {
