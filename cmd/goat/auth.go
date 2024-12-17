@@ -79,7 +79,7 @@ func loadAuthClient(ctx context.Context) (*xrpc.Client, error) {
 	if err != nil {
 		// TODO: if failure, try creating a new session from password (2fa tokens are only valid once, so not reused)
 		fmt.Println("trying to refresh auth from password...")
-		as, err := refreshAuthSession(ctx, sess.DID.AtIdentifier(), sess.Password, "", sess.PDS)
+		as, err := refreshAuthSession(ctx, sess.DID.AtIdentifier(), sess.Password, sess.PDS, "")
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +96,7 @@ func loadAuthClient(ctx context.Context) (*xrpc.Client, error) {
 	return &client, nil
 }
 
-func refreshAuthSession(ctx context.Context, username syntax.AtIdentifier, password, authFactorToken, pdsURL string) (*AuthSession, error) {
+func refreshAuthSession(ctx context.Context, username syntax.AtIdentifier, password, pdsURL, authFactorToken string) (*AuthSession, error) {
 
 	var did syntax.DID
 	if pdsURL == "" {
