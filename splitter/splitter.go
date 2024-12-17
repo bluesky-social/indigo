@@ -59,6 +59,7 @@ type SplitterConfig struct {
 
 func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) {
 	var nextCrawlerURLs []*url.URL
+	log := slog.Default().With("system", "splitter")
 	if len(nextCrawlers) > 0 {
 		nextCrawlerURLs = make([]*url.URL, len(nextCrawlers))
 		for i, tu := range nextCrawlers {
@@ -67,7 +68,7 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse next-crawler url: %w", err)
 			}
-			log.Infow("configuring relay for requestCrawl", "host", nextCrawlerURLs[i])
+			log.Info("configuring relay for requestCrawl", "host", nextCrawlerURLs[i])
 		}
 	}
 
@@ -76,7 +77,7 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 		consumers:    make(map[uint64]*SocketConsumer),
 		httpC:        util.RobustHTTPClient(),
 		nextCrawlers: nextCrawlerURLs,
-		log:          slog.Default().With("system", "splitter"),
+		log:          log,
 	}
 
 	if conf.PebbleOptions == nil {
@@ -285,7 +286,7 @@ func (s *Splitter) RequestCrawlHandler(c echo.Context) error {
 	if len(s.nextCrawlers) != 0 {
 		blob, err := json.Marshal(body)
 		if err != nil {
-			log.Warnw("could not forward requestCrawl, json err", "err", err)
+			s.log.Warn("could not forward requestCrawl, json err", "err", err)
 		} else {
 			go func(bodyBlob []byte) {
 				for _, remote := range s.nextCrawlers {
@@ -299,11 +300,11 @@ func (s *Splitter) RequestCrawlHandler(c echo.Context) error {
 						response.Body.Close()
 					}
 					if err != nil || response == nil {
-						log.Warnw("requestCrawl forward failed", "host", remote, "err", err)
+						s.log.Warn("requestCrawl forward failed", "host", remote, "err", err)
 					} else if response.StatusCode != http.StatusOK {
-						log.Warnw("requestCrawl forward failed", "host", remote, "status", response.Status)
+						s.log.Warn("requestCrawl forward failed", "host", remote, "status", response.Status)
 					} else {
-						log.Infow("requestCrawl forward successful", "host", remote)
+						s.log.Info("requestCrawl forward successful", "host", remote)
 					}
 				}
 			}(blob)
