@@ -10,9 +10,13 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// API for doing account lookups by DID or handle, with bi-directional verification handled automatically. Almost all atproto services and clients should use an implementation of this interface instead of resolving handles or DIDs separately
+// Common for doing atproto identity lookups by DID or handle.
+//
+// The "Lookup" methods do bi-directional handle verification automatically, and format results in a compact atproto-specific struct ("Identity"). Clients and services should use these methods by default, instead of resolving handles or DIDs separately.
 //
 // Handles which fail to resolve, or don't match DID alsoKnownAs, are an error. DIDs which resolve but the handle does not resolve back to the DID return an Identity where the Handle is the special `handle.invalid` value.
+//
+// The "Resolve" methods do direct resolution of just the identifier indicated.
 //
 // Some example implementations of this interface could be:
 //   - basic direct resolution on every call
@@ -20,9 +24,12 @@ import (
 //   - API client, which just makes requests to PDS (or other remote service)
 //   - client for shared network cache (eg, Redis)
 type Directory interface {
-	LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error)
-	LookupDID(ctx context.Context, d syntax.DID) (*Identity, error)
-	Lookup(ctx context.Context, i syntax.AtIdentifier) (*Identity, error)
+	LookupHandle(ctx context.Context, hdl syntax.Handle) (*Identity, error)
+	LookupDID(ctx context.Context, did syntax.DID) (*Identity, error)
+	Lookup(ctx context.Context, atid syntax.AtIdentifier) (*Identity, error)
+
+	ResolveDID(ctx context.Context, did syntax.DID) (*DIDDocument, error)
+	ResolveHandle(ctx context.Context, handle syntax.Handle) (syntax.DID, error)
 
 	// Flushes any cache of the indicated identifier. If directory is not using caching, can ignore this.
 	Purge(ctx context.Context, i syntax.AtIdentifier) error
