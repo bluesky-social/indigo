@@ -227,6 +227,11 @@ func run(args []string) error {
 			Value:   &cli.StringSlice{},
 			EnvVars: []string{"RELAY_SCYLLA_NODES"},
 		},
+		&cli.BoolFlag{
+			Name:    "non-archival",
+			EnvVars: []string{"RELAY_NON_ARCHIVAL"},
+			Value:   false,
+		},
 	}
 
 	app.Action = runBigsky
@@ -343,6 +348,23 @@ func runBigsky(cctx *cli.Context) error {
 	} else if sqliteStore {
 		slog.Info("starting sqlite carstore", "dir", csdir)
 		cstore, err = carstore.NewSqliteStore(csdir)
+	} else if cctx.Bool("non-archival") {
+		csdburl := cctx.String("carstore-db-url")
+		slog.Info("setting up non-archival carstore database", "url", csdburl)
+		csdb, err := cliutil.SetupDatabase(csdburl, cctx.Int("max-carstore-connections"))
+		if err != nil {
+			return err
+		}
+		if cctx.Bool("db-tracing") {
+			if err := csdb.Use(tracing.NewPlugin()); err != nil {
+				return err
+			}
+		}
+		cs, err := carstore.NewNonArchivalCarstore(csdb)
+		if err != nil {
+			return err
+		}
+		cstore = cs
 	} else {
 		// make standard FileCarStore
 		csdburl := cctx.String("carstore-db-url")

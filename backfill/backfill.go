@@ -140,6 +140,14 @@ func NewBackfiller(
 	if opts == nil {
 		opts = DefaultBackfillOptions()
 	}
+
+	// Convert wss:// or ws:// to https:// or http://
+	if strings.HasPrefix(opts.RelayHost, "wss://") {
+		opts.RelayHost = "https://" + opts.RelayHost[6:]
+	} else if strings.HasPrefix(opts.RelayHost, "ws://") {
+		opts.RelayHost = "http://" + opts.RelayHost[5:]
+	}
+
 	return &Backfiller{
 		Name:                  name,
 		Store:                 store,

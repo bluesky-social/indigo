@@ -124,6 +124,10 @@ func (uv *userView) HashOnRead(hor bool) {
 }
 
 func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
+	_, have := uv.cache[k]
+	if have {
+		return have, nil
+	}
 	return uv.cs.HasUidCid(ctx, uv.user, k)
 }
 
@@ -131,6 +135,7 @@ var CacheHits int64
 var CacheMiss int64
 
 func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, error) {
+
 	if !k.Defined() {
 		return nil, fmt.Errorf("attempted to 'get' undefined cid")
 	}
@@ -601,6 +606,23 @@ func WriteCarHeader(w io.Writer, root cid.Cid) (int64, error) {
 type shardWriter interface {
 	// writeNewShard stores blocks in `blks` arg and creates a new shard to propagate out to our firehose
 	writeNewShard(ctx context.Context, root cid.Cid, rev string, user models.Uid, seq int, blks map[cid.Cid]blockformat.Block, rmcids map[cid.Cid]bool) ([]byte, error)
+}
+
+func blocksToCar(ctx context.Context, root cid.Cid, rev string, blks map[cid.Cid]blockformat.Block) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	_, err := WriteCarHeader(buf, root)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write car header: %w", err)
+	}
+
+	for k, blk := range blks {
+		_, err := LdWrite(buf, k.Bytes(), blk.RawData())
+		if err != nil {
+			return nil, fmt.Errorf("failed to write block: %w", err)
+		}
+	}
+
+	return buf.Bytes(), nil
 }
 
 func (cs *FileCarStore) writeNewShard(ctx context.Context, root cid.Cid, rev string, user models.Uid, seq int, blks map[cid.Cid]blockformat.Block, rmcids map[cid.Cid]bool) ([]byte, error) {
