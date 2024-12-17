@@ -120,7 +120,7 @@ func runXRPC(cctx *cli.Context) error {
 	}
 	
 	if reflect.TypeOf(output).Kind().String() == "map" || reflect.TypeOf(output).Kind().String() == "slice" {
-		data, err := json.MarshalIndent(output, "", "  ")
+		data, err := json.Marshal(output)
 		if err != nil {
 			return err
 		}
