@@ -14,10 +14,12 @@ import (
 )
 
 type CrawlDispatcher struct {
+	// from Crawl()
 	ingest chan *models.ActorInfo
 
 	repoSync chan *crawlWork
 
+	// from AddToCatchupQueue()
 	catchup chan *crawlWork
 
 	complete chan models.Uid
@@ -26,7 +28,7 @@ type CrawlDispatcher struct {
 	todo       map[models.Uid]*crawlWork
 	inProgress map[models.Uid]*crawlWork
 
-	doRepoCrawl func(context.Context, *crawlWork) error
+	repoFetcher CrawlRepoFetcher
 
 	concurrency int
 
@@ -35,7 +37,12 @@ type CrawlDispatcher struct {
 	done chan struct{}
 }
 
-func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurrency int, log *slog.Logger) (*CrawlDispatcher, error) {
+// this is what we need of RepoFetcher
+type CrawlRepoFetcher interface {
+	FetchAndIndexRepo(ctx context.Context, job *crawlWork) error
+}
+
+func NewCrawlDispatcher(repoFetcher CrawlRepoFetcher, concurrency int, log *slog.Logger) (*CrawlDispatcher, error) {
 	if concurrency < 1 {
 		return nil, fmt.Errorf("must specify a non-zero positive integer for crawl dispatcher concurrency")
 	}
@@ -45,7 +52,7 @@ func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurre
 		repoSync:    make(chan *crawlWork),
 		complete:    make(chan models.Uid),
 		catchup:     make(chan *crawlWork),
-		doRepoCrawl: repoFn,
+		repoFetcher: repoFetcher,
 		concurrency: concurrency,
 		todo:        make(map[models.Uid]*crawlWork),
 		inProgress:  make(map[models.Uid]*crawlWork),
@@ -221,7 +228,7 @@ func (c *CrawlDispatcher) fetchWorker() {
 	for {
 		select {
 		case job := <-c.repoSync:
-			if err := c.doRepoCrawl(context.TODO(), job); err != nil {
+			if err := c.repoFetcher.FetchAndIndexRepo(context.TODO(), job); err != nil {
 				c.log.Error("failed to perform repo crawl", "did", job.act.Did, "err", err)
 			}
 
