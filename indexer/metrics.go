@@ -44,8 +44,3 @@ var catchupReposGauge = promauto.NewGauge(prometheus.GaugeOpts{
 	Name: "indexer_catchup_repos",
 	Help: "Number of repos waiting on catchup",
 })
-
-var usersAddedToCatchupQueue = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "indexer_users_added_to_catchup_queue",
-	Help: "Number of users added to catchup queue",
-})
