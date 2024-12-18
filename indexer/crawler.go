@@ -17,10 +17,11 @@ type CrawlDispatcher struct {
 	// from Crawl()
 	ingest chan *models.ActorInfo
 
-	repoSync chan *crawlWork
-
 	// from AddToCatchupQueue()
 	catchup chan *crawlWork
+
+	// from main loop to fetchWorker()
+	repoSync chan *crawlWork
 
 	complete chan models.Uid
 
