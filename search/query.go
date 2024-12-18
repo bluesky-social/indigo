@@ -224,9 +224,6 @@ func DoSearchPosts(ctx context.Context, dir identity.Directory, escli *es.Client
 	queryStringParams := ParsePostQuery(ctx, dir, params.Query, params.Viewer)
 	params.Update(&queryStringParams)
 	idx := "everything"
-	if containsJapanese(params.Query) {
-		idx = "everything_ja"
-	}
 	basic := map[string]interface{}{
 		"simple_query_string": map[string]interface{}{
 			"query":            params.Query,

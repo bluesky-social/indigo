@@ -31,26 +31,24 @@ type ProfileDoc struct {
 }
 
 type PostDoc struct {
-	DocIndexTs        string   `json:"doc_index_ts"`
-	DID               string   `json:"did"`
-	RecordRkey        string   `json:"record_rkey"`
-	RecordCID         string   `json:"record_cid"`
-	CreatedAt         *string  `json:"created_at,omitempty"`
-	Text              string   `json:"text"`
-	TextJA            *string  `json:"text_ja,omitempty"`
-	LangCode          []string `json:"lang_code,omitempty"`
-	LangCodeIso2      []string `json:"lang_code_iso2,omitempty"`
-	MentionDID        []string `json:"mention_did,omitempty"`
-	EmbedATURI        *string  `json:"embed_aturi,omitempty"`
-	ReplyRootATURI    *string  `json:"reply_root_aturi,omitempty"`
-	EmbedImgCount     int      `json:"embed_img_count"`
-	EmbedImgAltText   []string `json:"embed_img_alt_text,omitempty"`
-	EmbedImgAltTextJA []string `json:"embed_img_alt_text_ja,omitempty"`
-	SelfLabel         []string `json:"self_label,omitempty"`
-	URL               []string `json:"url,omitempty"`
-	Domain            []string `json:"domain,omitempty"`
-	Tag               []string `json:"tag,omitempty"`
-	Emoji             []string `json:"emoji,omitempty"`
+	DocIndexTs      string   `json:"doc_index_ts"`
+	DID             string   `json:"did"`
+	RecordRkey      string   `json:"record_rkey"`
+	RecordCID       string   `json:"record_cid"`
+	CreatedAt       *string  `json:"created_at,omitempty"`
+	Text            string   `json:"text"`
+	LangCode        []string `json:"lang_code,omitempty"`
+	LangCodeIso2    []string `json:"lang_code_iso2,omitempty"`
+	MentionDID      []string `json:"mention_did,omitempty"`
+	EmbedATURI      *string  `json:"embed_aturi,omitempty"`
+	ReplyRootATURI  *string  `json:"reply_root_aturi,omitempty"`
+	EmbedImgCount   int      `json:"embed_img_count"`
+	EmbedImgAltText []string `json:"embed_img_alt_text,omitempty"`
+	SelfLabel       []string `json:"self_label,omitempty"`
+	URL             []string `json:"url,omitempty"`
+	Domain          []string `json:"domain,omitempty"`
+	Tag             []string `json:"tag,omitempty"`
+	Emoji           []string `json:"emoji,omitempty"`
 }
 
 // Returns the search index document ID (`_id`) for this document.
@@ -147,15 +145,11 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 	}
 	var embedImgCount int
 	var embedImgAltText []string
-	var embedImgAltTextJA []string
 	if post.Embed != nil && post.Embed.EmbedImages != nil {
 		embedImgCount = len(post.Embed.EmbedImages.Images)
 		for _, img := range post.Embed.EmbedImages.Images {
 			if img.Alt != "" {
 				embedImgAltText = append(embedImgAltText, img.Alt)
-				if containsJapanese(img.Alt) {
-					embedImgAltTextJA = append(embedImgAltTextJA, img.Alt)
-				}
 			}
 		}
 	}
@@ -169,9 +163,6 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 		for _, img := range post.Embed.EmbedRecordWithMedia.Media.EmbedImages.Images {
 			if img.Alt != "" {
 				embedImgAltText = append(embedImgAltText, img.Alt)
-				if containsJapanese(img.Alt) {
-					embedImgAltTextJA = append(embedImgAltTextJA, img.Alt)
-				}
 			}
 		}
 	}
@@ -194,28 +185,23 @@ func TransformPost(post *appbsky.FeedPost, did syntax.DID, rkey, cid string) Pos
 	}
 
 	doc := PostDoc{
-		DocIndexTs:        syntax.DatetimeNow().String(),
-		DID:               did.String(),
-		RecordRkey:        rkey,
-		RecordCID:         cid,
-		Text:              post.Text,
-		LangCode:          post.Langs,
-		LangCodeIso2:      langCodeIso2,
-		MentionDID:        mentionDIDs,
-		EmbedATURI:        embedATURI,
-		ReplyRootATURI:    replyRootATURI,
-		EmbedImgCount:     embedImgCount,
-		EmbedImgAltText:   embedImgAltText,
-		EmbedImgAltTextJA: embedImgAltTextJA,
-		SelfLabel:         selfLabels,
-		URL:               urls,
-		Domain:            domains,
-		Tag:               parsePostTags(post),
-		Emoji:             parseEmojis(post.Text),
-	}
-
-	if containsJapanese(post.Text) {
-		doc.TextJA = &post.Text
+		DocIndexTs:      syntax.DatetimeNow().String(),
+		DID:             did.String(),
+		RecordRkey:      rkey,
+		RecordCID:       cid,
+		Text:            post.Text,
+		LangCode:        post.Langs,
+		LangCodeIso2:    langCodeIso2,
+		MentionDID:      mentionDIDs,
+		EmbedATURI:      embedATURI,
+		ReplyRootATURI:  replyRootATURI,
+		EmbedImgCount:   embedImgCount,
+		EmbedImgAltText: embedImgAltText,
+		SelfLabel:       selfLabels,
+		URL:             urls,
+		Domain:          domains,
+		Tag:             parsePostTags(post),
+		Emoji:           parseEmojis(post.Text),
 	}
 
 	if post.CreatedAt != "" {
