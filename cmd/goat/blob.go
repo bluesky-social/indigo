@@ -31,7 +31,6 @@ var cmdBlob = &cli.Command{
 				&cli.StringFlag{
 					Name:    "pds-host",
 					Usage:   "URL of the PDS to export blobs from (overrides DID doc)",
-					EnvVars: []string{"ATP_PDS_HOST"},
 				},
 			},
 			Action: runBlobExport,
