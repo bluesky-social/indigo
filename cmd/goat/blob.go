@@ -78,14 +78,14 @@ func runBlobExport(cctx *cli.Context) error {
 		return err
 	}
 
-	pds_host := cctx.String("pds-host")
-	if pds_host == "" {
-		pds_host = ident.PDSEndpoint()
+	pdsHost := cctx.String("pds-host")
+	if pdsHost == "" {
+		pdsHost = ident.PDSEndpoint()
 	}
 
 	// create a new API client to connect to the account's PDS
 	xrpcc := xrpc.Client{
-		Host: pds_host,,
+		Host: pdsHost,
 	}
 	if xrpcc.Host == "" {
 		return fmt.Errorf("no PDS endpoint for identity")
