@@ -28,6 +28,11 @@ var cmdBlob = &cli.Command{
 					Aliases: []string{"o"},
 					Usage:   "directory to store blobs in",
 				},
+				&cli.StringFlag{
+					Name:    "pds-host",
+					Usage:   "URL of the PDS to export blobs from (overrides DID doc)",
+					EnvVars: []string{"ATP_PDS_HOST"},
+				},
 			},
 			Action: runBlobExport,
 		},
@@ -73,9 +78,14 @@ func runBlobExport(cctx *cli.Context) error {
 		return err
 	}
 
+	pds_host := cctx.String("pds-host")
+	if pds_host == "" {
+		pds_host = ident.PDSEndpoint()
+	}
+
 	// create a new API client to connect to the account's PDS
 	xrpcc := xrpc.Client{
-		Host: ident.PDSEndpoint(),
+		Host: pds_host,,
 	}
 	if xrpcc.Host == "" {
 		return fmt.Errorf("no PDS endpoint for identity")
