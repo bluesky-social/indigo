@@ -476,7 +476,7 @@ func (rm *RepoManager) GetRecordProof(ctx context.Context, user models.Uid, coll
 		return cid.Undef, nil, err
 	}
 
-	_, _, err = r.GetRecord(ctx, collection+"/"+rkey)
+	_, _, err = r.GetRecordBytes(ctx, collection+"/"+rkey)
 	if err != nil {
 		return cid.Undef, nil, err
 	}
