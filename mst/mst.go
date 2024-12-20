@@ -105,20 +105,20 @@ func checkTreeInvariant(ents []nodeEntry) {
 // the CBOR codec.
 func CBORTypes() []reflect.Type {
 	return []reflect.Type{
-		reflect.TypeOf(nodeData{}),
-		reflect.TypeOf(treeEntry{}),
+		reflect.TypeOf(NodeData{}),
+		reflect.TypeOf(TreeEntry{}),
 	}
 }
 
 // MST tree node as gets serialized to CBOR. Note that the CBOR fields are all
 // single-character.
-type nodeData struct {
+type NodeData struct {
 	Left    *cid.Cid    `cborgen:"l"` // [nullable] pointer to lower-level subtree to the "left" of this path/key
-	Entries []treeEntry `cborgen:"e"` // ordered list of entries at this node
+	Entries []TreeEntry `cborgen:"e"` // ordered list of entries at this node
 }
 
-// treeEntry are elements of nodeData's Entries.
-type treeEntry struct {
+// TreeEntry are elements of NodeData's Entries.
+type TreeEntry struct {
 	PrefixLen int64    `cborgen:"p"` // count of characters shared with previous path/key in tree
 	KeySuffix []byte   `cborgen:"k"` // remaining part of path/key (appended to "previous key")
 	Val       cid.Cid  `cborgen:"v"` // CID pointer at this path/key
@@ -189,7 +189,7 @@ func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]nodeEntry, error
 	// otherwise this is a virtual/pointer struct and we need to hydrate from
 	// blockstore before returning entries
 	if mst.pointer != cid.Undef {
-		var nd nodeData
+		var nd NodeData
 		if err := mst.cst.Get(ctx, mst.pointer, &nd); err != nil {
 			return nil, err
 		}
@@ -210,7 +210,7 @@ func (mst *MerkleSearchTree) getEntries(ctx context.Context) ([]nodeEntry, error
 }
 
 // golang-specific helper that calls in to deserializeNodeData
-func entriesFromNodeData(ctx context.Context, nd *nodeData, cst cbor.IpldStore) ([]nodeEntry, error) {
+func entriesFromNodeData(ctx context.Context, nd *NodeData, cst cbor.IpldStore) ([]nodeEntry, error) {
 	layer := -1
 	if len(nd.Entries) > 0 {
 		// NOTE(bnewbold): can compute the layer on the first KeySuffix, because for the first entry that field is a complete key
