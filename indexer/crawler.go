@@ -234,8 +234,10 @@ func (c *CrawlDispatcher) Crawl(ctx context.Context, ai *models.ActorInfo) error
 	//ctx, span := otel.Tracer("crawler").Start(ctx, "addToCrawler")
 	//defer span.End()
 
+	c.log.Info("crawl", "pds", cw.act.PDS, "uid", cw.act.Uid)
 	select {
 	case c.ingest <- cw:
+		c.log.Info("crawl posted", "pds", cw.act.PDS, "uid", cw.act.Uid)
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -258,8 +260,10 @@ func (c *CrawlDispatcher) AddToCatchupQueue(ctx context.Context, host *models.PD
 		return nil
 	}
 
+	c.log.Info("catchup", "pds", cw.act.PDS, "uid", cw.act.Uid)
 	select {
 	case c.catchup <- cw:
+		c.log.Info("catchup posted", "pds", cw.act.PDS, "uid", cw.act.Uid)
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
