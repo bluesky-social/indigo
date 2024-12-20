@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/models"
@@ -182,10 +183,13 @@ func (rf *RepoFetcher) FetchAndIndexRepo(ctx context.Context, job *crawlWork) er
 	c := models.ClientForPds(&pds)
 	rf.ApplyPDSClientSettings(c)
 
+	fetchStart := time.Now()
 	repo, err := rf.fetchRepo(ctx, c, &pds, ai.Did, rev)
 	if err != nil {
 		return err
 	}
+	fetchEnd := time.Now()
+	repoLen := len(repo)
 
 	if err := rf.repoman.ImportNewRepo(ctx, ai.Uid, ai.Did, bytes.NewReader(repo), revp); err != nil {
 		span.RecordError(err)
@@ -206,6 +210,10 @@ func (rf *RepoFetcher) FetchAndIndexRepo(ctx context.Context, job *crawlWork) er
 		}
 		return fmt.Errorf("importing fetched repo (curRev: %s): %w", rev, err)
 	}
+	importEnd := time.Now()
+	fetchTime := fetchEnd.Sub(fetchStart)
+	importTime := importEnd.Sub(fetchEnd)
+	rf.log.Info("FAIR OK", "bytes", repoLen, "fetch", fetchTime, "import", importTime)
 
 	return nil
 }
