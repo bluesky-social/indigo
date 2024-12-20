@@ -414,7 +414,7 @@ func (bgs *BGS) handleAdminChangePDSRateLimits(e echo.Context) error {
 	limits.PerDay.SetLimit(body.PerDay)
 
 	// Set the crawl rate limit
-	bgs.repoFetcher.GetOrCreateLimiter(pds.ID, float64(body.CrawlRate)).SetLimit(rate.Limit(body.CrawlRate))
+	bgs.repoFetcher.GetOrCreateLimiter2(pds.ID, float64(body.CrawlRate)).SetLimit(rate.Limit(body.CrawlRate))
 
 	return e.JSON(200, map[string]any{
 		"success": "true",

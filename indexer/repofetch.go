@@ -53,7 +53,8 @@ func (rf *RepoFetcher) GetLimiter(pdsID uint) *rate.Limiter {
 	return rf.Limiters[pdsID]
 }
 
-func (rf *RepoFetcher) GetOrCreateLimiter(pdsID uint, pdsrate float64) *rate.Limiter {
+// GetOrCreateLimiter2 is for when we have already fetched the pds record from the db
+func (rf *RepoFetcher) GetOrCreateLimiter2(pdsID uint, pdsrate float64) *rate.Limiter {
 	rf.LimitMux.Lock()
 	defer rf.LimitMux.Unlock()
 
@@ -64,6 +65,37 @@ func (rf *RepoFetcher) GetOrCreateLimiter(pdsID uint, pdsrate float64) *rate.Lim
 	}
 
 	return lim
+}
+
+// GetOrCreateLimiter will fetch the pds from the db if needed
+// See also GetOrCreateLimiter2 if the pds record is already available.
+func (rf *RepoFetcher) GetOrCreateLimiter(pdsID uint) *rate.Limiter {
+	rf.LimitMux.Lock()
+	lim, ok := rf.Limiters[pdsID]
+	if ok {
+		// return limiter already built
+		rf.LimitMux.Unlock()
+		return lim
+	}
+	// release lock while we do db fetch
+	rf.LimitMux.Unlock()
+
+	var pds models.PDS
+	if err := rf.db.First(&pds, "id = ?", pdsID).Error; err != nil {
+		rf.log.Error("failed to find pds", "pdsID", pdsID, "err", err)
+		return nil
+	}
+	nlim := rate.NewLimiter(rate.Limit(pds.CrawlRateLimit), 1)
+
+	rf.LimitMux.Lock()
+	defer rf.LimitMux.Unlock()
+	lim, ok = rf.Limiters[pdsID]
+	if ok {
+		// it was added while we were getting ready
+		return lim
+	}
+	rf.Limiters[pdsID] = nlim
+	return nlim
 }
 
 func (rf *RepoFetcher) SetLimiter(pdsID uint, lim *rate.Limiter) {
@@ -83,7 +115,7 @@ func (rf *RepoFetcher) fetchRepo(ctx context.Context, c *xrpc.Client, pds *model
 		attribute.String("rev", rev),
 	)
 
-	limiter := rf.GetOrCreateLimiter(pds.ID, pds.CrawlRateLimit)
+	limiter := rf.GetOrCreateLimiter2(pds.ID, pds.CrawlRateLimit)
 
 	// Wait to prevent DOSing the PDS when connecting to a new stream with lots of active repos
 	limiter.Wait(ctx)
