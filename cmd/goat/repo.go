@@ -4,19 +4,26 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/mst"
 	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/ipfs/go-cid"
+	cbor "github.com/ipfs/go-ipld-cbor"
+	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/urfave/cli/v2"
+	"github.com/xlab/treeprint"
 )
 
 var cmdRepo = &cli.Command{
@@ -55,8 +62,14 @@ var cmdRepo = &cli.Command{
 			Name:      "inspect",
 			Usage:     "show commit metadata from CAR file",
 			ArgsUsage: `<car-file>`,
-			Flags:     []cli.Flag{},
-			Action:    runRepoInspect,
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:    "mst",
+					Aliases: []string{"m"},
+					Usage:   "print the MST",
+				},
+			},
+			Action: runRepoInspect,
 		},
 		&cli.Command{
 			Name:      "unpack",
@@ -169,6 +182,7 @@ func runRepoList(cctx *cli.Context) error {
 func runRepoInspect(cctx *cli.Context) error {
 	ctx := context.Background()
 	carPath := cctx.Args().First()
+	printMst := cctx.Bool("mst")
 	if carPath == "" {
 		return fmt.Errorf("need to provide path to CAR file as argument")
 	}
@@ -183,6 +197,23 @@ func runRepoInspect(cctx *cli.Context) error {
 		return err
 	}
 
+	if printMst {
+		dataCid := r.DataCid()
+		cst := util.CborStore(r.Blockstore())
+		err, exists := nodeExists(ctx, cst, dataCid)
+		if err != nil {
+			return err
+		}
+		tree := treeprint.NewWithRoot(displayCID(&dataCid) + displayExists(exists))
+		if exists {
+			if err := walkMST(ctx, cst, dataCid, tree); err != nil {
+				return err
+			}
+		}
+		fmt.Println(tree.String())
+		return nil
+	}
+
 	sc := r.SignedCommit()
 	fmt.Printf("ATProto Repo Spec Version: %d\n", sc.Version)
 	fmt.Printf("DID: %s\n", sc.Did)
@@ -192,6 +223,73 @@ func runRepoInspect(cctx *cli.Context) error {
 	// TODO: Signature?
 
 	return nil
+}
+
+func walkMST(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid, tree treeprint.Tree) error {
+	var node mst.NodeData
+	if err := cst.Get(ctx, cid, &node); err != nil {
+		return err
+	}
+	if node.Left != nil {
+		err, exists := nodeExists(ctx, cst, *node.Left)
+		if err != nil {
+			return err
+		}
+		subtree := tree.AddBranch(displayCID(node.Left) + displayExists(exists))
+		if exists {
+			if err := walkMST(ctx, cst, *node.Left, subtree); err != nil {
+				return err
+			}
+		}
+	}
+	for _, entry := range node.Entries {
+		err, exists := nodeExists(ctx, cst, entry.Val)
+		if err != nil {
+			return err
+		}
+		tree.AddNode(displayEntryVal(&entry) + displayExists(exists))
+		if entry.Tree != nil {
+			err, exists := nodeExists(ctx, cst, *entry.Tree)
+			if err != nil {
+				return err
+			}
+			subtree := tree.AddBranch(displayCID(entry.Tree) + displayExists(exists))
+			if exists {
+				if err := walkMST(ctx, cst, *entry.Tree, subtree); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func displayEntryVal(entry *mst.TreeEntry) string {
+	key := string(entry.KeySuffix)
+	return strings.Repeat(".", int(entry.PrefixLen)) + key + " " + displayCID(&entry.Val)
+}
+
+func displayCID(cid *cid.Cid) string {
+	s := cid.String()
+	cut := string(s[len(s)-7:])
+	return "(" + cut + ")"
+}
+
+func displayExists(exists bool) string {
+	if exists {
+		return ""
+	}
+	return " ✗"
+}
+
+func nodeExists(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid) (error, bool) {
+	if _, err := cst.Blocks.Get(ctx, cid); err != nil {
+		if errors.Is(err, ipld.ErrNotFound{}) {
+			return nil, false
+		}
+		return err, false
+	}
+	return nil, true
 }
 
 func runRepoUnpack(cctx *cli.Context) error {
