@@ -236,6 +236,9 @@ func (c *CrawlDispatcher) getPdsForWork() (uint, *SynchronizedChunkQueue[*crawlW
 			if pq.Reserved.Load() {
 				continue
 			}
+			if !pq.Any() {
+				continue
+			}
 			ok := pq.Reserved.CompareAndSwap(false, true)
 			if ok {
 				return pds, pq
@@ -269,6 +272,7 @@ func (c *CrawlDispatcher) fetchWorker() {
 			c.complete <- job.act.Uid
 		}
 		c.log.Info("fetchWorker pds empty", "pds", pds)
+		pq.Reserved.Store(false) // release our reservation
 	}
 }
 
