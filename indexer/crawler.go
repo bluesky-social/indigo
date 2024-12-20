@@ -140,7 +140,7 @@ func (c *CrawlDispatcher) getPdsQueue(pds uint) *SynchronizedChunkQueue[*crawlWo
 	defer c.maplk.Unlock()
 	pq, ok := c.pdsQueues[pds]
 	if !ok {
-		pq = &SynchronizedChunkQueue[*crawlWork]{}
+		pq = NewSynchronizedChunkQueue[*crawlWork]()
 		c.pdsQueues[pds] = pq
 	}
 	return pq
@@ -386,9 +386,6 @@ func (cq *ChunkQueue[T]) Push(x T) {
 	last := len(cq.they) - 1
 	if last >= 0 {
 		chunk := cq.they[last]
-		if cq.chunkSize == 0 {
-			cq.chunkSize = defaultChunkSize
-		}
 		if len(chunk) < cq.chunkSize {
 			chunk = append(chunk, x)
 			cq.they[last] = chunk
@@ -427,6 +424,12 @@ type SynchronizedChunkQueue[T any] struct {
 
 	// true if a fetchWorker() is processing this queue
 	Reserved atomic.Bool
+}
+
+func NewSynchronizedChunkQueue[T any]() *SynchronizedChunkQueue[T] {
+	out := new(SynchronizedChunkQueue[T])
+	out.chunkSize = defaultChunkSize
+	return out
 }
 
 func (cq *SynchronizedChunkQueue[T]) Push(x T) {
