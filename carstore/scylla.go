@@ -27,6 +27,8 @@ type ScyllaStore struct {
 	WriteSession *gocql.Session
 	ReadSession  *gocql.Session
 
+	WriteThreads int
+
 	// scylla servers
 	scyllaAddrs []string
 	// scylla namespace where we find our table
@@ -41,6 +43,7 @@ func NewScyllaStore(addrs []string, keyspace string) (*ScyllaStore, error) {
 	out := new(ScyllaStore)
 	out.scyllaAddrs = addrs
 	out.keyspace = keyspace
+	out.WriteThreads = 4
 	err := out.Open()
 	if err != nil {
 		return nil, err
@@ -154,26 +157,66 @@ func (sqs *ScyllaStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 
 	span.SetAttributes(attribute.Int("blocks", len(blks)))
 
+	linear := (sqs.WriteThreads == 1) || (len(blks) < 20)
+	var workunits chan cidBlock
+	var errchan chan error
+	nthreads := 1
+	runningThreads := 1
+	if !linear {
+		nthreads = sqs.WriteThreads
+		runningThreads = sqs.WriteThreads
+		workunits = make(chan cidBlock, len(blks))
+		errchan = make(chan error, 1)
+		for i := 0; i < nthreads; i++ {
+			go sqs.blockSubmitThread(workunits, dbroot, rev, user, errchan)
+		}
+	}
+
 	for bcid, block := range blks {
+		dbcid := bcid.Bytes()
+		blockbytes := block.RawData()
+		if !linear {
+			select {
+			case err = <-errchan:
+				if errors.Is(err, errBlockSumitNormalExit) {
+					runningThreads--
+				} else {
+					close(workunits)
+					e2 := waitForExits(errchan, runningThreads)
+					if e2 != nil {
+						return nil, errors.Join(err, e2)
+					}
+					return nil, err
+				}
+			case workunits <- cidBlock{dbcid, blockbytes}:
+			}
+		}
 		// build shard for output firehose
-		nw, err := LdWrite(buf, bcid.Bytes(), block.RawData())
+		nw, err := LdWrite(buf, dbcid, blockbytes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to write block: %w", err)
 		}
 		offset += nw
 
-		// TODO: scylla BATCH doesn't apply if the batch crosses partition keys; BUT, we may be able to send many blocks concurrently?
-		dbcid := bcid.Bytes()
-		blockbytes := block.RawData()
-		// we're relying on cql auto-prepare, no 'PreparedStatement'
-		err = sqs.WriteSession.Query(
-			`INSERT INTO blocks (uid, cid, rev, root, block) VALUES (?, ?, ?, ?, ?)`,
-			user, dbcid, rev, dbroot, blockbytes,
-		).Idempotent(true).Exec()
-		if err != nil {
-			return nil, fmt.Errorf("(uid,cid) block store failed, %w", err)
+		if linear {
+			// TODO: scylla BATCH doesn't apply if the batch crosses partition keys; BUT, we may be able to send many blocks concurrently?
+			// we're relying on cql auto-prepare, no 'PreparedStatement'
+			err = sqs.WriteSession.Query(
+				`INSERT INTO blocks (uid, cid, rev, root, block) VALUES (?, ?, ?, ?, ?)`,
+				user, dbcid, rev, dbroot, blockbytes,
+			).Idempotent(true).Exec()
+			if err != nil {
+				return nil, fmt.Errorf("(uid,cid) block store failed, %w", err)
+			}
 		}
-		sqs.log.Debug("put block", "uid", user, "cid", bcid, "size", len(blockbytes))
+		//sqs.log.Debug("put block", "uid", user, "cid", bcid, "size", len(blockbytes))
+	}
+	if !linear {
+		close(workunits)
+		err = waitForExits(errchan, runningThreads)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	shard := CarShard{
@@ -189,6 +232,48 @@ func (sqs *ScyllaStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 	dt := time.Since(start).Seconds()
 	scWriteTimes.Observe(dt)
 	return buf.Bytes(), nil
+}
+
+type cidBlock struct {
+	dbcid      []byte
+	blockbytes []byte
+}
+
+var errBlockSumitNormalExit = errors.New("block sumit normal")
+
+func (sqs *ScyllaStore) blockSubmitThread(workunits <-chan cidBlock, dbroot []byte, rev string, user models.Uid, errs chan<- error) {
+	for cb := range workunits {
+		err := sqs.WriteSession.Query(
+			`INSERT INTO blocks (uid, cid, rev, root, block) VALUES (?, ?, ?, ?, ?)`,
+			user, cb.dbcid, rev, dbroot, cb.blockbytes,
+		).Idempotent(true).Exec()
+		if err != nil {
+			errs <- fmt.Errorf("(uid,cid) block store failed, %w", err)
+		}
+	}
+	errs <- errBlockSumitNormalExit
+}
+
+func waitForExits(errchan chan error, runningThreads int) error {
+	var errout []error
+	for err := range errchan {
+		if errors.Is(err, errBlockSumitNormalExit) {
+			runningThreads--
+			if runningThreads == 0 {
+				break
+			}
+		} else {
+			errout = append(errout, err)
+		}
+	}
+	switch len(errout) {
+	case 0:
+		return nil
+	case 1:
+		return errout[0]
+	default:
+		return errors.Join(errout...)
+	}
 }
 
 // GetLastShard nedeed for NewDeltaSession indirectly through lastShardCache
