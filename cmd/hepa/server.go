@@ -14,7 +14,6 @@ import (
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/cachestore"
 	"github.com/bluesky-social/indigo/automod/countstore"
-	"github.com/bluesky-social/indigo/automod/engine"
 	"github.com/bluesky-social/indigo/automod/flagstore"
 	"github.com/bluesky-social/indigo/automod/rules"
 	"github.com/bluesky-social/indigo/automod/setstore"
@@ -53,6 +52,7 @@ type Config struct {
 	RulesetName         string
 	RatelimitBypass     string
 	FirehoseParallelism int // DEPRECATED
+	RerouteEvents       bool
 	PreScreenHost       string
 	PreScreenToken      string
 	ReportDupePeriod    time.Duration
@@ -224,11 +224,12 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		OzoneClient: ozoneClient,
 		AdminClient: adminClient,
 		BlobClient:  blobClient,
-		Config: engine.EngineConfig{
-			ReportDupePeriod:    config.ReportDupePeriod,
-			QuotaModReportDay:   config.QuotaModReportDay,
-			QuotaModTakedownDay: config.QuotaModTakedownDay,
-			QuotaModActionDay:   config.QuotaModActionDay,
+		Config: automod.EngineConfig{
+			PersistSubjectHistoryOzone: config.RerouteEvents,
+			ReportDupePeriod:           config.ReportDupePeriod,
+			QuotaModReportDay:          config.QuotaModReportDay,
+			QuotaModTakedownDay:        config.QuotaModTakedownDay,
+			QuotaModActionDay:          config.QuotaModActionDay,
 		},
 	}
 
