@@ -3,30 +3,38 @@ package indexer
 import (
 	"context"
 	"fmt"
+	"golang.org/x/time/rate"
 	"log/slog"
+	"math/rand"
 	"sync"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/models"
-
-	"go.opentelemetry.io/otel"
 )
 
 type CrawlDispatcher struct {
-	ingest chan *models.ActorInfo
+	// from Crawl()
+	ingest chan *crawlWork
 
-	repoSync chan *crawlWork
-
+	// from AddToCatchupQueue()
 	catchup chan *crawlWork
 
+	// from mainLoop to fetchWorker()
+	//repoSync chan *crawlWork
+
+	// from fetchWorker back to mainLoop
 	complete chan models.Uid
 
+	// maplk is around: todo, inProgress, pdsQueues, pdsIds
 	maplk      sync.Mutex
+	newWork    sync.Cond
 	todo       map[models.Uid]*crawlWork
 	inProgress map[models.Uid]*crawlWork
+	pdsQueues  map[uint]pdsQueue
+	pdsIds     []uint
 
-	doRepoCrawl func(context.Context, *crawlWork) error
+	repoFetcher CrawlRepoFetcher
 
 	concurrency int
 
@@ -35,23 +43,37 @@ type CrawlDispatcher struct {
 	done chan struct{}
 }
 
-func NewCrawlDispatcher(repoFn func(context.Context, *crawlWork) error, concurrency int, log *slog.Logger) (*CrawlDispatcher, error) {
+type pdsQueue struct {
+	queue   *SynchronizedChunkQueue[*crawlWork]
+	pdsId   uint
+	limiter *rate.Limiter
+}
+
+// this is what we need of RepoFetcher
+type CrawlRepoFetcher interface {
+	FetchAndIndexRepo(ctx context.Context, job *crawlWork) error
+	GetOrCreateLimiter(pdsID uint) *rate.Limiter
+}
+
+func NewCrawlDispatcher(repoFetcher CrawlRepoFetcher, concurrency int, log *slog.Logger) (*CrawlDispatcher, error) {
 	if concurrency < 1 {
 		return nil, fmt.Errorf("must specify a non-zero positive integer for crawl dispatcher concurrency")
 	}
 
 	out := &CrawlDispatcher{
-		ingest:      make(chan *models.ActorInfo),
-		repoSync:    make(chan *crawlWork),
-		complete:    make(chan models.Uid),
+		ingest: make(chan *crawlWork),
+		//repoSync:    make(chan *crawlWork, concurrency*2),
+		complete:    make(chan models.Uid, concurrency*2),
 		catchup:     make(chan *crawlWork),
-		doRepoCrawl: repoFn,
+		repoFetcher: repoFetcher,
 		concurrency: concurrency,
 		todo:        make(map[models.Uid]*crawlWork),
 		inProgress:  make(map[models.Uid]*crawlWork),
+		pdsQueues:   make(map[uint]pdsQueue),
 		log:         log,
 		done:        make(chan struct{}),
 	}
+	out.newWork.L = &out.maplk
 	go out.CatchupRepoGaugePoller()
 
 	return out, nil
@@ -61,7 +83,7 @@ func (c *CrawlDispatcher) Run() {
 	go c.mainLoop()
 
 	for i := 0; i < c.concurrency; i++ {
-		go c.fetchWorker()
+		go c.fetchWorker(i)
 	}
 }
 
@@ -89,72 +111,87 @@ type crawlWork struct {
 }
 
 func (c *CrawlDispatcher) mainLoop() {
-	var nextDispatchedJob *crawlWork
-	var jobsAwaitingDispatch []*crawlWork
-
-	// dispatchQueue represents the repoSync worker channel to which we dispatch crawl work
-	var dispatchQueue chan *crawlWork
-
+	localPdsQueues := make(map[uint]pdsQueue)
 	for {
+		var crawlJob *crawlWork = nil
 		select {
-		case actorToCrawl := <-c.ingest:
-			// TODO: max buffer size
-			crawlJob := c.enqueueJobForActor(actorToCrawl)
-			if crawlJob == nil {
-				break
-			}
-
-			if nextDispatchedJob == nil {
-				nextDispatchedJob = crawlJob
-				dispatchQueue = c.repoSync
-			} else {
-				jobsAwaitingDispatch = append(jobsAwaitingDispatch, crawlJob)
-			}
-		case dispatchQueue <- nextDispatchedJob:
-			c.dequeueJob(nextDispatchedJob)
-
-			if len(jobsAwaitingDispatch) > 0 {
-				nextDispatchedJob = jobsAwaitingDispatch[0]
-				jobsAwaitingDispatch = jobsAwaitingDispatch[1:]
-			} else {
-				nextDispatchedJob = nil
-				dispatchQueue = nil
-			}
-		case catchupJob := <-c.catchup:
+		case crawlJob = <-c.ingest:
+			c.log.Info("ml ingest", "pds", crawlJob.act.PDS, "uid", crawlJob.act.Uid)
+		case crawlJob = <-c.catchup:
+			c.log.Info("ml catchup", "pds", crawlJob.act.PDS, "uid", crawlJob.act.Uid)
+			// from AddToCatchupQueue()
 			// CatchupJobs are for processing events that come in while a crawl is in progress
 			// They are lower priority than new crawls so we only add them to the queue if there isn't already a job in progress
-			if nextDispatchedJob == nil {
-				nextDispatchedJob = catchupJob
-				dispatchQueue = c.repoSync
-			} else {
-				jobsAwaitingDispatch = append(jobsAwaitingDispatch, catchupJob)
-			}
 		case uid := <-c.complete:
-			c.maplk.Lock()
+			crawlJob = c.recordComplete(uid)
+		}
 
-			job, ok := c.inProgress[uid]
+		if crawlJob != nil {
+			// send to fetchWorker()
+			pds := crawlJob.act.PDS
+			pq, ok := localPdsQueues[pds]
 			if !ok {
-				panic("should not be possible to not have a job in progress we receive a completion signal for")
+				pq = c.getPdsQueue(pds)
+				localPdsQueues[pds] = pq
 			}
-			delete(c.inProgress, uid)
+			pq.queue.Push(crawlJob)
+			c.newWork.Broadcast()
 
-			// If there are any subsequent jobs for this UID, add it back to the todo list or buffer.
-			// We're basically pumping the `next` queue into the `catchup` queue and will do this over and over until the `next` queue is empty.
-			if len(job.next) > 0 {
-				c.todo[uid] = job
-				job.initScrape = false
-				job.catchup = job.next
-				job.next = nil
-				if nextDispatchedJob == nil {
-					nextDispatchedJob = job
-					dispatchQueue = c.repoSync
-				} else {
-					jobsAwaitingDispatch = append(jobsAwaitingDispatch, job)
-				}
-			}
-			c.maplk.Unlock()
+			// TODO: unbounded per-PDS queues here
+			//c.repoSync <- crawlJob
+			c.dequeueJob(crawlJob)
 		}
 	}
+}
+
+func (c *CrawlDispatcher) getPdsQueue(pds uint) pdsQueue {
+	c.maplk.Lock()
+	defer c.maplk.Unlock()
+	pq, ok := c.pdsQueues[pds]
+	if ok {
+		return pq
+	}
+
+	// yield lock for slow section that hits database and takes a different lock
+	c.maplk.Unlock()
+	npq := pdsQueue{
+		queue:   NewSynchronizedChunkQueue[*crawlWork](),
+		pdsId:   pds,
+		limiter: c.repoFetcher.GetOrCreateLimiter(pds),
+	}
+	// retake lock and see if we still need to insert a pdsQueue
+	c.maplk.Lock()
+
+	pq, ok = c.pdsQueues[pds]
+	if ok {
+		return pq
+	}
+	c.pdsQueues[pds] = npq
+	c.pdsIds = append(c.pdsIds, pds)
+	return npq
+}
+
+func (c *CrawlDispatcher) recordComplete(uid models.Uid) *crawlWork {
+	c.maplk.Lock()
+	defer c.maplk.Unlock()
+
+	job, ok := c.inProgress[uid]
+	if !ok {
+		panic("should not be possible to not have a job in progress we receive a completion signal for")
+	}
+	delete(c.inProgress, uid)
+	c.log.Info("ml complete", "pds", job.act.PDS, "uid", job.act.Uid)
+
+	// If there are any subsequent jobs for this UID, add it back to the todo list or buffer.
+	// We're basically pumping the `next` queue into the `catchup` queue and will do this over and over until the `next` queue is empty.
+	if len(job.next) > 0 {
+		c.todo[uid] = job
+		job.initScrape = false
+		job.catchup = job.next
+		job.next = nil
+		return job
+	}
+	return nil
 }
 
 // enqueueJobForActor adds a new crawl job to the todo list if there isn't already a job in progress for this actor
@@ -216,18 +253,85 @@ func (c *CrawlDispatcher) addToCatchupQueue(catchup *catchupJob) *crawlWork {
 	c.todo[catchup.user.Uid] = cw
 	return cw
 }
-
-func (c *CrawlDispatcher) fetchWorker() {
+func (c *CrawlDispatcher) getPdsForWork() (uint, pdsQueue) {
+	c.maplk.Lock()
+	defer c.maplk.Unlock()
+	// TODO: this is _maybe_ kinda long for inside the lock?
+	// internally takes the pdsQueue lock and the limiter lock
 	for {
+		minSleep := time.Minute
+		noQueues := true
+		// start at a random place in the list of PDS ids
+		if len(c.pdsIds) > 0 {
+			offset := rand.Intn(len(c.pdsIds))
+			for i := 0; i < len(c.pdsIds); i++ {
+				pds := c.pdsIds[(i+offset)%len(c.pdsIds)]
+				pq := c.pdsQueues[pds]
+				if !pq.queue.Any() {
+					continue
+				}
+				noQueues = false
+				now := time.Now()
+				tok := pq.limiter.TokensAt(now)
+				if tok >= 1.0 {
+					// ready now!
+					return pds, pq
+				}
+				if tok < 1.0 {
+					// not ready yet, but calculate next availability in case we need to sleep
+					rate := float64(pq.limiter.Limit())
+					need := 1.0 - tok
+					dt := time.Duration(float64(time.Second) * (need / rate))
+					if dt < minSleep {
+						minSleep = dt
+					}
+					continue
+				}
+				return pds, pq
+			}
+		}
 		select {
-		case job := <-c.repoSync:
-			if err := c.doRepoCrawl(context.TODO(), job); err != nil {
-				c.log.Error("failed to perform repo crawl", "did", job.act.Did, "err", err)
+		case <-c.done:
+			// Shutdown
+			return 0, pdsQueue{}
+		default:
+		}
+		if noQueues {
+			c.newWork.Wait()
+		} else {
+			c.maplk.Unlock()
+			time.Sleep(minSleep)
+			c.maplk.Lock()
+		}
+	}
+}
+func (c *CrawlDispatcher) fetchWorker(fetchWorkerId int) {
+	log := c.log.With("fwi", fetchWorkerId)
+	for {
+		// get a pds with some available work
+		pds, pq := c.getPdsForWork()
+		if pq.queue == nil {
+			// Shutdown
+			return
+		}
+		log.Info("fetchWorker pds", "pds", pds)
+		// continue with this pds until its queue is empty
+		for {
+			ok, job := pq.queue.Pop()
+			if !ok {
+				break
+			}
+			log.Info("fetchWorker start", "pds", job.act.PDS, "uid", job.act.Uid)
+			if err := c.repoFetcher.FetchAndIndexRepo(context.TODO(), job); err != nil {
+				log.Error("failed to perform repo crawl", "did", job.act.Did, "err", err)
+			} else {
+				log.Info("fetchWorker done", "pds", job.act.PDS, "uid", job.act.Uid)
 			}
 
 			// TODO: do we still just do this if it errors?
 			c.complete <- job.act.Uid
 		}
+		log.Info("fetchWorker pds empty", "pds", pds)
 	}
 }
 
@@ -236,13 +340,17 @@ func (c *CrawlDispatcher) Crawl(ctx context.Context, ai *models.ActorInfo) error
 		panic("must have pds for user in queue")
 	}
 
+	cw := c.enqueueJobForActor(ai)
+	if cw == nil {
+		return nil
+	}
+
 	userCrawlsEnqueued.Inc()
 
-	ctx, span := otel.Tracer("crawler").Start(ctx, "addToCrawler")
-	defer span.End()
-
+	c.log.Info("crawl", "pds", cw.act.PDS, "uid", cw.act.Uid)
 	select {
-	case c.ingest <- ai:
+	case c.ingest <- cw:
+		c.log.Info("crawl posted", "pds", cw.act.PDS, "uid", cw.act.Uid)
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -265,8 +373,10 @@ func (c *CrawlDispatcher) AddToCatchupQueue(ctx context.Context, host *models.PD
 		return nil
 	}
 
+	c.log.Info("catchup", "pds", cw.act.PDS, "uid", cw.act.Uid)
 	select {
 	case c.catchup <- cw:
+		c.log.Info("catchup posted", "pds", cw.act.PDS, "uid", cw.act.Uid)
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -303,4 +413,78 @@ func (c *CrawlDispatcher) CatchupRepoGaugePoller() {
 			catchupReposGauge.Set(float64(c.countReposInSlowPath()))
 		}
 	}
+}
+
+// Unbounded queue with chunk-size slices internally
+// not synchronized, wrap with mutex if needed
+type ChunkQueue[T any] struct {
+	they      [][]T
+	chunkSize int
+}
+
+const defaultChunkSize = 1000
+
+func (cq *ChunkQueue[T]) Push(x T) {
+	last := len(cq.they) - 1
+	if last >= 0 {
+		chunk := cq.they[last]
+		if len(chunk) < cq.chunkSize {
+			chunk = append(chunk, x)
+			cq.they[last] = chunk
+			return
+		}
+	}
+	chunk := make([]T, 1, cq.chunkSize)
+	chunk[0] = x
+	cq.they = append(cq.they, chunk)
+}
+
+func (cq *ChunkQueue[T]) Pop() (bool, T) {
+	if len(cq.they) == 0 {
+		var x T
+		return false, x
+	}
+	chunk := cq.they[0]
+	out := chunk[0]
+	if len(chunk) == 1 {
+		cq.they = cq.they[1:]
+	} else {
+		chunk = chunk[1:]
+		cq.they[0] = chunk
+	}
+	return true, out
+}
+
+func (cq *ChunkQueue[T]) Any() bool {
+	return len(cq.they) != 0
+}
+
+type SynchronizedChunkQueue[T any] struct {
+	ChunkQueue[T]
+
+	l sync.Mutex
+}
+
+func NewSynchronizedChunkQueue[T any]() *SynchronizedChunkQueue[T] {
+	out := new(SynchronizedChunkQueue[T])
+	out.chunkSize = defaultChunkSize
+	return out
+}
+
+func (cq *SynchronizedChunkQueue[T]) Push(x T) {
+	cq.l.Lock()
+	defer cq.l.Unlock()
+	cq.ChunkQueue.Push(x)
+}
+
+func (cq *SynchronizedChunkQueue[T]) Pop() (bool, T) {
+	cq.l.Lock()
+	defer cq.l.Unlock()
+	return cq.ChunkQueue.Pop()
+}
+
+func (cq *SynchronizedChunkQueue[T]) Any() bool {
+	cq.l.Lock()
+	defer cq.l.Unlock()
+	return cq.ChunkQueue.Any()
 }

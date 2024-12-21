@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/models"
@@ -53,7 +54,8 @@ func (rf *RepoFetcher) GetLimiter(pdsID uint) *rate.Limiter {
 	return rf.Limiters[pdsID]
 }
 
-func (rf *RepoFetcher) GetOrCreateLimiter(pdsID uint, pdsrate float64) *rate.Limiter {
+// GetOrCreateLimiter2 is for when we have already fetched the pds record from the db
+func (rf *RepoFetcher) GetOrCreateLimiter2(pdsID uint, pdsrate float64) *rate.Limiter {
 	rf.LimitMux.Lock()
 	defer rf.LimitMux.Unlock()
 
@@ -64,6 +66,37 @@ func (rf *RepoFetcher) GetOrCreateLimiter(pdsID uint, pdsrate float64) *rate.Lim
 	}
 
 	return lim
+}
+
+// GetOrCreateLimiter will fetch the pds from the db if needed
+// See also GetOrCreateLimiter2 if the pds record is already available.
+func (rf *RepoFetcher) GetOrCreateLimiter(pdsID uint) *rate.Limiter {
+	rf.LimitMux.Lock()
+	lim, ok := rf.Limiters[pdsID]
+	if ok {
+		// return limiter already built
+		rf.LimitMux.Unlock()
+		return lim
+	}
+	// release lock while we do db fetch
+	rf.LimitMux.Unlock()
+
+	var pds models.PDS
+	if err := rf.db.First(&pds, "id = ?", pdsID).Error; err != nil {
+		rf.log.Error("failed to find pds", "pdsID", pdsID, "err", err)
+		return nil
+	}
+	nlim := rate.NewLimiter(rate.Limit(pds.CrawlRateLimit), 1)
+
+	rf.LimitMux.Lock()
+	defer rf.LimitMux.Unlock()
+	lim, ok = rf.Limiters[pdsID]
+	if ok {
+		// it was added while we were getting ready
+		return lim
+	}
+	rf.Limiters[pdsID] = nlim
+	return nlim
 }
 
 func (rf *RepoFetcher) SetLimiter(pdsID uint, lim *rate.Limiter) {
@@ -83,7 +116,7 @@ func (rf *RepoFetcher) fetchRepo(ctx context.Context, c *xrpc.Client, pds *model
 		attribute.String("rev", rev),
 	)
 
-	limiter := rf.GetOrCreateLimiter(pds.ID, pds.CrawlRateLimit)
+	limiter := rf.GetOrCreateLimiter2(pds.ID, pds.CrawlRateLimit)
 
 	// Wait to prevent DOSing the PDS when connecting to a new stream with lots of active repos
 	limiter.Wait(ctx)
@@ -141,19 +174,24 @@ func (rf *RepoFetcher) FetchAndIndexRepo(ctx context.Context, job *crawlWork) er
 		}
 	}
 
+	revp := &rev
 	if rev == "" {
 		span.SetAttributes(attribute.Bool("full", true))
+		revp = nil
 	}
 
 	c := models.ClientForPds(&pds)
 	rf.ApplyPDSClientSettings(c)
 
+	fetchStart := time.Now()
 	repo, err := rf.fetchRepo(ctx, c, &pds, ai.Did, rev)
 	if err != nil {
 		return err
 	}
+	fetchEnd := time.Now()
+	repoLen := len(repo)
 
-	if err := rf.repoman.ImportNewRepo(ctx, ai.Uid, ai.Did, bytes.NewReader(repo), &rev); err != nil {
+	if err := rf.repoman.ImportNewRepo(ctx, ai.Uid, ai.Did, bytes.NewReader(repo), revp); err != nil {
 		span.RecordError(err)
 
 		if ipld.IsNotFound(err) || errors.Is(err, io.EOF) || errors.Is(err, fs.ErrNotExist) {
@@ -172,6 +210,10 @@ func (rf *RepoFetcher) FetchAndIndexRepo(ctx context.Context, job *crawlWork) er
 		}
 		return fmt.Errorf("importing fetched repo (curRev: %s): %w", rev, err)
 	}
+	importEnd := time.Now()
+	fetchTime := fetchEnd.Sub(fetchStart)
+	importTime := importEnd.Sub(fetchEnd)
+	rf.log.Info("FAIR OK", "bytes", repoLen, "fetch", fetchTime, "import", importTime)
 
 	return nil
 }
