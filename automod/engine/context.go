@@ -311,6 +311,14 @@ func (c *RecordContext) TakedownRecord() {
 	c.effects.TakedownRecord()
 }
 
+func (c *RecordContext) EscalateRecord() {
+	c.effects.EscalateRecord()
+}
+
+func (c *RecordContext) AcknowledgeRecord() {
+	c.effects.AcknowledgeRecord()
+}
+
 func (c *RecordContext) TakedownBlob(cid string) {
 	c.effects.TakedownBlob(cid)
 }
