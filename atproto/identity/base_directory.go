@@ -29,7 +29,12 @@ type BaseDirectory struct {
 	SkipDNSDomainSuffixes []string
 	// set of fallback DNS servers (eg, domain registrars) to try as a fallback. each entry should be "ip:port", eg "8.8.8.8:53"
 	FallbackDNSServers []string
+	// Map of well-known suffixes to call the same host for handle resolution, adds a host header for virtual routing
+	WellKnownSuffixMap WellKnownSuffixMap
 }
+
+// WellKnownSuffixMap is a map of well-known suffixes to call the same host for handle resolution, adds a host header for virtual routing
+type WellKnownSuffixMap map[string]string
 
 var _ Directory = (*BaseDirectory)(nil)
 
