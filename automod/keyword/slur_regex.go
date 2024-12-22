@@ -39,7 +39,7 @@ var substitutionsOnce sync.Once
 
 func Normalize(raw string) string {
 	substitutionsOnce.Do(func() {
-		substitutionsProcessed := make(map[rune]rune)
+		substitutionsProcessed = make(map[rune]rune)
 		for sub, chars := range substitutions {
 			for _, k := range chars {
 				substitutionsProcessed[k] = sub
