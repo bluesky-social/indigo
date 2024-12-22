@@ -35,21 +35,18 @@ var substitutions = map[rune]string{
 }
 
 var substitutionsProcessed map[rune]rune
-var substitutionsMtx = &sync.RWMutex{}
+var substitutionsOnce sync.Once
 
 func Normalize(raw string) string {
-	if substitutionsProcessed == nil {
-		substitutionsMtx.Lock()
-		substitutionsProcessed = make(map[rune]rune)
+	substitutionsOnce.Do(func() {
+		substitutionsProcessed := make(map[rune]rune)
 		for sub, chars := range substitutions {
 			for _, k := range chars {
 				substitutionsProcessed[k] = sub
 			}
 		}
-		substitutionsMtx.Unlock()
-	}
+	})
 
-	substitutionsMtx.RLock()
 	ret := make([]rune, len([]rune(raw)))
 	copy(ret, []rune(raw))
 	for i, v := range raw {
@@ -57,7 +54,6 @@ func Normalize(raw string) string {
 			ret[i] = sub
 		}
 	}
-	substitutionsMtx.RUnlock()
 	return string(ret)
 }
 
