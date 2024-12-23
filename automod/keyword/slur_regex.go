@@ -62,7 +62,7 @@ var explicitSlurRegexes = map[string]*regexp.Regexp{
 	"chink": regexp.MustCompile("chinks?"),
 	// modified to not match "cocoon", "raccoon", "racoon", or "tycoon"
 	"coon":   regexp.MustCompile("(^|[^cayo])coons?"),
-	"faggot": regexp.MustCompile("fagg[oei]t{1,2}(ry|rie?)?s?"),
+	"faggot": regexp.MustCompile("fagg([oei]t{1,2}(ry|rie)?)?s?"),
 	"kike":   regexp.MustCompile("k[iy]ke(ry|rie)?s*"),
 	// modified to not match "snigger"
 	"nigger": regexp.MustCompile("(^|[^s])n[ioa]gg([ea]r?|nog|a)s?"),
