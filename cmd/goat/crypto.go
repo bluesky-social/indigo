@@ -21,34 +21,54 @@ var cmdCrypto = &cli.Command{
 					Aliases: []string{"t"},
 					Usage:   "indicate curve type (P-256 is default)",
 				},
+				&cli.BoolFlag{
+					Name:    "terse",
+					Usage:   "print just the secret key, in multikey format",
+				},
 			},
 			Action: runCryptoGenerate,
 		},
 		&cli.Command{
 			Name:   "inspect",
 			Usage:  "parses and outputs metadata about a public or secret key",
+			ArgsUsage: `<key>`,
 			Action: runCryptoInspect,
 		},
 	},
 }
 
 func runCryptoGenerate(cctx *cli.Context) error {
+	var priv crypto.PrivateKey
+	var privMultibase string
 	switch cctx.String("type") {
 	case "", "P-256", "p256", "ES256", "secp256r1":
-		priv, err := crypto.GeneratePrivateKeyP256()
+		sec, err := crypto.GeneratePrivateKeyP256()
 		if err != nil {
 			return err
 		}
-		fmt.Println(priv.Multibase())
+		privMultibase = sec.Multibase()
+		priv = sec
 	case "K-256", "k256", "ES256K", "secp256k1":
-		priv, err := crypto.GeneratePrivateKeyK256()
+		sec, err := crypto.GeneratePrivateKeyK256()
 		if err != nil {
 			return err
 		}
-		fmt.Println(priv.Multibase())
+		privMultibase = sec.Multibase()
+		priv = sec
 	default:
 		return fmt.Errorf("unknown key type: %s", cctx.String("type"))
 	}
+	if cctx.Bool("terse") {
+		fmt.Println(privMultibase)
+		return nil
+	}
+	pub, err := priv.PublicKey()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Key Type: %s\n", descKeyType(priv))
+	fmt.Printf("Secret Key (Multibase Syntax): save this securely (eg, add to password manager)\n\t%s\n", privMultibase)
+	fmt.Printf("Public Key (DID Key Syntax): share or publish this (eg, in DID document)\n\t%s\n", pub.DIDKey())
 	return nil
 }
 
