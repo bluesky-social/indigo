@@ -15,8 +15,13 @@ var cmdResolve = &cli.Command{
 	Name:      "resolve",
 	Usage:     "lookup identity metadata",
 	ArgsUsage: `<at-identifier>`,
-	Flags:     []cli.Flag{},
-	Action:    runResolve,
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "did",
+			Usage: "just resolve to DID",
+		},
+	},
+	Action: runResolve,
 }
 
 func runResolve(cctx *cli.Context) error {
@@ -33,10 +38,19 @@ func runResolve(cctx *cli.Context) error {
 	dir := identity.BaseDirectory{}
 	var doc *identity.DIDDocument
 
+	if cctx.Bool("did") {
+		if atid.IsDID() {
+		}
+	}
+
 	if atid.IsDID() {
 		did, err := atid.AsDID()
 		if err != nil {
 			return err
+		}
+		if cctx.Bool("did") {
+			fmt.Println(did)
+			return nil
 		}
 		doc, err = dir.ResolveDID(ctx, did)
 		if err != nil {
@@ -50,6 +64,10 @@ func runResolve(cctx *cli.Context) error {
 		did, err := dir.ResolveHandle(ctx, handle)
 		if err != nil {
 			return err
+		}
+		if cctx.Bool("did") {
+			fmt.Println(did)
+			return nil
 		}
 		doc, err = dir.ResolveDID(ctx, did)
 		if err != nil {
