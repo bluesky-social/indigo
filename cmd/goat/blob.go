@@ -29,8 +29,8 @@ var cmdBlob = &cli.Command{
 					Usage:   "directory to store blobs in",
 				},
 				&cli.StringFlag{
-					Name:    "pds-host",
-					Usage:   "URL of the PDS to export blobs from (overrides DID doc)",
+					Name:  "pds-host",
+					Usage: "URL of the PDS to export blobs from (overrides DID doc)",
 				},
 			},
 			Action: runBlobExport,
