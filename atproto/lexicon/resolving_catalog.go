@@ -14,6 +14,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/api/agnostic"
 )
 
 // Catalog which supplements an in-memory BaseCatalog with live resolution from the network
@@ -132,7 +133,7 @@ func fetchRecord(ctx context.Context, ident identity.Identity, aturi syntax.ATUR
 	xrpcc := xrpc.Client{
 		Host: ident.PDSEndpoint(),
 	}
-	resp, err := RepoGetRecord(ctx, &xrpcc, "", aturi.Collection().String(), ident.DID.String(), aturi.RecordKey().String())
+	resp, err := agnostic.RepoGetRecord(ctx, &xrpcc, "", aturi.Collection().String(), ident.DID.String(), aturi.RecordKey().String())
 	if err != nil {
 		return nil, err
 	}
