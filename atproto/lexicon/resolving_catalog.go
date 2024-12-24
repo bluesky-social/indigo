@@ -4,8 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
-	"time"
+	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -14,34 +13,33 @@ import (
 // Catalog which supplements an in-memory BaseCatalog with live resolution from the network
 type ResolvingCatalog struct {
 	Base      BaseCatalog
-	Resolver  net.Resolver
 	Directory identity.Directory
 }
 
-// TODO: maybe this should take a base catalog as an arg?
 func NewResolvingCatalog() ResolvingCatalog {
 	return ResolvingCatalog{
-		Base: NewBaseCatalog(),
-		Resolver: net.Resolver{
-			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-				d := net.Dialer{Timeout: time.Second * 5}
-				return d.DialContext(ctx, network, address)
-			},
-		},
+		Base:      NewBaseCatalog(),
 		Directory: identity.DefaultDirectory(),
 	}
 }
 
 func (rc *ResolvingCatalog) Resolve(ref string) (*Schema, error) {
-	// TODO: not passed through!
+	// NOTE: not passed through!
 	ctx := context.Background()
 
 	if ref == "" {
 		return nil, fmt.Errorf("tried to resolve empty string name")
 	}
 
-	// TODO: split on '#'
-	nsid, err := syntax.ParseNSID(ref)
+	// first try existing catalog
+	schema, err := rc.Base.Resolve(ref)
+	if nil == err { // no error: found a hit
+		return schema, nil
+	}
+
+	// split any ref from the end '#'
+	parts := strings.SplitN(ref, "#", 2)
+	nsid, err := syntax.ParseNSID(parts[0])
 	if err != nil {
 		return nil, err
 	}
@@ -60,9 +58,17 @@ func (rc *ResolvingCatalog) Resolve(ref string) (*Schema, error) {
 	if err = json.Unmarshal(recordJSON, &sf); err != nil {
 		return nil, err
 	}
+
+	if sf.Lexicon != 1 {
+		return nil, fmt.Errorf("unsupported lexicon language version: %d", sf.Lexicon)
+	}
+	if sf.ID != nsid.String() {
+		return nil, fmt.Errorf("lexicon ID does not match NSID: %s != %s", sf.ID, nsid)
+	}
 	if err = rc.Base.AddSchemaFile(sf); err != nil {
 		return nil, err
 	}
 
+	// re-resolving from the raw ref ensures that fragments are handled
 	return rc.Base.Resolve(ref)
 }
