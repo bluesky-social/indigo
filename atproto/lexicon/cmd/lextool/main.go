@@ -34,11 +34,6 @@ func main() {
 			Action: runValidateRecord,
 		},
 		&cli.Command{
-			Name:   "validate-firehose",
-			Usage:  "subscribe to a firehose, validate every known record against catalog",
-			Action: runValidateFirehose,
-		},
-		&cli.Command{
 			Name:   "resolve",
 			Usage:  "resolves an NSID to a lexicon schema",
 			Action: runResolve,
