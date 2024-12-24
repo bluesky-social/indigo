@@ -72,9 +72,8 @@ func (c *BaseCatalog) AddSchemaFile(sf SchemaFile) error {
 			return err
 		}
 		s := Schema{
-			ID:       name,
-			Revision: sf.Revision,
-			Def:      def.Inner,
+			ID:  name,
+			Def: def.Inner,
 		}
 		c.schemas[name] = s
 	}
