@@ -16,7 +16,7 @@ import (
 //
 // The current implementation uses a naive 'getRepo' fetch to the relevant PDS instance, without validating MST proof chain.
 //
-// Calling code should usually use ResolvingCatalog, which handles basing caching.
+// Calling code should usually use ResolvingCatalog, which handles basic caching and validation of the Lexicon language itself.
 func ResolveLexiconData(ctx context.Context, dir identity.Directory, nsid syntax.NSID) (map[string]any, error) {
 
 	baseDir := identity.BaseDirectory{}
