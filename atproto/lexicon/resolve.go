@@ -24,7 +24,7 @@ func ResolveLexiconData(ctx context.Context, dir identity.Directory, nsid syntax
 	if err != nil {
 		return nil, err
 	}
-	slog.Info("resolved NSID", "nsid", nsid, "did", did)
+	slog.Debug("resolved NSID", "nsid", nsid, "did", did)
 
 	ident, err := dir.LookupDID(ctx, did)
 	if err != nil {
