@@ -133,23 +133,6 @@ func runFirehose(cctx *cli.Context) error {
 	return events.HandleRepoStream(ctx, con, scheduler, nil)
 }
 
-// TODO: move this to a "ParsePath" helper in syntax package?
-func splitRepoPath(path string) (syntax.NSID, syntax.RecordKey, error) {
-	parts := strings.SplitN(path, "/", 3)
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("invalid record path: %s", path)
-	}
-	collection, err := syntax.ParseNSID(parts[0])
-	if err != nil {
-		return "", "", err
-	}
-	rkey, err := syntax.ParseRecordKey(parts[1])
-	if err != nil {
-		return "", "", err
-	}
-	return collection, rkey, nil
-}
-
 func (gfc *GoatFirehoseConsumer) handleIdentityEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Identity) error {
 	out := make(map[string]interface{})
 	out["type"] = "identity"
@@ -229,7 +212,7 @@ func (gfc *GoatFirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *
 	}
 
 	for _, op := range evt.Ops {
-		collection, rkey, err := splitRepoPath(op.Path)
+		collection, rkey, err := syntax.ParseRepoPath(op.Path)
 		if err != nil {
 			logger.Error("invalid path in repo op", "eventKind", op.Action, "path", op.Path)
 			return nil

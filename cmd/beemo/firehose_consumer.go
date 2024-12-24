@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strings"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
@@ -60,23 +59,6 @@ func RunFirehoseConsumer(ctx context.Context, logger *slog.Logger, relayHost str
 	return events.HandleRepoStream(ctx, con, scheduler, logger)
 }
 
-// TODO: move this to a "ParsePath" helper in syntax package?
-func splitRepoPath(path string) (syntax.NSID, syntax.RecordKey, error) {
-	parts := strings.SplitN(path, "/", 3)
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("invalid record path: %s", path)
-	}
-	collection, err := syntax.ParseNSID(parts[0])
-	if err != nil {
-		return "", "", err
-	}
-	rkey, err := syntax.ParseRecordKey(parts[1])
-	if err != nil {
-		return "", "", err
-	}
-	return collection, rkey, nil
-}
-
 // NOTE: for now, this function basically never errors, just logs and returns nil. Should think through error processing better.
 func HandleRepoCommit(ctx context.Context, logger *slog.Logger, evt *comatproto.SyncSubscribeRepos_Commit, postCallback func(context.Context, syntax.DID, syntax.RecordKey, appbsky.FeedPost) error) error {
 
@@ -102,7 +84,7 @@ func HandleRepoCommit(ctx context.Context, logger *slog.Logger, evt *comatproto.
 
 	for _, op := range evt.Ops {
 		logger = logger.With("eventKind", op.Action, "path", op.Path)
-		collection, rkey, err := splitRepoPath(op.Path)
+		collection, rkey, err := syntax.ParseRepoPath(op.Path)
 		if err != nil {
 			logger.Error("invalid path in repo op")
 			return nil
