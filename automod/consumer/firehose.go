@@ -144,9 +144,9 @@ func (fc *FirehoseConsumer) HandleRepoCommit(ctx context.Context, evt *comatprot
 
 	for _, op := range evt.Ops {
 		logger = logger.With("eventKind", op.Action, "path", op.Path)
-		collection, rkey, err := splitRepoPath(op.Path)
+		collection, rkey, err := syntax.ParseRepoPath(op.Path)
 		if err != nil {
-			logger.Error("invalid path in repo op")
+			logger.Error("invalid path in repo op", "err", err)
 			return nil
 		}
 
