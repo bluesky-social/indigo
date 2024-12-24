@@ -49,11 +49,12 @@ var cmdLex = &cli.Command{
 			Action:    runLexPublish,
 		},
 		&cli.Command{
-			Name:      "group",
+			Name:      "ls",
+			Aliases:   []string{"list"},
 			Usage:     "list all known Lexicon NSIDs at the same level of hierarchy",
 			ArgsUsage: `<nsid>`,
 			Flags:     []cli.Flag{},
-			Action:    runLexGroup,
+			Action:    runLexList,
 		},
 		&cli.Command{
 			Name:      "validate",
@@ -198,7 +199,7 @@ func runLexResolve(cctx *cli.Context) error {
 	return nil
 }
 
-func runLexGroup(cctx *cli.Context) error {
+func runLexList(cctx *cli.Context) error {
 	ctx := cctx.Context
 	raw := cctx.Args().First()
 	if raw == "" {
