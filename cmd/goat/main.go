@@ -31,6 +31,7 @@ func run(args []string) error {
 		cmdResolve,
 		cmdRepo,
 		cmdBlob,
+		cmdLex,
 		cmdAccount,
 		cmdPLC,
 		cmdBsky,
