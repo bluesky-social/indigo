@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 
 	blockformat "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	ipld "github.com/ipfs/go-ipld-format"
@@ -47,8 +45,11 @@ const MaxSliceLength = 2 << 20
 const BigShardThreshold = 2 << 20
 
 type CarStore interface {
+	// TODO: not really part of general interface
 	CompactUserShards(ctx context.Context, user models.Uid, skipBigShards bool) (*CompactionStats, error)
+	// TODO: not really part of general interface
 	GetCompactionTargets(ctx context.Context, shardCount int) ([]CompactionTarget, error)
+
 	GetUserRepoHead(ctx context.Context, user models.Uid) (cid.Cid, error)
 	GetUserRepoRev(ctx context.Context, user models.Uid) (string, error)
 	ImportSlice(ctx context.Context, uid models.Uid, since *string, carslice []byte) (cid.Cid, *DeltaSession, error)
@@ -63,8 +64,7 @@ type FileCarStore struct {
 	meta     *CarStoreGormMeta
 	rootDirs []string
 
-	lscLk          sync.Mutex
-	lastShardCache map[models.Uid]*CarShard
+	lastShardCache lastShardCache
 
 	log *slog.Logger
 }
@@ -88,16 +88,29 @@ func NewCarStore(meta *gorm.DB, roots []string) (CarStore, error) {
 		return nil, err
 	}
 
-	return &FileCarStore{
-		meta:           &CarStoreGormMeta{meta: meta},
-		rootDirs:       roots,
-		lastShardCache: make(map[models.Uid]*CarShard),
-		log:            slog.Default().With("system", "carstore"),
-	}, nil
+	gormMeta := &CarStoreGormMeta{meta: meta}
+	out := &FileCarStore{
+		meta:     gormMeta,
+		rootDirs: roots,
+		lastShardCache: lastShardCache{
+			source: gormMeta,
+		},
+		log: slog.Default().With("system", "carstore"),
+	}
+	out.lastShardCache.Init()
+	return out, nil
 }
 
+// userView needs these things to get into the underlying block store
+// implemented by CarStoreGormMeta
+type userViewSource interface {
+	HasUidCid(ctx context.Context, user models.Uid, k cid.Cid) (bool, error)
+	LookupBlockRef(ctx context.Context, k cid.Cid) (path string, offset int64, user models.Uid, err error)
+}
+
+// wrapper into a block store that keeps track of which user we are working on behalf of
 type userView struct {
-	cs   CarStore
+	cs   userViewSource
 	user models.Uid
 
 	cache    map[cid.Cid]blockformat.Block
@@ -115,13 +128,7 @@ func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
 	if have {
 		return have, nil
 	}
-
-	fcd, ok := uv.cs.(*FileCarStore)
-	if !ok {
-		return false, nil
-	}
-
-	return fcd.meta.HasUidCid(ctx, uv.user, k)
+	return uv.cs.HasUidCid(ctx, uv.user, k)
 }
 
 var CacheHits int64
@@ -143,12 +150,7 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, erro
 	}
 	atomic.AddInt64(&CacheMiss, 1)
 
-	fcd, ok := uv.cs.(*FileCarStore)
-	if !ok {
-		return nil, ipld.ErrNotFound{Cid: k}
-	}
-
-	path, offset, user, err := fcd.meta.LookupBlockRef(ctx, k)
+	path, offset, user, err := uv.cs.LookupBlockRef(ctx, k)
 	if err != nil {
 		return nil, err
 	}
@@ -279,61 +281,39 @@ func (uv *userView) GetSize(ctx context.Context, k cid.Cid) (int, error) {
 	return len(blk.RawData()), nil
 }
 
+// subset of blockstore.Blockstore that we actually use here
+type minBlockstore interface {
+	Get(ctx context.Context, bcid cid.Cid) (blockformat.Block, error)
+	Has(ctx context.Context, bcid cid.Cid) (bool, error)
+	GetSize(ctx context.Context, bcid cid.Cid) (int, error)
+}
+
 type DeltaSession struct {
-	fresh    blockstore.Blockstore
 	blks     map[cid.Cid]blockformat.Block
 	rmcids   map[cid.Cid]bool
-	base     blockstore.Blockstore
+	base     minBlockstore
 	user     models.Uid
 	baseCid  cid.Cid
 	seq      int
 	readonly bool
-	cs       CarStore
+	cs       shardWriter
 	lastRev  string
 }
 
 func (cs *FileCarStore) checkLastShardCache(user models.Uid) *CarShard {
-	cs.lscLk.Lock()
-	defer cs.lscLk.Unlock()
-
-	ls, ok := cs.lastShardCache[user]
-	if ok {
-		return ls
-	}
-
-	return nil
+	return cs.lastShardCache.check(user)
 }
 
 func (cs *FileCarStore) removeLastShardCache(user models.Uid) {
-	cs.lscLk.Lock()
-	defer cs.lscLk.Unlock()
-
-	delete(cs.lastShardCache, user)
+	cs.lastShardCache.remove(user)
 }
 
 func (cs *FileCarStore) putLastShardCache(ls *CarShard) {
-	cs.lscLk.Lock()
-	defer cs.lscLk.Unlock()
-
-	cs.lastShardCache[ls.Usr] = ls
+	cs.lastShardCache.put(ls)
 }
 
 func (cs *FileCarStore) getLastShard(ctx context.Context, user models.Uid) (*CarShard, error) {
-	ctx, span := otel.Tracer("carstore").Start(ctx, "getLastShard")
-	defer span.End()
-
-	maybeLs := cs.checkLastShardCache(user)
-	if maybeLs != nil {
-		return maybeLs, nil
-	}
-
-	lastShard, err := cs.meta.GetLastShard(ctx, user)
-	if err != nil {
-		return nil, err
-	}
-
-	cs.putLastShardCache(lastShard)
-	return lastShard, nil
+	return cs.lastShardCache.get(ctx, user)
 }
 
 var ErrRepoBaseMismatch = fmt.Errorf("attempted a delta session on top of the wrong previous head")
@@ -354,11 +334,10 @@ func (cs *FileCarStore) NewDeltaSession(ctx context.Context, user models.Uid, si
 	}
 
 	return &DeltaSession{
-		fresh: blockstore.NewBlockstore(datastore.NewMapDatastore()),
-		blks:  make(map[cid.Cid]blockformat.Block),
+		blks: make(map[cid.Cid]blockformat.Block),
 		base: &userView{
 			user:     user,
-			cs:       cs,
+			cs:       cs.meta,
 			prefetch: true,
 			cache:    make(map[cid.Cid]blockformat.Block),
 		},
@@ -374,7 +353,7 @@ func (cs *FileCarStore) ReadOnlySession(user models.Uid) (*DeltaSession, error) 
 	return &DeltaSession{
 		base: &userView{
 			user:     user,
-			cs:       cs,
+			cs:       cs.meta,
 			prefetch: false,
 			cache:    make(map[cid.Cid]blockformat.Block),
 		},
@@ -385,7 +364,7 @@ func (cs *FileCarStore) ReadOnlySession(user models.Uid) (*DeltaSession, error) 
 }
 
 // TODO: incremental is only ever called true, remove the param
-func (cs *FileCarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev string, incremental bool, w io.Writer) error {
+func (cs *FileCarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceRev string, incremental bool, shardOut io.Writer) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "ReadUserCar")
 	defer span.End()
 
@@ -398,7 +377,6 @@ func (cs *FileCarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceR
 		}
 	}
 
-	// TODO: Why does ReadUserCar want shards seq DESC but CompactUserShards wants seq ASC ?
 	shards, err := cs.meta.GetUserShardsDesc(ctx, user, earlySeq)
 	if err != nil {
 		return err
@@ -418,12 +396,12 @@ func (cs *FileCarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceR
 	if err := car.WriteHeader(&car.CarHeader{
 		Roots:   []cid.Cid{shards[0].Root.CID},
 		Version: 1,
-	}, w); err != nil {
+	}, shardOut); err != nil {
 		return err
 	}
 
 	for _, sh := range shards {
-		if err := cs.writeShardBlocks(ctx, &sh, w); err != nil {
+		if err := cs.writeShardBlocks(ctx, &sh, shardOut); err != nil {
 			return err
 		}
 	}
@@ -433,7 +411,7 @@ func (cs *FileCarStore) ReadUserCar(ctx context.Context, user models.Uid, sinceR
 
 // inner loop part of ReadUserCar
 // copy shard blocks from disk to Writer
-func (cs *FileCarStore) writeShardBlocks(ctx context.Context, sh *CarShard, w io.Writer) error {
+func (cs *FileCarStore) writeShardBlocks(ctx context.Context, sh *CarShard, shardOut io.Writer) error {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "writeShardBlocks")
 	defer span.End()
 
@@ -448,7 +426,7 @@ func (cs *FileCarStore) writeShardBlocks(ctx context.Context, sh *CarShard, w io
 		return err
 	}
 
-	_, err = io.Copy(w, fi)
+	_, err = io.Copy(shardOut, fi)
 	if err != nil {
 		return err
 	}
@@ -603,18 +581,7 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid, rev str
 		return nil, fmt.Errorf("cannot write to readonly deltaSession")
 	}
 
-	switch ocs := ds.cs.(type) {
-	case *FileCarStore:
-		return ocs.writeNewShard(ctx, root, rev, ds.user, ds.seq, ds.blks, ds.rmcids)
-	case *NonArchivalCarstore:
-		slice, err := blocksToCar(ctx, root, rev, ds.blks)
-		if err != nil {
-			return nil, err
-		}
-		return slice, ocs.updateLastCommit(ctx, ds.user, rev, root)
-	default:
-		return nil, fmt.Errorf("unsupported carstore type")
-	}
+	return ds.cs.writeNewShard(ctx, root, rev, ds.user, ds.seq, ds.blks, ds.rmcids)
 }
 
 func WriteCarHeader(w io.Writer, root cid.Cid) (int64, error) {
@@ -633,6 +600,12 @@ func WriteCarHeader(w io.Writer, root cid.Cid) (int64, error) {
 	}
 
 	return hnw, nil
+}
+
+// shardWriter.writeNewShard called from inside DeltaSession.CloseWithRoot
+type shardWriter interface {
+	// writeNewShard stores blocks in `blks` arg and creates a new shard to propagate out to our firehose
+	writeNewShard(ctx context.Context, root cid.Cid, rev string, user models.Uid, seq int, blks map[cid.Cid]blockformat.Block, rmcids map[cid.Cid]bool) ([]byte, error)
 }
 
 func blocksToCar(ctx context.Context, root cid.Cid, rev string, blks map[cid.Cid]blockformat.Block) ([]byte, error) {
