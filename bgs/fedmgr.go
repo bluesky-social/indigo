@@ -363,7 +363,7 @@ func (s *Slurper) canSlurpHost(host string) bool {
 	return !s.newSubsDisabled
 }
 
-func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adminOverride bool) error {
+func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adminOverride bool, rateOverrides *PDSRates) error {
 	// TODO: for performance, lock on the hostname instead of global
 	s.lk.Lock()
 	defer s.lk.Unlock()
@@ -396,6 +396,13 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adm
 			DailyEventLimit:  s.DefaultPerDayLimit,
 			CrawlRateLimit:   float64(s.DefaultCrawlLimit),
 			RepoLimit:        s.DefaultRepoLimit,
+		}
+		if rateOverrides != nil {
+			npds.RateLimit = float64(rateOverrides.PerSecond)
+			npds.HourlyEventLimit = rateOverrides.PerHour
+			npds.DailyEventLimit = rateOverrides.PerDay
+			npds.CrawlRateLimit = float64(rateOverrides.CrawlRate)
+			npds.RepoLimit = rateOverrides.RepoLimit
 		}
 		if err := s.db.Create(&npds).Error; err != nil {
 			return err
