@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go.opentelemetry.io/otel"
+	"gorm.io/gorm"
 	"io"
 	"log/slog"
 	"math/rand"
@@ -51,13 +53,27 @@ type Splitter struct {
 	nextCrawlers []*url.URL
 }
 
+const DefaultListReposCacheDuration = time.Minute * 5
+
 type SplitterConfig struct {
 	UpstreamHost  string
 	CursorFile    string
 	PebbleOptions *events.PebblePersistOptions
+
+	ListReposCacheDuration time.Duration
+}
+
+func (sc *SplitterConfig) normalize() error {
+	if sc.ListReposCacheDuration == 0 {
+		sc.ListReposCacheDuration = DefaultListReposCacheDuration
+	}
+	return nil
 }
 
 func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) {
+	if err := conf.normalize(); err != nil {
+		return nil, err
+	}
 	var nextCrawlerURLs []*url.URL
 	log := slog.Default().With("system", "splitter")
 	if len(nextCrawlers) > 0 {
@@ -105,9 +121,10 @@ func NewDiskSplitter(host, path string, persistHours float64, maxBytes int64) (*
 		MaxBytes:        uint64(maxBytes),
 	}
 	conf := SplitterConfig{
-		UpstreamHost:  host,
-		CursorFile:    "cursor-file",
-		PebbleOptions: &ppopts,
+		UpstreamHost:           host,
+		CursorFile:             "cursor-file",
+		PebbleOptions:          &ppopts,
+		ListReposCacheDuration: DefaultListReposCacheDuration,
 	}
 	pp, err := events.NewPebblePersistance(&ppopts)
 	if err != nil {
@@ -207,6 +224,7 @@ func (s *Splitter) StartWithListener(listen net.Listener) error {
 
 	e.POST("/xrpc/com.atproto.sync.requestCrawl", s.RequestCrawlHandler)
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
+	e.GET("/xrpc/com.atproto.sync.listRepos", s.HandleComAtprotoSyncListRepos)
 
 	e.GET("/xrpc/_health", s.HandleHealthCheck)
 	e.GET("/_health", s.HandleHealthCheck)
@@ -327,6 +345,90 @@ func (s *Splitter) RequestCrawlHandler(c echo.Context) error {
 	}
 
 	return c.JSON(200, HealthStatus{Status: "ok"})
+}
+
+func (s *Splitter) HandleComAtprotoSyncListRepos(c echo.Context) error {
+	// TODO: identical to bgs/stubs.go - re-unify?
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncListRepos")
+	defer span.End()
+
+	cursorQuery := c.QueryParam("cursor")
+	limitQuery := c.QueryParam("limit")
+
+	var err error
+
+	limit := 500
+	if limitQuery != "" {
+		limit, err = strconv.Atoi(limitQuery)
+		if err != nil || limit < 1 || limit > 1000 {
+			return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid limit: %s", limitQuery)})
+		}
+	}
+
+	cursor := int64(0)
+	if cursorQuery != "" {
+		cursor, err = strconv.ParseInt(cursorQuery, 10, 64)
+		if err != nil || cursor < 0 {
+			return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid cursor: %s", cursorQuery)})
+		}
+	}
+
+	out, handleErr := s.handleComAtprotoSyncListRepos(ctx, cursor, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Splitter) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, limit int) (*comatproto.SyncListRepos_Output, error) {
+	// Filter out tombstoned, taken down, and deactivated accounts
+	q := fmt.Sprintf("id > ? AND NOT tombstoned AND NOT taken_down AND (upstream_status is NULL OR (upstream_status != '%s' AND upstream_status != '%s' AND upstream_status != '%s'))",
+		events.AccountStatusDeactivated, events.AccountStatusSuspended, events.AccountStatusTakendown)
+
+	// Load the users
+	users := []*User{}
+	if err := s.db.Model(&User{}).Where(q, cursor).Order("id").Limit(limit).Find(&users).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return &comatproto.SyncListRepos_Output{}, nil
+		}
+		log.Error("failed to query users", "err", err)
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to query users")
+	}
+
+	if len(users) == 0 {
+		// resp.Repos is an explicit empty array, not just 'nil'
+		return &comatproto.SyncListRepos_Output{
+			Repos: []*comatproto.SyncListRepos_Repo{},
+		}, nil
+	}
+
+	resp := &comatproto.SyncListRepos_Output{
+		Repos: make([]*comatproto.SyncListRepos_Repo, len(users)),
+	}
+
+	// Fetch the repo roots for each user
+	for i := range users {
+		user := users[i]
+
+		root, err := s.repoman.GetRepoRoot(ctx, user.ID)
+		if err != nil {
+			log.Error("failed to get repo root", "err", err, "did", user.Did)
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get repo root for (%s): %v", user.Did, err.Error()))
+		}
+
+		resp.Repos[i] = &comatproto.SyncListRepos_Repo{
+			Did:  user.Did,
+			Head: root.String(),
+		}
+	}
+
+	// If this is not the last page, set the cursor
+	if len(users) >= limit && len(users) > 1 {
+		nextCursor := fmt.Sprintf("%d", users[len(users)-1].ID)
+		resp.Cursor = &nextCursor
+	}
+
+	return resp, nil
 }
 
 func (s *Splitter) EventsHandler(c echo.Context) error {
