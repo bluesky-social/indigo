@@ -141,8 +141,10 @@ func (rf *RepoFetcher) FetchAndIndexRepo(ctx context.Context, job *crawlWork) er
 		}
 	}
 
+	revp := &rev
 	if rev == "" {
 		span.SetAttributes(attribute.Bool("full", true))
+		revp = nil
 	}
 
 	c := models.ClientForPds(&pds)
@@ -153,7 +155,7 @@ func (rf *RepoFetcher) FetchAndIndexRepo(ctx context.Context, job *crawlWork) er
 		return err
 	}
 
-	if err := rf.repoman.ImportNewRepo(ctx, ai.Uid, ai.Did, bytes.NewReader(repo), &rev); err != nil {
+	if err := rf.repoman.ImportNewRepo(ctx, ai.Uid, ai.Did, bytes.NewReader(repo), revp); err != nil {
 		span.RecordError(err)
 
 		if ipld.IsNotFound(err) || errors.Is(err, io.EOF) || errors.Is(err, fs.ErrNotExist) {

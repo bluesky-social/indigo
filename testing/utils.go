@@ -210,12 +210,14 @@ func (tp *TestPDS) BumpLimits(t *testing.T, b *TestRelay) {
 	}
 
 	limReqBody := bgs.RateLimitChangeRequest{
-		Host:      u.Host,
-		PerSecond: 5_000,
-		PerHour:   100_000,
-		PerDay:    1_000_000,
-		RepoLimit: 500_000,
-		CrawlRate: 50_000,
+		Host: u.Host,
+		PDSRates: bgs.PDSRates{
+			PerSecond: 5_000,
+			PerHour:   100_000,
+			PerDay:    1_000_000,
+			RepoLimit: 500_000,
+			CrawlRate: 50_000,
+		},
 	}
 
 	// JSON encode the request body

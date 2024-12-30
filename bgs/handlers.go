@@ -212,7 +212,7 @@ func (s *BGS) handleComAtprotoSyncRequestCrawl(ctx context.Context, body *comatp
 		}
 	}
 
-	return s.slurper.SubscribeToPds(ctx, host, true, false)
+	return s.slurper.SubscribeToPds(ctx, host, true, false, nil)
 }
 
 func (s *BGS) handleComAtprotoSyncNotifyOfUpdate(ctx context.Context, body *comatprototypes.SyncNotifyOfUpdate_Input) error {
