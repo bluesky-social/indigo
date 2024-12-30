@@ -43,11 +43,12 @@ func run(args []string) {
 	}
 
 	app.Flags = []cli.Flag{
-		&cli.BoolFlag{
-			Name:    "crawl-insecure-ws",
-			Usage:   "when connecting to PDS instances, use ws:// instead of wss://",
-			EnvVars: []string{"RAINBOW_INSECURE_CRAWL"},
-		},
+		// TODO: unimplemented, always assumes https:// and wss://
+		//&cli.BoolFlag{
+		//	Name:    "crawl-insecure-ws",
+		//	Usage:   "when connecting to PDS instances, use ws:// instead of wss://",
+		//	EnvVars: []string{"RAINBOW_INSECURE_CRAWL"},
+		//},
 		&cli.StringFlag{
 			Name:    "splitter-host",
 			Value:   "bsky.network",
