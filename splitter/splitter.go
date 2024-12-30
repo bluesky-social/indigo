@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go.opentelemetry.io/otel"
 	"io"
 	"log/slog"
 	"math/rand"
@@ -55,6 +56,22 @@ type SplitterConfig struct {
 	UpstreamHost  string
 	CursorFile    string
 	PebbleOptions *events.PebblePersistOptions
+}
+
+func (sc *SplitterConfig) XrpcRootUrl() string {
+	if strings.HasPrefix(sc.UpstreamHost, "http://") {
+		return sc.UpstreamHost
+	}
+	if strings.HasPrefix(sc.UpstreamHost, "https://") {
+		return sc.UpstreamHost
+	}
+	if strings.HasPrefix(sc.UpstreamHost, "ws://") {
+		return "http://" + sc.UpstreamHost[5:]
+	}
+	if strings.HasPrefix(sc.UpstreamHost, "wss://") {
+		return "https://" + sc.UpstreamHost[6:]
+	}
+	return "https://" + sc.UpstreamHost
 }
 
 func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) {
@@ -207,6 +224,7 @@ func (s *Splitter) StartWithListener(listen net.Listener) error {
 
 	e.POST("/xrpc/com.atproto.sync.requestCrawl", s.RequestCrawlHandler)
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
+	e.GET("/xrpc/com.atproto.sync.listRepos", s.HandleComAtprotoSyncListRepos)
 
 	e.GET("/xrpc/_health", s.HandleHealthCheck)
 	e.GET("/_health", s.HandleHealthCheck)
@@ -327,6 +345,35 @@ func (s *Splitter) RequestCrawlHandler(c echo.Context) error {
 	}
 
 	return c.JSON(200, HealthStatus{Status: "ok"})
+}
+
+func (s *Splitter) HandleComAtprotoSyncListRepos(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncListRepos")
+	defer span.End()
+
+	cursorQuery := c.QueryParam("cursor")
+	limitQuery := c.QueryParam("limit")
+
+	var err error
+
+	limit := int64(500)
+	if limitQuery != "" {
+		limit, err = strconv.ParseInt(limitQuery, 10, 64)
+		if err != nil || limit < 1 || limit > 1000 {
+			return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid limit: %s", limitQuery)})
+		}
+	}
+
+	client := xrpc.Client{
+		Client: s.httpC,
+		Host:   s.conf.XrpcRootUrl(),
+	}
+
+	out, handleErr := atproto.SyncListRepos(ctx, &client, cursorQuery, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Splitter) EventsHandler(c echo.Context) error {
