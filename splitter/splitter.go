@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"go.opentelemetry.io/otel"
-	"gorm.io/gorm"
 	"io"
 	"log/slog"
 	"math/rand"
@@ -51,9 +50,17 @@ type Splitter struct {
 
 	httpC        *http.Client
 	nextCrawlers []*url.URL
+
+	// from upsream listRepos
+	cachedRepos            []*atproto.SyncListRepos_Repo
+	cachedReposFrom        time.Time
+	cachedReposExpires     time.Time
+	cacheReposIsRefetching bool
+	cachedReposLock        sync.Mutex
+	cachedReposCond        sync.Cond
 }
 
-const DefaultListReposCacheDuration = time.Minute * 5
+const DefaultListReposCacheDuration = time.Minute * 15
 
 type SplitterConfig struct {
 	UpstreamHost  string
@@ -68,6 +75,22 @@ func (sc *SplitterConfig) normalize() error {
 		sc.ListReposCacheDuration = DefaultListReposCacheDuration
 	}
 	return nil
+}
+
+func (sc *SplitterConfig) XrpcRootUrl() string {
+	if strings.HasPrefix(sc.UpstreamHost, "http://") {
+		return sc.UpstreamHost
+	}
+	if strings.HasPrefix(sc.UpstreamHost, "https://") {
+		return sc.UpstreamHost
+	}
+	if strings.HasPrefix(sc.UpstreamHost, "ws://") {
+		return "http://" + sc.UpstreamHost[5:]
+	}
+	if strings.HasPrefix(sc.UpstreamHost, "wss://") {
+		return "https://" + sc.UpstreamHost[5:]
+	}
+	return "https://" + sc.UpstreamHost
 }
 
 func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) {
@@ -95,6 +118,7 @@ func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) 
 		httpC:        util.RobustHTTPClient(),
 		nextCrawlers: nextCrawlerURLs,
 	}
+	s.cachedReposCond.L = &s.cachedReposLock
 
 	if conf.PebbleOptions == nil {
 		// mem splitter
@@ -348,7 +372,7 @@ func (s *Splitter) RequestCrawlHandler(c echo.Context) error {
 }
 
 func (s *Splitter) HandleComAtprotoSyncListRepos(c echo.Context) error {
-	// TODO: identical to bgs/stubs.go - re-unify?
+	// TODO: similar to bgs/stubs.go - re-unify?
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncListRepos")
 	defer span.End()
 
@@ -365,12 +389,13 @@ func (s *Splitter) HandleComAtprotoSyncListRepos(c echo.Context) error {
 		}
 	}
 
-	cursor := int64(0)
+	cursor := int(0)
 	if cursorQuery != "" {
-		cursor, err = strconv.ParseInt(cursorQuery, 10, 64)
+		tcursor, err := strconv.ParseInt(cursorQuery, 10, 64)
 		if err != nil || cursor < 0 {
 			return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid cursor: %s", cursorQuery)})
 		}
+		cursor = int(tcursor)
 	}
 
 	out, handleErr := s.handleComAtprotoSyncListRepos(ctx, cursor, limit)
@@ -380,53 +405,102 @@ func (s *Splitter) HandleComAtprotoSyncListRepos(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *Splitter) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, limit int) (*comatproto.SyncListRepos_Output, error) {
-	// Filter out tombstoned, taken down, and deactivated accounts
-	q := fmt.Sprintf("id > ? AND NOT tombstoned AND NOT taken_down AND (upstream_status is NULL OR (upstream_status != '%s' AND upstream_status != '%s' AND upstream_status != '%s'))",
-		events.AccountStatusDeactivated, events.AccountStatusSuspended, events.AccountStatusTakendown)
-
-	// Load the users
-	users := []*User{}
-	if err := s.db.Model(&User{}).Where(q, cursor).Order("id").Limit(limit).Find(&users).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return &comatproto.SyncListRepos_Output{}, nil
-		}
-		log.Error("failed to query users", "err", err)
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to query users")
+// fetch the full repoList (all pages) from upstream source, keep that locally cached for redistribution
+// usage go s.fetchUpstreamRepoList()
+func (s *Splitter) fetchUpstreamRepoList() {
+	// setup
+	s.cachedReposLock.Lock()
+	if s.cacheReposIsRefetching {
+		s.cachedReposLock.Unlock()
+		return
 	}
-
-	if len(users) == 0 {
-		// resp.Repos is an explicit empty array, not just 'nil'
-		return &comatproto.SyncListRepos_Output{
-			Repos: []*comatproto.SyncListRepos_Repo{},
-		}, nil
+	start := time.Now()
+	if start.Before(s.cachedReposExpires) {
+		s.cachedReposLock.Unlock()
+		return
 	}
+	s.cacheReposIsRefetching = true
+	s.cachedReposLock.Unlock()
 
-	resp := &comatproto.SyncListRepos_Output{
-		Repos: make([]*comatproto.SyncListRepos_Repo, len(users)),
-	}
-
-	// Fetch the repo roots for each user
-	for i := range users {
-		user := users[i]
-
-		root, err := s.repoman.GetRepoRoot(ctx, user.ID)
+	var client xrpc.Client
+	client.Host = s.conf.XrpcRootUrl()
+	cursor := ""
+	// TODO: upstream list is stable by User.ID in database there, ID is lost in atproto record, create a local ID and keep a stable map[DID]int and sort full set on those IDs
+	var repos []*atproto.SyncListRepos_Repo
+	ok := true
+	s.log.Info("listRepos from upstream", "host", client.Host)
+	for {
+		response, err := atproto.SyncListRepos(context.Background(), &client, cursor, 1000)
 		if err != nil {
-			log.Error("failed to get repo root", "err", err, "did", user.Did)
-			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get repo root for (%s): %v", user.Did, err.Error()))
+			s.log.Warn("failed to fetch upstream repo list", "err", err)
+			ok = false
+			break
 		}
-
-		resp.Repos[i] = &comatproto.SyncListRepos_Repo{
-			Did:  user.Did,
-			Head: root.String(),
+		s.log.Debug("some repos", "count", len(response.Repos))
+		if len(response.Repos) == 0 {
+			break
 		}
+		repos = append(repos, response.Repos...)
+		if response.Cursor == nil || len(response.Repos) == 0 {
+			break
+		}
+		cursor = *response.Cursor
 	}
 
-	// If this is not the last page, set the cursor
-	if len(users) >= limit && len(users) > 1 {
-		nextCursor := fmt.Sprintf("%d", users[len(users)-1].ID)
+	s.cachedReposLock.Lock()
+	if ok {
+		s.cachedReposFrom = time.Now()
+		s.cachedReposExpires = s.cachedReposFrom.Add(s.conf.ListReposCacheDuration)
+		s.cachedRepos = repos
+		s.cachedReposCond.Broadcast()
+		dt := s.cachedReposFrom.Sub(start)
+		s.log.Info("fetched upstream repo list", "duration", dt.String(), "count", len(repos))
+	}
+	s.cacheReposIsRefetching = false
+	s.cachedReposLock.Unlock()
+}
+
+// getLatestUpstreamRepoList will usually return whatever the most recent return was, but may block.
+// On the first time it should block until it has data from upstream.
+// It may spawn an async fetch of new listRepos from upstream which will be available on the _next_ call.
+// The return from this function should be read-only.
+func (s *Splitter) getLatestUpstreamRepoList() []*atproto.SyncListRepos_Repo {
+	s.cachedReposLock.Lock()
+	defer s.cachedReposLock.Unlock()
+	now := time.Now()
+	if now.After(s.cachedReposExpires) && !s.cacheReposIsRefetching {
+		go s.fetchUpstreamRepoList()
+	}
+	for {
+		if len(s.cachedRepos) > 0 || now.Before(s.cachedReposExpires) {
+			// either we have some data, or we have a legit empty response
+			return s.cachedRepos
+		}
+		s.cachedReposCond.Wait()
+		now = time.Now()
+		if now.After(s.cachedReposExpires) && !s.cacheReposIsRefetching {
+			go s.fetchUpstreamRepoList()
+		}
+	}
+}
+
+func (s *Splitter) handleComAtprotoSyncListRepos(ctx context.Context, cursor int, limit int) (*comatproto.SyncListRepos_Output, error) {
+	repos := s.getLatestUpstreamRepoList()
+
+	resp := &comatproto.SyncListRepos_Output{}
+
+	if cursor > len(repos) {
+		return resp, nil
+	}
+
+	repos = repos[cursor:]
+	if limit > len(repos) {
+		repos = repos[:limit]
+		nextCursor := strconv.Itoa(cursor + limit)
 		resp.Cursor = &nextCursor
 	}
+
+	resp.Repos = repos
 
 	return resp, nil
 }
