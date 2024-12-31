@@ -62,14 +62,15 @@ var cmdRepo = &cli.Command{
 			Name:      "inspect",
 			Usage:     "show commit metadata from CAR file",
 			ArgsUsage: `<car-file>`,
-			Flags: []cli.Flag{
-				&cli.BoolFlag{
-					Name:    "mst",
-					Aliases: []string{"m"},
-					Usage:   "print the MST",
-				},
-			},
-			Action: runRepoInspect,
+			Flags:     []cli.Flag{},
+			Action:    runRepoInspect,
+		},
+		&cli.Command{
+			Name:      "mst",
+			Usage:     "show repo MST structure",
+			ArgsUsage: `<car-file>`,
+			Flags:     []cli.Flag{},
+			Action:    runRepoMST,
 		},
 		&cli.Command{
 			Name:      "unpack",
@@ -182,7 +183,6 @@ func runRepoList(cctx *cli.Context) error {
 func runRepoInspect(cctx *cli.Context) error {
 	ctx := context.Background()
 	carPath := cctx.Args().First()
-	printMst := cctx.Bool("mst")
 	if carPath == "" {
 		return fmt.Errorf("need to provide path to CAR file as argument")
 	}
@@ -197,23 +197,6 @@ func runRepoInspect(cctx *cli.Context) error {
 		return err
 	}
 
-	if printMst {
-		dataCid := r.DataCid()
-		cst := util.CborStore(r.Blockstore())
-		err, exists := nodeExists(ctx, cst, dataCid)
-		if err != nil {
-			return err
-		}
-		tree := treeprint.NewWithRoot(displayCID(&dataCid) + displayExists(exists))
-		if exists {
-			if err := walkMST(ctx, cst, dataCid, tree); err != nil {
-				return err
-			}
-		}
-		fmt.Println(tree.String())
-		return nil
-	}
-
 	sc := r.SignedCommit()
 	fmt.Printf("ATProto Repo Spec Version: %d\n", sc.Version)
 	fmt.Printf("DID: %s\n", sc.Did)
@@ -222,6 +205,40 @@ func runRepoInspect(cctx *cli.Context) error {
 	fmt.Printf("Revision: %s\n", sc.Rev)
 	// TODO: Signature?
 
+	return nil
+}
+
+func runRepoMST(cctx *cli.Context) error {
+	ctx := context.Background()
+	carPath := cctx.Args().First()
+	if carPath == "" {
+		return fmt.Errorf("need to provide path to CAR file as argument")
+	}
+	fi, err := os.Open(carPath)
+	if err != nil {
+		return err
+	}
+
+	// read repository tree in to memory
+	r, err := repo.ReadRepoFromCar(ctx, fi)
+	if err != nil {
+		return err
+	}
+
+	dataCid := r.DataCid()
+	cst := util.CborStore(r.Blockstore())
+	err, exists := nodeExists(ctx, cst, dataCid)
+	if err != nil {
+		return err
+	}
+	tree := treeprint.NewWithRoot(displayCID(&dataCid, exists))
+	if exists {
+		if err := walkMST(ctx, cst, dataCid, tree); err != nil {
+			return err
+		}
+	}
+
+	fmt.Println(tree.String())
 	return nil
 }
 
@@ -235,7 +252,7 @@ func walkMST(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid, tree tr
 		if err != nil {
 			return err
 		}
-		subtree := tree.AddBranch(displayCID(node.Left) + displayExists(exists))
+		subtree := tree.AddBranch(displayCID(node.Left, exists))
 		if exists {
 			if err := walkMST(ctx, cst, *node.Left, subtree); err != nil {
 				return err
@@ -247,13 +264,13 @@ func walkMST(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid, tree tr
 		if err != nil {
 			return err
 		}
-		tree.AddNode(displayEntryVal(&entry) + displayExists(exists))
+		tree.AddNode(displayEntryVal(&entry, exists))
 		if entry.Tree != nil {
 			err, exists := nodeExists(ctx, cst, *entry.Tree)
 			if err != nil {
 				return err
 			}
-			subtree := tree.AddBranch(displayCID(entry.Tree) + displayExists(exists))
+			subtree := tree.AddBranch(displayCID(entry.Tree, exists))
 			if exists {
 				if err := walkMST(ctx, cst, *entry.Tree, subtree); err != nil {
 					return err
@@ -264,22 +281,19 @@ func walkMST(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid, tree tr
 	return nil
 }
 
-func displayEntryVal(entry *mst.TreeEntry) string {
+func displayEntryVal(entry *mst.TreeEntry, exists bool) string {
 	key := string(entry.KeySuffix)
-	return strings.Repeat(".", int(entry.PrefixLen)) + key + " " + displayCID(&entry.Val)
+	return strings.Repeat("∙", int(entry.PrefixLen)) + key + " " + displayCID(&entry.Val, exists)
 }
 
-func displayCID(cid *cid.Cid) string {
+func displayCID(cid *cid.Cid, exists bool) string {
 	s := cid.String()
 	cut := string(s[len(s)-7:])
-	return "(" + cut + ")"
-}
-
-func displayExists(exists bool) string {
-	if exists {
-		return ""
+	connector := "─◉"
+	if !exists {
+		connector = "─◌"
 	}
-	return " ✗"
+	return "[…" + cut + "]" + connector
 }
 
 func nodeExists(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid) (error, bool) {
