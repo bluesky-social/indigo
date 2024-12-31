@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -13,26 +14,55 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// WARNING: this does *not* bi-directionally verify account metadata; it only implements direct DID-to-DID-document lookup for the supported DID methods, and parses the resulting DID Doc into an Identity struct
-func (d *BaseDirectory) ResolveDID(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
+// This is a low-level method for resolving a DID to a raw JSON document.
+//
+// This method does not parse the DID document into an atproto-specific format, and does not bi-directionally verify handles. Most atproto-specific code should use the "Lookup*" methods, which do implement that functionality.
+func (d *BaseDirectory) ResolveDID(ctx context.Context, did syntax.DID) (map[string]any, error) {
+	raw, err := d.resolveDIDBytes(ctx, did)
+	if err != nil {
+		return nil, err
+	}
+
+	var doc map[string]any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return nil, fmt.Errorf("%w: JSON DID document parse: %w", ErrDIDResolutionFailed, err)
+	}
+	return doc, nil
+}
+
+// Variant of ResolveDID which parses in to a DIDDocument struct.
+func (d *BaseDirectory) ResolveDIDDoc(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
+	raw, err := d.resolveDIDBytes(ctx, did)
+	if err != nil {
+		return nil, err
+	}
+
+	var doc DIDDocument
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return nil, fmt.Errorf("%w: JSON DID document parse: %w", ErrDIDResolutionFailed, err)
+	}
+	return &doc, nil
+}
+
+// Package-internal helper which resolves a DID document to the response bytes.
+func (d *BaseDirectory) resolveDIDBytes(ctx context.Context, did syntax.DID) ([]byte, error) {
+	var b []byte
+	var err error
 	start := time.Now()
 	switch did.Method() {
 	case "web":
-		doc, err := d.ResolveDIDWeb(ctx, did)
-		elapsed := time.Since(start)
-		slog.Debug("resolve DID", "did", did, "err", err, "duration_ms", elapsed.Milliseconds())
-		return doc, err
+		b, err = d.resolveDIDWeb(ctx, did)
 	case "plc":
-		doc, err := d.ResolveDIDPLC(ctx, did)
-		elapsed := time.Since(start)
-		slog.Debug("resolve DID", "did", did, "err", err, "duration_ms", elapsed.Milliseconds())
-		return doc, err
+		b, err = d.resolveDIDPLC(ctx, did)
 	default:
 		return nil, fmt.Errorf("DID method not supported: %s", did.Method())
 	}
+	elapsed := time.Since(start)
+	slog.Debug("resolve DID", "did", did, "err", err, "duration_ms", elapsed.Milliseconds())
+	return b, err
 }
 
-func (d *BaseDirectory) ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
+func (d *BaseDirectory) resolveDIDWeb(ctx context.Context, did syntax.DID) ([]byte, error) {
 	if did.Method() != "web" {
 		return nil, fmt.Errorf("expected a did:web, got: %s", did)
 	}
@@ -77,14 +107,10 @@ func (d *BaseDirectory) ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DID
 		return nil, fmt.Errorf("%w: did:web HTTP status %d", ErrDIDResolutionFailed, resp.StatusCode)
 	}
 
-	var doc DIDDocument
-	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
-		return nil, fmt.Errorf("%w: JSON DID document parse: %w", ErrDIDResolutionFailed, err)
-	}
-	return &doc, nil
+	return io.ReadAll(resp.Body)
 }
 
-func (d *BaseDirectory) ResolveDIDPLC(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
+func (d *BaseDirectory) resolveDIDPLC(ctx context.Context, did syntax.DID) ([]byte, error) {
 	if did.Method() != "plc" {
 		return nil, fmt.Errorf("expected a did:plc, got: %s", did)
 	}
@@ -116,9 +142,5 @@ func (d *BaseDirectory) ResolveDIDPLC(ctx context.Context, did syntax.DID) (*DID
 		return nil, fmt.Errorf("%w: PLC directory status %d", ErrDIDResolutionFailed, resp.StatusCode)
 	}
 
-	var doc DIDDocument
-	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
-		return nil, fmt.Errorf("%w: JSON DID document parse: %w", ErrDIDResolutionFailed, err)
-	}
-	return &doc, nil
+	return io.ReadAll(resp.Body)
 }
