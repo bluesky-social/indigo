@@ -24,11 +24,11 @@ import (
 //   - API client, which just makes requests to PDS (or other remote service)
 //   - client for shared network cache (eg, Redis)
 type Directory interface {
-	LookupHandle(ctx context.Context, hdl syntax.Handle) (*Identity, error)
+	LookupHandle(ctx context.Context, handle syntax.Handle) (*Identity, error)
 	LookupDID(ctx context.Context, did syntax.DID) (*Identity, error)
 	Lookup(ctx context.Context, atid syntax.AtIdentifier) (*Identity, error)
 
-	ResolveDID(ctx context.Context, did syntax.DID) (*DIDDocument, error)
+	ResolveDID(ctx context.Context, did syntax.DID) (map[string]any, error)
 	ResolveHandle(ctx context.Context, handle syntax.Handle) (syntax.DID, error)
 
 	// Flushes any cache of the indicated identifier. If directory is not using caching, can ignore this.
