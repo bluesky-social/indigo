@@ -250,6 +250,11 @@ func (d *CacheDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Id
 	return nil, fmt.Errorf("at-identifier neither a Handle nor a DID")
 }
 
+func (d *CacheDirectory) ResolveDID(ctx context.Context, did syntax.DID) (map[string]any, error) {
+	// XXX: cache this kind of doc separately
+	return d.Inner.ResolveDID(ctx, did)
+}
+
 func (d *CacheDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error {
 	handle, err := a.AsHandle()
 	if nil == err { // if not an error, is a handle
