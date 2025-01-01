@@ -42,6 +42,11 @@ func TestDIDDocParse(t *testing.T) {
 		hdl, err := id.DeclaredHandle()
 		assert.NoError(err)
 		assert.Equal("atproto.com", hdl.String())
+
+		// NOTE: doesn't work if 'id' was in long form
+		if path != "testdata/did_plc_doc_legacy.json" {
+			assert.Equal(doc, id.DIDDocument())
+		}
 	}
 }
 
