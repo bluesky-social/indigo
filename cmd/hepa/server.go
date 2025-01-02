@@ -38,12 +38,15 @@ type Server struct {
 
 type Config struct {
 	Logger              *slog.Logger
+	Mode                string
 	RelayHost           string // DEPRECATED
 	BskyHost            string
 	OzoneHost           string
 	OzoneDID            string
 	OzoneAdminToken     string
-	OzonePassword       string
+	OzoneModPassword    string
+	OzoneModService     string
+	OzoneServiceDid     string
 	PDSHost             string
 	PDSAdminToken       string
 	SetsFileJSON        string
@@ -71,6 +74,12 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		}))
 	}
 
+	if config.Mode == "labeler" && (config.OzoneServiceDid == "" || config.OzoneModPassword == "" || config.OzoneModService == "") {
+		return nil, fmt.Errorf("must provide ozone service DID and password for labeler mode")
+	} else if config.Mode == "authority" && config.OzoneAdminToken == "" {
+		return nil, fmt.Errorf("must provide ozone admin token for authority mode")
+	}
+
 	relayws := config.RelayHost
 	if !strings.HasPrefix(relayws, "ws") {
 		return nil, fmt.Errorf("specified relay host must include 'ws://' or 'wss://'")
@@ -78,18 +87,26 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 
 	var ozoneClient *xrpc.Client
 	if config.OzoneDID != "" {
-		ozoneClient = &xrpc.Client{
-			Client: util.RobustHTTPClient(),
-			Host:   config.OzoneHost,
+		var host string
+		if config.Mode == "authority" {
+			host = config.OzoneHost
+		} else if config.Mode == "labeler" {
+			host = config.OzoneModService
 		}
 
-		if config.OzoneAdminToken != "" {
+		ozoneClient = &xrpc.Client{
+			Client:  util.RobustHTTPClient(),
+			Host:    host,
+			Headers: make(map[string]string),
+		}
+
+		if config.Mode == "authority" {
 			ozoneClient.AdminToken = &config.OzoneAdminToken
 			ozoneClient.Auth = &xrpc.AuthInfo{}
-		} else if config.OzonePassword != "" {
+		} else if config.Mode == "labeler" {
 			res, err := atproto.ServerCreateSession(context.TODO(), ozoneClient, &atproto.ServerCreateSession_Input{
 				Identifier: config.OzoneDID,
-				Password:   config.OzonePassword,
+				Password:   config.OzoneModPassword,
 			})
 
 			if err != nil {
@@ -107,9 +124,13 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		}
 
 		if config.RatelimitBypass != "" {
-			ozoneClient.Headers = make(map[string]string)
 			ozoneClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
 		}
+
+		if config.Mode == "labeler" {
+			ozoneClient.Headers["atproto-proxy"] = fmt.Sprintf("%s#atproto_labeler", config.OzoneServiceDid)
+		}
+
 		od, err := syntax.ParseDID(config.OzoneDID)
 		if err != nil {
 			return nil, fmt.Errorf("ozone account DID supplied was not valid: %v", err)
@@ -253,6 +274,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 			QuotaModReportDay:   config.QuotaModReportDay,
 			QuotaModTakedownDay: config.QuotaModTakedownDay,
 			QuotaModActionDay:   config.QuotaModActionDay,
+			Mode:                config.Mode,
 		},
 	}
 
@@ -264,8 +286,8 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		RedisClient:         rdb,
 	}
 
-	if config.OzonePassword != "" && config.OzoneAdminToken == "" {
-		s.runRefreshSession(context.TODO())
+	if config.Mode == "labeler" {
+		s.Engine.RunRefreshSession(context.TODO())
 	}
 
 	return s, nil
@@ -274,45 +296,4 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 func (s *Server) RunMetrics(listen string) error {
 	http.Handle("/metrics", promhttp.Handler())
 	return http.ListenAndServe(listen, nil)
-}
-
-func (s *Server) runRefreshSession(ctx context.Context) {
-	go func() {
-		ticker := time.NewTicker(1 * time.Hour)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				if s.Engine.OzoneClient != nil && s.Engine.OzoneClient.Auth.AccessJwt != "" {
-					// create a new ozone client since we dont have a mutex to lock
-					oc := &xrpc.Client{
-						Client: util.RobustHTTPClient(),
-						Host:   s.Engine.OzoneClient.Host,
-						Auth: &xrpc.AuthInfo{
-							Did:        s.Engine.OzoneClient.Auth.Did,
-							Handle:     s.Engine.OzoneClient.Auth.Handle,
-							AccessJwt:  s.Engine.OzoneClient.Auth.RefreshJwt, // Use the refresh jwt
-							RefreshJwt: s.Engine.OzoneClient.Auth.RefreshJwt,
-						},
-					}
-
-					res, err := atproto.ServerRefreshSession(ctx, oc)
-					if err != nil {
-						s.logger.Error("failed refreshing ozone session", "err", err)
-						continue
-					}
-
-					// update the auth and client
-					oc.Auth.AccessJwt = res.AccessJwt
-					oc.Auth.RefreshJwt = res.RefreshJwt
-
-					s.Engine.OzoneClient = oc
-				}
-
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
 }
