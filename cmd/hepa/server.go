@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
@@ -42,6 +43,7 @@ type Config struct {
 	OzoneHost           string
 	OzoneDID            string
 	OzoneAdminToken     string
+	OzonePassword       string
 	PDSHost             string
 	PDSAdminToken       string
 	SetsFileJSON        string
@@ -75,13 +77,35 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 	}
 
 	var ozoneClient *xrpc.Client
-	if config.OzoneAdminToken != "" && config.OzoneDID != "" {
+	if config.OzoneDID != "" {
 		ozoneClient = &xrpc.Client{
-			Client:     util.RobustHTTPClient(),
-			Host:       config.OzoneHost,
-			AdminToken: &config.OzoneAdminToken,
-			Auth:       &xrpc.AuthInfo{},
+			Client: util.RobustHTTPClient(),
+			Host:   config.OzoneHost,
 		}
+
+		if config.OzoneAdminToken != "" {
+			ozoneClient.AdminToken = &config.OzoneAdminToken
+			ozoneClient.Auth = &xrpc.AuthInfo{}
+		} else if config.OzonePassword != "" {
+			res, err := atproto.ServerCreateSession(context.TODO(), ozoneClient, &atproto.ServerCreateSession_Input{
+				Identifier: config.OzoneDID,
+				Password:   config.OzonePassword,
+			})
+
+			if err != nil {
+				return nil, fmt.Errorf("creating ozone session: %v", err)
+			}
+
+			ozoneClient.Auth = &xrpc.AuthInfo{
+				Did:        res.Did,
+				Handle:     res.Handle,
+				AccessJwt:  res.AccessJwt,
+				RefreshJwt: res.RefreshJwt,
+			}
+
+			logger.Info("created ozone session", "did", res.Did)
+		}
+
 		if config.RatelimitBypass != "" {
 			ozoneClient.Headers = make(map[string]string)
 			ozoneClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
@@ -240,10 +264,55 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		RedisClient:         rdb,
 	}
 
+	if config.OzonePassword != "" && config.OzoneAdminToken == "" {
+		s.runRefreshSession(context.TODO())
+	}
+
 	return s, nil
 }
 
 func (s *Server) RunMetrics(listen string) error {
 	http.Handle("/metrics", promhttp.Handler())
 	return http.ListenAndServe(listen, nil)
+}
+
+func (s *Server) runRefreshSession(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				if s.Engine.OzoneClient != nil && s.Engine.OzoneClient.Auth.AccessJwt != "" {
+					// create a new ozone client since we dont have a mutex to lock
+					oc := &xrpc.Client{
+						Client: util.RobustHTTPClient(),
+						Host:   s.Engine.OzoneClient.Host,
+						Auth: &xrpc.AuthInfo{
+							Did:        s.Engine.OzoneClient.Auth.Did,
+							Handle:     s.Engine.OzoneClient.Auth.Handle,
+							AccessJwt:  s.Engine.OzoneClient.Auth.RefreshJwt, // Use the refresh jwt
+							RefreshJwt: s.Engine.OzoneClient.Auth.RefreshJwt,
+						},
+					}
+
+					res, err := atproto.ServerRefreshSession(ctx, oc)
+					if err != nil {
+						s.logger.Error("failed refreshing ozone session", "err", err)
+						continue
+					}
+
+					// update the auth and client
+					oc.Auth.AccessJwt = res.AccessJwt
+					oc.Auth.RefreshJwt = res.RefreshJwt
+
+					s.Engine.OzoneClient = oc
+				}
+
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }

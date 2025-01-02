@@ -112,7 +112,7 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 	}
 
 	// first attempt to fetch private account metadata from Ozone
-	if e.OzoneClient != nil {
+	if e.OzoneClient != nil && e.OzoneClient.AdminToken != nil && *e.OzoneClient.AdminToken != "" {
 		rd, err := toolsozone.ModerationGetRepo(ctx, e.OzoneClient, ident.DID.String())
 		if err != nil {
 			logger.Warn("failed to fetch private account metadata from Ozone", "err", err)

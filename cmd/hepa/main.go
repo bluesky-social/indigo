@@ -76,6 +76,11 @@ func run(args []string) error {
 			EnvVars: []string{"HEPA_OZONE_AUTH_ADMIN_TOKEN", "HEPA_MOD_AUTH_ADMIN_TOKEN"},
 		},
 		&cli.StringFlag{
+			Name:    "ozone-password",
+			Usage:   "authentication password for mod service account. used when not supplying an admin authentication token.",
+			EnvVars: []string{"HEPA_OZONE_PASSWORD"},
+		},
+		&cli.StringFlag{
 			Name:    "atp-pds-host",
 			Usage:   "method, hostname, and port of PDS (or entryway) for admin account info; uses admin auth",
 			Value:   "https://bsky.social",
