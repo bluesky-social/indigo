@@ -249,7 +249,7 @@ func runRepoMST(cctx *cli.Context) error {
 		rootCID = optsRootCID
 	}
 	cst := util.CborStore(r.Blockstore())
-	err, exists := nodeExists(ctx, cst, rootCID)
+	exists, err := nodeExists(ctx, cst, rootCID)
 	if err != nil {
 		return err
 	}
@@ -270,7 +270,7 @@ func walkMST(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid, tree tr
 		return err
 	}
 	if node.Left != nil {
-		err, exists := nodeExists(ctx, cst, *node.Left)
+		exists, err := nodeExists(ctx, cst, *node.Left)
 		if err != nil {
 			return err
 		}
@@ -282,13 +282,13 @@ func walkMST(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid, tree tr
 		}
 	}
 	for _, entry := range node.Entries {
-		err, exists := nodeExists(ctx, cst, entry.Val)
+		exists, err := nodeExists(ctx, cst, entry.Val)
 		if err != nil {
 			return err
 		}
 		tree.AddNode(displayEntryVal(&entry, exists, opts))
 		if entry.Tree != nil {
-			err, exists := nodeExists(ctx, cst, *entry.Tree)
+			exists, err := nodeExists(ctx, cst, *entry.Tree)
 			if err != nil {
 				return err
 			}
@@ -330,14 +330,14 @@ type repoMSTOptions struct {
 	root    string
 }
 
-func nodeExists(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid) (error, bool) {
+func nodeExists(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid) (bool, error) {
 	if _, err := cst.Blocks.Get(ctx, cid); err != nil {
 		if errors.Is(err, ipld.ErrNotFound{}) {
-			return nil, false
+			return false, nil
 		}
-		return err, false
+		return false, err
 	}
-	return nil, true
+	return true, nil
 }
 
 func runRepoUnpack(cctx *cli.Context) error {
