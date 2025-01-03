@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,12 +19,12 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
-
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/urfave/cli/v2"
 	"github.com/xlab/treeprint"
+	"golang.org/x/term"
 )
 
 var cmdRepo = &cli.Command{
@@ -226,20 +227,27 @@ func runRepoMST(cctx *cli.Context) error {
 		fullCID: cctx.Bool("full-cid"),
 		root:    cctx.String("root"),
 	}
-	if opts.carPath == "" {
-		return fmt.Errorf("need to provide path to CAR file as argument")
+	// determine whether to read from file argument or stdin
+	var inputCAR io.Reader
+	if opts.carPath != "" {
+		fi, err := os.Open(opts.carPath)
+		if err != nil {
+			return err
+		}
+		inputCAR = fi
+	} else {
+		if term.IsTerminal(int(os.Stdin.Fd())) {
+			return fmt.Errorf("need to provide path to CAR file as argument")
+		}
+		inputCAR = os.Stdin
 	}
-	fi, err := os.Open(opts.carPath)
-	if err != nil {
-		return err
-	}
-
 	// read repository tree in to memory
-	r, err := repo.ReadRepoFromCar(ctx, fi)
+	r, err := repo.ReadRepoFromCar(ctx, inputCAR)
 	if err != nil {
 		return err
 	}
-
+	cst := util.CborStore(r.Blockstore())
+	// determine which root cid to use, defaulting to repo data root
 	rootCID := r.DataCid()
 	if opts.root != "" {
 		optsRootCID, err := cid.Decode(opts.root)
@@ -248,7 +256,7 @@ func runRepoMST(cctx *cli.Context) error {
 		}
 		rootCID = optsRootCID
 	}
-	cst := util.CborStore(r.Blockstore())
+	// start walking mst
 	exists, err := nodeExists(ctx, cst, rootCID)
 	if err != nil {
 		return err
@@ -259,7 +267,7 @@ func runRepoMST(cctx *cli.Context) error {
 			return err
 		}
 	}
-
+	// print tree
 	fmt.Println(tree.String())
 	return nil
 }
