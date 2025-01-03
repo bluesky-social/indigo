@@ -69,8 +69,19 @@ var cmdRepo = &cli.Command{
 			Name:      "mst",
 			Usage:     "show repo MST structure",
 			ArgsUsage: `<car-file>`,
-			Flags:     []cli.Flag{},
-			Action:    runRepoMST,
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:    "full-cid",
+					Aliases: []string{"f"},
+					Usage:   "display full CIDs",
+				},
+				&cli.StringFlag{
+					Name:    "root",
+					Aliases: []string{"r"},
+					Usage:   "CID of root block",
+				},
+			},
+			Action: runRepoMST,
 		},
 		&cli.Command{
 			Name:      "unpack",
@@ -210,11 +221,15 @@ func runRepoInspect(cctx *cli.Context) error {
 
 func runRepoMST(cctx *cli.Context) error {
 	ctx := context.Background()
-	carPath := cctx.Args().First()
-	if carPath == "" {
+	opts := repoMSTOptions{
+		carPath: cctx.Args().First(),
+		fullCID: cctx.Bool("full-cid"),
+		root:    cctx.String("root"),
+	}
+	if opts.carPath == "" {
 		return fmt.Errorf("need to provide path to CAR file as argument")
 	}
-	fi, err := os.Open(carPath)
+	fi, err := os.Open(opts.carPath)
 	if err != nil {
 		return err
 	}
@@ -225,15 +240,22 @@ func runRepoMST(cctx *cli.Context) error {
 		return err
 	}
 
-	dataCid := r.DataCid()
+	rootCID := r.DataCid()
+	if opts.root != "" {
+		optsRootCID, err := cid.Decode(opts.root)
+		if err != nil {
+			return err
+		}
+		rootCID = optsRootCID
+	}
 	cst := util.CborStore(r.Blockstore())
-	err, exists := nodeExists(ctx, cst, dataCid)
+	err, exists := nodeExists(ctx, cst, rootCID)
 	if err != nil {
 		return err
 	}
-	tree := treeprint.NewWithRoot(displayCID(&dataCid, exists))
+	tree := treeprint.NewWithRoot(displayCID(&rootCID, exists, opts))
 	if exists {
-		if err := walkMST(ctx, cst, dataCid, tree); err != nil {
+		if err := walkMST(ctx, cst, rootCID, tree, opts); err != nil {
 			return err
 		}
 	}
@@ -242,7 +264,7 @@ func runRepoMST(cctx *cli.Context) error {
 	return nil
 }
 
-func walkMST(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid, tree treeprint.Tree) error {
+func walkMST(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid, tree treeprint.Tree, opts repoMSTOptions) error {
 	var node mst.NodeData
 	if err := cst.Get(ctx, cid, &node); err != nil {
 		return err
@@ -252,9 +274,9 @@ func walkMST(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid, tree tr
 		if err != nil {
 			return err
 		}
-		subtree := tree.AddBranch(displayCID(node.Left, exists))
+		subtree := tree.AddBranch(displayCID(node.Left, exists, opts))
 		if exists {
-			if err := walkMST(ctx, cst, *node.Left, subtree); err != nil {
+			if err := walkMST(ctx, cst, *node.Left, subtree, opts); err != nil {
 				return err
 			}
 		}
@@ -264,15 +286,15 @@ func walkMST(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid, tree tr
 		if err != nil {
 			return err
 		}
-		tree.AddNode(displayEntryVal(&entry, exists))
+		tree.AddNode(displayEntryVal(&entry, exists, opts))
 		if entry.Tree != nil {
 			err, exists := nodeExists(ctx, cst, *entry.Tree)
 			if err != nil {
 				return err
 			}
-			subtree := tree.AddBranch(displayCID(entry.Tree, exists))
+			subtree := tree.AddBranch(displayCID(entry.Tree, exists, opts))
 			if exists {
-				if err := walkMST(ctx, cst, *entry.Tree, subtree); err != nil {
+				if err := walkMST(ctx, cst, *entry.Tree, subtree, opts); err != nil {
 					return err
 				}
 			}
@@ -281,19 +303,31 @@ func walkMST(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid, tree tr
 	return nil
 }
 
-func displayEntryVal(entry *mst.TreeEntry, exists bool) string {
+func displayEntryVal(entry *mst.TreeEntry, exists bool, opts repoMSTOptions) string {
 	key := string(entry.KeySuffix)
-	return strings.Repeat("∙", int(entry.PrefixLen)) + key + " " + displayCID(&entry.Val, exists)
+	divider := " "
+	if opts.fullCID {
+		divider = "\n"
+	}
+	return strings.Repeat("∙", int(entry.PrefixLen)) + key + divider + displayCID(&entry.Val, exists, opts)
 }
 
-func displayCID(cid *cid.Cid, exists bool) string {
-	s := cid.String()
-	cut := string(s[len(s)-7:])
+func displayCID(cid *cid.Cid, exists bool, opts repoMSTOptions) string {
+	cidDisplay := cid.String()
+	if !opts.fullCID {
+		cidDisplay = "…" + string(cidDisplay[len(cidDisplay)-7:])
+	}
 	connector := "─◉"
 	if !exists {
 		connector = "─◌"
 	}
-	return "[…" + cut + "]" + connector
+	return "[" + cidDisplay + "]" + connector
+}
+
+type repoMSTOptions struct {
+	carPath string
+	fullCID bool
+	root    string
 }
 
 func nodeExists(ctx context.Context, cst *cbor.BasicIpldStore, cid cid.Cid) (error, bool) {
