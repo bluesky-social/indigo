@@ -3,7 +3,7 @@
 #   podman build -f ./cmd/beemo/Dockerfile -t beemo .
 
 ### Compile stage
-FROM golang:1.22-alpine3.19 AS build-env
+FROM golang:1.23-alpine3.20 AS build-env
 RUN apk add --no-cache build-base make git
 
 ADD . /dockerbuild
@@ -15,7 +15,7 @@ RUN GIT_VERSION=$(git describe --tags --long --always) && \
     go build -tags timetzdata -o /beemo ./cmd/beemo
 
 ### Run stage
-FROM alpine:3.19
+FROM alpine:3.20
 
 RUN apk add --no-cache --update dumb-init ca-certificates
 ENTRYPOINT ["dumb-init", "--"]

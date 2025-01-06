@@ -662,7 +662,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 				}
 
 				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
-					bgs.log.Warn("failed to ping client: %s", err)
+					bgs.log.Warn("failed to ping client", "err", err)
 					cancel()
 					return
 				}
@@ -687,7 +687,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		for {
 			_, _, err := conn.ReadMessage()
 			if err != nil {
-				bgs.log.Warn("failed to read message from client: %s", err)
+				bgs.log.Warn("failed to read message from client", "err", err)
 				cancel()
 				return
 			}

@@ -1,5 +1,5 @@
 # Stage 1: Build the Go binary
-FROM golang:1.22-alpine3.19 AS builder
+FROM golang:1.23-alpine3.20 AS builder
 
 # Install SSL ca certificates.
 RUN apk update && apk add --no-cache ca-certificates && update-ca-certificates
