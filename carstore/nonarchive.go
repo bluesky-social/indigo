@@ -131,7 +131,7 @@ func (cs *NonArchivalCarstore) NewDeltaSession(ctx context.Context, user models.
 	}
 
 	if since != nil && *since != lastShard.Rev {
-		cs.log.Warn("revision mismatch: %s != %s: %s", *since, lastShard.Rev, ErrRepoBaseMismatch)
+		cs.log.Warn("revision mismatch", "commitSince", since, "lastRev", lastShard.Rev, "err", ErrRepoBaseMismatch)
 	}
 
 	return &DeltaSession{
