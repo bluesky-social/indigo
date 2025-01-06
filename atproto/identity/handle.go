@@ -160,7 +160,11 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 		return "", fmt.Errorf("%w: HTTP well-known body read for %s: %w", ErrHandleResolutionFailed, handle, err)
 	}
 	line := strings.TrimSpace(string(b))
-	return syntax.ParseDID(line)
+	outDid, err := syntax.ParseDID(line)
+	if err != nil {
+		return outDid, fmt.Errorf("bad well-known for %s: %w", handle, err)
+	}
+	return outDid, err
 }
 
 func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
