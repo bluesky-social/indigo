@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,7 +23,6 @@ import (
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/urfave/cli/v2"
 	"github.com/xlab/treeprint"
-	"golang.org/x/term"
 )
 
 var cmdRepo = &cli.Command{
@@ -125,16 +123,25 @@ func runRepoExport(cctx *cli.Context) error {
 		now := time.Now().Format("20060102150405")
 		carPath = fmt.Sprintf("%s.%s.car", username, now)
 	}
-	// NOTE: there is a race condition, but nice to give a friendly error earlier before downloading
-	if _, err := os.Stat(carPath); err == nil {
-		return fmt.Errorf("file already exists: %s", carPath)
+	output, err := getFileOrStdout(carPath)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return fmt.Errorf("file already exists: %s", carPath)
+		}
+		return err
 	}
-	fmt.Printf("downloading from %s to: %s\n", xrpcc.Host, carPath)
+	defer output.Close()
+	if (carPath != stdIOPath) {
+		fmt.Printf("downloading from %s to: %s\n", xrpcc.Host, carPath)
+	}
 	repoBytes, err := comatproto.SyncGetRepo(ctx, &xrpcc, ident.DID.String(), "")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(carPath, repoBytes, 0666)
+	if _, err := output.Write(repoBytes); err != nil {
+		return err
+	}
+	return nil
 }
 
 func runRepoImport(cctx *cli.Context) error {
@@ -227,19 +234,13 @@ func runRepoMST(cctx *cli.Context) error {
 		fullCID: cctx.Bool("full-cid"),
 		root:    cctx.String("root"),
 	}
-	// determine whether to read from file argument or stdin
-	var inputCAR io.Reader
-	if opts.carPath != "" {
-		fi, err := os.Open(opts.carPath)
-		if err != nil {
-			return err
-		}
-		inputCAR = fi
-	} else {
-		if term.IsTerminal(int(os.Stdin.Fd())) {
-			return fmt.Errorf("need to provide path to CAR file as argument")
-		}
-		inputCAR = os.Stdin
+	// read from file or stdin
+	if opts.carPath == "" {
+		return fmt.Errorf("need to provide path to CAR file as argument")
+	}
+	inputCAR, err := getFileOrStdin(opts.carPath)
+	if (err != nil) {
+		return err
 	}
 	// read repository tree in to memory
 	r, err := repo.ReadRepoFromCar(ctx, inputCAR)
