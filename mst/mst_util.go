@@ -66,7 +66,7 @@ func layerForEntries(entries []nodeEntry) int {
 }
 
 // Typescript: deserializeNodeData(storage, data, layer)
-func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *nodeData, layer int) ([]nodeEntry, error) {
+func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *NodeData, layer int) ([]nodeEntry, error) {
 	entries := []nodeEntry{}
 	if nd.Left != nil {
 		// Note: like Typescript, this is actually a lazy load
@@ -111,8 +111,8 @@ func deserializeNodeData(ctx context.Context, cst cbor.IpldStore, nd *nodeData, 
 }
 
 // Typescript: serializeNodeData(entries) -> NodeData
-func serializeNodeData(entries []nodeEntry) (*nodeData, error) {
-	var data nodeData
+func serializeNodeData(entries []nodeEntry) (*NodeData, error) {
+	var data NodeData
 
 	i := 0
 	if len(entries) > 0 && entries[0].isTree() {
@@ -157,7 +157,7 @@ func serializeNodeData(entries []nodeEntry) (*nodeData, error) {
 		}
 
 		prefixLen := countPrefixLen(lastKey, leaf.Key)
-		data.Entries = append(data.Entries, treeEntry{
+		data.Entries = append(data.Entries, TreeEntry{
 			PrefixLen: int64(prefixLen),
 			KeySuffix: []byte(leaf.Key)[prefixLen:],
 			Val:       leaf.Val,
