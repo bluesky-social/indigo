@@ -145,12 +145,11 @@ func runLexPublish(cctx *cli.Context) error {
 		}
 		nsidStr := nsid.String()
 
-		// TODO: handle 'update' instead of just 'create'
-		resp, err := agnostic.RepoCreateRecord(ctx, xrpcc, &agnostic.RepoCreateRecord_Input{
+		resp, err := agnostic.RepoPutRecord(ctx, xrpcc, &agnostic.RepoPutRecord_Input{
 			Collection: "com.atproto.lexicon.schema",
 			Repo:       xrpcc.Auth.Did,
 			Record:     recordVal,
-			Rkey:       &nsidStr,
+			Rkey:       nsidStr,
 			Validate:   &validateFlag,
 		})
 		if err != nil {
