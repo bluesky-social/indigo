@@ -120,7 +120,7 @@ func runRepoExport(cctx *cli.Context) error {
 
 	// set longer timeout, for large CAR files
 	xrpcc.Client = util.RobustHTTPClient()
-	xrpcc.Client.Timeout = 180 * time.Second
+	xrpcc.Client.Timeout = 600 * time.Second
 
 	carPath := cctx.String("output")
 	if carPath == "" {
