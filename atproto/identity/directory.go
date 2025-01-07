@@ -52,6 +52,9 @@ var ErrDIDResolutionFailed = errors.New("DID resolution failed")
 // Indicates that DID document did not include a public key with the specified ID
 var ErrKeyNotDeclared = errors.New("DID document did not declare a relevant public key")
 
+// Handle was invalid, in a situation where a valid handle is required.
+var ErrInvalidHandle = errors.New("Invalid Handle")
+
 var DefaultPLCURL = "https://plc.directory"
 
 // Returns a reasonable Directory implementation for applications
