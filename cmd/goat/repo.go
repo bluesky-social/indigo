@@ -131,7 +131,7 @@ func runRepoExport(cctx *cli.Context) error {
 		return err
 	}
 	defer output.Close()
-	if (carPath != stdIOPath) {
+	if carPath != stdIOPath {
 		fmt.Printf("downloading from %s to: %s\n", xrpcc.Host, carPath)
 	}
 	repoBytes, err := comatproto.SyncGetRepo(ctx, &xrpcc, ident.DID.String(), "")
@@ -239,7 +239,7 @@ func runRepoMST(cctx *cli.Context) error {
 		return fmt.Errorf("need to provide path to CAR file as argument")
 	}
 	inputCAR, err := getFileOrStdin(opts.carPath)
-	if (err != nil) {
+	if err != nil {
 		return err
 	}
 	// read repository tree in to memory
