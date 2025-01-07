@@ -35,7 +35,7 @@ func (d *BaseDirectory) ResolveHandleDNS(ctx context.Context, handle syntax.Hand
 	var dnsErr *net.DNSError
 	if errors.As(err, &dnsErr) {
 		if dnsErr.IsNotFound {
-			return "", ErrHandleNotFound
+			return "", fmt.Errorf("%w: %s", ErrHandleNotFound, handle)
 		}
 	}
 	if err != nil {
@@ -138,7 +138,7 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 		var dnsErr *net.DNSError
 		if errors.As(err, &dnsErr) {
 			if dnsErr.IsNotFound {
-				return "", fmt.Errorf("%w: DNS NXDOMAIN for %s", ErrHandleNotFound, handle)
+				return "", fmt.Errorf("%w: DNS NXDOMAIN for HTTP well-known resolution of %s", ErrHandleNotFound, handle)
 			}
 		}
 		return "", fmt.Errorf("%w: HTTP well-known request error: %w", ErrHandleResolutionFailed, err)
@@ -162,7 +162,7 @@ func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle synta
 	line := strings.TrimSpace(string(b))
 	outDid, err := syntax.ParseDID(line)
 	if err != nil {
-		return outDid, fmt.Errorf("bad well-known for %s: %w", handle, err)
+		return outDid, fmt.Errorf("%w: invalid DID in HTTP well-known for %s", ErrHandleResolutionFailed, handle)
 	}
 	return outDid, err
 }
@@ -173,7 +173,7 @@ func (d *BaseDirectory) ResolveHandle(ctx context.Context, handle syntax.Handle)
 	var did syntax.DID
 
 	if handle.IsInvalidHandle() {
-		return "", fmt.Errorf("invalid handle")
+		return "", fmt.Errorf("can not resolve handle: %w", ErrInvalidHandle)
 	}
 
 	if !handle.AllowedTLD() {
