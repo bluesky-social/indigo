@@ -93,7 +93,7 @@ func (d *CacheDirectory) updateHandle(ctx context.Context, h syntax.Handle) Hand
 
 func (d *CacheDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
 	if h.IsInvalidHandle() {
-		return "", fmt.Errorf("invalid handle")
+		return "", fmt.Errorf("can not resolve handle: %w", ErrInvalidHandle)
 	}
 	entry, ok := d.handleCache.Get(h)
 	if ok && !d.IsHandleStale(&entry) {
@@ -230,10 +230,10 @@ func (d *CacheDirectory) LookupHandleWithCacheState(ctx context.Context, h synta
 
 	declared, err := ident.DeclaredHandle()
 	if err != nil {
-		return nil, hit, err
+		return nil, hit, fmt.Errorf("could not verify handle/DID mapping: %w", err)
 	}
 	if declared != h {
-		return nil, hit, ErrHandleMismatch
+		return nil, hit, fmt.Errorf("%w: %s != %s", ErrHandleMismatch, declared, h)
 	}
 	return ident, hit, nil
 }
