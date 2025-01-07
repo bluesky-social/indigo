@@ -22,7 +22,7 @@ func resolveIdent(ctx context.Context, arg string) (*identity.Identity, error) {
 const stdIOPath = "-"
 
 func getFileOrStdin(path string) (io.Reader, error) {
-	if (path == stdIOPath) {
+	if path == stdIOPath {
 		return os.Stdin, nil
 	}
 	file, err := os.Open(path)
@@ -33,7 +33,7 @@ func getFileOrStdin(path string) (io.Reader, error) {
 }
 
 func getFileOrStdout(path string) (io.WriteCloser, error) {
-	if (path == stdIOPath) {
+	if path == stdIOPath {
 		return os.Stdout, nil
 	}
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
@@ -42,4 +42,3 @@ func getFileOrStdout(path string) (io.WriteCloser, error) {
 	}
 	return file, nil
 }
-
