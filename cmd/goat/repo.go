@@ -18,6 +18,7 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
+
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	ipld "github.com/ipfs/go-ipld-format"
@@ -116,6 +117,10 @@ func runRepoExport(cctx *cli.Context) error {
 	if xrpcc.Host == "" {
 		return fmt.Errorf("no PDS endpoint for identity")
 	}
+
+	// set longer timeout, for large CAR files
+	xrpcc.Client = util.RobustHTTPClient()
+	xrpcc.Client.Timeout = 600 * time.Second
 
 	carPath := cctx.String("output")
 	if carPath == "" {
