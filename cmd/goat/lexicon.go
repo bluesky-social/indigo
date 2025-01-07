@@ -60,9 +60,16 @@ var cmdLex = &cli.Command{
 			Name:      "validate",
 			Usage:     "validate a record, either AT-URI or local file",
 			ArgsUsage: `<uri-or-path>`,
-			Flags:     []cli.Flag{
-				// TODO: strict/lenient flags
-				// TODO: load a local catalog
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:  "allow-legacy-blob",
+					Usage: "be permissive of legacy blobs",
+				},
+				&cli.StringFlag{
+					Name:    "catalog",
+					Aliases: []string{"c"},
+					Usage:   "path to directory of Lexicon files",
+				},
 			},
 			Action: runLexValidate,
 		},
@@ -275,6 +282,18 @@ func runLexValidate(cctx *cli.Context) error {
 	dir := identity.BaseDirectory{}
 	cat := lexicon.NewResolvingCatalog()
 
+	var flags lexicon.ValidateFlags = 0
+	if cctx.Bool("allow-legacy-blob") {
+		flags |= lexicon.AllowLegacyBlob
+	}
+
+	if cctx.String("catalog") != "" {
+		fmt.Printf("loading catalog directory: %s\n", cctx.String("catalog"))
+		if err := cat.Base.LoadDirectory(cctx.String("catalog")); err != nil {
+			return err
+		}
+	}
+
 	// fetch from network if an AT-URI
 	if strings.HasPrefix(ref, "at://") {
 		aturi, err := syntax.ParseATURI(ref)
@@ -314,7 +333,7 @@ func runLexValidate(cctx *cli.Context) error {
 		}
 	}
 
-	if err := lexicon.ValidateRecord(&cat, recordData, nsid.String(), 0); err != nil {
+	if err := lexicon.ValidateRecord(&cat, recordData, nsid.String(), flags); err != nil {
 		return err
 	}
 	fmt.Printf("valid %s record\n", nsid)
