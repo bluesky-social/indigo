@@ -610,25 +610,14 @@ func (bgs *BGS) handleAdminRequestCrawl(e echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname")
 	}
 
-	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
-		if bgs.ssl {
-			host = "https://" + host
-		} else {
-			host = "http://" + host
-		}
-	}
+	host, sslUrl := bgs.newPdsHostPrefixNormalize(host)
 
+	if !bgs.config.SSL.AdminOk(sslUrl) {
+		return echo.NewHTTPError(http.StatusBadRequest, "ssl is %s but got host=%#v", bgs.config.SSL.String(), host)
+	}
 	u, err := url.Parse(host)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "failed to parse hostname")
-	}
-
-	if u.Scheme == "http" && bgs.ssl {
-		return echo.NewHTTPError(http.StatusBadRequest, "this server requires https")
-	}
-
-	if u.Scheme == "https" && !bgs.ssl {
-		return echo.NewHTTPError(http.StatusBadRequest, "this server does not support https")
 	}
 
 	if u.Path != "" {
@@ -648,5 +637,5 @@ func (bgs *BGS) handleAdminRequestCrawl(e echo.Context) error {
 
 	// Skip checking if the server is online for now
 
-	return bgs.slurper.SubscribeToPds(ctx, host, true, true) // Override Trusted Domain Check
+	return bgs.slurper.SubscribeToPds(ctx, host, true, true, sslUrl) // Override Trusted Domain Check
 }

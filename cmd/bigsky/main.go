@@ -99,6 +99,18 @@ func run(args []string) error {
 			Name:  "crawl-insecure-ws",
 			Usage: "when connecting to PDS instances, use ws:// instead of wss://",
 		},
+		&cli.StringFlag{
+			Name:    "crawl-ssl-policy",
+			Usage:   "when connecting to PDS instances, 'any' allows either ws:// or wss://, 'require' requires wss://, 'prod' requires wss:// of external requestCrawl hosts, 'none' rejects wss:// connections",
+			Value:   "prod",
+			EnvVars: []string{"RELAY_CRAWL_NONSSL"},
+		},
+		&cli.BoolFlag{
+			Name:    "allow-pds-proxy",
+			Usage:   "allow getting PDS data from a non-canonical source (e.g. another relay)",
+			Value:   true,
+			EnvVars: []string{"RELAY_ALLOW_PDS_PROXY"},
+		},
 		&cli.BoolFlag{
 			Name:    "spidering",
 			Value:   false,
@@ -479,12 +491,31 @@ func runBigsky(cctx *cli.Context) error {
 
 	slog.Info("constructing bgs")
 	bgsConfig := libbgs.DefaultBGSConfig()
-	bgsConfig.SSL = !cctx.Bool("crawl-insecure-ws")
+	switch strings.ToLower(cctx.String("crawl-ssl-policy")) {
+	case "any":
+		bgsConfig.SSL = libbgs.SlurperMixedSSL
+	case "none":
+		bgsConfig.SSL = libbgs.SlurperDisableSSL
+	case "require":
+		bgsConfig.SSL = libbgs.SlurperRequireSSL
+	case "prod":
+		bgsConfig.SSL = libbgs.SlurperRequireExternalSSL
+	case "":
+		if cctx.Bool("crawl-insecure-ws") {
+			bgsConfig.SSL = libbgs.SlurperDisableSSL
+		} else {
+			bgsConfig.SSL = libbgs.SlurperRequireSSL
+		}
+	default:
+		return fmt.Errorf("crawl-ssl-policy/RELAY_CRAWL_NONSSL exepected any|none|require|prod, got %s", cctx.String("crawl-ssl-policy"))
+	}
+	bgsConfig.AllowPDSProxies = cctx.Bool("allow-pds-proxy")
 	bgsConfig.CompactInterval = cctx.Duration("compact-interval")
 	bgsConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
 	bgsConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
 	bgsConfig.DefaultRepoLimit = cctx.Int64("default-repo-limit")
 	bgsConfig.NumCompactionWorkers = cctx.Int("num-compaction-workers")
+	bgsConfig.VerboseAPILog = cctx.String("env") == "dev"
 	nextCrawlers := cctx.StringSlice("next-crawler")
 	if len(nextCrawlers) != 0 {
 		nextCrawlerUrls := make([]*url.URL, len(nextCrawlers))
