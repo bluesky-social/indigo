@@ -125,8 +125,8 @@ type BGSConfig struct {
 	ConcurrencyPerPDS    int64
 	MaxQueuePerPDS       int64
 	NumCompactionWorkers int
-
-	VerboseAPILog bool
+	VerboseAPILog        bool
+	AllowPDSProxies      bool
 
 	// NextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
 	NextCrawlers []*url.URL
@@ -946,7 +946,7 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return fmt.Errorf("rebase was true in event seq:%d,host:%s", evt.Seq, host.Host)
 		}
 
-		if host.ID != u.PDS && u.PDS != 0 {
+		if host.ID != u.PDS && u.PDS != 0 && !bgs.config.AllowPDSProxies {
 			bgs.log.Warn("received event for repo from different pds than expected", "repo", evt.Repo, "expPds", u.PDS, "gotPds", host.Host)
 			// Flush any cached DID documents for this user
 			bgs.didr.FlushCacheFor(env.RepoCommit.Repo)
