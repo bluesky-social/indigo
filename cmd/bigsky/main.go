@@ -95,9 +95,10 @@ func run(args []string) error {
 			Value:   "https://plc.directory",
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
-		&cli.BoolFlag{
+		&cli.StringFlag{
 			Name:  "crawl-insecure-ws",
-			Usage: "when connecting to PDS instances, use ws:// instead of wss://",
+			Usage: "when connecting to PDS instances, true allows either ws:// or wss://, false requires wss://, 'prod' requires wss:// of external requestCrawl hosts",
+			Value: "false",
 		},
 		&cli.BoolFlag{
 			Name:    "spidering",
@@ -380,7 +381,7 @@ func runBigsky(cctx *cli.Context) error {
 		mr.AddHandler("plc", didr)
 
 		webr := did.WebResolver{}
-		if cctx.Bool("crawl-insecure-ws") {
+		if strings.ToLower(cctx.String("crawl-insecure-ws")) == "true" {
 			webr.Insecure = true
 		}
 		mr.AddHandler("web", &webr)
@@ -479,7 +480,16 @@ func runBigsky(cctx *cli.Context) error {
 
 	slog.Info("constructing bgs")
 	bgsConfig := libbgs.DefaultBGSConfig()
-	bgsConfig.SSL = !cctx.Bool("crawl-insecure-ws")
+	switch strings.ToLower(cctx.String("crawl-insecure-ws")) {
+	case "true":
+		bgsConfig.SSL = libbgs.SlurperMixedSSL
+	case "false":
+		bgsConfig.SSL = libbgs.SlurperRequireSSL
+	case "prod":
+		bgsConfig.SSL = libbgs.SlurperRequireExternalSSL
+	default:
+		return fmt.Errorf("crawl-insecure-ws exepected true|false|prod, got %s", cctx.String("crawl-insecure-ws"))
+	}
 	bgsConfig.CompactInterval = cctx.Duration("compact-interval")
 	bgsConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
 	bgsConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
