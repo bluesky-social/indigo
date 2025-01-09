@@ -22,9 +22,8 @@ var LenientMode ValidateFlags = AllowLegacyBlob | AllowLenientDatetime
 
 // Represents a Lexicon schema definition
 type Schema struct {
-	ID       string
-	Revision *int
-	Def      any
+	ID  string
+	Def any
 }
 
 // Checks Lexicon schema (fetched from the catalog) for the given record, with optional flags tweaking default validation rules.
