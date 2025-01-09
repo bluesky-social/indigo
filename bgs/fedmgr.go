@@ -745,6 +745,7 @@ func (s *Slurper) KillUpstreamConnection(host string, block bool) error {
 		return fmt.Errorf("killing connection %q: %w", host, ErrNoActiveConnection)
 	}
 	ac.cancel()
+	// cleanup in the run thread subscribeWithRedialer() will delete(s.active, host)
 
 	if block {
 		if err := s.db.Model(models.PDS{}).Where("id = ?", ac.pds.ID).UpdateColumn("blocked", true).Error; err != nil {
