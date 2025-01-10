@@ -95,9 +95,17 @@ func run(args []string) error {
 			Value:   "https://plc.directory",
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
+		&cli.StringFlag{
+			Name:    "crawl-insecure-ws",
+			Usage:   "when connecting to PDS instances, true allows either ws:// or wss://, false requires wss://, 'prod' requires wss:// of external requestCrawl hosts",
+			Value:   "prod",
+			EnvVars: []string{"RELAY_CRAWL_NONSSL"},
+		},
 		&cli.BoolFlag{
-			Name:  "crawl-insecure-ws",
-			Usage: "when connecting to PDS instances, use ws:// instead of wss://",
+			Name:    "allow-pds-proxy",
+			Usage:   "allow getting PDS data from a non-canonical source (e.g. another relay)",
+			Value:   true,
+			EnvVars: []string{"RELAY_ALLOW_PDS_PROXY"},
 		},
 		&cli.BoolFlag{
 			Name:    "spidering",
@@ -380,7 +388,8 @@ func runBigsky(cctx *cli.Context) error {
 		mr.AddHandler("plc", didr)
 
 		webr := did.WebResolver{}
-		if cctx.Bool("crawl-insecure-ws") {
+		crawlInsecure := strings.ToLower(cctx.String("crawl-insecure-ws"))
+		if crawlInsecure == "true" || crawlInsecure == "" {
 			webr.Insecure = true
 		}
 		mr.AddHandler("web", &webr)
@@ -479,7 +488,18 @@ func runBigsky(cctx *cli.Context) error {
 
 	slog.Info("constructing bgs")
 	bgsConfig := libbgs.DefaultBGSConfig()
-	bgsConfig.SSL = !cctx.Bool("crawl-insecure-ws")
+	switch strings.ToLower(cctx.String("crawl-insecure-ws")) {
+	case "true", "":
+		// "" because -crawl-insecure-ws used to be bool with default false and true if set
+		bgsConfig.SSL = libbgs.SlurperMixedSSL
+	case "false":
+		bgsConfig.SSL = libbgs.SlurperRequireSSL
+	case "prod":
+		bgsConfig.SSL = libbgs.SlurperRequireExternalSSL
+	default:
+		return fmt.Errorf("crawl-insecure-ws/RELAY_CRAWL_NONSSL exepected true|false|prod, got %s", cctx.String("crawl-insecure-ws"))
+	}
+	bgsConfig.AllowPDSProxies = cctx.Bool("allow-pds-proxy")
 	bgsConfig.CompactInterval = cctx.Duration("compact-interval")
 	bgsConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
 	bgsConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
