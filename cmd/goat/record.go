@@ -221,17 +221,12 @@ func runRecordCreate(cctx *cli.Context) error {
 		return err
 	}
 
-	_, err = data.UnmarshalJSON(recordBytes)
+	recordVal, err := data.UnmarshalJSON(recordBytes)
 	if err != nil {
 		return err
 	}
 
 	nsid, err := data.ExtractTypeJSON(recordBytes)
-	if err != nil {
-		return err
-	}
-
-	recordVal, err := data.UnmarshalJSON(recordBytes)
 	if err != nil {
 		return err
 	}
@@ -281,7 +276,7 @@ func runRecordUpdate(cctx *cli.Context) error {
 		return err
 	}
 
-	_, err = data.UnmarshalJSON(recordBytes)
+	recordVal, err := data.UnmarshalJSON(recordBytes)
 	if err != nil {
 		return err
 	}
@@ -295,11 +290,6 @@ func runRecordUpdate(cctx *cli.Context) error {
 
 	// NOTE: need to fetch existing record CID to perform swap. this is optional in theory, but golang can't deal with "optional" and "nullable", so we always need to set this (?)
 	existing, err := agnostic.RepoGetRecord(ctx, xrpcc, "", nsid, xrpcc.Auth.Did, rkey)
-	if err != nil {
-		return err
-	}
-
-	recordVal, err := data.UnmarshalJSON(recordBytes)
 	if err != nil {
 		return err
 	}
