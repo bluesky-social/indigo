@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/automod"
@@ -37,11 +38,15 @@ type Server struct {
 
 type Config struct {
 	Logger              *slog.Logger
+	Mode                string
 	RelayHost           string // DEPRECATED
 	BskyHost            string
 	OzoneHost           string
 	OzoneDID            string
 	OzoneAdminToken     string
+	OzoneModPassword    string
+	OzoneModService     string
+	OzoneServiceDid     string
 	PDSHost             string
 	PDSAdminToken       string
 	SetsFileJSON        string
@@ -69,23 +74,63 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		}))
 	}
 
+	if config.Mode == "labeler" && (config.OzoneServiceDid == "" || config.OzoneModPassword == "" || config.OzoneModService == "") {
+		return nil, fmt.Errorf("must provide ozone service DID and password for labeler mode")
+	} else if config.Mode == "authority" && config.OzoneAdminToken == "" {
+		return nil, fmt.Errorf("must provide ozone admin token for authority mode")
+	}
+
 	relayws := config.RelayHost
 	if !strings.HasPrefix(relayws, "ws") {
 		return nil, fmt.Errorf("specified relay host must include 'ws://' or 'wss://'")
 	}
 
 	var ozoneClient *xrpc.Client
-	if config.OzoneAdminToken != "" && config.OzoneDID != "" {
-		ozoneClient = &xrpc.Client{
-			Client:     util.RobustHTTPClient(),
-			Host:       config.OzoneHost,
-			AdminToken: &config.OzoneAdminToken,
-			Auth:       &xrpc.AuthInfo{},
+	if config.OzoneDID != "" {
+		var host string
+		if config.Mode == "authority" {
+			host = config.OzoneHost
+		} else if config.Mode == "labeler" {
+			host = config.OzoneModService
 		}
+
+		ozoneClient = &xrpc.Client{
+			Client:  util.RobustHTTPClient(),
+			Host:    host,
+			Headers: make(map[string]string),
+		}
+
+		if config.Mode == "authority" {
+			ozoneClient.AdminToken = &config.OzoneAdminToken
+			ozoneClient.Auth = &xrpc.AuthInfo{}
+		} else if config.Mode == "labeler" {
+			res, err := atproto.ServerCreateSession(context.TODO(), ozoneClient, &atproto.ServerCreateSession_Input{
+				Identifier: config.OzoneDID,
+				Password:   config.OzoneModPassword,
+			})
+
+			if err != nil {
+				return nil, fmt.Errorf("creating ozone session: %v", err)
+			}
+
+			ozoneClient.Auth = &xrpc.AuthInfo{
+				Did:        res.Did,
+				Handle:     res.Handle,
+				AccessJwt:  res.AccessJwt,
+				RefreshJwt: res.RefreshJwt,
+			}
+
+			logger.Info("created ozone session", "did", res.Did)
+		}
+
 		if config.RatelimitBypass != "" {
-			ozoneClient.Headers = make(map[string]string)
 			ozoneClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
 		}
+
+		if config.Mode == "labeler" {
+			ozoneClient.Headers["atproto-proxy"] = fmt.Sprintf("%s#atproto_labeler", config.OzoneServiceDid)
+		}
+
 		od, err := syntax.ParseDID(config.OzoneDID)
 		if err != nil {
 			return nil, fmt.Errorf("ozone account DID supplied was not valid: %v", err)
@@ -229,6 +274,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 			QuotaModReportDay:   config.QuotaModReportDay,
 			QuotaModTakedownDay: config.QuotaModTakedownDay,
 			QuotaModActionDay:   config.QuotaModActionDay,
+			Mode:                config.Mode,
 		},
 	}
 
@@ -238,6 +284,10 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		logger:              logger,
 		Engine:              &engine,
 		RedisClient:         rdb,
+	}
+
+	if config.Mode == "labeler" {
+		s.Engine.RunRefreshSession(context.TODO())
 	}
 
 	return s, nil

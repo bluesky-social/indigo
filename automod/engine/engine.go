@@ -60,6 +60,8 @@ type EngineConfig struct {
 	QuotaModTakedownDay int
 	// number of misc actions automod can do per day, for all subjects combined (circuit breaker)
 	QuotaModActionDay int
+	// whether hepa is running in `authority` or `labeler` mode
+	Mode string
 }
 
 // Entrypoint for external code pushing #identity events in to the engine.
@@ -389,4 +391,38 @@ func (e *Engine) CanonicalLogLineNotification(c *NotificationContext) {
 		"accountReports", len(c.effects.AccountReports),
 		"reject", c.effects.RejectEvent,
 	)
+}
+
+func (e *Engine) RunRefreshSession(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				if e.OzoneClient != nil && e.OzoneClient.Auth.AccessJwt != "" {
+					// copy the ozone client. we dont have a mutex to lock, and we don't want to rugpull the
+					// access jwt while its trying to make requests. this isnt perfect...
+					oc := &*e.OzoneClient
+
+					// set the access jwt to the existing refresh jwt
+					oc.Auth.AccessJwt = oc.Auth.RefreshJwt
+
+					res, err := comatproto.ServerRefreshSession(ctx, oc)
+					if err != nil {
+						e.Logger.Error("failed refreshing ozone session", "err", err)
+						continue
+					}
+
+					// update the existing clients auth
+					e.OzoneClient.Auth.AccessJwt = res.AccessJwt
+					e.OzoneClient.Auth.RefreshJwt = res.RefreshJwt
+				}
+
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }

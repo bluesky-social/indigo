@@ -42,6 +42,12 @@ func run(args []string) error {
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
+			Name:    "mode",
+			Usage:   "mode to run in: 'authority' (default) or `labeler`",
+			Value:   "authority",
+			EnvVars: []string{"HEPA_MODE"},
+		},
+		&cli.StringFlag{
 			Name:    "atp-relay-host",
 			Usage:   "hostname and port of Relay to subscribe to",
 			Value:   "wss://bsky.network",
@@ -74,6 +80,21 @@ func run(args []string) error {
 			Name:    "ozone-admin-token",
 			Usage:   "admin authentication password for mod service",
 			EnvVars: []string{"HEPA_OZONE_AUTH_ADMIN_TOKEN", "HEPA_MOD_AUTH_ADMIN_TOKEN"},
+		},
+		&cli.StringFlag{
+			Name:    "ozone-mod-password",
+			Usage:   "authentication password for mod service account. used when not supplying an admin authentication token.",
+			EnvVars: []string{"HEPA_OZONE_MOD_PASS"},
+		},
+		&cli.StringFlag{
+			Name:    "ozone-mod-service",
+			Usage:   "service the mod account is hosted on",
+			EnvVars: []string{"HEPA_OZONE_MOD_SERVICE"},
+		},
+		&cli.StringFlag{
+			Name:    "ozone-service-did",
+			Usage:   "did of the ozone service. only required when running in \"labeler\" mode.",
+			EnvVars: []string{"HEPA_OZONE_SERVICE_DID"},
 		},
 		&cli.StringFlag{
 			Name:    "atp-pds-host",
@@ -261,11 +282,15 @@ var runCmd = &cli.Command{
 			dir,
 			Config{
 				Logger:              logger,
+				Mode:                cctx.String("mode"),
 				RelayHost:           cctx.String("atp-relay-host"), // DEPRECATED
 				BskyHost:            cctx.String("atp-bsky-host"),
 				OzoneHost:           cctx.String("atp-ozone-host"),
 				OzoneDID:            cctx.String("ozone-did"),
 				OzoneAdminToken:     cctx.String("ozone-admin-token"),
+				OzoneModPassword:    cctx.String("ozone-mod-password"),
+				OzoneModService:     cctx.String("ozone-mod-service"),
+				OzoneServiceDid:     cctx.String("ozone-service-did"),
 				PDSHost:             cctx.String("atp-pds-host"),
 				PDSAdminToken:       cctx.String("pds-admin-token"),
 				SetsFileJSON:        cctx.String("sets-json-path"),
@@ -361,11 +386,15 @@ func configEphemeralServer(cctx *cli.Context) (*Server, error) {
 		dir,
 		Config{
 			Logger:              logger,
+			Mode:                cctx.String("mode"),
 			RelayHost:           cctx.String("atp-relay-host"),
 			BskyHost:            cctx.String("atp-bsky-host"),
 			OzoneHost:           cctx.String("atp-ozone-host"),
 			OzoneDID:            cctx.String("ozone-did"),
 			OzoneAdminToken:     cctx.String("ozone-admin-token"),
+			OzoneModPassword:    cctx.String("ozone-mod-password"),
+			OzoneModService:     cctx.String("ozone-mod-service"),
+			OzoneServiceDid:     cctx.String("ozone-service-did"),
 			PDSHost:             cctx.String("atp-pds-host"),
 			PDSAdminToken:       cctx.String("pds-admin-token"),
 			SetsFileJSON:        cctx.String("sets-json-path"),

@@ -78,6 +78,7 @@ func (oc *OzoneConsumer) Run(ctx context.Context) error {
 			"",             // subjectType string
 			nil,            // types []string
 		)
+
 		if err != nil {
 			oc.Logger.Warn("ozone query events failed; sleeping then will retrying", "err", err, "period", period.String())
 			time.Sleep(period)
