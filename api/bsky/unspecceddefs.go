@@ -13,3 +13,16 @@ type UnspeccedDefs_SkeletonSearchActor struct {
 type UnspeccedDefs_SkeletonSearchPost struct {
 	Uri string `json:"uri" cborgen:"uri"`
 }
+
+// UnspeccedDefs_SkeletonSearchStarterPack is a "skeletonSearchStarterPack" in the app.bsky.unspecced.defs schema.
+type UnspeccedDefs_SkeletonSearchStarterPack struct {
+	Uri string `json:"uri" cborgen:"uri"`
+}
+
+// UnspeccedDefs_TrendingTopic is a "trendingTopic" in the app.bsky.unspecced.defs schema.
+type UnspeccedDefs_TrendingTopic struct {
+	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
+	DisplayName *string `json:"displayName,omitempty" cborgen:"displayName,omitempty"`
+	Link        string  `json:"link" cborgen:"link"`
+	Topic       string  `json:"topic" cborgen:"topic"`
+}
