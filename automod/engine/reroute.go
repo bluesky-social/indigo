@@ -116,24 +116,25 @@ func (eng *Engine) IsDuplicatingEvent(ctx context.Context, event toolsozone.Mode
 	resp, err := toolsozone.ModerationQueryEvents(
 		ctx,
 		xrpcc,
-		nil,
-		nil,
-		[]string{},
-		"",
-		time.Now().Add(-time.Minute*5).Format(time.RFC3339),
-		"",
-		"",
-		"",
-		false,
-		false,
-		1,
-		nil,
-		nil,
-		nil,
-		"",
-		eventSubject,
-		"",
-		[]string{eventType},
+		nil, // addedLabels []string
+		nil, // addedTags []string
+		nil, // collections []string
+		"",  // comment string
+		time.Now().Add(-time.Minute*5).Format(time.RFC3339), // createdAfter string
+		"",                  // createdBefore string
+		"",                  // createdBy string
+		"",                  // cursor string
+		false,               // hasComment bool
+		false,               // includeAllUserRecords bool
+		1,                   // limit int64
+		nil,                 // policies []string
+		nil,                 // removedLabels []string
+		nil,                 // removedTags []string
+		nil,                 // reportTypes []string
+		"",                  // sortDirection string
+		eventSubject,        // subject string
+		"",                  // subjectType string
+		[]string{eventType}, // types []string
 	)
 
 	if err != nil {
