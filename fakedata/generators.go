@@ -390,7 +390,7 @@ func GenLikesRepostsReplies(xrpcc *xrpc.Client, acc *AccountContext, fracLike, f
 func BrowseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
 	// fetch notifications
 	maxNotif := 50
-	resp, err := appbsky.NotificationListNotifications(context.TODO(), xrpcc, "", int64(maxNotif), false, "")
+	resp, err := appbsky.NotificationListNotifications(context.TODO(), xrpcc, "", int64(maxNotif), false, nil, "")
 	if err != nil {
 		return err
 	}
