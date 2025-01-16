@@ -46,6 +46,7 @@ func DefaultRules() automod.RuleSet {
 		},
 		RecordDeleteRules: []automod.RecordRuleFunc{
 			DeleteInteractionRule,
+			//OzoneRecordHistoryPersistRule,
 		},
 		IdentityRules: []automod.IdentityRuleFunc{
 			NewAccountRule,
