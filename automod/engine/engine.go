@@ -123,7 +123,7 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, evt comatproto.Sync
 		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("rule execution failed: %w", err)
 	}
-	eng.CanonicalLogLineAccount(&ac)
+	eng.CanonicalLogLineIdentity(&ac)
 	if err := eng.persistAccountModActions(&ac); err != nil {
 		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("failed to persist actions for identity event: %w", err)
@@ -367,8 +367,20 @@ func (e *Engine) PurgeAccountCaches(ctx context.Context, did syntax.DID) error {
 	return cacheErr
 }
 
+func (e *Engine) CanonicalLogLineIdentity(c *AccountContext) {
+	c.Logger.Info("canonical-event-line",
+		"eventType", "identity",
+		"accountLabels", c.effects.AccountLabels,
+		"accountFlags", c.effects.AccountFlags,
+		"accountTags", c.effects.AccountTags,
+		"accountTakedown", c.effects.AccountTakedown,
+		"accountReports", len(c.effects.AccountReports),
+	)
+}
+
 func (e *Engine) CanonicalLogLineAccount(c *AccountContext) {
 	c.Logger.Info("canonical-event-line",
+		"eventType", "account",
 		"accountLabels", c.effects.AccountLabels,
 		"accountFlags", c.effects.AccountFlags,
 		"accountTags", c.effects.AccountTags,
@@ -379,6 +391,7 @@ func (e *Engine) CanonicalLogLineAccount(c *AccountContext) {
 
 func (e *Engine) CanonicalLogLineRecord(c *RecordContext) {
 	c.Logger.Info("canonical-event-line",
+		"eventType", "record",
 		"accountLabels", c.effects.AccountLabels,
 		"accountFlags", c.effects.AccountFlags,
 		"accountTags", c.effects.AccountTags,

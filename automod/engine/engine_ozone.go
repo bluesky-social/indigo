@@ -212,6 +212,7 @@ func (eng *Engine) ProcessOzoneEvent(ctx context.Context, eventView *toolsozone.
 
 func (e *Engine) CanonicalLogLineOzoneEvent(c *OzoneEventContext) {
 	c.Logger.Info("canonical-event-line",
+		"eventType", "ozone",
 		"accountLabels", c.effects.AccountLabels,
 		"accountFlags", c.effects.AccountFlags,
 		"accountTakedown", c.effects.AccountTakedown,
