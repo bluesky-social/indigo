@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
@@ -317,6 +318,8 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		return fmt.Errorf("failed to circuit break takedowns: %w", err)
 	}
 
+	persistRecordOp := c.effects.PersistOzoneRecordOp
+
 	if newTakedown || len(newLabels) > 0 || len(newTags) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
 		if eng.Notifier != nil {
 			for _, srv := range dedupeStrings(c.effects.NotifyServices) {
@@ -337,7 +340,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 
 	// exit early
-	if !newTakedown && len(newLabels) == 0 && len(newTags) == 0 && len(newReports) == 0 {
+	if !newTakedown && len(newLabels) == 0 && len(newTags) == 0 && len(newReports) == 0 && !persistRecordOp {
 		return nil
 	}
 
@@ -433,6 +436,23 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		if err != nil {
 			c.Logger.Error("failed to execute record takedown", "err", err)
 		}
+	}
+
+	if persistRecordOp {
+		comment := "[automod]: record change event"
+		eng.forwardOzoneEvent(c.Ctx, toolsozone.ModerationEmitEvent_Input_Event{
+			ModerationDefs_RecordEvent: &toolsozone.ModerationDefs_RecordEvent{
+				Comment:   &comment,
+				Op:        c.RecordOp.Action,
+				Timestamp: time.Now().Format(time.RFC3339),
+			},
+		}, toolsozone.ModerationEmitEvent_Input_Subject{
+			RepoStrongRef: &comatproto.RepoStrongRef{
+				LexiconTypeID: "com.atproto.repo.strongRef",
+				Uri:           c.RecordOp.ATURI().String(),
+				Cid:           c.RecordOp.CID.String(),
+			},
+		})
 	}
 
 	return nil

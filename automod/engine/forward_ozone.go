@@ -25,26 +25,6 @@ func (eng *Engine) ForwardOzoneAccountEvent(c context.Context, e *comatproto.Syn
 	return nil
 }
 
-func (eng *Engine) ForwardOzoneRecordOp(c *RecordContext) error {
-	comment := "[automod]: Record event"
-
-	eng.forwardOzoneEvent(c.Ctx, toolsozone.ModerationEmitEvent_Input_Event{
-		ModerationDefs_RecordEvent: &toolsozone.ModerationDefs_RecordEvent{
-			Comment:   &comment,
-			Op:        c.RecordOp.Action,
-			Timestamp: time.Now().Format(time.RFC3339),
-		},
-	}, toolsozone.ModerationEmitEvent_Input_Subject{
-		RepoStrongRef: &comatproto.RepoStrongRef{
-			LexiconTypeID: "com.atproto.repo.strongRef",
-			Uri:           c.RecordOp.ATURI().String(),
-			Cid:           c.RecordOp.CID.String(),
-		},
-	})
-
-	return nil
-}
-
 func (eng *Engine) ForwardOzoneIdentityEvent(c context.Context, e *comatproto.SyncSubscribeRepos_Identity) error {
 	comment := "[automod]: Identity event"
 	// XXX: pass through tombstone flag?
@@ -131,7 +111,7 @@ func (eng *Engine) isDupeOzoneEvent(ctx context.Context, event toolsozone.Modera
 func (eng *Engine) forwardOzoneEvent(ctx context.Context, event toolsozone.ModerationEmitEvent_Input_Event, subject toolsozone.ModerationEmitEvent_Input_Subject) error {
 	// if we can't actually talk to service, bail out early
 	if eng.OzoneClient == nil {
-		eng.Logger.Warn("not persisting ozone account event, mod service client not configured")
+		eng.Logger.Warn("not persisting ozone account event; mod service client not configured")
 		return nil
 	}
 
@@ -142,7 +122,7 @@ func (eng *Engine) forwardOzoneEvent(ctx context.Context, event toolsozone.Moder
 	}
 
 	if isDuplicate {
-		eng.Logger.Info("event was already emitted, not emitting again")
+		eng.Logger.Info("ozone event was forwarded recently; not duplicating")
 		return nil
 	}
 

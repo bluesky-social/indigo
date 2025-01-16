@@ -124,11 +124,6 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, evt comatproto.Sync
 		return fmt.Errorf("rule execution failed: %w", err)
 	}
 	eng.CanonicalLogLineAccount(&ac)
-	if eng.Config.PersistOzoneAccountHistory {
-		if err := eng.ForwardOzoneIdentityEvent(ctx, &evt); err != nil {
-			return fmt.Errorf("failed to forward identity event to ozone history: %w", err)
-		}
-	}
 	if err := eng.persistAccountModActions(&ac); err != nil {
 		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("failed to persist actions for identity event: %w", err)
@@ -136,6 +131,11 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, evt comatproto.Sync
 	if err := eng.persistCounters(ctx, ac.effects); err != nil {
 		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("failed to persist counters for identity event: %w", err)
+	}
+	if eng.OzoneClient != nil && eng.Config.PersistOzoneAccountHistory {
+		if err := eng.ForwardOzoneIdentityEvent(ctx, &evt); err != nil {
+			return fmt.Errorf("failed to forward identity event to ozone history: %w", err)
+		}
 	}
 	return nil
 }
@@ -200,11 +200,6 @@ func (eng *Engine) ProcessAccountEvent(ctx context.Context, evt comatproto.SyncS
 		return fmt.Errorf("rule execution failed: %w", err)
 	}
 	eng.CanonicalLogLineAccount(&ac)
-	if eng.Config.PersistOzoneAccountHistory {
-		if err := eng.ForwardOzoneAccountEvent(ctx, &evt); err != nil {
-			return fmt.Errorf("failed to forward account event to ozone history: %w", err)
-		}
-	}
 	if err := eng.persistAccountModActions(&ac); err != nil {
 		eventErrorCount.WithLabelValues("account").Inc()
 		return fmt.Errorf("failed to persist actions for account event: %w", err)
@@ -212,6 +207,11 @@ func (eng *Engine) ProcessAccountEvent(ctx context.Context, evt comatproto.SyncS
 	if err := eng.persistCounters(ctx, ac.effects); err != nil {
 		eventErrorCount.WithLabelValues("account").Inc()
 		return fmt.Errorf("failed to persist counters for account event: %w", err)
+	}
+	if eng.OzoneClient != nil && eng.Config.PersistOzoneAccountHistory {
+		if err := eng.ForwardOzoneAccountEvent(ctx, &evt); err != nil {
+			return fmt.Errorf("failed to forward account event to ozone history: %w", err)
+		}
 	}
 	return nil
 }
@@ -294,10 +294,6 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 	if err := eng.persistCounters(ctx, rc.effects); err != nil {
 		eventErrorCount.WithLabelValues("record").Inc()
 		return fmt.Errorf("failed to persist counts for record event: %w", err)
-	}
-	// XXX: some wrapper here?
-	if err := eng.ForwardOzoneRecordOp(&rc); err != nil {
-		return fmt.Errorf("failed to persist account event to ozone history: %w", err)
 	}
 	return nil
 }
