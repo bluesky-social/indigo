@@ -76,7 +76,7 @@ func NewOzoneEventContext(ctx context.Context, eng *Engine, eventView *toolsozon
 		if err != nil {
 			return nil, err
 		}
-		subjectURI := &u
+		subjectURI = &u
 		subjectDID, err = subjectURI.Authority().AsDID()
 		if err != nil {
 			return nil, err
