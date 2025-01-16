@@ -46,6 +46,12 @@ func NewOzoneEventContext(ctx context.Context, eng *Engine, eventView *toolsozon
 		eventType = "divert"
 	} else if eventView.Event.ModerationDefs_ModEventTag != nil {
 		eventType = "tag"
+	} else if eventView.Event.ModerationDefs_AccountEvent != nil {
+		eventType = "account"
+	} else if eventView.Event.ModerationDefs_IdentityEvent != nil {
+		eventType = "identity"
+	} else if eventView.Event.ModerationDefs_RecordEvent != nil {
+		eventType = "record"
 	} else {
 		return nil, fmt.Errorf("unhandled ozone event type")
 	}
