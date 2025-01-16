@@ -14,7 +14,7 @@ func CountModEventRule(c *automod.OzoneEventContext) error {
 	}
 
 	c.Increment("ozone-event", counterKey)
-	c.Logger.Info("ozone event count", "subject", counterKey, "count", c.GetCount("ozone-event", counterKey, automod.PeriodTotal))
+	c.Logger.Debug("ozone event count", "subject", counterKey, "count", c.GetCount("ozone-event", counterKey, automod.PeriodTotal))
 
 	return nil
 }
