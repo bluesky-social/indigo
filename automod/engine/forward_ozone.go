@@ -75,15 +75,16 @@ func (eng *Engine) isDupeOzoneEvent(ctx context.Context, event toolsozone.Modera
 		eventSubject = subject.RepoStrongRef.Uri
 	}
 
+	after := time.Now().Add(-time.Minute * 5).Format(time.RFC3339)
 	xrpcc := eng.OzoneClient
 	resp, err := toolsozone.ModerationQueryEvents(
 		ctx,
 		xrpcc,
-		nil, // addedLabels []string
-		nil, // addedTags []string
-		nil, // collections []string
-		"",  // comment string
-		time.Now().Add(-time.Minute*5).Format(time.RFC3339), // createdAfter string
+		nil,                 // addedLabels []string
+		nil,                 // addedTags []string
+		nil,                 // collections []string
+		"",                  // comment string
+		after,               // createdAfter string
 		"",                  // createdBefore string
 		"",                  // createdBy string
 		"",                  // cursor string
