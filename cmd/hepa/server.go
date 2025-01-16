@@ -214,7 +214,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		OzoneClient: ozoneClient,
 		AdminClient: adminClient,
 		BlobClient:  blobClient,
-		Config: engine.EngineConfig{
+		Config: automod.EngineConfig{
 			PersistOzoneAccountHistory: config.PersistOzoneAccountHistory,
 			ReportDupePeriod:           config.ReportDupePeriod,
 			QuotaModReportDay:          config.QuotaModReportDay,
