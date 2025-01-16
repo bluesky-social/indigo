@@ -8,9 +8,9 @@ import (
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
 )
 
-func (eng *Engine) RerouteAccountEventToOzone(c context.Context, e *comatproto.SyncSubscribeRepos_Account) error {
+func (eng *Engine) ForwardOzoneAccountEvent(c context.Context, e *comatproto.SyncSubscribeRepos_Account) error {
 	comment := "[automod]: Account status event"
-	eng.rerouteEventToOzone(c, toolsozone.ModerationEmitEvent_Input_Event{
+	eng.forwardOzoneEvent(c, toolsozone.ModerationEmitEvent_Input_Event{
 		ModerationDefs_AccountEvent: &toolsozone.ModerationDefs_AccountEvent{
 			Comment:   &comment,
 			Timestamp: e.Time,
@@ -25,32 +25,10 @@ func (eng *Engine) RerouteAccountEventToOzone(c context.Context, e *comatproto.S
 	return nil
 }
 
-/*
-func (eng *Engine) RerouteTombstoneEventToOzone(c context.Context, e *comatproto.SyncSubscribeRepos_Tombstone) error {
-	comment := "[automod]: Tombstone event"
-	tombstone := true
-	eng.rerouteEventToOzone(c, toolsozone.ModerationEmitEvent_Input_Event{
-		ModerationDefs_IdentityEvent: &toolsozone.ModerationDefs_IdentityEvent{
-			Comment: &comment,
-			// @TODO: These don't seem to exist in the Identity event?
-			// Handle:  e.Handle,
-			// PdsHost:   &e.PdsHost,
-			Tombstone: &tombstone,
-			Timestamp: e.Time,
-		},
-	}, toolsozone.ModerationEmitEvent_Input_Subject{
-		AdminDefs_RepoRef: &comatproto.AdminDefs_RepoRef{
-			Did: e.Did,
-		},
-	})
-	return nil
-}
-*/
-
-func (eng *Engine) RerouteRecordOpToOzone(c *RecordContext) error {
+func (eng *Engine) ForwardOzoneRecordOp(c *RecordContext) error {
 	comment := "[automod]: Record event"
 
-	eng.rerouteEventToOzone(c.Ctx, toolsozone.ModerationEmitEvent_Input_Event{
+	eng.forwardOzoneEvent(c.Ctx, toolsozone.ModerationEmitEvent_Input_Event{
 		ModerationDefs_RecordEvent: &toolsozone.ModerationDefs_RecordEvent{
 			Comment:   &comment,
 			Op:        c.RecordOp.Action,
@@ -67,11 +45,12 @@ func (eng *Engine) RerouteRecordOpToOzone(c *RecordContext) error {
 	return nil
 }
 
-func (eng *Engine) RerouteIdentityEventToOzone(c context.Context, e *comatproto.SyncSubscribeRepos_Identity) error {
+func (eng *Engine) ForwardOzoneIdentityEvent(c context.Context, e *comatproto.SyncSubscribeRepos_Identity) error {
 	comment := "[automod]: Identity event"
+	// XXX: pass through tombstone flag?
 	tombstone := false
 
-	eng.rerouteEventToOzone(c, toolsozone.ModerationEmitEvent_Input_Event{
+	eng.forwardOzoneEvent(c, toolsozone.ModerationEmitEvent_Input_Event{
 		ModerationDefs_IdentityEvent: &toolsozone.ModerationDefs_IdentityEvent{
 			Comment: &comment,
 			Handle:  e.Handle,
@@ -90,7 +69,7 @@ func (eng *Engine) RerouteIdentityEventToOzone(c context.Context, e *comatproto.
 }
 
 // For the given subject, checks if there is already an event of the given type within the 5 minutes.
-func (eng *Engine) IsDuplicatingEvent(ctx context.Context, event toolsozone.ModerationEmitEvent_Input_Event, subject toolsozone.ModerationEmitEvent_Input_Subject) (bool, error) {
+func (eng *Engine) isDupeOzoneEvent(ctx context.Context, event toolsozone.ModerationEmitEvent_Input_Event, subject toolsozone.ModerationEmitEvent_Input_Subject) (bool, error) {
 	if eng.OzoneClient == nil {
 		eng.Logger.Warn("can not check if event is duplicate, mod service client not configured")
 		return false, nil
@@ -149,14 +128,14 @@ func (eng *Engine) IsDuplicatingEvent(ctx context.Context, event toolsozone.Mode
 	return false, nil
 }
 
-func (eng *Engine) rerouteEventToOzone(ctx context.Context, event toolsozone.ModerationEmitEvent_Input_Event, subject toolsozone.ModerationEmitEvent_Input_Subject) error {
+func (eng *Engine) forwardOzoneEvent(ctx context.Context, event toolsozone.ModerationEmitEvent_Input_Event, subject toolsozone.ModerationEmitEvent_Input_Subject) error {
 	// if we can't actually talk to service, bail out early
 	if eng.OzoneClient == nil {
 		eng.Logger.Warn("not persisting ozone account event, mod service client not configured")
 		return nil
 	}
 
-	isDuplicate, duplicateCheckError := eng.IsDuplicatingEvent(ctx, event, subject)
+	isDuplicate, duplicateCheckError := eng.isDupeOzoneEvent(ctx, event, subject)
 	if duplicateCheckError != nil {
 		eng.Logger.Error("failed to check if event is duplicate", "err", duplicateCheckError)
 		return duplicateCheckError
@@ -174,7 +153,7 @@ func (eng *Engine) rerouteEventToOzone(ctx context.Context, event toolsozone.Mod
 		Subject:   &subject,
 	})
 	if err != nil {
-		eng.Logger.Error("failed to re route event to ozone", "err", err)
+		eng.Logger.Error("failed to forward event to ozone", "err", err)
 		return err
 	}
 

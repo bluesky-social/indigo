@@ -9,16 +9,16 @@ var _ automod.RecordRuleFunc = OzoneRecordHistoryPersistRule
 func OzoneRecordHistoryPersistRule(c *automod.RecordContext) error {
 	switch c.RecordOp.Collection {
 	case "app.bsky.labeler.service":
-		c.PersistRecordOzoneEvent()
+		c.ForwardOzoneRecordOp()
 	case "app.bsky.feed.post":
 		if c.RecordOp.Action == "delete" {
 			if c.GetCount("mod-event", c.RecordOp.ATURI().String(), automod.PeriodTotal) > 0 {
-				c.PersistRecordOzoneEvent()
+				c.ForwardOzoneRecordOp()
 			}
 		}
 	case "app.bsky.actor.profile":
 		if c.GetCount("mod-event", c.RecordOp.ATURI().String(), automod.PeriodTotal) > 0 {
-			c.PersistRecordOzoneEvent()
+			c.ForwardOzoneRecordOp()
 		}
 	}
 	return nil

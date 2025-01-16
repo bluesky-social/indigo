@@ -35,30 +35,30 @@ type Server struct {
 }
 
 type Config struct {
-	Logger              *slog.Logger
-	RelayHost           string // DEPRECATED
-	BskyHost            string
-	OzoneHost           string
-	OzoneDID            string
-	OzoneAdminToken     string
-	PDSHost             string
-	PDSAdminToken       string
-	SetsFileJSON        string
-	RedisURL            string
-	SlackWebhookURL     string
-	HiveAPIToken        string
-	AbyssHost           string
-	AbyssPassword       string
-	RulesetName         string
-	RatelimitBypass     string
-	FirehoseParallelism int // DEPRECATED
-	RerouteEvents       bool
-	PreScreenHost       string
-	PreScreenToken      string
-	ReportDupePeriod    time.Duration
-	QuotaModReportDay   int
-	QuotaModTakedownDay int
-	QuotaModActionDay   int
+	Logger                     *slog.Logger
+	RelayHost                  string // DEPRECATED
+	BskyHost                   string
+	OzoneHost                  string
+	OzoneDID                   string
+	OzoneAdminToken            string
+	PDSHost                    string
+	PDSAdminToken              string
+	SetsFileJSON               string
+	RedisURL                   string
+	SlackWebhookURL            string
+	HiveAPIToken               string
+	AbyssHost                  string
+	AbyssPassword              string
+	RulesetName                string
+	RatelimitBypass            string
+	FirehoseParallelism        int // DEPRECATED
+	PersistOzoneAccountHistory bool
+	PreScreenHost              string
+	PreScreenToken             string
+	ReportDupePeriod           time.Duration
+	QuotaModReportDay          int
+	QuotaModTakedownDay        int
+	QuotaModActionDay          int
 }
 
 func NewServer(dir identity.Directory, config Config) (*Server, error) {
@@ -225,7 +225,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		AdminClient: adminClient,
 		BlobClient:  blobClient,
 		Config: automod.EngineConfig{
-			PersistSubjectHistoryOzone: config.RerouteEvents,
+			PersistOzoneAccountHistory: config.PersistOzoneAccountHistory,
 			ReportDupePeriod:           config.ReportDupePeriod,
 			QuotaModReportDay:          config.QuotaModReportDay,
 			QuotaModTakedownDay:        config.QuotaModTakedownDay,
