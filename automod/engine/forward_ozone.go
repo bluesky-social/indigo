@@ -61,11 +61,11 @@ func (eng *Engine) isDupeOzoneEvent(ctx context.Context, event toolsozone.Modera
 
 	eventType := ""
 	if event.ModerationDefs_AccountEvent != nil {
-		eventType = event.ModerationDefs_AccountEvent.LexiconTypeID
+		eventType = "tools.ozone.moderation.defs#accountEvent"
 	} else if event.ModerationDefs_IdentityEvent != nil {
-		eventType = event.ModerationDefs_IdentityEvent.LexiconTypeID
+		eventType = "tools.ozone.moderation.defs#identityEvent"
 	} else if event.ModerationDefs_RecordEvent != nil {
-		eventType = event.ModerationDefs_RecordEvent.LexiconTypeID
+		eventType = "tools.ozone.moderation.defs#recordEvent"
 	}
 
 	eventSubject := ""
@@ -106,6 +106,7 @@ func (eng *Engine) isDupeOzoneEvent(ctx context.Context, event toolsozone.Modera
 	}
 
 	if len(resp.Events) > 0 {
+		eng.Logger.Info("similar ozone event was forwarded recently, skipping forward", "eventType", eventType, "eventSubject", eventSubject, "evt", resp.Events[0], "after", after)
 		return true, nil
 	}
 
@@ -119,19 +120,18 @@ func (eng *Engine) forwardOzoneEvent(ctx context.Context, event toolsozone.Moder
 		return nil
 	}
 
-	isDuplicate, duplicateCheckError := eng.isDupeOzoneEvent(ctx, event, subject)
-	if duplicateCheckError != nil {
-		eng.Logger.Error("failed to check if event is duplicate", "err", duplicateCheckError)
-		return duplicateCheckError
+	isDuplicate, err := eng.isDupeOzoneEvent(ctx, event, subject)
+	if err != nil {
+		eng.Logger.Error("failed to check if event is duplicate", "err", err)
+		return err
 	}
 
 	if isDuplicate {
-		eng.Logger.Info("ozone event was forwarded recently; not duplicating")
 		return nil
 	}
 
 	xrpcc := eng.OzoneClient
-	_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+	_, err = toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
 		CreatedBy: xrpcc.Auth.Did,
 		Event:     &event,
 		Subject:   &subject,
