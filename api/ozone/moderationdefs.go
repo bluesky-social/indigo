@@ -112,8 +112,10 @@ type ModerationDefs_ImageDetails struct {
 //
 // RECORDTYPE: ModerationDefs_ModEventAcknowledge
 type ModerationDefs_ModEventAcknowledge struct {
-	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#modEventAcknowledge" cborgen:"$type,const=tools.ozone.moderation.defs#modEventAcknowledge"`
-	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	LexiconTypeID string `json:"$type,const=tools.ozone.moderation.defs#modEventAcknowledge" cborgen:"$type,const=tools.ozone.moderation.defs#modEventAcknowledge"`
+	// acknowledgeAccountSubjects: If true, all other reports on content authored by this account will be resolved (acknowledged).
+	AcknowledgeAccountSubjects *bool   `json:"acknowledgeAccountSubjects,omitempty" cborgen:"acknowledgeAccountSubjects,omitempty"`
+	Comment                    *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 }
 
 // ModerationDefs_ModEventComment is a "modEventComment" in the tools.ozone.moderation.defs schema.
@@ -259,6 +261,8 @@ type ModerationDefs_ModEventTakedown struct {
 	Comment                    *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	// durationInHours: Indicates how long the takedown should be in effect before automatically expiring.
 	DurationInHours *int64 `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
+	// policies: Names/Keywords of the policies that drove the decision.
+	Policies []string `json:"policies,omitempty" cborgen:"policies,omitempty"`
 }
 
 // ModerationDefs_ModEventUnmute is a "modEventUnmute" in the tools.ozone.moderation.defs schema.

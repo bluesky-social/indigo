@@ -26,12 +26,9 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 
 	"github.com/carlmjohnson/versioninfo"
-	logging "github.com/ipfs/go-log"
 	"github.com/ipld/go-car"
 	cli "github.com/urfave/cli/v2"
 )
-
-var log = logging.Logger("stress")
 
 func main() {
 	run(os.Args)

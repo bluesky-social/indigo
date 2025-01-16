@@ -1,32 +1,38 @@
 package splitter
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"go.opentelemetry.io/otel"
 	"io"
+	"log/slog"
 	"math/rand"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/bluesky-social/indigo/api/atproto"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/bgs"
 	events "github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
+	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/gorilla/websocket"
-	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	promclient "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 )
-
-var log = logging.Logger("splitter")
 
 type Splitter struct {
 	erb    *EventRingBuffer
@@ -39,6 +45,11 @@ type Splitter struct {
 	consumers      map[uint64]*SocketConsumer
 
 	conf SplitterConfig
+
+	log *slog.Logger
+
+	httpC        *http.Client
+	nextCrawlers []*url.URL
 }
 
 type SplitterConfig struct {
@@ -47,49 +58,61 @@ type SplitterConfig struct {
 	PebbleOptions *events.PebblePersistOptions
 }
 
-func NewMemSplitter(host string) *Splitter {
-	conf := SplitterConfig{
-		UpstreamHost: host,
-		CursorFile:   "cursor-file",
+func (sc *SplitterConfig) XrpcRootUrl() string {
+	if strings.HasPrefix(sc.UpstreamHost, "http://") {
+		return sc.UpstreamHost
 	}
-
-	erb := NewEventRingBuffer(20_000, 10_000)
-
-	em := events.NewEventManager(erb)
-	return &Splitter{
-		conf:      conf,
-		erb:       erb,
-		events:    em,
-		consumers: make(map[uint64]*SocketConsumer),
+	if strings.HasPrefix(sc.UpstreamHost, "https://") {
+		return sc.UpstreamHost
 	}
+	if strings.HasPrefix(sc.UpstreamHost, "ws://") {
+		return "http://" + sc.UpstreamHost[5:]
+	}
+	if strings.HasPrefix(sc.UpstreamHost, "wss://") {
+		return "https://" + sc.UpstreamHost[6:]
+	}
+	return "https://" + sc.UpstreamHost
 }
-func NewSplitter(conf SplitterConfig) (*Splitter, error) {
+
+func NewSplitter(conf SplitterConfig, nextCrawlers []string) (*Splitter, error) {
+	var nextCrawlerURLs []*url.URL
+	log := slog.Default().With("system", "splitter")
+	if len(nextCrawlers) > 0 {
+		nextCrawlerURLs = make([]*url.URL, len(nextCrawlers))
+		for i, tu := range nextCrawlers {
+			var err error
+			nextCrawlerURLs[i], err = url.Parse(tu)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse next-crawler url: %w", err)
+			}
+			log.Info("configuring relay for requestCrawl", "host", nextCrawlerURLs[i])
+		}
+	}
+
+	s := &Splitter{
+		conf:         conf,
+		consumers:    make(map[uint64]*SocketConsumer),
+		log:          log,
+		httpC:        util.RobustHTTPClient(),
+		nextCrawlers: nextCrawlerURLs,
+	}
+
 	if conf.PebbleOptions == nil {
 		// mem splitter
 		erb := NewEventRingBuffer(20_000, 10_000)
-
-		em := events.NewEventManager(erb)
-		return &Splitter{
-			conf:      conf,
-			erb:       erb,
-			events:    em,
-			consumers: make(map[uint64]*SocketConsumer),
-		}, nil
+		s.erb = erb
+		s.events = events.NewEventManager(erb)
 	} else {
 		pp, err := events.NewPebblePersistance(conf.PebbleOptions)
 		if err != nil {
 			return nil, err
 		}
-
 		go pp.GCThread(context.Background())
-		em := events.NewEventManager(pp)
-		return &Splitter{
-			conf:      conf,
-			pp:        pp,
-			events:    em,
-			consumers: make(map[uint64]*SocketConsumer),
-		}, nil
+		s.pp = pp
+		s.events = events.NewEventManager(pp)
 	}
+
+	return s, nil
 }
 func NewDiskSplitter(host, path string, persistHours float64, maxBytes int64) (*Splitter, error) {
 	ppopts := events.PebblePersistOptions{
@@ -115,6 +138,7 @@ func NewDiskSplitter(host, path string, persistHours float64, maxBytes int64) (*
 		pp:        pp,
 		events:    em,
 		consumers: make(map[uint64]*SocketConsumer),
+		log:       slog.Default().With("system", "splitter"),
 	}, nil
 }
 
@@ -173,7 +197,7 @@ func (s *Splitter) StartWithListener(listen net.Listener) error {
 			if err2 := ctx.JSON(err.Code, map[string]any{
 				"error": err.Message,
 			}); err2 != nil {
-				log.Errorf("Failed to write http error: %s", err2)
+				s.log.Error("Failed to write http error", "err", err2)
 			}
 		default:
 			sendHeader := true
@@ -181,7 +205,7 @@ func (s *Splitter) StartWithListener(listen net.Listener) error {
 				sendHeader = false
 			}
 
-			log.Warnf("HANDLER ERROR: (%s) %s", ctx.Path(), err)
+			s.log.Warn("HANDLER ERROR", "path", ctx.Path(), "err", err)
 
 			if strings.HasPrefix(ctx.Path(), "/admin/") {
 				ctx.JSON(500, map[string]any{
@@ -196,7 +220,11 @@ func (s *Splitter) StartWithListener(listen net.Listener) error {
 		}
 	}
 
+	// TODO: this API is temporary until we formalize what we want here
+
+	e.POST("/xrpc/com.atproto.sync.requestCrawl", s.RequestCrawlHandler)
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.EventsHandler)
+	e.GET("/xrpc/com.atproto.sync.listRepos", s.HandleComAtprotoSyncListRepos)
 
 	e.GET("/xrpc/_health", s.HandleHealthCheck)
 	e.GET("/_health", s.HandleHealthCheck)
@@ -232,6 +260,120 @@ The firehose WebSocket path is at:  /xrpc/com.atproto.sync.subscribeRepos
 
 func (s *Splitter) HandleHomeMessage(c echo.Context) error {
 	return c.String(http.StatusOK, homeMessage)
+}
+
+type XRPCError struct {
+	Message string `json:"message"`
+}
+
+func (s *Splitter) RequestCrawlHandler(c echo.Context) error {
+	ctx := c.Request().Context()
+	var body comatproto.SyncRequestCrawl_Input
+	if err := c.Bind(&body); err != nil {
+		return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid body: %s", err)})
+	}
+
+	host := body.Hostname
+	if host == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname")
+	}
+
+	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
+		host = "https://" + host
+	}
+
+	u, err := url.Parse(host)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "failed to parse hostname")
+	}
+
+	if u.Scheme == "http" {
+		return echo.NewHTTPError(http.StatusBadRequest, "this server requires https")
+	}
+	if u.Path != "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname without path")
+	}
+
+	if u.Query().Encode() != "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname without query")
+	}
+
+	host = u.Host // potentially hostname:port
+
+	clientHost := fmt.Sprintf("%s://%s", u.Scheme, host)
+
+	xrpcC := &xrpc.Client{
+		Host:   clientHost,
+		Client: http.DefaultClient, // not using the client that auto-retries
+	}
+
+	desc, err := atproto.ServerDescribeServer(ctx, xrpcC)
+	if err != nil {
+		errMsg := fmt.Sprintf("requested host (%s) failed to respond to describe request", clientHost)
+		return echo.NewHTTPError(http.StatusBadRequest, errMsg)
+	}
+
+	// Maybe we could do something with this response later
+	_ = desc
+
+	if len(s.nextCrawlers) != 0 {
+		blob, err := json.Marshal(body)
+		if err != nil {
+			s.log.Warn("could not forward requestCrawl, json err", "err", err)
+		} else {
+			go func(bodyBlob []byte) {
+				for _, remote := range s.nextCrawlers {
+					if remote == nil {
+						continue
+					}
+
+					pu := remote.JoinPath("/xrpc/com.atproto.sync.requestCrawl")
+					response, err := s.httpC.Post(pu.String(), "application/json", bytes.NewReader(bodyBlob))
+					if response != nil && response.Body != nil {
+						response.Body.Close()
+					}
+					if err != nil || response == nil {
+						s.log.Warn("requestCrawl forward failed", "host", remote, "err", err)
+					} else if response.StatusCode != http.StatusOK {
+						s.log.Warn("requestCrawl forward failed", "host", remote, "status", response.Status)
+					} else {
+						s.log.Info("requestCrawl forward successful", "host", remote)
+					}
+				}
+			}(blob)
+		}
+	}
+
+	return c.JSON(200, HealthStatus{Status: "ok"})
+}
+
+func (s *Splitter) HandleComAtprotoSyncListRepos(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncListRepos")
+	defer span.End()
+
+	cursorQuery := c.QueryParam("cursor")
+	limitQuery := c.QueryParam("limit")
+
+	var err error
+
+	limit := int64(500)
+	if limitQuery != "" {
+		limit, err = strconv.ParseInt(limitQuery, 10, 64)
+		if err != nil || limit < 1 || limit > 1000 {
+			return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid limit: %s", limitQuery)})
+		}
+	}
+
+	client := xrpc.Client{
+		Client: s.httpC,
+		Host:   s.conf.XrpcRootUrl(),
+	}
+
+	out, handleErr := atproto.SyncListRepos(ctx, &client, cursorQuery, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Splitter) EventsHandler(c echo.Context) error {
@@ -275,7 +417,7 @@ func (s *Splitter) EventsHandler(c echo.Context) error {
 				}
 
 				if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
-					log.Errorf("failed to ping client: %s", err)
+					s.log.Error("failed to ping client", "err", err)
 					cancel()
 					return
 				}
@@ -300,7 +442,7 @@ func (s *Splitter) EventsHandler(c echo.Context) error {
 		for {
 			_, _, err := conn.ReadMessage()
 			if err != nil {
-				log.Errorf("failed to read message from client: %s", err)
+				s.log.Error("failed to read message from client", "err", err)
 				cancel()
 				return
 			}
@@ -327,7 +469,7 @@ func (s *Splitter) EventsHandler(c echo.Context) error {
 	consumerID := s.registerConsumer(&consumer)
 	defer s.cleanupConsumer(consumerID)
 
-	log.Infow("new consumer",
+	s.log.Info("new consumer",
 		"remote_addr", consumer.RemoteAddr,
 		"user_agent", consumer.UserAgent,
 		"cursor", since,
@@ -340,13 +482,13 @@ func (s *Splitter) EventsHandler(c echo.Context) error {
 		select {
 		case evt, ok := <-evts:
 			if !ok {
-				log.Error("event stream closed unexpectedly")
+				s.log.Error("event stream closed unexpectedly")
 				return nil
 			}
 
 			wc, err := conn.NextWriter(websocket.BinaryMessage)
 			if err != nil {
-				log.Errorf("failed to get next writer: %s", err)
+				s.log.Error("failed to get next writer", "err", err)
 				return err
 			}
 
@@ -360,7 +502,7 @@ func (s *Splitter) EventsHandler(c echo.Context) error {
 			}
 
 			if err := wc.Close(); err != nil {
-				log.Warnf("failed to flush-close our event write: %s", err)
+				s.log.Warn("failed to flush-close our event write", "err", err)
 				return nil
 			}
 
@@ -401,10 +543,10 @@ func (s *Splitter) cleanupConsumer(id uint64) {
 
 	var m = &dto.Metric{}
 	if err := c.EventsSent.Write(m); err != nil {
-		log.Errorf("failed to get sent counter: %s", err)
+		s.log.Error("failed to get sent counter", "err", err)
 	}
 
-	log.Infow("consumer disconnected",
+	s.log.Info("consumer disconnected",
 		"consumer_id", id,
 		"remote_addr", c.RemoteAddr,
 		"user_agent", c.UserAgent,
@@ -450,17 +592,17 @@ func (s *Splitter) subscribeWithRedialer(ctx context.Context, host string, curso
 		}
 		con, res, err := d.DialContext(ctx, url, header)
 		if err != nil {
-			log.Warnw("dialing failed", "host", host, "err", err, "backoff", backoff)
+			s.log.Warn("dialing failed", "host", host, "err", err, "backoff", backoff)
 			time.Sleep(sleepForBackoff(backoff))
 			backoff++
 
 			continue
 		}
 
-		log.Info("event subscription response code: ", res.StatusCode)
+		s.log.Info("event subscription response", "code", res.StatusCode)
 
 		if err := s.handleConnection(ctx, host, con, &cursor); err != nil {
-			log.Warnf("connection to %q failed: %s", host, err)
+			s.log.Warn("connection failed", "host", host, "err", err)
 		}
 	}
 }
@@ -483,7 +625,7 @@ func (s *Splitter) handleConnection(ctx context.Context, host string, con *webso
 		if seq%5000 == 0 {
 			// TODO: don't need this after we move to getting seq from pebble
 			if err := s.writeCursor(seq); err != nil {
-				log.Errorf("write cursor failed: %s", err)
+				s.log.Error("write cursor failed", "err", err)
 			}
 		}
 
@@ -491,19 +633,19 @@ func (s *Splitter) handleConnection(ctx context.Context, host string, con *webso
 		return nil
 	})
 
-	return events.HandleRepoStream(ctx, con, sched)
+	return events.HandleRepoStream(ctx, con, sched, nil)
 }
 
 func (s *Splitter) getLastCursor() (int64, error) {
 	if s.pp != nil {
 		seq, millis, _, err := s.pp.GetLast(context.Background())
 		if err == nil {
-			log.Debugw("got last cursor from pebble", "seq", seq, "millis", millis)
+			s.log.Debug("got last cursor from pebble", "seq", seq, "millis", millis)
 			return seq, nil
 		} else if errors.Is(err, events.ErrNoLast) {
-			log.Info("pebble no last")
+			s.log.Info("pebble no last")
 		} else {
-			log.Errorw("pebble seq fail", "err", err)
+			s.log.Error("pebble seq fail", "err", err)
 		}
 	}
 

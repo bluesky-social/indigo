@@ -1,4 +1,4 @@
-FROM golang:1.22-bullseye AS build-env
+FROM golang:1.23-bullseye AS build-env
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC

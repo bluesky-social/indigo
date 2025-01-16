@@ -264,6 +264,9 @@ func (bgs *BGS) handleBlockPDS(e echo.Context) error {
 		return err
 	}
 
+	// don't care if this errors, but we should try to disconnect something we just blocked
+	_ = bgs.slurper.KillUpstreamConnection(host, false)
+
 	return e.JSON(200, map[string]any{
 		"success": "true",
 	})
@@ -484,7 +487,7 @@ func (bgs *BGS) handleAdminPostResyncPDS(e echo.Context) error {
 		ctx := context.Background()
 		err := bgs.ResyncPDS(ctx, pds)
 		if err != nil {
-			log.Errorw("failed to resync PDS", "err", err, "pds", pds.Host)
+			log.Error("failed to resync PDS", "err", err, "pds", pds.Host)
 		}
 	}()
 
