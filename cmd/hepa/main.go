@@ -266,7 +266,6 @@ var runCmd = &cli.Command{
 			dir,
 			Config{
 				Logger:                     logger,
-				RelayHost:                  cctx.String("atp-relay-host"), // DEPRECATED
 				BskyHost:                   cctx.String("atp-bsky-host"),
 				OzoneHost:                  cctx.String("atp-ozone-host"),
 				OzoneDID:                   cctx.String("ozone-did"),
@@ -281,7 +280,6 @@ var runCmd = &cli.Command{
 				AbyssPassword:              cctx.String("abyss-password"),
 				RatelimitBypass:            cctx.String("ratelimit-bypass"),
 				RulesetName:                cctx.String("ruleset"),
-				FirehoseParallelism:        cctx.Int("firehose-parallelism"), // DEPRECATED
 				PersistOzoneAccountHistory: cctx.Bool("persist-ozone-account-history"),
 				PreScreenHost:              cctx.String("prescreen-host"),
 				PreScreenToken:             cctx.String("prescreen-token"),
@@ -367,7 +365,6 @@ func configEphemeralServer(cctx *cli.Context) (*Server, error) {
 		dir,
 		Config{
 			Logger:                     logger,
-			RelayHost:                  cctx.String("atp-relay-host"),
 			BskyHost:                   cctx.String("atp-bsky-host"),
 			OzoneHost:                  cctx.String("atp-ozone-host"),
 			OzoneDID:                   cctx.String("ozone-did"),
@@ -381,7 +378,6 @@ func configEphemeralServer(cctx *cli.Context) (*Server, error) {
 			AbyssPassword:              cctx.String("abyss-password"),
 			RatelimitBypass:            cctx.String("ratelimit-bypass"),
 			RulesetName:                cctx.String("ruleset"),
-			FirehoseParallelism:        cctx.Int("firehose-parallelism"),
 			PersistOzoneAccountHistory: cctx.Bool("persist-ozone-account-history"),
 			PreScreenHost:              cctx.String("prescreen-host"),
 			PreScreenToken:             cctx.String("prescreen-token"),

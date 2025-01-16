@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -29,14 +28,11 @@ type Server struct {
 	Engine      *automod.Engine
 	RedisClient *redis.Client
 
-	relayHost           string // DEPRECATED
-	firehoseParallelism int    // DEPRECATED
-	logger              *slog.Logger
+	logger *slog.Logger
 }
 
 type Config struct {
 	Logger                     *slog.Logger
-	RelayHost                  string // DEPRECATED
 	BskyHost                   string
 	OzoneHost                  string
 	OzoneDID                   string
@@ -51,7 +47,6 @@ type Config struct {
 	AbyssPassword              string
 	RulesetName                string
 	RatelimitBypass            string
-	FirehoseParallelism        int // DEPRECATED
 	PersistOzoneAccountHistory bool
 	PreScreenHost              string
 	PreScreenToken             string
@@ -67,11 +62,6 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 			Level: slog.LevelInfo,
 		}))
-	}
-
-	relayws := config.RelayHost
-	if !strings.HasPrefix(relayws, "ws") {
-		return nil, fmt.Errorf("specified relay host must include 'ws://' or 'wss://'")
 	}
 
 	var ozoneClient *xrpc.Client
@@ -211,7 +201,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		bskyClient.Headers["x-ratelimit-bypass"] = config.RatelimitBypass
 	}
 	blobClient := util.RobustHTTPClient()
-	engine := automod.Engine{
+	eng := automod.Engine{
 		Logger:      logger,
 		Directory:   dir,
 		Counters:    counters,
@@ -224,7 +214,7 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		OzoneClient: ozoneClient,
 		AdminClient: adminClient,
 		BlobClient:  blobClient,
-		Config: automod.EngineConfig{
+		Config: engine.EngineConfig{
 			PersistOzoneAccountHistory: config.PersistOzoneAccountHistory,
 			ReportDupePeriod:           config.ReportDupePeriod,
 			QuotaModReportDay:          config.QuotaModReportDay,
@@ -234,11 +224,9 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 	}
 
 	s := &Server{
-		relayHost:           config.RelayHost,
-		firehoseParallelism: config.FirehoseParallelism,
-		logger:              logger,
-		Engine:              &engine,
-		RedisClient:         rdb,
+		logger:      logger,
+		Engine:      &eng,
+		RedisClient: rdb,
 	}
 
 	return s, nil
