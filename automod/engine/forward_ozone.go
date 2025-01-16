@@ -6,11 +6,12 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-func (eng *Engine) ForwardOzoneAccountEvent(c context.Context, e *comatproto.SyncSubscribeRepos_Account) error {
+func (eng *Engine) ForwardOzoneAccountEvent(ctx context.Context, e *comatproto.SyncSubscribeRepos_Account) error {
 	comment := "[automod]: Account status event"
-	eng.forwardOzoneEvent(c, toolsozone.ModerationEmitEvent_Input_Event{
+	eng.forwardOzoneEvent(ctx, toolsozone.ModerationEmitEvent_Input_Event{
 		ModerationDefs_AccountEvent: &toolsozone.ModerationDefs_AccountEvent{
 			Comment:   &comment,
 			Timestamp: e.Time,
@@ -25,18 +26,21 @@ func (eng *Engine) ForwardOzoneAccountEvent(c context.Context, e *comatproto.Syn
 	return nil
 }
 
-func (eng *Engine) ForwardOzoneIdentityEvent(c context.Context, e *comatproto.SyncSubscribeRepos_Identity) error {
+func (eng *Engine) ForwardOzoneIdentityEvent(ctx context.Context, e *comatproto.SyncSubscribeRepos_Identity) error {
 	comment := "[automod]: Identity event"
-	// XXX: pass through tombstone flag?
-	tombstone := false
+	ident, err := eng.Directory.LookupDID(ctx, syntax.DID(e.Did))
+	if err != nil {
+		return err
+	}
+	handleStr := ident.Handle.String()
+	pdsStr := ident.PDSEndpoint()
 
-	eng.forwardOzoneEvent(c, toolsozone.ModerationEmitEvent_Input_Event{
+	eng.forwardOzoneEvent(ctx, toolsozone.ModerationEmitEvent_Input_Event{
 		ModerationDefs_IdentityEvent: &toolsozone.ModerationDefs_IdentityEvent{
 			Comment: &comment,
-			Handle:  e.Handle,
-			// @TODO: This doesn't seem to exist in the Identity event?
-			// PdsHost:   &e.PdsHost,
-			Tombstone: &tombstone,
+			Handle:  &handleStr,
+			PdsHost: &pdsStr,
+			//Tombstone
 			Timestamp: e.Time,
 		},
 	}, toolsozone.ModerationEmitEvent_Input_Subject{
