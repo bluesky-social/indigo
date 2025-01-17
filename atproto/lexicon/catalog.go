@@ -30,6 +30,9 @@ func NewBaseCatalog() BaseCatalog {
 	}
 }
 
+// Returns a scheman definition (`Schema` struct) for a Lexicon reference.
+//
+// A Lexicon ref string is an NSID with an optional #-separated fragment. If the fragment isn't specified, '#main' is used by default.
 func (c *BaseCatalog) Resolve(ref string) (*Schema, error) {
 	if ref == "" {
 		return nil, fmt.Errorf("tried to resolve empty string name")
