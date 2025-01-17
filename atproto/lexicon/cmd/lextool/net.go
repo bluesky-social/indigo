@@ -78,18 +78,3 @@ func runValidateRecord(cctx *cli.Context) error {
 	fmt.Println("success!")
 	return nil
 }
-
-func runValidateFirehose(cctx *cli.Context) error {
-	p := cctx.Args().First()
-	if p == "" {
-		return fmt.Errorf("need to provide directory path as an argument")
-	}
-
-	cat := lexicon.NewBaseCatalog()
-	err := cat.LoadDirectory(p)
-	if err != nil {
-		return err
-	}
-
-	return fmt.Errorf("UNIMPLEMENTED")
-}
