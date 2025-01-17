@@ -84,34 +84,13 @@ func (c *BaseCatalog) AddSchemaFile(sf SchemaFile) error {
 	return nil
 }
 
-// internal helper for loading file paths (either real filesystem or embed.FS)
-func (c *BaseCatalog) addDirEntry(p string, d fs.DirEntry, err error) error {
-	if err != nil {
-		return err
-	}
-	if d.IsDir() {
-		return nil
-	}
-	if !strings.HasSuffix(p, ".json") {
-		return nil
-	}
-	slog.Debug("loading Lexicon schema file", "path", p)
-	f, err := os.Open(p)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = f.Close() }()
-
-	b, err := io.ReadAll(f)
-	if err != nil {
-		return err
-	}
-
+// internal helper for loading JSON files from bytes
+func (c *BaseCatalog) addSchemaFromBytes(b []byte) error {
 	var sf SchemaFile
-	if err = json.Unmarshal(b, &sf); err != nil {
+	if err := json.Unmarshal(b, &sf); err != nil {
 		return err
 	}
-	if err = c.AddSchemaFile(sf); err != nil {
+	if err := c.AddSchemaFile(sf); err != nil {
 		return err
 	}
 	return nil
@@ -119,10 +98,51 @@ func (c *BaseCatalog) addDirEntry(p string, d fs.DirEntry, err error) error {
 
 // Recursively loads all '.json' files from a directory in to the catalog.
 func (c *BaseCatalog) LoadDirectory(dirPath string) error {
-	return filepath.WalkDir(dirPath, c.addDirEntry)
+	walkFunc := func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(p, ".json") {
+			return nil
+		}
+		slog.Debug("loading Lexicon schema file", "path", p)
+		f, err := os.Open(p)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = f.Close() }()
+
+		b, err := io.ReadAll(f)
+		if err != nil {
+			return err
+		}
+		return c.addSchemaFromBytes(b)
+	}
+	return filepath.WalkDir(dirPath, walkFunc)
 }
 
 // Recursively loads all '.json' files from an embed.FS
 func (c *BaseCatalog) LoadEmbedFS(efs embed.FS) error {
-	return fs.WalkDir(efs, ".", c.addDirEntry)
+	walkFunc := func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(p, ".json") {
+			return nil
+		}
+
+		slog.Debug("loading embedded Lexicon schema file", "path", p)
+		b, err := efs.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		return c.addSchemaFromBytes(b)
+	}
+	return fs.WalkDir(efs, ".", walkFunc)
 }
