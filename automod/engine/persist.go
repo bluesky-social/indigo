@@ -30,7 +30,7 @@ func (eng *Engine) persistCounters(ctx context.Context, eff *Effects) error {
 		}
 	}
 	for _, ref := range eff.CounterResets {
-		err := eng.Counters.Reset(ctx, ref.Name, ref.Val)
+		err := eng.Counters.ResetCount(ctx, ref.Name, ref.Val)
 		if err != nil {
 			return err
 		}

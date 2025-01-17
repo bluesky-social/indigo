@@ -82,7 +82,7 @@ func (e *Effects) Increment(name, val string) {
 //
 // "name" is the counter namespace.
 // "val" is the specific counter with that namespace.
-func (e *Effects) ResetCounter(name, val string) {
+func (e *Effects) ResetCount(name, val string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.CounterResets = append(e.CounterResets, CounterRef{Name: name, Val: val})

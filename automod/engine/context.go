@@ -250,8 +250,8 @@ func (c *BaseContext) GetAccountMeta(did syntax.DID) *AccountMeta {
 func (c *BaseContext) Increment(name, val string) {
 	c.effects.Increment(name, val)
 }
-func (c *BaseContext) ResetCounter(name, val string) {
-	c.effects.ResetCounter(name, val)
+func (c *BaseContext) ResetCount(name, val string) {
+	c.effects.ResetCount(name, val)
 }
 
 func (c *BaseContext) IncrementDistinct(name, bucket, val string) {

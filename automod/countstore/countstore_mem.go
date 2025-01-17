@@ -40,18 +40,10 @@ func (s MemCountStore) Increment(ctx context.Context, name, val string) error {
 	return nil
 }
 
-func (s MemCountStore) Reset(ctx context.Context, name, val string) error {
-	for _, p := range []string{PeriodTotal, PeriodDay, PeriodHour} {
-		if err := s.ResetPeriod(ctx, name, val, p); err != nil {
-			return err
-		}
+func (s MemCountStore) ResetCount(ctx context.Context, name, val string) error {
+	for _, period := range []string{PeriodTotal, PeriodDay, PeriodHour} {
+		s.Counts.Delete(periodBucket(name, val, period))
 	}
-	return nil
-}
-
-func (s MemCountStore) ResetPeriod(ctx context.Context, name, val, period string) error {
-	key := periodBucket(name, val, period)
-	s.Counts.Delete(key)
 	return nil
 }
 

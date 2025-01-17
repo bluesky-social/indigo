@@ -66,20 +66,14 @@ func (s *RedisCountStore) Increment(ctx context.Context, name, val string) error
 	return err
 }
 
-func (s *RedisCountStore) Reset(ctx context.Context, name, val string) error {
-	var key string
+func (s *RedisCountStore) ResetCount(ctx context.Context, name, val string) error {
 
 	// delete multiple counters in a single redis round-trip
 	multi := s.Client.Pipeline()
 
-	key = redisCountPrefix + periodBucket(name, val, PeriodHour)
-	multi.Del(ctx, key)
-
-	key = redisCountPrefix + periodBucket(name, val, PeriodDay)
-	multi.Del(ctx, key)
-
-	key = redisCountPrefix + periodBucket(name, val, PeriodTotal)
-	multi.Del(ctx, key)
+	multi.Del(ctx, redisCountPrefix+periodBucket(name, val, PeriodHour))
+	multi.Del(ctx, redisCountPrefix+periodBucket(name, val, PeriodDay))
+	multi.Del(ctx, redisCountPrefix+periodBucket(name, val, PeriodTotal))
 
 	_, err := multi.Exec(ctx)
 	return err

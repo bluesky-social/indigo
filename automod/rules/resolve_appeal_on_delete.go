@@ -52,7 +52,7 @@ func MarkAppealOzoneEventRule(c *automod.OzoneEventContext) error {
 	if isAppealEvent {
 		c.Increment("appeal", counterKey)
 	} else {
-		c.ResetCounter("appeal", counterKey)
+		c.ResetCount("appeal", counterKey)
 	}
 
 	return nil
