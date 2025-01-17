@@ -203,7 +203,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	}
 
 	if newEscalation {
-		c.Logger.Warn("account-escalate")
+		c.Logger.Info("account-escalate")
 		actionNewEscalationCount.WithLabelValues("account").Inc()
 		comment := "[automod]: auto account-escalation"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
@@ -225,7 +225,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	}
 
 	if newAcknowledge {
-		c.Logger.Warn("account-acknowledge")
+		c.Logger.Info("account-acknowledge")
 		actionNewAcknowledgeCount.WithLabelValues("account").Inc()
 		comment := "[automod]: auto account-acknowledge"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
