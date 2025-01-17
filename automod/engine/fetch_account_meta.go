@@ -139,14 +139,16 @@ func (e *Engine) GetAccountMeta(ctx context.Context, ident *identity.Identity) (
 				ap.AccountTags = dedupeStrings(rd.Moderation.SubjectStatus.Tags)
 				if rd.Moderation.SubjectStatus.ReviewState != nil {
 					switch *rd.Moderation.SubjectStatus.ReviewState {
-					case "#reviewOpen":
+					case "tools.ozone.moderation.defs#reviewOpen":
 						ap.ReviewState = ReviewStateOpen
-					case "#reviewEscalated":
+					case "tools.ozone.moderation.defs#reviewEscalated":
 						ap.ReviewState = ReviewStateEscalated
-					case "#reviewClosed":
+					case "tools.ozone.moderation.defs#reviewClosed":
 						ap.ReviewState = ReviewStateClosed
-					case "#reviewNonde":
+					case "tools.ozone.moderation.defs#reviewNone":
 						ap.ReviewState = ReviewStateNone
+					default:
+						logger.Warn("unexpected ozone moderation review state", "state", rd.Moderation.SubjectStatus.ReviewState, "did", ident.DID)
 					}
 				}
 			}

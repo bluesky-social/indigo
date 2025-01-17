@@ -37,6 +37,9 @@ type ModerationEmitEvent_Input_Event struct {
 	ModerationDefs_ModEventResolveAppeal   *ModerationDefs_ModEventResolveAppeal
 	ModerationDefs_ModEventEmail           *ModerationDefs_ModEventEmail
 	ModerationDefs_ModEventTag             *ModerationDefs_ModEventTag
+	ModerationDefs_AccountEvent            *ModerationDefs_AccountEvent
+	ModerationDefs_IdentityEvent           *ModerationDefs_IdentityEvent
+	ModerationDefs_RecordEvent             *ModerationDefs_RecordEvent
 }
 
 func (t *ModerationEmitEvent_Input_Event) MarshalJSON() ([]byte, error) {
@@ -96,6 +99,18 @@ func (t *ModerationEmitEvent_Input_Event) MarshalJSON() ([]byte, error) {
 		t.ModerationDefs_ModEventTag.LexiconTypeID = "tools.ozone.moderation.defs#modEventTag"
 		return json.Marshal(t.ModerationDefs_ModEventTag)
 	}
+	if t.ModerationDefs_AccountEvent != nil {
+		t.ModerationDefs_AccountEvent.LexiconTypeID = "tools.ozone.moderation.defs#accountEvent"
+		return json.Marshal(t.ModerationDefs_AccountEvent)
+	}
+	if t.ModerationDefs_IdentityEvent != nil {
+		t.ModerationDefs_IdentityEvent.LexiconTypeID = "tools.ozone.moderation.defs#identityEvent"
+		return json.Marshal(t.ModerationDefs_IdentityEvent)
+	}
+	if t.ModerationDefs_RecordEvent != nil {
+		t.ModerationDefs_RecordEvent.LexiconTypeID = "tools.ozone.moderation.defs#recordEvent"
+		return json.Marshal(t.ModerationDefs_RecordEvent)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ModerationEmitEvent_Input_Event) UnmarshalJSON(b []byte) error {
@@ -147,6 +162,15 @@ func (t *ModerationEmitEvent_Input_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#modEventTag":
 		t.ModerationDefs_ModEventTag = new(ModerationDefs_ModEventTag)
 		return json.Unmarshal(b, t.ModerationDefs_ModEventTag)
+	case "tools.ozone.moderation.defs#accountEvent":
+		t.ModerationDefs_AccountEvent = new(ModerationDefs_AccountEvent)
+		return json.Unmarshal(b, t.ModerationDefs_AccountEvent)
+	case "tools.ozone.moderation.defs#identityEvent":
+		t.ModerationDefs_IdentityEvent = new(ModerationDefs_IdentityEvent)
+		return json.Unmarshal(b, t.ModerationDefs_IdentityEvent)
+	case "tools.ozone.moderation.defs#recordEvent":
+		t.ModerationDefs_RecordEvent = new(ModerationDefs_RecordEvent)
+		return json.Unmarshal(b, t.ModerationDefs_RecordEvent)
 
 	default:
 		return nil

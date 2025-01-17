@@ -27,6 +27,11 @@ var repoCommitsReceivedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "The total number of events received",
 }, []string{"pds"})
 
+var repoCommitsResultCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "repo_commits_result_counter",
+	Help: "The results of commit events received",
+}, []string{"pds", "status"})
+
 var rebasesCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "event_rebases",
 	Help: "The total number of rebase events received",
@@ -40,6 +45,11 @@ var eventsSentCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 var externalUserCreationAttempts = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "bgs_external_user_creation_attempts",
 	Help: "The total number of external users created",
+})
+
+var connectedInbound = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "bgs_connected_inbound",
+	Help: "Number of inbound firehoses we are consuming",
 })
 
 var compactionDuration = promauto.NewHistogram(prometheus.HistogramOpts{
@@ -80,6 +90,18 @@ var resSz = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Help:    "A histogram of response sizes for requests.",
 	Buckets: prometheus.ExponentialBuckets(100, 10, 8),
 }, []string{"code", "method", "path"})
+
+var userLookupDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+	Name:    "relay_user_lookup_duration",
+	Help:    "A histogram of user lookup latencies",
+	Buckets: prometheus.ExponentialBuckets(0.001, 2, 15),
+})
+
+var newUserDiscoveryDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+	Name:    "relay_new_user_discovery_duration",
+	Help:    "A histogram of new user discovery latencies",
+	Buckets: prometheus.ExponentialBuckets(0.001, 2, 15),
+})
 
 // MetricsMiddleware defines handler function for metrics middleware
 func MetricsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {

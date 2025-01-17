@@ -149,6 +149,30 @@ func run(args []string) error {
 			Usage:   "secret token for prescreen server",
 			EnvVars: []string{"HEPA_PRESCREEN_TOKEN"},
 		},
+		&cli.DurationFlag{
+			Name:    "report-dupe-period",
+			Usage:   "time period within which automod will not re-report an account for the same reasonType",
+			EnvVars: []string{"HEPA_REPORT_DUPE_PERIOD"},
+			Value:   1 * 24 * time.Hour,
+		},
+		&cli.IntFlag{
+			Name:    "quota-mod-report-day",
+			Usage:   "number of reports automod can file per day, for all subjects and types combined (circuit breaker)",
+			EnvVars: []string{"HEPA_QUOTA_MOD_REPORT_DAY"},
+			Value:   10000,
+		},
+		&cli.IntFlag{
+			Name:    "quota-mod-takedown-day",
+			Usage:   "number of takedowns automod can action per day, for all subjects combined (circuit breaker)",
+			EnvVars: []string{"HEPA_QUOTA_MOD_TAKEDOWN_DAY"},
+			Value:   200,
+		},
+		&cli.IntFlag{
+			Name:    "quota-mod-action-day",
+			Usage:   "number of misc actions automod can do per day, for all subjects combined (circuit breaker)",
+			EnvVars: []string{"HEPA_QUOTA_MOD_ACTION_DAY"},
+			Value:   2000,
+		},
 	}
 
 	app.Commands = []*cli.Command{
@@ -237,7 +261,6 @@ var runCmd = &cli.Command{
 			dir,
 			Config{
 				Logger:              logger,
-				RelayHost:           cctx.String("atp-relay-host"), // DEPRECATED
 				BskyHost:            cctx.String("atp-bsky-host"),
 				OzoneHost:           cctx.String("atp-ozone-host"),
 				OzoneDID:            cctx.String("ozone-did"),
@@ -252,9 +275,12 @@ var runCmd = &cli.Command{
 				AbyssPassword:       cctx.String("abyss-password"),
 				RatelimitBypass:     cctx.String("ratelimit-bypass"),
 				RulesetName:         cctx.String("ruleset"),
-				FirehoseParallelism: cctx.Int("firehose-parallelism"), // DEPRECATED
 				PreScreenHost:       cctx.String("prescreen-host"),
 				PreScreenToken:      cctx.String("prescreen-token"),
+				ReportDupePeriod:    cctx.Duration("report-dupe-period"),
+				QuotaModReportDay:   cctx.Int("quota-mod-report-day"),
+				QuotaModTakedownDay: cctx.Int("quota-mod-takedown-day"),
+				QuotaModActionDay:   cctx.Int("quota-mod-action-day"),
 			},
 		)
 		if err != nil {
@@ -332,24 +358,22 @@ func configEphemeralServer(cctx *cli.Context) (*Server, error) {
 	return NewServer(
 		dir,
 		Config{
-			Logger:              logger,
-			RelayHost:           cctx.String("atp-relay-host"),
-			BskyHost:            cctx.String("atp-bsky-host"),
-			OzoneHost:           cctx.String("atp-ozone-host"),
-			OzoneDID:            cctx.String("ozone-did"),
-			OzoneAdminToken:     cctx.String("ozone-admin-token"),
-			PDSHost:             cctx.String("atp-pds-host"),
-			PDSAdminToken:       cctx.String("pds-admin-token"),
-			SetsFileJSON:        cctx.String("sets-json-path"),
-			RedisURL:            cctx.String("redis-url"),
-			HiveAPIToken:        cctx.String("hiveai-api-token"),
-			AbyssHost:           cctx.String("abyss-host"),
-			AbyssPassword:       cctx.String("abyss-password"),
-			RatelimitBypass:     cctx.String("ratelimit-bypass"),
-			RulesetName:         cctx.String("ruleset"),
-			FirehoseParallelism: cctx.Int("firehose-parallelism"),
-			PreScreenHost:       cctx.String("prescreen-host"),
-			PreScreenToken:      cctx.String("prescreen-token"),
+			Logger:          logger,
+			BskyHost:        cctx.String("atp-bsky-host"),
+			OzoneHost:       cctx.String("atp-ozone-host"),
+			OzoneDID:        cctx.String("ozone-did"),
+			OzoneAdminToken: cctx.String("ozone-admin-token"),
+			PDSHost:         cctx.String("atp-pds-host"),
+			PDSAdminToken:   cctx.String("pds-admin-token"),
+			SetsFileJSON:    cctx.String("sets-json-path"),
+			RedisURL:        cctx.String("redis-url"),
+			HiveAPIToken:    cctx.String("hiveai-api-token"),
+			AbyssHost:       cctx.String("abyss-host"),
+			AbyssPassword:   cctx.String("abyss-password"),
+			RatelimitBypass: cctx.String("ratelimit-bypass"),
+			RulesetName:     cctx.String("ruleset"),
+			PreScreenHost:   cctx.String("prescreen-host"),
+			PreScreenToken:  cctx.String("prescreen-token"),
 		},
 	)
 }

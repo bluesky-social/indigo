@@ -2,18 +2,6 @@ package engine
 
 import (
 	"sync"
-	"time"
-)
-
-var (
-	// time period within which automod will not re-report an account for the same reasonType
-	ReportDupePeriod = 1 * 24 * time.Hour
-	// number of reports automod can file per day, for all subjects and types combined (circuit breaker)
-	QuotaModReportDay = 2000
-	// number of takedowns automod can action per day, for all subjects combined (circuit breaker)
-	QuotaModTakedownDay = 200
-	// number of misc actions automod can do per day, for all subjects combined (circuit breaker)
-	QuotaModActionDay = 1000
 )
 
 type CounterRef struct {

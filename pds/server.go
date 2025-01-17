@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/mail"
@@ -14,13 +15,13 @@ import (
 
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/indexer"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/notifs"
+	pdsdata "github.com/bluesky-social/indigo/pds/data"
 	"github.com/bluesky-social/indigo/plc"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
@@ -29,15 +30,12 @@ import (
 	gojwt "github.com/golang-jwt/jwt"
 	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
-	logging "github.com/ipfs/go-log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/whyrusleeping/go-did"
 	"gorm.io/gorm"
 )
-
-var log = logging.Logger("pds")
 
 type Server struct {
 	db             *gorm.DB
@@ -56,6 +54,8 @@ type Server struct {
 	serviceUrl   string
 
 	plc plc.PLCClient
+
+	log *slog.Logger
 }
 
 // serverListenerBootTimeout is how long to wait for the requested server socket
@@ -96,18 +96,20 @@ func NewServer(db *gorm.DB, cs carstore.CarStore, serkey *did.PrivKey, handleSuf
 		serviceUrl:     serviceUrl,
 		jwtSigningKey:  jwtkey,
 		enforcePeering: false,
+
+		log: slog.Default().With("system", "pds"),
 	}
 
 	repoman.SetEventHandler(func(ctx context.Context, evt *repomgr.RepoEvent) {
 		if err := ix.HandleRepoEvent(ctx, evt); err != nil {
-			log.Errorw("handle repo event failed", "user", evt.User, "err", err)
+			s.log.Error("handle repo event failed", "user", evt.User, "err", err)
 		}
 	}, true)
 
 	//ix.SendRemoteFollow = s.sendRemoteFollow
 	ix.CreateExternalUser = s.createExternalUser
 
-	feedgen, err := NewFeedGenerator(db, ix, s.readRecordFunc)
+	feedgen, err := NewFeedGenerator(db, ix, s.readRecordFunc, s.log)
 	if err != nil {
 		return nil, err
 	}
@@ -199,15 +201,6 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 		handle = hurl.Host
 	}
 
-	profile, err := bsky.ActorGetProfile(ctx, c, did)
-	if err != nil {
-		return nil, err
-	}
-
-	if handle != profile.Handle {
-		return nil, fmt.Errorf("mismatch in handle between did document and pds profile (%s != %s)", handle, profile.Handle)
-	}
-
 	// TODO: request this users info from their server to fill out our data...
 	u := User{
 		Handle: handle,
@@ -224,7 +217,7 @@ func (s *Server) createExternalUser(ctx context.Context, did string) (*models.Ac
 	subj := &models.ActorInfo{
 		Uid:         u.ID,
 		Handle:      sql.NullString{String: handle, Valid: true},
-		DisplayName: *profile.DisplayName,
+		DisplayName: "missing display name",
 		Did:         did,
 		Type:        "",
 		PDS:         peering.ID,
@@ -433,7 +426,7 @@ type HealthStatus struct {
 
 func (s *Server) HandleHealthCheck(c echo.Context) error {
 	if err := s.db.Exec("SELECT 1").Error; err != nil {
-		log.Errorf("healthcheck can't connect to database: %v", err)
+		s.log.Error("healthcheck can't connect to database", "err", err)
 		return c.JSON(500, HealthStatus{Status: "error", Message: "can't connect to database"})
 	} else {
 		return c.JSON(200, HealthStatus{Status: "ok"})
@@ -456,18 +449,7 @@ func (s *Server) HandleResolveDid(c echo.Context) error {
 	return c.String(200, u.Did)
 }
 
-type User struct {
-	ID          models.Uid `gorm:"primarykey"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	DeletedAt   gorm.DeletedAt `gorm:"index"`
-	Handle      string         `gorm:"uniqueIndex"`
-	Password    string
-	RecoveryKey string
-	Email       string
-	Did         string `gorm:"uniqueIndex"`
-	PDS         uint
-}
+type User = pdsdata.User
 
 type RefreshToken struct {
 	gorm.Model
@@ -636,12 +618,7 @@ func (s *Server) invalidateToken(ctx context.Context, u *User, tok *jwt.Token) e
 	panic("nyi")
 }
 
-type Peering struct {
-	gorm.Model
-	Host     string
-	Did      string
-	Approved bool
-}
+type Peering = pdsdata.Peering
 
 func (s *Server) EventsHandler(c echo.Context) error {
 	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
@@ -741,7 +718,7 @@ func (s *Server) EventsHandler(c echo.Context) error {
 func (s *Server) UpdateUserHandle(ctx context.Context, u *User, handle string) error {
 	if u.Handle == handle {
 		// no change? move on
-		log.Warnw("attempted to change handle to current handle", "did", u.Did, "handle", handle)
+		s.log.Warn("attempted to change handle to current handle", "did", u.Did, "handle", handle)
 		return nil
 	}
 

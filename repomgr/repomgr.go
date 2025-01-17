@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"sync"
+	"time"
 
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	bsky "github.com/bluesky-social/indigo/api/bsky"
@@ -23,7 +25,6 @@ import (
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	ipld "github.com/ipfs/go-ipld-format"
-	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-car"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
@@ -31,14 +32,19 @@ import (
 	"gorm.io/gorm"
 )
 
-var log = logging.Logger("repomgr")
-
 func NewRepoManager(cs carstore.CarStore, kmgr KeyManager) *RepoManager {
+
+	var noArchive bool
+	if _, ok := cs.(*carstore.NonArchivalCarstore); ok {
+		noArchive = true
+	}
 
 	return &RepoManager{
 		cs:        cs,
 		userLocks: make(map[models.Uid]*userLock),
 		kmgr:      kmgr,
+		log:       slog.Default().With("system", "repomgr"),
+		noArchive: noArchive,
 	}
 }
 
@@ -61,6 +67,9 @@ type RepoManager struct {
 
 	events         func(context.Context, *RepoEvent)
 	hydrateRecords bool
+
+	log       *slog.Logger
+	noArchive bool
 }
 
 type ActorInfo struct {
@@ -467,7 +476,7 @@ func (rm *RepoManager) GetRecordProof(ctx context.Context, user models.Uid, coll
 		return cid.Undef, nil, err
 	}
 
-	_, _, err = r.GetRecord(ctx, collection+"/"+rkey)
+	_, _, err = r.GetRecordBytes(ctx, collection+"/"+rkey)
 	if err != nil {
 		return cid.Undef, nil, err
 	}
@@ -528,16 +537,122 @@ func (rm *RepoManager) CheckRepoSig(ctx context.Context, r *repo.Repo, expdid st
 }
 
 func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, uid models.Uid, did string, since *string, nrev string, carslice []byte, ops []*atproto.SyncSubscribeRepos_RepoOp) error {
+	if rm.noArchive {
+		return rm.handleExternalUserEventNoArchive(ctx, pdsid, uid, did, since, nrev, carslice, ops)
+	} else {
+		return rm.handleExternalUserEventArchive(ctx, pdsid, uid, did, since, nrev, carslice, ops)
+	}
+}
+
+func (rm *RepoManager) handleExternalUserEventNoArchive(ctx context.Context, pdsid uint, uid models.Uid, did string, since *string, nrev string, carslice []byte, ops []*atproto.SyncSubscribeRepos_RepoOp) error {
 	ctx, span := otel.Tracer("repoman").Start(ctx, "HandleExternalUserEvent")
 	defer span.End()
 
 	span.SetAttributes(attribute.Int64("uid", int64(uid)))
 
-	log.Debugw("HandleExternalUserEvent", "pds", pdsid, "uid", uid, "since", since, "nrev", nrev)
+	rm.log.Debug("HandleExternalUserEvent", "pds", pdsid, "uid", uid, "since", since, "nrev", nrev)
 
 	unlock := rm.lockUser(ctx, uid)
 	defer unlock()
 
+	start := time.Now()
+	root, ds, err := rm.cs.ImportSlice(ctx, uid, since, carslice)
+	if err != nil {
+		return fmt.Errorf("importing external carslice: %w", err)
+	}
+
+	r, err := repo.OpenRepo(ctx, ds, root)
+	if err != nil {
+		return fmt.Errorf("opening external user repo (%d, root=%s): %w", uid, root, err)
+	}
+
+	if err := rm.CheckRepoSig(ctx, r, did); err != nil {
+		return fmt.Errorf("check repo sig: %w", err)
+	}
+	openAndSigCheckDuration.Observe(time.Since(start).Seconds())
+
+	evtops := make([]RepoOp, 0, len(ops))
+	for _, op := range ops {
+		parts := strings.SplitN(op.Path, "/", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid rpath in mst diff, must have collection and rkey")
+		}
+
+		switch EventKind(op.Action) {
+		case EvtKindCreateRecord:
+			rop := RepoOp{
+				Kind:       EvtKindCreateRecord,
+				Collection: parts[0],
+				Rkey:       parts[1],
+				RecCid:     (*cid.Cid)(op.Cid),
+			}
+
+			if rm.hydrateRecords {
+				_, rec, err := r.GetRecord(ctx, op.Path)
+				if err != nil {
+					return fmt.Errorf("reading changed record from car slice: %w", err)
+				}
+				rop.Record = rec
+			}
+
+			evtops = append(evtops, rop)
+		case EvtKindUpdateRecord:
+			rop := RepoOp{
+				Kind:       EvtKindUpdateRecord,
+				Collection: parts[0],
+				Rkey:       parts[1],
+				RecCid:     (*cid.Cid)(op.Cid),
+			}
+
+			if rm.hydrateRecords {
+				_, rec, err := r.GetRecord(ctx, op.Path)
+				if err != nil {
+					return fmt.Errorf("reading changed record from car slice: %w", err)
+				}
+
+				rop.Record = rec
+			}
+
+			evtops = append(evtops, rop)
+		case EvtKindDeleteRecord:
+			evtops = append(evtops, RepoOp{
+				Kind:       EvtKindDeleteRecord,
+				Collection: parts[0],
+				Rkey:       parts[1],
+			})
+		default:
+			return fmt.Errorf("unrecognized external user event kind: %q", op.Action)
+		}
+	}
+
+	if rm.events != nil {
+		rm.events(ctx, &RepoEvent{
+			User: uid,
+			//OldRoot:   prev,
+			NewRoot:   root,
+			Rev:       nrev,
+			Since:     since,
+			Ops:       evtops,
+			RepoSlice: carslice,
+			PDS:       pdsid,
+		})
+	}
+
+	return nil
+}
+
+func (rm *RepoManager) handleExternalUserEventArchive(ctx context.Context, pdsid uint, uid models.Uid, did string, since *string, nrev string, carslice []byte, ops []*atproto.SyncSubscribeRepos_RepoOp) error {
+	ctx, span := otel.Tracer("repoman").Start(ctx, "HandleExternalUserEvent")
+	defer span.End()
+
+	span.SetAttributes(attribute.Int64("uid", int64(uid)))
+
+	rm.log.Debug("HandleExternalUserEvent", "pds", pdsid, "uid", uid, "since", since, "nrev", nrev)
+
+	unlock := rm.lockUser(ctx, uid)
+	defer unlock()
+
+	start := time.Now()
 	root, ds, err := rm.cs.ImportSlice(ctx, uid, since, carslice)
 	if err != nil {
 		return fmt.Errorf("importing external carslice: %w", err)
@@ -551,6 +666,7 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 	if err := rm.CheckRepoSig(ctx, r, did); err != nil {
 		return err
 	}
+	openAndSigCheckDuration.Observe(time.Since(start).Seconds())
 
 	var skipcids map[cid.Cid]bool
 	if ds.BaseCid().Defined() {
@@ -571,10 +687,11 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		}
 	}
 
+	start = time.Now()
 	if err := ds.CalcDiff(ctx, skipcids); err != nil {
 		return fmt.Errorf("failed while calculating mst diff (since=%v): %w", since, err)
-
 	}
+	calcDiffDuration.Observe(time.Since(start).Seconds())
 
 	evtops := make([]RepoOp, 0, len(ops))
 
@@ -631,10 +748,12 @@ func (rm *RepoManager) HandleExternalUserEvent(ctx context.Context, pdsid uint, 
 		}
 	}
 
+	start = time.Now()
 	rslice, err := ds.CloseWithRoot(ctx, root, nrev)
 	if err != nil {
 		return fmt.Errorf("close with root: %w", err)
 	}
+	writeCarSliceDuration.Observe(time.Since(start).Seconds())
 
 	if rm.events != nil {
 		rm.events(ctx, &RepoEvent{
@@ -829,9 +948,9 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 		ops := make([]RepoOp, 0, len(diffops))
 		for _, op := range diffops {
 			repoOpsImported.Inc()
-			out, err := processOp(ctx, bs, op, rm.hydrateRecords)
+			out, err := rm.processOp(ctx, bs, op, rm.hydrateRecords)
 			if err != nil {
-				log.Errorw("failed to process repo op", "err", err, "path", op.Rpath, "repo", repoDid)
+				rm.log.Error("failed to process repo op", "err", err, "path", op.Rpath, "repo", repoDid)
 			}
 
 			if out != nil {
@@ -865,7 +984,7 @@ func (rm *RepoManager) ImportNewRepo(ctx context.Context, user models.Uid, repoD
 	return nil
 }
 
-func processOp(ctx context.Context, bs blockstore.Blockstore, op *mst.DiffOp, hydrateRecords bool) (*RepoOp, error) {
+func (rm *RepoManager) processOp(ctx context.Context, bs blockstore.Blockstore, op *mst.DiffOp, hydrateRecords bool) (*RepoOp, error) {
 	parts := strings.SplitN(op.Rpath, "/", 2)
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("repo mst had invalid rpath: %q", op.Rpath)
@@ -898,7 +1017,7 @@ func processOp(ctx context.Context, bs blockstore.Blockstore, op *mst.DiffOp, hy
 					return nil, err
 				}
 
-				log.Warnf("failed processing repo diff: %s", err)
+				rm.log.Warn("failed processing repo diff", "err", err)
 			} else {
 				outop.Record = rec
 			}
@@ -954,7 +1073,7 @@ func (rm *RepoManager) processNewRepo(ctx context.Context, user models.Uid, r io
 	// the repos lifecycle, this will end up erroneously not including
 	// them. We should compute the set of blocks needed to read any repo
 	// ops that happened in the commit and use that for our 'output' blocks
-	cids, err := walkTree(ctx, seen, root, membs, true)
+	cids, err := rm.walkTree(ctx, seen, root, membs, true)
 	if err != nil {
 		return fmt.Errorf("walkTree: %w", err)
 	}
@@ -995,7 +1114,7 @@ func stringOrNil(s *string) string {
 
 // walkTree returns all cids linked recursively by the root, skipping any cids
 // in the 'skip' map, and not erroring on 'not found' if prevMissing is set
-func walkTree(ctx context.Context, skip map[cid.Cid]bool, root cid.Cid, bs blockstore.Blockstore, prevMissing bool) ([]cid.Cid, error) {
+func (rm *RepoManager) walkTree(ctx context.Context, skip map[cid.Cid]bool, root cid.Cid, bs blockstore.Blockstore, prevMissing bool) ([]cid.Cid, error) {
 	// TODO: what if someone puts non-cbor links in their repo?
 	if root.Prefix().Codec != cid.DagCBOR {
 		return nil, fmt.Errorf("can only handle dag-cbor objects in repos (%s is %d)", root, root.Prefix().Codec)
@@ -1009,7 +1128,7 @@ func walkTree(ctx context.Context, skip map[cid.Cid]bool, root cid.Cid, bs block
 	var links []cid.Cid
 	if err := cbg.ScanForLinks(bytes.NewReader(blk.RawData()), func(c cid.Cid) {
 		if c.Prefix().Codec == cid.Raw {
-			log.Debugw("skipping 'raw' CID in record", "recordCid", root, "rawCid", c)
+			rm.log.Debug("skipping 'raw' CID in record", "recordCid", root, "rawCid", c)
 			return
 		}
 		if skip[c] {
@@ -1029,7 +1148,7 @@ func walkTree(ctx context.Context, skip map[cid.Cid]bool, root cid.Cid, bs block
 
 	// TODO: should do this non-recursive since i expect these may get deep
 	for _, c := range links {
-		sub, err := walkTree(ctx, skip, c, bs, prevMissing)
+		sub, err := rm.walkTree(ctx, skip, c, bs, prevMissing)
 		if err != nil {
 			if prevMissing && !ipld.IsNotFound(err) {
 				return nil, err

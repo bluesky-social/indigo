@@ -1,4 +1,4 @@
-package events_test
+package events
 
 import (
 	"context"
@@ -14,16 +14,15 @@ import (
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/pds"
+	pds "github.com/bluesky-social/indigo/pds/data"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
 	"gorm.io/gorm"
 )
 
-func TestDiskPersist(t *testing.T) {
+func testPersister(t *testing.T, perisistenceFactory func(path string, db *gorm.DB) (EventPersistence, error)) {
 	ctx := context.Background()
 
 	db, _, cs, tempPath, err := setupDBs(t)
@@ -57,19 +56,14 @@ func TestDiskPersist(t *testing.T) {
 
 	defer os.RemoveAll(tempPath)
 
-	// Initialize a DBPersister
-
-	dp, err := events.NewDiskPersistence(filepath.Join(tempPath, "diskPrimary"), filepath.Join(tempPath, "diskArchive"), db, &events.DiskPersistOptions{
-		EventsPerFile: 10,
-		UIDCacheSize:  100000,
-		DIDCacheSize:  100000,
-	})
+	// Initialize a persister
+	dp, err := perisistenceFactory(tempPath, db)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Create a bunch of events
-	evtman := events.NewEventManager(dp)
+	evtman := NewEventManager(dp)
 
 	userRepoHead, err := mgr.GetRepoRoot(ctx, 1)
 	if err != nil {
@@ -77,11 +71,11 @@ func TestDiskPersist(t *testing.T) {
 	}
 
 	n := 100
-	inEvts := make([]*events.XRPCStreamEvent, n)
+	inEvts := make([]*XRPCStreamEvent, n)
 	for i := 0; i < n; i++ {
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
-		inEvts[i] = &events.XRPCStreamEvent{
+		inEvts[i] = &XRPCStreamEvent{
 			RepoCommit: &atproto.SyncSubscribeRepos_Commit{
 				Repo:   "did:example:123",
 				Commit: headLink,
@@ -93,6 +87,7 @@ func TestDiskPersist(t *testing.T) {
 					},
 				},
 				Time: time.Now().Format(util.ISO8601),
+				Seq:  int64(i),
 			},
 		}
 	}
@@ -112,7 +107,7 @@ func TestDiskPersist(t *testing.T) {
 	outEvtCount := 0
 	expectedEvtCount := n
 
-	dp.Playback(ctx, 0, func(evt *events.XRPCStreamEvent) error {
+	dp.Playback(ctx, 0, func(evt *XRPCStreamEvent) error {
 		outEvtCount++
 		return nil
 	})
@@ -125,7 +120,7 @@ func TestDiskPersist(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 100)
 
-	dp2, err := events.NewDiskPersistence(filepath.Join(tempPath, "diskPrimary"), filepath.Join(tempPath, "diskArchive"), db, &events.DiskPersistOptions{
+	dp2, err := NewDiskPersistence(filepath.Join(tempPath, "diskPrimary"), filepath.Join(tempPath, "diskArchive"), db, &DiskPersistOptions{
 		EventsPerFile: 10,
 		UIDCacheSize:  100000,
 		DIDCacheSize:  100000,
@@ -134,13 +129,13 @@ func TestDiskPersist(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	evtman2 := events.NewEventManager(dp2)
+	evtman2 := NewEventManager(dp2)
 
-	inEvts = make([]*events.XRPCStreamEvent, n)
+	inEvts = make([]*XRPCStreamEvent, n)
 	for i := 0; i < n; i++ {
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
-		inEvts[i] = &events.XRPCStreamEvent{
+		inEvts[i] = &XRPCStreamEvent{
 			RepoCommit: &atproto.SyncSubscribeRepos_Commit{
 				Repo:   "did:example:123",
 				Commit: headLink,
@@ -163,6 +158,16 @@ func TestDiskPersist(t *testing.T) {
 		}
 	}
 }
+func TestDiskPersist(t *testing.T) {
+	factory := func(tempPath string, db *gorm.DB) (EventPersistence, error) {
+		return NewDiskPersistence(filepath.Join(tempPath, "diskPrimary"), filepath.Join(tempPath, "diskArchive"), db, &DiskPersistOptions{
+			EventsPerFile: 10,
+			UIDCacheSize:  100000,
+			DIDCacheSize:  100000,
+		})
+	}
+	testPersister(t, factory)
+}
 
 func BenchmarkDiskPersist(b *testing.B) {
 	db, _, cs, tempPath, err := setupDBs(b)
@@ -174,7 +179,7 @@ func BenchmarkDiskPersist(b *testing.B) {
 
 	// Initialize a DBPersister
 
-	dp, err := events.NewDiskPersistence(filepath.Join(tempPath, "diskPrimary"), filepath.Join(tempPath, "diskArchive"), db, &events.DiskPersistOptions{
+	dp, err := NewDiskPersistence(filepath.Join(tempPath, "diskPrimary"), filepath.Join(tempPath, "diskArchive"), db, &DiskPersistOptions{
 		EventsPerFile: 5000,
 		UIDCacheSize:  100000,
 		DIDCacheSize:  100000,
@@ -187,7 +192,7 @@ func BenchmarkDiskPersist(b *testing.B) {
 
 }
 
-func runPersisterBenchmark(b *testing.B, cs carstore.CarStore, db *gorm.DB, p events.EventPersistence) {
+func runPersisterBenchmark(b *testing.B, cs carstore.CarStore, db *gorm.DB, p EventPersistence) {
 	ctx := context.Background()
 
 	db.AutoMigrate(&pds.User{})
@@ -215,18 +220,18 @@ func runPersisterBenchmark(b *testing.B, cs carstore.CarStore, db *gorm.DB, p ev
 	}
 
 	// Create a bunch of events
-	evtman := events.NewEventManager(p)
+	evtman := NewEventManager(p)
 
 	userRepoHead, err := mgr.GetRepoRoot(ctx, 1)
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	inEvts := make([]*events.XRPCStreamEvent, b.N)
+	inEvts := make([]*XRPCStreamEvent, b.N)
 	for i := 0; i < b.N; i++ {
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
-		inEvts[i] = &events.XRPCStreamEvent{
+		inEvts[i] = &XRPCStreamEvent{
 			RepoCommit: &atproto.SyncSubscribeRepos_Commit{
 				Repo:   "did:example:123",
 				Commit: headLink,
@@ -290,7 +295,7 @@ func TestDiskPersister(t *testing.T) {
 
 	// Initialize a DBPersister
 
-	dp, err := events.NewDiskPersistence(filepath.Join(tempPath, "diskPrimary"), filepath.Join(tempPath, "diskArchive"), db, &events.DiskPersistOptions{
+	dp, err := NewDiskPersistence(filepath.Join(tempPath, "diskPrimary"), filepath.Join(tempPath, "diskArchive"), db, &DiskPersistOptions{
 		EventsPerFile: 20,
 		UIDCacheSize:  100000,
 		DIDCacheSize:  100000,
@@ -302,7 +307,7 @@ func TestDiskPersister(t *testing.T) {
 	runEventManagerTest(t, cs, db, dp)
 }
 
-func runEventManagerTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p events.EventPersistence) {
+func runEventManagerTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p EventPersistence) {
 	ctx := context.Background()
 
 	db.AutoMigrate(&pds.User{})
@@ -329,7 +334,7 @@ func runEventManagerTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p even
 		t.Fatal(err)
 	}
 
-	evtman := events.NewEventManager(p)
+	evtman := NewEventManager(p)
 
 	userRepoHead, err := mgr.GetRepoRoot(ctx, 1)
 	if err != nil {
@@ -337,11 +342,11 @@ func runEventManagerTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p even
 	}
 
 	testSize := 100 // you can adjust this number as needed
-	inEvts := make([]*events.XRPCStreamEvent, testSize)
+	inEvts := make([]*XRPCStreamEvent, testSize)
 	for i := 0; i < testSize; i++ {
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
-		inEvts[i] = &events.XRPCStreamEvent{
+		inEvts[i] = &XRPCStreamEvent{
 			RepoCommit: &atproto.SyncSubscribeRepos_Commit{
 				Repo:   "did:example:123",
 				Commit: headLink,
@@ -368,7 +373,7 @@ func runEventManagerTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p even
 	}
 
 	outEvtCount := 0
-	p.Playback(ctx, 0, func(evt *events.XRPCStreamEvent) error {
+	p.Playback(ctx, 0, func(evt *XRPCStreamEvent) error {
 		// Check that the contents of the output events match the input events
 		// Clear cache, don't care if one has it and not the other
 		inEvts[outEvtCount].Preserialized = nil
@@ -397,7 +402,7 @@ func TestDiskPersisterTakedowns(t *testing.T) {
 
 	// Initialize a DBPersister
 
-	dp, err := events.NewDiskPersistence(filepath.Join(tempPath, "diskPrimary"), filepath.Join(tempPath, "diskArchive"), db, &events.DiskPersistOptions{
+	dp, err := NewDiskPersistence(filepath.Join(tempPath, "diskPrimary"), filepath.Join(tempPath, "diskArchive"), db, &DiskPersistOptions{
 		EventsPerFile: 10,
 		UIDCacheSize:  100000,
 		DIDCacheSize:  100000,
@@ -409,7 +414,7 @@ func TestDiskPersisterTakedowns(t *testing.T) {
 	runTakedownTest(t, cs, db, dp)
 }
 
-func runTakedownTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p events.EventPersistence) {
+func runTakedownTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p EventPersistence) {
 	ctx := context.TODO()
 
 	db.AutoMigrate(&pds.User{})
@@ -439,10 +444,10 @@ func runTakedownTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p events.E
 		}
 	}
 
-	evtman := events.NewEventManager(p)
+	evtman := NewEventManager(p)
 
 	testSize := 100 // you can adjust this number as needed
-	inEvts := make([]*events.XRPCStreamEvent, testSize*userCount)
+	inEvts := make([]*XRPCStreamEvent, testSize*userCount)
 	for i := 0; i < testSize*userCount; i++ {
 		user := users[i%userCount]
 		_, cid, err := mgr.CreateRecord(ctx, user.Uid, "app.bsky.feed.post", &bsky.FeedPost{
@@ -460,7 +465,7 @@ func runTakedownTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p events.E
 
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
-		inEvts[i] = &events.XRPCStreamEvent{
+		inEvts[i] = &XRPCStreamEvent{
 			RepoCommit: &atproto.SyncSubscribeRepos_Commit{
 				Repo:   user.Did,
 				Commit: headLink,
@@ -495,7 +500,7 @@ func runTakedownTest(t *testing.T, cs carstore.CarStore, db *gorm.DB, p events.E
 
 	// Verify that the events of the user have been removed from the event stream
 	var evtsCount int
-	if err := p.Playback(ctx, 0, func(evt *events.XRPCStreamEvent) error {
+	if err := p.Playback(ctx, 0, func(evt *XRPCStreamEvent) error {
 		evtsCount++
 		if evt.RepoCommit.Repo == takeDownUser.Did {
 			t.Fatalf("found event for user %d after takedown", takeDownUser.Uid)

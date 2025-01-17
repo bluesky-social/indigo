@@ -57,13 +57,13 @@ var _ identity.Directory = (*RedisDirectory)(nil)
 func NewRedisDirectory(inner identity.Directory, redisURL string, hitTTL, errTTL, invalidHandleTTL time.Duration, lruSize int) (*RedisDirectory, error) {
 	opt, err := redis.ParseURL(redisURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not configure redis identity cache: %w", err)
 	}
 	rdb := redis.NewClient(opt)
 	// check redis connection
 	_, err = rdb.Ping(context.TODO()).Result()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not connect to redis identity cache: %w", err)
 	}
 	handleCache := cache.New(&cache.Options{
 		Redis:      rdb,
@@ -117,7 +117,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 		})
 		if err != nil {
 			he.DID = nil
-			he.Err = fmt.Errorf("identity cache write: %w", err)
+			he.Err = fmt.Errorf("identity cache write failed: %w", err)
 			return he
 		}
 		return he
@@ -142,7 +142,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 	})
 	if err != nil {
 		he.DID = nil
-		he.Err = fmt.Errorf("identity cache write: %w", err)
+		he.Err = fmt.Errorf("identity cache write failed: %w", err)
 		return he
 	}
 	err = d.handleCache.Set(&cache.Item{
@@ -153,7 +153,7 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 	})
 	if err != nil {
 		he.DID = nil
-		he.Err = fmt.Errorf("identity cache write: %w", err)
+		he.Err = fmt.Errorf("identity cache write failed: %w", err)
 		return he
 	}
 	return he
@@ -161,12 +161,12 @@ func (d *RedisDirectory) updateHandle(ctx context.Context, h syntax.Handle) hand
 
 func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
 	if h.IsInvalidHandle() {
-		return "", errors.New("invalid handle")
+		return "", fmt.Errorf("can not resolve handle: %w", identity.ErrInvalidHandle)
 	}
 	var entry handleEntry
 	err := d.handleCache.Get(ctx, redisDirPrefix+h.String(), &entry)
 	if err != nil && err != cache.ErrCacheMiss {
-		return "", fmt.Errorf("identity cache read: %w", err)
+		return "", fmt.Errorf("identity cache read failed: %w", err)
 	}
 	if err == nil && !d.isHandleStale(&entry) { // if no error...
 		handleCacheHits.Inc()
@@ -191,7 +191,7 @@ func (d *RedisDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (sy
 			// The result should now be in the cache
 			err := d.handleCache.Get(ctx, redisDirPrefix+h.String(), entry)
 			if err != nil && err != cache.ErrCacheMiss {
-				return "", fmt.Errorf("identity cache read: %w", err)
+				return "", fmt.Errorf("identity cache read failed: %w", err)
 			}
 			if err == nil && !d.isHandleStale(&entry) { // if no error...
 				if entry.Err != nil {
@@ -251,7 +251,7 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) identity
 	})
 	if err != nil {
 		entry.Identity = nil
-		entry.Err = fmt.Errorf("identity cache write: %v", err)
+		entry.Err = fmt.Errorf("identity cache write failed: %w", err)
 		return entry
 	}
 	if he != nil {
@@ -263,7 +263,7 @@ func (d *RedisDirectory) updateDID(ctx context.Context, did syntax.DID) identity
 		})
 		if err != nil {
 			entry.Identity = nil
-			entry.Err = fmt.Errorf("identity cache write: %v", err)
+			entry.Err = fmt.Errorf("identity cache write failed: %w", err)
 			return entry
 		}
 	}
@@ -279,7 +279,7 @@ func (d *RedisDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax
 	var entry identityEntry
 	err := d.identityCache.Get(ctx, redisDirPrefix+did.String(), &entry)
 	if err != nil && err != cache.ErrCacheMiss {
-		return nil, false, fmt.Errorf("identity cache read: %v", err)
+		return nil, false, fmt.Errorf("identity cache read failed: %w", err)
 	}
 	if err == nil && !d.isIdentityStale(&entry) { // if no error...
 		identityCacheHits.Inc()
@@ -298,7 +298,7 @@ func (d *RedisDirectory) LookupDIDWithCacheState(ctx context.Context, did syntax
 			// The result should now be in the cache
 			err = d.identityCache.Get(ctx, redisDirPrefix+did.String(), &entry)
 			if err != nil && err != cache.ErrCacheMiss {
-				return nil, false, fmt.Errorf("identity cache read: %v", err)
+				return nil, false, fmt.Errorf("identity cache read failed: %w", err)
 			}
 			if err == nil && !d.isIdentityStale(&entry) { // if no error...
 				return entry.Identity, false, entry.Err

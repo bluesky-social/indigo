@@ -1,6 +1,6 @@
 // Copied from indigo:api/atproto/identitygetRecommendedDidCredentials.go
 
-package main
+package agnostic
 
 // schema: com.atproto.identity.getRecommendedDidCredentials
 

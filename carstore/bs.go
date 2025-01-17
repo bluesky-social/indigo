@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -24,7 +25,6 @@ import (
 	cbor "github.com/ipfs/go-ipld-cbor"
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/ipfs/go-libipfs/blocks"
-	logging "github.com/ipfs/go-log"
 	car "github.com/ipld/go-car"
 	carutil "github.com/ipld/go-car/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -41,8 +41,6 @@ var blockGetTotalCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 var blockGetTotalCounterUsrskip = blockGetTotalCounter.WithLabelValues("true", "miss")
 var blockGetTotalCounterCached = blockGetTotalCounter.WithLabelValues("false", "hit")
 var blockGetTotalCounterNormal = blockGetTotalCounter.WithLabelValues("false", "miss")
-
-var log = logging.Logger("carstore")
 
 const MaxSliceLength = 2 << 20
 
@@ -62,21 +60,25 @@ type CarStore interface {
 }
 
 type FileCarStore struct {
-	meta    *CarStoreGormMeta
-	rootDir string
+	meta     *CarStoreGormMeta
+	rootDirs []string
 
 	lscLk          sync.Mutex
 	lastShardCache map[models.Uid]*CarShard
+
+	log *slog.Logger
 }
 
-func NewCarStore(meta *gorm.DB, root string) (CarStore, error) {
-	if _, err := os.Stat(root); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
+func NewCarStore(meta *gorm.DB, roots []string) (CarStore, error) {
+	for _, root := range roots {
+		if _, err := os.Stat(root); err != nil {
+			if !os.IsNotExist(err) {
+				return nil, err
+			}
 
-		if err := os.Mkdir(root, 0775); err != nil {
-			return nil, err
+			if err := os.Mkdir(root, 0775); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := meta.AutoMigrate(&CarShard{}, &blockRef{}); err != nil {
@@ -88,13 +90,14 @@ func NewCarStore(meta *gorm.DB, root string) (CarStore, error) {
 
 	return &FileCarStore{
 		meta:           &CarStoreGormMeta{meta: meta},
-		rootDir:        root,
+		rootDirs:       roots,
 		lastShardCache: make(map[models.Uid]*CarShard),
+		log:            slog.Default().With("system", "carstore"),
 	}, nil
 }
 
 type userView struct {
-	cs   *FileCarStore
+	cs   CarStore
 	user models.Uid
 
 	cache    map[cid.Cid]blockformat.Block
@@ -108,13 +111,24 @@ func (uv *userView) HashOnRead(hor bool) {
 }
 
 func (uv *userView) Has(ctx context.Context, k cid.Cid) (bool, error) {
-	return uv.cs.meta.HasUidCid(ctx, uv.user, k)
+	_, have := uv.cache[k]
+	if have {
+		return have, nil
+	}
+
+	fcd, ok := uv.cs.(*FileCarStore)
+	if !ok {
+		return false, nil
+	}
+
+	return fcd.meta.HasUidCid(ctx, uv.user, k)
 }
 
 var CacheHits int64
 var CacheMiss int64
 
 func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, error) {
+
 	if !k.Defined() {
 		return nil, fmt.Errorf("attempted to 'get' undefined cid")
 	}
@@ -129,7 +143,12 @@ func (uv *userView) Get(ctx context.Context, k cid.Cid) (blockformat.Block, erro
 	}
 	atomic.AddInt64(&CacheMiss, 1)
 
-	path, offset, user, err := uv.cs.meta.LookupBlockRef(ctx, k)
+	fcd, ok := uv.cs.(*FileCarStore)
+	if !ok {
+		return nil, ipld.ErrNotFound{Cid: k}
+	}
+
+	path, offset, user, err := fcd.meta.LookupBlockRef(ctx, k)
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +288,7 @@ type DeltaSession struct {
 	baseCid  cid.Cid
 	seq      int
 	readonly bool
-	cs       *FileCarStore
+	cs       CarStore
 	lastRev  string
 }
 
@@ -541,9 +560,14 @@ func (ds *DeltaSession) GetSize(ctx context.Context, c cid.Cid) (int, error) {
 func fnameForShard(user models.Uid, seq int) string {
 	return fmt.Sprintf("sh-%d-%d", user, seq)
 }
+
+func (cs *FileCarStore) dirForUser(user models.Uid) string {
+	return cs.rootDirs[int(user)%len(cs.rootDirs)]
+}
+
 func (cs *FileCarStore) openNewShardFile(ctx context.Context, user models.Uid, seq int) (*os.File, string, error) {
 	// TODO: some overwrite protections
-	fname := filepath.Join(cs.rootDir, fnameForShard(user, seq))
+	fname := filepath.Join(cs.dirForUser(user), fnameForShard(user, seq))
 	fi, err := os.Create(fname)
 	if err != nil {
 		return nil, "", err
@@ -557,7 +581,7 @@ func (cs *FileCarStore) writeNewShardFile(ctx context.Context, user models.Uid, 
 	defer span.End()
 
 	// TODO: some overwrite protections
-	fname := filepath.Join(cs.rootDir, fnameForShard(user, seq))
+	fname := filepath.Join(cs.dirForUser(user), fnameForShard(user, seq))
 	if err := os.WriteFile(fname, data, 0664); err != nil {
 		return "", err
 	}
@@ -579,7 +603,18 @@ func (ds *DeltaSession) CloseWithRoot(ctx context.Context, root cid.Cid, rev str
 		return nil, fmt.Errorf("cannot write to readonly deltaSession")
 	}
 
-	return ds.cs.writeNewShard(ctx, root, rev, ds.user, ds.seq, ds.blks, ds.rmcids)
+	switch ocs := ds.cs.(type) {
+	case *FileCarStore:
+		return ocs.writeNewShard(ctx, root, rev, ds.user, ds.seq, ds.blks, ds.rmcids)
+	case *NonArchivalCarstore:
+		slice, err := blocksToCar(ctx, root, rev, ds.blks)
+		if err != nil {
+			return nil, err
+		}
+		return slice, ocs.updateLastCommit(ctx, ds.user, rev, root)
+	default:
+		return nil, fmt.Errorf("unsupported carstore type")
+	}
 }
 
 func WriteCarHeader(w io.Writer, root cid.Cid) (int64, error) {
@@ -598,6 +633,23 @@ func WriteCarHeader(w io.Writer, root cid.Cid) (int64, error) {
 	}
 
 	return hnw, nil
+}
+
+func blocksToCar(ctx context.Context, root cid.Cid, rev string, blks map[cid.Cid]blockformat.Block) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	_, err := WriteCarHeader(buf, root)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write car header: %w", err)
+	}
+
+	for k, blk := range blks {
+		_, err := LdWrite(buf, k.Bytes(), blk.RawData())
+		if err != nil {
+			return nil, fmt.Errorf("failed to write block: %w", err)
+		}
+	}
+
+	return buf.Bytes(), nil
 }
 
 func (cs *FileCarStore) writeNewShard(ctx context.Context, root cid.Cid, rev string, user models.Uid, seq int, blks map[cid.Cid]blockformat.Block, rmcids map[cid.Cid]bool) ([]byte, error) {
@@ -638,10 +690,12 @@ func (cs *FileCarStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 		offset += nw
 	}
 
+	start := time.Now()
 	path, err := cs.writeNewShardFile(ctx, user, seq, buf.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("failed to write shard file: %w", err)
 	}
+	writeShardFileDuration.Observe(time.Since(start).Seconds())
 
 	shard := CarShard{
 		Root:      models.DbCID{CID: root},
@@ -652,9 +706,11 @@ func (cs *FileCarStore) writeNewShard(ctx context.Context, root cid.Cid, rev str
 		Rev:       rev,
 	}
 
+	start = time.Now()
 	if err := cs.putShard(ctx, &shard, brefs, rmcids, false); err != nil {
 		return nil, err
 	}
+	writeShardMetadataDuration.Observe(time.Since(start).Seconds())
 
 	return buf.Bytes(), nil
 }
@@ -872,7 +928,7 @@ func (cs *FileCarStore) deleteShards(ctx context.Context, shs []CarShard) error 
 				if !os.IsNotExist(err) {
 					return err
 				}
-				log.Warnw("shard file we tried to delete did not exist", "shard", sh.ID, "path", sh.Path)
+				cs.log.Warn("shard file we tried to delete did not exist", "shard", sh.ID, "path", sh.Path)
 			}
 		}
 
@@ -982,7 +1038,7 @@ func (cs *FileCarStore) openNewCompactedShardFile(ctx context.Context, user mode
 	// TODO: some overwrite protections
 	// NOTE CreateTemp is used for creating a non-colliding file, but we keep it and don't delete it so don't think of it as "temporary".
 	// This creates "sh-%d-%d%s" with some random stuff in the last position
-	fi, err := os.CreateTemp(cs.rootDir, fnameForShard(user, seq))
+	fi, err := os.CreateTemp(cs.dirForUser(user), fnameForShard(user, seq))
 	if err != nil {
 		return nil, "", err
 	}
@@ -1023,7 +1079,7 @@ func shardSize(sh *CarShard) (int64, error) {
 	st, err := os.Stat(sh.Path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Warnw("missing shard, return size of zero", "path", sh.Path, "shard", sh.ID)
+			slog.Warn("missing shard, return size of zero", "path", sh.Path, "shard", sh.ID, "system", "carstore")
 			return 0, nil
 		}
 		return 0, fmt.Errorf("stat %q: %w", sh.Path, err)
@@ -1144,7 +1200,7 @@ func (cs *FileCarStore) CompactUserShards(ctx context.Context, user models.Uid, 
 		// still around but we're doing that anyways since compaction isn't a
 		// perfect process
 
-		log.Debugw("repo has dirty dupes", "count", len(dupes), "uid", user, "staleRefs", len(staleRefs), "blockRefs", len(brefs))
+		cs.log.Debug("repo has dirty dupes", "count", len(dupes), "uid", user, "staleRefs", len(staleRefs), "blockRefs", len(brefs))
 
 		//return nil, fmt.Errorf("WIP: not currently handling this case")
 	}
@@ -1339,7 +1395,7 @@ func (cs *FileCarStore) compactBucket(ctx context.Context, user models.Uid, b *c
 		}); err != nil {
 			// If we ever fail to iterate a shard file because its
 			// corrupted, just log an error and skip the shard
-			log.Errorw("iterating blocks in shard", "shard", s.ID, "err", err, "uid", user)
+			cs.log.Error("iterating blocks in shard", "shard", s.ID, "err", err, "uid", user)
 		}
 	}
 
@@ -1357,7 +1413,7 @@ func (cs *FileCarStore) compactBucket(ctx context.Context, user models.Uid, b *c
 		_ = fi.Close()
 
 		if err2 := os.Remove(fi.Name()); err2 != nil {
-			log.Errorf("failed to remove shard file (%s) after failed db transaction: %w", fi.Name(), err2)
+			cs.log.Error("failed to remove shard file after failed db transaction", "path", fi.Name(), "err", err2)
 		}
 
 		return err
