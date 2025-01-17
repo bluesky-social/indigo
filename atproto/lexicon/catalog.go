@@ -1,6 +1,7 @@
 package lexicon
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,6 +30,9 @@ func NewBaseCatalog() BaseCatalog {
 	}
 }
 
+// Returns a scheman definition (`Schema` struct) for a Lexicon reference.
+//
+// A Lexicon ref string is an NSID with an optional #-separated fragment. If the fragment isn't specified, '#main' is used by default.
 func (c *BaseCatalog) Resolve(ref string) (*Schema, error) {
 	if ref == "" {
 		return nil, fmt.Errorf("tried to resolve empty string name")
@@ -46,6 +50,9 @@ func (c *BaseCatalog) Resolve(ref string) (*Schema, error) {
 
 // Inserts a schema loaded from a JSON file in to the catalog.
 func (c *BaseCatalog) AddSchemaFile(sf SchemaFile) error {
+	if sf.Lexicon != 1 {
+		return fmt.Errorf("unsupported lexicon language version: %d", sf.Lexicon)
+	}
 	base := sf.ID
 	for frag, def := range sf.Defs {
 		if len(frag) == 0 || strings.Contains(frag, "#") || strings.Contains(frag, ".") {
@@ -72,18 +79,29 @@ func (c *BaseCatalog) AddSchemaFile(sf SchemaFile) error {
 			return err
 		}
 		s := Schema{
-			ID:       name,
-			Revision: sf.Revision,
-			Def:      def.Inner,
+			ID:  name,
+			Def: def.Inner,
 		}
 		c.schemas[name] = s
 	}
 	return nil
 }
 
+// internal helper for loading JSON files from bytes
+func (c *BaseCatalog) addSchemaFromBytes(b []byte) error {
+	var sf SchemaFile
+	if err := json.Unmarshal(b, &sf); err != nil {
+		return err
+	}
+	if err := c.AddSchemaFile(sf); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Recursively loads all '.json' files from a directory in to the catalog.
 func (c *BaseCatalog) LoadDirectory(dirPath string) error {
-	return filepath.WalkDir(dirPath, func(p string, d fs.DirEntry, err error) error {
+	walkFunc := func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -104,14 +122,30 @@ func (c *BaseCatalog) LoadDirectory(dirPath string) error {
 		if err != nil {
 			return err
 		}
+		return c.addSchemaFromBytes(b)
+	}
+	return filepath.WalkDir(dirPath, walkFunc)
+}
 
-		var sf SchemaFile
-		if err = json.Unmarshal(b, &sf); err != nil {
+// Recursively loads all '.json' files from an embed.FS
+func (c *BaseCatalog) LoadEmbedFS(efs embed.FS) error {
+	walkFunc := func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
 			return err
 		}
-		if err = c.AddSchemaFile(sf); err != nil {
+		if d.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(p, ".json") {
+			return nil
+		}
+
+		slog.Debug("loading embedded Lexicon schema file", "path", p)
+		b, err := efs.ReadFile(p)
+		if err != nil {
 			return err
 		}
-		return nil
-	})
+		return c.addSchemaFromBytes(b)
+	}
+	return fs.WalkDir(efs, ".", walkFunc)
 }

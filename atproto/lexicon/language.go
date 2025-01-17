@@ -16,7 +16,6 @@ import (
 type SchemaFile struct {
 	Lexicon     int                  `json:"lexicon,const=1"`
 	ID          string               `json:"id"`
-	Revision    *int                 `json:"revision,omitempty"`
 	Description *string              `json:"description,omitempty"`
 	Defs        map[string]SchemaDef `json:"defs"`
 }
