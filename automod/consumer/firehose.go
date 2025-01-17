@@ -116,7 +116,7 @@ func (fc *FirehoseConsumer) Run(ctx context.Context) error {
 		fc.Logger.Info("hepa scheduler configured", "scheduler", "autoscaling", "initial", scaleSettings.Concurrency, "max", scaleSettings.MaxConcurrency)
 	}
 
-	return events.HandleRepoStream(ctx, con, scheduler)
+	return events.HandleRepoStream(ctx, con, scheduler, fc.Logger)
 }
 
 // NOTE: for now, this function basically never errors, just logs and returns nil. Should think through error processing better.
@@ -144,9 +144,9 @@ func (fc *FirehoseConsumer) HandleRepoCommit(ctx context.Context, evt *comatprot
 
 	for _, op := range evt.Ops {
 		logger = logger.With("eventKind", op.Action, "path", op.Path)
-		collection, rkey, err := splitRepoPath(op.Path)
+		collection, rkey, err := syntax.ParseRepoPath(op.Path)
 		if err != nil {
-			logger.Error("invalid path in repo op")
+			logger.Error("invalid path in repo op", "err", err)
 			return nil
 		}
 

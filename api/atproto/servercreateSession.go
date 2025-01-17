@@ -12,6 +12,8 @@ import (
 
 // ServerCreateSession_Input is the input argument to a com.atproto.server.createSession call.
 type ServerCreateSession_Input struct {
+	// allowTakendown: When true, instead of throwing error for takendown accounts, a valid response with a narrow scoped token will be returned
+	AllowTakendown  *bool   `json:"allowTakendown,omitempty" cborgen:"allowTakendown,omitempty"`
 	AuthFactorToken *string `json:"authFactorToken,omitempty" cborgen:"authFactorToken,omitempty"`
 	// identifier: Handle or other identifier supported by the server for the authenticating user.
 	Identifier string `json:"identifier" cborgen:"identifier"`

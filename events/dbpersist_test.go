@@ -1,4 +1,4 @@
-package events_test
+package events
 
 import (
 	"context"
@@ -11,20 +11,14 @@ import (
 	atproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/carstore"
-	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/pds"
+	pds "github.com/bluesky-social/indigo/pds/data"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/bluesky-social/indigo/util"
-	"github.com/ipfs/go-log/v2"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
-
-func init() {
-	log.SetAllLoggers(log.LevelDebug)
-}
 
 func BenchmarkDBPersist(b *testing.B) {
 	ctx := context.Background()
@@ -61,24 +55,24 @@ func BenchmarkDBPersist(b *testing.B) {
 	defer os.RemoveAll(tempPath)
 
 	// Initialize a DBPersister
-	dbp, err := events.NewDbPersistence(db, cs, nil)
+	dbp, err := NewDbPersistence(db, cs, nil)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	// Create a bunch of events
-	evtman := events.NewEventManager(dbp)
+	evtman := NewEventManager(dbp)
 
 	userRepoHead, err := mgr.GetRepoRoot(ctx, 1)
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	inEvts := make([]*events.XRPCStreamEvent, b.N)
+	inEvts := make([]*XRPCStreamEvent, b.N)
 	for i := 0; i < b.N; i++ {
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
-		inEvts[i] = &events.XRPCStreamEvent{
+		inEvts[i] = &XRPCStreamEvent{
 			RepoCommit: &atproto.SyncSubscribeRepos_Commit{
 				Repo:   "did:example:123",
 				Commit: headLink,
@@ -136,7 +130,7 @@ func BenchmarkDBPersist(b *testing.B) {
 
 	b.StopTimer()
 
-	dbp.Playback(ctx, 0, func(evt *events.XRPCStreamEvent) error {
+	dbp.Playback(ctx, 0, func(evt *XRPCStreamEvent) error {
 		outEvtCount++
 		return nil
 	})
@@ -183,24 +177,24 @@ func BenchmarkPlayback(b *testing.B) {
 	defer os.RemoveAll(tempPath)
 
 	// Initialize a DBPersister
-	dbp, err := events.NewDbPersistence(db, cs, nil)
+	dbp, err := NewDbPersistence(db, cs, nil)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	// Create a bunch of events
-	evtman := events.NewEventManager(dbp)
+	evtman := NewEventManager(dbp)
 
 	userRepoHead, err := mgr.GetRepoRoot(ctx, 1)
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	inEvts := make([]*events.XRPCStreamEvent, n)
+	inEvts := make([]*XRPCStreamEvent, n)
 	for i := 0; i < n; i++ {
 		cidLink := lexutil.LexLink(cid)
 		headLink := lexutil.LexLink(userRepoHead)
-		inEvts[i] = &events.XRPCStreamEvent{
+		inEvts[i] = &XRPCStreamEvent{
 			RepoCommit: &atproto.SyncSubscribeRepos_Commit{
 				Repo:   "did:example:123",
 				Commit: headLink,
@@ -256,7 +250,7 @@ func BenchmarkPlayback(b *testing.B) {
 
 	b.ResetTimer()
 
-	dbp.Playback(ctx, 0, func(evt *events.XRPCStreamEvent) error {
+	dbp.Playback(ctx, 0, func(evt *XRPCStreamEvent) error {
 		outEvtCount++
 		return nil
 	})
@@ -301,7 +295,7 @@ func setupDBs(t testing.TB) (*gorm.DB, *gorm.DB, carstore.CarStore, string, erro
 		return nil, nil, nil, "", err
 	}
 
-	cs, err := carstore.NewCarStore(cardb, cspath)
+	cs, err := carstore.NewCarStore(cardb, []string{cspath})
 	if err != nil {
 		return nil, nil, nil, "", err
 	}

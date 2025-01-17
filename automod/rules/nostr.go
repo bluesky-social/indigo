@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -37,7 +36,7 @@ func NostrSpamPostRule(c *automod.RecordContext, post *appbsky.FeedPost) error {
 		return nil
 	}
 
-	c.ReportAccount(automod.ReportReasonOther, fmt.Sprintf("likely nostr spam account (also labeled; remove label if this isn't spam!)"))
+	c.ReportAccount(automod.ReportReasonOther, "likely nostr spam account (also labeled; remove label if this isn't spam!)")
 	c.AddAccountLabel("!hide")
 	c.Notify("slack")
 	return nil

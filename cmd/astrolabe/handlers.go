@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/bluesky-social/indigo/api/agnostic"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	_ "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/data"
@@ -64,7 +65,7 @@ func (srv *Server) WebAccount(c echo.Context) error {
 
 	atid, err := syntax.ParseAtIdentifier(c.Param("atid"))
 	if err != nil {
-		return echo.NewHTTPError(404, fmt.Sprintf("failed to parse handle or DID"))
+		return echo.NewHTTPError(404, "failed to parse handle or DID")
 	}
 
 	ident, err := srv.dir.Lookup(ctx, *atid)
@@ -96,7 +97,7 @@ func (srv *Server) WebRepo(c echo.Context) error {
 
 	atid, err := syntax.ParseAtIdentifier(c.Param("atid"))
 	if err != nil {
-		return echo.NewHTTPError(400, fmt.Sprintf("failed to parse handle or DID"))
+		return echo.NewHTTPError(400, "failed to parse handle or DID")
 	}
 
 	ident, err := srv.dir.Lookup(ctx, *atid)
@@ -133,12 +134,12 @@ func (srv *Server) WebRepoCollection(c echo.Context) error {
 
 	atid, err := syntax.ParseAtIdentifier(c.Param("atid"))
 	if err != nil {
-		return echo.NewHTTPError(400, fmt.Sprintf("failed to parse handle or DID"))
+		return echo.NewHTTPError(400, "failed to parse handle or DID")
 	}
 
 	collection, err := syntax.ParseNSID(c.Param("collection"))
 	if err != nil {
-		return echo.NewHTTPError(400, fmt.Sprintf("failed to parse collection NSID"))
+		return echo.NewHTTPError(400, "failed to parse collection NSID")
 	}
 
 	ident, err := srv.dir.Lookup(ctx, *atid)
@@ -161,7 +162,7 @@ func (srv *Server) WebRepoCollection(c echo.Context) error {
 
 	cursor := c.QueryParam("cursor")
 	// collection string, cursor string, limit int64, repo string, reverse bool, rkeyEnd string, rkeyStart string
-	resp, err := RepoListRecords(ctx, &xrpcc, collection.String(), cursor, 100, ident.DID.String(), false, "", "")
+	resp, err := agnostic.RepoListRecords(ctx, &xrpcc, collection.String(), cursor, 100, ident.DID.String(), false, "", "")
 	if err != nil {
 		return err
 	}
@@ -191,17 +192,17 @@ func (srv *Server) WebRepoRecord(c echo.Context) error {
 
 	atid, err := syntax.ParseAtIdentifier(c.Param("atid"))
 	if err != nil {
-		return echo.NewHTTPError(400, fmt.Sprintf("failed to parse handle or DID"))
+		return echo.NewHTTPError(400, "failed to parse handle or DID")
 	}
 
 	collection, err := syntax.ParseNSID(c.Param("collection"))
 	if err != nil {
-		return echo.NewHTTPError(400, fmt.Sprintf("failed to parse collection NSID"))
+		return echo.NewHTTPError(400, "failed to parse collection NSID")
 	}
 
 	rkey, err := syntax.ParseRecordKey(c.Param("rkey"))
 	if err != nil {
-		return echo.NewHTTPError(400, fmt.Sprintf("failed to parse record key"))
+		return echo.NewHTTPError(400, "failed to parse record key")
 	}
 
 	ident, err := srv.dir.Lookup(ctx, *atid)
@@ -218,7 +219,7 @@ func (srv *Server) WebRepoRecord(c echo.Context) error {
 	xrpcc := xrpc.Client{
 		Host: ident.PDSEndpoint(),
 	}
-	resp, err := RepoGetRecord(ctx, &xrpcc, "", collection.String(), ident.DID.String(), rkey.String())
+	resp, err := agnostic.RepoGetRecord(ctx, &xrpcc, "", collection.String(), ident.DID.String(), rkey.String())
 	if err != nil {
 		return echo.NewHTTPError(400, fmt.Sprintf("failed to load record: %s", err))
 	}

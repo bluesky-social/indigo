@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"time"
 
@@ -16,10 +17,13 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 
 	"github.com/brianvoe/gofakeit/v6"
-	logging "github.com/ipfs/go-log"
 )
 
-var log = logging.Logger("fakedata")
+var log = slog.Default().With("system", "fakedata")
+
+func SetLogger(logger *slog.Logger) {
+	log = logger
+}
 
 func MeasureIterations(name string) func(int) {
 	start := time.Now()
@@ -28,7 +32,7 @@ func MeasureIterations(name string) func(int) {
 			return
 		}
 		total := time.Since(start)
-		log.Infof("%s wall runtime: count=%d total=%s mean=%s", name, count, total, total/time.Duration(count))
+		log.Info("wall runtime", "name", name, "count", count, "total", total, "rate", total/time.Duration(count))
 	}
 }
 
@@ -386,7 +390,7 @@ func GenLikesRepostsReplies(xrpcc *xrpc.Client, acc *AccountContext, fracLike, f
 func BrowseAccount(xrpcc *xrpc.Client, acc *AccountContext) error {
 	// fetch notifications
 	maxNotif := 50
-	resp, err := appbsky.NotificationListNotifications(context.TODO(), xrpcc, "", int64(maxNotif), false, "")
+	resp, err := appbsky.NotificationListNotifications(context.TODO(), xrpcc, "", int64(maxNotif), false, nil, "")
 	if err != nil {
 		return err
 	}

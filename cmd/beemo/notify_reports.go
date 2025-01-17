@@ -83,6 +83,7 @@ func pollNewReports(cctx *cli.Context) error {
 			false, // hasComment bool
 			true,  // includeAllUserRecords bool
 			limit, // limit int64
+			nil,   // policies []string
 			nil,   // removedLabels []string
 			nil,   // removedTags []string
 			nil,   // reportTypes []string

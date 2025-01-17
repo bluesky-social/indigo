@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,6 +19,7 @@ import (
 	"github.com/bluesky-social/indigo/api/atproto"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/sequential"
@@ -38,14 +40,13 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 
 	"github.com/carlmjohnson/versioninfo"
-	logging "github.com/ipfs/go-log"
 	"github.com/polydawn/refmt/cbor"
 	rejson "github.com/polydawn/refmt/json"
 	"github.com/polydawn/refmt/shared"
 	cli "github.com/urfave/cli/v2"
 )
 
-var log = logging.Logger("gosky")
+var log = slog.Default().With("system", "gosky")
 
 func main() {
 	run(os.Args)
@@ -79,6 +80,14 @@ func run(args []string) {
 			EnvVars: []string{"ATP_PLC_HOST"},
 		},
 	}
+
+	_, err := cliutil.SetupSlog(cliutil.LogOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "logging setup error: %s\n", err.Error())
+		os.Exit(1)
+		return
+	}
+
 	app.Commands = []*cli.Command{
 		accountCmd,
 		adminCmd,
@@ -338,7 +347,7 @@ var readRepoStreamCmd = &cli.Command{
 			},
 		}
 		seqScheduler := sequential.NewScheduler(con.RemoteAddr().String(), rsc.EventHandler)
-		return events.HandleRepoStream(ctx, con, seqScheduler)
+		return events.HandleRepoStream(ctx, con, seqScheduler, log)
 	},
 }
 
@@ -462,6 +471,18 @@ var getRecordCmd = &cli.Command{
 				return fmt.Errorf("unrecognized link")
 			}
 
+			atid, err := syntax.ParseAtIdentifier(did)
+			if err != nil {
+				return err
+			}
+
+			resp, err := identity.DefaultDirectory().Lookup(ctx, *atid)
+			if err != nil {
+				return err
+			}
+
+			xrpcc.Host = resp.PDSEndpoint()
+
 			out, err := comatproto.RepoGetRecord(ctx, xrpcc, "", collection, did, rkey)
 			if err != nil {
 				return err
@@ -490,7 +511,7 @@ var getRecordCmd = &cli.Command{
 
 		rc, rec, err := rr.GetRecord(ctx, cctx.Args().First())
 		if err != nil {
-			return err
+			return fmt.Errorf("get record failed: %w", err)
 		}
 
 		if cctx.Bool("raw") {
