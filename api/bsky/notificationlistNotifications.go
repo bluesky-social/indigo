@@ -35,13 +35,16 @@ type NotificationListNotifications_Output struct {
 }
 
 // NotificationListNotifications calls the XRPC method "app.bsky.notification.listNotifications".
-func NotificationListNotifications(ctx context.Context, c *xrpc.Client, cursor string, limit int64, priority bool, seenAt string) (*NotificationListNotifications_Output, error) {
+//
+// reasons: Notification reasons to include in response.
+func NotificationListNotifications(ctx context.Context, c *xrpc.Client, cursor string, limit int64, priority bool, reasons []string, seenAt string) (*NotificationListNotifications_Output, error) {
 	var out NotificationListNotifications_Output
 
 	params := map[string]interface{}{
 		"cursor":   cursor,
 		"limit":    limit,
 		"priority": priority,
+		"reasons":  reasons,
 		"seenAt":   seenAt,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "app.bsky.notification.listNotifications", params, nil, &out); err != nil {
