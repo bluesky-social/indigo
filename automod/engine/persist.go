@@ -209,7 +209,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	}
 
 	if newEscalation {
-		c.Logger.Warn("account-escalate")
+		c.Logger.Info("account-escalate")
 		actionNewEscalationCount.WithLabelValues("account").Inc()
 		comment := "[automod]: auto account-escalation"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
@@ -231,7 +231,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 	}
 
 	if newAcknowledge {
-		c.Logger.Warn("account-acknowledge")
+		c.Logger.Info("account-acknowledge")
 		actionNewAcknowledgeCount.WithLabelValues("account").Inc()
 		comment := "[automod]: auto account-acknowledge"
 		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
@@ -272,8 +272,11 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	atURI := c.RecordOp.ATURI().String()
 	newLabels := dedupeStrings(c.effects.RecordLabels)
 	newTags := dedupeStrings(c.effects.RecordTags)
+	newEscalation := c.effects.RecordEscalate
+	newAcknowledge := c.effects.RecordAcknowledge
 	resolveAppeal := c.effects.RecordAppealResolve
-	if (len(newLabels) > 0 || len(newTags) > 0 || resolveAppeal) && eng.OzoneClient != nil {
+
+	if (newEscalation || newAcknowledge || resolveAppeal || len(newLabels) > 0 || len(newTags) > 0) && eng.OzoneClient != nil {
 		// fetch existing record labels, tags, etc
 		rv, err := toolsozone.ModerationGetRecord(ctx, eng.OzoneClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
 		if err != nil {
@@ -293,10 +296,13 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			negLabels = dedupeStrings(negLabels)
 			newLabels = dedupeLabelActions(newLabels, existingLabels, negLabels)
 			existingTags := []string{}
-			if rv.Moderation != nil && rv.Moderation.SubjectStatus != nil && rv.Moderation.SubjectStatus.Tags != nil {
+			hasSubjectStatus := rv.Moderation != nil && rv.Moderation.SubjectStatus != nil
+			if hasSubjectStatus && rv.Moderation.SubjectStatus.Tags != nil {
 				existingTags = rv.Moderation.SubjectStatus.Tags
 			}
 			newTags = dedupeTagActions(newTags, existingTags)
+			newEscalation = newEscalation && hasSubjectStatus && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewEscalate"
+			newAcknowledge = newAcknowledge && hasSubjectStatus && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewNone" && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewClosed"
 			resolveAppeal = resolveAppeal && *rv.Moderation.SubjectStatus.Appealed
 		}
 	}
@@ -324,13 +330,21 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	if err != nil {
 		return fmt.Errorf("failed to circuit break takedowns: %w", err)
 	}
+	newEscalation, err = eng.circuitBreakModAction(ctx, newEscalation)
+	if err != nil {
+		return fmt.Errorf("circuit-breaking escalation: %w", err)
+	}
+	newAcknowledge, err = eng.circuitBreakModAction(ctx, newAcknowledge)
+	if err != nil {
+		return fmt.Errorf("circuit-breaking acknowledge: %w", err)
+	}
 
 	resolveAppeal, err = eng.circuitBreakModAction(ctx, resolveAppeal)
 	if err != nil {
 		return fmt.Errorf("failed to circuit break resolve appeal: %w", err)
 	}
 
-	if newTakedown || len(newLabels) > 0 || len(newTags) > 0 || len(newFlags) > 0 || len(newReports) > 0 || resolveAppeal {
+	if newEscalation || newAcknowledge || newTakedown || resolveAppeal || len(newLabels) > 0 || len(newTags) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
 		if eng.Notifier != nil {
 			for _, srv := range dedupeStrings(c.effects.NotifyServices) {
 				if err := eng.Notifier.SendRecord(ctx, srv, c); err != nil {
@@ -350,7 +364,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 
 	// exit early
-	if !newTakedown && len(newLabels) == 0 && len(newReports) == 0 && len(newTags) == 0 && !resolveAppeal {
+	if !newAcknowledge && !newEscalation && !newTakedown && !resolveAppeal && len(newLabels) == 0 && len(newTags) == 0 && len(newReports) == 0 {
 		return nil
 	}
 
@@ -446,7 +460,49 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		if err != nil {
 			c.Logger.Error("failed to execute record takedown", "err", err)
 		}
-		resolveAppeal = false
+
+		// we don't want to escalate if there is a takedown
+		newEscalation = false
+	}
+
+	if newEscalation {
+		c.Logger.Warn("record-escalation")
+		actionNewEscalationCount.WithLabelValues("record").Inc()
+		comment := "[automod]: automated record-escalation"
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventEscalate: &toolsozone.ModerationDefs_ModEventEscalate{
+					Comment: &comment,
+				},
+			},
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
+				RepoStrongRef: &strongRef,
+			},
+		})
+		if err != nil {
+			c.Logger.Error("failed to execute record escalation", "err", err)
+		}
+	}
+
+	if newAcknowledge {
+		c.Logger.Warn("record-acknowledge")
+		actionNewAcknowledgeCount.WithLabelValues("record").Inc()
+		comment := "[automod]: automated record-acknowledge"
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventAcknowledge: &toolsozone.ModerationDefs_ModEventAcknowledge{
+					Comment: &comment,
+				},
+			},
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
+				RepoStrongRef: &strongRef,
+			},
+		})
+		if err != nil {
+			c.Logger.Error("failed to execute record acknowledge", "err", err)
+		}
 	}
 
 	if resolveAppeal {

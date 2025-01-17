@@ -2,18 +2,6 @@ package engine
 
 import (
 	"sync"
-	"time"
-)
-
-var (
-	// time period within which automod will not re-report an account for the same reasonType
-	ReportDupePeriod = 1 * 24 * time.Hour
-	// number of reports automod can file per day, for all subjects and types combined (circuit breaker)
-	QuotaModReportDay = 2000
-	// number of takedowns automod can action per day, for all subjects combined (circuit breaker)
-	QuotaModTakedownDay = 200
-	// number of misc actions automod can do per day, for all subjects combined (circuit breaker)
-	QuotaModActionDay = 1000
 )
 
 type CounterRef struct {
@@ -66,6 +54,10 @@ type Effects struct {
 	RecordReports []ModReport
 	// Same as "AccountTakedown", but at record-level
 	RecordTakedown bool
+	// Same as "AccountEscalate", but at record-level
+	RecordEscalate bool
+	// Same as "AccountAcknowledge", but at record-level
+	RecordAcknowledge bool
 	// Set of Blob CIDs to takedown (eg, purge from CDN) when doing a record takedown
 	BlobTakedowns []string
 	// If "true", indicates that a rule indicates that the action causing the event should be blocked or prevented
@@ -246,6 +238,16 @@ func (e *Effects) ReportRecord(reason, comment string) {
 // Enqueues the record to be taken down at the end of rule processing.
 func (e *Effects) TakedownRecord() {
 	e.RecordTakedown = true
+}
+
+// Enqueues the record to be "escalated" for mod review at the end of rule processing.
+func (e *Effects) EscalateRecord() {
+	e.RecordEscalate = true
+}
+
+// Enqueues the record to be "escalated" for mod review at the end of rule processing.
+func (e *Effects) AcknowledgeRecord() {
+	e.RecordAcknowledge = true
 }
 
 // Enqueues the record's appeals to be resolved at the end of rule processing.

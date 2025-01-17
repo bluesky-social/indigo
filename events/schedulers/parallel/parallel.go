@@ -2,16 +2,14 @@ package parallel
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers"
-	logging "github.com/ipfs/go-log"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
-
-var log = logging.Logger("parallel-scheduler")
 
 // Scheduler is a parallel scheduler that will run work on a fixed number of workers
 type Scheduler struct {
@@ -33,6 +31,8 @@ type Scheduler struct {
 	itemsProcessed prometheus.Counter
 	itemsActive    prometheus.Counter
 	workesActive   prometheus.Gauge
+
+	log *slog.Logger
 }
 
 func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events.XRPCStreamEvent) error) *Scheduler {
@@ -52,6 +52,8 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events
 		itemsProcessed: schedulers.WorkItemsProcessed.WithLabelValues(ident, "parallel"),
 		itemsActive:    schedulers.WorkItemsActive.WithLabelValues(ident, "parallel"),
 		workesActive:   schedulers.WorkersActive.WithLabelValues(ident, "parallel"),
+
+		log: slog.Default().With("system", "parallel-scheduler"),
 	}
 
 	for i := 0; i < maxC; i++ {
@@ -64,7 +66,7 @@ func NewScheduler(maxC, maxQ int, ident string, do func(context.Context, *events
 }
 
 func (p *Scheduler) Shutdown() {
-	log.Infof("shutting down parallel scheduler for %s", p.ident)
+	p.log.Info("shutting down parallel scheduler", "ident", p.ident)
 
 	for i := 0; i < p.maxConcurrency; i++ {
 		p.feeder <- &consumerTask{
@@ -78,7 +80,7 @@ func (p *Scheduler) Shutdown() {
 		<-p.out
 	}
 
-	log.Info("parallel scheduler shutdown complete")
+	p.log.Info("parallel scheduler shutdown complete")
 }
 
 type consumerTask struct {
@@ -123,14 +125,14 @@ func (p *Scheduler) worker() {
 
 			p.itemsActive.Inc()
 			if err := p.do(context.TODO(), work.val); err != nil {
-				log.Errorf("event handler failed: %s", err)
+				p.log.Error("event handler failed", "err", err)
 			}
 			p.itemsProcessed.Inc()
 
 			p.lk.Lock()
 			rem, ok := p.active[work.repo]
 			if !ok {
-				log.Errorf("should always have an 'active' entry if a worker is processing a job")
+				p.log.Error("should always have an 'active' entry if a worker is processing a job")
 			}
 
 			if len(rem) == 0 {

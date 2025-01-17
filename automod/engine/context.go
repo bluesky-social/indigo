@@ -318,6 +318,14 @@ func (c *RecordContext) TakedownRecord() {
 	c.effects.TakedownRecord()
 }
 
+func (c *RecordContext) EscalateRecord() {
+	c.effects.EscalateRecord()
+}
+
+func (c *RecordContext) AcknowledgeRecord() {
+	c.effects.AcknowledgeRecord()
+}
+
 func (c *RecordContext) ResolveRecordAppeal() {
 	c.effects.ResolveRecordAppeal()
 }
