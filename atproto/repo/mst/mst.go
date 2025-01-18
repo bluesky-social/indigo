@@ -27,14 +27,14 @@ type EntryData struct {
 //
 // Trees may be "partial" if they contain references to child nodes by CID, but not pointers to `Node` representations.
 type Node struct {
-	// optionally, the last computed CID of this Node (when expressed as NodeData)
-	CID *cid.Cid
 	// array of key/value pairs and pointers to child nodes. entry arrays must always be in correct/valid order at any point in time: sorted by 'key', and at most one 'pointer' entry between 'value' entries.
 	Entries []NodeEntry
 	// "height" or "layer" of MST tree this node is at (with zero at the "bottom" and root/top of tree the "highest")
 	Height int
 	// if true, the cached CID of this node is out of date
 	Dirty bool // TODO: maybe invert as "clean" flag?
+	// optionally, the last computed CID of this Node (when expressed as NodeData)
+	CID *cid.Cid
 }
 
 // Represents an entry in an MST `Node`, which could either be a direct path/value entry, or a pointer do a child tree node. Note that these are *not* one-to-one with `EntryData`.
@@ -44,12 +44,17 @@ type Node struct {
 type NodeEntry struct {
 	Key   []byte
 	Value *cid.Cid
+	// TODO: probably a "dirty" flag here as well, to track key/value updates
 
 	ChildCID *cid.Cid
 	Child    *Node
 }
 
-// Returns true if this is a key/value entry
+func (n *Node) IsEmpty() bool {
+	return len(n.Entries) == 0
+}
+
+// Returns true if this entry is a key/value at the current node
 func (e *NodeEntry) IsValue() bool {
 	if len(e.Key) > 0 && e.Value != nil {
 		return true
@@ -57,8 +62,8 @@ func (e *NodeEntry) IsValue() bool {
 	return false
 }
 
-// Returns true if this is a pointer to a child on a lower level
-func (e *NodeEntry) IsPointer() bool {
+// Returns true if this entry points to a node on a lower level
+func (e *NodeEntry) IsChild() bool {
 	if e.Child != nil || e.ChildCID != nil {
 		return true
 	}
@@ -69,180 +74,344 @@ var ErrPartialTree = errors.New("MST is not complete")
 
 var ErrKeyNotFound = errors.New("MST does not contain key")
 
+var ErrInvalidKey = errors.New("bytestring not a valid MST key")
+
 var ErrInvalidTree = errors.New("invalid MST structure")
-
-// Adds a key/CID entry to a sub-tree defined by a Node. If a previous value existed, returns it.
-//
-// n: Node at top of sub-tree to operate on. Can be nil, in which case a new Node is created.
-// key: key or path being inserted. must not be empty/nil
-// val: CID value being inserted
-// height: tree height to insert at, derived from key. if a negative value is provided, will be computed; use -1 instead of 0 if height is not known
-//
-// TODO(correctness): if key already existing with given val, can we avoid dirtying the tree? or is that too complex
-func Insert(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, error) {
-	if height < 0 {
-		height = HeightForKey(key)
-	}
-
-	if n == nil {
-		n = &Node{
-			Height: height,
-			Dirty:  true,
-		}
-	}
-
-	for height > n.Height {
-		// if the new key is higher in the tree; will need to add a parent node, which may involve splitting this current node
-		// TODO(perf): if current node is empty, just replace with correct height
-		newNode := Node{
-			CID:   nil,
-			Dirty: true,
-			Entries: []NodeEntry{NodeEntry{
-				Child: n,
-			}},
-			Height: n.Height + 1,
-		}
-		n = &newNode
-	}
-
-	// if key is lower on the tree, we need to descend first
-	if height < n.Height {
-
-		if len(n.Entries) == 0 {
-			// if there is nothing at this level, we need to insert a child pointer. this process may be recursive.
-			child := &Node{
-				Height: n.Height - 1,
-				Dirty:  true,
-			}
-			child, _, err := Insert(child, key, val, height)
-			if err != nil {
-				return nil, nil, err
-			}
-			n.Entries = []NodeEntry{
-				NodeEntry{Child: child},
-			}
-			return n, nil, nil
-		}
-		// look for slot where child exists (or would go)
-		childIndex := 0
-		for i, e := range n.Entries {
-			if e.IsValue() {
-				if bytes.Compare(key, e.Key) < 0 {
-					break
-				}
-			}
-			childIndex = i
-		}
-		if n.Entries[childIndex].IsPointer() {
-			// there already exists a child entry to work with
-			if n.Entries[childIndex].Child == nil {
-				return nil, nil, fmt.Errorf("could not insert key: %w", ErrPartialTree)
-			}
-			newChild, prev, err := Insert(n.Entries[childIndex].Child, key, val, height)
-			if err != nil {
-				return nil, nil, err
-			}
-			if prev == nil {
-				return n, nil, nil
-			}
-			n.Dirty = true
-			n.Entries[childIndex].Child = newChild
-			return n, prev, nil
-		}
-
-		// we need to insert a new child entry and node
-		n.Dirty = true
-		if !n.Entries[childIndex].IsValue() || bytes.Equal(key, n.Entries[childIndex].Key) {
-			// TODO: better error
-			return nil, nil, fmt.Errorf("unexpected bad MST structure")
-		}
-		child := &Node{
-			Height: n.Height - 1,
-			Dirty:  true,
-		}
-		child, _, err := Insert(child, key, val, height)
-		if err != nil {
-			return nil, nil, err
-		}
-		entry := NodeEntry{Child: child}
-		if bytes.Compare(key, n.Entries[childIndex].Key) > 0 {
-			// inserting after
-			n.Entries = slices.Insert(n.Entries, childIndex+1, entry)
-		} else {
-			// inserting before
-			n.Entries = slices.Insert(n.Entries, childIndex, entry)
-		}
-		return n, nil, nil
-	}
-
-	// we are at the correct height, and can just insert
-	if height != n.Height {
-		return nil, nil, fmt.Errorf("unexpected MST height mismatch")
-	}
-
-	n.Dirty = true
-
-	if len(n.Entries) == 0 {
-		// simply insert an entry
-		n.Entries = []NodeEntry{NodeEntry{
-			Key:   key,
-			Value: &val,
-		}}
-		return n, nil, nil
-	}
-
-	// look for slot where entry exists (or would go)
-	insertIndex := 0
-	for i, e := range n.Entries {
-		if e.IsValue() {
-			if bytes.Equal(key, e.Key) {
-				if *e.Value == val {
-					// no-op
-					return n, nil, nil
-				}
-				prev := *e.Value
-				n.Entries[i].Value = &val
-				return n, &prev, nil
-			}
-			if bytes.Compare(key, e.Key) > 0 {
-				break
-			}
-		}
-		insertIndex = i
-	}
-
-	entry := NodeEntry{
-		Key:   key,
-		Value: &val,
-	}
-
-	if n.Entries[insertIndex].IsValue() {
-		if bytes.Compare(n.Entries[insertIndex].Key, key) > 0 {
-			// insert after
-			n.Entries = slices.Insert(n.Entries, insertIndex+1, entry)
-			return n, nil, nil
-		} else {
-			// insert before
-			n.Entries = slices.Insert(n.Entries, insertIndex, entry)
-			return n, nil, nil
-		}
-	} else if n.Entries[insertIndex].IsPointer() {
-		// need to descend tree; and may even need to split
-		// XXX:
-		n.Entries = slices.Insert(n.Entries, insertIndex+1, entry)
-		return n, nil, nil
-	}
-
-	// append before
-	n.Entries = slices.Insert(n.Entries, insertIndex, entry)
-	return n, nil, nil
-}
 
 func NewEmptyTree() *Node {
 	return &Node{
 		Dirty:  true,
 		Height: 0,
 	}
+}
+
+// Looks for a "value" entry in the node with the exact key.
+// Returns entry index if a matching entry is found; or -1 if not found
+func findExistingEntry(n *Node, key []byte) int {
+	for i, e := range n.Entries {
+		// TODO perf: could skip early if e.Key is lower
+		if e.IsValue() && bytes.Equal(key, e.Key) {
+			return i
+		}
+	}
+	return -1
+}
+
+// Looks for a "child" entry which the key would live under.
+//
+// NOTE: does not verify the lexical range of the child node.
+//
+// Returns -1 if not found.
+func findExistingChild(n *Node, key []byte) int {
+	idx := -1
+	for i, e := range n.Entries {
+		if e.IsChild() {
+			idx = i
+			continue
+		}
+		if e.IsValue() {
+			if bytes.Compare(key, e.Key) <= 0 {
+				break
+			}
+			idx = -1
+		}
+	}
+	return idx
+}
+
+// Determines index where a new entry (child or value) would be inserted, relevant to the given key.
+//
+// If the key would "split" an existing child entry, the index of that entry is returned, and a flag set
+//
+// If the entry would be appended, then the index returned will be one higher that the current largest index.
+func findInsertionIndex(n *Node, key []byte) (idx int, split bool, retErr error) {
+	for i, e := range n.Entries {
+		if e.IsValue() {
+			if bytes.Compare(key, e.Key) < 0 {
+				return i, false, nil
+			}
+		}
+		if e.IsChild() {
+			// first, see if there is a next entry as a value which this key would be after; if so we can skip checking this child
+			if i+1 < len(n.Entries) {
+				next := n.Entries[i+1]
+				if next.IsValue() && bytes.Compare(key, next.Key) < 0 {
+					continue
+				}
+			}
+			if e.Child == nil {
+				return -1, false, fmt.Errorf("partial MST, can't determine insertion order")
+			}
+			if bytes.Compare(key, getHighestKey(e.Child)) > 0 {
+				// key comes after this entire child sub-tree
+				continue
+			}
+			if bytes.Compare(key, getLowestKey(e.Child)) < 0 {
+				// key comes before this entire child sub-tree
+				return i, false, nil
+			}
+			// key falls inside this child sub-tree
+			return i, true, nil
+		}
+	}
+
+	// would need to be appended after
+	return len(n.Entries), false, nil
+}
+
+// Adds a key/CID entry to a sub-tree defined by a Node. If a previous value existed, returns it.
+//
+// If the insert is a no-op (the key already existed with exact value), then the operation is a no-op, the tree is not marked dirty, and the val is returned as the 'prev' value.
+//
+// n: Node at top of sub-tree to operate on
+// key: key or path being inserted. must not be empty/nil
+// val: CID value being inserted
+// height: tree height to insert at, derived from key. if a negative value is provided, will be computed; use -1 instead of 0 if height is not known
+func Insert(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, error) {
+	if height < 0 {
+		height = HeightForKey(key)
+	}
+
+	if n == nil {
+		return nil, nil, fmt.Errorf("operating on nil tree/node")
+	}
+
+	for height > n.Height {
+		// if the new key is higher in the tree; will need to add a parent node, which may involve splitting this current node
+		return insertParent(n, key, val, height)
+	}
+
+	// if key is lower on the tree, we need to descend first
+	if height < n.Height {
+		return insertChild(n, key, val, height)
+	}
+
+	// look for existing key
+	idx := findExistingEntry(n, key)
+	if idx >= 0 {
+		e := n.Entries[idx]
+		if *e.Value == val {
+			// same value already exists; no-op
+			return n, &val, nil
+		}
+		// update operation
+		prev := e.Value
+		n.Entries[idx].Value = &val
+		n.Dirty = true
+		return n, prev, nil
+	}
+
+	// insert new entry to this node
+	idx, split, err := findInsertionIndex(n, key)
+	if err != nil {
+		return nil, nil, err
+	}
+	n.Dirty = true
+	newEntry := NodeEntry{
+		Key:   key,
+		Value: &val,
+	}
+
+	if !split {
+		// TODO: is this really necessary? or can we just slices.Insert beyond the end of a slice?
+		if idx == len(n.Entries) {
+			n.Entries = append(n.Entries, newEntry)
+		} else {
+			n.Entries = slices.Insert(n.Entries, idx, newEntry)
+		}
+		return n, nil, nil
+	}
+
+	// we need to split
+	e := n.Entries[idx]
+	left, right, err := splitNode(e.Child, key)
+	if err != nil {
+		return nil, nil, err
+	}
+	// remove the existing entry, and replace with three new entries
+	n.Entries = slices.Delete(n.Entries, idx, idx+1)
+	n.Entries = slices.Insert(
+		n.Entries,
+		idx,
+		NodeEntry{Child: left},
+		newEntry,
+		NodeEntry{Child: right},
+	)
+	return n, nil, nil
+}
+
+// returns the lowest key along "left edge" of sub-tree
+func getLowestKey(n *Node) []byte {
+	// TODO: make this a method on Node, and return an error (?)
+	if len(n.Entries) == 0 {
+		// TODO: throw error on this case?
+		return nil
+	}
+	e := n.Entries[0]
+	if e.IsValue() {
+		return e.Key
+	} else if e.IsChild() {
+		if e.Child != nil {
+			return getLowestKey(e.Child)
+		} else {
+			// TODO: throw error on this case?
+		}
+	}
+	// TODO: throw error on this case?
+	return nil
+}
+
+// returns the lowest key along "left edge" of sub-tree
+func getHighestKey(n *Node) []byte {
+	if len(n.Entries) == 0 {
+		// TODO: throw error on this case?
+		return nil
+	}
+	e := n.Entries[len(n.Entries)-1]
+	if e.IsValue() {
+		return e.Key
+	} else if e.IsChild() {
+		if e.Child != nil {
+			return getHighestKey(e.Child)
+		} else {
+			// TODO: throw error on this case?
+		}
+	}
+	// TODO: throw error on this case?
+	return nil
+}
+
+func splitNodeEntries(n *Node, idx int) (*Node, *Node, error) {
+	if idx == 0 || idx >= len(n.Entries) {
+		return nil, nil, fmt.Errorf("not splitting in middle of entry list")
+	}
+	left := Node{
+		Height:  n.Height,
+		Dirty:   true,
+		Entries: n.Entries[:idx],
+	}
+	right := Node{
+		Height:  n.Height,
+		Dirty:   true,
+		Entries: n.Entries[idx:],
+	}
+	if left.IsEmpty() || right.IsEmpty() {
+		return nil, nil, fmt.Errorf("one of the legs is empty (idx=%d, len=%d)", idx, len(n.Entries))
+	}
+	return &left, &right, nil
+}
+
+func splitNode(n *Node, key []byte) (*Node, *Node, error) {
+	// XXX: fmt.Println("SPLIT")
+	if n.IsEmpty() {
+		// TODO: this feels defensive and could be removed
+		return nil, nil, fmt.Errorf("tried to split an empty node")
+	}
+
+	idx, split, err := findInsertionIndex(n, key)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !split {
+		// simple split based on values
+		return splitNodeEntries(n, idx)
+	}
+
+	// need to split recursively
+	e := n.Entries[idx]
+	lowerLeft, lowerRight, err := splitNode(e.Child, key)
+	if err != nil {
+		return nil, nil, err
+	}
+	left := &Node{
+		Height:  n.Height,
+		Dirty:   true,
+		Entries: append(n.Entries[:idx], NodeEntry{Child: lowerLeft}),
+	}
+	right := &Node{
+		Height:  n.Height,
+		Dirty:   true,
+		Entries: []NodeEntry{NodeEntry{Child: lowerRight}},
+	}
+	if idx+1 < len(n.Entries) {
+		right.Entries = append(right.Entries, n.Entries[idx+1:]...)
+	}
+	return left, right, nil
+}
+
+// inserts a node "above" this node in tree, possibly splitting the current node
+func insertParent(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, error) {
+	var parent *Node
+	if n.IsEmpty() {
+		// if current node is empty, just replace directly with current height
+		parent = &Node{
+			Height: height,
+			Dirty:  true,
+		}
+	} else {
+		// otherwise push a layer and recurse
+		parent = &Node{
+			Height: n.Height + 1,
+			Dirty:  true,
+			Entries: []NodeEntry{NodeEntry{
+				Child: n,
+			}},
+		}
+	}
+	// regular insertion will handle any necessary "split"
+	return Insert(parent, key, val, height)
+}
+
+// inserts a node "below" this node in tree; either creating a new child entry or re-using an existing one
+func insertChild(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, error) {
+	// XXX: fmt.Printf("INSERT CHILD height=%d\n", n.Height)
+	// look for an existing child node which encompases the key, and use that
+	idx := findExistingChild(n, key)
+	if idx >= 0 {
+		e := n.Entries[idx]
+		if e.Child == nil {
+			return nil, nil, fmt.Errorf("could not insert key: %w", ErrPartialTree)
+		}
+		newChild, prev, err := Insert(e.Child, key, val, height)
+		if err != nil {
+			return nil, nil, err
+		}
+		if prev != nil && *prev == val {
+			// no-op
+			return n, &val, nil
+		}
+		n.Dirty = true
+		n.Entries[idx].Child = newChild
+		return n, prev, nil
+	}
+
+	// insert a child node. this might be recursive if the child is not a *direct* child
+	idx, split, err := findInsertionIndex(n, key)
+	if err != nil {
+		return nil, nil, err
+	}
+	if split {
+		return nil, nil, fmt.Errorf("unexpected split when inserting child")
+	}
+	n.Dirty = true
+	newChild := &Node{
+		Height: n.Height - 1,
+		Dirty:  true,
+	}
+	newChild, _, err = Insert(newChild, key, val, height)
+	// XXX: fmt.Printf("WILL INSERT NEW CHILD key: %s node: %p child: %p\n", string(key), n, newChild)
+	if err != nil {
+		return nil, nil, err
+	}
+	newEntry := NodeEntry{
+		Child: newChild,
+	}
+	if idx == len(n.Entries) {
+		n.Entries = append(n.Entries, newEntry)
+	} else {
+		n.Entries = slices.Insert(n.Entries, idx, newEntry)
+	}
+	return n, nil, nil
 }
 
 // Removes key/value from the sub-tree provided, returning a new tree, and the previous CID value. If key is not found, returns unmodified subtree, and nil for the returned CID.
@@ -261,69 +430,74 @@ func Remove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 	}
 
 	if height < n.Height {
-		// look for a child
-		childIndex := -1
-		for i, e := range n.Entries {
-			if e.IsValue() {
-				if bytes.Compare(key, e.Key) > 0 {
-					break
-				}
-			}
-			if e.IsPointer() {
-				childIndex = i
-			}
-		}
-		if childIndex < 0 {
-			// no child pointer; key not in tree
-			return n, nil, nil
-		}
-		if n.Entries[childIndex].Child == nil {
-			// partial node, can't recurse
-			return nil, nil, fmt.Errorf("could not remove key: %w", ErrPartialTree)
-		}
-		newChild, prev, err := Remove(n.Entries[childIndex].Child, key, height)
-		if err != nil {
-			return nil, nil, err
-		}
-		if prev == nil {
-			// nothing changed
-			return n, nil, nil
-		}
-		// we are mutating this entry
-		n.Dirty = true
-		// if new child is empty, remove it from entry list
-		if len(newChild.Entries) == 0 {
-			// TODO: do we need to check for len(n.Entries) for this slice?
-			n.Entries = slices.Delete(n.Entries, childIndex, childIndex)
-		}
-		// if *this* node is now empty, return empty tree
-		if len(n.Entries) == 0 {
-			emptyNode := NewEmptyTree()
-			return emptyNode, prev, nil
-		}
-		// otherwise, return this node
-		return n, prev, nil
+		return removeChild(n, key, height)
 	}
 
 	// look at this level
 	for i, e := range n.Entries {
-		var prev *cid.Cid
-		if e.IsValue() && bytes.Equal(key, e.Key) {
+		if !e.IsValue() {
+			continue
+		}
+		if bytes.Equal(key, e.Key) {
+			// found it! remove from list
+			var prev *cid.Cid
 			n.Dirty = true
 			prev = e.Value
-			// remove from entry list
-			n.Entries = append(n.Entries[:i], n.Entries[i+1:]...)
+			n.Entries = slices.Delete(n.Entries, i, i+1)
+			return n, prev, nil
 		}
-		if len(n.Entries) == 0 {
-			// if *this* node is now empty, return empty tree
-			emptyNode := NewEmptyTree()
-			return emptyNode, prev, nil
-		}
-		return n, prev, nil
 	}
 
 	// key not found
 	return n, nil, nil
+}
+
+// internal helper
+func removeChild(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
+	// XXX: handle situation of merging entries at this level if child is now empty
+
+	// look for a child
+	childIndex := -1
+	for i, e := range n.Entries {
+		if e.IsValue() {
+			if bytes.Compare(key, e.Key) > 0 {
+				break
+			}
+		}
+		if e.IsChild() {
+			childIndex = i
+		}
+	}
+	if childIndex < 0 {
+		// no child pointer; key not in tree
+		return n, nil, nil
+	}
+	if n.Entries[childIndex].Child == nil {
+		// partial node, can't recurse
+		return nil, nil, fmt.Errorf("could not remove key: %w", ErrPartialTree)
+	}
+	newChild, prev, err := Remove(n.Entries[childIndex].Child, key, height)
+	if err != nil {
+		return nil, nil, err
+	}
+	if prev == nil {
+		// nothing changed
+		return n, nil, nil
+	}
+	// we are mutating this entry
+	n.Dirty = true
+	// if new child is empty, remove it from entry list
+	if len(newChild.Entries) == 0 {
+		// TODO: do we need to check for len(n.Entries) for this slice?
+		n.Entries = slices.Delete(n.Entries, childIndex, childIndex+1)
+	}
+	// if *this* node is now empty, return empty tree
+	if len(n.Entries) == 0 {
+		emptyNode := NewEmptyTree()
+		return emptyNode, prev, nil
+	}
+	// otherwise, return this node
+	return n, prev, nil
 }
 
 // Reads the value (CID) corresponding to the key. If key is not in the tree, returns (nil, nil).
@@ -337,39 +511,25 @@ func Get(n *Node, key []byte, height int) (*cid.Cid, error) {
 	}
 
 	if height > n.Height {
-		// removing a key from a higher layer; key was not in tree
+		// key from a higher layer; key was not in tree
 		return nil, nil
 	}
 
 	if height < n.Height {
-		// look for a child
-		childIndex := -1
-		for i, e := range n.Entries {
-			if e.IsValue() {
-				if bytes.Compare(key, e.Key) > 0 {
-					break
-				}
+		// look for a child node
+		idx := findExistingChild(n, key)
+		if idx >= 0 {
+			if n.Entries[idx].Child == nil {
+				return nil, fmt.Errorf("could not search for key: %w", ErrPartialTree)
 			}
-			if e.IsPointer() {
-				childIndex = i
-			}
+			return Get(n.Entries[idx].Child, key, height)
 		}
-		if childIndex < 0 {
-			// no child pointer; key not in tree
-			return nil, nil
-		}
-		if n.Entries[childIndex].Child == nil {
-			// partial node, can't recurse
-			return nil, fmt.Errorf("could not search for key: %w", ErrPartialTree)
-		}
-		return Get(n.Entries[childIndex].Child, key, height)
 	}
 
-	// look at this height
-	for _, e := range n.Entries {
-		if e.IsValue() && bytes.Equal(e.Key, key) {
-			return e.Value, nil
-		}
+	// search at this height
+	idx := findExistingEntry(n, key)
+	if idx >= 0 {
+		return n.Entries[idx].Value, nil
 	}
 
 	// not found
@@ -393,7 +553,7 @@ func NewTreeFromMap(m map[string]cid.Cid) (*Node, error) {
 	if m == nil {
 		return nil, fmt.Errorf("un-initialized map as an argument")
 	}
-	var n *Node
+	n := NewEmptyTree()
 	var err error
 	for key, val := range m {
 		n, _, err = Insert(n, []byte(key), val, -1)
@@ -411,6 +571,9 @@ func ReadTreeToMap(n *Node, m map[string]cid.Cid) error {
 	if m == nil {
 		return fmt.Errorf("un-initialized map as an argument")
 	}
+	if n == nil {
+		return fmt.Errorf("nil tree pointer")
+	}
 	for _, e := range n.Entries {
 		if e.IsValue() {
 			m[string(e.Key)] = *e.Value
@@ -423,6 +586,3 @@ func ReadTreeToMap(n *Node, m map[string]cid.Cid) error {
 	}
 	return nil
 }
-
-// TODO: "walk tree" helper (?)
-// TODO: "hydrate" helper which pulls in blocks by CID (?)
