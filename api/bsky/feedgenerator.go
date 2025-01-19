@@ -24,6 +24,7 @@ type FeedGenerator struct {
 	// acceptsInteractions: Declaration that a feed accepts feedback interactions from a client through app.bsky.feed.sendInteractions
 	AcceptsInteractions *bool            `json:"acceptsInteractions,omitempty" cborgen:"acceptsInteractions,omitempty"`
 	Avatar              *util.LexBlob    `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
+	ContentMode         *string          `json:"contentMode,omitempty" cborgen:"contentMode,omitempty"`
 	CreatedAt           string           `json:"createdAt" cborgen:"createdAt"`
 	Description         *string          `json:"description,omitempty" cborgen:"description,omitempty"`
 	DescriptionFacets   []*RichtextFacet `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`

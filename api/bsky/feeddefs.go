@@ -80,6 +80,7 @@ type FeedDefs_GeneratorView struct {
 	AcceptsInteractions *bool                              `json:"acceptsInteractions,omitempty" cborgen:"acceptsInteractions,omitempty"`
 	Avatar              *string                            `json:"avatar,omitempty" cborgen:"avatar,omitempty"`
 	Cid                 string                             `json:"cid" cborgen:"cid"`
+	ContentMode         *string                            `json:"contentMode,omitempty" cborgen:"contentMode,omitempty"`
 	Creator             *ActorDefs_ProfileView             `json:"creator" cborgen:"creator"`
 	Description         *string                            `json:"description,omitempty" cborgen:"description,omitempty"`
 	DescriptionFacets   []*RichtextFacet                   `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
