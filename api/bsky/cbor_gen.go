@@ -4786,13 +4786,17 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 9
+	fieldCount := 10
 
 	if t.AcceptsInteractions == nil {
 		fieldCount--
 	}
 
 	if t.Avatar == nil {
+		fieldCount--
+	}
+
+	if t.ContentMode == nil {
 		fieldCount--
 	}
 
@@ -4913,6 +4917,38 @@ func (t *FeedGenerator) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
 		return err
+	}
+
+	// t.ContentMode (string) (string)
+	if t.ContentMode != nil {
+
+		if len("contentMode") > 1000000 {
+			return xerrors.Errorf("Value in field \"contentMode\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("contentMode"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("contentMode")); err != nil {
+			return err
+		}
+
+		if t.ContentMode == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.ContentMode) > 1000000 {
+				return xerrors.Errorf("Value in field t.ContentMode was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.ContentMode))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.ContentMode)); err != nil {
+				return err
+			}
+		}
 	}
 
 	// t.Description (string) (string)
@@ -5139,6 +5175,27 @@ func (t *FeedGenerator) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.CreatedAt = string(sval)
+			}
+			// t.ContentMode (string) (string)
+		case "contentMode":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.ContentMode = (*string)(&sval)
+				}
 			}
 			// t.Description (string) (string)
 		case "description":
