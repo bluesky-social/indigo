@@ -53,6 +53,7 @@ func (d *BaseDirectory) ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DID
 		}
 	}
 
+	start := time.Now()
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://"+hostname+"/.well-known/did.json", nil)
 	if err != nil {
 		return nil, fmt.Errorf("constructing HTTP request for did:web resolution: %w", err)
@@ -63,14 +64,17 @@ func (d *BaseDirectory) ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DID
 	var dnsErr *net.DNSError
 	if errors.As(err, &dnsErr) {
 		if dnsErr.IsNotFound {
+			lookupDuration.WithLabelValues("did_web_ident", "error").Observe(time.Since(start).Seconds())
 			return nil, fmt.Errorf("%w: DNS NXDOMAIN", ErrDIDNotFound)
 		}
 	}
 	if err != nil {
+		lookupDuration.WithLabelValues("did_web_ident", "error").Observe(time.Since(start).Seconds())
 		return nil, fmt.Errorf("%w: did:web HTTP well-known fetch: %w", ErrDIDResolutionFailed, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
+		lookupDuration.WithLabelValues("did_web_ident", "error").Observe(time.Since(start).Seconds())
 		return nil, fmt.Errorf("%w: did:web HTTP status 404", ErrDIDNotFound)
 	}
 	if resp.StatusCode != http.StatusOK {
@@ -79,8 +83,10 @@ func (d *BaseDirectory) ResolveDIDWeb(ctx context.Context, did syntax.DID) (*DID
 
 	var doc DIDDocument
 	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+		lookupDuration.WithLabelValues("did_web_ident", "error").Observe(time.Since(start).Seconds())
 		return nil, fmt.Errorf("%w: JSON DID document parse: %w", ErrDIDResolutionFailed, err)
 	}
+	lookupDuration.WithLabelValues("did_web_ident", "success").Observe(time.Since(start).Seconds())
 	return &doc, nil
 }
 
@@ -100,25 +106,32 @@ func (d *BaseDirectory) ResolveDIDPLC(ctx context.Context, did syntax.DID) (*DID
 		}
 	}
 
+	start := time.Now()
 	req, err := http.NewRequestWithContext(ctx, "GET", plcURL+"/"+did.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("constructing HTTP request for did:plc resolution: %w", err)
 	}
 	resp, err := d.HTTPClient.Do(req)
 	if err != nil {
+		lookupDuration.WithLabelValues("did_plc_ident", "error").Observe(time.Since(start).Seconds())
 		return nil, fmt.Errorf("%w: PLC directory lookup: %w", ErrDIDResolutionFailed, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
+		lookupDuration.WithLabelValues("did_plc_ident", "error").Observe(time.Since(start).Seconds())
 		return nil, fmt.Errorf("%w: PLC directory 404", ErrDIDNotFound)
 	}
 	if resp.StatusCode != http.StatusOK {
+		lookupDuration.WithLabelValues("did_plc_ident", "error").Observe(time.Since(start).Seconds())
 		return nil, fmt.Errorf("%w: PLC directory status %d", ErrDIDResolutionFailed, resp.StatusCode)
 	}
 
 	var doc DIDDocument
 	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+		lookupDuration.WithLabelValues("did_plc_ident", "error").Observe(time.Since(start).Seconds())
 		return nil, fmt.Errorf("%w: JSON DID document parse: %w", ErrDIDResolutionFailed, err)
 	}
+
+	lookupDuration.WithLabelValues("did_plc_ident", "success").Observe(time.Since(start).Seconds())
 	return &doc, nil
 }
