@@ -58,9 +58,9 @@ func TestBasicMST(t *testing.T) {
 	m := make(map[string]cid.Cid)
 	assert.NoError(ReadTreeToMap(tree, m))
 	fmt.Println("-----")
-	// XXX: DebugPrintMap(m)
+	DebugPrintMap(m)
 	fmt.Println("-----")
-	// XXX: DebugPrintTree(tree, 0)
+	DebugPrintTree(tree, 0)
 
 	tree, prev, err = Remove(tree, []byte("abc"), -1)
 	assert.NoError(err)
@@ -93,8 +93,8 @@ func TestBasicMap(t *testing.T) {
 	tree, err := NewTreeFromMap(inMap)
 	assert.NoError(err)
 
-	// XXX: fmt.Println("-----")
-	// XXX: DebugPrintTree(tree, 0)
+	fmt.Println("-----")
+	DebugPrintTree(tree, 0)
 	assert.NoError(DebugTreeStructure(tree, -1, nil))
 
 	outMap := make(map[string]cid.Cid, len(inMap))
@@ -122,8 +122,7 @@ func randomStr() string {
 func TestRandomTree(t *testing.T) {
 	assert := assert.New(t)
 
-	// XXX: size := 500
-	size := 1
+	size := 200
 
 	inMap := make(map[string]cid.Cid, size)
 	outMap := make(map[string]cid.Cid, size)
@@ -145,14 +144,14 @@ func TestRandomTree(t *testing.T) {
 	assert.NoError(err)
 
 	fmt.Println("-----")
-	// XXX: DebugPrintTree(tree, 0)
+	DebugPrintTree(tree, 0)
 	assert.NoError(DebugTreeStructure(tree, -1, nil))
 	assert.Equal(size, DebugCountEntries(tree))
 
 	err = ReadTreeToMap(tree, outMap)
 	assert.NoError(err)
 	assert.Equal(len(inMap), len(outMap))
-	// XXX: assert.Equal(inMap, outMap)
+	assert.Equal(inMap, outMap)
 }
 
 func TestRandomUntilError(t *testing.T) {
@@ -160,8 +159,7 @@ func TestRandomUntilError(t *testing.T) {
 	var err error
 	var prev *cid.Cid
 
-	// XXX: size := 100
-	size := 1
+	size := 100
 
 	tree := NewEmptyTree()
 	count := 0
@@ -201,7 +199,7 @@ func TestBrokenCaseOne(t *testing.T) {
 		{"c368b6b55998", "bafkreial4xepr5wnhetxnkmylmipdmjybxsgf74becdi74olmzb5w5gpiq"},
 		{"b948d2e0fc76", "bafkreiaefdmlyfjf4qovfyn22zbpw57wu667jtrvavogfxr7drewx4u24y"},
 		{"93c53d491ffd", "bafkreie2nxdmjsy6k6lendnsy7bzyufj7j37l42ymquwmpuzsauraqsibq"},
-		//{"54ef0958a374", "bafkreigbnjxc7wbxgqxs2n2djjmlxnuf222gdiq4jgdtkse4yn67v5crq4"},
+		{"54ef0958a374", "bafkreigbnjxc7wbxgqxs2n2djjmlxnuf222gdiq4jgdtkse4yn67v5crq4"},
 	}
 
 	tree := NewEmptyTree()
@@ -210,16 +208,12 @@ func TestBrokenCaseOne(t *testing.T) {
 		val, _ := cid.Decode(row[1])
 		tree, _, err = Insert(tree, []byte(row[0]), val, -1)
 		assert.NoError(err)
-		if row[0] == "93c53d491ffd" {
-			fmt.Println("-----")
-			DebugPrintNodePointers(tree)
-		}
 	}
 
 	fmt.Println("-----")
 	DebugPrintNodePointers(tree)
+	DebugPrintChildPointers(tree)
 	DebugPrintTree(tree, 0)
 	assert.Equal(len(entries), DebugCountEntries(tree))
 	assert.NoError(DebugTreeStructure(tree, -1, nil))
-	assert.Error(nil)
 }

@@ -99,8 +99,6 @@ func findExistingEntry(n *Node, key []byte) int {
 
 // Looks for a "child" entry which the key would live under.
 //
-// NOTE: does not verify the lexical range of the child node.
-//
 // Returns -1 if not found.
 func findExistingChild(n *Node, key []byte) int {
 	idx := -1
@@ -135,7 +133,7 @@ func findInsertionIndex(n *Node, key []byte) (idx int, split bool, retErr error)
 			// first, see if there is a next entry as a value which this key would be after; if so we can skip checking this child
 			if i+1 < len(n.Entries) {
 				next := n.Entries[i+1]
-				if next.IsValue() && bytes.Compare(key, next.Key) < 0 {
+				if next.IsValue() && bytes.Compare(key, next.Key) > 0 {
 					continue
 				}
 			}
@@ -214,7 +212,7 @@ func Insert(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, erro
 
 	if !split {
 		// TODO: is this really necessary? or can we just slices.Insert beyond the end of a slice?
-		if idx == len(n.Entries) {
+		if idx >= len(n.Entries) {
 			n.Entries = append(n.Entries, newEntry)
 		} else {
 			n.Entries = slices.Insert(n.Entries, idx, newEntry)
@@ -283,7 +281,7 @@ func getHighestKey(n *Node) []byte {
 
 func splitNodeEntries(n *Node, idx int) (*Node, *Node, error) {
 	if idx == 0 || idx >= len(n.Entries) {
-		return nil, nil, fmt.Errorf("not splitting in middle of entry list")
+		return nil, nil, fmt.Errorf("splitting at one end or the other of entries")
 	}
 	left := Node{
 		Height:  n.Height,
@@ -291,9 +289,10 @@ func splitNodeEntries(n *Node, idx int) (*Node, *Node, error) {
 		Entries: n.Entries[:idx],
 	}
 	right := Node{
-		Height:  n.Height,
-		Dirty:   true,
-		Entries: n.Entries[idx:],
+		Height: n.Height,
+		Dirty:  true,
+		// don't use the same slice here
+		Entries: append([]NodeEntry{}, n.Entries[idx:]...),
 	}
 	if left.IsEmpty() || right.IsEmpty() {
 		return nil, nil, fmt.Errorf("one of the legs is empty (idx=%d, len=%d)", idx, len(n.Entries))
@@ -302,7 +301,6 @@ func splitNodeEntries(n *Node, idx int) (*Node, *Node, error) {
 }
 
 func splitNode(n *Node, key []byte) (*Node, *Node, error) {
-	// XXX: fmt.Println("SPLIT")
 	if n.IsEmpty() {
 		// TODO: this feels defensive and could be removed
 		return nil, nil, fmt.Errorf("tried to split an empty node")
@@ -326,8 +324,10 @@ func splitNode(n *Node, key []byte) (*Node, *Node, error) {
 	left := &Node{
 		Height:  n.Height,
 		Dirty:   true,
-		Entries: append(n.Entries[:idx], NodeEntry{Child: lowerLeft}),
+		Entries: []NodeEntry{},
 	}
+	left.Entries = append(left.Entries, n.Entries[:idx]...)
+	left.Entries = append(left.Entries, NodeEntry{Child: lowerLeft})
 	right := &Node{
 		Height:  n.Height,
 		Dirty:   true,
@@ -364,7 +364,6 @@ func insertParent(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid
 
 // inserts a node "below" this node in tree; either creating a new child entry or re-using an existing one
 func insertChild(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, error) {
-	// XXX: fmt.Printf("INSERT CHILD height=%d\n", n.Height)
 	// look for an existing child node which encompases the key, and use that
 	idx := findExistingChild(n, key)
 	if idx >= 0 {
@@ -385,7 +384,7 @@ func insertChild(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid,
 		return n, prev, nil
 	}
 
-	// insert a child node. this might be recursive if the child is not a *direct* child
+	// insert a new child node. this might be recursive if the child is not a *direct* child
 	idx, split, err := findInsertionIndex(n, key)
 	if err != nil {
 		return nil, nil, err
@@ -399,7 +398,6 @@ func insertChild(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid,
 		Dirty:  true,
 	}
 	newChild, _, err = Insert(newChild, key, val, height)
-	// XXX: fmt.Printf("WILL INSERT NEW CHILD key: %s node: %p child: %p\n", string(key), n, newChild)
 	if err != nil {
 		return nil, nil, err
 	}
