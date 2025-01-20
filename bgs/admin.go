@@ -363,6 +363,8 @@ type RateLimitChangeRequest struct {
 	PerDay    int64  `json:"per_day"`
 	CrawlRate int64  `json:"crawl_rate"`
 	RepoLimit int64  `json:"repo_limit"`
+
+	RelayAllowed bool `json:"relay_allowed"`
 }
 
 func (bgs *BGS) handleAdminChangePDSRateLimits(e echo.Context) error {

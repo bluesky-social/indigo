@@ -391,6 +391,7 @@ const Dash: FC<{}> = () => {
           per_day: pds.PerDayEventRate.Max,
           crawl_rate: pds.CrawlRate.Max,
           repo_limit: pds.RepoLimit,
+          relay_allowed: pds.RelayAllowed,
         }),
       }
     ).then((res) => {
@@ -866,6 +867,14 @@ const Dash: FC<{}> = () => {
                   scope="col"
                   className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
                 >
+                  <a href="#" className="group inline-flex">
+                    Allow Relay
+                  </a>
+                </th>
+                <th
+                  scope="col"
+                  className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 pr-6 whitespace-nowrap"
+                >
                   <a
                     href="#"
                     className="group inline-flex"
@@ -1280,6 +1289,18 @@ const Dash: FC<{}> = () => {
                             aria-hidden="true"
                           />
                         </a>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
+                        <input
+                            type="checkbox"
+                            name={`relay-allow-${pds.ID}`}
+                            id={`relay-allow-${pds.ID}`}
+                            onChange={() => {
+                              pds.RelayAllowed = (document.getElementById(`relay-allow-${pds.ID}`) as HTMLInputElement).checked;
+                              updateRateLimits(pds);
+                            }}
+                            checked={pds.RelayAllowed}
+                        ></input>
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400 text-center w-8 pr-6">
                         {new Date(Date.parse(pds.CreatedAt)).toLocaleString()}

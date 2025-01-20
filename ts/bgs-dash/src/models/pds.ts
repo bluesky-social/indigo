@@ -22,6 +22,7 @@ interface PDS {
   PerDayEventRate: RateLimit;
   RepoCount: number;
   RepoLimit: number;
+  RelayAllowed: boolean;
 }
 
 type PDSKey = keyof PDS;

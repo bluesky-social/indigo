@@ -106,12 +106,6 @@ func run(args []string) error {
 			EnvVars: []string{"RELAY_CRAWL_NONSSL"},
 		},
 		&cli.BoolFlag{
-			Name:    "allow-pds-proxy",
-			Usage:   "allow getting PDS data from a non-canonical source (e.g. another relay)",
-			Value:   true,
-			EnvVars: []string{"RELAY_ALLOW_PDS_PROXY"},
-		},
-		&cli.BoolFlag{
 			Name:    "spidering",
 			Value:   false,
 			EnvVars: []string{"RELAY_SPIDERING", "BGS_SPIDERING"},
@@ -509,7 +503,6 @@ func runBigsky(cctx *cli.Context) error {
 	default:
 		return fmt.Errorf("crawl-ssl-policy/RELAY_CRAWL_NONSSL exepected any|none|require|prod, got %s", cctx.String("crawl-ssl-policy"))
 	}
-	bgsConfig.AllowPDSProxies = cctx.Bool("allow-pds-proxy")
 	bgsConfig.CompactInterval = cctx.Duration("compact-interval")
 	bgsConfig.ConcurrencyPerPDS = cctx.Int64("concurrency-per-pds")
 	bgsConfig.MaxQueuePerPDS = cctx.Int64("max-queue-per-pds")
