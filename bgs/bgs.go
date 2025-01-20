@@ -65,9 +65,9 @@ type BGS struct {
 
 	hr api.HandleResolver
 
-	// TODO: work on doing away with this flag in favor of more pluggable
-	// pieces that abstract the need for explicit ssl checks
-	ssl bool
+	ssl SlurperSSLStance
+
+	config BGSConfig
 
 	crawlOnly bool
 
@@ -117,12 +117,13 @@ type SocketConsumer struct {
 }
 
 type BGSConfig struct {
-	SSL                  bool
+	SSL                  SlurperSSLStance
 	CompactInterval      time.Duration
 	DefaultRepoLimit     int64
 	ConcurrencyPerPDS    int64
 	MaxQueuePerPDS       int64
 	NumCompactionWorkers int
+	VerboseAPILog        bool
 
 	// NextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
 	NextCrawlers []*url.URL
@@ -130,7 +131,7 @@ type BGSConfig struct {
 
 func DefaultBGSConfig() *BGSConfig {
 	return &BGSConfig{
-		SSL:                  true,
+		SSL:                  SlurperRequireSSL,
 		CompactInterval:      4 * time.Hour,
 		DefaultRepoLimit:     100,
 		ConcurrencyPerPDS:    100,
@@ -161,6 +162,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		events:  evtman,
 		didr:    didr,
 		ssl:     config.SSL,
+		config:  *config,
 
 		consumersLk: sync.RWMutex{},
 		consumers:   make(map[uint64]*SocketConsumer),
@@ -317,7 +319,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	if !bgs.ssl {
+	if bgs.config.VerboseAPILog {
 		e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 			Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
 		}))
@@ -941,7 +943,9 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return fmt.Errorf("rebase was true in event seq:%d,host:%s", evt.Seq, host.Host)
 		}
 
-		if host.ID != u.PDS && u.PDS != 0 {
+		if host.RelayAllowed {
+			// don't check that source is canonical PDS, allow intermediate relays
+		} else if host.ID != u.PDS && u.PDS != 0 {
 			bgs.log.Warn("received event for repo from different pds than expected", "repo", evt.Repo, "expPds", u.PDS, "gotPds", host.Host)
 			// Flush any cached DID documents for this user
 			bgs.didr.FlushCacheFor(env.RepoCommit.Repo)
@@ -1273,7 +1277,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		peering.DailyEventLimit = s.slurper.DefaultPerDayLimit
 		peering.RepoLimit = s.slurper.DefaultRepoLimit
 
-		if s.ssl && !peering.SSL {
+		if (s.ssl == SlurperRequireSSL) && !peering.SSL {
 			return nil, fmt.Errorf("did references non-ssl PDS, this is disallowed in prod: %q %q", did, svc.ServiceEndpoint)
 		}
 

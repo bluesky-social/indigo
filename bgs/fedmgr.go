@@ -55,7 +55,7 @@ type Slurper struct {
 	shutdownChan   chan bool
 	shutdownResult chan []error
 
-	ssl bool
+	ssl SlurperSSLStance
 }
 
 type Limiters struct {
@@ -64,8 +64,71 @@ type Limiters struct {
 	PerDay    *slidingwindow.Limiter
 }
 
+type SlurperSSLStance int
+
+const (
+	// ALL upstreams must be wss:// and https://
+	SlurperRequireSSL SlurperSSLStance = 1
+
+	// NO upstreams may be wss:// and https://
+	SlurperDisableSSL SlurperSSLStance = 2
+
+	// Anything is allowed!
+	SlurperMixedSSL SlurperSSLStance = 3
+
+	// upstreams set by /admin/* may be anything, other things must be wss:// https://
+	SlurperRequireExternalSSL SlurperSSLStance = 4
+)
+
+// return true if an external requestCrawl meets SSL policy
+func (sssl SlurperSSLStance) ExternalOk(ssl bool) bool {
+	switch sssl {
+	case SlurperRequireSSL:
+		return ssl
+	case SlurperDisableSSL:
+		return !ssl
+	case SlurperRequireExternalSSL:
+		return ssl
+	case SlurperMixedSSL:
+		return true
+	default:
+		slog.Error("unknown ssl policy", "ssl", sssl)
+		return true
+	}
+}
+
+// return true if admin action meets SSL policy
+func (sssl SlurperSSLStance) AdminOk(ssl bool) bool {
+	switch sssl {
+	case SlurperRequireSSL:
+		return ssl
+	case SlurperDisableSSL:
+		return !ssl
+	case SlurperRequireExternalSSL, SlurperMixedSSL:
+		return true
+	default:
+		slog.Error("unknown ssl policy", "ssl", sssl)
+		return true
+	}
+}
+
+func (sssl SlurperSSLStance) String() string {
+	switch sssl {
+	case SlurperRequireSSL:
+		return "required"
+	case SlurperRequireExternalSSL:
+		return "external required"
+	case SlurperDisableSSL:
+		return "disabled"
+	case SlurperMixedSSL:
+		return "mixed"
+	default:
+		return fmt.Sprintf("slurper_ssl_%d", int(sssl))
+	}
+}
+
 type SlurperOptions struct {
-	SSL                   bool
+	SSL                   SlurperSSLStance
 	DefaultPerSecondLimit int64
 	DefaultPerHourLimit   int64
 	DefaultPerDayLimit    int64
@@ -77,7 +140,7 @@ type SlurperOptions struct {
 
 func DefaultSlurperOptions() *SlurperOptions {
 	return &SlurperOptions{
-		SSL:                   false,
+		SSL:                   SlurperDisableSSL,
 		DefaultPerSecondLimit: 50,
 		DefaultPerHourLimit:   2500,
 		DefaultPerDayLimit:    20_000,
@@ -363,7 +426,7 @@ func (s *Slurper) canSlurpHost(host string) bool {
 	return !s.newSubsDisabled
 }
 
-func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adminOverride bool) error {
+func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adminOverride, sslUrl bool) error {
 	// TODO: for performance, lock on the hostname instead of global
 	s.lk.Lock()
 	defer s.lk.Unlock()
@@ -389,7 +452,7 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adm
 		// New PDS!
 		npds := models.PDS{
 			Host:             host,
-			SSL:              s.ssl,
+			SSL:              sslUrl,
 			Registered:       reg,
 			RateLimit:        float64(s.DefaultPerSecondLimit),
 			HourlyEventLimit: s.DefaultPerHourLimit,
@@ -467,7 +530,7 @@ func (s *Slurper) subscribeWithRedialer(ctx context.Context, host *models.PDS, s
 	}
 
 	protocol := "ws"
-	if s.ssl {
+	if host.SSL {
 		protocol = "wss"
 	}
 
