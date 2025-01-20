@@ -173,7 +173,7 @@ func insertParent(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid
 
 // inserts a node "below" this node in tree; either creating a new child entry or re-using an existing one
 func insertChild(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, error) {
-	// look for an existing child node which encompases the key, and use that
+	// look for an existing child node which encompasses the key, and use that
 	idx := findExistingChild(n, key)
 	if idx >= 0 {
 		e := n.Entries[idx]
