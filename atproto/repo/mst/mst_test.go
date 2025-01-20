@@ -58,16 +58,16 @@ func TestBasicMST(t *testing.T) {
 	m := make(map[string]cid.Cid)
 	assert.NoError(ReadTreeToMap(tree, m))
 	fmt.Println("-----")
-	DebugPrintMap(m)
+	debugPrintMap(m)
 	fmt.Println("-----")
-	DebugPrintTree(tree, 0)
+	debugPrintTree(tree, 0)
 
 	tree, prev, err = Remove(tree, []byte("abc"), -1)
 	assert.NoError(err)
 	assert.NotEmpty(prev)
 	assert.Equal(&c3, prev)
 
-	assert.NoError(DebugTreeStructure(tree, -1, nil))
+	assert.NoError(debugTreeStructure(tree, -1, nil))
 }
 
 func TestBasicMap(t *testing.T) {
@@ -94,8 +94,8 @@ func TestBasicMap(t *testing.T) {
 	assert.NoError(err)
 
 	fmt.Println("-----")
-	DebugPrintTree(tree, 0)
-	assert.NoError(DebugTreeStructure(tree, -1, nil))
+	debugPrintTree(tree, 0)
+	assert.NoError(debugTreeStructure(tree, -1, nil))
 
 	outMap := make(map[string]cid.Cid, len(inMap))
 	err = ReadTreeToMap(tree, outMap)
@@ -144,9 +144,9 @@ func TestRandomTree(t *testing.T) {
 	assert.NoError(err)
 
 	fmt.Println("-----")
-	DebugPrintTree(tree, 0)
-	assert.NoError(DebugTreeStructure(tree, -1, nil))
-	assert.Equal(size, DebugCountEntries(tree))
+	debugPrintTree(tree, 0)
+	assert.NoError(debugTreeStructure(tree, -1, nil))
+	assert.Equal(size, debugCountEntries(tree))
 
 	err = ReadTreeToMap(tree, outMap)
 	assert.NoError(err)
@@ -179,7 +179,7 @@ func TestRandomTree(t *testing.T) {
 		if err != nil {
 			break
 		}
-		err = DebugTreeStructure(tree, -1, nil)
+		err = debugTreeStructure(tree, -1, nil)
 		assert.NoError(err)
 		if err != nil {
 			break
@@ -207,12 +207,12 @@ func TestRandomUntilError(t *testing.T) {
 			count++
 		}
 
-		assert.Equal(count, DebugCountEntries(tree))
-		err = DebugTreeStructure(tree, -1, nil)
+		assert.Equal(count, debugCountEntries(tree))
+		err = debugTreeStructure(tree, -1, nil)
 		assert.NoError(err)
-		if err != nil || count != DebugCountEntries(tree) {
+		if err != nil || count != debugCountEntries(tree) {
 			fmt.Println("-----")
-			DebugPrintTree(tree, 0)
+			debugPrintTree(tree, 0)
 			break
 		}
 	}
@@ -244,9 +244,9 @@ func TestBrokenCaseOne(t *testing.T) {
 	}
 
 	fmt.Println("-----")
-	DebugPrintNodePointers(tree)
-	DebugPrintChildPointers(tree)
-	DebugPrintTree(tree, 0)
-	assert.Equal(len(entries), DebugCountEntries(tree))
-	assert.NoError(DebugTreeStructure(tree, -1, nil))
+	debugPrintNodePointers(tree)
+	debugPrintChildPointers(tree)
+	debugPrintTree(tree, 0)
+	assert.Equal(len(entries), debugCountEntries(tree))
+	assert.NoError(debugTreeStructure(tree, -1, nil))
 }

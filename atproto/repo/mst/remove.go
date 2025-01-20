@@ -13,7 +13,7 @@ import (
 // key: key or path being inserted. must not be empty/nil
 // height: tree height corresponding to key. if a negative value is provided, will be computed; use -1 instead of 0 if height is not known
 func Remove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
-	// TODO: better handling of "is this the top"
+	// TODO: do we need better handling of "is this the top"?
 	top := false
 	if height < 0 {
 		top = true
@@ -26,7 +26,7 @@ func Remove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 	}
 
 	if height < n.Height {
-		// XXX: handle case of this returning an empty node; in which case reset height to empty tree?
+		// TODO: handle case of this returning an empty node at top of tree, with wrong height
 		return removeChild(n, key, height)
 	}
 
@@ -43,7 +43,6 @@ func Remove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 
 	// check if we need to "merge" adjacent nodes
 	if idx > 0 && idx+1 < len(n.Entries) && n.Entries[idx-1].IsChild() && n.Entries[idx+1].IsChild() {
-		fmt.Println("MERGE") // XXX
 		if n.Entries[idx-1].Child == nil || n.Entries[idx+1].Child == nil {
 			return nil, nil, fmt.Errorf("can't merge partial nodes")
 		}
@@ -51,19 +50,11 @@ func Remove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		// XXX:
-		if err := DebugSiblingChild(newChild); err != nil {
-			fmt.Println("BAD CHILD MERGE")
-		}
 		n.Entries = slices.Delete(n.Entries, idx, idx+2)
 		n.Entries[idx-1] = NodeEntry{Child: newChild}
 	} else {
 		// simple removal
 		n.Entries = slices.Delete(n.Entries, idx, idx+1)
-	}
-	// XXX
-	if err := DebugSiblingChild(n); err != nil {
-		fmt.Println("BAD MERGE")
 	}
 
 	// check if top of node is now just a pointer
@@ -73,7 +64,7 @@ func Remove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 				break
 			}
 			if n.Entries[0].Child == nil {
-				return nil, nil, fmt.Errorf("can't prune partial tree") // TODO: wrap partial
+				return nil, nil, fmt.Errorf("can not prune top of tree: %w", ErrPartialTree)
 			}
 			n = n.Entries[0].Child
 		}
@@ -89,11 +80,11 @@ func mergeNodes(left *Node, right *Node) (*Node, error) {
 		Entries: append(left.Entries, right.Entries...),
 	}
 	if n.Entries[idx-1].IsChild() && n.Entries[idx].IsChild() {
-		// need to merge recusively
+		// need to merge recursively
 		lowerLeft := n.Entries[idx-1]
 		lowerRight := n.Entries[idx]
 		if lowerLeft.Child == nil || lowerRight.Child == nil {
-			return nil, fmt.Errorf("can't merge partial child nodes") // TODO: wrap partial error
+			return nil, fmt.Errorf("can not merge child nodes: %w", ErrPartialTree)
 		}
 		lowerMerged, err := mergeNodes(lowerLeft.Child, lowerRight.Child)
 		if err != nil {

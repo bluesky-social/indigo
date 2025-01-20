@@ -8,7 +8,7 @@ import (
 	"github.com/ipfs/go-cid"
 )
 
-func DebugPrintMap(m map[string]cid.Cid) {
+func debugPrintMap(m map[string]cid.Cid) {
 	keys := make([]string, len(m))
 	i := 0
 	for k := range m {
@@ -21,7 +21,8 @@ func DebugPrintMap(m map[string]cid.Cid) {
 	}
 }
 
-func DebugPrintTree(n *Node, depth int) {
+// This function is not very well implemented or correct. Should probably switch to Devin's `goat repo mst` code.
+func debugPrintTree(n *Node, depth int) {
 	if n == nil {
 		fmt.Printf("EMPTY TREE")
 		return
@@ -50,7 +51,7 @@ func DebugPrintTree(n *Node, depth int) {
 			fmt.Printf(" (%d) %s -> %s\n", HeightForKey(e.Key), e.Key, e.Value)
 		} else if e.IsChild() {
 			if e.Child != nil {
-				DebugPrintTree(e.Child, depth+1)
+				debugPrintTree(e.Child, depth+1)
 			} else {
 				fmt.Printf(" (partial) %s", e.ChildCID)
 			}
@@ -58,7 +59,8 @@ func DebugPrintTree(n *Node, depth int) {
 	}
 }
 
-func DebugTreeStructure(n *Node, height int, key []byte) error {
+// This function should probably be turned in to some kind of "VerifyStructure" public method.
+func debugTreeStructure(n *Node, height int, key []byte) error {
 	if n == nil {
 		return fmt.Errorf("nil tree")
 	}
@@ -100,7 +102,7 @@ func DebugTreeStructure(n *Node, height int, key []byte) error {
 				return fmt.Errorf("child below zero height")
 			}
 			if e.Child != nil {
-				if err := DebugTreeStructure(e.Child, height-1, key); err != nil {
+				if err := debugTreeStructure(e.Child, height-1, key); err != nil {
 					return err
 				}
 			}
@@ -123,7 +125,7 @@ func DebugTreeStructure(n *Node, height int, key []byte) error {
 	return nil
 }
 
-func DebugCountEntries(n *Node) int {
+func debugCountEntries(n *Node) int {
 	if n == nil {
 		return 0
 	}
@@ -133,37 +135,37 @@ func DebugCountEntries(n *Node) int {
 			count++
 		}
 		if e.IsChild() && e.Child != nil {
-			count += DebugCountEntries(e.Child)
+			count += debugCountEntries(e.Child)
 		}
 	}
 	return count
 }
 
-func DebugPrintNodePointers(n *Node) {
+func debugPrintNodePointers(n *Node) {
 	if n == nil {
 		return
 	}
 	fmt.Printf("%p %p\n", n, n.Entries)
 	for _, e := range n.Entries {
 		if e.IsChild() && e.Child != nil {
-			DebugPrintNodePointers(e.Child)
+			debugPrintNodePointers(e.Child)
 		}
 	}
 }
 
-func DebugPrintChildPointers(n *Node) {
+func debugPrintChildPointers(n *Node) {
 	if n == nil {
 		return
 	}
 	for _, e := range n.Entries {
 		if e.IsChild() && e.Child != nil {
 			fmt.Printf("CHILD PTR: %p entry: %p\n", e.Child, &e)
-			DebugPrintChildPointers(e.Child)
+			debugPrintChildPointers(e.Child)
 		}
 	}
 }
 
-func DebugSiblingChild(n *Node) error {
+func debugSiblingChild(n *Node) error {
 	lastChild := false
 	for _, e := range n.Entries {
 		if e.IsChild() {
