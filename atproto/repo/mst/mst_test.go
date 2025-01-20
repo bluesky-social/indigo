@@ -152,6 +152,39 @@ func TestRandomTree(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal(len(inMap), len(outMap))
 	assert.Equal(inMap, outMap)
+
+	mapKeys := make([]string, len(inMap))
+	i := 0
+	for k, _ := range inMap {
+		mapKeys[i] = k
+		i++
+	}
+	rand.Shuffle(len(mapKeys), func(i, j int) {
+		mapKeys[i], mapKeys[j] = mapKeys[j], mapKeys[i]
+	})
+
+	// test gets
+	for _, k := range mapKeys {
+		val, err := Get(tree, []byte(k), -1)
+		assert.NoError(err)
+		assert.Equal(inMap[k], *val)
+	}
+
+	// finally, removals
+	var val *cid.Cid
+	for _, k := range mapKeys {
+		tree, val, err = Remove(tree, []byte(k), -1)
+		assert.NoError(err)
+		assert.NotNil(val)
+		if err != nil {
+			break
+		}
+		err = DebugTreeStructure(tree, -1, nil)
+		assert.NoError(err)
+		if err != nil {
+			break
+		}
+	}
 }
 
 func TestRandomUntilError(t *testing.T) {
@@ -159,7 +192,7 @@ func TestRandomUntilError(t *testing.T) {
 	var err error
 	var prev *cid.Cid
 
-	size := 100
+	size := 200
 
 	tree := NewEmptyTree()
 	count := 0
