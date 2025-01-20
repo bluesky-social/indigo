@@ -283,10 +283,11 @@ const Dash: FC<{}> = () => {
   }
 
   const requestCrawlHost = (host: string) => {
-    fetch(`${RELAY_HOST}/xrpc/com.atproto.sync.requestCrawl`, {
+    fetch(`${RELAY_HOST}/admin/pds/requestCrawl`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
       },
       body: JSON.stringify({
         hostname: host,
