@@ -136,13 +136,25 @@ func DebugCountEntries(n *Node) int {
 }
 
 func DebugPrintNodePointers(n *Node) {
-	fmt.Printf("%p\n", n)
+	if n == nil {
+		return
+	}
+	fmt.Printf("%p %p\n", n, n.Entries)
+	for _, e := range n.Entries {
+		if e.IsChild() && e.Child != nil {
+			DebugPrintNodePointers(e.Child)
+		}
+	}
+}
+
+func DebugPrintChildPointers(n *Node) {
 	if n == nil {
 		return
 	}
 	for _, e := range n.Entries {
 		if e.IsChild() && e.Child != nil {
-			DebugPrintNodePointers(e.Child)
+			fmt.Printf("CHILD PTR: %p entry: %p\n", e.Child, &e)
+			DebugPrintChildPointers(e.Child)
 		}
 	}
 }
