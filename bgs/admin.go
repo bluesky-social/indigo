@@ -385,6 +385,7 @@ func (bgs *BGS) handleAdminChangePDSRateLimits(e echo.Context) error {
 	pds.DailyEventLimit = body.PerDay
 	pds.CrawlRateLimit = float64(body.CrawlRate)
 	pds.RepoLimit = body.RepoLimit
+	pds.RelayAllowed = body.RelayAllowed
 
 	if err := bgs.db.Save(&pds).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf("failed to save rate limit changes: %w", err))
