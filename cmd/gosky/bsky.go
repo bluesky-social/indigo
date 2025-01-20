@@ -335,7 +335,7 @@ var bskyNotificationsCmd = &cli.Command{
 			return err
 		}
 
-		notifs, err := appbsky.NotificationListNotifications(ctx, xrpcc, "", 50, false, "")
+		notifs, err := appbsky.NotificationListNotifications(ctx, xrpcc, "", 50, false, nil, "")
 		if err != nil {
 			return err
 		}

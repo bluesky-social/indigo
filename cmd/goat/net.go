@@ -12,7 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-func fetchRecord(ctx context.Context, ident identity.Identity, aturi syntax.ATURI) (any, error) {
+func fetchRecord(ctx context.Context, ident identity.Identity, aturi syntax.ATURI) (map[string]any, error) {
 
 	slog.Debug("fetching record", "did", ident.DID.String(), "collection", aturi.Collection().String(), "rkey", aturi.RecordKey().String())
 	xrpcc := xrpc.Client{

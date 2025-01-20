@@ -141,7 +141,11 @@ func DefaultBGSConfig() *BGSConfig {
 }
 
 func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, rf *indexer.RepoFetcher, hr api.HandleResolver, config *BGSConfig) (*BGS, error) {
-
+	logger := slog.Default().With("system", "bgs")
+	err := fixupDupPDSRows(db, logger)
+	if err != nil {
+		return nil, err
+	}
 	if config == nil {
 		config = DefaultBGSConfig()
 	}
@@ -171,7 +175,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 
 		userCache: uc,
 
-		log: slog.Default().With("system", "bgs"),
+		log: logger,
 	}
 
 	ix.CreateExternalUser = bgs.createExternalUser
@@ -202,6 +206,68 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	bgs.httpClient.Timeout = time.Second * 5
 
 	return bgs, nil
+}
+
+func fixupDupPDSRows(db *gorm.DB, logger *slog.Logger) error {
+	rows, err := db.Raw("SELECT id, host FROM pds").Rows()
+	if err != nil {
+		logger.Warn("could not list PDS rows; assume blank db", "err", err)
+		return nil
+	}
+	hostCounts := make(map[string][]uint)
+	maxPDSId := uint(0)
+	maxHostCount := 0
+	for rows.Next() {
+		var pdsId uint
+		var host string
+		if err := rows.Scan(&pdsId, &host); err != nil {
+			return fmt.Errorf("pds sql row err, %w", err)
+		}
+		idlist := hostCounts[host]
+		idlist = append(idlist, pdsId)
+		count := len(idlist)
+		if count > maxHostCount {
+			maxHostCount = count
+		}
+		hostCounts[host] = idlist
+		if pdsId > maxPDSId {
+			maxPDSId = pdsId
+		}
+	}
+	if maxHostCount <= 1 {
+		logger.Debug("no pds dup rows found")
+		return nil
+	}
+	for host, idlist := range hostCounts {
+		if len(idlist) > 1 {
+			logger.Info("dup PDS", "host", host, "count", len(idlist))
+			minPDSId := idlist[0]
+			for _, otherid := range idlist[1:] {
+				if otherid < minPDSId {
+					minPDSId = otherid
+				}
+			}
+			for _, xPDSId := range idlist {
+				if xPDSId == minPDSId {
+					continue
+				}
+				logger.Info("dup PDS", "host", host, "from", xPDSId, "to", minPDSId)
+				err = db.Exec("UPDATE users SET pds = ? WHERE pds = ?", minPDSId, xPDSId).Error
+				if err != nil {
+					return fmt.Errorf("failed to update user pds %d -> %d: %w", xPDSId, minPDSId, err)
+				}
+				err = db.Exec("UPDATE actor_infos SET pds = ? WHERE pds = ?", minPDSId, xPDSId).Error
+				if err != nil {
+					return fmt.Errorf("failed to update actor_infos pds %d -> %d: %w", xPDSId, minPDSId, err)
+				}
+				err = db.Exec("DELETE FROM pds WHERE id = ?", xPDSId).Error
+				if err != nil {
+					return fmt.Errorf("failed to delete pds %d: %w", xPDSId, err)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (bgs *BGS) StartMetrics(listen string) error {

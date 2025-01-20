@@ -14,6 +14,8 @@ import (
 type UnspeccedGetSuggestionsSkeleton_Output struct {
 	Actors []*UnspeccedDefs_SkeletonSearchActor `json:"actors" cborgen:"actors"`
 	Cursor *string                              `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
+	// recId: Snowflake for this recommendation, use when submitting recommendation events.
+	RecId *int64 `json:"recId,omitempty" cborgen:"recId,omitempty"`
 	// relativeToDid: DID of the account these suggestions are relative to. If this is returned undefined, suggestions are based on the viewer.
 	RelativeToDid *string `json:"relativeToDid,omitempty" cborgen:"relativeToDid,omitempty"`
 }
