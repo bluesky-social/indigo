@@ -442,7 +442,7 @@ func (sqs *ScyllaStore) WipeUserData(ctx context.Context, user models.Uid) error
 	for xcid := range cidchan {
 		err := sqs.ReadSession.Query("DELETE FROM blocks WHERE uid = ? AND cid = ?", user, xcid.Bytes()).Exec()
 		if err != nil {
-			sqs.log.Warn("ReadUserCar bad delete, %w", err)
+			sqs.log.Warn("ReadUserCar bad delete", "err", err)
 			errcount++
 			if errcount > 10 {
 				return err

@@ -466,6 +466,7 @@ func (s *Slurper) SubscribeToPds(ctx context.Context, host string, reg bool, adm
 			npds.DailyEventLimit = rateOverrides.PerDay
 			npds.CrawlRateLimit = float64(rateOverrides.CrawlRate)
 			npds.RepoLimit = rateOverrides.RepoLimit
+			npds.RelayAllowed = rateOverrides.RelayAllowed
 		}
 		if err := s.db.Create(&npds).Error; err != nil {
 			return err

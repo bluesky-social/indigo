@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apex/log"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/labstack/echo/v4"
 	dto "github.com/prometheus/client_model/go"
