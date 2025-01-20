@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apex/log"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/labstack/echo/v4"
 	dto "github.com/prometheus/client_model/go"
@@ -356,15 +357,37 @@ func (bgs *BGS) handleAdminUnbanDomain(c echo.Context) error {
 	})
 }
 
-type RateLimitChangeRequest struct {
-	Host      string `json:"host"`
-	PerSecond int64  `json:"per_second"`
-	PerHour   int64  `json:"per_hour"`
-	PerDay    int64  `json:"per_day"`
-	CrawlRate int64  `json:"crawl_rate"`
-	RepoLimit int64  `json:"repo_limit"`
+type PDSRates struct {
+	PerSecond int64 `json:"per_second,omitempty"`
+	PerHour   int64 `json:"per_hour,omitempty"`
+	PerDay    int64 `json:"per_day,omitempty"`
+	CrawlRate int64 `json:"crawl_rate,omitempty"`
+	RepoLimit int64 `json:"repo_limit,omitempty"`
 
-	RelayAllowed bool `json:"relay_allowed"`
+	RelayAllowed bool `json:"relay_allowed,omitempty"`
+}
+
+func (pr *PDSRates) FromSlurper(s *Slurper) {
+	if pr.PerSecond == 0 {
+		pr.PerHour = s.DefaultPerSecondLimit
+	}
+	if pr.PerHour == 0 {
+		pr.PerHour = s.DefaultPerHourLimit
+	}
+	if pr.PerDay == 0 {
+		pr.PerDay = s.DefaultPerDayLimit
+	}
+	if pr.CrawlRate == 0 {
+		pr.CrawlRate = int64(s.DefaultCrawlLimit)
+	}
+	if pr.RepoLimit == 0 {
+		pr.RepoLimit = s.DefaultRepoLimit
+	}
+}
+
+type RateLimitChangeRequest struct {
+	Host string `json:"host"`
+	PDSRates
 }
 
 func (bgs *BGS) handleAdminChangePDSRateLimits(e echo.Context) error {
@@ -598,6 +621,9 @@ func (bgs *BGS) handleAdminAddTrustedDomain(e echo.Context) error {
 
 type AdminRequestCrawlRequest struct {
 	Hostname string `json:"hostname"`
+
+	// optional:
+	PDSRates
 }
 
 func (bgs *BGS) handleAdminRequestCrawl(e echo.Context) error {
@@ -639,6 +665,8 @@ func (bgs *BGS) handleAdminRequestCrawl(e echo.Context) error {
 	}
 
 	// Skip checking if the server is online for now
+	rateOverrides := body.PDSRates
+	rateOverrides.FromSlurper(bgs.slurper)
 
-	return bgs.slurper.SubscribeToPds(ctx, host, true, true, sslUrl) // Override Trusted Domain Check
+	return bgs.slurper.SubscribeToPds(ctx, host, true, true, sslUrl, &rateOverrides) // Override Trusted Domain Check
 }

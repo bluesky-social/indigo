@@ -223,6 +223,17 @@ func run(args []string) error {
 			EnvVars: []string{"RELAY_NEXT_CRAWLER"},
 		},
 		&cli.BoolFlag{
+			Name:  "ex-sqlite-carstore",
+			Usage: "enable experimental sqlite carstore",
+			Value: false,
+		},
+		&cli.StringSliceFlag{
+			Name:    "scylla-carstore",
+			Usage:   "scylla server addresses for storage backend, comma separated",
+			Value:   &cli.StringSlice{},
+			EnvVars: []string{"RELAY_SCYLLA_NODES"},
+		},
+		&cli.BoolFlag{
 			Name:    "non-archival",
 			EnvVars: []string{"RELAY_NON_ARCHIVAL"},
 			Value:   false,
@@ -322,56 +333,72 @@ func runBigsky(cctx *cli.Context) error {
 		return err
 	}
 
-	slog.Info("setting up main database")
 	dburl := cctx.String("db-url")
+	slog.Info("setting up main database", "url", dburl)
 	db, err := cliutil.SetupDatabase(dburl, cctx.Int("max-metadb-connections"))
 	if err != nil {
 		return err
 	}
-
-	slog.Info("setting up carstore database")
-	csdburl := cctx.String("carstore-db-url")
-	csdb, err := cliutil.SetupDatabase(csdburl, cctx.Int("max-carstore-connections"))
-	if err != nil {
-		return err
-	}
-
 	if cctx.Bool("db-tracing") {
 		if err := db.Use(tracing.NewPlugin()); err != nil {
-			return err
-		}
-		if err := csdb.Use(tracing.NewPlugin()); err != nil {
-			return err
-		}
-	}
-
-	csdirs := []string{csdir}
-	if paramDirs := cctx.StringSlice("carstore-shard-dirs"); len(paramDirs) > 0 {
-		csdirs = paramDirs
-	}
-
-	for _, csd := range csdirs {
-		if err := os.MkdirAll(filepath.Dir(csd), os.ModePerm); err != nil {
 			return err
 		}
 	}
 
 	var cstore carstore.CarStore
-
-	if cctx.Bool("non-archival") {
+	scyllaAddrs := cctx.StringSlice("scylla-carstore")
+	sqliteStore := cctx.Bool("ex-sqlite-carstore")
+	if len(scyllaAddrs) != 0 {
+		slog.Info("starting scylla carstore", "addrs", scyllaAddrs)
+		cstore, err = carstore.NewScyllaStore(scyllaAddrs, "cs")
+	} else if sqliteStore {
+		slog.Info("starting sqlite carstore", "dir", csdir)
+		cstore, err = carstore.NewSqliteStore(csdir)
+	} else if cctx.Bool("non-archival") {
+		csdburl := cctx.String("carstore-db-url")
+		slog.Info("setting up non-archival carstore database", "url", csdburl)
+		csdb, err := cliutil.SetupDatabase(csdburl, cctx.Int("max-carstore-connections"))
+		if err != nil {
+			return err
+		}
+		if cctx.Bool("db-tracing") {
+			if err := csdb.Use(tracing.NewPlugin()); err != nil {
+				return err
+			}
+		}
 		cs, err := carstore.NewNonArchivalCarstore(csdb)
 		if err != nil {
 			return err
 		}
-
 		cstore = cs
 	} else {
-		cs, err := carstore.NewCarStore(csdb, csdirs)
+		// make standard FileCarStore
+		csdburl := cctx.String("carstore-db-url")
+		slog.Info("setting up carstore database", "url", csdburl)
+		csdb, err := cliutil.SetupDatabase(csdburl, cctx.Int("max-carstore-connections"))
 		if err != nil {
 			return err
 		}
+		if cctx.Bool("db-tracing") {
+			if err := csdb.Use(tracing.NewPlugin()); err != nil {
+				return err
+			}
+		}
+		csdirs := []string{csdir}
+		if paramDirs := cctx.StringSlice("carstore-shard-dirs"); len(paramDirs) > 0 {
+			csdirs = paramDirs
+		}
 
-		cstore = cs
+		for _, csd := range csdirs {
+			if err := os.MkdirAll(filepath.Dir(csd), os.ModePerm); err != nil {
+				return err
+			}
+		}
+		cstore, err = carstore.NewCarStore(csdb, csdirs)
+	}
+
+	if err != nil {
+		return err
 	}
 
 	// DID RESOLUTION
