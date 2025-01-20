@@ -11,7 +11,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -104,6 +106,7 @@ func run(args []string) {
 		readRepoStreamCmd,
 		parseRkey,
 		listLabelsCmd,
+		streamInspectorCmd,
 	}
 
 	app.RunAndExitOnError()
@@ -582,6 +585,9 @@ var createFeedGeneratorCmd = &cli.Command{
 		&cli.StringFlag{
 			Name: "display-name",
 		},
+		&cli.BoolFlag{
+			Name: "video",
+		},
 	},
 	Action: func(cctx *cli.Context) error {
 		xrpcc, err := cliutil.GetXrpcClient(cctx, true)
@@ -604,12 +610,19 @@ var createFeedGeneratorCmd = &cli.Command{
 
 		ctx := context.TODO()
 
-		rec := &lexutil.LexiconTypeDecoder{Val: &bsky.FeedGenerator{
+		fg := &bsky.FeedGenerator{
 			CreatedAt:   time.Now().Format(util.ISO8601),
 			Description: desc,
 			Did:         did,
 			DisplayName: name,
-		}}
+		}
+
+		if cctx.Bool("video") {
+			cm := "app.bsky.feed.defs#contentModeVideo"
+			fg.ContentMode = &cm
+		}
+
+		rec := &lexutil.LexiconTypeDecoder{Val: fg}
 
 		ex, err := atproto.RepoGetRecord(ctx, xrpcc, "", "app.bsky.feed.generator", xrpcc.Auth.Did, rkey)
 		if err == nil {
@@ -816,5 +829,148 @@ var listLabelsCmd = &cli.Command{
 			}
 		}
 		return nil
+	},
+}
+
+type kvPair struct {
+	K string
+	V int
+}
+
+func topNFromMap(m map[string]int, n int) []kvPair {
+	var all []kvPair
+	for k, v := range m {
+		all = append(all, kvPair{K: k, V: v})
+	}
+
+	sort.Slice(all, func(i, j int) bool {
+		return all[i].V > all[j].V
+	})
+
+	if len(all) > n {
+		return all[:n]
+	}
+	return all
+}
+
+var streamInspectorCmd = &cli.Command{
+	Name:      "stream-inspector",
+	Flags:     []cli.Flag{},
+	ArgsUsage: `[<repo> [cursor]]`,
+	Action: func(cctx *cli.Context) error {
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT)
+		defer stop()
+
+		arg := cctx.Args().First()
+		if !strings.Contains(arg, "subscribeRepos") {
+			arg = arg + "/xrpc/com.atproto.sync.subscribeRepos"
+		}
+		if len(cctx.Args().Slice()) == 2 {
+			arg = fmt.Sprintf("%s?cursor=%s", arg, cctx.Args().Get(1))
+		}
+
+		fmt.Fprintln(os.Stderr, "dialing: ", arg)
+		d := websocket.DefaultDialer
+		con, _, err := d.Dial(arg, http.Header{})
+		if err != nil {
+			return fmt.Errorf("dial failure: %w", err)
+		}
+
+		fmt.Fprintln(os.Stderr, "Stream Started", time.Now().Format(time.RFC3339))
+		defer func() {
+			fmt.Fprintln(os.Stderr, "Stream Exited", time.Now().Format(time.RFC3339))
+		}()
+
+		go func() {
+			<-ctx.Done()
+			_ = con.Close()
+		}()
+
+		dir := identity.DefaultDirectory()
+		cdir := identity.NewCacheDirectory(dir, 1000000, time.Second*1000, time.Second*20, time.Second*20)
+
+		var sets []map[string]int
+
+		latest := make(map[string]int)
+		sets = append(sets, latest)
+
+		var slk sync.Mutex
+
+		go func() {
+			for range time.Tick(time.Second * 5) {
+				slk.Lock()
+				latest = make(map[string]int)
+				sets = append(sets, latest)
+				slk.Unlock()
+			}
+		}()
+
+		printTopFollowers := func(vals []map[string]int) {
+			sums := make(map[string]int)
+			for _, vs := range vals {
+				for k, v := range vs {
+					sums[k] += v
+				}
+			}
+
+			top := topNFromMap(sums, 20)
+
+			for _, v := range top {
+				if v.V > 10 {
+					cdir.LookupDID(context.TODO(), syntax.DID(v.K))
+				}
+			}
+
+			fmt.Println("\n\n\n\n\n\nTOP FOLLOWERS:")
+			for _, v := range top {
+				disp := v.K
+				if v.V > 10 {
+					resp, err := cdir.LookupDID(context.TODO(), syntax.DID(v.K))
+					if err == nil {
+						disp = string(resp.Handle)
+					}
+				}
+
+				fmt.Printf("https://bsky.app/profile/%s : %d\n", disp, v.V)
+			}
+		}
+
+		go func() {
+			for range time.Tick(time.Second) {
+				slk.Lock()
+				n := len(sets)
+				thresh := 10
+				if n > thresh {
+					n = thresh
+				}
+				subset := sets[len(sets)-n:]
+				printTopFollowers(subset)
+				slk.Unlock()
+			}
+		}()
+
+		rsc := &events.RepoStreamCallbacks{
+			RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
+
+				for _, op := range evt.Ops {
+					if op.Action != "create" {
+						continue
+					}
+					parts := strings.Split(op.Path, "/")
+					if strings.Contains(parts[0], "follow") {
+						slk.Lock()
+						latest[evt.Repo]++
+						slk.Unlock()
+					}
+				}
+				return nil
+			},
+			// TODO: all the other event types
+			Error: func(errf *events.ErrorFrame) error {
+				return fmt.Errorf("error frame: %s: %s", errf.Error, errf.Message)
+			},
+		}
+		seqScheduler := sequential.NewScheduler(con.RemoteAddr().String(), rsc.EventHandler)
+		return events.HandleRepoStream(ctx, con, seqScheduler, log)
 	},
 }
