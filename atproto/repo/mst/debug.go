@@ -66,7 +66,11 @@ func DebugTreeStructure(n *Node, height int, key []byte) error {
 		return fmt.Errorf("node missing CID, but not marked dirty")
 	}
 	if len(n.Entries) == 0 {
-		return fmt.Errorf("empty tree node")
+		if height >= 0 {
+			return fmt.Errorf("empty tree node")
+		}
+		// entire tree is empty
+		return nil
 	}
 
 	if height < 0 {
@@ -157,4 +161,20 @@ func DebugPrintChildPointers(n *Node) {
 			DebugPrintChildPointers(e.Child)
 		}
 	}
+}
+
+func DebugSiblingChild(n *Node) error {
+	lastChild := false
+	for _, e := range n.Entries {
+		if e.IsChild() {
+			if lastChild {
+				return fmt.Errorf("neighboring children in entries list")
+			}
+			lastChild = true
+		}
+		if e.IsValue() {
+			lastChild = false
+		}
+	}
+	return nil
 }

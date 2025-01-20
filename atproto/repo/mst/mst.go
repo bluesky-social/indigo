@@ -418,7 +418,10 @@ func insertChild(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid,
 // key: key or path being inserted. must not be empty/nil
 // height: tree height corresponding to key. if a negative value is provided, will be computed; use -1 instead of 0 if height is not known
 func Remove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
+	// TODO: better handling of "is this the top"
+	top := false
 	if height < 0 {
+		top = true
 		height = HeightForKey(key)
 	}
 
@@ -428,73 +431,118 @@ func Remove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 	}
 
 	if height < n.Height {
+		// XXX: handle case of this returning an empty node; in which case reset height to empty tree?
 		return removeChild(n, key, height)
 	}
 
 	// look at this level
-	for i, e := range n.Entries {
-		if !e.IsValue() {
-			continue
-		}
-		if bytes.Equal(key, e.Key) {
-			// found it! remove from list
-			var prev *cid.Cid
-			n.Dirty = true
-			prev = e.Value
-			n.Entries = slices.Delete(n.Entries, i, i+1)
-			return n, prev, nil
-		}
+	idx := findExistingEntry(n, key)
+	if idx < 0 {
+		// key not found
+		return n, nil, nil
 	}
 
-	// key not found
-	return n, nil, nil
+	// found it! will remove from list
+	n.Dirty = true
+	prev := n.Entries[idx].Value
+
+	// check if we need to "merge" adjacent nodes
+	if idx > 0 && idx+1 < len(n.Entries) && n.Entries[idx-1].IsChild() && n.Entries[idx+1].IsChild() {
+		fmt.Println("MERGE") // XXX
+		if n.Entries[idx-1].Child == nil || n.Entries[idx+1].Child == nil {
+			return nil, nil, fmt.Errorf("can't merge partial nodes")
+		}
+		newChild, err := mergeNodes(n.Entries[idx-1].Child, n.Entries[idx+1].Child)
+		if err != nil {
+			return nil, nil, err
+		}
+		// XXX:
+		if err := DebugSiblingChild(newChild); err != nil {
+			fmt.Println("BAD CHILD MERGE")
+		}
+		n.Entries = slices.Delete(n.Entries, idx, idx+2)
+		n.Entries[idx-1] = NodeEntry{Child: newChild}
+	} else {
+		// simple removal
+		n.Entries = slices.Delete(n.Entries, idx, idx+1)
+	}
+	// XXX
+	if err := DebugSiblingChild(n); err != nil {
+		fmt.Println("BAD MERGE")
+	}
+
+	// check if top of node is now just a pointer
+	if top {
+		for {
+			if len(n.Entries) != 1 || !n.Entries[0].IsChild() {
+				break
+			}
+			if n.Entries[0].Child == nil {
+				return nil, nil, fmt.Errorf("can't prune partial tree") // TODO: wrap partial
+			}
+			n = n.Entries[0].Child
+		}
+	}
+	return n, prev, nil
+}
+
+func mergeNodes(left *Node, right *Node) (*Node, error) {
+	idx := len(left.Entries)
+	n := &Node{
+		Height:  left.Height,
+		Dirty:   true,
+		Entries: append(left.Entries, right.Entries...),
+	}
+	if n.Entries[idx-1].IsChild() && n.Entries[idx].IsChild() {
+		// need to merge recusively
+		lowerLeft := n.Entries[idx-1]
+		lowerRight := n.Entries[idx]
+		if lowerLeft.Child == nil || lowerRight.Child == nil {
+			return nil, fmt.Errorf("can't merge partial child nodes") // TODO: wrap partial error
+		}
+		lowerMerged, err := mergeNodes(lowerLeft.Child, lowerRight.Child)
+		if err != nil {
+			return nil, err
+		}
+		n.Entries[idx-1] = NodeEntry{Child: lowerMerged}
+		n.Entries = slices.Delete(n.Entries, idx, idx+1)
+	}
+	return n, nil
 }
 
 // internal helper
 func removeChild(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
-	// XXX: handle situation of merging entries at this level if child is now empty
-
 	// look for a child
-	childIndex := -1
-	for i, e := range n.Entries {
-		if e.IsValue() {
-			if bytes.Compare(key, e.Key) > 0 {
-				break
-			}
-		}
-		if e.IsChild() {
-			childIndex = i
-		}
-	}
-	if childIndex < 0 {
+	idx := findExistingChild(n, key)
+	if idx < 0 {
 		// no child pointer; key not in tree
 		return n, nil, nil
 	}
-	if n.Entries[childIndex].Child == nil {
+
+	e := n.Entries[idx]
+	if e.Child == nil {
 		// partial node, can't recurse
 		return nil, nil, fmt.Errorf("could not remove key: %w", ErrPartialTree)
 	}
-	newChild, prev, err := Remove(n.Entries[childIndex].Child, key, height)
+	newChild, prev, err := Remove(e.Child, key, height)
 	if err != nil {
 		return nil, nil, err
 	}
 	if prev == nil {
-		// nothing changed
+		// no-op
 		return n, nil, nil
 	}
-	// we are mutating this entry
+
+	// if the child node was updated, but still exists, just update pointer
+	if !newChild.IsEmpty() {
+		n.Dirty = true
+		n.Entries[idx].Child = newChild
+		return n, prev, nil
+	}
+
+	// if new child was empty, remove it from entry list; note that *this* entry might now be empty
 	n.Dirty = true
-	// if new child is empty, remove it from entry list
-	if len(newChild.Entries) == 0 {
-		// TODO: do we need to check for len(n.Entries) for this slice?
-		n.Entries = slices.Delete(n.Entries, childIndex, childIndex+1)
-	}
-	// if *this* node is now empty, return empty tree
-	if len(n.Entries) == 0 {
-		emptyNode := NewEmptyTree()
-		return emptyNode, prev, nil
-	}
-	// otherwise, return this node
+	n.Entries = slices.Delete(n.Entries, idx, idx+1)
 	return n, prev, nil
 }
 
