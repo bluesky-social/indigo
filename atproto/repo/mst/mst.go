@@ -155,11 +155,19 @@ func findInsertionIndex(n *Node, key []byte) (idx int, split bool, retErr error)
 			if e.Child == nil {
 				return -1, false, fmt.Errorf("partial MST, can't determine insertion order")
 			}
-			if bytes.Compare(key, getHighestKey(e.Child)) > 0 {
+			highest, err := getHighestKey(e.Child)
+			if err != nil {
+				return -1, false, err
+			}
+			if bytes.Compare(key, highest) > 0 {
 				// key comes after this entire child sub-tree
 				continue
 			}
-			if bytes.Compare(key, getLowestKey(e.Child)) < 0 {
+			lowest, err := getLowestKey(e.Child)
+			if err != nil {
+				return -1, false, err
+			}
+			if bytes.Compare(key, lowest) < 0 {
 				// key comes before this entire child sub-tree
 				return i, false, nil
 			}
@@ -173,44 +181,39 @@ func findInsertionIndex(n *Node, key []byte) (idx int, split bool, retErr error)
 }
 
 // returns the lowest key along "left edge" of sub-tree
-func getLowestKey(n *Node) []byte {
-	// TODO: make this a method on Node, and return an error (?)
+func getLowestKey(n *Node) ([]byte, error) {
 	if len(n.Entries) == 0 {
-		// TODO: throw error on this case?
-		return nil
+		return nil, fmt.Errorf("empty child tree node")
 	}
 	e := n.Entries[0]
 	if e.IsValue() {
-		return e.Key
+		return e.Key, nil
 	} else if e.IsChild() {
 		if e.Child != nil {
 			return getLowestKey(e.Child)
 		} else {
-			// TODO: throw error on this case?
+			return nil, fmt.Errorf("can't determine key range of partial node")
 		}
 	}
-	// TODO: throw error on this case?
-	return nil
+	return nil, fmt.Errorf("invalid node entry")
 }
 
 // returns the lowest key along "left edge" of sub-tree
-func getHighestKey(n *Node) []byte {
+func getHighestKey(n *Node) ([]byte, error) {
 	if len(n.Entries) == 0 {
-		// TODO: throw error on this case?
-		return nil
+		return nil, fmt.Errorf("empty child tree node")
 	}
 	e := n.Entries[len(n.Entries)-1]
 	if e.IsValue() {
-		return e.Key
+		return e.Key, nil
 	} else if e.IsChild() {
 		if e.Child != nil {
 			return getHighestKey(e.Child)
 		} else {
-			// TODO: throw error on this case?
+			return nil, fmt.Errorf("can't determine key range of partial node")
 		}
 	}
-	// TODO: throw error on this case?
-	return nil
+	return nil, fmt.Errorf("invalid node entry")
 }
 
 func NewTreeFromMap(m map[string]cid.Cid) (*Node, error) {
