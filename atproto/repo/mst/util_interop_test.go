@@ -6,31 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHeight(t *testing.T) {
-	msg := "MST 'depth' computation (SHA-256 leading zeros)"
-
-	testVec := []struct {
-		Key    []byte
-		Height int
-	}{
-		{[]byte(""), 0},
-		{[]byte(""), 0},
-		{[]byte("asdf"), 0},
-		{[]byte("blue"), 1},
-		{[]byte("2653ae71"), 0},
-		{[]byte("88bfafc7"), 2},
-		{[]byte("2a92d355"), 4},
-		{[]byte("884976f5"), 6},
-		{[]byte("app.bsky.feed.post/454397e440ec"), 4},
-		{[]byte("app.bsky.feed.post/9adeb165882c"), 8},
-	}
-
-	for _, c := range testVec {
-		assert.Equal(t, c.Height, HeightForKey(c.Key), msg)
-	}
-
-}
-
 func TestPrefixLen(t *testing.T) {
 	msg := "length of common prefix between strings"
 

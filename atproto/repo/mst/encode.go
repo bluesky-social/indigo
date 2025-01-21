@@ -96,6 +96,7 @@ func (n *Node) NodeData() NodeData {
 	return d
 }
 
+// c: CID argument for the CID of the CBOR representation of the NodeData (if known)
 func (d *NodeData) Node(c *cid.Cid) Node {
 	height := -1
 	n := Node{
@@ -110,8 +111,9 @@ func (d *NodeData) Node(c *cid.Cid) Node {
 
 	var prevKey []byte
 	for _, e := range d.Entries {
-		key := make([]byte, int(e.PrefixLen)+len(e.KeySuffix))
-		copy(key, prevKey[:e.PrefixLen])
+		// TODO perf: pre-allocate
+		key := []byte{}
+		key = append(key, prevKey[:e.PrefixLen]...)
 		key = append(key, e.KeySuffix...)
 		n.Entries = append(n.Entries, NodeEntry{
 			Key:   key,
