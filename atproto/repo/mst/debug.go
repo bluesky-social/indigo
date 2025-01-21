@@ -52,8 +52,10 @@ func debugPrintTree(n *Node, depth int) {
 			if e.Child != nil {
 				debugPrintTree(e.Child, depth+1)
 			} else {
-				fmt.Printf(" (partial) %s", e.ChildCID)
+				fmt.Printf(" (partial) %s\n", e.ChildCID)
 			}
+		} else {
+			fmt.Printf(" BAD NODE\n")
 		}
 	}
 }

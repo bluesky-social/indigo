@@ -30,6 +30,8 @@ func Get(n *Node, key []byte, height int) (*cid.Cid, error) {
 			}
 			return Get(n.Entries[idx].Child, key, height)
 		}
+		// otherwise, not found
+		return nil, nil
 	}
 
 	// search at this height
