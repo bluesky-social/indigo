@@ -74,10 +74,13 @@ func (cs *NonArchivalCarstore) putLastShardCache(ls *commitRefInfo) {
 
 func (cs *NonArchivalCarstore) loadCommitRefInfo(ctx context.Context, user models.Uid) (*commitRefInfo, error) {
 	var out commitRefInfo
-	if err := cs.db.Find(&out, "uid = ?", user).Error; err != nil {
-		return nil, err
+	wat := cs.db.Find(&out, "uid = ?", user)
+	if wat.Error != nil {
+		return nil, wat.Error
 	}
-
+	if wat.RowsAffected == 0 {
+		return nil, nil
+	}
 	return &out, nil
 }
 
@@ -93,6 +96,9 @@ func (cs *NonArchivalCarstore) getCommitRefInfo(ctx context.Context, user models
 	lastShard, err := cs.loadCommitRefInfo(ctx, user)
 	if err != nil {
 		return nil, err
+	}
+	if lastShard == nil {
+		return nil, nil
 	}
 
 	cs.putLastShardCache(lastShard)
@@ -118,6 +124,8 @@ func (cs *NonArchivalCarstore) updateLastCommit(ctx context.Context, uid models.
 	return nil
 }
 
+var commitRefZero = commitRefInfo{}
+
 func (cs *NonArchivalCarstore) NewDeltaSession(ctx context.Context, user models.Uid, since *string) (*DeltaSession, error) {
 	ctx, span := otel.Tracer("carstore").Start(ctx, "NewSession")
 	defer span.End()
@@ -129,7 +137,10 @@ func (cs *NonArchivalCarstore) NewDeltaSession(ctx context.Context, user models.
 		return nil, err
 	}
 
-	if since != nil && *since != lastShard.Rev {
+	if lastShard == nil {
+		// ok, no previous user state to refer to
+		lastShard = &commitRefZero
+	} else if since != nil && *since != lastShard.Rev {
 		cs.log.Warn("revision mismatch", "commitSince", since, "lastRev", lastShard.Rev, "err", ErrRepoBaseMismatch)
 	}
 
@@ -211,7 +222,7 @@ func (cs *NonArchivalCarstore) GetUserRepoHead(ctx context.Context, user models.
 	if err != nil {
 		return cid.Undef, err
 	}
-	if lastShard.ID == 0 {
+	if lastShard == nil || lastShard.ID == 0 {
 		return cid.Undef, nil
 	}
 
@@ -223,7 +234,7 @@ func (cs *NonArchivalCarstore) GetUserRepoRev(ctx context.Context, user models.U
 	if err != nil {
 		return "", err
 	}
-	if lastShard.ID == 0 {
+	if lastShard == nil || lastShard.ID == 0 {
 		return "", nil
 	}
 

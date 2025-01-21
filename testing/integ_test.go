@@ -3,8 +3,6 @@ package testing
 import (
 	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 	"math/rand"
 	"strings"
 	"testing"
@@ -52,13 +50,13 @@ func testRelayBasic(t *testing.T, archive bool) {
 	defer evts.Cancel()
 
 	bob := p1.MustNewUser(t, "bob.tpds")
-	fmt.Println("event 1")
+	t.Log("event 1")
 	e1 := evts.Next()
 	assert.NotNil(e1.RepoCommit)
 	assert.Equal(e1.RepoCommit.Repo, bob.DID())
 
 	alice := p1.MustNewUser(t, "alice.tpds")
-	fmt.Println("event 2")
+	t.Log("event 2")
 	e2 := evts.Next()
 	assert.NotNil(e2.RepoCommit)
 	assert.Equal(e2.RepoCommit.Repo, alice.DID())
@@ -69,14 +67,14 @@ func testRelayBasic(t *testing.T, archive bool) {
 	_ = bp1
 	_ = ap1
 
-	fmt.Println("bob:", bob.DID())
-	fmt.Println("event 3")
+	t.Log("bob:", bob.DID())
+	t.Log("event 3")
 	e3 := evts.Next()
 	assert.Equal(e3.RepoCommit.Repo, bob.DID())
 	//assert.Equal(e3.RepoCommit.Ops[0].Kind, "createRecord")
 
-	fmt.Println("alice:", alice.DID())
-	fmt.Println("event 4")
+	t.Log("alice:", alice.DID())
+	t.Log("event 4")
 	e4 := evts.Next()
 	assert.Equal(e4.RepoCommit.Repo, alice.DID())
 	//assert.Equal(e4.RepoCommit.Ops[0].Kind, "createRecord")
@@ -85,7 +83,7 @@ func testRelayBasic(t *testing.T, archive bool) {
 	pbevts := b1.Events(t, 2)
 	defer pbevts.Cancel()
 
-	fmt.Println("event 5")
+	t.Log("event 5")
 	pbe1 := pbevts.Next()
 	assert.Equal(*e3, *pbe1)
 }
@@ -294,11 +292,11 @@ func TestHandleChange(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 
 	initevt := evts.Next()
-	fmt.Println(initevt.RepoCommit)
+	t.Log(initevt.RepoCommit)
 	hcevt := evts.Next()
-	fmt.Println(hcevt.RepoHandle)
+	t.Log(hcevt.RepoHandle)
 	idevt := evts.Next()
-	fmt.Println(idevt.RepoIdentity)
+	t.Log(idevt.RepoIdentity)
 }
 
 func TestAccountEvent(t *testing.T) {
@@ -336,46 +334,46 @@ func TestAccountEvent(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 
 	initevt := evts.Next()
-	fmt.Println(initevt.RepoCommit)
+	t.Log(initevt.RepoCommit)
 
 	// Takedown
 	acevt := evts.Next()
-	fmt.Println(acevt.RepoAccount)
+	t.Log(acevt.RepoAccount)
 	assert.Equal(acevt.RepoAccount.Did, u.DID())
 	assert.Equal(acevt.RepoAccount.Active, false)
 	assert.Equal(*acevt.RepoAccount.Status, events.AccountStatusTakendown)
 
 	// Reactivate
 	acevt = evts.Next()
-	fmt.Println(acevt.RepoAccount)
+	t.Log(acevt.RepoAccount)
 	assert.Equal(acevt.RepoAccount.Did, u.DID())
 	assert.Equal(acevt.RepoAccount.Active, true)
 	assert.Equal(*acevt.RepoAccount.Status, events.AccountStatusActive)
 
 	// Deactivate
 	acevt = evts.Next()
-	fmt.Println(acevt.RepoAccount)
+	t.Log(acevt.RepoAccount)
 	assert.Equal(acevt.RepoAccount.Did, u.DID())
 	assert.Equal(acevt.RepoAccount.Active, false)
 	assert.Equal(*acevt.RepoAccount.Status, events.AccountStatusDeactivated)
 
 	// Reactivate
 	acevt = evts.Next()
-	fmt.Println(acevt.RepoAccount)
+	t.Log(acevt.RepoAccount)
 	assert.Equal(acevt.RepoAccount.Did, u.DID())
 	assert.Equal(acevt.RepoAccount.Active, true)
 	assert.Equal(*acevt.RepoAccount.Status, events.AccountStatusActive)
 
 	// Suspend
 	acevt = evts.Next()
-	fmt.Println(acevt.RepoAccount)
+	t.Log(acevt.RepoAccount)
 	assert.Equal(acevt.RepoAccount.Did, u.DID())
 	assert.Equal(acevt.RepoAccount.Active, false)
 	assert.Equal(*acevt.RepoAccount.Status, events.AccountStatusSuspended)
 
 	// Reactivate
 	acevt = evts.Next()
-	fmt.Println(acevt.RepoAccount)
+	t.Log(acevt.RepoAccount)
 	assert.Equal(acevt.RepoAccount.Did, u.DID())
 	assert.Equal(acevt.RepoAccount.Active, true)
 	assert.Equal(*acevt.RepoAccount.Status, events.AccountStatusActive)
@@ -387,7 +385,7 @@ func TestAccountEvent(t *testing.T) {
 	time.Sleep(time.Millisecond * 20)
 
 	acevt = evts.Next()
-	fmt.Println(acevt.RepoAccount)
+	t.Log(acevt.RepoAccount)
 	assert.Equal(acevt.RepoAccount.Did, u.DID())
 	assert.Equal(acevt.RepoAccount.Active, false)
 	assert.Equal(*acevt.RepoAccount.Status, events.AccountStatusTakendown)
@@ -399,7 +397,7 @@ func TestAccountEvent(t *testing.T) {
 	time.Sleep(time.Millisecond * 20)
 
 	acevt = evts.Next()
-	fmt.Println(acevt.RepoAccount)
+	t.Log(acevt.RepoAccount)
 	assert.Equal(acevt.RepoAccount.Did, u.DID())
 	assert.Equal(acevt.RepoAccount.Active, true)
 	assert.Equal(*acevt.RepoAccount.Status, events.AccountStatusActive)
@@ -467,11 +465,6 @@ func testRelayTakedown(t *testing.T, archive bool) {
 
 	last := es2.Next()
 	assert.Equal(alice.did, last.RepoCommit.Repo)
-}
-
-func jsonPrint(v any) {
-	b, _ := json.Marshal(v)
-	fmt.Println(string(b))
 }
 
 func commitFromSlice(t *testing.T, slice []byte, rcid cid.Cid) *repo.SignedCommit {
@@ -560,11 +553,11 @@ func TestRelayHandleEmptyEvent(t *testing.T) {
 	defer evts.Cancel()
 
 	bob := p1.MustNewUser(t, "bob.tpds")
-	fmt.Println("event 1")
+	t.Log("event 1")
 	e1 := evts.Next()
 	assert.NotNil(e1.RepoCommit)
 	assert.Equal(e1.RepoCommit.Repo, bob.DID())
-	fmt.Println(e1.RepoCommit.Ops[0])
+	t.Log(e1.RepoCommit.Ops[0])
 
 	ctx := context.TODO()
 	rm := p1.server.Repoman()
@@ -573,7 +566,7 @@ func TestRelayHandleEmptyEvent(t *testing.T) {
 	}
 
 	e2 := evts.Next()
-	//fmt.Println(e2.RepoCommit.Ops[0])
+	//t.Log(e2.RepoCommit.Ops[0])
 	assert.Equal(len(e2.RepoCommit.Ops), 0)
 	assert.Equal(e2.RepoCommit.Repo, bob.DID())
 }
