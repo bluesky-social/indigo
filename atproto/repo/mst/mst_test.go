@@ -2,7 +2,6 @@ package mst
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/rand"
 	"testing"
 
@@ -57,10 +56,10 @@ func TestBasicMST(t *testing.T) {
 
 	m := make(map[string]cid.Cid)
 	assert.NoError(ReadTreeToMap(tree, m))
-	fmt.Println("-----")
-	debugPrintMap(m)
-	fmt.Println("-----")
-	debugPrintTree(tree, 0)
+	//fmt.Println("-----")
+	//debugPrintMap(m)
+	//fmt.Println("-----")
+	//debugPrintTree(tree, 0)
 
 	tree, prev, err = Remove(tree, []byte("abc"), -1)
 	assert.NoError(err)
@@ -93,8 +92,8 @@ func TestBasicMap(t *testing.T) {
 	tree, err := NewTreeFromMap(inMap)
 	assert.NoError(err)
 
-	fmt.Println("-----")
-	debugPrintTree(tree, 0)
+	//fmt.Println("-----")
+	//debugPrintTree(tree, 0)
 	assert.NoError(VerifyTreeStructure(tree, -1, nil))
 
 	outMap := make(map[string]cid.Cid, len(inMap))
@@ -114,7 +113,7 @@ func randomCid() cid.Cid {
 }
 
 func randomStr() string {
-	buf := make([]byte, 6)
+	buf := make([]byte, 16)
 	rand.Read(buf)
 	return hex.EncodeToString(buf)
 }
@@ -137,14 +136,14 @@ func TestRandomTree(t *testing.T) {
 			}
 			k = randomStr()
 		}
-		inMap[randomStr()] = randomCid()
+		inMap[k] = randomCid()
 	}
 
 	tree, err := NewTreeFromMap(inMap)
 	assert.NoError(err)
 
-	fmt.Println("-----")
-	debugPrintTree(tree, 0)
+	//fmt.Println("-----")
+	//debugPrintTree(tree, 0)
 	assert.NoError(VerifyTreeStructure(tree, -1, nil))
 	assert.Equal(size, debugCountEntries(tree))
 
@@ -196,11 +195,11 @@ func TestRandomUntilError(t *testing.T) {
 
 	tree := NewEmptyTree()
 	count := 0
-	fmt.Println("-----")
+	//fmt.Println("-----")
 	for range size {
 		key := []byte(randomStr())
 		val := randomCid()
-		fmt.Printf("%s %s\n", key, val)
+		//fmt.Printf("%s %s\n", key, val)
 		tree, prev, err = Insert(tree, key, val, -1)
 		assert.NoError(err)
 		if prev == nil {
@@ -211,8 +210,8 @@ func TestRandomUntilError(t *testing.T) {
 		err = VerifyTreeStructure(tree, -1, nil)
 		assert.NoError(err)
 		if err != nil || count != debugCountEntries(tree) {
-			fmt.Println("-----")
-			debugPrintTree(tree, 0)
+			//fmt.Println("-----")
+			//debugPrintTree(tree, 0)
 			break
 		}
 	}
@@ -237,16 +236,15 @@ func TestBrokenCaseOne(t *testing.T) {
 
 	tree := NewEmptyTree()
 	for _, row := range entries {
-		fmt.Println("-----")
 		val, _ := cid.Decode(row[1])
 		tree, _, err = Insert(tree, []byte(row[0]), val, -1)
 		assert.NoError(err)
 	}
 
-	fmt.Println("-----")
-	debugPrintNodePointers(tree)
-	debugPrintChildPointers(tree)
-	debugPrintTree(tree, 0)
+	//fmt.Println("-----")
+	//debugPrintNodePointers(tree)
+	//debugPrintChildPointers(tree)
+	//debugPrintTree(tree, 0)
 	assert.Equal(len(entries), debugCountEntries(tree))
 	assert.NoError(VerifyTreeStructure(tree, -1, nil))
 }

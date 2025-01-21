@@ -61,7 +61,7 @@ func VerifyTreeStructure(n *Node, height int, key []byte) error {
 			}
 			key = e.Key
 			if height != HeightForKey(e.Key) {
-				return fmt.Errorf("wrong height for key")
+				return fmt.Errorf("wrong height for key: %d", HeightForKey(e.Key))
 			}
 		} else {
 			return fmt.Errorf("entry was neither child nor value")
