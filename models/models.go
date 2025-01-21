@@ -104,7 +104,7 @@ type FollowRecord struct {
 type PDS struct {
 	gorm.Model
 
-	Host       string
+	Host       string `gorm:"unique"`
 	Did        string
 	SSL        bool
 	Cursor     int64
@@ -119,6 +119,9 @@ type PDS struct {
 
 	HourlyEventLimit int64
 	DailyEventLimit  int64
+
+	// We accept events from this firehose source even if they are not from the origin PDS
+	RelayAllowed bool
 }
 
 func ClientForPds(pds *PDS) *xrpc.Client {

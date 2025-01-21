@@ -65,9 +65,9 @@ type BGS struct {
 
 	hr api.HandleResolver
 
-	// TODO: work on doing away with this flag in favor of more pluggable
-	// pieces that abstract the need for explicit ssl checks
-	ssl bool
+	ssl SlurperSSLStance
+
+	config BGSConfig
 
 	crawlOnly bool
 
@@ -117,12 +117,13 @@ type SocketConsumer struct {
 }
 
 type BGSConfig struct {
-	SSL                  bool
+	SSL                  SlurperSSLStance
 	CompactInterval      time.Duration
 	DefaultRepoLimit     int64
 	ConcurrencyPerPDS    int64
 	MaxQueuePerPDS       int64
 	NumCompactionWorkers int
+	VerboseAPILog        bool
 
 	// NextCrawlers gets forwarded POST /xrpc/com.atproto.sync.requestCrawl
 	NextCrawlers []*url.URL
@@ -130,7 +131,7 @@ type BGSConfig struct {
 
 func DefaultBGSConfig() *BGSConfig {
 	return &BGSConfig{
-		SSL:                  true,
+		SSL:                  SlurperRequireSSL,
 		CompactInterval:      4 * time.Hour,
 		DefaultRepoLimit:     100,
 		ConcurrencyPerPDS:    100,
@@ -140,7 +141,11 @@ func DefaultBGSConfig() *BGSConfig {
 }
 
 func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, rf *indexer.RepoFetcher, hr api.HandleResolver, config *BGSConfig) (*BGS, error) {
-
+	logger := slog.Default().With("system", "bgs")
+	err := fixupDupPDSRows(db, logger)
+	if err != nil {
+		return nil, err
+	}
 	if config == nil {
 		config = DefaultBGSConfig()
 	}
@@ -161,6 +166,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 		events:  evtman,
 		didr:    didr,
 		ssl:     config.SSL,
+		config:  *config,
 
 		consumersLk: sync.RWMutex{},
 		consumers:   make(map[uint64]*SocketConsumer),
@@ -169,7 +175,7 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 
 		userCache: uc,
 
-		log: slog.Default().With("system", "bgs"),
+		log: logger,
 	}
 
 	ix.CreateExternalUser = bgs.createExternalUser
@@ -200,6 +206,68 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	bgs.httpClient.Timeout = time.Second * 5
 
 	return bgs, nil
+}
+
+func fixupDupPDSRows(db *gorm.DB, logger *slog.Logger) error {
+	rows, err := db.Raw("SELECT id, host FROM pds").Rows()
+	if err != nil {
+		logger.Warn("could not list PDS rows; assume blank db", "err", err)
+		return nil
+	}
+	hostCounts := make(map[string][]uint)
+	maxPDSId := uint(0)
+	maxHostCount := 0
+	for rows.Next() {
+		var pdsId uint
+		var host string
+		if err := rows.Scan(&pdsId, &host); err != nil {
+			return fmt.Errorf("pds sql row err, %w", err)
+		}
+		idlist := hostCounts[host]
+		idlist = append(idlist, pdsId)
+		count := len(idlist)
+		if count > maxHostCount {
+			maxHostCount = count
+		}
+		hostCounts[host] = idlist
+		if pdsId > maxPDSId {
+			maxPDSId = pdsId
+		}
+	}
+	if maxHostCount <= 1 {
+		logger.Debug("no pds dup rows found")
+		return nil
+	}
+	for host, idlist := range hostCounts {
+		if len(idlist) > 1 {
+			logger.Info("dup PDS", "host", host, "count", len(idlist))
+			minPDSId := idlist[0]
+			for _, otherid := range idlist[1:] {
+				if otherid < minPDSId {
+					minPDSId = otherid
+				}
+			}
+			for _, xPDSId := range idlist {
+				if xPDSId == minPDSId {
+					continue
+				}
+				logger.Info("dup PDS", "host", host, "from", xPDSId, "to", minPDSId)
+				err = db.Exec("UPDATE users SET pds = ? WHERE pds = ?", minPDSId, xPDSId).Error
+				if err != nil {
+					return fmt.Errorf("failed to update user pds %d -> %d: %w", xPDSId, minPDSId, err)
+				}
+				err = db.Exec("UPDATE actor_infos SET pds = ? WHERE pds = ?", minPDSId, xPDSId).Error
+				if err != nil {
+					return fmt.Errorf("failed to update actor_infos pds %d -> %d: %w", xPDSId, minPDSId, err)
+				}
+				err = db.Exec("DELETE FROM pds WHERE id = ?", xPDSId).Error
+				if err != nil {
+					return fmt.Errorf("failed to delete pds %d: %w", xPDSId, err)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (bgs *BGS) StartMetrics(listen string) error {
@@ -317,7 +385,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	if !bgs.ssl {
+	if bgs.config.VerboseAPILog {
 		e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 			Format: "method=${method}, uri=${uri}, status=${status} latency=${latency_human}\n",
 		}))
@@ -941,7 +1009,9 @@ func (bgs *BGS) handleFedEvent(ctx context.Context, host *models.PDS, env *event
 			return fmt.Errorf("rebase was true in event seq:%d,host:%s", evt.Seq, host.Host)
 		}
 
-		if host.ID != u.PDS && u.PDS != 0 {
+		if host.RelayAllowed {
+			// don't check that source is canonical PDS, allow intermediate relays
+		} else if host.ID != u.PDS && u.PDS != 0 {
 			bgs.log.Warn("received event for repo from different pds than expected", "repo", evt.Repo, "expPds", u.PDS, "gotPds", host.Host)
 			// Flush any cached DID documents for this user
 			bgs.didr.FlushCacheFor(env.RepoCommit.Repo)
@@ -1273,7 +1343,7 @@ func (s *BGS) createExternalUser(ctx context.Context, did string) (*models.Actor
 		peering.DailyEventLimit = s.slurper.DefaultPerDayLimit
 		peering.RepoLimit = s.slurper.DefaultRepoLimit
 
-		if s.ssl && !peering.SSL {
+		if (s.ssl == SlurperRequireSSL) && !peering.SSL {
 			return nil, fmt.Errorf("did references non-ssl PDS, this is disallowed in prod: %q %q", did, svc.ServiceEndpoint)
 		}
 

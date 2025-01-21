@@ -210,12 +210,14 @@ func (tp *TestPDS) BumpLimits(t *testing.T, b *TestRelay) {
 	}
 
 	limReqBody := bgs.RateLimitChangeRequest{
-		Host:      u.Host,
-		PerSecond: 5_000,
-		PerHour:   100_000,
-		PerDay:    1_000_000,
-		RepoLimit: 500_000,
-		CrawlRate: 50_000,
+		Host: u.Host,
+		PDSRates: bgs.PDSRates{
+			PerSecond: 5_000,
+			PerHour:   100_000,
+			PerDay:    1_000_000,
+			RepoLimit: 500_000,
+			CrawlRate: 50_000,
+		},
 	}
 
 	// JSON encode the request body
@@ -593,7 +595,7 @@ func SetupRelay(ctx context.Context, didr plc.PLCClient, archive bool) (*TestRel
 	tr := &api.TestHandleResolver{}
 
 	bgsConfig := bgs.DefaultBGSConfig()
-	bgsConfig.SSL = false
+	bgsConfig.SSL = bgs.SlurperDisableSSL
 	b, err := bgs.NewBGS(maindb, ix, repoman, evtman, didr, rf, tr, bgsConfig)
 	if err != nil {
 		return nil, err
