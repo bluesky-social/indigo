@@ -155,7 +155,7 @@ func findInsertionIndex(n *Node, key []byte) (idx int, split bool, retErr error)
 			if e.Child == nil {
 				return -1, false, fmt.Errorf("partial MST, can't determine insertion order")
 			}
-			highest, err := getHighestKey(e.Child)
+			highest, err := getHighestKey(e.Child, false)
 			if err != nil {
 				return -1, false, err
 			}
@@ -163,7 +163,7 @@ func findInsertionIndex(n *Node, key []byte) (idx int, split bool, retErr error)
 				// key comes after this entire child sub-tree
 				continue
 			}
-			lowest, err := getLowestKey(e.Child)
+			lowest, err := getLowestKey(e.Child, false)
 			if err != nil {
 				return -1, false, err
 			}
@@ -181,16 +181,17 @@ func findInsertionIndex(n *Node, key []byte) (idx int, split bool, retErr error)
 }
 
 // returns the lowest key along "left edge" of sub-tree
-func getLowestKey(n *Node) ([]byte, error) {
-	if len(n.Entries) == 0 {
-		return nil, fmt.Errorf("empty child tree node")
+// TODO: convert this and "getHighest" to a CompareKey method which returns -1, 0, 1
+func getLowestKey(n *Node, dirty bool) ([]byte, error) {
+	if dirty == true {
+		n.Dirty = true
 	}
 	e := n.Entries[0]
 	if e.IsValue() {
 		return e.Key, nil
 	} else if e.IsChild() {
 		if e.Child != nil {
-			return getLowestKey(e.Child)
+			return getLowestKey(e.Child, dirty)
 		} else {
 			return nil, fmt.Errorf("can't determine key range of partial node")
 		}
@@ -199,16 +200,16 @@ func getLowestKey(n *Node) ([]byte, error) {
 }
 
 // returns the lowest key along "left edge" of sub-tree
-func getHighestKey(n *Node) ([]byte, error) {
-	if len(n.Entries) == 0 {
-		return nil, fmt.Errorf("empty child tree node")
+func getHighestKey(n *Node, dirty bool) ([]byte, error) {
+	if dirty == true {
+		n.Dirty = true
 	}
 	e := n.Entries[len(n.Entries)-1]
 	if e.IsValue() {
 		return e.Key, nil
 	} else if e.IsChild() {
 		if e.Child != nil {
-			return getHighestKey(e.Child)
+			return getHighestKey(e.Child, dirty)
 		} else {
 			return nil, fmt.Errorf("can't determine key range of partial node")
 		}

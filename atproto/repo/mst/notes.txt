@@ -18,6 +18,10 @@ when removing:
 - deleting an entry from a node might result in a "merge" of two child nodes which are no longer "split"
 - removing a "value" entry from the top of the tree might make it a simple pointer down to a child. in this case the top of the tree should be "trimmed" (this might involve multiple layers of trimming)
 
+when inverting:
+
+- need additional "proof" blocks to invert deletions. basically need the proof blocks for any keys (at any layer) directly adjacent to the deleted block
+
 ## Hacking
 
 Be careful with go slices. Need to avoid creating multiple references (slices) of the same underlying array, which can lead to "mutation at a distance" in ways that are hard to debug.
