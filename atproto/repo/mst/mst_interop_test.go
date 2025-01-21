@@ -267,6 +267,7 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Equal(l2root, higherAfter.String())
+	//debugPrintTree(higherTree, 0)
 
 	// remove B
 	higherTree, _, err = Remove(higherTree, []byte("com.example.record/3jqfcqzm3fx2j"), -1) // B; level 2
@@ -295,6 +296,8 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 	}
 	assert.Equal(2, higherTree.Height)
 	assert.Equal(l2root2, higherYetAgain.String())
+	assert.NoError(debugTreeStructure(higherTree, -1, nil))
+	//debugPrintTree(higherTree, 0)
 
 	// remove D
 	higherTree, _, err = Remove(higherTree, []byte("com.example.record/3jqfcqzm4fd2j"), -1) // D; level 1
@@ -307,4 +310,6 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 	}
 	assert.Equal(2, higherTree.Height)
 	assert.Equal(l2root, higherFinal.String())
+	assert.NoError(debugTreeStructure(higherTree, -1, nil))
+	//debugPrintTree(higherTree, 0)
 }
