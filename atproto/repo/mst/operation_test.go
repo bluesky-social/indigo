@@ -169,6 +169,9 @@ func TestRandomOperations(t *testing.T) {
 		}
 		assert.Equal(*diffRoot, *diffCID)
 
+		// XXX: try inverting on full tree
+		diffTree = tree
+
 		// invert all the ops
 		for i, op := range opSet {
 			err := CheckOp(diffTree, &op)
