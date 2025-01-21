@@ -23,7 +23,7 @@ func mapToCidMapDecode(t *testing.T, a map[string]string) map[string]cid.Cid {
 	return out
 }
 
-func mapToMstRootCidString(t *testing.T, m map[string]string) string {
+func mapToTreeRootCidString(t *testing.T, m map[string]string) string {
 
 	tree, err := NewTreeFromMap(mapToCidMapDecode(t, m))
 	if err != nil {
@@ -41,6 +41,7 @@ func mapToMstRootCidString(t *testing.T, m map[string]string) string {
 // TODO: TestAllowedKeys
 
 func TestManualNode(t *testing.T) {
+	assert := assert.New(t)
 
 	cid1, err := cid.Decode("bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454")
 	if err != nil {
@@ -53,13 +54,13 @@ func TestManualNode(t *testing.T) {
 			{
 				PrefixLen: 0,
 				KeySuffix: []byte("com.example.record/3jqfcqzm3fo2j"),
-				Value:       cid1,
-				Right:      nil,
+				Value:     cid1,
+				Right:     nil,
 			},
 		},
 	}
 	n := simple_nd.Node(nil)
-	assert.Equal(t, simple_nd, n.NodeData())
+	assert.Equal(simple_nd, n.NodeData())
 
 	mcid, err := ComputeCID(&n)
 	if err != nil {
@@ -74,28 +75,29 @@ func TestManualNode(t *testing.T) {
 		fmt.Printf("%#v\n", block)
 	}
 	*/
-	assert.Equal(t, "bafyreibj4lsc3aqnrvphp5xmrnfoorvru4wynt6lwidqbm2623a6tatzdu", mcid.String())
+	assert.Equal("bafyreibj4lsc3aqnrvphp5xmrnfoorvru4wynt6lwidqbm2623a6tatzdu", mcid.String())
 }
 
 func TestInteropKnownMaps(t *testing.T) {
+	assert := assert.New(t)
 
 	cid1str := "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454"
 
 	// empty map
 	emptyMap := map[string]string{}
-	assert.Equal(t, "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", mapToMstRootCidString(t, emptyMap))
+	assert.Equal("bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", mapToTreeRootCidString(t, emptyMap))
 
 	// no depth, single entry
 	trivialMap := map[string]string{
 		"com.example.record/3jqfcqzm3fo2j": cid1str,
 	}
-	assert.Equal(t, "bafyreibj4lsc3aqnrvphp5xmrnfoorvru4wynt6lwidqbm2623a6tatzdu", mapToMstRootCidString(t, trivialMap))
+	assert.Equal("bafyreibj4lsc3aqnrvphp5xmrnfoorvru4wynt6lwidqbm2623a6tatzdu", mapToTreeRootCidString(t, trivialMap))
 
 	// single layer=2 entry
 	singlelayer2Map := map[string]string{
 		"com.example.record/3jqfcqzm3fx2j": cid1str,
 	}
-	assert.Equal(t, "bafyreih7wfei65pxzhauoibu3ls7jgmkju4bspy4t2ha2qdjnzqvoy33ai", mapToMstRootCidString(t, singlelayer2Map))
+	assert.Equal("bafyreih7wfei65pxzhauoibu3ls7jgmkju4bspy4t2ha2qdjnzqvoy33ai", mapToTreeRootCidString(t, singlelayer2Map))
 
 	// pretty simple, but with some depth
 	simpleMap := map[string]string{
@@ -105,10 +107,12 @@ func TestInteropKnownMaps(t *testing.T) {
 		"com.example.record/3jqfcqzm3ft2j": cid1str,
 		"com.example.record/3jqfcqzm4fc2j": cid1str,
 	}
-	assert.Equal(t, "bafyreicmahysq4n6wfuxo522m6dpiy7z7qzym3dzs756t5n7nfdgccwq7m", mapToMstRootCidString(t, simpleMap))
+	assert.Equal("bafyreicmahysq4n6wfuxo522m6dpiy7z7qzym3dzs756t5n7nfdgccwq7m", mapToTreeRootCidString(t, simpleMap))
 }
 
 func TestInteropKnownMapsTricky(t *testing.T) {
+	assert := assert.New(t)
+
 	t.Skip("TODO: these are currently disallowed in typescript implementation")
 
 	cid1str := "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454"
@@ -121,11 +125,12 @@ func TestInteropKnownMapsTricky(t *testing.T) {
 		"coüperative": cid1str,
 		"abc\x00":     cid1str,
 	}
-	assert.Equal(t, "bafyreiecb33zh7r2sc3k2wthm6exwzfktof63kmajeildktqc25xj6qzx4", mapToMstRootCidString(t, trickyMap))
+	assert.Equal("bafyreiecb33zh7r2sc3k2wthm6exwzfktof63kmajeildktqc25xj6qzx4", mapToTreeRootCidString(t, trickyMap))
 }
 
 // "trims top of tree on delete"
 func TestInteropEdgeCasesTrimTop(t *testing.T) {
+	assert := assert.New(t)
 
 	cid1str := "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454"
 	l1root := "bafyreifnqrwbk6ffmyaz5qtujqrzf5qmxf7cbxvgzktl4e3gabuxbtatv4"
@@ -139,31 +144,32 @@ func TestInteropEdgeCasesTrimTop(t *testing.T) {
 		"com.example.record/3jqfcqzm3ft2j": cid1str, // level 0
 		"com.example.record/3jqfcqzm3fu2j": cid1str, // level 1
 	}
-	trimMst, err := NewTreeFromMap(mapToCidMapDecode(t, trimMap))
-	if err != nil {
-        t.Fatal(err)
-    }
-    trimBefore, err := ComputeCID(trimMst)
-    if err != nil {
-        t.Fatal(err)
-    }
-	assert.Equal(t, 1, trimMst.Height)
-	assert.Equal(t, l1root, trimBefore.String())
-
-	trimMst, _, err = Remove(trimMst, []byte("com.example.record/3jqfcqzm3fs2j"), -1) // level 1
+	trimTree, err := NewTreeFromMap(mapToCidMapDecode(t, trimMap))
 	if err != nil {
 		t.Fatal(err)
 	}
-    trimAfter, err := ComputeCID(trimMst)
-    if err != nil {
-        t.Fatal(err)
-    }
-	//fmt.Printf("%#v\n", trimMst)
-	assert.Equal(t, 0, trimMst.Height)
-	assert.Equal(t, l0root, trimAfter.String())
+	trimBefore, err := ComputeCID(trimTree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(1, trimTree.Height)
+	assert.Equal(l1root, trimBefore.String())
+
+	trimTree, _, err = Remove(trimTree, []byte("com.example.record/3jqfcqzm3fs2j"), -1) // level 1
+	if err != nil {
+		t.Fatal(err)
+	}
+	trimAfter, err := ComputeCID(trimTree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	//fmt.Printf("%#v\n", trimTree)
+	assert.Equal(0, trimTree.Height)
+	assert.Equal(l0root, trimAfter.String())
 }
 
 func TestInteropEdgeCasesInsertion(t *testing.T) {
+	assert := assert.New(t)
 
 	cid1str := "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454"
 	cid1, err := cid.Decode(cid1str)
@@ -187,44 +193,45 @@ func TestInteropEdgeCasesInsertion(t *testing.T) {
 		"com.example.record/3jqfcqzm4fg2j": cid1str, // K; level 0
 		"com.example.record/3jqfcqzm4fh2j": cid1str, // L; level 0
 	}
-	insertionMst, err := NewTreeFromMap(mapToCidMapDecode(t, insertionMap))
+	insertionTree, err := NewTreeFromMap(mapToCidMapDecode(t, insertionMap))
 	if err != nil {
-        t.Fatal(err)
-    }
-    insertionBefore, err := ComputeCID(insertionMst)
-    if err != nil {
-        t.Fatal(err)
-    }
-	assert.Equal(t, 1, insertionMst.Height)
-	assert.Equal(t, l1root, insertionBefore.String())
+		t.Fatal(err)
+	}
+	insertionBefore, err := ComputeCID(insertionTree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(1, insertionTree.Height)
+	assert.Equal(l1root, insertionBefore.String())
 
 	// insert F, which will push E out of the node with G+H to a new node under D
-	insertionMst, _, err = Insert(insertionMst, []byte("com.example.record/3jqfcqzm3fx2j"), cid1, -1) // F; level 2
+	insertionTree, _, err = Insert(insertionTree, []byte("com.example.record/3jqfcqzm3fx2j"), cid1, -1) // F; level 2
 	if err != nil {
 		t.Fatal(err)
 	}
-    insertionAfter, err := ComputeCID(insertionMst)
+	insertionAfter, err := ComputeCID(insertionTree)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, 2, insertionMst.Height)
-	assert.Equal(t, l2root, insertionAfter.String())
+	assert.Equal(2, insertionTree.Height)
+	assert.Equal(l2root, insertionAfter.String())
 
 	// remove F, which should push E back over with G+H
-	insertionMst, _, err = Remove(insertionMst, []byte("com.example.record/3jqfcqzm3fx2j"), -1) // F; level 2
+	insertionTree, _, err = Remove(insertionTree, []byte("com.example.record/3jqfcqzm3fx2j"), -1) // F; level 2
 	if err != nil {
 		t.Fatal(err)
 	}
-    insertionFinal, err := ComputeCID(insertionMst)
+	insertionFinal, err := ComputeCID(insertionTree)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, 1, insertionMst.Height)
-	assert.Equal(t, l1root, insertionFinal.String())
+	assert.Equal(1, insertionTree.Height)
+	assert.Equal(l1root, insertionFinal.String())
 }
 
 // "handles new layers that are two higher than existing"
 func TestInteropEdgeCasesHigher(t *testing.T) {
+	assert := assert.New(t)
 
 	cid1str := "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454"
 	cid1, err := cid.Decode(cid1str)
@@ -239,65 +246,65 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 		"com.example.record/3jqfcqzm3ft2j": cid1str, // A; level 0
 		"com.example.record/3jqfcqzm3fz2j": cid1str, // C; level 0
 	}
-	higherMst, err := NewTreeFromMap(mapToCidMapDecode(t, higherMap))
+	higherTree, err := NewTreeFromMap(mapToCidMapDecode(t, higherMap))
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherBefore, err := ComputeCID(higherMst)
+	higherBefore, err := ComputeCID(higherTree)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, 0, higherMst.Height)
-	assert.Equal(t, l0root, higherBefore.String())
+	assert.Equal(0, higherTree.Height)
+	assert.Equal(l0root, higherBefore.String())
 
 	// insert B, which is two levels above
-	higherMst, _, err = Insert(higherMst, []byte("com.example.record/3jqfcqzm3fx2j"), cid1, -1) // B; level 2
+	higherTree, _, err = Insert(higherTree, []byte("com.example.record/3jqfcqzm3fx2j"), cid1, -1) // B; level 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherAfter, err := ComputeCID(higherMst)
+	higherAfter, err := ComputeCID(higherTree)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, l2root, higherAfter.String())
+	assert.Equal(l2root, higherAfter.String())
 
 	// remove B
-	higherMst, _, err = Remove(higherMst, []byte("com.example.record/3jqfcqzm3fx2j"), -1) // B; level 2
+	higherTree, _, err = Remove(higherTree, []byte("com.example.record/3jqfcqzm3fx2j"), -1) // B; level 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherAgain, err := ComputeCID(higherMst)
+	higherAgain, err := ComputeCID(higherTree)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, 0, higherMst.Height)
-	assert.Equal(t, l0root, higherAgain.String())
+	assert.Equal(0, higherTree.Height)
+	assert.Equal(l0root, higherAgain.String())
 
 	// insert B (level=2) and D (level=1)
-	higherMst, _, err = Insert(higherMst, []byte("com.example.record/3jqfcqzm3fx2j"), cid1, -1) // B; level 2
+	higherTree, _, err = Insert(higherTree, []byte("com.example.record/3jqfcqzm3fx2j"), cid1, -1) // B; level 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherMst, _, err = Insert(higherMst, []byte("com.example.record/3jqfcqzm4fd2j"), cid1, -1) // D; level 1
+	higherTree, _, err = Insert(higherTree, []byte("com.example.record/3jqfcqzm4fd2j"), cid1, -1) // D; level 1
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherYetAgain, err := ComputeCID(higherMst)
+	higherYetAgain, err := ComputeCID(higherTree)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, 2, higherMst.Height)
-	assert.Equal(t, l2root2, higherYetAgain.String())
+	assert.Equal(2, higherTree.Height)
+	assert.Equal(l2root2, higherYetAgain.String())
 
 	// remove D
-	higherMst, _, err = Remove(higherMst, []byte("com.example.record/3jqfcqzm4fd2j"), -1) // D; level 1
+	higherTree, _, err = Remove(higherTree, []byte("com.example.record/3jqfcqzm4fd2j"), -1) // D; level 1
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherFinal, err := ComputeCID(higherMst)
+	higherFinal, err := ComputeCID(higherTree)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, 2, higherMst.Height)
-	assert.Equal(t, l2root, higherFinal.String())
+	assert.Equal(2, higherTree.Height)
+	assert.Equal(l2root, higherFinal.String())
 }
