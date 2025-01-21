@@ -45,6 +45,7 @@ func Insert(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, erro
 		// update operation
 		prev := e.Value
 		n.Entries[idx].Value = &val
+		n.Entries[idx].Dirty = true
 		n.Dirty = true
 		return n, prev, nil
 	}
@@ -58,6 +59,7 @@ func Insert(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, erro
 	newEntry := NodeEntry{
 		Key:   key,
 		Value: &val,
+		Dirty: true,
 	}
 
 	if !split {
@@ -81,9 +83,9 @@ func Insert(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, erro
 	n.Entries = slices.Insert(
 		n.Entries,
 		idx,
-		NodeEntry{Child: left},
+		NodeEntry{Child: left, Dirty: true},
 		newEntry,
-		NodeEntry{Child: right},
+		NodeEntry{Child: right, Dirty: true},
 	)
 	return n, nil, nil
 }
@@ -136,11 +138,11 @@ func splitNode(n *Node, key []byte) (*Node, *Node, error) {
 		Entries: []NodeEntry{},
 	}
 	left.Entries = append(left.Entries, n.Entries[:idx]...)
-	left.Entries = append(left.Entries, NodeEntry{Child: lowerLeft})
+	left.Entries = append(left.Entries, NodeEntry{Child: lowerLeft, Dirty: true})
 	right := &Node{
 		Height:  n.Height,
 		Dirty:   true,
-		Entries: []NodeEntry{NodeEntry{Child: lowerRight}},
+		Entries: []NodeEntry{NodeEntry{Child: lowerRight, Dirty: true}},
 	}
 	if idx+1 < len(n.Entries) {
 		right.Entries = append(right.Entries, n.Entries[idx+1:]...)
@@ -164,6 +166,7 @@ func insertParent(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid
 			Dirty:  true,
 			Entries: []NodeEntry{NodeEntry{
 				Child: n,
+				Dirty: true,
 			}},
 		}
 	}
@@ -190,6 +193,7 @@ func insertChild(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid,
 		}
 		n.Dirty = true
 		n.Entries[idx].Child = newChild
+		n.Entries[idx].Dirty = true
 		return n, prev, nil
 	}
 
@@ -212,6 +216,7 @@ func insertChild(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid,
 	}
 	newEntry := NodeEntry{
 		Child: newChild,
+		Dirty: true,
 	}
 	if idx == len(n.Entries) {
 		n.Entries = append(n.Entries, newEntry)
