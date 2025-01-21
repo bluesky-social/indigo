@@ -51,7 +51,7 @@ func Remove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 			return nil, nil, err
 		}
 		n.Entries = slices.Delete(n.Entries, idx, idx+2)
-		n.Entries[idx-1] = NodeEntry{Child: newChild}
+		n.Entries[idx-1] = NodeEntry{Child: newChild, Dirty: true}
 	} else {
 		// simple removal
 		n.Entries = slices.Delete(n.Entries, idx, idx+1)
@@ -90,7 +90,7 @@ func mergeNodes(left *Node, right *Node) (*Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		n.Entries[idx-1] = NodeEntry{Child: lowerMerged}
+		n.Entries[idx-1] = NodeEntry{Child: lowerMerged, Dirty: true}
 		n.Entries = slices.Delete(n.Entries, idx, idx+1)
 	}
 	return n, nil
@@ -123,6 +123,7 @@ func removeChild(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 	if !newChild.IsEmpty() {
 		n.Dirty = true
 		n.Entries[idx].Child = newChild
+		n.Entries[idx].Dirty = true
 		return n, prev, nil
 	}
 

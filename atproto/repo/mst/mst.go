@@ -47,6 +47,9 @@ type NodeEntry struct {
 
 	ChildCID *cid.Cid
 	Child    *Node
+
+	// tracks whether anything about this entry has changed since `Node` CID was computed
+	Dirty bool
 }
 
 func (n *Node) IsEmpty() bool {
