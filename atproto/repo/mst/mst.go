@@ -18,8 +18,8 @@ type NodeData struct {
 type EntryData struct {
 	PrefixLen int64    `cborgen:"p"` // count of characters shared with previous path/key in tree
 	KeySuffix []byte   `cborgen:"k"` // remaining part of path/key (appended to "previous key")
-	Val       cid.Cid  `cborgen:"v"` // CID pointer at this path/key
-	Tree      *cid.Cid `cborgen:"t"` // [nullable] pointer to lower-level subtree to the "right" of this path/key entry
+	Value     cid.Cid  `cborgen:"v"` // CID pointer at this path/key
+	Right     *cid.Cid `cborgen:"t"` // [nullable] pointer to lower-level subtree to the "right" of this path/key entry
 }
 
 // Represents a node in a Merkle Search Tree (MST). If this is the "root" or "top" of the tree, it effectively is the tree itself.
