@@ -133,7 +133,22 @@ func (d *NodeData) Node(c *cid.Cid) Node {
 		}
 	}
 
-	// XXX: height doesn't get set properly if this is an intermediate node
+	// TODO: height doesn't get set properly if this is an intermediate node; we rely on `EnsureHeights` getting called to fix that
 	n.Height = height
 	return n
+}
+
+// TODO: this feels like a hack, and easy to forget
+func EnsureHeights(n *Node) {
+	if n.Height <= 0 {
+		return
+	}
+	for _, e := range n.Entries {
+		if e.Child != nil {
+			if n.Height > 0 && e.Child.Height < 0 {
+				e.Child.Height = n.Height - 1
+			}
+			EnsureHeights(e.Child)
+		}
+	}
 }

@@ -32,6 +32,9 @@ func VerifyTreeStructure(n *Node, height int, key []byte) error {
 	if height < 0 {
 		return fmt.Errorf("top of tree is just a pointer to child")
 	}
+	if n.Height == -1 || n.Height != height {
+		return fmt.Errorf("node has incorrect height: %d", n.Height)
+	}
 
 	lastWasChild := false
 	for _, e := range n.Entries {

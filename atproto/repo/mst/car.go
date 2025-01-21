@@ -39,6 +39,10 @@ func HydrateNode(ctx context.Context, bs blockstore.Blockstore, ref cid.Cid) (*N
 				return nil, err
 			}
 			n.Entries[i].Child = child
+			// NOTE: this is kind of a hack
+			if n.Height == -1 && child.Height >= 0 {
+				n.Height = child.Height + 1
+			}
 		}
 	}
 
@@ -96,5 +100,6 @@ func ReadTreeFromCar(ctx context.Context, r io.Reader) (*Node, *cid.Cid, error) 
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading MST from CAR file: %w", err)
 	}
+	EnsureHeights(n)
 	return n, &rootCID, nil
 }

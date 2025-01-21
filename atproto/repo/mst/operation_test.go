@@ -144,6 +144,11 @@ func TestRandomOperations(t *testing.T) {
 			}
 		}
 
+		// check all ops against full tree (belt-and-suspenders)
+		for _, op := range opSet {
+			assert.NoError(CheckOp(tree, &op))
+		}
+
 		// extract diff as separate tree, and validate that
 		diffBlocks := blockstore.NewBlockstore(datastore.NewMapDatastore())
 		diffRoot, err := DiffNode(tree, diffBlocks)
@@ -154,6 +159,7 @@ func TestRandomOperations(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		EnsureHeights(diffTree)
 		assert.NoError(VerifyTreeStructure(diffTree, -1, nil))
 
 		// re-compute partial commit (not related to main test path)
