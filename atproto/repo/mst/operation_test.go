@@ -144,11 +144,6 @@ func TestRandomOperations(t *testing.T) {
 			}
 		}
 
-		// check all ops against full tree (belt-and-suspenders)
-		for _, op := range opSet {
-			assert.NoError(CheckOp(tree, &op))
-		}
-
 		// extract diff as separate tree, and validate that
 		diffBlocks := blockstore.NewBlockstore(datastore.NewMapDatastore())
 		diffRoot, err := DiffNode(tree, diffBlocks)
@@ -169,23 +164,34 @@ func TestRandomOperations(t *testing.T) {
 		}
 		assert.Equal(*diffRoot, *diffCID)
 
-		// XXX: try inverting on full tree
-		diffTree = tree
+		// uncomment this to try inverting on full tree
+		//diffTree = tree
 
-		// invert all the ops
-		for i, op := range opSet {
-			err := CheckOp(diffTree, &op)
-			fmt.Printf("loop=%d key=%s val=%s prev=%s\n", i, op.Path, op.Value, op.Prev)
-			assert.NoError(VerifyTreeStructure(diffTree, -1, nil))
-			if err != nil {
-				//debugPrintTree(diffTree, 0)
-				t.Fatal(err)
-			}
+		// check all ops against full tree (this is a redundant check)
+		for _, op := range opSet {
+			assert.NoError(CheckOp(tree, &op))
+		}
 
-			diffTree, err = InvertOp(diffTree, &op)
-			assert.NoError(err)
-			if err != nil {
-				t.Fatal(err)
+		// invert operations: first deletions, then creations and updates
+		// TODO: pull out this "deletions" logic layer in to a "normalize ops list" helper
+		for _, deletions := range []bool{true, false} {
+			for i, op := range opSet {
+				if op.IsDelete() == deletions {
+					continue
+				}
+				err := CheckOp(diffTree, &op)
+				fmt.Printf("loop=%d key=%s val=%s prev=%s\n", i, op.Path, op.Value, op.Prev)
+				assert.NoError(VerifyTreeStructure(diffTree, -1, nil))
+				if err != nil {
+					//debugPrintTree(diffTree, 0)
+					t.Fatal(err)
+				}
+
+				diffTree, err = InvertOp(diffTree, &op)
+				assert.NoError(err)
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
 		}
 
@@ -195,4 +201,7 @@ func TestRandomOperations(t *testing.T) {
 		}
 		assert.Equal(*startCID, *finalCID)
 	}
+
+	// fiddle this to purge test cache
+	_ = 12
 }

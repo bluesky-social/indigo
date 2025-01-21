@@ -28,7 +28,7 @@ func DiffNode(n *Node, bs blockstore.Blockstore) (*cid.Cid, error) {
 		if !e.IsChild() {
 			continue
 		}
-		if e.Child != nil && e.Dirty {
+		if e.Child != nil && (e.Dirty || e.Child.Dirty) {
 			cc, err := DiffNode(e.Child, bs)
 			if err != nil {
 				return nil, err

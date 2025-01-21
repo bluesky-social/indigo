@@ -1,6 +1,7 @@
 package mst
 
 import (
+	"bytes"
 	"fmt"
 	"slices"
 
@@ -57,6 +58,9 @@ func Remove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 		n.Entries = slices.Delete(n.Entries, idx, idx+1)
 	}
 
+	// TODO: marks adjacent child nodes dirty to include as "proof"; clarify/de-dupe this code?
+	proveDeletion(n, key)
+
 	// check if top of node is now just a pointer
 	if top {
 		for {
@@ -70,6 +74,46 @@ func Remove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 		}
 	}
 	return n, prev, nil
+}
+
+func proveDeletion(n *Node, key []byte) error {
+	for i, e := range n.Entries {
+		if e.IsValue() {
+			if bytes.Compare(key, e.Key) < 0 {
+				return nil
+			}
+		}
+		if e.IsChild() {
+			// first, see if there is a next entry as a value which this key would be after; if so we can skip checking this child
+			if i+1 < len(n.Entries) {
+				next := n.Entries[i+1]
+				if next.IsValue() && bytes.Compare(key, next.Key) > 0 {
+					continue
+				}
+			}
+			if e.Child == nil {
+				return fmt.Errorf("can't prove deletion of partial tree") // TODO: wrap partial error
+			}
+			highest, err := getHighestKey(e.Child, true)
+			if err != nil {
+				return err
+			}
+			if bytes.Compare(key, highest) > 0 {
+				// key comes after this entire child sub-tree
+				continue
+			}
+			lowest, err := getLowestKey(e.Child, true)
+			if err != nil {
+				return err
+			}
+			if bytes.Compare(key, lowest) < 0 {
+				return nil
+			}
+			// key falls inside this child sub-tree
+			return proveDeletion(e.Child, key)
+		}
+	}
+	return nil
 }
 
 func mergeNodes(left *Node, right *Node) (*Node, error) {
