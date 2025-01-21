@@ -323,6 +323,10 @@ func (c *RecordContext) TakedownBlob(cid string) {
 	c.effects.TakedownBlob(cid)
 }
 
+func (c *RecordContext) ForwardOzoneRecordOp() {
+	c.effects.ForwardOzoneRecordOp()
+}
+
 func (c *NotificationContext) Reject() {
 	c.effects.Reject()
 }

@@ -42,9 +42,11 @@ func DefaultRules() automod.RuleSet {
 			BadWordRecordKeyRule,
 			BadWordOtherRecordRule,
 			TooManyRepostRule,
+			//OzoneRecordHistoryPersistRule,
 		},
 		RecordDeleteRules: []automod.RecordRuleFunc{
 			DeleteInteractionRule,
+			//OzoneRecordHistoryPersistRule,
 		},
 		IdentityRules: []automod.IdentityRuleFunc{
 			NewAccountRule,
@@ -61,6 +63,7 @@ func DefaultRules() automod.RuleSet {
 		},
 		OzoneEventRules: []automod.OzoneEventRuleFunc{
 			HarassmentProtectionOzoneEventRule,
+			CountModEventRule,
 		},
 	}
 	return rules

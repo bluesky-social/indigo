@@ -13,7 +13,6 @@ import (
 	"github.com/bluesky-social/indigo/automod"
 	"github.com/bluesky-social/indigo/automod/cachestore"
 	"github.com/bluesky-social/indigo/automod/countstore"
-	"github.com/bluesky-social/indigo/automod/engine"
 	"github.com/bluesky-social/indigo/automod/flagstore"
 	"github.com/bluesky-social/indigo/automod/rules"
 	"github.com/bluesky-social/indigo/automod/setstore"
@@ -33,27 +32,28 @@ type Server struct {
 }
 
 type Config struct {
-	Logger              *slog.Logger
-	BskyHost            string
-	OzoneHost           string
-	OzoneDID            string
-	OzoneAdminToken     string
-	PDSHost             string
-	PDSAdminToken       string
-	SetsFileJSON        string
-	RedisURL            string
-	SlackWebhookURL     string
-	HiveAPIToken        string
-	AbyssHost           string
-	AbyssPassword       string
-	RulesetName         string
-	RatelimitBypass     string
-	PreScreenHost       string
-	PreScreenToken      string
-	ReportDupePeriod    time.Duration
-	QuotaModReportDay   int
-	QuotaModTakedownDay int
-	QuotaModActionDay   int
+	Logger                     *slog.Logger
+	BskyHost                   string
+	OzoneHost                  string
+	OzoneDID                   string
+	OzoneAdminToken            string
+	PDSHost                    string
+	PDSAdminToken              string
+	SetsFileJSON               string
+	RedisURL                   string
+	SlackWebhookURL            string
+	HiveAPIToken               string
+	AbyssHost                  string
+	AbyssPassword              string
+	RulesetName                string
+	RatelimitBypass            string
+	PersistOzoneAccountHistory bool
+	PreScreenHost              string
+	PreScreenToken             string
+	ReportDupePeriod           time.Duration
+	QuotaModReportDay          int
+	QuotaModTakedownDay        int
+	QuotaModActionDay          int
 }
 
 func NewServer(dir identity.Directory, config Config) (*Server, error) {
@@ -214,11 +214,12 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		OzoneClient: ozoneClient,
 		AdminClient: adminClient,
 		BlobClient:  blobClient,
-		Config: engine.EngineConfig{
-			ReportDupePeriod:    config.ReportDupePeriod,
-			QuotaModReportDay:   config.QuotaModReportDay,
-			QuotaModTakedownDay: config.QuotaModTakedownDay,
-			QuotaModActionDay:   config.QuotaModActionDay,
+		Config: automod.EngineConfig{
+			PersistOzoneAccountHistory: config.PersistOzoneAccountHistory,
+			ReportDupePeriod:           config.ReportDupePeriod,
+			QuotaModReportDay:          config.QuotaModReportDay,
+			QuotaModTakedownDay:        config.QuotaModTakedownDay,
+			QuotaModActionDay:          config.QuotaModActionDay,
 		},
 	}
 

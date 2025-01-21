@@ -60,6 +60,8 @@ type Effects struct {
 	RejectEvent bool
 	// Services, if any, which should blast out a notification about this even (eg, Slack)
 	NotifyServices []string
+	// If "true", then forward this record operation to Ozone as history metadata
+	PersistOzoneRecordOp bool
 }
 
 // Enqueues the named counter to be incremented at the end of all rule processing. Will automatically increment for all time periods.
@@ -244,4 +246,9 @@ func (e *Effects) Notify(srv string) {
 
 func (e *Effects) Reject() {
 	e.RejectEvent = true
+}
+
+// Marks that this record operatoin should be recorded in ozone history
+func (e *Effects) ForwardOzoneRecordOp() {
+	e.PersistOzoneRecordOp = true
 }

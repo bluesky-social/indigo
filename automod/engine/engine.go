@@ -52,6 +52,8 @@ type Engine struct {
 type EngineConfig struct {
 	// if enabled, account metadata is not hydrated for every event by default
 	SkipAccountMeta bool
+	// if true, sent firehose identity and account events to ozone backend as events
+	PersistOzoneAccountHistory bool
 	// time period within which automod will not re-report an account for the same reasonType
 	ReportDupePeriod time.Duration
 	// number of reports automod can file per day, for all subjects and types combined (circuit breaker)
@@ -121,7 +123,7 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, evt comatproto.Sync
 		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("rule execution failed: %w", err)
 	}
-	eng.CanonicalLogLineAccount(&ac)
+	eng.CanonicalLogLineIdentity(&ac)
 	if err := eng.persistAccountModActions(&ac); err != nil {
 		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("failed to persist actions for identity event: %w", err)
@@ -129,6 +131,11 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, evt comatproto.Sync
 	if err := eng.persistCounters(ctx, ac.effects); err != nil {
 		eventErrorCount.WithLabelValues("identity").Inc()
 		return fmt.Errorf("failed to persist counters for identity event: %w", err)
+	}
+	if eng.OzoneClient != nil && eng.Config.PersistOzoneAccountHistory {
+		if err := eng.ForwardOzoneIdentityEvent(ctx, &evt); err != nil {
+			return fmt.Errorf("failed to forward identity event to ozone history: %w", err)
+		}
 	}
 	return nil
 }
@@ -200,6 +207,11 @@ func (eng *Engine) ProcessAccountEvent(ctx context.Context, evt comatproto.SyncS
 	if err := eng.persistCounters(ctx, ac.effects); err != nil {
 		eventErrorCount.WithLabelValues("account").Inc()
 		return fmt.Errorf("failed to persist counters for account event: %w", err)
+	}
+	if eng.OzoneClient != nil && eng.Config.PersistOzoneAccountHistory {
+		if err := eng.ForwardOzoneAccountEvent(ctx, &evt); err != nil {
+			return fmt.Errorf("failed to forward account event to ozone history: %w", err)
+		}
 	}
 	return nil
 }
@@ -355,8 +367,20 @@ func (e *Engine) PurgeAccountCaches(ctx context.Context, did syntax.DID) error {
 	return cacheErr
 }
 
+func (e *Engine) CanonicalLogLineIdentity(c *AccountContext) {
+	c.Logger.Info("canonical-event-line",
+		"eventType", "identity",
+		"accountLabels", c.effects.AccountLabels,
+		"accountFlags", c.effects.AccountFlags,
+		"accountTags", c.effects.AccountTags,
+		"accountTakedown", c.effects.AccountTakedown,
+		"accountReports", len(c.effects.AccountReports),
+	)
+}
+
 func (e *Engine) CanonicalLogLineAccount(c *AccountContext) {
 	c.Logger.Info("canonical-event-line",
+		"eventType", "account",
 		"accountLabels", c.effects.AccountLabels,
 		"accountFlags", c.effects.AccountFlags,
 		"accountTags", c.effects.AccountTags,
@@ -367,6 +391,7 @@ func (e *Engine) CanonicalLogLineAccount(c *AccountContext) {
 
 func (e *Engine) CanonicalLogLineRecord(c *RecordContext) {
 	c.Logger.Info("canonical-event-line",
+		"eventType", "record",
 		"accountLabels", c.effects.AccountLabels,
 		"accountFlags", c.effects.AccountFlags,
 		"accountTags", c.effects.AccountTags,

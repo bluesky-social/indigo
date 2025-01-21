@@ -46,6 +46,12 @@ func NewOzoneEventContext(ctx context.Context, eng *Engine, eventView *toolsozon
 		eventType = "divert"
 	} else if eventView.Event.ModerationDefs_ModEventTag != nil {
 		eventType = "tag"
+	} else if eventView.Event.ModerationDefs_AccountEvent != nil {
+		eventType = "account"
+	} else if eventView.Event.ModerationDefs_IdentityEvent != nil {
+		eventType = "identity"
+	} else if eventView.Event.ModerationDefs_RecordEvent != nil {
+		eventType = "record"
 	} else {
 		return nil, fmt.Errorf("unhandled ozone event type")
 	}
@@ -70,7 +76,7 @@ func NewOzoneEventContext(ctx context.Context, eng *Engine, eventView *toolsozon
 		if err != nil {
 			return nil, err
 		}
-		subjectURI := &u
+		subjectURI = &u
 		subjectDID, err = subjectURI.Authority().AsDID()
 		if err != nil {
 			return nil, err
@@ -206,6 +212,7 @@ func (eng *Engine) ProcessOzoneEvent(ctx context.Context, eventView *toolsozone.
 
 func (e *Engine) CanonicalLogLineOzoneEvent(c *OzoneEventContext) {
 	c.Logger.Info("canonical-event-line",
+		"eventType", "ozone",
 		"accountLabels", c.effects.AccountLabels,
 		"accountFlags", c.effects.AccountFlags,
 		"accountTakedown", c.effects.AccountTakedown,
