@@ -67,7 +67,7 @@ func TestBasicMST(t *testing.T) {
 	assert.NotEmpty(prev)
 	assert.Equal(&c3, prev)
 
-	assert.NoError(debugTreeStructure(tree, -1, nil))
+	assert.NoError(VerifyTreeStructure(tree, -1, nil))
 }
 
 func TestBasicMap(t *testing.T) {
@@ -95,7 +95,7 @@ func TestBasicMap(t *testing.T) {
 
 	fmt.Println("-----")
 	debugPrintTree(tree, 0)
-	assert.NoError(debugTreeStructure(tree, -1, nil))
+	assert.NoError(VerifyTreeStructure(tree, -1, nil))
 
 	outMap := make(map[string]cid.Cid, len(inMap))
 	err = ReadTreeToMap(tree, outMap)
@@ -145,7 +145,7 @@ func TestRandomTree(t *testing.T) {
 
 	fmt.Println("-----")
 	debugPrintTree(tree, 0)
-	assert.NoError(debugTreeStructure(tree, -1, nil))
+	assert.NoError(VerifyTreeStructure(tree, -1, nil))
 	assert.Equal(size, debugCountEntries(tree))
 
 	err = ReadTreeToMap(tree, outMap)
@@ -179,7 +179,7 @@ func TestRandomTree(t *testing.T) {
 		if err != nil {
 			break
 		}
-		err = debugTreeStructure(tree, -1, nil)
+		err = VerifyTreeStructure(tree, -1, nil)
 		assert.NoError(err)
 		if err != nil {
 			break
@@ -208,7 +208,7 @@ func TestRandomUntilError(t *testing.T) {
 		}
 
 		assert.Equal(count, debugCountEntries(tree))
-		err = debugTreeStructure(tree, -1, nil)
+		err = VerifyTreeStructure(tree, -1, nil)
 		assert.NoError(err)
 		if err != nil || count != debugCountEntries(tree) {
 			fmt.Println("-----")
@@ -248,5 +248,5 @@ func TestBrokenCaseOne(t *testing.T) {
 	debugPrintChildPointers(tree)
 	debugPrintTree(tree, 0)
 	assert.Equal(len(entries), debugCountEntries(tree))
-	assert.NoError(debugTreeStructure(tree, -1, nil))
+	assert.NoError(VerifyTreeStructure(tree, -1, nil))
 }
