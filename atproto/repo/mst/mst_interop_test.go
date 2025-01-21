@@ -30,7 +30,7 @@ func mapToTreeRootCidString(t *testing.T, m map[string]string) string {
 		t.Fatal(err)
 	}
 
-	c, err := ComputeCID(tree)
+	c, err := NodeCID(tree)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestManualNode(t *testing.T) {
 	n := simple_nd.Node(nil)
 	assert.Equal(simple_nd, n.NodeData())
 
-	mcid, err := ComputeCID(&n)
+	mcid, err := NodeCID(&n)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func TestInteropEdgeCasesTrimTop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	trimBefore, err := ComputeCID(trimTree)
+	trimBefore, err := NodeCID(trimTree)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +159,7 @@ func TestInteropEdgeCasesTrimTop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	trimAfter, err := ComputeCID(trimTree)
+	trimAfter, err := NodeCID(trimTree)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +197,7 @@ func TestInteropEdgeCasesInsertion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	insertionBefore, err := ComputeCID(insertionTree)
+	insertionBefore, err := NodeCID(insertionTree)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +209,7 @@ func TestInteropEdgeCasesInsertion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	insertionAfter, err := ComputeCID(insertionTree)
+	insertionAfter, err := NodeCID(insertionTree)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +221,7 @@ func TestInteropEdgeCasesInsertion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	insertionFinal, err := ComputeCID(insertionTree)
+	insertionFinal, err := NodeCID(insertionTree)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +250,7 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherBefore, err := ComputeCID(higherTree)
+	higherBefore, err := NodeCID(higherTree)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -262,7 +262,7 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherAfter, err := ComputeCID(higherTree)
+	higherAfter, err := NodeCID(higherTree)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -274,7 +274,7 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherAgain, err := ComputeCID(higherTree)
+	higherAgain, err := NodeCID(higherTree)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,13 +290,13 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherYetAgain, err := ComputeCID(higherTree)
+	higherYetAgain, err := NodeCID(higherTree)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(2, higherTree.Height)
 	assert.Equal(l2root2, higherYetAgain.String())
-	assert.NoError(debugTreeStructure(higherTree, -1, nil))
+	assert.NoError(VerifyTreeStructure(higherTree, -1, nil))
 	//debugPrintTree(higherTree, 0)
 
 	// remove D
@@ -304,12 +304,12 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherFinal, err := ComputeCID(higherTree)
+	higherFinal, err := NodeCID(higherTree)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(2, higherTree.Height)
 	assert.Equal(l2root, higherFinal.String())
-	assert.NoError(debugTreeStructure(higherTree, -1, nil))
+	assert.NoError(VerifyTreeStructure(higherTree, -1, nil))
 	//debugPrintTree(higherTree, 0)
 }

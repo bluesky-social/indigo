@@ -10,7 +10,7 @@ import (
 )
 
 // Recursively calculates the root CID
-func ComputeCID(n *Node) (*cid.Cid, error) {
+func NodeCID(n *Node) (*cid.Cid, error) {
 	if n == nil {
 		return nil, fmt.Errorf("nil tree") // TODO: wrap an error?
 	}
@@ -25,7 +25,7 @@ func ComputeCID(n *Node) (*cid.Cid, error) {
 		}
 		// TODO: better efficiency here? track dirty on NodeEntry?
 		if e.Child != nil {
-			cc, err := ComputeCID(e.Child)
+			cc, err := NodeCID(e.Child)
 			if err != nil {
 				return nil, err
 			}
