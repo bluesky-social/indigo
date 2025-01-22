@@ -362,6 +362,8 @@ type PDSRates struct {
 	PerDay    int64 `json:"per_day,omitempty"`
 	CrawlRate int64 `json:"crawl_rate,omitempty"`
 	RepoLimit int64 `json:"repo_limit,omitempty"`
+
+	RelayAllowed bool `json:"relay_allowed,omitempty"`
 }
 
 func (pr *PDSRates) FromSlurper(s *Slurper) {
@@ -405,6 +407,7 @@ func (bgs *BGS) handleAdminChangePDSRateLimits(e echo.Context) error {
 	pds.DailyEventLimit = body.PerDay
 	pds.CrawlRateLimit = float64(body.CrawlRate)
 	pds.RepoLimit = body.RepoLimit
+	pds.RelayAllowed = body.RelayAllowed
 
 	if err := bgs.db.Save(&pds).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Errorf("failed to save rate limit changes: %w", err))
@@ -509,7 +512,7 @@ func (bgs *BGS) handleAdminPostResyncPDS(e echo.Context) error {
 		ctx := context.Background()
 		err := bgs.ResyncPDS(ctx, pds)
 		if err != nil {
-			log.Error("failed to resync PDS", "err", err, "pds", pds.Host)
+			bgs.log.Error("failed to resync PDS", "err", err, "pds", pds.Host)
 		}
 	}()
 
@@ -635,25 +638,14 @@ func (bgs *BGS) handleAdminRequestCrawl(e echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "must pass hostname")
 	}
 
-	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
-		if bgs.ssl {
-			host = "https://" + host
-		} else {
-			host = "http://" + host
-		}
-	}
+	host, sslUrl := bgs.newPdsHostPrefixNormalize(host)
 
+	if !bgs.config.SSL.AdminOk(sslUrl) {
+		return echo.NewHTTPError(http.StatusBadRequest, "ssl is %s but got host=%#v", bgs.config.SSL.String(), host)
+	}
 	u, err := url.Parse(host)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "failed to parse hostname")
-	}
-
-	if u.Scheme == "http" && bgs.ssl {
-		return echo.NewHTTPError(http.StatusBadRequest, "this server requires https")
-	}
-
-	if u.Scheme == "https" && !bgs.ssl {
-		return echo.NewHTTPError(http.StatusBadRequest, "this server does not support https")
 	}
 
 	if u.Path != "" {
@@ -675,5 +667,5 @@ func (bgs *BGS) handleAdminRequestCrawl(e echo.Context) error {
 	rateOverrides := body.PDSRates
 	rateOverrides.FromSlurper(bgs.slurper)
 
-	return bgs.slurper.SubscribeToPds(ctx, host, true, true, &rateOverrides) // Override Trusted Domain Check
+	return bgs.slurper.SubscribeToPds(ctx, host, true, true, sslUrl, &rateOverrides) // Override Trusted Domain Check
 }
