@@ -17,12 +17,6 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
-const (
-	recordEventTimeout       = 30 * time.Second
-	identityEventTimeout     = 10 * time.Second
-	notificationEventTimeout = 5 * time.Second
-)
-
 // runtime for executing rules, managing state, and recording moderation actions.
 //
 // NOTE: careful when initializing: several fields must not be nil or zero, even though they are pointer type.
@@ -60,6 +54,13 @@ type EngineConfig struct {
 	QuotaModTakedownDay int
 	// number of misc actions automod can do per day, for all subjects combined (circuit breaker)
 	QuotaModActionDay int
+
+	// timeout for record event processing (total, including all setup, rules, and teardown)
+	RecordEventTimeout time.Duration
+	// timeout for identity event and account event processing (total, including all setup, rules, and teardown)
+	IdentityEventTimeout time.Duration
+	// timeout for event processing (total, including all setup, rules, and teardown)
+	OzoneEventTimeout time.Duration
 }
 
 // Entrypoint for external code pushing #identity events in to the engine.
@@ -85,8 +86,11 @@ func (eng *Engine) ProcessIdentityEvent(ctx context.Context, evt comatproto.Sync
 			eventErrorCount.WithLabelValues("identity").Inc()
 		}
 	}()
-	ctx, cancel := context.WithTimeout(ctx, identityEventTimeout)
-	defer cancel()
+	var cancel context.CancelFunc
+	if eng.Config.IdentityEventTimeout != 0 {
+		ctx, cancel = context.WithTimeout(ctx, eng.Config.IdentityEventTimeout)
+		defer cancel()
+	}
 
 	// first purge any caches; we need to re-resolve from scratch on identity updates
 	if err := eng.PurgeAccountCaches(ctx, did); err != nil {
@@ -156,8 +160,11 @@ func (eng *Engine) ProcessAccountEvent(ctx context.Context, evt comatproto.SyncS
 			eventErrorCount.WithLabelValues("account").Inc()
 		}
 	}()
-	ctx, cancel := context.WithTimeout(ctx, identityEventTimeout)
-	defer cancel()
+	var cancel context.CancelFunc
+	if eng.Config.IdentityEventTimeout != 0 {
+		ctx, cancel = context.WithTimeout(ctx, eng.Config.IdentityEventTimeout)
+		defer cancel()
+	}
 
 	// first purge any caches; we need to re-resolve from scratch on account updates
 	if err := eng.PurgeAccountCaches(ctx, did); err != nil {
@@ -221,8 +228,11 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 			eng.Logger.Error("automod event execution exception", "err", r, "did", op.DID, "collection", op.Collection, "rkey", op.RecordKey)
 		}
 	}()
-	ctx, cancel := context.WithTimeout(ctx, recordEventTimeout)
-	defer cancel()
+	var cancel context.CancelFunc
+	if eng.Config.RecordEventTimeout != 0 {
+		ctx, cancel = context.WithTimeout(ctx, eng.Config.RecordEventTimeout)
+		defer cancel()
+	}
 
 	if err := op.Validate(); err != nil {
 		eventErrorCount.WithLabelValues("record").Inc()
@@ -287,6 +297,7 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 }
 
 // returns a boolean indicating "block the event"
+// NOTE: this code is unused and should be removed
 func (eng *Engine) ProcessNotificationEvent(ctx context.Context, senderDID, recipientDID syntax.DID, reason string, subject syntax.ATURI) (bool, error) {
 	eventProcessCount.WithLabelValues("notif").Inc()
 	start := time.Now()
@@ -301,7 +312,8 @@ func (eng *Engine) ProcessNotificationEvent(ctx context.Context, senderDID, reci
 			eng.Logger.Error("automod event execution exception", "err", r, "sender", senderDID, "recipient", recipientDID)
 		}
 	}()
-	ctx, cancel := context.WithTimeout(ctx, notificationEventTimeout)
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 
 	senderIdent, err := eng.Directory.LookupDID(ctx, senderDID)
