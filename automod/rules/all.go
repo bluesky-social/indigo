@@ -56,9 +56,6 @@ func DefaultRules() automod.RuleSet {
 		BlobRules: []automod.BlobRuleFunc{
 			//BlobVerifyRule,
 		},
-		NotificationRules: []automod.NotificationRuleFunc{
-			// none
-		},
 		OzoneEventRules: []automod.OzoneEventRuleFunc{
 			HarassmentProtectionOzoneEventRule,
 		},
