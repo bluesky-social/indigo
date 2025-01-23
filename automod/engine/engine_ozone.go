@@ -163,8 +163,11 @@ func (eng *Engine) ProcessOzoneEvent(ctx context.Context, eventView *toolsozone.
 			eng.Logger.Error("automod ozone event execution exception", "err", r, "eventID", eventView.Id, "createdAt", eventView.CreatedAt)
 		}
 	}()
-	ctx, cancel := context.WithTimeout(ctx, recordEventTimeout)
-	defer cancel()
+	var cancel context.CancelFunc
+	if eng.Config.OzoneEventTimeout != 0 {
+		ctx, cancel = context.WithTimeout(ctx, eng.Config.OzoneEventTimeout)
+		defer cancel()
+	}
 
 	ec, err := NewOzoneEventContext(ctx, eng, eventView)
 	if err != nil {
