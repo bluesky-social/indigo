@@ -33,27 +33,30 @@ type Server struct {
 }
 
 type Config struct {
-	Logger              *slog.Logger
-	BskyHost            string
-	OzoneHost           string
-	OzoneDID            string
-	OzoneAdminToken     string
-	PDSHost             string
-	PDSAdminToken       string
-	SetsFileJSON        string
-	RedisURL            string
-	SlackWebhookURL     string
-	HiveAPIToken        string
-	AbyssHost           string
-	AbyssPassword       string
-	RulesetName         string
-	RatelimitBypass     string
-	PreScreenHost       string
-	PreScreenToken      string
-	ReportDupePeriod    time.Duration
-	QuotaModReportDay   int
-	QuotaModTakedownDay int
-	QuotaModActionDay   int
+	Logger               *slog.Logger
+	BskyHost             string
+	OzoneHost            string
+	OzoneDID             string
+	OzoneAdminToken      string
+	PDSHost              string
+	PDSAdminToken        string
+	SetsFileJSON         string
+	RedisURL             string
+	SlackWebhookURL      string
+	HiveAPIToken         string
+	AbyssHost            string
+	AbyssPassword        string
+	RulesetName          string
+	RatelimitBypass      string
+	PreScreenHost        string
+	PreScreenToken       string
+	ReportDupePeriod     time.Duration
+	QuotaModReportDay    int
+	QuotaModTakedownDay  int
+	QuotaModActionDay    int
+	RecordEventTimeout   time.Duration
+	IdentityEventTimeout time.Duration
+	OzoneEventTimeout    time.Duration
 }
 
 func NewServer(dir identity.Directory, config Config) (*Server, error) {
@@ -215,10 +218,13 @@ func NewServer(dir identity.Directory, config Config) (*Server, error) {
 		AdminClient: adminClient,
 		BlobClient:  blobClient,
 		Config: engine.EngineConfig{
-			ReportDupePeriod:    config.ReportDupePeriod,
-			QuotaModReportDay:   config.QuotaModReportDay,
-			QuotaModTakedownDay: config.QuotaModTakedownDay,
-			QuotaModActionDay:   config.QuotaModActionDay,
+			ReportDupePeriod:     config.ReportDupePeriod,
+			QuotaModReportDay:    config.QuotaModReportDay,
+			QuotaModTakedownDay:  config.QuotaModTakedownDay,
+			QuotaModActionDay:    config.QuotaModActionDay,
+			RecordEventTimeout:   config.RecordEventTimeout,
+			IdentityEventTimeout: config.IdentityEventTimeout,
+			OzoneEventTimeout:    config.OzoneEventTimeout,
 		},
 	}
 
