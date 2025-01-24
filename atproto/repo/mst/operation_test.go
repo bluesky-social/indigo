@@ -172,26 +172,26 @@ func TestRandomOperations(t *testing.T) {
 			assert.NoError(CheckOp(tree, &op))
 		}
 
-		// invert operations: first deletions, then creations and updates
-		// TODO: pull out this "deletions" logic layer in to a "normalize ops list" helper
-		for _, deletions := range []bool{true, false} {
-			for i, op := range opSet {
-				if op.IsDelete() == deletions {
-					continue
-				}
-				err := CheckOp(diffTree, &op)
-				fmt.Printf("loop=%d key=%s val=%s prev=%s\n", i, op.Path, op.Value, op.Prev)
-				assert.NoError(VerifyTreeStructure(diffTree, -1, nil))
-				if err != nil {
-					//debugPrintTree(diffTree, 0)
-					t.Fatal(err)
-				}
+		// sort ops (comment to disable)
+		opSet, err = NormalizeOps(opSet)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-				diffTree, err = InvertOp(diffTree, &op)
-				assert.NoError(err)
-				if err != nil {
-					t.Fatal(err)
-				}
+		// invert operations
+		for i, op := range opSet {
+			err := CheckOp(diffTree, &op)
+			fmt.Printf("loop=%d key=%s val=%s prev=%s\n", i, op.Path, op.Value, op.Prev)
+			assert.NoError(VerifyTreeStructure(diffTree, -1, nil))
+			if err != nil {
+				//debugPrintTree(diffTree, 0)
+				t.Fatal(err)
+			}
+
+			diffTree, err = InvertOp(diffTree, &op)
+			assert.NoError(err)
+			if err != nil {
+				t.Fatal(err)
 			}
 		}
 
