@@ -2,6 +2,7 @@ package mst
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/ipfs/go-cid"
 )
@@ -113,4 +114,36 @@ func InvertOp(n *Node, op *Operation) (*Node, error) {
 		return n, nil
 	}
 	return nil, fmt.Errorf("invalid operation")
+}
+
+type OpByPath []Operation
+
+func (a OpByPath) Len() int      { return len(a) }
+func (a OpByPath) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+
+func (a OpByPath) Less(i, j int) bool {
+
+	// sort deletions first
+	if a[i].IsDelete() && !a[j].IsDelete() {
+		return true
+	}
+
+	// then by path
+	return a[i].Path < a[j].Path
+}
+
+// re-orders operation list, and checks for duplicates
+func NormalizeOps(list []Operation) ([]Operation, error) {
+	// TODO: can this just use the slice ref, instead of returning?
+
+	set := map[string]bool{}
+	for _, op := range list {
+		if _, ok := set[op.Path]; ok != false {
+			return nil, fmt.Errorf("duplicate path in operation list")
+		}
+		set[op.Path] = true
+	}
+
+	sort.Sort(OpByPath(list))
+	return list, nil
 }
