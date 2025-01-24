@@ -687,6 +687,17 @@ func (bgs *BGS) cleanupConsumer(id uint64) {
 	delete(bgs.consumers, id)
 }
 
+func truthy(x string) bool {
+	x = strings.ToLower(x)
+	switch x {
+	case "t", "true", "1":
+		return true
+	default:
+		return false
+	}
+}
+
+// this is /xrpc/com.atproto.sync.subscribeRepos THE FIREHOSE
 func (bgs *BGS) EventsHandler(c echo.Context) error {
 	var since *int64
 	if sinceVal := c.QueryParam("cursor"); sinceVal != "" {
@@ -696,6 +707,7 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 		}
 		since = &sval
 	}
+	nudgeMode := truthy(c.QueryParam("nudge"))
 
 	ctx, cancel := context.WithCancel(c.Request().Context())
 	defer cancel()
@@ -804,7 +816,34 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 				return err
 			}
 
-			if evt.Preserialized != nil {
+			if nudgeMode {
+				if evt.Header.Op == events.EvtKindErrorFrame {
+					// send nothing to nudge stream
+				} else if evt.Header.Op == events.EvtKindMessage {
+					seq, hasSeq := evt.GetSequence()
+					repo, hasRepo := evt.GetRepo()
+					if hasSeq || hasRepo {
+						// message is worth sending
+						//var nmsg NudgeMessage
+						out := make(map[string]any, 9)
+						out["k"] = evt.Header.MsgType
+						if hasSeq {
+							out["seq"] = seq
+						}
+						if hasRepo {
+							out["repo"] = repo
+						}
+						blob, err := json.Marshal(out)
+						if err != nil {
+							return fmt.Errorf("nudge json: %w", err)
+						}
+						_, err = wc.Write(blob)
+						if err != nil {
+							return fmt.Errorf("nudge write: %w", err)
+						}
+					}
+				}
+			} else if evt.Preserialized != nil {
 				_, err = wc.Write(evt.Preserialized)
 			} else {
 				err = evt.Serialize(wc)
@@ -826,6 +865,12 @@ func (bgs *BGS) EventsHandler(c echo.Context) error {
 			return nil
 		}
 	}
+}
+
+type NudgeMessage struct {
+	Kind string `json:"k"`
+	Seq  int64  `json:"seq,omitempty"`
+	Did  string `json:"did,omitempty"`
 }
 
 func prometheusHandler() http.Handler {

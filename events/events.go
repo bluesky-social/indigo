@@ -180,6 +180,8 @@ type XRPCStreamEvent struct {
 	PrivPdsId       uint       `json:"-" cborgen:"-"`
 	PrivRelevantPds []uint     `json:"-" cborgen:"-"`
 	Preserialized   []byte     `json:"-" cborgen:"-"`
+
+	Header EventHeader `json:"-" cborgen:"-"`
 }
 
 func (evt *XRPCStreamEvent) Serialize(wc io.Writer) error {
@@ -223,13 +225,12 @@ func (evt *XRPCStreamEvent) Serialize(wc io.Writer) error {
 }
 
 func (xevt *XRPCStreamEvent) Deserialize(r io.Reader) error {
-	var header EventHeader
-	if err := header.UnmarshalCBOR(r); err != nil {
+	if err := xevt.Header.UnmarshalCBOR(r); err != nil {
 		return fmt.Errorf("reading header: %w", err)
 	}
-	switch header.Op {
+	switch xevt.Header.Op {
 	case EvtKindMessage:
-		switch header.MsgType {
+		switch xevt.Header.MsgType {
 		case "#commit":
 			var evt comatproto.SyncSubscribeRepos_Commit
 			if err := evt.UnmarshalCBOR(r); err != nil {
@@ -287,7 +288,7 @@ func (xevt *XRPCStreamEvent) Deserialize(r io.Reader) error {
 		}
 		xevt.Error = &errframe
 	default:
-		return fmt.Errorf("unrecognized event stream type: %d", header.Op)
+		return fmt.Errorf("unrecognized event stream type: %d", xevt.Header.Op)
 	}
 	return nil
 }
@@ -452,6 +453,56 @@ func (evt *XRPCStreamEvent) Sequence() int64 {
 		return -1
 	default:
 		return -1
+	}
+}
+
+func (evt *XRPCStreamEvent) GetSequence() (int64, bool) {
+	switch {
+	case evt == nil:
+		return 0, false
+	case evt.RepoCommit != nil:
+		return evt.RepoCommit.Seq, true
+	case evt.RepoHandle != nil:
+		return evt.RepoHandle.Seq, true
+	case evt.RepoMigrate != nil:
+		return evt.RepoMigrate.Seq, true
+	case evt.RepoTombstone != nil:
+		return evt.RepoTombstone.Seq, true
+	case evt.RepoIdentity != nil:
+		return evt.RepoIdentity.Seq, true
+	case evt.RepoAccount != nil:
+		return evt.RepoAccount.Seq, true
+	case evt.RepoInfo != nil:
+		return 0, false
+	case evt.Error != nil:
+		return 0, false
+	default:
+		return 0, false
+	}
+}
+
+func (evt *XRPCStreamEvent) GetRepo() (string, bool) {
+	switch {
+	case evt == nil:
+		return "", false
+	case evt.RepoCommit != nil:
+		return evt.RepoCommit.Repo, true
+	case evt.RepoHandle != nil:
+		return evt.RepoHandle.Did, true
+	case evt.RepoMigrate != nil:
+		return evt.RepoMigrate.Did, true
+	case evt.RepoTombstone != nil:
+		return evt.RepoTombstone.Did, true
+	case evt.RepoIdentity != nil:
+		return evt.RepoIdentity.Did, true
+	case evt.RepoAccount != nil:
+		return evt.RepoAccount.Did, true
+	case evt.RepoInfo != nil:
+		return "", false
+	case evt.Error != nil:
+		return "", false
+	default:
+		return "", false
 	}
 }
 
