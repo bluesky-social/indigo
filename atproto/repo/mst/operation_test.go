@@ -205,3 +205,48 @@ func TestRandomOperations(t *testing.T) {
 	// fiddle this to purge test cache
 	_ = 12
 }
+
+func TestNormalizeOps(t *testing.T) {
+	assert := assert.New(t)
+
+	c2, _ := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu222222222")
+	c3, _ := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu333333333")
+
+	simple := []Operation{
+		Operation{
+			Path:  "create-BBB",
+			Value: &c2,
+			Prev:  nil,
+		},
+		Operation{
+			Path:  "create-AAA",
+			Value: &c2,
+			Prev:  nil,
+		},
+		Operation{
+			Path:  "delete-me",
+			Value: nil,
+			Prev:  &c2,
+		},
+	}
+	out, err := NormalizeOps(simple)
+	assert.NoError(err)
+	assert.Equal(3, len(out))
+	assert.Equal("delete-me", out[0].Path)
+	assert.Equal("create-BBB", out[2].Path)
+
+	dupes := []Operation{
+		Operation{
+			Path:  "create-BBB",
+			Value: nil,
+			Prev:  &c2,
+		},
+		Operation{
+			Path:  "create-BBB",
+			Value: nil,
+			Prev:  &c3,
+		},
+	}
+	_, err = NormalizeOps(dupes)
+	assert.Error(err)
+}
