@@ -56,7 +56,7 @@ func TestBasicMST(t *testing.T) {
 	assert.Equal(&c3, val)
 
 	m := make(map[string]cid.Cid)
-	assert.NoError(tree.ReadToMap(m))
+	assert.NoError(tree.WriteToMap(m))
 	//fmt.Println("-----")
 	//debugPrintMap(m)
 	//fmt.Println("-----")
@@ -123,7 +123,7 @@ func TestBasicMap(t *testing.T) {
 	assert.NoError(tree.Verify())
 
 	outMap := make(map[string]cid.Cid, len(inMap))
-	err = tree.ReadToMap(outMap)
+	err = tree.WriteToMap(outMap)
 	assert.NoError(err)
 	assert.Equal(inMap, outMap)
 }
@@ -173,7 +173,7 @@ func TestRandomTree(t *testing.T) {
 	assert.NoError(tree.Verify())
 	assert.Equal(size, debugCountEntries(tree.Root))
 
-	err = tree.ReadToMap(outMap)
+	err = tree.WriteToMap(outMap)
 	assert.NoError(err)
 	assert.Equal(len(inMap), len(outMap))
 	assert.Equal(inMap, outMap)

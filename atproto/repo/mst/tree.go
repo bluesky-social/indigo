@@ -97,14 +97,14 @@ func NewTreeFromMap(m map[string]cid.Cid) (*Tree, error) {
 // Recursively walks the tree and writes key/value pairs to map `m`
 //
 // The map (`m`) is mutated in place (by reference); the map must be initialized before calling.
-func (t *Tree) ReadToMap(m map[string]cid.Cid) error {
+func (t *Tree) WriteToMap(m map[string]cid.Cid) error {
 	if m == nil {
 		return fmt.Errorf("un-initialized map as an argument")
 	}
 	if t.Root == nil {
 		return fmt.Errorf("empty tree root")
 	}
-	return readNodeToMap(t.Root, m)
+	return writeNodeToMap(t.Root, m)
 }
 
 // Returns the overall root-node CID for the MST.

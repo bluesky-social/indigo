@@ -202,7 +202,7 @@ func nodeCompareKey(n *Node, key []byte, markDirty bool) (int, error) {
 	return 0, nil
 }
 
-func readNodeToMap(n *Node, m map[string]cid.Cid) error {
+func writeNodeToMap(n *Node, m map[string]cid.Cid) error {
 	if m == nil {
 		return fmt.Errorf("un-initialized map as an argument")
 	}
@@ -214,7 +214,7 @@ func readNodeToMap(n *Node, m map[string]cid.Cid) error {
 			m[string(e.Key)] = *e.Value
 		}
 		if e.Child != nil {
-			if err := readNodeToMap(e.Child, m); err != nil {
+			if err := writeNodeToMap(e.Child, m); err != nil {
 				return fmt.Errorf("failed to export MST structure as map: %w", err)
 			}
 		}
