@@ -35,35 +35,35 @@ func (op *Operation) IsDelete() bool {
 }
 
 // Mutates the tree, returning a full `Operation`
-func ApplyOp(n *Node, path string, val *cid.Cid) (*Node, *Operation, error) {
+func ApplyOp(tree *Tree, path string, val *cid.Cid) (*Operation, error) {
 	if val != nil {
-		n, prev, err := Insert(n, []byte(path), *val, -1)
+		prev, err := tree.Insert([]byte(path), *val)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		op := &Operation{
 			Path:  path,
 			Value: val,
 			Prev:  prev,
 		}
-		return n, op, nil
+		return op, nil
 	} else {
-		n, prev, err := Remove(n, []byte(path), -1)
+		prev, err := tree.Remove([]byte(path))
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		op := &Operation{
 			Path:  path,
 			Value: val,
 			Prev:  prev,
 		}
-		return n, op, nil
+		return op, nil
 	}
 }
 
 // Does a simple "forwards" (not inversion) check of operation
-func CheckOp(n *Node, op *Operation) error {
-	val, err := Get(n, []byte(op.Path), -1)
+func CheckOp(tree *Tree, op *Operation) error {
+	val, err := tree.Get([]byte(op.Path))
 	if err != nil {
 		return err
 	}
@@ -82,38 +82,39 @@ func CheckOp(n *Node, op *Operation) error {
 	return fmt.Errorf("invalid operation")
 }
 
-func InvertOp(n *Node, op *Operation) (*Node, error) {
+// XXX: description
+func InvertOp(tree *Tree, op *Operation) error {
 	if op.IsCreate() {
-		n, prev, err := Remove(n, []byte(op.Path), -1)
+		prev, err := tree.Remove([]byte(op.Path))
 		if err != nil {
-			return nil, fmt.Errorf("failed to invert op: %w", err)
+			return fmt.Errorf("failed to invert op: %w", err)
 		}
 		if prev == nil || *prev != *op.Value {
-			return nil, fmt.Errorf("failed to invert creation")
+			return fmt.Errorf("failed to invert creation")
 		}
-		return n, nil
+		return nil
 	}
 	if op.IsUpdate() {
-		n, prev, err := Insert(n, []byte(op.Path), *op.Prev, -1)
+		prev, err := tree.Insert([]byte(op.Path), *op.Prev)
 		if err != nil {
-			return nil, fmt.Errorf("failed to invert op: %w", err)
+			return fmt.Errorf("failed to invert op: %w", err)
 		}
 		if prev == nil || *prev != *op.Value {
-			return nil, fmt.Errorf("failed to invert update")
+			return fmt.Errorf("failed to invert update")
 		}
-		return n, nil
+		return nil
 	}
 	if op.IsDelete() {
-		n, prev, err := Insert(n, []byte(op.Path), *op.Prev, -1)
+		prev, err := tree.Insert([]byte(op.Path), *op.Prev)
 		if err != nil {
-			return nil, fmt.Errorf("failed to invert op: %w", err)
+			return fmt.Errorf("failed to invert op: %w", err)
 		}
 		if prev != nil {
-			return nil, fmt.Errorf("failed to invert deletion")
+			return fmt.Errorf("failed to invert deletion")
 		}
-		return n, nil
+		return nil
 	}
-	return nil, fmt.Errorf("invalid operation")
+	return fmt.Errorf("invalid operation")
 }
 
 type OpByPath []Operation

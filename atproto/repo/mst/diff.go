@@ -11,6 +11,7 @@ import (
 )
 
 // Similar to NodeCID, but pushes "dirty" blocks to a blockstore
+// XXX: operate on a tree
 func DiffNode(n *Node, bs blockstore.Blockstore) (*cid.Cid, error) {
 	if n == nil {
 		return nil, fmt.Errorf("nil tree") // TODO: wrap an error?

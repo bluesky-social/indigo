@@ -15,7 +15,7 @@ import (
 // key: key or path being inserted. must not be empty/nil
 // val: CID value being inserted
 // height: tree height to insert at, derived from key. if a negative value is provided, will be computed; use -1 instead of 0 if height is not known
-func Insert(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, error) {
+func nodeInsert(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, error) {
 	if height < 0 {
 		height = HeightForKey(key)
 	}
@@ -171,7 +171,7 @@ func insertParent(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid
 		}
 	}
 	// regular insertion will handle any necessary "split"
-	return Insert(parent, key, val, height)
+	return nodeInsert(parent, key, val, height)
 }
 
 // inserts a node "below" this node in tree; either creating a new child entry or re-using an existing one
@@ -183,7 +183,7 @@ func insertChild(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid,
 		if e.Child == nil {
 			return nil, nil, fmt.Errorf("could not insert key: %w", ErrPartialTree)
 		}
-		newChild, prev, err := Insert(e.Child, key, val, height)
+		newChild, prev, err := nodeInsert(e.Child, key, val, height)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -210,7 +210,7 @@ func insertChild(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid,
 		Height: n.Height - 1,
 		Dirty:  true,
 	}
-	newChild, _, err = Insert(newChild, key, val, height)
+	newChild, _, err = nodeInsert(newChild, key, val, height)
 	if err != nil {
 		return nil, nil, err
 	}

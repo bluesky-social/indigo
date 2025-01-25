@@ -17,49 +17,50 @@ func TestBasicOperation(t *testing.T) {
 
 	c2, _ := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu222222222")
 	c3, _ := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu333333333")
-	tree := NewEmptyTree()
+	et := NewEmptyTree()
+	tree := &et
 	var op *Operation
 	var err error
 
-	tree, op, err = ApplyOp(tree, "color/green", &c2)
+	op, err = ApplyOp(tree, "color/green", &c2)
 	assert.NoError(err)
 	assert.True(op.IsCreate())
 	assert.NoError(CheckOp(tree, op))
 
-	tree, op, err = ApplyOp(tree, "color/brown", &c2)
+	op, err = ApplyOp(tree, "color/brown", &c2)
 	assert.NoError(err)
 	assert.True(op.IsCreate())
 	assert.NoError(CheckOp(tree, op))
 
-	tree, op, err = ApplyOp(tree, "color/brown", &c3)
+	op, err = ApplyOp(tree, "color/brown", &c3)
 	assert.NoError(err)
 	assert.True(op.IsUpdate())
 	assert.Equal(c3, *op.Value)
 	assert.Equal(c2, *op.Prev)
 	assert.NoError(CheckOp(tree, op))
 
-	tree, op, err = ApplyOp(tree, "color/brown", nil)
+	op, err = ApplyOp(tree, "color/brown", nil)
 	assert.NoError(err)
 	assert.True(op.IsDelete())
 	assert.NoError(CheckOp(tree, op))
-	tree, err = InvertOp(tree, op)
+	err = InvertOp(tree, op)
 	assert.NoError(err)
 	assert.Error(CheckOp(tree, op))
 
-	tree, op, err = ApplyOp(tree, "color/orange", &c3)
+	op, err = ApplyOp(tree, "color/orange", &c3)
 	assert.NoError(err)
 	assert.True(op.IsCreate())
 	assert.NoError(CheckOp(tree, op))
-	tree, err = InvertOp(tree, op)
+	err = InvertOp(tree, op)
 	assert.NoError(err)
 	assert.Error(CheckOp(tree, op))
 
-	tree, op, err = ApplyOp(tree, "color/pink", &c3)
+	op, err = ApplyOp(tree, "color/pink", &c3)
 	assert.NoError(err)
-	tree, op, err = ApplyOp(tree, "color/pink", &c2)
+	op, err = ApplyOp(tree, "color/pink", &c2)
 	assert.NoError(CheckOp(tree, op))
 	assert.True(op.IsUpdate())
-	tree, err = InvertOp(tree, op)
+	err = InvertOp(tree, op)
 	assert.NoError(err)
 	assert.Error(CheckOp(tree, op))
 }
@@ -98,12 +99,12 @@ func TestRandomOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(size, debugCountEntries(tree))
-	assert.NoError(VerifyTreeStructure(tree, -1, nil))
+	assert.Equal(size, debugCountEntries(tree.Root))
+	assert.NoError(tree.Verify())
 
 	for range iterations {
 		// compute CID of the tree
-		startCID, err := NodeCID(tree)
+		startCID, err := tree.RootCID()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -114,14 +115,14 @@ func TestRandomOperations(t *testing.T) {
 		c := randomCid()
 		for range opCount {
 			// creations
-			tree, op, err = ApplyOp(tree, randomStr(), &c)
+			op, err = ApplyOp(tree, randomStr(), &c)
 			assert.NoError(err)
 			opSet = append(opSet, *op)
 		}
 
 		for range opCount {
 			// deletions
-			tree, op, err = ApplyOp(tree, mapKeys[rand.Intn(len(mapKeys))], nil)
+			op, err = ApplyOp(tree, mapKeys[rand.Intn(len(mapKeys))], nil)
 			assert.NoError(err)
 			if op.Prev != nil {
 				opSet = append(opSet, *op)
@@ -131,10 +132,10 @@ func TestRandomOperations(t *testing.T) {
 		for range opCount {
 			// updates (must happen after deletions!)
 			k := mapKeys[rand.Intn(len(mapKeys))]
-			v, err := Get(tree, []byte(k), -1)
+			v, err := tree.Get([]byte(k))
 			assert.NoError(err)
 			if v != nil && *v != c {
-				tree, op, err = ApplyOp(tree, k, &c)
+				op, err = ApplyOp(tree, k, &c)
 				assert.NoError(err)
 				assert.Equal(*v, *op.Prev)
 				assert.Equal(c, *op.Value)
@@ -146,19 +147,22 @@ func TestRandomOperations(t *testing.T) {
 
 		// extract diff as separate tree, and validate that
 		diffBlocks := blockstore.NewBlockstore(datastore.NewMapDatastore())
-		diffRoot, err := DiffNode(tree, diffBlocks)
+		diffRoot, err := DiffNode(tree.Root, diffBlocks)
 		if err != nil {
 			t.Fatal(err)
 		}
-		diffTree, err := HydrateNode(ctx, diffBlocks, *diffRoot)
+		diffNode, err := hydrateNode(ctx, diffBlocks, *diffRoot)
 		if err != nil {
 			t.Fatal(err)
 		}
-		EnsureHeights(diffTree)
-		assert.NoError(VerifyTreeStructure(diffTree, -1, nil))
+		diffTree := &Tree{
+			Root: diffNode,
+		}
+		nodeEnsureHeights(diffTree.Root)
+		assert.NoError(tree.Verify())
 
 		// re-compute partial commit (not related to main test path)
-		diffCID, err := NodeCID(diffTree)
+		diffCID, err := tree.RootCID()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -182,20 +186,20 @@ func TestRandomOperations(t *testing.T) {
 		for i, op := range opSet {
 			err := CheckOp(diffTree, &op)
 			fmt.Printf("loop=%d key=%s val=%s prev=%s\n", i, op.Path, op.Value, op.Prev)
-			assert.NoError(VerifyTreeStructure(diffTree, -1, nil))
+			assert.NoError(diffTree.Verify())
 			if err != nil {
 				//debugPrintTree(diffTree, 0)
 				t.Fatal(err)
 			}
 
-			diffTree, err = InvertOp(diffTree, &op)
+			err = InvertOp(diffTree, &op)
 			assert.NoError(err)
 			if err != nil {
 				t.Fatal(err)
 			}
 		}
 
-		finalCID, err := NodeCID(diffTree)
+		finalCID, err := diffTree.RootCID()
 		if err != nil {
 			t.Fatal(err)
 		}

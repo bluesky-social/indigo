@@ -19,54 +19,54 @@ func TestBasicMST(t *testing.T) {
 	assert.NotEmpty(c3)
 	tree := NewEmptyTree()
 
-	tree, prev, err := Insert(tree, []byte("abc"), c2, -1)
+	prev, err := tree.Insert([]byte("abc"), c2)
 	assert.NoError(err)
 	assert.Empty(prev)
 
-	assert.Equal(1, len(tree.Entries))
+	assert.Equal(1, len(tree.Root.Entries))
 
-	val, err := Get(tree, []byte("abc"), -1)
+	val, err := tree.Get([]byte("abc"))
 	assert.NoError(err)
 	assert.Equal(c2, *val)
 
-	val, err = Get(tree, []byte("xyz"), -1)
+	val, err = tree.Get([]byte("xyz"))
 	assert.NoError(err)
 	assert.Empty(val)
 
-	tree, prev, err = Insert(tree, []byte("abc"), c3, -1)
+	prev, err = tree.Insert([]byte("abc"), c3)
 	assert.NoError(err)
 	assert.NotEmpty(prev)
 	assert.Equal(&c2, prev)
 
-	val, err = Get(tree, []byte("abc"), -1)
+	val, err = tree.Get([]byte("abc"))
 	assert.NoError(err)
 	assert.Equal(&c3, val)
 
-	tree, prev, err = Insert(tree, []byte("aaa"), c2, -1)
+	prev, err = tree.Insert([]byte("aaa"), c2)
 	assert.NoError(err)
 	assert.Empty(prev)
 
-	tree, prev, err = Insert(tree, []byte("zzz"), c3, -1)
+	prev, err = tree.Insert([]byte("zzz"), c3)
 	assert.NoError(err)
 	assert.Empty(prev)
 
-	val, err = Get(tree, []byte("zzz"), -1)
+	val, err = tree.Get([]byte("zzz"))
 	assert.NoError(err)
 	assert.Equal(&c3, val)
 
 	m := make(map[string]cid.Cid)
-	assert.NoError(ReadTreeToMap(tree, m))
+	assert.NoError(tree.ReadToMap(m))
 	//fmt.Println("-----")
 	//debugPrintMap(m)
 	//fmt.Println("-----")
 	//debugPrintTree(tree, 0)
 
-	tree, prev, err = Remove(tree, []byte("abc"), -1)
+	prev, err = tree.Remove([]byte("abc"))
 	assert.NoError(err)
 	assert.NotEmpty(prev)
 	assert.Equal(&c3, prev)
 
-	assert.NoError(VerifyTreeStructure(tree, -1, nil))
+	assert.NoError(tree.Verify())
 }
 
 func TestBasicMap(t *testing.T) {
@@ -94,10 +94,10 @@ func TestBasicMap(t *testing.T) {
 
 	//fmt.Println("-----")
 	//debugPrintTree(tree, 0)
-	assert.NoError(VerifyTreeStructure(tree, -1, nil))
+	assert.NoError(tree.Verify())
 
 	outMap := make(map[string]cid.Cid, len(inMap))
-	err = ReadTreeToMap(tree, outMap)
+	err = tree.ReadToMap(outMap)
 	assert.NoError(err)
 	assert.Equal(inMap, outMap)
 }
@@ -144,10 +144,10 @@ func TestRandomTree(t *testing.T) {
 
 	//fmt.Println("-----")
 	//debugPrintTree(tree, 0)
-	assert.NoError(VerifyTreeStructure(tree, -1, nil))
-	assert.Equal(size, debugCountEntries(tree))
+	assert.NoError(tree.Verify())
+	assert.Equal(size, debugCountEntries(tree.Root))
 
-	err = ReadTreeToMap(tree, outMap)
+	err = tree.ReadToMap(outMap)
 	assert.NoError(err)
 	assert.Equal(len(inMap), len(outMap))
 	assert.Equal(inMap, outMap)
@@ -164,7 +164,7 @@ func TestRandomTree(t *testing.T) {
 
 	// test gets
 	for _, k := range mapKeys {
-		val, err := Get(tree, []byte(k), -1)
+		val, err := tree.Get([]byte(k))
 		assert.NoError(err)
 		assert.Equal(inMap[k], *val)
 	}
@@ -172,13 +172,13 @@ func TestRandomTree(t *testing.T) {
 	// finally, removals
 	var val *cid.Cid
 	for _, k := range mapKeys {
-		tree, val, err = Remove(tree, []byte(k), -1)
+		val, err = tree.Remove([]byte(k))
 		assert.NoError(err)
 		assert.NotNil(val)
 		if err != nil {
 			break
 		}
-		err = VerifyTreeStructure(tree, -1, nil)
+		err = tree.Verify()
 		assert.NoError(err)
 		if err != nil {
 			break
@@ -200,16 +200,16 @@ func TestRandomUntilError(t *testing.T) {
 		key := []byte(randomStr())
 		val := randomCid()
 		//fmt.Printf("%s %s\n", key, val)
-		tree, prev, err = Insert(tree, key, val, -1)
+		prev, err = tree.Insert(key, val)
 		assert.NoError(err)
 		if prev == nil {
 			count++
 		}
 
-		assert.Equal(count, debugCountEntries(tree))
-		err = VerifyTreeStructure(tree, -1, nil)
+		assert.Equal(count, debugCountEntries(tree.Root))
+		err = tree.Verify()
 		assert.NoError(err)
-		if err != nil || count != debugCountEntries(tree) {
+		if err != nil || count != debugCountEntries(tree.Root) {
 			//fmt.Println("-----")
 			//debugPrintTree(tree, 0)
 			break
@@ -237,7 +237,7 @@ func TestBrokenCaseOne(t *testing.T) {
 	tree := NewEmptyTree()
 	for _, row := range entries {
 		val, _ := cid.Decode(row[1])
-		tree, _, err = Insert(tree, []byte(row[0]), val, -1)
+		_, err = tree.Insert([]byte(row[0]), val)
 		assert.NoError(err)
 	}
 
@@ -245,6 +245,6 @@ func TestBrokenCaseOne(t *testing.T) {
 	//debugPrintNodePointers(tree)
 	//debugPrintChildPointers(tree)
 	//debugPrintTree(tree, 0)
-	assert.Equal(len(entries), debugCountEntries(tree))
-	assert.NoError(VerifyTreeStructure(tree, -1, nil))
+	assert.Equal(len(entries), debugCountEntries(tree.Root))
+	assert.NoError(tree.Verify())
 }

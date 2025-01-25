@@ -13,7 +13,7 @@ import (
 // n: Node at top of sub-tree to operate on. Must not be nil.
 // key: key or path being inserted. must not be empty/nil
 // height: tree height corresponding to key. if a negative value is provided, will be computed; use -1 instead of 0 if height is not known
-func Remove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
+func nodeRemove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 	// TODO: do we need better handling of "is this the top"?
 	top := false
 	if height < 0 {
@@ -154,7 +154,7 @@ func removeChild(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 		// partial node, can't recurse
 		return nil, nil, fmt.Errorf("could not remove key: %w", ErrPartialTree)
 	}
-	newChild, prev, err := Remove(e.Child, key, height)
+	newChild, prev, err := nodeRemove(e.Child, key, height)
 	if err != nil {
 		return nil, nil, err
 	}
