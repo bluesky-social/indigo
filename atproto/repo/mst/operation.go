@@ -117,12 +117,12 @@ func InvertOp(tree *Tree, op *Operation) error {
 	return fmt.Errorf("invalid operation")
 }
 
-type OpByPath []Operation
+type opByPath []Operation
 
-func (a OpByPath) Len() int      { return len(a) }
-func (a OpByPath) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a opByPath) Len() int      { return len(a) }
+func (a opByPath) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 
-func (a OpByPath) Less(i, j int) bool {
+func (a opByPath) Less(i, j int) bool {
 
 	// sort deletions first
 	if a[i].IsDelete() && !a[j].IsDelete() {
@@ -145,6 +145,6 @@ func NormalizeOps(list []Operation) ([]Operation, error) {
 		set[op.Path] = true
 	}
 
-	sort.Sort(OpByPath(list))
+	sort.Sort(opByPath(list))
 	return list, nil
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/multiformats/go-multihash"
 )
 
-// Similar to NodeCID, but pushes "dirty" blocks to a blockstore
+// Similar to nodeCID, but pushes "dirty" blocks to a blockstore
 // XXX: operate on a tree
 func DiffNode(n *Node, bs blockstore.Blockstore) (*cid.Cid, error) {
 	if n == nil {
@@ -41,7 +41,7 @@ func DiffNode(n *Node, bs blockstore.Blockstore) (*cid.Cid, error) {
 
 	nd := n.NodeData()
 
-	b, err := nd.CBOR()
+	b, err := nd.Bytes()
 	if err != nil {
 		return nil, err
 	}

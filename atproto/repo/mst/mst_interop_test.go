@@ -62,7 +62,7 @@ func TestManualNode(t *testing.T) {
 	n := simple_nd.Node(nil)
 	assert.Equal(simple_nd, n.NodeData())
 
-	mcid, err := NodeCID(&n)
+	mcid, err := nodeCID(&n)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -24,7 +24,7 @@ type EntryData struct {
 }
 
 // Recursively calculates the root CID
-func NodeCID(n *Node) (*cid.Cid, error) {
+func nodeCID(n *Node) (*cid.Cid, error) {
 	if n == nil {
 		return nil, fmt.Errorf("nil tree") // TODO: wrap an error?
 	}
@@ -39,7 +39,7 @@ func NodeCID(n *Node) (*cid.Cid, error) {
 		}
 		// TODO: better efficiency here? track dirty on NodeEntry?
 		if e.Child != nil {
-			cc, err := NodeCID(e.Child)
+			cc, err := nodeCID(e.Child)
 			if err != nil {
 				return nil, err
 			}
@@ -49,7 +49,7 @@ func NodeCID(n *Node) (*cid.Cid, error) {
 
 	nd := n.NodeData()
 
-	b, err := nd.CBOR()
+	b, err := nd.Bytes()
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func NodeCID(n *Node) (*cid.Cid, error) {
 }
 
 // Returns this node as CBOR bytes
-func (d *NodeData) CBOR() ([]byte, error) {
+func (d *NodeData) Bytes() ([]byte, error) {
 	buf := new(bytes.Buffer)
 	if err := d.MarshalCBOR(buf); err != nil {
 		return nil, err
