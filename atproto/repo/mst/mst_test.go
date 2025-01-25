@@ -1,6 +1,7 @@
 package mst
 
 import (
+	"bytes"
 	"encoding/hex"
 	"math/rand"
 	"testing"
@@ -67,6 +68,31 @@ func TestBasicMST(t *testing.T) {
 	assert.Equal(&c3, prev)
 
 	assert.NoError(tree.Verify())
+
+}
+
+func TestKeyLimits(t *testing.T) {
+	assert := assert.New(t)
+
+	var err error
+	tree := NewEmptyTree()
+	c2, _ := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu222222222")
+
+	emptyKey := []byte{}
+	_, err = tree.Get(emptyKey)
+	assert.Error(err)
+	_, err = tree.Remove(emptyKey)
+	assert.Error(err)
+	_, err = tree.Insert(emptyKey, c2)
+	assert.Error(err)
+
+	bigKey := bytes.Repeat([]byte{'a'}, 3000)
+	_, err = tree.Get(bigKey)
+	assert.Error(err)
+	_, err = tree.Remove(bigKey)
+	assert.Error(err)
+	_, err = tree.Insert(bigKey, c2)
+	assert.Error(err)
 }
 
 func TestBasicMap(t *testing.T) {
