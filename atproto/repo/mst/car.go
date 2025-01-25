@@ -49,7 +49,7 @@ func hydrateNode(ctx context.Context, bs blockstore.Blockstore, ref cid.Cid) (*N
 	return &n, nil
 }
 
-func ReadTreeFromCar(ctx context.Context, r io.Reader) (*Node, *cid.Cid, error) {
+func ReadTreeFromCar(ctx context.Context, r io.Reader) (*Tree, *cid.Cid, error) {
 
 	bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
 
@@ -101,5 +101,8 @@ func ReadTreeFromCar(ctx context.Context, r io.Reader) (*Node, *cid.Cid, error) 
 		return nil, nil, fmt.Errorf("reading MST from CAR file: %w", err)
 	}
 	nodeEnsureHeights(n)
-	return n, &rootCID, nil
+	tree := Tree{
+		Root: n,
+	}
+	return &tree, &rootCID, nil
 }

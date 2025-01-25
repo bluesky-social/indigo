@@ -5,12 +5,12 @@ import (
 	"fmt"
 
 	"github.com/ipfs/go-cid"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	//blockstore "github.com/ipfs/go-ipfs-blockstore"
 )
 
 type Tree struct {
 	Root   *Node
-	Blocks blockstore.Blockstore
+	// TODO: Blocks blockstore.Blockstore
 }
 
 var ErrPartialTree = errors.New("MST is not complete")
@@ -95,5 +95,19 @@ func (t *Tree) ReadToMap(m map[string]cid.Cid) error {
 }
 
 func (t *Tree) RootCID() (*cid.Cid, error) {
-	return NodeCID(t.Root)
+	return nodeCID(t.Root)
+}
+
+func (t *Tree) IsEmpty() bool {
+	if t.Root == nil {
+		return true
+	}
+	return t.Root.IsEmpty()
+}
+
+func (t *Tree) IsPartial() bool {
+	if t.Root == nil {
+		return true
+	}
+	return t.Root.IsPartial()
 }

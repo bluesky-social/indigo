@@ -47,7 +47,7 @@ func runVerifyCarMst(cctx *cli.Context) error {
 		return err
 	}
 
-	computedCID, err := mst.NodeCID(tree)
+	computedCID, err := tree.RootCID()
 	if err != nil {
 		return err
 	}

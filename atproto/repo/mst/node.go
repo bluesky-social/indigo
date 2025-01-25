@@ -37,13 +37,6 @@ type NodeEntry struct {
 	Dirty bool
 }
 
-func NewEmptyNode() *Node {
-	return &Node{
-		Dirty:  true,
-		Height: 0,
-	}
-}
-
 func (n *Node) IsEmpty() bool {
 	return len(n.Entries) == 0
 }
