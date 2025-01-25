@@ -94,19 +94,15 @@ func proveDeletion(n *Node, key []byte) error {
 			if e.Child == nil {
 				return fmt.Errorf("can't prove deletion of partial tree") // TODO: wrap partial error
 			}
-			highest, err := getHighestKey(e.Child, true)
+			order, err := nodeCompareKey(e.Child, key, true)
 			if err != nil {
 				return err
 			}
-			if bytes.Compare(key, highest) > 0 {
+			if order > 0 {
 				// key comes after this entire child sub-tree
 				continue
 			}
-			lowest, err := getLowestKey(e.Child, true)
-			if err != nil {
-				return err
-			}
-			if bytes.Compare(key, lowest) < 0 {
+			if order < 0 {
 				return nil
 			}
 			// key falls inside this child sub-tree

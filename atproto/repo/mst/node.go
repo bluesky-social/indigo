@@ -125,21 +125,17 @@ func findInsertionIndex(n *Node, key []byte) (idx int, split bool, retErr error)
 			if e.Child == nil {
 				return -1, false, fmt.Errorf("partial MST, can't determine insertion order")
 			}
-			highest, err := getHighestKey(e.Child, false)
+			order, err := nodeCompareKey(e.Child, key, false)
 			if err != nil {
 				return -1, false, err
 			}
-			if bytes.Compare(key, highest) > 0 {
-				// key comes after this entire child sub-tree
-				continue
-			}
-			lowest, err := getLowestKey(e.Child, false)
-			if err != nil {
-				return -1, false, err
-			}
-			if bytes.Compare(key, lowest) < 0 {
+			if order < 0 {
 				// key comes before this entire child sub-tree
 				return i, false, nil
+			}
+			if order > 0 {
+				// key comes after this entire child sub-tree
+				continue
 			}
 			// key falls inside this child sub-tree
 			return i, true, nil
@@ -150,41 +146,60 @@ func findInsertionIndex(n *Node, key []byte) (idx int, split bool, retErr error)
 	return len(n.Entries), false, nil
 }
 
-// returns the lowest key along "left edge" of sub-tree
-// TODO: convert this and "getHighest" to a CompareKey method which returns -1, 0, 1
-func getLowestKey(n *Node, dirty bool) ([]byte, error) {
-	if dirty == true {
+// Compares a provided `key` against the overall range of keys represented by a `Node`. Returns -1 if the key sorts lower than all keys (recursively) covered by the Node; 1 if higher, and 0 if the key falls within Node's key range.
+//
+// If the `markDirty` flag is true, then this method will set the Dirty flag on this node, and any child nodes which were needed to "prove" the key order. This can be used to mark nodes for inclusion in invertible MST diffs.
+func nodeCompareKey(n *Node, key []byte, markDirty bool) (int, error) {
+	if n.IsEmpty() {
+		// TODO: add test case for empty Tree
+		// TODO: should we actually return 0 in this case?
+		return 0, fmt.Errorf("can't determine key range of empty MST node")
+	}
+	if markDirty == true {
 		n.Dirty = true
 	}
+	// check if lower than this entire node
 	e := n.Entries[0]
-	if e.IsValue() {
-		return e.Key, nil
-	} else if e.IsChild() {
-		if e.Child != nil {
-			return getLowestKey(e.Child, dirty)
-		} else {
-			return nil, fmt.Errorf("can't determine key range of partial node")
+	if e.IsValue() && bytes.Compare(key, e.Key) < 0 {
+		return -1, nil
+	}
+	// check if higher than this entire node
+	e = n.Entries[len(n.Entries)-1]
+	if e.IsValue() && bytes.Compare(key, e.Key) > 0 {
+		return 1, nil
+	}
+	for i, e := range n.Entries {
+		if e.IsValue() && bytes.Compare(key, e.Key) < 0 {
+			// we don't need to recurse/iterate further
+			return 0, nil
+		}
+		if e.IsChild() {
+			// first, see if there is a next entry as a value which this key would be after; if so we can skip checking this child
+			if i+1 < len(n.Entries) {
+				next := n.Entries[i+1]
+				if next.IsValue() && bytes.Compare(key, next.Key) > 0 {
+					continue
+				}
+			}
+			if e.Child == nil {
+				return 0, fmt.Errorf("partial MST, can't compare key order recursively")
+			}
+			order, err := nodeCompareKey(e.Child, key, markDirty)
+			if err != nil {
+				return 0, err
+			}
+			// lower than entire node
+			if i == 0 && order < 0 {
+				return -1, nil
+			}
+			// higher than entire node
+			if i == len(n.Entries)-1 && order > 0 {
+				return 1, nil
+			}
+			return 0, nil
 		}
 	}
-	return nil, fmt.Errorf("invalid node entry")
-}
-
-// returns the lowest key along "left edge" of sub-tree
-func getHighestKey(n *Node, dirty bool) ([]byte, error) {
-	if dirty == true {
-		n.Dirty = true
-	}
-	e := n.Entries[len(n.Entries)-1]
-	if e.IsValue() {
-		return e.Key, nil
-	} else if e.IsChild() {
-		if e.Child != nil {
-			return getHighestKey(e.Child, dirty)
-		} else {
-			return nil, fmt.Errorf("can't determine key range of partial node")
-		}
-	}
-	return nil, fmt.Errorf("invalid node entry")
+	return 0, nil
 }
 
 func readNodeToMap(n *Node, m map[string]cid.Cid) error {
