@@ -10,9 +10,13 @@ import (
 	"github.com/multiformats/go-multihash"
 )
 
+// Walks the tree, encodes any "dirty" nodes as CBOR data, and writes that data as blocks to the provided blockstore. Returns root CID.
+func (t *Tree) WriteDiffBlocks(bs blockstore.Blockstore) (*cid.Cid, error) {
+	return diffNode(t.Root, bs)
+}
+
 // Similar to nodeCID, but pushes "dirty" blocks to a blockstore
-// XXX: operate on a tree
-func DiffNode(n *Node, bs blockstore.Blockstore) (*cid.Cid, error) {
+func diffNode(n *Node, bs blockstore.Blockstore) (*cid.Cid, error) {
 	if n == nil {
 		return nil, fmt.Errorf("nil tree") // TODO: wrap an error?
 	}
@@ -30,7 +34,7 @@ func DiffNode(n *Node, bs blockstore.Blockstore) (*cid.Cid, error) {
 			continue
 		}
 		if e.Child != nil && (e.Dirty || e.Child.Dirty) {
-			cc, err := DiffNode(e.Child, bs)
+			cc, err := diffNode(e.Child, bs)
 			if err != nil {
 				return nil, err
 			}

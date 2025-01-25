@@ -147,7 +147,7 @@ func TestRandomOperations(t *testing.T) {
 
 		// extract diff as separate tree, and validate that
 		diffBlocks := blockstore.NewBlockstore(datastore.NewMapDatastore())
-		diffRoot, err := DiffNode(tree.Root, diffBlocks)
+		diffRoot, err := tree.WriteDiffBlocks(diffBlocks)
 		if err != nil {
 			t.Fatal(err)
 		}
