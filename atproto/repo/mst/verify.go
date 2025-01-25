@@ -5,9 +5,16 @@ import (
 	"fmt"
 )
 
-func VerifyTreeStructure(n *Node, height int, key []byte) error {
+func (t *Tree) Verify() error {
+	if t.Root == nil {
+		return fmt.Errorf("tree missing root node")
+	}
+	return verifyNodeStructure(t.Root, -1, nil)
+}
+
+func verifyNodeStructure(n *Node, height int, key []byte) error {
 	if n == nil {
-		return fmt.Errorf("nil tree")
+		return fmt.Errorf("nil node")
 	}
 	if n.CID == nil && n.Dirty == false {
 		return fmt.Errorf("node missing CID, but not marked dirty")
@@ -50,7 +57,7 @@ func VerifyTreeStructure(n *Node, height int, key []byte) error {
 				return fmt.Errorf("child below zero height")
 			}
 			if e.Child != nil {
-				if err := VerifyTreeStructure(e.Child, height-1, key); err != nil {
+				if err := verifyNodeStructure(e.Child, height-1, key); err != nil {
 					return err
 				}
 			}

@@ -30,7 +30,7 @@ func mapToTreeRootCidString(t *testing.T, m map[string]string) string {
 		t.Fatal(err)
 	}
 
-	c, err := NodeCID(tree)
+	c, err := tree.RootCID()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,23 +148,23 @@ func TestInteropEdgeCasesTrimTop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	trimBefore, err := NodeCID(trimTree)
+	trimBefore, err := trimTree.RootCID()
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(1, trimTree.Height)
+	assert.Equal(1, trimTree.Root.Height)
 	assert.Equal(l1root, trimBefore.String())
 
-	trimTree, _, err = Remove(trimTree, []byte("com.example.record/3jqfcqzm3fs2j"), -1) // level 1
+	_, err = trimTree.Remove([]byte("com.example.record/3jqfcqzm3fs2j")) // level 1
 	if err != nil {
 		t.Fatal(err)
 	}
-	trimAfter, err := NodeCID(trimTree)
+	trimAfter, err := trimTree.RootCID()
 	if err != nil {
 		t.Fatal(err)
 	}
 	//fmt.Printf("%#v\n", trimTree)
-	assert.Equal(0, trimTree.Height)
+	assert.Equal(0, trimTree.Root.Height)
 	assert.Equal(l0root, trimAfter.String())
 }
 
@@ -197,35 +197,35 @@ func TestInteropEdgeCasesInsertion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	insertionBefore, err := NodeCID(insertionTree)
+	insertionBefore, err := insertionTree.RootCID()
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(1, insertionTree.Height)
+	assert.Equal(1, insertionTree.Root.Height)
 	assert.Equal(l1root, insertionBefore.String())
 
 	// insert F, which will push E out of the node with G+H to a new node under D
-	insertionTree, _, err = Insert(insertionTree, []byte("com.example.record/3jqfcqzm3fx2j"), cid1, -1) // F; level 2
+	_, err = insertionTree.Insert([]byte("com.example.record/3jqfcqzm3fx2j"), cid1) // F; level 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	insertionAfter, err := NodeCID(insertionTree)
+	insertionAfter, err := insertionTree.RootCID()
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(2, insertionTree.Height)
+	assert.Equal(2, insertionTree.Root.Height)
 	assert.Equal(l2root, insertionAfter.String())
 
 	// remove F, which should push E back over with G+H
-	insertionTree, _, err = Remove(insertionTree, []byte("com.example.record/3jqfcqzm3fx2j"), -1) // F; level 2
+	_, err = insertionTree.Remove([]byte("com.example.record/3jqfcqzm3fx2j")) // F; level 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	insertionFinal, err := NodeCID(insertionTree)
+	insertionFinal, err := insertionTree.RootCID()
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(1, insertionTree.Height)
+	assert.Equal(1, insertionTree.Root.Height)
 	assert.Equal(l1root, insertionFinal.String())
 }
 
@@ -250,19 +250,19 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherBefore, err := NodeCID(higherTree)
+	higherBefore, err := higherTree.RootCID()
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(0, higherTree.Height)
+	assert.Equal(0, higherTree.Root.Height)
 	assert.Equal(l0root, higherBefore.String())
 
 	// insert B, which is two levels above
-	higherTree, _, err = Insert(higherTree, []byte("com.example.record/3jqfcqzm3fx2j"), cid1, -1) // B; level 2
+	_, err = higherTree.Insert([]byte("com.example.record/3jqfcqzm3fx2j"), cid1) // B; level 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherAfter, err := NodeCID(higherTree)
+	higherAfter, err := higherTree.RootCID()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,46 +270,46 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 	//debugPrintTree(higherTree, 0)
 
 	// remove B
-	higherTree, _, err = Remove(higherTree, []byte("com.example.record/3jqfcqzm3fx2j"), -1) // B; level 2
+	_, err = higherTree.Remove([]byte("com.example.record/3jqfcqzm3fx2j")) // B; level 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherAgain, err := NodeCID(higherTree)
+	higherAgain, err := higherTree.RootCID()
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(0, higherTree.Height)
+	assert.Equal(0, higherTree.Root.Height)
 	assert.Equal(l0root, higherAgain.String())
 
 	// insert B (level=2) and D (level=1)
-	higherTree, _, err = Insert(higherTree, []byte("com.example.record/3jqfcqzm3fx2j"), cid1, -1) // B; level 2
+	_, err = higherTree.Insert([]byte("com.example.record/3jqfcqzm3fx2j"), cid1) // B; level 2
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherTree, _, err = Insert(higherTree, []byte("com.example.record/3jqfcqzm4fd2j"), cid1, -1) // D; level 1
+	_, err = higherTree.Insert([]byte("com.example.record/3jqfcqzm4fd2j"), cid1) // D; level 1
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherYetAgain, err := NodeCID(higherTree)
+	higherYetAgain, err := higherTree.RootCID()
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(2, higherTree.Height)
+	assert.Equal(2, higherTree.Root.Height)
 	assert.Equal(l2root2, higherYetAgain.String())
-	assert.NoError(VerifyTreeStructure(higherTree, -1, nil))
+	assert.NoError(higherTree.Verify())
 	//debugPrintTree(higherTree, 0)
 
 	// remove D
-	higherTree, _, err = Remove(higherTree, []byte("com.example.record/3jqfcqzm4fd2j"), -1) // D; level 1
+	_, err = higherTree.Remove([]byte("com.example.record/3jqfcqzm4fd2j")) // D; level 1
 	if err != nil {
 		t.Fatal(err)
 	}
-	higherFinal, err := NodeCID(higherTree)
+	higherFinal, err := higherTree.RootCID()
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(2, higherTree.Height)
+	assert.Equal(2, higherTree.Root.Height)
 	assert.Equal(l2root, higherFinal.String())
-	assert.NoError(VerifyTreeStructure(higherTree, -1, nil))
+	assert.NoError(higherTree.Verify())
 	//debugPrintTree(higherTree, 0)
 }

@@ -2,25 +2,10 @@ package mst
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 
 	"github.com/ipfs/go-cid"
 )
-
-// CBOR serialization struct for a MST tree node. MST tree node as gets serialized to CBOR. Note that the CBOR fields are all single-character.
-type NodeData struct {
-	Left    *cid.Cid    `cborgen:"l"` // [nullable] pointer to lower-level subtree to the "left" of this path/key
-	Entries []EntryData `cborgen:"e"` // ordered list of entries at this node
-}
-
-// CBOR serialization struct for a single entry within a `NodeData` entry list.
-type EntryData struct {
-	PrefixLen int64    `cborgen:"p"` // count of characters shared with previous path/key in tree
-	KeySuffix []byte   `cborgen:"k"` // remaining part of path/key (appended to "previous key")
-	Value     cid.Cid  `cborgen:"v"` // CID pointer at this path/key
-	Right     *cid.Cid `cborgen:"t"` // [nullable] pointer to lower-level subtree to the "right" of this path/key entry
-}
 
 // Represents a node in a Merkle Search Tree (MST). If this is the "root" or "top" of the tree, it effectively is the tree itself.
 //
@@ -50,6 +35,13 @@ type NodeEntry struct {
 
 	// tracks whether anything about this entry has changed since `Node` CID was computed
 	Dirty bool
+}
+
+func NewEmptyNode() *Node {
+	return &Node{
+		Dirty:  true,
+		Height: 0,
+	}
 }
 
 func (n *Node) IsEmpty() bool {
@@ -83,21 +75,6 @@ func (e *NodeEntry) IsChild() bool {
 		return true
 	}
 	return false
-}
-
-var ErrPartialTree = errors.New("MST is not complete")
-
-var ErrKeyNotFound = errors.New("MST does not contain key")
-
-var ErrInvalidKey = errors.New("bytestring not a valid MST key")
-
-var ErrInvalidTree = errors.New("invalid MST structure")
-
-func NewEmptyTree() *Node {
-	return &Node{
-		Dirty:  true,
-		Height: 0,
-	}
 }
 
 // Looks for a "value" entry in the node with the exact key.
@@ -217,25 +194,7 @@ func getHighestKey(n *Node, dirty bool) ([]byte, error) {
 	return nil, fmt.Errorf("invalid node entry")
 }
 
-func NewTreeFromMap(m map[string]cid.Cid) (*Node, error) {
-	if m == nil {
-		return nil, fmt.Errorf("un-initialized map as an argument")
-	}
-	n := NewEmptyTree()
-	var err error
-	for key, val := range m {
-		n, _, err = Insert(n, []byte(key), val, -1)
-		if err != nil {
-			return nil, fmt.Errorf("unexpected failure to build MST structure: %w", err)
-		}
-	}
-	return n, nil
-}
-
-// Recursively walks sub-tree (`Node` and all children) and writes key/value pairs to map `m`
-//
-// The map (`m`) is muted in place (by reference); the map must be initialized before calling.
-func ReadTreeToMap(n *Node, m map[string]cid.Cid) error {
+func readNodeToMap(n *Node, m map[string]cid.Cid) error {
 	if m == nil {
 		return fmt.Errorf("un-initialized map as an argument")
 	}
@@ -247,7 +206,7 @@ func ReadTreeToMap(n *Node, m map[string]cid.Cid) error {
 			m[string(e.Key)] = *e.Value
 		}
 		if e.Child != nil {
-			if err := ReadTreeToMap(e.Child, m); err != nil {
+			if err := readNodeToMap(e.Child, m); err != nil {
 				return fmt.Errorf("failed to export MST structure as map: %w", err)
 			}
 		}

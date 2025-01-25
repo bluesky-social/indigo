@@ -15,7 +15,7 @@ import (
 	"github.com/ipld/go-car/v2"
 )
 
-func HydrateNode(ctx context.Context, bs blockstore.Blockstore, ref cid.Cid) (*Node, error) {
+func hydrateNode(ctx context.Context, bs blockstore.Blockstore, ref cid.Cid) (*Node, error) {
 	block, err := bs.Get(ctx, ref)
 	if err != nil {
 		return nil, err
@@ -30,7 +30,7 @@ func HydrateNode(ctx context.Context, bs blockstore.Blockstore, ref cid.Cid) (*N
 
 	for i, e := range n.Entries {
 		if e.IsChild() {
-			child, err := HydrateNode(ctx, bs, *e.ChildCID)
+			child, err := hydrateNode(ctx, bs, *e.ChildCID)
 			if err != nil && ipld.IsNotFound(err) {
 				// allow "partial" trees
 				continue
@@ -96,10 +96,10 @@ func ReadTreeFromCar(ctx context.Context, r io.Reader) (*Node, *cid.Cid, error) 
 	}
 	rootCID := cl.CID()
 
-	n, err := HydrateNode(ctx, bs, rootCID)
+	n, err := hydrateNode(ctx, bs, rootCID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading MST from CAR file: %w", err)
 	}
-	EnsureHeights(n)
+	nodeEnsureHeights(n)
 	return n, &rootCID, nil
 }
