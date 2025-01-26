@@ -67,15 +67,7 @@ func TestManualNode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	/* TODO
-	block, err := bs.Get(ctx, mcid)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if false {
-		fmt.Printf("%#v\n", block)
-	}
-	*/
+	assert.NoError(err)
 	assert.Equal("bafyreibj4lsc3aqnrvphp5xmrnfoorvru4wynt6lwidqbm2623a6tatzdu", mcid.String())
 }
 

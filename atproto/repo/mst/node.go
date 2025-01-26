@@ -16,7 +16,7 @@ type Node struct {
 	// "height" or "layer" of MST tree this node is at (with zero at the "bottom" and root/top of tree the "highest")
 	Height int
 	// if true, the cached CID of this node is out of date
-	Dirty bool // TODO: maybe invert as "clean" flag?
+	Dirty bool
 	// optionally, the last computed CID of this Node (when expressed as NodeData)
 	CID *cid.Cid
 }
@@ -26,10 +26,8 @@ type Node struct {
 // Either the Key and Value fields should be non-zero; or the Child and/or ChildCID field should be non-zero.
 // If ChildCID is present, but Child is not, then this is part of a "partial" tree.
 type NodeEntry struct {
-	Key   []byte
-	Value *cid.Cid
-	// TODO: probably a "dirty" flag here as well, to track key/value updates
-
+	Key      []byte
+	Value    *cid.Cid
 	ChildCID *cid.Cid
 	Child    *Node
 
@@ -173,7 +171,6 @@ func findInsertionIndex(n *Node, key []byte) (idx int, split bool, retErr error)
 // If the `markDirty` flag is true, then this method will set the Dirty flag on this node, and any child nodes which were needed to "prove" the key order. This can be used to mark nodes for inclusion in invertible MST diffs.
 func nodeCompareKey(n *Node, key []byte, markDirty bool) (int, error) {
 	if n.IsEmpty() {
-		// TODO: add test case for empty Tree
 		// TODO: should we actually return 0 in this case?
 		return 0, fmt.Errorf("can't determine key range of empty MST node")
 	}

@@ -58,7 +58,7 @@ func nodeRemove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 		n.Entries = slices.Delete(n.Entries, idx, idx+1)
 	}
 
-	// TODO: marks adjacent child nodes dirty to include as "proof"; clarify/de-dupe this code?
+	// marks adjacent child nodes dirty to include as "proof"
 	proveDeletion(n, key)
 
 	// check if top of node is now just a pointer
@@ -92,7 +92,7 @@ func proveDeletion(n *Node, key []byte) error {
 				}
 			}
 			if e.Child == nil {
-				return fmt.Errorf("can't prove deletion of partial tree") // TODO: wrap partial error
+				return fmt.Errorf("can't prove deletion: %w", ErrPartialTree)
 			}
 			order, err := nodeCompareKey(e.Child, key, true)
 			if err != nil {
