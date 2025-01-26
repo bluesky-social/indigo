@@ -116,6 +116,51 @@ func (bgs *BGS) handleAdminReverseTakedown(e echo.Context) error {
 	return nil
 }
 
+type ListTakedownsResponse struct {
+	Dids   []string `json:"dids"`
+	Cursor int64    `json:"cursor,omitempty"`
+}
+
+func (bgs *BGS) handleAdminListRepoTakeDowns(e echo.Context) error {
+	ctx := e.Request().Context()
+	haveMinId := false
+	minId := int64(-1)
+	qmin := e.QueryParam("cursor")
+	if qmin != "" {
+		tmin, err := strconv.ParseInt(qmin, 10, 64)
+		if err != nil {
+			return &echo.HTTPError{Code: 400, Message: "bad cursor"}
+		}
+		minId = tmin
+		haveMinId = true
+	}
+	limit := 1000
+	wat := bgs.db.Model(User{}).WithContext(ctx).Select("id", "did").Where("taken_down = TRUE")
+	if haveMinId {
+		wat = wat.Where("id > ?", minId)
+	}
+	//var users []User
+	rows, err := wat.Order("id").Limit(limit).Rows()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "oops").WithInternal(err)
+	}
+	var out ListTakedownsResponse
+	for rows.Next() {
+		var id int64
+		var did string
+		err := rows.Scan(&id, &did)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "oops").WithInternal(err)
+		}
+		out.Dids = append(out.Dids, did)
+		out.Cursor = id
+	}
+	if len(out.Dids) < limit {
+		out.Cursor = 0
+	}
+	return e.JSON(200, out)
+}
+
 func (bgs *BGS) handleAdminGetUpstreamConns(e echo.Context) error {
 	return e.JSON(200, bgs.slurper.GetActiveList())
 }
