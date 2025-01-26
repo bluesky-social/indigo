@@ -3,10 +3,12 @@ package xrpc
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -15,12 +17,98 @@ import (
 
 	"github.com/bluesky-social/indigo/util"
 	"github.com/carlmjohnson/versioninfo"
+	"github.com/go-jose/go-jose/v4"
 )
+
+func generateToken() string {
+	rand.NewSource(time.Now().UnixNano())
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, 32)
+	for i := range b {
+		b[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(b)
+}
+
+func codeVerifier() string {
+	rand.NewSource(time.Now().UnixNano())
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"
+	b := make([]byte, 64)
+	for i := range b {
+		b[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(b)
+}
+
+func codeChallenge(verifier string) string {
+	h := sha256.New()
+	h.Write([]byte(verifier))
+	hash := h.Sum(nil)
+	return base64.RawURLEncoding.EncodeToString(hash)
+}
+
+func sign[T interface{}](privateJWK string, toSign T) (string, error) {
+	toSignJson, err := json.Marshal(toSign)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal claims: %v", err)
+	}
+
+	// Parse the private key JWK
+	var jwk jose.JSONWebKey
+	err = json.Unmarshal([]byte(privateJWK), &jwk)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse private key JWK: %v", err)
+	}
+
+	// Create a new signer
+	signingKey := jose.SigningKey{Algorithm: jose.ES256, Key: jwk.Key}
+	signer, err := jose.NewSigner(signingKey, (&jose.SignerOptions{
+		ExtraHeaders: map[jose.HeaderKey]interface{}{
+			"kid": jwk.KeyID,
+		},
+	}).WithType("JWT"))
+	if err != nil {
+		return "", fmt.Errorf("failed to create signer: %v", err)
+	}
+
+	// Sign the claims
+	object, err := signer.Sign(toSignJson)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign token: %v", err)
+	}
+
+	// Serialize the signed object
+	token, err := object.CompactSerialize()
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize token: %v", err)
+	}
+
+	return token, nil
+}
+
+type DPoPJwt struct {
+	Iss   string `json:"iss"`
+	Iat   int64  `json:"iat"`
+	Exp   int64  `json:"exp"`
+	Jti   string `json:"jti"`
+	Htm   string `json:"htm"`
+	Htu   string `json:"htu"`
+	Ath   string `json:"ath"`
+	Nonce string `json:"nonce,omitempty"`
+}
+
+type DPoPAuthInfo struct {
+	PrivateJwk    string
+	AuthServerIss string
+	AccessToken   string
+	Nonce         string
+}
 
 type Client struct {
 	// Client is an HTTP client to use. If not set, defaults to http.RobustHTTPClient().
 	Client     *http.Client
 	Auth       *AuthInfo
+	DPopAuth   *DPoPAuthInfo
 	AdminToken *string
 	Host       string
 	UserAgent  *string
@@ -163,7 +251,9 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 		paramStr = "?" + makeParams(params)
 	}
 
-	req, err := http.NewRequest(m, c.Host+"/xrpc/"+method+paramStr, body)
+	uri := c.Host + "/xrpc/" + method + paramStr
+
+	req, err := http.NewRequest(m, uri, body)
 	if err != nil {
 		return err
 	}
@@ -188,6 +278,27 @@ func (c *Client) Do(ctx context.Context, kind XRPCRequestType, inpenc string, me
 		req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("admin:"+*c.AdminToken)))
 	} else if c.Auth != nil {
 		req.Header.Set("Authorization", "Bearer "+c.Auth.AccessJwt)
+	} else if c.DPopAuth != nil {
+		dpopAuthInfo := c.DPopAuth
+		iat := time.Now().UTC()
+		dPopJwt := DPoPJwt{
+			Iss:   dpopAuthInfo.AuthServerIss,
+			Iat:   iat.Unix(),
+			Exp:   iat.Add(time.Duration(10 * time.Minute)).Unix(),
+			Jti:   generateToken(),
+			Htm:   m,
+			Htu:   uri,
+			Ath:   codeChallenge(dpopAuthInfo.AccessToken),
+			Nonce: dpopAuthInfo.Nonce,
+		}
+
+		signedDPopJwt, signedDPopJwtError := sign[DPoPJwt](dpopAuthInfo.PrivateJwk, dPopJwt)
+		if signedDPopJwtError != nil {
+			return fmt.Errorf("failed to sign JWT: %w", signedDPopJwtError)
+		}
+
+		req.Header.Set("Authorization", "DPoP  "+dpopAuthInfo.AccessToken)
+		req.Header.Set("DPoP", signedDPopJwt)
 	}
 
 	resp, err := c.getClient().Do(req.WithContext(ctx))
