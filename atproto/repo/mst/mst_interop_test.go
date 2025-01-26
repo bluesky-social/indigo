@@ -4,6 +4,7 @@
 package mst
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,7 +26,7 @@ func mapToCidMapDecode(t *testing.T, a map[string]string) map[string]cid.Cid {
 
 func mapToTreeRootCidString(t *testing.T, m map[string]string) string {
 
-	tree, err := NewTreeFromMap(mapToCidMapDecode(t, m))
+	tree, err := LoadTreeFromMap(mapToCidMapDecode(t, m))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +63,7 @@ func TestManualNode(t *testing.T) {
 	n := simple_nd.Node(nil)
 	assert.Equal(simple_nd, n.NodeData())
 
-	mcid, err := nodeCID(&n)
+	mcid, err := writeNodeBlocks(context.Background(), &n, nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +145,7 @@ func TestInteropEdgeCasesTrimTop(t *testing.T) {
 		"com.example.record/3jqfcqzm3ft2j": cid1str, // level 0
 		"com.example.record/3jqfcqzm3fu2j": cid1str, // level 1
 	}
-	trimTree, err := NewTreeFromMap(mapToCidMapDecode(t, trimMap))
+	trimTree, err := LoadTreeFromMap(mapToCidMapDecode(t, trimMap))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +194,7 @@ func TestInteropEdgeCasesInsertion(t *testing.T) {
 		"com.example.record/3jqfcqzm4fg2j": cid1str, // K; level 0
 		"com.example.record/3jqfcqzm4fh2j": cid1str, // L; level 0
 	}
-	insertionTree, err := NewTreeFromMap(mapToCidMapDecode(t, insertionMap))
+	insertionTree, err := LoadTreeFromMap(mapToCidMapDecode(t, insertionMap))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +247,7 @@ func TestInteropEdgeCasesHigher(t *testing.T) {
 		"com.example.record/3jqfcqzm3ft2j": cid1str, // A; level 0
 		"com.example.record/3jqfcqzm3fz2j": cid1str, // C; level 0
 	}
-	higherTree, err := NewTreeFromMap(mapToCidMapDecode(t, higherMap))
+	higherTree, err := LoadTreeFromMap(mapToCidMapDecode(t, higherMap))
 	if err != nil {
 		t.Fatal(err)
 	}
