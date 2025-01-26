@@ -1,11 +1,12 @@
 package mst
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/ipfs/go-cid"
-	//blockstore "github.com/ipfs/go-ipfs-blockstore"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
 )
 
 // High-level API for an MST, as a decoded in-memory data structure.
@@ -15,7 +16,7 @@ import (
 // Errors when operating on the tree may leave the tree in a partially modified or invalid/corrupt state.
 type Tree struct {
 	Root *Node
-	// TODO: Blocks blockstore.Blockstore
+	// TODO: have a blockstore.Blockstore for loading lazily?
 }
 
 var ErrInvalidKey = errors.New("bytestring not a valid MST key")
@@ -78,8 +79,8 @@ func (t *Tree) Get(key []byte) (*cid.Cid, error) {
 	return nodeGet(t.Root, key, -1)
 }
 
-// XXX:
-func NewTreeFromMap(m map[string]cid.Cid) (*Tree, error) {
+// Creates a new Tree by loading key/value pairs from a map.
+func LoadTreeFromMap(m map[string]cid.Cid) (*Tree, error) {
 	if m == nil {
 		return nil, fmt.Errorf("un-initialized map as an argument")
 	}
@@ -110,8 +111,10 @@ func (t *Tree) WriteToMap(m map[string]cid.Cid) error {
 // Returns the overall root-node CID for the MST.
 //
 // If possible, lazily returned a known value. If necessary, recursively encodes tree nodes to compute CIDs.
+//
+// NOTE: will mark the tree "clean" (clear any dirty flags).
 func (t *Tree) RootCID() (*cid.Cid, error) {
-	return nodeCID(t.Root)
+	return writeNodeBlocks(context.Background(), t.Root, nil, true)
 }
 
 // If the tree contains no key/value pairs, returns true.
@@ -128,4 +131,26 @@ func (t *Tree) IsPartial() bool {
 		return true
 	}
 	return t.Root.IsPartial()
+}
+
+// Creates a deep copy of MST
+func (t *Tree) Copy() Tree {
+	return Tree{
+		Root: copyNode(t.Root),
+	}
+}
+
+func LoadTreeFromStore(ctx context.Context, bs blockstore.Blockstore, root cid.Cid) (*Tree, error) {
+	n, err := loadNodeFromStore(ctx, bs, root)
+	if err != nil {
+		return nil, err
+	}
+	return &Tree{
+		Root: n,
+	}, nil
+}
+
+// Walks the tree, encodes any "dirty" nodes as CBOR data, and writes that data as blocks to the provided blockstore. Returns root CID.
+func (t *Tree) WriteDiffBlocks(ctx context.Context, bs blockstore.Blockstore) (*cid.Cid, error) {
+	return writeNodeBlocks(ctx, t.Root, bs, true)
 }

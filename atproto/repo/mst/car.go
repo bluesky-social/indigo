@@ -1,7 +1,6 @@
 package mst
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -11,55 +10,28 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
-	ipld "github.com/ipfs/go-ipld-format"
-	"github.com/ipld/go-car/v2"
+	"github.com/ipld/go-car"
 )
 
-func hydrateNode(ctx context.Context, bs blockstore.Blockstore, ref cid.Cid) (*Node, error) {
-	block, err := bs.Get(ctx, ref)
-	if err != nil {
-		return nil, err
-	}
-
-	nd, err := NodeDataFromCBOR(bytes.NewReader(block.RawData()))
-	if err != nil {
-		return nil, err
-	}
-
-	n := nd.Node(&ref)
-
-	for i, e := range n.Entries {
-		if e.IsChild() {
-			child, err := hydrateNode(ctx, bs, *e.ChildCID)
-			if err != nil && ipld.IsNotFound(err) {
-				// allow "partial" trees
-				continue
-			}
-			if err != nil {
-				return nil, err
-			}
-			n.Entries[i].Child = child
-			// NOTE: this is kind of a hack
-			if n.Height == -1 && child.Height >= 0 {
-				n.Height = child.Height + 1
-			}
-		}
-	}
-
-	return &n, nil
-}
-
-func ReadTreeFromCar(ctx context.Context, r io.Reader) (*Tree, *cid.Cid, error) {
+func LoadTreeFromCAR(ctx context.Context, r io.Reader) (*Tree, *cid.Cid, error) {
 
 	bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
 
-	br, err := car.NewBlockReader(r)
+	cr, err := car.NewCarReader(r)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	if cr.Header.Version != 1 {
+		return nil, nil, fmt.Errorf("unsupported CAR file version: %d", cr.Header.Version)
+	}
+	if len(cr.Header.Roots) < 1 {
+		return nil, nil, fmt.Errorf("CAR file missing root CID")
+	}
+	commitCID := cr.Header.Roots[0]
+
 	for {
-		blk, err := br.Next()
+		blk, err := cr.Next()
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -71,11 +43,6 @@ func ReadTreeFromCar(ctx context.Context, r io.Reader) (*Tree, *cid.Cid, error) 
 			return nil, nil, err
 		}
 	}
-
-	if len(br.Roots) < 1 {
-		return nil, nil, fmt.Errorf("CAR file missing root CID")
-	}
-	commitCID := br.Roots[0]
 
 	commitBlock, err := bs.Get(ctx, commitCID)
 	if err != nil {
@@ -96,7 +63,7 @@ func ReadTreeFromCar(ctx context.Context, r io.Reader) (*Tree, *cid.Cid, error) 
 	}
 	rootCID := cl.CID()
 
-	n, err := hydrateNode(ctx, bs, rootCID)
+	n, err := loadNodeFromStore(ctx, bs, rootCID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading MST from CAR file: %w", err)
 	}

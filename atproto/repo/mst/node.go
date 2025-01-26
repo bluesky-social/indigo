@@ -70,6 +70,28 @@ func (e *NodeEntry) IsChild() bool {
 	return false
 }
 
+// creates a deep/recursive copy of the sub-tree
+func copyNode(n *Node) *Node {
+	out := Node{
+		Entries: make([]NodeEntry, len(n.Entries)),
+		Height:  n.Height,
+		Dirty:   n.Dirty,
+		CID:     n.CID,
+	}
+	for i, e := range n.Entries {
+		out.Entries[i] = NodeEntry{
+			Key:      e.Key,
+			Value:    e.Value,
+			ChildCID: e.ChildCID,
+			Dirty:    e.Dirty,
+		}
+		if e.Child != nil {
+			out.Entries[i].Child = copyNode(e.Child)
+		}
+	}
+	return &out
+}
+
 // Looks for a "value" entry in the node with the exact key.
 // Returns entry index if a matching entry is found; or -1 if not found
 func findExistingEntry(n *Node, key []byte) int {

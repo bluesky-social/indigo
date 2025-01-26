@@ -82,7 +82,7 @@ func CheckOp(tree *Tree, op *Operation) error {
 	return fmt.Errorf("invalid operation")
 }
 
-// XXX: description
+// Applies the inversion of the `op` to the `tree`. This mutates the tree.
 func InvertOp(tree *Tree, op *Operation) error {
 	if op.IsCreate() {
 		prev, err := tree.Remove([]byte(op.Path))

@@ -95,7 +95,7 @@ func TestRandomOperations(t *testing.T) {
 	rand.Shuffle(len(mapKeys), func(i, j int) {
 		mapKeys[i], mapKeys[j] = mapKeys[j], mapKeys[i]
 	})
-	tree, err := NewTreeFromMap(startMap)
+	tree, err := LoadTreeFromMap(startMap)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,11 +147,11 @@ func TestRandomOperations(t *testing.T) {
 
 		// extract diff as separate tree, and validate that
 		diffBlocks := blockstore.NewBlockstore(datastore.NewMapDatastore())
-		diffRoot, err := tree.WriteDiffBlocks(diffBlocks)
+		diffRoot, err := tree.WriteDiffBlocks(ctx, diffBlocks)
 		if err != nil {
 			t.Fatal(err)
 		}
-		diffNode, err := hydrateNode(ctx, diffBlocks, *diffRoot)
+		diffNode, err := loadNodeFromStore(ctx, diffBlocks, *diffRoot)
 		if err != nil {
 			t.Fatal(err)
 		}

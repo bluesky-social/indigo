@@ -42,7 +42,7 @@ func runVerifyCarMst(cctx *cli.Context) error {
 	}
 	defer f.Close()
 
-	tree, rootCID, err := mst.ReadTreeFromCar(ctx, f)
+	tree, rootCID, err := mst.LoadTreeFromCAR(ctx, f)
 	if err != nil {
 		return err
 	}

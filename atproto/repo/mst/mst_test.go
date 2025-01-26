@@ -115,7 +115,7 @@ func TestBasicMap(t *testing.T) {
 		"i": c3,
 	}
 
-	tree, err := NewTreeFromMap(inMap)
+	tree, err := LoadTreeFromMap(inMap)
 	assert.NoError(err)
 
 	//fmt.Println("-----")
@@ -165,7 +165,7 @@ func TestRandomTree(t *testing.T) {
 		inMap[k] = randomCid()
 	}
 
-	tree, err := NewTreeFromMap(inMap)
+	tree, err := LoadTreeFromMap(inMap)
 	assert.NoError(err)
 
 	//fmt.Println("-----")

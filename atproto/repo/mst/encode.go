@@ -2,10 +2,13 @@ package mst
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 
+	bf "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/multiformats/go-multihash"
 )
 
@@ -23,52 +26,19 @@ type EntryData struct {
 	Right     *cid.Cid `cborgen:"t"` // [nullable] pointer to lower-level subtree to the "right" of this path/key entry
 }
 
-// Recursively calculates the root CID
-func nodeCID(n *Node) (*cid.Cid, error) {
-	if n == nil {
-		return nil, fmt.Errorf("nil tree") // TODO: wrap an error?
+// Returns this node as CBOR bytes
+func (d *NodeData) Bytes() ([]byte, *cid.Cid, error) {
+	buf := new(bytes.Buffer)
+	if err := d.MarshalCBOR(buf); err != nil {
+		return nil, nil, err
 	}
-	if !n.Dirty && n.CID != nil {
-		return n.CID, nil
-	}
-
-	// ensure all children are computed
-	for i, e := range n.Entries {
-		if !e.IsChild() {
-			continue
-		}
-		// TODO: better efficiency here? track dirty on NodeEntry?
-		if e.Child != nil {
-			cc, err := nodeCID(e.Child)
-			if err != nil {
-				return nil, err
-			}
-			n.Entries[i].ChildCID = cc
-		}
-	}
-
-	nd := n.NodeData()
-
-	b, err := nd.Bytes()
-	if err != nil {
-		return nil, err
-	}
-
+	b := buf.Bytes()
 	builder := cid.NewPrefixV1(cid.DagCBOR, multihash.SHA2_256)
 	c, err := builder.Sum(b)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &c, nil
-}
-
-// Returns this node as CBOR bytes
-func (d *NodeData) Bytes() ([]byte, error) {
-	buf := new(bytes.Buffer)
-	if err := d.MarshalCBOR(buf); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return b, &c, nil
 }
 
 func NodeDataFromCBOR(r io.Reader) (*NodeData, error) {
@@ -165,4 +135,59 @@ func nodeEnsureHeights(n *Node) {
 			nodeEnsureHeights(e.Child)
 		}
 	}
+}
+
+// Recursively encodes sub-tree, optionally writing to blockstore. Returns root CID.
+//
+// This method will not error if tree is partial.
+//
+// bs: is an optional blockstore; if it is nil, blocks will not be written.
+// onlyDirty: is an optional blockstore; if it is nil, blocks will not be written.
+func writeNodeBlocks(ctx context.Context, n *Node, bs blockstore.Blockstore, onlyDirty bool) (*cid.Cid, error) {
+	if n == nil {
+		return nil, fmt.Errorf("nil tree node") // TODO: wrap an error?
+	}
+	if onlyDirty && !n.Dirty && n.CID != nil {
+		return n.CID, nil
+	}
+
+	// walk all children first
+	for i, e := range n.Entries {
+		if e.IsValue() && e.Dirty {
+			// TODO: should we actually clear this here?
+			e.Dirty = false
+		}
+		if !e.IsChild() {
+			continue
+		}
+		if e.Child != nil && (e.Dirty || e.Child.Dirty || !onlyDirty) {
+			cc, err := writeNodeBlocks(ctx, e.Child, bs, onlyDirty)
+			if err != nil {
+				return nil, err
+			}
+			n.Entries[i].ChildCID = cc
+			n.Entries[i].Dirty = false
+		}
+	}
+
+	// compute this block
+	nd := n.NodeData()
+	b, c, err := nd.Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	n.CID = c
+	n.Dirty = false
+
+	if bs != nil {
+		blk, err := bf.NewBlockWithCid(b, *c)
+		if err != nil {
+			return nil, err
+		}
+		if err := bs.Put(ctx, blk); err != nil {
+			return nil, err
+		}
+	}
+	return c, nil
 }
