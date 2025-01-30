@@ -80,7 +80,7 @@ func IngestRepo(ctx context.Context, bs blockstore.Blockstore, r io.Reader) (cid
 
 	br, err := car.NewBlockReader(r)
 	if err != nil {
-		return cid.Undef, fmt.Errorf("IngestRepo:NewBlockReader: %w", err)
+		return cid.Undef, fmt.Errorf("opening CAR block reader: %w", err)
 	}
 
 	for {
@@ -89,11 +89,11 @@ func IngestRepo(ctx context.Context, bs blockstore.Blockstore, r io.Reader) (cid
 			if err == io.EOF {
 				break
 			}
-			return cid.Undef, fmt.Errorf("IngestRepo:Next: %w", err)
+			return cid.Undef, fmt.Errorf("reading block from CAR: %w", err)
 		}
 
 		if err := bs.Put(ctx, blk); err != nil {
-			return cid.Undef, fmt.Errorf("IngestRepo:Put: %w", err)
+			return cid.Undef, fmt.Errorf("copying block to store: %w", err)
 		}
 	}
 
