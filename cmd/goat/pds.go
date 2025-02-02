@@ -9,14 +9,14 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var cmdPds = &cli.Command{
 	Name:  "pds",
 	Usage: "sub-commands for pds hosts",
 	Flags: []cli.Flag{},
-	Subcommands: []*cli.Command{
+	Commands: []*cli.Command{
 		&cli.Command{
 			Name:      "describe",
 			Usage:     "shows info about a PDS info",
@@ -26,10 +26,9 @@ var cmdPds = &cli.Command{
 	},
 }
 
-func runPdsDescribe(cctx *cli.Context) error {
-	ctx := context.Background()
+func runPdsDescribe(ctx context.Context, cmd *cli.Command) error {
 
-	pdsHost := cctx.Args().First()
+	pdsHost := cmd.Args().First()
 	if pdsHost == "" {
 		return fmt.Errorf("need to provide new handle as argument")
 	}

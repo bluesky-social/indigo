@@ -55,6 +55,7 @@ require (
 	github.com/samber/slog-echo v1.8.0
 	github.com/stretchr/testify v1.9.0
 	github.com/urfave/cli/v2 v2.25.7
+	github.com/urfave/cli/v3 v3.0.0-beta1
 	github.com/whyrusleeping/cbor-gen v0.2.1-0.20241030202151-b7a6831be65e
 	github.com/whyrusleeping/go-did v0.0.0-20230824162731-404d1707d5d6
 	github.com/xlab/treeprint v1.2.0
