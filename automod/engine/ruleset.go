@@ -18,7 +18,6 @@ type RuleSet struct {
 	IdentityRules     []IdentityRuleFunc
 	AccountRules      []AccountRuleFunc
 	BlobRules         []BlobRuleFunc
-	NotificationRules []NotificationRuleFunc
 	OzoneEventRules   []OzoneEventRuleFunc
 }
 
@@ -96,16 +95,6 @@ func (r *RuleSet) CallAccountRules(c *AccountContext) error {
 		err := f(c)
 		if err != nil {
 			c.Logger.Error("account rule execution failed", "err", err)
-		}
-	}
-	return nil
-}
-
-func (r *RuleSet) CallNotificationRules(c *NotificationContext) error {
-	for _, f := range r.NotificationRules {
-		err := f(c)
-		if err != nil {
-			c.Logger.Error("notification rule execution failed", "err", err)
 		}
 	}
 	return nil
