@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="referrer" content="origin-when-cross-origin">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.blue.min.css" />
+	<style>
+		html { position: relative; min-height: 100%; height: auto; }
+		body { margin-bottom: 3em; }
+		body > nav { background-color: var(--pico-muted-border-color); }
+		body > footer { position: absolute; bottom: 0px; padding: 2em; background-color: var(--pico-muted-border-color); }
+		thead th { font-weight: bold; }
+		main article { margin: 2.5rem 0; padding: 2rem; }
+		code { background: none; }
+		td { padding: 0; }
+	</style>
+	<meta name="generator" name="lexidex">
+  <title>{% block head_title %}lexidex{% endblock %}</title>
+</head>
+<body>
+<nav class="container-fluid">
+  <ul>
+  	<li><a href="/"><strong>lexidex</strong></a></li>
+  </ul>
+	<form action="/query" method="get" style="width: 80%;">
+  	<input type="text" name="q" placeholder="at://..." {% if uri %}value="{{ uri }}"{% endif %} style="margin: 0.5em;">
+	</form>
+  <ul>
+    <li><a href="https://github.com/bluesky-social/indigo">Code</a></li>
+  </ul>
+</nav>
+
+<main class="container">
+	{% block main_content %}Base Template{% endblock %}
+</main>
+
+</body>
+</html>
