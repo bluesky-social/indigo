@@ -12,7 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var cmdPLC = &cli.Command{
@@ -24,7 +24,7 @@ var cmdPLC = &cli.Command{
 			Value: "https://plc.directory",
 		},
 	},
-	Subcommands: []*cli.Command{
+	Commands: []*cli.Command{
 		cmdPLCHistory,
 		cmdPLCDump,
 	},
@@ -38,10 +38,9 @@ var cmdPLCHistory = &cli.Command{
 	Action:    runPLCHistory,
 }
 
-func runPLCHistory(cctx *cli.Context) error {
-	ctx := context.Background()
-	plcURL := cctx.String("plc-directory")
-	s := cctx.Args().First()
+func runPLCHistory(ctx context.Context, cmd *cli.Command) error {
+	plcURL := cmd.String("plc-directory")
+	s := cmd.Args().First()
 	if s == "" {
 		return fmt.Errorf("need to provide account identifier as an argument")
 	}
@@ -120,13 +119,12 @@ var cmdPLCDump = &cli.Command{
 	Action: runPLCDump,
 }
 
-func runPLCDump(cctx *cli.Context) error {
-	ctx := context.Background()
-	plcURL := cctx.String("plc-directory")
+func runPLCDump(ctx context.Context, cmd *cli.Command) error {
+	plcURL := cmd.String("plc-directory")
 	client := http.DefaultClient
-	tailMode := cctx.Bool("tail")
+	tailMode := cmd.Bool("tail")
 
-	cursor := cctx.String("cursor")
+	cursor := cmd.String("cursor")
 	if cursor == "now" {
 		cursor = syntax.DatetimeNow().String()
 	}

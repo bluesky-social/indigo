@@ -10,14 +10,14 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var cmdBlob = &cli.Command{
 	Name:  "blob",
 	Usage: "sub-commands for blobs",
 	Flags: []cli.Flag{},
-	Subcommands: []*cli.Command{
+	Commands: []*cli.Command{
 		&cli.Command{
 			Name:      "export",
 			Usage:     "download all blobs for given account",
@@ -66,9 +66,8 @@ var cmdBlob = &cli.Command{
 	},
 }
 
-func runBlobExport(cctx *cli.Context) error {
-	ctx := context.Background()
-	username := cctx.Args().First()
+func runBlobExport(ctx context.Context, cmd *cli.Command) error {
+	username := cmd.Args().First()
 	if username == "" {
 		return fmt.Errorf("need to provide username as an argument")
 	}
@@ -77,7 +76,7 @@ func runBlobExport(cctx *cli.Context) error {
 		return err
 	}
 
-	pdsHost := cctx.String("pds-host")
+	pdsHost := cmd.String("pds-host")
 	if pdsHost == "" {
 		pdsHost = ident.PDSEndpoint()
 	}
@@ -90,7 +89,7 @@ func runBlobExport(cctx *cli.Context) error {
 		return fmt.Errorf("no PDS endpoint for identity")
 	}
 
-	topDir := cctx.String("output")
+	topDir := cmd.String("output")
 	if topDir == "" {
 		topDir = fmt.Sprintf("%s_blobs", username)
 	}
@@ -128,9 +127,8 @@ func runBlobExport(cctx *cli.Context) error {
 	return nil
 }
 
-func runBlobList(cctx *cli.Context) error {
-	ctx := context.Background()
-	username := cctx.Args().First()
+func runBlobList(ctx context.Context, cmd *cli.Command) error {
+	username := cmd.Args().First()
 	if username == "" {
 		return fmt.Errorf("need to provide username as an argument")
 	}
@@ -165,16 +163,15 @@ func runBlobList(cctx *cli.Context) error {
 	return nil
 }
 
-func runBlobDownload(cctx *cli.Context) error {
-	ctx := context.Background()
-	username := cctx.Args().First()
+func runBlobDownload(ctx context.Context, cmd *cli.Command) error {
+	username := cmd.Args().First()
 	if username == "" {
 		return fmt.Errorf("need to provide username as an argument")
 	}
-	if cctx.Args().Len() < 2 {
+	if cmd.Args().Len() < 2 {
 		return fmt.Errorf("need to provide blob CID as second argument")
 	}
-	blobCID := cctx.Args().Get(1)
+	blobCID := cmd.Args().Get(1)
 	ident, err := resolveIdent(ctx, username)
 	if err != nil {
 		return err
@@ -188,7 +185,7 @@ func runBlobDownload(cctx *cli.Context) error {
 		return fmt.Errorf("no PDS endpoint for identity")
 	}
 
-	blobPath := cctx.String("output")
+	blobPath := cmd.String("output")
 	if blobPath == "" {
 		blobPath = blobCID
 	}
@@ -205,9 +202,8 @@ func runBlobDownload(cctx *cli.Context) error {
 	return os.WriteFile(blobPath, blobBytes, 0666)
 }
 
-func runBlobUpload(cctx *cli.Context) error {
-	ctx := context.Background()
-	blobPath := cctx.Args().First()
+func runBlobUpload(ctx context.Context, cmd *cli.Command) error {
+	blobPath := cmd.Args().First()
 	if blobPath == "" {
 		return fmt.Errorf("need to provide file path as an argument")
 	}

@@ -11,14 +11,14 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var cmdAccount = &cli.Command{
 	Name:  "account",
 	Usage: "sub-commands for auth and account management",
 	Flags: []cli.Flag{},
-	Subcommands: []*cli.Command{
+	Commands: []*cli.Command{
 		&cli.Command{
 			Name:  "login",
 			Usage: "create session with PDS instance",
@@ -28,24 +28,24 @@ var cmdAccount = &cli.Command{
 					Aliases:  []string{"u"},
 					Required: true,
 					Usage:    "account identifier (handle or DID)",
-					EnvVars:  []string{"ATP_AUTH_USERNAME"},
+					Sources:  cli.EnvVars("ATP_AUTH_USERNAME"),
 				},
 				&cli.StringFlag{
 					Name:     "app-password",
 					Aliases:  []string{"p"},
 					Required: true,
 					Usage:    "password (app password recommended)",
-					EnvVars:  []string{"ATP_AUTH_PASSWORD"},
+					Sources:  cli.EnvVars("ATP_AUTH_PASSWORD"),
 				},
 				&cli.StringFlag{
 					Name:    "auth-factor-token",
 					Usage:   "token required if password is used and 2fa is required",
-					EnvVars: []string{"ATP_AUTH_FACTOR_TOKEN"},
+					Sources: cli.EnvVars("ATP_AUTH_FACTOR_TOKEN"),
 				},
 				&cli.StringFlag{
 					Name:    "pds-host",
 					Usage:   "URL of the PDS to create account on (overrides DID doc)",
-					EnvVars: []string{"ATP_PDS_HOST"},
+					Sources: cli.EnvVars("ATP_PDS_HOST"),
 				},
 			},
 			Action: runAccountLogin,
@@ -118,19 +118,19 @@ var cmdAccount = &cli.Command{
 					Name:     "pds-host",
 					Usage:    "URL of the PDS to create account on",
 					Required: true,
-					EnvVars:  []string{"ATP_PDS_HOST"},
+					Sources:  cli.EnvVars("ATP_PDS_HOST"),
 				},
 				&cli.StringFlag{
 					Name:     "handle",
 					Usage:    "handle for new account",
 					Required: true,
-					EnvVars:  []string{"ATP_AUTH_HANDLE"},
+					Sources:  cli.EnvVars("ATP_AUTH_HANDLE"),
 				},
 				&cli.StringFlag{
 					Name:     "password",
 					Usage:    "initial account password",
 					Required: true,
-					EnvVars:  []string{"ATP_AUTH_PASSWORD"},
+					Sources:  cli.EnvVars("ATP_AUTH_PASSWORD"),
 				},
 				&cli.StringFlag{
 					Name:  "invite-code",
@@ -160,25 +160,23 @@ var cmdAccount = &cli.Command{
 	},
 }
 
-func runAccountLogin(cctx *cli.Context) error {
-	ctx := context.Background()
+func runAccountLogin(ctx context.Context, cmd *cli.Command) error {
 
-	username, err := syntax.ParseAtIdentifier(cctx.String("username"))
+	username, err := syntax.ParseAtIdentifier(cmd.String("username"))
 	if err != nil {
 		return err
 	}
 
-	_, err = refreshAuthSession(ctx, *username, cctx.String("app-password"), cctx.String("pds-host"), cctx.String("auth-factor-token"))
+	_, err = refreshAuthSession(ctx, *username, cmd.String("app-password"), cmd.String("pds-host"), cmd.String("auth-factor-token"))
 	return err
 }
 
-func runAccountLogout(cctx *cli.Context) error {
+func runAccountLogout(ctx context.Context, cmd *cli.Command) error {
 	return wipeAuthSession()
 }
 
-func runAccountLookup(cctx *cli.Context) error {
-	ctx := context.Background()
-	username := cctx.Args().First()
+func runAccountLookup(ctx context.Context, cmd *cli.Command) error {
+	username := cmd.Args().First()
 	if username == "" {
 		return fmt.Errorf("need to provide username as an argument")
 	}
@@ -211,8 +209,7 @@ func runAccountLookup(cctx *cli.Context) error {
 	return nil
 }
 
-func runAccountStatus(cctx *cli.Context) error {
-	ctx := context.Background()
+func runAccountStatus(ctx context.Context, cmd *cli.Command) error {
 
 	client, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -237,8 +234,7 @@ func runAccountStatus(cctx *cli.Context) error {
 	return nil
 }
 
-func runAccountMissingBlobs(cctx *cli.Context) error {
-	ctx := context.Background()
+func runAccountMissingBlobs(ctx context.Context, cmd *cli.Command) error {
 
 	client, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -265,8 +261,7 @@ func runAccountMissingBlobs(cctx *cli.Context) error {
 	return nil
 }
 
-func runAccountActivate(cctx *cli.Context) error {
-	ctx := context.Background()
+func runAccountActivate(ctx context.Context, cmd *cli.Command) error {
 
 	client, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -283,8 +278,7 @@ func runAccountActivate(cctx *cli.Context) error {
 	return nil
 }
 
-func runAccountDeactivate(cctx *cli.Context) error {
-	ctx := context.Background()
+func runAccountDeactivate(ctx context.Context, cmd *cli.Command) error {
 
 	client, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -301,10 +295,9 @@ func runAccountDeactivate(cctx *cli.Context) error {
 	return nil
 }
 
-func runAccountUpdateHandle(cctx *cli.Context) error {
-	ctx := context.Background()
+func runAccountUpdateHandle(ctx context.Context, cmd *cli.Command) error {
 
-	raw := cctx.Args().First()
+	raw := cmd.Args().First()
 	if raw == "" {
 		return fmt.Errorf("need to provide new handle as argument")
 	}
@@ -330,8 +323,7 @@ func runAccountUpdateHandle(cctx *cli.Context) error {
 	return nil
 }
 
-func runAccountServiceAuth(cctx *cli.Context) error {
-	ctx := context.Background()
+func runAccountServiceAuth(ctx context.Context, cmd *cli.Command) error {
 
 	client, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -340,7 +332,7 @@ func runAccountServiceAuth(cctx *cli.Context) error {
 		return err
 	}
 
-	lxm := cctx.String("endpoint")
+	lxm := cmd.String("endpoint")
 	if lxm != "" {
 		_, err := syntax.ParseNSID(lxm)
 		if err != nil {
@@ -348,14 +340,14 @@ func runAccountServiceAuth(cctx *cli.Context) error {
 		}
 	}
 
-	aud := cctx.String("audience")
+	aud := cmd.String("audience")
 	// TODO: can aud DID have a fragment?
 	_, err = syntax.ParseDID(aud)
 	if err != nil {
 		return fmt.Errorf("aud argument must be a valid DID: %w", err)
 	}
 
-	durSec := cctx.Int("duration-sec")
+	durSec := cmd.Int("duration-sec")
 	expTimestamp := time.Now().Unix() + int64(durSec)
 
 	resp, err := comatproto.ServerGetServiceAuth(ctx, client, aud, expTimestamp, lxm)
@@ -368,25 +360,24 @@ func runAccountServiceAuth(cctx *cli.Context) error {
 	return nil
 }
 
-func runAccountCreate(cctx *cli.Context) error {
-	ctx := context.Background()
+func runAccountCreate(ctx context.Context, cmd *cli.Command) error {
 
 	// validate args
-	pdsHost := cctx.String("pds-host")
+	pdsHost := cmd.String("pds-host")
 	if !strings.Contains(pdsHost, "://") {
 		return fmt.Errorf("PDS host is not a url: %s", pdsHost)
 	}
-	handle := cctx.String("handle")
+	handle := cmd.String("handle")
 	_, err := syntax.ParseHandle(handle)
 	if err != nil {
 		return err
 	}
-	password := cctx.String("password")
+	password := cmd.String("password")
 	params := &comatproto.ServerCreateAccount_Input{
 		Handle:   handle,
 		Password: &password,
 	}
-	raw := cctx.String("existing-did")
+	raw := cmd.String("existing-did")
 	if raw != "" {
 		_, err := syntax.ParseDID(raw)
 		if err != nil {
@@ -395,17 +386,17 @@ func runAccountCreate(cctx *cli.Context) error {
 		s := raw
 		params.Did = &s
 	}
-	raw = cctx.String("email")
+	raw = cmd.String("email")
 	if raw != "" {
 		s := raw
 		params.Email = &s
 	}
-	raw = cctx.String("invite-code")
+	raw = cmd.String("invite-code")
 	if raw != "" {
 		s := raw
 		params.InviteCode = &s
 	}
-	raw = cctx.String("recovery-key")
+	raw = cmd.String("recovery-key")
 	if raw != "" {
 		s := raw
 		params.RecoveryKey = &s
@@ -416,7 +407,7 @@ func runAccountCreate(cctx *cli.Context) error {
 		Host: pdsHost,
 	}
 
-	raw = cctx.String("service-auth")
+	raw = cmd.String("service-auth")
 	if raw != "" && params.Did != nil {
 		xrpcc.Auth = &xrpc.AuthInfo{
 			Did:       *params.Did,

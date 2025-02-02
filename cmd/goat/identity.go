@@ -8,7 +8,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var cmdResolve = &cli.Command{
@@ -24,9 +24,8 @@ var cmdResolve = &cli.Command{
 	Action: runResolve,
 }
 
-func runResolve(cctx *cli.Context) error {
-	ctx := context.Background()
-	s := cctx.Args().First()
+func runResolve(ctx context.Context, cmd *cli.Command) error {
+	s := cmd.Args().First()
 	if s == "" {
 		return fmt.Errorf("need to provide account identifier as an argument")
 	}
@@ -38,7 +37,7 @@ func runResolve(cctx *cli.Context) error {
 	dir := identity.BaseDirectory{}
 	var doc *identity.DIDDocument
 
-	if cctx.Bool("did") {
+	if cmd.Bool("did") {
 		if atid.IsDID() {
 		}
 	}
@@ -48,7 +47,7 @@ func runResolve(cctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		if cctx.Bool("did") {
+		if cmd.Bool("did") {
 			fmt.Println(did)
 			return nil
 		}
@@ -65,7 +64,7 @@ func runResolve(cctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		if cctx.Bool("did") {
+		if cmd.Bool("did") {
 			fmt.Println(did)
 			return nil
 		}

@@ -8,14 +8,14 @@ import (
 
 	"github.com/bluesky-social/indigo/api/agnostic"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var cmdBskyPrefs = &cli.Command{
 	Name:  "prefs",
 	Usage: "sub-commands for preferences",
 	Flags: []cli.Flag{},
-	Subcommands: []*cli.Command{
+	Commands: []*cli.Command{
 		&cli.Command{
 			Name:   "export",
 			Usage:  "dump preferences out as JSON",
@@ -30,8 +30,7 @@ var cmdBskyPrefs = &cli.Command{
 	},
 }
 
-func runBskyPrefsExport(cctx *cli.Context) error {
-	ctx := context.Background()
+func runBskyPrefsExport(ctx context.Context, cmd *cli.Command) error {
 
 	xrpcc, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -55,9 +54,8 @@ func runBskyPrefsExport(cctx *cli.Context) error {
 	return nil
 }
 
-func runBskyPrefsImport(cctx *cli.Context) error {
-	ctx := context.Background()
-	prefsPath := cctx.Args().First()
+func runBskyPrefsImport(ctx context.Context, cmd *cli.Command) error {
+	prefsPath := cmd.Args().First()
 	if prefsPath == "" {
 		return fmt.Errorf("need to provide file path as an argument")
 	}

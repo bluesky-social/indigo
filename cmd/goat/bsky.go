@@ -9,14 +9,14 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var cmdBsky = &cli.Command{
 	Name:  "bsky",
 	Usage: "sub-commands for bsky app",
 	Flags: []cli.Flag{},
-	Subcommands: []*cli.Command{
+	Commands: []*cli.Command{
 		&cli.Command{
 			Name:      "post",
 			Usage:     "create a post",
@@ -27,9 +27,8 @@ var cmdBsky = &cli.Command{
 	},
 }
 
-func runBskyPost(cctx *cli.Context) error {
-	ctx := context.Background()
-	text := cctx.Args().First()
+func runBskyPost(ctx context.Context, cmd *cli.Command) error {
+	text := cmd.Args().First()
 	if text == "" {
 		return fmt.Errorf("need to provide post text as argument")
 	}
