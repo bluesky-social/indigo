@@ -395,6 +395,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	// Repo-related Admin API
 	admin.POST("/repo/takeDown", bgs.handleAdminTakeDownRepo)
 	admin.POST("/repo/reverseTakedown", bgs.handleAdminReverseTakedown)
+	admin.GET("/repo/takedowns", bgs.handleAdminListRepoTakeDowns)
 	admin.POST("/repo/compact", bgs.handleAdminCompactRepo)
 	admin.POST("/repo/compactAll", bgs.handleAdminCompactAllRepos)
 	admin.POST("/repo/reset", bgs.handleAdminResetRepo)
