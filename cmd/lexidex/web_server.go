@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,20 +20,27 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	slogecho "github.com/samber/slog-echo"
 	"github.com/urfave/cli/v2"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 //go:embed static/*
 var StaticFS embed.FS
 
-type Server struct {
+type WebServer struct {
 	echo  *echo.Echo
 	httpd *http.Server
+	db    *gorm.DB
 	dir   identity.Directory
 }
 
 func serve(cctx *cli.Context) error {
 	debug := cctx.Bool("debug")
 	httpAddress := cctx.String("bind")
+	db, err := gorm.Open(sqlite.Open(cctx.String("sqlite-path")))
+	if err != nil {
+		return fmt.Errorf("failed to open db: %w", err)
+	}
 
 	e := echo.New()
 
@@ -42,8 +50,9 @@ func serve(cctx *cli.Context) error {
 		httpMaxHeaderBytes = 1 * (1024 * 1024)
 	)
 
-	srv := &Server{
+	srv := &WebServer{
 		echo: e,
+		db:   db,
 		dir:  identity.DefaultDirectory(),
 	}
 	srv.httpd = &http.Server{
@@ -55,7 +64,7 @@ func serve(cctx *cli.Context) error {
 	}
 
 	e.HideBanner = true
-	e.Use(slogecho.New(slog))
+	e.Use(slogecho.New(slog.Default()))
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("64M"))
 	e.HTTPErrorHandler = srv.errorHandler
@@ -96,12 +105,10 @@ func serve(cctx *cli.Context) error {
 
 	// actual content
 	e.GET("/", srv.WebHome)
-	e.GET("/query", srv.WebQuery)
-	//e.GET("/at://:rkey", srv.WebRedirect)
-	e.GET("/account/:atid", srv.WebAccount)
-	e.GET("/at/:atid", srv.WebRepo)
-	e.GET("/at/:atid/:collection", srv.WebRepoCollection)
-	e.GET("/at/:atid/:collection/:rkey", srv.WebRepoRecord)
+	// TODO: e.GET("/domain/:domain", srv.WebDomain)
+	e.GET("/lexicon/:nsid", srv.WebLexicon)
+	// TODO: e.GET("/lexicon/:nsid/history", srv.WebLexiconHistory)
+	// TODO: e.GET("/lexicon/:nsid/def/:name", srv.WebLexiconDef)
 
 	// Start the server
 	slog.Info("starting server", "bind", httpAddress)
@@ -141,7 +148,7 @@ type GenericStatus struct {
 	Message string `json:"msg,omitempty"`
 }
 
-func (srv *Server) errorHandler(err error, c echo.Context) {
+func (srv *WebServer) errorHandler(err error, c echo.Context) {
 	code := http.StatusInternalServerError
 	var errorMessage string
 	if he, ok := err.(*echo.HTTPError); ok {
@@ -160,11 +167,11 @@ func (srv *Server) errorHandler(err error, c echo.Context) {
 	}
 }
 
-func (srv *Server) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+func (srv *WebServer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	srv.echo.ServeHTTP(rw, req)
 }
 
-func (srv *Server) Shutdown() error {
+func (srv *WebServer) Shutdown() error {
 	slog.Info("shutting down")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -173,6 +180,6 @@ func (srv *Server) Shutdown() error {
 	return srv.httpd.Shutdown(ctx)
 }
 
-func (s *Server) HandleHealthCheck(c echo.Context) error {
+func (s *WebServer) HandleHealthCheck(c echo.Context) error {
 	return c.JSON(200, GenericStatus{Status: "ok", Daemon: "lexidex"})
 }

@@ -1,8 +1,22 @@
 {% extends "base.html" %}
 
 {% block main_content %}
-<h2 style="font-family: monospace;">at://{{ atid }}/{{ collection }}</h2>
+<h2 style="font-family: monospace;">{{ lexicon.NSID }}</h2>
 
+
+{% for name, def in schema.defs %}
+<h3><code>#{{ name }}</code> - {{def.type}}</h3>
+{% if def.type == "record" %}
+<p><i>{{ def.description }}</i>
+<p>Record Key Type: <code>{{ def.key }}</code>
+<ul>
+{% for pname, pdef in def.record.properties %}
+<li>{{ pname }}
+{% endfor %}
+</ul>
+{% endif %}
+{% endfor %}
+<!--
 <h4>Index</h4>
 <table>
   <tbody>
@@ -15,5 +29,6 @@
     {% endif %}
   </tbody>
 </table>
+-->
 
 {% endblock %}
