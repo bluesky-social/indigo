@@ -201,6 +201,12 @@ func run(args []string) error {
 			EnvVars: []string{"RELAY_EVENT_PLAYBACK_TTL"},
 			Value:   72 * time.Hour,
 		},
+		&cli.BoolFlag{
+			Name:    "time-seq",
+			EnvVars: []string{"RELAY_TIME_SEQUENCE"},
+			Value:   false,
+			Usage:   "make outbound firehose sequence number approximately unix microseconds",
+		},
 		&cli.IntFlag{
 			Name:    "num-compaction-workers",
 			EnvVars: []string{"RELAY_NUM_COMPACTION_WORKERS"},
@@ -434,6 +440,7 @@ func runBigsky(cctx *cli.Context) error {
 
 		pOpts := events.DefaultDiskPersistOptions()
 		pOpts.Retention = cctx.Duration("event-playback-ttl")
+		pOpts.TimeSequence = cctx.Bool("time-seq")
 		dp, err := events.NewDiskPersistence(dpd, "", db, pOpts)
 		if err != nil {
 			return fmt.Errorf("setting up disk persister: %w", err)

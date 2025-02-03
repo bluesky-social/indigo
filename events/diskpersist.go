@@ -35,7 +35,8 @@ type DiskPersistence struct {
 
 	logfi *os.File
 
-	curSeq int64
+	curSeq       int64
+	timeSequence bool
 
 	uidCache *arc.ARCCache[models.Uid, string] // TODO: unused
 	didCache *arc.ARCCache[string, models.Uid]
@@ -76,6 +77,8 @@ type DiskPersistOptions struct {
 	EventsPerFile   int64
 	WriteBufferSize int
 	Retention       time.Duration
+
+	TimeSequence bool
 }
 
 func DefaultDiskPersistOptions() *DiskPersistOptions {
@@ -131,6 +134,7 @@ func NewDiskPersistence(primaryDir, archiveDir string, db *gorm.DB, opts *DiskPe
 		outbuf:          new(bytes.Buffer),
 		writeBufferSize: opts.WriteBufferSize,
 		shutdown:        make(chan struct{}),
+		timeSequence:    opts.TimeSequence,
 	}
 
 	if err := dp.resumeLog(); err != nil {
@@ -173,7 +177,7 @@ func (dp *DiskPersistence) resumeLog() error {
 		return fmt.Errorf("failed to scan log file for last seqno: %w", err)
 	}
 
-	dp.curSeq = seq
+	dp.curSeq = seq + 1
 	dp.logfi = fi
 
 	return nil
@@ -443,7 +447,16 @@ func (dp *DiskPersistence) doPersist(ctx context.Context, j persistJob) error {
 	b := j.Bytes
 	e := j.Evt
 	seq := dp.curSeq
-	dp.curSeq++
+	if dp.timeSequence {
+		nextSeq := time.Now().UnixMicro()
+		if nextSeq <= seq {
+			// be monotonic
+			nextSeq = seq + 1
+		}
+		dp.curSeq = nextSeq
+	} else {
+		dp.curSeq++
+	}
 
 	// Set sequence number in event header
 	binary.LittleEndian.PutUint64(b[20:], uint64(seq))
