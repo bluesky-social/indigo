@@ -482,7 +482,7 @@ func runBigsky(cctx *cli.Context) error {
 		if err := ix.HandleRepoEvent(ctx, evt); err != nil {
 			slog.Error("failed to handle repo event", "err", err)
 		}
-	}, false)
+	}, true)
 
 	prodHR, err := api.NewProdHandleResolver(100_000, cctx.String("resolve-address"), cctx.Bool("force-dns-udp"))
 	if err != nil {
