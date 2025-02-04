@@ -19,6 +19,21 @@ func (srv *WebServer) WebHome(c echo.Context) error {
 	return c.Render(http.StatusOK, "home.html", info)
 }
 
+func (srv *WebServer) WebQuery(c echo.Context) error {
+
+	// parse the q query param, redirect based on that
+	q := c.QueryParam("q")
+	if q == "" {
+		return c.Redirect(http.StatusFound, "/")
+	}
+
+	nsid, err := syntax.ParseNSID(q)
+	if nil == err {
+		return c.Redirect(http.StatusFound, fmt.Sprintf("/lexicon/%s", nsid))
+	}
+	return echo.NewHTTPError(400, "failed to parse query")
+}
+
 // e.GET("/lexicon/:nsid", srv.WebLexicon)
 func (srv *WebServer) WebLexicon(c echo.Context) error {
 	ctx := c.Request().Context()
@@ -61,5 +76,6 @@ func (srv *WebServer) WebLexicon(c echo.Context) error {
 	info["version"] = ver
 	info["crawl"] = crawl
 	info["defs"] = defs
+	info["uri"] = nsid
 	return c.Render(http.StatusOK, "lexicon.html", info)
 }
