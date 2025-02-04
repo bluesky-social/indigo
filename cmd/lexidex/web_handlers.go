@@ -147,7 +147,7 @@ func (srv *WebServer) WebRecent(c echo.Context) error {
 
 	tx := srv.db.WithContext(ctx)
 	var history []Crawl
-	if err := tx.Limit(20).Find(&history).Error; err != nil {
+	if err := tx.Order("created_at desc").Limit(20).Find(&history).Error; err != nil {
 		return err
 	}
 
