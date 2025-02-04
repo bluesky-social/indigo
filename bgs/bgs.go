@@ -141,7 +141,10 @@ func DefaultBGSConfig() *BGSConfig {
 
 func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtman *events.EventManager, didr did.Resolver, rf *indexer.RepoFetcher, hr api.HandleResolver, config *BGSConfig) (*BGS, error) {
 	logger := slog.Default().With("system", "bgs")
-	err := fixupDupPDSRows(db, logger)
+	// TODO: 2025-02-04 hopefully about a month from now this migration will have run everywhere and it can be deleted.
+	err := db.Transaction(func(tx *gorm.DB) error {
+		return fixupDupPDSRows(tx, logger)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -206,6 +209,8 @@ func NewBGS(db *gorm.DB, ix *indexer.Indexer, repoman *repomgr.RepoManager, evtm
 	return bgs, nil
 }
 
+// TODO: 2025-02-04 hopefully about a month from now this migration will have run everywhere and it can be deleted.
+// TODO: check for INFO "no pds dup rows found" on all deploys
 func fixupDupPDSRows(db *gorm.DB, logger *slog.Logger) error {
 	rows, err := db.Raw("SELECT id, host FROM pds").Rows()
 	if err != nil {
@@ -233,7 +238,7 @@ func fixupDupPDSRows(db *gorm.DB, logger *slog.Logger) error {
 		}
 	}
 	if maxHostCount <= 1 {
-		logger.Debug("no pds dup rows found")
+		logger.Info("no pds dup rows found")
 		return nil
 	}
 	for host, idlist := range hostCounts {
