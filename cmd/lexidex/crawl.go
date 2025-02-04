@@ -93,14 +93,11 @@ func CrawlLexicon(ctx context.Context, db *gorm.DB, nsid syntax.NSID, reason str
 		return fmt.Errorf("fetched Lexicon schema record was invalid: %w", err)
 	}
 	// TODO: check that NSID matches record field
-	// TODO: CheckSchema() on lexicon.SchemaFile which handles this
-	for _, def := range sf.Defs {
-		def.SetBase(nsid.String())
-		if err := def.CheckSchema(); err != nil {
-			crawl.Status = "bad-schema-check"
-			tx.Create(crawl)
-			return fmt.Errorf("lexicon format was invalid: %w", err)
-		}
+	cat := lexicon.NewBaseCatalog()
+	if err := cat.AddSchemaFile(sf); err != nil {
+		crawl.Status = "bad-schema-check"
+		tx.Create(crawl)
+		return fmt.Errorf("lexicon format was invalid: %w", err)
 	}
 
 	latest, err := comatproto.SyncGetLatestCommit(ctx, xrpcc, did.String())

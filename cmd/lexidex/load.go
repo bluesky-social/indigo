@@ -29,11 +29,9 @@ func loadSchema(ctx context.Context, db *gorm.DB, raw json.RawMessage) error {
 	if err := json.Unmarshal(raw, &sf); err != nil {
 		return fmt.Errorf("fetched Lexicon schema record was invalid: %w", err)
 	}
-	for _, def := range sf.Defs {
-		def.SetBase(sf.ID)
-		if err := def.CheckSchema(); err != nil {
-			return fmt.Errorf("lexicon format was invalid: %w", err)
-		}
+	cat := lexicon.NewBaseCatalog()
+	if err := cat.AddSchemaFile(sf); err != nil {
+		return fmt.Errorf("lexicon format was invalid: %w", err)
 	}
 
 	nsid, err := syntax.ParseNSID(sf.ID)
