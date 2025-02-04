@@ -147,6 +147,8 @@
 {% endmacro %}
 
 <h2 style="font-family: monospace;">{{ lexicon.NSID }}</h2>
+<p>Domain Index: <a href="/domain/{{ lexicon.Domain }}">{{ lexicon.Domain }}</a>
+<p><a href="/lexicon/{{ lexicon.NSID }}/history">Crawl History</a>
 
 {% for def in defs %}
 <article>

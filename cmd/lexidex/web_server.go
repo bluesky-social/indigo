@@ -106,6 +106,7 @@ func serve(cctx *cli.Context) error {
 	// actual content
 	e.GET("/", srv.WebHome)
 	e.GET("/query", srv.WebQuery)
+	e.GET("/recent", srv.WebRecent)
 	e.GET("/domain/:domain", srv.WebDomain)
 	e.GET("/lexicon/:nsid", srv.WebLexicon)
 	e.GET("/lexicon/:nsid/history", srv.WebLexiconHistory)

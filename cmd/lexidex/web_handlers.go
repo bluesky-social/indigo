@@ -140,3 +140,17 @@ func (srv *WebServer) WebLexiconHistory(c echo.Context) error {
 	info["uri"] = nsid
 	return c.Render(http.StatusOK, "history.html", info)
 }
+
+func (srv *WebServer) WebRecent(c echo.Context) error {
+	ctx := c.Request().Context()
+	info := pongo2.Context{}
+
+	tx := srv.db.WithContext(ctx)
+	var history []Crawl
+	if err := tx.Limit(20).Find(&history).Error; err != nil {
+		return err
+	}
+
+	info["history"] = history
+	return c.Render(http.StatusOK, "recent.html", info)
+}
