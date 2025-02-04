@@ -68,6 +68,11 @@ func run(args []string) error {
 			Action: runCrawl,
 		},
 		&cli.Command{
+			Name:   "load-dir",
+			Usage:  "load lexicons from a local file directory",
+			Action: runLoadDir,
+		},
+		&cli.Command{
 			Name:  "version",
 			Usage: "print version",
 			Action: func(cctx *cli.Context) error {
@@ -85,6 +90,7 @@ func runServe(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	RunAllMigrations(srv.db)
 
 	srv.RunWeb()
 	srv.RunConsumer()
@@ -110,4 +116,20 @@ func runCrawl(cctx *cli.Context) error {
 
 	RunAllMigrations(db)
 	return CrawlLexicon(ctx, db, nsid, "cli")
+}
+
+func runLoadDir(cctx *cli.Context) error {
+	ctx := cctx.Context
+
+	p := cctx.Args().First()
+	if p == "" {
+		return fmt.Errorf("need to provide directory path as an argument")
+	}
+
+	db, err := gorm.Open(sqlite.Open(cctx.String("sqlite-path")))
+	if err != nil {
+		return fmt.Errorf("failed to open db: %w", err)
+	}
+	RunAllMigrations(db)
+	return LoadDirectory(ctx, db, p)
 }
