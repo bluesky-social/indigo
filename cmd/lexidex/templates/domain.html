@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block main_content %}
+<h2 style="font-family: monospace;">{{ domain }} - Domain Index</h2>
+
+Known Lexicons:
+<ul>
+{% for lex in lexicons %}
+<li><a href="/lexicon/{{ lex.NSID }}">{{ lex.NSID }}</a>
+{% endfor %}
+</ul>
+
+{% endblock %}

@@ -15,10 +15,20 @@ import (
 )
 
 func (srv *WebServer) WebHome(c echo.Context) error {
+	ctx := c.Request().Context()
 	info := pongo2.Context{}
+
+	tx := srv.db.WithContext(ctx)
+	var domains []Domain
+	if err := tx.Where("hidden IS false AND disabled IS false").Find(&domains).Error; err != nil {
+		return err
+	}
+
+	info["domains"] = domains
 	return c.Render(http.StatusOK, "home.html", info)
 }
 
+// e.GET("/query", srv.WebQuery)
 func (srv *WebServer) WebQuery(c echo.Context) error {
 
 	// parse the q query param, redirect based on that
@@ -34,10 +44,31 @@ func (srv *WebServer) WebQuery(c echo.Context) error {
 	return echo.NewHTTPError(400, "failed to parse query")
 }
 
+// e.GET("/domain/:domain", srv.WebDomain)
+func (srv *WebServer) WebDomain(c echo.Context) error {
+	ctx := c.Request().Context()
+	info := pongo2.Context{}
+
+	domain := c.Param("domain")
+	_, err := syntax.ParseHandle(c.Param("domain"))
+	if err != nil {
+		return echo.NewHTTPError(400, "not a valid domain name")
+	}
+
+	tx := srv.db.WithContext(ctx)
+	var lexicons []Lexicon
+	if err := tx.Where("domain = ?", domain).Find(&lexicons).Error; err != nil {
+		return err
+	}
+
+	info["domain"] = domain
+	info["lexicons"] = lexicons
+	return c.Render(http.StatusOK, "domain.html", info)
+}
+
 // e.GET("/lexicon/:nsid", srv.WebLexicon)
 func (srv *WebServer) WebLexicon(c echo.Context) error {
 	ctx := c.Request().Context()
-	//req := c.Request()
 	info := pongo2.Context{}
 
 	nsid, err := syntax.ParseNSID(c.Param("nsid"))
@@ -78,4 +109,34 @@ func (srv *WebServer) WebLexicon(c echo.Context) error {
 	info["defs"] = defs
 	info["uri"] = nsid
 	return c.Render(http.StatusOK, "lexicon.html", info)
+}
+
+func (srv *WebServer) WebLexiconHistory(c echo.Context) error {
+	ctx := c.Request().Context()
+	info := pongo2.Context{}
+
+	nsid, err := syntax.ParseNSID(c.Param("nsid"))
+	if err != nil {
+		return echo.NewHTTPError(400, "failed to parse lexicon NSID")
+	}
+
+	tx := srv.db.WithContext(ctx)
+	var lex Lexicon
+	if err := tx.First(&lex, "nsid = ?", nsid).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return echo.NewHTTPError(404, "lexicon not known")
+		} else {
+			return err
+		}
+	}
+
+	var history []Crawl
+	if err := tx.Where("nsid = ?", nsid).Find(&history).Error; err != nil {
+		return err
+	}
+
+	info["lexicon"] = lex
+	info["history"] = history
+	info["uri"] = nsid
+	return c.Render(http.StatusOK, "history.html", info)
 }
