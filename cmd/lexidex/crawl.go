@@ -95,6 +95,7 @@ func CrawlLexicon(ctx context.Context, db *gorm.DB, nsid syntax.NSID, reason str
 	// TODO: check that NSID matches record field
 	// TODO: CheckSchema() on lexicon.SchemaFile which handles this
 	for _, def := range sf.Defs {
+		def.SetBase(nsid.String())
 		if err := def.CheckSchema(); err != nil {
 			crawl.Status = "bad-schema-check"
 			tx.Create(crawl)

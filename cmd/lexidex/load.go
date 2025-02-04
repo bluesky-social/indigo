@@ -29,14 +29,12 @@ func loadSchema(ctx context.Context, db *gorm.DB, raw json.RawMessage) error {
 	if err := json.Unmarshal(raw, &sf); err != nil {
 		return fmt.Errorf("fetched Lexicon schema record was invalid: %w", err)
 	}
-	// TODO: CheckSchema needs to be called in a different order... after setting base?
-	/*
-		for _, def := range sf.Defs {
-			if err := def.CheckSchema(); err != nil {
-				return fmt.Errorf("lexicon format was invalid: %w", err)
-			}
+	for _, def := range sf.Defs {
+		def.SetBase(sf.ID)
+		if err := def.CheckSchema(); err != nil {
+			return fmt.Errorf("lexicon format was invalid: %w", err)
 		}
-	*/
+	}
 
 	nsid, err := syntax.ParseNSID(sf.ID)
 	if err != nil {
