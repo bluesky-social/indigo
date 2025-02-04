@@ -75,6 +75,8 @@
           {% elif f.Items.Type == "integer" %}
             <p>Elements are integers
           	{# TODO #}
+          {% elif f.Items.Type == "integer" %}
+            <p>Elements are CID Links
           {% else %}<p>UNHANDLED IN ARRAYS: {{ f.Items.Type }}{% endif %}
         {% elif f.Type == "object" %}
           <article>
@@ -140,8 +142,8 @@
 {% macro union_list(def) %}
 <p>{% if def.Closed %}Closed Union:{% else %}Open Union:{% endif %}
 <ul>
-{% for ref in ref.Options %}
-  <li><code>{{ ref }}</code>
+{% for o in def.Options %}
+  <li><code>{{ o }}</code>
 {% endfor %}
 </ul>
 {% endmacro %}
@@ -156,9 +158,13 @@
   {% if def.Description %}<p>{{ def.Description }}{% endif %}
   {% if def.Type == "record" %}{{ record_schema(def) }}
   {% elif def.Type == "query" or def.Type == "procedure" %}{{ api_schema(def) }}
-  {# XXX {% elif def.Type == "subscription" %}{{ subscription_schema(def) }} #}
+  {% elif def.Type == "subscription" %}
+    <h3>Query Parameters</h3>
+    {{ fields_table(def.Fields) }}
+    <h3>Message Types</h3>
+    {{ union_list(def) }}
   {% elif def.Type == "object" %}{{ record_schema(def) }}
-  {% elif def.Type == "union" %}{{ union_schema(def) }}
+  {% elif def.Type == "union" %}{{ union_list(def) }}
   {% elif def.Type == "token" %}
     <p><i>"Tokens" in atproto are simply NSID reference strings.</i>
   {% elif def.Type == "unknown" %}

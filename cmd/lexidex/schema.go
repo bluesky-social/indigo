@@ -144,6 +144,7 @@ func ParseSchemaDef(raw any, nsid syntax.NSID, name string) (*Def, error) {
 		def.Errors = s.Errors
 		qp, err := ParseFields(s.Parameters.Properties, s.Parameters.Required, []string{}, nsid)
 		if err != nil {
+			return nil, err
 		}
 		def.Fields = qp
 		if s.Output != nil {
@@ -161,6 +162,7 @@ func ParseSchemaDef(raw any, nsid syntax.NSID, name string) (*Def, error) {
 		def.Errors = s.Errors
 		qp, err := ParseFields(s.Parameters.Properties, s.Parameters.Required, []string{}, nsid)
 		if err != nil {
+			return nil, err
 		}
 		def.Fields = qp
 		if s.Output != nil {
@@ -186,6 +188,7 @@ func ParseSchemaDef(raw any, nsid syntax.NSID, name string) (*Def, error) {
 		def.Description = s.Description
 		qp, err := ParseFields(s.Parameters.Properties, s.Parameters.Required, []string{}, nsid)
 		if err != nil {
+			return nil, err
 		}
 		def.Fields = qp
 		if s.Message == nil {
@@ -195,7 +198,6 @@ func ParseSchemaDef(raw any, nsid syntax.NSID, name string) (*Def, error) {
 		if !ok {
 			return nil, fmt.Errorf("subscription message must be a union")
 		}
-		def.Options = u.Refs
 		def.Closed = u.Closed != nil && *u.Closed
 		def.Options = u.Refs
 
