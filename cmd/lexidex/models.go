@@ -40,9 +40,11 @@ type Crawl struct {
 	ID        uint `gorm:"primaryKey"`
 	CreatedAt time.Time
 	NSID      syntax.NSID `gorm:"index;column:nsid"`
-	DID       syntax.DID  `gorm:"index;column:did"`
-	RecordCID syntax.CID  `gorm:"index;column:record_cid"`
-	RepoRev   string
 	Reason    string
+	Status    string
+
+	DID       syntax.DID `gorm:"index;column:did"`
+	RecordCID syntax.CID `gorm:"index;column:record_cid"`
+	RepoRev   string
 	Extra     map[string]any `gorm:"serializer:json"`
 }

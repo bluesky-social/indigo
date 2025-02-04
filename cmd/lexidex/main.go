@@ -31,13 +31,27 @@ func run(args []string) error {
 	app := cli.App{
 		Name:  "lexidex",
 		Usage: "atproto Lexicon index and schema browser",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "sqlite-path",
+				Usage:   "Database file path",
+				Value:   "./lexidex.sqlite",
+				EnvVars: []string{"LEXIDEX_SQLITE_PATH"},
+			},
+			&cli.StringFlag{
+				Name:    "jetstream-host",
+				Usage:   "URL (scheme, host, path) to jetstream host for firehose consumption",
+				Value:   "wss://jetstream2.us-west.bsky.network/subscribe",
+				EnvVars: []string{"LEXIDEX_JETSTREAM_HOST"},
+			},
+		},
 	}
 
 	app.Commands = []*cli.Command{
 		&cli.Command{
 			Name:   "serve",
 			Usage:  "run the server",
-			Action: serve,
+			Action: runServe,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:     "bind",
@@ -46,33 +60,12 @@ func run(args []string) error {
 					Value:    ":8500",
 					EnvVars:  []string{"LEXIDEX_BIND"},
 				},
-				&cli.BoolFlag{
-					Name:     "debug",
-					Usage:    "Enable debug mode",
-					Value:    false,
-					Required: false,
-					EnvVars:  []string{"DEBUG"},
-				},
-				&cli.StringFlag{
-					Name:    "sqlite-path",
-					Usage:   "Database file path",
-					Value:   "./lexidex.sqlite",
-					EnvVars: []string{"LEXIDEX_SQLITE_PATH"},
-				},
 			},
 		},
 		&cli.Command{
 			Name:   "crawl",
 			Usage:  "crawl a single NSID",
 			Action: runCrawl,
-			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:    "sqlite-path",
-					Usage:   "Database file path",
-					Value:   "./lexidex.sqlite",
-					EnvVars: []string{"LEXIDEX_SQLITE_PATH"},
-				},
-			},
 		},
 		&cli.Command{
 			Name:  "version",
@@ -85,6 +78,17 @@ func run(args []string) error {
 	}
 
 	return app.Run(args)
+}
+
+func runServe(cctx *cli.Context) error {
+	srv, err := NewWebServer(cctx)
+	if err != nil {
+		return err
+	}
+
+	srv.RunWeb()
+	srv.RunConsumer()
+	return srv.RunSignalHandler()
 }
 
 func runCrawl(cctx *cli.Context) error {
@@ -105,5 +109,5 @@ func runCrawl(cctx *cli.Context) error {
 	}
 
 	RunAllMigrations(db)
-	return CrawlLexicon(ctx, db, nsid)
+	return CrawlLexicon(ctx, db, nsid, "cli")
 }

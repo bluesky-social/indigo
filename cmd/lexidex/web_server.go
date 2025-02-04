@@ -28,18 +28,20 @@ import (
 var StaticFS embed.FS
 
 type WebServer struct {
-	echo  *echo.Echo
-	httpd *http.Server
-	db    *gorm.DB
-	dir   identity.Directory
+	echo          *echo.Echo
+	httpd         *http.Server
+	db            *gorm.DB
+	dir           identity.Directory
+	jetstreamHost string
 }
 
-func serve(cctx *cli.Context) error {
+func NewWebServer(cctx *cli.Context) (*WebServer, error) {
 	debug := cctx.Bool("debug")
 	httpAddress := cctx.String("bind")
+	jetstreamHost := cctx.String("jetstream-host")
 	db, err := gorm.Open(sqlite.Open(cctx.String("sqlite-path")))
 	if err != nil {
-		return fmt.Errorf("failed to open db: %w", err)
+		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
 
 	e := echo.New()
@@ -51,9 +53,10 @@ func serve(cctx *cli.Context) error {
 	)
 
 	srv := &WebServer{
-		echo: e,
-		db:   db,
-		dir:  identity.DefaultDirectory(),
+		echo:          e,
+		db:            db,
+		dir:           identity.DefaultDirectory(),
+		jetstreamHost: jetstreamHost,
 	}
 	srv.httpd = &http.Server{
 		Handler:        srv,
@@ -115,8 +118,13 @@ func serve(cctx *cli.Context) error {
 	e.GET("/demo/record", srv.WebDemoRecord)
 	e.GET("/demo/query", srv.WebDemoQuery)
 
+	return srv, nil
+}
+
+// Starts the server in a goroutine, and returns
+func (srv *WebServer) RunWeb() {
 	// Start the server
-	slog.Info("starting server", "bind", httpAddress)
+	slog.Info("starting server", "bind", srv.httpd.Addr)
 	go func() {
 		if err := srv.httpd.ListenAndServe(); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
@@ -124,7 +132,10 @@ func serve(cctx *cli.Context) error {
 			}
 		}
 	}()
+}
 
+// Runs in this thread
+func (srv *WebServer) RunSignalHandler() error {
 	// Wait for a signal to exit.
 	slog.Info("registering OS exit signal handler")
 	quit := make(chan struct{})

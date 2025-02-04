@@ -12,38 +12,44 @@ import (
 	"github.com/bluesky-social/jetstream/pkg/models"
 )
 
-func handleEvent(ctx context.Context, event *models.Event) error {
-	if event.Commit != nil && (event.Commit.Operation == models.CommitOperationCreate || event.Commit.Operation == models.CommitOperationUpdate) {
+func (srv *WebServer) processJetstreamEvent(ctx context.Context, event *models.Event) error {
+	if event.Commit != nil {
 		if event.Commit.Collection != "com.atproto.lexicon.schema" {
 			return nil
 		}
+		slog.Info("jetstream event", "did", event.Did, "collection", event.Commit.Collection, "rkey", event.Commit.RKey, "rev", event.Commit.Rev)
 		nsid, err := syntax.ParseNSID(event.Commit.RKey)
 		if err != nil {
 			return fmt.Errorf("invalid NSID in lexicon record: %s", event.Commit.RKey)
 		}
-		// TODO: enqueue NSID to be crawled/verified
-		_ = nsid
+		if err := CrawlLexicon(ctx, srv.db, nsid, "firehose"); err != nil {
+			slog.Error("failed to crawl lexicon", "nsid", nsid, "reason", "firehose")
+		}
 	}
 	return nil
 }
 
-func blah() error {
+func (srv *WebServer) RunConsumer() error {
 
 	logger := slog.Default()
 
-	jetstreamHost := "wss://jetstream2.us-west.bsky.network/subscribe"
 	cfg := client.DefaultClientConfig()
 	cfg.Compress = true
-	cfg.WebsocketURL = jetstreamHost
+	cfg.WebsocketURL = srv.jetstreamHost
 	cfg.WantedCollections = []string{"com.atproto.lexicon.schema"}
 
-	sched := sequential.NewScheduler("lexidex", logger, handleEvent)
+	sched := sequential.NewScheduler("lexidex", logger, srv.processJetstreamEvent)
 
 	jc, err := client.NewClient(cfg, logger, sched)
 	if err != nil {
 		return err
 	}
-	// TODO: finish this part
-	_ = jc
+
+	var cursor *int64
+	go func() {
+		ctx := context.Background()
+		logger.Info("starting jetstream consumer", "cursor", cursor)
+		jc.ConnectAndRead(ctx, cursor)
+	}()
 	return nil
 }

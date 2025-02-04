@@ -17,7 +17,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func CrawlLexicon(ctx context.Context, db *gorm.DB, nsid syntax.NSID) error {
+func CrawlLexicon(ctx context.Context, db *gorm.DB, nsid syntax.NSID, reason string) error {
 
 	// TODO: inject directory
 	dir := identity.BaseDirectory{}
@@ -32,6 +32,10 @@ func CrawlLexicon(ctx context.Context, db *gorm.DB, nsid syntax.NSID) error {
 	}
 
 	tx := db.WithContext(ctx)
+	crawl := &Crawl{
+		NSID:   nsid,
+		Reason: reason,
+	}
 
 	// check that domain isn't blocked
 	var dom Domain
@@ -48,11 +52,16 @@ func CrawlLexicon(ctx context.Context, db *gorm.DB, nsid syntax.NSID) error {
 	// resolve
 	did, err := dir.ResolveNSID(ctx, nsid)
 	if err != nil {
+		crawl.Status = "error-resolve-nsid"
+		tx.Create(crawl)
 		return err
 	}
+	crawl.DID = did
 	// TODO: normalize DID?
 	ident, err := dir.LookupDID(ctx, did)
 	if err != nil {
+		crawl.Status = "error-did"
+		tx.Create(crawl)
 		return err
 	}
 	// TODO: "proof chain"
@@ -61,24 +70,34 @@ func CrawlLexicon(ctx context.Context, db *gorm.DB, nsid syntax.NSID) error {
 	}
 	resp, err := agnostic.RepoGetRecord(ctx, xrpcc, "", "com.atproto.lexicon.schema", ident.DID.String(), nsid.String())
 	if err != nil {
+		crawl.Status = "error-repo-fetch"
+		tx.Create(crawl)
 		return err
 	}
 	if nil == resp.Value {
+		crawl.Status = "empty-record"
+		tx.Create(crawl)
 		return fmt.Errorf("empty record in response")
 	}
 	cid, err := syntax.ParseCID(*resp.Cid)
 	if err != nil {
+		crawl.Status = "bad-record-cid"
+		tx.Create(crawl)
 		return err
 	}
+	crawl.RecordCID = cid
 
 	// verify schema
 	var sf lexicon.SchemaFile
 	if err := json.Unmarshal(*resp.Value, &sf); err != nil {
 		return fmt.Errorf("fetched Lexicon schema record was invalid: %w", err)
 	}
+	// TODO: check that NSID matches record field
 	// TODO: CheckSchema() on lexicon.SchemaFile which handles this
 	for _, def := range sf.Defs {
 		if err := def.CheckSchema(); err != nil {
+			crawl.Status = "bad-schema-check"
+			tx.Create(crawl)
 			return fmt.Errorf("lexicon format was invalid: %w", err)
 		}
 	}
@@ -87,21 +106,14 @@ func CrawlLexicon(ctx context.Context, db *gorm.DB, nsid syntax.NSID) error {
 	if err != nil {
 		return err
 	}
-	rev := latest.Rev
+	crawl.RepoRev = latest.Rev
 
 	if dom.Domain != domain {
 		dom = Domain{Domain: domain}
 		tx.Create(&dom)
 	}
 
-	crawl := &Crawl{
-		NSID:      nsid,
-		DID:       did,
-		RecordCID: cid,
-		RepoRev:   rev,
-		Reason:    "cli",
-		//Extra
-	}
+	crawl.Status = "success"
 	tx.Create(crawl)
 
 	version := &Version{
