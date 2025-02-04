@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
-	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/lexicon"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/flosch/pongo2/v6"
@@ -46,7 +48,11 @@ func (srv *WebServer) WebLexicon(c echo.Context) error {
 		return err
 	}
 
-	d, err := data.UnmarshalJSON(ver.Record)
+	var sf lexicon.SchemaFile
+	if err := json.Unmarshal(ver.Record, &sf); err != nil {
+		return fmt.Errorf("Lexicon schema record was invalid: %w", err)
+	}
+	defs, err := ParseSchemaFile(&sf, nsid)
 	if err != nil {
 		return err
 	}
@@ -54,6 +60,6 @@ func (srv *WebServer) WebLexicon(c echo.Context) error {
 	info["lexicon"] = lex
 	info["version"] = ver
 	info["crawl"] = crawl
-	info["schema"] = d
+	info["defs"] = defs
 	return c.Render(http.StatusOK, "lexicon.html", info)
 }

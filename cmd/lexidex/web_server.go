@@ -109,6 +109,8 @@ func serve(cctx *cli.Context) error {
 	e.GET("/lexicon/:nsid", srv.WebLexicon)
 	// TODO: e.GET("/lexicon/:nsid/history", srv.WebLexiconHistory)
 	// TODO: e.GET("/lexicon/:nsid/def/:name", srv.WebLexiconDef)
+	e.GET("/demo/record", srv.WebDemoRecord)
+	e.GET("/demo/query", srv.WebDemoQuery)
 
 	// Start the server
 	slog.Info("starting server", "bind", httpAddress)
