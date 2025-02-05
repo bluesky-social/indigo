@@ -6,15 +6,15 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/bluesky-social/indigo/atproto/repo/mst"
+	"github.com/bluesky-social/indigo/atproto/repo"
 
 	"github.com/urfave/cli/v2"
 )
 
 func main() {
 	app := cli.App{
-		Name:  "mstcli",
-		Usage: "development tool for verifying MST implementation",
+		Name:  "repo-tool",
+		Usage: "development tool for atproto MST trees, CAR files, etc",
 	}
 	app.Commands = []*cli.Command{
 		&cli.Command{
@@ -42,7 +42,7 @@ func runVerifyCarMst(cctx *cli.Context) error {
 	}
 	defer f.Close()
 
-	tree, rootCID, err := mst.LoadTreeFromCAR(ctx, f)
+	tree, rootCID, err := repo.LoadTreeFromCAR(ctx, f)
 	if err != nil {
 		return err
 	}

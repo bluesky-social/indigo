@@ -145,6 +145,7 @@ func LoadTreeFromStore(ctx context.Context, bs blockstore.Blockstore, root cid.C
 	if err != nil {
 		return nil, err
 	}
+	nodeEnsureHeights(n)
 	return &Tree{
 		Root: n,
 	}, nil
