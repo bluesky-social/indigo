@@ -39,7 +39,7 @@ func (d *BaseDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Ide
 	if err != nil {
 		return nil, err
 	}
-	doc, err := d.ResolveDID(ctx, did)
+	doc, err := d.ResolveDIDDoc(ctx, did)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (d *BaseDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Ide
 }
 
 func (d *BaseDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
-	doc, err := d.ResolveDID(ctx, did)
+	doc, err := d.ResolveDIDDoc(ctx, did)
 	if err != nil {
 		return nil, err
 	}
