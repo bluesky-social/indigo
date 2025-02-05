@@ -709,6 +709,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 
 	lastSeq := int64(0)
 
+	cr := cbg.NewCborReader(nil)
 	scratch := make([]byte, headerSize)
 	for {
 		h, err := readHeader(bufr, scratch)
@@ -731,10 +732,12 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 			continue
 		}
 
+		limr := io.LimitReader(bufr, h.Len64())
+		cr.SetReader(limr)
 		switch h.Kind {
 		case evtKindCommit:
 			var evt atproto.SyncSubscribeRepos_Commit
-			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len64())); err != nil {
+			if err := evt.UnmarshalCBOR(cr); err != nil {
 				return nil, err
 			}
 			evt.Seq = h.Seq
@@ -743,7 +746,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 			}
 		case evtKindHandle:
 			var evt atproto.SyncSubscribeRepos_Handle
-			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len64())); err != nil {
+			if err := evt.UnmarshalCBOR(cr); err != nil {
 				return nil, err
 			}
 			evt.Seq = h.Seq
@@ -752,7 +755,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 			}
 		case evtKindIdentity:
 			var evt atproto.SyncSubscribeRepos_Identity
-			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len64())); err != nil {
+			if err := evt.UnmarshalCBOR(cr); err != nil {
 				return nil, err
 			}
 			evt.Seq = h.Seq
@@ -761,7 +764,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 			}
 		case evtKindAccount:
 			var evt atproto.SyncSubscribeRepos_Account
-			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len64())); err != nil {
+			if err := evt.UnmarshalCBOR(cr); err != nil {
 				return nil, err
 			}
 			evt.Seq = h.Seq
@@ -770,7 +773,7 @@ func (dp *DiskPersistence) readEventsFrom(ctx context.Context, since int64, fn s
 			}
 		case evtKindTombstone:
 			var evt atproto.SyncSubscribeRepos_Tombstone
-			if err := evt.UnmarshalCBOR(io.LimitReader(bufr, h.Len64())); err != nil {
+			if err := evt.UnmarshalCBOR(cr); err != nil {
 				return nil, err
 			}
 			evt.Seq = h.Seq
