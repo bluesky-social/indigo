@@ -8,6 +8,7 @@ import (
 	bsky "github.com/bluesky-social/indigo/api/bsky"
 	chat "github.com/bluesky-social/indigo/api/chat"
 	"github.com/bluesky-social/indigo/atproto/data"
+	atrepo "github.com/bluesky-social/indigo/atproto/repo"
 	atmst "github.com/bluesky-social/indigo/atproto/repo/mst"
 	"github.com/bluesky-social/indigo/events"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
@@ -118,6 +119,10 @@ func main() {
 	}
 
 	if err := genCfg.WriteMapEncodersToFile("atproto/data/cbor_gen.go", "data", data.GenericRecord{}, data.LegacyBlobSchema{}, data.BlobSchema{}); err != nil {
+		panic(err)
+	}
+
+	if err := genCfg.WriteMapEncodersToFile("atproto/repo/cbor_gen.go", "repo", atrepo.Commit{}); err != nil {
 		panic(err)
 	}
 

@@ -42,18 +42,18 @@ func runVerifyCarMst(cctx *cli.Context) error {
 	}
 	defer f.Close()
 
-	tree, rootCID, err := repo.LoadTreeFromCAR(ctx, f)
+	repo, err := repo.LoadFromCAR(ctx, f)
 	if err != nil {
 		return err
 	}
 
-	computedCID, err := tree.RootCID()
+	computedCID, err := repo.MST.RootCID()
 	if err != nil {
 		return err
 	}
 
-	if *rootCID != *computedCID {
-		return fmt.Errorf("failed to re-compute: %s != %s", computedCID, rootCID)
+	if repo.Commit.Data != *computedCID {
+		return fmt.Errorf("failed to re-compute: %s != %s", computedCID, repo.Commit.Data)
 	}
 	fmt.Println("verified tree")
 	return nil
