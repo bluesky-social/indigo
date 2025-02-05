@@ -1,4 +1,4 @@
-package mst
+package repo
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/repo/mst"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -13,7 +14,13 @@ import (
 	"github.com/ipld/go-car"
 )
 
-func LoadTreeFromCAR(ctx context.Context, r io.Reader) (*Tree, *cid.Cid, error) {
+// XXX:
+// LoadFromStore
+// LoadFromCAR(reader)
+// WriteBlocks
+// WriteCAR
+
+func LoadTreeFromCAR(ctx context.Context, r io.Reader) (*mst.Tree, *cid.Cid, error) {
 
 	bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
 
@@ -63,13 +70,9 @@ func LoadTreeFromCAR(ctx context.Context, r io.Reader) (*Tree, *cid.Cid, error) 
 	}
 	rootCID := cl.CID()
 
-	n, err := loadNodeFromStore(ctx, bs, rootCID)
+	tree, err := mst.LoadTreeFromStore(ctx, bs, rootCID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading MST from CAR file: %w", err)
 	}
-	nodeEnsureHeights(n)
-	tree := Tree{
-		Root: n,
-	}
-	return &tree, &rootCID, nil
+	return tree, &rootCID, nil
 }
