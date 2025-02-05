@@ -40,6 +40,22 @@ type ModerationDefs_AccountHosting struct {
 	UpdatedAt     *string `json:"updatedAt,omitempty" cborgen:"updatedAt,omitempty"`
 }
 
+// ModerationDefs_AccountStats is a "accountStats" in the tools.ozone.moderation.defs schema.
+//
+// Statistics about a particular account subject
+type ModerationDefs_AccountStats struct {
+	// appealCount: Total number of appeals against a moderation action on the account
+	AppealCount *int64 `json:"appealCount,omitempty" cborgen:"appealCount,omitempty"`
+	// escalateCount: Number of times the account was escalated
+	EscalateCount *int64 `json:"escalateCount,omitempty" cborgen:"escalateCount,omitempty"`
+	// reportCount: Total number of reports on the account
+	ReportCount *int64 `json:"reportCount,omitempty" cborgen:"reportCount,omitempty"`
+	// suspendCount: Number of times the account was suspended
+	SuspendCount *int64 `json:"suspendCount,omitempty" cborgen:"suspendCount,omitempty"`
+	// takedownCount: Number of times the account was taken down
+	TakedownCount *int64 `json:"takedownCount,omitempty" cborgen:"takedownCount,omitempty"`
+}
+
 // ModerationDefs_BlobView is a "blobView" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_BlobView struct {
 	Cid        string                           `json:"cid" cborgen:"cid"`
@@ -172,6 +188,8 @@ type ModerationDefs_ModEventLabel struct {
 	LexiconTypeID   string   `json:"$type,const=tools.ozone.moderation.defs#modEventLabel" cborgen:"$type,const=tools.ozone.moderation.defs#modEventLabel"`
 	Comment         *string  `json:"comment,omitempty" cborgen:"comment,omitempty"`
 	CreateLabelVals []string `json:"createLabelVals" cborgen:"createLabelVals"`
+	// durationInHours: Indicates how long the label will remain on the subject. Only applies on labels that are being added.
+	DurationInHours *int64   `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
 	NegateLabelVals []string `json:"negateLabelVals" cborgen:"negateLabelVals"`
 }
 
@@ -800,6 +818,28 @@ type ModerationDefs_RecordViewNotFound struct {
 	Uri           string `json:"uri" cborgen:"uri"`
 }
 
+// ModerationDefs_RecordsStats is a "recordsStats" in the tools.ozone.moderation.defs schema.
+//
+// Statistics about a set of record subject items
+type ModerationDefs_RecordsStats struct {
+	// appealedCount: Number of items that were appealed at least once
+	AppealedCount *int64 `json:"appealedCount,omitempty" cborgen:"appealedCount,omitempty"`
+	// escalatedCount: Number of items that were escalated at least once
+	EscalatedCount *int64 `json:"escalatedCount,omitempty" cborgen:"escalatedCount,omitempty"`
+	// pendingCount: Number of item currently in "reviewOpen" or "reviewEscalated" state
+	PendingCount *int64 `json:"pendingCount,omitempty" cborgen:"pendingCount,omitempty"`
+	// processedCount: Number of item currently in "reviewNone" or "reviewClosed" state
+	ProcessedCount *int64 `json:"processedCount,omitempty" cborgen:"processedCount,omitempty"`
+	// reportedCount: Number of items that were reported at least once
+	ReportedCount *int64 `json:"reportedCount,omitempty" cborgen:"reportedCount,omitempty"`
+	// subjectCount: Total number of item in the set
+	SubjectCount *int64 `json:"subjectCount,omitempty" cborgen:"subjectCount,omitempty"`
+	// takendownCount: Number of item currently taken down
+	TakendownCount *int64 `json:"takendownCount,omitempty" cborgen:"takendownCount,omitempty"`
+	// totalReports: Cumulative sum of the number of reports on the items in the set
+	TotalReports *int64 `json:"totalReports,omitempty" cborgen:"totalReports,omitempty"`
+}
+
 // ModerationDefs_RepoView is a "repoView" in the tools.ozone.moderation.defs schema.
 //
 // RECORDTYPE: ModerationDefs_RepoView
@@ -849,6 +889,8 @@ type ModerationDefs_RepoViewNotFound struct {
 
 // ModerationDefs_SubjectStatusView is a "subjectStatusView" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_SubjectStatusView struct {
+	// accountStats: Statistics related to the account subject
+	AccountStats *ModerationDefs_AccountStats `json:"accountStats,omitempty" cborgen:"accountStats,omitempty"`
 	// appealed: True indicates that the a previously taken moderator action was appealed against, by the author of the content. False indicates last appeal was resolved by moderators.
 	Appealed *bool `json:"appealed,omitempty" cborgen:"appealed,omitempty"`
 	// comment: Sticky comment on the subject.
@@ -858,19 +900,21 @@ type ModerationDefs_SubjectStatusView struct {
 	Hosting   *ModerationDefs_SubjectStatusView_Hosting `json:"hosting,omitempty" cborgen:"hosting,omitempty"`
 	Id        int64                                     `json:"id" cborgen:"id"`
 	// lastAppealedAt: Timestamp referencing when the author of the subject appealed a moderation action
-	LastAppealedAt     *string                                   `json:"lastAppealedAt,omitempty" cborgen:"lastAppealedAt,omitempty"`
-	LastReportedAt     *string                                   `json:"lastReportedAt,omitempty" cborgen:"lastReportedAt,omitempty"`
-	LastReviewedAt     *string                                   `json:"lastReviewedAt,omitempty" cborgen:"lastReviewedAt,omitempty"`
-	LastReviewedBy     *string                                   `json:"lastReviewedBy,omitempty" cborgen:"lastReviewedBy,omitempty"`
-	MuteReportingUntil *string                                   `json:"muteReportingUntil,omitempty" cborgen:"muteReportingUntil,omitempty"`
-	MuteUntil          *string                                   `json:"muteUntil,omitempty" cborgen:"muteUntil,omitempty"`
-	ReviewState        *string                                   `json:"reviewState" cborgen:"reviewState"`
-	Subject            *ModerationDefs_SubjectStatusView_Subject `json:"subject" cborgen:"subject"`
-	SubjectBlobCids    []string                                  `json:"subjectBlobCids,omitempty" cborgen:"subjectBlobCids,omitempty"`
-	SubjectRepoHandle  *string                                   `json:"subjectRepoHandle,omitempty" cborgen:"subjectRepoHandle,omitempty"`
-	SuspendUntil       *string                                   `json:"suspendUntil,omitempty" cborgen:"suspendUntil,omitempty"`
-	Tags               []string                                  `json:"tags,omitempty" cborgen:"tags,omitempty"`
-	Takendown          *bool                                     `json:"takendown,omitempty" cborgen:"takendown,omitempty"`
+	LastAppealedAt     *string `json:"lastAppealedAt,omitempty" cborgen:"lastAppealedAt,omitempty"`
+	LastReportedAt     *string `json:"lastReportedAt,omitempty" cborgen:"lastReportedAt,omitempty"`
+	LastReviewedAt     *string `json:"lastReviewedAt,omitempty" cborgen:"lastReviewedAt,omitempty"`
+	LastReviewedBy     *string `json:"lastReviewedBy,omitempty" cborgen:"lastReviewedBy,omitempty"`
+	MuteReportingUntil *string `json:"muteReportingUntil,omitempty" cborgen:"muteReportingUntil,omitempty"`
+	MuteUntil          *string `json:"muteUntil,omitempty" cborgen:"muteUntil,omitempty"`
+	// recordsStats: Statistics related to the record subjects authored by the subject's account
+	RecordsStats      *ModerationDefs_RecordsStats              `json:"recordsStats,omitempty" cborgen:"recordsStats,omitempty"`
+	ReviewState       *string                                   `json:"reviewState" cborgen:"reviewState"`
+	Subject           *ModerationDefs_SubjectStatusView_Subject `json:"subject" cborgen:"subject"`
+	SubjectBlobCids   []string                                  `json:"subjectBlobCids,omitempty" cborgen:"subjectBlobCids,omitempty"`
+	SubjectRepoHandle *string                                   `json:"subjectRepoHandle,omitempty" cborgen:"subjectRepoHandle,omitempty"`
+	SuspendUntil      *string                                   `json:"suspendUntil,omitempty" cborgen:"suspendUntil,omitempty"`
+	Tags              []string                                  `json:"tags,omitempty" cborgen:"tags,omitempty"`
+	Takendown         *bool                                     `json:"takendown,omitempty" cborgen:"takendown,omitempty"`
 	// updatedAt: Timestamp referencing when the last update was made to the moderation status of the subject
 	UpdatedAt string `json:"updatedAt" cborgen:"updatedAt"`
 }
