@@ -1,39 +1,33 @@
 package repo
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 
-	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/repo/mst"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 
-	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car"
 )
 
-// XXX:
-// LoadFromStore
-// LoadFromCAR(reader)
-// WriteBlocks
-// WriteCAR
-
-func LoadTreeFromCAR(ctx context.Context, r io.Reader) (*mst.Tree, *cid.Cid, error) {
+func LoadFromCAR(ctx context.Context, r io.Reader) (*Repo, error) {
 
 	bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
 
 	cr, err := car.NewCarReader(r)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if cr.Header.Version != 1 {
-		return nil, nil, fmt.Errorf("unsupported CAR file version: %d", cr.Header.Version)
+		return nil, fmt.Errorf("unsupported CAR file version: %d", cr.Header.Version)
 	}
 	if len(cr.Header.Roots) < 1 {
-		return nil, nil, fmt.Errorf("CAR file missing root CID")
+		return nil, fmt.Errorf("CAR file missing root CID")
 	}
 	commitCID := cr.Header.Roots[0]
 
@@ -43,36 +37,38 @@ func LoadTreeFromCAR(ctx context.Context, r io.Reader) (*mst.Tree, *cid.Cid, err
 			if err == io.EOF {
 				break
 			}
-			return nil, nil, err
+			return nil, err
 		}
 
 		if err := bs.Put(ctx, blk); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
 	commitBlock, err := bs.Get(ctx, commitCID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("reading commit block from CAR file: %w", err)
+		return nil, fmt.Errorf("reading commit block from CAR file: %w", err)
 	}
 
-	obj, err := data.UnmarshalCBOR(commitBlock.RawData())
-	if err != nil {
-		return nil, nil, fmt.Errorf("parsing commit block from CAR file: %w", err)
+	var commit Commit
+	if err := commit.UnmarshalCBOR(bytes.NewReader(commitBlock.RawData())); err != nil {
+		return nil, fmt.Errorf("parsing commit block from CAR file: %w", err)
 	}
-	raw, ok := obj["data"]
-	if !ok {
-		return nil, nil, fmt.Errorf("no data CID in commit block")
+	if err := commit.VerifyStructure(); err != nil {
+		return nil, fmt.Errorf("parsing commit block from CAR file: %w", err)
 	}
-	cl, ok := raw.(data.CIDLink)
-	if !ok {
-		return nil, nil, fmt.Errorf("wrong data type in commit block: %T", raw)
-	}
-	rootCID := cl.CID()
 
-	tree, err := mst.LoadTreeFromStore(ctx, bs, rootCID)
+	tree, err := mst.LoadTreeFromStore(ctx, bs, commit.Data)
 	if err != nil {
-		return nil, nil, fmt.Errorf("reading MST from CAR file: %w", err)
+		return nil, fmt.Errorf("reading MST from CAR file: %w", err)
 	}
-	return tree, &rootCID, nil
+	clk := syntax.NewTIDClock(0)
+	repo := Repo{
+		DID:         syntax.DID(commit.DID), // VerifyStructure() verified syntax
+		Clock:       *clk,                   // TODO: initialize with commit.Rev
+		Commit:      &commit,
+		MST:         *tree,
+		RecordStore: bs, // XXX: walk records in to a smaller blockstore?
+	}
+	return &repo, nil
 }
