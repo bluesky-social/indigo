@@ -30,6 +30,7 @@ type FeedThreadgate struct {
 
 type FeedThreadgate_Allow_Elem struct {
 	FeedThreadgate_MentionRule   *FeedThreadgate_MentionRule
+	FeedThreadgate_FollowerRule  *FeedThreadgate_FollowerRule
 	FeedThreadgate_FollowingRule *FeedThreadgate_FollowingRule
 	FeedThreadgate_ListRule      *FeedThreadgate_ListRule
 }
@@ -38,6 +39,10 @@ func (t *FeedThreadgate_Allow_Elem) MarshalJSON() ([]byte, error) {
 	if t.FeedThreadgate_MentionRule != nil {
 		t.FeedThreadgate_MentionRule.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
 		return json.Marshal(t.FeedThreadgate_MentionRule)
+	}
+	if t.FeedThreadgate_FollowerRule != nil {
+		t.FeedThreadgate_FollowerRule.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
+		return json.Marshal(t.FeedThreadgate_FollowerRule)
 	}
 	if t.FeedThreadgate_FollowingRule != nil {
 		t.FeedThreadgate_FollowingRule.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
@@ -59,6 +64,9 @@ func (t *FeedThreadgate_Allow_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.feed.threadgate#mentionRule":
 		t.FeedThreadgate_MentionRule = new(FeedThreadgate_MentionRule)
 		return json.Unmarshal(b, t.FeedThreadgate_MentionRule)
+	case "app.bsky.feed.threadgate#followerRule":
+		t.FeedThreadgate_FollowerRule = new(FeedThreadgate_FollowerRule)
+		return json.Unmarshal(b, t.FeedThreadgate_FollowerRule)
 	case "app.bsky.feed.threadgate#followingRule":
 		t.FeedThreadgate_FollowingRule = new(FeedThreadgate_FollowingRule)
 		return json.Unmarshal(b, t.FeedThreadgate_FollowingRule)
@@ -80,6 +88,9 @@ func (t *FeedThreadgate_Allow_Elem) MarshalCBOR(w io.Writer) error {
 	if t.FeedThreadgate_MentionRule != nil {
 		return t.FeedThreadgate_MentionRule.MarshalCBOR(w)
 	}
+	if t.FeedThreadgate_FollowerRule != nil {
+		return t.FeedThreadgate_FollowerRule.MarshalCBOR(w)
+	}
 	if t.FeedThreadgate_FollowingRule != nil {
 		return t.FeedThreadgate_FollowingRule.MarshalCBOR(w)
 	}
@@ -98,6 +109,9 @@ func (t *FeedThreadgate_Allow_Elem) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.feed.threadgate#mentionRule":
 		t.FeedThreadgate_MentionRule = new(FeedThreadgate_MentionRule)
 		return t.FeedThreadgate_MentionRule.UnmarshalCBOR(bytes.NewReader(b))
+	case "app.bsky.feed.threadgate#followerRule":
+		t.FeedThreadgate_FollowerRule = new(FeedThreadgate_FollowerRule)
+		return t.FeedThreadgate_FollowerRule.UnmarshalCBOR(bytes.NewReader(b))
 	case "app.bsky.feed.threadgate#followingRule":
 		t.FeedThreadgate_FollowingRule = new(FeedThreadgate_FollowingRule)
 		return t.FeedThreadgate_FollowingRule.UnmarshalCBOR(bytes.NewReader(b))
@@ -108,6 +122,15 @@ func (t *FeedThreadgate_Allow_Elem) UnmarshalCBOR(r io.Reader) error {
 	default:
 		return nil
 	}
+}
+
+// FeedThreadgate_FollowerRule is a "followerRule" in the app.bsky.feed.threadgate schema.
+//
+// Allow replies from actors who follow you.
+//
+// RECORDTYPE: FeedThreadgate_FollowerRule
+type FeedThreadgate_FollowerRule struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.feed.threadgate#followerRule" cborgen:"$type,const=app.bsky.feed.threadgate#followerRule"`
 }
 
 // FeedThreadgate_FollowingRule is a "followingRule" in the app.bsky.feed.threadgate schema.
