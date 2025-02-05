@@ -27,7 +27,7 @@ type Commit struct {
 
 type Repo struct {
 	DID    syntax.DID
-	Clock  syntax.TIDClock
+	Clock  *syntax.TIDClock
 	Commit *Commit
 
 	RecordStore blockstore.Blockstore
@@ -37,11 +37,9 @@ type Repo struct {
 var ErrNotFound = errors.New("record not found in repository")
 
 func NewRepo(did syntax.DID) Repo {
-	// TODO: why does this return a pointer?
-	clk := syntax.NewTIDClock(0)
 	return Repo{
 		DID:         did,
-		Clock:       *clk,
+		Clock:       syntax.NewTIDClock(0),
 		Commit:      nil,
 		RecordStore: blockstore.NewBlockstore(datastore.NewMapDatastore()),
 		MST:         mst.NewEmptyTree(),
