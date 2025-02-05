@@ -225,6 +225,7 @@ func (cs *collectionServer) openDau() error {
 	cs.dauDirectoryPath = fpath
 	cs.dauDay = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	cs.dauTomorrow = now.AddDate(0, 0, 1)
+	cs.log.Info("DAU db opened", "path", fpath)
 	return nil
 }
 
@@ -406,7 +407,7 @@ func getLimit(c echo.Context, min, defaultLim, max int) int {
 	return lv
 }
 
-// /v1/getDidsForCollection?collection={}&cursor={}
+// /v1/getDidsForCollection?collection={}&cursor={}&limit={50<=N<=1000}
 //
 // returns
 // {"dids":["did:A", "..."], "cursor":"opaque text"}
@@ -653,16 +654,19 @@ func (cs *collectionServer) ingestReceiver() {
 
 // write {dauDirectoryDir}/d{YYYY-MM-DD}.pebble stats summary to {dauDirectoryDir}/d{YYYY-MM-DD}.csv.gz
 func dauStats(oldDau *PebbleCollectionDirectory, dauDay time.Time, dauDir string, log *slog.Logger) {
+	fname := fmt.Sprintf("d%s.csv.gz", dauDay.Format("2006-01-02"))
+	outstatsPath := filepath.Join(dauDir, fname)
+	log = log.With("path", outstatsPath)
+	log.Info("DAU stats summarize")
 	stats, err := oldDau.GetCollectionStats()
 	e2 := oldDau.Close()
 	if e2 != nil {
-		log.Error("old dau close", "err", e2)
+		log.Error("old DAU close", "err", e2)
 	}
 	if err != nil {
-		log.Error("old dau stats", "err", err)
+		log.Error("old DAU stats", "err", err)
 	} else {
-		fname := fmt.Sprintf("d%s.csv.gz", dauDay.Format("2006-01-02"))
-		outstatsPath := filepath.Join(dauDir, fname)
+		log.Info("DAU stats summarized", "rows", len(stats.CollectionCounts))
 		pcdStatsToCsvGz(stats, outstatsPath, log)
 	}
 }
@@ -670,7 +674,7 @@ func dauStats(oldDau *PebbleCollectionDirectory, dauDay time.Time, dauDir string
 func pcdStatsToCsvGz(stats CollectionStats, outpath string, log *slog.Logger) {
 	fout, err := os.Create(outpath)
 	if err != nil {
-		log.Error("dau stats open", "err", err)
+		log.Error("DAU stats open", "err", err)
 		return
 	}
 	defer fout.Close()
@@ -680,19 +684,22 @@ func pcdStatsToCsvGz(stats CollectionStats, outpath string, log *slog.Logger) {
 	defer gzout.Close()
 	err = csvout.Write([]string{"collection", "count"})
 	if err != nil {
-		log.Error("dau stats header", "err", err)
+		log.Error("DAU stats header", "err", err)
 		return
 	}
 	var row [2]string
+	rowcount := 0
 	for collection, count := range stats.CollectionCounts {
 		row[0] = collection
 		row[1] = strconv.FormatUint(count, 10)
 		err = csvout.Write(row[:])
 		if err != nil {
-			log.Error("dau stats row", "err", err)
+			log.Error("DAU stats row", "err", err)
 			return
 		}
+		rowcount++
 	}
+	log.Info("DAU stats ok", "rows", rowcount)
 }
 
 func (cs *collectionServer) maybeDauWrite(didc DidCollection) error {
@@ -744,12 +751,14 @@ func (cs *collectionServer) isAdmin(c echo.Context) bool {
 	return false
 }
 
-// /v1/crawlRequest
+// /admin/pds/requestCrawl
+// same API signature as relay admin requestCrawl
+// starts a crawl and returns. See /v1/crawlStatus
 // requires header `Authorization: Bearer {admin token}`
 //
-// POST {"host":"one hostname or URL", "hosts":["up to 1000 hosts", "..."]}
+// POST {"hostname":"one hostname or URL", "hosts":["up to 1000 hosts", "..."]}
 // OR
-// POST /v1/crawlRequest?host={one host}
+// POST /admin/pds/requestCrawl?hostname={one host}
 func (cs *collectionServer) crawlPds(c echo.Context) error {
 	isAdmin := cs.isAdmin(c)
 	if !isAdmin {

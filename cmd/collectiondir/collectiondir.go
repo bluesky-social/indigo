@@ -11,6 +11,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -29,6 +30,7 @@ func main() {
 			crawlCmd,
 			buildCmd,
 			statsCmd,
+			exportCmd,
 		},
 	}
 	err := app.Run(os.Args)
@@ -39,11 +41,12 @@ func main() {
 }
 
 var statsCmd = &cli.Command{
-	Name: "stats",
+	Name:  "stats",
+	Usage: "read stats from a pebble db",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "pebble",
-			Usage:    "path to store pebble db",
+			Usage:    "path to pebble db",
 			Required: true,
 		},
 	},
@@ -70,6 +73,61 @@ var statsCmd = &cli.Command{
 		blob, err := json.MarshalIndent(stats, "", "  ")
 		os.Stdout.Write(blob)
 		os.Stdout.Write([]byte{'\n'})
+		return nil
+	},
+}
+
+var exportCmd = &cli.Command{
+	Name:  "export",
+	Usage: "export a pebble db to CSV on stdout",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "pebble",
+			Usage:    "path to pebble db",
+			Required: true,
+		},
+	},
+	Action: func(cctx *cli.Context) error {
+		logLevel := slog.LevelInfo
+		if cctx.Bool("verbose") {
+			logLevel = slog.LevelDebug
+		}
+		log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel}))
+		slog.SetDefault(log)
+		pebblePath := cctx.String("pebble")
+		var db PebbleCollectionDirectory
+		db.log = log
+		err := db.Open(pebblePath)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+
+		rows := make(chan CollectionDidTime, 100)
+		go func() {
+			err := db.ReadAllPrimary(cctx.Context, rows)
+			if err != nil {
+				log.Error("db read", "path", pebblePath, "err", err)
+			}
+		}()
+
+		writer := csv.NewWriter(os.Stdout)
+		defer writer.Flush()
+		err = writer.Write([]string{"did", "collection", "millis"})
+		if err != nil {
+			log.Error("csv write header", "err", err)
+		}
+		var row [3]string
+		for rowi := range rows {
+			row[0] = rowi.Did
+			row[1] = rowi.Collection
+			row[2] = strconv.FormatInt(rowi.UnixMillis, 10)
+			err = writer.Write(row[:])
+			if err != nil {
+				log.Error("csv write row", "err", err)
+			}
+		}
+
 		return nil
 	},
 }
