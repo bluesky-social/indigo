@@ -13,14 +13,14 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var cmdRecord = &cli.Command{
 	Name:  "record",
 	Usage: "sub-commands for repo records",
 	Flags: []cli.Flag{},
-	Subcommands: []*cli.Command{
+	Commands: []*cli.Command{
 		cmdRecordGet,
 		cmdRecordList,
 		&cli.Command{
@@ -109,11 +109,10 @@ var cmdRecordList = &cli.Command{
 	Action: runRecordList,
 }
 
-func runRecordGet(cctx *cli.Context) error {
-	ctx := context.Background()
+func runRecordGet(ctx context.Context, cmd *cli.Command) error {
 	dir := identity.DefaultDirectory()
 
-	uriArg := cctx.Args().First()
+	uriArg := cmd.Args().First()
 	if uriArg == "" {
 		return fmt.Errorf("expected a single AT-URI argument")
 	}
@@ -141,9 +140,8 @@ func runRecordGet(cctx *cli.Context) error {
 	return nil
 }
 
-func runRecordList(cctx *cli.Context) error {
-	ctx := context.Background()
-	username := cctx.Args().First()
+func runRecordList(ctx context.Context, cmd *cli.Command) error {
+	username := cmd.Args().First()
 	if username == "" {
 		return fmt.Errorf("need to provide username as an argument")
 	}
@@ -164,14 +162,14 @@ func runRecordList(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if cctx.Bool("collections") {
+	if cmd.Bool("collections") {
 		for _, nsid := range desc.Collections {
 			fmt.Printf("%s\n", nsid)
 		}
 		return nil
 	}
 	collections := desc.Collections
-	filter := cctx.String("collection")
+	filter := cmd.String("collection")
 	if filter != "" {
 		collections = []string{filter}
 	}
@@ -202,9 +200,8 @@ func runRecordList(cctx *cli.Context) error {
 	return nil
 }
 
-func runRecordCreate(cctx *cli.Context) error {
-	ctx := context.Background()
-	recordPath := cctx.Args().First()
+func runRecordCreate(ctx context.Context, cmd *cli.Command) error {
+	recordPath := cmd.Args().First()
 	if recordPath == "" {
 		return fmt.Errorf("need to provide file path as an argument")
 	}
@@ -232,15 +229,15 @@ func runRecordCreate(cctx *cli.Context) error {
 	}
 
 	var rkey *string
-	if cctx.String("rkey") != "" {
-		rk, err := syntax.ParseRecordKey(cctx.String("rkey"))
+	if cmd.String("rkey") != "" {
+		rk, err := syntax.ParseRecordKey(cmd.String("rkey"))
 		if err != nil {
 			return err
 		}
 		s := rk.String()
 		rkey = &s
 	}
-	validate := !cctx.Bool("no-validate")
+	validate := !cmd.Bool("no-validate")
 
 	resp, err := agnostic.RepoCreateRecord(ctx, xrpcc, &agnostic.RepoCreateRecord_Input{
 		Collection: nsid,
@@ -257,9 +254,8 @@ func runRecordCreate(cctx *cli.Context) error {
 	return nil
 }
 
-func runRecordUpdate(cctx *cli.Context) error {
-	ctx := context.Background()
-	recordPath := cctx.Args().First()
+func runRecordUpdate(ctx context.Context, cmd *cli.Command) error {
+	recordPath := cmd.Args().First()
 	if recordPath == "" {
 		return fmt.Errorf("need to provide file path as an argument")
 	}
@@ -286,7 +282,7 @@ func runRecordUpdate(cctx *cli.Context) error {
 		return err
 	}
 
-	rkey := cctx.String("rkey")
+	rkey := cmd.String("rkey")
 
 	// NOTE: need to fetch existing record CID to perform swap. this is optional in theory, but golang can't deal with "optional" and "nullable", so we always need to set this (?)
 	existing, err := agnostic.RepoGetRecord(ctx, xrpcc, "", nsid, xrpcc.Auth.Did, rkey)
@@ -294,7 +290,7 @@ func runRecordUpdate(cctx *cli.Context) error {
 		return err
 	}
 
-	validate := !cctx.Bool("no-validate")
+	validate := !cmd.Bool("no-validate")
 
 	resp, err := agnostic.RepoPutRecord(ctx, xrpcc, &agnostic.RepoPutRecord_Input{
 		Collection: nsid,
@@ -312,8 +308,7 @@ func runRecordUpdate(cctx *cli.Context) error {
 	return nil
 }
 
-func runRecordDelete(cctx *cli.Context) error {
-	ctx := context.Background()
+func runRecordDelete(ctx context.Context, cmd *cli.Command) error {
 
 	xrpcc, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -322,11 +317,11 @@ func runRecordDelete(cctx *cli.Context) error {
 		return err
 	}
 
-	rkey, err := syntax.ParseRecordKey(cctx.String("rkey"))
+	rkey, err := syntax.ParseRecordKey(cmd.String("rkey"))
 	if err != nil {
 		return err
 	}
-	collection, err := syntax.ParseNSID(cctx.String("collection"))
+	collection, err := syntax.ParseNSID(cmd.String("collection"))
 	if err != nil {
 		return err
 	}

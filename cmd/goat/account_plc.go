@@ -9,13 +9,13 @@ import (
 	"github.com/bluesky-social/indigo/api/agnostic"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var cmdAccountPlc = &cli.Command{
 	Name:  "plc",
 	Usage: "sub-commands for managing PLC DID via PDS host",
-	Subcommands: []*cli.Command{
+	Commands: []*cli.Command{
 		&cli.Command{
 			Name:   "recommended",
 			Usage:  "list recommended DID fields for current account",
@@ -47,8 +47,7 @@ var cmdAccountPlc = &cli.Command{
 	},
 }
 
-func runAccountPlcRecommended(cctx *cli.Context) error {
-	ctx := context.Background()
+func runAccountPlcRecommended(ctx context.Context, cmd *cli.Command) error {
 
 	xrpcc, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -71,8 +70,7 @@ func runAccountPlcRecommended(cctx *cli.Context) error {
 	return nil
 }
 
-func runAccountPlcRequestToken(cctx *cli.Context) error {
-	ctx := context.Background()
+func runAccountPlcRequestToken(ctx context.Context, cmd *cli.Command) error {
 
 	xrpcc, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -90,10 +88,9 @@ func runAccountPlcRequestToken(cctx *cli.Context) error {
 	return nil
 }
 
-func runAccountPlcSign(cctx *cli.Context) error {
-	ctx := context.Background()
+func runAccountPlcSign(ctx context.Context, cmd *cli.Command) error {
 
-	opPath := cctx.Args().First()
+	opPath := cmd.Args().First()
 	if opPath == "" {
 		return fmt.Errorf("need to provide JSON file path as an argument")
 	}
@@ -115,7 +112,7 @@ func runAccountPlcSign(cctx *cli.Context) error {
 		return fmt.Errorf("failed decoding PLC op JSON: %w", err)
 	}
 
-	token := cctx.String("token")
+	token := cmd.String("token")
 	if token != "" {
 		body.Token = &token
 	}
@@ -134,10 +131,9 @@ func runAccountPlcSign(cctx *cli.Context) error {
 	return nil
 }
 
-func runAccountPlcSubmit(cctx *cli.Context) error {
-	ctx := context.Background()
+func runAccountPlcSubmit(ctx context.Context, cmd *cli.Command) error {
 
-	opPath := cctx.Args().First()
+	opPath := cmd.Args().First()
 	if opPath == "" {
 		return fmt.Errorf("need to provide JSON file path as an argument")
 	}
