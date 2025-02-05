@@ -62,6 +62,7 @@ func main() {
 		bsky.FeedThreadgate{},
 		bsky.FeedThreadgate_ListRule{},
 		bsky.FeedThreadgate_MentionRule{},
+		bsky.FeedThreadgate_FollowerRule{},
 		bsky.FeedThreadgate_FollowingRule{},
 		bsky.GraphStarterpack_FeedItem{},
 		bsky.GraphStarterpack{},
@@ -88,6 +89,7 @@ func main() {
 	}
 
 	if err := genCfg.WriteMapEncodersToFile("api/atproto/cbor_gen.go", "atproto",
+		atproto.LexiconSchema{},
 		atproto.RepoStrongRef{},
 		atproto.SyncSubscribeRepos_Commit{},
 		atproto.SyncSubscribeRepos_Handle{},

@@ -29,6 +29,9 @@ type ModerationQueryStatuses_Output struct {
 // includeAllUserRecords: All subjects, or subjects from given 'collections' param, belonging to the account specified in the 'subject' param will be returned.
 // includeMuted: By default, we don't include muted subjects in the results. Set this to true to include them.
 // lastReviewedBy: Get all subject statuses that were reviewed by a specific moderator
+// minAccountSuspendCount: If specified, only subjects that belong to an account that has at least this many suspensions will be returned.
+// minReportedRecordsCount: If specified, only subjects that belong to an account that has at least this many reported records will be returned.
+// minTakendownRecordsCount: If specified, only subjects that belong to an account that has at least this many taken down records will be returned.
 // onlyMuted: When set to true, only muted subjects and reporters will be returned.
 // queueCount: Number of queues being used by moderators. Subjects will be split among all queues.
 // queueIndex: Index of the queue to fetch subjects from. Works only when queueCount value is specified.
@@ -41,40 +44,43 @@ type ModerationQueryStatuses_Output struct {
 // subject: The subject to get the status for.
 // subjectType: If specified, subjects of the given type (account or record) will be returned. When this is set to 'account' the 'collections' parameter will be ignored. When includeAllUserRecords or subject is set, this will be ignored.
 // takendown: Get subjects that were taken down
-func ModerationQueryStatuses(ctx context.Context, c *xrpc.Client, appealed bool, collections []string, comment string, cursor string, excludeTags []string, hostingDeletedAfter string, hostingDeletedBefore string, hostingStatuses []string, hostingUpdatedAfter string, hostingUpdatedBefore string, ignoreSubjects []string, includeAllUserRecords bool, includeMuted bool, lastReviewedBy string, limit int64, onlyMuted bool, queueCount int64, queueIndex int64, queueSeed string, reportedAfter string, reportedBefore string, reviewState string, reviewedAfter string, reviewedBefore string, sortDirection string, sortField string, subject string, subjectType string, tags []string, takendown bool) (*ModerationQueryStatuses_Output, error) {
+func ModerationQueryStatuses(ctx context.Context, c *xrpc.Client, appealed bool, collections []string, comment string, cursor string, excludeTags []string, hostingDeletedAfter string, hostingDeletedBefore string, hostingStatuses []string, hostingUpdatedAfter string, hostingUpdatedBefore string, ignoreSubjects []string, includeAllUserRecords bool, includeMuted bool, lastReviewedBy string, limit int64, minAccountSuspendCount int64, minReportedRecordsCount int64, minTakendownRecordsCount int64, onlyMuted bool, queueCount int64, queueIndex int64, queueSeed string, reportedAfter string, reportedBefore string, reviewState string, reviewedAfter string, reviewedBefore string, sortDirection string, sortField string, subject string, subjectType string, tags []string, takendown bool) (*ModerationQueryStatuses_Output, error) {
 	var out ModerationQueryStatuses_Output
 
 	params := map[string]interface{}{
-		"appealed":              appealed,
-		"collections":           collections,
-		"comment":               comment,
-		"cursor":                cursor,
-		"excludeTags":           excludeTags,
-		"hostingDeletedAfter":   hostingDeletedAfter,
-		"hostingDeletedBefore":  hostingDeletedBefore,
-		"hostingStatuses":       hostingStatuses,
-		"hostingUpdatedAfter":   hostingUpdatedAfter,
-		"hostingUpdatedBefore":  hostingUpdatedBefore,
-		"ignoreSubjects":        ignoreSubjects,
-		"includeAllUserRecords": includeAllUserRecords,
-		"includeMuted":          includeMuted,
-		"lastReviewedBy":        lastReviewedBy,
-		"limit":                 limit,
-		"onlyMuted":             onlyMuted,
-		"queueCount":            queueCount,
-		"queueIndex":            queueIndex,
-		"queueSeed":             queueSeed,
-		"reportedAfter":         reportedAfter,
-		"reportedBefore":        reportedBefore,
-		"reviewState":           reviewState,
-		"reviewedAfter":         reviewedAfter,
-		"reviewedBefore":        reviewedBefore,
-		"sortDirection":         sortDirection,
-		"sortField":             sortField,
-		"subject":               subject,
-		"subjectType":           subjectType,
-		"tags":                  tags,
-		"takendown":             takendown,
+		"appealed":                 appealed,
+		"collections":              collections,
+		"comment":                  comment,
+		"cursor":                   cursor,
+		"excludeTags":              excludeTags,
+		"hostingDeletedAfter":      hostingDeletedAfter,
+		"hostingDeletedBefore":     hostingDeletedBefore,
+		"hostingStatuses":          hostingStatuses,
+		"hostingUpdatedAfter":      hostingUpdatedAfter,
+		"hostingUpdatedBefore":     hostingUpdatedBefore,
+		"ignoreSubjects":           ignoreSubjects,
+		"includeAllUserRecords":    includeAllUserRecords,
+		"includeMuted":             includeMuted,
+		"lastReviewedBy":           lastReviewedBy,
+		"limit":                    limit,
+		"minAccountSuspendCount":   minAccountSuspendCount,
+		"minReportedRecordsCount":  minReportedRecordsCount,
+		"minTakendownRecordsCount": minTakendownRecordsCount,
+		"onlyMuted":                onlyMuted,
+		"queueCount":               queueCount,
+		"queueIndex":               queueIndex,
+		"queueSeed":                queueSeed,
+		"reportedAfter":            reportedAfter,
+		"reportedBefore":           reportedBefore,
+		"reviewState":              reviewState,
+		"reviewedAfter":            reviewedAfter,
+		"reviewedBefore":           reviewedBefore,
+		"sortDirection":            sortDirection,
+		"sortField":                sortField,
+		"subject":                  subject,
+		"subjectType":              subjectType,
+		"tags":                     tags,
+		"takendown":                takendown,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "tools.ozone.moderation.queryStatuses", params, nil, &out); err != nil {
 		return nil, err
