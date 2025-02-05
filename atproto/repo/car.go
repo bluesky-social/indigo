@@ -67,7 +67,7 @@ func LoadFromCAR(ctx context.Context, r io.Reader) (*Repo, error) {
 		Clock:       syntax.NewTIDClock(0),  // TODO: initialize with commit.Rev
 		Commit:      &commit,
 		MST:         *tree,
-		RecordStore: bs, // XXX: walk records in to a smaller blockstore?
+		RecordStore: bs, // TODO: put just records in a smaller blockstore?
 	}
 	return &repo, nil
 }
