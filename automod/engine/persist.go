@@ -29,6 +29,12 @@ func (eng *Engine) persistCounters(ctx context.Context, eff *Effects) error {
 			return err
 		}
 	}
+	for _, ref := range eff.CounterResets {
+		err := eng.Counters.ResetCount(ctx, ref.Name, ref.Val)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -268,8 +274,9 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	newTags := dedupeStrings(c.effects.RecordTags)
 	newEscalation := c.effects.RecordEscalate
 	newAcknowledge := c.effects.RecordAcknowledge
+	resolveAppeal := c.effects.RecordAppealResolve
 
-	if (newEscalation || newAcknowledge || len(newLabels) > 0 || len(newTags) > 0) && eng.OzoneClient != nil {
+	if (newEscalation || newAcknowledge || resolveAppeal || len(newLabels) > 0 || len(newTags) > 0) && eng.OzoneClient != nil {
 		// fetch existing record labels, tags, etc
 		rv, err := toolsozone.ModerationGetRecord(ctx, eng.OzoneClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
 		if err != nil {
@@ -296,6 +303,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			newTags = dedupeTagActions(newTags, existingTags)
 			newEscalation = newEscalation && hasSubjectStatus && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewEscalate"
 			newAcknowledge = newAcknowledge && hasSubjectStatus && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewNone" && *rv.Moderation.SubjectStatus.ReviewState != "tools.ozone.moderation.defs#reviewClosed"
+			resolveAppeal = resolveAppeal && *rv.Moderation.SubjectStatus.Appealed
 		}
 	}
 
@@ -331,7 +339,12 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		return fmt.Errorf("circuit-breaking acknowledge: %w", err)
 	}
 
-	if newEscalation || newAcknowledge || newTakedown || len(newLabels) > 0 || len(newTags) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
+	resolveAppeal, err = eng.circuitBreakModAction(ctx, resolveAppeal)
+	if err != nil {
+		return fmt.Errorf("failed to circuit break resolve appeal: %w", err)
+	}
+
+	if newEscalation || newAcknowledge || newTakedown || resolveAppeal || len(newLabels) > 0 || len(newTags) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
 		if eng.Notifier != nil {
 			for _, srv := range dedupeStrings(c.effects.NotifyServices) {
 				if err := eng.Notifier.SendRecord(ctx, srv, c); err != nil {
@@ -351,7 +364,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 
 	// exit early
-	if !newAcknowledge && !newEscalation && !newTakedown && len(newLabels) == 0 && len(newTags) == 0 && len(newReports) == 0 {
+	if !newAcknowledge && !newEscalation && !newTakedown && !resolveAppeal && len(newLabels) == 0 && len(newTags) == 0 && len(newReports) == 0 {
 		return nil
 	}
 
@@ -489,6 +502,26 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		})
 		if err != nil {
 			c.Logger.Error("failed to execute record acknowledge", "err", err)
+		}
+	}
+
+	if resolveAppeal {
+		c.Logger.Warn("record-resolve-appeal")
+		actionNewTakedownCount.WithLabelValues("record").Inc()
+		comment := "[automod]: automated appeal resolution due to content deletion"
+		_, err := toolsozone.ModerationEmitEvent(ctx, xrpcc, &toolsozone.ModerationEmitEvent_Input{
+			CreatedBy: xrpcc.Auth.Did,
+			Event: &toolsozone.ModerationEmitEvent_Input_Event{
+				ModerationDefs_ModEventResolveAppeal: &toolsozone.ModerationDefs_ModEventResolveAppeal{
+					Comment: &comment,
+				},
+			},
+			Subject: &toolsozone.ModerationEmitEvent_Input_Subject{
+				RepoStrongRef: &strongRef,
+			},
+		})
+		if err != nil {
+			c.Logger.Error("failed to execute appeal resolve", "err", err)
 		}
 	}
 	return nil
