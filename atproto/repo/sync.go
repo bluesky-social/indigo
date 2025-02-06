@@ -93,6 +93,8 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 	invTree := repo.MST.Copy()
 	for _, op := range ops {
 		if err := mst.InvertOp(&invTree, &op); err != nil {
+			// print the *non-inverted* tree
+			//mst.DebugPrintTree(repo.MST.Root, -1)
 			return nil, err
 		}
 	}
