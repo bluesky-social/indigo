@@ -21,7 +21,7 @@ func debugPrintMap(m map[string]cid.Cid) {
 }
 
 // This function is not very well implemented or correct. Should probably switch to Devin's `goat repo mst` code.
-func debugPrintTree(n *Node, depth int) {
+func DebugPrintTree(n *Node, depth int) {
 	if n == nil {
 		fmt.Printf("EMPTY TREE")
 		return
@@ -50,7 +50,7 @@ func debugPrintTree(n *Node, depth int) {
 			fmt.Printf(" (%d) %s -> %s\n", HeightForKey(e.Key), e.Key, e.Value)
 		} else if e.IsChild() {
 			if e.Child != nil {
-				debugPrintTree(e.Child, depth+1)
+				DebugPrintTree(e.Child, depth+1)
 			} else {
 				fmt.Printf(" (partial) %s\n", e.ChildCID)
 			}
