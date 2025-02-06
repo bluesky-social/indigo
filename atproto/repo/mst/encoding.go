@@ -47,6 +47,7 @@ func NodeDataFromCBOR(r io.Reader) (*NodeData, error) {
 	if err := nd.UnmarshalCBOR(r); err != nil {
 		return nil, err
 	}
+	// TODO: verify CID type, and "non-empty" here?
 	return &nd, nil
 }
 
