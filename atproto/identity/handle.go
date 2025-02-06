@@ -127,10 +127,23 @@ func (d *BaseDirectory) ResolveHandleDNSFallback(ctx context.Context, handle syn
 }
 
 func (d *BaseDirectory) ResolveHandleWellKnown(ctx context.Context, handle syntax.Handle) (syntax.DID, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s/.well-known/atproto-did", handle), nil)
+	// Check for well-known suffixes to route to a specific host
+	// allowing for reuse of TCP connections for high-traffic providers
+	requestHost := handle.String()
+	for suffix, host := range d.WellKnownSuffixMap {
+		if strings.HasSuffix(handle.String(), suffix) {
+			requestHost = host
+			break
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s/.well-known/atproto-did", requestHost), nil)
 	if err != nil {
 		return "", fmt.Errorf("constructing HTTP request for handle resolution: %w", err)
 	}
+
+	// Add host header for virtual routing
+	req.Header.Set("Host", handle.String())
 
 	resp, err := d.HTTPClient.Do(req)
 	if err != nil {
