@@ -48,7 +48,7 @@ func nodeRemove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 	// check if we need to "merge" adjacent nodes
 	if idx > 0 && idx+1 < len(n.Entries) && n.Entries[idx-1].IsChild() && n.Entries[idx+1].IsChild() {
 		if n.Entries[idx-1].Child == nil || n.Entries[idx+1].Child == nil {
-			return nil, nil, fmt.Errorf("can't merge partial nodes")
+			return nil, nil, fmt.Errorf("can not merge child nodes: %w", ErrPartialTree)
 		}
 		newChild, err := mergeNodes(n.Entries[idx-1].Child, n.Entries[idx+1].Child)
 		if err != nil {
