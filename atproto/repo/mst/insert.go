@@ -16,6 +16,9 @@ import (
 // val: CID value being inserted
 // height: tree height to insert at, derived from key. if a negative value is provided, will be computed; use -1 instead of 0 if height is not known
 func nodeInsert(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, error) {
+	if n.Stub {
+		return nil, nil, ErrPartialTree
+	}
 	if height < 0 {
 		height = HeightForKey(key)
 	}

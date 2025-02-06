@@ -114,6 +114,9 @@ func (t *Tree) WriteToMap(m map[string]cid.Cid) error {
 //
 // NOTE: will mark the tree "clean" (clear any dirty flags).
 func (t *Tree) RootCID() (*cid.Cid, error) {
+	if t.Root != nil && t.Root.Stub && !t.Root.Dirty && t.Root.CID != nil {
+		return t.Root.CID, nil
+	}
 	return writeNodeBlocks(context.Background(), t.Root, nil, true)
 }
 

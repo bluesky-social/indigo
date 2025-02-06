@@ -145,7 +145,7 @@ func nodeEnsureHeights(n *Node) {
 // bs: is an optional blockstore; if it is nil, blocks will not be written.
 // onlyDirty: is an optional blockstore; if it is nil, blocks will not be written.
 func writeNodeBlocks(ctx context.Context, n *Node, bs blockstore.Blockstore, onlyDirty bool) (*cid.Cid, error) {
-	if n == nil {
+	if n == nil || n.Stub {
 		return nil, fmt.Errorf("%w: nil tree node", ErrInvalidTree)
 	}
 	if onlyDirty && !n.Dirty && n.CID != nil {
