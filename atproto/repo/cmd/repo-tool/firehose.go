@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -17,6 +18,9 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/urfave/cli/v2"
 )
+
+// write out error cases as JSON files to disk, for use in regression tests
+var CAPTURE_TEST_CASES = false
 
 func runVerifyFirehose(cctx *cli.Context) error {
 	ctx := context.Background()
@@ -58,5 +62,15 @@ func runVerifyFirehose(cctx *cli.Context) error {
 func handleCommitEvent(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
 	// TODO: just log errors, not fail?
 	_, err := repo.VerifyCommitMessage(ctx, evt)
+	if err != nil && CAPTURE_TEST_CASES {
+		body, err := json.MarshalIndent(evt, "", "  ")
+		if err != nil {
+			return err
+		}
+		p := fmt.Sprintf("firehose_commit_%d.json", evt.Seq)
+		if err := os.WriteFile(p, body, 0600); err != nil {
+			return err
+		}
+	}
 	return err
 }
