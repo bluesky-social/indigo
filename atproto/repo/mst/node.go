@@ -213,7 +213,7 @@ func nodeCompareKey(n *Node, key []byte, markDirty bool) (int, error) {
 				}
 			}
 			if e.Child == nil {
-				return 0, fmt.Errorf("partial MST, can't compare key order recursively")
+				return 0, fmt.Errorf("%w: can't compare key order recursively", ErrPartialTree)
 			}
 			order, err := nodeCompareKey(e.Child, key, markDirty)
 			if err != nil {
