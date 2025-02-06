@@ -24,6 +24,12 @@ type ServerRefreshSession_Output struct {
 
 // ServerRefreshSession calls the XRPC method "com.atproto.server.refreshSession".
 func ServerRefreshSession(ctx context.Context, c *xrpc.Client) (*ServerRefreshSession_Output, error) {
+	// For refreshing the session, we need to use the RefreshJwt.
+	// Do only looks at AccessJwt so we need to copy the RefreshJwt token to it.
+	if c.Auth != nil && c.Auth.RefreshJwt != "" {
+		c.Auth.AccessJwt = c.Auth.RefreshJwt
+	}
+
 	var out ServerRefreshSession_Output
 	if err := c.Do(ctx, xrpc.Procedure, "", "com.atproto.server.refreshSession", nil, nil, &out); err != nil {
 		return nil, err
