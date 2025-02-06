@@ -1,12 +1,14 @@
 package repo
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
 	"testing"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/repo/mst"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -44,4 +46,11 @@ func testCommitFile(t *testing.T, p string) {
 
 	_, err = VerifyCommitMessage(ctx, &msg)
 	assert.NoError(err)
+	if err != nil {
+		repo, err := LoadFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
+		if err != nil {
+			t.Fail()
+		}
+		mst.DebugPrintTree(repo.MST.Root, 0)
+	}
 }
