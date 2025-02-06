@@ -90,7 +90,7 @@ func InvertOp(tree *Tree, op *Operation) error {
 			return fmt.Errorf("failed to invert op: %w", err)
 		}
 		if prev == nil || *prev != *op.Value {
-			return fmt.Errorf("failed to invert creation")
+			return fmt.Errorf("failed to invert creation: previous record CID didn't match")
 		}
 		return nil
 	}
@@ -100,7 +100,7 @@ func InvertOp(tree *Tree, op *Operation) error {
 			return fmt.Errorf("failed to invert op: %w", err)
 		}
 		if prev == nil || *prev != *op.Value {
-			return fmt.Errorf("failed to invert update")
+			return fmt.Errorf("failed to invert update: previous record CID didn't match")
 		}
 		return nil
 	}
@@ -110,7 +110,7 @@ func InvertOp(tree *Tree, op *Operation) error {
 			return fmt.Errorf("failed to invert op: %w", err)
 		}
 		if prev != nil {
-			return fmt.Errorf("failed to invert deletion")
+			return fmt.Errorf("failed to invert deletion: key was previously in tree")
 		}
 		return nil
 	}
