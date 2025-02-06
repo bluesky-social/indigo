@@ -66,11 +66,17 @@ func TestBasicOperation(t *testing.T) {
 }
 
 func TestRandomOperations(t *testing.T) {
+	// single-op commits, near-empty repo
+	randomOperations(t, 1, 1, 50)
+	// single-op commits, large repo
+	randomOperations(t, 10000, 1, 50)
+	// multi-op commit
+	randomOperations(t, 2000, 8, 50)
+}
+
+func randomOperations(t *testing.T, size, opCount, iterations int) {
 	assert := assert.New(t)
 	ctx := context.Background()
-	size := 1000
-	opCount := 3
-	iterations := 10
 
 	// generate a random starting tree
 	startMap := make(map[string]cid.Cid, size)
