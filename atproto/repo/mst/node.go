@@ -19,6 +19,8 @@ type Node struct {
 	Dirty bool
 	// optionally, the last computed CID of this Node (when expressed as NodeData)
 	CID *cid.Cid
+	// if true, this is an empty/incomplete node which just represents the CID of the tree. only used as part of MST inversion
+	Stub bool
 }
 
 // Represents an entry in an MST `Node`, which could either be a direct path/value entry, or a pointer do a child tree node. Note that these are *not* one-to-one with `EntryData`.
@@ -41,6 +43,9 @@ func (n *Node) IsEmpty() bool {
 
 // Checks if the sub-tree (this node, or any children, recursively) contains any CID references to nodes which are not present.
 func (n *Node) IsPartial() bool {
+	if n.Stub {
+		return true
+	}
 	for _, e := range n.Entries {
 		if e.ChildCID != nil && e.Child == nil {
 			return true
@@ -74,6 +79,7 @@ func copyNode(n *Node) *Node {
 		Entries: make([]NodeEntry, len(n.Entries)),
 		Height:  n.Height,
 		Dirty:   n.Dirty,
+		Stub:    n.Stub,
 		CID:     n.CID,
 	}
 	for i, e := range n.Entries {
@@ -128,6 +134,9 @@ func findExistingChild(n *Node, key []byte) int {
 //
 // If the entry would be appended, then the index returned will be one higher that the current largest index.
 func findInsertionIndex(n *Node, key []byte) (idx int, split bool, retErr error) {
+	if n.Stub {
+		return -1, false, fmt.Errorf("partial MST, can't determine insertion order")
+	}
 	for i, e := range n.Entries {
 		if e.IsValue() {
 			if bytes.Compare(key, e.Key) < 0 {
@@ -170,6 +179,9 @@ func findInsertionIndex(n *Node, key []byte) (idx int, split bool, retErr error)
 //
 // If the `markDirty` flag is true, then this method will set the Dirty flag on this node, and any child nodes which were needed to "prove" the key order. This can be used to mark nodes for inclusion in invertible MST diffs.
 func nodeCompareKey(n *Node, key []byte, markDirty bool) (int, error) {
+	if n.Stub {
+		return -1, ErrPartialTree
+	}
 	if n.IsEmpty() {
 		// TODO: should we actually return 0 in this case?
 		return 0, fmt.Errorf("can't determine key range of empty MST node")
@@ -247,6 +259,9 @@ func writeNodeToMap(n *Node, m map[string]cid.Cid) error {
 // key: key or path being inserted. must not be empty/nil
 // height: tree height corresponding to key. if a negative value is provided, will be computed; use -1 instead of 0 if height is not known
 func nodeGet(n *Node, key []byte, height int) (*cid.Cid, error) {
+	if n.Stub {
+		return nil, ErrPartialTree
+	}
 	if height < 0 {
 		height = HeightForKey(key)
 	}

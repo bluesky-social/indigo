@@ -25,6 +25,7 @@ When removing:
 When inverting operations:
 
 - need additional "proof" blocks to invert deletions. basically need the proof blocks for any keys (at any layer) directly adjacent to the deleted block
+- if an entry is removed from the top of a partial tree and results in "trimming", and the child node is not available, the overall tree root CID might still be known
 
 ## Hacking
 

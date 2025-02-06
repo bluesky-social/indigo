@@ -14,6 +14,9 @@ import (
 // key: key or path being inserted. must not be empty/nil
 // height: tree height corresponding to key. if a negative value is provided, will be computed; use -1 instead of 0 if height is not known
 func nodeRemove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
+	if n.Stub {
+		return nil, nil, ErrPartialTree
+	}
 	// TODO: do we need better handling of "is this the top"?
 	top := false
 	if height < 0 {
@@ -68,9 +71,19 @@ func nodeRemove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 				break
 			}
 			if n.Entries[0].Child == nil {
-				return nil, nil, fmt.Errorf("can not prune top of tree: %w", ErrPartialTree)
+				// this is something of a hack, for MST inversion which requires trimming the tree
+				if n.Entries[0].ChildCID == nil {
+					return nil, nil, fmt.Errorf("can not prune top of tree: %w", ErrPartialTree)
+				} else {
+					n = &Node{
+						Height: n.Height - 1,
+						Stub:   true,
+						CID:    n.Entries[0].ChildCID,
+					}
+				}
+			} else {
+				n = n.Entries[0].Child
 			}
-			n = n.Entries[0].Child
 		}
 	}
 	return n, prev, nil

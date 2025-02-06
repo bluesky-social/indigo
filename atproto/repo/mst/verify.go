@@ -16,6 +16,9 @@ func verifyNodeStructure(n *Node, height int, key []byte) error {
 	if n == nil {
 		return fmt.Errorf("nil node")
 	}
+	if n.Stub {
+		return fmt.Errorf("stub node")
+	}
 	if n.CID == nil && n.Dirty == false {
 		return fmt.Errorf("node missing CID, but not marked dirty")
 	}
