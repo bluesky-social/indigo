@@ -60,3 +60,19 @@ func TestPrefixLenWide(t *testing.T) {
 		assert.Equal(t, c.Len, CountPrefixLen(c.Left, c.Right), msg)
 	}
 }
+
+func TestHeightForKey(t *testing.T) {
+	assert := assert.New(t)
+	msg := "MST 'depth' computation (SHA-256 leading zeros)"
+	assert.Equal(HeightForKey([]byte("")), 0, msg)
+	assert.Equal(HeightForKey([]byte("asdf")), 0, msg)
+	assert.Equal(HeightForKey([]byte("blue")), 1, msg)
+	assert.Equal(HeightForKey([]byte("2653ae71")), 0, msg)
+	assert.Equal(HeightForKey([]byte("88bfafc7")), 2, msg)
+	assert.Equal(HeightForKey([]byte("2a92d355")), 4, msg)
+	assert.Equal(HeightForKey([]byte("884976f5")), 6, msg)
+	assert.Equal(HeightForKey([]byte("app.bsky.feed.post/454397e440ec")), 4, msg)
+	assert.Equal(HeightForKey([]byte("app.bsky.feed.post/9adeb165882c")), 8, msg)
+
+	assert.Equal(HeightForKey([]byte("R2/359107")), 2, msg)
+}
