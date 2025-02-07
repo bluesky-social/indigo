@@ -136,7 +136,7 @@ type collectionServer struct {
 	ExepctedAuthHeader string
 	PerPDSCrawlQPS     float64
 
-	activeCrawlHosts map[string]time.Time
+	activeCrawls     map[string]activeCrawl
 	activeCrawlsLock sync.Mutex
 
 	shutdown chan struct{}
@@ -155,6 +155,11 @@ type collectionServer struct {
 	didCollectionCounts *lru.Cache[string, int]
 
 	badwords BadwordChecker
+}
+
+type activeCrawl struct {
+	start time.Time
+	stats *CrawlStats
 }
 
 func (cs *collectionServer) run(cctx *cli.Context) error {
@@ -888,10 +893,12 @@ func (cs *collectionServer) crawlThread(hostIn string) {
 		Log:       cs.log,
 	}
 	start := time.Now()
-	ok := cs.recordCrawlStart(host, start)
+	ok, crawlStats := cs.recordCrawlStart(host, start)
 	if !ok {
 		cs.log.Info("not crawling dup", "host", host)
+		return
 	}
+	crawler.Stats = crawlStats
 	cs.log.Info("crawling", "host", host)
 	err := crawler.CrawlPDSRepoCollections()
 	cs.clearActiveCrawl(host)
@@ -905,34 +912,41 @@ func (cs *collectionServer) crawlThread(hostIn string) {
 }
 
 // recordCrawlStart returns true if ok, false if duplicate
-func (cs *collectionServer) recordCrawlStart(host string, start time.Time) (ok bool) {
+func (cs *collectionServer) recordCrawlStart(host string, start time.Time) (ok bool, stats *CrawlStats) {
 	cs.activeCrawlsLock.Lock()
 	defer cs.activeCrawlsLock.Unlock()
-	if cs.activeCrawlHosts == nil {
-		cs.activeCrawlHosts = make(map[string]time.Time)
-		cs.activeCrawlHosts[host] = start
-		return true
+	if cs.activeCrawls == nil {
+		cs.activeCrawls = make(map[string]activeCrawl)
 	} else {
-		_, dup := cs.activeCrawlHosts[host]
+		_, dup := cs.activeCrawls[host]
 		if dup {
-			return false
+			return false, nil
 		}
-		cs.activeCrawlHosts[host] = start
-		return true
 	}
+	stats = new(CrawlStats)
+	cs.activeCrawls[host] = activeCrawl{
+		start: start,
+		stats: stats,
+	}
+	return true, stats
 }
 
 func (cs *collectionServer) clearActiveCrawl(host string) {
 	cs.activeCrawlsLock.Lock()
 	defer cs.activeCrawlsLock.Unlock()
-	if cs.activeCrawlHosts == nil {
+	if cs.activeCrawls == nil {
 		return
 	}
-	delete(cs.activeCrawlHosts, host)
+	delete(cs.activeCrawls, host)
 }
 
 type CrawlStatusResponse struct {
-	HostStarts map[string]string `json:"host_starts"`
+	HostCrawls map[string]HostCrawl `json:"host_starts"`
+	ServerTime string               `json:"server_time"`
+}
+type HostCrawl struct {
+	Start          string `json:"start"`
+	ReposDescribed uint32 `json:"seen"`
 }
 
 // GET /v1/crawlStatus
@@ -942,12 +956,17 @@ func (cs *collectionServer) crawlStatus(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, CrawlRequestResponse{Error: "nope"})
 	}
 	var out CrawlStatusResponse
-	out.HostStarts = make(map[string]string)
+	out.HostCrawls = make(map[string]HostCrawl)
 	cs.activeCrawlsLock.Lock()
 	defer cs.activeCrawlsLock.Unlock()
-	for host, start := range cs.activeCrawlHosts {
-		out.HostStarts[host] = start.UTC().Format(time.RFC3339)
+	for host, rec := range cs.activeCrawls {
+		start := rec.start
+		out.HostCrawls[host] = HostCrawl{
+			Start:          start.UTC().Format(time.RFC3339Nano),
+			ReposDescribed: rec.stats.ReposDescribed.Load(),
+		}
 	}
+	out.ServerTime = time.Now().UTC().Format(time.RFC3339Nano)
 	return c.JSON(http.StatusOK, out)
 }
 

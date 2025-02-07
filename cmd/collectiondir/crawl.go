@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync/atomic"
 
 	"github.com/urfave/cli/v2"
 
@@ -114,6 +115,11 @@ type Crawler struct {
 	QPS       float64
 	Results   chan<- DidCollection
 	Log       *slog.Logger
+	Stats     *CrawlStats
+}
+
+type CrawlStats struct {
+	ReposDescribed atomic.Uint32
 }
 
 // CrawlPDSRepoCollections
@@ -140,6 +146,9 @@ func (cr *Crawler) CrawlPDSRepoCollections() error {
 			}
 			for _, collection := range desc.Collections {
 				cr.Results <- DidCollection{Did: xr.Did, Collection: collection}
+			}
+			if cr.Stats != nil {
+				cr.Stats.ReposDescribed.Add(1)
 			}
 		}
 		if repos.Cursor != nil {
