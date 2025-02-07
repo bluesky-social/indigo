@@ -282,6 +282,31 @@ func (pcd *PebbleCollectionDirectory) CollectionToId(collection string) (uint32,
 
 var trueValue = [1]byte{'t'}
 
+func (pcd *PebbleCollectionDirectory) CountDidCollections(did string) (int, error) {
+	lower := make([]byte, 1+len(did))
+	lower[0] = 'D'
+	copy(lower[1:1+len(did)], did)
+	upper := make([]byte, len(lower))
+	copy(upper, lower)
+	upper[len(upper)-1]++
+	ctx := context.Background()
+	iter, err := pcd.db.NewIterWithContext(ctx, &pebble.IterOptions{
+		LowerBound: lower,
+		UpperBound: upper,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("did iter start, %w", err)
+	}
+	defer iter.Close()
+	count := 0
+	for iter.First(); iter.Valid(); iter.Next() {
+		//key := iter.Key()
+		//xdid, xcollectionId := parseByDidKey(key)
+		count++
+	}
+	return count, nil
+}
+
 func (pcd *PebbleCollectionDirectory) MaybeSetCollection(did, collection string) error {
 	collectionId, err := pcd.CollectionToId(collection)
 	if err != nil {

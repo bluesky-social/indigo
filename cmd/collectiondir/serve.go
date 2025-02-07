@@ -4,14 +4,9 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/events"
-	"github.com/bluesky-social/indigo/xrpc"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/urfave/cli/v2"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"log/slog"
 	"net"
 	"net/http"
@@ -19,12 +14,22 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/xrpc"
+
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/urfave/cli/v2"
 )
 
 var serveCmd = &cli.Command{
@@ -70,6 +75,23 @@ var serveCmd = &cli.Command{
 			Usage:   "secret for friend PDSes",
 			EnvVars: []string{"BSKY_SOCIAL_RATE_LIMIT_SKIP", "RATE_LIMIT_HEADER"},
 		},
+		&cli.Uint64Flag{
+			Name:    "clist-min-dids",
+			Usage:   "filter collection list to >= N dids",
+			Value:   5,
+			EnvVars: []string{"COLLECTIONS_CLIST_MIN_DIDS"},
+		},
+		&cli.IntFlag{
+			Name:    "max-did-collections",
+			Usage:   "stop recording new collections per did after it has >= this many collections",
+			Value:   1000,
+			EnvVars: []string{"COLLECTIONS_MAX_DID_COLLECTIONS"},
+		},
+		&cli.StringFlag{
+			Name:    "sets-json-path",
+			Usage:   "file path of JSON file containing static word sets",
+			EnvVars: []string{"HEPA_SETS_JSON_PATH", "COLLECTIONS_SETS_JSON_PATH"},
+		},
 		&cli.BoolFlag{
 			Name: "verbose",
 		},
@@ -78,6 +100,10 @@ var serveCmd = &cli.Command{
 		var server collectionServer
 		return server.run(cctx)
 	},
+}
+
+type BadwordChecker interface {
+	HasBadword(string) bool
 }
 
 type collectionServer struct {
@@ -122,9 +148,14 @@ type collectionServer struct {
 	apiServer *http.Server
 	//esrv          *echo.Echo
 	metricsServer *http.Server
-}
 
-const defaultPerPDSCrawlQPS = 100
+	MinDidsForCollectionList uint64
+	MaxDidCollections        int
+
+	didCollectionCounts *lru.Cache[string, int]
+
+	badwords BadwordChecker
+}
 
 func (cs *collectionServer) run(cctx *cli.Context) error {
 	signals := make(chan os.Signal, 1)
@@ -134,12 +165,28 @@ func (cs *collectionServer) run(cctx *cli.Context) error {
 	if cctx.Bool("verbose") {
 		level = slog.LevelDebug
 	}
+	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+	slog.SetDefault(log)
+
 	if cctx.IsSet("ratelimit-header") {
 		cs.ratelimitHeader = cctx.String("ratelimit-header")
 	}
-	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+	if cctx.IsSet("sets-json-path") {
+		badwords, err := loadBadwords(cctx.String("sets-json-path"))
+		if err != nil {
+			return err
+		}
+		cs.badwords = badwords
+	}
+	cs.MinDidsForCollectionList = cctx.Uint64("clist-min-dids")
+	cs.MaxDidCollections = cctx.Int("max-did-collections")
 	cs.ingestFirehose = make(chan DidCollection, 1000)
 	cs.ingestCrawl = make(chan DidCollection, 1000)
+	var err error
+	cs.didCollectionCounts, err = lru.New[string, int](1_000_000) // TODO: configurable LRU size
+	if err != nil {
+		return fmt.Errorf("lru init, %w", err)
+	}
 	cs.wg.Add(1)
 	go cs.ingestReceiver()
 	cs.log = log
@@ -150,7 +197,7 @@ func (cs *collectionServer) run(cctx *cli.Context) error {
 	cs.pcd = &PebbleCollectionDirectory{
 		log: cs.log,
 	}
-	err := cs.pcd.Open(pebblePath)
+	err = cs.pcd.Open(pebblePath)
 	if err != nil {
 		return fmt.Errorf("%s: failed to open pebble db: %w", pebblePath, err)
 	}
@@ -239,8 +286,8 @@ func (cs *collectionServer) Shutdown() error {
 	close(cs.shutdown)
 	go func() {
 		cs.log.Info("metrics shutdown start")
-		cs.metricsServer.Shutdown(context.Background())
-		cs.log.Info("metrics shutdown")
+		sherr := cs.metricsServer.Shutdown(context.Background())
+		cs.log.Info("metrics shutdown", "err", sherr)
 	}()
 	cs.log.Info("api shutdown start...")
 	err := cs.apiServer.Shutdown(context.Background())
@@ -545,6 +592,13 @@ func (cs *collectionServer) statsBuilder() {
 	}
 }
 
+func (cs *collectionServer) hasBadword(collection string) bool {
+	if cs.badwords != nil {
+		return cs.badwords.HasBadword(collection)
+	}
+	return false
+}
+
 // /v1/listCollections?c={}&cursor={}&limit={50<=limit<=1000}
 //
 // admin may set ?stalesec={} for a maximum number of seconds stale data is accepted
@@ -593,6 +647,15 @@ func (cs *collectionServer) listCollections(c echo.Context) error {
 		count := 0
 		for _, collection := range allCollections {
 			if (cursor == "") || (collection > cursor) {
+				if cs.hasBadword(collection) {
+					// don't show badwords in public list of collections
+					continue
+				}
+				if stats.CollectionCounts[collection] < cs.MinDidsForCollectionList {
+					// don't show experimental/spam collections only implemented by a few DIDs
+					continue
+				}
+				// TODO: probably regex based filter for collection-spam
 				out.Collections[collection] = stats.CollectionCounts[collection]
 				count++
 				if count >= limit {
@@ -620,26 +683,15 @@ func (cs *collectionServer) ingestReceiver() {
 				cs.log.Info("ingestFirehose closed")
 				return
 			}
-			err := cs.pcd.MaybeSetCollection(didc.Did, didc.Collection)
+			err := cs.ingestDidc(didc, true)
 			if err != nil {
-				cs.log.Warn("pcd write", "err", err)
 				errcount++
 			} else {
 				errcount = 0
 			}
-			if cs.dauDirectory != nil {
-				err = cs.maybeDauWrite(didc)
-				if err != nil {
-					cs.log.Warn("dau write", "err", err)
-					errcount++
-				} else {
-					errcount = 0
-				}
-			}
 		case didc := <-cs.ingestCrawl:
-			err := cs.pcd.MaybeSetCollection(didc.Did, didc.Collection)
+			err := cs.ingestDidc(didc, false)
 			if err != nil {
-				cs.log.Warn("pcd write", "err", err)
 				errcount++
 			} else {
 				errcount = 0
@@ -650,6 +702,35 @@ func (cs *collectionServer) ingestReceiver() {
 			return // TODO: cancel parent somehow
 		}
 	}
+}
+
+func (cs *collectionServer) ingestDidc(didc DidCollection, dau bool) error {
+	count, ok := cs.didCollectionCounts.Get(didc.Did)
+	var err error
+	if !ok {
+		count, err = cs.pcd.CountDidCollections(didc.Did)
+		if err != nil {
+			return fmt.Errorf("count did collections, %s %w", didc.Did, err)
+		}
+		cs.didCollectionCounts.Add(didc.Did, count)
+	}
+	if count >= cs.MaxDidCollections {
+		cs.log.Warn("did too many collections", "did", didc.Did)
+		return nil
+	}
+	err = cs.pcd.MaybeSetCollection(didc.Did, didc.Collection)
+	if err != nil {
+		cs.log.Warn("pcd write", "err", err)
+		return err
+	}
+	if dau && cs.dauDirectory != nil {
+		err = cs.maybeDauWrite(didc)
+		if err != nil {
+			cs.log.Warn("dau write", "err", err)
+			return err
+		}
+	}
+	return nil
 }
 
 // write {dauDirectoryDir}/d{YYYY-MM-DD}.pebble stats summary to {dauDirectoryDir}/d{YYYY-MM-DD}.csv.gz
@@ -873,4 +954,39 @@ func (cs *collectionServer) crawlStatus(c echo.Context) error {
 func (cs *collectionServer) healthz(c echo.Context) error {
 	// TODO: check database or upstream health?
 	return c.String(http.StatusOK, "ok")
+}
+
+func loadBadwords(path string) (*BadwordsRE, error) {
+	fin, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("%s: could not open badwords, %w", path, err)
+	}
+	dec := json.NewDecoder(fin)
+	var rules map[string][]string
+	err = dec.Decode(&rules)
+	if err != nil {
+		return nil, fmt.Errorf("%s: badwords json, %w", path, err)
+	}
+
+	// compile a regex to search a string for any instance of a bad word, because we're expecting things runpooptogether
+	badwords := rules["worst-words"]
+	rwords := make([]string, len(badwords))
+	for i, word := range badwords {
+		rwords[i] = regexp.QuoteMeta(word)
+	}
+	reStr := strings.Join(rwords, "|")
+	re, err := regexp.Compile(reStr)
+	if err != nil {
+		return nil, fmt.Errorf("%s: badwords regex, %w", path, err)
+	}
+	return &BadwordsRE{re: re}, nil
+}
+
+type BadwordsRE struct {
+	re *regexp.Regexp
+}
+
+func (bw *BadwordsRE) HasBadword(s string) bool {
+	// TODO: if this is too slow, try more specialized algorithm e.g. https://en.wikipedia.org/wiki/Aho%E2%80%93Corasick_algorithm
+	return bw.re.FindString(s) != ""
 }
