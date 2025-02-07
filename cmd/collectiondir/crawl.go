@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"sync/atomic"
 
 	"github.com/urfave/cli/v2"
@@ -34,9 +35,9 @@ func DidCollectionsToCsv(out io.Writer, sources <-chan DidCollection) {
 	}
 }
 
-var crawlCmd = &cli.Command{
-	Name:  "crawl",
-	Usage: "crawl a PDS",
+var offlineCrawlCmd = &cli.Command{
+	Name:  "offline_crawl",
+	Usage: "crawl a PDS to csv out",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "host",
@@ -141,7 +142,12 @@ func (cr *Crawler) CrawlPDSRepoCollections() error {
 			limiter.Wait(cr.Ctx)
 			desc, err := atproto.RepoDescribeRepo(cr.Ctx, cr.RpcClient, xr.Did)
 			if err != nil {
-				slog.Error("repo desc", "host", cr.RpcClient.Host, "did", xr.Did, "err", err)
+				erst := err.Error()
+				if strings.Contains(erst, "RepoDeactivated") || strings.Contains(erst, "RepoTakendown") {
+					slog.Info("repo unavail", "host", cr.RpcClient.Host, "did", xr.Did, "err", err)
+				} else {
+					slog.Warn("repo desc", "host", cr.RpcClient.Host, "did", xr.Did, "err", err)
+				}
 				continue
 			}
 			for _, collection := range desc.Collections {

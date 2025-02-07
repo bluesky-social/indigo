@@ -276,7 +276,7 @@ func (cs *collectionServer) openDau() error {
 	cs.dauDirectory = daud
 	cs.dauDirectoryPath = fpath
 	cs.dauDay = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-	cs.dauTomorrow = now.AddDate(0, 0, 1)
+	cs.dauTomorrow = cs.dauDay.AddDate(0, 0, 1)
 	cs.log.Info("DAU db opened", "path", fpath)
 	return nil
 }
@@ -738,6 +738,19 @@ func (cs *collectionServer) ingestDidc(didc DidCollection, dau bool) error {
 	return nil
 }
 
+func (cs *collectionServer) maybeDauWrite(didc DidCollection) error {
+	now := time.Now()
+	if now.After(cs.dauTomorrow) {
+		go dauStats(cs.dauDirectory, cs.dauDay, cs.dauDirectoryDir, cs.log)
+		cs.dauDirectory = nil
+		err := cs.openDau()
+		if err != nil {
+			return fmt.Errorf("dau reopen, %w", err)
+		}
+	}
+	return cs.dauDirectory.MaybeSetCollection(didc.Did, didc.Collection)
+}
+
 // write {dauDirectoryDir}/d{YYYY-MM-DD}.pebble stats summary to {dauDirectoryDir}/d{YYYY-MM-DD}.csv.gz
 func dauStats(oldDau *PebbleCollectionDirectory, dauDay time.Time, dauDir string, log *slog.Logger) {
 	fname := fmt.Sprintf("d%s.csv.gz", dauDay.Format("2006-01-02"))
@@ -765,9 +778,9 @@ func pcdStatsToCsvGz(stats CollectionStats, outpath string, log *slog.Logger) {
 	}
 	defer fout.Close()
 	gzout := gzip.NewWriter(fout)
+	defer gzout.Close()
 	csvout := csv.NewWriter(gzout)
 	defer csvout.Flush()
-	defer gzout.Close()
 	err = csvout.Write([]string{"collection", "count"})
 	if err != nil {
 		log.Error("DAU stats header", "err", err)
@@ -786,19 +799,6 @@ func pcdStatsToCsvGz(stats CollectionStats, outpath string, log *slog.Logger) {
 		rowcount++
 	}
 	log.Info("DAU stats ok", "rows", rowcount)
-}
-
-func (cs *collectionServer) maybeDauWrite(didc DidCollection) error {
-	now := time.Now()
-	if now.After(cs.dauTomorrow) {
-		go dauStats(cs.dauDirectory, cs.dauDay, cs.dauDirectoryDir, cs.log)
-		cs.dauDirectory = nil
-		err := cs.openDau()
-		if err != nil {
-			return fmt.Errorf("dau reopen, %w", err)
-		}
-	}
-	return cs.dauDirectory.MaybeSetCollection(didc.Did, didc.Collection)
 }
 
 type CrawlRequest struct {
@@ -859,6 +859,7 @@ func (cs *collectionServer) crawlPds(c echo.Context) error {
 	var req CrawlRequest
 	err := c.Bind(&req)
 	if err != nil {
+		cs.log.Info("bad crawl bind", "err", err)
 		return c.String(http.StatusBadRequest, err.Error())
 	}
 	if req.Host != "" {
