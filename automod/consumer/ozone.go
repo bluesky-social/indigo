@@ -118,7 +118,7 @@ func (oc *OzoneConsumer) HandleOzoneEvent(ctx context.Context, eventView *toolso
 
 	oc.Logger.Debug("received ozone event", "eventID", eventView.Id, "createdAt", eventView.CreatedAt)
 
-	if err := oc.Engine.ProcessOzoneEvent(ctx, eventView); err != nil {
+	if err := oc.Engine.ProcessOzoneEvent(context.Background(), eventView); err != nil {
 		oc.Logger.Error("engine failed to process ozone event", "err", err)
 	}
 	return nil
