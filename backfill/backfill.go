@@ -82,6 +82,8 @@ type Backfiller struct {
 	magicHeaderKey string
 	magicHeaderVal string
 
+	tryRelayRepoFetch bool
+
 	stop chan chan struct{}
 
 	Directory identity.Directory
@@ -376,11 +378,17 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 	}
 	log.Info(fmt.Sprintf("processing backfill for %s", repoDID))
 
-	// first try with Relay endpoint
-	r, err := b.fetchRepo(ctx, repoDID, job.Rev(), b.RelayHost)
-	if err != nil {
-		slog.Warn("repo CAR fetch from relay failed", "did", repoDID, "since", job.Rev(), "relayHost", b.RelayHost, "err", err)
-		// fallback to direct PDS fetch
+	var r *repo.Repo
+	if b.tryRelayRepoFetch {
+		rr, err := b.fetchRepo(ctx, repoDID, job.Rev(), b.RelayHost)
+		if err != nil {
+			slog.Warn("repo CAR fetch from relay failed", "did", repoDID, "since", job.Rev(), "relayHost", b.RelayHost, "err", err)
+		} else {
+			r = rr
+		}
+	}
+
+	if r == nil {
 		ident, err := b.Directory.LookupDID(ctx, syntax.DID(repoDID))
 		if err != nil {
 			return "failed resolving DID to PDS repo", fmt.Errorf("resolving DID for PDS repo fetch: %w", err)
@@ -389,12 +397,12 @@ func (b *Backfiller) BackfillRepo(ctx context.Context, job Job) (string, error) 
 		if pdsHost == "" {
 			return "DID document missing PDS endpoint", fmt.Errorf("no PDS endpoint for DID: %s", repoDID)
 		}
+
 		r, err = b.fetchRepo(ctx, repoDID, job.Rev(), pdsHost)
 		if err != nil {
 			slog.Warn("repo CAR fetch from PDS failed", "did", repoDID, "since", job.Rev(), "pdsHost", pdsHost, "err", err)
 			return "repo CAR fetch from PDS failed", err
 		}
-		slog.Info("repo CAR fetch from PDS successful", "did", repoDID, "since", job.Rev(), "pdsHost", pdsHost, "err", err)
 	}
 
 	numRecords := 0
