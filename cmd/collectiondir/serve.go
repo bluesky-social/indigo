@@ -6,6 +6,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"log/slog"
 	"net"
@@ -145,8 +146,7 @@ type collectionServer struct {
 
 	ratelimitHeader string
 
-	apiServer *http.Server
-	//esrv          *echo.Echo
+	apiServer     *http.Server
 	metricsServer *http.Server
 
 	MinDidsForCollectionList uint64
@@ -368,18 +368,17 @@ func (cs *collectionServer) handleFirehose(fhevents <-chan *events.XRPCStreamEve
 func (cs *collectionServer) handleCommit(commit *comatproto.SyncSubscribeRepos_Commit) {
 	for _, op := range commit.Ops {
 		// op.Path is collection/rkey
-		slash := strings.IndexRune(op.Path, '/')
-		if slash == -1 {
-			cs.log.Warn("bad op path", "repo", commit.Repo)
+		nsid, _, err := syntax.ParseRepoPath(op.Path)
+		if err != nil {
+			cs.log.Warn("bad op path", "repo", commit.Repo, "err", err)
 			return
 		}
-		collection := op.Path[:slash]
 		firehoseCommitOps.WithLabelValues(op.Action).Inc()
 		if op.Action == "create" || op.Action == "update" {
 			firehoseDidcSet.Inc()
 			cs.ingestFirehose <- DidCollection{
 				Did:        commit.Repo,
-				Collection: collection,
+				Collection: nsid.String(),
 			}
 		}
 	}
@@ -423,7 +422,7 @@ func (cs *collectionServer) StartApiServer(ctx context.Context, addr string) err
 
 	// admin auth heador required
 	e.POST("/admin/pds/requestCrawl", cs.crawlPds) // same as relay
-	e.GET("/v1/crawlStatus", cs.crawlStatus)
+	e.GET("/admin/crawlStatus", cs.crawlStatus)
 
 	e.Listener = li
 	srv := &http.Server{
@@ -466,6 +465,10 @@ func getLimit(c echo.Context, min, defaultLim, max int) int {
 func (cs *collectionServer) getDidsForCollection(c echo.Context) error {
 	ctx := c.Request().Context()
 	collection := c.QueryParam("collection")
+	_, err := syntax.ParseNSID(collection)
+	if err != nil {
+		return c.String(http.StatusBadRequest, fmt.Sprintf("bad collection nsid, %s", err.Error()))
+	}
 	cursor := c.QueryParam("cursor")
 	limit := getLimit(c, 50, 500, 1000)
 	they, nextCursor, err := cs.pcd.ReadCollection(ctx, collection, cursor, limit)
