@@ -1,3 +1,5 @@
+//go:build scylla
+
 package carstore
 
 import (
