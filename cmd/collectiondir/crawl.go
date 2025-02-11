@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"github.com/bluesky-social/indigo/util"
 	"golang.org/x/time/rate"
 	"io"
 	"log/slog"
-	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -69,10 +69,9 @@ var offlineCrawlCmd = &cli.Command{
 			hosturl.Scheme = "https"
 			hosturl.Host = hostname
 		}
-		httpClient := http.Client{}
 		rpcClient := xrpc.Client{
 			Host:   hosturl.String(),
-			Client: &httpClient,
+			Client: util.RobustHTTPClient(),
 		}
 		if cctx.IsSet("ratelimit-header") {
 			rpcClient.Headers = map[string]string{
@@ -134,10 +133,9 @@ func (cr *Crawler) CrawlPDSRepoCollections() error {
 		limiter.Wait(cr.Ctx)
 		repos, err := atproto.SyncListRepos(cr.Ctx, cr.RpcClient, cursor, 1000)
 		if err != nil {
-			// TODO: wait N seconds, retry M times
 			return fmt.Errorf("%s: sync repos: %w", cr.RpcClient.Host, err)
 		}
-		slog.Info("got repo list", "count", len(repos.Repos))
+		slog.Debug("got repo list", "count", len(repos.Repos))
 		for _, xr := range repos.Repos {
 			limiter.Wait(cr.Ctx)
 			desc, err := atproto.RepoDescribeRepo(cr.Ctx, cr.RpcClient, xr.Did)

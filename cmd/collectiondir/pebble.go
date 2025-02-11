@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/cockroachdb/pebble"
 	"log/slog"
+	"sync"
 	"time"
 )
 
@@ -78,6 +79,7 @@ type PebbleCollectionDirectory struct {
 	collections     map[string]uint32
 	collectionNames map[uint32]string // TODO: B-tree would be nice
 	maxCollectionId uint32
+	collectionsLock sync.Mutex
 
 	log *slog.Logger
 }
@@ -93,7 +95,7 @@ func (pcd *PebbleCollectionDirectory) Open(pebblePath string) error {
 	if pcd.log == nil {
 		pcd.log = slog.Default()
 	}
-	return pcd.ReadAllCollectionInterns(context.Background())
+	return pcd.readAllCollectionInterns(context.Background())
 }
 
 func (pcd *PebbleCollectionDirectory) Close() error {
@@ -108,7 +110,8 @@ func (pcd *PebbleCollectionDirectory) Close() error {
 	return err
 }
 
-func (pcd *PebbleCollectionDirectory) ReadAllCollectionInterns(ctx context.Context) error {
+// readAllCollectionInterns should only be run at setup time inside Open() when locking against threads is not needed
+func (pcd *PebbleCollectionDirectory) readAllCollectionInterns(ctx context.Context) error {
 	lower := []byte{'C'}
 	upper := []byte{'D'}
 	iter, err := pcd.db.NewIterWithContext(ctx, &pebble.IterOptions{
@@ -182,8 +185,11 @@ func (pcd *PebbleCollectionDirectory) ReadAllPrimary(ctx context.Context, out ch
 
 func (pcd *PebbleCollectionDirectory) ReadCollection(ctx context.Context, collection, cursor string, limit int) (result []CollectionDidTime, nextCursor string, err error) {
 	var lower []byte
-	collectionId, err := pcd.CollectionToId(collection)
+	collectionId, err := pcd.CollectionToId(collection, false)
 	if err != nil {
+		if err == ErrNotFound {
+			return nil, "", nil
+		}
 		return nil, "", fmt.Errorf("collection id err, %w", err)
 	}
 	if cursor != "" {
@@ -243,7 +249,11 @@ func (pcd *PebbleCollectionDirectory) ReadCollection(ctx context.Context, collec
 	return result, nextCursor, nil
 }
 
-func (pcd *PebbleCollectionDirectory) CollectionToId(collection string) (uint32, error) {
+var ErrNotFound = errors.New("not found")
+
+func (pcd *PebbleCollectionDirectory) CollectionToId(collection string, create bool) (uint32, error) {
+	pcd.collectionsLock.Lock()
+	defer pcd.collectionsLock.Unlock()
 	// easy mode: in cache
 	collectionId, ok := pcd.collections[collection]
 	if ok {
@@ -261,6 +271,9 @@ func (pcd *PebbleCollectionDirectory) CollectionToId(collection string) (uint32,
 		return collectionId, nil
 	}
 
+	if !create {
+		return 0, ErrNotFound
+	}
 	// make new id, write to db
 	if errors.Is(err, pebble.ErrNotFound) {
 		// ok, fall through
@@ -308,7 +321,7 @@ func (pcd *PebbleCollectionDirectory) CountDidCollections(did string) (int, erro
 }
 
 func (pcd *PebbleCollectionDirectory) MaybeSetCollection(did, collection string) error {
-	collectionId, err := pcd.CollectionToId(collection)
+	collectionId, err := pcd.CollectionToId(collection, true)
 	if err != nil {
 		return err
 	}
