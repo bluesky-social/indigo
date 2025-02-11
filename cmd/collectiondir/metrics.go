@@ -60,7 +60,6 @@ func MetricsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		start := time.Now()
-		//requestSize := computeApproximateRequestSize(c.Request())
 
 		err := next(c)
 
@@ -80,12 +79,8 @@ func MetricsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		statusStr := strconv.Itoa(status)
 		method := c.Request().Method
 
-		//responseSize := float64(c.Response().Size)
-
 		reqDur.WithLabelValues(statusStr, method, path).Observe(elapsed)
 		reqCnt.WithLabelValues(statusStr, method, path).Inc()
-		//reqSz.WithLabelValues(statusStr, method, path).Observe(float64(requestSize))
-		//resSz.WithLabelValues(statusStr, method, path).Observe(responseSize)
 
 		return err
 	}

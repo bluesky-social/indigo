@@ -56,7 +56,7 @@ func (fh *Firehose) subscribeWithRedialer(ctx context.Context, fhevents chan<- *
 		}
 
 		header := http.Header{
-			"User-Agent": []string{"bgs-rainbow-v0"},
+			"User-Agent": []string{"collectiondir"},
 		}
 
 		if fh.Seq >= 0 {
@@ -66,10 +66,12 @@ func (fh *Firehose) subscribeWithRedialer(ctx context.Context, fhevents chan<- *
 		con, res, err := d.DialContext(ctx, url, header)
 		if err != nil {
 			fh.Log.Warn("dialing failed", "url", url, "err", err, "backoff", backoff)
-			time.Sleep(5 * time.Second)
+			time.Sleep(time.Duration(5+backoff) * time.Second)
 			backoff++
 
 			continue
+		} else {
+			backoff = 0
 		}
 
 		fh.Log.Info("event subscription response", "code", res.StatusCode)
