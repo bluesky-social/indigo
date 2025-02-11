@@ -72,11 +72,19 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 		}
 	}
 
-	// TODO: once firehose format is updated, remove this
+	// TODO: once firehose format is fully shipped, remove this
 	for _, o := range msg.Ops {
-		if o.Action != "create" {
-			logger.Info("can't invert legacy op", "action", o.Action)
-			return repo, nil
+		switch o.Action {
+		case "delete":
+			if o.Prev == nil {
+				logger.Info("can't invert legacy op", "action", o.Action)
+				return repo, nil
+			}
+		case "update":
+			if o.Prev == nil {
+				logger.Info("can't invert legacy op", "action", o.Action)
+				return repo, nil
+			}
 		}
 	}
 
@@ -97,33 +105,58 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 			return nil, err
 		}
 	}
-	// TODO: compare against previous commit for this repo?
-	_, err = invTree.RootCID()
+	computed, err := invTree.RootCID()
+	if err != nil {
+		return nil, err
+	}
+	if msg.PrevData != nil {
+		c := (*cid.Cid)(msg.PrevData)
+		if *computed != *c {
+			return nil, fmt.Errorf("inverted tree root didn't match prevData")
+		}
+	} else {
+		logger.Info("prevData was null; skipping tree root check")
+	}
 
 	logger.Info("success")
 	return repo, nil
 }
 
 func ParseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]Operation, error) {
-	//out := make([]mst.Operation, len(ops))
+	//out := make([]Operation, len(ops))
 	out := []Operation{}
 	for _, rop := range ops {
 		switch rop.Action {
 		case "create":
-			if rop.Cid != nil {
-				op := Operation{
-					Path:  rop.Path,
-					Prev:  nil,
-					Value: (*cid.Cid)(rop.Cid),
-				}
-				out = append(out, op)
-			} else {
-				return nil, fmt.Errorf("invalid repoOp: create missing CID")
+			if rop.Cid == nil || rop.Prev != nil {
+				return nil, fmt.Errorf("invalid repoOp: create")
 			}
+			op := Operation{
+				Path:  rop.Path,
+				Prev:  nil,
+				Value: (*cid.Cid)(rop.Cid),
+			}
+			out = append(out, op)
 		case "delete":
-			return nil, fmt.Errorf("unhandled delete repoOp")
+			if rop.Cid != nil || rop.Prev == nil {
+				return nil, fmt.Errorf("invalid repoOp: delete")
+			}
+			op := Operation{
+				Path:  rop.Path,
+				Prev:  (*cid.Cid)(rop.Prev),
+				Value: nil,
+			}
+			out = append(out, op)
 		case "update":
-			return nil, fmt.Errorf("unhandled update repoOp")
+			if rop.Cid == nil || rop.Prev == nil {
+				return nil, fmt.Errorf("invalid repoOp: update")
+			}
+			op := Operation{
+				Path:  rop.Path,
+				Prev:  (*cid.Cid)(rop.Prev),
+				Value: (*cid.Cid)(rop.Cid),
+			}
+			out = append(out, op)
 		default:
 			return nil, fmt.Errorf("invalid repoOp action: %s", rop.Action)
 		}
