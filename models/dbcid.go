@@ -4,8 +4,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"github.com/gocql/gocql"
-
 	"github.com/ipfs/go-cid"
 )
 
@@ -62,16 +60,4 @@ func (dbc *DbCID) UnmarshalJSON(b []byte) error {
 
 func (dbc *DbCID) GormDataType() string {
 	return "bytes"
-}
-
-func (dbc *DbCID) MarshalCQL(info gocql.TypeInfo) ([]byte, error) {
-	return dbc.CID.Bytes(), nil
-}
-func (dbc *DbCID) UnmarshalCQL(info gocql.TypeInfo, data []byte) error {
-	xcid, err := cid.Cast(data)
-	if err != nil {
-		return err
-	}
-	dbc.CID = xcid
-	return nil
 }
