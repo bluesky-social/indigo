@@ -82,6 +82,7 @@ func (c *RecordContext) fetchBlob(blob lexutil.LexBlob) ([]byte, error) {
 
 	blobDownloadCount.WithLabelValues(fmt.Sprint(resp.StatusCode)).Inc()
 	if resp.StatusCode != 200 {
+		io.Copy(io.Discard, resp.Body)
 		return nil, fmt.Errorf("failed to fetch blob from PDS. did=%s cid=%s statusCode=%d", c.Account.Identity.DID, blob.Ref, resp.StatusCode)
 	}
 
