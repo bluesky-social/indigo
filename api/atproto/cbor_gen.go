@@ -198,9 +198,13 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 12
+	fieldCount := 13
 
 	if t.Blocks == nil {
+		fieldCount--
+	}
+
+	if t.PrevData == nil {
 		fieldCount--
 	}
 
@@ -471,6 +475,25 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	if err := cbg.WriteBool(w, t.TooBig); err != nil {
 		return err
 	}
+
+	// t.PrevData (util.LexLink) (struct)
+	if t.PrevData != nil {
+
+		if len("prevData") > 1000000 {
+			return xerrors.Errorf("Value in field \"prevData\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prevData"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("prevData")); err != nil {
+			return err
+		}
+
+		if err := t.PrevData.MarshalCBOR(cw); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -499,7 +522,7 @@ func (t *SyncSubscribeRepos_Commit) UnmarshalCBOR(r io.Reader) (err error) {
 
 	n := extra
 
-	nameBuf := make([]byte, 6)
+	nameBuf := make([]byte, 8)
 	for i := uint64(0); i < n; i++ {
 		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
 		if err != nil {
@@ -771,6 +794,26 @@ func (t *SyncSubscribeRepos_Commit) UnmarshalCBOR(r io.Reader) (err error) {
 				t.TooBig = true
 			default:
 				return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
+			}
+			// t.PrevData (util.LexLink) (struct)
+		case "prevData":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.PrevData = new(util.LexLink)
+					if err := t.PrevData.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.PrevData pointer: %w", err)
+					}
+				}
+
 			}
 
 		default:
@@ -1910,8 +1953,13 @@ func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 4
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if t.Prev == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -1952,6 +2000,25 @@ func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := cw.WriteString(string(t.Path)); err != nil {
 		return err
+	}
+
+	// t.Prev (util.LexLink) (struct)
+	if t.Prev != nil {
+
+		if len("prev") > 1000000 {
+			return xerrors.Errorf("Value in field \"prev\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("prev")); err != nil {
+			return err
+		}
+
+		if err := t.Prev.MarshalCBOR(cw); err != nil {
+			return err
+		}
 	}
 
 	// t.Action (string) (string)
@@ -2050,6 +2117,26 @@ func (t *SyncSubscribeRepos_RepoOp) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Path = string(sval)
+			}
+			// t.Prev (util.LexLink) (struct)
+		case "prev":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Prev = new(util.LexLink)
+					if err := t.Prev.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Prev pointer: %w", err)
+					}
+				}
+
 			}
 			// t.Action (string) (string)
 		case "action":
