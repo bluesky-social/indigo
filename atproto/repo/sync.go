@@ -113,6 +113,7 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 		if *computed != *c {
 			return nil, fmt.Errorf("inverted tree root didn't match prevData")
 		}
+		logger.Debug("prevData matched", "prevData", c.String(), "computed", computed.String())
 	} else {
 		logger.Info("prevData was null; skipping tree root check")
 	}
