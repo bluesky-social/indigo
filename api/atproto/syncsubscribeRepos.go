@@ -29,8 +29,10 @@ type SyncSubscribeRepos_Commit struct {
 	// blocks: CAR file containing relevant blocks, as a diff since the previous repo state.
 	Blocks util.LexBytes `json:"blocks,omitempty" cborgen:"blocks,omitempty"`
 	// commit: Repo commit object CID.
-	Commit util.LexLink                 `json:"commit" cborgen:"commit"`
-	Ops    []*SyncSubscribeRepos_RepoOp `json:"ops" cborgen:"ops"`
+	Commit util.LexLink `json:"commit" cborgen:"commit"`
+	// prevData
+	PrevData *util.LexLink                `json:"prevData,omitempty" cborgen:"prevData,omitempty"`
+	Ops      []*SyncSubscribeRepos_RepoOp `json:"ops" cborgen:"ops"`
 	// prev: DEPRECATED -- unused. WARNING -- nullable and optional; stick with optional to ensure golang interoperability.
 	Prev *util.LexLink `json:"prev" cborgen:"prev"`
 	// rebase: DEPRECATED -- unused
@@ -92,7 +94,9 @@ type SyncSubscribeRepos_Migrate struct {
 type SyncSubscribeRepos_RepoOp struct {
 	Action string `json:"action" cborgen:"action"`
 	// cid: For creates and updates, the new record CID. For deletions, null.
-	Cid  *util.LexLink `json:"cid" cborgen:"cid"`
+	Cid *util.LexLink `json:"cid" cborgen:"cid"`
+	// prev
+	Prev *util.LexLink `json:"prev,omitempty" cborgen:"prev,omitempty"`
 	Path string        `json:"path" cborgen:"path"`
 }
 
