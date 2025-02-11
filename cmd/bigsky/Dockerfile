@@ -12,7 +12,9 @@ WORKDIR /dockerbuild
 # timezone data for alpine builds
 ENV GOEXPERIMENT=loopvar
 RUN GIT_VERSION=$(git describe --tags --long --always) && \
-    go build -tags timetzdata -o /bigsky ./cmd/bigsky
+    echo "replace github.com/gocql/gocql => github.com/scylladb/gocql v1.14.4" >> go.mod && \
+    go mod tidy && \
+    go build -tags timetzdata,scylla -o /bigsky ./cmd/bigsky
 
 ### Build Frontend stage
 FROM node:18-alpine as web-builder
