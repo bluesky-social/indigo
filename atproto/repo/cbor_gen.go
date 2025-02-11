@@ -25,13 +25,8 @@ func (t *Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 6
 
-	if t.Rev == "" {
-		fieldCount--
-	}
-
-	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+	if _, err := cw.Write([]byte{166}); err != nil {
 		return err
 	}
 
@@ -59,29 +54,26 @@ func (t *Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Rev (string) (string)
-	if t.Rev != "" {
+	if len("rev") > 1000000 {
+		return xerrors.Errorf("Value in field \"rev\" was too long")
+	}
 
-		if len("rev") > 1000000 {
-			return xerrors.Errorf("Value in field \"rev\" was too long")
-		}
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("rev"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("rev")); err != nil {
+		return err
+	}
 
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("rev"))); err != nil {
-			return err
-		}
-		if _, err := cw.WriteString(string("rev")); err != nil {
-			return err
-		}
+	if len(t.Rev) > 1000000 {
+		return xerrors.Errorf("Value in field t.Rev was too long")
+	}
 
-		if len(t.Rev) > 1000000 {
-			return xerrors.Errorf("Value in field t.Rev was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Rev))); err != nil {
-			return err
-		}
-		if _, err := cw.WriteString(string(t.Rev)); err != nil {
-			return err
-		}
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Rev))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Rev)); err != nil {
+		return err
 	}
 
 	// t.Sig ([]uint8) (slice)
