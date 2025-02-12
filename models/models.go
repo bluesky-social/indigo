@@ -104,7 +104,7 @@ type FollowRecord struct {
 type PDS struct {
 	gorm.Model
 
-	Host       string
+	Host       string `gorm:"unique"`
 	Did        string
 	SSL        bool
 	Cursor     int64

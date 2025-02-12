@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/golang-lru/v2/expirable"
 )
 
+// CacheDirectory is an implementation of identity.Directory with local cache of Handle and DID
 type CacheDirectory struct {
 	Inner             Directory
 	ErrTTL            time.Duration
