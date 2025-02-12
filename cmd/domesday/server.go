@@ -21,7 +21,8 @@ import (
 )
 
 type Server struct {
-	dir    identity.Directory
+	//dir    identity.Directory
+	dir    *identity.BaseDirectory
 	echo   *echo.Echo
 	httpd  *http.Server
 	logger *slog.Logger
@@ -69,9 +70,12 @@ func NewServer(config Config) (*Server, error) {
 		httpMaxHeaderBytes = 1 * (1024 * 1024)
 	)
 
+	// XXX
+	_ = dir
 	srv := &Server{
-		echo: e,
-		dir:  identity.DefaultDirectory(),
+		echo:   e,
+		dir:    &identity.BaseDirectory{},
+		logger: logger,
 	}
 	srv.httpd = &http.Server{
 		Handler:        srv,
@@ -101,12 +105,7 @@ func NewServer(config Config) (*Server, error) {
 	e.GET("/xrpc/com.atproto.identity.resolveIdentity", srv.ResolveIdentity)
 	e.POST("/xrpc/com.atproto.identity.refreshIdentity", srv.RefreshIdentity)
 
-	s := &Server{
-		dir:    dir,
-		logger: logger,
-	}
-
-	return s, nil
+	return srv, nil
 }
 
 func (srv *Server) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
