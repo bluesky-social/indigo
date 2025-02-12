@@ -36,12 +36,8 @@ func runResolve(cctx *cli.Context) error {
 		return err
 	}
 	dir := identity.BaseDirectory{}
+	// TODO: could output map[string]any instead
 	var doc *identity.DIDDocument
-
-	if cctx.Bool("did") {
-		if atid.IsDID() {
-		}
-	}
 
 	if atid.IsDID() {
 		did, err := atid.AsDID()
@@ -52,7 +48,7 @@ func runResolve(cctx *cli.Context) error {
 			fmt.Println(did)
 			return nil
 		}
-		doc, err = dir.ResolveDID(ctx, did)
+		doc, err = dir.ResolveDIDDoc(ctx, did)
 		if err != nil {
 			return err
 		}
@@ -69,7 +65,7 @@ func runResolve(cctx *cli.Context) error {
 			fmt.Println(did)
 			return nil
 		}
-		doc, err = dir.ResolveDID(ctx, did)
+		doc, err = dir.ResolveDIDDoc(ctx, did)
 		if err != nil {
 			return err
 		}
