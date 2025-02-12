@@ -27,8 +27,7 @@ func (srv *Server) ResolveHandle(c echo.Context) error {
 		})
 	}
 
-	// XXX: ResolveHandle() on identity
-	ident, err := srv.dir.LookupHandle(ctx, hdl)
+	did, err := srv.dir.ResolveHandle(ctx, hdl)
 	if err != nil && false { // XXX: is ErrNotFound; other errors?
 		return c.JSON(404, GenericError{
 			Error:   "HandleNotFound",
@@ -41,7 +40,7 @@ func (srv *Server) ResolveHandle(c echo.Context) error {
 		})
 	}
 	return c.JSON(200, comatproto.IdentityResolveHandle_Output{
-		Did: ident.DID.String(),
+		Did: did.String(),
 	})
 }
 
@@ -57,7 +56,7 @@ func (srv *Server) ResolveDid(c echo.Context) error {
 	}
 
 	// XXX: ResolveDID() on identity?
-	ident, err := srv.dir.LookupDID(ctx, did)
+	doc, err := srv.dir.ResolveDID(ctx, did)
 	if err != nil && false { // XXX: is ErrNotFound; other errors?
 		return c.JSON(404, GenericError{
 			Error:   "DidNotFound",
@@ -70,7 +69,7 @@ func (srv *Server) ResolveDid(c echo.Context) error {
 		})
 	}
 	return c.JSON(200, comatproto.IdentityResolveDid_Output{
-		DidDoc: ident.DIDDocument(), // XXX
+		DidDoc: doc,
 	})
 }
 
@@ -99,10 +98,14 @@ func (srv *Server) ResolveIdentity(c echo.Context) error {
 		})
 	}
 	handle := ident.Handle.String()
+	doc, err := srv.dir.ResolveDID(ctx, ident.DID)
+	if err != nil {
+		return err
+	}
 	return c.JSON(200, comatproto.IdentityDefs_AtprotoIdentity{
 		Did:    ident.DID.String(),
 		Handle: &handle,
-		DidDoc: ident.DIDDocument(), // XXX
+		DidDoc: doc,
 	})
 }
 

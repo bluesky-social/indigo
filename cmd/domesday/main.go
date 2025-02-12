@@ -116,6 +116,7 @@ var serveCmd = &cli.Command{
 				Logger:       logger,
 				FirehoseHost: cctx.String("atp-relay-host"),
 				RedisURL:     cctx.String("redis-url"),
+				Bind:         cctx.String("bind"),
 			},
 		)
 		if err != nil {
