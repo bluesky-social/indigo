@@ -199,7 +199,7 @@ func (n *Node) writeBlocks(ctx context.Context, bs blockstore.Blockstore, onlyDi
 	return c, nil
 }
 
-func loadNodeFromStore(ctx context.Context, bs blockstore.Blockstore, ref cid.Cid) (*Node, error) {
+func loadNodeFromStore(ctx context.Context, bs MSTBlockSource, ref cid.Cid) (*Node, error) {
 	block, err := bs.Get(ctx, ref)
 	if err != nil {
 		return nil, err
