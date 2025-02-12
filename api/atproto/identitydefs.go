@@ -8,7 +8,8 @@ package atproto
 type IdentityDefs_AtprotoIdentity struct {
 	Did string `json:"did" cborgen:"did"`
 	// didDoc: The complete DID document for the identity.
-	DidDoc *interface{} `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
+	// TODO: manually make this 'interface{}' instead of '*interface{}'
+	DidDoc interface{} `json:"didDoc,omitempty" cborgen:"didDoc,omitempty"`
 	// handle: The validated handle of the account; or 'handle.invalid' if the handle did not bi-directionally match the DID document.
 	Handle *string `json:"handle,omitempty" cborgen:"handle,omitempty"`
 	// tombstoned: If true, the DID has been deleted, and the other optional fields (eg, handle and didDoc) should be null.
