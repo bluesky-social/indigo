@@ -413,6 +413,7 @@ func (cs *collectionServer) StartApiServer(ctx context.Context, addr string) err
 
 	e.GET("/_health", cs.healthz)
 
+	e.GET("/xrpc/com.atproto.sync.listReposByCollection", cs.getDidsForCollection)
 	e.GET("/v1/getDidsForCollection", cs.getDidsForCollection)
 	e.GET("/v1/listCollections", cs.listCollections)
 
@@ -434,11 +435,6 @@ func (cs *collectionServer) StartApiServer(ctx context.Context, addr string) err
 
 const statsCacheDuration = time.Second * 300
 
-type GetDidsForCollectionResponse struct {
-	Dids   []string `json:"dids"`
-	Cursor string   `json:"cursor"`
-}
-
 func getLimit(c echo.Context, min, defaultLim, max int) int {
 	limstr := c.QueryParam("limit")
 	if limstr == "" {
@@ -458,6 +454,7 @@ func getLimit(c echo.Context, min, defaultLim, max int) int {
 	return lv
 }
 
+// /xrpc/com.atproto.sync.listReposByCollection?collection={}&cursor={}&limit={50<=N<=1000}
 // /v1/getDidsForCollection?collection={}&cursor={}&limit={50<=N<=1000}
 //
 // returns
@@ -470,19 +467,21 @@ func (cs *collectionServer) getDidsForCollection(c echo.Context) error {
 		return c.String(http.StatusBadRequest, fmt.Sprintf("bad collection nsid, %s", err.Error()))
 	}
 	cursor := c.QueryParam("cursor")
-	limit := getLimit(c, 50, 500, 1000)
+	limit := getLimit(c, 1, 500, 10_000)
 	they, nextCursor, err := cs.pcd.ReadCollection(ctx, collection, cursor, limit)
 	if err != nil {
 		slog.Error("ReadCollection", "collection", collection, "cursor", cursor, "limit", limit, "err", err)
 		return c.String(http.StatusInternalServerError, "oops")
 	}
 	cs.log.Info("getDidsForCollection", "collection", collection, "cursor", cursor, "limit", limit, "count", len(they), "nextCursor", nextCursor)
-	var out GetDidsForCollectionResponse
-	out.Dids = make([]string, len(they))
+	var out comatproto.SyncListReposByCollection_Output
+	out.Repos = make([]*comatproto.SyncListReposByCollection_Repo, len(they))
 	for i, rec := range they {
-		out.Dids[i] = rec.Did
+		out.Repos[i] = &comatproto.SyncListReposByCollection_Repo{Did: rec.Did}
 	}
-	out.Cursor = nextCursor
+	if nextCursor != "" {
+		out.Cursor = &nextCursor
+	}
 	return c.JSON(http.StatusOK, out)
 }
 
