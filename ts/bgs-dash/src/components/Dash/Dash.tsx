@@ -1,4 +1,7 @@
 import {
+  ChevronDoubleLeftIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   MagnifyingGlassIcon,
   ShieldCheckIcon,
   ShieldExclamationIcon,
@@ -35,6 +38,8 @@ const Dash: FC<{}> = () => {
   const [fullPDSList, setFullPDSList] = useState<PDS[] | null>(null);
   const [sortField, setSortField] = useState<PDSKey>("ID");
   const [sortOrder, setSortOrder] = useState<string>("asc");
+  const [pageNum, setPageNum] = useState<number>(1);
+  const pageSize = 30;
 
   // Slurp Toggle Management
   const [slurpsEnabled, setSlurpsEnabled] = useState<boolean>(true);
@@ -467,12 +472,12 @@ const Dash: FC<{}> = () => {
     refreshPDSList();
     getSlurpsEnabled();
     getNewPDSRateLimit();
-    // Refresh stats every 10 seconds
+    // Refresh stats every 60 seconds
     const interval = setInterval(() => {
       refreshPDSList();
       getSlurpsEnabled();
       getNewPDSRateLimit();
-    }, 10 * 1000);
+    }, 60 * 1000);
 
     return () => clearInterval(interval);
   }, [sortField, sortOrder]);
@@ -598,6 +603,7 @@ const Dash: FC<{}> = () => {
               type="search"
               onChange={(e) => {
                 setSearchTerm(e.target.value);
+                setPageNum(1);
               }}
               value={searchTerm || ""}
             />
@@ -896,7 +902,10 @@ const Dash: FC<{}> = () => {
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {pdsList &&
-                pdsList.map((pds) => {
+                pdsList.map((pds, idx) => {
+                  if (idx < (pageNum - 1) * pageSize || idx >= pageNum * pageSize) {
+                    return null;
+                  }
                   return (
                     <tr key={pds.ID}>
                       <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6 text-left">
@@ -1290,6 +1299,100 @@ const Dash: FC<{}> = () => {
             </tbody>
           </table>
         </div>
+        {pdsList && pdsList.length > pageSize && (
+          <div className="mt-4 flex-1 flex justify-between sm:justify-end">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => {
+                  if (pageNum > 1) {
+                    setPageNum(pageNum - 1);
+                  }
+                }}
+                disabled={pageNum <= 1}
+                className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm cursor-pointer"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => {
+                  if (pageNum < Math.ceil(pdsList.length / pageSize)) {
+                    setPageNum(pageNum + 1);
+                  }
+                }}
+                disabled={pageNum >= Math.ceil(pdsList.length / pageSize)}
+                className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm cursor-pointer"
+              >
+                Next
+              </button>
+            </div>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing
+                  <span className="font-medium"> {1 + (pageNum - 1) * pageSize} </span>
+                  to
+                  <span className="font-medium"> {Math.min(pageNum * pageSize, pdsList.length)} </span>
+                  of
+                  <span className="font-medium"> {pdsList.length} </span>
+                  results
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button
+                    onClick={() => setPageNum(1)}
+                    disabled={pageNum <= 1}
+                    className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 cursor-pointer"
+                  >
+                    <span className="sr-only">First</span>
+                    <ChevronDoubleLeftIcon className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (pageNum > 1) {
+                        setPageNum(pageNum - 1);
+                      }
+                    }}
+                    disabled={pageNum <= 1}
+                    className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 cursor-pointer"
+                  >
+                    <span className="sr-only">Previous</span>
+                    <ChevronLeftIcon className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                  {Array.from({ length: Math.ceil(pdsList.length / pageSize) }, (_, i) => i + 1).map((page) => (
+                    // Skip buttons more than 5 pages away from the current page
+                    Math.abs(page - pageNum) > 5 ? null : (
+                      <button
+                        key={page}
+                        onClick={() => setPageNum(page)}
+                        className={classNames(
+                          page === pageNum
+                            ? "z-10 bg-indigo-50 border-indigo-500 text-indigo-600"
+                            : "bg-white border-gray-300 text-gray-500",
+                          "relative inline-flex items-center px-4 py-2 text-sm font-medium border cursor-pointer"
+                        )}
+                      >
+                        {page}
+                      </button>
+                    )
+                  ))}
+                  <button
+                    onClick={() => {
+                      if (pageNum < Math.ceil(pdsList.length / pageSize)) {
+                        setPageNum(pageNum + 1);
+                      }
+                    }}
+                    disabled={pageNum >= Math.ceil(pdsList.length / pageSize)}
+                    className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 cursor-pointer"
+                  >
+                    <span className="sr-only">Next</span>
+                    <ChevronRightIcon className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       {
         modalAction && (
