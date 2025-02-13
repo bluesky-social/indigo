@@ -1299,8 +1299,7 @@ const Dash: FC<{}> = () => {
             </tbody>
           </table>
         </div>
-        {pdsList && pdsList!.length > pageSize && (
-
+        {pdsList && pdsList.length > pageSize && (
           <div className="mt-4 flex-1 flex justify-between sm:justify-end">
             <div className="flex-1 flex justify-between sm:hidden">
               <button
@@ -1316,11 +1315,11 @@ const Dash: FC<{}> = () => {
               </button>
               <button
                 onClick={() => {
-                  if (pageNum < Math.ceil(pdsList!.length / pageSize)) {
+                  if (pageNum < Math.ceil(pdsList.length / pageSize)) {
                     setPageNum(pageNum + 1);
                   }
                 }}
-                disabled={pageNum >= Math.ceil(pdsList!.length / pageSize)}
+                disabled={pageNum >= Math.ceil(pdsList.length / pageSize)}
                 className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm cursor-pointer"
               >
                 Next
@@ -1332,9 +1331,9 @@ const Dash: FC<{}> = () => {
                   Showing
                   <span className="font-medium"> {1 + (pageNum - 1) * pageSize} </span>
                   to
-                  <span className="font-medium"> {Math.min(pageNum * pageSize, pdsList!.length)} </span>
+                  <span className="font-medium"> {Math.min(pageNum * pageSize, pdsList.length)} </span>
                   of
-                  <span className="font-medium"> {pdsList!.length} </span>
+                  <span className="font-medium"> {pdsList.length} </span>
                   results
                 </p>
               </div>
