@@ -595,7 +595,7 @@ func SetupRelay(ctx context.Context, didr plc.PLCClient, archive bool) (*TestRel
 	tr := &api.TestHandleResolver{}
 
 	bgsConfig := bgs.DefaultBGSConfig()
-	bgsConfig.SSL = false
+	bgsConfig.SSL = bgs.SlurperDisableSSL
 	b, err := bgs.NewBGS(maindb, ix, repoman, evtman, didr, rf, tr, bgsConfig)
 	if err != nil {
 		return nil, err
