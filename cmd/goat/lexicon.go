@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,14 +15,14 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var cmdLex = &cli.Command{
 	Name:  "lex",
 	Usage: "sub-commands for Lexicons",
 	Flags: []cli.Flag{},
-	Subcommands: []*cli.Command{
+	Commands: []*cli.Command{
 		&cli.Command{
 			Name:      "resolve",
 			Usage:     "lookup a schema for an NSID",
@@ -102,11 +103,11 @@ func loadSchemaFile(p string) (map[string]any, error) {
 	return d, nil
 }
 
-func runLexParse(cctx *cli.Context) error {
-	if cctx.Args().Len() <= 0 {
+func runLexParse(ctx context.Context, cmd *cli.Command) error {
+	if cmd.Args().Len() <= 0 {
 		return fmt.Errorf("require at least one path to parse")
 	}
-	for _, path := range cctx.Args().Slice() {
+	for _, path := range cmd.Args().Slice() {
 		_, err := loadSchemaFile(path)
 		if err != nil {
 			return fmt.Errorf("failed to parse %s: %w", path, err)
@@ -116,12 +117,11 @@ func runLexParse(cctx *cli.Context) error {
 	return nil
 }
 
-func runLexPublish(cctx *cli.Context) error {
-	if cctx.Args().Len() <= 0 {
+func runLexPublish(ctx context.Context, cmd *cli.Command) error {
+	if cmd.Args().Len() <= 0 {
 		return fmt.Errorf("require at least one path to publish")
 	}
 
-	ctx := cctx.Context
 	xrpcc, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
 		return fmt.Errorf("auth required, but not logged in")
@@ -131,7 +131,7 @@ func runLexPublish(cctx *cli.Context) error {
 
 	validateFlag := false
 
-	for _, path := range cctx.Args().Slice() {
+	for _, path := range cmd.Args().Slice() {
 		recordVal, err := loadSchemaFile(path)
 		if err != nil {
 			return fmt.Errorf("failed to parse %s: %w", path, err)
@@ -168,9 +168,8 @@ func runLexPublish(cctx *cli.Context) error {
 	return nil
 }
 
-func runLexResolve(cctx *cli.Context) error {
-	ctx := cctx.Context
-	raw := cctx.Args().First()
+func runLexResolve(ctx context.Context, cmd *cli.Command) error {
+	raw := cmd.Args().First()
 	if raw == "" {
 		return fmt.Errorf("NSID argument is required")
 	}
@@ -182,7 +181,7 @@ func runLexResolve(cctx *cli.Context) error {
 	}
 
 	dir := identity.BaseDirectory{}
-	if cctx.Bool("did") {
+	if cmd.Bool("did") {
 		did, err := dir.ResolveNSID(ctx, nsid)
 		if err != nil {
 			return err
@@ -205,9 +204,8 @@ func runLexResolve(cctx *cli.Context) error {
 	return nil
 }
 
-func runLexList(cctx *cli.Context) error {
-	ctx := cctx.Context
-	raw := cctx.Args().First()
+func runLexList(ctx context.Context, cmd *cli.Command) error {
+	raw := cmd.Args().First()
 	if raw == "" {
 		return fmt.Errorf("NSID argument is required")
 	}
@@ -270,9 +268,8 @@ func runLexList(cctx *cli.Context) error {
 	return nil
 }
 
-func runLexValidate(cctx *cli.Context) error {
-	ctx := cctx.Context
-	ref := cctx.Args().First()
+func runLexValidate(ctx context.Context, cmd *cli.Command) error {
+	ref := cmd.Args().First()
 	if ref == "" {
 		return fmt.Errorf("URI or file path argument is required")
 	}
@@ -283,13 +280,13 @@ func runLexValidate(cctx *cli.Context) error {
 	cat := lexicon.NewResolvingCatalog()
 
 	var flags lexicon.ValidateFlags = 0
-	if cctx.Bool("allow-legacy-blob") {
+	if cmd.Bool("allow-legacy-blob") {
 		flags |= lexicon.AllowLegacyBlob
 	}
 
-	if cctx.String("catalog") != "" {
-		fmt.Printf("loading catalog directory: %s\n", cctx.String("catalog"))
-		if err := cat.Base.LoadDirectory(cctx.String("catalog")); err != nil {
+	if cmd.String("catalog") != "" {
+		fmt.Printf("loading catalog directory: %s\n", cmd.String("catalog"))
+		if err := cat.Base.LoadDirectory(cmd.String("catalog")); err != nil {
 			return err
 		}
 	}

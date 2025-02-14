@@ -1,13 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	_ "github.com/joho/godotenv/autoload"
 
 	"github.com/carlmjohnson/versioninfo"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func main() {
@@ -19,7 +20,7 @@ func main() {
 
 func run(args []string) error {
 
-	app := cli.App{
+	app := cli.Command{
 		Name:    "goat",
 		Usage:   "Go AT protocol CLI tool",
 		Version: versioninfo.Short(),
@@ -40,5 +41,5 @@ func run(args []string) error {
 		cmdCrypto,
 		cmdPds,
 	}
-	return app.Run(args)
+	return app.Run(context.Background(), args)
 }
