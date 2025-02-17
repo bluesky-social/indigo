@@ -16,7 +16,7 @@ type Commit struct {
 	Prev    *cid.Cid `json:"prev" cborgen:"prev"`       // NOTE: omitempty would break signature verification for repo v3
 	Data    cid.Cid  `json:"data" cborgen:"data"`
 	Sig     []byte   `json:"sig,omitempty" cborgen:"sig,omitempty"`
-	Rev     string   `json:"rev" cborgen:"rev"`
+	Rev     string   `json:"rev,omitempty" cborgen:"rev,omitempty"`
 }
 
 // basic checks that field syntax is correct
