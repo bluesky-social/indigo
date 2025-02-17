@@ -15,7 +15,7 @@ import (
 // key: key or path being inserted. must not be empty/nil
 // val: CID value being inserted
 // height: tree height to insert at, derived from key. if a negative value is provided, will be computed; use -1 instead of 0 if height is not known
-func nodeInsert(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, error) {
+func (n *Node) insert(key []byte, val cid.Cid, height int) (*Node, *cid.Cid, error) {
 	if n.Stub {
 		return nil, nil, ErrPartialTree
 	}
@@ -29,16 +29,16 @@ func nodeInsert(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, 
 
 	for height > n.Height {
 		// if the new key is higher in the tree; will need to add a parent node, which may involve splitting this current node
-		return insertParent(n, key, val, height)
+		return n.insertParent(key, val, height)
 	}
 
 	// if key is lower on the tree, we need to descend first
 	if height < n.Height {
-		return insertChild(n, key, val, height)
+		return n.insertChild(key, val, height)
 	}
 
 	// look for existing key
-	idx := findExistingEntry(n, key)
+	idx := n.findExistingEntry(key)
 	if idx >= 0 {
 		e := n.Entries[idx]
 		if *e.Value == val {
@@ -54,7 +54,7 @@ func nodeInsert(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, 
 	}
 
 	// insert new entry to this node
-	idx, split, err := findInsertionIndex(n, key)
+	idx, split, err := n.findInsertionIndex(key)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -77,7 +77,7 @@ func nodeInsert(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, 
 
 	// we need to split
 	e := n.Entries[idx]
-	left, right, err := splitNode(e.Child, key)
+	left, right, err := e.Child.split(key)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -93,7 +93,7 @@ func nodeInsert(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, 
 	return n, nil, nil
 }
 
-func splitNodeEntries(n *Node, idx int) (*Node, *Node, error) {
+func (n *Node) splitEntries(idx int) (*Node, *Node, error) {
 	if idx == 0 || idx >= len(n.Entries) {
 		return nil, nil, fmt.Errorf("splitting at one end or the other of entries")
 	}
@@ -114,24 +114,24 @@ func splitNodeEntries(n *Node, idx int) (*Node, *Node, error) {
 	return &left, &right, nil
 }
 
-func splitNode(n *Node, key []byte) (*Node, *Node, error) {
+func (n *Node) split(key []byte) (*Node, *Node, error) {
 	if n.IsEmpty() {
 		// TODO: this feels defensive and could be removed
 		return nil, nil, fmt.Errorf("tried to split an empty node")
 	}
 
-	idx, split, err := findInsertionIndex(n, key)
+	idx, split, err := n.findInsertionIndex(key)
 	if err != nil {
 		return nil, nil, err
 	}
 	if !split {
 		// simple split based on values
-		return splitNodeEntries(n, idx)
+		return n.splitEntries(idx)
 	}
 
 	// need to split recursively
 	e := n.Entries[idx]
-	lowerLeft, lowerRight, err := splitNode(e.Child, key)
+	lowerLeft, lowerRight, err := e.Child.split(key)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -154,7 +154,7 @@ func splitNode(n *Node, key []byte) (*Node, *Node, error) {
 }
 
 // inserts a node "above" this node in tree, possibly splitting the current node
-func insertParent(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, error) {
+func (n *Node) insertParent(key []byte, val cid.Cid, height int) (*Node, *cid.Cid, error) {
 	var parent *Node
 	if n.IsEmpty() {
 		// if current node is empty, just replace directly with current height
@@ -174,19 +174,19 @@ func insertParent(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid
 		}
 	}
 	// regular insertion will handle any necessary "split"
-	return nodeInsert(parent, key, val, height)
+	return parent.insert(key, val, height)
 }
 
 // inserts a node "below" this node in tree; either creating a new child entry or re-using an existing one
-func insertChild(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid, error) {
+func (n *Node) insertChild(key []byte, val cid.Cid, height int) (*Node, *cid.Cid, error) {
 	// look for an existing child node which encompasses the key, and use that
-	idx := findExistingChild(n, key)
+	idx := n.findExistingChild(key)
 	if idx >= 0 {
 		e := n.Entries[idx]
 		if e.Child == nil {
 			return nil, nil, fmt.Errorf("could not insert key: %w", ErrPartialTree)
 		}
-		newChild, prev, err := nodeInsert(e.Child, key, val, height)
+		newChild, prev, err := e.Child.insert(key, val, height)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -201,7 +201,7 @@ func insertChild(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid,
 	}
 
 	// insert a new child node. this might be recursive if the child is not a *direct* child
-	idx, split, err := findInsertionIndex(n, key)
+	idx, split, err := n.findInsertionIndex(key)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -213,7 +213,7 @@ func insertChild(n *Node, key []byte, val cid.Cid, height int) (*Node, *cid.Cid,
 		Height: n.Height - 1,
 		Dirty:  true,
 	}
-	newChild, _, err = nodeInsert(newChild, key, val, height)
+	newChild, _, err = newChild.insert(key, val, height)
 	if err != nil {
 		return nil, nil, err
 	}

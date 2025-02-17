@@ -44,7 +44,7 @@ func (t *Tree) Insert(key []byte, val cid.Cid) (*cid.Cid, error) {
 	if !IsValidKey(key) {
 		return nil, ErrInvalidKey
 	}
-	out, prev, err := nodeInsert(t.Root, key, val, -1)
+	out, prev, err := t.Root.insert(key, val, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func (t *Tree) Remove(key []byte) (*cid.Cid, error) {
 	if !IsValidKey(key) {
 		return nil, ErrInvalidKey
 	}
-	out, prev, err := nodeRemove(t.Root, key, -1)
+	out, prev, err := t.Root.remove(key, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (t *Tree) Get(key []byte) (*cid.Cid, error) {
 	if !IsValidKey(key) {
 		return nil, ErrInvalidKey
 	}
-	return nodeGet(t.Root, key, -1)
+	return t.Root.getCID(key, -1)
 }
 
 // Creates a new Tree by loading key/value pairs from a map.
@@ -105,7 +105,7 @@ func (t *Tree) WriteToMap(m map[string]cid.Cid) error {
 	if t.Root == nil {
 		return fmt.Errorf("empty tree root")
 	}
-	return writeNodeToMap(t.Root, m)
+	return t.Root.writeToMap(m)
 }
 
 // Returns the overall root-node CID for the MST.
@@ -139,7 +139,7 @@ func (t *Tree) IsPartial() bool {
 // Creates a deep copy of MST
 func (t *Tree) Copy() Tree {
 	return Tree{
-		Root: copyNode(t.Root),
+		Root: t.Root.deepCopy(),
 	}
 }
 
