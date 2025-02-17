@@ -62,9 +62,10 @@ func LoadFromCAR(ctx context.Context, r io.Reader) (*Repo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading MST from CAR file: %w", err)
 	}
+	clk := syntax.ClockFromTID(syntax.TID(commit.Rev))
 	repo := Repo{
-		DID:         syntax.DID(commit.DID), // VerifyStructure() verified syntax
-		Clock:       syntax.NewTIDClock(0),  // TODO: initialize with commit.Rev
+		DID:         syntax.DID(commit.DID), // NOTE: VerifyStructure() already checked DID syntax
+		Clock:       &clk,
 		Commit:      &commit,
 		MST:         *tree,
 		RecordStore: bs, // TODO: put just records in a smaller blockstore?
