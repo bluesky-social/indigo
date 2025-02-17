@@ -74,7 +74,7 @@ func (e *NodeEntry) IsChild() bool {
 }
 
 // creates a deep/recursive copy of the sub-tree
-func copyNode(n *Node) *Node {
+func (n *Node) deepCopy() *Node {
 	out := Node{
 		Entries: make([]NodeEntry, len(n.Entries)),
 		Height:  n.Height,
@@ -90,7 +90,7 @@ func copyNode(n *Node) *Node {
 			Dirty:    e.Dirty,
 		}
 		if e.Child != nil {
-			out.Entries[i].Child = copyNode(e.Child)
+			out.Entries[i].Child = e.Child.deepCopy()
 		}
 	}
 	return &out
@@ -98,7 +98,7 @@ func copyNode(n *Node) *Node {
 
 // Looks for a "value" entry in the node with the exact key.
 // Returns entry index if a matching entry is found; or -1 if not found
-func findExistingEntry(n *Node, key []byte) int {
+func (n *Node) findExistingEntry(key []byte) int {
 	for i, e := range n.Entries {
 		// TODO perf: could skip early if e.Key is lower
 		if e.IsValue() && bytes.Equal(key, e.Key) {
@@ -111,7 +111,7 @@ func findExistingEntry(n *Node, key []byte) int {
 // Looks for a "child" entry which the key would live under.
 //
 // Returns -1 if not found.
-func findExistingChild(n *Node, key []byte) int {
+func (n *Node) findExistingChild(key []byte) int {
 	idx := -1
 	for i, e := range n.Entries {
 		if e.IsChild() {
@@ -133,7 +133,7 @@ func findExistingChild(n *Node, key []byte) int {
 // If the key would "split" an existing child entry, the index of that entry is returned, and a flag set
 //
 // If the entry would be appended, then the index returned will be one higher that the current largest index.
-func findInsertionIndex(n *Node, key []byte) (idx int, split bool, retErr error) {
+func (n *Node) findInsertionIndex(key []byte) (idx int, split bool, retErr error) {
 	if n.Stub {
 		return -1, false, fmt.Errorf("partial MST, can't determine insertion order")
 	}
@@ -154,7 +154,7 @@ func findInsertionIndex(n *Node, key []byte) (idx int, split bool, retErr error)
 			if e.Child == nil {
 				return -1, false, fmt.Errorf("partial MST, can't determine insertion order")
 			}
-			order, err := nodeCompareKey(e.Child, key, false)
+			order, err := e.Child.compareKey(key, false)
 			if err != nil {
 				return -1, false, err
 			}
@@ -178,7 +178,7 @@ func findInsertionIndex(n *Node, key []byte) (idx int, split bool, retErr error)
 // Compares a provided `key` against the overall range of keys represented by a `Node`. Returns -1 if the key sorts lower than all keys (recursively) covered by the Node; 1 if higher, and 0 if the key falls within Node's key range.
 //
 // If the `markDirty` flag is true, then this method will set the Dirty flag on this node, and any child nodes which were needed to "prove" the key order. This can be used to mark nodes for inclusion in invertible MST diffs.
-func nodeCompareKey(n *Node, key []byte, markDirty bool) (int, error) {
+func (n *Node) compareKey(key []byte, markDirty bool) (int, error) {
 	if n.Stub {
 		return -1, ErrPartialTree
 	}
@@ -215,7 +215,7 @@ func nodeCompareKey(n *Node, key []byte, markDirty bool) (int, error) {
 			if e.Child == nil {
 				return 0, fmt.Errorf("%w: can't compare key order recursively", ErrPartialTree)
 			}
-			order, err := nodeCompareKey(e.Child, key, markDirty)
+			order, err := e.Child.compareKey(key, markDirty)
 			if err != nil {
 				return 0, err
 			}
@@ -233,7 +233,8 @@ func nodeCompareKey(n *Node, key []byte, markDirty bool) (int, error) {
 	return 0, nil
 }
 
-func writeNodeToMap(n *Node, m map[string]cid.Cid) error {
+// helper function, mostly for testing or development, which redusively inserts key/CID pairs into a `map[string]cid.Cid
+func (n *Node) writeToMap(m map[string]cid.Cid) error {
 	if m == nil {
 		return fmt.Errorf("un-initialized map as an argument")
 	}
@@ -245,7 +246,7 @@ func writeNodeToMap(n *Node, m map[string]cid.Cid) error {
 			m[string(e.Key)] = *e.Value
 		}
 		if e.Child != nil {
-			if err := writeNodeToMap(e.Child, m); err != nil {
+			if err := e.Child.writeToMap(m); err != nil {
 				return fmt.Errorf("failed to export MST structure as map: %w", err)
 			}
 		}
@@ -258,7 +259,7 @@ func writeNodeToMap(n *Node, m map[string]cid.Cid) error {
 // n: Node at top of sub-tree to operate on. Must not be nil.
 // key: key or path being inserted. must not be empty/nil
 // height: tree height corresponding to key. if a negative value is provided, will be computed; use -1 instead of 0 if height is not known
-func nodeGet(n *Node, key []byte, height int) (*cid.Cid, error) {
+func (n *Node) getCID(key []byte, height int) (*cid.Cid, error) {
 	if n.Stub {
 		return nil, ErrPartialTree
 	}
@@ -273,19 +274,19 @@ func nodeGet(n *Node, key []byte, height int) (*cid.Cid, error) {
 
 	if height < n.Height {
 		// look for a child node
-		idx := findExistingChild(n, key)
+		idx := n.findExistingChild(key)
 		if idx >= 0 {
 			if n.Entries[idx].Child == nil {
 				return nil, fmt.Errorf("could not search for key: %w", ErrPartialTree)
 			}
-			return nodeGet(n.Entries[idx].Child, key, height)
+			return n.Entries[idx].Child.getCID(key, height)
 		}
 		// otherwise, not found
 		return nil, nil
 	}
 
 	// search at this height
-	idx := findExistingEntry(n, key)
+	idx := n.findExistingEntry(key)
 	if idx >= 0 {
 		return n.Entries[idx].Value, nil
 	}

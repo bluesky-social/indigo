@@ -130,7 +130,7 @@ func (d *NodeData) Node(c *cid.Cid) Node {
 }
 
 // TODO: this feels like a hack, and easy to forget
-func nodeEnsureHeights(n *Node) {
+func (n *Node) ensureHeights() {
 	if n.Height <= 0 {
 		return
 	}
@@ -139,7 +139,7 @@ func nodeEnsureHeights(n *Node) {
 			if n.Height > 0 && e.Child.Height < 0 {
 				e.Child.Height = n.Height - 1
 			}
-			nodeEnsureHeights(e.Child)
+			e.Child.ensureHeights()
 		}
 	}
 }
@@ -150,7 +150,7 @@ func nodeEnsureHeights(n *Node) {
 //
 // bs: is an optional blockstore; if it is nil, blocks will not be written.
 // onlyDirty: is an optional blockstore; if it is nil, blocks will not be written.
-func writeNodeBlocks(ctx context.Context, n *Node, bs blockstore.Blockstore, onlyDirty bool) (*cid.Cid, error) {
+func (n *Node) writeBlocks(ctx context.Context, bs blockstore.Blockstore, onlyDirty bool) (*cid.Cid, error) {
 	if n == nil || n.Stub {
 		return nil, fmt.Errorf("%w: nil tree node", ErrInvalidTree)
 	}
@@ -168,7 +168,7 @@ func writeNodeBlocks(ctx context.Context, n *Node, bs blockstore.Blockstore, onl
 			continue
 		}
 		if e.Child != nil && (e.Dirty || e.Child.Dirty || !onlyDirty) {
-			cc, err := writeNodeBlocks(ctx, e.Child, bs, onlyDirty)
+			cc, err := e.Child.writeBlocks(ctx, bs, onlyDirty)
 			if err != nil {
 				return nil, err
 			}
