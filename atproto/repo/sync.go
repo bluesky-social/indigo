@@ -7,14 +7,19 @@ import (
 	"log/slog"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/repo/mst"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/ipfs/go-cid"
 )
 
+type CommitVerifier interface {
+	VerifyCommit(ctx context.Context, commit *Commit) error
+}
+
 // temporary/experimental method to parse and verify a firehose commit message
-func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos_Commit) (*Repo, error) {
+func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos_Commit, verifier CommitVerifier) (*Repo, error) {
 
 	logger := slog.Default().With("did", msg.Repo, "rev", msg.Rev, "seq", msg.Seq, "time", msg.Time)
 
@@ -48,6 +53,13 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 	}
 	if commit.DID != did.String() {
 		return nil, fmt.Errorf("rev did not match commit")
+	}
+
+	if verifier != nil {
+		err = verifier.VerifyCommit(ctx, commit)
+		if err != nil {
+			return nil, err
+		}
 	}
 	// TODO: check that commit CID matches root? re-compute?
 
@@ -162,4 +174,41 @@ func ParseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]mst.Operatio
 		}
 	}
 	return out, nil
+}
+
+// DidDirectory the part of identity.Directory that we need
+type DidDirectory interface {
+	LookupDID(ctx context.Context, d syntax.DID) (*identity.Identity, error)
+}
+
+type basicCommitVerifier struct {
+	directory DidDirectory
+}
+
+func (cv *basicCommitVerifier) VerifyCommit(ctx context.Context, commit *Commit) error {
+	xdid, err := syntax.ParseDID(commit.DID)
+	if err != nil {
+		return fmt.Errorf("bad car DID, %w", err)
+	}
+	ident, err := cv.directory.LookupDID(ctx, xdid)
+	if err != nil {
+		// TODO: optionally allow not-found conditions to pass without signature check
+		return fmt.Errorf("DID lookup failed, %w", err)
+	}
+	pk, err := ident.GetPublicKey("atproto")
+	if err != nil {
+		return fmt.Errorf("no atproto pubkey, %w", err)
+	}
+	err = commit.VerifySignature(pk)
+	if err != nil {
+		// TODO: if the DID document was stale, force re-fetch from source and re-try if pubkey has changed
+		return fmt.Errorf("invalid signature, %w", err)
+	}
+	return nil
+}
+
+// NewBasicCommitVerifier creates a CommitVerifier which validates commit signatures using the atproto pubkey found in the DidDirectory ( aka identity.Directory )
+// basicCommitVerifier.VerifyCommit() should probably be copy-paste extended by application code with more complex policies about signature verification, timeouts, retries, missing data, etc.
+func NewBasicCommitVerifier(directory DidDirectory) CommitVerifier {
+	return &basicCommitVerifier{directory: directory}
 }
