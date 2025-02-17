@@ -1,8 +1,10 @@
 package repo
 
 import (
+	"bytes"
 	"fmt"
 
+	"github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/ipfs/go-cid"
@@ -11,13 +13,13 @@ import (
 type Commit struct {
 	DID     string   `json:"did" cborgen:"did"`
 	Version int64    `json:"version" cborgen:"version"` // currently: 3
-	Prev    *cid.Cid `json:"prev" cborgen:"prev"`       // TODO: could we omitempty yet? breaks signatures I guess
+	Prev    *cid.Cid `json:"prev" cborgen:"prev"`       // NOTE: omitempty would break signature verification for repo v3
 	Data    cid.Cid  `json:"data" cborgen:"data"`
-	Sig     []byte   `json:"sig" cborgen:"sig"`
+	Sig     []byte   `json:"sig,omitempty" cborgen:"sig,omitempty"`
 	Rev     string   `json:"rev" cborgen:"rev"`
 }
 
-// does basic checks that syntax is correct
+// basic checks that field syntax is correct
 func (c *Commit) VerifyStructure() error {
 	if c.Version != ATPROTO_REPO_VERSION {
 		return fmt.Errorf("unsupported repo version: %d", c.Version)
@@ -34,4 +36,50 @@ func (c *Commit) VerifyStructure() error {
 		return fmt.Errorf("invalid commit data: %w", err)
 	}
 	return nil
+}
+
+// Encodes the commit object as DAG-CBOR, without the signature field. Used for signing or validating signatures.
+func (c *Commit) UnsignedBytes() ([]byte, error) {
+	buf := new(bytes.Buffer)
+	if c.Sig == nil {
+		if err := c.MarshalCBOR(buf); err != nil {
+			return nil, err
+		}
+		return buf.Bytes(), nil
+	}
+	unsigned := Commit{
+		DID:     c.DID,
+		Version: c.Version,
+		Prev:    c.Prev,
+		Data:    c.Data,
+		Rev:     c.Rev,
+	}
+	if err := unsigned.MarshalCBOR(buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (c *Commit) Sign(privkey crypto.PrivateKey) error {
+	b, err := c.UnsignedBytes()
+	if err != nil {
+		return err
+	}
+	sig, err := privkey.HashAndSign(b)
+	if err != nil {
+		return err
+	}
+	c.Sig = sig
+	return nil
+}
+
+func (c *Commit) VerifySignature(pubkey crypto.PublicKey) error {
+	if c.Sig == nil {
+		return fmt.Errorf("can not verify unsigned commit")
+	}
+	b, err := c.UnsignedBytes()
+	if err != nil {
+		return err
+	}
+	return pubkey.HashAndVerify(b, c.Sig)
 }
