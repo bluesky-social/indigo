@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/ipfs/go-cid"
@@ -88,7 +89,7 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 		}
 	}
 
-	ops, err := ParseCommitOps(msg.Ops)
+	ops, err := parseCommitOps(msg.Ops)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +124,7 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 	return repo, nil
 }
 
-func ParseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]Operation, error) {
+func parseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]Operation, error) {
 	//out := make([]Operation, len(ops))
 	out := []Operation{}
 	for _, rop := range ops {
@@ -163,4 +164,33 @@ func ParseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]Operation, e
 		}
 	}
 	return out, nil
+}
+
+// temporary/experimental code showing how to verify a commit signature from firehose
+//
+// in real implementation, will want to merge this code with `VerifyCommitMessage` above, and have it hanging off some service struct with a configured `identity.Directory`
+func VerifyCommitSignature(ctx context.Context, dir identity.Directory, msg *comatproto.SyncSubscribeRepos_Commit) error {
+	commit, _, err := LoadFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
+	if err != nil {
+		return err
+	}
+
+	if err := commit.VerifyStructure(); err != nil {
+		return err
+	}
+	did, err := syntax.ParseDID(commit.DID)
+	if err != nil {
+		return err
+	}
+
+	ident, err := dir.LookupDID(ctx, did)
+	if err != nil {
+		return err
+	}
+	pubkey, err := ident.PublicKey()
+	if err != nil {
+		return err
+	}
+
+	return commit.VerifySignature(pubkey)
 }
