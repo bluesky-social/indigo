@@ -9,10 +9,10 @@ func (t *Tree) Verify() error {
 	if t.Root == nil {
 		return fmt.Errorf("tree missing root node")
 	}
-	return verifyNodeStructure(t.Root, -1, nil)
+	return t.Root.verifyStructure(-1, nil)
 }
 
-func verifyNodeStructure(n *Node, height int, key []byte) error {
+func (n *Node) verifyStructure(height int, key []byte) error {
 	if n == nil {
 		return fmt.Errorf("nil node")
 	}
@@ -60,7 +60,7 @@ func verifyNodeStructure(n *Node, height int, key []byte) error {
 				return fmt.Errorf("child below zero height")
 			}
 			if e.Child != nil {
-				if err := verifyNodeStructure(e.Child, height-1, key); err != nil {
+				if err := e.Child.verifyStructure(height-1, key); err != nil {
 					return err
 				}
 			}

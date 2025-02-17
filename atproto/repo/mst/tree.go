@@ -117,7 +117,7 @@ func (t *Tree) RootCID() (*cid.Cid, error) {
 	if t.Root != nil && t.Root.Stub && !t.Root.Dirty && t.Root.CID != nil {
 		return t.Root.CID, nil
 	}
-	return writeNodeBlocks(context.Background(), t.Root, nil, true)
+	return t.Root.writeBlocks(context.Background(), nil, true)
 }
 
 // If the tree contains no key/value pairs, returns true.
@@ -148,7 +148,7 @@ func LoadTreeFromStore(ctx context.Context, bs blockstore.Blockstore, root cid.C
 	if err != nil {
 		return nil, err
 	}
-	nodeEnsureHeights(n)
+	n.ensureHeights()
 	return &Tree{
 		Root: n,
 	}, nil
@@ -156,5 +156,5 @@ func LoadTreeFromStore(ctx context.Context, bs blockstore.Blockstore, root cid.C
 
 // Walks the tree, encodes any "dirty" nodes as CBOR data, and writes that data as blocks to the provided blockstore. Returns root CID.
 func (t *Tree) WriteDiffBlocks(ctx context.Context, bs blockstore.Blockstore) (*cid.Cid, error) {
-	return writeNodeBlocks(ctx, t.Root, bs, true)
+	return t.Root.writeBlocks(ctx, bs, true)
 }
