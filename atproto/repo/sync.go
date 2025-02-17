@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/repo/mst"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/ipfs/go-cid"
@@ -85,14 +84,14 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 	if err != nil {
 		return nil, err
 	}
-	ops, err = mst.NormalizeOps(ops)
+	ops, err = NormalizeOps(ops)
 	if err != nil {
 		return nil, err
 	}
 
 	invTree := repo.MST.Copy()
 	for _, op := range ops {
-		if err := mst.InvertOp(&invTree, &op); err != nil {
+		if err := InvertOp(&invTree, &op); err != nil {
 			// print the *non-inverted* tree
 			//mst.DebugPrintTree(repo.MST.Root, 0)
 			return nil, err
@@ -105,14 +104,14 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 	return repo, nil
 }
 
-func ParseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]mst.Operation, error) {
+func ParseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]Operation, error) {
 	//out := make([]mst.Operation, len(ops))
-	out := []mst.Operation{}
+	out := []Operation{}
 	for _, rop := range ops {
 		switch rop.Action {
 		case "create":
 			if rop.Cid != nil {
-				op := mst.Operation{
+				op := Operation{
 					Path:  rop.Path,
 					Prev:  nil,
 					Value: (*cid.Cid)(rop.Cid),

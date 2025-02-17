@@ -1,8 +1,10 @@
-package mst
+package repo
 
 import (
 	"fmt"
 	"sort"
+
+	"github.com/bluesky-social/indigo/atproto/repo/mst"
 
 	"github.com/ipfs/go-cid"
 )
@@ -35,7 +37,7 @@ func (op *Operation) IsDelete() bool {
 }
 
 // Mutates the tree, returning a full `Operation`
-func ApplyOp(tree *Tree, path string, val *cid.Cid) (*Operation, error) {
+func ApplyOp(tree *mst.Tree, path string, val *cid.Cid) (*Operation, error) {
 	if val != nil {
 		prev, err := tree.Insert([]byte(path), *val)
 		if err != nil {
@@ -62,7 +64,7 @@ func ApplyOp(tree *Tree, path string, val *cid.Cid) (*Operation, error) {
 }
 
 // Does a simple "forwards" (not inversion) check of operation
-func CheckOp(tree *Tree, op *Operation) error {
+func CheckOp(tree *mst.Tree, op *Operation) error {
 	val, err := tree.Get([]byte(op.Path))
 	if err != nil {
 		return err
@@ -83,7 +85,7 @@ func CheckOp(tree *Tree, op *Operation) error {
 }
 
 // Applies the inversion of the `op` to the `tree`. This mutates the tree.
-func InvertOp(tree *Tree, op *Operation) error {
+func InvertOp(tree *mst.Tree, op *Operation) error {
 	if op.IsCreate() {
 		prev, err := tree.Remove([]byte(op.Path))
 		if err != nil {
