@@ -27,9 +27,10 @@ type Repo struct {
 var ErrNotFound = errors.New("record not found in repository")
 
 func NewRepo(did syntax.DID) Repo {
+	clk := syntax.NewTIDClock(0)
 	return Repo{
 		DID:         did,
-		Clock:       syntax.NewTIDClock(0),
+		Clock:       &clk,
 		Commit:      nil,
 		RecordStore: blockstore.NewBlockstore(datastore.NewMapDatastore()),
 		MST:         mst.NewEmptyTree(),
@@ -60,14 +61,3 @@ func (repo *Repo) GetRecordBytes(ctx context.Context, collection syntax.NSID, rk
 	// TODO: not verifying CID
 	return blk.RawData(), nil
 }
-
-// TODO:
-// IsComplete()
-// LoadFromStore
-// LoadFromCAR(reader)
-// WriteBlocks
-// WriteCAR
-// VerifyCIDs(bool)
-// Export
-// GetRecordStruct
-// GetRecordProof
