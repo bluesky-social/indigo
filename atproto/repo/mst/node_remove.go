@@ -13,7 +13,7 @@ import (
 // n: Node at top of sub-tree to operate on. Must not be nil.
 // key: key or path being inserted. must not be empty/nil
 // height: tree height corresponding to key. if a negative value is provided, will be computed; use -1 instead of 0 if height is not known
-func nodeRemove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
+func (n *Node) remove(key []byte, height int) (*Node, *cid.Cid, error) {
 	if n.Stub {
 		return nil, nil, ErrPartialTree
 	}
@@ -31,11 +31,11 @@ func nodeRemove(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 
 	if height < n.Height {
 		// TODO: handle case of this returning an empty node at top of tree, with wrong height
-		return removeChild(n, key, height)
+		return n.removeChild(key, height)
 	}
 
 	// look at this level
-	idx := findExistingEntry(n, key)
+	idx := n.findExistingEntry(key)
 	if idx < 0 {
 		// key not found
 		return n, nil, nil
@@ -107,7 +107,7 @@ func proveDeletion(n *Node, key []byte) error {
 			if e.Child == nil {
 				return fmt.Errorf("can't prove deletion: %w", ErrPartialTree)
 			}
-			order, err := nodeCompareKey(e.Child, key, true)
+			order, err := e.Child.compareKey(key, true)
 			if err != nil {
 				return err
 			}
@@ -150,9 +150,9 @@ func mergeNodes(left *Node, right *Node) (*Node, error) {
 }
 
 // internal helper
-func removeChild(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
+func (n *Node) removeChild(key []byte, height int) (*Node, *cid.Cid, error) {
 	// look for a child
-	idx := findExistingChild(n, key)
+	idx := n.findExistingChild(key)
 	if idx < 0 {
 		// no child pointer; key not in tree
 		return n, nil, nil
@@ -163,7 +163,7 @@ func removeChild(n *Node, key []byte, height int) (*Node, *cid.Cid, error) {
 		// partial node, can't recurse
 		return nil, nil, fmt.Errorf("could not remove key: %w", ErrPartialTree)
 	}
-	newChild, prev, err := nodeRemove(e.Child, key, height)
+	newChild, prev, err := e.Child.remove(key, height)
 	if err != nil {
 		return nil, nil, err
 	}

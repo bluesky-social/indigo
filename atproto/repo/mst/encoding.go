@@ -27,7 +27,7 @@ type EntryData struct {
 	Right     *cid.Cid `cborgen:"t"` // [nullable] pointer to lower-level subtree to the "right" of this path/key entry
 }
 
-// Returns this node as CBOR bytes
+// Encodes a single `NodeData` struct as CBOR bytes. Does not recursively encode or update children.
 func (d *NodeData) Bytes() ([]byte, *cid.Cid, error) {
 	buf := new(bytes.Buffer)
 	if err := d.MarshalCBOR(buf); err != nil {
@@ -42,6 +42,7 @@ func (d *NodeData) Bytes() ([]byte, *cid.Cid, error) {
 	return b, &c, nil
 }
 
+// Parses CBOR bytes in to `NodeData` struct
 func NodeDataFromCBOR(r io.Reader) (*NodeData, error) {
 	var nd NodeData
 	if err := nd.UnmarshalCBOR(r); err != nil {
@@ -51,6 +52,8 @@ func NodeDataFromCBOR(r io.Reader) (*NodeData, error) {
 	return &nd, nil
 }
 
+// Transforms `Node` stuct to `NodeData`, which is the format used for encoding to CBOR.
+//
 // Will panic if any entries are missing a CID (must compute those first)
 func (n *Node) NodeData() NodeData {
 	d := NodeData{
@@ -84,7 +87,9 @@ func (n *Node) NodeData() NodeData {
 	return d
 }
 
-// c: CID argument for the CID of the CBOR representation of the NodeData (if known)
+// Tansforms an encoded `NodeData` to `Node` data structure format.
+//
+// c: optional CID argument for the CID of the CBOR representation of the NodeData
 func (d *NodeData) Node(c *cid.Cid) Node {
 	height := -1
 	n := Node{
