@@ -1,23 +1,59 @@
-package mst
+package repo
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"testing"
 
+	"github.com/bluesky-social/indigo/atproto/repo/mst"
+
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/assert"
 )
+
+func randomCid() cid.Cid {
+	buf := make([]byte, 32)
+	rand.Read(buf)
+	c, err := cid.NewPrefixV1(cid.Raw, multihash.SHA2_256).Sum(buf)
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+func randomStr() string {
+	buf := make([]byte, 16)
+	rand.Read(buf)
+	return hex.EncodeToString(buf)
+}
+
+func debugCountEntries(n *mst.Node) int {
+	if n == nil {
+		return 0
+	}
+	count := 0
+	for _, e := range n.Entries {
+		if e.IsValue() {
+			count++
+		}
+		if e.IsChild() && e.Child != nil {
+			count += debugCountEntries(e.Child)
+		}
+	}
+	return count
+}
 
 func TestBasicOperation(t *testing.T) {
 	assert := assert.New(t)
 
 	c2, _ := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu222222222")
 	c3, _ := cid.Decode("bafkreieqq463374bbcbeq7gpmet5rvrpeqow6t4rtjzrkhnlu333333333")
-	et := NewEmptyTree()
+	et := mst.NewEmptyTree()
 	tree := &et
 	var op *Operation
 	var err error
@@ -101,7 +137,7 @@ func randomOperations(t *testing.T, size, opCount, iterations int) {
 	rand.Shuffle(len(mapKeys), func(i, j int) {
 		mapKeys[i], mapKeys[j] = mapKeys[j], mapKeys[i]
 	})
-	tree, err := LoadTreeFromMap(startMap)
+	tree, err := mst.LoadTreeFromMap(startMap)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,14 +193,10 @@ func randomOperations(t *testing.T, size, opCount, iterations int) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		diffNode, err := loadNodeFromStore(ctx, diffBlocks, *diffRoot)
+		diffTree, err := mst.LoadTreeFromStore(ctx, diffBlocks, *diffRoot)
 		if err != nil {
 			t.Fatal(err)
 		}
-		diffTree := &Tree{
-			Root: diffNode,
-		}
-		nodeEnsureHeights(diffTree.Root)
 		assert.NoError(tree.Verify())
 
 		// re-compute partial commit (not related to main test path)
