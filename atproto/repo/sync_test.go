@@ -47,7 +47,7 @@ func testCommitFile(t *testing.T, p string) {
 	_, err = VerifyCommitMessage(ctx, &msg)
 	assert.NoError(err)
 	if err != nil {
-		repo, err := LoadFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
+		_, repo, err := LoadFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
 		if err != nil {
 			t.Fail()
 		}
