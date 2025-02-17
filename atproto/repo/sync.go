@@ -38,15 +38,15 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 		logger.Warn("event with rebase flag set")
 	}
 
-	repo, err := LoadFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
+	commit, repo, err := LoadFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
 	if err != nil {
 		return nil, err
 	}
 
-	if repo.Commit.Rev != rev.String() {
+	if commit.Rev != rev.String() {
 		return nil, fmt.Errorf("rev did not match commit")
 	}
-	if repo.Commit.DID != did.String() {
+	if commit.DID != did.String() {
 		return nil, fmt.Errorf("rev did not match commit")
 	}
 	// TODO: check that commit CID matches root? re-compute?
