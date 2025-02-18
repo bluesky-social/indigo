@@ -14,7 +14,7 @@ import (
 
 // Interface type for a resolver or container of lexicon schemas, and methods for validating generic data against those schemas.
 type Catalog interface {
-	// Looks up a schema refrence (NSID string with optional fragment) to a Schema object.
+	// Looks up a schema reference (NSID string with optional fragment) to a Schema object.
 	Resolve(ref string) (*Schema, error)
 }
 
