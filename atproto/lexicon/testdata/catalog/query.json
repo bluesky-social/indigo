@@ -2,7 +2,7 @@
   "lexicon": 1,
   "id": "example.lexicon.query",
   "revision": 1,
-  "description": "exersizes many lexicon features for the query type",
+  "description": "exercizes many lexicon features for the query type",
   "defs": {
     "main": {
       "type": "query",

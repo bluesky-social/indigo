@@ -17,7 +17,7 @@ const (
 	StrictRecursiveValidation
 )
 
-// Combination of agument flags for less formal validation. Recommended for, eg, working with old/legacy data from 2023.
+// Combination of argument flags for less formal validation. Recommended for, eg, working with old/legacy data from 2023.
 var LenientMode ValidateFlags = AllowLegacyBlob | AllowLenientDatetime
 
 // Represents a Lexicon schema definition

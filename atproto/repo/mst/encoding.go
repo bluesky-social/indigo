@@ -52,7 +52,7 @@ func NodeDataFromCBOR(r io.Reader) (*NodeData, error) {
 	return &nd, nil
 }
 
-// Transforms `Node` stuct to `NodeData`, which is the format used for encoding to CBOR.
+// Transforms `Node` struct to `NodeData`, which is the format used for encoding to CBOR.
 //
 // Will panic if any entries are missing a CID (must compute those first)
 func (n *Node) NodeData() NodeData {
