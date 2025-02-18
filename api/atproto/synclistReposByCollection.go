@@ -22,6 +22,8 @@ type SyncListReposByCollection_Repo struct {
 }
 
 // SyncListReposByCollection calls the XRPC method "com.atproto.sync.listReposByCollection".
+//
+// limit: Maximum size of response set. Recommend setting a large maximum (1000+) when enumerating large DID lists.
 func SyncListReposByCollection(ctx context.Context, c *xrpc.Client, collection string, cursor string, limit int64) (*SyncListReposByCollection_Output, error) {
 	var out SyncListReposByCollection_Output
 

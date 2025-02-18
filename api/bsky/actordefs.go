@@ -155,19 +155,111 @@ type ActorDefs_PersonalDetailsPref struct {
 	BirthDate *string `json:"birthDate,omitempty" cborgen:"birthDate,omitempty"`
 }
 
+// ActorDefs_PostInteractionSettingsPref is a "postInteractionSettingsPref" in the app.bsky.actor.defs schema.
+//
+// Default post interaction settings for the account. These values should be applied as default values when creating new posts. These refs should mirror the threadgate and postgate records exactly.
+//
+// RECORDTYPE: ActorDefs_PostInteractionSettingsPref
+type ActorDefs_PostInteractionSettingsPref struct {
+	LexiconTypeID string `json:"$type,const=app.bsky.actor.defs#postInteractionSettingsPref" cborgen:"$type,const=app.bsky.actor.defs#postInteractionSettingsPref"`
+	// postgateEmbeddingRules: Matches postgate record. List of rules defining who can embed this users posts. If value is an empty array or is undefined, no particular rules apply and anyone can embed.
+	PostgateEmbeddingRules []*ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem `json:"postgateEmbeddingRules,omitempty" cborgen:"postgateEmbeddingRules,omitempty"`
+	// threadgateAllowRules: Matches threadgate record. List of rules defining who can reply to this users posts. If value is an empty array, no one can reply. If value is undefined, anyone can reply.
+	ThreadgateAllowRules []*ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem `json:"threadgateAllowRules,omitempty" cborgen:"threadgateAllowRules,omitempty"`
+}
+
+type ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem struct {
+	FeedPostgate_DisableRule *FeedPostgate_DisableRule
+}
+
+func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) MarshalJSON() ([]byte, error) {
+	if t.FeedPostgate_DisableRule != nil {
+		t.FeedPostgate_DisableRule.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
+		return json.Marshal(t.FeedPostgate_DisableRule)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "app.bsky.feed.postgate#disableRule":
+		t.FeedPostgate_DisableRule = new(FeedPostgate_DisableRule)
+		return json.Unmarshal(b, t.FeedPostgate_DisableRule)
+
+	default:
+		return nil
+	}
+}
+
+type ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem struct {
+	FeedThreadgate_MentionRule   *FeedThreadgate_MentionRule
+	FeedThreadgate_FollowerRule  *FeedThreadgate_FollowerRule
+	FeedThreadgate_FollowingRule *FeedThreadgate_FollowingRule
+	FeedThreadgate_ListRule      *FeedThreadgate_ListRule
+}
+
+func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) MarshalJSON() ([]byte, error) {
+	if t.FeedThreadgate_MentionRule != nil {
+		t.FeedThreadgate_MentionRule.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
+		return json.Marshal(t.FeedThreadgate_MentionRule)
+	}
+	if t.FeedThreadgate_FollowerRule != nil {
+		t.FeedThreadgate_FollowerRule.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
+		return json.Marshal(t.FeedThreadgate_FollowerRule)
+	}
+	if t.FeedThreadgate_FollowingRule != nil {
+		t.FeedThreadgate_FollowingRule.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
+		return json.Marshal(t.FeedThreadgate_FollowingRule)
+	}
+	if t.FeedThreadgate_ListRule != nil {
+		t.FeedThreadgate_ListRule.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
+		return json.Marshal(t.FeedThreadgate_ListRule)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "app.bsky.feed.threadgate#mentionRule":
+		t.FeedThreadgate_MentionRule = new(FeedThreadgate_MentionRule)
+		return json.Unmarshal(b, t.FeedThreadgate_MentionRule)
+	case "app.bsky.feed.threadgate#followerRule":
+		t.FeedThreadgate_FollowerRule = new(FeedThreadgate_FollowerRule)
+		return json.Unmarshal(b, t.FeedThreadgate_FollowerRule)
+	case "app.bsky.feed.threadgate#followingRule":
+		t.FeedThreadgate_FollowingRule = new(FeedThreadgate_FollowingRule)
+		return json.Unmarshal(b, t.FeedThreadgate_FollowingRule)
+	case "app.bsky.feed.threadgate#listRule":
+		t.FeedThreadgate_ListRule = new(FeedThreadgate_ListRule)
+		return json.Unmarshal(b, t.FeedThreadgate_ListRule)
+
+	default:
+		return nil
+	}
+}
+
 type ActorDefs_Preferences_Elem struct {
-	ActorDefs_AdultContentPref    *ActorDefs_AdultContentPref
-	ActorDefs_ContentLabelPref    *ActorDefs_ContentLabelPref
-	ActorDefs_SavedFeedsPref      *ActorDefs_SavedFeedsPref
-	ActorDefs_SavedFeedsPrefV2    *ActorDefs_SavedFeedsPrefV2
-	ActorDefs_PersonalDetailsPref *ActorDefs_PersonalDetailsPref
-	ActorDefs_FeedViewPref        *ActorDefs_FeedViewPref
-	ActorDefs_ThreadViewPref      *ActorDefs_ThreadViewPref
-	ActorDefs_InterestsPref       *ActorDefs_InterestsPref
-	ActorDefs_MutedWordsPref      *ActorDefs_MutedWordsPref
-	ActorDefs_HiddenPostsPref     *ActorDefs_HiddenPostsPref
-	ActorDefs_BskyAppStatePref    *ActorDefs_BskyAppStatePref
-	ActorDefs_LabelersPref        *ActorDefs_LabelersPref
+	ActorDefs_AdultContentPref            *ActorDefs_AdultContentPref
+	ActorDefs_ContentLabelPref            *ActorDefs_ContentLabelPref
+	ActorDefs_SavedFeedsPref              *ActorDefs_SavedFeedsPref
+	ActorDefs_SavedFeedsPrefV2            *ActorDefs_SavedFeedsPrefV2
+	ActorDefs_PersonalDetailsPref         *ActorDefs_PersonalDetailsPref
+	ActorDefs_FeedViewPref                *ActorDefs_FeedViewPref
+	ActorDefs_ThreadViewPref              *ActorDefs_ThreadViewPref
+	ActorDefs_InterestsPref               *ActorDefs_InterestsPref
+	ActorDefs_MutedWordsPref              *ActorDefs_MutedWordsPref
+	ActorDefs_HiddenPostsPref             *ActorDefs_HiddenPostsPref
+	ActorDefs_BskyAppStatePref            *ActorDefs_BskyAppStatePref
+	ActorDefs_LabelersPref                *ActorDefs_LabelersPref
+	ActorDefs_PostInteractionSettingsPref *ActorDefs_PostInteractionSettingsPref
 }
 
 func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
@@ -219,6 +311,10 @@ func (t *ActorDefs_Preferences_Elem) MarshalJSON() ([]byte, error) {
 		t.ActorDefs_LabelersPref.LexiconTypeID = "app.bsky.actor.defs#labelersPref"
 		return json.Marshal(t.ActorDefs_LabelersPref)
 	}
+	if t.ActorDefs_PostInteractionSettingsPref != nil {
+		t.ActorDefs_PostInteractionSettingsPref.LexiconTypeID = "app.bsky.actor.defs#postInteractionSettingsPref"
+		return json.Marshal(t.ActorDefs_PostInteractionSettingsPref)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
@@ -264,6 +360,9 @@ func (t *ActorDefs_Preferences_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.actor.defs#labelersPref":
 		t.ActorDefs_LabelersPref = new(ActorDefs_LabelersPref)
 		return json.Unmarshal(b, t.ActorDefs_LabelersPref)
+	case "app.bsky.actor.defs#postInteractionSettingsPref":
+		t.ActorDefs_PostInteractionSettingsPref = new(ActorDefs_PostInteractionSettingsPref)
+		return json.Unmarshal(b, t.ActorDefs_PostInteractionSettingsPref)
 
 	default:
 		return nil
