@@ -486,7 +486,7 @@ func (cs *collectionServer) getDidsForCollection(c echo.Context) error {
 }
 
 // return cached collection stats if they're fresh
-// return new collection stats if they can be calculated quicly
+// return new collection stats if they can be calculated quickly
 // return stale cached collection stats if new stats take too long
 // just wait for fresh stats if there are no cached stats
 // stalenessAllowed is how old stats can be before we try to recalculate them, 0=default of 5 minutes

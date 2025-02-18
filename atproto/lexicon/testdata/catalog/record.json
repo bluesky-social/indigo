@@ -2,7 +2,7 @@
   "lexicon": 1,
   "id": "example.lexicon.record",
   "revision": 1,
-  "description": "exersizes many lexicon features for the record type",
+  "description": "exercizes many lexicon features for the record type",
   "defs": {
     "main": {
       "type": "record",
