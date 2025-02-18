@@ -15,6 +15,7 @@ type MockDirectory struct {
 }
 
 var _ Directory = (*MockDirectory)(nil)
+var _ Resolver = (*MockDirectory)(nil)
 
 func NewMockDirectory() MockDirectory {
 	return MockDirectory{
@@ -72,21 +73,22 @@ func (d *MockDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syn
 	return did, nil
 }
 
-func (d *MockDirectory) ResolveDID(ctx context.Context, did syntax.DID) (map[string]any, error) {
+func (d *MockDirectory) ResolveDID(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
 	ident, ok := d.Identities[did]
 	if !ok {
 		return nil, ErrDIDNotFound
 	}
 	doc := ident.DIDDocument()
-	b, err := json.Marshal(doc)
-	if err != nil {
-		return nil, err
+	return &doc, nil
+}
+
+func (d *MockDirectory) ResolveDIDRaw(ctx context.Context, did syntax.DID) (json.RawMessage, error) {
+	ident, ok := d.Identities[did]
+	if !ok {
+		return nil, ErrDIDNotFound
 	}
-	var m map[string]any
-	if err := json.Unmarshal(b, &m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	doc := ident.DIDDocument()
+	return json.Marshal(doc)
 }
 
 func (d *MockDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error {

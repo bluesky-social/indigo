@@ -14,37 +14,44 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// This is a low-level method for resolving a DID to a raw JSON document.
-//
-// This method does not parse the DID document into an atproto-specific format, and does not bi-directionally verify handles. Most atproto-specific code should use the "Lookup*" methods, which do implement that functionality.
-func (d *BaseDirectory) ResolveDID(ctx context.Context, did syntax.DID) (map[string]any, error) {
-	raw, err := d.resolveDIDBytes(ctx, did)
-	if err != nil {
-		return nil, err
-	}
-
-	var doc map[string]any
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		return nil, fmt.Errorf("%w: JSON DID document parse: %w", ErrDIDResolutionFailed, err)
-	}
-	return doc, nil
-}
-
 // Variant of ResolveDID which parses in to a DIDDocument struct.
-func (d *BaseDirectory) ResolveDIDDoc(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
-	raw, err := d.resolveDIDBytes(ctx, did)
+func (d *BaseDirectory) ResolveDID(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
+	b, err := d.resolveDIDBytes(ctx, did)
 	if err != nil {
 		return nil, err
 	}
 
 	var doc DIDDocument
-	if err := json.Unmarshal(raw, &doc); err != nil {
+	if err := json.Unmarshal(b, &doc); err != nil {
 		return nil, fmt.Errorf("%w: JSON DID document parse: %w", ErrDIDResolutionFailed, err)
+	}
+	if doc.DID != did {
+		return nil, fmt.Errorf("document ID did not match DID")
 	}
 	return &doc, nil
 }
 
-// Package-internal helper which resolves a DID document to the response bytes.
+// Low-level method for resolving a DID to a raw JSON document.
+//
+// This method does not parse the DID document into an atproto-specific format, and does not bi-directionally verify handles. Most atproto-specific code should use the "Lookup*" methods, which do implement that functionality.
+func (d *BaseDirectory) ResolveDIDRaw(ctx context.Context, did syntax.DID) (json.RawMessage, error) {
+	b, err := d.resolveDIDBytes(ctx, did)
+	if err != nil {
+		return nil, err
+	}
+
+	// parse as doc, to validate at least some syntax
+	var doc DIDDocument
+	if err := json.Unmarshal(b, &doc); err != nil {
+		return nil, fmt.Errorf("%w: JSON DID document parse: %w", ErrDIDResolutionFailed, err)
+	}
+	if doc.DID != did {
+		return nil, fmt.Errorf("document ID did not match DID")
+	}
+
+	return json.RawMessage(b), nil
+}
+
 func (d *BaseDirectory) resolveDIDBytes(ctx context.Context, did syntax.DID) ([]byte, error) {
 	var b []byte
 	var err error
