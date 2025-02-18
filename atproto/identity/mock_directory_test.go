@@ -50,6 +50,19 @@ func TestMockDirectory(t *testing.T) {
 
 	_, err = c.LookupHandle(ctx, syntax.HandleInvalid)
 	assert.ErrorIs(err, ErrHandleNotFound)
-	out, err = c.LookupDID(ctx, syntax.DID("did:plc:abc999"))
+	_, err = c.LookupDID(ctx, syntax.DID("did:plc:abc999"))
+	assert.ErrorIs(err, ErrDIDNotFound)
+
+	did, err := c.ResolveHandle(ctx, syntax.Handle("handle.example.com"))
+	assert.NoError(err)
+	assert.Equal(id1.DID, did)
+	_, err = c.ResolveHandle(ctx, syntax.Handle("notfound.example.com"))
+	assert.ErrorIs(err, ErrHandleNotFound)
+
+	_, err = c.ResolveDID(ctx, syntax.DID("did:plc:abc222"))
+	assert.NoError(err)
+	// TODO: verify structure matches
+
+	_, err = c.ResolveDID(ctx, syntax.DID("did:plc:abc999"))
 	assert.ErrorIs(err, ErrDIDNotFound)
 }
