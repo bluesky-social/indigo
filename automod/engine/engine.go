@@ -296,66 +296,6 @@ func (eng *Engine) ProcessRecordOp(ctx context.Context, op RecordOp) error {
 	return nil
 }
 
-// returns a boolean indicating "block the event"
-// NOTE: this code is unused and should be removed
-func (eng *Engine) ProcessNotificationEvent(ctx context.Context, senderDID, recipientDID syntax.DID, reason string, subject syntax.ATURI) (bool, error) {
-	eventProcessCount.WithLabelValues("notif").Inc()
-	start := time.Now()
-	defer func() {
-		duration := time.Since(start)
-		eventProcessDuration.WithLabelValues("notif").Observe(duration.Seconds())
-	}()
-
-	// similar to an HTTP server, we want to recover any panics from rule execution
-	defer func() {
-		if r := recover(); r != nil {
-			eng.Logger.Error("automod event execution exception", "err", r, "sender", senderDID, "recipient", recipientDID)
-		}
-	}()
-	var cancel context.CancelFunc
-	ctx, cancel = context.WithTimeout(ctx, time.Second*5)
-	defer cancel()
-
-	senderIdent, err := eng.Directory.LookupDID(ctx, senderDID)
-	if err != nil {
-		eventErrorCount.WithLabelValues("notif").Inc()
-		return false, fmt.Errorf("resolving identity: %w", err)
-	}
-	if senderIdent == nil {
-		eventErrorCount.WithLabelValues("notif").Inc()
-		return false, fmt.Errorf("identity not found for sender DID: %s", senderDID.String())
-	}
-
-	recipientIdent, err := eng.Directory.LookupDID(ctx, recipientDID)
-	if err != nil {
-		eventErrorCount.WithLabelValues("notif").Inc()
-		return false, fmt.Errorf("resolving identity: %w", err)
-	}
-	if recipientIdent == nil {
-		eventErrorCount.WithLabelValues("notif").Inc()
-		return false, fmt.Errorf("identity not found for sender DID: %s", recipientDID.String())
-	}
-
-	senderMeta, err := eng.GetAccountMeta(ctx, senderIdent)
-	if err != nil {
-		eventErrorCount.WithLabelValues("notif").Inc()
-		return false, fmt.Errorf("failed to fetch account metadata: %w", err)
-	}
-	recipientMeta, err := eng.GetAccountMeta(ctx, recipientIdent)
-	if err != nil {
-		eventErrorCount.WithLabelValues("notif").Inc()
-		return false, fmt.Errorf("failed to fetch account metadata: %w", err)
-	}
-
-	nc := NewNotificationContext(ctx, eng, *senderMeta, *recipientMeta, reason, subject)
-	if err := eng.Rules.CallNotificationRules(&nc); err != nil {
-		eventErrorCount.WithLabelValues("notif").Inc()
-		return false, fmt.Errorf("rule execution failed: %w", err)
-	}
-	eng.CanonicalLogLineNotification(&nc)
-	return nc.effects.RejectEvent, nil
-}
-
 // Purge metadata caches for a specific account.
 func (e *Engine) PurgeAccountCaches(ctx context.Context, did syntax.DID) error {
 	e.Logger.Debug("purging account caches", "did", did.String())
@@ -389,16 +329,5 @@ func (e *Engine) CanonicalLogLineRecord(c *RecordContext) {
 		"recordTags", c.effects.RecordTags,
 		"recordTakedown", c.effects.RecordTakedown,
 		"recordReports", len(c.effects.RecordReports),
-	)
-}
-
-func (e *Engine) CanonicalLogLineNotification(c *NotificationContext) {
-	c.Logger.Info("canonical-event-line",
-		"accountLabels", c.effects.AccountLabels,
-		"accountFlags", c.effects.AccountFlags,
-		"accountTags", c.effects.AccountTags,
-		"accountTakedown", c.effects.AccountTakedown,
-		"accountReports", len(c.effects.AccountReports),
-		"reject", c.effects.RejectEvent,
 	)
 }
