@@ -36,12 +36,7 @@ func runResolve(cctx *cli.Context) error {
 		return err
 	}
 	dir := identity.BaseDirectory{}
-	var doc *identity.DIDDocument
-
-	if cctx.Bool("did") {
-		if atid.IsDID() {
-		}
-	}
+	var raw json.RawMessage
 
 	if atid.IsDID() {
 		did, err := atid.AsDID()
@@ -52,7 +47,7 @@ func runResolve(cctx *cli.Context) error {
 			fmt.Println(did)
 			return nil
 		}
-		doc, err = dir.ResolveDID(ctx, did)
+		raw, err = dir.ResolveDIDRaw(ctx, did)
 		if err != nil {
 			return err
 		}
@@ -69,12 +64,16 @@ func runResolve(cctx *cli.Context) error {
 			fmt.Println(did)
 			return nil
 		}
-		doc, err = dir.ResolveDID(ctx, did)
+		raw, err = dir.ResolveDIDRaw(ctx, did)
 		if err != nil {
 			return err
 		}
 
-		ident := identity.ParseIdentity(doc)
+		var doc identity.DIDDocument
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			return err
+		}
+		ident := identity.ParseIdentity(&doc)
 		decl, err := ident.DeclaredHandle()
 		if err != nil {
 			return err
@@ -84,8 +83,7 @@ func runResolve(cctx *cli.Context) error {
 		}
 	}
 
-	// TODO: actually print DID doc instead of JSON version of identity
-	b, err := json.MarshalIndent(doc, "", "  ")
+	b, err := json.MarshalIndent(raw, "", "  ")
 	if err != nil {
 		return err
 	}

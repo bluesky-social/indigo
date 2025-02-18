@@ -83,6 +83,36 @@ func ParseIdentity(doc *DIDDocument) Identity {
 	}
 }
 
+// Helper to generate a DID document based on an identity. Note that there is flexibility around parsing, and this won't necessarily "round-trip" for every valid DID document.
+func (ident *Identity) DIDDocument() DIDDocument {
+	doc := DIDDocument{
+		DID:                ident.DID,
+		AlsoKnownAs:        ident.AlsoKnownAs,
+		VerificationMethod: make([]DocVerificationMethod, len(ident.Keys)),
+		Service:            make([]DocService, len(ident.Services)),
+	}
+	i := 0
+	for k, key := range ident.Keys {
+		doc.VerificationMethod[i] = DocVerificationMethod{
+			ID:                 fmt.Sprintf("%s#%s", ident.DID, k),
+			Type:               key.Type,
+			Controller:         ident.DID.String(),
+			PublicKeyMultibase: key.PublicKeyMultibase,
+		}
+		i += 1
+	}
+	i = 0
+	for k, svc := range ident.Services {
+		doc.Service[i] = DocService{
+			ID:              fmt.Sprintf("#%s", k),
+			Type:            svc.Type,
+			ServiceEndpoint: svc.URL,
+		}
+		i += 1
+	}
+	return doc
+}
+
 // Identifies and parses the atproto repo signing public key, specifically, out of any keys in this identity's DID document.
 //
 // Returns [ErrKeyNotFound] if there is no such key.
@@ -135,7 +165,7 @@ func (i *Identity) GetPublicKey(id string) (crypto.PublicKey, error) {
 //
 // The endpoint should be an HTTP URL with method, hostname, and optional port. It may or may not include path segments.
 //
-// Returns an empty string if the serivce isn't found, or if the URL fails to parse.
+// Returns an empty string if the service isn't found, or if the URL fails to parse.
 func (i *Identity) PDSEndpoint() string {
 	return i.GetServiceEndpoint("atproto_pds")
 }
@@ -144,7 +174,7 @@ func (i *Identity) PDSEndpoint() string {
 //
 // The endpoint should be an HTTP URL with method, hostname, and optional port. It may or may not include path segments.
 //
-// Returns an empty string if the serivce isn't found, or if the URL fails to parse.
+// Returns an empty string if the service isn't found, or if the URL fails to parse.
 func (i *Identity) GetServiceEndpoint(id string) string {
 	if i.Services == nil {
 		return ""

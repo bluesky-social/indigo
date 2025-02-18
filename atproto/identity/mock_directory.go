@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -14,6 +15,7 @@ type MockDirectory struct {
 }
 
 var _ Directory = (*MockDirectory)(nil)
+var _ Resolver = (*MockDirectory)(nil)
 
 func NewMockDirectory() MockDirectory {
 	return MockDirectory{
@@ -60,6 +62,33 @@ func (d *MockDirectory) Lookup(ctx context.Context, a syntax.AtIdentifier) (*Ide
 		return d.LookupDID(ctx, did)
 	}
 	return nil, fmt.Errorf("at-identifier neither a Handle nor a DID")
+}
+
+func (d *MockDirectory) ResolveHandle(ctx context.Context, h syntax.Handle) (syntax.DID, error) {
+	h = h.Normalize()
+	did, ok := d.Handles[h]
+	if !ok {
+		return "", ErrHandleNotFound
+	}
+	return did, nil
+}
+
+func (d *MockDirectory) ResolveDID(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
+	ident, ok := d.Identities[did]
+	if !ok {
+		return nil, ErrDIDNotFound
+	}
+	doc := ident.DIDDocument()
+	return &doc, nil
+}
+
+func (d *MockDirectory) ResolveDIDRaw(ctx context.Context, did syntax.DID) (json.RawMessage, error) {
+	ident, ok := d.Identities[did]
+	if !ok {
+		return nil, ErrDIDNotFound
+	}
+	doc := ident.DIDDocument()
+	return json.Marshal(doc)
 }
 
 func (d *MockDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error {
