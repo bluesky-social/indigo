@@ -36,7 +36,11 @@ func (c *BaseAPIClient) Get(ctx context.Context, endpoint syntax.NSID, params ma
 	defer resp.Body.Close()
 	// TODO: duplicate error handling with Post()?
 	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
-		return nil, fmt.Errorf("non-successful API request status: %d", resp.StatusCode)
+		var eb ErrorBody
+		if err := json.NewDecoder(resp.Body).Decode(&eb); err != nil {
+			return nil, &APIError{StatusCode: resp.StatusCode}
+		}
+		return nil, eb.APIError(resp.StatusCode)
 	}
 
 	var ret json.RawMessage
@@ -70,7 +74,11 @@ func (c *BaseAPIClient) Post(ctx context.Context, endpoint syntax.NSID, body any
 	defer resp.Body.Close()
 	// TODO: duplicate error handling with Get()?
 	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
-		return nil, fmt.Errorf("non-successful API request status: %d", resp.StatusCode)
+		var eb ErrorBody
+		if err := json.NewDecoder(resp.Body).Decode(&eb); err != nil {
+			return nil, &APIError{StatusCode: resp.StatusCode}
+		}
+		return nil, eb.APIError(resp.StatusCode)
 	}
 
 	var ret json.RawMessage
@@ -84,6 +92,11 @@ func (c *BaseAPIClient) Do(ctx context.Context, req APIRequest) (*http.Response,
 	httpReq, err := req.HTTPRequest(ctx, c.Host, c.DefaultHeaders)
 	if err != nil {
 		return nil, err
+	}
+
+	// TODO: thread-safe?
+	if c.HTTPClient == nil {
+		c.HTTPClient = http.DefaultClient
 	}
 
 	var resp *http.Response
