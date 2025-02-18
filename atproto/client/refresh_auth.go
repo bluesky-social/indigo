@@ -12,7 +12,7 @@ type RefreshAuth struct {
 	RefreshToken string
 	DID          syntax.DID
 	// The AuthHost might different from any APIClient host, if there is an entryway involved
-	AuthHost	string
+	AuthHost string
 }
 
 // TODO:
