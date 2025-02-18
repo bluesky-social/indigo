@@ -32,6 +32,7 @@ type BaseDirectory struct {
 }
 
 var _ Directory = (*BaseDirectory)(nil)
+var _ Resolver = (*BaseDirectory)(nil)
 
 func (d *BaseDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Identity, error) {
 	h = h.Normalize()
@@ -39,7 +40,7 @@ func (d *BaseDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Ide
 	if err != nil {
 		return nil, err
 	}
-	doc, err := d.ResolveDIDDoc(ctx, did)
+	doc, err := d.ResolveDID(ctx, did)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +58,7 @@ func (d *BaseDirectory) LookupHandle(ctx context.Context, h syntax.Handle) (*Ide
 }
 
 func (d *BaseDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identity, error) {
-	doc, err := d.ResolveDIDDoc(ctx, did)
+	doc, err := d.ResolveDID(ctx, did)
 	if err != nil {
 		return nil, err
 	}

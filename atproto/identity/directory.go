@@ -10,13 +10,11 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// Common for doing atproto identity lookups by DID or handle.
+// Ergonomic interface for atproto identity lookup, by DID or handle.
 //
-// The "Lookup" methods do bi-directional handle verification automatically, and format results in a compact atproto-specific struct ("Identity"). Clients and services should use these methods by default, instead of resolving handles or DIDs separately.
+// The "Lookup" methods resolve identities (handle and DID), and return results in a compact, opinionated struct (`Identity`). They do bi-directional handle/DID verification by default. Clients and services should use these methods by default, instead of resolving handles or DIDs separately.
 //
-// Handles which fail to resolve, or don't match DID alsoKnownAs, are an error. DIDs which resolve but the handle does not resolve back to the DID return an Identity where the Handle is the special `handle.invalid` value.
-//
-// The "Resolve" methods do direct resolution of just the identifier indicated.
+// Looking up a handle which fails to resolve, or don't match DID alsoKnownAs, returns an error. When looking up a DID, if the handle does not resolve back to the DID, the lookup succeeds and returns an `Identity` where the Handle is the special `handle.invalid` value.
 //
 // Some example implementations of this interface could be:
 //   - basic direct resolution on every call
@@ -27,9 +25,6 @@ type Directory interface {
 	LookupHandle(ctx context.Context, handle syntax.Handle) (*Identity, error)
 	LookupDID(ctx context.Context, did syntax.DID) (*Identity, error)
 	Lookup(ctx context.Context, atid syntax.AtIdentifier) (*Identity, error)
-
-	ResolveDID(ctx context.Context, did syntax.DID) (map[string]any, error)
-	ResolveHandle(ctx context.Context, handle syntax.Handle) (syntax.DID, error)
 
 	// Flushes any cache of the indicated identifier. If directory is not using caching, can ignore this.
 	Purge(ctx context.Context, i syntax.AtIdentifier) error

@@ -384,8 +384,3 @@ func (d *RedisDirectory) Purge(ctx context.Context, a syntax.AtIdentifier) error
 	}
 	return errors.New("at-identifier neither a Handle nor a DID")
 }
-
-func (d *RedisDirectory) ResolveDID(ctx context.Context, did syntax.DID) (map[string]any, error) {
-	// XXX: cache this kind of doc separately
-	return d.Inner.ResolveDID(ctx, did)
-}
