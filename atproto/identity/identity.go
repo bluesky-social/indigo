@@ -165,7 +165,7 @@ func (i *Identity) GetPublicKey(id string) (crypto.PublicKey, error) {
 //
 // The endpoint should be an HTTP URL with method, hostname, and optional port. It may or may not include path segments.
 //
-// Returns an empty string if the serivce isn't found, or if the URL fails to parse.
+// Returns an empty string if the service isn't found, or if the URL fails to parse.
 func (i *Identity) PDSEndpoint() string {
 	return i.GetServiceEndpoint("atproto_pds")
 }
@@ -174,7 +174,7 @@ func (i *Identity) PDSEndpoint() string {
 //
 // The endpoint should be an HTTP URL with method, hostname, and optional port. It may or may not include path segments.
 //
-// Returns an empty string if the serivce isn't found, or if the URL fails to parse.
+// Returns an empty string if the service isn't found, or if the URL fails to parse.
 func (i *Identity) GetServiceEndpoint(id string) string {
 	if i.Services == nil {
 		return ""
