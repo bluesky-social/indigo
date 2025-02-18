@@ -22,8 +22,9 @@ type FeedPostgate struct {
 	LexiconTypeID string `json:"$type,const=app.bsky.feed.postgate" cborgen:"$type,const=app.bsky.feed.postgate"`
 	CreatedAt     string `json:"createdAt" cborgen:"createdAt"`
 	// detachedEmbeddingUris: List of AT-URIs embedding this post that the author has detached from.
-	DetachedEmbeddingUris []string                            `json:"detachedEmbeddingUris,omitempty" cborgen:"detachedEmbeddingUris,omitempty"`
-	EmbeddingRules        []*FeedPostgate_EmbeddingRules_Elem `json:"embeddingRules,omitempty" cborgen:"embeddingRules,omitempty"`
+	DetachedEmbeddingUris []string `json:"detachedEmbeddingUris,omitempty" cborgen:"detachedEmbeddingUris,omitempty"`
+	// embeddingRules: List of rules defining who can embed this post. If value is an empty array or is undefined, no particular rules apply and anyone can embed.
+	EmbeddingRules []*FeedPostgate_EmbeddingRules_Elem `json:"embeddingRules,omitempty" cborgen:"embeddingRules,omitempty"`
 	// post: Reference (AT-URI) to the post record.
 	Post string `json:"post" cborgen:"post"`
 }
