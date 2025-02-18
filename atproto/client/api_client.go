@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -28,38 +27,4 @@ type APIClient interface {
 
 	// Returns the currently-authenticated account DID, or empty string if not available.
 	AuthDID() syntax.DID
-}
-
-type APIRequest struct {
-	HTTPVerb    string // TODO: type?
-	Endpoint    syntax.NSID
-	Body        io.Reader
-	QueryParams map[string]string // TODO: better type for this?
-	Headers     map[string]string
-}
-
-func (r *APIRequest) HTTPRequest(ctx context.Context, host string, headers map[string]string) (*http.Request, error) {
-	// TODO: use 'url' to safely construct the request URL
-	u := host + "/xrpc/" + r.Endpoint.String()
-	// XXX: query params
-	httpReq, err := http.NewRequestWithContext(ctx, r.HTTPVerb, u, r.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	// first set default headers
-	if headers != nil {
-		for k, v := range headers {
-			httpReq.Header.Set(k, v)
-		}
-	}
-
-	// then request-specific take priority (overwrite)
-	if r.Headers != nil {
-		for k, v := range r.Headers {
-			httpReq.Header.Set(k, v)
-		}
-	}
-
-	return httpReq, nil
 }
