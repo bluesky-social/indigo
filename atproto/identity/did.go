@@ -14,7 +14,11 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// Variant of ResolveDID which parses in to a DIDDocument struct.
+// Resolves a DID to a parsed `DIDDocument` struct.
+//
+// This method does not bi-directionally verify handles. Most atproto-specific code should use the `identity.Directory` interface ("Lookup" methods), which implement that check by default, and provide more ergonomic helpers for working with atproto-relevant information in DID documents.
+//
+// Note that the `DIDDocument` might not include all the information in the original document. Use `ResolveDIDRaw()` to get the full original JSON.
 func (d *BaseDirectory) ResolveDID(ctx context.Context, did syntax.DID) (*DIDDocument, error) {
 	b, err := d.resolveDIDBytes(ctx, did)
 	if err != nil {
