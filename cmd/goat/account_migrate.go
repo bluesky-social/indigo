@@ -14,7 +14,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var cmdAccountMigrate = &cli.Command{
@@ -25,25 +25,25 @@ var cmdAccountMigrate = &cli.Command{
 			Name:     "pds-host",
 			Usage:    "URL of the new PDS to create account on",
 			Required: true,
-			EnvVars:  []string{"ATP_PDS_HOST"},
+			Sources:  cli.EnvVars("ATP_PDS_HOST"),
 		},
 		&cli.StringFlag{
 			Name:     "new-handle",
 			Required: true,
 			Usage:    "handle on new PDS",
-			EnvVars:  []string{"NEW_ACCOUNT_HANDLE"},
+			Sources:  cli.EnvVars("NEW_ACCOUNT_HANDLE"),
 		},
 		&cli.StringFlag{
 			Name:     "new-password",
 			Required: true,
 			Usage:    "password on new PDS",
-			EnvVars:  []string{"NEW_ACCOUNT_PASSWORD"},
+			Sources:  cli.EnvVars("NEW_ACCOUNT_PASSWORD"),
 		},
 		&cli.StringFlag{
 			Name:     "plc-token",
 			Required: true,
 			Usage:    "token from old PDS authorizing token signature",
-			EnvVars:  []string{"PLC_SIGN_TOKEN"},
+			Sources:  cli.EnvVars("PLC_SIGN_TOKEN"),
 		},
 		&cli.StringFlag{
 			Name:  "invite-code",
@@ -57,9 +57,8 @@ var cmdAccountMigrate = &cli.Command{
 	Action: runAccountMigrate,
 }
 
-func runAccountMigrate(cctx *cli.Context) error {
+func runAccountMigrate(ctx context.Context, cmd *cli.Command) error {
 	// NOTE: this could check rev / commit before and after and ensure last-minute content additions get lost
-	ctx := context.Background()
 
 	oldClient, err := loadAuthClient(ctx)
 	if err == ErrNoAuthSession {
@@ -69,19 +68,19 @@ func runAccountMigrate(cctx *cli.Context) error {
 	}
 	did := oldClient.Auth.Did
 
-	newHostURL := cctx.String("pds-host")
+	newHostURL := cmd.String("pds-host")
 	if !strings.Contains(newHostURL, "://") {
 		return fmt.Errorf("PDS host is not a url: %s", newHostURL)
 	}
-	newHandle := cctx.String("new-handle")
+	newHandle := cmd.String("new-handle")
 	_, err = syntax.ParseHandle(newHandle)
 	if err != nil {
 		return err
 	}
-	newPassword := cctx.String("new-password")
-	plcToken := cctx.String("plc-token")
-	inviteCode := cctx.String("invite-code")
-	newEmail := cctx.String("new-email")
+	newPassword := cmd.String("new-password")
+	plcToken := cmd.String("plc-token")
+	inviteCode := cmd.String("invite-code")
+	newEmail := cmd.String("new-email")
 
 	newClient := xrpc.Client{
 		Host: newHostURL,

@@ -22,7 +22,7 @@ import (
 
 	"github.com/carlmjohnson/versioninfo"
 	"github.com/gorilla/websocket"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var cmdFirehose = &cli.Command{
@@ -33,7 +33,7 @@ var cmdFirehose = &cli.Command{
 			Name:    "relay-host",
 			Usage:   "method, hostname, and port of Relay instance (websocket)",
 			Value:   "wss://bsky.network",
-			EnvVars: []string{"ATP_RELAY_HOST"},
+			Sources: cli.EnvVars("ATP_RELAY_HOST"),
 		},
 		&cli.IntFlag{
 			Name:  "cursor",
@@ -66,20 +66,19 @@ type GoatFirehoseConsumer struct {
 	CollectionFilter []string
 }
 
-func runFirehose(cctx *cli.Context) error {
-	ctx := context.Background()
+func runFirehose(ctx context.Context, cmd *cli.Command) error {
 
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
 
 	gfc := GoatFirehoseConsumer{
 		EventLogger:      slog.New(slog.NewJSONHandler(os.Stdout, nil)),
-		OpsMode:          cctx.Bool("ops"),
-		AccountsOnly:     cctx.Bool("account-events"),
-		CollectionFilter: cctx.StringSlice("collection"),
+		OpsMode:          cmd.Bool("ops"),
+		AccountsOnly:     cmd.Bool("account-events"),
+		CollectionFilter: cmd.StringSlice("collection"),
 	}
 
-	relayHost := cctx.String("relay-host")
-	cursor := cctx.Int("cursor")
+	relayHost := cmd.String("relay-host")
+	cursor := cmd.Int("cursor")
 
 	dialer := websocket.DefaultDialer
 	u, err := url.Parse(relayHost)
