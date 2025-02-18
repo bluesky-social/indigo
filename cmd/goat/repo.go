@@ -185,13 +185,13 @@ func runRepoList(cctx *cli.Context) error {
 	}
 	fi, err := os.Open(carPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open CAR file: %w", err)
 	}
 
 	// read repository tree in to memory
 	r, err := repo.ReadRepoFromCar(ctx, fi)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse repo CAR file: %w", err)
 	}
 
 	err = r.ForEach(ctx, "", func(k string, v cid.Cid) error {
@@ -199,7 +199,7 @@ func runRepoList(cctx *cli.Context) error {
 		return nil
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read records from repo CAR file: %w", err)
 	}
 	return nil
 }
