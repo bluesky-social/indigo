@@ -29,8 +29,10 @@ type BaseDirectory struct {
 	SkipDNSDomainSuffixes []string
 	// set of fallback DNS servers (eg, domain registrars) to try as a fallback. each entry should be "ip:port", eg "8.8.8.8:53"
 	FallbackDNSServers []string
-	// Hack to skip handle resolution as part of overall identity resolution, when starting with a DID (aka, LookupDID). Always returns invalid handle in this case. This flag is only relevant to services doing things like PDS lookup, or service auth validation (neither involve handles). Longer-term plan is to refactor the directory interface/API to allow more granular DID-only (and handle-only) resolution.
-	SkipHandleResolution bool
+	// skips bi-directional verification of handles when doing DID lookups (eg, `LookupDID`). Does not impact direct resolution (`ResolveHandle`) or handle-specific lookup (`LookupHandle`).
+	//
+	// The intended use-case for this flag is as an optimization for services which do not care about handles, but still want to use the `Directory` interface (instead of `ResolveDID`). For example, relay implementations, or services validating inter-service auth requests.
+	SkipHandleVerification bool
 }
 
 var _ Directory = (*BaseDirectory)(nil)
@@ -65,7 +67,7 @@ func (d *BaseDirectory) LookupDID(ctx context.Context, did syntax.DID) (*Identit
 		return nil, err
 	}
 	ident := ParseIdentity(doc)
-	if d.SkipHandleResolution {
+	if d.SkipHandleVerification {
 		ident.Handle = syntax.HandleInvalid
 		return &ident, nil
 	}
