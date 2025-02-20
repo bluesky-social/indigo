@@ -13,7 +13,9 @@ import (
 	"github.com/ipfs/go-cid"
 )
 
-// temporary/experimental method to parse and verify a firehose commit message
+// temporary/experimental method to parse and verify a firehose commit message.
+//
+// TODO: move to a separate 'sync' package? break up in to smaller components?
 func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos_Commit) (*Repo, error) {
 
 	logger := slog.Default().With("did", msg.Repo, "rev", msg.Rev, "seq", msg.Seq, "time", msg.Time)
@@ -168,7 +170,7 @@ func parseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]Operation, e
 
 // temporary/experimental code showing how to verify a commit signature from firehose
 //
-// in real implementation, will want to merge this code with `VerifyCommitMessage` above, and have it hanging off some service struct with a configured `identity.Directory`
+// TODO: in real implementation, will want to merge this code with `VerifyCommitMessage` above, and have it hanging off some service struct with a configured `identity.Directory`
 func VerifyCommitSignature(ctx context.Context, dir identity.Directory, msg *comatproto.SyncSubscribeRepos_Commit) error {
 	commit, _, err := LoadFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
 	if err != nil {
