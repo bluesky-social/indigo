@@ -39,6 +39,7 @@ func run(args []string) error {
 		cmdSyntax,
 		cmdCrypto,
 		cmdPds,
+		cmdXRPC,
 	}
 	return app.Run(args)
 }
