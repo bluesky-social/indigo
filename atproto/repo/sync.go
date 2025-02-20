@@ -7,12 +7,15 @@ import (
 	"log/slog"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/ipfs/go-cid"
 )
 
-// temporary/experimental method to parse and verify a firehose commit message
+// temporary/experimental method to parse and verify a firehose commit message.
+//
+// TODO: move to a separate 'sync' package? break up in to smaller components?
 func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos_Commit) (*Repo, error) {
 
 	logger := slog.Default().With("did", msg.Repo, "rev", msg.Rev, "seq", msg.Seq, "time", msg.Time)
@@ -37,15 +40,15 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 		logger.Warn("event with rebase flag set")
 	}
 
-	repo, err := LoadFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
+	commit, repo, err := LoadFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
 	if err != nil {
 		return nil, err
 	}
 
-	if repo.Commit.Rev != rev.String() {
+	if commit.Rev != rev.String() {
 		return nil, fmt.Errorf("rev did not match commit")
 	}
-	if repo.Commit.DID != did.String() {
+	if commit.DID != did.String() {
 		return nil, fmt.Errorf("rev did not match commit")
 	}
 	// TODO: check that commit CID matches root? re-compute?
@@ -72,15 +75,23 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 		}
 	}
 
-	// TODO: once firehose format is updated, remove this
+	// TODO: once firehose format is fully shipped, remove this
 	for _, o := range msg.Ops {
-		if o.Action != "create" {
-			logger.Info("can't invert legacy op", "action", o.Action)
-			return repo, nil
+		switch o.Action {
+		case "delete":
+			if o.Prev == nil {
+				logger.Info("can't invert legacy op", "action", o.Action)
+				return repo, nil
+			}
+		case "update":
+			if o.Prev == nil {
+				logger.Info("can't invert legacy op", "action", o.Action)
+				return repo, nil
+			}
 		}
 	}
 
-	ops, err := ParseCommitOps(msg.Ops)
+	ops, err := parseCommitOps(msg.Ops)
 	if err != nil {
 		return nil, err
 	}
@@ -97,36 +108,91 @@ func VerifyCommitMessage(ctx context.Context, msg *comatproto.SyncSubscribeRepos
 			return nil, err
 		}
 	}
-	// TODO: compare against previous commit for this repo?
-	_, err = invTree.RootCID()
+	computed, err := invTree.RootCID()
+	if err != nil {
+		return nil, err
+	}
+	if msg.PrevData != nil {
+		c := (*cid.Cid)(msg.PrevData)
+		if *computed != *c {
+			return nil, fmt.Errorf("inverted tree root didn't match prevData")
+		}
+		logger.Debug("prevData matched", "prevData", c.String(), "computed", computed.String())
+	} else {
+		logger.Info("prevData was null; skipping tree root check")
+	}
 
 	logger.Info("success")
 	return repo, nil
 }
 
-func ParseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]Operation, error) {
-	//out := make([]mst.Operation, len(ops))
+func parseCommitOps(ops []*comatproto.SyncSubscribeRepos_RepoOp) ([]Operation, error) {
+	//out := make([]Operation, len(ops))
 	out := []Operation{}
 	for _, rop := range ops {
 		switch rop.Action {
 		case "create":
-			if rop.Cid != nil {
-				op := Operation{
-					Path:  rop.Path,
-					Prev:  nil,
-					Value: (*cid.Cid)(rop.Cid),
-				}
-				out = append(out, op)
-			} else {
-				return nil, fmt.Errorf("invalid repoOp: create missing CID")
+			if rop.Cid == nil || rop.Prev != nil {
+				return nil, fmt.Errorf("invalid repoOp: create")
 			}
+			op := Operation{
+				Path:  rop.Path,
+				Prev:  nil,
+				Value: (*cid.Cid)(rop.Cid),
+			}
+			out = append(out, op)
 		case "delete":
-			return nil, fmt.Errorf("unhandled delete repoOp")
+			if rop.Cid != nil || rop.Prev == nil {
+				return nil, fmt.Errorf("invalid repoOp: delete")
+			}
+			op := Operation{
+				Path:  rop.Path,
+				Prev:  (*cid.Cid)(rop.Prev),
+				Value: nil,
+			}
+			out = append(out, op)
 		case "update":
-			return nil, fmt.Errorf("unhandled update repoOp")
+			if rop.Cid == nil || rop.Prev == nil {
+				return nil, fmt.Errorf("invalid repoOp: update")
+			}
+			op := Operation{
+				Path:  rop.Path,
+				Prev:  (*cid.Cid)(rop.Prev),
+				Value: (*cid.Cid)(rop.Cid),
+			}
+			out = append(out, op)
 		default:
 			return nil, fmt.Errorf("invalid repoOp action: %s", rop.Action)
 		}
 	}
 	return out, nil
+}
+
+// temporary/experimental code showing how to verify a commit signature from firehose
+//
+// TODO: in real implementation, will want to merge this code with `VerifyCommitMessage` above, and have it hanging off some service struct with a configured `identity.Directory`
+func VerifyCommitSignature(ctx context.Context, dir identity.Directory, msg *comatproto.SyncSubscribeRepos_Commit) error {
+	commit, _, err := LoadFromCAR(ctx, bytes.NewReader([]byte(msg.Blocks)))
+	if err != nil {
+		return err
+	}
+
+	if err := commit.VerifyStructure(); err != nil {
+		return err
+	}
+	did, err := syntax.ParseDID(commit.DID)
+	if err != nil {
+		return err
+	}
+
+	ident, err := dir.LookupDID(ctx, did)
+	if err != nil {
+		return err
+	}
+	pubkey, err := ident.PublicKey()
+	if err != nil {
+		return err
+	}
+
+	return commit.VerifySignature(pubkey)
 }

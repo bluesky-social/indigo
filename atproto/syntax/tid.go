@@ -123,9 +123,18 @@ type TIDClock struct {
 	lastUnixMicro int64
 }
 
-func NewTIDClock(clockId uint) *TIDClock {
-	return &TIDClock{
+func NewTIDClock(clockId uint) TIDClock {
+	return TIDClock{
 		ClockID: clockId,
+	}
+}
+
+func ClockFromTID(t TID) TIDClock {
+	um := t.Integer()
+	um = (um >> 10) & 0x1FFF_FFFF_FFFF_FFFF
+	return TIDClock{
+		ClockID:       t.ClockID(),
+		lastUnixMicro: int64(um),
 	}
 }
 
