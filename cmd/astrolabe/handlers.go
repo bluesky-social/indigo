@@ -30,6 +30,9 @@ func (srv *Server) WebQuery(c echo.Context) error {
 	if q == "" {
 		return c.Redirect(http.StatusFound, "/")
 	}
+	if strings.HasPrefix(q, "https://") {
+		q = ParseServiceURL(q)
+	}
 	if strings.HasPrefix(q, "at://") {
 		if strings.HasSuffix(q, "/") {
 			q = q[0 : len(q)-1]
