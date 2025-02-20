@@ -43,6 +43,13 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 
 	// de-dupe actions
 	newLabels := dedupeLabelActions(c.effects.AccountLabels, c.Account.AccountLabels, c.Account.AccountNegatedLabels)
+	var rmdLabels []string
+	for _, lbl := range c.effects.RemovedAccountLabels {
+		if !keyword.TokenInSet(lbl, c.Account.AccountLabels) {
+			continue
+		}
+		rmdLabels = append(rmdLabels, lbl)
+	}
 	existingTags := []string{}
 	if c.Account.Private != nil {
 		existingTags = c.Account.Private.AccountTags
@@ -84,7 +91,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 		}
 	}
 
-	anyModActions := newTakedown || newEscalation || newAcknowledge || len(newLabels) > 0 || len(newTags) > 0 || len(newFlags) > 0 || len(newReports) > 0
+	anyModActions := newTakedown || newEscalation || newAcknowledge || len(newLabels) > 0 || len(rmdLabels) > 0 || len(newTags) > 0 || len(newFlags) > 0 || len(newReports) > 0
 	if anyModActions && eng.Notifier != nil {
 		for _, srv := range dedupeStrings(c.effects.NotifyServices) {
 			if err := eng.Notifier.SendAccount(ctx, srv, c); err != nil {
@@ -112,8 +119,8 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 
 	xrpcc := eng.OzoneClient
 
-	if len(newLabels) > 0 {
-		c.Logger.Info("labeling account", "newLabels", newLabels)
+	if len(newLabels) > 0 || len(rmdLabels) > 0 {
+		c.Logger.Info("updating account labels", "newLabels", newLabels, "rmdLabels", rmdLabels)
 		for _, val := range newLabels {
 			// note: WithLabelValues is a prometheus label, not an atproto label
 			actionNewLabelCount.WithLabelValues("account", val).Inc()
@@ -124,7 +131,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventLabel: &toolsozone.ModerationDefs_ModEventLabel{
 					CreateLabelVals: newLabels,
-					NegateLabelVals: []string{},
+					NegateLabelVals: rmdLabels,
 					Comment:         &comment,
 				},
 			},
@@ -380,7 +387,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 
 	xrpcc := eng.OzoneClient
 	if len(newLabels) > 0 || len(rmdLabels) > 0 {
-		c.Logger.Info("labeling record", "newLabels", newLabels)
+		c.Logger.Info("updating record labels", "newLabels", newLabels, "rmdLabels", rmdLabels)
 		for _, val := range newLabels {
 			// note: WithLabelValues is a prometheus label, not an atproto label
 			actionNewLabelCount.WithLabelValues("record", val).Inc()
