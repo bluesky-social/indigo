@@ -9,10 +9,16 @@ import (
 	"github.com/ipfs/go-cid"
 )
 
+// Metadata about update to a single record (key) in the repo.
+//
+// Used as an abstraction for creating or validating "commit diffs" (eg, `#commit` firehose events)
 type Operation struct {
-	Path  string
+	// key of the record, eg, '{collection}/{record-key}'
+	Path string
+	// the new record CID value (or nil if this is a deletion)
 	Value *cid.Cid
-	Prev  *cid.Cid
+	// the previous record CID value (or nil if this is a creation)
+	Prev *cid.Cid
 }
 
 func (op *Operation) IsCreate() bool {

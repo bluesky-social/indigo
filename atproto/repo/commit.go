@@ -10,6 +10,7 @@ import (
 	"github.com/ipfs/go-cid"
 )
 
+// atproto repo commit object as a struct type. Can be used for direct CBOR or JSON serialization.
 type Commit struct {
 	DID     string   `json:"did" cborgen:"did"`
 	Version int64    `json:"version" cborgen:"version"` // currently: 3
@@ -19,7 +20,7 @@ type Commit struct {
 	Rev     string   `json:"rev,omitempty" cborgen:"rev,omitempty"`
 }
 
-// basic checks that field syntax is correct
+// does basic checks that field values and syntax are correct
 func (c *Commit) VerifyStructure() error {
 	if c.Version != ATPROTO_REPO_VERSION {
 		return fmt.Errorf("unsupported repo version: %d", c.Version)
@@ -60,6 +61,7 @@ func (c *Commit) UnsignedBytes() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// Signs the commit, storing the signature in the `Sig` field
 func (c *Commit) Sign(privkey crypto.PrivateKey) error {
 	b, err := c.UnsignedBytes()
 	if err != nil {
@@ -73,6 +75,7 @@ func (c *Commit) Sign(privkey crypto.PrivateKey) error {
 	return nil
 }
 
+// Verifies `Sig` field using the provided key. Returns `nil` if signature is valid.
 func (c *Commit) VerifySignature(pubkey crypto.PublicKey) error {
 	if c.Sig == nil {
 		return fmt.Errorf("can not verify unsigned commit")

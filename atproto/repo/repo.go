@@ -15,6 +15,7 @@ import (
 // Version of the repo data format implemented in this package
 const ATPROTO_REPO_VERSION int64 = 3
 
+// High-level wrapper struct for an atproto repository.
 type Repo struct {
 	DID   syntax.DID
 	Clock *syntax.TIDClock
@@ -60,6 +61,7 @@ func (repo *Repo) GetRecordBytes(ctx context.Context, collection syntax.NSID, rk
 	return blk.RawData(), nil
 }
 
+// Snapshots the current state of the repository, resulting in a new (unsigned) `Commit` struct.
 func (repo *Repo) Commit() (*Commit, error) {
 	root, err := repo.MST.RootCID()
 	if err != nil {
