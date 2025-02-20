@@ -217,6 +217,17 @@ type ModerationDefs_ModEventMuteReporter struct {
 	DurationInHours *int64 `json:"durationInHours,omitempty" cborgen:"durationInHours,omitempty"`
 }
 
+// ModerationDefs_ModEventPriorityScore is a "modEventPriorityScore" in the tools.ozone.moderation.defs schema.
+//
+// Set priority score of the subject. Higher score means higher priority.
+//
+// RECORDTYPE: ModerationDefs_ModEventPriorityScore
+type ModerationDefs_ModEventPriorityScore struct {
+	LexiconTypeID string  `json:"$type,const=tools.ozone.moderation.defs#modEventPriorityScore" cborgen:"$type,const=tools.ozone.moderation.defs#modEventPriorityScore"`
+	Comment       *string `json:"comment,omitempty" cborgen:"comment,omitempty"`
+	Score         int64   `json:"score" cborgen:"score"`
+}
+
 // ModerationDefs_ModEventReport is a "modEventReport" in the tools.ozone.moderation.defs schema.
 //
 // # Report a subject
@@ -346,6 +357,7 @@ type ModerationDefs_ModEventViewDetail_Event struct {
 	ModerationDefs_AccountEvent            *ModerationDefs_AccountEvent
 	ModerationDefs_IdentityEvent           *ModerationDefs_IdentityEvent
 	ModerationDefs_RecordEvent             *ModerationDefs_RecordEvent
+	ModerationDefs_ModEventPriorityScore   *ModerationDefs_ModEventPriorityScore
 }
 
 func (t *ModerationDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) {
@@ -421,6 +433,10 @@ func (t *ModerationDefs_ModEventViewDetail_Event) MarshalJSON() ([]byte, error) 
 		t.ModerationDefs_RecordEvent.LexiconTypeID = "tools.ozone.moderation.defs#recordEvent"
 		return json.Marshal(t.ModerationDefs_RecordEvent)
 	}
+	if t.ModerationDefs_ModEventPriorityScore != nil {
+		t.ModerationDefs_ModEventPriorityScore.LexiconTypeID = "tools.ozone.moderation.defs#modEventPriorityScore"
+		return json.Marshal(t.ModerationDefs_ModEventPriorityScore)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ModerationDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error {
@@ -484,6 +500,9 @@ func (t *ModerationDefs_ModEventViewDetail_Event) UnmarshalJSON(b []byte) error 
 	case "tools.ozone.moderation.defs#recordEvent":
 		t.ModerationDefs_RecordEvent = new(ModerationDefs_RecordEvent)
 		return json.Unmarshal(b, t.ModerationDefs_RecordEvent)
+	case "tools.ozone.moderation.defs#modEventPriorityScore":
+		t.ModerationDefs_ModEventPriorityScore = new(ModerationDefs_ModEventPriorityScore)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventPriorityScore)
 
 	default:
 		return nil
@@ -560,6 +579,7 @@ type ModerationDefs_ModEventView_Event struct {
 	ModerationDefs_AccountEvent            *ModerationDefs_AccountEvent
 	ModerationDefs_IdentityEvent           *ModerationDefs_IdentityEvent
 	ModerationDefs_RecordEvent             *ModerationDefs_RecordEvent
+	ModerationDefs_ModEventPriorityScore   *ModerationDefs_ModEventPriorityScore
 }
 
 func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
@@ -635,6 +655,10 @@ func (t *ModerationDefs_ModEventView_Event) MarshalJSON() ([]byte, error) {
 		t.ModerationDefs_RecordEvent.LexiconTypeID = "tools.ozone.moderation.defs#recordEvent"
 		return json.Marshal(t.ModerationDefs_RecordEvent)
 	}
+	if t.ModerationDefs_ModEventPriorityScore != nil {
+		t.ModerationDefs_ModEventPriorityScore.LexiconTypeID = "tools.ozone.moderation.defs#modEventPriorityScore"
+		return json.Marshal(t.ModerationDefs_ModEventPriorityScore)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
@@ -698,6 +722,9 @@ func (t *ModerationDefs_ModEventView_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#recordEvent":
 		t.ModerationDefs_RecordEvent = new(ModerationDefs_RecordEvent)
 		return json.Unmarshal(b, t.ModerationDefs_RecordEvent)
+	case "tools.ozone.moderation.defs#modEventPriorityScore":
+		t.ModerationDefs_ModEventPriorityScore = new(ModerationDefs_ModEventPriorityScore)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventPriorityScore)
 
 	default:
 		return nil
@@ -887,6 +914,27 @@ type ModerationDefs_RepoViewNotFound struct {
 	Did           string `json:"did" cborgen:"did"`
 }
 
+// ModerationDefs_ReporterStats is a "reporterStats" in the tools.ozone.moderation.defs schema.
+type ModerationDefs_ReporterStats struct {
+	// accountReportCount: The total number of reports made by the user on accounts.
+	AccountReportCount int64  `json:"accountReportCount" cborgen:"accountReportCount"`
+	Did                string `json:"did" cborgen:"did"`
+	// labeledAccountCount: The total number of accounts labeled as a result of the user's reports.
+	LabeledAccountCount int64 `json:"labeledAccountCount" cborgen:"labeledAccountCount"`
+	// labeledRecordCount: The total number of records labeled as a result of the user's reports.
+	LabeledRecordCount int64 `json:"labeledRecordCount" cborgen:"labeledRecordCount"`
+	// recordReportCount: The total number of reports made by the user on records.
+	RecordReportCount int64 `json:"recordReportCount" cborgen:"recordReportCount"`
+	// reportedAccountCount: The total number of accounts reported by the user.
+	ReportedAccountCount int64 `json:"reportedAccountCount" cborgen:"reportedAccountCount"`
+	// reportedRecordCount: The total number of records reported by the user.
+	ReportedRecordCount int64 `json:"reportedRecordCount" cborgen:"reportedRecordCount"`
+	// takendownAccountCount: The total number of accounts taken down as a result of the user's reports.
+	TakendownAccountCount int64 `json:"takendownAccountCount" cborgen:"takendownAccountCount"`
+	// takendownRecordCount: The total number of records taken down as a result of the user's reports.
+	TakendownRecordCount int64 `json:"takendownRecordCount" cborgen:"takendownRecordCount"`
+}
+
 // ModerationDefs_SubjectStatusView is a "subjectStatusView" in the tools.ozone.moderation.defs schema.
 type ModerationDefs_SubjectStatusView struct {
 	// accountStats: Statistics related to the account subject
@@ -906,6 +954,8 @@ type ModerationDefs_SubjectStatusView struct {
 	LastReviewedBy     *string `json:"lastReviewedBy,omitempty" cborgen:"lastReviewedBy,omitempty"`
 	MuteReportingUntil *string `json:"muteReportingUntil,omitempty" cborgen:"muteReportingUntil,omitempty"`
 	MuteUntil          *string `json:"muteUntil,omitempty" cborgen:"muteUntil,omitempty"`
+	// priorityScore: Numeric value representing the level of priority. Higher score means higher priority.
+	PriorityScore *int64 `json:"priorityScore,omitempty" cborgen:"priorityScore,omitempty"`
 	// recordsStats: Statistics related to the record subjects authored by the subject's account
 	RecordsStats      *ModerationDefs_RecordsStats              `json:"recordsStats,omitempty" cborgen:"recordsStats,omitempty"`
 	ReviewState       *string                                   `json:"reviewState" cborgen:"reviewState"`
