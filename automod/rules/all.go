@@ -45,6 +45,7 @@ func DefaultRules() automod.RuleSet {
 		},
 		RecordDeleteRules: []automod.RecordRuleFunc{
 			DeleteInteractionRule,
+			//ResolveAppealOnRecordDeleteRule,
 		},
 		IdentityRules: []automod.IdentityRuleFunc{
 			NewAccountRule,
@@ -52,12 +53,14 @@ func DefaultRules() automod.RuleSet {
 			BadWordDIDRule,
 			NewAccountBotEmailRule,
 			CelebSpamIdentityRule,
+			//ResolveAppealOnAccountDeleteRule,
 		},
 		BlobRules: []automod.BlobRuleFunc{
 			//BlobVerifyRule,
 		},
 		OzoneEventRules: []automod.OzoneEventRuleFunc{
 			HarassmentProtectionOzoneEventRule,
+			//MarkAppealOzoneEventRule,
 		},
 	}
 	return rules

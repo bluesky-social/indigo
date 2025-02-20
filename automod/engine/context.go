@@ -221,6 +221,9 @@ func (c *BaseContext) GetAccountMeta(did syntax.DID) *AccountMeta {
 func (c *BaseContext) Increment(name, val string) {
 	c.effects.Increment(name, val)
 }
+func (c *BaseContext) ResetCount(name, val string) {
+	c.effects.ResetCount(name, val)
+}
 
 func (c *BaseContext) IncrementDistinct(name, bucket, val string) {
 	c.effects.IncrementDistinct(name, bucket, val)
@@ -252,6 +255,10 @@ func (c *AccountContext) ReportAccount(reason, comment string) {
 
 func (c *AccountContext) TakedownAccount() {
 	c.effects.TakedownAccount()
+}
+
+func (c *AccountContext) ResolveAccountAppeal() {
+	c.effects.ResolveAccountAppeal()
 }
 
 func (c *AccountContext) EscalateAccount() {
@@ -288,6 +295,10 @@ func (c *RecordContext) EscalateRecord() {
 
 func (c *RecordContext) AcknowledgeRecord() {
 	c.effects.AcknowledgeRecord()
+}
+
+func (c *RecordContext) ResolveRecordAppeal() {
+	c.effects.ResolveRecordAppeal()
 }
 
 func (c *RecordContext) TakedownBlob(cid string) {
