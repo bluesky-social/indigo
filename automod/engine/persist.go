@@ -43,7 +43,7 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 
 	// de-dupe actions
 	newLabels := dedupeLabelActions(c.effects.AccountLabels, c.Account.AccountLabels, c.Account.AccountNegatedLabels)
-	var rmdLabels []string
+	rmdLabels := dedupeStrings(c.effects.RemovedAccountLabels)
 	for _, lbl := range c.effects.RemovedAccountLabels {
 		if !keyword.TokenInSet(lbl, c.Account.AccountLabels) {
 			continue
