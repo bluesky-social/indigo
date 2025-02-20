@@ -8,7 +8,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/repo"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 
 	"github.com/urfave/cli/v2"
 )
@@ -31,6 +33,12 @@ func main() {
 			Usage:     "load a CAR file and check the MST tree",
 			ArgsUsage: "<path>",
 			Action:    runVerifyCarMst,
+		},
+		&cli.Command{
+			Name:      "verify-car-signature",
+			Usage:     "load a CAR file and check the commit message signature",
+			ArgsUsage: "<path>",
+			Action:    runVerifyCarSignature,
 		},
 		&cli.Command{
 			Name:   "verify-firehose",
@@ -85,7 +93,7 @@ func runVerifyCarMst(cctx *cli.Context) error {
 	}
 	defer f.Close()
 
-	repo, err := repo.LoadFromCAR(ctx, f)
+	commit, repo, err := repo.LoadFromCAR(ctx, f)
 	if err != nil {
 		return err
 	}
@@ -95,9 +103,52 @@ func runVerifyCarMst(cctx *cli.Context) error {
 		return err
 	}
 
-	if repo.Commit.Data != *computedCID {
-		return fmt.Errorf("failed to re-compute: %s != %s", computedCID, repo.Commit.Data)
+	if commit.Data != *computedCID {
+		return fmt.Errorf("failed to re-compute: %s != %s", computedCID, commit.Data)
 	}
 	fmt.Println("verified tree")
+	return nil
+}
+
+func runVerifyCarSignature(cctx *cli.Context) error {
+	ctx := context.Background()
+	dir := identity.DefaultDirectory()
+
+	p := cctx.Args().First()
+	if p == "" {
+		return fmt.Errorf("need to provide path to CAR file")
+	}
+
+	f, err := os.Open(p)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	commit, _, err := repo.LoadFromCAR(ctx, f)
+	if err != nil {
+		return err
+	}
+
+	if err := commit.VerifyStructure(); err != nil {
+		return err
+	}
+	did, err := syntax.ParseDID(commit.DID)
+	if err != nil {
+		return err
+	}
+
+	ident, err := dir.LookupDID(ctx, did)
+	if err != nil {
+		return err
+	}
+	pubkey, err := ident.PublicKey()
+	if err != nil {
+		return err
+	}
+	if err := commit.VerifySignature(pubkey); err != nil {
+		return err
+	}
+	fmt.Println("verified signature")
 	return nil
 }

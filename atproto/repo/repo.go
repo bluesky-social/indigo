@@ -15,10 +15,10 @@ import (
 // Version of the repo data format implemented in this package
 const ATPROTO_REPO_VERSION int64 = 3
 
+// High-level wrapper struct for an atproto repository.
 type Repo struct {
-	DID    syntax.DID
-	Clock  *syntax.TIDClock
-	Commit *Commit
+	DID   syntax.DID
+	Clock *syntax.TIDClock
 
 	RecordStore blockstore.Blockstore
 	MST         mst.Tree
@@ -26,11 +26,11 @@ type Repo struct {
 
 var ErrNotFound = errors.New("record not found in repository")
 
-func NewRepo(did syntax.DID) Repo {
+func NewEmptyRepo(did syntax.DID) Repo {
+	clk := syntax.NewTIDClock(0)
 	return Repo{
 		DID:         did,
-		Clock:       syntax.NewTIDClock(0),
-		Commit:      nil,
+		Clock:       &clk,
 		RecordStore: blockstore.NewBlockstore(datastore.NewMapDatastore()),
 		MST:         mst.NewEmptyTree(),
 	}
@@ -61,13 +61,18 @@ func (repo *Repo) GetRecordBytes(ctx context.Context, collection syntax.NSID, rk
 	return blk.RawData(), nil
 }
 
-// TODO:
-// IsComplete()
-// LoadFromStore
-// LoadFromCAR(reader)
-// WriteBlocks
-// WriteCAR
-// VerifyCIDs(bool)
-// Export
-// GetRecordStruct
-// GetRecordProof
+// Snapshots the current state of the repository, resulting in a new (unsigned) `Commit` struct.
+func (repo *Repo) Commit() (*Commit, error) {
+	root, err := repo.MST.RootCID()
+	if err != nil {
+		return nil, err
+	}
+	c := Commit{
+		DID:     repo.DID.String(),
+		Version: ATPROTO_REPO_VERSION,
+		Prev:    nil,
+		Data:    *root,
+		Rev:     repo.Clock.Next().String(),
+	}
+	return &c, nil
+}

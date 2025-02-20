@@ -27,6 +27,10 @@ func (t *Commit) MarshalCBOR(w io.Writer) error {
 	cw := cbg.NewCborWriter(w)
 	fieldCount := 6
 
+	if t.Sig == nil {
+		fieldCount--
+	}
+
 	if t.Rev == "" {
 		fieldCount--
 	}
@@ -85,27 +89,31 @@ func (t *Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Sig ([]uint8) (slice)
-	if len("sig") > 1000000 {
-		return xerrors.Errorf("Value in field \"sig\" was too long")
-	}
+	if t.Sig != nil {
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("sig"))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string("sig")); err != nil {
-		return err
-	}
+		if len("sig") > 1000000 {
+			return xerrors.Errorf("Value in field \"sig\" was too long")
+		}
 
-	if len(t.Sig) > 2097152 {
-		return xerrors.Errorf("Byte array in field t.Sig was too long")
-	}
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("sig"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("sig")); err != nil {
+			return err
+		}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajByteString, uint64(len(t.Sig))); err != nil {
-		return err
-	}
+		if len(t.Sig) > 2097152 {
+			return xerrors.Errorf("Byte array in field t.Sig was too long")
+		}
 
-	if _, err := cw.Write(t.Sig); err != nil {
-		return err
+		if err := cw.WriteMajorTypeHeader(cbg.MajByteString, uint64(len(t.Sig))); err != nil {
+			return err
+		}
+
+		if _, err := cw.Write(t.Sig); err != nil {
+			return err
+		}
+
 	}
 
 	// t.Data (cid.Cid) (struct)
