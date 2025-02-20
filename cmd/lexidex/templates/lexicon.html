@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block main_content %}
+
+{% macro fields_table(fields) %}
+{% if fields %}
+<table>
+  <thead>
+    <tr><th>Name</th>
+        <th>Type</th>
+        <th>Details</th>
+  </thead>
+  <tbody>
+  {% for f in fields %}
+  <tr><td><code>{{ f.Name }}</code></td>
+  	  <td>{{ f.Type }} {% if f.Required %}<mark>(required)</mark>{% elif f.Nullable %}(nullable){% endif %}</td>
+      <td>
+        {% if f.Description %}<p>{{ f.Description }}</p>{% endif %}
+        {% if f.Type == "string" and f.SchemaString %}
+          {% if f.SchemaString.Format %}<p>Syntax Format: <code>{{ f.SchemaString.Format }}</code>{% endif %}
+          {% if f.SchemaString.Default %}<p>Default: <code>{{ f.SchemaString.Default }}</code>{% endif %}
+          {% if f.SchemaString.Const %}<p>Constant Value: <code>{{ f.SchemaString.Const }}</code>{% endif %}
+          {% if f.SchemaString.KnownValues %}<p>Known Values: {% for v in f.SchemaString.KnownValues %}<code>{{ v }}</code>,  {% endfor %}{% endif %}
+          {% if f.SchemaString.Enum %}<p>Enum Values: {% for v in f.SchemaString.Enum %}<code>{{ v }}</code>, {% endfor %}{% endif %}
+          {% if f.SchemaString.MinGraphemes or f.SchemaString.MaxGraphemes  %}
+          <p>Length in Graphemes:
+            {% if f.SchemaString.MinGraphemes %}{{ f.SchemaString.MinGraphemes }} min{% endif %}
+            {% if f.SchemaString.MaxGraphemes %}{{ f.SchemaString.MaxGraphemes }} max{% endif %}
+          {% endif %}
+          {% if f.SchemaString.MinLength or f.SchemaString.MaxLength %}
+          <p>Length in bytes (when UTF-8 encoded):
+            {% if f.SchemaString.MinLength %}{{ f.SchemaString.MinLength }} min{% endif %}
+            {% if f.SchemaString.MaxLength %}{{ f.SchemaString.MaxLength }} max{% endif %}
+          {% endif %}
+        {% elif f.Type == "boolean" and f.SchemaBoolean %}
+          {% if f.SchemaBoolean.Format %}<p>Format: <code>{{ f.SchemaBoolean.Format }}</code>{% endif %}
+          {% if f.SchemaBoolean.Default %}<p>Default: <code>{{ f.SchemaBoolean.Default }}</code>{% endif %}
+        {% elif f.Type == "integer" and f.SchemaInteger %}
+          {% if f.SchemaInteger.Const %}<p>Constant Value: <code>{{ f.SchemaInteger.Const }}</code>{% endif %}
+          {% if f.SchemaInteger.Default %}<p>Default: <code>{{ f.SchemaInteger.Default }}</code>{% endif %}
+          {% if f.SchemaInteger.Minimum %}<p>Minimum: <code>{{ f.SchemaInteger.Minimum }}</code>{% endif %}
+          {% if f.SchemaInteger.Maximum %}<p>Maxumum: <code>{{ f.SchemaInteger.Maxumum }}</code>{% endif %}
+          {% if f.SchemaInteger.Enum %}<p>Enum Values: {% for v in f.SchemaInteger.Enum %}<code>{{ v }}</code>, {% endfor %}{% endif %}
+        {% elif f.Type == "bytes" and f.SchemaBytes %}
+          {% if f.SchemaBytes.MinLength or f.SchemaString.MaxLength %}
+          <p>Length in bytes (when UTF-8 encoded):
+            {% if f.SchemaBytes.MinLength %}{{ f.SchemaString.MinLength }} min{% endif %}
+            {% if f.SchemaBytes.MaxLength %}{{ f.SchemaString.MaxLength }} max{% endif %}
+          {% endif %}
+        {% elif f.Type == "blob" and f.SchemaBlob %}
+          {% if f.SchemaBlob.Accept %}
+            <p>Accepted Content Types:
+            {% for t in f.SchemaBlob.Accept %}
+              <code>{{ t }}</code></li>
+            {% endfor %}
+          {% endif %}
+          {% if f.SchemaBlob.MaxSize %}
+            <p>Max Size (bytes): <code>{{ f.SchemaBlob.MaxSize }}</code>
+          {% endif %}
+        {% elif f.Type == "ref" %}
+          <p>Reference: <code>{{ f.Ref }}</code>
+        {% elif f.Type == "array" %}
+          {% if f.Min or f.Max %}
+            <p>Array Length:
+            {% if f.Min %}{{ f.Min }} min{% endif %}
+            {% if f.Max %}{{ f.Max }} max{% endif %}
+          {% endif %}
+          {% if f.Items.Type == "ref" %}
+            <p>Elements are of type: <code>{{ f.Item.Ref }}</code>
+          {% elif f.Items.Type == "object" %}
+            <article>
+              <strong>Element Object Schema</strong>
+              {{ fields_table(f.Items.Fields) }}
+            </article>
+          {% elif f.Items.Type == "integer" %}
+            <p>Elements are integers
+          	{# TODO #}
+          {% elif f.Items.Type == "integer" %}
+            <p>Elements are CID Links
+          {% else %}<p>UNHANDLED IN ARRAYS: {{ f.Items.Type }}{% endif %}
+        {% elif f.Type == "object" %}
+          <article>
+            {{ fields_table(f.Fields) }}
+          </article>
+        {% elif f.Type == "union" %}
+          {{ union_list(f.Items) }}
+        {% elif f.Type == "token" %}
+        {% elif f.Type == "null" %}
+        {% elif f.Type == "cid-link" %}
+        {% elif f.Type == "unknown" %}
+          <i>Field can contain arbitrary JSON/CBOR object data</i>
+        {% else %}<p>UNHANDLED IN FIELDS: {{ f.Type }}{% endif %}
+      </td>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p><i>No fields defined</i>
+{% endif %}
+{% endmacro %}
+
+{% macro record_schema(def) %}
+{% if def.KeyType %}<p>Record Key Type: <code>{{ def.KeyType }}</code>{% endif %}
+<h3>Data Fields</h3>
+{{ fields_table(def.Fields) }}
+{% endmacro %}
+
+{% macro api_schema(def) %}
+<h3>Query Parameters</h3>
+{{ fields_table(def.Fields) }}
+{% if def.Input or def.InputEncoding %}
+  <h3>Request Body</h3>
+  {% if def.InputEncoding%}<p>Content Type: <code>{{ def.InputEncoding }}</code>{% endif %}
+  {% if def.Input %}{{ record_schema(def.Input) }}{% endif %}
+{% endif %}
+<h3>Response Body</h3>
+{% if def.OutputEncoding%}<p>Content Type: <code>{{ def.OutputEncoding }}</code>{% endif %}
+{% if def.Output %}{{ record_schema(def.Output) }}{% endif %}
+{{ errors_table(def.Errors) }}
+{% endmacro %}
+
+{% macro errors_table(errors) %}
+<h3>Errors</h3>
+{% if errors %}
+<table>
+  <thead>
+    <tr><th>Name</th>
+        <th>Description</th>
+  </thead>
+  <tbody>
+  {% for e in errors %}
+  <tr><td><code>{{ e.Name }}</code></td>
+      <td>{{ e.Description }}</td>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p><i>No error types defined</i>
+{% endif %}
+{% endmacro %}
+
+{% macro union_list(def) %}
+<p>{% if def.Closed %}Closed Union:{% else %}Open Union:{% endif %}
+<ul>
+{% for o in def.Options %}
+  <li><code>{{ o }}</code>
+{% endfor %}
+</ul>
+{% endmacro %}
+
+<h2 style="font-family: monospace;">{{ lexicon.NSID }}</h2>
+<p>Domain Index: <a href="/domain/{{ lexicon.Domain }}">{{ lexicon.Domain }}</a>
+<p><a href="/lexicon/{{ lexicon.NSID }}/history">Crawl History</a>
+
+{% for def in defs %}
+<article>
+  <header><code>#{{ def.Name }}</code> - {{ def.Type }}</header>
+  {% if def.Description %}<p>{{ def.Description }}{% endif %}
+  {% if def.Type == "record" %}{{ record_schema(def) }}
+  {% elif def.Type == "query" or def.Type == "procedure" %}{{ api_schema(def) }}
+  {% elif def.Type == "subscription" %}
+    <h3>Query Parameters</h3>
+    {{ fields_table(def.Fields) }}
+    <h3>Message Types</h3>
+    {{ union_list(def) }}
+  {% elif def.Type == "object" %}{{ record_schema(def) }}
+  {% elif def.Type == "union" %}{{ union_list(def) }}
+  {% elif def.Type == "token" %}
+    <p><i>"Tokens" in atproto are simply NSID reference strings.</i>
+  {% elif def.Type == "unknown" %}
+    <p><i>"Unknown" fields may contain arbitrary JSON/CBOR object as data.</i>
+  {% elif def.Type == "ref" %}
+    <p>This definition is a pointer to: <code>{{ def.Ref }}</code>
+  {% else %}UNHANDLED IN DEFS: {{ def.Type }}{% endif %}
+</article>
+{% endfor %}
+
+{% endblock %}
