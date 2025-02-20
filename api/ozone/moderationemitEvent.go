@@ -40,6 +40,7 @@ type ModerationEmitEvent_Input_Event struct {
 	ModerationDefs_AccountEvent            *ModerationDefs_AccountEvent
 	ModerationDefs_IdentityEvent           *ModerationDefs_IdentityEvent
 	ModerationDefs_RecordEvent             *ModerationDefs_RecordEvent
+	ModerationDefs_ModEventPriorityScore   *ModerationDefs_ModEventPriorityScore
 }
 
 func (t *ModerationEmitEvent_Input_Event) MarshalJSON() ([]byte, error) {
@@ -111,6 +112,10 @@ func (t *ModerationEmitEvent_Input_Event) MarshalJSON() ([]byte, error) {
 		t.ModerationDefs_RecordEvent.LexiconTypeID = "tools.ozone.moderation.defs#recordEvent"
 		return json.Marshal(t.ModerationDefs_RecordEvent)
 	}
+	if t.ModerationDefs_ModEventPriorityScore != nil {
+		t.ModerationDefs_ModEventPriorityScore.LexiconTypeID = "tools.ozone.moderation.defs#modEventPriorityScore"
+		return json.Marshal(t.ModerationDefs_ModEventPriorityScore)
+	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
 func (t *ModerationEmitEvent_Input_Event) UnmarshalJSON(b []byte) error {
@@ -171,6 +176,9 @@ func (t *ModerationEmitEvent_Input_Event) UnmarshalJSON(b []byte) error {
 	case "tools.ozone.moderation.defs#recordEvent":
 		t.ModerationDefs_RecordEvent = new(ModerationDefs_RecordEvent)
 		return json.Unmarshal(b, t.ModerationDefs_RecordEvent)
+	case "tools.ozone.moderation.defs#modEventPriorityScore":
+		t.ModerationDefs_ModEventPriorityScore = new(ModerationDefs_ModEventPriorityScore)
+		return json.Unmarshal(b, t.ModerationDefs_ModEventPriorityScore)
 
 	default:
 		return nil
