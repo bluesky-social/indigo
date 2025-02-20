@@ -6,6 +6,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	toolsozone "github.com/bluesky-social/indigo/api/ozone"
+	"github.com/bluesky-social/indigo/automod/keyword"
 )
 
 func (eng *Engine) persistCounters(ctx context.Context, eff *Effects) error {
@@ -265,11 +266,12 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 
 	atURI := c.RecordOp.ATURI().String()
 	newLabels := dedupeStrings(c.effects.RecordLabels)
+	rmdLabels := dedupeStrings(c.effects.RemovedRecordLabels)
 	newTags := dedupeStrings(c.effects.RecordTags)
 	newEscalation := c.effects.RecordEscalate
 	newAcknowledge := c.effects.RecordAcknowledge
 
-	if (newEscalation || newAcknowledge || len(newLabels) > 0 || len(newTags) > 0) && eng.OzoneClient != nil {
+	if (newEscalation || newAcknowledge || len(newLabels) > 0 || len(rmdLabels) > 0 || len(newTags) > 0) && eng.OzoneClient != nil {
 		// fetch existing record labels, tags, etc
 		rv, err := toolsozone.ModerationGetRecord(ctx, eng.OzoneClient, c.RecordOp.CID.String(), c.RecordOp.ATURI().String())
 		if err != nil {
@@ -278,16 +280,22 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		} else {
 			var existingLabels []string
 			var negLabels []string
+			var neededRmdLabels []string
 			for _, lbl := range rv.Labels {
 				if lbl.Neg != nil && *lbl.Neg == true {
 					negLabels = append(negLabels, lbl.Val)
 				} else {
 					existingLabels = append(existingLabels, lbl.Val)
+
+					if keyword.TokenInSet(lbl.Val, rmdLabels) {
+						neededRmdLabels = append(neededRmdLabels, lbl.Val)
+					}
 				}
 			}
 			existingLabels = dedupeStrings(existingLabels)
 			negLabels = dedupeStrings(negLabels)
 			newLabels = dedupeLabelActions(newLabels, existingLabels, negLabels)
+			rmdLabels = neededRmdLabels
 			existingTags := []string{}
 			hasSubjectStatus := rv.Moderation != nil && rv.Moderation.SubjectStatus != nil
 			if hasSubjectStatus && rv.Moderation.SubjectStatus.Tags != nil {
@@ -331,7 +339,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		return fmt.Errorf("circuit-breaking acknowledge: %w", err)
 	}
 
-	if newEscalation || newAcknowledge || newTakedown || len(newLabels) > 0 || len(newTags) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
+	if newEscalation || newAcknowledge || newTakedown || len(newLabels) > 0 || len(rmdLabels) > 0 || len(newTags) > 0 || len(newFlags) > 0 || len(newReports) > 0 {
 		if eng.Notifier != nil {
 			for _, srv := range dedupeStrings(c.effects.NotifyServices) {
 				if err := eng.Notifier.SendRecord(ctx, srv, c); err != nil {
@@ -351,7 +359,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 
 	// exit early
-	if !newAcknowledge && !newEscalation && !newTakedown && len(newLabels) == 0 && len(newTags) == 0 && len(newReports) == 0 {
+	if !newAcknowledge && !newEscalation && !newTakedown && len(newLabels) == 0 && len(rmdLabels) == 0 && len(newTags) == 0 && len(newReports) == 0 {
 		return nil
 	}
 
@@ -371,7 +379,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 	}
 
 	xrpcc := eng.OzoneClient
-	if len(newLabels) > 0 {
+	if len(newLabels) > 0 || len(rmdLabels) > 0 {
 		c.Logger.Info("labeling record", "newLabels", newLabels)
 		for _, val := range newLabels {
 			// note: WithLabelValues is a prometheus label, not an atproto label
@@ -383,7 +391,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 			Event: &toolsozone.ModerationEmitEvent_Input_Event{
 				ModerationDefs_ModEventLabel: &toolsozone.ModerationDefs_ModEventLabel{
 					CreateLabelVals: newLabels,
-					NegateLabelVals: []string{},
+					NegateLabelVals: rmdLabels,
 					Comment:         &comment,
 				},
 			},
