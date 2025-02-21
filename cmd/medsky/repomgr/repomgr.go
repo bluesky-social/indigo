@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gorm.io/gorm"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -23,7 +22,7 @@ import (
 
 const defaultMaxRevFuture = time.Hour
 
-func NewRepoManager(db *gorm.DB, directory DidDirectory) *RepoManager {
+func NewRepoManager(directory DidDirectory) *RepoManager {
 	maxRevFuture := defaultMaxRevFuture // TODO: configurable
 	ErrRevTooFarFuture := fmt.Errorf("new rev is > %s in the future", maxRevFuture)
 
@@ -31,10 +30,10 @@ func NewRepoManager(db *gorm.DB, directory DidDirectory) *RepoManager {
 		userLocks: make(map[models.Uid]*userLock),
 		log:       slog.Default().With("system", "repomgr"),
 		directory: directory,
-		db:        db,
 
-		maxRevFuture:       maxRevFuture,
-		ErrRevTooFarFuture: ErrRevTooFarFuture,
+		maxRevFuture:           maxRevFuture,
+		ErrRevTooFarFuture:     ErrRevTooFarFuture,
+		AllowSignatureNotFound: true, // TODO: configurable
 	}
 }
 
@@ -45,8 +44,6 @@ func (rm *RepoManager) SetEventManager(events *events.EventManager) {
 type RepoManager struct {
 	lklk      sync.Mutex
 	userLocks map[models.Uid]*userLock
-
-	db *gorm.DB
 
 	events *events.EventManager
 

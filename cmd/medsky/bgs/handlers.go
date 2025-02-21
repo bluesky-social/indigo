@@ -157,6 +157,8 @@ func (s *BGS) handleComAtprotoSyncListRepos(ctx context.Context, cursor int64, l
 	return resp, nil
 }
 
+var ErrUserStatusUnavailable = errors.New("user status unavailable")
+
 func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatprototypes.SyncGetLatestCommit_Output, error) {
 	u, err := s.lookupUserByDid(ctx, did)
 	if err != nil {
@@ -187,20 +189,19 @@ func (s *BGS) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did strin
 		return nil, fmt.Errorf("account is suspended by its PDS")
 	}
 
-	root, err := s.GetRepoRoot(ctx, u.ID)
-	if err != nil {
-		s.log.Error("failed to get repo root", "err", err, "did", u.Did)
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to get repo root")
-	}
-
-	rev, err := s.GetRepoRev(ctx, u.ID)
-	if err != nil {
-		s.log.Error("failed to get repo rev", "err", err, "did", u.Did)
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to get repo rev")
+	var prevState UserPreviousState
+	err = s.db.First(&prevState, u.ID).Error
+	if err == nil {
+		// okay!
+	} else if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrUserStatusUnavailable
+	} else {
+		s.log.Error("user db err", "err", err)
+		return nil, fmt.Errorf("user prev db err, %w", err)
 	}
 
 	return &comatprototypes.SyncGetLatestCommit_Output{
-		Cid: root.String(),
-		Rev: rev,
+		Cid: prevState.Cid.CID.String(),
+		Rev: prevState.Rev,
 	}, nil
 }
