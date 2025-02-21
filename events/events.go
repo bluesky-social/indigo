@@ -152,7 +152,7 @@ const (
 
 type EventHeader struct {
 	Op      int64  `cborgen:"op"`
-	MsgType string `cborgen:"t"`
+	MsgType string `cborgen:"t,omitempty"`
 }
 
 var (
