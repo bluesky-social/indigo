@@ -17,7 +17,7 @@ func (n *SlackNotifier) SendAccount(ctx context.Context, service string, c *Acco
 	if service != "slack" {
 		return nil
 	}
-	msg := slackBody("⚠️ Automod Account Action ⚠️\n", c.Account, c.effects.AccountLabels, c.effects.AccountFlags, c.effects.AccountReports, c.effects.AccountTakedown)
+	msg := slackBody("⚠️ Automod Account Action ⚠️\n", c.Account, c.effects.AccountLabels, c.effects.RemovedAccountLabels, c.effects.AccountFlags, c.effects.AccountReports, c.effects.AccountTakedown)
 	c.Logger.Debug("sending slack notification")
 	return n.sendSlackMsg(ctx, msg)
 }
@@ -27,7 +27,7 @@ func (n *SlackNotifier) SendRecord(ctx context.Context, service string, c *Recor
 		return nil
 	}
 	atURI := fmt.Sprintf("at://%s/%s/%s", c.Account.Identity.DID, c.RecordOp.Collection, c.RecordOp.RecordKey)
-	msg := slackBody("⚠️ Automod Record Action ⚠️\n", c.Account, c.effects.RecordLabels, c.effects.RecordFlags, c.effects.RecordReports, c.effects.RecordTakedown)
+	msg := slackBody("⚠️ Automod Record Action ⚠️\n", c.Account, c.effects.RecordLabels, c.effects.RemovedRecordLabels, c.effects.RecordFlags, c.effects.RecordReports, c.effects.RecordTakedown)
 	msg += fmt.Sprintf("`%s`\n", atURI)
 	c.Logger.Debug("sending slack notification")
 	return n.sendSlackMsg(ctx, msg)
@@ -68,7 +68,7 @@ func (n *SlackNotifier) sendSlackMsg(ctx context.Context, msg string) error {
 	return nil
 }
 
-func slackBody(header string, acct AccountMeta, newLabels, newFlags []string, newReports []ModReport, newTakedown bool) string {
+func slackBody(header string, acct AccountMeta, newLabels, rmdLabels, newFlags []string, newReports []ModReport, newTakedown bool) string {
 	msg := header
 	msg += fmt.Sprintf("`%s` / `%s` / <https://bsky.app/profile/%s|bsky> / <https://admin.prod.bsky.dev/repositories/%s|ozone>\n",
 		acct.Identity.DID,
@@ -77,7 +77,10 @@ func slackBody(header string, acct AccountMeta, newLabels, newFlags []string, ne
 		acct.Identity.DID,
 	)
 	if len(newLabels) > 0 {
-		msg += fmt.Sprintf("Labels: `%s`\n", strings.Join(newLabels, ", "))
+		msg += fmt.Sprintf("Added Labels: `%s`\n", strings.Join(newLabels, ", "))
+	}
+	if len(rmdLabels) > 0 {
+		msg += fmt.Sprintf("Removed Labels: `%s`\n", strings.Join(rmdLabels, ", "))
 	}
 	if len(newFlags) > 0 {
 		msg += fmt.Sprintf("Flags: `%s`\n", strings.Join(newFlags, ", "))
