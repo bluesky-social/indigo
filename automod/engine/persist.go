@@ -43,9 +43,11 @@ func (eng *Engine) persistAccountModActions(c *AccountContext) error {
 
 	// de-dupe actions
 	newLabels := dedupeLabelActions(c.effects.AccountLabels, c.Account.AccountLabels, c.Account.AccountNegatedLabels)
-	rmdLabels := dedupeStrings(c.effects.RemovedAccountLabels)
-	for _, lbl := range c.effects.RemovedAccountLabels {
-		if !keyword.TokenInSet(lbl, c.Account.AccountLabels) {
+	var rmdLabels []string
+	for _, lbl := range dedupeStrings(c.effects.RemovedAccountLabels) {
+		// we don't need to try and remove labels whenever they are either _not_ already in the account labels, _or_ if they are
+		// being applied by some other rule before persisting
+		if !keyword.TokenInSet(lbl, c.Account.AccountLabels) || keyword.TokenInSet(lbl, c.effects.AccountLabels) {
 			continue
 		}
 		rmdLabels = append(rmdLabels, lbl)
@@ -273,7 +275,7 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 
 	atURI := c.RecordOp.ATURI().String()
 	newLabels := dedupeStrings(c.effects.RecordLabels)
-	rmdLabels := dedupeStrings(c.effects.RemovedRecordLabels)
+	var rmdLabels []string
 	newTags := dedupeStrings(c.effects.RecordTags)
 	newEscalation := c.effects.RecordEscalate
 	newAcknowledge := c.effects.RecordAcknowledge
@@ -287,22 +289,24 @@ func (eng *Engine) persistRecordModActions(c *RecordContext) error {
 		} else {
 			var existingLabels []string
 			var negLabels []string
-			var neededRmdLabels []string
 			for _, lbl := range rv.Labels {
 				if lbl.Neg != nil && *lbl.Neg == true {
 					negLabels = append(negLabels, lbl.Val)
 				} else {
 					existingLabels = append(existingLabels, lbl.Val)
-
-					if keyword.TokenInSet(lbl.Val, rmdLabels) {
-						neededRmdLabels = append(neededRmdLabels, lbl.Val)
-					}
 				}
 			}
 			existingLabels = dedupeStrings(existingLabels)
 			negLabels = dedupeStrings(negLabels)
 			newLabels = dedupeLabelActions(newLabels, existingLabels, negLabels)
-			rmdLabels = neededRmdLabels
+			for _, lbl := range dedupeStrings(c.effects.RemovedRecordLabels) {
+				// we don't need to try and remove labels whenever they are either _not_ already in the record labels, _or_ if they are
+				// being applied by some other rule before persisting
+				if !keyword.TokenInSet(lbl, existingLabels) || keyword.TokenInSet(lbl, newLabels) {
+					continue
+				}
+				rmdLabels = append(rmdLabels, lbl)
+			}
 			existingTags := []string{}
 			hasSubjectStatus := rv.Moderation != nil && rv.Moderation.SubjectStatus != nil
 			if hasSubjectStatus && rv.Moderation.SubjectStatus.Tags != nil {
