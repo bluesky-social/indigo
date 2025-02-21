@@ -304,6 +304,9 @@ var compareStreamsCmd = &cli.Command{
 			Name:     "host2",
 			Required: true,
 		},
+		&cli.DurationFlag{
+			Name: "reset-after",
+		},
 	},
 	ArgsUsage: `<cursor>`,
 	Action: func(cctx *cli.Context) error {
@@ -335,6 +338,7 @@ var compareStreamsCmd = &cli.Command{
 			}
 			return ll.String()
 		}
+		_ = pll
 
 		findMatchAndRemove := func(n int, event *comatproto.SyncSubscribeRepos_Commit) (*comatproto.SyncSubscribeRepos_Commit, error) {
 			buf := buffers[n]
@@ -344,23 +348,41 @@ var compareStreamsCmd = &cli.Command{
 			}
 
 			for i, ev := range slice {
-				if ev.Commit == event.Commit {
-					if pll(ev.Prev) != pll(event.Prev) {
-						// same commit different prev??
-						return nil, fmt.Errorf("matched event with same commit but different prev: (%d) %d - %d", n, ev.Seq, event.Seq)
+				if ev.Rev == event.Rev {
+					if ev.Commit != event.Commit {
+						return nil, fmt.Errorf("matched event with same rev but different commit: (%d) %d - %d", n, ev.Seq, event.Seq)
 					}
-				}
 
-				if i != 0 {
-					fmt.Printf("detected skipped event: %d (%d)\n", slice[0].Seq, i)
-				}
+					if i != 0 {
+						fmt.Printf("detected skipped event: %d (%d)\n", slice[0].Seq, i)
+					}
 
-				slice = slice[i+1:]
-				buf[event.Repo] = slice
-				return ev, nil
+					slice = slice[i+1:]
+					buf[event.Repo] = slice
+					return ev, nil
+				}
 			}
 
-			return nil, fmt.Errorf("did not find matching event despite having events in buffer")
+			erev := slice[0].Rev
+			lrev := slice[len(slice)-1].Rev
+			return nil, fmt.Errorf("did not find matching event despite having events in buffer (have rev %s, bufrev %s (%t) - %s (%t))", event.Rev, erev, event.Rev > erev, lrev, event.Rev > lrev)
+		}
+
+		flushOldEventsForMatch := func(n int, event *comatproto.SyncSubscribeRepos_Commit) {
+			buf := buffers[n]
+			slice, ok := buf[event.Repo]
+			if !ok || len(slice) == 0 {
+				return
+			}
+
+			// remove all events we have that are 'less than' the current rev
+			for len(slice) > 0 {
+				ev := slice[0]
+				if ev.Rev > event.Rev {
+					break
+				}
+				slice = slice[1:]
+			}
 		}
 
 		printCurrentDelta := func() {
@@ -428,8 +450,11 @@ var compareStreamsCmd = &cli.Command{
 				if partner == nil {
 					addToBuffer(0, event)
 				} else {
+					flushOldEventsForMatch(1, event)
 					// the good case
-					fmt.Println("Match found")
+					//fmt.Println("Match found")
+
+					// detect which of the streams is 'primary' (pds vs bgs)
 				}
 
 			case event := <-eventChans[1]:
@@ -441,8 +466,9 @@ var compareStreamsCmd = &cli.Command{
 				if partner == nil {
 					addToBuffer(1, event)
 				} else {
+					flushOldEventsForMatch(0, event)
 					// the good case
-					fmt.Println("Match found")
+					//fmt.Println("Match found")
 				}
 			case <-ch:
 				printDetailedDelta()
@@ -455,6 +481,7 @@ var compareStreamsCmd = &cli.Command{
 					fmt.Println(string(b))
 				*/
 				return nil
+
 			}
 
 			printCurrentDelta()
