@@ -301,35 +301,6 @@ func runBigsky(cctx *cli.Context) error {
 		return err
 	}
 
-	// DID RESOLUTION
-	// 1. the outside world, PLCSerever or Web
-	// 2. (maybe memcached)
-	// 3. in-process cache
-	// TODO: dead code; replaced with indigo/atproto/identity.* -- bolson 2025
-	//var cachedidr did.Resolver
-	//{
-	//	mr := did.NewMultiResolver()
-	//
-	//	didr := &api.PLCServer{Host: cctx.String("plc-host")}
-	//	mr.AddHandler("plc", didr)
-	//
-	//	webr := did.WebResolver{}
-	//	if cctx.Bool("crawl-insecure-ws") {
-	//		webr.Insecure = true
-	//	}
-	//	mr.AddHandler("web", &webr)
-	//
-	//	var prevResolver did.Resolver
-	//	memcachedServers := cctx.StringSlice("did-memcached")
-	//	if len(memcachedServers) > 0 {
-	//		prevResolver = plc.NewMemcachedDidResolver(mr, time.Hour*24, memcachedServers)
-	//	} else {
-	//		prevResolver = mr
-	//	}
-	//
-	//	cachedidr = plc.NewCachingDidResolver(prevResolver, time.Hour*24, cctx.Int("did-cache-size"))
-	//}
-
 	// TODO: add memcached layer for shared external cache
 	baseDir := identity.BaseDirectory{
 		SkipHandleVerification: true,
@@ -338,7 +309,7 @@ func runBigsky(cctx *cli.Context) error {
 	}
 	cacheDir := identity.NewCacheDirectory(&baseDir, cctx.Int("did-cache-size"), time.Hour*24, time.Minute*2, time.Minute*5)
 
-	repoman := repomgr.NewRepoManager(db, &cacheDir)
+	repoman := repomgr.NewRepoManager(&cacheDir)
 
 	var persister events.EventPersistence
 
@@ -365,26 +336,7 @@ func runBigsky(cctx *cli.Context) error {
 
 	repoman.SetEventManager(evtman)
 
-	// TODO: dead code, relay does not care about handles -- bolson 2025
-	//prodHR, err := api.NewProdHandleResolver(100_000, cctx.String("resolve-address"), cctx.Bool("force-dns-udp"))
-	//if err != nil {
-	//	return fmt.Errorf("failed to set up handle resolver: %w", err)
-	//}
-	//var hr api.HandleResolver = prodHR
-	//if cctx.StringSlice("handle-resolver-hosts") != nil {
-	//	hr = &api.TestHandleResolver{
-	//		TrialHosts: cctx.StringSlice("handle-resolver-hosts"),
-	//	}
-	//}
 	ratelimitBypass := cctx.String("bsky-social-rate-limit-skip")
-	//if ratelimitBypass != "" {
-	//	prodHR.ReqMod = func(req *http.Request, host string) error {
-	//		if strings.HasSuffix(host, ".bsky.social") {
-	//			req.Header.Set("x-ratelimit-bypass", ratelimitBypass)
-	//		}
-	//		return nil
-	//	}
-	//}
 
 	slog.Info("constructing bgs")
 	bgsConfig := libbgs.DefaultBGSConfig()

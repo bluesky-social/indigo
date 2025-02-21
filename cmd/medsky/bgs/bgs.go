@@ -27,7 +27,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	lru "github.com/hashicorp/golang-lru/v2"
-	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	promclient "github.com/prometheus/client_golang/prometheus"
@@ -260,6 +259,7 @@ func (bgs *BGS) StartWithListener(listen net.Listener) error {
 	e.GET("/xrpc/com.atproto.sync.requestCrawl", bgs.HandleComAtprotoSyncRequestCrawl)
 	e.POST("/xrpc/com.atproto.sync.requestCrawl", bgs.HandleComAtprotoSyncRequestCrawl)
 	e.GET("/xrpc/com.atproto.sync.listRepos", bgs.HandleComAtprotoSyncListRepos)
+	e.GET("/xrpc/com.atproto.sync.getRepo", bgs.HandleComAtprotoSyncGetRepo) // just returns 3xx redirect to source PDS
 	e.GET("/xrpc/com.atproto.sync.getLatestCommit", bgs.HandleComAtprotoSyncGetLatestCommit)
 	e.GET("/xrpc/_health", bgs.HandleHealthCheck)
 	e.GET("/_health", bgs.HandleHealthCheck)
@@ -424,10 +424,6 @@ type User struct {
 
 	// UpstreamStatus is the state of the user as reported by the upstream PDS
 	UpstreamStatus string `gorm:"index"`
-
-	// Last known root and rev for repo; TODO: add bits needed for induction firehose?
-	Root *models.DbCID `gorm:"root"`
-	Rev  string        `gorm:"rev"`
 
 	lk sync.Mutex
 }
@@ -1060,22 +1056,6 @@ func (bgs *BGS) handleCommit(ctx context.Context, host *models.PDS, evt *comatpr
 	}
 	newRootCid, err := bgs.repoman.HandleCommit(ctx, host, u, evt, prevP)
 	if err != nil {
-		if ipld.IsNotFound(err) {
-			//ai, lerr := bgs.Index.LookupUser(ctx, u.ID)
-			//if lerr != nil {
-			//	log.Warn("failed handling event, no user", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
-			//	repoCommitsResultCounter.WithLabelValues(host.Host, "nou4").Inc()
-			//	return fmt.Errorf("failed to look up user %s (%d) (err case: %s): %w", u.Did, u.ID, err, lerr)
-			//}
-
-			// TODO: getRepo is obsolete, um, what? -- bolson 2025
-			//span.SetAttributes(attribute.Bool("catchup_queue", true))
-			//
-			//log.Info("failed handling event, catchup", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
-			//repoCommitsResultCounter.WithLabelValues(host.Host, "catchup2").Inc()
-			//return bgs.Index.Crawler.AddToCatchupQueue(ctx, host, ai, evt)
-		}
-
 		bgs.inductionTraceLog.Error("commit bad", "seq", evt.Seq, "pseq", dbPrevSeqStr, "pdsHost", host.Host, "repo", evt.Repo, "prev", evtPrevDataStr, "dbprev", dbPrevRootStr, "err", err)
 		bgs.log.Warn("failed handling event", "err", err, "pdsHost", host.Host, "seq", evt.Seq, "repo", u.Did, "prev", stringLink(evt.Prev), "commit", evt.Commit.String())
 		repoCommitsResultCounter.WithLabelValues(host.Host, "err").Inc()
@@ -1232,54 +1212,6 @@ func (bgs *BGS) createExternalUser(ctx context.Context, did string, host *models
 		return nil, fmt.Errorf("refusing to create user on PDS at max repo limit for pds %q", peering.Host)
 	}
 
-	//// Increment the repo count for the PDS
-	//res := bgs.db.Model(&models.PDS{}).Where("id = ? AND repo_count < repo_limit", peering.ID).Update("repo_count", gorm.Expr("repo_count + 1"))
-	//if res.Error != nil {
-	//	return nil, fmt.Errorf("failed to increment repo count for pds %q: %w", peering.Host, res.Error)
-	//}
-	//
-	//if res.RowsAffected == 0 {
-	//	return nil, fmt.Errorf("refusing to create user on PDS at max repo limit for pds %q", peering.Host)
-	//}
-	//
-	//successfullyCreated := false
-	//
-	//// Release the count if we fail to create the user
-	//defer func() {
-	//	if !successfullyCreated {
-	//		if err := bgs.db.Model(&models.PDS{}).Where("id = ?", peering.ID).Update("repo_count", gorm.Expr("repo_count - 1")).Error; err != nil {
-	//			bgs.log.Error("failed to decrement repo count for pds", "err", err)
-	//		}
-	//	}
-	//}()
-
-	// TODO: dead code - relay officially doesn't care about handles - bolson 2025
-	//if len(doc.AlsoKnownAs) == 0 {
-	//	return nil, fmt.Errorf("user has no 'known as' field in their DID document")
-	//}
-	//
-	//hurl, err := url.Parse(doc.AlsoKnownAs[0])
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//bgs.log.Debug("creating external user", "did", did, "handle", hurl.Host, "pds", peering.ID)
-	//
-	//handle := hurl.Host
-	//
-	//validHandle := true
-	//
-	//resdid, err := bgs.hr.ResolveHandleToDid(ctx, handle)
-	//if err != nil {
-	//	bgs.log.Error("failed to resolve users claimed handle on pds", "handle", handle, "err", err)
-	//	validHandle = false
-	//}
-	//
-	//if resdid != did {
-	//	bgs.log.Error("claimed handle did not match servers response", "resdid", resdid, "did", did)
-	//	validHandle = false
-	//}
-
 	bgs.extUserLk.Lock()
 	defer bgs.extUserLk.Unlock()
 
@@ -1299,15 +1231,6 @@ func (bgs *BGS) createExternalUser(ctx context.Context, did string, host *models
 
 			user.PDS = peering.ID
 		}
-		//
-		//if user.Handle.String != handle {
-		//	// Users handle has changed, update
-		//	if err := bgs.db.Model(User{}).Where("id = ?", user.ID).Update("handle", handle).Error; err != nil {
-		//		return nil, fmt.Errorf("failed to update users handle: %w", err)
-		//	}
-		//
-		//	user.Handle = sql.NullString{String: handle, Valid: true}
-		//}
 		return user, nil
 	}
 
@@ -1321,18 +1244,12 @@ func (bgs *BGS) createExternalUser(ctx context.Context, did string, host *models
 		PDS:         peering.ID,
 		ValidHandle: false,
 	}
-	// TODO: dead code - relay officially doesn't care about handles - bolson 2025
-	//if validHandle {
-	//	u.Handle = sql.NullString{String: handle, Valid: true}
-	//}
 
 	err = bgs.db.Transaction(func(tx *gorm.DB) error {
-		//bgs.log.Info("inc repo count", "pdsid", peering.ID, "did", u.Did)
 		res := tx.Model(&models.PDS{}).Where("id = ? AND repo_count < repo_limit", peering.ID).Update("repo_count", gorm.Expr("repo_count + 1"))
 		if res.Error != nil {
 			return fmt.Errorf("failed to increment repo count for pds %q: %w", peering.Host, res.Error)
 		}
-		//bgs.log.Info("create u", "did", u.Did)
 		if terr := bgs.db.Create(&u).Error; terr != nil {
 			bgs.log.Error("failed to create user", "did", u.Did, "err", terr)
 			return fmt.Errorf("failed to create other pds user: %w", terr)
@@ -1343,7 +1260,6 @@ func (bgs *BGS) createExternalUser(ctx context.Context, did string, host *models
 		bgs.log.Error("user creaat and pds inc err", "err", err)
 		return nil, err
 	}
-	//bgs.log.Info("user creaated and pds inc")
 
 	return &u, nil
 }
@@ -1433,8 +1349,14 @@ func (bgs *BGS) ReverseTakedown(ctx context.Context, did string) error {
 }
 
 func (bgs *BGS) GetRepoRoot(ctx context.Context, user models.Uid) (cid.Cid, error) {
-	panic("TODO: WRITEME get last root Cid for a repo")
-}
-func (bgs *BGS) GetRepoRev(ctx context.Context, user models.Uid) (string, error) {
-	panic("TODO: WRITEME get last rev for a repo")
+	var prevState UserPreviousState
+	err := bgs.db.First(&prevState, user).Error
+	if err == nil {
+		return prevState.Cid.CID, nil
+	} else if errors.Is(err, gorm.ErrRecordNotFound) {
+		return cid.Cid{}, ErrUserStatusUnavailable
+	} else {
+		bgs.log.Error("user db err", "err", err)
+		return cid.Cid{}, fmt.Errorf("user prev db err, %w", err)
+	}
 }

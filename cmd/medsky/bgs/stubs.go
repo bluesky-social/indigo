@@ -1,7 +1,9 @@
 package bgs
 
 import (
+	"errors"
 	"fmt"
+	"gorm.io/gorm"
 	"net/http"
 	"strconv"
 
@@ -76,6 +78,50 @@ func (s *BGS) HandleComAtprotoSyncListRepos(c echo.Context) error {
 		return handleErr
 	}
 	return c.JSON(200, out)
+}
+
+// HandleComAtprotoSyncGetRepo handles /xrpc/com.atproto.sync.getRepo
+// returns 3xx to same URL at source PDS
+func (s *BGS) HandleComAtprotoSyncGetRepo(c echo.Context) error {
+	// no request object, only params
+	params := c.QueryParams()
+	var did string
+	hasDid := false
+	for paramName, pvl := range params {
+		switch paramName {
+		case "did":
+			if len(pvl) == 1 {
+				did = pvl[0]
+				hasDid = true
+			} else if len(pvl) > 1 {
+				return c.JSON(http.StatusBadRequest, XRPCError{Message: "only allow one did param"})
+			}
+		case "since":
+			// ok
+		default:
+			return c.JSON(http.StatusBadRequest, XRPCError{Message: fmt.Sprintf("invalid param: %s", paramName)})
+		}
+	}
+	if !hasDid {
+		return c.JSON(http.StatusBadRequest, XRPCError{Message: "need did param"})
+	}
+
+	var pdsHostname string
+	err := s.db.Raw("SELECT pds.host FROM users JOIN pds ON users.pds = pds.id WHERE users.did = ?", did).Scan(&pdsHostname).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.JSON(http.StatusNotFound, XRPCError{Message: "NULL"})
+		}
+		s.log.Error("user.pds.host lookup", "err", err)
+		return c.JSON(http.StatusInternalServerError, XRPCError{Message: "sorry"})
+	}
+
+	nextUrl := *(c.Request().URL)
+	nextUrl.Host = pdsHostname
+	if nextUrl.Scheme == "" {
+		nextUrl.Scheme = "https"
+	}
+	return c.Redirect(http.StatusFound, nextUrl.String())
 }
 
 func (s *BGS) HandleComAtprotoSyncRequestCrawl(c echo.Context) error {
