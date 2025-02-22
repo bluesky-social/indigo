@@ -343,7 +343,7 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 13
+	fieldCount := 12
 
 	if t.Blocks == nil {
 		fieldCount--
@@ -426,22 +426,6 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Seq-1)); err != nil {
 			return err
 		}
-	}
-
-	// t.Prev (util.LexLink) (struct)
-	if len("prev") > 1000000 {
-		return xerrors.Errorf("Value in field \"prev\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("prev"))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string("prev")); err != nil {
-		return err
-	}
-
-	if err := t.Prev.MarshalCBOR(cw); err != nil {
-		return err
 	}
 
 	// t.Repo (string) (string)
@@ -768,26 +752,6 @@ func (t *SyncSubscribeRepos_Commit) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Seq = int64(extraI)
-			}
-			// t.Prev (util.LexLink) (struct)
-		case "prev":
-
-			{
-
-				b, err := cr.ReadByte()
-				if err != nil {
-					return err
-				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-					t.Prev = new(util.LexLink)
-					if err := t.Prev.UnmarshalCBOR(cr); err != nil {
-						return xerrors.Errorf("unmarshaling t.Prev pointer: %w", err)
-					}
-				}
-
 			}
 			// t.Repo (string) (string)
 		case "repo":
