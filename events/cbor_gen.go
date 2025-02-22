@@ -25,32 +25,40 @@ func (t *EventHeader) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 2
 
-	if _, err := cw.Write([]byte{162}); err != nil {
+	if t.MsgType == "" {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
 	// t.MsgType (string) (string)
-	if len("t") > 1000000 {
-		return xerrors.Errorf("Value in field \"t\" was too long")
-	}
+	if t.MsgType != "" {
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("t"))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string("t")); err != nil {
-		return err
-	}
+		if len("t") > 1000000 {
+			return xerrors.Errorf("Value in field \"t\" was too long")
+		}
 
-	if len(t.MsgType) > 1000000 {
-		return xerrors.Errorf("Value in field t.MsgType was too long")
-	}
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("t"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("t")); err != nil {
+			return err
+		}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.MsgType))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string(t.MsgType)); err != nil {
-		return err
+		if len(t.MsgType) > 1000000 {
+			return xerrors.Errorf("Value in field t.MsgType was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.MsgType))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string(t.MsgType)); err != nil {
+			return err
+		}
 	}
 
 	// t.Op (int64) (int64)
