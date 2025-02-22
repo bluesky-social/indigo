@@ -141,7 +141,7 @@ func evtOp(evt *events.XRPCStreamEvent) string {
 }
 
 func sameCommit(a, b *comatproto.SyncSubscribeRepos_Commit) bool {
-	return a.Repo == b.Repo && cidStr(a.Prev) == cidStr(b.Prev)
+	return a.Repo == b.Repo && a.Rev == b.Rev
 }
 
 func findEvt(evt *events.XRPCStreamEvent, list []*events.XRPCStreamEvent) int {

@@ -254,10 +254,6 @@ var readRepoStreamCmd = &cli.Command{
 					}
 					fmt.Println(string(b))
 				} else {
-					pstr := "<nil>"
-					if evt.Prev != nil && evt.Prev.Defined() {
-						pstr = evt.Prev.String()
-					}
 					var handle string
 					if resolveHandles {
 						h, err := resolveDid(ctx, evt.Repo)
@@ -267,7 +263,7 @@ var readRepoStreamCmd = &cli.Command{
 							handle = h
 						}
 					}
-					fmt.Printf("(%d) RepoAppend: %s %s (%s -> %s)\n", evt.Seq, evt.Repo, handle, pstr, evt.Commit.String())
+					fmt.Printf("(%d) RepoAppend: %s %s (%s)\n", evt.Seq, evt.Repo, handle, evt.Commit.String())
 
 					if unpack {
 						recs, err := unpackRecords(evt.Blocks, evt.Ops)
