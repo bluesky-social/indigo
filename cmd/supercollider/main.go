@@ -599,7 +599,6 @@ func (s *Server) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) {
 	if err := s.Events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoCommit: &comatproto.SyncSubscribeRepos_Commit{
 			Repo:   s.Dids[evt.User-1],
-			Prev:   (*lexutil.LexLink)(evt.OldRoot),
 			Blocks: evt.RepoSlice,
 			Commit: lexutil.LexLink(evt.NewRoot),
 			Time:   time.Now().Format(util.ISO8601),
