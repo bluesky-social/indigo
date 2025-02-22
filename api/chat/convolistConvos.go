@@ -17,12 +17,14 @@ type ConvoListConvos_Output struct {
 }
 
 // ConvoListConvos calls the XRPC method "chat.bsky.convo.listConvos".
-func ConvoListConvos(ctx context.Context, c *xrpc.Client, cursor string, limit int64) (*ConvoListConvos_Output, error) {
+func ConvoListConvos(ctx context.Context, c *xrpc.Client, cursor string, limit int64, readState string, status string) (*ConvoListConvos_Output, error) {
 	var out ConvoListConvos_Output
 
 	params := map[string]interface{}{
-		"cursor": cursor,
-		"limit":  limit,
+		"cursor":    cursor,
+		"limit":     limit,
+		"readState": readState,
+		"status":    status,
 	}
 	if err := c.Do(ctx, xrpc.Query, "", "chat.bsky.convo.listConvos", params, nil, &out); err != nil {
 		return nil, err

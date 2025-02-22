@@ -21,6 +21,7 @@ type ConvoGetLog_Output struct {
 
 type ConvoGetLog_Output_Logs_Elem struct {
 	ConvoDefs_LogBeginConvo    *ConvoDefs_LogBeginConvo
+	ConvoDefs_LogAcceptConvo   *ConvoDefs_LogAcceptConvo
 	ConvoDefs_LogLeaveConvo    *ConvoDefs_LogLeaveConvo
 	ConvoDefs_LogCreateMessage *ConvoDefs_LogCreateMessage
 	ConvoDefs_LogDeleteMessage *ConvoDefs_LogDeleteMessage
@@ -30,6 +31,10 @@ func (t *ConvoGetLog_Output_Logs_Elem) MarshalJSON() ([]byte, error) {
 	if t.ConvoDefs_LogBeginConvo != nil {
 		t.ConvoDefs_LogBeginConvo.LexiconTypeID = "chat.bsky.convo.defs#logBeginConvo"
 		return json.Marshal(t.ConvoDefs_LogBeginConvo)
+	}
+	if t.ConvoDefs_LogAcceptConvo != nil {
+		t.ConvoDefs_LogAcceptConvo.LexiconTypeID = "chat.bsky.convo.defs#logAcceptConvo"
+		return json.Marshal(t.ConvoDefs_LogAcceptConvo)
 	}
 	if t.ConvoDefs_LogLeaveConvo != nil {
 		t.ConvoDefs_LogLeaveConvo.LexiconTypeID = "chat.bsky.convo.defs#logLeaveConvo"
@@ -55,6 +60,9 @@ func (t *ConvoGetLog_Output_Logs_Elem) UnmarshalJSON(b []byte) error {
 	case "chat.bsky.convo.defs#logBeginConvo":
 		t.ConvoDefs_LogBeginConvo = new(ConvoDefs_LogBeginConvo)
 		return json.Unmarshal(b, t.ConvoDefs_LogBeginConvo)
+	case "chat.bsky.convo.defs#logAcceptConvo":
+		t.ConvoDefs_LogAcceptConvo = new(ConvoDefs_LogAcceptConvo)
+		return json.Unmarshal(b, t.ConvoDefs_LogAcceptConvo)
 	case "chat.bsky.convo.defs#logLeaveConvo":
 		t.ConvoDefs_LogLeaveConvo = new(ConvoDefs_LogLeaveConvo)
 		return json.Unmarshal(b, t.ConvoDefs_LogLeaveConvo)
