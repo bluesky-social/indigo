@@ -332,11 +332,6 @@ func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatprot
 		return nil, err
 	}
 
-	var prev *models.DbCID
-	if evt.Prev != nil && evt.Prev.Defined() {
-		prev = &models.DbCID{CID: cid.Cid(*evt.Prev)}
-	}
-
 	var blobs []byte
 	if len(evt.Blobs) > 0 {
 		b, err := json.Marshal(evt.Blobs)
@@ -353,7 +348,7 @@ func (p *DbPersistence) RecordFromRepoCommit(ctx context.Context, evt *comatprot
 
 	rer := RepoEventRecord{
 		Commit: &models.DbCID{CID: cid.Cid(evt.Commit)},
-		Prev:   prev,
+		//Prev
 		Repo:   uid,
 		Type:   "repo_append", // TODO: refactor to "#commit"? can "rebase" come through this path?
 		Blobs:  blobs,
@@ -608,12 +603,6 @@ func (p *DbPersistence) hydrateCommit(ctx context.Context, rer *RepoEventRecord)
 		return nil, err
 	}
 
-	var prevCID *lexutil.LexLink
-	if rer != nil && rer.Prev != nil && rer.Prev.CID.Defined() {
-		tmp := lexutil.LexLink(rer.Prev.CID)
-		prevCID = &tmp
-	}
-
 	var ops []*comatproto.SyncSubscribeRepos_RepoOp
 	if err := json.Unmarshal(rer.Ops, &ops); err != nil {
 		return nil, err
@@ -623,7 +612,6 @@ func (p *DbPersistence) hydrateCommit(ctx context.Context, rer *RepoEventRecord)
 		Seq:    int64(rer.Seq),
 		Repo:   did,
 		Commit: lexutil.LexLink(rer.Commit.CID),
-		Prev:   prevCID,
 		Time:   rer.Time.Format(util.ISO8601),
 		Blobs:  blobCIDs,
 		Rebase: rer.Rebase,
