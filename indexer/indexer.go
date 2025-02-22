@@ -124,7 +124,6 @@ func (ix *Indexer) HandleRepoEvent(ctx context.Context, evt *repomgr.RepoEvent) 
 	if err := ix.events.AddEvent(ctx, &events.XRPCStreamEvent{
 		RepoCommit: &comatproto.SyncSubscribeRepos_Commit{
 			Repo:   did,
-			Prev:   (*lexutil.LexLink)(evt.OldRoot),
 			Blocks: slice,
 			Rev:    evt.Rev,
 			Since:  evt.Since,

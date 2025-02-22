@@ -236,7 +236,6 @@ func (s *Server) repoEventToFedEvent(ctx context.Context, evt *repomgr.RepoEvent
 	}
 
 	out := &comatproto.SyncSubscribeRepos_Commit{
-		Prev:   (*lexutil.LexLink)(evt.OldRoot),
 		Blocks: evt.RepoSlice,
 		Repo:   did,
 		Time:   time.Now().Format(bsutil.ISO8601),
