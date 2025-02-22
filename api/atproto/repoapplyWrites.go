@@ -19,10 +19,11 @@ import (
 //
 // RECORDTYPE: RepoApplyWrites_Create
 type RepoApplyWrites_Create struct {
-	LexiconTypeID string                   `json:"$type,const=com.atproto.repo.applyWrites#create" cborgen:"$type,const=com.atproto.repo.applyWrites#create"`
-	Collection    string                   `json:"collection" cborgen:"collection"`
-	Rkey          *string                  `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
-	Value         *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
+	LexiconTypeID string `json:"$type,const=com.atproto.repo.applyWrites#create" cborgen:"$type,const=com.atproto.repo.applyWrites#create"`
+	Collection    string `json:"collection" cborgen:"collection"`
+	// rkey: NOTE: maxLength is redundant with record-key format. Keeping it temporarily to ensure backwards compatibility.
+	Rkey  *string                  `json:"rkey,omitempty" cborgen:"rkey,omitempty"`
+	Value *util.LexiconTypeDecoder `json:"value" cborgen:"value"`
 }
 
 // RepoApplyWrites_CreateResult is a "createResult" in the com.atproto.repo.applyWrites schema.
