@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -9,9 +11,12 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/bluesky-social/indigo/atproto/identity/apidir"
+	"github.com/bluesky-social/indigo/atproto/syntax"
+
 	"github.com/carlmjohnson/versioninfo"
 	_ "github.com/joho/godotenv/autoload"
-	cli "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -27,42 +32,101 @@ func run(args []string) error {
 		Name:    "domesday",
 		Usage:   "atproto identity directory",
 		Version: versioninfo.Short(),
-	}
-
-	app.Flags = []cli.Flag{
-		&cli.StringFlag{
-			Name:    "atp-relay-host",
-			Usage:   "hostname and port of Relay to subscribe to",
-			Value:   "wss://bsky.network",
-			EnvVars: []string{"ATP_RELAY_HOST", "ATP_BGS_HOST"},
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "atp-relay-host",
+				Usage:   "hostname and port of Relay to subscribe to",
+				Value:   "wss://bsky.network",
+				EnvVars: []string{"ATP_RELAY_HOST", "ATP_BGS_HOST"},
+			},
+			&cli.StringFlag{
+				Name:    "atp-plc-host",
+				Usage:   "method, hostname, and port of PLC registry",
+				Value:   "https://plc.directory",
+				EnvVars: []string{"ATP_PLC_HOST"},
+			},
+			&cli.IntFlag{
+				Name:    "plc-rate-limit",
+				Usage:   "max number of requests per second to PLC registry",
+				Value:   100,
+				EnvVars: []string{"DOMESDAY_PLC_RATE_LIMIT"},
+			},
+			&cli.StringFlag{
+				Name:    "redis-url",
+				Usage:   "redis connection URL: redis://<user>:<pass>@<hostname>:6379/<db>",
+				Value:   "redis://localhost:6379/0",
+				EnvVars: []string{"DOMESDAY_REDIS_URL"},
+			},
+			&cli.StringFlag{
+				Name:    "log-level",
+				Usage:   "log verbosity level (eg: warn, info, debug)",
+				EnvVars: []string{"DOMESDAY_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"},
+			},
 		},
-		&cli.StringFlag{
-			Name:    "atp-plc-host",
-			Usage:   "method, hostname, and port of PLC registry",
-			Value:   "https://plc.directory",
-			EnvVars: []string{"ATP_PLC_HOST"},
+		Commands: []*cli.Command{
+			&cli.Command{
+				Name:   "serve",
+				Usage:  "run the domesday API daemon",
+				Action: runServeCmd,
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:     "bind",
+						Usage:    "Specify the local IP/port to bind to",
+						Required: false,
+						Value:    ":6600",
+						EnvVars:  []string{"DOMESDAY_BIND"},
+					},
+					&cli.StringFlag{
+						Name:    "metrics-listen",
+						Usage:   "IP or address, and port, to listen on for metrics APIs",
+						Value:   ":3989",
+						EnvVars: []string{"DOMESDAY_METRICS_LISTEN"},
+					},
+				},
+			},
+			&cli.Command{
+				Name:      "resolve-handle",
+				ArgsUsage: `<handle>`,
+				Usage:     "query service for handle resoltion",
+				Action:    runResolveHandleCmd,
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "host",
+						Usage:   "domesday server to send request to",
+						Value:   "http://localhost:6600",
+						EnvVars: []string{"DOMESDAY_HOST"},
+					},
+				},
+			},
+			&cli.Command{
+				Name:      "resolve-did",
+				ArgsUsage: `<did>`,
+				Usage:     "query service for DID document resoltion",
+				Action:    runResolveDIDCmd,
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "host",
+						Usage:   "domesday server to send request to",
+						Value:   "http://localhost:6600",
+						EnvVars: []string{"DOMESDAY_HOST"},
+					},
+				},
+			},
+			&cli.Command{
+				Name:      "lookup",
+				ArgsUsage: `<at-identifier>`,
+				Usage:     "query service for identity resoltion",
+				Action:    runLookupCmd,
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "host",
+						Usage:   "domesday server to send request to",
+						Value:   "http://localhost:6600",
+						EnvVars: []string{"DOMESDAY_HOST"},
+					},
+				},
+			},
 		},
-		&cli.IntFlag{
-			Name:    "plc-rate-limit",
-			Usage:   "max number of requests per second to PLC registry",
-			Value:   100,
-			EnvVars: []string{"DOMESDAY_PLC_RATE_LIMIT"},
-		},
-		&cli.StringFlag{
-			Name:    "redis-url",
-			Usage:   "redis connection URL: redis://<user>:<pass>@<hostname>:6379/<db>",
-			Value:   "redis://localhost:6379/0",
-			EnvVars: []string{"DOMESDAY_REDIS_URL"},
-		},
-		&cli.StringFlag{
-			Name:    "log-level",
-			Usage:   "log verbosity level (eg: warn, info, debug)",
-			EnvVars: []string{"DOMESDAY_LOG_LEVEL", "GO_LOG_LEVEL", "LOG_LEVEL"},
-		},
-	}
-
-	app.Commands = []*cli.Command{
-		serveCmd,
 	}
 
 	return app.Run(args)
@@ -89,52 +153,109 @@ func configLogger(cctx *cli.Context, writer io.Writer) *slog.Logger {
 	return logger
 }
 
-var serveCmd = &cli.Command{
-	Name:  "serve",
-	Usage: "run the domesday API daemon",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "bind",
-			Usage:    "Specify the local IP/port to bind to",
-			Required: false,
-			Value:    ":6600",
-			EnvVars:  []string{"DOMESDAY_BIND"},
-		},
-		&cli.StringFlag{
-			Name:    "metrics-listen",
-			Usage:   "IP or address, and port, to listen on for metrics APIs",
-			Value:   ":3989",
-			EnvVars: []string{"DOMESDAY_METRICS_LISTEN"},
-		},
-	},
-	Action: func(cctx *cli.Context) error {
-		logger := configLogger(cctx, os.Stdout)
-		//configOTEL("domesday")
+func configClient(cctx *cli.Context) apidir.APIDirectory {
+	return apidir.NewAPIDirectory(cctx.String("host"))
+}
 
-		srv, err := NewServer(
-			Config{
-				Logger:       logger,
-				FirehoseHost: cctx.String("atp-relay-host"),
-				RedisURL:     cctx.String("redis-url"),
-				Bind:         cctx.String("bind"),
-			},
-		)
-		if err != nil {
-			return fmt.Errorf("failed to construct server: %v", err)
+func runServeCmd(cctx *cli.Context) error {
+	logger := configLogger(cctx, os.Stdout)
+	//configOTEL("domesday")
+
+	srv, err := NewServer(
+		Config{
+			Logger:       logger,
+			FirehoseHost: cctx.String("atp-relay-host"),
+			RedisURL:     cctx.String("redis-url"),
+			Bind:         cctx.String("bind"),
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to construct server: %v", err)
+	}
+
+	// prometheus HTTP endpoint: /metrics
+	go func() {
+		// TODO: what is this tuning for? just cargo-culted it
+		runtime.SetBlockProfileRate(10)
+		runtime.SetMutexProfileFraction(10)
+		if err := srv.RunMetrics(cctx.String("metrics-listen")); err != nil {
+			slog.Error("failed to start metrics endpoint", "error", err)
+			// XXX: really panic? hrm
+			panic(fmt.Errorf("failed to start metrics endpoint: %w", err))
 		}
+	}()
 
-		// prometheus HTTP endpoint: /metrics
-		go func() {
-			// TODO: what is this tuning for? just cargo-culted it
-			runtime.SetBlockProfileRate(10)
-			runtime.SetMutexProfileFraction(10)
-			if err := srv.RunMetrics(cctx.String("metrics-listen")); err != nil {
-				slog.Error("failed to start metrics endpoint", "error", err)
-				// XXX: really panic? hrm
-				panic(fmt.Errorf("failed to start metrics endpoint: %w", err))
-			}
-		}()
+	return srv.RunAPI()
+}
 
-		return srv.RunAPI()
-	},
+func runResolveHandleCmd(cctx *cli.Context) error {
+	ctx := context.Background()
+	dir := configClient(cctx)
+
+	s := cctx.Args().First()
+	if s == "" {
+		return fmt.Errorf("need to provide identifier for resolution")
+	}
+	handle, err := syntax.ParseHandle(s)
+	if err != nil {
+		return err
+	}
+
+	did, err := dir.ResolveHandle(ctx, handle)
+	if err != nil {
+		return err
+	}
+	fmt.Println(did.String())
+	return nil
+}
+
+func runResolveDIDCmd(cctx *cli.Context) error {
+	ctx := context.Background()
+	dir := configClient(cctx)
+
+	s := cctx.Args().First()
+	if s == "" {
+		return fmt.Errorf("need to provide identifier for resolution")
+	}
+	did, err := syntax.ParseDID(s)
+	if err != nil {
+		return err
+	}
+
+	raw, err := dir.ResolveDIDRaw(ctx, did)
+	if err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(b))
+	return nil
+}
+
+func runLookupCmd(cctx *cli.Context) error {
+	ctx := context.Background()
+	dir := configClient(cctx)
+
+	s := cctx.Args().First()
+	if s == "" {
+		return fmt.Errorf("need to provide identifier for resolution")
+	}
+	atid, err := syntax.ParseAtIdentifier(s)
+	if err != nil {
+		return err
+	}
+
+	ident, err := dir.Lookup(ctx, *atid)
+	if err != nil {
+		return err
+	}
+
+	b, err := json.MarshalIndent(ident, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(b))
+	return nil
 }
