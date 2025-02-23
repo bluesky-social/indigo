@@ -48,11 +48,23 @@ func NewServer(config Config) (*Server, error) {
 	baseDir := identity.BaseDirectory{
 		PLCURL: config.PLCHost,
 		HTTPClient: http.Client{
-			Timeout: time.Second * 10, // TODO: config
+			Timeout: time.Second * 10,
+			Transport: &http.Transport{
+				// would want this around 100ms for services doing lots of handle resolution (to reduce number of idle connections). Impacts PLC connections as well, but not too bad.
+				IdleConnTimeout: time.Millisecond * 100,
+				MaxIdleConns:    1000,
+			},
+		},
+		Resolver: net.Resolver{
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				d := net.Dialer{Timeout: time.Second * 3}
+				return d.DialContext(ctx, network, address)
+			},
 		},
 		PLCLimiter:            rate.NewLimiter(rate.Limit(config.PLCRateLimit), 1),
 		TryAuthoritativeDNS:   true,
 		SkipDNSDomainSuffixes: []string{".bsky.social", ".staging.bsky.dev"},
+		// TODO: UserAgent: "domesday",
 	}
 
 	// TODO: config these timeouts
