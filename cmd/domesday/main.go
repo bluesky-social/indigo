@@ -125,10 +125,12 @@ var serveCmd = &cli.Command{
 
 		// prometheus HTTP endpoint: /metrics
 		go func() {
+			// TODO: what is this tuning for? just cargo-culted it
 			runtime.SetBlockProfileRate(10)
 			runtime.SetMutexProfileFraction(10)
 			if err := srv.RunMetrics(cctx.String("metrics-listen")); err != nil {
 				slog.Error("failed to start metrics endpoint", "error", err)
+				// XXX: really panic? hrm
 				panic(fmt.Errorf("failed to start metrics endpoint: %w", err))
 			}
 		}()

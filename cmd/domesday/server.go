@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,7 +12,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
-	"github.com/bluesky-social/indigo/atproto/identity/redisdir"
+	//"github.com/bluesky-social/indigo/atproto/identity/redisdir"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -21,8 +22,7 @@ import (
 )
 
 type Server struct {
-	//dir    identity.Directory
-	dir    *identity.BaseDirectory
+	dir    *RedisResolver
 	echo   *echo.Echo
 	httpd  *http.Server
 	logger *slog.Logger
@@ -56,11 +56,10 @@ func NewServer(config Config) (*Server, error) {
 	}
 
 	// TODO: config these timeouts
-	dir, err := redisdir.NewRedisDirectory(&baseDir, config.RedisURL, time.Hour*24, time.Minute*2, time.Minute*5, 50_000)
+	redisDir, err := NewRedisResolver(&baseDir, config.RedisURL, time.Hour*24, time.Minute*2, time.Minute*5, 50_000)
 	if err != nil {
 		return nil, err
 	}
-	// XXX: dir := identity.NewCacheDirectory(&baseDir, 1_500_000, time.Hour*24, time.Minute*2, time.Minute*5)
 
 	e := echo.New()
 
@@ -70,11 +69,9 @@ func NewServer(config Config) (*Server, error) {
 		httpMaxHeaderBytes = 1 * (1024 * 1024)
 	)
 
-	// XXX
-	_ = dir
 	srv := &Server{
 		echo:   e,
-		dir:    &identity.BaseDirectory{},
+		dir:    redisDir,
 		logger: logger,
 	}
 	srv.httpd = &http.Server{
@@ -156,4 +153,24 @@ func (srv *Server) Shutdown() error {
 	defer cancel()
 
 	return srv.httpd.Shutdown(ctx)
+}
+
+type GenericError struct {
+	Error   string `json:"error"`
+	Message string `json:"message"`
+}
+
+func (srv *Server) errorHandler(err error, c echo.Context) {
+	code := http.StatusInternalServerError
+	var errorMessage string
+	if he, ok := err.(*echo.HTTPError); ok {
+		code = he.Code
+		errorMessage = fmt.Sprintf("%s", he.Message)
+	}
+	if code >= 500 {
+		slog.Warn("domesday-http-internal-error", "err", err)
+	}
+	if !c.Response().Committed {
+		c.JSON(code, GenericError{Error: "InternalError", Message: errorMessage})
+	}
 }
